@@ -29,6 +29,7 @@ Tracked as a task list on [#1](https://github.com/watchthelight/shatterfish/issu
 | 2 | Build without the Android SDK, module skeleton, ArchUnit, CI ([#2](https://github.com/watchthelight/shatterfish/pull/2)) | done |
 | 3 | Documentation system | done |
 | 4 | `CLAUDE.md`, project skills, subagents | done |
-| 5 to 9 | BMAD phases 1 and 2: brainstorm, research, brief, PRD, UX spec | next: 5 |
+| 5 | BMAD phase 1: brainstorming ([intent](bmad/brainstorming/brainstorm-shatterfish-program-2026-09-03/brainstorm-intent.md)) | done, Checkpoint B answered |
+| 6 to 9 | BMAD phases 1 and 2: research, brief, PRD, UX spec | next: 6 |
 | 10 to 13 | BMAD phase 3: upstream documentation, architecture, epics and stories, readiness | |
 | 14 | Sprint planning, issue mirroring | |
