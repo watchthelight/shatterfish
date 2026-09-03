@@ -112,7 +112,19 @@ nav:
       - ADR-0002 CI shape: adr/0002-ci-shape.md
       - ADR-0003 Module layout: adr/0003-module-layout.md
       - ADR-0004 Documentation system: adr/0004-documentation-system.md
-  - Rules: rules/index.md
+  - Rules:
+      - rules/index.md
+      - Game loop: rules/game-loop.md
+      - Visibility: rules/visibility.md
+      - Identification: rules/identification.md
+      - Combat: rules/combat.md
+      - Levels: rules/levels.md
+      - Generation: rules/generation.md
+      - RNG: rules/rng.md
+      - Buffs: rules/buffs.md
+      - UI: rules/ui.md
+      - Save, score, win: rules/save-score-win.md
+      - Text and assets: rules/text-assets.md
   - Codex: codex/index.md
   - Results: results/index.md
   - BMAD artifacts: bmad/index.md
