@@ -1,0 +1,12 @@
+// harness: Observer, ActionExecutor, RNG control, snapshot/restore, drivers.
+// The only module besides overlay/codex that may read game state.
+apply from: "$rootDir/shatterfish/java-module.gradle"
+
+dependencies {
+    api project(':api')
+    implementation project(':core')
+    implementation "com.badlogicgames.gdx:gdx-backend-headless:$gdxVersion"
+    // The headless backend still loads libgdx's native library (gdx64.dll / libgdx64.so)
+    // for math and buffer utilities, so the desktop natives are required even without a window.
+    runtimeOnly "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
+}

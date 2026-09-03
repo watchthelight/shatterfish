@@ -1,0 +1,23 @@
+// brain: beliefs, policies, search, eval. Depends on api ONLY.
+// Information parity is enforced here: no game code on this classpath, ever.
+apply from: "$rootDir/shatterfish/java-module.gradle"
+
+dependencies {
+    api project(':api')
+}
+
+// Second line of defence beside the ArchUnit test: fail configuration if any
+// upstream module ever reaches this classpath transitively.
+configurations.configureEach { cfg ->
+    if (cfg.name in ['compileClasspath', 'runtimeClasspath']) {
+        cfg.incoming.afterResolve { deps ->
+            def game = deps.resolutionResult.allComponents.findAll {
+                it.id instanceof ProjectComponentIdentifier &&
+                        it.id.projectPath in [':core', ':SPD-classes', ':services', ':desktop']
+            }
+            if (!game.empty) {
+                throw new GradleException("brain must not depend on game modules: ${game*.id*.projectPath}")
+            }
+        }
+    }
+}

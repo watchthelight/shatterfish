@@ -1,0 +1,26 @@
+// Shatterfish settings fragment, applied from the root settings.gradle (hook #1).
+//
+// Mobile platform modules need the Android SDK (android) or Xcode + RoboVM (ios).
+// Shatterfish never needs either, so they are excluded unless explicitly requested:
+//   ./gradlew build -Pshatterfish.mobile=on
+// Upstream's own module set is otherwise unchanged.
+def mobile = providers.gradleProperty('shatterfish.mobile').getOrElse('off')
+if (mobile == 'on') {
+    include ':android'
+    include ':ios'
+} else if (mobile != 'off') {
+    throw new GradleException("shatterfish.mobile must be 'on' or 'off', got '${mobile}'")
+}
+
+// Shatterfish modules. Short Gradle names, sources under shatterfish/<name>/.
+// Allowed dependency edges (docs/adr/0003-module-layout.md):
+//   api      -> (nothing)
+//   harness  -> core, api
+//   codex    -> core
+//   brain    -> api
+//   rig      -> harness, brain
+//   overlay  -> core, harness, brain
+['api', 'harness', 'codex', 'brain', 'rig', 'overlay'].each { name ->
+    include ":${name}"
+    project(":${name}").projectDir = new File(rootDir, "shatterfish/${name}")
+}

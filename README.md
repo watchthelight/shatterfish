@@ -52,14 +52,17 @@ Upstream's own build guides still apply and are kept verbatim:
 
 ## Building
 
-Requires a JDK 21. No Android SDK.
+Requires a JDK 21. No Android SDK, no Xcode.
 
 ```sh
-./gradlew build          # all modules + tests (once the module skeleton lands in E0)
-./gradlew :desktop:run   # the unmodified game
+./gradlew build                           # every module, JUnit 5 + ArchUnit tests
+./gradlew :desktop:run                    # the unmodified game
+./gradlew build -Pshatterfish.mobile=on   # also include upstream's android and ios modules
 ```
 
-Rig, codex, and overlay commands will be listed here as each epic ships.
+Shatterfish's own modules live under `shatterfish/` (`api`, `harness`, `codex`,
+`brain`, `rig`, `overlay`); see `docs/adr/0003-module-layout.md`. Rig, codex,
+and overlay commands will be listed here as each epic ships.
 
 ## How this project is run
 

@@ -1,0 +1,6 @@
+// codex: reflection dump of upstream tables into codex/<tag>/*.json and generated docs.
+apply from: "$rootDir/shatterfish/java-module.gradle"
+
+dependencies {
+    implementation project(':core')
+}
