@@ -29,3 +29,9 @@ _bmad/custom/config.user.toml
 site/
 __pycache__/
 *.pyc
+
+# Playwright MCP session files
+.playwright-mcp/
+
+# UX workspace scratch (mock drafts before promotion to mockups/)
+_bmad-output/**/.working/

@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PRD Validation: Shatterfish</title>
+<style>
+  :root {
+    --bg: #fafaf9;
+    --surface: #ffffff;
+    --border: #e7e5e4;
+    --text: #1c1917;
+    --muted: #78716c;
+
+    --verdict-strong: #16a34a;
+    --verdict-adequate: #65a30d;
+    --verdict-thin: #d97706;
+    --verdict-broken: #dc2626;
+
+    --sev-low: #64748b;
+    --sev-medium: #ca8a04;
+    --sev-high: #ea580c;
+    --sev-critical: #dc2626;
+
+    --grade-exc: #16a34a;
+    --grade-good: #65a30d;
+    --grade-fair: #d97706;
+    --grade-poor: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 15px;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+
+  header.report-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .title h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .title .subtitle { color: var(--muted); font-size: 13px; margin-top: 4px; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .grade {
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-weight: 600;
+    color: white;
+    font-size: 15px;
+    white-space: nowrap;
+  }
+  .grade-excellent { background: var(--grade-exc); }
+  .grade-good { background: var(--grade-good); }
+  .grade-fair { background: var(--grade-fair); }
+  .grade-poor { background: var(--grade-poor); }
+
+  .synthesis {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--muted);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin-bottom: 24px;
+    font-size: 15.5px;
+  }
+  .synthesis p { margin: 0 0 10px; }
+  .synthesis p:last-child { margin-bottom: 0; }
+
+  .dimension-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .dim-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .dim-card .dim-name { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .dim-card .dim-verdict { font-size: 14px; font-weight: 600; }
+
+  section.dimension, section.reviewer-section { margin-bottom: 14px; }
+  section.dimension details, section.reviewer-section details {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  section summary {
+    padding: 14px 20px;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  section summary::-webkit-details-marker { display: none; }
+  section summary::before {
+    content: "▸";
+    display: inline-block;
+    color: var(--muted);
+    transition: transform 0.15s ease;
+  }
+  section details[open] summary::before { transform: rotate(90deg); }
+  section summary h2 {
+    display: inline;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    flex: 1;
+  }
+  .verdict-pill {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: white;
+  }
+  .verdict-strong { background: var(--verdict-strong); }
+  .verdict-adequate { background: var(--verdict-adequate); }
+  .verdict-thin { background: var(--verdict-thin); }
+  .verdict-broken { background: var(--verdict-broken); }
+
+  .dim-body { padding: 4px 20px 18px; }
+  .dim-judgment { color: var(--text); font-size: 14.5px; }
+  .dim-judgment p { margin: 0 0 10px; }
+
+  .findings-list { padding: 0 20px 4px; }
+  article.finding {
+    padding: 14px 0;
+    border-top: 1px solid var(--border);
+  }
+  article.finding:first-child { border-top: none; }
+  article.finding header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .badge {
+    font-size: 10.5px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+  }
+  .badge-sev-low { background: rgba(100, 116, 139, 0.12); color: var(--sev-low); }
+  .badge-sev-medium { background: rgba(202, 138, 4, 0.14); color: var(--sev-medium); }
+  .badge-sev-high { background: rgba(234, 88, 12, 0.14); color: var(--sev-high); }
+  .badge-sev-critical { background: rgba(220, 38, 38, 0.14); color: var(--sev-critical); }
+  .finding-title { margin: 0; font-size: 15px; font-weight: 500; flex: 1; min-width: 200px; }
+  .finding-location { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--muted); }
+  .finding-note, .finding-fix { margin-top: 6px; font-size: 14px; }
+  .finding-fix strong { color: var(--muted); font-weight: 500; }
+
+  .reviewer-source {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  .mechanical {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-top: 24px;
+    font-size: 14px;
+  }
+  .mechanical h3 { margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .mechanical ul { margin: 0; padding-left: 20px; }
+  .mechanical li { margin-bottom: 4px; color: var(--text); }
+
+  footer.report-footer {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  footer .meta { display: flex; gap: 24px; flex-wrap: wrap; }
+  .finding-status { margin-top: 6px; font-size: 13.5px; color: var(--muted); }
+  .finding-status strong { font-weight: 500; }
+  .synthesis p.status-note { color: var(--muted); font-size: 14px; }
+  .clean-list { padding: 4px 20px 18px; font-size: 14px; }
+  .clean-list ul { margin: 0; padding-left: 20px; }
+  .clean-list li { margin-bottom: 4px; }
+  .counts { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--muted); margin: -12px 0 20px; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <header class="report-header">
+      <div class="title">
+        <h1>Shatterfish — Validation Report</h1>
+        <div class="subtitle">C:\Users\Claude-Code\shatterfish\_bmad-output\planning-artifacts\prds\prd-shatterfish-2026-09-03\prd.md</div>
+      </div>
+      <div class="grade grade-poor">Poor</div>
+    </header>
+    <div class="synthesis">
+      <p>This is a real PRD with a thesis, not a backlog with headings: information parity and measurement are stated as disciplines, every feature group serves one of them, the Non-goals do work, the counter-metrics are product-specific, and the Glossary is good enough that the architecture and epics workflows can source-extract from it. What is at risk is done-ness at the rungs the program actually gates on. The E4 rung (FR-31, SM-3) has no number behind "large majority", the Composite outcome the Sequential test optimizes rewards exactly the diving behavior SM-C2 says is worse, and the determinism contract (FR-2) does not say whether a process may host more than one Run, which is the question the E1 classloader spike and the Rig runner both hang on. Fix those three and the PRD is ready for the architecture workflow; the rest is medium-weight hygiene the epics workflow would otherwise have to invent.</p>
+      <p>The isolated adversarial reviewer (session 9, run against v1-final after the rubric findings were applied) materially widened the picture: 1 critical, 14 high, 27 medium, 12 low. Its verdict was "not as-is". It found three side doors around Rule 1 that no listed test covered (Codex data generated by running <code>core</code> reaching the Brain outside the Observer, the valid-Action set as an unhashed leak channel, and seed memorisation through E9 training labels and the developer's own edit-and-rerun loop on public seeds), a PAUSED-versus-HUMAN contradiction that made the Overlay's Modes undefinable, a Composite outcome that still rewarded dive-and-die in the pre-win era, a Sequential test with no per-pair statistic to build on, a Panel with no state machine, FRs whose consequences belonged to other epics, and game-reality gaps (killing Yog-Dzhewa is not the Win, Score scales with challenge flags, cross-Run profile state makes Overlay Runs unreplayable). Its own summary: "Every problem below is fixable with a sentence or a table; none needs a rewrite."</p>
+      <p class="status-note">This report grades the PRD as it was reviewed (v1 and v1-final): the grade is Poor because the adversarial review returned a critical finding, and the Done-ness clarity dimension was thin. PRD v2 (<code>version: 2</code> in its frontmatter) has since applied every rubric high and medium, the adversarial critical, all fourteen adversarial highs, and most adversarial mediums; each finding below carries a Status line recording whether v2 fixed it, partially fixed it, or left it open. Re-run the Reviewer Gate on v2 to refresh the grade.</p>
+    </div>
+    <div class="counts">Rubric (v1): 3 high · 7 medium · 5 low &nbsp;|&nbsp; Adversarial (v1-final): 1 critical · 14 high · 27 medium · 12 low</div>
+    <div class="dimension-summary">
+      <div class="dim-card">
+        <div class="dim-name">Decision-readiness</div>
+        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Substance over theater</div>
+        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Strategic coherence</div>
+        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Done-ness clarity</div>
+        <div class="dim-verdict" style="color: var(--verdict-thin)">thin</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Scope honesty</div>
+        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Downstream usability</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Shape fit</div>
+        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      </div>
+    </div>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Decision-readiness</h2>
+          <span class="verdict-pill verdict-strong">strong</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Decisions read as decisions. Section 5 says what will not be built and why ("It will not chase turns per second as a product metric; speed serves measurement"); section 6.2 gives each deferral a reason ("deferred until the Harness measures the properties the design depends on"); the addendum records the headline-metric alternatives and why in-game score lost ("gameable"). The Open Questions are genuinely open and each names who answers it and when. The one <code>[NOTE FOR PM]</code> (section 6.2, coach mode) sits at a real tension: the feature most likely to bring a second user is deferred to E8.</p>
+            <p>Two tensions the PRD contains but does not call out. First, section 7 and the Glossary disagree about what "better" means for a losing Run (finding below). Second, FR-5's <code>[ASSUMPTION]</code> quietly replaces a bootstrap-prompt done-when ("1,000 runs in seconds") with a different E1 exit condition; that is a decision that changes an input the product owner wrote, and it is filed as an assumption rather than surfaced for approval.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Composite outcome contradicts SM-C2</h3>
+              <span class="finding-location">§ 3 Glossary "Composite outcome"; § 7 SM-C2</span>
+            </header>
+            <div class="finding-note">The Glossary orders the per-Run result "win, then depth reached, then turns survived", so among losses a deeper, faster death ranks above a shallower, longer one. SM-C2 says "A Brain that dives and dies deeper is worse" and offers "the Composite outcome and the survival curve" as the corrective, but the Composite outcome is the thing that rewards diving. The Sequential test (FR-21) optimizes this ordering, so the Rig will accept Brains that dive.</div>
+            <div class="finding-fix"><strong>Fix:</strong> decide the ordering on purpose and say what was given up. Options: (a) keep depth-first and reword SM-C2 to "depth reached alone, outside the Composite outcome"; (b) rank losses by a survival-weighted measure (depth with a turns floor, or the boss staircase) and note the cost in test power; (c) make the ordering a pre-registered parameter of the Hypothesis ID. Record the choice in the E3 statistics ADR.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v1</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">A bootstrap done-when is rewritten as an assumption</h3>
+              <span class="finding-location">§ 4.1 FR-5; § 14 first entry; § 7 SM-4; § 13 OQ-3</span>
+            </header>
+            <div class="finding-note">"the E1 done-when in the bootstrap prompt, '1,000 runs in seconds', is replaced by three measured numbers" changes a binding input from the product owner. One of the three numbers (tactics' leaf correlation and disambiguation) is placed at "E1/E6" by Open Question 3 while SM-4 requires it at E1, and measuring it needs branching from a shared state, which FR-6 defers to E6.</div>
+            <div class="finding-fix"><strong>Fix:</strong> convert to a <code>[NOTE FOR PM]</code> asking the owner to ratify the new E1 exit condition, and reconcile SM-4 with OQ-3: either the tactics properties are an E1 deliverable with a stated method (replay a seeded Action prefix and branch, since snapshot is deferred), or they move out of SM-4 into the E6 entry condition.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v1</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Substance over theater</h2>
+          <span class="verdict-pill verdict-strong">strong</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>No persona theater: section 2 uses jobs-to-be-done for three users and a non-user list, and the personas live in the brief addendum where they belong. The Vision is unswappable ("kills Yog-Dzhewa on a public seed, reproducible from its run log" could only be this product). The NFRs carry thresholds and justifications (NFR-3 gives a target, a minimum, the reason for both, and what changes below the minimum). The Non-goals are specific enough to lose something ("It will not run the bot as a separate process or over a socket"). Section 12 "Why now" is short and asserted from research rather than argued, but it is not furniture; it names a concrete window ("Upstream is quiet while 4.0 is built privately, so the hook surface is stable for months").</p>
+            <p>No findings.</p>
+          </div>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Strategic coherence</h2>
+          <span class="verdict-pill verdict-strong">strong</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>The thesis is stated in section 1 and every feature group is a consequence of it: Headless engine and Fairness (parity), Codex (knowledge without folklore), Rig (measurement), Brain (observation-driven so a human can take over), Overlay (watch it think). Epic order in section 6.1 follows dependency, not ease. Success metrics validate the thesis rather than activity: SM-1 is the headline, SM-3 to SM-6 are the rungs, and each names the FRs it validates. Counter-metrics exist and are the right ones for this product (SM-C1 turns per second, SM-C3 win rate as an early gate, SM-C4 hook count). MVP scope kind is a platform/measurement capability and the scope logic matches (v1 ends with a debugger Overlay, not a coach).</p>
+            <p>The one coherence gap is the Composite-outcome finding above, which belongs to this dimension as much as to decision-readiness: the thesis is "nothing about the bot is believed until the rig says so", so what the rig optimizes is the strategy.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">UJ-5 and FR-48 to FR-50 have no success metric</h3>
+              <span class="finding-location">§ 7</span>
+            </header>
+            <div class="finding-note">Upstream management is the third of the eight non-negotiables and the PRD gives it a journey and three FRs, but nothing in section 7 validates it; SM-C4 only counterbalances it.</div>
+            <div class="finding-fix"><strong>Fix:</strong> add a secondary SM ("one upstream tag upgrade lands by FR-50 in a single <code>touches-upstream</code> pull request with every Hook re-verified and the Baseline republished") or state that upgrade success is operational and measured by the procedure completing.</div>
+            <div class="finding-status"><strong>Status:</strong> open</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details open>
+        <summary>
+          <h2>Done-ness clarity</h2>
+          <span class="verdict-pill verdict-thin">thin</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Where the PRD writes Consequences blocks (20 of 53 FRs, concentrated in 4.1, 4.2, and the front of 4.4 and 4.5), they are good: "An unidentified item appears in the Observation under its unidentified name only" (FR-3), "A deliberately worse Brain is rejected on the <code>standard</code> set" (FR-21), "Interleaving arbitrary human Actions between bot turns never causes an error or a stale plan" (FR-27). Many single-sentence FRs are also testable as written (FR-15, FR-20, FR-22, FR-24, FR-49). The problems are at the rungs the program gates on and at the seams the architecture will build.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">"Large majority" is the E4 exit condition and has no number</h3>
+              <span class="finding-location">§ 4.5 FR-31; § 7 SM-3; addendum epic map E4</span>
+            </header>
+            <div class="finding-note">FR-31 requires Policies "sufficient to kill Goo on a large majority of the <code>standard</code> Seed set" and SM-3 repeats the phrase. E4's done-when is therefore unfalsifiable; the epics workflow cannot write the closing story.</div>
+            <div class="finding-fix"><strong>Fix:</strong> state a fraction with a confidence interval (for example "Goo killed on at least 60% of <code>standard</code> at 95% confidence, per class where the class is implemented") or, if the owner will not commit before data, make it a <code>[NOTE FOR PM]</code> with a placeholder and the moment it is set (the first <code>standard</code> run of the random Baseline in E3 is the natural one).</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v1</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">FR-2 does not say whether a process may run more than one Run</h3>
+              <span class="finding-location">§ 4.1 FR-2; § 4.4 FR-19; § 6.2; § 8 NFR-3</span>
+            </header>
+            <div class="finding-note">FR-19 says "One process per Run by default", NFR-3 and FR-5 measure "Runs per minute for one process", and section 6.2 calls classloader isolation "a spike in E1, not a requirement; processes are the default". These agree only if a process hosts exactly one Run, which JVM and libGDX startup makes expensive at 1,000 Runs. If a process hosts Runs sequentially, SPD's static state (<code>Dungeon</code>, statistics, journal, RNG) must be reset between Runs and FR-2's "identical Observation hashes" must hold regardless of what ran before in the same process. The PRD does not say which, and the architecture workflow will have to guess.</div>
+            <div class="finding-fix"><strong>Fix:</strong> add a Consequence to FR-2: "A Run's Observations are independent of any Run previously executed in the same process" or "The Harness executes at most one Run per process and the Rig's throughput figures include process start". Then make FR-19 and NFR-3 agree with the choice.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v1</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Pre-registration has no registration mechanism</h3>
+              <span class="finding-location">§ 4.4 FR-22</span>
+            </header>
+            <div class="finding-note">"the Rig refuses an unregistered comparison" is testable, but nothing says what a registration is. If it is a local file the developer writes immediately before running, the "pre" is unenforced and a skeptic (UJ-3) cannot verify it.</div>
+            <div class="finding-fix"><strong>Fix:</strong> state that registrations are committed files, that a Hypothesis ID is immutable once committed (a changed bound is a new ID), and that a Results page links the commit that introduced its ID.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v1</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Seed sets have no sizes and <code>holdout</code> has no permitted use</h3>
+              <span class="finding-location">§ 4.4 FR-20; § 8 NFR-3; § 10 Cost</span>
+            </header>
+            <div class="finding-note">NFR-3's arithmetic assumes "1,000 Runs" for the smoke loop but FR-20 never sizes <code>smoke</code>, <code>standard</code>, <code>holdout</code>, or <code>bosses</code>, so the hour budget in section 10 cannot be checked against FR-21's burn-in. <code>holdout</code> is "never run during development and its use is recorded" but the PRD never says when it may be run (release? SM-2 publication? once per Baseline?).</div>
+            <div class="finding-fix"><strong>Fix:</strong> give each set a size (or a range with the rule for changing it) and state <code>holdout</code>'s single permitted use.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v1</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The Run tuple omits the hero class</h3>
+              <span class="finding-location">§ 3 Glossary "Run"; § 4.1 FR-1; § 8 NFR-2</span>
+            </header>
+            <div class="finding-note">A Run is "fully determined by (Upstream tag, seed, Action list)" but FR-1 starts "a new game of a given class and seed". Class is neither an Action nor part of the seed; challenge flags (which FR-14 says parameterize the Codex tables) are in the same position.</div>
+            <div class="finding-fix"><strong>Fix:</strong> extend the tuple to (Upstream tag, seed, class, challenge flags, Action list) everywhere it appears (Glossary, FR-2, NFR-2, section 9 Run log format) or state that class and challenges are the first record of the Action list.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v1</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Save, quit, and resume are unaddressed for the Overlay</h3>
+              <span class="finding-location">§ 4.6 FR-37, FR-40; § 3 Glossary "Run"</span>
+            </header>
+            <div class="finding-note">The desktop game saves and resumes; a Run is defined "from a fresh start to death, victory, or a turn cap". The PRD does not say whether a resumed game continues the same Run log and Hash chain, whether Beliefs survive a restart, or whether the Overlay refuses loaded games. UX (what the Panel shows on the title screen and on load) and E5 both need this.</div>
+            <div class="finding-fix"><strong>Fix:</strong> add a Consequence under FR-37: either "A loaded game continues its Run log; Beliefs are rebuilt from the log on load" or "The Overlay attaches only to games started through the launcher; loading a save ends the Run".</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v1</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Adjectives standing in for bounds</h3>
+              <span class="finding-location">FR-1, FR-26, FR-28, FR-36, NFR-4</span>
+            </header>
+            <div class="finding-note">FR-1 "fails with a clear message"; FR-26 "the worst deaths" (worst by what: shallowest? largest Evaluation drop? most surprising?); FR-28 "cheap entry predicates"; FR-36 "in a form the Overlay shows"; NFR-4 "the game keeps its frame rate while the Brain thinks" with no floor and no default for the "configurable" thinking budget.</div>
+            <div class="finding-fix"><strong>Fix:</strong> one bound each (for FR-26 a definition; for NFR-4 a floor such as "no frame drop below 30 fps attributable to the Brain" and a default budget).</div>
+            <div class="finding-status"><strong>Status:</strong> partially fixed in v2 (FR-1, FR-26, FR-28, FR-36 now carry bounds; NFR-4 still has no frame-rate floor and no default thinking budget)</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Scope honesty</h2>
+          <span class="verdict-pill verdict-strong">strong</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Non-goals (section 5) and out-of-scope (section 6.2) are explicit and each carries a reason. Deferrals are inline on the FR ("Deferred to E6; the interface is reserved in E1"), so a reader of section 4 alone cannot mistake FR-6, FR-13, FR-18, FR-33 to FR-35, or FR-44 to FR-47 for v1. The v1/v2 split is stated in the Vision and repeated in 6.2 ("the v1 Overlay is the debugger, v2 is the coach"). Open-items density is right for the stakes: 9 open questions, 6 assumptions, 1 note on a green-light-to-build PRD for a solo engineer, and every open question names its resolution point.</p>
+            <p>The FR-5 finding above (an input rewritten as an assumption) is the only place where a scope change is softer than it should be. No further findings.</p>
+          </div>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Downstream usability</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>The Glossary is the PRD's best asset: 40 terms, each with a definition, several with the module or class that owns them, and section 4 uses them consistently in capitalized form. FR-1 to FR-53, UJ-1 to UJ-5, SM-1 to SM-7 and SM-C1 to SM-C5, NFR-1 to NFR-9 are contiguous and unique; every "Realizes UJ-n" and "Validates FR-n" resolves. Section 9 gives the architecture workflow the public surfaces with their versioning rules, and the addendum's epic map and ADR table are what the epics workflow needs. The UX workflow gets the Panel contents (FR-38), the controls (FR-39), the Modes, the map highlights (FR-41), oracle marking (FR-43), the interface-size constraint, and a placement assumption it is told to own.</p>
+            <p>The gaps are the ones that make a downstream reader go back to another document or invent something.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">FR-50 is in no epic and FR-48 to FR-53 are in no MVP line</h3>
+              <span class="finding-location">§ 6.1; addendum epic map</span>
+            </header>
+            <div class="finding-note">The addendum maps E0 to "FR-48, FR-49, FR-51, FR-52, FR-53"; FR-50 (the upgrade procedure, the core of UJ-5) is absent from every epic. Section 6.1's E0 line describes activities rather than FRs, so a reader of the PRD alone cannot find where FR-48 to FR-53 land.</div>
+            <div class="finding-fix"><strong>Fix:</strong> put FR-50 in E0 (procedure documented and skill-automated) with its first execution in whichever Epic the 4.0 tag arrives; list FR-48 to FR-53 on section 6.1's E0 line.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v1</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">"A Belief summary" is undefined for the UX workflow</h3>
+              <span class="finding-location">§ 4.6 FR-38; § 3 Glossary "Belief"</span>
+            </header>
+            <div class="finding-note">Beliefs are "per-unidentified-item candidate sets with probabilities, floor facts, chapter counters, memory of monsters seen and lost". The Panel shows "a Belief summary" and nothing says which of these, in what form, or how many rows. The UX workflow will invent it and FR-32's Decision output will not carry it.</div>
+            <div class="finding-fix"><strong>Fix:</strong> name the summary's contents in FR-38 (for example: top candidate per unidentified inventory item with its probability, the chapter counters, the count of monsters known-but-unseen) and state that the Decision (FR-32) carries whatever the Panel shows.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v1</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">UJ-3 and UJ-4 have no named protagonist</h3>
+              <span class="finding-location">§ 2.3</span>
+            </header>
+            <div class="finding-note">"A community member" and "A player who dies on floor 5" carry their context inline, which is what matters, but the rubric asks for names and the UX workflow will want one for UJ-4 when it reaches E8.</div>
+            <div class="finding-fix"><strong>Fix:</strong> name them.</div>
+            <div class="finding-status"><strong>Status:</strong> open</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">The methodology page has no FR</h3>
+              <span class="finding-location">§ 2.3 UJ-3; § 4.4 FR-21 Consequence 2; § 4.8 FR-51</span>
+            </header>
+            <div class="finding-note">UJ-3 and FR-21 both depend on "the methodology page" (error-rate calibration, what to do when hashes disagree across platforms), but FR-51's list of what the docs site must reach does not include it.</div>
+            <div class="finding-fix"><strong>Fix:</strong> add it to FR-51 or as a Consequence of FR-25.</div>
+            <div class="finding-status"><strong>Status:</strong> open</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">"Run N" unit</h3>
+              <span class="finding-location">§ 4.6 FR-39</span>
+            </header>
+            <div class="finding-note">Step is "one Action"; Run N does not say N Actions or N game turns (a rest or a long move is one Action and many turns).</div>
+            <div class="finding-fix"><strong>Fix:</strong> state the unit.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2 (FR-39: "Run N advances N Input waits")</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Shape fit</h2>
+          <span class="verdict-pill verdict-strong">strong</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>The PRD is a technical capability spec with one meaningful UX surface, and it is shaped that way: jobs-to-be-done rather than personas, five journeys of which two (UJ-1, UJ-2) are load-bearing, one (UJ-3) defines the reproducibility contract that section 9 formalizes, one is explicitly v2, and one is operational. This is neither over-formalized for a solo builder nor under-formalized for a public artifact whose thesis is that outsiders can check the numbers. Brownfield references (upstream classes, the pinned tag, the six-module layout) are delegated to the bootstrap prompt and the addendum rather than restated, which is right because they must be verified against the tag, not copied. Chain-top traceability (Realizes/Validates, epic map, ADR table) is present without becoming a matrix.</p>
+            <p>No findings.</p>
+          </div>
+        </div>
+      </details>
+    </section>
+    <section class="reviewer-section">
+      <details>
+        <summary>
+          <h2>Adversarial review</h2>
+          <span class="reviewer-source">C:\Users\Claude-Code\shatterfish\_bmad-output\planning-artifacts\prds\prd-shatterfish-2026-09-03\review-adversarial.md</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Not as-is. The PRD's rule integrity is mostly structural and holds where the build enforces it (module edges, Oracle gating, no socket, native UI), but it leaves three side doors around Rule 1 that no listed test covers (Codex data flowing from <code>core</code> to <code>brain</code>, the valid-Action set, and seed memorisation through E9 labels and repeated public-seed iteration), contradicts itself on what PAUSED means versus HUMAN, and in the pre-win era its own Composite outcome rewards exactly the dive-and-die behaviour SM-C2 says it counterbalances. The UX workflow cannot derive a Panel state machine from what is written, the epics workflow will find at least seven FRs whose bullets belong to different epics (one, FR-26, cannot be done in the epic that owns it), and the architecture workflow has no defined per-pair statistic to build the Sequential test on. Every problem below is fixable with a sentence or a table; none needs a rewrite. Run a revision pass before the architecture workflow consumes this document.</p>
+            <p>Assumptions about the game used in front D are stated inline as <code>(assumption)</code> and are meant to be settled by the upstream-reader at the pinned tag, per Rule 8.</p>
+            <p>Reviewed prd.md and addendum.md (v1-final, session 9) against docs/BOOTSTRAP-PROMPT.md section 1 (the eight non-negotiables). Counts: 1 critical, 14 high, 27 medium, 12 low. Findings are grouped by the reviewer's five fronts and keep the reviewer's voice.</p>
+          </div>
+        </div>
+        <div class="dim-body"><div class="dim-judgment"><p><strong>A. Non-negotiable violations</strong></p></div></div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">The Codex is an unguarded second door from game state to the Brain</h3>
+              <span class="finding-location">§3 Codex, §4.3 FR-14, §10 Module boundaries</span>
+            </header>
+            <div class="finding-note">Rule 1 names "a single class named <code>Observer</code>" as "the only door from game state to the bot"; the PRD gives <code>codex</code> a dependency on <code>core</code> and makes Codex JSON "The Brain's only source of general game knowledge", so a data file generated by running game code reaches the Brain outside the Observer and outside every leak, differential, and ArchUnit test (FR-7 to FR-10 test classes and Observations, not data). FR-14's "parameterized by depth and challenge flags where the game's tables are" is generation by executing <code>core</code>; nothing requires that execution to be seed-free.</div>
+            <div class="finding-fix"><strong>Fix:</strong> add to FR-14 "Codex generation runs with no Dungeon, no seed, and no Run; a Codex leak test regenerates under two seeds and asserts byte-identical output; the Codex folder is the only non-Observation input the Brain may load and its path is fixed by the build."</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">E9 training labels can memorise seed-to-hidden-state</h3>
+              <span class="finding-location">§4.2 FR-11, §6.2 E9, §5 non-goals</span>
+            </header>
+            <div class="finding-note">FR-11 admits Oracle for "producing training labels for the optional E9". If label Runs use the public Seed sets, a learned Evaluation over Observation features (the drawn map identifies the seed) learns the true identity of the unidentified scroll on seed N. FR-9's differential test uses "a constructed world" and cannot catch a memorised mapping on real seeds; FR-13 does not apply to the Evaluation.</div>
+            <div class="finding-fix"><strong>Fix:</strong> FR-11 gains "label Runs use seeds disjoint from every committed Seed set; any learned component must pass FR-9's behavioral form on <code>standard</code> with hidden state permuted per seed."</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">The valid-Action set is a leak channel that no test lists</h3>
+              <span class="finding-location">§4.1 FR-4</span>
+            </header>
+            <div class="finding-note">"The set of valid Actions for an Observation is available to the caller." If the Harness computes it from game state, "attack cell X" being valid reveals an invisible or unseen mob, and "search" or "descend" validity reveals hidden features. FR-8's list (scroll, mob behind wall, secret door, trap, invisible enemy, seed, RNG) does not include it and the Observation hash does not cover it.</div>
+            <div class="finding-fix"><strong>Fix:</strong> state that the valid-Action set is a pure function of the Observation living in <code>api</code>, or make it part of the serialized Observation so FR-8 and FR-9 cover it.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">The Codex "exports the hit-chance formula" is a second implementation of a rule and a folklore risk at once</h3>
+              <span class="finding-location">§3 Evaluation, §4.3 FR-14, §4.5 FR-33, §5</span>
+            </header>
+            <div class="finding-note">"the hit-chance formula the Codex exports from <code>Char.hit</code>": a generator can extract tables from code, not a formula; the formula will be hand-transcribed (Rule 8: settled only by citing, never by restating) and then evaluated inside <code>brain</code>, which the PRD's own non-goal forbids ("will not reimplement any game rule in any language"). Rule 4 permits "an abstract tactical model derived from Observations", not a copied engine rule presented as Codex output.</div>
+            <div class="finding-fix"><strong>Fix:</strong> replace "the Codex exports" with "a Tier-2 Rule: an approximation of <code>Char.hit</code> with <code>path:line</code>, verified by a Harness test against the engine at the tag"; align §5's non-goal to Rule 4's wording.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Seed-specific knowledge can enter through Lore and Playbooks</h3>
+              <span class="finding-location">§4.3 FR-18, §4.5 FR-35</span>
+            </header>
+            <div class="finding-note">Lore admits "one file per claim with provenance"; a forum seed guide ("seed X has a ring of wealth on 2") has provenance, a variant, and could be Tier 1. Playbooks are "editable without code changes" and could key rules on floor layouts of public seeds. Rule 1 confines general knowledge to "the wiki-level facts the Codex extracts".</div>
+            <div class="finding-fix"><strong>Fix:</strong> add "No Lore, Rule, Playbook, or Evaluation datum may reference a seed, a Seed set, or a specific dungeon instance; the lore classifier rejects such claims; a data-file leak test greps Playbooks and Lore for Seed-set members."</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Fairness review scope omits every data channel</h3>
+              <span class="finding-location">§8 NFR-1</span>
+            </header>
+            <div class="finding-note">"A pull request touching the Observer, the ActionExecutor, or the Brain gets an adversarial fairness review." Not covered: <code>api</code> (the Observation schema itself), <code>codex</code> (the generator), Playbook and Lore files, Evaluation weight files, the Rig's seeding and snapshot code.</div>
+            <div class="finding-fix"><strong>Fix:</strong> extend the sentence to "<code>api</code>, <code>codex</code>, the Rig's seeding and snapshot code, and any Playbook, Lore, or weight file".</div>
+            <div class="finding-status"><strong>Status:</strong> partially fixed in v2 (NFR-1 now names the <code>api</code> schema, the Codex generator, Playbooks, Lore intake, and the Replay tool; the Rig's seeding and snapshot code and Evaluation weight files are still not listed)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Redetermination is silent about the RNG</h3>
+              <span class="finding-location">§4.1 FR-6, §3 Search</span>
+            </header>
+            <div class="finding-note">"every hidden element is re-sampled from a supplied Belief": a Belief holds no RNG state, so a redetermined copy that inherits the Run's random sources lets engine rollouts preview true combat rolls, which Rule 1 forbids ("RNG state, or the seed").</div>
+            <div class="finding-fix"><strong>Fix:</strong> FR-6 consequence: "the redetermined copy's random sources are seeded from a Search-owned value never derived from the Run's RNG; the FR-9 'different RNG state' case is run on redetermined copies."</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Mechanics and UI claims stated without a citation route (Rule 8)</h3>
+              <span class="finding-location">FR-38, FR-2, FR-42, UJ-2, FR-1</span>
+            </header>
+            <div class="finding-note">FR-38 "the free column between the menu pane and the inventory pane"; FR-2 "the general-purpose generator used for combat rolls"; FR-42 provenance "the research verified the binding Hook is small"; UJ-2 "the Panel shows PAUSED only once the hero is waiting for input"; FR-1 "Turn resolution paths that depend on sprite animation (attack, zap, throw, use)". None has a Rule ID or a <code>path:line</code>.</div>
+            <div class="finding-fix"><strong>Fix:</strong> tag each with "Rule R-n" or "confirm with upstream-reader before E-x" so FR-17 can enumerate them.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2 (section 0 makes every mechanics or UI statement Tier 3 by convention and open question 12 enumerates them for the codebase-documentation session)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The determinism tuple silently redefines Rule 5 and omits what the hash actually depends on</h3>
+              <span class="finding-location">§3 Run, FR-2, NFR-2, §9</span>
+            </header>
+            <div class="finding-note">Rule 5 says (upstream tag, seed, action list); the PRD says (Upstream tag, hero class, challenge flags, seed, Action list). Neither includes the Shatterfish commit, yet §9 says an Observation schema change "invalidates Replay", so NFR-2's "verify any published Run from the Run log and the pinned tag" is not sufficient.</div>
+            <div class="finding-fix"><strong>Fix:</strong> NFR-2 adds "and the Shatterfish commit named in the log"; the refinement of Rule 5 is called out as a <code>[NOTE FOR PM]</code>.</div>
+            <div class="finding-status"><strong>Status:</strong> partially fixed in v2 (the Glossary reconciles the tuple with the bootstrap prompt and FR-25 records the Shatterfish commit; NFR-2 still reads "from the Run log and the pinned tag" and no <code>[NOTE FOR PM]</code> marks the Rule 5 refinement)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Rule 3 has no budget while five FRs imply hooks</h3>
+              <span class="finding-location">FR-1, FR-37, FR-39, FR-42, SM-C5</span>
+            </header>
+            <div class="finding-note">SM-C5 says only "fewer is better" and FR-42's fallback triggers on "if the Hook is not small", which is unfalsifiable.</div>
+            <div class="finding-fix"><strong>Fix:</strong> state a v1 Hook count budget in §10 and define "small" for FR-42 as a line count.</div>
+            <div class="finding-status"><strong>Status:</strong> partially fixed in v2 (section 10 sets a budget of eight Hooks and lists the expected ones; FR-42's "if the Hook is not small" still has no line count)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">FR-3's principle admits the drawn seed</h3>
+              <span class="finding-location">§4.1 FR-3 versus FR-8</span>
+            </header>
+            <div class="finding-note">"from what the game computes for drawing": the game draws the seed text for custom-seeded runs (assumption). FR-8 excludes the seed but FR-3 does not say FR-8 overrides.</div>
+            <div class="finding-fix"><strong>Fix:</strong> FR-3 adds "except anything FR-8 lists".</div>
+            <div class="finding-status"><strong>Status:</strong> open</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Oracle Run logs are not marked as such</h3>
+              <span class="finding-location">FR-43, FR-23, FR-24</span>
+            </header>
+            <div class="finding-note">"nothing else changes" means an Oracle Overlay session writes a normal-looking Run log that Replay would verify as a fair Run.</div>
+            <div class="finding-fix"><strong>Fix:</strong> the Run log header records the Oracle flag and Replay refuses to report a verified Run from an Oracle log.</div>
+            <div class="finding-status"><strong>Status:</strong> open</div>
+          </article>
+        </div>
+        <div class="dim-body"><div class="dim-judgment"><p><strong>B. Internal contradictions</strong></p></div></div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">The Composite outcome rewards dive-and-die deeper in the pre-win era that SM-C2 says it prevents</h3>
+              <span class="finding-location">§3 Composite outcome, FR-21, SM-C2</span>
+            </header>
+            <div class="finding-note">per Run the order is "win, then Score, then depth". SPD's Score rises with depth reached, gold, and exploration (assumption), so between two losing Runs on a paired seed the deeper diver almost always has the higher Score and wins the pair. FR-21's guard only covers "a Brain that dives deeper but wins or scores less". SM-C4 says win rate is near zero for the whole of E4 to E6, which is exactly when this loophole is open.</div>
+            <div class="finding-fix"><strong>Fix:</strong> state the loophole and require every Results page to report median death depth against median Score, or define the pre-win Composite as (win, survival-curve rank, Score).</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">PAUSED and HUMAN cannot both be as described</h3>
+              <span class="finding-location">FR-39, FR-40, UJ-2, §3 Mode</span>
+            </header>
+            <div class="finding-note">FR-40: "In PAUSED or HUMAN Mode the human plays with the normal controls." UJ-2: Bash "presses Pause, reads the alternatives, presses Take over, plays two turns". If PAUSED already accepts human play, Take over and HUMAN are redundant; if PAUSED blocks input, FR-40 is wrong.</div>
+            <div class="finding-fix"><strong>Fix:</strong> PAUSED = Brain halted, hero input ignored or forwarded (choose one); HUMAN = human input accepted and recorded; write it in the Glossary.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">"One process hosts one Run at a time" versus <code>--threads T</code></h3>
+              <span class="finding-location">FR-2, FR-19, §9 Rig command line, addendum</span>
+            </header>
+            <div class="finding-note">the CLI contract exposes threads while every other statement says processes are the default and the isolation spike is not a requirement.</div>
+            <div class="finding-fix"><strong>Fix:</strong> rename to <code>--workers</code> or define <code>--threads</code> as the process count in §9.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">§5 tightens Rule 4 beyond Rule 4 and beyond the PRD's own Search and Evaluation</h3>
+              <span class="finding-location">§5 versus §3 Search, FR-33, FR-34</span>
+            </header>
+            <div class="finding-note">"will not reimplement any game rule in any language" versus Rule 4's "abstract tactical model derived from Observations" and the addendum's "One-ply over Codex tables first".</div>
+            <div class="finding-fix"><strong>Fix:</strong> mirror Rule 4's sentence in §5.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">UJ-1 omits the Registration that FR-22 makes mandatory</h3>
+              <span class="finding-location">UJ-1 versus FR-22</span>
+            </header>
+            <div class="finding-note">the journey runs the Rig then "the Results file is committed"; FR-22: "Every comparison has a Registration committed before its first Run".</div>
+            <div class="finding-fix"><strong>Fix:</strong> insert "commits a Registration" before the Rig step in UJ-1.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The nightly smoke comparison has no Registration</h3>
+              <span class="finding-location">FR-25 versus FR-22</span>
+            </header>
+            <div class="finding-note">a daily automated comparison "against the Baseline" cannot be pre-registered by a human each day, and FR-25's "Every registered comparison publishes" implies unregistered comparisons exist.</div>
+            <div class="finding-fix"><strong>Fix:</strong> a standing Registration per Baseline version covers the nightly, or the nightly is named a monitor whose output is never cited as a Result.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The vocabulary diff cannot come from the pinned tag</h3>
+              <span class="finding-location">FR-16 versus §3 Codex</span>
+            </header>
+            <div class="finding-note">the Codex is "generated from the pinned upstream code"; vanilla Pixel Dungeon names are not in that code.</div>
+            <div class="finding-fix"><strong>Fix:</strong> name a second pinned input (a watabou/pixel-dungeon tag) or move FR-16 to a hand-curated Lore-tier artifact.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Smoke size versus burn-in versus the UJ-1 climax</h3>
+              <span class="finding-location">FR-20, FR-21, UJ-1, NFR-3</span>
+            </header>
+            <div class="finding-note"><code>smoke</code> is 25 pairs, FR-21 "does not stop before a burn-in", and UJ-1's climax is "the test accepted". If burn-in is 25 or more pairs, smoke can never accept.</div>
+            <div class="finding-fix"><strong>Fix:</strong> state burn-in is smaller than <code>smoke</code>, or make UJ-1's climax "undecided with a readable trace" and leave acceptance to <code>standard</code>.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">FR-31's Policy list cannot reach FR-31's target</h3>
+              <span class="finding-location">FR-31, SM-3</span>
+            </header>
+            <div class="finding-note">"explore, fight in corridors, eat, and descend, sufficient to kill Goo on at least 75%" lists no pick-up, equip, heal, or item-testing behavior; FR-30 exists separately. Either the list is incomplete or the target is the done.</div>
+            <div class="finding-fix"><strong>Fix:</strong> "at least these Policies" and the number is the acceptance test.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">SM-3's numbers are only consistent at n=500, which FR-20 calls revisable</h3>
+              <span class="finding-location">FR-31, SM-3, FR-20</span>
+            </header>
+            <div class="finding-note">at 500 Runs a 75% observed rate has a lower 95% bound near 71%; "revisable by ADR once throughput is measured" can shrink <code>standard</code> and make 70% unreachable at 75% observed.</div>
+            <div class="finding-fix"><strong>Fix:</strong> bind the bound to a stated n, or replace it with a maximum interval width.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">FR-48 cites the wrong counter-metric</h3>
+              <span class="finding-location">FR-48</span>
+            </header>
+            <div class="finding-note">"reported on the upstream page (SM-C4)"; hook count is SM-C5.</div>
+            <div class="finding-fix"><strong>Fix:</strong> SM-C5.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Harness versus Rig in UJ-1</h3>
+              <span class="finding-location">UJ-1, FR-19</span>
+            </header>
+            <div class="finding-note">"the Harness runs both Brains headlessly in parallel processes"; FR-19 gives that to the Rig.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Rig.</div>
+            <div class="finding-status"><strong>Status:</strong> open</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">SM-6 requires a verified Replay of an Overlay Run while FR-37 says Replay across a resume is only "verified from E8"</h3>
+              <span class="finding-location">SM-6, FR-37</span>
+            </header>
+            <div class="finding-note">a full sewers Run may span a save.</div>
+            <div class="finding-fix"><strong>Fix:</strong> SM-6 says "without a save-and-resume".</div>
+            <div class="finding-status"><strong>Status:</strong> open</div>
+          </article>
+        </div>
+        <div class="dim-body"><div class="dim-judgment"><p><strong>C. Downstream failure</strong></p></div></div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-critical">critical</span>
+              <h3 class="finding-title">The Panel has no state machine, no content limits, and no error states</h3>
+              <span class="finding-location">FR-38 to FR-40, NFR-4, UJ-2, §3 Mode</span>
+            </header>
+            <div class="finding-note">three Modes are named; the text implies at least these unnamed states: pause-pending during an animation ("shows PAUSED only once the hero is waiting"), Run N in progress, Step in progress, thinking budget exceeded, Oracle, coach (v2), a game modal window open, Run ended, Brain threw, Action rejected (FR-4). No transitions, no owner of each transition, no rule for what "Step" does in HUMAN. No limit for the Goal string, the "one-line" reason, the decision-log retention, or the Belief summary item count. Small windows: "the UX workflow decides" with no minimum size and no collapse rule.</div>
+            <div class="finding-fix"><strong>Fix:</strong> add a state and transition table (state, entry condition, allowed controls, what the Panel shows) and a content-limits list, or a "UX must decide" checklist naming each item above.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">The Sequential test has no defined per-pair statistic</h3>
+              <span class="finding-location">FR-21, §3 Composite outcome, addendum Rig statistics</span>
+            </header>
+            <div class="finding-note">"paired-seed differences of the Composite outcome" and "bounds stated in standardized units": a lexicographic tuple has no difference and no standard unit; the GSPRT needs a scalar with a variance. The addendum defers it to E3 but FR-21 already binds the words. Rank-based, scalarized, and trinomial designs are all admissible and incompatible.</div>
+            <div class="finding-fix"><strong>Fix:</strong> FR-21 states "the per-pair statistic is the ordinal comparison (better, equal, worse) of the Composite, and bounds are in that unit as in Fishtest's trinomial model", or explicitly names the E3 ADR as the decision route and removes "standardized units".</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">FR-26 cannot be done in E3</h3>
+              <span class="finding-location">FR-26, §6.1, addendum epic map</span>
+            </header>
+            <div class="finding-note">"the Runs with the largest Evaluation drop in their final 10 turns" needs the Evaluation, which is FR-33 in E4; E3's Baseline is the random agent.</div>
+            <div class="finding-fix"><strong>Fix:</strong> move FR-26 to E4, or keep only "the shallowest deaths" in E3.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">FRs whose bullets belong to different epics</h3>
+              <span class="finding-location">FR-9, FR-11, FR-12, FR-23, FR-36, FR-37, FR-33</span>
+            </header>
+            <div class="finding-note">FR-9 behavioral form "from E4"; FR-11 (flag in E1, Rig refusal in E3, red border in E5); FR-12 "Brain runs on a worker thread" (an E5 concern in an E1 FR); FR-23 actor "human" (E5); FR-36 "that the Panel shows" (E5); FR-37 resume verification "from E8"; FR-33 SPSA "E6+". The epics workflow cannot size a story with a done in another epic.</div>
+            <div class="finding-fix"><strong>Fix:</strong> per FR, tag each consequence with its owning epic, or split the FRs.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Human Actions outside the Action vocabulary break Replay</h3>
+              <span class="finding-location">FR-23, FR-24, FR-40, SM-6</span>
+            </header>
+            <div class="finding-note">the human "plays with the normal controls": a shop purchase, a level-up talent choice, a quest reward dialog, an alchemy craft, a quickslot change. None is in the Action list, so the Run log cannot encode them and a fresh Run cannot reproduce them; SM-6 depends on this Replay verifying.</div>
+            <div class="finding-fix"><strong>Fix:</strong> state that the Action set is total over hero-affecting UI actions with a completeness test in FR-4, or that a human action outside the set ends Replay-verifiability and the log records it.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">A Seed set does not fix class or challenge flags</h3>
+              <span class="finding-location">FR-20, FR-1, SM-7, Composite</span>
+            </header>
+            <div class="finding-note">FR-1 takes class and challenges as inputs; FR-20 lists seeds only. SM-7 "per-class win rate on <code>standard</code>" implies several classes times 500 Runs per comparison with no cost stated; comparing Composite outcomes across different challenge flags is invalid (see D).</div>
+            <div class="finding-fix"><strong>Fix:</strong> a Seed set entry is (seed, class, challenges), and <code>standard</code> is class-stratified with the count per class stated.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">"Every" with no completeness test</h3>
+              <span class="finding-location">FR-14, FR-17</span>
+            </header>
+            <div class="finding-note">FR-14 "every mob, item, ... player-facing text, asset path"; FR-17 "Every mechanics claim the Brain or the docs rely on": no enumeration exists for what the Brain relies on, so no story can close.</div>
+            <div class="finding-fix"><strong>Fix:</strong> the Brain references Rules by ID through an <code>api</code> constant set and FR-17's check is "every referenced ID resolves"; FR-14's coverage is checked against the game's own registries.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Turn granularity versus multi-turn Actions</h3>
+              <span class="finding-location">§3 Action "move to", "rest", "search"; FR-23 "per turn"; FR-27; FR-37</span>
+            </header>
+            <div class="finding-note">"move to" a far cell, "rest", and "search" are many hero turns during which the hero is not waiting for input, so "an Observation whenever the hero waits for input", "one record per turn", and "observes every hero turn regardless of who acted" disagree.</div>
+            <div class="finding-fix"><strong>Fix:</strong> define "turn" in the Glossary as a Decision point (hero waits for input) and say multi-turn Actions produce one record and are interruptible.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The embedded observation point implies an unnamed Hook</h3>
+              <span class="finding-location">FR-37, FR-48</span>
+            </header>
+            <div class="finding-note">"observes every hero turn regardless of who acted" requires attaching at the hero-ready point in upstream code; no Hook is listed and no decision route is named.</div>
+            <div class="finding-fix"><strong>Fix:</strong> name it as an expected Hook in FR-48 or as an E5 ADR row in the addendum.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">"Hero waiting for input" versus modal windows</h3>
+              <span class="finding-location">FR-39, §10 Human control</span>
+            </header>
+            <div class="finding-note">level-up talent prompts, option dialogs, and quest windows are input-waits that are not hero-ready; "Mode changes only when the hero is waiting for input" is undefined there.</div>
+            <div class="finding-fix"><strong>Fix:</strong> define whether a modal window is an input-wait for Mode purposes and which side (Brain or human) must answer it.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">The turn cap is unnamed</h3>
+              <span class="finding-location">§3 Run "or a turn cap"</span>
+            </header>
+            <div class="finding-note">its value changes Composite outcomes and must be reproducible.</div>
+            <div class="finding-fix"><strong>Fix:</strong> the cap is a Registration field.</div>
+            <div class="finding-status"><strong>Status:</strong> open</div>
+          </article>
+        </div>
+        <div class="dim-body"><div class="dim-judgment"><p><strong>D. Game-specific reality checks</strong></p></div></div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Killing Yog-Dzhewa is not a win, and the win has two shapes</h3>
+              <span class="finding-location">SM-1, SM-2, §3 Composite, §3 Action</span>
+            </header>
+            <div class="finding-note">(assumption) in SPD the run is won when the hero takes the Amulet and either ends the run there or climbs back to depth 1 and leaves; physical ascension changes enemies and adds a Score bonus. "Kills Yog-Dzhewa and wins a Run" conflates two events; the amulet decision is an input the Action list lacks; SM-2's "highest Score" is dominated by whether the Brain ascends.</div>
+            <div class="finding-fix"><strong>Fix:</strong> define win as the game's own Rankings win flag, add "take the Amulet / end the run" to the Action list, and state whether SM-2 requires ascension.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Score depends on challenge flags</h3>
+              <span class="finding-location">SM-2, §3 Composite, FR-20</span>
+            </header>
+            <div class="finding-note">(assumption) SPD scales the final score by the number of enabled challenges. Two Runs with different flags are not comparable on Score, so a Composite comparison or a "highest verified Score" without fixed flags is meaningless, and flags can be turned on to inflate SM-2.</div>
+            <div class="finding-fix"><strong>Fix:</strong> the Registration and every Seed set fix the challenge flags; SM-2 is reported per flag set, with the no-challenge number as the canonical one.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Cross-Run profile state makes an Overlay Run unreplayable</h3>
+              <span class="finding-location">FR-37, FR-24, SM-6, §3 Observation "journal state"</span>
+            </header>
+            <div class="finding-note">(assumption) SPD persists per profile the journal Catalog, badges, and a previous hero's remains that appear as a heap in a later run at the depth of death. The Overlay runs in the user's real profile; a fresh headless Replay has none of this, so the journal fields hash differently and a remains heap changes the game. FR-2 isolates the profile for headless Runs only.</div>
+            <div class="finding-fix"><strong>Fix:</strong> the launcher gives each Overlay Run an isolated profile as FR-2 does, and the Observation's journal fields are limited to this-Run notes.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Depth does not identify a floor</h3>
+              <span class="finding-location">FR-19 "depth reached", §3 Composite, Run log "depth"</span>
+            </header>
+            <div class="finding-note">(assumption) since v2.2 the game has a branch index for the Blacksmith's mining level, so the same depth exists on two branches.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Observation and Run log carry (depth, branch); "depth reached" means main-branch depth.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Meta-Actions a winning Brain needs are missing</h3>
+              <span class="finding-location">§3 Action, FR-4</span>
+            </header>
+            <div class="finding-note">subclass choice, armor ability choice, talent point allocation at level-up, quest reward choices (ghost, wandmaker, blacksmith, imp), shop buy and sell, alchemy, pick-up, unequip, talk to an NPC (assumption: all exist at the tag). "talent or ability use" covers use, not choice. FR-4's "Every Action in the Glossary maps to a game input" is satisfied by a list that cannot win.</div>
+            <div class="finding-fix"><strong>Fix:</strong> extend the list or state "the Action set is open and FR-4's completeness test enumerates the UI's hero-affecting inputs".</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">SM-7 never names the classes</h3>
+              <span class="finding-location">SM-7, FR-5, FR-31</span>
+            </header>
+            <div class="finding-note">(assumption) v3.3.8 has six classes; FR-5's benchmark and, by implication, FR-31's Goo target are Warrior-only.</div>
+            <div class="finding-fix"><strong>Fix:</strong> SM-7 lists the classes; FR-31 states its class.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The game's own saves and detached resumes</h3>
+              <span class="finding-location">FR-37</span>
+            </header>
+            <div class="finding-note">(assumption) SPD saves on every level change and on close; a user can resume the same save without the launcher, play, and later relaunch with the Overlay. The Run log then has a gap the "boundary recorded" rule does not cover.</div>
+            <div class="finding-fix"><strong>Fix:</strong> the launcher refuses to attach to a save whose turn count is ahead of the Run log, or marks the Run unverifiable in the log.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Seed representation</h3>
+              <span class="finding-location">FR-20, FR-2</span>
+            </header>
+            <div class="finding-note">(assumption) the game's seed is a number displayed to a human as a letter code, and custom-seeded runs are flagged in the profile. The Seed set files do not say which form they hold or that the Rig starts a custom-seeded run.</div>
+            <div class="finding-fix"><strong>Fix:</strong> one sentence in FR-20.</div>
+            <div class="finding-status"><strong>Status:</strong> open</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Daily runs are neither in nor out of scope</h3>
+              <span class="finding-location">§5</span>
+            </header>
+            <div class="finding-note">(assumption: date-seeded runs with preset flags exist) Daily runs are neither in nor out of scope.</div>
+            <div class="finding-fix"><strong>Fix:</strong> a §5 line: the launcher never starts a daily as a Run.</div>
+            <div class="finding-status"><strong>Status:</strong> open</div>
+          </article>
+        </div>
+        <div class="dim-body"><div class="dim-judgment"><p><strong>E. Measurement honesty</strong></p></div></div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">The developer is a leak channel on public seeds</h3>
+              <span class="finding-location">SM-1 "on a public seed", FR-20, Rule 1</span>
+            </header>
+            <div class="finding-note">a headline win can be reached by edit-and-rerun cycles on one seed, where each death reveals hidden identities that the next edit encodes in the Action list or a Playbook. The Rig becomes the oracle and the developer the wire; every Rule 1 test passes.</div>
+            <div class="finding-fix"><strong>Fix:</strong> SM-1's seed comes from <code>holdout</code> or from a fresh set drawn at claim time, and the Results page records how many prior Runs used that seed.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Pre-registration is bypassable</h3>
+              <span class="finding-location">FR-22</span>
+            </header>
+            <div class="finding-note">"refuses a comparison whose Registration commit postdates its first Run": run unregistered, read the outcome, choose bounds, register, rerun; determinism makes the rerun identical.</div>
+            <div class="finding-fix"><strong>Fix:</strong> the Rig refuses any two-Brain comparison without a Registration, and the Registration must predate any Run of that Brain-commit pair on that Seed set.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">SM-2 is a maximum and grows with volume</h3>
+              <span class="finding-location">SM-2</span>
+            </header>
+            <div class="finding-note">more seeds run means a higher best Score with no change in the Brain.</div>
+            <div class="finding-fix"><strong>Fix:</strong> SM-2 is the maximum within one registered pass of a named Seed set version.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title"><code>smoke</code> at 25 has unknown power</h3>
+              <span class="finding-location">FR-20, open question 2, UJ-1</span>
+            </header>
+            <div class="finding-note">the sample-size saving from pairing is unmeasured, yet UJ-1's climax is an acceptance on <code>smoke</code>.</div>
+            <div class="finding-fix"><strong>Fix:</strong> see B "Smoke size versus burn-in".</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">SM-3's 70% lower bound is coupled to a size the PRD calls revisable</h3>
+              <span class="finding-location">SM-3, FR-20</span>
+            </header>
+            <div class="finding-note">see B "SM-3's numbers are only consistent at n=500".</div>
+            <div class="finding-fix"><strong>Fix:</strong> as there.</div>
+            <div class="finding-status"><strong>Status:</strong> fixed in v2</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">"Fits within a working session" and "fast enough" are undefined</h3>
+              <span class="finding-location">NFR-3, §10 Cost, SM-C1</span>
+            </header>
+            <div class="finding-note">"Fits within a working session" (NFR-3, §10 Cost) and "fast enough" (SM-C1) are undefined while open question 1 says throughput is unmeasured.</div>
+            <div class="finding-fix"><strong>Fix:</strong> a number of hours, or "set by the E1 ADR".</div>
+            <div class="finding-status"><strong>Status:</strong> open</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">"The field is empty" is an unmeasured claim stated as fact</h3>
+              <span class="finding-location">§12</span>
+            </header>
+            <div class="finding-note">"The field is empty: no bot, RL agent, gym, or headless harness exists for SPD" (§12) is an unmeasured claim stated as fact.</div>
+            <div class="finding-fix"><strong>Fix:</strong> "the research found none as of its date".</div>
+            <div class="finding-status"><strong>Status:</strong> open</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">"the research verified the binding Hook is small" carries no number</h3>
+              <span class="finding-location">FR-42 provenance</span>
+            </header>
+            <div class="finding-note">"the research verified the binding Hook is small" (FR-42 provenance) carries no number.</div>
+            <div class="finding-fix"><strong>Fix:</strong> the line count, or the research section.</div>
+            <div class="finding-status"><strong>Status:</strong> open</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">"A deliberately worse Brain is rejected" is trivially met against a random agent</h3>
+              <span class="finding-location">FR-21, SM-5</span>
+            </header>
+            <div class="finding-note">"A deliberately worse Brain is rejected" (FR-21, SM-5) is trivially met against a random agent and says nothing about power.</div>
+            <div class="finding-fix"><strong>Fix:</strong> "a Brain worse by a stated effect size".</div>
+            <div class="finding-status"><strong>Status:</strong> open</div>
+          </article>
+        </div>
+        <div class="dim-body"><div class="dim-judgment"><p><strong>Checked and clean</strong></p></div></div>
+        <div class="clean-list"><ul>
+          <li>Rule 2 (license and attribution): §10 keeps upstream's license, names both authors in <code>NOTICE.md</code>, requires the unofficial statement in the README, and forbids filing issues upstream; §5 repeats the last point.</li>
+          <li>Rule 4 process boundary: §2.1 "in one JVM", §5 "not ... a separate process or over a socket", §10 Runtime "the bot in the same process as the game". Rig parallelism uses whole game-plus-Brain processes, not a bot process. No socket, RPC, or IPC appears anywhere.</li>
+          <li>Rule 6 native UI: FR-38's consequence puts the absence of Swing, JavaFX, ImGui, and web views on the classpath under test; §5 restates it. No FR asks for a toolkit the game does not have.</li>
+          <li>Rule 7: FR-52 and FR-53 cover ADRs, the ideas ledger, docs-with-code, TODO-with-issue, and issue mirroring.</li>
+          <li>Rule 3 <code>upstream/master</code>: FR-50, NFR-5, and §5 all forbid it; upgrades are tag-only and the procedure is enumerated.</li>
+          <li>Oracle mode: off by default, explicit flag, marked in the Panel, refused by the Rig for ranked comparisons, recorded on every Results page, and not exposable through the Rig command line (FR-11, FR-43, §9, addendum). The only gap found is the unmarked Run log (A, low).</li>
+          <li>Module edges: <code>api</code> depends on nothing; <code>brain</code> on <code>api</code> only; ArchUnit and a resolution-time check both enforce (FR-7, §10). The <code>overlay</code> module depending on <code>core</code> is consistent with Rule 6 and does not touch the Brain's edges.</li>
+          <li>Thread confinement: FR-12 and NFR-4 agree (Brain on a worker thread over an immutable Observation, Panel writes on the render thread).</li>
+          <li>Network and telemetry: NFR-8 forbids both; no FR needs a network call.</li>
+          <li>Determinism test and fairness suite in CI on every pull request: FR-2, FR-8, NFR-1, SM-8 agree.</li>
+          <li>Searched for and did not find: any FR that reads a save file into the Brain; any raw-model-field access in the Observer's description; any rollout on the raw saved game (forbidden in §3 Search, FR-6, FR-34); any turns-per-second promise (NFR-3 refuses one); any mobile target; any claim that the Rig or Overlay can enable Oracle without the launch flag.</li>
+        </ul></div>
+      </details>
+    </section>
+    <div class="mechanical">
+      <h3>Mechanical notes</h3>
+      <ul>
+        <li><strong>Glossary drift, section 2.3 versus sections 3 to 11.</strong> The user journeys use lowercase for terms the Glossary capitalizes: "run logs", "results file", "the rig", "the harness", "the panel", "composite outcome", "sequential test", "replay" (UJ-1, UJ-2, UJ-3). UJ-3 also says "SPRT outcome" where the Glossary and FR-21 say "Sequential test" (GSPRT). Harmless to a human, but the epics workflow extracts UJs by term. Suggest capitalizing in 2.3 and replacing "SPRT" with "Sequential test".</li>
+        <li><strong>ID continuity.</strong> FR-1 to FR-53, UJ-1 to UJ-5, SM-1 to SM-7, SM-C1 to SM-C5, NFR-1 to NFR-9: contiguous, no duplicates. Every "Realizes" and "Validates" reference resolves.</li>
+        <li><strong>Assumptions Index roundtrip.</strong> Six inline <code>[ASSUMPTION]</code> tags (FR-5, FR-29, FR-38, FR-47, SM-2, NFR-3); six index entries in section 14; each pairs. The FR-5 entry should become a <code>[NOTE FOR PM]</code> per the decision-readiness finding, which would leave five.</li>
+        <li><strong>Epic map coverage.</strong> All 53 FRs appear in the addendum's map except FR-50 (see finding). FR-6 appears twice by design (E1 interface, E6 realization); the map says so.</li>
+        <li><strong>NFR-2 wording.</strong> "replayable by a third party from Observations only" is not literally possible; a Replay re-runs the engine from (tag, seed, Action list) and checks the Observation hashes. Suggest "verifiable by a third party from the Run log and the pinned tag alone".</li>
+        <li><strong>Required sections for stakes.</strong> Present: vision, target user with non-users, glossary, features with FRs, non-goals, MVP scope, success metrics with counter-metrics, cross-cutting NFRs, public surfaces, constraints, integration, why now, open questions, assumptions index, and an addendum with the epic map, ADR list, and surface sketches. Nothing missing for a chain-top capability spec at this stakes level. A Risks section is deliberately absent ("risks referenced, not repeated" per the addendum); acceptable because the brief holds them, but section 0 should say so.</li>
+      </ul>
+    </div>
+    <footer class="report-footer">
+      <div class="meta">
+        <span>Rubric: C:\Users\Claude-Code\shatterfish\.claude\skills\bmad-prd\assets\prd-validation-checklist.md</span>
+        <span>Generated: 2026-09-03T23:20:38Z</span>
+        <span>Reviewer files: review-rubric.md · review-adversarial.md</span>
+        <span>Markdown twin: validation-report.md</span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
