@@ -30,6 +30,7 @@ Tracked as a task list on [#1](https://github.com/watchthelight/shatterfish/issu
 | 3 | Documentation system | done |
 | 4 | `CLAUDE.md`, project skills, subagents | done |
 | 5 | BMAD phase 1: brainstorming ([intent](bmad/brainstorming/brainstorm-shatterfish-program-2026-09-03/brainstorm-intent.md)) | done, Checkpoint B answered |
-| 6 to 9 | BMAD phases 1 and 2: research, brief, PRD, UX spec | next: 6 |
+| 6 | BMAD phase 1: research ([report](bmad/planning-artifacts/research/technical-shatterfish-engine-foundations-2026-09-03/research.md)) | done |
+| 7 to 9 | BMAD phases 1 and 2: brief, PRD, UX spec | next: 7 |
 | 10 to 13 | BMAD phase 3: upstream documentation, architecture, epics and stories, readiness | |
 | 14 | Sprint planning, issue mirroring | |
