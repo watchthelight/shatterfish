@@ -56,12 +56,12 @@ Winning is a ladder, measured on public seed sets; the headline is a win, and ev
 
 | Stage | Signal |
 |---|---|
-| **Headline** | **The bot kills the final boss, Yog-Dzhewa, and wins a run**, reproducible from its run log on a public seed; from there, win rate per class on the standard seed set is the canonical number. |
+| **Headline** | **The bot kills the final boss, Yog-Dzhewa, and wins a run**, reproducible from its run log on a public seed; from there, the highest score of a winning run is the canonical number, with win rate per class as its check. |
 | E1 harness | Three measured numbers replace guesses: fast-forwarded turns per second, paired-seed correlation on a smoke set, and the tactics' leaf correlation and disambiguation. Same seed twice is byte-identical; all fairness tests pass. |
 | E3 rig | A reproducible random-agent baseline is published; a deliberately worse agent is rejected by the sequential test; every published number carries tag, seed set, commit, hypothesis ID, and the command that reproduces it. |
 | E4 baseline brain | Kills Goo on a large majority of the standard seed set, with the survival curve and boss-kill staircase published. |
 | E5 overlay | A human watches a full sewers run and takes over mid-fight without desync. |
-| Long run | Win rate on default settings per class (canonical), relative strength chain between versions, ascension and challenges as the far horizon. |
+| Long run | Highest verified score, win rate on default settings per class as its check, relative strength chain between versions, ascension and challenges as the far horizon. |
 
 Process criteria: no brain change merges without rig numbers; every fairness test runs on every pull request; docs change with the code.
 

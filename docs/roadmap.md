@@ -32,6 +32,7 @@ Tracked as a task list on [#1](https://github.com/watchthelight/shatterfish/issu
 | 5 | BMAD phase 1: brainstorming ([intent](bmad/brainstorming/brainstorm-shatterfish-program-2026-09-03/brainstorm-intent.md)) | done, Checkpoint B answered |
 | 6 | BMAD phase 1: research ([report](bmad/planning-artifacts/research/technical-shatterfish-engine-foundations-2026-09-03/research.md)) | done |
 | 7 | BMAD phase 1: product brief ([brief](bmad/planning-artifacts/briefs/brief-shatterfish-2026-09-03/brief.md)) | done |
-| 8 to 9 | BMAD phase 2: PRD, PRD validation, UX spec | next: 8 |
+| 8 | BMAD phase 2: PRD ([prd](bmad/planning-artifacts/prds/prd-shatterfish-2026-09-03/prd.md)) | done |
+| 9 | BMAD phase 2: PRD validation (isolated subagent), UX spec | next |
 | 10 to 13 | BMAD phase 3: upstream documentation, architecture, epics and stories, readiness | |
 | 14 | Sprint planning, issue mirroring | |
