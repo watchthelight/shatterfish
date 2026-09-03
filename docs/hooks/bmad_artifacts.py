@@ -53,6 +53,8 @@ def on_files(files: Files, config: MkDocsConfig) -> Files:
     if out.is_dir():
         for path in sorted(out.rglob("*.md")):
             rel = path.relative_to(out).as_posix()
+            if any(part.startswith(".") for part in rel.split("/")):
+                continue  # dotfiles such as BMAD's .memlog.md are session state, not pages
             src_uri = f"{PREFIX}/{rel}"
             # NOT_IN_NAV: built and link-checked, but exempt from the omitted-files warning;
             # the generated bmad/index.md is the nav entry that links to them.
