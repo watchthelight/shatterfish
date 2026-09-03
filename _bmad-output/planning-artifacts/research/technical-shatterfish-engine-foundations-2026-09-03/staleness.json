@@ -1,0 +1,274 @@
+{
+  "today": "2026-09-03",
+  "claims": [
+    {
+      "claim": "[1] ArchUnit 1.5.0 released 2026-08-04; verified independently on Maven Central [2]",
+      "class": "version",
+      "pub_date": "2026-08",
+      "recheck": "2026-09-01",
+      "stale": true
+    },
+    {
+      "claim": "[3] noClasses()...dependOnClassesThat() is the boundary rule; bytecode-only, fail-on-empty default",
+      "class": "pattern",
+      "pub_date": "2026-08",
+      "recheck": "2028-08-01",
+      "stale": false
+    },
+    {
+      "claim": "[5] 87 s import for 120 classes attributed by maintainers to classpath dependency resolution; second source [6] reports seconds for thousands of",
+      "class": "performance",
+      "pub_date": "2023-08",
+      "recheck": "2024-08-01",
+      "stale": true
+    },
+    {
+      "claim": "[7] java-library api/implementation separation makes an undeclared dependency a compile error",
+      "class": "pattern",
+      "pub_date": "2026",
+      "recheck": "2028-01-01",
+      "stale": false
+    },
+    {
+      "claim": "[8] Deptective has no tagged release (single source)",
+      "class": "ecosystem",
+      "pub_date": "2026-09-03",
+      "recheck": "2027-03-03",
+      "stale": false
+    },
+    {
+      "claim": "[14] 10,000 MCTS iterations ~ 1 s; determinization/iteration split matters (LOTR:C +22.9pp for 1x10000 vs 40x250); corroborated by [15]",
+      "class": "performance",
+      "pub_date": "2012-06",
+      "recheck": "2013-06-01",
+      "stale": true
+    },
+    {
+      "claim": "[11] PIMC quality predicted by leaf correlation, bias, disambiguation; worst at low lc / mid df",
+      "class": "math",
+      "pub_date": "2010-07",
+      "recheck": "2013-07-01",
+      "stale": true
+    },
+    {
+      "claim": "[15] ISMCTS 2-4x slower per iteration than determinized UCT (single primary source)",
+      "class": "performance",
+      "pub_date": "2014",
+      "recheck": "2015-01-01",
+      "stale": true
+    },
+    {
+      "claim": "[17] POMCP: particle belief + UCT with black-box simulator; corroborated by DESPOT [18] on 1 s/step and sampled scenarios",
+      "class": "pattern",
+      "pub_date": "2010-12",
+      "recheck": "2012-12-01",
+      "stale": true
+    },
+    {
+      "claim": "[19] no hand-built roguelike combat simulator found; Campbell & Verbrugge abstract state/actions but use the real engine",
+      "class": "pattern",
+      "pub_date": "2017-10",
+      "recheck": "2019-10-01",
+      "stale": true
+    },
+    {
+      "claim": "[24] AutoAscend won with median ~5,300, ~3x best neural median, no ascensions; corroborated by [25] (median 4,918 reproduction)",
+      "class": "performance",
+      "pub_date": "2022-03",
+      "recheck": "2023-03-01",
+      "stale": true
+    },
+    {
+      "claim": "[28] no LLM above 7% NetHack progression; second source [29] max 12.6% with a code harness",
+      "class": "performance",
+      "pub_date": "2026-02",
+      "recheck": "2027-02-01",
+      "stale": false
+    },
+    {
+      "claim": "[26] AutoAscend: generator strategies with preempt/until/repeat, one-step combat scoring over 34 actions, one-frame monster tracking; corroborate",
+      "class": "pattern",
+      "pub_date": "2026-09-03",
+      "recheck": "2028-09-03",
+      "stale": false
+    },
+    {
+      "claim": "[30] qw: goal list as data; first unassisted DCSS bot win; low win rate (README)",
+      "class": "pattern",
+      "pub_date": "2026-09-03",
+      "recheck": "2028-09-03",
+      "stale": false
+    },
+    {
+      "claim": "[32] BotHack won NetHack without wizard mode (changelog 2015-01-25); single source",
+      "class": "performance",
+      "pub_date": "2015-01",
+      "recheck": "2016-01-01",
+      "stale": true
+    },
+    {
+      "claim": "[34] HeadlessApplication never assigns Gdx.gl; MockGraphics GL getters null [35]; issues #3383/#5995 corroborate the consequence",
+      "class": "pattern",
+      "pub_date": "2026-09-03",
+      "recheck": "2028-09-03",
+      "stale": false
+    },
+    {
+      "claim": "[52] missing natives-desktop throws SharedLibraryLoadRuntimeException at construction (first-hand); source path [38] shows eager load with no cat",
+      "class": "failure",
+      "pub_date": "2026-09",
+      "recheck": "2027-09-01",
+      "stale": false
+    },
+    {
+      "claim": "[47] libGDX 1.14.2 released 2026-06-05; second source libgdx.com [46]",
+      "class": "version",
+      "pub_date": "2026-06",
+      "recheck": "2026-07-01",
+      "stale": true
+    },
+    {
+      "claim": "[48] libGDX built with JDK 17 since 1.13.0, jars target Java 7/8, LWJGL 3.3.3; corroborated by gdx-liftoff README [49]",
+      "class": "version",
+      "pub_date": "2026-09-03",
+      "recheck": "2026-10-03",
+      "stale": false
+    },
+    {
+      "claim": "[50] newWindow shares one Gdx.app/loop/context; Gdx statics are process-global [37]",
+      "class": "pattern",
+      "pub_date": "2026-09-03",
+      "recheck": "2028-09-03",
+      "stale": false
+    },
+    {
+      "claim": "[45] no public hand-written no-op GL20 found (absence claim after three rounds)",
+      "class": "ecosystem",
+      "pub_date": "2026-09-03",
+      "recheck": "2027-03-03",
+      "stale": false
+    },
+    {
+      "claim": "[54] GSPRT LLR approximation (2.1) is metric-agnostic; implemented in fishtest [57] and independently in fastchess [60]",
+      "class": "math",
+      "pub_date": "2026-09-03",
+      "recheck": "2029-09-03",
+      "stale": false
+    },
+    {
+      "claim": "[63] Bernoulli SPRT 5% vs 7%, alpha=beta=0.05: ~700-800 runs one-sample; Wald formula [61], second formula [62], Brownian [55] and Monte Carlo ag",
+      "class": "performance",
+      "pub_date": "2026-09",
+      "recheck": "2027-09-01",
+      "stale": false
+    },
+    {
+      "claim": "[55] normalized Elo = (800/ln10) t_n; duration D/(gap)^2 with D ~ 1.05M games; code constant matches [57]",
+      "class": "math",
+      "pub_date": "2026-09-03",
+      "recheck": "2029-09-03",
+      "stale": false
+    },
+    {
+      "claim": "[64] Wald's approximate thresholds do not guarantee alpha/beta when beta>0 (overshoot); fishtest clamps instead [56]",
+      "class": "failure",
+      "pub_date": "2025-07",
+      "recheck": "2026-07-01",
+      "stale": true
+    },
+    {
+      "claim": "[59] fishtest current default bounds not obtained as text (image on wiki)",
+      "class": "version",
+      "pub_date": "2026-07",
+      "recheck": "2026-08-01",
+      "stale": true
+    },
+    {
+      "claim": "[73] 4.0.0-beta tag = v3.3.8 commit; no public 4.0 source; release page [74] states it",
+      "class": "version",
+      "pub_date": "2026-09",
+      "recheck": "2026-10-01",
+      "stale": false
+    },
+    {
+      "claim": "[72] v3.3.8 released 2026-03-23; minor versions every 3-6 months; second source release page [79]",
+      "class": "version",
+      "pub_date": "2026-09",
+      "recheck": "2026-10-01",
+      "stale": false
+    },
+    {
+      "claim": "[76] seed defined as dungeon-generation only; silent on combat; corroborated by tooling [81]",
+      "class": "pattern",
+      "pub_date": "2022-05",
+      "recheck": "2024-05-01",
+      "stale": true
+    },
+    {
+      "claim": "[84] no working SPD bot/RL/gym exists (absence; two searches plus Gymnasium list [85])",
+      "class": "ecosystem",
+      "pub_date": "2026-09-03",
+      "recheck": "2027-03-03",
+      "stale": false
+    },
+    {
+      "claim": "[82] seedfinders boot LWJGL3 with an invisible window and patch game classes; no HeadlessApplication use; corroborated by toolkit DesktopLauncher",
+      "class": "pattern",
+      "pub_date": "2024-10",
+      "recheck": "2026-10-01",
+      "stale": false
+    },
+    {
+      "claim": "[83] 147 seeds/s per JVM process (self-reported, single source)",
+      "class": "performance",
+      "pub_date": "2026-09",
+      "recheck": "2027-09-01",
+      "stale": false
+    },
+    {
+      "claim": "[95] GameScene HUD construction order and sizes at v3.3.8 (upstream-reader) match the master read with order corrected",
+      "class": "pattern",
+      "pub_date": "2026-03",
+      "recheck": "2028-03-01",
+      "stale": false
+    },
+    {
+      "claim": "[103] RenderedText.measure() throws if called from the SHPD Actor Thread; RenderedTextBlock.text() not synchronized [102]",
+      "class": "failure",
+      "pub_date": "2026-03",
+      "recheck": "2027-03-01",
+      "stale": false
+    },
+    {
+      "claim": "[97] Actor.process() waits on sprite.isMoving; GameScene notifies the actor thread at most 60/s [95]",
+      "class": "pattern",
+      "pub_date": "2026-03",
+      "recheck": "2028-03-01",
+      "stale": false
+    },
+    {
+      "claim": "[100] no addKeyBinding; new actions are SPDAction constants + default bindings; settings UI enumerates allActions [101]",
+      "class": "pattern",
+      "pub_date": "2026-03",
+      "recheck": "2028-03-01",
+      "stale": false
+    },
+    {
+      "claim": "[108] no fork with a large in-engine docked panel found (absence; one fork goes out of process)",
+      "class": "ecosystem",
+      "pub_date": "2026-09-03",
+      "recheck": "2027-03-03",
+      "stale": false
+    },
+    {
+      "claim": "[109] 4.0.0-beta tag = v3.3.8 commit locally (matches GitHub compare in dimension 6)",
+      "class": "version",
+      "pub_date": "2026-09",
+      "recheck": "2026-10-01",
+      "stale": false
+    }
+  ],
+  "stale_count": 13,
+  "earliest_recheck": "2012-12-01",
+  "no_window_classes": []
+}

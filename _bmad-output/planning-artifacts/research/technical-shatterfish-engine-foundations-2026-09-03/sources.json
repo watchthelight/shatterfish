@@ -1,0 +1,1199 @@
+[
+ {
+  "n": 1,
+  "url": "https://api.github.com/repos/TNG/ArchUnit/releases?per_page=12",
+  "publisher": "TNG/ArchUnit releases (GitHub API)",
+  "pub_date": "2026-08-04",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "ArchUnit release line and cadence; Java class-file support"
+ },
+ {
+  "n": 2,
+  "url": "https://repo1.maven.org/maven2/com/tngtech/archunit/archunit-junit5/maven-metadata.xml",
+  "publisher": "Maven Central metadata",
+  "pub_date": "2026-08-04",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "archunit-junit5 1.5.0 is the latest artifact on Central (independent of TNG)"
+ },
+ {
+  "n": 3,
+  "url": "https://www.archunit.org/userguide/html/000_Index.html",
+  "publisher": "archunit.org user guide",
+  "pub_date": "2026-08",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Rule DSL, allowEmptyShould, FreezingArchRule, bytecode-only limits, import caching"
+ },
+ {
+  "n": 4,
+  "url": "https://www.codecentric.de/en/knowledge-hub/blog/archunit-in-practice-keep-your-architecture-clean",
+  "publisher": "codecentric",
+  "pub_date": "2024-09-20",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Package-rename false negatives; rules need review"
+ },
+ {
+  "n": 5,
+  "url": "https://github.com/TNG/ArchUnit/issues/1160",
+  "publisher": "TNG/ArchUnit issue #1160 and comments",
+  "pub_date": "2023-08-28",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "87 s import for 120 classes traced by maintainers to classpath dependency resolution"
+ },
+ {
+  "n": 6,
+  "url": "https://loiane.com/2026/07/architecture-testing-java-archunit/",
+  "publisher": "Loiane Groner",
+  "pub_date": "2026-07-05",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "ArchUnit 1.4.1 on Java 25 in production; thousands of classes import in seconds; Surefire 3.5.3 gotcha"
+ },
+ {
+  "n": 7,
+  "url": "https://docs.gradle.org/current/userguide/java_library_plugin.html",
+  "publisher": "Gradle Inc. (java-library plugin docs)",
+  "pub_date": "2026",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "api vs implementation separation; JPMS module path inference"
+ },
+ {
+  "n": 8,
+  "url": "https://github.com/moditect/deptective",
+  "publisher": "moditect/deptective",
+  "pub_date": "unknown",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Deptective javac plugin still 1.0-SNAPSHOT, no tagged release"
+ },
+ {
+  "n": 9,
+  "url": "https://github.com/TNG/ArchUnit",
+  "publisher": "TNG/ArchUnit repository",
+  "pub_date": "2026-09-03",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Stars, forks, open issues, licence"
+ },
+ {
+  "n": 10,
+  "url": "https://cdn.aaai.org/AAAI/1998/AAAI98-071.pdf",
+  "publisher": "Frank and Basin, AAAI-98",
+  "pub_date": "1998-07",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Strategy fusion and non-locality named as PIMC's structural errors"
+ },
+ {
+  "n": 11,
+  "url": "https://webdocs.cs.ualberta.ca/~nathanst/papers/pimc.pdf",
+  "publisher": "Long, Sturtevant, Buro, Furtak, AAAI-10",
+  "pub_date": "2010-07",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Leaf correlation, bias, disambiguation factor; when PIMC is good enough; measurement recipe"
+ },
+ {
+  "n": 12,
+  "url": "https://arxiv.org/abs/1106.0669",
+  "publisher": "Ginsberg, JAIR 14 (GIB)",
+  "pub_date": "2001",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Determinization origin in bridge"
+ },
+ {
+  "n": 13,
+  "url": "https://dl.acm.org/doi/10.1016/S0004-3702(01)00166-7",
+  "publisher": "Sheppard, Artificial Intelligence 134 (Maven)",
+  "pub_date": "2002-01",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Simulation-based imperfect-information play in Scrabble"
+ },
+ {
+  "n": 14,
+  "url": "https://eprints.whiterose.ac.uk/id/eprint/75048/1/CowlingPowleyWhitehouse2012.pdf",
+  "publisher": "Cowling, Powley, Whitehouse, IEEE TCIAIG 4(2)",
+  "pub_date": "2012-06",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "ISMCTS; 10,000 iterations ~ 1 s; determinizations x iterations trade-off; tree depth reached"
+ },
+ {
+  "n": 15,
+  "url": "https://etheses.whiterose.ac.uk/id/eprint/8117/1/Feb%2016%20-%20FINAL.pdf",
+  "publisher": "Whitehouse, PhD thesis, University of York",
+  "pub_date": "2014",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "ISMCTS 2-4x slower per iteration than determinized UCT; horizon truncation at round end; budget sensitivity"
+ },
+ {
+  "n": 16,
+  "url": "https://arxiv.org/abs/2408.02380",
+  "publisher": "Arjonilla, Saffidine, Cazenave, IEEE CoG 2024 (EPIMC)",
+  "pub_date": "2024-08-05",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Extended PIMC mitigates strategy fusion"
+ },
+ {
+  "n": 17,
+  "url": "https://proceedings.neurips.cc/paper_files/paper/2010/file/edfbe1afcf9246bb0d40eb4d8027d90f-Paper.pdf",
+  "publisher": "Silver and Veness, NeurIPS 2010 (POMCP)",
+  "pub_date": "2010-12",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Belief-state MCTS with particle filter; pocman analogue; 1 s per action"
+ },
+ {
+  "n": 18,
+  "url": "https://arxiv.org/abs/1609.03250",
+  "publisher": "Somani, Ye, Hsu, Lee (DESPOT), JAIR",
+  "pub_date": "2016-09",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "K=500 scenarios, depth 90, 1 s per step"
+ },
+ {
+  "n": 19,
+  "url": "https://cdn.aaai.org/ojs/12923/12923-52-16440-1-2-20201228.pdf",
+  "publisher": "Campbell and Verbrugge, AIIDE-17",
+  "pub_date": "2017-10",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Abstract state/action encoding for NetHack combat; real engine as simulator; DQN results"
+ },
+ {
+  "n": 20,
+  "url": "https://arxiv.org/abs/2404.13150",
+  "publisher": "Rebstock, Solinas, Sturtevant, Buro (GO-MCTS)",
+  "pub_date": "2024-04-19",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Learned observation-space search; PIMC limitations acknowledged"
+ },
+ {
+  "n": 21,
+  "url": "https://arxiv.org/abs/2510.05048",
+  "publisher": "LAMIR, ICLR 2026",
+  "pub_date": "2025-10",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Belief-state value functions via sampled belief plus depth-limited reasoning"
+ },
+ {
+  "n": 22,
+  "url": "https://arxiv.org/abs/2403.00690",
+  "publisher": "NetPlay (LLM agents in NetHack)",
+  "pub_date": "2024-03",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Long-horizon planning in NetHack is hard; short tactical horizons"
+ },
+ {
+  "n": 23,
+  "url": "https://github.com/Wallace-Watler/java-mcts",
+  "publisher": "Wallace-Watler/java-mcts (GitHub)",
+  "pub_date": "unknown",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Java ISMCTS implementations exist"
+ },
+ {
+  "n": 24,
+  "url": "https://arxiv.org/abs/2203.11889",
+  "publisher": "Hambro et al., Insights from the NeurIPS 2021 NetHack Challenge (arXiv 2203.11889)",
+  "pub_date": "2022-03-22",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Challenge tracks, metric, results, symbolic vs neural conclusions, AutoAscend design, RAPH hybrid, metric-gaming failure"
+ },
+ {
+  "n": 25,
+  "url": "https://arxiv.org/abs/2305.19240",
+  "publisher": "Piterbarg, Pinto, Fergus, NetHack is Hard to Hack (NeurIPS 2023)",
+  "pub_date": "2023-05",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "AutoAscend reproduction numbers; imitation scaling asymptotes; hierarchy and parsers as the gap"
+ },
+ {
+  "n": 26,
+  "url": "https://github.com/maciej-sypetkowski/autoascend",
+  "publisher": "maciej-sypetkowski/autoascend (repository, strategy.py, global_logic.py, exploration_logic.py, combat/fight_heur.py, monster_tracker)",
+  "pub_date": "unknown (master 2026-09-03)",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Strategy generators and combinators, preemption order, exploration scoring, one-step combat heuristics, one-frame monster tracking, code size"
+ },
+ {
+  "n": 27,
+  "url": "https://www.aicrowd.com/challenges/neurips-2021-the-nethack-challenge/leaderboards?challenge_leaderboard_extra_id=971&challenge_round_id=911",
+  "publisher": "AIcrowd neural-track leaderboard",
+  "pub_date": "2021-11",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Neural-track medians and means"
+ },
+ {
+  "n": 28,
+  "url": "https://balrogai.com/",
+  "publisher": "BALROG leaderboard (Paglieri et al., UCL)",
+  "pub_date": "2026-02",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "All LLMs below 7% NetHack progression; Header: ... MiniHack | NetHack | Date; row: MiniHack 40.0 ± 7.7, NetHack 6.8 ± 3.2"
+ },
+ {
+  "n": 29,
+  "url": "https://kenforthewin.github.io/blog/posts/nethack-agent/",
+  "publisher": "Vaguely Aligned (personal blog)",
+  "pub_date": "2026-01-30",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "LLM harness results up to 12.56% progression; reactive play, spatial reasoning as the roadblock"
+ },
+ {
+  "n": 30,
+  "url": "https://github.com/crawl/qw",
+  "publisher": "crawl/qw (README, source tree, move-flee.lua)",
+  "pub_date": "unknown (master 2026-09-03)",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Goal list as data, plan files per domain, flee logic, first bot to win DCSS unassisted, no high win rate"
+ },
+ {
+  "n": 31,
+  "url": "https://angband.readthedocs.io/en/latest/hacking/borg.html",
+  "publisher": "Angband manual (Borg)",
+  "pub_date": "unknown",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Goal loop, danger and flow maps, borg.txt tunables"
+ },
+ {
+  "n": 32,
+  "url": "https://raw.githubusercontent.com/krajj7/BotHack/master/README.md",
+  "publisher": "krajj7/BotHack README",
+  "pub_date": "2015-01",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Clojure framework with Java API; won without wizard mode 2015-01-25; archived 2021"
+ },
+ {
+  "n": 33,
+  "url": "https://www.cs.princeton.edu/~appel/papers/rogomatic.html",
+  "publisher": "Appel (Rog-O-Matic tech report, CMU 1984)",
+  "pub_date": "1984-05",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Blackboard architecture, prioritized experts, item experimentation with long-term memory, retreat rule, results vs humans"
+ },
+ {
+  "n": 34,
+  "url": "https://raw.githubusercontent.com/libgdx/libgdx/master/backends/gdx-backend-headless/src/com/badlogic/gdx/backends/headless/HeadlessApplication.java",
+  "publisher": "libgdx/libgdx HeadlessApplication.java (master)",
+  "pub_date": "unknown (master 2026-09-03)",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Constructor order, statics assigned, Gdx.gl never set, main loop, exit semantics, eager natives load"
+ },
+ {
+  "n": 35,
+  "url": "https://raw.githubusercontent.com/libgdx/libgdx/master/backends/gdx-backend-headless/src/com/badlogic/gdx/backends/headless/mock/graphics/MockGraphics.java",
+  "publisher": "libgdx/libgdx MockGraphics.java (master)",
+  "pub_date": "unknown (master 2026-09-03)",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "GL getters return null; width/height 0; designed for server/client code sharing"
+ },
+ {
+  "n": 36,
+  "url": "https://raw.githubusercontent.com/libgdx/libgdx/master/backends/gdx-backend-headless/src/com/badlogic/gdx/backends/headless/HeadlessApplicationConfiguration.java",
+  "publisher": "libgdx/libgdx HeadlessApplicationConfiguration.java (master)",
+  "pub_date": "unknown (master 2026-09-03)",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "updatesPerSecond semantics (0 busy loop, negative never render), preferencesDirectory"
+ },
+ {
+  "n": 37,
+  "url": "https://raw.githubusercontent.com/libgdx/libgdx/master/gdx/src/com/badlogic/gdx/Gdx.java",
+  "publisher": "libgdx/libgdx Gdx.java (master)",
+  "pub_date": "unknown (master 2026-09-03)",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Process-global statics; 'design faux pas' comment"
+ },
+ {
+  "n": 38,
+  "url": "https://raw.githubusercontent.com/libgdx/libgdx/master/gdx/src/com/badlogic/gdx/utils/GdxNativesLoader.java",
+  "publisher": "libgdx/libgdx GdxNativesLoader.java (master)",
+  "pub_date": "unknown (master 2026-09-03)",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "load() delegates to SharedLibraryLoader; disableNativesLoading flag"
+ },
+ {
+  "n": 39,
+  "url": "https://raw.githubusercontent.com/libgdx/libgdx/master/gdx/src/com/badlogic/gdx/utils/Timer.java",
+  "publisher": "libgdx/libgdx Timer.java (master)",
+  "pub_date": "unknown (master 2026-09-03)",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Timer is JVM-global and rebinds to the current Gdx.files"
+ },
+ {
+  "n": 40,
+  "url": "https://raw.githubusercontent.com/libgdx/libgdx/master/backends/gdx-backend-headless/src/com/badlogic/gdx/backends/headless/HeadlessPreferences.java",
+  "publisher": "libgdx/libgdx HeadlessPreferences.java (master)",
+  "pub_date": "unknown (master 2026-09-03)",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Preferences are real files under preferencesDirectory"
+ },
+ {
+  "n": 41,
+  "url": "https://raw.githubusercontent.com/libgdx/libgdx/master/backends/gdx-backend-headless/src/com/badlogic/gdx/backends/headless/mock/audio/MockAudio.java",
+  "publisher": "libgdx/libgdx MockAudio.java (master)",
+  "pub_date": "unknown (master 2026-09-03)",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Audio calls are safe no-ops"
+ },
+ {
+  "n": 42,
+  "url": "https://github.com/libgdx/libgdx/issues/3383",
+  "publisher": "libgdx issue #3383",
+  "pub_date": "2015-08-29",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Texture creation and shader compilation fail headless; unresolved by design"
+ },
+ {
+  "n": 43,
+  "url": "https://github.com/libgdx/libgdx/issues/5995",
+  "publisher": "libgdx issue #5995",
+  "pub_date": "2020-04-12",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Mockito Gdx.gl workaround; hidden-window alternative"
+ },
+ {
+  "n": 44,
+  "url": "https://peritasoft.com/blog/20200829-headless-gdx-and-tiled-maps-woes/index.html",
+  "publisher": "Perita Soft blog",
+  "pub_date": "2020-08-29",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Headless NPE from auto-created Textures; stub ImageResolver fix"
+ },
+ {
+  "n": 45,
+  "url": "https://github.com/TomGrill/gdx-testing",
+  "publisher": "TomGrill/gdx-testing",
+  "pub_date": "unknown",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Community headless JUnit skeleton with mocked GL20"
+ },
+ {
+  "n": 46,
+  "url": "https://libgdx.com/news/",
+  "publisher": "libgdx.com news",
+  "pub_date": "2026-05-28",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Release posts 1.13.1, 1.13.5, 1.14.0, 1.14.1/1.14.2"
+ },
+ {
+  "n": 47,
+  "url": "https://github.com/libgdx/libgdx/releases",
+  "publisher": "libgdx/libgdx releases (GitHub)",
+  "pub_date": "2026-06-05",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Tag dates 1.13.1 2025-01-08 ... 1.14.2 2026-06-05; Sonatype migration"
+ },
+ {
+  "n": 48,
+  "url": "https://raw.githubusercontent.com/libgdx/libgdx/master/CHANGES",
+  "publisher": "libgdx CHANGES (master)",
+  "pub_date": "unknown (master 2026-09-03)",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Built with Java 17 since 1.13.0; artifacts target Java 7 (core) / 8 (LWJGL3); LWJGL 3.3.3 since 1.13.1"
+ },
+ {
+  "n": 49,
+  "url": "https://raw.githubusercontent.com/libgdx/gdx-liftoff/master/README.md",
+  "publisher": "libgdx/gdx-liftoff README",
+  "pub_date": "unknown (master 2026-09-03)",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "JDK 17-26 to build; Java 21 recommended; LWJGL >= 3.4.0 on Java 25+; targets 1.14.2"
+ },
+ {
+  "n": 50,
+  "url": "https://raw.githubusercontent.com/libgdx/libgdx/master/backends/gdx-backend-lwjgl3/src/com/badlogic/gdx/backends/lwjgl3/Lwjgl3Application.java",
+  "publisher": "libgdx Lwjgl3Application.java (master)",
+  "pub_date": "unknown (master 2026-09-03)",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "newWindow shares one Gdx.app, loop, and GL context"
+ },
+ {
+  "n": 51,
+  "url": "https://libgdx.com/wiki/app/threading",
+  "publisher": "libgdx.com wiki: Threading (and The Application Framework)",
+  "pub_date": "unknown",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "One rendering thread; nothing thread-safe unless marked; no multi-application statement"
+ },
+ {
+  "n": 52,
+  "url": "memlog://lead-observation-2026-09-03-natives",
+  "publisher": "Lead's first-hand reproduction (this run, Windows 11 x64, JDK 21, libGDX 1.14.0)",
+  "pub_date": "2026-09-03",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "HeadlessApplication without natives-desktop throws SharedLibraryLoadRuntimeException: Couldn't load shared library 'gdx64.dll'; fixed by adding the natives"
+ },
+ {
+  "n": 53,
+  "url": "https://official-stockfish.github.io/docs/fishtest-wiki/Fishtest-Mathematics.html",
+  "publisher": "Stockfish project, Fishtest Mathematics (wiki mirror)",
+  "pub_date": "unknown",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "GSPRT framing, pentanomial model, normalized Elo rationale"
+ },
+ {
+  "n": 54,
+  "url": "http://cantate.be/Fishtest/GSPRT_approximation.pdf",
+  "publisher": "Michel Van den Bergh, A practical introduction to the GSPRT",
+  "pub_date": "unknown",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "LLR approximation (2.1); metric-agnostic form; multinomial variance"
+ },
+ {
+  "n": 55,
+  "url": "https://cantate.be/Fishtest/normalized_elo_practical.pdf",
+  "publisher": "Michel Van den Bergh, Comments on normalized Elo",
+  "pub_date": "unknown",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Normalized t-value and Elo definitions; duration formula; clamping; GSPRT terminology"
+ },
+ {
+  "n": 56,
+  "url": "https://raw.githubusercontent.com/official-stockfish/fishtest/master/server/fishtest/stats/sprt.py",
+  "publisher": "official-stockfish/fishtest sprt.py (master)",
+  "pub_date": "unknown (master 2026-09-03)",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Bounds, normalized model, overshoot clamp, CI"
+ },
+ {
+  "n": 57,
+  "url": "https://raw.githubusercontent.com/official-stockfish/fishtest/master/server/fishtest/stats/LLRcalc.py",
+  "publisher": "official-stockfish/fishtest LLRcalc.py (master)",
+  "pub_date": "unknown (master 2026-09-03)",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "nelo constant 800/ln10, sqrt2 pentanomial scaling, regularize epsilon 1e-3"
+ },
+ {
+  "n": 58,
+  "url": "https://github.com/official-stockfish/fishtest/issues/764",
+  "publisher": "fishtest issue #764",
+  "pub_date": "2020-08-17",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Historical bounds; tightening when outcomes carry less information; STC/LTC pass-through"
+ },
+ {
+  "n": 59,
+  "url": "https://github.com/official-stockfish/fishtest/wiki/Creating-my-first-test",
+  "publisher": "fishtest wiki, Creating my first test",
+  "pub_date": "2026-07-27",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "STC/LTC procedure; bounds shown as an image; sprt_calc link"
+ },
+ {
+  "n": 60,
+  "url": "https://raw.githubusercontent.com/Disservin/fastchess/master/app/src/matchmaking/sprt/sprt.cpp",
+  "publisher": "Disservin/fastchess sprt.cpp (master)",
+  "pub_date": "unknown (master 2026-09-03)",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Independent implementation of the same pentanomial normalized LLR"
+ },
+ {
+  "n": 61,
+  "url": "https://encyclopediaofmath.org/wiki/Sequential_probability_ratio_test",
+  "publisher": "Encyclopedia of Mathematics (Springer/EMS)",
+  "pub_date": "unknown",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Wald SPRT, bounds, ASN approximations"
+ },
+ {
+  "n": 62,
+  "url": "https://edurev.in/t/492430/Wald-s-SPRT-and-its-properties-OC-and-ASN-functions",
+  "publisher": "EduRev (tertiary) and StatisticsHowTo",
+  "pub_date": "unknown",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Wald ASN formula for Bernoulli (second formula source)"
+ },
+ {
+  "n": 63,
+  "url": "memlog://lead-monte-carlo-2026-09-03-sprt",
+  "publisher": "Lead's Monte Carlo simulation (this run, 4,000 trials per arm, seed 20260903)",
+  "pub_date": "2026-09-03",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Bernoulli SPRT p0=0.05, p1=0.07: mean N 808 (H0) / 727 (H1), error rates 4.6% / 4.8%"
+ },
+ {
+  "n": 64,
+  "url": "https://arxiv.org/abs/2410.16076",
+  "publisher": "Fischer and Ramdas, Improving Wald's (approximate) SPRT by avoiding overshoot",
+  "pub_date": "2025-07-08",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Wald's thresholds do not guarantee error control when beta > 0; sequential boosting"
+ },
+ {
+  "n": 65,
+  "url": "https://arxiv.org/abs/2210.01948",
+  "publisher": "Ramdas, Grunwald, Vovk, Shafer, Game-theoretic statistics and safe anytime-valid inference",
+  "pub_date": "2023-06-17",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "E-processes; stop at any time; reject at 1/alpha"
+ },
+ {
+  "n": 66,
+  "url": "https://arxiv.org/abs/1512.04922",
+  "publisher": "Johari, Pekelis, Walsh, Always valid inference (mSPRT)",
+  "pub_date": "2019-07",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Mixture SPRT; deployed in commercial A/B testing; multiple comparisons"
+ },
+ {
+  "n": 67,
+  "url": "https://www.evanmiller.org/sequential-ab-testing.html",
+  "publisher": "Evan Miller, Simple Sequential A/B Testing",
+  "pub_date": "2015-10-13",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Random-walk test; peeking inflates error"
+ },
+ {
+  "n": 68,
+  "url": "https://arxiv.org/abs/2504.21595",
+  "publisher": "van Meer and Koning, anytime-valid rank tests",
+  "pub_date": "2025-04-30",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Sequential-rank e-process for exchangeability; closest anytime-valid rank test"
+ },
+ {
+  "n": 69,
+  "url": "https://meikesteinhilber.github.io/sprtt/",
+  "publisher": "sprtt R package",
+  "pub_date": "unknown",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Sequential t-test reference implementation"
+ },
+ {
+  "n": 70,
+  "url": "https://api.github.com/repos/00-Evan/shattered-pixel-dungeon",
+  "publisher": "GitHub API: 00-Evan/shattered-pixel-dungeon",
+  "pub_date": "2026-09-03",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Stars, forks, issues, licence, last push, contributors"
+ },
+ {
+  "n": 71,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon",
+  "publisher": "00-Evan README",
+  "pub_date": "unknown (fetched 2026-09-03)",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "No pull requests; code offered for reuse; community links"
+ },
+ {
+  "n": 72,
+  "url": "https://api.github.com/repos/00-Evan/shattered-pixel-dungeon/releases",
+  "publisher": "GitHub API: releases",
+  "pub_date": "2026-09-03",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Release cadence v2.0 to v3.3.8; 4.0.0-beta prerelease 2026-08-15"
+ },
+ {
+  "n": 73,
+  "url": "https://api.github.com/repos/00-Evan/shattered-pixel-dungeon/compare/v3.3.8...4.0.0-beta",
+  "publisher": "GitHub API: compare v3.3.8...4.0.0-beta",
+  "pub_date": "2026-09-03",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "The beta tag points at the same commit as v3.3.8; no public 4.0 source"
+ },
+ {
+  "n": 74,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/releases/tag/4.0.0-beta",
+  "publisher": "00-Evan release page v4.0.0-BETA-4",
+  "pub_date": "2026-08-15 (updated 2026-09-02)",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "'there is no public source code for beta releases'; binaries only; Java 11+ JAR"
+ },
+ {
+  "n": 75,
+  "url": "https://api.github.com/repos/00-Evan/shattered-pixel-dungeon/stats/commit_activity",
+  "publisher": "GitHub API: commit_activity",
+  "pub_date": "2026-09-03",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "291 commits in 28 weeks then 24 zero weeks; private 4.0 development"
+ },
+ {
+  "n": 76,
+  "url": "https://shatteredpixel.com/blog/coming-soon-to-shattered-seeded-runs.html",
+  "publisher": "Evan Debenham, Coming Soon to Shattered: Seeded Runs!",
+  "pub_date": "2022-05-02",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Seed defined purely in terms of dungeon generation; nine-letter codes; daily runs; multiple floors per depth"
+ },
+ {
+  "n": 77,
+  "url": "https://shatteredpixel.com/blog/status-update-v40-beta-soon.html",
+  "publisher": "Evan Debenham, Status Update: v4.0 Beta Soon!",
+  "pub_date": "2026-07-28",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "4.0 contents: vault quest, art, stealth enemy AI, enchantments, Swarm Intelligence overhaul; no restructuring statement"
+ },
+ {
+  "n": 78,
+  "url": "https://shatteredpixel.com/blog/coming-soon-to-shattered-the-vault-quest.html",
+  "publisher": "Evan Debenham, Coming Soon: The Vault Quest!",
+  "pub_date": "2026-08-15",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Beta content-complete; quest mechanics concentrated in a new area"
+ },
+ {
+  "n": 79,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/releases/tag/v3.3.8",
+  "publisher": "00-Evan release page v3.3.8",
+  "pub_date": "2026-03-23",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Original release 2025-12-04, last patch 2026-03-23; contains the city-quest tester area"
+ },
+ {
+  "n": 80,
+  "url": "https://github.com/alessiomarotta/shpd-seed-finder",
+  "publisher": "alessiomarotta/shpd-seed-finder",
+  "pub_date": "2024-06-24",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Original seedfinder: patch upstream source, run generation; archived and discontinued"
+ },
+ {
+  "n": 81,
+  "url": "https://github.com/Elektrochecker/shpd-toolkit/tree/seedfinder",
+  "publisher": "Elektrochecker/shpd-toolkit (seedfinder branch)",
+  "pub_date": "2026-05-04",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Full fork at v3.3.8 with in-game seedfinder; seeds only guaranteed within a build"
+ },
+ {
+  "n": 82,
+  "url": "https://github.com/ifritdiezel/is-seedfinder",
+  "publisher": "ifritdiezel/is-seedfinder and is-seedfinder.patch",
+  "pub_date": "2024-10-13",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "CLI seedfinder pinned at v2.5.4; boot recipe = LWJGL3 app with invisible window plus patched game classes"
+ },
+ {
+  "n": 83,
+  "url": "https://github.com/akhial/shpd-seed-seeker",
+  "publisher": "akhial/shpd-seed-seeker (Rust)",
+  "pub_date": "2026-09-02",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Reimplemented generator; self-reported 147 seeds/s per JVM process for the game's own generator"
+ },
+ {
+  "n": 84,
+  "url": "https://github.com/Dartemiss/Coop-Shattered-Pixel-Dungeon-gtx",
+  "publisher": "Dartemiss/Coop-Shattered-Pixel-Dungeon-gtx",
+  "pub_date": "unknown",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "The only SPD bot project found: an abandoned course project with no results"
+ },
+ {
+  "n": 85,
+  "url": "https://gymnasium.farama.org/environments/third_party_environments/",
+  "publisher": "Farama Gymnasium third-party environments",
+  "pub_date": "unknown",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "No Pixel Dungeon environment listed"
+ },
+ {
+  "n": 86,
+  "url": "https://github.com/TrashboxBobylev/Experienced-Pixel-Dungeon-Redone",
+  "publisher": "TrashboxBobylev/Experienced-Pixel-Dungeon-Redone",
+  "pub_date": "2024-09-28",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Fork tracks upstream by git merge; stopped at 2.5.x"
+ },
+ {
+  "n": 87,
+  "url": "https://api.github.com/repos/F-LTP/Radish_Pixel_Dungeon",
+  "publisher": "GitHub API: F-LTP/Radish_Pixel_Dungeon",
+  "pub_date": "2026-08-06",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Fork pinned at 1.4.3 and never merged upstream"
+ },
+ {
+  "n": 88,
+  "url": "https://api.github.com/search/repositories?q=shattered+pixel+dungeon+mod&sort=stars",
+  "publisher": "GitHub API: repository search",
+  "pub_date": "2026-09-03",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Most-starred non-Evan SPD mods at 27 stars or fewer; most inactive"
+ },
+ {
+  "n": 89,
+  "url": "https://pixeldungeon.wiki/",
+  "publisher": "Pixel Dungeon Wiki (Miraheze)",
+  "pub_date": "2026-08",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Created 2025-06-28 to replace Fandom; Shattered-focused; 299 pages; Discord links"
+ },
+ {
+  "n": 90,
+  "url": "https://pixeldungeon.wiki/Hit_chance",
+  "publisher": "Pixel Dungeon Wiki, Hit chance",
+  "pub_date": "2026-08-26",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Formula-level lore naming code identifiers but citing no source file"
+ },
+ {
+  "n": 91,
+  "url": "https://pixeldungeon.fandom.com/wiki/Shattered_PD_-_Artifacts",
+  "publisher": "Fandom Pixel Dungeon Wiki",
+  "pub_date": "unknown",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Vanilla PD and Shattered pages share one site with prefixes; the confusion vector"
+ },
+ {
+  "n": 92,
+  "url": "https://lemmy.world/post/2244774",
+  "publisher": "Lemmy.World user post (seedfinder guide)",
+  "pub_date": "2023-07",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Headless CLI usage; Evan's reaction; seeds break across versions"
+ },
+ {
+  "n": 93,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/scenes/PixelScene.java",
+  "publisher": "upstream PixelScene.java @ v3.3.8 (lines 66-79, 111-151, 325-363)",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "defaultZoom from SPDSettings.scale() with gate formula; uiCamera; landscape(); align(); renderTextBlock; MIN_*_FULL"
+ },
+ {
+  "n": 94,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/Chrome.java",
+  "publisher": "upstream Chrome.java @ v3.3.8 (lines 28-45)",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "16 nine-patch types and margins"
+ },
+ {
+  "n": 95,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/scenes/GameScene.java",
+  "publisher": "upstream GameScene.java @ v3.3.8 (lines 216-236, 370-534, 822-932, 975-987, 1642-1651, 1750-1756)",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "HUD construction order, layoutTags, actor thread spawn and 1/60 s notify, toDestroy, ready(), default cell listener; 43 scene==null guards; spellSprite() and CellEmitter chain NPE without a scene"
+ },
+ {
+  "n": 96,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/SPD-classes/src/main/java/com/watabou/noosa/Game.java",
+  "publisher": "upstream Game.java @ v3.3.8 (lines 150-171, 230-243, 269-313)",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "runOnRenderThread = postRunnable; render/step/update order; 0.2 s delta cap"
+ },
+ {
+  "n": 97,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/Actor.java",
+  "publisher": "upstream Actor.java @ v3.3.8 (lines 234-285)",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "process() loop, synchronized(Actor.class), sprite.wait() while isMoving; Actor thread waits on sprite.isMoving only when sprite != null; parks on wait()/notify()"
+ },
+ {
+  "n": 98,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/Hero.java",
+  "publisher": "upstream Hero.java @ v3.3.8 (lines 935-957)",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "ready()/act()/interrupt() semantics; the input seam; actAttack defers to sprite.attack; onAttackComplete/onOperateComplete resolve the turn; 18 sprite dereferences, 4 guarded"
+ },
+ {
+  "n": 99,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/SPDAction.java",
+  "publisher": "upstream SPDAction.java @ v3.3.8 (lines 93-183)",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "defaultBindings maps; load/save bindings"
+ },
+ {
+  "n": 100,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/SPD-classes/src/main/java/com/watabou/input/KeyBindings.java",
+  "publisher": "upstream KeyBindings.java @ v3.3.8 (lines 39-116)",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "setAllBindings API; no addKeyBinding"
+ },
+ {
+  "n": 101,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/windows/WndKeyBindings.java",
+  "publisher": "upstream WndKeyBindings.java @ v3.3.8 (lines 67-196)",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Settings UI enumerates GameAction.allActions()"
+ },
+ {
+  "n": 102,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/ui/RenderedTextBlock.java",
+  "publisher": "upstream RenderedTextBlock.java @ v3.3.8",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Which methods are synchronized; rebuild on text()"
+ },
+ {
+  "n": 103,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/SPD-classes/src/main/java/com/watabou/noosa/RenderedText.java",
+  "publisher": "upstream RenderedText.java @ v3.3.8 (lines 82-84)",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "measure() throws on the SHPD Actor Thread; GlyphLayout per measure"
+ },
+ {
+  "n": 104,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/ui/ScrollPane.java",
+  "publisher": "upstream ScrollPane.java @ v3.3.8 (lines 62-153)",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Dedicated camera for clipping and scrolling"
+ },
+ {
+  "n": 105,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/ui/StatusPane.java",
+  "publisher": "upstream StatusPane.java, Toolbar.java, InventoryPane.java, MenuPane.java @ v3.3.8",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "HUD sizes: StatusPane 39/38, Toolbar 26, InventoryPane 187x82, MenuPane width 31"
+ },
+ {
+  "n": 106,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/SPDSettings.java",
+  "publisher": "upstream SPDSettings.java @ v3.3.8",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "interfaceSize(): 0 mobile, 1 full without inventory pane, 2 full with; default 2 on desktop; forced 0 when small"
+ },
+ {
+  "n": 107,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/SPD-classes/src/main/java/com/watabou/noosa/ui/Component.java",
+  "publisher": "upstream Component.java @ v3.3.8",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Component layout contract"
+ },
+ {
+  "n": 108,
+  "url": "https://github.com/DaltonGoesFast/shattered-pixel-dungeon-qol",
+  "publisher": "DaltonGoesFast/shattered-pixel-dungeon-qol",
+  "pub_date": "unknown (README 2026-09-03)",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "The one 'overlay' fork found does its large HUD out of process (Godot companion app)"
+ },
+ {
+  "n": 109,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/tags",
+  "publisher": "upstream tags (local clone, git rev-parse)",
+  "pub_date": "2026-09-03",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "4.0.0-beta is the same commit as v3.3.8; GameScene/ui unchanged between v3.3.7 and v3.3.8"
+ },
+ {
+  "n": 110,
+  "url": "https://github.com/official-stockfish/fishtest/issues/348",
+  "publisher": "fishtest issue #348",
+  "pub_date": "2019-01-08",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Within-pair correlation about -0.15; pentanomial variance ~15% smaller; wrong variance model invalidates the test"
+ },
+ {
+  "n": 111,
+  "url": "https://arxiv.org/pdf/2512.24145",
+  "publisher": "Sharma, When Does Pairing Seeds Reduce Variance? (arXiv)",
+  "pub_date": "2025",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Common random numbers lose their benefit when trajectories diverge"
+ },
+ {
+  "n": 112,
+  "url": "https://arxiv.org/html/2409.02086v1",
+  "publisher": "Taming Randomness in Agent-Based Models using Common Random Numbers (arXiv)",
+  "pub_date": "2024-09",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "CRN can backfire with negative correlation"
+ },
+ {
+  "n": 113,
+  "url": "https://pubmed.ncbi.nlm.nih.gov/17434814/",
+  "publisher": "Statistics in Medicine (via PubMed), group-sequential t-tests",
+  "pub_date": "2007",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Normal approximations to t-statistics inaccurate at small sample sizes"
+ },
+ {
+  "n": 114,
+  "url": "https://github.com/glinscott/fishtest/issues/865",
+  "publisher": "fishtest issue #865, SPRT bounds V2",
+  "pub_date": "2020-11-12",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Bounds re-tuned after outcome-distribution drift; 12.3% modelled regression rate at STC"
+ },
+ {
+  "n": 115,
+  "url": "https://blog.analytics-toolkit.com/2022/comparison-of-the-statistical-power-of-sequential-tests/",
+  "publisher": "Analytics-Toolkit (Georgiev), comparison of sequential tests",
+  "pub_date": "2023-03-31",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "SPRT power ~73% vs 83% fixed-sample in one simulation; savings cost power when the alternative is wrong"
+ },
+ {
+  "n": 116,
+  "url": "https://arxiv.org/html/2606.00878",
+  "publisher": "Anytime-valid testing with e-values and confirmatory adaptive designs (arXiv)",
+  "pub_date": "2026-06",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "E-value tests allow stopping and revising without pre-registered bounds"
+ },
+ {
+  "n": 117,
+  "url": "https://docs.oracle.com/en/java/javase/21/docs/specs/jni/invocation.html",
+  "publisher": "Oracle, JNI Specification (Java 21), Library and Version Management",
+  "pub_date": "2023",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "The same JNI native library cannot be loaded into more than one class loader (UnsatisfiedLinkError)"
+ },
+ {
+  "n": 118,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/issues/431",
+  "publisher": "upstream issue #431 (render/actor deadlock)",
+  "pub_date": "2020-06-30",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Actor and render threads share monitors on scene-graph objects; historical deadlock"
+ },
+ {
+  "n": 119,
+  "url": "https://stardance.hackclub.com/projects/21382/devlogs/25246",
+  "publisher": "Hack Club Stardance devlog (Hadronize)",
+  "pub_date": "2026-07-16",
+  "accessed": "2026-09-03",
+  "confidence": "low",
+  "supports": "A small JS roguelike engine reaches ~400k turns/s in-process; per-decision policy overhead dominates"
+ },
+ {
+  "n": 120,
+  "url": "https://arxiv.org/abs/2411.13543",
+  "publisher": "BALROG paper (Paglieri et al., ICLR 2025)",
+  "pub_date": "2024-11",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Late-2024 baseline: top LLMs near 0-1.6% NetHack progression"
+ },
+ {
+  "n": 121,
+  "url": "https://manifold.markets/NLeseul/will-an-artificial-agent-ascend-in",
+  "publisher": "Manifold Markets",
+  "pub_date": "2024-02-08",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "No agent has ascended NetHack 3.6.6+; the 2015 bot used pudding farming, since removed"
+ },
+ {
+  "n": 122,
+  "url": "https://proceedings.neurips.cc/paper_files/paper/2023/file/764ba7236fb63743014fafbd87dd4f0e-Paper-Conference.pdf",
+  "publisher": "NetHack is Hard to Hack (NeurIPS 2023 proceedings PDF)",
+  "pub_date": "2023-12",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "AutoAscend's rule network needed instrumentation to extract strategy labels"
+ },
+ {
+  "n": 123,
+  "url": "https://www.jmis.org/archive/view_article?pid=jmis-10-4-321",
+  "publisher": "Journal of Multimedia Information System 10(4)",
+  "pub_date": "2023-12",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Behaviour trees become intractable at scale; goal/utility planning inside BTs proposed"
+ },
+ {
+  "n": 124,
+  "url": "https://www.gamedeveloper.com/programming/behavior-trees-and-the-future-of-intelligent-control-2",
+  "publisher": "Game Developer",
+  "pub_date": "unknown",
+  "accessed": "2026-09-03",
+  "confidence": "low",
+  "supports": "BTs give control, planners give problem solving; studios combine methods"
+ },
+ {
+  "n": 125,
+  "url": "https://arxiv.org/pdf/2510.18483",
+  "publisher": "StarBench (arXiv)",
+  "pub_date": "2025-10",
+  "accessed": "2026-09-03",
+  "confidence": "medium",
+  "supports": "Traditional game agents assume privileged structured interfaces; humans ground actions in pixels under partial observability"
+ },
+ {
+  "n": 126,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/sprites/CharSprite.java",
+  "publisher": "upstream CharSprite.java @ v3.3.8 (lines 131-164, 217-282, 824-862)",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "isMoving set in move(), cleared only in onComplete(Tweener); attack/operate/zap resolve through onComplete(Animation)"
+ },
+ {
+  "n": 127,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/Mob.java",
+  "publisher": "upstream Mob.java @ v3.3.8 (lines 225-238, 661-681)",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "doAttack defers to sprite.attack; onAttackComplete applies attack/spend/next; act() dereferences sprite unguarded"
+ },
+ {
+  "n": 128,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/wands/Wand.java",
+  "publisher": "upstream Wand.java @ v3.3.8 (lines 440-446, 710-783)",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Zap resolves in a MagicMissile callback fired from update()"
+ },
+ {
+  "n": 129,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/Item.java",
+  "publisher": "upstream Item.java @ v3.3.8 (lines 639-690)",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Thrown items resolve in MissileSprite.onComplete(Tweener)"
+ },
+ {
+  "n": 130,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/",
+  "publisher": "upstream core actors/ and items/ @ v3.3.8 (grep counts)",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "969 sprite dereferences (596 actors, 373 items), ~72 guard lines; GameScene 420, Sample 439, GLog 583, CellEmitter 174 references"
+ },
+ {
+  "n": 131,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/SPD-classes/src/main/java/com/watabou/glwrap/Texture.java",
+  "publisher": "upstream glwrap/Texture.java and gltextures/TextureCache.java @ v3.3.8",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Texture class init dereferences Gdx.gl; sprites load textures via Pixmap from Gdx.files; bare CharSprite() needs no GL"
+ },
+ {
+  "n": 132,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/SPD-classes/src/main/java/com/watabou/noosa/tweeners/Tweener.java",
+  "publisher": "upstream Tweener.java and Game.java @ v3.3.8",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "Tweeners and animations complete only from scene.update(); Game.update() uses Gdx.graphics.getDeltaTime(); large elapsed fast-forwards"
+ },
+ {
+  "n": 133,
+  "url": "https://github.com/00-Evan/shattered-pixel-dungeon/blob/v3.3.8/build.gradle",
+  "publisher": "upstream build.gradle @ v3.3.8 (line 26)",
+  "pub_date": "2026-03-19",
+  "accessed": "2026-09-03",
+  "confidence": "high",
+  "supports": "gdxVersion = '1.14.0'"
+ }
+]
