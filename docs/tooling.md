@@ -21,7 +21,7 @@
 | Item | Value |
 |---|---|
 | Version | 6.11.0 (installed 2026-09-03) |
-| Modules | core 6.11.0, **bmm** 6.11.0, **cis** v0.3.2, **tea** v1.24.0, bmb v2.2.2, gds v0.7.2, bmad-loop v0.11.1 |
+| Modules | core 6.11.0, **bmm** 6.11.0, **cis** v0.3.2, **tea** v1.24.0, bmb v2.2.2, gds v0.7.2 (unused; see note), bmad-loop v0.11.1 |
 | Tool | Claude Code; skills under `.claude/skills/` (110 dirs) |
 | Output folder (actual) | `_bmad-output/` — `planning-artifacts/`, `implementation-artifacts/`, `test-artifacts/`. The bootstrap prompt asked for `docs/bmad/`; the installer default was kept. MkDocs nav will point at `_bmad-output/planning-artifacts/`. |
 | Project knowledge folder | `docs/` |
@@ -57,6 +57,9 @@
 Agent personas available: `bmad-agent-analyst` (Mary), `bmad-agent-pm` (John), `bmad-agent-architect` (Winston), `bmad-agent-dev` (Amelia), `bmad-agent-ux-designer` (Sally), `bmad-agent-builder`; CIS: brainstorming coach (Carson), creative problem solver (Dr. Quinn), design thinking (Maya), innovation strategist (Victor), presentation (Caravaggio), storyteller (Sophia); `bmad-party-mode` for roundtables.
 
 The `gds-*` skills (Game Dev Studio module) are installed but **not used**: Shatterfish is an engine/bot project, not a game, and running both tracks would produce duplicate artifacts.
+
+!!! warning "gds config collision, worked around"
+    `_bmad/scripts/render_skill.py` (used by `bmad-build` and `bmad-build-auto`) refuses any config key that appears more than once in the merged config, and gds repeats bmm's `implementation_artifacts` / `planning_artifacts`. Session 4 added an override in `_bmad/custom/config.toml` that turns gds's copies into empty tables, which makes `bmad-build` render again. The proper fix is to rerun `npx bmad-method install` and deselect gds, then delete the override.
 
 ## 3. User-level skills (`~/.claude/skills/`)
 
@@ -106,3 +109,28 @@ Invocation of the super-search skill: `/supersearch <question>` or, in prose, "u
 ## 6. Global instructions
 
 `~/.claude/CLAUDE.md`: graphify trigger only. `C:\Users\Claude-Code\CLAUDE.md`: folder conventions and caveman-mode default (prose only; code, commits, and warnings stay normal). Project `CLAUDE.md` is written in Session 4 and takes precedence for repo rules.
+
+## 7. Project skills and subagents (session 4)
+
+Project skills live in `.claude/skills/` and subagents in `.claude/agents/`; `CLAUDE.md` lists them. Micro-brainstorm (bootstrap prompt, section 2.2) on whether the user's existing skills should be **wrapped or referenced** by the project skills rather than duplicated:
+
+| Option | Verdict |
+|---|---|
+| 1. Duplicate the useful logic into project skills | Rejected: two copies drift; the user's skills are theirs to evolve |
+| 2. Copy the user's skill files into the repository | Rejected: they are personal tooling with no licence statement, and some (Cloudflare, Pawtropolis) are unrelated |
+| 3. **Reference by name from project skills, with a stated fallback when the skill is absent** | Chosen: one laptop, one user, and the fallback keeps the repository usable for anyone else |
+| 4. Reference with no fallback | Rejected: a contributor without the skill would be stuck |
+| 5. Never reference; BMAD only | Rejected: `supersearch` is the designated lore intake and research driver |
+
+Pre-mortem: the user renames or deletes a referenced skill and a project skill silently degrades. Mitigation: each reference names the fallback, and this table is the registry to re-check when the user-level inventory changes.
+
+| Project skill / agent | References | Fallback |
+|---|---|---|
+| `adr` | `bmad-advanced-elicitation` (pre-mortem, red team); `/deepstorm` optional for forced-tradeoff interrogation | Run the protocol by hand |
+| `next-story` | `bmad-build`, `bmad-correct-course`, `/sync-issues`, `fairness-reviewer` | none needed (all in-repo) |
+| `rig`, `codex`, `upstream-sync`, `sync-issues`, `handoff` | in-repo only; `handoff` updates the memory note | none needed |
+| Lore intake (E7, skill not yet written) | `/supersearch` for research dossiers, `/deepsearch` for quick lookups | Built-in `WebSearch` with the same provenance fields |
+| Session 10 codebase map | `bmad-project-context`; `/graphify` optional for the dependency graph | `Explore` subagent sweeps |
+| Commit messages | none (`caveman-commit` not used: commits are written normally and in full per the user's caveman rule) | |
+| `fairness-reviewer`, `upstream-reader` | in-repo only; both cite `path:line` at the pinned tag | |
+

@@ -5,3 +5,13 @@
 #
 # [agents.bmad-agent-pm]
 # description = "Prefers short, bulleted PRDs over narrative drafts."
+
+# Shatterfish (E0 session 4): the installer also placed the Game Dev Studio (gds) module,
+# which is unused here (docs/tooling.md). Its config repeats bmm's artifact keys, and
+# _bmad/scripts/render_skill.py refuses any key that appears more than once in the merged
+# config ("ambiguous config value `implementation_artifacts`"), which halts bmad-build.
+# Turning gds's copies into empty tables makes bmm's values the only scalar matches.
+# The proper fix is to rerun `npx bmad-method install` and deselect gds; then delete this.
+[modules.gds]
+implementation_artifacts = {}
+planning_artifacts = {}
