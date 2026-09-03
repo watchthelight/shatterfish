@@ -18,3 +18,12 @@ local.properties
 #intellij project files
 *.iml
 *.idea
+
+# Shatterfish
+.bmad-loop/runs/
+.bmad-loop/cache/
+.bmad-loop/policy.toml
+_bmad/render/
+_bmad/config.user.toml
+_bmad/custom/config.user.toml
+site/
