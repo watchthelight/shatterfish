@@ -11,13 +11,14 @@ numbers where the project expects them.
 ## Contract with the `rig` module (E3 implements this; this skill is the spec)
 
 ```sh
-./gradlew :rig:run --args="--brain <name> [--baseline <name>] --seeds <set-name|N> [--seed-start K] [--threads T] --out <dir>"
+./gradlew :rig:run --args="--brain <name> [--baseline <name>] --seeds <set-name|N> [--seed-start K] [--parallel P] --out <dir>"
 ```
 
 - `--brain` / `--baseline`: registered brain names (`random`, `baseline`, ...). With a baseline,
   the rig runs an SPRT comparison; without one, a single-brain measurement.
 - `--seeds`: a named seed set from `rig/seeds/<name>.txt` (committed, reproducible) or an
   integer count drawn from `--seed-start` (default 1).
+- `--parallel`: how many single-Run processes run at once (one process per Run; never threads inside one game).
 - `--out`: directory receiving `runs.jsonl` (one record per run: seed, brain, depth, turns,
   cause of death, Observation hash chain), `summary.json`, and `sprt.json` when comparing.
 - Oracle mode cannot be enabled through this command. If any flag or config would enable it,

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>key-panel-states</title>
+<style>
+/* ============================================================
+   key-panel-states.html  (Shatterfish Overlay, key screen 2)
+   Spine sections this mock illustrates:
+   DESIGN.md      colors running / paused / human / oracle / chosen / alternative /
+                  danger / ink-dim; Components: Mode strip, Decision card, Control
+                  button (disabled), Speed selector, Stepper, Map highlight (oracle
+                  outline), Oracle border
+   EXPERIENCE.md  Stepping model rows Next Step, Run N, Human play speed;
+                  Component Patterns rows Mode strip, Decision card, Controls, Speed
+                  selector, Map highlights, Oracle border, Thinking indicator;
+                  State Patterns rows RUNNING, HUMAN, THINKING, Panel collapsed, Oracle
+                  (enablement matrix per Mode on the Controls row);
+                  Interjection semantics; Oracle marking;
+                  Flow 2 steps 1-3 (RUNNING, HUMAN), Flow 1 failure path (THINKING),
+                  Flow 4 steps 1-2 (oracle)
+   Panels here are abbreviated (Belief summary and Decision log shown only where the
+   state changes them) so five states fit side by side; the full section order is in
+   key-panel-paused.html. 1 UI px = 3 CSS px throughout; Panel width 220 UI px (see
+   the geometry note in key-panel-paused.html). The map-highlight legend beside the
+   RUNNING state is a mock key, not an Overlay surface.
+   ============================================================ */
+:root{
+  --ink:#F0F0F0; --ink-muted:#9C9C9C; --ink-dim:#5E5E5E;
+  --chosen:#FFB347; --alternative:#7FB8FF; --goal:#FFE97F;
+  --ok:#66DD66; --warn:#FFD34D; --danger:#FF5555;
+  --human:#7FB8FF; --running:#66DD66; --paused:#FFD34D; --oracle:#FF2020;
+  --scrim:#000000;
+}
+html,body{margin:0;background:#141418;color:#bdbdbd;font:13px/1.5 Consolas,"Lucida Console","Courier New",monospace}
+.page{padding:24px 24px 48px}
+h1,h2{font-weight:normal;font-size:13px;color:#8a8a8a;margin:0 0 6px}
+.note{font-size:12px;color:#6f6f6f;margin:0 0 14px;max-width:1280px}
+.states{display:flex;gap:36px;align-items:flex-start;flex-wrap:wrap}
+.state h2{margin-bottom:8px;max-width:660px}
+
+/* ---------- instrument (all sizes in UI px via --u) ---------- */
+.ui{--u:3px;font-family:Consolas,"Lucida Console","Courier New",monospace;color:var(--ink)}
+.t{font-size:calc(9*var(--u));line-height:calc(11*var(--u))}
+.b{font-size:calc(8*var(--u));line-height:calc(10*var(--u))}
+.s{font-size:calc(6*var(--u));line-height:calc(8*var(--u))}
+.m{color:var(--ink-muted)}
+.np{clip-path:polygon(var(--u) 0,calc(100% - var(--u)) 0,100% var(--u),100% calc(100% - var(--u)),calc(100% - var(--u)) 100%,var(--u) 100%,0 calc(100% - var(--u)),0 var(--u))}
+
+/* Panel: Chrome.Type.TOAST_TR_HEAVY */
+.panel{box-sizing:border-box;width:calc(220*var(--u));padding:calc(4*var(--u));
+  background:rgba(0,0,0,.78);box-shadow:inset 0 0 0 var(--u) rgba(255,255,255,.16);
+  display:flex;flex-direction:column;gap:calc(6*var(--u))}
+
+/* Mode strip: Chrome.Type.TOAST_TR; also the collapsed form of the whole Panel */
+.strip{box-sizing:border-box;display:flex;align-items:baseline;gap:calc(4*var(--u));padding:calc(2*var(--u)) calc(3*var(--u));
+  background:rgba(0,0,0,.5);box-shadow:inset 0 0 0 var(--u) rgba(255,255,255,.14)}
+.strip.alone{width:calc(220*var(--u));background:rgba(0,0,0,.62)}
+.strip .running{color:var(--running)} .strip .paused{color:var(--paused)} .strip .human{color:var(--human)}
+.strip .ctr{display:inline-grid;grid-template-columns:auto 4ch;column-gap:1ch}
+.strip .ctr.first{margin-left:auto}
+.strip .num{text-align:right}
+.strip .oracle{color:var(--oracle)}
+
+.goal{color:var(--goal)}
+
+/* Decision card */
+.card .row{display:grid;grid-template-columns:22ch 5ch 1fr;column-gap:1ch}
+.card .score{text-align:right}
+.card .chosen{color:var(--chosen)}
+.card .alt{color:var(--alternative)}
+.card .why{color:var(--ink-muted)}
+.card.grey .chosen,.card.grey .alt,.card.grey .why{color:var(--ink-dim)}
+
+/* Flag chip: Chrome.Type.TAG */
+.flags{display:flex;gap:calc(2*var(--u));flex-wrap:wrap}
+.chip{display:inline-block;padding:var(--u) calc(3*var(--u));background:rgba(0,0,0,.55)}
+.chip.ok{color:var(--ok);box-shadow:inset 0 0 0 var(--u) rgba(102,221,102,.45)}
+.chip.warn{color:var(--warn);box-shadow:inset 0 0 0 var(--u) rgba(255,211,77,.45)}
+.chip.danger{color:var(--danger);box-shadow:inset 0 0 0 var(--u) rgba(255,85,85,.45)}
+
+/* Belief rows */
+.beliefs{display:flex;flex-direction:column}
+.brow{display:grid;grid-template-columns:16ch 9ch 5ch 9ch 5ch;column-gap:1ch}
+.brow .p{text-align:right}
+.orow{display:grid;grid-template-columns:7ch 1fr;column-gap:1ch}
+.orow .lbl{color:var(--ink-muted)}
+
+/* Decision log */
+.log{display:flex;flex-direction:column;position:relative;padding-right:calc(4*var(--u))}
+.log .l{display:grid;grid-template-columns:4ch 5ch 1fr 5ch;column-gap:1ch;color:var(--ink-muted)}
+.log .l.cur{color:var(--ink)}
+.log .score{text-align:right}
+.log::after{content:"";position:absolute;right:0;bottom:0;width:calc(2*var(--u));height:40%;background:rgba(255,255,255,.22)}
+.log::before{content:"";position:absolute;right:0;top:0;width:calc(2*var(--u));height:100%;background:rgba(255,255,255,.06)}
+
+/* Controls: RedButton; disabled = ink-dim, non-interactive. Speed selector: TAB_SET */
+.controls{display:flex;flex-direction:column;gap:calc(2*var(--u))}
+.crow{display:flex;gap:calc(2*var(--u));flex-wrap:wrap;align-items:flex-start}
+.btn{padding:var(--u) calc(3*var(--u));background:#6e2424;color:var(--ink);
+  box-shadow:inset 0 var(--u) 0 #a64444,inset 0 0 0 var(--u) #3c1010}
+.btn.dis{background:#3a1616;color:var(--ink-dim);box-shadow:inset 0 var(--u) 0 #4a2020,inset 0 0 0 var(--u) #2a0c0c}
+.tabs{display:inline-flex;padding:var(--u);background:rgba(0,0,0,.5);box-shadow:inset 0 0 0 var(--u) rgba(255,255,255,.18)}
+.tab{padding:var(--u) calc(3*var(--u));color:var(--ink-muted)}
+.tab.sel{background:rgba(255,255,255,.16);color:var(--ink)}
+.tabs.dis .tab{color:var(--ink-dim)} .tabs.dis .tab.sel{background:rgba(255,255,255,.06)}
+/* Stepper: two tiny RedButtons (minus, plus) flanking a numeric value; small text; Run N count and Human play speed interval */
+.stepper{display:inline-flex;align-items:center;gap:var(--u);align-self:center}
+.stepper .tiny{padding:0 calc(2*var(--u));background:#6e2424;color:var(--ink);box-shadow:inset 0 var(--u) 0 #a64444,inset 0 0 0 var(--u) #3c1010}
+.stepper .val{min-width:4ch;text-align:right;color:var(--ink)}
+.stepper.dis .tiny{background:#3a1616;color:var(--ink-dim);box-shadow:inset 0 var(--u) 0 #4a2020,inset 0 0 0 var(--u) #2a0c0c}
+.stepper.dis .val{color:var(--ink-dim)}
+/* oracle-only map mark: unseen enemy outlined in the oracle color */
+.view .cell{position:absolute;width:48px;height:48px;box-sizing:border-box}
+.view .hl-oracle{box-shadow:inset 0 0 0 3px var(--oracle)}
+
+/* mock legend for map highlights (a key for the reader, not an Overlay surface) */
+.legend{margin-top:16px;display:flex;flex-direction:column;gap:8px;font-size:12px;color:#8a8a8a}
+.legend .k{display:flex;align-items:center;gap:10px}
+.legend .sw{width:24px;height:24px;box-sizing:border-box;background:#1a1720}
+.legend .sw.path{box-shadow:inset 0 0 0 2px var(--chosen)}
+.legend .sw.target{box-shadow:inset 0 0 0 2px var(--danger)}
+.legend .sw.cons{box-shadow:inset 0 0 0 2px var(--alternative)}
+
+/* oracle variant: a game-view placeholder with the 2 UI px oracle frame drawn above everything */
+.view{position:relative;width:960px;height:560px;overflow:hidden;background:#0a0a0e;
+  background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);
+  background-size:48px 48px}
+.view .room{position:absolute;background:#1a1720;box-shadow:inset 0 0 0 3px #2c2836}
+.view .hud{position:absolute;box-sizing:border-box;background:rgba(0,0,0,.55);box-shadow:inset 0 0 0 3px rgba(255,255,255,.14);color:#6f6f6f;font-size:12px;line-height:16px;padding:6px 8px}
+.view .panel{position:absolute;right:0;top:96px}
+.view .oborder{position:absolute;inset:0;box-shadow:inset 0 0 0 6px var(--oracle);pointer-events:none}
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>key-panel-states &mdash; RUNNING, HUMAN, THINKING, collapsed Mode strip, oracle border</h1>
+<p class="note">Five Panel states at 3x (1 UI px = 3 CSS px), abbreviated to the sections each state changes. The full Panel with every section is in key-panel-paused.html.</p>
+
+<div class="states">
+
+<!-- 1. RUNNING at Human play speed -->
+<div class="state">
+<h2>1. RUNNING, speed mode Human 1.0s, Flow 2 step 1: Pause enabled, Next Step acts as Pause, Run N disabled, map highlights drawn</h2>
+<div class="ui panel np">
+  <div class="strip np b"><span class="running">RUNNING</span><span>Human 1.0s</span><span class="ctr first"><span>turn</span><span class="num">410</span></span><span class="ctr"><span>floor</span><span class="num">3</span></span></div>
+  <div class="goal t">Fight: gnoll x2, doorway one cell north</div>
+  <div class="card b">
+    <div class="row chosen"><span>move 22,9</span><span class="score">0.58</span><span class="why">doorway, 1 on 1</span></div>
+    <div class="row alt"><span>attack gnoll</span><span class="score">0.55</span><span class="why">open ground, 2 on 1</span></div>
+    <div class="row alt"><span>drink turquoise potion</span><span class="score">0.40</span><span class="why">healing 0.35</span></div>
+    <div class="row alt"><span>retreat 20,12</span><span class="score">0.31</span><span class="why">open ground</span></div>
+  </div>
+  <div class="flags"><span class="chip warn np s">conditional: doorway holds if reached first</span></div>
+  <div class="controls b">
+    <div class="crow"><span class="btn np">Pause</span><span class="btn np">Next Step</span><span class="btn np dis">Run N</span><span class="stepper s dis"><span class="tiny np">-</span><span class="val">10</span><span class="tiny np">+</span></span><span class="btn np">Take over</span></div>
+    <div class="crow"><span class="tabs np"><span class="tab np">Next Step</span><span class="tab np sel">Human</span><span class="tab np">Fast</span></span><span class="stepper s"><span class="tiny np">-</span><span class="val">1.0s</span><span class="tiny np">+</span></span><span class="btn np">Explain</span></div>
+  </div>
+</div>
+<div class="legend">
+  <div class="k"><span class="sw path"></span>planned path (chosen)</div>
+  <div class="k"><span class="sw target"></span>target (danger)</div>
+  <div class="k"><span class="sw cons"></span>considered cells (alternative)</div>
+</div>
+</div>
+
+<!-- 2. HUMAN -->
+<div class="state">
+<h2>2. HUMAN, Flow 2 steps 2-3: card greyed, highlights hidden, Hand back and Explain enabled, human Actions logged</h2>
+<div class="ui panel np">
+  <div class="strip np b"><span class="human">HUMAN</span><span>Human 1.0s</span><span class="ctr first"><span>turn</span><span class="num">412</span></span><span class="ctr"><span>floor</span><span class="num">3</span></span></div>
+  <div class="goal t">Fight: gnoll x2, doorway one cell north</div>
+  <div class="card grey b">
+    <div class="row chosen"><span>attack gnoll</span><span class="score">0.61</span><span class="why">doorway held</span></div>
+    <div class="row alt"><span>drink turquoise potion</span><span class="score">0.22</span><span class="why">identified: healing</span></div>
+    <div class="row alt"><span>retreat 20,12</span><span class="score">0.19</span><span class="why">open ground</span></div>
+    <div class="row alt"><span>wait</span><span class="score">0.10</span><span class="why"></span></div>
+  </div>
+  <div class="beliefs b">
+    <div class="brow"><span>turquoise potion</span><span>healing</span><span class="p">1.00</span><span class="m"></span><span class="p m"></span></div>
+    <div class="brow"><span>crimson potion</span><span>toxic gas</span><span class="p">0.30</span><span class="m">frost</span><span class="p m">0.25</span></div>
+  </div>
+  <div class="log s">
+    <div class="l"><span>t410</span><span>bot</span><span>move 22,9</span><span class="score">0.58</span></div>
+    <div class="l"><span>t411</span><span>mode</span><span>HUMAN</span><span></span></div>
+    <div class="l"><span>t411</span><span>human</span><span>move 22,9</span><span></span></div>
+    <div class="l cur"><span>t412</span><span>human</span><span>drink turquoise potion</span><span></span></div>
+  </div>
+  <div class="controls b">
+    <div class="crow"><span class="btn np dis">Pause</span><span class="btn np dis">Next Step</span><span class="btn np dis">Run N</span><span class="stepper s dis"><span class="tiny np">-</span><span class="val">10</span><span class="tiny np">+</span></span><span class="btn np">Hand back</span></div>
+    <div class="crow"><span class="tabs np dis"><span class="tab np">Next Step</span><span class="tab np sel">Human</span><span class="tab np">Fast</span></span><span class="stepper s dis"><span class="tiny np">-</span><span class="val">1.0s</span><span class="tiny np">+</span></span><span class="btn np">Explain</span></div>
+  </div>
+</div>
+</div>
+
+<!-- 3. THINKING -->
+<div class="state">
+<h2>3. PAUSED with THINKING suffix, Flow 1 failure path: previous Decision stays, the Next Step press is queued</h2>
+<div class="ui panel np">
+  <div class="strip np b"><span class="paused">PAUSED</span><span>THINKING</span><span>Next Step</span><span class="ctr first"><span>turn</span><span class="num">17</span></span><span class="ctr"><span>floor</span><span class="num">2</span></span></div>
+  <div class="goal t">Fight: gnoll scout, corridor two cells east</div>
+  <div class="card b">
+    <div class="row chosen"><span>attack gnoll scout</span><span class="score">0.81</span><span class="why">adjacent, hp 18/20</span></div>
+    <div class="row alt"><span>retreat 12,7</span><span class="score">0.33</span><span class="why">corridor</span></div>
+    <div class="row alt"><span>throw dart</span><span class="score">0.29</span><span class="why">adjacent, no gain</span></div>
+    <div class="row alt"><span>wait</span><span class="score">0.12</span><span class="why"></span></div>
+  </div>
+  <div class="flags"><span class="chip ok np s">ok: fighting in corridor</span></div>
+  <div class="controls b">
+    <div class="crow"><span class="btn np">Resume</span><span class="btn np dis">Next Step</span><span class="btn np">Run N</span><span class="stepper s"><span class="tiny np">-</span><span class="val">10</span><span class="tiny np">+</span></span><span class="btn np">Take over</span></div>
+    <div class="crow"><span class="tabs np"><span class="tab np sel">Next Step</span><span class="tab np">Human</span><span class="tab np">Fast</span></span><span class="stepper s"><span class="tiny np">-</span><span class="val">1.0s</span><span class="tiny np">+</span></span><span class="btn np">Explain</span></div>
+  </div>
+</div>
+</div>
+
+<!-- 4. collapsed -->
+<div class="state">
+<h2>4. Panel collapsed: the Mode strip alone (click or F11 restores the Panel; hotkeys still work)</h2>
+<div class="ui strip alone np b"><span class="paused">PAUSED</span><span>Next Step</span><span class="ctr first"><span>turn</span><span class="num">14</span></span><span class="ctr"><span>floor</span><span class="num">2</span></span></div>
+</div>
+
+<!-- 5. oracle -->
+<div class="state">
+<h2>5. Oracle, Flow 4 steps 1-2: 2 UI px oracle frame around the whole game view, ORACLE label in the Mode strip, oracle rows in the Belief summary, unseen enemy outlined on the map</h2>
+<div class="view">
+  <div class="room" style="left:96px;top:144px;width:288px;height:240px"></div>
+  <div class="room" style="left:384px;top:240px;width:144px;height:48px"></div>
+  <div class="cell hl-oracle" style="left:240px;top:432px"></div>
+  <div class="hud" style="left:0;top:0;width:384px;height:96px">status pane</div>
+  <div class="hud" style="right:0;top:0;width:93px;height:96px;padding:6px 4px">menu<br>31</div>
+  <div class="hud" style="left:0;bottom:0;width:560px;height:72px">toolbar</div>
+  <div class="ui panel np">
+    <div class="strip np b"><span class="paused">PAUSED</span><span>Next Step</span><span class="ctr first"><span>turn</span><span class="num">3</span></span><span class="ctr"><span>floor</span><span class="num">1</span></span><span class="oracle">ORACLE</span></div>
+    <div class="goal t">Explore: strength potion guaranteed on this floor</div>
+    <div class="beliefs b">
+      <div class="brow"><span>turquoise potion</span><span>healing</span><span class="p">0.35</span><span class="m">strength</span><span class="p m">0.20</span></div>
+      <div class="orow"><span class="lbl">oracle:</span><span>turquoise potion = healing</span></div>
+      <div class="brow"><span>crimson potion</span><span>toxic gas</span><span class="p">0.30</span><span class="m">frost</span><span class="p m">0.25</span></div>
+      <div class="orow"><span class="lbl">oracle:</span><span>crimson potion = frost</span></div>
+      <div class="orow"><span class="lbl">oracle:</span><span>gnoll scout at 19,7, unseen</span></div>
+    </div>
+  </div>
+  <div class="oborder"></div>
+</div>
+</div>
+
+</div>
+
+</div>
+</body>
+</html>
