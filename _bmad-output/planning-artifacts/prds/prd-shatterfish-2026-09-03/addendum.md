@@ -16,10 +16,10 @@ Derived from PRD section 6.1, which is the binding scope statement; keep the two
 | Epic | Requirements | Done when (brief and bootstrap) |
 |---|---|---|
 | E0 Bootstrap | FR-48 to FR-53 (FR-50's first use is after E3) | Bootstrap section 11 checklist |
-| E1 Harness | FR-1 to FR-5, FR-7 to FR-12; FR-6 interface reserved | Turns per second and tactics properties published (SM-4); determinism green; fairness suite green |
+| E1 Harness | FR-1 to FR-5, FR-7 to FR-12; FR-6 interface reserved | Input waits per second and tactics properties published (SM-4); determinism green; fairness suite green |
 | E2 Codex | FR-14 to FR-17 | One task regenerates the Codex; CI fails on drift |
 | E3 Rig | FR-19 to FR-25, the E3 half of FR-26 | Baseline and paired-seed correlation published; worse Brain rejected (SM-5) |
-| E4 Baseline brain | FR-27 to FR-33, FR-36, the E4 half of FR-26 | Warrior kills Goo on at least 75% of `standard`, lower bound 70% (SM-3) |
+| E4 Baseline brain | FR-27 to FR-33, FR-36, the E4 half of FR-26 | Warrior kills Goo on at least 75% of the `goo` set (400 Warrior triples), lower bound 70% (SM-3) |
 | E5 Overlay v1 | FR-37 to FR-43 | Full sewers run with mid-fight takeover, no desync (SM-6) |
 | E6 Tactical search | FR-6 realization, FR-13, FR-34, SPSA tuning of FR-33 | Sequential-test-significant improvement over E4 |
 | E7 Strategy and lore | FR-18, FR-35 | Measured win rate; every heuristic links to a Lore entry or Rule with a Tier |

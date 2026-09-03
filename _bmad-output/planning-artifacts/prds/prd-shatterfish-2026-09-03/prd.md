@@ -1,7 +1,7 @@
 ---
 title: 'PRD: Shatterfish'
 status: final
-version: 2
+version: 3
 created: '2026-09-03'
 updated: '2026-09-03'
 inputs:
@@ -95,7 +95,7 @@ The goal ladder has two rungs at the top: first beat the final boss, then score 
 **Rig**
 
 - **Rig** — The module and tooling that runs many seeded games in parallel, compares two Brains with a Sequential test, writes Run logs, Replays them, and publishes Results.
-- **Run** — One game from a fresh Profile to death, Win, or a turn cap, fully determined by (Upstream tag, hero class, challenge flags, seed, Action list). In the bootstrap prompt's shorter tuple, class and flags are part of what "seed" fixes.
+- **Run** — One game from a fresh Profile to death, Win, or the turn cap (20,000 hero turns `[ASSUMPTION: revisable by the E3 ADR from the measured Run-length distribution]`, recorded as a loss with cause `turn cap`), fully determined by (Upstream tag, hero class, challenge flags, seed, Action list). In the bootstrap prompt's shorter tuple, class and flags are part of what "seed" fixes.
 - **Win** — The game's own victory condition as it records it (the Amulet obtained and the Run ended, with or without ascension, Tier 3). Killing Yog-Dzhewa is the last obstacle, not the Win.
 - **Score** — The in-game score the game reports for a Run, comparable only between Runs with the same challenge flags (Tier 3: the game scales score by challenges).
 - **Seed set** — A named, versioned, committed list of (seed, hero class, challenge flags) triples: `smoke`, `standard`, `holdout` (never run during development), `bosses`.
@@ -147,6 +147,7 @@ The Harness can reproduce a Run exactly: two Runs with the same Upstream tag, he
 - Every random source the game uses, including the general-purpose generator used for combat rolls (Tier 3), is seeded by the Harness; the seeding strategy is an ADR (open question 4).
 - Wall-clock time, thread scheduling, hash-map iteration order, and Profile contents do not influence any Observation.
 - One process hosts one Run at a time; each Run has its own Profile and working directory. If the E1 isolation spike lets a process host several Runs, determinism must hold per isolated instance and the same tests apply.
+- The Brain is deterministic given the Observation sequence and its own seeded generator: two Runs with the same tuple produce the same Action list, not only the same Observations for a given Action list. The Overlay's thinking budget (NFR-4) never changes a Decision: an overrun delays it, and in the Rig no budget applies. A Replay whose Decision differs from the Run log's at any Input wait is a determinism failure and the Replay test reports it.
 - The determinism test runs in CI on every pull request.
 
 #### FR-3: Observer produces the Observation
@@ -276,7 +277,7 @@ The Rig can run a Seed set for one or two Brains across parallel processes and c
 - One process per Run, each with its own Profile and working directory; the `--parallel` flag sets how many processes run at once; the runner reports throughput and the number of processes used.
 
 #### FR-20: Seed sets
-Seed sets are committed files of (seed, hero class, challenge flags) triples with initial sizes `smoke` 25, `standard` 500, `holdout` 500, `bosses` 100 (revisable by ADR once throughput is measured, together with SM-3's bound). `holdout` is never run during development, may be used only to publish a release-level number or the SM-1 claim, at most once per Brain version, and every use is recorded in the Results.
+Seed sets are committed files of (seed, hero class, challenge flags) triples with initial sizes `smoke` 25, `standard` 500, `holdout` 500, `bosses` 100, and `goo` 400 (Warrior only, no challenge flags; the E4 gate's set, sized so that an observed 75% Goo-kill rate gives a Wilson lower bound above 70%) (revisable by ADR once throughput is measured, together with SM-3's bound). `holdout` is never run during development, may be used only to publish a release-level number or the SM-1 claim, at most once per Brain version, and every use is recorded in the Results.
 
 **Consequences (testable):**
 - A Results file names the Seed set and its version, and therefore the classes and flags it fixes.
@@ -286,7 +287,7 @@ Seed sets are committed files of (seed, hero class, challenge flags) triples wit
 The Rig compares two Brains with a Sequential test over Per-pair statistics, with bounds in that unit, and reports accept, reject, or undecided with the log-likelihood trace.
 
 **Consequences (testable):**
-- A deliberately worse Brain is rejected on the `standard` set.
+- A deliberately worse Brain is rejected on the `standard` set: the E3 reference is the random agent with the descend Action removed, which reaches fewer bosses and less depth by construction; from E4 on it is the Baseline with its heal Policy removed.
 - The test does not stop before a burn-in; realized error rates are validated by simulation on the Rig's own outcome distribution and published on the methodology page; `smoke` is sized for direction, not acceptance, and the Results page says which it was.
 - The measured paired-seed correlation is reported with every comparison.
 - Every Results page shows the survival curve and median death depth beside the outcome, so a Brain that dies deeper without passing bosses is visible.
@@ -348,7 +349,7 @@ Provenance: unseen-monster memory is in v1 because the strongest published bot l
 The Brain scores the worst case of using an unidentified item at a cell over its candidate identities, using visible terrain and enemies, and uses the score to decide when and where to test unknown items.
 
 #### FR-31: Scripted baseline Policies
-The v1 Brain includes Policies for explore, pick up, equip, eat, heal, test unknown items (through safeTest), fight in corridors, answer Prompts, and descend, sufficient for the Warrior to kill Goo on at least 75% of the `standard` Seed set's Warrior triples with a lower confidence bound of at least 70% at the set's committed size.
+The v1 Brain includes Policies for explore, pick up, equip, eat, heal, test unknown items (through safeTest), fight in corridors, answer Prompts, and descend, sufficient for the Warrior to kill Goo on at least 75% of the `goo` Seed set (400 Warrior triples, FR-20) with a lower confidence bound of at least 70% at that size.
 
 #### FR-32: Decision output
 Every Decision contains the chosen Action, at least the top three alternatives with scores and one-line reasons, the Goal, Safety flags, and the Policy that fired, in Codex vocabulary.
@@ -514,9 +515,9 @@ Milestones mirror Epics and issues mirror Stories, idempotently, for the current
 ## 7. Success metrics
 
 **Primary**
-- **SM-1**: Headline Win. The Brain wins a Run (the game's own victory condition) on a seed from `holdout` or a fresh set drawn at claim time, with no prior Runs of that Brain on that seed, reproducible from its Run log; the Results page records the ledger count. Validates FR-2, FR-20, FR-23, FR-24, FR-27 to FR-33.
+- **SM-1**: Headline Win. The Brain wins a Run (the game's own victory condition) on a seed from `holdout` or a fresh set drawn at claim time (one draw of at most 50 seeds per Brain version, every Run in the draw published whether won or lost), with no prior Runs of that Brain on that seed, reproducible from its Run log; the Results page records the ledger count. Validates FR-2, FR-20, FR-23, FR-24, FR-27 to FR-33.
 - **SM-2**: Highest verified Score. The highest Score of a winning Run within one registered pass of a named Seed set version, per challenge-flag set (the no-challenge set is canonical) and reported with and without ascension; the first target is set when SM-1 is first achieved. Validates FR-19 to FR-25, FR-33, FR-35.
-- **SM-3**: E4 rung: the Warrior kills Goo on at least 75% of the `standard` Seed set's Warrior triples (lower confidence bound at least 70% at the committed size), with the survival curve and boss-kill staircase published. Validates FR-25, FR-31.
+- **SM-3**: E4 rung: the Warrior kills Goo on at least 75% of the `goo` Seed set (400 Warrior triples; lower confidence bound at least 70% at that size), with the survival curve and boss-kill staircase published. Validates FR-25, FR-31.
 
 **Secondary**
 - **SM-4**: E1 rung: Input waits per second per process and the tactics' leaf correlation and disambiguation published; determinism test green. Validates FR-2, FR-5.
@@ -603,4 +604,4 @@ The field is empty: no bot, RL agent, gym, or headless harness exists for SPD. U
 No `[ASSUMPTION]` tags remain: the product owner resolved the first draft's assumptions or delegated them, and the memlog records each decision. Statements about the game that this PRD relies on are marked "(Tier 3)" inline and collected in open question 12.
 
 - `[NOTE FOR PM]` callouts (deliberate changes to bootstrap "done when" statements): FR-5 (E1 done-when becomes measured numbers); section 6.2 (coach mode position).
-- Decisions taken under delegation: unseen-monster memory in v1 Beliefs (FR-29); Panel at the right edge over the dungeon, left of the inventory pane, with collapse to the Mode strip below 200 UI pixels of map (FR-38); hotkeys in v1 with a fallback (FR-42); the Goo threshold of 75% with a 70% lower bound at the committed size (FR-31, SM-3); initial Seed-set sizes (FR-20); the Composite outcome order and the Per-pair statistic (Glossary, FR-21); PAUSED ignores hero input and a Run starts in PAUSED with Next Step (Glossary Mode, FR-39, FR-40); the hook budget of eight (section 10); the vanilla Pixel Dungeon source for the vocabulary diff (section 11).
+- Decisions taken under delegation: unseen-monster memory in v1 Beliefs (FR-29); Panel at the right edge over the dungeon, left of the inventory pane, with collapse to the Mode strip below 200 UI pixels of map (FR-38); hotkeys in v1 with a fallback (FR-42); the Goo threshold of 75% with a 70% lower bound on a dedicated `goo` set of 400 Warrior triples (FR-20, FR-31, SM-3); the turn cap of 20,000 (Glossary Run); the deliberately worse Brains of FR-21; the SM-1 fresh-draw bound of 50; initial Seed-set sizes (FR-20); the Composite outcome order and the Per-pair statistic (Glossary, FR-21); PAUSED ignores hero input and a Run starts in PAUSED with Next Step (Glossary Mode, FR-39, FR-40); the hook budget of eight (section 10); the vanilla Pixel Dungeon source for the vocabulary diff (section 11).

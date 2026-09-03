@@ -3,7 +3,18 @@
 - **PRD:** `C:\Users\Claude-Code\shatterfish\_bmad-output\planning-artifacts\prds\prd-shatterfish-2026-09-03\prd.md`
 - **Rubric:** `C:\Users\Claude-Code\shatterfish\.claude\skills\bmad-prd\assets\prd-validation-checklist.md`
 - **Run at:** 2026-09-03T23:20:38Z
-- **Grade:** Poor
+- **Grade:** Poor as first reviewed (v1); **Fair** on the v2 re-run (rubric only); the v2 highs are fixed in v3. See the re-run section.
+
+## Re-run on PRD v2 (rubric walker, 2026-09-03T23:36:06Z)
+
+- **Grade for v2 as reviewed:** Fair (two high findings, no critical, no broken dimension). Review file: `review-rubric-v2.md`.
+- **Dimension verdicts:** Decision-readiness strong; Substance over theater strong; Strategic coherence strong; Done-ness clarity adequate; Scope honesty adequate; Downstream usability strong; Shape fit strong.
+- **Findings:** 0 critical, 2 high, 5 medium, 5 low.
+- **High 1** — SM-3/FR-31 could not be satisfied on `standard` as specified (about 83 Warrior triples, where a 70% lower bound at 75% observed needs about 350). Status: fixed in v3 (dedicated `goo` Seed set of 400 Warrior triples, FR-20).
+- **High 2** — The byte-for-byte reproduction in UJ-3 required Brain determinism that no FR stated, and NFR-4's time budget worked against it. Status: fixed in v3 (FR-2 consequence: the Brain is deterministic given the Observation sequence and its seeded generator; the budget never changes a Decision; a Replay divergence is a reported failure).
+- **Mediums** — SM-1 fresh-draw bound (fixed in v3: one draw of at most 50 seeds, all published); "deliberately worse Brain" undefined (fixed in v3: random agent without descend at E3, Baseline without heal from E4); turn cap undefined (fixed in v3: 20,000 hero turns, assumption); fresh Profile per Run versus class availability and the UJ-4 learner (open, v2 concern); §14 delegated decisions carry no rejected alternative (open; the addendum's options section covers the headline metric only).
+- **Lows** — open: FR-42 "small" Hook and §9 "clear message"; NFR-4 frame rate has no number; FR-17 docs-side "every"; open question 6 "median human".
+- **Mechanical** — addendum "turns per second" (fixed in v3); addendum epic map omits the tagged E4/E5 consequences of 6.1 (open); `DESIGN.md` cited but absent from the frontmatter inputs (open, EXPERIENCE.md is listed and references it); FR-2's Tier 3 claim missing from open question 12 (open); "Explain" names both the v1 control and the v2 view (open).
 
 ## Overall verdict
 
