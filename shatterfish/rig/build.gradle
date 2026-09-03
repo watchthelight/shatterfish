@@ -1,0 +1,7 @@
+// rig: parallel runner, seed sets, SPRT, run logs, replay.
+apply from: "$rootDir/shatterfish/java-module.gradle"
+
+dependencies {
+    implementation project(':harness')
+    implementation project(':brain')
+}

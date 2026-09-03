@@ -3,8 +3,8 @@ include ':SPD-classes'
 include ':core'
 
 //platform modules
-include ':android'
-include ':ios'
+//shatterfish hook #1 (docs/UPSTREAM.md): mobile modules are opt-in via -Pshatterfish.mobile=on
+apply from: 'shatterfish/settings.gradle'
 include ':desktop'
 
 //service modules

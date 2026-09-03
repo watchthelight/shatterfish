@@ -1,0 +1,8 @@
+// overlay: in-game UI (native toolkit only) and ShatterfishLauncher.
+apply from: "$rootDir/shatterfish/java-module.gradle"
+
+dependencies {
+    implementation project(':core')
+    implementation project(':harness')
+    implementation project(':brain')
+}

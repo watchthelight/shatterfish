@@ -1,0 +1,2 @@
+// api: DTOs only (Observation, Action, Decision, run-log records). Depends on nothing.
+apply from: "$rootDir/shatterfish/java-module.gradle"

@@ -37,10 +37,11 @@ at the same commit. It is a pre-release name and was not chosen.
 
 | # | File(s) | Why | Guard | Introduced | Verified at tag |
 |---|---|---|---|---|---|
-| _none yet_ | | | | | |
+| 1 | `settings.gradle` | Desktop and headless builds must never need the Android SDK or Xcode; Shatterfish modules need including | The two mobile `include` lines are replaced by one `apply from: 'shatterfish/settings.gradle'`; that file includes `android`/`ios` only with `-Pshatterfish.mobile=on` (default `off`) and includes the six Shatterfish modules. Upstream behaviour is restored with `-Pshatterfish.mobile=on`. | 2026-09-03, E0 S2 (#1) | v3.3.8 |
 
-Hook #1 is expected in Session 2: a guarded `include` in `settings.gradle` so
-the build does not require the Android SDK.
+`README.md` and `.gitignore` are also modified (rewritten README; appended ignore
+entries). They are documentation, not build hooks, and are re-applied on upgrade
+by taking "ours" in the merge.
 
 ## Upgrade procedure
 
