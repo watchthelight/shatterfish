@@ -3,4 +3,6 @@ apply from: "$rootDir/shatterfish/java-module.gradle"
 
 dependencies {
     implementation project(':core')
+    // The Codex writes api-typed JSON (AD-13); it never hands a game class to the Brain.
+    api project(':api')
 }
