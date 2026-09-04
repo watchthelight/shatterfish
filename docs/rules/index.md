@@ -22,16 +22,28 @@ Rules are re-verified on every upstream upgrade (`docs/UPSTREAM.md`, upgrade pro
 a citation that no longer resolves, or resolves to different code, flips the rule to needs-review
 until re-read.
 
-## Example
-
-| Rule | Cites | Test | Tier | Since |
-|---|---|---|---|---|
-| The `Random` class that combat rolls use is separate from the level-generation seed and is reseeded from the clock unless the harness seeds it | [`SPD-classes/src/main/java/com/watabou/utils/Random.java`](https://github.com/watchthelight/shatterfish/blob/v3.3.8/SPD-classes/src/main/java/com/watabou/utils/Random.java) (line to be cited by the E1 determinism story) | none yet (E1 determinism test, [#1](https://github.com/watchthelight/shatterfish/issues/1)) | 3 | session 3 (unverified, from the bootstrap prompt) |
-
-The example is deliberately at tier 3: it was written from the bootstrap prompt, not from the
-code, and stays a hypothesis until an E1 story reads `Random.java` and cites the line.
-
 ## Pages
 
-_None yet._ The first pages arrive with bootstrap session 10 (codebase documentation) and E1
-(visibility and RNG).
+Written in bootstrap session 10 from the pinned code (275 rows, all tier 1). Each page ends with a
+"Not confirmed" list: what the reader looked for and could not settle, which is where the E1
+stories start. The [Codebase map](../codebase-map.md) indexes the files behind every page and
+records where the code contradicted the bootstrap prompt.
+
+| Page | Rows | Covers |
+|---|---|---|
+| [Game loop and hero input](game-loop.md) | 24 | Actor scheduling, the actor thread, how a hero turn starts and ends, sprite-gated turn resolution, windows and scene switches. |
+| [Visibility](visibility.md) | 24 | What `Dungeon.observe` computes, field of view, fog, secret doors and traps, heaps, mob sprites, and every leak of unseen mobs found. |
+| [Items and identification](identification.md) | 28 | What an unidentified item shows the player, how appearances are shuffled from the seed, what identifies on use or equip, and what the Observer must never read. |
+| [Mobs, AI and combat](combat.md) | 29 | AI states, noticing, `Char.hit`, damage and armor rolls, spawn tables, boss floors and the stair lock. |
+| [Level generation and floors](levels.md) | 27 | Depths and branches, per-floor seeding, room lists, special and secret rooms, guaranteed solution items, traps, hidden doors, stairs. |
+| [Item generation and guarantees](generation.md) | 22 | `Generator` decks and weights, the strength potion and upgrade scroll schedules, `LimitedDrops`, bones, heap types. |
+| [Random numbers and seeding](rng.md) | 21 | The generator stack, what the seed fixes, what runs on the unseeded base generator, and every other source of nondeterminism found. |
+| [Buffs, status effects and blobs](buffs.md) | 24 | How buffs reach the HUD, what each vision buff does, hunger and regeneration, dangerous effects with their numbers, gas and fire visibility. |
+| [UI toolkit and layout](ui.md) | 26 | UI pixels and `defaultZoom`, the full desktop layout with its sizes, `Chrome` types, text sizes, default key bindings, the camera offset, what an overlay can reach. |
+| [Save, score, win and profiles](save-score-win.md) | 26 | `Bundle` saves, slots and save paths, the score formula, what a Win is, ascension, the class list, challenges, cross-run state. |
+| [Text, assets, changelog and build](text-assets.md) | 24 | `Messages` key derivation, the journal documents, the changelog, version constants, the Gradle modules and toolchain. |
+
+Every test column still reads "none yet": the tests arrive with the epics that rely on each row
+(E1 for the game loop, visibility, RNG and identification pages; E3 for score and win; E5 for the
+UI page), tracked under [#1](https://github.com/watchthelight/shatterfish/issues/1) until the
+story issues exist.

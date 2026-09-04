@@ -23,19 +23,20 @@ colors:
   oracle: '#FF2020'
   panel-scrim: '#000000'
 typography:
-  # The game's pixel font, rendered through PixelScene.renderTextBlock at the game's
-  # own sizes (UI pixels before the interface scale). No other font may appear.
+  # The game's UI text: PixelScene.renderTextBlock renders the platform TTF the game ships
+  # (pixel_font.ttf on desktop) at the game's own sizes in UI pixels before defaultZoom.
+  # The 3x5 bitmap pixelFont is only for the version and depth numbers. No other font may appear.
   title:
-    fontFamily: 'SPD pixel font'
+    fontFamily: 'SPD UI font (renderTextBlock)'
     fontSize: 9px
   body:
-    fontFamily: 'SPD pixel font'
+    fontFamily: 'SPD UI font (renderTextBlock)'
     fontSize: 8px
   small:
-    fontFamily: 'SPD pixel font'
+    fontFamily: 'SPD UI font (renderTextBlock)'
     fontSize: 6px
   numeric:
-    fontFamily: 'SPD pixel font'
+    fontFamily: 'SPD UI font (renderTextBlock)'
     fontSize: 8px
     note: 'Right-aligned in fixed-width columns so numbers read as a table; the pixel font is not monospace, so alignment is by column, not by glyph'
 rounded:
@@ -123,13 +124,13 @@ Avoid: colored backgrounds behind text, gradients, any color for emphasis that i
 
 ## Typography
 
-One font: the game's pixel font through `renderTextBlock`, at the game's own sizes in UI pixels, **title 9** (the Goal line and section labels), **body 8** (the decision card, controls, beliefs), **small 6** (the decision log and probabilities). No bold, no italics, no other face; the game's `_highlight_` markup is allowed only for the chosen Action's name.
+One font: the game's UI text font through `renderTextBlock` (the game's own sizes are 5 to 12 UI pixels; `docs/rules/ui.md`), **title 9** (the Goal line and section labels), **body 8** (the decision card, controls, beliefs), **small 6** (the decision log and probabilities). No bold, no italics, no other face; the game's `_highlight_` markup is allowed only for the chosen Action's name.
 
 Numbers are the instrument's signature. Scores, probabilities, and turn and Floor counters are right-aligned in fixed-width columns so that the eye can compare them without reading; the pixel font is not monospace, so alignment is by column position, never by padding with characters.
 
 ## Layout & Spacing
 
-Everything is on the game's UI-pixel grid (1, 2, 4, 6, 8) before the interface scale multiplies it, and everything is snapped with `PixelScene.align` so the frames and text stay crisp at every scale. Panel padding is 4; rows are 2 apart; sections are 6 apart. The Panel is a single column at the right edge of the dungeon view, to the left of the inventory pane's column (187 wide, bottom right) and below the status pane's row, ending above the toolbar (Tier 3 for those sizes). It is drawn translucently over the dungeon, never over the game's HUD. The world camera is offset so the hero stays centered in the uncovered area. Width: target 200 UI pixels, minimum 160 (the Mode strip alone needs about 35 characters of body text). Height: the sections above the Decision log take what they need; the log's `ScrollPane` takes the rest, never fewer than three lines. Collapse rule: when the uncovered map would be narrower than 200 UI pixels or the view shorter than 200, the Panel collapses to the Mode strip. `[ASSUMPTION: the mock (`mockups/key-panel-paused.html`) shows that at interface scale 3 a 1280 by 720 window is 427 by 240 UI pixels, where the full Panel cannot fit beside the inventory pane; scale 2 or a larger window shows it in full. Confirm on the real layout in E5.]`
+Everything is on the game's UI-pixel grid (1, 2, 4, 6, 8) before the interface scale multiplies it, and everything is snapped with `PixelScene.align` so the frames and text stay crisp at every scale. Panel padding is 4; rows are 2 apart; sections are 6 apart. The Panel is a single column at the right edge of the dungeon view, to the left of the inventory pane's column (187 wide, bottom right) and below the status pane's row, ending above the toolbar (Tier 3 for those sizes). It is drawn translucently over the dungeon, never over the game's HUD. The Overlay offsets the world camera horizontally so the hero stays centered in the uncovered area; the game's own offset is vertical-only and conditional, and `GameScene.layoutTags` overwrites it, so the Overlay re-applies its own after every layout (`docs/rules/ui.md`). Width: target 200 UI pixels, minimum 160 (the Mode strip alone needs about 35 characters of body text). Height: the sections above the Decision log take what they need; the log's `ScrollPane` takes the rest, never fewer than three lines. Collapse rule: when the uncovered map would be narrower than 200 UI pixels or the view shorter than 200, the Panel collapses to the Mode strip. At UI zoom 3 (`PixelScene.defaultZoom`, the game's choice for a 1280 by 720 window on the full UI) the view is 427 by 240 UI pixels, where the full Panel cannot fit beside the inventory pane; zoom 2 or a larger window shows it in full (`docs/rules/ui.md`; the mock `mockups/key-panel-paused.html` uses that geometry). `[ASSUMPTION: the E5 layout story confirms the collapse thresholds on the running game.]`
 
 → Composition reference: `mockups/key-panel-paused.html` (full Panel and Explain expansion), `mockups/key-panel-states.html` (RUNNING, HUMAN, THINKING, collapsed, Oracle). The spine wins on conflict.
 

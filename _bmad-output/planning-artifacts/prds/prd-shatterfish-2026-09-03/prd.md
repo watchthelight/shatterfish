@@ -63,7 +63,7 @@ The goal ladder has two rungs at the top: first beat the final boss, then score 
 - **Action** — One thing the bot may do at an Input wait: move one step toward a cell, attack, use, throw, zap, read, drink, equip, drop at a target, rest one turn, search one turn, descend, ascend, talent or ability use, wait, take the Amulet, end the Run (leave with the Amulet or ascend), or answer the open Prompt with one of its options. Executed only by the ActionExecutor through the game's own code paths. Actions that the game's UI would carry out over many turns (a long move, resting, searching) are issued one Input wait at a time.
 - **Prompt** — A game dialog that waits for the hero's choice (subclass, armor ability, talent point, quest reward, shop purchase, alchemy) and blocks play until answered. The Observation carries the open Prompt and its options; "answer the Prompt" is an Action.
 - **Input wait** — Any moment the game waits for the hero's decision: a hero turn or an open Prompt. Decisions, Run log lines, and Overlay steps are per Input wait.
-- **Floor** — A level identified by depth and branch together (the game has more than one floor at some depths, Tier 3).
+- **Floor** — A level identified by depth and branch together (branch 1 exists at depths 11 to 14 and 16 to 19; Rule: `docs/rules/levels.md`).
 - **Decision** — The Brain's output for one Input wait: the chosen Action, the top alternatives with scores and one-line reasons, the current Goal, Safety flags, and the Policy that fired.
 - **Goal** — The Brain's current strategic intent in plain words (for example "Explore: guaranteed strength potion still on this floor").
 - **Safety flag** — A short verdict about the risk of an Action in the current Observation, stated verdict-first: `ok`, `warn`, or `unsafe`, then the reason (for example `ok: by water, fireblast-safe`; `unsafe: chasm behind target`).
@@ -96,12 +96,12 @@ The goal ladder has two rungs at the top: first beat the final boss, then score 
 
 - **Rig** — The module and tooling that runs many seeded games in parallel, compares two Brains with a Sequential test, writes Run logs, Replays them, and publishes Results.
 - **Run** — One game from a fresh Profile to death, Win, or the turn cap (20,000 hero turns `[ASSUMPTION: revisable by the E3 ADR from the measured Run-length distribution]`, recorded as a loss with cause `turn cap`), fully determined by (Upstream tag, hero class, challenge flags, seed, Action list). In the bootstrap prompt's shorter tuple, class and flags are part of what "seed" fixes.
-- **Win** — The game's own victory condition as it records it (the Amulet obtained and the Run ended, with or without ascension, Tier 3). Killing Yog-Dzhewa is the last obstacle, not the Win.
-- **Score** — The in-game score the game reports for a Run, comparable only between Runs with the same challenge flags (Tier 3: the game scales score by challenges).
+- **Win** — The game's own victory condition as it records it (the Amulet obtained and the Run ended, with or without ascension; Rule: `docs/rules/save-score-win.md`). Killing Yog-Dzhewa is the last obstacle, not the Win; the Amulet lies on depth 26.
+- **Score** — The in-game score the game reports for a Run, comparable only between Runs with the same challenge flags (the game multiplies score by `round(1.25^n * 20) / 20` for n active challenges; Rule: `docs/rules/save-score-win.md`).
 - **Seed set** — A named, versioned, committed list of (seed, hero class, challenge flags) triples: `smoke`, `standard`, `holdout` (never run during development), `bosses`.
 - **Run log** — The JSONL record of a Run: per Input wait the Observation hash, the Decision, the Action taken and by whom (bot or human), chained so that any tampering is detectable.
 - **Hash chain** — The per-Input-wait Observation hash that includes the previous hash.
-- **Composite outcome** — The per-Run result the Sequential test compares, ordered: Win; then, for winning Runs, Score; then bosses killed; then Floor depth reached; then turns survived. A difference at an earlier position always dominates a later one. For losing Runs, bosses killed ranks above depth so that dying deeper without passing a boss is not rewarded (Tier 3: the game locks the stairs on boss floors until the boss is dead, so depth and bosses killed move together).
+- **Composite outcome** — The per-Run result the Sequential test compares, ordered: Win; then, for winning Runs, Score; then bosses killed; then Floor depth reached; then turns survived. A difference at an earlier position always dominates a later one. For losing Runs, bosses killed ranks above depth so that dying deeper without passing a boss is not rewarded (Rule `docs/rules/combat.md`: the game locks the stairs on boss floors until the boss is dead, so depth and bosses killed move together).
 - **Per-pair statistic** — For one seed played by both Brains, the ordinal comparison of their Composite outcomes: better, equal, or worse. The Sequential test runs on these three outcomes as Fishtest's trinomial model does, with bounds in that unit; the E3 statistics ADR may refine the statistic but not the ordinal core.
 - **Sequential test** — The Fishtest-style Generalized SPRT (GSPRT) that decides accept, reject, or undecided over Per-pair statistics under pre-registered bounds.
 - **Hypothesis ID** — The identifier of a Registration.
@@ -144,7 +144,7 @@ The Harness can start a new game of a given hero class, challenge flags, and see
 The Harness can reproduce a Run exactly: two Runs with the same Upstream tag, hero class, challenge flags, seed, and Action list produce identical Observation hashes at every Input wait.
 
 **Consequences (testable):**
-- Every random source the game uses, including the general-purpose generator used for combat rolls (Tier 3), is seeded by the Harness; the seeding strategy is an ADR (open question 4).
+- Every random source the game uses, including the general-purpose generator used for combat rolls (Rule: `docs/rules/rng.md`; it must be seeded after `Dungeon.init`, which resets the generator stack), is seeded by the Harness; the seeding strategy is an ADR (open question 4).
 - Wall-clock time, thread scheduling, hash-map iteration order, and Profile contents do not influence any Observation.
 - One process hosts one Run at a time; each Run has its own Profile and working directory. If the E1 isolation spike lets a process host several Runs, determinism must hold per isolated instance and the same tests apply.
 - The Brain is deterministic given the Observation sequence and its own seeded generator: two Runs with the same tuple produce the same Action list, not only the same Observations for a given Action list. The Overlay's thinking budget (NFR-4) never changes a Decision: an overrun delays it, and in the Rig no budget applies. A Replay whose Decision differs from the Run log's at any Input wait is a determinism failure and the Replay test reports it.
@@ -384,7 +384,7 @@ A launcher starts the desktop game with the Overlay attached in a fresh Profile 
 - Two Overlay Runs never share a Profile.
 
 #### FR-38: Native Panel
-The Panel is docked at the right edge of the game view over the dungeon (translucent, as the game's own HUD is), never over the game's own HUD, built from the game's own UI toolkit, and respects the game's interface-size setting; the world camera is offset so the hero stays centered in the uncovered area, as the game does for its inventory pane (Tier 3). It shows:
+The Panel is docked at the right edge of the game view over the dungeon (translucent, as the game's own HUD is), never over the game's own HUD, built from the game's own UI toolkit, and respects the game's interface-size setting; the world camera is offset so the hero stays centered in the uncovered area (the game's own offset is vertical-only and conditional, so the Overlay sets its own; Rule: `docs/rules/ui.md`). It shows:
 
 - the Mode strip: Mode, speed mode, turn, Floor, and the `THINKING` and `ORACLE` markers;
 - the Goal (at most two lines);
@@ -393,7 +393,7 @@ The Panel is docked at the right edge of the game view over the dungeon (translu
 - Safety flags (at most four chips);
 - a scrolling decision log (200 lines on screen; the Run log holds the rest).
 
-The Panel sits to the left of the inventory pane's column and between the status pane and the toolbar; when the uncovered map would be narrower than 200 UI pixels, the view shorter than 200, or the game is in its mobile layout, the Panel collapses to the Mode strip (the spine's Layout section carries the sizes; a 1280 by 720 window at interface scale 3 collapses, Tier 3). The Panel's states and transitions are the state table in `EXPERIENCE.md` (RUNNING, PAUSED, HUMAN, THINKING, hero busy, no valid action, Brain error, Run over, no Run, save and resume, Oracle, collapsed); every transition happens only at an Input wait, and every control is disabled whenever its transition is impossible.
+The Panel sits to the left of the inventory pane's column and between the status pane and the toolbar; when the uncovered map would be narrower than 200 UI pixels, the view shorter than 200, or the game is in its mobile layout, the Panel collapses to the Mode strip (the spine's Layout section carries the sizes; a 1280 by 720 window at UI zoom 3 is 427 by 240 UI pixels and collapses; Rule: `docs/rules/ui.md`). The Panel's states and transitions are the state table in `EXPERIENCE.md` (RUNNING, PAUSED, HUMAN, THINKING, hero busy, no valid action, Brain error, Run over, no Run, save and resume, Oracle, collapsed); every transition happens only at an Input wait, and every control is disabled whenever its transition is impossible.
 
 **Consequences (testable):**
 - No Swing, JavaFX, ImGui, or web view is on the classpath.
@@ -523,7 +523,7 @@ Milestones mirror Epics and issues mirror Stories, idempotently, for the current
 - **SM-4**: E1 rung: Input waits per second per process and the tactics' leaf correlation and disambiguation published; determinism test green. Validates FR-2, FR-5.
 - **SM-5**: E3 rung: a deliberately worse Brain is rejected; the random-agent Baseline and the measured paired-seed correlation are published; a skeptic reproduces a Results page (UJ-3). Validates FR-21, FR-22, FR-25.
 - **SM-6**: E5 rung: a full sewers Run stepped and watched in the Overlay with a mid-fight takeover and no desync; the Replay of that Run verifies. Validates FR-37 to FR-41.
-- **SM-7**: Per-class win rate on the `standard` Seed set (Warrior, Mage, Rogue, Huntress, Duelist, Cleric, Tier 3 for the class list at v3.3.8) with a confidence interval, published per Brain version, as the check on SM-2. Validates FR-19 to FR-25.
+- **SM-7**: Per-class win rate on the `standard` Seed set (Warrior, Mage, Rogue, Huntress, Duelist, Cleric; Rule: `docs/rules/save-score-win.md`) with a confidence interval, published per Brain version, as the check on SM-2. Validates FR-19 to FR-25.
 - **SM-8**: Every merged Brain change carries Results; every pull request runs the fairness suite. Validates FR-7 to FR-12, FR-25.
 
 **Counter-metrics (do not optimize)**
@@ -597,11 +597,11 @@ The field is empty: no bot, RL agent, gym, or headless harness exists for SPD. U
 9. What are Fishtest's current default bounds, as text, for the E3 statistics ADR's starting values?
 10. Does SPD's save file preserve enough random-generator state for a Replay to verify across a save-and-resume boundary? (Decides whether FR-37's resumed Runs are Replay-verifiable in v1 or E8.)
 11. Where does the `standard` Seed set run once its cost is known: the developer's machine, GitHub Actions, or both? (E3 ADR.)
-12. Which Tier-3 statements in this PRD does the code confirm: boss floors lock the stairs, score scales with challenges, the Win condition and ascension bonus, the class list, more than one floor per depth, the HUD layout and camera offset, the `Chrome` nine-patch types the spine names? (Session 10 codebase documentation; each becomes a Rule.)
+12. Resolved in session 10 (`docs/codebase-map.md`, "PRD open question 12"): boss stair lock, challenge score multiplier, the Win condition and the 2.5x ascension multiplier, the six classes, branches at depths 11 to 14 and 16 to 19, the HUD sizes and the `Chrome` types are confirmed; the camera offset is only partly what the PRD assumed (vertical-only, conditional), so FR-38 now has the Overlay set its own. New facts for the architecture: game logic runs on a separate actor thread and turns resolve through sprite callbacks (FR-1, FR-5); `Dungeon.init` resets the generator stack after seeding (FR-2); actor tie-breaks and `Random.chances(HashMap)` depend on identity hashes (FR-2 tests must span two JVMs); a floor depends on the action history, not the seed alone (FR-23); `GameScene`'s HUD fields are private (FR-38 needs a hook).
 
 ## 14. Assumptions index
 
-No `[ASSUMPTION]` tags remain: the product owner resolved the first draft's assumptions or delegated them, and the memlog records each decision. Statements about the game that this PRD relies on are marked "(Tier 3)" inline and collected in open question 12.
+No `[ASSUMPTION]` tags remain: the product owner resolved the first draft's assumptions or delegated them, and the memlog records each decision. Statements about the game that this PRD relies on were Tier 3 hypotheses until session 10; each now cites its Rule page inline, and open question 12 records the verdicts.
 
 - `[NOTE FOR PM]` callouts (deliberate changes to bootstrap "done when" statements): FR-5 (E1 done-when becomes measured numbers); section 6.2 (coach mode position).
 - Decisions taken under delegation: unseen-monster memory in v1 Beliefs (FR-29); Panel at the right edge over the dungeon, left of the inventory pane, with collapse to the Mode strip below 200 UI pixels of map (FR-38); hotkeys in v1 with a fallback (FR-42); the Goo threshold of 75% with a 70% lower bound on a dedicated `goo` set of 400 Warrior triples (FR-20, FR-31, SM-3); the turn cap of 20,000 (Glossary Run); the deliberately worse Brains of FR-21; the SM-1 fresh-draw bound of 50; initial Seed-set sizes (FR-20); the Composite outcome order and the Per-pair statistic (Glossary, FR-21); PAUSED ignores hero input and a Run starts in PAUSED with Next Step (Glossary Mode, FR-39, FR-40); the hook budget of eight (section 10); the vanilla Pixel Dungeon source for the vocabulary diff (section 11).
