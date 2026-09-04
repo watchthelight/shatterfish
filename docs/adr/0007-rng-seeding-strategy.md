@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-09-03
+date: 2026-09-04
 deciders: watchthelight (product owner), Claude (engineer)
 ---
 
@@ -55,7 +55,11 @@ Non-negotiables touched: #3 (hooks minimal), #5 (reproducible).
    between two Input waits is then a function of the salt and the wait index, so a Replay that
    reaches wait `k` with the same Observation reproduces the same next turn regardless of how
    many draws happened earlier. The Run tuple becomes (tag, class, challenges, seed, salt, Action
-   list); a Registration fixes the salts of its Runs so a comparison is reproducible.
+   list). The salt is drawn by the runner when the pair executes, from a per-invocation secret,
+   and written to both Run logs; a Registration does **not** fix salts in advance, because a
+   published salt lets a Brain's author precompute the roll table as pure data in `brain` (the
+   session 12 red team). A Replay reads the salt from the log header, so reproduction is
+   unaffected.
 5. Replace `com.watabou.utils.Random` wholesale with a Shatterfish implementation. Rejected: a
    hook over the whole class; option 4 needs no upstream edit.
 6. Per-actor generators (each `Char` has its own stream). Rejected: a second implementation of a
@@ -122,8 +126,11 @@ Non-negotiables touched: #3 (hooks minimal), #5 (reproducible).
 ## Decision outcome
 
 - `RngControl` in `harness` owns the game's generator stack after `Dungeon.init`: it pushes a
-  generator seeded from `mix(salt, k)` at Input wait `k` (`mix` is SplitMix64 over the two
-  longs); the Run log records the salt and `k`; the Observation carries neither the salt nor the
+  generator seeded from `mix(salt, k)` at Input wait `k`, where `mix` is defined exactly as
+  `splitmix64_finalize(salt + k * 0x9E3779B97F4A7C15)` with the standard SplitMix64 finalizer
+  (`z ^= z >>> 30; z *= 0xBF58476D1CE4E5B9; z ^= z >>> 27; z *= 0x94D049BB133111EB; z ^= z >>> 31`),
+  a definition with a published test vector on the methodology page so a skeptic can recompute it;
+  the Run log records the salt and `k`; the Observation carries neither the salt nor the
   seed. `hero.live()` and `initHero` run inside `init` after `resetGenerators()`
   (`…/Dungeon.java:254`, `:281-286`); the E1 determinism story verifies they draw nothing, and if
   they do, the first push moves into a one-line hook after line 254.

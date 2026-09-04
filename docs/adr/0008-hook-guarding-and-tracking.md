@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-09-03
+date: 2026-09-04
 deciders: watchthelight (product owner), Claude (engineer)
 ---
 
@@ -12,7 +12,7 @@ Every edit to an upstream file is a hook: minimal, justified, labeled `touches-u
 in `docs/UPSTREAM.md` (non-negotiable #3). The PRD caps v1 at eight hooks (§10). Session 10
 showed where hooks will be needed: `GameScene`'s HUD fields are private and `cellSelector` is a
 private static (`…/scenes/GameScene.java:159`, `:171-178`, `:200-209`), `Hero.ready()` and
-`Hero.interrupt()` dereference scene statics (`…/actors/hero/Hero.java:936-945`), turn resolution
+`Hero.interrupt()` dereference scene statics (`…/actors/hero/Hero.java:935-946` and `:948-964`), turn resolution
 runs through sprite callbacks, and two RNG edits are decided in ADR-0007. Decide how a hook is
 written so that the game is unchanged when Shatterfish is absent, how hooks are counted, and how
 an upgrade finds every one of them.
@@ -68,7 +68,7 @@ Non-negotiables touched: #3 (hooks), #5 (reproducible: a hook must not change va
   fails if the set of ids differs from the rows in `docs/UPSTREAM.md` (parsed from the table). A
   row is one change-set with one id; several one-line sites may share an id when they are the
   same kind of edit for the same reason (the accessor row, the identity-order row), and the row
-  lists every site. The budget check (at most eight rows in v1) lives in the same test.
+  lists every site. The budget check (at most ten rows in v1) lives in the same test.
 - Change guards: every hook site's surrounding method is named in `docs/UPSTREAM.md`; the
   `upstream-sync` skill's step 9 re-reads each site after a merge, and the citation checker
   (FR-17) flags a row whose `path:line` no longer resolves.
@@ -78,21 +78,32 @@ Non-negotiables touched: #3 (hooks), #5 (reproducible: a hook must not change va
   carry the marker comment and a row, and their "vanilla equivalence" is argued in the row
   (semantically neutral) and tested by the determinism suite.
 
-Expected v1 hook ledger (each row lands with the epic that needs it; the budget is eight):
+Expected v1 hook ledger (each row lands with the epic that needs it; the budget is ten):
+
+`[NOTE FOR PM]` The PRD's section 10 caps v1 at eight hooks. The session 12 reviewer gate showed
+that two capabilities the PRD itself requires cannot ship inside eight: blocking hero input while
+the Overlay is PAUSED (FR-40) needs a gate the game consults, because `GameScene.ready()`
+reinstalls the default cell listener on every wake-up and `CellSelector.processKeyHold` bypasses
+the listener entirely; and hotkeys (FR-42) plus the v2 Pause-on settings section (FR-45) need an
+`SPDAction` registration point, since `SPDAction`'s defaults live in a private static map in
+`core`. The budget is therefore ten, and the PRD is amended to match. Each new row is one line at
+its site.
 
 | Id | Where | Epic | Why |
 |---|---|---|---|
 | 1 | `settings.gradle` | done | mobile modules opt-in, Shatterfish modules included |
 | 2 | `Hooks.java` (new file) | E1 | the registry |
-| 3 | `GameScene` seam: scene creation hook and the Input-wait notification | E1, E5 | a Harness-owned scene; the Overlay attaches |
+| 3 | `GameScene` seam: scene creation and destruction notifications | E1, E5 | a Harness-owned scene; the Overlay attaches; the Observer re-registers its `GLog.update` listener, which `GameLog`'s constructor replaces on every scene creation (`…/ui/GameLog.java:47`) |
 | 4 | read-only accessors for private state the screen shows: `GameScene` HUD fields and `cellSelector`, `CharSprite.emo` | E1, E5 | ADR-0006 (emote row); the Overlay reaches the panes |
-| 5 | `Hero.ready()` / `Hero.interrupt()` guards for scene statics under a headless scene | E1 | `docs/rules/game-loop.md` |
+| 5 | `Hero.act()` Input-wait notification at the `Dungeon.observe()` site, plus `Hero.ready()` / `Hero.interrupt()` guards for scene statics under a headless scene | E1 | ADR-0015; `docs/rules/game-loop.md` |
 | 6 | identity-order removal: `Actor.all`/`chars`, `Level.mobs` as `LinkedHashSet`, `Level.blobs` as `LinkedHashMap`, sorted class keys in `Random.chances(HashMap)` and `Random.element` | E1 | ADR-0007 option 10 |
 | 7 | sprite-wait bypass for "Fast as it can" (`CharSprite` motion interval) | E5 | FR-39 |
 | 8 | `Emitter`, `Music` and `EmoIcon` draws to the base generator | E5 | ADR-0007 option 15 (required for FR-24) |
+| 9 | input gate: `CellSelector.select` and `CellSelector.processKeyHold` consult `Hooks.inputGate` before acting | E5 | PAUSED must ignore hero input (FR-40); a listener cannot do it (ADR-0013) |
+| 10 | `SPDAction` registration point for Overlay actions and an Overlay section in the settings screen | E5, E8 | hotkeys (FR-42) and Pause-on conditions (FR-45) |
 
-If the E1 touchpoint audit needs a ninth, the PRD's budget is revisited in an ADR, not by
-adding a row.
+If the E1 touchpoint audit needs an eleventh, the budget is revisited in an ADR, not by adding a
+row.
 
 ### Consequences
 
