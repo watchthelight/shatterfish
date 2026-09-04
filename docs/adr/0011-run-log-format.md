@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-09-03
+date: 2026-09-04
 deciders: watchthelight (product owner), Claude (engineer)
 ---
 
@@ -28,8 +28,10 @@ Non-negotiables touched: #4 (Java, no extra runtime), #5 (reproducible).
 
 ## Considered options
 
-1. **JSON Lines, gzip-compressed, one file per Run, hand-written canonical JSON (sorted keys, no
-   whitespace, integers only) from the `api` `JsonWriter` of ADR-0005.** Chosen.
+1. **JSON Lines, one file per Run, hand-written canonical JSON (sorted keys, no whitespace,
+   integers only) from the `api` `JsonWriter` of ADR-0005, written uncompressed** so that a person
+   can read a Run with standard tools (NFR-9); the Rig may gzip archived Runs after a comparison
+   completes. Chosen.
 2. SQLite database per Rig invocation. Rejected: a native dependency, not diffable, not
    streamable across a crash without care.
 3. Protocol Buffers. Rejected: a dependency and code generation for a one-JVM product; not
@@ -42,19 +44,27 @@ Non-negotiables touched: #4 (Java, no extra runtime), #5 (reproducible).
 
 ## Decision outcome
 
-**File**: `<run-id>.jsonl.gz`, `run-id = <tag>-<class>-<challenges>-<seedcode>-<salt>`; one file
-per Run under the Rig's `--out` directory or the Overlay's Profile directory.
+**File**: `<run-id>.jsonl`, `run-id = <tag>-<class>-<challenges>-<seedcode>-<salt>-<brain>`; one
+file per Run under the Rig's `--out` directory or the Overlay's Profile directory. The Brain is
+part of the id because a comparison runs both Brains on the same triple and salt, so without it
+the two Runs of a pair would collide on one file (AD-14).
 
 **Records** (the `t` field names the kind; every record carries `k` except the header):
 
 | `t` | Fields | Chained? |
 |---|---|---|
-| `header` | `v` (log schema version), `tag`, `commit` (Shatterfish), `class`, `challenges`, `seed` (long) and `seedcode`, `salt`, `profile` (version), `obsv` (Observation schema version), `brain` (name, commit, config hash), `registration` (id or null), `oracle` (false unless an Oracle Run), `machine`, `started` | yes, except `machine` and `started` |
-| `wait` | `k`, `turn` (fixed-point thousandths), `depth`, `branch`, `obs` (SHA-256 hex), `sections` (the section hashes), `actor` (`bot`, `human`), `action` (canonical Action), `decision` (`goal`, `chosen` {action, score}, `alternatives` (at most three, each {action, score, why}), `flags`, `policy`), `belief` (SHA-256 of the serialized Belief; the full Belief only with `--log-beliefs`), `think_ms`, `prev`, `chain` | all but `think_ms` |
+| `header` | `v` (log schema version), `tag`, `commit` (Shatterfish), `class`, `challenges`, `seed` (long) and `seedcode`, `salt`, `profile` (version), `obsv` (Observation schema version), `codex` (Codex version, which determines Brain behaviour and is not derivable from the tag alone), `brain` (name, commit, config hash), `registration` (id or null), `oracle` (false unless an Oracle Run), `machine`, `started` | yes, except `machine` and `started` |
+| `wait` | `k`, `turn` (fixed-point thousandths), `depth`, `branch`, `obs` (SHA-256 hex), `sections` (the section hashes), `actor` (`bot`, `human`), `action` (canonical Action), `decision` (`goal`, `chosen` {action, score}, `alternatives` (at most three, each {action, score, why}), `flags`, `policy`), `belief` (SHA-256 of the Belief's opaque `api` bytes, which `harness` hashes without knowing their shape, AD-13; the full Belief only with `--log-beliefs`), `highlights` (the planned path, target and considered cells the Panel draws, so the Overlay's map highlights and the v2 Replay scrubber read the log rather than re-deriving them), `think_ms`, `prev`, `chain` | all but `think_ms` |
 | `prompt` | `k`, the Prompt kind and the option chosen (an Action of kind `answer`) | yes |
 | `mode` | `k`, Mode change (`PAUSED`, `RUNNING`, `HUMAN`) and speed mode, Overlay only | yes |
+| `shadow` | `k`, the Decision the Brain would have taken during a human turn, never executed (ADR-0013) | yes |
+| `boundary` | `k`, the salt and the chain value at a save-and-quit, so a resumed Run continues the same log (ADR-0013) | yes |
 | `unsupported` | `k`, the human input the executor could not express; from here `verifiable` is false | yes |
 | `end` | `k`, `outcome` (`win`, `ascended`, `score`, `depth`, `turns`, `cause`, `bosses`), `verifiable`, `chain` (final) | yes |
+
+A Run that ends without an `end` record (a crash or a kill) is *incomplete*; a Run that reaches the
+turn cap ends with `cause = turn cap`. The Rig counts incomplete Runs separately and scores their
+pairs as ties (ADR-0012), so a Brain cannot improve its standing by failing.
 
 Scores are integers in ten-thousandths; strings are the Observation's own display strings.
 
@@ -78,7 +88,8 @@ results.
   a Replay and a skeptic's script agree byte for byte.
 - Good: the Overlay's Decision log is a view over the same records, and the v2 scrubber needs no
   second format.
-- Bad: gzip per file costs CPU on the Rig; measured in the E1 benchmark beside the codec.
+- Bad: an uncompressed log is several times larger on disk; the Rig gzips archives after a
+  comparison, and the E1 benchmark reports the writer's cost beside the codec's.
 - Bad: a schema bump (`v`) orphans old logs for Replay; they stay readable and their chains stay
   verifiable, which is what a published number needs.
 

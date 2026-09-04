@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-09-03
+date: 2026-09-04
 deciders: watchthelight (product owner), Claude (engineer)
 ---
 
@@ -47,7 +47,8 @@ Non-negotiables touched: #5 (measured and reproducible), #1 indirectly (Oracle r
 
 **Test**
 
-6. **GSPRT ported from Fishtest's `sprt.py`: the log-likelihood ratio uses the normal
+6. **GSPRT ported from Fishtest (`sprt.py` for the driver, `LLRcalc.py` for approximation 2.1
+   and the regularization; the port is two files): the log-likelihood ratio uses the normal
    approximation with the sample variance of the pair scores (approximation 2.1 in Van den
    Bergh's note), regularized, with the per-pair increment clamped; H0 and H1 are pair-score
    means `p0` and `p1`; bounds `log(β/(1-α))` and `log((1-β)/α)`; a burn-in of `n0` pairs before
@@ -69,7 +70,7 @@ Non-negotiables touched: #5 (measured and reproducible), #1 indirectly (Oracle r
 - `rig` implements `PairScore` (the lexicographic Composite comparison), `Gsprt` (option 6) and,
   in E3's calibration story, `EProcess` (option 8) side by side.
 - A Registration fixes: Hypothesis id, both Brains (name, commit, config hash), Seed set and
-  version, the salts (one per seed, drawn once and committed with the Registration), `p0`, `p1`,
+  version, `p0`, `p1`,
   `α`, `β`, `n0`, `nmax`, the per-Decision budget for the Overlay-relevant comparisons, and the
   machine class. Nothing here has a default in this ADR; the first values are set by the E3
   calibration story and published on the methodology page with the simulation that produced
@@ -84,7 +85,17 @@ Non-negotiables touched: #5 (measured and reproducible), #1 indirectly (Oracle r
   median death depth, boss staircase, and the fixed-sample cross-check at stop.
 - `smoke` runs the same statistic and prints the trace but is labeled a direction check; only
   `standard` (and `bosses` for fight-specific comparisons) can accept.
-- The Rig refuses a Registration whose Seed set is `holdout` and any Run with `oracle` true.
+- Pairing is per (seed, hero class, challenge flags) triple, which is what a Seed set holds: the
+  two Brains run the same triple with the same salt, drawn by the runner when the pair executes
+  from a per-invocation secret and written to both Run logs (ADR-0007). Salts are never published
+  before a comparison completes.
+- A pair with a missing Run (a crash, a hang, a Run that hit the turn cap) is scored as a tie and
+  counted separately on the Results page; a Registration whose missing-pair fraction exceeds the
+  fraction it declares is void, so a Brain cannot win by crashing on seeds it would lose.
+- The Rig refuses a `holdout` Registration for a development comparison; `holdout` may be used
+  only for a registered release-level claim or the SM-1 Win claim, at most once per Brain
+  version, and every use is recorded in the Results ledger (FR-20). Any Run with `oracle` true is
+  refused outright.
 
 ### Consequences
 

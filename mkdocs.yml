@@ -121,6 +121,8 @@ nav:
       - ADR-0011 Run-log format: adr/0011-run-log-format.md
       - ADR-0012 Rig statistics: adr/0012-rig-statistics.md
       - ADR-0013 Overlay threading model: adr/0013-overlay-threading-model.md
+      - ADR-0014 Action schema: adr/0014-action-schema-and-executor-contract.md
+      - ADR-0015 Headless scene and Input waits: adr/0015-headless-scene-and-input-wait-detection.md
   - Rules:
       - rules/index.md
       - Game loop: rules/game-loop.md

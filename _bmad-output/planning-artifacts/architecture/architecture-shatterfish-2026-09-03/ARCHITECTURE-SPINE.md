@@ -5,10 +5,10 @@ purpose: build-substrate
 altitude: initiative
 paradigm: 'ports-and-adapters around one immutable Observation: the game is the outside world, Observer and ActionExecutor are the only two ports, the Brain is a pure function of Observations, and every driver (headless, embedded, replay) is an adapter'
 scope: 'Shatterfish v1, epics E1 to E5, with the E6 interfaces reserved; governs every module under shatterfish/ and every hook into upstream'
-status: draft
+status: final
 created: '2026-09-03'
-updated: '2026-09-03'
-binds: [FR-1..FR-53, NFR-1..NFR-6]
+updated: '2026-09-04'
+binds: [FR-1..FR-53, NFR-1..NFR-9]
 sources:
   - docs/BOOTSTRAP-PROMPT.md (sections 1 and 4)
   - _bmad-output/planning-artifacts/prds/prd-shatterfish-2026-09-03/prd.md
@@ -27,6 +27,8 @@ companions:
   - docs/adr/0011-run-log-format.md
   - docs/adr/0012-rig-statistics.md
   - docs/adr/0013-overlay-threading-model.md
+  - docs/adr/0014-action-schema-and-executor-contract.md
+  - docs/adr/0015-headless-scene-and-input-wait-detection.md
 ---
 
 # Architecture Spine — Shatterfish
@@ -42,8 +44,8 @@ own a game instance and a thread: `HeadlessDriver` (E1), `EmbeddedDriver` (E5), 
 
 | Layer | Package | Holds |
 |---|---|---|
-| Value | `org.shatterfish.api` | `Observation`, `Action`, `Decision`, `Belief` interfaces, Run-log records, `ObservationCodec` |
-| Ports | `org.shatterfish.harness` | `Observer`, `OracleObserver`, `ActionExecutor`, `RngControl`, `Snapshot`, `Profile` |
+| Value | `org.shatterfish.api` | `Observation`, `Action` (sealed), `Decision`, opaque `Belief`, `SnapshotHandle`, `Simulator`, Run-log records, `Registration`, Seed set, Codex tables, `ObservationCodec`, `JsonWriter` |
+| Ports | `org.shatterfish.harness` | `Observer`, `OracleObserver`, `ActionExecutor`, `RngControl`, `Snapshot` (never leaves the module), `SnapshotStore`, `Redeterminer`, `Profile` |
 | Adapters | `org.shatterfish.harness.driver`, `org.shatterfish.overlay`, `org.shatterfish.rig` | drivers, the Panel, the runner |
 | Pure | `org.shatterfish.brain` | policies, beliefs, evaluation, search |
 | Knowledge | `org.shatterfish.codex`, `codex/<tag>/`, `lore/` | generated tables (JSON), Rules, Lore |
@@ -102,10 +104,14 @@ graph TD
 
 - **Binds:** FR-4, FR-40
 - **Prevents:** a second way to move the hero that the game's own guards do not see
-- **Rule:** `ActionExecutor` dispatches exactly what a click, key or button would (`Hero.handle`,
-  `Item.execute`, `Hero.rest`, `Hero.search`, window buttons), on the UI-role thread
-  (ADR-0013); it validates against the Observation's `actions` section before touching state and
-  rejects with a reason; the valid-Action set is computed from the Observation alone.
+- **Rule:** the `Action` kinds are the sealed set of ADR-0014, every parameter is a value the
+  Observation carries, and one Action is one human input: in particular a move is **one step to an
+  adjacent cell**, never a multi-cell target, because the game does not return the hero to ready
+  between cells (ADR-0015). `ActionExecutor` dispatches exactly what a click, key or button would
+  (`Hero.handle`, `Item.execute`, `Hero.rest`, `Hero.search`, window buttons) on the UI-role
+  thread, drives the game's own selector for a targeted Action within the same wait, validates
+  against the Observation's `actions` section before touching state, and rejects with a `Reason`;
+  `Wait` is invalid while a Prompt is open.
 
 ### AD-5 — An Input wait is the unit of everything
 
@@ -113,7 +119,9 @@ graph TD
 - **Prevents:** drivers that disagree on when a turn starts; Run logs and Decisions that cannot
   be aligned
 - **Rule:** an Input wait is "hero ready and either no `Window` or a recognised Prompt window"
-  (`docs/rules/game-loop.md`);
+  (`docs/rules/game-loop.md`), detected by the notification at the `Dungeon.observe()` site inside
+  `Hero.act()`'s `!ready` branch and confirmed by the UI-role thread (ADR-0015), never by polling
+  and never from `Hero.ready()`, which the game calls on every actor-thread wake-up;
   exactly one Observation, one Decision, one Action, one Run-log record and one RNG reseed happen
   per Input wait; the wait index `k` is the primary key across all of them; the Run log, not the
   Observation, records the turn as `Statistics.duration + Actor.now()` in fixed-point thousandths.
@@ -160,10 +168,12 @@ graph TD
 - **Rule:** any simulation the Brain uses is either an abstract model built from the Observation
   and Belief in `brain`, or a redetermined `Snapshot` produced by `harness` from a Belief sample,
   whose Observation is proven equal to the original by the differential test (ADR-0009's
-  hidden-element table); `Snapshot`, `BeliefSample` and `Redeterminer` are `api` types declared in
-  E1, `SnapshotStore` and its restore-and-replay test ship in E1, the scrubber in E6; the rollout
-  host asserts the scrubbed flag; the search design is chosen by ADR-0010's measurements and the
-  Rig, never by this spine.
+  hidden-element table); a `Snapshot` is a **`harness` type and never leaves it** (its bytes are
+  the game's own save bundle, which anything holding them could inflate with the JDK alone, so an
+  `api` `Snapshot` would be a total parity break), `api` carries only an opaque `SnapshotHandle`
+  and the `Simulator` interface the Brain calls; `SnapshotStore` and its restore-and-replay test
+  ship in E1, the scrubber in E6; the rollout host asserts the scrubbed flag; the search design is
+  chosen by ADR-0010's measurements and the Rig, never by this spine.
 
 ### AD-10 — Hooks are one-line, registered, counted
 
@@ -194,6 +204,33 @@ graph TD
   `DESIGN.md` Layout; it reads only Observations and Decisions; hotkeys are `SPDAction`s with
   defaults F6 to F11; the launcher owns the Profile and the oracle flag.
 
+### AD-13 — Every value that crosses a module edge is an `api` type with a codec and a version
+
+- **Binds:** FR-3, FR-14, FR-23, FR-29, FR-34
+- **Prevents:** a shape agreed by two modules in code and nowhere else; a hash over bytes whose
+  producer and consumer disagree
+- **Rule:** `Observation`, `Action`, `Decision`, `Belief`, `SnapshotHandle`, the Run-log records,
+  the `Registration`, the Seed set and the Codex tables are `api` types with a canonical encoder
+  and a schema version in `api`. The `Belief` is **opaque outside `brain`**: `brain` produces and
+  consumes it, `api` declares it as a versioned byte-carrying value, and `harness` may only hash,
+  log and hand it back, so the Belief crosses the `harness`/`brain` edge without a dependency.
+  The Codex reaches the Brain as `api`-typed data loaded by the caller, carries its own version,
+  and that version is in the Run-log header and the Registration, because the Codex determines
+  Brain behaviour and its combat tables are measured rather than derived.
+
+### AD-14 — One owner per mutable thing
+
+- **Binds:** all
+- **Prevents:** two components writing the same state and disagreeing about who won
+- **Rule:** the driver owns `k`, the RNG reseed, the Profile directory, the Run log file and the
+  snapshot store; the Observer owns the `GLog` listener registration and re-registers it on every
+  scene creation (`GameLog`'s constructor replaces it, `…/ui/GameLog.java:47`); the
+  ActionExecutor is the only caller of `Hero.handle` and `hero.next()` from Shatterfish code; the
+  Panel owns only its own `Component` tree; the Rig owns the Registration, the salts and the
+  Results. A Run id is
+  `<tag>-<class>-<challenges>-<seedcode>-<salt>-<brain>` so the two Brains of a pair never share
+  a log file.
+
 ## Consistency Conventions
 
 | Concern | Convention |
@@ -202,8 +239,10 @@ graph TD
 | Identifiers | Input wait index `k` (0-based, long); Run id = `<tag>-<class>-<challenges>-<seedcode>-<salt>`; Hypothesis id = `H-<yyyymmdd>-<slug>`; schema version = int in `Observation.header` |
 | Data and formats | `api` values are Java records; canonical binary for hashing (ADR-0005); JSONL for Run logs (ADR-0011); JSON for the Codex; no floats in hashed data (integer pairs); UTF-8 everywhere; times in ISO-8601 UTC only in Results metadata, never in hashed data |
 | Errors | The Brain throwing produces `Decision.wait` with the exception class in the Run log and the Panel (EXPERIENCE.md "Brain error"); the game never crashes because of the Brain; an invalid Action is rejected with a `Reason` value, never an exception |
-| Logging | Shatterfish code logs through `java.util.logging` with the module as logger name; game log lines are data (part of the Observation), never re-logged |
-| Config | Launcher flags and Rig CLI (`--brain --baseline --seeds --parallel --out --oracle`); no config files besides Seed sets and Registrations, which are committed |
+| Logging | Shatterfish code logs through `java.util.logging` with the module as logger name; game log lines are data (part of the Observation), never re-logged; the Run log is plain `.jsonl` a person can read with standard tools (NFR-9), and the Rig may gzip only archived Runs |
+| Network | No Shatterfish code opens a network connection and nothing is sent anywhere (NFR-8): an ArchUnit rule bans `java.net` and `java.net.http` in every Shatterfish module, and the launcher disables upstream's `services` news and update checks |
+| Portability | Windows and Linux are supported and tested in CI; macOS is best-effort and untested (NFR-7), which the Results pages state |
+| Config | Launcher flags (including `--oracle`, which exists only there, FR-11) and the Rig CLI (`--brain --baseline --seeds --seed-start --parallel --out`, never `--oracle`); committed data files are Seed sets, Registrations, Playbooks and Evaluation weights (FR-33, FR-35), each an `api`-typed, versioned file, and nothing else |
 | Threads | Every public method of `Observer`, `ActionExecutor` and the Panel starts with a thread assertion (AD-8) |
 | Determinism | Every generator used by Shatterfish code is seeded from `mix(salt, k)`; `HashMap`/`HashSet` iteration never decides an outcome in Shatterfish code (use `LinkedHashMap`, sorted keys, or lists) |
 
@@ -212,25 +251,27 @@ graph TD
 | Name | Version |
 |---|---|
 | Java | 21 (Shatterfish modules; upstream compiles for 11) |
-| Gradle | 9.4 (wrapper) |
+| Gradle | 9.4 (wrapper; 9.7.1 is current, pinned deliberately until an upgrade story) |
 | libGDX (upstream) | 1.14.0, `gdx-backend-headless` + `gdx-platform:natives-desktop` for the Harness |
-| JUnit | 5.11.4 |
-| ArchUnit | 1.3.0 (bump to 1.5.0 in E1 after a web check of the current release) |
+| JUnit | 5.11.4 (5.14.4 is current; bump with ArchUnit in E1) |
+| ArchUnit | 1.3.0 (1.5.0 is current as of 2026-08-04; bump in E1) |
 | Statistics | hand-ported GSPRT in `rig`, no library |
+| Android Gradle Plugin | 9.1.0 (upstream's, on the root buildscript classpath; unused unless `-Pshatterfish.mobile=on`) |
 | Docs | MkDocs Material per `docs/requirements.txt` |
 
 ## Structural Seed
 
 ```text
 shatterfish/
-  api/       org.shatterfish.api          # Observation, Action, Decision, Belief, RunLog records, ObservationCodec, JsonWriter
+  api/       org.shatterfish.api          # Observation, sealed Action, Decision, opaque Belief, SnapshotHandle, Simulator, RunLog records, Registration, SeedSet, Codex tables, ObservationCodec, JsonWriter
   harness/   org.shatterfish.harness      # Observer, OracleObserver, ActionExecutor, RngControl, Profile, Snapshot, Redeterminer
              org.shatterfish.harness.scene    # HeadlessScene (harness-owned Scene), no-op GL, Pixmap atlases
              org.shatterfish.harness.driver   # HeadlessDriver, ReplayDriver, the driver contract
              src/test  fairness suite: LeakTest per ADR-0006 row, DifferentialTest, ToggleTest, DeterminismTest (two JVMs), HooksTest
   codex/     org.shatterfish.codex        # generators per table, completeness check, citation checker, vocabulary diff
-  brain/     org.shatterfish.brain        # Brain (pure), Beliefs, Policies, Arbitration, Evaluation, safeTest; search/ reserved
-  rig/       org.shatterfish.rig          # Runner (process per Run), SeedSets, Registration, Gsprt, Results, Replay
+  brain/     org.shatterfish.brain        # Brain (pure), Beliefs, Policies, Arbitration, Evaluation, safeTest, Playbooks and weights as data; search/ reserved
+  harness/   …/agent                      # RandomAgent and the throughput benchmark (FR-5, SM-4)
+  rig/       org.shatterfish.rig          # Runner (process per Run), SeedSets, Registration, Gsprt, EProcess, Results, Replay, death gallery (FR-26)
   overlay/   org.shatterfish.overlay      # ShatterfishLauncher, EmbeddedDriver, Panel and components, SPDActions
 core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/shatterfish/Hooks.java   # the registry (hook #2)
 codex/<tag>/*.json         # generated, CI-checked
@@ -274,4 +315,6 @@ sequenceDiagram
 | Classloader isolation (several Runs per JVM, and as the rollout host of ADR-0009) | process per Run is the default; the E1 spike measures | E1 spike report |
 | Codex generation mechanics (reflection per table, measured combat tables) | E2 stories; no cross-module divergence risk | E2 |
 | Learned components | optional E9; annual review of the learned frontier | 2027 |
+| Seed-set sizes and the `goo` set's size | committed files with a version; revised by ADR once throughput is measured | E3, per FR-20 |
+| PRD open questions 1, 5, 6, 7, 8, 10 | each is a measurement or a product call, none blocks a module boundary | named epics in the PRD |
 | Where `standard` runs (developer machine vs GitHub Actions) and result publication cadence | ADR-0002 fixes the CI shape (PR gate, nightly `smoke`, results PR); the `standard` host is decided when its cost is measured | E3 per PRD open question 11 |

@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-09-03
+date: 2026-09-04
 deciders: watchthelight (product owner), Claude (engineer)
 ---
 
@@ -87,20 +87,21 @@ The Observation is a record tree in `org.shatterfish.api`:
 
 | Section | Contents (all as the screen shows them) |
 |---|---|
-| `header` | schema version, Upstream tag, hero class, challenge flags, depth, branch, Input wait index `k`, `oracle` boolean (true only for an `OracleObserver` Run), kind of the open Prompt if any. Not the seed (drawn by `WndHero` but excluded so a Brain cannot fingerprint published seeds, FR-9) and not a turn counter (the game draws none; the Run log carries `Statistics.duration + Actor.now()` as fixed-point thousandths outside the hash) |
+| `header` | schema version, Upstream tag, Codex version, hero class, challenge flags, depth, branch, `sealed` (the floor is locked by a boss fight, so no transition is possible: `Level.locked`, which the screen shows through the locked stairs and the boss bar), `oracle` boolean (true only for an `OracleObserver` Run), kind of the open Prompt if any. Not the Input wait index `k` (the Brain counts waits itself; putting `k` in the hash would make every Observation unequal and every hash-change guard vacuous), not the seed, not the salt. Not the seed (drawn by `WndHero` but excluded so a Brain cannot fingerprint published seeds, FR-9) and not a turn counter (the game draws none; the Run log carries `Statistics.duration + Actor.now()` as fixed-point thousandths outside the hash) |
 | `map` | width, height, per cell `Tile` and `Fog`; traps that are `visible` *and* on a cell whose `Fog` is not `UNKNOWN` (cell, trap kind, active); seen heaps (cell, container type, `hidden` flag, current top item's display name for plain and for-sale heaps, price for a single for-sale item, the category word for a crystal chest); per visible cell the set of blob kinds present (never a volume); level feeling if announced; transitions the player has seen |
 | `actors` | visible chars: display name, cell, health quantised to the health bar's pixel resolution (`ceil(fraction * W) / W` with `W` stated in the codec; full HP when the bar is hidden), alignment, `invisible` flag (drawn at alpha 0.4), the emote shown (`NONE`, `SLEEP`, `ALERT`, `LOST`, `INVESTIGATE`), every buff with an icon and the turns its description would show. A neutral passive mimic is not an actor: it is emitted as a `CHEST` heap (ADR-0006) |
 | `hero` | HP, HT, level, experience, strength, gold, hunger state (none, hungry, starving), every buff with an icon and the turns its description shows (no cap: the hero window lists them all), subclass, talents as the talents pane shows them, quickslots |
 | `inventory` | items with display name, category, appearance label when unidentified, `levelKnown`, `cursedKnown`, `visiblyUpgraded`, `visiblyCursed`, `status()` text, quantity, equipped slot, and the valid `actions()` list |
 | `journal` | this Run's Notes (landmarks, keys), the per-Run known appearances (`Potion/Scroll/Ring.getKnown()`), the Catalog is excluded (cross-Run state) |
 | `log` | the last N `GLog` messages as raw (text, color prefix) pairs captured from the `GLog.update` signal, never `GameLog`'s rendered entries (which merge and wrap by UI size on the render thread) |
-| `actions` | the valid-Action set (FR-3), one entry per Action the ActionExecutor would accept now |
+| `actions` | the valid-Action set (FR-3), one entry per `Action` (ADR-0014) the ActionExecutor would accept now, computed from the Observation alone |
 | `prompt` | the open Prompt, if any: kind, text, options |
 
 Rules:
 
 - No floats. Health, probabilities and fixed-point turns are integers or integer pairs.
 - Every list has a canonical order fixed by the codec, never the order a `HashSet` or `HashMap` produced: actors, heaps, traps and blob cells by cell index; buffs, known appearances and blob kinds by class name; inventory in `Belongings` iteration order (weapon, armor, artifact, misc, ring, second weapon, backpack). A codec test shuffles every input list and expects equal section hashes.
+- The `Belief` is not part of the Observation: it is a separate opaque `api` value produced by the Brain and carried by the caller (AD-14), so that `harness` can hash and log it without depending on `brain`.
 - Oracle data is never a field of `Observation`. `OracleObserver` returns an `OracleView` sidecar for debugging and labelling tools, and sets `header.oracle`, so an Oracle Run's hashes differ from a fair Run's and a Brain cannot read what the record does not hold.
 - No secret members in any enum. `Tile` has no `SECRET_*`; `Fog.UNKNOWN` cells carry `Tile.NONE`.
 - The `header.version` is bumped whenever the encoding of any section changes; the Run log
