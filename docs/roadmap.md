@@ -36,6 +36,7 @@ Tracked as a task list on [#1](https://github.com/watchthelight/shatterfish/issu
 | 9 | BMAD phase 2: PRD validation ([report](bmad/planning-artifacts/prds/prd-shatterfish-2026-09-03/validation-report.md)), UX spec ([experience](bmad/planning-artifacts/ux-designs/ux-shatterfish-2026-09-03/EXPERIENCE.md), [design](bmad/planning-artifacts/ux-designs/ux-shatterfish-2026-09-03/DESIGN.md)) | done, Checkpoint C pending |
 | 10 | Upstream documentation ([codebase map](codebase-map.md), [rules](rules/index.md), 275 rows) | done |
 | 11 | Architecture spine draft, [ADR-0005](adr/0005-observation-schema-and-hashing.md) to [ADR-0008](adr/0008-hook-guarding-and-tracking.md), fairness red team | done |
-| 12 | ADR-0009 to 0013, reviewer gate, spine final | next, Checkpoint D |
+| 12 | [ADR-0009](adr/0009-snapshot-restore-and-redetermination.md) to [ADR-0015](adr/0015-headless-scene-and-input-wait-detection.md), reviewer gate, [architecture](architecture.md) spine final | done, Checkpoint D pending |
+| 13 | BMAD phase 3: epics and stories, readiness | next |
 | 13 | BMAD phase 3: epics and stories, readiness | |
 | 14 | Sprint planning, issue mirroring | |
