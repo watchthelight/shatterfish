@@ -3,10 +3,12 @@ package org.shatterfish.harness.hooks;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.SortedSet;
+import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -15,12 +17,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * The ledger and the tree must say the same thing.
  *
  * <p>Non-negotiable #3 says every edit to an upstream file is listed in {@code docs/UPSTREAM.md}.
- * ADR-0008 makes that mechanical: each site carries {@code // shatterfish-hook:<id>} and this test
- * compares the ids in the tree with the rows in the document. Without it the table is a promise;
- * with it, an unlisted hook and a listed hook that no longer exists both fail the build.
+ * ADR-0008 makes that mechanical: each site carries {@code // shatterfish-hook:<id>} and these
+ * checks compare the tree with the document. Without them the table is a promise; with them, an
+ * unlisted hook and a listed hook that no longer exists both fail the build.
  *
- * <p>The budget of ten rows (ADR-0008, restated by ADR-0016) is checked here too. Reaching it does
- * not make a change impossible; it makes it require an ADR, which is the point.
+ * <p>Ids alone are not enough. A fourth site added to an already-hooked file under an id that
+ * already exists changes no id set, and {@code GameScene} is exactly where an Observer-adjacent
+ * leak would be added. So the document carries a site index — one line per file per row, with the
+ * number of markers — and the check is equality against it.
  */
 class HooksLedgerTest {
 
@@ -33,29 +37,73 @@ class HooksLedgerTest {
 
 	/**
 	 * Modified upstream files that are documentation rather than build or game behaviour, listed as
-	 * such in {@code docs/UPSTREAM.md} and re-applied on upgrade by taking ours. They carry no
-	 * marker because there is no site to mark.
+	 * such in {@code docs/UPSTREAM.md} and re-applied on upgrade by taking ours. They carry no marker
+	 * because there is no site to mark.
 	 */
 	private static final List<String> DOCUMENTATION_EXCEPTIONS = List.of("README.md", ".gitignore");
 
 	@Test
 	@DisplayName("every hook id in the tree has a row, and every row has a site")
 	void markers_and_ledger_rows_agree() {
-		SortedSet<Integer> inTree = new TreeSet<>();
-		Ledger.markersByFile().values().forEach(inTree::addAll);
-		SortedSet<Integer> inLedger = Ledger.ledgerRowIds();
+		Set<Integer> inTree = new TreeSet<>(
+				Ledger.markers().stream().map(Ledger.Marker::id).collect(Collectors.toSet()));
+		Set<Integer> inLedger = new TreeSet<>(Ledger.ledgerRowIds());
 
 		assertEquals(inLedger, inTree,
 				"the hook ids marked in the upstream tree and the rows in docs/UPSTREAM.md differ."
-						+ " Markers by file: " + Ledger.markersByFile()
-						+ ". A new hook needs a row in the same pull request; a removed hook needs its"
-						+ " row removed.");
+						+ " Markers: " + Ledger.markers()
+						+ ". A new hook needs a row in the same pull request; a removed hook needs its row"
+						+ " removed.");
 	}
 
 	@Test
-	@DisplayName("the ledger stays inside its budget of ten rows")
+	@DisplayName("the site index names every marker, and only the markers that exist")
+	void the_site_index_matches_the_tree() {
+		List<String> inTree = new ArrayList<>();
+		for (Integer id : new TreeSet<>(Ledger.markers().stream().map(Ledger.Marker::id).toList())) {
+			for (String path : new TreeSet<>(Ledger.markers().stream()
+					.filter(m -> m.id() == id).map(Ledger.Marker::path).toList())) {
+				long count = Ledger.markers().stream()
+						.filter(m -> m.id() == id && m.path().equals(path)).count();
+				inTree.add(id + " " + count + " " + path);
+			}
+		}
+		List<String> inLedger = Ledger.ledgerSites().stream()
+				.map(s -> s.id() + " " + s.markers() + " " + s.path())
+				.sorted()
+				.toList();
+
+		assertEquals(inLedger, inTree.stream().sorted().toList(),
+				"the site index in docs/UPSTREAM.md and the markers in the tree differ. This is what"
+						+ " catches a new site added under an id that already exists, which changes no id"
+						+ " set and would otherwise be invisible.");
+	}
+
+	@Test
+	@DisplayName("nothing in the upstream tree looks like a marker without being one")
+	void no_marker_is_malformed() {
+		List<String> malformed = Ledger.malformedMarkers().stream()
+				// The registry documents the marker convention, so it necessarily writes the token in
+				// prose. It is the one file allowed to, and the check below pins its real marker anyway.
+				.filter(line -> !line.startsWith(REGISTRY + ":"))
+				.toList();
+
+		assertTrue(malformed.isEmpty(),
+				"these lines mention shatterfish-hook but do not parse as a marker, so they are"
+						+ " comments that look like declarations. The form is exactly"
+						+ " \"// shatterfish-hook:<id>\" at the end of the line:\n  "
+						+ String.join("\n  ", malformed));
+	}
+
+	@Test
+	@DisplayName("the ledger stays inside its budget of ten rows, with no id used twice")
 	void the_budget_is_ten() {
-		SortedSet<Integer> rows = Ledger.ledgerRowIds();
+		List<Integer> rows = Ledger.ledgerRowIds();
+		Set<Integer> distinct = new LinkedHashSet<>(rows);
+
+		assertEquals(rows.size(), distinct.size(),
+				"docs/UPSTREAM.md uses a hook id on more than one row " + rows + ". Two reasons under one"
+						+ " id is what ADR-0008 forbids, and it hides a row from the budget.");
 		assertTrue(rows.size() <= BUDGET,
 				"docs/UPSTREAM.md lists " + rows.size() + " hook rows " + rows + ", over the budget of "
 						+ BUDGET + ". ADR-0008 requires an ADR to change the budget, not an edit to this test.");
@@ -64,29 +112,63 @@ class HooksLedgerTest {
 	@Test
 	@DisplayName("the registry carries its own row and hides no other")
 	void the_registry_is_not_a_hiding_place() {
-		Map<String, SortedSet<Integer>> markers = Ledger.markersByFile();
+		Set<Integer> inRegistry = new TreeSet<>(Ledger.markers().stream()
+				.filter(m -> m.path().equals(REGISTRY)).map(Ledger.Marker::id).toList());
 
-		assertEquals(new TreeSet<>(List.of(2)), markers.get(REGISTRY),
-				REGISTRY + " must carry hook id 2 and nothing else. ADR-0008 anticipated the counting"
-						+ " test being gamed by moving a hook into the registry, where it would be one"
-						+ " marker instead of many.");
+		assertEquals(new TreeSet<>(List.of(2)), inRegistry,
+				REGISTRY + " must carry hook id 2 and nothing else. ADR-0008 anticipated the counting test"
+						+ " being gamed by moving a hook into the registry, where many sites would become"
+						+ " one marker.");
 
-		markers.forEach((file, ids) -> assertTrue(file.equals(REGISTRY) || !ids.contains(2),
-				"hook id 2 is the registry file itself and must not mark a site; found in " + file));
+		List<Ledger.Marker> strays = Ledger.markers().stream()
+				.filter(m -> m.id() == 2 && !m.path().equals(REGISTRY)).toList();
+		assertTrue(strays.isEmpty(),
+				"hook id 2 is the registry file itself and must not mark a site; found " + strays);
 	}
 
 	@Test
-	@DisplayName("no upstream file is modified without a hook row")
-	void every_modified_upstream_file_is_a_hook() {
-		Map<String, SortedSet<Integer>> markers = Ledger.markersByFile();
-		for (String modified : Ledger.filesModifiedSinceTag()) {
-			if (DOCUMENTATION_EXCEPTIONS.contains(modified)) {
+	@DisplayName("no upstream file is changed, added, deleted or renamed without a hook row")
+	void every_upstream_change_is_a_hook() {
+		Set<String> markedFiles = Ledger.markers().stream()
+				.map(Ledger.Marker::path).collect(Collectors.toCollection(LinkedHashSet::new));
+
+		for (Ledger.Change change : Ledger.changesSinceTag()) {
+			String path = change.path();
+			if (DOCUMENTATION_EXCEPTIONS.contains(path)) {
 				continue;
 			}
-			assertTrue(markers.containsKey(modified),
-					modified + " differs from the pinned tag " + Ledger.pinnedTag()
-							+ " but carries no shatterfish-hook marker. Every edit to an upstream file is a"
-							+ " hook (non-negotiable #3): mark the site and add the row, or revert the edit.");
+			boolean upstream = change.isAddition()
+					? Ledger.isUpstreamAddition(path)
+					: Ledger.isUpstreamFileAtTheTag(path);
+			if (!upstream) {
+				continue;
+			}
+			if (change.isModification() || change.isAddition()) {
+				assertTrue(markedFiles.contains(path),
+						path + " is " + (change.isAddition() ? "new in" : "changed from") + " upstream at "
+								+ Ledger.pinnedTag() + " and carries no shatterfish-hook marker. Every edit to"
+								+ " an upstream file is a hook (non-negotiable #3), and a new file inside an"
+								+ " upstream module is how a second Shatterfish class would arrive next to the"
+								+ " game's own privates: mark it and add the row, or revert it.");
+			} else {
+				throw new AssertionError(path + " has status " + change.status() + " against "
+						+ Ledger.pinnedTag() + ". A deleted or renamed upstream file cannot carry a marker,"
+						+ " so it cannot be a hook by the rules of ADR-0008. If upstream code really must"
+						+ " move, that needs an ADR, not a row.");
+			}
+		}
+	}
+
+	@Test
+	@DisplayName("every top-level directory in the pinned tag is either upstream's or ours")
+	void every_upstream_directory_is_classified() {
+		for (String directory : Ledger.directoriesAtTheTag()) {
+			assertTrue(Ledger.UPSTREAM_CODE_ROOTS.contains(directory)
+							|| Ledger.OUR_TERRITORY_AT_THE_TAG.contains(directory),
+					"the pinned tag has a top-level directory this project has not classified: "
+							+ directory + ". The hook checks watch only the directories named in Ledger, so an"
+							+ " upstream module that nobody classified is an upstream module nobody is"
+							+ " watching. Add it to UPSTREAM_CODE_ROOTS or to OUR_TERRITORY_AT_THE_TAG.");
 		}
 	}
 }

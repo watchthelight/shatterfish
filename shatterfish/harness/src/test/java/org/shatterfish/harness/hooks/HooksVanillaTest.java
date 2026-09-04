@@ -4,9 +4,10 @@ import com.shatteredpixel.shatteredpixeldungeon.effects.EmoIcon;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.CellSelector;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks;
+import com.watabou.noosa.Gizmo;
+import com.watabou.noosa.Group;
 
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -25,23 +26,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * With nothing registered, the game is the game.
  *
- * <p>This is the vanilla-equivalence obligation story 1.1 left open. It has two halves, because the
- * two branches of a hook are reachable in different places.
+ * <p>This is the vanilla-equivalence obligation story 1.1 left open, and it is checked three ways
+ * because the two branches of a hook are reachable in different places.
  *
  * <p>The <em>Shatterfish</em> branch — the guard firing, every static null — is exercised at
- * runtime here: the three sites of hook row 5 are called with no scene in existence and must do
- * nothing rather than throw, which is precisely what the guards buy and what an unguarded call
- * would fail.
+ * runtime: the three sites of hook row 5 are called with no scene in existence and must do nothing
+ * rather than throw, which is precisely what the guards buy and what an unguarded call would fail.
  *
- * <p>The <em>vanilla</em> branch — the guard not firing — cannot be reached from a test at all.
- * Every one of row 5's statics is assigned only by {@code GameScene.create()}, and
- * {@code CellSelector} dereferences its {@code DungeonTilemap} in its own constructor, so there is
- * no way to install a real one without building the scene the harness deliberately does not build
- * (ADR-0015). It is instead proved against the source: a hook may wrap vanilla code, never delete
- * it, checked line by line against the pinned upstream tag. That check covers every hook this
- * repository will ever have, including the ones not written yet, which no runtime test could do.
- * Story 1.3 owns the remaining runtime half, where a harness-owned scene makes the statics
- * non-null.
+ * <p>The <em>vanilla</em> branch — the guard not firing — is exercised at runtime for the site where
+ * that is possible. {@code GameScene.add(EmoIcon)} needs only a {@code GameScene} instance, which
+ * constructs headlessly, and its {@code emoicons} group. The other two sites need a
+ * {@code CellSelector}, whose constructor takes a {@code DungeonTilemap}: the only concrete subclass
+ * reads {@code Dungeon.level} and a texture, so reaching them means booting a graphics binding and
+ * generating a level, which is the driver story 1.3 builds. That story owns the remaining two.
+ *
+ * <p>Beyond both, the property is checked against the pinned upstream tag: a hook wraps vanilla code
+ * and does not delete it. That covers hooks not written yet, which no runtime test can do.
  */
 class HooksVanillaTest {
 
@@ -51,26 +51,37 @@ class HooksVanillaTest {
 	/**
 	 * Hooks that move a vanilla line to another file instead of wrapping it in place. Hook row 1
 	 * moves the two mobile {@code include} lines into a fragment that restores them under
-	 * {@code -Pshatterfish.mobile=on}; the line still exists, so the rule still holds, but not in
-	 * the file it left. Any new entry here is a claim that needs its own row in
+	 * {@code -Pshatterfish.mobile=on}; the line still exists, so the rule still holds, but not in the
+	 * file it left. Any new entry here is a claim that needs its own row in
 	 * {@code docs/UPSTREAM.md}.
 	 */
 	private static final Map<String, String> RELOCATIONS =
 			Map.of("settings.gradle", "shatterfish/settings.gradle");
 
-	@BeforeEach
 	@AfterEach
-	void nothingRegistered() {
+	void leaveNothingRegistered() {
 		Hooks.clear();
 	}
 
 	@Test
-	@DisplayName("no listener is registered unless something registers one")
-	void nothing_is_registered_by_default() {
-		for (Field point : listenerPoints()) {
-			assertNull(valueOf(point),
-					"Hooks." + point.getName() + " is set with no Run active; a hook site would take the"
-							+ " Shatterfish branch inside the unmodified game");
+	@DisplayName("the registry declares only listener points, so the checks below see all of them")
+	void every_field_in_the_registry_is_a_listener_point() {
+		for (Field field : Hooks.class.getDeclaredFields()) {
+			if (field.isSynthetic()) {
+				continue;
+			}
+			int modifiers = field.getModifiers();
+			assertTrue(Modifier.isPublic(modifiers) && Modifier.isStatic(modifiers)
+							&& !Modifier.isFinal(modifiers),
+					"Hooks." + field.getName() + " is not a public non-final static, so the reflective"
+							+ " checks in this class do not see it. The registry holds listener points and"
+							+ " nothing else; state that belongs to a Run belongs in the harness.");
+			assertTrue(field.getType().isInterface(),
+					"Hooks." + field.getName() + " must be an interface so that harness and overlay can"
+							+ " implement it without core depending on either (ADR-0003)");
+			assertTrue(Modifier.isVolatile(modifiers),
+					"Hooks." + field.getName() + " must be volatile: it is written by the thread that"
+							+ " starts a Run and read by the actor and render threads (ADR-0013)");
 		}
 	}
 
@@ -81,12 +92,6 @@ class HooksVanillaTest {
 		assertFalse(points.isEmpty(), "Hooks declares no listener point, so this test proves nothing");
 
 		for (Field point : points) {
-			assertTrue(point.getType().isInterface(),
-					"Hooks." + point.getName() + " must be an interface so that harness and overlay can"
-							+ " implement it without core depending on either (ADR-0003)");
-			assertTrue(Modifier.isVolatile(point.getModifiers()),
-					"Hooks." + point.getName() + " must be volatile: it is written by the thread that"
-							+ " starts a Run and read by the actor and render threads (ADR-0013)");
 			set(point, Proxy.newProxyInstance(getClass().getClassLoader(),
 					new Class<?>[]{point.getType()}, (proxy, method, args) -> null));
 		}
@@ -121,14 +126,42 @@ class HooksVanillaTest {
 	}
 
 	@Test
+	@DisplayName("row 5: add(EmoIcon) runs the vanilla branch when a scene exists")
+	void the_emote_site_runs_the_vanilla_branch_when_a_scene_exists() throws Exception {
+		GameScene scene = new GameScene();
+		RecordingGroup icons = new RecordingGroup();
+		Field emoicons = GameScene.class.getDeclaredField("emoicons");
+		emoicons.setAccessible(true);
+		emoicons.set(scene, icons);
+
+		Field sceneField = GameScene.class.getDeclaredField("scene");
+		sceneField.setAccessible(true);
+		try {
+			sceneField.set(null, scene);
+			GameScene.add((EmoIcon) null);
+			assertTrue(icons.added,
+					"with a scene in place the guard must not fire: the icon has to reach"
+							+ " scene.emoicons exactly as it does in the running game");
+		} finally {
+			// Leaving a scene in this static would change what every other test in this module sees.
+			sceneField.set(null, null);
+		}
+	}
+
+	@Test
 	@DisplayName("a hook wraps vanilla code; it never deletes it")
 	void a_hook_wraps_vanilla_code_it_never_deletes() {
 		String tag = Ledger.pinnedTag();
-		for (String path : Ledger.filesModifiedSinceTag()) {
-			if (DOCUMENTATION_EXCEPTIONS.contains(path)) {
+		for (Ledger.Change change : Ledger.changesSinceTag()) {
+			String path = change.path();
+			if (!change.isModification() || !Ledger.isUpstreamFileAtTheTag(path)
+					|| DOCUMENTATION_EXCEPTIONS.contains(path)) {
 				continue;
 			}
-			List<String> added = Ledger.linesAddedSinceTag(path);
+			List<String> guards = Ledger.linesAddedSinceTag(path).stream()
+					.map(String::trim)
+					.filter(line -> !isComment(line))
+					.toList();
 			List<String> elsewhere =
 					RELOCATIONS.containsKey(path) ? Ledger.readLines(RELOCATIONS.get(path)) : List.of();
 
@@ -137,19 +170,18 @@ class HooksVanillaTest {
 				if (vanilla.isEmpty() || isComment(vanilla)) {
 					continue;
 				}
-				boolean survives = contains(added, vanilla) || contains(elsewhere, vanilla);
-				assertTrue(survives, path + " lost a line that is in no line of the modified file"
-						+ (RELOCATIONS.containsKey(path) ? " nor of " + RELOCATIONS.get(path) : "")
+				boolean wrapped = guards.stream()
+						.anyMatch(guard -> guard.startsWith("if (") && guard.endsWith(vanilla));
+				boolean relocated = elsewhere.stream().anyMatch(line -> line.trim().equals(vanilla));
+				assertTrue(wrapped || relocated, path + " lost a line that no added line guards"
+						+ (RELOCATIONS.containsKey(path) ? " and that " + RELOCATIONS.get(path)
+								+ " does not carry" : "")
 						+ ":\n    " + vanilla
-						+ "\nA hook guards vanilla code, it does not replace it. Compare against " + tag
-						+ ". If the line really must move, name where in the RELOCATIONS map here and say"
-						+ " why in its docs/UPSTREAM.md row.");
+						+ "\nA hook encloses vanilla code in a condition; it does not replace it. Compare"
+						+ " against " + tag + ". If the line really must move, name where in the RELOCATIONS"
+						+ " map here and say why in its docs/UPSTREAM.md row.");
 			}
 		}
-	}
-
-	private static boolean contains(List<String> lines, String vanilla) {
-		return lines.stream().anyMatch(line -> line.contains(vanilla));
 	}
 
 	private static boolean isComment(String trimmed) {
@@ -157,16 +189,13 @@ class HooksVanillaTest {
 				|| trimmed.startsWith("#");
 	}
 
-	/** The listener fields of the registry: public, static, mutable, and not the compiler's. */
+	/** The listener fields of the registry, which {@code every_field_in_the_registry} pins to all of them. */
 	private static List<Field> listenerPoints() {
 		List<Field> points = new ArrayList<>();
 		for (Field field : Hooks.class.getDeclaredFields()) {
-			int modifiers = field.getModifiers();
-			if (field.isSynthetic() || !Modifier.isPublic(modifiers) || !Modifier.isStatic(modifiers)
-					|| Modifier.isFinal(modifiers)) {
-				continue;
+			if (!field.isSynthetic()) {
+				points.add(field);
 			}
-			points.add(field);
 		}
 		return points;
 	}
@@ -201,6 +230,17 @@ class HooksVanillaTest {
 		public String prompt() {
 			prompted = true;
 			return "";
+		}
+	}
+
+	/** Stands in for the scene's emote group and records that the vanilla branch reached it. */
+	private static final class RecordingGroup extends Group {
+		private boolean added;
+
+		@Override
+		public synchronized Gizmo add(Gizmo g) {
+			added = true;
+			return g;
 		}
 	}
 }

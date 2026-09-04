@@ -43,7 +43,10 @@ The table below is a promise; these tests are what make it true. All of them run
 | `HooksLedgerTest`: the hook ids marked in the upstream tree equal the rows here | A hook that was added without a row, and a row left behind after its hook was removed |
 | `HooksLedgerTest`: at most ten rows | The budget being raised by an edit instead of by an ADR |
 | `HooksLedgerTest`: hook id 2 appears in `Hooks.java` and nowhere else | A hook hidden inside the registry, where many sites would count as one marker |
-| `HooksLedgerTest`: every upstream file that differs from the pinned tag carries a marker | An edit to upstream that nobody wrote down, which is the failure this document exists to prevent |
+| `HooksLedgerTest`: the site index equals the markers in the tree | A new site added under an id that already has a row, which changes no id set. `GameScene` is where an Observer-adjacent leak would be added, and it already carries row 5 |
+| `HooksLedgerTest`: no row id is used twice | Two reasons under one id, which ADR-0008 forbids and which hides a row from the budget |
+| `HooksLedgerTest`: nothing looks like a marker without being one | A mistyped marker, which is a comment the id comparison cannot see and a reader takes for a declaration |
+| `HooksLedgerTest`: every upstream file that is changed, added, deleted or renamed relative to the pinned tag carries a marker | An edit to upstream that nobody wrote down; a second Shatterfish class added inside an upstream module, next to the game's own privates; and an upstream file deleted or moved, none of which a modified-files-only check can see |
 | `HooksVanillaTest`: a hook wraps vanilla code, it never deletes it | A vanilla statement lost because a guard replaced it rather than enclosing it, including when an upgrade merge rewrites the site |
 | `HooksVanillaTest`: the guarded sites do nothing when no scene exists | A guard dropped by an upgrade merge, which would otherwise surface much later as a headless crash |
 | `HooksVanillaTest`: `Hooks.clear()` nulls every point declared in `Hooks` | A listener belonging to a finished Run being reachable from the next one |
@@ -67,6 +70,21 @@ entries). They are documentation, not build hooks, and are re-applied on upgrade
 by taking "ours" in the merge. They are the only two files `HooksLedgerTest` allows
 to differ from the pinned tag without carrying a marker; every other upstream file
 that differs must be a row above.
+
+### The site index
+
+The table above abbreviates paths so a person can read it. The same information for a machine is
+below: one line per row per file, as `<id> <markers> <path>`. `HooksLedgerTest` asserts equality
+with the tree, which is what catches a new site added under an id that already exists — a change
+that alters no id set and would otherwise be invisible.
+
+<!-- site-index -->
+
+```text
+1  1  settings.gradle
+2  1  core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/shatterfish/Hooks.java
+5  3  core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/scenes/GameScene.java
+```
 
 ## Upgrade procedure
 

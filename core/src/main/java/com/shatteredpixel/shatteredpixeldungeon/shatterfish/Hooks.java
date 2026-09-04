@@ -34,18 +34,25 @@ package com.shatteredpixel.shatteredpixeldungeon.shatterfish;
  * <p>Every hook that needs to <em>call</em> Shatterfish calls it through a nullable listener field
  * declared here, so that no upstream file ever imports a Shatterfish module and the dependency
  * edges of ADR-0003 are never reversed ({@code harness} and {@code overlay} depend on
- * {@code core}, never the other way round). A hook site is one line of the form
+ * {@code core}, never the other way round). A hook site reads the point once into a local and then
+ * uses the local:
  *
  * <pre>{@code
- *   // shatterfish-hook:<id>
- *   if (Hooks.<point> != null) Hooks.<point>.on...(...);
+ *   // the marker comment, then:
+ *   InputWait waiting = Hooks.inputWait;
+ *   if (waiting != null) waiting.onInputWait();
  * }</pre>
  *
- * <p>or, where the hook has to choose, {@code if (Hooks.<point> != null) ...; else <vanilla>;}.
- * With nothing registered every site takes the vanilla branch, which is what makes the unmodified
- * game unmodified. {@code HooksVanillaTest} holds that: after {@link #clear()} every point declared
- * here is null, checked reflectively, so a point added later without a line in {@code clear()}
- * fails the build rather than leaking a listener between Runs.
+ * <p>The local matters. A site that tests the field and then reads it again can be interrupted
+ * between the two by {@link #clear()} on the thread that ends a Run, and the second read returns
+ * null on the game's actor thread. Volatility makes the write visible; it does not make two reads
+ * one. Where the hook has to choose rather than notify, the {@code else} branch is the vanilla code
+ * unchanged.
+ *
+ * <p>With nothing registered every site takes the vanilla branch, which is what makes the
+ * unmodified game unmodified. {@code HooksVanillaTest} holds that: after {@link #clear()} every
+ * point declared here is null, checked reflectively, so a point added later without a line in
+ * {@code clear()} fails the build rather than leaking a listener between Runs.
  *
  * <p>Not every hook row needs a point. Rows that are pure null guards, read-only accessors or
  * semantically neutral edits (rows 4, 5's guards, 6) have no listener and nothing here.
@@ -55,7 +62,8 @@ package com.shatteredpixel.shatteredpixeldungeon.shatterfish;
  * exists.
  *
  * <p>Fields are {@code volatile} because they are written by the thread that starts a Run and read
- * by the game's actor and render threads (ADR-0013).
+ * by the game's actor and render threads (ADR-0013). Volatility is what makes a registration
+ * visible to those threads; the local-copy idiom above is what makes an unregistration safe.
  *
  * @see <a href="https://github.com/watchthelight/shatterfish/blob/main/docs/UPSTREAM.md">docs/UPSTREAM.md</a>
  */
