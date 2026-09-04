@@ -48,7 +48,7 @@ own a game instance and a thread: `HeadlessDriver` (E1), `EmbeddedDriver` (E5), 
 | Ports | `org.shatterfish.harness` | `Observer`, `OracleObserver`, `ActionExecutor`, `RngControl`, `Snapshot` (never leaves the module), `SnapshotStore`, `Redeterminer`, `Profile` |
 | Adapters | `org.shatterfish.harness.driver`, `org.shatterfish.overlay`, `org.shatterfish.rig` | drivers, the Panel, the runner |
 | Pure | `org.shatterfish.brain` | policies, beliefs, evaluation, search |
-| Knowledge | `org.shatterfish.codex`, `codex/<tag>/`, `lore/` | generated tables (JSON), Rules, Lore |
+| Knowledge | `org.shatterfish.codex`, `codex/<tag>/`, `lore/` | generated tables written as `api`-typed JSON, Rules, Lore |
 
 ## Invariants & Rules
 
@@ -59,6 +59,7 @@ graph TD
   harness --> core
   harness --> api
   codex --> core
+  codex --> api
   brain --> api
   rig --> harness
   rig --> brain
@@ -182,15 +183,17 @@ graph TD
 - **Rule:** ADR-0008: a hook site is one line calling a nullable listener in
   `…/shatterfish/Hooks.java` (or a semantically neutral one-line edit), carries the marker
   `// shatterfish-hook:<id>`, and has a row in `docs/UPSTREAM.md`; a test counts markers against
-  rows; the v1 budget is eight.
+  rows; the v1 budget is ten (ADR-0008, PRD v4 section 10).
 
 ### AD-11 — Every published number is a Registration plus a Run log
 
 - **Binds:** FR-19 to FR-26, NFR-2
 - **Prevents:** a Results page that cannot be reproduced
 - **Rule:** a comparison runs only under a committed Registration (Hypothesis id, `p0`, `p1`,
-  `α`, `β`, `n0`, `nmax`, Seed set version, the salts, both Brains' commits, budget, machine
-  class); every Run writes the gzip JSONL log of ADR-0011 with its hash chain, keyed by `k`; the
+  `α`, `β`, `n0`, `nmax`, Seed set version, both Brains' commits, budget, machine class, and
+  **not** the salts, which the runner draws when each pair executes so that a Brain's author
+  cannot precompute the stream); every Run writes the plain JSONL log of ADR-0011 with its hash
+  chain, keyed by `k`; the
   Sequential test is the Per-pair GSPRT of ADR-0012 with the e-process as the calibrated
   alternative; the runner refuses `holdout` for development and any Oracle Run; the Results page
   carries the chain, the trace, the measured pair correlation and the command that reproduces it.
@@ -268,7 +271,7 @@ shatterfish/
              org.shatterfish.harness.scene    # HeadlessScene (harness-owned Scene), no-op GL, Pixmap atlases
              org.shatterfish.harness.driver   # HeadlessDriver, ReplayDriver, the driver contract
              src/test  fairness suite: LeakTest per ADR-0006 row, DifferentialTest, ToggleTest, DeterminismTest (two JVMs), HooksTest
-  codex/     org.shatterfish.codex        # generators per table, completeness check, citation checker, vocabulary diff
+  codex/     org.shatterfish.codex        # generators per table (writing api-typed JSON), completeness check, citation checker, vocabulary diff
   brain/     org.shatterfish.brain        # Brain (pure), Beliefs, Policies, Arbitration, Evaluation, safeTest, Playbooks and weights as data; search/ reserved
   harness/   …/agent                      # RandomAgent and the throughput benchmark (FR-5, SM-4)
   rig/       org.shatterfish.rig          # Runner (process per Run), SeedSets, Registration, Gsprt, EProcess, Results, Replay, death gallery (FR-26)
