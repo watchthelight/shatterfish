@@ -28,6 +28,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class HooksLedgerTest {
 
+	private static final List<Ledger.Marker> MARKERS = Ledger.markers();
+
 	/** The registry itself, hook row 2. The only Shatterfish source file outside {@code shatterfish/}. */
 	private static final String REGISTRY =
 			"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/shatterfish/Hooks.java";
@@ -46,12 +48,12 @@ class HooksLedgerTest {
 	@DisplayName("every hook id in the tree has a row, and every row has a site")
 	void markers_and_ledger_rows_agree() {
 		Set<Integer> inTree = new TreeSet<>(
-				Ledger.markers().stream().map(Ledger.Marker::id).collect(Collectors.toSet()));
+				MARKERS.stream().map(Ledger.Marker::id).collect(Collectors.toSet()));
 		Set<Integer> inLedger = new TreeSet<>(Ledger.ledgerRowIds());
 
 		assertEquals(inLedger, inTree,
 				"the hook ids marked in the upstream tree and the rows in docs/UPSTREAM.md differ."
-						+ " Markers: " + Ledger.markers()
+						+ " Markers: " + MARKERS
 						+ ". A new hook needs a row in the same pull request; a removed hook needs its row"
 						+ " removed.");
 	}
@@ -60,10 +62,10 @@ class HooksLedgerTest {
 	@DisplayName("the site index names every marker, and only the markers that exist")
 	void the_site_index_matches_the_tree() {
 		List<String> inTree = new ArrayList<>();
-		for (Integer id : new TreeSet<>(Ledger.markers().stream().map(Ledger.Marker::id).toList())) {
-			for (String path : new TreeSet<>(Ledger.markers().stream()
+		for (Integer id : new TreeSet<>(MARKERS.stream().map(Ledger.Marker::id).toList())) {
+			for (String path : new TreeSet<>(MARKERS.stream()
 					.filter(m -> m.id() == id).map(Ledger.Marker::path).toList())) {
-				long count = Ledger.markers().stream()
+				long count = MARKERS.stream()
 						.filter(m -> m.id() == id && m.path().equals(path)).count();
 				inTree.add(id + " " + count + " " + path);
 			}
@@ -82,11 +84,10 @@ class HooksLedgerTest {
 	@Test
 	@DisplayName("nothing in the upstream tree looks like a marker without being one")
 	void no_marker_is_malformed() {
-		List<String> malformed = Ledger.malformedMarkers().stream()
-				// The registry documents the marker convention, so it necessarily writes the token in
-				// prose. It is the one file allowed to, and the check below pins its real marker anyway.
-				.filter(line -> !line.startsWith(REGISTRY + ":"))
-				.toList();
+		// No file is exempt, the registry included. An earlier draft exempted it in case its javadoc
+		// spelled the marker out in prose; it does not, and the exemption would have un-checked the one
+		// file every other check in this class depends on.
+		List<String> malformed = Ledger.malformedMarkers();
 
 		assertTrue(malformed.isEmpty(),
 				"these lines mention shatterfish-hook but do not parse as a marker, so they are"
@@ -112,7 +113,7 @@ class HooksLedgerTest {
 	@Test
 	@DisplayName("the registry carries its own row and hides no other")
 	void the_registry_is_not_a_hiding_place() {
-		Set<Integer> inRegistry = new TreeSet<>(Ledger.markers().stream()
+		Set<Integer> inRegistry = new TreeSet<>(MARKERS.stream()
 				.filter(m -> m.path().equals(REGISTRY)).map(Ledger.Marker::id).toList());
 
 		assertEquals(new TreeSet<>(List.of(2)), inRegistry,
@@ -120,7 +121,7 @@ class HooksLedgerTest {
 						+ " being gamed by moving a hook into the registry, where many sites would become"
 						+ " one marker.");
 
-		List<Ledger.Marker> strays = Ledger.markers().stream()
+		List<Ledger.Marker> strays = MARKERS.stream()
 				.filter(m -> m.id() == 2 && !m.path().equals(REGISTRY)).toList();
 		assertTrue(strays.isEmpty(),
 				"hook id 2 is the registry file itself and must not mark a site; found " + strays);
@@ -129,7 +130,7 @@ class HooksLedgerTest {
 	@Test
 	@DisplayName("no upstream file is changed, added, deleted or renamed without a hook row")
 	void every_upstream_change_is_a_hook() {
-		Set<String> markedFiles = Ledger.markers().stream()
+		Set<String> markedFiles = MARKERS.stream()
 				.map(Ledger.Marker::path).collect(Collectors.toCollection(LinkedHashSet::new));
 
 		for (Ledger.Change change : Ledger.changesSinceTag()) {
@@ -157,6 +158,36 @@ class HooksLedgerTest {
 						+ " move, that needs an ADR, not a row.");
 			}
 		}
+	}
+
+	@Test
+	@DisplayName("no upstream file differs from the pinned tag by more than the ledger declares")
+	void the_diff_budget_is_exact() {
+		List<String> declared = Ledger.diffBudget().stream()
+				.map(b -> b.added() + " " + b.removed() + " " + b.path())
+				.sorted()
+				.toList();
+		// Only files that exist at the tag and are upstream's. A file added since (the registry, our
+		// own documentation) has no vanilla version to differ from: the marker and the row govern it.
+		Set<String> modified = Ledger.changesSinceTag().stream()
+				.filter(Ledger.Change::isModification)
+				.map(Ledger.Change::path)
+				.collect(Collectors.toCollection(LinkedHashSet::new));
+		List<String> measured = Ledger.measuredDiff().stream()
+				.filter(b -> modified.contains(b.path()))
+				.filter(b -> Ledger.isUpstreamFileAtTheTag(b.path()))
+				.filter(b -> !DOCUMENTATION_EXCEPTIONS.contains(b.path()))
+				.map(b -> b.added() + " " + b.removed() + " " + b.path())
+				.sorted()
+				.toList();
+
+		assertEquals(declared, measured,
+				"the size of an upstream file's diff against " + Ledger.pinnedTag() + " is not what"
+						+ " docs/UPSTREAM.md declares. Markers and guards cannot catch this on their own: a"
+						+ " method added to a file that already carries a marker has no marker of its own and"
+						+ " removes no line, so declaring how far each file may differ is what makes every"
+						+ " unlisted change to upstream visible. If the change is a real hook, update the"
+						+ " diff budget in the same pull request; if it is not, revert it.");
 	}
 
 	@Test

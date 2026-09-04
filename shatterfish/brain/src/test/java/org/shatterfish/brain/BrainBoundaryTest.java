@@ -17,25 +17,126 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  *
  * <p>The rule of play is that the bot may use only what a human at the same screen could have. That
  * is enforced by architecture rather than intention, and this is where the architecture is stated:
- * the Observation is the brain's only channel, so anything that could carry a second one is closed.
+ * the Observation is the brain's only channel, so everything that could carry a second one is shut.
  *
- * <p>Game code is the obvious channel and the least interesting, because a reviewer would see the
- * import. The channels worth a rule are the quiet ones. The brain runs in the same JVM as the game
- * (non-negotiable #4), so at Overlay and rig runtime the game's classes are on the same classpath
- * whether or not {@code brain} compiles against them: a single {@code Class.forName} string reaches
- * {@code Dungeon.level} with no dependency for a package rule to see. A file read reaches the save
- * bundle. A system property is a one-line channel from the harness in the same process. A service
- * loader lets the harness hand the brain an oracle-backed implementation of an {@code api}
- * interface without the brain ever naming a game type. A wall clock and an unseeded generator break
- * reproducibility (non-negotiable #5) rather than parity, which is the same build failure for a
- * different reason.
+ * <h2>Why this is an allowlist</h2>
  *
- * <p>Every rule here is checked against a class that breaks it, in {@code BrainBoundaryRulesBiteTest}.
- * A boundary rule that has never rejected anything is a comment.
+ * <p>Two rounds of adversarial review killed two denylists. The first banned game packages and
+ * reflection, and was walked through with {@code Class.forName} plus {@code MethodHandles}. The
+ * second added {@code java.lang.invoke}, {@code System}, {@code ServiceLoader} and nine other names,
+ * and was walked through with {@code java.beans.Expression}, which performs arbitrary reflective
+ * dispatch by string and returns {@code Object}, so that no banned type appears in the class file at
+ * all. It read {@code Dungeon.seed}. The next denylist would have been walked through with
+ * {@code java.lang.management}, {@code ProcessHandle}, {@code SecureRandom} or something nobody in
+ * this repository has thought of, because the JDK is large and an attacker only needs one door.
+ *
+ * <p>So the rule is inverted. The brain may depend on a short list of packages that hold data and
+ * arithmetic and nothing else; everything else in the JDK, the game and every other module is denied
+ * because it is not on the list. A new capability the brain genuinely needs is one line here and a
+ * decision someone has to make on purpose, which is the point.
+ *
+ * <p>Two packages have to be allowed whole and are not innocent: {@code java.lang} holds
+ * {@code Class}, {@code System} and {@code ProcessBuilder}, and {@code java.util} holds
+ * {@code Random} and {@code ServiceLoader}. Those are the only places a denylist survives here, and
+ * both are closed sets fixed by the JDK rather than open-ended surface.
+ *
+ * <p>Every rule is checked against a class that breaks it in {@code BrainBoundaryRulesBiteTest},
+ * along with ordinary Java, which must pass. A boundary rule that has never rejected anything is a
+ * comment, and a rule that rejects ordinary code is one that gets deleted.
  */
 @AnalyzeClasses(packages = "org.shatterfish.brain", importOptions = ImportOption.DoNotIncludeTests.class)
 class BrainBoundaryTest {
 
+	/**
+	 * Everything the brain may reach. Data structures, arithmetic, and the Observation.
+	 *
+	 * <p>Deliberately absent, each because it is a channel or a source of irreproducibility rather
+	 * than because anyone expects the brain to want it: {@code java.io}, {@code java.nio},
+	 * {@code java.net} (the save bundle, the level file, a socket to an oracle process);
+	 * {@code java.lang.reflect}, {@code java.lang.invoke}, {@code java.beans}, {@code sun},
+	 * {@code jdk} (reach anything by name, invisibly to a reviewer reading imports);
+	 * {@code java.lang.management}, {@code java.util.prefs}, {@code javax} (the property table, a
+	 * persistent store outside the process, and a very large surface); {@code java.time},
+	 * {@code java.security}, {@code java.util.random}, {@code java.util.concurrent} (a clock, a
+	 * generator the brain seeds itself, and scheduling — a Run is (tag, seed, action list) and
+	 * nothing else).
+	 */
+	private static final String[] ALLOWED = {
+			"org.shatterfish.brain..",
+			"org.shatterfish.api..",
+			"java.lang",
+			"java.lang.runtime",
+			"java.util",
+			"java.util.function",
+			"java.util.stream",
+			"java.math",
+	};
+
+	/**
+	 * The classes inside the two packages that have to be allowed whole but must not be reachable.
+	 * {@code Class} is here because a reference to it is the first half of every reflective escape,
+	 * and a brain has no legitimate use for class-based dispatch.
+	 */
+	private static final Class<?>[] DENIED_INSIDE_ALLOWED_PACKAGES = {
+			Class.class, ClassLoader.class, Module.class, ModuleLayer.class, Package.class,
+			System.class, Runtime.class, Process.class, ProcessBuilder.class, ProcessHandle.class,
+			Thread.class, ThreadGroup.class, ThreadLocal.class, StackWalker.class,
+			java.util.Random.class, java.util.SplittableRandom.class, java.util.Scanner.class,
+			java.util.ServiceLoader.class, java.util.Date.class, java.util.Calendar.class,
+			java.util.Timer.class, java.util.UUID.class, java.util.ResourceBundle.class,
+			java.util.Locale.class, java.util.TimeZone.class, java.util.Currency.class,
+	};
+
+	/**
+	 * Methods on otherwise harmless classes that reach outside the process. The wrapper types carry
+	 * system-property readers that name neither {@code System} nor a property type, and
+	 * {@code Collections.shuffle} without a generator makes one of its own. Each was found by an
+	 * adversarial review walking the previous version of these rules.
+	 */
+	private static final ArchRule NO_SIDE_DOORS = noClasses()
+			.that().resideInAPackage("org.shatterfish.brain..")
+			.should().callMethodWhere(target(name("forName")).and(target(owner(type(Class.class)))))
+			.orShould().callMethodWhere(target(name("random")).and(target(owner(type(Math.class)))))
+			.orShould().callMethodWhere(target(name("getBoolean")).and(target(owner(type(Boolean.class)))))
+			.orShould().callMethodWhere(target(name("getInteger")).and(target(owner(type(Integer.class)))))
+			.orShould().callMethodWhere(target(name("getLong")).and(target(owner(type(Long.class)))))
+			.orShould().callMethodWhere(target(name("shuffle"))
+					.and(target(owner(type(java.util.Collections.class)))))
+			.because("Boolean.getBoolean, Integer.getInteger and Long.getLong read system properties"
+					+ " without naming System, and Collections.shuffle seeds a generator of its own."
+					+ " Every one of these lives on a class the brain legitimately needs");
+
+	/**
+	 * The rule everything else rests on: default deny. It is stated first because the named rules
+	 * below are refinements of it, not additions to it.
+	 */
+	@ArchTest
+	static final ArchRule brain_reaches_only_data_structures_and_the_api = classes()
+			.that().resideInAPackage("org.shatterfish.brain..")
+			.should().onlyDependOnClassesThat()
+			.resideInAnyPackage(ALLOWED)
+			.because("the Observation is the brain's only channel (non-negotiable #1). Anything not on"
+					+ " the allowlist is denied because it is not on the allowlist, so a capability the"
+					+ " brain needs is a decision someone makes on purpose rather than a door nobody"
+					+ " noticed");
+
+	@ArchTest
+	static final ArchRule brain_reaches_nothing_dangerous_inside_the_allowed_packages = noClasses()
+			.that().resideInAPackage("org.shatterfish.brain..")
+			.should().dependOnClassesThat()
+			.belongToAnyOf(DENIED_INSIDE_ALLOWED_PACKAGES)
+			.because("java.lang and java.util have to be allowed whole for the brain to be writable at"
+					+ " all, and they are where the JDK keeps class loading, the process environment,"
+					+ " service loading, locales and unseeded generators");
+
+	/** @see #NO_SIDE_DOORS */
+	@ArchTest
+	static final ArchRule brain_calls_no_method_that_reaches_outside_the_process = NO_SIDE_DOORS;
+
+	/**
+	 * Kept as a named rule even though the allowlist already implies it, because this is the one a
+	 * reader comes looking for and a failure should say so in as many words.
+	 */
 	@ArchTest
 	static final ArchRule brain_never_depends_on_game_code = noClasses()
 			.that().resideInAPackage("org.shatterfish.brain..")
@@ -51,76 +152,4 @@ class BrainBoundaryTest {
 			.resideInAnyPackage("org.shatterfish.harness..", "org.shatterfish.overlay..",
 					"org.shatterfish.codex..", "org.shatterfish.rig..")
 			.because("brain depends on api only (AD-1); harness holds the game state the brain must not see");
-
-	@ArchTest
-	static final ArchRule brain_reads_no_files_and_opens_no_sockets = noClasses()
-			.that().resideInAPackage("org.shatterfish.brain..")
-			.should().dependOnClassesThat()
-			.resideInAnyPackage("java.io..", "java.nio.file..", "java.net..")
-			.because("a side channel is still a channel: the save bundle, the level file and a socket to"
-					+ " an oracle process all carry information the Observation withholds. Anything the"
-					+ " brain needs to persist goes out through api and is written by its caller");
-
-	/**
-	 * {@code java.lang.invoke} is banned as a whole package, not as {@code MethodHandles} alone:
-	 * {@code MethodHandles.privateLookupIn} plus a {@code MethodHandle} reaches any private static in
-	 * the JVM, and a rule naming only the entry class leaves the rest of the package open.
-	 */
-	@ArchTest
-	static final ArchRule brain_uses_no_reflection = noClasses()
-			.that().resideInAPackage("org.shatterfish.brain..")
-			.should().dependOnClassesThat()
-			.resideInAnyPackage("java.lang.reflect..", "java.lang.invoke..", "sun..", "jdk..")
-			.because("reflection reaches what the rules above forbid by name, and it does so invisibly to"
-					+ " a reviewer reading the imports");
-
-	/**
-	 * The classes that resolve a name to a class at runtime, run a process, or read the process
-	 * environment. These live in {@code java.lang} and {@code java.util}, which the brain otherwise
-	 * needs, so they are named one by one rather than by package.
-	 */
-	@ArchTest
-	static final ArchRule brain_reaches_nothing_by_name_at_runtime = noClasses()
-			.that().resideInAPackage("org.shatterfish.brain..")
-			.should().dependOnClassesThat()
-			.belongToAnyOf(ClassLoader.class, Module.class, ModuleLayer.class, System.class,
-					Runtime.class, ProcessBuilder.class, Process.class, java.util.ServiceLoader.class,
-					java.util.Scanner.class)
-			.orShould().callMethodWhere(target(name("forName")).and(target(owner(type(Class.class)))))
-			.because("Class.forName and a service loader both reach game code without naming it, and the"
-					+ " brain shares a JVM with the game (non-negotiable #4), so the game's classes are"
-					+ " on the classpath at run time whatever brain compiles against. System carries the"
-					+ " environment, the properties and the streams, each a channel from the harness in"
-					+ " the same process");
-
-	/**
-	 * Reproducibility rather than parity: a Run is determined by the tuple (tag, seed, action list)
-	 * and nothing else (non-negotiable #5). A brain that reads a clock or seeds itself from the
-	 * environment is not replayable, and the rig cannot measure what it cannot repeat. Randomness the
-	 * brain legitimately needs arrives through {@code api}, seeded from the Run.
-	 */
-	@ArchTest
-	static final ArchRule brain_has_no_clock_and_no_generator_of_its_own = noClasses()
-			.that().resideInAPackage("org.shatterfish.brain..")
-			.should().dependOnClassesThat()
-			.resideInAnyPackage("java.time..")
-			.orShould().dependOnClassesThat()
-			.belongToAnyOf(java.util.Random.class, java.util.SplittableRandom.class,
-					java.util.concurrent.ThreadLocalRandom.class)
-			.orShould().callMethodWhere(target(name("random")).and(target(owner(type(Math.class)))))
-			.because("a Run is (tag, seed, action list); a wall clock or a self-seeded generator makes"
-					+ " the same tuple produce two different games");
-
-	/**
-	 * The positive form of the rules above. They are kept separately because a named ban says what
-	 * went wrong; this one only says that something did. It is deliberately the weaker rule: it
-	 * allows all of {@code java..}, which is why the bans exist.
-	 */
-	@ArchTest
-	static final ArchRule brain_sees_only_the_api_and_the_jdk = classes()
-			.that().resideInAPackage("org.shatterfish.brain..")
-			.should().onlyDependOnClassesThat()
-			.resideInAnyPackage("org.shatterfish.brain..", "org.shatterfish.api..", "java..")
-			.allowEmptyShould(true)
-			.because("the Observation is the brain's only channel (non-negotiable #1)");
 }

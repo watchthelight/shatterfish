@@ -34,7 +34,12 @@ tasks.named('test') {
             .withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.files(fileTree(rootDir) {
         include 'core/**', 'SPD-classes/**', 'desktop/**', 'services/**', 'android/**', 'ios/**'
-        include '*.gradle', 'gradle.properties'
+        // Every root-level file, not just the build scripts: Ledger treats all of them as upstream's,
+        // so LICENSE.txt changing must re-run the checks that say it has not.
+        include '*'
+        // Hook row 1's relocation target, which HooksVanillaTest reads to confirm the two mobile
+        // include lines still exist. Without it, that claim could be broken with the build green.
+        include 'shatterfish/settings.gradle'
         exclude '**/build/**'
     }).withPropertyName('upstreamTree').withPathSensitivity(PathSensitivity.RELATIVE)
 }

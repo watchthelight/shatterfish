@@ -9,7 +9,10 @@ dependencies {
 // Second line of defence beside the ArchUnit test: fail configuration if any
 // upstream module ever reaches this classpath transitively.
 configurations.configureEach { cfg ->
-    if (cfg.name in ['compileClasspath', 'runtimeClasspath']) {
+    // The test classpaths are included: ArchUnit is configured with DoNotIncludeTests, so game
+    // code arriving through testImplementation would not be looked at by any rule.
+    if (cfg.name in ['compileClasspath', 'runtimeClasspath',
+                     'testCompileClasspath', 'testRuntimeClasspath']) {
         cfg.incoming.afterResolve { deps ->
             def game = deps.resolutionResult.allComponents.findAll {
                 it.id instanceof ProjectComponentIdentifier &&

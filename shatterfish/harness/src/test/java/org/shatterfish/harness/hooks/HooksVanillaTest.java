@@ -36,9 +36,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>The <em>vanilla</em> branch — the guard not firing — is exercised at runtime for the site where
  * that is possible. {@code GameScene.add(EmoIcon)} needs only a {@code GameScene} instance, which
  * constructs headlessly, and its {@code emoicons} group. The other two sites need a
- * {@code CellSelector}, whose constructor takes a {@code DungeonTilemap}: the only concrete subclass
- * reads {@code Dungeon.level} and a texture, so reaching them means booting a graphics binding and
- * generating a level, which is the driver story 1.3 builds. That story owns the remaining two.
+ * {@code CellSelector}, and every {@code DungeonTilemap} builds a {@code TextureFilm} from a
+ * texture in its abstract constructor, so any subclass needs a graphics binding and the game's
+ * assets; {@code CellSelector} then reads {@code map.camera()}, which needs {@code Camera.main}.
+ * That is the booted headless application of ADR-0015, the driver story 1.3 builds, and that
+ * story owns the remaining two sites.
  *
  * <p>Beyond both, the property is checked against the pinned upstream tag: a hook wraps vanilla code
  * and does not delete it. That covers hooks not written yet, which no runtime test can do.

@@ -44,6 +44,7 @@ The table below is a promise; these tests are what make it true. All of them run
 | `HooksLedgerTest`: at most ten rows | The budget being raised by an edit instead of by an ADR |
 | `HooksLedgerTest`: hook id 2 appears in `Hooks.java` and nowhere else | A hook hidden inside the registry, where many sites would count as one marker |
 | `HooksLedgerTest`: the site index equals the markers in the tree | A new site added under an id that already has a row, which changes no id set. `GameScene` is where an Observer-adjacent leak would be added, and it already carries row 5 |
+| `HooksLedgerTest`: each upstream file's diff is exactly the size the ledger declares | Any unlisted change to upstream that carries no marker and deletes no line — a public accessor added to an already-hooked file, for instance, which every other check here would miss |
 | `HooksLedgerTest`: no row id is used twice | Two reasons under one id, which ADR-0008 forbids and which hides a row from the budget |
 | `HooksLedgerTest`: nothing looks like a marker without being one | A mistyped marker, which is a comment the id comparison cannot see and a reader takes for a declaration |
 | `HooksLedgerTest`: every upstream file that is changed, added, deleted or renamed relative to the pinned tag carries a marker | An edit to upstream that nobody wrote down; a second Shatterfish class added inside an upstream module, next to the game's own privates; and an upstream file deleted or moved, none of which a modified-files-only check can see |
@@ -62,15 +63,17 @@ skipping when it is missing.
 |---|---|---|---|---|---|
 | 1 | `settings.gradle` | Desktop and headless builds must never need the Android SDK or Xcode; Shatterfish modules need including | Marked `// shatterfish-hook:1`. The two mobile `include` lines are replaced by one `apply from: 'shatterfish/settings.gradle'`; that file includes `android`/`ios` only with `-Pshatterfish.mobile=on` (default `off`) and includes the six Shatterfish modules. This is the one hook that moves a vanilla line rather than wrapping it, so `HooksVanillaTest` names `shatterfish/settings.gradle` as its relocation target and checks both lines are still there. | 2026-09-03, E0 S2 (#1) | v3.3.8 |
 | 2 | `core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/shatterfish/Hooks.java` (new file) | The registry itself, row 2 of [ADR-0016](adr/0016-hook-ledger-corrected-by-story-1-1.md). Upstream code that has to call Shatterfish calls a nullable listener field here instead of importing a Shatterfish module, so the dependency edges of [ADR-0003](adr/0003-module-layout.md) are never reversed: `harness` and `overlay` depend on `core`, never the other way round. This is the only Shatterfish-authored source file outside `shatterfish/`. Adding a listener point later edits this file only and consumes no new row; adding a *site* that calls one belongs to that site's row | The file is new, so vanilla behaviour cannot change by its presence, and `HooksLedgerTest` asserts hook id 2 appears in this file and nowhere else, which is what stops a hook being hidden inside the registry as one marker instead of many. With nothing registered every point is null and every site takes the vanilla branch; `HooksVanillaTest` asserts that, and that `Hooks.clear()` nulls every point declared, including ones added after it was written | 2026-09-04, E1 story 1.2 ([#15](https://github.com/watchthelight/shatterfish/issues/15)) | v3.3.8 |
-| 5 | `core/.../scenes/GameScene.java` (3 sites: `selectCell`, `resetKeyHold`, `add(EmoIcon)`) | Row 5 is "let the actor loop run with no `GameScene`" ([ADR-0016](adr/0016-hook-ledger-corrected-by-story-1-1.md), superseding ADR-0008's table). The actor thread reaches all three on an ordinary turn: `Hero.ready()` calls `selectCell`, `Hero.interrupt()` calls `resetKeyHold`, and a sleeping mob's sprite builds an `EmoIcon` on update. None can be avoided by constructing the object the way `TargetHealthIndicator` and `AttackIndicator` were: `cellSelector` is `private static` (`GameScene.java:178`) and assigned only inside `create()` (`:368`), and `scene` is package-private (`:159`), assigned at `:242` and set back to null in `destroy()` (`:779`) | A null check on the static each site already uses. Vanilla is unaffected: `cellSelector` is never set back to null once assigned, and `scene` is null only between `destroy()` and `create()`, when no sprite is updating. The random stream is unchanged because `EmoIcon.Sleep` draws after the guarded call returns. Tested by `HooksVanillaTest`. The guard firing (the statics null, the headless case) is exercised at runtime for all three sites: without these guards `selectCell` dereferences `cellSelector` and then `Dungeon.hero` on every Input wait. The guard not firing (the vanilla case) is exercised for `add(EmoIcon)`, whose state is a `GameScene` instance — which constructs headlessly — and its `emoicons` group (`GameScene.java:196`, assigned at `:305`). The other two need a `CellSelector`, whose constructor dereferences a `DungeonTilemap` (`CellSelector.java:55-56`) and whose only concrete tilemap reads `Dungeon.level` and a texture, so reaching them means booting a graphics binding and generating a level: that is story 1.3's driver, and story 1.3 owns those two. Beyond the runtime checks the property is held against the pinned tag by the rule that a hook encloses vanilla code and never deletes it, which covers hooks not yet written, once a harness-owned scene makes the statics non-null | 2026-09-04, E1 story 1.1 ([#14](https://github.com/watchthelight/shatterfish/issues/14)) | v3.3.8 |
+| 5 | `core/.../scenes/GameScene.java` (3 sites: `selectCell`, `resetKeyHold`, `add(EmoIcon)`) | Row 5 is "let the actor loop run with no `GameScene`" ([ADR-0016](adr/0016-hook-ledger-corrected-by-story-1-1.md), superseding ADR-0008's table). The actor thread reaches all three on an ordinary turn: `Hero.ready()` (`Hero.java:945`) reaches `selectCell` by way of `GameScene.ready()` (`GameScene.java:1657`), `Hero.interrupt()` calls `resetKeyHold`, and a sleeping mob's sprite builds an `EmoIcon` on update. None can be avoided by constructing the object the way `TargetHealthIndicator` and `AttackIndicator` were: `cellSelector` is `private static` (`GameScene.java:178`) and assigned only inside `create()` (`:368`), and `scene` is package-private (`:159`), assigned at `:242` and set back to null in `destroy()` (`:779`) | A null check on the static each site already uses. Vanilla is unaffected: `cellSelector` is never set back to null once assigned, and `scene` is null only between `destroy()` and `create()`, when no sprite is updating. The random stream is unchanged because `EmoIcon.Sleep` draws after the guarded call returns. Tested by `HooksVanillaTest`. The guard firing (the statics null, the headless case) is exercised at runtime for all three sites: without these guards `selectCell` dereferences `cellSelector` and then `Dungeon.hero` on every Input wait. The guard not firing (the vanilla case) is exercised for `add(EmoIcon)`, whose state is a `GameScene` instance — which constructs headlessly — and its `emoicons` group (`GameScene.java:196`, assigned at `:305`). The other two need a `CellSelector`, and every `DungeonTilemap` builds a `TextureFilm` from a texture in the abstract constructor (`DungeonTilemap.java:40-41`, `TextureFilm.java:53-55`), so any subclass needs a graphics binding and the game's assets on the classpath; `CellSelector` then reads `map.camera()` (`CellSelector.java:55-56`), which needs `Camera.main`. Four of the five concrete subclasses also read `Dungeon.level`. Reaching those two sites therefore means the booted headless application of ADR-0015, which is the driver story 1.3 builds, and story 1.3 owns those two. Beyond the runtime checks the property is held against the pinned tag by the rule that a hook encloses vanilla code and never deletes it, which covers hooks not yet written, once a harness-owned scene makes the statics non-null | 2026-09-04, E1 story 1.1 ([#14](https://github.com/watchthelight/shatterfish/issues/14)) | v3.3.8 |
 
 Hook ids are assigned by the ledger in [ADR-0016](adr/0016-hook-ledger-corrected-by-story-1-1.md), not sequentially, so gaps in this table are rows that have not landed yet rather than rows that are missing.
 
 `README.md` and `.gitignore` are also modified (rewritten README; appended ignore
 entries). They are documentation, not build hooks, and are re-applied on upgrade
-by taking "ours" in the merge. They are the only two files `HooksLedgerTest` allows
-to differ from the pinned tag without carrying a marker; every other upstream file
-that differs must be a row above.
+by taking "ours" in the merge. `HooksLedgerTest` exempts exactly these two paths from
+both the marker requirement and the diff budget. Two things are outside its reach by
+construction rather than by exemption, and are recorded here so nobody mistakes silence
+for a check: a new file at the repository root, which cannot be an upstream file because
+upstream had no such file; and anything git is configured not to report.
 
 ### The site index
 
@@ -86,6 +89,25 @@ that alters no id set and would otherwise be invisible.
 2  1  core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/shatterfish/Hooks.java
 5  3  core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/scenes/GameScene.java
 ```
+
+### The diff budget
+
+Markers and guards cannot catch everything on their own. A method added to a file that already
+carries a marker has no marker of its own and removes no line, so nothing above would see it — and
+`GameScene` is the file where such a method would do the most damage. So the ledger also declares
+how far each upstream file may differ from the pinned tag, as `<added> <removed> <path>`, and
+`HooksLedgerTest` checks it against `git diff --numstat`. Any unlisted change to upstream fails,
+whatever shape it takes; a real hook is a visible edit to these three numbers.
+
+<!-- diff-budget -->
+
+```text
+5   2  settings.gradle
+18  2  core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/scenes/GameScene.java
+```
+
+Files added under an upstream module, such as the registry, are not here: the file itself is the
+hook, its content is wholly ours, and the row plus the marker are what govern it.
 
 ## Upgrade procedure
 

@@ -44,6 +44,9 @@ final class Ledger {
 	/** A line of the site index: {@code <id> <sites> <path>}. */
 	private static final Pattern SITE_ROW = Pattern.compile("^(\\d+)\\s+(\\d+)\\s+(\\S.*)$");
 
+	/** A line of the diff budget: {@code <added> <removed> <path>}. */
+	private static final Pattern BUDGET_ROW = Pattern.compile("^(\\d+)\\s+(\\d+)\\s+(\\S.*)$");
+
 	/**
 	 * Upstream's own source and build modules: the territory where an edit is a hook. This is an
 	 * allowlist rather than a list of our directories, because the list of ours grows with every tool
@@ -87,6 +90,10 @@ final class Ledger {
 
 	/** One line of the site index in {@code docs/UPSTREAM.md}. */
 	record Site(int id, int markers, String path) {
+	}
+
+	/** How far one upstream file is allowed to differ from the pinned tag. */
+	record Budget(int added, int removed, String path) {
 	}
 
 	/** One path that differs from the pinned tag: {@code M}, {@code A}, {@code D} or {@code R…}. */
@@ -168,26 +175,11 @@ final class Ledger {
 	 */
 	static List<Site> ledgerSites() {
 		List<Site> sites = new ArrayList<>();
-		boolean inBlock = false;
-		boolean seenIndex = false;
-		for (String line : upstreamDocLines()) {
-			if (line.startsWith("<!-- site-index -->")) {
-				seenIndex = true;
-				continue;
-			}
-			if (seenIndex && line.startsWith("```")) {
-				if (inBlock) {
-					break;
-				}
-				inBlock = true;
-				continue;
-			}
-			if (inBlock) {
-				Matcher m = SITE_ROW.matcher(line.trim());
-				if (m.matches()) {
-					sites.add(new Site(Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)),
-							m.group(3).trim()));
-				}
+		for (String line : fencedBlockAfter("<!-- site-index -->")) {
+			Matcher m = SITE_ROW.matcher(line.trim());
+			if (m.matches()) {
+				sites.add(new Site(Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)),
+						m.group(3).trim()));
 			}
 		}
 		if (sites.isEmpty()) {
@@ -196,6 +188,68 @@ final class Ledger {
 							+ " <!-- site-index --> comment, one 'id markers path' line per file");
 		}
 		return sites;
+	}
+
+	/** The contents of the first fenced code block after the given HTML comment. */
+	private static List<String> fencedBlockAfter(String comment) {
+		List<String> body = new ArrayList<>();
+		boolean seen = false;
+		boolean inBlock = false;
+		for (String line : upstreamDocLines()) {
+			if (line.startsWith(comment)) {
+				seen = true;
+				continue;
+			}
+			if (seen && line.startsWith("```")) {
+				if (inBlock) {
+					break;
+				}
+				inBlock = true;
+				continue;
+			}
+			if (inBlock) {
+				body.add(line);
+			}
+		}
+		return body;
+	}
+
+	/**
+	 * The declared size of every upstream file's diff, from the fenced block after the
+	 * {@code diff-budget} comment. Markers and guarded lines are not enough on their own: a method
+	 * added to an already-hooked file carries no marker and removes no line, so nothing else in this
+	 * class would see it. Stating the size of each diff makes any unlisted change to upstream a
+	 * failure, and makes a real hook a visible edit to this document.
+	 */
+	static List<Budget> diffBudget() {
+		List<Budget> budget = new ArrayList<>();
+		for (String line : fencedBlockAfter("<!-- diff-budget -->")) {
+			Matcher m = BUDGET_ROW.matcher(line.trim());
+			if (m.matches()) {
+				budget.add(new Budget(Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)),
+						m.group(3).trim()));
+			}
+		}
+		if (budget.isEmpty()) {
+			throw new IllegalStateException("no diff budget found in " + upstreamDoc()
+					+ "; expected a fenced block after a <!-- diff-budget --> comment, one"
+					+ " 'added removed path' line per modified upstream file");
+		}
+		return budget;
+	}
+
+	/** The measured size of every upstream file's diff, as git counts it. */
+	static List<Budget> measuredDiff() {
+		List<Budget> measured = new ArrayList<>();
+		for (String line : git("diff", "--numstat", pinnedTag())) {
+			String[] fields = line.split("\t");
+			if (fields.length < 3 || fields[0].equals("-")) {
+				continue;
+			}
+			measured.add(new Budget(Integer.parseInt(fields[0]), Integer.parseInt(fields[1]),
+					fields[2].trim()));
+		}
+		return measured;
 	}
 
 	/**
@@ -234,14 +288,46 @@ final class Ledger {
 		void visit(String path, int lineNumber, String text);
 	}
 
+	/**
+	 * One walk per JVM. Every check here reads the same markers, and the walk reads every source file
+	 * under the upstream modules; doing it once per assertion made the suite slow enough to be worth
+	 * switching off, which is its own kind of failure.
+	 */
+	private static List<Path> upstreamFiles;
+
+	private static synchronized List<Path> upstreamFiles() {
+		if (upstreamFiles == null) {
+			Path root = repoRoot();
+			List<Path> found = new ArrayList<>();
+			for (String module : UPSTREAM_CODE_ROOTS) {
+				Path dir = root.resolve(module);
+				if (!Files.isDirectory(dir)) {
+					continue;
+				}
+				try (Stream<Path> tree = Files.walk(dir)) {
+					tree.filter(Files::isRegularFile)
+							.filter(p -> !isSkipped(root.relativize(p)))
+							.filter(Ledger::isScannable)
+							.forEach(found::add);
+				} catch (IOException e) {
+					throw new UncheckedIOException(e);
+				}
+			}
+			// Root-level files are upstream's too: settings.gradle is hook row 1.
+			try (Stream<Path> rootFiles = Files.list(root)) {
+				rootFiles.filter(Files::isRegularFile).filter(Ledger::isScannable).forEach(found::add);
+			} catch (IOException e) {
+				throw new UncheckedIOException(e);
+			}
+			found.sort(Path::compareTo);
+			upstreamFiles = List.copyOf(found);
+		}
+		return upstreamFiles;
+	}
+
 	private static void forEachUpstreamLine(LineVisitor visitor) {
-		Path root = repoRoot();
-		try (Stream<Path> tree = Files.walk(root)) {
-			List<Path> files = tree.filter(Files::isRegularFile)
-					.filter(p -> !isSkipped(root.relativize(p)))
-					.filter(Ledger::isScannable)
-					.sorted()
-					.toList();
+		try {
+			List<Path> files = upstreamFiles();
 			for (Path file : files) {
 				List<String> lines;
 				try {
@@ -264,9 +350,6 @@ final class Ledger {
 		if (parent == null) {
 			return false;
 		}
-		if (!UPSTREAM_CODE_ROOTS.contains(parent.getName(0).toString())) {
-			return true;
-		}
 		for (Path part : parent) {
 			if (SKIPPED_ANYWHERE.contains(part.toString())) {
 				return true;
@@ -282,8 +365,9 @@ final class Ledger {
 		}
 		try {
 			return Files.size(file) <= MAX_SCANNED_BYTES;
-		} catch (IOException e) {
-			throw new UncheckedIOException(e);
+		} catch (IOException vanished) {
+			// A file that disappeared between the walk and here cannot hold a marker worth reading.
+			return false;
 		}
 	}
 
@@ -312,9 +396,11 @@ final class Ledger {
 	/** The top-level directories present at the pinned tag. */
 	static List<String> directoriesAtTheTag() {
 		List<String> directories = new ArrayList<>();
-		for (String line : git("ls-tree", "--name-only", pinnedTag())) {
+		// "-d" asks git which entries are directories at the tag. Asking the working tree instead
+		// would drop a directory that has since been deleted, which is exactly the case worth seeing.
+		for (String line : git("ls-tree", "-d", "--name-only", pinnedTag())) {
 			String name = line.trim();
-			if (!name.isEmpty() && Files.isDirectory(repoRoot().resolve(name))) {
+			if (!name.isEmpty()) {
 				directories.add(name);
 			}
 		}
@@ -365,7 +451,8 @@ final class Ledger {
 
 	private static List<String> diffLines(String path, char sign, String header) {
 		List<String> lines = new ArrayList<>();
-		for (String line : git("diff", "--unified=0", pinnedTag(), "--", path)) {
+		// ":(literal)" so a path containing a glob character or a leading colon is a path, not a pattern.
+		for (String line : git("diff", "--unified=0", pinnedTag(), "--", ":(literal)" + path)) {
 			if (line.startsWith(header)) {
 				continue;
 			}
@@ -401,6 +488,10 @@ final class Ledger {
 				"-c", "color.ui=never",
 				"-c", "color.diff=never",
 				"-c", "diff.noprefix=false",
+				// Rename detection off, so a moved upstream file arrives as a deletion and an addition
+				// and is classified by both of its paths. With it on, git reports only the new path and
+				// a file moved out of an upstream module looks like an addition to ours.
+				"-c", "diff.renames=false",
 				"--no-pager"));
 		int subcommand = command.size();
 		command.addAll(List.of(args));

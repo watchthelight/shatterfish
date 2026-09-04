@@ -20,10 +20,10 @@ So that neither an unexplained hook nor a forbidden import can enter the tree.
 | Criterion | Outcome |
 |---|---|
 | `Hooks.java` is added under `core` with one nullable listener field per hook point | **Met, with one point rather than ten.** The registry, its convention and its `clear()` are landed; the only listener point declared is `inputWait`, the one ADR-0015 has already decided. The other nine ledger rows are not all listener rows, and the ones that are belong to stories that have not run |
-| `HooksLedgerTest` greps the tree for hook markers and fails if the set of ids differs from the rows in `docs/UPSTREAM.md`, or if the row count exceeds ten | **Met, and then some.** Seven checks: ids in the tree equal rows in the document; the machine-readable site index equals the markers file by file; nothing looks like a marker without being one; at most ten rows with no id used twice; id 2 confined to the registry; every upstream file changed, added, deleted or renamed relative to the pinned tag carries a marker; and every top-level directory in the pinned tag is classified as upstream's or ours. It found a real defect on its first run: hook row 1 in `settings.gradle` was marked `//shatterfish hook #1`, which no parser matches |
-| `HooksVanillaTest` boots with no listener registered and asserts the vanilla branch runs at every site | **Met for the site where the vanilla branch is reachable, which is one of three.** Both branches of `add(EmoIcon)` are exercised at runtime. The guard branch of all three is exercised. The vanilla branch of the two `cellSelector` sites needs a `CellSelector`, which needs a level and a texture; story 1.3 owns them. Beyond the runtime checks, the property is held against the pinned tag |
+| `HooksLedgerTest` greps the tree for hook markers and fails if the set of ids differs from the rows in `docs/UPSTREAM.md`, or if the row count exceeds ten | **Met, and then some.** Eight checks: ids in the tree equal rows in the document; the machine-readable site index equals the markers file by file; nothing looks like a marker without being one; at most ten rows with no id used twice; id 2 confined to the registry; every upstream file changed, added, deleted or renamed relative to the pinned tag carries a marker; each upstream file's diff is exactly the size the ledger declares; and every top-level directory in the pinned tag is classified as upstream's or ours. It found a real defect on its first run: hook row 1 in `settings.gradle` was marked `//shatterfish hook #1`, which no parser matches |
+| `HooksVanillaTest` boots with no listener registered and asserts the vanilla branch runs at every site | **Met for the site where the vanilla branch is reachable, which is one of three.** Both branches of `add(EmoIcon)` are exercised at runtime. The guard branch of all three is exercised. The vanilla branch of the two `cellSelector` sites needs a `CellSelector`, which needs a texture and a camera, so it needs the booted headless application story 1.3 builds; that story owns them. Beyond the runtime checks, the property is held against the pinned tag |
 | `./gradlew :desktop:run` still launches the unmodified game | **Not run, and the criterion is wrong.** That task has never worked (story 1.1 finding); the working task is `:desktop:debug`, and story 1.1 ran it against these same three guards. This story adds no site and no call: `Hooks.java` is a new file with no caller, so it cannot change vanilla behaviour, and `:desktop:jar` compiles it |
-| `BrainBoundaryTest` asserts that `brain` depends on no game package, no other Shatterfish module but `api`, and none of `java.io`, `java.nio.file`, `java.net` or `java.lang.reflect` | **Met, and the criterion as written is not sufficient.** See *The rules that did not bind* |
+| `BrainBoundaryTest` asserts that `brain` depends on no game package, no other Shatterfish module but `api`, and none of `java.io`, `java.nio.file`, `java.net` or `java.lang.reflect` | **Met, and the criterion as written is not close to sufficient.** Two adversarial reviews each read hidden game state with every rule the criterion asks for in place. The rule is now an allowlist. See *The rules that did not bind, twice* |
 | `ApiBoundaryTest` asserts `api` depends only on the JDK | **Met**, plus an explicit ban on game packages so the failure says which rule broke |
 | The ArchUnit bump to 1.5.0 lands here with every boundary rule green | **Met.** 1.3.0 to 1.5.0 |
 
@@ -47,56 +47,67 @@ So that neither an unexplained hook nor a forbidden import can enter the tree.
 - `.github/workflows/build.yml`: `fetch-depth: 0`, because the checks compare the tree against the
   pinned tag and a shallow checkout does not have it.
 
-## The rules that did not bind
+## The rules that did not bind, twice
 
-The first draft of this story passed its own tests and was wrong. An adversarial fairness review
-demonstrated, by writing the class and running the build, that this compiles inside `brain` with all
-five boundary rules green:
+The first draft of this story passed its own tests and was wrong. Two adversarial fairness reviews
+each demonstrated, by writing the class and running the build, that the brain could read hidden game
+state with every boundary rule green.
+
+**Round one** used reflection:
 
 ```java
 Class<?> dungeon = Class.forName("com.shatteredpixel.shatteredpixeldungeon.Dungeon");
 MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(dungeon, MethodHandles.lookup());
-MethodHandle getter = lookup.findStaticGetter(dungeon, "level", Object.class);
-return getter.invoke();
+return lookup.findStaticGetter(dungeon, "level", Object.class).invoke();
 ```
 
-That is the whole dungeon, hidden state included, from inside the module whose entire purpose is not
-to have it. Three separate reasons it passed, each worth remembering:
+Three reasons it passed. A package rule sees bytecode dependencies, and `Class.forName` names the
+game in a `String`, so `brain_never_depends_on_game_code` had nothing to look at — and the brain
+shares a JVM with the game by non-negotiable #4, so the game's classes are on the classpath at run
+time whatever `brain` compiles against. The reflection ban named
+`java.lang.invoke.MethodHandles..`, which matches no package at all, because `MethodHandles` reports
+package `java.lang.invoke`; the exact API the exploit turns on was nominally banned and actually
+open. And the positive rule allowed all of `java..`, which is where `Class` and `ClassLoader` live.
 
-1. **A package rule sees dependencies, and a string is not a dependency.** `Class.forName` names the
-   game in a `String` constant, so `brain_never_depends_on_game_code` has nothing to look at. The
-   brain shares a JVM with the game by non-negotiable #4, so at Overlay and rig runtime the game's
-   classes are on the same classpath whatever `brain` compiles against. The Gradle resolution check
-   in `brain/build.gradle` constrains `brain`'s own classpath, not the application's.
-2. **The reflection ban named a class where a package was needed.** It banned
-   `java.lang.invoke.MethodHandles..`, which matches nothing at all: `MethodHandles` reports package
-   `java.lang.invoke`, and `resideInAnyPackage` matches package names. The exact API the exploit
-   turns on was nominally banned and actually unbanned, and the story file published the opposite.
-3. **The positive rule allows all of `java..`**, which is where `Class`, `ClassLoader` and
-   `java.lang.invoke` live.
+**Round two** answered that with a longer denylist — `java.lang.invoke`, `System`, `ServiceLoader`
+and nine other names — and was walked through in one move:
 
-The same review found the rest of the surface open: `System.getenv` and `System.getProperty` (a
-one-line channel from the harness in the same process), `ServiceLoader` (the harness registers a
-provider of an `api` interface and hands the brain an oracle-backed object, without the brain ever
-naming a game type), `ProcessBuilder`, `Scanner` over standard input, `Instant.now()` and an
-unseeded `Random`.
+```java
+Object c = new java.beans.Expression(Class.class, "forName", new Object[]{type}).getValue();
+Object f = new java.beans.Expression(c, "getDeclaredField", new Object[]{field}).getValue();
+new java.beans.Statement(f, "setAccessible", new Object[]{true}).execute();
+return new java.beans.Expression(f, "get", new Object[]{null}).getValue();
+```
 
-The rules now ban `java.lang.invoke`, `sun` and `jdk` as packages, and `ClassLoader`, `Module`,
-`ModuleLayer`, `System`, `Runtime`, `ProcessBuilder`, `Process`, `ServiceLoader`, `Scanner` and
-`Class.forName` by name. Two further bans are about reproducibility rather than parity: `java.time`,
-and generators the brain seeds itself (`Random`, `SplittableRandom`, `ThreadLocalRandom`,
-`Math.random`). A Run is (tag, seed, action list) and nothing else; randomness the brain legitimately
-needs arrives through `api`, seeded from the Run. The exploit above was re-run against the new rules
-and is rejected by two of them.
+`java.beans.Expression` dispatches reflectively by string and returns `Object`, so no banned type
+appears in the class file at all. It read `Dungeon.seed` — the one thing non-negotiable #1 names by
+name. The same review found `java.lang.management` handing back the whole system-property table,
+`ProcessHandle` the command line, and `SecureRandom`, `RandomGenerator`, `UUID` and `Date` all
+substituting for the generators and clocks that had just been banned.
 
-**`BrainBoundaryRulesBiteTest` is the answer to why this was not caught.** `brain` holds one trivial
-class, so every rule passed over almost nothing and none of them had ever rejected anything. Each
-rule is now checked against a class that breaks it, and — as importantly — ordinary Java (lambdas,
-string concatenation, streams, records, enums, `getClass`) is checked to pass every rule, because a
-ban wide enough to catch ordinary code is a ban that gets removed the first time it is inconvenient.
-Two rules cannot be exercised from inside `brain`, because game code and the other Shatterfish
-modules are absent from its classpath; that absence is the guarantee, and putting either there to
-test the test would be the hole itself.
+**The lesson is about the shape of the rule, not the length of the list.** A denylist over the JDK
+cannot be finished: the JDK is large, and an attacker needs one door. So the rule is inverted. The
+brain may depend on `org.shatterfish.api`, its own package, and a short list of JDK packages that
+hold data and arithmetic — `java.lang`, `java.lang.runtime`, `java.util`, `java.util.function`,
+`java.util.stream`, `java.math`. Everything else is denied because it is not on the list. A
+capability the brain genuinely needs becomes one line and a decision someone makes on purpose.
+
+Two packages have to be allowed whole and are not innocent, so a denylist survives inside them, and
+only there: `java.lang` holds `Class`, `System` and `ProcessBuilder`; `java.util` holds `Random`,
+`ServiceLoader` and `ResourceBundle`. Both are closed sets fixed by the JDK rather than open-ended
+surface. Three method-level bans sit alongside, for doors on classes the brain legitimately needs:
+`Boolean.getBoolean`, `Integer.getInteger` and `Long.getLong` read system properties without naming
+`System`, and `Collections.shuffle` seeds a generator of its own.
+
+**`BrainBoundaryRulesBiteTest` is the answer to why none of this was caught.** `brain` holds one
+trivial class, so every rule passed over almost nothing and not one of them had ever rejected
+anything — which makes a rule indistinguishable from a comment. Every rule is now checked against a
+class that breaks it, both review exploits are fixtures, and ordinary Java (lambdas, string
+concatenation, streams, records, enums, `BigDecimal`) is checked to pass every rule, because a ban
+wide enough to catch ordinary code is one that gets deleted the first time it is inconvenient. Two
+rules cannot be exercised from inside `brain`, because game code and the other Shatterfish modules
+are absent from its classpath; that absence is the guarantee, and putting either there to test the
+test would be the hole itself.
 
 ## Decisions taken inside the story
 
@@ -107,6 +118,15 @@ five belong to stories that have not run, so their signatures would be guesses �
 what ADR-0016's pre-mortem is about. What landed is the mechanism plus `inputWait`, whose site and
 meaning ADR-0015 already decided, so the registry has a real contract to test rather than being an
 empty shell. Adding a point later edits this file only and consumes no ledger row.
+
+**The diff budget.** Markers, guards and the site index all key off something the change
+announces about itself, so none of them sees a change that announces nothing. The second review
+added a `public static Object peekEverything()` returning `Dungeon.level` to `GameScene` — no
+marker, no removed line, a public accessor to every hidden mob and secret door in the file the
+ledger names as the likeliest place for a leak — and the build stayed green. So `docs/UPSTREAM.md`
+now also declares how far each upstream file may differ from the pinned tag, as
+`<added> <removed> <path>`, checked against `git diff --numstat`. Any unlisted change to upstream
+fails whatever shape it takes, and a real hook becomes a visible edit to three numbers.
 
 **The site index.** Comparing sets of ids does not catch a fourth site added to `GameScene` under id
 5, for an unrelated reason, with no change to the ledger — and `GameScene` is precisely where an
@@ -145,9 +165,20 @@ in the added text, which a commented-out statement satisfies. One hook breaks th
 `-Pshatterfish.mobile=on`. That is a named relocation with the target checked, and a new entry needs
 its own argument in its `docs/UPSTREAM.md` row.
 
+**Renames are classified by both paths, and rename detection is turned off.** The first draft
+read only the new path of a rename, so `git mv android/proguard-rules.pro shatterfish/...` moved an
+upstream file out of upstream with the build green — and whether it did depended on the reviewer's
+`diff.renames` setting, in a class whose comment claims a check may not depend on that. Rename
+detection is now pinned off, so a move arrives as a deletion and an addition and both paths are
+classified.
+
 **Declared task inputs.** `Ledger` reads `docs/UPSTREAM.md` and the upstream tree, neither of which
 Gradle could know about, so an unmarked edit left `:harness:test` up to date and the check simply did
-not run — the build stayed green because nothing looked. Both are now declared inputs.
+not run — the build stayed green because nothing looked. The first fix was incomplete in two ways the
+second review demonstrated: `shatterfish/settings.gradle` is read as hook row 1's relocation target
+and was not an input, so row 1's vanilla-equivalence claim could be broken with the build green; and
+root-level files other than the build scripts were classified as upstream's but not declared, so
+`LICENSE.txt` could change unnoticed. Both are now inputs.
 
 **The registry's documented idiom reads the point into a local.** Testing the volatile field and then
 reading it again can be interrupted by `clear()` on the thread that ends a Run, and the second read
@@ -180,13 +211,24 @@ pass rather than hide.
 | A guard comments the vanilla statement out | the same check |
 | The `selectCell` guard deleted, as an upgrade merge could do | `row 5: the guarded sites do nothing when no scene exists`, and `HeadlessTurnSpikeTest` |
 | A listener point added to `Hooks` without a line in `clear()` | `clear() nulls every point, including ones added later` |
-| The reviewer's `Class.forName` plus `MethodHandles` exploit, placed in `brain` | `brain_uses_no_reflection` and `brain_reaches_nothing_by_name_at_runtime` |
+| An unmarked `public static Object peekEverything()` added to `GameScene`, which already carries a row | `no upstream file differs from the pinned tag by more than the ledger declares` |
+| An upstream file moved out of upstream with `git mv` | `no upstream file is changed, added, deleted or renamed without a hook row` |
+| `shatterfish/settings.gradle` changed so hook row 1 no longer restores the mobile modules | `a hook wraps vanilla code; it never deletes it`, and the task re-ran rather than staying up to date |
+| `LICENSE.txt` changed | three checks, and the task re-ran |
+| Round one's `Class.forName` plus `MethodHandles` exploit, placed in `brain` | two rules |
+| Round two's `java.beans.Expression` exploit, which read `Dungeon.seed` | two rules |
+| `Boolean.getBoolean`, `ResourceBundle.getBundle`, `ManagementFactory`, `ProcessHandle`, `SecureRandom`, `RandomGenerator`, `UUID`, `Date`, `Preferences`, `Executors`, `Collections.shuffle`, `Class::forName` as a method reference, `Thread.currentThread().getContextClassLoader()` | at least one rule each, all as fixtures in `BrainBoundaryRulesBiteTest` |
 
-Two notes on that table. The guard-deletion mutation fails the unit check *and* story 1.1's spike,
+Three notes on that table. The guard-deletion mutation fails the unit check *and* story 1.1's spike,
 which is the pair working as intended: one says which guard, the other says that a turn no longer
 resolves. And an earlier run of this battery was invalid — its restore step used `git checkout`,
 which silently reverted two edits that were not yet committed, so every result in it was
-contaminated. The table above is from a clean rerun after committing.
+contaminated. The table above is from a clean rerun after committing. And the second review left a
+probe file behind in `brain/src/main` while reporting the tree clean; finding it was useful rather
+than not, because it demonstrated two channels the review had not written up —
+`Boolean.getBoolean` reading a system property without naming `System`, and
+`ResourceBundle.getBundle` loading a classpath file without a `ClassLoader` or `java.io`. Both are
+now fixtures.
 
 Rig numbers: not applicable, no Brain exists until E4.
 
@@ -214,6 +256,15 @@ Rig numbers: not applicable, no Brain exists until E4.
 - **The checks require git and the pinned tag.** They fail loudly rather than skipping, which is
   deliberate: a check that quietly skips is a check that quietly rots. CI checks out with full
   history.
+- **The allowlist allows `java.lang` and `java.util` whole**, minus twenty-six named classes and
+  six named methods. Those two packages are fixed by the JDK, so the list is closable in a way a
+  denylist over the whole platform is not — but it is still a list, and a JDK upgrade that adds a
+  class to either package adds it to the brain's reach. Re-reading it belongs in the upgrade
+  procedure.
+- **Nothing constrains identity-hash ordering inside the brain.** ADR-0016 row 6 removes it from the
+  game's own collections; a brain iterating a `HashSet` of its own would reintroduce it. That is an
+  E4 implementation concern rather than something a dependency rule can see, and it is written here
+  so it is not discovered late.
 - **`brain` has one trivial class**, so the rules still pass over almost nothing in the module itself.
   `BrainBoundaryRulesBiteTest` is what makes them meaningful before there is a brain to constrain.
 

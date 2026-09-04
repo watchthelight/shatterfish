@@ -25,7 +25,6 @@ class ApiBoundaryTest {
 			.that().resideInAPackage("org.shatterfish.api..")
 			.should().onlyDependOnClassesThat()
 			.resideInAnyPackage("org.shatterfish.api..", "java..")
-			.allowEmptyShould(true)
 			.because("api is DTOs only; anything else it could reach, the brain could reach through it");
 
 	@ArchTest
