@@ -111,6 +111,9 @@ class BrainBoundaryTest {
 			.orShould().callMethodWhere(target(name("parallel")))
 			.orShould().callMethodWhere(target(name("getStackTrace")))
 			.orShould().callMethodWhere(target(name("getAllStackTraces")))
+			.orShould().callMethodWhere(target(name("format")).and(target(owner(type(String.class)))))
+			.orShould().callMethodWhere(target(name("toUpperCase")).and(target(owner(type(String.class)))))
+			.orShould().callMethodWhere(target(name("toLowerCase")).and(target(owner(type(String.class)))))
 			.orShould().callMethodWhere(target(name("getBoolean")).and(target(owner(type(Boolean.class)))))
 			.orShould().callMethodWhere(target(name("getInteger")).and(target(owner(type(Integer.class)))))
 			.orShould().callMethodWhere(target(name("getLong")).and(target(owner(type(Long.class)))))
@@ -121,8 +124,11 @@ class BrainBoundaryTest {
 					+ " parallelStream and parallel reopen the common pool that excluding"
 					+ " java.util.concurrent was meant to shut; and getStackTrace hands back the caller"
 					+ " chain, which is what StackWalker is denied for. These are matched by name rather"
-					+ " than by owner because the receiver can be any subclass. Every one of them lives on"
-					+ " a class the brain legitimately needs");
+					+ " than by owner because the receiver can be any subclass. String.format and case"
+					+ " conversion follow the host's default locale, so the same Run formats differently on"
+					+ " a Turkish machine and a German one; denying java.util.Locale as a type does not"
+					+ " reach them, because the overloads that take one name it and the ones that do not"
+					+ " name nothing. Every one of these lives on a class the brain legitimately needs");
 
 	/**
 	 * The rule everything else rests on: default deny. It is stated first because the named rules

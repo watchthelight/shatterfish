@@ -11,6 +11,7 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -219,6 +220,54 @@ class HooksLedgerTest {
 						+ " swapped for another line inside a hook block. The digest covers the changed"
 						+ " content; the counts are there for a reader. If the change is a real hook, update"
 						+ " the block in the same pull request; if it is not, revert it.");
+	}
+
+	@Test
+	@DisplayName("nothing tells git to stop reading upstream files")
+	void the_repository_does_not_reinterpret_upstream_files() {
+		// A .gitattributes line marking source binary is the one edit that disarms every other check
+		// here at once, and it is a root-level addition, which nothing else looks at.
+		Ledger.gitAttributeFiles().forEach((path, lines) -> {
+			for (String line : lines) {
+				String text = line.trim();
+				if (text.isEmpty() || text.startsWith("#")) {
+					continue;
+				}
+				assertFalse(text.contains("binary") || text.contains("-diff") || text.contains("-text"),
+						path + " tells git to stop reading a file as text:\n    " + text
+								+ "\nEvery check in this class reads diffs. One such line turns them all into"
+								+ " \"Binary files differ\", and the digest, the line counts and the"
+								+ " wrap rule go quiet together.");
+			}
+		});
+
+		List<String> unreadable = Ledger.measuredDiff().stream()
+				.filter(b -> b.added() < 0)
+				.map(Ledger.Budget::path)
+				.filter(Ledger::isUpstreamFileAtTheTag)
+				.filter(path -> !DOCUMENTATION_EXCEPTIONS.contains(path))
+				.toList();
+		assertTrue(unreadable.isEmpty(),
+				"git reports these as binary even with --text, so their content cannot be checked: "
+						+ unreadable);
+	}
+
+	@Test
+	@DisplayName("nothing under an upstream module is hidden from git")
+	void no_upstream_path_is_ignored_except_build_output() {
+		for (String ignored : Ledger.ignoredUnderUpstream()) {
+			String path = ignored.trim();
+			if (path.isEmpty()) {
+				continue;
+			}
+			boolean buildOutput = path.contains("/build/") || path.endsWith("/build/")
+					|| path.contains("/bin/") || path.endsWith("/bin/");
+			assertTrue(buildOutput || Ledger.isIgnoredByUpstreamsOwnRule(path),
+					path + " is under an upstream module and a rule added since " + Ledger.pinnedTag()
+							+ " hides it from git, so it is invisible to every check here: an ignored file is"
+							+ " in neither the diff nor the untracked listing. Upstream's own ignore rules and"
+							+ " build output are fine; ours are not.");
+		}
 	}
 
 	@Test

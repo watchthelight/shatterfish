@@ -6,13 +6,15 @@ import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.MalformedInputException;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -74,7 +76,7 @@ final class Ledger {
 	static final List<String> OUR_TERRITORY_AT_THE_TAG = List.of("docs", ".github", "gradle");
 
 	/** Directory names skipped at any depth: build output and version-control internals. */
-	private static final List<String> SKIPPED_ANYWHERE = List.of(".git", ".gradle", "build");
+	private static final List<String> SKIPPED_ANYWHERE = List.of(".git", ".gradle", "build", "bin");
 
 	/**
 	 * Suffixes never scanned. This is a denylist rather than an allowlist on purpose: an allowlist
@@ -272,10 +274,21 @@ final class Ledger {
 		List<Budget> measured = new ArrayList<>();
 		for (String line : git("diff", "--numstat", pinnedTag())) {
 			String[] fields = line.split("\t");
-			if (fields.length < 3 || fields[0].equals("-")) {
+			if (fields.length < 3) {
 				continue;
 			}
 			String path = fields[2].trim();
+			if (!isUpstreamFileAtTheTag(path) && !isUpstreamAddition(path)) {
+				// Our own directories change constantly and are not governed by the ledger. Digesting
+				// them would mean a git invocation per file across the whole repository.
+				continue;
+			}
+			if (fields[0].equals("-")) {
+				// Even with --text. Recorded rather than skipped: silently dropping a file here is how a
+				// .gitattributes emptied every check in this class.
+				measured.add(new Budget("unreadable", -1, -1, path));
+				continue;
+			}
 			measured.add(new Budget(diffDigest(path), Integer.parseInt(fields[0]),
 					Integer.parseInt(fields[1]), path));
 		}
@@ -449,6 +462,66 @@ final class Ledger {
 		return UPSTREAM_CODE_ROOTS.contains(path.substring(0, path.indexOf('/')));
 	}
 
+	/**
+	 * Every {@code .gitattributes} that could change how git reads upstream files, with its lines.
+	 * A single {@code *.java binary} line at the repository root turns every diff in this class into
+	 * "Binary files differ": the digest, the line counts and the wrap rule all go quiet at once, and
+	 * the file itself is a root-level addition that no other check looks at. That was demonstrated
+	 * against an earlier version of this class.
+	 */
+	static Map<String, List<String>> gitAttributeFiles() {
+		Map<String, List<String>> found = new LinkedHashMap<>();
+		List<String> candidates = new ArrayList<>();
+		candidates.add(".gitattributes");
+		for (String module : UPSTREAM_CODE_ROOTS) {
+			candidates.add(module + "/.gitattributes");
+		}
+		for (String candidate : candidates) {
+			if (Files.isRegularFile(repoRoot().resolve(candidate))) {
+				found.put(candidate, readLines(candidate));
+			}
+		}
+		return found;
+	}
+
+	/** Paths under an upstream module that git has been told to ignore. */
+	static List<String> ignoredUnderUpstream() {
+		List<String> command = new ArrayList<>(
+				List.of("ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "--"));
+		command.addAll(UPSTREAM_CODE_ROOTS);
+		return git(command.toArray(new String[0]));
+	}
+
+	/**
+	 * Whether the rule that hides a path was upstream's own decision at the pinned tag.
+	 *
+	 * <p>Upstream ignores some of its own files — {@code ios/robovm.properties}, build output — and
+	 * those are not ours to object to. A rule added since the tag is different: adding
+	 * {@code core/**} to a {@code .gitignore} removes a whole module from the diff and from the
+	 * untracked listing at once, which is the same disarming move as marking source binary.
+	 */
+	static boolean isIgnoredByUpstreamsOwnRule(String path) {
+		// check-ignore takes no pathspec magic, so the path is passed plain; it comes from git's own
+		// listing rather than from a person, so there is nothing to quote against.
+		List<String> explanation = git("check-ignore", "-v", "--", path);
+		if (explanation.isEmpty()) {
+			return false;
+		}
+		// "<source>:<line>:<pattern>\t<path>"
+		String[] fields = explanation.get(0).split(":", 3);
+		if (fields.length < 3) {
+			return false;
+		}
+		String source = fields[0];
+		String pattern = fields[2].split("\t", 2)[0].trim();
+		for (String line : git("show", pinnedTag() + ":" + source)) {
+			if (line.trim().equals(pattern)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/** The top-level directories present at the pinned tag. */
 	static List<String> directoriesAtTheTag() {
 		List<String> directories = new ArrayList<>();
@@ -553,7 +626,9 @@ final class Ledger {
 		command.addAll(List.of(args));
 		if (args.length > 0 && args[0].equals("diff")) {
 			// Immediately after the subcommand, never at the end: a flag after "-- <path>" is a pathspec.
-			command.addAll(subcommand + 1, List.of("--no-color", "--no-ext-diff"));
+			// "--text" so that a .gitattributes marking a source file binary cannot turn its diff into
+			// "Binary files ... differ" and empty every line-based check below.
+			command.addAll(subcommand + 1, List.of("--no-color", "--no-ext-diff", "--text"));
 		}
 		try {
 			Process process = new ProcessBuilder(command).directory(repoRoot().toFile()).start();

@@ -113,6 +113,8 @@ class BrainBoundaryRulesBiteTest {
 		assertRejected(IteratesByIdentity.class);
 		assertRejected(IteratesWhatTheCollectorLeft.class);
 		assertRejected(GoesParallel.class);
+		assertRejected(FormatsForTheHost.class);
+		assertRejected(ChangesCaseForTheHost.class);
 	}
 
 	@Test
@@ -373,6 +375,22 @@ class BrainBoundaryRulesBiteTest {
 	static final class GoesParallel {
 		static long count(List<String> moves) {
 			return moves.parallelStream().count();
+		}
+	}
+
+	/** The host's default locale decides the digit grouping, so the same Run formats two ways. */
+	@SuppressWarnings("unused")
+	static final class FormatsForTheHost {
+		static String gold(int amount) {
+			return String.format("%,d", amount);
+		}
+	}
+
+	/** Turkish maps i to a dotted capital, so a name used as a key stops matching. */
+	@SuppressWarnings("unused")
+	static final class ChangesCaseForTheHost {
+		static String key(String name) {
+			return name.toUpperCase();
 		}
 	}
 

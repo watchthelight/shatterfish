@@ -20,7 +20,7 @@ So that neither an unexplained hook nor a forbidden import can enter the tree.
 | Criterion | Outcome |
 |---|---|
 | `Hooks.java` is added under `core` with one nullable listener field per hook point | **Met, with one point rather than ten.** The registry, its convention and its `clear()` are landed; the only listener point declared is `inputWait`, the one ADR-0015 has already decided. The other nine ledger rows are not all listener rows, and the ones that are belong to stories that have not run |
-| `HooksLedgerTest` greps the tree for hook markers and fails if the set of ids differs from the rows in `docs/UPSTREAM.md`, or if the row count exceeds ten | **Met, and then some.** Nine checks: ids in the tree equal rows in the document; the machine-readable site index equals the markers file by file; nothing looks like a marker without being one; at most ten rows with no id used twice; id 2 confined to the registry; every upstream file changed, added, deleted or renamed relative to the pinned tag carries a marker; each upstream file's changed lines digest to exactly what the ledger declares; the registry declares no method but `clear()`; and every top-level directory in the pinned tag is classified as upstream's or ours. It found a real defect on its first run: hook row 1 in `settings.gradle` was marked `//shatterfish hook #1`, which no parser matches |
+| `HooksLedgerTest` greps the tree for hook markers and fails if the set of ids differs from the rows in `docs/UPSTREAM.md`, or if the row count exceeds ten | **Met, and then some.** Eleven checks: ids in the tree equal rows in the document; the machine-readable site index equals the markers file by file; nothing looks like a marker without being one; at most ten rows with no id used twice; id 2 confined to the registry; every upstream file changed, added, deleted or renamed relative to the pinned tag carries a marker; each upstream file's changed lines digest to exactly what the ledger declares; the registry declares no method but `clear()`; every top-level directory in the pinned tag is classified as upstream's or ours; nothing tells git to stop reading upstream files as text; and nothing under an upstream module is hidden from git by a rule of ours. It found a real defect on its first run: hook row 1 in `settings.gradle` was marked `//shatterfish hook #1`, which no parser matches |
 | `HooksVanillaTest` boots with no listener registered and asserts the vanilla branch runs at every site | **Met for the site where the vanilla branch is reachable, which is one of three.** Both branches of `add(EmoIcon)` are exercised at runtime. The guard branch of all three is exercised. The vanilla branch of the two `cellSelector` sites needs a `CellSelector`, which needs a texture and a camera, so it needs the booted headless application story 1.3 builds; that story owns them. Beyond the runtime checks, the property is held against the pinned tag |
 | `./gradlew :desktop:run` still launches the unmodified game | **Not run, and the criterion is wrong.** That task has never worked (story 1.1 finding); the working task is `:desktop:debug`, and story 1.1 ran it against these same three guards. This story adds no site and no call: `Hooks.java` is a new file with no caller, so it cannot change vanilla behaviour, and `:desktop:jar` compiles it |
 | `BrainBoundaryTest` asserts that `brain` depends on no game package, no other Shatterfish module but `api`, and none of `java.io`, `java.nio.file`, `java.net` or `java.lang.reflect` | **Met, and the criterion as written is not close to sufficient.** Two adversarial reviews each read hidden game state with every rule the criterion asks for in place. The rule is now an allowlist. See *The rules that did not bind, twice* |
@@ -47,12 +47,12 @@ So that neither an unexplained hook nor a forbidden import can enter the tree.
 - `.github/workflows/build.yml`: `fetch-depth: 0`, because the checks compare the tree against the
   pinned tag and a shallow checkout does not have it.
 
-## The rules that did not bind, three times
+## The rules that did not bind, four times
 
-The first draft of this story passed its own tests and was wrong. Three adversarial fairness review
-passes each demonstrated, by writing the class and running the build, that the brain could read
-hidden game state with every boundary rule green. Each fix was correct as far as it went and each
-was walked through again.
+The first draft of this story passed its own tests and was wrong. Four adversarial fairness review
+passes each demonstrated, by writing the class and running the build, that hidden game state was
+reachable with every rule green. Each fix was correct as far as it went, and each was walked through
+again.
 
 **Round one** used reflection:
 
@@ -96,9 +96,14 @@ capability the brain genuinely needs becomes one line and a decision someone mak
 Two packages have to be allowed whole and are not innocent, so a denylist survives inside them, and
 only there: `java.lang` holds `Class`, `System` and `ProcessBuilder`; `java.util` holds `Random`,
 `ServiceLoader` and `ResourceBundle`. Both are closed sets fixed by the JDK rather than open-ended
-surface. Three method-level bans sit alongside, for doors on classes the brain legitimately needs:
-`Boolean.getBoolean`, `Integer.getInteger` and `Long.getLong` read system properties without naming
-`System`, and `Collections.shuffle` seeds a generator of its own.
+surface. A dozen method-level bans sit alongside them, for doors on classes the brain legitimately
+needs and cannot be denied outright: `Boolean.getBoolean`, `Integer.getInteger` and `Long.getLong`
+read system properties without naming `System`; `Collections.shuffle` and `StrictMath.random` seed
+generators of their own; `parallelStream` and `parallel` reopen the common pool; `getStackTrace`
+hands back the caller chain that `StackWalker` is denied for; and `String.format`, `toUpperCase` and
+`toLowerCase` follow the host's default locale, so the same Run formats one way in Germany and
+another in Turkey. Denying `java.util.Locale` as a type does not reach those last three, because the
+overloads that take a locale name it and the ones that do not name nothing at all.
 
 **Round three did not attack the list at all.** It reported that no by-name dispatch primitive
 survives inside the allowed packages once reflection, method handles, `java.beans`, `Class`,
@@ -120,6 +125,21 @@ class in `org.shatterfish.peek` did `Class.forName`, `setAccessible` and a stati
 in `brain.jar`, and left the build green. The whole brain could have been written one package to the
 left. `BrainPackageAnchorTest` walks the module's own compiled output and fails on any class outside
 `org/shatterfish/brain/`; `ApiBoundaryTest` does the same for `api`.
+
+**Round four stopped attacking the rules and attacked git.** Every check in `HooksLedgerTest` and
+`HooksVanillaTest` reads a diff, so anything that stops git producing one disarms all of them at
+once. A single `.gitattributes` at the repository root containing `*.java binary` turns every
+upstream diff into "Binary files differ": the digest goes quiet, the line counts go quiet, and the
+wrap rule passes vacuously because it sees no removed lines. The file itself is a root-level
+addition, which by construction no other check looks at. With that in place, `GameScene` gained
+`trueSeed()`, `everyMobPositionEvenUnseen()` and `everySecretDoorAndHiddenTrap()`, and
+`./gradlew build` was green. The same shape of move works through `.gitignore`: a rule of our own
+hiding a new file under `core/` removes it from the diff and from the untracked listing together.
+
+Diffs are now read with `--text`, a file git still calls binary is a failure rather than a skip, no
+`.gitattributes` may mark an upstream path binary, and anything ignored under an upstream module must
+be build output or ignored by a rule upstream itself shipped at the pinned tag — which is how
+`ios/robovm.properties` stays legal without opening the door.
 
 **`BrainBoundaryRulesBiteTest` is the answer to why none of this was caught.** `brain` holds one
 trivial class, so every rule passed over almost nothing and not one of them had ever rejected
@@ -264,6 +284,8 @@ pass rather than hide.
 | A `public static Object peek()` returning `Dungeon.level` added to the registry | that check, and `the registry holds listener points and clear(), and nothing else` |
 | Round three's reflective reader in `api`, called from `brain` | both `ApiBoundaryTest` rules |
 | Round three's brain class in `org.shatterfish.peek`, shipped in `brain.jar` | `every class compiled into brain lives under org.shatterfish.brain` |
+| A root `.gitattributes` marking `*.java binary`, then `GameScene` changed freely and its budget row deleted | `nothing tells git to stop reading upstream files`, and two more |
+| A new class under `core/` hidden by an ignore rule of our own | `nothing under an upstream module is hidden from git` |
 | `Boolean.getBoolean`, `ResourceBundle.getBundle`, `ManagementFactory`, `ProcessHandle`, `SecureRandom`, `RandomGenerator`, `UUID`, `Date`, `Preferences`, `Executors`, `Collections.shuffle`, `Class::forName` as a method reference, `Thread.currentThread().getContextClassLoader()` | at least one rule each, all as fixtures in `BrainBoundaryRulesBiteTest` |
 
 Three notes on that table. The guard-deletion mutation fails the unit check *and* story 1.1's spike,
@@ -303,6 +325,9 @@ Rig numbers: not applicable, no Brain exists until E4.
 - **The checks require git and the pinned tag.** They fail loudly rather than skipping, which is
   deliberate: a check that quietly skips is a check that quietly rots. CI checks out with full
   history.
+- **The brain cannot use `String.format` or `toUpperCase`.** Both follow the host's default locale,
+  and a Run must be determined by (tag, seed, action list) alone. String concatenation and a
+  `StringBuilder` are unaffected; a brain that needs a locale-independent format will have to say so.
 - **`java.lang.Class` is denied, which constrains how the brain is written.** A bare `getClass()`
   passes, but calling anything on the result does not, so a hand-written `equals` compares with
   `instanceof`. That is the better idiom anyway, and it is stated in the bite test rather than left
