@@ -120,7 +120,7 @@ class HeadlessSceneTest {
         held.set(cellSelector, SPDAction.N);
         GameScene.resetKeyHold();
         assertSame(SPDAction.NONE, (GameAction) held.get(cellSelector),
-                "resetKeyHold reached the selector and cleared the held action (CellSelector.java:246-248)");
+                "resetKeyHold reached the selector and cleared the held action (CellSelector.java:482-483)");
     }
 
     @Test

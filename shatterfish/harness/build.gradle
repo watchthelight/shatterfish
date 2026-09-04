@@ -58,10 +58,12 @@ tasks.named('test') {
     // lands on. Identity hash codes order those sets, and HotSpot assigns them from a per-thread
     // random state, so two runs of one seed in two JVMs are two different games. That is ledger
     // row 6 and story 1.16's to remove from the game. Until then the harness's tests pin every
-    // identity hash to the same value, which turns hash order into insertion order and makes the
+    // identity hash to the same value, which makes hash order deterministic (one bucket, kept in
+    // insertion order until a large bin treeifies, and then in a fixed order still) and makes the
     // replay and parity checks in SceneDrawParityTest exact rather than usually true. The test
     // asserts the pin is in effect, so dropping this line fails rather than flakes. Story 1.16
-    // deletes both when the game no longer needs them.
+    // deletes both when the game no longer needs them. This is the test JVM only: HeadlessDriver
+    // and a Rig process do not carry it.
     jvmArgs '-XX:+UnlockExperimentalVMOptions', '-XX:hashCode=2'
 
     inputs.file(rootProject.file('docs/UPSTREAM.md'))

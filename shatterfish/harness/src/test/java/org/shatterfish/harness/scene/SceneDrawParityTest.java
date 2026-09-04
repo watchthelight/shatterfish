@@ -40,9 +40,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * same seed and the same script produce the same game to the frame, in a process where the actor
  * thread is real and the driver never sleeps.
  *
- * <p>The script is what a player who clicks would do: attack the nearest visible enemy, otherwise
- * walk to a cell already seen. It never takes the stairs, so the scene it started in is the scene
- * it ends in; scene lifetime is story 1.6's.
+ * <p>The script is what a player who clicks would do, decided from what the player can see: attack
+ * the nearest visible enemy (ties by position on screen), otherwise walk to a cell already seen.
+ * It never takes the stairs, so the scene it started in is the scene it ends in; scene lifetime is
+ * story 1.6's.
  */
 class SceneDrawParityTest {
 
@@ -215,7 +216,7 @@ class SceneDrawParityTest {
             int nearest = Integer.MAX_VALUE;
             for (Mob mob : hero.getVisibleEnemies()) {
                 int distance = level.distance(hero.pos, mob.pos);
-                if (distance < nearest || (distance == nearest && mob.id() < target.id())) {
+                if (distance < nearest || (distance == nearest && mob.pos < target.pos)) {
                     target = mob;
                     nearest = distance;
                 }
@@ -241,7 +242,7 @@ class SceneDrawParityTest {
 
         /**
          * A left click on a cell: {@code GameScene.handleCell} is what the pointer handler calls
-         * ({@code GameScene.java:1553-1555}), and it goes through the real {@code CellSelector} to
+         * ({@code GameScene.java:1547-1549}), and it goes through the real {@code CellSelector} to
          * {@code Hero.handle} and {@code Hero.next} ({@code CellSelector.java:152-166}, {@code :415-416}).
          * An action was taken if the hero now has one.
          */
@@ -251,8 +252,9 @@ class SceneDrawParityTest {
         }
 
         /**
-         * A cell the player has seen and could walk to without leaving the floor, opening a pot,
-         * or bumping into someone.
+         * A cell the player has seen and would click: not their own, walkable, not the stairs, not
+         * an alchemy pot, and, if it is in view right now, not occupied. What stands on a cell out
+         * of view is not the player's to know, so it is not consulted.
          */
         private static boolean walkable(Level level, Hero hero, int cell) {
             return cell != hero.pos
@@ -260,7 +262,7 @@ class SceneDrawParityTest {
                     && level.visited[cell]
                     && level.getTransition(cell) == null
                     && level.map[cell] != Terrain.ALCHEMY
-                    && Actor.findChar(cell) == null;
+                    && (!level.heroFOV[cell] || Actor.findChar(cell) == null);
         }
     }
 }

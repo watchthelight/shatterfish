@@ -82,14 +82,21 @@ for a check: a new file at the repository root, which cannot be an upstream file
 upstream had no such file; and anything git is configured not to report.
 
 A third thing is outside the ledger's reach because it is not an edit at all: Shatterfish code
-reaching a private upstream member by reflection. The harness does this in two places, both in
-`shatterfish/harness/src/main/java/org/shatterfish/harness/scene/SceneStepper.java`: it sets
-`GameScene.actorThread` once per scene so that the scene finds its actor thread already running,
-and it reads `Actor.current` to learn which sprite that thread is waiting on. Neither changes
-what the game does, which is why no row was spent; both fail immediately and by name if an
-upgrade moves the field, and row 4 (read-only accessors) is where they move if that happens.
-Reflection into upstream from any other module, or for any other purpose, is not covered by
-anything here and would need its own row or its own rule.
+reaching a private upstream member by reflection. Harness main code does this for two fields,
+both from `shatterfish/harness/src/main/java/org/shatterfish/harness/scene/SceneStepper.java`.
+It writes `GameScene.actorThread` once per scene, starting the actor thread itself before the
+first frame where the scene would start it in the middle of the first `update()`
+(`GameScene.java:866-882` at the tag); that reorders the hero's first turn ahead of the first
+frame and changes nothing the game computes, which is why it is recorded here rather than as a
+row. It reads `Actor.current` before each frame to predict which sprite the thread is waiting on.
+Both fail immediately and by name if an upgrade moves the field, and row 4 (read-only accessors)
+is where they move if that happens. `HarnessReflectionTest` confines reflection in harness main
+code to that one class and asserts that the fields it reaches are exactly the two named here,
+so a third cannot arrive unannounced. Tests are not confined: the ledger's own tests, the scene
+fixtures and the row 5 checks reach `Random.generators`, `Badges.global`, `Journal.loaded`,
+`GameScene.scene`, `GameScene.cellSelector` and `Actor.current` to set up or observe what they
+test. Reflection into upstream from any other module is not covered by anything here and would
+need its own rule.
 
 ### The site index
 

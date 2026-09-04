@@ -161,11 +161,11 @@ one addition it found necessary for the loop decision.
 "a `Scene` subclass that creates the Groups `GameScene` creates". The story found that the
 groups are not the point. The statics game code calls are gated on `GameScene.scene`, which is
 package-private and assigned only inside `GameScene.create()` (`…/scenes/GameScene.java:159`,
-`:240`), and several of them carry game logic rather than drawing: a mob spawned during play is
-added to the actor list only when a scene exists (`:1153-1162`), a heap dropped during play
-counts for the exploration bonus only then (`:1132-1138`), a window opened by game code is shown
-only then (`:1358`), and `effectOverFog` and `addSprite` dereference the scene unguarded
-(`:1149`, `:1192`). A scene that is not `GameScene.scene` therefore plays a different game, not
+`:242`), and several of them carry game logic rather than drawing: a mob spawned during play is
+added to the actor list only when a scene exists (`:1153-1161`), a heap dropped during play
+counts for the exploration bonus only then (`:1131-1136`), a window opened by game code is shown
+only then (`:1352`), and `effectOverFog` and `addSprite` dereference the scene unguarded
+(`:1149`, `:1185-1186`). A scene that is not `GameScene.scene` therefore plays a different game, not
 a quieter one, and `create()` itself carries level-entry logic (dropped items landing, journal
 landmarks, the first log lines) that a mirror would have to re-implement, which non-negotiable 4
 forbids. The real scene constructs and updates under the no-op binding with FreeType for text
@@ -176,15 +176,27 @@ recorded from a desktop run; today they are the same code, and the test is what 
 **Every frame is fenced.** Option 2 said the driver drives `scene.update(dt)` "in a tight loop".
 Left at that, the actor thread runs concurrently with the driver's next frame exactly as it runs
 concurrently with the render thread in the game, and any draw on the driver thread lands at a
-wall-clock-dependent point in the actor thread's sequence. `SceneStepper` holds the actor
-thread's monitor and the monitor of the sprite it is waiting on across each frame, mirrors the
-scene's own wake rule while the thread still cannot run, and after the frame polls the JVM's
-count of the thread's waits until it has parked again; it also starts the thread itself before
-the first frame, where the scene would otherwise start it mid-update. The actor thread thus runs
-only between frames, and two Runs of one seed and one action list replay to the frame, which
-`SceneDrawParityTest` asserts. Two private statics are reached by reflection for this
-(`GameScene.actorThread`, `Actor.current`); a hook was not spent because neither changes what
-the game does, and row 4 is where they move if an upgrade renames them.
+wall-clock-dependent point in the actor thread's sequence. At the tag the actor thread parks in
+three places: on its own monitor between turns (`…/actors/Actor.java:318`), on the sprite of
+the character it is about to process while that sprite moves (`:274-282`), and, under the
+gravity-chaos curse, on each moving sprite in turn from the buff's own act
+(`…/actors/buffs/GravityChaosTracker.java:76-86`). `SceneStepper` holds the actor thread's
+monitor and every moving sprite's monitor across each frame; predicts, from those sites, which
+sprite the thread waits on and checks the prediction against what the JVM reports it waiting
+on, so that a fourth site in some upgrade fails by name instead of running unfenced; repeats the
+scene's own wake rule while the thread still cannot run; after the frame polls the JVM's count
+of the thread's waits until it has parked again; and then acquires and releases the monitors
+the thread released when it parked, so that what it wrote is visible between frames by the
+language's rules. It also starts the thread itself before the first frame, where the scene
+would otherwise start it mid-update, which moves the hero's first turn ahead of the first frame
+and changes nothing else. The actor thread thus runs only between frames, which
+`FenceInvariantTest` observes directly with and without the curse, and two Runs of one seed and
+one action list replay to the frame, which `SceneDrawParityTest` asserts. Two private statics
+are reached by reflection for this (`GameScene.actorThread`, written once per scene;
+`Actor.current`, read before each frame); a hook was not spent because neither changes what the
+game computes, `HarnessReflectionTest` confines reflection in `harness` to that one class and
+checks the two names against `docs/UPSTREAM.md`, and row 4 is where they move if an upgrade
+renames them.
 
 **What the story could not make deterministic, recorded for stories 1.15 and 1.16.** The game
 orders actors, mobs and weighted choices by `HashSet` iteration, which follows identity hash

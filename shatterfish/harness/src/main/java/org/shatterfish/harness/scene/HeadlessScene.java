@@ -11,12 +11,12 @@ import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
  * thread and a scene that skipped them would consume a different number of draws than an Overlay
  * Run. Story 1.3 found that the same-groups property is not enough on its own: the statics game
  * code calls are gated on {@code GameScene.scene}, which is package-private and assigned only
- * inside {@code GameScene.create()} ({@code core/.../scenes/GameScene.java:159}, {@code :240}),
+ * inside {@code GameScene.create()} ({@code core/.../scenes/GameScene.java:159}, {@code :242}),
  * and several of them carry game logic rather than drawing. A mob spawned during play is added to
- * the actor list only when a scene exists ({@code :1153-1162}), a heap dropped during play counts
- * for the exploration bonus only then ({@code :1132-1138}), a window the game opens is shown only
- * then ({@code :1358}), and {@code effectOverFog} and {@code addSprite} dereference the scene with
- * no guard at all ({@code :1149}, {@code :1192}). A scene that is not {@code GameScene.scene}
+ * the actor list only when a scene exists ({@code :1153-1161}), a heap dropped during play counts
+ * for the exploration bonus only then ({@code :1131-1136}), a window the game opens is shown only
+ * then ({@code :1352}), and {@code effectOverFog} and {@code addSprite} dereference the scene with
+ * no guard at all ({@code :1149}, {@code :1185-1186}). A scene that is not {@code GameScene.scene}
  * therefore plays a different game, not just a quieter one.
  *
  * <p>So this scene <em>is</em> a {@code GameScene}, and {@link #create()} is

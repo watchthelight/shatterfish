@@ -19,11 +19,11 @@ import org.shatterfish.harness.scene.HeadlessScene;
  *
  * <ul>
  * <li>{@code requestedReset} starts true in every {@code Game} ({@code Game.java:64}) and is
- * cleared only by {@code step()} when the first scene is created ({@code :232-233}). The actor
- * thread picks no actor while it is true ({@code core/.../actors/Actor.java:251}), so a driver
+ * cleared only by {@code step()} when the first scene is created ({@code :230-236}). The actor
+ * thread picks no actor while it is true ({@code core/.../actors/Actor.java:252}), so a driver
  * that never calls {@code step()} would get an actor loop that parks forever with no error.
  * Story 1.1 found this; the constructor clears it.</li>
- * <li>{@link #switchTo(Scene)} is the game's own {@code switchScene()} ({@code Game.java:239-260})
+ * <li>{@link #switchTo(Scene)} is the game's own {@code switchScene()} ({@code Game.java:249-267})
  * run on a scene the driver constructed, rather than one {@code step()} instantiates by class
  * name. That is how the harness substitutes {@link HeadlessScene} for {@code GameScene} without
  * an upstream edit.</li>
