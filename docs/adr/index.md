@@ -21,6 +21,7 @@ skill drafts new ones; add the new file to this list and to `mkdocs.yml`.
 | [0013](0013-overlay-threading-model.md) | Threading model for the Overlay and the drivers | accepted | 2026-09-04 |
 | [0014](0014-action-schema-and-executor-contract.md) | The Action type and the ActionExecutor contract | accepted | 2026-09-04 |
 | [0015](0015-headless-scene-and-input-wait-detection.md) | The headless scene, the main loop, and Input-wait detection | accepted | 2026-09-04 |
+| [0016](0016-hook-ledger-corrected-by-story-1-1.md) | The hook ledger, corrected by story 1.1 (supersedes ADR-0008's table) | accepted | 2026-09-04 |
 
 ## Decisions still to make
 

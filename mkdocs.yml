@@ -123,6 +123,7 @@ nav:
       - ADR-0013 Overlay threading model: adr/0013-overlay-threading-model.md
       - ADR-0014 Action schema: adr/0014-action-schema-and-executor-contract.md
       - ADR-0015 Headless scene and Input waits: adr/0015-headless-scene-and-input-wait-detection.md
+      - ADR-0016 Hook ledger corrected: adr/0016-hook-ledger-corrected-by-story-1-1.md
   - Rules:
       - rules/index.md
       - Game loop: rules/game-loop.md
@@ -137,7 +138,9 @@ nav:
       - Save, score, win: rules/save-score-win.md
       - Text and assets: rules/text-assets.md
   - Codex: codex/index.md
-  - Results: results/index.md
+  - Results:
+      - results/index.md
+      - E1 touchpoint audit: results/e1-touchpoint-audit.md
   - BMAD artifacts: bmad/index.md
   - Upstream guides (on GitHub):
       - Compiling for desktop: https://github.com/watchthelight/shatterfish/blob/main/docs/getting-started-desktop.md

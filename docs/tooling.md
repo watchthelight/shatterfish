@@ -88,7 +88,7 @@ Invocation of the super-search skill: `/supersearch <question>` or, in prose, "u
 | `code-review`, `simplify`, `security-review` | bundled skills | Second-opinion reviews on PRs; `bmad-code-review` remains primary for stories |
 | `init`, `update-config`, `keybindings-help`, `fewer-permission-prompts` | bundled | Claude Code housekeeping (Session 4) |
 | `loop`, `schedule` | bundled | Nightly rig runs are GitHub Actions, not these; possible local use for long rig runs |
-| `run` | bundled | Launch `./gradlew :desktop:run` / overlay for visual checks (E5) |
+| `run` | bundled | Launch `./gradlew :desktop:debug` / overlay for visual checks (E5) |
 | `design`, `frontend-design`, `dataviz`, `artifact-*` | bundled/plugin | `dataviz` for `docs/results/` charts; `design` for overlay panel mockups in the UX spec (mockup only; real UI is Noosa) |
 | `claude-api` | bundled | none (no LLM in v1) |
 | `rust-analyzer-lsp` plugin | plugin | none (Java project; no Rust per non-negotiable 4) |

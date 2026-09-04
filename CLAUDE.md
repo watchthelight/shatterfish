@@ -11,7 +11,7 @@ You are the sole engineer; the human (watchthelight, "Bash" in BMAD config) is p
 ```sh
 ./gradlew build                            # every module, JUnit 5 + ArchUnit; must be green before any PR
 ./gradlew :harness:test                    # fairness + determinism tests (E1 onward)
-./gradlew :desktop:run                     # the unmodified game
+./gradlew :desktop:debug                   # the unmodified game (`run` has no version properties and dies in the launcher)
 ./gradlew build -Pshatterfish.mobile=on    # only if you really want upstream's android/ios modules
 ./gradlew :codex:generate                  # regenerate codex/<tag>/ (E2); CI fails on drift
 ./gradlew :rig:run --args="..."            # the rig (E3); see /rig
