@@ -34,6 +34,7 @@ Tracked as a task list on [#1](https://github.com/watchthelight/shatterfish/issu
 | 7 | BMAD phase 1: product brief ([brief](bmad/planning-artifacts/briefs/brief-shatterfish-2026-09-03/brief.md)) | done |
 | 8 | BMAD phase 2: PRD ([prd](bmad/planning-artifacts/prds/prd-shatterfish-2026-09-03/prd.md)) | done |
 | 9 | BMAD phase 2: PRD validation ([report](bmad/planning-artifacts/prds/prd-shatterfish-2026-09-03/validation-report.md)), UX spec ([experience](bmad/planning-artifacts/ux-designs/ux-shatterfish-2026-09-03/EXPERIENCE.md), [design](bmad/planning-artifacts/ux-designs/ux-shatterfish-2026-09-03/DESIGN.md)) | done, Checkpoint C pending |
-| 10 | BMAD phase 3: upstream documentation (`bmad-project-context`), `docs/codebase-map.md` | next |
-| 11 to 13 | BMAD phase 3: architecture, epics and stories, readiness | |
+| 10 | Upstream documentation ([codebase map](codebase-map.md), [rules](rules/index.md), 275 rows) | done |
+| 11 to 12 | BMAD phase 3: architecture and ADRs | next |
+| 13 | BMAD phase 3: epics and stories, readiness | |
 | 14 | Sprint planning, issue mirroring | |
