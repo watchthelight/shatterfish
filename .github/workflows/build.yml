@@ -17,7 +17,11 @@ jobs:
     name: build + test (ubuntu, JDK 21)
     runs-on: ubuntu-latest
     steps:
+      # Full history, so the pinned upstream tag is present: HooksLedgerTest and
+      # HooksVanillaTest compare the tree against it (docs/UPSTREAM.md).
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-java@v5
         with:
