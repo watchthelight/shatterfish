@@ -4,7 +4,7 @@ key: 1-1-audit-the-rendering-touchpoints-and-prove-a-headless-turn-re
 title: Audit the rendering touchpoints and prove a headless turn resolves
 epic: 1
 issue: 14
-status: review
+status: done
 created: '2026-09-04'
 updated: '2026-09-04'
 ---
