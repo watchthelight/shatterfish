@@ -132,6 +132,13 @@ class FenceInvariantTest {
             long waitedBefore = waitedCount(thread);
             Thread.State stateBefore = thread.getState();
             Object currentBefore = currentActor();
+            // Between two frames the thread may be woken once: by the scene's notify or a movement
+            // ending, both of which the stepper waits out. Two parks between frames means it was
+            // woken twice, which is the double wake a wake rule read outside the fence produces.
+            if (lastWaitedAfter >= 0 && waitedBefore - lastWaitedAfter > 1) {
+                violations.add("before frame " + frames + ": the actor thread parked "
+                        + (waitedBefore - lastWaitedAfter) + " times since the last frame");
+            }
             if (currentBefore instanceof GravityChaosTracker) {
                 trackerWaits++;
             }
@@ -158,7 +165,10 @@ class FenceInvariantTest {
                         + ", state " + stateBefore + "->" + stateAfter
                         + ", current " + name(currentBefore) + "->" + name(currentAfter));
             }
+            lastWaitedAfter = waitedAfter;
         }
+
+        private long lastWaitedAfter = -1;
 
         private static long waitedCount(Thread thread) {
             ThreadInfo info = THREADS.getThreadInfo(thread.threadId());
