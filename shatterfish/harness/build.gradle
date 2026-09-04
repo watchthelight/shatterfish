@@ -22,3 +22,24 @@ sourceSets {
         runtimeClasspath += files(new File(project(':core').projectDir, 'src/main/assets'))
     }
 }
+
+// The hook-ledger checks read docs/UPSTREAM.md and the upstream tree directly, and Gradle has no
+// way to know that from the task graph. Without these declarations an unmarked edit to an upstream
+// file, or a row deleted from the ledger, leaves :harness:test UP-TO-DATE and the check simply does
+// not run: the build stays green because nothing looked. Declaring the real inputs is the fix; the
+// checks then re-run exactly when the thing they check has changed.
+tasks.named('test') {
+    inputs.file(rootProject.file('docs/UPSTREAM.md'))
+            .withPropertyName('hookLedger')
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.files(fileTree(rootDir) {
+        include 'core/**', 'SPD-classes/**', 'desktop/**', 'services/**', 'android/**', 'ios/**'
+        // Every root-level file, not just the build scripts: Ledger treats all of them as upstream's,
+        // so LICENSE.txt changing must re-run the checks that say it has not.
+        include '*'
+        // Hook row 1's relocation target, which HooksVanillaTest reads to confirm the two mobile
+        // include lines still exist. Without it, that claim could be broken with the build green.
+        include 'shatterfish/settings.gradle'
+        exclude '**/build/**'
+    }).withPropertyName('upstreamTree').withPathSensitivity(PathSensitivity.RELATIVE)
+}

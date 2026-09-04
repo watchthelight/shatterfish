@@ -3,7 +3,10 @@ include ':SPD-classes'
 include ':core'
 
 //platform modules
-//shatterfish hook #1 (docs/UPSTREAM.md): mobile modules are opt-in via -Pshatterfish.mobile=on
+// shatterfish-hook:1
+//Mobile modules need the Android SDK or Xcode and Shatterfish needs neither, so they move
+//behind -Pshatterfish.mobile=on; the same fragment includes the Shatterfish modules.
+//Row 1 of docs/UPSTREAM.md.
 apply from: 'shatterfish/settings.gradle'
 include ':desktop'
 
