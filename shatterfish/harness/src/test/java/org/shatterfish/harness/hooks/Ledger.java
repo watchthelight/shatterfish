@@ -341,6 +341,15 @@ final class Ledger {
 			// A rename is "R<score>\told\tnew"; report the new path, which is where a marker would be.
 			changes.add(new Change(fields[0].substring(0, 1), fields[fields.length - 1].trim()));
 		}
+		// git diff compares the tag against tracked content only, so a file that has been created but
+		// not yet added is invisible to it. That is the ordinary state of a new file mid-story, and it
+		// is exactly how a new class would arrive inside core without any check noticing.
+		for (String untracked : git("ls-files", "--others", "--exclude-standard")) {
+			String path = untracked.trim();
+			if (!path.isEmpty()) {
+				changes.add(new Change("A", path));
+			}
+		}
 		return changes;
 	}
 
