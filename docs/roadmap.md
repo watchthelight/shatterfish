@@ -37,6 +37,7 @@ Tracked as a task list on [#1](https://github.com/watchthelight/shatterfish/issu
 | 10 | Upstream documentation ([codebase map](codebase-map.md), [rules](rules/index.md), 275 rows) | done |
 | 11 | Architecture spine draft, [ADR-0005](adr/0005-observation-schema-and-hashing.md) to [ADR-0008](adr/0008-hook-guarding-and-tracking.md), fairness red team | done |
 | 12 | [ADR-0009](adr/0009-snapshot-restore-and-redetermination.md) to [ADR-0015](adr/0015-headless-scene-and-input-wait-detection.md), reviewer gate, [architecture](architecture.md) spine final | done, Checkpoint D pending |
-| 13 | BMAD phase 3: epics and stories, readiness | next |
+| 13 | Epics and stories ([epics](bmad/planning-artifacts/epics.md), 73 stories), two readiness checks | done, Checkpoint E pending |
+| 14 | Sprint planning and issue mirroring | next |
 | 13 | BMAD phase 3: epics and stories, readiness | |
 | 14 | Sprint planning, issue mirroring | |
