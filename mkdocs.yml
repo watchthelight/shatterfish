@@ -116,6 +116,11 @@ nav:
       - ADR-0006 Observer visibility rules: adr/0006-observer-visibility-rules.md
       - ADR-0007 RNG seeding strategy: adr/0007-rng-seeding-strategy.md
       - ADR-0008 Hook guarding and tracking: adr/0008-hook-guarding-and-tracking.md
+      - ADR-0009 Snapshot and redetermination: adr/0009-snapshot-restore-and-redetermination.md
+      - ADR-0010 Tactical search criteria: adr/0010-tactical-search-deferral-criteria.md
+      - ADR-0011 Run-log format: adr/0011-run-log-format.md
+      - ADR-0012 Rig statistics: adr/0012-rig-statistics.md
+      - ADR-0013 Overlay threading model: adr/0013-overlay-threading-model.md
   - Rules:
       - rules/index.md
       - Game loop: rules/game-loop.md

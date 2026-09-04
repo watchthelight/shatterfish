@@ -22,6 +22,11 @@ companions:
   - docs/adr/0006-observer-visibility-rules.md
   - docs/adr/0007-rng-seeding-strategy.md
   - docs/adr/0008-hook-guarding-and-tracking.md
+  - docs/adr/0009-snapshot-restore-and-redetermination.md
+  - docs/adr/0010-tactical-search-deferral-criteria.md
+  - docs/adr/0011-run-log-format.md
+  - docs/adr/0012-rig-statistics.md
+  - docs/adr/0013-overlay-threading-model.md
 ---
 
 # Architecture Spine — Shatterfish
@@ -89,8 +94,8 @@ graph TD
 - **Binds:** FR-3, FR-8, FR-10, FR-11
 - **Prevents:** an Observer that recomputes visibility or reads model fields the renderer does not
 - **Rule:** the per-rule table of ADR-0006 is the whitelist; each row cites the game line the
-  renderer uses and has a leak test; the Observer runs only at an Input wait (hero ready, no
-  `Window`) on the scene-owning thread; `OracleObserver` is the only extension and is refused
+  renderer uses and has a leak test; the Observer runs only at an Input wait (AD-5) on the
+  UI-role thread (AD-8); `OracleObserver` is the only extension and is refused
   by the Rig.
 
 ### AD-4 — Actions go through the UI's code paths
@@ -130,10 +135,12 @@ graph TD
 - **Binds:** FR-27, FR-28, FR-32, FR-33, NFR-4
 - **Prevents:** a Brain that remembers what it did instead of what it saw; a Brain that cannot
   be handed a human's turn
-- **Rule:** `Brain.decide(Observation, Belief) → (Decision, Belief)`, deterministic given its own
-  generator seeded by the caller from `mix(salt, k)`; it holds no game object and no thread; state lives only
-  in the returned `Belief`, which is an `api` value serialized into the Run log; the Overlay's
-  thinking budget delays a Decision and never changes it.
+- **Rule:** `Brain.decide(Observation, Belief) → (Decision, Belief)` for a bot turn and
+  `Brain.update(Observation, Belief) → Belief` for a human turn, both deterministic given the
+  generator the caller seeds from `mix(salt, k)`; the Brain holds no game object and no thread;
+  state lives only in the returned `Belief`, an `api` value whose hash is in the Run log; a
+  Decision is tagged with its `k` and a stale one is never executed; the Overlay's thinking
+  budget delays a Decision and never changes it.
 
 ### AD-8 — Threads: game-actor, UI-role, brain-worker
 
@@ -152,8 +159,11 @@ graph TD
 - **Prevents:** a Search that peeks
 - **Rule:** any simulation the Brain uses is either an abstract model built from the Observation
   and Belief in `brain`, or a redetermined `Snapshot` produced by `harness` from a Belief sample,
-  whose Observation is proven equal to the original by the differential test; `Snapshot` and
-  `Redeterminer` interfaces are declared in E1 and implemented in E6 (ADR-0009, ADR-0010).
+  whose Observation is proven equal to the original by the differential test (ADR-0009's
+  hidden-element table); `Snapshot`, `BeliefSample` and `Redeterminer` are `api` types declared in
+  E1, `SnapshotStore` and its restore-and-replay test ship in E1, the scrubber in E6; the rollout
+  host asserts the scrubbed flag; the search design is chosen by ADR-0010's measurements and the
+  Rig, never by this spine.
 
 ### AD-10 — Hooks are one-line, registered, counted
 
@@ -168,10 +178,12 @@ graph TD
 
 - **Binds:** FR-19 to FR-26, NFR-2
 - **Prevents:** a Results page that cannot be reproduced
-- **Rule:** a comparison runs only under a committed Registration (Hypothesis id, bounds, Seed
-  set version, both Brains' commits); every Run writes a JSONL log with a hash chain (ADR-0011);
-  the Sequential test is the Per-pair GSPRT of ADR-0012; Oracle mode is refused by the runner;
-  the Results page carries the command that reproduces it.
+- **Rule:** a comparison runs only under a committed Registration (Hypothesis id, `p0`, `p1`,
+  `α`, `β`, `n0`, `nmax`, Seed set version, the salts, both Brains' commits, budget, machine
+  class); every Run writes the gzip JSONL log of ADR-0011 with its hash chain, keyed by `k`; the
+  Sequential test is the Per-pair GSPRT of ADR-0012 with the e-process as the calibrated
+  alternative; the runner refuses `holdout` for development and any Oracle Run; the Results page
+  carries the chain, the trace, the measured pair correlation and the command that reproduces it.
 
 ### AD-12 — The Overlay is an instrument built from the game's toolkit
 
@@ -256,11 +268,10 @@ sequenceDiagram
 
 | Decision | Why it can wait | Revisit |
 |---|---|---|
-| Snapshot/restore and redetermination mechanism (bundle rewrite vs belief-built world) | interfaces reserved by AD-9; no caller before E6 | ADR-0009 (session 12) fixes the interface and the E6 default |
-| Abstract tactical model vs engine rollouts | must be measured (simulator speed, Long et al. properties) | ADR-0010 (session 12) states the criteria; E6 decides |
-| Run-log record fields beyond the header, hash chain and Decision | ADR-0011 (session 12) | |
-| GSPRT bounds, burn-in, calibration | ADR-0012 (session 12) fixes the statistic; E3 calibrates on the rig's own distribution | |
-| Overlay hand-off details (Take over mid-animation, THINKING queueing) | ADR-0013 (session 12) | |
-| Classloader isolation (several Runs per JVM) | process per Run is the default; the E1 spike measures | E1 spike report |
+| The tactical search design (sampled search vs information-set search vs the one-ply model) | must be measured: simulator speed, Long et al. properties, the search leak test, then the Rig | E6 per ADR-0010's choice rule |
+| GSPRT `p0`, `p1`, `α`, `β`, `n0`, `nmax` and the e-process comparison | calibrated by simulation on the Rig's own outcome distribution | E3 calibration story per ADR-0012 |
+| Redetermination scrubber key list | follows `Dungeon.saveGame` at the tag; reviewed by the fairness reviewer before the first E6 search story | E6 per ADR-0009 |
+| Classloader isolation (several Runs per JVM, and as the rollout host of ADR-0009) | process per Run is the default; the E1 spike measures | E1 spike report |
 | Codex generation mechanics (reflection per table, measured combat tables) | E2 stories; no cross-module divergence risk | E2 |
 | Learned components | optional E9; annual review of the learned frontier | 2027 |
+| Where `standard` runs (developer machine vs GitHub Actions) and result publication cadence | ADR-0002 fixes the CI shape (PR gate, nightly `smoke`, results PR); the `standard` host is decided when its cost is measured | E3 per PRD open question 11 |

@@ -14,13 +14,17 @@ skill drafts new ones; add the new file to this list and to `mkdocs.yml`.
 | [0006](0006-observer-visibility-rules.md) | How the Observer handles each visibility rule | proposed | 2026-09-03 |
 | [0007](0007-rng-seeding-strategy.md) | RNG seeding strategy and the other sources of nondeterminism | proposed | 2026-09-03 |
 | [0008](0008-hook-guarding-and-tracking.md) | How hooks are guarded and tracked | proposed | 2026-09-03 |
+| [0009](0009-snapshot-restore-and-redetermination.md) | Snapshot, restore, and redetermination | proposed | 2026-09-03 |
+| [0010](0010-tactical-search-deferral-criteria.md) | Abstract tactical model versus engine rollouts, deferred to E6 with criteria | proposed | 2026-09-03 |
+| [0011](0011-run-log-format.md) | Run-log format | proposed | 2026-09-03 |
+| [0012](0012-rig-statistics.md) | The Rig's statistics: the Per-pair GSPRT | proposed | 2026-09-03 |
+| [0013](0013-overlay-threading-model.md) | Threading model for the Overlay and the drivers | proposed | 2026-09-03 |
 
 ## Decisions still to make
 
-Each gets a micro-brainstorm (bootstrap prompt, section 2.2) and an ADR when its session comes:
+Each gets a micro-brainstorm (bootstrap prompt, section 2.2) and an ADR when its epic comes:
 
-- Snapshot/restore and redetermination (session 12)
-- Abstract tactical model versus engine rollouts (session 12 states the criteria; E6 decides)
-- Run-log format (session 12)
-- The rig's statistics: the Per-pair GSPRT (session 12; calibration in E3)
-- Threading model for the overlay (session 12)
+- The tactical search design itself (E6, per the criteria of ADR-0010)
+- GSPRT bounds, burn-in and the e-process comparison (E3 calibration story, per ADR-0012)
+- Classloader isolation versus process per Run (E1 spike report)
+- The Codex generation mechanics (E2)
