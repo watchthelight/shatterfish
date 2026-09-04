@@ -55,9 +55,13 @@ The table below is a promise; these tests are what make it true. All of them run
 | `HooksLedgerTest`: nothing tells git to stop reading upstream files as text | The one edit that disarms every check in this table at once. A `.gitattributes` line marking source binary empties every diff, so the digest, the line counts and the wrap rule all go quiet together — and the file itself is a root-level addition nothing else looks at |
 | `HooksLedgerTest`: nothing under an upstream module is hidden from git by a rule of ours | The same move through `.gitignore`: an ignored file is in neither the diff nor the untracked listing. Upstream's own ignore rules at the pinned tag are still honoured |
 
-Both classes compare the tree against the pinned tag, so they need the tag present: continuous
-integration checks out with full history, and they fail with a message saying so rather than
-skipping when it is missing.
+Both classes compare the tree against the pin, and they resolve it by **commit** rather than by tag
+name. The tag lives in upstream's repository: this fork carries it only if someone pushes it, and
+continuous integration clones the fork, so a tag-based check passes on a developer's machine and
+fails in CI for a reason that has nothing to do with the code. The commit needs no such arrangement,
+because `main` descends from it and any checkout with full history has it — and it is the stricter
+of the two, since a tag can be moved and this is a pin. Continuous integration checks out with
+`fetch-depth: 0`; a shallow clone fails with a message saying so rather than skipping.
 
 ## Hooks
 

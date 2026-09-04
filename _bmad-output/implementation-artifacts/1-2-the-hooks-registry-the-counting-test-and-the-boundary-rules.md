@@ -286,6 +286,7 @@ pass rather than hide.
 | Round three's brain class in `org.shatterfish.peek`, shipped in `brain.jar` | `every class compiled into brain lives under org.shatterfish.brain` |
 | A root `.gitattributes` marking `*.java binary`, then `GameScene` changed freely and its budget row deleted | `nothing tells git to stop reading upstream files`, and two more |
 | A new class under `core/` hidden by an ignore rule of our own | `nothing under an upstream module is hidden from git` |
+| A checkout without the pinned commit (CI's first run, before the pin was resolved by commit) | five checks, loudly, rather than skipping |
 | `Boolean.getBoolean`, `ResourceBundle.getBundle`, `ManagementFactory`, `ProcessHandle`, `SecureRandom`, `RandomGenerator`, `UUID`, `Date`, `Preferences`, `Executors`, `Collections.shuffle`, `Class::forName` as a method reference, `Thread.currentThread().getContextClassLoader()` | at least one rule each, all as fixtures in `BrainBoundaryRulesBiteTest` |
 
 Three notes on that table. The guard-deletion mutation fails the unit check *and* story 1.1's spike,
@@ -322,7 +323,13 @@ Rig numbers: not applicable, no Brain exists until E4.
   a legitimate hook that changes a condition rather than wrapping a statement — row 9's input gate is
   the known example — which will need a relocation-style exception with a stated reason. It also
   cannot see a vanilla statement moved into a private method that nothing calls.
-- **The checks require git and the pinned tag.** They fail loudly rather than skipping, which is
+- **The pin is resolved by commit, not by tag name.** The first CI run failed on every git-based
+  check with "unknown revision `v3.3.8`": the tag exists in upstream's repository and in a developer's
+  clone, but was never pushed to this fork, and CI clones the fork. `main` descends from the pinned
+  commit, so resolving by commit works everywhere and cannot be moved. Pushing the tag to the fork
+  would additionally make `git checkout v3.3.8` work for anyone cloning it; that is worth doing and is
+  not done here, because it is a change to the remote rather than to this branch.
+- **The checks require git and the pinned commit.** They fail loudly rather than skipping, which is
   deliberate: a check that quietly skips is a check that quietly rots. CI checks out with full
   history.
 - **The brain cannot use `String.format` or `toUpperCase`.** Both follow the host's default locale,

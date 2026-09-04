@@ -42,6 +42,10 @@ final class Ledger {
 	/** The pinned-release row in {@code docs/UPSTREAM.md}. */
 	private static final Pattern TAG_ROW = Pattern.compile("^\\|\\s*Tag\\s*\\|\\s*`([^`]+)`\\s*\\|");
 
+	/** The pinned-commit row in {@code docs/UPSTREAM.md}. */
+	private static final Pattern COMMIT_ROW =
+			Pattern.compile("^\\|\\s*Commit\\s*\\|\\s*`([0-9a-f]{7,40})`\\s*\\|");
+
 	/** A row of the hooks table: the id is the first cell. */
 	private static final Pattern HOOK_ROW = Pattern.compile("^\\|\\s*(\\d+)\\s*\\|");
 
@@ -155,13 +159,36 @@ final class Ledger {
 
 	/** The upstream release tag this fork is pinned to, read from {@code docs/UPSTREAM.md}. */
 	static String pinnedTag() {
+		return row(TAG_ROW, "Tag");
+	}
+
+	/**
+	 * The commit the pinned tag names, and the revision every check here actually uses.
+	 *
+	 * <p>The tag itself is not usable. It lives in upstream's repository; a fork carries it only if
+	 * someone pushes it, and continuous integration clones the fork. The commit needs no such
+	 * arrangement, because {@code main} descends from it, so any checkout with full history has it.
+	 * It is also the stricter of the two: a tag can be moved, and this is a pin.
+	 */
+	static String pinnedRevision() {
+		String commit = row(COMMIT_ROW, "Commit");
+		List<String> type = git("cat-file", "-t", commit);
+		if (type.isEmpty() || !type.get(0).trim().equals("commit")) {
+			throw new IllegalStateException("the pinned commit " + commit + " is not in this checkout."
+					+ " These checks compare the tree against it, so a shallow clone cannot run them;"
+					+ " continuous integration checks out with fetch-depth: 0");
+		}
+		return commit;
+	}
+
+	private static String row(Pattern pattern, String label) {
 		for (String line : upstreamDocLines()) {
-			Matcher m = TAG_ROW.matcher(line);
+			Matcher m = pattern.matcher(line);
 			if (m.find()) {
 				return m.group(1);
 			}
 		}
-		throw new IllegalStateException("no pinned-release Tag row in " + upstreamDoc());
+		throw new IllegalStateException("no pinned-release " + label + " row in " + upstreamDoc());
 	}
 
 	/**
@@ -272,7 +299,7 @@ final class Ledger {
 	 */
 	static List<Budget> measuredDiff() {
 		List<Budget> measured = new ArrayList<>();
-		for (String line : git("diff", "--numstat", pinnedTag())) {
+		for (String line : git("diff", "--numstat", pinnedRevision())) {
 			String[] fields = line.split("\t");
 			if (fields.length < 3) {
 				continue;
@@ -302,7 +329,7 @@ final class Ledger {
 	 */
 	static String diffDigest(String path) {
 		StringBuilder content = new StringBuilder();
-		for (String line : git("diff", "--unified=0", pinnedTag(), "--", ":(literal)" + path)) {
+		for (String line : git("diff", "--unified=0", pinnedRevision(), "--", ":(literal)" + path)) {
 			if (DIFF_HEADER.matcher(line).find()) {
 				continue;
 			}
@@ -514,7 +541,7 @@ final class Ledger {
 		}
 		String source = fields[0];
 		String pattern = fields[2].split("\t", 2)[0].trim();
-		for (String line : git("show", pinnedTag() + ":" + source)) {
+		for (String line : git("show", pinnedRevision() + ":" + source)) {
 			if (line.trim().equals(pattern)) {
 				return true;
 			}
@@ -527,7 +554,7 @@ final class Ledger {
 		List<String> directories = new ArrayList<>();
 		// "-d" asks git which entries are directories at the tag. Asking the working tree instead
 		// would drop a directory that has since been deleted, which is exactly the case worth seeing.
-		for (String line : git("ls-tree", "-d", "--name-only", pinnedTag())) {
+		for (String line : git("ls-tree", "-d", "--name-only", pinnedRevision())) {
 			String name = line.trim();
 			if (!name.isEmpty()) {
 				directories.add(name);
@@ -548,7 +575,7 @@ final class Ledger {
 	 */
 	static List<Change> changesSinceTag() {
 		List<Change> changes = new ArrayList<>();
-		for (String line : git("diff", "--name-status", pinnedTag())) {
+		for (String line : git("diff", "--name-status", pinnedRevision())) {
 			String[] fields = line.split("\t");
 			if (fields.length < 2) {
 				continue;
@@ -581,7 +608,7 @@ final class Ledger {
 	private static List<String> diffLines(String path, char sign, String header) {
 		List<String> lines = new ArrayList<>();
 		// ":(literal)" so a path containing a glob character or a leading colon is a path, not a pattern.
-		for (String line : git("diff", "--unified=0", pinnedTag(), "--", ":(literal)" + path)) {
+		for (String line : git("diff", "--unified=0", pinnedRevision(), "--", ":(literal)" + path)) {
 			if (line.startsWith(header)) {
 				continue;
 			}
