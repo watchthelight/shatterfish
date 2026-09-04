@@ -6,6 +6,8 @@ import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.MalformedInputException;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -44,8 +46,14 @@ final class Ledger {
 	/** A line of the site index: {@code <id> <sites> <path>}. */
 	private static final Pattern SITE_ROW = Pattern.compile("^(\\d+)\\s+(\\d+)\\s+(\\S.*)$");
 
-	/** A line of the diff budget: {@code <added> <removed> <path>}. */
-	private static final Pattern BUDGET_ROW = Pattern.compile("^(\\d+)\\s+(\\d+)\\s+(\\S.*)$");
+	/** A line of the diff budget: {@code <digest> <added> <removed> <path>}. */
+	private static final Pattern BUDGET_ROW =
+			Pattern.compile("^([0-9a-f]{16})\\s+(\\d+)\\s+(\\d+)\\s+(\\S.*)$");
+
+	/** Diff lines that are position or metadata rather than content. */
+	private static final Pattern DIFF_HEADER = Pattern.compile("^(diff --git |index |--- |"
+			+ "\\+\\+\\+ |@@|new file mode |deleted file mode |old mode |new mode |"
+			+ "similarity index |rename from |rename to |Binary files )");
 
 	/**
 	 * Upstream's own source and build modules: the territory where an edit is a hook. This is an
@@ -78,6 +86,9 @@ final class Ledger {
 					".ttf", ".otf", ".jar", ".zip", ".gz", ".bin", ".pdf", ".class", ".keystore", ".dll",
 					".so", ".dylib", ".exe");
 
+	/** Stripped from diff lines before digesting, so a line-ending policy cannot change the answer. */
+	private static final String CARRIAGE_RETURN = String.valueOf((char) 13);
+
 	/** Files above this size are assets, not source, and are not scanned. */
 	private static final long MAX_SCANNED_BYTES = 2L * 1024 * 1024;
 
@@ -92,8 +103,17 @@ final class Ledger {
 	record Site(int id, int markers, String path) {
 	}
 
-	/** How far one upstream file is allowed to differ from the pinned tag. */
-	record Budget(int added, int removed, String path) {
+	/**
+	 * What one upstream file's difference from the pinned tag is allowed to be. The digest is the
+	 * check; the line counts are for a reader, and are asserted alongside it so the block cannot drift
+	 * into saying something the digest does not.
+	 */
+	record Budget(String digest, int added, int removed, String path) {
+
+		@Override
+		public String toString() {
+			return digest + " " + added + " " + removed + " " + path;
+		}
 	}
 
 	/** One path that differs from the pinned tag: {@code M}, {@code A}, {@code D} or {@code R…}. */
@@ -226,19 +246,28 @@ final class Ledger {
 		for (String line : fencedBlockAfter("<!-- diff-budget -->")) {
 			Matcher m = BUDGET_ROW.matcher(line.trim());
 			if (m.matches()) {
-				budget.add(new Budget(Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)),
-						m.group(3).trim()));
+				budget.add(new Budget(m.group(1), Integer.parseInt(m.group(2)),
+						Integer.parseInt(m.group(3)), m.group(4).trim()));
 			}
 		}
 		if (budget.isEmpty()) {
 			throw new IllegalStateException("no diff budget found in " + upstreamDoc()
 					+ "; expected a fenced block after a <!-- diff-budget --> comment, one"
-					+ " 'added removed path' line per modified upstream file");
+					+ " 'digest added removed path' line per changed upstream file");
 		}
 		return budget;
 	}
 
-	/** The measured size of every upstream file's diff, as git counts it. */
+	/**
+	 * What every upstream file's difference from the pinned tag actually is: a digest of the changed
+	 * lines themselves, plus how many there are.
+	 *
+	 * <p>Counting lines is not enough, and this is the third thing an adversarial review walked
+	 * through. An edit that swaps one line for another leaves both counts unchanged, so a comment
+	 * inside a hook block can become {@code Dungeon.hero.viewDistance = 999} — the hero sees the whole
+	 * level — with the marker count, the site index and the wrap rule all satisfied. The digest covers
+	 * the content, so any change to any line of any upstream file is a change to this document.
+	 */
 	static List<Budget> measuredDiff() {
 		List<Budget> measured = new ArrayList<>();
 		for (String line : git("diff", "--numstat", pinnedTag())) {
@@ -246,10 +275,37 @@ final class Ledger {
 			if (fields.length < 3 || fields[0].equals("-")) {
 				continue;
 			}
-			measured.add(new Budget(Integer.parseInt(fields[0]), Integer.parseInt(fields[1]),
-					fields[2].trim()));
+			String path = fields[2].trim();
+			measured.add(new Budget(diffDigest(path), Integer.parseInt(fields[0]),
+					Integer.parseInt(fields[1]), path));
 		}
 		return measured;
+	}
+
+	/**
+	 * A digest of one file's changed lines against the pinned tag. Hunk headers carry line numbers and
+	 * are dropped, so the digest is of content and nothing else; carriage returns are stripped so that
+	 * a checkout's line-ending policy cannot change the answer.
+	 */
+	static String diffDigest(String path) {
+		StringBuilder content = new StringBuilder();
+		for (String line : git("diff", "--unified=0", pinnedTag(), "--", ":(literal)" + path)) {
+			if (DIFF_HEADER.matcher(line).find()) {
+				continue;
+			}
+			content.append(line.replace(CARRIAGE_RETURN, "")).append('\n');
+		}
+		try {
+			byte[] hash = MessageDigest.getInstance("SHA-256")
+					.digest(content.toString().getBytes(StandardCharsets.UTF_8));
+			StringBuilder hex = new StringBuilder();
+			for (int i = 0; i < 8; i++) {
+				hex.append(String.format("%02x", hash[i]));
+			}
+			return hex.toString();
+		} catch (NoSuchAlgorithmException impossible) {
+			throw new IllegalStateException("SHA-256 is required of every JVM", impossible);
+		}
 	}
 
 	/**

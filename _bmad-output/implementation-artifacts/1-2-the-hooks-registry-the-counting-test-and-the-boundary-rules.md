@@ -20,11 +20,11 @@ So that neither an unexplained hook nor a forbidden import can enter the tree.
 | Criterion | Outcome |
 |---|---|
 | `Hooks.java` is added under `core` with one nullable listener field per hook point | **Met, with one point rather than ten.** The registry, its convention and its `clear()` are landed; the only listener point declared is `inputWait`, the one ADR-0015 has already decided. The other nine ledger rows are not all listener rows, and the ones that are belong to stories that have not run |
-| `HooksLedgerTest` greps the tree for hook markers and fails if the set of ids differs from the rows in `docs/UPSTREAM.md`, or if the row count exceeds ten | **Met, and then some.** Eight checks: ids in the tree equal rows in the document; the machine-readable site index equals the markers file by file; nothing looks like a marker without being one; at most ten rows with no id used twice; id 2 confined to the registry; every upstream file changed, added, deleted or renamed relative to the pinned tag carries a marker; each upstream file's diff is exactly the size the ledger declares; and every top-level directory in the pinned tag is classified as upstream's or ours. It found a real defect on its first run: hook row 1 in `settings.gradle` was marked `//shatterfish hook #1`, which no parser matches |
+| `HooksLedgerTest` greps the tree for hook markers and fails if the set of ids differs from the rows in `docs/UPSTREAM.md`, or if the row count exceeds ten | **Met, and then some.** Nine checks: ids in the tree equal rows in the document; the machine-readable site index equals the markers file by file; nothing looks like a marker without being one; at most ten rows with no id used twice; id 2 confined to the registry; every upstream file changed, added, deleted or renamed relative to the pinned tag carries a marker; each upstream file's changed lines digest to exactly what the ledger declares; the registry declares no method but `clear()`; and every top-level directory in the pinned tag is classified as upstream's or ours. It found a real defect on its first run: hook row 1 in `settings.gradle` was marked `//shatterfish hook #1`, which no parser matches |
 | `HooksVanillaTest` boots with no listener registered and asserts the vanilla branch runs at every site | **Met for the site where the vanilla branch is reachable, which is one of three.** Both branches of `add(EmoIcon)` are exercised at runtime. The guard branch of all three is exercised. The vanilla branch of the two `cellSelector` sites needs a `CellSelector`, which needs a texture and a camera, so it needs the booted headless application story 1.3 builds; that story owns them. Beyond the runtime checks, the property is held against the pinned tag |
 | `./gradlew :desktop:run` still launches the unmodified game | **Not run, and the criterion is wrong.** That task has never worked (story 1.1 finding); the working task is `:desktop:debug`, and story 1.1 ran it against these same three guards. This story adds no site and no call: `Hooks.java` is a new file with no caller, so it cannot change vanilla behaviour, and `:desktop:jar` compiles it |
 | `BrainBoundaryTest` asserts that `brain` depends on no game package, no other Shatterfish module but `api`, and none of `java.io`, `java.nio.file`, `java.net` or `java.lang.reflect` | **Met, and the criterion as written is not close to sufficient.** Two adversarial reviews each read hidden game state with every rule the criterion asks for in place. The rule is now an allowlist. See *The rules that did not bind, twice* |
-| `ApiBoundaryTest` asserts `api` depends only on the JDK | **Met**, plus an explicit ban on game packages so the failure says which rule broke |
+| `ApiBoundaryTest` asserts `api` depends only on the JDK | **Met, and the criterion is again not sufficient.** `api` sits inside the brain's allowlist and ArchUnit is not transitive, so "only the JDK" left reflection one class away from the brain. `api` now carries the same allowlist and the same denied classes |
 | The ArchUnit bump to 1.5.0 lands here with every boundary rule green | **Met.** 1.3.0 to 1.5.0 |
 
 ## What was built
@@ -47,11 +47,12 @@ So that neither an unexplained hook nor a forbidden import can enter the tree.
 - `.github/workflows/build.yml`: `fetch-depth: 0`, because the checks compare the tree against the
   pinned tag and a shallow checkout does not have it.
 
-## The rules that did not bind, twice
+## The rules that did not bind, three times
 
-The first draft of this story passed its own tests and was wrong. Two adversarial fairness reviews
-each demonstrated, by writing the class and running the build, that the brain could read hidden game
-state with every boundary rule green.
+The first draft of this story passed its own tests and was wrong. Three adversarial fairness review
+passes each demonstrated, by writing the class and running the build, that the brain could read
+hidden game state with every boundary rule green. Each fix was correct as far as it went and each
+was walked through again.
 
 **Round one** used reflection:
 
@@ -99,6 +100,27 @@ surface. Three method-level bans sit alongside, for doors on classes the brain l
 `Boolean.getBoolean`, `Integer.getInteger` and `Long.getLong` read system properties without naming
 `System`, and `Collections.shuffle` seeds a generator of its own.
 
+**Round three did not attack the list at all.** It reported that no by-name dispatch primitive
+survives inside the allowed packages once reflection, method handles, `java.beans`, `Class`,
+`ClassLoader` and `ServiceLoader` are gone — and then went around it twice, because both holes were
+in *what the allowlist is applied to* rather than in the list.
+
+First, **`api` was a laundering layer.** The brain's allowlist permits `org.shatterfish.api..`
+wholesale, and ArchUnit's dependency rules are not transitive, so every door shut in `brain` was
+reopened by one class in `api` — whose own rule still allowed all of `java..`, reflection included.
+A fifteen-line reflective reader in `api`, called from `org.shatterfish.brain`, printed
+`Dungeon.seed` with every rule in both modules green. `ApiBoundaryTest` now carries the same
+allowlist and the same denied classes, deliberately narrower because DTOs need less, and says in as
+many words why the two must not diverge.
+
+Second, **the boundary was opt-in by package name.** Every rule selects
+`.that().resideInAPackage("org.shatterfish.brain..")`, so a class compiled into the brain module
+under any other package is selected by nothing — not scanned, not rejected, absent. A twelve-line
+class in `org.shatterfish.peek` did `Class.forName`, `setAccessible` and a static field read, shipped
+in `brain.jar`, and left the build green. The whole brain could have been written one package to the
+left. `BrainPackageAnchorTest` walks the module's own compiled output and fails on any class outside
+`org/shatterfish/brain/`; `ApiBoundaryTest` does the same for `api`.
+
 **`BrainBoundaryRulesBiteTest` is the answer to why none of this was caught.** `brain` holds one
 trivial class, so every rule passed over almost nothing and not one of them had ever rejected
 anything — which makes a rule indistinguishable from a comment. Every rule is now checked against a
@@ -119,14 +141,29 @@ what ADR-0016's pre-mortem is about. What landed is the mechanism plus `inputWai
 meaning ADR-0015 already decided, so the registry has a real contract to test rather than being an
 empty shell. Adding a point later edits this file only and consumes no ledger row.
 
-**The diff budget.** Markers, guards and the site index all key off something the change
-announces about itself, so none of them sees a change that announces nothing. The second review
+**The diff budget, and then the digest.** Markers, guards and the site index all key off something
+the change announces about itself, so none of them sees a change that announces nothing. The second review
 added a `public static Object peekEverything()` returning `Dungeon.level` to `GameScene` — no
 marker, no removed line, a public accessor to every hidden mob and secret door in the file the
 ledger names as the likeliest place for a leak — and the build stayed green. So `docs/UPSTREAM.md`
 now also declares how far each upstream file may differ from the pinned tag, as
-`<added> <removed> <path>`, checked against `git diff --numstat`. Any unlisted change to upstream
-fails whatever shape it takes, and a real hook becomes a visible edit to three numbers.
+`<added> <removed> <path>`, checked against `git diff --numstat`.
+
+Counting lines was not enough either, and round three showed it twice. `git diff --numstat` is
+content-blind, so an edit that swaps one line for another leaves both counts untouched: a comment
+inside the `selectCell` hook block became `Dungeon.hero.viewDistance = 999` — the hero sees the whole
+level, the most direct parity break available — with the marker count, the site index, the wrap rule
+and the budget all satisfied. And the budget covered only modified files, so the registry, added
+since the tag, was governed by nothing but its marker; a `public static Object peek()` returning
+`Dungeon.level` went into the one file inside `core` that upstream code is designed to call into,
+with the build green.
+
+So the ledger now declares what each upstream file's difference from the tag *is*: a digest of the
+changed lines, hunk headers dropped so it depends on content rather than position, with the counts
+kept alongside for a reader and asserted too. Added files are included, the registry among them,
+because for an added file the difference from the tag is its whole content. `Hooks` is additionally
+pinned to declaring exactly `clear()` and nothing but interfaces, so it cannot grow an accessor even
+between digest updates.
 
 **The site index.** Comparing sets of ids does not catch a fourth site added to `GameScene` under id
 5, for an unrelated reason, with no change to the ledger — and `GameScene` is precisely where an
@@ -151,9 +188,15 @@ draft published that the vanilla branch "cannot be reached from a test at all", 
 sole justification for not writing one. It is false: `new GameScene()` constructs headlessly, and
 `emoicons` and `scene` are reachable by the same reflection the tests already use, so
 `add(EmoIcon)`'s vanilla branch is a short test that now exists. The other two sites really do need a
-`CellSelector`, whose constructor dereferences a `DungeonTilemap` (`CellSelector.java:55-56`) and
-whose only concrete subclass reads `Dungeon.level` and a texture — verified by probe, not assumed.
-Reaching them means booting a graphics binding and generating a level, which is story 1.3's driver.
+`CellSelector`, whose constructor dereferences a `DungeonTilemap` (`CellSelector.java:55-56`). An
+earlier draft of this paragraph said that tilemap's "only concrete subclass" reads `Dungeon.level`
+and a texture, and added "verified by probe, not assumed"; a third review checked it and there are
+five (`DungeonTerrainTilemap.java:29`, `DungeonWallsTilemap.java:29`, `GridTileMap.java:29`,
+`RaisedTerrainTilemap.java:27`, `TerrainFeaturesTilemap.java:36`), one of which guards
+`if (Dungeon.level != null)`. The load-bearing blocker is not level generation: it is the
+`TextureFilm` the abstract constructor builds (`DungeonTilemap.java:40-41`, `TextureFilm.java:53-55`),
+which needs a graphics binding and the game's assets, and the camera `CellSelector` then reads. That
+is the booted headless application of ADR-0015, which is story 1.3's driver.
 The source-level rule stays alongside the runtime tests rather than instead of them, because it
 covers hooks that do not exist yet.
 
@@ -217,6 +260,10 @@ pass rather than hide.
 | `LICENSE.txt` changed | three checks, and the task re-ran |
 | Round one's `Class.forName` plus `MethodHandles` exploit, placed in `brain` | two rules |
 | Round two's `java.beans.Expression` exploit, which read `Dungeon.seed` | two rules |
+| A comment inside the `selectCell` hook block swapped for `Dungeon.hero.viewDistance = 999`, leaving both line counts unchanged | `no upstream file differs from the pinned tag in a way the ledger does not declare` |
+| A `public static Object peek()` returning `Dungeon.level` added to the registry | that check, and `the registry holds listener points and clear(), and nothing else` |
+| Round three's reflective reader in `api`, called from `brain` | both `ApiBoundaryTest` rules |
+| Round three's brain class in `org.shatterfish.peek`, shipped in `brain.jar` | `every class compiled into brain lives under org.shatterfish.brain` |
 | `Boolean.getBoolean`, `ResourceBundle.getBundle`, `ManagementFactory`, `ProcessHandle`, `SecureRandom`, `RandomGenerator`, `UUID`, `Date`, `Preferences`, `Executors`, `Collections.shuffle`, `Class::forName` as a method reference, `Thread.currentThread().getContextClassLoader()` | at least one rule each, all as fixtures in `BrainBoundaryRulesBiteTest` |
 
 Three notes on that table. The guard-deletion mutation fails the unit check *and* story 1.1's spike,
@@ -256,6 +303,14 @@ Rig numbers: not applicable, no Brain exists until E4.
 - **The checks require git and the pinned tag.** They fail loudly rather than skipping, which is
   deliberate: a check that quietly skips is a check that quietly rots. CI checks out with full
   history.
+- **`java.lang.Class` is denied, which constrains how the brain is written.** A bare `getClass()`
+  passes, but calling anything on the result does not, so a hand-written `equals` compares with
+  `instanceof`. That is the better idiom anyway, and it is stated in the bite test rather than left
+  to be discovered.
+- **The two allowlists live in two modules and are kept in step by hand.** `api` sits inside the
+  brain's allowlist, so if its list ever becomes the looser of the two, it is a laundering layer
+  again. Nothing mechanical enforces the relationship, because the modules cannot see each other's
+  tests; both files say so at the top.
 - **The allowlist allows `java.lang` and `java.util` whole**, minus twenty-six named classes and
   six named methods. Those two packages are fixed by the JDK, so the list is closable in a way a
   denylist over the whole platform is not — but it is still a list, and a JDK upgrade that adds a

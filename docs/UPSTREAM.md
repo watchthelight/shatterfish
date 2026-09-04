@@ -44,7 +44,7 @@ The table below is a promise; these tests are what make it true. All of them run
 | `HooksLedgerTest`: at most ten rows | The budget being raised by an edit instead of by an ADR |
 | `HooksLedgerTest`: hook id 2 appears in `Hooks.java` and nowhere else | A hook hidden inside the registry, where many sites would count as one marker |
 | `HooksLedgerTest`: the site index equals the markers in the tree | A new site added under an id that already has a row, which changes no id set. `GameScene` is where an Observer-adjacent leak would be added, and it already carries row 5 |
-| `HooksLedgerTest`: each upstream file's diff is exactly the size the ledger declares | Any unlisted change to upstream that carries no marker and deletes no line — a public accessor added to an already-hooked file, for instance, which every other check here would miss |
+| `HooksLedgerTest`: each upstream file's diff digests to exactly what the ledger declares | Any unlisted change to upstream, whatever shape it takes. A public accessor added to an already-hooked file carries no marker and deletes no line; a line swapped for another line inside a hook block changes no count. Every other check here misses both |
 | `HooksLedgerTest`: no row id is used twice | Two reasons under one id, which ADR-0008 forbids and which hides a row from the budget |
 | `HooksLedgerTest`: nothing looks like a marker without being one | A mistyped marker, which is a comment the id comparison cannot see and a reader takes for a declaration |
 | `HooksLedgerTest`: every upstream file that is changed, added, deleted or renamed relative to the pinned tag carries a marker | An edit to upstream that nobody wrote down; a second Shatterfish class added inside an upstream module, next to the game's own privates; and an upstream file deleted or moved, none of which a modified-files-only check can see |
@@ -92,22 +92,37 @@ that alters no id set and would otherwise be invisible.
 
 ### The diff budget
 
-Markers and guards cannot catch everything on their own. A method added to a file that already
-carries a marker has no marker of its own and removes no line, so nothing above would see it — and
-`GameScene` is the file where such a method would do the most damage. So the ledger also declares
-how far each upstream file may differ from the pinned tag, as `<added> <removed> <path>`, and
-`HooksLedgerTest` checks it against `git diff --numstat`. Any unlisted change to upstream fails,
-whatever shape it takes; a real hook is a visible edit to these three numbers.
+Every other check here keys off something a change announces about itself: a marker, a deleted line,
+a new file. So none of them sees a change that announces nothing. Two were demonstrated against
+earlier drafts of this document. A `public static Object peekEverything()` returning `Dungeon.level`
+was added to `GameScene`, which already carries a row — no marker, no deleted line, and a public
+accessor to every hidden mob and secret door in the file most likely to be attacked. And a comment
+line inside the `selectCell` hook block was replaced by `Dungeon.hero.viewDistance = 999`, which
+makes the hero see the whole level and leaves the added and removed line counts exactly as they
+were.
+
+So the ledger declares what each upstream file's difference from the pinned tag *is*, not how large
+it is: a digest of the changed lines, with the counts alongside for a reader. `HooksLedgerTest`
+recomputes both. Any change to any line of any upstream file, comment or code, is a change to the
+block below.
+
+Files added under an upstream module are here too, the registry included. For an added file the
+difference from the tag is its whole content, which is the right thing to digest, and leaving it out
+would leave the one file inside `core` that upstream code is meant to call into governed by nothing
+but its marker.
+
+The digest is the first eight bytes of the SHA-256 of the changed lines with hunk headers dropped
+and carriage returns stripped, so it depends on content and not on where the lines sit or how the
+checkout stores line endings. To regenerate after a real hook, run the check and read the expected
+value out of the failure.
 
 <!-- diff-budget -->
 
 ```text
-5   2  settings.gradle
-18  2  core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/scenes/GameScene.java
+0cc6e6af39752ff6  18  2  core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/scenes/GameScene.java
+4f6f552eb37c5422  95  0  core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/shatterfish/Hooks.java
+02a9a5d3158a7ab2   5  2  settings.gradle
 ```
-
-Files added under an upstream module, such as the registry, are not here: the file itself is the
-hook, its content is wholly ours, and the row plus the marker are what govern it.
 
 ## Upgrade procedure
 

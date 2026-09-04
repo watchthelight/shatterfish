@@ -40,6 +40,13 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  * {@code Random} and {@code ServiceLoader}. Those are the only places a denylist survives here, and
  * both are closed sets fixed by the JDK rather than open-ended surface.
  *
+ * <p>Two things this file cannot do on its own, and which are done next to it. It selects classes by
+ * package, so a class compiled into this module under another package would be selected by no rule
+ * at all: {@code BrainPackageAnchorTest} closes that. And ArchUnit's dependency rules are not
+ * transitive, so everything denied here is reopened by one class in {@code api}, whose allowlist is
+ * therefore kept at least as strict — see {@code ApiBoundaryTest}. Both holes were found by walking
+ * an earlier version of these rules, not by reasoning about them.
+ *
  * <p>Every rule is checked against a class that breaks it in {@code BrainBoundaryRulesBiteTest},
  * along with ordinary Java, which must pass. A boundary rule that has never rejected anything is a
  * comment, and a rule that rejects ordinary code is one that gets deleted.
@@ -81,10 +88,12 @@ class BrainBoundaryTest {
 			Class.class, ClassLoader.class, Module.class, ModuleLayer.class, Package.class,
 			System.class, Runtime.class, Process.class, ProcessBuilder.class, ProcessHandle.class,
 			Thread.class, ThreadGroup.class, ThreadLocal.class, StackWalker.class,
+			StackTraceElement.class,
 			java.util.Random.class, java.util.SplittableRandom.class, java.util.Scanner.class,
 			java.util.ServiceLoader.class, java.util.Date.class, java.util.Calendar.class,
 			java.util.Timer.class, java.util.UUID.class, java.util.ResourceBundle.class,
 			java.util.Locale.class, java.util.TimeZone.class, java.util.Currency.class,
+			java.util.IdentityHashMap.class, java.util.WeakHashMap.class,
 	};
 
 	/**
@@ -97,14 +106,23 @@ class BrainBoundaryTest {
 			.that().resideInAPackage("org.shatterfish.brain..")
 			.should().callMethodWhere(target(name("forName")).and(target(owner(type(Class.class)))))
 			.orShould().callMethodWhere(target(name("random")).and(target(owner(type(Math.class)))))
+			.orShould().callMethodWhere(target(name("random")).and(target(owner(type(StrictMath.class)))))
+			.orShould().callMethodWhere(target(name("parallelStream")))
+			.orShould().callMethodWhere(target(name("parallel")))
+			.orShould().callMethodWhere(target(name("getStackTrace")))
+			.orShould().callMethodWhere(target(name("getAllStackTraces")))
 			.orShould().callMethodWhere(target(name("getBoolean")).and(target(owner(type(Boolean.class)))))
 			.orShould().callMethodWhere(target(name("getInteger")).and(target(owner(type(Integer.class)))))
 			.orShould().callMethodWhere(target(name("getLong")).and(target(owner(type(Long.class)))))
 			.orShould().callMethodWhere(target(name("shuffle"))
 					.and(target(owner(type(java.util.Collections.class)))))
 			.because("Boolean.getBoolean, Integer.getInteger and Long.getLong read system properties"
-					+ " without naming System, and Collections.shuffle seeds a generator of its own."
-					+ " Every one of these lives on a class the brain legitimately needs");
+					+ " without naming System; Collections.shuffle seeds a generator of its own;"
+					+ " parallelStream and parallel reopen the common pool that excluding"
+					+ " java.util.concurrent was meant to shut; and getStackTrace hands back the caller"
+					+ " chain, which is what StackWalker is denied for. These are matched by name rather"
+					+ " than by owner because the receiver can be any subclass. Every one of them lives on"
+					+ " a class the brain legitimately needs");
 
 	/**
 	 * The rule everything else rests on: default deny. It is stated first because the named rules

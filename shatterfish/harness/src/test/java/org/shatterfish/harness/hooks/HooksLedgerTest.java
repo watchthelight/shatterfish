@@ -45,6 +45,32 @@ class HooksLedgerTest {
 	private static final List<String> DOCUMENTATION_EXCEPTIONS = List.of("README.md", ".gitignore");
 
 	@Test
+	@DisplayName("the registry holds listener points and clear(), and nothing else")
+	void the_registry_has_no_other_shape() {
+		List<String> methods = new ArrayList<>();
+		for (var method : com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks.class
+				.getDeclaredMethods()) {
+			if (!method.isSynthetic()) {
+				methods.add(method.getName());
+			}
+		}
+		assertEquals(List.of("clear"), methods,
+				"Hooks declares a method other than clear(). The registry is the one file inside core that"
+						+ " upstream code is designed to call into, which makes it the softest place in the"
+						+ " tree to put an accessor: a single public static returning Dungeon.level would be"
+						+ " reachable from anywhere and would look like it belonged. It holds listener points"
+						+ " and clear(); anything else belongs in the harness. Found: " + methods);
+
+		for (Class<?> nested : com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks.class
+				.getDeclaredClasses()) {
+			assertTrue(nested.isInterface(),
+					"Hooks declares a nested " + nested.getSimpleName() + " that is not an interface. A hook"
+							+ " point is an interface the harness implements; a class here could hold state or"
+							+ " reach game code");
+		}
+	}
+
+	@Test
 	@DisplayName("every hook id in the tree has a row, and every row has a site")
 	void markers_and_ledger_rows_agree() {
 		Set<Integer> inTree = new TreeSet<>(
@@ -161,33 +187,38 @@ class HooksLedgerTest {
 	}
 
 	@Test
-	@DisplayName("no upstream file differs from the pinned tag by more than the ledger declares")
+	@DisplayName("no upstream file differs from the pinned tag in a way the ledger does not declare")
 	void the_diff_budget_is_exact() {
 		List<String> declared = Ledger.diffBudget().stream()
-				.map(b -> b.added() + " " + b.removed() + " " + b.path())
+				.map(Ledger.Budget::toString)
 				.sorted()
 				.toList();
-		// Only files that exist at the tag and are upstream's. A file added since (the registry, our
-		// own documentation) has no vanilla version to differ from: the marker and the row govern it.
-		Set<String> modified = Ledger.changesSinceTag().stream()
-				.filter(Ledger.Change::isModification)
+		// Modified files and added ones alike. An earlier draft covered only modifications, which left
+		// the registry — the one file inside core that upstream code is meant to call into — governed by
+		// nothing but its marker, so a public accessor returning Dungeon.level could be added to it with
+		// the build green. For a file added since the tag the difference from the tag is its whole
+		// content, which is the right thing to digest.
+		Set<String> upstreamChanges = Ledger.changesSinceTag().stream()
+				.filter(c -> c.isModification() || c.isAddition())
+				.filter(c -> c.isAddition() ? Ledger.isUpstreamAddition(c.path())
+						: Ledger.isUpstreamFileAtTheTag(c.path()))
 				.map(Ledger.Change::path)
 				.collect(Collectors.toCollection(LinkedHashSet::new));
 		List<String> measured = Ledger.measuredDiff().stream()
-				.filter(b -> modified.contains(b.path()))
-				.filter(b -> Ledger.isUpstreamFileAtTheTag(b.path()))
+				.filter(b -> upstreamChanges.contains(b.path()))
 				.filter(b -> !DOCUMENTATION_EXCEPTIONS.contains(b.path()))
-				.map(b -> b.added() + " " + b.removed() + " " + b.path())
+				.map(Ledger.Budget::toString)
 				.sorted()
 				.toList();
 
 		assertEquals(declared, measured,
-				"the size of an upstream file's diff against " + Ledger.pinnedTag() + " is not what"
-						+ " docs/UPSTREAM.md declares. Markers and guards cannot catch this on their own: a"
-						+ " method added to a file that already carries a marker has no marker of its own and"
-						+ " removes no line, so declaring how far each file may differ is what makes every"
-						+ " unlisted change to upstream visible. If the change is a real hook, update the"
-						+ " diff budget in the same pull request; if it is not, revert it.");
+				"an upstream file differs from " + Ledger.pinnedTag() + " in a way docs/UPSTREAM.md does"
+						+ " not declare. Every other check here keys off something a change announces about"
+						+ " itself: a marker, a deleted line, a new file. This one does not, which is why it"
+						+ " is the one that catches a method added to an already-hooked file, and a line"
+						+ " swapped for another line inside a hook block. The digest covers the changed"
+						+ " content; the counts are there for a reader. If the change is a real hook, update"
+						+ " the block in the same pull request; if it is not, revert it.");
 	}
 
 	@Test

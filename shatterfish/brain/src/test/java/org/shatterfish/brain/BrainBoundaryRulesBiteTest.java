@@ -109,6 +109,16 @@ class BrainBoundaryRulesBiteTest {
 		assertRejected(CallsMathRandom.class);
 		assertRejected(SchedulesWork.class);
 		assertRejected(ShufflesWithoutAGenerator.class);
+		assertRejected(CallsStrictMathRandom.class);
+		assertRejected(IteratesByIdentity.class);
+		assertRejected(IteratesWhatTheCollectorLeft.class);
+		assertRejected(GoesParallel.class);
+	}
+
+	@Test
+	@DisplayName("the caller chain is rejected")
+	void the_caller_chain_is_rejected() {
+		assertRejected(WalksTheStack.class);
 	}
 
 	@Test
@@ -336,6 +346,45 @@ class BrainBoundaryRulesBiteTest {
 	}
 
 	@SuppressWarnings("unused")
+	static final class CallsStrictMathRandom {
+		static double roll() {
+			return StrictMath.random();
+		}
+	}
+
+	/** Iteration order decided by identity hashing, which ADR-0016 row 6 removes from the game. */
+	@SuppressWarnings("unused")
+	static final class IteratesByIdentity {
+		static java.util.Map<String, String> map() {
+			return new java.util.IdentityHashMap<>();
+		}
+	}
+
+	/** Iteration order decided by the garbage collector. */
+	@SuppressWarnings("unused")
+	static final class IteratesWhatTheCollectorLeft {
+		static java.util.Map<String, String> map() {
+			return new java.util.WeakHashMap<>();
+		}
+	}
+
+	/** The common pool, which excluding java.util.concurrent was meant to shut. */
+	@SuppressWarnings("unused")
+	static final class GoesParallel {
+		static long count(List<String> moves) {
+			return moves.parallelStream().count();
+		}
+	}
+
+	/** The caller chain: which harness, rig or overlay class is driving the brain. */
+	@SuppressWarnings("unused")
+	static final class WalksTheStack {
+		static String caller() {
+			return new Throwable().getStackTrace()[1].getClassName();
+		}
+	}
+
+	@SuppressWarnings("unused")
 	static final class DependsOnAThirdParty {
 		static ClassFileImporter importer() {
 			return new ClassFileImporter();
@@ -344,9 +393,13 @@ class BrainBoundaryRulesBiteTest {
 
 	/**
 	 * Everything a real brain is expected to be written with. If a rule ever rejects this, the rule
-	 * is wrong, not the code. {@code getClass()} is deliberately absent: {@code java.lang.Class} is
-	 * denied, because a reference to it is the first half of every reflective escape and a brain has
-	 * no use for class-based dispatch.
+	 * is wrong, not the code.
+	 *
+	 * <p>One thing ordinary Java may not do here: use a {@code Class} object. {@code java.lang.Class}
+	 * is denied, and while a bare {@code getClass()} whose result is discarded is not recorded as a
+	 * dependency, calling anything on the result is. So a hand-written {@code equals} compares with
+	 * {@code instanceof} rather than {@code getClass()}, which is the better idiom anyway. That is a
+	 * real constraint on how the brain gets written, and it is stated here rather than discovered.
 	 */
 	@SuppressWarnings("unused")
 	static final class OrdinaryJava {
