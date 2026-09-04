@@ -6,20 +6,44 @@ dependencies {
     api project(':api')
     implementation project(':core')
     implementation "com.badlogicgames.gdx:gdx-backend-headless:$gdxVersion"
+    // The scene renders its text through FreeType (PlatformSupport.getFont), and the harness's own
+    // PlatformSupport must name FreeTypeFontGenerator to implement it, so the library is a compile
+    // dependency here as it is in desktop.
+    implementation "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
     // The headless backend still loads libgdx's native library (gdx64.dll / libgdx64.so)
     // for math and buffer utilities, so the desktop natives are required even without a window.
+    // FreeType has natives of its own.
     runtimeOnly "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
+    runtimeOnly "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-desktop"
+}
+
+// Game.versionCode is written into every save by Dungeon.init(), and the desktop launcher reads it
+// from its jar manifest. A headless process has no manifest, so the two values are stamped into a
+// resource from the root build script, which is where upstream keeps them.
+processResources {
+    def versionName = rootProject.ext.appVersionName
+    def versionCode = rootProject.ext.appVersionCode
+    inputs.property('upstreamVersionName', versionName)
+    inputs.property('upstreamVersionCode', versionCode)
+    filesMatching('org/shatterfish/harness/boot/upstream.properties') {
+        expand(versionName: versionName, versionCode: versionCode)
+    }
 }
 
 // The game reads its message bundles, atlases and sounds from the classpath through Gdx.files
 // (core/src/main/assets is not a resources dir, so Gradle does not put it there for us; the
 // desktop module does the same thing for its run task). The harness needs them to boot a Run.
+// The fallback font for Asian scripts ships with the desktop module rather than core, because
+// the mobile builds use system fonts; the scene's font setup opens it unconditionally.
+def gameAssets = files(
+        new File(project(':core').projectDir, 'src/main/assets'),
+        new File(project(':desktop').projectDir, 'src/main/assets'))
 sourceSets {
     main {
-        runtimeClasspath += files(new File(project(':core').projectDir, 'src/main/assets'))
+        runtimeClasspath += gameAssets
     }
     test {
-        runtimeClasspath += files(new File(project(':core').projectDir, 'src/main/assets'))
+        runtimeClasspath += gameAssets
     }
 }
 
@@ -29,6 +53,17 @@ sourceSets {
 // not run: the build stays green because nothing looked. Declaring the real inputs is the fix; the
 // checks then re-run exactly when the thing they check has changed.
 tasks.named('test') {
+    // The game iterates HashSets to decide outcomes: which of two actors due at the same time
+    // acts first (Actor.process), which mob is linked first, which entry Random.chances(HashMap)
+    // lands on. Identity hash codes order those sets, and HotSpot assigns them from a per-thread
+    // random state, so two runs of one seed in two JVMs are two different games. That is ledger
+    // row 6 and story 1.16's to remove from the game. Until then the harness's tests pin every
+    // identity hash to the same value, which turns hash order into insertion order and makes the
+    // replay and parity checks in SceneDrawParityTest exact rather than usually true. The test
+    // asserts the pin is in effect, so dropping this line fails rather than flakes. Story 1.16
+    // deletes both when the game no longer needs them.
+    jvmArgs '-XX:+UnlockExperimentalVMOptions', '-XX:hashCode=2'
+
     inputs.file(rootProject.file('docs/UPSTREAM.md'))
             .withPropertyName('hookLedger')
             .withPathSensitivity(PathSensitivity.RELATIVE)

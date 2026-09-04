@@ -151,3 +151,47 @@ through the window's own button.
 - The no-op `GL20` is not enough because something calls `frame()` on a `Texture`. Mitigation:
   the research verified the constructor chain needs no GL; the audit finds the rest, and each is
   a `Pixmap` path or a hook.
+
+## Amendment: story 1.3 (2026-09-04)
+
+The scene decision above is kept, with one change of shape that the story found necessary and
+one addition it found necessary for the loop decision.
+
+**`HeadlessScene` is a `GameScene`, and its `create()` is `GameScene.create()`.** Option 5 said
+"a `Scene` subclass that creates the Groups `GameScene` creates". The story found that the
+groups are not the point. The statics game code calls are gated on `GameScene.scene`, which is
+package-private and assigned only inside `GameScene.create()` (`…/scenes/GameScene.java:159`,
+`:240`), and several of them carry game logic rather than drawing: a mob spawned during play is
+added to the actor list only when a scene exists (`:1153-1162`), a heap dropped during play
+counts for the exploration bonus only then (`:1132-1138`), a window opened by game code is shown
+only then (`:1358`), and `effectOverFog` and `addSprite` dereference the scene unguarded
+(`:1149`, `:1192`). A scene that is not `GameScene.scene` therefore plays a different game, not
+a quieter one, and `create()` itself carries level-entry logic (dropped items landing, journal
+landmarks, the first log lines) that a mirror would have to re-implement, which non-negotiable 4
+forbids. The real scene constructs and updates under the no-op binding with FreeType for text
+and the desktop module's fallback font on the classpath, so the harness uses it. The parity test
+now compares the harness scene to the real one live, both headless, rather than to a number
+recorded from a desktop run; today they are the same code, and the test is what keeps them so.
+
+**Every frame is fenced.** Option 2 said the driver drives `scene.update(dt)` "in a tight loop".
+Left at that, the actor thread runs concurrently with the driver's next frame exactly as it runs
+concurrently with the render thread in the game, and any draw on the driver thread lands at a
+wall-clock-dependent point in the actor thread's sequence. `SceneStepper` holds the actor
+thread's monitor and the monitor of the sprite it is waiting on across each frame, mirrors the
+scene's own wake rule while the thread still cannot run, and after the frame polls the JVM's
+count of the thread's waits until it has parked again; it also starts the thread itself before
+the first frame, where the scene would otherwise start it mid-update. The actor thread thus runs
+only between frames, and two Runs of one seed and one action list replay to the frame, which
+`SceneDrawParityTest` asserts. Two private statics are reached by reflection for this
+(`GameScene.actorThread`, `Actor.current`); a hook was not spent because neither changes what
+the game does, and row 4 is where they move if an upgrade renames them.
+
+**What the story could not make deterministic, recorded for stories 1.15 and 1.16.** The game
+orders actors, mobs and weighted choices by `HashSet` iteration, which follows identity hash
+codes; the harness test task pins them (`-XX:hashCode=2`) until row 6 lands. The first Run in a
+process draws once more than later ones, because `WindParticle`'s static initializer draws
+(`…/effects/particles/WindParticle.java:41`); a Rig Run is its own process and pays it every
+time, so it is a fixture concern, not a reproducibility one. And generating a floor twice from
+one seed does not give the same floor, because the entrance room places the guidebook from a
+generator pushed without a seed (`…/levels/rooms/standard/entrance/EntranceRoom.java:103-118`);
+that is `docs/rules/rng.md`'s known row, and the determinism story's to settle.

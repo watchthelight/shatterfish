@@ -654,8 +654,10 @@ final class Ledger {
 		if (args.length > 0 && args[0].equals("diff")) {
 			// Immediately after the subcommand, never at the end: a flag after "-- <path>" is a pathspec.
 			// "--text" so that a .gitattributes marking a source file binary cannot turn its diff into
-			// "Binary files ... differ" and empty every line-based check below.
-			command.addAll(subcommand + 1, List.of("--no-color", "--no-ext-diff", "--text"));
+			// "Binary files ... differ" and empty every line-based check below. "--no-textconv" closes
+			// the sibling route, a textconv driver, which needs a .git/config entry and so cannot be
+			// committed, but costs one flag to rule out (second fairness review of story 1.2).
+			command.addAll(subcommand + 1, List.of("--no-color", "--no-ext-diff", "--text", "--no-textconv"));
 		}
 		try {
 			Process process = new ProcessBuilder(command).directory(repoRoot().toFile()).start();
