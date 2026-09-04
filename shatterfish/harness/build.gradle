@@ -10,3 +10,15 @@ dependencies {
     // for math and buffer utilities, so the desktop natives are required even without a window.
     runtimeOnly "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
 }
+
+// The game reads its message bundles, atlases and sounds from the classpath through Gdx.files
+// (core/src/main/assets is not a resources dir, so Gradle does not put it there for us; the
+// desktop module does the same thing for its run task). The harness needs them to boot a Run.
+sourceSets {
+    main {
+        runtimeClasspath += files(new File(project(':core').projectDir, 'src/main/assets'))
+    }
+    test {
+        runtimeClasspath += files(new File(project(':core').projectDir, 'src/main/assets'))
+    }
+}

@@ -1162,7 +1162,13 @@ public class GameScene extends PixelScene {
 	}
 	
 	public static void add( EmoIcon icon ) {
-		scene.emoicons.add( icon );
+		// shatterfish-hook:5
+		// Reached from CharSprite.update() for a sleeping mob, and from showAlert/showInvestigate/
+		// showLost for the others. scene is package-private, so Shatterfish code cannot install
+		// one. add(CharHealthIndicator) below already guards the same static; this makes the pair
+		// consistent. It does not change the random stream: EmoIcon's constructor calls this
+		// before EmoIcon.Sleep draws Random.Float (EmoIcon.java:46 then :89).
+		if (scene != null) scene.emoicons.add( icon );
 	}
 	
 	public static void add( CharHealthIndicator indicator ){
@@ -1549,6 +1555,14 @@ public class GameScene extends PixelScene {
 	}
 	
 	public static void selectCell( CellSelector.Listener listener ) {
+		// shatterfish-hook:5
+		// Reached from Hero.ready() on every Input wait. cellSelector is private static and is
+		// assigned only by create(), so a harness-owned scene cannot install one and this is
+		// permanently null headlessly. Returning early is behaviourally identical to guarding each
+		// dereference, because the only other statement, scene.prompt(), is already guarded by
+		// scene != null and scene is assigned in the same create(). Vanilla is unaffected:
+		// cellSelector is never set back to null once assigned.
+		if (cellSelector == null) return;
 		if (cellSelector.listener != null && cellSelector.listener != defaultCellListener){
 			cellSelector.listener.onSelect(null);
 		}
@@ -1655,7 +1669,9 @@ public class GameScene extends PixelScene {
 	}
 	
 	public static void resetKeyHold(){
-		cellSelector.resetKeyHold();
+		// shatterfish-hook:5
+		// Hero.interrupt() reaches this on any turn where an enemy becomes visible.
+		if (cellSelector != null) cellSelector.resetKeyHold();
 	}
 
 	public static void examineCell( Integer cell ) {
