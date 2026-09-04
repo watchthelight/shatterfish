@@ -1,0 +1,136 @@
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created, ready for development
+#   - in-progress: Developer actively working on implementation
+#   - review: Implementation complete, ready for review
+#   - done: Story completed
+
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when its first story starts (via build's sprint sync)
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates the next story after the previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; the status view surfaces open ones
+generated: '2026-09-04'
+last_updated: '2026-09-04'
+project: shatterfish
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+development_status:
+  epic-1: backlog
+  1-1-audit-the-rendering-touchpoints-and-prove-a-headless-turn-re: backlog
+  1-2-the-hooks-registry-the-counting-test-and-the-boundary-rules: backlog
+  1-3-the-headless-graphics-stub-and-the-scene: backlog
+  1-4-the-driver-loop-and-the-first-input-wait: backlog
+  1-5-input-wait-detection: backlog
+  1-6-the-observation-part-one-the-schema-core-and-the-codec: backlog
+  1-7-the-observation-part-two-the-remaining-sections-and-the-read: backlog
+  1-8-the-observer-part-one-map-fog-traps-and-heaps: backlog
+  1-9-the-observer-part-two-actors-emotes-buffs-and-the-hero: backlog
+  1-10-the-observer-part-three-inventory-journal-log-and-prompts: backlog
+  1-11-the-observer-part-four-the-remaining-rows: backlog
+  1-12-the-action-type-and-the-valid-action-set: backlog
+  1-13-the-actionexecutor: backlog
+  1-14-a-random-action-warrior-run-to-death: backlog
+  1-15-the-salt-the-mix-function-and-the-profile: backlog
+  1-16-identity-order-and-the-two-jvm-determinism-test: backlog
+  1-17-the-differential-and-toggle-tests: backlog
+  1-18-oracle-mode-gated-and-marked: backlog
+  1-19-thread-confinement: backlog
+  1-20-snapshot-restore-and-the-reserved-interfaces: backlog
+  1-21-publish-the-e1-numbers: backlog
+  epic-1-retrospective: optional
+
+  epic-2: backlog
+  2-1-the-generator-skeleton-and-the-seed-free-guarantee: backlog
+  2-2-mobs-and-spawn-tables-by-depth: backlog
+  2-3-items-generator-weights-decks-and-guarantees: backlog
+  2-4-item-guarantees-tier-tables-and-limited-drops: backlog
+  2-5-measured-combat-tables: backlog
+  2-6-traps-recipes-levels-and-rooms: backlog
+  2-7-text-assets-changelog-and-journal-documents: backlog
+  2-8-the-vanilla-versus-shattered-vocabulary-diff: backlog
+  2-9-the-drift-check-and-the-generated-documentation: backlog
+  2-10-the-citation-checker: backlog
+  epic-2-retrospective: optional
+
+  epic-3: backlog
+  3-1-seed-sets-as-committed-versioned-files: backlog
+  3-2-run-logs-with-a-hash-chain: backlog
+  3-3-the-parallel-runner: backlog
+  3-4-replay-with-verification: backlog
+  3-5-registration-and-the-salt-discipline: backlog
+  3-6-the-per-pair-statistic-and-the-sequential-test: backlog
+  3-7-calibrate-the-bounds: backlog
+  3-8-the-e-process-alternative: backlog
+  3-9-the-baseline-and-the-deliberately-worse-brain: backlog
+  3-10-results-pages-and-the-methodology-page: backlog
+  3-11-the-nightly-job-and-the-results-pull-request: backlog
+  3-12-the-death-gallery: backlog
+  epic-3-retrospective: optional
+
+  epic-4: backlog
+  4-1-the-brain-skeleton-arbitration-and-re-planning: backlog
+  4-2-beliefs-about-unknown-items-and-the-floor: backlog
+  4-3-safetest-the-worst-case-check: backlog
+  4-4-the-decision-output-and-the-strategy-log: backlog
+  4-5-the-evaluation-with-weights-as-data: backlog
+  4-6-the-explore-policy: backlog
+  4-7-the-fight-in-corridors-policy: backlog
+  4-8-the-pick-up-and-equip-policies: backlog
+  4-9-the-eat-and-heal-policies: backlog
+  4-10-the-test-unknown-items-policy: backlog
+  4-11-the-answer-prompts-policy: backlog
+  4-12-the-descend-policy: backlog
+  4-13-reach-the-goo-gate-on-the-smoke-set: backlog
+  4-14-pass-the-goo-gate-on-the-registered-set: backlog
+  epic-4-retrospective: optional
+
+  epic-5: backlog
+  5-1-the-launcher-the-profile-and-the-embedded-driver: backlog
+  5-2-the-panel-frame-layout-and-collapse: backlog
+  5-3-the-mode-strip-goal-line-and-decision-card: backlog
+  5-4-safety-flags-belief-summary-and-decision-log: backlog
+  5-5-paused-ignores-hero-input: backlog
+  5-6-the-controls-row-and-the-enablement-matrix: backlog
+  5-7-the-speed-modes-and-the-stepping-unit: backlog
+  5-8-take-over-and-hand-back: backlog
+  5-9-recording-human-turns-and-the-shadow-decision: backlog
+  5-10-map-highlights: backlog
+  5-11-hotkeys-as-game-actions: backlog
+  5-12-oracle-marking-in-the-overlay: backlog
+  5-13-the-speed-ceiling-and-the-draw-routing-hook: backlog
+  5-14-run-over-save-and-resume: backlog
+  5-15-the-remaining-panel-states: backlog
+  5-16-the-full-sewers-run-with-a-takeover: backlog
+  epic-5-retrospective: optional
+
+  epic-6: backlog
+  epic-6-retrospective: optional
+
+  epic-7: backlog
+  epic-7-retrospective: optional
+
+  epic-8: backlog
+  epic-8-retrospective: optional
+
+  epic-9: backlog
+  epic-9-retrospective: optional

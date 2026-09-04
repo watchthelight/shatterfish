@@ -41,8 +41,9 @@ Two conventions bind every story below and are not repeated in each one:
   and from E3 onward every Brain-affecting story names the Rig numbers its pull request must
   carry. "It works" is not an acceptance criterion; a named green test is.
 
-Story keys are `E<epic>.S<number>`, which is what `sprint-status.yaml`, the branch name
-(`story/e1-s04`) and the GitHub issue title all use.
+Story keys are `<epic>.<number>`, the form BMAD's sprint parser reads from these headings. It
+derives the tracking key `<epic>-<number>-<kebab title>`, which is what `sprint-status.yaml`, the
+branch name (`story/1-4-a-random-action-warrior-run-to-death`) and the GitHub issue title use.
 
 ## Requirements Inventory
 
@@ -164,49 +165,49 @@ acceptance criteria.
 
 | Requirement | Epic | Stories |
 |---|---|---|
-| FR-1 | E1 | E1.S3, E1.S4 |
-| FR-2 | E1 | E1.S15, E1.S16 |
-| FR-3 | E1 | E1.S6, E1.S7, E1.S8, E1.S9, E1.S10, E1.S11 |
-| FR-4 | E1 | E1.S12, E1.S13 |
-| FR-5 | E1 | E1.S14, E1.S21 |
-| FR-6 | E1 (interfaces), E6 | E1.S20 |
-| FR-7 | E1 | E1.S2 |
-| FR-8 | E1 | E1.S8, E1.S9, E1.S10, E1.S11 |
-| FR-9 | E1, E4 | E1.S17, E4.S14 |
-| FR-10 | E1 | E1.S17 |
-| FR-11 | E1, E3, E5 | E1.S18, E3.S3, E5.S12 |
-| FR-12 | E1, E5 | E1.S19, E5.S1 |
+| FR-1 | E1 | 1.3, 1.4 |
+| FR-2 | E1 | 1.15, 1.16 |
+| FR-3 | E1 | 1.6, 1.7, 1.8, 1.9, 1.10, 1.11 |
+| FR-4 | E1 | 1.12, 1.13 |
+| FR-5 | E1 | 1.14, 1.21 |
+| FR-6 | E1 (interfaces), E6 | 1.20 |
+| FR-7 | E1 | 1.2 |
+| FR-8 | E1 | 1.8, 1.9, 1.10, 1.11 |
+| FR-9 | E1, E4 | 1.17, 4.14 |
+| FR-10 | E1 | 1.17 |
+| FR-11 | E1, E3, E5 | 1.18, 3.3, 5.12 |
+| FR-12 | E1, E5 | 1.19, 5.1 |
 | FR-13 | E6 | deferred |
-| FR-14 | E2 | E2.S1 to E2.S7 |
-| FR-15 | E2 | E2.S9 |
-| FR-16 | E2 | E2.S8 |
-| FR-17 | E2, E4 | E2.S10, E4.S4 |
+| FR-14 | E2 | 2.1 to 2.7 |
+| FR-15 | E2 | 2.9 |
+| FR-16 | E2 | 2.8 |
+| FR-17 | E2, E4 | 2.10, 4.4 |
 | FR-18 | E7 | deferred |
-| FR-19 | E3 | E3.S3 |
-| FR-20 | E3 | E3.S1 |
-| FR-21 | E3 | E3.S6, E3.S7, E3.S8 |
-| FR-22 | E3 | E3.S5 |
-| FR-23 | E3, E5 | E3.S2, E5.S9 |
-| FR-24 | E3 | E3.S4 |
-| FR-25 | E3 | E3.S5, E3.S9, E3.S10 |
-| FR-26 | E3, E4 | E3.S12, E4.S13 |
-| FR-27 | E4 | E4.S1 |
-| FR-28 | E4 | E4.S1 |
-| FR-29 | E4 | E4.S2 |
-| FR-30 | E4 | E4.S3 |
-| FR-31 | E4 | E4.S6 to E4.S12 |
-| FR-32 | E4 | E4.S4 |
-| FR-33 | E4 | E4.S5 |
+| FR-19 | E3 | 3.3 |
+| FR-20 | E3 | 3.1 |
+| FR-21 | E3 | 3.6, 3.7, 3.8 |
+| FR-22 | E3 | 3.5 |
+| FR-23 | E3, E5 | 3.2, 5.9 |
+| FR-24 | E3 | 3.4 |
+| FR-25 | E3 | 3.5, 3.9, 3.10 |
+| FR-26 | E3, E4 | 3.12, 4.13 |
+| FR-27 | E4 | 4.1 |
+| FR-28 | E4 | 4.1 |
+| FR-29 | E4 | 4.2 |
+| FR-30 | E4 | 4.3 |
+| FR-31 | E4 | 4.6 to 4.12 |
+| FR-32 | E4 | 4.4 |
+| FR-33 | E4 | 4.5 |
 | FR-34 | E6 | deferred |
-| FR-35 | E7 | deferred; weights as data land in E4.S5 |
-| FR-36 | E4, E5 | E4.S4, E5.S4 |
-| FR-37 | E5 | E5.S1 |
-| FR-38 | E5 | E5.S2, E5.S3, E5.S4, E5.S15 |
-| FR-39 | E5 | E5.S3, E5.S6, E5.S7, E5.S13 |
-| FR-40 | E5 | E5.S5, E5.S8, E5.S9 |
-| FR-41 | E5 | E5.S10 |
-| FR-42 | E5 | E5.S11 |
-| FR-43 | E5 | E5.S12 |
+| FR-35 | E7 | deferred; weights as data land in 4.5 |
+| FR-36 | E4, E5 | 4.4, 5.4 |
+| FR-37 | E5 | 5.1 |
+| FR-38 | E5 | 5.2, 5.3, 5.4, 5.15 |
+| FR-39 | E5 | 5.3, 5.6, 5.7, 5.13 |
+| FR-40 | E5 | 5.5, 5.8, 5.9 |
+| FR-41 | E5 | 5.10 |
+| FR-42 | E5 | 5.11 |
+| FR-43 | E5 | 5.12 |
 | FR-44 to FR-47 | E8 | deferred |
 | FR-48 to FR-53 | E0 | complete |
 
@@ -248,7 +249,7 @@ Stories are ordered so that no story depends on a later one. The Observation sch
 Observer that fills it; the Observer precedes the Action set that is computed from it; the Action
 set precedes the random agent that draws from it.
 
-### Story E1.S1: Audit the rendering touchpoints and prove a headless turn resolves
+### Story 1.1: Audit the rendering touchpoints and prove a headless turn resolves
 
 As the engineer,
 I want a spike that boots the game headlessly and completes one hero turn,
@@ -262,7 +263,7 @@ before any texture initializes, and drives a harness-owned scene
 **Then** one hero melee attack resolves end to end, meaning damage is applied and the hero becomes
 ready again, which proves the sprite-callback path completes
 **And** the spike lives on the story branch under `shatterfish/harness/src/test/java` as a
-throwaway test, and the report says explicitly which parts E1.S3 and E1.S4 inherit and which are
+throwaway test, and the report says explicitly which parts stories 1.3 and 1.4 inherit and which are
 discarded
 **And** the report lists every static dereference that had to be guarded, with a `path:line` for
 each, and states how many hook rows the full implementation needs
@@ -270,7 +271,7 @@ each, and states how many hook rows the full implementation needs
 **And** the findings are written to `docs/results/e1-touchpoint-audit.md`, and each ADR-0015
 assumption the spike confirms or refutes is recorded there.
 
-### Story E1.S2: The Hooks registry, the counting test, and the boundary rules
+### Story 1.2: The Hooks registry, the counting test, and the boundary rules
 
 As the engineer,
 I want one registry class for every upstream edit and the full set of boundary rules,
@@ -290,7 +291,7 @@ Observation is its only channel (FR-7, AD-1)
 **And** `ApiBoundaryTest` asserts `api` depends only on the JDK
 **And** the ArchUnit bump to 1.5.0 lands here with every boundary rule green.
 
-### Story E1.S3: The headless graphics stub and the scene
+### Story 1.3: The headless graphics stub and the scene
 
 As the engineer,
 I want a scene that behaves like the game's own without a graphics context,
@@ -309,7 +310,7 @@ of random draws headlessly as the same sequence consumes with the real scene, wh
 testable form of parity and does not require a graphics context in the test
 **And** no story after this one adds a guard to actor or item code.
 
-### Story E1.S4: The driver loop and the first Input wait
+### Story 1.4: The driver loop and the first Input wait
 
 As the engineer,
 I want the driver thread to own the loop and reach a state where the hero waits for input,
@@ -328,7 +329,7 @@ step count matches the number of scene updates
 **And** a Run that never reaches a wait fails with a diagnostic naming the last actor processed,
 rather than hanging.
 
-### Story E1.S5: Input-wait detection
+### Story 1.5: Input-wait detection
 
 As the engineer,
 I want exactly one detection per hero turn,
@@ -348,7 +349,7 @@ record, with the reseed and record stubbed until their own stories
 **And** an interruption or a free search that produces a wait with no preceding Action is counted
 correctly.
 
-### Story E1.S6: The Observation, part one: the schema core and the codec
+### Story 1.6: The Observation, part one: the schema core and the codec
 
 As the engineer,
 I want the header, map and actor sections as records with a canonical encoder,
@@ -368,7 +369,7 @@ input list and asserts the section hashes are unchanged
 flag, and carries neither the seed, the salt nor a turn counter
 **And** no enum has a member naming hidden state, so a secret door has no representation.
 
-### Story E1.S7: The Observation, part two: the remaining sections and the readable form
+### Story 1.7: The Observation, part two: the remaining sections and the readable form
 
 As the engineer,
 I want the hero, inventory, journal, log, actions and prompt sections plus a readable rendering,
@@ -385,7 +386,7 @@ their hashes are equal
 **And** the Belief is declared as a separate opaque versioned value, not a field of the Observation,
 so that `harness` can hash it without depending on `brain`.
 
-### Story E1.S8: The Observer, part one: map, fog, traps and heaps
+### Story 1.8: The Observer, part one: map, fog, traps and heaps
 
 As the bot,
 I want the terrain, fog, visible traps and seen heaps exactly as the screen draws them,
@@ -405,7 +406,7 @@ an unvisited cell and a locked chest, and asserts none is identifiable in the se
 **And** each row implemented is added to `docs/rules/visibility.md` with this test named in its Test
 column.
 
-### Story E1.S9: The Observer, part two: actors, emotes, buffs and the hero
+### Story 1.9: The Observer, part two: actors, emotes, buffs and the hero
 
 As the bot,
 I want the visible characters and my own state as the HUD shows them,
@@ -426,7 +427,7 @@ hunger value cannot be recovered
 **And** `MimicDifferentialTest` asserts a real chest and a stealthy mimic at the same cell produce
 byte-identical Observations.
 
-### Story E1.S10: The Observer, part three: inventory, journal, log and prompts
+### Story 1.10: The Observer, part three: inventory, journal, log and prompts
 
 As the bot,
 I want my inventory with exactly the identification the player has, plus the log and any prompt,
@@ -446,7 +447,7 @@ Input wait fails an assertion
 **And** `ItemLeakTest` asserts no true class, level, curse or identification counter appears
 **And** `LogListenerTest` changes floor twice and asserts the log section still receives messages.
 
-### Story E1.S11: The Observer, part four: the remaining rows
+### Story 1.11: The Observer, part four: the remaining rows
 
 As the bot,
 I want the environment facts the screen shows and nothing more,
@@ -454,7 +455,7 @@ So that no row of the whitelist is left unimplemented and untested.
 
 **Acceptance Criteria:**
 
-**Given** the rows of ADR-0006 not covered by E1.S8 to E1.S10: blobs, the danger count, the level
+**Given** the rows of ADR-0006 not covered by stories 1.8 to 1.10: blobs, the danger count, the level
 feeling, the transitions the player has seen, and the boss-floor sealed flag
 **When** the Observer builds them
 **Then** a gas or fire blob appears as the set of blob kinds present in cells the hero can see, with
@@ -466,7 +467,7 @@ game refuses
 **And** a checklist test asserts every row of the ADR-0006 table has at least one leak test naming
 it, so the whitelist cannot grow a row without a test.
 
-### Story E1.S12: The Action type and the valid-Action set
+### Story 1.12: The Action type and the valid-Action set
 
 As the bot,
 I want a closed set of Actions and to know which are legal right now,
@@ -483,7 +484,7 @@ lists, or an option index into its own prompt or action list
 test that computes it from a deserialized Observation with no game running
 **And** `Wait` is absent from the valid set while a Prompt is open.
 
-### Story E1.S13: The ActionExecutor
+### Story 1.13: The ActionExecutor
 
 As the bot,
 I want my Actions applied through the same paths a human's clicks take,
@@ -501,7 +502,7 @@ to an Action kind or is listed as unsupported with a reason (FR-4)
 **And** `ActionValidityPropertyTest` asserts over random states that every valid Action is accepted
 and every invalid one is rejected without mutating state.
 
-### Story E1.S14: A random-action Warrior Run to death
+### Story 1.14: A random-action Warrior Run to death
 
 As the engineer,
 I want an agent that plays a seeded Run by choosing randomly among the legal Actions,
@@ -518,7 +519,7 @@ count
 **And** the agent lives in `harness` under an agent package, since it is a harness tool and not a
 Brain, and `brain` remains empty at this point.
 
-### Story E1.S15: The salt, the mix function and the Profile
+### Story 1.15: The salt, the mix function and the Profile
 
 As a skeptic,
 I want the random stream to be a function of things the Run declares,
@@ -537,7 +538,7 @@ read, and no remains, rankings or badges
 **And** the salt appears in the Run log and in no Observation, asserted by a leak test
 **And** a Run started against a different Profile version is refused rather than silently compared.
 
-### Story E1.S16: Identity order and the two-JVM determinism test
+### Story 1.16: Identity order and the two-JVM determinism test
 
 As a skeptic,
 I want the same tuple to give the same Run on another machine,
@@ -554,11 +555,11 @@ level load
 **And** `DeterminismTwoJvmTest` runs the same tuple in two separate JVM processes and asserts every
 Observation hash matches at every wait, which identity-hash ordering would break
 **And** the test runs on the pull-request runner, and the cross-platform comparison is named as
-owned by E3.S4's nightly job, since ADR-0002 puts the second platform in the nightly rig rather
+owned by story 3.4's nightly job, since ADR-0002 puts the second platform in the nightly rig rather
 than the pull-request gate
 **And** `docs/UPSTREAM.md` gains the identity-order row in the same pull request.
 
-### Story E1.S17: The differential and toggle tests
+### Story 1.17: The differential and toggle tests
 
 As a skeptic,
 I want proof that two worlds a player could not tell apart look identical to the bot,
@@ -578,7 +579,7 @@ exactly as they change the screen, with the blind field of view being the three-
 game actually computes
 **And** both tests run on every pull request (NFR-1).
 
-### Story E1.S18: Oracle mode, gated and marked
+### Story 1.18: Oracle mode, gated and marked
 
 As the engineer,
 I want a debugging mode that sees everything and that no fair path can reach,
@@ -594,9 +595,9 @@ hashed header, so its hashes differ from a fair Run's
 interface never receives, asserted by a test that the Brain-facing type has no path to it
 **And** `OracleGateTest` asserts that with no flag there is no code path from true identities or
 unseen positions into anything the Brain can hold
-**And** the Rig's refusal of oracle Runs is named here as owned by E3.S3.
+**And** the Rig's refusal of oracle Runs is named here as owned by story 3.3.
 
-### Story E1.S19: Thread confinement
+### Story 1.19: Thread confinement
 
 As the engineer,
 I want every port to fail loudly when called from the wrong thread,
@@ -611,7 +612,7 @@ expected role
 **And** an ArchUnit rule asserts no Shatterfish code takes a monitor on a game type
 **And** the Brain holds no game object, which the boundary rules already assert.
 
-### Story E1.S20: Snapshot, restore, and the reserved interfaces
+### Story 1.20: Snapshot, restore, and the reserved interfaces
 
 As the engineer,
 I want to save a Run's exact state and put it back,
@@ -631,7 +632,7 @@ generator draws the game's own load path consumes
 asserts a handle whose scrubbed flag is false is refused by the interface contract
 **And** the rollout host itself is explicitly deferred to E6.
 
-### Story E1.S21: Publish the E1 numbers
+### Story 1.21: Publish the E1 numbers
 
 As the product owner,
 I want the measured throughput and tactical properties published,
@@ -664,7 +665,7 @@ Covers FR-14 to FR-17, NFR-1 (the Codex leak test), NFR-6.
 The Codex writes `api`-typed JSON, so `codex` depends on `api` as well as on the game (AD-1 as
 corrected in session 13); no Codex value ever reaches the Brain as a class.
 
-### Story E2.S1: The generator skeleton and the seed-free guarantee
+### Story 2.1: The generator skeleton and the seed-free guarantee
 
 As the engineer,
 I want one Gradle task that writes a tag-named Codex folder, proven independent of any Run,
@@ -682,7 +683,7 @@ Run state, by generating with a live Run in progress and comparing to generation
 **And** the output is `api`-typed JSON with a Codex version, which the Run-log header records
 (AD-13).
 
-### Story E2.S2: Mobs and spawn tables by depth
+### Story 2.2: Mobs and spawn tables by depth
 
 As the bot,
 I want every mob's stats and the spawn table for each depth,
@@ -700,7 +701,7 @@ rare-alternate rules and the champion roll
 **And** `CodexCompletenessTest` asserts every concrete subclass of the game's mob type appears
 **And** boss stats appear with their Stronger Bosses variants.
 
-### Story E2.S3: Items, generator weights, decks and guarantees
+### Story 2.3: Items, generator weights, decks and guarantees
 
 As the bot,
 I want the item catalogue with its spawn weights, deck structure and guarantees,
@@ -716,7 +717,7 @@ their weights
 formula, and the actions it offers
 **And** `CodexCompletenessTest` covers every concrete item subclass.
 
-### Story E2.S4: Item guarantees, tier tables and limited drops
+### Story 2.4: Item guarantees, tier tables and limited drops
 
 As the bot,
 I want the schedules that decide what a floor is guaranteed to hold,
@@ -734,7 +735,7 @@ index rather than by the category weights
 **And** `GuaranteeArithmeticTest` asserts the dumped schedules reproduce the game's own decisions
 over a swept range of depths and counter states.
 
-### Story E2.S5: Measured combat tables
+### Story 2.5: Measured combat tables
 
 As the bot,
 I want hit chance and damage as measured tables rather than transcribed formulas,
@@ -751,7 +752,7 @@ and damage-reduction distributions for each weapon and armour tier
 two supported platforms
 **And** no combat formula is written out by hand anywhere in `codex` or `brain`.
 
-### Story E2.S6: Traps, recipes, levels and rooms
+### Story 2.6: Traps, recipes, levels and rooms
 
 As the bot,
 I want the trap catalogue, the alchemy recipes and the level structure,
@@ -768,7 +769,7 @@ lists per region, the special and secret room pools with their guaranteed soluti
 level feelings
 **And** the sealing rule for boss floors is captured, since the Observation exposes it.
 
-### Story E2.S7: Text, assets, changelog and journal documents
+### Story 2.7: Text, assets, changelog and journal documents
 
 As the Overlay,
 I want the game's own words and the version record,
@@ -785,7 +786,7 @@ which the codebase map identified
 records that the pinned version's own entry carries no date
 **And** the guide and lore pages appear with their identifiers.
 
-### Story E2.S8: The vanilla-versus-Shattered vocabulary diff
+### Story 2.8: The vanilla-versus-Shattered vocabulary diff
 
 As the lore pipeline,
 I want to know which names mean different things in the two games,
@@ -800,7 +801,7 @@ So that a forum claim about the wrong game can be rejected automatically.
 **And** the diff is consumed by nothing yet and is marked as the input the E7 variant classifier
 will use.
 
-### Story E2.S9: The drift check and the generated documentation
+### Story 2.9: The drift check and the generated documentation
 
 As a reviewer,
 I want CI to fail if the committed Codex no longer matches the code,
@@ -816,7 +817,7 @@ names the first differing file
 `--strict`
 **And** a deliberate edit to a committed Codex file makes CI fail, verified once in this story.
 
-### Story E2.S10: The citation checker
+### Story 2.10: The citation checker
 
 As the engineer,
 I want every citation in the documentation checked against the pinned code,
@@ -832,7 +833,7 @@ pinned tag, and runs in CI
 merge (FR-50)
 **And** the 275 rules written in bootstrap session 10 pass the checker unchanged
 **And** the Brain's own Rules index, which enumerates the claims the Brain relies on, is named as
-owned by E4.S4, since no Brain exists yet to rely on anything.
+owned by story 4.4, since no Brain exists yet to rely on anything.
 
 ---
 
@@ -845,7 +846,7 @@ reproduces them. From this epic onward no Brain change merges without numbers.
 
 Covers FR-19 to FR-26, NFR-2, NFR-3, NFR-9, SM-5.
 
-### Story E3.S1: Seed sets as committed, versioned files
+### Story 3.1: Seed sets as committed, versioned files
 
 As a skeptic,
 I want the exact seeds a number was measured on,
@@ -862,7 +863,7 @@ version
 **And** the sizes are revisable by ADR once throughput is known, which this story notes rather than
 resolves.
 
-### Story E3.S2: Run logs with a hash chain
+### Story 3.2: Run logs with a hash chain
 
 As a skeptic,
 I want a per-Run record I can verify without trusting the tool that wrote it,
@@ -881,7 +882,7 @@ each keyed by the wait index
 **And** a Run killed mid-way leaves a readable prefix whose chain still verifies
 **And** the canonicalization rules and a test vector are published on the methodology page.
 
-### Story E3.S3: The parallel runner
+### Story 3.3: The parallel runner
 
 As the developer,
 I want to run many seeded Runs at once,
@@ -898,7 +899,7 @@ So that a comparison finishes in a working session rather than a week.
 **And** the runner refuses any Run whose log header has the oracle flag set, which is the E3 half
 of FR-11.
 
-### Story E3.S4: Replay with verification
+### Story 3.4: Replay with verification
 
 As a skeptic,
 I want to re-run a published Run from its log and get the same thing,
@@ -917,7 +918,7 @@ naming the differing section on a mismatch
 **And** the nightly cross-platform job replays a published Run on Windows and Linux and compares
 chains (NFR-2).
 
-### Story E3.S5: Registration and the salt discipline
+### Story 3.5: Registration and the salt discipline
 
 As the product owner,
 I want the hypothesis fixed before the numbers are seen,
@@ -940,7 +941,7 @@ place the rule lives
 **And** one comparison ledger records every Registration, its outcome and every `holdout` use, so
 that the count of prior attempts behind a published claim is public (FR-22, FR-25).
 
-### Story E3.S6: The Per-pair statistic and the sequential test
+### Story 3.6: The Per-pair statistic and the sequential test
 
 As the developer,
 I want an early-stopping comparison with stated error rates,
@@ -958,7 +959,7 @@ before the burn-in
 **And** the port is faithful to the two upstream files the ADR names, verified by
 `GsprtReferenceTest` against values computed from the reference implementation.
 
-### Story E3.S7: Calibrate the bounds
+### Story 3.7: Calibrate the bounds
 
 As a skeptic,
 I want the error rates measured on this project's own outcomes,
@@ -977,9 +978,9 @@ them
 **And** the tie fraction of the pair statistic is reported, since a mostly-tied statistic would not
 resolve
 **And** the acceptable margin between realized and nominal error is declared here as a number, so
-that E3.S8 has a criterion to test against.
+that story 3.8 has a criterion to test against.
 
-### Story E3.S8: The e-process alternative
+### Story 3.8: The e-process alternative
 
 As a skeptic,
 I want the sequential test compared against a design that needs no pre-registered alternative,
@@ -989,15 +990,15 @@ So that the choice of statistic is itself evidence-based.
 
 **Given** ADR-0012's decision to evaluate the alternative rather than assume it
 **When** the e-process is implemented alongside the sequential test
-**Then** both are run on the same simulated distributions from E3.S7, and their realized error
+**Then** both are run on the same simulated distributions from story 3.7, and their realized error
 rates and stopping times are reported side by side
 **And** the e-process replaces the sequential test as the gate if the sequential test's realized
-error exceeds its nominal rate by more than the margin E3.S7 declared
+error exceeds its nominal rate by more than the margin story 3.7 declared
 **And** whichever is chosen, the methodology page states which, why, and with what numbers
 **And** the losing design stays in the tree behind a flag, so the comparison can be re-run on a
 later tag.
 
-### Story E3.S9: The baseline and the deliberately worse Brain
+### Story 3.9: The baseline and the deliberately worse Brain
 
 As the product owner,
 I want proof that the Rig can tell better from worse,
@@ -1014,7 +1015,7 @@ So that its verdicts on real changes mean something.
 about what pairing buys
 **And** the E1 throughput numbers are restated beside the Rig's own cost per comparison.
 
-### Story E3.S10: Results pages and the methodology page
+### Story 3.10: Results pages and the methodology page
 
 As a community reader,
 I want a published number to carry everything needed to check it,
@@ -1035,7 +1036,7 @@ vector and what to do when platforms disagree
 **And** negative and undecided results are published on the same terms as positive ones, which this
 story demonstrates with a real undecided run.
 
-### Story E3.S11: The nightly job and the results pull request
+### Story 3.11: The nightly job and the results pull request
 
 As the product owner,
 I want the smoke set run every night against the baseline,
@@ -1050,7 +1051,7 @@ So that a regression is caught without anyone remembering to look.
 **And** a failure or an undecided outcome is visible without opening the logs
 **And** the job makes no network call beyond GitHub's own API (NFR-8).
 
-### Story E3.S12: The death gallery
+### Story 3.12: The death gallery
 
 As the developer,
 I want to see how the bot dies, grouped by cause,
@@ -1078,10 +1079,10 @@ number the program actually cares about.
 Covers FR-27 to FR-33, FR-36, the E4 consequences of FR-9 and FR-26, SM-3.
 
 Every story in this epic carries Rig numbers in its pull request: a smoke-set direction check
-against the Brain as it stood before the change, and for E4.S14 a registered comparison on the
-`goo` Seed set. E4.S1 has no previous Brain to compare against and is exempt, which it states.
+against the Brain as it stood before the change, and for story 4.14 a registered comparison on the
+`goo` Seed set. Story 4.1 has no previous Brain to compare against and is exempt, which it states.
 
-### Story E4.S1: The Brain skeleton, arbitration and re-planning
+### Story 4.1: The Brain skeleton, arbitration and re-planning
 
 As the bot,
 I want to decide afresh from what I see at every Input wait,
@@ -1104,7 +1105,7 @@ asserted by `BrainDeterminismTest`
 **And** this story is exempt from the epic's Rig-numbers rule, since it is the first Brain and has
 nothing to compare against; the exemption is stated in the pull request.
 
-### Story E4.S2: Beliefs about unknown items and the floor
+### Story 4.2: Beliefs about unknown items and the floor
 
 As the bot,
 I want candidate identities with probabilities and the facts a floor implies,
@@ -1126,7 +1127,7 @@ removes it from every other candidate set.
 **And** the pull request carries a smoke-set direction check against the previous Brain, per this
 epic's rule that every Brain-affecting change carries Rig numbers.
 
-### Story E4.S3: safeTest, the worst-case check
+### Story 4.3: safeTest, the worst-case check
 
 As the bot,
 I want to know the worst thing that can happen if I try an unknown item here,
@@ -1145,7 +1146,7 @@ outcome, and that standing next to water changes the verdict for a fire candidat
 **And** the pull request carries a smoke-set direction check against the previous Brain, per this
 epic's rule that every Brain-affecting change carries Rig numbers.
 
-### Story E4.S4: The Decision output and the strategy log
+### Story 4.4: The Decision output and the strategy log
 
 As a person watching,
 I want to see the goal, the chosen action, the alternatives and why,
@@ -1169,7 +1170,7 @@ epic's rule that every Brain-affecting change carries Rig numbers.
 **And** the Brain's Rules index is created here, enumerating the mechanics claims the Brain relies
 on, each pointing at a rule page row, so that "every heuristic is cited" is countable (FR-17).
 
-### Story E4.S5: The Evaluation with weights as data
+### Story 4.5: The Evaluation with weights as data
 
 As the developer,
 I want one scoring function whose weights live in a file,
@@ -1190,7 +1191,7 @@ depth scoring higher.
 **And** the pull request carries a smoke-set direction check against the previous Brain, per this
 epic's rule that every Brain-affecting change carries Rig numbers.
 
-### Story E4.S6: The explore Policy
+### Story 4.6: The explore Policy
 
 As the bot,
 I want to uncover the floor efficiently,
@@ -1208,7 +1209,7 @@ of attempts
 **And** the pull request carries a smoke-set direction check showing depth reached moving the right
 way.
 
-### Story E4.S7: The fight-in-corridors Policy
+### Story 4.7: The fight-in-corridors Policy
 
 As the bot,
 I want to fight where only one enemy can reach me,
@@ -1226,7 +1227,7 @@ has locked
 **And** `FightPolicyTest` asserts corridor preference on a constructed room-and-corridor map
 **And** the pull request carries a smoke-set direction check.
 
-### Story E4.S8: The pick-up and equip Policies
+### Story 4.8: The pick-up and equip Policies
 
 As the bot,
 I want to take what is worth taking and wear what is better,
@@ -1245,7 +1246,7 @@ requirement and the risk that an unidentified item is cursed
 **And** it never equips an item whose worst case under `safeTest` is unsurvivable
 **And** the pull request carries a smoke-set direction check.
 
-### Story E4.S9: The eat and heal Policies
+### Story 4.9: The eat and heal Policies
 
 As the bot,
 I want to eat before I starve and heal before I die,
@@ -1263,7 +1264,7 @@ visible threat, not a constant
 starvation
 **And** the pull request carries a smoke-set direction check.
 
-### Story E4.S10: The test-unknown-items Policy
+### Story 4.10: The test-unknown-items Policy
 
 As the bot,
 I want to identify unknown items by using them when it is safe,
@@ -1280,7 +1281,7 @@ a fight
 **And** it records the outcome into Beliefs so candidate sets narrow
 **And** the pull request carries a smoke-set direction check.
 
-### Story E4.S11: The answer-prompts Policy
+### Story 4.11: The answer-prompts Policy
 
 As the bot,
 I want to answer the game's questions sensibly,
@@ -1297,7 +1298,7 @@ Brain error rather than a stall
 **And** the pull request carries a smoke-set direction check against the previous Brain, per this
 epic's rule that every Brain-affecting change carries Rig numbers.
 
-### Story E4.S12: The descend Policy
+### Story 4.12: The descend Policy
 
 As the bot,
 I want to go down when this floor has given me what it will,
@@ -1314,7 +1315,7 @@ explored fraction, remaining guaranteed drops and hunger
 survival curve
 **And** the pull request carries a smoke-set direction check.
 
-### Story E4.S13: Reach the Goo gate on the smoke set
+### Story 4.13: Reach the Goo gate on the smoke set
 
 As the product owner,
 I want the Warrior to beat the first boss reliably,
@@ -1330,7 +1331,7 @@ as an acceptance
 failure cause (the E4 half of FR-26)
 **And** no acceptance claim is made from the smoke set, which is a direction check by definition.
 
-### Story E4.S14: Pass the Goo gate on the registered set
+### Story 4.14: Pass the Goo gate on the registered set
 
 As the product owner,
 I want the first real rung cleared and published,
@@ -1348,7 +1349,7 @@ that reproduces it
 permuted, and the Brain's Decisions are identical until the Observations diverge (the E4 half of
 FR-9)
 **And** the throughput benchmark is re-run with the Brain attached, completing the measurement
-E1.S21 deferred
+story 1.21 deferred
 **And** the E4 retrospective runs and its lessons land in `CLAUDE.md`.
 
 ---
@@ -1363,10 +1364,10 @@ Covers FR-37 to FR-43, the E5 consequences of FR-4, FR-11, FR-12, FR-23, FR-27 a
 UX-DR1 to UX-DR15, SM-6.
 
 The Overlay does not change what the Brain decides, so most stories here carry no Rig numbers. Two
-do, and say so: E5.S13, because routing the render-thread draws changes what the random stream
-consumes, and E5.S16, which is the epic's demonstration.
+do, and say so: story 5.13, because routing the render-thread draws changes what the random stream
+consumes, and story 5.16, which is the epic's demonstration.
 
-### Story E5.S1: The launcher, the Profile and the embedded driver
+### Story 5.1: The launcher, the Profile and the embedded driver
 
 As the human,
 I want to start the game with the bot attached,
@@ -1383,7 +1384,7 @@ frame rate is unaffected while the Brain thinks (NFR-4)
 **And** the oracle flag exists only on the launcher, never on the Rig
 **And** `EmbeddedAttachTest` asserts attachment and re-attachment across two level changes.
 
-### Story E5.S2: The Panel frame, layout and collapse
+### Story 5.2: The Panel frame, layout and collapse
 
 As the human,
 I want an instrument docked beside the dungeon that never covers the game's own HUD,
@@ -1403,7 +1404,7 @@ documented thresholds or in the mobile layout
 **And** `OverlayToolkitTest` is an ArchUnit rule asserting that `overlay` imports nothing from
 Swing, AWT, JavaFX or any web-view package, so the native-UI rule is a check rather than a habit.
 
-### Story E5.S3: The Mode strip, Goal line and Decision card
+### Story 5.3: The Mode strip, Goal line and Decision card
 
 As the human,
 I want to see what the bot is about to do and why, before it does it,
@@ -1426,7 +1427,7 @@ against a constructed Decision, including the Explain expansion.
 alternatives' reasons in full and the Safety flags that applied, and a second press collapses it;
 this is a v1 control (FR-39), not the v2 Explain view.
 
-### Story E5.S4: Safety flags, Belief summary and Decision log
+### Story 5.4: Safety flags, Belief summary and Decision log
 
 As the human,
 I want to see what the bot believes and what it is worried about,
@@ -1447,7 +1448,7 @@ bottom
 **And** `BeliefSummaryTest` and `DecisionLogTest` assert the content, ordering and scroll behaviour
 against constructed records.
 
-### Story E5.S5: PAUSED ignores hero input
+### Story 5.5: PAUSED ignores hero input
 
 As the human,
 I want the game to ignore my clicks while the bot is paused,
@@ -1465,7 +1466,7 @@ while PAUSED
 and asserts the Run log gains no Action and the hero has not moved
 **And** `docs/UPSTREAM.md` gains the input-gate row in the same pull request.
 
-### Story E5.S6: The controls row and the enablement matrix
+### Story 5.6: The controls row and the enablement matrix
 
 As the human,
 I want to advance the bot one step, N steps, at a readable pace, or as fast as it goes,
@@ -1482,7 +1483,7 @@ selector with its interval stepper, Take over and Hand back, and Explain, wrappi
 **And** `ControlEnablementTest` asserts the full enablement matrix of UX-DR7 for every state, so no
 state leaves a control enabled that would do nothing.
 
-### Story E5.S7: The speed modes and the stepping unit
+### Story 5.7: The speed modes and the stepping unit
 
 As the human,
 I want to advance the bot one step, N steps, at a readable pace, or as fast as it goes,
@@ -1502,7 +1503,7 @@ lands, with the Mode strip showing THINKING
 **And** `SpeedModeTest` asserts the advance count for each mode and that a queued Next Step fires
 exactly once.
 
-### Story E5.S8: Take over and hand back
+### Story 5.8: Take over and hand back
 
 As the human,
 I want to play a few turns myself and give the controls back,
@@ -1519,7 +1520,7 @@ fresh Decision computed from the current Observation
 Mode transitions and that Hand back lands in PAUSED with a Decision computed after the human's
 last turn.
 
-### Story E5.S9: Recording human turns and the shadow Decision
+### Story 5.9: Recording human turns and the shadow Decision
 
 As a skeptic,
 I want a human's turns recorded as faithfully as the bot's,
@@ -1541,7 +1542,7 @@ executed
 **And** `HumanTurnReplayTest` records a session with three human turns and replays it under the Rig
 with every Observation hash matching.
 
-### Story E5.S10: Map highlights
+### Story 5.10: Map highlights
 
 As the human,
 I want to see the planned path and target on the dungeon itself,
@@ -1559,7 +1560,7 @@ colours, never filled and never over sprites
 **And** `MapHighlightTest` asserts the drawn cells equal the Decision's highlight cells and that
 none is drawn in HUMAN mode.
 
-### Story E5.S11: Hotkeys as game actions
+### Story 5.11: Hotkeys as game actions
 
 As the human,
 I want keyboard control that the game's own settings screen can rebind,
@@ -1576,7 +1577,7 @@ pinned tag leaves unbound
 is ever removed
 **And** no Overlay default shadows an existing game binding, asserted by `KeyBindingConflictTest`.
 
-### Story E5.S12: Oracle marking in the Overlay
+### Story 5.12: Oracle marking in the Overlay
 
 As the human,
 I want an unmistakable mark when the bot is cheating for debugging,
@@ -1592,7 +1593,7 @@ in the Belief summary are prefixed, and unseen enemies are outlined on the map i
 **And** the oracle colour appears nowhere else in the instrument
 **And** the Run log header records that the Run was an oracle Run.
 
-### Story E5.S13: The speed ceiling and the draw-routing hook
+### Story 5.13: The speed ceiling and the draw-routing hook
 
 As the human,
 I want the fastest mode to actually be fast, and the run to still replay,
@@ -1611,7 +1612,7 @@ Observation hash matches
 **And** the pull request carries a smoke-set direction check, since routing the draws changes what
 the random stream consumes and could move outcomes.
 
-### Story E5.S14: Run over, save and resume
+### Story 5.14: Run over, save and resume
 
 As the human,
 I want the instrument to behave sensibly when the run ends or I quit,
@@ -1629,7 +1630,7 @@ shown
 and on resume through the launcher it continues them and starts in PAUSED with Next Step
 **And** a save opened without the launcher is not an Overlay Run, and its log ends at the boundary.
 
-### Story E5.S15: The remaining Panel states
+### Story 5.15: The remaining Panel states
 
 As the human,
 I want the instrument to tell me when something has gone wrong rather than freezing,
@@ -1649,7 +1650,7 @@ Overlay attaches when a scene appears with a living hero
 **And** `PanelStateTest` reaches each of these states in a scripted test and asserts the Panel's
 content and enablement matrix, so every state of UX-DR7 is covered by a test.
 
-### Story E5.S16: The full sewers run with a takeover
+### Story 5.16: The full sewers run with a takeover
 
 As the product owner,
 I want to watch a whole sewers run and take over mid-fight,

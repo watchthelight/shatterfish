@@ -37,9 +37,25 @@ Create story issues only for the current epic and the next one (bootstrap prompt
 Epic issues for every epic are fine. Never delete an issue; if a story disappears from the
 epics file, comment on its issue and add the `needs-triage` note, leave it open.
 
+## The script
+
+`scripts/sync_issues.py` does the mechanical half: it parses the epics file the way BMAD's
+`sprint_plan.py` does, reads the current issues, and prints a create/update plan. Run it with no
+arguments for the dry run and with `--apply` to execute. It is idempotent: a second run right
+after the first reports only updates, and those rewrite identical bodies.
+
+```sh
+python .claude/skills/sync-issues/scripts/sync_issues.py            # dry run, prints the plan
+python .claude/skills/sync-issues/scripts/sync_issues.py --apply    # create and update
+```
+
+The script owns the marker comments, the label derivation, the milestone assignment and the
+milestone descriptions. Your judgment goes where it cannot: deciding which epics are in scope for
+story issues (edit `STORY_EPICS`), reviewing the plan before applying it, and the roadmap prose.
+
 ## Steps
 
-1. Parse the sources; build the desired state.
+1. Parse the sources; build the desired state (the script does this).
 2. Read the current state: `gh issue list -R watchthelight/shatterfish --state all --limit 500 --json number,title,body,state,labels,milestone`
    and `gh api repos/watchthelight/shatterfish/milestones?state=all`.
 3. **Dry run first**: print the plan as create / update / close / reopen lines. Apply without
