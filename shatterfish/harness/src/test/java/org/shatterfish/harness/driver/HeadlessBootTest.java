@@ -94,6 +94,7 @@ class HeadlessBootTest {
         Halt halt = driver.stepToInputWait();
 
         assertEquals(Reason.INPUT_WAIT, halt.reason());
+        assertEquals(1, halt.waitIndex(), "the first wait");
         Hero hero = Dungeon.hero;
         assertEquals(HeroClass.WARRIOR, hero.heroClass);
         assertEquals(SEED, Dungeon.seed, "the seed typed into the seed window is the game's seed (Dungeon.java:224-226)");
@@ -126,6 +127,7 @@ class HeadlessBootTest {
         Halt halt = driver.stepToInputWait();
 
         assertEquals(Reason.INPUT_WAIT, halt.reason());
+        assertEquals(2, halt.waitIndex(), "the prompt is the second wait");
         assertInstanceOf(WndOptions.class, halt.window(), "the chasm prompt is a WndOptions");
         assertTrue(GameScene.showingWindow());
         assertTrue(GameScene.interfaceBlockingHero(), "a click on the map is refused while it is open");
@@ -148,6 +150,7 @@ class HeadlessBootTest {
         assertEquals(Reason.INPUT_WAIT, again.reason());
         assertNull(again.window());
         assertEquals(1, again.framesStepped());
+        assertEquals(3, again.waitIndex(), "answering closed the prompt without the hero acting: a new wait all the same");
     }
 
     @Test

@@ -163,6 +163,7 @@ import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.AlchemyScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
+import com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.CharSprite;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.HeroSprite;
 import com.shatteredpixel.shatteredpixeldungeon.ui.AttackIndicator;
@@ -838,6 +839,14 @@ public class Hero extends Char {
 		}
 		
 		if (!ready) {
+			// shatterfish-hook:5
+			// The Input-wait notification of ADR-0015. This branch runs at the start of every act
+			// that begins unready: once before every transition to ready, which happens only in
+			// ready() below in this same act, and also on each step of a move and each turn of
+			// resting; the driver confirms which is an Input wait and drops the rest. One volatile
+			// read into a local (see Hooks) and a call that writes a volatile; nothing blocks.
+			Hooks.InputWait waiting = Hooks.inputWait;
+			if (waiting != null) waiting.onInputWait();
 			//do a full observe (including fog update) if not resting.
 			if (!resting || buff(MindVision.class) != null || buff(Awareness.class) != null) {
 				Dungeon.observe();

@@ -14,6 +14,7 @@ import com.shatteredpixel.shatteredpixeldungeon.journal.Journal;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.shatteredpixel.shatteredpixeldungeon.levels.features.Chasm;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.InterlevelScene;
+import com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks;
 import com.shatteredpixel.shatteredpixeldungeon.ui.ActionIndicator;
 import com.shatteredpixel.shatteredpixeldungeon.ui.GameLog;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
@@ -40,16 +41,25 @@ import java.nio.file.Files;
  * Run: it starts a seeded game the way a player does, and it steps the scene until the hero waits
  * for input, the hero is dead, or the game asks for another scene. Nothing else advances the game.
  *
- * <p><b>The Input wait.</b> Between two frames the actor thread is parked and everything it wrote
- * is published, so the hero's flags can be read plainly: an Input wait is the hero {@code ready}
- * with no action pending and not resting ({@code core/.../actors/hero/Hero.java:935-946},
- * {@code :865-870}). One more thing must hold, which the flags do not show: nothing may be waiting
- * in the render thread's queue. The hero's own act can post the window that makes the wait a
- * Prompt, as the chasm jump does ({@code .../levels/features/Chasm.java:57-96}), and the game
- * shows that window at the start of the next frame, before anything could observe or click. So a
- * wait with a runnable pending is stepped one frame further, which is the order the render thread
- * gives it. Story 1.5 replaces reading the flags with the game's own notification at the observe
- * site; the confirmation stays.
+ * <p><b>The Input wait.</b> The game says when something happened: hook row 5's site at the top of
+ * the branch of {@code Hero.act()} that runs when the hero begins an act unready
+ * ({@code core/.../actors/hero/Hero.java:840-848}) notifies this driver, on the actor thread, with
+ * one volatile write. That branch runs once before every transition to ready, because
+ * {@code ready()} is reached only later in the same act ({@code :862-870}, {@code :935-946}), and
+ * it also runs on each step of a move and each turn of resting ({@code :885-887}); a hero that is
+ * already waiting skips it on every wake-up, which is why sixty wake-ups are not sixty waits. So a
+ * notification means "confirm", not "wait": between two frames the actor thread is parked and
+ * everything it wrote is published, and the driver confirms an Input wait as AD-5 has it, the
+ * hero {@code ready} with no action pending and not resting, under no window or a recognised
+ * Prompt ({@link Prompts}), and drops the notification otherwise. A window changing in front of a
+ * waiting hero is a new wait too, with no notification: the answer to a prompt can close it
+ * without the hero acting, and the brain must see what is there now. One more thing must hold,
+ * which neither shows: nothing may be waiting in the render thread's queue. The hero's own act
+ * can post the window that makes the wait a Prompt, as the chasm jump does
+ * ({@code .../levels/features/Chasm.java:57-96}), and the game shows that window at the start of
+ * the next frame, before anything could observe or click; a notification with a runnable pending
+ * is kept for the frame after, which is the order the render thread gives it. Each confirmed wait
+ * gets the next index {@code k}, which this driver owns (AD-14).
  *
  * <p><b>Stopping.</b> A dead hero stops the loop, because the scene stops waking the actor thread
  * then ({@code .../scenes/GameScene.java:865}); the game-over banner it posted is run when the
@@ -90,9 +100,11 @@ public final class HeadlessDriver implements AutoCloseable {
 
     /**
      * Where a call to {@link #stepToInputWait()} stopped: why, how many frames it stepped, the
-     * window in front if any, and the scene the game asked for if it asked.
+     * window in front if any, the scene the game asked for if it asked, and the index {@code k} of
+     * the wait confirmed, or of the last one confirmed when the reason is another.
      */
-    public record Halt(Reason reason, long framesStepped, Window window, Class<? extends Scene> requestedScene) {
+    public record Halt(Reason reason, long framesStepped, Window window, Class<? extends Scene> requestedScene,
+                       int waitIndex) {
     }
 
     /**
@@ -113,10 +125,25 @@ public final class HeadlessDriver implements AutoCloseable {
     private final HeadlessScene scene;
     private long frames;
     private boolean closed;
+    /** Written by the actor thread only, inside {@code Hero.act()}; read here between frames. */
+    private volatile long notifications;
+    private long seenNotifications;
+    private long dropped;
+    private int waitIndex;
+    private Window lastConfirmedWindow;
 
     private HeadlessDriver(HeadlessBoot boot, HeadlessScene scene) {
         this.boot = boot;
         this.scene = scene;
+        Hooks.inputWait = this::noticed;
+    }
+
+    /**
+     * Hook row 5's listener: on the actor thread, inside {@code Hero.act()}, one volatile write
+     * and nothing else (ADR-0013). The hero acts on that thread only, so the count is exact.
+     */
+    private void noticed() {
+        notifications++;
     }
 
     /** Boots the process, or returns the boot that already happened. */
@@ -170,6 +197,10 @@ public final class HeadlessDriver implements AutoCloseable {
             throw new IllegalStateException("the last Run's resurrection prompt was never destroyed, and the game"
                     + " would take this Run for one still resurrecting (Dungeon.java:707)");
         }
+        if (Hooks.inputWait != null) {
+            throw new IllegalStateException("a listener from a Run that was not closed is still registered in Hooks;"
+                    + " close() clears it");
+        }
         // The game clears this only when the hero falls (Chasm.java:101); a Run closed between a
         // confirmed jump and the fall would otherwise jump unasked in this one.
         Chasm.jumpConfirmed = false;
@@ -212,8 +243,10 @@ public final class HeadlessDriver implements AutoCloseable {
     }
 
     /**
-     * Steps at most {@code frameBudget} frames until the hero waits for input, the hero is dead or
-     * a scene change is requested, and says which; always steps at least one frame.
+     * Steps at most {@code frameBudget} frames until a new Input wait is confirmed, the hero is dead
+     * or a scene change is requested, and says which; always steps at least one frame. A new wait
+     * is one the game announced (hook row 5) or a change of the window in front, confirmed as the
+     * class comment says; a notification that is not a wait is dropped and counted.
      *
      * @throws Stalled if none of the three happened within the budget
      */
@@ -236,17 +269,24 @@ public final class HeadlessDriver implements AutoCloseable {
             // The change first: a taken resurrection clears the pending mark and asks for the
             // loading scene in one click, with the hero still at zero health.
             if (game.sceneSwitchRequested()) {
-                return new Halt(Reason.SCENE_SWITCH, stepped, scene.openWindow(), game.requestedSceneClass());
+                return new Halt(Reason.SCENE_SWITCH, stepped, scene.openWindow(), game.requestedSceneClass(), waitIndex);
             }
             if (hero == null || (!hero.isAlive() && WndResurrect.instance == null)) {
-                return new Halt(Reason.HERO_DEAD, stepped, scene.openWindow(), null);
+                return new Halt(Reason.HERO_DEAD, stepped, scene.openWindow(), null, waitIndex);
             }
             if (boot.pendingRunnables() == 0) {
                 Window window = scene.openWindow();
-                boolean heroWaits = hero.ready && hero.curAction == null && !hero.resting;
-                boolean resurrectionOffered = WndResurrect.instance != null && window instanceof WndResurrect;
-                if (heroWaits || resurrectionOffered) {
-                    return new Halt(Reason.INPUT_WAIT, stepped, window, null);
+                boolean notified = notifications != seenNotifications;
+                seenNotifications = notifications;
+                if (notified || window != lastConfirmedWindow) {
+                    if (isInputWait(hero, window)) {
+                        waitIndex++;
+                        lastConfirmedWindow = window;
+                        return new Halt(Reason.INPUT_WAIT, stepped, window, null, waitIndex);
+                    }
+                    if (notified) {
+                        dropped++;
+                    }
                 }
             }
             if (stepped >= frameBudget) {
@@ -255,11 +295,64 @@ public final class HeadlessDriver implements AutoCloseable {
         }
     }
 
+    /**
+     * AD-5's condition: the hero waits for input under no window or a Prompt, or a resurrection is
+     * offered, which is the one Prompt a hero at zero health answers without being ready.
+     */
+    private static boolean isInputWait(Hero hero, Window window) {
+        if (WndResurrect.instance != null && window instanceof WndResurrect) {
+            return true;
+        }
+        return hero.ready && hero.curAction == null && !hero.resting
+                && (window == null || Prompts.isRecognised(window));
+    }
+
+    /**
+     * Runs the per-wait sequence of ADR-0013 at each of the next {@code maxWaits} Input waits, in
+     * order: the index, then {@code reseed}, {@code observe}, {@code decide}, {@code execute},
+     * {@code record}. Returns the last halt: the last wait served, or the death or scene change
+     * that ended the loop early.
+     */
+    public <O, D> Halt run(WaitSequence<O, D> sequence, int maxWaits) {
+        if (maxWaits < 1) {
+            throw new IllegalArgumentException("run needs at least one wait to serve: " + maxWaits);
+        }
+        Halt halt = null;
+        for (int served = 0; served < maxWaits; served++) {
+            halt = stepToInputWait();
+            if (halt.reason() != Reason.INPUT_WAIT) {
+                return halt;
+            }
+            int k = halt.waitIndex();
+            sequence.reseed(k);
+            O observation = sequence.observe(k);
+            D decision = sequence.decide(k, observation);
+            sequence.execute(k, decision);
+            sequence.record(k, observation, decision);
+        }
+        return halt;
+    }
+
     /** One fenced frame; see {@link SceneStepper#step()}. */
     public void step() {
         requireOpen();
         scene.stepper().step();
         frames++;
+    }
+
+    /** The index {@code k} of the last Input wait confirmed; 0 before the first. */
+    public int waitIndex() {
+        return waitIndex;
+    }
+
+    /** Times hook row 5 has notified this Run: acts of the hero that began unready. */
+    public long hookNotifications() {
+        return notifications;
+    }
+
+    /** Notifications that were not a wait: mid-move steps, resting turns, a window that is not a Prompt. */
+    public long droppedNotifications() {
+        return dropped;
     }
 
     /** Frames this driver has stepped, counted here and not by the scene or the stepper. */
@@ -293,7 +386,11 @@ public final class HeadlessDriver implements AutoCloseable {
         try {
             scene.stepper().endActorThread();
         } finally {
-            boot.game().destroy();
+            try {
+                boot.game().destroy();
+            } finally {
+                Hooks.clear();
+            }
         }
     }
 
@@ -328,8 +425,23 @@ public final class HeadlessDriver implements AutoCloseable {
                     .append(": the actor thread is waiting for a sprite to stop moving before its turn"
                             + " (Actor.java:274-282), and the frames stepped have not ended the movement.");
         }
-        return out.append(' ').append(heroLine()).append(" Actor thread: ").append(stepper.describeActorThread())
-                .toString();
+        return out.append(' ').append(waitState()).append(' ').append(heroLine())
+                .append(" Actor thread: ").append(stepper.describeActorThread()).toString();
+    }
+
+    private String waitState() {
+        Window window = scene.openWindow();
+        Hero hero = Dungeon.hero;
+        StringBuilder out = new StringBuilder("Since the Run began: ").append(notifications)
+                .append(" notification(s) from the observe site, ").append(dropped).append(" dropped; waits confirmed: ")
+                .append(waitIndex).append("; in front: ").append(Prompts.describe(window)).append('.');
+        if (hero != null && hero.ready && hero.curAction == null && !hero.resting
+                && notifications == seenNotifications && window == lastConfirmedWindow) {
+            out.append(" The hero has been ready and nothing has happened since wait ").append(waitIndex)
+                    .append(": no act of the hero began unready and no window changed, so there is no new Input"
+                            + " wait; an Action must change something.");
+        }
+        return out.toString();
     }
 
     /** The actor the loop would pick next: least cooldown, ties by id, which is the order they were added in. */
