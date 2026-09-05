@@ -139,3 +139,52 @@ Rules:
 - Performance: encoding a 32x32 map plus inventory each Input wait costs more than the Brain's
   decision. Mitigation: the E1 benchmark (FR-5) reports codec time separately; the map section
   can carry a dirty-region delta later without changing the hash definition.
+
+## Amendment: story 1.6 (2026-09-05)
+
+The header, the map and the actors, `ObservationCodec` and the section hashes are implemented as
+decided, with these choices the decision left open or did not foresee.
+
+**SHA-256 and UTF-8 are written in `api`.** The module may reach only `java.lang` and `java.util`
+(`ApiBoundaryTest`, kept as strict as the brain's allowlist since story 1.2), which puts
+`MessageDigest` and the character sets out of reach. The digest is a hundred lines held to the
+standard's vectors and the JDK's answer over random input; the encoder mirrors `String.getBytes`
+on the exact code units, an unpaired surrogate included.
+
+**Canonical order is the records', not only the codec's.** The rule that `equals` and the hash
+agree needs the order fixed before equality is computed, so every set-like list is sorted and
+checked for repeats in the record's constructor: challenges by name; traps, heaps, blobs,
+transitions and actors by cell, each cell at most once; blob kinds and buffs by name. Tiles and
+fog are positional, one per cell. Enums are encoded by name, so a constant added later changes no
+existing bytes.
+
+**The records refuse what the fog would not draw.** An unknown cell carries `Tile.NONE` and
+nothing else does; traps, heaps, blobs and transitions stand on cells the player has seen; an
+actor stands in view; a container shows no item, a price belongs to a for-sale heap only and a
+category to a crystal chest only. ADR-0006's whitelist is a whitelist by construction, which
+`SchemaRulesTest` holds.
+
+**Health is quantised at the coarsest view any player has.** The bar over a sprite is the sprite's
+width times four sixths (`…/ui/CharHealthIndicator.java:50-51`), drawn to the pixel with the lit
+part rounded up (`…/ui/HealthBar.java:65-68`), so its resolution depends on the camera zoom, which
+the player can set as low as 1 (`…/scenes/PixelScene.java:144`). The codec states `W = 32/3`, a
+sixteen-unit sprite at zoom 1, and `healthPips` is `ceil(hp / max * W)` in integer arithmetic,
+0 to 11. That is at most what any player sees, which is what parity asks; a player at the default
+zoom of 2 or more sees a finer bar, and the Observation deliberately does not.
+
+**The hero is not an actor.** The actors section carries every visible character but the hero,
+whose cell and health belong to the hero section of story 1.7.
+
+**`Feeling.SECRETS` stays.** The floor feeling is announced as a title on arrival ("secrets
+floor", `core/src/main/assets/messages/levels/levels.properties:260`), so the member names an
+announcement, not the secrets; the enum test names it as the one exception to "no member contains
+SECRET".
+
+**Buff turns are hundredths.** The description prints turns with `#.##`
+(`…/actors/buffs/Buff.java:136-138`), so a buff carries hundredths of a turn and whether turns are
+shown at all.
+
+**The version is 1 and pinned.** `ObservationHashTest` holds the corpus Observation's hash to a
+constant, so any change to the encoding is a change to the version, recorded here, before the pin
+moves. `HeaderSection.version` is the schema version, which the codec refuses to encode unless it
+is its own.
