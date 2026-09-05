@@ -4,7 +4,7 @@ key: 1-5-input-wait-detection
 title: Input-wait detection
 epic: 1
 issue: 18
-status: review
+status: done
 created: '2026-09-05'
 updated: '2026-09-05'
 ---

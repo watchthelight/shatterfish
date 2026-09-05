@@ -40,7 +40,7 @@ development_status:
   1-2-the-hooks-registry-the-counting-test-and-the-boundary-rules: done
   1-3-the-headless-graphics-stub-and-the-scene: done
   1-4-the-driver-loop-and-the-first-input-wait: done
-  1-5-input-wait-detection: review
+  1-5-input-wait-detection: done
   1-6-the-observation-part-one-the-schema-core-and-the-codec: backlog
   1-7-the-observation-part-two-the-remaining-sections-and-the-read: backlog
   1-8-the-observer-part-one-map-fog-traps-and-heaps: backlog
