@@ -3,6 +3,9 @@ package org.shatterfish.harness.boot;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.backends.headless.HeadlessApplication;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
+import com.watabou.input.KeyEvent;
+import com.watabou.input.PointerEvent;
+import com.watabou.input.ScrollEvent;
 import com.watabou.noosa.Game;
 import com.watabou.noosa.Scene;
 import com.watabou.utils.PlatformSupport;
@@ -38,7 +41,9 @@ import org.shatterfish.harness.scene.SceneStepper;
  * chasm prompt, the game-over banner, {@code core/.../actors/hero/Hero.java:2256}) would run at
  * the first frame of whatever scene exists next, which is the next Run's. So a scene is never
  * destroyed or replaced here with anything still queued: the queue is drained first, against the
- * scene that is about to go, which is where the game would have run it.
+ * scene that is about to go, which is where the game would have run it. The input event queues
+ * are process statics in the same way ({@code SPD-classes/.../input/PointerEvent.java:131-132}),
+ * with no way to clear them but delivery, and are delivered at the same moment.
  *
  * <p>It is never registered with libGDX as the application listener, so {@code create()} and
  * {@code render()} are never called and are made to say so if they are.
@@ -81,6 +86,9 @@ public final class HeadlessGame extends Game {
      */
     private static void drainWhatTheLastSceneWasPosted() {
         ((HeadlessApplication) Gdx.app).executeRunnables();
+        PointerEvent.processPointerEvents();
+        KeyEvent.processKeyEvents();
+        ScrollEvent.processScrollEvents();
     }
 
     /**

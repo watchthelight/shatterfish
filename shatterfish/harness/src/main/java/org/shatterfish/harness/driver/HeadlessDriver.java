@@ -12,11 +12,13 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Journal;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
+import com.shatteredpixel.shatteredpixeldungeon.levels.features.Chasm;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.InterlevelScene;
 import com.shatteredpixel.shatteredpixeldungeon.ui.ActionIndicator;
 import com.shatteredpixel.shatteredpixeldungeon.ui.GameLog;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
 import com.shatteredpixel.shatteredpixeldungeon.utils.DungeonSeed;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
 import com.watabou.noosa.Scene;
 import org.shatterfish.harness.boot.HeadlessBoot;
 import org.shatterfish.harness.boot.HeadlessGame;
@@ -41,7 +43,7 @@ import java.nio.file.Files;
  * <p><b>The Input wait.</b> Between two frames the actor thread is parked and everything it wrote
  * is published, so the hero's flags can be read plainly: an Input wait is the hero {@code ready}
  * with no action pending and not resting ({@code core/.../actors/hero/Hero.java:935-946},
- * {@code :870-876}). One more thing must hold, which the flags do not show: nothing may be waiting
+ * {@code :865-870}). One more thing must hold, which the flags do not show: nothing may be waiting
  * in the render thread's queue. The hero's own act can post the window that makes the wait a
  * Prompt, as the chasm jump does ({@code .../levels/features/Chasm.java:57-96}), and the game
  * shows that window at the start of the next frame, before anything could observe or click. So a
@@ -51,7 +53,12 @@ import java.nio.file.Files;
  *
  * <p><b>Stopping.</b> A dead hero stops the loop, because the scene stops waking the actor thread
  * then ({@code .../scenes/GameScene.java:865}); the game-over banner it posted is run when the
- * scene is destroyed, not in the next Run. A requested scene change stops it, because the
+ * scene is destroyed, not in the next Run. Dead means what the game means by it: a hero at zero
+ * health who holds an unblessed ankh is offered resurrection instead, through a window his own
+ * death posts ({@code .../actors/hero/Hero.java:2141-2190}), and the game is still on while that
+ * window exists ({@code .../Dungeon.java:707}); that window is an Input wait here, the one Prompt
+ * the hero answers without being ready, and taking it is a scene change
+ * ({@code .../windows/WndResurrect.java:125-141}). A requested scene change stops it, because the
  * actor loop picks nobody while one is pending ({@code .../actors/Actor.java:252}) and this driver
  * does not serve it: the stairs, a fall and the end of a game are scene changes, and serving them
  * is the scene-lifetime work of the Run stories. A Run that reaches none of these within its
@@ -73,9 +80,9 @@ public final class HeadlessDriver implements AutoCloseable {
 
     /** Why {@link #stepToInputWait()} returned. */
     public enum Reason {
-        /** The hero waits for input, under {@link Halt#window()} when that is not null. */
+        /** The hero waits for input, under {@link Halt#window()} when that is not null; a resurrection prompt counts. */
         INPUT_WAIT,
-        /** The hero is dead; the scene will not wake the actor thread again. */
+        /** The hero is dead with no resurrection offered; the scene will not wake the actor thread again. */
         HERO_DEAD,
         /** Game code asked for {@link Halt#requestedScene()}; the actor loop picks nobody until it is served. */
         SCENE_SWITCH
@@ -88,7 +95,12 @@ public final class HeadlessDriver implements AutoCloseable {
     public record Halt(Reason reason, long framesStepped, Window window, Class<? extends Scene> requestedScene) {
     }
 
-    /** A Run that reached no wait within its frame budget; the message says what it was waiting on. */
+    /**
+     * A Run that reached no wait within its frame budget; the message says what it was waiting on.
+     * The message is for a person: it names cells and health the player may not be able to see,
+     * and must never reach an Observation, a run log the brain reads, or training labels except
+     * under the oracle flag.
+     */
     public static final class Stalled extends IllegalStateException {
         private static final long serialVersionUID = 1L;
 
@@ -119,6 +131,13 @@ public final class HeadlessDriver implements AutoCloseable {
      */
     public static HeadlessDriver start(long seed, HeroClass heroClass) {
         HeadlessBoot boot = HeadlessBoot.ensure();
+        // A scene left by a Run that was never closed, whose actor thread ended on its own, goes
+        // now and in its own profile: destroying a scene writes the badges and the journal
+        // (GameScene.java:780-781), and the next profile is the next Run's. With a live thread
+        // destroy() refuses, which is the refusal newGame would give.
+        if (boot.game().currentScene() != null) {
+            boot.game().destroy();
+        }
         newGame(seed, heroClass);
         HeadlessScene scene = new HeadlessScene();
         boot.game().switchTo(scene);
@@ -137,6 +156,7 @@ public final class HeadlessDriver implements AutoCloseable {
         if (heroClass == null) {
             throw new IllegalArgumentException("a Run needs a hero class");
         }
+        String seedCode = DungeonSeed.convertToCode(seed);
         HeadlessBoot boot = HeadlessBoot.ensure();
         if (SceneStepper.theSceneHasALiveActorThread()) {
             throw new IllegalStateException("a Run is in progress in this process; close it before starting another");
@@ -146,6 +166,13 @@ public final class HeadlessDriver implements AutoCloseable {
                     + " the render thread, which would run in this Run's scene; HeadlessGame drains the queue when"
                     + " a scene is destroyed, so the last scene was not destroyed");
         }
+        if (WndResurrect.instance != null) {
+            throw new IllegalStateException("the last Run's resurrection prompt was never destroyed, and the game"
+                    + " would take this Run for one still resurrecting (Dungeon.java:707)");
+        }
+        // The game clears this only when the hero falls (Chasm.java:101); a Run closed between a
+        // confirmed jump and the fall would otherwise jump unasked in this one.
+        Chasm.jumpConfirmed = false;
         try {
             boot.profile(Files.createTempDirectory("shatterfish-run"));
         } catch (IOException e) {
@@ -159,7 +186,7 @@ public final class HeadlessDriver implements AutoCloseable {
 
         // HeroSelectScene.java:157-162, the start button, with the seed typed into the seed window
         // and the class and the slot chosen on the screens before it.
-        SPDSettings.customSeed(DungeonSeed.convertToCode(seed));
+        SPDSettings.customSeed(seedCode);
         GamesInProgress.selectedClass = heroClass;
         GamesInProgress.curSlot = GamesInProgress.firstEmpty();
         if (GamesInProgress.curSlot < 1) {
@@ -206,14 +233,21 @@ public final class HeadlessDriver implements AutoCloseable {
             step();
             long stepped = frames - before;
             Hero hero = Dungeon.hero;
-            if (hero == null || !hero.isAlive()) {
-                return new Halt(Reason.HERO_DEAD, stepped, scene.openWindow(), null);
-            }
+            // The change first: a taken resurrection clears the pending mark and asks for the
+            // loading scene in one click, with the hero still at zero health.
             if (game.sceneSwitchRequested()) {
                 return new Halt(Reason.SCENE_SWITCH, stepped, scene.openWindow(), game.requestedSceneClass());
             }
-            if (hero.ready && hero.curAction == null && !hero.resting && boot.pendingRunnables() == 0) {
-                return new Halt(Reason.INPUT_WAIT, stepped, scene.openWindow(), null);
+            if (hero == null || (!hero.isAlive() && WndResurrect.instance == null)) {
+                return new Halt(Reason.HERO_DEAD, stepped, scene.openWindow(), null);
+            }
+            if (boot.pendingRunnables() == 0) {
+                Window window = scene.openWindow();
+                boolean heroWaits = hero.ready && hero.curAction == null && !hero.resting;
+                boolean resurrectionOffered = WndResurrect.instance != null && window instanceof WndResurrect;
+                if (heroWaits || resurrectionOffered) {
+                    return new Halt(Reason.INPUT_WAIT, stepped, window, null);
+                }
             }
             if (stepped >= frameBudget) {
                 throw new Stalled(diagnose(frameBudget));

@@ -48,7 +48,7 @@ import java.util.Set;
  * gravity-chaos curse is active, on each moving sprite in {@code Actor.chars()} order until none
  * moves ({@code core/.../actors/buffs/GravityChaosTracker.java:76-86}). {@code grep '\.wait('}
  * under {@code core} and {@code SPD-classes} finds those three and one more,
- * {@code GameScene.waitForActorThread} ({@code GameScene.java:796-806}), which is the render
+ * {@code GameScene.waitForActorThread} ({@code GameScene.java:793-806}), which is the render
  * thread waiting on the actor thread from {@code destroy()} and {@code onPause()}; it must never
  * be reached on this thread inside a frame, because {@code Object.wait} releases a reentrant
  * hold in full. In the real game the two threads overlap, and any random draw made on the render
@@ -222,10 +222,20 @@ public final class SceneStepper {
             return;
         }
         GameScene.endActorThread();
-        try {
-            thread.join(5_000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+        // One interrupt is not always enough: a thread parked on a sprite catches it and parks
+        // again on its own monitor before it re-reads keepActorThreadAlive (Actor.java:283-285,
+        // :304-324), so a parked thread is interrupted again until it has left.
+        long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+        while (thread.isAlive() && System.nanoTime() - deadline < 0) {
+            try {
+                thread.join(20);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+            if (thread.isAlive() && thread.getState() == Thread.State.WAITING) {
+                thread.interrupt();
+            }
         }
         if (thread.isAlive()) {
             throw new IllegalStateException("the actor thread did not finish within 5s: " + describe(thread));
@@ -258,7 +268,12 @@ public final class SceneStepper {
         return lock != null && matches(lock, thread);
     }
 
-    /** The actor thread's state, what it waits on, whose turn it is, the hero's flags, and its stack. */
+    /**
+     * The actor thread's state, what it waits on, whose turn it is, the hero's flags, and its
+     * stack. For a person reading a failure: it names things the player may not be able to see,
+     * and must never reach an Observation, a run log the brain reads, or training labels except
+     * under the oracle flag.
+     */
     public String describeActorThread() {
         Thread thread = actorThread;
         return thread == null ? "no actor thread yet" : describe(thread);
@@ -266,8 +281,12 @@ public final class SceneStepper {
 
     /**
      * An actor by class and id, with its class, cell and health when it is the hero or a character.
-     * Every actor the loop has processed was added with {@code Actor.add}, which assigned its id,
-     * so naming one assigns nothing.
+     * Every actor the loop has processed was added with {@code Actor.add}, which assigned its id
+     * ({@code Actor.java:342}), so naming one assigns nothing; an actor that was never added would
+     * be given an id by {@code id()} ({@code :135-141}), so callers pass only actors the game holds.
+     * The text is for a person reading a failure: a mob's cell and health behind the fog are
+     * exactly what parity forbids, so it must never reach an Observation, a run log the brain
+     * reads, or training labels except under the oracle flag.
      */
     public static String name(Actor actor) {
         if (actor == null) {
@@ -293,7 +312,10 @@ public final class SceneStepper {
         // Game.update() delivers the queued input here, after the runnables and before the scene
         // (Game.java:277; InputHandler.processAllEvents, SPD-classes/.../input/InputHandler.java:65-69).
         // A headless process has no device to queue events, but the harness queues pointer events
-        // to press a button in a window, and they are delivered where the game delivers them.
+        // to press a button in a window, and they are delivered where the game delivers them. A key
+        // bound to a click would reach Game.inputHandler (KeyEvent.java:65-77), which the headless
+        // game never creates; the bindings are empty headlessly (KeyBindings.java:34) and nothing
+        // queues a key, so the key queue is always empty here.
         PointerEvent.processPointerEvents();
         KeyEvent.processKeyEvents();
         ScrollEvent.processScrollEvents();

@@ -225,7 +225,7 @@ things the story found are added to the decision, and one reflective read.
 **An Input wait is confirmed only with the render thread's queue empty.** The hero's own act can
 post the window that makes the wait a Prompt: walking onto a chasm reaches `Chasm.heroJump`,
 which posts a `WndOptions` through `Game.runOnRenderThread`, interrupts the move, and leaves the
-hero `ready` in the same act (`…/actors/hero/Hero.java:1836-1845`, `:989-992`;
+hero `ready` in the same act (`…/actors/hero/Hero.java:1838-1850`, `:989-992`;
 `…/levels/features/Chasm.java:57-96`). Between that act and the next frame the flags say "wait,
 no window" and the queue says otherwise; a click accepted then is one the game would refuse a
 frame later. The driver therefore requires, besides the flags, that nothing is queued for the
@@ -249,9 +249,21 @@ picks nobody while a scene change is pending (`…/actors/Actor.java:250-252`), 
 waking the thread when the hero is dead (`…/scenes/GameScene.java:865`), so a driver that kept
 stepping would spend its budget on nothing. `stepToInputWait` returns the reason instead, and a
 Run that reaches none of the three within its frame budget fails with `Stalled`, whose message
-names the actor the game is waiting on, read from `Actor.current` (`Actor.java:293-321`). The
-scene-lifetime paragraph above is unchanged: serving the change is the work of the Run stories,
-and it builds on this stop.
+names the actor the game is waiting on, read from `Actor.current` (`Actor.java:293-321`). Dead is
+what the game means by it: with an unblessed ankh the hero's own death posts the resurrection
+window and returns, and the game is on while that window exists (`…/actors/hero/Hero.java:2141-2190`,
+`…/Dungeon.java:707`); the driver treats that window as an Input wait, the one Prompt a hero
+answers without being ready, and taking it is a scene change (`…/windows/WndResurrect.java:125-141`).
+The scene-lifetime paragraph above is unchanged: serving the change is the work of the Run
+stories, and it builds on this stop.
+
+**A Run's leftovers never reach the next Run.** The render thread's queue and the input event
+queues are process statics (`SPD-classes/.../input/PointerEvent.java:131-132`); what a Run's last
+act posted, or a click the harness queued and no frame delivered, would run at the first frame of
+the next Run's scene. `HeadlessGame` delivers both against a scene before destroying or replacing
+it, and `newGame` refuses to start with runnables queued or a resurrection prompt alive. The
+diagnostics the driver and the stepper produce name cells and health the player may not see; they
+are for a person, and are marked in code as never to reach an Observation or a log the brain reads.
 
 **A second private static is read by reflection, `Actor.current`,** from `SceneStepper` and
 nowhere else, never written, and only to say what a stalled Run was waiting on. The rule, the

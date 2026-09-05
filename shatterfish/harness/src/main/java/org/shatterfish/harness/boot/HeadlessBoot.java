@@ -165,7 +165,7 @@ public final class HeadlessBoot {
      * of the process, which slots it has seen occupied ({@code core/.../GamesInProgress.java:40-41},
      * {@code :98-136}), and every level change saves the game into the current slot
      * ({@code Dungeon.java:511-512}, {@code :707-714}); left alone, the cache would describe the
-     * old directory and the sixth Run in a process would find no free slot.
+     * old directory and the seventh Run in a process would find no free slot.
      */
     public void profile(Path directory) {
         FileUtils.setDefaultFileProperties(Files.FileType.Absolute, directory.toAbsolutePath() + "/");

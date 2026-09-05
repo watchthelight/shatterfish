@@ -23,21 +23,22 @@ line number is at the pinned tag `v3.3.8` (commit `7b8b845a`), not in the hooked
 | Criterion | Outcome |
 |---|---|
 | Given ADR-0015's decision that the driver thread owns the loop, when the driver drives the scene with a fixed fast-forward step and drains the posted-runnable queue itself | **Met.** `HeadlessDriver` (`org.shatterfish.harness.driver`, where the architecture spine puts it) owns a Run: it steps `SceneStepper` on the calling thread, one 0.2 s frame at a time, and every frame drains the backend's runnable queue and delivers queued input before the scene updates, as `Game.update()` does. No other thread advances the game: the backend's own loop thread ends during the boot, which the boot now waits for and `HeadlessBootTest` asserts |
-| `HeadlessBootTest` starts a seeded Warrior game and reaches the hero's first Input wait | **Met.** `HeadlessDriver.start(seed, HeroClass)` takes the player's path (seed window, start button, the loading scene's `descend()`), lifted from the test fixture `FreshRun.start` into `newGame`; `stepToInputWait()` returns `INPUT_WAIT` after one frame with the hero `ready`, no action, no window, `Dungeon.seed` equal to the seed typed |
+| `HeadlessBootTest` starts a seeded Warrior game and reaches the hero's first Input wait | **Met.** `HeadlessDriver.start(seed, HeroClass)` takes the player's path (seed window, start button, the loading scene's `descend()`), lifted from the test fixture `FreshRun.start` into `newGame`; `stepToInputWait()` returns `INPUT_WAIT` after one frame with the hero `ready`, no action, no window, and `Dungeon.seed` equal to the seed typed |
 | A Prompt window opened by game code appears headlessly and can be closed through its own button | **Met.** The test makes a cell beside the hero a chasm and clicks it; `Hero.getCloser` reaches `Chasm.heroJump`, which posts a `WndOptions` to the render thread (`…/levels/features/Chasm.java:57-96`); the driver's next frame shows it and confirms the wait under it. The test presses the window's "no" button the way a mouse does, two pointer events at the button's screen centre, delivered by the game's own `PointerEvent` dispatch inside the next frame; the window closes and the hero has not moved. A second test presses "yes" and the driver reports the game's request for `InterlevelScene` in `FALL` mode |
 | No library-owned loop thread drives the scene, asserted by the test that the driver's own step count matches the number of scene updates | **Met.** After six waits, `driver.frames()` equals `HeadlessScene.updates()` and `SceneStepper.frames()`; the backend's loop thread is dead and its frame id is still -1 |
-| A Run that never reaches a wait fails with a diagnostic naming the last actor processed, rather than hanging | **Met.** A test actor whose `act()` returns false without `next()` is added; the driver's `stepToInputWait(300)` throws `HeadlessDriver.Stalled` after exactly 300 frames: `The last actor processed was Stuck#15: its act() returned false and nothing has called next() since (Actor.java:293-321 at the pinned tag), so the actor thread is parked between turns waiting for a callback that has not come`, followed by the hero's flags and the actor thread's stack. The test runs under a separate-thread timeout so that a hang is a failure |
+| A Run that never reaches a wait fails with a diagnostic naming the last actor processed, rather than hanging | **Met.** A test actor whose `act()` returns false without `next()` is added; the driver's `stepToInputWait(300)` throws `HeadlessDriver.Stalled` after exactly 300 frames: `The last actor processed was Stuck#15: its act() returned false and nothing has called next() since (Actor.java:293-321 at the pinned tag), so the actor thread is parked between turns waiting for a callback that has not come`, followed by the hero's flags and the actor thread's stack. The test runs under a separate-thread timeout, and the mutation that ignores the budget fails by that timeout rather than hanging the build |
 
-Also delivered: the driver stops on the hero's death (`HERO_DEAD`), and a `Halt` says why the loop stopped and how many frames it took.
+Also delivered: the driver stops on the hero's death (`HERO_DEAD`); a `Halt` says why the loop stopped and how many frames it took; a Run's leftovers in the render thread's queue never reach the next Run.
 
 ## What was built
 
 - `shatterfish/harness/src/main/java/org/shatterfish/harness/driver/HeadlessDriver.java` (moved from `org.shatterfish.harness`): `boot()`, `newGame(seed, heroClass)`, `start(seed, heroClass)`, `stepToInputWait()` with a frame budget, `step()`, `frames()`, `close()`, the `Halt` record with its `Reason`, the `Stalled` exception, and a `main` that boots, starts a Run and reports its first wait.
 - `…/boot/HeadlessBoot.java`: the backend is subclassed (`Backend`) to expose how many runnables are queued and whether its loop thread is alive; the boot joins that thread and fails if it does not end; `profile(Path)` invalidates the game's save-slot cache.
+- `…/boot/HeadlessGame.java`: `destroy()` and `switchTo()` drain the render thread's queue before the scene goes.
 - `…/scene/HeadlessScene.java`: `openWindow()`, the window in front, read from the scene's own member list.
 - `…/scene/SceneStepper.java`: the frame delivers queued pointer, key and scroll events where `Game.update()` does; `currentActor()` reads `Actor.current` by reflection (the second and last declared reach); `parkedOnItsOwnMonitor()`, `describeActorThread()` and `name(Actor)` for diagnostics.
 - Tests: `driver/HeadlessBootTest` (seven tests, replacing `HeadlessDriverTest`); `scene/FreshRun` now delegates its start to the driver and keeps only the two reflective resets (`forget()`); `HeadlessSceneTest` starts its Runs through the driver; `HarnessReflectionTest` declares the second field; `HarnessPackageAnchorTest` imports the moved class.
-- Docs: ADR-0015 amendment for story 1.4; six rows in `docs/rules/game-loop.md`; `docs/UPSTREAM.md`'s reflection paragraph names both fields and the tests' new reach (`Group.members`); `docs/architecture.md`'s harness row.
+- Docs: ADR-0015 amendment for story 1.4; seven rows in `docs/rules/game-loop.md`; `docs/UPSTREAM.md`'s reflection paragraph names both fields and the tests' new reach (`Group.members`); `docs/architecture.md`'s harness row.
 
 ## What the story found
 
@@ -50,6 +51,15 @@ click accepted in that gap is one the game would refuse a frame later
 queued, and steps one more frame otherwise. Story 1.3's parity script, which clicks between frames
 on the flags alone, is exposed to this in exactly one situation (a prompt pending), and its
 committed seed and script never reach one; story 1.5's confirmation inherits the rule.
+
+**The render thread's queue belongs to the process, and a Run's leftovers ran in the next Run.**
+The mutation battery found it: with the empty-queue rule removed, the chasm prompt one test left
+queued appeared in the next test's scene, blocking its clicks. The unmutated driver had the same
+leak on every death, because the dying hero posts the game-over banner
+(`…/actors/hero/Hero.java:2256`) and the driver stops before a frame runs it; the statics the
+runnables call only check that some scene exists (`…/scenes/GameScene.java:1352-1353`,
+`:1482-1483`). `HeadlessGame` now drains the queue before it destroys or replaces a scene, against
+the scene the runnables were posted for, and `newGame` refuses to start with anything queued.
 
 **Every start occupies a save slot for the life of the process, and story 1.3 ran its later Runs
 in slot -1.** `Dungeon.switchLevel` saves the game (`…/Dungeon.java:511-512`), which marks the
@@ -76,13 +86,14 @@ reason (paralysis, resting) leaves `current` null, and the diagnostic then says 
 actor due next.
 
 **Death posts the game-over banner and requests no scene change.** `Hero.die` posts
-`GameScene.gameOver()` (`…/actors/hero/Hero.java:2256`), deletes the save and submits the ranking;
-the banner's buttons are what switch scenes (`…/scenes/GameScene.java:1482-1494`). The actor loop
-stops picking actors (`Actor.java:294-297`) and the scene stops notifying, so the driver stops on
-`hero.isAlive()`.
+`GameScene.gameOver()`, deletes the save and submits the ranking; the banner's buttons are what
+switch scenes (`…/scenes/GameScene.java:1482-1494`). The actor loop stops picking actors
+(`Actor.java:294-297`) and the scene stops notifying, so the driver stops on `hero.isAlive()`.
 
-**The Warrior's seal shields.** Poison sized to the hero's health did not kill: `WarriorShield`
-absorbs damage first. A test that must kill the hero needs more than its health.
+**A buff at the hero's time never acts while the hero waits.** Poison attached at a wait acts only
+after the hero spends a turn: at equal time the hero's priority wins every wake-up, and a waiting
+hero returns false without spending. The death test hands the hero a move first. And the Warrior's
+seal shields, so poison sized to the hero's health does not kill; the test uses far more.
 
 ## Decisions taken inside the story
 
@@ -119,10 +130,18 @@ story decides whether keys are an input at all.
 differently in each, and the Run stories need to tell them apart. The scene change is reported and
 refused, not served; serving it is story 1.14's road to a Run that crosses floors.
 
+**Where leftovers are drained.** Alternatives: (a) discard the queue when a Run closes; (b) run it
+after the scene is destroyed, where the statics no-op; (c) run it before the scene is destroyed or
+replaced, in `HeadlessGame`, which every teardown path goes through, and refuse to start a Run
+with anything queued. Chosen (c): it is what the render thread would have done at its next frame,
+and it covers tests that end a Run without the driver. Pre-mortem: a leftover runnable that
+switches scenes or writes files; none does at the tag, and the guard in `newGame` makes any
+survivor a named failure rather than a leak.
+
 ## Evidence
 
 `./gradlew build -Pshatterfish.mobile=off`: green, 57 tests across 12 suites. `mkdocs build --strict`:
-clean. The harness suite run five times in a row: green each time.
+clean. The harness suite run eight times in a row across the two commits: green each time.
 
 The stall diagnostic as printed by `HeadlessBootTest`:
 
@@ -137,7 +156,26 @@ Actor.current=Stuck#15, Actor.now=0.0, hero.ready=false, ... actor thread stack:
     at com.shatteredpixel.shatteredpixeldungeon.actors.Actor.process(Actor.java:318)
 ```
 
-**Mutation battery.** Pending; see the section below once run.
+**Mutation battery.** Run on the committed tree, each mutation applied, its tests run with results
+cleared first and Gradle's exit code checked, then restored with `git checkout` and the tree
+verified clean.
+
+| Mutation | Result |
+|---|---|
+| M1 the driver ignores pending runnables when confirming a wait | `HeadlessBootTest` fails twice: the chasm prompt is not there at the wait. On the first battery it also failed the death test, which is how the leftover-queue leak was found |
+| M2 the frame budget is off by one | fails: 301 frames spent, not 300 |
+| M3 the frame budget is ignored | fails after 5 minutes by the separate-thread timeout: `a_run_that_never_reaches_a_wait_fails_naming_the_last_actor() timed out`. The hang is a failure, not a hang |
+| M4 the diagnostic does not name the actor | fails on the message |
+| M5 the driver counts two frames per step | fails four times, including the step-count-equals-updates assertion |
+| M6 input events are not delivered inside the frame | fails twice: the window does not close, and "yes" is never pressed |
+| M7 a requested scene change is not noticed | fails: `INPUT_WAIT` where `SCENE_SWITCH` was expected |
+| M8 the hero dying is not noticed | fails: the driver spends its whole budget on a dead hero and reports "No actor is mid-turn" |
+| M9 the current actor is not read | fails on the message: "No actor is mid-turn" for a stuck actor |
+| M10 the stepper reaches a field the ledger does not name | `HarnessReflectionTest` fails: the reach and the declared set differ |
+| M11 `openWindow()` never finds the window | fails twice |
+| M12 the slot cache is not invalidated when the profile changes | `HeadlessSceneTest` fails three times: "no free save slot", the seventh Run of the process |
+| M13 the backend loop runs and the boot does not wait for it to end | fails twice: the loop thread is alive |
+| M14 the render queue is not drained when a scene is destroyed or replaced | fails three times: four runnables left by the death, and the next two Runs refuse to start |
 
 ## The fairness review
 

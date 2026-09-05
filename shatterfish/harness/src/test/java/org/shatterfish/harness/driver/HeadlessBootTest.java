@@ -7,19 +7,25 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Poison;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
+import com.shatteredpixel.shatteredpixeldungeon.items.Ankh;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Terrain;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.InterlevelScene;
+import com.shatteredpixel.shatteredpixeldungeon.tiles.DungeonTilemap;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RedButton;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
+import com.shatteredpixel.shatteredpixeldungeon.utils.DungeonSeed;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndOptions;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
 import com.watabou.input.PointerEvent;
 import com.watabou.noosa.Gizmo;
+import com.watabou.noosa.Camera;
 import com.watabou.noosa.Group;
 import com.watabou.noosa.ui.Component;
 import com.watabou.utils.PathFinder;
 import com.watabou.utils.Point;
+import com.watabou.utils.PointF;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -113,7 +119,7 @@ class HeadlessBootTest {
 
         // Walking onto a chasm asks first: Hero.getCloser reaches Chasm.heroJump, which posts the
         // window to the render thread and interrupts the move, and the hero is ready again in the
-        // same act (Hero.java:1836-1845, :989-992; Chasm.java:57-96).
+        // same act (Hero.java:1838-1850, :989-992; Chasm.java:57-96).
         int chasm = placeAChasmBeside(hero);
         GameScene.handleCell(chasm);
         assertNotNull(hero.curAction, "the click became a move");
@@ -240,6 +246,91 @@ class HeadlessBootTest {
         assertFalse(hero.ready, "the hero never got its turn back: " + message);
     }
 
+    @Test
+    @DisplayName("an ankh makes death a prompt, not the end: the resurrection window is an Input wait, and taking it is a scene change")
+    void an_ankh_makes_death_a_prompt() throws Exception {
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver.stepToInputWait();
+        Hero hero = Dungeon.hero;
+        assertTrue(new Ankh().collect(hero.belongings.backpack));
+        Buff.affect(hero, Poison.class).set(100f * hero.HT);
+        GameScene.handleCell(freeCellBeside(hero.pos));
+
+        Halt halt = driver.stepToInputWait();
+
+        assertEquals(Reason.INPUT_WAIT, halt.reason(), "Hero.die posts the prompt and returns without dying"
+                + " (Hero.java:2141-2190); the game is on while the prompt exists (Dungeon.java:707)");
+        assertInstanceOf(WndResurrect.class, halt.window());
+        assertFalse(hero.isAlive());
+        assertNotNull(WndResurrect.instance);
+        assertEquals(2, halt.framesStepped(), "posted by the death, shown by the next frame");
+
+        // The one RedButton is confirm (WndResurrect.java:98-118); a Warrior has a weapon and armor
+        // to keep, so it resurrects at once (:125-141).
+        List<RedButton> buttons = buttons(halt.window());
+        assertEquals(1, buttons.size());
+        click(buttons.get(0));
+        Halt next = driver.stepToInputWait();
+
+        assertEquals(Reason.SCENE_SWITCH, next.reason());
+        assertEquals(InterlevelScene.class, next.requestedScene());
+        assertEquals(InterlevelScene.Mode.RESURRECT, InterlevelScene.mode);
+        assertNull(WndResurrect.instance, "the window cleared it as it went (WndResurrect.java:175-178)");
+    }
+
+    @Test
+    @DisplayName("input queued for one Run never reaches the next Run's scene")
+    void queued_input_does_not_cross_runs() {
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver.stepToInputWait();
+        int from = Dungeon.hero.pos;
+        // A click on a map cell, queued and delivered by no frame: the event queues are process
+        // statics (PointerEvent.java:131-132) that only delivery empties.
+        clickCell(freeCellBeside(from));
+        driver.close();
+
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        Halt halt = driver.stepToInputWait();
+
+        assertEquals(Reason.INPUT_WAIT, halt.reason());
+        assertEquals(1, halt.framesStepped());
+        assertEquals(0f, Actor.now(), "no turn was spent: the click went to the Run that queued it");
+        assertEquals(from, Dungeon.hero.pos, "the same seed, the same entrance, and nothing moved the hero");
+        assertNull(Dungeon.hero.curAction);
+    }
+
+    @Test
+    @DisplayName("a Run stuck on a sprite that never stops moving names the actor, and still closes")
+    void a_run_stuck_on_a_sprite_names_the_actor_and_still_closes() {
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver.stepToInputWait();
+        Hero hero = Dungeon.hero;
+        // A movement that never ends: the actor thread will park on the sprite before the hero's
+        // next turn (Actor.java:274-282) and nothing will notify it.
+        synchronized (hero.sprite) {
+            hero.sprite.isMoving = true;
+        }
+        GameScene.handleCell(freeCellBeside(hero.pos));
+
+        HeadlessDriver.Stalled stalled = assertThrows(HeadlessDriver.Stalled.class, () -> driver.stepToInputWait(50));
+
+        assertTrue(stalled.getMessage().contains("The last actor processed was Hero#"), stalled.getMessage());
+        assertTrue(stalled.getMessage().contains("waiting for a sprite to stop moving"), stalled.getMessage());
+        driver.close();
+        assertFalse(org.shatterfish.harness.scene.SceneStepper.theSceneHasALiveActorThread(),
+                "the thread caught the first interrupt on the sprite and parked again on its own monitor"
+                        + " (Actor.java:283-285, :304-324); ending it takes a second");
+    }
+
+    @Test
+    @DisplayName("a seed outside the range a player can type is refused before anything is touched")
+    void a_seed_out_of_range_is_refused() {
+        assertThrows(IllegalArgumentException.class,
+                () -> HeadlessDriver.start(DungeonSeed.TOTAL_SEEDS, HeroClass.WARRIOR),
+                "DungeonSeed.convertToCode refuses it (DungeonSeed.java:77-80)");
+        assertNull(HeadlessBoot.ensure().game().currentScene());
+    }
+
     /**
      * An actor whose turn never ends: {@code act()} returns false and nothing calls {@code next()},
      * which is the shape of a turn waiting for an animation callback that never fires, the failure
@@ -302,6 +393,14 @@ class HeadlessBootTest {
             }
         }
         return buttons;
+    }
+
+    /** A left click on a map cell, at the screen point of the cell's centre. */
+    private static void clickCell(int cell) {
+        PointF world = DungeonTilemap.tileCenterToWorld(cell);
+        Point at = Camera.main.cameraToScreen(world.x, world.y);
+        PointerEvent.addPointerEvent(new PointerEvent(at.x, at.y, 0, PointerEvent.Type.DOWN, PointerEvent.LEFT));
+        PointerEvent.addPointerEvent(new PointerEvent(at.x, at.y, 0, PointerEvent.Type.UP, PointerEvent.LEFT));
     }
 
     /**
