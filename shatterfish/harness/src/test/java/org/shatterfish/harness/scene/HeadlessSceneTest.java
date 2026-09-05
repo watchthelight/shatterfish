@@ -6,6 +6,7 @@ import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.SPDAction;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
+import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Rat;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.CellSelector;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.shatterfish.harness.boot.HeadlessBoot;
+import org.shatterfish.harness.driver.HeadlessDriver;
 
 import java.lang.reflect.Field;
 
@@ -37,16 +39,15 @@ class HeadlessSceneTest {
     private static final int FRAME_LIMIT = 2_000;
 
     private HeadlessBoot boot;
+    private HeadlessDriver driver;
     private HeadlessScene scene;
 
     @AfterEach
     void endTheRun() {
-        if (scene != null) {
-            scene.stepper().endActorThread();
+        if (driver != null) {
+            driver.close();
+            driver = null;
             scene = null;
-        }
-        if (boot != null) {
-            boot.game().destroy();
         }
     }
 
@@ -151,18 +152,14 @@ class HeadlessSceneTest {
 
     private void startARun() throws Exception {
         boot = HeadlessBoot.ensure();
-        FreshRun.start(boot, SEED, () -> {
-        });
-        scene = new HeadlessScene();
-        boot.game().switchTo(scene);
+        FreshRun.forget();
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        scene = driver.scene();
     }
 
     private void stepToTheFirstInputWait() {
-        while (!atInputWait(Dungeon.hero)) {
-            scene.step();
-            assertTrue(scene.stepper().frames() < FRAME_LIMIT,
-                    "the hero did not reach an Input wait within " + FRAME_LIMIT + " frames");
-        }
+        HeadlessDriver.Halt halt = driver.stepToInputWait(FRAME_LIMIT);
+        assertEquals(HeadlessDriver.Reason.INPUT_WAIT, halt.reason(), "the Run stopped for another reason: " + halt);
     }
 
     private static boolean atInputWait(Hero hero) {

@@ -214,3 +214,45 @@ time, so it is a fixture concern, not a reproducibility one. And generating a fl
 one seed does not give the same floor, because the entrance room places the guidebook from a
 generator pushed without a seed (`…/levels/rooms/standard/entrance/EntranceRoom.java:103-118`);
 that is `docs/rules/rng.md`'s known row, and the determinism story's to settle.
+
+## Amendment: story 1.4 (2026-09-05)
+
+The loop decision is implemented as decided: `HeadlessDriver` (`org.shatterfish.harness.driver`)
+starts a seeded game the way a player does, from the seed window through the loading scene's
+`descend()`, and steps the scene through `SceneStepper` until the hero waits for input. Three
+things the story found are added to the decision, and one reflective read.
+
+**An Input wait is confirmed only with the render thread's queue empty.** The hero's own act can
+post the window that makes the wait a Prompt: walking onto a chasm reaches `Chasm.heroJump`,
+which posts a `WndOptions` through `Game.runOnRenderThread`, interrupts the move, and leaves the
+hero `ready` in the same act (`…/actors/hero/Hero.java:1836-1845`, `:989-992`;
+`…/levels/features/Chasm.java:57-96`). Between that act and the next frame the flags say "wait,
+no window" and the queue says otherwise; a click accepted then is one the game would refuse a
+frame later. The driver therefore requires, besides the flags, that nothing is queued for the
+render thread, and steps one more frame when something is; that frame shows the window, and the
+wait is confirmed under it. That is the order the Overlay's render thread gives for free, since
+it drains the queue at the start of every frame before anything observes. The confirmation stays
+when story 1.5 replaces the flags with the observe-site notification.
+
+**Input events are delivered inside the frame.** `Game.update()` delivers queued pointer, key and
+scroll events after the runnables and before `scene.update()`
+(`SPD-classes/.../noosa/Game.java:277`); the stepper's frame now does the same, so that a button
+in a window is pressed the way a mouse presses it, through `PointerEvent`, with the game's own
+dispatch deciding who gets the click (`.../input/PointerEvent.java:144-190`,
+`.../noosa/PointerArea.java:57-105`). That is the mechanism the `AnswerPrompt` Action of ADR-0014
+will use. Finding the button still needs the window's member list, which is protected in
+`Group`; the story's test reads it by reflection, and the Observer's prompt story decides between
+a row-4 accessor and a declared reflective read for the harness proper.
+
+**The driver stops at a requested scene change and at death, and serves neither.** The actor loop
+picks nobody while a scene change is pending (`…/actors/Actor.java:250-252`), and the scene stops
+waking the thread when the hero is dead (`…/scenes/GameScene.java:865`), so a driver that kept
+stepping would spend its budget on nothing. `stepToInputWait` returns the reason instead, and a
+Run that reaches none of the three within its frame budget fails with `Stalled`, whose message
+names the actor the game is waiting on, read from `Actor.current` (`Actor.java:293-321`). The
+scene-lifetime paragraph above is unchanged: serving the change is the work of the Run stories,
+and it builds on this stop.
+
+**A second private static is read by reflection, `Actor.current`,** from `SceneStepper` and
+nowhere else, never written, and only to say what a stalled Run was waiting on. The rule, the
+test and the ledger paragraph that hold `GameScene.actorThread` now name both.

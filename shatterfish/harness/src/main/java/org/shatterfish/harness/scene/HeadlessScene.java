@@ -2,6 +2,8 @@ package org.shatterfish.harness.scene;
 
 import com.badlogic.gdx.Gdx;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
+import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
+import com.watabou.noosa.Gizmo;
 
 /**
  * The game's own scene, constructed without a graphics context and stepped by the driver.
@@ -30,9 +32,10 @@ import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
  *
  * <p>What this class adds is the harness's grip: it refuses to construct unless the no-op binding
  * is installed, which is how "before any texture" is enforced; it counts its updates so a driver
- * can prove its own step count matches; and it carries a {@link SceneStepper}, which advances it
- * one fenced frame at a time. What it deliberately does not do is override anything the game
- * does inside a frame.
+ * can prove its own step count matches; it names the window in front, which the game's statics
+ * answer only yes or no to; and it carries a {@link SceneStepper}, which advances it one fenced
+ * frame at a time. What it deliberately does not do is override anything the game does inside a
+ * frame.
  */
 public final class HeadlessScene extends GameScene {
 
@@ -57,6 +60,24 @@ public final class HeadlessScene extends GameScene {
     public synchronized void update() {
         updates++;
         super.update();
+    }
+
+    /**
+     * The window in front of the play area, or null. Windows are scene members, added in front
+     * by {@code GameScene.show} ({@code GameScene.java:1352-1373}); {@code showingWindow()} says
+     * whether there is one and this says which, for a driver confirming an Input wait, where a
+     * window in front makes the wait one to answer a Prompt, and later for an Observer reading it.
+     * The member list is the scene's own, read here because this class is the scene.
+     */
+    public synchronized Window openWindow() {
+        Window front = null;
+        for (int i = 0; i < length; i++) {
+            Gizmo member = members.get(i);
+            if (member instanceof Window window) {
+                front = window;
+            }
+        }
+        return front;
     }
 
     /** Times {@link #update()} has run, for a driver to check against its own frame count. */

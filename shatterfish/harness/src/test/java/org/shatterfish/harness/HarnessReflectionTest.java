@@ -39,9 +39,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Observer that later stories build is the door through which the brain sees it. What this rule
  * protects is reviewability. The hook ledger sees every edit to upstream and nothing that reaches
  * a private member by reflection, so the places that do must be few and named, or a reader of the
- * ledger is told less than the truth. Story 1.3 set the precedent with one field; this is what
- * stops a second arriving unannounced. Tests are not scanned: they reach privates freely, and the
- * ledger's own tests do.
+ * ledger is told less than the truth. Story 1.3 set the precedent with one field and story 1.4
+ * added a second, both named in the ledger; this is what stops another arriving unannounced.
+ * Tests are not scanned: they reach privates freely, and the ledger's own tests do.
  *
  * <p>The rule is by dependency rather than by call, because a method reference or a reflective
  * call to {@code getDeclaredField} itself is not a call to it. Anything outside the stepper that
@@ -53,7 +53,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class HarnessReflectionTest {
 
     /** The fields {@code docs/UPSTREAM.md} names, as {@code Owner.field}. */
-    private static final Set<String> DECLARED = Set.of("GameScene.actorThread");
+    private static final Set<String> DECLARED = Set.of("GameScene.actorThread", "Actor.current");
 
     @ArchTest
     static final ArchRule reflection_into_upstream_is_confined_to_the_stepper = noClasses()

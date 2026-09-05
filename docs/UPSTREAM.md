@@ -82,20 +82,23 @@ for a check: a new file at the repository root, which cannot be an upstream file
 upstream had no such file; and anything git is configured not to report.
 
 A third thing is outside the ledger's reach because it is not an edit at all: Shatterfish code
-reaching a private upstream member by reflection. Harness main code does this for one field,
-from `shatterfish/harness/src/main/java/org/shatterfish/harness/scene/SceneStepper.java`. It
+reaching a private upstream member by reflection. Harness main code does this for two fields,
+both from `shatterfish/harness/src/main/java/org/shatterfish/harness/scene/SceneStepper.java`. It
 writes `GameScene.actorThread` once per scene, starting the actor thread itself before the first
 frame where the scene would start it in the middle of the first `update()`
 (`GameScene.java:866-882` at the tag); that reorders the hero's first turn ahead of the first
 frame and changes nothing the game computes, which is why it is recorded here rather than as a
-row. It fails immediately and by name if an upgrade moves the field, and row 4 (read-only
-accessors) is where it moves if that happens. `HarnessReflectionTest` confines reflection in
-harness main code to that one class, by dependency rather than by call so that a method reference
-or a reflective call to `getDeclaredField` itself does not slip past, and asserts that the fields
-it reaches are exactly the one named here, so a second cannot arrive unannounced. Tests are not confined: the ledger's own tests, the scene
-fixtures and the row 5 checks reach `Random.generators`, `Badges.global`, `Journal.loaded`,
-`GameScene.scene`, `GameScene.emoicons`, `GameScene.cellSelector`, `CellSelector.heldAction1` and
-`Actor.current` to set up or observe what they test. A fourth thing is outside the ledger's reach
+row. It reads `Actor.current` and never writes it, to name the actor a stalled Run is waiting on
+in the driver's diagnostic and in the stepper's own failure messages (story 1.4); no Run outcome
+depends on it. Each fails immediately and by name if an upgrade moves its field, and row 4
+(read-only accessors) is where they move if that happens. `HarnessReflectionTest` confines
+reflection in harness main code to that one class, by dependency rather than by call so that a
+method reference or a reflective call to `getDeclaredField` itself does not slip past, and asserts
+that the fields it reaches are exactly the two named here, so a third cannot arrive unannounced.
+Tests are not confined: the ledger's own tests, the scene fixtures, the row 5 checks and the
+driver's test reach `Random.generators`, `Badges.global`, `Journal.loaded`, `GameScene.scene`,
+`GameScene.emoicons`, `GameScene.cellSelector`, `CellSelector.heldAction1`, `Actor.current` and
+`Group.members` to set up or observe what they test. A fourth thing is outside the ledger's reach
 for the same reason and needs no reflection at all: a class of ours declared in one of upstream's
 packages, which would share that package's private members. `HarnessPackageAnchorTest` keeps every
 class file compiled into or shipped with `harness` under `org.shatterfish.harness`, walking the
