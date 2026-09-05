@@ -50,7 +50,8 @@ import java.nio.file.Files;
  * site; the confirmation stays.
  *
  * <p><b>Stopping.</b> A dead hero stops the loop, because the scene stops waking the actor thread
- * then ({@code .../scenes/GameScene.java:865}). A requested scene change stops it, because the
+ * then ({@code .../scenes/GameScene.java:865}); the game-over banner it posted is run when the
+ * scene is destroyed, not in the next Run. A requested scene change stops it, because the
  * actor loop picks nobody while one is pending ({@code .../actors/Actor.java:252}) and this driver
  * does not serve it: the stairs, a fall and the end of a game are scene changes, and serving them
  * is the scene-lifetime work of the Run stories. A Run that reaches none of these within its
@@ -139,6 +140,11 @@ public final class HeadlessDriver implements AutoCloseable {
         HeadlessBoot boot = HeadlessBoot.ensure();
         if (SceneStepper.theSceneHasALiveActorThread()) {
             throw new IllegalStateException("a Run is in progress in this process; close it before starting another");
+        }
+        if (boot.pendingRunnables() != 0) {
+            throw new IllegalStateException("the last Run left " + boot.pendingRunnables() + " runnable(s) queued for"
+                    + " the render thread, which would run in this Run's scene; HeadlessGame drains the queue when"
+                    + " a scene is destroyed, so the last scene was not destroyed");
         }
         try {
             boot.profile(Files.createTempDirectory("shatterfish-run"));

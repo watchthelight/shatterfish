@@ -1,5 +1,7 @@
 package org.shatterfish.harness.boot;
 
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.backends.headless.HeadlessApplication;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.watabou.noosa.Game;
 import com.watabou.noosa.Scene;
@@ -31,6 +33,13 @@ import org.shatterfish.harness.scene.SceneStepper;
  * an upstream edit.</li>
  * </ul>
  *
+ * <p>One more thing is load-bearing, found by story 1.4: the backend's runnable queue is
+ * process-wide and outlives a scene. What a Run's last act posted to the render thread (the
+ * chasm prompt, the game-over banner, {@code core/.../actors/hero/Hero.java:2256}) would run at
+ * the first frame of whatever scene exists next, which is the next Run's. So a scene is never
+ * destroyed or replaced here with anything still queued: the queue is drained first, against the
+ * scene that is about to go, which is where the game would have run it.
+ *
  * <p>It is never registered with libGDX as the application listener, so {@code create()} and
  * {@code render()} are never called and are made to say so if they are.
  */
@@ -51,6 +60,7 @@ public final class HeadlessGame extends Game {
             throw new IllegalArgumentException("switchTo needs a scene; use destroy() to end the last one");
         }
         refuseWhileTheActorThreadRuns("switchTo");
+        drainWhatTheLastSceneWasPosted();
         requestedScene = next;
         requestedReset = false;
         switchScene();
@@ -60,7 +70,17 @@ public final class HeadlessGame extends Game {
     @Override
     public void destroy() {
         refuseWhileTheActorThreadRuns("destroy");
+        drainWhatTheLastSceneWasPosted();
         super.destroy();
+    }
+
+    /**
+     * Runs what game code posted to the render thread and no frame has run yet, while the scene
+     * it was posted for still exists. {@code Game.runOnRenderThread} is {@code Gdx.app.postRunnable}
+     * ({@code Game.java:306-313}); the headless backend queues it and runs nothing on its own.
+     */
+    private static void drainWhatTheLastSceneWasPosted() {
+        ((HeadlessApplication) Gdx.app).executeRunnables();
     }
 
     /**

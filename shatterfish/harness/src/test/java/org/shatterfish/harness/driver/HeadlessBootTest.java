@@ -187,6 +187,17 @@ class HeadlessBootTest {
         assertFalse(driver.headlessBoot().game().sceneSwitchRequested(),
                 "death shows the game-over banner in the scene; a scene change comes only from its buttons"
                         + " (GameScene.java:1482-1494)");
+        assertTrue(driver.headlessBoot().pendingRunnables() > 0,
+                "the banner was posted to the render thread by the dying hero (Hero.java:2256)");
+
+        // The queue is process-wide: what this Run posted must not appear in the next Run's scene.
+        driver.close();
+        assertEquals(0, driver.headlessBoot().pendingRunnables(), "closing the Run ran what it had posted");
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        Halt next = driver.stepToInputWait();
+        assertEquals(Reason.INPUT_WAIT, next.reason());
+        assertNull(next.window());
+        assertTrue(Dungeon.hero.isAlive());
     }
 
     @Test
