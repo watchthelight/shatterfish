@@ -181,25 +181,27 @@ three places: on its own monitor between turns (`…/actors/Actor.java:318`), on
 the character it is about to process while that sprite moves (`:274-282`), and, under the
 gravity-chaos curse, on each moving sprite in turn from the buff's own act
 (`…/actors/buffs/GravityChaosTracker.java:76-86`). `SceneStepper` checks before each frame that the
-thread is parked on its own monitor or on a moving sprite it is about to hold, predicting the
-sprite from those sites and comparing it with what the JVM reports the thread waiting on, so
-that a fourth site in some upgrade fails by name instead of running unfenced; holds the actor
-thread's monitor and every moving sprite's monitor across the frame; reads the thread's state at
-the end of the frame while the monitors are still held, where a thread that the scene's notify
-or a movement's `notifyAll` reached is blocked on one of them, which is the scene's own wake
-rule read rather than repeated; if it was woken, polls the JVM's count of the thread's waits
-until it has parked again, and fails the next step if the thread ever parks between frames
-without that wait; and then acquires and releases the monitors the thread released when it
-parked, so that what it wrote is visible between frames by the language's rules. It also starts the thread itself before the first frame, where the scene
+thread is parked on its own monitor or on a moving sprite it is about to hold, comparing what
+the JVM reports the thread waiting on with those objects, and that the frame which called
+`wait` is one of the three sites, so that a fourth site in some upgrade fails by name instead
+of running unfenced; holds the actor thread's monitor and every moving sprite's monitor across
+the frame; reads the thread's state at the end of the frame while the monitors are still held,
+where a thread that the scene's notify or a movement's `notifyAll` reached is blocked on one of
+them, which is the scene's own wake rule read rather than repeated; if it was woken, polls the
+JVM's count of the thread's waits until it has parked again; checks that count against what it
+must be during, across and between frames, so that a JVM reporting states differently fails a
+step rather than opening the fence; and then acquires and releases the monitors the thread
+released when it parked, so that what it wrote is visible between frames by the language's
+rules. It also starts the thread itself before the first frame, where the scene
 would otherwise start it mid-update, which moves the hero's first turn ahead of the first frame
 and changes nothing else. The actor thread thus runs only between frames, which
 `FenceInvariantTest` observes directly with and without the curse, and two Runs of one seed and
-one action list replay to the frame, which `SceneDrawParityTest` asserts. Two private statics
-are reached by reflection for this (`GameScene.actorThread`, written once per scene;
-`Actor.current`, read before each frame); a hook was not spent because neither changes what the
-game computes, `HarnessReflectionTest` confines reflection in `harness` to that one class and
-checks the two names against `docs/UPSTREAM.md`, and row 4 is where they move if an upgrade
-renames them.
+one action list replay to the frame, which `SceneDrawParityTest` asserts. One private static is
+reached by reflection for this, `GameScene.actorThread`, written once per scene; a hook was not
+spent because that changes nothing the game computes, `HarnessReflectionTest` confines
+reflection in `harness` to that one class and checks the name against `docs/UPSTREAM.md`,
+`HarnessPackageAnchorTest` keeps every harness class file out of upstream's packages, and row 4
+is where the field moves if an upgrade renames it.
 
 **What the story could not make deterministic, recorded for stories 1.15 and 1.16.** The game
 orders actors, mobs and weighted choices by `HashSet` iteration, which follows identity hash

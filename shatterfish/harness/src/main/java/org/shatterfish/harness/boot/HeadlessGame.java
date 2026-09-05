@@ -1,9 +1,11 @@
 package org.shatterfish.harness.boot;
 
+import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.watabou.noosa.Game;
 import com.watabou.noosa.Scene;
 import com.watabou.utils.PlatformSupport;
 import org.shatterfish.harness.scene.HeadlessScene;
+import org.shatterfish.harness.scene.SceneStepper;
 
 /**
  * The {@code Game} instance a headless Run has instead of {@code ShatteredPixelDungeon}.
@@ -68,13 +70,10 @@ public final class HeadlessGame extends Game {
      * alive and notifies. The stepper's {@code endActorThread()} is the way to end a Run.
      */
     private void refuseWhileTheActorThreadRuns(String what) {
-        if (scene instanceof HeadlessScene headless) {
-            Thread thread = headless.stepper().actorThread();
-            if (thread != null && thread.isAlive()) {
-                throw new IllegalStateException(what + "() with the actor thread alive; call"
-                        + " HeadlessScene.stepper().endActorThread() first, or the next scene inherits a thread"
-                        + " that was interrupted mid-turn");
-            }
+        if (scene instanceof GameScene && SceneStepper.theSceneHasALiveActorThread()) {
+            throw new IllegalStateException(what + "() with the actor thread alive; call"
+                    + " SceneStepper.endActorThread() first, or the next scene inherits a thread that was"
+                    + " interrupted mid-turn");
         }
     }
 
