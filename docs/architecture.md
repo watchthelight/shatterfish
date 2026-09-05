@@ -30,7 +30,7 @@ graph TD
 | Module | May depend on | Contents |
 |---|---|---|
 | `api` | nothing | DTOs only: `Observation`, `Action`, `Decision`, run-log records |
-| `harness` | `core`, `api` | `Observer` (the only class allowed to read game state into the bot), `ActionExecutor` (the only class that drives the hero), RNG control, snapshot/restore, redetermination, `HeadlessDriver`, `EmbeddedDriver` |
+| `harness` | `core`, `api` | `Observer` (the only class allowed to read game state into the bot), `ActionExecutor` (the only class that drives the hero), RNG control, snapshot/restore, redetermination, `HeadlessBoot` (the backend, the no-op graphics binding, in-memory settings), `HeadlessScene` (the game's own scene, constructed without a graphics context) and `SceneStepper` (one fenced frame at a time), `HeadlessDriver`, `EmbeddedDriver` |
 | `codex` | `core` | Reflection dump of every mob, item, generator table, mob rotation, trap, recipe, and changelog entry, parameterised by depth and challenges; writes `codex/<tag>/*.json` and generated docs |
 | `brain` | `api` only | Beliefs, scripted policies, tactical search, strategic playbooks, evaluation. Identical code runs headless and in the overlay |
 | `rig` | `harness`, `brain` | Parallel runner, seed sets, statistics, SPRT, JSONL run logs, replay |

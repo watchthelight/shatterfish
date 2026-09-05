@@ -1,67 +1,36 @@
 package org.shatterfish.harness;
 
-import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.backends.headless.HeadlessApplication;
-import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration;
-
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import org.shatterfish.harness.boot.HeadlessBoot;
 
 /**
- * Placeholder headless driver: boots the libGDX headless backend, proves it is alive, and exits.
+ * The headless driver: boots the game with no window, and will own the loop.
  *
- * <p>E1 replaces the body with the real thing (boot {@code core} without a scene, seed the RNG,
- * run a hero through {@code Observer}/{@code ActionExecutor}). Keeping the boot path here now
- * means the module skeleton, the headless dependency, and CI are all exercised from day one.
+ * <p>Story 1.3 put the boot behind {@link HeadlessBoot} and the scene behind
+ * {@code HeadlessScene}; story 1.4 adds the loop here (start a seeded Run, step the scene until
+ * the hero's first Input wait, drain the posted runnables, fail with a diagnostic rather than
+ * hang). Until then this class is the entry point that proves the boot works from the command
+ * line and from CI.
  */
 public final class HeadlessDriver {
 
     private HeadlessDriver() {
     }
 
-    /** Result of a boot: what the backend reported about itself. */
-    public record Boot(String applicationType, int updatesPerSecond) {
+    /** What the backend reported about itself after booting. */
+    public record Boot(String applicationType, String upstreamVersion) {
     }
 
-    /**
-     * Starts a headless application, captures the backend type from inside {@code create()},
-     * asks it to exit, and waits for {@code dispose()}.
-     *
-     * @throws IllegalStateException if the backend does not come up and shut down within the timeout
-     */
+    /** Boots the process, or returns the boot that already happened. */
     public static Boot boot() {
-        HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
-        CountDownLatch disposed = new CountDownLatch(1);
-        String[] type = new String[1];
-
-        new HeadlessApplication(new ApplicationAdapter() {
-            @Override
-            public void create() {
-                type[0] = Gdx.app.getType().name();
-                Gdx.app.exit();
-            }
-
-            @Override
-            public void dispose() {
-                disposed.countDown();
-            }
-        }, config);
-
-        try {
-            if (!disposed.await(10, TimeUnit.SECONDS)) {
-                throw new IllegalStateException("headless backend did not shut down within 10s");
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("interrupted while waiting for headless backend", e);
-        }
-        return new Boot(type[0], config.updatesPerSecond);
+        HeadlessBoot boot = HeadlessBoot.ensure();
+        return new Boot(Gdx.app.getType().name(), boot.upstreamVersionName());
     }
 
     public static void main(String[] args) {
         Boot boot = boot();
         System.out.println("HeadlessDriver: booted libGDX " + boot.applicationType()
-                + " backend (" + boot.updatesPerSecond() + " ups) and exited cleanly");
+                + " backend for Shattered Pixel Dungeon " + boot.upstreamVersion());
+        Gdx.app.exit();
     }
 }

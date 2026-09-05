@@ -1,0 +1,449 @@
+package org.shatterfish.harness.scene;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.backends.headless.HeadlessApplication;
+import com.badlogic.gdx.utils.TimeUtils;
+import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
+import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
+import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.GravityChaosTracker;
+import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
+import com.shatteredpixel.shatteredpixeldungeon.sprites.CharSprite;
+import com.watabou.noosa.Camera;
+import com.watabou.noosa.Game;
+import com.watabou.noosa.audio.Music;
+import com.watabou.noosa.audio.Sample;
+
+import java.lang.management.LockInfo;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
+import java.lang.reflect.Field;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * Advances a {@link GameScene} one frame at a time on the calling thread, and returns from each
+ * frame only when the actor thread has parked again.
+ *
+ * <p>A frame here is what {@code Game.update()} does on the render thread
+ * ({@code SPD-classes/.../noosa/Game.java:269-283}), minus the input handler a headless process
+ * has no events for: the frame time is capped at 0.2 s as the game caps it, the posted runnables
+ * are drained first as the backends drain them before rendering, then music, the scene, and the
+ * cameras update. Nothing is drawn.
+ *
+ * <p>The part that is not in the game is the waiting. The scene starts the actor thread and
+ * notifies it from its own {@code update()} ({@code core/.../scenes/GameScene.java:865-888}),
+ * after which the actor thread runs concurrently with the render thread until it parks again. At
+ * the pinned tag it parks in three places: on its own monitor between turns
+ * ({@code core/.../actors/Actor.java:318}); on the sprite of the character it is about to process,
+ * while that sprite's movement animation runs ({@code Actor.java:274-282}); and, while the
+ * gravity-chaos curse is active, on each moving sprite in {@code Actor.chars()} order until none
+ * moves ({@code core/.../actors/buffs/GravityChaosTracker.java:76-86}). {@code grep '\.wait('}
+ * under {@code core} and {@code SPD-classes} finds those three and one more,
+ * {@code GameScene.waitForActorThread} ({@code GameScene.java:796-806}), which is the render
+ * thread waiting on the actor thread from {@code destroy()} and {@code onPause()}; it must never
+ * be reached on this thread inside a frame, because {@code Object.wait} releases a reentrant
+ * hold in full. In the real game the two threads overlap, and any random draw made on the render
+ * thread lands at a wall-clock-dependent point in the actor thread's sequence. Headlessly that
+ * would make the same seed and the same actions replay differently, so every frame is fenced:
+ *
+ * <ol>
+ * <li>Before the frame the thread must be parked, the object the JVM reports it waiting on must
+ * be its own monitor or a moving sprite this class is about to hold, and the frame that called
+ * {@code wait} must be one of the three sites above. A wait site this class does not know fails
+ * the step by name rather than letting the thread run unfenced.</li>
+ * <li>The actor thread's monitor is held across the whole frame. The scene's own {@code notify}
+ * still happens, but the thread cannot run until the frame ends.</li>
+ * <li>The monitor of every sprite that is moving is held too. A movement ending inside the frame
+ * still notifies ({@code core/.../sprites/CharSprite.java:826-834}), but whichever sprite the
+ * thread is waiting on, it cannot proceed until the frame ends.</li>
+ * <li>At the end of the frame, with the monitors still held, the thread's state says whether
+ * anything woke it: a thread that was notified, on its own monitor or on the sprite it waits on,
+ * is blocked on the monitor this class holds, and reads as {@code BLOCKED}; one that was not is
+ * still {@code WAITING}. That is the scene's own wake rule and the game's own movement release,
+ * read rather than repeated, throttle and all. If it was woken, the stepper releases the
+ * monitors and polls the JVM's count of the thread's waits until the thread has entered its next
+ * wait at one of the three sites, which is the one signal that cannot confuse "still parked"
+ * with "notified and not yet running". The site matters: HotSpot counts a {@code LockSupport}
+ * park as a wait too, and a turn that logs can park briefly on the console's lock on its way to
+ * its monitor, which continuous integration showed.</li>
+ * <li>The monitors the thread released when it parked, its own and every sprite's, are then
+ * acquired and released once, so that everything the thread wrote before parking is visible to
+ * whoever reads game state between frames, by the language's rules and not by the hardware's.
+ * The thread is also started by the stepper before the first frame, where the scene would
+ * otherwise start it mid-update.</li>
+ * </ol>
+ *
+ * <p>The result is that the actor thread only ever runs between frames, never during one, and a
+ * frame that reaches the hero's Input wait returns with the actor thread parked and the game's
+ * state quiescent. Three checks keep the promise honest on a JVM that does not report states the
+ * way HotSpot does, each with the thread's wait count: it may not change during a frame, it may
+ * change by exactly one across a frame that woke the thread, and it may not change between two
+ * frames. A thread that is anything but parked or blocked at the end of a frame fails too.
+ * {@code FenceInvariantTest} observes the same things from the scene's side, with and without the
+ * gravity-chaos curse. That is the shape story 1.4's loop and story 1.5's wait detection build
+ * on.
+ *
+ * <p>One private static of the game is reached through reflection, and {@code HarnessReflectionTest}
+ * confines reflection in {@code harness} to this class: {@code GameScene.actorThread}, which the
+ * stepper sets once so that the scene finds its thread already running. That changes nothing the
+ * game computes; if an upgrade renames it the failure is immediate and says so, and row 4 of the
+ * ledger is where it would move.
+ */
+public final class SceneStepper {
+
+    /**
+     * The frame time each step advances by: the most the game itself accepts in one frame
+     * ({@code Game.java:271}), so nothing is fast-forwarded further than a slow real frame would.
+     */
+    public static final float FRAME = 0.2f;
+
+    private static final Field ACTOR_THREAD = privateStatic(GameScene.class, "actorThread");
+    private static final ThreadMXBean THREADS = ManagementFactory.getThreadMXBean();
+
+    /** The code that may call {@code wait} on the actor thread at the pinned tag; see the class comment. */
+    private static final Set<String> WAIT_SITES = Set.of(
+            Actor.class.getName() + ".process",
+            GravityChaosTracker.class.getName() + ".act");
+
+    private final GameScene scene;
+    private long frames;
+    private Thread actorThread;
+    private volatile Throwable actorThreadFailure;
+    private long parkedAfterLastStep;
+    private long parkTimeoutNanos = Duration.ofSeconds(10).toNanos();
+
+    public SceneStepper(GameScene scene) {
+        this.scene = scene;
+    }
+
+    /** How long a frame may wait for the actor thread to park before it is declared stuck. */
+    public void parkTimeout(Duration timeout) {
+        parkTimeoutNanos = timeout.toNanos();
+    }
+
+    /** Frames stepped so far. */
+    public long frames() {
+        return frames;
+    }
+
+    /** The scene's actor thread, or null before the first frame started it. */
+    public Thread actorThread() {
+        return actorThread;
+    }
+
+    /** What killed the actor thread, if anything did; every step checks it first. */
+    public Throwable actorThreadFailure() {
+        return actorThreadFailure;
+    }
+
+    /** One frame of {@link #FRAME} seconds. */
+    public void step() {
+        step(FRAME);
+    }
+
+    /** One frame of {@code frameTime} seconds, capped as the game caps it. */
+    public void step(float frameTime) {
+        failIfTheActorThreadDied();
+        if (actorThread == null) {
+            startTheActorThread();
+        }
+        Thread thread = actorThread;
+        if (!thread.isAlive()) {
+            throw new IllegalStateException("the actor thread has ended; a Run does not step past endActorThread()");
+        }
+
+        long waitedBefore = waitedCount(thread);
+        if (waitedBefore != parkedAfterLastStep) {
+            throw new IllegalStateException("the actor thread parked " + (waitedBefore - parkedAfterLastStep)
+                    + " time(s) since the last frame ended without the stepper waiting for it, so it ran"
+                    + " between frames unfenced; the JVM did not report it blocked at the end of that frame: "
+                    + describe(thread));
+        }
+        List<CharSprite> moving = movingSprites();
+        checkTheWaitSite(thread, moving);
+
+        Thread.State[] atFrameEnd = new Thread.State[1];
+        long[] waitedAtFrameEnd = new long[1];
+        synchronized (thread) {
+            holdingAll(moving, 0, () -> {
+                frame(frameTime);
+                atFrameEnd[0] = thread.getState();
+                waitedAtFrameEnd[0] = waitedCount(thread);
+            });
+            if (sceneActorThread() != thread) {
+                throw new IllegalStateException("the scene replaced its actor thread during frame " + frames
+                        + ", which it does only when the thread it had was dead");
+            }
+        }
+
+        if (waitedAtFrameEnd[0] != waitedBefore) {
+            throw new IllegalStateException("the actor thread parked " + (waitedAtFrameEnd[0] - waitedBefore)
+                    + " time(s) during frame " + frames + ", so it ran during it on a monitor the stepper"
+                    + " did not hold: " + describe(thread));
+        }
+        if (atFrameEnd[0] == Thread.State.BLOCKED) {
+            parkedAfterLastStep = awaitPark(thread, waitedBefore);
+        } else if (atFrameEnd[0] == Thread.State.WAITING) {
+            parkedAfterLastStep = waitedBefore;
+        } else {
+            throw new IllegalStateException("the actor thread was " + atFrameEnd[0] + " at the end of frame "
+                    + frames + ", so it ran during it: " + describe(thread));
+        }
+        publish(thread);
+    }
+
+    /**
+     * Whether the scene has an actor thread that is alive, whoever started it. {@code GameScene}
+     * keeps the thread in a private static; this is the one place the harness reads it.
+     */
+    public static boolean theSceneHasALiveActorThread() {
+        Thread thread = sceneActorThread();
+        return thread != null && thread.isAlive();
+    }
+
+    /**
+     * Asks the actor thread to finish and waits for it, for the end of a Run. The scene's own
+     * teardown then finds it dead and does not wait ({@code GameScene.java:768-777}).
+     */
+    public void endActorThread() {
+        Thread thread = actorThread;
+        if (thread == null) {
+            return;
+        }
+        GameScene.endActorThread();
+        try {
+            thread.join(5_000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        if (thread.isAlive()) {
+            throw new IllegalStateException("the actor thread did not finish within 5s: " + describe(thread));
+        }
+        actorThread = null;
+    }
+
+    private void frame(float frameTime) {
+        Game.elapsed = Game.timeScale * Math.min(0.2f, frameTime);
+        Game.timeTotal += Game.elapsed;
+        Game.realTime = TimeUtils.millis();
+
+        ((HeadlessApplication) Gdx.app).executeRunnables();
+
+        Music.INSTANCE.update();
+        Sample.INSTANCE.update();
+        scene.update();
+        Camera.updateAll();
+        frames++;
+    }
+
+    /** Holds the monitors of {@code sprites[from..]} while {@code body} runs. */
+    private static void holdingAll(List<CharSprite> sprites, int from, Runnable body) {
+        if (from == sprites.size()) {
+            body.run();
+            return;
+        }
+        synchronized (sprites.get(from)) {
+            holdingAll(sprites, from + 1, body);
+        }
+    }
+
+    /**
+     * Every sprite that is moving, in {@code Actor.chars()} order ({@code Actor.java:395}), which is
+     * the order the gravity-chaos buff waits on them in. {@code isMoving} is read under the
+     * sprite's monitor, which is what the actor thread released when it started waiting on it.
+     */
+    private static List<CharSprite> movingSprites() {
+        List<CharSprite> moving = new ArrayList<>();
+        for (Char ch : Actor.chars()) {
+            CharSprite sprite = ch.sprite;
+            if (sprite == null) {
+                continue;
+            }
+            boolean isMoving;
+            synchronized (sprite) {
+                isMoving = sprite.isMoving;
+            }
+            if (isMoving) {
+                moving.add(sprite);
+            }
+        }
+        return moving;
+    }
+
+    /**
+     * The thread must be parked on a monitor this class is about to hold, from a wait site this
+     * class knows. The object is compared by class and identity with the thread's own monitor and
+     * with every moving sprite; under the test JVM's identity-hash pin every identity hash is the
+     * same value, so there the class is the only discriminator, and in a Rig process the
+     * comparison is exact. The site is the frame that called {@code wait}, which names the code
+     * literally and does not depend on the pin.
+     */
+    private static void checkTheWaitSite(Thread thread, List<CharSprite> moving) {
+        ThreadInfo info = THREADS.getThreadInfo(thread.threadId(), 16);
+        if (info == null || info.getThreadState() != Thread.State.WAITING) {
+            throw new IllegalStateException("the actor thread is not parked at the start of a frame: "
+                    + describe(thread));
+        }
+        String site = waitSite(info);
+        if (!WAIT_SITES.contains(site)) {
+            throw new IllegalStateException("the actor thread waits from " + site + ", a wait site the stepper does"
+                    + " not know; see SceneStepper's class comment. " + describe(thread));
+        }
+        LockInfo lock = info.getLockInfo();
+        boolean held = lock != null && matches(lock, thread);
+        for (CharSprite sprite : moving) {
+            held = held || (lock != null && matches(lock, sprite));
+        }
+        if (!held) {
+            throw new IllegalStateException("the actor thread waits on " + lock + ", which the stepper is not"
+                    + " about to hold (moving sprites=" + moving.size() + "): " + describe(thread));
+        }
+    }
+
+    /** The code that called {@code wait}: the first frame on the stack that is not {@code Object}'s. */
+    private static String waitSite(ThreadInfo info) {
+        for (StackTraceElement frame : info.getStackTrace()) {
+            if (!frame.getClassName().equals(Object.class.getName())) {
+                return frame.getClassName() + "." + frame.getMethodName();
+            }
+        }
+        return "an empty stack";
+    }
+
+    private static boolean matches(LockInfo lock, Object candidate) {
+        return lock.getClassName().equals(candidate.getClass().getName())
+                && lock.getIdentityHashCode() == System.identityHashCode(candidate);
+    }
+
+    private void startTheActorThread() {
+        if (theSceneHasALiveActorThread()) {
+            throw new IllegalStateException("the scene already has a live actor thread; the stepper will not"
+                    + " replace it. End the previous Run with endActorThread() first");
+        }
+        // GameScene.java:866-882, the scene's own construction of the thread.
+        Thread thread = new Thread(Actor::process);
+        if (Runtime.getRuntime().availableProcessors() == 1) {
+            thread.setPriority(Thread.NORM_PRIORITY - 1);
+        }
+        thread.setName("SHPD Actor Thread");
+        thread.setUncaughtExceptionHandler((t, failure) -> actorThreadFailure = failure);
+        actorThread = thread;
+        try {
+            ACTOR_THREAD.set(null, thread);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
+        Actor.keepActorThreadAlive = true;
+        thread.start();
+        parkedAfterLastStep = awaitPark(thread, 0);
+        publish(thread);
+    }
+
+    /**
+     * Polls until the thread has parked at a known wait site since {@code waitedBefore}, and
+     * returns the wait count it saw it parked at, which is what the next step must find.
+     */
+    private long awaitPark(Thread thread, long waitedBefore) {
+        long deadline = System.nanoTime() + parkTimeoutNanos;
+        int spins = 0;
+        while (true) {
+            failIfTheActorThreadDied();
+            if (!thread.isAlive()) {
+                return Long.MAX_VALUE;
+            }
+            ThreadInfo info = THREADS.getThreadInfo(thread.threadId(), 16);
+            if (info == null) {
+                return Long.MAX_VALUE;
+            }
+            if (info.getWaitedCount() > waitedBefore && info.getThreadState() == Thread.State.WAITING
+                    && WAIT_SITES.contains(waitSite(info))) {
+                return info.getWaitedCount();
+            }
+            if (System.nanoTime() - deadline > 0) {
+                throw new IllegalStateException("the actor thread did not park within "
+                        + Duration.ofNanos(parkTimeoutNanos).toMillis() + " ms after frame " + frames
+                        + ": " + describe(thread));
+            }
+            if (++spins % 64 == 0) {
+                Thread.yield();
+            } else {
+                Thread.onSpinWait();
+            }
+        }
+    }
+
+    /**
+     * Acquires and releases the monitors the actor thread released when it parked: its own, and
+     * every character's sprite, one of which it may be waiting on. Whatever it wrote before parking
+     * happens-before whatever the caller reads after this returns.
+     */
+    private static void publish(Thread thread) {
+        synchronized (thread) {
+            // nothing: the acquisition is the point
+        }
+        for (Char ch : Actor.chars()) {
+            CharSprite sprite = ch.sprite;
+            if (sprite != null) {
+                synchronized (sprite) {
+                    // likewise
+                }
+            }
+        }
+    }
+
+    private void failIfTheActorThreadDied() {
+        Throwable failure = actorThreadFailure;
+        if (failure != null) {
+            throw new IllegalStateException("the actor thread died after frame " + frames, failure);
+        }
+    }
+
+    private static long waitedCount(Thread thread) {
+        ThreadInfo info = THREADS.getThreadInfo(thread.threadId());
+        return info == null ? Long.MAX_VALUE : info.getWaitedCount();
+    }
+
+    private static String describe(Thread thread) {
+        StringBuilder out = new StringBuilder();
+        out.append("state=").append(thread.getState())
+                .append(", Actor.processing=").append(Actor.processing())
+                .append(", Actor.now=").append(Actor.now());
+        if (Dungeon.hero != null) {
+            out.append(", hero.ready=").append(Dungeon.hero.ready)
+                    .append(", hero.curAction=").append(Dungeon.hero.curAction)
+                    .append(", hero.resting=").append(Dungeon.hero.resting);
+        }
+        out.append(", actor thread stack:");
+        for (StackTraceElement element : thread.getStackTrace()) {
+            out.append("\n    at ").append(element);
+        }
+        return out.toString();
+    }
+
+    private static Thread sceneActorThread() {
+        return (Thread) read(ACTOR_THREAD);
+    }
+
+    private static Object read(Field field) {
+        try {
+            return field.get(null);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private static Field privateStatic(Class<?> owner, String name) {
+        try {
+            Field field = owner.getDeclaredField(name);
+            field.setAccessible(true);
+            return field;
+        } catch (NoSuchFieldException e) {
+            throw new IllegalStateException(owner.getSimpleName() + "." + name + " is not where the pinned"
+                    + " upstream had it; the stepper reads it to fence the actor thread (see docs/UPSTREAM.md)", e);
+        }
+    }
+}

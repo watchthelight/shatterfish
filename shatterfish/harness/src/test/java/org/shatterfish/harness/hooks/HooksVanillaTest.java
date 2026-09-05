@@ -109,7 +109,22 @@ class HooksVanillaTest {
 
 	@Test
 	@DisplayName("row 5: the guarded sites do nothing when no scene exists")
-	void the_guarded_sites_are_inert_with_no_scene() {
+	void the_guarded_sites_are_inert_with_no_scene() throws Exception {
+		// The scene tests in this module leave a real CellSelector behind: the game never nulls the
+		// static once a scene has assigned it. Put back the state this test is about, and restore
+		// whatever was there afterwards.
+		Field cellSelectorField = GameScene.class.getDeclaredField("cellSelector");
+		cellSelectorField.setAccessible(true);
+		Object cellSelector = cellSelectorField.get(null);
+		cellSelectorField.set(null, null);
+		try {
+			theGuardedSitesAreInertWithNoScene();
+		} finally {
+			cellSelectorField.set(null, cellSelector);
+		}
+	}
+
+	private void theGuardedSitesAreInertWithNoScene() {
 		RecordingListener listener = new RecordingListener();
 
 		assertDoesNotThrow(() -> GameScene.selectCell(listener),
