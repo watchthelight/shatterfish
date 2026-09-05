@@ -48,9 +48,34 @@ public final class HeadlessGame extends Game {
         if (next == null) {
             throw new IllegalArgumentException("switchTo needs a scene; use destroy() to end the last one");
         }
+        refuseWhileTheActorThreadRuns("switchTo");
         requestedScene = next;
         requestedReset = false;
         switchScene();
+    }
+
+    /** Ends the current scene, as the game does when it shuts down; the actor thread must be ended first. */
+    @Override
+    public void destroy() {
+        refuseWhileTheActorThreadRuns("destroy");
+        super.destroy();
+    }
+
+    /**
+     * {@code GameScene.destroy()} interrupts a live actor thread and waits for it
+     * ({@code GameScene.java:768-777}, {@code :796-806}) but never asks it to finish, so a scene
+     * ended with its thread alive leaves an orphan that the next scene's {@code update()} finds
+     * alive and notifies. The stepper's {@code endActorThread()} is the way to end a Run.
+     */
+    private void refuseWhileTheActorThreadRuns(String what) {
+        if (scene instanceof HeadlessScene headless) {
+            Thread thread = headless.stepper().actorThread();
+            if (thread != null && thread.isAlive()) {
+                throw new IllegalStateException(what + "() with the actor thread alive; call"
+                        + " HeadlessScene.stepper().endActorThread() first, or the next scene inherits a thread"
+                        + " that was interrupted mid-turn");
+            }
+        }
     }
 
     /** The scene created by the last {@link #switchTo(Scene)}, or null before it and after {@link #destroy()}. */

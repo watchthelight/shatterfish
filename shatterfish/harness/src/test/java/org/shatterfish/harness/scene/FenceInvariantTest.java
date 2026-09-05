@@ -61,7 +61,7 @@ class FenceInvariantTest {
     void the_actor_thread_never_runs_during_a_frame() throws Exception {
         Watched scene = play(false);
         assertEquals(List.of(), scene.violations);
-        assertTrue(scene.frames > 100, "the run was long enough to mean something: " + scene.frames + " frames");
+        assertEquals(WAITS, scene.waits, "the script completed, so the run was long enough to mean something");
         assertTrue(scene.movesSeen > 20, "movement gates were exercised: " + scene.movesSeen + " frames with a moving sprite");
     }
 
@@ -70,6 +70,8 @@ class FenceInvariantTest {
     void the_actor_thread_never_runs_during_a_frame_under_gravity_chaos() throws Exception {
         Watched scene = play(true);
         assertEquals(List.of(), scene.violations);
+        assertTrue(scene.waits == WAITS || scene.heroDied,
+                "the script ran until it completed or the curse killed the hero: " + scene.waits + " waits");
         assertTrue(scene.trackerWaits > 0,
                 "the curse's own wait site was reached: " + scene.trackerWaits + " frames began with the tracker current");
     }
@@ -95,6 +97,9 @@ class FenceInvariantTest {
                 GameScene.handleCell(freeCellBeside(hero.pos));
             }
         }
+        scene.waits = waits;
+        scene.heroDied = !Dungeon.hero.isAlive();
+        assertTrue(stepper.frames() < FRAME_BUDGET, "the run ended by the script or by death, not by the frame budget");
         return scene;
     }
 
@@ -118,6 +123,8 @@ class FenceInvariantTest {
         SceneStepper stepper;
         final List<String> violations = new ArrayList<>();
         int frames;
+        int waits;
+        boolean heroDied;
         int movesSeen;
         int trackerWaits;
 

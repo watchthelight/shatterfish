@@ -94,9 +94,13 @@ is where they move if that happens. `HarnessReflectionTest` confines reflection 
 code to that one class and asserts that the fields it reaches are exactly the two named here,
 so a third cannot arrive unannounced. Tests are not confined: the ledger's own tests, the scene
 fixtures and the row 5 checks reach `Random.generators`, `Badges.global`, `Journal.loaded`,
-`GameScene.scene`, `GameScene.cellSelector` and `Actor.current` to set up or observe what they
-test. Reflection into upstream from any other module is not covered by anything here and would
-need its own rule.
+`GameScene.scene`, `GameScene.emoicons`, `GameScene.cellSelector`, `CellSelector.heldAction1` and
+`Actor.current` to set up or observe what they test. A fourth thing is outside the ledger's reach
+for the same reason and needs no reflection at all: a class of ours declared in one of upstream's
+packages, which would share that package's private members. `HarnessPackageAnchorTest` keeps every
+class compiled into `harness` under `org.shatterfish.harness`, as `BrainPackageAnchorTest` does for
+the brain. Reflection into upstream from any other module is not covered by anything here and
+would need its own rule.
 
 ### The site index
 

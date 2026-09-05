@@ -2,7 +2,9 @@ package org.shatterfish.harness;
 
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaMethodCall;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
@@ -48,6 +50,7 @@ class HarnessReflectionTest {
             .that().resideInAPackage("org.shatterfish.harness..")
             .and().doNotBelongToAnyOf(SceneStepper.class)
             .should().callMethodWhere(target(name("setAccessible")))
+            .orShould().callMethodWhere(target(name("trySetAccessible")))
             .orShould().callMethodWhere(target(name("getDeclaredField")))
             .orShould().callMethodWhere(target(name("getDeclaredFields")))
             .orShould().callMethodWhere(target(name("getDeclaredMethod")))
@@ -80,6 +83,38 @@ class HarnessReflectionTest {
         }
         assertTrue(reached.contains("GameScene.actorThread") && GameScene.class != null
                 && reached.contains("Actor.current") && Actor.class != null);
+    }
+
+    /**
+     * The field constants are what the previous test reads; this one bounds the code that could
+     * reach a field without storing it in one. Every reflective call in the stepper and its nested
+     * classes goes through one helper, so there is exactly one lookup and one opening.
+     */
+    @Test
+    void the_stepper_reflects_in_one_place() {
+        Class<?>[] nested = SceneStepper.class.getDeclaredClasses();
+        Class<?>[] all = new Class<?>[nested.length + 1];
+        all[0] = SceneStepper.class;
+        System.arraycopy(nested, 0, all, 1, nested.length);
+        JavaClasses stepper = new ClassFileImporter().importClasses(all);
+
+        Set<String> lookups = Set.of("getDeclaredField", "getDeclaredFields", "getDeclaredMethod", "getDeclaredMethods",
+                "getDeclaredConstructor", "getDeclaredConstructors", "privateLookupIn");
+        Set<String> openings = Set.of("setAccessible", "trySetAccessible");
+        long lookupCalls = 0;
+        long openingCalls = 0;
+        for (JavaClass owner : stepper) {
+            for (JavaMethodCall call : owner.getMethodCallsFromSelf()) {
+                if (lookups.contains(call.getTarget().getName())) {
+                    lookupCalls++;
+                }
+                if (openings.contains(call.getTarget().getName())) {
+                    openingCalls++;
+                }
+            }
+        }
+        assertEquals(1, lookupCalls, "one place looks a field up by name");
+        assertEquals(1, openingCalls, "one place opens it");
     }
 
     @Test

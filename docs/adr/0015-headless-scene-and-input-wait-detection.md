@@ -180,14 +180,17 @@ wall-clock-dependent point in the actor thread's sequence. At the tag the actor 
 three places: on its own monitor between turns (`…/actors/Actor.java:318`), on the sprite of
 the character it is about to process while that sprite moves (`:274-282`), and, under the
 gravity-chaos curse, on each moving sprite in turn from the buff's own act
-(`…/actors/buffs/GravityChaosTracker.java:76-86`). `SceneStepper` holds the actor thread's
-monitor and every moving sprite's monitor across each frame; predicts, from those sites, which
-sprite the thread waits on and checks the prediction against what the JVM reports it waiting
-on, so that a fourth site in some upgrade fails by name instead of running unfenced; repeats the
-scene's own wake rule while the thread still cannot run; after the frame polls the JVM's count
-of the thread's waits until it has parked again; and then acquires and releases the monitors
-the thread released when it parked, so that what it wrote is visible between frames by the
-language's rules. It also starts the thread itself before the first frame, where the scene
+(`…/actors/buffs/GravityChaosTracker.java:76-86`). `SceneStepper` checks before each frame that the
+thread is parked on its own monitor or on a moving sprite it is about to hold, predicting the
+sprite from those sites and comparing it with what the JVM reports the thread waiting on, so
+that a fourth site in some upgrade fails by name instead of running unfenced; holds the actor
+thread's monitor and every moving sprite's monitor across the frame; reads the thread's state at
+the end of the frame while the monitors are still held, where a thread that the scene's notify
+or a movement's `notifyAll` reached is blocked on one of them, which is the scene's own wake
+rule read rather than repeated; if it was woken, polls the JVM's count of the thread's waits
+until it has parked again, and fails the next step if the thread ever parks between frames
+without that wait; and then acquires and releases the monitors the thread released when it
+parked, so that what it wrote is visible between frames by the language's rules. It also starts the thread itself before the first frame, where the scene
 would otherwise start it mid-update, which moves the hero's first turn ahead of the first frame
 and changes nothing else. The actor thread thus runs only between frames, which
 `FenceInvariantTest` observes directly with and without the curse, and two Runs of one seed and
