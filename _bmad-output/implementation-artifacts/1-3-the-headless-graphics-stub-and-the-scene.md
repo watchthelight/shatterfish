@@ -4,9 +4,9 @@ key: 1-3-the-headless-graphics-stub-and-the-scene
 title: The headless graphics stub and the scene
 epic: 1
 issue: 16
-status: review
+status: done
 created: '2026-09-04'
-updated: '2026-09-04'
+updated: '2026-09-05'
 ---
 
 # Story 1.3: The headless graphics stub and the scene
