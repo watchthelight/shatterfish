@@ -143,7 +143,7 @@ The reference fingerprint for the committed seed and script, from the real `Game
 | M2 `HeadlessScene.update()` skips every third frame | parity fails; `HeadlessSceneTest` passes (it counts calls, which still happen) |
 | M3 `-XX:hashCode=2` removed from the test task | `SceneDrawParityTest` fails at class setup with the pin message |
 | M4 no sprite monitors held | the stepper itself fails, two of two: "the actor thread was RUNNABLE at the end of frame 3, so it ran during it" |
-| M5 the thread's state read after the fence is released | the stepper itself fails, three of three, the same way. This was the race the earlier battery caught one time in three; deciding from the state inside the fence made it a deterministic failure |
+| M5 the thread's state read after the fence is released | fails three of three: twice the parity fixture's stepper ("RUNNABLE at the end of frame 158", a thread that would not end), once the invariant test. This was the race the earlier battery caught one time in three; the state read outside the fence is still a race, and the stepper's own checks now catch its consequences in every run |
 | M6 the first frame runs before the actor thread first parks | fails, two of two: "not parked at the start of a frame" |
 | M7 the wait-site check accepts any lock | passes. **Not demonstrated, and undetectable under the pin**: with every identity hash pinned to one value the shipped check and the mutation are the same predicate whenever the waited-on and a held sprite share a class, and no site at the tag waits on an unheld monitor for the mutation to differ on. The check is a tripwire for an upgrade; the release decision does not depend on it |
 | M8 no warm-up Run | replay test fails: the first Run has 73 creation draws |
