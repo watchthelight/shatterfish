@@ -20,10 +20,14 @@ import java.util.List;
  * one the game shows without asking anything; a hero waiting under one of those is not at an
  * Input wait, and a driver that finds one there fails rather than guesses.
  *
- * <p>The kinds are ADR-0006's: the quest dialogues, the shop, the subclass choice, the chasm jump
- * and the harmful-potion confirmation (both {@code WndOptions}), and the ankh's resurrection
- * window, which ADR-0013 makes an answer like any other. Story 1.10, the Observer's prompt
- * section, owns the kinds and their options; this is the list story 1.5 needs to confirm a wait.
+ * <p>The list is the windows among ADR-0006's kinds that the game opens on its own: the quest
+ * dialogues of the ghost, the wandmaker, the imp and the blacksmith's first meeting, the shop's
+ * trade window, the subclass choice, the chasm jump and the harmful-potion confirmation (both
+ * {@code WndOptions}), and the ankh's resurrection window, which ADR-0013 makes an answer like
+ * any other. Talents are never forced open and alchemy is a scene, so neither is here; the
+ * blacksmith's later windows ({@code WndBlacksmith.WndSmith}, {@code WndReforge}) are plain
+ * {@code Window}s met in the caves and are story 1.10's, as are the kinds and their options for
+ * the Observer. This is the list story 1.5 needs to confirm a wait in the sewers.
  */
 public final class Prompts {
 

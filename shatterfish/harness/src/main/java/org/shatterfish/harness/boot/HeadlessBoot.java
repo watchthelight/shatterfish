@@ -124,6 +124,9 @@ public final class HeadlessBoot {
         GameSettings.set(preferences);
         SPDSettings.intro(false);
         SPDSettings.language(Languages.ENGLISH);
+        // Picking up the first boss's key asks the player to support the game unless this is set
+        // (core/.../items/keys/WornKey.java:51-60); a window nobody headless can answer.
+        SPDSettings.supportNagged(true);
 
         Properties upstream = upstreamProperties();
         upstreamVersionName = upstream.getProperty("version.name");

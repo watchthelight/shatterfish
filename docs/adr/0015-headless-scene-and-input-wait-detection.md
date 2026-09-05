@@ -289,19 +289,37 @@ stands for a different reason than the one given: it is what makes one Action on
 hero, so that the driver sees one notification per Action; the game observes between the cells
 of a longer move whether or not anyone is listening.
 
-**What makes a new wait.** A notification since the last confirmed wait, or a change of the
-window in front since the last confirmed wait. The second is needed because answering a Prompt
-can close it without the hero acting (the chasm prompt's "no"), and the brain must see what is
-there now. Nothing else does: sixty wake-ups of a parked hero, or a window that is not a Prompt
-appearing and going away by hand, leave the Run at the same wait, and a Run whose Action changed
-nothing stalls with a message saying so. The condition confirmed is AD-5's, with the resurrection
-window as the one Prompt a hero at zero health answers without being ready (story 1.4), and
-`Prompts` lists the windows that are Prompts until story 1.10 owns the kinds.
+**What makes a new wait.** A notification since the last confirmed wait, a change of the window
+in front since the last confirmed wait, or an Action handed to the game since it. The second is
+needed because answering a Prompt can close it without the hero acting (the chasm prompt's "no"),
+and the brain must see what is there now. The third is needed because an act can begin ready and
+end ready in one go, announcing nothing: a move the hero cannot take, or the first floor's
+entrance refused without the amulet, which posts a message (`…/levels/SewerLevel.java:146-155`);
+AD-5 gives every executed Action its own wait, whatever the game made of it, and the driver sees
+the Action as the hero holding it when stepping resumes. Nothing else does: sixty wake-ups of a
+parked hero, or a window that is not a Prompt appearing and going away by hand, leave the Run at
+the same wait, and a Run left with nothing handed to the game stalls with a message saying so. The condition confirmed is AD-5's, with three things the
+game does: a window is a wait only from its second frame in front, because the chasm prompt
+refuses an answer until it has been updated for more than 0.2 s of frame time
+(`…/levels/features/Chasm.java:77-92`), a guard against a click meant for the map that the driver
+would otherwise beat; the inventory pane can be selecting an item with no window while the map
+refuses clicks (`…/scenes/GameScene.java:1386-1395`), which is not a wait; and the resurrection
+window, or the warning it stacks over itself when a kept-item slot is empty
+(`…/windows/WndResurrect.java:98-114`), is a Prompt a hero at zero health answers without being
+ready (story 1.4). A notification that finds the hero mid-action is dropped; a wait that cannot be
+confirmed yet, under a window that is not a Prompt, under a window shown that frame, or with the
+pane selecting, is not lost, because the Action that led there or the window's change confirms it
+once it can be. `Prompts` lists the windows that are Prompts until story 1.10 owns the kinds.
+
+**The index.** `k` counts the waits confirmed, from 1, and is incremented before the per-wait
+sequence as ADR-0013 has it; the spine's "0-based" is the value before the first wait. It is a
+`long`, as the spine says, since the Run log and the reseed carry it.
 
 **The per-wait sequence** is `WaitSequence`: five steps with no-op defaults, run by the driver in
 ADR-0013's order at each confirmed wait, with the index it has just incremented; the stories that
 own the steps fill them in.
 
-**The hook is two lines and an import** at the top of the branch, the fourth site of row 5; the
+**The hook is nine added lines**, a marker, five comment lines, two statements and an import, at
+the top of the branch, the fourth site of row 5; the
 registry's point has existed since story 1.2. The site reads the point into a local and calls it,
 and the listener does one volatile write on the actor thread, which is all AD-8 allows there.

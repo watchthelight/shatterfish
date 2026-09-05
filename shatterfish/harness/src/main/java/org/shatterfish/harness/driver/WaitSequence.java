@@ -18,24 +18,24 @@ package org.shatterfish.harness.driver;
 public interface WaitSequence<O, D> {
 
     /** Reseeds the game's generator for wait {@code k}; story 1.15. */
-    default void reseed(int k) {
+    default void reseed(long k) {
     }
 
     /** Reads what the player could see at wait {@code k}; the Observer stories. */
-    default O observe(int k) {
+    default O observe(long k) {
         return null;
     }
 
     /** Decides what to do at wait {@code k} from what was observed; the brain, or an agent. */
-    default D decide(int k, O observation) {
+    default D decide(long k, O observation) {
         return null;
     }
 
     /** Does what was decided at wait {@code k}, the way the player would; story 1.13. */
-    default void execute(int k, D decision) {
+    default void execute(long k, D decision) {
     }
 
     /** Writes the record of wait {@code k}; E3. */
-    default void record(int k, O observation, D decision) {
+    default void record(long k, O observation, D decision) {
     }
 }
