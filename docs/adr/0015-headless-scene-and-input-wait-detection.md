@@ -188,9 +188,11 @@ of running unfenced; holds the actor thread's monitor and every moving sprite's 
 the frame; reads the thread's state at the end of the frame while the monitors are still held,
 where a thread that the scene's notify or a movement's `notifyAll` reached is blocked on one of
 them, which is the scene's own wake rule read rather than repeated; if it was woken, polls the
-JVM's count of the thread's waits until it has parked again; checks that count against what it
-must be during, across and between frames, so that a JVM reporting states differently fails a
-step rather than opening the fence; and then acquires and releases the monitors the thread
+JVM's count of the thread's waits until it has parked again at one of the three sites, since
+HotSpot counts a park on any lock as a wait and a turn that logs can block briefly on the
+console's lock on its way to its monitor; checks that count against what it must be during,
+across and between frames, so that a JVM reporting states differently fails a step rather than
+opening the fence; and then acquires and releases the monitors the thread
 released when it parked, so that what it wrote is visible between frames by the language's
 rules. It also starts the thread itself before the first frame, where the scene
 would otherwise start it mid-update, which moves the hero's first turn ahead of the first frame

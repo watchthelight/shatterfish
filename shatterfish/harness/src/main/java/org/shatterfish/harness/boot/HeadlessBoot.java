@@ -1,5 +1,6 @@
 package org.shatterfish.harness.boot;
 
+import com.badlogic.gdx.Application;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Files;
 import com.badlogic.gdx.Gdx;
@@ -100,6 +101,12 @@ public final class HeadlessBoot {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("interrupted while the headless backend started", e);
         }
+
+        // Errors only. The game echoes every log line to the console through Gdx.app.log, from the
+        // actor thread; the harness reads the game log through GLog's own listener instead, and a
+        // console write is a lock the actor thread can block on halfway to its park, which the
+        // stepper would then have to wait out (SceneStepper's class comment).
+        application.setLogLevel(Application.LOG_ERROR);
 
         Gdx.gl20 = NoOpGL.gl20();
         Gdx.gl30 = NoOpGL.gl30();

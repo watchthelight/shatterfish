@@ -66,8 +66,10 @@ import java.util.Set;
  * still {@code WAITING}. That is the scene's own wake rule and the game's own movement release,
  * read rather than repeated, throttle and all. If it was woken, the stepper releases the
  * monitors and polls the JVM's count of the thread's waits until the thread has entered its next
- * wait, which is the one signal that cannot confuse "still parked" with "notified and not yet
- * running".</li>
+ * wait at one of the three sites, which is the one signal that cannot confuse "still parked"
+ * with "notified and not yet running". The site matters: HotSpot counts a {@code LockSupport}
+ * park as a wait too, and a turn that logs can park briefly on the console's lock on its way to
+ * its monitor, which continuous integration showed.</li>
  * <li>The monitors the thread released when it parked, its own and every sprite's, are then
  * acquired and released once, so that everything the thread wrote before parking is visible to
  * whoever reads game state between frames, by the language's rules and not by the hardware's.
@@ -184,8 +186,7 @@ public final class SceneStepper {
                     + " did not hold: " + describe(thread));
         }
         if (atFrameEnd[0] == Thread.State.BLOCKED) {
-            awaitPark(thread, waitedBefore);
-            parkedAfterLastStep = waitedBefore + 1;
+            parkedAfterLastStep = awaitPark(thread, waitedBefore);
         } else if (atFrameEnd[0] == Thread.State.WAITING) {
             parkedAfterLastStep = waitedBefore;
         } else {
@@ -287,29 +288,30 @@ public final class SceneStepper {
             throw new IllegalStateException("the actor thread is not parked at the start of a frame: "
                     + describe(thread));
         }
-        LockInfo lock = info.getLockInfo();
-        if (lock == null) {
-            throw new IllegalStateException("the actor thread waits on nothing this class knows: " + describe(thread));
+        String site = waitSite(info);
+        if (!WAIT_SITES.contains(site)) {
+            throw new IllegalStateException("the actor thread waits from " + site + ", a wait site the stepper does"
+                    + " not know; see SceneStepper's class comment. " + describe(thread));
         }
-        boolean held = matches(lock, thread);
+        LockInfo lock = info.getLockInfo();
+        boolean held = lock != null && matches(lock, thread);
         for (CharSprite sprite : moving) {
-            held = held || matches(lock, sprite);
+            held = held || (lock != null && matches(lock, sprite));
         }
         if (!held) {
             throw new IllegalStateException("the actor thread waits on " + lock + ", which the stepper is not"
                     + " about to hold (moving sprites=" + moving.size() + "): " + describe(thread));
         }
-        String site = null;
+    }
+
+    /** The code that called {@code wait}: the first frame on the stack that is not {@code Object}'s. */
+    private static String waitSite(ThreadInfo info) {
         for (StackTraceElement frame : info.getStackTrace()) {
             if (!frame.getClassName().equals(Object.class.getName())) {
-                site = frame.getClassName() + "." + frame.getMethodName();
-                break;
+                return frame.getClassName() + "." + frame.getMethodName();
             }
         }
-        if (site == null || !WAIT_SITES.contains(site)) {
-            throw new IllegalStateException("the actor thread waits from " + site + ", a wait site the stepper does"
-                    + " not know; see SceneStepper's class comment. " + describe(thread));
-        }
+        return "an empty stack";
     }
 
     private static boolean matches(LockInfo lock, Object candidate) {
@@ -337,21 +339,29 @@ public final class SceneStepper {
         }
         Actor.keepActorThreadAlive = true;
         thread.start();
-        awaitPark(thread, 0);
+        parkedAfterLastStep = awaitPark(thread, 0);
         publish(thread);
-        parkedAfterLastStep = waitedCount(thread);
     }
 
-    private void awaitPark(Thread thread, long waitedBefore) {
+    /**
+     * Polls until the thread has parked at a known wait site since {@code waitedBefore}, and
+     * returns the wait count it saw it parked at, which is what the next step must find.
+     */
+    private long awaitPark(Thread thread, long waitedBefore) {
         long deadline = System.nanoTime() + parkTimeoutNanos;
         int spins = 0;
         while (true) {
             failIfTheActorThreadDied();
             if (!thread.isAlive()) {
-                return;
+                return Long.MAX_VALUE;
             }
-            if (waitedCount(thread) > waitedBefore && thread.getState() == Thread.State.WAITING) {
-                return;
+            ThreadInfo info = THREADS.getThreadInfo(thread.threadId(), 16);
+            if (info == null) {
+                return Long.MAX_VALUE;
+            }
+            if (info.getWaitedCount() > waitedBefore && info.getThreadState() == Thread.State.WAITING
+                    && WAIT_SITES.contains(waitSite(info))) {
+                return info.getWaitedCount();
             }
             if (System.nanoTime() - deadline > 0) {
                 throw new IllegalStateException("the actor thread did not park within "
