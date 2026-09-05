@@ -4,7 +4,7 @@ key: 1-4-the-driver-loop-and-the-first-input-wait
 title: The driver loop and the first Input wait
 epic: 1
 issue: 17
-status: review
+status: done
 created: '2026-09-05'
 updated: '2026-09-05'
 ---
