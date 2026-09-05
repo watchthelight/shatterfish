@@ -73,12 +73,15 @@ public final class Hooks {
 	}
 
 	/**
-	 * Notified when the hero has nothing left to do and the game is waiting for input, which is the
-	 * only moment a driver may submit an Action (ADR-0014, ADR-0015). The site is inside
-	 * {@code Hero.act()} and belongs to hook row 5; story 1.5 lands it.
+	 * Notified at the start of every act of the hero that begins unready: the first statement of
+	 * the branch guarded by {@code ready} in {@code Hero.act()}, hook row 5. That is once before
+	 * every transition to ready, since {@code ready()} is reached only later in the same act, and
+	 * also on each step of a move and each turn of resting; the driver confirms which of these is
+	 * the Input wait, the only moment it may submit an Action (ADR-0014, ADR-0015), and drops the
+	 * rest. Story 1.5 landed the site.
 	 */
 	public interface InputWait {
-		/** Called on the actor thread, inside {@code Hero.act()}, before it parks. */
+		/** Called on the actor thread, inside {@code Hero.act()}, before the hero observes; must not block. */
 		void onInputWait();
 	}
 

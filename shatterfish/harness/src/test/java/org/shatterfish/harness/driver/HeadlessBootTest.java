@@ -8,6 +8,7 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Poison;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.items.Ankh;
+import com.shatteredpixel.shatteredpixeldungeon.items.armor.Armor;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Terrain;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
@@ -94,6 +95,7 @@ class HeadlessBootTest {
         Halt halt = driver.stepToInputWait();
 
         assertEquals(Reason.INPUT_WAIT, halt.reason());
+        assertEquals(1, halt.waitIndex(), "the first wait");
         Hero hero = Dungeon.hero;
         assertEquals(HeroClass.WARRIOR, hero.heroClass);
         assertEquals(SEED, Dungeon.seed, "the seed typed into the seed window is the game's seed (Dungeon.java:224-226)");
@@ -126,16 +128,16 @@ class HeadlessBootTest {
         Halt halt = driver.stepToInputWait();
 
         assertEquals(Reason.INPUT_WAIT, halt.reason());
+        assertEquals(2, halt.waitIndex(), "the prompt is the second wait");
         assertInstanceOf(WndOptions.class, halt.window(), "the chasm prompt is a WndOptions");
         assertTrue(GameScene.showingWindow());
         assertTrue(GameScene.interfaceBlockingHero(), "a click on the map is refused while it is open");
-        assertEquals(2, halt.framesStepped(), "after the first frame the hero was ready with the window still"
-                + " queued; the second frame showed it, and only then is the wait confirmed");
+        assertEquals(3, halt.framesStepped(), "after the first frame the hero was ready with the window still"
+                + " queued; the second frame showed it; the prompt ignores its buttons until it has been shown"
+                + " for 0.2 s of frame time (Chasm.java:77-92), so the third frame is the wait");
         assertEquals(from, hero.pos);
 
-        // The prompt ignores its buttons until it has been shown for 0.2 s of frame time
-        // (Chasm.java:73-92), so one more frame; then "no" is the second button.
-        driver.step();
+        // "no" is the second button, and the driver confirmed the wait only once it was answerable.
         List<RedButton> buttons = buttons(halt.window());
         assertEquals(2, buttons.size(), "yes and no");
         click(buttons.get(1));
@@ -148,6 +150,7 @@ class HeadlessBootTest {
         assertEquals(Reason.INPUT_WAIT, again.reason());
         assertNull(again.window());
         assertEquals(1, again.framesStepped());
+        assertEquals(3, again.waitIndex(), "answering closed the prompt without the hero acting: a new wait all the same");
     }
 
     @Test
@@ -160,7 +163,6 @@ class HeadlessBootTest {
         GameScene.handleCell(chasm);
         Halt prompt = driver.stepToInputWait();
         assertInstanceOf(WndOptions.class, prompt.window());
-        driver.step();
         // "yes": Chasm.jumpConfirmed and hero.resume() (Chasm.java:85-92), then the fall (:100-120).
         click(buttons(prompt.window()).get(0));
 
@@ -261,9 +263,10 @@ class HeadlessBootTest {
         assertEquals(Reason.INPUT_WAIT, halt.reason(), "Hero.die posts the prompt and returns without dying"
                 + " (Hero.java:2141-2190); the game is on while the prompt exists (Dungeon.java:707)");
         assertInstanceOf(WndResurrect.class, halt.window());
+        assertEquals(2, halt.waitIndex());
         assertFalse(hero.isAlive());
         assertNotNull(WndResurrect.instance);
-        assertEquals(2, halt.framesStepped(), "posted by the death, shown by the next frame");
+        assertEquals(3, halt.framesStepped(), "posted by the death, shown by the next frame, answerable the frame after");
 
         // The one RedButton is confirm (WndResurrect.java:98-118); a Warrior has a weapon and armor
         // to keep, so it resurrects at once (:125-141).
@@ -276,6 +279,41 @@ class HeadlessBootTest {
         assertEquals(InterlevelScene.class, next.requestedScene());
         assertEquals(InterlevelScene.Mode.RESURRECT, InterlevelScene.mode);
         assertNull(WndResurrect.instance, "the window cleared it as it went (WndResurrect.java:175-178)");
+    }
+
+    @Test
+    @DisplayName("an ankh with a kept-item slot empty asks twice: the warning over the resurrection window is a wait too")
+    void an_ankh_with_an_empty_slot_asks_twice() throws Exception {
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver.stepToInputWait();
+        Hero hero = Dungeon.hero;
+        Armor armor = hero.belongings.armor;
+        assertNotNull(armor);
+        hero.belongings.armor = null;
+        assertTrue(new Ankh().collect(hero.belongings.backpack));
+        Buff.affect(hero, Poison.class).set(100f * hero.HT);
+        GameScene.handleCell(freeCellBeside(hero.pos));
+        Halt offer = driver.stepToInputWait();
+        assertInstanceOf(WndResurrect.class, offer.window());
+
+        // Confirm with the armor slot empty: the window stacks a warning over itself
+        // (WndResurrect.java:98-114) and asks again.
+        click(buttons(offer.window()).get(0));
+        Halt warning = driver.stepToInputWait();
+
+        assertEquals(Reason.INPUT_WAIT, warning.reason());
+        assertEquals(3, warning.waitIndex());
+        assertInstanceOf(WndOptions.class, warning.window());
+        assertFalse(hero.isAlive());
+        assertNotNull(WndResurrect.instance, "the resurrection is still pending under the warning");
+        assertEquals(2, warning.framesStepped(), "shown during the click's frame, answerable the frame after");
+
+        click(buttons(warning.window()).get(0));
+        Halt halt = driver.stepToInputWait();
+
+        assertEquals(Reason.SCENE_SWITCH, halt.reason());
+        assertEquals(InterlevelScene.Mode.RESURRECT, InterlevelScene.mode);
+        assertNull(WndResurrect.instance);
     }
 
     @Test

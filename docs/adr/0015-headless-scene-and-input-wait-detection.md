@@ -268,3 +268,58 @@ are for a person, and are marked in code as never to reach an Observation or a l
 **A second private static is read by reflection, `Actor.current`,** from `SceneStepper` and
 nowhere else, never written, and only to say what a stalled Run was waiting on. The rule, the
 test and the ledger paragraph that hold `GameScene.actorThread` now name both.
+
+## Amendment: story 1.5 (2026-09-05)
+
+The detection decision is implemented at the site it names, with one correction to what the
+decision said that site does.
+
+**The branch runs more than once per Input wait.** Option 10 said the `Dungeon.observe()` branch
+of `Hero.act()` "is reached exactly once per Input wait because the branch is guarded by `ready`
+becoming true at its end", and the consequences paragraph said a multi-cell move never reaches it
+between cells. Both are wrong at `v3.3.8`. The branch runs at the start of every act of the hero
+that begins unready (`…/actors/hero/Hero.java:840-848`); an act that carries out an Action sets
+`ready` false (`:887`), so every step of a multi-cell move, every resting turn and every attack
+reaches the branch again on the hero's next act. What is true is what the driver needs:
+`ready()` is reached only later in the same act (`:862-870`, `:935-946`), so the branch runs once
+before every transition to ready, and a hero that is already waiting skips it on every wake-up.
+The notification is therefore "confirm now", not "a wait": the driver confirms the AD-5 condition
+between frames and drops the rest, counting them. The pairing with ADR-0014's one step per Action
+stands for a different reason than the one given: it is what makes one Action one act of the
+hero, so that the driver sees one notification per Action; the game observes between the cells
+of a longer move whether or not anyone is listening.
+
+**What makes a new wait.** A notification since the last confirmed wait, a change of the window
+in front since the last confirmed wait, or an Action handed to the game since it. The second is
+needed because answering a Prompt can close it without the hero acting (the chasm prompt's "no"),
+and the brain must see what is there now. The third is needed because an act can begin ready and
+end ready in one go, announcing nothing: a move the hero cannot take, or the first floor's
+entrance refused without the amulet, which posts a message (`…/levels/SewerLevel.java:146-155`);
+AD-5 gives every executed Action its own wait, whatever the game made of it, and the driver sees
+the Action as the hero holding it when stepping resumes. Nothing else does: sixty wake-ups of a
+parked hero, or a window that is not a Prompt appearing and going away by hand, leave the Run at
+the same wait, and a Run left with nothing handed to the game stalls with a message saying so. The condition confirmed is AD-5's, with three things the
+game does: a window is a wait only from its second frame in front, because the chasm prompt
+refuses an answer until it has been updated for more than 0.2 s of frame time
+(`…/levels/features/Chasm.java:77-92`), a guard against a click meant for the map that the driver
+would otherwise beat; the inventory pane can be selecting an item with no window while the map
+refuses clicks (`…/scenes/GameScene.java:1386-1395`), which is not a wait; and the resurrection
+window, or the warning it stacks over itself when a kept-item slot is empty
+(`…/windows/WndResurrect.java:98-114`), is a Prompt a hero at zero health answers without being
+ready (story 1.4). A notification that finds the hero mid-action is dropped; a wait that cannot be
+confirmed yet, under a window that is not a Prompt, under a window shown that frame, or with the
+pane selecting, is not lost, because the Action that led there or the window's change confirms it
+once it can be. `Prompts` lists the windows that are Prompts until story 1.10 owns the kinds.
+
+**The index.** `k` counts the waits confirmed, from 1, and is incremented before the per-wait
+sequence as ADR-0013 has it; the spine's "0-based" is the value before the first wait. It is a
+`long`, as the spine says, since the Run log and the reseed carry it.
+
+**The per-wait sequence** is `WaitSequence`: five steps with no-op defaults, run by the driver in
+ADR-0013's order at each confirmed wait, with the index it has just incremented; the stories that
+own the steps fill them in.
+
+**The hook is nine added lines**, a marker, five comment lines, two statements and an import, at
+the top of the branch, the fourth site of row 5; the
+registry's point has existed since story 1.2. The site reads the point into a local and calls it,
+and the listener does one volatile write on the actor thread, which is all AD-8 allows there.
