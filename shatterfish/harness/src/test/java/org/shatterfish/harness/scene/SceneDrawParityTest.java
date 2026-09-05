@@ -91,8 +91,7 @@ class SceneDrawParityTest {
     @BeforeAll
     static void one_floor_and_a_run_that_is_thrown_away() throws Exception {
         HeadlessBoot boot = HeadlessBoot.ensure();
-        FreshRun.start(boot, SEED, () -> {
-        });
+        FreshRun.start(SEED);
         floor = FreshRun.snapshot(boot);
         play(HeadlessScene::new);
     }

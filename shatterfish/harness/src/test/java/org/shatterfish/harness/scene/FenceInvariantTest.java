@@ -75,8 +75,7 @@ class FenceInvariantTest {
 
     private Watched play(boolean gravityChaos) throws Exception {
         boot = HeadlessBoot.ensure();
-        FreshRun.start(boot, SEED, () -> {
-        });
+        FreshRun.start(SEED);
         Watched scene = new Watched();
         stepper = new SceneStepper(scene);
         scene.stepper = stepper;

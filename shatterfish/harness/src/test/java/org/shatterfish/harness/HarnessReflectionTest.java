@@ -39,9 +39,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Observer that later stories build is the door through which the brain sees it. What this rule
  * protects is reviewability. The hook ledger sees every edit to upstream and nothing that reaches
  * a private member by reflection, so the places that do must be few and named, or a reader of the
- * ledger is told less than the truth. Story 1.3 set the precedent with one field; this is what
- * stops a second arriving unannounced. Tests are not scanned: they reach privates freely, and the
- * ledger's own tests do.
+ * ledger is told less than the truth. Story 1.3 set the precedent with one field and story 1.4
+ * added a second, both named in the ledger; this is what stops another arriving unannounced.
+ * Tests are not scanned: they reach privates freely, and the ledger's own tests do.
  *
  * <p>The rule is by dependency rather than by call, because a method reference or a reflective
  * call to {@code getDeclaredField} itself is not a call to it. Anything outside the stepper that
@@ -53,7 +53,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class HarnessReflectionTest {
 
     /** The fields {@code docs/UPSTREAM.md} names, as {@code Owner.field}. */
-    private static final Set<String> DECLARED = Set.of("GameScene.actorThread");
+    private static final Set<String> DECLARED = Set.of("GameScene.actorThread", "Actor.current");
 
     @ArchTest
     static final ArchRule reflection_into_upstream_is_confined_to_the_stepper = noClasses()
@@ -97,10 +97,16 @@ class HarnessReflectionTest {
                 "SceneStepper's reflective reach and the set this test declares must agree; change both, and"
                         + " docs/UPSTREAM.md, together");
 
+        // The ledger's paragraph on harness main code, not the sentence about what tests reach.
         Path doc = repoRoot().resolve("docs/UPSTREAM.md");
         String text = Files.readString(doc);
+        int start = text.indexOf("A third thing is outside the ledger's reach");
+        int end = text.indexOf("A fourth thing is outside the ledger's reach", Math.max(start, 0));
+        assertTrue(start >= 0 && end > start, doc + " must carry the paragraph on reflection from harness main code");
+        String paragraph = text.substring(start, end);
         for (String field : DECLARED) {
-            assertTrue(text.contains("`" + field + "`"), doc + " must name `" + field + "`");
+            assertTrue(paragraph.contains("`" + field + "`"),
+                    doc + "'s paragraph on reflection from harness main code must name `" + field + "`");
         }
         assertTrue(reached.contains("GameScene.actorThread") && GameScene.class != null);
     }
@@ -124,6 +130,7 @@ class HarnessReflectionTest {
         Set<String> openings = Set.of("setAccessible", "trySetAccessible");
         long lookupAccesses = 0;
         long openingAccesses = 0;
+        long writes = 0;
         for (JavaClass owner : stepper) {
             for (JavaAccess<?> access : owner.getAccessesFromSelf()) {
                 if (lookups.contains(access.getTarget().getName())) {
@@ -132,10 +139,16 @@ class HarnessReflectionTest {
                 if (openings.contains(access.getTarget().getName())) {
                     openingAccesses++;
                 }
+                if (access.getTarget().getOwner().isEquivalentTo(Field.class)
+                        && access.getTarget().getName().equals("set")) {
+                    writes++;
+                }
             }
         }
         assertEquals(1, lookupAccesses, "one place looks a field up by name");
         assertEquals(1, openingAccesses, "one place opens it");
+        assertEquals(1, writes, "one place writes through reflection: the thread the scene must find already running;"
+                + " the ledger says the other field is only read");
     }
 
     @Test

@@ -2,11 +2,13 @@ package org.shatterfish.harness.boot;
 
 import com.badlogic.gdx.Application;
 import com.badlogic.gdx.ApplicationAdapter;
+import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.Files;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.backends.headless.HeadlessApplication;
 import com.badlogic.gdx.backends.headless.HeadlessApplicationConfiguration;
 import com.badlogic.gdx.backends.headless.HeadlessNativesLoader;
+import com.shatteredpixel.shatteredpixeldungeon.GamesInProgress;
 import com.shatteredpixel.shatteredpixeldungeon.SPDSettings;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Languages;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
@@ -33,7 +35,8 @@ import java.util.concurrent.TimeUnit;
  * <li>A {@link HeadlessApplication} whose own loop never runs ({@code updatesPerSecond = -1}),
  * so that {@code Gdx.app}, {@code Gdx.files} and {@code Gdx.audio} exist while the driver owns
  * the loop (ADR-0015, option 2). The consequence is that posted runnables are drained by nobody
- * unless the driver does it, which {@link #drainPostedRunnables()} is for.</li>
+ * unless the driver does it, which {@link #drainPostedRunnables()} is for; its loop thread ends as
+ * soon as it has created the listener, and the boot waits for that.</li>
  * <li>The no-op graphics binding, before anything can construct a texture. Every texture calls
  * {@code glGenTexture} in its constructor ({@code SPD-classes/.../glwrap/Texture.java:47}).</li>
  * <li>Settings in memory, with the intro off. The headless backend's own preferences would write
@@ -62,7 +65,7 @@ public final class HeadlessBoot {
 
     private static HeadlessBoot instance;
 
-    private final HeadlessApplication application;
+    private final Backend application;
     private final MemoryPreferences preferences;
     private final HeadlessGame game;
     private final String upstreamVersionName;
@@ -87,7 +90,7 @@ public final class HeadlessBoot {
         HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
         config.updatesPerSecond = -1;
         CountDownLatch created = new CountDownLatch(1);
-        application = new HeadlessApplication(new ApplicationAdapter() {
+        application = new Backend(new ApplicationAdapter() {
             @Override
             public void create() {
                 created.countDown();
@@ -101,6 +104,11 @@ public final class HeadlessBoot {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("interrupted while the headless backend started", e);
         }
+
+        // With updatesPerSecond at -1 the backend's loop is skipped and its thread ends right after
+        // create() (HeadlessApplication.mainLoop, libGDX 1.14.0). The boot waits for that, so that
+        // "no library-owned loop drives the scene" is checked here rather than assumed.
+        application.joinLoopThread();
 
         // Errors only. The game echoes every log line to the console through Gdx.app.log, from the
         // actor thread; the harness reads the game log through GLog's own listener instead, and a
@@ -151,10 +159,20 @@ public final class HeadlessBoot {
         return profile;
     }
 
-    /** Points the game's file access at {@code directory}, which must exist. */
+    /**
+     * Points the game's file access at {@code directory}, which must exist, and forgets what the
+     * game had cached about the save slots of the previous one. The game remembers, for the life
+     * of the process, which slots it has seen occupied ({@code core/.../GamesInProgress.java:40-41},
+     * {@code :98-136}), and every level change saves the game into the current slot
+     * ({@code Dungeon.java:511-512}, {@code :707-714}); left alone, the cache would describe the
+     * old directory and the seventh Run in a process would find no free slot.
+     */
     public void profile(Path directory) {
         FileUtils.setDefaultFileProperties(Files.FileType.Absolute, directory.toAbsolutePath() + "/");
         profile = directory;
+        for (int slot = 1; slot <= GamesInProgress.MAX_SLOTS; slot++) {
+            GamesInProgress.setUnknown(slot);
+        }
     }
 
     /** The upstream release this build of the harness runs, from the root build script. */
@@ -174,6 +192,51 @@ public final class HeadlessBoot {
      */
     public void drainPostedRunnables() {
         application.executeRunnables();
+    }
+
+    /** Runnables posted since the last frame drained the queue; the next frame runs them first. */
+    public int pendingRunnables() {
+        return application.pendingRunnables();
+    }
+
+    /** Whether the backend's own loop thread is alive; it ends during the boot and stays ended. */
+    public boolean backendLoopThreadAlive() {
+        return application.loopThreadAlive();
+    }
+
+    /**
+     * The backend, subclassed for two things libGDX keeps protected: how many runnables are
+     * queued, which a driver must know before it declares an Input wait, and whether the loop
+     * thread is alive, which it must not be.
+     */
+    private static final class Backend extends HeadlessApplication {
+
+        Backend(ApplicationListener listener, HeadlessApplicationConfiguration config) {
+            super(listener, config);
+        }
+
+        int pendingRunnables() {
+            synchronized (runnables) {
+                return runnables.size;
+            }
+        }
+
+        boolean loopThreadAlive() {
+            return mainLoopThread != null && mainLoopThread.isAlive();
+        }
+
+        void joinLoopThread() {
+            try {
+                mainLoopThread.join(10_000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("interrupted while the backend's loop thread ended", e);
+            }
+            if (mainLoopThread.isAlive()) {
+                throw new IllegalStateException("the backend's loop thread is still running 10 s after create();"
+                        + " with updatesPerSecond = -1 it must end, or the driver is not the only loop");
+            }
+        }
     }
 
     private static Properties upstreamProperties() {

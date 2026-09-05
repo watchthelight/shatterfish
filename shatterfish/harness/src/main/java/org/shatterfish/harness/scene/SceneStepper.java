@@ -7,8 +7,12 @@ import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.GravityChaosTracker;
+import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.CharSprite;
+import com.watabou.input.KeyEvent;
+import com.watabou.input.PointerEvent;
+import com.watabou.input.ScrollEvent;
 import com.watabou.noosa.Camera;
 import com.watabou.noosa.Game;
 import com.watabou.noosa.audio.Music;
@@ -29,10 +33,11 @@ import java.util.Set;
  * frame only when the actor thread has parked again.
  *
  * <p>A frame here is what {@code Game.update()} does on the render thread
- * ({@code SPD-classes/.../noosa/Game.java:269-283}), minus the input handler a headless process
- * has no events for: the frame time is capped at 0.2 s as the game caps it, the posted runnables
- * are drained first as the backends drain them before rendering, then music, the scene, and the
- * cameras update. Nothing is drawn.
+ * ({@code SPD-classes/.../noosa/Game.java:269-283}): the frame time is capped at 0.2 s as the game
+ * caps it, the posted runnables are drained first as the backends drain them before rendering,
+ * the queued input events are delivered next as {@code Game.update()} delivers them (a headless
+ * process has no device, but the harness queues pointer events to press a window's button), then
+ * music, the scene, and the cameras update. Nothing is drawn.
  *
  * <p>The part that is not in the game is the waiting. The scene starts the actor thread and
  * notifies it from its own {@code update()} ({@code core/.../scenes/GameScene.java:865-888}),
@@ -43,7 +48,7 @@ import java.util.Set;
  * gravity-chaos curse is active, on each moving sprite in {@code Actor.chars()} order until none
  * moves ({@code core/.../actors/buffs/GravityChaosTracker.java:76-86}). {@code grep '\.wait('}
  * under {@code core} and {@code SPD-classes} finds those three and one more,
- * {@code GameScene.waitForActorThread} ({@code GameScene.java:796-806}), which is the render
+ * {@code GameScene.waitForActorThread} ({@code GameScene.java:793-806}), which is the render
  * thread waiting on the actor thread from {@code destroy()} and {@code onPause()}; it must never
  * be reached on this thread inside a frame, because {@code Object.wait} releases a reentrant
  * hold in full. In the real game the two threads overlap, and any random draw made on the render
@@ -87,11 +92,12 @@ import java.util.Set;
  * gravity-chaos curse. That is the shape story 1.4's loop and story 1.5's wait detection build
  * on.
  *
- * <p>One private static of the game is reached through reflection, and {@code HarnessReflectionTest}
+ * <p>Two private statics of the game are reached through reflection, and {@code HarnessReflectionTest}
  * confines reflection in {@code harness} to this class: {@code GameScene.actorThread}, which the
- * stepper sets once so that the scene finds its thread already running. That changes nothing the
- * game computes; if an upgrade renames it the failure is immediate and says so, and row 4 of the
- * ledger is where it would move.
+ * stepper sets once so that the scene finds its thread already running, and {@code Actor.current},
+ * which it only reads, to name the actor a stalled Run is waiting on ({@link #currentActor()}).
+ * Neither changes anything the game computes; if an upgrade renames one the failure is immediate
+ * and says so, and row 4 of the ledger is where they would move.
  */
 public final class SceneStepper {
 
@@ -102,6 +108,7 @@ public final class SceneStepper {
     public static final float FRAME = 0.2f;
 
     private static final Field ACTOR_THREAD = privateStatic(GameScene.class, "actorThread");
+    private static final Field CURRENT = privateStatic(Actor.class, "current");
     private static final ThreadMXBean THREADS = ManagementFactory.getThreadMXBean();
 
     /** The code that may call {@code wait} on the actor thread at the pinned tag; see the class comment. */
@@ -215,15 +222,84 @@ public final class SceneStepper {
             return;
         }
         GameScene.endActorThread();
-        try {
-            thread.join(5_000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+        // One interrupt is not always enough: a thread parked on a sprite catches it and parks
+        // again on its own monitor before it re-reads keepActorThreadAlive (Actor.java:283-285,
+        // :304-324), so a parked thread is interrupted again until it has left.
+        long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+        while (thread.isAlive() && System.nanoTime() - deadline < 0) {
+            try {
+                thread.join(20);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+            if (thread.isAlive() && thread.getState() == Thread.State.WAITING) {
+                thread.interrupt();
+            }
         }
         if (thread.isAlive()) {
             throw new IllegalStateException("the actor thread did not finish within 5s: " + describe(thread));
         }
         actorThread = null;
+    }
+
+    /**
+     * The actor whose turn it is, as the game records it in {@code Actor.current}: between frames,
+     * with the thread parked, the actor whose {@code act()} returned false without {@code next()}
+     * being called since ({@code Actor.java:293-321}), or null between turns and while a scene
+     * change is pending. Read only, to name what a stalled Run is waiting on; no Run outcome
+     * depends on it.
+     */
+    public Actor currentActor() {
+        return (Actor) read(CURRENT);
+    }
+
+    /**
+     * Whether the actor thread is parked on its own monitor, between turns ({@code Actor.java:318}),
+     * rather than on a sprite ({@code :280}, {@code GravityChaosTracker.java:80}).
+     */
+    public boolean parkedOnItsOwnMonitor() {
+        Thread thread = actorThread;
+        if (thread == null) {
+            return false;
+        }
+        ThreadInfo info = THREADS.getThreadInfo(thread.threadId());
+        LockInfo lock = info == null ? null : info.getLockInfo();
+        return lock != null && matches(lock, thread);
+    }
+
+    /**
+     * The actor thread's state, what it waits on, whose turn it is, the hero's flags, and its
+     * stack. For a person reading a failure: it names things the player may not be able to see,
+     * and must never reach an Observation, a run log the brain reads, or training labels except
+     * under the oracle flag.
+     */
+    public String describeActorThread() {
+        Thread thread = actorThread;
+        return thread == null ? "no actor thread yet" : describe(thread);
+    }
+
+    /**
+     * An actor by class and id, with its class, cell and health when it is the hero or a character.
+     * Every actor the loop has processed was added with {@code Actor.add}, which assigned its id
+     * ({@code Actor.java:342}), so naming one assigns nothing; an actor that was never added would
+     * be given an id by {@code id()} ({@code :135-141}), so callers pass only actors the game holds.
+     * The text is for a person reading a failure: a mob's cell and health behind the fog are
+     * exactly what parity forbids, so it must never reach an Observation, a run log the brain
+     * reads, or training labels except under the oracle flag.
+     */
+    public static String name(Actor actor) {
+        if (actor == null) {
+            return "none";
+        }
+        StringBuilder out = new StringBuilder(actor.getClass().getSimpleName()).append('#').append(actor.id());
+        if (actor instanceof Hero hero) {
+            out.append(" (").append(hero.heroClass.name()).append(')');
+        }
+        if (actor instanceof Char ch) {
+            out.append(" at ").append(ch.pos).append(", HP ").append(ch.HP).append('/').append(ch.HT);
+        }
+        return out.toString();
     }
 
     private void frame(float frameTime) {
@@ -232,6 +308,17 @@ public final class SceneStepper {
         Game.realTime = TimeUtils.millis();
 
         ((HeadlessApplication) Gdx.app).executeRunnables();
+
+        // Game.update() delivers the queued input here, after the runnables and before the scene
+        // (Game.java:277; InputHandler.processAllEvents, SPD-classes/.../input/InputHandler.java:65-69).
+        // A headless process has no device to queue events, but the harness queues pointer events
+        // to press a button in a window, and they are delivered where the game delivers them. A key
+        // bound to a click would reach Game.inputHandler (KeyEvent.java:65-77), which the headless
+        // game never creates; the bindings are empty headlessly (KeyBindings.java:34) and nothing
+        // queues a key, so the key queue is always empty here.
+        PointerEvent.processPointerEvents();
+        KeyEvent.processKeyEvents();
+        ScrollEvent.processScrollEvents();
 
         Music.INSTANCE.update();
         Sample.INSTANCE.update();
@@ -409,8 +496,11 @@ public final class SceneStepper {
 
     private static String describe(Thread thread) {
         StringBuilder out = new StringBuilder();
+        ThreadInfo info = THREADS.getThreadInfo(thread.threadId());
+        LockInfo lock = info == null ? null : info.getLockInfo();
         out.append("state=").append(thread.getState())
-                .append(", Actor.processing=").append(Actor.processing())
+                .append(", waiting on=").append(lock == null ? "nothing" : lock.toString())
+                .append(", Actor.current=").append(name((Actor) read(CURRENT)))
                 .append(", Actor.now=").append(Actor.now());
         if (Dungeon.hero != null) {
             out.append(", hero.ready=").append(Dungeon.hero.ready)
