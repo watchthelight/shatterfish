@@ -24,6 +24,7 @@ import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
 import com.watabou.noosa.Scene;
 import org.shatterfish.harness.boot.HeadlessBoot;
 import org.shatterfish.harness.boot.HeadlessGame;
+import org.shatterfish.harness.observer.GameLogListener;
 import org.shatterfish.harness.scene.HeadlessScene;
 import org.shatterfish.harness.scene.SceneStepper;
 
@@ -181,6 +182,9 @@ public final class HeadlessDriver implements AutoCloseable {
             boot.game().destroy();
         }
         newGame(seed, heroClass);
+        // The Observer's log listener (ADR-0006, Log) is re-added by hook row 3 as the scene is
+        // created, so the seam is armed before the scene exists and hears the first floor's lines.
+        GameLogListener.install();
         HeadlessScene scene = new HeadlessScene();
         boot.game().switchTo(scene);
         return new HeadlessDriver(boot, scene);
@@ -248,6 +252,7 @@ public final class HeadlessDriver implements AutoCloseable {
         Mob.clearHeldAllies();
         Dungeon.init();
         GameLog.wipe();
+        GameLogListener.INSTANCE.reset();
         Level level = Dungeon.newLevel();
         Dungeon.switchLevel(level, -1);
     }
@@ -308,7 +313,7 @@ public final class HeadlessDriver implements AutoCloseable {
                 boolean heroWaits = heroWaits(hero);
                 boolean resurrecting = WndResurrect.instance != null;
                 if ((notified || acted || window != lastConfirmedWindow)
-                        && isInputWait(heroWaits, resurrecting, window, windowFramesShown)) {
+                        && isInputWait(hero, window, windowFramesShown)) {
                     waitIndex++;
                     lastConfirmedWindow = window;
                     acted = false;
@@ -341,11 +346,24 @@ public final class HeadlessDriver implements AutoCloseable {
         return hero.ready && hero.curAction == null && !hero.resting;
     }
 
-    private static boolean isInputWait(boolean heroWaits, boolean resurrecting, Window window, int windowFramesShown) {
+    /**
+     * AD-5's condition on the game's state, the one definition the driver and the Observer share:
+     * with no window in front, the hero waits and the inventory pane is not selecting
+     * ({@code .../scenes/GameScene.java:1386-1396}); with a window in front, it is a Prompt and the
+     * hero waits under it or is being offered a resurrection. The driver confirms a wait only when
+     * this holds and two timing conditions of its own do, a window's second frame in front and an
+     * empty render queue, which a reader of the state cannot see.
+     */
+    public static boolean waitState(Hero hero, Window window) {
+        boolean heroWaits = heroWaits(hero);
         if (window == null) {
             return heroWaits && !GameScene.interfaceBlockingHero();
         }
-        return windowFramesShown >= 2 && (heroWaits || resurrecting) && Prompts.isRecognised(window);
+        return (heroWaits || WndResurrect.instance != null) && Prompts.isRecognised(window);
+    }
+
+    private static boolean isInputWait(Hero hero, Window window, int windowFramesShown) {
+        return (window == null || windowFramesShown >= 2) && waitState(hero, window);
     }
 
     /**
@@ -432,6 +450,7 @@ public final class HeadlessDriver implements AutoCloseable {
                 boot.game().destroy();
             } finally {
                 Hooks.clear();
+                GameLogListener.uninstall();
             }
         }
     }

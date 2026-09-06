@@ -40,6 +40,15 @@ public class Group extends Gizmo {
 		members = new ArrayList<>();
 		length = 0;
 	}
+
+	// shatterfish-hook:4
+	// A read-only accessor for the Observer (ADR-0006, the Prompt row): the members this group
+	// draws, in drawing order, as a copy. A window's title, text and buttons are members of its
+	// members, and the list is protected with no getter. It reads under the lock every other
+	// method here takes and writes nothing, so nothing the game computes can change by its presence.
+	public synchronized ArrayList<Gizmo> shatterfishMembers() {
+		return new ArrayList<>( members );
+	}
 	
 	@Override
 	public synchronized void destroy() {

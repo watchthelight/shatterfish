@@ -48,6 +48,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * so much as names {@code java.lang.reflect} or {@code java.lang.invoke} is rejected; the one
  * exception is {@code NoOpGL}, a dynamic proxy, which may name {@code Proxy},
  * {@code InvocationHandler} and {@code Method} and may not open anything or invoke through them.
+ * Reading a class's own metadata through {@code java.lang.Class}, its name, its enclosing class,
+ * whether it is anonymous, is not reflection into a member and is not confined: story 1.10's
+ * {@code Prompts} classifies a window by the class that opened it that way.
  */
 @AnalyzeClasses(packages = "org.shatterfish.harness", importOptions = ImportOption.DoNotIncludeTests.class)
 class HarnessReflectionTest {

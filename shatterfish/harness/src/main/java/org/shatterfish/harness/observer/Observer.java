@@ -3,9 +3,11 @@ package org.shatterfish.harness.observer;
 import com.shatteredpixel.shatteredpixeldungeon.Challenges;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.QuickSlot;
+import com.shatteredpixel.shatteredpixeldungeon.Statistics;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.FlavourBuff;
+import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Belongings;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroSubClass;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
@@ -19,8 +21,11 @@ import com.shatteredpixel.shatteredpixeldungeon.effects.EmoIcon;
 import com.shatteredpixel.shatteredpixeldungeon.items.Heap;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.items.artifacts.Artifact;
+import com.shatteredpixel.shatteredpixeldungeon.items.potions.Potion;
 import com.shatteredpixel.shatteredpixeldungeon.items.rings.Ring;
+import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.Scroll;
 import com.shatteredpixel.shatteredpixeldungeon.items.wands.Wand;
+import com.shatteredpixel.shatteredpixeldungeon.journal.Notes;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Terrain;
 import com.shatteredpixel.shatteredpixeldungeon.levels.traps.Trap;
@@ -28,13 +33,17 @@ import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.tiles.DungeonTileSheet;
 import com.shatteredpixel.shatteredpixeldungeon.ui.BuffIndicator;
+import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
 import com.watabou.noosa.Game;
+
 import org.shatterfish.api.ActorView;
 import org.shatterfish.api.ActorsSection;
 import org.shatterfish.api.Alignment;
 import org.shatterfish.api.BuffView;
 import org.shatterfish.api.Challenge;
 import org.shatterfish.api.Emote;
+import org.shatterfish.api.EquipSlot;
 import org.shatterfish.api.Feeling;
 import org.shatterfish.api.Fog;
 import org.shatterfish.api.HeaderSection;
@@ -44,14 +53,25 @@ import org.shatterfish.api.HeroClass;
 import org.shatterfish.api.HeroSection;
 import org.shatterfish.api.HeroSubclass;
 import org.shatterfish.api.Hunger;
+import org.shatterfish.api.InventorySection;
+import org.shatterfish.api.ItemKind;
+import org.shatterfish.api.ItemView;
+import org.shatterfish.api.JournalSection;
+import org.shatterfish.api.KnownAppearance;
+import org.shatterfish.api.LogSection;
 import org.shatterfish.api.MapSection;
+import org.shatterfish.api.NoteKind;
+import org.shatterfish.api.NoteView;
 import org.shatterfish.api.ObservationCodec;
 import org.shatterfish.api.PromptKind;
+import org.shatterfish.api.PromptSection;
 import org.shatterfish.api.QuickslotView;
 import org.shatterfish.api.TalentView;
 import org.shatterfish.api.Tile;
 import org.shatterfish.api.TrapView;
 import org.shatterfish.harness.driver.HeadlessDriver;
+import org.shatterfish.harness.driver.Prompts;
+import org.shatterfish.harness.driver.Windows;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -64,14 +84,20 @@ import java.util.Map;
  * The one door from game state to the bot (non-negotiable 1; ADR-0006): reads, at an Input wait,
  * exactly what the screen draws, through the predicates the renderer and the HUD use, and builds
  * the sections of the Observation from them. Story 1.8 built the header and the map, story 1.9
- * the actors and the hero; the inventory, journal, log and Prompt (1.10) and the rows left (1.11)
- * follow, and {@code observe()} arrives when every section does. Nothing here reads a field the
+ * the actors and the hero, story 1.10 the inventory, the journal, the log and the Prompt; the
+ * rows left (1.11) follow, and {@code observe()} arrives when every section does. Nothing here reads a field the
  * screen does not draw, and every rule cites the drawing code at the pinned tag; paths abbreviate
  * {@code core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/} as {@code …/}.
  *
  * <p>Every method runs only at an Input wait: the hero is ready with no action and not resting,
- * and no window is open, which is what the driver confirms (ADR-0015) and what this class
- * asserts on entry. A Prompt window is story 1.10's; any window is a failure here.
+ * and either no window is open or the window in front is a Prompt, one the game opened on its
+ * own and waits on ({@link Prompts}), which is the state the driver confirms (ADR-0015;
+ * {@link HeadlessDriver#waitState}) and what this class asserts on entry; any other window in
+ * front is a failure (ADR-0006, Prompt). The driver adds two timing conditions of its own that
+ * a reader of the state cannot see, a window's second frame in front and an empty render queue,
+ * so a read here is a read of the state a wait has, not the driver's confirmation of one. The log is
+ * read from {@link GameLogListener}, the listener on the game's message signal that hook row 3
+ * re-registers on every scene creation.
  */
 public final class Observer {
 
@@ -136,8 +162,8 @@ public final class Observer {
      * hero window both show them), the depth and branch the interlevel screen and the status pane
      * name, whether the floor is locked by a boss fight ({@code …/levels/Level.java:180}, set by
      * {@code seal()} with the {@code LockedFloor} buff whose icon the HUD shows, {@code :617-630};
-     * {@code …/actors/buffs/LockedFloor.java:76-78}), no oracle, and no Prompt, since no window is
-     * open at a wait this class accepts.
+     * {@code …/actors/buffs/LockedFloor.java:76-78}), no oracle, and the kind of the Prompt in front,
+     * {@code NONE} with no window ({@link Prompts#kind}), which the prompt section repeats.
      */
     public HeaderSection header() {
         atInputWait();
@@ -149,7 +175,7 @@ public final class Observer {
             }
         }
         return new HeaderSection(ObservationCodec.SCHEMA_VERSION, upstreamTag(), "", HeroClass.valueOf(hero.heroClass.name()),
-                challenges, Dungeon.depth, Dungeon.branch, Dungeon.level.locked, false, PromptKind.NONE);
+                challenges, Dungeon.depth, Dungeon.branch, Dungeon.level.locked, false, Prompts.kind(Windows.front()));
     }
 
     /**
@@ -286,6 +312,235 @@ public final class Observer {
                 hero.armorAbility == null ? "" : hero.armorAbility.name(), hero.lvl, hero.exp, hero.maxExp(), hero.HP, hero.HT,
                 hero.shielding(), hero.STR, hero.STR() - hero.STR, Dungeon.gold, Dungeon.energy, hunger(hero), buffs(hero),
                 talents, available, quickslots);
+    }
+
+    /**
+     * The inventory (ADR-0005; ADR-0006, Items): the belongings in the order the bag iterates them,
+     * the six slots then the backpack with a bag before its contents
+     * ({@code …/actors/hero/Belongings.java:422-453}; {@code …/items/bags/Bag.java:216-250}), each
+     * item as the slot, the item window and the log print it. The name is the item's own, which for
+     * an unknown potion, scroll or ring is its appearance ({@code …/items/potions/Potion.java:377-379};
+     * {@code …/items/scrolls/Scroll.java:240-242}; {@code …/items/rings/Ring.java:172-174}) and for a
+     * weapon or armor names a curse only once the curse is known
+     * ({@code …/items/weapon/Weapon.java:408-416}; {@code …/items/armor/Armor.java:573-581}); the
+     * level and curse flags carry the values the slot draws ({@code …/items/Item.java:433-443};
+     * {@code …/ui/ItemSlot.java:279-283}); the status is the slot's text, a wand's charges only
+     * once known ({@code …/items/wands/Wand.java:336-343}; {@code ItemSlot.java:234}); the actions
+     * are the item window's buttons with the default it colours
+     * ({@code Item.java:110-115}, {@code :179-181}; {@code …/windows/WndUseItem.java:54-76}), as
+     * the identifiers the window executes. The family is the item's package ({@link ItemKind}).
+     */
+    public InventorySection inventory() {
+        atInputWait();
+        Hero hero = Dungeon.hero;
+        List<ItemView> items = new ArrayList<>();
+        for (Item item : hero.belongings) {
+            items.add(itemView(item, hero, slot(item, hero.belongings)));
+        }
+        return new InventorySection(items);
+    }
+
+    /**
+     * The journal (ADR-0005; ADR-0006, Journal, Known appearances): every note the notes tab draws,
+     * the written notes and then each floor's landmarks and keys down from the deepest, through the
+     * tab's own two calls ({@code …/windows/WndJournal.java:497-541}; {@code …/journal/Notes.java:685-705}),
+     * so a record on a floor the tab does not list is not a note, as its kind,
+     * depth, title, the body a written note has and the count a key has
+     * ({@code Notes.java:206-217}, {@code :324-331}, {@code :344-346}, {@code :430-437}, {@code :487-495});
+     * and the potions, scrolls and rings identified this Run
+     * ({@code …/items/potions/Potion.java:402-404}; {@code …/items/scrolls/Scroll.java:265-267};
+     * {@code …/items/rings/Ring.java:280-282}), each by the name it draws once known
+     * ({@code …/items/Item.java:501-503}).
+     */
+    public JournalSection journal() {
+        atInputWait();
+        List<NoteView> notes = new ArrayList<>();
+        for (Notes.CustomRecord custom : Notes.getRecords(Notes.CustomRecord.class)) {
+            notes.add(note(custom));
+        }
+        for (int depth = Statistics.deepestFloor; depth > 0; depth--) {
+            for (Notes.Record record : Notes.getRecords(depth)) {
+                notes.add(note(record));
+            }
+        }
+        List<KnownAppearance> known = new ArrayList<>();
+        for (Class<? extends Potion> potion : Potion.getKnown()) {
+            known.add(new KnownAppearance(ItemKind.POTION, Messages.get(potion, "name")));
+        }
+        for (Class<? extends Scroll> scroll : Scroll.getKnown()) {
+            known.add(new KnownAppearance(ItemKind.SCROLL, Messages.get(scroll, "name")));
+        }
+        for (Class<? extends Ring> ring : Ring.getKnown()) {
+            known.add(new KnownAppearance(ItemKind.RING, Messages.get(ring, "name")));
+        }
+        return new JournalSection(notes, known);
+    }
+
+    /**
+     * The log (ADR-0005; ADR-0006, Log): the newest messages of the game's own signal, as
+     * {@link GameLogListener} keeps them, never the pane's rendered entries.
+     */
+    public LogSection log() {
+        atInputWait();
+        return new LogSection(GameLogListener.INSTANCE.lines());
+    }
+
+    /**
+     * The Prompt (ADR-0005; ADR-0006, Prompt): the window in front when there is one, which the
+     * gate holds to be a Prompt, as its kind ({@link Prompts#kind}), the title and the text it draws
+     * and its buttons' labels in drawing order ({@link Windows}); {@link PromptSection#NONE} with no
+     * window in front.
+     */
+    public PromptSection prompt() {
+        atInputWait();
+        Window window = Windows.front();
+        return window == null ? PromptSection.NONE : promptOf(window);
+    }
+
+    /**
+     * A window's title, text and options. Every Prompt window at the tag draws a title, an icon
+     * title's label or a title block, one message block and its buttons
+     * ({@code …/windows/WndOptions.java:40-66}; {@code …/windows/WndTitledMessage.java:42-68};
+     * {@code …/windows/WndResurrect.java:65-74}; {@code …/windows/WndChooseSubclass.java:49-93});
+     * an options window opened without a title draws the message alone ({@code WndOptions.java:53-65}).
+     * The title is the icon title's label where the window has one, read by type since a titled
+     * message brings its title bar to the front after laying it out
+     * ({@code WndTitledMessage.java:67}) and the drawing order then has it last; otherwise it is the
+     * first text block when there are at least two, a title block coming before its message
+     * ({@code WndOptions.java:53-59}). The text is the rest, and the options are the styled
+     * buttons' labels; the icon buttons beside them are not options.
+     */
+    static PromptSection promptOf(Window window) {
+        Windows.Read read = Windows.read(window);
+        List<String> texts = read.texts();
+        String title;
+        List<String> rest;
+        if (read.iconTitle() != null) {
+            title = read.iconTitle();
+            rest = texts;
+        } else {
+            title = texts.size() >= 2 ? texts.get(0) : "";
+            rest = texts.size() >= 2 ? texts.subList(1, texts.size()) : texts;
+        }
+        return new PromptSection(Prompts.kind(window), title, String.join("\n", rest), read.buttons());
+    }
+
+    /**
+     * One item as the bag and the item window show it. The status is null for most items
+     * ({@code …/items/Item.java:570-572}), an empty string here; the actions are the identifiers
+     * {@code actions(hero)} lists, one button each ({@code …/windows/WndUseItem.java:54-76}).
+     *
+     * <p>The level and curse flags are the item's own fields where the slot and the item window
+     * draw their effect, a weapon's, armor's, wand's, ring's or artifact's level text and curse
+     * line, and the item's own identification predicate raises both where that predicate is what
+     * the screen draws instead: a potion or scroll is identified exactly when its type is known
+     * ({@code …/items/potions/Potion.java:393}; {@code …/items/scrolls/Scroll.java:261}), and food,
+     * keys, stones, bags, spells, bombs and the rest are identified always
+     * ({@code …/items/food/Food.java:135}; {@code …/items/keys/Key.java:91};
+     * {@code …/items/stones/Runestone.java:74}), the slot drawing their type icon on that predicate
+     * ({@code …/ui/ItemSlot.java:244-249}). So two items the screen draws alike are one view
+     * whatever their instance history: a potion identified by a scroll and one of the same known
+     * type picked up later differ in the fields and not on the screen.
+     */
+    static ItemView itemView(Item item, Hero hero, EquipSlot slot) {
+        String status = item.status();
+        String defaultAction = item.defaultAction();
+        boolean identified = item.isIdentified();
+        return new ItemView(itemKind(item), item.name(), item.quantity(), identified || item.levelKnown,
+                item.visiblyUpgraded(), identified || item.cursedKnown, item.visiblyCursed(),
+                status == null ? "" : status, slot, new ArrayList<>(item.actions(hero)),
+                defaultAction == null ? "" : defaultAction);
+    }
+
+    /** The slot an item is worn in, by identity with the belongings' six fields ({@code …/actors/hero/Belongings.java:82-95}). */
+    static EquipSlot slot(Item item, Belongings belongings) {
+        if (item == belongings.weapon) {
+            return EquipSlot.WEAPON;
+        } else if (item == belongings.armor) {
+            return EquipSlot.ARMOR;
+        } else if (item == belongings.artifact) {
+            return EquipSlot.ARTIFACT;
+        } else if (item == belongings.misc) {
+            return EquipSlot.MISC;
+        } else if (item == belongings.ring) {
+            return EquipSlot.RING;
+        } else if (item == belongings.secondWep) {
+            return EquipSlot.SECOND_WEAPON;
+        }
+        return EquipSlot.NONE;
+    }
+
+    /**
+     * The family the item's package places it in, one member per package of {@code …/items/} at the
+     * tag as {@link ItemKind} lays them out, the plants' seeds, and {@code OTHER} for the root, the
+     * guide pages and the remains. A nested or anonymous class shares its package.
+     */
+    static ItemKind itemKind(Item item) {
+        String base = "com.shatteredpixel.shatteredpixeldungeon.";
+        String pkg = item.getClass().getPackageName();
+        if (!pkg.startsWith(base)) {
+            return ItemKind.OTHER;
+        }
+        String rel = pkg.substring(base.length());
+        if (rel.equals("plants")) {
+            return ItemKind.SEED;
+        }
+        if (!rel.startsWith("items")) {
+            return ItemKind.OTHER;
+        }
+        String family = rel.equals("items") ? "" : rel.substring("items.".length());
+        if (family.startsWith("weapon.missiles")) {
+            return ItemKind.MISSILE;
+        } else if (family.startsWith("weapon")) {
+            return ItemKind.WEAPON;
+        } else if (family.startsWith("armor")) {
+            return ItemKind.ARMOR;
+        } else if (family.startsWith("wands")) {
+            return ItemKind.WAND;
+        } else if (family.startsWith("rings")) {
+            return ItemKind.RING;
+        } else if (family.startsWith("artifacts")) {
+            return ItemKind.ARTIFACT;
+        } else if (family.startsWith("trinkets")) {
+            return ItemKind.TRINKET;
+        } else if (family.startsWith("potions")) {
+            return ItemKind.POTION;
+        } else if (family.startsWith("scrolls")) {
+            return ItemKind.SCROLL;
+        } else if (family.startsWith("stones")) {
+            return ItemKind.STONE;
+        } else if (family.startsWith("spells")) {
+            return ItemKind.SPELL;
+        } else if (family.startsWith("bombs")) {
+            return ItemKind.BOMB;
+        } else if (family.startsWith("food")) {
+            return ItemKind.FOOD;
+        } else if (family.startsWith("keys")) {
+            return ItemKind.KEY;
+        } else if (family.startsWith("bags")) {
+            return ItemKind.BAG;
+        } else if (family.startsWith("quest")) {
+            return ItemKind.QUEST;
+        }
+        return ItemKind.OTHER;
+    }
+
+    /**
+     * A note as the tab draws it: a key's title and count, a written note's title, body and the depth
+     * it names, a landmark's title at its floor ({@code …/journal/Notes.java:206-217}, {@code :324-331},
+     * {@code :430-437}, {@code :487-495}).
+     */
+    static NoteView note(Notes.Record record) {
+        if (record instanceof Notes.KeyRecord key) {
+            return new NoteView(NoteKind.KEY, key.depth(), text(key.title()), "", key.quantity());
+        } else if (record instanceof Notes.CustomRecord custom) {
+            return new NoteView(NoteKind.CUSTOM, custom.depth(), text(custom.title()), text(custom.desc()), 1);
+        }
+        return new NoteView(NoteKind.LANDMARK, record.depth(), text(record.title()), "", 1);
+    }
+
+    private static String text(String drawn) {
+        return drawn == null ? "" : drawn;
     }
 
     /** Whether a mob is a mimic still hiding as a chest ({@code …/actors/mobs/Mimic.java:62-64}, {@code :112-118}). */
@@ -543,16 +798,30 @@ public final class Observer {
         return tile;
     }
 
+    /**
+     * The state of an Input wait, the driver's own definition (AD-5; ADR-0015;
+     * {@link HeadlessDriver#waitState}): the hero waits and nothing blocks the map, or a Prompt
+     * window is in front and the hero waits under it, the resurrection window being the one a hero
+     * who is not ready answers ({@code …/windows/WndResurrect.java:98-114}); any other window in
+     * front is a failure (ADR-0006, Prompt). The message says which part failed.
+     */
     private static void atInputWait() {
         Level level = Dungeon.level;
         Hero hero = Dungeon.hero;
         require(level != null && hero != null, "no Run is in progress");
-        // The driver's own condition for an Input wait (AD-5; ADR-0015), so there is one definition.
-        require(HeadlessDriver.heroWaits(hero),
-                "the hero is not waiting for input: ready=" + hero.ready + ", action=" + hero.curAction + ", resting=" + hero.resting);
-        require(!GameScene.interfaceBlockingHero(),
-                "a window is open or the inventory is selecting; a Prompt window is story 1.10's to read, and any other"
-                        + " window at an Input wait is a failure (ADR-0006)");
+        Window window = Windows.front();
+        if (HeadlessDriver.waitState(hero, window)) {
+            return;
+        }
+        String heroState = "ready=" + hero.ready + ", action=" + hero.curAction + ", resting=" + hero.resting;
+        if (window == null) {
+            require(HeadlessDriver.heroWaits(hero), "the hero is not waiting for input: " + heroState);
+            require(false, "the inventory is selecting an item (GameScene.java:1386-1396), which is not a wait");
+        }
+        require(Prompts.kind(window) != PromptKind.NONE,
+                "the window in front is not a Prompt: " + Prompts.describe(window) + "; any other window at an"
+                        + " Input wait is a failure (ADR-0006)");
+        require(false, "a Prompt is in front but the hero is not waiting under it: " + heroState);
     }
 
     private static void require(boolean condition, String message) {
