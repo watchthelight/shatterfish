@@ -142,6 +142,22 @@ class PromptGateTest {
     }
 
     @Test
+    @DisplayName("a Prompt in front of a hero who is not waiting under it is not an Input wait")
+    void a_prompt_over_a_busy_hero() {
+        atTheFirstWait();
+        Chasm.heroJump(hero);
+        HeadlessBoot.ensure().drainPostedRunnables();
+        assertEquals(PromptKind.CHASM_JUMP, new Observer().prompt().kind());
+        // Between the chasm's interruption and the next act the hero may still hold an action
+        // (Hero.java:1838-1850); the driver confirms no wait then, and neither does the Observer.
+        hero.ready = false;
+        IllegalStateException refused = assertThrows(IllegalStateException.class, () -> new Observer().prompt());
+        assertTrue(refused.getMessage().contains("not waiting under it"), refused.getMessage());
+        hero.ready = true;
+        assertEquals(PromptKind.CHASM_JUMP, new Observer().header().prompt());
+    }
+
+    @Test
     @DisplayName("a window that is not a Prompt at an Input wait fails every read, naming the window")
     void not_a_prompt() {
         atTheFirstWait();
