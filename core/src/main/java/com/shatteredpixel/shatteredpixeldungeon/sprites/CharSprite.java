@@ -737,6 +737,16 @@ public class CharSprite extends MovieClip implements Tweener.Listener, MovieClip
 		}
 	}
 
+	// shatterfish-hook:4
+	// A read-only accessor for the Observer (ADR-0006, the mob-state row): the emote this sprite
+	// shows, or null. It reads under the lock the show and hide methods above take and writes
+	// nothing, so nothing the game computes can change by its presence.
+	public EmoIcon shatterfishEmote() {
+		synchronized (EmoIcon.class) {
+			return emo;
+		}
+	}
+
 	public void hideEmo(){
 		synchronized (EmoIcon.class) {
 			if (emo != null) {

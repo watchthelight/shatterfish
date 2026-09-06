@@ -25,23 +25,31 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * An Observation around the sections story 1.8 builds, with stand-ins for the sections later
- * stories own: a hero at its cell and nothing else, so that the header and the map can be
- * serialized and searched. The stand-ins are the test's, not the Observer's; the Observer emits
- * no section it cannot build.
+ * An Observation around the sections the Observer builds so far, with stand-ins for the sections
+ * later stories own, so that the built sections can be serialized and searched. The stand-ins are
+ * the test's, not the Observer's; the Observer emits no section it cannot build.
  */
 final class Skeleton {
 
     private Skeleton() {
     }
 
+    /** The header and the map, with no actors and a stand-in hero at its cell. */
     static Observation around(HeaderSection header, MapSection map) {
-        HeroSection hero = new HeroSection(Dungeon.hero.pos, "", HeroSubclass.NONE, "", 1, 0, 1, 1, 1, 0, 1, 0, 0, 0,
-                Hunger.NONE, List.of(), List.of(), List.of(0, 0, 0, 0),
-                Collections.nCopies(HeroSection.QUICKSLOTS, new QuickslotView("", false)));
-        return new Observation(header, map, new ActorsSection(List.of()), hero, new InventorySection(List.of()),
+        return around(header, map, new ActorsSection(List.of()), standInHero());
+    }
+
+    /** The header, the map, the actors and the hero, the sections stories 1.8 and 1.9 build. */
+    static Observation around(HeaderSection header, MapSection map, ActorsSection actors, HeroSection hero) {
+        return new Observation(header, map, actors, hero, new InventorySection(List.of()),
                 new JournalSection(List.of(), List.of()), new LogSection(List.of()), ActionsSection.NONE,
                 PromptSection.NONE);
+    }
+
+    private static HeroSection standInHero() {
+        return new HeroSection(Dungeon.hero.pos, "", HeroSubclass.NONE, "", 1, 0, 1, 1, 1, 0, 1, 0, 0, 0,
+                Hunger.NONE, List.of(), List.of(), List.of(0, 0, 0, 0),
+                Collections.nCopies(HeroSection.QUICKSLOTS, new QuickslotView("", false)));
     }
 
     /** The serialized forms of an Observation, and what they must not contain. */
