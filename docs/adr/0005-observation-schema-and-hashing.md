@@ -158,25 +158,52 @@ transitions and actors by cell, each cell at most once; blob kinds and buffs by 
 fog are positional, one per cell. Enums are encoded by name, so a constant added later changes no
 existing bytes.
 
-**The records refuse what the fog would not draw.** An unknown cell carries `Tile.NONE` and
-nothing else does; traps, heaps, blobs and transitions stand on cells the player has seen; an
-actor stands in view; a container shows no item, a price belongs to a for-sale heap only and a
-category to a crystal chest only. ADR-0006's whitelist is a whitelist by construction, which
-`SchemaRulesTest` holds.
+**`Tile` is the tile sheet's visuals, not the terrain table.** Option 12 said an enum with no
+secret members; the review of the story found that raw terrain has more than the two secret
+constants that the screen does not tell apart. A trap's floor, active or not, and custom
+decoration floor are drawn as the empty floor (`…/tiles/DungeonTileSheet.java:427-431`), the trap
+itself on a layer of its own only while revealed (`…/tiles/TerrainFeaturesTilemap.java:57-62`),
+and a door the hero locked as a locked door by visual and by name (`:446-447`;
+`…/levels/Level.java:1584-1586`). So `Tile` has one member per visual the sheet distinguishes
+(`DungeonTileSheet.java:414-465`), thirty-two of them, and a trap is a `TrapView` and nothing in
+the tile. A `Tile.TRAP` would have been a copy of the trap bit read from raw terrain, which is
+what option 11 rejected, kept honest only by the generators' habit of revealing every trap they
+place with the terrain.
 
-**Health is quantised at the coarsest view any player has.** The bar over a sprite is the sprite's
-width times four sixths (`…/ui/CharHealthIndicator.java:50-51`), drawn to the pixel with the lit
-part rounded up (`…/ui/HealthBar.java:65-68`), so its resolution depends on the camera zoom, which
-the player can set as low as 1 (`…/scenes/PixelScene.java:144`). The codec states `W = 32/3`, a
-sixteen-unit sprite at zoom 1, and `healthPips` is `ceil(hp / max * W)` in integer arithmetic,
-0 to 11. That is at most what any player sees, which is what parity asks; a player at the default
-zoom of 2 or more sees a finer bar, and the Observation deliberately does not.
+**The records refuse what the fog would not draw.** An unknown cell carries `Tile.NONE` and
+nothing else does; traps, heaps and transitions stand on cells the player has seen; a blob stands
+in view, since the emitter draws one only where the hero sees (`…/effects/BlobEmitter.java:62-64`),
+and the two blobs the game marks always visible, drawn under the fog of a remembered cell
+(`…/actors/mobs/Tengu.java:850`, `:1045`; `…/items/artifacts/SkeletonKey.java:475`), have no
+representation in this version; an actor stands in view; a container shows no item, a price
+belongs to a for-sale heap only and a category to a crystal chest only. ADR-0006's whitelist is a
+whitelist by construction, which `SchemaRulesTest` holds. What the records cannot check is the
+free text: a trap's kind, a heap's item, a blob's kind, an actor's or a buff's name are strings,
+and the Observer stories' leak tests must pin each to the name the screen shows.
+
+**Health is quantised to a convention the screen exceeds.** The bar over a sprite is the sprite's
+width times four sixths (`…/ui/CharHealthIndicator.java:50-51`), drawn to the pixel of the camera
+zoom with the lit part rounded up (`…/ui/HealthBar.java:66-69`), so its resolution depends on the
+sprite, ten to twenty-seven units wide at the tag, and on the zoom, from 1
+(`…/scenes/PixelScene.java:144`): eight pixels for a twelve-unit sprite at zoom 1, eleven for a
+sixteen-unit one. No single constant is "the bar". The codec states `W = 32/3`, the sixteen-unit
+bar at zoom 1, and `healthPips` is `ceil(hp / max * W)` in integer arithmetic, 0 to 11. That is
+fair by a different window: examining a character shows a bar about a hundred UI units wide at a
+UI zoom of at least two (`…/windows/WndInfoMob.java:58-59`, `:72`, `:77`;
+`…/windows/WndTitledMessage.java:32`; `PixelScene.java:133-137`, `:150`), which resolves every
+point of health of every character that is not a boss, and a boss's bar prints its health as a
+number (`…/ui/BossHealthBar.java:205-206`). So the screen offers exact health; ADR-0006's "never
+exact HP" is stricter than the screen, and the schema keeps its quantisation as a loss to the
+brain, never a leak. Two drawn bits are dropped the same way: the bar hidden at full health
+(`CharHealthIndicator.java:55`) and the shield segment (`HealthBar.java:68`). Story 1.9 may loosen
+this with a version bump.
 
 **The hero is not an actor.** The actors section carries every visible character but the hero,
 whose cell and health belong to the hero section of story 1.7.
 
-**`Feeling.SECRETS` stays.** The floor feeling is announced as a title on arrival ("secrets
-floor", `core/src/main/assets/messages/levels/levels.properties:260`), so the member names an
+**`Feeling.SECRETS` stays.** The floor feeling's text is logged on arrival
+(`…/scenes/GameScene.java:663-685`) and its title, "secrets floor", heads the window the menu pane
+opens for it (`…/ui/MenuPane.java:112-115`; `levels.properties:260`), so the member names an
 announcement, not the secrets; the enum test names it as the one exception to "no member contains
 SECRET".
 

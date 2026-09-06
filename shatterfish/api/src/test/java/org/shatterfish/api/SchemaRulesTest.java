@@ -59,6 +59,16 @@ class SchemaRulesTest {
     }
 
     @Test
+    @DisplayName("a blob stands only in view: the emitter draws it nowhere else")
+    void a_blob_stands_in_view() {
+        assertThrows(IllegalArgumentException.class, () -> map(Corpus.tiles(), Corpus.fog(), List.of(), List.of(),
+                List.of(new BlobCell(12, List.of("ToxicGas"))), List.of()));
+        assertThrows(IllegalArgumentException.class, () -> map(Corpus.tiles(), Corpus.fog(), List.of(), List.of(),
+                List.of(new BlobCell(19, List.of("ToxicGas"))), List.of()));
+        map(Corpus.tiles(), Corpus.fog(), List.of(), List.of(), List.of(new BlobCell(1, List.of("ToxicGas"))), List.of());
+    }
+
+    @Test
     @DisplayName("a cell is named at most once per list")
     void one_entry_per_cell_per_list() {
         assertThrows(IllegalArgumentException.class, () -> map(Corpus.tiles(), Corpus.fog(),

@@ -33,12 +33,20 @@ public final class ObservationCodec {
     public static final List<String> SECTIONS = List.of(HEADER, MAP, ACTORS);
 
     /**
-     * The width of the health bar over a sprite, as a fraction of world units: a sprite's width
-     * times four sixths ({@code core/.../ui/CharHealthIndicator.java:50-51}), for the sixteen-unit
-     * sprites that most characters are, at camera zoom 1, the coarsest the player can choose
-     * ({@code core/.../scenes/PixelScene.java:144}). The bar is drawn to the pixel, rounding the
-     * lit part up ({@code core/.../ui/HealthBar.java:65-68}), so this is the coarsest view of a
-     * character's health any player has, and what {@link #healthPips} quantises to.
+     * The width of the bar {@link #healthPips} quantises to, as a fraction of world units: a
+     * sixteen-unit sprite's bar at camera zoom 1, the sprite's width times four sixths
+     * ({@code core/.../ui/CharHealthIndicator.java:50-51}). The bar is drawn to the pixel of the
+     * zoom, the lit part rounded up ({@code core/.../ui/HealthBar.java:66-69}), so what a player
+     * sees over a sprite depends on the sprite's width, ten to twenty-seven units at the tag, and
+     * on the zoom, which the player can set from 1 ({@code core/.../scenes/PixelScene.java:144}).
+     * The constant is a convention, then, and a fair one by another window: examining a character
+     * shows a bar about a hundred UI units wide at a UI zoom of at least two
+     * ({@code core/.../windows/WndInfoMob.java:58-59}, {@code :72}, {@code :77};
+     * {@code core/.../windows/WndTitledMessage.java:32}; {@code PixelScene.java:133-137},
+     * {@code :150}), which resolves every point of health of every character that is not a boss,
+     * and a boss's bar prints its health as a number ({@code core/.../ui/BossHealthBar.java:205-206}).
+     * Eleven pips are coarser than either; the schema keeps ADR-0006's quantisation, which is a
+     * loss to the brain and never a leak.
      */
     public static final int HEALTH_BAR_WIDTH_NUMERATOR = 32;
     public static final int HEALTH_BAR_WIDTH_DENOMINATOR = 3;

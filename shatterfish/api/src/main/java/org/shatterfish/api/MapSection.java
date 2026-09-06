@@ -11,8 +11,10 @@ import java.util.Objects;
  * cell and names each cell at most once.
  *
  * <p>The record refuses what the fog would not draw: an {@link Fog#UNKNOWN} cell carries
- * {@link Tile#NONE} and nothing else does; traps, heaps, blobs and transitions stand on cells the
- * player has seen (ADR-0006).
+ * {@link Tile#NONE} and nothing else does; traps, heaps and transitions stand on cells the player
+ * has seen, and blobs on cells in view, since the emitter draws a blob only where the hero sees
+ * ({@code core/.../effects/BlobEmitter.java:62-64}; ADR-0006). The two blobs the game marks always
+ * visible, drawn under the fog of a remembered cell, have no representation in this version.
  *
  * @param tiles what each cell looks like, one per cell
  * @param fog how much of each cell the player can see, one per cell
@@ -56,6 +58,9 @@ public record MapSection(int width, int height, List<Tile> tiles, List<Fog> fog,
         }
         for (BlobCell blob : blobs) {
             seen(fog, blob.cell(), "a blob");
+            Canon.require(fog.get(blob.cell()) == Fog.VISIBLE,
+                    "a blob stands on cell " + blob.cell() + ", which is " + fog.get(blob.cell())
+                            + ": a blob is drawn only in view (BlobEmitter.java:62-64)");
         }
         for (TransitionView transition : transitions) {
             seen(fog, transition.cell(), "a transition");

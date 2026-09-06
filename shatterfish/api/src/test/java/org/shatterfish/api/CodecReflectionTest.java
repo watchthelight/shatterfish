@@ -126,7 +126,11 @@ class CodecReflectionTest {
         } else if (type == boolean.class) {
             out.add(!(Boolean) current);
         } else if (type == String.class) {
-            out.addAll(List.of(current + "x", "x", "", "y"));
+            String s = (String) current;
+            // A codec that wrote the length would pass on strings of another length, so one of the
+            // same length with one letter changed is tried too.
+            String sameLength = s.isEmpty() ? "" : (s.charAt(0) == 'z' ? "a" : "z") + s.substring(1);
+            out.addAll(List.of(sameLength, s + "x", "x", "", "y"));
         } else if (type.isEnum()) {
             for (Object constant : type.getEnumConstants()) {
                 if (constant != current) {
@@ -201,8 +205,8 @@ class CodecReflectionTest {
                 String name = ((Enum<?>) constant).name();
                 boolean announced = type == Feeling.class && name.equals("SECRETS");
                 assertTrue(announced || !name.contains("SECRET"), type.getSimpleName() + "." + name
-                        + " names hidden state. The only exception is the floor feeling the game announces as"
-                        + " a title, levels.properties:260");
+                        + " names hidden state. The only exception is the floor feeling the game logs on arrival"
+                        + " and titles in the menu pane, GameScene.java:663-685, MenuPane.java:112-115");
             }
         }
         assertThrows(IllegalArgumentException.class, () -> Tile.valueOf("SECRET_DOOR"));

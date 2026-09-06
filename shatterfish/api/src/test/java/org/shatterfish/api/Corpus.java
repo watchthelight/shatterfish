@@ -24,8 +24,8 @@ final class Corpus {
 
     static List<Tile> tiles() {
         return List.of(
-                Tile.ENTRANCE, Tile.EMPTY, Tile.TRAP, Tile.EMPTY, Tile.GRASS, Tile.EMPTY,
-                Tile.WATER, Tile.INACTIVE_TRAP, Tile.HIGH_GRASS, Tile.EMPTY_SP, Tile.PEDESTAL, Tile.EMPTY,
+                Tile.ENTRANCE, Tile.EMPTY, Tile.EMPTY, Tile.EMPTY, Tile.GRASS, Tile.EMPTY,
+                Tile.WATER, Tile.EMPTY, Tile.HIGH_GRASS, Tile.EMPTY_SP, Tile.PEDESTAL, Tile.EMPTY,
                 Tile.WALL, Tile.DOOR, Tile.EMPTY, Tile.WALL_DECO, Tile.EMPTY, Tile.EXIT,
                 Tile.WALL, Tile.EMPTY, Tile.EMPTY, Tile.NONE, Tile.NONE, Tile.NONE);
     }
@@ -118,7 +118,7 @@ final class Corpus {
         } else if (elementType == HeapView.class) {
             return List.of(new HeapView(16, HeapKind.CHEST, false, "", 0, ""));
         } else if (elementType == BlobCell.class) {
-            return List.of(new BlobCell(18, List.of("Web")));
+            return List.of(new BlobCell(1, List.of("Web")));
         } else if (elementType == TransitionView.class) {
             return List.of(new TransitionView(20, TransitionKind.BRANCH_EXIT));
         } else if (elementType == ActorView.class) {
