@@ -4,7 +4,7 @@ key: 1-7-the-observation-part-two-the-remaining-sections-and-the-read
 title: "The Observation, part two: the remaining sections and the readable form"
 epic: 1
 issue: 20
-status: in-progress
+status: review
 created: '2026-09-05'
 updated: '2026-09-05'
 ---
@@ -120,11 +120,79 @@ guide's pages and the bestiary (static text and cross-Run state).
 
 ## Evidence
 
-Pending.
+`./gradlew build -Pshatterfish.mobile=off`: green, 383 tests across 22 suites, 317 of
+them in `api`, 263 of those the dynamic tests of `CodecReflectionTest`. `mkdocs build --strict`:
+clean. The equality corpus is 470 Observations, 424 of them distinct.
+
+**Mutation battery**, twenty-one mutations on the committed tree at `b89047e0d` (eighteen first
+run at `5731279a0`, three added for the review's rules), each applied to a clean tree, run
+without `--rerun-tasks`, restored with `git checkout` of the mutated files, and the tree verified
+clean after each:
+
+| # | Mutation | Caught by |
+|---|---|---|
+| M1 | `hero.gold` is not encoded | `CodecReflectionTest` (`HeroSection.gold`, `Observation.hero`), `CodecEqualityTest`, `ObservationHashTest` (the pin) |
+| M2 | `hero.gold` is not rendered | `CodecReflectionTest` (rendered), `JsonRenderingTest` (every component a key) |
+| M3 | `UseItemAt.cell` is not rendered | `CodecReflectionTest` (rendered), `JsonRenderingTest` (every component a key) |
+| M4 | JSON keys keep insertion order | `JsonRenderingTest` (four tests: the strict reader refuses a key out of order) |
+| M5 | the JSON carries no hash | `JsonRenderingTest` (the hash field; the root's keys) |
+| M6 | a quote is not escaped | `JsonRenderingTest` (escapes) |
+| M7 | the codec omits an Action's kind | `CodecReflectionTest` (the bytes open with the kind), `ObservationHashTest` (the pin) |
+| M8 | the actions are not put in order | `CodecCanonicalTest` (actions in any order), `SchemaRulesTest` (canonical actions), `ObservationHashTest` (the pin) |
+| M9 | an item reference need not match the inventory | `SchemaRulesTest` (Action parameters) |
+| M10 | the header and the prompt need not agree | `SchemaRulesTest` (header and prompt) |
+| M11 | the hero may stand out of view | `SchemaRulesTest` (the hero in view) |
+| M12 | the Belief hash omits the version | `BeliefTest` (the hash's composition) |
+| M13 | the Belief hands out its own array | `BeliefTest` (the bytes are copied) |
+| M14 | the version bumps without the pin | `ObservationHashTest` (the pin; the sections) |
+| M15 | the log is unbounded | `SchemaRulesTest` (the log's bound) |
+| M16 | `api` gains a static reader method | `JsonRenderingTest` (no reader) |
+| M17 | the inventory accepts any order | `SchemaRulesTest` (the belongings' order) |
+| M18 | an unknown level may show | `SchemaRulesTest` (an unidentified item) |
+| M19 | hero buffs are ordered by name alone | `CodecCanonicalTest` (two buffs of one name) |
+| M20 | `api` gains a nested reader class taking a list of lines | `JsonRenderingTest` (the class pin and the reader scan) |
+| M21 | a human's move is accepted as valid | `SchemaRulesTest` (canonical actions) |
+
+All twenty-one caught.
 
 ## The fairness review
 
-Pending.
+Run as an isolated `fairness-reviewer` on commit `5731279a0`. Verdict: FINDINGS, none blocking:
+no record component, enum member or invariant lets the bot know something a human at the same
+screen could not. Seven should-fix findings, all taken in the review commit:
+
+1. **The "never parsed back" test was a heuristic.** It scanned methods only, for a `String`,
+   `CharSequence`, `byte[]` or `java.io` parameter; a constructor, an `Object`, a `char[]`, a
+   `List<String>` or a `CharBuffer` slipped past. It now pins the exact set of classes in `api`
+   (the schema's records and enums, `Action`, and twelve named helpers), so a new class fails until
+   it is added after review, and scans constructors as well as methods, treating any array,
+   collection, `Object`, `java.io` or `java.nio` parameter as text; M20 shows a nested reader
+   caught.
+2. **`UseItemOption.option` was not a value the Observation carries.** No section lists the labels
+   of the window an item action opens, and they cannot be listed before it opens (the scroll of
+   enchantment's three choices), so an index chosen at the item's wait would be blind and the Run
+   log would hold a number without a meaning. Since story 1.5 a recognised window in front is an
+   Input wait of its own, so that window is a Prompt and its answer an `AnswerPrompt`; the kind is
+   dropped and ADR-0014 amended. Twenty kinds remain.
+3. **The log claim was false.** "Has seen every message as it arrived" is contradicted by
+   `…/ui/GameLog.java:55-131`: the pane takes a frame's messages in one batch, merges, and trims
+   the oldest beyond three or five lines before the frame is drawn, so a burst loses its oldest
+   messages unseen. The Javadoc, the ADR-0005 amendment, the story and the rule row now say what
+   the code does; the signal stays the source, for reproducibility, and the trade-off is recorded.
+4. **Hero buffs were ordered by name alone**, so two buffs of one name kept input order and one
+   screen could hash two ways. The comparator is now name, timed, turns, as an actor's;
+   `CodecCanonicalTest` holds it, and M19 shows the test catches the old comparator.
+5. **`MoveTo` was accepted in a valid set**, and the corpus listed it as valid. `ActionsSection`
+   refuses it; the corpus keeps it as the human's Action for the Run log only; M21.
+6. **Five cites were off.** The wand's status is `Wand.java:336-343`; both status panes print
+   `exp/maxExp` (`StatusPane.java:334-345`); the energy number is `WndBag.java:219`; the talents
+   pane shows tiers by `TalentsPane.java:75-84`'s gates while the hero holds two tiers from
+   creation (`Talent.java:968-970`); `items/journal` and `items/remains` had no family named.
+7. **A lone surrogate went through `JsonWriter.quote` raw**, which is not the same UTF-8 on every
+   platform; it is escaped as `\uXXXX` now, pairs stay raw, and the test covers both.
+
+The review also noted for later stories that `api` cannot stop a harness from building a `Belief`
+out of oracle data, so the harness leak tests must hold that the harness only carries Beliefs.
 
 ## Deviations
 
