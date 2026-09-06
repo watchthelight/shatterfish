@@ -167,8 +167,11 @@ and a door the hero locked as a locked door by visual and by name (`:446-447`;
 `…/levels/Level.java:1584-1586`). So `Tile` has one member per visual the sheet distinguishes
 (`DungeonTileSheet.java:414-465`), thirty-two of them, and a trap is a `TrapView` and nothing in
 the tile. A `Tile.TRAP` would have been a copy of the trap bit read from raw terrain, which is
-what option 11 rejected, kept honest only by the generators' habit of revealing every trap they
-place with the terrain.
+what option 11 rejected, and the terrain is not even what the trap layer draws: the layer keys on
+the trap's own `visible` flag (`TerrainFeaturesTilemap.java:57-62`), which `Trap.reveal()` and
+`Trap.hide()` set without touching the terrain (`…/levels/traps/Trap.java:76-90`). The corpus pin
+moved with the tiles under version 1: nothing outside this story had encoded an Observation, so
+there was no reader to break; from the merge on, a pin move is a version bump.
 
 **The records refuse what the fog would not draw.** An unknown cell carries `Tile.NONE` and
 nothing else does; traps, heaps and transitions stand on cells the player has seen; a blob stands
