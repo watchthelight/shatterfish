@@ -305,7 +305,7 @@ public final class HeadlessDriver implements AutoCloseable {
                 }
                 boolean notified = notifications != seenNotifications;
                 seenNotifications = notifications;
-                boolean heroWaits = hero.ready && hero.curAction == null && !hero.resting;
+                boolean heroWaits = heroWaits(hero);
                 boolean resurrecting = WndResurrect.instance != null;
                 if ((notified || acted || window != lastConfirmedWindow)
                         && isInputWait(heroWaits, resurrecting, window, windowFramesShown)) {
@@ -333,6 +333,14 @@ public final class HeadlessDriver implements AutoCloseable {
      * offered to a hero who is not ready, through the resurrection window or the warning it stacks
      * over itself when a kept-item slot is empty ({@code .../windows/WndResurrect.java:98-114}).
      */
+    /**
+     * AD-5's condition on the hero at an Input wait: ready, no action in hand, not resting. The
+     * Observer asserts the same condition on entry, so the two share this one definition.
+     */
+    public static boolean heroWaits(Hero hero) {
+        return hero.ready && hero.curAction == null && !hero.resting;
+    }
+
     private static boolean isInputWait(boolean heroWaits, boolean resurrecting, Window window, int windowFramesShown) {
         if (window == null) {
             return heroWaits && !GameScene.interfaceBlockingHero();

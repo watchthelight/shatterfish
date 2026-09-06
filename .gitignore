@@ -35,3 +35,6 @@ __pycache__/
 
 # UX workspace scratch (mock drafts before promotion to mockups/)
 _bmad-output/**/.working/
+
+# IDE output under the Shatterfish modules
+shatterfish/*/bin/

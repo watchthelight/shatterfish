@@ -116,3 +116,81 @@ is constructed only by the launcher flag, and the Rig's runner refuses it.
 - The valid-Action set computed from the Observation disagrees with what the ActionExecutor
   actually accepts. Mitigation: FR-4's completeness test plus a property test that every valid
   Action is accepted and every invalid one rejected before touching state.
+
+## Amendment: story 1.8 (2026-09-06)
+
+The Observer exists: `org.shatterfish.harness.observer.Observer`, with `header()` and `map()`.
+The actors and the hero (story 1.9), the inventory, journal, log and Prompt (1.10) and the rows
+left (1.11) follow, and `observe()` arrives when every section does, so that the Observer never
+emits a section it cannot build. Every method asserts the Input wait on entry through the
+driver's own predicate, `HeadlessDriver.heroWaits`, and `GameScene.interfaceBlockingHero()`
+(`…/scenes/GameScene.java:1386-1396`), which covers a window and the inventory pane selecting, so
+the driver and the Observer have one definition of a wait; a Prompt window is 1.10's to read, and
+any window fails now. Paths abbreviate `core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/`
+as `…/`, at the tag.
+
+**Terrain goes through the sheet's own tables.** The tilemap's order is the sheet's direct table,
+then water and chasm, which are stitched from their neighbours, then the flat table
+(`…/tiles/DungeonTerrainTilemap.java:42-56`; `…/tiles/DungeonTileSheet.java:414-465`), and the
+Observer keeps a table from the sheet's visual constants to `Tile`, keyed by visual so that a
+terrain reaches it only through the game's tables. A secret door reaches the wall's visual and a
+secret trap the floor's that way; no rule of Shatterfish's own decides what a secret looks like.
+The mine's crystal and boulder share every sprite index (`DungeonTileSheet.java:211-216`,
+`:311-316`) and are told apart by the cell's name (`…/levels/MiningLevel.java:227-235`), so they
+are the one pair mapped by terrain. A terrain in no table fails loudly, and `TerrainTableTest`
+walks every constant of `Terrain` and holds that every tile but `NONE` is reached.
+
+**Fog is the level the fog of war paints, cell for cell, raised to the examine level for a wall
+painted opaque.** A cell that cannot be discovered, or that is neither in view, visited nor
+mapped, is opaque (`…/tiles/FogOfWar.java:200-205`); a cell that is not a wall is painted its own
+level, in view, visited or mapped (`:288-299`); a wall cell is painted by the cells its face
+belongs to (`:210-267`): opaque on the bottom row, in two halves for a wall over a wall, each the
+darkest of the cell, its side neighbour and, when that neighbour is a wall, the cell below it, and
+the darkest of the cell and the cell below for a wall over floor; the wall tilemap hides the
+visual by the same rule (`…/tiles/WallBlockingTilemap.java:194-202`). So a room's far wall is
+opaque until the corridor beyond is seen, even while in view; the first draft emitted it as in
+view, and the review found it. The Observer mirrors the painting, taking the lighter of a wall's
+two halves as the part the player sees, and then one step past the paint: a discoverable wall
+painted opaque that is visited or mapped is emitted at that level, since the examine window opens
+on any visited or mapped cell and draws its tile (`…/scenes/GameScene.java:1661-1667`;
+`…/windows/WndInfoCell.java:42-74`), which is what the player can learn of it; the fog's own gate
+stays in front of that step, a cell that cannot be discovered being never visited or mapped in
+play. `FogParityTest`
+reads the painted texture back and holds every cell to it at the first wait, blinded, with mind
+vision, after a scroll of magic mapping read the game's way, and with rock marked visited by
+hand; and holds two readings of one wait byte-equal.
+
+**Traps appear when visible on a cell that is not unknown.** The feature layer draws a trap's
+tile only while it is visible, in its colour while active and black once disarmed
+(`…/tiles/TerrainFeaturesTilemap.java:56-62`), and the fog paints an unknown cell opaque over it;
+the kind is `Trap.name()`. `MapLeakTest` holds a revealed trap on an unknown cell absent, present
+once the cell is mapped, and inactive once disarmed.
+
+**Heaps appear when seen on a cell that is not unknown, and not when empty**, since the sprite is
+blank then (`…/sprites/ItemSprite.java:213-215`) and visible only once seen (`:323-326`;
+`…/levels/Level.java:991`). The kind is the type; `hidden` is the faint sprite (`:236`); the item
+is the top item's title for a plain or for-sale heap, as the sprite shows it (`:216-217`); the
+price is `Shopkeeper.sellPrice` for a for-sale heap of one entry, exactly as the heap's own title
+prints it (`…/items/Heap.java:368-376`; `…/actors/mobs/npcs/Shopkeeper.java:201-203`;
+`core/src/main/assets/messages/items/items.properties:2354`), and 0 for a heap of several items.
+The row above says "a stack of several shows none"; the heap counts entries, not quantity, so a
+stacked item is one entry whose title prints the price of the whole stack, and it is a heap of
+several distinct items that prints none. `MapLeakTest` holds both. The category is
+the words the description prints for a crystal chest (`Heap.java:400-406`;
+`items.properties:2361-2363`), "an artifact", "a wand" or "a ring". A passive mimic drawn as a
+chest is story 1.9's, with its differential test.
+
+**The header is built now.** The release as `"v" + Game.version`, the class, the challenges by
+their name ids in name order (`…/Challenges.java:43-64`), the depth and branch, the boss lock as
+`sealed` (`…/levels/Level.java:180`, set by `seal()` together with the `LockedFloor` buff whose
+icon the HUD shows, `:617-630`; `…/actors/buffs/LockedFloor.java:76-78`; ADR-0005's table says
+the locked stairs and the boss bar, which are each boss level's own `seal()` and an assignment of
+its own), pulled forward from story 1.11 since it is one drawn flag, no oracle, and no Prompt,
+since no window is open at a wait the Observer accepts.
+
+**Left empty by design.** Blobs, the floor feeling and the transitions are empty until story 1.11;
+less is never a leak. `map()` is not for play until story 1.9 (#22): a neutral, passive mimic has
+no heap and is drawn as a chest, so until 1.9 emits it as a chest the absence of a heap under a
+chest sprite would say what the screen does not; the method's Javadoc says so, and no brain reads
+the section yet. The leak tests of this story are `MapLeakTest`, `FogParityTest`,
+`TerrainTableTest` and `ObserverGateTest`, named in `docs/rules/visibility.md`.
