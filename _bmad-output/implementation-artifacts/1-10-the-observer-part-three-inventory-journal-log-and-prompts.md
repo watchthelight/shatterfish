@@ -4,7 +4,7 @@ key: 1-10-the-observer-part-three-inventory-journal-log-and-prompts
 title: "The Observer, part three: inventory, journal, log and prompts"
 epic: 1
 issue: 23
-status: review
+status: done
 created: '2026-09-06'
 updated: '2026-09-06'
 review_loop_iteration: 0
