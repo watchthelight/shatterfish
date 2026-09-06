@@ -116,3 +116,57 @@ is constructed only by the launcher flag, and the Rig's runner refuses it.
 - The valid-Action set computed from the Observation disagrees with what the ActionExecutor
   actually accepts. Mitigation: FR-4's completeness test plus a property test that every valid
   Action is accepted and every invalid one rejected before touching state.
+
+## Amendment: story 1.8 (2026-09-06)
+
+The Observer exists: `org.shatterfish.harness.observer.Observer`, with `header()` and `map()`.
+The actors and the hero (story 1.9), the inventory, journal, log and Prompt (1.10) and the rows
+left (1.11) follow, and `observe()` arrives when every section does, so that the Observer never
+emits a section it cannot build. Every method asserts the Input wait on entry, the hero ready
+with no action and not resting and no window open; a Prompt window is 1.10's to read, and any
+window fails now. Paths abbreviate `core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/`
+as `…/`, at the tag.
+
+**Terrain goes through the sheet's own tables.** The tilemap's order is the sheet's direct table,
+then water and chasm, which are stitched from their neighbours, then the flat table
+(`…/tiles/DungeonTerrainTilemap.java:42-56`; `…/tiles/DungeonTileSheet.java:414-465`), and the
+Observer keeps a table from the sheet's visual constants to `Tile`, keyed by visual so that a
+terrain reaches it only through the game's tables. A secret door reaches the wall's visual and a
+secret trap the floor's that way; no rule of Shatterfish's own decides what a secret looks like.
+The mine's crystal and boulder share every sprite index (`DungeonTileSheet.java:211-216`,
+`:311-316`) and are told apart by the cell's name (`…/levels/MiningLevel.java:227-235`), so they
+are the one pair mapped by terrain. A terrain in no table fails loudly, and `TerrainTableTest`
+walks every constant of `Terrain` and holds that every tile but `NONE` is reached.
+
+**Fog is the fog of war's four levels with the discoverable gate** (`…/tiles/FogOfWar.java:200-205`,
+`:288-299`): a cell that cannot be discovered is unknown whatever the arrays say, then in view,
+visited, mapped, unknown.
+
+**Traps appear when visible on a cell that is not unknown.** The feature layer draws a trap's
+tile only while it is visible, in its colour while active and black once disarmed
+(`…/tiles/TerrainFeaturesTilemap.java:56-62`), and the fog paints an unknown cell opaque over it;
+the kind is `Trap.name()`. `MapLeakTest` holds a revealed trap on an unknown cell absent, present
+once the cell is mapped, and inactive once disarmed.
+
+**Heaps appear when seen on a cell that is not unknown, and not when empty**, since the sprite is
+blank then (`…/sprites/ItemSprite.java:213-215`) and visible only once seen (`:323-326`;
+`…/levels/Level.java:991`). The kind is the type; `hidden` is the faint sprite (`:236`); the item
+is the top item's title for a plain or for-sale heap, as the sprite shows it (`:216-217`); the
+price is `Shopkeeper.sellPrice` for a for-sale heap of one entry, exactly as the heap's own title
+prints it (`…/items/Heap.java:368-376`; `…/actors/mobs/npcs/Shopkeeper.java:201-203`;
+`core/src/main/assets/messages/items/items.properties:2354`), and 0 for a heap of several items.
+The row above says "a stack of several shows none"; the heap counts entries, not quantity, so a
+stacked item is one entry whose title prints the price of the whole stack, and it is a heap of
+several distinct items that prints none. `MapLeakTest` holds both. The category is
+the words the description prints for a crystal chest (`Heap.java:400-406`;
+`items.properties:2361-2363`), "an artifact", "a wand" or "a ring". A passive mimic drawn as a
+chest is story 1.9's, with its differential test.
+
+**The header is built now.** The release as `"v" + Game.version`, the class, the challenges by
+their name ids in name order (`…/Challenges.java:43-64`), the depth and branch, the boss lock as
+`sealed` (`…/levels/Level.java:180`), pulled forward from story 1.11 since it is one drawn flag,
+no oracle, and no Prompt, since no window is open at a wait the Observer accepts.
+
+**Left empty by design.** Blobs, the floor feeling and the transitions are empty until story 1.11;
+less is never a leak. The leak tests of this story are `MapLeakTest`, `TerrainTableTest` and
+`ObserverGateTest`, named in `docs/rules/visibility.md`.
