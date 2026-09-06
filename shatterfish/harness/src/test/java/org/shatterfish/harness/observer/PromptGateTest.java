@@ -3,13 +3,26 @@ package org.shatterfish.harness.observer;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.npcs.Ghost;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.npcs.Shopkeeper;
+import com.shatteredpixel.shatteredpixeldungeon.items.Ankh;
+import com.shatteredpixel.shatteredpixeldungeon.items.Heap;
+import com.shatteredpixel.shatteredpixeldungeon.items.Item;
+import com.shatteredpixel.shatteredpixeldungeon.items.TengusMask;
+import com.shatteredpixel.shatteredpixeldungeon.items.artifacts.ChaliceOfBlood;
+import com.shatteredpixel.shatteredpixeldungeon.items.food.Food;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.Potion;
+import com.shatteredpixel.shatteredpixeldungeon.items.potions.PotionOfHealing;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.PotionOfLiquidFlame;
 import com.shatteredpixel.shatteredpixeldungeon.levels.features.Chasm;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndChooseSubclass;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndMessage;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndOptions;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndQuest;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndTradeItem;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,6 +39,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -139,6 +153,103 @@ class PromptGateTest {
         assertEquals("", prompt.title());
         assertEquals("Only a message", prompt.text());
         assertEquals(List.of("Fine"), prompt.options());
+    }
+
+    @Test
+    @DisplayName("a known beneficial potion thrown asks too: an item's confirmation, not the harmful kind")
+    void the_beneficial_throw_is_an_items_confirmation() {
+        atTheFirstWait();
+        PotionOfHealing potion = new PotionOfHealing();
+        assertTrue(potion.isKnown(), "the Warrior knows it (HeroClass.java:183)");
+        assertTrue(potion.collect());
+        // Potion.java:264-280: known, neither harmful nor throwable, so the window opens.
+        potion.execute(hero, Item.AC_THROW);
+        PromptSection prompt = new Observer().prompt();
+        assertEquals(PromptKind.ITEM, prompt.kind());
+        assertEquals(Messages.get(Potion.class, "beneficial"), prompt.title());
+        assertEquals(Messages.get(Potion.class, "sure_throw"), prompt.text());
+        assertEquals(List.of(Messages.get(Potion.class, "yes"), Messages.get(Potion.class, "no")), prompt.options());
+    }
+
+    @Test
+    @DisplayName("an item other than a potion opening a window of options is an item's confirmation: the chalice's warning")
+    void an_items_confirmation() {
+        atTheFirstWait();
+        ChaliceOfBlood chalice = new ChaliceOfBlood();
+        assertTrue(chalice.collect());
+        // ChaliceOfBlood.java:73-106: the prick action warns before it is taken.
+        chalice.execute(hero, ChaliceOfBlood.AC_PRICK);
+        PromptSection prompt = new Observer().prompt();
+        assertEquals(PromptKind.ITEM, prompt.kind());
+        assertEquals(Messages.titleCase(chalice.name()), prompt.title());
+        assertEquals(List.of(Messages.get(ChaliceOfBlood.class, "yes"), Messages.get(ChaliceOfBlood.class, "no")),
+                prompt.options());
+    }
+
+    @Test
+    @DisplayName("the recognised windows by class: a quest window with no buttons, the trade window, the subclass choice, the resurrection window")
+    void the_recognised_windows() {
+        atTheFirstWait();
+        Ghost ghost = new Ghost();
+        GameScene.show(new WndQuest(ghost, "Please, help me."));
+        PromptSection quest = new Observer().prompt();
+        assertEquals(PromptKind.QUEST, quest.kind());
+        assertEquals(Messages.titleCase(ghost.name()), quest.title());
+        assertEquals("Please, help me.", quest.text());
+        assertEquals(List.of(), quest.options(), "a titled message draws no button (WndTitledMessage.java:42-54)");
+        Windows.front().hide();
+
+        Heap heap = new Heap();
+        heap.type = Heap.Type.FOR_SALE;
+        Food food = new Food();
+        heap.drop(food);
+        GameScene.show(new WndTradeItem(heap));
+        PromptSection shop = new Observer().prompt();
+        assertEquals(PromptKind.SHOP, shop.kind());
+        assertEquals(Messages.titleCase(heap.title()), shop.title(),
+                "a shop heap titles itself with the price (Heap.java, title(); WndInfoItem.java:78-81)");
+        assertEquals(List.of(Messages.get(WndTradeItem.class, "buy", Shopkeeper.sellPrice(food))), shop.options(),
+                "the buy button, and no steal button for a Warrior (WndTradeItem.java:147-165)");
+        Windows.front().hide();
+
+        GameScene.show(new WndChooseSubclass(new TengusMask(), hero));
+        PromptSection subclass = new Observer().prompt();
+        assertEquals(PromptKind.SUBCLASS, subclass.kind());
+        assertEquals(hero.heroClass.subClasses().length + 1, subclass.options().size(),
+                "one button per subclass and a cancel (WndChooseSubclass.java:96-141): " + subclass.options());
+        assertEquals(Messages.get(WndChooseSubclass.class, "cancel"), subclass.options().get(subclass.options().size() - 1));
+        Windows.front().hide();
+
+        GameScene.show(new WndResurrect(new Ankh()));
+        PromptSection resurrect = new Observer().prompt();
+        assertEquals(PromptKind.RESURRECTION, resurrect.kind());
+        assertEquals(Messages.titleCase(Messages.get(WndResurrect.class, "title")), resurrect.title());
+        assertEquals(Messages.get(WndResurrect.class, "message"), resurrect.text(),
+                "the message alone: the two item slots' texts are the slots' decorations, not the window's words");
+        assertEquals(List.of(Messages.get(WndResurrect.class, "confirm")), resurrect.options());
+        Windows.front().hide();
+        assertNull(WndResurrect.instance, "hiding the window destroys it (WndResurrect.java:175-178)");
+        assertEquals(PromptSection.NONE, new Observer().prompt());
+    }
+
+    @Test
+    @DisplayName("the window in front is the last one shown: a message over an options window fails every read, and closed, the options read")
+    void the_front_window_is_the_last_shown() {
+        atTheFirstWait();
+        GameScene.show(new WndOptions("Under", "the one below", "Only") {
+            @Override
+            protected void onSelect(int index) {
+            }
+        });
+        GameScene.show(new WndMessage("on top"));
+        IllegalStateException refused = assertThrows(IllegalStateException.class, () -> new Observer().prompt());
+        assertTrue(refused.getMessage().contains("WndMessage"), refused.getMessage());
+        Windows.front().hide();
+        PromptSection prompt = new Observer().prompt();
+        assertEquals(PromptKind.OTHER, prompt.kind());
+        assertEquals("Under", prompt.title());
+        assertEquals(List.of("Only"), prompt.options());
+        assertFalse(prompt.text().contains("on top"));
     }
 
     @Test

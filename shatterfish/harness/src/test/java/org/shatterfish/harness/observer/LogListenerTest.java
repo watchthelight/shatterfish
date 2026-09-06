@@ -8,6 +8,7 @@ import com.shatteredpixel.shatteredpixeldungeon.levels.features.LevelTransition;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.InterlevelScene;
+import com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks;
 import com.shatteredpixel.shatteredpixeldungeon.ui.GameLog;
 import com.shatteredpixel.shatteredpixeldungeon.utils.GLog;
 import org.junit.jupiter.api.AfterEach;
@@ -55,7 +56,7 @@ class LogListenerTest {
         driver.stepToInputWait();
     }
 
-    /** The line the scene emits as it is created for a descent ({@code …/scenes/GameScene.java:536-537}). */
+    /** The line the scene emits as it is created for a descent ({@code …/scenes/GameScene.java:596-599}). */
     private static LogLine descendLine(int depth) {
         return new LogLine(LogTone.HIGHLIGHT, Messages.format(Messages.get(GameScene.class, "descend"), depth));
     }
@@ -164,6 +165,23 @@ class LogListenerTest {
         assertTrue(fresh.contains(descendLine(1)));
         GameLog.wipe();
         assertTrue(new Observer().log().lines().contains(descendLine(1)), "the pane's wipe is the pane's, not the signal's");
+    }
+
+    @Test
+    @DisplayName("a message dispatched while the first floor is built, before any scene, is heard")
+    void the_first_floor_being_built() {
+        // newGame() builds the first floor and creates no scene (HeadlessDriver.newGame); the pane of
+        // the last Run, if any, is still on the signal, and the next pane will draw the signal's
+        // static buffer, so what is dispatched now reaches a human and must reach the Observer.
+        HeadlessDriver.newGame(SEED, HeroClass.WARRIOR);
+        try {
+            GLog.i("while the floor is built");
+            assertTrue(GameLogListener.INSTANCE.lines().contains(new LogLine(LogTone.PLAIN, "while the floor is built")),
+                    GameLogListener.INSTANCE.lines().toString());
+        } finally {
+            Hooks.clear();
+            GameLogListener.uninstall();
+        }
     }
 
     private static LogLine last(LogSection section) {

@@ -276,7 +276,12 @@ the cost of a line a human may not have read in a burst. The cap is a bound on t
 size, not a claim about the pane. For story 1.10: the pane replaces the signal's listener and
 buffers statically (`GameLog.java:47`, `:52`), so the Observer's capture must equal what the pane
 receives, no more. Story 1.10 captures it through hook row 3, a site right after the pane's
-construction, so the listener hears what the pane hears, the floor's own lines included
+construction, so the listener hears what the pane hears, the floor's own lines included, and
+joins the signal again at the start of every Run, before the first floor is built. One thing the
+pane does that the signal does not carry: `GameLog.wipe()` empties the pane with no message on
+the signal (`…/items/journal/Guidebook.java:57` on picking up the guidebook;
+`…/windows/WndSettings.java:1093`), and the section keeps its lines after it; those lines were
+on the screen before the wipe, so this is memory the human also has, not hidden information
 (ADR-0006's amendment for that story).
 
 **The valid Actions are a section, and the Observation is built in two steps.** `Action` is the

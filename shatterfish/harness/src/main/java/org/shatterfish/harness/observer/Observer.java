@@ -3,6 +3,7 @@ package org.shatterfish.harness.observer;
 import com.shatteredpixel.shatteredpixeldungeon.Challenges;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.QuickSlot;
+import com.shatteredpixel.shatteredpixeldungeon.Statistics;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.FlavourBuff;
@@ -90,8 +91,11 @@ import java.util.Map;
  *
  * <p>Every method runs only at an Input wait: the hero is ready with no action and not resting,
  * and either no window is open or the window in front is a Prompt, one the game opened on its
- * own and waits on ({@link Prompts}), which is what the driver confirms (ADR-0015) and what this
- * class asserts on entry; any other window in front is a failure (ADR-0006, Prompt). The log is
+ * own and waits on ({@link Prompts}), which is the state the driver confirms (ADR-0015;
+ * {@link HeadlessDriver#waitState}) and what this class asserts on entry; any other window in
+ * front is a failure (ADR-0006, Prompt). The driver adds two timing conditions of its own that
+ * a reader of the state cannot see, a window's second frame in front and an empty render queue,
+ * so a read here is a read of the state a wait has, not the driver's confirmation of one. The log is
  * read from {@link GameLogListener}, the listener on the game's message signal that hook row 3
  * re-registers on every scene creation.
  */
@@ -320,7 +324,7 @@ public final class Observer {
      * weapon or armor names a curse only once the curse is known
      * ({@code …/items/weapon/Weapon.java:408-416}; {@code …/items/armor/Armor.java:573-581}); the
      * level and curse flags carry the values the slot draws ({@code …/items/Item.java:433-443};
-     * {@code …/ui/ItemSlot.java:271-275}); the status is the slot's text, a wand's charges only
+     * {@code …/ui/ItemSlot.java:279-283}); the status is the slot's text, a wand's charges only
      * once known ({@code …/items/wands/Wand.java:336-343}; {@code ItemSlot.java:234}); the actions
      * are the item window's buttons with the default it colours
      * ({@code Item.java:110-115}, {@code :179-181}; {@code …/windows/WndUseItem.java:54-76}), as
@@ -338,8 +342,9 @@ public final class Observer {
 
     /**
      * The journal (ADR-0005; ADR-0006, Journal, Known appearances): every note the notes tab draws,
-     * the written notes and then each floor's landmarks and keys down from the deepest
-     * ({@code …/windows/WndJournal.java:497-541}; {@code …/journal/Notes.java:685-693}), as its kind,
+     * the written notes and then each floor's landmarks and keys down from the deepest, through the
+     * tab's own two calls ({@code …/windows/WndJournal.java:497-541}; {@code …/journal/Notes.java:685-705}),
+     * so a record on a floor the tab does not list is not a note, as its kind,
      * depth, title, the body a written note has and the count a key has
      * ({@code Notes.java:206-217}, {@code :324-331}, {@code :344-346}, {@code :430-437}, {@code :487-495});
      * and the potions, scrolls and rings identified this Run
@@ -350,8 +355,13 @@ public final class Observer {
     public JournalSection journal() {
         atInputWait();
         List<NoteView> notes = new ArrayList<>();
-        for (Notes.Record record : Notes.getRecords(Notes.Record.class)) {
-            notes.add(note(record));
+        for (Notes.CustomRecord custom : Notes.getRecords(Notes.CustomRecord.class)) {
+            notes.add(note(custom));
+        }
+        for (int depth = Statistics.deepestFloor; depth > 0; depth--) {
+            for (Notes.Record record : Notes.getRecords(depth)) {
+                notes.add(note(record));
+            }
         }
         List<KnownAppearance> known = new ArrayList<>();
         for (Class<? extends Potion> potion : Potion.getKnown()) {
@@ -388,32 +398,58 @@ public final class Observer {
     }
 
     /**
-     * A window's title, text and options. Every Prompt window at the tag draws a title first, an
-     * icon title's label or a title block, then one message block, then its buttons
-     * ({@code …/windows/WndOptions.java:40-66}; {@code …/windows/WndTitledMessage.java:42-54};
+     * A window's title, text and options. Every Prompt window at the tag draws a title, an icon
+     * title's label or a title block, one message block and its buttons
+     * ({@code …/windows/WndOptions.java:40-66}; {@code …/windows/WndTitledMessage.java:42-68};
      * {@code …/windows/WndResurrect.java:65-74}; {@code …/windows/WndChooseSubclass.java:49-93});
      * an options window opened without a title draws the message alone ({@code WndOptions.java:53-65}).
-     * So the title is the first text block when there are at least two, the text is the rest, and
-     * the options are the styled buttons' labels; the icon buttons beside them are not options.
+     * The title is the icon title's label where the window has one, read by type since a titled
+     * message brings its title bar to the front after laying it out
+     * ({@code WndTitledMessage.java:67}) and the drawing order then has it last; otherwise it is the
+     * first text block when there are at least two, a title block coming before its message
+     * ({@code WndOptions.java:53-59}). The text is the rest, and the options are the styled
+     * buttons' labels; the icon buttons beside them are not options.
      */
     static PromptSection promptOf(Window window) {
-        List<String> texts = Windows.texts(window);
-        String title = texts.size() >= 2 ? texts.get(0) : "";
-        List<String> rest = texts.size() >= 2 ? texts.subList(1, texts.size()) : texts;
-        return new PromptSection(Prompts.kind(window), title, String.join("\n", rest), Windows.buttons(window));
+        Windows.Read read = Windows.read(window);
+        List<String> texts = read.texts();
+        String title;
+        List<String> rest;
+        if (read.iconTitle() != null) {
+            title = read.iconTitle();
+            rest = texts;
+        } else {
+            title = texts.size() >= 2 ? texts.get(0) : "";
+            rest = texts.size() >= 2 ? texts.subList(1, texts.size()) : texts;
+        }
+        return new PromptSection(Prompts.kind(window), title, String.join("\n", rest), read.buttons());
     }
 
     /**
      * One item as the bag and the item window show it. The status is null for most items
      * ({@code …/items/Item.java:570-572}), an empty string here; the actions are the identifiers
      * {@code actions(hero)} lists, one button each ({@code …/windows/WndUseItem.java:54-76}).
+     *
+     * <p>The level and curse flags are the item's own fields where the slot and the item window
+     * draw their effect, a weapon's, armor's, wand's, ring's or artifact's level text and curse
+     * line, and the item's own identification predicate raises both where that predicate is what
+     * the screen draws instead: a potion or scroll is identified exactly when its type is known
+     * ({@code …/items/potions/Potion.java:393}; {@code …/items/scrolls/Scroll.java:261}), and food,
+     * keys, stones, bags, spells, bombs and the rest are identified always
+     * ({@code …/items/food/Food.java:135}; {@code …/items/keys/Key.java:91};
+     * {@code …/items/stones/Runestone.java:74}), the slot drawing their type icon on that predicate
+     * ({@code …/ui/ItemSlot.java:244-249}). So two items the screen draws alike are one view
+     * whatever their instance history: a potion identified by a scroll and one of the same known
+     * type picked up later differ in the fields and not on the screen.
      */
     static ItemView itemView(Item item, Hero hero, EquipSlot slot) {
         String status = item.status();
         String defaultAction = item.defaultAction();
-        return new ItemView(itemKind(item), item.name(), item.quantity(), item.levelKnown, item.visiblyUpgraded(),
-                item.cursedKnown, item.visiblyCursed(), status == null ? "" : status, slot,
-                new ArrayList<>(item.actions(hero)), defaultAction == null ? "" : defaultAction);
+        boolean identified = item.isIdentified();
+        return new ItemView(itemKind(item), item.name(), item.quantity(), identified || item.levelKnown,
+                item.visiblyUpgraded(), identified || item.cursedKnown, item.visiblyCursed(),
+                status == null ? "" : status, slot, new ArrayList<>(item.actions(hero)),
+                defaultAction == null ? "" : defaultAction);
     }
 
     /** The slot an item is worn in, by identity with the belongings' six fields ({@code …/actors/hero/Belongings.java:82-95}). */
@@ -763,30 +799,29 @@ public final class Observer {
     }
 
     /**
-     * The driver's own condition for an Input wait (AD-5; ADR-0015), so there is one definition:
-     * the hero waits and nothing blocks the map, or a Prompt window is in front and the hero waits
-     * under it, the resurrection window being the one a hero who is not ready answers
-     * ({@code …/windows/WndResurrect.java:98-114}); any other window in front is a failure
-     * (ADR-0006, Prompt).
+     * The state of an Input wait, the driver's own definition (AD-5; ADR-0015;
+     * {@link HeadlessDriver#waitState}): the hero waits and nothing blocks the map, or a Prompt
+     * window is in front and the hero waits under it, the resurrection window being the one a hero
+     * who is not ready answers ({@code …/windows/WndResurrect.java:98-114}); any other window in
+     * front is a failure (ADR-0006, Prompt). The message says which part failed.
      */
     private static void atInputWait() {
         Level level = Dungeon.level;
         Hero hero = Dungeon.hero;
         require(level != null && hero != null, "no Run is in progress");
         Window window = Windows.front();
-        if (window == null) {
-            require(HeadlessDriver.heroWaits(hero),
-                    "the hero is not waiting for input: ready=" + hero.ready + ", action=" + hero.curAction + ", resting=" + hero.resting);
-            require(!GameScene.interfaceBlockingHero(),
-                    "the inventory is selecting an item (GameScene.java:1392-1402), which is not a wait");
-        } else {
-            require(Prompts.kind(window) != PromptKind.NONE,
-                    "the window in front is not a Prompt: " + Prompts.describe(window) + "; any other window at an"
-                            + " Input wait is a failure (ADR-0006)");
-            require(HeadlessDriver.heroWaits(hero) || WndResurrect.instance != null,
-                    "a Prompt is in front but the hero is not waiting under it: ready=" + hero.ready + ", action="
-                            + hero.curAction + ", resting=" + hero.resting);
+        if (HeadlessDriver.waitState(hero, window)) {
+            return;
         }
+        String heroState = "ready=" + hero.ready + ", action=" + hero.curAction + ", resting=" + hero.resting;
+        if (window == null) {
+            require(HeadlessDriver.heroWaits(hero), "the hero is not waiting for input: " + heroState);
+            require(false, "the inventory is selecting an item (GameScene.java:1386-1396), which is not a wait");
+        }
+        require(Prompts.kind(window) != PromptKind.NONE,
+                "the window in front is not a Prompt: " + Prompts.describe(window) + "; any other window at an"
+                        + " Input wait is a failure (ADR-0006)");
+        require(false, "a Prompt is in front but the hero is not waiting under it: " + heroState);
     }
 
     private static void require(boolean condition, String message) {

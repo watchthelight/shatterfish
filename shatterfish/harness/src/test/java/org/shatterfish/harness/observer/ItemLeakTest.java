@@ -3,20 +3,28 @@ package org.shatterfish.harness.observer;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
+import com.shatteredpixel.shatteredpixeldungeon.items.Ankh;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.items.Waterskin;
+import com.shatteredpixel.shatteredpixeldungeon.items.artifacts.CloakOfShadows;
 import com.shatteredpixel.shatteredpixeldungeon.items.bags.VelvetPouch;
+import com.shatteredpixel.shatteredpixeldungeon.items.bombs.Bomb;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.PotionOfHealing;
+import com.shatteredpixel.shatteredpixeldungeon.items.quest.Pickaxe;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.PotionOfInvisibility;
 import com.shatteredpixel.shatteredpixeldungeon.items.rings.RingOfHaste;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfIdentify;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfRage;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfTeleportation;
+import com.shatteredpixel.shatteredpixeldungeon.items.spells.Alchemize;
 import com.shatteredpixel.shatteredpixeldungeon.items.stones.StoneOfIntuition;
+import com.shatteredpixel.shatteredpixeldungeon.items.trinkets.ChaoticCenser;
 import com.shatteredpixel.shatteredpixeldungeon.items.wands.WandOfMagicMissile;
 import com.shatteredpixel.shatteredpixeldungeon.items.weapon.curses.Annoying;
 import com.shatteredpixel.shatteredpixeldungeon.items.weapon.melee.Dagger;
+import com.shatteredpixel.shatteredpixeldungeon.journal.Catalog;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
+import com.shatteredpixel.shatteredpixeldungeon.plants.Sungrass;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,6 +41,7 @@ import org.shatterfish.harness.driver.HeadlessDriver;
 
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -247,6 +256,82 @@ class ItemLeakTest {
         for (KnownAppearance known : journal.known()) {
             assertNotEquals(ItemKind.RING, known.kind());
         }
+        // The Catalog is cross-Run state (ADR-0006, Known appearances): seen is not known.
+        Catalog.setSeen(PotionOfInvisibility.class);
+        assertEquals(journal, new Observer().journal(), "a Catalog entry changes nothing");
+    }
+
+    @Test
+    @DisplayName("a potion of a known type is one item whether a scroll identified it or it was picked up known")
+    void identification_history_is_not_drawn() {
+        atTheFirstWait();
+        PotionOfInvisibility byScroll = new PotionOfInvisibility();
+        byScroll.identify();
+        assertTrue(byScroll.levelKnown && byScroll.cursedKnown, "identify() sets both fields (Item.java:468-469)");
+        assertTrue(byScroll.collect());
+        Observation identified = Skeleton.everything(new Observer());
+        ItemView view = view(identified.inventory(), byScroll.name());
+        assertTrue(view.levelKnown() && view.cursedKnown());
+
+        byScroll.detach(hero.belongings.backpack);
+        PotionOfInvisibility pickedUp = new PotionOfInvisibility();
+        assertTrue(pickedUp.isKnown(), "the type is known this Run");
+        assertFalse(pickedUp.levelKnown || pickedUp.cursedKnown, "the fields of a potion picked up later are not set");
+        assertTrue(pickedUp.collect());
+        Observation pickedUpKnown = Skeleton.everything(new Observer());
+        assertEquals(identified, pickedUpKnown, "the screen draws both the same: the name, the icon, no level, no curse");
+        assertArrayEquals(ObservationCodec.encode(identified), ObservationCodec.encode(pickedUpKnown));
+    }
+
+    @Test
+    @DisplayName("an artifact shows its charge only once identified and uncursed")
+    void the_artifact_status() throws Exception {
+        atTheFirstWait();
+        CloakOfShadows cloak = new CloakOfShadows();
+        assertTrue(cloak.collect());
+        assertFalse(cloak.isIdentified());
+        set(cloak, "charge", 1);
+        Observation one = Skeleton.everything(new Observer());
+        assertEquals("", view(one.inventory(), cloak.name()).status(), "nothing until identified (Artifact.java:189-193)");
+        set(cloak, "charge", 3);
+        Observation three = Skeleton.everything(new Observer());
+        assertEquals(one, three, "an unidentified artifact's charge is not drawn");
+        cloak.identify();
+        assertEquals(cloak.status(), view(new Observer().inventory(), cloak.name()).status());
+        assertFalse(cloak.status().isEmpty());
+    }
+
+    @Test
+    @DisplayName("every family is its package, and every slot its field")
+    void families_and_slots() {
+        atTheFirstWait();
+        CloakOfShadows cloak = new CloakOfShadows();
+        RingOfHaste misc = new RingOfHaste();
+        Dagger second = new Dagger();
+        hero.belongings.artifact = cloak;
+        hero.belongings.misc = misc;
+        hero.belongings.secondWep = second;
+        Map<Item, ItemKind> families = Map.of(new WandOfMagicMissile(), ItemKind.WAND, new ChaoticCenser(), ItemKind.TRINKET,
+                new Alchemize(), ItemKind.SPELL, new Bomb(), ItemKind.BOMB, new Pickaxe(), ItemKind.QUEST,
+                new Sungrass.Seed(), ItemKind.SEED, new Ankh(), ItemKind.OTHER);
+        for (Item item : families.keySet()) {
+            assertTrue(item.collect(), item.name());
+        }
+        List<ItemView> items = new Observer().inventory().items();
+        assertEquals(EquipSlot.ARTIFACT, view(new Observer().inventory(), cloak.name()).slot());
+        assertEquals(EquipSlot.MISC, view(new Observer().inventory(), misc.name()).slot());
+        assertEquals(EquipSlot.SECOND_WEAPON, view(new Observer().inventory(), second.name()).slot());
+        assertEquals(ItemKind.ARTIFACT, view(new Observer().inventory(), cloak.name()).kind());
+        for (Map.Entry<Item, ItemKind> family : families.entrySet()) {
+            assertEquals(family.getValue(), view(new Observer().inventory(), family.getKey().name()).kind(),
+                    family.getKey().getClass().getName());
+        }
+        // The pickaxe is a melee weapon in the quest package, and the family is the package.
+        assertEquals(ItemKind.MISSILE, view(new Observer().inventory(), hero.belongings.getItem(
+                com.shatteredpixel.shatteredpixeldungeon.items.weapon.missiles.ThrowingStone.class).name()).kind());
+        assertEquals(ItemKind.FOOD, view(new Observer().inventory(), hero.belongings.getItem(
+                com.shatteredpixel.shatteredpixeldungeon.items.food.Food.class).name()).kind());
+        assertTrue(items.size() >= 12, items.toString());
     }
 
     @Test
@@ -269,7 +354,11 @@ class ItemLeakTest {
             try {
                 Field f = type.getDeclaredField(field);
                 f.setAccessible(true);
-                f.setFloat(owner, value);
+                if (f.getType() == int.class) {
+                    f.setInt(owner, (int) value);
+                } else {
+                    f.setFloat(owner, value);
+                }
                 return;
             } catch (NoSuchFieldException e) {
                 type = type.getSuperclass();

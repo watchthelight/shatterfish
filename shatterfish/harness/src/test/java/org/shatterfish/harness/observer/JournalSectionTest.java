@@ -1,6 +1,7 @@
 package org.shatterfish.harness.observer;
 
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
+import com.shatteredpixel.shatteredpixeldungeon.Statistics;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.items.keys.IronKey;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Notes;
@@ -20,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -79,6 +81,22 @@ class JournalSectionTest {
         for (int i = 1; i < notes.size(); i++) {
             assertTrue(notes.get(i - 1).depth() <= notes.get(i).depth(), "sorted by depth: " + notes);
         }
+    }
+
+    @Test
+    @DisplayName("a record on a floor the tab does not list, below the deepest, is not a note")
+    void a_record_the_tab_does_not_draw() {
+        atTheFirstWait();
+        int deepest = Statistics.deepestFloor;
+        assertEquals(1, deepest);
+        // The tab lists floors from the deepest down to 1 (WndJournal.java:522-526); a record beyond
+        // that, which no caller writes today, would be held and not drawn.
+        assertTrue(Notes.add(Notes.Landmark.GARDEN, deepest + 1));
+        assertTrue(Notes.add(Notes.Landmark.STATUE, deepest));
+        List<NoteView> notes = new Observer().journal().notes();
+        assertFalse(notes.stream().anyMatch(note -> note.depth() == deepest + 1), "not drawn, not a note: " + notes);
+        assertTrue(notes.stream().anyMatch(note -> note.kind() == NoteKind.LANDMARK && note.depth() == deepest
+                && note.title().equals(Messages.get(Notes.Landmark.class, "STATUE"))), notes.toString());
     }
 
     @Test

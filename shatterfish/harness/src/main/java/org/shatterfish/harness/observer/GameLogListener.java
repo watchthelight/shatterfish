@@ -20,12 +20,12 @@ import java.util.List;
  * trims by screen size on the render thread; this is the source the pane reads.
  *
  * <p>The pane's constructor replaces every listener on the signal with itself
- * ({@code GameLog.java:47}; {@code SPD-classes/…/utils/Signal.java:56-59}), on every scene
+ * ({@code GameLog.java:47}; {@code SPD-classes/…/utils/Signal.java:58-61}), on every scene
  * creation, so this listener is re-added through hook row 3, the scene seam in
  * {@code GameScene.create()}, right after the pane and before the messages the scene emits as it
  * is created. The pane's handler returns false ({@code GameLog.java:149-154}), so a listener
  * after it hears every message; the signal ignores a second add of the same listener
- * ({@code Signal.java:36-44}).
+ * ({@code Signal.java:40-48}).
  *
  * <p>Messages arrive on the thread that emits them, the actor thread for nearly all, and the
  * Observer reads on the driver thread at an Input wait, when the actor thread is parked; both go
@@ -57,9 +57,15 @@ public final class GameLogListener implements Signal.Listener<String>, Hooks.Log
         GLog.update.remove(INSTANCE);
     }
 
-    /** Forgets every line: a new Run starts with an empty log, as the pane's wipe gives it. */
+    /**
+     * Forgets every line and joins the signal at once: a new Run starts with an empty log, as the
+     * pane's wipe gives it, and a message dispatched while the Run's first floor is built, before
+     * any scene exists, is heard here as the next pane will draw it from the signal's static
+     * buffer ({@code GameLog.java:52}, {@code :57-60}); the seam re-adds the listener after that pane.
+     */
     public synchronized void reset() {
         lines.clear();
+        GLog.update.add(this);
     }
 
     @Override

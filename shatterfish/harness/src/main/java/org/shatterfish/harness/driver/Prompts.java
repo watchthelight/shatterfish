@@ -107,8 +107,7 @@ public final class Prompts {
             return PromptKind.CHASM_JUMP;
         }
         if (Potion.class.isAssignableFrom(origin)) {
-            List<String> texts = Windows.texts(window);
-            boolean harmful = !texts.isEmpty() && texts.get(0).equals(Messages.get(Potion.class, "harmful"));
+            boolean harmful = Messages.get(Potion.class, "harmful").equals(Windows.read(window).iconTitle());
             return harmful ? PromptKind.HARMFUL_POTION : PromptKind.ITEM;
         }
         if (Item.class.isAssignableFrom(origin)) {
