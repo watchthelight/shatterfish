@@ -4,7 +4,7 @@ key: 1-7-the-observation-part-two-the-remaining-sections-and-the-read
 title: "The Observation, part two: the remaining sections and the readable form"
 epic: 1
 issue: 20
-status: review
+status: done
 created: '2026-09-05'
 updated: '2026-09-05'
 ---
