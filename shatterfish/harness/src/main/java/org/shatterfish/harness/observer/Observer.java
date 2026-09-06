@@ -27,6 +27,7 @@ import org.shatterfish.api.ObservationCodec;
 import org.shatterfish.api.PromptKind;
 import org.shatterfish.api.Tile;
 import org.shatterfish.api.TrapView;
+import org.shatterfish.harness.driver.HeadlessDriver;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -108,9 +109,10 @@ public final class Observer {
      * The header (ADR-0005): the schema version, the release, the hero's class, the challenges
      * the Run was started with ({@code …/Challenges.java:43-64}; the challenges window and the
      * hero window both show them), the depth and branch the interlevel screen and the status pane
-     * name, whether the floor is locked by a boss fight ({@code …/levels/Level.java:180}, drawn as
-     * the locked stairs and the boss bar), no oracle, and no Prompt, since no window is open at a
-     * wait this class accepts.
+     * name, whether the floor is locked by a boss fight ({@code …/levels/Level.java:180}, set by
+     * {@code seal()} with the {@code LockedFloor} buff whose icon the HUD shows, {@code :617-630};
+     * {@code …/actors/buffs/LockedFloor.java:76-78}), no oracle, and no Prompt, since no window is
+     * open at a wait this class accepts.
      */
     public HeaderSection header() {
         atInputWait();
@@ -130,8 +132,11 @@ public final class Observer {
      * level the fog of war paints and, where the fog is not opaque, the tile the terrain tilemap
      * draws; the traps whose feature tile is drawn on a cell the fog does not hide; the heaps whose
      * sprite is visible on such a cell, showing what the sprite and the heap's own title show.
-     * Blobs, the floor feeling and the transitions are story 1.11's and are empty here; a passive
-     * mimic drawn as a chest is story 1.9's.
+     * Blobs, the floor feeling and the transitions are story 1.11's and are empty here.
+     *
+     * <p>Not for play until story 1.9 (issue #22): a neutral, passive mimic has no heap and is
+     * drawn as a chest, so until that story emits it as a {@link HeapKind#CHEST} the absence of a
+     * heap under a chest sprite would tell a brain what the screen does not.
      */
     public MapSection map() {
         atInputWait();
@@ -185,14 +190,75 @@ public final class Observer {
     }
 
     /**
-     * The fog level the fog of war paints on a cell: opaque for a cell that cannot be discovered
-     * ({@code …/tiles/FogOfWar.java:200-205}), else in view, visited, mapped, or opaque
-     * ({@code :288-299}).
+     * The fog level the fog of war paints on a cell ({@code …/tiles/FogOfWar.java:200-267}),
+     * raised to what the examine window gives for a wall the fog paints opaque.
+     *
+     * <p>A cell that cannot be discovered, or that is neither in view, visited nor mapped, is
+     * opaque ({@code :200-205}). A cell that is not a wall is painted its own level: in view,
+     * visited, mapped ({@code :288-299}). A wall cell is painted by the cells its face belongs to
+     * ({@code :210-267}): opaque on the bottom row; a wall with a wall below it is painted in two
+     * halves, each the darkest of the cell, its side neighbour and, when that neighbour is a
+     * wall, the cell below that neighbour, and opaque when the neighbour and the cell below it are
+     * both walls or the cell is at the map's edge; a wall with a floor below it is the darkest of
+     * the cell and the cell below. The cell's level is the lighter of its two halves, the part the
+     * player sees. So a room's far wall is opaque until the corridor beyond is seen, even while
+     * in view.
+     *
+     * <p>Such a wall is still visited or mapped, so the examine window opens on it and draws its
+     * tile ({@code …/scenes/GameScene.java:1661-1667}; {@code …/windows/WndInfoCell.java:42-74});
+     * it is emitted as visited or mapped rather than unknown, which is what the player can learn
+     * of it. The fog's own gate stays in front of that step: a cell that cannot be discovered is
+     * never visited or mapped in play and reads unknown whatever the arrays say.
+     * {@code FogParityTest} holds every cell to the painted texture.
      */
     static Fog fog(Level level, int cell) {
-        if (!level.discoverable[cell]) {
+        Fog painted = painted(level, cell);
+        if (painted == Fog.UNKNOWN && level.discoverable[cell] && wall(level, cell)
+                && (level.visited[cell] || level.mapped[cell])) {
+            return level.visited[cell] ? Fog.VISITED : Fog.MAPPED;
+        }
+        return painted;
+    }
+
+    /** The level the fog of war paints, as {@code FogOfWar.updateTexture} decides it ({@code FogOfWar.java:200-267}). */
+    private static Fog painted(Level level, int cell) {
+        if (!level.discoverable[cell] || (!level.heroFOV[cell] && !level.visited[cell] && !level.mapped[cell])) {
             return Fog.UNKNOWN;
-        } else if (level.heroFOV[cell]) {
+        }
+        if (!wall(level, cell)) {
+            return own(level, cell);
+        }
+        int width = level.width();
+        if (cell + width >= level.length()) {
+            return Fog.UNKNOWN;
+        }
+        if (!wall(level, cell + width)) {
+            return darker(own(level, cell), own(level, cell + width));
+        }
+        Fog left = Fog.UNKNOWN;
+        if (cell % width != 0) {
+            if (wall(level, cell - 1)) {
+                left = wall(level, cell + width - 1) ? Fog.UNKNOWN
+                        : darker(own(level, cell), darker(own(level, cell + width - 1), own(level, cell - 1)));
+            } else {
+                left = darker(own(level, cell), own(level, cell - 1));
+            }
+        }
+        Fog right = Fog.UNKNOWN;
+        if ((cell + 1) % width != 0) {
+            if (wall(level, cell + 1)) {
+                right = wall(level, cell + width + 1) ? Fog.UNKNOWN
+                        : darker(own(level, cell), darker(own(level, cell + width + 1), own(level, cell + 1)));
+            } else {
+                right = darker(own(level, cell), own(level, cell + 1));
+            }
+        }
+        return lighter(left, right);
+    }
+
+    /** A cell's own level: in view, visited, mapped, or nothing ({@code FogOfWar.java:288-299}). */
+    private static Fog own(Level level, int cell) {
+        if (level.heroFOV[cell]) {
             return Fog.VISIBLE;
         } else if (level.visited[cell]) {
             return Fog.VISITED;
@@ -201,6 +267,19 @@ public final class Observer {
         } else {
             return Fog.UNKNOWN;
         }
+    }
+
+    /** Whether the fog treats the cell as a wall: the sheet's stitching set ({@code FogOfWar.java:284-286}). */
+    private static boolean wall(Level level, int cell) {
+        return DungeonTileSheet.wallStitcheable(level.map[cell]);
+    }
+
+    private static Fog darker(Fog a, Fog b) {
+        return a.ordinal() >= b.ordinal() ? a : b;
+    }
+
+    private static Fog lighter(Fog a, Fog b) {
+        return a.ordinal() <= b.ordinal() ? a : b;
     }
 
     /**
@@ -244,11 +323,12 @@ public final class Observer {
         Level level = Dungeon.level;
         Hero hero = Dungeon.hero;
         require(level != null && hero != null, "no Run is in progress");
-        require(hero.ready && hero.curAction == null && !hero.resting,
+        // The driver's own condition for an Input wait (AD-5; ADR-0015), so there is one definition.
+        require(HeadlessDriver.heroWaits(hero),
                 "the hero is not waiting for input: ready=" + hero.ready + ", action=" + hero.curAction + ", resting=" + hero.resting);
-        require(!GameScene.showingWindow(),
-                "a window is open; a Prompt window is story 1.10's to read, and any other window at an Input wait is a"
-                        + " failure (ADR-0006)");
+        require(!GameScene.interfaceBlockingHero(),
+                "a window is open or the inventory is selecting; a Prompt window is story 1.10's to read, and any other"
+                        + " window at an Input wait is a failure (ADR-0006)");
     }
 
     private static void require(boolean condition, String message) {

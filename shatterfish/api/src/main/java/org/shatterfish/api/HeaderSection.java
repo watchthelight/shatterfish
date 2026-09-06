@@ -8,9 +8,10 @@ import java.util.Objects;
  * The header section of an Observation (ADR-0005): what a Run is, as the screens before and
  * around the play area show it. It carries the schema version, the upstream release, the Codex
  * version, the hero's class, the challenges chosen, the depth and branch, whether the floor is
- * sealed by a boss fight ({@code Level.locked}, {@code core/.../levels/Level.java:180}, drawn as
- * the locked stairs and the boss bar), whether the Observation is an oracle one, and the kind of
- * Prompt open if any.
+ * sealed by a boss fight ({@code Level.locked}, {@code core/.../levels/Level.java:180}, set by
+ * {@code seal()} together with the {@code LockedFloor} buff whose icon the HUD shows,
+ * {@code :617-630}; {@code core/.../actors/buffs/LockedFloor.java:76-78}), whether the Observation
+ * is an oracle one, and the kind of Prompt open if any.
  *
  * <p>It carries neither the wait index, nor the seed, nor the salt, nor a turn counter: the brain
  * counts waits itself, the seed would let a brain fingerprint published seeds, and the game draws

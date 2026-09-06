@@ -196,8 +196,8 @@ class MapLeakTest {
     }
 
     @Test
-    @DisplayName("a heap never seen is absent, and the fog is the fog of war's four levels with the discoverable gate")
-    void fog_and_unseen_heaps() {
+    @DisplayName("a heap never seen is absent, an empty heap is absent, and the map is the floor's size")
+    void unseen_and_empty_heaps() {
         atTheFirstWait();
         int far = unknownFloor();
         Heap unseen = level.drop(new Torch(), far);
@@ -205,40 +205,16 @@ class MapLeakTest {
         int emptied = floorsInView(1).get(0);
         Heap empty = level.drop(new Torch(), emptied);
         empty.items.clear();
-        int rock = rockCell();
-        level.visited[rock] = true;
-        level.mapped[rock] = true;
 
         Observer observer = new Observer();
         MapSection map = observer.map();
         assertTrue(map.heaps().stream().noneMatch(h -> h.cell() == far), "a heap out of sight and never seen has no sprite");
         assertTrue(map.heaps().stream().noneMatch(h -> h.cell() == emptied), "an empty heap's sprite is blank (ItemSprite.java:213-215)");
-        assertEquals(Fog.UNKNOWN, map.fog().get(rock), "a cell that cannot be discovered is opaque whatever the arrays say (FogOfWar.java:200-205)");
-        assertEquals(Tile.NONE, map.tiles().get(rock));
         assertEquals(level.width(), map.width());
         assertEquals(level.height(), map.height());
         assertEquals(Fog.VISIBLE, map.fog().get(hero.pos));
-        int visible = 0;
-        int unknown = 0;
-        for (int cell = 0; cell < level.length(); cell++) {
-            Fog expected = !level.discoverable[cell] ? Fog.UNKNOWN
-                    : level.heroFOV[cell] ? Fog.VISIBLE
-                    : level.visited[cell] ? Fog.VISITED
-                    : level.mapped[cell] ? Fog.MAPPED : Fog.UNKNOWN;
-            assertEquals(expected, map.fog().get(cell), "cell " + cell);
-            assertEquals(expected == Fog.UNKNOWN, map.tiles().get(cell) == Tile.NONE, "cell " + cell);
-            visible += expected == Fog.VISIBLE ? 1 : 0;
-            unknown += expected == Fog.UNKNOWN ? 1 : 0;
-        }
-        assertTrue(visible > 9 && unknown > visible, "the first room is in view and most of the floor is not");
-
-        // Leaving the room behind by walking is a later story's; a visited cell out of view is
-        // simulated the way the game records it, since observe() only ever sets visited.
-        int visited = unknownFloor();
-        level.visited[visited] = true;
-        MapSection later = new Observer().map();
-        assertEquals(Fog.VISITED, later.fog().get(visited));
-        assertEquals(Observer.tile(level.map[visited]), later.tiles().get(visited));
+        assertEquals(Fog.UNKNOWN, map.fog().get(far));
+        // The fog itself, cell for cell against the painted texture, is FogParityTest's.
     }
 
     private int wallInView() {
@@ -272,15 +248,6 @@ class MapLeakTest {
             }
         }
         throw new AssertionError("no unknown floor cell");
-    }
-
-    private int rockCell() {
-        for (int cell = 0; cell < level.length(); cell++) {
-            if (!level.discoverable[cell]) {
-                return cell;
-            }
-        }
-        throw new AssertionError("no solid rock");
     }
 
     private static Optional<TrapView> trapAt(MapSection map, int cell) {

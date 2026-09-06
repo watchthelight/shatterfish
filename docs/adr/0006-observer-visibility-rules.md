@@ -122,9 +122,11 @@ is constructed only by the launcher flag, and the Rig's runner refuses it.
 The Observer exists: `org.shatterfish.harness.observer.Observer`, with `header()` and `map()`.
 The actors and the hero (story 1.9), the inventory, journal, log and Prompt (1.10) and the rows
 left (1.11) follow, and `observe()` arrives when every section does, so that the Observer never
-emits a section it cannot build. Every method asserts the Input wait on entry, the hero ready
-with no action and not resting and no window open; a Prompt window is 1.10's to read, and any
-window fails now. Paths abbreviate `core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/`
+emits a section it cannot build. Every method asserts the Input wait on entry through the
+driver's own predicate, `HeadlessDriver.heroWaits`, and `GameScene.interfaceBlockingHero()`
+(`…/scenes/GameScene.java:1386-1396`), which covers a window and the inventory pane selecting, so
+the driver and the Observer have one definition of a wait; a Prompt window is 1.10's to read, and
+any window fails now. Paths abbreviate `core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/`
 as `…/`, at the tag.
 
 **Terrain goes through the sheet's own tables.** The tilemap's order is the sheet's direct table,
@@ -138,9 +140,25 @@ The mine's crystal and boulder share every sprite index (`DungeonTileSheet.java:
 are the one pair mapped by terrain. A terrain in no table fails loudly, and `TerrainTableTest`
 walks every constant of `Terrain` and holds that every tile but `NONE` is reached.
 
-**Fog is the fog of war's four levels with the discoverable gate** (`…/tiles/FogOfWar.java:200-205`,
-`:288-299`): a cell that cannot be discovered is unknown whatever the arrays say, then in view,
-visited, mapped, unknown.
+**Fog is the level the fog of war paints, cell for cell, raised to the examine level for a wall
+painted opaque.** A cell that cannot be discovered, or that is neither in view, visited nor
+mapped, is opaque (`…/tiles/FogOfWar.java:200-205`); a cell that is not a wall is painted its own
+level, in view, visited or mapped (`:288-299`); a wall cell is painted by the cells its face
+belongs to (`:210-267`): opaque on the bottom row, in two halves for a wall over a wall, each the
+darkest of the cell, its side neighbour and, when that neighbour is a wall, the cell below it, and
+the darkest of the cell and the cell below for a wall over floor; the wall tilemap hides the
+visual by the same rule (`…/tiles/WallBlockingTilemap.java:194-202`). So a room's far wall is
+opaque until the corridor beyond is seen, even while in view; the first draft emitted it as in
+view, and the review found it. The Observer mirrors the painting, taking the lighter of a wall's
+two halves as the part the player sees, and then one step past the paint: a discoverable wall
+painted opaque that is visited or mapped is emitted at that level, since the examine window opens
+on any visited or mapped cell and draws its tile (`…/scenes/GameScene.java:1661-1667`;
+`…/windows/WndInfoCell.java:42-74`), which is what the player can learn of it; the fog's own gate
+stays in front of that step, a cell that cannot be discovered being never visited or mapped in
+play. `FogParityTest`
+reads the painted texture back and holds every cell to it at the first wait, blinded, with mind
+vision, after a scroll of magic mapping read the game's way, and with rock marked visited by
+hand; and holds two readings of one wait byte-equal.
 
 **Traps appear when visible on a cell that is not unknown.** The feature layer draws a trap's
 tile only while it is visible, in its colour while active and black once disarmed
@@ -164,9 +182,15 @@ chest is story 1.9's, with its differential test.
 
 **The header is built now.** The release as `"v" + Game.version`, the class, the challenges by
 their name ids in name order (`…/Challenges.java:43-64`), the depth and branch, the boss lock as
-`sealed` (`…/levels/Level.java:180`), pulled forward from story 1.11 since it is one drawn flag,
-no oracle, and no Prompt, since no window is open at a wait the Observer accepts.
+`sealed` (`…/levels/Level.java:180`, set by `seal()` together with the `LockedFloor` buff whose
+icon the HUD shows, `:617-630`; `…/actors/buffs/LockedFloor.java:76-78`; ADR-0005's table says
+the locked stairs and the boss bar, which are each boss level's own `seal()` and an assignment of
+its own), pulled forward from story 1.11 since it is one drawn flag, no oracle, and no Prompt,
+since no window is open at a wait the Observer accepts.
 
 **Left empty by design.** Blobs, the floor feeling and the transitions are empty until story 1.11;
-less is never a leak. The leak tests of this story are `MapLeakTest`, `TerrainTableTest` and
-`ObserverGateTest`, named in `docs/rules/visibility.md`.
+less is never a leak. `map()` is not for play until story 1.9 (#22): a neutral, passive mimic has
+no heap and is drawn as a chest, so until 1.9 emits it as a chest the absence of a heap under a
+chest sprite would say what the screen does not; the method's Javadoc says so, and no brain reads
+the section yet. The leak tests of this story are `MapLeakTest`, `FogParityTest`,
+`TerrainTableTest` and `ObserverGateTest`, named in `docs/rules/visibility.md`.
