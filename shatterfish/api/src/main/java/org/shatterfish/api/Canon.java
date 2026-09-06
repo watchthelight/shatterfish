@@ -42,6 +42,15 @@ final class Canon {
         return List.copyOf(copy);
     }
 
+    /** An immutable copy of {@code in} in its own order, refusing nulls: for the lists whose order is the screen's. */
+    static <T> List<T> positional(List<T> in, String what) {
+        Objects.requireNonNull(in, what);
+        for (T element : in) {
+            Objects.requireNonNull(element, what + " holds a null");
+        }
+        return List.copyOf(in);
+    }
+
     /** Refuses two entries with the same key in a list already sorted by it. */
     static <T> void distinctBy(List<T> sorted, ToIntFunction<T> key, String what) {
         for (int i = 1; i < sorted.size(); i++) {
