@@ -96,8 +96,6 @@ public record Observation(HeaderSection header, MapSection map, ActorsSection ac
         } else if (action instanceof Action.UseItemOn use) {
             item(use.item(), use.action(), inventory, action);
             item(use.target(), "", inventory, action);
-        } else if (action instanceof Action.UseItemOption use) {
-            item(use.item(), use.action(), inventory, action);
         } else if (action instanceof Action.Talent talent) {
             boolean named = false;
             for (TalentView view : hero.talents()) {

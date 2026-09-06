@@ -11,8 +11,9 @@ import java.util.TreeMap;
  * A writer of canonical JSON for the Run log and the readable form of an Observation (ADR-0005,
  * option 10; ADR-0011): an object's keys come out sorted by their UTF-16 code units whatever order
  * they were given in, there is no whitespace, numbers are integers, and a string is quoted with
- * only the escapes JSON requires, so that two writers of the same values produce the same text.
- * It writes; nothing in {@code api} reads JSON back.
+ * only the escapes JSON requires plus one: an unpaired surrogate is escaped as {@code \\uXXXX},
+ * since raw it would not survive as the same UTF-8 on every platform. So two writers of the same
+ * values produce the same text. It writes; nothing in {@code api} reads JSON back.
  *
  * <p>Usage: {@code beginObject()}, then {@code key(name)} before each {@code value(...)},
  * {@code beginObject()} or {@code beginArray()}, then {@code endObject()}; {@link #toJson()} once
@@ -84,7 +85,7 @@ public final class JsonWriter {
         return root;
     }
 
-    /** {@code value} quoted, with the escapes JSON requires and no others. */
+    /** {@code value} quoted, with the escapes JSON requires, and a lone surrogate escaped too. */
     public static String quote(String value) {
         StringBuilder out = new StringBuilder(value.length() + 2);
         out.append('"');
@@ -100,7 +101,13 @@ public final class JsonWriter {
                 case '\t' -> out.append("\\t");
                 default -> {
                     if (c < 0x20) {
-                        out.append("\\u00").append(HEX.charAt(c >> 4)).append(HEX.charAt(c & 0xF));
+                        unicode(out, c);
+                    } else if (Character.isHighSurrogate(c) && i + 1 < value.length()
+                            && Character.isLowSurrogate(value.charAt(i + 1))) {
+                        out.append(c).append(value.charAt(i + 1));
+                        i++;
+                    } else if (Character.isSurrogate(c)) {
+                        unicode(out, c);
                     } else {
                         out.append(c);
                     }
@@ -108,6 +115,11 @@ public final class JsonWriter {
             }
         }
         return out.append('"').toString();
+    }
+
+    private static void unicode(StringBuilder out, char c) {
+        out.append("\\u").append(HEX.charAt((c >> 12) & 0xF)).append(HEX.charAt((c >> 8) & 0xF))
+                .append(HEX.charAt((c >> 4) & 0xF)).append(HEX.charAt(c & 0xF));
     }
 
     private void emit(String rendered) {

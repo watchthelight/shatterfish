@@ -445,10 +445,6 @@ public final class ObservationCodec {
             write(out, use.item());
             out.string(use.action());
             write(out, use.target());
-        } else if (action instanceof Action.UseItemOption use) {
-            write(out, use.item());
-            out.string(use.action());
-            out.int32(use.option());
         } else if (action instanceof Action.Rest rest) {
             out.bool(rest.full());
         } else if (action instanceof Action.Talent talent) {

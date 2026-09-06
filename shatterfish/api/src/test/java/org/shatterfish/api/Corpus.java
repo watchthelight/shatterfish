@@ -7,9 +7,9 @@ import java.util.List;
  * A representative Observation for the codec tests: a 6 by 4 floor with every fog level, traps,
  * heaps of every shape the schema allows, blobs, a feeling, two transitions, three actors with
  * buffs, a hero with buffs, talents and quickslots, an inventory of seven items, a journal, a log
- * of every tone and a valid-Action set with every kind but the answer; a second Observation with
- * the chasm Prompt open and the two answers as its Actions; and, for the tests that vary every
- * component, a sample of each record and the extra elements a list can take.
+ * of every tone and a valid-Action set with every kind but the answer and the human's move; a
+ * second Observation with the chasm Prompt open and the two answers as its Actions; and, for the
+ * tests that vary every component, a sample of each record and the extra elements a list can take.
  */
 final class Corpus {
 
@@ -169,13 +169,13 @@ final class Corpus {
         return new LogSection(lines());
     }
 
-    /** Every kind but the answer, each once, all valid against the corpus. */
+    /** Every kind but the answer and the human's move, each once, all valid against the corpus. */
     static List<Action> actions() {
-        return List.of(new Action.Step(1), new Action.MoveTo(17), new Action.Attack(4), new Action.Interact(11),
+        return List.of(new Action.Step(1), new Action.Attack(4), new Action.Interact(11),
                 new Action.PickUp(), new Action.OpenChest(14), new Action.Buy(9), new Action.Unlock(13),
                 new Action.Descend(), new Action.Ascend(), new Action.UseItem(potion(), "DRINK"),
                 new Action.UseItemAt(wand(), "ZAP", 4), new Action.UseItemOn(scroll(), "READ", longsword()),
-                new Action.UseItemOption(potion(), "DROP", 0), new Action.Rest(false), new Action.Search(),
+                new Action.Rest(false), new Action.Search(),
                 new Action.Talent("Iron Will"), new Action.Ability("Heroic Leap"), new Action.AbilityAt("Heroic Leap", 3),
                 new Action.Wait());
     }
@@ -186,6 +186,11 @@ final class Corpus {
 
     static List<Action> answers() {
         return List.of(new Action.AnswerPrompt(0), new Action.AnswerPrompt(1));
+    }
+
+    /** A human's click on a distant cell: an Action of the Run log, never of a valid set. */
+    static List<Action> humanActions() {
+        return List.of(new Action.MoveTo(17));
     }
 
     static PromptSection chasmPrompt() {
@@ -276,6 +281,11 @@ final class Corpus {
                 }
             }
             for (Action action : answers()) {
+                if (action.getClass() == record) {
+                    found.add(action);
+                }
+            }
+            for (Action action : humanActions()) {
                 if (action.getClass() == record) {
                     found.add(action);
                 }

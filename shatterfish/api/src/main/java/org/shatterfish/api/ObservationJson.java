@@ -418,11 +418,6 @@ public final class ObservationJson {
             out.key("action").value(use.action());
             out.key("target");
             write(out, use.target());
-        } else if (action instanceof Action.UseItemOption use) {
-            out.key("item");
-            write(out, use.item());
-            out.key("action").value(use.action());
-            out.key("option").value(use.option());
         } else if (action instanceof Action.Rest rest) {
             out.key("full").value(rest.full());
         } else if (action instanceof Action.Talent talent) {

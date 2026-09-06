@@ -178,12 +178,14 @@ class SchemaRulesTest {
     }
 
     @Test
-    @DisplayName("the valid Actions come out in one order, each once")
+    @DisplayName("the valid Actions come out in one order, each once, and a human's move is never among them")
     void actions_are_canonical() {
         assertThrows(IllegalArgumentException.class,
                 () -> new ActionsSection(List.of(new Action.Wait(), new Action.Wait())));
         assertThrows(IllegalArgumentException.class,
                 () -> new ActionsSection(List.of(new Action.Step(1), new Action.Search(), new Action.Step(1))));
+        assertThrows(IllegalArgumentException.class,
+                () -> new ActionsSection(List.of(new Action.Wait(), new Action.MoveTo(17))));
         ActionsSection section = new ActionsSection(List.of(new Action.Step(2), new Action.Wait(), new Action.Step(1)));
         assertEquals(List.of(new Action.Step(1), new Action.Step(2), new Action.Wait()), section.actions());
     }

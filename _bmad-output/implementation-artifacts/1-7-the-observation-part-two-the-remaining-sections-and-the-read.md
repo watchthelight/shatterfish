@@ -30,7 +30,7 @@ line number is at the pinned tag `v3.3.8` (commit `7b8b845a`).
 
 ## What was built
 
-- `shatterfish/api/src/main/java/org/shatterfish/api/`: `HeroSection`, `TalentView`, `QuickslotView`, `InventorySection`, `ItemView`, `ItemRef`, `JournalSection`, `NoteView`, `KnownAppearance`, `LogSection`, `LogLine`, `ActionsSection`, `Action` (sealed, twenty-one records), `PromptSection`; enums `HeroSubclass`, `Hunger`, `ItemKind`, `EquipSlot`, `NoteKind`, `LogTone`; `Observation` with nine sections, `withActions` and `json()`; `ObservationCodec` at schema version 2 with the nine sections; `JsonWriter`, `ObservationJson`; `Belief`; `Canon.positional`.
+- `shatterfish/api/src/main/java/org/shatterfish/api/`: `HeroSection`, `TalentView`, `QuickslotView`, `InventorySection`, `ItemView`, `ItemRef`, `JournalSection`, `NoteView`, `KnownAppearance`, `LogSection`, `LogLine`, `ActionsSection`, `Action` (sealed, twenty records), `PromptSection`; enums `HeroSubclass`, `Hunger`, `ItemKind`, `EquipSlot`, `NoteKind`, `LogTone`; `Observation` with nine sections, `withActions` and `json()`; `ObservationCodec` at schema version 2 with the nine sections; `JsonWriter`, `ObservationJson`; `Belief`; `Canon.positional`.
 - Tests: `Variants` (the schema by reflection, shared), `CodecReflectionTest` (every component reaches the bytes and the JSON; one Action record per kind), `CodecEqualityTest`, `JsonRenderingTest` with `StrictJson`, `BeliefTest`, `CodecCanonicalTest` and `SchemaRulesTest` extended, `ObservationHashTest` repinned under version 2, `Corpus` with a second Observation that has the chasm Prompt open.
 - Docs: ADR-0005 amendment for story 1.7; ADR-0014 amendment for the Action records; six rule rows in `docs/rules/ui.md`; the `api` line of `docs/architecture.md`.
 
@@ -43,9 +43,16 @@ record is built in two steps: `ActionsSection.NONE` first, then `withActions` on
 
 **The Action records belong to the schema, not to story 1.12.** The `actions` section is a list
 of them, so ADR-0014's sealed interface is implemented here with one record per kind; item use
-became four kinds by the shape of its target, since a record cannot carry "a cell, an item
-reference or an option index" as one value without an optional field, and `MoveTo` is a record
-because the Overlay's human clicks must be logged as they were made (ADR-0011).
+became three kinds by the shape of its target, since a record cannot carry "a cell or an item
+reference" as one value without an optional field, and `MoveTo` is a record because the Overlay's
+human clicks must be logged as they were made (ADR-0011), which the valid set refuses.
+
+**An item's option window is an Input wait of its own, so no Action carries an option index.**
+ADR-0014's table allowed an option index as an item use's target; the review found that no
+section lists the labels such a window shows, and they cannot be listed: the scroll of
+enchantment's three choices are not known before the window opens. Story 1.5 settled that a
+recognised window in front is an Input wait, so that window is a Prompt, answered by
+`AnswerPrompt` at the next wait; `UseItemOption` was dropped before the pin moved.
 
 **Every Action parameter is checked against the Observation at construction.** ADR-0014 asks that
 a parameter be a value the Observation carries; the record refuses a cell off the map, an item
@@ -62,9 +69,13 @@ carries the numbers; ADR-0006's quantisation applies to the bars over sprites.
 the hero window prints the gold collected in the Run, not the gold held
 (`…/windows/WndHero.java:199`); the section carries what the bag shows.
 
-**The log's cap is the schema's, not the pane's.** The pane keeps three or five lines of rendered
-text and drops the oldest entries as new ones arrive (`…/ui/GameLog.java:59`, `:107-122`); every
-message was shown as it arrived, so the Observation keeps the last sixty-four as a bound on size.
+**The log's source is the signal, and the pane can drop a message before drawing it.** The pane
+takes a frame's messages in one batch, merges, and trims the oldest entries beyond three or five
+lines of text before the frame is drawn (`…/ui/GameLog.java:55-131`, `:59`, `:89`, `:107-122`),
+so a burst that exceeds the lines in one frame loses its oldest messages unseen. The first draft
+said every message had been shown; the review corrected it. The Observation keeps the raw signal
+(`…/utils/GLog.java:39`), which non-negotiable 1 names beside the renderer and which is
+reproducible where frame timing is not, and the trade-off is recorded in ADR-0005.
 
 **A record over a byte array compares by identity**, so the Belief is a final class with its own
 `equals`, copying its bytes in and out.
@@ -81,10 +92,10 @@ and the sealed interface in story 1.12; (b) the sealed interface here, `validAct
 decision fixes their kinds; a generic view would be a second vocabulary to retire. Pre-mortem:
 1.12 or 1.13 finds a kind's parameters wrong; that is a version bump, which the pin enforces.
 
-**Item use as four kinds.** Alternatives: (a) one `UseItem` with three nullable targets; (b) a
-`Target` sealed interface as a component; (c) four kinds. Chosen (c): every component stays a
-value, every switch is exhaustive, and the reflection tests need no case for an interface-typed
-component.
+**Item use as three kinds.** Alternatives: (a) one `UseItem` with nullable targets; (b) a
+`Target` sealed interface as a component; (c) one kind per shape of target. Chosen (c): every
+component stays a value, every switch is exhaustive, and the reflection tests need no case for an
+interface-typed component. The option-index shape went with the review, above.
 
 **The actions' order.** Alternatives: (a) the executor's enumeration order, positional; (b) by
 kind then by the action's canonical bytes. Chosen (b): a set enumerated in any order must be one
@@ -92,8 +103,9 @@ hash. Pre-mortem: sorting by bytes is not sorting by cell within a kind, since t
 comes first; the order is canonical, not pretty.
 
 **The log's cap.** Alternatives: (a) the pane's own retention, three or five rendered lines,
-which depends on UI size and wrapping; (b) a fixed count. Chosen (b), sixty-four: the pane's
-retention is a rendering artefact, and the player has read every message.
+which depends on UI size, wrapping and frame timing; (b) a fixed count over the signal. Chosen
+(b), sixty-four: the pane's retention is a rendering artefact and not reproducible, and the cost,
+a line a human may not have read in a burst, is recorded.
 
 **The JSON's shape.** Alternatives: (a) keys in component order with whitespace, for reading;
 (b) canonical, sorted keys and no whitespace, as ADR-0011 needs for the log. Chosen (b), one
@@ -125,11 +137,14 @@ Pending.
 - **The Prompt's richer windows are flattened**: a trade window's item and price, a subclass choice's two descriptions, become title, text and labels by story 1.10's mapping.
 - **The free-form strings grow**: item names, actions, statuses, talent and ability names, note titles and bodies, log text, prompt text. Stories 1.9 to 1.11 pin each to the screen's own text.
 - **`validActions` does not exist yet**; until story 1.12 every Observation an Observer builds has `ActionsSection.NONE`.
+- **The log may carry a message the pane never drew**, when a burst exceeds three or five lines in one frame; the signal is the source, for reproducibility, and ADR-0005 records the trade-off.
+- **An item's option window needs a Prompt kind** that `PromptKind` does not have yet; story 1.10 adds it when it maps the windows.
 - **The JSON is canonical, not pretty**; a reader pipes it through a formatter.
 
 ## Follow-ups for later stories
 
 - Story 1.9: the hero section's mapping, including `talentPointsAvailable` and the placeholder quickslots.
-- Story 1.10: the inventory in belongings order with `ItemKind` by package, the journal, the log listener, the Prompt windows into labels.
+- Story 1.10: the inventory in belongings order with `ItemKind` by package, the journal, the log listener capturing exactly what the pane receives, the Prompt windows into labels, a kind for an item's option window.
+- Story 1.9: the talents pane's tier gates, so the section carries the tiers drawn, not the tiers held.
 - Story 1.12: `validActions(Observation)` over the records defined here; `Wait` absent under a Prompt.
 - Story 1.13: the executor resolving `ItemRef` by re-walking the belongings.

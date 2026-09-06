@@ -86,6 +86,23 @@ class CodecCanonicalTest {
     }
 
     @Test
+    @DisplayName("two hero buffs of one name in either order are the same hero")
+    void hero_buffs_of_one_name_in_any_order() {
+        HeroSection base = Corpus.hero();
+        List<BuffView> twice = List.of(new BuffView("Poisoned", true, 300), new BuffView("Poisoned", true, 500));
+        HeroSection a = new HeroSection(base.cell(), base.name(), base.subclass(), base.ability(), base.level(),
+                base.exp(), base.expToLevel(), base.hp(), base.ht(), base.shield(), base.strength(), base.strengthBonus(),
+                base.gold(), base.energy(), base.hunger(), twice, base.talents(), base.talentPointsAvailable(),
+                base.quickslots());
+        HeroSection b = new HeroSection(base.cell(), base.name(), base.subclass(), base.ability(), base.level(),
+                base.exp(), base.expToLevel(), base.hp(), base.ht(), base.shield(), base.strength(), base.strengthBonus(),
+                base.gold(), base.energy(), base.hunger(), reversed(twice), base.talents(), base.talentPointsAvailable(),
+                base.quickslots());
+        assertEquals(a, b);
+        assertEquals(hashes(a), hashes(b));
+    }
+
+    @Test
     @DisplayName("an item's actions in any order are the same item")
     void item_actions_in_any_order() {
         ItemView base = Corpus.items().get(3);

@@ -8,7 +8,8 @@ import java.util.List;
  * The valid Actions at this Input wait, one entry per Action the executor would accept, computed
  * from the rest of the Observation alone (ADR-0005; ADR-0014; story 1.12). The order is canonical:
  * by kind, then by the action's own bytes, so the set an executor enumerates in any order is one
- * section with one hash.
+ * section with one hash. A {@link Action.MoveTo} is a human's click and never valid, so the record
+ * refuses it.
  *
  * @param actions the valid Actions, each once
  */
@@ -23,5 +24,9 @@ public record ActionsSection(List<Action> actions) {
     public ActionsSection {
         actions = Canon.sorted(actions, ORDER, "actions");
         Canon.noRepeats(actions, "actions");
+        for (Action action : actions) {
+            Canon.require(!(action instanceof Action.MoveTo),
+                    "a move to a distant cell is a human's click, never a valid Action: " + action);
+        }
     }
 }

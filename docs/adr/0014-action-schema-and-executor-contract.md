@@ -155,13 +155,19 @@ Rules:
 
 The `Action` records exist from story 1.7, since the `actions` section of the Observation
 (ADR-0005) is a list of them; story 1.12 adds `validActions`. They differ from the table above in
-five places. Item use is four kinds by the shape of its target, `UseItem(item, action)`,
-`UseItemAt(item, action, cell)`, `UseItemOn(item, action, target)` and
-`UseItemOption(item, action, option)`, so that every component is a value and every switch over
-actions is exhaustive without an optional field. `Talent(talent)` names the talent as the hero
-section lists it, and the ability is `Ability(ability)` or `AbilityAt(ability, cell)`. `MoveTo(cell)`
-is a record of the schema, so that a human's click on a distant cell in the Overlay can be logged
-as ADR-0011 needs; it is never in a valid set. `ItemRef(index, name, quantity)` is the position in
+five places. Item use is three kinds by the shape of its target, `UseItem(item, action)`,
+`UseItemAt(item, action, cell)` and `UseItemOn(item, action, target)`, so that every component is
+a value and every switch over actions is exhaustive without an optional field. The option index
+the table allowed as a target is not a kind: a window of options an item opens, an enchantment to
+choose from the scroll's three, lists labels that are not known at the Input wait the item is
+used from, so an index chosen there would be blind; and a recognised window in front is an Input
+wait of its own (ADR-0015 as story 1.5 amended it), so that window is a Prompt and its answer an
+`AnswerPrompt` at the next wait, with the kind story 1.10 adds. Option 8's same-wait answer
+stays for the cell selector and the bag, which show the Observation's own cells and items.
+`Talent(talent)` names the talent as the hero section lists it, and the ability is
+`Ability(ability)` or `AbilityAt(ability, cell)`. `MoveTo(cell)` is a record of the schema, so
+that a human's click on a distant cell in the Overlay can be logged as ADR-0011 needs; it is never
+in a valid set, and `ActionsSection` refuses it. `ItemRef(index, name, quantity)` is the position in
 the inventory section plus the display name and the quantity, and the Observation refuses an
 Action whose reference does not match its inventory, which puts option 11's desync check at
 construction as well as at execution. `Rest(full)` carries its flag as a boolean. Each record

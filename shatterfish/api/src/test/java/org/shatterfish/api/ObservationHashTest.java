@@ -26,7 +26,7 @@ class ObservationHashTest {
      * encoding changed: bump {@link ObservationCodec#SCHEMA_VERSION}, record why in ADR-0005, and
      * only then repin.
      */
-    private static final String PINNED = "da5e41b1b8b9bbb6f9b4cdef6925c1b46174e9639d4ff5eb9172418dc8b75d51";
+    private static final String PINNED = "820699669926c2fa4eea05932c981b2174371bf765909da3b9d056d1e201fe76";
 
     @Test
     @DisplayName("the hash is SHA-256 over the version and the nine section hashes, in order")

@@ -22,7 +22,7 @@ import java.util.Objects;
  * @param visiblyCursed whether the item is shown cursed, never unless the curse state is known
  *                      ({@code Item.java:441-443})
  * @param status the status text drawn on the sprite, a quantity, a charge count, or empty
- *               ({@code Item.java:570-572}; {@code …/items/wands/Wand.java:332-334})
+ *               ({@code Item.java:570-572}; {@code …/items/wands/Wand.java:336-343})
  * @param slot the equipment slot the item sits in, or {@link EquipSlot#NONE}
  * @param actions the actions the item window offers, by name ({@code Item.java:110-115};
  *                {@code …/windows/WndUseItem.java:54-76})

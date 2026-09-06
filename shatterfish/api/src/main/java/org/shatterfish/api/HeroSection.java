@@ -21,8 +21,8 @@ import java.util.Objects;
  * @param ability the armour ability's name once chosen, shown as the fourth talent tier and the
  *                action indicator ({@code Hero.java:209}, {@code :390}, {@code :402}); empty before
  * @param level the level, in the hero window's title ({@code WndHero.java:160})
- * @param exp the experience toward the next level, as the exp bar and its text show
- *            ({@code StatusPane.java:334}, {@code :339}; {@code WndHero.java:195})
+ * @param exp the experience toward the next level, as the exp bar and its text show on either pane
+ *            ({@code StatusPane.java:334-345}; {@code WndHero.java:195})
  * @param expToLevel the experience the next level needs, the bar's full value
  * @param hp the health ({@code StatusPane.java:322-327}; {@code WndHero.java:193-194})
  * @param ht the maximum health
@@ -31,14 +31,20 @@ import java.util.Objects;
  * @param strengthBonus the bonus or penalty printed after it, 0 when none
  * @param gold the gold, as the bag window prints it ({@code …/windows/WndBag.java:186})
  * @param energy the alchemical energy, as the bag window prints it when any
- *               ({@code WndBag.java:179}, {@code :213-216})
+ *               ({@code WndBag.java:179}, {@code :219})
  * @param hunger the hunger icon's state ({@code …/actors/buffs/Hunger.java:179-187})
- * @param buffs every buff with an icon, by name, with the turns its description shows
- *              ({@code WndHero.java:301-314}; {@code …/ui/BuffIndicator.java:192-196})
- * @param talents every talent of every unlocked tier with its points, by tier then name
- *                ({@code Hero.java:210}; {@code …/ui/TalentsPane.java:162-183})
+ * @param buffs every buff with an icon, with the turns its description shows, by name then timed
+ *              then turns, as an actor's ({@code WndHero.java:301-314}; {@code …/ui/BuffIndicator.java:192-196})
+ * @param talents every talent of every tier the pane shows, with its points, by tier then name. The
+ *                pane shows a tier from one level below its threshold, the third only with a
+ *                subclass and the fourth only with an ability ({@code …/ui/TalentsPane.java:75-84}),
+ *                while the hero holds the first two tiers from creation
+ *                ({@code …/actors/hero/Talent.java:968-970}; {@code Hero.java:210}); the section
+ *                carries what is drawn
  * @param talentPointsAvailable the unspent points per tier, one entry per tier, drawn as open
- *                              stars ({@code Hero.java:387-395}; {@code TalentsPane.java:183}, {@code :259})
+ *                              stars: 0 below one level under the tier's threshold or without its
+ *                              gate, else the tier's level range less the points spent plus any bonus
+ *                              ({@code Hero.java:387-396}; {@code TalentsPane.java:183}, {@code :259})
  * @param quickslots the six quickslots in order ({@code …/QuickSlot.java:40})
  */
 public record HeroSection(int cell, String name, HeroSubclass subclass, String ability, int level, int exp,
@@ -67,7 +73,8 @@ public record HeroSection(int cell, String name, HeroSubclass subclass, String a
         Canon.require(gold >= 0, "gold is not negative: " + gold);
         Canon.require(energy >= 0, "energy is not negative: " + energy);
         Objects.requireNonNull(hunger, "hunger");
-        buffs = Canon.sorted(buffs, Comparator.comparing(BuffView::name), "hero buffs");
+        buffs = Canon.sorted(buffs, Comparator.comparing(BuffView::name).thenComparing(BuffView::timed)
+                .thenComparingInt(BuffView::turnsHundredths), "hero buffs");
         Canon.noRepeats(buffs, "hero buffs");
         talents = Canon.sorted(talents, Comparator.comparingInt(TalentView::tier).thenComparing(TalentView::name),
                 "talents");

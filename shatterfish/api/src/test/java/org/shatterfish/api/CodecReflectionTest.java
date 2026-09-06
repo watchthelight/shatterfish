@@ -178,7 +178,7 @@ class CodecReflectionTest {
             kinds.add(sample.kind());
         }
         assertEquals(List.of("Step", "MoveTo", "Attack", "Interact", "PickUp", "OpenChest", "Buy", "Unlock", "Descend",
-                "Ascend", "UseItem", "UseItemAt", "UseItemOn", "UseItemOption", "Rest", "Search", "Talent", "Ability",
-                "AbilityAt", "AnswerPrompt", "Wait"), kinds, "the kinds of ADR-0014, item use split by target shape");
+                "Ascend", "UseItem", "UseItemAt", "UseItemOn", "Rest", "Search", "Talent", "Ability",
+                "AbilityAt", "AnswerPrompt", "Wait"), kinds, "the kinds of ADR-0014, item use split by target shape, no option index");
     }
 }

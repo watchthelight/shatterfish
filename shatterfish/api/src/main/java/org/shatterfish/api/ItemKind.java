@@ -7,7 +7,10 @@ package org.shatterfish.api;
  * {@code quest}, {@code rings}, {@code scrolls}, {@code spells}, {@code stones},
  * {@code trinkets}, {@code wands}, {@code weapon/melee}, {@code weapon/missiles}) plus
  * {@link #SEED} for the plants' seeds ({@code core/.../plants/Plant.java}) and {@link #OTHER} for
- * the items of no family (gold, an ankh, a torch, a waterskin, the amulet, a guide page).
+ * the rest: the items at the package's root (gold, an ankh, a torch, a waterskin, the amulet),
+ * the {@code journal} package's guide pages and the {@code remains} package's remains of a fallen
+ * hero. {@code weapon/} itself, where the spirit bow sits, is {@link #WEAPON} like
+ * {@code weapon/melee}.
  *
  * <p>The family is what a player sees at a glance, since an unidentified potion is still drawn as
  * a potion; the exact class of an unidentified potion, scroll or ring is what the family must

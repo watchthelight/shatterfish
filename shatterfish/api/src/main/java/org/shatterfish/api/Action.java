@@ -10,14 +10,18 @@ import java.util.Objects;
  * (story 1.12) and keeps the leak surface at zero; the Observation refuses an action whose
  * parameter it does not carry.
  *
- * <p>The item use the decision wrote as one kind with an optional target is four kinds here, one
+ * <p>The item use the decision wrote as one kind with an optional target is three kinds here, one
  * per shape of target, so that every switch over actions is exhaustive and every component is a
- * value. {@link MoveTo} is the human's click on a distant cell, recorded as they made it; it is
- * never in a valid set, since the bot moves one step at a time.
+ * value. The option index the decision allowed as a target is not a kind: a window of options an
+ * item opens, an enchantment to choose, lists labels that are not known at the Input wait the item
+ * is used from, and a recognised window in front is an Input wait of its own (ADR-0015, story
+ * 1.5), so that window is a Prompt and its answer an {@link AnswerPrompt} at the next wait.
+ * {@link MoveTo} is the human's click on a distant cell, recorded as they made it; it is never in
+ * a valid set, since the bot moves one step at a time, and {@link ActionsSection} refuses it.
  */
 public sealed interface Action permits Action.Step, Action.MoveTo, Action.Attack, Action.Interact, Action.PickUp,
         Action.OpenChest, Action.Buy, Action.Unlock, Action.Descend, Action.Ascend, Action.UseItem, Action.UseItemAt,
-        Action.UseItemOn, Action.UseItemOption, Action.Rest, Action.Search, Action.Talent, Action.Ability,
+        Action.UseItemOn, Action.Rest, Action.Search, Action.Talent, Action.Ability,
         Action.AbilityAt, Action.AnswerPrompt, Action.Wait {
 
     /** The kind's name, the record's own, which the codec and the JSON write first. */
@@ -172,21 +176,6 @@ public sealed interface Action permits Action.Step, Action.MoveTo, Action.Attack
         @Override
         public String kind() {
             return "UseItemOn";
-        }
-    }
-
-    /** An item action that opens a window of options, answered with the index of one. */
-    record UseItemOption(ItemRef item, String action, int option) implements Action {
-        public UseItemOption {
-            Objects.requireNonNull(item, "item");
-            action = Canon.text(action, "item action");
-            Canon.require(!action.isEmpty(), "an item use names its action");
-            Canon.require(option >= 0, "an option is an index: " + option);
-        }
-
-        @Override
-        public String kind() {
-            return "UseItemOption";
         }
     }
 

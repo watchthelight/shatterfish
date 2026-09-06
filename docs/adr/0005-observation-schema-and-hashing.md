@@ -230,16 +230,20 @@ These are the choices the decision left open or did not foresee.
 (`…/windows/WndHero.java:162`; `…/actors/hero/Hero.java:417`); the subclass, which names the hero
 once chosen (`Hero.java:412-414`); the armour ability, drawn as the fourth talent tier and the
 action indicator (`Hero.java:209`, `:390`, `:402`); the level (`WndHero.java:160`); the experience
-and what the next level needs, the exp bar's fill and its text (`…/ui/StatusPane.java:334`,
-`:339`; `WndHero.java:195`); the health, its maximum and the shielding exactly as the status pane
+and what the next level needs, the exp bar's fill and its text on either pane
+(`…/ui/StatusPane.java:334-345`; `WndHero.java:195`); the health, its maximum and the shielding exactly as the status pane
 prints them (`StatusPane.java:322-327`; `WndHero.java:193-194`), so the hero's health is exact
 where an actor's is quantised, because the pane prints the number; the strength and the bonus or
 penalty printed after it (`WndHero.java:190-192`); the gold and the alchemical energy the bag
-window prints (`…/windows/WndBag.java:186`, `:179`, `:213-216`), which the table did not list;
-hunger as the icon's three states (`…/actors/buffs/Hunger.java:179-187`); every buff with an icon
-(`WndHero.java:301-314`; `…/ui/BuffIndicator.java:192-196`); every talent with its points and the
-unspent points per tier, drawn as open stars (`Hero.java:210`, `:387-395`;
-`…/ui/TalentsPane.java:183`, `:259`); and the six quickslots with the placeholder flag
+window prints (`…/windows/WndBag.java:186`, `:179`, `:219`), which the table did not list;
+hunger as the icon's three states (`…/actors/buffs/Hunger.java:179-187`); every buff with an icon,
+ordered by name, then timed, then turns, as an actor's are (`WndHero.java:301-314`;
+`…/ui/BuffIndicator.java:192-196`); every talent of every tier the pane shows with its points, and
+the unspent points per tier drawn as open stars (`…/ui/TalentsPane.java:75-84`, `:183`, `:259`;
+`Hero.java:210`, `:387-396`), where the pane shows a tier from one level below its threshold, the
+third only with a subclass and the fourth only with an ability, while the hero holds the first two
+tiers from creation (`…/actors/hero/Talent.java:968-970`), so the section carries what is drawn;
+and the six quickslots with the placeholder flag
 (`…/QuickSlot.java:36-41`; `…/ui/QuickSlotButton.java:306`). The danger count of ADR-0006 is not a
 field: it is the enemies among the actors, which that section lists with the invisible flag.
 
@@ -260,16 +264,25 @@ bestiary are not here: static text the Codex carries, and cross-Run state.
 
 **The log is the messages as emitted, capped at sixty-four.** The tone comes from the prefix
 (`…/utils/GLog.java:32-39`; `…/ui/GameLog.java:72-87`) and the text is what follows it; the
-new-line marker is dropped, and the merging of same-colour messages is the pane's. The pane keeps
-three or five lines of text and drops older entries as new ones arrive (`GameLog.java:59`,
-`:107-122`), so a player sees the newest few at once but has seen every message as it arrived;
-the cap is a bound on the Observation's size, not a claim about the pane.
+new-line marker is dropped, and the merging of same-colour messages is the pane's. The source is
+the raw signal every message goes through (`GLog.java:39`), which is the game log non-negotiable 1
+names beside the renderer, and the reproducible choice, since frame timing is not part of the Run
+tuple. The pane is a view of it: it takes a frame's messages in one batch, merges, and trims the
+oldest entries beyond three or five lines of text before the frame is drawn (`GameLog.java:55-131`,
+`:59`, `:89`, `:107-122`), so a burst that exceeds the lines in one frame loses its oldest
+messages before they are ever drawn, and the Observation may carry a message the pane never
+showed. That is the trade-off recorded here: the signal over the pane, for reproducibility, at
+the cost of a line a human may not have read in a burst. The cap is a bound on the Observation's
+size, not a claim about the pane. For story 1.10: the pane replaces the signal's listener and
+buffers statically (`GameLog.java:47`, `:52`), so the Observer's capture must equal what the pane
+receives, no more.
 
 **The valid Actions are a section, and the Observation is built in two steps.** `Action` is the
-sealed interface of ADR-0014 with one record per kind, amended there: item use is four kinds by
-the shape of its target, and `MoveTo` records a human's click. `ActionsSection` sorts by kind and
-then by the action's own bytes and refuses repeats, so a set enumerated in any order is one
-section with one hash. The table's circularity, a valid set computed from the Observation and
+sealed interface of ADR-0014 with one record per kind, amended there: item use is three kinds by
+the shape of its target, a window of options an item opens being a Prompt at its own Input wait,
+and `MoveTo` records a human's click. `ActionsSection` sorts by kind and then by the action's own
+bytes, refuses repeats and refuses `MoveTo`, so a set enumerated in any order is one section with
+one hash and a human's click is never a valid Action. The table's circularity, a valid set computed from the Observation and
 part of it, is resolved by `ActionsSection.NONE` and `Observation.withActions`: the Observer builds
 the record without Actions, story 1.12's `validActions` reads that, and the record with the set is
 what is hashed. The Observation refuses an Action naming what it does not carry: a cell off the
