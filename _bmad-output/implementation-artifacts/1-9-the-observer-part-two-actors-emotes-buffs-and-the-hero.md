@@ -4,7 +4,7 @@ key: 1-9-the-observer-part-two-actors-emotes-buffs-and-the-hero
 title: "The Observer, part two: actors, emotes, buffs and the hero"
 epic: 1
 issue: 22
-status: review
+status: done
 created: '2026-09-06'
 updated: '2026-09-06'
 ---
