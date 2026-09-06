@@ -17,12 +17,14 @@ import com.shatteredpixel.shatteredpixeldungeon.items.potions.PotionOfLiquidFlam
 import com.shatteredpixel.shatteredpixeldungeon.levels.features.Chasm;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
+import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndChooseSubclass;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndMessage;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndOptions;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndQuest;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndTradeItem;
+import com.watabou.noosa.Gizmo;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -250,6 +252,33 @@ class PromptGateTest {
         assertEquals("Under", prompt.title());
         assertEquals(List.of("Only"), prompt.options());
         assertFalse(prompt.text().contains("on top"));
+    }
+
+    @Test
+    @DisplayName("a text block the window does not draw is not read")
+    void a_hidden_block_is_not_read() {
+        atTheFirstWait();
+        GameScene.show(new WndOptions((String) null, "shown, then hidden", "Fine") {
+            @Override
+            protected void onSelect(int index) {
+            }
+        });
+        assertEquals("shown, then hidden", new Observer().prompt().text());
+        RenderedTextBlock block = null;
+        for (Gizmo member : Windows.front().shatterfishMembers()) {
+            if (member instanceof RenderedTextBlock found) {
+                block = found;
+            }
+        }
+        assertNotNull(block);
+        // The group draws a member only while it exists and is visible (Group.java:72-79).
+        block.visible = false;
+        assertEquals("", new Observer().prompt().text(), "not drawn, not read");
+        block.visible = true;
+        block.exists = false;
+        assertEquals("", new Observer().prompt().text(), "not drawn, not read");
+        block.exists = true;
+        assertEquals("shown, then hidden", new Observer().prompt().text());
     }
 
     @Test

@@ -372,10 +372,10 @@ first text block when there are two, a title block coming before its message
 (`WndOptions.java:53-59`). The text is the rest, and the options the styled buttons' labels in
 drawing order (`…/ui/StyledButton.java:124`; `…/ui/RenderedTextBlock.java:96`), icon buttons and
 item slots being no option. A member the group would not draw, one that does not exist or is not visible
-(`SPD-classes/…/noosa/Group.java:72-79`; `…/noosa/Gizmo.java:26-29`), is not read, and an item
-slot's texts, the status, strength and level of the item it shows (`…/ui/ItemSlot.java:220-300`),
-are the slot's decorations and not the window's words, which the review found the resurrection
-window's two slots would otherwise have added to its text. The same accessor on `Game.scene()`
+(`SPD-classes/…/noosa/Group.java:72-79`; `…/noosa/Gizmo.java:26-29`), is not read, as the review
+asked; the resurrection window's two item slots, which the review feared would add their texts,
+draw them as bitmap texts (`…/ui/ItemSlot.java:58-61`), never text blocks, and are out of the
+walk's reach by type. The same accessor on `Game.scene()`
 finds the window in front, as the scene does for itself (`…/scenes/GameScene.java:1376-1384`).
 `PromptGateTest` holds the chasm prompt, a known harmful potion's warning, a known beneficial
 potion's throw and the chalice's warning to their kinds, titles, texts and labels; a quest window

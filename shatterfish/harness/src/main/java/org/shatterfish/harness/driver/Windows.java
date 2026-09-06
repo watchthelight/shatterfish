@@ -1,6 +1,5 @@
 package org.shatterfish.harness.driver;
 
-import com.shatteredpixel.shatteredpixeldungeon.ui.ItemSlot;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
 import com.shatteredpixel.shatteredpixeldungeon.ui.StyledButton;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
@@ -26,9 +25,9 @@ import java.util.List;
  * ({@code …/ui/StyledButton.java:124}), and an icon button or a health bar has no text and is not
  * an option. What the screen does not draw is not read: a member that does not exist or is not
  * visible is skipped, as the group skips it when it draws ({@code Group.java:72-79};
- * {@code …/noosa/Gizmo.java:26-29}), and an item slot's texts, the status, the strength and the
- * level of the item it shows ({@code …/ui/ItemSlot.java:220-300}), are the slot's decorations
- * and not a window's words.
+ * {@code …/noosa/Gizmo.java:26-29}); an item slot's texts, the status, the strength and the
+ * level of the item it shows, are bitmap texts ({@code …/ui/ItemSlot.java:58-61}), never text
+ * blocks, and are out of the walk's reach by type.
  */
 public final class Windows {
 
@@ -72,7 +71,7 @@ public final class Windows {
 
     private static void walk(Group group, String[] iconTitle, List<String> texts, List<String> buttons) {
         for (Gizmo member : group.shatterfishMembers()) {
-            if (member == null || !member.exists || !member.visible || member instanceof ItemSlot) {
+            if (member == null || !member.exists || !member.visible) {
                 continue;
             }
             if (member instanceof StyledButton button) {
