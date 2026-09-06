@@ -2,35 +2,61 @@ package org.shatterfish.harness.observer;
 
 import com.shatteredpixel.shatteredpixeldungeon.Challenges;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
+import com.shatteredpixel.shatteredpixeldungeon.QuickSlot;
+import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.FlavourBuff;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
+import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroSubClass;
+import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.CrystalMimic;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.EbonyMimic;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.GoldenMimic;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mimic;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.npcs.Shopkeeper;
+import com.shatteredpixel.shatteredpixeldungeon.effects.EmoIcon;
 import com.shatteredpixel.shatteredpixeldungeon.items.Heap;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.items.artifacts.Artifact;
+import com.shatteredpixel.shatteredpixeldungeon.items.rings.Ring;
 import com.shatteredpixel.shatteredpixeldungeon.items.wands.Wand;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Terrain;
 import com.shatteredpixel.shatteredpixeldungeon.levels.traps.Trap;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
+import com.shatteredpixel.shatteredpixeldungeon.sprites.CharSprite;
 import com.shatteredpixel.shatteredpixeldungeon.tiles.DungeonTileSheet;
+import com.shatteredpixel.shatteredpixeldungeon.ui.BuffIndicator;
 import com.watabou.noosa.Game;
+import org.shatterfish.api.ActorView;
+import org.shatterfish.api.ActorsSection;
+import org.shatterfish.api.Alignment;
+import org.shatterfish.api.BuffView;
 import org.shatterfish.api.Challenge;
+import org.shatterfish.api.Emote;
 import org.shatterfish.api.Feeling;
 import org.shatterfish.api.Fog;
 import org.shatterfish.api.HeaderSection;
 import org.shatterfish.api.HeapKind;
 import org.shatterfish.api.HeapView;
 import org.shatterfish.api.HeroClass;
+import org.shatterfish.api.HeroSection;
+import org.shatterfish.api.HeroSubclass;
+import org.shatterfish.api.Hunger;
 import org.shatterfish.api.MapSection;
 import org.shatterfish.api.ObservationCodec;
 import org.shatterfish.api.PromptKind;
+import org.shatterfish.api.QuickslotView;
+import org.shatterfish.api.TalentView;
 import org.shatterfish.api.Tile;
 import org.shatterfish.api.TrapView;
 import org.shatterfish.harness.driver.HeadlessDriver;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -38,11 +64,11 @@ import java.util.Map;
 /**
  * The one door from game state to the bot (non-negotiable 1; ADR-0006): reads, at an Input wait,
  * exactly what the screen draws, through the predicates the renderer and the HUD use, and builds
- * the sections of the Observation from them. Story 1.8 builds the header and the map; the actors
- * and the hero (story 1.9), the inventory, journal, log and Prompt (1.10) and the rows left
- * (1.11) follow, and {@code observe()} arrives when every section does. Nothing here reads a
- * field the screen does not draw, and every rule cites the drawing code at the pinned tag; paths
- * abbreviate {@code core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/} as {@code …/}.
+ * the sections of the Observation from them. Story 1.8 built the header and the map, story 1.9
+ * the actors and the hero; the inventory, journal, log and Prompt (1.10) and the rows left (1.11)
+ * follow, and {@code observe()} arrives when every section does. Nothing here reads a field the
+ * screen does not draw, and every rule cites the drawing code at the pinned tag; paths abbreviate
+ * {@code core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/} as {@code …/}.
  *
  * <p>Every method runs only at an Input wait: the hero is ready with no action and not resting,
  * and no window is open, which is what the driver confirms (ADR-0015) and what this class
@@ -131,12 +157,10 @@ public final class Observer {
      * The map (ADR-0005; ADR-0006, Cell visibility, Terrain, Traps, Heaps): per cell the fog
      * level the fog of war paints and, where the fog is not opaque, the tile the terrain tilemap
      * draws; the traps whose feature tile is drawn on a cell the fog does not hide; the heaps whose
-     * sprite is visible on such a cell, showing what the sprite and the heap's own title show.
-     * Blobs, the floor feeling and the transitions are story 1.11's and are empty here.
-     *
-     * <p>Not for play until story 1.9 (issue #22): a neutral, passive mimic has no heap and is
-     * drawn as a chest, so until that story emits it as a {@link HeapKind#CHEST} the absence of a
-     * heap under a chest sprite would tell a brain what the screen does not.
+     * sprite is visible on such a cell, showing what the sprite and the heap's own title show; and
+     * a hidden mimic as the chest it is drawn as, which is a heap here and never an actor
+     * ({@code …/actors/mobs/Mimic.java:62-64}, {@code :112-118}). Blobs, the floor feeling and
+     * the transitions are story 1.11's and are empty here.
      */
     public MapSection map() {
         atInputWait();
@@ -158,7 +182,7 @@ public final class Observer {
                 traps.add(new TrapView(trap.pos, trap.name(), trap.active));
             }
         }
-        List<HeapView> heaps = new ArrayList<>();
+        Map<Integer, HeapView> heaps = new LinkedHashMap<>();
         for (Heap heap : level.heaps.valueList()) {
             // The sprite is visible once the heap has been seen and stays so (…/sprites/ItemSprite.java:323-326;
             // …/levels/Level.java:991), blank for an empty heap (:213-215), faint for a hidden one
@@ -173,9 +197,195 @@ public final class Observer {
             String item = kind == HeapKind.HEAP || kind == HeapKind.FOR_SALE ? top.title() : "";
             int price = kind == HeapKind.FOR_SALE && heap.size() == 1 ? Shopkeeper.sellPrice(top) : 0;
             String category = kind == HeapKind.CRYSTAL_CHEST ? category(top) : "";
-            heaps.add(new HeapView(heap.pos, kind, heap.hidden, item, price, category));
+            heaps.put(heap.pos, new HeapView(heap.pos, kind, heap.hidden, item, price, category));
         }
-        return new MapSection(level.width(), level.height(), tiles, fog, traps, heaps, List.of(), Feeling.NONE, List.of());
+        for (Mob mob : level.mobs) {
+            if (!(mob instanceof Mimic mimic) || !hiddenMimic(mimic)) {
+                continue;
+            }
+            // A hidden mimic's sprite is the chest's (…/sprites/MimicSprite.java), drawn like any
+            // mob's in view, and once its cell is visited when the mimic is stealthy
+            // (…/scenes/GameScene.java:1441-1447); it names itself as the chest and describes a
+            // crystal chest's category as the chest would (…/actors/mobs/CrystalMimic.java:68-84).
+            boolean drawn = (mimic.stealthy() && level.visited[mimic.pos]) || level.heroFOV[mimic.pos];
+            if (!drawn || fog.get(mimic.pos) == Fog.UNKNOWN) {
+                continue;
+            }
+            String category = mimic instanceof CrystalMimic ? mimicCategory(mimic) : "";
+            heaps.put(mimic.pos, new HeapView(mimic.pos, mimicKind(mimic), false, "", 0, category));
+        }
+        return new MapSection(level.width(), level.height(), tiles, fog, traps, new ArrayList<>(heaps.values()), List.of(),
+                Feeling.NONE, List.of());
+    }
+
+    /**
+     * The actors (ADR-0005; ADR-0006, Mobs, Mob state, Mob buffs): every character but the hero
+     * whose sprite is drawn, which is every mob in the hero's field of view
+     * ({@code …/scenes/GameScene.java:1447}; {@code …/actors/Char.java:1272-1274}), except a
+     * hidden mimic, which is a heap of the map. Each carries its display name, its alignment, its
+     * health as the bar over it draws it, whether it is drawn faint for invisibility
+     * ({@code …/sprites/CharSprite.java:401-407}), the emote its sprite shows, and every buff with
+     * an icon, as the examine window's row lists them ({@code …/windows/WndInfoMob.java:63-64},
+     * {@code :80}).
+     */
+    public ActorsSection actors() {
+        atInputWait();
+        Level level = Dungeon.level;
+        List<ActorView> actors = new ArrayList<>();
+        for (Mob mob : level.mobs) {
+            if (hiddenMimic(mob) || !level.heroFOV[mob.pos]) {
+                continue;
+            }
+            actors.add(new ActorView(mob.pos, mob.name(), Alignment.valueOf(mob.alignment.name()), healthPips(mob),
+                    mob.invisible > 0, emote(mob.sprite), buffs(mob)));
+        }
+        return new ActorsSection(actors);
+    }
+
+    /**
+     * The hero (ADR-0005; ADR-0006, Hero buffs) as the status pane, the hero window, the talents
+     * pane, the bag window and the quickslots show it; the cites are on {@link HeroSection}. The
+     * talents are those of the tiers the pane shows, which it counts from the level with the
+     * subclass and the ability as gates ({@code …/ui/TalentsPane.java:75-86}); the hunger is the
+     * icon's state ({@code …/actors/buffs/Hunger.java:179-187}); a quickslot's placeholder is an
+     * item of no quantity ({@code …/QuickSlot.java:72-74}).
+     */
+    public HeroSection hero() {
+        atInputWait();
+        Hero hero = Dungeon.hero;
+        require(Talent.MAX_TALENT_TIERS == HeroSection.TALENT_TIERS, "the talent tiers of the tag are the schema's");
+        require(QuickSlot.SIZE == HeroSection.QUICKSLOTS, "the quickslots of the tag are the schema's");
+        int tiers = 1;
+        while (tiers < Talent.MAX_TALENT_TIERS && hero.lvl + 1 >= Talent.tierLevelThresholds[tiers + 1]) {
+            tiers++;
+        }
+        if (tiers > 2 && hero.subClass == HeroSubClass.NONE) {
+            tiers = 2;
+        } else if (tiers > 3 && hero.armorAbility == null) {
+            tiers = 3;
+        }
+        tiers = Math.min(tiers, hero.talents.size());
+        List<TalentView> talents = new ArrayList<>();
+        for (int tier = 1; tier <= tiers; tier++) {
+            for (Map.Entry<Talent, Integer> entry : hero.talents.get(tier - 1).entrySet()) {
+                talents.add(new TalentView(tier, entry.getKey().title(), entry.getValue()));
+            }
+        }
+        List<Integer> available = new ArrayList<>();
+        for (int tier = 1; tier <= HeroSection.TALENT_TIERS; tier++) {
+            available.add(Math.max(0, hero.talentPointsAvailable(tier)));
+        }
+        List<QuickslotView> quickslots = new ArrayList<>();
+        for (int slot = 0; slot < QuickSlot.SIZE; slot++) {
+            Item item = Dungeon.quickslot.getItem(slot);
+            quickslots.add(new QuickslotView(item == null ? "" : item.name(), Dungeon.quickslot.isPlaceholder(slot)));
+        }
+        return new HeroSection(hero.pos, hero.name(), HeroSubclass.valueOf(hero.subClass.name()),
+                hero.armorAbility == null ? "" : hero.armorAbility.name(), hero.lvl, hero.exp, hero.maxExp(), hero.HP, hero.HT,
+                hero.shielding(), hero.STR, hero.STR() - hero.STR, Dungeon.gold, Dungeon.energy, hunger(hero), buffs(hero),
+                talents, available, quickslots);
+    }
+
+    /** Whether a mob is a mimic still hiding as a chest ({@code …/actors/mobs/Mimic.java:62-64}, {@code :112-118}). */
+    static boolean hiddenMimic(Mob mob) {
+        return mob instanceof Mimic && mob.alignment == Char.Alignment.NEUTRAL && mob.state == mob.PASSIVE;
+    }
+
+    /** The chest a hidden mimic is drawn as ({@code …/sprites/MimicSprite.java:101-125}). */
+    static HeapKind mimicKind(Mimic mimic) {
+        if (mimic instanceof GoldenMimic) {
+            return HeapKind.LOCKED_CHEST;
+        } else if (mimic instanceof CrystalMimic) {
+            return HeapKind.CRYSTAL_CHEST;
+        } else if (mimic instanceof EbonyMimic) {
+            return HeapKind.EBONY_CHEST;
+        } else {
+            return HeapKind.CHEST;
+        }
+    }
+
+    /** The category a hidden crystal mimic's description names ({@code …/actors/mobs/CrystalMimic.java:68-84}). */
+    private static String mimicCategory(Mimic mimic) {
+        if (mimic.items != null) {
+            for (Item item : mimic.items) {
+                if (item instanceof Artifact) {
+                    return Messages.get(Heap.class, "artifact");
+                } else if (item instanceof Ring) {
+                    return Messages.get(Heap.class, "ring");
+                } else if (item instanceof Wand) {
+                    return Messages.get(Heap.class, "wand");
+                }
+            }
+        }
+        return "";
+    }
+
+    /**
+     * A character's health as the bar over its sprite draws it: the lit share of a bar that is full
+     * at the greater of the maximum health and the health plus shielding
+     * ({@code …/ui/HealthBar.java:82-88}), in the codec's pips. The bar is hidden at full health
+     * with no shield ({@code …/ui/CharHealthIndicator.java:55}), which reads as every pip lit.
+     */
+    static int healthPips(Char ch) {
+        int max = Math.max(ch.HP + ch.shielding(), ch.HT);
+        return ObservationCodec.healthPips(Math.max(0, Math.min(ch.HP, max)), max);
+    }
+
+    /**
+     * The emote a sprite shows, through the accessor of hook row 4: one of the four icons the
+     * sprite's show methods set ({@code …/sprites/CharSprite.java:655-737};
+     * {@code …/effects/EmoIcon.java:78}, {@code :102}, {@code :126}, {@code :150}), or none.
+     */
+    static Emote emote(CharSprite sprite) {
+        EmoIcon emo = sprite == null ? null : sprite.shatterfishEmote();
+        if (emo == null || !emo.alive) {
+            return Emote.NONE;
+        } else if (emo instanceof EmoIcon.Sleep) {
+            return Emote.SLEEP;
+        } else if (emo instanceof EmoIcon.Alert) {
+            return Emote.ALERT;
+        } else if (emo instanceof EmoIcon.Investigate) {
+            return Emote.INVESTIGATE;
+        } else if (emo instanceof EmoIcon.Lost) {
+            return Emote.LOST;
+        } else {
+            return Emote.NONE;
+        }
+    }
+
+    /**
+     * Every buff with an icon, as the buff indicators list them ({@code …/ui/BuffIndicator.java:192-196};
+     * {@code …/windows/WndHero.java:301-314}; {@code …/windows/WndInfoMob.java:63-64}), with the
+     * turns a flavour buff's description prints, its visual cooldown to two decimals
+     * ({@code …/actors/buffs/FlavourBuff.java:35-42}; {@code …/actors/buffs/Buff.java:136-138},
+     * {@code :141-143}); a buff of another kind prints its own numbers in its own words, which the
+     * schema does not carry. Two identical icons draw twice; the schema lists a buff once.
+     */
+    static List<BuffView> buffs(Char ch) {
+        List<BuffView> views = new ArrayList<>();
+        for (Buff buff : ch.buffs()) {
+            if (buff.icon() == BuffIndicator.NONE) {
+                continue;
+            }
+            boolean timed = buff instanceof FlavourBuff;
+            int hundredths = timed ? Math.max(0, Math.round(buff.visualcooldown() * 100f)) : 0;
+            BuffView view = new BuffView(buff.name(), timed, hundredths);
+            if (!views.contains(view)) {
+                views.add(view);
+            }
+        }
+        return views;
+    }
+
+    /** The hunger icon's state ({@code …/actors/buffs/Hunger.java:179-187}), never the value behind it. */
+    static Hunger hunger(Hero hero) {
+        com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Hunger hunger =
+                hero.buff(com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Hunger.class);
+        if (hunger == null) {
+            return Hunger.NONE;
+        }
+        int icon = hunger.icon();
+        return icon == BuffIndicator.STARVATION ? Hunger.STARVING : icon == BuffIndicator.HUNGER ? Hunger.HUNGRY : Hunger.NONE;
     }
 
     /** The category word a crystal chest's description prints for what is inside ({@code …/items/Heap.java:400-406}). */

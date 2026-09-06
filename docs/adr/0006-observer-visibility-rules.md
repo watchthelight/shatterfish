@@ -194,3 +194,63 @@ no heap and is drawn as a chest, so until 1.9 emits it as a chest the absence of
 chest sprite would say what the screen does not; the method's Javadoc says so, and no brain reads
 the section yet. The leak tests of this story are `MapLeakTest`, `FogParityTest`,
 `TerrainTableTest` and `ObserverGateTest`, named in `docs/rules/visibility.md`.
+
+## Amendment: story 1.9 (2026-09-06)
+
+The actors and the hero exist: `Observer.actors()` and `Observer.hero()`, and a hidden mimic is a
+heap of `map()`. Paths abbreviate `core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/`
+as `…/`, at the tag.
+
+**A mob is present exactly when its sprite is drawn**: in the hero's field of view
+(`…/scenes/GameScene.java:1447`; `…/actors/Char.java:1272-1274`), every mob of `Level.mobs` but a
+hidden mimic. It carries its display name, its alignment, its health as the bar over it draws it,
+the invisible flag for a sprite drawn at alpha 0.4 (`…/sprites/CharSprite.java:401-407`), the
+emote its sprite shows, and every buff with an icon as the examine window's row lists them
+(`…/windows/WndInfoMob.java:63-64`, `:80`).
+
+**Health is the bar's pips.** `HealthBar.level(Char)` fills the bar with health over the greater
+of health plus shielding and the maximum (`…/ui/HealthBar.java:82-88`), and the bar is hidden at
+full health with no shield (`…/ui/CharHealthIndicator.java:55`), which reads as every pip lit;
+the codec's `healthPips` quantises the share (ADR-0005). `ActorLeakTest` holds a mob at five
+health behind a shield of five to the formula, and the actors' JSON to carrying no health value.
+
+**The emote comes through hook row 4.** `CharSprite.emo` is protected with no getter
+(`CharSprite.java:116`), written only by the show and hide methods under a lock (`:655-737`);
+`shatterfishEmote()` returns it under the same lock and writes nothing (`docs/UPSTREAM.md`,
+row 4). The four icons (`…/effects/EmoIcon.java:78`, `:102`, `:126`, `:150`) are the four emotes; a
+sleeping mob's sprite shows the sleep icon on its next frame (`…/sprites/MobSprite.java:39`;
+`CharSprite.java:635-636`). `ActorLeakTest` sets a sleeping mob's state to hunting, its target to
+the hero and its seen flag, draws no frame, and holds the Observation unchanged; then changes the
+icon and holds the emote changed; the serialization carries none of the state names.
+
+**Buffs are the ones with an icon** (`…/ui/BuffIndicator.java:192-196`; `…/windows/WndHero.java:301-314`;
+`WndInfoMob.java:63-64`), with a flavour buff's turns as its description prints them, the visual
+cooldown to two decimals (`…/actors/buffs/FlavourBuff.java:35-42`; `…/actors/buffs/Buff.java:136-138`,
+`:141-143`). A buff of another kind prints its own numbers in its own words, which the schema does
+not carry: a loss, recorded, for a later schema to close. Two identical icons draw twice; the
+schema lists a buff once.
+
+**The hero section is the HUD's numbers**, with the cites on `HeroSection`: the talents of the
+tiers the pane shows, counted from the level with the subclass and the ability as gates
+(`…/ui/TalentsPane.java:75-86`); the unspent points clamped at zero, as the stars are drawn; hunger
+as the icon's state (`…/actors/buffs/Hunger.java:179-187`) with the value behind it absent; a
+quickslot's placeholder as an item of no quantity (`…/QuickSlot.java:72-74`), and the quickslot's
+item named as the inventory names it. `HeroSectionTest` holds each against the game.
+
+**A hidden mimic is the chest it is drawn as.** Neutral and passive (`…/actors/mobs/Mimic.java:62-64`),
+it names itself as the chest (`:112-118`; `…/actors/mobs/GoldenMimic.java:51-53`;
+`…/actors/mobs/CrystalMimic.java:59-61`), and a crystal mimic describes its category as a crystal
+chest would (`CrystalMimic.java:68-84`); it is drawn like any mob in view and, when stealthy, once
+its cell is visited (`GameScene.java:1441-1447`). So `map()` emits it as a `CHEST`, a
+`LOCKED_CHEST`, a `CRYSTAL_CHEST` with the category of its item, or the `EBONY_CHEST` only an ebony
+mimic wears (`…/actors/mobs/EbonyMimic.java:47-71`; `…/sprites/ItemSpriteSheet.java:124`), a member
+added to `HeapKind` for it since the screen draws it; `actors()` never lists a hidden mimic.
+`MimicDifferentialTest` pairs each of the three real chests with the mimic that imitates it at one
+cell and holds the Observations byte-identical, then stops the hiding and holds the mimic an actor
+and the heap gone. The hint a non-stealthy mimic's description carries (`Mimic.java:121-130`) and
+the window the game opens on it (`GameScene.java:1729-1735`) are not read, as the row says; a human
+who taps can learn more than the bot here, which is a loss and not a leak. The alignment flips on
+the mimic's act, not on its reveal (`Mimic.java:212-222`, `:46-49`), which comes before the next
+Input wait in play.
+
+Left: `observe()`, and the sections of stories 1.10 and 1.11.
