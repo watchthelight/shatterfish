@@ -139,3 +139,82 @@ Rules:
 - Performance: encoding a 32x32 map plus inventory each Input wait costs more than the Brain's
   decision. Mitigation: the E1 benchmark (FR-5) reports codec time separately; the map section
   can carry a dirty-region delta later without changing the hash definition.
+
+## Amendment: story 1.6 (2026-09-05)
+
+The header, the map and the actors, `ObservationCodec` and the section hashes are implemented as
+decided, with these choices the decision left open or did not foresee.
+
+**SHA-256 and UTF-8 are written in `api`.** The module may reach only `java.lang` and `java.util`
+(`ApiBoundaryTest`, kept as strict as the brain's allowlist since story 1.2), which puts
+`MessageDigest` and the character sets out of reach. The digest is a hundred lines held to the
+standard's vectors and the JDK's answer over random input; the encoder mirrors `String.getBytes`
+on the exact code units, an unpaired surrogate included.
+
+**Canonical order is the records', not only the codec's.** The rule that `equals` and the hash
+agree needs the order fixed before equality is computed, so every set-like list is sorted and
+checked for repeats in the record's constructor: challenges by name; traps, heaps, blobs,
+transitions and actors by cell, each cell at most once; blob kinds and buffs by name. Tiles and
+fog are positional, one per cell. Enums are encoded by name, so a constant added later changes no
+existing bytes.
+
+**`Tile` is the tile sheet's visuals, not the terrain table.** Option 12 said an enum with no
+secret members; the review of the story found that raw terrain has more than the two secret
+constants that the screen does not tell apart. A trap's floor, active or not, and custom
+decoration floor are drawn as the empty floor (`…/tiles/DungeonTileSheet.java:427-431`), the trap
+itself on a layer of its own only while revealed (`…/tiles/TerrainFeaturesTilemap.java:57-62`),
+and a door the hero locked as a locked door by visual and by name (`:446-447`;
+`…/levels/Level.java:1584-1586`). So `Tile` has one member per visual the sheet distinguishes
+(`DungeonTileSheet.java:414-465`), thirty-two of them, and a trap is a `TrapView` and nothing in
+the tile. A `Tile.TRAP` would have been a copy of the trap bit read from raw terrain, which is
+what option 11 rejected, and the terrain is not even what the trap layer draws: the layer keys on
+the trap's own `visible` flag (`TerrainFeaturesTilemap.java:57-62`), which `Trap.reveal()` and
+`Trap.hide()` set without touching the terrain (`…/levels/traps/Trap.java:76-90`). The corpus pin
+moved with the tiles under version 1: nothing outside this story had encoded an Observation, so
+there was no reader to break; from the merge on, a pin move is a version bump.
+
+**The records refuse what the fog would not draw.** An unknown cell carries `Tile.NONE` and
+nothing else does; traps, heaps and transitions stand on cells the player has seen; a blob stands
+in view, since the emitter draws one only where the hero sees (`…/effects/BlobEmitter.java:62-64`),
+and the two blobs the game marks always visible, drawn under the fog of a remembered cell
+(`…/actors/mobs/Tengu.java:850`, `:1045`; `…/items/artifacts/SkeletonKey.java:475`), have no
+representation in this version; an actor stands in view; a container shows no item, a price
+belongs to a for-sale heap only and a category to a crystal chest only. ADR-0006's whitelist is a
+whitelist by construction, which `SchemaRulesTest` holds. What the records cannot check is the
+free text: a trap's kind, a heap's item, a blob's kind, an actor's or a buff's name are strings,
+and the Observer stories' leak tests must pin each to the name the screen shows.
+
+**Health is quantised to a convention the screen exceeds.** The bar over a sprite is the sprite's
+width times four sixths (`…/ui/CharHealthIndicator.java:50-51`), drawn to the pixel of the camera
+zoom with the lit part rounded up (`…/ui/HealthBar.java:66-69`), so its resolution depends on the
+sprite, ten to twenty-seven units wide at the tag, and on the zoom, from 1
+(`…/scenes/PixelScene.java:144`): eight pixels for a twelve-unit sprite at zoom 1, eleven for a
+sixteen-unit one. No single constant is "the bar". The codec states `W = 32/3`, the sixteen-unit
+bar at zoom 1, and `healthPips` is `ceil(hp / max * W)` in integer arithmetic, 0 to 11. That is
+fair by a different window: examining a character shows a bar about a hundred UI units wide at a
+UI zoom of at least two (`…/windows/WndInfoMob.java:58-59`, `:72`, `:77`;
+`…/windows/WndTitledMessage.java:32`; `PixelScene.java:133-137`, `:150`), which resolves every
+point of health of every character that is not a boss, and a boss's bar prints its health as a
+number (`…/ui/BossHealthBar.java:205-206`). So the screen offers exact health; ADR-0006's "never
+exact HP" is stricter than the screen, and the schema keeps its quantisation as a loss to the
+brain, never a leak. Two drawn bits are dropped the same way: the bar hidden at full health
+(`CharHealthIndicator.java:55`) and the shield segment (`HealthBar.java:68`). Story 1.9 may loosen
+this with a version bump.
+
+**The hero is not an actor.** The actors section carries every visible character but the hero,
+whose cell and health belong to the hero section of story 1.7.
+
+**`Feeling.SECRETS` stays.** The floor feeling's text is logged on arrival
+(`…/scenes/GameScene.java:663-685`) and its title, "secrets floor", heads the window the menu pane
+opens for it (`…/ui/MenuPane.java:112-115`; `levels.properties:260`), so the member names an
+announcement, not the secrets; the enum test names it as the one exception to "no member contains
+SECRET".
+
+**Buff turns are hundredths.** The description prints turns with `#.##`
+(`…/actors/buffs/Buff.java:136-138`), so a buff carries hundredths of a turn and whether turns are
+shown at all.
+
+**The version is 1 and pinned.** `ObservationHashTest` holds the corpus Observation's hash to a
+constant, so any change to the encoding is a change to the version, recorded here, before the pin
+moves. `HeaderSection.version` is the schema version, which the codec refuses to encode unless it
+is its own.
