@@ -275,7 +275,9 @@ showed. That is the trade-off recorded here: the signal over the pane, for repro
 the cost of a line a human may not have read in a burst. The cap is a bound on the Observation's
 size, not a claim about the pane. For story 1.10: the pane replaces the signal's listener and
 buffers statically (`GameLog.java:47`, `:52`), so the Observer's capture must equal what the pane
-receives, no more.
+receives, no more. Story 1.10 captures it through hook row 3, a site right after the pane's
+construction, so the listener hears what the pane hears, the floor's own lines included
+(ADR-0006's amendment for that story).
 
 **The valid Actions are a section, and the Observation is built in two steps.** `Action` is the
 sealed interface of ADR-0014 with one record per kind, amended there: item use is three kinds by
@@ -294,7 +296,9 @@ the Observation carries, as a constructor check rather than an executor's.
 **The prompt section is the kind, the title, the text and the button labels in drawing order**
 (`…/windows/WndOptions.java:57`, `:92`). With no Prompt open it is empty, and the header's kind
 must equal the section's, which the Observation holds. The richer windows, a trade or a subclass
-choice, are flattened into labels by story 1.10.
+choice, are flattened into labels by story 1.10: the first text block is the title when a window
+draws two, the rest the text, and the styled buttons' labels the options, in drawing order
+(ADR-0006's amendment for that story).
 
 **The readable form is canonical JSON.** `JsonWriter` sorts an object's keys by their UTF-16 code
 units whatever order they were given in, writes no whitespace, writes integers only, and escapes

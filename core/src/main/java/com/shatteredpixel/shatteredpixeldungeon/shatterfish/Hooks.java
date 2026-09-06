@@ -89,10 +89,26 @@ public final class Hooks {
 	public static volatile InputWait inputWait;
 
 	/**
+	 * Notified from {@code GameScene.create()} right after the scene constructs its log pane, hook
+	 * row 3, the scene seam. The pane's constructor replaces every listener on {@code GLog.update}
+	 * with itself, on every scene creation, so the Observer's listener on the game's message
+	 * signal (ADR-0006, Log) is re-registered here, before the messages the scene emits as it is
+	 * created. Story 1.10 landed the site.
+	 */
+	public interface LogReplaced {
+		/** Called on the thread that creates the scene, before {@code create()} returns; must not block. */
+		void onLogReplaced();
+	}
+
+	/** @see LogReplaced */
+	public static volatile LogReplaced logReplaced;
+
+	/**
 	 * Unregisters every listener. Called when a Run ends, so that a listener belonging to a finished
 	 * Run cannot be reached by the next one. Every field declared above must be nulled here.
 	 */
 	public static void clear() {
 		inputWait = null;
+		logReplaced = null;
 	}
 }

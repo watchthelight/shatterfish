@@ -123,6 +123,7 @@ import com.shatteredpixel.shatteredpixeldungeon.windows.WndMessage;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndOptions;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndUpgrade;
+import com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks;
 import com.watabou.gltextures.TextureCache;
 import com.watabou.glwrap.Blending;
 import com.watabou.input.ControllerHandler;
@@ -500,6 +501,12 @@ public class GameScene extends PixelScene {
 		log.camera = uiCamera;
 		log.newLine();
 		add( log );
+		// shatterfish-hook:3
+		// The scene seam (ADR-0016 row 3). The pane just constructed replaced every listener on
+		// GLog.update with itself, so the Observer re-registers its listener here, after the pane
+		// and before the messages this method emits; with nothing registered, nothing happens.
+		Hooks.LogReplaced replaced = Hooks.logReplaced;
+		if (replaced != null) replaced.onLogReplaced();
 
 		if (uiSize > 0){
 			bringToFront(status);

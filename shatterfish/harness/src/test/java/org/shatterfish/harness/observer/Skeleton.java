@@ -41,9 +41,21 @@ final class Skeleton {
 
     /** The header, the map, the actors and the hero, the sections stories 1.8 and 1.9 build. */
     static Observation around(HeaderSection header, MapSection map, ActorsSection actors, HeroSection hero) {
-        return new Observation(header, map, actors, hero, new InventorySection(List.of()),
-                new JournalSection(List.of(), List.of()), new LogSection(List.of()), ActionsSection.NONE,
-                PromptSection.NONE);
+        return around(header, map, actors, hero, new InventorySection(List.of()),
+                new JournalSection(List.of(), List.of()), new LogSection(List.of()), PromptSection.NONE);
+    }
+
+    /** Every section the Observer builds through story 1.10, with no Actions. */
+    static Observation around(HeaderSection header, MapSection map, ActorsSection actors, HeroSection hero,
+                              InventorySection inventory, JournalSection journal, LogSection log,
+                              PromptSection prompt) {
+        return new Observation(header, map, actors, hero, inventory, journal, log, ActionsSection.NONE, prompt);
+    }
+
+    /** Every section the Observer builds, read now. */
+    static Observation everything(Observer observer) {
+        return around(observer.header(), observer.map(), observer.actors(), observer.hero(), observer.inventory(),
+                observer.journal(), observer.log(), observer.prompt());
     }
 
     private static HeroSection standInHero() {

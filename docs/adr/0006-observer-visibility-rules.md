@@ -268,3 +268,99 @@ the mimic's act, not on its reveal (`Mimic.java:212-222`, `:134-145`), which com
 Input wait in play.
 
 Left: `observe()`, and the sections of stories 1.10 and 1.11.
+
+## Amendment: story 1.10 (2026-09-06)
+
+The inventory, the journal, the log and the Prompt exist: `Observer.inventory()`, `journal()`,
+`log()` and `prompt()`, and the header carries the Prompt's kind. Paths abbreviate
+`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/` as `…/`, at the tag.
+
+**An item is what the slot, the item window and the log print.** The belongings in the order the
+bag iterates them, the six slots then the backpack with a bag before its contents
+(`…/actors/hero/Belongings.java:422-453`; `…/items/bags/Bag.java:216-250`), which
+`InventorySection` enforces (ADR-0005). The name is `name()`: an unknown potion's colour, scroll's
+rune or ring's gem (`…/items/potions/Potion.java:377-379`; `…/items/scrolls/Scroll.java:240-242`;
+`…/items/rings/Ring.java:172-174`), and a weapon's or armor's curse enchantment only once the
+curse is known (`…/items/weapon/Weapon.java:408-416`; `…/items/armor/Armor.java:573-581`). The
+level and curse flags carry the values the slot draws, `visiblyUpgraded()` and `visiblyCursed()`
+(`…/items/Item.java:433-443`; `…/ui/ItemSlot.java:271-275`); the status is the slot's text
+(`ItemSlot.java:234`; `Item.java:570-572`), so a wand shows nothing until its level is known and
+`?/max` until its charges are (`…/items/wands/Wand.java:336-343`), and an artifact nothing until
+identified and uncursed (`…/items/artifacts/Artifact.java:189-206`); the actions are the item
+window's buttons, `actions(hero)`, and the default the one it colours (`Item.java:110-115`,
+`:179-181`; `…/windows/WndUseItem.java:54-76`), carried as the identifiers the window executes,
+the default kept even while it is not offered, as an empty waterskin keeps drink
+(`…/items/Waterskin.java:52`, `:74-78`). The family is the item's package, as `ItemKind` lays out.
+`ItemLeakTest` holds an unknown potion, scroll and ring to their appearance with the class and the
+true name absent from the JSON and the bytes; holds a weapon at +2, cursed with a curse
+enchantment, a wand at zero charges and the identification counters of a wand and a ring, all
+unknown, byte-identical to the same items at +0, uncursed, charged and counted otherwise; and
+holds the order with every hero's velvet pouch before the stone put into it.
+
+The losses: the slot's small type icon, the strength text and its colours and the level's colours
+(`ItemSlot.java:244-300`) are not carried, since the name, the flags and the status say what they
+draw; and a lost inventory (`…/actors/hero/Belongings.java:110-116`;
+`…/ui/InventoryPane.java:358-364`) greys every slot the pane draws, which the section does not
+carry: the items are drawn and listed, and a use the game refuses is the executor's to report
+(story 1.13).
+
+**The journal is every note the tab draws, and the identified potions, scrolls and rings.** The
+notes tab draws the written notes, then every floor's landmarks and keys down from the deepest
+(`…/windows/WndJournal.java:497-541`), so every record of `Notes` is a note
+(`…/journal/Notes.java:685-693`): a landmark's title at its floor (`:206-217`), a key's title and
+count (`:324-331`, `:344-346`), a written note's title, body and the floor it names, if it names
+one (`:430-437`, `:487-495`). The known appearances are the three `getKnown()` sets
+(`…/items/potions/Potion.java:402-404`; `…/items/scrolls/Scroll.java:265-267`;
+`…/items/rings/Ring.java:280-282`), each by the name it draws once known
+(`…/items/Item.java:501-503`); the Catalog, the guide and the bestiary are not read.
+`JournalSectionTest` holds a landmark, a counted key and two written notes; `ItemLeakTest` holds
+the three every hero and the Warrior start knowing (`…/actors/hero/HeroClass.java:117`,
+`:183-184`) and an identified item's arrival.
+
+**The log is the signal, captured at the pane's own seam.** `GLog` dispatches every message on
+`GLog.update` (`…/utils/GLog.java:32-60`); the pane's constructor replaces every listener with
+itself (`…/ui/GameLog.java:47`; `SPD-classes/…/utils/Signal.java:56-59`) on every scene creation,
+and `create()` then emits the floor's own lines (`…/scenes/GameScene.java:536-537`, `:663-690`),
+so the Observer's listener, `GameLogListener`, is re-added through hook row 3, a site right after
+the pane is constructed (`docs/UPSTREAM.md`, row 3), before those lines. The pane's handler
+returns false (`GameLog.java:149-154`), so the listener after it hears every message; the tone is
+the pane's rule on the prefix (`:72-87`), the new-line marker is dropped (`:66-69`), and the
+newest sixty-four are kept (ADR-0005). `LogListenerTest` changes floor twice the way the game
+does, the scene destroyed and recreated, and holds the section to the descent line each creation
+emits and to a message after it, and holds the signal to two listeners.
+
+**A Prompt is the window in front, read through hook row 4's second site.** The gate admits a
+window exactly when it is one the game opens on its own and waits on, `Prompts.kind(window)`
+not `NONE`, with the hero waiting under it or the resurrection window up
+(`…/windows/WndResurrect.java:98-114`), and fails every read on any other window, naming it. The
+kinds: the subclass choice, the ghost's, wandmaker's, imp's and blacksmith's quest windows, the
+trade window and the resurrection window by their classes; an options window by the nearest
+named class enclosing the anonymous subclass its opener declares, every opener at the tag
+declaring one: the chasm's jump (`…/levels/features/Chasm.java:59-62`), a potion's harmful-drink
+warning by its title (`…/items/potions/Potion.java:238-252`), any other item's confirmation or
+choice (`ITEM`), the talents pane's random-talent confirmation (`…/ui/TalentsPane.java:189-192`),
+the quest givers', the levels' and the shopkeeper's follow-ups (`QUEST`, `SHOP`), and `OTHER` for
+the rest, with what they draw. The title, text and options are what the window draws, read
+through `Group.shatterfishMembers()` (`docs/UPSTREAM.md`, row 4): the recognised windows draw a
+title first, an icon title's label or a title block, then a message block, then their buttons
+(`…/windows/WndOptions.java:40-66`; `…/windows/WndTitledMessage.java:42-54`;
+`…/windows/WndResurrect.java:65-74`; `…/windows/WndChooseSubclass.java:49-93`), and an untitled
+options window the message alone, so the title is the first text block when there are two, the
+text the rest, and the options the styled buttons' labels in drawing order
+(`…/ui/StyledButton.java:124`; `…/ui/RenderedTextBlock.java:96`), icon buttons and item slots
+being no option. The same accessor on `Game.scene()` finds the window in front, as the scene does
+for itself (`…/scenes/GameScene.java:1382-1390`). `PromptGateTest` holds the chasm prompt and a
+known harmful potion's warning to their kinds, titles, texts and labels, an options window of
+unlisted origin to `OTHER`, an untitled one to an empty title, and a plain message window to a
+failure of every read.
+
+`PromptKind` gains `ITEM` and `OTHER` at the end of the list, as `HeapKind` gained a member in
+story 1.9. `ALCHEMY` is never produced at the tag, alchemy being a scene; `TALENT` is the pane's
+one confirmation. The blacksmith's later windows (`WndBlacksmith.WndSmith`, `WndReforge`),
+protected inside their class, and the crown's ability choice (`WndChooseAbility`) stay
+unrecognised until the story that answers them, a loss recorded here: a Run that reaches one
+stops at the driver rather than reading it. A quest window with no buttons, the ghost's or the
+wandmaker's first words, carries no options; how a Brain dismisses it is ADR-0014's to say when
+the executor lands.
+
+Left: `observe()` and the rows of story 1.11.

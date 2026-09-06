@@ -24,6 +24,7 @@ import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
 import com.watabou.noosa.Scene;
 import org.shatterfish.harness.boot.HeadlessBoot;
 import org.shatterfish.harness.boot.HeadlessGame;
+import org.shatterfish.harness.observer.GameLogListener;
 import org.shatterfish.harness.scene.HeadlessScene;
 import org.shatterfish.harness.scene.SceneStepper;
 
@@ -181,6 +182,9 @@ public final class HeadlessDriver implements AutoCloseable {
             boot.game().destroy();
         }
         newGame(seed, heroClass);
+        // The Observer's log listener (ADR-0006, Log) is re-added by hook row 3 as the scene is
+        // created, so the seam is armed before the scene exists and hears the first floor's lines.
+        GameLogListener.install();
         HeadlessScene scene = new HeadlessScene();
         boot.game().switchTo(scene);
         return new HeadlessDriver(boot, scene);
@@ -248,6 +252,7 @@ public final class HeadlessDriver implements AutoCloseable {
         Mob.clearHeldAllies();
         Dungeon.init();
         GameLog.wipe();
+        GameLogListener.INSTANCE.reset();
         Level level = Dungeon.newLevel();
         Dungeon.switchLevel(level, -1);
     }
@@ -432,6 +437,7 @@ public final class HeadlessDriver implements AutoCloseable {
                 boot.game().destroy();
             } finally {
                 Hooks.clear();
+                GameLogListener.uninstall();
             }
         }
     }
