@@ -4,7 +4,7 @@ key: 1-6-the-observation-part-one-the-schema-core-and-the-codec
 title: "The Observation, part one: the schema core and the codec"
 epic: 1
 issue: 19
-status: review
+status: done
 created: '2026-09-05'
 updated: '2026-09-05'
 ---
