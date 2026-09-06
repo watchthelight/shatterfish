@@ -4,7 +4,7 @@ key: 1-9-the-observer-part-two-actors-emotes-buffs-and-the-hero
 title: "The Observer, part two: actors, emotes, buffs and the hero"
 epic: 1
 issue: 22
-status: in-progress
+status: review
 created: '2026-09-06'
 updated: '2026-09-06'
 ---
@@ -102,11 +102,81 @@ the rest is a recorded loss.
 
 ## Evidence
 
-Pending.
+`./gradlew build -Pshatterfish.mobile=off`: green, 408 tests across 29 suites, twenty-five of
+them the seven observer suites. `mkdocs build --strict`: clean. `HooksLedgerTest` and
+`HooksVanillaTest` green with row 4's digest `b5c38c7c41565c37`, ten lines added, none removed.
+
+**Mutation battery**, twenty mutations of `Observer.java` on the committed tree at
+`055d58d5e` (seventeen first run at `82107dcdf`, three added for the review's rules), each
+applied to a clean tree, run against `ActorLeakTest`, `HeroSectionTest`, `MimicDifferentialTest`
+and `MapLeakTest` without `--rerun-tasks`, restored with `git checkout`, and the tree verified
+clean after each:
+
+| # | Mutation | Caught by |
+|---|---|---|
+| M1 | actors are emitted whether or not in view | `ActorLeakTest` (drawn only in view; the Observation refuses an actor out of view) |
+| M2 | a hidden mimic is emitted as an actor | `MimicDifferentialTest` (never an actor while hidden) |
+| M3 | health is the value, not the pips | `ActorLeakTest` (health pips) |
+| M4 | the invisible flag is dropped | `ActorLeakTest` (invisible) |
+| M5 | the emote is the state alone, no alert, investigate or lost icon | `ActorLeakTest` (the alert icon through the accessor) |
+| M6 | buffs without an icon are listed | `ActorLeakTest` (buffs with icons only), `HeroSectionTest` |
+| M7 | a flavour buff shows no turns | `ActorLeakTest`, `HeroSectionTest` (the flavour buff's turns) |
+| M8 | hunger ignores the icon | `HeroSectionTest` (hunger is the icon) |
+| M9 | every hidden mimic is a plain chest | `MimicDifferentialTest` (the locked pair; the ebony mimic out of view) |
+| M10 | a crystal mimic names no category | `MimicDifferentialTest` (the crystal pair) |
+| M11 | a stealthy mimic out of view is not drawn once visited | `MimicDifferentialTest` (out of view) |
+| M12 | the strength bonus is dropped | `HeroSectionTest` (changes on screen) |
+| M13 | every talent tier is listed whatever the pane shows | `HeroSectionTest` (the HUD's talents) |
+| M14 | a placeholder quickslot reads as an item | `HeroSectionTest` (changes on screen) |
+| M15 | the hero shield is dropped | `HeroSectionTest` (changes on screen) |
+| M16 | the accessor is bypassed: no icon but sleep ever | `ActorLeakTest` (the alert icon) |
+| M17 | the unspent talent points are dropped | `HeroSectionTest` (changes on screen) |
+| M18 | the sleep icon is read from the stale sprite, not as the next frame draws it | `ActorLeakTest` (asleep before any frame is drawn) |
+| M19 | a flavour buff is timed whatever its description prints | `HeroSectionTest` (the shadows buff) |
+| M20 | an ebony mimic is not flagged faint | `MimicDifferentialTest` (the ebony mimic) |
+
+All twenty caught, in two invocations: M1 to M6, then M7 to M20 after two anchors were rewritten
+to the lines the review commit left.
 
 ## The fairness review
 
-Pending.
+Run as an isolated `fairness-reviewer` on commit `82107dcdf`. Verdict: FINDINGS, none blocking:
+no read gives the bot what the screen does not draw, beyond a one-frame staleness the review
+found and the story then removed. Seven should-fix findings, all taken in the review commit:
+
+1. **A flavour buff whose description prints no turns read as timed.** The shadows of foliage
+   describe themselves without a cooldown (`…/actors/buffs/Shadows.java:125-127`), so the class
+   test alone carried a number no window shows. A buff's turns are now carried only when the
+   description the window shows contains them; `HeroSectionTest` holds a shadowed hero's buff
+   untimed, and M19 shows the test catches the class test alone.
+2. **The sleep icon lagged a frame in the driver.** The mob sprite derives the sleep icon from
+   the state on every update (`…/sprites/MobSprite.java:39`; `…/sprites/CharSprite.java:635-639`),
+   and the driver's fenced frame updates the sprites before the acts of a turn, so a mob put to
+   sleep or woken during the turn read one frame stale, and the Overlay's unfenced frames would
+   have read the fresh icon for the same Run, a reproducibility trap. The Observer now applies the
+   sprite's rule as the next frame applies it, reading `state == SLEEPING` for that one drawn bit
+   and dropping a sleep icon the next frame would hide; the alert, investigate and lost icons,
+   which the acts set themselves, come through the accessor. ADR-0006's amendment records the one
+   read of the state and why; `ActorLeakTest` holds the sleep before the frame, the frame's
+   agreement, the waking with the stale icon still on the sprite, and M18 the stale reading.
+3. **A wrong cite in four places.** The mimic's alignment flips in its act at
+   `…/actors/mobs/Mimic.java:134-145`, not `:46-49`; the amendment, the story file, the rule row
+   and the test's comment now say so.
+4. **Row 4's count.** The hook adds ten lines, the trailing blank included, as the digest line
+   says; the row's text said nine.
+5. **No determinism read for the new sections.** `ActorLeakTest` now holds two readings of one
+   wait equal, records and bytes, with `Level.mobs` rebuilt in reverse order between them, and
+   `HeroSectionTest` two readings of the hero.
+6. **An ebony mimic hides at alpha 0.2** (`…/sprites/MimicSprite.java:121-125`), drawn faint, yet
+   was flagged not hidden; it carries the flag a faint heap carries, `HeapKind` says so, and
+   `MimicDifferentialTest` holds it, with M20 behind it.
+7. **One cite off by a line** in `HeroSectionTest`: the strength lines are `WndHero.java:189-192`.
+
+The review also confirmed what the story relies on: every `stopHiding` caller and the interaction
+path set the alignment hostile before any Input wait, so a neutral mimic that is not passive
+never reaches an Observation; life-linked ghouls leave `Level.mobs` and are omitted, a loss; the
+accessor exposes nothing beyond a drawn icon, since the icon's visibility follows the sprite's and
+only mobs in view are emitted.
 
 ## Deviations
 
