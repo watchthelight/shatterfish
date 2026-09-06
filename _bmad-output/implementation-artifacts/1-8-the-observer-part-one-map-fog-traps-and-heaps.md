@@ -4,7 +4,7 @@ key: 1-8-the-observer-part-one-map-fog-traps-and-heaps
 title: "The Observer, part one: map, fog, traps and heaps"
 epic: 1
 issue: 21
-status: in-progress
+status: review
 created: '2026-09-06'
 updated: '2026-09-06'
 ---
@@ -104,11 +104,75 @@ game's own effects for blindness, mind vision and a read scroll.
 
 ## Evidence
 
-Pending.
+`./gradlew build -Pshatterfish.mobile=off`: green, 397 tests across 26 suites, fourteen of them
+the four observer suites. `mkdocs build --strict`: clean.
+
+**Mutation battery**, twenty mutations of `Observer.java` on the committed tree at `8a7c2b10d`
+(seventeen first run at `530d8cab8`, three added for the review's fog rule), each applied to a
+clean tree, run against the four observer suites without `--rerun-tasks`, restored with
+`git checkout`, and the tree verified clean after each:
+
+| # | Mutation | Caught by |
+|---|---|---|
+| M1 | the fog ignores the discoverable gate | `FogParityTest` (rock stays opaque) |
+| M2 | visited is read before in view | `FogParityTest` (every cell against the paint; the Observation refuses a hero on a visited cell) |
+| M3 | a trap is emitted whether or not it is visible | `MapLeakTest` (secrets: the hidden trap gains a tile) |
+| M4 | a trap is emitted on an unknown cell | `MapLeakTest` (the revealed trap; the map record refuses it) |
+| M5 | a heap is emitted whether or not it was seen | `MapLeakTest` (fog and unseen heaps; the map record refuses it) |
+| M6 | a container exposes its top item | `MapLeakTest` (containers: the locked chest's potion, the chest's torch) |
+| M7 | a crystal chest names its item | `MapLeakTest` (containers: the wand's title) |
+| M8 | a heap of several items shows a price | `MapLeakTest` (containers: the two-item heap) |
+| M9 | a secret door is mapped by a rule of its own | `TerrainTableTest` (secrets share their cover), `MapLeakTest` (secrets) |
+| M10 | the hidden flag is dropped | `MapLeakTest` (containers: the hidden heap) |
+| M11 | the header never says sealed | `ObserverGateTest` (the header) |
+| M12 | the Observer runs while the hero acts | `ObserverGateTest` (only at an Input wait) |
+| M13 | the Observer runs under a window | `ObserverGateTest` (only at an Input wait) |
+| M14 | the challenges are read inverted | `ObserverGateTest` (the header) |
+| M15 | an empty heap is emitted | `MapLeakTest` (the emptied heap has no top item to title, and the test errors) |
+| M16 | a trap is named by its class | `MapLeakTest` (secrets; the revealed trap) |
+| M17 | a disarmed trap reads active | `MapLeakTest` (the revealed trap, disarmed) |
+| M18 | the wall rule is dropped: a wall is painted its own level | `FogParityTest` (the far wall in view reads as painted) |
+| M19 | the examine level is dropped: a visited wall painted opaque reads unknown | `FogParityTest` (the first wait) |
+| M20 | an internal wall takes the darker half | `FogParityTest` (every cell against the paint) |
+
+All twenty caught.
 
 ## The fairness review
 
-Pending.
+Run as an isolated `fairness-reviewer` on commit `530d8cab8`. Verdict: FINDINGS, none blocking:
+every read is a field the renderer reads, nothing behind an appearance, a container or the fog
+reaches the section, and the RNG, the seed and the mobs are untouched. Six should-fix findings,
+all taken in the review commit:
+
+1. **The fog painted walls differently from the Observer.** The fog of war paints a wall cell by
+   the cells its face belongs to (`…/tiles/FogOfWar.java:210-267`), and the wall tilemap hides the
+   visual by the same rule (`…/tiles/WallBlockingTilemap.java:194-202`), so a room's far wall is
+   opaque until the corridor beyond is seen while the Observer said in view. The fog now mirrors
+   the painting, taking the lighter of a wall's two halves, and emits a wall painted opaque that is
+   visited or mapped at that level, since the examine window opens on it and draws its tile
+   (`…/scenes/GameScene.java:1661-1667`; `…/windows/WndInfoCell.java:42-74`).
+2. **The fog test recomputed the Observer's formula from the same arrays**, so it could not see
+   the arrays disagree with the paint, and toggles were set by hand. `FogParityTest` reads the fog
+   of war's texture back through the scene and holds every cell to it at the first wait, blinded
+   and with mind vision through `Buff.affect` and `Dungeon.observe()`, after a scroll of magic
+   mapping read through `Scroll.execute`, and with rock marked visited by hand; and holds two
+   readings of one wait byte-equal. Two Runs of one seed are story 1.16's, since the first floor
+   differs between processes (story 1.3).
+3. **A passive mimic drawn as a chest has no heap**, so `map()` reveals one by the absence of a
+   heap under a chest sprite. Story 1.9 owns the mobs row and the differential test; until then
+   `map()` is marked not for play (#22) in its Javadoc, the amendment and the limitations, and no
+   brain reads it.
+4. **The lock's evidence was wrong.** `Level.locked` is set by `seal()` together with the
+   `LockedFloor` buff whose icon the HUD shows (`…/levels/Level.java:617-630`;
+   `…/actors/buffs/LockedFloor.java:76-78`); the locked stairs and the boss bar ADR-0005's table
+   names are each boss level's own. The Observer's and `HeaderSection`'s Javadocs and the
+   amendment cite the buff.
+5. **Two definitions of an Input wait.** The gate now uses the driver's own predicate,
+   `HeadlessDriver.heroWaits`, and `GameScene.interfaceBlockingHero()`
+   (`…/scenes/GameScene.java:1386-1396`), which covers a window and the inventory pane selecting.
+6. **IDE output under the module.** `shatterfish/harness/bin/` is deleted and
+   `shatterfish/*/bin/` ignored in the root ignore file's Shatterfish section, which the ledger
+   exempts by name.
 
 ## Deviations
 
