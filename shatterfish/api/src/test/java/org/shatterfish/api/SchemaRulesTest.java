@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -12,13 +13,26 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 /**
  * The records refuse what the screen would not draw, so the leaks ADR-0006 names have no way into
  * an Observation: a container's contents, a heap or trap on a cell never seen, a character out of
- * view, a tile on an unknown cell, a price on what is not for sale.
+ * view, a tile on an unknown cell, a price on what is not for sale, an unknown item's level; and
+ * the Observation refuses what its sections would contradict: a Prompt the header does not name,
+ * an Action naming what the Observation does not carry (ADR-0014).
  */
 class SchemaRulesTest {
 
     private static MapSection map(List<Tile> tiles, List<Fog> fog, List<TrapView> traps, List<HeapView> heaps,
                                   List<BlobCell> blobs, List<TransitionView> transitions) {
         return new MapSection(Corpus.WIDTH, Corpus.HEIGHT, tiles, fog, traps, heaps, blobs, Feeling.NONE, transitions);
+    }
+
+    private static HeroSection heroAt(int cell, String ability) {
+        HeroSection h = Corpus.hero();
+        return new HeroSection(cell, h.name(), h.subclass(), ability, h.level(), h.exp(), h.expToLevel(), h.hp(), h.ht(),
+                h.shield(), h.strength(), h.strengthBonus(), h.gold(), h.energy(), h.hunger(), h.buffs(), h.talents(),
+                h.talentPointsAvailable(), h.quickslots());
+    }
+
+    private static Observation withActions(Action... actions) {
+        return Corpus.with(Corpus.observation(), new ActionsSection(List.of(actions)));
     }
 
     @Test
@@ -98,14 +112,23 @@ class SchemaRulesTest {
     }
 
     @Test
-    @DisplayName("a character is drawn only in view")
+    @DisplayName("a character is drawn only in view, and never on the hero's cell")
     void an_actor_stands_in_view() {
-        assertThrows(IllegalArgumentException.class, () -> new Observation(Corpus.header(), Corpus.map(),
-                new ActorsSection(List.of(new ActorView(13, "Rat", Alignment.ENEMY, 11, false, Emote.NONE, List.of())))));
-        assertThrows(IllegalArgumentException.class, () -> new Observation(Corpus.header(), Corpus.map(),
-                new ActorsSection(List.of(new ActorView(21, "Rat", Alignment.ENEMY, 11, false, Emote.NONE, List.of())))));
-        assertThrows(IllegalArgumentException.class, () -> new Observation(Corpus.header(), Corpus.map(),
-                new ActorsSection(List.of(new ActorView(24, "Rat", Alignment.ENEMY, 11, false, Emote.NONE, List.of())))));
+        for (int cell : List.of(13, 21, 24)) {
+            assertThrows(IllegalArgumentException.class, () -> Corpus.with(Corpus.observation(),
+                    new ActorsSection(List.of(new ActorView(cell, "Rat", Alignment.ENEMY, 11, false, Emote.NONE, List.of())))));
+        }
+        assertThrows(IllegalArgumentException.class, () -> Corpus.with(Corpus.observation(),
+                new ActorsSection(List.of(new ActorView(Corpus.hero().cell(), "Rat", Alignment.ENEMY, 11, false,
+                        Emote.NONE, List.of())))));
+    }
+
+    @Test
+    @DisplayName("the hero stands in view, on the map")
+    void the_hero_stands_in_view() {
+        assertThrows(IllegalArgumentException.class, () -> Corpus.with(Corpus.observation(), heroAt(13, "Heroic Leap")));
+        assertThrows(IllegalArgumentException.class, () -> Corpus.with(Corpus.observation(), heroAt(24, "Heroic Leap")));
+        Corpus.with(Corpus.observation(), heroAt(1, "Heroic Leap"));
     }
 
     @Test
@@ -121,6 +144,123 @@ class SchemaRulesTest {
     }
 
     @Test
+    @DisplayName("the header and the prompt section name one Prompt")
+    void the_header_and_the_prompt_agree() {
+        assertThrows(IllegalArgumentException.class, () -> Corpus.with(Corpus.observation(), Corpus.chasmPrompt()));
+        assertThrows(IllegalArgumentException.class, () -> Corpus.with(Corpus.promptObservation(), PromptSection.NONE));
+        assertThrows(IllegalArgumentException.class, () -> new PromptSection(PromptKind.NONE, "Chasm", "", List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new PromptSection(PromptKind.NONE, "", "", List.of("Yes")));
+    }
+
+    @Test
+    @DisplayName("an Action names only what the Observation carries: a cell on the map, an item as listed, an option offered")
+    void an_action_names_what_the_observation_carries() {
+        assertThrows(IllegalArgumentException.class, () -> withActions(new Action.Step(24)));
+        assertThrows(IllegalArgumentException.class, () -> withActions(new Action.UseItemAt(Corpus.wand(), "ZAP", 24)));
+        assertThrows(IllegalArgumentException.class, () -> withActions(new Action.AbilityAt("Heroic Leap", 24)));
+        assertThrows(IllegalArgumentException.class,
+                () -> withActions(new Action.UseItem(new ItemRef(99, "Turquoise potion", 2), "DRINK")));
+        assertThrows(IllegalArgumentException.class,
+                () -> withActions(new Action.UseItem(new ItemRef(4, "Potion of healing", 2), "DRINK")));
+        assertThrows(IllegalArgumentException.class,
+                () -> withActions(new Action.UseItem(new ItemRef(4, "Turquoise potion", 1), "DRINK")));
+        assertThrows(IllegalArgumentException.class, () -> withActions(new Action.UseItem(Corpus.potion(), "ZAP")));
+        assertThrows(IllegalArgumentException.class,
+                () -> withActions(new Action.UseItemOn(Corpus.scroll(), "READ", new ItemRef(0, "Shortsword", 1))));
+        assertThrows(IllegalArgumentException.class, () -> withActions(new Action.AnswerPrompt(0)));
+        assertThrows(IllegalArgumentException.class, () -> Corpus.with(Corpus.promptObservation(),
+                new ActionsSection(List.of(new Action.AnswerPrompt(2)))));
+        assertThrows(IllegalArgumentException.class, () -> withActions(new Action.Talent("Nope")));
+        assertThrows(IllegalArgumentException.class, () -> withActions(new Action.Ability("Nope")));
+        assertThrows(IllegalArgumentException.class, () -> Corpus.with(withActions(new Action.Ability("Heroic Leap")),
+                heroAt(0, "")));
+        withActions(new Action.Step(23), new Action.UseItem(Corpus.potion(), "DRINK"), new Action.Talent("Iron Will"));
+    }
+
+    @Test
+    @DisplayName("the valid Actions come out in one order, each once")
+    void actions_are_canonical() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new ActionsSection(List.of(new Action.Wait(), new Action.Wait())));
+        assertThrows(IllegalArgumentException.class,
+                () -> new ActionsSection(List.of(new Action.Step(1), new Action.Search(), new Action.Step(1))));
+        ActionsSection section = new ActionsSection(List.of(new Action.Step(2), new Action.Wait(), new Action.Step(1)));
+        assertEquals(List.of(new Action.Step(1), new Action.Step(2), new Action.Wait()), section.actions());
+    }
+
+    @Test
+    @DisplayName("the inventory is the belongings' order: equipped items first, in slot order, each slot once")
+    void the_inventory_is_in_belongings_order() {
+        ItemView weapon = Corpus.items().get(0);
+        ItemView armor = Corpus.items().get(1);
+        ItemView food = Corpus.items().get(5);
+        assertThrows(IllegalArgumentException.class, () -> new InventorySection(List.of(food, weapon)));
+        assertThrows(IllegalArgumentException.class, () -> new InventorySection(List.of(armor, weapon)));
+        assertThrows(IllegalArgumentException.class, () -> new InventorySection(List.of(weapon, weapon)));
+        new InventorySection(List.of(weapon, armor, food, food));
+        new InventorySection(List.of());
+    }
+
+    @Test
+    @DisplayName("an unidentified item shows neither its level nor its curse")
+    void an_unidentified_item_shows_no_level_or_curse() {
+        assertThrows(IllegalArgumentException.class, () -> new ItemView(ItemKind.WEAPON, "Longsword", 1, false, 1, true,
+                false, "", EquipSlot.NONE, List.of("DROP"), ""));
+        assertThrows(IllegalArgumentException.class, () -> new ItemView(ItemKind.WEAPON, "Longsword", 1, true, 1, false,
+                true, "", EquipSlot.NONE, List.of("DROP"), ""));
+        assertThrows(IllegalArgumentException.class, () -> new ItemView(ItemKind.WEAPON, "", 1, true, 0, true,
+                false, "", EquipSlot.NONE, List.of("DROP"), ""));
+        assertThrows(IllegalArgumentException.class, () -> new ItemView(ItemKind.WEAPON, "Longsword", 0, true, 0, true,
+                false, "", EquipSlot.NONE, List.of("DROP"), ""));
+        assertThrows(IllegalArgumentException.class, () -> new ItemView(ItemKind.WEAPON, "Longsword", 1, true, 0, true,
+                false, "", EquipSlot.NONE, List.of("DROP", "DROP"), ""));
+        assertThrows(IllegalArgumentException.class, () -> new ItemRef(0, "Longsword", 0));
+    }
+
+    @Test
+    @DisplayName("the hero's numbers are bounded as the HUD draws them, six quickslots, four tiers")
+    void the_hero_is_bounded() {
+        HeroSection h = Corpus.hero();
+        assertThrows(IllegalArgumentException.class, () -> new HeroSection(h.cell(), h.name(), h.subclass(), h.ability(),
+                h.level(), h.exp(), h.expToLevel(), h.ht() + 1, h.ht(), h.shield(), h.strength(), h.strengthBonus(),
+                h.gold(), h.energy(), h.hunger(), h.buffs(), h.talents(), h.talentPointsAvailable(), h.quickslots()));
+        assertThrows(IllegalArgumentException.class, () -> new HeroSection(h.cell(), h.name(), h.subclass(), h.ability(),
+                0, h.exp(), h.expToLevel(), h.hp(), h.ht(), h.shield(), h.strength(), h.strengthBonus(),
+                h.gold(), h.energy(), h.hunger(), h.buffs(), h.talents(), h.talentPointsAvailable(), h.quickslots()));
+        assertThrows(IllegalArgumentException.class, () -> new HeroSection(h.cell(), h.name(), h.subclass(), h.ability(),
+                h.level(), h.exp(), h.expToLevel(), h.hp(), h.ht(), h.shield(), h.strength(), h.strengthBonus(),
+                h.gold(), h.energy(), h.hunger(), h.buffs(), h.talents(), List.of(0, 0, 0), h.quickslots()));
+        assertThrows(IllegalArgumentException.class, () -> new HeroSection(h.cell(), h.name(), h.subclass(), h.ability(),
+                h.level(), h.exp(), h.expToLevel(), h.hp(), h.ht(), h.shield(), h.strength(), h.strengthBonus(),
+                h.gold(), h.energy(), h.hunger(), h.buffs(), h.talents(), h.talentPointsAvailable(),
+                h.quickslots().subList(0, 5)));
+        List<TalentView> twice = new ArrayList<>(h.talents());
+        twice.add(new TalentView(1, "Iron Will", 1));
+        assertThrows(IllegalArgumentException.class, () -> new HeroSection(h.cell(), h.name(), h.subclass(), h.ability(),
+                h.level(), h.exp(), h.expToLevel(), h.hp(), h.ht(), h.shield(), h.strength(), h.strengthBonus(),
+                h.gold(), h.energy(), h.hunger(), h.buffs(), twice, h.talentPointsAvailable(), h.quickslots()));
+        assertThrows(IllegalArgumentException.class, () -> new TalentView(5, "Iron Will", 0));
+        assertThrows(IllegalArgumentException.class, () -> new TalentView(1, "Iron Will", -1));
+        assertThrows(IllegalArgumentException.class, () -> new QuickslotView("", true));
+    }
+
+    @Test
+    @DisplayName("a note and a known appearance have their shapes, and the log its bound")
+    void notes_appearances_and_the_log() {
+        assertThrows(IllegalArgumentException.class, () -> new NoteView(NoteKind.LANDMARK, 2, "Shop", "text", 1));
+        assertThrows(IllegalArgumentException.class, () -> new NoteView(NoteKind.LANDMARK, 2, "Shop", "", 2));
+        assertThrows(IllegalArgumentException.class, () -> new NoteView(NoteKind.KEY, 2, "Iron key", "", 0));
+        assertThrows(IllegalArgumentException.class, () -> new KnownAppearance(ItemKind.WEAPON, "Longsword"));
+        assertThrows(IllegalArgumentException.class, () -> new JournalSection(List.of(), List.of(
+                new KnownAppearance(ItemKind.POTION, "Potion of healing"),
+                new KnownAppearance(ItemKind.POTION, "Potion of healing"))));
+        List<LogLine> lines = new ArrayList<>(Collections.nCopies(LogSection.MAX_LINES, new LogLine(LogTone.PLAIN, "x")));
+        new LogSection(lines);
+        lines.add(new LogLine(LogTone.PLAIN, "one too many"));
+        assertThrows(IllegalArgumentException.class, () -> new LogSection(lines));
+    }
+
+    @Test
     @DisplayName("lists come out sorted, immutable and null-free")
     void lists_are_canonical() {
         ActorsSection actors = new ActorsSection(List.of(
@@ -133,5 +273,9 @@ class SchemaRulesTest {
         withNull.add(null);
         assertThrows(NullPointerException.class, () -> new HeaderSection(1, "v3.3.8", "", HeroClass.MAGE, withNull,
                 1, 0, false, false, PromptKind.NONE));
+        List<LogLine> lines = new ArrayList<>();
+        lines.add(null);
+        assertThrows(NullPointerException.class, () -> new LogSection(lines));
+        assertThrows(UnsupportedOperationException.class, () -> Corpus.inventory().items().add(null));
     }
 }

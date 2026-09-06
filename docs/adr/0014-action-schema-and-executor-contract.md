@@ -150,3 +150,20 @@ Rules:
   granularity.
 - `ItemRef` desyncs during a Replay after an unsupported input. Mitigation: verifiability already
   ends there.
+
+## Amendment: story 1.7 (2026-09-05)
+
+The `Action` records exist from story 1.7, since the `actions` section of the Observation
+(ADR-0005) is a list of them; story 1.12 adds `validActions`. They differ from the table above in
+five places. Item use is four kinds by the shape of its target, `UseItem(item, action)`,
+`UseItemAt(item, action, cell)`, `UseItemOn(item, action, target)` and
+`UseItemOption(item, action, option)`, so that every component is a value and every switch over
+actions is exhaustive without an optional field. `Talent(talent)` names the talent as the hero
+section lists it, and the ability is `Ability(ability)` or `AbilityAt(ability, cell)`. `MoveTo(cell)`
+is a record of the schema, so that a human's click on a distant cell in the Overlay can be logged
+as ADR-0011 needs; it is never in a valid set. `ItemRef(index, name, quantity)` is the position in
+the inventory section plus the display name and the quantity, and the Observation refuses an
+Action whose reference does not match its inventory, which puts option 11's desync check at
+construction as well as at execution. `Rest(full)` carries its flag as a boolean. Each record
+names its kind, which the codec writes first and the JSON writes as the `kind` key; the canonical
+form of an Action in the Run log is that JSON.

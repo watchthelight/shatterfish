@@ -218,3 +218,84 @@ shown at all.
 constant, so any change to the encoding is a change to the version, recorded here, before the pin
 moves. `HeaderSection.version` is the schema version, which the codec refuses to encode unless it
 is its own.
+
+## Amendment: story 1.7 (2026-09-05)
+
+The hero, the inventory, the journal, the log, the valid Actions and the Prompt are records,
+`Observation` is the nine sections in the table's order, the readable form is `ObservationJson`
+over a `JsonWriter` the Run log shares, and the Belief is `Belief`. The schema version is 2.
+These are the choices the decision left open or did not foresee.
+
+**The hero section carries what five views draw.** The cell; the name the hero window titles
+(`…/windows/WndHero.java:162`; `…/actors/hero/Hero.java:417`); the subclass, which names the hero
+once chosen (`Hero.java:412-414`); the armour ability, drawn as the fourth talent tier and the
+action indicator (`Hero.java:209`, `:390`, `:402`); the level (`WndHero.java:160`); the experience
+and what the next level needs, the exp bar's fill and its text (`…/ui/StatusPane.java:334`,
+`:339`; `WndHero.java:195`); the health, its maximum and the shielding exactly as the status pane
+prints them (`StatusPane.java:322-327`; `WndHero.java:193-194`), so the hero's health is exact
+where an actor's is quantised, because the pane prints the number; the strength and the bonus or
+penalty printed after it (`WndHero.java:190-192`); the gold and the alchemical energy the bag
+window prints (`…/windows/WndBag.java:186`, `:179`, `:213-216`), which the table did not list;
+hunger as the icon's three states (`…/actors/buffs/Hunger.java:179-187`); every buff with an icon
+(`WndHero.java:301-314`; `…/ui/BuffIndicator.java:192-196`); every talent with its points and the
+unspent points per tier, drawn as open stars (`Hero.java:210`, `:387-395`;
+`…/ui/TalentsPane.java:183`, `:259`); and the six quickslots with the placeholder flag
+(`…/QuickSlot.java:36-41`; `…/ui/QuickSlotButton.java:306`). The danger count of ADR-0006 is not a
+field: it is the enemies among the actors, which that section lists with the invisible flag.
+
+**The inventory is positional, in the belongings' order.** The equipped items in slot order, then
+the backpack (`…/actors/hero/Belongings.java:428-429`, `:446-453`), which the record enforces,
+because an `ItemRef` (ADR-0014, option 11) is a position in it. An item carries the family its
+sprite and bag show (`ItemKind`, one member per item package of the tag), the display name, the
+quantity, the level and curse flags with their visible values, the status text, the slot, the
+actions the item window offers and the default action (`…/items/Item.java:110-115`, `:179-181`,
+`:433-451`, `:483-499`, `:538`, `:570-572`; `…/windows/WndUseItem.java:54-76`). The sprite index
+the ADR-0006 row whitelists is not carried: the name says what the sprite draws.
+
+**The journal is notes and known appearances.** The notes tab's three records, landmark, keys and
+a written note, by depth then kind, title, text and count (`…/journal/Notes.java:73-100`,
+`:115-143`, `:145-151`, `:296-306`, `:375-420`); and the potions, scrolls and rings identified this
+Run by their true names (`…/items/potions/Potion.java:402-404`). The guide's pages and the
+bestiary are not here: static text the Codex carries, and cross-Run state.
+
+**The log is the messages as emitted, capped at sixty-four.** The tone comes from the prefix
+(`…/utils/GLog.java:32-39`; `…/ui/GameLog.java:72-87`) and the text is what follows it; the
+new-line marker is dropped, and the merging of same-colour messages is the pane's. The pane keeps
+three or five lines of text and drops older entries as new ones arrive (`GameLog.java:59`,
+`:107-122`), so a player sees the newest few at once but has seen every message as it arrived;
+the cap is a bound on the Observation's size, not a claim about the pane.
+
+**The valid Actions are a section, and the Observation is built in two steps.** `Action` is the
+sealed interface of ADR-0014 with one record per kind, amended there: item use is four kinds by
+the shape of its target, and `MoveTo` records a human's click. `ActionsSection` sorts by kind and
+then by the action's own bytes and refuses repeats, so a set enumerated in any order is one
+section with one hash. The table's circularity, a valid set computed from the Observation and
+part of it, is resolved by `ActionsSection.NONE` and `Observation.withActions`: the Observer builds
+the record without Actions, story 1.12's `validActions` reads that, and the record with the set is
+what is hashed. The Observation refuses an Action naming what it does not carry: a cell off the
+map, an item reference whose index, name or quantity the inventory does not list, an item action
+the item does not offer, an answer past the prompt's options, a talent the hero section does not
+list, an ability the hero does not have. That is ADR-0014's rule that every parameter is a value
+the Observation carries, as a constructor check rather than an executor's.
+
+**The prompt section is the kind, the title, the text and the button labels in drawing order**
+(`…/windows/WndOptions.java:57`, `:92`). With no Prompt open it is empty, and the header's kind
+must equal the section's, which the Observation holds. The richer windows, a trade or a subclass
+choice, are flattened into labels by story 1.10.
+
+**The readable form is canonical JSON.** `JsonWriter` sorts an object's keys by their UTF-16 code
+units whatever order they were given in, writes no whitespace, writes integers only, and escapes
+only what JSON requires; `ObservationJson` renders the hash, the section hashes and the nine
+sections, each record an object keyed by its component names, each enum its name, each Action
+with a `kind` key. It is derived from the records and never hashed, and nothing in `api` reads it
+back: `JsonRenderingTest` scans the module for a method that turns text or bytes into a record of
+the schema and finds none, and reads the rendering with a strict reader that accepts only the
+canonical shape. ADR-0011's Run log uses the same writer.
+
+**The Belief is a class, not a record.** A record over a byte array would compare by identity, so
+`Belief(version, bytes)` copies its bytes in and out, is equal by content, and hashes SHA-256 over
+the version and the bytes; the harness logs a Belief it cannot read (AD-14). No record of the
+schema has a component of that type, which the reflection test holds.
+
+**The version is 2 and pinned.** Every section's bytes are new relative to version 1, and the pin
+moved with them. Story 1.6's rule stands: from here, a pin move is a version bump.

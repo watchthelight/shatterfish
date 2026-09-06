@@ -12,25 +12,32 @@ import java.util.Map;
  * the order their records fix, so shuffling any input list changes nothing, which
  * {@code CodecCanonicalTest} holds.
  *
- * <p>The bytes are: the schema version, then the header, the map and the actors, each as
- * {@link Encoder} writes them. Each section's hash is SHA-256 over that section's bytes alone,
- * and the Observation's hash is SHA-256 over the version followed by the three section hashes,
- * so a differential test can name the section that differs.
+ * <p>The bytes are: the schema version, then the nine sections in {@link #SECTIONS} order, each
+ * as {@link Encoder} writes them. Each section's hash is SHA-256 over that section's bytes alone,
+ * and the Observation's hash is SHA-256 over the version followed by the section hashes, so a
+ * differential test can name the section that differs. An Action is written as its kind's name
+ * followed by its components.
  *
  * <p>The version is the header's, and must be this codec's; it is bumped whenever the encoding of
  * any section changes, and a Replay refuses to compare across versions.
  */
 public final class ObservationCodec {
 
-    /** The version of the encoding this codec writes; story 1.6's is the first. */
-    public static final int SCHEMA_VERSION = 1;
+    /** The version of the encoding this codec writes; story 1.6's was 1, story 1.7's nine sections are 2. */
+    public static final int SCHEMA_VERSION = 2;
 
     public static final String HEADER = "header";
     public static final String MAP = "map";
     public static final String ACTORS = "actors";
+    public static final String HERO = "hero";
+    public static final String INVENTORY = "inventory";
+    public static final String JOURNAL = "journal";
+    public static final String LOG = "log";
+    public static final String ACTIONS = "actions";
+    public static final String PROMPT = "prompt";
 
     /** The sections, in encoding order. */
-    public static final List<String> SECTIONS = List.of(HEADER, MAP, ACTORS);
+    public static final List<String> SECTIONS = List.of(HEADER, MAP, ACTORS, HERO, INVENTORY, JOURNAL, LOG, ACTIONS, PROMPT);
 
     /**
      * The width of the bar {@link #healthPips} quantises to, as a fraction of world units: a
@@ -77,9 +84,9 @@ public final class ObservationCodec {
         checkVersion(observation);
         Encoder out = new Encoder();
         out.int32(observation.header().version());
-        write(out, observation.header());
-        write(out, observation.map());
-        write(out, observation.actors());
+        for (String section : SECTIONS) {
+            writeSection(out, observation, section);
+        }
         return out.toByteArray();
     }
 
@@ -87,12 +94,7 @@ public final class ObservationCodec {
     public static byte[] encodeSection(Observation observation, String section) {
         checkVersion(observation);
         Encoder out = new Encoder();
-        switch (section) {
-            case HEADER -> write(out, observation.header());
-            case MAP -> write(out, observation.map());
-            case ACTORS -> write(out, observation.actors());
-            default -> throw new IllegalArgumentException("no section named " + section + "; the sections are " + SECTIONS);
-        }
+        writeSection(out, observation, section);
         return out.toByteArray();
     }
 
@@ -118,7 +120,8 @@ public final class ObservationCodec {
 
     /**
      * The canonical bytes of any record of the schema on its own, for the test that varies each
-     * component; not part of the encoding of an Observation.
+     * component and for the order of the actions section; not part of the encoding of an
+     * Observation.
      */
     static byte[] encodeValue(Object value) {
         Encoder out = new Encoder();
@@ -128,6 +131,18 @@ public final class ObservationCodec {
             write(out, map);
         } else if (value instanceof ActorsSection actors) {
             write(out, actors);
+        } else if (value instanceof HeroSection hero) {
+            write(out, hero);
+        } else if (value instanceof InventorySection inventory) {
+            write(out, inventory);
+        } else if (value instanceof JournalSection journal) {
+            write(out, journal);
+        } else if (value instanceof LogSection log) {
+            write(out, log);
+        } else if (value instanceof ActionsSection actions) {
+            write(out, actions);
+        } else if (value instanceof PromptSection prompt) {
+            write(out, prompt);
         } else if (value instanceof TrapView trap) {
             write(out, trap);
         } else if (value instanceof HeapView heap) {
@@ -140,6 +155,22 @@ public final class ObservationCodec {
             write(out, actor);
         } else if (value instanceof BuffView buff) {
             write(out, buff);
+        } else if (value instanceof TalentView talent) {
+            write(out, talent);
+        } else if (value instanceof QuickslotView quickslot) {
+            write(out, quickslot);
+        } else if (value instanceof ItemView item) {
+            write(out, item);
+        } else if (value instanceof NoteView note) {
+            write(out, note);
+        } else if (value instanceof KnownAppearance known) {
+            write(out, known);
+        } else if (value instanceof LogLine line) {
+            write(out, line);
+        } else if (value instanceof ItemRef ref) {
+            write(out, ref);
+        } else if (value instanceof Action action) {
+            write(out, action);
         } else if (value instanceof Observation observation) {
             return encode(observation);
         } else {
@@ -152,6 +183,21 @@ public final class ObservationCodec {
         Canon.require(observation.header().version() == SCHEMA_VERSION,
                 "this codec writes schema version " + SCHEMA_VERSION + ", not " + observation.header().version()
                         + "; a Replay refuses to compare across versions");
+    }
+
+    private static void writeSection(Encoder out, Observation observation, String section) {
+        switch (section) {
+            case HEADER -> write(out, observation.header());
+            case MAP -> write(out, observation.map());
+            case ACTORS -> write(out, observation.actors());
+            case HERO -> write(out, observation.hero());
+            case INVENTORY -> write(out, observation.inventory());
+            case JOURNAL -> write(out, observation.journal());
+            case LOG -> write(out, observation.log());
+            case ACTIONS -> write(out, observation.actions());
+            case PROMPT -> write(out, observation.prompt());
+            default -> throw new IllegalArgumentException("no section named " + section + "; the sections are " + SECTIONS);
+        }
     }
 
     private static void write(Encoder out, HeaderSection header) {
@@ -252,5 +298,179 @@ public final class ObservationCodec {
         out.string(buff.name());
         out.bool(buff.timed());
         out.int32(buff.turnsHundredths());
+    }
+
+    private static void write(Encoder out, HeroSection hero) {
+        out.int32(hero.cell());
+        out.string(hero.name());
+        out.name(hero.subclass());
+        out.string(hero.ability());
+        out.int32(hero.level());
+        out.int32(hero.exp());
+        out.int32(hero.expToLevel());
+        out.int32(hero.hp());
+        out.int32(hero.ht());
+        out.int32(hero.shield());
+        out.int32(hero.strength());
+        out.int32(hero.strengthBonus());
+        out.int32(hero.gold());
+        out.int32(hero.energy());
+        out.name(hero.hunger());
+        out.count(hero.buffs().size());
+        for (BuffView buff : hero.buffs()) {
+            write(out, buff);
+        }
+        out.count(hero.talents().size());
+        for (TalentView talent : hero.talents()) {
+            write(out, talent);
+        }
+        out.count(hero.talentPointsAvailable().size());
+        for (int points : hero.talentPointsAvailable()) {
+            out.int32(points);
+        }
+        out.count(hero.quickslots().size());
+        for (QuickslotView quickslot : hero.quickslots()) {
+            write(out, quickslot);
+        }
+    }
+
+    private static void write(Encoder out, TalentView talent) {
+        out.int32(talent.tier());
+        out.string(talent.name());
+        out.int32(talent.points());
+    }
+
+    private static void write(Encoder out, QuickslotView quickslot) {
+        out.string(quickslot.item());
+        out.bool(quickslot.placeholder());
+    }
+
+    private static void write(Encoder out, InventorySection inventory) {
+        out.count(inventory.items().size());
+        for (ItemView item : inventory.items()) {
+            write(out, item);
+        }
+    }
+
+    private static void write(Encoder out, ItemView item) {
+        out.name(item.kind());
+        out.string(item.name());
+        out.int32(item.quantity());
+        out.bool(item.levelKnown());
+        out.int32(item.visiblyUpgraded());
+        out.bool(item.cursedKnown());
+        out.bool(item.visiblyCursed());
+        out.string(item.status());
+        out.name(item.slot());
+        out.count(item.actions().size());
+        for (String action : item.actions()) {
+            out.string(action);
+        }
+        out.string(item.defaultAction());
+    }
+
+    private static void write(Encoder out, JournalSection journal) {
+        out.count(journal.notes().size());
+        for (NoteView note : journal.notes()) {
+            write(out, note);
+        }
+        out.count(journal.known().size());
+        for (KnownAppearance known : journal.known()) {
+            write(out, known);
+        }
+    }
+
+    private static void write(Encoder out, NoteView note) {
+        out.name(note.kind());
+        out.int32(note.depth());
+        out.string(note.title());
+        out.string(note.text());
+        out.int32(note.quantity());
+    }
+
+    private static void write(Encoder out, KnownAppearance known) {
+        out.name(known.kind());
+        out.string(known.name());
+    }
+
+    private static void write(Encoder out, LogSection log) {
+        out.count(log.lines().size());
+        for (LogLine line : log.lines()) {
+            write(out, line);
+        }
+    }
+
+    private static void write(Encoder out, LogLine line) {
+        out.name(line.tone());
+        out.string(line.text());
+    }
+
+    private static void write(Encoder out, ActionsSection actions) {
+        out.count(actions.actions().size());
+        for (Action action : actions.actions()) {
+            write(out, action);
+        }
+    }
+
+    private static void write(Encoder out, ItemRef ref) {
+        out.int32(ref.index());
+        out.string(ref.name());
+        out.int32(ref.quantity());
+    }
+
+    private static void write(Encoder out, Action action) {
+        out.string(action.kind());
+        if (action instanceof Action.Step step) {
+            out.int32(step.cell());
+        } else if (action instanceof Action.MoveTo move) {
+            out.int32(move.cell());
+        } else if (action instanceof Action.Attack attack) {
+            out.int32(attack.cell());
+        } else if (action instanceof Action.Interact interact) {
+            out.int32(interact.cell());
+        } else if (action instanceof Action.OpenChest chest) {
+            out.int32(chest.cell());
+        } else if (action instanceof Action.Buy buy) {
+            out.int32(buy.cell());
+        } else if (action instanceof Action.Unlock unlock) {
+            out.int32(unlock.cell());
+        } else if (action instanceof Action.UseItem use) {
+            write(out, use.item());
+            out.string(use.action());
+        } else if (action instanceof Action.UseItemAt use) {
+            write(out, use.item());
+            out.string(use.action());
+            out.int32(use.cell());
+        } else if (action instanceof Action.UseItemOn use) {
+            write(out, use.item());
+            out.string(use.action());
+            write(out, use.target());
+        } else if (action instanceof Action.UseItemOption use) {
+            write(out, use.item());
+            out.string(use.action());
+            out.int32(use.option());
+        } else if (action instanceof Action.Rest rest) {
+            out.bool(rest.full());
+        } else if (action instanceof Action.Talent talent) {
+            out.string(talent.talent());
+        } else if (action instanceof Action.Ability ability) {
+            out.string(ability.ability());
+        } else if (action instanceof Action.AbilityAt ability) {
+            out.string(ability.ability());
+            out.int32(ability.cell());
+        } else if (action instanceof Action.AnswerPrompt answer) {
+            out.int32(answer.option());
+        }
+        // PickUp, Descend, Ascend, Search and Wait carry nothing but their kind.
+    }
+
+    private static void write(Encoder out, PromptSection prompt) {
+        out.name(prompt.kind());
+        out.string(prompt.title());
+        out.string(prompt.text());
+        out.count(prompt.options().size());
+        for (String option : prompt.options()) {
+            out.string(option);
+        }
     }
 }

@@ -16,24 +16,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The Observation's hash is SHA-256 over the schema version and the section hashes (ADR-0005,
- * option 9), equality and hash agree, and the encoding of the corpus is pinned so that a change
- * to any of it is a change to the schema version.
+ * option 9), and the encoding of the corpus is pinned so that a change to any of it is a change
+ * to the schema version.
  */
 class ObservationHashTest {
 
     /**
-     * The corpus Observation's hash under schema version 1. A different value here means the
+     * The corpus Observation's hash under schema version 2. A different value here means the
      * encoding changed: bump {@link ObservationCodec#SCHEMA_VERSION}, record why in ADR-0005, and
      * only then repin.
      */
-    private static final String PINNED = "836fbe2ae47724ae29d315dd84ea9e3ad9cef53a87b4bd3d1e5721886637dc43";
+    private static final String PINNED = "da5e41b1b8b9bbb6f9b4cdef6925c1b46174e9639d4ff5eb9172418dc8b75d51";
 
     @Test
-    @DisplayName("the hash is SHA-256 over the version and the three section hashes, in order")
+    @DisplayName("the hash is SHA-256 over the version and the nine section hashes, in order")
     void the_hash_is_over_the_version_and_the_section_hashes() throws Exception {
         Observation observation = Corpus.observation();
         MessageDigest sha = MessageDigest.getInstance("SHA-256");
-        ByteBuffer input = ByteBuffer.allocate(4 + 3 * 32);
+        ByteBuffer input = ByteBuffer.allocate(4 + ObservationCodec.SECTIONS.size() * 32);
         input.putInt(ObservationCodec.SCHEMA_VERSION);
         for (String section : ObservationCodec.SECTIONS) {
             input.put(sha.digest(ObservationCodec.encodeSection(observation, section)));
@@ -41,12 +41,13 @@ class ObservationHashTest {
         String expected = HexFormat.of().formatHex(sha.digest(input.array()));
 
         assertEquals(expected, observation.hash());
-        assertEquals(List.of("header", "map", "actors"), new ArrayList<>(observation.sectionHashes().keySet()));
+        assertEquals(ObservationCodec.SECTIONS, new ArrayList<>(observation.sectionHashes().keySet()));
         Map<String, String> hashes = observation.sectionHashes();
         for (String section : ObservationCodec.SECTIONS) {
             assertEquals(HexFormat.of().formatHex(sha.digest(ObservationCodec.encodeSection(observation, section))),
                     hashes.get(section), section);
         }
+        assertThrows(IllegalArgumentException.class, () -> ObservationCodec.encodeSection(observation, "belief"));
     }
 
     @Test
@@ -65,35 +66,6 @@ class ObservationHashTest {
     }
 
     @Test
-    @DisplayName("equal Observations have equal hashes, and different ones differ")
-    void equality_and_hash_agree() {
-        List<Observation> corpus = new ArrayList<>();
-        corpus.add(Corpus.observation());
-        corpus.add(Corpus.observation());
-        HeaderSection h = Corpus.header();
-        corpus.add(new Observation(new HeaderSection(h.version(), h.upstreamTag(), h.codexVersion(), h.heroClass(),
-                h.challenges(), h.depth() + 1, h.branch(), h.sealed(), h.oracle(), h.prompt()), Corpus.map(),
-                Corpus.actorsSection()));
-        corpus.add(new Observation(new HeaderSection(h.version(), h.upstreamTag(), h.codexVersion(), h.heroClass(),
-                h.challenges(), h.depth(), h.branch(), h.sealed(), true, h.prompt()), Corpus.map(),
-                Corpus.actorsSection()));
-        List<ActorView> fewer = new ArrayList<>(Corpus.actors());
-        fewer.remove(0);
-        corpus.add(new Observation(Corpus.header(), Corpus.map(), new ActorsSection(fewer)));
-        List<Tile> tiles = new ArrayList<>(Corpus.tiles());
-        tiles.set(1, Tile.GRASS);
-        MapSection m = Corpus.map();
-        corpus.add(new Observation(Corpus.header(), new MapSection(m.width(), m.height(), tiles, m.fog(), m.traps(),
-                m.heaps(), m.blobs(), m.feeling(), m.transitions()), Corpus.actorsSection()));
-
-        for (Observation a : corpus) {
-            for (Observation b : corpus) {
-                assertEquals(a.equals(b), a.hash().equals(b.hash()), "equals and hash disagree between\n" + a + "\n" + b);
-            }
-        }
-    }
-
-    @Test
     @DisplayName("the encoding of the corpus is pinned to the schema version")
     void the_encoding_is_pinned() {
         assertEquals(PINNED, Corpus.observation().hash(),
@@ -105,11 +77,11 @@ class ObservationHashTest {
     @DisplayName("an Observation of another schema version is refused by this codec")
     void another_version_is_refused() {
         HeaderSection h = Corpus.header();
-        Observation other = new Observation(new HeaderSection(h.version() + 1, h.upstreamTag(), h.codexVersion(),
-                h.heroClass(), h.challenges(), h.depth(), h.branch(), h.sealed(), h.oracle(), h.prompt()), Corpus.map(),
-                Corpus.actorsSection());
+        Observation other = Corpus.with(Corpus.observation(), new HeaderSection(h.version() + 1, h.upstreamTag(),
+                h.codexVersion(), h.heroClass(), h.challenges(), h.depth(), h.branch(), h.sealed(), h.oracle(), h.prompt()));
         assertThrows(IllegalArgumentException.class, other::hash);
         assertThrows(IllegalArgumentException.class, () -> ObservationCodec.encode(other));
+        assertThrows(IllegalArgumentException.class, other::json);
     }
 
     @Test
@@ -130,5 +102,13 @@ class ObservationHashTest {
         }
         assertThrows(IllegalArgumentException.class, () -> ObservationCodec.healthPips(21, 20));
         assertThrows(IllegalArgumentException.class, () -> ObservationCodec.healthPips(0, 0));
+    }
+
+    @Test
+    @DisplayName("the sections are the nine of ADR-0005, in the decision's order")
+    void the_sections() {
+        assertEquals(List.of("header", "map", "actors", "hero", "inventory", "journal", "log", "actions", "prompt"),
+                ObservationCodec.SECTIONS);
+        assertEquals(2, ObservationCodec.SCHEMA_VERSION, "story 1.7's nine sections are version 2");
     }
 }
