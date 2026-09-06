@@ -4,7 +4,7 @@ key: 1-8-the-observer-part-one-map-fog-traps-and-heaps
 title: "The Observer, part one: map, fog, traps and heaps"
 epic: 1
 issue: 21
-status: review
+status: done
 created: '2026-09-06'
 updated: '2026-09-06'
 ---
