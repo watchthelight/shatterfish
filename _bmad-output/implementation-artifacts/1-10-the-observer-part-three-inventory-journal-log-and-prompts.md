@@ -4,7 +4,7 @@ key: 1-10-the-observer-part-three-inventory-journal-log-and-prompts
 title: "The Observer, part three: inventory, journal, log and prompts"
 epic: 1
 issue: 23
-status: in-progress
+status: review
 created: '2026-09-06'
 updated: '2026-09-06'
 review_loop_iteration: 0
@@ -20,189 +20,274 @@ So that I can reason about unknown items without seeing their identity.
 Paths abbreviate `core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/` as `…/`, and every
 line number is at the pinned tag `v3.3.8` (commit `7b8b845a`).
 
-<frozen-after-approval reason="human-owned intent — do not modify unless human renegotiates">
+## Acceptance criteria and how each was met
 
-## Intent
+| Criterion | Outcome |
+|---|---|
+| Given the rows of ADR-0006 for items, known appearances, the log, the journal and prompts, when the Observer builds those sections, then an unidentified potion appears under its appearance name only and its class is not recoverable, wand charges appear only when known, and a curse enchantment only when the curse is known | **Met.** `Observer.inventory()` reads `name()`, `visiblyUpgraded()`, `visiblyCursed()`, `status()` and `actions(hero)`, the values the slot and the item window draw; `ItemLeakTest` holds an unknown potion, scroll and ring to their appearance with the class and the true name absent from the JSON and the bytes, a wand's status empty until its level is known and `?/max` until its charges are, and a curse enchantment's word absent until the curse is known |
+| The log section is captured from the game's own message signal rather than the rendered log component, and the Observer re-registers that listener whenever the scene is recreated | **Met.** `GameLogListener` listens on `GLog.update`; hook row 3, a site in `GameScene.create()` right after the pane replaces every listener, re-adds it before the floor's own lines are emitted; `LogListenerTest` changes floor twice with the scene destroyed and recreated as the game does, and holds the section to the descent line each creation emits, to a message after it, and to two listeners on the signal |
+| An open Prompt of a recognised kind is exposed with its options, and any other window at an Input wait fails an assertion | **Met.** `Prompts.kind()` classifies the window in front, `Observer.prompt()` flattens it through hook row 4's accessor on `Group`, the header carries the kind, and the gate refuses any other window naming it; `PromptGateTest` holds the chasm prompt, a known harmful potion's warning, an options window of unlisted origin, an untitled one, a busy hero and a plain message window |
+| `ItemLeakTest` asserts no true class, level, curse or identification counter appears | **Met.** By absence of the names and classes, and by byte-identical differential pairs over the level, the curse, the charges and the counters of a wand and a ring |
+| `LogListenerTest` changes floor twice and asserts the log section still receives messages | **Met.** Two descents the way the loading scene does them, each followed by the new scene's own line and a message dispatched after |
 
-**Problem:** The Observer builds the header, the map, the actors and the hero (stories 1.8 and
-1.9) but not the inventory, the journal, the log or the Prompt, so no Observation can yet be
-assembled, and the harness has no listener on the game's message signal, which the game replaces
-with its log pane on every scene creation. Items are where a leak would matter most: an
-unidentified potion's class, an unknown level or curse, a wand's unknown charges.
+## What was built
 
-**Approach:** Four more Observer methods, each reading only what the bag window, the item window,
-the journal's notes tab, the log pane and the open window draw: `inventory()` from the belongings
-in the order the bag iterates them, with the item's own display name, status and actions;
-`journal()` from the notes records and the per-Run known potions, scrolls and rings; `log()` from
-a listener on `GLog.update` that a scene-seam hook (ledger row 3) re-registers right after the
-pane replaces it; `prompt()` from the front window, classified into a `PromptKind` and flattened
-into its drawn title, text and button labels through a read-only accessor on `Group` (ledger
-row 4, second site), since a window's members are protected. The Observer's gate admits a
-recognised Prompt window and fails on any other.
+- `core/.../scenes/GameScene.java`: hook row 3, the scene seam, an import and six lines after `add( log )`; `core/.../shatterfish/Hooks.java`: the `LogReplaced` point; `SPD-classes/.../noosa/Group.java`: hook row 4's second site, `shatterfishMembers()`; `docs/UPSTREAM.md`: row 3, row 4's second site, the site index and the three digests.
+- `shatterfish/harness/.../observer/Observer.java`: `inventory()`, `journal()`, `log()`, `prompt()`, the header's kind and the gate under a Prompt; `GameLogListener` (new); `driver/Prompts.java`: `kind()`, one definition for the driver and the Observer; `driver/Windows.java` (new): the window in front, a window's text blocks and button labels; `driver/HeadlessDriver.java`: the seam armed before the first scene, the capture reset per Run and left on close.
+- `shatterfish/api`: `PromptKind.ITEM` and `PromptKind.OTHER`, appended.
+- Tests: `ItemLeakTest`, `JournalSectionTest`, `LogListenerTest`, `PromptGateTest`; `Skeleton` around every section.
+- Docs: ADR-0006 amendment for story 1.10; two notes in ADR-0005; Test columns and three rows in the rules pages.
 
-## Boundaries & Constraints
+## What the story found
 
-**Always:** Information parity by construction: every read is a value the screen draws or the
-game's own log signal carries; the true class of an unidentified potion, scroll or ring, a level
-or curse the player has not learned, a wand's charges before they are known, and the
-identification counters never reach the Observation. Every rule cites `path:line` at the tag. Any
-edit to an upstream file is a hook with a marker, a ledger row and a digest in the same PR.
-`Observer` stays the one door; `brain` and `api` never import game code. Reflection stays confined
-to `SceneStepper`; the window is read through an accessor hook, not reflection. The log is captured
-from `GLog.update`, never from `GameLog`'s rendered entries. Reads happen only at an Input wait.
+**The pane replaces every listener, and the scene speaks before it returns.** `GameLog()` calls
+`GLog.update.replace(this)` (`…/ui/GameLog.java:47`), which is `removeAll` then `add`
+(`SPD-classes/…/utils/Signal.java:58-61`), and `GameScene.create()` emits the descent line and the
+floor's feeling after constructing the pane (`…/scenes/GameScene.java:499-502`, `:596-599`,
+`:663-689`). A listener re-added after `create()` returns would miss what the pane shows, which is
+why the seam is a hook inside `create()` and not a line after `super.create()` in the headless
+scene; the pane's handler returns false (`GameLog.java:149-154`), so a listener after it hears
+every message.
 
-**Ask First:** Anything that would spend a hook row beyond rows 2, 3 and 4 as ADR-0016 lays them
-out; any change to the `Observation` record's shape or the codec (adding enum members at the end
-is in scope, as story 1.9 did for `HeapKind`); any window kind the driver would have to start
-recognising that ADR-0006's Prompt row does not name.
+**A window's parts are members of members, with no getter.** `Group.members` is protected
+(`SPD-classes/…/noosa/Group.java:33`); a title is a text block inside an `IconTitle`
+(`…/windows/IconTitle.java:41-42`), a message a text block, an option a `RedButton`, whose label
+`StyledButton.text()` returns (`…/ui/StyledButton.java:124`). The accessor returns a copy under
+the class's own lock, and walking `Game.scene()`'s members finds the window in front as the scene
+does for itself (`…/scenes/GameScene.java:1376-1384`).
 
-**Never:** No `observe()` (story 1.11), no blobs, feeling, transitions or danger count (1.11), no
-valid-Action set (1.12), no serving of the scene change the game requests at the stairs (the Run
-stories); `LogListenerTest` performs the floor change itself the way the loading scene does. No
-reading of `Catalog` (cross-Run), of guide pages, of the bestiary, of `ItemStatusHandler`'s
-unknown set, of `Item.level()` or `Item.cursed` directly, of `Wand.curCharges` when not known. No
-change to `Prompts`' list of windows beyond giving each a kind. No Overlay work: the hook fires in
-the real game too, but nothing listens there yet.
+**The chasm's window is two anonymous classes deep.** `Chasm.heroJump` declares its `WndOptions`
+inside an anonymous `Callback` (`…/levels/features/Chasm.java:59-62`), so the class that opened a
+window is the nearest named class enclosing it, not the enclosing class alone; the first run of
+`PromptGateTest` read the chasm prompt as `OTHER` and said so.
 
-## I/O & Edge-Case Matrix
+**A level's construction updates a live scene's map.** Rebuilding a level with the old scene
+still alive dereferences `Dungeon.level` while it is null, since `Level.set` reaches
+`GameScene.updateMap` and the scene is not null; the game destroys the play scene before the
+loading scene runs (`SPD-classes/…/noosa/Game.java:212-220`, `:246-258`), and the test does the
+same.
 
-| Scenario | Input / State | Expected Output / Behavior | Error Handling |
-|----------|--------------|---------------------------|----------------|
-| Unidentified potion in the backpack | `PotionOfInvisibility`, not known this Run | `ItemView(POTION, "<colour> potion", …)`; the class name and the true name absent from JSON and bytes; two Runs whose potion classes share a colour would be indistinguishable here | N/A |
-| Unknown level and curse | a weapon at +2, `levelKnown=false`, cursed with a curse enchantment, `cursedKnown=false` | `levelKnown=false`, `visiblyUpgraded=0`, `cursedKnown=false`, `visiblyCursed=false`, name without the curse's word; byte-identical to the same weapon at +0 and uncursed | N/A |
-| Wand with unknown charges | fresh wand, `curChargeKnown=false` | `status` is `null`→`""` until `levelKnown`, then `"?/max"`; byte-identical across different `curCharges` | N/A |
-| Identification counters | `Wand.usesLeftToID`, `Ring.levelsToID` differ | byte-identical Observations | N/A |
-| Equipped items | weapon, armor, artifact, misc, ring, second weapon | first, in slot order, each with its `EquipSlot`; then the backpack with sub-bags before their contents | the record refuses any other order |
-| Journal | a landmark, a key record with quantity 2, a custom note | `NoteView`s with kind, depth, title, text (custom only), quantity (keys only) | N/A |
-| Known appearances | `PotionOfHealing` and `ScrollOfRage` identified at start (Warrior) | `KnownAppearance(POTION, "Potion of Healing")`, `(SCROLL, "Scroll of Rage")`; an unknown class absent | N/A |
-| Log across floors | first wait, then two floor changes the loading scene's way | after each new scene the section carries the "descend" line the scene emitted and any later message; older lines kept up to 64 | N/A |
-| Log burst | 100 messages in one wait | the newest 64, oldest dropped, tone from the prefix, the new-line marker dropped | N/A |
-| Prompt: chasm | `Chasm.heroJump(hero)` posted and drawn | `PromptSection(CHASM_JUMP, "<chasm title>", "<jump text>", ["Yes", "No"])`; header kind equal | N/A |
-| Prompt: harmful potion | known `PotionOfLiquidFlame` drunk | `HARMFUL_POTION` with the harmful title and yes/no | N/A |
-| Prompt: an options window of unlisted origin | an anonymous `WndOptions` from the test | `OTHER`, with its title, text and labels | N/A |
-| Not a Prompt | a `WndMessage` in front at a wait | every Observer method throws `IllegalStateException` naming the window | the assertion the AC asks for |
-| No window | ordinary wait | `PromptSection.NONE`; header kind `NONE` | N/A |
+**Every hero starts with a velvet pouch and knows the scroll of identify**
+(`…/actors/hero/HeroClass.java:111`, `:117`), besides what the class knows
+(`:183-184`); a stone put into the backpack lands in the pouch, and the known appearances at the
+first wait are three.
 
-</frozen-after-approval>
+**A default action is kept while it is not offered.** An empty waterskin offers no drink and its
+default stays drink (`…/items/Waterskin.java:52`, `:74-78`); the item window colours the default
+only when it is among the buttons (`…/windows/WndUseItem.java:72-74`), and the section carries
+both as they are.
 
-## Code Map
+**A potion opens two windows from one class.** The harmful-drink warning and the beneficial-throw
+confirmation are both `Potion`'s anonymous subclasses (`…/items/potions/Potion.java:238-252`,
+`:264-280`); the title tells them apart, and only the first is `HARMFUL_POTION`.
 
-- `shatterfish/harness/src/main/java/org/shatterfish/harness/observer/Observer.java` -- the door; `atInputWait()` (:546-556) is the gate to relax for a recognised window; `header()` (:142-153) returns `PromptKind.NONE` and must carry the window's kind; new `inventory()`, `journal()`, `log()`, `prompt()`.
-- `shatterfish/harness/src/main/java/org/shatterfish/harness/driver/Prompts.java` -- `isRecognised(Window)` over nine window classes; becomes `kind(Window)` returning `PromptKind`, with `isRecognised` as `kind != NONE`.
-- `shatterfish/harness/src/main/java/org/shatterfish/harness/driver/HeadlessDriver.java` -- `start()` (:174-186) creates the scene after `newGame`; the log listener must be installed before `switchTo`; `close()` (:423-438) clears `Hooks`; `newGame()` wipes `GameLog` (:250) and must reset the capture.
-- `shatterfish/harness/src/main/java/org/shatterfish/harness/scene/HeadlessScene.java` -- `openWindow()` (:74-84) reads its own members; the Observer reads the front window through the `Group` accessor on `Game.scene()` instead, so the Overlay's scene works the same way.
-- `shatterfish/api/src/main/java/org/shatterfish/api/{ItemView,InventorySection,JournalSection,NoteView,KnownAppearance,LogLine,LogSection,PromptSection,PromptKind,ItemKind,EquipSlot}.java` -- the records (story 1.7); `PromptKind` gains `ITEM` and `OTHER` at the end; `ItemKind`'s Javadoc names the package mapping.
-- `shatterfish/harness/src/test/java/org/shatterfish/harness/observer/Skeleton.java` -- `around(...)` overloads; add one taking every section.
-- `core/…/shatterfish/Hooks.java` -- row 2, the registry; gains `LogReplaced` and `logReplaced`, cleared in `clear()`; the digest line in `docs/UPSTREAM.md` changes.
-- `core/…/scenes/GameScene.java:499-502` -- `log = new GameLog()` then `add(log)`; the row 3 site goes after `add( log )` and before `:536` where the "descend" message is emitted; `GameLog()` calls `GLog.update.replace(this)` (`…/ui/GameLog.java:47`), `Signal.replace` is `removeAll` then `add` (`SPD-classes/…/utils/Signal.java:56-59`), and `GameLog.onSignal` returns false (`GameLog.java:149-154`) so a listener added after it still hears every message.
-- `SPD-classes/src/main/java/com/watabou/noosa/Group.java:33` -- `protected ArrayList<Gizmo> members`, no getter; row 4's second site, `shatterfishMembers()` returning a copy under the class's own `synchronized`.
-- `…/utils/GLog.java:32-60` -- the prefixes and the signal; `…/ui/GameLog.java:52-131` -- the pane's prefix-to-colour rule the tone mirrors.
-- `…/items/Item.java:110-115` (`actions`), `:179-181` (`defaultAction`), `:433-451` (`visiblyUpgraded`, `visiblyCursed`, `isIdentified`), `:483-499` (`title`, `name`), `:501-503` (`trueName`), `:570-572` (`status`); `…/items/potions/Potion.java:377-379`, `…/items/scrolls/Scroll.java:240-242`, `…/items/rings/Ring.java:172-174` (appearance names); `…/items/wands/Wand.java:336-343` (`status`); `…/items/artifacts/Artifact.java:189-206`; `…/items/weapon/Weapon.java:408-416`, `…/items/armor/Armor.java:573-581` (a curse's name hidden until `cursedKnown`); `…/ui/ItemSlot.java:220-300` (what a slot draws); `…/windows/WndUseItem.java:54-76` (the buttons are `actions(hero)`).
-- `…/actors/hero/Belongings.java:422-453` -- the iterator: `weapon, armor, artifact, misc, ring, secondWep` then the backpack; `…/items/bags/Bag.java:216-250` -- a bag then its contents.
-- `…/journal/Notes.java:73-100` (`Record`), `:145-290` (`LandmarkRecord`), `:296-372` (`KeyRecord`), `:388-520` (`CustomRecord`), `:685-693` (`getRecords(Class)`); `…/windows/WndJournal.java:474-565` -- the notes tab draws custom records then every floor's records down from `Statistics.deepestFloor`.
-- `…/items/potions/Potion.java:402-404`, `…/items/scrolls/Scroll.java:265-267`, `…/items/rings/Ring.java:280-282` -- `getKnown()`.
-- `…/windows/WndOptions.java:40-100` -- title as `IconTitle` or a text block, the message block, one `RedButton` per option; `…/windows/IconTitle.java:41-42` (`tfLabel`); `…/ui/StyledButton.java:35`, `:124` (`text()`); `…/ui/RenderedTextBlock.java:96` (`text()`); `…/windows/{WndChooseSubclass,WndQuest,WndTradeItem,WndResurrect,WndSadGhost,WndWandmaker,WndImp,WndBlacksmith}.java` -- the recognised windows, each an `IconTitle`, a message and `RedButton`s.
-- Origins of `WndOptions` at the tag: `…/levels/features/Chasm.java:57-96`; `…/items/potions/Potion.java:238-252` (harmful drink), `:264-280` (beneficial throw); `…/ui/TalentsPane.java:189-192`; `…/windows/WndChooseSubclass.java:61`, `:106`; `…/windows/WndResurrect.java:102`; `…/windows/WndTradeItem.java:178`; `…/actors/mobs/npcs/Shopkeeper.java:256`; `…/windows/WndBlacksmith.java:83`, `:146`, `:171`; `…/actors/mobs/npcs/RatKing.java:137`; `…/levels/CavesLevel.java:142`, `…/levels/MiningLevel.java:282`, `…/levels/CityLevel.java:158`; items of every family (`KindofMisc.java:88`, `KindOfWeapon.java:57`, `Armor.java:265`, `BrokenSeal.java:138`, `ScrollOfEnchantment.java:75`, …); `…/scenes/GameScene.java:1694`; `…/levels/HallsBossLevel.java:343`; `…/actors/hero/abilities/mage/WarpBeacon.java:86`.
-- `docs/adr/0006-observer-visibility-rules.md:70-77` -- the rows this story implements; `docs/adr/0005-observation-schema-and-hashing.md:250-280` -- the inventory, journal, log and prompt paragraphs; `docs/adr/0016-hook-ledger-corrected-by-story-1-1.md:56-65` -- rows 3 and 4; `docs/UPSTREAM.md:66-75`, `:117-125`, `:153-161` -- the rows, the site index, the diff budget; `docs/rules/identification.md`, `docs/rules/visibility.md`, `docs/rules/ui.md` -- rule rows whose Test column this story fills.
-- `_bmad-output/implementation-artifacts/1-9-the-observer-part-two-actors-emotes-buffs-and-the-hero.md` -- the previous story's shape and its handed-forward list.
+**An item's identification fields are not what the screen draws for most items.** `identify()`
+sets `levelKnown` and `cursedKnown` (`…/items/Item.java:468-469`), so a potion identified by a
+scroll and one of the same known type picked up later differ in the fields while the slot and the
+window draw them alike; the review found it, and the flags now follow the item's own
+identification predicate where that is what the screen shows, a potion's or scroll's `isKnown()`
+and the constant truth of food, keys, stones, bags and the rest, with the raw fields kept only where
+the slot and the window draw their effect.
 
-## Tasks & Acceptance
+**A titled message draws its title last.** `WndTitledMessage` lays the title bar out first and then
+brings it to the front (`…/windows/WndTitledMessage.java:42-68`), so the members' order, which is
+the drawing order, ends with the title; the first version of the reading took the first text
+block for the title and read a quest window's message as its title, which the review's test
+caught. The icon title is now read by type. A shop heap titles itself with its price
+(`…/items/Heap.java`, `title()`), and the trade window draws that.
 
-**Execution:**
-- [ ] `shatterfish/api/.../PromptKind.java` -- append `ITEM` (a window of options an item opened: a confirmation or a choice) and `OTHER` (a window of options from an origin the table does not name), with Javadoc; no version bump, as story 1.9 did for `HeapKind` -- the recognised windows need a kind each.
-- [ ] `core/.../shatterfish/Hooks.java` -- add `interface LogReplaced { void onLogReplaced(); }`, `public static volatile LogReplaced logReplaced`, null it in `clear()` -- row 2 says a listener point edits this file only.
-- [ ] `core/.../scenes/GameScene.java` -- after `add( log );` (:502): marker `// shatterfish-hook:3`, three comment lines, `if (Hooks.logReplaced != null) Hooks.logReplaced.onLogReplaced();` -- the seam fires after the pane replaced the listener and before the messages `create()` emits.
-- [ ] `SPD-classes/.../noosa/Group.java` -- marker `// shatterfish-hook:4`, comment, `public synchronized List<Gizmo> shatterfishMembers()` returning `new ArrayList<>(members)` -- the window's title, text and buttons are members of members with no getter.
-- [ ] `docs/UPSTREAM.md` -- row 3 (new), row 4 (second site), row 2's digest; site index lines `3 1 GameScene`, `4 1 Group`; diff budget lines for `GameScene.java`, `Hooks.java`, `Group.java` -- read each digest from `HooksLedgerTest`'s failure message.
-- [ ] `shatterfish/harness/.../observer/GameLogListener.java` (new) -- `Signal.Listener<String>` and `Hooks.LogReplaced`; synchronized ring of the newest 64 `LogLine`s; tone from the prefix as `GameLog.java:72-87`, new-line marker dropped; `install()` sets `Hooks.logReplaced`, `reset()`, `uninstall()` removes itself from `GLog.update` -- the Observer owns the listener (ADR-0006, Log).
-- [ ] `shatterfish/harness/.../driver/HeadlessDriver.java` -- `start()`: `GameLogListener.install()` before `switchTo`; `newGame()`: `GameLogListener.reset()` beside `GameLog.wipe()`; `close()`: `uninstall()` -- the seam must be armed before the first scene is created.
-- [ ] `shatterfish/harness/.../driver/Prompts.java` -- `kind(Window)`: `WndChooseSubclass`→`SUBCLASS`, `WndResurrect`→`RESURRECTION`, `WndTradeItem`→`SHOP`, `WndQuest`/`WndSadGhost`/`WndWandmaker`/`WndImp`/`WndBlacksmith`→`QUEST`, `WndOptions` by the enclosing class of its anonymous subclass (`Chasm`→`CHASM_JUMP`; a `Potion` with the harmful title→`HARMFUL_POTION`; any `Item`→`ITEM`; `TalentsPane`→`TALENT`; `WndChooseSubclass`→`SUBCLASS`; `WndResurrect`→`RESURRECTION`; `WndTradeItem`/`Shopkeeper`→`SHOP`; `WndBlacksmith`/`WndSadGhost`/`WndWandmaker`/`WndImp`/`RatKing`/`CavesLevel`/`MiningLevel`/`CityLevel`→`QUEST`; else `OTHER`); `isRecognised` = `kind != NONE` -- one definition for the driver and the Observer.
-- [ ] `shatterfish/harness/.../observer/Observer.java` -- gate: front window from `Game.scene()`'s members; none → `heroWaits && !interfaceBlockingHero()`; a window → `Prompts.kind != NONE` and (`heroWaits` or `WndResurrect.instance != null`), else throw naming the window; `header()` carries the kind; `inventory()`, `journal()`, `log()`, `prompt()` with the rules of Design Notes; `ItemKind` by package; class Javadoc updated -- the sections.
-- [ ] `shatterfish/harness/src/test/.../observer/ItemLeakTest.java` (new) -- unidentified potion, scroll and ring names and classes absent; unknown level and curse; wand charges; counters; equipped order; identify then present; determinism of two readings; known appearances.
-- [ ] `shatterfish/harness/src/test/.../observer/JournalSectionTest.java` (new) -- landmark, key with quantity, custom note; the notes tab's drawing cited; determinism.
-- [ ] `shatterfish/harness/src/test/.../observer/LogListenerTest.java` (new) -- first wait's lines; two floor changes the loading scene's way with the scene recreated each time; the "descend" line and a message after it present each time; burst capped at 64; tones; new-line dropped.
-- [ ] `shatterfish/harness/src/test/.../observer/PromptGateTest.java` (new) -- no window; chasm prompt through `Chasm.heroJump`; harmful potion through `Potion.execute(hero, AC_DRINK)`; an anonymous `WndOptions` → `OTHER`; a `WndMessage` → every method throws; header kind equals the section's; `Prompts.kind` and `isRecognised` agree for every class in the list.
-- [ ] `shatterfish/harness/src/test/.../observer/Skeleton.java` -- `around(header, map, actors, hero, inventory, journal, log, prompt)`.
-- [ ] `docs/adr/0006-observer-visibility-rules.md` -- amendment for story 1.10: the item, appearance, journal, log and prompt rules with cites, the kind table, the losses; `docs/rules/identification.md`, `visibility.md`, `ui.md` -- Test columns; `docs/adr/0005-…` -- a note that the prompt's title rule and the log capture point are as decided here.
-- [ ] `_bmad-output/implementation-artifacts/sprint-status.yaml` -- `in-progress` now, `review` after the review.
+**A window's slots draw bitmap texts.** The resurrection window's two item buttons hold slots whose
+status, strength and level texts are members of members (`…/windows/WndResurrect.java:75-93`),
+which the review feared the walk would join into the prompt's text; they are bitmap texts
+(`…/ui/ItemSlot.java:58-61`), never text blocks, and out of the walk's reach by type, which the
+battery showed when a clause skipping slots changed nothing. The walk now skips every member the
+group would not draw, and `PromptGateTest` hides a block and holds it unread.
 
-**Acceptance Criteria:**
-- Given the rows of ADR-0006 for items, known appearances, the log, the journal and prompts, when the Observer builds those sections, then an unidentified potion appears under its appearance name only and its class is not recoverable, wand charges appear only when known, and a curse enchantment only when the curse is known (`ItemLeakTest`).
-- Given a Run whose scene is recreated by a floor change, when messages are emitted after the new scene exists, then the log section carries them, captured from `GLog.update` and never from `GameLog`'s entries (`LogListenerTest`, two floor changes).
-- Given a recognised Prompt window in front at an Input wait, when the Observer reads, then the prompt section carries its kind, title, text and option labels, the header carries the kind, and any other window makes every read fail an assertion (`PromptGateTest`).
-- Given `ItemLeakTest`, then no true class, level, curse or identification counter appears in the serialized Observation, held by absence and by byte-identical differential pairs.
-- Given the whole build, then `./gradlew build` is green, the hooks tests hold rows 2, 3 and 4 with their digests, and the docs build strictly.
+**The pane wipes with no message on the signal.** `GameLog.wipe()` on picking up the guidebook
+(`…/items/journal/Guidebook.java:57`) and in the settings (`…/windows/WndSettings.java:1093`) empties
+the pane while the section keeps its lines, a loss recorded in ADR-0005 and ADR-0006; and a
+message dispatched while the first floor is built reaches the next pane through the signal's static
+buffer (`…/ui/GameLog.java:52`, `:57-60`), so the listener joins the signal at every Run's start.
 
-## Spec Change Log
+**A holiday reaches the Observation through a pasty.** `Pasty.name()` switches on the calendar
+(`…/items/food/Pasty.java:56-90`; `…/utils/Holiday.java:54-59`), so two Runs of one tuple can name
+an item differently by date; older than this story, recorded in `docs/ideas.md` for the Profile
+story to pin.
 
-## Design Notes
+## Decisions taken inside the story
 
 **The window is read through an accessor hook, not reflection.** Alternatives: (a) a declared
-reflective read of `Group.members` in a second confined class; (b) a read-only accessor on
-`Window` only; (c) one on `Group`; (d) no read, rebuilding the labels from the same message keys
-the window used. Chosen (c): (a) grows the reflection allowance the ledger cannot see, which is
-what `HarnessReflectionTest` exists to stop, and row 4 is the ledger's own place for "private
-state the screen shows"; (b) cannot reach the title, which is a text block inside an `IconTitle`
-inside the window; (d) is blind for an anonymous window whose labels are computed. The accessor
-returns a copy under the lock every other `Group` method takes and writes nothing. The same
-accessor finds the front window in `Game.scene()`, so the Overlay's scene is read the same way.
+reflective read of `Group.members` in a second confined class; (b) an accessor on `Window` only;
+(c) one on `Group`; (d) no read, rebuilding the labels from the message keys the window used.
+Chosen (c): (a) grows the reflection allowance the ledger cannot see, which is what
+`HarnessReflectionTest` exists to stop, and row 4 is the ledger's own place for private state the
+screen shows; (b) cannot reach a title inside an `IconTitle`; (d) is blind for a window whose
+labels are computed. Pre-mortem: the accessor reads a copy under the lock, writes nothing, and is
+dead code to the game.
 
-**The seam is a hook in `GameScene.create()`, not a line in `HeadlessScene`.** The pane replaces
-every listener at `:499`, and `create()` emits the "descend" line and the floor's feeling at
-`:536-690` before it returns; a listener re-added after `super.create()` would miss what the pane
-shows, and the Overlay's scene is not ours to subclass. Row 3 is "the scene seam, including where
-the Observer re-registers its log listener" (ADR-0016), spent here for its first site.
+**The seam is a hook in `GameScene.create()`.** Alternatives: (a) re-add the listener in
+`HeadlessScene.create()` after `super.create()`; (b) a hook right after the pane; (c) read
+`GameLog`'s static buffer by reflection. Chosen (b): (a) misses the lines `create()` emits and
+does nothing for the Overlay's scene, which is upstream's own; (c) reads the pane's view, which
+ADR-0005 rejects. Row 3 is "the scene seam, including where the Observer re-registers its log
+listener" (ADR-0016), spent here for its first site.
 
-**Prompt kinds by class and, for an options window, by the enclosing class of its anonymous
-subclass.** Every options window the game opens at the tag is an anonymous subclass declared in the
-class that asks the question (Code Map), so the enclosing class names the origin without reading
-the message. The harmful drink and the beneficial throw are both `Potion`'s; the title tells them
-apart, and only the drink is `HARMFUL_POTION`, the throw an `ITEM` confirmation. `TALENT` is the
-pane's random-talent confirmation, the one options window the talents pane opens; `ALCHEMY` is
-never produced, since alchemy is a scene. Two members are appended: `ITEM` for any item's
-confirmation or choice (the enchantment's three, the seal's transfer, the unequip of a cursed
-piece), and `OTHER` for the origins the table does not name (the amulet's ascent prompt, the
-examine chooser, the warp beacon), whose labels still carry what the screen shows, so a Run never
-fails on a window the driver already accepts.
+**Prompt kinds by class, and for an options window by the class that opened it.** Alternatives:
+(a) classify by the title text; (b) by the enclosing class of the anonymous subclass every opener
+declares; (c) fail on any options window not in a table. Chosen (b), with two members appended,
+`ITEM` for any item's confirmation or choice and `OTHER` for an origin the table does not name,
+so a Run never fails on a window the driver already accepts; (a) is brittle and reads the
+question to classify it, kept only where one class opens two windows; (c) would stop a Run at the
+amulet's prompt or the examine chooser for nothing.
 
-**Title and text.** The recognised windows draw an `IconTitle` label or a title block first and
-one message block after it, then buttons; an untitled options window draws the message alone
-(`WndOptions.java:40-66`). So the title is the first text block when there are at least two, the
-text is the rest joined by a newline, and the options are the `StyledButton` labels in drawing
-order; icon buttons (the info buttons beside a subclass, an option's info) and item slots are not
-options. Highlighting marks stay in the text as the block holds them.
+**The title is the icon title's label by type, else the first text block when there are two.**
+Alternatives: (a) read the `IconTitle` by type; (b) the first block when a window draws at least
+two. First chosen (b), for needing no type; the review's quest-window test showed a titled
+message brings its title bar to the front after laying it out
+(`…/windows/WndTitledMessage.java:67`), so the drawing order has the title last, and (a) is what
+the screen shows, with (b) kept for an options window whose title is a plain block.
 
-**The inventory in the belongings' order** (`Belongings.java:428-429`, `:446-453`): the six slots
-then the backpack, a bag before its contents, which `InventorySection` enforces and `ItemRef`
-depends on. The name is `item.name()`, what every slot, window and log line prints; the status
-`item.status()`; the actions `item.actions(hero)` as identifiers, since the item window's buttons
-are exactly those (`WndUseItem.java:54-76`) and `UseItem` names one; the default `defaultAction()`.
-`ItemKind` is the item's package, as its Javadoc lays out.
+**The inventory's actions are identifiers.** Alternatives: (a) the labels the buttons draw; (b)
+the identifiers the window executes. Chosen (b): `UseItem` names an action and the executor runs
+`item.execute(hero, action)` with it (ADR-0014); the label is static text the Codex carries.
 
-**The journal** is every `Notes` record, since the notes tab draws custom records and then every
-floor down from the deepest (`WndJournal.java:497-541`): a landmark's title, a key's title and
-count, a custom note's title and body with its depth when it has one. Known appearances are the
-three `getKnown()` sets by their true names, `Messages.get(cls, "name")`, which is what a known
-item draws (`Item.java:501-503`).
+**One definition of a wait's state.** Alternatives: (a) the Observer's own copy of the driver's
+condition, as first written; (b) `HeadlessDriver.waitState(hero, window)`, shared, with the
+driver's two timing conditions, a window's second frame and an empty render queue, kept in the
+driver. Chosen (b), as the review asked: the Observer reads a state, and cannot see frames or the
+queue, so the class comment says what it asserts and what it cannot.
 
-**The log** keeps the newest 64 messages as the signal carries them, tone by prefix, the marker
-dropped; a burst beyond 64 in one wait loses its oldest, as ADR-0005 records the pane loses its
-own beyond three or five lines.
+## Evidence
 
-**Pre-mortem.** The hook in `create()` runs before the Observer exists in the Overlay: the field is
-null-checked, so nothing happens. `Class.getEnclosingClass()` is `java.lang`, not
-`java.lang.reflect`, so the reflection rule holds; the fairness reviewer will check it reads a
-name, never a member. The floor-change test must end the actor thread before `switchTo` or the
-headless game refuses; it does what the driver's `close()` does without destroying the game.
-`JournalSection` and `ItemView` canonicalise their lists, so a `HashSet` from `getKnown()` is safe
-to hand over. The codec writes enums by ordinal, so members appended at the end change no
-existing bytes; `PromptKind`'s new members go last.
+`./gradlew build -Pshatterfish.mobile=off`: green, 435 tests across 33 suites, fifty-two of them the eleven observer suites. `mkdocs build --strict`: clean.
+`HooksLedgerTest` and `HooksVanillaTest` green with row 3's digest `25da1e43728094a5` for
+`GameScene.java` (twenty-five added, two removed, the two being row 5's earlier edits counted
+again as the file's whole diff), row 2's `d83c280bff9d2cce` for `Hooks.java` (one hundred and
+fourteen added) and row 4's `76cc92a3ce10f1c6` for `Group.java` (nine added, none removed).
 
-## Verification
+**Mutation battery**, twenty-two mutations of `Observer.java`, `GameLogListener.java`,
+`Prompts.java` and `HeadlessDriver.java` on the committed tree at ``d3a5ce879`, then all thirty-one at `bba2ef279``, each applied
+to a clean tree, run against `ItemLeakTest`, `JournalSectionTest`, `LogListenerTest` and
+`PromptGateTest`, restored with `git checkout`, and the tree verified clean after each; nine
+more were added for the review's rules and run on the review commit:
 
-**Commands:**
-- `./gradlew build -Pshatterfish.mobile=off` -- expected: green, every module, the four new suites included.
-- `./gradlew :harness:test --tests "org.shatterfish.harness.hooks.*"` -- expected: green with the three digests the ledger declares.
-- `uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict` -- expected: clean.
-- A mutation battery over `Observer.java`, `GameLogListener.java` and `Prompts.java` against the four new suites -- expected: every mutation caught.
-- `fairness-reviewer` on `git diff main...HEAD` before the PR -- expected: findings addressed.
+| # | Mutation | Caught by |
+|---|---|---|
+| M1 | the gate admits any window | `PromptGateTest` (a message window: the section refuses a `NONE` prompt with content, so the read fails, though not with the gate's own exception) |
+| M2 | the header carries no Prompt kind | `PromptGateTest` (the chasm prompt's header; the busy hero) |
+| M3 | the prompt title is always empty | `PromptGateTest` (the chasm, the harmful potion, the options window) |
+| M4 | the prompt options are dropped | `PromptGateTest` (every prompt's labels) |
+| M5 | the chasm prompt is `OTHER` | `PromptGateTest` (the chasm's kind) |
+| M6 | the harmful potion is an item confirmation | `PromptGateTest` (the harmful potion's kind) |
+| M7 | every window is a Prompt | `PromptGateTest` (a message window is `NONE`) |
+| M8 | the item name is the true name | `ItemLeakTest` (the appearance names; the ring's slot; the dagger's name) |
+| M9 | the level is the true level | `ItemLeakTest` (the record refuses a level with `levelKnown` false) |
+| M10 | the curse flag is the true curse | `ItemLeakTest` (the record refuses a curse with `cursedKnown` false) |
+| M11 | a wand's charges are shown whether or not known | `ItemLeakTest` (no status until the level is known) |
+| M12 | no item is in a slot | `ItemLeakTest` (the belongings' order) |
+| M13 | a known appearance names its class | `ItemLeakTest` (the known appearances, twice) |
+| M14 | a key record loses its count | `JournalSectionTest` (the counted key) |
+| M15 | a written note loses its floor | `JournalSectionTest` (the note written for a floor) |
+| M16 | the actions are dropped | `ItemLeakTest` (drop and throw at least) |
+| M17 | a positive message reads plain | `LogListenerTest` (the tones; the pane's merge) |
+| M18 | the log keeps every line | `LogListenerTest` (the section refuses more than sixty-four) |
+| M19 | the listener is not re-added at the seam | `LogListenerTest` (all three: nothing is captured) |
+| M20 | the seam is armed after the first scene | `LogListenerTest` (all three: the first scene's creation is missed) |
+| M21 | the new-line marker is a line | `LogListenerTest` (five messages and no line for the marker) |
+| M22 | the gate ignores a Prompt's waiting hero | `PromptGateTest` (the busy hero) |
+| M23 | the front window is the first shown, not the last | `PromptGateTest` (a message over an options window) |
+| M24 | every potion window is the harmful kind | `PromptGateTest` (the beneficial throw) |
+| M25 | an item's window is not its own kind | `PromptGateTest` (the chalice's warning) |
+| M26 | hidden members are read | `PromptGateTest` (a hidden block; first run with a dead item-slot clause, it survived and the clause went) |
+| M27 | the flags are the raw fields for every item | `ItemLeakTest` (the potion identified by a scroll and the one picked up known) |
+| M28 | the journal lists a floor the tab does not | `JournalSectionTest` (a record beyond the deepest floor) |
+| M29 | the listener does not join the signal on reset | `LogListenerTest` (a message while the first floor is built) |
+| M30 | an unidentified artifact shows a status | `ItemLeakTest` (the artifact's status) |
+| M31 | the title is the first text block whatever the icon title | `PromptGateTest` (the quest window's title) |
+
+Thirty of thirty-one caught at `bba2ef279`; M26 survived there through a clause that skipped item slots, whose texts the walk never reached, and was caught at `71bc11116` once the clause went and a test hid a block. All thirty-one caught.
+
+## The fairness review
+
+Run as an isolated `fairness-reviewer` on commit `d3a5ce879`. Verdict: FINDINGS, none blocking:
+no read carries something the screen does not draw, the log does not print or the journal does
+not show, and the hooks are minimal, read-only and ledgered with digests the review recomputed by
+hand. Ten should-fix findings, all taken in the review commit:
+
+1. **The level and curse flags were raw fields.** `identify()` sets both
+   (`…/items/Item.java:468-469`), so a potion identified by a scroll and one of the same known
+   type picked up later differed in the fields while the slot and the item window drew them
+   alike, against the differential property the epic promises. The flags now follow the item's
+   own identification predicate where that is what the screen draws, a potion's or scroll's
+   `isKnown()` and the constant truth of food, keys, stones, bags, spells and bombs, and stay the
+   raw fields for weapons, armor, wands, rings and artifacts, whose slot and window draw them;
+   `ItemLeakTest` holds the two potions to one Observation, and M27 shows the raw fields fail it.
+2. **The journal read an invariant rather than the tab's predicate.** Every record satisfied the
+   tab's floor range today, but the door should read through the drawing call; the section is now
+   built from the tab's own two calls (`…/journal/Notes.java:685-705`), and `JournalSectionTest`
+   holds a landmark beyond the deepest floor to be no note, with M28 behind it.
+3. **The window walk read what the screen hides.** The walk ignored a member's `exists` and
+   `visible`; it now skips a member the group would not draw
+   (`SPD-classes/…/noosa/Group.java:72-79`), and `PromptGateTest` hides a block and holds it
+   unread, with M26 behind it. The review also feared the resurrection window's two item slots
+   would add their texts (`…/windows/WndResurrect.java:75-93`); they are bitmap texts
+   (`…/ui/ItemSlot.java:58-61`), never text blocks, and out of reach by type, which the battery
+   showed when a clause skipping slots changed nothing, so that clause went and the test reads the
+   resurrection window to its message alone. Writing that test found a second
+   thing: a titled message brings its title bar to the front after laying it out
+   (`…/windows/WndTitledMessage.java:67`), so the drawing order has the title last and the first
+   text block was the message; the icon title is now read by type, and M31 holds it.
+4. **The gate claimed to be the driver's definition and was not.** The driver confirms a window
+   only from its second frame in front and only with the render queue empty; the Observer checks
+   neither and cannot. The state condition is now one method, `HeadlessDriver.waitState`, that both
+   use, and the Observer's class comment says the two timing conditions are the driver's.
+5. **The wall clock reaches the Observation through a pasty**, whose name switches on the
+   holiday (`…/items/food/Pasty.java:56-90`; `…/utils/Holiday.java:54-59`): older than this story,
+   recorded in `docs/ideas.md` for the Profile story to pin.
+6. **The pane wipes with no message on the signal** (`…/items/journal/Guidebook.java:57`;
+   `…/windows/WndSettings.java:1093`), so the capture does not equal what the pane shows after a
+   wipe; ADR-0005's sentence and the amendment now say so, a loss of memory the human also has.
+7. **The seam was armed only through the hook, after the first floor was built.** A message
+   dispatched during `Dungeon.init()`, `newLevel()` or `switchLevel()` would reach the next pane
+   through the signal's static buffer (`…/ui/GameLog.java:52`, `:57-60`) and miss the Observer;
+   `reset()` now joins the signal at once, and `LogListenerTest` holds a message dispatched while
+   the first floor is built, with M29 behind it.
+8. **Six cites were off**: the descent line is `GameScene.java:596-599`, the feelings `:663-689`,
+   `Signal.replace` `:58-61` and `add` `:40-48`, `showingWindow()` `:1376-1384`,
+   `interfaceBlockingHero()` `:1386-1396`, the slot's level text `ItemSlot.java:279-283`; fixed in
+   the ledger, the amendment, the rules row, the tests and the code.
+9. **Row 4's prose miscounted** the `Group` site's comment lines; four, not five.
+10. **Tests the amendment's claims lacked**: the front window being the last shown, the
+    beneficial throw and an item's own confirmation, the recognised windows by class, an
+    artifact's status, the Catalog against the known appearances, every family and every slot; all
+    added, and nine mutations with them (M23 to M31).
+
+The review also named the boundary `Class.getEnclosingClass()` and `isAnonymousClass()` sit on,
+class metadata rather than reflection into a member, which `HarnessReflectionTest`'s comment now
+states, and confirmed that every options window the game opens at the tag is an anonymous
+subclass declared by its opener, that `Windows.front()` takes the last window as the scene does,
+and that no thread order or hash order reaches the bytes.
+
+## Deviations
+
+- Two upstream files and the registry are edited: labelled `touches-upstream`, ledgered as row 3 (new), row 4 (second site) and row 2 (the point), each with its digest; the files are written with LF as the index holds them.
+- `LogListenerTest` changes floor itself, the way the loading scene does, since serving the scene change the game requests is the Run stories' work (ADR-0015).
+- No manual `:desktop:debug` check: both hooks are dead code to the game.
+
+## Known limitations, handed forward
+
+- **No `observe()` yet**: blobs, feeling, transitions and the danger count (1.11), then the whole.
+- **The blacksmith's later windows and the crown's ability choice are not recognised** (`WndBlacksmith.WndSmith`, `WndReforge`, `WndChooseAbility`); a Run that reaches one stops at the driver.
+- **A quest window with no buttons carries no options**; how a Brain dismisses it is ADR-0014's to say when the executor lands (1.13).
+- **A lost inventory greys every slot the pane draws**; the section lists the items as drawn and does not carry the greying.
+- **Two identical written notes would refuse the section**, since `JournalSection` refuses repeats and `CustomRecord` equality is by id; the bot never writes one.
+- **Highlighting marks stay in a prompt's text**, as the text block holds them.
+- **The pane's wipe is not mirrored**: after the guidebook is picked up or the settings wipe the pane, the section keeps lines the human saw before.
+- **The gate reads a state the driver confirms with two timing conditions besides**, a window's second frame and an empty render queue; a read between an act and the frame that shows its window is a read of the state the frame confirms.
+- **A holiday names a pasty by the calendar** (`docs/ideas.md`); the Profile story pins it.
+
+## Follow-ups for later stories
+
+- Story 1.11: blobs, feeling, transitions, the danger count, `observe()`, the checklist over ADR-0006's rows.
+- Story 1.12: the valid Actions, `AnswerPrompt` over the options the section carries.
+- Story 1.13: the executor's answer to a window with no buttons, and the windows not yet recognised.
