@@ -214,21 +214,34 @@ full health with no shield (`…/ui/CharHealthIndicator.java:55`), which reads a
 the codec's `healthPips` quantises the share (ADR-0005). `ActorLeakTest` holds a mob at five
 health behind a shield of five to the formula, and the actors' JSON to carrying no health value.
 
-**The emote comes through hook row 4.** `CharSprite.emo` is protected with no getter
-(`CharSprite.java:116`), written only by the show and hide methods under a lock (`:655-737`);
-`shatterfishEmote()` returns it under the same lock and writes nothing (`docs/UPSTREAM.md`,
-row 4). The four icons (`…/effects/EmoIcon.java:78`, `:102`, `:126`, `:150`) are the four emotes; a
-sleeping mob's sprite shows the sleep icon on its next frame (`…/sprites/MobSprite.java:39`;
-`CharSprite.java:635-636`). `ActorLeakTest` sets a sleeping mob's state to hunting, its target to
-the hero and its seen flag, draws no frame, and holds the Observation unchanged; then changes the
-icon and holds the emote changed; the serialization carries none of the state names.
+**The emote comes through hook row 4, and the sleep icon through the sprite's own rule.**
+`CharSprite.emo` is protected with no getter (`CharSprite.java:116`), written only by the show
+and hide methods under a lock (`:655-737`); `shatterfishEmote()` returns it under the same lock
+and writes nothing (`docs/UPSTREAM.md`, row 4). The alert, investigate and lost icons are set and
+cleared by the acts themselves (`…/actors/mobs/Mob.java:229-238`; `…/effects/EmoIcon.java:102`,
+`:126`, `:150`) and are read from the sprite. The sleep icon is different: every frame the mob
+sprite shows it while the mob is alive and sleeping and hides it otherwise, replacing any other
+icon (`…/sprites/MobSprite.java:39`; `CharSprite.java:635-639`, `:655-675`), and the driver's
+frame updates the sprites before the acts of a turn, so at an Input wait the sprite still carries
+the icon of the frame before those acts; a mob put to sleep or woken during the turn would read
+one frame stale, and the Overlay, whose frames are not fenced, would read the fresh icon for the
+same Run. So the Observer applies the sprite's rule as the next frame applies it, reading
+`state == SLEEPING` for that one drawn bit and dropping a sleep icon that frame would hide; that is
+the one read of `Mob.state` the mob-state row's last column allows, since it is the predicate the
+renderer applies every frame, and nothing else of the state reaches the Observation.
+`ActorLeakTest` holds hunting, wandering and fleeing, a target and the seen flag to one
+Observation; holds a mob put to sleep with no frame drawn to `SLEEP`, the next frame agreeing;
+holds a mob woken with no frame drawn to `NONE` while the stale icon is still on the sprite;
+and holds the alert icon read through the accessor.
 
 **Buffs are the ones with an icon** (`…/ui/BuffIndicator.java:192-196`; `…/windows/WndHero.java:301-314`;
 `WndInfoMob.java:63-64`), with a flavour buff's turns as its description prints them, the visual
 cooldown to two decimals (`…/actors/buffs/FlavourBuff.java:35-42`; `…/actors/buffs/Buff.java:136-138`,
-`:141-143`). A buff of another kind prints its own numbers in its own words, which the schema does
-not carry: a loss, recorded, for a later schema to close. Two identical icons draw twice; the
-schema lists a buff once.
+`:141-143`), carried only when the description the window shows contains them: one flavour buff,
+the shadows of foliage, prints none (`…/actors/buffs/Shadows.java:125-127`) and its cooldown is
+its own scheduling, which no window shows, so it reads as untimed. A buff of another kind prints
+its own numbers in its own words, which the schema does not carry: a loss, recorded, for a later
+schema to close. Two identical icons draw twice; the schema lists a buff once.
 
 **The hero section is the HUD's numbers**, with the cites on `HeroSection`: the talents of the
 tiers the pane shows, counted from the level with the subclass and the ability as gates
@@ -244,13 +257,14 @@ chest would (`CrystalMimic.java:68-84`); it is drawn like any mob in view and, w
 its cell is visited (`GameScene.java:1441-1447`). So `map()` emits it as a `CHEST`, a
 `LOCKED_CHEST`, a `CRYSTAL_CHEST` with the category of its item, or the `EBONY_CHEST` only an ebony
 mimic wears (`…/actors/mobs/EbonyMimic.java:47-71`; `…/sprites/ItemSpriteSheet.java:124`), a member
-added to `HeapKind` for it since the screen draws it; `actors()` never lists a hidden mimic.
+added to `HeapKind` for it since the screen draws it, flagged hidden since it hides at alpha 0.2
+(`…/sprites/MimicSprite.java:121-125`) as a faint heap does; `actors()` never lists a hidden mimic.
 `MimicDifferentialTest` pairs each of the three real chests with the mimic that imitates it at one
 cell and holds the Observations byte-identical, then stops the hiding and holds the mimic an actor
 and the heap gone. The hint a non-stealthy mimic's description carries (`Mimic.java:121-130`) and
 the window the game opens on it (`GameScene.java:1729-1735`) are not read, as the row says; a human
 who taps can learn more than the bot here, which is a loss and not a leak. The alignment flips on
-the mimic's act, not on its reveal (`Mimic.java:212-222`, `:46-49`), which comes before the next
+the mimic's act, not on its reveal (`Mimic.java:212-222`, `:134-145`), which comes before the next
 Input wait in play.
 
 Left: `observe()`, and the sections of stories 1.10 and 1.11.

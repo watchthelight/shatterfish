@@ -6,6 +6,7 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.CrystalMimic;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.EbonyMimic;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.GoldenMimic;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mimic;
 import com.shatteredpixel.shatteredpixeldungeon.items.Heap;
@@ -103,7 +104,7 @@ class MimicDifferentialTest {
         assertTrue(actorAt(cell).isEmpty(), "never an actor while hidden");
 
         // stopHiding() sets the state (Mimic.java:212-222); the alignment follows on the mimic's
-        // next act (:46-49), which comes before the next Input wait in play. Set as the act would.
+        // next act (:134-145), which comes before the next Input wait in play. Set as the act would.
         mimic.stopHiding();
         assertEquals(Char.Alignment.NEUTRAL, mimic.alignment);
         mimic.alignment = Char.Alignment.ENEMY;
@@ -132,6 +133,17 @@ class MimicDifferentialTest {
                 "a stealthy mimic stays drawn once its cell is visited (GameScene.java:1443-1445)");
         shy.destroy();
         level.mobs.remove(shy);
+
+        // An ebony mimic is always stealthy and hides at alpha 0.2, the chest only it wears, drawn faint.
+        int inView = floorsInView(1).get(0);
+        Mimic ebony = Mimic.spawnAt(inView, EbonyMimic.class, new Torch());
+        GameScene.add(ebony);
+        assertTrue(ebony.stealthy(), "EbonyMimic.java:69-71");
+        assertEquals(new HeapView(inView, HeapKind.EBONY_CHEST, true, "", 0, ""), heapAt(new Observer().map(), inView).orElseThrow(),
+                "MimicSprite.java:121-125; ItemSpriteSheet.java:124");
+        assertTrue(actorAt(inView).isEmpty());
+        ebony.destroy();
+        level.mobs.remove(ebony);
     }
 
     private byte[] bytes() {

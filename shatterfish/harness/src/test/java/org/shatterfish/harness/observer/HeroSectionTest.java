@@ -6,6 +6,7 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Barrier;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Haste;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Hunger;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Shadows;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Weakness;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
@@ -98,6 +99,7 @@ class HeroSectionTest {
         assertNotNull(first, "the Warrior starts with an item in the first quickslot");
         assertEquals(new QuickslotView(first.name(), false), section.quickslots().get(0));
         assertEquals(new QuickslotView("", false), section.quickslots().get(HeroSection.QUICKSLOTS - 1));
+        assertEquals(section, new Observer().hero(), "two readings of one wait are one section");
     }
 
     @Test
@@ -111,6 +113,7 @@ class HeroSectionTest {
         Buff.affect(hero, Weakness.class, 10f);
         Buff.affect(hero, Haste.class, 10f);
         Buff.affect(hero, AdrenalineSurge.class).reset(1, 100f);
+        Buff.affect(hero, Shadows.class);
         hero.earnExp(hero.maxExp(), Hero.class);
         Item placeholder = new Torch().virtual();
         Dungeon.quickslot.setSlot(1, placeholder);
@@ -123,7 +126,7 @@ class HeroSectionTest {
         assertEquals(4, section.energy());
         assertEquals(hero.STR, section.strength());
         assertEquals(hero.STR() - hero.STR, section.strengthBonus());
-        assertEquals(1, section.strengthBonus(), "a surge prints a bonus after the strength (Hero.java:271-285; WndHero.java:188-190)");
+        assertEquals(1, section.strengthBonus(), "a surge prints a bonus after the strength (Hero.java:271-285; WndHero.java:189-192)");
         assertEquals(2, section.level());
         assertEquals(hero.exp, section.exp());
         assertEquals(hero.maxExp(), section.expToLevel());
@@ -138,6 +141,10 @@ class HeroSectionTest {
         assertTrue(section.buffs().contains(new BuffView(haste.name(), true, Math.round(haste.visualcooldown() * 100f))),
                 "a flavour buff's turns as its description prints them: " + section.buffs());
         assertTrue(section.buffs().stream().anyMatch(b -> b.name().equals(weakness.name())));
+        Shadows shadows = hero.buff(Shadows.class);
+        assertTrue(shadows.icon() != BuffIndicator.NONE);
+        assertTrue(section.buffs().contains(new BuffView(shadows.name(), false, 0)),
+                "a flavour buff whose description prints no turns shows none (Shadows.java:125-127): " + section.buffs());
         for (Buff buff : hero.buffs()) {
             assertEquals(buff.icon() != BuffIndicator.NONE, section.buffs().stream().anyMatch(b -> b.name().equals(buff.name())),
                     buff.name() + ": listed exactly when it has an icon (WndHero.java:301-314)");

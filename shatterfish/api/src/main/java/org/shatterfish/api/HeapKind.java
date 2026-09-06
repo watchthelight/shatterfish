@@ -8,7 +8,8 @@ package org.shatterfish.api;
  * actor: a {@link #CHEST}, a {@link #LOCKED_CHEST} or a {@link #CRYSTAL_CHEST}, or the
  * {@link #EBONY_CHEST} only an ebony mimic wears
  * ({@code core/.../sprites/ItemSpriteSheet.java:124}; {@code core/.../actors/mobs/EbonyMimic.java:47-71}),
- * which the screen shows and the schema therefore carries.
+ * which the screen shows and the schema therefore carries, drawn faint
+ * ({@code core/.../sprites/MimicSprite.java:121-125}) and so flagged hidden as a faint heap is.
  */
 public enum HeapKind {
     HEAP, FOR_SALE, CHEST, LOCKED_CHEST, CRYSTAL_CHEST, TOMB, SKELETON, REMAINS, EBONY_CHEST

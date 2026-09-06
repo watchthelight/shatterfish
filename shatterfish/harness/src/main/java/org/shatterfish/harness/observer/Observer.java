@@ -26,7 +26,6 @@ import com.shatteredpixel.shatteredpixeldungeon.levels.Terrain;
 import com.shatteredpixel.shatteredpixeldungeon.levels.traps.Trap;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
-import com.shatteredpixel.shatteredpixeldungeon.sprites.CharSprite;
 import com.shatteredpixel.shatteredpixeldungeon.tiles.DungeonTileSheet;
 import com.shatteredpixel.shatteredpixeldungeon.ui.BuffIndicator;
 import com.watabou.noosa.Game;
@@ -212,7 +211,10 @@ public final class Observer {
                 continue;
             }
             String category = mimic instanceof CrystalMimic ? mimicCategory(mimic) : "";
-            heaps.put(mimic.pos, new HeapView(mimic.pos, mimicKind(mimic), false, "", 0, category));
+            // An ebony mimic hides at alpha 0.2 (…/sprites/MimicSprite.java:121-125): drawn faint, as
+            // a hidden heap is, so it carries the flag a faint heap carries.
+            boolean faint = mimic instanceof EbonyMimic;
+            heaps.put(mimic.pos, new HeapView(mimic.pos, mimicKind(mimic), faint, "", 0, category));
         }
         return new MapSection(level.width(), level.height(), tiles, fog, traps, new ArrayList<>(heaps.values()), List.of(),
                 Feeling.NONE, List.of());
@@ -237,7 +239,7 @@ public final class Observer {
                 continue;
             }
             actors.add(new ActorView(mob.pos, mob.name(), Alignment.valueOf(mob.alignment.name()), healthPips(mob),
-                    mob.invisible > 0, emote(mob.sprite), buffs(mob)));
+                    mob.invisible > 0, emote(mob), buffs(mob)));
         }
         return new ActorsSection(actors);
     }
@@ -332,16 +334,25 @@ public final class Observer {
     }
 
     /**
-     * The emote a sprite shows, through the accessor of hook row 4: one of the four icons the
-     * sprite's show methods set ({@code …/sprites/CharSprite.java:655-737};
-     * {@code …/effects/EmoIcon.java:78}, {@code :102}, {@code :126}, {@code :150}), or none.
+     * The emote the mob's sprite shows at the frame a human decides on. The sleep icon is the
+     * sprite's own per-frame function of the mob's state: every update shows it while the mob is
+     * alive and sleeping and hides it otherwise, replacing any other icon
+     * ({@code …/sprites/MobSprite.java:39}; {@code …/sprites/CharSprite.java:635-639}, {@code :655-675}).
+     * The driver's frame updates the sprites before the acts of a turn, so at an Input wait the
+     * sprite still carries the icon of the frame before those acts; the rule is applied here as
+     * the next frame applies it, from the one bit of state the renderer reads for it, and a sleep
+     * icon that frame would hide is dropped. The alert, investigate and lost icons are set and
+     * cleared by the acts themselves ({@code …/actors/mobs/Mob.java:229-238}) and are read from
+     * the sprite through the accessor of hook row 4 ({@code …/effects/EmoIcon.java:102},
+     * {@code :126}, {@code :150}).
      */
-    static Emote emote(CharSprite sprite) {
-        EmoIcon emo = sprite == null ? null : sprite.shatterfishEmote();
-        if (emo == null || !emo.alive) {
-            return Emote.NONE;
-        } else if (emo instanceof EmoIcon.Sleep) {
+    static Emote emote(Mob mob) {
+        if (mob.isAlive() && mob.state == mob.SLEEPING) {
             return Emote.SLEEP;
+        }
+        EmoIcon emo = mob.sprite == null ? null : mob.sprite.shatterfishEmote();
+        if (emo == null || !emo.alive || emo instanceof EmoIcon.Sleep) {
+            return Emote.NONE;
         } else if (emo instanceof EmoIcon.Alert) {
             return Emote.ALERT;
         } else if (emo instanceof EmoIcon.Investigate) {
@@ -358,8 +369,10 @@ public final class Observer {
      * {@code …/windows/WndHero.java:301-314}; {@code …/windows/WndInfoMob.java:63-64}), with the
      * turns a flavour buff's description prints, its visual cooldown to two decimals
      * ({@code …/actors/buffs/FlavourBuff.java:35-42}; {@code …/actors/buffs/Buff.java:136-138},
-     * {@code :141-143}); a buff of another kind prints its own numbers in its own words, which the
-     * schema does not carry. Two identical icons draw twice; the schema lists a buff once.
+     * {@code :141-143}), carried only when the description the window shows contains them, which
+     * one flavour buff's does not ({@code …/actors/buffs/Shadows.java:125-127}); a buff of another
+     * kind prints its own numbers in its own words, which the schema does not carry. Two identical
+     * icons draw twice; the schema lists a buff once.
      */
     static List<BuffView> buffs(Char ch) {
         List<BuffView> views = new ArrayList<>();
@@ -367,7 +380,8 @@ public final class Observer {
             if (buff.icon() == BuffIndicator.NONE) {
                 continue;
             }
-            boolean timed = buff instanceof FlavourBuff;
+            boolean timed = buff instanceof FlavourBuff
+                    && buff.desc().contains(Messages.decimalFormat("#.##", buff.visualcooldown()));
             int hundredths = timed ? Math.max(0, Math.round(buff.visualcooldown() * 100f)) : 0;
             BuffView view = new BuffView(buff.name(), timed, hundredths);
             if (!views.contains(view)) {

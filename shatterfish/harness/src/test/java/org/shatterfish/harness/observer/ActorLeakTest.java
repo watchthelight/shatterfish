@@ -23,16 +23,20 @@ import org.shatterfish.api.ActorsSection;
 import org.shatterfish.api.Alignment;
 import org.shatterfish.api.BuffView;
 import org.shatterfish.api.Emote;
+import org.shatterfish.api.HeroSection;
 import org.shatterfish.api.ObservationCodec;
 import org.shatterfish.harness.driver.HeadlessDriver;
 import org.shatterfish.harness.observer.Skeleton.Serialized;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -135,29 +139,27 @@ class ActorLeakTest {
     }
 
     @Test
-    @DisplayName("the only AI state is the emote the sprite shows: the state, target and seen flag change nothing")
+    @DisplayName("the only AI state is the emote the next frame draws: hunting, wandering, fleeing, the target and the seen flag change nothing")
     void the_only_state_is_the_emote() throws Exception {
         atTheFirstWait();
         Mob mob = mobInView();
-        mob.state = mob.SLEEPING;
+        mob.state = mob.WANDERING;
         driver.step();
-        assertTrue(mob.sprite.shatterfishEmote() instanceof EmoIcon.Sleep,
-                "a sleeping mob's sprite shows the sleep icon after a frame (MobSprite.java:39; CharSprite.java:635-636)");
         Observer observer = new Observer();
-        ActorView asleep = actorAt(observer.actors(), mob.pos).orElseThrow();
-        assertEquals(Emote.SLEEP, asleep.emote());
+        ActorView wandering = actorAt(observer.actors(), mob.pos).orElseThrow();
+        assertEquals(Emote.NONE, wandering.emote());
 
-        // The state, the target and the seen flag change with no frame drawn: the icon stays, and
-        // so does the Observation.
-        mob.state = mob.HUNTING;
+        // Hunting, fleeing, a target and the seen flag draw no icon, so the Observation is the same.
         Field target = Mob.class.getDeclaredField("target");
         target.setAccessible(true);
         target.setInt(mob, hero.pos);
         Field enemySeen = Mob.class.getDeclaredField("enemySeen");
         enemySeen.setAccessible(true);
         enemySeen.setBoolean(mob, true);
-        ActorView hunting = actorAt(observer.actors(), mob.pos).orElseThrow();
-        assertEquals(asleep, hunting, "Mob.state, Mob.target and Mob.enemySeen are not in the Observation");
+        mob.state = mob.HUNTING;
+        assertEquals(wandering, actorAt(observer.actors(), mob.pos).orElseThrow(), "hunting draws nothing by itself");
+        mob.state = mob.FLEEING;
+        assertEquals(wandering, actorAt(observer.actors(), mob.pos).orElseThrow(), "fleeing draws nothing by itself");
         Serialized serialized = Serialized.of(Skeleton.around(observer.header(), observer.map(), observer.actors(),
                 observer.hero()));
         for (String hidden : List.of("Sleeping", "Hunting", "Wandering", "Fleeing", "Passive", "target", "enemySeen",
@@ -165,11 +167,43 @@ class ActorLeakTest {
             serialized.assertAbsent(hidden);
         }
 
-        // The icon changes when the sprite's does.
+        // Sleep is the sprite's per-frame function of the state (MobSprite.java:39; CharSprite.java:635-639):
+        // it reads as the next frame draws it, before that frame runs, and the frame then agrees.
+        mob.state = mob.SLEEPING;
+        assertFalse(mob.sprite.shatterfishEmote() instanceof EmoIcon.Sleep, "no frame has run since the state changed");
+        assertEquals(Emote.SLEEP, actorAt(observer.actors(), mob.pos).orElseThrow().emote());
+        driver.step();
+        assertTrue(mob.sprite.shatterfishEmote() instanceof EmoIcon.Sleep, "the frame drew the icon");
+        assertEquals(Emote.SLEEP, actorAt(observer.actors(), mob.pos).orElseThrow().emote());
+
+        // Woken with no frame drawn: the icon the next frame would hide is not carried.
+        mob.state = mob.WANDERING;
+        assertTrue(mob.sprite.shatterfishEmote() instanceof EmoIcon.Sleep, "the stale icon is still on the sprite");
+        assertEquals(Emote.NONE, actorAt(observer.actors(), mob.pos).orElseThrow().emote());
+
+        // The alert icon is the act's own (Mob.java:229-238), read through the accessor.
         mob.sprite.showAlert();
         assertEquals(Emote.ALERT, actorAt(observer.actors(), mob.pos).orElseThrow().emote());
         mob.sprite.hideAlert();
         assertEquals(Emote.NONE, actorAt(observer.actors(), mob.pos).orElseThrow().emote());
+    }
+
+    @Test
+    @DisplayName("two readings of one wait are one section, whatever order the level holds its mobs in")
+    void the_sections_are_deterministic() {
+        atTheFirstWait();
+        Observer observer = new Observer();
+        ActorsSection actors = observer.actors();
+        HeroSection heroSection = observer.hero();
+        byte[] bytes = ObservationCodec.encode(Skeleton.around(observer.header(), observer.map(), actors, heroSection));
+        assertTrue(actors.actors().size() >= 2 || level.mobs.size() >= 2, "there are mobs to order");
+        List<Mob> reversed = new ArrayList<>(level.mobs);
+        Collections.reverse(reversed);
+        level.mobs = new LinkedHashSet<>(reversed);
+        assertEquals(actors, observer.actors(), "Level.mobs is a HashSet; the section's order is by cell");
+        assertEquals(heroSection, observer.hero());
+        assertArrayEquals(bytes, ObservationCodec.encode(Skeleton.around(observer.header(), observer.map(), observer.actors(),
+                observer.hero())));
     }
 
     @Test
