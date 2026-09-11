@@ -27,25 +27,34 @@ import java.util.Set;
 public final class ValidActions {
 
     /**
-     * The tiles a click walks onto: the visuals whose terrain the game flags {@code PASSABLE}
-     * ({@code core/.../levels/Terrain.java:85-125}), plus the chasm, which a click asks about
-     * before the hero jumps ({@code core/.../levels/features/Chasm.java:59-62}) and which is
-     * therefore an input a person makes.
+     * The tiles a click walks onto. The game's own rule for the cell a click steps to is
+     * {@code passable[cell] || avoid[cell]} ({@code core/.../actors/hero/Hero.java:1832-1835}), so
+     * this is every visual whose terrain carries either flag
+     * ({@code core/.../levels/Terrain.java:85-128}): the floors, grass, embers, water, a pedestal,
+     * the doors that open, the stairs — and the two the game marks avoid rather than passable, the
+     * chasm, which asks before the hero jumps ({@code core/.../levels/features/Chasm.java:59-62}),
+     * and the well, which is how a person drinks it ({@code core/.../levels/Level.java:1253-1254}).
+     * The first draft read the rule as "passable" alone and left the well out, so the bot could
+     * never have taken a well; the review of this story found it, and
+     * {@code WalkableTableTest} in the harness now holds the table to the game's flags.
      *
      * <p>A tile is a visual and not a terrain, so a few terrains are drawn as a walkable tile and
      * are not walkable: a custom decoration draws as floor and a decoration that keeps water's
-     * pass-through draws as water, both solid ({@code Terrain.java:117-119}). A step onto one is
+     * pass-through draws as water, both solid ({@code Terrain.java:119-120}). A step onto one is
      * offered here and refused by the executor, which is the same thing that happens to a person
      * who clicks on the blacksmith's forge.
      */
     private static final Set<Tile> WALKABLE = EnumSet.of(Tile.EMPTY, Tile.EMPTY_SP, Tile.EMPTY_DECO,
             Tile.GRASS, Tile.HIGH_GRASS, Tile.FURROWED_GRASS, Tile.EMBERS, Tile.WATER, Tile.CHASM,
-            Tile.EMPTY_WELL, Tile.PEDESTAL, Tile.DOOR, Tile.OPEN_DOOR, Tile.ENTRANCE, Tile.ENTRANCE_SP,
-            Tile.EXIT, Tile.UNLOCKED_EXIT);
+            Tile.EMPTY_WELL, Tile.WELL, Tile.PEDESTAL, Tile.DOOR, Tile.OPEN_DOOR, Tile.ENTRANCE,
+            Tile.ENTRANCE_SP, Tile.EXIT, Tile.UNLOCKED_EXIT);
 
-    /** The heap kinds a click on the hero's own cell opens rather than picks up. */
-    private static final Set<HeapKind> CONTAINERS = EnumSet.of(HeapKind.CHEST, HeapKind.EBONY_CHEST,
-            HeapKind.CRYSTAL_CHEST, HeapKind.TOMB, HeapKind.SKELETON, HeapKind.REMAINS);
+    /**
+     * The tiles a click tries to unlock: the doors and the boss floor's exit
+     * ({@code core/.../actors/hero/Hero.java:1993-1998}). A hero-locked door draws as a locked door
+     * and is the same input (ADR-0005, {@link Tile}).
+     */
+    private static final Set<Tile> LOCKED = EnumSet.of(Tile.LOCKED_DOOR, Tile.CRYSTAL_DOOR, Tile.LOCKED_EXIT);
 
     /** The transitions a descent takes. */
     private static final Set<TransitionKind> DOWN = EnumSet.of(TransitionKind.REGULAR_EXIT, TransitionKind.BRANCH_EXIT);
@@ -55,12 +64,22 @@ public final class ValidActions {
             TransitionKind.BRANCH_ENTRANCE, TransitionKind.SURFACE);
 
     /**
-     * Item actions that open the cell selector, so the input carries a cell
-     * ({@code core/.../items/Item.java}, {@code AC_THROW}; {@code core/.../items/wands/Wand.java},
-     * {@code AC_ZAP}; {@code core/.../items/bombs/Bomb.java}). The identifiers are the ones the
+     * Item actions that always open the cell selector, so the input carries a cell and the plain
+     * shape is never right. Each is an identifier whose class reaches {@code GameScene.selectCell}
+     * at the tag: a throw ({@code core/.../items/Item.java:71}), a wand's zap
+     * ({@code core/.../items/wands/Wand.java:78}), a bomb lit and thrown
+     * ({@code core/.../items/bombs/Bomb.java:82}), a spell or the chains cast
+     * ({@code core/.../items/spells/TargetedSpell.java:46};
+     * {@code core/.../items/artifacts/EtherealChains.java:59}), a weapon's ability
+     * ({@code core/.../items/weapon/melee/MeleeWeapon.java:65}), the talisman's scry
+     * ({@code core/.../items/artifacts/TalismanOfForesight.java:70}), the armband's steal
+     * ({@code core/.../items/artifacts/MasterThievesArmband.java:69}), the key inserted
+     * ({@code core/.../items/artifacts/SkeletonKey.java:78}) and the sandals' root
+     * ({@code core/.../items/artifacts/SandalsOfNature.java:84}). The identifiers are the ones the
      * item window executes, which is what the inventory section carries (ADR-0006, the Items row).
      */
-    private static final Set<String> AT_A_CELL = Set.of("THROW", "ZAP");
+    private static final Set<String> AT_A_CELL = Set.of("THROW", "ZAP", "LIGHTTHROW", "CAST", "ABILITY",
+            "SCRY", "STEAL", "INSERT", "ROOT");
 
     /**
      * Item actions that can open the bag, so the input may carry another item. Every one of them is
@@ -72,18 +91,25 @@ public final class ValidActions {
      * ({@code core/.../items/weapon/melee/MagesStaff.java}), the spellbook added to
      * ({@code core/.../items/artifacts/UnstableSpellbook.java}), the sandals fed a seed
      * ({@code core/.../items/artifacts/SandalsOfNature.java}), the horn stored into
-     * ({@code core/.../items/artifacts/HornOfPlenty.java}) and the shard's identification
-     * ({@code core/.../items/quest/ShardOfOblivion.java}).
+     * ({@code core/.../items/artifacts/HornOfPlenty.java}), the shard's identification
+     * ({@code core/.../items/trinkets/ShardOfOblivion.java:53}), the resin and the liquid metal
+     * applied ({@code core/.../items/ArcaneResin.java:56};
+     * {@code core/.../items/LiquidMetal.java}), a glyph inscribed
+     * ({@code core/.../items/Stylus.java:45}), a dart tipped
+     * ({@code core/.../items/weapon/missiles/darts/Dart.java:66}), a glyph transferred
+     * ({@code core/.../items/armor/ClassArmor.java:54}) and the rose outfitted
+     * ({@code core/.../items/artifacts/DriedRose.java}).
      *
-     * <p>Can, not does: {@code READ} opens the bag for those four scrolls and for nothing else, and
-     * the identifier is all the Observation carries — as is true for the player, who reads an
+     * <p>Can, not does: {@code READ} opens the bag for those four scrolls and for the scroll of
+     * enchantment ({@code core/.../items/scrolls/exotic/ScrollOfEnchantment.java:45}) and not for
+     * any other scroll, and the identifier is all the Observation carries — as is true for the player, who reads an
      * unknown scroll and finds out. So both shapes are offered for these, the plain action and the
      * action on each other item, and the executor takes the one the game asks for (story 1.13). An
      * item action outside both tables is offered plainly; if the game opens a selector for it, the
      * executor reports it rather than guessing, which is the completeness test's business.
      */
     private static final Set<String> ON_AN_ITEM = Set.of("READ", "USE", "AFFIX", "IMBUE", "ADD", "FEED",
-            "STORE", "IDENTIFY");
+            "STORE", "IDENTIFY", "APPLY", "INSCRIBE", "TIP", "TRANSFER", "OUTFIT");
 
     private ValidActions() {
     }
@@ -137,6 +163,10 @@ public final class ValidActions {
                             : new Action.Interact(neighbour));
                 } else if (WALKABLE.contains(map.tiles().get(neighbour))) {
                     actions.add(new Action.Step(neighbour));
+                } else if (LOCKED.contains(map.tiles().get(neighbour))) {
+                    // A click on a locked door or the boss floor's exit is the unlock input, and
+                    // the key in the pack is the game's business (Hero.java:1993-1998).
+                    actions.add(new Action.Unlock(neighbour));
                 }
             }
         }
@@ -148,13 +178,17 @@ public final class ValidActions {
             if (heap.cell() != cell) {
                 continue;
             }
+            // What a click on the heap under the hero does, as the hero decides it
+            // (core/.../actors/hero/Hero.java:1974-1991): a plain heap is picked up; a for-sale
+            // heap is bought when it is one item with a price and picked up otherwise, which the
+            // section says, since the price is carried exactly for a single for-sale item
+            // (ADR-0006, the Heaps row); every other kind, a locked chest included, is opened, and
+            // whether the key is in the pack is the game's to answer (Hero.java:2454-2472).
             if (heap.kind() == HeapKind.HEAP) {
                 actions.add(new Action.PickUp());
             } else if (heap.kind() == HeapKind.FOR_SALE) {
-                actions.add(new Action.Buy(cell));
-            } else if (heap.kind() == HeapKind.LOCKED_CHEST) {
-                actions.add(new Action.Unlock(cell));
-            } else if (CONTAINERS.contains(heap.kind())) {
+                actions.add(heap.price() > 0 ? new Action.Buy(cell) : new Action.PickUp());
+            } else {
                 actions.add(new Action.OpenChest(cell));
             }
         }
@@ -163,7 +197,7 @@ public final class ValidActions {
                 continue;
             }
             // The boss lock refuses every transition while the fight is on
-            // (core/.../levels/Level.java:180, :617-630), which the header carries as sealed, so
+            // (core/.../levels/Level.java:181, :645-650), which the header carries as sealed, so
             // the set never offers a descent the game would refuse.
             if (header.sealed()) {
                 continue;

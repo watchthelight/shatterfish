@@ -201,7 +201,7 @@ the hero section counts them; the armour ability once the hero has one; and `Res
 
 **Two narrowings, both deliberate.** The set is what the *screen* shows to be available, not what
 the game will allow: a cell drawn as floor can be a decoration the hero cannot enter
-(`…/levels/Terrain.java:117-119`), and a locked chest is offered whether or not the key is in the
+(`…/levels/Terrain.java:119-120`), and a locked chest is offered whether or not the key is in the
 pack. Those are the executor's to refuse, with a reason, which is the division of labour the table
 already had. And a targeted item action is offered at each character in view and at the hero's own
 cell rather than at every cell of the floor: the cross product of items and cells is thousands of
@@ -214,11 +214,24 @@ means: which tiles a click walks onto, which item actions open the cell selector
 which heap kinds open rather than pick up. The bag table is the awkward one, and it is honest about
 it: the same identifier opens the bag for one item and not another — `READ` does for the scrolls of
 identify, remove curse, transmutation and upgrade (`…/items/scrolls/InventoryScroll.java:39-49`)
-and for no other scroll — and the identifier is all the Observation carries, which is also all a
+and for the scroll of enchantment (`…/items/scrolls/exotic/ScrollOfEnchantment.java:45`), and for
+no other scroll — and the identifier is all the Observation carries, which is also all a
 player has before reading an unknown scroll. So both shapes are offered for such an action, the
 plain one and the one on each other item, and the executor takes the shape the game asks for. The
 entries were read off the classes that reach `GameScene.selectItem` rather than guessed, which the
-first draft of this story did, and got wrong. They are the wiki-level facts non-negotiable 1 allows a
+first draft of this story did, and got wrong; the review found five more of them and the two
+missing halves of the cell table, and the tables now name the class behind every entry.
+
+**A third narrowing, and it runs the other way.** The set drops `Descend` and `Ascend` on a sealed
+floor, which is "what the game will allow" and therefore an exception to the division of labour two
+paragraphs above. It is here because the story's acceptance asks for it and because the flag is
+already in the header for the screen's own reasons, and it is worth naming as an exception rather
+than leaving as an inconsistency: everything else in the set is what the screen shows, and this one
+thing is what the game does. The review of the upgrade to `v4.0.0` also found that the flag is not
+always drawn — the vault floor seals without the `LockedFloor` buff the HUD shows
+(`…/levels/VaultLevel.java:630-637`) — so the bot loses its stairs there with less on screen to
+explain it than on a boss floor, where the boss, the bar and the buff are all in view. ADR-0006's
+Boss lock row carries that now. They are the wiki-level facts non-negotiable 1 allows a
 bot to know, they are cited to the code that decides them, and E2's Codex is where they move when
 it exists. `ValidActionsTest` holds the rules over the schema's own corpus, in a module the build
 forbids from seeing the game, which is what "computed with no game running" means here.

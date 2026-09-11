@@ -187,20 +187,32 @@ class ValidActionsTest {
         List<Action> open = ValidActions.of(observation).actions();
         assertTrue(open.contains(new Action.Step(right)), "floor beside the hero is a step");
 
-        // Every tile the game flags SOLID or AVOID rather than PASSABLE: a wall, a locked door, a
-        // barricade, an alchemy pot, a statue, a well, a mine crystal (Terrain.java:85-125).
-        for (Tile solid : List.of(Tile.WALL, Tile.WALL_DECO, Tile.LOCKED_DOOR, Tile.CRYSTAL_DOOR, Tile.BARRICADE,
-                Tile.BOOKSHELF, Tile.ALCHEMY, Tile.STATUE, Tile.STATUE_SP, Tile.WELL, Tile.LOCKED_EXIT,
-                Tile.MINE_CRYSTAL, Tile.MINE_BOULDER, Tile.REGION_DECO, Tile.REGION_DECO_ALT)) {
+        // Every tile whose terrain the game flags SOLID: a wall, a barricade, an alchemy pot, a
+        // statue, a mine crystal, a bookshelf (Terrain.java:85-128). A click on one is no step.
+        for (Tile solid : List.of(Tile.WALL, Tile.WALL_DECO, Tile.BARRICADE, Tile.BOOKSHELF, Tile.ALCHEMY,
+                Tile.STATUE, Tile.STATUE_SP, Tile.MINE_CRYSTAL, Tile.MINE_BOULDER, Tile.REGION_DECO,
+                Tile.REGION_DECO_ALT)) {
             Observation walled = Corpus.with(observation, withTile(observation.map(), right, solid));
             assertFalse(ValidActions.of(walled).actions().contains(new Action.Step(right)),
                     solid + " is not a cell a click walks onto");
         }
 
-        // And the chasm is, because the click asks before the hero jumps (Chasm.java:59-62).
-        Observation chasm = Corpus.with(observation, withTile(observation.map(), right, Tile.CHASM));
-        assertTrue(ValidActions.of(chasm).actions().contains(new Action.Step(right)),
-                "a click on a chasm is an input a person makes; the question comes after");
+        // The two the game flags avoid rather than passable are steps all the same, since the
+        // hero's own rule is passable or avoid (Hero.java:1832-1835): the chasm, which asks before
+        // the jump, and the well, which is how a person drinks it.
+        for (Tile avoid : List.of(Tile.CHASM, Tile.WELL)) {
+            Observation there = Corpus.with(observation, withTile(observation.map(), right, avoid));
+            assertTrue(ValidActions.of(there).actions().contains(new Action.Step(right)),
+                    avoid + " is a cell the hero can step onto; what happens then is the game's business");
+        }
+
+        // A locked door and the boss floor's exit are not steps but unlocks (Hero.java:1993-1998).
+        for (Tile locked : List.of(Tile.LOCKED_DOOR, Tile.CRYSTAL_DOOR, Tile.LOCKED_EXIT)) {
+            Observation shut = Corpus.with(observation, withTile(observation.map(), right, locked));
+            List<Action> valid = ValidActions.of(shut).actions();
+            assertFalse(valid.contains(new Action.Step(right)), locked + " is not walked onto");
+            assertTrue(valid.contains(new Action.Unlock(right)), locked + " is unlocked");
+        }
 
         // A cell the player has never seen is drawn as nothing and is no step either.
         Observation unseen = Corpus.with(observation, withTile(observation.map(), below, Tile.NONE));
@@ -219,17 +231,28 @@ class ValidActionsTest {
                 HeapKind.CRYSTAL_CHEST, HeapKind.TOMB, HeapKind.SKELETON, HeapKind.REMAINS, HeapKind.EBONY_CHEST)) {
             String item = kind == HeapKind.HEAP || kind == HeapKind.FOR_SALE ? "Ration of food" : "";
             int price = kind == HeapKind.FOR_SALE ? 50 : 0;
+            // A for-sale heap of several items has no price and is picked up, not bought.
             Observation under = Corpus.with(observation,
                     withHeap(observation.map(), new HeapView(hero, kind, false, item, price, "")));
             List<Action> valid = ValidActions.of(under).actions();
+            // What the hero itself would make of a click there (Hero.java:1974-1991): a plain heap
+            // is picked up, a for-sale heap of one priced item is bought, and every other kind,
+            // the locked chest included, is opened.
             Action expected = switch (kind) {
                 case HEAP -> new Action.PickUp();
                 case FOR_SALE -> new Action.Buy(hero);
-                case LOCKED_CHEST -> new Action.Unlock(hero);
                 default -> new Action.OpenChest(hero);
             };
             assertTrue(valid.contains(expected), kind + " under the hero should offer " + expected);
+            assertFalse(valid.contains(new Action.Unlock(hero)),
+                    "an unlock is for a door, never for a heap (Action.java, Unlock)");
         }
+
+        Observation stacked = Corpus.with(observation,
+                withHeap(observation.map(), new HeapView(hero, HeapKind.FOR_SALE, false, "Ration of food", 0, "")));
+        List<Action> valid = ValidActions.of(stacked).actions();
+        assertTrue(valid.contains(new Action.PickUp()), "a shop heap the section gives no price is picked up");
+        assertFalse(valid.contains(new Action.Buy(hero)));
     }
 
     @Test
