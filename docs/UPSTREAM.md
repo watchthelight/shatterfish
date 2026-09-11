@@ -184,3 +184,15 @@ project skill (Session 4) automates these steps.
 9. Update this file (pinned table, hooks' "Verified at tag" column), `README.md`,
    and `docs/codebase-map.md` for anything the new tag contradicts.
 10. PR with label `touches-upstream`; merge only when CI is green.
+
+### What moves with the pin, and what does not
+
+A tag move rewrites some documents and deliberately leaves others alone, so that a reader who finds
+`v3.3.8` in one of them knows it is a date and not a stale link.
+
+| Moves with the pin | Stays at the tag it was written against |
+|---|---|
+| This file's pinned table and every hook row's "Verified at tag" | The accepted decision records under `docs/adr/`, whose citations are the evidence for a decision taken at that tag; an upgrade adds a dated note when a decision's ground moved, as `v4.0.0` did to ADR-0006's Blobs row |
+| `README.md` and `docs/codebase-map.md`, which name files rather than lines | `docs/BOOTSTRAP-PROMPT.md` and anything under `docs/results/`, which are records of a moment |
+| Every `docs/rules/` row whose cited text is still there, at the line it moved to | A rules row flipped to needs-review: its link stays where it was true until someone re-reads the code |
+| The harness's own assertions about the release it runs | A story file in `_bmad-output/`, which says what was true when the story ran |
