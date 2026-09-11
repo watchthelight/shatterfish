@@ -11,7 +11,7 @@ import java.util.Objects;
  *
  * <p>The hero is not an actor of the actors section; its cell is here, and the Observation holds
  * that cell to be in view and free of any other character. The health is exact, as the status
- * pane prints it ({@code …/ui/StatusPane.java:322-327}), unlike an actor's, which is quantised to
+ * pane prints it ({@code …/ui/StatusPane.java:334-339}), unlike an actor's, which is quantised to
  * its bar.
  *
  * @param cell the hero's cell, drawn by its sprite
@@ -32,7 +32,7 @@ import java.util.Objects;
  * @param gold the gold, as the bag window prints it ({@code …/windows/WndBag.java:186})
  * @param energy the alchemical energy, as the bag window prints it when any
  *               ({@code WndBag.java:179}, {@code :219})
- * @param hunger the hunger icon's state ({@code …/actors/buffs/Hunger.java:179-187})
+ * @param hunger the hunger icon's state ({@code …/actors/buffs/Hunger.java:178-186})
  * @param buffs every buff with an icon, with the turns its description shows, by name then timed
  *              then turns, as an actor's ({@code WndHero.java:301-314}; {@code …/ui/BuffIndicator.java:192-196})
  * @param talents every talent of every tier the pane shows, with its points, by tier then name. The
@@ -52,7 +52,7 @@ public record HeroSection(int cell, String name, HeroSubclass subclass, String a
                           int energy, Hunger hunger, List<BuffView> buffs, List<TalentView> talents,
                           List<Integer> talentPointsAvailable, List<QuickslotView> quickslots) {
 
-    /** The talent tiers the pane shows ({@code …/actors/hero/Talent.java:957}). */
+    /** The talent tiers the pane shows ({@code …/actors/hero/Talent.java:960}). */
     public static final int TALENT_TIERS = 4;
 
     /** The quickslots the toolbar has ({@code …/QuickSlot.java:40}). */

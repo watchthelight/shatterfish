@@ -52,9 +52,20 @@ are tunable constants or state the game's own `Actor.clear()` and `Dungeon.init(
 are counters of the same shape (`Combo.furyHitsLeft`, `GnollGeomancer.rocksInFlight`,
 `Char.hitMissIcon`, `Blacksmith.type`). One process hosting one Run makes the question moot, which
 is what the rig does and what ADR-0007 assumes; it stops being moot the moment anything runs two
-Runs in a process, which the tests already do. Story 1.16 owns the answer: either a reset list the
-harness applies at every Run start, with a test that walks the statics and fails on a new one, or a
-documented rule that a process hosts one Run and the tests that break it carry their own resets.
+Runs in a process, which the tests already do. Story 1.16 (#29) owns the answer: either a reset list
+the harness applies at every Run start, with a test that walks the statics and fails on a new one,
+or a documented rule that a process hosts one Run and the tests that break it carry their own
+resets.
+
+Two things sharpen the choice. The driver cannot simply do what the fixture does: `Snake.dodges` is
+private, and harness main code may not reflect into upstream, so a reset list either needs a hook
+row of its own or has to be limited to the public fields (`Chasm.jumpConfirmed`, which the driver
+already clears, and `TippedDart.lostDarts`). And the review of the v4.0.0 upgrade found a worse one
+than the snake: `Badges.global` and `Journal.loaded` load once per process
+(`core/.../Badges.java`, `core/.../journal/Journal.java`), so a second Run in a process keeps the
+first Run's journal, and level generation reads which guide pages are missing when it decides what
+the early floors drop (`core/.../levels/RegularLevel.java:561-575`). That changes the floor, not
+the log. The test fixture clears both; `HeadlessDriver.newGame` does not.
 
 ## What a remembered cell still shows: the always-visible blobs
 

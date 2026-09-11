@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -73,6 +74,16 @@ class TerrainTableTest {
         assertEquals(Tile.LOCKED_DOOR, Observer.tile(Terrain.HERO_LKD_DR));
         assertEquals(Tile.WATER, Observer.tile(Terrain.WATER));
         assertEquals(Tile.CHASM, Observer.tile(Terrain.CHASM));
+
+        // v4.0.0's decoration that keeps water's pass-through: the sheet gives it the water visual
+        // (DungeonTileSheet.java:442) and the tilemap draws water there, so the section says water,
+        // whatever the cell is for. Its one site at the tag is the blacksmith's forge
+        // (BlacksmithRoom.java:72), which a custom tilemap then covers: the section reads water on
+        // a cell drawn as a forge, a loss ADR-0006's note at v4.0.0 records.
+        assertEquals(Tile.WATER, Observer.tile(Terrain.CUSTOM_DECO_WTR));
+        assertEquals(Observer.tile(Terrain.WATER), Observer.tile(Terrain.CUSTOM_DECO_WTR));
+        assertNotEquals(Tile.EMPTY, Observer.tile(Terrain.CUSTOM_DECO_WTR),
+                "it is not the plain decoration's floor: the sheet draws it as water");
     }
 
     @Test

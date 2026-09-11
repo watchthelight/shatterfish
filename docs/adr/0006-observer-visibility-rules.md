@@ -525,6 +525,40 @@ bubbling on a remembered cell; the section shows neither, because the record car
 a cell in view (ADR-0005). That is memory the human has and the bot does not, the same shape as the
 log pane's wipe, and it is now worth closing: `docs/ideas.md` carries it for the schema story.
 
+Four more of the record's rows are looser at `v4.0.0` than they read, and the review of the upgrade
+found them. None of them lets the bot see more than the screen; each is the Observer showing less,
+or claiming an equivalence that has stopped holding.
+
+- **A sprite is no longer drawn exactly when the hero sees its cell.** `CharSprite.visibleOutOfFFOV`
+  (`…/sprites/CharSprite.java:86`) makes a sprite draw regardless of the field of view, and
+  `GameScene` honours it in both places it sets a mob's visibility
+  (`…/scenes/GameScene.java:1096`, `:1528-1535`). Two of the vault's objects set it
+  (`…/sprites/VaultMirrorSprite.java:34`; `…/sprites/VaultTokenDoorSprite.java:35`). The Mobs row
+  above says the field of view *is* the sprite's visibility; at this tag it is the common case and
+  not the rule, and `actors()` drops those two where a player sees them.
+- **The health bar draws a third band.** It now shows the damage already owed by poison and the
+  like, `Char.incomingDOT()` (`…/actors/Char.java:811`; `…/ui/HealthBar.java:86-102`), and the
+  indicator shows the bar at full health when any is pending
+  (`…/ui/CharHealthIndicator.java:55-57`). The actors' health is still the health pips alone, and
+  the hero section carries no such number: a loss, and a number a brain would want.
+- **An object has no bar and no buff row.** The examine window adds neither for a
+  `Char.Property.OBJECT` (`…/windows/WndInfoMob.java:60-65`), while `actors()` emits health pips
+  and buffs for every character it lists. Today the two vault objects refuse damage and refuse
+  buffs, so both values are constant and nothing is said that the screen denies; the gate is
+  missing all the same.
+- **Custom tilemaps are a third layer the map does not model.** `Level.customTerrain`
+  (`…/levels/Level.java:189`) draws inside the terrain group, and the examine window takes a cell's
+  name and description from it before the terrain's own
+  (`…/windows/WndInfoCell.java:60-112`). The Terrain row has no clause for it. The blacksmith's
+  forge is the case to keep in mind: `v4.0.0` paints its cell `CUSTOM_DECO_WTR`
+  (`…/levels/rooms/quest/BlacksmithRoom.java:72`), which the tile sheet draws as water and the
+  smithy's own visual then covers, so the section reads water on a cell that is solid and drawn as
+  a forge. A false positive rather than an absence, of the same kind as the older
+  `CUSTOM_DECO → EMPTY` row, and the first one recorded.
+
 The upgrade also found that `v4.0.0` names the old imp quest's window `WndImpOld` and adds
-`Terrain.CUSTOM_DECO_WTR`, an invisible decoration drawn as water, which the tile table names; and
-that upstream's `Snake.dodges` outlives a Run, which is the determinism story's to answer.
+`Terrain.CUSTOM_DECO_WTR`, an invisible decoration drawn as water, which the tile table names; that
+the vault's mirror and token door open `WndTitledMessage` windows, which `Prompts` does not
+recognise, so a Run that reaches one stops at the driver as story 1.10 recorded for the
+blacksmith's; and that upstream's `Snake.dodges` outlives a Run, which is the determinism story's
+to answer (#29).

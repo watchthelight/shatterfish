@@ -112,7 +112,15 @@ final class FreshRun {
         // (…/actors/mobs/Snake.java:58-70). Nothing resets it between Runs, so a second Run in
         // this process starts part-way to the advice and logs a different number of lines than
         // the first. The upgrade to v4.0.0 is where it first showed, in the draw-parity
-        // fingerprint; the Run-level answer is story 1.16's, and here the fixture clears it.
+        // fingerprint.
+        //
+        // The driver is where this belongs, next to the Chasm.jumpConfirmed reset it already does
+        // at every Run start, and it cannot hold it: the field is private, and harness main code
+        // may not reach a private member of upstream's by reflection (docs/UPSTREAM.md; the
+        // allowance is two fields in SceneStepper and HarnessReflectionTest holds it there). It
+        // would take a row of its own in the ledger, or a Run-start reset list that upstream can
+        // be asked for. Story 1.16, issue #29, owns the choice; the sweep behind it and the other
+        // statics of this shape are in docs/ideas.md.
         set(Snake.class, "dodges", 0);
     }
 
