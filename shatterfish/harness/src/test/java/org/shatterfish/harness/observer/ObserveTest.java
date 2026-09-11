@@ -2,6 +2,7 @@ package org.shatterfish.harness.observer;
 
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndMessage;
 import org.junit.jupiter.api.AfterEach;
@@ -17,6 +18,7 @@ import java.util.HexFormat;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -52,7 +54,11 @@ class ObserveTest {
     @DisplayName("the whole read is the sections read one by one, with no Actions before story 1.12")
     void the_whole_is_its_sections() {
         Observer observer = atTheFirstWait();
+        someoneInView();
         Observation whole = observer.observe();
+        assertFalse(whole.actors().actors().isEmpty(), "an actor is in view, so the section is not empty");
+        assertFalse(whole.inventory().items().isEmpty(), "the hero carries what it started with");
+        assertFalse(whole.log().lines().isEmpty(), "the floor's own lines were captured");
         Observation assembled = new Observation(observer.header(), observer.map(), observer.actors(), observer.hero(),
                 observer.inventory(), observer.journal(), observer.log(), ActionsSection.NONE, observer.prompt());
         assertEquals(assembled, whole, "the same sections, so the same record");
@@ -95,6 +101,19 @@ class ObserveTest {
         assertTrue(acting.getMessage().contains("not waiting for input"), acting.getMessage());
         driver.stepToInputWait();
         assertNotNull(observer.observe(), "ready again at the next wait");
+    }
+
+    /** Moves a mob the hero cannot see into view, so that the actors section carries someone. */
+    private static void someoneInView() {
+        for (Mob mob : Dungeon.level.mobs) {
+            if (!Dungeon.level.heroFOV[mob.pos] && mob.sprite != null) {
+                mob.pos = farFloor();
+                mob.sprite.place(mob.pos);
+                Dungeon.hero.checkVisibleMobs();
+                return;
+            }
+        }
+        throw new AssertionError("no mob out of view to bring into it");
     }
 
     /** The cell in view furthest from the hero: a click there is a move of more than one step. */

@@ -6,6 +6,7 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.shatteredpixel.shatteredpixeldungeon.levels.features.LevelTransition;
+import com.watabou.utils.Point;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -102,6 +103,18 @@ class FloorSectionTest {
         assertEquals(TransitionKind.REGULAR_EXIT, transitionAt(mapped, exit.cell()).orElseThrow().kind());
         assertEquals(seen(mapped), cells(mapped), "the way down joins them");
         assertEquals(2, mapped.transitions().size(), "the floor's two transitions, both seen now");
+
+        // A transition is a rectangle, and the boss floors make theirs wider than the stairs they
+        // paint (…/levels/CavesBossLevel.java:158-163); the cell carried is the one the game
+        // designates, not a corner of the rectangle.
+        Point at = level.cellToPoint(surface.cell());
+        surface.set(at.x - 1, at.y - 1, at.x + 1, at.y + 1);
+        assertTrue(surface.inside(surface.cell()) && surface.width() == 3, "a region of nine cells now");
+        MapSection wide = new Observer().map();
+        assertEquals(TransitionKind.SURFACE, transitionAt(wide, surface.cell()).orElseThrow().kind());
+        assertTrue(transitionAt(wide, level.pointToCell(new Point(at.x - 1, at.y - 1))).isEmpty(),
+                "the corner of the region is not the transition's cell");
+        assertEquals(seen(wide), cells(wide));
     }
 
     /** The cells of the transitions the player has seen, in the order the record fixes. */

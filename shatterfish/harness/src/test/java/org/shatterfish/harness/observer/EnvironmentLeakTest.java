@@ -110,6 +110,22 @@ class EnvironmentLeakTest {
         Serialized louder = Serialized.of(new Observer().observe());
         assertEquals(before, new Observer().observe().hash(), "the volume is not carried");
         louder.assertAbsent(String.valueOf(LOUD_VOLUME));
+
+        // The emitter's own two conditions for drawing anything at all: it is emitting, and there
+        // is some of the blob left (…/effects/BlobEmitter.java:47-49;
+        // SPD-classes/…/noosa/particles/Emitter.java:116-128). Neither is a state the tag's blobs
+        // reach on their own, so the test puts the emitter in it, as a hidden window member is put
+        // out of sight in PromptGateTest.
+        gas.emitter.on = false;
+        assertTrue(blobAt(new Observer().map(), cell).orElseThrow().kinds().stream().noneMatch("ToxicGas"::equals),
+                "an emitter that is not emitting draws nothing");
+        gas.emitter.on = true;
+        int volume = gas.volume;
+        gas.volume = 0;
+        assertTrue(blobAt(new Observer().map(), cell).orElseThrow().kinds().stream().noneMatch("ToxicGas"::equals),
+                "a blob of no volume draws nothing (BlobEmitter.java:47-49)");
+        gas.volume = volume;
+        assertEquals(before, new Observer().observe().hash(), "and back to what it was");
     }
 
     @Test
