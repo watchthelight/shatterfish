@@ -45,9 +45,12 @@ class VisibilityChecklistTest {
     /** The field a suite declares to claim the rows it holds. */
     private static final String CLAIM = "ADR_0006_ROWS";
 
-    /** Rows no test can hold yet, each with the issue that will: they are built in a later story. */
-    private static final Map<String, String> PENDING = Map.of(
-            "Valid Actions", "#25 (story 1.12, the Action type and the valid-Action set)");
+    /**
+     * Rows no test can hold yet, each with the issue that will. Empty since story 1.12 filled the
+     * valid-Action set, which was the last one: every row of the whitelist is now claimed by a
+     * suite that tests it, and a row added to the record fails here until one claims it.
+     */
+    private static final Map<String, String> PENDING = Map.of();
 
     @Test
     @DisplayName("every row of the whitelist is claimed by a leak test, or pending with its issue")

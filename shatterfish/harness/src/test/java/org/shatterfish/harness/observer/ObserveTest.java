@@ -12,13 +12,16 @@ import org.junit.jupiter.api.Timeout;
 import org.shatterfish.api.ActionsSection;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.ObservationCodec;
+import org.shatterfish.api.ValidActions;
 import org.shatterfish.harness.driver.HeadlessDriver;
 
 import java.util.HexFormat;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -31,6 +34,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Timeout(value = 5, unit = TimeUnit.MINUTES)
 class ObserveTest {
+
+    /** The rows of ADR-0006's whitelist this suite holds ({@link VisibilityChecklistTest}). */
+    static final List<String> ADR_0006_ROWS = List.of("Valid Actions");
 
     private static final long SEED = 66_260_701L;
 
@@ -51,7 +57,7 @@ class ObserveTest {
     }
 
     @Test
-    @DisplayName("the whole read is the sections read one by one, with no Actions before story 1.12")
+    @DisplayName("the whole read is the sections read one by one, with the Actions they imply")
     void the_whole_is_its_sections() {
         Observer observer = atTheFirstWait();
         someoneInView();
@@ -59,11 +65,13 @@ class ObserveTest {
         assertFalse(whole.actors().actors().isEmpty(), "an actor is in view, so the section is not empty");
         assertFalse(whole.inventory().items().isEmpty(), "the hero carries what it started with");
         assertFalse(whole.log().lines().isEmpty(), "the floor's own lines were captured");
-        Observation assembled = new Observation(observer.header(), observer.map(), observer.actors(), observer.hero(),
+        Observation sections = new Observation(observer.header(), observer.map(), observer.actors(), observer.hero(),
                 observer.inventory(), observer.journal(), observer.log(), ActionsSection.NONE, observer.prompt());
+        Observation assembled = sections.withActions(ValidActions.of(sections));
         assertEquals(assembled, whole, "the same sections, so the same record");
         assertEquals(assembled.hash(), whole.hash());
-        assertEquals(ActionsSection.NONE, whole.actions(), "the valid Actions are story 1.12's");
+        assertNotEquals(ActionsSection.NONE, whole.actions(), "the valid Actions ride with the sections (story 1.12)");
+        assertEquals(ValidActions.of(whole), whole.actions(), "and are the ones the Observation itself implies");
         assertEquals(whole.header().prompt(), whole.prompt().kind(), "the record holds the two to each other");
     }
 

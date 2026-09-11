@@ -1,0 +1,195 @@
+package org.shatterfish.api;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * The valid Actions are a function of the Observation and of nothing else (ADR-0014; story 1.12).
+ * This suite runs in {@code api}, which the build forbids from seeing a line of the game
+ * ({@code ApiBoundaryTest}), so "with no game running" is not a thing the test arranges: it is the
+ * only thing that can happen here. What the suite adds is that the function is total over the
+ * schema, that every parameter it produces is a value the Observation carries, and that the rules
+ * ADR-0014 names hold.
+ */
+class ValidActionsTest {
+
+    @Test
+    @DisplayName("under a Prompt the options are the only Actions, and waiting is not one of them")
+    void a_prompt_takes_the_whole_wait() {
+        Observation observation = Corpus.promptObservation();
+        ActionsSection valid = ValidActions.of(observation);
+
+        assertEquals(observation.prompt().options().size(), valid.actions().size(),
+                "one Action per button: " + valid.actions());
+        for (int option = 0; option < observation.prompt().options().size(); option++) {
+            assertTrue(valid.actions().contains(new Action.AnswerPrompt(option)), "option " + option);
+        }
+        assertFalse(valid.actions().contains(new Action.Wait()),
+                "a Brain that waits at a Prompt is a Brain error, not a stall (ADR-0014)");
+        for (Action action : valid.actions()) {
+            assertTrue(action instanceof Action.AnswerPrompt, action + " is not an answer");
+        }
+    }
+
+    @Test
+    @DisplayName("a move is one step to a cell beside the hero, and never a click on a distant one")
+    void a_move_is_one_step() {
+        Observation observation = Corpus.observation();
+        ActionsSection valid = ValidActions.of(observation);
+        int width = observation.map().width();
+        int hero = observation.hero().cell();
+
+        int steps = 0;
+        for (Action action : valid.actions()) {
+            assertFalse(action instanceof Action.MoveTo, "a click on a distant cell is a human's, never valid");
+            if (action instanceof Action.Step step) {
+                steps++;
+                int dx = Math.abs(step.cell() % width - hero % width);
+                int dy = Math.abs(step.cell() / width - hero / width);
+                assertTrue(dx <= 1 && dy <= 1 && (dx + dy) > 0,
+                        "a step is to one of the eight cells around the hero: " + step.cell() + " from " + hero);
+            }
+        }
+        assertTrue(steps > 0, "the hero has somewhere to go: " + valid.actions());
+    }
+
+    @Test
+    @DisplayName("every parameter is a value the Observation carries, which the record itself holds")
+    void every_parameter_is_carried() {
+        Observation observation = Corpus.observation();
+        // The Observation's own constructor checks every Action against the sections: a cell it
+        // includes, an item reference its inventory lists with that name and quantity, an action
+        // that item offers, a talent its hero has, its own ability, an option of its prompt
+        // (ADR-0014). Building the record with the computed set is therefore the assertion.
+        Observation whole = observation.withActions(ValidActions.of(observation));
+        assertFalse(whole.actions().actions().isEmpty());
+        assertEquals(whole.actions(), ValidActions.of(whole), "the set does not change by being carried");
+
+        // And the same holds for the screen with the Prompt open.
+        Observation prompt = Corpus.promptObservation();
+        assertEquals(prompt.prompt().options().size(),
+                prompt.withActions(ValidActions.of(prompt)).actions().actions().size());
+    }
+
+    @Test
+    @DisplayName("the same Observation gives the same set, whatever order its parts were collected in")
+    void the_set_is_a_function_of_the_value() {
+        Observation observation = Corpus.observation();
+        Observation copy = new Observation(observation.header(), observation.map(), observation.actors(),
+                observation.hero(), observation.inventory(), observation.journal(), observation.log(),
+                ActionsSection.NONE, observation.prompt());
+        assertEquals(observation.map(), copy.map(), "the same value, built again");
+
+        ActionsSection first = ValidActions.of(observation);
+        ActionsSection second = ValidActions.of(copy);
+        assertEquals(first, second);
+        assertEquals(first.actions(), second.actions(), "in the same order, which is the section's own");
+        assertEquals(observation.withActions(first).hash(), copy.withActions(second).hash(),
+                "so the bytes and the hash are the same");
+    }
+
+    @Test
+    @DisplayName("the boss lock takes the stairs away")
+    void a_sealed_floor_offers_no_transition() {
+        Observation observation = Corpus.observation();
+        TransitionView under = new TransitionView(observation.hero().cell(), TransitionKind.REGULAR_EXIT);
+        MapSection map = withTransition(observation.map(), under);
+        Observation open = Corpus.with(observation, map);
+        assertTrue(ValidActions.of(open).actions().contains(new Action.Descend()),
+                "the hero stands on the way down");
+
+        HeaderSection header = observation.header();
+        Observation sealed = Corpus.with(open, new HeaderSection(header.version(), header.upstreamTag(),
+                header.codexVersion(), header.heroClass(), header.challenges(), header.depth(), header.branch(),
+                true, header.oracle(), header.prompt()));
+        assertTrue(sealed.header().sealed());
+        assertFalse(ValidActions.of(sealed).actions().contains(new Action.Descend()),
+                "a boss fight locks the floor, so the set never offers a descent the game refuses");
+    }
+
+    @Test
+    @DisplayName("a character beside the hero is an attack or an interaction, never a step")
+    void a_neighbour_is_not_a_step() {
+        Observation plain = Corpus.observation();
+        int hero = plain.hero().cell();
+        int width = plain.map().width();
+        // The corpus keeps its characters away from the hero, so the test brings two of them
+        // beside it, one of each alignment, at cells the map draws as floor.
+        List<ActorView> beside = List.of(
+                new ActorView(hero + 1, "Rat", Alignment.ENEMY, 11, false, Emote.NONE, List.of()),
+                new ActorView(hero + width, "Ghost", Alignment.NEUTRAL, 11, false, Emote.NONE, List.of()));
+        Observation observation = Corpus.with(plain, new ActorsSection(beside));
+        for (ActorView actor : beside) {
+            assertEquals(Fog.VISIBLE, observation.map().fog().get(actor.cell()), "drawn where it stands");
+        }
+
+        Set<Integer> stepped = new HashSet<>();
+        for (Action action : ValidActions.of(observation).actions()) {
+            if (action instanceof Action.Step step) {
+                stepped.add(step.cell());
+            }
+        }
+        for (ActorView actor : beside) {
+            assertFalse(stepped.contains(actor.cell()), actor.name() + " stands there");
+            Action expected = actor.alignment() == Alignment.ENEMY
+                    ? new Action.Attack(actor.cell())
+                    : new Action.Interact(actor.cell());
+            assertTrue(ValidActions.of(observation).actions().contains(expected), "expected " + expected);
+        }
+    }
+
+    @Test
+    @DisplayName("an item's actions are offered in the shape their target has")
+    void an_item_is_offered_as_its_target_needs() {
+        Observation observation = Corpus.observation();
+        ActionsSection valid = ValidActions.of(observation);
+        List<ItemView> items = observation.inventory().items();
+
+        boolean plain = false;
+        boolean targeted = false;
+        for (Action action : valid.actions()) {
+            if (action instanceof Action.UseItem use) {
+                plain = true;
+                assertTrue(items.get(use.item().index()).actions().contains(use.action()));
+            } else if (action instanceof Action.UseItemAt use) {
+                targeted = true;
+                assertTrue(Set.of("THROW", "ZAP").contains(use.action()),
+                        use.action() + " is not an action that opens the cell selector");
+                assertTrue(use.cell() == observation.hero().cell()
+                                || observation.actors().actors().stream().anyMatch(a -> a.cell() == use.cell()),
+                        "a targeted use is offered at a character in view or at the hero's own cell");
+            }
+        }
+        assertTrue(plain, "the pack holds something to use: " + items);
+        assertTrue(targeted, "and something to throw");
+    }
+
+    @Test
+    @DisplayName("a talent is offered only while its tier has a point to spend")
+    void a_talent_needs_a_point() {
+        Observation observation = Corpus.observation();
+        List<Integer> points = observation.hero().talentPointsAvailable();
+        ActionsSection valid = ValidActions.of(observation);
+        for (TalentView talent : observation.hero().talents()) {
+            boolean offered = valid.actions().contains(new Action.Talent(talent.name()));
+            assertEquals(points.get(talent.tier() - 1) > 0, offered,
+                    talent.name() + " of tier " + talent.tier() + ", with " + points + " to spend");
+        }
+    }
+
+    private static MapSection withTransition(MapSection map, TransitionView transition) {
+        List<TransitionView> transitions = new java.util.ArrayList<>(map.transitions());
+        transitions.removeIf(existing -> existing.cell() == transition.cell());
+        transitions.add(transition);
+        return new MapSection(map.width(), map.height(), map.tiles(), map.fog(), map.traps(), map.heaps(),
+                map.blobs(), map.feeling(), transitions);
+    }
+}

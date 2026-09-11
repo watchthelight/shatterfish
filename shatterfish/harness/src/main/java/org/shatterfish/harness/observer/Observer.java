@@ -76,6 +76,7 @@ import org.shatterfish.api.Tile;
 import org.shatterfish.api.TransitionKind;
 import org.shatterfish.api.TransitionView;
 import org.shatterfish.api.TrapView;
+import org.shatterfish.api.ValidActions;
 import org.shatterfish.harness.driver.HeadlessDriver;
 import org.shatterfish.harness.driver.Prompts;
 import org.shatterfish.harness.driver.Windows;
@@ -193,16 +194,17 @@ public final class Observer {
      * This is the door of non-negotiable 1; every other public method here is the same read of one
      * section, kept for the tests that hold each rule on its own.
      *
-     * <p>The valid Actions are {@link ActionsSection#NONE} until story 1.12, which computes them
-     * from the Observation alone and adds them with {@link Observation#withActions}; the record
-     * holds a filled set to the sections it names, so nothing else has to. The read is one pass
-     * over state no actor is changing, the actor thread being parked for the wait (ADR-0013), so
-     * two reads of one wait are equal and have equal bytes.
+     * <p>The valid Actions come last and from the Observation itself: {@link ValidActions#of} reads
+     * the sections just built and nothing else (story 1.12), so the set a Brain is handed is one
+     * the Brain could have computed, and the record holds every parameter to the sections that
+     * carry it. The read is one pass over state no actor is changing, the actor thread being
+     * parked for the wait (ADR-0013), so two reads of one wait are equal and have equal bytes.
      */
     public Observation observe() {
         atInputWait();
-        return new Observation(header(), map(), actors(), hero(), inventory(), journal(), log(),
+        Observation observation = new Observation(header(), map(), actors(), hero(), inventory(), journal(), log(),
                 ActionsSection.NONE, prompt());
+        return observation.withActions(ValidActions.of(observation));
     }
 
     /**
