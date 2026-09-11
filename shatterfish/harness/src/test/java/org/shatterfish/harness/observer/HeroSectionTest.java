@@ -44,6 +44,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Timeout(value = 5, unit = TimeUnit.MINUTES)
 class HeroSectionTest {
 
+    /** The rows of ADR-0006's whitelist this suite holds ({@link VisibilityChecklistTest}). */
+    static final List<String> ADR_0006_ROWS = List.of("Hero buffs");
+
     private static final long SEED = 14_142_135L;
 
     private HeadlessDriver driver;

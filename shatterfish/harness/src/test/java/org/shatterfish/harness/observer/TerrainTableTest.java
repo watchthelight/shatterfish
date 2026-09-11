@@ -10,6 +10,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -22,6 +23,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * some terrain, so the schema and the sheet agree (ADR-0006, Terrain).
  */
 class TerrainTableTest {
+
+    /** The rows of ADR-0006's whitelist this suite holds ({@link VisibilityChecklistTest}). */
+    static final List<String> ADR_0006_ROWS = List.of("Terrain");
 
     /** The flag constants of {@code Terrain}, which are bits, not terrains. */
     private static final Set<String> FLAGS = Set.of("PASSABLE", "LOS_BLOCKING", "FLAMABLE", "SECRET", "SOLID", "AVOID",

@@ -5,6 +5,7 @@ import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.QuickSlot;
 import com.shatteredpixel.shatteredpixeldungeon.Statistics;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
+import com.shatteredpixel.shatteredpixeldungeon.actors.blobs.Blob;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.FlavourBuff;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Belongings;
@@ -28,6 +29,7 @@ import com.shatteredpixel.shatteredpixeldungeon.items.wands.Wand;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Notes;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Terrain;
+import com.shatteredpixel.shatteredpixeldungeon.levels.features.LevelTransition;
 import com.shatteredpixel.shatteredpixeldungeon.levels.traps.Trap;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
@@ -37,9 +39,11 @@ import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
 import com.watabou.noosa.Game;
 
+import org.shatterfish.api.ActionsSection;
 import org.shatterfish.api.ActorView;
 import org.shatterfish.api.ActorsSection;
 import org.shatterfish.api.Alignment;
+import org.shatterfish.api.BlobCell;
 import org.shatterfish.api.BuffView;
 import org.shatterfish.api.Challenge;
 import org.shatterfish.api.Emote;
@@ -62,12 +66,15 @@ import org.shatterfish.api.LogSection;
 import org.shatterfish.api.MapSection;
 import org.shatterfish.api.NoteKind;
 import org.shatterfish.api.NoteView;
+import org.shatterfish.api.Observation;
 import org.shatterfish.api.ObservationCodec;
 import org.shatterfish.api.PromptKind;
 import org.shatterfish.api.PromptSection;
 import org.shatterfish.api.QuickslotView;
 import org.shatterfish.api.TalentView;
 import org.shatterfish.api.Tile;
+import org.shatterfish.api.TransitionKind;
+import org.shatterfish.api.TransitionView;
 import org.shatterfish.api.TrapView;
 import org.shatterfish.harness.driver.HeadlessDriver;
 import org.shatterfish.harness.driver.Prompts;
@@ -84,8 +91,9 @@ import java.util.Map;
  * The one door from game state to the bot (non-negotiable 1; ADR-0006): reads, at an Input wait,
  * exactly what the screen draws, through the predicates the renderer and the HUD use, and builds
  * the sections of the Observation from them. Story 1.8 built the header and the map, story 1.9
- * the actors and the hero, story 1.10 the inventory, the journal, the log and the Prompt; the
- * rows left (1.11) follow, and {@code observe()} arrives when every section does. Nothing here reads a field the
+ * the actors and the hero, story 1.10 the inventory, the journal, the log and the Prompt, and
+ * story 1.11 the environment of the map and {@link #observe()}, which is every section at once,
+ * the one call the bot makes. Nothing here reads a field the
  * screen does not draw, and every rule cites the drawing code at the pinned tag; paths abbreviate
  * {@code core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/} as {@code …/}.
  *
@@ -157,6 +165,24 @@ public final class Observer {
     }
 
     /**
+     * What the screen, the HUD, the log and the journal show at this Input wait, as one
+     * Observation: every section, each built by the method above it, in the order ADR-0005 fixes.
+     * This is the door of non-negotiable 1; every other public method here is the same read of one
+     * section, kept for the tests that hold each rule on its own.
+     *
+     * <p>The valid Actions are {@link ActionsSection#NONE} until story 1.12, which computes them
+     * from the Observation alone and adds them with {@link Observation#withActions}; the record
+     * holds a filled set to the sections it names, so nothing else has to. The read is one pass
+     * over state no actor is changing, the actor thread being parked for the wait (ADR-0013), so
+     * two reads of one wait are equal and have equal bytes.
+     */
+    public Observation observe() {
+        atInputWait();
+        return new Observation(header(), map(), actors(), hero(), inventory(), journal(), log(),
+                ActionsSection.NONE, prompt());
+    }
+
+    /**
      * The header (ADR-0005): the schema version, the release, the hero's class, the challenges
      * the Run was started with ({@code …/Challenges.java:43-64}; the challenges window and the
      * hero window both show them), the depth and branch the interlevel screen and the status pane
@@ -184,8 +210,14 @@ public final class Observer {
      * draws; the traps whose feature tile is drawn on a cell the fog does not hide; the heaps whose
      * sprite is visible on such a cell, showing what the sprite and the heap's own title show; and
      * a hidden mimic as the chest it is drawn as, which is a heap here and never an actor
-     * ({@code …/actors/mobs/Mimic.java:62-64}, {@code :112-118}). Blobs, the floor feeling and
-     * the transitions are story 1.11's and are empty here.
+     * ({@code …/actors/mobs/Mimic.java:62-64}, {@code :112-118}).
+     *
+     * <p>It also carries the environment of story 1.11 (ADR-0006, Blobs, Floor feeling,
+     * Transitions): the kinds of blob whose particles the emitter draws on a cell the fog does
+     * not cover, with no volume; the floor's feeling, which the depth button draws as an icon
+     * ({@code …/ui/MenuPane.java:88-89}, {@code :98-116}; {@code …/ui/Icons.java:478-497}); and
+     * every transition whose designated cell the player has seen, at that cell and with the kind
+     * the game gives it ({@code …/levels/features/LevelTransition.java:34-47}, {@code :92-94}).
      */
     public MapSection map() {
         atInputWait();
@@ -242,8 +274,67 @@ public final class Observer {
             boolean faint = mimic instanceof EbonyMimic;
             heaps.put(mimic.pos, new HeapView(mimic.pos, mimicKind(mimic), faint, "", 0, category));
         }
-        return new MapSection(level.width(), level.height(), tiles, fog, traps, new ArrayList<>(heaps.values()), List.of(),
-                Feeling.NONE, List.of());
+        List<TransitionView> transitions = new ArrayList<>();
+        for (LevelTransition transition : level.transitions) {
+            // A transition is a rectangle of cells with one designated cell, the cell the game
+            // itself picks when it needs one (LevelTransition.java:88-94) and the cell the stairs
+            // or the quest visual stand on at every site of the tag; the section carries that
+            // cell, once the player has seen it.
+            int cell = transition.cell();
+            if (fog.get(cell) != Fog.UNKNOWN) {
+                transitions.add(new TransitionView(cell, TransitionKind.valueOf(transition.type.name())));
+            }
+        }
+        return new MapSection(level.width(), level.height(), tiles, fog, traps, new ArrayList<>(heaps.values()),
+                blobs(level, fog), Feeling.valueOf(level.feeling.name()), transitions);
+    }
+
+    /**
+     * The cells the blob emitters draw on, each with the kinds drawn there and never a volume
+     * (ADR-0006, Blobs). A blob draws at all when the scene gave its emitter a particle factory,
+     * which is what {@code Emitter.on} says ({@code SPD-classes/…/noosa/particles/Emitter.java:46},
+     * {@code :82-93}, {@code :116-128}), and its volume is positive; it draws on a cell when the
+     * cell holds some of it and the hero sees the cell ({@code …/effects/BlobEmitter.java:47-70}).
+     * One particle is drawn however much is there, so the section names the kinds and not the
+     * amount, and the cell's own description names the blob and no amount either
+     * ({@code …/windows/WndInfoCell.java:144-153}).
+     *
+     * <p>Three readings of the emitter's loop are folded in here. It walks the blob's bounding
+     * rectangle, which every seed unions the seeded cell into ({@code …/actors/blobs/Blob.java:143-149},
+     * {@code :211-219}) and which therefore always contains the cells holding any of the blob, so
+     * walking the cells themselves draws the same set and, unlike the emitter, needs no
+     * {@code setupArea()} call: the Observer writes nothing. The fog of war is added to the scene
+     * after the gases ({@code …/scenes/GameScene.java:343-353}), so it is drawn over the
+     * particles, and the fog paints a cell {@link Fog#VISIBLE} only where the hero sees it, which
+     * is the emitter's own gate as well: one test of the painted fog is both rules, and it is the
+     * one the map's record requires. And the emitter's other gate, a blob marked always visible,
+     * cannot change what this method emits: the three blobs the tag marks so, Tengu's fire and
+     * shocker blobs and the skeleton key's wall ({@code …/actors/mobs/Tengu.java:846-850},
+     * {@code :910-918}; {@code :1041-1045}, {@code :1086-1094};
+     * {@code …/items/artifacts/SkeletonKey.java:472-476}, {@code :548-553}), do pour particles and
+     * the game draws them through the fog of a remembered cell, but the fog paints such a cell
+     * {@code VISITED} or {@code MAPPED} and the record requires {@code VISIBLE}, so a clause for
+     * them here would be dead code no test could defend and their particles out of view are a loss
+     * ADR-0006 records.
+     */
+    private static List<BlobCell> blobs(Level level, List<Fog> fog) {
+        Map<Integer, List<String>> kinds = new LinkedHashMap<>();
+        for (Blob blob : level.blobs.values()) {
+            if (blob.emitter == null || !blob.emitter.on || blob.volume <= 0 || blob.cur == null) {
+                continue;
+            }
+            String kind = blob.getClass().getSimpleName();
+            for (int cell = 0; cell < fog.size(); cell++) {
+                if (blob.cur[cell] > 0 && fog.get(cell) == Fog.VISIBLE) {
+                    kinds.computeIfAbsent(cell, c -> new ArrayList<>()).add(kind);
+                }
+            }
+        }
+        List<BlobCell> blobs = new ArrayList<>();
+        // The level holds its blobs in a HashMap (…/levels/Level.java:184), so the kinds arrive in
+        // hash order; BlobCell sorts them by name, and the section sorts the cells (ADR-0005).
+        kinds.forEach((cell, names) -> blobs.add(new BlobCell(cell, names)));
+        return blobs;
     }
 
     /**

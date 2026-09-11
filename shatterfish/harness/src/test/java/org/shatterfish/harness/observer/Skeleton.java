@@ -52,10 +52,9 @@ final class Skeleton {
         return new Observation(header, map, actors, hero, inventory, journal, log, ActionsSection.NONE, prompt);
     }
 
-    /** Every section the Observer builds, read now. */
+    /** Every section the Observer builds, read now: the Observer's own whole read (story 1.11). */
     static Observation everything(Observer observer) {
-        return around(observer.header(), observer.map(), observer.actors(), observer.hero(), observer.inventory(),
-                observer.journal(), observer.log(), observer.prompt());
+        return observer.observe();
     }
 
     private static HeroSection standInHero() {

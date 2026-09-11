@@ -176,8 +176,9 @@ there was no reader to break; from the merge on, a pin move is a version bump.
 **The records refuse what the fog would not draw.** An unknown cell carries `Tile.NONE` and
 nothing else does; traps, heaps and transitions stand on cells the player has seen; a blob stands
 in view, since the emitter draws one only where the hero sees (`…/effects/BlobEmitter.java:62-64`),
-and the two blobs the game marks always visible, drawn under the fog of a remembered cell
-(`…/actors/mobs/Tengu.java:850`, `:1045`; `…/items/artifacts/SkeletonKey.java:475`), have no
+and the three blobs the game marks always visible, Tengu's fire and shocker blobs and the
+skeleton key's wall (`…/actors/mobs/Tengu.java:846-850`, `:1041-1045`;
+`…/items/artifacts/SkeletonKey.java:472-476`), drawn under the fog of a remembered cell, have no
 representation in this version; an actor stands in view; a container shows no item, a price
 belongs to a for-sale heap only and a category to a crystal chest only. ADR-0006's whitelist is a
 whitelist by construction, which `SchemaRulesTest` holds. What the records cannot check is the
