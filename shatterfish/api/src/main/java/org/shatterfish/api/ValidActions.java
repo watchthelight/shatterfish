@@ -63,11 +63,27 @@ public final class ValidActions {
     private static final Set<String> AT_A_CELL = Set.of("THROW", "ZAP");
 
     /**
-     * Item actions that open the bag, so the input carries another item
-     * ({@code core/.../items/stones/Runestone.java}, {@code AC_APPLY};
-     * {@code core/.../items/scrolls/ScrollOfUpgrade.java}, which selects an item to upgrade).
+     * Item actions that can open the bag, so the input may carry another item. Every one of them is
+     * an action whose class reaches {@code GameScene.selectItem} at the tag: a scroll read from the
+     * pack ({@code core/.../items/scrolls/InventoryScroll.java:39-49}, which is the scrolls of
+     * identify, remove curse, transmutation and upgrade), a stone used on an item
+     * ({@code core/.../items/stones/InventoryStone.java:55-66}), the seal affixed to armour
+     * ({@code core/.../items/BrokenSeal.java}), the staff imbued with a wand
+     * ({@code core/.../items/weapon/melee/MagesStaff.java}), the spellbook added to
+     * ({@code core/.../items/artifacts/UnstableSpellbook.java}), the sandals fed a seed
+     * ({@code core/.../items/artifacts/SandalsOfNature.java}), the horn stored into
+     * ({@code core/.../items/artifacts/HornOfPlenty.java}) and the shard's identification
+     * ({@code core/.../items/quest/ShardOfOblivion.java}).
+     *
+     * <p>Can, not does: {@code READ} opens the bag for those four scrolls and for nothing else, and
+     * the identifier is all the Observation carries — as is true for the player, who reads an
+     * unknown scroll and finds out. So both shapes are offered for these, the plain action and the
+     * action on each other item, and the executor takes the one the game asks for (story 1.13). An
+     * item action outside both tables is offered plainly; if the game opens a selector for it, the
+     * executor reports it rather than guessing, which is the completeness test's business.
      */
-    private static final Set<String> ON_AN_ITEM = Set.of("APPLY", "UPGRADE", "IMBUE", "INSCRIBE");
+    private static final Set<String> ON_AN_ITEM = Set.of("READ", "USE", "AFFIX", "IMBUE", "ADD", "FEED",
+            "STORE", "IDENTIFY");
 
     private ValidActions() {
     }
@@ -171,16 +187,17 @@ public final class ValidActions {
                     for (int target : targets(observation)) {
                         actions.add(new Action.UseItemAt(ref, action, target));
                     }
-                } else if (ON_AN_ITEM.contains(action)) {
-                    for (int other = 0; other < inventory.size(); other++) {
-                        if (other != index) {
-                            ItemView target = inventory.get(other);
-                            actions.add(new Action.UseItemOn(ref, action,
-                                    new ItemRef(other, target.name(), target.quantity())));
-                        }
-                    }
                 } else {
                     actions.add(new Action.UseItem(ref, action));
+                    if (ON_AN_ITEM.contains(action)) {
+                        for (int other = 0; other < inventory.size(); other++) {
+                            if (other != index) {
+                                ItemView target = inventory.get(other);
+                                actions.add(new Action.UseItemOn(ref, action,
+                                        new ItemRef(other, target.name(), target.quantity())));
+                            }
+                        }
+                    }
                 }
             }
         }

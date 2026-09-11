@@ -211,7 +211,14 @@ Brain wants to throw at a spot rather than at somebody.
 
 **What is game knowledge, and where.** Three small tables in `ValidActions` say what the screen
 means: which tiles a click walks onto, which item actions open the cell selector or the bag, and
-which heap kinds open rather than pick up. They are the wiki-level facts non-negotiable 1 allows a
+which heap kinds open rather than pick up. The bag table is the awkward one, and it is honest about
+it: the same identifier opens the bag for one item and not another — `READ` does for the scrolls of
+identify, remove curse, transmutation and upgrade (`…/items/scrolls/InventoryScroll.java:39-49`)
+and for no other scroll — and the identifier is all the Observation carries, which is also all a
+player has before reading an unknown scroll. So both shapes are offered for such an action, the
+plain one and the one on each other item, and the executor takes the shape the game asks for. The
+entries were read off the classes that reach `GameScene.selectItem` rather than guessed, which the
+first draft of this story did, and got wrong. They are the wiki-level facts non-negotiable 1 allows a
 bot to know, they are cited to the code that decides them, and E2's Codex is where they move when
 it exists. `ValidActionsTest` holds the rules over the schema's own corpus, in a module the build
 forbids from seeing the game, which is what "computed with no game running" means here.
