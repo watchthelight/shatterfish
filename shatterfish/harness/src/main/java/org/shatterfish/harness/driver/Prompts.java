@@ -13,7 +13,7 @@ import com.shatteredpixel.shatteredpixeldungeon.ui.TalentsPane;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndBlacksmith;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndChooseSubclass;
-import com.shatteredpixel.shatteredpixeldungeon.windows.WndImp;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndImpOld;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndOptions;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndQuest;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
@@ -76,7 +76,7 @@ public final class Prompts {
             return PromptKind.SHOP;
         }
         if (window instanceof WndQuest || window instanceof WndSadGhost || window instanceof WndWandmaker
-                || window instanceof WndImp || window instanceof WndBlacksmith) {
+                || window instanceof WndImpOld || window instanceof WndBlacksmith) {
             return PromptKind.QUEST;
         }
         if (window instanceof WndOptions options) {
@@ -126,7 +126,7 @@ public final class Prompts {
             return PromptKind.SHOP;
         }
         if (origin == WndBlacksmith.class || origin == WndSadGhost.class || origin == WndWandmaker.class
-                || origin == WndImp.class || origin == RatKing.class || origin == CavesLevel.class
+                || origin == WndImpOld.class || origin == RatKing.class || origin == CavesLevel.class
                 || origin == MiningLevel.class || origin == CityLevel.class) {
             return PromptKind.QUEST;
         }

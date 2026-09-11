@@ -137,6 +137,11 @@ public final class Observer {
 
     static {
         visual(DungeonTileSheet.FLOOR, Tile.EMPTY);
+        // v4.0.0 added CUSTOM_DECO_WTR, an invisible decoration on a cell that keeps water's
+        // pass-through, and gave it the water visual in the sheet's direct table
+        // (…/levels/Terrain.java:62, :120; …/tiles/DungeonTileSheet.java:436): the player sees
+        // water, so the table names it here as well as in tile()'s own water case.
+        visual(DungeonTileSheet.WATER, Tile.WATER);
         visual(DungeonTileSheet.GRASS, Tile.GRASS);
         visual(DungeonTileSheet.EMPTY_WELL, Tile.EMPTY_WELL);
         visual(DungeonTileSheet.ENTRANCE, Tile.ENTRANCE);

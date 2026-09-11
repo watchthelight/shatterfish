@@ -5,6 +5,7 @@ import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.GamesInProgress;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Snake;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Journal;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.InterlevelScene;
@@ -106,6 +107,13 @@ final class FreshRun {
     static void forget() {
         set(Badges.class, "global", null);
         set(Journal.class, "loaded", false);
+        // A counter of the game's own that outlives a Run: the snake counts the dodges the hero
+        // has watched, in a private static, and flashes the guidebook at two of them
+        // (…/actors/mobs/Snake.java:58-70). Nothing resets it between Runs, so a second Run in
+        // this process starts part-way to the advice and logs a different number of lines than
+        // the first. The upgrade to v4.0.0 is where it first showed, in the draw-parity
+        // fingerprint; the Run-level answer is story 1.16's, and here the fixture clears it.
+        set(Snake.class, "dodges", 0);
     }
 
     private static void copyTree(Path from, Path to) throws IOException {

@@ -38,7 +38,7 @@ state to the bot, and every change to it ships with leak tests. See
 
 ## Upstream
 
-Pinned to upstream tag **v3.3.8** (commit `7b8b845a`, 2026-03-19). Every edit to
+Pinned to upstream tag **v4.0.0** (commit `7b8b845a`, 2026-03-19). Every edit to
 an upstream file is a documented hook; upgrades happen only by merging a newer
 upstream tag. Details, hook table, and upgrade procedure:
 [`docs/UPSTREAM.md`](docs/UPSTREAM.md).

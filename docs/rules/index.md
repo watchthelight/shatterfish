@@ -15,16 +15,26 @@ each a table:
 | Rule | One sentence, in the present tense, about the pinned tag |
 | Cites | `path:line` (or `path:line-line`) at the pinned tag, one or more, as links into the repository at that tag |
 | Test | The Shatterfish test that would fail if the rule stopped being true; "none yet" is allowed only with an issue number |
-| Tier | 1 = the code confirms it, 2 = the harness confirms it, 3 = hypothesis for the rig, F = false or obsolete for this tag |
-| Since | Session or PR that added or last re-verified it |
+| Tier | 1 = the code confirms it, 2 = the harness confirms it, 3 = hypothesis for the rig, F = false or obsolete for this tag, needs-review = its citation stopped resolving at an upgrade and nobody has re-read it yet |
+| Since | Session or PR that added or last re-verified it, and the tag that flipped it if it is waiting |
 
 Rules are re-verified on every upstream upgrade (`docs/UPSTREAM.md`, upgrade procedure step 9):
 a citation that no longer resolves, or resolves to different code, flips the rule to needs-review
 until re-read.
 
+The upgrade to `v4.0.0` (2026-09-11) ran that check line by line. Every citation's text at the old
+tag was looked for at the new one: where it sits unchanged, the link now points at `v4.0.0`, at the
+line it moved to if upstream inserted above it; where it is gone, changed, or in more than one
+place, the row is flipped to needs-review and its link is left at `v3.3.8`, where it was true. Of
+the rows with citations, **233 still resolve to the same code** (145 of them at new line numbers)
+and **80 are waiting to be re-read**. A needs-review row is not known to be wrong: it is known to
+be unchecked, and the story that next depends on it re-reads it (E2's Codex pipeline is the bulk
+buyer).
+
 ## Pages
 
-Written in bootstrap session 10 from the pinned code (275 rows, all tier 1). Each page ends with a
+Written in bootstrap session 10 from the pinned code (275 rows, all tier 1), and re-verified
+against `v4.0.0` on 2026-09-11 with the outcome above. Each page ends with a
 "Not confirmed" list: what the reader looked for and could not settle, which is where the E1
 stories start. The [Codebase map](../codebase-map.md) indexes the files behind every page and
 records where the code contradicted the bootstrap prompt.

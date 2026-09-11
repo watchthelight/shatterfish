@@ -48,7 +48,7 @@ class TerrainTableTest {
     @DisplayName("every terrain constant maps to a tile, and every tile but NONE is some terrain's")
     void every_terrain_maps() throws Exception {
         Map<String, Integer> terrains = terrains();
-        assertEquals(39, terrains.size(), "the terrains of v3.3.8 (Terrain.java:26-70)");
+        assertEquals(40, terrains.size(), "the terrains of v4.0.0 (Terrain.java:26-71)");
         EnumSet<Tile> reached = EnumSet.noneOf(Tile.class);
         for (Map.Entry<String, Integer> terrain : terrains.entrySet()) {
             Tile tile = Observer.tile(terrain.getValue());
