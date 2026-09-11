@@ -4,7 +4,7 @@ key: 1-12-the-action-type-and-the-valid-action-set
 title: "The Action type and the valid-Action set"
 epic: 1
 issue: 25
-status: review
+status: done
 created: '2026-09-11'
 updated: '2026-09-11'
 review_loop_iteration: 1
