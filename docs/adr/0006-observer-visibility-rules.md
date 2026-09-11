@@ -468,7 +468,10 @@ centrepiece and paints `EXIT` only in `unseal()`, when Yog dies
 branch entrance and paints neither stairs nor a visual
 (`…/levels/rooms/quest/vault/VaultEntranceRoom.java:41-60`). The first draft carried both, which
 would have told the bot where the exit of the Yog fight was while the screen drew a decorated wall:
-a leak, found by the review and closed here. The destination's depth and branch are not carried:
+a leak, found by the review and closed here. Asking what the cell draws is the whole of asking
+whether the player has seen it, since a cell the fog hides draws no tile at all and the record
+holds the two to each other, so the gate tests the tile and nothing else; the first fix tested both
+and the battery showed the fog test could not fail on its own. The destination's depth and branch are not carried:
 the screen shows where a transition leads only by taking it. The extent of a multi-cell region, the
 boss floors' exits (`…/levels/CavesBossLevel.java:159-163`), is a loss, and with it the case of a
 player who sees such a region's edge and not its designated cell. `FloorSectionTest` holds the
