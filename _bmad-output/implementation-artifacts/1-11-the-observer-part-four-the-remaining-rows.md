@@ -4,7 +4,7 @@ key: 1-11-the-observer-part-four-the-remaining-rows
 title: "The Observer, part four: the remaining rows"
 epic: 1
 issue: 24
-status: review
+status: done
 created: '2026-09-11'
 updated: '2026-09-11'
 review_loop_iteration: 1
