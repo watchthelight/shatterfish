@@ -178,7 +178,7 @@ class EnvironmentLeakTest {
 
         // The emitter draws a blob marked always visible wherever it is, through the fog of a
         // remembered cell (…/effects/BlobEmitter.java:62-64; …/items/artifacts/SkeletonKey.java:472-476,
-        // :548-553). The fog paints that cell remembered and not seen, the record carries a blob
+        // :549-553). The fog paints that cell remembered and not seen, the record carries a blob
         // only on a seen cell, and the particles the player would see there are the loss ADR-0006
         // records.
         SkeletonKey.KeyWall wall = Blob.seed(remembered, 5, SkeletonKey.KeyWall.class, level);
@@ -199,7 +199,7 @@ class EnvironmentLeakTest {
     void the_danger_count_is_the_enemies_among_the_actors() {
         atTheFirstWait();
         assertEquals(hero.visibleEnemies(), enemies(), "the indicator's number at the first wait"
-                + " (…/ui/DangerIndicator.java:87-104; …/actors/hero/Hero.java:1691-1694)");
+                + " (…/ui/DangerIndicator.java:87-104; …/actors/hero/Hero.java:1692-1694)");
 
         Mob mob = mobOutOfView();
         mob.pos = floorInView();

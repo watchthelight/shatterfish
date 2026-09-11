@@ -71,7 +71,7 @@ following and nothing else.
 | Known appearances | `Potion.getKnown()`, `Scroll.getKnown()`, `Ring.getKnown()` (this Run). | `…/items/potions/Potion.java:402-404` | `Catalog` (cross-Run); `ItemStatusHandler.itemLabels` beyond seen items |
 | Vision buffs | Nothing special: mind vision, magical sight, blindness (a 3x3 FOV), darkness, Light and Foresight all act through `heroFOV`, `visited` and `mapped` before the Observer reads them. | `…/levels/Level.java:1290-1378`, `:1403-1411`; `…/Dungeon.java:914-938` | any recomputation of FOV |
 | Blobs | For cells with `heroFOV[c]` (or an `alwaysVisible` blob), the set of blob kinds with `cur[c] > 0`; the emitter draws one particle per such cell regardless of volume and the cell info names the blob only. | `…/effects/BlobEmitter.java:59-70`; `…/windows/WndInfoCell.java:144-153` | `Blob.cur` outside `heroFOV`; any volume |
-| Floor feeling | `Level.feeling`, the floor's own, which the depth button draws as an icon, names in its hover text and titles the window it opens; the arrival line logs it once. | `…/ui/MenuPane.java:88-89`, `:98-116`; `…/ui/Icons.java:478-497`; `…/scenes/GameScene.java:670-689` | nothing more: the secrets a SECRETS floor holds stay secret |
+| Floor feeling | `Level.feeling`, the floor's own, which the depth button draws as an icon, names in its hover text and titles the window it opens; the arrival line logs it once. | `…/ui/MenuPane.java:88-89`, `:98-116`; `…/ui/Icons.java:478-497`; `…/scenes/GameScene.java:670-699` | nothing more: the secrets a SECRETS floor holds stay secret |
 | Transitions | For every `LevelTransition` of `Level.transitions` whose designated cell the player has seen, that cell and the transition's `type`. | `…/levels/features/LevelTransition.java:34-47`, `:92-94`; `…/levels/Level.java:177` | a transition whose cell is unknown; the destination depth and branch |
 | Boss lock | `Level.locked`, the flag `seal()` sets with the `LockedFloor` buff whose icon the HUD shows, carried as the header's `sealed`. | `…/levels/Level.java:180`, `:617-630`; `…/actors/buffs/LockedFloor.java:76-78` | anything else about the boss fight |
 | Danger count | `hero.visibleEnemies()` as the indicator shows it (includes invisible enemies in FOV). | `…/ui/DangerIndicator.java:87-104` | anything else derived from `Level.mobs` |
@@ -417,7 +417,7 @@ every blob of the level at creation and for each blob passed to `GameScene.add`
 (`…/scenes/GameScene.java:343-348`, `:1055-1058`, `:1131-1136`), which is what every caller of
 `Blob.seed` does, and a blob seeded without it sits on the level drawing nothing. Second, the
 emitter walks the blob's bounding rectangle, which every seed unions the seeded cell into
-(`…/actors/blobs/Blob.java:143-149`, `:211-219`), so walking the cells that hold some of the blob
+(`…/actors/blobs/Blob.java:143-149`, `:209-217`), so walking the cells that hold some of the blob
 draws the same set and needs no `setupArea()` call: the Observer writes nothing, ever. Third, the
 fog of war is added to the scene after the gases (`GameScene.java:343-353`) and is therefore drawn
 over them, and the fog paints a cell `VISIBLE` only where the hero sees it, so one test of the
@@ -425,8 +425,8 @@ painted fog is both the emitter's gate and the fog's, and it is the gate the map
 
 The emitter's other gate, a blob marked always visible, cannot change what the Observer emits. The
 three blobs the tag marks so, Tengu's fire and shocker blobs and the skeleton key's wall
-(`…/actors/mobs/Tengu.java:846-850`, `:910-918`, `:1041-1045`, `:1086-1094`;
-`…/items/artifacts/SkeletonKey.java:472-476`, `:548-553`), do pour particles, and the game draws
+(`…/actors/mobs/Tengu.java:846-850`, `:913-918`, `:1041-1045`, `:1089-1094`;
+`…/items/artifacts/SkeletonKey.java:472-476`, `:549-553`), do pour particles, and the game draws
 them on a remembered cell through the fog; but the fog paints such a cell `VISITED` or `MAPPED`,
 the record requires `VISIBLE`, and a clause for them would therefore be dead code no test could
 defend, which story 1.10's battery taught. Their particles outside the hero's view are a recorded
@@ -442,7 +442,7 @@ the scene never drew absent, and a gas at two hundred times the volume byte-iden
 **The floor feeling is the one the depth button draws.** `Level.feeling` is drawn as an icon of its
 own for every value (`…/ui/MenuPane.java:88-89`; `…/ui/Icons.java:478-497`), named by the button's
 hover text and titled by the window it opens (`MenuPane.java:98-116`), and logged once on arrival
-at a new deepest floor (`…/scenes/GameScene.java:670-689`); it is on the screen from the moment the
+at a new deepest floor (`…/scenes/GameScene.java:670-699`); it is on the screen from the moment the
 floor is drawn, so the section carries it whatever the log says. What a feeling implies, the secret
 rooms of a secrets floor or the traps of a traps floor, stays as hidden as it was.
 `FloorSectionTest` holds every value of the enum through the Observer.
@@ -453,14 +453,14 @@ rectangles, each with a `centerCell` the game itself picks when it needs one cel
 visual at every site of the tag; the section carries that cell, with the transition's own type, for
 every transition whose cell the player has seen. The destination's depth and branch are not
 carried: the screen shows where a transition leads only by taking it. The extent of a multi-cell
-region, the boss floors' exits (`…/levels/CavesBossLevel.java:158-163`), is a loss, and with it the
+region, the boss floors' exits (`…/levels/CavesBossLevel.java:159-163`), is a loss, and with it the
 case of a player who sees such a region's edge and not its designated cell.
 `FloorSectionTest` holds the surface transition the first floor starts on, the way down absent
 until it is mapped, and the carried cells equal to the seen ones.
 
 **The danger count is no field.** ADR-0005 settled that it is the enemies among the actors, which
 that section lists with the invisible flag; the indicator's number is the enemies in the field of
-view (`…/ui/DangerIndicator.java:87-104`; `…/actors/hero/Hero.java:1691-1694`), refreshed at the
+view (`…/ui/DangerIndicator.java:87-104`; `…/actors/hero/Hero.java:1692-1694`), refreshed at the
 top of every hero act (`Hero.java:859`), so it is fresh at every Input wait.
 `EnvironmentLeakTest` holds the two equal, with an invisible enemy in view counted by both.
 

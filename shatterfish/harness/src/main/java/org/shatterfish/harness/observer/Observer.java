@@ -301,7 +301,7 @@ public final class Observer {
      *
      * <p>Three readings of the emitter's loop are folded in here. It walks the blob's bounding
      * rectangle, which every seed unions the seeded cell into ({@code …/actors/blobs/Blob.java:143-149},
-     * {@code :211-219}) and which therefore always contains the cells holding any of the blob, so
+     * {@code :209-217}) and which therefore always contains the cells holding any of the blob, so
      * walking the cells themselves draws the same set and, unlike the emitter, needs no
      * {@code setupArea()} call: the Observer writes nothing. The fog of war is added to the scene
      * after the gases ({@code …/scenes/GameScene.java:343-353}), so it is drawn over the
@@ -310,8 +310,8 @@ public final class Observer {
      * one the map's record requires. And the emitter's other gate, a blob marked always visible,
      * cannot change what this method emits: the three blobs the tag marks so, Tengu's fire and
      * shocker blobs and the skeleton key's wall ({@code …/actors/mobs/Tengu.java:846-850},
-     * {@code :910-918}; {@code :1041-1045}, {@code :1086-1094};
-     * {@code …/items/artifacts/SkeletonKey.java:472-476}, {@code :548-553}), do pour particles and
+     * {@code :913-918}; {@code :1041-1045}, {@code :1089-1094};
+     * {@code …/items/artifacts/SkeletonKey.java:472-476}, {@code :549-553}), do pour particles and
      * the game draws them through the fog of a remembered cell, but the fog paints such a cell
      * {@code VISITED} or {@code MAPPED} and the record requires {@code VISIBLE}, so a clause for
      * them here would be dead code no test could defend and their particles out of view are a loss

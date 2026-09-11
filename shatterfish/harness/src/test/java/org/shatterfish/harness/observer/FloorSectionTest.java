@@ -70,7 +70,7 @@ class FloorSectionTest {
 
         // Every feeling the game has reaches the section under its own name: the button draws an
         // icon for each, its hover text the description and its window the title
-        // (MenuPane.java:98-116), and the floor's arrival line names it (…/scenes/GameScene.java:670-689).
+        // (MenuPane.java:98-116), and the floor's arrival line names it (…/scenes/GameScene.java:670-699).
         for (Level.Feeling feeling : Level.Feeling.values()) {
             level.feeling = feeling;
             assertEquals(Feeling.valueOf(feeling.name()), new Observer().map().feeling(), feeling.name());
@@ -105,7 +105,7 @@ class FloorSectionTest {
         assertEquals(2, mapped.transitions().size(), "the floor's two transitions, both seen now");
 
         // A transition is a rectangle, and the boss floors make theirs wider than the stairs they
-        // paint (…/levels/CavesBossLevel.java:158-163); the cell carried is the one the game
+        // paint (…/levels/CavesBossLevel.java:159-163); the cell carried is the one the game
         // designates, not a corner of the rectangle.
         Point at = level.cellToPoint(surface.cell());
         surface.set(at.x - 1, at.y - 1, at.x + 1, at.y + 1);
