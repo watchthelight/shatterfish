@@ -39,6 +39,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Timeout(value = 5, unit = TimeUnit.MINUTES)
 class LogListenerTest {
 
+    /** The rows of ADR-0006's whitelist this suite holds ({@link VisibilityChecklistTest}). */
+    static final List<String> ADR_0006_ROWS = List.of("Log");
+
     private static final long SEED = 31_415_926L;
 
     private HeadlessDriver driver;

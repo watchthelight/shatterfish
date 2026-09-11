@@ -55,6 +55,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Timeout(value = 5, unit = TimeUnit.MINUTES)
 class PromptGateTest {
 
+    /** The rows of ADR-0006's whitelist this suite holds ({@link VisibilityChecklistTest}). */
+    static final List<String> ADR_0006_ROWS = List.of("Prompt");
+
     private static final long SEED = 22_360_679L;
 
     private HeadlessDriver driver;

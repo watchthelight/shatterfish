@@ -27,6 +27,7 @@ import org.shatterfish.harness.driver.HeadlessDriver;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -45,6 +46,9 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @Timeout(value = 5, unit = TimeUnit.MINUTES)
 class FogParityTest {
+
+    /** The rows of ADR-0006's whitelist this suite holds ({@link VisibilityChecklistTest}). */
+    static final List<String> ADR_0006_ROWS = List.of("Cell visibility", "Vision buffs");
 
     private static final long SEED = 14_142_135L;
 

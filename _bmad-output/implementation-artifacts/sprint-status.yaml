@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: '2026-09-04'
-last_updated: '2026-09-06'
+last_updated: '2026-09-11'
 project: shatterfish
 project_key: NOKEY
 tracking_system: file-system
@@ -46,7 +46,7 @@ development_status:
   1-8-the-observer-part-one-map-fog-traps-and-heaps: done
   1-9-the-observer-part-two-actors-emotes-buffs-and-the-hero: done
   1-10-the-observer-part-three-inventory-journal-log-and-prompts: done
-  1-11-the-observer-part-four-the-remaining-rows: backlog
+  1-11-the-observer-part-four-the-remaining-rows: review
   1-12-the-action-type-and-the-valid-action-set: backlog
   1-13-the-actionexecutor: backlog
   1-14-a-random-action-warrior-run-to-death: backlog

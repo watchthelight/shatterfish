@@ -49,6 +49,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Timeout(value = 5, unit = TimeUnit.MINUTES)
 class MapLeakTest {
 
+    /** The rows of ADR-0006's whitelist this suite holds ({@link VisibilityChecklistTest}). */
+    static final List<String> ADR_0006_ROWS = List.of("Terrain", "Traps", "Heaps");
+
     private static final long SEED = 27_182_818L;
 
     private HeadlessDriver driver;
