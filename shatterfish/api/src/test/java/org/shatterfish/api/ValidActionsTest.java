@@ -173,6 +173,66 @@ class ValidActionsTest {
     }
 
     @Test
+    @DisplayName("a cell the hero cannot walk onto is no step")
+    void a_wall_is_not_a_step() {
+        Observation observation = Corpus.observation();
+        int hero = observation.hero().cell();
+        int width = observation.map().width();
+        // The corpus stands the hero on the entrance at the top left, so its neighbours are the
+        // cell to the right, the one below, and the one diagonally between them.
+        int right = hero + 1;
+        int below = hero + width;
+        assertEquals(Tile.EMPTY, observation.map().tiles().get(right));
+
+        List<Action> open = ValidActions.of(observation).actions();
+        assertTrue(open.contains(new Action.Step(right)), "floor beside the hero is a step");
+
+        // Every tile the game flags SOLID or AVOID rather than PASSABLE: a wall, a locked door, a
+        // barricade, an alchemy pot, a statue, a well, a mine crystal (Terrain.java:85-125).
+        for (Tile solid : List.of(Tile.WALL, Tile.WALL_DECO, Tile.LOCKED_DOOR, Tile.CRYSTAL_DOOR, Tile.BARRICADE,
+                Tile.BOOKSHELF, Tile.ALCHEMY, Tile.STATUE, Tile.STATUE_SP, Tile.WELL, Tile.LOCKED_EXIT,
+                Tile.MINE_CRYSTAL, Tile.MINE_BOULDER, Tile.REGION_DECO, Tile.REGION_DECO_ALT)) {
+            Observation walled = Corpus.with(observation, withTile(observation.map(), right, solid));
+            assertFalse(ValidActions.of(walled).actions().contains(new Action.Step(right)),
+                    solid + " is not a cell a click walks onto");
+        }
+
+        // And the chasm is, because the click asks before the hero jumps (Chasm.java:59-62).
+        Observation chasm = Corpus.with(observation, withTile(observation.map(), right, Tile.CHASM));
+        assertTrue(ValidActions.of(chasm).actions().contains(new Action.Step(right)),
+                "a click on a chasm is an input a person makes; the question comes after");
+
+        // A cell the player has never seen is drawn as nothing and is no step either.
+        Observation unseen = Corpus.with(observation, withTile(observation.map(), below, Tile.NONE));
+        assertFalse(ValidActions.of(unseen).actions().contains(new Action.Step(below)));
+    }
+
+    @Test
+    @DisplayName("what lies under the hero is offered by the kind of heap it is")
+    void the_heap_underfoot_is_offered_by_kind() {
+        Observation observation = Corpus.observation();
+        int hero = observation.hero().cell();
+        assertTrue(ValidActions.of(observation).actions().stream().noneMatch(a -> a instanceof Action.PickUp),
+                "the corpus leaves the hero's own cell bare");
+
+        for (HeapKind kind : List.of(HeapKind.HEAP, HeapKind.FOR_SALE, HeapKind.LOCKED_CHEST, HeapKind.CHEST,
+                HeapKind.CRYSTAL_CHEST, HeapKind.TOMB, HeapKind.SKELETON, HeapKind.REMAINS, HeapKind.EBONY_CHEST)) {
+            String item = kind == HeapKind.HEAP || kind == HeapKind.FOR_SALE ? "Ration of food" : "";
+            int price = kind == HeapKind.FOR_SALE ? 50 : 0;
+            Observation under = Corpus.with(observation,
+                    withHeap(observation.map(), new HeapView(hero, kind, false, item, price, "")));
+            List<Action> valid = ValidActions.of(under).actions();
+            Action expected = switch (kind) {
+                case HEAP -> new Action.PickUp();
+                case FOR_SALE -> new Action.Buy(hero);
+                case LOCKED_CHEST -> new Action.Unlock(hero);
+                default -> new Action.OpenChest(hero);
+            };
+            assertTrue(valid.contains(expected), kind + " under the hero should offer " + expected);
+        }
+    }
+
+    @Test
     @DisplayName("a talent is offered only while its tier has a point to spend")
     void a_talent_needs_a_point() {
         Observation observation = Corpus.observation();
@@ -183,6 +243,33 @@ class ValidActionsTest {
             assertEquals(points.get(talent.tier() - 1) > 0, offered,
                     talent.name() + " of tier " + talent.tier() + ", with " + points + " to spend");
         }
+    }
+
+    private static MapSection withTile(MapSection map, int cell, Tile tile) {
+        List<Tile> tiles = new java.util.ArrayList<>(map.tiles());
+        tiles.set(cell, tile);
+        List<Fog> fog = new java.util.ArrayList<>(map.fog());
+        fog.set(cell, tile == Tile.NONE ? Fog.UNKNOWN : Fog.VISIBLE);
+        List<HeapView> heaps = new java.util.ArrayList<>(map.heaps());
+        List<TrapView> traps = new java.util.ArrayList<>(map.traps());
+        List<BlobCell> blobs = new java.util.ArrayList<>(map.blobs());
+        List<TransitionView> transitions = new java.util.ArrayList<>(map.transitions());
+        if (tile == Tile.NONE) {
+            // The record refuses anything standing on a cell the player has never seen.
+            heaps.removeIf(h -> h.cell() == cell);
+            traps.removeIf(t -> t.cell() == cell);
+            blobs.removeIf(b -> b.cell() == cell);
+            transitions.removeIf(t -> t.cell() == cell);
+        }
+        return new MapSection(map.width(), map.height(), tiles, fog, traps, heaps, blobs, map.feeling(), transitions);
+    }
+
+    private static MapSection withHeap(MapSection map, HeapView heap) {
+        List<HeapView> heaps = new java.util.ArrayList<>(map.heaps());
+        heaps.removeIf(existing -> existing.cell() == heap.cell());
+        heaps.add(heap);
+        return new MapSection(map.width(), map.height(), map.tiles(), map.fog(), map.traps(), heaps, map.blobs(),
+                map.feeling(), map.transitions());
     }
 
     private static MapSection withTransition(MapSection map, TransitionView transition) {
