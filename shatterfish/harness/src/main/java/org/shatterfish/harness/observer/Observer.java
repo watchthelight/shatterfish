@@ -334,14 +334,17 @@ public final class Observer {
      * particles, and the fog paints a cell {@link Fog#VISIBLE} only where the hero sees it, which
      * is the emitter's own gate as well: one test of the painted fog is both rules, and it is the
      * one the map's record requires. And the emitter's other gate, a blob marked always visible,
-     * cannot change what this method emits: the three blobs the tag marks so, Tengu's fire and
-     * shocker blobs and the skeleton key's wall ({@code …/actors/mobs/Tengu.java:846-850},
-     * {@code :913-918}; {@code :1041-1045}, {@code :1089-1094};
-     * {@code …/items/artifacts/SkeletonKey.java:472-476}, {@code :549-553}), do pour particles and
-     * the game draws them through the fog of a remembered cell, but the fog paints such a cell
-     * {@code VISITED} or {@code MAPPED} and the record requires {@code VISIBLE}, so a clause for
-     * them here would be dead code no test could defend and their particles out of view are a loss
-     * ADR-0006 records.
+     * cannot change what this method emits, because the record carries a blob only on a cell the
+     * fog paints seen. That gate grew at v4.0.0: the emitter now draws such a blob on any cell in
+     * view, mapped or visited ({@code …/effects/BlobEmitter.java:59-72}), the cell's description
+     * names it outside the field of view too ({@code …/windows/WndInfoCell.java:175-183}), and six
+     * blobs are marked so rather than three — the alchemy pot, well water and so every water of X,
+     * the wall of light, Tengu's fire and shocker blobs, and the skeleton key's wall
+     * ({@code …/actors/blobs/Alchemy.java:31-33}; {@code …/actors/blobs/WellWater.java:37-39};
+     * {@code …/actors/hero/spells/WallOfLight.java:245-248}; {@code …/actors/mobs/Tengu.java:846-850},
+     * {@code :1041-1045}; {@code …/items/artifacts/SkeletonKey.java:480-484}). So a player who has
+     * walked past a well remembers which well it is and this section does not: a loss that grew
+     * with the tag, recorded in ADR-0006 and in {@code docs/ideas.md} for the schema story.
      */
     private static List<BlobCell> blobs(Level level, List<Fog> fog) {
         Map<Integer, List<String>> kinds = new LinkedHashMap<>();

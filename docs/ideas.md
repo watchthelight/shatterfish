@@ -38,3 +38,37 @@ dresses its cells (`core/.../actors/hero/spells/HallowedGround.java:166`). The p
 Observation shows neither, and the map's tiles still say floor, so a bot would walk into a wall of
 its own light. Nothing leaks, and nothing is wrong before a Cleric plays, but the map wants a row
 for what a blob does to a cell's terrain, which is a schema change and a story of its own.
+
+## Upstream statics that outlive a Run
+
+The upgrade to `v4.0.0` failed the draw-parity test on a difference nobody had seen: two Runs of one
+tuple in one process logged different numbers of guidebook lines, because `Snake.dodges` is a
+private static counter of the dodges the hero has watched and nothing resets it between Runs
+(`core/.../actors/mobs/Snake.java:58-70`). The test fixture clears it now, next to the global badges
+and the journal.
+
+It is not alone. A sweep of `actors` and `items` at the tag finds eighty-three mutable statics; most
+are tunable constants or state the game's own `Actor.clear()` and `Dungeon.init()` reset, but some
+are counters of the same shape (`Combo.furyHitsLeft`, `GnollGeomancer.rocksInFlight`,
+`Char.hitMissIcon`, `Blacksmith.type`). One process hosting one Run makes the question moot, which
+is what the rig does and what ADR-0007 assumes; it stops being moot the moment anything runs two
+Runs in a process, which the tests already do. Story 1.16 owns the answer: either a reset list the
+harness applies at every Run start, with a test that walks the statics and fails on a new one, or a
+documented rule that a process hosts one Run and the tests that break it carry their own resets.
+
+## What a remembered cell still shows: the always-visible blobs
+
+`v4.0.0` made the emitter's always-visible gate explicit and widened it: such a blob is drawn on any
+cell in view, mapped or visited (`core/.../effects/BlobEmitter.java:59-72`), the cell's description
+names it outside the field of view too (`core/.../windows/WndInfoCell.java:175-183`), and six blobs
+carry the flag rather than three, the alchemy pot and well water among them
+(`core/.../actors/blobs/Alchemy.java:31-33`; `core/.../actors/blobs/WellWater.java:37-39`).
+
+The Observation cannot carry them: `MapSection` takes a blob only on a cell in view, which ADR-0005
+decided when the flag belonged to two of Tengu's blobs and one wall. It now costs the bot something
+a player plainly has — which well is which, and where the alchemy pot is, on a floor already walked.
+The map already carries heaps on remembered cells, so the shape of the answer exists: a blob cell
+would carry the fog level it was seen at, or the section would take a remembered-blob list beside
+the in-view one. Both are schema changes and a version bump, so this is a story, and the story after
+it re-reads ADR-0006's Blobs row.
+

@@ -70,7 +70,7 @@ following and nothing else.
 | Items | `name()`, `title()`, `image`, `quantity`, `levelKnown`, `cursedKnown`, `visiblyUpgraded()`, `visiblyCursed()`, `status()`, `actions(hero)`, `defaultAction()`; for wands `curChargeKnown`; for rings `isKnown()`; equipped slot. | `…/items/Item.java:433-451`, `:483-499`; `…/items/wands/Wand.java:332-334`; `…/items/rings/Ring.java:238-241`; `…/windows/WndUseItem.java:54-76` | `getClass()` of an unknown potion, scroll or ring; `level()` or `cursed` when unknown; ID progress counters; `ItemStatusHandler.unknown()`; `Wand.curCharges` when `!curChargeKnown` |
 | Known appearances | `Potion.getKnown()`, `Scroll.getKnown()`, `Ring.getKnown()` (this Run). | `…/items/potions/Potion.java:402-404` | `Catalog` (cross-Run); `ItemStatusHandler.itemLabels` beyond seen items |
 | Vision buffs | Nothing special: mind vision, magical sight, blindness (a 3x3 FOV), darkness, Light and Foresight all act through `heroFOV`, `visited` and `mapped` before the Observer reads them. | `…/levels/Level.java:1290-1378`, `:1403-1411`; `…/Dungeon.java:914-938` | any recomputation of FOV |
-| Blobs | For cells the fog paints seen, which is where `heroFOV[c]` holds, the kinds of blob with `cur[c] > 0` whose emitter is emitting and whose volume is positive; the emitter draws one particle per such cell regardless of volume and the cell info names the blob only. An `alwaysVisible` blob outside the field of view is drawn to a player and not carried (story 1.11's amendment). | `…/effects/BlobEmitter.java:47-70`; `…/windows/WndInfoCell.java:144-153`; `SPD-classes/…/noosa/particles/Emitter.java:116-128` | `Blob.cur` outside the fog's seen cells; any volume |
+| Blobs | For cells the fog paints seen, which is where `heroFOV[c]` holds, the kinds of blob with `cur[c] > 0` whose emitter is emitting and whose volume is positive; the emitter draws one particle per such cell regardless of volume and the cell info names the blob only. A blob marked `alwaysVisible` is drawn, and named by the cell's description, on a remembered cell too, and is not carried there: a loss, six blobs wide at `v4.0.0`. | `…/effects/BlobEmitter.java:47-72`; `…/windows/WndInfoCell.java:175-183`; `SPD-classes/…/noosa/particles/Emitter.java:116-128` | `Blob.cur` outside the fog's seen cells; any volume |
 | Floor feeling | `Level.feeling`, the floor's own, which the depth button draws as an icon, names in its hover text and titles the window it opens; the arrival line logs it once. | `…/ui/MenuPane.java:88-89`, `:98-116`; `…/ui/Icons.java:478-497`; `…/scenes/GameScene.java:670-699` | nothing more: the secrets a SECRETS floor holds stay secret |
 | Transitions | For every `LevelTransition` of `Level.transitions` whose designated cell the player has seen *and* which draws there as a way up or down, one of the five terrains the examine window names an entrance or an exit, that cell and the transition's `type`. | `…/levels/features/LevelTransition.java:34-47`, `:92-94`; `…/levels/Level.java:177`, `:1575-1580`, `:1594-1598` | a transition whose cell is unknown or draws as anything else; the destination depth and branch |
 | Boss lock | `Level.locked`, the flag `seal()` sets with the `LockedFloor` buff whose icon the HUD shows, carried as the header's `sealed`. | `…/levels/Level.java:180`, `:617-630`; `…/actors/buffs/LockedFloor.java:76-78` | anything else about the boss fight |
@@ -506,3 +506,25 @@ the Observer.
 
 Left: the valid Actions (story 1.12), which the Observation carries and this suite's pending row
 names.
+
+### Note at the upgrade to v4.0.0 (2026-09-11)
+
+Two of this amendment's sentences were true of `v3.3.8` and are not true of `v4.0.0`, and the
+upgrade corrects them here rather than rewriting the record above. The emitter's always-visible
+gate is no longer a quiet clause: it draws such a blob on any cell in view, **mapped or visited**
+(`…/effects/BlobEmitter.java:59-72`), and the cell's description names one outside the field of
+view as well (`…/windows/WndInfoCell.java:175-183`). And six blobs carry the flag rather than
+three: the alchemy pot and well water joined the wall of light, Tengu's two and the skeleton key's
+(`…/actors/blobs/Alchemy.java:31-33`; `…/actors/blobs/WellWater.java:37-39`;
+`…/actors/hero/spells/WallOfLight.java:245-248`).
+
+The Observer's rule is unchanged, and so is the code: a blob is carried where the fog paints the
+cell seen, which is where the hero sees it. What changed is the size of the loss. A player who
+walked past a well remembers which well it is, and a player who found the alchemy pot sees it
+bubbling on a remembered cell; the section shows neither, because the record carries a blob only on
+a cell in view (ADR-0005). That is memory the human has and the bot does not, the same shape as the
+log pane's wipe, and it is now worth closing: `docs/ideas.md` carries it for the schema story.
+
+The upgrade also found that `v4.0.0` names the old imp quest's window `WndImpOld` and adds
+`Terrain.CUSTOM_DECO_WTR`, an invisible decoration drawn as water, which the tile table names; and
+that upstream's `Snake.dodges` outlives a Run, which is the determinism story's to answer.
