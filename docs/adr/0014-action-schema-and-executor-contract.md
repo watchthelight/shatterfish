@@ -173,3 +173,66 @@ Action whose reference does not match its inventory, which puts option 11's desy
 construction as well as at execution. `Rest(full)` carries its flag as a boolean. Each record
 names its kind, which the codec writes first and the JSON writes as the `kind` key; the canonical
 form of an Action in the Run log is that JSON.
+
+## Amendment: story 1.12 (2026-09-11)
+
+The valid set exists, and it lives in `api` as `ValidActions.of(Observation)` rather than on the
+executor. The table above named it `ActionExecutor.validActions`, which is where the *authority*
+sits and not where the *function* can sit: a Brain sees only `api` (ADR-0003), and a Brain that
+cannot compute the set cannot reason about what it is choosing between. The executor of story 1.13
+re-validates against it and is still the only thing that may say no. Paths abbreviate
+`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/` as `…/`, at `v4.0.0`.
+
+**The Observation carries its own set.** `Observer.observe()` builds the sections, computes the set
+from them and returns `withActions` of it, so ADR-0006's Valid Actions row is filled and the leak
+tests cover it: an Action whose parameter the Observation does not carry cannot be built, the
+record refusing it at construction. `ActionsSection.NONE` stays for the section methods, which the
+leak tests use one at a time.
+
+**The rules, and what each reads.** Under a Prompt, the options and nothing else, so `Wait` is
+absent as the table says. Otherwise: a `Step` for each of the eight cells around the hero drawn as
+a tile a click walks onto; an `Attack` or an `Interact` instead where a character stands there, by
+the alignment the actors section carries; `PickUp`, `Buy`, `Unlock` or `OpenChest` for a heap on
+the hero's own cell, by its kind; `Descend` or `Ascend` for a transition there, unless the header's
+`sealed` flag says a boss fight has locked the floor; every action every item of the inventory
+offers, in the shape its target needs; a `Talent` for each talent whose tier still has a point, as
+the hero section counts them; the armour ability once the hero has one; and `Rest`, `Search` and
+`Wait`, which need nothing.
+
+**Two narrowings, both deliberate.** The set is what the *screen* shows to be available, not what
+the game will allow: a cell drawn as floor can be a decoration the hero cannot enter
+(`…/levels/Terrain.java:119-120`), and a locked chest is offered whether or not the key is in the
+pack. Those are the executor's to refuse, with a reason, which is the division of labour the table
+already had. And a targeted item action is offered at each character in view and at the hero's own
+cell rather than at every cell of the floor: the cross product of items and cells is thousands of
+entries per wait, the set is a menu rather than a proof, and a Brain may still construct another
+target, which the Observation checks and the executor judges. A later story may widen it when a
+Brain wants to throw at a spot rather than at somebody.
+
+**What is game knowledge, and where.** Three small tables in `ValidActions` say what the screen
+means: which tiles a click walks onto, which item actions open the cell selector or the bag, and
+which heap kinds open rather than pick up. The bag table is the awkward one, and it is honest about
+it: the same identifier opens the bag for one item and not another — `READ` does for the scrolls of
+identify, remove curse, transmutation and upgrade (`…/items/scrolls/InventoryScroll.java:39-49`)
+and for the scroll of enchantment (`…/items/scrolls/exotic/ScrollOfEnchantment.java:45`), and for
+no other scroll — and the identifier is all the Observation carries, which is also all a
+player has before reading an unknown scroll. So both shapes are offered for such an action, the
+plain one and the one on each other item, and the executor takes the shape the game asks for. The
+entries were read off the classes that reach `GameScene.selectItem` rather than guessed, which the
+first draft of this story did, and got wrong; the review found five more of them and the two
+missing halves of the cell table, and the tables now name the class behind every entry.
+
+**A third narrowing, and it runs the other way.** The set drops `Descend` and `Ascend` on a sealed
+floor, which is "what the game will allow" and therefore an exception to the division of labour two
+paragraphs above. It is here because the story's acceptance asks for it and because the flag is
+already in the header for the screen's own reasons, and it is worth naming as an exception rather
+than leaving as an inconsistency: everything else in the set is what the screen shows, and this one
+thing is what the game does. The review of the upgrade to `v4.0.0` also found that the flag is not
+always drawn — the vault floor seals without the `LockedFloor` buff the HUD shows
+(`…/levels/VaultLevel.java:630-637`) — so the bot loses its stairs there with less on screen to
+explain it than on a boss floor, where the boss, the bar and the buff are all in view. ADR-0006's
+Boss lock row carries that now. They are the wiki-level facts non-negotiable 1 allows a
+bot to know, they are cited to the code that decides them, and E2's Codex is where they move when
+it exists. `ValidActionsTest` holds the rules over the schema's own corpus, in a module the build
+forbids from seeing the game, which is what "computed with no game running" means here.
+

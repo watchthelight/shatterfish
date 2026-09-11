@@ -131,14 +131,17 @@ class JsonRenderingTest {
     /**
      * The classes of {@code api} that are neither a record or enum of the schema nor {@link Action}.
      * A new class fails the test until it is added here after review, so a reader cannot arrive as
-     * a helper.
+     * a helper. {@code ValidActions} joined them in story 1.12: it reads an Observation's own
+     * records and writes {@link Action}s, reads no text and no bytes, and is here rather than in
+     * the harness because a Brain, which sees only this module, has to be able to compute the same
+     * set (ADR-0014).
      */
     private static final Set<String> HELPERS = Set.of("Canon", "Encoder", "Sha256", "Utf8", "JsonWriter",
             "JsonWriter$Frame", "JsonWriter$ObjectFrame", "JsonWriter$ArrayFrame", "ObservationCodec", "ObservationJson",
-            "Belief", "ShatterfishApi");
+            "Belief", "ShatterfishApi", "ValidActions");
 
     @Test
-    @DisplayName("api is the schema, Action and twelve named helpers, and nothing in it reads text or bytes into a record")
+    @DisplayName("api is the schema, Action and thirteen named helpers, and nothing in it reads text or bytes into a record")
     void nothing_reads_json_back() throws Exception {
         JavaClasses classes = new ClassFileImporter().withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
                 .importPackages("org.shatterfish.api");
