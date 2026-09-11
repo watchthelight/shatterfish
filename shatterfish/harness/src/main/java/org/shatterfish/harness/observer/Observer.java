@@ -81,11 +81,13 @@ import org.shatterfish.harness.driver.Prompts;
 import org.shatterfish.harness.driver.Windows;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The one door from game state to the bot (non-negotiable 1; ADR-0006): reads, at an Input wait,
@@ -116,6 +118,22 @@ public final class Observer {
      * through the sheet's own tables, never through a table of Shatterfish's own.
      */
     private static final Map<Integer, Tile> BY_VISUAL = new HashMap<>();
+
+    /**
+     * The tiles a way up or down is drawn as: the five terrains the examine window names an
+     * entrance or an exit ({@code …/levels/Level.java:1575-1580}, {@code :1594-1598}). A
+     * transition of {@code Level.transitions} whose cell draws as anything else is a transition
+     * the player cannot see, and the review of story 1.11 found two at the tag: the Halls boss
+     * floor's exit stands under the wall of the centrepiece and becomes an exit only when Yog dies
+     * and {@code unseal()} sets the terrain ({@code …/levels/HallsBossLevel.java:135},
+     * {@code :164}, {@code :170-174}, {@code :288-293}), and the vault's entrance room paints no
+     * stairs and adds no visual at all
+     * ({@code …/levels/rooms/quest/vault/VaultEntranceRoom.java:41-60}). Both were carried by an
+     * earlier draft of this method, which told the bot where an exit was while the screen drew a
+     * wall.
+     */
+    private static final Set<Tile> STAIRS = EnumSet.of(Tile.ENTRANCE, Tile.ENTRANCE_SP, Tile.EXIT,
+            Tile.LOCKED_EXIT, Tile.UNLOCKED_EXIT);
 
     static {
         visual(DungeonTileSheet.FLOOR, Tile.EMPTY);
@@ -216,8 +234,9 @@ public final class Observer {
      * Transitions): the kinds of blob whose particles the emitter draws on a cell the fog does
      * not cover, with no volume; the floor's feeling, which the depth button draws as an icon
      * ({@code …/ui/MenuPane.java:88-89}, {@code :98-116}; {@code …/ui/Icons.java:478-497}); and
-     * every transition whose designated cell the player has seen, at that cell and with the kind
-     * the game gives it ({@code …/levels/features/LevelTransition.java:34-47}, {@code :92-94}).
+     * every transition whose designated cell the player has seen and which draws there as a way up
+     * or down, at that cell and with the kind the game gives it
+     * ({@code …/levels/features/LevelTransition.java:34-47}, {@code :92-94}; {@link #STAIRS}).
      */
     public MapSection map() {
         atInputWait();
@@ -277,11 +296,11 @@ public final class Observer {
         List<TransitionView> transitions = new ArrayList<>();
         for (LevelTransition transition : level.transitions) {
             // A transition is a rectangle of cells with one designated cell, the cell the game
-            // itself picks when it needs one (LevelTransition.java:88-94) and the cell the stairs
-            // or the quest visual stand on at every site of the tag; the section carries that
-            // cell, once the player has seen it.
+            // itself picks when it needs one (LevelTransition.java:88-94); the section carries that
+            // cell when the player has seen it and the cell draws as a way up or down, which is
+            // not the same thing as a transition standing there (see STAIRS).
             int cell = transition.cell();
-            if (fog.get(cell) != Fog.UNKNOWN) {
+            if (fog.get(cell) != Fog.UNKNOWN && STAIRS.contains(tiles.get(cell))) {
                 transitions.add(new TransitionView(cell, TransitionKind.valueOf(transition.type.name())));
             }
         }

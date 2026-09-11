@@ -5,6 +5,7 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.LockedFloor;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
+import com.shatteredpixel.shatteredpixeldungeon.levels.Terrain;
 import com.shatteredpixel.shatteredpixeldungeon.levels.features.LevelTransition;
 import com.watabou.utils.Point;
 import org.junit.jupiter.api.AfterEach;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Timeout;
 import org.shatterfish.api.Feeling;
 import org.shatterfish.api.Fog;
 import org.shatterfish.api.MapSection;
+import org.shatterfish.api.Tile;
 import org.shatterfish.api.TransitionKind;
 import org.shatterfish.api.TransitionView;
 import org.shatterfish.harness.driver.HeadlessDriver;
@@ -21,6 +23,7 @@ import org.shatterfish.harness.observer.Skeleton.Serialized;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -117,13 +120,81 @@ class FloorSectionTest {
         assertEquals(seen(wide), cells(wide));
     }
 
-    /** The cells of the transitions the player has seen, in the order the record fixes. */
+    /**
+     * The cells of the transitions the player has seen drawn, in the order the record fixes: the
+     * cell is not unknown and its terrain is one the examine window names an entrance or an exit
+     * (…/levels/Level.java:1575-1580, :1594-1598).
+     */
     private List<Integer> seen(MapSection map) {
         return level.transitions.stream()
                 .filter(transition -> map.fog().get(transition.cell()) != Fog.UNKNOWN)
+                .filter(transition -> DRAWN.contains(level.map[transition.cell()]))
                 .map(LevelTransition::cell)
                 .sorted()
                 .toList();
+    }
+
+    /** The terrains a way up or down is drawn as, from the game's own naming of a cell. */
+    private static final Set<Integer> DRAWN = Set.of(Terrain.ENTRANCE, Terrain.ENTRANCE_SP, Terrain.EXIT,
+            Terrain.LOCKED_EXIT, Terrain.UNLOCKED_EXIT);
+
+    @Test
+    @DisplayName("a transition under a wall is not carried until the floor opens it, as the Halls boss floor does")
+    void a_transition_under_a_wall_is_not_carried() {
+        atTheFirstWait();
+        LevelTransition exit = transitionOfType(LevelTransition.Type.REGULAR_EXIT);
+        assertNotNull(exit);
+        level.mapped[exit.cell()] = true;
+        assertEquals(TransitionKind.REGULAR_EXIT, transitionAt(new Observer().map(), exit.cell()).orElseThrow().kind());
+
+        // The Halls boss floor builds its exit under the centrepiece's wall and paints the stairs
+        // only when Yog dies (…/levels/HallsBossLevel.java:135, :164, :170-174, :288-293): the
+        // transition is in Level.transitions from the start, and the screen shows a wall.
+        Level.set(exit.cell(), Terrain.WALL_DECO);
+        MapSection walled = new Observer().map();
+        assertEquals(Tile.WALL_DECO, walled.tiles().get(exit.cell()), "a decorated wall is what the screen draws");
+        assertTrue(transitionAt(walled, exit.cell()).isEmpty(), "a way down the player cannot see is not carried");
+        assertEquals(seen(walled), cells(walled));
+        Serialized.of(new Observer().observe()).assertAbsent(TransitionKind.REGULAR_EXIT.name());
+
+        // unseal() sets the terrain, and the exit is a way down on the screen and in the section.
+        Level.set(exit.cell(), Terrain.EXIT);
+        MapSection opened = new Observer().map();
+        assertEquals(Tile.EXIT, opened.tiles().get(exit.cell()));
+        assertEquals(TransitionKind.REGULAR_EXIT, transitionAt(opened, exit.cell()).orElseThrow().kind());
+    }
+
+    @Test
+    @DisplayName("a transition on a cell that draws as plain floor is not carried, as the vault's entrance is")
+    void a_transition_with_no_stairs_is_not_carried() {
+        atTheFirstWait();
+        int floor = floorInView();
+        assertEquals(Tile.EMPTY, new Observer().map().tiles().get(floor));
+
+        // The vault's entrance room adds a branch entrance and paints neither stairs nor a visual
+        // (…/levels/rooms/quest/vault/VaultEntranceRoom.java:41-60): the player sees floor.
+        level.transitions.add(new LevelTransition(level, floor, LevelTransition.Type.BRANCH_ENTRANCE,
+                Dungeon.depth, 0, LevelTransition.Type.BRANCH_EXIT));
+        MapSection floorOnly = new Observer().map();
+        assertTrue(transitionAt(floorOnly, floor).isEmpty(), "nothing is drawn there, so nothing is carried");
+        assertEquals(seen(floorOnly), cells(floorOnly));
+        Serialized.of(new Observer().observe()).assertAbsent(TransitionKind.BRANCH_ENTRANCE.name());
+
+        // The mine's entrance, by contrast, paints the stairs under its visual
+        // (…/levels/rooms/quest/MineEntrance.java:85-101).
+        Level.set(floor, Terrain.ENTRANCE);
+        assertEquals(TransitionKind.BRANCH_ENTRANCE, transitionAt(new Observer().map(), floor).orElseThrow().kind());
+    }
+
+    private int floorInView() {
+        for (int cell = 0; cell < level.length(); cell++) {
+            final int at = cell;
+            if (level.heroFOV[at] && at != hero.pos && level.map[at] == Terrain.EMPTY
+                    && level.heaps.get(at, null) == null && level.transitions.stream().noneMatch(t -> t.inside(at))) {
+                return at;
+            }
+        }
+        throw new AssertionError("no free floor in view");
     }
 
     private static List<Integer> cells(MapSection map) {

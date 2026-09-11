@@ -16,6 +16,7 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
 import com.shatteredpixel.shatteredpixeldungeon.items.artifacts.SkeletonKey;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Terrain;
+import com.shatteredpixel.shatteredpixeldungeon.levels.rooms.special.WeakFloorRoom;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.utils.DungeonSeed;
 import org.junit.jupiter.api.AfterEach;
@@ -36,6 +37,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -113,9 +115,10 @@ class EnvironmentLeakTest {
 
         // The emitter's own two conditions for drawing anything at all: it is emitting, and there
         // is some of the blob left (…/effects/BlobEmitter.java:47-49;
-        // SPD-classes/…/noosa/particles/Emitter.java:116-128). Neither is a state the tag's blobs
-        // reach on their own, so the test puts the emitter in it, as a hidden window member is put
-        // out of sight in PromptGateTest.
+        // SPD-classes/…/noosa/particles/Emitter.java:116-128). A blob that never gives its emitter
+        // a particle factory is in the first state for good, which the review found five of at the
+        // tag, upstream's well marker among them; the volume is set by hand, as a hidden window
+        // member is put out of sight in PromptGateTest.
         gas.emitter.on = false;
         assertTrue(blobAt(new Observer().map(), cell).orElseThrow().kinds().stream().noneMatch("ToxicGas"::equals),
                 "an emitter that is not emitting draws nothing");
@@ -167,6 +170,25 @@ class EnvironmentLeakTest {
         GameScene.add(fire);
         assertTrue(fire.emitter.on, "the emitter was given a factory (Fire.java, use(BlobEmitter))");
         assertEquals(List.of("Fire"), blobAt(new Observer().map(), cell).orElseThrow().kinds());
+    }
+
+    @Test
+    @DisplayName("a blob whose emitter was never started draws nothing, however much of it there is")
+    void a_blob_that_never_starts_its_emitter_is_absent() {
+        atTheFirstWait();
+        int cell = floorInView();
+
+        // Blob.use only keeps the emitter (…/actors/blobs/Blob.java:152-154); five blobs at the tag
+        // never override it, so their emitters are never given a factory and never emit, whatever
+        // a scene does. Upstream's own comment on this one says it: "we use a blob to track
+        // visibility of the well" (…/levels/rooms/special/WeakFloorRoom.java:105-127).
+        WeakFloorRoom.WellID marker = Blob.seed(cell, 20, WeakFloorRoom.WellID.class, level);
+        GameScene.add(marker);
+        assertNotNull(marker.emitter, "the scene made it an emitter");
+        assertFalse(marker.emitter.on, "and gave it no factory, so Emitter.update emits nothing");
+        assertTrue(marker.volume > 0 && marker.cur[cell] > 0, "there is plenty of it on the cell");
+        assertTrue(new Observer().map().blobs().isEmpty(), "nothing drawn, nothing carried");
+        Serialized.of(new Observer().observe()).assertAbsent("WellID");
     }
 
     @Test

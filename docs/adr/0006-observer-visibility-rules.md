@@ -70,9 +70,9 @@ following and nothing else.
 | Items | `name()`, `title()`, `image`, `quantity`, `levelKnown`, `cursedKnown`, `visiblyUpgraded()`, `visiblyCursed()`, `status()`, `actions(hero)`, `defaultAction()`; for wands `curChargeKnown`; for rings `isKnown()`; equipped slot. | `…/items/Item.java:433-451`, `:483-499`; `…/items/wands/Wand.java:332-334`; `…/items/rings/Ring.java:238-241`; `…/windows/WndUseItem.java:54-76` | `getClass()` of an unknown potion, scroll or ring; `level()` or `cursed` when unknown; ID progress counters; `ItemStatusHandler.unknown()`; `Wand.curCharges` when `!curChargeKnown` |
 | Known appearances | `Potion.getKnown()`, `Scroll.getKnown()`, `Ring.getKnown()` (this Run). | `…/items/potions/Potion.java:402-404` | `Catalog` (cross-Run); `ItemStatusHandler.itemLabels` beyond seen items |
 | Vision buffs | Nothing special: mind vision, magical sight, blindness (a 3x3 FOV), darkness, Light and Foresight all act through `heroFOV`, `visited` and `mapped` before the Observer reads them. | `…/levels/Level.java:1290-1378`, `:1403-1411`; `…/Dungeon.java:914-938` | any recomputation of FOV |
-| Blobs | For cells with `heroFOV[c]` (or an `alwaysVisible` blob), the set of blob kinds with `cur[c] > 0`; the emitter draws one particle per such cell regardless of volume and the cell info names the blob only. | `…/effects/BlobEmitter.java:59-70`; `…/windows/WndInfoCell.java:144-153` | `Blob.cur` outside `heroFOV`; any volume |
+| Blobs | For cells the fog paints seen, which is where `heroFOV[c]` holds, the kinds of blob with `cur[c] > 0` whose emitter is emitting and whose volume is positive; the emitter draws one particle per such cell regardless of volume and the cell info names the blob only. An `alwaysVisible` blob outside the field of view is drawn to a player and not carried (story 1.11's amendment). | `…/effects/BlobEmitter.java:47-70`; `…/windows/WndInfoCell.java:144-153`; `SPD-classes/…/noosa/particles/Emitter.java:116-128` | `Blob.cur` outside the fog's seen cells; any volume |
 | Floor feeling | `Level.feeling`, the floor's own, which the depth button draws as an icon, names in its hover text and titles the window it opens; the arrival line logs it once. | `…/ui/MenuPane.java:88-89`, `:98-116`; `…/ui/Icons.java:478-497`; `…/scenes/GameScene.java:670-699` | nothing more: the secrets a SECRETS floor holds stay secret |
-| Transitions | For every `LevelTransition` of `Level.transitions` whose designated cell the player has seen, that cell and the transition's `type`. | `…/levels/features/LevelTransition.java:34-47`, `:92-94`; `…/levels/Level.java:177` | a transition whose cell is unknown; the destination depth and branch |
+| Transitions | For every `LevelTransition` of `Level.transitions` whose designated cell the player has seen *and* which draws there as a way up or down, one of the five terrains the examine window names an entrance or an exit, that cell and the transition's `type`. | `…/levels/features/LevelTransition.java:34-47`, `:92-94`; `…/levels/Level.java:177`, `:1575-1580`, `:1594-1598` | a transition whose cell is unknown or draws as anything else; the destination depth and branch |
 | Boss lock | `Level.locked`, the flag `seal()` sets with the `LockedFloor` buff whose icon the HUD shows, carried as the header's `sealed`. | `…/levels/Level.java:180`, `:617-630`; `…/actors/buffs/LockedFloor.java:76-78` | anything else about the boss fight |
 | Danger count | `hero.visibleEnemies()` as the indicator shows it (includes invisible enemies in FOV). | `…/ui/DangerIndicator.java:87-104` | anything else derived from `Level.mobs` |
 | Log | The raw `GLog` messages (text and color prefix) captured from the `GLog.update` signal on the thread that emits them, kept in order and capped at N; never `GameLog.entries`, which are rendered on the render thread, merged when colors match and wrapped by UI size. Existence leaks the game itself makes ("You hear something die") are kept because the player sees them. | `…/ui/GameLog.java:52-129`; `…/utils/GLog.java` | `GameLog.entries` |
@@ -430,11 +430,18 @@ three blobs the tag marks so, Tengu's fire and shocker blobs and the skeleton ke
 them on a remembered cell through the fog; but the fog paints such a cell `VISITED` or `MAPPED`,
 the record requires `VISIBLE`, and a clause for them would therefore be dead code no test could
 defend, which story 1.10's battery taught. Their particles outside the hero's view are a recorded
-loss instead, the one place a player sees a blob the section does not carry. Two smaller losses go
-with it: a blob on a wall face the fog paints dark is drawn and not carried, and a blob with no
+loss instead, the one place a player sees a blob the section does not carry. Three smaller losses go
+with it. A blob on a wall face the fog paints dark is drawn and not carried. A blob with no
 `tileDesc()`, the regrowth and the alchemy pot's bubbles, is named here by its class though the
 cell's description would not name it, which the player reads from the particles and general game
-knowledge instead. `EnvironmentLeakTest`
+knowledge instead. And a blob that never gives its emitter a factory is not carried at all, which
+is right for upstream's own well marker and for the abstract well water
+(`…/levels/rooms/special/WeakFloorRoom.java:105-127`; `…/actors/blobs/WellWater.java:35`) but
+costs the bot what the player sees of the two the Cleric's spells lay down, the wall of light and
+the hallowed ground, which draw through the terrain flags and visuals they set rather than through
+an emitter (`…/actors/hero/spells/WallOfLight.java:244`, `:290-300`;
+`…/actors/hero/spells/HallowedGround.java:166`); the wall of light even makes its cells solid,
+which the section's tiles do not show. A later schema closes that one (`docs/ideas.md`). `EnvironmentLeakTest`
 holds the kinds on a cell in view, two kinds on one cell in name order whatever order the level's
 `HashMap` hands them over in (`…/levels/Level.java:184`), a gas on a remembered cell absent, a gas
 the scene never drew absent, and a gas at two hundred times the volume byte-identical.
@@ -447,16 +454,27 @@ floor is drawn, so the section carries it whatever the log says. What a feeling 
 rooms of a secrets floor or the traps of a traps floor, stays as hidden as it was.
 `FloorSectionTest` holds every value of the enum through the Observer.
 
-**A transition is carried at the cell the game designates for it.** `Level.transitions` holds
-rectangles, each with a `centerCell` the game itself picks when it needs one cell
-(`…/levels/features/LevelTransition.java:44-47`, `:88-94`), which carries the stairs or the quest
-visual at every site of the tag; the section carries that cell, with the transition's own type, for
-every transition whose cell the player has seen. The destination's depth and branch are not
-carried: the screen shows where a transition leads only by taking it. The extent of a multi-cell
-region, the boss floors' exits (`…/levels/CavesBossLevel.java:159-163`), is a loss, and with it the
-case of a player who sees such a region's edge and not its designated cell.
-`FloorSectionTest` holds the surface transition the first floor starts on, the way down absent
-until it is mapped, and the carried cells equal to the seen ones.
+**A transition is carried at the cell the game designates for it, when that cell draws as a way up
+or down.** `Level.transitions` holds rectangles, each with a `centerCell` the game itself picks
+when it needs one cell (`…/levels/features/LevelTransition.java:44-47`, `:88-94`); the section
+carries that cell, with the transition's own type, for every transition whose cell the player has
+seen and whose cell draws as one of the five terrains the examine window names an entrance or an
+exit (`…/levels/Level.java:1575-1580`, `:1594-1598`). The second half of that rule is the review's:
+a transition is in `Level.transitions` from level generation whatever the cell draws, and two sites
+of the tag draw no stairs there. The Halls boss floor builds its exit under the wall of the
+centrepiece and paints `EXIT` only in `unseal()`, when Yog dies
+(`…/levels/HallsBossLevel.java:135`, `:164`, `:170-174`, `:288-293`), and upstream itself asks
+`map[exit()] != Terrain.EXIT` for "not open yet" (`:88`, `:244`); the vault's entrance room adds a
+branch entrance and paints neither stairs nor a visual
+(`…/levels/rooms/quest/vault/VaultEntranceRoom.java:41-60`). The first draft carried both, which
+would have told the bot where the exit of the Yog fight was while the screen drew a decorated wall:
+a leak, found by the review and closed here. The destination's depth and branch are not carried:
+the screen shows where a transition leads only by taking it. The extent of a multi-cell region, the
+boss floors' exits (`…/levels/CavesBossLevel.java:159-163`), is a loss, and with it the case of a
+player who sees such a region's edge and not its designated cell. `FloorSectionTest` holds the
+surface transition the first floor starts on, the way down absent until it is mapped, the same way
+down absent again under a wall and back once the terrain opens it, a transition on plain floor
+absent, and the carried cells equal to the seen ones.
 
 **The danger count is no field.** ADR-0005 settled that it is the enemies among the actors, which
 that section lists with the invisible flag; the indicator's number is the enemies in the field of
@@ -472,9 +490,12 @@ buff's icon to each other.
 `Statistics.duration` and `Actor.now`, and holds the bytes identical, with neither the seed's
 number nor its code anywhere in them.
 
-**Every row of the table has a test, mechanically.** `VisibilityChecklistTest` reads the whitelist
-out of this document, collects the rows each observer suite claims in its own `ADR_0006_ROWS`
-field, and fails when a row is claimed by nobody or a claim names no row. One row is listed as
+**Every row of the table is claimed by a suite, mechanically.** `VisibilityChecklistTest` reads the
+whitelist out of this document, collects the rows each observer suite claims in its own
+`ADR_0006_ROWS` field, and fails when a row is claimed by nobody, when a claim names no row, or
+when a claiming suite declares no test. What it holds is the claim, not the claim's quality: a
+suite that lists a row and tests it badly passes, and the review of the story that adds a row is
+what says whether the test earns the claim. One row is listed as
 pending with the issue that closes it, Valid Actions on #25 (story 1.12), since nothing computes
 them yet; a pending row that no test claims when its story lands fails the same way. So the
 whitelist cannot grow a row without a test, which is what non-negotiable 1 asks of every change to

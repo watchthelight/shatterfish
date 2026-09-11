@@ -21,13 +21,18 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Every row of ADR-0006's whitelist has a test that names it. The whitelist is the list of things
- * the Observer may read, and non-negotiable 1 says every change to the Observer ships with leak
- * tests; this suite is what makes that mechanical. It reads the table out of the decision record,
- * collects the rows each observer suite claims in its own {@code ADR_0006_ROWS} field, and holds
- * the two lists equal but for the rows still to be built, each of which names the issue that
- * closes it. A row added to the record with no test fails here, and so does a claim on a row the
- * record does not have.
+ * Every row of ADR-0006's whitelist is claimed by a suite that tests it. The whitelist is the list
+ * of things the Observer may read, and non-negotiable 1 says every change to the Observer ships
+ * with leak tests; this suite is what makes that mechanical. It reads the table out of the
+ * decision record, collects the rows each observer suite claims in its own {@code ADR_0006_ROWS}
+ * field, and holds the two lists equal but for the rows still to be built, each of which names the
+ * issue that closes it. A row added to the record with no test fails here, and so does a claim on
+ * a row the record does not have.
+ *
+ * <p>What it cannot hold is the quality of a claim: a suite that lists a row and tests it badly
+ * passes here, and the review of the story that adds the row is what says whether the test earns
+ * the claim. What this stops is a row arriving with no test at all, which is how a whitelist grows
+ * quietly.
  */
 class VisibilityChecklistTest {
 

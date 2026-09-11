@@ -151,9 +151,11 @@ for (Blob blob : level.blobs.values()) {
 }
 ```
 
-A transition is carried at its `centerCell`, the cell the game itself designates and the cell that
-carries the stairs at every site in the tag; the extent of a multi-cell boss exit is a recorded
-loss. The danger count is no field of the schema (ADR-0005): it is the enemies among the actors,
+A transition is carried at its `centerCell`, the cell the game itself designates, and only when
+that cell draws as a way up or down: a transition is in `Level.transitions` from level generation
+whatever the cell shows, and two sites of the tag show no stairs there, the Halls boss floor's exit
+under the centrepiece's wall and the vault's entrance room. The extent of a multi-cell boss exit is
+a recorded loss. The danger count is no field of the schema (ADR-0005): it is the enemies among the actors,
 and the test holds that count to `hero.visibleEnemies()`.
 
 ## Verification
