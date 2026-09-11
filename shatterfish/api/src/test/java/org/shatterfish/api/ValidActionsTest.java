@@ -256,6 +256,38 @@ class ValidActionsTest {
     }
 
     @Test
+    @DisplayName("every identifier that opens a selector is offered in the shape that selector needs")
+    void the_selector_tables_hold() {
+        // The identifiers whose class always opens the cell selector at the tag, and the ones that
+        // can open the bag. An entry dropped from either table is an Action in the wrong shape or
+        // an Action never offered, which is what this holds.
+        List<String> atACell = List.of("THROW", "ZAP", "LIGHTTHROW", "CAST", "ABILITY", "SCRY", "STEAL",
+                "INSERT", "ROOT");
+        List<String> onAnItem = List.of("READ", "USE", "AFFIX", "IMBUE", "ADD", "FEED", "STORE", "IDENTIFY",
+                "APPLY", "INSCRIBE", "TIP", "TRANSFER", "OUTFIT");
+
+        for (String action : atACell) {
+            List<Action> valid = ValidActions.of(withActionOffered(action)).actions();
+            assertTrue(valid.stream().anyMatch(a -> a instanceof Action.UseItemAt use && use.action().equals(action)),
+                    action + " opens the cell selector, so the input carries a cell");
+            assertTrue(valid.stream().noneMatch(a -> a instanceof Action.UseItem use && use.action().equals(action)),
+                    action + " is never the plain shape: the game would ask for a cell");
+        }
+        for (String action : onAnItem) {
+            List<Action> valid = ValidActions.of(withActionOffered(action)).actions();
+            assertTrue(valid.stream().anyMatch(a -> a instanceof Action.UseItem use && use.action().equals(action)),
+                    action + " may open nothing, so the plain shape stands");
+            assertTrue(valid.stream().anyMatch(a -> a instanceof Action.UseItemOn use && use.action().equals(action)),
+                    action + " may open the bag, so the shape with a target is offered too");
+        }
+        // And an identifier in neither table is offered plainly and in no other shape.
+        List<Action> plain = ValidActions.of(withActionOffered("EAT")).actions();
+        assertTrue(plain.stream().anyMatch(a -> a instanceof Action.UseItem use && use.action().equals("EAT")));
+        assertTrue(plain.stream().noneMatch(a -> a instanceof Action.UseItemAt use && use.action().equals("EAT")));
+        assertTrue(plain.stream().noneMatch(a -> a instanceof Action.UseItemOn use && use.action().equals("EAT")));
+    }
+
+    @Test
     @DisplayName("a talent is offered only while its tier has a point to spend")
     void a_talent_needs_a_point() {
         Observation observation = Corpus.observation();
@@ -266,6 +298,20 @@ class ValidActionsTest {
             assertEquals(points.get(talent.tier() - 1) > 0, offered,
                     talent.name() + " of tier " + talent.tier() + ", with " + points + " to spend");
         }
+    }
+
+    /** The corpus with a two-item pack whose first item offers exactly {@code action}. */
+    private static Observation withActionOffered(String action) {
+        List<ItemView> items = List.of(
+                new ItemView(ItemKind.OTHER, "Thing", 1, true, 0, true, false, "", EquipSlot.NONE,
+                        List.of(action), action),
+                new ItemView(ItemKind.FOOD, "Ration of food", 1, true, 0, true, false, "", EquipSlot.NONE,
+                        List.of("EAT"), "EAT"));
+        // The corpus's own Actions name its own pack, so the swap takes an empty set: the point
+        // here is the set this inventory implies, not the one that came with the fixture.
+        Observation corpus = Corpus.observation();
+        return new Observation(corpus.header(), corpus.map(), corpus.actors(), corpus.hero(),
+                new InventorySection(items), corpus.journal(), corpus.log(), ActionsSection.NONE, corpus.prompt());
     }
 
     private static MapSection withTile(MapSection map, int cell, Tile tile) {
