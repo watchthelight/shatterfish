@@ -297,10 +297,12 @@ public final class Observer {
         for (LevelTransition transition : level.transitions) {
             // A transition is a rectangle of cells with one designated cell, the cell the game
             // itself picks when it needs one (LevelTransition.java:88-94); the section carries that
-            // cell when the player has seen it and the cell draws as a way up or down, which is
-            // not the same thing as a transition standing there (see STAIRS).
+            // cell when it draws as a way up or down there, which is not the same thing as a
+            // transition standing there (see STAIRS). That is also the whole of "the player has
+            // seen it": a cell the fog hides draws Tile.NONE above, and the record holds the two
+            // to each other (MapSection, an unknown cell shows nothing and a known cell something).
             int cell = transition.cell();
-            if (fog.get(cell) != Fog.UNKNOWN && STAIRS.contains(tiles.get(cell))) {
+            if (STAIRS.contains(tiles.get(cell))) {
                 transitions.add(new TransitionView(cell, TransitionKind.valueOf(transition.type.name())));
             }
         }
