@@ -113,7 +113,7 @@ public final class Observer {
 
     /**
      * What each visual of the tile sheet's two tables looks like, as a {@link Tile}. The sheet
-     * draws several terrains with one visual ({@code …/tiles/DungeonTileSheet.java:427-431},
+     * draws several terrains with one visual ({@code …/tiles/DungeonTileSheet.java:431-435},
      * {@code :446-447}, {@code :464}), so the table is keyed by visual and a terrain reaches it
      * through the sheet's own tables, never through a table of Shatterfish's own.
      */
@@ -121,14 +121,14 @@ public final class Observer {
 
     /**
      * The tiles a way up or down is drawn as: the five terrains the examine window names an
-     * entrance or an exit ({@code …/levels/Level.java:1575-1580}, {@code :1594-1598}). A
+     * entrance or an exit ({@code …/levels/Level.java:1600-1605}, {@code :1594-1598}). A
      * transition of {@code Level.transitions} whose cell draws as anything else is a transition
      * the player cannot see, and the review of story 1.11 found two at the tag: the Halls boss
      * floor's exit stands under the wall of the centrepiece and becomes an exit only when Yog dies
      * and {@code unseal()} sets the terrain ({@code …/levels/HallsBossLevel.java:135},
      * {@code :164}, {@code :170-174}, {@code :288-293}), and the vault's entrance room paints no
      * stairs and adds no visual at all
-     * ({@code …/levels/rooms/quest/vault/VaultEntranceRoom.java:41-60}). Both were carried by an
+     * ({@code …/levels/rooms/quest/vault/VaultEntranceRoom.java:46-147}). Both were carried by an
      * earlier draft of this method, which told the bot where an exit was while the screen drew a
      * wall.
      */
@@ -137,6 +137,11 @@ public final class Observer {
 
     static {
         visual(DungeonTileSheet.FLOOR, Tile.EMPTY);
+        // v4.0.0 added CUSTOM_DECO_WTR, an invisible decoration on a cell that keeps water's
+        // pass-through, and gave it the water visual in the sheet's direct table
+        // (…/levels/Terrain.java:63, :120; …/tiles/DungeonTileSheet.java:442): the player sees
+        // water, so the table names it here as well as in tile()'s own water case.
+        visual(DungeonTileSheet.WATER, Tile.WATER);
         visual(DungeonTileSheet.GRASS, Tile.GRASS);
         visual(DungeonTileSheet.EMPTY_WELL, Tile.EMPTY_WELL);
         visual(DungeonTileSheet.ENTRANCE, Tile.ENTRANCE);
@@ -204,7 +209,7 @@ public final class Observer {
      * The header (ADR-0005): the schema version, the release, the hero's class, the challenges
      * the Run was started with ({@code …/Challenges.java:43-64}; the challenges window and the
      * hero window both show them), the depth and branch the interlevel screen and the status pane
-     * name, whether the floor is locked by a boss fight ({@code …/levels/Level.java:180}, set by
+     * name, whether the floor is locked by a boss fight ({@code …/levels/Level.java:181}, set by
      * {@code seal()} with the {@code LockedFloor} buff whose icon the HUD shows, {@code :617-630};
      * {@code …/actors/buffs/LockedFloor.java:76-78}), no oracle, and the kind of the Prompt in front,
      * {@code NONE} with no window ({@link Prompts#kind}), which the prompt section repeats.
@@ -233,7 +238,7 @@ public final class Observer {
      * <p>It also carries the environment of story 1.11 (ADR-0006, Blobs, Floor feeling,
      * Transitions): the kinds of blob whose particles the emitter draws on a cell the fog does
      * not cover, with no volume; the floor's feeling, which the depth button draws as an icon
-     * ({@code …/ui/MenuPane.java:88-89}, {@code :98-116}; {@code …/ui/Icons.java:478-497}); and
+     * ({@code …/ui/MenuPane.java:88-89}, {@code :98-116}; {@code …/ui/Icons.java:487-506}); and
      * every transition whose designated cell the player has seen and which draws there as a way up
      * or down, at that cell and with the kind the game gives it
      * ({@code …/levels/features/LevelTransition.java:34-47}, {@code :92-94}; {@link #STAIRS}).
@@ -261,9 +266,9 @@ public final class Observer {
         Map<Integer, HeapView> heaps = new LinkedHashMap<>();
         for (Heap heap : level.heaps.valueList()) {
             // The sprite is visible once the heap has been seen and stays so (…/sprites/ItemSprite.java:323-326;
-            // …/levels/Level.java:991), blank for an empty heap (:213-215), faint for a hidden one
+            // …/levels/Level.java:1019), blank for an empty heap (:213-215), faint for a hidden one
             // (:236), and it shows the top item or the container (:216-231); the heap's title
-            // prints a single for-sale item's price (…/items/Heap.java:368-376) and its
+            // prints a single for-sale item's price (…/items/Heap.java:371-379) and its
             // description names a crystal chest's category (:394-406).
             if (!heap.seen || fog.get(heap.pos) == Fog.UNKNOWN || heap.items == null || heap.size() <= 0) {
                 continue;
@@ -281,7 +286,7 @@ public final class Observer {
             }
             // A hidden mimic's sprite is the chest's (…/sprites/MimicSprite.java), drawn like any
             // mob's in view, and once its cell is visited when the mimic is stealthy
-            // (…/scenes/GameScene.java:1441-1447); it names itself as the chest and describes a
+            // (…/scenes/GameScene.java:1096, :1528-1535); it names itself as the chest and describes a
             // crystal chest's category as the chest would (…/actors/mobs/CrystalMimic.java:68-84).
             boolean drawn = (mimic.stealthy() && level.visited[mimic.pos]) || level.heroFOV[mimic.pos];
             if (!drawn || fog.get(mimic.pos) == Fog.UNKNOWN) {
@@ -318,25 +323,28 @@ public final class Observer {
      * cell holds some of it and the hero sees the cell ({@code …/effects/BlobEmitter.java:47-70}).
      * One particle is drawn however much is there, so the section names the kinds and not the
      * amount, and the cell's own description names the blob and no amount either
-     * ({@code …/windows/WndInfoCell.java:144-153}).
+     * ({@code …/windows/WndInfoCell.java:175-183}).
      *
      * <p>Three readings of the emitter's loop are folded in here. It walks the blob's bounding
      * rectangle, which every seed unions the seeded cell into ({@code …/actors/blobs/Blob.java:143-149},
      * {@code :209-217}) and which therefore always contains the cells holding any of the blob, so
      * walking the cells themselves draws the same set and, unlike the emitter, needs no
      * {@code setupArea()} call: the Observer writes nothing. The fog of war is added to the scene
-     * after the gases ({@code …/scenes/GameScene.java:343-353}), so it is drawn over the
+     * after the gases ({@code …/scenes/GameScene.java:348-358}), so it is drawn over the
      * particles, and the fog paints a cell {@link Fog#VISIBLE} only where the hero sees it, which
      * is the emitter's own gate as well: one test of the painted fog is both rules, and it is the
      * one the map's record requires. And the emitter's other gate, a blob marked always visible,
-     * cannot change what this method emits: the three blobs the tag marks so, Tengu's fire and
-     * shocker blobs and the skeleton key's wall ({@code …/actors/mobs/Tengu.java:846-850},
-     * {@code :913-918}; {@code :1041-1045}, {@code :1089-1094};
-     * {@code …/items/artifacts/SkeletonKey.java:472-476}, {@code :549-553}), do pour particles and
-     * the game draws them through the fog of a remembered cell, but the fog paints such a cell
-     * {@code VISITED} or {@code MAPPED} and the record requires {@code VISIBLE}, so a clause for
-     * them here would be dead code no test could defend and their particles out of view are a loss
-     * ADR-0006 records.
+     * cannot change what this method emits, because the record carries a blob only on a cell the
+     * fog paints seen. That gate grew at v4.0.0: the emitter now draws such a blob on any cell in
+     * view, mapped or visited ({@code …/effects/BlobEmitter.java:59-72}), the cell's description
+     * names it outside the field of view too ({@code …/windows/WndInfoCell.java:175-183}), and six
+     * blobs are marked so rather than three — the alchemy pot, well water and so every water of X,
+     * the wall of light, Tengu's fire and shocker blobs, and the skeleton key's wall
+     * ({@code …/actors/blobs/Alchemy.java:35-37}; {@code …/actors/blobs/WellWater.java:41-43};
+     * {@code …/actors/hero/spells/WallOfLight.java:249-252}; {@code …/actors/mobs/Tengu.java:846-850},
+     * {@code :1041-1045}; {@code …/items/artifacts/SkeletonKey.java:488-492}). So a player who has
+     * walked past a well remembers which well it is and this section does not: a loss that grew
+     * with the tag, recorded in ADR-0006 and in {@code docs/ideas.md} for the schema story.
      */
     private static List<BlobCell> blobs(Level level, List<Fog> fog) {
         Map<Integer, List<String>> kinds = new LinkedHashMap<>();
@@ -352,7 +360,7 @@ public final class Observer {
             }
         }
         List<BlobCell> blobs = new ArrayList<>();
-        // The level holds its blobs in a HashMap (…/levels/Level.java:184), so the kinds arrive in
+        // The level holds its blobs in a HashMap (…/levels/Level.java:185), so the kinds arrive in
         // hash order; BlobCell sorts them by name, and the section sorts the cells (ADR-0005).
         kinds.forEach((cell, names) -> blobs.add(new BlobCell(cell, names)));
         return blobs;
@@ -361,11 +369,11 @@ public final class Observer {
     /**
      * The actors (ADR-0005; ADR-0006, Mobs, Mob state, Mob buffs): every character but the hero
      * whose sprite is drawn, which is every mob in the hero's field of view
-     * ({@code …/scenes/GameScene.java:1447}; {@code …/actors/Char.java:1272-1274}), except a
+     * ({@code …/scenes/GameScene.java:1096}; {@code …/actors/Char.java:1322-1324}), except a
      * hidden mimic, which is a heap of the map. Each carries its display name, its alignment, its
      * health as the bar over it draws it, whether it is drawn faint for invisibility
-     * ({@code …/sprites/CharSprite.java:401-407}), the emote its sprite shows, and every buff with
-     * an icon, as the examine window's row lists them ({@code …/windows/WndInfoMob.java:63-64},
+     * ({@code …/sprites/CharSprite.java:403-409}), the emote its sprite shows, and every buff with
+     * an icon, as the examine window's row lists them ({@code …/windows/WndInfoMob.java:60-65},
      * {@code :80}).
      */
     public ActorsSection actors() {
@@ -387,7 +395,7 @@ public final class Observer {
      * pane, the bag window and the quickslots show it; the cites are on {@link HeroSection}. The
      * talents are those of the tiers the pane shows, which it counts from the level with the
      * subclass and the ability as gates ({@code …/ui/TalentsPane.java:75-86}); the hunger is the
-     * icon's state ({@code …/actors/buffs/Hunger.java:179-187}); a quickslot's placeholder is an
+     * icon's state ({@code …/actors/buffs/Hunger.java:178-186}); a quickslot's placeholder is an
      * item of no quantity ({@code …/QuickSlot.java:72-74}).
      */
     public HeroSection hero() {
@@ -431,13 +439,13 @@ public final class Observer {
      * the six slots then the backpack with a bag before its contents
      * ({@code …/actors/hero/Belongings.java:422-453}; {@code …/items/bags/Bag.java:216-250}), each
      * item as the slot, the item window and the log print it. The name is the item's own, which for
-     * an unknown potion, scroll or ring is its appearance ({@code …/items/potions/Potion.java:377-379};
+     * an unknown potion, scroll or ring is its appearance ({@code …/items/potions/Potion.java:378-380};
      * {@code …/items/scrolls/Scroll.java:240-242}; {@code …/items/rings/Ring.java:172-174}) and for a
      * weapon or armor names a curse only once the curse is known
-     * ({@code …/items/weapon/Weapon.java:408-416}; {@code …/items/armor/Armor.java:573-581}); the
-     * level and curse flags carry the values the slot draws ({@code …/items/Item.java:433-443};
+     * ({@code …/items/weapon/Weapon.java:411-419}; {@code …/items/armor/Armor.java:573-581}); the
+     * level and curse flags carry the values the slot draws ({@code …/items/Item.java:435-445};
      * {@code …/ui/ItemSlot.java:279-283}); the status is the slot's text, a wand's charges only
-     * once known ({@code …/items/wands/Wand.java:336-343}; {@code ItemSlot.java:234}); the actions
+     * once known ({@code …/items/wands/Wand.java:337-344}; {@code ItemSlot.java:234}); the actions
      * are the item window's buttons with the default it colours
      * ({@code Item.java:110-115}, {@code :179-181}; {@code …/windows/WndUseItem.java:54-76}), as
      * the identifiers the window executes. The family is the item's package ({@link ItemKind}).
@@ -455,14 +463,14 @@ public final class Observer {
     /**
      * The journal (ADR-0005; ADR-0006, Journal, Known appearances): every note the notes tab draws,
      * the written notes and then each floor's landmarks and keys down from the deepest, through the
-     * tab's own two calls ({@code …/windows/WndJournal.java:497-541}; {@code …/journal/Notes.java:685-705}),
+     * tab's own two calls ({@code …/windows/WndJournal.java:497-541}; {@code …/journal/Notes.java:675-695}),
      * so a record on a floor the tab does not list is not a note, as its kind,
      * depth, title, the body a written note has and the count a key has
      * ({@code Notes.java:206-217}, {@code :324-331}, {@code :344-346}, {@code :430-437}, {@code :487-495});
      * and the potions, scrolls and rings identified this Run
-     * ({@code …/items/potions/Potion.java:402-404}; {@code …/items/scrolls/Scroll.java:265-267};
+     * ({@code …/items/potions/Potion.java:403-405}; {@code …/items/scrolls/Scroll.java:265-267};
      * {@code …/items/rings/Ring.java:280-282}), each by the name it draws once known
-     * ({@code …/items/Item.java:501-503}).
+     * ({@code …/items/Item.java:503-505}).
      */
     public JournalSection journal() {
         atInputWait();
@@ -539,14 +547,14 @@ public final class Observer {
 
     /**
      * One item as the bag and the item window show it. The status is null for most items
-     * ({@code …/items/Item.java:570-572}), an empty string here; the actions are the identifiers
+     * ({@code …/items/Item.java:572-574}), an empty string here; the actions are the identifiers
      * {@code actions(hero)} lists, one button each ({@code …/windows/WndUseItem.java:54-76}).
      *
      * <p>The level and curse flags are the item's own fields where the slot and the item window
      * draw their effect, a weapon's, armor's, wand's, ring's or artifact's level text and curse
      * line, and the item's own identification predicate raises both where that predicate is what
      * the screen draws instead: a potion or scroll is identified exactly when its type is known
-     * ({@code …/items/potions/Potion.java:393}; {@code …/items/scrolls/Scroll.java:261}), and food,
+     * ({@code …/items/potions/Potion.java:394}; {@code …/items/scrolls/Scroll.java:261}), and food,
      * keys, stones, bags, spells, bombs and the rest are identified always
      * ({@code …/items/food/Food.java:135}; {@code …/items/keys/Key.java:91};
      * {@code …/items/stones/Runestone.java:74}), the slot drawing their type icon on that predicate
@@ -692,8 +700,8 @@ public final class Observer {
     /**
      * A character's health as the bar over its sprite draws it: the lit share of a bar that is full
      * at the greater of the maximum health and the health plus shielding
-     * ({@code …/ui/HealthBar.java:82-88}), in the codec's pips. The bar is hidden at full health
-     * with no shield ({@code …/ui/CharHealthIndicator.java:55}), which reads as every pip lit.
+     * ({@code …/ui/HealthBar.java:86-102}), in the codec's pips. The bar is hidden at full health
+     * with no shield ({@code …/ui/CharHealthIndicator.java:55-57}), which reads as every pip lit.
      */
     static int healthPips(Char ch) {
         int max = Math.max(ch.HP + ch.shielding(), ch.HT);
@@ -704,12 +712,12 @@ public final class Observer {
      * The emote the mob's sprite shows at the frame a human decides on. The sleep icon is the
      * sprite's own per-frame function of the mob's state: every update shows it while the mob is
      * alive and sleeping and hides it otherwise, replacing any other icon
-     * ({@code …/sprites/MobSprite.java:39}; {@code …/sprites/CharSprite.java:635-639}, {@code :655-675}).
+     * ({@code …/sprites/MobSprite.java:39}; {@code …/sprites/CharSprite.java:637-641}, {@code :655-675}).
      * The driver's frame updates the sprites before the acts of a turn, so at an Input wait the
      * sprite still carries the icon of the frame before those acts; the rule is applied here as
      * the next frame applies it, from the one bit of state the renderer reads for it, and a sleep
      * icon that frame would hide is dropped. The alert, investigate and lost icons are set and
-     * cleared by the acts themselves ({@code …/actors/mobs/Mob.java:229-238}) and are read from
+     * cleared by the acts themselves ({@code …/actors/mobs/Mob.java:266-275}) and are read from
      * the sprite through the accessor of hook row 4 ({@code …/effects/EmoIcon.java:102},
      * {@code :126}, {@code :150}).
      */
@@ -733,7 +741,7 @@ public final class Observer {
 
     /**
      * Every buff with an icon, as the buff indicators list them ({@code …/ui/BuffIndicator.java:192-196};
-     * {@code …/windows/WndHero.java:301-314}; {@code …/windows/WndInfoMob.java:63-64}), with the
+     * {@code …/windows/WndHero.java:301-314}; {@code …/windows/WndInfoMob.java:60-65}), with the
      * turns a flavour buff's description prints, its visual cooldown to two decimals
      * ({@code …/actors/buffs/FlavourBuff.java:35-42}; {@code …/actors/buffs/Buff.java:136-138},
      * {@code :141-143}), carried only when the description the window shows contains them, which
@@ -758,7 +766,7 @@ public final class Observer {
         return views;
     }
 
-    /** The hunger icon's state ({@code …/actors/buffs/Hunger.java:179-187}), never the value behind it. */
+    /** The hunger icon's state ({@code …/actors/buffs/Hunger.java:178-186}), never the value behind it. */
     static Hunger hunger(Hero hero) {
         com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Hunger hunger =
                 hero.buff(com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Hunger.class);
@@ -769,7 +777,7 @@ public final class Observer {
         return icon == BuffIndicator.STARVATION ? Hunger.STARVING : icon == BuffIndicator.HUNGER ? Hunger.HUNGRY : Hunger.NONE;
     }
 
-    /** The category word a crystal chest's description prints for what is inside ({@code …/items/Heap.java:400-406}). */
+    /** The category word a crystal chest's description prints for what is inside ({@code …/items/Heap.java:403-409}). */
     private static String category(Item inside) {
         if (inside instanceof Artifact) {
             return Messages.get(Heap.class, "artifact");
@@ -796,7 +804,7 @@ public final class Observer {
      * in view.
      *
      * <p>Such a wall is still visited or mapped, so the examine window opens on it and draws its
-     * tile ({@code …/scenes/GameScene.java:1661-1667}; {@code …/windows/WndInfoCell.java:42-74});
+     * tile ({@code …/scenes/GameScene.java:1736-1742}; {@code …/windows/WndInfoCell.java:60-112});
      * it is emitted as visited or mapped rather than unknown, which is what the player can learn
      * of it. The fog's own gate stays in front of that step: a cell that cannot be discovered is
      * never visited or mapped in play and reads unknown whatever the arrays say.
@@ -876,7 +884,7 @@ public final class Observer {
     /**
      * What the terrain tilemap draws for a terrain, as a {@link Tile}: the sheet's direct table
      * first, then water and chasm, which are stitched from their neighbours, then the flat table
-     * ({@code …/tiles/DungeonTerrainTilemap.java:42-56}; {@code …/tiles/DungeonTileSheet.java:414-465}).
+     * ({@code …/tiles/DungeonTerrainTilemap.java:43-63}; {@code …/tiles/DungeonTileSheet.java:419-470}).
      * A secret door reaches the wall's visual and a secret trap the floor's through those tables,
      * so no rule of Shatterfish's own decides what a secret looks like. The mine's crystal and
      * boulder share every sprite ({@code DungeonTileSheet.java:211-216}) and are told apart by the

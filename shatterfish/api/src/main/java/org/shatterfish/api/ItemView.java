@@ -9,7 +9,7 @@ import java.util.Objects;
  * abbreviate {@code core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/} as {@code …/}.
  *
  * <p>The name is what the item shows, which for an unidentified potion, scroll or ring is its
- * appearance ({@code …/items/Item.java:483-499}); the exact class behind an appearance has no
+ * appearance ({@code …/items/Item.java:485-501}); the exact class behind an appearance has no
  * field here, and neither does an unknown level or curse.
  *
  * @param kind the item's family, as its sprite and bag show it
@@ -22,7 +22,7 @@ import java.util.Objects;
  * @param visiblyCursed whether the item is shown cursed, never unless the curse state is known
  *                      ({@code Item.java:441-443})
  * @param status the status text drawn on the sprite, a quantity, a charge count, or empty
- *               ({@code Item.java:570-572}; {@code …/items/wands/Wand.java:336-343})
+ *               ({@code Item.java:570-572}; {@code …/items/wands/Wand.java:337-344})
  * @param slot the equipment slot the item sits in, or {@link EquipSlot#NONE}
  * @param actions the actions the item window offers, by name ({@code Item.java:110-115};
  *                {@code …/windows/WndUseItem.java:54-76})

@@ -13,11 +13,10 @@ import java.util.Objects;
  * <p>The record refuses what the fog would not draw: an {@link Fog#UNKNOWN} cell carries
  * {@link Tile#NONE} and nothing else does; traps, heaps and transitions stand on cells the player
  * has seen, and blobs on cells in view, since the emitter draws a blob only where the hero sees
- * ({@code core/.../effects/BlobEmitter.java:62-64}; ADR-0006). The three blobs the game marks
- * always visible, Tengu's fire and shocker blobs and the skeleton key's wall
- * ({@code core/.../actors/mobs/Tengu.java:846-850}, {@code :1041-1045};
- * {@code core/.../items/artifacts/SkeletonKey.java:472-476}), drawn under the fog of a
- * remembered cell, have no representation in this version.
+ * ({@code core/.../effects/BlobEmitter.java:59-72}; ADR-0006). The blobs the game marks always
+ * visible are drawn on a remembered cell as well, and have no representation in this version:
+ * six of them at {@code v4.0.0}, the alchemy pot, well water, the wall of light, Tengu's fire and
+ * shocker blobs and the skeleton key's wall.
  *
  * @param tiles what each cell looks like, one per cell
  * @param fog how much of each cell the player can see, one per cell

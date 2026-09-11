@@ -36,7 +36,7 @@ public final class Windows {
 
     /**
      * The window in front of the current scene, or null: the last window among the scene's members,
-     * which is the one the scene shows on top ({@code …/scenes/GameScene.java:1352-1373}, {@code :1376-1384}).
+     * which is the one the scene shows on top ({@code …/scenes/GameScene.java:1420-1441}, {@code :1376-1384}).
      */
     public static Window front() {
         Scene scene = Game.scene();

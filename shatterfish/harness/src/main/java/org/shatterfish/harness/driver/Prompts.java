@@ -13,7 +13,7 @@ import com.shatteredpixel.shatteredpixeldungeon.ui.TalentsPane;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndBlacksmith;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndChooseSubclass;
-import com.shatteredpixel.shatteredpixeldungeon.windows.WndImp;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndImpOld;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndOptions;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndQuest;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
@@ -38,7 +38,7 @@ import java.util.List;
  * other, and every window of options. An options window is classified by the class that opened
  * it, which is the enclosing class of the anonymous subclass every opener at the tag declares
  * ({@link #optionsKind}); the chasm's jump ({@code …/levels/features/Chasm.java:57-96}), a
- * potion's harmful-drink warning ({@code …/items/potions/Potion.java:238-252}), an item's
+ * potion's harmful-drink warning ({@code …/items/potions/Potion.java:239-253}), an item's
  * confirmation or choice, the talents pane's random-talent confirmation
  * ({@code …/ui/TalentsPane.java:189-192}), the quest givers' and the shopkeeper's follow-ups, and
  * {@link PromptKind#OTHER} for the rest, the amulet's ascent, the examine chooser, the warp
@@ -76,7 +76,7 @@ public final class Prompts {
             return PromptKind.SHOP;
         }
         if (window instanceof WndQuest || window instanceof WndSadGhost || window instanceof WndWandmaker
-                || window instanceof WndImp || window instanceof WndBlacksmith) {
+                || window instanceof WndImpOld || window instanceof WndBlacksmith) {
             return PromptKind.QUEST;
         }
         if (window instanceof WndOptions options) {
@@ -93,7 +93,7 @@ public final class Prompts {
      * on the way out. A plain {@code WndOptions} has no enclosing class and is {@link PromptKind#OTHER}. A
      * potion opens two: the harmful-drink warning, whose title is the one the Observer's prompt
      * section carries, and the beneficial-throw confirmation
-     * ({@code …/items/potions/Potion.java:264-280}), an item's confirmation like any other.
+     * ({@code …/items/potions/Potion.java:265-281}), an item's confirmation like any other.
      */
     static PromptKind optionsKind(WndOptions window) {
         Class<?> origin = window.getClass().getEnclosingClass();
@@ -126,7 +126,7 @@ public final class Prompts {
             return PromptKind.SHOP;
         }
         if (origin == WndBlacksmith.class || origin == WndSadGhost.class || origin == WndWandmaker.class
-                || origin == WndImp.class || origin == RatKing.class || origin == CavesLevel.class
+                || origin == WndImpOld.class || origin == RatKing.class || origin == CavesLevel.class
                 || origin == MiningLevel.class || origin == CityLevel.class) {
             return PromptKind.QUEST;
         }

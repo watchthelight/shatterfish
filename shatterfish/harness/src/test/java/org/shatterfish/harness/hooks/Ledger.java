@@ -62,7 +62,11 @@ final class Ledger {
 			+ "similarity index |rename from |rename to |Binary files )");
 
 	/**
-	 * Upstream's own source and build modules: the territory where an edit is a hook. This is an
+	 * Upstream's own tree: the territory where an edit is a hook. Mostly source and build modules;
+	 * {@code metadata} is upstream's store listing, which arrived with v4.0.0 and holds no code, and
+	 * is watched all the same, because the rule is that every edit to an upstream file is a hook and
+	 * not that every edit to upstream <em>code</em> is. Its screenshots are skipped by
+	 * {@link #isScannable} like any other binary. This is an
 	 * allowlist rather than a list of our directories, because the list of ours grows with every tool
 	 * anyone adds and a forgotten entry there would turn an ordinary addition into a build failure.
 	 * The allowlist's own risk — a module appearing in a newer upstream tag and going unwatched — is
@@ -70,7 +74,7 @@ final class Ledger {
 	 * top-level directory this file does not name.
 	 */
 	static final List<String> UPSTREAM_CODE_ROOTS =
-			List.of("core", "SPD-classes", "desktop", "services", "android", "ios");
+			List.of("core", "SPD-classes", "desktop", "services", "android", "ios", "metadata");
 
 	/**
 	 * Top-level directories that exist at the pinned tag but belong to the project around the code

@@ -5,6 +5,7 @@ import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.GamesInProgress;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Snake;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Journal;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.InterlevelScene;
@@ -106,6 +107,21 @@ final class FreshRun {
     static void forget() {
         set(Badges.class, "global", null);
         set(Journal.class, "loaded", false);
+        // A counter of the game's own that outlives a Run: the snake counts the dodges the hero
+        // has watched, in a private static, and flashes the guidebook at two of them
+        // (…/actors/mobs/Snake.java:58-70). Nothing resets it between Runs, so a second Run in
+        // this process starts part-way to the advice and logs a different number of lines than
+        // the first. The upgrade to v4.0.0 is where it first showed, in the draw-parity
+        // fingerprint.
+        //
+        // The driver is where this belongs, next to the Chasm.jumpConfirmed reset it already does
+        // at every Run start, and it cannot hold it: the field is private, and harness main code
+        // may not reach a private member of upstream's by reflection (docs/UPSTREAM.md; the
+        // allowance is two fields in SceneStepper and HarnessReflectionTest holds it there). It
+        // would take a row of its own in the ledger, or a Run-start reset list that upstream can
+        // be asked for. Story 1.16, issue #29, owns the choice; the sweep behind it and the other
+        // statics of this shape are in docs/ideas.md.
+        set(Snake.class, "dodges", 0);
     }
 
     private static void copyTree(Path from, Path to) throws IOException {
