@@ -190,6 +190,19 @@ public final class ActionExecutor {
         return new Outcome.Applied(action);
     }
 
+    /**
+     * A refusal that follows a change. {@code NO_SELECTOR} is the one reason decided after the game
+     * has been called (ADR-0014), and the driver has to hear the same thing it hears for an applied
+     * Action: something was handed over. Without this the wait never ends — the item was executed,
+     * a window opened and was sent away, and nothing announced any of it, so the driver waits for a
+     * wait that has already been served. Story 1.14 found it in a Run that offered the broken seal
+     * an item it does not take.
+     */
+    private static Outcome touchedAndRefused(Action action, Reason reason, String detail) {
+        HeadlessDriver.actionHandedOver();
+        return new Outcome.Rejected(action, reason, detail);
+    }
+
     private Outcome upgrade(Hero hero, Action action, String name) {
         for (int index = 0; index < hero.talents.size(); index++) {
             int tier = index + 1;
@@ -264,15 +277,42 @@ public final class ActionExecutor {
         } else if (other != null) {
             WndBag bag = bagWindow();
             if (bag == null || bag.getSelector() == null) {
-                return new Outcome.Rejected(action, Reason.NO_SELECTOR,
+                return touchedAndRefused(action, Reason.NO_SELECTOR,
                         what + " opened no bag to answer with " + target.name());
             }
             WndBag.ItemSelector selector = bag.getSelector();
+            if (!selector.itemSelectable(other)) {
+                // The window draws a button only for an item the selector accepts and greys the
+                // rest (…/windows/WndBag.java:478-487, and the slot's own enabling), so answering
+                // with one of the others is not a tap a person could make. The window goes the way
+                // a person sends it away: the back press tells the selector it was cancelled, which
+                // is what returns the hero to ready (WndBag.java:376-381), where hiding the window
+                // alone would leave the game waiting for a choice nobody will make. The Run goes on;
+                // the item was executed, which is why this is a NO_SELECTOR and not a refusal
+                // before the fact.
+                bag.onBackPressed();
+                return touchedAndRefused(action, Reason.NO_SELECTOR,
+                        what + " does not take " + target.name() + ", so its window offers no button for it");
+            }
             // The window's own button hides first and then selects (WndBag.java:288-300).
             if (selector.hideAfterSelecting()) {
                 bag.hide();
             }
             selector.onSelect(other);
+        } else {
+            // An Action with nothing to answer with. If the item opened a selector, the game is now
+            // waiting for a choice that no Action carries, and nothing would ever arrive: a bag is
+            // not a Prompt the table names, so no wait follows and the Run would stop here. That is
+            // what a person would see as an open window they must answer, so it is sent away with
+            // the back press, which is what tells the selector it was cancelled (WndBag.java:376-381),
+            // and the refusal says which Action was only half of one.
+            WndBag bag = bagWindow();
+            if (bag != null) {
+                bag.onBackPressed();
+                return touchedAndRefused(action, Reason.NO_SELECTOR,
+                        what + " asks which item to use it on, so it is not one input on its own;"
+                                + " the whole input is UseItemOn");
+            }
         }
         return applied(action);
     }

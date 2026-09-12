@@ -242,17 +242,22 @@ public final class ValidActions {
                     for (int target : targets(observation)) {
                         actions.add(new Action.UseItemAt(ref, action, target));
                     }
-                } else {
-                    actions.add(new Action.UseItem(ref, action));
-                    if (ON_AN_ITEM.contains(action)) {
-                        for (int other = 0; other < inventory.size(); other++) {
-                            if (other != index) {
-                                ItemView target = inventory.get(other);
-                                actions.add(new Action.UseItemOn(ref, action,
-                                        new ItemRef(other, target.name(), target.quantity())));
-                            }
+                } else if (ON_AN_ITEM.contains(action)) {
+                    // An action that opens the bag is not one input on its own: pressing it draws
+                    // a window asking which item, and a person who stops there has done nothing.
+                    // So the set offers the whole input and not its first half. Story 1.14 found
+                    // this the hard way — a Run that pressed the broken seal's affix and had
+                    // nothing to answer with left the game waiting for a choice that no Action
+                    // carries, and the Run stopped there.
+                    for (int other = 0; other < inventory.size(); other++) {
+                        if (other != index) {
+                            ItemView target = inventory.get(other);
+                            actions.add(new Action.UseItemOn(ref, action,
+                                    new ItemRef(other, target.name(), target.quantity())));
                         }
                     }
+                } else {
+                    actions.add(new Action.UseItem(ref, action));
                 }
             }
         }

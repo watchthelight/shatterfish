@@ -127,6 +127,15 @@ public final class HeadlessBoot {
         // Picking up the first boss's key asks the player to support the game unless this is set
         // (core/.../items/keys/WornKey.java:51-60); a window nobody headless can answer.
         SPDSettings.supportNagged(true);
+        // The compact interface, which is what a phone player sees and what every Run here plays
+        // on. The full interface builds an inventory pane, and the pane takes an item selector
+        // instead of showing a window (core/.../scenes/GameScene.java:399, :547-551;
+        // …/scenes/GameScene.java:1668-1684): the game then waits for a tap on a slot that a
+        // headless Run draws nowhere and no Action can name, so a Run that affixed the broken seal
+        // stopped there — which is how story 1.14 found this. With the compact interface the
+        // selector is a WndBag, a window the Observer reads and an Action can answer. Both are the
+        // game's own interfaces; this one is the one a headless Run can play.
+        SPDSettings.interfaceSize(0);
 
         Properties upstream = upstreamProperties();
         upstreamVersionName = upstream.getProperty("version.name");
