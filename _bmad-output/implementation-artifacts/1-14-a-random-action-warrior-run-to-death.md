@@ -88,21 +88,25 @@ the working tree than at the tag; the numbers below are the tag's.
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `shatterfish/harness/src/main/java/org/shatterfish/harness/agent/RandomAgent.java` — the
+- [x] `shatterfish/harness/src/main/java/org/shatterfish/harness/agent/RandomAgent.java` — the
   chooser: given an Observation and a `Random`, draw uniformly from its set. No state and no
   preferences, so a Run's shape is the game's and not the agent's.
-- [ ] `shatterfish/harness/src/main/java/org/shatterfish/harness/agent/RunOutcome.java` — what a Run
+- [x] `shatterfish/harness/src/main/java/org/shatterfish/harness/agent/RunOutcome.java` — what a Run
   ended as: the cause, the depth reached, the turns passed, the waits served, and the Actions
   applied and refused.
-- [ ] `shatterfish/harness/src/main/java/org/shatterfish/harness/agent/RunLoop.java` — start a Run,
+- [x] `shatterfish/harness/src/main/java/org/shatterfish/harness/agent/RunLoop.java` — start a Run,
   serve waits until an ending, and serve the scene changes the driver reports by reproducing the
   interlevel work with public calls, each cited. A scene it does not serve ends the Run by name
   rather than by exception.
-- [ ] `shatterfish/harness/src/test/java/org/shatterfish/harness/agent/RandomAgentRunTest.java` —
+- [x] `shatterfish/harness/src/test/java/org/shatterfish/harness/agent/RandomAgentRunTest.java` —
   one Run in full, the turn cap, a Run that descends, and the thousand.
-- [ ] `docs/adr/0015-headless-scene-and-input-wait-detection.md` — an amendment: who serves a
+- [x] `docs/adr/0015-headless-scene-and-input-wait-detection.md` — an amendment: who serves a
   reported scene change, and the rule that nothing writes the hero's position from the driver
   thread.
+- [x] Added under review, and not in the plan: `shatterfish/api/.../Decider.java`, the seam moved
+  where a Brain can see it; `shatterfish/harness/.../hooks/MirroredUpstreamTest.java` with step 4a
+  in `docs/UPSTREAM.md` and in the sync skill, holding the copied upstream bodies to the tag; and
+  `RandomAgentTest`, which the mutation battery asked for.
 
 **Acceptance Criteria:**
 - Given the Observation, the valid set and the executor, when the agent takes a uniformly random
