@@ -15,7 +15,9 @@ import com.shatteredpixel.shatteredpixeldungeon.windows.WndBlacksmith;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndChooseSubclass;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndImpOld;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndOptions;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndMessage;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndQuest;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndStory;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndSadGhost;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndTradeItem;
@@ -78,6 +80,12 @@ public final class Prompts {
         if (window instanceof WndQuest || window instanceof WndSadGhost || window instanceof WndWandmaker
                 || window instanceof WndImpOld || window instanceof WndBlacksmith) {
             return PromptKind.QUEST;
+        }
+        if (window instanceof WndStory || window instanceof WndMessage) {
+            // A message the game shows and a person taps away (story 1.13). The hero is ready under
+            // it and the Run cannot go on until it goes, so it is a wait like any other, with no
+            // buttons and one Action: the dismissal.
+            return PromptKind.MESSAGE;
         }
         if (window instanceof WndOptions options) {
             return optionsKind(options);

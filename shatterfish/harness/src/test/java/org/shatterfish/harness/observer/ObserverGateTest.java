@@ -4,7 +4,7 @@ import com.shatteredpixel.shatteredpixeldungeon.Challenges;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
-import com.shatteredpixel.shatteredpixeldungeon.windows.WndMessage;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndInfoCell;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -88,7 +88,7 @@ class ObserverGateTest {
         driver.stepToInputWait();
         assertNotNull(observer.map(), "ready again at the next wait");
 
-        WndMessage window = new WndMessage("not a Prompt");
+        WndInfoCell window = new WndInfoCell(Dungeon.hero.pos);
         driver.scene().add(window);
         assertTrue(GameScene.showingWindow());
         IllegalStateException shown = assertThrows(IllegalStateException.class, observer::map);

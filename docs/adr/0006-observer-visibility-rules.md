@@ -77,7 +77,7 @@ following and nothing else.
 | Danger count | `hero.visibleEnemies()` as the indicator shows it (includes invisible enemies in FOV). | `…/ui/DangerIndicator.java:87-104` | anything else derived from `Level.mobs` |
 | Log | The raw `GLog` messages (text and color prefix) captured from the `GLog.update` signal on the thread that emits them, kept in order and capped at N; never `GameLog.entries`, which are rendered on the render thread, merged when colors match and wrapped by UI size. Existence leaks the game itself makes ("You hear something die") are kept because the player sees them. | `…/ui/GameLog.java:52-129`; `…/utils/GLog.java` | `GameLog.entries` |
 | Journal | `Notes` landmarks and keys recorded this Run. | `…/journal/Notes.java:115-142` | `Document` page state; `Bestiary` |
-| Prompt | The open `Window`'s kind, text and option labels when it is one of the Prompt kinds (subclass, talent, quest, shop, alchemy, chasm jump, harmful-potion confirmation); any other window at an Input wait is an assertion failure. | `…/ui/Window.java:65-80`; `…/windows/WndOptions.java:90-92` | nothing more |
+| Prompt | The open `Window`'s kind, text and option labels when it is one of the Prompt kinds (subclass, talent, quest, shop, alchemy, chasm jump, harmful-potion confirmation, an item's own, a message); any other window at an Input wait is an assertion failure. | `…/ui/Window.java:65-80`; `…/windows/WndOptions.java:90-92`; `…/ui/Window.java:223-225` | nothing more |
 | Valid Actions | Computed by `ValidActions.of(observation)` in `api` from the Observation alone, never from game state, and included in the Observation by `observe()` (FR-3; ADR-0014's story 1.12 amendment). | `shatterfish/api/.../ValidActions.java` | game state |
 | Seed and turn | Nothing: the seed is drawn by `WndHero` but excluded so a Brain cannot fingerprint published seeds (FR-9), and the game draws no turn counter; both go to the Run log outside the hash. The Brain counts Input waits itself. | `…/windows/WndHero.java:188-211`; `…/actors/Actor.java:154-158` | `Dungeon.seed`; `Actor.now()`; wall-clock time |
 
@@ -562,3 +562,30 @@ the vault's mirror and token door open `WndTitledMessage` windows, which `Prompt
 recognise, so a Run that reaches one stops at the driver as story 1.10 recorded for the
 blacksmith's; and that upstream's `Snake.dodges` outlives a Run, which is the determinism story's
 to answer (#29).
+
+## Amendment: story 1.13 (2026-09-11)
+
+A plain message is a Prompt. Story 1.10 read the row above as "a window the game waits on", and a
+message is not that: the hero is ready underneath it and the game will take the next input whenever
+it comes. Story 1.13 found what the reading costs. An ordinary step onto a sign, or the message the
+sewers post when the hero leaves without the amulet (`…/levels/SewerLevel.java:146-155`), puts a
+`WndMessage` in front; the driver refused to call that a wait, the Observer refused to read under
+it, and the valid set had nothing to offer, so the Run stopped there with the bot able to see the
+window and unable to send it away. A person taps it and plays on.
+
+So `PromptKind` gains `MESSAGE`, appended: a `WndMessage` or a `WndStory` in front is a Prompt with
+the text it draws, no options, and one Action, `DismissPrompt`, which the executor takes by calling
+`Window.onBackPressed()` — what the back key does and what a tap outside the window does
+(`…/ui/Window.java:223-225`). The gate admits it like any other Prompt, so the Observation under a
+message is a whole Observation and the wait is a wait.
+
+What stays a failure is a window the *player* opens and the game is not waiting on: the examine
+window on a cell, the hero window, the journal. The bot never opens one, nothing in the game opens
+one for it, and one in front at a wait still means something is wrong. `PromptGateTest` and
+`InputWaitCountTest` use `WndInfoCell` for that case now, since the message they used before is a
+Prompt.
+
+The losses of story 1.10 that this closes: "a Run that reaches one stops at the driver" applied to
+every message, and now applies only to the blacksmith's later windows and the crown's ability
+choice, which are windows with buttons the table does not name yet.
+

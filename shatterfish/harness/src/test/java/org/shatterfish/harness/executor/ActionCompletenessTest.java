@@ -106,8 +106,9 @@ class ActionCompletenessTest {
         for (Class<?> permitted : Action.class.getPermittedSubclasses()) {
             kinds.add(permitted.getSimpleName());
         }
-        assertEquals(20, kinds.size(), "the sealed kinds of ADR-0014: " + kinds);
+        assertEquals(21, kinds.size(), "the sealed kinds of ADR-0014, with story 1.13's dismissal: " + kinds);
         assertTrue(kinds.contains("MoveTo"));
+        assertTrue(kinds.contains("DismissPrompt"), "the tap that sends a message away");
     }
 
     /** The names of the game's own hero actions, from the class the hero stores in {@code curAction}. */

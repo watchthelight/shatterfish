@@ -5,7 +5,7 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Terrain;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
-import com.shatteredpixel.shatteredpixeldungeon.windows.WndMessage;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndInfoCell;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -138,7 +138,7 @@ class ObserveTest {
         Observer observer = atTheFirstWait();
         assertNotNull(observer.observe());
 
-        WndMessage window = new WndMessage("not a Prompt");
+        WndInfoCell window = new WndInfoCell(Dungeon.hero.pos);
         driver.scene().add(window);
         assertTrue(GameScene.showingWindow());
         IllegalStateException shown = assertThrows(IllegalStateException.class, observer::observe);

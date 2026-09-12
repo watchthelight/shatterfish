@@ -63,7 +63,7 @@ class ActionValidityPropertyTest {
 
         int applied = 0;
         int refused = 0;
-        String stopped = null;
+        int messages = 0;
         for (int wait = 0; wait < WAITS && Dungeon.hero.isAlive(); wait++) {
             Observation observation = new Observer().observe();
             List<Action> offered = observation.actions().actions();
@@ -82,7 +82,12 @@ class ActionValidityPropertyTest {
                 refused++;
             }
 
-            // And one the screen does offer is applied, whatever it is.
+            // And one the screen does offer is applied, whatever it is. A message in front offers
+            // exactly one thing, the dismissal, which is how a Run gets past a sign (story 1.13).
+            if (observation.prompt().kind() == PromptKind.MESSAGE) {
+                assertEquals(List.of(new Action.DismissPrompt()), offered, "a message offers one Action");
+                messages++;
+            }
             Action chosen = offered.get(choices.nextInt(offered.size()));
             Outcome outcome = executor.execute(observation, chosen);
             assertInstanceOf(Outcome.Applied.class, outcome, chosen + " at wait " + wait + ": " + outcome);
@@ -90,24 +95,21 @@ class ActionValidityPropertyTest {
             try {
                 driver.stepToInputWait();
             } catch (HeadlessDriver.Stalled stalled) {
-                // The wall story 1.13 found, and the reason this loop is allowed to stop early: an
-                // ordinary Action can leave a window in front that is not a Prompt — a sign the
-                // hero stepped onto, for one — and the driver refuses to call that a wait
-                // (ADR-0006), while the valid set has no way to dismiss it. A person taps it away.
-                // The Run cannot go on from there and neither can this test; what it holds is that
-                // the wall is that and not something else.
+                // A stall is a failure now. Story 1.13 found the one wall a Run used to hit here —
+                // an ordinary step onto a sign leaves a message the driver would not call a wait —
+                // and the answer was to make a message a Prompt with one Action, the dismissal. If
+                // this fires again, a window of some other kind is in front and nobody can move it.
                 Window front = Windows.front();
-                assertNotEquals(null, front, "a stall with no window is not the known wall: " + stalled.getMessage());
-                assertEquals(PromptKind.NONE, Prompts.kind(front),
-                        "a stall under a window the driver would accept is not the known wall: " + stalled.getMessage());
-                stopped = front.getClass().getSimpleName();
-                break;
+                throw new AssertionError("the Run stalled at wait " + wait + " under "
+                        + (front == null ? "no window" : front.getClass().getSimpleName() + ", a "
+                                + Prompts.kind(front) + " prompt") + ": " + stalled.getMessage(), stalled);
             }
         }
 
-        assertTrue(applied >= 5, "the Run went somewhere: " + applied + " Actions applied"
-                + (stopped == null ? "" : ", stopped by a " + stopped));
+        assertTrue(applied >= WAITS - 1, "the Run went the whole way: " + applied + " Actions applied");
         assertTrue(refused >= applied, "and refusals were asked for at every wait: " + refused);
+        assertTrue(messages > 0 || applied == WAITS,
+                "the Run either met a message and sent it away, or never met one: " + messages);
     }
 
     /**

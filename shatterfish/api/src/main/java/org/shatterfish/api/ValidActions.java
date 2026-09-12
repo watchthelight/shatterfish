@@ -122,6 +122,11 @@ public final class ValidActions {
             for (int option = 0; option < observation.prompt().options().size(); option++) {
                 actions.add(new Action.AnswerPrompt(option));
             }
+            if (observation.prompt().options().isEmpty()) {
+                // A Prompt with no buttons is a message, and the one thing a person can do with it
+                // is send it away (core/.../ui/Window.java:223-225; story 1.13).
+                actions.add(new Action.DismissPrompt());
+            }
             return new ActionsSection(actions);
         }
         MapSection map = observation.map();

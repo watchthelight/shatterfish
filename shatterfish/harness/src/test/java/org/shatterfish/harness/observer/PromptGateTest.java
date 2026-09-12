@@ -19,6 +19,7 @@ import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndChooseSubclass;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndInfoCell;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndMessage;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndOptions;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndQuest;
@@ -238,7 +239,7 @@ class PromptGateTest {
     }
 
     @Test
-    @DisplayName("the window in front is the last one shown: a message over an options window fails every read, and closed, the options read")
+    @DisplayName("the window in front is the last one shown: a message over an options window is the message, and closed, the options read")
     void the_front_window_is_the_last_shown() {
         atTheFirstWait();
         GameScene.show(new WndOptions("Under", "the one below", "Only") {
@@ -247,8 +248,12 @@ class PromptGateTest {
             }
         });
         GameScene.show(new WndMessage("on top"));
-        IllegalStateException refused = assertThrows(IllegalStateException.class, () -> new Observer().prompt());
-        assertTrue(refused.getMessage().contains("WndMessage"), refused.getMessage());
+        // The message is the window in front and is itself a Prompt (story 1.13): the one thing a
+        // person can do is send it away, and the options underneath are not reachable until then.
+        PromptSection message = new Observer().prompt();
+        assertEquals(PromptKind.MESSAGE, message.kind());
+        assertEquals(List.of(), message.options(), "a message has no buttons");
+        assertTrue(message.text().contains("on top"), message.text());
         Windows.front().hide();
         PromptSection prompt = new Observer().prompt();
         assertEquals(PromptKind.OTHER, prompt.kind());
@@ -304,14 +309,16 @@ class PromptGateTest {
     @DisplayName("a window that is not a Prompt at an Input wait fails every read, naming the window")
     void not_a_prompt() {
         atTheFirstWait();
-        GameScene.show(new WndMessage("The game says something and asks nothing."));
+        // The examine window a person opens on a cell: the game is not waiting on it, the bot never
+        // opens one, and it is not a Prompt. A plain message is one, as of story 1.13.
+        GameScene.show(new WndInfoCell(Dungeon.hero.pos));
         assertNotNull(Windows.front());
         assertEquals(PromptKind.NONE, Prompts.kind(Windows.front()));
         Observer observer = new Observer();
         for (Runnable read : List.<Runnable>of(observer::prompt, observer::header, observer::map, observer::actors,
                 observer::hero, observer::inventory, observer::journal, observer::log)) {
             IllegalStateException refused = assertThrows(IllegalStateException.class, read::run);
-            assertTrue(refused.getMessage().contains("WndMessage"), refused.getMessage());
+            assertTrue(refused.getMessage().contains("WndInfoCell"), refused.getMessage());
             assertTrue(refused.getMessage().contains("not a Prompt"), refused.getMessage());
         }
     }

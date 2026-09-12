@@ -22,7 +22,7 @@ import java.util.Objects;
 public sealed interface Action permits Action.Step, Action.MoveTo, Action.Attack, Action.Interact, Action.PickUp,
         Action.OpenChest, Action.Buy, Action.Unlock, Action.Descend, Action.Ascend, Action.UseItem, Action.UseItemAt,
         Action.UseItemOn, Action.Rest, Action.Search, Action.Talent, Action.Ability,
-        Action.AbilityAt, Action.AnswerPrompt, Action.Wait {
+        Action.AbilityAt, Action.AnswerPrompt, Action.DismissPrompt, Action.Wait {
 
     /** The kind's name, the record's own, which the codec and the JSON write first. */
     String kind();
@@ -244,6 +244,20 @@ public sealed interface Action permits Action.Step, Action.MoveTo, Action.Attack
         @Override
         public String kind() {
             return "AnswerPrompt";
+        }
+    }
+
+    /**
+     * The tap that sends a message window away: the back key, or a tap outside it
+     * ({@code core/.../ui/Window.java:223-225}). It is the only Action a Prompt with no buttons
+     * offers, and story 1.13 added it when an ordinary step onto a sign left a window the bot could
+     * see and not dismiss.
+     */
+    record DismissPrompt() implements Action {
+
+        @Override
+        public String kind() {
+            return "DismissPrompt";
         }
     }
 

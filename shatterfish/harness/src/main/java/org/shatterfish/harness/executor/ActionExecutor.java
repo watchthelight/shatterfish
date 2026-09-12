@@ -128,6 +128,15 @@ public final class ActionExecutor {
             return useItem(hero, action, use.item(), use.action(), null, use.target());
         } else if (action instanceof Action.AnswerPrompt answer) {
             return answer(action, answer.option());
+        } else if (action instanceof Action.DismissPrompt) {
+            Window front = Windows.front();
+            if (front == null) {
+                return new Outcome.Rejected(action, Reason.NO_SUCH_OPTION, "no window is open to dismiss");
+            }
+            // What the back key does, and what a tap outside the window does
+            // (…/ui/Window.java:223-225).
+            front.onBackPressed();
+            return applied(action);
         }
         // MoveTo is a human's click on a distant cell, which ActionsSection refuses to carry, and
         // Ability is the armour ability, which story 1.13 leaves to the ability stories.
