@@ -203,7 +203,14 @@ public class Random {
 		
 		int size = chances.size();
 
+		// shatterfish-hook:6
+		// Ordered by name before it is walked. Callers pass maps keyed by Class, and a map keyed
+		// by Class walks in identity-hash order, which differs between processes — so the same
+		// seeded draw picks a different key in a second JVM. A class's name is stable where its
+		// hash is not. Every key keeps its own weight; only the order the slices are laid out in
+		// is fixed.
 		Object[] values = chances.keySet().toArray();
+		java.util.Arrays.sort(values, java.util.Comparator.comparing(String::valueOf));
 		float[] probs = new float[size];
 		float sum = 0;
 		for (int i=0; i < size; i++) {

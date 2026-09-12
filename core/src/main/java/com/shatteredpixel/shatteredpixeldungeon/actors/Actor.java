@@ -150,8 +150,14 @@ public abstract class Actor implements Bundlable {
 	// *** Static members ***
 	// **********************
 	
-	private static HashSet<Actor> all = new HashSet<>();
-	private static HashSet<Char> chars = new HashSet<>();
+	// shatterfish-hook:6
+	// Insertion-ordered sets. process() below walks `all` to break a tie between actors whose
+	// turn falls at the same moment, and a HashSet walks in identity-hash order, which differs
+	// between processes — so the same Run takes a different turn order in a second JVM. A
+	// LinkedHashSet is a HashSet with a defined order, so the declared types, the accessors at
+	// the bottom of this class and every caller are unchanged, and so is what the game decides.
+	private static HashSet<Actor> all = new java.util.LinkedHashSet<>();
+	private static HashSet<Char> chars = new java.util.LinkedHashSet<>();
 	private static volatile Actor current;
 
 	private static SparseArray<Actor> ids = new SparseArray<>();

@@ -304,9 +304,14 @@ public abstract class Level implements Bundlable {
 
 			transitions = new ArrayList<>();
 
-			mobs = new HashSet<>();
+			// shatterfish-hook:6
+			// Insertion-ordered, for the same reason as Actor's sets: the level re-inserts from
+			// both of these on every load, and what the game does can depend on which mob or blob
+			// it reaches first. Same types, same contracts, defined order. The other two sites in
+			// this file (restore) are the same edit.
+			mobs = new java.util.LinkedHashSet<>();
 			heaps = new SparseArray<>();
-			blobs = new HashMap<>();
+			blobs = new java.util.LinkedHashMap<>();
 			plants = new SparseArray<>();
 			traps = new SparseArray<>();
 			customTiles = new ArrayList<>();
@@ -378,9 +383,9 @@ public abstract class Level implements Bundlable {
 
 		setSize( bundle.getInt(WIDTH), bundle.getInt(HEIGHT));
 		
-		mobs = new HashSet<>();
+		mobs = new java.util.LinkedHashSet<>();
 		heaps = new SparseArray<>();
-		blobs = new HashMap<>();
+		blobs = new java.util.LinkedHashMap<>();
 		plants = new SparseArray<>();
 		traps = new SparseArray<>();
 		customTiles = new ArrayList<>();
