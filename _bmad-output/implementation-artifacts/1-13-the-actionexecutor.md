@@ -4,7 +4,7 @@ key: 1-13-the-actionexecutor
 title: "The ActionExecutor"
 epic: 1
 issue: 26
-status: review
+status: done
 created: '2026-09-11'
 updated: '2026-09-11'
 review_loop_iteration: 1
