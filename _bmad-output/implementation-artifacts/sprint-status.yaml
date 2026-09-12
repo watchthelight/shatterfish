@@ -50,7 +50,7 @@ development_status:
   1-12-the-action-type-and-the-valid-action-set: done
   1-13-the-actionexecutor: done
   1-14-a-random-action-warrior-run-to-death: done
-  1-15-the-salt-the-mix-function-and-the-profile: review
+  1-15-the-salt-the-mix-function-and-the-profile: done
   1-16-identity-order-and-the-two-jvm-determinism-test: backlog
   1-17-the-differential-and-toggle-tests: backlog
   1-18-oracle-mode-gated-and-marked: backlog

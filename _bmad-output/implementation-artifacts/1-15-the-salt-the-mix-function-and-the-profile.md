@@ -5,7 +5,7 @@ title: "The salt, the mix function and the Profile"
 epic: 1
 issue: 28
 type: 'feature'
-status: 'in-review'
+status: 'done'
 created: '2026-09-12'
 updated: '2026-09-12'
 review_loop_iteration: 1
