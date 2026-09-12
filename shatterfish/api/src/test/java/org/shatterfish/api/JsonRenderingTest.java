@@ -138,10 +138,15 @@ class JsonRenderingTest {
      */
     private static final Set<String> HELPERS = Set.of("Canon", "Encoder", "Sha256", "Utf8", "JsonWriter",
             "JsonWriter$Frame", "JsonWriter$ObjectFrame", "JsonWriter$ArrayFrame", "ObservationCodec", "ObservationJson",
-            "Belief", "ShatterfishApi", "ValidActions");
+            "Belief", "ShatterfishApi", "ValidActions",
+            // Decider is the seam a Brain arrives at: Observation in, Action out, and no second
+            // argument to ask for anything else (story 1.14's review moved it here from the module
+            // that imports the game). It is an interface with no state and no I/O, which is what
+            // this allowlist exists to check before a name is added to it.
+            "Decider");
 
     @Test
-    @DisplayName("api is the schema, Action and thirteen named helpers, and nothing in it reads text or bytes into a record")
+    @DisplayName("api is the schema, Action and fourteen named helpers, and nothing in it reads text or bytes into a record")
     void nothing_reads_json_back() throws Exception {
         JavaClasses classes = new ClassFileImporter().withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
                 .importPackages("org.shatterfish.api");

@@ -349,8 +349,15 @@ The review's other findings, each taken:
   them, which the review found contradicted this story's own acceptance.
 - **A descent does not cross to the next floor.** The click is taken and the hero's action becomes
   the transition, which is the executor's whole part; the game's part runs in the interlevel scene,
-  which this driver stops at. A probe drives the same descent with the game's own two calls and no
-  Shatterfish code between them and stops in the same place, so it is the harness: issue #68.
+  which this driver reports and does not cross, and nothing above the driver serves that report
+  yet: issue #68, taken by story 1.14.
+
+  *Corrected after this story was merged.* The first account here said the transition never
+  activates at all, drawn from a probe that put the hero on the stairs by writing `hero.pos` from
+  the test thread — a write the game makes only from the actor thread, which is where the
+  transition's own guard reads it. A probe that lets the hero walk there activates the transition
+  and halts asking for `InterlevelScene`. The executor's test keeps the shortcut, because what it
+  holds is the click, and says why the transition does not follow.
 - **A window with buttons that the Prompt table does not name** — the blacksmith's later windows,
   the crown's ability choice — still stops a Run at the driver.
 - **A diagonal step into a doorway** is offered and the game routes around it.

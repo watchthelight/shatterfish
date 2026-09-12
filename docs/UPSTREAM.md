@@ -175,6 +175,14 @@ project skill (Session 4) automates these steps.
    hooked file, re-apply the hook minimally and update its row above.
 4. Re-verify every hook in the table, even those that merged cleanly, by reading
    the merged file.
+4a. Re-verify every **mirrored body**. A hook is an edit to an upstream file and this table counts
+   those; a mirrored body is the other thing, an upstream method whose source the harness has copied
+   out because it is private and cannot be called. Nothing marks the upstream file, so an upgrade
+   that rewrites one leaves the build green and the harness playing a slightly different game.
+   `MirroredUpstreamTest` holds each to a digest and fails on drift: read the new upstream body,
+   decide what the change means for the copy, change the copy, and only then record the new digest.
+   The bodies mirrored today are `InterlevelScene.descend`, `.ascend` and `.fall`, copied by
+   `RunLoop.crossFloor` and `HeadlessDriver.newGame`.
 5. `./gradlew build` with no Android SDK.
 6. Regenerate the Codex (`./gradlew :codex:generate`, once it exists) and commit
    the diff under `codex/<newtag>/`; publish a summary of what changed in

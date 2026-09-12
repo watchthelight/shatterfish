@@ -19,6 +19,7 @@ import org.shatterfish.api.Observation;
 import org.shatterfish.harness.driver.HeadlessDriver;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroAction;
 import com.shatteredpixel.shatteredpixeldungeon.items.Gold;
+import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfMagicMapping;
 import com.shatteredpixel.shatteredpixeldungeon.levels.features.LevelTransition;
 import com.shatteredpixel.shatteredpixeldungeon.levels.features.Chasm;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
@@ -346,9 +347,15 @@ class ActionExecutorTest {
         // What the executor owes is the click, and the click is taken: the hero's own action
         // becomes the transition, which is what a person's tap on the stairs makes it
         // (…/actors/hero/Hero.java:2000-2006). Carrying the hero to the next floor is the game's
-        // part and runs in the interlevel scene, which this driver stops at rather than crosses
-        // (ADR-0015); a Run that crosses a floor is issue #68 and story 1.14's ground, and a probe
-        // written for this story showed the same stop with no executor in the way.
+        // part and runs in the interlevel scene, which this driver reports and does not cross
+        // (ADR-0015, issue #68).
+        //
+        // The transition is not activated here, and that is this test's own doing: stand() writes
+        // hero.pos from this thread, and the guard that decides a transition reads it on the actor
+        // thread (…/actors/hero/Hero.java:1447). A hero that walks to the stairs itself and clicks
+        // the cell it is standing on activates it and halts with the scene change, which a probe
+        // for issue #68 shows. So what is held here is the click, which is the executor's part; the
+        // walked case belongs to the story that serves the scene change.
         assertInstanceOf(HeroAction.LvlTransition.class, hero.curAction, "the click is the descent");
         assertEquals(stairs, ((HeroAction.LvlTransition) hero.curAction).dst, "at the stairs");
     }
@@ -360,6 +367,97 @@ class ActionExecutorTest {
         Dungeon.level.occupyCell(hero);
         Dungeon.observe();
         GameScene.updateFog();
+    }
+
+    @Test
+    @DisplayName("an action that opens no bag is applied, target or no target")
+    void an_action_that_asks_nothing() {
+        Observation observation = atTheFirstWait();
+        // A scroll is the case: READ opens the bag for five scrolls and for no other
+        // (…/items/scrolls/InventoryScroll.java, …/items/scrolls/exotic/ScrollOfEnchantment.java:45),
+        // so for the rest the press is the whole input and the scroll is read and gone. The set
+        // offers both shapes because it cannot tell which scroll this is, and the review of story
+        // 1.14 found the executor calling the plain one a refusal after reading the scroll.
+        // A Warrior starts with no scroll, so one is picked up the way anything is picked up.
+        // Collecting is not an Action and hands the game nothing, so no wait follows it; the next
+        // Observation is simply read.
+        new ScrollOfMagicMapping().identify().collect();
+        Observation withScroll = new Observer().observe();
+        int before = withScroll.inventory().items().size();
+        Action.UseItemOn readAtSomething = withScroll.actions().actions().stream()
+                .filter(Action.UseItemOn.class::isInstance).map(Action.UseItemOn.class::cast)
+                .filter(use -> use.action().equals("READ"))
+                .findFirst().orElseThrow(() -> new AssertionError("the set offers the scroll a target,"
+                        + " because READ can open the bag: " + withScroll.actions().actions()));
+
+        assertInstanceOf(Outcome.Applied.class, executor.execute(withScroll, readAtSomething),
+                "the scroll was read, which is what pressing READ does, so the Action was applied");
+        driver.stepToInputWait();
+        assertNotEquals(before, new Observer().observe().inventory().items().size(),
+                "and the scroll is gone from the pack");
+    }
+
+    @Test
+    @DisplayName("an action that opens a bag nothing can answer is cancelled, not left open")
+    void an_action_that_opens_a_bag_with_no_answer() {
+        Observation observation = atTheFirstWait();
+        Action.UseItem detach = observation.actions().actions().stream()
+                .filter(Action.UseItem.class::isInstance).map(Action.UseItem.class::cast)
+                .filter(use -> use.action().equals("DETACH"))
+                .findFirst().orElseThrow(() -> new AssertionError("the armour offers its seal"));
+        assertInstanceOf(Outcome.Applied.class, executor.execute(observation, detach));
+        driver.stepToInputWait();
+
+        // The plain shape of an action that does open the bag: the window asks which item, and this
+        // Action carries no answer. A person would choose or press back; the executor presses back,
+        // and the Run goes on rather than waiting for a choice nobody will make.
+        Observation withSeal = new Observer().observe();
+        Action.UseItem affix = withSeal.actions().actions().stream()
+                .filter(Action.UseItem.class::isInstance).map(Action.UseItem.class::cast)
+                .filter(use -> use.action().equals("AFFIX"))
+                .findFirst().orElseThrow(() -> new AssertionError("the seal offers to be affixed: "
+                        + withSeal.actions().actions()));
+
+        Outcome.Rejected rejected = assertInstanceOf(Outcome.Rejected.class,
+                executor.execute(withSeal, affix), "half an input is not an input");
+        assertEquals(Reason.NO_SELECTOR, rejected.reason(), rejected.toString());
+        assertEquals(null, Windows.front(), "and the window it opened is gone");
+        driver.stepToInputWait();
+        assertTrue(Dungeon.hero.isAlive(), "and the Run goes on");
+    }
+
+    @Test
+    @DisplayName("an item the selector would not take is refused, and the Run goes on")
+    void an_item_the_selector_refuses() {
+        Observation observation = atTheFirstWait();
+        // The seal starts on the armour, so a person detaches it first; both are the item window's
+        // own buttons. After this the seal is in the pack and offers AFFIX, which opens a window
+        // asking which armour — and the window draws a button only for an item it accepts
+        // (…/windows/WndBag.java:478-487).
+        Action.UseItem detach = observation.actions().actions().stream()
+                .filter(Action.UseItem.class::isInstance).map(Action.UseItem.class::cast)
+                .filter(use -> use.action().equals("DETACH"))
+                .findFirst().orElseThrow(() -> new AssertionError("the armour offers its seal"));
+        assertInstanceOf(Outcome.Applied.class, executor.execute(observation, detach));
+        driver.stepToInputWait();
+
+        Observation withSeal = new Observer().observe();
+        Action.UseItemOn onNothingItTakes = withSeal.actions().actions().stream()
+                .filter(Action.UseItemOn.class::isInstance).map(Action.UseItemOn.class::cast)
+                .filter(use -> use.action().equals("AFFIX") && !use.target().name().contains("armor"))
+                .findFirst().orElseThrow(() -> new AssertionError("the set offers the seal an item it"
+                        + " cannot take: " + withSeal.actions().actions()));
+
+        Outcome.Rejected rejected = assertInstanceOf(Outcome.Rejected.class,
+                executor.execute(withSeal, onNothingItTakes),
+                "a target the window draws no button for is not a tap a person could make");
+        assertEquals(Reason.NO_SELECTOR, rejected.reason(), rejected.toString());
+        assertEquals(null, Windows.front(), "and the window it opened is gone");
+
+        // The refusal followed a change, so the driver has to hear that something was handed over;
+        // without that the Run stops here, which is how story 1.14 found this.
+        driver.stepToInputWait();
+        assertTrue(Dungeon.hero.isAlive(), "and the Run goes on");
     }
 
     @Test

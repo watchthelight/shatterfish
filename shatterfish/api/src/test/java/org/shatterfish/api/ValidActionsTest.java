@@ -316,7 +316,9 @@ class ValidActionsTest {
         for (String action : onAnItem) {
             List<Action> valid = ValidActions.of(withActionOffered(action)).actions();
             assertTrue(valid.stream().anyMatch(a -> a instanceof Action.UseItem use && use.action().equals(action)),
-                    action + " may open nothing, so the plain shape stands");
+                    action + " may open nothing — READ opens the bag for five scrolls and for no"
+                            + " other — so the plain shape stands, and the executor cancels a window"
+                            + " no Action can answer (story 1.14's review)");
             assertTrue(valid.stream().anyMatch(a -> a instanceof Action.UseItemOn use && use.action().equals(action)),
                     action + " may open the bag, so the shape with a target is offered too");
         }

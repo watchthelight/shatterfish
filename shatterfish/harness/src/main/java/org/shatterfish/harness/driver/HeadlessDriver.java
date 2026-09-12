@@ -135,7 +135,7 @@ public final class HeadlessDriver implements AutoCloseable {
     }
 
     private final HeadlessBoot boot;
-    private final HeadlessScene scene;
+    private HeadlessScene scene;
     private long frames;
     private boolean closed;
     /** Written by the actor thread only, inside {@code Hero.act()}; read here between frames. */
@@ -213,6 +213,17 @@ public final class HeadlessDriver implements AutoCloseable {
         if (boot.game().currentScene() != null) {
             boot.game().destroy();
         }
+        // The interface a Run plays on decides where an item selector goes: the compact one shows a
+        // WndBag, which an Action can answer, and the full one hands it to an inventory pane that a
+        // headless Run draws nowhere and no Action can name (…/scenes/GameScene.java:1668-1684).
+        // The Profile declares the compact one (HeadlessBoot), and a Run asserts it rather than
+        // assuming it, because the desktop default is the other one (SPDSettings.java:141) and the
+        // Overlay will run inside a game that has it. The review of story 1.14 asked for this.
+        if (SPDSettings.interfaceSize() != 0) {
+            throw new IllegalStateException("a Run plays on the compact interface, and this process has"
+                    + " interface size " + SPDSettings.interfaceSize() + "; on any other, a targeted item"
+                    + " action opens no window and every one of them is refused");
+        }
         newGame(seed, heroClass);
         // The Observer's log listener (ADR-0006, Log) is re-added by hook row 3 as the scene is
         // created, so the seam is armed before the scene exists and hears the first floor's lines.
@@ -287,6 +298,43 @@ public final class HeadlessDriver implements AutoCloseable {
         GameLogListener.INSTANCE.reset();
         Level level = Dungeon.newLevel();
         Dungeon.switchLevel(level, -1);
+    }
+
+    /**
+     * Serves a requested scene change by ending this floor's actor thread, doing {@code levelWork},
+     * and creating the scene the next floor is played in. The driver owns the thread and the scene
+     * and so owns this; what the change <em>means</em> is the caller's, which is why the level work
+     * is passed in — ADR-0015 gives the driver one job, to report, and a driver that decided what a
+     * transition was would decide what a Run is (issue #68).
+     *
+     * <p>{@code levelWork} is the body of the interlevel scene for the mode the game asked for
+     * ({@code core/.../scenes/InterlevelScene.java:622-671} for a descent), and it runs with no
+     * scene in place and no actor thread alive, which is the state the real scene switch leaves.
+     * The new scene is created the way {@link #start} creates the first one, so the first floor and
+     * the fifth are played in the same kind of scene.
+     *
+     * @throws IllegalStateException if no scene change was requested, or the Run is closed
+     */
+    public void serveSceneSwitch(Runnable levelWork) {
+        if (closed) {
+            throw new IllegalStateException("the Run is closed");
+        }
+        if (!boot.game().sceneSwitchRequested()) {
+            throw new IllegalStateException("no scene change was asked for; serve one only after a"
+                    + " Halt whose reason is SCENE_SWITCH");
+        }
+        scene.stepper().endActorThread();
+        boot.game().destroy();
+        boot.game().clearSceneSwitchRequest();
+        levelWork.run();
+        // Hook row 3 re-adds the Observer's log listener as the scene is created, and the listener
+        // itself survives the floor, so the new floor's lines land in the same buffer the old
+        // floor's did (ADR-0006, Log).
+        HeadlessScene next = new HeadlessScene();
+        boot.game().switchTo(next);
+        scene = next;
+        acted = false;
+        seenNotifications = notifications;
     }
 
     /** Steps until the hero waits for input, the hero is dead or a scene change is requested. */

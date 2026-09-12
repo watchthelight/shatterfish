@@ -109,6 +109,12 @@ public final class ValidActions {
      * action on each other item, and the executor takes the one the game asks for (story 1.13). An
      * item action outside both tables is offered plainly; if the game opens a selector for it, the
      * executor reports it rather than guessing, which is the completeness test's business.
+     *
+     * <p>Story 1.14 narrowed this to the targeted shape alone and its review put it back. The
+     * narrowing looked right — pressing an action that opens the bag and stopping there does
+     * nothing — but {@code READ} is in this table, so it took reading most of the scroll table away
+     * from the bot, and the executor read the scroll and then reported the Action refused. The bug
+     * it was meant to fix belongs to the executor, which now cancels a window no Action can answer.
      */
     private static final Set<String> ON_AN_ITEM = Set.of("READ", "USE", "AFFIX", "IMBUE", "ADD", "FEED",
             "STORE", "IDENTIFY", "APPLY", "INSCRIBE", "TIP", "TRANSFER", "OUTFIT");
@@ -243,6 +249,13 @@ public final class ValidActions {
                         actions.add(new Action.UseItemAt(ref, action, target));
                     }
                 } else {
+                    // Both shapes, which is the rule the table is written for: these identifiers
+                    // *can* open the bag and mostly do not. READ opens one for five scrolls and
+                    // for no other, so a set that offered only the targeted shape would have taken
+                    // reading a scroll of magic mapping away from the bot entirely — the review of
+                    // story 1.14 caught that, after this was narrowed to fix a different bug. The
+                    // executor takes whichever shape the game asks for, and cancels a window an
+                    // Action cannot answer.
                     actions.add(new Action.UseItem(ref, action));
                     if (ON_AN_ITEM.contains(action)) {
                         for (int other = 0; other < inventory.size(); other++) {
