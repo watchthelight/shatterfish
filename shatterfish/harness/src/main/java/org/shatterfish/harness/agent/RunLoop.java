@@ -14,6 +14,7 @@ import com.shatteredpixel.shatteredpixeldungeon.scenes.InterlevelScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.SurfaceScene;
 import com.watabou.noosa.Scene;
 import org.shatterfish.api.Action;
+import org.shatterfish.api.Decider;
 import org.shatterfish.api.Observation;
 import org.shatterfish.harness.driver.HeadlessDriver;
 import org.shatterfish.harness.driver.Windows;
@@ -56,18 +57,6 @@ public final class RunLoop {
     private final ActionExecutor executor = new ActionExecutor();
 
     /**
-     * What takes the decision at a wait. The loop does not care who chooses, which is the point:
-     * the Brain will arrive at this same seam, and a test that wants a particular kind of Run says
-     * so here rather than in a branch inside the loop.
-     */
-    @FunctionalInterface
-    public interface Chooser {
-
-        /** The Action to take, or null when the screen offers nothing. */
-        Action choose(Observation observation);
-    }
-
-    /**
      * Plays a Run of {@code heroClass} on {@code seed}, choosing at random from {@code agentSeed},
      * and says how it ended.
      */
@@ -79,7 +68,7 @@ public final class RunLoop {
      * Plays a Run with a chooser of the caller's own. The Run's resources go with it: the driver is
      * closed whatever happens.
      */
-    public RunOutcome play(long seed, HeroClass heroClass, Chooser agent) {
+    public RunOutcome play(long seed, HeroClass heroClass, Decider agent) {
         return play(seed, heroClass, agent, TURN_CAP);
     }
 
@@ -88,7 +77,7 @@ public final class RunLoop {
      * number and the behaviour at it is a rule; a test that wants the rule should not have to spend
      * twenty thousand turns reaching it, and a Run that wants the rule gets {@link #TURN_CAP}.
      */
-    public RunOutcome play(long seed, HeroClass heroClass, Chooser agent, int turnCap) {
+    public RunOutcome play(long seed, HeroClass heroClass, Decider agent, int turnCap) {
         HeadlessDriver driver = HeadlessDriver.start(seed, heroClass);
         long waits = 0;
         long applied = 0;
@@ -127,7 +116,7 @@ public final class RunLoop {
                 }
 
                 Observation observation = new Observer().observe();
-                Action chosen = agent.choose(observation);
+                Action chosen = agent.decide(observation);
                 if (chosen == null) {
                     return outcome(RunOutcome.Cause.NOTHING_OFFERED, waits, applied, refused,
                             "at wait " + halt.waitIndex());
@@ -206,14 +195,31 @@ public final class RunLoop {
             if (transition == null) {
                 throw new IllegalStateException("the game asked for " + mode + " with no transition to take");
             }
-            Mob.holdAllies(Dungeon.level);
+            // The guard the game carries on both sides: allies are not held into the city's quest
+            // area (…/scenes/InterlevelScene.java:650-655, :694-699). Holding them there would be a
+            // different game, which is the one thing a mirrored body must not become; the review of
+            // story 1.14 found it missing.
+            if (transition.destBranch != Dungeon.branch && Dungeon.depth >= 16 && Dungeon.depth <= 20) {
+                // Upstream's own FIXME: nothing is held here.
+                assert true;
+            } else {
+                Mob.holdAllies(Dungeon.level);
+            }
             Dungeon.saveAll();
             Dungeon.depth = transition.destDepth;
             Dungeon.branch = transition.destBranch;
             Level level = generated() ? Dungeon.loadLevel(GamesInProgress.curSlot) : Dungeon.newLevel();
             LevelTransition arrival = level.getTransition(transition.destType);
             InterlevelScene.curTransition = null;
-            Dungeon.switchLevel(level, arrival == null ? -1 : arrival.cell());
+            if (arrival == null) {
+                // Upstream dereferences this without asking (…/scenes/InterlevelScene.java:670,
+                // :714), so a floor with no way in is a case the game does not have and this must
+                // not invent one for: dropping the hero wherever the no-position path puts them
+                // would turn a loud failure into a quiet wrong arrival.
+                throw new IllegalStateException("floor " + Dungeon.depth + " has no "
+                        + transition.destType + " for the hero to arrive at");
+            }
+            Dungeon.switchLevel(level, arrival.cell());
         } catch (IOException e) {
             throw new UncheckedIOException("the floor the game asked for could not be loaded", e);
         }

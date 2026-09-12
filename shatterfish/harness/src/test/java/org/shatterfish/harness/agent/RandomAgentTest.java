@@ -46,7 +46,7 @@ class RandomAgentTest {
         RandomAgent agent = new RandomAgent(1L);
         Set<Action> drawn = new HashSet<>();
         for (int draw = 0; draw < 40 * offered.size(); draw++) {
-            drawn.add(agent.choose(observation));
+            drawn.add(agent.decide(observation));
         }
 
         assertEquals(new HashSet<>(offered), drawn,
@@ -66,9 +66,9 @@ class RandomAgentTest {
         RandomAgent other = new RandomAgent(8L);
         boolean anyDifference = false;
         for (int draw = 0; draw < 50; draw++) {
-            Action a = one.choose(observation);
-            assertEquals(a, same.choose(observation), "one seed, one stream, at draw " + draw);
-            anyDifference |= !a.equals(other.choose(observation));
+            Action a = one.decide(observation);
+            assertEquals(a, same.decide(observation), "one seed, one stream, at draw " + draw);
+            anyDifference |= !a.equals(other.decide(observation));
         }
         assertTrue(anyDifference, "a different seed is a different stream");
     }

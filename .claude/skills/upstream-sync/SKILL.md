@@ -27,6 +27,10 @@ is the one in `docs/UPSTREAM.md`; this skill executes it with the required check
      entries worth carrying;
    - anywhere else: it is an upstream file we should not have touched; investigate why it
      differs before resolving.
+4a. **Re-verify every mirrored body.** `MirroredUpstreamTest` holds each upstream method the
+    harness copies out — it cannot call them, they are private — to a digest and fails when the
+    body changes. Read the new body, change the copy to match what it now does, then record the
+    digest; never the other way round. `docs/UPSTREAM.md` step 4a says which bodies these are.
 5. **Re-verify every hook**, including the ones that merged cleanly: open each hooked file at
    the merge result and confirm the hook is present, still minimal, and still guarded. Record
    the tag in the "Verified at tag" column.

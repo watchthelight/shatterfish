@@ -1,6 +1,7 @@
 package org.shatterfish.harness.agent;
 
 import org.shatterfish.api.Action;
+import org.shatterfish.api.Decider;
 import org.shatterfish.api.Observation;
 
 import java.util.List;
@@ -17,7 +18,7 @@ import java.util.Random;
  * the agent has an opinion. The only thing it reads is {@link Observation#actions()}, which is the
  * same door the Brain will use.
  */
-public final class RandomAgent implements RunLoop.Chooser {
+public final class RandomAgent implements Decider {
 
     private final Random choices;
 
@@ -32,7 +33,7 @@ public final class RandomAgent implements RunLoop.Chooser {
      * inventing an input for it.
      */
     @Override
-    public Action choose(Observation observation) {
+    public Action decide(Observation observation) {
         List<Action> offered = observation.actions().actions();
         if (offered.isEmpty()) {
             return null;

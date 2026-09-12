@@ -369,6 +369,59 @@ class ActionExecutorTest {
     }
 
     @Test
+    @DisplayName("an action that opens no bag is applied, target or no target")
+    void an_action_that_asks_nothing() {
+        Observation observation = atTheFirstWait();
+        // A scroll is the case: READ opens the bag for five scrolls and for no other
+        // (…/items/scrolls/InventoryScroll.java, …/items/scrolls/exotic/ScrollOfEnchantment.java:45),
+        // so for the rest the press is the whole input and the scroll is read and gone. The set
+        // offers both shapes because it cannot tell which scroll this is, and the review of story
+        // 1.14 found the executor calling the plain one a refusal after reading the scroll.
+        int before = observation.inventory().items().size();
+        Action.UseItemOn readAtSomething = observation.actions().actions().stream()
+                .filter(Action.UseItemOn.class::isInstance).map(Action.UseItemOn.class::cast)
+                .filter(use -> use.action().equals("READ"))
+                .findFirst().orElse(null);
+        if (readAtSomething == null) {
+            return;     // this hero starts with no scroll; the plain shape below is the same path
+        }
+        assertInstanceOf(Outcome.Applied.class, executor.execute(observation, readAtSomething),
+                "the scroll was read, which is what pressing READ does, so the Action was applied");
+        driver.stepToInputWait();
+        assertNotEquals(before, new Observer().observe().inventory().items().size(),
+                "and the scroll is gone from the pack");
+    }
+
+    @Test
+    @DisplayName("an action that opens a bag nothing can answer is cancelled, not left open")
+    void an_action_that_opens_a_bag_with_no_answer() {
+        Observation observation = atTheFirstWait();
+        Action.UseItem detach = observation.actions().actions().stream()
+                .filter(Action.UseItem.class::isInstance).map(Action.UseItem.class::cast)
+                .filter(use -> use.action().equals("DETACH"))
+                .findFirst().orElseThrow(() -> new AssertionError("the armour offers its seal"));
+        assertInstanceOf(Outcome.Applied.class, executor.execute(observation, detach));
+        driver.stepToInputWait();
+
+        // The plain shape of an action that does open the bag: the window asks which item, and this
+        // Action carries no answer. A person would choose or press back; the executor presses back,
+        // and the Run goes on rather than waiting for a choice nobody will make.
+        Observation withSeal = new Observer().observe();
+        Action.UseItem affix = withSeal.actions().actions().stream()
+                .filter(Action.UseItem.class::isInstance).map(Action.UseItem.class::cast)
+                .filter(use -> use.action().equals("AFFIX"))
+                .findFirst().orElseThrow(() -> new AssertionError("the seal offers to be affixed: "
+                        + withSeal.actions().actions()));
+
+        Outcome.Rejected rejected = assertInstanceOf(Outcome.Rejected.class,
+                executor.execute(withSeal, affix), "half an input is not an input");
+        assertEquals(Reason.NO_SELECTOR, rejected.reason(), rejected.toString());
+        assertEquals(null, Windows.front(), "and the window it opened is gone");
+        driver.stepToInputWait();
+        assertTrue(Dungeon.hero.isAlive(), "and the Run goes on");
+    }
+
+    @Test
     @DisplayName("an item the selector would not take is refused, and the Run goes on")
     void an_item_the_selector_refuses() {
         Observation observation = atTheFirstWait();

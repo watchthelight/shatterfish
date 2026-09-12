@@ -109,6 +109,12 @@ public final class ValidActions {
      * action on each other item, and the executor takes the one the game asks for (story 1.13). An
      * item action outside both tables is offered plainly; if the game opens a selector for it, the
      * executor reports it rather than guessing, which is the completeness test's business.
+     *
+     * <p>Story 1.14 narrowed this to the targeted shape alone and its review put it back. The
+     * narrowing looked right — pressing an action that opens the bag and stopping there does
+     * nothing — but {@code READ} is in this table, so it took reading most of the scroll table away
+     * from the bot, and the executor read the scroll and then reported the Action refused. The bug
+     * it was meant to fix belongs to the executor, which now cancels a window no Action can answer.
      */
     private static final Set<String> ON_AN_ITEM = Set.of("READ", "USE", "AFFIX", "IMBUE", "ADD", "FEED",
             "STORE", "IDENTIFY", "APPLY", "INSCRIBE", "TIP", "TRANSFER", "OUTFIT");
@@ -242,22 +248,24 @@ public final class ValidActions {
                     for (int target : targets(observation)) {
                         actions.add(new Action.UseItemAt(ref, action, target));
                     }
-                } else if (ON_AN_ITEM.contains(action)) {
-                    // An action that opens the bag is not one input on its own: pressing it draws
-                    // a window asking which item, and a person who stops there has done nothing.
-                    // So the set offers the whole input and not its first half. Story 1.14 found
-                    // this the hard way — a Run that pressed the broken seal's affix and had
-                    // nothing to answer with left the game waiting for a choice that no Action
-                    // carries, and the Run stopped there.
-                    for (int other = 0; other < inventory.size(); other++) {
-                        if (other != index) {
-                            ItemView target = inventory.get(other);
-                            actions.add(new Action.UseItemOn(ref, action,
-                                    new ItemRef(other, target.name(), target.quantity())));
+                } else {
+                    // Both shapes, which is the rule the table is written for: these identifiers
+                    // *can* open the bag and mostly do not. READ opens one for five scrolls and
+                    // for no other, so a set that offered only the targeted shape would have taken
+                    // reading a scroll of magic mapping away from the bot entirely — the review of
+                    // story 1.14 caught that, after this was narrowed to fix a different bug. The
+                    // executor takes whichever shape the game asks for, and cancels a window an
+                    // Action cannot answer.
+                    actions.add(new Action.UseItem(ref, action));
+                    if (ON_AN_ITEM.contains(action)) {
+                        for (int other = 0; other < inventory.size(); other++) {
+                            if (other != index) {
+                                ItemView target = inventory.get(other);
+                                actions.add(new Action.UseItemOn(ref, action,
+                                        new ItemRef(other, target.name(), target.quantity())));
+                            }
                         }
                     }
-                } else {
-                    actions.add(new Action.UseItem(ref, action));
                 }
             }
         }

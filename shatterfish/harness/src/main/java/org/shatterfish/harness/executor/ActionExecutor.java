@@ -277,19 +277,25 @@ public final class ActionExecutor {
         } else if (other != null) {
             WndBag bag = bagWindow();
             if (bag == null || bag.getSelector() == null) {
-                return touchedAndRefused(action, Reason.NO_SELECTOR,
-                        what + " opened no bag to answer with " + target.name());
+                // No window to answer, which means the item did the whole of what the button does
+                // and asked nothing: READ opens a bag for five scrolls and for no other, so most
+                // scrolls read and are gone here. The press happened and it was the press a person
+                // makes, so this is applied — reporting a refusal would have counted a successful
+                // read as a failure and, after enough of them in a row, ended the Run as one. The
+                // review of story 1.14 caught exactly that.
+                return applied(action);
             }
             WndBag.ItemSelector selector = bag.getSelector();
             if (!selector.itemSelectable(other)) {
-                // The window draws a button only for an item the selector accepts and greys the
-                // rest (…/windows/WndBag.java:478-487, and the slot's own enabling), so answering
-                // with one of the others is not a tap a person could make. The window goes the way
-                // a person sends it away: the back press tells the selector it was cancelled, which
-                // is what returns the hero to ready (WndBag.java:376-381), where hiding the window
-                // alone would leave the game waiting for a choice nobody will make. The Run goes on;
-                // the item was executed, which is why this is a NO_SELECTOR and not a refusal
-                // before the fact.
+                // The window draws a slot for every item and enables only the ones the selector
+                // accepts, greying the rest with the very predicate asked here
+                // (…/windows/WndBag.java:355-357), so this reads what the screen draws and
+                // answering with one of the others is not a tap a person could make. The window
+                // goes the way a person sends it away: the back press tells the selector it was
+                // cancelled, which is what returns the hero to ready (WndBag.java:377-382), where
+                // hiding the window alone would leave the game waiting for a choice nobody will
+                // make. The Run goes on; the item was executed, which is why this is a NO_SELECTOR
+                // and not a refusal before the fact.
                 bag.onBackPressed();
                 return touchedAndRefused(action, Reason.NO_SELECTOR,
                         what + " does not take " + target.name() + ", so its window offers no button for it");
@@ -304,7 +310,7 @@ public final class ActionExecutor {
             // waiting for a choice that no Action carries, and nothing would ever arrive: a bag is
             // not a Prompt the table names, so no wait follows and the Run would stop here. That is
             // what a person would see as an open window they must answer, so it is sent away with
-            // the back press, which is what tells the selector it was cancelled (WndBag.java:376-381),
+            // the back press, which is what tells the selector it was cancelled (WndBag.java:377-382),
             // and the refusal says which Action was only half of one.
             WndBag bag = bagWindow();
             if (bag != null) {

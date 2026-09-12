@@ -213,6 +213,17 @@ public final class HeadlessDriver implements AutoCloseable {
         if (boot.game().currentScene() != null) {
             boot.game().destroy();
         }
+        // The interface a Run plays on decides where an item selector goes: the compact one shows a
+        // WndBag, which an Action can answer, and the full one hands it to an inventory pane that a
+        // headless Run draws nowhere and no Action can name (…/scenes/GameScene.java:1668-1684).
+        // The Profile declares the compact one (HeadlessBoot), and a Run asserts it rather than
+        // assuming it, because the desktop default is the other one (SPDSettings.java:141) and the
+        // Overlay will run inside a game that has it. The review of story 1.14 asked for this.
+        if (SPDSettings.interfaceSize() != 0) {
+            throw new IllegalStateException("a Run plays on the compact interface, and this process has"
+                    + " interface size " + SPDSettings.interfaceSize() + "; on any other, a targeted item"
+                    + " action opens no window and every one of them is refused");
+        }
         newGame(seed, heroClass);
         // The Observer's log listener (ADR-0006, Log) is re-added by hook row 3 as the scene is
         // created, so the seam is armed before the scene exists and hears the first floor's lines.
