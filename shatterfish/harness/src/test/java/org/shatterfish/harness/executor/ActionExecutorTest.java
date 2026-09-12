@@ -16,6 +16,12 @@ import org.shatterfish.api.ItemRef;
 import org.shatterfish.api.ItemView;
 import org.shatterfish.api.Observation;
 import org.shatterfish.harness.driver.HeadlessDriver;
+import com.shatteredpixel.shatteredpixeldungeon.levels.features.Chasm;
+import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndMessage;
+import org.shatterfish.api.PromptKind;
+import org.shatterfish.harness.driver.Windows;
+import org.shatterfish.harness.boot.HeadlessBoot;
 import org.shatterfish.harness.observer.Observer;
 
 import java.util.List;
@@ -173,6 +179,48 @@ class ActionExecutorTest {
         assertTrue(new Observer().observe().inventory().items().stream()
                         .noneMatch(item -> item.name().equals(throwable.name()) && item.quantity() == throwable.quantity()),
                 "the throw happened: the pack changed");
+    }
+
+    @Test
+    @DisplayName("a Prompt's button is pressed by the tap a person makes, and the answer is the game's")
+    void a_prompt_is_answered_by_a_tap() {
+        atTheFirstWait();
+        // The chasm's own question, raised the way the game raises it.
+        Chasm.heroJump(hero);
+        HeadlessBoot.ensure().drainPostedRunnables();
+        driver.stepToInputWait();
+
+        Observation observation = new Observer().observe();
+        assertEquals(PromptKind.CHASM_JUMP, observation.prompt().kind());
+        assertEquals(2, observation.prompt().options().size(), observation.prompt().options().toString());
+        int no = observation.prompt().options().size() - 1;
+        int depth = Dungeon.depth;
+
+        // Answering is a tap on the button, posted where the input system posts one; the frame
+        // that follows delivers it, as it delivers a player's.
+        Outcome outcome = executor.execute(observation, new Action.AnswerPrompt(no));
+        assertInstanceOf(Outcome.Applied.class, outcome, outcome.toString());
+        driver.stepToInputWait();
+
+        assertEquals(null, Windows.front(), "the window the answer closed");
+        assertEquals(depth, Dungeon.depth, "the hero said no, so it did not jump");
+        assertTrue(hero.isAlive());
+    }
+
+    @Test
+    @DisplayName("a message is sent away by the Action a message offers")
+    void a_message_is_dismissed() {
+        atTheFirstWait();
+        GameScene.show(new WndMessage("The game says something and asks nothing."));
+        driver.stepToInputWait();
+
+        Observation observation = new Observer().observe();
+        assertEquals(PromptKind.MESSAGE, observation.prompt().kind());
+        assertEquals(List.of(new Action.DismissPrompt()), observation.actions().actions(),
+                "one Action, which is the tap that sends it away");
+
+        assertInstanceOf(Outcome.Applied.class, executor.execute(observation, new Action.DismissPrompt()));
+        assertEquals(null, Windows.front(), "and it is gone");
     }
 
     private Action.Step firstStep(Observation observation) {
