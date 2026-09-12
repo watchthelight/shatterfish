@@ -208,7 +208,12 @@ class ActionExecutorTest {
         driver.stepToInputWait();
 
         assertEquals(null, Windows.front(), "the window the answer closed");
-        assertEquals(depth, Dungeon.depth, "the hero said no, so it did not jump");
+        // Which button was pressed is the whole question, and the depth does not answer it: a jump
+        // asks for the scene that carries the hero down and this driver stops at a scene change
+        // (issue #68), so the floor is the same either way. What the yes button sets is the jump
+        // itself (…/levels/features/Chasm.java:88, :101), and that is what says no was pressed.
+        assertFalse(Chasm.jumpConfirmed, "the hero said no, so no jump was confirmed");
+        assertEquals(depth, Dungeon.depth, "and it is on the floor it was on");
         assertTrue(hero.isAlive());
     }
 
