@@ -323,3 +323,32 @@ own the steps fill them in.
 the top of the branch, the fourth site of row 5; the
 registry's point has existed since story 1.2. The site reads the point into a local and calls it,
 and the listener does one volatile write on the actor thread, which is all AD-8 allows there.
+
+## Amendment: story 1.14 (2026-09-12)
+
+**Who serves a reported scene change.** The driver reports one and stops; stepping again throws. That
+is the contract this ADR set out — the driver's job is to say what happened, not to decide what it
+means — and until story 1.14 nothing above it decided, so a Run could not leave floor one (issue
+#68). `HeadlessDriver.serveSceneSwitch(Runnable)` splits the two: the driver ends the floor's actor
+thread, destroys the scene, clears the request and creates the next `HeadlessScene`, because it owns
+the thread and the scene; the caller passes what the change *means*, which is the body of the
+interlevel scene for the mode the game asked for. `RunLoop` passes the descent, the ascent and the
+fall (`…/scenes/InterlevelScene.java:649-670`, `:693-716`, `:676-691`), reproduced with public calls
+rather than run, exactly as `HeadlessDriver.newGame` reproduces the branch that starts a game. Any
+other mode ends the Run with a named cause rather than a guess.
+
+**Nothing writes the hero's position from the driver thread.** A probe that put the hero on the
+stairs by assigning `hero.pos` produced a transition that never activated, and the conclusion drawn
+from it — that the harness could not cross a floor at all — was wrong for a day. The game writes
+that field only from the actor thread, and the transition's own guard reads it there
+(`…/actors/hero/Hero.java:1447`). A test that needs the hero somewhere arranges the world and lets
+the hero walk, or plays Runs until one goes there by itself.
+
+**Every Run plays on the compact interface.** `SPDSettings.interfaceSize(0)`, set with the rest of
+the Profile's settings. With the full interface the game builds an inventory pane and hands an item
+selector to it instead of showing a window (`…/scenes/GameScene.java:399`, `:547-551`, `:1668-1684`);
+a headless Run draws no pane, so the game waits for a tap on a slot that is nowhere and that no
+Action can name, and the first Run to affix the broken seal stopped there. The compact interface
+shows the same selector as a `WndBag`, which the Observer reads and an Action answers. Both are the
+game's own interfaces and a person plays on either; this is the one a headless Run can play, and it
+is declared rather than inherited so that two Runs agree about what the screen is.
