@@ -19,8 +19,10 @@ A Run is determined by its **tuple**:
 
 Two Runs with the same tuple are the same Run. The seed and the salt do different jobs and this is
 the distinction the rest of the page rests on: **the seed makes the floor, the salt makes the
-rolls.** The same seed under two salts gives the same dungeon, the same items in the same rooms, and
-different combat outcomes from the first turn onwards.
+rolls.** The same seed under two salts gives the same first floor and different outcomes from the
+first turn onwards. The floors below are generated once a Run is under way, with the salt's
+generator on the stack; their layout comes from the seed (the game pushes a seed derived from it for
+each floor's shape), but this page does not yet claim more than that about them.
 
 The salt is written down with the Run and is never shown to the bot. A bot that had it could
 compute the next roll, so it is treated as the one number that would end the only rule of play —
@@ -100,8 +102,10 @@ than played against, because a Run recorded under one Profile and replayed under
 same Run.
 
 **Profile version 1** is: English strings, the intro off, the support prompt already answered, the
-compact interface, and an empty history — no badges, no journal, no rankings and no remains carried
-in from any earlier game.
+compact interface, and an empty history. The history is emptied rather than merely unread: the
+game's own loaders each return early once a process has called them, so the harness restores the
+badges, the journal's catalog, bestiary and documents, and the rankings from an empty bundle, which
+is what those loaders do with the file a fresh directory does not have.
 
 Two of those deserve their reasons. The **compact interface** is the one a phone player uses; the
 full interface hands an item selector to an inventory pane that a headless Run draws nowhere and no
@@ -112,3 +116,13 @@ the first boss has been slain (`core/src/main/java/com/shatteredpixel/shatteredp
 The Profile is part of the tuple in the sense that matters: change it and the Runs recorded against
 the old one are no longer comparable, which is why it carries a version and the version is in every
 results page.
+
+## What is not yet true
+
+A Run is reproducible in its draws and not yet in its outcome. With the salt controlling every draw
+from the game's initialisation onwards and the history emptied per Run, two Runs of one tuple still
+diverge: one floor-one item lands a cell apart, and the cell creeps by one with each Run in a
+process. A value that creeps is counted rather than drawn, so the cause is not the random stream —
+it is iteration order over identity hashes, which the next story removes along with a determinism
+test that spans two processes. Until that lands, treat a published Run's numbers as reproducible in
+what the game rolled and not in what the bot met. The tracking issue is #70.

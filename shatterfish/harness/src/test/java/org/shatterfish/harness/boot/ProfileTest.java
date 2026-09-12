@@ -3,6 +3,12 @@ package org.shatterfish.harness.boot;
 import com.shatteredpixel.shatteredpixeldungeon.Badges;
 import com.shatteredpixel.shatteredpixeldungeon.SPDSettings;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
+import org.shatterfish.api.Action;
+import org.shatterfish.api.Observation;
+import org.shatterfish.harness.driver.HeadlessDriver;
+import org.shatterfish.harness.executor.ActionExecutor;
+import org.shatterfish.harness.executor.Outcome;
+import org.shatterfish.harness.observer.Observer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -103,37 +109,82 @@ class ProfileTest {
     }
 
     @Test
-    @DisplayName("one tuple, one Run: the same seed and salt draw the same numbers twice")
+    @DisplayName("two Runs of one tuple draw the same numbers at the same waits")
     @Timeout(value = 10, unit = TimeUnit.MINUTES)
-    void one_tuple_one_run() {
-        // What issue #70 is about. Two Runs of one tuple in one process, each reading the game's
-        // own draws at each wait rather than playing: what the game draws is what a Brain's choices
-        // would be made against, so if these agree the tuple determines the Run's randomness.
-        List<Integer> first = drawsOfARun(4242L, 0x5A17L);
-        List<Integer> second = drawsOfARun(4242L, 0x5A17L);
-        assertEquals(first, second, "two Runs of one tuple");
+    void one_tuple_one_stream() {
+        // What this story owns, and no more. The numbers the game draws from each wait onwards are
+        // a function of the salt and the wait index, so two Runs of one tuple draw alike and two
+        // salts do not. Whether the two Runs then *see* the same screens is a different question,
+        // and the answer today is no — see the test below.
+        List<String> first = drawsOfARun(4242L, 0x5A17L);
+        List<String> second = drawsOfARun(4242L, 0x5A17L);
+        assertEquals(first, second, "two Runs of one tuple draw one stream");
 
-        List<Integer> salted = drawsOfARun(4242L, 0x5A18L);
-        assertTrue(!first.equals(salted), "and a different salt is a different stream");
+        List<String> salted = drawsOfARun(4242L, 0x5A18L);
+        assertTrue(!first.equals(salted), "and another salt is another stream");
     }
 
-    /** The numbers the game draws at each of a Run's first waits, with nothing played. */
-    private static List<Integer> drawsOfARun(long seed, long salt) {
-        org.shatterfish.harness.driver.HeadlessDriver driver =
-                org.shatterfish.harness.driver.HeadlessDriver.start(seed, HeroClass.WARRIOR, salt);
+    @Test
+    @DisplayName("two Runs of one tuple still see different screens, which story 1.16 owns")
+    @Timeout(value = 10, unit = TimeUnit.MINUTES)
+    void one_tuple_two_screens_for_now() {
+        // This asserts a defect, deliberately, because the alternative is a story that claims to
+        // have closed issue #70 and has closed half of it. With the salt controlling every draw
+        // from Dungeon.init onward and the journal emptied per Run, two Runs of one tuple still
+        // put one floor-one item on cells a step apart, and the cell creeps by one with each Run in
+        // a process. That is not randomness — it is something counted rather than drawn, which is
+        // the ground story 1.16 stands on (identity order and the two-JVM determinism test).
+        //
+        // When 1.16 lands this test fails, and that failure is the good news: replace it with the
+        // equality it was hiding.
+        List<String> first = screensOf(4242L, 0x5A17L);
+        List<String> second = screensOf(4242L, 0x5A17L);
+        assertTrue(!first.equals(second), "if these now agree, issue #70 is closed: delete this test"
+                + " and assert the equality instead");
+    }
+
+    /** The numbers the game draws at the head of each of a Run's first waits. */
+    private static List<String> drawsOfARun(long seed, long salt) {
+        HeadlessDriver driver = HeadlessDriver.start(seed, HeroClass.WARRIOR, salt);
         try {
-            List<Integer> drawn = new ArrayList<>();
+            List<String> drawn = new ArrayList<>();
             for (int wait = 0; wait < 4; wait++) {
                 driver.stepToInputWait();
+                StringBuilder atThisWait = new StringBuilder();
                 for (int draw = 0; draw < 8; draw++) {
-                    drawn.add(com.watabou.utils.Random.Int(1_000_000));
+                    atThisWait.append(com.watabou.utils.Random.Int(1_000_000)).append(' ');
                 }
-                // Something has to happen or the next wait never comes; resting is the cheapest
-                // input there is, and it is the same input in both Runs.
+                drawn.add(atThisWait.toString());
                 com.shatteredpixel.shatteredpixeldungeon.Dungeon.hero.rest(false);
-                org.shatterfish.harness.driver.HeadlessDriver.actionHandedOver();
+                HeadlessDriver.actionHandedOver();
             }
             return drawn;
+        } finally {
+            driver.close();
+        }
+    }
+
+    /**
+     * The screen at each wait of a Run played by pressing the same button every time. Waiting is
+     * the one input always offered and always meaning the same thing, so two Runs given it are two
+     * Runs given one Action list — which is what a tuple is.
+     */
+    private static List<String> screensOf(long seed, long salt) {
+        HeadlessDriver driver = HeadlessDriver.start(seed, HeroClass.WARRIOR, salt);
+        try {
+            List<String> screens = new ArrayList<>();
+            ActionExecutor executor = new ActionExecutor();
+            for (int wait = 0; wait < 12; wait++) {
+                if (driver.stepToInputWait().reason() != HeadlessDriver.Reason.INPUT_WAIT) {
+                    break;
+                }
+                Observation observation = new Observer().observe();
+                screens.add(observation.hash());
+                if (!(executor.execute(observation, new Action.Wait()) instanceof Outcome.Applied)) {
+                    break;
+                }
+            }
+            return screens;
         } finally {
             driver.close();
         }

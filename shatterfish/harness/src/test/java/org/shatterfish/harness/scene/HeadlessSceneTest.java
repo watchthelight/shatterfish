@@ -35,6 +35,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class HeadlessSceneTest {
 
+    /** The salt these Runs declare. There is no default: see ADR-0007 and {@code Salt}. */
+    private static final long RUN_SALT = 0x5A17_5A17L;
+
     private static final long SEED = 2_718_281L;
     private static final int FRAME_LIMIT = 2_000;
 
@@ -153,7 +156,7 @@ class HeadlessSceneTest {
     private void startARun() throws Exception {
         boot = HeadlessBoot.ensure();
         FreshRun.forget();
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         scene = driver.scene();
     }
 

@@ -60,6 +60,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Timeout(value = 5, unit = TimeUnit.MINUTES)
 class HeadlessBootTest {
 
+    /** The salt these Runs declare. There is no default: see ADR-0007 and {@code Salt}. */
+    private static final long RUN_SALT = 0x5A17_5A17L;
+
     /** A seed in the range a player can type. */
     private static final long SEED = 31_415_926L;
 
@@ -90,7 +93,7 @@ class HeadlessBootTest {
     @Test
     @DisplayName("a seeded Warrior game reaches the hero's first Input wait")
     void a_seeded_warrior_game_reaches_its_first_input_wait() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
 
         Halt halt = driver.stepToInputWait();
 
@@ -114,7 +117,7 @@ class HeadlessBootTest {
     @Test
     @DisplayName("a Prompt window opened by game code appears headlessly and closes through its own button")
     void a_prompt_window_opened_by_game_code_appears_and_closes_through_its_own_button() throws Exception {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         Hero hero = Dungeon.hero;
         int from = hero.pos;
@@ -156,7 +159,7 @@ class HeadlessBootTest {
     @Test
     @DisplayName("a scene change requested by the game stops the driver rather than being stepped through")
     void a_requested_scene_change_stops_the_driver() throws Exception {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         Hero hero = Dungeon.hero;
         int chasm = placeAChasmBeside(hero);
@@ -180,7 +183,7 @@ class HeadlessBootTest {
     @Test
     @DisplayName("the hero dying stops the driver")
     void the_hero_dying_stops_the_driver() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         Hero hero = Dungeon.hero;
         // Enough poison to kill on its first tick through any shielding: the damage is a third of
@@ -201,7 +204,7 @@ class HeadlessBootTest {
         // The queue is process-wide: what this Run posted must not appear in the next Run's scene.
         driver.close();
         assertEquals(0, driver.headlessBoot().pendingRunnables(), "closing the Run ran what it had posted");
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         Halt next = driver.stepToInputWait();
         assertEquals(Reason.INPUT_WAIT, next.reason());
         assertNull(next.window());
@@ -211,7 +214,7 @@ class HeadlessBootTest {
     @Test
     @DisplayName("no library-owned loop thread drives the scene: the driver's step count is the scene's update count")
     void the_driver_is_the_only_thing_that_updates_the_scene() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         Halt halt = driver.stepToInputWait();
         for (int wait = 0; wait < 5 && halt.reason() == Reason.INPUT_WAIT; wait++) {
             GameScene.handleCell(freeCellBeside(Dungeon.hero.pos));
@@ -230,7 +233,7 @@ class HeadlessBootTest {
     @Timeout(value = 5, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     @DisplayName("a Run that never reaches a wait fails with a diagnostic naming the last actor, rather than hanging")
     void a_run_that_never_reaches_a_wait_fails_naming_the_last_actor() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         Hero hero = Dungeon.hero;
         Actor.add(new Stuck());
@@ -251,7 +254,7 @@ class HeadlessBootTest {
     @Test
     @DisplayName("an ankh makes death a prompt, not the end: the resurrection window is an Input wait, and taking it is a scene change")
     void an_ankh_makes_death_a_prompt() throws Exception {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         Hero hero = Dungeon.hero;
         assertTrue(new Ankh().collect(hero.belongings.backpack));
@@ -284,7 +287,7 @@ class HeadlessBootTest {
     @Test
     @DisplayName("an ankh with a kept-item slot empty asks twice: the warning over the resurrection window is a wait too")
     void an_ankh_with_an_empty_slot_asks_twice() throws Exception {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         Hero hero = Dungeon.hero;
         Armor armor = hero.belongings.armor;
@@ -319,7 +322,7 @@ class HeadlessBootTest {
     @Test
     @DisplayName("input queued for one Run never reaches the next Run's scene")
     void queued_input_does_not_cross_runs() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         int from = Dungeon.hero.pos;
         // A click on a map cell, queued and delivered by no frame: the event queues are process
@@ -327,7 +330,7 @@ class HeadlessBootTest {
         clickCell(freeCellBeside(from));
         driver.close();
 
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         Halt halt = driver.stepToInputWait();
 
         assertEquals(Reason.INPUT_WAIT, halt.reason());
@@ -340,7 +343,7 @@ class HeadlessBootTest {
     @Test
     @DisplayName("a Run stuck on a sprite that never stops moving names the actor, and still closes")
     void a_run_stuck_on_a_sprite_names_the_actor_and_still_closes() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         Hero hero = Dungeon.hero;
         // A movement that never ends: the actor thread will park on the sprite before the hero's
@@ -364,7 +367,7 @@ class HeadlessBootTest {
     @DisplayName("a seed outside the range a player can type is refused before anything is touched")
     void a_seed_out_of_range_is_refused() {
         assertThrows(IllegalArgumentException.class,
-                () -> HeadlessDriver.start(DungeonSeed.TOTAL_SEEDS, HeroClass.WARRIOR),
+                () -> HeadlessDriver.start(DungeonSeed.TOTAL_SEEDS, HeroClass.WARRIOR, RUN_SALT),
                 "DungeonSeed.convertToCode refuses it (DungeonSeed.java:77-80)");
         assertNull(HeadlessBoot.ensure().game().currentScene());
     }

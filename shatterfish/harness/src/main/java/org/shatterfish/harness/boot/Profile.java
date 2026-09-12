@@ -2,7 +2,11 @@ package org.shatterfish.harness.boot;
 
 import com.shatteredpixel.shatteredpixeldungeon.Badges;
 import com.shatteredpixel.shatteredpixeldungeon.SPDSettings;
-import com.shatteredpixel.shatteredpixeldungeon.journal.Journal;
+import com.shatteredpixel.shatteredpixeldungeon.Rankings;
+import com.shatteredpixel.shatteredpixeldungeon.journal.Bestiary;
+import com.shatteredpixel.shatteredpixeldungeon.journal.Catalog;
+import com.shatteredpixel.shatteredpixeldungeon.journal.Document;
+import com.watabou.utils.Bundle;
 import com.watabou.utils.FileUtils;
 
 import java.io.IOException;
@@ -95,19 +99,30 @@ public final class Profile {
     }
 
     /**
-     * Empties what one Run could otherwise inherit from another in the same process.
+     * Empties what one Run would otherwise inherit from another in the same process.
      *
-     * <p>{@code Badges.reset()} clears the badges earned in a game and reloads the global set from
-     * the directory, which in a fresh one is empty ({@code core/.../Badges.java:244-247}, {@code
-     * :315-325}). The journal's catalog, bestiary and documents are restored from the directory's
-     * own file the first time a process asks and are then held ({@code
-     * core/.../journal/Journal.java:34-55}); an empty directory therefore gives an empty journal,
-     * and what a Run adds to it stays for the process. That last part is a limitation this story
-     * records rather than hides: see the ADR-0007 amendment and issue #70.
+     * <p>This is not housekeeping. The game reads its own history while it builds a floor: the
+     * guide pages it scatters are the ones the player has not found yet
+     * ({@code core/.../levels/RegularLevel.java:561-589}), so a Run that inherited the journal of
+     * the Run before it generates a different dungeon from the same seed. That is what issue #70
+     * was, measured: two Runs of one tuple put the same item on two different cells.
+     *
+     * <p>The game's own loaders cannot be asked twice — {@code Journal.loadGlobal} and
+     * {@code Badges.loadGlobal} return early once their statics are set
+     * ({@code core/.../journal/Journal.java:34-55}; {@code core/.../Badges.java:315-325}), and
+     * {@code Rankings.load} likewise ({@code core/.../Rankings.java:427-431}). So the state is
+     * restored directly from an empty bundle, which is exactly what those loaders do with the file
+     * a fresh directory does not have, through the same public calls they use.
      */
     private static void emptyTheHistory() {
         Badges.reset();
-        Journal.loadGlobal();
+        Bundle empty = new Bundle();
+        Catalog.restore(empty);
+        Bestiary.restore(empty);
+        Document.restore(empty);
+        // Rankings holds its records for the life of the process once loaded; dropping them makes
+        // the next load read this Run's own directory, which is empty.
+        Rankings.INSTANCE.records = null;
     }
 
     private static void write(Path stamp) {

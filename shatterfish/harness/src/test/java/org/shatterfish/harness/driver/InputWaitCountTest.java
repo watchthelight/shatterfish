@@ -43,6 +43,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Timeout(value = 5, unit = TimeUnit.MINUTES)
 class InputWaitCountTest {
 
+    /** The salt these Runs declare. There is no default: see ADR-0007 and {@code Salt}. */
+    private static final long RUN_SALT = 0x5A17_5A17L;
+
     private static final long SEED = 31_415_926L;
     private static final ThreadMXBean THREADS = ManagementFactory.getThreadMXBean();
 
@@ -60,7 +63,7 @@ class InputWaitCountTest {
     @Test
     @DisplayName("sixty actor-thread wake-ups with the hero parked are one wait, not sixty")
     void sixty_wake_ups_with_the_hero_parked_are_one_wait() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         Halt first = driver.stepToInputWait();
         assertEquals(1, first.waitIndex());
         assertEquals(1, driver.hookNotifications(), "the hero's first act began unready and notified once (Hero.java:840)");
@@ -90,7 +93,7 @@ class InputWaitCountTest {
     @Test
     @DisplayName("a move of several steps is one wait: the notification of every step but the last is dropped")
     void a_move_of_several_steps_is_one_wait() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         Hero hero = Dungeon.hero;
         int from = hero.pos;
@@ -113,7 +116,7 @@ class InputWaitCountTest {
     @Test
     @DisplayName("resting turns are dropped, and the end of the rest is the wait")
     void resting_turns_are_dropped_and_the_end_of_the_rest_is_the_wait() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         Hero hero = Dungeon.hero;
         long before = driver.hookNotifications();
@@ -137,7 +140,7 @@ class InputWaitCountTest {
     @Test
     @DisplayName("an Action the game refuses still gets its wait: the act began and ended ready and announced nothing")
     void a_refused_action_is_still_a_wait() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         Hero hero = Dungeon.hero;
         int from = hero.pos;
@@ -161,7 +164,7 @@ class InputWaitCountTest {
     @Test
     @DisplayName("a message the game shows after an Action holds the wait until the message is dismissed")
     void a_message_after_an_action_holds_the_wait() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         Hero hero = Dungeon.hero;
         Level level = Dungeon.level;
@@ -196,7 +199,7 @@ class InputWaitCountTest {
     @Test
     @DisplayName("an interruption mid-move is a wait of its own, with no Action before it")
     void an_interruption_is_a_wait_with_no_action() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         Hero hero = Dungeon.hero;
         int target = aCellStepsAway(hero, 2);
@@ -219,7 +222,7 @@ class InputWaitCountTest {
     @Test
     @DisplayName("the per-wait sequence runs in order: the index, reseed, observe, decide, execute, record")
     void the_per_wait_sequence_runs_in_order() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         List<String> calls = new ArrayList<>();
         WaitSequence<Integer, Integer> sequence = new WaitSequence<>() {
             @Override
@@ -268,7 +271,7 @@ class InputWaitCountTest {
     @Test
     @DisplayName("a window that is not a Prompt is not a wait: the Run stalls naming it, and only an Action moves it on")
     void a_wait_under_a_window_that_is_not_a_prompt_is_not_confirmed() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         // Shown the way game code shows a window from the render thread. The examine window is one
         // a person opens on a cell: the game waits on nothing, the bot never opens one, and it is

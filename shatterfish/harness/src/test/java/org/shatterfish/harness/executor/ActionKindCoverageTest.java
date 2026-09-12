@@ -34,6 +34,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ActionKindCoverageTest {
 
+    /** The salt these Runs declare. There is no default: see ADR-0007 and {@code Salt}. */
+    private static final long RUN_SALT = 0x5A17_5A17L;
+
     private static final long SEED = 0xC0FFEEL;
 
     /** How far the walk goes. A Warrior on this seed meets everything in REACHED well inside it. */
@@ -69,7 +72,7 @@ class ActionKindCoverageTest {
     @Test
     @DisplayName("every Action kind this Run can reach is applied through the executor at least once")
     void every_reachable_kind_is_applied() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         Random choices = new Random(SEED);
         Set<String> applied = new LinkedHashSet<>();

@@ -62,7 +62,11 @@ class SaltLeakTest {
 
         List<String> found = new ArrayList<>();
         for (int wait = 0; wait < 6; wait++) {
-            driver.stepToInputWait();
+            // The wait's own index, not the loop's: the driver counts waits from one and reseeds
+            // for the index it has just confirmed, so searching for seedFor(loop) would look for a
+            // seed that was never in force and miss the one that was. The review of this story
+            // found that; it is the difference between a leak test and a test that looks like one.
+            long k = driver.stepToInputWait().waitIndex();
             Observation observation = new Observer().observe();
             String json = observation.json();
             String bytes = HexFormat.of().formatHex(ObservationCodec.encode(observation));
@@ -70,13 +74,13 @@ class SaltLeakTest {
             // The salt itself, the seed it gives this wait, and the game's seed beside it: all
             // three are numbers a Brain must not have, and all three are searched for as decimal,
             // as hexadecimal, and as the bytes the codec would write for a long.
-            for (long secret : new long[]{SALT, driver.seedFor(wait), SEED}) {
+            for (long secret : new long[]{SALT, driver.seedFor(k), SEED}) {
                 for (String shape : shapes(secret)) {
                     if (json.contains(shape)) {
-                        found.add("wait " + wait + ": " + shape + " is in the rendered Observation");
+                        found.add("wait " + k + ": " + shape + " is in the rendered Observation");
                     }
                     if (bytes.contains(shape.toLowerCase(java.util.Locale.ROOT))) {
-                        found.add("wait " + wait + ": " + shape + " is in the encoded Observation");
+                        found.add("wait " + k + ": " + shape + " is in the encoded Observation");
                     }
                 }
             }
@@ -90,16 +94,19 @@ class SaltLeakTest {
     }
 
     @Test
-    @DisplayName("two salts give one dungeon, which is what the seed is for")
+    @DisplayName("two salts give one first floor, which is the claim the page makes")
     @Timeout(value = 10, unit = TimeUnit.MINUTES)
     void the_salt_is_not_the_seed() {
-        // ADR-0007's own words: the same seed and a different salt give the same dungeon and items
-        // and different rolls. The floor is generated before the first wait, out of the game's own
-        // seeded stream, and the salt takes over from the first wait on — so the map under two
-        // salts is one map, and what happens on it is not one story.
+        // The first floor is generated inside newGame, before any wait and therefore before any
+        // reseed, so this holds by construction and is worth saying only because the methodology
+        // page says it. Whether it holds for the floors below — which are generated with the
+        // salted generator on top of the stack, even though the layout re-pushes a seed derived
+        // from the game's own (core/.../levels/Level.java:221, core/.../Dungeon.java:418-429) — is
+        // not established here, and the page has been narrowed to say so. The review of this story
+        // asked for exactly that distinction.
         MapSection underOne = firstMap(4242L, 0x1111L);
         MapSection underAnother = firstMap(4242L, 0x2222L);
-        assertEquals(underOne.tiles(), underAnother.tiles(), "one seed, one floor");
+        assertEquals(underOne.tiles(), underAnother.tiles(), "one seed, one first floor");
         assertEquals(underOne.width(), underAnother.width());
     }
 

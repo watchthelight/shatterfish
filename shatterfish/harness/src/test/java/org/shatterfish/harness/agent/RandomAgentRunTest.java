@@ -53,7 +53,8 @@ class RandomAgentRunTest {
         // test can reach, and the story's own number is held beside it.
         assertEquals(20_000, RunLoop.TURN_CAP, "the cap this epic named");
 
-        RunOutcome outcome = new RunLoop().play(4321L, HeroClass.WARRIOR, new RandomAgent(7L), 40);
+        RunOutcome outcome = new RunLoop().play(4321L, HeroClass.WARRIOR, 0x5A17_5A17L,
+                new RandomAgent(7L), 40);
 
         assertEquals(RunOutcome.Cause.TURN_CAP, outcome.cause(), outcome.toString());
         assertTrue(outcome.turns() >= 40, "the cap was reached, not approached: " + outcome);

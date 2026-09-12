@@ -6,6 +6,9 @@ package org.shatterfish.harness.agent;
  * not a crash to debug: a thousand of these are a tally, and a tally with a hole in it says nothing.
  *
  * @param cause   the one reason this Run ended
+ * @param salt    the salt this Run was played under, without which it cannot be replayed and its
+ *                numbers cannot be checked (ADR-0007); it is written down and shown to nothing that
+ *                plays
  * @param depth   the deepest floor reached, as the game counts it ({@code core/.../Statistics.java:33})
  * @param turns   the turns passed, as the game counts them ({@code core/.../actors/Actor.java:196})
  * @param waits   the Input waits served
@@ -13,8 +16,8 @@ package org.shatterfish.harness.agent;
  * @param refused the Actions the executor refused, which change nothing and leave the wait open
  * @param detail  what a person would need to know beyond the cause, or empty
  */
-public record RunOutcome(Cause cause, int depth, int turns, long waits, long applied, long refused,
-                         String detail) {
+public record RunOutcome(Cause cause, long salt, int depth, int turns, long waits, long applied,
+                         long refused, String detail) {
 
     /** The reasons a Run ends. */
     public enum Cause {
@@ -58,6 +61,7 @@ public record RunOutcome(Cause cause, int depth, int turns, long waits, long app
     @Override
     public String toString() {
         return cause + " on floor " + depth + " after " + turns + " turns and " + waits + " waits ("
-                + applied + " applied, " + refused + " refused)" + (detail.isEmpty() ? "" : ": " + detail);
+                + applied + " applied, " + refused + " refused, salt " + Long.toHexString(salt) + ")"
+                + (detail.isEmpty() ? "" : ": " + detail);
     }
 }
