@@ -19,6 +19,7 @@ import org.shatterfish.api.Observation;
 import org.shatterfish.harness.driver.HeadlessDriver;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroAction;
 import com.shatteredpixel.shatteredpixeldungeon.items.Gold;
+import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfMagicMapping;
 import com.shatteredpixel.shatteredpixeldungeon.levels.features.LevelTransition;
 import com.shatteredpixel.shatteredpixeldungeon.levels.features.Chasm;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
@@ -377,15 +378,19 @@ class ActionExecutorTest {
         // so for the rest the press is the whole input and the scroll is read and gone. The set
         // offers both shapes because it cannot tell which scroll this is, and the review of story
         // 1.14 found the executor calling the plain one a refusal after reading the scroll.
-        int before = observation.inventory().items().size();
-        Action.UseItemOn readAtSomething = observation.actions().actions().stream()
+        // A Warrior starts with no scroll, so one is picked up the way anything is picked up.
+        // Collecting is not an Action and hands the game nothing, so no wait follows it; the next
+        // Observation is simply read.
+        new ScrollOfMagicMapping().identify().collect();
+        Observation withScroll = new Observer().observe();
+        int before = withScroll.inventory().items().size();
+        Action.UseItemOn readAtSomething = withScroll.actions().actions().stream()
                 .filter(Action.UseItemOn.class::isInstance).map(Action.UseItemOn.class::cast)
                 .filter(use -> use.action().equals("READ"))
-                .findFirst().orElse(null);
-        if (readAtSomething == null) {
-            return;     // this hero starts with no scroll; the plain shape below is the same path
-        }
-        assertInstanceOf(Outcome.Applied.class, executor.execute(observation, readAtSomething),
+                .findFirst().orElseThrow(() -> new AssertionError("the set offers the scroll a target,"
+                        + " because READ can open the bag: " + withScroll.actions().actions()));
+
+        assertInstanceOf(Outcome.Applied.class, executor.execute(withScroll, readAtSomething),
                 "the scroll was read, which is what pressing READ does, so the Action was applied");
         driver.stepToInputWait();
         assertNotEquals(before, new Observer().observe().inventory().items().size(),
