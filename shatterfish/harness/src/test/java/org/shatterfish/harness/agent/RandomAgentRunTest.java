@@ -34,6 +34,10 @@ class RandomAgentRunTest {
         RunOutcome outcome = new RunLoop().play(0xC0FFEEL, HeroClass.WARRIOR, 0xC0FFEEL);
 
         assertTrue(outcome.ordinary(), "a Run ends in death, a Win or the cap: " + outcome);
+        // A random Warrior dies: a thousand of them did, every one, and none reached the cap or the
+        // amulet. So the cause is checked and not only its kind — a Run that started reporting a
+        // death as something else would otherwise pass everything here.
+        assertEquals(RunOutcome.Cause.DEATH, outcome.cause(), outcome.toString());
         assertTrue(outcome.depth() >= 1, "it reached a floor: " + outcome);
         assertTrue(outcome.turns() > 0, "and time passed: " + outcome);
         assertTrue(outcome.waits() > 0, "and it was asked for input: " + outcome);
