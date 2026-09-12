@@ -346,9 +346,15 @@ class ActionExecutorTest {
         // What the executor owes is the click, and the click is taken: the hero's own action
         // becomes the transition, which is what a person's tap on the stairs makes it
         // (…/actors/hero/Hero.java:2000-2006). Carrying the hero to the next floor is the game's
-        // part and runs in the interlevel scene, which this driver stops at rather than crosses
-        // (ADR-0015); a Run that crosses a floor is issue #68 and story 1.14's ground, and a probe
-        // written for this story showed the same stop with no executor in the way.
+        // part and runs in the interlevel scene, which this driver reports and does not cross
+        // (ADR-0015, issue #68).
+        //
+        // The transition is not activated here, and that is this test's own doing: stand() writes
+        // hero.pos from this thread, and the guard that decides a transition reads it on the actor
+        // thread (…/actors/hero/Hero.java:1447). A hero that walks to the stairs itself and clicks
+        // the cell it is standing on activates it and halts with the scene change, which a probe
+        // for issue #68 shows. So what is held here is the click, which is the executor's part; the
+        // walked case belongs to the story that serves the scene change.
         assertInstanceOf(HeroAction.LvlTransition.class, hero.curAction, "the click is the descent");
         assertEquals(stairs, ((HeroAction.LvlTransition) hero.curAction).dst, "at the stairs");
     }
