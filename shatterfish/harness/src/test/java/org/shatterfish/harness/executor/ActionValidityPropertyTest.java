@@ -83,7 +83,7 @@ class ActionValidityPropertyTest {
             }
 
             // And one the screen does offer is applied, whatever it is. A message in front offers
-            // exactly one thing, the dismissal, which is how a Run gets past a sign (story 1.13).
+            // exactly one thing, the dismissal, which is how a Run gets past a message (story 1.13).
             if (observation.prompt().kind() == PromptKind.MESSAGE) {
                 assertEquals(List.of(new Action.DismissPrompt()), offered, "a message offers one Action");
                 messages++;
@@ -96,7 +96,8 @@ class ActionValidityPropertyTest {
                 driver.stepToInputWait();
             } catch (HeadlessDriver.Stalled stalled) {
                 // A stall is a failure now. Story 1.13 found the one wall a Run used to hit here —
-                // an ordinary step onto a sign leaves a message the driver would not call a wait —
+                // an ordinary step onto a transition the game refuses leaves a message the driver
+                // would not call a wait —
                 // and the answer was to make a message a Prompt with one Action, the dismissal. If
                 // this fires again, a window of some other kind is in front and nobody can move it.
                 Window front = Windows.front();

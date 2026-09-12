@@ -13,7 +13,8 @@ deciders: watchthelight (product owner), Claude (engineer)
 the Run log, or what "one Action" means when the game would carry out several steps from one
 click. The session 12 reviewer gate found this as a critical gap, and found a consequence that
 breaks a promise in the experience spine: a multi-cell move keeps `curAction` set and never
-returns the hero to the ready state between cells (`…/actors/hero/Hero.java:889-890`, `:977-995`),
+returns the hero to the ready state between cells (`…/actors/hero/Hero.java:1014-1018`, and
+`ready()`, which is what clears it, at `:937-943`),
 so a Decision per cell, and therefore an interruption per cell, is impossible if the executor
 issues a move target.
 
@@ -249,10 +250,11 @@ story had to reach every input through something upstream already makes public, 
 
 | Action | The call | Why it is the human's |
 |---|---|---|
-| `Step`, `Attack`, `Interact`, `PickUp`, `OpenChest`, `Buy`, `Unlock`, `Descend`, `Ascend` | `GameScene.handleCell(cell)` | it is the click: `Hero.handle` decides by cell which of those a click means (`…/actors/hero/Hero.java:1929-2015`) |
+| `Step`, `Attack`, `Interact`, `PickUp`, `OpenChest`, `Buy`, `Unlock`, `Descend`, `Ascend` | `GameScene.handleCell(cell)` | it is the click: `Hero.handle` decides by cell which of those a click means (`…/actors/hero/Hero.java:1920-2008`) |
 | `Rest`, `Wait` | `Hero.rest(flag)` | the rest and wait buttons (`…/ui/Toolbar.java:203`, `:225`) |
 | `Search` | `Hero.search(true)` | the search button (`Toolbar.java:313`) |
-| `Talent` | `Hero.upgradeTalent(talent)` | what the pane's own button calls (`Hero.java:377`) |
+| `Talent` | `Hero.upgradeTalent(talent)` | what the pane's own button calls (`Hero.java:376`), under the guards the button carries
+(`…/ui/TalentButton.java:114-119`) |
 | `UseItem` | `Item.execute(hero, action)` | the item window's button (`…/items/Item.java:157`) |
 | `UseItemAt` | that, then `GameScene.handleCell(cell)` | the second click, which the game's own cell selector is waiting for |
 | `UseItemOn` | that, then the bag window's `ItemSelector.onSelect`, hiding first as its button does | the second tap (`…/windows/WndBag.java:145`, `:288-300`) |

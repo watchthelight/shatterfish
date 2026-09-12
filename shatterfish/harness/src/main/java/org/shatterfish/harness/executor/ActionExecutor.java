@@ -42,10 +42,10 @@ import java.util.Map;
  *   <li>every Action that names a cell is {@code GameScene.handleCell(cell)}, because
  *       {@code Hero.handle} is what decides by cell whether a click is a step, an attack, an
  *       interaction, a pick-up, a purchase, a chest, an unlock or a transition
- *       ({@code …/actors/hero/Hero.java:1929-2015}; {@code …/scenes/GameScene.java:1635-1637});</li>
+ *       ({@code …/actors/hero/Hero.java:1920-2008}; {@code …/scenes/GameScene.java:1622-1624});</li>
  *   <li>the wait and rest buttons are {@code Hero.rest} and the search button
  *       {@code Hero.search(true)} ({@code …/ui/Toolbar.java:203}, {@code :225}, {@code :313});</li>
- *   <li>a talent is {@code Hero.upgradeTalent} ({@code Hero.java:377}), as the pane's own button
+ *   <li>a talent is {@code Hero.upgradeTalent} ({@code Hero.java:376}), as the pane's own button
  *       calls it;</li>
  *   <li>an item is {@code Item.execute(hero, action)} ({@code …/items/Item.java:157}), and where
  *       that opens a selector the target answers it in the same wait: a cell through the same
@@ -106,15 +106,13 @@ public final class ActionExecutor {
             return click(action, unlock.cell());
         } else if (action instanceof Action.Descend || action instanceof Action.Ascend) {
             // A transition is taken by clicking the cell the hero stands on, whichever way it goes:
-            // Hero.handle reads the transition there (Hero.java:1999-2006).
+            // Hero.handle reads the transition there (Hero.java:1990-1997).
             return click(action, hero.pos);
         } else if (action instanceof Action.Rest rest) {
-            hero.rest(rest.full());
-            return applied(action);
+            return rest(action, hero, rest.full());
         } else if (action instanceof Action.Wait) {
-            // The wait button is the rest button without the flag (Toolbar.java:203).
-            hero.rest(false);
-            return applied(action);
+            // The wait button is the rest button without the flag (Toolbar.java:201-204).
+            return rest(action, hero, false);
         } else if (action instanceof Action.Search) {
             hero.search(true);
             return applied(action);
@@ -143,6 +141,24 @@ public final class ActionExecutor {
         return new Outcome.Rejected(action, Reason.UNSUPPORTED, action.kind() + " has no path at this tag");
     }
 
+    /**
+     * The wait and rest buttons, whole. Both read
+     * {@code if (hero.ready && !GameScene.cancel()) hero.rest(flag)}
+     * ({@code …/ui/Toolbar.java:201-204}, {@code :223-226}), and the second half is not decoration:
+     * {@code GameScene.cancel()} takes back a targeting the game is waiting on and answers true,
+     * so a person who presses wait with a selector open cancels it and does not spend a turn. The
+     * executor does the same, and says so rather than silently spending one.
+     */
+    private Outcome rest(Action action, Hero hero, boolean full) {
+        if (GameScene.cancel()) {
+            return new Outcome.Rejected(action, Reason.NO_SELECTOR,
+                    "a selector was open, so this press took it back rather than passing a turn"
+                            + " (…/ui/Toolbar.java:201-204)");
+        }
+        hero.rest(full);
+        return applied(action);
+    }
+
     /** The click a person makes on a cell, through the game's own selector. */
     private Outcome click(Action action, int cell) {
         GameScene.handleCell(cell);
@@ -161,14 +177,30 @@ public final class ActionExecutor {
     }
 
     private Outcome upgrade(Hero hero, Action action, String name) {
-        for (Map<Talent, Integer> tier : hero.talents) {
-            for (Talent talent : tier.keySet()) {
+        for (int index = 0; index < hero.talents.size(); index++) {
+            int tier = index + 1;
+            for (Talent talent : hero.talents.get(index).keySet()) {
                 // The hero section names a talent by its own title (Observer.hero()), so the match
                 // is against the hero's own talents rather than a table of ours.
-                if (talent.title().equals(name)) {
-                    hero.upgradeTalent(talent);
-                    return applied(action);
+                if (!talent.title().equals(name)) {
+                    continue;
                 }
+                // The guards a person's click passes are the pane's, not the hero's:
+                // Hero.upgradeTalent increments whatever it is handed (…/actors/hero/Hero.java:376-383),
+                // and the button is what refuses a tier with no point and a talent already full
+                // (…/ui/TalentButton.java:114-119; …/ui/TalentsPane.java:205-207). Calling the
+                // hero's method alone would let the bot push a talent past a ceiling no human can,
+                // which the review of this story caught; so the executor asks what the button asks.
+                if (hero.talentPointsAvailable(tier) <= 0) {
+                    return new Outcome.Rejected(action, Reason.NOT_OFFERED,
+                            name + " is of tier " + tier + ", which has no point to spend");
+                }
+                if (hero.pointsInTalent(talent) >= talent.maxPoints()) {
+                    return new Outcome.Rejected(action, Reason.NOT_OFFERED,
+                            name + " already holds its " + talent.maxPoints() + " points");
+                }
+                hero.upgradeTalent(talent);
+                return applied(action);
             }
         }
         return new Outcome.Rejected(action, Reason.NOT_OFFERED, "the hero has no talent called " + name);
@@ -195,10 +227,17 @@ public final class ActionExecutor {
                                 + target.name());
             }
         }
+        if (!item.actions(hero).contains(what)) {
+            // The item window builds its buttons from actions(hero) and re-checks at the click
+            // (…/windows/WndUseItem.java:51-61), so an action the item no longer offers is one no
+            // person could press; the set may be a wait old, and this is where that shows.
+            return new Outcome.Rejected(action, Reason.NOT_OFFERED,
+                    item.name() + " offers " + item.actions(hero) + " and not " + what);
+        }
         item.execute(hero, what);
         if (cell != null) {
             // The item opened the game's cell selector; the human's second click answers it, and
-            // the same call carries it (GameScene.java:1635-1637).
+            // the same call carries it (GameScene.java:1622-1624).
             GameScene.handleCell(cell);
         } else if (other != null) {
             WndBag bag = bagWindow();
@@ -266,7 +305,21 @@ public final class ActionExecutor {
             return new Outcome.Rejected(action, Reason.NO_SUCH_OPTION,
                     "the window draws " + buttons.size() + " buttons and the answer names " + option);
         }
-        press(buttons.get(option));
+        Component button = buttons.get(option);
+        if (!button.isActive()) {
+            // A window can draw a button it will not take: the shopkeeper's buyback with too little
+            // gold, a slot a misc item cannot go in (…/actors/mobs/npcs/Shopkeeper.java:278-284;
+            // …/items/KindofMisc.java:127-129). PointerArea ignores a tap on an inactive area
+            // (SPD-classes/…/noosa/PointerArea.java:61-63), so pressing it would be a no-op the
+            // executor called applied — and a wait confirmed for nothing.
+            return new Outcome.Rejected(action, Reason.NO_SUCH_OPTION,
+                    "the window draws option " + option + " and will not take it");
+        }
+        if (button.camera() == null) {
+            return new Outcome.Rejected(action, Reason.NO_SUCH_OPTION,
+                    "option " + option + " is drawn by no camera, so no tap could reach it");
+        }
+        press(button);
         return applied(action);
     }
 

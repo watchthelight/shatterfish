@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Every input a person can give the hero maps to an Action kind, or is named here as unsupported
  * with a reason (FR-4; ADR-0014). The game's own list is {@code HeroAction}'s subclasses, which is
- * what a click becomes ({@code core/.../actors/hero/Hero.java:1929-2015}), plus the toolbar's
+ * what a click becomes ({@code core/.../actors/hero/Hero.java:1920-2008}), plus the toolbar's
  * buttons, which do not go through a cell
  * ({@code core/.../ui/Toolbar.java:203}, {@code :225}, {@code :313}).
  *
@@ -56,7 +56,7 @@ class ActionCompletenessTest {
                 + " Input wait the Observer accepts and PromptKind.ALCHEMY is never produced (ADR-0006, story"
                 + " 1.10); a bot cannot brew until a story gives the scene a door");
         UNSUPPORTED.put("Mine", "mining with a pickaxe is a click on a wall of the mining level"
-                + " (Hero.java:1964-1972), which the valid set cannot offer because a wall is not a cell a click"
+                + " (Hero.java:1955-1963), which the valid set cannot offer because a wall is not a cell a click"
                 + " walks onto; the mining branch is E2's ground and the Action kind would be new");
     }
 

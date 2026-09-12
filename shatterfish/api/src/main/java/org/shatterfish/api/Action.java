@@ -250,8 +250,9 @@ public sealed interface Action permits Action.Step, Action.MoveTo, Action.Attack
     /**
      * The tap that sends a message window away: the back key, or a tap outside it
      * ({@code core/.../ui/Window.java:223-225}). It is the only Action a Prompt with no buttons
-     * offers, and story 1.13 added it when an ordinary step onto a sign left a window the bot could
-     * see and not dismiss.
+     * offers, and story 1.13 added it when an ordinary step — onto the sewers' exit without the
+     * amulet ({@code core/.../levels/SewerLevel.java:146-155}) — left a window the bot could see
+     * and not dismiss.
      */
     record DismissPrompt() implements Action {
 

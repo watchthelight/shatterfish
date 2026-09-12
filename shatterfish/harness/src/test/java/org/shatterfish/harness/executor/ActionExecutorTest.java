@@ -4,6 +4,7 @@ import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
+import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Terrain;
@@ -16,6 +17,9 @@ import org.shatterfish.api.ItemRef;
 import org.shatterfish.api.ItemView;
 import org.shatterfish.api.Observation;
 import org.shatterfish.harness.driver.HeadlessDriver;
+import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroAction;
+import com.shatteredpixel.shatteredpixeldungeon.items.Gold;
+import com.shatteredpixel.shatteredpixeldungeon.levels.features.LevelTransition;
 import com.shatteredpixel.shatteredpixeldungeon.levels.features.Chasm;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndMessage;
@@ -30,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -297,6 +302,134 @@ class ActionExecutorTest {
         assertEquals(Reason.ITEM_MOVED, rejected.reason(), rejected.detail());
         assertTrue(rejected.detail().contains(food.name()), rejected.detail());
         assertEquals(before, new Observer().observe().hash(), "and nothing was eaten");
+    }
+
+    @Test
+    @DisplayName("a descent is the click on the stairs, and a heap on them takes the click first")
+    void a_descent_and_what_stands_in_front_of_it() {
+        atTheFirstWait();
+        LevelTransition down = null;
+        for (LevelTransition transition : Dungeon.level.transitions) {
+            if (transition.type == LevelTransition.Type.REGULAR_EXIT) {
+                down = transition;
+            }
+        }
+        assertNotNull(down, "the floor has a way down");
+
+        // An item on the stairs takes the click: the hero decides by cell in one chain and the
+        // heap branch stands above the transition branch (…/actors/hero/Hero.java:1974, :2000), so
+        // the set offers the pick-up and not the descent, and a hand-built descent is refused.
+        int stairs = down.cell();
+        Dungeon.level.drop(new Gold(10), stairs);
+        stand(stairs);
+        Observation onTheHeap = new Observer().observe();
+        assertTrue(onTheHeap.actions().actions().contains(new Action.PickUp()), "the item is offered");
+        assertFalse(onTheHeap.actions().actions().contains(new Action.Descend()),
+                "and the descent is not, because the click would pick the item up");
+        Outcome.Rejected rejected = assertInstanceOf(Outcome.Rejected.class,
+                executor.execute(onTheHeap, new Action.Descend()));
+        assertEquals(Reason.NOT_OFFERED, rejected.reason());
+
+        // With the item gone the stairs are offered, and the descent is the click. The heap is
+        // taken off the floor rather than picked up, so the assertion is about the descent and not
+        // about what a pick-up costs in turns.
+        Dungeon.level.heaps.remove(stairs);
+        GameScene.updateMap(stairs);
+        Observation onTheStairs = new Observer().observe();
+        assertTrue(onTheStairs.actions().actions().contains(new Action.Descend()), "the way down");
+        assertInstanceOf(Outcome.Applied.class, executor.execute(onTheStairs, new Action.Descend()));
+        // What the executor owes is the click, and the click is taken: the hero's own action
+        // becomes the transition, which is what a person's tap on the stairs makes it
+        // (…/actors/hero/Hero.java:2000-2006). Carrying the hero to the next floor is the game's
+        // part and runs in the interlevel scene, which this driver stops at rather than crosses
+        // (ADR-0015); a Run that crosses a floor is issue #68 and story 1.14's ground, and a probe
+        // written for this story showed the same stop with no executor in the way.
+        assertInstanceOf(HeroAction.LvlTransition.class, hero.curAction, "the click is the descent");
+        assertEquals(stairs, ((HeroAction.LvlTransition) hero.curAction).dst, "at the stairs");
+    }
+
+    /** Puts the hero on a cell without a walk, so a test can reach a feature the walk would not. */
+    private void stand(int cell) {
+        hero.pos = cell;
+        hero.sprite.place(cell);
+        Dungeon.level.occupyCell(hero);
+        Dungeon.observe();
+        GameScene.updateFog();
+    }
+
+    @Test
+    @DisplayName("a talent takes a point only while the pane would give it one")
+    void a_talent_stops_at_its_ceiling() {
+        atTheFirstWait();
+        // The hero levels up until a tier-one point is there to spend.
+        while (hero.talentPointsAvailable(1) <= 0 && hero.lvl < 5) {
+            hero.earnExp(hero.maxExp(), Hero.class);
+        }
+        assertTrue(hero.talentPointsAvailable(1) > 0, "a point to spend");
+        Observation observation = new Observer().observe();
+        Action.Talent talent = observation.actions().actions().stream()
+                .filter(Action.Talent.class::isInstance)
+                .map(Action.Talent.class::cast)
+                .findFirst().orElseThrow(() -> new AssertionError("the set offers a talent"));
+        Talent upgrading = talentNamed(talent.talent());
+        int ceiling = upgrading.maxPoints();
+
+        // Up to the ceiling the pane would give a point, and so does the executor; the hero levels
+        // up again whenever the tier has none left to give.
+        int given = 0;
+        while (hero.pointsInTalent(upgrading) < ceiling) {
+            if (hero.talentPointsAvailable(1) <= 0) {
+                hero.earnExp(hero.maxExp(), Hero.class);
+                continue;
+            }
+            assertInstanceOf(Outcome.Applied.class, executor.execute(new Observer().observe(), talent));
+            given++;
+        }
+        assertEquals(ceiling, hero.pointsInTalent(upgrading), "the talent is full after " + given);
+
+        // Past it the pane offers no upgrade at all (…/ui/TalentButton.java:114-119), and neither
+        // does the executor: Hero.upgradeTalent would take the point, which is why this is checked
+        // here and not left to the game.
+        while (hero.talentPointsAvailable(1) <= 0 && hero.lvl < 12) {
+            hero.earnExp(hero.maxExp(), Hero.class);
+        }
+        assertTrue(hero.talentPointsAvailable(1) > 0, "another point, and nowhere for it to go in this talent");
+        Outcome outcome = executor.execute(new Observer().observe(), talent);
+        Outcome.Rejected rejected = assertInstanceOf(Outcome.Rejected.class, outcome,
+                "a talent at its ceiling takes no more: " + outcome);
+        assertEquals(Reason.NOT_OFFERED, rejected.reason());
+        assertTrue(rejected.detail().contains(String.valueOf(ceiling)), rejected.detail());
+        assertEquals(ceiling, hero.pointsInTalent(upgrading), "and it is still what it was");
+    }
+
+    @Test
+    @DisplayName("resting and searching are the buttons they are")
+    void resting_and_searching() {
+        Observation observation = atTheFirstWait();
+        float before = Actor.now();
+        assertInstanceOf(Outcome.Applied.class, executor.execute(observation, new Action.Search()));
+        driver.stepToInputWait();
+        assertTrue(Actor.now() > before, "searching takes a turn");
+
+        Observation next = new Observer().observe();
+        assertTrue(next.actions().actions().contains(new Action.Rest(true)), "the rest button is offered");
+        assertFalse(next.actions().actions().contains(new Action.Rest(false)),
+                "and the wait button is Wait, not a second Rest (story 1.13)");
+        float resting = Actor.now();
+        assertInstanceOf(Outcome.Applied.class, executor.execute(next, new Action.Rest(true)));
+        driver.stepToInputWait();
+        assertTrue(Actor.now() > resting, "resting takes at least a turn");
+    }
+
+    private Talent talentNamed(String name) {
+        for (java.util.Map<Talent, Integer> tier : hero.talents) {
+            for (Talent talent : tier.keySet()) {
+                if (talent.title().equals(name)) {
+                    return talent;
+                }
+            }
+        }
+        throw new AssertionError("no talent called " + name);
     }
 
     private Action.Step firstStep(Observation observation) {

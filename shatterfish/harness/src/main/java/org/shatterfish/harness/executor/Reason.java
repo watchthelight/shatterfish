@@ -32,8 +32,11 @@ public enum Reason {
     NO_SUCH_OPTION,
 
     /**
-     * The kind has no path at this tag. Nothing is unsupported today; the completeness test names
-     * the human inputs that have no Action kind, which is the other half of FR-4.
+     * The kind has no path at this tag: the armour ability, whose call belongs to the ability
+     * stories, and {@code MoveTo}, which is a human's click on a distant cell and never the bot's.
+     * Neither is offered by the valid set, so this is what a Brain gets for building one by hand.
+     * The completeness test names the human inputs that have no Action kind at all, which is the
+     * other half of FR-4.
      */
     UNSUPPORTED
 }

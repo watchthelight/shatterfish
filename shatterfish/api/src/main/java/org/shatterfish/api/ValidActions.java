@@ -28,7 +28,7 @@ public final class ValidActions {
 
     /**
      * The tiles a click walks onto. The game's own rule for the cell a click steps to is
-     * {@code passable[cell] || avoid[cell]} ({@code core/.../actors/hero/Hero.java:1832-1835}), so
+     * {@code passable[cell] || avoid[cell]} ({@code core/.../actors/hero/Hero.java:1823-1826}), so
      * this is every visual whose terrain carries either flag
      * ({@code core/.../levels/Terrain.java:85-128}): the floors, grass, embers, water, a pedestal,
      * the doors that open, the stairs — and the two the game marks avoid rather than passable, the
@@ -41,8 +41,10 @@ public final class ValidActions {
      * <p>A tile is a visual and not a terrain, so a few terrains are drawn as a walkable tile and
      * are not walkable: a custom decoration draws as floor and a decoration that keeps water's
      * pass-through draws as water, both solid ({@code Terrain.java:119-120}). A step onto one is
-     * offered here and refused by the executor, which is the same thing that happens to a person
-     * who clicks on the blacksmith's forge.
+     * offered here and the executor makes the click, which is the same click a person makes on the
+     * blacksmith's forge: the game takes it, finds no path, and the hero does not move. Nothing in
+     * Shatterfish refuses it, and nothing should — the screen shows floor, so the bot may ask, and
+     * the answer is the game's.
      */
     private static final Set<Tile> WALKABLE = EnumSet.of(Tile.EMPTY, Tile.EMPTY_SP, Tile.EMPTY_DECO,
             Tile.GRASS, Tile.HIGH_GRASS, Tile.FURROWED_GRASS, Tile.EMBERS, Tile.WATER, Tile.CHASM,
@@ -51,7 +53,7 @@ public final class ValidActions {
 
     /**
      * The tiles a click tries to unlock: the doors and the boss floor's exit
-     * ({@code core/.../actors/hero/Hero.java:1993-1998}). A hero-locked door draws as a locked door
+     * ({@code core/.../actors/hero/Hero.java:1984-1989}). A hero-locked door draws as a locked door
      * and is the same input (ADR-0005, {@link Tile}).
      */
     private static final Set<Tile> LOCKED = EnumSet.of(Tile.LOCKED_DOOR, Tile.CRYSTAL_DOOR, Tile.LOCKED_EXIT);
@@ -172,7 +174,7 @@ public final class ValidActions {
                     actions.add(new Action.Step(neighbour));
                 } else if (LOCKED.contains(map.tiles().get(neighbour))) {
                     // A click on a locked door or the boss floor's exit is the unlock input, and
-                    // the key in the pack is the game's business (Hero.java:1993-1998).
+                    // the key in the pack is the game's business (Hero.java:1984-1989).
                     actions.add(new Action.Unlock(neighbour));
                 }
             }
@@ -181,16 +183,17 @@ public final class ValidActions {
 
     /** What the hero's own cell offers: a heap, and the way down or up. */
     private static void underfoot(MapSection map, int cell, HeaderSection header, List<Action> actions) {
+        boolean heapUnderfoot = false;
         for (HeapView heap : map.heaps()) {
             if (heap.cell() != cell) {
                 continue;
             }
             // What a click on the heap under the hero does, as the hero decides it
-            // (core/.../actors/hero/Hero.java:1974-1991): a plain heap is picked up; a for-sale
+            // (core/.../actors/hero/Hero.java:1965-1982): a plain heap is picked up; a for-sale
             // heap is bought when it is one item with a price and picked up otherwise, which the
             // section says, since the price is carried exactly for a single for-sale item
             // (ADR-0006, the Heaps row); every other kind, a locked chest included, is opened, and
-            // whether the key is in the pack is the game's to answer (Hero.java:2454-2472).
+            // whether the key is in the pack is the game's to answer (Hero.java:2445-2463).
             if (heap.kind() == HeapKind.HEAP) {
                 actions.add(new Action.PickUp());
             } else if (heap.kind() == HeapKind.FOR_SALE) {
@@ -198,6 +201,7 @@ public final class ValidActions {
             } else {
                 actions.add(new Action.OpenChest(cell));
             }
+            heapUnderfoot = true;
         }
         for (TransitionView transition : map.transitions()) {
             if (transition.cell() != cell) {
@@ -207,6 +211,16 @@ public final class ValidActions {
             // (core/.../levels/Level.java:181, :645-650), which the header carries as sealed, so
             // the set never offers a descent the game would refuse.
             if (header.sealed()) {
+                continue;
+            }
+            // A heap on the stairs takes the click first. The hero decides by cell in one chain,
+            // and the heap branch stands above the transition branch
+            // (core/.../actors/hero/Hero.java:1965, :2000); at the hero's own cell the branch's
+            // "no enemies in sight" half is satisfied by `cell == pos` whatever else is on the
+            // screen, so the heap always wins here. Offering a descent that picks an item up
+            // instead would put a Descend in the Run log for a pick-up, which is a Replay that
+            // reads as a lie; the item is taken first and the stairs are offered at the next wait.
+            if (heapUnderfoot) {
                 continue;
             }
             if (DOWN.contains(transition.kind())) {
@@ -258,7 +272,7 @@ public final class ValidActions {
         return cells;
     }
 
-    /** The talents with a point to spend, and the armour ability once the hero has one. */
+    /** The talents with a point to spend. */
     private static void hero(HeroSection hero, List<Integer> targets, List<Action> actions) {
         for (TalentView talent : hero.talents()) {
             // A tier's stars are the points the pane offers to spend (core/.../ui/TalentsPane.java,
@@ -267,15 +281,11 @@ public final class ValidActions {
                 actions.add(new Action.Talent(talent.name()));
             }
         }
-        if (!hero.ability().isEmpty()) {
-            // Whether the ability asks for a cell is the ability's own business and not something
-            // the screen says here, so both shapes are offered and the executor judges
-            // (story 1.13); the cells are the ones a targeted item action uses.
-            actions.add(new Action.Ability(hero.ability()));
-            for (int target : targets) {
-                actions.add(new Action.AbilityAt(hero.ability(), target));
-            }
-        }
+        // The armour ability is not offered. The Action kinds exist (ADR-0014) and the executor has
+        // no path for them yet, so offering them would put in the menu something no executor would
+        // apply, which is the one thing a menu must not do: the story that gives the ability its
+        // call is the story that adds it here. Story 1.12 offered both shapes and story 1.13's
+        // review found the contradiction, the property test never having reached a hero with one.
     }
 
     private static ActorView actorAt(ActorsSection actors, int cell) {
