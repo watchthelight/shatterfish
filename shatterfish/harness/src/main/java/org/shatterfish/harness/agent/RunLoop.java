@@ -196,13 +196,13 @@ public final class RunLoop {
                 throw new IllegalStateException("the game asked for " + mode + " with no transition to take");
             }
             // The guard the game carries on both sides: allies are not held into the city's quest
-            // area (…/scenes/InterlevelScene.java:650-655, :694-699). Holding them there would be a
-            // different game, which is the one thing a mirrored body must not become; the review of
-            // story 1.14 found it missing.
-            if (transition.destBranch != Dungeon.branch && Dungeon.depth >= 16 && Dungeon.depth <= 20) {
-                // Upstream's own FIXME: nothing is held here.
-                assert true;
-            } else {
+            // area (…/scenes/InterlevelScene.java:650-655, :694-699), which upstream writes as an
+            // empty branch under a FIXME. Holding them there would be a different game, which is
+            // the one thing a mirrored body must not become; the review of story 1.14 found it
+            // missing here.
+            boolean intoTheCityQuestArea = transition.destBranch != Dungeon.branch
+                    && Dungeon.depth >= 16 && Dungeon.depth <= 20;
+            if (!intoTheCityQuestArea) {
                 Mob.holdAllies(Dungeon.level);
             }
             Dungeon.saveAll();
