@@ -32,6 +32,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Timeout(value = 5, unit = TimeUnit.MINUTES)
 class JournalSectionTest {
 
+    /** The salt these Runs declare. There is no default: see ADR-0007 and {@code Salt}. */
+    private static final long RUN_SALT = 0x5A17_5A17L;
+
     /** The rows of ADR-0006's whitelist this suite holds ({@link VisibilityChecklistTest}). */
     static final List<String> ADR_0006_ROWS = List.of("Journal");
 
@@ -48,7 +51,7 @@ class JournalSectionTest {
     }
 
     private void atTheFirstWait() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
     }
 

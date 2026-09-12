@@ -184,3 +184,68 @@ Non-negotiables touched: #3 (hooks minimal), #5 (reproducible).
 - A Brain obtains the salt anyway (reading the Run log from disk). Mitigation: AD-1 adds an
   ArchUnit rule that `brain` uses no `java.io`, `java.nio.file`, `java.net` or reflection; the
   Brain has no channel but the Observation.
+
+## Amendment: story 1.15 (2026-09-12)
+
+**What the generator stack turned out to allow.** `Random.resetGenerators()`, `pushGenerator(long)`
+and `popGenerator()` are public and static, and the deque behind them is private with no accessor
+(`SPD-classes/.../utils/Random.java:37-73`). So the harness can drive the stack and cannot read its
+depth, and this ADR's pre-mortem — "the Harness only swaps its own generator when the stack depth
+equals what it pushed, and asserts otherwise" — cannot be written as an assert without a hook row.
+The row is not this story's to spend: this ADR reserves the next one for identity order, which is
+story 1.16's.
+
+What stands in its place is two things, and the review of this story corrected the first claim made
+for them. `MixTestVectorTest` checks that the numbers drawn at a wait are exactly those of a
+generator seeded `mix(salt, k)`, and that a Run leaves the stack as deep as it found it, by putting
+a generator with a known stream underneath and asking it afterwards. Neither of those would notice a
+generator the game pushed and did not pop *between* two waits, because the reseed pops one and
+pushes one whatever is underneath.
+
+What settles the question is a reading of the tag, done in the review: every `pushGenerator` in
+`core/` and `SPD-classes/` is matched by a `popGenerator` in the same method. `Level.create` pushes
+at `…/levels/Level.java:221` and pops at `:324`; the vault mirror, Yog's initialiser and the item
+generator's decks are balanced the same way; `Dungeon.java:243`'s push is discarded wholesale by
+`Random.resetGenerators()` at `:254`. So pop-then-push is correct at `v4.0.0` by inspection, not by
+test. One place is worth remembering: `Level.create` has no `try`/`finally`, so an exception during
+level generation would orphan a generator.
+
+**Where the reseed happens.** At the wait itself, inside `HeadlessDriver.stepToInputWait`, as it
+confirms one and before it returns. This ADR and ADR-0013 put the reseed at the head of the wait,
+before the Observation is read; doing it in the driver's own `run` loop would have left every other
+caller — the agent's loop, a test, a Replay — drawing from whatever the last Run left behind. A Run
+is a function of its tuple however it is driven, or it is not one.
+
+**The published vector.** `docs/methodology.md` carries the mix, its definition in words, a six-row
+test vector and the same function in Python, so a skeptic can check the numbers without running
+anything of ours. The vector is held from two directions: the implementation is checked against the
+table, and the table against a second implementation written from this ADR's text.
+
+**The Profile is version 1.** English strings, the intro off, the support prompt answered, the
+compact interface, and an empty history. A directory carrying another version's stamp is refused
+before the Run starts rather than compared after it. Two of those choices have reasons worth
+repeating: the compact interface is the one whose item selector is a window an Action can answer
+(story 1.14), and the empty history matters because the game reads it — a snake stops dodging after
+four misses only once the first boss has been slain (`…/actors/mobs/Snake.java:66`).
+
+**The stack is owned from `Dungeon.init` onward, not only at waits.** This ADR says so and the first
+draft of this story read it as "at every wait", which left the first floor being built on the
+generator the game's own init leaves behind — `Random.resetGenerators()` at `…/Dungeon.java:254`
+seeds that one from the system. Wait zero's generator is pushed immediately after init and before
+the floor is generated.
+
+**The salt has no default, and that is the point.** The first draft gave `HeadlessDriver.start` a
+two-argument overload that meant salt zero, and `RunLoop` — the loop that drives the Brain seam —
+used it. This ADR rejected exactly that at `:55-62`: the mix is published, so a salt anyone can
+predict lets a Brain compute the coming draws as pure data. The review of this story found it. There
+is no salt-free way to start a Run now; a runner without a salt draws one from `Salt.draw()` and the
+outcome records what it drew.
+
+**What this story did not close.** Two Runs of one tuple now draw the same numbers at the same
+waits, which `ProfileTest.one_tuple_one_stream` holds; that is the randomness half of issue #70.
+They still do not see the same screens. With the salt controlling every draw from init onward and
+the history emptied per Run, one floor-one item lands a cell apart between two Runs, and the cell
+creeps by one with each Run in a process — a value that creeps is counted rather than drawn.
+That divergence is written down rather than asserted: a test that asserts it flaked, because the
+two Runs sometimes agree, and a build that fails for a reason unrelated to the change is worse than
+a defect recorded. It is in issue #70, in `ProfileTest`'s own note, and on the methodology page.

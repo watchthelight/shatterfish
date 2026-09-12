@@ -33,6 +33,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class StaleObservationTest {
 
+    /** The salt these Runs declare. There is no default: see ADR-0007 and {@code Salt}. */
+    private static final long RUN_SALT = 0x5A17_5A17L;
+
     private static final long SEED = 0xC0FFEEL;
 
     private HeadlessDriver driver;
@@ -41,7 +44,7 @@ class StaleObservationTest {
 
     @BeforeEach
     void start() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         hero = Dungeon.hero;
     }

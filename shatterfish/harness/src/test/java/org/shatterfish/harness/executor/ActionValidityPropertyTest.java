@@ -38,6 +38,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Timeout(value = 10, unit = TimeUnit.MINUTES)
 class ActionValidityPropertyTest {
 
+    /** The salt these Runs declare. There is no default: see ADR-0007 and {@code Salt}. */
+    private static final long RUN_SALT = 0x5A17_5A17L;
+
     private static final long SEED = 99_001_122L;
 
     /** Waits to walk through. Enough to leave the first room and meet the floor's own furniture. */
@@ -57,7 +60,7 @@ class ActionValidityPropertyTest {
     @Test
     @DisplayName("over forty waits, an offered Action is applied and an unoffered one changes nothing")
     void the_two_halves_hold() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         Random choices = new Random(SEED);
 

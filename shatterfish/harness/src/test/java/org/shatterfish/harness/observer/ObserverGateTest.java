@@ -32,6 +32,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Timeout(value = 5, unit = TimeUnit.MINUTES)
 class ObserverGateTest {
 
+    /** The salt these Runs declare. There is no default: see ADR-0007 and {@code Salt}. */
+    private static final long RUN_SALT = 0x5A17_5A17L;
+
     private static final long SEED = 16_180_339L;
 
     private HeadlessDriver driver;
@@ -47,7 +50,7 @@ class ObserverGateTest {
     @Test
     @DisplayName("the header names the release, the class, the challenges, the depth, the branch and the lock")
     void the_header() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         HeaderSection header = new Observer().header();
         assertEquals(ObservationCodec.SCHEMA_VERSION, header.version());
@@ -74,7 +77,7 @@ class ObserverGateTest {
     @Test
     @DisplayName("the Observer refuses to run while the hero acts and while a window is open")
     void only_at_an_input_wait() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         Observer observer = new Observer();
         assertNotNull(observer.map());

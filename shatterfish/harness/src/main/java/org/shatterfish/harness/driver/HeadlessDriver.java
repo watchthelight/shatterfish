@@ -25,6 +25,9 @@ import com.watabou.noosa.Scene;
 import org.shatterfish.harness.boot.HeadlessBoot;
 import org.shatterfish.harness.boot.HeadlessGame;
 import org.shatterfish.harness.observer.GameLogListener;
+import org.shatterfish.harness.boot.Profile;
+import org.shatterfish.harness.rng.RngControl;
+import org.shatterfish.harness.rng.Salt;
 import org.shatterfish.harness.scene.HeadlessScene;
 import org.shatterfish.harness.scene.SceneStepper;
 
@@ -136,6 +139,9 @@ public final class HeadlessDriver implements AutoCloseable {
 
     private final HeadlessBoot boot;
     private HeadlessScene scene;
+
+    /** The Run's own generator control, which reseeds from the salt at every wait (ADR-0007). */
+    private final RngControl rng;
     private long frames;
     private boolean closed;
     /** Written by the actor thread only, inside {@code Hero.act()}; read here between frames. */
@@ -155,9 +161,10 @@ public final class HeadlessDriver implements AutoCloseable {
     private Window lastSeenWindow;
     private int windowFramesShown;
 
-    private HeadlessDriver(HeadlessBoot boot, HeadlessScene scene) {
+    private HeadlessDriver(HeadlessBoot boot, HeadlessScene scene, RngControl rng) {
         this.boot = boot;
         this.scene = scene;
+        this.rng = rng;
         Hooks.inputWait = this::noticed;
         live = this;
     }
@@ -204,7 +211,20 @@ public final class HeadlessDriver implements AutoCloseable {
      * Starts a Run of {@code heroClass} with {@code seed} and creates its scene; the hero has not
      * acted yet. {@code seed} is what a player could type: {@code [0, DungeonSeed.TOTAL_SEEDS)}.
      */
-    public static HeadlessDriver start(long seed, HeroClass heroClass) {
+    /**
+     * Starts a Run of {@code heroClass} with {@code seed}, salted {@code salt}, and creates its
+     * scene. The salt is the half of the tuple that decides what the game draws at each wait
+     * (ADR-0007): it is the runner's to choose, it is written down with the Run, and it reaches no
+     * Observation. Two Runs of one tuple draw the same numbers; two salts on one seed give the same
+     * dungeon and different rolls.
+     *
+     * <p>There is no overload that leaves the salt out. A default would be a constant, the mix is
+     * published, and a salt anyone can predict lets a Brain compute the game's coming draws as pure
+     * data — which ADR-0007 rejected in advance (`0007-rng-seeding-strategy.md:55-62`) and the
+     * review of this story found had crept in anyway. A runner that has no salt of its own draws
+     * one from {@link Salt#draw()} and records what it drew.
+     */
+    public static HeadlessDriver start(long seed, HeroClass heroClass, long salt) {
         HeadlessBoot boot = HeadlessBoot.ensure();
         // A scene left by a Run that was never closed, whose actor thread ended on its own, goes
         // now and in its own profile: destroying a scene writes the badges and the journal
@@ -224,13 +244,14 @@ public final class HeadlessDriver implements AutoCloseable {
                     + " interface size " + SPDSettings.interfaceSize() + "; on any other, a targeted item"
                     + " action opens no window and every one of them is refused");
         }
-        newGame(seed, heroClass);
+        RngControl rng = new RngControl(salt);
+        newGame(seed, heroClass, rng);
         // The Observer's log listener (ADR-0006, Log) is re-added by hook row 3 as the scene is
         // created, so the seam is armed before the scene exists and hears the first floor's lines.
         GameLogListener.install();
         HeadlessScene scene = new HeadlessScene();
         boot.game().switchTo(scene);
-        return new HeadlessDriver(boot, scene);
+        return new HeadlessDriver(boot, scene, rng);
     }
 
     /**
@@ -242,6 +263,19 @@ public final class HeadlessDriver implements AutoCloseable {
      * skipped. {@link #start} is this plus the scene; a test that brings its own scene calls this.
      */
     public static void newGame(long seed, HeroClass heroClass) {
+        newGame(seed, heroClass, new RngControl(0L));
+    }
+
+    /**
+     * A new game whose generator stack {@code rng} owns from {@code Dungeon.init} onward, which is
+     * what ADR-0007 asks for and what the first floor needs: the game's own init ends by replacing
+     * the base generator with an unseeded one ({@code core/.../Dungeon.java:254}), and anything
+     * drawn afterwards that is not inside one of the game's own seeded pushes falls through to it.
+     * Level layout is pushed and seeded by the game ({@code core/.../levels/Level.java:221}), but
+     * not everything the floor decides is, so without this the same tuple puts the same item on a
+     * different cell in every Run — which is what story 1.15's own determinism test found.
+     */
+    public static void newGame(long seed, HeroClass heroClass, RngControl rng) {
         if (heroClass == null) {
             throw new IllegalArgumentException("a Run needs a hero class");
         }
@@ -267,7 +301,10 @@ public final class HeadlessDriver implements AutoCloseable {
         // confirmed jump and the fall would otherwise jump unasked in this one.
         Chasm.jumpConfirmed = false;
         try {
-            boot.profile(Files.createTempDirectory("shatterfish-run"));
+            // The Profile is what a Run inherits from the player it pretends to be, and it is
+            // part of the Run's definition (ADR-0007): its own directory, the settings a Run
+            // declares, an empty history, and the version stamped on it.
+            Profile.prepare(boot, Files.createTempDirectory("shatterfish-run"));
         } catch (IOException e) {
             throw new UncheckedIOException("could not create a profile directory for the Run", e);
         }
@@ -294,6 +331,11 @@ public final class HeadlessDriver implements AutoCloseable {
         // InterlevelScene.java:622-649, descend() with no hero: a new game and its first floor.
         Mob.clearHeldAllies();
         Dungeon.init();
+        // The stack is the harness's from here: init has just thrown away every generator, base
+        // included, and replaced the base with one seeded from the system (Dungeon.java:254). Wait
+        // zero's generator goes on top before the first floor is built, so the floor is the tuple's
+        // and not the moment's.
+        rng.reseed(0);
         GameLog.wipe();
         GameLogListener.INSTANCE.reset();
         Level level = Dungeon.newLevel();
@@ -335,6 +377,20 @@ public final class HeadlessDriver implements AutoCloseable {
         scene = next;
         acted = false;
         seenNotifications = notifications;
+    }
+
+    /**
+     * The seed wait {@code k} of this Run draws from, which anyone can recompute from the salt and
+     * the published mix (ADR-0007). The reseed itself happens at the wait, in {@link
+     * #stepToInputWait()}; this is here so a Run can say what it did.
+     */
+    public long seedFor(long k) {
+        return rng.seedFor(k);
+    }
+
+    /** The salt this Run declares, which belongs in what the Run records and in no Observation. */
+    public long salt() {
+        return rng.salt();
     }
 
     /** Steps until the hero waits for input, the hero is dead or a scene change is requested. */
@@ -397,6 +453,12 @@ public final class HeadlessDriver implements AutoCloseable {
                     waitIndex++;
                     lastConfirmedWindow = window;
                     acted = false;
+                    // The reseed belongs to the wait and not to any one caller: ADR-0013 puts it
+                    // at the head of the wait, before the Observation is read, and every caller of
+                    // this method is at the head of a wait when it returns. Doing it here is what
+                    // makes a Run a function of its tuple however it is driven — the driver's own
+                    // loop, a test, or the agent's.
+                    rng.reseed(waitIndex);
                     return new Halt(Reason.INPUT_WAIT, stepped, window, null, waitIndex);
                 }
                 if (notified && !heroWaits && !resurrecting) {
@@ -463,6 +525,8 @@ public final class HeadlessDriver implements AutoCloseable {
                 return halt;
             }
             long k = halt.waitIndex();
+            // The Run's own reseed already happened, at the wait itself; this is the sequence's,
+            // for whatever a caller wants to seed of its own (ADR-0013's step, ADR-0007's rule).
             sequence.reseed(k);
             O observation = sequence.observe(k);
             D decision = sequence.decide(k, observation);
@@ -529,6 +593,10 @@ public final class HeadlessDriver implements AutoCloseable {
         if (live == this) {
             live = null;
         }
+        // The stack is left as the Run found it. This is not wrapped in a catch: popping does not
+        // throw at this tag (it reports and returns, SPD-classes/.../utils/Random.java:68-73), so
+        // the only way here is a failure worth seeing rather than swallowing.
+        rng.release();
         try {
             scene.stepper().endActorThread();
         } finally {
@@ -637,8 +705,12 @@ public final class HeadlessDriver implements AutoCloseable {
         Boot boot = boot();
         System.out.println("HeadlessDriver: booted libGDX " + boot.applicationType()
                 + " backend for Shattered Pixel Dungeon " + boot.upstreamVersion());
-        try (HeadlessDriver driver = start(seed, HeroClass.WARRIOR)) {
+        // The runner draws the salt and says what it drew, which is the whole of a Run's claim to
+        // being reproducible: anyone with the seed, the salt and the Actions can play it again.
+        long salt = Salt.draw();
+        try (HeadlessDriver driver = start(seed, HeroClass.WARRIOR, salt)) {
             Halt halt = driver.stepToInputWait();
+            System.out.println("HeadlessDriver: salt " + Long.toHexString(salt));
             System.out.println("HeadlessDriver: seed " + seed + " (" + DungeonSeed.convertToCode(seed) + "), "
                     + HeroClass.WARRIOR.name() + ": " + halt.reason() + " after " + halt.framesStepped()
                     + " frame(s); hero at cell " + Dungeon.hero.pos + " on depth " + Dungeon.depth);

@@ -21,6 +21,7 @@ import org.shatterfish.harness.driver.Windows;
 import org.shatterfish.harness.executor.ActionExecutor;
 import org.shatterfish.harness.executor.Outcome;
 import org.shatterfish.harness.observer.Observer;
+import org.shatterfish.harness.rng.Salt;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -60,8 +61,18 @@ public final class RunLoop {
      * Plays a Run of {@code heroClass} on {@code seed}, choosing at random from {@code agentSeed},
      * and says how it ended.
      */
+    /**
+     * Plays a Run of {@code heroClass} on {@code seed}, choosing at random from {@code agentSeed},
+     * with a salt drawn for it. The salt is in the outcome, because a Run whose salt is not written
+     * down cannot be replayed and its numbers cannot be checked.
+     */
     public RunOutcome play(long seed, HeroClass heroClass, long agentSeed) {
-        return play(seed, heroClass, new RandomAgent(agentSeed), TURN_CAP);
+        return play(seed, heroClass, Salt.draw(), new RandomAgent(agentSeed), TURN_CAP);
+    }
+
+    /** Plays a Run with a salt the caller chose, which is what a Replay and a rig pair do. */
+    public RunOutcome play(long seed, HeroClass heroClass, long salt, long agentSeed) {
+        return play(seed, heroClass, salt, new RandomAgent(agentSeed), TURN_CAP);
     }
 
     /**
@@ -69,7 +80,7 @@ public final class RunLoop {
      * closed whatever happens.
      */
     public RunOutcome play(long seed, HeroClass heroClass, Decider agent) {
-        return play(seed, heroClass, agent, TURN_CAP);
+        return play(seed, heroClass, Salt.draw(), agent, TURN_CAP);
     }
 
     /**
@@ -77,8 +88,8 @@ public final class RunLoop {
      * number and the behaviour at it is a rule; a test that wants the rule should not have to spend
      * twenty thousand turns reaching it, and a Run that wants the rule gets {@link #TURN_CAP}.
      */
-    public RunOutcome play(long seed, HeroClass heroClass, Decider agent, int turnCap) {
-        HeadlessDriver driver = HeadlessDriver.start(seed, heroClass);
+    public RunOutcome play(long seed, HeroClass heroClass, long salt, Decider agent, int turnCap) {
+        HeadlessDriver driver = HeadlessDriver.start(seed, heroClass, salt);
         long waits = 0;
         long applied = 0;
         long refused = 0;
@@ -92,16 +103,16 @@ public final class RunLoop {
                 try {
                     halt = driver.stepToInputWait(FRAME_BUDGET);
                 } catch (HeadlessDriver.Stalled stalled) {
-                    return outcome(RunOutcome.Cause.UNKNOWN_WINDOW, waits, applied, refused,
+                    return outcome(RunOutcome.Cause.UNKNOWN_WINDOW, salt, waits, applied, refused,
                             describeWindow() + ", after " + lastAction
                                     + (lastRefusal.isEmpty() ? "" : ", last refusal " + lastRefusal));
                 }
                 switch (halt.reason()) {
                     case HERO_DEAD -> {
-                        return outcome(RunOutcome.Cause.DEATH, waits, applied, refused, "");
+                        return outcome(RunOutcome.Cause.DEATH, salt, waits, applied, refused, "");
                     }
                     case SCENE_SWITCH -> {
-                        RunOutcome ending = serve(driver, halt, waits, applied, refused);
+                        RunOutcome ending = serve(driver, halt, salt, waits, applied, refused);
                         if (ending != null) {
                             return ending;
                         }
@@ -112,13 +123,13 @@ public final class RunLoop {
                     }
                 }
                 if (turns() >= turnCap) {
-                    return outcome(RunOutcome.Cause.TURN_CAP, waits, applied, refused, "");
+                    return outcome(RunOutcome.Cause.TURN_CAP, salt, waits, applied, refused, "");
                 }
 
                 Observation observation = new Observer().observe();
                 Action chosen = agent.decide(observation);
                 if (chosen == null) {
-                    return outcome(RunOutcome.Cause.NOTHING_OFFERED, waits, applied, refused,
+                    return outcome(RunOutcome.Cause.NOTHING_OFFERED, salt, waits, applied, refused,
                             "at wait " + halt.waitIndex());
                 }
                 waits++;
@@ -129,7 +140,7 @@ public final class RunLoop {
                     refusalsInARow++;
                     lastRefusal = rejected.reason() + ": " + rejected.detail();
                     if (refusalsInARow >= REFUSALS_IN_A_ROW) {
-                        return outcome(RunOutcome.Cause.REFUSED, waits, applied, refused, lastRefusal);
+                        return outcome(RunOutcome.Cause.REFUSED, salt, waits, applied, refused, lastRefusal);
                     }
                 } else {
                     applied++;
@@ -149,21 +160,21 @@ public final class RunLoop {
      *
      * @return the Run's ending, or null when the Run goes on
      */
-    private RunOutcome serve(HeadlessDriver driver, HeadlessDriver.Halt halt, long waits,
+    private RunOutcome serve(HeadlessDriver driver, HeadlessDriver.Halt halt, long salt, long waits,
                              long applied, long refused) {
         Class<? extends Scene> asked = halt.requestedScene();
         if (asked == SurfaceScene.class) {
-            return outcome(RunOutcome.Cause.WIN, waits, applied, refused, "");
+            return outcome(RunOutcome.Cause.WIN, salt, waits, applied, refused, "");
         }
         if (asked != InterlevelScene.class) {
-            return outcome(RunOutcome.Cause.UNSERVED_SCENE, waits, applied, refused,
+            return outcome(RunOutcome.Cause.UNSERVED_SCENE, salt, waits, applied, refused,
                     asked == null ? "no scene named" : asked.getSimpleName());
         }
         InterlevelScene.Mode mode = InterlevelScene.mode;
         switch (mode) {
             case DESCEND, ASCEND, FALL -> driver.serveSceneSwitch(() -> crossFloor(mode));
             default -> {
-                return outcome(RunOutcome.Cause.UNSERVED_SCENE, waits, applied, refused,
+                return outcome(RunOutcome.Cause.UNSERVED_SCENE, salt, waits, applied, refused,
                         "the interlevel scene in mode " + mode);
             }
         }
@@ -244,8 +255,8 @@ public final class RunLoop {
                 : Windows.front().getClass().getSimpleName();
     }
 
-    private static RunOutcome outcome(RunOutcome.Cause cause, long waits, long applied, long refused,
-                                      String detail) {
-        return new RunOutcome(cause, Statistics.deepestFloor, turns(), waits, applied, refused, detail);
+    private static RunOutcome outcome(RunOutcome.Cause cause, long salt, long waits, long applied,
+                                      long refused, String detail) {
+        return new RunOutcome(cause, salt, Statistics.deepestFloor, turns(), waits, applied, refused, detail);
     }
 }

@@ -25,6 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class RandomAgentTest {
 
+    /** The salt these Runs declare. There is no default: see ADR-0007 and {@code Salt}. */
+    private static final long RUN_SALT = 0x5A17_5A17L;
+
     private HeadlessDriver driver;
 
     @AfterEach
@@ -37,7 +40,7 @@ class RandomAgentTest {
     @Test
     @DisplayName("the agent reaches across the whole set rather than favouring a corner of it")
     void the_agent_has_no_preference() {
-        driver = HeadlessDriver.start(0xC0FFEEL, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(0xC0FFEEL, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         Observation observation = new Observer().observe();
         List<Action> offered = observation.actions().actions();
@@ -57,7 +60,7 @@ class RandomAgentTest {
     @Test
     @DisplayName("two agents of one seed make the same choices, and of different seeds do not")
     void the_seed_is_the_stream() {
-        driver = HeadlessDriver.start(0xC0FFEEL, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(0xC0FFEEL, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         Observation observation = new Observer().observe();
 

@@ -48,6 +48,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Timeout(value = 5, unit = TimeUnit.MINUTES)
 class ActionExecutorTest {
 
+    /** The salt these Runs declare. There is no default: see ADR-0007 and {@code Salt}. */
+    private static final long RUN_SALT = 0x5A17_5A17L;
+
     private static final long SEED = 24_012_345L;
 
     private HeadlessDriver driver;
@@ -64,7 +67,7 @@ class ActionExecutorTest {
     }
 
     private Observation atTheFirstWait() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         level = Dungeon.level;
         hero = Dungeon.hero;
@@ -572,15 +575,27 @@ class ActionExecutorTest {
                 return cell;
             }
         }
-        for (int d : new int[]{1, -1, width, -width}) {
+        // Nothing beside the hero is already a wall, so one of the neighbours becomes one. Any of
+        // the eight will do and any floor terrain will do: what the test needs is a cell the screen
+        // draws as wall, not a particular one. The first draft took only the four orthogonal
+        // neighbours and only bare floor, and CI failed on a Run whose hero stood on grass with a
+        // door beside it — the hero's surroundings are the dungeon's business, not the test's.
+        for (int d : new int[]{1, -1, width, -width, width + 1, width - 1, -width + 1, -width - 1}) {
             int cell = hero.pos + d;
-            if (cell >= 0 && cell < level.length() && level.map[cell] == Terrain.EMPTY
-                    && Actor.findChar(cell) == null && level.heaps.get(cell, null) == null) {
+            if (cell >= 0 && cell < level.length() && !level.solid[cell]
+                    && Actor.findChar(cell) == null && level.heaps.get(cell, null) == null
+                    && level.getTransition(cell) == null) {
                 Level.set(cell, Terrain.WALL);
                 return cell;
             }
         }
-        throw new AssertionError("nowhere beside the hero to put a wall");
+        // And if even that fails, the level's own edge is a wall in every dungeon the game builds.
+        for (int cell = 0; cell < level.length(); cell++) {
+            if (level.map[cell] == Terrain.WALL) {
+                return cell;
+            }
+        }
+        throw new AssertionError("a dungeon with no wall in it, which the game does not build");
     }
 
     private int floorInView() {

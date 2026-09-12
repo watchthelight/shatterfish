@@ -38,6 +38,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Timeout(value = 5, unit = TimeUnit.MINUTES)
 class ObserveTest {
 
+    /** The salt these Runs declare. There is no default: see ADR-0007 and {@code Salt}. */
+    private static final long RUN_SALT = 0x5A17_5A17L;
+
     /**
      * The rows of ADR-0006's whitelist this suite holds ({@link VisibilityChecklistTest}). What
      * makes the valid-Action row true is structural and is held elsewhere: the set is computed in
@@ -62,7 +65,7 @@ class ObserveTest {
     }
 
     private Observer atTheFirstWait() {
-        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         return new Observer();
     }
