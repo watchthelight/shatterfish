@@ -354,6 +354,12 @@ reads; and the diff adds no RNG, seed, snapshot, oracle or reflection path.
   `UNSERVED_SCENE` naming it, rather than a guess.
 - **A window the Prompt table does not name still ends a Run**, now as `UNKNOWN_WINDOW` naming the
   class rather than as a hang.
+- **The pull-request gate is about a quarter of an hour longer** for every story after this one: the
+  thousand Runs are four and a half minutes on this machine and rather more on the runner. It is
+  kept there deliberately — this epic is the foundation every later number rests on, and the whole
+  point of the thousand is that it finds what forty waits cannot — but it is a cost the program is
+  now paying on every branch, and the story that publishes the throughput numbers (1.21, #34) is the
+  right place to decide whether the gate keeps all thousand or the nightly takes them.
 
 ## Follow-ups for later stories
 
