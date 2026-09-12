@@ -213,24 +213,13 @@ class ProfileTest {
         assertTrue(!first.equals(salted), "and another salt is another stream");
     }
 
-    @Test
-    @DisplayName("two Runs of one tuple still see different screens, which story 1.16 owns")
-    @Timeout(value = 10, unit = TimeUnit.MINUTES)
-    void one_tuple_two_screens_for_now() {
-        // This asserts a defect, deliberately, because the alternative is a story that claims to
-        // have closed issue #70 and has closed half of it. With the salt controlling every draw
-        // from Dungeon.init onward and the journal emptied per Run, two Runs of one tuple still
-        // put one floor-one item on cells a step apart, and the cell creeps by one with each Run in
-        // a process. That is not randomness — it is something counted rather than drawn, which is
-        // the ground story 1.16 stands on (identity order and the two-JVM determinism test).
-        //
-        // When 1.16 lands this test fails, and that failure is the good news: replace it with the
-        // equality it was hiding.
-        List<String> first = screensOf(4242L, 0x5A17L);
-        List<String> second = screensOf(4242L, 0x5A17L);
-        assertTrue(!first.equals(second), "if these now agree, issue #70 is closed: delete this test"
-                + " and assert the equality instead");
-    }
+    // There was a test here that asserted the divergence: two Runs of one tuple seeing different
+    // screens, so that story 1.16 would meet a failing test the day it succeeded. It is gone,
+    // because the divergence is intermittent — the mutation battery caught it agreeing with itself
+    // on a run where the two Runs happened to match, which would have failed the build for a reason
+    // that had nothing to do with the change. A test that asserts a defect and flakes is worse than
+    // a defect written down: the divergence is in issue #70, in ADR-0007's amendment and on the
+    // methodology page, with the evidence and what is known about the cause.
 
     /** The numbers the game draws at the head of each of a Run's first waits. */
     private static List<String> drawsOfARun(long seed, long salt) {

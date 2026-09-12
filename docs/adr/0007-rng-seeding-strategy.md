@@ -246,5 +246,6 @@ waits, which `ProfileTest.one_tuple_one_stream` holds; that is the randomness ha
 They still do not see the same screens. With the salt controlling every draw from init onward and
 the history emptied per Run, one floor-one item lands a cell apart between two Runs, and the cell
 creeps by one with each Run in a process — a value that creeps is counted rather than drawn.
-`ProfileTest.one_tuple_two_screens_for_now` asserts that divergence deliberately, so that the story
-cannot be read as having closed #70, and so that story 1.16 sees a failing test the day it succeeds.
+That divergence is written down rather than asserted: a test that asserts it flaked, because the
+two Runs sometimes agree, and a build that fails for a reason unrelated to the change is worse than
+a defect recorded. It is in issue #70, in `ProfileTest`'s own note, and on the methodology page.
