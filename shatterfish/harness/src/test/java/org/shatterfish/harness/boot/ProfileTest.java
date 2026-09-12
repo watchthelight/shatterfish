@@ -1,16 +1,20 @@
 package org.shatterfish.harness.boot;
 
+import com.shatteredpixel.shatteredpixeldungeon.Badges;
 import com.shatteredpixel.shatteredpixeldungeon.SPDSettings;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import com.watabou.utils.Bundle;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -40,6 +44,24 @@ class ProfileTest {
 
         assertEquals(0, SPDSettings.interfaceSize(), "the compact interface, which a Run can play on");
         assertTrue(!SPDSettings.intro(), "and no intro");
+    }
+
+    @Test
+    @DisplayName("a Run starts with none of the badges the last one earned")
+    void the_history_is_empty() throws IOException {
+        // The game reads its own history: a snake stops dodging after four misses only once the
+        // first boss has been slain (core/.../actors/mobs/Snake.java:66). So a Run that inherited
+        // the badges of the Run before it would be playing a different game under the same tuple.
+        HashSet<Badges.Badge> earned = new HashSet<>();
+        earned.add(Badges.Badge.LEVEL_REACHED_1);
+        Bundle bundle = new Bundle();
+        Badges.store(bundle, earned);
+        Badges.loadLocal(bundle);
+        assertTrue(Badges.totalUnlocked(false) > 0, "a Run that earned something");
+
+        Profile.prepare(HeadlessBoot.ensure(), Files.createTempDirectory("shatterfish-profile-test"));
+
+        assertEquals(0, Badges.totalUnlocked(false), "and the next Run starts with nothing");
     }
 
     @Test

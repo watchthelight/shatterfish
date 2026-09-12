@@ -95,16 +95,25 @@ class MixTestVectorTest {
         // This is the check that stands in for ADR-0007's stack-depth assert: the deque is private
         // upstream, so instead of asking how deep the stack is, ask what comes off the top. A
         // generator the game pushed and did not pop would answer differently.
-        RngControl rng = new RngControl(0xDEADBEEFL);
+        long salt = 0xDEADBEEFL;
+        RngControl rng = new RngControl(salt);
         try {
+            List<List<Integer>> perWait = new ArrayList<>();
             for (long k = 0; k < 8; k++) {
                 rng.reseed(k);
                 List<Integer> drawn = new ArrayList<>();
                 for (int draw = 0; draw < 16; draw++) {
                     drawn.add(Random.Int(1_000_000));
                 }
-                assertEquals(expected(rng.seedFor(k)), drawn, "the draws at wait " + k);
+                // The expectation is computed from the mix and the salt, not from the control's own
+                // idea of its seed: asking the thing under test what it meant to do lets a control
+                // that seeds every wait the same way agree with itself, which is how the mutation
+                // that does exactly that survived this test's first draft.
+                assertEquals(expected(Mix.mix(salt, k)), drawn, "the draws at wait " + k);
+                perWait.add(drawn);
             }
+            assertEquals(perWait.size(), perWait.stream().distinct().count(),
+                    "and no two waits draw the same numbers, which is what the index is for");
         } finally {
             rng.release();
         }
@@ -131,6 +140,26 @@ class MixTestVectorTest {
         rng.release();
         assertEquals(ours, again, "reseeding the same wait gives the same numbers, whatever was"
                 + " underneath, which is what makes release safe to call");
+
+        // And release really takes this Run's generator off rather than leaving it on top: after
+        // three waits and one release, what is drawn is not the third wait's stream. Nothing can
+        // read the stack's depth, so this is how a stack that only ever grows is noticed.
+        RngControl deeper = new RngControl(11L);
+        for (long k = 0; k < 3; k++) {
+            deeper.reseed(k);
+        }
+        List<Integer> lastWait = new ArrayList<>();
+        for (int draw = 0; draw < 8; draw++) {
+            lastWait.add(Random.Int(1_000_000));
+        }
+        deeper.reseed(2);
+        deeper.release();
+        List<Integer> afterRelease = new ArrayList<>();
+        for (int draw = 0; draw < 8; draw++) {
+            afterRelease.add(Random.Int(1_000_000));
+        }
+        assertNotEquals(lastWait, afterRelease, "a released Run leaves none of its generators behind,"
+                + " so the draws afterwards are not its last wait's");
     }
 
     /** What a generator seeded with {@code seed} gives, through the game's own push. */
