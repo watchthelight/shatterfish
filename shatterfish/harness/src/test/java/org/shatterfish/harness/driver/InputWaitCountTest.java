@@ -8,12 +8,13 @@ import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.shatteredpixel.shatteredpixeldungeon.levels.features.LevelTransition;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks;
-import com.shatteredpixel.shatteredpixeldungeon.windows.WndMessage;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndInfoCell;
 import com.watabou.utils.PathFinder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.shatterfish.api.PromptKind;
 import org.shatterfish.harness.driver.HeadlessDriver.Halt;
 import org.shatterfish.harness.driver.HeadlessDriver.Reason;
 
@@ -169,23 +170,27 @@ class InputWaitCountTest {
         assertEquals(LevelTransition.Type.SURFACE, entrance.type, "on the first floor the entrance leads out");
 
         // Leaving without the amulet: the game posts a message and the hero is ready under it
-        // (SewerLevel.java:146-155, Hero.java:1391-1395), a window nobody but the player closes.
+        // (SewerLevel.java:146-155, Hero.java:1391-1395). Story 1.5 read that as a window nobody
+        // but the player closes, and story 1.13 found what that costs: a Run stops there, because
+        // the bot has no way to send it away. A message is a Prompt now, with no buttons and one
+        // Action, and this is the wait it makes.
         GameScene.handleCell(hero.pos);
         assertNotNull(hero.curAction);
-        HeadlessDriver.Stalled stalled = assertThrows(HeadlessDriver.Stalled.class, () -> driver.stepToInputWait(20));
+        Halt message = driver.stepToInputWait();
 
-        assertTrue(stalled.getMessage().contains("WndMessage, not a Prompt"), stalled.getMessage());
-        assertTrue(stalled.getMessage().contains("An Action is waiting for its wait"), stalled.getMessage());
-        assertEquals(1, driver.waitIndex());
+        assertEquals(Reason.INPUT_WAIT, message.reason());
+        assertEquals(2, message.waitIndex());
+        assertNotNull(message.window(), "the message is the window of the wait");
+        assertEquals(PromptKind.MESSAGE, Prompts.kind(message.window()));
         assertTrue(hero.ready);
 
-        driver.scene().openWindow().onBackPressed();
+        // The one Action it offers, taken the way the back key takes it (Window.java:223-225).
+        message.window().onBackPressed();
         Halt halt = driver.stepToInputWait();
 
         assertEquals(Reason.INPUT_WAIT, halt.reason());
-        assertEquals(2, halt.waitIndex(), "the wait the notification announced, confirmed once the message was gone");
+        assertEquals(3, halt.waitIndex(), "the wait the message held, and the one after it");
         assertNull(halt.window());
-        assertEquals(1, halt.framesStepped());
     }
 
     @Test
@@ -265,12 +270,14 @@ class InputWaitCountTest {
     void a_wait_under_a_window_that_is_not_a_prompt_is_not_confirmed() {
         driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR);
         driver.stepToInputWait();
-        // Shown the way game code shows a window from the render thread.
-        GameScene.show(new WndMessage("not a prompt"));
+        // Shown the way game code shows a window from the render thread. The examine window is one
+        // a person opens on a cell: the game waits on nothing, the bot never opens one, and it is
+        // not a Prompt. A plain message is one as of story 1.13, which is the test above.
+        GameScene.show(new WndInfoCell(Dungeon.hero.pos));
 
         HeadlessDriver.Stalled stalled = assertThrows(HeadlessDriver.Stalled.class, () -> driver.stepToInputWait(20));
 
-        assertTrue(stalled.getMessage().contains("WndMessage, not a Prompt"), stalled.getMessage());
+        assertTrue(stalled.getMessage().contains("WndInfoCell, not a Prompt"), stalled.getMessage());
         assertEquals(1, driver.waitIndex(), "the hero was ready under it, and that is not a wait (AD-5)");
         assertTrue(GameScene.showingWindow());
 

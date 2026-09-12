@@ -14,7 +14,16 @@ package org.shatterfish.api;
  * for a window of options an item opened, a confirmation or a choice such as the enchantment's
  * three, and {@link #OTHER} for one from an origin the mapping does not name, whose title, text
  * and labels the section still carries as the screen draws them.
+ *
+ * <p>{@link #MESSAGE} is the plain message the game shows and a person taps away: the line the
+ * sewers post when the hero tries to leave without the amulet, the blacksmith's word when the
+ * entrance is reached without a pickaxe. Story 1.10 made such a window a
+ * failure of every read, on the reading that only a window the game waits on is a Prompt; story
+ * 1.13 found that it waits on these too, since the hero is ready underneath and the Run cannot go
+ * on until the window goes. It carries no options, and the one Action it offers is
+ * {@code DismissPrompt}.
  */
 public enum PromptKind {
-    NONE, SUBCLASS, TALENT, QUEST, SHOP, ALCHEMY, CHASM_JUMP, HARMFUL_POTION, RESURRECTION, ITEM, OTHER
+    NONE, SUBCLASS, TALENT, QUEST, SHOP, ALCHEMY, CHASM_JUMP, HARMFUL_POTION, RESURRECTION, ITEM, OTHER,
+    MESSAGE
 }

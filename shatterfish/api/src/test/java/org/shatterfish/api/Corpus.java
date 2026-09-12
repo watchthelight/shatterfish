@@ -188,6 +188,11 @@ final class Corpus {
         return List.of(new Action.AnswerPrompt(0), new Action.AnswerPrompt(1));
     }
 
+    /** The one Action a Prompt with no buttons offers: the tap that sends a message away. */
+    static List<Action> dismissals() {
+        return List.of(new Action.DismissPrompt());
+    }
+
     /** A human's click on a distant cell: an Action of the Run log, never of a valid set. */
     static List<Action> humanActions() {
         return List.of(new Action.MoveTo(17));
@@ -286,6 +291,11 @@ final class Corpus {
                 }
             }
             for (Action action : humanActions()) {
+                if (action.getClass() == record) {
+                    found.add(action);
+                }
+            }
+            for (Action action : dismissals()) {
                 if (action.getClass() == record) {
                     found.add(action);
                 }

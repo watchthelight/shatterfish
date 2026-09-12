@@ -53,7 +53,7 @@ Paths abbreviate `core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/` 
 The Observer is a class in `org.shatterfish.harness` with one public method,
 `observe(): Observation`, called only at an Input wait: the hero is ready and either no `Window` is
 open or the open window is one of the recognised Prompt kinds (`docs/rules/game-loop.md`; quest and
-shop windows are shown after `ready()`, `…/actors/hero/Hero.java:1019-1035`); any other window is an
+shop windows are shown after `ready()`, `…/actors/hero/Hero.java:1010-1026`); any other window is an
 assertion failure. It runs on the thread that owns the scene (ADR-0013). It reads the
 following and nothing else.
 
@@ -61,9 +61,9 @@ following and nothing else.
 |---|---|---|---|
 | Cell visibility | `Level.heroFOV[c]` → `Fog.VISIBLE`; else `visited[c]` → `VISITED`; else `mapped[c]` → `MAPPED`; else `UNKNOWN`. Non-discoverable cells are `UNKNOWN`. | `…/tiles/FogOfWar.java:288-299`, `:200-208` | the raw `map[]` of an `UNKNOWN` cell |
 | Terrain | For VISIBLE, VISITED and MAPPED cells, `Terrain.discover`-inverse is *not* applied: the Observer maps `map[c]` through the same table the tile sheet uses, so `SECRET_DOOR` becomes the `WALL` tile and `SECRET_TRAP` the `EMPTY` tile. | `…/tiles/DungeonTileSheet.java:427`, `:464`; `…/levels/Terrain.java:47-48` | `Level.secret[]`; the `SECRET` flag |
-| Traps | A trap is present iff `trap.visible` *and* its cell's `Fog` is not `UNKNOWN`: the painter reveals a share of traps at generation and `trigger()` reveals traps mobs set off anywhere, but the fog paints unvisited cells opaque and examine refuses them. Kind is the display name; `active` as the inactive tile shows it. | `…/levels/traps/Trap.java:62-67`, `:92-102`; `…/levels/painters/RegularPainter.java:483-493`; `…/tiles/FogOfWar.java:200-208`; `…/scenes/GameScene.java:1661-1667`; `…/actors/hero/Hero.java:1888-1895` | traps on `UNKNOWN` cells; `visible == false` traps |
-| Heaps | A heap is present iff `heap.seen` (sticky: remembered in fog) with its *current* top item, since the sprite updates on `drop` even out of FOV; `hidden` heaps carry the flag (drawn at alpha 0.15). Container types expose only the container, except a CRYSTAL_CHEST, which names the category (artifact, wand, ring); a plain HEAP or FOR_SALE exposes the top item's `title()`, and a single for-sale item its price (a stack of several shows none). A neutral, passive mimic has no heap and is emitted here as a CHEST at its cell, never as an actor; a differential test compares a real chest and a stealthy mimic at the same cell byte for byte. | `…/sprites/ItemSprite.java:212-238`, `:236`, `:323-326`; `…/items/Heap.java:80`, `:368-416`, `:400-406`; `…/actors/mobs/Mimic.java:62-64`, `:112-118`, `:148-152`, `:325-327` | a container's contents; `Heap.peek()` on a container; heaps with `seen == false`; the examine quirk that opens `WndInfoMob` on a hidden mimic (`…/scenes/GameScene.java:1729-1735`) |
-| Mobs | A char is present iff `heroFOV[ch.pos]` (the sprite's `visible`), except a neutral passive mimic (a heap, above); its `invisible > 0` state is exposed as a flag because the sprite is drawn at alpha 0.4. Position, display name, alignment, and health quantised to the bar's pixel width (ADR-0005). Actors are ordered by cell, never by `Level.mobs` iteration. | `…/scenes/GameScene.java:1441-1448`; `…/actors/Char.java:1272-1274`; `…/sprites/CharSprite.java:401-408`; `…/ui/HealthBar.java:65-88` | `Level.mobs` outside `heroFOV`; exact `HP` |
+| Traps | A trap is present iff `trap.visible` *and* its cell's `Fog` is not `UNKNOWN`: the painter reveals a share of traps at generation and `trigger()` reveals traps mobs set off anywhere, but the fog paints unvisited cells opaque and examine refuses them. Kind is the display name; `active` as the inactive tile shows it. | `…/levels/traps/Trap.java:62-67`, `:92-102`; `…/levels/painters/RegularPainter.java:483-493`; `…/tiles/FogOfWar.java:200-208`; `…/scenes/GameScene.java:1640-1646`; `…/actors/hero/Hero.java:1879-1886` | traps on `UNKNOWN` cells; `visible == false` traps |
+| Heaps | A heap is present iff `heap.seen` (sticky: remembered in fog) with its *current* top item, since the sprite updates on `drop` even out of FOV; `hidden` heaps carry the flag (drawn at alpha 0.15). Container types expose only the container, except a CRYSTAL_CHEST, which names the category (artifact, wand, ring); a plain HEAP or FOR_SALE exposes the top item's `title()`, and a single for-sale item its price (a stack of several shows none). A neutral, passive mimic has no heap and is emitted here as a CHEST at its cell, never as an actor; a differential test compares a real chest and a stealthy mimic at the same cell byte for byte. | `…/sprites/ItemSprite.java:212-238`, `:236`, `:323-326`; `…/items/Heap.java:80`, `:368-416`, `:400-406`; `…/actors/mobs/Mimic.java:62-64`, `:112-118`, `:148-152`, `:325-327` | a container's contents; `Heap.peek()` on a container; heaps with `seen == false`; the examine quirk that opens `WndInfoMob` on a hidden mimic (`…/scenes/GameScene.java:1708-1714`) |
+| Mobs | A char is present iff `heroFOV[ch.pos]` (the sprite's `visible`), except a neutral passive mimic (a heap, above); its `invisible > 0` state is exposed as a flag because the sprite is drawn at alpha 0.4. Position, display name, alignment, and health quantised to the bar's pixel width (ADR-0005). Actors are ordered by cell, never by `Level.mobs` iteration. | `…/scenes/GameScene.java:1428-1435`; `…/actors/Char.java:1272-1274`; `…/sprites/CharSprite.java:401-408`; `…/ui/HealthBar.java:65-88` | `Level.mobs` outside `heroFOV`; exact `HP` |
 | Mob state | The emote the sprite currently shows, read from `CharSprite.emo` and its `visible` flag through an accessor (hook row 4 of ADR-0008): `SLEEP`, `ALERT` (`!`), `LOST` (`?`), `INVESTIGATE`, or `NONE`. `Mob.alerted` is not the emote: it is set during other actors' turns and the icon appears only at the mob's next act. | `…/sprites/MobSprite.java:39`; `…/sprites/CharSprite.java:116`, `:635-639`, `:698-708`, `:719-729`; `…/effects/EmoIcon.java:126-148`; `…/actors/mobs/Mob.java:229-238`, `:812`, `:1190` | `Mob.state`; `Mob.alerted`; `Mob.enemySeen`; `Mob.target`; `Mob.enemy` |
 | Mob buffs | Every buff with `icon() != NONE`, as `WndInfoMob`'s row shows (up to 50), each with the turns `WndInfoBuff`'s description would print, plus the sprite states set through `fx(true)`. | `…/windows/WndInfoMob.java:63-64`, `:80`; `…/actors/buffs/Buff.java:94-96`; `…/actors/buffs/FlavourBuff.java:37-42` | buffs without an icon or sprite state |
 | Hero buffs | Every buff with an icon (the hero window's buffs tab lists them uncapped) with the turns its description shows (the large UI prints them on the icon too); hunger as the three HUD states. | `…/windows/WndHero.java:301-314`; `…/ui/BuffIndicator.java:192-196`, `:347-364`; `…/actors/buffs/Hunger.java:179-187` | icon-less buffs (`Regeneration`, `Awareness`, `Speed`, `Sleep`, `TimeStasis`); the exact hunger value |
@@ -71,13 +71,13 @@ following and nothing else.
 | Known appearances | `Potion.getKnown()`, `Scroll.getKnown()`, `Ring.getKnown()` (this Run). | `…/items/potions/Potion.java:402-404` | `Catalog` (cross-Run); `ItemStatusHandler.itemLabels` beyond seen items |
 | Vision buffs | Nothing special: mind vision, magical sight, blindness (a 3x3 FOV), darkness, Light and Foresight all act through `heroFOV`, `visited` and `mapped` before the Observer reads them. | `…/levels/Level.java:1290-1378`, `:1403-1411`; `…/Dungeon.java:914-938` | any recomputation of FOV |
 | Blobs | For cells the fog paints seen, which is where `heroFOV[c]` holds, the kinds of blob with `cur[c] > 0` whose emitter is emitting and whose volume is positive; the emitter draws one particle per such cell regardless of volume and the cell info names the blob only. A blob marked `alwaysVisible` is drawn, and named by the cell's description, on a remembered cell too, and is not carried there: a loss, six blobs wide at `v4.0.0`. | `…/effects/BlobEmitter.java:47-72`; `…/windows/WndInfoCell.java:175-183`; `SPD-classes/…/noosa/particles/Emitter.java:116-128` | `Blob.cur` outside the fog's seen cells; any volume |
-| Floor feeling | `Level.feeling`, the floor's own, which the depth button draws as an icon, names in its hover text and titles the window it opens; the arrival line logs it once. | `…/ui/MenuPane.java:88-89`, `:98-116`; `…/ui/Icons.java:478-497`; `…/scenes/GameScene.java:670-699` | nothing more: the secrets a SECRETS floor holds stay secret |
+| Floor feeling | `Level.feeling`, the floor's own, which the depth button draws as an icon, names in its hover text and titles the window it opens; the arrival line logs it once. | `…/ui/MenuPane.java:88-89`, `:98-116`; `…/ui/Icons.java:478-497`; `…/scenes/GameScene.java:663-692` | nothing more: the secrets a SECRETS floor holds stay secret |
 | Transitions | For every `LevelTransition` of `Level.transitions` whose designated cell the player has seen *and* which draws there as a way up or down, one of the five terrains the examine window names an entrance or an exit, that cell and the transition's `type`. | `…/levels/features/LevelTransition.java:34-47`, `:92-94`; `…/levels/Level.java:177`, `:1575-1580`, `:1594-1598` | a transition whose cell is unknown or draws as anything else; the destination depth and branch |
 | Boss lock | `Level.locked`, the flag a floor's `seal()` sets, carried as the header's `sealed`. On the boss floors it comes with the `LockedFloor` buff whose icon the HUD shows; on the vault floor of `v4.0.0` it does not, and the screen says so by other means (see the note at the upgrade). | `…/levels/Level.java:181`, `:645-650`; `…/actors/buffs/LockedFloor.java:76-78`; `…/levels/VaultLevel.java:630-637` | anything else about the boss fight |
 | Danger count | `hero.visibleEnemies()` as the indicator shows it (includes invisible enemies in FOV). | `…/ui/DangerIndicator.java:87-104` | anything else derived from `Level.mobs` |
 | Log | The raw `GLog` messages (text and color prefix) captured from the `GLog.update` signal on the thread that emits them, kept in order and capped at N; never `GameLog.entries`, which are rendered on the render thread, merged when colors match and wrapped by UI size. Existence leaks the game itself makes ("You hear something die") are kept because the player sees them. | `…/ui/GameLog.java:52-129`; `…/utils/GLog.java` | `GameLog.entries` |
 | Journal | `Notes` landmarks and keys recorded this Run. | `…/journal/Notes.java:115-142` | `Document` page state; `Bestiary` |
-| Prompt | The open `Window`'s kind, text and option labels when it is one of the Prompt kinds (subclass, talent, quest, shop, alchemy, chasm jump, harmful-potion confirmation); any other window at an Input wait is an assertion failure. | `…/ui/Window.java:65-80`; `…/windows/WndOptions.java:90-92` | nothing more |
+| Prompt | The open `Window`'s kind, text and option labels when it is one of the Prompt kinds (subclass, talent, quest, shop, alchemy, chasm jump, harmful-potion confirmation, an item's own, a message); any other window at an Input wait is an assertion failure. | `…/ui/Window.java:65-80`; `…/windows/WndOptions.java:90-92`; `…/ui/Window.java:223-225` | nothing more |
 | Valid Actions | Computed by `ValidActions.of(observation)` in `api` from the Observation alone, never from game state, and included in the Observation by `observe()` (FR-3; ADR-0014's story 1.12 amendment). | `shatterfish/api/.../ValidActions.java` | game state |
 | Seed and turn | Nothing: the seed is drawn by `WndHero` but excluded so a Brain cannot fingerprint published seeds (FR-9), and the game draws no turn counter; both go to the Run log outside the hash. The Brain counts Input waits itself. | `…/windows/WndHero.java:188-211`; `…/actors/Actor.java:154-158` | `Dungeon.seed`; `Actor.now()`; wall-clock time |
 
@@ -127,7 +127,7 @@ The actors and the hero (story 1.9), the inventory, journal, log and Prompt (1.1
 left (1.11) follow, and `observe()` arrives when every section does, so that the Observer never
 emits a section it cannot build. Every method asserts the Input wait on entry through the
 driver's own predicate, `HeadlessDriver.heroWaits`, and `GameScene.interfaceBlockingHero()`
-(`…/scenes/GameScene.java:1386-1396`), which covers a window and the inventory pane selecting, so
+(`…/scenes/GameScene.java:1373-1383`), which covers a window and the inventory pane selecting, so
 the driver and the Observer have one definition of a wait; a Prompt window is 1.10's to read, and
 any window fails now. Paths abbreviate `core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/`
 as `…/`, at the tag.
@@ -155,7 +155,7 @@ opaque until the corridor beyond is seen, even while in view; the first draft em
 view, and the review found it. The Observer mirrors the painting, taking the lighter of a wall's
 two halves as the part the player sees, and then one step past the paint: a discoverable wall
 painted opaque that is visited or mapped is emitted at that level, since the examine window opens
-on any visited or mapped cell and draws its tile (`…/scenes/GameScene.java:1661-1667`;
+on any visited or mapped cell and draws its tile (`…/scenes/GameScene.java:1640-1646`;
 `…/windows/WndInfoCell.java:42-74`), which is what the player can learn of it; the fog's own gate
 stays in front of that step, a cell that cannot be discovered being never visited or mapped in
 play. `FogParityTest`
@@ -205,7 +205,7 @@ heap of `map()`. Paths abbreviate `core/src/main/java/com/shatteredpixel/shatter
 as `…/`, at the tag.
 
 **A mob is present exactly when its sprite is drawn**: in the hero's field of view
-(`…/scenes/GameScene.java:1447`; `…/actors/Char.java:1272-1274`), every mob of `Level.mobs` but a
+(`…/scenes/GameScene.java:1434`; `…/actors/Char.java:1272-1274`), every mob of `Level.mobs` but a
 hidden mimic. It carries its display name, its alignment, its health as the bar over it draws it,
 the invisible flag for a sprite drawn at alpha 0.4 (`…/sprites/CharSprite.java:401-407`), the
 emote its sprite shows, and every buff with an icon as the examine window's row lists them
@@ -257,7 +257,7 @@ item named as the inventory names it. `HeroSectionTest` holds each against the g
 it names itself as the chest (`:112-118`; `…/actors/mobs/GoldenMimic.java:51-53`;
 `…/actors/mobs/CrystalMimic.java:59-61`), and a crystal mimic describes its category as a crystal
 chest would (`CrystalMimic.java:68-84`); it is drawn like any mob in view and, when stealthy, once
-its cell is visited (`GameScene.java:1441-1447`). So `map()` emits it as a `CHEST`, a
+its cell is visited (`GameScene.java:1428-1434`). So `map()` emits it as a `CHEST`, a
 `LOCKED_CHEST`, a `CRYSTAL_CHEST` with the category of its item, or the `EBONY_CHEST` only an ebony
 mimic wears (`…/actors/mobs/EbonyMimic.java:47-71`; `…/sprites/ItemSpriteSheet.java:124`), a member
 added to `HeapKind` for it since the screen draws it, flagged hidden since it hides at alpha 0.2
@@ -265,7 +265,7 @@ added to `HeapKind` for it since the screen draws it, flagged hidden since it hi
 `MimicDifferentialTest` pairs each of the three real chests with the mimic that imitates it at one
 cell and holds the Observations byte-identical, then stops the hiding and holds the mimic an actor
 and the heap gone. The hint a non-stealthy mimic's description carries (`Mimic.java:121-130`) and
-the window the game opens on it (`GameScene.java:1729-1735`) are not read, as the row says; a human
+the window the game opens on it (`GameScene.java:1708-1714`) are not read, as the row says; a human
 who taps can learn more than the bot here, which is a loss and not a leak. The alignment flips on
 the mimic's act, not on its reveal (`Mimic.java:212-222`, `:134-145`), which comes before the next
 Input wait in play.
@@ -333,7 +333,7 @@ the three every hero and the Warrior start knowing (`…/actors/hero/HeroClass.j
 **The log is the signal, captured at the pane's own seam.** `GLog` dispatches every message on
 `GLog.update` (`…/utils/GLog.java:32-60`); the pane's constructor replaces every listener with
 itself (`…/ui/GameLog.java:47`; `SPD-classes/…/utils/Signal.java:58-61`) on every scene creation,
-and `create()` then emits the floor's own lines (`…/scenes/GameScene.java:596-599`, `:663-689`),
+and `create()` then emits the floor's own lines (`…/scenes/GameScene.java:589-592`, `:663-689`),
 so the Observer's listener, `GameLogListener`, is re-added through hook row 3, a site right after
 the pane is constructed (`docs/UPSTREAM.md`, row 3), before those lines. The pane's handler
 returns false (`GameLog.java:149-154`), so the listener after it hears every message; the tone is
@@ -375,11 +375,11 @@ first text block when there are two, a title block coming before its message
 (`WndOptions.java:53-59`). The text is the rest, and the options the styled buttons' labels in
 drawing order (`…/ui/StyledButton.java:124`; `…/ui/RenderedTextBlock.java:96`), icon buttons and
 item slots being no option. A member the group would not draw, one that does not exist or is not visible
-(`SPD-classes/…/noosa/Group.java:72-79`; `…/noosa/Gizmo.java:26-29`), is not read, as the review
+(`SPD-classes/…/noosa/Group.java:63-70`; `…/noosa/Gizmo.java:26-29`), is not read, as the review
 asked; the resurrection window's two item slots, which the review feared would add their texts,
 draw them as bitmap texts (`…/ui/ItemSlot.java:58-61`), never text blocks, and are out of the
 walk's reach by type. The same accessor on `Game.scene()`
-finds the window in front, as the scene does for itself (`…/scenes/GameScene.java:1376-1384`).
+finds the window in front, as the scene does for itself (`…/scenes/GameScene.java:1363-1371`).
 `PromptGateTest` holds the chasm prompt, a known harmful potion's warning, a known beneficial
 potion's throw and the chalice's warning to their kinds, titles, texts and labels; a quest window
 with no buttons, the trade window, the subclass choice and the resurrection window to their kinds
@@ -414,12 +414,12 @@ volume. Three readings of that loop are folded into the Observer's. First, a blo
 once the scene has given its emitter a particle factory, which is what `Emitter.on` says
 (`SPD-classes/…/noosa/particles/Emitter.java:46`, `:82-93`, `:116-128`); the scene makes one for
 every blob of the level at creation and for each blob passed to `GameScene.add`
-(`…/scenes/GameScene.java:343-348`, `:1055-1058`, `:1131-1136`), which is what every caller of
+(`…/scenes/GameScene.java:342-347`, `:1055-1058`, `:1131-1136`), which is what every caller of
 `Blob.seed` does, and a blob seeded without it sits on the level drawing nothing. Second, the
 emitter walks the blob's bounding rectangle, which every seed unions the seeded cell into
 (`…/actors/blobs/Blob.java:143-149`, `:209-217`), so walking the cells that hold some of the blob
 draws the same set and needs no `setupArea()` call: the Observer writes nothing, ever. Third, the
-fog of war is added to the scene after the gases (`GameScene.java:343-353`) and is therefore drawn
+fog of war is added to the scene after the gases (`GameScene.java:342-352`) and is therefore drawn
 over them, and the fog paints a cell `VISIBLE` only where the hero sees it, so one test of the
 painted fog is both the emitter's gate and the fog's, and it is the gate the map's record requires.
 
@@ -449,7 +449,7 @@ the scene never drew absent, and a gas at two hundred times the volume byte-iden
 **The floor feeling is the one the depth button draws.** `Level.feeling` is drawn as an icon of its
 own for every value (`…/ui/MenuPane.java:88-89`; `…/ui/Icons.java:478-497`), named by the button's
 hover text and titled by the window it opens (`MenuPane.java:98-116`), and logged once on arrival
-at a new deepest floor (`…/scenes/GameScene.java:670-699`); it is on the screen from the moment the
+at a new deepest floor (`…/scenes/GameScene.java:663-692`); it is on the screen from the moment the
 floor is drawn, so the section carries it whatever the log says. What a feeling implies, the secret
 rooms of a secrets floor or the traps of a traps floor, stays as hidden as it was.
 `FloorSectionTest` holds every value of the enum through the Observer.
@@ -481,8 +481,8 @@ absent, and the carried cells equal to the seen ones.
 
 **The danger count is no field.** ADR-0005 settled that it is the enemies among the actors, which
 that section lists with the invisible flag; the indicator's number is the enemies in the field of
-view (`…/ui/DangerIndicator.java:87-104`; `…/actors/hero/Hero.java:1692-1694`), refreshed at the
-top of every hero act (`Hero.java:859`), so it is fresh at every Input wait.
+view (`…/ui/DangerIndicator.java:87-104`; `…/actors/hero/Hero.java:1683-1685`), refreshed at the
+top of every hero act (`Hero.java:850`), so it is fresh at every Input wait.
 `EnvironmentLeakTest` holds the two equal, with an invisible enemy in view counted by both.
 
 **The boss lock was pulled forward to story 1.8** and is the header's `sealed`; it now has its
@@ -532,7 +532,7 @@ or claiming an equivalence that has stopped holding.
 - **A sprite is no longer drawn exactly when the hero sees its cell.** `CharSprite.visibleOutOfFFOV`
   (`…/sprites/CharSprite.java:86`) makes a sprite draw regardless of the field of view, and
   `GameScene` honours it in both places it sets a mob's visibility
-  (`…/scenes/GameScene.java:1096`, `:1528-1535`). Two of the vault's objects set it
+  (`…/scenes/GameScene.java:1089`, `:1528-1535`). Two of the vault's objects set it
   (`…/sprites/VaultMirrorSprite.java:34`; `…/sprites/VaultTokenDoorSprite.java:35`). The Mobs row
   above says the field of view *is* the sprite's visibility; at this tag it is the common case and
   not the rule, and `actors()` drops those two where a player sees them.
@@ -562,3 +562,43 @@ the vault's mirror and token door open `WndTitledMessage` windows, which `Prompt
 recognise, so a Run that reaches one stops at the driver as story 1.10 recorded for the
 blacksmith's; and that upstream's `Snake.dodges` outlives a Run, which is the determinism story's
 to answer (#29).
+
+## Amendment: story 1.13 (2026-09-11)
+
+A plain message is a Prompt. Story 1.10 read the row above as "a window the game waits on", and a
+message is not that: the hero is ready underneath it and the game will take the next input whenever
+it comes. Story 1.13 found what the reading costs. An ordinary step can reach one. The sewers post a
+`WndMessage` when the hero tries to leave without the amulet
+(`…/levels/SewerLevel.java:146-155`), and the caves post a plain `WndTitledMessage` when the hero
+reaches the blacksmith's entrance without a pickaxe (`…/levels/CavesLevel.java:136-140`). The driver
+refused to call either a wait, the Observer refused to read under it, and the valid set had nothing
+to offer, so the Run stopped there with the bot able to see the window and unable to send it away. A
+person taps it and plays on.
+
+So `PromptKind` gains `MESSAGE`, appended: a `WndMessage` or a plain `WndTitledMessage` in front is
+a Prompt with the text it draws, no options, and one Action, `DismissPrompt`, which the executor
+takes by calling `Window.onBackPressed()` — what the back key does and what a tap outside the window
+does (`…/ui/Window.java:223-225`). The titled message is tested last of the two, because the quest
+windows are subclasses of it (`…/windows/WndQuest.java:28`) and keep their own kind; the game opens
+plain ones of its own accord at the shopkeeper's greeting, the vault's mirror and token door, the
+escape crystal and the scroll of enchantment (`…/actors/mobs/npcs/Shopkeeper.java:263`;
+`…/actors/mobs/npcs/VaultMirror.java:140`, `:152`; `…/actors/mobs/npcs/VaultTokenDoor.java:107`;
+`…/items/quest/EscapeCrystal.java:145`), every one of which would have stopped a Run the same way.
+The gate admits a message like any other Prompt, so the Observation under one is a whole Observation
+and the wait is a wait.
+
+What stays a failure is a window the *player* opens and the game is not waiting on: the examine
+window on a cell, the hero window, the journal. `WndStory` belongs with those and not with the
+messages, which the review of story 1.13 settled by reading the sites: every one that opens a story
+window is a click of the player's own, in the journal or the flashing page of the menu pane
+(`…/ui/MenuPane.java:341`; `…/windows/WndJournal.java:265`, `:1033`, `:1035`;
+`…/windows/WndDocument.java:50`). Nothing in the game opens one for the bot, so admitting it would
+have widened the gate to cover a case that cannot arise while hiding a real one if it ever did. The
+bot never opens any of these, and one in front at a wait still means something is wrong. `PromptGateTest` and
+`InputWaitCountTest` use `WndInfoCell` for that case now, since the message they used before is a
+Prompt.
+
+The losses of story 1.10 that this closes: "a Run that reaches one stops at the driver" applied to
+every message, and now applies only to the blacksmith's later windows and the crown's ability
+choice, which are windows with buttons the table does not name yet.
+

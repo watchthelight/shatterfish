@@ -179,6 +179,8 @@ class CodecReflectionTest {
         }
         assertEquals(List.of("Step", "MoveTo", "Attack", "Interact", "PickUp", "OpenChest", "Buy", "Unlock", "Descend",
                 "Ascend", "UseItem", "UseItemAt", "UseItemOn", "Rest", "Search", "Talent", "Ability",
-                "AbilityAt", "AnswerPrompt", "Wait"), kinds, "the kinds of ADR-0014, item use split by target shape, no option index");
+                "AbilityAt", "AnswerPrompt", "DismissPrompt", "Wait"), kinds,
+                "the kinds of ADR-0014, item use split by target shape, no option index, and story 1.13's"
+                        + " dismissal of a message");
     }
 }

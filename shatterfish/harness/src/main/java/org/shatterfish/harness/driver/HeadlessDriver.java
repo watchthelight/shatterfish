@@ -45,7 +45,7 @@ import java.nio.file.Files;
  *
  * <p><b>The Input wait.</b> The game says when something happened: hook row 5's site at the top of
  * the branch of {@code Hero.act()} that runs when the hero begins an act unready
- * ({@code core/.../actors/hero/Hero.java:840-848}) notifies this driver, on the actor thread, with
+ * ({@code core/.../actors/hero/Hero.java:839-847}) notifies this driver, on the actor thread, with
  * one volatile write. That branch runs once before every transition to ready, because
  * {@code ready()} is reached only later in the same act ({@code :862-870}, {@code :935-946}), and
  * it also runs on each step of a move and each turn of resting ({@code :885-887}); a hero that is
@@ -58,7 +58,7 @@ import java.nio.file.Files;
  * because the chasm prompt refuses an answer until it has been updated for more than 0.2 s of
  * frame time ({@code .../levels/features/Chasm.java:77-92}), so a window is a wait from its
  * second frame in front; the inventory pane can be selecting an item with no window while the
- * map refuses clicks ({@code .../scenes/GameScene.java:1386-1395}), which is not a wait; and a
+ * map refuses clicks ({@code .../scenes/GameScene.java:1373-1382}), which is not a wait; and a
  * window that is not a Prompt, which only the player can dismiss, is not one either. A window
  * changing in front of a waiting hero is a new wait too, with no notification: the answer to a prompt can close it without the
  * hero acting, and the brain must see what is there now. And so is an Action handed to the game,
@@ -75,10 +75,10 @@ import java.nio.file.Files;
  * from 1, incremented before the per-wait sequence as ADR-0013 has it.
  *
  * <p><b>Stopping.</b> A dead hero stops the loop, because the scene stops waking the actor thread
- * then ({@code .../scenes/GameScene.java:865}); the game-over banner it posted is run when the
+ * then ({@code .../scenes/GameScene.java:858}); the game-over banner it posted is run when the
  * scene is destroyed, not in the next Run. Dead means what the game means by it: a hero at zero
  * health who holds an unblessed ankh is offered resurrection instead, through a window his own
- * death posts ({@code .../actors/hero/Hero.java:2141-2190}), and the game is still on while that
+ * death posts ({@code .../actors/hero/Hero.java:2132-2181}), and the game is still on while that
  * window exists ({@code .../Dungeon.java:707}); that window is an Input wait here, the one Prompt
  * the hero answers without being ready, and taking it is a scene change
  * ({@code .../windows/WndResurrect.java:125-141}). A requested scene change stops it, because the
@@ -142,7 +142,14 @@ public final class HeadlessDriver implements AutoCloseable {
     private volatile long notifications;
     private long seenNotifications;
     private long dropped;
-    private boolean acted;
+    private volatile boolean acted;
+
+    /**
+     * The driver of the Run in this process, so that the executor can say an Action was handed to
+     * the game without every caller having to remember to. One process hosts one Run (ADR-0007),
+     * and the driver already registers itself as hook row 5's listener on the same assumption.
+     */
+    private static volatile HeadlessDriver live;
     private long waitIndex;
     private Window lastConfirmedWindow;
     private Window lastSeenWindow;
@@ -152,6 +159,31 @@ public final class HeadlessDriver implements AutoCloseable {
         this.boot = boot;
         this.scene = scene;
         Hooks.inputWait = this::noticed;
+        live = this;
+    }
+
+    /**
+     * Says that an Action was handed to the game, which is the third of the three things that make
+     * a new Input wait (ADR-0015 as story 1.5 amended it; the other two are the notification from
+     * the hero's act and a change of the window in front). The executor calls this, so that no
+     * caller has to notice.
+     *
+     * <p>Story 1.13 is why it exists. Until then the driver inferred it from the hero holding an
+     * action or resting, which is true of a move or an attack and false of an input that neither
+     * sets one nor rests: detaching the broken seal from armour plays the hero's operate animation
+     * and returns ({@code core/.../items/armor/Armor.java:190-197}), so the hero stayed ready, no
+     * act began unready, no window changed, and the Run stalled waiting for a wait that had already
+     * been served. An executor that announces its own work needs no such inference.
+     */
+    public static void actionHandedOver() {
+        HeadlessDriver driver = live;
+        if (driver == null || driver.closed) {
+            // No Run is being driven in this process, so there is no wait to end. A Run that has
+            // been closed keeps nothing: ADR-0007 gives a process one Run, and a stale driver must
+            // not be told anything by the next one's executor.
+            return;
+        }
+        driver.acted = true;
     }
 
     /**
@@ -176,7 +208,7 @@ public final class HeadlessDriver implements AutoCloseable {
         HeadlessBoot boot = HeadlessBoot.ensure();
         // A scene left by a Run that was never closed, whose actor thread ended on its own, goes
         // now and in its own profile: destroying a scene writes the badges and the journal
-        // (GameScene.java:780-781), and the next profile is the next Run's. With a live thread
+        // (GameScene.java:773-774), and the next profile is the next Run's. With a live thread
         // destroy() refuses, which is the refusal newGame would give.
         if (boot.game().currentScene() != null) {
             boot.game().destroy();
@@ -334,7 +366,7 @@ public final class HeadlessDriver implements AutoCloseable {
      * updated for more than 0.2 s of frame time, the chasm prompt's guard against a click meant for
      * the map ({@code .../levels/features/Chasm.java:77-92}), so a window is a wait from its second
      * frame in front. The inventory pane can be selecting an item with no window at all, and the map
-     * refuses clicks meanwhile ({@code .../scenes/GameScene.java:1386-1395}). And a resurrection is
+     * refuses clicks meanwhile ({@code .../scenes/GameScene.java:1373-1382}). And a resurrection is
      * offered to a hero who is not ready, through the resurrection window or the warning it stacks
      * over itself when a kept-item slot is empty ({@code .../windows/WndResurrect.java:98-114}).
      */
@@ -349,7 +381,7 @@ public final class HeadlessDriver implements AutoCloseable {
     /**
      * AD-5's condition on the game's state, the one definition the driver and the Observer share:
      * with no window in front, the hero waits and the inventory pane is not selecting
-     * ({@code .../scenes/GameScene.java:1386-1396}); with a window in front, it is a Prompt and the
+     * ({@code .../scenes/GameScene.java:1373-1383}); with a window in front, it is a Prompt and the
      * hero waits under it or is being offered a resurrection. The driver confirms a wait only when
      * this holds and two timing conditions of its own do, a window's second frame in front and an
      * empty render queue, which a reader of the state cannot see.
@@ -386,8 +418,11 @@ public final class HeadlessDriver implements AutoCloseable {
             sequence.reseed(k);
             O observation = sequence.observe(k);
             D decision = sequence.decide(k, observation);
+            // The sequence's own execute says whether anything was handed over: an executor that
+            // applied an Action announces it (actionHandedOver), and one that refused announces
+            // nothing. Setting the flag here regardless would manufacture a wait out of a refusal,
+            // which the review of story 1.13 caught.
             sequence.execute(k, decision);
-            acted = true;
             sequence.record(k, observation, decision);
         }
         return halt;
@@ -443,6 +478,9 @@ public final class HeadlessDriver implements AutoCloseable {
             return;
         }
         closed = true;
+        if (live == this) {
+            live = null;
+        }
         try {
             scene.stepper().endActorThread();
         } finally {
@@ -498,7 +536,7 @@ public final class HeadlessDriver implements AutoCloseable {
                 .append(waitIndex).append("; in front: ").append(Prompts.describe(window));
         if (window == null && GameScene.interfaceBlockingHero()) {
             out.append(", and the inventory pane is selecting an item, so the map refuses clicks"
-                    + " (GameScene.java:1386-1395)");
+                    + " (GameScene.java:1373-1382)");
         }
         out.append('.');
         if (acted) {

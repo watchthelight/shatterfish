@@ -40,6 +40,46 @@ class ValidActionsTest {
     }
 
     @Test
+    @DisplayName("a Prompt with no buttons offers exactly the tap that sends it away")
+    void a_message_offers_the_dismissal() {
+        Observation observation = Corpus.observation();
+        PromptSection message = new PromptSection(PromptKind.MESSAGE, "A title", "Something it says.", List.of());
+        Observation shown = new Observation(observation.header().prompt() == PromptKind.MESSAGE
+                ? observation.header()
+                : new HeaderSection(observation.header().version(), observation.header().upstreamTag(),
+                        observation.header().codexVersion(), observation.header().heroClass(),
+                        observation.header().challenges(), observation.header().depth(),
+                        observation.header().branch(), observation.header().sealed(),
+                        observation.header().oracle(), PromptKind.MESSAGE),
+                observation.map(), observation.actors(), observation.hero(), observation.inventory(),
+                observation.journal(), observation.log(), ActionsSection.NONE, message);
+
+        assertEquals(List.of(new Action.DismissPrompt()), ValidActions.of(shown).actions(),
+                "one Action, and not the wait a Brain must never take at a Prompt");
+    }
+
+    @Test
+    @DisplayName("the wait button is offered once: Rest(false) is the same human input as Wait")
+    void the_wait_button_is_offered_once() {
+        List<Action> valid = ValidActions.of(Corpus.observation()).actions();
+        assertTrue(valid.contains(new Action.Wait()), "the wait button");
+        assertTrue(valid.contains(new Action.Rest(true)), "and the rest button");
+        assertFalse(valid.contains(new Action.Rest(false)),
+                "which are two buttons, not three (core/.../ui/Toolbar.java:201-204, :223-226)");
+    }
+
+    @Test
+    @DisplayName("the armour ability is not offered, having no executor to apply it yet")
+    void the_ability_is_not_offered() {
+        Observation observation = Corpus.observation();
+        assertFalse(observation.hero().ability().isEmpty(), "the corpus hero has one");
+        List<Action> valid = ValidActions.of(observation).actions();
+        assertTrue(valid.stream().noneMatch(Action.Ability.class::isInstance),
+                "a menu offers nothing an executor would refuse (story 1.13's review)");
+        assertTrue(valid.stream().noneMatch(Action.AbilityAt.class::isInstance));
+    }
+
+    @Test
     @DisplayName("a move is one step to a cell beside the hero, and never a click on a distant one")
     void a_move_is_one_step() {
         Observation observation = Corpus.observation();
@@ -198,7 +238,7 @@ class ValidActionsTest {
         }
 
         // The two the game flags avoid rather than passable are steps all the same, since the
-        // hero's own rule is passable or avoid (Hero.java:1832-1835): the chasm, which asks before
+        // hero's own rule is passable or avoid (Hero.java:1823-1826): the chasm, which asks before
         // the jump, and the well, which is how a person drinks it.
         for (Tile avoid : List.of(Tile.CHASM, Tile.WELL)) {
             Observation there = Corpus.with(observation, withTile(observation.map(), right, avoid));
@@ -206,7 +246,7 @@ class ValidActionsTest {
                     avoid + " is a cell the hero can step onto; what happens then is the game's business");
         }
 
-        // A locked door and the boss floor's exit are not steps but unlocks (Hero.java:1993-1998).
+        // A locked door and the boss floor's exit are not steps but unlocks (Hero.java:1984-1989).
         for (Tile locked : List.of(Tile.LOCKED_DOOR, Tile.CRYSTAL_DOOR, Tile.LOCKED_EXIT)) {
             Observation shut = Corpus.with(observation, withTile(observation.map(), right, locked));
             List<Action> valid = ValidActions.of(shut).actions();
@@ -235,7 +275,7 @@ class ValidActionsTest {
             Observation under = Corpus.with(observation,
                     withHeap(observation.map(), new HeapView(hero, kind, false, item, price, "")));
             List<Action> valid = ValidActions.of(under).actions();
-            // What the hero itself would make of a click there (Hero.java:1974-1991): a plain heap
+            // What the hero itself would make of a click there (Hero.java:1965-1982): a plain heap
             // is picked up, a for-sale heap of one priced item is bought, and every other kind,
             // the locked chest included, is opened.
             Action expected = switch (kind) {

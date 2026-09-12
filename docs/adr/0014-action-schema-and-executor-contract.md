@@ -13,7 +13,8 @@ deciders: watchthelight (product owner), Claude (engineer)
 the Run log, or what "one Action" means when the game would carry out several steps from one
 click. The session 12 reviewer gate found this as a critical gap, and found a consequence that
 breaks a promise in the experience spine: a multi-cell move keeps `curAction` set and never
-returns the hero to the ready state between cells (`…/actors/hero/Hero.java:889-890`, `:977-995`),
+returns the hero to the ready state between cells (`…/actors/hero/Hero.java:1014-1018`, and
+`ready()`, which is what clears it, at `:937-943`),
 so a Decision per cell, and therefore an interruption per cell, is impossible if the executor
 issues a move target.
 
@@ -235,4 +236,49 @@ Boss lock row carries that now. They are the wiki-level facts non-negotiable 1 a
 bot to know, they are cited to the code that decides them, and E2's Codex is where they move when
 it exists. `ValidActionsTest` holds the rules over the schema's own corpus, in a module the build
 forbids from seeing the game, which is what "computed with no game running" means here.
+
+## Amendment: story 1.13 (2026-09-11)
+
+The executor exists: `org.shatterfish.harness.executor.ActionExecutor`, one method, `execute(
+Observation, Action)`, returning an `Outcome` that is either applied or rejected with a `Reason`.
+It asserts the Input wait before anything else, re-validates against the Observation's own set, and
+then makes the call a person's click, key or button makes. Paths abbreviate
+`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/` as `…/`, at `v4.0.0`.
+
+**No hook was needed, which was not obvious.** ADR-0016 spends action registration in E5, so this
+story had to reach every input through something upstream already makes public, and every input is:
+
+| Action | The call | Why it is the human's |
+|---|---|---|
+| `Step`, `Attack`, `Interact`, `PickUp`, `OpenChest`, `Buy`, `Unlock`, `Descend`, `Ascend` | `GameScene.handleCell(cell)` | it is the click: `Hero.handle` decides by cell which of those a click means (`…/actors/hero/Hero.java:1920-2008`) |
+| `Rest`, `Wait` | `Hero.rest(flag)` | the rest and wait buttons (`…/ui/Toolbar.java:203`, `:225`) |
+| `Search` | `Hero.search(true)` | the search button (`Toolbar.java:313`) |
+| `Talent` | `Hero.upgradeTalent(talent)` | what the pane's own button calls (`Hero.java:376`), under the guards the button carries
+(`…/ui/TalentButton.java:114-119`) |
+| `UseItem` | `Item.execute(hero, action)` | the item window's button (`…/items/Item.java:157`) |
+| `UseItemAt` | that, then `GameScene.handleCell(cell)` | the second click, which the game's own cell selector is waiting for |
+| `UseItemOn` | that, then the bag window's `ItemSelector.onSelect`, hiding first as its button does | the second tap (`…/windows/WndBag.java:145`, `:288-300`) |
+| `AnswerPrompt` | a `PointerEvent` posted at the button's place | the tap, delivered where the input system delivers one (`SPD-classes/…/input/PointerEvent.java:57-61`, `:132`) |
+| `DismissPrompt` | `Window.onBackPressed()` | the back key, and a tap outside the window (`…/ui/Window.java:223-225`) |
+
+**`DismissPrompt` is new**, appended to the sealed list, and ADR-0006's amendment says why: a
+message is a Prompt with no buttons, and this is the one thing a person can do with it. It carries
+nothing, so the codec writes its kind and stops.
+
+**`Rest(false)` is gone from the valid set.** The wait button and the rest button are the same call
+with the flag down, so `Wait` and `Rest(false)` were two entries for one human input; the set offers
+`Rest(true)` and `Wait`.
+
+**The driver is told when an Action is handed over.** ADR-0015 as story 1.5 amended it says a new
+Input wait follows the hero's own notification, a change of the window in front, *or* an Action
+handed to the game. The driver used to infer the third from the hero holding an action or resting,
+which detaching the broken seal does neither of (`…/items/armor/Armor.java:190-197`): it plays the
+operate animation and returns, and a Run stalled waiting for a wait that had already been served.
+`HeadlessDriver.actionHandedOver()` is called by the executor itself, so no caller has to notice.
+
+**What is still unsupported, with reasons**, which `ActionCompletenessTest` holds against the game's
+own list of hero actions: the alchemy pot, which opens a scene rather than a window and so is not an
+Input wait the Observer accepts; and mining with a pickaxe, a click on a wall, which the valid set
+cannot offer because a wall is not a cell a click walks onto. Both are E2's ground, and both would
+need a kind of their own.
 

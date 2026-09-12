@@ -15,7 +15,9 @@ import com.shatteredpixel.shatteredpixeldungeon.windows.WndBlacksmith;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndChooseSubclass;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndImpOld;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndOptions;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndMessage;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndQuest;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndTitledMessage;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndSadGhost;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndTradeItem;
@@ -78,6 +80,26 @@ public final class Prompts {
         if (window instanceof WndQuest || window instanceof WndSadGhost || window instanceof WndWandmaker
                 || window instanceof WndImpOld || window instanceof WndBlacksmith) {
             return PromptKind.QUEST;
+        }
+        if (window instanceof WndMessage || window instanceof WndTitledMessage) {
+            // A message the game shows and a person taps away (story 1.13). The hero is ready under
+            // it and the Run cannot go on until it goes, so it is a wait like any other, with no
+            // buttons and one Action: the dismissal.
+            //
+            // A titled message is one of these and is tested last of the message kinds, because the
+            // quest windows above extend it (…/windows/WndQuest.java:28) and are their own kind.
+            // The game opens plain ones itself: the shopkeeper's greeting, the vault's mirror and
+            // token door, the escape crystal, the scroll of enchantment and the blacksmith's
+            // entrance reached without a pickaxe (…/actors/mobs/npcs/Shopkeeper.java:263;
+            // …/actors/mobs/npcs/VaultMirror.java:140, :152; …/actors/mobs/npcs/VaultTokenDoor.java:107;
+            // …/items/quest/EscapeCrystal.java:145; …/levels/CavesLevel.java:136-140), each of which
+            // a step can reach and none of which the bot could send away before this story.
+            //
+            // WndStory is not one of these. Every site that opens one is a click of the player's own
+            // in the journal or the menu pane (…/ui/MenuPane.java:341; …/windows/WndJournal.java:265,
+            // :1033, :1035; …/windows/WndDocument.java:50), so it is a window the player opened and
+            // stays what such a window has always been here: a failure of the gate, not a Prompt.
+            return PromptKind.MESSAGE;
         }
         if (window instanceof WndOptions options) {
             return optionsKind(options);
