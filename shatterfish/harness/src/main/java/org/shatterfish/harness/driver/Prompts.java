@@ -18,6 +18,7 @@ import com.shatteredpixel.shatteredpixeldungeon.windows.WndOptions;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndMessage;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndQuest;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndStory;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndTitledMessage;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndSadGhost;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndTradeItem;
@@ -81,10 +82,18 @@ public final class Prompts {
                 || window instanceof WndImpOld || window instanceof WndBlacksmith) {
             return PromptKind.QUEST;
         }
-        if (window instanceof WndStory || window instanceof WndMessage) {
+        if (window instanceof WndStory || window instanceof WndMessage || window instanceof WndTitledMessage) {
             // A message the game shows and a person taps away (story 1.13). The hero is ready under
             // it and the Run cannot go on until it goes, so it is a wait like any other, with no
             // buttons and one Action: the dismissal.
+            //
+            // A titled message is one of these and is tested last of the message kinds, because the
+            // quest windows above extend it (…/windows/WndQuest.java:28) and are their own kind.
+            // The game opens plain ones itself: the shopkeeper's greeting, the vault's mirror and
+            // token door, the escape crystal, the scroll of enchantment and the caves' own line
+            // (…/actors/mobs/npcs/Shopkeeper.java:263; …/actors/mobs/npcs/VaultMirror.java:140,
+            // :152; …/actors/mobs/npcs/VaultTokenDoor.java:107; …/items/quest/EscapeCrystal.java:145;
+            // …/levels/CavesLevel.java:137), each of which would stop a Run the way a sign did.
             return PromptKind.MESSAGE;
         }
         if (window instanceof WndOptions options) {

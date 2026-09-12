@@ -19,6 +19,8 @@ import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndChooseSubclass;
+import com.shatteredpixel.shatteredpixeldungeon.ui.Icons;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndTitledMessage;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndInfoCell;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndMessage;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndOptions;
@@ -303,6 +305,25 @@ class PromptGateTest {
         assertTrue(refused.getMessage().contains("not waiting under it"), refused.getMessage());
         hero.ready = true;
         assertEquals(PromptKind.CHASM_JUMP, new Observer().header().prompt());
+    }
+
+    @Test
+    @DisplayName("a titled message the game opens is a message; the quest windows that extend it are not")
+    void a_titled_message_is_a_message() {
+        atTheFirstWait();
+        // The game opens plain titled messages itself: the shopkeeper's greeting, the vault's
+        // mirror and door, the escape crystal, the scroll of enchantment, the caves' own line.
+        GameScene.show(new WndTitledMessage(Icons.get(Icons.INFO), "A title", "Something it says."));
+        PromptSection message = new Observer().prompt();
+        assertEquals(PromptKind.MESSAGE, message.kind());
+        assertEquals("A title", message.title());
+        assertEquals(List.of(), message.options());
+        Windows.front().hide();
+
+        // A quest window extends the same class and keeps its own kind (WndQuest.java:28).
+        GameScene.show(new WndQuest(new Shopkeeper(), "The quest's own words."));
+        assertEquals(PromptKind.QUEST, new Observer().prompt().kind(), "a quest window is not a message");
+        Windows.front().hide();
     }
 
     @Test

@@ -573,10 +573,17 @@ sewers post when the hero leaves without the amulet (`…/levels/SewerLevel.java
 it, and the valid set had nothing to offer, so the Run stopped there with the bot able to see the
 window and unable to send it away. A person taps it and plays on.
 
-So `PromptKind` gains `MESSAGE`, appended: a `WndMessage` or a `WndStory` in front is a Prompt with
-the text it draws, no options, and one Action, `DismissPrompt`, which the executor takes by calling
-`Window.onBackPressed()` — what the back key does and what a tap outside the window does
-(`…/ui/Window.java:223-225`). The gate admits it like any other Prompt, so the Observation under a
+So `PromptKind` gains `MESSAGE`, appended: a `WndMessage`, a `WndStory` or a plain
+`WndTitledMessage` in front is a Prompt with the text it draws, no options, and one Action,
+`DismissPrompt`, which the executor takes by calling `Window.onBackPressed()` — what the back key
+does and what a tap outside the window does (`…/ui/Window.java:223-225`). The titled message is
+tested last of the three, because the quest windows are subclasses of it
+(`…/windows/WndQuest.java:28`) and keep their own kind; the game opens plain ones of its own accord
+at the shopkeeper's greeting, the vault's mirror and token door, the escape crystal, the scroll of
+enchantment and a line of the caves (`…/actors/mobs/npcs/Shopkeeper.java:263`;
+`…/actors/mobs/npcs/VaultMirror.java:140`, `:152`; `…/actors/mobs/npcs/VaultTokenDoor.java:107`;
+`…/items/quest/EscapeCrystal.java:145`; `…/levels/CavesLevel.java:137`), every one of which would
+have stopped a Run the way the sign did. The gate admits it like any other Prompt, so the Observation under a
 message is a whole Observation and the wait is a wait.
 
 What stays a failure is a window the *player* opens and the game is not waiting on: the examine
