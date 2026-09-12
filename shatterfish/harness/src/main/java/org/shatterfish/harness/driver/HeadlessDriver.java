@@ -25,6 +25,8 @@ import com.watabou.noosa.Scene;
 import org.shatterfish.harness.boot.HeadlessBoot;
 import org.shatterfish.harness.boot.HeadlessGame;
 import org.shatterfish.harness.observer.GameLogListener;
+import org.shatterfish.harness.boot.Profile;
+import org.shatterfish.harness.rng.RngControl;
 import org.shatterfish.harness.scene.HeadlessScene;
 import org.shatterfish.harness.scene.SceneStepper;
 
@@ -136,6 +138,9 @@ public final class HeadlessDriver implements AutoCloseable {
 
     private final HeadlessBoot boot;
     private HeadlessScene scene;
+
+    /** The Run's own generator control, which reseeds from the salt at every wait (ADR-0007). */
+    private RngControl rng;
     private long frames;
     private boolean closed;
     /** Written by the actor thread only, inside {@code Hero.act()}; read here between frames. */
@@ -205,6 +210,17 @@ public final class HeadlessDriver implements AutoCloseable {
      * acted yet. {@code seed} is what a player could type: {@code [0, DungeonSeed.TOTAL_SEEDS)}.
      */
     public static HeadlessDriver start(long seed, HeroClass heroClass) {
+        return start(seed, heroClass, 0L);
+    }
+
+    /**
+     * Starts a Run of {@code heroClass} with {@code seed}, salted {@code salt}, and creates its
+     * scene. The salt is the half of the tuple that decides what the game draws at each wait
+     * (ADR-0007): it is the runner's to choose, it is written down with the Run, and it reaches no
+     * Observation. Two Runs of one tuple draw the same numbers; two salts on one seed give the same
+     * dungeon and different rolls.
+     */
+    public static HeadlessDriver start(long seed, HeroClass heroClass, long salt) {
         HeadlessBoot boot = HeadlessBoot.ensure();
         // A scene left by a Run that was never closed, whose actor thread ended on its own, goes
         // now and in its own profile: destroying a scene writes the badges and the journal
@@ -230,7 +246,9 @@ public final class HeadlessDriver implements AutoCloseable {
         GameLogListener.install();
         HeadlessScene scene = new HeadlessScene();
         boot.game().switchTo(scene);
-        return new HeadlessDriver(boot, scene);
+        HeadlessDriver driver = new HeadlessDriver(boot, scene);
+        driver.rng = new RngControl(salt);
+        return driver;
     }
 
     /**
@@ -267,7 +285,10 @@ public final class HeadlessDriver implements AutoCloseable {
         // confirmed jump and the fall would otherwise jump unasked in this one.
         Chasm.jumpConfirmed = false;
         try {
-            boot.profile(Files.createTempDirectory("shatterfish-run"));
+            // The Profile is what a Run inherits from the player it pretends to be, and it is
+            // part of the Run's definition (ADR-0007): its own directory, the settings a Run
+            // declares, an empty history, and the version stamped on it.
+            Profile.prepare(boot, Files.createTempDirectory("shatterfish-run"));
         } catch (IOException e) {
             throw new UncheckedIOException("could not create a profile directory for the Run", e);
         }
@@ -337,6 +358,20 @@ public final class HeadlessDriver implements AutoCloseable {
         seenNotifications = notifications;
     }
 
+    /**
+     * The seed wait {@code k} of this Run draws from, which anyone can recompute from the salt and
+     * the published mix (ADR-0007). The reseed itself happens at the wait, in {@link
+     * #stepToInputWait()}; this is here so a Run can say what it did.
+     */
+    public long seedFor(long k) {
+        return rng.seedFor(k);
+    }
+
+    /** The salt this Run declares, which belongs in what the Run records and in no Observation. */
+    public long salt() {
+        return rng.salt();
+    }
+
     /** Steps until the hero waits for input, the hero is dead or a scene change is requested. */
     public Halt stepToInputWait() {
         return stepToInputWait(DEFAULT_FRAME_BUDGET);
@@ -397,6 +432,12 @@ public final class HeadlessDriver implements AutoCloseable {
                     waitIndex++;
                     lastConfirmedWindow = window;
                     acted = false;
+                    // The reseed belongs to the wait and not to any one caller: ADR-0013 puts it
+                    // at the head of the wait, before the Observation is read, and every caller of
+                    // this method is at the head of a wait when it returns. Doing it here is what
+                    // makes a Run a function of its tuple however it is driven — the driver's own
+                    // loop, a test, or the agent's.
+                    rng.reseed(waitIndex);
                     return new Halt(Reason.INPUT_WAIT, stepped, window, null, waitIndex);
                 }
                 if (notified && !heroWaits && !resurrecting) {
@@ -463,6 +504,8 @@ public final class HeadlessDriver implements AutoCloseable {
                 return halt;
             }
             long k = halt.waitIndex();
+            // The Run's own reseed already happened, at the wait itself; this is the sequence's,
+            // for whatever a caller wants to seed of its own (ADR-0013's step, ADR-0007's rule).
             sequence.reseed(k);
             O observation = sequence.observe(k);
             D decision = sequence.decide(k, observation);
@@ -528,6 +571,12 @@ public final class HeadlessDriver implements AutoCloseable {
         closed = true;
         if (live == this) {
             live = null;
+        }
+        try {
+            rng.release();
+        } catch (RuntimeException ignored) {
+            // A Run that is being closed has nothing to gain from a failure here, and the thread
+            // and the scene below matter more; the next Run pushes its own generator anyway.
         }
         try {
             scene.stepper().endActorThread();
