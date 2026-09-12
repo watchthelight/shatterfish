@@ -223,6 +223,82 @@ class ActionExecutorTest {
         assertEquals(null, Windows.front(), "and it is gone");
     }
 
+    @Test
+    @DisplayName("an Action that leaves no trace on the hero still ends its wait")
+    void an_action_with_no_trace_ends_its_wait() {
+        Observation observation = atTheFirstWait();
+        // Detaching the broken seal plays the hero's operate animation and returns
+        // (…/items/armor/Armor.java:190-197): no action held, no rest, nothing for the driver to
+        // infer from. The executor says so itself, and the next wait arrives (story 1.13).
+        ItemView armor = observation.inventory().items().stream()
+                .filter(item -> item.actions().contains("DETACH"))
+                .findFirst().orElseThrow(() -> new AssertionError("the Warrior starts with a sealed armor"));
+        int index = observation.inventory().items().indexOf(armor);
+
+        assertInstanceOf(Outcome.Applied.class, executor.execute(observation,
+                new Action.UseItem(new ItemRef(index, armor.name(), armor.quantity()), "DETACH")));
+        assertEquals(null, hero.curAction, "the hero holds nothing and is not resting");
+        assertFalse(hero.resting);
+
+        // Without the executor's word, the driver would wait for a wait that had already been
+        // served, and this is the call that would never return.
+        driver.stepToInputWait();
+        assertTrue(new Observer().observe().inventory().items().stream()
+                        .anyMatch(item -> item.name().toLowerCase(java.util.Locale.ROOT).contains("seal")),
+                "the seal is in the pack now");
+    }
+
+    @Test
+    @DisplayName("a heap under the hero is picked up by the click on its own cell")
+    void a_heap_underfoot_is_picked_up() {
+        Observation observation = atTheFirstWait();
+        ItemView stones = observation.inventory().items().stream()
+                .filter(item -> item.actions().contains("DROP"))
+                .findFirst().orElseThrow();
+        int index = observation.inventory().items().indexOf(stones);
+        int packed = observation.inventory().items().size();
+
+        // Dropped, it becomes a heap on the hero's own cell, which the set then offers to pick up.
+        assertInstanceOf(Outcome.Applied.class, executor.execute(observation,
+                new Action.UseItem(new ItemRef(index, stones.name(), stones.quantity()), "DROP")));
+        driver.stepToInputWait();
+        Observation dropped = new Observer().observe();
+        assertTrue(dropped.map().heaps().stream().anyMatch(heap -> heap.cell() == hero.pos),
+                "the heap is underfoot");
+        assertTrue(dropped.actions().actions().contains(new Action.PickUp()), "and the set offers to take it");
+
+        assertInstanceOf(Outcome.Applied.class, executor.execute(dropped, new Action.PickUp()));
+        driver.stepToInputWait();
+        Observation again = new Observer().observe();
+        assertEquals(packed, again.inventory().items().size(), "the pack holds what it held");
+        assertTrue(again.map().heaps().stream().noneMatch(heap -> heap.cell() == hero.pos),
+                "and the cell is bare");
+    }
+
+    @Test
+    @DisplayName("an item that moved between the read and the Action is a desync, not a wrong item used")
+    void an_item_that_moved_is_refused() {
+        Observation observation = atTheFirstWait();
+        ItemView food = observation.inventory().items().stream()
+                .filter(item -> item.actions().contains("EAT"))
+                .findFirst().orElseThrow();
+        int index = observation.inventory().items().indexOf(food);
+        Action.UseItem eat = new Action.UseItem(new ItemRef(index, food.name(), food.quantity()), "EAT");
+        assertTrue(observation.actions().actions().contains(eat), "the set offered it when the screen was read");
+
+        // The pack changes under the Action, as it would in a Replay that drifted: the item at that
+        // position is no longer the one the Observation named.
+        Item moved = itemAt(index);
+        moved.detachAll(hero.belongings.backpack);
+        String before = new Observer().observe().hash();
+
+        Outcome outcome = executor.execute(observation, eat);
+        Outcome.Rejected rejected = assertInstanceOf(Outcome.Rejected.class, outcome, outcome.toString());
+        assertEquals(Reason.ITEM_MOVED, rejected.reason(), rejected.detail());
+        assertTrue(rejected.detail().contains(food.name()), rejected.detail());
+        assertEquals(before, new Observer().observe().hash(), "and nothing was eaten");
+    }
+
     private Action.Step firstStep(Observation observation) {
         return observation.actions().actions().stream()
                 .filter(Action.Step.class::isInstance)
