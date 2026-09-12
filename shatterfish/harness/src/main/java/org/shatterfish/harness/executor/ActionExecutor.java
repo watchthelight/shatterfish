@@ -150,10 +150,24 @@ public final class ActionExecutor {
      * executor does the same, and says so rather than silently spending one.
      */
     private Outcome rest(Action action, Hero hero, boolean full) {
+        // The button's own first half. A press on wait or rest calls GameScene.cancel() and does
+        // nothing else when it answers true, which it does while the hero holds an action, is
+        // resting, or has a cell selector open (…/scenes/GameScene.java:1723-1736;
+        // …/ui/Toolbar.java:201-204, :222-226). The press takes back what the hero was doing, so
+        // the turn it would have passed is not passed.
+        //
+        // Headlessly this is unreachable and the mutation that removes it survives the battery,
+        // which is worth stating rather than hiding: the first two of cancel()'s three cases mean
+        // the hero is not at an Input wait, and the gate above has already refused; the third is a
+        // cell selector, which cannot be open in a harness Run because the scene installs none
+        // (hook row 5, …/scenes/GameScene.java:1639-1646). It stays because the same executor is
+        // what the overlay drives inside the real game (ADR-0016 assigns that to E5), where a
+        // person's own selector can be open when the bot is asked to act, and because a guard that
+        // mirrors the button is cheaper to keep than to rediscover.
         if (GameScene.cancel()) {
-            return new Outcome.Rejected(action, Reason.NO_SELECTOR,
-                    "a selector was open, so this press took it back rather than passing a turn"
-                            + " (…/ui/Toolbar.java:201-204)");
+            return new Outcome.Rejected(action, Reason.CANCELLED_INSTEAD,
+                    "the press took back what the hero was doing rather than passing a turn:"
+                            + " that is the button's own first half (…/ui/Toolbar.java:201-204)");
         }
         hero.rest(full);
         return applied(action);
@@ -231,6 +245,14 @@ public final class ActionExecutor {
             // The item window builds its buttons from actions(hero) and re-checks at the click
             // (…/windows/WndUseItem.java:51-61), so an action the item no longer offers is one no
             // person could press; the set may be a wait old, and this is where that shows.
+            //
+            // The mutation that removes this survives the battery, and the reason is worth stating:
+            // the schema will not carry an Action that contradicts its own Observation
+            // (Observation.java:120-127 refuses a use the item section does not list), so the only
+            // way here is an Observation the world has moved past — the item changed between the
+            // reading and the use. StaleObservationTest drives that case for the talent, where the
+            // state is cheap to move; for an item every move also moves the reference, and the
+            // check above answers first with ITEM_MOVED.
             return new Outcome.Rejected(action, Reason.NOT_OFFERED,
                     item.name() + " offers " + item.actions(hero) + " and not " + what);
         }

@@ -32,6 +32,16 @@ public enum Reason {
     NO_SUCH_OPTION,
 
     /**
+     * The press cancelled what the hero was doing instead of doing anything of its own. The wait
+     * and rest buttons ask {@code GameScene.cancel()} first and stop there when it answers true,
+     * which it does while the hero holds an action, is resting, or has a selector open
+     * ({@code core/.../scenes/GameScene.java:1723-1736}; {@code …/ui/Toolbar.java:201-204}). The
+     * game did change — that is what cancelling is — so this rejection, like {@code NO_SELECTOR},
+     * can follow a change.
+     */
+    CANCELLED_INSTEAD,
+
+    /**
      * The kind has no path at this tag: the armour ability, whose call belongs to the ability
      * stories, and {@code MoveTo}, which is a human's click on a distant cell and never the bot's.
      * Neither is offered by the valid set, so this is what a Brain gets for building one by hand.
