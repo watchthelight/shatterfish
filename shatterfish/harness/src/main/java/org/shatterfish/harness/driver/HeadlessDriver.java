@@ -142,7 +142,14 @@ public final class HeadlessDriver implements AutoCloseable {
     private volatile long notifications;
     private long seenNotifications;
     private long dropped;
-    private boolean acted;
+    private volatile boolean acted;
+
+    /**
+     * The driver of the Run in this process, so that the executor can say an Action was handed to
+     * the game without every caller having to remember to. One process hosts one Run (ADR-0007),
+     * and the driver already registers itself as hook row 5's listener on the same assumption.
+     */
+    private static volatile HeadlessDriver live;
     private long waitIndex;
     private Window lastConfirmedWindow;
     private Window lastSeenWindow;
@@ -152,6 +159,27 @@ public final class HeadlessDriver implements AutoCloseable {
         this.boot = boot;
         this.scene = scene;
         Hooks.inputWait = this::noticed;
+        live = this;
+    }
+
+    /**
+     * Says that an Action was handed to the game, which is the third of the three things that make
+     * a new Input wait (ADR-0015 as story 1.5 amended it; the other two are the notification from
+     * the hero's act and a change of the window in front). The executor calls this, so that no
+     * caller has to notice.
+     *
+     * <p>Story 1.13 is why it exists. Until then the driver inferred it from the hero holding an
+     * action or resting, which is true of a move or an attack and false of an input that neither
+     * sets one nor rests: detaching the broken seal from armour plays the hero's operate animation
+     * and returns ({@code core/.../items/armor/Armor.java:190-197}), so the hero stayed ready, no
+     * act began unready, no window changed, and the Run stalled waiting for a wait that had already
+     * been served. An executor that announces its own work needs no such inference.
+     */
+    public static void actionHandedOver() {
+        HeadlessDriver driver = live;
+        if (driver != null) {
+            driver.acted = true;
+        }
     }
 
     /**
@@ -443,6 +471,9 @@ public final class HeadlessDriver implements AutoCloseable {
             return;
         }
         closed = true;
+        if (live == this) {
+            live = null;
+        }
         try {
             scene.stepper().endActorThread();
         } finally {

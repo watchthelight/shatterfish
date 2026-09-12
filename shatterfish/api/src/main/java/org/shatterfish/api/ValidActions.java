@@ -130,9 +130,11 @@ public final class ValidActions {
         underfoot(map, hero.cell(), observation.header(), actions);
         items(observation, actions);
         hero(hero, targets(observation), actions);
-        // The buttons that need nothing: rest until something happens, rest one turn, search, wait.
+        // The buttons that need nothing. Resting until something happens is the rest button;
+        // waiting one turn is the wait button, which is the same call with the flag down
+        // (core/.../ui/Toolbar.java:203, :225), so Rest(false) is not offered beside Wait: one
+        // human input, one entry. Story 1.13 found the pair while writing the executor.
         actions.add(new Action.Rest(true));
-        actions.add(new Action.Rest(false));
         actions.add(new Action.Search());
         actions.add(new Action.Wait());
         return new ActionsSection(actions);
