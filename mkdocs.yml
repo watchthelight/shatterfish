@@ -103,6 +103,7 @@ nav:
   - System:
       - Architecture: architecture.md
       - Fairness: fairness.md
+      - Methodology: methodology.md
       - Upstream: UPSTREAM.md
       - Codebase map: codebase-map.md
       - Glossary: glossary.md
