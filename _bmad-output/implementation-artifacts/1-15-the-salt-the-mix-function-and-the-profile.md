@@ -82,7 +82,7 @@ than at the tag, and the numbers below are the tag's.
   it reports, beside the seed.
 - `shatterfish/harness/src/test/java/org/shatterfish/harness/observer/*LeakTest.java` — the shape a
   leak test takes here.
-- `docs/adr/0007-determinism-and-the-run-tuple.md:126-150` — the decision this story implements,
+- `docs/adr/0007-rng-seeding-strategy.md:126-150` — the decision this story implements,
   word for word.
 
 ## Tasks & Acceptance
@@ -106,7 +106,7 @@ than at the tag, and the numbers below are the tag's.
   Profile per Run, and a Run refused against a version it does not know.
 - [ ] `docs/methodology.md` plus its `mkdocs.yml` nav entry — the mix, its vector, and what the
   Profile is, so a skeptic can recompute both.
-- [ ] `docs/adr/0007-determinism-and-the-run-tuple.md` — an amendment recording what the stack
+- [ ] `docs/adr/0007-rng-seeding-strategy.md` — an amendment recording what the stack
   turned out to allow and what the reseed does at a wait.
 
 **Acceptance Criteria:**
