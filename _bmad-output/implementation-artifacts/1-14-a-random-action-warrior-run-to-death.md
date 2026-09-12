@@ -5,7 +5,7 @@ title: "A random-action Warrior Run to death"
 epic: 1
 issue: 27
 type: 'feature'
-status: 'in-review'
+status: 'done'
 created: '2026-09-11'
 updated: '2026-09-11'
 review_loop_iteration: 1
