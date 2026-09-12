@@ -369,6 +369,40 @@ class ActionExecutorTest {
     }
 
     @Test
+    @DisplayName("an item the selector would not take is refused, and the Run goes on")
+    void an_item_the_selector_refuses() {
+        Observation observation = atTheFirstWait();
+        // The seal starts on the armour, so a person detaches it first; both are the item window's
+        // own buttons. After this the seal is in the pack and offers AFFIX, which opens a window
+        // asking which armour — and the window draws a button only for an item it accepts
+        // (…/windows/WndBag.java:478-487).
+        Action.UseItem detach = observation.actions().actions().stream()
+                .filter(Action.UseItem.class::isInstance).map(Action.UseItem.class::cast)
+                .filter(use -> use.action().equals("DETACH"))
+                .findFirst().orElseThrow(() -> new AssertionError("the armour offers its seal"));
+        assertInstanceOf(Outcome.Applied.class, executor.execute(observation, detach));
+        driver.stepToInputWait();
+
+        Observation withSeal = new Observer().observe();
+        Action.UseItemOn onNothingItTakes = withSeal.actions().actions().stream()
+                .filter(Action.UseItemOn.class::isInstance).map(Action.UseItemOn.class::cast)
+                .filter(use -> use.action().equals("AFFIX") && !use.target().name().contains("armor"))
+                .findFirst().orElseThrow(() -> new AssertionError("the set offers the seal an item it"
+                        + " cannot take: " + withSeal.actions().actions()));
+
+        Outcome.Rejected rejected = assertInstanceOf(Outcome.Rejected.class,
+                executor.execute(withSeal, onNothingItTakes),
+                "a target the window draws no button for is not a tap a person could make");
+        assertEquals(Reason.NO_SELECTOR, rejected.reason(), rejected.toString());
+        assertEquals(null, Windows.front(), "and the window it opened is gone");
+
+        // The refusal followed a change, so the driver has to hear that something was handed over;
+        // without that the Run stops here, which is how story 1.14 found this.
+        driver.stepToInputWait();
+        assertTrue(Dungeon.hero.isAlive(), "and the Run goes on");
+    }
+
+    @Test
     @DisplayName("a talent takes a point only while the pane would give it one")
     void a_talent_stops_at_its_ceiling() {
         atTheFirstWait();
