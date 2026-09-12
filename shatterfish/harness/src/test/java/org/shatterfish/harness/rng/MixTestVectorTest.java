@@ -5,7 +5,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -171,6 +173,20 @@ class MixTestVectorTest {
         } finally {
             Random.popGenerator();
         }
+    }
+
+    @Test
+    @DisplayName("a drawn salt is drawn, not decided in advance")
+    void a_drawn_salt_is_a_secret() {
+        // The whole reason there is no default salt: a salt anyone can predict lets a Brain compute
+        // the game's coming draws from the published mix, with no game code and no Observation.
+        // A draw that returned a constant would look like a working Run and be a broken promise.
+        Set<Long> drawn = new HashSet<>();
+        for (int draw = 0; draw < 64; draw++) {
+            drawn.add(Salt.draw());
+        }
+        assertEquals(64, drawn.size(), "sixty-four draws, sixty-four salts");
+        assertTrue(drawn.stream().anyMatch(salt -> salt != 0L), "and not zero");
     }
 
     /** What a generator seeded {@code seed} gives after {@code skip} draws, for the next {@code take}. */

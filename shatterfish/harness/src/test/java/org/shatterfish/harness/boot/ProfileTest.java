@@ -9,6 +9,8 @@ import org.shatterfish.harness.driver.HeadlessDriver;
 import org.shatterfish.harness.executor.ActionExecutor;
 import org.shatterfish.harness.executor.Outcome;
 import org.shatterfish.harness.observer.Observer;
+import com.shatteredpixel.shatteredpixeldungeon.journal.Document;
+import org.shatterfish.harness.rng.Mix;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -38,6 +40,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ProfileTest {
 
+    /** The salt these Runs declare. There is no default: see ADR-0007 and {@code Salt}. */
+    private static final long RUN_SALT = 0x5A17_5A17L;
+
     @Test
     @DisplayName("a Run declares its settings, whatever the process did before it")
     void the_settings_are_the_run_s() throws IOException {
@@ -65,9 +70,93 @@ class ProfileTest {
         Badges.loadLocal(bundle);
         assertTrue(Badges.totalUnlocked(false) > 0, "a Run that earned something");
 
+        // The journal is the half that actually changes the dungeon: the guide pages a floor
+        // scatters are the ones the player has not found (core/.../levels/RegularLevel.java:561-589),
+        // so a page found in one Run and remembered into the next is a different floor from the
+        // same seed. The game's loader will not re-read it, so the Profile restores it directly.
+        Document.ADVENTURERS_GUIDE.findPage(Document.GUIDE_SEARCHING);
+        assertTrue(Document.ADVENTURERS_GUIDE.isPageFound(Document.GUIDE_SEARCHING),
+                "a Run that read a page");
+
         Profile.prepare(HeadlessBoot.ensure(), Files.createTempDirectory("shatterfish-profile-test"));
 
         assertEquals(0, Badges.totalUnlocked(false), "and the next Run starts with nothing");
+        assertTrue(!Document.ADVENTURERS_GUIDE.isPageFound(Document.GUIDE_SEARCHING),
+                "and with none of the pages the last Run found");
+    }
+
+    @Test
+    @DisplayName("the stack is the Run's from the moment the floor is built, not from the first wait")
+    @Timeout(value = 10, unit = TimeUnit.MINUTES)
+    void the_stack_is_owned_from_the_start() {
+        // The game's own initialisation ends by seeding the base generator from the system
+        // (core/.../Dungeon.java:254), so anything drawn while the floor is built and before the
+        // first wait would be the moment's and not the tuple's. Two Runs of one tuple are asked for
+        // numbers before either has had a wait: if the Run owns the stack from init onward, both
+        // are at the same place in the same stream and answer alike.
+        //
+        // The first Run in a process is not one of the two: it consumes exactly one draw more than
+        // every Run after it, whatever the tuple, which is a warm-up somewhere in the game rather
+        // than anything drawn from entropy — an entropy-seeded floor would differ in every number,
+        // not by one position in the same stream. That single draw is part of what issue #70 has
+        // left, and story 1.16 is where it gets named.
+        streamAtTheStart(4242L, 0x5A17L);
+        assertEquals(streamAtTheStart(4242L, 0x5A17L), streamAtTheStart(4242L, 0x5A17L),
+                "two Runs of one tuple, before either has been asked for an Action");
+        assertTrue(!streamAtTheStart(4242L, 0x5A17L).equals(streamAtTheStart(4242L, 0x5A18L)),
+                "and another salt draws otherwise");
+    }
+
+    @Test
+    @DisplayName("each wait of a real Run draws from the mix of its salt and that wait")
+    @Timeout(value = 10, unit = TimeUnit.MINUTES)
+    void every_wait_of_a_run_draws_from_its_own_seed() {
+        // MixTestVectorTest holds RngControl to this with no game running; this holds the Run to it,
+        // which is what the published methodology promises a skeptic they can check.
+        HeadlessDriver driver = HeadlessDriver.start(4242L, HeroClass.WARRIOR, RUN_SALT);
+        try {
+            for (int wait = 0; wait < 4; wait++) {
+                long k = driver.stepToInputWait().waitIndex();
+                List<Integer> drawn = new ArrayList<>();
+                for (int draw = 0; draw < 8; draw++) {
+                    drawn.add(com.watabou.utils.Random.Int(1_000_000));
+                }
+                assertEquals(fromSeed(Mix.mix(RUN_SALT, k), 8), drawn,
+                        "the draws at wait " + k + " are the mix's, not the last wait's");
+                com.shatteredpixel.shatteredpixeldungeon.Dungeon.hero.rest(false);
+                HeadlessDriver.actionHandedOver();
+            }
+        } finally {
+            driver.close();
+        }
+    }
+
+    /** The numbers on top of the stack the moment a Run has been started and not yet played. */
+    private static List<Integer> streamAtTheStart(long seed, long salt) {
+        HeadlessDriver driver = HeadlessDriver.start(seed, HeroClass.WARRIOR, salt);
+        try {
+            List<Integer> drawn = new ArrayList<>();
+            for (int draw = 0; draw < 8; draw++) {
+                drawn.add(com.watabou.utils.Random.Int(1_000_000));
+            }
+            return drawn;
+        } finally {
+            driver.close();
+        }
+    }
+
+    /** What a generator seeded {@code seed} gives, through the game's own push. */
+    private static List<Integer> fromSeed(long seed, int take) {
+        com.watabou.utils.Random.pushGenerator(seed);
+        try {
+            List<Integer> drawn = new ArrayList<>();
+            for (int draw = 0; draw < take; draw++) {
+                drawn.add(com.watabou.utils.Random.Int(1_000_000));
+            }
+            return drawn;
+        } finally {
+            com.watabou.utils.Random.popGenerator();
+        }
     }
 
     @Test

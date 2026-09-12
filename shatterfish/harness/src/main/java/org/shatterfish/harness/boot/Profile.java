@@ -3,10 +3,7 @@ package org.shatterfish.harness.boot;
 import com.shatteredpixel.shatteredpixeldungeon.Badges;
 import com.shatteredpixel.shatteredpixeldungeon.SPDSettings;
 import com.shatteredpixel.shatteredpixeldungeon.Rankings;
-import com.shatteredpixel.shatteredpixeldungeon.journal.Bestiary;
-import com.shatteredpixel.shatteredpixeldungeon.journal.Catalog;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Document;
-import com.watabou.utils.Bundle;
 import com.watabou.utils.FileUtils;
 
 import java.io.IOException;
@@ -116,10 +113,15 @@ public final class Profile {
      */
     private static void emptyTheHistory() {
         Badges.reset();
-        Bundle empty = new Bundle();
-        Catalog.restore(empty);
-        Bestiary.restore(empty);
-        Document.restore(empty);
+        // Every page of every document, deleted one by one, because that is the only public way to
+        // put one back: restore() adds what a bundle holds and never takes anything away
+        // (core/.../journal/Document.java:357-375), so restoring from an empty bundle leaves a
+        // process's pages exactly where they were.
+        for (Document document : Document.values()) {
+            for (String page : document.pageNames()) {
+                document.deletePage(page);
+            }
+        }
         // Rankings holds its records for the life of the process once loaded; dropping them makes
         // the next load read this Run's own directory, which is empty.
         Rankings.INSTANCE.records = null;
