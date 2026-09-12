@@ -58,9 +58,9 @@ class MirroredUpstreamTest {
     private static final Map<String, String> AT_THE_TAG = new LinkedHashMap<>();
 
     static {
-        AT_THE_TAG.put("descend", "7f46035c23458334c48eabedacfeefefeb6876827f0d0ef2c22c04ae0a0cfcc3");
-        AT_THE_TAG.put("ascend", "740476f007ee4654970f1405143153d440050832b50f0909878c8689b29512d1");
-        AT_THE_TAG.put("fall", "1084c453ce83469d5829e9e2a8a0ea4f61687b2bdeb673ee9944a35bf84febb5");
+        AT_THE_TAG.put("descend", "0c65079550e7dd00dd86bb64e100a197f6663fca2af69f39f0c40c524d27d1b2");
+        AT_THE_TAG.put("ascend", "f6a635468b6c132dae1da10d521b0b7f607c71f986c2d34d8f7573ff2531cecd");
+        AT_THE_TAG.put("fall", "ed2bf92d1754f7ae8e172bee0f5d0798cfb2f5d1e727772867ef88d7267ed810");
     }
 
     @Test
@@ -105,9 +105,17 @@ class MirroredUpstreamTest {
         return "";
     }
 
+    /**
+     * The file's text with its line endings normalised. A checkout on Windows may hold every
+     * line ending as a carriage return and a newline where a checkout on Linux holds one
+     * character, so a digest of the raw bytes says two machines disagree about a body neither
+     * has touched — which is what this test did on its first run through CI.
+     */
     private static String read(Path file) {
         try {
-            return Files.readString(file, StandardCharsets.UTF_8);
+            return Files.readString(file, StandardCharsets.UTF_8)
+                    .replace("\r\n", "\n")
+                    .replace("\r", "\n");
         } catch (IOException e) {
             throw new UncheckedIOException("could not read " + file, e);
         }
