@@ -141,25 +141,53 @@ class MixTestVectorTest {
         assertEquals(ours, again, "reseeding the same wait gives the same numbers, whatever was"
                 + " underneath, which is what makes release safe to call");
 
-        // And release really takes this Run's generator off rather than leaving it on top: after
-        // three waits and one release, what is drawn is not the third wait's stream. Nothing can
-        // read the stack's depth, so this is how a stack that only ever grows is noticed.
-        RngControl deeper = new RngControl(11L);
-        for (long k = 0; k < 3; k++) {
-            deeper.reseed(k);
+        // And a Run leaves the stack exactly as deep as it found it. Nothing can read the depth, so
+        // a generator with a known stream is put underneath and asked afterwards: whatever the Run
+        // did in between, the next draws must be that generator's next draws. A Run that pushed a
+        // generator a wait and never popped one would answer with its own instead.
+        Random.pushGenerator(999L);
+        try {
+            List<Integer> sentinelFirst = new ArrayList<>();
+            for (int draw = 0; draw < 4; draw++) {
+                sentinelFirst.add(Random.Int(1_000_000));
+            }
+
+            RngControl deeper = new RngControl(11L);
+            for (long k = 0; k < 3; k++) {
+                deeper.reseed(k);
+            }
+            for (int draw = 0; draw < 5; draw++) {
+                Random.Int(1_000_000);
+            }
+            deeper.release();
+
+            List<Integer> sentinelNext = new ArrayList<>();
+            for (int draw = 0; draw < 4; draw++) {
+                sentinelNext.add(Random.Int(1_000_000));
+            }
+            assertEquals(sentinelContinuation(999L, sentinelFirst.size(), sentinelNext.size()), sentinelNext,
+                    "after a Run releases, the generator underneath is the one being drawn from, and"
+                            + " it has advanced by exactly the draws made before the Run began");
+        } finally {
+            Random.popGenerator();
         }
-        List<Integer> lastWait = new ArrayList<>();
-        for (int draw = 0; draw < 8; draw++) {
-            lastWait.add(Random.Int(1_000_000));
+    }
+
+    /** What a generator seeded {@code seed} gives after {@code skip} draws, for the next {@code take}. */
+    private static List<Integer> sentinelContinuation(long seed, int skip, int take) {
+        Random.pushGenerator(seed);
+        try {
+            for (int draw = 0; draw < skip; draw++) {
+                Random.Int(1_000_000);
+            }
+            List<Integer> drawn = new ArrayList<>();
+            for (int draw = 0; draw < take; draw++) {
+                drawn.add(Random.Int(1_000_000));
+            }
+            return drawn;
+        } finally {
+            Random.popGenerator();
         }
-        deeper.reseed(2);
-        deeper.release();
-        List<Integer> afterRelease = new ArrayList<>();
-        for (int draw = 0; draw < 8; draw++) {
-            afterRelease.add(Random.Int(1_000_000));
-        }
-        assertNotEquals(lastWait, afterRelease, "a released Run leaves none of its generators behind,"
-                + " so the draws afterwards are not its last wait's");
     }
 
     /** What a generator seeded with {@code seed} gives, through the game's own push. */
