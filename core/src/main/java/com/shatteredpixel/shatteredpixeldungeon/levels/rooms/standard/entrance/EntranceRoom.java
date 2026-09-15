@@ -101,6 +101,7 @@ public class EntranceRoom extends StandardRoom {
 
 	public static void placeEarlyGuidePages(Level level, Room r){
 		//use a separate generator here so meta progression doesn't affect levelgen
+		Random.pushGenerator();
 		// shatterfish-hook:6
 		// Seeded from the floor's own seed rather than left unseeded. Upstream keeps this draw
 		// away from the seeded stream so that meta progression cannot shift level generation, and
@@ -110,7 +111,10 @@ public class EntranceRoom extends StandardRoom {
 		// upstream's intent: it depends on the dungeon, not on what any player has read. The
 		// offset keeps this stream distinct from the floor's own layout stream, which Level.create
 		// pushes from the same seed. Story 1.15 measured this as the last thing that moved between
-		// two Runs of one tuple; issue #70 carries the evidence.
+		// two Runs of one tuple; issue #70 carries the evidence. The vanilla push above stays and
+		// is taken straight off again, because a hook adds and never deletes: constructing an
+		// unseeded generator draws nothing from the game's stream, so popping it costs nothing.
+		Random.popGenerator();
 		Random.pushGenerator(Dungeon.seedCurDepth() + 0xB00L);
 
 		//places the first guidebook page on floor 1
