@@ -203,7 +203,20 @@ public class Random {
 		
 		int size = chances.size();
 
+		// shatterfish-hook:6
+		// Ordered by name before it is walked, but only where vanilla's own order is undefined: a
+		// map keyed by Class walks in identity-hash order, which differs between processes, so the
+		// same seeded draw picks a different key in a second JVM, and a class's name is stable where
+		// its hash is not. A LinkedHashMap already walks in a defined order that the game relies on
+		// (Generator's category maps are filled in declaration order and drawn from inside the
+		// floor's seeded push), and a map keyed by anything but Class walks in an order its keys'
+		// own hashes fix, so both are left exactly as vanilla lays them out. Every key keeps its own
+		// weight; only the order the slices are laid out in changes, and only for the case that had
+		// no order to keep. The review of story 1.16 caught the unconditional first draft.
 		Object[] values = chances.keySet().toArray();
+		if (!(chances instanceof java.util.LinkedHashMap) && values.length > 0 && values[0] instanceof Class) {
+			java.util.Arrays.sort(values, java.util.Comparator.comparing(String::valueOf));
+		}
 		float[] probs = new float[size];
 		float sum = 0;
 		for (int i=0; i < size; i++) {

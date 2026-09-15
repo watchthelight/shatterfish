@@ -58,6 +58,22 @@ class ProfileTest {
     }
 
     @Test
+    @DisplayName("a preference the game flipped in one Run does not reach the next")
+    void the_preferences_are_fresh() throws IOException {
+        // The game turns this off by itself when a player drags the waterskin out of a quickslot
+        // (core/.../ui/QuickSlotButton.java:390), and a Run that inherited it starts with a
+        // different hero screen: the two-JVM determinism test found this on its first full build,
+        // after the thousand random Runs had dragged the waterskin about.
+        SPDSettings.quickslotWaterskin(false);
+        SPDSettings.vaultInjureWarns(3);
+
+        Profile.prepare(HeadlessBoot.ensure(), Files.createTempDirectory("shatterfish-profile-test"));
+
+        assertTrue(SPDSettings.quickslotWaterskin(), "the waterskin is quickslotted, as for a new player");
+        assertEquals(0, SPDSettings.vaultInjureWarns(), "and the vault has warned nobody yet");
+    }
+
+    @Test
     @DisplayName("a Run starts with none of the badges the last one earned")
     void the_history_is_empty() throws IOException {
         // The game reads its own history: a snake stops dodging after four misses only once the
@@ -99,7 +115,8 @@ class ProfileTest {
         // every Run after it, whatever the tuple, which is a warm-up somewhere in the game rather
         // than anything drawn from entropy — an entropy-seeded floor would differ in every number,
         // not by one position in the same stream. That single draw is part of what issue #70 has
-        // left, and story 1.16 is where it gets named.
+        // left, and story 1.16 named it: the guidebook was placed from an unseeded generator, and its
+        // placement loop retried a different number of times in every process.
         streamAtTheStart(4242L, 0x5A17L);
         assertEquals(streamAtTheStart(4242L, 0x5A17L), streamAtTheStart(4242L, 0x5A17L),
                 "two Runs of one tuple, before either has been asked for an Action");
@@ -242,29 +259,4 @@ class ProfileTest {
         }
     }
 
-    /**
-     * The screen at each wait of a Run played by pressing the same button every time. Waiting is
-     * the one input always offered and always meaning the same thing, so two Runs given it are two
-     * Runs given one Action list — which is what a tuple is.
-     */
-    private static List<String> screensOf(long seed, long salt) {
-        HeadlessDriver driver = HeadlessDriver.start(seed, HeroClass.WARRIOR, salt);
-        try {
-            List<String> screens = new ArrayList<>();
-            ActionExecutor executor = new ActionExecutor();
-            for (int wait = 0; wait < 12; wait++) {
-                if (driver.stepToInputWait().reason() != HeadlessDriver.Reason.INPUT_WAIT) {
-                    break;
-                }
-                Observation observation = new Observer().observe();
-                screens.add(observation.hash());
-                if (!(executor.execute(observation, new Action.Wait()) instanceof Outcome.Applied)) {
-                    break;
-                }
-            }
-            return screens;
-        } finally {
-            driver.close();
-        }
-    }
 }

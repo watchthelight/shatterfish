@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: '2026-09-04'
-last_updated: '2026-09-12'
+last_updated: '2026-09-15'
 project: shatterfish
 project_key: NOKEY
 tracking_system: file-system
@@ -51,7 +51,7 @@ development_status:
   1-13-the-actionexecutor: done
   1-14-a-random-action-warrior-run-to-death: done
   1-15-the-salt-the-mix-function-and-the-profile: done
-  1-16-identity-order-and-the-two-jvm-determinism-test: backlog
+  1-16-identity-order-and-the-two-jvm-determinism-test: review
   1-17-the-differential-and-toggle-tests: backlog
   1-18-oracle-mode-gated-and-marked: backlog
   1-19-thread-confinement: backlog

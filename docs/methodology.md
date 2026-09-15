@@ -101,11 +101,16 @@ fills it deliberately; a directory prepared by a different version of this file 
 than played against, because a Run recorded under one Profile and replayed under another is not the
 same Run.
 
-**Profile version 1** is: English strings, the intro off, the support prompt already answered, the
-compact interface, and an empty history. The history is emptied rather than merely unread: the
-game's own loaders each return early once a process has called them, so the harness restores the
-badges, the journal's catalog, bestiary and documents, and the rankings from an empty bundle, which
-is what those loaders do with the file a fresh directory does not have.
+**Profile version 2** is: fresh preferences, and on top of them English strings, the intro off, the
+support prompt already answered, the compact interface, the waterskin in a quickslot, and an empty
+history. The preferences are cleared per Run because the game writes its own during play — dragging
+the waterskin out of a quickslot turns off the setting that slots it for every game after, and the
+hero records the vault's warning — so a process that has played many Runs would otherwise start the
+next one with a different hero screen from a fresh process's; the two-process determinism test found
+exactly that. The history is emptied rather than merely unread: the game's own loaders each return
+early once a process has called them, so the harness clears the badges, deletes every journal page
+and drops the rankings through the loaders' own public calls. Version 1, which inherited a process's
+preferences, was never published against.
 
 Two of those deserve their reasons. The **compact interface** is the one a phone player uses; the
 full interface hands an item selector to an inventory pane that a headless Run draws nowhere and no
@@ -117,12 +122,20 @@ The Profile is part of the tuple in the sense that matters: change it and the Ru
 the old one are no longer comparable, which is why it carries a version and the version is in every
 results page.
 
-## What is not yet true
+## What is shown, and what is not
 
-A Run is reproducible in its draws and not yet in its outcome. With the salt controlling every draw
-from the game's initialisation onwards and the history emptied per Run, two Runs of one tuple still
-diverge: one floor-one item lands a cell apart, and the cell creeps by one with each Run in a
-process. A value that creeps is counted rather than drawn, so the cause is not the random stream —
-it is iteration order over identity hashes, which the next story removes along with a determinism
-test that spans two processes. Until that lands, treat a published Run's numbers as reproducible in
-what the game rolled and not in what the bot met. The tracking issue is #70.
+The same tuple, played by the same policy, gives the same Observation hash at every wait — twice in
+one process, after that process has played a thousand other Runs, and in two other processes that
+share nothing with the first but the code and the tuple. `DeterminismTwoJvmTest` asks all three,
+thirty waits deep, on every pull request. The item that used to move between Runs of one tuple was
+the guidebook, placed from a generator the game deliberately leaves unseeded; hook row 6 seeds it
+from the floor's own seed, and issue #70 closed with that.
+
+Two things are not shown here. A two-process test on one machine cannot see identity-hash order at
+all: two JVMs started the same way give the same objects the same hashes, so the three ordering
+sites of row 6 are held by `IdentityOrderTest` for what they are, and the first test that could see
+them by behaviour is the cross-platform comparison, the same tuple on Windows and on Linux, which is
+story 3.4's nightly job. And row 6 does not reach everything: `Random.element` over class-keyed
+collections and the copies `Actor.all()` and `Actor.chars()` return still walk by identity, which
+issue #73 records with the callers named. Treat a published Run's numbers as reproducible on the
+machine that produced them, and read the nightly page before treating them as more.
