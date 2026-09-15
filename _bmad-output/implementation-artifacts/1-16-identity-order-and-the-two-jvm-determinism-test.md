@@ -77,8 +77,9 @@ than at the tag; the numbers below are the tag's.
   evidence.
 - `shatterfish/harness/.../driver/HeadlessDriver.java` — `start(seed, heroClass, salt)`, the reseed
   at each wait, and `main` — the shape a second process needs.
-- `shatterfish/harness/.../boot/Profile.java` — what a Run inherits; unchanged by this story but the
-  thing that makes two processes comparable at all.
+- `shatterfish/harness/.../boot/Profile.java` — what a Run inherits, and changed by this story after
+  all: version 2 clears the process's preferences per Run, because the game writes its own during
+  play and the two-JVM test's first full build found the difference in a quickslot.
 - `docs/adr/0016-hook-ledger-corrected-by-story-1-1.md:61` — row 6, and its wording.
 - `docs/UPSTREAM.md:68-75` — the hooks table this row joins, and the "Verified at tag" column.
 
@@ -99,6 +100,10 @@ than at the tag; the numbers below are the tag's.
   can be asked the same question.
 - [x] `shatterfish/harness/src/test/java/org/shatterfish/harness/determinism/DeterminismTwoJvmTest.java`
   — runs that main in two JVMs and compares, wait by wait.
+- [x] Added under review and not in the plan: `IdentityOrderTest`, holding the three ordering
+  sites directly because a two-process test on one machine cannot; `Profile` version 2, with
+  fresh preferences per Run; the `chances` sort guarded to maps whose order vanilla leaves
+  undefined; issue #73 for the two places row 6 does not reach.
 
 **Acceptance Criteria:**
 - Given the hook, when the same tuple is played in two separate JVM processes, then every
@@ -112,6 +117,13 @@ than at the tag; the numbers below are the tag's.
   cross-platform comparison is named as story 3.4's nightly job rather than attempted here.
 
 ## Spec Change Log
+
+- **Review, 2026-09-15 (BLOCK, then taken).** The `chances` sort reordered `LinkedHashMap`s whose
+  order vanilla defines, so the fork's seed generated a different floor from upstream's; the sort
+  now applies only to `Class`-keyed `HashMap`s and the test holds both halves. The battery showed
+  the two-JVM test blind to the three ordering sites on one machine; `IdentityOrderTest` holds
+  them. `Random.element` and the copies `Actor.all()`/`Actor.chars()` return are not covered and
+  are #73. KEEP: the add-only shape, the three-answers comparison, the guidebook seed's offset.
 
 ## Design Notes
 

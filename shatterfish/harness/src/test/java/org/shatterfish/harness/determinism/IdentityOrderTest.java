@@ -81,43 +81,64 @@ class IdentityOrderTest {
     }
 
     @Test
-    @DisplayName("a class-keyed choice is laid out by name, whatever order the map walks in")
-    void chances_are_laid_out_by_name() {
-        // Keys whose HashMap order differs from their name order: found by looking, because a
-        // String's hash is not its alphabet. With the sort, the seeded draw lands on the same key
-        // however the map happens to walk; without it, the draw lands on whichever key the map
-        // walks to first, which is the map's business and not the tuple's.
-        List<String> keys = keysWhoseHashOrderIsNotTheirNameOrder();
-        HashMap<String, Float> oneWay = new HashMap<>();
-        HashMap<String, Float> otherWay = new LinkedHashMap<>();
-        for (String key : keys) {
-            oneWay.put(key, 1f);
+    @DisplayName("a class-keyed choice is laid out by name, and only that one")
+    void chances_are_laid_out_by_name_only_where_vanilla_had_no_order() {
+        // Classes whose HashMap walk differs from their name order, found by looking: identity
+        // hashes are what they are. With the hook, the seeded draw lands on the same class however
+        // the map happens to walk; without it, on whichever class the map walks to first, which is
+        // the process's business and not the tuple's.
+        List<Class<?>> keys = classesWhoseHashOrderIsNotTheirNameOrder();
+        HashMap<Class<?>, Float> byHash = new HashMap<>();
+        for (Class<?> key : keys) {
+            byHash.put(key, 1f);
         }
-        for (int i = keys.size() - 1; i >= 0; i--) {
-            otherWay.put(keys.get(i), 1f);
+        List<Class<?>> sorted = new ArrayList<>(keys);
+        sorted.sort(java.util.Comparator.comparing(String::valueOf));
+        for (long seed = 1; seed <= 40; seed++) {
+            assertEquals(predicted(sorted, seed), pick(byHash, seed), "seed " + seed + ", class keys");
         }
 
-        List<String> sorted = new ArrayList<>(keys);
-        sorted.sort(null);
+        // A map whose walk order vanilla defines is left exactly as vanilla lays it out: the
+        // generator's category maps are LinkedHashMaps filled in declaration order and drawn from
+        // inside the floor's seeded push, so sorting them would make this fork's seed generate a
+        // different floor from upstream's. The review of story 1.16 caught the first draft doing
+        // exactly that.
+        List<Class<?>> reversed = new ArrayList<>(keys);
+        java.util.Collections.reverse(reversed);
+        HashMap<Class<?>, Float> defined = new LinkedHashMap<>();
+        for (Class<?> key : reversed) {
+            defined.put(key, 1f);
+        }
         for (long seed = 1; seed <= 40; seed++) {
-            String expected = predictedByName(sorted, seed);
-            assertEquals(expected, pick(oneWay, seed), "seed " + seed + ", the map walked one way");
-            assertEquals(expected, pick(otherWay, seed), "seed " + seed + ", the map walked the other");
+            assertEquals(predicted(reversed, seed), pick(defined, seed),
+                    "seed " + seed + ", a map whose order vanilla defines keeps it");
+        }
+
+        // And a map keyed by something other than a class is left alone too: its keys' own hashes
+        // fix its walk, the same in every process.
+        HashMap<String, Float> strings = new HashMap<>();
+        for (String key : List.of("zeta", "alpha", "mu", "b", "omega", "k")) {
+            strings.put(key, 1f);
+        }
+        List<String> walked = new ArrayList<>(strings.keySet());
+        for (long seed = 1; seed <= 40; seed++) {
+            assertEquals(predicted(walked, seed), pickStrings(strings, seed),
+                    "seed " + seed + ", string keys walk as the map walks them");
         }
     }
 
-    /** What the game's own algorithm gives when the slices are laid out in name order. */
-    private static String predictedByName(List<String> sortedKeys, long seed) {
+    /** What the game's own algorithm gives when the slices sit in {@code order}. */
+    private static <K> K predicted(List<K> order, long seed) {
         Random.pushGenerator(seed);
         try {
-            float value = Random.Float(sortedKeys.size());
-            return sortedKeys.get(Math.min(sortedKeys.size() - 1, (int) value));
+            float value = Random.Float(order.size());
+            return order.get(Math.min(order.size() - 1, (int) value));
         } finally {
             Random.popGenerator();
         }
     }
 
-    private static String pick(HashMap<String, Float> chances, long seed) {
+    private static Class<?> pick(HashMap<Class<?>, Float> chances, long seed) {
         Random.pushGenerator(seed);
         try {
             return Random.chances(chances);
@@ -126,18 +147,29 @@ class IdentityOrderTest {
         }
     }
 
-    private static List<String> keysWhoseHashOrderIsNotTheirNameOrder() {
-        // Six short keys; the pair whose bucket order is not alphabetical exists in any sample of
-        // this size, and the loop below proves it rather than assuming it.
-        List<String> candidates = List.of("zeta", "alpha", "mu", "b", "omega", "k");
-        HashMap<String, Float> map = new HashMap<>();
-        for (String key : candidates) {
+    private static String pickStrings(HashMap<String, Float> chances, long seed) {
+        Random.pushGenerator(seed);
+        try {
+            return Random.chances(chances);
+        } finally {
+            Random.popGenerator();
+        }
+    }
+
+    private static List<Class<?>> classesWhoseHashOrderIsNotTheirNameOrder() {
+        // A dozen classes; some pair walks out of name order in any process, and the loop proves
+        // it for this one rather than assuming it.
+        List<Class<?>> candidates = List.of(String.class, Integer.class, Long.class, Double.class,
+                Boolean.class, Character.class, Object.class, Number.class, Thread.class,
+                Runnable.class, Iterable.class, Comparable.class);
+        HashMap<Class<?>, Float> map = new HashMap<>();
+        for (Class<?> key : candidates) {
             map.put(key, 1f);
         }
-        List<String> walked = new ArrayList<>(map.keySet());
-        List<String> sorted = new ArrayList<>(candidates);
-        sorted.sort(null);
-        assertTrue(!walked.equals(sorted), "a map that walks its keys out of name order: " + walked);
+        List<Class<?>> walked = new ArrayList<>(map.keySet());
+        List<Class<?>> sorted = new ArrayList<>(candidates);
+        sorted.sort(java.util.Comparator.comparing(String::valueOf));
+        assertTrue(!walked.equals(sorted), "a map that walks its classes out of name order: " + walked);
         return candidates;
     }
 

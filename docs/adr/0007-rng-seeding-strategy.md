@@ -254,9 +254,19 @@ a defect recorded. It is in issue #70, in `ProfileTest`'s own note, and on the m
 
 **The identity-order row landed, and it was not only about identity order.** The pre-mortem above
 said "identity-hash order hides in a place the hook row does not cover; mitigation: the two-JVM
-test", and both halves of that came true. `Actor.process()`'s tie-break, `Level`'s mob and blob
-collections and `Random.chances`' key order were the ordering cases, and the two-JVM test would
-have caught any of them. What it also caught was not an ordering at all: `EntranceRoom` pushes an
+test", and half of that came true. `Actor.process()`'s tie-break, `Level`'s mob and blob
+collections and `Random.chances`' key order were the ordering cases — and the two-JVM test, it
+turns out, cannot see any of them on one machine: two JVMs started the same way give the same
+objects the same identity hashes, so a `HashSet` walks alike in both, and the mutation battery
+found that reverting each ordering site left the test green. The pre-mortem's mitigation was
+therefore blind to the very thing it was written for, and `IdentityOrderTest` holds those sites
+directly instead, by what they are and do; the cross-platform comparison of story 3.4 is the
+first test that could see them by behaviour. The `chances` sort itself had to be narrowed: the
+first draft sorted every map, and the generator's category maps are `LinkedHashMap`s filled in
+declaration order and drawn from inside the floor's seeded push, so the fork's seed generated a
+different floor from upstream's until the fairness review caught it; the sort now applies only to
+a `HashMap` keyed by `Class`, the one case vanilla leaves unordered. What the two-JVM test did
+catch was not an ordering at all: `EntranceRoom` pushes an
 unseeded generator to keep meta progression away from level generation, and an unseeded generator
 draws from the system. Row 6 was widened by ADR-0016's amendment to cover it, and the guidebook's
 generator is seeded from the floor's own seed plus an offset — which keeps upstream's intent, since
@@ -273,11 +283,19 @@ said; what was being counted was retries.
 failed on its third assertion: two fresh processes agreed with each other and disagreed with the
 test worker, which had played a thousand Runs first. The first screen differed in one quickslot.
 The game turns the waterskin's auto-slotting off by itself when a player drags it out of a slot
-(`…/ui/QuickSlotButton.java:283`, `:390`) and the hero records the vault's warning
-(`…/actors/hero/Hero.java:963`) — preferences the game writes during play, which version 1 of the
-Profile inherited from the process. The Profile now clears the process's preferences before it
+(`…/ui/QuickSlotButton.java:390`; `:283` turns it back on) and the hero records the vault's
+warning (`…/actors/hero/Hero.java:953-954`) — preferences the game writes during play, which
+version 1 of the Profile inherited from the process. The Profile now clears the process's preferences before it
 declares its own, so a Run begins from the game's defaults whatever the process did before it, and
 the version is raised because what a Run inherits changed. Version 1 was never published against.
+
+**What row 6 does not reach.** Two places keep identity order, and neither can be hooked add-only:
+`Random.element(Collection)` is one return expression, so the class-keyed collections that go
+through it — the censer's gases, the distortion trap's mobs, the spawner's rare alternatives — are
+still walked by identity, and `Actor.all()` and `Actor.chars()` return plain `HashSet` copies of
+the insertion-ordered sets, so their callers walk by identity too. Option 10 above promised the
+`element` half and this story did not deliver it; issue #73 carries both, with the callers named.
+Neither shows on one machine, for the reason above.
 
 **What is now true, and how it is held.** The same tuple, played by the same policy, gives the same
 Observation hash at every wait — twice in one process, and in two other processes that share nothing

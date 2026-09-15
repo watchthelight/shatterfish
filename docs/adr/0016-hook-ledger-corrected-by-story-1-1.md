@@ -96,7 +96,11 @@ either has one question to answer, not two.
 decides an outcome", and three of its four sites are that: `Actor.all` and `Actor.chars`, which
 `process()` walks to break a tie between actors due at the same moment; `Level.mobs` and
 `Level.blobs`, re-inserted on every load and walked wherever the level asks which it reaches first;
-and `Random.chances`, which lays a class-keyed map's slices out in the order the map's keys come. The
+and `Random.chances`, which lays a class-keyed map's slices out in the order the map's keys come —
+sorted by name now, and only where vanilla had no order to keep: the first draft sorted every
+map, and the generator's category maps are `LinkedHashMap`s filled in declaration order and drawn
+from inside the floor's seeded push, so the fork's seed generated a different floor from
+upstream's until the fairness review caught it. The
 fourth is not an ordering. `EntranceRoom.placeEarlyGuidePages` pushes an unseeded generator on
 purpose, so that meta progression cannot shift level generation, and pays for it with a draw from
 the system — story 1.15 measured the guidebook landing on a different cell in every Run of one tuple
@@ -112,8 +116,9 @@ on the lines after them, and the vanilla unseeded push in `EntranceRoom` stands,
 next line, and the seeded push follows. The cost is one allocation thrown away per construction and
 one generator constructed and discarded per floor, none of which draws from the game's stream. The
 benefit is the one the rule exists for: an upgrade merge that rewrites any of these sites keeps
-vanilla's line and loses ours, which is a determinism failure the two-JVM test catches, rather than
-losing vanilla's line and keeping ours, which nothing would.
+vanilla's line and loses ours, which `IdentityOrderTest` catches for the ordering sites and the
+two-JVM test for the guidebook's, rather than losing vanilla's line and keeping ours, which nothing
+would.
 
 **The budget stands at six of ten spent.** Rows 7 to 10 are E5's and E8's, as the table says; row 6
 landed in one story with five markers across four files, `Level` carrying two because it builds the

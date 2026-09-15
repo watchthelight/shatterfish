@@ -70,8 +70,8 @@ public final class Profile {
         boot.profile(directory);
         // Fresh preferences, not inherited ones. The game writes its own preferences during play:
         // dragging the waterskin out of a quickslot turns off the setting that slots it for every
-        // game after (core/.../ui/QuickSlotButton.java:283, :390), and the hero records the vault's
-        // warning (core/.../actors/hero/Hero.java:963). A process that has played many Runs
+        // game after (core/.../ui/QuickSlotButton.java:390; :283 turns it back on), and the hero
+        // records the vault's warning (core/.../actors/hero/Hero.java:953-954). A process that has played many Runs
         // therefore starts the next one with a different hero screen from a fresh process's, which
         // is exactly what the two-JVM determinism test found on its first full build. Every Run
         // begins from the game's defaults, and then declares its own.
@@ -102,7 +102,7 @@ public final class Profile {
         // the broken seal stopped there — story 1.14 found it.
         SPDSettings.interfaceSize(0);
         // The waterskin in a quickslot, which is the game's default and the one the game turns off
-        // by itself when a player drags it out (core/.../ui/QuickSlotButton.java:283); declared so
+        // by itself when a player drags it out (core/.../ui/QuickSlotButton.java:390); declared so
         // that the Profile says it rather than relying on the cleared preferences' default.
         SPDSettings.quickslotWaterskin(true);
     }

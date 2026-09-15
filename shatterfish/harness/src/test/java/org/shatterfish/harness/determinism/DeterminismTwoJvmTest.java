@@ -23,12 +23,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * The same tuple, played the same way, is the same Run — in this process twice, and in two other
  * processes that share nothing with this one but the code and the tuple.
  *
- * <p>This is the promise every number Shatterfish publishes rests on (non-negotiable 5), and it is
- * the one test in this epic that cannot be faked by a lucky process: identity hashes, the order a
- * {@code HashSet} walks in, and the entropy an unseeded generator draws from all differ between JVMs,
- * so a Run that depended on any of them would agree with itself here and disagree across the
- * process boundary. Story 1.15 could hold the first half; hook row 6 is what makes the second half
- * true.
+ * <p>This is the promise every number Shatterfish publishes rests on (non-negotiable 5). What it can
+ * see is anything drawn from the system — an unseeded generator, which is what moved the guidebook
+ * between Runs of one tuple — and anything a process accumulates, which is what a preference the
+ * game flipped in an earlier Run was. What it cannot see, on one machine, is identity-hash order:
+ * two JVMs started the same way give the same objects the same hashes, so a {@code HashSet} walks
+ * alike in both, and the mutation battery found that reverting each ordering site of hook row 6
+ * left this test green. {@code IdentityOrderTest} holds those sites directly; the first test that
+ * could see them by behaviour is the cross-platform comparison.
  *
  * <p>Two processes are compared with each other and with this one, so the assertion is three
  * answers to one question. The cross-platform comparison — the same tuple on Windows and on Linux —
