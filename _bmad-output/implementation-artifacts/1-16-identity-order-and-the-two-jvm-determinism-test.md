@@ -5,10 +5,10 @@ title: "Identity order and the two-JVM determinism test"
 epic: 1
 issue: 29
 type: 'feature'
-status: 'ready-for-dev'
+status: 'in-review'
 created: '2026-09-12'
 updated: '2026-09-12'
-review_loop_iteration: 0
+review_loop_iteration: 1
 baseline_commit: 'a1ab2affd'
 ---
 
@@ -85,19 +85,19 @@ than at the tag; the numbers below are the tag's.
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `core/.../actors/Actor.java`, `core/.../levels/Level.java` — the collections whose iteration
+- [x] `core/.../actors/Actor.java`, `core/.../levels/Level.java` — the collections whose iteration
   order decides an outcome become insertion-ordered, each marked `// shatterfish-hook:6`.
-- [ ] `SPD-classes/.../utils/Random.java` — the class-keyed choice is ordered by name before it is
+- [x] `SPD-classes/.../utils/Random.java` — the class-keyed choice is ordered by name before it is
   walked, marked the same way.
-- [ ] `core/.../levels/rooms/standard/entrance/EntranceRoom.java` — the guidebook's generator is
+- [x] `core/.../levels/rooms/standard/entrance/EntranceRoom.java` — the guidebook's generator is
   seeded from the floor's own seed rather than left unseeded, marked the same way.
-- [ ] `docs/UPSTREAM.md` — row 6, with its guard and its reason, and every site listed.
-- [ ] `docs/adr/0016-hook-ledger-corrected-by-story-1-1.md` — an amendment widening row 6 from
+- [x] `docs/UPSTREAM.md` — row 6, with its guard and its reason, and every site listed.
+- [x] `docs/adr/0016-hook-ledger-corrected-by-story-1-1.md` — an amendment widening row 6 from
   "identity-hash ordering" to what it actually has to cover, and saying why.
-- [ ] `shatterfish/harness/src/main/java/org/shatterfish/harness/determinism/RunFingerprint.java` —
+- [x] `shatterfish/harness/src/main/java/org/shatterfish/harness/determinism/RunFingerprint.java` —
   a main that plays a tuple by a fixed Action list and prints one hash a wait, so a second process
   can be asked the same question.
-- [ ] `shatterfish/harness/src/test/java/org/shatterfish/harness/determinism/DeterminismTwoJvmTest.java`
+- [x] `shatterfish/harness/src/test/java/org/shatterfish/harness/determinism/DeterminismTwoJvmTest.java`
   — runs that main in two JVMs and compares, wait by wait.
 
 **Acceptance Criteria:**

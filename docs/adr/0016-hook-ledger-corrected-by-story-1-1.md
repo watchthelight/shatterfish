@@ -89,3 +89,32 @@ either has one question to answer, not two.
   by ADR-0008's own rule, which is the intended behaviour rather than a failure.
 - Rows 5 and 8 are confused in review because both touch the emote path. Mitigation: the marker id
   at each site names which, and the table above says what each is for in one line.
+
+## Amendment: story 1.16 (2026-09-15)
+
+**Row 6 is widened.** The table above names it "remove identity-hash ordering from anything that
+decides an outcome", and three of its four sites are that: `Actor.all` and `Actor.chars`, which
+`process()` walks to break a tie between actors due at the same moment; `Level.mobs` and
+`Level.blobs`, re-inserted on every load and walked wherever the level asks which it reaches first;
+and `Random.chances`, which lays a class-keyed map's slices out in the order the map's keys come. The
+fourth is not an ordering. `EntranceRoom.placeEarlyGuidePages` pushes an unseeded generator on
+purpose, so that meta progression cannot shift level generation, and pays for it with a draw from
+the system — story 1.15 measured the guidebook landing on a different cell in every Run of one tuple
+(issue #70). So the row now reads **"remove whatever makes the same tuple a different Run in another
+process"**, which is the question a reviewer of any of its sites has to answer, and the widening is
+recorded here rather than assumed.
+
+**Row 6's shape is add-only, and the wrap rule made it so.** The first draft replaced four vanilla
+constructions in place, which deletes a vanilla line, and `HooksVanillaTest` refused it: a hook
+encloses vanilla code or relocates it, and never deletes it. The rule was right and the shape was
+wrong. The vanilla initialisers in `Actor` and `Level` stand and are reassigned to their linked forms
+on the lines after them, and the vanilla unseeded push in `EntranceRoom` stands, is popped on the
+next line, and the seeded push follows. The cost is one allocation thrown away per construction and
+one generator constructed and discarded per floor, none of which draws from the game's stream. The
+benefit is the one the rule exists for: an upgrade merge that rewrites any of these sites keeps
+vanilla's line and loses ours, which is a determinism failure the two-JVM test catches, rather than
+losing vanilla's line and keeping ours, which nothing would.
+
+**The budget stands at six of ten spent.** Rows 7 to 10 are E5's and E8's, as the table says; row 6
+landed in one story with five markers across four files, `Level` carrying two because it builds the
+same collections in two places.

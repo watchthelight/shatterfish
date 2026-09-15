@@ -249,3 +249,29 @@ creeps by one with each Run in a process — a value that creeps is counted rath
 That divergence is written down rather than asserted: a test that asserts it flaked, because the
 two Runs sometimes agree, and a build that fails for a reason unrelated to the change is worse than
 a defect recorded. It is in issue #70, in `ProfileTest`'s own note, and on the methodology page.
+
+## Amendment: story 1.16 (2026-09-15)
+
+**The identity-order row landed, and it was not only about identity order.** The pre-mortem above
+said "identity-hash order hides in a place the hook row does not cover; mitigation: the two-JVM
+test", and both halves of that came true. `Actor.process()`'s tie-break, `Level`'s mob and blob
+collections and `Random.chances`' key order were the ordering cases, and the two-JVM test would
+have caught any of them. What it also caught was not an ordering at all: `EntranceRoom` pushes an
+unseeded generator to keep meta progression away from level generation, and an unseeded generator
+draws from the system. Row 6 was widened by ADR-0016's amendment to cover it, and the guidebook's
+generator is seeded from the floor's own seed plus an offset — which keeps upstream's intent, since
+it depends on the dungeon and not on what any player has read.
+
+**The one extra draw is explained.** Story 1.15 found that the first Run in a process consumed
+exactly one draw more than every Run after it, in the same stream, whatever the tuple, and called it
+a warm-up. It was the guidebook: its placement loop retries until it finds a cell, an unseeded
+stream made the retry count vary, and the first Run's system-seeded generator happened to retry
+once more than the others' did. A value that creeps was counted rather than drawn, as that story
+said; what was being counted was retries.
+
+**What is now true, and how it is held.** The same tuple, played by the same policy, gives the same
+Observation hash at every wait — twice in one process, and in two other processes that share nothing
+with the first but the code and the tuple. `DeterminismTwoJvmTest` runs `RunFingerprint` in this JVM
+and in two fresh ones on the pull-request gate and compares all three, thirty waits deep. The
+cross-platform comparison, the same tuple on Windows and on Linux, is story 3.4's nightly job
+(ADR-0002) and is not attempted here. Issue #70 closes with this story.
