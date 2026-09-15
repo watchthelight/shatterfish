@@ -269,6 +269,16 @@ stream made the retry count vary, and the first Run's system-seeded generator ha
 once more than the others' did. A value that creeps was counted rather than drawn, as that story
 said; what was being counted was retries.
 
+**The Profile is version 2, and its preferences are fresh.** The two-JVM test's first full build
+failed on its third assertion: two fresh processes agreed with each other and disagreed with the
+test worker, which had played a thousand Runs first. The first screen differed in one quickslot.
+The game turns the waterskin's auto-slotting off by itself when a player drags it out of a slot
+(`…/ui/QuickSlotButton.java:283`, `:390`) and the hero records the vault's warning
+(`…/actors/hero/Hero.java:963`) — preferences the game writes during play, which version 1 of the
+Profile inherited from the process. The Profile now clears the process's preferences before it
+declares its own, so a Run begins from the game's defaults whatever the process did before it, and
+the version is raised because what a Run inherits changed. Version 1 was never published against.
+
 **What is now true, and how it is held.** The same tuple, played by the same policy, gives the same
 Observation hash at every wait — twice in one process, and in two other processes that share nothing
 with the first but the code and the tuple. `DeterminismTwoJvmTest` runs `RunFingerprint` in this JVM

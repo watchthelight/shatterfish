@@ -101,11 +101,16 @@ fills it deliberately; a directory prepared by a different version of this file 
 than played against, because a Run recorded under one Profile and replayed under another is not the
 same Run.
 
-**Profile version 1** is: English strings, the intro off, the support prompt already answered, the
-compact interface, and an empty history. The history is emptied rather than merely unread: the
-game's own loaders each return early once a process has called them, so the harness restores the
-badges, the journal's catalog, bestiary and documents, and the rankings from an empty bundle, which
-is what those loaders do with the file a fresh directory does not have.
+**Profile version 2** is: fresh preferences, and on top of them English strings, the intro off, the
+support prompt already answered, the compact interface, the waterskin in a quickslot, and an empty
+history. The preferences are cleared per Run because the game writes its own during play — dragging
+the waterskin out of a quickslot turns off the setting that slots it for every game after, and the
+hero records the vault's warning — so a process that has played many Runs would otherwise start the
+next one with a different hero screen from a fresh process's; the two-process determinism test found
+exactly that. The history is emptied rather than merely unread: the game's own loaders each return
+early once a process has called them, so the harness clears the badges, deletes every journal page
+and drops the rankings through the loaders' own public calls. Version 1, which inherited a process's
+preferences, was never published against.
 
 Two of those deserve their reasons. The **compact interface** is the one a phone player uses; the
 full interface hands an item selector to an inventory pane that a headless Run draws nowhere and no

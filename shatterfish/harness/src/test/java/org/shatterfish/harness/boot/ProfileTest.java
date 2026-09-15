@@ -58,6 +58,22 @@ class ProfileTest {
     }
 
     @Test
+    @DisplayName("a preference the game flipped in one Run does not reach the next")
+    void the_preferences_are_fresh() throws IOException {
+        // The game turns this off by itself when a player drags the waterskin out of a quickslot
+        // (core/.../ui/QuickSlotButton.java:283), and a Run that inherited it starts with a
+        // different hero screen: the two-JVM determinism test found this on its first full build,
+        // after the thousand random Runs had dragged the waterskin about.
+        SPDSettings.quickslotWaterskin(false);
+        SPDSettings.vaultInjureWarns(3);
+
+        Profile.prepare(HeadlessBoot.ensure(), Files.createTempDirectory("shatterfish-profile-test"));
+
+        assertTrue(SPDSettings.quickslotWaterskin(), "the waterskin is quickslotted, as for a new player");
+        assertEquals(0, SPDSettings.vaultInjureWarns(), "and the vault has warned nobody yet");
+    }
+
+    @Test
     @DisplayName("a Run starts with none of the badges the last one earned")
     void the_history_is_empty() throws IOException {
         // The game reads its own history: a snake stops dodging after four misses only once the
