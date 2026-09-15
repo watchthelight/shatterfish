@@ -5,7 +5,7 @@ title: "Identity order and the two-JVM determinism test"
 epic: 1
 issue: 29
 type: 'feature'
-status: 'in-review'
+status: 'done'
 created: '2026-09-12'
 updated: '2026-09-12'
 review_loop_iteration: 1
