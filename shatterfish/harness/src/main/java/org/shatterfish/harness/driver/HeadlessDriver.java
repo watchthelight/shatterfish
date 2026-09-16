@@ -27,7 +27,6 @@ import org.shatterfish.harness.boot.HeadlessGame;
 import org.shatterfish.harness.observer.GameLogListener;
 import org.shatterfish.harness.boot.Profile;
 import org.shatterfish.harness.rng.RngControl;
-import org.shatterfish.harness.rng.Salt;
 import org.shatterfish.harness.scene.HeadlessScene;
 import org.shatterfish.harness.scene.SceneStepper;
 
@@ -698,23 +697,5 @@ public final class HeadlessDriver implements AutoCloseable {
             separator = ", ";
         }
         return out.append("].").toString();
-    }
-
-    public static void main(String[] args) {
-        long seed = args.length > 0 ? Long.parseLong(args[0]) : 31_415_926L;
-        Boot boot = boot();
-        System.out.println("HeadlessDriver: booted libGDX " + boot.applicationType()
-                + " backend for Shattered Pixel Dungeon " + boot.upstreamVersion());
-        // The runner draws the salt and says what it drew, which is the whole of a Run's claim to
-        // being reproducible: anyone with the seed, the salt and the Actions can play it again.
-        long salt = Salt.draw();
-        try (HeadlessDriver driver = start(seed, HeroClass.WARRIOR, salt)) {
-            Halt halt = driver.stepToInputWait();
-            System.out.println("HeadlessDriver: salt " + Long.toHexString(salt));
-            System.out.println("HeadlessDriver: seed " + seed + " (" + DungeonSeed.convertToCode(seed) + "), "
-                    + HeroClass.WARRIOR.name() + ": " + halt.reason() + " after " + halt.framesStepped()
-                    + " frame(s); hero at cell " + Dungeon.hero.pos + " on depth " + Dungeon.depth);
-        }
-        Gdx.app.exit();
     }
 }
