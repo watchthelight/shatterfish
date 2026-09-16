@@ -166,3 +166,50 @@ proves it per row by comparing `Observation.sectionHashes()` before and after.
 - A rollout mutates static state that survives the restore. Mitigation: the restore path is the
   game's own level switch, which reassigns those; the restore-and-replay test with a rollout in
   between is the check.
+
+## Amendment: story 1.20 (2026-09-16)
+
+The E1 half of this record exists. Paths abbreviate `core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/`
+as `…/`, at `v4.0.0`.
+
+**`api` carries a handle and a contract, never state.** `SnapshotHandle` is an id, the Input wait
+it was taken at and the `scrubbed` flag; `RolloutResult` is Observations and a `RolloutEnd`;
+`BeliefSample` is an opaque versioned value in `Belief`'s shape; `BeliefSampler` and
+`Redeterminer` are interfaces with no implementation. `Simulator` is an abstract class rather than
+an interface so that the contract is in its shape: `simulate` is final and refuses a handle whose
+flag is false before the `rollout` it guards can run, and `Redeterminer.scrub` holds its result to
+being scrubbed. `ReservedInterfacesTest` holds both. The rollout host and the scrubber are E6's,
+as decided above; the search leak test joins the suite when Search exists.
+
+**`harness` holds the bytes, and only the driver package sees them.** `Snapshot` is a
+package-private class in the driver package: every file of the game's own save folder
+(`…/GamesInProgress.java:57-71`), written by `Dungeon.saveAll` (`…/Dungeon.java:706-717`) and
+held in memory, with the wait, the salt, the slot and the log listener's lines. `SnapshotStore`
+takes one through the driver and restores it by id. `SnapshotBoundaryTest` holds the type
+package-private and unreachable from outside its package by ArchUnit over every Shatterfish class,
+the store handing out handles only, and the `api` half free of bytes but for the sample's own.
+
+**The restore is a floor change around the game's own load.** `HeadlessDriver.restore` ends the
+actor thread, destroys the scene, writes the folder's files back, and does what the loading scene
+does on Continue (`…/scenes/InterlevelScene.java:733-747`): held allies cleared, the pane's log
+wiped, `loadGame`, `loadLevel`, `switchLevel` at the hero's cell, then a new headless scene. The
+wait index is set so that the first wait reached is the snapshot's own, and that wait's reseed
+(ADR-0007) replaces whatever the load drew through `Generator.restoreFromBundle`
+(`…/Dungeon.java:822`; `…/items/Generator.java:625-636`), which is the restore contract above,
+kept. The load's own log lines, the greeting the pane would draw, are dropped and the snapshot's
+lines put back at that wait: a restored Run's log is the Run's, not the load's. A snapshot from a
+Run with another salt is refused, since its waits would draw from another stream.
+
+**What the test holds.** `RestoreReplayTest` snapshots at wait 9, plays to wait 24 with a seeded
+random agent recording the Observation hash and the applied Action at each wait, restores, and
+holds the restored wait and every wait after it to the record, hash for hash; the same tuple with
+and without a snapshot gives the same hashes, so `saveAll`'s `Actor.fixTime` and the rest of the
+save change nothing the screen shows; an unknown handle is refused by name.
+
+**What a snapshot does not hold.** The journal is the process's, loaded once behind a private
+flag (`…/journal/Journal.java:34-36`), and no public call resets it; a guide page found between a
+snapshot and its restore stays found, and the next floor generated would read it
+(`…/levels/RegularLevel.java:561-575`). A restore within one floor is exact, which is what E5's
+take-over and E6's short rollouts need; a public reset is the harness's to ask of a hook row or
+of `docs/ideas.md`, recorded there. The badges and the rankings are likewise the process's, and
+nothing the screen shows reads them.

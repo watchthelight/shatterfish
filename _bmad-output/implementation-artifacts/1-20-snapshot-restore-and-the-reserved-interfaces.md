@@ -5,7 +5,7 @@ title: "Snapshot, restore, and the reserved interfaces"
 epic: 1
 issue: 33
 type: 'feature'
-status: 'in-progress'
+status: 'in-review'
 created: '2026-09-16'
 updated: '2026-09-16'
 review_loop_iteration: 0
@@ -92,24 +92,24 @@ as `…/`.
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `shatterfish/api/.../SnapshotHandle.java`, `RolloutResult.java`, `RolloutEnd.java`,
+- [x] `shatterfish/api/.../SnapshotHandle.java`, `RolloutResult.java`, `RolloutEnd.java`,
   `Simulator.java`, `BeliefSample.java`, `BeliefSampler.java`, `Redeterminer.java` -- the reserved
   types: an opaque handle, an abstract simulator whose `simulate` refuses an unscrubbed handle
   before its `rollout`, a result of Observations only, an opaque sample, and two interfaces with
   no implementation -- ADR-0009's `api` half.
-- [ ] `shatterfish/api/src/test/.../JsonRenderingTest.java` -- the new names in `HELPERS`;
+- [x] `shatterfish/api/src/test/.../JsonRenderingTest.java` -- the new names in `HELPERS`;
   `shatterfish/api/src/test/.../ReservedInterfacesTest.java` -- the two contracts.
-- [ ] `shatterfish/harness/.../driver/Snapshot.java` -- package-private: the game folder's files
+- [x] `shatterfish/harness/.../driver/Snapshot.java` -- package-private: the game folder's files
   in memory, the wait index, the salt, the slot, the log's lines -- the bytes that never leave.
-- [ ] `…/driver/SnapshotStore.java` -- `take(driver)` and `restore(handle)`; `…/driver/HeadlessDriver.java`
+- [x] `…/driver/SnapshotStore.java` -- `take(driver)` and `restore(handle)`; `…/driver/HeadlessDriver.java`
   -- `snapshot()` and `restore(Snapshot)`, the latter the scene switch's shape over the game's
   own load, with the wait index, the windows and the log's lines put back -- the restore.
-- [ ] `…/observer/GameLogListener.java` -- `restore(List<LogLine>)` -- the log put back.
-- [ ] `shatterfish/harness/src/test/.../driver/RestoreReplayTest.java` -- the replay, the
+- [x] `…/observer/GameLogListener.java` -- `restore(List<LogLine>)` -- the log put back.
+- [x] `shatterfish/harness/src/test/.../driver/RestoreReplayTest.java` -- the replay, the
   unchanged Run, the unknown handle -- FR-6's test.
-- [ ] `shatterfish/harness/src/test/.../SnapshotBoundaryTest.java` -- the ArchUnit rule and the
+- [x] `shatterfish/harness/src/test/.../SnapshotBoundaryTest.java` -- the ArchUnit rule and the
   handle's components.
-- [ ] `docs/adr/0009-snapshot-restore-and-redetermination.md` -- amendment for story 1.20;
+- [x] `docs/adr/0009-snapshot-restore-and-redetermination.md` -- amendment for story 1.20;
   `docs/architecture.md` -- the store in the inventory.
 
 **Acceptance Criteria:**
@@ -152,3 +152,98 @@ sides agree, and the unchanged-Run test holds the save itself harmless.
 **Commands:**
 - `./gradlew :harness:test -Pshatterfish.mobile=off --tests "org.shatterfish.harness.driver.RestoreReplayTest" --tests "org.shatterfish.harness.SnapshotBoundaryTest"` and `./gradlew :api:test` -- expected: green.
 - `./gradlew build -Pshatterfish.mobile=off` -- expected: green; `mkdocs build --strict` green.
+
+## Dev notes
+
+Implemented on `story/1-20-snapshot-restore-and-the-reserved-interfaces` from `904cab886`. Seven
+`api` types, two harness classes, two driver methods, one log-listener method, and three suites;
+no hook spent, no upstream file touched, no reflection into upstream. The replay held on the first
+run. The fairness review follows below.
+
+## Acceptance criteria and how each was met
+
+- **A restored Run replays hash for hash.** `RestoreReplayTest.a_restored_run_replays_hash_for_hash`:
+  wait 9 restored and waits 9 to 24 replayed to the record.
+- **A snapshot changes nothing.** `RestoreReplayTest.taking_a_snapshot_changes_nothing`.
+- **The boundary.** `SnapshotBoundaryTest`: `Snapshot` package-private and unreachable, the store
+  handing out handles only, the api half free of bytes.
+- **The contracts.** `ReservedInterfacesTest`: an unscrubbed handle refused before any rollout, a
+  redeterminer's unscrubbed result refused.
+- **The rollout host and the scrubber are E6's.** Named in ADR-0009's amendment.
+
+## What was built
+
+- `api`: `SnapshotHandle`, `Simulator`, `RolloutResult`, `RolloutEnd`, `BeliefSample`,
+  `BeliefSampler`, `Redeterminer`; `ReservedInterfacesTest`; the helpers list.
+- `harness.driver`: `Snapshot` (package-private), `SnapshotStore`, `HeadlessDriver.snapshot()` and
+  `restore(Snapshot)`; `GameLogListener.restore(lines)`.
+- `RestoreReplayTest`, `SnapshotBoundaryTest`; ADR-0009's amendment; the architecture inventory;
+  an idea for the journal.
+
+## What the story found
+
+- **The journal cannot be snapshotted.** `Journal.loadGlobal` runs once per process behind a
+  private flag and nothing public resets it; the parity fixture resets it by reflection, which
+  main code may not. A restore within one floor is exact; across a guide page found in between it
+  is not. Recorded in the amendment and `docs/ideas.md`.
+- **The load's own log lines would have broken the first restored wait.** The pane's greeting on
+  Continue is a screen difference a human would see and a replay must not; the snapshot carries
+  the listener's lines and the driver puts them back at the first wait after the restore.
+- **`Simulator` is an abstract class, not an interface.** A default method on an interface can be
+  bypassed by calling the abstract one; a final `simulate` over a protected `rollout` cannot.
+
+## Decisions taken inside the story
+
+- **The files, not the bundles.** One copy of exactly what the load reads, no bundle key named,
+  no second serialization; the parity fixture already restores a Run this way on disk.
+- **Restore into the same driver.** A floor change already ends the actor thread, destroys the
+  scene and builds a new one around loaded state; a restore is that with the wait index set back.
+- **A foreign salt is refused.** A snapshot's waits draw from its Run's stream; restoring it into a
+  Run with another salt would replay under another stream and could not match its record.
+
+## Evidence
+
+- `:api:test` green (ApiBoundaryTest, ReservedInterfacesTest, JsonRenderingTest and the rest);
+  `RestoreReplayTest` 3 of 3 and `SnapshotBoundaryTest` 3 of 3 green on the first run;
+  `mkdocs build --strict` green.
+- The battery, `mutations120.py`, on the committed tree, restored clean after each break:
+
+```
+=== M1 the restore does not set the wait back
+  -> caught by: RestoreReplayTest (the first restored wait is not the snapshot's)
+=== M2 the restore drops the log: the load's own lines stand
+  -> caught by: RestoreReplayTest (the restored wait's hash differs)
+=== M3 the snapshot saves nothing
+  -> caught by: RestoreReplayTest (the restored wait's hash differs)
+=== M4 the restore loads the game but not the floor
+  -> caught by: RestoreReplayTest (the restore fails)
+=== M5 the snapshot type is public
+  -> caught by: SnapshotBoundaryTest
+=== M6 the simulator does not check the flag
+  -> caught by: ReservedInterfacesTest
+=== M7 the redeterminer does not check its result
+  -> caught by: ReservedInterfacesTest
+tree restored and clean
+```
+
+  The battery's own report also listed `SnapshotBoundaryTest` under M6 and M7: the api breaks ran
+  the api module alone, and the harness results directory still held M5's failure. A reporting
+  artifact of the script, not a finding; the api suite caught each. The script lives in the
+  session scratchpad, as every story's has (`deferred-work.md`).
+
+## Deviations
+
+- None from the spec's tasks.
+
+## Known limitations, handed forward
+
+- **The journal**, as above; **the badges and the rankings** likewise, which nothing on the screen
+  reads.
+- **Snapshots live in memory** in the store that took them; the death gallery's write to disk is
+  FR-26's (E5).
+- **The rollout host, the scrubber and the redetermination table** are E6's (ADR-0009).
+
+## Follow-ups for later stories
+
+- Story 1.21 (#34): publish the E1 numbers.
+- E5: one snapshot per wait for take-over; E6: the scrubber and the swap-in-place host.

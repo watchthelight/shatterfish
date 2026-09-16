@@ -83,3 +83,8 @@ would carry the fog level it was seen at, or the section would take a remembered
 the in-view one. Both are schema changes and a version bump, so this is a story, and the story after
 it re-reads ADR-0006's Blobs row.
 
+- **A snapshot cannot carry the journal.** `Journal.loadGlobal` runs once per process behind a private
+  flag (`…/journal/Journal.java:34-36`), so a restore (story 1.20) leaves the pages found since the
+  snapshot found; the next floor generated reads them. A one-line hook row that resets the flag, or a
+  Run-start reset list upstream could be asked for, would make a cross-floor restore exact. The
+  same static outlives a Run (story 1.16's sweep).
