@@ -59,8 +59,8 @@ development_status:
   1-21-publish-the-e1-numbers: done
   epic-1-retrospective: optional
 
-  epic-2: backlog
-  2-1-the-generator-skeleton-and-the-seed-free-guarantee: backlog
+  epic-2: in-progress
+  2-1-the-generator-skeleton-and-the-seed-free-guarantee: review
   2-2-mobs-and-spawn-tables-by-depth: backlog
   2-3-items-generator-weights-decks-and-guarantees: backlog
   2-4-item-guarantees-tier-tables-and-limited-drops: backlog

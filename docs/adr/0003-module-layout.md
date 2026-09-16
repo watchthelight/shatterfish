@@ -65,3 +65,11 @@ Non-negotiables touched: #1 (information parity), #3 (hooks minimal), #4 (Java, 
 - A future upstream tag adds a `shatterfish`-conflicting root entry. Very unlikely; the merge would surface it immediately.
 - Java 21 features leak into a hook inside `core` (compiled at 11). Mitigation: hooks are reviewed under the `touches-upstream` label and `core` still compiles at `appJavaCompatibility`, so the compiler catches it.
 - The resolution-time check silently stops running after a Gradle upgrade changes configuration names. Mitigation: the ArchUnit test remains; add a negative test in the `upstream-sync` skill that inserts a fake dependency and expects failure (verified manually in Session 2).
+
+## Amendment: story 2.1 (2026-09-16)
+
+The edge `codex -> core` above is now `codex -> core, api`: the Codex writes `api`-typed records
+as canonical JSON (AD-13, corrected in the readiness review), and the harness is on the codex
+test classpath only, for the leak test's live Run and the seed-free test's Profiles; the
+generator's own classes may not depend on it (ADR-0017). `shatterfish/settings.gradle`'s edge
+comment says the same.

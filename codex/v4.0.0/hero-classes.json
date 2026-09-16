@@ -1,0 +1,8 @@
+[
+  {"citation":{"line":87,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/HeroClass.java"},"heroClass":"WARRIOR","subclasses":["BERSERKER","GLADIATOR"]},
+  {"citation":{"line":88,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/HeroClass.java"},"heroClass":"MAGE","subclasses":["BATTLEMAGE","WARLOCK"]},
+  {"citation":{"line":89,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/HeroClass.java"},"heroClass":"ROGUE","subclasses":["ASSASSIN","FREERUNNER"]},
+  {"citation":{"line":90,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/HeroClass.java"},"heroClass":"HUNTRESS","subclasses":["SNIPER","WARDEN"]},
+  {"citation":{"line":91,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/HeroClass.java"},"heroClass":"DUELIST","subclasses":["CHAMPION","MONK"]},
+  {"citation":{"line":92,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/HeroClass.java"},"heroClass":"CLERIC","subclasses":["PRIEST","PALADIN"]}
+]

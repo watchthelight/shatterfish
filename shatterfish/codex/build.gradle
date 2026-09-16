@@ -1,8 +1,46 @@
-// codex: reflection dump of upstream tables into codex/<tag>/*.json and generated docs.
+// codex: the generator that writes codex/<tag>/*.json from the pinned upstream classes (E2), and
+// later the generated docs, the completeness check, the vocabulary diff and the citation checker.
 apply from: "$rootDir/shatterfish/java-module.gradle"
 
 dependencies {
     implementation project(':core')
     // The Codex writes api-typed JSON (AD-13); it never hands a game class to the Brain.
     api project(':api')
+    // The leak test plays a live Run while it generates, and the seed-free test prepares two
+    // Profiles: both come from the harness, on the test classpath only. The generator itself
+    // reaches neither the harness nor a Run (CodexLeakTest's gate).
+    testImplementation project(':harness')
+}
+
+// The tests that boot the game need its assets on the classpath, as the harness's do.
+def gameAssets = files(
+        new File(project(':core').projectDir, 'src/main/assets'),
+        new File(project(':desktop').projectDir, 'src/main/assets'))
+sourceSets {
+    test {
+        runtimeClasspath += gameAssets
+    }
+}
+
+// The tests compare the committed Codex with a generation from the pinned source and read the
+// ledger's pin; Gradle cannot know that from the task graph, and without these inputs a
+// hand-edited JSON file, a moved declaration or a re-pinned tag leaves :codex:test UP-TO-DATE.
+tasks.named('test') {
+    inputs.dir(rootProject.file('codex')).withPropertyName('committedCodex').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(rootProject.file('docs/UPSTREAM.md')).withPropertyName('ledger').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(rootProject.file('build.gradle')).withPropertyName('rootBuildScript').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(rootProject.file('core/src/main/java')).withPropertyName('pinnedSource').withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
+// `./gradlew :codex:generate` writes codex/<tag>/ at the repository root: one task, no Run, no
+// seed, on the main classpath, where no harness and no libGDX application exist to boot. CI's
+// drift check (story 2.9) reruns it and fails on a difference.
+tasks.register('generate', JavaExec) {
+    group = 'shatterfish'
+    description = 'Writes codex/<tag>/ from the pinned upstream classes.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.codex.Generate'
+    workingDir = rootDir
+    args = [rootDir.absolutePath]
+    outputs.upToDateWhen { false }
 }

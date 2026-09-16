@@ -1,0 +1,11 @@
+[
+  {"challenge":"NO_FOOD","citation":{"line":30,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/Challenges.java"},"mask":1},
+  {"challenge":"NO_ARMOR","citation":{"line":31,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/Challenges.java"},"mask":2},
+  {"challenge":"NO_HEALING","citation":{"line":32,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/Challenges.java"},"mask":4},
+  {"challenge":"NO_HERBALISM","citation":{"line":33,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/Challenges.java"},"mask":8},
+  {"challenge":"SWARM_INTELLIGENCE","citation":{"line":34,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/Challenges.java"},"mask":16},
+  {"challenge":"DARKNESS","citation":{"line":35,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/Challenges.java"},"mask":32},
+  {"challenge":"NO_SCROLLS","citation":{"line":36,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/Challenges.java"},"mask":64},
+  {"challenge":"CHAMPION_ENEMIES","citation":{"line":37,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/Challenges.java"},"mask":128},
+  {"challenge":"STRONGER_BOSSES","citation":{"line":38,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/Challenges.java"},"mask":256}
+]

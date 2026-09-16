@@ -22,6 +22,7 @@ skill drafts new ones; add the new file to this list and to `mkdocs.yml`.
 | [0014](0014-action-schema-and-executor-contract.md) | The Action type and the ActionExecutor contract | accepted | 2026-09-04 |
 | [0015](0015-headless-scene-and-input-wait-detection.md) | The headless scene, the main loop, and Input-wait detection | accepted | 2026-09-04 |
 | [0016](0016-hook-ledger-corrected-by-story-1-1.md) | The hook ledger, corrected by story 1.1 (supersedes ADR-0008's table) | accepted | 2026-09-04 |
+| [0017](0017-codex-generation-and-citations.md) | Codex generation and citations: one task with no Run, api records as canonical text, citations read from the pinned source | accepted | 2026-09-16 |
 
 ## Decisions still to make
 
@@ -30,4 +31,3 @@ Each gets a micro-brainstorm (bootstrap prompt, section 2.2) and an ADR when its
 - The tactical search design itself (E6, per the criteria of ADR-0010)
 - GSPRT bounds, burn-in and the e-process comparison (E3 calibration story, per ADR-0012)
 - Classloader isolation versus process per Run (E1 spike report)
-- The Codex generation mechanics (E2)

@@ -50,9 +50,22 @@ with upstream's use of the same word, this page says so.
 
 **Codex**
 :   Generated tables of every mob, item, drop table, spawn weight, trap, recipe, and changelog
-    entry, dumped by reflection from the pinned tag into `codex/<tag>/*.json` and rendered under
-    [Codex](codex/index.md). Never hand-edited. The source of "general game knowledge" the bot
-    is allowed to have.
+    entry, read from the pinned classes and their declarations into `codex/<tag>/*.json` (no
+    reflection into a private member, no Run) and rendered under [Codex](codex/index.md). Never
+    hand-edited. The source of "general game knowledge" the bot is allowed to have. Static and
+    seed-free: a Codex value describes a type or a table, never a Run, and `CodexLeakTest` holds
+    it (ADR-0017, story 2.1).
+
+**Codex version**
+:   The Codex's own version (`Codex.VERSION` in `api`), carried by the manifest of every
+    `codex/<tag>/`, to be recorded by the Run-log header (ADR-0011, E3): it changes when a table's
+    meaning or shape changes, which is not derivable from the upstream tag, and it ties a Brain's
+    behaviour to the knowledge it had.
+
+**Citation (Codex)**
+:   The `path:line` a Codex entry was read from, computed at generation by finding the
+    declaration's line in the pinned source with an anchor (`Citations.at`), never typed from
+    memory; an anchor that matches no line or two fails the task (ADR-0017).
 
 **Rig**
 :   Fishtest-style statistical testing: thousands of seeded runs in parallel, SPRT comparisons

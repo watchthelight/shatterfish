@@ -125,6 +125,7 @@ nav:
       - ADR-0014 Action schema: adr/0014-action-schema-and-executor-contract.md
       - ADR-0015 Headless scene and Input waits: adr/0015-headless-scene-and-input-wait-detection.md
       - ADR-0016 Hook ledger corrected: adr/0016-hook-ledger-corrected-by-story-1-1.md
+      - ADR-0017 Codex generation and citations: adr/0017-codex-generation-and-citations.md
   - Rules:
       - rules/index.md
       - Game loop: rules/game-loop.md
