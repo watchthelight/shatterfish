@@ -7,13 +7,6 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.hero.abilities.duelist.Fe
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.abilities.huntress.SpiritHawk;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.abilities.rogue.ShadowClone;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.abilities.rogue.SmokeBomb;
-import com.shatteredpixel.shatteredpixeldungeon.items.artifacts.DriedRose;
-import com.shatteredpixel.shatteredpixeldungeon.items.quest.CorpseDust;
-import com.shatteredpixel.shatteredpixeldungeon.items.wands.WandOfLivingEarth;
-import com.shatteredpixel.shatteredpixeldungeon.items.wands.WandOfRegrowth;
-import com.shatteredpixel.shatteredpixeldungeon.items.wands.WandOfWarding;
-import com.shatteredpixel.shatteredpixeldungeon.levels.rooms.special.SentryRoom;
-import com.shatteredpixel.shatteredpixeldungeon.levels.traps.GuardianTrap;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Acidic;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Albino;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.ArmoredBrute;
@@ -107,6 +100,13 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.quest.vault.VaultGol
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.quest.vault.VaultRat;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.quest.vault.VaultShaman;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.quest.vault.VaultSkeleton;
+import com.shatteredpixel.shatteredpixeldungeon.items.artifacts.DriedRose;
+import com.shatteredpixel.shatteredpixeldungeon.items.quest.CorpseDust;
+import com.shatteredpixel.shatteredpixeldungeon.items.wands.WandOfLivingEarth;
+import com.shatteredpixel.shatteredpixeldungeon.items.wands.WandOfRegrowth;
+import com.shatteredpixel.shatteredpixeldungeon.items.wands.WandOfWarding;
+import com.shatteredpixel.shatteredpixeldungeon.levels.rooms.special.SentryRoom;
+import com.shatteredpixel.shatteredpixeldungeon.levels.traps.GuardianTrap;
 import org.shatterfish.api.Alignment;
 import org.shatterfish.api.Challenge;
 import org.shatterfish.api.Codex;
@@ -116,6 +116,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -126,9 +127,12 @@ import java.util.regex.Pattern;
  * own initialisers under {@link GameContext} and read from the instance; the rolls read from the
  * declaring class's source as cited expressions; the loot read from the declaration; variants
  * for every depth and every challenge under which a field differs from the base at depth 1
- * with no challenge. The list of constructors is written here and compile-checked;
- * {@code CodexCompletenessTest} enumerates the game's classes and holds that the two agree, so
- * a mob the game adds or drops fails the build rather than the Codex.
+ * with no challenge, checked to compose. The list of constructors is written here and
+ * compile-checked; {@code CodexCompletenessTest} enumerates the game's classes and holds that the
+ * two agree, so a mob the game adds or drops fails the build rather than the Codex. What a
+ * constructor draws or takes from the hero is named here by class, and the same test enumerates
+ * from bytecode which constructors read the hero, the statistics or a generator and holds that
+ * the two lists agree.
  */
 final class Mobs {
 
@@ -166,33 +170,75 @@ final class Mobs {
 
     /**
      * The classes whose properties are decided by a draw at construction (the vault boss
-     * elemental picks its element, {@code VaultBossElemental.java}); their properties are not
-     * listed, and the entry says so.
+     * elemental picks its element, {@code VaultBossElemental.java:95}); their properties are not
+     * listed, the entry says so, and the draw is cited.
      */
     static final Set<Class<?>> RANDOM_PROPERTIES = Set.of(VaultBossElemental.class);
 
     /**
-     * The fields whose value a constructor reads from the hero of a Run, by class: the rogue's
-     * decoy multiplies its hit points by a talent when a hero exists
+     * The numeric fields whose value a constructor reads from the hero of a Run, by class: the
+     * rogue's decoy multiplies its hit points by a talent when a hero exists
      * ({@code SmokeBomb.java:175-176}). Such a field is dumped as zero and named, and not compared
      * across depths and challenges; a cold generation and one inside a Run then agree, which
      * {@code CodexLeakTest} holds.
      */
     static final Map<Class<?>, List<String>> HERO_DEPENDENT = Map.of(SmokeBomb.NinjaLog.class, List.of("ht"));
 
-    private static final String DAMAGE = "^\\s*public int damageRoll\\s*\\(\\s*\\)";
-    private static final String ATTACK = "^\\s*public int attackSkill\\s*\\(\\s*Char\\s+\\w+\\s*\\)";
-    private static final String DR = "^\\s*public int drRoll\\s*\\(\\s*\\)";
-    private static final String CREATE_LOOT = "^\\s*public Item createLoot\\s*\\(\\s*\\)";
-    private static final String LOOT_CHANCE_METHOD = "^\\s*public float lootChance\\s*\\(\\s*\\)";
-    private static final Pattern NORMAL = Pattern.compile("^return\\s+(?:super\\.drRoll\\(\\)\\s*\\+\\s*)?Random\\.NormalIntRange\\(\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*\\);$");
-    private static final Pattern UNIFORM = Pattern.compile("^return\\s+(?:super\\.drRoll\\(\\)\\s*\\+\\s*)?Random\\.(?:IntRange|Int)\\(\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*\\);$");
+    /**
+     * The classes whose stats the game sets after construction, so that the constructed values
+     * are placeholders: the mimics by {@code setLevel} at spawn ({@code Mimic.java:259-266}), the
+     * wraiths by {@code adjustStats} ({@code Wraith.java:85}), the bee at spawn
+     * ({@code Bee.java:89}), and the summons and guardians whose real constructor or summoner
+     * sets them. The entry says so; the values are as constructed.
+     */
+    static final Set<Class<?>> STATS_SET_LATER = Set.of(Mimic.class, GoldenMimic.class, CrystalMimic.class, EbonyMimic.class,
+            Wraith.class, CorpseDust.DustWraith.class, TormentedSpirit.class, Bee.class, ShadowClone.ShadowAlly.class,
+            MirrorImage.class, DriedRose.GhostHero.class, WandOfWarding.Ward.class, WandOfRegrowth.Lotus.class,
+            WandOfLivingEarth.EarthGuardian.class, Ratmogrify.TransmogRat.class, SentryRoom.Sentry.class, GuardianTrap.Guardian.class);
+
+    /**
+     * What a constructor reads that is a Run's, a Profile's or a generator's, by class, with the
+     * reason: {@code CodexCompletenessTest} finds the same set in the bytecode of every mob's
+     * constructors and initialisers and holds that this list names each, so that a new read is
+     * reviewed here before it can reach a table. The ones that reach a dumped field are in
+     * {@link #HERO_DEPENDENT} or {@link #RANDOM_PROPERTIES}; the others land in fields the table
+     * does not carry, or are draws whose result is not dumped.
+     */
+    static final Map<Class<?>, String> CONSTRUCTOR_READS = Map.ofEntries(
+            Map.entry(SmokeBomb.NinjaLog.class, "hit points from the hero's talent (run-dependent, named)"),
+            Map.entry(VaultBossElemental.class, "the element drawn (properties random, named)"),
+            Map.entry(Thief.class, "the loot category drawn (loot random, named)"),
+            Map.entry(DM200.class, "the loot category drawn (loot random, named)"),
+            Map.entry(Golem.class, "the loot category drawn (loot random, named)"),
+            Map.entry(CrystalWisp.class, "a draw for a field the table does not carry"),
+            Map.entry(CrystalGuardian.class, "a draw for a field the table does not carry"),
+            Map.entry(CrystalSpire.class, "a draw for a field the table does not carry"),
+            Map.entry(PowerOfMany.LightAlly.class, "a draw for a field the table does not carry"),
+            Map.entry(SpiritHawk.HawkAlly.class, "the hero's talents for view distance and speed, fields the table does not carry"),
+            Map.entry(ShadowClone.ShadowAlly.class, "the hero for its real constructor's stats (stats set later, named)"),
+            Map.entry(DM300.class, "a draw for a field the table does not carry"),
+            Map.entry(GnollGeomancer.class, "a draw for a field the table does not carry"),
+            Map.entry(GnollSapper.class, "a draw for a field the table does not carry"),
+            Map.entry(Pylon.class, "a draw for a field the table does not carry"),
+            Map.entry(VaultShaman.class, "a draw for a field the table does not carry"),
+            Map.entry(YogDzewa.class, "the seeded depth and the spawners alive, for fields the table does not carry"));
+
+    private static final String DAMAGE = "^\\s*(?:@\\w+\\s+)*(?:public|protected)\\s+(?:final\\s+)?int\\s+damageRoll\\s*\\(\\s*\\)";
+    private static final String ATTACK = "^\\s*(?:@\\w+\\s+)*(?:public|protected)\\s+(?:final\\s+)?int\\s+attackSkill\\s*\\(\\s*Char\\s+\\w+\\s*\\)";
+    private static final String DR = "^\\s*(?:@\\w+\\s+)*(?:public|protected)\\s+(?:final\\s+)?int\\s+drRoll\\s*\\(\\s*\\)";
+    private static final String DEFENSE = "^\\s*(?:@\\w+\\s+)*(?:public|protected)\\s+(?:final\\s+)?int\\s+defenseSkill\\s*\\(\\s*Char\\s+\\w+\\s*\\)";
+    private static final String CREATE_LOOT = "^\\s*(?:@\\w+\\s+)*(?:public|protected)\\s+(?:final\\s+)?Item\\s+createLoot\\s*\\(\\s*\\)";
+    private static final String LOOT_CHANCE_METHOD = "^\\s*(?:@\\w+\\s+)*(?:public|protected)\\s+(?:final\\s+)?float\\s+lootChance\\s*\\(\\s*\\)";
+    private static final Pattern SUPER_DR = Pattern.compile("^return\\s+super\\.drRoll\\(\\)\\s*\\+\\s*(.*)$");
+    private static final Pattern NORMAL = Pattern.compile("^return\\s+Random\\.NormalIntRange\\(\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*\\);$");
+    private static final Pattern INT_RANGE = Pattern.compile("^return\\s+Random\\.IntRange\\(\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*\\);$");
+    private static final Pattern INT = Pattern.compile("^return\\s+Random\\.Int\\(\\s*(-?\\d+)\\s*,\\s*(-?\\d+)\\s*\\);$");
     private static final Pattern CONSTANT = Pattern.compile("^return\\s+(-?\\d+);$");
-    // The field's declaration (with its modifier and type) or an initialiser's assignment; a
-    // method's local of the same name (Mob.lootChance() has one) has a type and no modifier and
-    // matches neither.
-    private static final Pattern LOOT = Pattern.compile("^\\s*(?:(?:protected|public|private)\\s+Object\\s+)?loot\\s*=\\s*(.+);\\s*(?://.*)?$");
-    private static final Pattern LOOT_CHANCE = Pattern.compile("^\\s*(?:(?:protected|public|private)\\s+float\\s+)?lootChance\\s*=\\s*(.+?);\\s*(?://.*)?$");
+    // The field's declaration (with its modifier and type) or an initialiser's assignment, on a
+    // member line; a method's local of the same name (Mob.lootChance() has one) is not a member.
+    private static final Pattern LOOT = Pattern.compile("^\\s*(?:(?:protected|public|private)\\s+Object\\s+)?loot\\s*=\\s*([^;]+);\\s*(?://.*)?$");
+    private static final Pattern LOOT_CHANCE = Pattern.compile("^\\s*(?:(?:protected|public|private)\\s+float\\s+)?lootChance\\s*=\\s*([^;]+);\\s*(?://.*)?$");
+    private static final Pattern DRAW = Pattern.compile("\\bRandom\\.\\w+\\(");
 
     private Mobs() {
     }
@@ -206,32 +252,96 @@ final class Mobs {
         return entries;
     }
 
-    /** One mob's entry: the base at depth 1 with no challenge, and its variants. */
+    /** Every mob's table name by its simple name, for the rotation to name classes as the table does. */
+    static Map<String, String> canonicalNames() {
+        TreeMap<String, String> names = new TreeMap<>();
+        for (Supplier<Mob> make : ALL) {
+            Class<?> type = GameContext.under(1, 0, make).getClass();
+            String simple = type.getSimpleName();
+            if (names.put(simple, Sources.name(type)) != null) {
+                throw new IllegalStateException("two mob classes share the simple name " + simple);
+            }
+        }
+        return names;
+    }
+
+    /** One mob's entry: the base at depth 1 with no challenge, and its variants, checked to compose. */
     static Codex.MobEntry entry(Path root, Supplier<Mob> make) {
-        Mob base = GameContext.under(1, 0, make);
+        Mob base = construct(make, 1, "");
         Class<?> type = base.getClass();
         Sources.Body body = Sources.body(root, type);
         boolean randomProperties = RANDOM_PROPERTIES.contains(type);
         List<String> runDependent = HERO_DEPENDENT.getOrDefault(type, List.of());
         List<Codex.Variant> variants = new ArrayList<>();
+        Map<Integer, List<Codex.Field>> byDepth = new TreeMap<>();
         for (int depth = 2; depth <= MAX_DEPTH; depth++) {
-            List<Codex.Field> differing = differing(base, GameContext.under(depth, 0, make), randomProperties, runDependent);
+            List<Codex.Field> differing = differing(base, construct(make, depth, ""), randomProperties, runDependent);
             if (!differing.isEmpty()) {
                 variants.add(new Codex.Variant(depth, "", differing));
+                byDepth.put(depth, differing);
             }
         }
+        Map<Challenge, List<Codex.Field>> byChallenge = new TreeMap<>();
         for (Challenge challenge : Challenge.values()) {
-            List<Codex.Field> differing = differing(base, GameContext.under(1, Generate.mask(challenge), make), randomProperties, runDependent);
+            List<Codex.Field> differing = differing(base, construct(make, 1, challenge.name()), randomProperties, runDependent);
             if (!differing.isEmpty()) {
                 variants.add(new Codex.Variant(1, challenge.name(), differing));
+                byChallenge.put(challenge, differing);
             }
         }
-        return new Codex.MobEntry(Sources.name(type), Alignment.valueOf(base.alignment.name()),
-                randomProperties ? List.of() : properties(base), randomProperties, runDependent,
+        // A depth's variant and a challenge's variant compose, or the table cannot say what the mob is under both.
+        for (Map.Entry<Challenge, List<Codex.Field>> challenge : byChallenge.entrySet()) {
+            for (Map.Entry<Integer, List<Codex.Field>> depth : byDepth.entrySet()) {
+                Mob both = construct(make, depth.getKey(), challenge.getKey().name());
+                Map<String, String> expected = new TreeMap<>();
+                for (Codex.Field field : depth.getValue()) {
+                    expected.put(field.name(), field.value());
+                }
+                for (Codex.Field field : challenge.getValue()) {
+                    expected.put(field.name(), field.value());
+                }
+                Map<String, String> actual = new TreeMap<>();
+                for (Codex.Field field : differing(base, both, randomProperties, runDependent)) {
+                    actual.put(field.name(), field.value());
+                }
+                if (!expected.equals(actual)) {
+                    throw new IllegalStateException(Sources.name(type) + " at depth " + depth.getKey() + " under " + challenge.getKey()
+                            + " is " + actual + ", not the composition " + expected + "; the variant schema cannot say it");
+                }
+            }
+        }
+        List<Codex.Citation> draws = new ArrayList<>();
+        List<Integer> drawLines = new ArrayList<>(body.memberLines());
+        drawLines.addAll(body.constructorLines());
+        for (int line : drawLines) {
+            if (DRAW.matcher(Sources.stripComment(body.lines().get(line))).find()) {
+                draws.add(body.citation(line));
+            }
+        }
+        Codex.Loot loot = loot(root, type);
+        if (loot.random() && !draws.contains(loot.citation())) {
+            draws.add(loot.citation());
+        }
+        Sources.Declared defense = Sources.declared(root, type, Char.class, DEFENSE);
+        boolean customDefense = defense != null && defense.owner() != Mob.class && defense.owner() != Char.class;
+        return new Codex.MobEntry(Sources.name(type), Generate.api(Alignment::valueOf, base.alignment.name(), "alignment", "org.shatterfish.api.Alignment"),
+                randomProperties ? List.of() : properties(base), randomProperties, runDependent, STATS_SET_LATER.contains(type),
+                customDefense, draws,
                 runDependent.contains("ht") ? 0 : base.HT, runDependent.contains("defenseSkill") ? 0 : base.defenseSkill,
                 runDependent.contains("exp") ? 0 : base.EXP, runDependent.contains("maxLvl") ? 0 : base.maxLvl,
-                roll(root, type, DAMAGE), roll(root, type, ATTACK), roll(root, type, DR), loot(root, type),
+                roll(root, type, DAMAGE), roll(root, type, ATTACK), dr(root, type), loot,
                 variants, body.citation(body.from() == 0 ? body.declaration(type.getSimpleName()) : body.from()));
+    }
+
+    /** A construction under the context, its failure naming the class, the depth and the challenge. */
+    private static Mob construct(Supplier<Mob> make, int depth, String challenge) {
+        int mask = challenge.isEmpty() ? 0 : Generate.mask(Challenge.valueOf(challenge));
+        try {
+            return GameContext.under(depth, mask, make);
+        } catch (RuntimeException e) {
+            throw new IllegalStateException("a mob could not be constructed at depth " + depth
+                    + (challenge.isEmpty() ? "" : " under " + challenge) + ": " + e, e);
+        }
     }
 
     private static List<String> properties(Mob mob) {
@@ -257,10 +367,10 @@ final class Mobs {
         if (!skip.contains("maxLvl") && base.maxLvl != other.maxLvl) {
             fields.add(new Codex.Field("maxLvl", Integer.toString(other.maxLvl)));
         }
-        if (!skip.contains("alignment") && base.alignment != other.alignment) {
+        if (base.alignment != other.alignment) {
             fields.add(new Codex.Field("alignment", other.alignment.name()));
         }
-        if (!skip.contains("properties") && !randomProperties && !properties(base).equals(properties(other))) {
+        if (!randomProperties && !properties(base).equals(properties(other))) {
             fields.add(new Codex.Field("properties", String.join(",", properties(other))));
         }
         return fields;
@@ -272,17 +382,50 @@ final class Mobs {
         if (declared == null) {
             throw new IllegalStateException(type.getName() + " declares no method matching " + anchor + " up to Char");
         }
+        return classify(Sources.returns(declared.block()), declared.block().citation(declared.line()));
+    }
+
+    /**
+     * The damage reduction: as a roll, except that {@code super.drRoll() + X} is a plain roll only
+     * when the parent's roll is {@code Char}'s own (zero without a bark skin); over any other
+     * parent it is the sum of two, which is OTHER with the text.
+     */
+    static Codex.Roll dr(Path root, Class<?> type) {
+        Sources.Declared declared = Sources.declared(root, type, Char.class, DR);
+        if (declared == null) {
+            throw new IllegalStateException(type.getName() + " declares no drRoll up to Char");
+        }
         List<String> returns = Sources.returns(declared.block());
         Codex.Citation citation = declared.block().citation(declared.line());
+        if (returns.size() == 1) {
+            Matcher chained = SUPER_DR.matcher(returns.get(0));
+            if (chained.matches()) {
+                Sources.Declared parent = declared.owner().getSuperclass() == null ? null
+                        : Sources.declared(root, declared.owner().getSuperclass(), Char.class, DR);
+                if (parent != null && parent.owner() == Char.class) {
+                    return classify(List.of("return " + chained.group(1)), citation);
+                }
+                return new Codex.Roll(Codex.RollKind.OTHER, 0, 0, returns.get(0), citation);
+            }
+        }
+        return classify(returns, citation);
+    }
+
+    /** The kind and bounds of one return statement, or OTHER with the text for anything else. */
+    static Codex.Roll classify(List<String> returns, Codex.Citation citation) {
         if (returns.size() == 1) {
             String line = returns.get(0);
             Matcher normal = NORMAL.matcher(line);
             if (normal.matches()) {
                 return new Codex.Roll(Codex.RollKind.NORMAL, Integer.parseInt(normal.group(1)), Integer.parseInt(normal.group(2)), line, citation);
             }
-            Matcher uniform = UNIFORM.matcher(line);
-            if (uniform.matches()) {
-                return new Codex.Roll(Codex.RollKind.UNIFORM, Integer.parseInt(uniform.group(1)), Integer.parseInt(uniform.group(2)), line, citation);
+            Matcher range = INT_RANGE.matcher(line);
+            if (range.matches()) {
+                return new Codex.Roll(Codex.RollKind.UNIFORM, Integer.parseInt(range.group(1)), Integer.parseInt(range.group(2)), line, citation);
+            }
+            Matcher exclusive = INT.matcher(line);
+            if (exclusive.matches()) {
+                return new Codex.Roll(Codex.RollKind.UNIFORM, Integer.parseInt(exclusive.group(1)), Integer.parseInt(exclusive.group(2)) - 1, line, citation);
             }
             Matcher constant = CONSTANT.matcher(line);
             if (constant.matches()) {
@@ -294,17 +437,16 @@ final class Mobs {
         return new Codex.Roll(Codex.RollKind.OTHER, 0, 0, returns.isEmpty() ? "(no return)" : String.join(" | ", returns), citation);
     }
 
-    /** The loot as the nearest declaring class states it, with the override flags. */
+    /** The loot as the nearest declaring class's members state it, with the override flags. */
     static Codex.Loot loot(Path root, Class<?> type) {
         String declaration = null;
         Codex.Citation citation = null;
-        String chanceExpression = "0";
-        int chance = 0;
-        boolean chanceFound = false;
+        String chanceExpression = null;
+        int chance = -1;
         for (Class<?> c = type; c != null && c != Char.class; c = c.getSuperclass()) {
             Sources.Body body = Sources.body(root, c);
             if (declaration == null) {
-                int line = body.first(LOOT);
+                int line = body.firstMember(LOOT);
                 if (line >= 0) {
                     Matcher m = LOOT.matcher(body.lines().get(line));
                     m.matches();
@@ -312,22 +454,21 @@ final class Mobs {
                     citation = body.citation(line);
                 }
             }
-            if (!chanceFound) {
-                int line = body.first(LOOT_CHANCE);
+            if (chanceExpression == null) {
+                int line = body.firstMember(LOOT_CHANCE);
                 if (line >= 0) {
                     Matcher m = LOOT_CHANCE.matcher(body.lines().get(line));
                     m.matches();
                     chanceExpression = m.group(1).trim();
                     chance = Sources.thousandths(chanceExpression);
-                    chanceFound = true;
                 }
             }
-            if (declaration != null && chanceFound) {
+            if (declaration != null && chanceExpression != null) {
                 break;
             }
         }
-        if (declaration == null) {
-            throw new IllegalStateException(type.getName() + " declares no loot up to Mob");
+        if (declaration == null || chanceExpression == null) {
+            throw new IllegalStateException(type.getName() + " declares no loot or no loot chance up to Mob");
         }
         Codex.LootKind kind;
         String name;
@@ -344,7 +485,7 @@ final class Mobs {
         } else if ((m = Pattern.compile("^(\\w+)\\.class$").matcher(declaration)).matches()) {
             kind = Codex.LootKind.CLASS;
             name = m.group(1);
-        } else if ((m = Pattern.compile("^new (\\w+)\\(.*\\)$").matcher(declaration)).matches()) {
+        } else if ((m = Pattern.compile("^new (\\w+)\\(.*$").matcher(declaration)).matches()) {
             kind = Codex.LootKind.ITEM;
             name = m.group(1);
         } else {
@@ -355,6 +496,6 @@ final class Mobs {
         Sources.Declared lootChance = Sources.declared(root, type, Mob.class, LOOT_CHANCE_METHOD);
         boolean customLoot = createLoot != null && createLoot.owner() != Mob.class;
         boolean customChance = lootChance != null && lootChance.owner() != Mob.class;
-        return new Codex.Loot(kind, name, chance, chanceExpression, kind == Codex.LootKind.RANDOM, customLoot, customChance, citation);
+        return new Codex.Loot(kind, name, declaration, chance, chanceExpression, kind == Codex.LootKind.RANDOM, customLoot, customChance, citation);
     }
 }

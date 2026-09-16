@@ -1,8 +1,13 @@
 package org.shatterfish.codex;
 
+import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
+import com.shatteredpixel.shatteredpixeldungeon.Statistics;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaCodeUnit;
+import com.tngtech.archunit.core.domain.JavaFieldAccess;
+import com.tngtech.archunit.core.domain.JavaMethodCall;
 import com.tngtech.archunit.core.domain.JavaModifier;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import org.junit.jupiter.api.DisplayName;
@@ -12,6 +17,7 @@ import org.shatterfish.api.Codex;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 
@@ -21,13 +27,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The Codex's coverage is enumerated, not asserted (story 2.2): every concrete subclass of the
  * game's mob type, found by importing the game's classes, is in the mobs table once and nothing
- * else is; every class the rotation names, and every alternate, is a mob the table has.
+ * else is; every class the rotation names, and every alternate, is a mob the table has; and
+ * every constructor or initialiser that reads the hero, the statistics, the seed or a generator
+ * is named in the generator with its reason, so that a new read is reviewed before it can reach
+ * a table.
  */
-@Timeout(value = 5, unit = TimeUnit.MINUTES)
+@Timeout(value = 10, unit = TimeUnit.MINUTES)
 class CodexCompletenessTest {
 
     private static final Path ROOT = CodexSeedFreeTest.ROOT;
-
     private static final JavaClasses GAME = new ClassFileImporter().importPackages(Sources.GAME);
 
     /** The game's concrete mob classes, as the table names them. */
@@ -44,7 +52,7 @@ class CodexCompletenessTest {
         TreeSet<String> names = new TreeSet<>();
         for (JavaClass c : GAME) {
             if (c.isAssignableTo(Mob.class) && (abstractToo || !c.getModifiers().contains(JavaModifier.ABSTRACT)) && !c.isInterface()
-                    && !c.isAnonymousClass()) {
+                    && !c.isAnonymousClass() && !c.isLocalClass()) {
                 names.add(c.getName().substring(Sources.ROOT_PACKAGE_PREFIX.length()).replace('$', '.'));
             }
         }
@@ -70,34 +78,84 @@ class CodexCompletenessTest {
     }
 
     @Test
-    @DisplayName("every class the rotation names, every family member and every alternate is a mob the table has")
+    @DisplayName("every class the rotation names, every family and its members, every alternate and every exclusion is a mob the table has")
     void the_rotation_names_mobs() {
-        TreeSet<String> simple = new TreeSet<>();
+        TreeSet<String> concrete = gameMobs();
+        TreeSet<String> familySimple = new TreeSet<>();
         for (String name : mobFamilies()) {
-            simple.add(name.substring(name.lastIndexOf('.') + 1));
+            familySimple.add(name.substring(name.lastIndexOf('.') + 1));
         }
-        Codex.SpawnRotation rotation = Rotation.read(ROOT);
+        Codex.SpawnRotation rotation = Rotation.read(ROOT, Mobs.canonicalNames());
         assertEquals(Mobs.MAX_DEPTH, rotation.depths().size());
         for (Codex.RotationDepth depth : rotation.depths()) {
             for (Codex.RotationEntry entry : depth.entries()) {
-                if (entry.family().isEmpty()) {
-                    assertTrue(simple.contains(entry.className()), "depth " + depth.depth() + " spawns " + entry.className());
+                if (entry.family()) {
+                    assertTrue(familySimple.contains(entry.className()), "depth " + depth.depth() + " draws from the family " + entry.className());
                 } else {
-                    for (Codex.Odds odds : entry.family()) {
-                        assertTrue(simple.contains(odds.className()), "the family " + entry.className() + " draws " + odds.className());
-                    }
+                    assertTrue(concrete.contains(entry.className()), "depth " + depth.depth() + " spawns " + entry.className());
                 }
             }
         }
+        for (Codex.Family family : rotation.families()) {
+            assertTrue(familySimple.contains(family.className()), "the family " + family.className());
+            for (Codex.Odds odds : family.odds()) {
+                assertTrue(concrete.contains(odds.className()), "the family " + family.className() + " draws " + odds.className());
+            }
+        }
         for (Codex.RareMob rare : rotation.rareMobs()) {
-            assertTrue(simple.contains(rare.className()), "the rare mob " + rare.className());
+            assertTrue(concrete.contains(rare.className()), "the rare mob " + rare.className());
         }
         for (Codex.RareAlt alt : rotation.alternates()) {
-            assertTrue(simple.contains(alt.className()), "the alternate's class " + alt.className());
-            assertTrue(gameMobs().contains(alt.alternate()), "the alternate " + alt.alternate());
+            assertTrue(concrete.contains(alt.className()) || familySimple.contains(alt.className()), "the alternate's class " + alt.className());
+            assertTrue(concrete.contains(alt.alternate()), "the alternate " + alt.alternate());
         }
         for (Codex.Exclusion exclusion : rotation.champion().exclusions()) {
-            assertTrue(simple.contains(exclusion.className()), "the excluded " + exclusion.className());
+            assertTrue(concrete.contains(exclusion.className()), "the excluded " + exclusion.className());
+        }
+    }
+
+    @Test
+    @DisplayName("every constructor or initialiser that reads the hero, the statistics, the seed or a generator is named in the generator, and nothing named is clean")
+    void every_construction_read_is_named() {
+        TreeMap<String, String> found = new TreeMap<>();
+        for (JavaClass c : GAME) {
+            if (!c.isAssignableTo(Mob.class) || c.getModifiers().contains(JavaModifier.ABSTRACT) || c.isInterface() || c.isAnonymousClass() || c.isLocalClass()) {
+                continue;
+            }
+            StringBuilder reads = new StringBuilder();
+            for (JavaCodeUnit unit : c.getConstructors()) {
+                for (JavaFieldAccess access : unit.getFieldAccesses()) {
+                    String owner = access.getTargetOwner().getName();
+                    String field = access.getTarget().getName();
+                    if (owner.equals(Dungeon.class.getName()) && (field.equals("hero") || field.startsWith("seed") || field.equals("level"))
+                            || owner.equals(Statistics.class.getName())) {
+                        reads.append(' ').append(owner.substring(owner.lastIndexOf('.') + 1)).append('.').append(field);
+                    }
+                }
+                for (JavaMethodCall call : unit.getMethodCallsFromSelf()) {
+                    String owner = call.getTargetOwner().getName();
+                    String method = call.getTarget().getName();
+                    if (owner.equals(Dungeon.class.getName()) && (method.startsWith("seed") || method.equals("scalingDepth"))
+                            || owner.equals(Statistics.class.getName())
+                            || owner.equals(com.watabou.utils.Random.class.getName())) {
+                        reads.append(' ').append(owner.substring(owner.lastIndexOf('.') + 1)).append('.').append(method).append("()");
+                    }
+                }
+            }
+            if (reads.length() > 0) {
+                found.put(c.getName().substring(Sources.ROOT_PACKAGE_PREFIX.length()).replace('$', '.'), reads.toString().trim());
+            }
+        }
+        TreeSet<String> named = new TreeSet<>();
+        for (Class<?> type : Mobs.CONSTRUCTOR_READS.keySet()) {
+            named.add(Sources.name(type));
+        }
+        assertEquals(named, new TreeSet<>(found.keySet()), "the constructors that read a Run, a Profile or a generator, against Mobs.CONSTRUCTOR_READS: " + found);
+        for (Class<?> type : Mobs.HERO_DEPENDENT.keySet()) {
+            assertTrue(Mobs.CONSTRUCTOR_READS.containsKey(type), type.getName() + " is hero-dependent and named as a reader");
+        }
+        for (Class<?> type : Mobs.RANDOM_PROPERTIES) {
+            assertTrue(Mobs.CONSTRUCTOR_READS.containsKey(type), type.getName() + " draws and is named as a reader");
         }
     }
 }

@@ -105,6 +105,16 @@ public final class CodexJson {
                 out.value(field);
             }
             out.endArray();
+            out.key("statsSetLater").value(entry.statsSetLater());
+            out.key("customDefense").value(entry.customDefense());
+            out.key("draws").beginArray();
+            for (Codex.Citation draw : entry.draws()) {
+                out.beginObject();
+                out.key("path").value(draw.path());
+                out.key("line").value(draw.line());
+                out.endObject();
+            }
+            out.endArray();
             out.key("ht").value(entry.ht());
             out.key("defenseSkill").value(entry.defenseSkill());
             out.key("exp").value(entry.exp());
@@ -118,6 +128,7 @@ public final class CodexJson {
             out.key("loot").beginObject();
             out.key("kind").value(entry.loot().kind().name());
             out.key("name").value(entry.loot().name());
+            out.key("declaration").value(entry.loot().declaration());
             out.key("chanceThousandths").value(entry.loot().chanceThousandths());
             out.key("chanceExpression").value(entry.loot().chanceExpression());
             out.key("random").value(entry.loot().random());
@@ -145,7 +156,7 @@ public final class CodexJson {
         return close(table);
     }
 
-    /** The spawn rotation file's text (story 2.2): one object, its keys in order, its depths one per line. */
+    /** The spawn rotation file's text (story 2.2): one object, its keys sorted, its depths one per line. */
     public static String spawnRotation(Codex.SpawnRotation rotation) {
         Objects.requireNonNull(rotation, "rotation");
         StringBuilder text = new StringBuilder("{\n");
@@ -155,6 +166,7 @@ public final class CodexJson {
             alternates.beginObject();
             alternates.key("className").value(alt.className());
             alternates.key("alternate").value(alt.alternate());
+            alternates.key("reachable").value(alt.reachable());
             citation(alternates, alt.citation());
             alternates.endObject();
         }
@@ -182,6 +194,7 @@ public final class CodexJson {
         citation(champion, rotation.champion().citation());
         champion.endObject();
         text.append("\"champion\":").append(champion.toJson()).append(",\n");
+        text.append("\"defaultDepth\":").append(rotation.defaultDepth()).append(",\n");
         text.append("\"depths\":[\n");
         List<Codex.RotationDepth> depths = rotation.depths();
         for (int i = 0; i < depths.size(); i++) {
@@ -194,14 +207,7 @@ public final class CodexJson {
                 out.beginObject();
                 out.key("className").value(entry.className());
                 out.key("count").value(entry.count());
-                out.key("family").beginArray();
-                for (Codex.Odds odds : entry.family()) {
-                    out.beginObject();
-                    out.key("className").value(odds.className());
-                    out.key("perMille").value(odds.perMille());
-                    out.endObject();
-                }
-                out.endArray();
+                out.key("family").value(entry.family());
                 out.endObject();
             }
             out.endArray();
@@ -210,6 +216,25 @@ public final class CodexJson {
             text.append("  ").append(out.toJson()).append(i + 1 == depths.size() ? "\n" : ",\n");
         }
         text.append("],\n");
+        JsonWriter families = new JsonWriter();
+        families.beginArray();
+        for (Codex.Family family : rotation.families()) {
+            families.beginObject();
+            families.key("className").value(family.className());
+            families.key("odds").beginArray();
+            for (Codex.Odds odds : family.odds()) {
+                families.beginObject();
+                families.key("className").value(odds.className());
+                families.key("perMille").value(odds.perMille());
+                families.key("expression").value(odds.expression());
+                families.endObject();
+            }
+            families.endArray();
+            citation(families, family.citation());
+            families.endObject();
+        }
+        families.endArray();
+        text.append("\"families\":").append(families.toJson()).append(",\n");
         JsonWriter rare = new JsonWriter();
         rare.beginArray();
         for (Codex.RareMob mob : rotation.rareMobs()) {

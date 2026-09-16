@@ -109,7 +109,7 @@ public final class Generate {
         tables.put("challenges.json", CodexJson.challenges(challenges(root)));
         tables.put("hero-classes.json", CodexJson.heroClasses(heroClasses(root)));
         tables.put("mobs.json", CodexJson.mobs(Mobs.entries(root)));
-        tables.put("spawn-rotation.json", CodexJson.spawnRotation(Rotation.read(root)));
+        tables.put("spawn-rotation.json", CodexJson.spawnRotation(Rotation.read(root, Mobs.canonicalNames())));
         Map<String, String> files = new LinkedHashMap<>();
         files.put(MANIFEST, CodexJson.manifest(manifest(Upstream.tag(root), tables.keySet())));
         files.putAll(tables);
@@ -188,7 +188,7 @@ public final class Generate {
     }
 
     /** The api constant named as the game names it, or an instruction naming the enum to extend. */
-    private static <E extends Enum<E>> E api(Function<String, E> valueOf, String name, String what, String type) {
+    static <E extends Enum<E>> E api(Function<String, E> valueOf, String name, String what, String type) {
         try {
             return valueOf.apply(name);
         } catch (IllegalArgumentException missing) {

@@ -70,9 +70,11 @@ with upstream's use of the same word, this page says so.
 **Variant (Codex)**
 :   A mob's fields under a depth or a challenge where they differ from the base at depth 1 with
     no challenge, read by constructing the mob under those values through the generator's one
-    door to `Dungeon.depth` and `Dungeon.challenges` (`GameContext`, story 2.2). A field a
+    door to `Dungeon.depth` and `Dungeon.challenges` (`GameContext`, story 2.2), under a
+    generator of the Codex's own. A depth's variant and a challenge's variant compose. A field a
     constructor takes from the hero of a Run is `runDependent`, dumped as zero and not compared;
-    a facet a constructor draws is named random and not dumped.
+    a facet a constructor draws is named random, not dumped, and the draw cited; a class whose
+    stats the game sets after construction is `statsSetLater`.
 
 **Rig**
 :   Fishtest-style statistical testing: thousands of seeded runs in parallel, SPRT comparisons

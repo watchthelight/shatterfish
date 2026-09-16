@@ -72,11 +72,15 @@ class CodexSeedFreeTest {
         SPDSettings.scale(4);
         Dungeon.seed = 987_654_321L;
         Random.pushGenerator(987_654_321L);
+        // The Codex's own generator moves too, so that a value a constructor drew and a table
+        // carried would differ here (story 2.2).
+        GameContext.generatorSeed = 987_654_321L;
         Map<String, String> b;
         try {
             assertEquals(Languages.GERMAN, Messages.lang());
             b = Generate.generate(ROOT);
         } finally {
+            GameContext.generatorSeed = GameContext.CODEX_GENERATOR_SEED;
             Random.popGenerator();
             SPDSettings.language(Languages.ENGLISH);
             Messages.setup(Languages.ENGLISH);

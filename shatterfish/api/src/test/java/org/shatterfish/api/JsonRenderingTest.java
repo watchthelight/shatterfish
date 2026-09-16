@@ -155,7 +155,7 @@ class JsonRenderingTest {
             "Codex", "Codex$Citation", "Codex$Manifest", "Codex$HeroClassEntry", "Codex$ChallengeEntry", "CodexJson",
             // The mobs table and the spawn rotation (story 2.2): the same kind of records.
             "Codex$RollKind", "Codex$Roll", "Codex$LootKind", "Codex$Loot", "Codex$Field", "Codex$Variant", "Codex$MobEntry",
-            "Codex$Odds", "Codex$RotationEntry", "Codex$RotationDepth", "Codex$RareMob", "Codex$RareAlt", "Codex$Exclusion",
+            "Codex$Odds", "Codex$Family", "Codex$RotationEntry", "Codex$RotationDepth", "Codex$RareMob", "Codex$RareAlt", "Codex$Exclusion",
             "Codex$ChampionRule", "Codex$SpawnRotation");
 
     @Test
