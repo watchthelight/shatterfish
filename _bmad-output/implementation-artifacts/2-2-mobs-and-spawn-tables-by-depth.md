@@ -180,6 +180,25 @@ champion rule). The api gained the mob and rotation records and their rendering;
   `RARE_ALTS` a `HashMap`; the gate's rule became "make none" rather than "touch none", and what
   is read is sorted before it is written.
 - **All 129 construct bare.** No mob's constructor needs a level, a hero or the toolkit.
+- **Two mobs chain their damage reduction onto a parent's that is not zero.** The first reader
+  dropped `super.drRoll()` and wrote the fetid rat's and the gnoll exile's reduction as the
+  child's alone; the reader now accepts the prefix only over `Char`'s zero and says OTHER
+  otherwise (the verification-gap and edge-case reviews).
+- **A return can span lines, and carry a comment.** The brutes' damage roll is a ternary over
+  three lines and was recorded as its first line; a light ally's plain roll was lost to a
+  trailing comment. Returns are whole statements now (the adversarial and edge-case reviews).
+- **An alternate can be unreachable.** The elemental family's alternate is keyed by the abstract
+  class, which no rotation lists as itself, so the swap never looks it up; the chaos elemental's
+  odds are the family's and the alternate is marked unreachable (the fairness and adversarial
+  reviews).
+- **Constructors draw from the live generator.** Seventeen constructors read the hero, the
+  statistics, the seed or a generator; a generation inside a Run advanced the Run's generator by
+  hundreds of draws. The context now runs each construction under the Codex's own generator,
+  the live Run's next draw is held unchanged, and the seventeen are enumerated from bytecode
+  and named with their reasons (the fairness review, all four on the readers).
+- **The door was a denylist.** The context could have read any other `Dungeon` static or
+  method; it is held by allowlist now, two fields and two calls (the fairness and
+  verification-gap reviews).
 
 ## Decisions taken inside the story
 
@@ -210,6 +229,25 @@ champion rule). The api gained the mob and rotation records and their rendering;
     - M8 the context reads the hero: caught by CodexLeakTest.
     - M9 the rotation counts every class once: caught by CodexLeakTest, CodexSeedFreeTest.
 
+- The battery rerun after the review patch, fourteen mutations, five of them of the review's own
+  fixes (a chained parent's roll dropped, a comment kept, an unreachable alternate marked
+  reachable, the Run's generator drawn from, a count not checked):
+    - M1 no variant is ever taken: the depths and the challenges are not compared: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M2 the context does not restore the depth it set: caught by CodexLeakTest.
+    - M3 a uniform roll is read as a normal one: caught by CodexLeakTest, CodexSeedFreeTest, SourcesTest.
+    - M4 the hero-dependent field is dumped: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M5 the drawn properties are dumped: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M6 a mob is dropped from the list: caught by CodexCompletenessTest, CodexLeakTest, CodexSeedFreeTest.
+    - M7 a nested class's method is taken for its enclosing class's: caught by CodexCompletenessTest, CodexLeakTest, CodexSeedFreeTest, SourcesTest.
+    - M8 the context reads the hero: caught by CodexLeakTest.
+    - M9 the rotation counts every class once: caught by CodexLeakTest, CodexSeedFreeTest, RotationTest.
+    - M10 a chained parent's damage reduction is dropped: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M11 a trailing comment stays in a return: caught by CodexCompletenessTest, CodexLeakTest, CodexSeedFreeTest, SourcesTest.
+    - M12 every alternate is marked reachable: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M13 the context draws from the Run's generator: caught by CodexLeakTest.
+    - M14 the champion rule's exclusions are not counted: **survived**, as expected: a count check
+      bites only when the source stops having what the reader reads, and the pinned source has it.
+
 ## Deviations
 
 - None from the spec's tasks.
@@ -228,3 +266,81 @@ champion rule). The api gained the mob and rotation records and their rendering;
 - 2.3: items and decks, the first Run-mutable statics; its leak test arranges a Run that has drawn.
 - 2.5: the combat tables that measure what `OTHER` names.
 - 2.9: the drift check in CI and the generated index page listing these tables.
+
+## Review
+
+Four reviewers on `git diff main...HEAD` from the committed state: the fairness reviewer (six
+findings, one proved by a diff of a live generation), the adversarial lens (twenty-five), the
+edge-case hunter (thirty-four) and the verification-gap lens (nine). One patch commit,
+`4e74e72a9`.
+
+**Taken.**
+
+- The door by allowlist: exactly `Dungeon.depth` and `Dungeon.challenges`, exactly
+  `pushGenerator` and `popGenerator`, no other game class; constructions under the Codex's own
+  generator; the live Run's generator held untouched; the seed-free test moving that generator's
+  seed (fairness 1, 2; gap 1; edge 15; adversarial 8).
+- The construction-time readers enumerated from bytecode and named with reasons, seventeen; the
+  random and hero-dependent sets held against them (fairness 3; adversarial 7; edge 16).
+- The readers: braces outside comments and literals; own lines skipping nested and anonymous
+  types by the class's own name; member lines skipping method bodies; constructor lines for
+  draws; returns as whole statements, joined, comments stripped, an inline return counted; a
+  chained parent's roll only over `Char`; `Random.Int` exclusive; `Random.IntRange` inclusive;
+  anchors widened; a non-core class refused; a declaration that is missing named (adversarial
+  1, 2, 3, 4, 5, 14, 15, 16; edge 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13; gap 3, 4).
+- The facets: `statsSetLater` for the seventeen classes whose stats the game sets later;
+  `customDefense`; the loot's declaration text; the draws cited, the properties' draw included;
+  run-dependent fields restricted to numbers and held at zero; a construction that fails named
+  by class, depth and challenge; the alignment through the api helper; a depth's and a
+  challenge's variant held to compose (adversarial 6, 17, 18, 19, 22; edge 14, 17, 18, 19; gap 5).
+- The rotation: the default arm; families as records with odds summing to a thousand, each
+  member's expression and the family's citation; canonical names everywhere; alternates marked
+  reachable or not; every count checked (the literals against the case groups, the rare adds,
+  the champion's draw range and `instanceof` lines, thresholds rising, a chance stated or
+  refused, a shape the reader does not know refused); a stray return in the rotation method
+  refused; thousandths rounded half up and a nonzero chance that rounds to zero refused
+  (fairness 4, 5; adversarial 9, 10, 11, 12, 13, 21, 24, 25; edge 20, 21, 22, 23, 24, 25, 26, 27,
+  28, 29, 30, 31, 32, 34; gap 2, 6).
+- Tests: `SourcesTest` and `RotationTest` on fixtures; the rolls of the matrix's classes, the
+  chained pair, the brutes, the light ally, the great crab's declaration; the champion's buffs
+  and exclusions, depth 11, the rare mobs, the alternate's reachability; the families' odds
+  against 40,000 draws under a seeded generator; the rotation's top-level keys in order; the
+  live Run's generator; local classes excluded (fairness 6; adversarial 20; edge 32, 33; gap 2,
+  3, 7).
+- Documents: ADR-0017's amendment rewritten for all of it; the story's numbers (129, the cited
+  lines) corrected; the glossary (gap 8; adversarial 23).
+
+**Not taken, with reasons.**
+
+- Calling the mimics' and wraiths' setters under the context (adversarial 6): the setter's
+  argument is a level, not a depth; the classes are flagged `statsSetLater` and the setter is
+  a later story's table if the Brain needs it.
+- A live Run with talent points or an ascending hero (adversarial 7, edge 16): the bytecode
+  enumeration names every constructor that reads the hero, whatever its value.
+- Typed variant fields (adversarial 20): the values are text by design, one shape for numbers,
+  names and lists; the schema says so.
+- Combined depth-and-challenge variants (adversarial 19, edge 18): the generator holds that
+  the two compose and would fail if they did not; a combined variant is not needed at this tag.
+- Running the completeness test in its own JVM for a bare-classpath claim (gap 9): the claim is
+  held by the static ban on the toolkit, as ADR-0017 says.
+- `RotationEntry` distinct names at depth (edge 22): taken as a record invariant; a literal
+  naming a class and its family is not refused, since the spawner lists none.
+
+## Suggested review order
+
+1. [`CodexLeakTest.java`](https://github.com/watchthelight/shatterfish/blob/4e74e72a9/shatterfish/codex/src/test/java/org/shatterfish/codex/CodexLeakTest.java),
+   the gate's allowlist for the door and the live Run.
+2. [`GameContext.java`](https://github.com/watchthelight/shatterfish/blob/4e74e72a9/shatterfish/codex/src/main/java/org/shatterfish/codex/GameContext.java),
+   the door and its generator.
+3. [`Mobs.java`](https://github.com/watchthelight/shatterfish/blob/4e74e72a9/shatterfish/codex/src/main/java/org/shatterfish/codex/Mobs.java),
+   the entry builder, the roll readers, the named facets and readers.
+4. [`Sources.java`](https://github.com/watchthelight/shatterfish/blob/4e74e72a9/shatterfish/codex/src/main/java/org/shatterfish/codex/Sources.java)
+   and [`SourcesTest.java`](https://github.com/watchthelight/shatterfish/blob/4e74e72a9/shatterfish/codex/src/test/java/org/shatterfish/codex/SourcesTest.java),
+   what a class's own lines, member lines and returns are.
+5. [`Rotation.java`](https://github.com/watchthelight/shatterfish/blob/4e74e72a9/shatterfish/codex/src/main/java/org/shatterfish/codex/Rotation.java)
+   and [`RotationTest.java`](https://github.com/watchthelight/shatterfish/blob/4e74e72a9/shatterfish/codex/src/test/java/org/shatterfish/codex/RotationTest.java),
+   the spawner's literals and the checks.
+6. [`docs/adr/0017-codex-generation-and-citations.md`](https://github.com/watchthelight/shatterfish/blob/4e74e72a9/docs/adr/0017-codex-generation-and-citations.md),
+   the story 2.2 amendment.
+7. [`CodexCompletenessTest.java`](https://github.com/watchthelight/shatterfish/blob/4e74e72a9/shatterfish/codex/src/test/java/org/shatterfish/codex/CodexCompletenessTest.java)
+   and [`codex/v4.0.0/`](https://github.com/watchthelight/shatterfish/tree/4e74e72a9/codex/v4.0.0).
