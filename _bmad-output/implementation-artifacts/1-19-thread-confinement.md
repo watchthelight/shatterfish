@@ -5,7 +5,7 @@ title: "Thread confinement"
 epic: 1
 issue: 32
 type: 'feature'
-status: 'in-progress'
+status: 'in-review'
 created: '2026-09-16'
 updated: '2026-09-16'
 review_loop_iteration: 0
@@ -194,6 +194,32 @@ file touched. The fairness review follows below.
   variable declared `Object`, is named beside the rule with the fixture that shows it.
 - **ASM as a test dependency.** ArchUnit shades ASM's core but not its analysis package; the
   cache holds 9.9, and three test-scoped lines in the shared module script bring it in.
+
+## Evidence
+
+- `:harness:test`, the whole suite with the assertion in place: green, 197 tests in 43 suites,
+  no failures; `ThreadConfinementTest` and `MonitorConfinementTest` green, 2 and 3 tests.
+- `mkdocs build --strict` green.
+- The battery, `mutations119.py`, on the committed tree, restored clean after each break:
+
+```
+=== M1 the Observer does not ask: UiRole.require dropped from atInputWait
+  -> caught by: ThreadConfinementTest (both tests)
+=== M2 the executor does not ask: UiRole.require dropped from execute
+  -> caught by: ThreadConfinementTest (the render-thread call accepted)
+=== M3 the driver does not claim: no owner is ever set
+  -> caught by: ThreadConfinementTest (both tests)
+=== M4 identity by name: a thread called the same passes
+  -> caught by: ThreadConfinementTest (the impostor accepted)
+=== M5 the driver never releases: the role outlives the Run
+  -> caught by: ThreadConfinementTest (no Run, no role)
+=== M6 a monitor on a game object in the Observer
+  -> caught by: MonitorConfinementTest (the ArchUnit rule)
+tree restored and clean
+```
+
+  The battery script lives in the session scratchpad, as every story's has; committing the
+  batteries is `deferred-work.md`'s entry.
 
 ## Deviations
 
