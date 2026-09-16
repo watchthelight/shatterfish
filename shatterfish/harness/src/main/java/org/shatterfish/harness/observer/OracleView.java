@@ -10,8 +10,9 @@ import java.util.List;
  * an {@code api} one: a Brain reaches {@code api} only ({@code BrainBoundaryTest}), the
  * {@code Decider} takes an Observation alone, and {@code OracleGateTest} holds that nothing an
  * Observation can reach lives here. Only {@link OracleObserver} builds one, and inside the harness
- * only the launcher's {@code --oracle} branch asks it to; a module built on the harness (the rig,
- * the overlay) carries its own rule when it arrives.
+ * only the launcher asks it to, in its {@code --oracle} branch and in the benchmark's tactics half
+ * that runs under the same flag (story 1.21); a module built on the harness (the rig, the overlay)
+ * carries its own rule when it arrives.
  *
  * <p>Every name here is the game's display string, which the game localises; the class names ride
  * beside them so a label written from this view does not depend on the language setting.
