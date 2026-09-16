@@ -724,7 +724,7 @@ public final class Observer {
      * the sprite through the accessor of hook row 4 ({@code …/effects/EmoIcon.java:102},
      * {@code :126}, {@code :150}).
      */
-    static Emote emote(Mob mob) {
+    public static Emote emote(Mob mob) {
         if (mob.isAlive() && mob.state == mob.SLEEPING) {
             return Emote.SLEEP;
         }

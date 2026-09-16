@@ -71,7 +71,7 @@ as `…/`.
 - `…/Dungeon.java:624-697` — `saveGame`; `:699-704` — `saveLevel`; `:706-717` — `saveAll` (with
   `Actor.fixTime`, and nothing for a dead hero at `:707`); `:719-760` — `loadGame`: `Actor.clear`,
   the item handlers restored, `Generator.restoreFromBundle` (draws, `…/items/Generator.java:625-636`,
-  `:926`); `:826-840` — `loadLevel`.
+  `:926`), to `:823`; `:826-840` — `loadLevel`.
 - `…/scenes/InterlevelScene.java:733-747` — `restore()`: clear held allies, wipe the log, load the
   game, load the level, `switchLevel(level, hero.pos)`; `…/Dungeon.java:464-505` — `switchLevel`.
 - `…/GamesInProgress.java:57-71` — the game folder and its files, relative to the profile;
@@ -256,6 +256,37 @@ tree restored and clean
   artifact of the script, not a finding; the api suite caught each. The script lives in the
   session scratchpad, as every story's has (`deferred-work.md`).
 
+## The fairness review
+
+The `fairness-reviewer` subagent read `git diff main...HEAD` and returned **CHANGES**: no path by
+which a snapshot's bytes, the save files, the generator's state, the seed or any hidden field
+reaches an Observation, a Decision, the brain or `api`; every citation checked at the tag. Two of
+its findings, a snapshot under a Prompt and the scrubbed flag as a forgeable claim, had already
+been taken from the other reviews. The rest, taken: the emotes a sprite shows are not in the
+bundle, so a restore drew none where the original drew an alert; the snapshot now carries them
+through hook row 4's accessor and the driver re-shows them on the new scene's sprites, and a test
+holds an alert across a restore. A mob's pending alert is protected and not bundled, the buffs a
+ring, an artifact or a wand keeps act once early after a load when the hero stands at a whole
+turn, and the hero's last action and target are cleared; all recorded in the amendment with their
+citations as what a restore does not hold, since a Warrior on floor one has none of them and the
+fix is E6's differential test. "Taking a snapshot changes nothing" is qualified to what was held,
+twenty-four whole-turn waits, and the snapshot schedule named as part of a Run under E5. The seed
+is out of the refusal's message. The store's ids are the salt's, the wait's and the store's count,
+so two processes of one tuple name their snapshots alike.
+
+Three more reviews ran under the build workflow. The verification-gap reviewer found a snapshot
+accepted under a Prompt the save cannot carry, a refused restore never shown to leave the Run
+intact, the snapshot not checking that nothing was handed to the game since the wait, and the
+redeterminer's contract a default method: each taken. The blind reviewer's patches: the seed and
+hero class in the snapshot and a restore of another tuple refused, the restore reseeded before the
+load and unwound on failure, ids unique across stores, a second restore and an earlier snapshot
+over a later one tested, the record kept on floor one, the departures from the decision's outcome
+recorded, the pre-mortem's rollout test named as E6's, the architecture, ADR-0010, glossary and
+fairness pages, the code map's cites, an applied count on the result, a hash on the sample, nulls
+refused by name. The edge-case reviewer's: the save shown fresh, the chasm's jump and the action
+indicator reset, the loaded hero checked, the log's lines put back on any halt, the store's flag
+and wait checks, a drop, null guards. Rejected: none.
+
 ## Deviations
 
 - None from the spec's tasks.
@@ -270,6 +301,10 @@ tree restored and clean
   a Prompt cannot be snapshotted, which E5's take-over at a Prompt inherits.
 - **A restore after the hero's death and across a floor change are not tested here**; the first is
   E5's take-over case, the second the journal's limit above.
+- **A pending alert, the buffs a ring, an artifact or a wand keeps, and the hero's last action and
+  target** are not carried, each with its citation in ADR-0009's amendment; the shown emotes are.
+- **"Taking a snapshot changes nothing" is an observation over twenty-four whole-turn waits**, not
+  a property: with one snapshot per wait (E5) the schedule is part of the Run and must be recorded.
 - **The rollout host, the scrubber and the redetermination table** are E6's (ADR-0009).
 
 ## Follow-ups for later stories

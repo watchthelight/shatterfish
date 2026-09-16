@@ -221,14 +221,24 @@ own log lines, the greeting the pane would draw, are dropped once the new scene 
 snapshot's lines put back, whatever halt follows: a restored Run's log is the Run's, not the
 load's. A snapshot from a Run of another tuple, another salt, seed or hero class, is refused
 before the Run is touched, and a restore that fails after the scene is gone closes the Run rather
-than leaving a driver open over a destroyed scene.
+than leaving a driver open over a destroyed scene. The emotes the sprites showed at the wait are
+not in the bundle (`…/actors/mobs/Mob.java:169-201`), and a fresh scene would draw none; the
+snapshot reads them through hook row 4's accessor, as the Observer does, and the driver re-shows
+them on the new scene's sprites (`…/sprites/CharSprite.java:679-733`) once it has run, which the
+fairness review asked for and the test holds with an alert.
 
 **What the test holds.** `RestoreReplayTest` snapshots at wait 9, plays to wait 24 on floor one
 with a seeded random agent recording the Observation hash and the applied Action at each wait,
 restores, and holds the restored wait and every wait after it to the record, hash for hash; holds
-the same snapshot restored a second time and an earlier one restored over a later one; holds the
-same tuple with and without a snapshot to the same hashes, so `saveAll`'s `Actor.fixTime` and the
-rest of the save change nothing the screen shows; holds every refusal, an unknown handle, a
+the same snapshot restored a second time and an earlier one restored over a later one; holds
+the same tuple with and without a snapshot to the same hashes over twenty-four waits of a Warrior
+whose actions cost whole turns, so `saveAll`'s `Actor.fixTime` and the rest of the save changed
+nothing the screen showed there; that is an observation and not a property: `fixTime` rewrites
+every actor's time by a whole number (`…/actors/Actor.java:190-192`), which is exact, but later
+fractional costs round differently at different magnitudes, so a Run that snapshots at every wait
+(E5) may one day order two near-tied actors differently from one that snapshots at none, and the
+snapshot schedule is then part of what determines the Run and must be recorded with it or fixed
+per mode (non-negotiable 5); holds every refusal, an unknown handle, a
 scrubbed claim, a wrong wait, another salt and another seed, to leave the Run intact and stepping;
 holds a snapshot refused under the chasm's prompt and after an Action; and holds a snapshot the
 game cannot load closing the Run.
@@ -236,7 +246,24 @@ game cannot load closing the Run.
 **What a snapshot does not hold.** The journal is the process's, loaded once behind a private
 flag (`…/journal/Journal.java:34-36`), and no public call resets it; a guide page found between a
 snapshot and its restore stays found, and the next floor generated would read it
-(`…/levels/RegularLevel.java:561-575`). A restore within one floor is exact, which is what E5's
-take-over and E6's short rollouts need; a public reset is the harness's to ask of a hook row or
-of `docs/ideas.md`, recorded there. The badges and the rankings are likewise the process's, and
-nothing the screen shows reads them.
+(`…/levels/RegularLevel.java:561-575`); a public reset is the harness's to ask of a hook row or of
+`docs/ideas.md`, recorded there. The badges and the rankings are likewise the process's, and
+nothing the screen shows reads them. Three more, found by the fairness review and recorded rather
+than fixed. A mob's pending alert, `Mob.alerted`, set during other actors' turns and shown at the
+mob's next act (`Mob.java:138`, `:904-910`), is protected and not bundled, so a mob alerted just
+before the snapshot shows the icon at the next wait in the original Run only. The buffs a ring,
+an artifact or a wand keeps are recreated on load with their time at zero
+(`…/actors/hero/Belongings.java:196-211`), delayed a tick only when the hero's cooldown is positive
+(`…/items/rings/Ring.java:433-442`; `…/items/artifacts/Artifact.java:256-262`;
+`…/items/wands/Wand.java:812-818`); since `saveAll`'s `Actor.fixTime` pulls every time back by a
+whole number (`…/actors/Actor.java:176-199`), a hero at a whole turn is at time zero after the
+load, the guard does not fire, and such a buff acts once before the hero's first restored act
+where the original acted after it, which a wand's known charges or an artifact's charge can show;
+the hero's own act at time zero also runs its free search (`…/actors/hero/Hero.java:878-885`). A
+Warrior on floor one holds none of these, which is what the test plays; a Rogue's cloak or a
+Mage's staff is where the hashes would part, and E6's differential test is where that must be
+held. And the restore clears `hero.lastAction` (`…/Dungeon.java:508`) and the quickslot's last
+target (`…/Dungeon.java:738`; `…/ui/QuickSlotButton.java:72-75`), which the Observation does not
+carry today and a later schema story should not inherit unknowing. So: a restore within one floor
+is exact for what the Observation carries, for a hero with none of those buffs, and the test says
+which; E5's take-over and E6's short rollouts need that, and E6 owns the rest.

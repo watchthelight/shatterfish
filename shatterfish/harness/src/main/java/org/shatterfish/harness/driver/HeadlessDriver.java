@@ -28,6 +28,8 @@ import org.shatterfish.harness.observer.GameLogListener;
 import org.shatterfish.harness.boot.Profile;
 import org.shatterfish.harness.rng.RngControl;
 import org.shatterfish.api.LogLine;
+import org.shatterfish.harness.observer.Observer;
+import org.shatterfish.api.Emote;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -165,8 +167,10 @@ public final class HeadlessDriver implements AutoCloseable {
     private Window lastConfirmedWindow;
     private Window lastSeenWindow;
     private int windowFramesShown;
-    /** A restored snapshot's log lines, put back at the first wait after the restore (story 1.20). */
+    /** A restored snapshot's log lines, put back once the new scene has run (story 1.20). */
     private List<LogLine> logToRestore;
+    /** A restored snapshot's shown emotes, re-shown on the new scene's sprites (story 1.20). */
+    private Map<Integer, Emote> emotesToRestore;
 
     /** The thread this Run claimed the UI role for; close() releases it, whichever thread closes. */
     private final Thread uiThread;
@@ -452,8 +456,18 @@ public final class HeadlessDriver implements AutoCloseable {
         if (files.isEmpty()) {
             throw new IllegalStateException("the game saved nothing into " + folder);
         }
+        // The emotes the sprites show are not in the bundle (Mob.storeInBundle, Mob.java:169-201):
+        // read through hook row 4's accessor, as the Observer reads them, and re-shown after the
+        // restore's scene has built its sprites.
+        Map<Integer, Emote> emotes = new LinkedHashMap<>();
+        for (Mob mob : Dungeon.level.mobs) {
+            Emote emote = Observer.emote(mob);
+            if (emote == Emote.ALERT || emote == Emote.INVESTIGATE || emote == Emote.LOST) {
+                emotes.put(mob.id(), emote);
+            }
+        }
         return new Snapshot(id, waitIndex, Dungeon.seed, hero.heroClass.name(), rng.salt(), GamesInProgress.curSlot, files,
-                GameLogListener.INSTANCE.lines());
+                GameLogListener.INSTANCE.lines(), emotes);
     }
 
     /**
@@ -478,9 +492,11 @@ public final class HeadlessDriver implements AutoCloseable {
         }
         Hero hero = Dungeon.hero;
         if (snapshot.seed() != Dungeon.seed || hero == null || !snapshot.heroClass().equals(hero.heroClass.name())) {
-            throw new IllegalArgumentException("snapshot " + snapshot.id() + " belongs to a Run of seed " + snapshot.seed()
-                    + " as " + snapshot.heroClass() + ", and this Run is seed " + Dungeon.seed + " as "
-                    + (hero == null ? "no hero" : hero.heroClass.name()));
+            // The seeds themselves stay out of the message: the tuple is the runner's to log, not
+            // a refusal's to print (the Stalled rule).
+            throw new IllegalArgumentException("snapshot " + snapshot.id() + " belongs to a Run of another seed or hero class ("
+                    + snapshot.heroClass() + "), and cannot be restored into this one ("
+                    + (hero == null ? "no hero" : hero.heroClass.name()) + ")");
         }
         try {
             restoreInto(snapshot);
@@ -541,6 +557,7 @@ public final class HeadlessDriver implements AutoCloseable {
         lastSeenWindow = null;
         windowFramesShown = 0;
         logToRestore = snapshot.log();
+        emotesToRestore = snapshot.emotes();
     }
 
     /**
@@ -594,9 +611,23 @@ public final class HeadlessDriver implements AutoCloseable {
             long stepped = frames - before;
             if (logToRestore != null && scene.updates() >= 1) {
                 // The new scene has been created and said its own lines; the Run's log is the
-                // snapshot's (ADR-0009), whatever halt follows.
+                // snapshot's (ADR-0009), whatever halt follows. Its sprites exist now too, and the
+                // emotes the snapshot's showed are re-shown on them (CharSprite.java:679-733).
                 GameLogListener.INSTANCE.restore(logToRestore);
                 logToRestore = null;
+                for (Mob mob : Dungeon.level.mobs) {
+                    Emote emote = emotesToRestore.get(mob.id());
+                    if (emote == null || mob.sprite == null) {
+                        continue;
+                    }
+                    switch (emote) {
+                        case ALERT -> mob.sprite.showAlert();
+                        case INVESTIGATE -> mob.sprite.showInvestigate();
+                        case LOST -> mob.sprite.showLost();
+                        default -> { }
+                    }
+                }
+                emotesToRestore = null;
             }
             Hero hero = Dungeon.hero;
             // The change first: a taken resurrection clears the pending mark and asks for the

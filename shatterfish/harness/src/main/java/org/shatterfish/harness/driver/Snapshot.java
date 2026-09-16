@@ -1,5 +1,6 @@
 package org.shatterfish.harness.driver;
 
+import org.shatterfish.api.Emote;
 import org.shatterfish.api.LogLine;
 
 import java.util.List;
@@ -24,8 +25,10 @@ final class Snapshot {
     private final int slot;
     private final Map<String, byte[]> files;
     private final List<LogLine> log;
+    private final Map<Integer, Emote> emotes;
 
-    Snapshot(String id, long k, long seed, String heroClass, long salt, int slot, Map<String, byte[]> files, List<LogLine> log) {
+    Snapshot(String id, long k, long seed, String heroClass, long salt, int slot, Map<String, byte[]> files, List<LogLine> log,
+             Map<Integer, Emote> emotes) {
         this.id = id;
         this.k = k;
         this.seed = seed;
@@ -34,6 +37,15 @@ final class Snapshot {
         this.slot = slot;
         this.files = Map.copyOf(files);
         this.log = List.copyOf(log);
+        this.emotes = Map.copyOf(emotes);
+    }
+
+    /**
+     * The emote each mob's sprite showed at the wait, by actor id, for the ones that showed one:
+     * the sprite's icons live on the sprite and not in the bundle, so the load would draw none.
+     */
+    Map<Integer, Emote> emotes() {
+        return emotes;
     }
 
     String id() {

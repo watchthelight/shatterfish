@@ -5,7 +5,6 @@ import org.shatterfish.api.SnapshotHandle;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Takes and restores snapshots of the Run a driver plays (ADR-0009): {@link #take} writes the
@@ -18,10 +17,8 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public final class SnapshotStore {
 
-    /** Ids are unique across every store of the process, so a handle names one snapshot. */
-    private static final AtomicLong IDS = new AtomicLong();
-
     private final Map<String, Snapshot> snapshots = new LinkedHashMap<>();
+    private int taken;
 
     public SnapshotStore() {
     }
@@ -29,7 +26,11 @@ public final class SnapshotStore {
     /** A snapshot of {@code driver}'s Run at the Input wait it is at; the Run goes on unchanged. */
     public SnapshotHandle take(HeadlessDriver driver) {
         Objects.requireNonNull(driver, "a driver");
-        Snapshot snapshot = driver.snapshot("snapshot-" + IDS.incrementAndGet() + "-k" + driver.waitIndex());
+        // The id is the Run's and the store's, never the process's: the salt, the wait and this
+        // store's count, so two processes of one tuple with one snapshot schedule name their
+        // snapshots alike, and a snapshot of another Run cannot share a name.
+        Snapshot snapshot = driver.snapshot("snapshot-" + Long.toHexString(driver.salt()) + "-k" + driver.waitIndex() + "-"
+                + (++taken));
         SnapshotHandle handle = new SnapshotHandle(snapshot.id(), snapshot.k(), false);
         snapshots.put(snapshot.id(), snapshot);
         return handle;

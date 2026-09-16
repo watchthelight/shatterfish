@@ -117,6 +117,51 @@ class RestoreReplayTest {
     }
 
     @Test
+    @DisplayName("the emote a sprite showed at the wait survives the restore, though the bundle never held it")
+    void an_emote_survives_a_restore() {
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
+        driver.stepToInputWait();
+        SnapshotStore store = new SnapshotStore();
+        // A mob brought into view showing the alert icon, which lives on the sprite and not in the
+        // bundle (Mob.storeInBundle, Mob.java:169-201; CharSprite.java:679-690).
+        com.shatteredpixel.shatteredpixeldungeon.levels.Level level = Dungeon.level;
+        com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob mob = null;
+        for (com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob m : level.mobs) {
+            if (!level.heroFOV[m.pos] && m.sprite != null && !(m instanceof com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mimic)) {
+                mob = m;
+                break;
+            }
+        }
+        assertNotNull(mob, "a mob out of view to bring in");
+        int cell = -1;
+        for (int c = 0; c < level.length() && cell < 0; c++) {
+            if (level.heroFOV[c] && c != Dungeon.hero.pos && level.map[c] == com.shatteredpixel.shatteredpixeldungeon.levels.Terrain.EMPTY
+                    && com.shatteredpixel.shatteredpixeldungeon.actors.Actor.findChar(c) == null && level.heaps.get(c, null) == null) {
+                cell = c;
+            }
+        }
+        assertTrue(cell >= 0, "free floor in view");
+        final int in = cell;
+        mob.pos = in;
+        mob.sprite.place(in);
+        // Awake, so the Observer reads the sprite's icon rather than the sleep it draws from state.
+        mob.state = mob.WANDERING;
+        mob.sprite.showAlert();
+        Observation alerted = new Observer().observe();
+        assertTrue(alerted.actors().actors().stream().anyMatch(a -> a.cell() == in && a.emote() == org.shatterfish.api.Emote.ALERT),
+                "the alert is drawn: " + alerted.actors());
+
+        SnapshotHandle handle = store.take(driver);
+        assertEquals(2, goOn(driver));
+        store.restore(handle, driver);
+        assertEquals(1, driver.stepToInputWait().waitIndex());
+        Observation restored = new Observer().observe();
+        assertTrue(restored.actors().actors().stream().anyMatch(a -> a.cell() == in && a.emote() == org.shatterfish.api.Emote.ALERT),
+                "the alert is drawn again: " + restored.actors());
+        assertEquals(alerted.hash(), restored.hash(), "the restored wait reads as the wait with the emote");
+    }
+
+    @Test
     @DisplayName("taking a snapshot changes nothing: the same tuple with and without one gives the same hashes")
     void taking_a_snapshot_changes_nothing() {
         driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
@@ -210,7 +255,7 @@ class RestoreReplayTest {
         Map<String, byte[]> broken = new LinkedHashMap<>();
         broken.put("game.dat", new byte[] {0, 1, 2});
         Snapshot bad = new Snapshot("broken", handle.k(), Dungeon.seed, HeroClass.WARRIOR.name(), RUN_SALT,
-                com.shatteredpixel.shatteredpixeldungeon.GamesInProgress.curSlot, broken, List.of());
+                com.shatteredpixel.shatteredpixeldungeon.GamesInProgress.curSlot, broken, List.of(), Map.of());
         HeadlessDriver doomed = driver;
         assertThrows(RuntimeException.class, () -> doomed.restore(bad));
         assertTrue(doomed.closed(), "a failed restore closes the Run");
