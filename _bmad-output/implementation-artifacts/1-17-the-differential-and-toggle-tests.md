@@ -5,7 +5,7 @@ title: "The differential and toggle tests"
 epic: 1
 issue: 30
 type: 'feature'
-status: 'in-review'
+status: 'done'
 created: '2026-09-16'
 updated: '2026-09-16'
 review_loop_iteration: 0
@@ -243,10 +243,12 @@ Observer or to any upstream file, no hook row spent. The fairness review follows
 
 ## Evidence
 
-Local, on this branch, at `66565da31` (the tests) with the documents uncommitted:
+Local, on this branch:
 
+- `build -Pshatterfish.mobile=off` at `c2f806ff5` (after the review's patches): green, 533 tests
+  in 54 suites, no failures; `mkdocs build --strict` green.
 - `:harness:test --tests "org.shatterfish.harness.observer.*"`: green, the two new suites
-  included.
+  included, before and after the review.
 - The battery, `mutations117.py`, on the committed tree, restored clean after each break:
 
 ```
@@ -274,6 +276,39 @@ tree restored and clean
   `secret_door_placement`; M6 fails `generator_state` and every other pair, since the name carries
   the draw; M7 fails `blindness` (a cell in view outside the block) and `mind_vision`.
 
+## The fairness review
+
+The `fairness-reviewer` subagent read `git diff main...HEAD` and returned **CHANGES**: no path by
+which hidden information reaches an Observation, the Observer and every upstream file untouched,
+and eight should-fixes, every one taken. Three were citations wrong at `v4.0.0`: the sprite's
+visibility, carried from a `v3.3.8` line in `ActorLeakTest` (now `GameScene.java:1089`,
+`:1515-1522`; `Char.java:1322-1324`, and the same stale line fixed in `MimicDifferentialTest`); the
+secret door's visual (`DungeonTileSheet.java:470`, with the same stale number in the Observer's
+javadoc); and the log line under blindness, which the first draft attributed to the buff's
+`announced` flag — that flag is the floating text over the sprite (`Char.java:1234-1246`), and the
+line comes from the hero's add (`Hero.java:2130-2136`) through `heroMessage()`
+(`Buff.java:118-125`). Two were sets bound loosely: the heaps under mind vision were allowed to move
+and only held to a superset, and are now held to exactly the seen ones on known cells; and the
+blindness test's blob and actor clauses were vacuous, the record refusing an actor or a blob on a
+hidden cell before any assertion, so a mob and a gas are now placed in view outside the block and
+held to disappear. The rest: the memory outside the block attributed to the observe at the wait
+before (`Dungeon.java:930-938`), ADR-0006's Vision buffs row re-cited at the tag, and the generator
+pair's prose cut to what the test does.
+
+Three more reviews ran under the build workflow. The verification-gap reviewer found no gap and
+two patches, the exit pinned absent before mapping and the same citation. The blind reviewer's
+findings that were patches are in the review commit: the item pair on heaps for all three
+families and identified for all three, the unseen mob's health, state, enemy and buff, the
+generator stack's depth, the cleared cell compared, the trap's name held absent, the mind-vision
+converses, the hero compared by named accessors, the preamble and the mob-sprite row of the
+visibility page, the fairness page's other rows. Two of its findings were deferred: the batteries'
+home, to `deferred-work.md`, and the helper triplication across the differential suites, rejected
+as cosmetic. The edge-case reviewer's findings taken: the game's own mimic predicate in the
+mind-vision rules, traps and transitions under mind vision bound to cells newly known, the log's
+cap, the generator stack's depth; rejected: a door discovered by the scroll opening the view (a
+closed door blocks sight), a mob stepping on a trap during the read (the seed is pinned and a part
+that moves names itself), and the other vision buffs (FR-10 names three; recorded as not held).
+
 ## Deviations
 
 - The spec's matrix named four breaks; seven were run, adding a revealed trap under opaque fog, a
@@ -296,3 +331,63 @@ tree restored and clean
 
 - Story 1.18 (#31): oracle mode, gated and marked.
 - E4: the behavioural differential, and the permuted-seed form for any learned component.
+
+## Suggested Review Order
+
+**The differential pairs: one Run, read twice per kind of hidden state**
+
+- The entry point: the item pair, the one hidden state the game has no method to set, swapped by the handler's labels
+  [`HiddenStateDifferentialTest.java:96`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L96)
+
+- How the labels move without touching the known set or the images
+  [`HiddenStateDifferentialTest.java:339`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L339)
+
+- The unseen mob: position, then health, state, enemy and a buff; the control moves it into view
+  [`HiddenStateDifferentialTest.java:171`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L171)
+
+- Hidden trap and revealed-under-fog trap, each a world identical to no trap; the cleared cell compared
+  [`HiddenStateDifferentialTest.java:201`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L201)
+
+- A secret door in either wall, identical to a wall
+  [`HiddenStateDifferentialTest.java:247`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L247)
+
+- The generator: bytes across a pushed generator and a changed seed; a read draws nothing and leaves the stack as deep
+  [`HiddenStateDifferentialTest.java:269`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L269)
+
+**The toggles: an exact set of parts, the rest held still**
+
+- What "exact" means: the parts two Observations differ in, by name; the Actions left out on purpose
+  [`ObservationDiff.java:33`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/ObservationDiff.java#L33)
+
+- Blindness: the game's array held to the block, the diff to five parts, a mob and a gas lost outside the block
+  [`VisionToggleTest.java:103`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/VisionToggleTest.java#L103)
+
+- The block, clipped to the map, as a check on the citation
+  [`VisionToggleTest.java:381`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/VisionToggleTest.java#L381)
+
+- Mind vision: both directions of each rule on the array; heaps, traps and ways bound to cells newly known; memory after detach
+  [`VisionToggleTest.java:186`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/VisionToggleTest.java#L186)
+
+- The mimic the loop skips, in the game's own words
+  [`VisionToggleTest.java:409`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/VisionToggleTest.java#L409)
+
+- Magic mapping read the game's way: mapped, secrets discovered, no mob and no heap on a merely mapped cell
+  [`VisionToggleTest.java:274`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/VisionToggleTest.java#L274)
+
+**The record, and the rows the suites claim**
+
+- ADR-0006's story 1.17 amendment: what is held, what the screen did unexpectedly, the battery, what is not held
+  [`adr/0006-observer-visibility-rules.md:606`](../../docs/adr/0006-observer-visibility-rules.md#L606)
+
+- The Vision buffs row, re-cited at the tag
+  [`adr/0006-observer-visibility-rules.md:72`](../../docs/adr/0006-observer-visibility-rules.md#L72)
+
+- The rows each suite claims, which VisibilityChecklistTest reads
+  [`HiddenStateDifferentialTest.java:70`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L70)
+
+- The visibility rules: blindness, mind vision, mapped and the mob sprite, tested and re-cited
+  [`rules/visibility.md:11`](../../docs/rules/visibility.md#L11)
+
+- The fairness page's test table
+  [`fairness.md:38`](../../docs/fairness.md#L38)
+
