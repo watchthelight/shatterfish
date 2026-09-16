@@ -228,9 +228,11 @@ run. The fairness review follows below.
 
 ## Evidence
 
+- `build -Pshatterfish.mobile=off` at `34e9300dc` (after every review's patches): green, 556
+  tests in 60 suites, no failures; `mkdocs build --strict` green.
 - `:api:test` green (ApiBoundaryTest, ReservedInterfacesTest, JsonRenderingTest and the rest);
-  `RestoreReplayTest` 3 of 3 and `SnapshotBoundaryTest` 3 of 3 green on the first run;
-  `mkdocs build --strict` green.
+  `RestoreReplayTest` 3 of 3 and `SnapshotBoundaryTest` 3 of 3 green on the first run, 5 of 5
+  and 3 of 3 after the reviews.
 - The battery, `mutations120.py`, on the committed tree, restored clean after each break:
 
 ```
