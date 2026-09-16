@@ -52,7 +52,7 @@ development_status:
   1-14-a-random-action-warrior-run-to-death: done
   1-15-the-salt-the-mix-function-and-the-profile: done
   1-16-identity-order-and-the-two-jvm-determinism-test: done
-  1-17-the-differential-and-toggle-tests: review
+  1-17-the-differential-and-toggle-tests: done
   1-18-oracle-mode-gated-and-marked: backlog
   1-19-thread-confinement: backlog
   1-20-snapshot-restore-and-the-reserved-interfaces: backlog
