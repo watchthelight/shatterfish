@@ -34,11 +34,11 @@ All live in `harness` and run in CI on every pull request.
 
 | Test | What it checks | Status |
 |---|---|---|
-| Leak tests | An unidentified scroll, a mob behind a wall, a secret door, a hidden trap, an invisible enemy: none may appear in the serialized Observation | E1 |
-| Differential test | Two worlds identical to the player but different in hidden state serialize to byte-identical Observations | E1 |
-| Toggle tests | The same world with and without `MindVision`, `Blindness`, and magic mapping produces exactly the expected differences | E1 |
+| Leak tests | An unidentified scroll, a mob behind a wall, a secret door, a hidden trap, an invisible enemy: none may appear in the serialized Observation | done: `MapLeakTest`, `ActorLeakTest`, `ItemLeakTest`, `EnvironmentLeakTest`, `FogParityTest`, `MimicDifferentialTest` (E1 stories 1.8 to 1.11); `VisibilityChecklistTest` holds every row of ADR-0006 to a suite |
+| Differential test | Two worlds identical to the player but different in hidden state serialize to byte-identical Observations | done: `HiddenStateDifferentialTest` (E1 story 1.17); the behavioural form is E4 |
+| Toggle tests | The same world with and without `MindVision`, `Blindness`, and magic mapping produces exactly the expected differences | done: `VisionToggleTest` (E1 story 1.17) |
 | ArchUnit test | `brain` imports nothing from `com.shatteredpixel.*` or `com.watabou.*` | done |
-| Determinism test | The same (tag, seed, action list) twice gives identical Observation hashes at every turn | E1 |
+| Determinism test | The same (tag, seed, action list) twice gives identical Observation hashes at every turn | done: `DeterminismTwoJvmTest` (E1 story 1.16), in one process and across two; the cross-platform comparison is story 3.4 |
 
 ## Search
 
