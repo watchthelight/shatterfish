@@ -1,6 +1,7 @@
 package org.shatterfish.codex;
 
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
+import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.watabou.utils.Random;
 
 import java.util.function.Supplier;
@@ -16,7 +17,10 @@ import java.util.function.Supplier;
  * generator of the Codex's own, pushed and popped here, so that nothing is taken from and
  * nothing is left in the Run's, and the drawn facets are named and not dumped. No other
  * generator class may name {@code Dungeon} or the game's {@code Random}, and this one may reach
- * exactly the two fields and the two generator calls, which the same test's gate holds by name.
+ * exactly the three fields and the two generator calls, which the same test's gate holds by
+ * name. The third field is {@code Dungeon.level} (story 2.3): an item's actions may ask what
+ * level the hero stands on (a pickaxe on the mining level cannot be dropped), so the level is
+ * set to none around a construction, as a cold generation has it, and restored.
  */
 final class GameContext {
 
@@ -36,8 +40,10 @@ final class GameContext {
     static <T> T under(int depth, int challenges, Supplier<T> make) {
         int depthBefore = Dungeon.depth;
         int challengesBefore = Dungeon.challenges;
+        Level levelBefore = Dungeon.level;
         Dungeon.depth = depth;
         Dungeon.challenges = challenges;
+        Dungeon.level = null;
         Random.pushGenerator(generatorSeed);
         try {
             return make.get();
@@ -45,6 +51,7 @@ final class GameContext {
             Random.popGenerator();
             Dungeon.depth = depthBefore;
             Dungeon.challenges = challengesBefore;
+            Dungeon.level = levelBefore;
         }
     }
 }

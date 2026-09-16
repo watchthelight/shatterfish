@@ -86,7 +86,7 @@ final class Names {
 
     /**
      * The display name of {@code type}: its own bundle line, or the nearest superclass's, as the
-     * game falls back ({@code Messages.java:137-139}); a class the bundles do not name at any
+     * game falls back ({@code Messages.java:122-139}); a class the bundles do not name at any
      * level fails.
      */
     static Named of(Path root, Class<?> type) {

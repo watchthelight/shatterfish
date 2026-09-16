@@ -115,6 +115,7 @@ import com.shatteredpixel.shatteredpixeldungeon.items.potions.elixirs.ElixirOfIc
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.elixirs.ElixirOfMight;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.elixirs.ElixirOfToxicEssence;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.exotic.ExoticPotion;
+import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.exotic.ExoticScroll;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.exotic.PotionOfCleansing;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.exotic.PotionOfCorrosiveGas;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.exotic.PotionOfDivineInspiration;
@@ -352,13 +353,36 @@ final class Items {
     static final String OUTSIDE = "not an item a player meets: a helper outside the item packages";
     static final String BASE = "a base class, not an item a player meets";
     static final String NO_CONSTRUCTOR = "no public no-argument constructor";
-    static final String NEVER_DROPPED = "never dropped (WandOfRegrowth.java:372, :408): the seed of a plant only the wand grows";
+    static final String NEVER_DROPPED = "never dropped, as its source says above the declaration: the seed of a plant only the wand grows";
     static final String ICONS = "its icon needs the toolkit at class initialisation (ItemSpriteSheet.Icons)";
 
     private static final Pattern ACTIONS_METHOD = Pattern.compile("ArrayList<String>\\s+actions\\s*\\(");
-    private static final Pattern ADD = Pattern.compile("\\bactions\\.add\\(\\s*(.*?)\\s*\\)\\s*;");
-    private static final Pattern REMOVE = Pattern.compile("\\bactions\\.remove\\(\\s*(\\w+)\\s*\\)\\s*;");
+    private static final Pattern ADD = Pattern.compile("\\bactions\\.add\\s*\\(\\s*(.*?)\\s*\\)\\s*;");
+    private static final Pattern REMOVE = Pattern.compile("\\bactions\\.remove\\s*\\(\\s*(\\w+)\\s*\\)\\s*;");
+    private static final Pattern CLEAR = Pattern.compile("\\bactions\\.clear\\s*\\(\\s*\\)\\s*;");
+    private static final Pattern OTHER_MUTATION = Pattern.compile("\\bactions\\s*(?:=[^=]|\\.(?:addAll|removeAll|removeIf|retainAll|set|sort|add\\s*\\(\\s*\\d|remove\\s*\\(\\s*\\d)\\b)");
+    private static final Pattern INHERITS = Pattern.compile("=\\s*super\\.actions\\s*\\(");
+    private static final Pattern FRESH = Pattern.compile("^\\s*ArrayList<String>\\s+actions\\s*=\\s*new\\s+ArrayList<");
+    private static final Pattern CONTROL = Pattern.compile("^\\s*(?:if|else|for|while|do|switch|case|default|try|catch|finally|synchronized)\\b");
+    private static final Pattern EQUIPPED = Pattern.compile("^(!?)\\s*isEquipped\\s*\\(\\s*hero\\s*\\)$");
     private static final Pattern LITERAL_VALUE = Pattern.compile("^return\\s+(\\d+)(?:\\s*\\*\\s*quantity)?\\s*;$");
+    private static final Pattern QUANTITY = Pattern.compile("^\\s*(?:(?:public|protected|private)\\s+)?(?:int\\s+)?quantity\\s*=\\s*(\\d+)\\s*;\\s*$");
+    private static final String VALUE = "public int value\\s*\\(\\s*\\)";
+
+    /**
+     * Every constructed class, or superclass of one, whose constructor, initialiser,
+     * {@code actions(Hero)}, {@code value()} or {@code STRReq(int)} reads a Run, a Profile, a
+     * quest, the clock or a generator, each with its reason; {@code CodexCompletenessTest}
+     * enumerates the readers from bytecode and holds that this names each and nothing else, so
+     * that a new read is reviewed before it can reach a table.
+     */
+    static final List<Map.Entry<Class<?>, String>> READS = List.of(
+            Map.entry(Pickaxe.class, "actions reads Dungeon.level: on the mining level a pickaxe is neither dropped nor thrown; the context sets no level"),
+            Map.entry(DriedRose.class, "actions reads Ghost.Quest.completed() and Dungeon.level; a fresh rose is unidentified and carries no ghost, so the "
+                    + "quest's state changes nothing it offers, and the context sets no level"),
+            Map.entry(Pasty.class, "its initialiser reads the clock through Holiday for its sprite and flavour; nothing the table carries depends on it"),
+            Map.entry(UnstableSpellbook.class, "its initialiser draws the scrolls it holds (setupScrolls, Random.chances) under the Codex's generator; "
+                    + "nothing the table carries depends on them"));
 
     /** Every item class that constructs on the generator's classpath, one supplier each. */
     static final List<Supplier<Item>> CONSTRUCTED = List.of(
@@ -491,15 +515,34 @@ final class Items {
         Names.Named name = Names.of(root, type);
         int value = GameContext.under(1, 0, item::value);
         List<String> actions = List.copyOf(GameContext.under(1, 0, () -> item.actions(hero)));
-        return new Codex.ItemEntry(Sources.name(type), name.value(), name.citation(), category(type), value, "",
+        return new Codex.ItemEntry(Sources.name(type), name.value(), customName(root, type), name.citation(), category(type), item.quantity(), value, "",
                 strength(root, item), actions, true, "", body.citation(body.declaration(type.getSimpleName())));
+    }
+
+    /** Whether the class or a superclass below {@code Item} overrides {@code name()}, so the screen may show a name that is not the bundle's. */
+    static boolean customName(Path root, Class<?> type) {
+        Sources.Declared name = Sources.declared(root, type, Item.class, "public String name\\s*\\(\\s*\\)");
+        return name != null && name.owner() != Item.class;
+    }
+
+    /** The quantity a fresh instance holds, from the nearest initialiser assigning the field up to {@code Item}'s own declaration. */
+    static int quantityOf(Path root, Class<?> type) {
+        for (Class<?> c = type; c != null && Item.class.isAssignableFrom(c); c = c.getSuperclass()) {
+            int line = Sources.body(root, c).firstMember(QUANTITY);
+            if (line >= 0) {
+                Matcher m = QUANTITY.matcher(Sources.body(root, c).lines().get(line));
+                m.matches();
+                return Integer.parseInt(m.group(1));
+            }
+        }
+        throw new IllegalStateException(type.getName() + " has no quantity declaration up to Item");
     }
 
     /** A source-read item's entry: the value method's text, the literal when it is one, the actions the hierarchy adds. */
     static Codex.ItemEntry sourceRead(Path root, Class<? extends Item> type) {
         Sources.Body body = Sources.body(root, type);
         Names.Named name = Names.of(root, type);
-        Sources.Declared valueMethod = Sources.declared(root, type, Item.class, "public int value\\s*\\(\\s*\\)");
+        Sources.Declared valueMethod = Sources.declared(root, type, Item.class, VALUE);
         if (valueMethod == null) {
             throw new IllegalStateException(type.getName() + " declares no value() up to Item");
         }
@@ -511,16 +554,18 @@ final class Items {
                 value = Integer.parseInt(literal.group(1));
             }
         }
-        return new Codex.ItemEntry(Sources.name(type), name.value(), name.citation(), category(type), value, valueText(root, valueMethod),
-                Codex.Strength.none(), actions(root, type), false, ICONS, body.citation(body.declaration(type.getSimpleName())));
+        return new Codex.ItemEntry(Sources.name(type), name.value(), customName(root, type), name.citation(), category(type), quantityOf(root, type), value,
+                valueText(root, type, valueMethod), Codex.Strength.none(), actions(root, type), false, ICONS,
+                body.citation(body.declaration(type.getSimpleName())));
     }
 
     /**
      * The value method's text, and when it defers to {@code super.value()} (as every identifiable
      * potion and scroll does, by whether it is known), the superclass's text after it, up the
-     * hierarchy until one does not defer.
+     * hierarchy until one does not defer; when it defers to the regular class's instance (as the
+     * exotics do, through {@code exoToReg}), that class's text, read the same way.
      */
-    static String valueText(Path root, Sources.Declared valueMethod) {
+    static String valueText(Path root, Class<?> type, Sources.Declared valueMethod) {
         StringBuilder text = new StringBuilder(text(valueMethod.block()));
         Sources.Declared current = valueMethod;
         while (text(current.block()).contains("super.value()")) {
@@ -528,12 +573,24 @@ final class Items {
             if (parent == null || !Item.class.isAssignableFrom(parent)) {
                 break;
             }
-            Sources.Declared above = Sources.declared(root, parent, Item.class, "public int value\\s*\\(\\s*\\)");
+            Sources.Declared above = Sources.declared(root, parent, Item.class, VALUE);
             if (above == null) {
                 throw new IllegalStateException(current.owner().getName() + ".value defers to a superclass that declares none");
             }
             text.append(" where super.value(): ").append(text(above.block()));
             current = above;
+        }
+        if (text(valueMethod.block()).contains("exoToReg.get(getClass())")) {
+            Class<?> regular = ExoticPotion.class.isAssignableFrom(type) ? ExoticPotion.exoToReg.get(type)
+                    : ExoticScroll.class.isAssignableFrom(type) ? ExoticScroll.exoToReg.get(type) : null;
+            if (regular == null) {
+                throw new IllegalStateException(type.getName() + ".value defers to a regular class the exotic maps do not give");
+            }
+            Sources.Declared regularValue = Sources.declared(root, regular, Item.class, VALUE);
+            if (regularValue == null) {
+                throw new IllegalStateException(regular.getName() + " declares no value() up to Item");
+            }
+            text.append(" where the regular's value(), ").append(Sources.name(regular)).append(": ").append(valueText(root, regular, regularValue));
         }
         return text.toString();
     }
@@ -585,9 +642,8 @@ final class Items {
 
     /**
      * The actions a fresh instance of {@code type} offers, read from every {@code actions(Hero)}
-     * the hierarchy declares from {@code Item} down: an add or a remove at the method body's own
-     * level counts, one inside an {@code if} does not, and a ternary takes its last branch. The
-     * constants are resolved to their values in the class that declares them.
+     * the hierarchy declares from {@code Item} down by {@link #readActions}. The constants are
+     * resolved to their values in the class that declares them.
      */
     static List<String> actions(Path root, Class<?> type) {
         List<Class<?>> chain = new ArrayList<>();
@@ -601,30 +657,82 @@ final class Items {
             if (line < 0) {
                 continue;
             }
-            Sources.Body method = body.block(line);
-            boolean callsSuper = false;
-            int depth = 0;
-            for (int i = method.from() + 1; i < method.to() - 1; i++) {
-                String text = Sources.stripComment(method.lines().get(i));
-                callsSuper |= text.contains("super.actions(") || text.contains("super.actions (");
-                if (depth == 0) {
-                    Matcher add = ADD.matcher(text);
-                    Matcher remove = REMOVE.matcher(text);
-                    if (add.find()) {
-                        String argument = add.group(1);
-                        int branch = argument.lastIndexOf(':');
-                        actions.add(constant(root, chain, branch < 0 ? argument.trim() : argument.substring(branch + 1).trim()));
-                    } else if (remove.find()) {
-                        actions.remove(constant(root, chain, remove.group(1)));
-                    }
-                }
-                depth += count(text, '{') - count(text, '}');
-            }
-            if (!callsSuper && c != Item.class) {
-                throw new IllegalStateException(c.getName() + ".actions does not call super; the reader cannot say what it offers");
-            }
+            actions = readActions(body.block(line), actions, name -> constant(root, chain, name));
         }
         return List.copyOf(actions);
+    }
+
+    /**
+     * What one {@code actions(Hero)} method offers a fresh, unequipped instance, given what the
+     * superclass's offers: the list starts as the superclass's when the body assigns
+     * {@code super.actions(hero)} at its own level and empty otherwise; an {@code add}, a
+     * {@code remove} or a {@code clear} at the body's own level counts, one on or under a
+     * control line (an {@code if} with or without braces, a loop, a switch) does not, since a
+     * fresh instance takes none of those branches the reader can name; a ternary on
+     * {@code isEquipped(hero)} takes its unequipped branch. Braces are counted outside comments
+     * and literals, the opening brace wherever it is. Any other shape (a nested or other ternary,
+     * an {@code addAll}, a reassignment, a control line the reader cannot see past) fails
+     * naming the line, so that a shape a later tag writes is read on purpose or not at all.
+     */
+    static List<String> readActions(Sources.Body method, List<String> inherited, java.util.function.UnaryOperator<String> resolve) {
+        List<String> actions = new ArrayList<>();
+        boolean inherits = false;
+        boolean opened = false;
+        int depth = 0;
+        boolean conditional = false;
+        for (int i = method.from(); i < method.to(); i++) {
+            String text = Sources.stripComment(method.lines().get(i));
+            String trimmed = text.trim();
+            int change = Sources.braces(text);
+            boolean bodyLevel = opened && depth == 1;
+            boolean control = CONTROL.matcher(text).find();
+            if (bodyLevel && !control && !conditional) {
+                Matcher add = ADD.matcher(text);
+                Matcher remove = REMOVE.matcher(text);
+                if (OTHER_MUTATION.matcher(text).find() && !INHERITS.matcher(text).find() && !FRESH.matcher(text).find()) {
+                    throw new IllegalStateException(method.path() + ":" + (i + 1) + ": a change to the actions the reader does not know: " + trimmed);
+                }
+                if (INHERITS.matcher(text).find()) {
+                    actions.addAll(inherited);
+                    inherits = true;
+                } else if (add.find()) {
+                    actions.add(resolve.apply(branch(add.group(1), method.path(), i)));
+                } else if (remove.find()) {
+                    actions.remove(resolve.apply(remove.group(1)));
+                } else if (CLEAR.matcher(text).find()) {
+                    actions.clear();
+                }
+            } else if (bodyLevel && (control || conditional) && OTHER_MUTATION.matcher(text).find()) {
+                throw new IllegalStateException(method.path() + ":" + (i + 1) + ": a change to the actions under a condition the reader does not know: " + trimmed);
+            }
+            // A control line that closes nothing governs the next statement, which is not offered.
+            boolean open = !trimmed.endsWith(";") && !trimmed.endsWith("{") && !trimmed.endsWith("}");
+            conditional = bodyLevel && control && change == 0 && open || conditional && open && change == 0;
+            depth += change;
+            opened |= change > 0;
+        }
+        if (!inherits && !inherited.isEmpty() && method.lines().subList(method.from(), method.to()).stream().anyMatch(l -> l.contains("super.actions"))) {
+            throw new IllegalStateException(method.path() + ":" + (method.from() + 1) + ": super.actions is called somewhere the reader cannot see");
+        }
+        return actions;
+    }
+
+    /** The constant an add's argument names: itself, or the unequipped branch of a ternary on being equipped. */
+    private static String branch(String argument, String path, int line) {
+        int question = argument.indexOf('?');
+        if (question < 0) {
+            return argument.trim();
+        }
+        int colon = argument.indexOf(':');
+        if (argument.indexOf('?', question + 1) >= 0 || argument.indexOf(':', colon + 1) >= 0 || colon < question) {
+            throw new IllegalStateException(path + ":" + (line + 1) + ": a ternary the reader does not know: " + argument);
+        }
+        Matcher equipped = EQUIPPED.matcher(argument.substring(0, question).trim());
+        if (!equipped.matches()) {
+            throw new IllegalStateException(path + ":" + (line + 1) + ": a condition the reader does not know: " + argument);
+        }
+        boolean negated = !equipped.group(1).isEmpty();
+        return (negated ? argument.substring(question + 1, colon) : argument.substring(colon + 1)).trim();
     }
 
     /** The value of the {@code AC_*} constant {@code name}, declared as a string literal in one of {@code chain}'s classes. */
@@ -642,16 +750,6 @@ final class Items {
             }
         }
         throw new IllegalStateException(name + " is not a string constant of " + chain.get(chain.size() - 1).getName() + " or a superclass");
-    }
-
-    private static int count(String text, char c) {
-        int n = 0;
-        for (int i = 0; i < text.length(); i++) {
-            if (text.charAt(i) == c) {
-                n++;
-            }
-        }
-        return n;
     }
 
     /** A method block's body as one line: its statements, comments stripped, blank lines dropped. */

@@ -319,6 +319,52 @@ final class Sources {
         return m.find() ? m.end() - "return".length() : -1;
     }
 
+    /**
+     * The net braces of one line, opened less closed, counted outside string and character
+     * literals and outside a {@code //} comment; a block comment on one line is skipped, one
+     * spanning lines is not (the readers are given a method's block, which {@link Body#block}
+     * already closed with the same care).
+     */
+    static int braces(String line) {
+        int net = 0;
+        boolean inString = false;
+        boolean inChar = false;
+        for (int c = 0; c < line.length(); c++) {
+            char ch = line.charAt(c);
+            char next = c + 1 < line.length() ? line.charAt(c + 1) : '\0';
+            if (inString) {
+                if (ch == '\\') {
+                    c++;
+                } else if (ch == '"') {
+                    inString = false;
+                }
+            } else if (inChar) {
+                if (ch == '\\') {
+                    c++;
+                } else if (ch == '\'') {
+                    inChar = false;
+                }
+            } else if (ch == '/' && next == '/') {
+                break;
+            } else if (ch == '/' && next == '*') {
+                int end = line.indexOf("*/", c + 2);
+                if (end < 0) {
+                    break;
+                }
+                c = end + 1;
+            } else if (ch == '"') {
+                inString = true;
+            } else if (ch == '\'') {
+                inChar = true;
+            } else if (ch == '{') {
+                net++;
+            } else if (ch == '}') {
+                net--;
+            }
+        }
+        return net;
+    }
+
     /** {@code line} without a trailing {@code //} comment (a {@code //} inside a string is not one here). */
     static String stripComment(String line) {
         int at = line.indexOf("//");

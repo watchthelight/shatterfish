@@ -390,34 +390,48 @@ public final class Codex {
 
     /**
      * A generator category: its weight in each of the two category decks, the superclass it
-     * draws, its classes with their deck weights (empty for a category that draws another way),
-     * the citation of the constant and of the class list's assignment.
+     * draws, how many decks it draws its classes by (0 for a category the game draws another
+     * way, whose classes are listed with zero weights; 1 for one deck; 2 for a deck with a
+     * second weighting), its classes with their deck weights, the citation of the constant, of
+     * the class list's assignment, and of each deck's weights (null where there is no such
+     * deck).
      */
-    public record CategoryEntry(String name, int firstProb, int secondProb, String superClass, List<Weighted> classes,
-                                Citation citation, Citation classesCitation) {
+    public record CategoryEntry(String name, int firstProb, int secondProb, String superClass, int decks, List<Weighted> classes,
+                                Citation citation, Citation classesCitation, Citation weightsCitation, Citation weights2Citation) {
 
         public CategoryEntry {
             name = Canon.text(name, "category name");
             Canon.require(!name.isEmpty(), "a category is named");
             Canon.require(firstProb >= 0 && secondProb >= 0, "a category weight is not negative");
             superClass = Canon.text(superClass, "category superclass");
+            Canon.require(decks >= 0 && decks <= 2, "a category draws by no deck, one or two: " + decks);
             classes = Canon.positional(classes, "classes");
             Set<String> names = new HashSet<>();
             for (Weighted weighted : classes) {
                 Canon.require(names.add(weighted.className()), "a class is listed once in a category: " + weighted.className());
+                Canon.require(decks >= 1 || weighted.firstDeck() == 0, "a category with no deck weights nothing: " + weighted.className());
+                Canon.require(decks == 2 || weighted.secondDeck() == 0, "a category with one deck has no second weight: " + weighted.className());
             }
             Canon.require(citation != null && classesCitation != null, "a category carries its citations");
+            Canon.require((decks >= 1) == (weightsCitation != null), "a deck's weights are cited, and nothing else is");
+            Canon.require((decks == 2) == (weights2Citation != null), "a second deck's weights are cited, and nothing else is");
         }
     }
 
-    /** One appearance label of an identifiable family: its key, its display name, the citation of the key and of the name. */
-    public record Label(String key, String name, Citation citation, Citation nameCitation) {
+    /**
+     * One appearance label of an identifiable family: its key, the display name of the regular
+     * family under it, the display name of the exotic family under it (empty for a family with
+     * no exotics), the citation of the key and of each name.
+     */
+    public record Label(String key, String name, String exoticName, Citation citation, Citation nameCitation, Citation exoticCitation) {
 
         public Label {
             key = Canon.text(key, "label key");
             name = Canon.text(name, "label name");
+            exoticName = Canon.text(exoticName, "exotic label name");
             Canon.require(!key.isEmpty() && !name.isEmpty(), "a label has a key and a name");
             Canon.require(citation != null && nameCitation != null, "a label carries its citations");
+            Canon.require(exoticName.isEmpty() == (exoticCitation == null), "an exotic name is cited, and nothing else is");
         }
     }
 
@@ -442,6 +456,7 @@ public final class Codex {
         public ExoticPair {
             regular = Canon.text(regular, "regular class");
             exotic = Canon.text(exotic, "exotic class");
+            Canon.require(!regular.isEmpty() && !exotic.isEmpty() && !regular.equals(exotic), "a pair is two classes");
         }
     }
 
@@ -466,6 +481,10 @@ public final class Codex {
                 Canon.require(names.add(category.name()), "a category is listed once: " + category.name());
             }
             labelPools = Canon.sorted(labelPools, Comparator.comparing(LabelPool::family), "label pools");
+            Set<String> families = new HashSet<>();
+            for (LabelPool pool : labelPools) {
+                Canon.require(families.add(pool.family()), "a family has one pool: " + pool.family());
+            }
             Canon.require(exotic != null, "the decks carry the exotic swap");
         }
     }
@@ -491,14 +510,16 @@ public final class Codex {
 
     /**
      * One concrete item class a player can meet: its class name, its display name from the
-     * bundle with the line cited, the category whose deck lists it (empty for none), its value
-     * (-1 when read from a source expression that is not a number), the value's expression
-     * (empty when the value was read from an instance), its strength, the actions it offers a
-     * fresh instance, whether it was constructed, the reason when it was not, and the citation
-     * of the class's declaration.
+     * bundle with the line cited (the identified name; {@code customName} says the class or a
+     * superclass overrides {@code name()}, so the screen may show another), the category whose
+     * deck lists it (empty for none, the exotics among them, which are swapped in after a draw),
+     * the quantity a fresh instance holds, its value at that quantity (-1 when read from a source
+     * expression that is not a number), the value's expression (empty when the value was read
+     * from an instance), its strength, the actions it offers a fresh instance, whether it was
+     * constructed, the reason when it was not, and the citation of the class's declaration.
      */
-    public record ItemEntry(String className, String name, Citation nameCitation, String category, int value, String valueExpression,
-                            Strength strength, List<String> actions, boolean constructed, String reason, Citation citation) {
+    public record ItemEntry(String className, String name, boolean customName, Citation nameCitation, String category, int quantity, int value,
+                            String valueExpression, Strength strength, List<String> actions, boolean constructed, String reason, Citation citation) {
 
         public ItemEntry {
             className = Canon.text(className, "item class name");
@@ -507,11 +528,16 @@ public final class Codex {
             Canon.require(!name.isEmpty(), "an item has a display name");
             Canon.require(nameCitation != null, "an item's name is cited");
             category = Canon.text(category, "item category");
+            Canon.require(quantity >= 1, "a fresh instance holds at least one: " + quantity);
             Canon.require(value >= -1, "a value is a number or -1: " + value);
             valueExpression = Canon.text(valueExpression, "value expression");
             Canon.require(constructed == valueExpression.isEmpty(), "a constructed item's value is its instance's; a read one carries the expression");
             Canon.require(strength != null, "an item says whether it has a strength requirement");
             actions = Canon.positional(actions, "actions");
+            Set<String> offered = new HashSet<>();
+            for (String action : actions) {
+                Canon.require(offered.add(action), "an action is offered once: " + action);
+            }
             reason = Canon.text(reason, "reason");
             Canon.require(constructed == reason.isEmpty(), "an unconstructed item says why");
             Canon.require(citation != null, "an item carries its citation");

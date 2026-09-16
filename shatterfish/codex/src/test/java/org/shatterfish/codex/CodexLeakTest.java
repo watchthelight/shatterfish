@@ -13,6 +13,11 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.items.Generator;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.Potion;
+import com.shatteredpixel.shatteredpixeldungeon.items.rings.Ring;
+import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.Scroll;
+import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
+import com.shatteredpixel.shatteredpixeldungeon.levels.MiningLevel;
+import com.shatteredpixel.shatteredpixeldungeon.utils.Holiday;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Languages;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.tngtech.archunit.core.domain.JavaClasses;
@@ -94,21 +99,24 @@ class CodexLeakTest {
             .because("a Codex describes types and tables, never a Run, a Profile or a process that booted (FR-14)");
 
     /**
-     * The one door to the Run statics: {@code Dungeon.depth} and {@code Dungeon.challenges} read
-     * and written, {@code Random.pushGenerator} and {@code popGenerator} called, and nothing else
-     * of the game at all.
+     * The one door to the Run statics: {@code Dungeon.depth}, {@code Dungeon.challenges} and
+     * {@code Dungeon.level} read and written (the level only to hold none and restore),
+     * {@code Random.pushGenerator} and {@code popGenerator} called, and nothing else of the game
+     * at all; the level's type is named to hold it and nothing of it is called.
      */
     static final ArchRule THE_CONTEXT_IS_NARROW = noClasses()
             .that().haveFullyQualifiedName(GameContext.class.getName())
-            .should().dependOnClassesThat(resideInAPackage("com.shatteredpixel..").and(not(belongToAnyOf(Dungeon.class))))
+            .should().dependOnClassesThat(resideInAPackage("com.shatteredpixel..").and(not(belongToAnyOf(Dungeon.class, Level.class))))
+            .orShould().callMethodWhere(target(owner(type(Level.class))))
+            .orShould().accessFieldWhere(com.tngtech.archunit.core.domain.JavaFieldAccess.Predicates.target(owner(type(Level.class))))
             .orShould().dependOnClassesThat(resideInAPackage("com.watabou..").and(not(belongToAnyOf(Random.class))))
             .orShould().dependOnClassesThat().resideInAnyPackage("com.badlogic..", "org.shatterfish.harness..")
             .orShould().accessFieldWhere(com.tngtech.archunit.core.domain.JavaFieldAccess.Predicates.target(owner(type(Dungeon.class)))
-                    .and(not(com.tngtech.archunit.core.domain.JavaFieldAccess.Predicates.target(nameMatching("depth|challenges")))))
+                    .and(not(com.tngtech.archunit.core.domain.JavaFieldAccess.Predicates.target(nameMatching("depth|challenges|level")))))
             .orShould().callMethodWhere(target(owner(type(Dungeon.class))))
             .orShould().callMethodWhere(target(owner(type(Random.class))).and(not(target(nameMatching("pushGenerator|popGenerator")))))
             .orShould().accessFieldWhere(com.tngtech.archunit.core.domain.JavaFieldAccess.Predicates.target(owner(type(Random.class))))
-            .because("the context sets the depth and the challenges around a construction under the Codex's own generator, and reads nothing else");
+            .because("the context sets the depth and the challenges and holds no level around a construction under the Codex's own generator, and reads nothing else");
 
     /** As the api's and the brain's denied list, less Class: the doors a value could come through that are not the pinned classes. */
     private static final Class<?>[] DENIED = {
@@ -198,23 +206,38 @@ class CodexLeakTest {
             Dungeon.depth = 3;
             assertTrue(Dungeon.isChallenged(Challenges.DARKNESS) && Dungeon.challenges != 0, "the Run is under challenges: " + Dungeon.challenges);
             assertEquals(Languages.GERMAN, Messages.lang(), "the Run is in another language");
-            // The Run's item decks, the potions it has identified and its hero are held across the
-            // generation: the items are constructed, valued and asked their actions, and the decks
-            // are read, without a draw, an identification or a pick-up.
-            Generator.Category.POTION.probs[1] += 1;
-            Generator.Category.POTION.dropped = 3;
-            float[] potionDeck = Generator.Category.POTION.probs.clone();
-            float[] weaponDeck = Generator.Category.WEAPON.probs.clone();
-            java.util.TreeSet<String> known = new java.util.TreeSet<>();
-            for (Class<? extends Potion> potion : Potion.getKnown()) {
-                known.add(potion.getName());
+            // The Run's item decks (every category's mutable copy moved off its default, its seed,
+            // its drop count and its second-deck flag set), the potions, scrolls and rings it has
+            // identified, its hero and what the hero carries, and the level the hero stands on
+            // (the mining level, where a pickaxe offers fewer actions) are held across the
+            // generation: the items are constructed, valued and asked their actions under no
+            // level, and the decks are read from the defaults, without a draw, an identification
+            // or a pick-up. The decks are restored after, since they are statics of the JVM.
+            Map<String, float[]> decksBefore = new java.util.TreeMap<>();
+            Map<String, Object> deckStateBefore = new java.util.TreeMap<>();
+            for (Generator.Category category : Generator.Category.values()) {
+                if (category.probs != null && category.probs.length > 0) {
+                    category.probs[0] += 1;
+                    decksBefore.put(category.name(), category.probs.clone());
+                }
+                category.seed = 77L + category.ordinal();
+                category.dropped = 3;
+                category.using2ndProbs = true;
+                deckStateBefore.put(category.name(), List.of(category.seed, category.dropped, category.using2ndProbs));
             }
+            java.util.TreeSet<String> known = new java.util.TreeSet<>();
+            Potion.getKnown().forEach(c -> known.add(c.getName()));
+            Scroll.getKnown().forEach(c -> known.add(c.getName()));
+            Ring.getKnown().forEach(c -> known.add(c.getName()));
             Hero hero = Dungeon.hero;
             int gold = Dungeon.gold;
             int carried = 0;
             for (Item item : hero.belongings) {
                 carried++;
             }
+            Level level = Dungeon.level;
+            Dungeon.level = new MiningLevel();
+            Holiday holiday = Holiday.getCurrentHoliday();
             // The generator the Run draws from is a known one here; a generation must not move it.
             Random.pushGenerator(424_242L);
             float untouched = Random.Float();
@@ -225,15 +248,25 @@ class CodexLeakTest {
                 assertEquals(untouched, Random.Float(), "the generation drew nothing from the Run's generator");
             } finally {
                 Random.popGenerator();
+                assertTrue(Dungeon.level instanceof MiningLevel, "the generation left the Run's level as it was");
+                Dungeon.level = level;
             }
-            assertArrayEquals(potionDeck, Generator.Category.POTION.probs, "the potion deck is as it was");
-            assertArrayEquals(weaponDeck, Generator.Category.WEAPON.probs, "the weapon deck is as it was");
-            assertEquals(3, Generator.Category.POTION.dropped, "the deck's drop count is as it was");
+            for (Generator.Category category : Generator.Category.values()) {
+                if (decksBefore.containsKey(category.name())) {
+                    assertArrayEquals(decksBefore.get(category.name()), category.probs, "the " + category.name() + " deck is as it was");
+                    category.probs[0] -= 1;
+                }
+                assertEquals(deckStateBefore.get(category.name()), List.of(category.seed, category.dropped, category.using2ndProbs),
+                        "the " + category.name() + " deck's seed, drop count and second-deck flag are as they were");
+                category.seed = null;
+                category.dropped = 0;
+                category.using2ndProbs = false;
+            }
             java.util.TreeSet<String> knownAfter = new java.util.TreeSet<>();
-            for (Class<? extends Potion> potion : Potion.getKnown()) {
-                knownAfter.add(potion.getName());
-            }
-            assertEquals(known, knownAfter, "the potions identified are as they were");
+            Potion.getKnown().forEach(c -> knownAfter.add(c.getName()));
+            Scroll.getKnown().forEach(c -> knownAfter.add(c.getName()));
+            Ring.getKnown().forEach(c -> knownAfter.add(c.getName()));
+            assertEquals(known, knownAfter, "the items identified are as they were");
             assertSame(hero, Dungeon.hero, "the Run's hero is the Run's");
             assertEquals(gold, Dungeon.gold);
             int carriedAfter = 0;
@@ -241,6 +274,7 @@ class CodexLeakTest {
                 carriedAfter++;
             }
             assertEquals(carried, carriedAfter, "the hero carries what the hero carried");
+            assertEquals(holiday, Holiday.getCurrentHoliday(), "the holiday the game cached is what it was");
             assertEquals(3, Dungeon.depth, "the generation left the Run's depth as it was");
             assertEquals(Challenges.NO_FOOD | Challenges.DARKNESS | Challenges.STRONGER_BOSSES, Dungeon.challenges,
                     "the generation left the Run's challenges as they were");
@@ -367,12 +401,24 @@ class CodexLeakTest {
         assertEquals(10, bow.strength().atLevel0());
         assertTrue(bow.strength().formula().startsWith("return STRReq(1, lvl);"), bow.strength().formula());
         assertEquals("", bow.category(), "the bow is the huntress's, not a deck's");
+        Codex.ItemEntry pickaxe = items.get("items.quest.Pickaxe");
+        assertEquals(List.of("DROP", "THROW", "EQUIP"), pickaxe.actions(), "under no level a pickaxe is dropped and thrown; on the mining level it is not");
+        Codex.ItemEntry rose = items.get("items.artifacts.DriedRose");
+        assertEquals(List.of("DROP", "THROW", "EQUIP"), rose.actions(), "a fresh rose summons, directs and outfits nothing");
+        Codex.ItemEntry stone = items.get("items.weapon.missiles.ThrowingStone");
+        assertEquals(3, stone.quantity(), "a fresh stack of stones");
+        assertEquals(8, stone.value(), "the stack's value, halved for stones");
+        assertEquals(1, sword.quantity());
+        assertTrue(sword.customName(), "a weapon's name carries its enchantment");
+        assertFalse(items.get("items.Gold").customName(), "gold shows its bundle name");
         Codex.ItemEntry gold = items.get("items.Gold");
         assertEquals("GOLD", gold.category());
         assertEquals(List.of(), gold.actions(), "gold offers no action");
         assertFalse(gold.strength().present());
         Codex.ItemEntry healing = items.get("items.potions.PotionOfHealing");
         assertFalse(healing.constructed());
+        assertEquals(1, healing.quantity());
+        assertTrue(healing.customName(), "an unknown potion shows its colour");
         assertEquals(Items.ICONS, healing.reason());
         assertEquals("potion of healing", healing.name());
         assertEquals(759, healing.nameCitation().line());
@@ -384,6 +430,12 @@ class CodexLeakTest {
         Codex.ItemEntry upgrade = items.get("items.scrolls.ScrollOfUpgrade");
         assertEquals("return isKnown() ? 50 * quantity : super.value(); where super.value(): return 30 * quantity;", upgrade.valueExpression());
         assertEquals(List.of("DROP", "THROW", "READ"), upgrade.actions());
+        Codex.ItemEntry shielding = items.get("items.potions.exotic.PotionOfShielding");
+        assertEquals(-1, shielding.value());
+        assertTrue(shielding.valueExpression().contains("exoToReg.get(getClass())"), shielding.valueExpression());
+        assertTrue(shielding.valueExpression().endsWith("where the regular's value(), items.potions.PotionOfHealing: " + healing.valueExpression()),
+                "the exotic defers to its regular, whose text follows: " + shielding.valueExpression());
+        assertEquals("", shielding.category(), "an exotic is swapped in after a draw, not drawn");
         Codex.ItemEntry force = items.get("items.rings.RingOfForce");
         assertEquals(List.of("DROP", "THROW", "EQUIP"), force.actions(), "the ability is offered only equipped, to a duelist");
         assertTrue(force.valueExpression().startsWith("int price = 75;"), force.valueExpression());
@@ -415,13 +467,39 @@ class CodexLeakTest {
         assertEquals(6, potion.classes().get(1).total());
         assertEquals(246, potion.citation().line());
         assertEquals(329, potion.classesCitation().line());
+        assertEquals(2, potion.decks());
+        assertEquals(342, potion.weightsCitation().line());
+        assertEquals(343, potion.weights2Citation().line());
+        Codex.CategoryEntry scroll = categories.get("SCROLL");
+        assertEquals(8, scroll.firstProb());
+        assertEquals(8, scroll.secondProb());
+        assertEquals(12, scroll.classes().size());
+        assertEquals(2, scroll.decks());
+        assertEquals("items.scrolls.ScrollOfUpgrade", scroll.classes().get(0).className());
+        assertEquals(0, scroll.classes().get(0).total(), "upgrade scrolls are placed, never drawn");
+        Codex.CategoryEntry tierOne = categories.get("WEP_T1");
+        assertEquals(0, tierOne.firstProb());
+        assertEquals(1, tierOne.decks());
+        assertEquals(6, tierOne.classes().size());
+        assertEquals("items.weapon.melee.WornShortsword", tierOne.classes().get(0).className());
+        assertEquals(2, tierOne.classes().get(0).firstDeck());
+        assertEquals(0, tierOne.classes().get(0).secondDeck());
+        assertTrue(tierOne.weightsCitation() != null && tierOne.weights2Citation() == null);
         Codex.CategoryEntry weapon = categories.get("WEAPON");
         assertEquals(2, weapon.firstProb());
+        assertEquals(0, weapon.decks());
         assertTrue(weapon.classes().isEmpty(), "the weapon category draws a tier, not a class");
+        assertTrue(weapon.weightsCitation() == null && weapon.weights2Citation() == null);
+        Codex.CategoryEntry armor = categories.get("ARMOR");
+        assertEquals(0, armor.decks(), "an armor is drawn by the floor's tier table, not by these classes' weights");
+        assertEquals(11, armor.classes().size());
+        assertTrue(armor.classes().stream().allMatch(w -> w.total() == 0), "a category with no deck weights nothing");
         Codex.CategoryEntry goldDeck = categories.get("GOLD");
         assertEquals(10, goldDeck.firstProb());
+        assertEquals(0, goldDeck.decks());
         assertEquals(List.of("items.Gold"), goldDeck.classes().stream().map(Codex.Weighted::className).toList());
         assertEquals(0, categories.get("TRINKET").firstProb());
+        assertEquals(1, categories.get("WAND").decks());
         Map<String, Codex.LabelPool> pools = new java.util.TreeMap<>();
         for (Codex.LabelPool pool : decks.labelPools()) {
             pools.put(pool.family(), pool);
@@ -430,6 +508,11 @@ class CodexLeakTest {
         assertEquals("crimson", pools.get("Potion").labels().get(0).key());
         assertEquals("crimson potion", pools.get("Potion").labels().get(0).name());
         assertEquals(93, pools.get("Potion").labels().get(0).citation().line());
+        assertEquals("exotic crimson potion", pools.get("Potion").labels().get(0).exoticName());
+        assertEquals(856, pools.get("Potion").labels().get(0).exoticCitation().line());
+        assertEquals("exotic scroll of KAUNAN", pools.get("Scroll").labels().get(0).exoticName());
+        assertEquals("", pools.get("Ring").labels().get(0).exoticName(), "rings have no exotics");
+        assertTrue(pools.get("Ring").labels().stream().allMatch(l -> l.exoticCitation() == null));
         assertEquals(12, pools.get("Scroll").labels().size());
         assertEquals("KAUNAN", pools.get("Scroll").labels().get(0).key());
         assertEquals("scroll of KAUNAN", pools.get("Scroll").labels().get(0).name());
@@ -575,12 +658,23 @@ class CodexLeakTest {
             assertTrue(lineOf(root, category.citation()).matches("\\s*" + category.name() + "\\s*\\(.*"), category.citation().reference() + " declares " + category.name());
             assertTrue(lineOf(root, category.classesCitation()).contains(category.name() + ".classes") || category.classes().isEmpty(),
                     category.classesCitation().reference() + " assigns " + category.name() + ".classes");
+            if (category.weightsCitation() != null) {
+                assertTrue(lineOf(root, category.weightsCitation()).matches("\\s*" + category.name() + "\\.defaultProbs\\s*=.*"),
+                        category.weightsCitation().reference() + " assigns " + category.name() + ".defaultProbs");
+            }
+            if (category.weights2Citation() != null) {
+                assertTrue(lineOf(root, category.weights2Citation()).matches("\\s*" + category.name() + "\\.defaultProbs2\\s*=.*"),
+                        category.weights2Citation().reference() + " assigns " + category.name() + ".defaultProbs2");
+            }
         }
         for (Codex.LabelPool pool : decks.labelPools()) {
             assertTrue(lineOf(root, pool.citation()).contains("new LinkedHashMap"), pool.citation().reference());
             for (Codex.Label label : pool.labels()) {
                 assertTrue(lineOf(root, label.citation()).contains("put(\"" + label.key() + "\""), label.citation().reference() + " puts " + label.key());
                 assertTrue(lineOf(root, label.nameCitation()).endsWith("=" + label.name()), label.nameCitation().reference() + " names " + label.key());
+                if (label.exoticCitation() != null) {
+                    assertTrue(lineOf(root, label.exoticCitation()).endsWith("=" + label.exoticName()), label.exoticCitation().reference() + " names the exotic " + label.key());
+                }
             }
         }
         assertTrue(lineOf(root, decks.exotic().citation()).contains("consumableExoticChance"));

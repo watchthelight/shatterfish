@@ -263,11 +263,13 @@ public final class CodexJson {
             out.beginObject();
             out.key("className").value(entry.className());
             out.key("name").value(entry.name());
+            out.key("customName").value(entry.customName());
             out.key("nameCitation").beginObject();
             out.key("path").value(entry.nameCitation().path());
             out.key("line").value(entry.nameCitation().line());
             out.endObject();
             out.key("category").value(entry.category());
+            out.key("quantity").value(entry.quantity());
             out.key("value").value(entry.value());
             out.key("valueExpression").value(entry.valueExpression());
             out.key("strength").beginObject();
@@ -306,6 +308,7 @@ public final class CodexJson {
             out.key("firstProb").value(category.firstProb());
             out.key("secondProb").value(category.secondProb());
             out.key("superClass").value(category.superClass());
+            out.key("decks").value(category.decks());
             out.key("classes").beginArray();
             for (Codex.Weighted weighted : category.classes()) {
                 out.beginObject();
@@ -321,6 +324,18 @@ public final class CodexJson {
             out.key("path").value(category.classesCitation().path());
             out.key("line").value(category.classesCitation().line());
             out.endObject();
+            if (category.weightsCitation() != null) {
+                out.key("weightsCitation").beginObject();
+                out.key("path").value(category.weightsCitation().path());
+                out.key("line").value(category.weightsCitation().line());
+                out.endObject();
+            }
+            if (category.weights2Citation() != null) {
+                out.key("weights2Citation").beginObject();
+                out.key("path").value(category.weights2Citation().path());
+                out.key("line").value(category.weights2Citation().line());
+                out.endObject();
+            }
             out.endObject();
             text.append("  ").append(out.toJson()).append(i + 1 == categories.size() ? "\n" : ",\n");
         }
@@ -350,11 +365,18 @@ public final class CodexJson {
                 pools.beginObject();
                 pools.key("key").value(label.key());
                 pools.key("name").value(label.name());
+                pools.key("exoticName").value(label.exoticName());
                 citation(pools, label.citation());
                 pools.key("nameCitation").beginObject();
                 pools.key("path").value(label.nameCitation().path());
                 pools.key("line").value(label.nameCitation().line());
                 pools.endObject();
+                if (label.exoticCitation() != null) {
+                    pools.key("exoticCitation").beginObject();
+                    pools.key("path").value(label.exoticCitation().path());
+                    pools.key("line").value(label.exoticCitation().line());
+                    pools.endObject();
+                }
                 pools.endObject();
             }
             pools.endArray();
