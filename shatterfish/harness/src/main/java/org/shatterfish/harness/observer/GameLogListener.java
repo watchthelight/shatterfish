@@ -107,4 +107,17 @@ public final class GameLogListener implements Signal.Listener<String>, Hooks.Log
     public synchronized List<LogLine> lines() {
         return new ArrayList<>(lines);
     }
+
+    /**
+     * Puts a snapshot's lines back in place of whatever the load's own lines were, at the first
+     * wait of a restored Run (ADR-0009, story 1.20): a restored Run's log is the log the Run had,
+     * not the load's greeting.
+     */
+    public synchronized void restore(List<LogLine> kept) {
+        if (kept == null) {
+            throw new IllegalArgumentException("the lines to restore");
+        }
+        lines.clear();
+        lines.addAll(kept);
+    }
 }

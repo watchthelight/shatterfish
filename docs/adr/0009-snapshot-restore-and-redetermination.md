@@ -166,3 +166,104 @@ proves it per row by comparing `Observation.sectionHashes()` before and after.
 - A rollout mutates static state that survives the restore. Mitigation: the restore path is the
   game's own level switch, which reassigns those; the restore-and-replay test with a rollout in
   between is the check.
+
+## Amendment: story 1.20 (2026-09-16)
+
+The E1 half of this record exists. Paths abbreviate `core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/`
+as `…/`, at `v4.0.0`.
+
+**`api` carries a handle and a contract, never state.** `SnapshotHandle` is an id, the Input wait
+it was taken at and the `scrubbed` flag; `RolloutResult` is Observations, how many Actions were
+applied and a `RolloutEnd`; `BeliefSample` is an opaque versioned value in `Belief`'s shape, with
+a hash for the Run log; `BeliefSampler` is an interface with no implementation. `Simulator` and
+`Redeterminer` are abstract classes rather than interfaces so that the contract is in their shape:
+a default method on an interface can be overridden, a final one on a class cannot. `simulate` is
+final and refuses a handle whose flag is false before the `rollout` it guards can run;
+`Redeterminer.scrub` is final and holds `redetermine`'s result to being a new snapshot, scrubbed,
+at the same wait, never the live one relabelled. `ReservedInterfacesTest` holds both. The flag is
+a claim: any caller can build a handle that says scrubbed, so the harness that holds the bytes is
+what verifies it, by id, and the live Run's own store refuses a handle that claims it; the
+rollout host of E6 rolls out nothing for a handle it did not make. Two departures from the
+decision above, recorded here: `BeliefSample` is opaque rather than the structured value the
+outcome sketched (label-to-kind assignment, remembered mobs, container draws, mob AI states,
+seed), since its shape is the scrubber's to fix in E6 and a Brain never reads it; and the snapshot
+carries the wait, the seed, the hero class, the salt, the slot, the files and the log rather than
+"Profile version, tag, Codex version", which the Run's own tuple and log carry. The rollout host
+and the scrubber are E6's, as decided above, and with them the pre-mortem's "restore-and-replay
+test with a rollout in between"; the search leak test joins the suite when Search exists.
+
+**`harness` holds the bytes, and only the driver package sees them.** `Snapshot` is a
+package-private class in the driver package: every file of the game's own save folder
+(`…/GamesInProgress.java:57-71`), written by `Dungeon.saveAll` (`…/Dungeon.java:706-717`) and
+held in memory, with the wait, the seed, the hero class, the salt, the slot and the log listener's
+lines. `SnapshotStore` takes one through the driver and restores it by an id unique across the
+process; it refuses a handle it does not know, one that says scrubbed, and one whose wait is not
+the snapshot's, before the Run is touched, and can drop a snapshot so a store that takes one per
+wait need not grow without bound. A snapshot is taken only at a confirmed Input wait with no
+window in front and nothing handed to the game since: the game's save carries no window
+(`…/Dungeon.java:661-697`), so a wait under a Prompt cannot be restored to, and a save after an
+Action would stand at the wrong wait. The save is shown fresh, since the game writes nothing for
+a dead hero (`…/Dungeon.java:707`). `SnapshotBoundaryTest` holds the type
+package-private and unreachable from outside its package by ArchUnit over every Shatterfish class,
+the store handing out handles only, and the `api` half free of bytes but for the sample's own.
+
+**The restore is a floor change around the game's own load.** `HeadlessDriver.restore` ends the
+actor thread, destroys the scene, writes the folder's files back, and does what the loading scene
+does on Continue (`…/scenes/InterlevelScene.java:733-747`): held allies cleared, the pane's log
+wiped, `loadGame`, `loadLevel`, `switchLevel` at the hero's cell, then a new headless scene. The
+generator is reseeded for the snapshot's wait before the load, so what the load draws through
+`Generator.restoreFromBundle` (`…/Dungeon.java:822`; `…/items/Generator.java:625-636`) is a
+function of the tuple and not of the history the Run had before the restore; the wait index is
+set so that the first wait reached is the snapshot's own, and that wait's reseed (ADR-0007)
+follows, which is the restore contract above, kept. The chasm's confirmed jump and the action
+indicator, two statics the load does not touch, are reset as a new game resets them. The load's
+own log lines, the greeting the pane would draw, are dropped once the new scene has run and the
+snapshot's lines put back, whatever halt follows: a restored Run's log is the Run's, not the
+load's. A snapshot from a Run of another tuple, another salt, seed or hero class, is refused
+before the Run is touched, and a restore that fails after the scene is gone closes the Run rather
+than leaving a driver open over a destroyed scene. The emotes the sprites showed at the wait are
+not in the bundle (`…/actors/mobs/Mob.java:169-201`), and a fresh scene would draw none; the
+snapshot reads them through hook row 4's accessor, as the Observer does, and the driver re-shows
+them on the new scene's sprites (`…/sprites/CharSprite.java:679-733`) once it has run, which the
+fairness review asked for and the test holds with an alert.
+
+**What the test holds.** `RestoreReplayTest` snapshots at wait 9, plays to wait 24 on floor one
+with a seeded random agent recording the Observation hash and the applied Action at each wait,
+restores, and holds the restored wait and every wait after it to the record, hash for hash; holds
+the same snapshot restored a second time and an earlier one restored over a later one; holds
+the same tuple with and without a snapshot to the same hashes over twenty-four waits of a Warrior
+whose actions cost whole turns, so `saveAll`'s `Actor.fixTime` and the rest of the save changed
+nothing the screen showed there; that is an observation and not a property: `fixTime` rewrites
+every actor's time by a whole number (`…/actors/Actor.java:190-192`), which is exact, but later
+fractional costs round differently at different magnitudes, so a Run that snapshots at every wait
+(E5) may one day order two near-tied actors differently from one that snapshots at none, and the
+snapshot schedule is then part of what determines the Run and must be recorded with it or fixed
+per mode (non-negotiable 5); holds every refusal, an unknown handle, a
+scrubbed claim, a wrong wait, another salt and another seed, to leave the Run intact and stepping;
+holds a snapshot refused under the chasm's prompt and after an Action; and holds a snapshot the
+game cannot load closing the Run.
+
+**What a snapshot does not hold.** The journal is the process's, loaded once behind a private
+flag (`…/journal/Journal.java:34-36`), and no public call resets it; a guide page found between a
+snapshot and its restore stays found, and the next floor generated would read it
+(`…/levels/RegularLevel.java:561-575`); a public reset is the harness's to ask of a hook row or of
+`docs/ideas.md`, recorded there. The badges and the rankings are likewise the process's, and
+nothing the screen shows reads them. Three more, found by the fairness review and recorded rather
+than fixed. A mob's pending alert, `Mob.alerted`, set during other actors' turns and shown at the
+mob's next act (`Mob.java:138`, `:904-910`), is protected and not bundled, so a mob alerted just
+before the snapshot shows the icon at the next wait in the original Run only. The buffs a ring,
+an artifact or a wand keeps are recreated on load with their time at zero
+(`…/actors/hero/Belongings.java:196-211`), delayed a tick only when the hero's cooldown is positive
+(`…/items/rings/Ring.java:433-442`; `…/items/artifacts/Artifact.java:256-262`;
+`…/items/wands/Wand.java:812-818`); since `saveAll`'s `Actor.fixTime` pulls every time back by a
+whole number (`…/actors/Actor.java:176-199`), a hero at a whole turn is at time zero after the
+load, the guard does not fire, and such a buff acts once before the hero's first restored act
+where the original acted after it, which a wand's known charges or an artifact's charge can show;
+the hero's own act at time zero also runs its free search (`…/actors/hero/Hero.java:878-885`). A
+Warrior on floor one holds none of these, which is what the test plays; a Rogue's cloak or a
+Mage's staff is where the hashes would part, and E6's differential test is where that must be
+held. And the restore clears `hero.lastAction` (`…/Dungeon.java:508`) and the quickslot's last
+target (`…/Dungeon.java:738`; `…/ui/QuickSlotButton.java:72-75`), which the Observation does not
+carry today and a later schema story should not inherit unknowing. So: a restore within one floor
+is exact for what the Observation carries, for a hero with none of those buffs, and the test says
+which; E5's take-over and E6's short rollouts need that, and E6 owns the rest.

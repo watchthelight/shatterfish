@@ -73,7 +73,7 @@ Choice rule, in order:
    not a gate, because the Rig's acceptance is the only number the program trusts.
 
 Fairness rule for any winner: the search consumes `Observation` and `Belief` values and asks for
-rollouts through the `api` `Simulator` interface with an opaque `SnapshotHandle`; the snapshot
+rollouts through the `api` `Simulator` (an abstract class since story 1.20, its final `simulate` refusing an unscrubbed handle) with an opaque `SnapshotHandle`; the snapshot
 bytes stay inside `harness` behind `Redeterminer` (ADR-0009); the Brain never holds a game object
 or anything it could inflate into one (AD-7, AD-9).
 

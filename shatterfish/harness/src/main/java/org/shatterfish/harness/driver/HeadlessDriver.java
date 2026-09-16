@@ -27,6 +27,14 @@ import org.shatterfish.harness.boot.HeadlessGame;
 import org.shatterfish.harness.observer.GameLogListener;
 import org.shatterfish.harness.boot.Profile;
 import org.shatterfish.harness.rng.RngControl;
+import org.shatterfish.api.LogLine;
+import org.shatterfish.harness.observer.Observer;
+import org.shatterfish.api.Emote;
+import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
 import org.shatterfish.harness.scene.HeadlessScene;
 import org.shatterfish.harness.scene.SceneStepper;
 
@@ -159,6 +167,10 @@ public final class HeadlessDriver implements AutoCloseable {
     private Window lastConfirmedWindow;
     private Window lastSeenWindow;
     private int windowFramesShown;
+    /** A restored snapshot's log lines, put back once the new scene has run (story 1.20). */
+    private List<LogLine> logToRestore;
+    /** A restored snapshot's shown emotes, re-shown on the new scene's sprites (story 1.20). */
+    private Map<Integer, Emote> emotesToRestore;
 
     /** The thread this Run claimed the UI role for; close() releases it, whichever thread closes. */
     private final Thread uiThread;
@@ -397,6 +409,158 @@ public final class HeadlessDriver implements AutoCloseable {
     }
 
     /**
+     * The Run's exact state at the Input wait it stands at, as the game saves it (ADR-0009):
+     * {@code Dungeon.saveAll} writes the game and the current floor
+     * ({@code core/.../Dungeon.java:706-717}), and every file of the save folder
+     * ({@code core/.../GamesInProgress.java:57-71}) is read into memory, with the wait, the salt,
+     * the slot and the log's lines. The save is what the game does on every floor change, so the
+     * Run goes on unchanged; {@code RestoreReplayTest} holds that.
+     */
+    Snapshot snapshot(String id) {
+        UiRole.require("HeadlessDriver.snapshot()");
+        requireOpen();
+        Hero hero = Dungeon.hero;
+        Window window = scene.openWindow();
+        if (hero == null || !waitState(hero, window) || waitIndex < 1 || acted || notifications != seenNotifications
+                || boot.game().sceneSwitchRequested()) {
+            throw new IllegalStateException("a snapshot is taken at a confirmed Input wait with nothing handed to the game"
+                    + " since, and the Run is not at one (wait " + waitIndex + ", acted " + acted + ")");
+        }
+        if (window != null) {
+            // The game's save carries no window (Dungeon.java:661-697), so a wait under a Prompt
+            // cannot be restored to: the restored Run would stand with no window and another screen.
+            throw new IllegalStateException("a snapshot is taken at a wait with no window in front; " + Prompts.describe(window)
+                    + " is in front, and the game's save carries no window to restore it");
+        }
+        Path folder = boot.profile().resolve(GamesInProgress.gameFolder(GamesInProgress.curSlot));
+        Path game = boot.profile().resolve(GamesInProgress.gameFile(GamesInProgress.curSlot));
+        Map<String, byte[]> files = new LinkedHashMap<>();
+        try {
+            // The save is shown fresh: the game writes nothing for a dead hero (Dungeon.java:707),
+            // and a snapshot of an earlier save would be a lie.
+            Files.deleteIfExists(game);
+            Dungeon.saveAll();
+            if (!Files.isRegularFile(game)) {
+                throw new IllegalStateException("the game saved nothing at wait " + waitIndex + " into " + folder);
+            }
+            try (Stream<Path> paths = Files.list(folder)) {
+                for (Path path : paths.sorted().toList()) {
+                    if (Files.isRegularFile(path)) {
+                        files.put(path.getFileName().toString(), Files.readAllBytes(path));
+                    }
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("the game could not be saved for a snapshot", e);
+        }
+        if (files.isEmpty()) {
+            throw new IllegalStateException("the game saved nothing into " + folder);
+        }
+        // The emotes the sprites show are not in the bundle (Mob.storeInBundle, Mob.java:169-201):
+        // read through hook row 4's accessor, as the Observer reads them, and re-shown after the
+        // restore's scene has built its sprites.
+        Map<Integer, Emote> emotes = new LinkedHashMap<>();
+        for (Mob mob : Dungeon.level.mobs) {
+            Emote emote = Observer.emote(mob);
+            if (emote == Emote.ALERT || emote == Emote.INVESTIGATE || emote == Emote.LOST) {
+                emotes.put(mob.id(), emote);
+            }
+        }
+        return new Snapshot(id, waitIndex, Dungeon.seed, hero.heroClass.name(), rng.salt(), GamesInProgress.curSlot, files,
+                GameLogListener.INSTANCE.lines(), emotes);
+    }
+
+    /**
+     * Puts {@code snapshot} back as the Run this driver plays: the shape of a floor change
+     * ({@link #serveSceneSwitch}) around the game's own restore
+     * ({@code core/.../scenes/InterlevelScene.java:733-747}): the actor thread ended and the scene
+     * destroyed, the save folder's files written back, held allies cleared and the pane's log
+     * wiped, the game loaded and the floor loaded and switched to at the hero's cell, and a new
+     * scene. The wait index is set so that the first wait reached is the snapshot's own, whose
+     * reseed then replaces whatever the load drew ({@code core/.../Dungeon.java:822};
+     * {@code core/.../items/Generator.java:625-636}); the log's lines are put back at that wait.
+     * The journal is the process's and not the snapshot's ({@code core/.../journal/Journal.java:34-36}).
+     */
+    void restore(Snapshot snapshot) {
+        UiRole.require("HeadlessDriver.restore()");
+        requireOpen();
+        // Refused by the tuple before the Run is touched: a snapshot's waits draw from its Run's
+        // stream, and its floors are its seed's and its hero's.
+        if (snapshot.salt() != rng.salt()) {
+            throw new IllegalArgumentException("snapshot " + snapshot.id() + " belongs to a Run with salt "
+                    + Long.toHexString(snapshot.salt()) + ", and this Run's is " + Long.toHexString(rng.salt()));
+        }
+        Hero hero = Dungeon.hero;
+        if (snapshot.seed() != Dungeon.seed || hero == null || !snapshot.heroClass().equals(hero.heroClass.name())) {
+            // The seeds themselves stay out of the message: the tuple is the runner's to log, not
+            // a refusal's to print (the Stalled rule).
+            throw new IllegalArgumentException("snapshot " + snapshot.id() + " belongs to a Run of another seed or hero class ("
+                    + snapshot.heroClass() + "), and cannot be restored into this one ("
+                    + (hero == null ? "no hero" : hero.heroClass.name()) + ")");
+        }
+        try {
+            restoreInto(snapshot);
+        } catch (RuntimeException | Error failed) {
+            // The scene is gone and the state half-loaded: the Run cannot go on, and a driver left
+            // open over it would step a destroyed scene.
+            close();
+            throw failed;
+        }
+    }
+
+    private void restoreInto(Snapshot snapshot) {
+        scene.stepper().endActorThread();
+        boot.game().destroy();
+        if (boot.game().sceneSwitchRequested()) {
+            boot.game().clearSceneSwitchRequest();
+        }
+        // The load draws from the generator in force (Generator.restoreFromBundle,
+        // Generator.java:625-636); reseeded for the snapshot's wait first, those draws are a
+        // function of the tuple and not of the history the Run had before the restore, and the
+        // wait's own reseed follows.
+        rng.reseed(snapshot.k());
+        Chasm.jumpConfirmed = false;
+        ActionIndicator.clearAction();
+        Path folder = boot.profile().resolve(GamesInProgress.gameFolder(snapshot.slot()));
+        try {
+            Files.createDirectories(folder);
+            try (Stream<Path> paths = Files.list(folder)) {
+                for (Path path : paths.toList()) {
+                    if (Files.isRegularFile(path)) {
+                        Files.delete(path);
+                    }
+                }
+            }
+            for (Map.Entry<String, byte[]> file : snapshot.files().entrySet()) {
+                Files.write(folder.resolve(file.getKey()), file.getValue());
+            }
+            GamesInProgress.curSlot = snapshot.slot();
+            InterlevelScene.mode = InterlevelScene.Mode.CONTINUE;
+            Mob.clearHeldAllies();
+            GameLog.wipe();
+            Dungeon.loadGame(GamesInProgress.curSlot);
+            if (Dungeon.hero == null) {
+                throw new IllegalStateException("snapshot " + snapshot.id() + " loaded no hero");
+            }
+            Level level = Dungeon.loadLevel(GamesInProgress.curSlot);
+            Dungeon.switchLevel(level, Dungeon.hero.pos);
+        } catch (IOException e) {
+            throw new UncheckedIOException("the game could not be restored from " + snapshot, e);
+        }
+        HeadlessScene next = new HeadlessScene();
+        boot.game().switchTo(next);
+        scene = next;
+        acted = false;
+        seenNotifications = notifications;
+        waitIndex = snapshot.k() - 1;
+        lastConfirmedWindow = null;
+        lastSeenWindow = null;
+        windowFramesShown = 0;
+        logToRestore = snapshot.log();
+        emotesToRestore = snapshot.emotes();
+    }
+
+    /**
      * The seed wait {@code k} of this Run draws from, which anyone can recompute from the salt and
      * the published mix (ADR-0007). The reseed itself happens at the wait, in {@link
      * #stepToInputWait()}; this is here so a Run can say what it did.
@@ -445,6 +609,26 @@ public final class HeadlessDriver implements AutoCloseable {
         while (true) {
             step();
             long stepped = frames - before;
+            if (logToRestore != null && scene.updates() >= 1) {
+                // The new scene has been created and said its own lines; the Run's log is the
+                // snapshot's (ADR-0009), whatever halt follows. Its sprites exist now too, and the
+                // emotes the snapshot's showed are re-shown on them (CharSprite.java:679-733).
+                GameLogListener.INSTANCE.restore(logToRestore);
+                logToRestore = null;
+                for (Mob mob : Dungeon.level.mobs) {
+                    Emote emote = emotesToRestore.get(mob.id());
+                    if (emote == null || mob.sprite == null) {
+                        continue;
+                    }
+                    switch (emote) {
+                        case ALERT -> mob.sprite.showAlert();
+                        case INVESTIGATE -> mob.sprite.showInvestigate();
+                        case LOST -> mob.sprite.showLost();
+                        default -> { }
+                    }
+                }
+                emotesToRestore = null;
+            }
             Hero hero = Dungeon.hero;
             // The change first: a taken resurrection clears the pending mark and asks for the
             // loading scene in one click, with the hero still at zero health.
@@ -471,6 +655,7 @@ public final class HeadlessDriver implements AutoCloseable {
                     waitIndex++;
                     lastConfirmedWindow = window;
                     acted = false;
+
                     // The reseed belongs to the wait and not to any one caller: ADR-0013 puts it
                     // at the head of the wait, before the Observation is read, and every caller of
                     // this method is at the head of a wait when it returns. Doing it here is what
