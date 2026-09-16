@@ -119,6 +119,10 @@ public final class HeadlessBoot {
         Gdx.gl20 = NoOpGL.gl20();
         Gdx.gl30 = NoOpGL.gl30();
         Gdx.gl = Gdx.gl20;
+        // The backend's own graphics report no display at all, and the game sizes its text by the
+        // back buffer (HeadlessGraphics's class comment); the display the constants above declare
+        // is the one the game is told about.
+        Gdx.graphics = new HeadlessGraphics();
 
         preferences = new MemoryPreferences();
         GameSettings.set(preferences);

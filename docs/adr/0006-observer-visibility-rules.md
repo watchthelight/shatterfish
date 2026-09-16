@@ -762,3 +762,16 @@ header bit this story sets. The Run log's `oracle` field (ADR-0011) is E3's. A b
 breaks, the fair read marked, the oracle read unmarked, the measured loop reading through the
 oracle, a fair record holding the sidecar, and the flag ignored, was run once and each caught by
 the gate; the story file carries it.
+
+## Amendment: story 1.21 (2026-09-16)
+
+**The benchmark reads the oracle under the same flag, and says so.** The E1 benchmark's tactics
+half counts the hidden facts the sidecar names, to measure what a playout revealed. It is nested
+in the launcher, the one class the gate admits, and it runs only when `--oracle` is given beside
+`--benchmark`; without the flag the report says the tactics were not measured and carries
+nothing oracle-derived. Every line the tactics half produces is marked `ORACLE`, and the Gradle
+task passes the flag so that the published page carries the mark. `OracleGateTest` now names
+`Launcher` and `Launcher$Benchmark` exactly rather than admitting whatever is nested in the
+launcher, and pins the launcher's nested classes, so that a new one is reviewed here before it
+is admitted. Nothing a playout chooses reads the sidecar: the siblings and every playout choice
+come from fair Observations, and the sidecar is read only to count.

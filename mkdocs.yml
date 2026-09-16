@@ -142,6 +142,7 @@ nav:
   - Results:
       - results/index.md
       - E1 touchpoint audit: results/e1-touchpoint-audit.md
+      - E1 throughput and tactics: results/e1-throughput.md
   - BMAD artifacts: bmad/index.md
   - Upstream guides (on GitHub):
       - Compiling for desktop: https://github.com/watchthelight/shatterfish/blob/main/docs/getting-started-desktop.md

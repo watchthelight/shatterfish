@@ -85,15 +85,22 @@ class OracleGateTest {
     /** Only the oracle and the launcher may depend on the oracle's types. */
     static final ArchRule NO_ONE_ELSE_HOLDS_THE_SIDECAR = noClasses()
             .that().resideInAPackage("org.shatterfish.harness..")
-            .and().doNotBelongToAnyOf(OracleObserver.class, OracleObserver.Read.class, OracleView.class, Launcher.class)
+            .and().doNotBelongToAnyOf(OracleObserver.class, OracleObserver.Read.class, OracleView.class)
+            .and().doNotHaveFullyQualifiedName(Launcher.class.getName())
+            .and().doNotHaveFullyQualifiedName(Launcher.Benchmark.class.getName())
             .should().dependOnClassesThat().haveNameMatching("org[.]shatterfish[.]harness[.]observer[.]Oracle(View|Observer).*")
             .because("the oracle is a debugging mode no measured Run, agent or executor may reach (FR-11)");
 
-    /** Only the launcher's --oracle branch constructs an oracle observer. */
+    /**
+     * Only the launcher constructs an oracle observer: its --oracle branch, and the benchmark's
+     * tactics half nested in it, which runs only under --oracle (story 1.21). The two classes
+     * are named exactly; a new nested class of the launcher is not admitted by being nested.
+     */
     static final ArchRule ONLY_THE_LAUNCHER_MAKES_AN_ORACLE = noClasses()
-            .that().doNotBelongToAnyOf(Launcher.class)
+            .that().doNotHaveFullyQualifiedName(Launcher.class.getName())
+            .and().doNotHaveFullyQualifiedName(Launcher.Benchmark.class.getName())
             .should().callConstructor(OracleObserver.class)
-            .because("the launcher's --oracle branch is the only place an oracle observer is made");
+            .because("the launcher's --oracle branch and its benchmark are the only places an oracle observer is made");
 
     /**
      * No harness class reaches a class by its name: {@code Class.forName}, the game's
@@ -274,6 +281,21 @@ class OracleGateTest {
 
     @Test
     @DisplayName("the gate bites: a class holding the sidecar, one making an oracle, and one reaching a class by name each violate")
+    void the_launcher_has_the_nested_classes_the_gate_names() {
+        java.util.Set<String> nested = new java.util.TreeSet<>();
+        for (Class<?> inner : Launcher.class.getDeclaredClasses()) {
+            nested.add(inner.getSimpleName());
+        }
+        assertEquals(java.util.Set.of("Launch", "Benchmark"), nested,
+                "a new nested class of the launcher is reviewed here before the gate names it, or it is not an oracle consumer");
+        java.util.Set<String> inBenchmark = new java.util.TreeSet<>();
+        for (Class<?> inner : Launcher.Benchmark.class.getDeclaredClasses()) {
+            inBenchmark.add(inner.getSimpleName());
+        }
+        assertEquals(java.util.Set.of("Report"), inBenchmark);
+    }
+
+    @Test
     void the_gate_bites() {
         assertTrue(NO_ONE_ELSE_HOLDS_THE_SIDECAR.evaluate(new ClassFileImporter().importClasses(HoldsTheSidecar.class)).hasViolation(),
                 "a harness class with an OracleView field passes the sidecar rule");
