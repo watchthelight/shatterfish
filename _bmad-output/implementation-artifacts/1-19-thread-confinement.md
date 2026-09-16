@@ -214,9 +214,10 @@ file touched. The fairness review follows below.
 
 ## Evidence
 
-- `:harness:test`, the whole suite with the assertion in place: green, 197 tests in 43 suites,
-  no failures; `ThreadConfinementTest` and `MonitorConfinementTest` green, 2 and 3 tests.
-- `mkdocs build --strict` green.
+- `build -Pshatterfish.mobile=off` at `e5a63ea29` (after the review's patches): green, 545 tests
+  in 57 suites, no failures; `mkdocs build --strict` green.
+- `:harness:test`, the whole suite before the review: green, 197 tests in 43 suites;
+  `ThreadConfinementTest` and `MonitorConfinementTest` green after it, 3 and 4 tests.
 - The battery, `mutations119.py`, on the committed tree, restored clean after each break:
 
 ```
