@@ -210,6 +210,21 @@ upstream file, no change to the fair path or to the Observation schema.
     - M6 the files end with a carriage return and a line feed: caught by CodexJsonTest, CodexLeakTest, CodexSeedFreeTest.
     - M7 the subclasses are listed in reverse: caught by CodexLeakTest, CodexSeedFreeTest.
 
+- The battery rerun after the review patch, eleven mutations, four of them of the review's own
+  fixes (a Run value through a game method, a Profile value, a hash-ordered map, a manifest apart
+  from the folder):
+    - M1 an anchor matching several lines is accepted, the first taken: caught by CodexLeakTest.
+    - M2 the hero class citation is a remembered line, not a read one: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M3 a challenge mask is read from the Run (Dungeon.challenges) rather than the constant: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M4 the generator draws from the game RNG: caught by CodexLeakTest.
+    - M5 the manifest drops the upstream tag: caught by CodexJsonTest, CodexLeakTest, CodexSeedFreeTest.
+    - M6 the tables end their rows with a carriage return and a line feed: caught by CodexJsonTest, CodexLeakTest, CodexSeedFreeTest.
+    - M7 the subclasses are listed in reverse: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M8 a challenge mask comes through a game method on the Run (Dungeon.isChallenged): caught by CodexLeakTest.
+    - M9 a value from the Profile (SPDSettings.language) decides a table: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M10 a hash-ordered map decides the manifest: caught by CodexLeakTest.
+    - M11 the manifest lists a table the folder does not hold: caught by CodexLeakTest, CodexSeedFreeTest.
+
 ## Deviations
 
 - None from the spec's tasks.
@@ -230,3 +245,67 @@ upstream file, no change to the fair path or to the Observation schema.
 - 2.9: the drift check in CI (`git diff --exit-code codex/`) and the generated index page.
 - 2.10: the citation checker over `docs/`, by the rule `Citations.at` applies.
 - E3: the Run-log header's `codex` field from `Codex.VERSION`; the Observation header with it.
+
+## Review
+
+Four reviewers on `git diff main...HEAD` from the committed state: the fairness reviewer (seven
+findings, two proved by mutation), the adversarial lens (twenty), the edge-case hunter
+(twenty-three) and the verification-gap lens (eight). One patch commit, `6ec978d73`.
+
+**Taken.**
+
+- The gate rebuilt: the module's compiled classes imported and anchored to the package; the
+  game's state classes, the toolkit and libGDX, the harness, the journal banned by class and
+  package; the api's denied list (the RNG, the clock, `Class`, `System`, the hash-ordered
+  collections); reflection, the network, concurrency, security and time; `forName`, `random`,
+  `setAccessible`; file I/O confined to three classes (fairness 1, 3, 4; adversarial 1, 7, 8, 17;
+  edge 17; gap 3, 5, 7).
+- The live Run under challenges and in German, compared with a generation before it and with
+  the committed folder; the second Profile differing in what it holds (fairness 2; adversarial
+  2, 16; gap 5).
+- The tag read from the root build script the way a citation is read; the stamped resource and
+  the generator's `Class` use gone; a pre-release suffix accepted; the message names
+  `appVersionName` (edge 7, 22; adversarial 20).
+- The manifest derived from the files; stale files deleted; the challenge table checked against
+  `MAX_CHALS`, `MAX_VALUE` and `MASKS`; the api enum to extend named; the root checked and real;
+  `Pattern.quote` on a name; a byte-order mark and a non-UTF-8 file handled (edge 2, 3, 4, 6, 8,
+  9, 10, 11, 12; adversarial 4, 5, 6, 13; gap 2).
+- The records: a drive, a dot segment, a trailing slash, an empty subclass list and a repeated
+  subclass refused; a table refuses a key twice; `requireNonNull` (edge 13, 14, 15, 16;
+  adversarial 10, 14).
+- One entry per line in a table (adversarial 15); the codex test task's inputs (adversarial 3);
+  the root found by what a checkout holds; `@TempDir`; bytes compared and a carriage return
+  refused with the renormalize remedy; the ledger pins one tag; `main` under test into a
+  temporary folder (edge 1, 18, 20, 21; adversarial 9, 18, 19; gap 1, 4).
+- Word-boundary and ordered subclass checks on the cited line (edge 19; gap 8).
+- Documents: ADR-0017 says what is and is not tested, names the hash-order rule, the challenge
+  order, the narrowed monitor rule and the future Run-log header; ADR-0003 amended for the
+  edge; the settings comment; the fairness page's leak-test row; the glossary without
+  "reflection" (fairness 5, 6, 7; adversarial 11, 12, 17; gap 3, 6, 7).
+
+**Not taken, with reasons.**
+
+- Forbidding a second tag folder under `codex/` (edge 5): the upgrade procedure keeps the
+  previous pin's folder beside the new one until the upgrade's PR merges.
+- Forking the task's own process from a test (fairness 5, adversarial 11, gap 3): the static ban
+  on the toolkit makes a boot impossible on the main classpath, ADR-0017 says the process itself
+  is not compared by a test, and story 2.9's CI drift check runs the task.
+- Reusing story 1.19's `monitorenter` rule (fairness 6, adversarial 18, gap 5): it needs the
+  harness's ASM test dependencies; the rule here is the synchronized modifier, the ADR says so.
+- `ReplaceTokens` for the stamped resource (edge 22): the resource is gone.
+- Renormalizing a pre-existing checkout (edge 23): the files and the attribute land together.
+
+## Suggested review order
+
+1. [`CodexLeakTest.java`](https://github.com/watchthelight/shatterfish/blob/6ec978d73/shatterfish/codex/src/test/java/org/shatterfish/codex/CodexLeakTest.java),
+   the gate and the live Run.
+2. [`docs/adr/0017-codex-generation-and-citations.md`](https://github.com/watchthelight/shatterfish/blob/6ec978d73/docs/adr/0017-codex-generation-and-citations.md),
+   the decisions and what is not tested.
+3. [`Generate.java`](https://github.com/watchthelight/shatterfish/blob/6ec978d73/shatterfish/codex/src/main/java/org/shatterfish/codex/Generate.java),
+   [`Citations.java`](https://github.com/watchthelight/shatterfish/blob/6ec978d73/shatterfish/codex/src/main/java/org/shatterfish/codex/Citations.java)
+   and [`Upstream.java`](https://github.com/watchthelight/shatterfish/blob/6ec978d73/shatterfish/codex/src/main/java/org/shatterfish/codex/Upstream.java).
+4. [`Codex.java`](https://github.com/watchthelight/shatterfish/blob/6ec978d73/shatterfish/api/src/main/java/org/shatterfish/api/Codex.java) and
+   [`CodexJson.java`](https://github.com/watchthelight/shatterfish/blob/6ec978d73/shatterfish/api/src/main/java/org/shatterfish/api/CodexJson.java),
+   the records and the text.
+5. [`CodexSeedFreeTest.java`](https://github.com/watchthelight/shatterfish/blob/6ec978d73/shatterfish/codex/src/test/java/org/shatterfish/codex/CodexSeedFreeTest.java)
+   and [`codex/v4.0.0/`](https://github.com/watchthelight/shatterfish/tree/6ec978d73/codex/v4.0.0).
