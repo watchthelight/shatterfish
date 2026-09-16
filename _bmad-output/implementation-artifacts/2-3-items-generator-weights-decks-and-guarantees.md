@@ -5,7 +5,7 @@ title: "Items, generator weights, decks and guarantees"
 epic: 2
 issue: 37
 type: 'feature'
-status: 'review'
+status: 'done'
 created: '2026-09-16'
 updated: '2026-09-16'
 review_loop_iteration: 0
