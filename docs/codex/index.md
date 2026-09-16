@@ -26,6 +26,11 @@ their masks, each entry cited to the `path:line` it was read from at generation.
 experience, maximum level, alignment, properties, loot, the three rolls as cited expressions,
 and its variants by depth and by challenge (the depth-scaled mobs, the Stronger Bosses
 variants), and `spawn-rotation.json`, the standard rotation per depth, the random families with
-their odds, the rare additions, the alternates and the champion rule. The tables that follow
-are their stories', and this page is replaced by the generator's index when story 2.9 renders
-it.
+their odds, the rare additions, the alternates and the champion rule. Story 2.3 adds
+`items.json`, every concrete item class a player can meet with its display name from the
+bundle, the deck that lists it, its value, its strength requirement at level 0 with the formula,
+and the actions it offers a fresh instance (the identifiable potions, scrolls and rings read from
+source, since their icons need the toolkit, and marked so with the reason), and `decks.json`,
+the generator's categories with their two deck weights and their classes' weights, the three
+appearance-label pools, and the exotic swap with its chance. The tables that follow are their
+stories', and this page is replaced by the generator's index when story 2.9 renders it.

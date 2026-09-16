@@ -175,3 +175,61 @@ under a seeded generator, on the test side. The game hands over hash-ordered col
 sorted before it is written.
 
 Codex version 2.
+
+## Amendment: story 2.3 (2026-09-16)
+
+**An item is constructed where its class loads, and read from source where it cannot.** Every
+concrete item class of the game is one of three things, named in `Items`: constructed
+(`CONSTRUCTED`, a supplier each, compile-checked), read from source (`SOURCE_READ`, a class
+literal each) or excluded with a reason (`EXCLUDED`). The identifiable potions, scrolls and rings
+and their exotics set `icon = ItemSpriteSheet.Icons.X` in an instance initialiser, and `Icons`
+builds a texture film in its own (`ItemSpriteSheet.java:822-828`), so those sixty cannot be
+constructed on the generator's classpath, which cannot boot; their value is the text of the
+nearest `value()` up the hierarchy, and where it defers to `super.value()` (every identifiable
+potion and scroll does, by whether it is known) the superclass's text follows it, with the
+number set only when the text is one literal; their actions are read from every `actions(Hero)`
+the hierarchy declares from `Item` down, an add or a remove at the method body's own level, a
+ternary on being equipped taking its unequipped branch, an add under an `if` not offered, each
+constant resolved to its string in the class that declares it. The other 247 are constructed
+under `GameContext` and asked their value and the actions they offer a bare hero, once
+constructed for the generation. `CodexCompletenessTest` enumerates the game's concrete item
+classes from bytecode and holds the three lists to cover them exactly; holds that every class
+read from source touches the icon film in a constructor or a static initialiser and that no
+constructed class or superclass of one does, so the split is the classpath's fact and not a
+choice; and holds that a class excluded for lacking a public no-argument constructor lacks one.
+The exclusions at this tag: the base classes, the selectors' placeholders (a bag's filter, not
+an item a player meets), the helpers declared outside the item packages (a backpack, a mob's
+projectile or prop, a spell's effect, a window's placeholder), the four without a bare
+constructor, and the two seeds of the plants only the regrowth wand grows, which their source
+says are never dropped.
+
+**A display name is the bundle's line.** The game derives a message key from the class name
+without the root package, lower-cased under its fixed English locale with a nested class's `$`
+kept, and falls back to the superclass when the bundle has no line
+(`Messages.java:122-139`). `Names` does the same against the one English bundle of the key's
+first segment, reading the file as a citation is read, since `Messages` reads the bundles
+through the toolkit's files; the lower-casing is the ASCII mapping, which is the English
+locale's on the ASCII names a class or a label key is made of, and a character outside ASCII is
+refused rather than handed to the machine's locale, which the gate bans by class. The line is
+the citation; two lines for one key fail.
+
+**The decks are the generator's public defaults, never its Run state.** `Generator.Category`
+carries per category its two category-deck weights, its superclass and its class list with
+`defaultProbs` and `defaultProbs2`, all public; the Run-mutable `probs`, `seed`, `dropped` and
+`using2ndProbs` are never read, and `CodexLeakTest`'s live Run, its potion deck bumped and its
+drop count set, holds them unchanged across a generation, with the potions it has identified,
+its hero and what the hero carries. A weight that is not a whole number is refused, so no float
+is written. The category is cited to its constant and to the line assigning its class list; a
+category that draws another way (a weapon or missile tier, drawn from the tier categories) has
+no classes and is cited to its constant twice. The three label pools are read from the `put`
+lines of the families' private maps, in the game's order, each key named from the bundle by
+the family's key; the exotic swap from the two public maps, its chance from the trinket's
+method as the returns' text and the value without the trinket as thousandths.
+
+**A strength requirement is the instance's at level 0 with the formula's text.** For a weapon or
+an armor the entry carries the tier the instance holds, `STRReq(0)`, the text of its own
+`STRReq(int lvl)` up the hierarchy and of the family's static formula, cited to the formula;
+the spirit bow has no tier field and its own formula names its tier. An item's category is the
+one deck whose class list holds it, empty for an item no deck lists; two would be refused.
+
+Codex version 3.
