@@ -5,7 +5,7 @@ title: "Publish the E1 numbers"
 epic: 1
 issue: 34
 type: 'feature'
-status: 'review'
+status: 'done'
 created: '2026-09-16'
 updated: '2026-09-16'
 review_loop_iteration: 0
@@ -211,7 +211,10 @@ harness's main runtime classpath is the reproducing command. The recorded invoca
   `SceneDrawParityTest`, `HeadlessSceneTest`, `FenceInvariantTest`, `ProfileTest` green with the
   display reported, and no `[GAME]` error in any of their outputs.
 - The recorded invocation: `./gradlew :harness:benchmark -Pshatterfish.mobile=off` at
-  `c976188c6`, three times; the first report is the page, the three rates are on it. The same command before the font fix, at `20ee7cc30`,
+  `c976188c6`, three times; the first report is the page, the three rates are on it.
+- CI on PR #79 (ubuntu, JDK 21) green with the tiny configuration's pinned outcomes: the same
+  waits, turns, causes, depths and sample lines on Linux as on the Windows machine that recorded
+  them, which is the first cross-platform reading the program has, ahead of story 3.4's nightly. The same command before the font fix, at `20ee7cc30`,
   played the same 13337 waits and the same 23 samples with the same payoffs, at 371.2 waits per
   second: text rendering is not in the game, and the traces cost an eighth of every wait.
 - Mutation battery, five mutations of the launcher and the graphics, each run against
