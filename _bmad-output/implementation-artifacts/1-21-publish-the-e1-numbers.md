@@ -247,3 +247,85 @@ harness's main runtime classpath is the reproducing command. The recorded invoca
 - E3: the seed-set sizes from the rate; the paired-seed variance (SM-5).
 - E4: the benchmark with a Brain attached.
 - E6: simulator speed, the search leak test, and the two properties from mid-fight snapshots.
+
+## Review
+
+Four reviewers on `git diff main...HEAD` from the committed state: the fairness reviewer (six
+findings), the adversarial lens (twenty-six), the edge-case hunter (twenty-one) and the
+verification-gap lens (ten). One patch commit, `c976188c6`, and the page rebuilt from three
+invocations at it, `a85cabecd`.
+
+**Taken.**
+
+- The oracle's second switch: the tactics half runs only under `--oracle` beside `--benchmark`,
+  every oracle-derived line is marked, the Gradle task passes the flag, the gate names `Launcher`
+  and `Launcher$Benchmark` exactly and pins the launcher's nested classes; ADR-0006 amended
+  (fairness 1, 2; adversarial 15).
+- The measurements: the median is the mean of the two middles (adversarial 5, edge 9); a playout
+  cut short is dropped and counted rather than scored alive (adversarial 11, edge 4, gap 7); the
+  chance agreement and kappa are printed beside the leaf correlation and the page does not place
+  it on Long et al.'s scale (adversarial 3, fairness 5); the hidden facts and the revealed share
+  are reported by kind (adversarial 2); the weighting is stated and the denominators printed
+  (adversarial 4); Input waits are applied Actions with refusals apart (adversarial 6); turns per
+  second and the setup inside the wall time are said (adversarial 7); the writer's time is said to
+  include its own hash and the page's percentages are per component (adversarial 8); the cost
+  Run is named by seed and its stopping said (adversarial 9, gap 6); the mobs-first-drawn line is
+  dropped (adversarial 10, edge 19); the restore is checked against the sample's hash
+  (adversarial 20); three invocations, the first published, the rates beside it (adversarial 12).
+- Robustness: a stall or a refusal ends the cost Run, a stalled sample is a skip with its reason,
+  a refusal on the approach or in a playout re-serves the wait as the Run loop does (adversarial
+  14, edge 1, 2, 3, 8, 20, gap 8); skips counted by reason (edge 5, 6, 7); no NaN on the page
+  (edge 8); the record refuses bad counts, one sibling and derived seeds out of range
+  (adversarial 16, 18, edge 10, 13); parse refuses a repeated flag, a count without
+  `--benchmark`, more than nine digits (adversarial 17, edge 11, 12, 14); the sample index
+  arithmetic is long (edge 18); the empty Gradle property (edge 15); progress to standard error
+  and the Samples section on the page (adversarial 13, edge 16, gap 9); a failing Run rethrown
+  naming its seed (edge 17); the environment and the upstream version in the report and `tag`
+  removed (adversarial 19, 24, fairness 6, gap 10).
+- Tests: the tiny configuration's outcomes pinned and played twice, at least one sample taken,
+  no tactics without the flag, the statistics on fixed vectors, `saltFor` held (fairness 4, gap
+  1, 2, 4); the application logger captured through a Run's first waits (adversarial 21, gap 5);
+  the duplicated frame-id assertion dropped (adversarial 23).
+- Documents: "perfect-information rollouts by design, not a Simulator" in the launcher's comment,
+  the page and ADR-0010 (fairness 3); the page names the measuring commit and says it is a later
+  one (adversarial 25); ADR-0010's amendment marks the readings as method validation and lists
+  E6's two definitional changes (adversarial 26); the other graphics reader in ADR-0015
+  (adversarial 22, edge 21); the journal limit on the page (fairness, noted).
+
+**Not taken, with reasons.**
+
+- Reading the sidecar at a death (adversarial 1): the oracle reads at an Input wait only, and a
+  death is not one; recorded as E6's definitional change instead.
+- A denominator of the facts reachable on the floor (adversarial 2): the sidecar names the Run's
+  unknown appearances and the floor's secrets without reachability; the count by kind makes the
+  domination visible here, and the change is E6's.
+- Timing each Run's start and close apart (adversarial 7): the Run loop owns the Run; turns per
+  second and the amortisation over the median waits are given instead.
+- Confidence intervals (adversarial 12): three invocations rather than an interval on one.
+- A heap pin on the Gradle task (adversarial 24): the report prints the heap; the rate is the
+  machine's by design.
+- Refusing `--oracle` with `--benchmark` (edge 14): reversed; the flag is what enables the tactics.
+- A test that `siblings` never offers a descent (gap 3): a one-line filter on the valid set with
+  no fixture worth its weight; recorded as prose-held.
+- A tiny configuration with a windowed sample (fairness 4): none found in a small search; the
+  skip counts are pinned in the sample lines instead.
+- Tallying a failed Run and continuing (edge 17): a Run that throws is a harness bug, and the
+  benchmark says which seed and stops.
+
+## Suggested review order
+
+1. [`docs/results/e1-throughput.md`](https://github.com/watchthelight/shatterfish/blob/a85cabecd/docs/results/e1-throughput.md), the reading
+   of each number and the definitions.
+2. [`docs/adr/0010-tactical-search-deferral-criteria.md`](https://github.com/watchthelight/shatterfish/blob/a85cabecd/docs/adr/0010-tactical-search-deferral-criteria.md),
+   the amendment: what these readings are and what E6 changes.
+3. [`Launcher.java`](https://github.com/watchthelight/shatterfish/blob/c976188c6/shatterfish/harness/src/main/java/org/shatterfish/harness/Launcher.java),
+   the `Benchmark` class: the tactics half under `--oracle`, the playouts, the accounting.
+4. [`OracleGateTest.java`](https://github.com/watchthelight/shatterfish/blob/c976188c6/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/OracleGateTest.java)
+   and [`docs/adr/0006-observer-visibility-rules.md`](https://github.com/watchthelight/shatterfish/blob/a85cabecd/docs/adr/0006-observer-visibility-rules.md),
+   the gate naming the two classes.
+5. [`HeadlessGraphics.java`](https://github.com/watchthelight/shatterfish/blob/c976188c6/shatterfish/harness/src/main/java/org/shatterfish/harness/boot/HeadlessGraphics.java),
+   [`HeadlessTextTest.java`](https://github.com/watchthelight/shatterfish/blob/c976188c6/shatterfish/harness/src/test/java/org/shatterfish/harness/boot/HeadlessTextTest.java)
+   and [`docs/adr/0015-headless-scene-and-input-wait-detection.md`](https://github.com/watchthelight/shatterfish/blob/a85cabecd/docs/adr/0015-headless-scene-and-input-wait-detection.md),
+   the font fix.
+6. [`BenchmarkSmokeTest.java`](https://github.com/watchthelight/shatterfish/blob/c976188c6/shatterfish/harness/src/test/java/org/shatterfish/harness/BenchmarkSmokeTest.java),
+   the pins and the statistics.
