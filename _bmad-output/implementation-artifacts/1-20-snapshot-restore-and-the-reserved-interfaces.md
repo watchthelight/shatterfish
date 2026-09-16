@@ -5,7 +5,7 @@ title: "Snapshot, restore, and the reserved interfaces"
 epic: 1
 issue: 33
 type: 'feature'
-status: 'in-review'
+status: 'done'
 created: '2026-09-16'
 updated: '2026-09-16'
 review_loop_iteration: 0
@@ -253,8 +253,9 @@ tree restored and clean
 
   The battery's own report also listed `SnapshotBoundaryTest` under M6 and M7: the api breaks ran
   the api module alone, and the harness results directory still held M5's failure. A reporting
-  artifact of the script, not a finding; the api suite caught each. The script lives in the
-  session scratchpad, as every story's has (`deferred-work.md`).
+  artifact of the script, not a finding; the api suite caught each. Rerun on the reviewed tree
+  after every patch, seven of seven caught again. The script lives in the session scratchpad,
+  as every story's has (`deferred-work.md`).
 
 ## The fairness review
 
@@ -311,3 +312,64 @@ and wait checks, a drop, null guards. Rejected: none.
 
 - Story 1.21 (#34): publish the E1 numbers.
 - E5: one snapshot per wait for take-over; E6: the scrubber and the swap-in-place host.
+
+## Suggested Review Order
+
+**The restore: the game's own load around a floor change**
+
+- The entry point: a restore refused by the tuple, then the load, the reseed before it, and the unwind
+  [`HeadlessDriver.java:484`](https://github.com/watchthelight/shatterfish/blob/34e9300dc/shatterfish/harness/src/main/java/org/shatterfish/harness/driver/HeadlessDriver.java#L484)
+
+- The work: the files back, the game and floor loaded, a new scene, the wait index set back
+  [`HeadlessDriver.java:511`](https://github.com/watchthelight/shatterfish/blob/34e9300dc/shatterfish/harness/src/main/java/org/shatterfish/harness/driver/HeadlessDriver.java#L511)
+
+- The log's lines and the emotes put back once the new scene has run, whatever halt follows
+  [`HeadlessDriver.java:612`](https://github.com/watchthelight/shatterfish/blob/34e9300dc/shatterfish/harness/src/main/java/org/shatterfish/harness/driver/HeadlessDriver.java#L612)
+
+- The snapshot: a confirmed windowless wait, the save shown fresh, the folder read, the emotes read
+  [`HeadlessDriver.java:419`](https://github.com/watchthelight/shatterfish/blob/34e9300dc/shatterfish/harness/src/main/java/org/shatterfish/harness/driver/HeadlessDriver.java#L419)
+
+**The bytes that never leave**
+
+- The snapshot, package-private: files, wait, seed, class, salt, slot, log, emotes
+  [`Snapshot.java:18`](https://github.com/watchthelight/shatterfish/blob/34e9300dc/shatterfish/harness/src/main/java/org/shatterfish/harness/driver/Snapshot.java#L18)
+
+- The store: ids the tuple's, and every refusal before the Run is touched
+  [`SnapshotStore.java:45`](https://github.com/watchthelight/shatterfish/blob/34e9300dc/shatterfish/harness/src/main/java/org/shatterfish/harness/driver/SnapshotStore.java#L45)
+
+- The boundary rule and the api half held free of bytes
+  [`SnapshotBoundaryTest.java:43`](https://github.com/watchthelight/shatterfish/blob/34e9300dc/shatterfish/harness/src/test/java/org/shatterfish/harness/SnapshotBoundaryTest.java#L43)
+
+**The reserved half of api**
+
+- A handle is an id, a wait and a claim
+  [`SnapshotHandle.java:16`](https://github.com/watchthelight/shatterfish/blob/34e9300dc/shatterfish/api/src/main/java/org/shatterfish/api/SnapshotHandle.java#L16)
+
+- The simulator: a final simulate over a protected rollout
+  [`Simulator.java:20`](https://github.com/watchthelight/shatterfish/blob/34e9300dc/shatterfish/api/src/main/java/org/shatterfish/api/Simulator.java#L20)
+
+- The redeterminer: a final scrub holding its result to a new, scrubbed snapshot at the same wait
+  [`Redeterminer.java:16`](https://github.com/watchthelight/shatterfish/blob/34e9300dc/shatterfish/api/src/main/java/org/shatterfish/api/Redeterminer.java#L16)
+
+- The contracts held with no implementation behind them
+  [`ReservedInterfacesTest.java:23`](https://github.com/watchthelight/shatterfish/blob/34e9300dc/shatterfish/api/src/test/java/org/shatterfish/api/ReservedInterfacesTest.java#L23)
+
+**The proof**
+
+- Snapshot at wait 9, replay to 24 hash for hash, a second restore, an earlier over a later
+  [`RestoreReplayTest.java:65`](https://github.com/watchthelight/shatterfish/blob/34e9300dc/shatterfish/harness/src/test/java/org/shatterfish/harness/driver/RestoreReplayTest.java#L65)
+
+- An alert carried across the restore, which the bundle never held
+  [`RestoreReplayTest.java:121`](https://github.com/watchthelight/shatterfish/blob/34e9300dc/shatterfish/harness/src/test/java/org/shatterfish/harness/driver/RestoreReplayTest.java#L121)
+
+- Every refusal leaves the Run intact and stepping
+  [`RestoreReplayTest.java:180`](https://github.com/watchthelight/shatterfish/blob/34e9300dc/shatterfish/harness/src/test/java/org/shatterfish/harness/driver/RestoreReplayTest.java#L180)
+
+- Refused under a Prompt and after an Action; a broken snapshot closes the Run
+  [`RestoreReplayTest.java:225`](https://github.com/watchthelight/shatterfish/blob/34e9300dc/shatterfish/harness/src/test/java/org/shatterfish/harness/driver/RestoreReplayTest.java#L225)
+
+**The record**
+
+- ADR-0009's story 1.20 amendment: the halves, the restore, what the test holds, what a snapshot does not hold
+  [`0009-snapshot-restore-and-redetermination.md:170`](https://github.com/watchthelight/shatterfish/blob/34e9300dc/docs/adr/0009-snapshot-restore-and-redetermination.md#L170)
+
