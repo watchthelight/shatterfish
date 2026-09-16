@@ -143,7 +143,12 @@ class JsonRenderingTest {
             // argument to ask for anything else (story 1.14's review moved it here from the module
             // that imports the game). It is an interface with no state and no I/O, which is what
             // this allowlist exists to check before a name is added to it.
-            "Decider");
+            "Decider",
+            // ADR-0009's reserved half (story 1.20): an opaque handle, an abstract simulator whose
+            // final simulate refuses an unscrubbed handle, a result of Observations only, an opaque
+            // sample, and two interfaces with no implementation. None reads text or bytes into the
+            // schema; RolloutResult's constructor takes Observations already made.
+            "SnapshotHandle", "Simulator", "RolloutResult", "RolloutEnd", "BeliefSample", "BeliefSampler", "Redeterminer");
 
     @Test
     @DisplayName("api is the schema, Action and fourteen named helpers, and nothing in it reads text or bytes into a record")
