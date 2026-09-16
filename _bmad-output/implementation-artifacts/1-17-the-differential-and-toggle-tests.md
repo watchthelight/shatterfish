@@ -337,57 +337,57 @@ that moves names itself), and the other vision buffs (FR-10 names three; recorde
 **The differential pairs: one Run, read twice per kind of hidden state**
 
 - The entry point: the item pair, the one hidden state the game has no method to set, swapped by the handler's labels
-  [`HiddenStateDifferentialTest.java:96`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L96)
+  [`HiddenStateDifferentialTest.java:96`](https://github.com/watchthelight/shatterfish/blob/c2f806ff5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L96)
 
 - How the labels move without touching the known set or the images
-  [`HiddenStateDifferentialTest.java:339`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L339)
+  [`HiddenStateDifferentialTest.java:339`](https://github.com/watchthelight/shatterfish/blob/c2f806ff5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L339)
 
 - The unseen mob: position, then health, state, enemy and a buff; the control moves it into view
-  [`HiddenStateDifferentialTest.java:171`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L171)
+  [`HiddenStateDifferentialTest.java:171`](https://github.com/watchthelight/shatterfish/blob/c2f806ff5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L171)
 
 - Hidden trap and revealed-under-fog trap, each a world identical to no trap; the cleared cell compared
-  [`HiddenStateDifferentialTest.java:201`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L201)
+  [`HiddenStateDifferentialTest.java:201`](https://github.com/watchthelight/shatterfish/blob/c2f806ff5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L201)
 
 - A secret door in either wall, identical to a wall
-  [`HiddenStateDifferentialTest.java:247`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L247)
+  [`HiddenStateDifferentialTest.java:247`](https://github.com/watchthelight/shatterfish/blob/c2f806ff5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L247)
 
 - The generator: bytes across a pushed generator and a changed seed; a read draws nothing and leaves the stack as deep
-  [`HiddenStateDifferentialTest.java:269`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L269)
+  [`HiddenStateDifferentialTest.java:269`](https://github.com/watchthelight/shatterfish/blob/c2f806ff5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L269)
 
 **The toggles: an exact set of parts, the rest held still**
 
 - What "exact" means: the parts two Observations differ in, by name; the Actions left out on purpose
-  [`ObservationDiff.java:33`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/ObservationDiff.java#L33)
+  [`ObservationDiff.java:33`](https://github.com/watchthelight/shatterfish/blob/c2f806ff5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/ObservationDiff.java#L33)
 
 - Blindness: the game's array held to the block, the diff to five parts, a mob and a gas lost outside the block
-  [`VisionToggleTest.java:103`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/VisionToggleTest.java#L103)
+  [`VisionToggleTest.java:103`](https://github.com/watchthelight/shatterfish/blob/c2f806ff5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/VisionToggleTest.java#L103)
 
 - The block, clipped to the map, as a check on the citation
-  [`VisionToggleTest.java:381`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/VisionToggleTest.java#L381)
+  [`VisionToggleTest.java:381`](https://github.com/watchthelight/shatterfish/blob/c2f806ff5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/VisionToggleTest.java#L381)
 
 - Mind vision: both directions of each rule on the array; heaps, traps and ways bound to cells newly known; memory after detach
-  [`VisionToggleTest.java:186`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/VisionToggleTest.java#L186)
+  [`VisionToggleTest.java:186`](https://github.com/watchthelight/shatterfish/blob/c2f806ff5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/VisionToggleTest.java#L186)
 
 - The mimic the loop skips, in the game's own words
-  [`VisionToggleTest.java:409`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/VisionToggleTest.java#L409)
+  [`VisionToggleTest.java:409`](https://github.com/watchthelight/shatterfish/blob/c2f806ff5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/VisionToggleTest.java#L409)
 
 - Magic mapping read the game's way: mapped, secrets discovered, no mob and no heap on a merely mapped cell
-  [`VisionToggleTest.java:274`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/VisionToggleTest.java#L274)
+  [`VisionToggleTest.java:274`](https://github.com/watchthelight/shatterfish/blob/c2f806ff5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/VisionToggleTest.java#L274)
 
 **The record, and the rows the suites claim**
 
 - ADR-0006's story 1.17 amendment: what is held, what the screen did unexpectedly, the battery, what is not held
-  [`adr/0006-observer-visibility-rules.md:606`](../../docs/adr/0006-observer-visibility-rules.md#L606)
+  [`adr/0006-observer-visibility-rules.md:606`](https://github.com/watchthelight/shatterfish/blob/c2f806ff5/docs/adr/0006-observer-visibility-rules.md#L606)
 
 - The Vision buffs row, re-cited at the tag
-  [`adr/0006-observer-visibility-rules.md:72`](../../docs/adr/0006-observer-visibility-rules.md#L72)
+  [`adr/0006-observer-visibility-rules.md:72`](https://github.com/watchthelight/shatterfish/blob/c2f806ff5/docs/adr/0006-observer-visibility-rules.md#L72)
 
 - The rows each suite claims, which VisibilityChecklistTest reads
-  [`HiddenStateDifferentialTest.java:70`](../../shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L70)
+  [`HiddenStateDifferentialTest.java:70`](https://github.com/watchthelight/shatterfish/blob/c2f806ff5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/HiddenStateDifferentialTest.java#L70)
 
 - The visibility rules: blindness, mind vision, mapped and the mob sprite, tested and re-cited
-  [`rules/visibility.md:11`](../../docs/rules/visibility.md#L11)
+  [`rules/visibility.md:11`](https://github.com/watchthelight/shatterfish/blob/c2f806ff5/docs/rules/visibility.md#L11)
 
 - The fairness page's test table
-  [`fairness.md:38`](../../docs/fairness.md#L38)
+  [`fairness.md:38`](https://github.com/watchthelight/shatterfish/blob/c2f806ff5/docs/fairness.md#L38)
 
