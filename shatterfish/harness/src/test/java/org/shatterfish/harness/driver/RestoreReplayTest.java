@@ -1,6 +1,8 @@
 package org.shatterfish.harness.driver;
 
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
+import com.shatteredpixel.shatteredpixeldungeon.levels.features.Chasm;
+import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,7 +16,9 @@ import org.shatterfish.harness.executor.Outcome;
 import org.shatterfish.harness.observer.Observer;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -93,6 +97,23 @@ class RestoreReplayTest {
             observation = new Observer().observe();
             assertEquals(record.get(i + 1).hash(), observation.hash(), "wait " + record.get(i + 1).k() + " replays");
         }
+
+        // The same snapshot restored again, from the end of the replay: a rollout host restores
+        // one snapshot many times.
+        store.restore(handle, driver);
+        assertEquals(SNAPSHOT_AT, driver.stepToInputWait().waitIndex());
+        assertEquals(record.get(at).hash(), new Observer().observe().hash(), "the second restore reads the same");
+
+        // A later snapshot taken from the restored Run, then the earlier one restored over it.
+        assertTrue(executor.execute(new Observer().observe(), record.get(at).action()) instanceof Outcome.Applied);
+        driver.stepToInputWait();
+        SnapshotHandle later = store.take(driver);
+        assertEquals(2, store.size());
+        store.restore(handle, driver);
+        assertEquals(SNAPSHOT_AT, driver.stepToInputWait().waitIndex());
+        assertEquals(record.get(at).hash(), new Observer().observe().hash(), "the earlier snapshot over the later one");
+        store.drop(later);
+        assertEquals(1, store.size());
     }
 
     @Test
@@ -110,21 +131,90 @@ class RestoreReplayTest {
     }
 
     @Test
-    @DisplayName("a handle the store does not know is refused by name, and a snapshot from another Run is refused by its salt")
+    @DisplayName("a refused restore leaves the Run intact: an unknown handle, a scrubbed claim, a wrong wait, another salt, another seed")
     void an_unknown_handle_is_refused() {
         driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
         driver.stepToInputWait();
         SnapshotStore store = new SnapshotStore();
+        String before = new Observer().observe().hash();
         IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
                 () -> store.restore(new SnapshotHandle("nowhere", 1, false), driver));
         assertTrue(refused.getMessage().contains("nowhere"), refused.getMessage());
         SnapshotHandle handle = store.take(driver);
+        IllegalArgumentException claimed = assertThrows(IllegalArgumentException.class,
+                () -> store.restore(new SnapshotHandle(handle.id(), handle.k(), true), driver));
+        assertTrue(claimed.getMessage().contains("scrubbed"), claimed.getMessage());
+        IllegalArgumentException wrongWait = assertThrows(IllegalArgumentException.class,
+                () -> store.restore(new SnapshotHandle(handle.id(), handle.k() + 1, false), driver));
+        assertTrue(wrongWait.getMessage().contains("wait"), wrongWait.getMessage());
+        assertEquals(before, new Observer().observe().hash(), "the Run is untouched by the refusals");
+        assertEquals(2, goOn(driver), "and goes on");
+
         driver.close();
         driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT ^ 1);
         driver.stepToInputWait();
-        HeadlessDriver other = driver;
-        IllegalArgumentException salted = assertThrows(IllegalArgumentException.class, () -> store.restore(handle, other));
-        assertTrue(salted.getMessage().contains("salt"), salted.getMessage());
+        HeadlessDriver salted = driver;
+        IllegalArgumentException wrongSalt = assertThrows(IllegalArgumentException.class, () -> store.restore(handle, salted));
+        assertTrue(wrongSalt.getMessage().contains("salt"), wrongSalt.getMessage());
+        assertEquals(2, goOn(salted), "the other Run goes on too");
+
+        driver.close();
+        driver = HeadlessDriver.start(SEED + 1, HeroClass.WARRIOR, RUN_SALT);
+        driver.stepToInputWait();
+        HeadlessDriver seeded = driver;
+        IllegalArgumentException wrongSeed = assertThrows(IllegalArgumentException.class, () -> store.restore(handle, seeded));
+        assertTrue(wrongSeed.getMessage().contains("seed"), wrongSeed.getMessage());
+        assertEquals(2, goOn(seeded));
+    }
+
+    /** Hands a Wait to the game and steps to the next wait, whose index says the Run goes on. */
+    private static long goOn(HeadlessDriver driver) {
+        Observation observation = new Observer().observe();
+        Action wait = observation.actions().actions().stream().filter(a -> a instanceof Action.Wait).findFirst().orElseThrow();
+        assertTrue(new ActionExecutor().execute(observation, wait) instanceof Outcome.Applied);
+        return driver.stepToInputWait().waitIndex();
+    }
+
+    @Test
+    @DisplayName("a snapshot is refused under a window and after an Action, and a broken snapshot closes the Run")
+    void a_snapshot_is_refused_where_it_cannot_be_restored() {
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, RUN_SALT);
+        driver.stepToInputWait();
+        SnapshotStore store = new SnapshotStore();
+        Observation observation = new Observer().observe();
+
+        // Under a Prompt: the game's save carries no window (Chasm.java:57-96 posts the jump
+        // prompt to the render thread; the driver drains that queue in its loop).
+        Chasm.heroJump(Dungeon.hero);
+        HeadlessDriver.Halt prompted = driver.stepToInputWait();
+        assertNotNull(prompted.window(), "the chasm prompt is in front");
+        IllegalStateException windowed = assertThrows(IllegalStateException.class, () -> store.take(driver));
+        assertTrue(windowed.getMessage().contains("no window in front"), windowed.getMessage());
+        Action no = new Observer().observe().actions().actions().stream()
+                .filter(a -> a instanceof Action.AnswerPrompt answer && answer.option() == 1).findFirst().orElseThrow();
+        assertTrue(new ActionExecutor().execute(new Observer().observe(), no) instanceof Outcome.Applied);
+        driver.stepToInputWait();
+
+        // After an Action was handed to the game and before the next wait.
+        observation = new Observer().observe();
+        Action wait = observation.actions().actions().stream().filter(a -> a instanceof Action.Wait).findFirst().orElseThrow();
+        assertTrue(new ActionExecutor().execute(observation, wait) instanceof Outcome.Applied);
+        IllegalStateException acted = assertThrows(IllegalStateException.class, () -> store.take(driver));
+        assertTrue(acted.getMessage().contains("nothing handed to the game"), acted.getMessage());
+        driver.stepToInputWait();
+        SnapshotHandle handle = store.take(driver);
+        assertNotNull(handle);
+
+        // A snapshot whose files the game cannot load closes the Run rather than leaving a driver
+        // open over a destroyed scene.
+        Map<String, byte[]> broken = new LinkedHashMap<>();
+        broken.put("game.dat", new byte[] {0, 1, 2});
+        Snapshot bad = new Snapshot("broken", handle.k(), Dungeon.seed, HeroClass.WARRIOR.name(), RUN_SALT,
+                com.shatteredpixel.shatteredpixeldungeon.GamesInProgress.curSlot, broken, List.of());
+        HeadlessDriver doomed = driver;
+        assertThrows(RuntimeException.class, () -> doomed.restore(bad));
+        assertTrue(doomed.closed(), "a failed restore closes the Run");
+        driver = null;
     }
 
     /**
@@ -147,6 +237,9 @@ class RestoreReplayTest {
             for (int attempt = 0; attempt < 20 && applied == null; attempt++) {
                 Action chosen = agent.decide(observation);
                 assertNotNull(chosen, "the screen offers an Action");
+                if (chosen instanceof Action.Descend) {
+                    continue; // the record stays on floor one, where a restore is exact (the journal)
+                }
                 if (executor.execute(observation, chosen) instanceof Outcome.Applied) {
                     applied = chosen;
                 }

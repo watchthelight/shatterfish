@@ -18,14 +18,18 @@ final class Snapshot {
 
     private final String id;
     private final long k;
+    private final long seed;
+    private final String heroClass;
     private final long salt;
     private final int slot;
     private final Map<String, byte[]> files;
     private final List<LogLine> log;
 
-    Snapshot(String id, long k, long salt, int slot, Map<String, byte[]> files, List<LogLine> log) {
+    Snapshot(String id, long k, long seed, String heroClass, long salt, int slot, Map<String, byte[]> files, List<LogLine> log) {
         this.id = id;
         this.k = k;
+        this.seed = seed;
+        this.heroClass = heroClass;
         this.salt = salt;
         this.slot = slot;
         this.files = Map.copyOf(files);
@@ -38,6 +42,16 @@ final class Snapshot {
 
     long k() {
         return k;
+    }
+
+    /** The Run's seed, so that a restore into a Run of another tuple is refused. */
+    long seed() {
+        return seed;
+    }
+
+    /** The Run's hero class, by name, for the same refusal. */
+    String heroClass() {
+        return heroClass;
     }
 
     long salt() {

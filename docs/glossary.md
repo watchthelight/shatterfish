@@ -41,7 +41,7 @@ with upstream's use of the same word, this page says so.
     of who acted.
 
 **Harness**
-:   The `harness` module: Observer, ActionExecutor, RNG control, snapshot/restore,
+:   The `harness` module: Observer, ActionExecutor, RNG control, snapshot/restore (`SnapshotStore`, story 1.20),
     redetermination, and the two drivers.
 
 **Driver**

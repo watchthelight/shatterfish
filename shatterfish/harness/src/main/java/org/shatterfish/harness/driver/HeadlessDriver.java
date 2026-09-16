@@ -416,13 +416,29 @@ public final class HeadlessDriver implements AutoCloseable {
         UiRole.require("HeadlessDriver.snapshot()");
         requireOpen();
         Hero hero = Dungeon.hero;
-        if (hero == null || !waitState(hero, scene.openWindow())) {
-            throw new IllegalStateException("a snapshot is taken at an Input wait, and the Run is not at one");
+        Window window = scene.openWindow();
+        if (hero == null || !waitState(hero, window) || waitIndex < 1 || acted || notifications != seenNotifications
+                || boot.game().sceneSwitchRequested()) {
+            throw new IllegalStateException("a snapshot is taken at a confirmed Input wait with nothing handed to the game"
+                    + " since, and the Run is not at one (wait " + waitIndex + ", acted " + acted + ")");
+        }
+        if (window != null) {
+            // The game's save carries no window (Dungeon.java:661-697), so a wait under a Prompt
+            // cannot be restored to: the restored Run would stand with no window and another screen.
+            throw new IllegalStateException("a snapshot is taken at a wait with no window in front; " + Prompts.describe(window)
+                    + " is in front, and the game's save carries no window to restore it");
         }
         Path folder = boot.profile().resolve(GamesInProgress.gameFolder(GamesInProgress.curSlot));
+        Path game = boot.profile().resolve(GamesInProgress.gameFile(GamesInProgress.curSlot));
         Map<String, byte[]> files = new LinkedHashMap<>();
         try {
+            // The save is shown fresh: the game writes nothing for a dead hero (Dungeon.java:707),
+            // and a snapshot of an earlier save would be a lie.
+            Files.deleteIfExists(game);
             Dungeon.saveAll();
+            if (!Files.isRegularFile(game)) {
+                throw new IllegalStateException("the game saved nothing at wait " + waitIndex + " into " + folder);
+            }
             try (Stream<Path> paths = Files.list(folder)) {
                 for (Path path : paths.sorted().toList()) {
                     if (Files.isRegularFile(path)) {
@@ -436,7 +452,8 @@ public final class HeadlessDriver implements AutoCloseable {
         if (files.isEmpty()) {
             throw new IllegalStateException("the game saved nothing into " + folder);
         }
-        return new Snapshot(id, waitIndex, rng.salt(), GamesInProgress.curSlot, files, GameLogListener.INSTANCE.lines());
+        return new Snapshot(id, waitIndex, Dungeon.seed, hero.heroClass.name(), rng.salt(), GamesInProgress.curSlot, files,
+                GameLogListener.INSTANCE.lines());
     }
 
     /**
@@ -453,15 +470,41 @@ public final class HeadlessDriver implements AutoCloseable {
     void restore(Snapshot snapshot) {
         UiRole.require("HeadlessDriver.restore()");
         requireOpen();
+        // Refused by the tuple before the Run is touched: a snapshot's waits draw from its Run's
+        // stream, and its floors are its seed's and its hero's.
         if (snapshot.salt() != rng.salt()) {
             throw new IllegalArgumentException("snapshot " + snapshot.id() + " belongs to a Run with salt "
                     + Long.toHexString(snapshot.salt()) + ", and this Run's is " + Long.toHexString(rng.salt()));
         }
+        Hero hero = Dungeon.hero;
+        if (snapshot.seed() != Dungeon.seed || hero == null || !snapshot.heroClass().equals(hero.heroClass.name())) {
+            throw new IllegalArgumentException("snapshot " + snapshot.id() + " belongs to a Run of seed " + snapshot.seed()
+                    + " as " + snapshot.heroClass() + ", and this Run is seed " + Dungeon.seed + " as "
+                    + (hero == null ? "no hero" : hero.heroClass.name()));
+        }
+        try {
+            restoreInto(snapshot);
+        } catch (RuntimeException | Error failed) {
+            // The scene is gone and the state half-loaded: the Run cannot go on, and a driver left
+            // open over it would step a destroyed scene.
+            close();
+            throw failed;
+        }
+    }
+
+    private void restoreInto(Snapshot snapshot) {
         scene.stepper().endActorThread();
         boot.game().destroy();
         if (boot.game().sceneSwitchRequested()) {
             boot.game().clearSceneSwitchRequest();
         }
+        // The load draws from the generator in force (Generator.restoreFromBundle,
+        // Generator.java:625-636); reseeded for the snapshot's wait first, those draws are a
+        // function of the tuple and not of the history the Run had before the restore, and the
+        // wait's own reseed follows.
+        rng.reseed(snapshot.k());
+        Chasm.jumpConfirmed = false;
+        ActionIndicator.clearAction();
         Path folder = boot.profile().resolve(GamesInProgress.gameFolder(snapshot.slot()));
         try {
             Files.createDirectories(folder);
@@ -480,6 +523,9 @@ public final class HeadlessDriver implements AutoCloseable {
             Mob.clearHeldAllies();
             GameLog.wipe();
             Dungeon.loadGame(GamesInProgress.curSlot);
+            if (Dungeon.hero == null) {
+                throw new IllegalStateException("snapshot " + snapshot.id() + " loaded no hero");
+            }
             Level level = Dungeon.loadLevel(GamesInProgress.curSlot);
             Dungeon.switchLevel(level, Dungeon.hero.pos);
         } catch (IOException e) {
@@ -546,6 +592,12 @@ public final class HeadlessDriver implements AutoCloseable {
         while (true) {
             step();
             long stepped = frames - before;
+            if (logToRestore != null && scene.updates() >= 1) {
+                // The new scene has been created and said its own lines; the Run's log is the
+                // snapshot's (ADR-0009), whatever halt follows.
+                GameLogListener.INSTANCE.restore(logToRestore);
+                logToRestore = null;
+            }
             Hero hero = Dungeon.hero;
             // The change first: a taken resurrection clears the pending mark and asks for the
             // loading scene in one click, with the hero still at zero health.
@@ -572,11 +624,7 @@ public final class HeadlessDriver implements AutoCloseable {
                     waitIndex++;
                     lastConfirmedWindow = window;
                     acted = false;
-                    if (logToRestore != null) {
-                        // The load said its own lines; the Run's log is the snapshot's (ADR-0009).
-                        GameLogListener.INSTANCE.restore(logToRestore);
-                        logToRestore = null;
-                    }
+
                     // The reseed belongs to the wait and not to any one caller: ADR-0013 puts it
                     // at the head of the wait, before the Observation is read, and every caller of
                     // this method is at the head of a wait when it returns. Doing it here is what

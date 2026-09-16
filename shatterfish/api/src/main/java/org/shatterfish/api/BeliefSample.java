@@ -19,8 +19,17 @@ public final class BeliefSample {
      */
     public BeliefSample(int version, byte[] bytes) {
         Canon.require(version >= 1, "a BeliefSample's version starts at 1: " + version);
+        Canon.require(bytes != null, "a BeliefSample's bytes");
         this.version = version;
         this.bytes = Arrays.copyOf(bytes, bytes.length);
+    }
+
+    /** SHA-256 over the version, as the codec writes an integer, followed by the bytes, in hex: what a Run log records of a sample. */
+    public String hash() {
+        Encoder out = new Encoder();
+        out.int32(version);
+        out.raw(bytes);
+        return Sha256.hex(Sha256.digest(out.toByteArray()));
     }
 
     public int version() {

@@ -10,7 +10,9 @@ import java.util.List;
  * <p>The contract is in the shape: {@link #simulate} is final and refuses a handle whose
  * {@code scrubbed} flag is false before the rollout it guards can run, so a search cannot see the
  * live Run's hidden state by asking. An implementation supplies {@link #rollout} and is never
- * called any other way.
+ * called any other way. The flag is the caller's claim; the rollout host that holds the bytes
+ * (E6) verifies it by id against the snapshots it scrubbed, and rolls out nothing for a handle it
+ * did not make.
  */
 public abstract class Simulator {
 
@@ -26,7 +28,7 @@ public abstract class Simulator {
         if (actions == null) {
             throw new IllegalArgumentException("the Actions to roll out");
         }
-        return rollout(handle, List.copyOf(actions));
+        return rollout(handle, Canon.positional(actions, "the Actions to roll out"));
     }
 
     /** The rollout itself, reached only through {@link #simulate}. */

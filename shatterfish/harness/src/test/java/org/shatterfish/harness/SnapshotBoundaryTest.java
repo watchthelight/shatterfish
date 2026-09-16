@@ -72,7 +72,7 @@ class SnapshotBoundaryTest {
         assertEquals(List.of(String.class, long.class, boolean.class), handleTypes);
         for (RecordComponent component : RolloutResult.class.getRecordComponents()) {
             assertFalse(component.getType().isArray(), component + " is an array");
-            assertTrue(Set.of(List.class, RolloutEnd.class).contains(component.getType()), component.toString());
+            assertTrue(Set.of(List.class, int.class, RolloutEnd.class).contains(component.getType()), component.toString());
         }
         for (Class<?> type : List.of(Simulator.class, Redeterminer.class, SnapshotHandle.class, RolloutResult.class)) {
             for (Field field : type.getDeclaredFields()) {

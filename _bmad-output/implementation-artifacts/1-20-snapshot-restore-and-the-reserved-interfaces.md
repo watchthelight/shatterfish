@@ -68,9 +68,10 @@ as `…/`.
 - `docs/adr/0009-snapshot-restore-and-redetermination.md`, decision outcome — the split between
   `api` and `harness`, the restore contract (the load consumes draws; reseed at the first wait),
   the scrubbed rule.
-- `…/Dungeon.java:624-659` — `saveGame`, `saveLevel`, `saveAll` (with `Actor.fixTime`);
-  `:661-760` — `loadGame`: `Actor.clear`, the item handlers restored, `Generator.restoreFromBundle`
-  (draws, `…/items/Generator.java:625-636`, `:926`); `:826-840` — `loadLevel`.
+- `…/Dungeon.java:624-697` — `saveGame`; `:699-704` — `saveLevel`; `:706-717` — `saveAll` (with
+  `Actor.fixTime`, and nothing for a dead hero at `:707`); `:719-760` — `loadGame`: `Actor.clear`,
+  the item handlers restored, `Generator.restoreFromBundle` (draws, `…/items/Generator.java:625-636`,
+  `:926`); `:826-840` — `loadLevel`.
 - `…/scenes/InterlevelScene.java:733-747` — `restore()`: clear held allies, wipe the log, load the
   game, load the level, `switchLevel(level, hero.pos)`; `…/Dungeon.java:464-505` — `switchLevel`.
 - `…/GamesInProgress.java:57-71` — the game folder and its files, relative to the profile;
@@ -127,6 +128,21 @@ as `…/`.
 - Given ADR-0009, the rollout host and the scrubber are named as E6's in the amendment.
 
 ## Spec Change Log
+
+- **Review, 2026-09-16 (patches, no loopback).** The matrix's "Take" row said a snapshot is
+  refused "outside a wait or off the UI-role thread"; it is also refused under a window, since the
+  game's save carries no window, and after an Action was handed to the game, since the save would
+  stand at the wrong wait. The reviews' other findings were patches: the snapshot carries the seed
+  and the hero class and a restore of another tuple is refused; the store's ids are unique across
+  the process and it refuses a scrubbed claim and a wrong wait, and can drop a snapshot; the
+  restore reseeds before the load, resets the chasm's jump and the action indicator, checks the
+  loaded hero, and closes the Run if it fails; the log's lines are put back once the new scene has
+  run, whatever halt follows; the save is shown fresh; `Redeterminer` is an abstract class with a
+  final `scrub` that also refuses the live id relabelled and a moved wait; `RolloutResult` carries
+  the applied count; `BeliefSample` hashes; nulls are refused by name; the tests hold a second
+  restore, an earlier snapshot over a later one, the Run intact after every refusal, the chasm's
+  prompt, an Action handed over, and a broken snapshot. KEEP: the files, not the bundles; restore
+  into the same driver; the snapshot's lines put back.
 
 ## Design Notes
 
@@ -189,8 +205,17 @@ run. The fairness review follows below.
 - **The load's own log lines would have broken the first restored wait.** The pane's greeting on
   Continue is a screen difference a human would see and a replay must not; the snapshot carries
   the listener's lines and the driver puts them back at the first wait after the restore.
-- **`Simulator` is an abstract class, not an interface.** A default method on an interface can be
-  bypassed by calling the abstract one; a final `simulate` over a protected `rollout` cannot.
+- **`Simulator` and `Redeterminer` are abstract classes, not interfaces.** A default method on
+  an interface can be overridden; a final method over a protected abstract one cannot. The
+  verification-gap review found the redeterminer still an interface after the simulator's reason
+  had been given, and it followed.
+- **The scrubbed flag is a claim.** Any caller can build a handle that says scrubbed; the blind
+  review said so. The harness that holds the bytes verifies the claim by id: the live store
+  refuses a handle that claims it, and E6's host will roll out nothing for a handle it did not
+  make. Written into the handle's, the simulator's and the record's text.
+- **A snapshot needs a windowless wait.** The game's save carries no window, so a wait under a
+  Prompt cannot be restored to; `snapshot()` refuses it by name. E5's one-snapshot-per-wait skips
+  Prompt waits, a limit recorded below.
 
 ## Decisions taken inside the story
 
@@ -239,8 +264,12 @@ tree restored and clean
 
 - **The journal**, as above; **the badges and the rankings** likewise, which nothing on the screen
   reads.
-- **Snapshots live in memory** in the store that took them; the death gallery's write to disk is
-  FR-26's (E5).
+- **Snapshots live in memory** in the store that took them, and a store can drop one; the death
+  gallery's write to disk is FR-26's (E5).
+- **A snapshot is taken at a windowless wait only.** The game's save carries no window; a Run at
+  a Prompt cannot be snapshotted, which E5's take-over at a Prompt inherits.
+- **A restore after the hero's death and across a floor change are not tested here**; the first is
+  E5's take-over case, the second the journal's limit above.
 - **The rollout host, the scrubber and the redetermination table** are E6's (ADR-0009).
 
 ## Follow-ups for later stories

@@ -151,7 +151,7 @@ class JsonRenderingTest {
             "SnapshotHandle", "Simulator", "RolloutResult", "RolloutEnd", "BeliefSample", "BeliefSampler", "Redeterminer");
 
     @Test
-    @DisplayName("api is the schema, Action and fourteen named helpers, and nothing in it reads text or bytes into a record")
+    @DisplayName("api is the schema, Action and the named helpers, and nothing in it reads text or bytes into a record")
     void nothing_reads_json_back() throws Exception {
         JavaClasses classes = new ClassFileImporter().withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
                 .importPackages("org.shatterfish.api");

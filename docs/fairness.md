@@ -47,7 +47,11 @@ Search must not see hidden state either. Two fair designs exist: an abstract tac
 only from the Observation and beliefs, or engine rollouts with *redetermination*, where before
 each rollout everything hidden (unknown item identities, unseen mob positions, RNG) is re-sampled
 from the belief state, as bridge and Scrabble engines do. Rollouts on the raw saved game are
-cheating and forbidden. The choice is an E6 decision with its own ADR.
+cheating and forbidden. The choice is an E6 decision with its own ADR. What E1 already enforces
+(story 1.20): a snapshot's bytes never leave the harness's driver package, held by
+`SnapshotBoundaryTest`; `api` carries an id, a wait and a `scrubbed` flag; and `Simulator.simulate`
+is final and refuses a handle whose flag is false before any rollout can run. The flag is a claim,
+so the rollout host that holds the bytes verifies it by id when it arrives.
 
 ## Oracle mode
 

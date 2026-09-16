@@ -114,6 +114,9 @@ public final class GameLogListener implements Signal.Listener<String>, Hooks.Log
      * not the load's greeting.
      */
     public synchronized void restore(List<LogLine> kept) {
+        if (kept == null) {
+            throw new IllegalArgumentException("the lines to restore");
+        }
         lines.clear();
         lines.addAll(kept);
     }
