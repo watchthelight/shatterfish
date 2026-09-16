@@ -5,7 +5,7 @@ title: "The generator skeleton and the seed-free guarantee"
 epic: 2
 issue: 35
 type: 'feature'
-status: 'in-progress'
+status: 'review'
 created: '2026-09-16'
 updated: '2026-09-16'
 review_loop_iteration: 0
@@ -81,15 +81,15 @@ Observation); any hook; any dependency beyond `core` and `api` for the generator
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `shatterfish/api/src/main/java/org/shatterfish/api/Codex.java` -- `VERSION = 1`; records `Citation(path, line)`, `Manifest(version, upstreamTag, tables)`, `HeroClassEntry(heroClass, subclasses, citation)`, `ChallengeEntry(challenge, mask, citation)`, validated with `Canon`; `CodexJson` rendering each list to canonical JSON -- the api-typed output (AD-13).
-- [ ] `shatterfish/api/src/test/java/org/shatterfish/api/CodexJsonTest.java` -- golden rendering of a manifest and one entry of each table; `JsonRenderingTest.HELPERS` extended -- the encoder held.
-- [ ] `shatterfish/codex/src/main/java/org/shatterfish/codex/Citations.java` -- `at(root, path, anchorRegex)` returns `Citation` for the one line matching; zero or several matches throw naming both -- no citation from memory.
-- [ ] `shatterfish/codex/src/main/java/org/shatterfish/codex/Generate.java` -- `generate(root)` builds the manifest and the two tables, `main` writes them under `codex/<tag>/` with `\n` and UTF-8 in a fixed file order; the tag from `upstream.properties` -- the task's body, testable without files.
-- [ ] `shatterfish/codex/build.gradle` -- `processResources` stamping, the `generate` JavaExec task with `workingDir rootDir`, `testImplementation project(':harness')`, the game assets on the test runtime classpath -- the command and the tests' Run.
-- [ ] `codex/v4.0.0/manifest.json`, `hero-classes.json`, `challenges.json`; `.gitattributes` `codex/** text eol=lf` -- the committed output, stable across checkouts.
-- [ ] `shatterfish/codex/src/test/java/org/shatterfish/codex/CodexSeedFreeTest.java` -- two generations under different `Dungeon.seed` and Profiles, byte-identical; the committed folder equals a fresh generation; the folder name equals the ledger's tag -- FR-14.
-- [ ] `shatterfish/codex/src/test/java/org/shatterfish/codex/CodexLeakTest.java` -- cold generation versus generation at a live Run's Input wait, byte-identical; every citation resolves; the ArchUnit gate over `org.shatterfish.codex..` -- NFR-1.
-- [ ] `docs/adr/0017-codex-generation-and-citations.md`, `docs/adr/index.md`, `mkdocs.yml`, `docs/architecture.md`, `docs/glossary.md` -- the decisions, the row, the terms -- NFR-6.
+- [x] `shatterfish/api/src/main/java/org/shatterfish/api/Codex.java` -- `VERSION = 1`; records `Citation(path, line)`, `Manifest(version, upstreamTag, tables)`, `HeroClassEntry(heroClass, subclasses, citation)`, `ChallengeEntry(challenge, mask, citation)`, validated with `Canon`; `CodexJson` rendering each list to canonical JSON -- the api-typed output (AD-13).
+- [x] `shatterfish/api/src/test/java/org/shatterfish/api/CodexJsonTest.java` -- golden rendering of a manifest and one entry of each table; `JsonRenderingTest.HELPERS` extended -- the encoder held.
+- [x] `shatterfish/codex/src/main/java/org/shatterfish/codex/Citations.java` -- `at(root, path, anchorRegex)` returns `Citation` for the one line matching; zero or several matches throw naming both -- no citation from memory.
+- [x] `shatterfish/codex/src/main/java/org/shatterfish/codex/Generate.java` -- `generate(root)` builds the manifest and the two tables, `main` writes them under `codex/<tag>/` with `\n` and UTF-8 in a fixed file order; the tag from `upstream.properties` -- the task's body, testable without files.
+- [x] `shatterfish/codex/build.gradle` -- `processResources` stamping, the `generate` JavaExec task with `workingDir rootDir`, `testImplementation project(':harness')`, the game assets on the test runtime classpath -- the command and the tests' Run.
+- [x] `codex/v4.0.0/manifest.json`, `hero-classes.json`, `challenges.json`; `.gitattributes` `codex/** text eol=lf` -- the committed output, stable across checkouts.
+- [x] `shatterfish/codex/src/test/java/org/shatterfish/codex/CodexSeedFreeTest.java` -- two generations under different `Dungeon.seed` and Profiles, byte-identical; the committed folder equals a fresh generation; the folder name equals the ledger's tag -- FR-14.
+- [x] `shatterfish/codex/src/test/java/org/shatterfish/codex/CodexLeakTest.java` -- cold generation versus generation at a live Run's Input wait, byte-identical; every citation resolves; the ArchUnit gate over `org.shatterfish.codex..` -- NFR-1.
+- [x] `docs/adr/0017-codex-generation-and-citations.md`, `docs/adr/index.md`, `mkdocs.yml`, `docs/architecture.md`, `docs/glossary.md` -- the decisions, the row, the terms -- NFR-6.
 
 **Acceptance Criteria:**
 - Given the repository at the tag, when `./gradlew :codex:generate` runs twice, then the bytes of every file under `codex/v4.0.0/` are equal to the committed copy (`CodexSeedFreeTest`).
@@ -120,3 +120,99 @@ unless declared, hence `.gitattributes`.
 - `./gradlew :codex:test :api:test -Pshatterfish.mobile=off` -- expected: green, `CodexSeedFreeTest`, `CodexLeakTest`, `CodexJsonTest` among them.
 - `./gradlew build -Pshatterfish.mobile=off` -- expected: green.
 - `uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict` -- expected: green.
+
+## Dev notes
+
+Implemented on `story/2-1-the-generator-skeleton-and-the-seed-free-guarantee` from `7a577688c`.
+The generator is `org.shatterfish.codex.Generate`, run by `:codex:generate` at the repository
+root with no boot; the records and their canonical text are `api`'s (`Codex`, `CodexJson`); the
+citations are read from the pinned source by `Citations.at`. The harness is on the codex test
+classpath only, for the leak test's live Run and the seed-free test's two Profiles. No hook, no
+upstream file, no change to the fair path or to the Observation schema.
+
+## Acceptance criteria and how each was met
+
+- **Two generations, byte-identical, equal to the committed copy**: `CodexSeedFreeTest`, three
+  tests (two seeds and two Profiles; the committed folder file by file, naming the first
+  difference; the tag against the ledger's pin).
+- **A live Run changes nothing, and no generator class reaches Run state**: `CodexLeakTest`,
+  four tests (the static gate over the generator's classes; generation at an Input wait of a
+  live Run against the committed folder; every citation opened to its declaration; a bad anchor
+  refused by name).
+- **Every entry cites `path:line` into the tag**: the citations are computed at generation and
+  the leak test opens each.
+- **api-typed JSON with a Codex version**: `Codex.Manifest` carries `Codex.VERSION`; `CodexJsonTest`
+  holds the golden text and the records' refusals.
+
+## What was built
+
+- `api`: `Codex` (`VERSION`, `Citation`, `Manifest`, `HeroClassEntry`, `ChallengeEntry`),
+  `CodexJson`; `JsonRenderingTest.HELPERS` extended; `CodexJsonTest`.
+- `codex`: `Generate`, `Citations`, `Upstream`, the stamped `upstream.properties`; the build file
+  with the `generate` task, the stamping, the harness on the test classpath and the game assets;
+  `CodexSeedFreeTest`, `CodexLeakTest`.
+- `codex/v4.0.0/manifest.json`, `challenges.json`, `hero-classes.json`; `.gitattributes`.
+- ADR-0017; the ADR index and navigation; the architecture row and edge; the glossary (Codex,
+  Codex version, citation); the Codex index page.
+
+## What the story found
+
+- **The game's tables load in a bare JVM.** `HeroClass`, `Generator.Category` and `Challenges`
+  initialise with `Gdx.app` null; the generator boots nothing, and the story that adds a table
+  needing the game's text decides then.
+- **The canonical writer sorts keys.** The first golden strings assumed insertion order; the
+  Codex's key order is the writer's, which is what makes two generations the same bytes.
+- **A cold start is the task's, by construction.** JUnit runs a module's tests in one JVM, so
+  "before any boot" cannot be promised inside the leak test; the committed folder, written by
+  the task in a process that never booted, is the cold generation the live one is compared to.
+- **Nothing on floor one is a secret to the skeleton.** The two tables carry no Run-mutable
+  static; the deck probabilities of story 2.3 are the first that a live Run mutates, and
+  ADR-0017's pre-mortem tells that story to arrange a Run that has drawn.
+
+## Decisions taken inside the story
+
+- **Citations read, not remembered** (ADR-0017): an anchor per entry, resolved at generation,
+  failing on zero or several matches.
+- **Masks named constant by constant**, not read by reflection: a renamed constant fails to
+  compile rather than to resolve.
+- **The Observation header stays empty.** Filling `codexVersion` changes every hash; the story
+  that wires the Run-log header (E3) or the drift check (2.9) decides it, per the spec's
+  ask-first.
+- **The committed-copy comparison lives in the seed-free test now**, ahead of 2.9's CI wiring:
+  drift fails the build locally from day one.
+
+## Evidence
+
+- `:api:test` green, 337 tests, with `CodexJsonTest` (3); `:codex:test` green, 7 tests
+  (`CodexSeedFreeTest` 3, `CodexLeakTest` 4).
+- `./gradlew :codex:generate` twice: `git status --short codex/` empty after the commit.
+- Mutation battery, seven mutations of the generator, the citations and the writer, each run
+  against `CodexJsonTest` and the codex tests:
+    - M1 an anchor matching several lines is accepted, the first taken: caught by CodexLeakTest.
+    - M2 the hero class citation is a remembered line, not a read one: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M3 a challenge mask is read from the Run (Dungeon.challenges) rather than the constant: caught by CodexLeakTest.
+    - M4 the generator draws from the game RNG: caught by CodexLeakTest.
+    - M5 the manifest drops the upstream tag: caught by CodexJsonTest, CodexLeakTest, CodexSeedFreeTest.
+    - M6 the files end with a carriage return and a line feed: caught by CodexJsonTest, CodexLeakTest, CodexSeedFreeTest.
+    - M7 the subclasses are listed in reverse: caught by CodexLeakTest, CodexSeedFreeTest.
+
+## Deviations
+
+- None from the spec's tasks.
+
+## Known limitations, handed forward
+
+- **Two tables.** The skeleton carries the hero classes and the challenge flags; every other
+  table is its story's.
+- **The citation anchors are regular expressions** over one line; a declaration split across
+  lines needs an anchor for its first line, and story 2.10's checker verifies `docs/` by the same
+  rule.
+- **The static gate names `Dungeon`'s fields one by one**; a new Run static in a later tag
+  needs a row here, which the upgrade procedure's fairness re-run is where to add it.
+
+## Follow-ups for later stories
+
+- 2.3: the deck probabilities are Run-mutable; its leak test arranges a Run that has drawn.
+- 2.9: the drift check in CI (`git diff --exit-code codex/`) and the generated index page.
+- 2.10: the citation checker over `docs/`, by the rule `Citations.at` applies.
+- E3: the Run-log header's `codex` field from `Codex.VERSION`; the Observation header with it.
