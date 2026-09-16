@@ -110,6 +110,8 @@ public final class Generate {
         tables.put("hero-classes.json", CodexJson.heroClasses(heroClasses(root)));
         tables.put("mobs.json", CodexJson.mobs(Mobs.entries(root)));
         tables.put("spawn-rotation.json", CodexJson.spawnRotation(Rotation.read(root, Mobs.canonicalNames())));
+        tables.put("decks.json", CodexJson.decks(Decks.read(root)));
+        tables.put("items.json", CodexJson.items(Items.entries(root)));
         Map<String, String> files = new LinkedHashMap<>();
         files.put(MANIFEST, CodexJson.manifest(manifest(Upstream.tag(root), tables.keySet())));
         files.putAll(tables);

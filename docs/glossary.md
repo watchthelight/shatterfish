@@ -76,6 +76,22 @@ with upstream's use of the same word, this page says so.
     a facet a constructor draws is named random, not dumped, and the draw cited; a class whose
     stats the game sets after construction is `statsSetLater`.
 
+**Deck (Codex)**
+:   The generator's item decks as `decks.json` carries them: every `Generator.Category` with
+    its weight in each of the two category decks, its superclass, how many decks it draws by
+    (none, one or two) and its classes with their first- and second-deck weights, read from the
+    enum's public defaults and never from a Run's mutable copy (`probs`, `seed`, `dropped`),
+    which the leak test holds unchanged. A category that draws another way (an armor by the
+    floor's tier table, a weapon by a tier category) draws by no deck and its classes carry no
+    weight.
+
+**Label pool (Codex)**
+:   The appearance labels of one identifiable family (the potion colours, the scroll runes,
+    the ring gems) in the game's order, each key with its display name from the English bundle
+    for the regular family and for its exotics, cited to the `put` line and the bundle lines;
+    what a player sees before an identification. The mapping from label to class is a Run's and
+    is never in the Codex.
+
 **Rig**
 :   Fishtest-style statistical testing: thousands of seeded runs in parallel, SPRT comparisons
     between two brains, JSONL run logs, replay. Nothing about the brain is believed until the rig

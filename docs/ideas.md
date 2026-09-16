@@ -88,3 +88,13 @@ it re-reads ADR-0006's Blobs row.
   snapshot found; the next floor generated reads them. A one-line hook row that resets the flag, or a
   Run-start reset list upstream could be asked for, would make a cross-floor restore exact. The
   same static outlives a Run (story 1.16's sweep).
+
+- **An item's value known and unknown, and its actions by hero.** Story 2.3's items table carries
+  one value: a constructed instance's, or -1 with the source text where the value depends on
+  being known (`return isKnown() ? 50 * quantity : super.value(); where super.value(): return 30
+  * quantity;`). A price table for the Brain (a shop, a sell) wants both numbers parsed, and the
+  actions a fresh instance offers depend on the hero (a duelist's ring ability, an equipped
+  weapon's abilities); a later table could carry the actions per hero class and per equipped
+  state, read the same way. Also: the four excluded for lacking a bare constructor (a spirit
+  arrow, a scorpio's shot, a bag's placeholder, the armor base) and the wand's two seeds could
+  be carried as facts about their owners rather than dropped.

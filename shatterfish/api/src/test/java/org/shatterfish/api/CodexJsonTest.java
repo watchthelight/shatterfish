@@ -24,7 +24,7 @@ class CodexJsonTest {
     @DisplayName("the manifest renders its version, its tag and its tables, keys and tables sorted")
     void the_manifest_renders() {
         Codex.Manifest manifest = new Codex.Manifest(Codex.VERSION, "v4.0.0", List.of("hero-classes.json", "challenges.json"));
-        assertEquals("{\"codexVersion\":2,\"tables\":[\"challenges.json\",\"hero-classes.json\"],\"upstreamTag\":\"v4.0.0\"}\n",
+        assertEquals("{\"codexVersion\":3,\"tables\":[\"challenges.json\",\"hero-classes.json\"],\"upstreamTag\":\"v4.0.0\"}\n",
                 CodexJson.manifest(manifest));
         assertEquals("v4.1.0-beta2", new Codex.Manifest(1, "v4.1.0-beta2", List.of()).upstreamTag(), "a pre-release tag is a tag");
     }
@@ -141,6 +141,130 @@ class CodexJsonTest {
         assertThrows(IllegalArgumentException.class, () -> CodexJson.challenges(List.of(food, foodAgain)), "a challenge twice");
         assertThrows(IllegalArgumentException.class, () -> CodexJson.challenges(List.of(food, armorSameMask)), "a mask twice");
         assertThrows(NullPointerException.class, () -> CodexJson.challenges(null));
+    }
+
+    @Test
+    @DisplayName("an item entry renders its name, its category, its value or its expression, its strength, its actions and why it was not constructed, on one line")
+    void an_item_renders() {
+        Codex.Strength strength = new Codex.Strength(true, 3, 14, "return req;", AT);
+        Codex.ItemEntry sword = new Codex.ItemEntry("items.weapon.melee.Sword", "sword", true, AT, "WEP_T3", 1, 60, "", strength,
+                List.of("DROP", "THROW", "EQUIP"), true, "", AT);
+        Codex.ItemEntry healing = new Codex.ItemEntry("items.potions.PotionOfHealing", "potion of healing", true, AT, "POTION", 1, -1,
+                "return isKnown() ? 30 * quantity : super.value();", Codex.Strength.none(), List.of("DROP", "THROW", "DRINK"), false,
+                "its icon needs the toolkit", AT);
+        String text = CodexJson.items(List.of(sword, healing));
+        String nameCite = "\"nameCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"}";
+        assertEquals("[\n"
+                + "  {\"actions\":[\"DROP\",\"THROW\",\"EQUIP\"],\"category\":\"WEP_T3\"," + CITE + ",\"className\":\"items.weapon.melee.Sword\","
+                + "\"constructed\":true,\"customName\":true,\"name\":\"sword\"," + nameCite + ",\"quantity\":1,\"reason\":\"\","
+                + "\"strength\":{\"atLevel0\":14," + CITE + ",\"formula\":\"return req;\",\"present\":true,\"tier\":3},\"value\":60,\"valueExpression\":\"\"},\n"
+                + "  {\"actions\":[\"DROP\",\"THROW\",\"DRINK\"],\"category\":\"POTION\"," + CITE + ",\"className\":\"items.potions.PotionOfHealing\","
+                + "\"constructed\":false,\"customName\":true,\"name\":\"potion of healing\"," + nameCite + ",\"quantity\":1,\"reason\":\"its icon needs the toolkit\","
+                + "\"strength\":{\"atLevel0\":0,\"formula\":\"\",\"present\":false,\"tier\":0},\"value\":-1,"
+                + "\"valueExpression\":\"return isKnown() ? 30 * quantity : super.value();\"}\n"
+                + "]\n", text);
+        assertTrue(text.endsWith("\n") && !text.contains("\r"));
+        assertThrows(IllegalArgumentException.class, () -> CodexJson.items(List.of(sword, sword)), "an item twice");
+    }
+
+    @Test
+    @DisplayName("the decks render their keys in order, the categories one per line with their weighted classes, then the exotic swap and the label pools")
+    void the_decks_render() {
+        Codex.CategoryEntry potion = new Codex.CategoryEntry("POTION", 8, 8, "items.potions.Potion", 2,
+                List.of(new Codex.Weighted("items.potions.PotionOfHealing", 3, 3, 6)), AT, AT, AT, AT);
+        Codex.CategoryEntry weapon = new Codex.CategoryEntry("WEAPON", 2, 2, "items.weapon.melee.MeleeWeapon", 0, List.of(), AT, AT, null, null);
+        Codex.LabelPool colors = new Codex.LabelPool("Potion", List.of(new Codex.Label("crimson", "crimson potion", "exotic crimson potion", AT, AT, AT),
+                new Codex.Label("amber", "amber potion", "", AT, AT, null)), AT);
+        Codex.ExoticSwap exotic = new Codex.ExoticSwap(List.of(new Codex.ExoticPair("items.scrolls.ScrollOfRage", "items.scrolls.exotic.ScrollOfChallenge"),
+                new Codex.ExoticPair("items.potions.PotionOfHealing", "items.potions.exotic.PotionOfShielding")), "return 0f; | return 0.2f + 0.2f*level;", 0, AT);
+        String text = CodexJson.decks(new Codex.Decks(List.of(potion, weapon), List.of(colors), exotic));
+        String classesCite = "\"classesCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"}";
+        assertEquals("{\n"
+                + "\"categories\":[\n"
+                + "  {" + CITE + ",\"classes\":[{\"className\":\"items.potions.PotionOfHealing\",\"firstDeck\":3,\"secondDeck\":3,\"total\":6}],"
+                + classesCite + ",\"decks\":2,\"firstProb\":8,\"name\":\"POTION\",\"secondProb\":8,\"superClass\":\"items.potions.Potion\","
+                + "\"weights2Citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"weightsCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"}},\n"
+                + "  {" + CITE + ",\"classes\":[]," + classesCite + ",\"decks\":0,\"firstProb\":2,\"name\":\"WEAPON\",\"secondProb\":2,\"superClass\":\"items.weapon.melee.MeleeWeapon\"}\n"
+                + "],\n"
+                + "\"exotic\":{\"chanceExpression\":\"return 0f; | return 0.2f + 0.2f*level;\",\"chanceWithoutTrinketPerMille\":0," + CITE + ","
+                + "\"pairs\":[{\"exotic\":\"items.potions.exotic.PotionOfShielding\",\"regular\":\"items.potions.PotionOfHealing\"},"
+                + "{\"exotic\":\"items.scrolls.exotic.ScrollOfChallenge\",\"regular\":\"items.scrolls.ScrollOfRage\"}]},\n"
+                + "\"labelPools\":[{" + CITE + ",\"family\":\"Potion\",\"labels\":[{" + CITE + ",\"exoticCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},"
+                + "\"exoticName\":\"exotic crimson potion\",\"key\":\"crimson\",\"name\":\"crimson potion\","
+                + "\"nameCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"}},"
+                + "{" + CITE + ",\"exoticName\":\"\",\"key\":\"amber\",\"name\":\"amber potion\","
+                + "\"nameCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"}}]}]\n"
+                + "}\n", text);
+        List<String> keys = new java.util.ArrayList<>();
+        for (String line : text.split("\n")) {
+            if (line.startsWith("\"")) {
+                keys.add(line.substring(1, line.indexOf('"', 1)));
+            }
+        }
+        assertEquals(keys.stream().sorted().toList(), keys, "the top-level keys are in order, as the writer would sort them");
+        assertEquals(List.of("items.potions.PotionOfHealing", "items.scrolls.ScrollOfRage"), exotic.pairs().stream().map(Codex.ExoticPair::regular).toList(),
+                "the pairs are sorted by the regular class");
+    }
+
+    @Test
+    @DisplayName("the deck and item records refuse what the tables cannot mean")
+    void the_item_records_refuse() {
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Weighted("X", 1, 2, 4), "the total is the sum");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Weighted("X", -1, 0, -1));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Weighted("", 1, 0, 1));
+        Codex.Weighted x = new Codex.Weighted("X", 1, 0, 1);
+        Codex.Weighted y = new Codex.Weighted("Y", 1, 2, 3);
+        assertThrows(IllegalArgumentException.class, () -> new Codex.CategoryEntry("POTION", 8, 8, "P", 1, List.of(x, x), AT, AT, AT, null), "a class once per category");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.CategoryEntry("POTION", -1, 8, "P", 1, List.of(), AT, AT, AT, null));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.CategoryEntry("", 8, 8, "P", 1, List.of(), AT, AT, AT, null));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.CategoryEntry("POTION", 8, 8, "P", 1, List.of(), AT, null, AT, null));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.CategoryEntry("POTION", 8, 8, "P", 3, List.of(), AT, AT, AT, AT), "no third deck");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.CategoryEntry("ARMOR", 2, 1, "A", 0, List.of(x), AT, AT, null, null), "no deck, no weights");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.CategoryEntry("ARMOR", 2, 1, "A", 0, List.of(), AT, AT, AT, null), "no deck, no weights citation");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.CategoryEntry("WAND", 1, 1, "W", 1, List.of(y), AT, AT, AT, null), "one deck, no second weight");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.CategoryEntry("WAND", 1, 1, "W", 1, List.of(x), AT, AT, null, null), "one deck, its weights cited");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.CategoryEntry("WAND", 1, 1, "W", 1, List.of(x), AT, AT, AT, AT), "one deck, no second citation");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.CategoryEntry("POTION", 8, 8, "P", 2, List.of(y), AT, AT, AT, null), "two decks, both cited");
+        Codex.Label crimson = new Codex.Label("crimson", "crimson potion", "exotic crimson potion", AT, AT, AT);
+        assertThrows(IllegalArgumentException.class, () -> new Codex.LabelPool("Potion", List.of(), AT), "a pool has labels");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.LabelPool("Potion", List.of(crimson, crimson), AT), "a label once");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Label("", "crimson potion", "", AT, AT, null));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Label("crimson", "crimson potion", "", AT, null, null));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Label("crimson", "crimson potion", "exotic", AT, AT, null), "an exotic name is cited");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Label("crimson", "crimson potion", "", AT, AT, AT), "no exotic name, no citation");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ExoticPair("X", "X"), "a pair is two classes");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ExoticSwap(List.of(), "x", 1001, AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ExoticSwap(List.of(), "x", 0, null));
+        Codex.ExoticSwap swap = new Codex.ExoticSwap(List.of(), "x", 0, AT);
+        Codex.CategoryEntry potion = new Codex.CategoryEntry("POTION", 8, 8, "P", 1, List.of(), AT, AT, AT, null);
+        Codex.LabelPool pool = new Codex.LabelPool("Potion", List.of(crimson), AT);
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Decks(List.of(potion, potion), List.of(), swap), "a category once");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Decks(List.of(potion), List.of(pool, pool), swap), "a family has one pool");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Decks(List.of(potion), List.of(), null));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Strength(false, 3, 0, "", null), "an absent strength carries no tier");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Strength(false, 0, 0, "x", null));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Strength(true, 3, 14, "", AT), "a present strength has its formula");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Strength(true, 3, 14, "x", null));
+        Codex.Strength none = Codex.Strength.none();
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ItemEntry("X", "x", false, AT, "", 1, 1, "return 1;", none, List.of(), true, "", AT),
+                "a constructed item carries no expression");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ItemEntry("X", "x", false, AT, "", 1, 1, "", none, List.of(), false, "why", AT),
+                "a read item carries its expression");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ItemEntry("X", "x", false, AT, "", 1, 1, "", none, List.of(), true, "why", AT),
+                "a constructed item has no reason");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ItemEntry("X", "x", false, AT, "", 1, 1, "return 1;", none, List.of(), false, "", AT),
+                "a read item says why");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ItemEntry("X", "x", false, AT, "", 1, -2, "", none, List.of(), true, "", AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ItemEntry("X", "x", false, AT, "", 0, 1, "", none, List.of(), true, "", AT), "a quantity");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ItemEntry("X", "x", false, AT, "", 1, 1, "", none, List.of("DROP", "DROP"), true, "", AT),
+                "an action once");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ItemEntry("", "x", false, AT, "", 1, 1, "", none, List.of(), true, "", AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ItemEntry("X", "", false, AT, "", 1, 1, "", none, List.of(), true, "", AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ItemEntry("X", "x", false, null, "", 1, 1, "", none, List.of(), true, "", AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ItemEntry("X", "x", false, AT, "", 1, 1, "", null, List.of(), true, "", AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ItemEntry("X", "x", false, AT, "", 1, 1, "", none, List.of(), true, "", null));
+        assertThrows(NullPointerException.class, () -> CodexJson.items(null));
+        assertThrows(NullPointerException.class, () -> CodexJson.decks(null));
     }
 
     @Test

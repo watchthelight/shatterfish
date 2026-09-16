@@ -251,6 +251,144 @@ public final class CodexJson {
         return text.toString();
     }
 
+    /** The items file's text (story 2.3); every class once. */
+    public static String items(List<Codex.ItemEntry> entries) {
+        Objects.requireNonNull(entries, "entries");
+        Set<String> classes = new HashSet<>();
+        StringBuilder table = table();
+        for (int i = 0; i < entries.size(); i++) {
+            Codex.ItemEntry entry = entries.get(i);
+            Codex.distinct(classes, entry.className(), "an item class");
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("className").value(entry.className());
+            out.key("name").value(entry.name());
+            out.key("customName").value(entry.customName());
+            out.key("nameCitation").beginObject();
+            out.key("path").value(entry.nameCitation().path());
+            out.key("line").value(entry.nameCitation().line());
+            out.endObject();
+            out.key("category").value(entry.category());
+            out.key("quantity").value(entry.quantity());
+            out.key("value").value(entry.value());
+            out.key("valueExpression").value(entry.valueExpression());
+            out.key("strength").beginObject();
+            out.key("present").value(entry.strength().present());
+            out.key("tier").value(entry.strength().tier());
+            out.key("atLevel0").value(entry.strength().atLevel0());
+            out.key("formula").value(entry.strength().formula());
+            if (entry.strength().present()) {
+                citation(out, entry.strength().citation());
+            }
+            out.endObject();
+            out.key("actions").beginArray();
+            for (String action : entry.actions()) {
+                out.value(action);
+            }
+            out.endArray();
+            out.key("constructed").value(entry.constructed());
+            out.key("reason").value(entry.reason());
+            citation(out, entry.citation());
+            out.endObject();
+            row(table, out, i + 1 == entries.size());
+        }
+        return close(table);
+    }
+
+    /** The decks file's text (story 2.3): one object, its keys in order, the categories one per line. */
+    public static String decks(Codex.Decks decks) {
+        Objects.requireNonNull(decks, "decks");
+        StringBuilder text = new StringBuilder("{\n\"categories\":[\n");
+        List<Codex.CategoryEntry> categories = decks.categories();
+        for (int i = 0; i < categories.size(); i++) {
+            Codex.CategoryEntry category = categories.get(i);
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("name").value(category.name());
+            out.key("firstProb").value(category.firstProb());
+            out.key("secondProb").value(category.secondProb());
+            out.key("superClass").value(category.superClass());
+            out.key("decks").value(category.decks());
+            out.key("classes").beginArray();
+            for (Codex.Weighted weighted : category.classes()) {
+                out.beginObject();
+                out.key("className").value(weighted.className());
+                out.key("firstDeck").value(weighted.firstDeck());
+                out.key("secondDeck").value(weighted.secondDeck());
+                out.key("total").value(weighted.total());
+                out.endObject();
+            }
+            out.endArray();
+            citation(out, category.citation());
+            out.key("classesCitation").beginObject();
+            out.key("path").value(category.classesCitation().path());
+            out.key("line").value(category.classesCitation().line());
+            out.endObject();
+            if (category.weightsCitation() != null) {
+                out.key("weightsCitation").beginObject();
+                out.key("path").value(category.weightsCitation().path());
+                out.key("line").value(category.weightsCitation().line());
+                out.endObject();
+            }
+            if (category.weights2Citation() != null) {
+                out.key("weights2Citation").beginObject();
+                out.key("path").value(category.weights2Citation().path());
+                out.key("line").value(category.weights2Citation().line());
+                out.endObject();
+            }
+            out.endObject();
+            text.append("  ").append(out.toJson()).append(i + 1 == categories.size() ? "\n" : ",\n");
+        }
+        text.append("],\n");
+        JsonWriter exotic = new JsonWriter();
+        exotic.beginObject();
+        exotic.key("chanceExpression").value(decks.exotic().chanceExpression());
+        exotic.key("chanceWithoutTrinketPerMille").value(decks.exotic().chanceWithoutTrinketPerMille());
+        exotic.key("pairs").beginArray();
+        for (Codex.ExoticPair pair : decks.exotic().pairs()) {
+            exotic.beginObject();
+            exotic.key("regular").value(pair.regular());
+            exotic.key("exotic").value(pair.exotic());
+            exotic.endObject();
+        }
+        exotic.endArray();
+        citation(exotic, decks.exotic().citation());
+        exotic.endObject();
+        text.append("\"exotic\":").append(exotic.toJson()).append(",\n");
+        JsonWriter pools = new JsonWriter();
+        pools.beginArray();
+        for (Codex.LabelPool pool : decks.labelPools()) {
+            pools.beginObject();
+            pools.key("family").value(pool.family());
+            pools.key("labels").beginArray();
+            for (Codex.Label label : pool.labels()) {
+                pools.beginObject();
+                pools.key("key").value(label.key());
+                pools.key("name").value(label.name());
+                pools.key("exoticName").value(label.exoticName());
+                citation(pools, label.citation());
+                pools.key("nameCitation").beginObject();
+                pools.key("path").value(label.nameCitation().path());
+                pools.key("line").value(label.nameCitation().line());
+                pools.endObject();
+                if (label.exoticCitation() != null) {
+                    pools.key("exoticCitation").beginObject();
+                    pools.key("path").value(label.exoticCitation().path());
+                    pools.key("line").value(label.exoticCitation().line());
+                    pools.endObject();
+                }
+                pools.endObject();
+            }
+            pools.endArray();
+            citation(pools, pool.citation());
+            pools.endObject();
+        }
+        pools.endArray();
+        text.append("\"labelPools\":").append(pools.toJson()).append("\n");
+        text.append("}\n");
+        return text.toString();
+    }
+
     private static void roll(JsonWriter out, Codex.Roll roll) {
         out.beginObject();
         out.key("kind").value(roll.kind().name());

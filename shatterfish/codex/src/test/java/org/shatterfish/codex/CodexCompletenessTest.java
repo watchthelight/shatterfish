@@ -3,12 +3,16 @@ package org.shatterfish.codex;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.Statistics;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
+import com.shatteredpixel.shatteredpixeldungeon.items.Generator;
+import com.shatteredpixel.shatteredpixeldungeon.items.Item;
+import com.shatteredpixel.shatteredpixeldungeon.utils.Holiday;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaCodeUnit;
 import com.tngtech.archunit.core.domain.JavaFieldAccess;
 import com.tngtech.archunit.core.domain.JavaMethodCall;
 import com.tngtech.archunit.core.domain.JavaModifier;
+import com.tngtech.archunit.core.domain.JavaStaticInitializer;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,11 +21,13 @@ import org.shatterfish.api.Codex;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -30,13 +36,226 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * else is; every class the rotation names, and every alternate, is a mob the table has; and
  * every constructor or initialiser that reads the hero, the statistics, the seed or a generator
  * is named in the generator with its reason, so that a new read is reviewed before it can reach
- * a table.
+ * a table. The items likewise (story 2.3): every concrete item class is constructed, read from
+ * source or excluded with a reason, and nothing else is; every class read from source touches
+ * the icon film at construction and no constructed class does, so that the two lists are the
+ * classpath's fact and not a choice; and every class a deck weights is an item the table has.
  */
 @Timeout(value = 10, unit = TimeUnit.MINUTES)
 class CodexCompletenessTest {
 
     private static final Path ROOT = CodexSeedFreeTest.ROOT;
     private static final JavaClasses GAME = new ClassFileImporter().importPackages(Sources.GAME);
+    private static final String ICONS = Sources.GAME + ".sprites.ItemSpriteSheet$Icons";
+
+    /** The game's concrete item classes, as the table names them. */
+    static TreeSet<String> gameItems() {
+        TreeSet<String> names = new TreeSet<>();
+        for (JavaClass c : GAME) {
+            if (c.isAssignableTo(Item.class) && !c.getModifiers().contains(JavaModifier.ABSTRACT) && !c.isInterface()
+                    && !c.isAnonymousClass() && !c.isLocalClass()) {
+                names.add(c.getName().substring(Sources.ROOT_PACKAGE_PREFIX.length()).replace('$', '.'));
+            }
+        }
+        return names;
+    }
+
+    /** Whether a constructor, an instance initialiser or the static initialiser of {@code c} reaches the icon film's class. */
+    private static boolean touchesIcons(JavaClass c) {
+        List<JavaCodeUnit> units = new java.util.ArrayList<>(c.getConstructors());
+        c.getStaticInitializer().ifPresent(units::add);
+        for (JavaCodeUnit unit : units) {
+            for (JavaFieldAccess access : unit.getFieldAccesses()) {
+                if (access.getTargetOwner().getName().equals(ICONS)) {
+                    return true;
+                }
+            }
+            for (JavaMethodCall call : unit.getMethodCallsFromSelf()) {
+                if (call.getTargetOwner().getName().equals(ICONS)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    @Test
+    @DisplayName("every concrete item class of the game is constructed, read from source or excluded with a reason, once, and nothing else is")
+    void every_item_is_listed_or_excluded() {
+        TreeSet<String> expected = gameItems();
+        assertTrue(expected.size() >= 300, "the game has its items: " + expected.size());
+        TreeSet<String> listed = new TreeSet<>();
+        int constructed = 0;
+        for (Codex.ItemEntry entry : Items.entries(ROOT)) {
+            assertTrue(listed.add(entry.className()), entry.className() + " is listed twice");
+            constructed += entry.constructed() ? 1 : 0;
+        }
+        assertEquals(Items.CONSTRUCTED.size(), constructed);
+        assertEquals(Items.CONSTRUCTED.size() + Items.SOURCE_READ.size(), listed.size());
+        TreeSet<String> excluded = new TreeSet<>();
+        for (Map.Entry<Class<? extends Item>, String> exclusion : Items.EXCLUDED) {
+            String name = Sources.name(exclusion.getKey());
+            assertTrue(excluded.add(name), name + " is excluded twice");
+            assertFalse(exclusion.getValue().isBlank(), name + " is excluded for a reason");
+            assertFalse(listed.contains(name), name + " is excluded and listed");
+        }
+        TreeSet<String> covered = new TreeSet<>(listed);
+        covered.addAll(excluded);
+        TreeSet<String> missing = new TreeSet<>(expected);
+        missing.removeAll(covered);
+        TreeSet<String> extra = new TreeSet<>(covered);
+        extra.removeAll(expected);
+        assertEquals(new TreeSet<>(), missing, "items the game has and the generator does not name; add them to Items.CONSTRUCTED, SOURCE_READ or EXCLUDED");
+        assertEquals(new TreeSet<>(), extra, "classes the generator names and the game has not as concrete items; remove them");
+    }
+
+    @Test
+    @DisplayName("every class read from source touches the icon film at construction, and no constructed class or superclass of one does")
+    void the_source_read_classes_need_the_toolkit() {
+        for (Class<? extends Item> type : Items.SOURCE_READ) {
+            assertTrue(touchesIcons(GAME.get(type)), type.getName() + " is read from source, and could be constructed instead");
+        }
+        for (java.util.function.Supplier<Item> make : Items.CONSTRUCTED) {
+            for (Class<?> c = GameContext.under(1, 0, make).getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+                assertFalse(touchesIcons(GAME.get(c)), c.getName() + " touches the icon film at construction");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("every exclusion's reason is held: no bare constructor, a helper outside the item packages, a base class with subclasses, a selector's placeholder, a seed its source says is never dropped")
+    void every_exclusion_reason_holds() {
+        for (Map.Entry<Class<? extends Item>, String> exclusion : Items.EXCLUDED) {
+            Class<?> type = exclusion.getKey();
+            String reason = exclusion.getValue();
+            if (reason.equals(Items.NO_CONSTRUCTOR)) {
+                boolean bare = false;
+                for (JavaCodeUnit constructor : GAME.get(type).getConstructors()) {
+                    bare |= constructor.getRawParameterTypes().isEmpty() && constructor.getModifiers().contains(JavaModifier.PUBLIC);
+                }
+                assertFalse(bare, type.getName() + " has a public no-argument constructor and is excluded for lacking one");
+            } else if (reason.equals(Items.OUTSIDE)) {
+                assertFalse(type.getName().startsWith(Sources.ROOT_PACKAGE_PREFIX + "items.") || type.getName().startsWith(Sources.ROOT_PACKAGE_PREFIX + "plants."),
+                        type.getName() + " is inside the item packages and is excluded as a helper outside them");
+            } else if (reason.equals(Items.BASE)) {
+                assertFalse(GAME.get(type).getSubclasses().isEmpty(), type.getName() + " has no subclass and is excluded as a base class");
+            } else if (reason.equals(Items.SELECTOR)) {
+                assertTrue(type.getEnclosingClass() != null && type.getSimpleName().matches("PlaceHolder|RandomTrinket"),
+                        type.getName() + " is not a nested placeholder and is excluded as a selector's");
+            } else if (reason.equals(Items.NEVER_DROPPED)) {
+                Sources.Body body = Sources.body(ROOT, type);
+                assertTrue(body.lines().get(body.from() - 1).contains("never dropped"),
+                        type.getName() + " is excluded as never dropped and its source does not say so at " + body.path() + ":" + body.from());
+            } else {
+                throw new AssertionError(type.getName() + " is excluded for a reason the test does not hold: " + reason);
+            }
+        }
+    }
+
+    /**
+     * The anonymous item classes at this tag, none of them an item a player meets: the stand-ins
+     * a slot, a window, a recipe or an ability's chooser draws. A tag that adds one fails here,
+     * so that it is decided rather than dropped.
+     */
+    static final List<String> UNNAMED = List.of(
+            "actors.hero.abilities.cleric.Trinity$WndItemtypeSelect$1", "actors.hero.abilities.cleric.Trinity$WndItemtypeSelect$2",
+            "items.potions.Potion$SeedToPotion$1",
+            "ui.ItemSlot$1", "ui.ItemSlot$2", "ui.ItemSlot$3", "ui.ItemSlot$4", "ui.ItemSlot$5", "ui.ItemSlot$6",
+            "ui.QuickRecipe$3", "ui.QuickRecipe$4", "windows.WndCombo$1");
+
+    @Test
+    @DisplayName("the anonymous and local item classes are the twelve display stand-ins named here, so the enumeration of classes is total")
+    void unnamed_item_classes_are_the_stand_ins() {
+        TreeSet<String> unnamed = new TreeSet<>();
+        for (JavaClass c : GAME) {
+            if (c.isAssignableTo(Item.class) && (c.isAnonymousClass() || c.isLocalClass())) {
+                unnamed.add(c.getName().substring(Sources.ROOT_PACKAGE_PREFIX.length()));
+                assertTrue(c.isAnonymousClass() && c.getEnclosingClass().isPresent(), c.getName() + " is anonymous inside a class");
+            }
+        }
+        assertEquals(new TreeSet<>(UNNAMED), unnamed, "anonymous or local item classes, against the stand-ins named; decide each new one");
+    }
+
+    @Test
+    @DisplayName("every constructed class, or superclass of one, whose construction, actions, value or strength reads a Run, a Profile, a quest, the clock or a generator is named in the generator with its reason, and nothing named is clean")
+    void every_item_read_is_named() {
+        TreeSet<Class<?>> hierarchy = new TreeSet<>(java.util.Comparator.comparing(Class::getName));
+        for (java.util.function.Supplier<Item> make : Items.CONSTRUCTED) {
+            for (Class<?> c = GameContext.under(1, 0, make).getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+                hierarchy.add(c);
+            }
+        }
+        TreeMap<String, String> found = new TreeMap<>();
+        for (Class<?> type : hierarchy) {
+            JavaClass c = GAME.get(type);
+            List<JavaCodeUnit> units = new java.util.ArrayList<>(c.getConstructors());
+            c.getStaticInitializer().ifPresent(units::add);
+            for (com.tngtech.archunit.core.domain.JavaMethod method : c.getMethods()) {
+                if (method.getName().matches("actions|value|STRReq")) {
+                    units.add(method);
+                }
+            }
+            // A method of the class itself that one of those calls is read too (an initialiser
+            // that calls reset()), to a fixpoint, so that a read one call away is seen.
+            for (int i = 0; i < units.size(); i++) {
+                for (JavaMethodCall call : units.get(i).getMethodCallsFromSelf()) {
+                    if (call.getTargetOwner().equals(c)) {
+                        call.getTarget().resolveMember().ifPresent(method -> {
+                            if (!units.contains(method)) {
+                                units.add(method);
+                            }
+                        });
+                    }
+                }
+            }
+            StringBuilder reads = new StringBuilder();
+            for (JavaCodeUnit unit : units) {
+                for (JavaFieldAccess access : unit.getFieldAccesses()) {
+                    String owner = access.getTargetOwner().getName();
+                    if (owner.equals(Dungeon.class.getName()) || owner.equals(Statistics.class.getName()) || owner.endsWith("$Quest")
+                            || owner.equals(Holiday.class.getName())) {
+                        reads.append(' ').append(unit.getName()).append(':').append(owner.substring(owner.lastIndexOf('.') + 1)).append('.').append(access.getTarget().getName());
+                    }
+                }
+                for (JavaMethodCall call : unit.getMethodCallsFromSelf()) {
+                    String owner = call.getTargetOwner().getName();
+                    if (owner.equals(Dungeon.class.getName()) || owner.equals(Statistics.class.getName()) || owner.endsWith("$Quest")
+                            || owner.equals(Holiday.class.getName()) || owner.equals(com.watabou.utils.Random.class.getName())) {
+                        reads.append(' ').append(unit.getName()).append(':').append(owner.substring(owner.lastIndexOf('.') + 1)).append('.').append(call.getTarget().getName()).append("()");
+                    }
+                }
+            }
+            if (reads.length() > 0) {
+                found.put(Sources.name(type), reads.toString().trim());
+            }
+        }
+        TreeSet<String> named = new TreeSet<>();
+        for (Map.Entry<Class<?>, String> read : Items.READS) {
+            assertTrue(named.add(Sources.name(read.getKey())), read.getKey().getName() + " is named twice");
+            assertFalse(read.getValue().isBlank(), read.getKey().getName() + " is named with a reason");
+        }
+        assertEquals(named, new TreeSet<>(found.keySet()), "the item classes that read a Run, a Profile, a quest, the clock or a generator, against Items.READS: " + found);
+    }
+
+    @Test
+    @DisplayName("every category is a deck, every class a deck weights and every exotic pair is an item the table has, and the three label pools are the identifiable families")
+    void the_decks_name_items() {
+        TreeSet<String> listed = new TreeSet<>();
+        for (Codex.ItemEntry entry : Items.entries(ROOT)) {
+            listed.add(entry.className());
+        }
+        Codex.Decks decks = Decks.read(ROOT);
+        assertEquals(Generator.Category.values().length, decks.categories().size());
+        for (Codex.CategoryEntry category : decks.categories()) {
+            for (Codex.Weighted weighted : category.classes()) {
+                assertTrue(listed.contains(weighted.className()), category.name() + " weights " + weighted.className());
+            }
+        }
+        for (Codex.ExoticPair pair : decks.exotic().pairs()) {
+            assertTrue(listed.contains(pair.regular()) && listed.contains(pair.exotic()), pair.toString());
+        }
+        assertEquals(List.of("Potion", "Ring", "Scroll"), decks.labelPools().stream().map(Codex.LabelPool::family).toList());
+    }
 
     /** The game's concrete mob classes, as the table names them. */
     static TreeSet<String> gameMobs() {
