@@ -152,7 +152,11 @@ class JsonRenderingTest {
             // The Codex's shape (story 2.1): records of types and tables with citations, and the
             // canonical text they are written as. None reads a Run; the generator that fills them
             // lives in codex, and a Brain's caller hands them in as data (E4).
-            "Codex", "Codex$Citation", "Codex$Manifest", "Codex$HeroClassEntry", "Codex$ChallengeEntry", "CodexJson");
+            "Codex", "Codex$Citation", "Codex$Manifest", "Codex$HeroClassEntry", "Codex$ChallengeEntry", "CodexJson",
+            // The mobs table and the spawn rotation (story 2.2): the same kind of records.
+            "Codex$RollKind", "Codex$Roll", "Codex$LootKind", "Codex$Loot", "Codex$Field", "Codex$Variant", "Codex$MobEntry",
+            "Codex$Odds", "Codex$Family", "Codex$RotationEntry", "Codex$RotationDepth", "Codex$RareMob", "Codex$RareAlt", "Codex$Exclusion",
+            "Codex$ChampionRule", "Codex$SpawnRotation");
 
     @Test
     @DisplayName("api is the schema, Action and the named helpers, and nothing in it reads text or bytes into a record")
