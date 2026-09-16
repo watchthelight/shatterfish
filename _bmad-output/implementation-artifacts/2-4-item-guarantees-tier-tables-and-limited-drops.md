@@ -5,7 +5,7 @@ title: "Item guarantees, tier tables and limited drops"
 epic: 2
 issue: 38
 type: 'feature'
-status: 'in-progress'
+status: 'review'
 created: '2026-09-16'
 updated: '2026-09-16'
 review_loop_iteration: 0
@@ -81,16 +81,16 @@ entry cites its declaration. Codex version 4.
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `shatterfish/api/.../Codex.java`, `CodexJson.java` -- `VERSION = 4`; records `ScheduleEntry(depth, count, neededPerMille, placedPerMille, placedNoScrollsPerMille)`, `DropSchedule(name, item, method, once, perSet, expression, citation, placementCitation, entries)`, `Guarantees(bossDepths, bossCitation, placementCitation, drops)`, `TierRow(floorSet, depthFrom, depthTo, weights)`, `TierRule(what, expression, citation)`, `Tiers(rows, citation, armor, weapon, missile)`, `Spawn(className, count, citation)`, `RoomEntry(className, secret, equipment, consumable, crystalKey, potionSpawn, spawns, draws, citation)`, `Rooms(specials, secrets, secretsPerRegionPerMille, secretsCitation, queueExpression, queueCitation)`; rendering one entry per line; `JsonRenderingTest.HELPERS` -- api-typed tables.
-- [ ] `shatterfish/api/src/test/.../CodexJsonTest.java` -- goldens for a schedule, a tier row, a room; refusals (a per-mille out of range, a depth outside 1-26, a row not five wide, a room listed twice) -- the text held.
-- [ ] `shatterfish/codex/.../Sources.java` -- `file(root, path)`; `Mirror` helper: the pinned normalised text of a method against its source -- the drift guard.
-- [ ] `shatterfish/codex/.../Guarantees.java` -- the seven mirrors, each pinned to its method's text; the schedules over depth 1-26 and count 0-max (counted drops: `perSet * 6`; once-only: 0-1; laboratory: 0-5); `placed` zero on boss depths; the Forbidden Runes variation; the enum's constants read from source and held to name every mirrored drop -- the guarantees table.
-- [ ] `shatterfish/codex/.../Tiers.java` -- the literal parsed from `Generator.java` (five by five, whole numbers), rows with their depth ranges (`floorSet = depth / 5` gated to 4), the three rules' lines cited -- the tiers table.
-- [ ] `shatterfish/codex/.../Rooms.java` -- the class literals of the 19 specials and 12 secrets, held against the five source lists by simple name; per room the `addItemToSpawn(new X(` lines counted and resolved through the file's imports, the `Generator.random` lines as draws; the secrets base array as thousandths; the queue rule -- the rooms table.
-- [ ] `shatterfish/codex/.../Generate.java` -- the three tables in the map -- the task extended.
-- [ ] `shatterfish/codex/src/test/.../GuaranteeArithmeticTest.java` -- every schedule entry against the game's method sampled 4,000 times under a seeded generator with `Dungeon.depth` and the counter set (exact where the table says 0 or 1000, within 40 per mille otherwise); the tier rows against `randomArmor/randomWeapon/randomMissile` sampled 20,000 times per floor set; the room lists against the game's public `CRYSTAL_KEY_SPECIALS` and the secrets against `runSecrets` after `initForRun` -- the arithmetic held.
-- [ ] `shatterfish/codex/src/test/.../CodexLeakTest.java`, `CodexCompletenessTest.java` -- the live Run's counters bumped and held; every citation resolved; every room class the game declares under the two packages is in the table -- NFR-1.
-- [ ] `codex/v4.0.0/` regenerated; `docs/adr/0017-...md` amendment; `docs/codex/index.md`; `docs/glossary.md` -- NFR-6.
+- [x] `shatterfish/api/.../Codex.java`, `CodexJson.java` -- `VERSION = 4`; records `ScheduleEntry(depth, count, neededPerMille, placedPerMille, placedNoScrollsPerMille)`, `DropSchedule(name, item, method, once, perSet, expression, citation, placementCitation, entries)`, `Guarantees(bossDepths, bossCitation, placementCitation, drops)`, `TierRow(floorSet, depthFrom, depthTo, weights)`, `TierRule(what, expression, citation)`, `Tiers(rows, citation, armor, weapon, missile)`, `Spawn(className, count, citation)`, `RoomEntry(className, secret, equipment, consumable, crystalKey, potionSpawn, spawns, draws, citation)`, `Rooms(specials, secrets, secretsPerRegionPerMille, secretsCitation, queueExpression, queueCitation)`; rendering one entry per line; `JsonRenderingTest.HELPERS` -- api-typed tables.
+- [x] `shatterfish/api/src/test/.../CodexJsonTest.java` -- goldens for a schedule, a tier row, a room; refusals (a per-mille out of range, a depth outside 1-26, a row not five wide, a room listed twice) -- the text held.
+- [x] `shatterfish/codex/.../Sources.java` -- `file(root, path)`; `Mirror` helper: the pinned normalised text of a method against its source -- the drift guard.
+- [x] `shatterfish/codex/.../Guarantees.java` -- the seven mirrors, each pinned to its method's text; the schedules over depth 1-26 and count 0-max (counted drops: `perSet * 6`; once-only: 0-1; laboratory: 0-5); `placed` zero on boss depths; the Forbidden Runes variation; the enum's constants read from source and held to name every mirrored drop -- the guarantees table.
+- [x] `shatterfish/codex/.../Tiers.java` -- the literal parsed from `Generator.java` (five by five, whole numbers), rows with their depth ranges (`floorSet = depth / 5` gated to 4), the three rules' lines cited -- the tiers table.
+- [x] `shatterfish/codex/.../Rooms.java` -- the class literals of the 19 specials and 12 secrets, held against the five source lists by simple name; per room the `addItemToSpawn(new X(` lines counted and resolved through the file's imports, the `Generator.random` lines as draws; the secrets base array as thousandths; the queue rule -- the rooms table.
+- [x] `shatterfish/codex/.../Generate.java` -- the three tables in the map -- the task extended.
+- [x] `shatterfish/codex/src/test/.../GuaranteeArithmeticTest.java` -- every schedule entry against the game's method sampled 4,000 times under a seeded generator with `Dungeon.depth` and the counter set (exact where the table says 0 or 1000, within 40 per mille otherwise); the tier rows against `randomArmor/randomWeapon/randomMissile` sampled 20,000 times per floor set; the room lists against the game's public `CRYSTAL_KEY_SPECIALS` and the secrets against `runSecrets` after `initForRun` -- the arithmetic held.
+- [x] `shatterfish/codex/src/test/.../CodexLeakTest.java`, `CodexCompletenessTest.java` -- the live Run's counters bumped and held; every citation resolved; every room class the game declares under the two packages is in the table -- NFR-1.
+- [x] `codex/v4.0.0/` regenerated; `docs/adr/0017-...md` amendment; `docs/codex/index.md`; `docs/glossary.md` -- NFR-6.
 
 **Acceptance Criteria:**
 - Given the seven limited-drop methods, when the table is read, then each carries its text, its citation and a schedule whose every entry the game's own method reproduces under a sweep of depths and counters (`GuaranteeArithmeticTest`), with the Forbidden Runes variation and the boss floors placed at zero.
@@ -131,3 +131,113 @@ mirror names which draw it enumerates and the text pin catches a change.
 - `./gradlew :codex:test :api:test -Pshatterfish.mobile=off` -- expected: green, `GuaranteeArithmeticTest` among them.
 - `./gradlew build -Pshatterfish.mobile=off` -- expected: green.
 - `uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict` -- expected: green.
+
+## Dev notes
+
+Implemented on `story/2-4-item-guarantees-tier-tables-and-limited-drops` from `f91085241`. Three
+tables joined `:codex:generate`: `guarantees.json` (seven limited drops as the game's method
+text and a schedule over depths 1-26 and every counter state, 1,352 states; the 29 counters the
+game keeps; the boss depths; the placement gate and the Forbidden Runes rule), `tiers.json`
+(the five floor-set rows with the armor, weapon, missile and gate rules) and `rooms.json` (21
+specials and 12 secrets with their spawns and draws, the game's six lists, the secrets per
+region, the queue rule). The generator gained `Guarantees` (seven mirrors pinned to their
+methods' text), `Tiers` and `Rooms`, and `Sources.file`/`text`. The api gained the schedule,
+tier and room records and their rendering; Codex version 4. No hook, no upstream file, no
+change to `GameContext`, the fair path or the Observation schema.
+
+## Acceptance criteria and how each was met
+
+- **Each limited-drop method carries its text, its citation and a schedule the game's own
+  method reproduces over a sweep, with the Forbidden Runes variation and the boss floors at
+  zero**: `GuaranteeArithmeticTest` samples every state 2,000 times under a seeded generator
+  (exact at 0 and 1000, within 45 per mille otherwise) and holds the placed and Forbidden Runes
+  columns by rule; `CodexLeakTest` pins the matrix's states; a moved pin is shown to fail.
+- **Each floor set carries its five weights and its depth range, and the game's draws agree**:
+  `GuaranteeArithmeticTest` samples `randomArmor`, `randomWeapon` and `randomMissile` 20,000
+  times per set and holds the gated last row; `CodexLeakTest` pins rows 1 and 4 and the rules.
+- **Every room the game lists is an entry with the items it adds, cited**:
+  `CodexCompletenessTest` enumerates the packages' concrete rooms against the table and the
+  three exclusions; `GuaranteeArithmeticTest` holds the lists against the game's queues after a
+  seeded shuffle and its public crystal-key list; `CodexLeakTest` resolves every citation.
+- **A live Run with its counters moved is unchanged by a generation and the bytes equal a cold
+  generation's**: `CodexLeakTest`'s live Run moves all 29 counters; `CodexSeedFreeTest`.
+
+## What was built
+
+- `api`: `Codex.ScheduleEntry`, `DropSchedule`, `Guarantees`, `TierRow`, `Rule`, `Tiers`, `Spawn`,
+  `Draw`, `RoomEntry`, `RoomList`, `Rooms`; `CodexJson.guarantees`, `tiers`, `rooms`;
+  `VERSION = 4`; goldens and refusals in `CodexJsonTest`; the helper allowlist extended.
+- `codex`: `Guarantees`, `Tiers`, `Rooms`; `Sources.file` and `Sources.text`; `Generate`
+  extended; `GuaranteeArithmeticTest` (four tests); `CodexCompletenessTest` (the rooms);
+  `CodexLeakTest` (the counters held, the tables pinned, the citations).
+- `codex/v4.0.0/guarantees.json`, `tiers.json`, `rooms.json`, the manifest at version 4.
+- ADR-0017's amendment; the Codex index; the glossary (schedule, tier table); an idea.
+
+## What the story found
+
+- **`Random.Int(n)` is zero for `n <= 0`**, so a stone whose floors-left count runs out is
+  guaranteed rather than impossible: the enchantment stone by depth 14, the intuition stone and
+  the catalyst on floor 4. The mirrors say so and the game's samples agree.
+- **The enchantment stone skips floor 10 in its count** (`floorsVisited--` past four), so the
+  chance at depth 13 is one in two and at depth 14 one in one.
+- **A nested enum is skipped by the source reader's own-line walk**, since it is another type;
+  `LimitedDrops` is found by `declaration`, not `find`.
+- **The special queue is never seeded by a rule**: `initForRun` shuffles, and `createRoom` draws
+  the front at six, three and one; the same rule for the secrets, held equal.
+- **The pit drops its crystal key on the remains rather than spawning it**, so its entry spawns
+  nothing and its draws are four; the laboratory is placed by `labRoomNeeded`, not the queue.
+- **The rat king's room is a secret room the sewer boss level places**; it, the shop and the
+  demon spawner are the three rooms outside the queues.
+
+## Decisions taken inside the story
+
+- **Mirrors pinned to the source text** rather than a door to the counters or a sampled table:
+  exact thousandths, a loud failure when the source moves, the game's own method as the judge
+  on the test side.
+- **`Dungeon` as a file**, `Sources.file`, since the gate bans the class and its nested enum.
+- **Rooms as class literals held against the source lists**, with the items resolved through
+  imports; a conditional add refused rather than counted.
+- **Prizes as cited draws, not odds**; the odds are an idea.
+
+## Evidence
+
+- `:api:test` green, 345 tests, with `CodexJsonTest` (11); `:codex:test` green, 42 tests
+  (`GuaranteeArithmeticTest` 4, `CodexSeedFreeTest` 3, `CodexLeakTest` 9, `CodexCompletenessTest` 10,
+  `SourcesTest` 5, `RotationTest` 3, `NamesTest` 3, `ItemsReaderTest` 5).
+- `./gradlew :codex:generate` twice: `git status --short codex/` empty after the commit.
+- Mutation battery, thirteen mutations of the generator's classes, each run against the codex
+  tests:
+    - M1 a mirror pin does not bite: caught by GuaranteeArithmeticTest.
+    - M2 the strength potions' target ignores the pairing of floors: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M3 the upgrade scrolls' floors left are one short: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M4 a boss floor places what is needed: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M5 the Forbidden Runes rule withholds the odd scroll: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M6 the enchantment stone's floor-10 skip is dropped: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M7 the last tier row is not widened past its set: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M8 every tier weight is one more than the literal: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M9 a spawn under a condition is counted: **survived**, as expected: no room adds an item under a condition at this tag, so the refusal has nothing to refuse.
+    - M10 a room's repeated spawn counts once: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M11 a room is dropped from the literals: caught by CodexCompletenessTest, CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M12 the secrets per region are read as whole numbers: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M13 the counters are cut short at the first: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+
+## Deviations
+
+- None from the spec's tasks; the record shapes changed as the Spec Change Log says.
+
+## Known limitations, handed forward
+
+- **The schedules are mirrors.** The generator computes what the game computes, pinned to the
+  text and held by sampling; a tag that rewrites a method fails the generation until the
+  mirror is rewritten and re-pinned.
+- **The Forbidden Runes column is held by rule, not by a level built**: the rule is one line of
+  `Level.create`, cited, and the test re-derives it.
+- **Room prizes are text**; their odds and the shop's stock are an idea.
+- **The food per floor** (one draw, a second on a large floor) is not a schedule; it is
+  unconditional and cited nowhere yet.
+
+## Follow-ups for later stories
+
+- 2.5: the combat tables; the tier rows here feed what a floor's equipment is.
+- 2.6: the traps, recipes, levels and rooms' layouts.
+- 2.9: the drift check in CI and the generated index page listing these tables.
