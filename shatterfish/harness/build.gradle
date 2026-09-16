@@ -51,6 +51,20 @@ sourceSets {
     }
 }
 
+// The E1 benchmark (story 1.21): the random agent's throughput, the per-Observation costs and the
+// tactics' properties, printed as the Markdown docs/results/e1-throughput.md carries. The
+// process is a Run process, not a test JVM: no identity-hash pin, the desktop assets on the
+// classpath as above. `-Pbenchmark.args="--runs 50 --samples 8"` overrides the defaults.
+tasks.register('benchmark', JavaExec) {
+    group = 'shatterfish'
+    description = 'Plays the random agent and prints the E1 numbers as Markdown.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.harness.Launcher'
+    def extra = project.findProperty('benchmark.args')
+    args = ['--benchmark'] + (extra == null ? [] : extra.toString().trim().split(/\s+/).toList())
+    outputs.upToDateWhen { false }
+}
+
 // The hook-ledger checks read docs/UPSTREAM.md and the upstream tree directly, and Gradle has no
 // way to know that from the task graph. Without these declarations an unmarked edit to an upstream
 // file, or a row deleted from the ledger, leaves :harness:test UP-TO-DATE and the check simply does
