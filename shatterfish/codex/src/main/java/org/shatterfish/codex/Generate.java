@@ -111,7 +111,10 @@ public final class Generate {
         tables.put("mobs.json", CodexJson.mobs(Mobs.entries(root)));
         tables.put("spawn-rotation.json", CodexJson.spawnRotation(Rotation.read(root, Mobs.canonicalNames())));
         tables.put("decks.json", CodexJson.decks(Decks.read(root)));
+        tables.put("guarantees.json", CodexJson.guarantees(Guarantees.read(root)));
         tables.put("items.json", CodexJson.items(Items.entries(root)));
+        tables.put("rooms.json", CodexJson.rooms(Rooms.read(root)));
+        tables.put("tiers.json", CodexJson.tiers(Tiers.read(root)));
         Map<String, String> files = new LinkedHashMap<>();
         files.put(MANIFEST, CodexJson.manifest(manifest(Upstream.tag(root), tables.keySet())));
         files.putAll(tables);

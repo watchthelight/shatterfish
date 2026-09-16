@@ -92,6 +92,19 @@ with upstream's use of the same word, this page says so.
     what a player sees before an identification. The mapping from label to class is a Run's and
     is never in the Codex.
 
+**Schedule (Codex)**
+:   A limited drop's chances as `guarantees.json` carries them: for every depth and every
+    state of the Run's counter, the thousandths that the game's method says the drop is
+    needed, that the floor places it (boss floors place none) and that it places it under
+    Forbidden Runes. Computed by a mirror of the method pinned to its exact source text and
+    held to the game's own method by `GuaranteeArithmeticTest`.
+
+**Tier table (Codex)**
+:   The generator's `floorSetTierProbs` as `tiers.json` carries it: per floor set
+    (`depth / 5`, the last covering every deeper floor) the five weights by tier, with the rules
+    that an armor picks its class by the drawn index and a weapon or missile picks a tier
+    category.
+
 **Rig**
 :   Fishtest-style statistical testing: thousands of seeded runs in parallel, SPRT comparisons
     between two brains, JSONL run logs, replay. Nothing about the brain is believed until the rig

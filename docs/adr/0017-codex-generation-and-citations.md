@@ -257,3 +257,50 @@ the spirit bow has no tier field and its own formula names its tier. An item's c
 one deck whose class list holds it, empty for an item no deck lists; two would be refused.
 
 Codex version 3.
+
+## Amendment: story 2.4 (2026-09-16)
+
+**A schedule is a mirror pinned to the text it mirrors.** The level's creation decides the
+limited drops by arithmetic in `Dungeon` (`posNeeded`, `souNeeded`, `asNeeded`,
+`enchStoneNeeded`, `intStoneNeeded`, `trinketCataNeeded`, `labRoomNeeded`), each over the depth,
+a counter of the Run (`LimitedDrops`) and one uniform draw (`Random.Int(n)`, zero for
+`n <= 0`). The generator may set no counter and draw nothing, and `Dungeon` is a class it may
+not name, so the schedule (the exact chance in thousandths for every depth 1-26 and every
+counter state that the drop is needed, that the floor places it, and that it places it under
+Forbidden Runes) is computed by a mirror of each method in `Guarantees`, and every mirror is
+pinned to the exact text of the method it mirrors, comments stripped and whitespace collapsed,
+read from `Dungeon.java` as a file through `Sources.file`: a generation fails naming the method
+when the pinned source no longer reads so. `GuaranteeArithmeticTest` holds each mirror to the
+game's own method on the test side, where `Dungeon.depth` and the counter may be set, sampled
+under a seeded generator, exact where the table says never or always and within four standard
+deviations otherwise, over every state the table carries. The placement is the level's, read
+from `Level.create`: no boss floor places any (`bossLevel(int)`, the depths parsed from its
+pinned text), only the main branch does, and under Forbidden Runes every second upgrade scroll
+is withheld after its counter moved. The table also names every counter the game keeps, since
+the enemy-drop and container limits are a later story's, and the leak test's live Run moves
+every counter and holds it across a generation.
+
+**The tier table is the generator's literal, read from source.** `floorSetTierProbs` is private
+and never a field a Run moves; its five rows of five are parsed from the literal, each row the
+floor set `depth / 5` gated to the last, and the three draws by it are carried as the methods'
+text: an armor picks its class by the drawn index into the armor category's class list (which
+is why story 2.3's armor category has no deck), a weapon or a missile picks the tier category
+of the drawn index. `GuaranteeArithmeticTest` holds every row to the game's own
+`randomArmor`, `randomWeapon` and `randomMissile` sampled by floor set.
+
+**The rooms are named as literals and held against the game's lists.** The special and secret
+room classes are class literals in `Rooms`, compile-checked, and the game's own lists (the
+equipment and consumable specials, the crystal-key specials, the potion-spawn specials, the
+secrets), private and so read from source, are held to name exactly those classes; the
+laboratory is a list of its own, placed by its rule. Per room, the items its painting adds to
+the floor's spawn list (a key, a solution potion) are counted from the `addItemToSpawn` lines
+at the painting method's own level, resolved through the file's imports since a name may not
+become a class, and an add under a condition is refused rather than counted; every draw the
+room makes is cited as text, since a prize's odds are a later table's. The secrets per region
+base and the queue rule (chances of six, three and one over the front of a shuffled queue,
+the same for both queues, held equal) are cited. A room the game places outside the queues
+(the shop, the demon spawner, the rat king's) is excluded by name with its reason, and
+`CodexCompletenessTest` enumerates the packages' concrete rooms against the table and the
+exclusions.
+
+Codex version 4.

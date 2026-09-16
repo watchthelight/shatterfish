@@ -24,7 +24,7 @@ class CodexJsonTest {
     @DisplayName("the manifest renders its version, its tag and its tables, keys and tables sorted")
     void the_manifest_renders() {
         Codex.Manifest manifest = new Codex.Manifest(Codex.VERSION, "v4.0.0", List.of("hero-classes.json", "challenges.json"));
-        assertEquals("{\"codexVersion\":3,\"tables\":[\"challenges.json\",\"hero-classes.json\"],\"upstreamTag\":\"v4.0.0\"}\n",
+        assertEquals("{\"codexVersion\":4,\"tables\":[\"challenges.json\",\"hero-classes.json\"],\"upstreamTag\":\"v4.0.0\"}\n",
                 CodexJson.manifest(manifest));
         assertEquals("v4.1.0-beta2", new Codex.Manifest(1, "v4.1.0-beta2", List.of()).upstreamTag(), "a pre-release tag is a tag");
     }
@@ -265,6 +265,119 @@ class CodexJsonTest {
         assertThrows(IllegalArgumentException.class, () -> new Codex.ItemEntry("X", "x", false, AT, "", 1, 1, "", none, List.of(), true, "", null));
         assertThrows(NullPointerException.class, () -> CodexJson.items(null));
         assertThrows(NullPointerException.class, () -> CodexJson.decks(null));
+    }
+
+    @Test
+    @DisplayName("the guarantees, the tiers and the rooms render their keys in order, their drops, rows and rooms one per line")
+    void the_guarantees_tiers_and_rooms_render() {
+        String cite = "{\"line\":7,\"path\":\"core/src/main/java/X.java\"}";
+        Codex.DropSchedule pos = new Codex.DropSchedule("STRENGTH_POTIONS", "items.potions.PotionOfStrength", "posNeeded", false, 2, "return x;", AT, AT,
+                List.of(new Codex.ScheduleEntry(1, 0, 500, 500, 500), new Codex.ScheduleEntry(5, 0, 1000, 0, 0)));
+        Codex.Guarantees guarantees = new Codex.Guarantees(List.of("STRENGTH_POTIONS", "LAB_ROOM"), AT, List.of(10, 5), AT, AT, "count%2 != 0", AT, List.of(pos));
+        assertEquals("{\n"
+                + "\"bossCitation\":" + cite + ",\n"
+                + "\"bossDepths\":[5,10],\n"
+                + "\"counters\":[\"STRENGTH_POTIONS\",\"LAB_ROOM\"],\n"
+                + "\"countersCitation\":" + cite + ",\n"
+                + "\"drops\":[\n"
+                + "  {" + CITE + ",\"entries\":[{\"count\":0,\"depth\":1,\"neededPerMille\":500,\"placedNoScrollsPerMille\":500,\"placedPerMille\":500},"
+                + "{\"count\":0,\"depth\":5,\"neededPerMille\":1000,\"placedNoScrollsPerMille\":0,\"placedPerMille\":0}],"
+                + "\"expression\":\"return x;\",\"item\":\"items.potions.PotionOfStrength\",\"method\":\"posNeeded\",\"name\":\"STRENGTH_POTIONS\","
+                + "\"once\":false,\"perSet\":2,\"placementCitation\":" + cite + "}\n"
+                + "],\n"
+                + "\"noScrollsCitation\":" + cite + ",\n"
+                + "\"noScrollsExpression\":\"count%2 != 0\",\n"
+                + "\"placementCitation\":" + cite + "\n"
+                + "}\n", CodexJson.guarantees(guarantees));
+        Codex.Rule armor = new Codex.Rule("armor", "classes[index]", AT);
+        Codex.Tiers tiers = new Codex.Tiers(List.of(new Codex.TierRow(0, 1, 4, List.of(0, 75, 20, 4, 1)), new Codex.TierRow(1, 5, 9, List.of(0, 25, 50, 20, 5))),
+                AT, new Codex.Rule("gate", "gate(0, floorSet, 4)", AT), armor, new Codex.Rule("weapon", "wepTiers[index]", AT), new Codex.Rule("missile", "misTiers[index]", AT));
+        assertEquals("{\n"
+                + "\"armor\":{" + CITE + ",\"expression\":\"classes[index]\",\"what\":\"armor\"},\n"
+                + "\"citation\":" + cite + ",\n"
+                + "\"gate\":{" + CITE + ",\"expression\":\"gate(0, floorSet, 4)\",\"what\":\"gate\"},\n"
+                + "\"missile\":{" + CITE + ",\"expression\":\"misTiers[index]\",\"what\":\"missile\"},\n"
+                + "\"rows\":[\n"
+                + "  {\"depthFrom\":1,\"depthTo\":4,\"floorSet\":0,\"weights\":[0,75,20,4,1]},\n"
+                + "  {\"depthFrom\":5,\"depthTo\":9,\"floorSet\":1,\"weights\":[0,25,50,20,5]}\n"
+                + "],\n"
+                + "\"weapon\":{" + CITE + ",\"expression\":\"wepTiers[index]\",\"what\":\"weapon\"}\n"
+                + "}\n", CodexJson.tiers(tiers));
+        Codex.RoomEntry fire = new Codex.RoomEntry("levels.rooms.special.MagicalFireRoom", false,
+                List.of(new Codex.Spawn("items.potions.PotionOfFrost", 1, AT)), List.of(new Codex.Draw("Generator.random(x)", AT)), AT);
+        Codex.RoomEntry maze = new Codex.RoomEntry("levels.rooms.secret.SecretMazeRoom", true, List.of(), List.of(), AT);
+        Codex.Rooms rooms = new Codex.Rooms(List.of(fire), List.of(maze), List.of(new Codex.RoomList("POTION_SPAWN_ROOMS", List.of("levels.rooms.special.MagicalFireRoom"), AT)),
+                List.of(2000, 2250), AT, new Codex.Rule("queue", "chances(6, 3, 1)", AT));
+        assertEquals("{\n"
+                + "\"lists\":[\n"
+                + "  {" + CITE + ",\"members\":[\"levels.rooms.special.MagicalFireRoom\"],\"name\":\"POTION_SPAWN_ROOMS\"}\n"
+                + "],\n"
+                + "\"queue\":{" + CITE + ",\"expression\":\"chances(6, 3, 1)\",\"what\":\"queue\"},\n"
+                + "\"secrets\":[\n"
+                + "  {" + CITE + ",\"className\":\"levels.rooms.secret.SecretMazeRoom\",\"draws\":[],\"secret\":true,\"spawns\":[]}\n"
+                + "],\n"
+                + "\"secretsCitation\":" + cite + ",\n"
+                + "\"secretsPerRegionPerMille\":[2000,2250],\n"
+                + "\"specials\":[\n"
+                + "  {" + CITE + ",\"className\":\"levels.rooms.special.MagicalFireRoom\",\"draws\":[{" + CITE + ",\"expression\":\"Generator.random(x)\"}],"
+                + "\"secret\":false,\"spawns\":[{" + CITE + ",\"className\":\"items.potions.PotionOfFrost\",\"count\":1}]}\n"
+                + "]\n"
+                + "}\n", CodexJson.rooms(rooms));
+        for (String text : new String[] {CodexJson.guarantees(guarantees), CodexJson.tiers(tiers), CodexJson.rooms(rooms)}) {
+            List<String> keys = new java.util.ArrayList<>();
+            for (String line : text.split("\n")) {
+                if (line.startsWith("\"")) {
+                    keys.add(line.substring(1, line.indexOf('"', 1)));
+                }
+            }
+            assertEquals(keys.stream().sorted().toList(), keys, "the top-level keys are in order");
+            assertTrue(text.endsWith("\n") && !text.contains("\r"));
+        }
+    }
+
+    @Test
+    @DisplayName("the guarantee, tier and room records refuse what the tables cannot mean")
+    void the_guarantee_records_refuse() {
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ScheduleEntry(0, 0, 500, 500, 500), "a depth is a floor");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ScheduleEntry(1, -1, 500, 500, 500));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ScheduleEntry(1, 0, 1001, 500, 500));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ScheduleEntry(1, 0, 500, 600, 500), "placed no more than needed");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ScheduleEntry(1, 0, 500, 500, 600), "Forbidden Runes withholds");
+        Codex.ScheduleEntry one = new Codex.ScheduleEntry(1, 0, 500, 500, 500);
+        assertThrows(IllegalArgumentException.class, () -> new Codex.DropSchedule("X", "i", "m", true, 2, "t", AT, AT, List.of(one)), "once means once");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.DropSchedule("X", "i", "m", false, 0, "t", AT, AT, List.of(one)));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.DropSchedule("X", "i", "m", false, 1, "t", AT, AT, List.of()), "a schedule has entries");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.DropSchedule("X", "i", "m", false, 1, "t", AT, AT, List.of(one, one)), "a state once");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.DropSchedule("X", "i", "m", false, 1, "", AT, AT, List.of(one)));
+        Codex.DropSchedule x = new Codex.DropSchedule("X", "i", "m", false, 1, "t", AT, AT, List.of(one));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Guarantees(List.of("Y"), AT, List.of(5), AT, AT, "n", AT, List.of(x)), "a drop's counter is kept");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Guarantees(List.of("X"), AT, List.of(5, 5), AT, AT, "n", AT, List.of(x)), "a boss depth once");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Guarantees(List.of("X", "X"), AT, List.of(5), AT, AT, "n", AT, List.of(x)), "a counter once");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Guarantees(List.of("X"), AT, List.of(5), AT, AT, "n", AT, List.of(x, x)), "a drop once");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.TierRow(0, 1, 4, List.of(0, 75, 20, 4)), "five tiers");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.TierRow(0, 1, 4, List.of(0, 0, 0, 0, 0)), "some tier");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.TierRow(0, 4, 1, List.of(0, 75, 20, 4, 1)));
+        Codex.TierRow first = new Codex.TierRow(0, 1, 4, List.of(0, 75, 20, 4, 1));
+        Codex.TierRow gap = new Codex.TierRow(1, 6, 9, List.of(0, 25, 50, 20, 5));
+        Codex.Rule rule = new Codex.Rule("r", "e", AT);
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Tiers(List.of(first, gap), AT, rule, rule, rule, rule), "the ranges abut");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Tiers(List.of(gap), AT, rule, rule, rule, rule), "the rows are the floor sets from zero");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Tiers(List.of(), AT, rule, rule, rule, rule));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Rule("", "e", AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Spawn("K", 0, AT));
+        Codex.Spawn key = new Codex.Spawn("K", 1, AT);
+        assertThrows(IllegalArgumentException.class, () -> new Codex.RoomEntry("R", false, List.of(key, key), List.of(), AT), "a spawned class once");
+        Codex.RoomEntry special = new Codex.RoomEntry("R", false, List.of(key), List.of(), AT);
+        Codex.RoomEntry secret = new Codex.RoomEntry("S", true, List.of(), List.of(), AT);
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Rooms(List.of(secret), List.of(), List.of(), List.of(2000), AT, rule), "a special is not a secret");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Rooms(List.of(special, special), List.of(), List.of(), List.of(2000), AT, rule), "a room once");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Rooms(List.of(special), List.of(secret), List.of(new Codex.RoomList("L", List.of("T"), AT)),
+                List.of(2000), AT, rule), "a listed room is in the table");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Rooms(List.of(special), List.of(secret), List.of(), List.of(), AT, rule), "secrets per region");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.RoomList("L", List.of("R", "R"), AT), "a member once");
+        assertThrows(NullPointerException.class, () -> CodexJson.guarantees(null));
+        assertThrows(NullPointerException.class, () -> CodexJson.tiers(null));
+        assertThrows(NullPointerException.class, () -> CodexJson.rooms(null));
     }
 
     @Test

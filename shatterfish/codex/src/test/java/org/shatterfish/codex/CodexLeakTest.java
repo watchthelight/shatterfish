@@ -71,7 +71,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * and in another language equals a generation made before it in the same JVM, both equal the
  * committed folder, the Run's depth and challenges are what they were, the Run's generator
  * has drawn nothing, and (story 2.3) the generator's deck state, the potions known and the hero
- * are what they were. And every citation opens to a line holding the entry's declaration.
+ * are what they were, and (story 2.4) the Run's limited-drop counters are what they were. And
+ * every citation opens to a line holding the entry's declaration.
  */
 @Timeout(value = 10, unit = TimeUnit.MINUTES)
 class CodexLeakTest {
@@ -237,6 +238,13 @@ class CodexLeakTest {
             }
             Level level = Dungeon.level;
             Dungeon.level = new MiningLevel();
+            // The Run's limited-drop counters are moved and held: the schedules are mirrors and
+            // read no counter.
+            Map<String, Integer> countersBefore = new java.util.TreeMap<>();
+            for (Dungeon.LimitedDrops counter : Dungeon.LimitedDrops.values()) {
+                counter.count = 2 + counter.ordinal();
+                countersBefore.put(counter.name(), counter.count);
+            }
             Holiday holiday = Holiday.getCurrentHoliday();
             // The generator the Run draws from is a known one here; a generation must not move it.
             Random.pushGenerator(424_242L);
@@ -275,6 +283,10 @@ class CodexLeakTest {
             }
             assertEquals(carried, carriedAfter, "the hero carries what the hero carried");
             assertEquals(holiday, Holiday.getCurrentHoliday(), "the holiday the game cached is what it was");
+            for (Dungeon.LimitedDrops counter : Dungeon.LimitedDrops.values()) {
+                assertEquals(countersBefore.get(counter.name()), counter.count, "the " + counter.name() + " counter is as it was");
+                counter.count = 0;
+            }
             assertEquals(3, Dungeon.depth, "the generation left the Run's depth as it was");
             assertEquals(Challenges.NO_FOOD | Challenges.DARKNESS | Challenges.STRONGER_BOSSES, Dungeon.challenges,
                     "the generation left the Run's challenges as they were");
@@ -526,6 +538,100 @@ class CodexLeakTest {
     }
 
     @Test
+    @DisplayName("the guarantees, the tiers and the rooms are the game's: the matrix's schedule states, the tier rows and rules, the rooms' spawns")
+    void the_guarantees_tiers_and_rooms_are_the_games() {
+        Path root = CodexSeedFreeTest.ROOT;
+        Codex.Guarantees guarantees = Guarantees.read(root);
+        assertEquals(29, guarantees.counters().size(), "the game keeps its counters");
+        assertEquals("STRENGTH_POTIONS", guarantees.counters().get(0));
+        assertEquals(104, guarantees.countersCitation().line());
+        assertEquals(441, guarantees.bossCitation().line());
+        assertEquals(224, guarantees.placementCitation().line());
+        assertTrue(guarantees.noScrollsExpression().contains("UPGRADE_SCROLLS.count%2 != 0"), guarantees.noScrollsExpression());
+        Map<String, Codex.DropSchedule> drops = new java.util.TreeMap<>();
+        for (Codex.DropSchedule drop : guarantees.drops()) {
+            drops.put(drop.name(), drop);
+        }
+        assertEquals(7, drops.size());
+        Codex.DropSchedule pos = drops.get("STRENGTH_POTIONS");
+        assertEquals("items.potions.PotionOfStrength", pos.item());
+        assertEquals(2, pos.perSet());
+        assertFalse(pos.once());
+        assertEquals(529, pos.citation().line());
+        assertEquals(228, pos.placementCitation().line());
+        assertTrue(pos.expression().startsWith("int posLeftThisSet = 2 - (LimitedDrops.STRENGTH_POTIONS.count"), pos.expression());
+        assertEquals(new Codex.ScheduleEntry(1, 0, 500, 500, 500), entry(pos, 1, 0), "floor one: the coin");
+        assertEquals(new Codex.ScheduleEntry(2, 0, 1000, 1000, 1000), entry(pos, 2, 0));
+        assertEquals(new Codex.ScheduleEntry(3, 2, 0, 0, 0), entry(pos, 3, 2), "the set's two are out");
+        assertEquals(new Codex.ScheduleEntry(5, 0, 1000, 0, 0), entry(pos, 5, 0), "a boss floor places none");
+        Codex.DropSchedule sou = drops.get("UPGRADE_SCROLLS");
+        assertEquals(3, sou.perSet());
+        assertEquals(new Codex.ScheduleEntry(2, 1, 667, 667, 0), entry(sou, 2, 1), "Forbidden Runes withholds the second scroll");
+        assertEquals(new Codex.ScheduleEntry(1, 0, 750, 750, 750), entry(sou, 1, 0));
+        assertEquals(new Codex.ScheduleEntry(3, 2, 500, 500, 500), entry(sou, 3, 2), "the third scroll is odd and spawns");
+        Codex.DropSchedule stylus = drops.get("ARCANE_STYLI");
+        assertEquals("items.Stylus", stylus.item());
+        assertEquals(new Codex.ScheduleEntry(1, 0, 250, 250, 250), entry(stylus, 1, 0));
+        assertEquals(new Codex.ScheduleEntry(9, 1, 1000, 1000, 1000), entry(stylus, 9, 1), "the set's last floor owes it");
+        Codex.DropSchedule ench = drops.get("ENCH_STONE");
+        assertTrue(ench.once());
+        assertEquals(new Codex.ScheduleEntry(7, 0, 143, 143, 143), entry(ench, 7, 0), "one in seven at depth 7");
+        assertEquals(new Codex.ScheduleEntry(14, 0, 1000, 1000, 1000), entry(ench, 14, 0), "guaranteed by depth 14");
+        assertEquals(new Codex.ScheduleEntry(7, 1, 0, 0, 0), entry(ench, 7, 1), "dropped once, never again");
+        assertEquals(new Codex.ScheduleEntry(4, 0, 1000, 1000, 1000), entry(drops.get("INT_STONE"), 4, 0), "floor four owes the stone");
+        assertEquals(new Codex.ScheduleEntry(1, 0, 333, 333, 333), entry(drops.get("TRINKET_CATA"), 1, 0));
+        Codex.DropSchedule lab = drops.get("LAB_ROOM");
+        assertEquals("levels.rooms.special.LaboratoryRoom", lab.item());
+        assertTrue(lab.placementCitation().path().endsWith("SpecialRoom.java"));
+        assertEquals(new Codex.ScheduleEntry(8, 1, 500, 500, 500), entry(lab, 8, 1));
+        assertEquals(new Codex.ScheduleEntry(9, 1, 1000, 1000, 1000), entry(lab, 9, 1));
+        assertEquals(new Codex.ScheduleEntry(6, 1, 0, 0, 0), entry(lab, 6, 1));
+        Codex.Tiers tiers = Tiers.read(root);
+        assertEquals(List.of(0, 25, 50, 20, 5), tiers.rows().get(1).weights());
+        assertEquals(5, tiers.rows().get(1).depthFrom());
+        assertEquals(9, tiers.rows().get(1).depthTo());
+        assertEquals(List.of(0, 0, 0, 20, 80), tiers.rows().get(4).weights());
+        assertEquals(20, tiers.rows().get(4).depthFrom());
+        assertEquals(26, tiers.rows().get(4).depthTo());
+        assertEquals(613, tiers.citation().line());
+        assertTrue(tiers.armor().expression().contains("Category.ARMOR.classes[Random.chances(floorSetTierProbs[floorSet])]"), tiers.armor().expression());
+        assertTrue(tiers.weapon().expression().contains("random(wepTiers[Random.chances(floorSetTierProbs[floorSet])])"), tiers.weapon().expression());
+        assertTrue(tiers.weapon().expression().contains("where wepTiers: Category.WEP_T1, Category.WEP_T2"), tiers.weapon().expression());
+        assertTrue(tiers.missile().expression().contains("misTiers[Random.chances"), tiers.missile().expression());
+        assertEquals("floorSet = (int)GameMath.gate(0, floorSet, floorSetTierProbs.length-1);", tiers.gate().expression());
+        Codex.Rooms rooms = Rooms.read(root);
+        Map<String, Codex.RoomEntry> byName = new java.util.TreeMap<>();
+        rooms.specials().forEach(r -> byName.put(r.className(), r));
+        rooms.secrets().forEach(r -> byName.put(r.className(), r));
+        assertEquals(21, rooms.specials().size());
+        assertEquals(12, rooms.secrets().size());
+        Codex.RoomEntry fire = byName.get("levels.rooms.special.MagicalFireRoom");
+        assertEquals(List.of(new Codex.Spawn("items.potions.PotionOfFrost", 1, new Codex.Citation(fire.citation().path(), 112))), fire.spawns());
+        assertEquals(1, fire.draws().size());
+        Codex.RoomEntry path = byName.get("levels.rooms.special.CrystalPathRoom");
+        assertEquals(1, path.spawns().size());
+        assertEquals("items.keys.CrystalKey", path.spawns().get(0).className());
+        assertEquals(3, path.spawns().get(0).count(), "three crystal keys for the path");
+        Codex.RoomEntry vault = byName.get("levels.rooms.special.CrystalVaultRoom");
+        assertEquals(List.of("items.keys.CrystalKey", "items.keys.IronKey"), vault.spawns().stream().map(Codex.Spawn::className).toList());
+        assertTrue(byName.get("levels.rooms.special.PitRoom").spawns().isEmpty(), "the pit drops its key on the remains, spawning none");
+        assertTrue(byName.get("levels.rooms.secret.SecretMazeRoom").secret());
+        assertEquals("items.potions.PotionOfLevitation", byName.get("levels.rooms.secret.SecretChestChasmRoom").spawns().get(0).className());
+        assertEquals(6, rooms.lists().size());
+        assertEquals("int index = Random.chances(new float[]{6, 3, 1});", rooms.queue().expression());
+        assertEquals(47, rooms.secretsCitation().line());
+    }
+
+    private static Codex.ScheduleEntry entry(Codex.DropSchedule drop, int depth, int count) {
+        for (Codex.ScheduleEntry entry : drop.entries()) {
+            if (entry.depth() == depth && entry.count() == count) {
+                return entry;
+            }
+        }
+        throw new AssertionError(drop.name() + " has no entry at depth " + depth + " count " + count);
+    }
+
+    @Test
     @DisplayName("the rotation is the spawner's: the families' odds, the champion rule, depth 11, the rare mobs, the unreachable alternate")
     void the_rotation_is_the_spawners() {
         Codex.SpawnRotation rotation = Rotation.read(CodexSeedFreeTest.ROOT, Mobs.canonicalNames());
@@ -678,6 +784,47 @@ class CodexLeakTest {
             }
         }
         assertTrue(lineOf(root, decks.exotic().citation()).contains("consumableExoticChance"));
+        Codex.Guarantees guarantees = Guarantees.read(root);
+        assertTrue(lineOf(root, guarantees.countersCitation()).contains("enum LimitedDrops"));
+        assertTrue(lineOf(root, guarantees.bossCitation()).contains("bossLevel( int depth )"));
+        assertTrue(lineOf(root, guarantees.placementCitation()).contains("!Dungeon.bossLevel()"));
+        assertTrue(lineOf(root, guarantees.noScrollsCitation()).contains("NO_SCROLLS"));
+        for (Codex.DropSchedule drop : guarantees.drops()) {
+            assertTrue(lineOf(root, drop.citation()).contains("boolean " + drop.method() + "("), drop.citation().reference() + " declares " + drop.method());
+            assertTrue(lineOf(root, drop.placementCitation()).contains("Dungeon." + drop.method() + "()"), drop.placementCitation().reference() + " places " + drop.name());
+        }
+        Codex.Tiers tiers = Tiers.read(root);
+        assertTrue(lineOf(root, tiers.citation()).contains("floorSetTierProbs"));
+        for (Codex.Rule rule : List.of(tiers.armor(), tiers.weapon(), tiers.missile())) {
+            assertTrue(lineOf(root, rule.citation()).contains("int floorSet"), rule.citation().reference());
+        }
+        assertTrue(lineOf(root, tiers.gate().citation()).contains("GameMath.gate"));
+        Codex.Rooms rooms = Rooms.read(root);
+        for (Codex.RoomList list : rooms.lists()) {
+            assertTrue(lineOf(root, list.citation()).contains(list.name()) || list.name().equals("LABORATORY") && lineOf(root, list.citation()).contains("LaboratoryRoom.class"),
+                    list.citation().reference() + " declares " + list.name());
+        }
+        for (Codex.RoomEntry room : rooms.specials()) {
+            roomCitations(root, room);
+        }
+        for (Codex.RoomEntry room : rooms.secrets()) {
+            roomCitations(root, room);
+        }
+        assertTrue(lineOf(root, rooms.secretsCitation()).contains("baseRegionSecrets"));
+        assertTrue(lineOf(root, rooms.queue().citation()).contains("Random.chances"));
+    }
+
+    private static void roomCitations(Path root, Codex.RoomEntry room) throws IOException {
+        String simple = room.className().substring(room.className().lastIndexOf('.') + 1);
+        assertTrue(lineOf(root, room.citation()).matches(".*\\bclass\\s+" + simple + "\\b.*"), room.citation().reference() + " declares " + simple);
+        for (Codex.Spawn spawn : room.spawns()) {
+            String item = spawn.className().substring(spawn.className().lastIndexOf('.') + 1);
+            assertTrue(lineOf(root, spawn.citation()).contains("addItemToSpawn") && lineOf(root, spawn.citation()).contains("new " + item),
+                    spawn.citation().reference() + " adds " + item);
+        }
+        for (Codex.Draw draw : room.draws()) {
+            assertTrue(lineOf(root, draw.citation()).contains("Generator.random"), draw.citation().reference() + " draws");
+        }
     }
 
     @Test

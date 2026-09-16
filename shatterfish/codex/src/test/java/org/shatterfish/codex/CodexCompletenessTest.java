@@ -5,6 +5,7 @@ import com.shatteredpixel.shatteredpixeldungeon.Statistics;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
 import com.shatteredpixel.shatteredpixeldungeon.items.Generator;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
+import com.shatteredpixel.shatteredpixeldungeon.levels.rooms.Room;
 import com.shatteredpixel.shatteredpixeldungeon.utils.Holiday;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
@@ -39,7 +40,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * a table. The items likewise (story 2.3): every concrete item class is constructed, read from
  * source or excluded with a reason, and nothing else is; every class read from source touches
  * the icon film at construction and no constructed class does, so that the two lists are the
- * classpath's fact and not a choice; and every class a deck weights is an item the table has.
+ * classpath's fact and not a choice; and every class a deck weights is an item the table has. The rooms likewise (story
+ * 2.4): every concrete room class under the special and secret packages is in the rooms table or
+ * excluded with a reason, and an excluded room is in none of the game's queues.
  */
 @Timeout(value = 10, unit = TimeUnit.MINUTES)
 class CodexCompletenessTest {
@@ -174,6 +177,35 @@ class CodexCompletenessTest {
             }
         }
         assertEquals(new TreeSet<>(UNNAMED), unnamed, "anonymous or local item classes, against the stand-ins named; decide each new one");
+    }
+
+    @Test
+    @DisplayName("every concrete room class under the special and secret packages is in the rooms table or excluded with a reason, and an excluded room is in no queue")
+    void every_room_is_listed_or_excluded() {
+        TreeSet<String> expected = new TreeSet<>();
+        for (JavaClass c : GAME) {
+            if (c.isAssignableTo(Room.class) && !c.getModifiers().contains(JavaModifier.ABSTRACT) && !c.isInterface() && !c.isAnonymousClass() && !c.isLocalClass()
+                    && (c.getPackageName().endsWith(".levels.rooms.special") || c.getPackageName().endsWith(".levels.rooms.secret"))) {
+                expected.add(c.getName().substring(Sources.ROOT_PACKAGE_PREFIX.length()).replace('$', '.'));
+            }
+        }
+        assertTrue(expected.size() >= 30, "the game has its rooms: " + expected.size());
+        Codex.Rooms rooms = Rooms.read(ROOT);
+        TreeSet<String> listed = new TreeSet<>();
+        rooms.specials().forEach(r -> assertTrue(listed.add(r.className()), r.className() + " twice"));
+        rooms.secrets().forEach(r -> assertTrue(listed.add(r.className()), r.className() + " twice"));
+        TreeSet<String> queued = new TreeSet<>();
+        rooms.lists().forEach(l -> queued.addAll(l.members()));
+        TreeSet<String> excluded = new TreeSet<>();
+        for (Map.Entry<Class<? extends Room>, String> exclusion : Rooms.EXCLUDED) {
+            String name = Sources.name(exclusion.getKey());
+            assertTrue(excluded.add(name), name + " is excluded twice");
+            assertFalse(exclusion.getValue().isBlank(), name + " is excluded for a reason");
+            assertFalse(listed.contains(name) || queued.contains(name), name + " is excluded and yet listed or queued");
+        }
+        TreeSet<String> covered = new TreeSet<>(listed);
+        covered.addAll(excluded);
+        assertEquals(expected, covered, "the game's special and secret rooms against the table and the exclusions; name each new one in Rooms");
     }
 
     @Test

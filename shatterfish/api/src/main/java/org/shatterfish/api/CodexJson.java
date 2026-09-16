@@ -389,6 +389,198 @@ public final class CodexJson {
         return text.toString();
     }
 
+    /** The guarantees file's text (story 2.4): one object, its keys in order, the drops one per line. */
+    public static String guarantees(Codex.Guarantees guarantees) {
+        Objects.requireNonNull(guarantees, "guarantees");
+        StringBuilder text = new StringBuilder("{\n");
+        JsonWriter head = new JsonWriter();
+        head.beginObject();
+        text.append("\"bossCitation\":").append(citationJson(guarantees.bossCitation())).append(",\n");
+        text.append("\"bossDepths\":").append(ints(guarantees.bossDepths())).append(",\n");
+        text.append("\"counters\":").append(strings(guarantees.counters())).append(",\n");
+        text.append("\"countersCitation\":").append(citationJson(guarantees.countersCitation())).append(",\n");
+        text.append("\"drops\":[\n");
+        List<Codex.DropSchedule> drops = guarantees.drops();
+        for (int i = 0; i < drops.size(); i++) {
+            Codex.DropSchedule drop = drops.get(i);
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("name").value(drop.name());
+            out.key("item").value(drop.item());
+            out.key("method").value(drop.method());
+            out.key("once").value(drop.once());
+            out.key("perSet").value(drop.perSet());
+            out.key("expression").value(drop.expression());
+            citation(out, drop.citation());
+            out.key("placementCitation").beginObject();
+            out.key("path").value(drop.placementCitation().path());
+            out.key("line").value(drop.placementCitation().line());
+            out.endObject();
+            out.key("entries").beginArray();
+            for (Codex.ScheduleEntry entry : drop.entries()) {
+                out.beginObject();
+                out.key("depth").value(entry.depth());
+                out.key("count").value(entry.count());
+                out.key("neededPerMille").value(entry.neededPerMille());
+                out.key("placedPerMille").value(entry.placedPerMille());
+                out.key("placedNoScrollsPerMille").value(entry.placedNoScrollsPerMille());
+                out.endObject();
+            }
+            out.endArray();
+            out.endObject();
+            text.append("  ").append(out.toJson()).append(i + 1 == drops.size() ? "\n" : ",\n");
+        }
+        text.append("],\n");
+        text.append("\"noScrollsCitation\":").append(citationJson(guarantees.noScrollsCitation())).append(",\n");
+        text.append("\"noScrollsExpression\":").append(string(guarantees.noScrollsExpression())).append(",\n");
+        text.append("\"placementCitation\":").append(citationJson(guarantees.placementCitation())).append("\n");
+        text.append("}\n");
+        return text.toString();
+    }
+
+    /** The tiers file's text (story 2.4): one object, its keys in order, the rows one per line. */
+    public static String tiers(Codex.Tiers tiers) {
+        Objects.requireNonNull(tiers, "tiers");
+        StringBuilder text = new StringBuilder("{\n");
+        text.append("\"armor\":").append(rule(tiers.armor())).append(",\n");
+        text.append("\"citation\":").append(citationJson(tiers.citation())).append(",\n");
+        text.append("\"gate\":").append(rule(tiers.gate())).append(",\n");
+        text.append("\"missile\":").append(rule(tiers.missile())).append(",\n");
+        text.append("\"rows\":[\n");
+        List<Codex.TierRow> rows = tiers.rows();
+        for (int i = 0; i < rows.size(); i++) {
+            Codex.TierRow row = rows.get(i);
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("floorSet").value(row.floorSet());
+            out.key("depthFrom").value(row.depthFrom());
+            out.key("depthTo").value(row.depthTo());
+            out.key("weights").beginArray();
+            for (int weight : row.weights()) {
+                out.value(weight);
+            }
+            out.endArray();
+            out.endObject();
+            text.append("  ").append(out.toJson()).append(i + 1 == rows.size() ? "\n" : ",\n");
+        }
+        text.append("],\n");
+        text.append("\"weapon\":").append(rule(tiers.weapon())).append("\n");
+        text.append("}\n");
+        return text.toString();
+    }
+
+    /** The rooms file's text (story 2.4): one object, its keys in order, the lists and the rooms one per line. */
+    public static String rooms(Codex.Rooms rooms) {
+        Objects.requireNonNull(rooms, "rooms");
+        StringBuilder text = new StringBuilder("{\n");
+        text.append("\"lists\":[\n");
+        List<Codex.RoomList> lists = rooms.lists();
+        for (int i = 0; i < lists.size(); i++) {
+            Codex.RoomList list = lists.get(i);
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("name").value(list.name());
+            out.key("members").beginArray();
+            for (String member : list.members()) {
+                out.value(member);
+            }
+            out.endArray();
+            citation(out, list.citation());
+            out.endObject();
+            text.append("  ").append(out.toJson()).append(i + 1 == lists.size() ? "\n" : ",\n");
+        }
+        text.append("],\n");
+        text.append("\"queue\":").append(rule(rooms.queue())).append(",\n");
+        text.append("\"secrets\":[\n");
+        roomRows(text, rooms.secrets());
+        text.append("],\n");
+        text.append("\"secretsCitation\":").append(citationJson(rooms.secretsCitation())).append(",\n");
+        text.append("\"secretsPerRegionPerMille\":").append(ints(rooms.secretsPerRegionPerMille())).append(",\n");
+        text.append("\"specials\":[\n");
+        roomRows(text, rooms.specials());
+        text.append("]\n");
+        text.append("}\n");
+        return text.toString();
+    }
+
+    private static void roomRows(StringBuilder text, List<Codex.RoomEntry> rooms) {
+        for (int i = 0; i < rooms.size(); i++) {
+            Codex.RoomEntry room = rooms.get(i);
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("className").value(room.className());
+            out.key("secret").value(room.secret());
+            out.key("spawns").beginArray();
+            for (Codex.Spawn spawn : room.spawns()) {
+                out.beginObject();
+                out.key("className").value(spawn.className());
+                out.key("count").value(spawn.count());
+                citation(out, spawn.citation());
+                out.endObject();
+            }
+            out.endArray();
+            out.key("draws").beginArray();
+            for (Codex.Draw draw : room.draws()) {
+                out.beginObject();
+                out.key("expression").value(draw.expression());
+                citation(out, draw.citation());
+                out.endObject();
+            }
+            out.endArray();
+            citation(out, room.citation());
+            out.endObject();
+            text.append("  ").append(out.toJson()).append(i + 1 == rooms.size() ? "\n" : ",\n");
+        }
+    }
+
+    private static String rule(Codex.Rule rule) {
+        JsonWriter out = new JsonWriter();
+        out.beginObject();
+        out.key("what").value(rule.what());
+        out.key("expression").value(rule.expression());
+        citation(out, rule.citation());
+        out.endObject();
+        return out.toJson();
+    }
+
+    private static String citationJson(Codex.Citation citation) {
+        JsonWriter out = new JsonWriter();
+        out.beginObject();
+        out.key("path").value(citation.path());
+        out.key("line").value(citation.line());
+        out.endObject();
+        return out.toJson();
+    }
+
+    private static String ints(List<Integer> values) {
+        JsonWriter out = new JsonWriter();
+        out.beginArray();
+        for (int value : values) {
+            out.value(value);
+        }
+        out.endArray();
+        return out.toJson();
+    }
+
+    private static String strings(List<String> values) {
+        JsonWriter out = new JsonWriter();
+        out.beginArray();
+        for (String value : values) {
+            out.value(value);
+        }
+        out.endArray();
+        return out.toJson();
+    }
+
+    private static String string(String value) {
+        JsonWriter out = new JsonWriter();
+        out.beginArray();
+        out.value(value);
+        out.endArray();
+        String array = out.toJson();
+        return array.substring(1, array.length() - 1);
+    }
+
     private static void roll(JsonWriter out, Codex.Roll roll) {
         out.beginObject();
         out.key("kind").value(roll.kind().name());

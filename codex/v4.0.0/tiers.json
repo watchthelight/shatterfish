@@ -1,0 +1,14 @@
+{
+"armor":{"citation":{"line":780,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/Generator.java"},"expression":"floorSet = (int)GameMath.gate(0, floorSet, floorSetTierProbs.length-1); Armor a = (Armor)Reflection.newInstance(Category.ARMOR.classes[Random.chances(floorSetTierProbs[floorSet])]); a.random(); return a;","what":"armor"},
+"citation":{"line":613,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/Generator.java"},
+"gate":{"citation":{"line":782,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/Generator.java"},"expression":"floorSet = (int)GameMath.gate(0, floorSet, floorSetTierProbs.length-1);","what":"gate"},
+"missile":{"citation":{"line":842,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/Generator.java"},"expression":"floorSet = (int)GameMath.gate(0, floorSet, floorSetTierProbs.length-1); MissileWeapon w; if (useDefaults){ w = (MissileWeapon)randomUsingDefaults(misTiers[Random.chances(floorSetTierProbs[floorSet])]); } else { w = (MissileWeapon)random(misTiers[Random.chances(floorSetTierProbs[floorSet])]); } return w; where misTiers: Category.MIS_T1, Category.MIS_T2, Category.MIS_T3, Category.MIS_T4, Category.MIS_T5","what":"missile"},
+"rows":[
+  {"depthFrom":1,"depthTo":4,"floorSet":0,"weights":[0,75,20,4,1]},
+  {"depthFrom":5,"depthTo":9,"floorSet":1,"weights":[0,25,50,20,5]},
+  {"depthFrom":10,"depthTo":14,"floorSet":2,"weights":[0,0,40,50,10]},
+  {"depthFrom":15,"depthTo":19,"floorSet":3,"weights":[0,0,20,40,40]},
+  {"depthFrom":20,"depthTo":26,"floorSet":4,"weights":[0,0,0,20,80]}
+],
+"weapon":{"citation":{"line":809,"path":"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/Generator.java"},"expression":"floorSet = (int)GameMath.gate(0, floorSet, floorSetTierProbs.length-1); MeleeWeapon w; if (useDefaults){ w = (MeleeWeapon) randomUsingDefaults(wepTiers[Random.chances(floorSetTierProbs[floorSet])]); } else { w = (MeleeWeapon) random(wepTiers[Random.chances(floorSetTierProbs[floorSet])]); } return w; where wepTiers: Category.WEP_T1, Category.WEP_T2, Category.WEP_T3, Category.WEP_T4, Category.WEP_T5","what":"weapon"}
+}

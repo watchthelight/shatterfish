@@ -258,6 +258,40 @@ final class Sources {
         return body;
     }
 
+    /**
+     * The body of the file at {@code path} under the root (story 2.4), for a class the generator
+     * may not name ({@code Dungeon}): the whole file, named by the file's simple name.
+     */
+    static Body file(Path root, String path) {
+        if (!path.startsWith(SOURCE_ROOT) || !path.endsWith(".java")) {
+            throw new IllegalStateException("not a source of the pinned core: " + path);
+        }
+        List<String> lines;
+        try {
+            lines = Files.readAllLines(root.resolve(path), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException("the source could not be read at " + path, e);
+        }
+        if (!lines.isEmpty() && lines.get(0).startsWith("\uFEFF")) {
+            lines.set(0, lines.get(0).substring(1));
+        }
+        String name = path.substring(path.lastIndexOf('/') + 1, path.length() - ".java".length());
+        return new Body(path, lines, 0, lines.size(), name);
+    }
+
+    /** A block's body as one line: its statements between the braces, comments stripped, blank lines dropped, whitespace collapsed. */
+    static String text(Body block) {
+        List<String> parts = new ArrayList<>();
+        for (int i = block.from() + 1; i < block.to() - 1; i++) {
+            String line = stripComment(block.lines().get(i)).trim();
+            if (!line.isEmpty()) {
+                parts.add(line);
+            }
+        }
+        String joined = String.join(" ", parts);
+        return joined.replaceAll("\\s+", " ").trim();
+    }
+
     /** A method's block and declaration line in the class that declares it. */
     record Declared(Class<?> owner, Body block, int line) {
     }

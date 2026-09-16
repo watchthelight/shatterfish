@@ -100,6 +100,14 @@ entry cites its declaration. Codex version 4.
 
 ## Spec Change Log
 
+- 2026-09-16, during implementation: `RoomEntry` carries no membership flags; the game's lists
+  are a `RoomList` each (`EQUIP_SPECIALS`, `CONSUMABLE_SPECIALS`, `CRYSTAL_KEY_SPECIALS`,
+  `POTION_SPAWN_ROOMS`, `LABORATORY`, `ALL_SECRETS`) with their citations, and the entry is the
+  class, its spawns, its draws and its declaration. `Guarantees` also carries every counter the
+  game keeps (`LimitedDrops`, 29 at this tag) and the Forbidden Runes rule's text, and the tier
+  and room rules are `Rule(what, expression, citation)` records. The rat king's room is a third
+  exclusion beside the shop and the demon spawner.
+
 ## Design Notes
 
 Micro-brainstorm. The schedule: (a) call the game's methods from the generator under a widened

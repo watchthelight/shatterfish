@@ -754,13 +754,6 @@ final class Items {
 
     /** A method block's body as one line: its statements, comments stripped, blank lines dropped. */
     private static String text(Sources.Body block) {
-        List<String> parts = new ArrayList<>();
-        for (int i = block.from() + 1; i < block.to() - 1; i++) {
-            String line = Sources.stripComment(block.lines().get(i)).trim();
-            if (!line.isEmpty()) {
-                parts.add(line);
-            }
-        }
-        return String.join(" ", parts);
+        return Sources.text(block);
     }
 }

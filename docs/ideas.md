@@ -98,3 +98,9 @@ it re-reads ADR-0006's Blobs row.
   state, read the same way. Also: the four excluded for lacking a bare constructor (a spirit
   arrow, a scorpio's shot, a bag's placeholder, the armor base) and the wand's two seeds could
   be carried as facts about their owners rather than dropped.
+
+- **A room's prize odds.** Story 2.4's rooms table cites every `Generator.random*` line a room
+  makes as text; a table of the prize a room gives (a ring or an artifact from the pit, an
+  armor one set deeper from the crypt, a scroll from the library) with its odds, read from those
+  lines and the decks, would let the Brain price a key. The shop's stock (`ShopRoom`, placed by
+  `Dungeon.shopOnLevel`) is a table of its own.
