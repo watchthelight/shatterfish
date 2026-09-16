@@ -106,21 +106,21 @@ as `…/`.
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `shatterfish/harness/src/test/java/org/shatterfish/harness/observer/ObservationDiff.java` --
+- [x] `shatterfish/harness/src/test/java/org/shatterfish/harness/observer/ObservationDiff.java` --
   a test helper naming the sections, and for the map the cells, in which two Observations differ --
   so a toggle can be held to an exact set rather than to "something changed".
-- [ ] `…/observer/HiddenStateDifferentialTest.java` -- the five pairs of the matrix, each with its
+- [x] `…/observer/HiddenStateDifferentialTest.java` -- the five pairs of the matrix, each with its
   control; claims `Items`, `Known appearances`, `Mobs`, `Traps`, `Terrain`, `Seed and turn` --
   FR-9's differential form.
-- [ ] `…/observer/VisionToggleTest.java` -- the three toggles of the matrix; blindness holds the
+- [x] `…/observer/VisionToggleTest.java` -- the three toggles of the matrix; blindness holds the
   game's `heroFOV` to `NEIGHBOURS9 ∩ discoverable` and the Observation to it; claims
   `Vision buffs`, `Cell visibility` -- FR-10.
-- [ ] scratchpad `mutations117.py` -- four breaks of `Observer`, each named with the test that
+- [x] scratchpad `mutations117.py` -- four breaks of `Observer`, each named with the test that
   catches it; run once on a committed tree; the outcome into the story file -- the acceptance's
   "verified once".
-- [ ] `docs/adr/0006-observer-visibility-rules.md` -- amendment for story 1.17: what each suite
+- [x] `docs/adr/0006-observer-visibility-rules.md` -- amendment for story 1.17: what each suite
   holds, the memory a toggle leaves behind, and the losses found.
-- [ ] `docs/rules/visibility.md` -- the test column of rows 11, 14 and 16; rows 14 and 15 re-read at
+- [x] `docs/rules/visibility.md` -- the test column of rows 11, 14 and 16; rows 14 and 15 re-read at
   `v4.0.0`, re-cited, and tiered by what the code says.
 
 **Acceptance Criteria:**
@@ -165,3 +165,115 @@ the map, and the test clips anyway.
 - `python -I <scratchpad>/mutations117.py --check` then the battery -- expected: every break caught by the named test, tree clean after.
 - `java -jar gradle/wrapper/gradle-wrapper.jar build -Pshatterfish.mobile=off` -- expected: green.
 - `uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict` -- expected: green.
+
+## Dev notes
+
+Implemented on `story/1-17-the-differential-and-toggle-tests` from `4dcab0563`. Two suites and a
+helper in `shatterfish/harness/src/test/java/org/shatterfish/harness/observer/`, no change to the
+Observer or to any upstream file, no hook row spent. The fairness review follows below.
+
+## Acceptance criteria and how each was met
+
+- **Each hidden-state pair reads twice to the same bytes, and each control flips them.**
+  `HiddenStateDifferentialTest`: `unidentified_item_identities`, `unseen_mob_positions`,
+  `hidden_trap_placement`, `secret_door_placement`, `generator_state`. Five tests, green.
+- **Blinded, the game's field of view is the three-by-three block and the diff is exactly the
+  expected set; likewise mind vision and magic mapping.** `VisionToggleTest.blindness`,
+  `mind_vision`, `magic_mapping`. Three tests, green.
+- **The battery: each break fails the named test, and the tree is restored clean.** Seven breaks,
+  each caught; the output is under Evidence.
+- **The checklist accepts the claims.** `VisibilityChecklistTest` green with the two suites'
+  `ADR_0006_ROWS`.
+- **Both suites run on the pull-request gate.** They are harness tests under `./gradlew build`,
+  which `.github/workflows/build.yml:36` runs on every pull request.
+
+## What was built
+
+- `ObservationDiff` — names the sections, and for the map the cells, in which two Observations
+  differ; leaves the Actions out, since they are a function of the rest.
+- `HiddenStateDifferentialTest` — the five pairs of the matrix, each with its control; claims the
+  rows Items, Known appearances, Mobs, Traps, Terrain, Seed and turn.
+- `VisionToggleTest` — the three toggles of the matrix; claims Vision buffs and Cell visibility.
+- ADR-0006's story 1.17 amendment; `docs/rules/visibility.md` rows 11, 14, 15 and 16, with 14 and
+  15 re-read and re-cited at `v4.0.0` and their tier set to 1; `docs/fairness.md`'s test table.
+
+## What the story found
+
+- **Blindness is an announced buff.** The first draft expected only the fog, the actors, the blobs
+  and the buff to move, and the log moved too: the hero's message is on the screen
+  (`Blindness.java:33`; `Buff.java:50`, `:55-60`; `Hero.java:2133`). Taken off, the log keeps it, so
+  the Observation after is the original but for the log. The test holds both.
+- **Mapping can move a wall from remembered to mapped.** A wall in view whose far side was unknown
+  is painted opaque and emitted at the examine level; once the far side is mapped, the wall's face
+  is painted mapped, since the fog paints a wall by the cells beyond it (`FogOfWar.java:210-267`).
+  Less is shown, not more; the test holds it as the one exception to "what changed was unknown".
+- **Reading a scroll spends a turn.** The magic-mapping toggle cannot hold the actors to equality
+  across the read, so it holds them to the drawing rule and to standing on no merely mapped cell,
+  and checks that such a mob exists.
+- **The schema refuses two of the breaks before any assertion runs.** An actor or a trap on a cell
+  the fog hides is an `IllegalArgumentException` from the record itself (ADR-0005), which is the
+  whitelist by construction.
+
+## Decisions taken inside the story
+
+- **One Run mutated in place, not two Runs.** Two seeds give two floors. Same shape as
+  `MimicDifferentialTest`; the controls keep each pair honest.
+- **A diff against an expected set, not an expected Observation.** Building the toggled
+  Observation by hand would re-implement the rules under test.
+- **The labels are swapped by reflection.** The game has no method for it; the known set and the
+  label set are untouched, so both classes stay unknown and every image resolves.
+- **The blind block is a check on the citation, not the oracle.** The game's own array is the
+  expectation; the block is what the array is held to, cited.
+
+## Evidence
+
+Local, on this branch, at `66565da31` (the tests) with the documents uncommitted:
+
+- `:harness:test --tests "org.shatterfish.harness.observer.*"`: green, the two new suites
+  included.
+- The battery, `mutations117.py`, on the committed tree, restored clean after each break:
+
+```
+=== M1 a mob is drawn out of view: actors() drops the field-of-view gate
+  -> caught by: ActorLeakTest, HiddenStateDifferentialTest, VisionToggleTest
+=== M2 a hidden trap is drawn: map() drops trap.visible
+  -> caught by: HiddenStateDifferentialTest, MapLeakTest, VisionToggleTest
+=== M3 a revealed trap under opaque fog is drawn: map() drops the fog gate on traps
+  -> caught by: HiddenStateDifferentialTest, MapLeakTest, VisionToggleTest
+=== M4 an item is named by its identity: inventory() emits trueName()
+  -> caught by: HiddenStateDifferentialTest, ItemLeakTest, VisionToggleTest
+=== M5 a secret is drawn as what it is: map() discovers the terrain before the sheet
+  -> caught by: HiddenStateDifferentialTest, MapLeakTest, VisionToggleTest
+=== M6 a read draws: hero() consumes a random draw and carries it
+  -> caught by: HiddenStateDifferentialTest, ObserveTest, VisionToggleTest
+=== M7 a remembered cell is in view: fog() treats visited as seen
+  -> caught by: FogParityTest, VisionToggleTest
+tree restored and clean
+```
+
+  Per pair: M1 fails `unseen_mob_positions` (and every test of both suites, by the record's own
+  refusal of an actor on a hidden cell); M2 fails `hidden_trap_placement` (the hidden half); M3
+  fails `hidden_trap_placement` (the revealed-under-fog half, and every test of both suites by the
+  record's refusal of a trap on a hidden cell); M4 fails `unidentified_item_identities`; M5 fails
+  `secret_door_placement`; M6 fails `generator_state` and every other pair, since the name carries
+  the draw; M7 fails `blindness` (a cell in view outside the block) and `mind_vision`.
+
+## Deviations
+
+- The spec's matrix named four breaks; seven were run, adding a revealed trap under opaque fog, a
+  secret drawn as what it is, and a remembered cell drawn as in view, one per pair and toggle.
+- The spec's Always said "the game's own methods where one exists"; `ScrollOfMagicMapping` is read
+  through `execute`, as the spec named, and the turn it spends is why the actors are held to the
+  rule. Recorded above and in the ADR.
+
+## Known limitations, handed forward
+
+- **Blobs under a toggle** are exercised only as "none outside the view": floor one has no gas at
+  its first wait. `EnvironmentLeakTest` holds a gas on a remembered cell absent.
+- **The behavioural form** of the differential test, a Brain given both worlds deciding alike
+  until the Observations diverge, is E4's (FR-9).
+
+## Follow-ups for later stories
+
+- Story 1.18 (#31): oracle mode, gated and marked.
+- E4: the behavioural differential, and the permuted-seed form for any learned component.

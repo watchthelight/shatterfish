@@ -602,3 +602,92 @@ The losses of story 1.10 that this closes: "a Run that reaches one stops at the 
 every message, and now applies only to the blacksmith's later windows and the crown's ability
 choice, which are windows with buttons the table does not name yet.
 
+
+## Amendment: story 1.17 (2026-09-16)
+
+The differential and the toggle tests exist, and the whitelist above is held in two more ways
+than one row at a time. Paths abbreviate `core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/`
+as `…/`, at the tag.
+
+**Two worlds a player could not tell apart are one Observation.** `HiddenStateDifferentialTest`
+takes one Run at its first wait, reads it, changes one kind of hidden state to something the screen
+does not show, reads again and holds the bytes identical, with a control each way: the raw fields
+must differ, and the same change made where the player can see it must move the bytes, or the pair
+holds nothing. Five pairs. An unidentified potion, scroll and ring under the same colour, rune and
+gem but a different class, in the bag and on a seen heap, which needs the family handlers' labels
+swapped between two unknown classes, the one hidden state the game has no method to set since it
+draws the labels once per Run (`…/items/ItemStatusHandler.java:38`, `:42-61`, `:179-184`;
+`…/items/potions/Potion.java:199-207`). An unseen mob at one cell and then another. A hidden trap
+under secret-trap terrain, in view, at one cell and then another (`…/levels/traps/Trap.java:83-91`),
+and a revealed trap under opaque fog likewise. A secret door in one wall and then another. And the
+generator stack pushed elsewhere, ten draws consumed and the seed changed, which also holds that a
+read consumes no draw, so a Run observed is the Run unobserved. The pairs hold three more things on
+the way: a hidden trap, a revealed trap under opaque fog and a secret door are each a world
+identical to none at all. The worlds are one Run mutated in place rather than two Runs, since two
+seeds give two floors and the screen would differ before the hidden state did; everything else on
+the screen is shared by construction, as `MimicDifferentialTest` relies on. The suite claims the
+rows Items, Known appearances, Mobs, Traps, Terrain and Seed and turn.
+
+**The three effects change the Observation exactly as they change the screen.** `VisionToggleTest`
+applies each through the game's own buff or scroll and the game's own observe, and holds the
+Observation's difference from the untoggled read to an exact set of parts, through
+`ObservationDiff`, a test helper that names the sections and cells two Observations differ in; the
+rest is held still, and the Actions are left out of the comparison since they are a function of
+the other sections, which `ObserveTest` holds. The expectation for the field of view is the game's
+own array after `Dungeon.observe()`, never a recomputation; where the acceptance names a shape, the
+array is held to the shape as a check on the citation and the Observation to the array.
+
+*Blindness.* An unsighted char's view is cleared and the discoverable cells within sense radius one
+copied back (`…/levels/Level.java:1318-1319`, `:1370-1372`, `:1374`, `:1386-1406`), and with
+`rounding[1][1] == 1` (`…/mechanics/ShadowCaster.java:35-45`) that is the nine cells around the
+hero, clipped to the map; the test holds the array to that block cell by cell. The diff is the fog,
+in view only inside the block and remembered outside it where it was in view, since observe ORs the
+view into visited (`…/Dungeon.java:934-940`); the actors, the ones drawn before whose cell is still
+in view; the blobs, on cells in view only; the hero's buffs, the one icon; and the log, which the
+story did not expect: blindness is an announced buff (`…/actors/buffs/Blindness.java:33`;
+`…/actors/buffs/Buff.java:50`, `:55-60`; `…/actors/hero/Hero.java:2133`), so the hero's message is
+on the screen. Taken off (`Blindness.java:37-40`), the view returns and the Observation differs
+from the original in the log alone, which keeps the announcement; the block was already remembered,
+so nothing of the floor was learnt.
+
+*Mind vision.* The view only grows: by the rounded radius of two the buff gives
+(`Level.java:1377-1379`; `…/actors/buffs/MindVision.java:32`) and by the three-by-three around
+every mob but a hidden mimic or an object (`Level.java:1433-1434`, `:1457-1468`, `:1517`), and the
+test holds every cell newly in view to one of the two rules. The diff is the fog, which only opens;
+the tiles, which appear exactly where a cell stopped being unknown; the heaps, since a heap in view
+becomes seen and stays so (`:1521-1525`); the actors, every mob whose cell is in view and someone
+new among them; and the buff. Taken off (`MindVision.java:48-53`), the view returns, the actors and
+the hero are what they were, and the screen keeps the cells it saw, as remembered, and the heaps on
+them. A test that expected the original bytes back would be wrong about the screen, and that is the
+half of a toggle test the acceptance's "exactly" is for.
+
+*Magic mapping.* The scroll is read the game's way (`…/items/scrolls/ScrollOfMagicMapping.java:44-73`),
+which spends a turn, so the world after is the next Input wait's and the actors are held to the
+drawing rule rather than to equality: drawn exactly in the field of view, none on a cell that is
+merely mapped, and a mob standing on such a cell exists, since `updateFieldOfView` never reads
+`mapped` (`Level.java:1313-1406`). With a secret door and a hidden trap planted in view first, the
+diff is the fog, every discoverable cell now not unknown and what changed now mapped; the tiles,
+where cells stopped being unknown and at the door the scroll discovered (`Level.java:1108-1114`);
+the traps, every trap visible on a cell that is not unknown, the planted one and the floor's own
+among them; the transitions, the way down now drawn; the inventory, minus the scroll; the known
+appearances, plus it; and the log. One thing the screen does that the story did not expect: a wall
+in view whose far side was unknown is painted opaque and emitted at the examine level, and once the
+far side is mapped it is painted mapped, because the fog paints a wall's face by the cells beyond
+it (`…/tiles/FogOfWar.java:210-267`; the story 1.8 amendment above), so mapping moves that one cell
+from remembered to mapped. Less is shown, not more, and the test holds it as the exception it is.
+The suite claims the rows Vision buffs and Cell visibility.
+
+**A deliberate break fails the test, verified once.** Seven breaks of the Observer were run once
+through a mutation battery on a committed tree and restored: the actors drawn out of view, a hidden
+trap drawn, a revealed trap drawn under opaque fog, an item named by its identity, a secret drawn
+as what it is, a read that consumes a random draw and carries it, and a remembered cell drawn as in
+view. Each was caught by the new suite that owns the pair or the toggle and by the older leak test
+of the row; the story file carries the battery's output. Two were refused before any assertion
+ran, by the schema's own records, which admit no actor and no trap on a cell the fog hides
+(ADR-0005): the whitelist by construction, doing its work.
+
+**What is not held here.** The toggle test exercises a blob passing out of view only as "none
+outside the view", since floor one has no gas at its first wait; `EnvironmentLeakTest` holds a gas
+on a remembered cell absent. Magic mapping's actors are held to the rule and not to equality, for
+the turn the read spends. The behavioural form of the differential test, a Brain given both worlds
+deciding alike, is E4's (FR-9).
