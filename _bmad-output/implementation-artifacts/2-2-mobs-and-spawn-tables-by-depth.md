@@ -5,7 +5,7 @@ title: "Mobs and spawn tables by depth"
 epic: 2
 issue: 36
 type: 'feature'
-status: 'in-progress'
+status: 'review'
 created: '2026-09-16'
 updated: '2026-09-16'
 review_loop_iteration: 0
@@ -85,15 +85,15 @@ any measurement by running combat (2.5); any reading of `Dungeon` beyond the two
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `shatterfish/api/.../Codex.java`, `CodexJson.java` -- `VERSION = 2`; records `Roll(kind, min, max, expression, citation)`, `Loot(kind, name, chance, random, customLoot, citation)`, `MobEntry(className, alignment, properties, ht, defenseSkill, exp, maxLvl, damage, attack, dr, loot, variants, citation)`, `Variant(depth, challenge, fields)`, `RotationDepth(depth, entries)`, `RotationEntry(className, count, family, odds)`, `RareMob`, `RareAlt`, `ChampionRule`, `SpawnRotation`; rendering one entry per line -- api-typed tables.
-- [ ] `shatterfish/api/src/test/.../CodexJsonTest.java` -- goldens for one mob entry with a variant and one rotation depth; refusals (a variant with no field, a count under 1) -- the text held.
-- [ ] `shatterfish/codex/.../GameContext.java` -- `under(depth, challenges, supplier)`: save, set, run, restore `Dungeon.depth`/`Dungeon.challenges` -- the one door to the two fields.
-- [ ] `shatterfish/codex/.../Mobs.java` -- the 115 constructors in one list; `RANDOM_AT_CONSTRUCTION` facets named; `entry(root, supplier)` building a `MobEntry` from the instance at depth 1 and its variants over depths 2 to 26 and each challenge flag; rolls read via `Citations` anchors on the class's own file, walking up to the superclass that declares the method -- the mobs table.
-- [ ] `shatterfish/codex/.../Rotation.java` -- reads `standardMobRotation`'s literal per depth, the families, `addRareMobs`, `swapMobAlts`, `RARE_ALTS`, the champion rule, each with its citation -- the spawn table.
-- [ ] `shatterfish/codex/.../Generate.java` -- `mobs.json` and `spawn-rotation.json` in the tables map -- the task extended.
-- [ ] `shatterfish/codex/src/test/.../CodexCompletenessTest.java` -- ArchUnit over `com.shatteredpixel.shatteredpixeldungeon.actors.mobs..`: every concrete `Mob` subclass named once in `mobs.json`, none extra; every rotation class and alternate is a mob in the table -- the story's enumeration.
-- [ ] `shatterfish/codex/src/test/.../CodexLeakTest.java` -- the gate amended (`Class` admitted, `forName`/loaders/resources/reflection banned, `GameContext` exempt for `Dungeon`); the live Run at depth 3 under a challenge keeps its values through a generation; the depth and boss variants asserted for the matrix's classes -- NFR-1 held.
-- [ ] `codex/v4.0.0/` regenerated; `docs/adr/0017-...md` amendment; `docs/codex/index.md`; `docs/glossary.md` (variant) -- NFR-6.
+- [x] `shatterfish/api/.../Codex.java`, `CodexJson.java` -- `VERSION = 2`; records `Roll(kind, min, max, expression, citation)`, `Loot(kind, name, chance, random, customLoot, citation)`, `MobEntry(className, alignment, properties, ht, defenseSkill, exp, maxLvl, damage, attack, dr, loot, variants, citation)`, `Variant(depth, challenge, fields)`, `RotationDepth(depth, entries)`, `RotationEntry(className, count, family, odds)`, `RareMob`, `RareAlt`, `ChampionRule`, `SpawnRotation`; rendering one entry per line -- api-typed tables.
+- [x] `shatterfish/api/src/test/.../CodexJsonTest.java` -- goldens for one mob entry with a variant and one rotation depth; refusals (a variant with no field, a count under 1) -- the text held.
+- [x] `shatterfish/codex/.../GameContext.java` -- `under(depth, challenges, supplier)`: save, set, run, restore `Dungeon.depth`/`Dungeon.challenges` -- the one door to the two fields.
+- [x] `shatterfish/codex/.../Mobs.java` -- the 115 constructors in one list; `RANDOM_AT_CONSTRUCTION` facets named; `entry(root, supplier)` building a `MobEntry` from the instance at depth 1 and its variants over depths 2 to 26 and each challenge flag; rolls read via `Citations` anchors on the class's own file, walking up to the superclass that declares the method -- the mobs table.
+- [x] `shatterfish/codex/.../Rotation.java` -- reads `standardMobRotation`'s literal per depth, the families, `addRareMobs`, `swapMobAlts`, `RARE_ALTS`, the champion rule, each with its citation -- the spawn table.
+- [x] `shatterfish/codex/.../Generate.java` -- `mobs.json` and `spawn-rotation.json` in the tables map -- the task extended.
+- [x] `shatterfish/codex/src/test/.../CodexCompletenessTest.java` -- ArchUnit over `com.shatteredpixel.shatteredpixeldungeon.actors.mobs..`: every concrete `Mob` subclass named once in `mobs.json`, none extra; every rotation class and alternate is a mob in the table -- the story's enumeration.
+- [x] `shatterfish/codex/src/test/.../CodexLeakTest.java` -- the gate amended (`Class` admitted, `forName`/loaders/resources/reflection banned, `GameContext` exempt for `Dungeon`); the live Run at depth 3 under a challenge keeps its values through a generation; the depth and boss variants asserted for the matrix's classes -- NFR-1 held.
+- [x] `codex/v4.0.0/` regenerated; `docs/adr/0017-...md` amendment; `docs/codex/index.md`; `docs/glossary.md` (variant) -- NFR-6.
 
 **Acceptance Criteria:**
 - Given the game's mob classes, when the generator runs, then every concrete one appears once with its cited fields, and the completeness test names any missing or extra (`CodexCompletenessTest`).
@@ -126,3 +126,105 @@ whole across a tag upgrade.
 - `./gradlew :codex:test :api:test -Pshatterfish.mobile=off` -- expected: green, `CodexCompletenessTest` among them.
 - `./gradlew build -Pshatterfish.mobile=off` -- expected: green.
 - `uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict` -- expected: green.
+
+## Dev notes
+
+Implemented on `story/2-2-mobs-and-spawn-tables-by-depth` from `aae848473`. Two tables joined
+`:codex:generate`: `mobs.json` (129 concrete mob classes) and `spawn-rotation.json`. The
+generator gained `GameContext` (the one door to `Dungeon.depth` and `Dungeon.challenges`),
+`Sources` (a class's body, a nested class's block, a method's declaring class up the hierarchy,
+the returning lines), `Mobs` (the constructor list, the entry builder, the roll and loot readers)
+and `Rotation` (the spawner's literals, the families, the rare rules, the alternates, the
+champion rule). The api gained the mob and rotation records and their rendering; Codex version
+2. No hook, no upstream file, no change to the fair path or to the Observation schema.
+
+## Acceptance criteria and how each was met
+
+- **Every concrete mob class appears once with its cited fields, none extra**:
+  `CodexCompletenessTest` enumerates the game's classes with ArchUnit and compares (two tests).
+- **A variant carries the differing fields per depth and per challenge**: `CodexLeakTest`'s
+  variants test holds the four depth-scaled mobs (25 depth variants each), the five Stronger
+  Bosses variants (that flag and no other), Goo at 120, and the rat unchanged.
+- **The rotation carries depths 1 to 26 counted, the rare and alternate rules and the champion
+  rule, each cited**: `CodexCompletenessTest` (every named class is a mob), `CodexLeakTest`
+  (every citation opens to its case, put or declaration), `CodexJsonTest` (the golden text).
+- **A live Run's depth and challenges are unchanged by a generation and the bytes equal a cold
+  generation's**: `CodexLeakTest`'s live Run at depth 3 under three challenges, `CodexSeedFreeTest`.
+
+## What was built
+
+- `api`: `Codex.Roll`, `RollKind`, `Loot`, `LootKind`, `Field`, `Variant`, `MobEntry`, `Odds`,
+  `RotationEntry`, `RotationDepth`, `RareMob`, `RareAlt`, `Exclusion`, `ChampionRule`,
+  `SpawnRotation`; `CodexJson.mobs` and `spawnRotation`; `VERSION = 2`; goldens and refusals in
+  `CodexJsonTest`; the helper allowlist extended.
+- `codex`: `GameContext`, `Sources`, `Mobs`, `Rotation`; `Generate` extended; the gate in
+  `CodexLeakTest` amended and its live Run made to hold the context; `CodexCompletenessTest`.
+- `codex/v4.0.0/mobs.json`, `spawn-rotation.json`, the manifest at version 2.
+- ADR-0017's amendment; the Codex index; the glossary (variant).
+
+## What the story found
+
+- **Fourteen mobs live outside the mobs package.** The completeness test found the heroes'
+  summons, the wands' and artifacts' allies, a room's sentry and a trap's guardian, all with
+  public no-argument constructors; they are in the table.
+- **A hero's talent reaches a constructor.** The rogue's decoy multiplies its hit points by a
+  talent when a hero exists; the live Run found the table differing by one byte. The field is
+  named run-dependent, dumped as zero and not compared.
+- **A base class's method hides the field.** `Mob.lootChance()` declares a local of the field's
+  name; the first regex read it and every mob without its own loot chance got -1. The field's
+  form (modifier and type, or a bare assignment) is what is read now.
+- **A nested class's method is not its enclosing class's.** The elemental family's file declares
+  `damageRoll()` in the abstract class and in a nested one; the source reader now searches a
+  class's own lines, skipping nested type blocks.
+- **The game hands over hash-ordered collections.** `properties()` is a `HashSet` and
+  `RARE_ALTS` a `HashMap`; the gate's rule became "make none" rather than "touch none", and what
+  is read is sorted before it is written.
+- **All 129 construct bare.** No mob's constructor needs a level, a hero or the toolkit.
+
+## Decisions taken inside the story
+
+- **Stats from constructed instances, rolls from source.** The instance is the truth for what
+  the initialiser sets; a roll draws, so its expression is read and parsed only where plain.
+- **One door to two fields**, `GameContext`, exempted by name in the gate and held to reach
+  nothing else; the alternative, a transcription of `Dungeon.isChallenged` branches, was refused.
+- **The rotation from the literal**, since the method is private and the public one draws; a
+  hook was refused.
+- **`Class` admitted.** The 2.1 gate denied it; the game's tables are keyed by class. Names and
+  member reflection stay banned.
+- **Families as thousandths with the remainder absorbing the rounding**, so the odds sum to
+  1000 and no float is written.
+
+## Evidence
+
+- `:api:test` green, 340 tests, with `CodexJsonTest` (6); `:codex:test` green, 10 tests
+  (`CodexSeedFreeTest` 3, `CodexLeakTest` 5, `CodexCompletenessTest` 2).
+- `./gradlew :codex:generate` twice: `git status --short codex/` empty after the commit.
+- Mutation battery, nine mutations of the generator's classes, each run against the codex tests:
+    - M1 no variant is ever taken: the depths and the challenges are not compared: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M2 the context does not restore the depth it set: caught by CodexLeakTest.
+    - M3 a uniform roll is read as a normal one: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M4 the hero-dependent field is dumped: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M5 the drawn properties are dumped: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M6 a mob is dropped from the list: caught by CodexCompletenessTest, CodexLeakTest, CodexSeedFreeTest.
+    - M7 a nested class's method is taken for its enclosing class's: caught by CodexCompletenessTest, CodexLeakTest, CodexSeedFreeTest.
+    - M8 the context reads the hero: caught by CodexLeakTest.
+    - M9 the rotation counts every class once: caught by CodexLeakTest, CodexSeedFreeTest.
+
+## Deviations
+
+- None from the spec's tasks.
+
+## Known limitations, handed forward
+
+- **A roll that is a formula is text.** 34 damage rolls, 33 attack skills and 54 damage
+  reductions are `OTHER`; story 2.5 measures them.
+- **Loot chances that are expressions** (a generation-scaled chance) are text with -1.
+- **The random and run-dependent sets are written by hand**, by class, found by the tests; a
+  new such class fails the seed-free or the live-Run comparison, which is where it is found.
+- **Depth 27 and beyond** are not in the rotation; the spawner lists up to 26.
+
+## Follow-ups for later stories
+
+- 2.3: items and decks, the first Run-mutable statics; its leak test arranges a Run that has drawn.
+- 2.5: the combat tables that measure what `OTHER` names.
+- 2.9: the drift check in CI and the generated index page listing these tables.
