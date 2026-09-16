@@ -19,8 +19,10 @@ import java.util.TreeSet;
  * rest" a checkable list.
  *
  * <p>The Actions are not compared: they are a function of the other sections
- * ({@code ValidActions.of}), which {@code ObserveTest} holds, so a difference there is never news
- * of its own.
+ * ({@code ValidActions.of}), which {@code ObserveTest.the_whole_is_its_sections} holds, so a
+ * difference there is never news of its own. {@code Observation.sectionHashes()} tells the sections
+ * apart at the coarse level; this goes one step finer, since a toggle moves the map's fog and not
+ * its tiles, or the hero's buffs and not its numbers, and a test needs to say which.
  */
 final class ObservationDiff {
 
@@ -42,7 +44,7 @@ final class ObservationDiff {
         add(diff, "map.feeling", ma.feeling(), mb.feeling());
         add(diff, "map.transitions", ma.transitions(), mb.transitions());
         add(diff, "actors", a.actors(), b.actors());
-        add(diff, "hero", withoutBuffs(a.hero()), withoutBuffs(b.hero()));
+        add(diff, "hero", butBuffs(a.hero()), butBuffs(b.hero()));
         add(diff, "hero.buffs", a.hero().buffs(), b.hero().buffs());
         add(diff, "inventory", a.inventory(), b.inventory());
         add(diff, "journal.notes", a.journal().notes(), b.journal().notes());
@@ -100,11 +102,12 @@ final class ObservationDiff {
         return cells;
     }
 
-    private static HeroSection withoutBuffs(HeroSection hero) {
-        return new HeroSection(hero.cell(), hero.name(), hero.subclass(), hero.ability(), hero.level(), hero.exp(),
-                hero.expToLevel(), hero.hp(), hero.ht(), hero.shield(), hero.strength(), hero.strengthBonus(),
-                hero.gold(), hero.energy(), hero.hunger(), List.of(), hero.talents(), hero.talentPointsAvailable(),
-                hero.quickslots());
+    /** Every component of the hero section but the buffs, by name, so a reordered record cannot fool it. */
+    private static List<Object> butBuffs(HeroSection hero) {
+        return java.util.Arrays.asList(hero.cell(), hero.name(), hero.subclass(), hero.ability(), hero.level(),
+                hero.exp(), hero.expToLevel(), hero.hp(), hero.ht(), hero.shield(), hero.strength(),
+                hero.strengthBonus(), hero.gold(), hero.energy(), hero.hunger(), hero.talents(),
+                hero.talentPointsAvailable(), hero.quickslots());
     }
 
     private static void add(Set<String> diff, String name, Object a, Object b) {

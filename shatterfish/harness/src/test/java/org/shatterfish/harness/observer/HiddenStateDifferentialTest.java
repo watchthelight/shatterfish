@@ -2,6 +2,8 @@ package org.shatterfish.harness.observer;
 
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Haste;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
@@ -106,42 +108,62 @@ class HiddenStateDifferentialTest {
         Item scroll = Reflection.newInstance(scrolls.get(0));
         Item ring = Reflection.newInstance(rings.get(0));
         assertTrue(potion.collect() && scroll.collect() && ring.collect());
-        Heap heap = level.drop(Reflection.newInstance(potions.get(0)), cell);
-        assertTrue(heap.seen, "a heap dropped in view is seen (Level.java:1019)");
+        List<Integer> cells = floorsInView(3);
+        List<Heap> heaps = List.of(level.drop(Reflection.newInstance(potions.get(0)), cells.get(0)),
+                level.drop(Reflection.newInstance(scrolls.get(0)), cells.get(1)),
+                level.drop(Reflection.newInstance(rings.get(0)), cells.get(2)));
+        for (Heap heap : heaps) {
+            assertTrue(heap.seen, "a heap dropped in view is seen (Level.java:1019)");
+        }
         String potionLook = potion.name();
         String scrollLook = scroll.name();
         String ringLook = ring.name();
-        int potionImage = potion.image;
+        List<Integer> images = List.of(potion.image, scroll.image, ring.image);
         byte[] a = bytes();
 
         // World B: the labels swapped, and the second class of each family under the first's look.
         swapLabels(Potion.class, potions.get(0), potions.get(1));
         swapLabels(Scroll.class, scrolls.get(0), scrolls.get(1));
         swapLabels(Ring.class, rings.get(0), rings.get(1));
-        potion.detach(hero.belongings.backpack);
-        scroll.detach(hero.belongings.backpack);
-        ring.detach(hero.belongings.backpack);
-        heap.destroy();
-        Item otherPotion = Reflection.newInstance(potions.get(1));
-        Item otherScroll = Reflection.newInstance(scrolls.get(1));
-        Item otherRing = Reflection.newInstance(rings.get(1));
-        assertTrue(otherPotion.collect() && otherScroll.collect() && otherRing.collect());
-        Heap otherHeap = level.drop(Reflection.newInstance(potions.get(1)), cell);
-        assertTrue(otherHeap.seen);
-        assertEquals(potionLook, otherPotion.name(), "the second potion draws under the first's colour");
-        assertEquals(scrollLook, otherScroll.name(), "the second scroll draws under the first's rune");
-        assertEquals(ringLook, otherRing.name(), "the second ring draws under the first's gem");
-        assertEquals(potionImage, otherPotion.image, "and under its sprite");
-        assertNotEquals(potion.trueName(), otherPotion.trueName(), "the identities differ");
-        assertNotEquals(scroll.trueName(), otherScroll.trueName());
-        assertNotEquals(ring.trueName(), otherRing.trueName());
-        assertFalse(otherPotion.isIdentified() || otherScroll.isIdentified() || otherRing.isIdentified());
-        byte[] b = bytes();
-        assertArrayEquals(a, b, "a different identity under the same appearance is one Observation");
+        try {
+            potion.detach(hero.belongings.backpack);
+            scroll.detach(hero.belongings.backpack);
+            ring.detach(hero.belongings.backpack);
+            for (Heap heap : heaps) {
+                heap.destroy();
+            }
+            Item otherPotion = Reflection.newInstance(potions.get(1));
+            Item otherScroll = Reflection.newInstance(scrolls.get(1));
+            Item otherRing = Reflection.newInstance(rings.get(1));
+            assertTrue(otherPotion.collect() && otherScroll.collect() && otherRing.collect());
+            assertTrue(level.drop(Reflection.newInstance(potions.get(1)), cells.get(0)).seen);
+            assertTrue(level.drop(Reflection.newInstance(scrolls.get(1)), cells.get(1)).seen);
+            assertTrue(level.drop(Reflection.newInstance(rings.get(1)), cells.get(2)).seen);
+            assertEquals(potionLook, otherPotion.name(), "the second potion draws under the first's colour");
+            assertEquals(scrollLook, otherScroll.name(), "the second scroll draws under the first's rune");
+            assertEquals(ringLook, otherRing.name(), "the second ring draws under the first's gem");
+            assertEquals(images, List.of(otherPotion.image, otherScroll.image, otherRing.image), "and under their sprites");
+            assertNotEquals(potion.trueName(), otherPotion.trueName(), "the identities differ");
+            assertNotEquals(scroll.trueName(), otherScroll.trueName());
+            assertNotEquals(ring.trueName(), otherRing.trueName());
+            assertFalse(otherPotion.isIdentified() || otherScroll.isIdentified() || otherRing.isIdentified());
+            byte[] b = bytes();
+            assertArrayEquals(a, b, "a different identity under the same appearance is one Observation");
+            Skeleton.Serialized.of(new Observer().observe()).assertAbsent(otherPotion.trueName());
 
-        // The control: identified, the identity is on the screen, and the bytes move.
-        otherPotion.identify();
-        assertFalse(Arrays.equals(a, bytes()), "an identified potion is a different screen");
+            // The control: identified, each identity is on the screen, and the bytes move each time.
+            byte[] last = b;
+            for (Item item : List.of(otherPotion, otherScroll, otherRing)) {
+                item.identify();
+                byte[] now = bytes();
+                assertFalse(Arrays.equals(last, now), "an identified " + item.trueName() + " is a different screen");
+                last = now;
+            }
+        } finally {
+            swapLabels(Potion.class, potions.get(0), potions.get(1));
+            swapLabels(Scroll.class, scrolls.get(0), scrolls.get(1));
+            swapLabels(Ring.class, rings.get(0), rings.get(1));
+        }
     }
 
     @Test
@@ -156,12 +178,21 @@ class HiddenStateDifferentialTest {
         byte[] b = bytes();
         assertArrayEquals(a, b, "an unseen mob's position is not in the Observation");
 
-        // The control: in view, the same mob is an actor, and the bytes move.
+        // Nor is anything else about it: its health, its state and its buffs are the hidden state
+        // the Mobs and Mob state rows' last columns name, and out of view none of it is drawn.
+        far.HP = Math.max(1, far.HP / 2);
+        far.aggro(hero);
+        assertTrue(far.state == far.HUNTING, "aggro sets the mob hunting (Mob.java)");
+        Buff.affect(far, Haste.class, 5f);
+        assertArrayEquals(a, bytes(), "an unseen mob's health, state, enemy and buffs are not in the Observation");
+
+        // The control: in view, the same mob is an actor (GameScene.java:1089; Char.java:1322-1324),
+        // and the bytes move.
         int inView = floorsInView(1).get(0);
         move(far, inView);
         assertTrue(level.heroFOV[far.pos]);
         assertTrue(new Observer().actors().actors().stream().anyMatch(actor -> actor.cell() == inView),
-                "drawn in view (GameScene.java:1447; Char.java:1272-1274)");
+                "drawn in view (GameScene.java:1089; Char.java:1322-1324)");
         assertFalse(Arrays.equals(a, bytes()));
     }
 
@@ -175,11 +206,13 @@ class HiddenStateDifferentialTest {
         // A hidden trap under secret-trap terrain (Trap.java:83-91), in view, at one cell and then
         // at another. A frost trap can be hidden and is not in the sewers' pool, so its name is on
         // this floor only if the Observer leaks it.
-        plantHidden(floors.get(0));
+        Trap hidden = plantHidden(floors.get(0));
         byte[] a = bytes();
         assertArrayEquals(none, a, "a hidden trap is a world identical to no trap");
+        Skeleton.Serialized.of(new Observer().observe()).assertAbsent(hidden.name());
         Level.set(floors.get(0), Terrain.EMPTY);
         assertTrue(level.traps.get(floors.get(0), null) == null, "Level.set removes the trap (Level.java:966-972)");
+        assertArrayEquals(none, bytes(), "the cleared cell reads as it did");
         plantHidden(floors.get(1));
         byte[] b = bytes();
         assertArrayEquals(a, b, "a hidden trap's cell is not in the Observation");
@@ -194,6 +227,7 @@ class HiddenStateDifferentialTest {
         // A revealed trap on a cell the fog paints opaque, at one unknown cell and then another.
         List<Integer> unknown = unknownFloors(2);
         byte[] bare = bytes();
+        assertArrayEquals(none, bare, "the floor reads as it did before any trap");
         plantRevealed(unknown.get(0));
         byte[] c = bytes();
         assertArrayEquals(bare, c, "a revealed trap under opaque fog is a world identical to no trap");
@@ -217,7 +251,7 @@ class HiddenStateDifferentialTest {
         Level.set(walls.get(0), Terrain.SECRET_DOOR);
         assertTrue(level.secret[walls.get(0)]);
         byte[] a = bytes();
-        assertArrayEquals(none, a, "a secret door is a world identical to a wall (DungeonTileSheet.java:464)");
+        assertArrayEquals(none, a, "a secret door is a world identical to a wall (DungeonTileSheet.java:261, :470)");
         Level.set(walls.get(0), Terrain.WALL);
         Level.set(walls.get(1), Terrain.SECRET_DOOR);
         assertTrue(level.secret[walls.get(1)]);
@@ -232,7 +266,7 @@ class HiddenStateDifferentialTest {
 
     @Test
     @DisplayName("the generator's state and the seed are one Observation, and a read draws nothing")
-    void generator_state() {
+    void generator_state() throws Exception {
         atTheFirstWait();
         byte[] a = bytes();
         long seed = Dungeon.seed;
@@ -250,17 +284,28 @@ class HiddenStateDifferentialTest {
         }
 
         // The control on the other side: the draw after a read is the draw predicted without one,
-        // so the Observer consumes no randomness and a Run observed is the Run unobserved.
+        // and the stack is as deep after the read as before it, so the Observer consumes no
+        // randomness from the generator in force and pushes none of its own; a Run observed is the
+        // Run unobserved.
         Random.pushGenerator(7L);
         long predicted = Random.Long();
         Random.popGenerator();
         Random.pushGenerator(7L);
         try {
+            int depth = generatorDepth();
             bytes();
+            assertEquals(depth, generatorDepth(), "a read left a generator on the stack, or took one off");
             assertEquals(predicted, Random.Long(), "a read consumed a draw");
         } finally {
             Random.popGenerator();
         }
+    }
+
+    /** The generator stack's depth (SPD-classes/.../utils/Random.java:37), private to the game. */
+    private static int generatorDepth() throws Exception {
+        Field field = Random.class.getDeclaredField("generators");
+        field.setAccessible(true);
+        return ((java.util.Collection<?>) field.get(null)).size();
     }
 
     // --- the worlds
@@ -306,11 +351,12 @@ class HiddenStateDifferentialTest {
         labels.put(y, ofX);
     }
 
-    private void plantHidden(int cell) {
+    private Trap plantHidden(int cell) {
         Trap trap = new FrostTrap();
         level.setTrap(trap.hide(), cell);
         Level.set(cell, Terrain.SECRET_TRAP);
         assertTrue(level.secret[cell] && !trap.visible, "the level holds a hidden trap");
+        return trap;
     }
 
     private void plantRevealed(int cell) {

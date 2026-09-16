@@ -5,7 +5,7 @@ title: "The differential and toggle tests"
 epic: 1
 issue: 30
 type: 'feature'
-status: 'in-progress'
+status: 'in-review'
 created: '2026-09-16'
 updated: '2026-09-16'
 review_loop_iteration: 0
@@ -137,6 +137,20 @@ as `…/`.
 
 ## Spec Change Log
 
+- **Review, 2026-09-16 (patches, no loopback).** The matrix's magic-mapping row says "actors
+  unchanged"; the scroll is read the game's way, which spends a turn, so the row's one reading,
+  that mapping reveals no mob, is held as the drawing rule plus "no actor on a merely mapped cell,
+  and such a mob exists" rather than as equality. The review's other findings were patches: the
+  item pair now puts all three families on heaps and identifies all three; the unseen mob's pair
+  covers its health, state, enemy and a buff; the mind-vision check holds both directions of each
+  rule; the exit is pinned absent before mapping and the transitions required in the diff; the
+  generator pair holds the stack's depth across a read; a mob and a gas placed outside the block
+  so blindness loses both; the heaps, traps and transitions under mind vision bound to cells
+  newly known; the mind-vision mimic predicate in the game's own words; six citations corrected
+  at the tag, two of them outside the story's files.
+  KEEP: one Run mutated in place; the diff against an exact set; the blind block as a check on
+  the citation, never the expectation.
+
 ## Design Notes
 
 **Why one Run mutated in place, not two Runs.** Two seeds give two floors, so two worlds identical
@@ -161,9 +175,9 @@ the map, and the test clips anyway.
 ## Verification
 
 **Commands:**
-- `java -jar gradle/wrapper/gradle-wrapper.jar :harness:test -Pshatterfish.mobile=off --tests "org.shatterfish.harness.observer.*"` -- expected: green, the two new suites included.
-- `python -I <scratchpad>/mutations117.py --check` then the battery -- expected: every break caught by the named test, tree clean after.
-- `java -jar gradle/wrapper/gradle-wrapper.jar build -Pshatterfish.mobile=off` -- expected: green.
+- `./gradlew :harness:test -Pshatterfish.mobile=off --tests "org.shatterfish.harness.observer.*"` -- expected: green, the two new suites included. (Under Git Bash on Windows the wrapper jar is run directly; same command.)
+- `python -I <scratchpad>/mutations117.py --check` then the battery -- expected: every break caught by the named test, tree clean after. The battery lives in the session scratchpad, as every story's has; committing the batteries is deferred work, see `deferred-work.md`.
+- `./gradlew build -Pshatterfish.mobile=off` -- expected: green.
 - `uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict` -- expected: green.
 
 ## Dev notes
@@ -199,10 +213,12 @@ Observer or to any upstream file, no hook row spent. The fairness review follows
 
 ## What the story found
 
-- **Blindness is an announced buff.** The first draft expected only the fog, the actors, the blobs
-  and the buff to move, and the log moved too: the hero's message is on the screen
-  (`Blindness.java:33`; `Buff.java:50`, `:55-60`; `Hero.java:2133`). Taken off, the log keeps it, so
-  the Observation after is the original but for the log. The test holds both.
+- **Blindness writes to the log.** The first draft expected only the fog, the actors, the blobs
+  and the buff to move, and the log moved too: the hero logs a buff's message when it is added
+  (`Hero.java:2130-2136`; `Buff.java:118-125`). Taken off, the log keeps it, so the Observation
+  after is the original but for the log. The test holds both. The draft's word for it, "announced",
+  was wrong: that flag is the floating text over the sprite (`Char.java:1234-1246`), and the
+  fairness review read the line.
 - **Mapping can move a wall from remembered to mapped.** A wall in view whose far side was unknown
   is painted opaque and emitted at the examine level; once the far side is mapped, the wall's face
   is painted mapped, since the fog paints a wall by the cells beyond it (`FogOfWar.java:210-267`).
@@ -262,14 +278,17 @@ tree restored and clean
 
 - The spec's matrix named four breaks; seven were run, adding a revealed trap under opaque fog, a
   secret drawn as what it is, and a remembered cell drawn as in view, one per pair and toggle.
+- The matrix's magic-mapping row says "actors unchanged"; the turn the read spends means the
+  actors are held to the drawing rule and to standing on no merely mapped cell. Logged in the
+  Spec Change Log.
 - The spec's Always said "the game's own methods where one exists"; `ScrollOfMagicMapping` is read
   through `execute`, as the spec named, and the turn it spends is why the actors are held to the
   rule. Recorded above and in the ADR.
 
 ## Known limitations, handed forward
 
-- **Blobs under a toggle** are exercised only as "none outside the view": floor one has no gas at
-  its first wait. `EnvironmentLeakTest` holds a gas on a remembered cell absent.
+- **The other vision buffs**, shadows, magical sight, awareness and Light, share the tested code
+  paths and are not toggled; FR-10 names three.
 - **The behavioural form** of the differential test, a Brain given both worlds deciding alike
   until the Observations diverge, is E4's (FR-9).
 

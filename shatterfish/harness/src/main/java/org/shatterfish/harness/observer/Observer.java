@@ -115,7 +115,7 @@ public final class Observer {
     /**
      * What each visual of the tile sheet's two tables looks like, as a {@link Tile}. The sheet
      * draws several terrains with one visual ({@code …/tiles/DungeonTileSheet.java:431-435},
-     * {@code :446-447}, {@code :464}), so the table is keyed by visual and a terrain reaches it
+     * {@code :446-447}, {@code :470}), so the table is keyed by visual and a terrain reaches it
      * through the sheet's own tables, never through a table of Shatterfish's own.
      */
     private static final Map<Integer, Tile> BY_VISUAL = new HashMap<>();

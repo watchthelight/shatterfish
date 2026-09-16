@@ -131,7 +131,7 @@ class MimicDifferentialTest {
         Mimic shy = Mimic.spawnAt(cell, Mimic.class, new Torch());
         GameScene.add(shy);
         assertTrue(!shy.stealthy(), "a mimic is not stealthy without the trinket (Mimic.java:325-327)");
-        assertTrue(heapAt(new Observer().map(), cell).isEmpty(), "drawn like any mob, only in view (GameScene.java:1447)");
+        assertTrue(heapAt(new Observer().map(), cell).isEmpty(), "drawn like any mob, only in view (GameScene.java:1089, :1515-1522)");
         assertTrue(actorAt(cell).isEmpty());
 
         stealthy(shy);

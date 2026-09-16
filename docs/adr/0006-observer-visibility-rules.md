@@ -69,7 +69,7 @@ following and nothing else.
 | Hero buffs | Every buff with an icon (the hero window's buffs tab lists them uncapped) with the turns its description shows (the large UI prints them on the icon too); hunger as the three HUD states. | `…/windows/WndHero.java:301-314`; `…/ui/BuffIndicator.java:192-196`, `:347-364`; `…/actors/buffs/Hunger.java:179-187` | icon-less buffs (`Regeneration`, `Awareness`, `Speed`, `Sleep`, `TimeStasis`); the exact hunger value |
 | Items | `name()`, `title()`, `image`, `quantity`, `levelKnown`, `cursedKnown`, `visiblyUpgraded()`, `visiblyCursed()`, `status()`, `actions(hero)`, `defaultAction()`; for wands `curChargeKnown`; for rings `isKnown()`; equipped slot. | `…/items/Item.java:433-451`, `:483-499`; `…/items/wands/Wand.java:332-334`; `…/items/rings/Ring.java:238-241`; `…/windows/WndUseItem.java:54-76` | `getClass()` of an unknown potion, scroll or ring; `level()` or `cursed` when unknown; ID progress counters; `ItemStatusHandler.unknown()`; `Wand.curCharges` when `!curChargeKnown` |
 | Known appearances | `Potion.getKnown()`, `Scroll.getKnown()`, `Ring.getKnown()` (this Run). | `…/items/potions/Potion.java:402-404` | `Catalog` (cross-Run); `ItemStatusHandler.itemLabels` beyond seen items |
-| Vision buffs | Nothing special: mind vision, magical sight, blindness (a 3x3 FOV), darkness, Light and Foresight all act through `heroFOV`, `visited` and `mapped` before the Observer reads them. | `…/levels/Level.java:1290-1378`, `:1403-1411`; `…/Dungeon.java:914-938` | any recomputation of FOV |
+| Vision buffs | Nothing special: mind vision, magical sight, blindness (a 3x3 FOV), darkness, Light and Foresight all act through `heroFOV`, `visited` and `mapped` before the Observer reads them. | `…/levels/Level.java:1318-1319`, `:1370-1406`, `:1421-1517`; `…/Dungeon.java:897-957` (re-cited at `v4.0.0` by story 1.17) | any recomputation of FOV |
 | Blobs | For cells the fog paints seen, which is where `heroFOV[c]` holds, the kinds of blob with `cur[c] > 0` whose emitter is emitting and whose volume is positive; the emitter draws one particle per such cell regardless of volume and the cell info names the blob only. A blob marked `alwaysVisible` is drawn, and named by the cell's description, on a remembered cell too, and is not carried there: a loss, six blobs wide at `v4.0.0`. | `…/effects/BlobEmitter.java:47-72`; `…/windows/WndInfoCell.java:175-183`; `SPD-classes/…/noosa/particles/Emitter.java:116-128` | `Blob.cur` outside the fog's seen cells; any volume |
 | Floor feeling | `Level.feeling`, the floor's own, which the depth button draws as an icon, names in its hover text and titles the window it opens; the arrival line logs it once. | `…/ui/MenuPane.java:88-89`, `:98-116`; `…/ui/Icons.java:478-497`; `…/scenes/GameScene.java:663-692` | nothing more: the secrets a SECRETS floor holds stay secret |
 | Transitions | For every `LevelTransition` of `Level.transitions` whose designated cell the player has seen *and* which draws there as a way up or down, one of the five terrains the examine window names an entrance or an exit, that cell and the transition's `type`. | `…/levels/features/LevelTransition.java:34-47`, `:92-94`; `…/levels/Level.java:177`, `:1575-1580`, `:1594-1598` | a transition whose cell is unknown or draws as anything else; the destination depth and branch |
@@ -619,11 +619,15 @@ swapped between two unknown classes, the one hidden state the game has no method
 draws the labels once per Run (`…/items/ItemStatusHandler.java:38`, `:42-61`, `:179-184`;
 `…/items/potions/Potion.java:199-207`). An unseen mob at one cell and then another. A hidden trap
 under secret-trap terrain, in view, at one cell and then another (`…/levels/traps/Trap.java:83-91`),
-and a revealed trap under opaque fog likewise. A secret door in one wall and then another. And the
-generator stack pushed elsewhere, ten draws consumed and the seed changed, which also holds that a
-read consumes no draw, so a Run observed is the Run unobserved. The pairs hold three more things on
-the way: a hidden trap, a revealed trap under opaque fog and a secret door are each a world
-identical to none at all. The worlds are one Run mutated in place rather than two Runs, since two
+and a revealed trap under opaque fog likewise, the trap's name nowhere in the bytes. A secret door in
+one wall and then another. And a generator pushed over the Run's and drawn from ten times, with the
+seed changed, which also holds that a read consumes no draw from the generator in force and leaves
+the stack as deep as it found it, so a Run observed is the Run unobserved. The unseen mob's pair goes on to its health, its state,
+its enemy and a buff, the hidden state the Mobs and Mob state rows' last columns name; the Items
+row's other hidden fields, an unknown level, curse, charge and the identification counters, have
+their byte-identical pairs in `ItemLeakTest` already. The pairs hold three more things on the way: a
+hidden trap, a revealed trap under opaque fog and a secret door are each a world identical to none
+at all. The worlds are one Run mutated in place rather than two Runs, since two
 seeds give two floors and the screen would differ before the hidden state did; everything else on
 the screen is shared by construction, as `MimicDifferentialTest` relies on. The suite claims the
 rows Items, Known appearances, Mobs, Traps, Terrain and Seed and turn.
@@ -641,22 +645,30 @@ array is held to the shape as a check on the citation and the Observation to the
 copied back (`…/levels/Level.java:1318-1319`, `:1370-1372`, `:1374`, `:1386-1406`), and with
 `rounding[1][1] == 1` (`…/mechanics/ShadowCaster.java:35-45`) that is the nine cells around the
 hero, clipped to the map; the test holds the array to that block cell by cell. The diff is the fog,
-in view only inside the block and remembered outside it where it was in view, since observe ORs the
-view into visited (`…/Dungeon.java:934-940`); the actors, the ones drawn before whose cell is still
-in view; the blobs, on cells in view only; the hero's buffs, the one icon; and the log, which the
-story did not expect: blindness is an announced buff (`…/actors/buffs/Blindness.java:33`;
-`…/actors/buffs/Buff.java:50`, `:55-60`; `…/actors/hero/Hero.java:2133`), so the hero's message is
-on the screen. Taken off (`Blindness.java:37-40`), the view returns and the Observation differs
+in view only inside the block and remembered outside it where it was in view, since the observe at
+the wait before ORed the view into visited (`…/Dungeon.java:930-938`); the actors, the ones drawn
+before whose cell is still
+in view; the blobs, a gas seeded in view outside the block and gone once the cell is only
+remembered; the hero's buffs, the one icon; and the log, which the story did not expect: the hero
+logs a buff's message when the buff is added (`…/actors/hero/Hero.java:2130-2136`;
+`…/actors/buffs/Buff.java:118-125`; `actors.properties`, `blindness.heromsg`), so it is on the
+screen. The buff's `announced` flag is the floating text over the sprite (`…/actors/Char.java:1234-1246`),
+not the log; the first draft said "announced buff", and the review read the line. Taken off (`Blindness.java:37-40`), the view returns and the Observation differs
 from the original in the log alone, which keeps the announcement; the block was already remembered,
 so nothing of the floor was learnt.
 
 *Mind vision.* The view only grows: by the rounded radius of two the buff gives
 (`Level.java:1377-1379`; `…/actors/buffs/MindVision.java:32`) and by the three-by-three around
 every mob but a hidden mimic or an object (`Level.java:1433-1434`, `:1457-1468`, `:1517`), and the
-test holds every cell newly in view to one of the two rules. The diff is the fog, which only opens;
-the tiles, which appear exactly where a cell stopped being unknown; the heaps, since a heap in view
-becomes seen and stays so (`:1521-1525`); the actors, every mob whose cell is in view and someone
-new among them; and the buff. Taken off (`MindVision.java:48-53`), the view returns, the actors and
+test holds the game's array to the two rules both ways, as the blind block is held: every cell newly
+in view is under one of them, every discoverable cell within the radius is in view, and so is every
+cell around such a mob the sighted view did not reach. The radius's shape, five by five without the
+corners, is what the copy loop yields from `rounding[2]`, a shape the array is held to and never the
+expectation itself. The diff is the fog, which only opens;
+the tiles, which appear exactly where a cell stopped being unknown; the heaps, held to exactly the
+seen ones on known cells, since a heap in view becomes seen and stays so (`:1521-1525`); a trap or
+a way down newly drawn, held to a cell unknown before; the actors, every mob whose cell is in view
+and someone new among them; and the buff. Taken off (`MindVision.java:48-53`), the view returns, the actors and
 the hero are what they were, and the screen keeps the cells it saw, as remembered, and the heaps on
 them. A test that expected the original bytes back would be wrong about the screen, and that is the
 half of a toggle test the acceptance's "exactly" is for.
@@ -669,8 +681,11 @@ merely mapped, and a mob standing on such a cell exists, since `updateFieldOfVie
 diff is the fog, every discoverable cell now not unknown and what changed now mapped; the tiles,
 where cells stopped being unknown and at the door the scroll discovered (`Level.java:1108-1114`);
 the traps, every trap visible on a cell that is not unknown, the planted one and the floor's own
-among them; the transitions, the way down now drawn; the inventory, minus the scroll; the known
-appearances, plus it; and the log. One thing the screen does that the story did not expect: a wall
+among them; the transitions, the way down drawn now and pinned absent before; the heaps, unchanged, with a
+heap on a merely mapped cell there to not be drawn; the inventory, minus the scroll; the known
+appearances, plus it; and the log. The turn the read spends could move other
+parts, the hero's numbers or a heap a mob eats; on this seed at this wait it moves none, the test
+pins that, and a part that moves on another names itself. One thing the screen does that the story did not expect: a wall
 in view whose far side was unknown is painted opaque and emitted at the examine level, and once the
 far side is mapped it is painted mapped, because the fog paints a wall's face by the cells beyond
 it (`…/tiles/FogOfWar.java:210-267`; the story 1.8 amendment above), so mapping moves that one cell
@@ -686,8 +701,11 @@ of the row; the story file carries the battery's output. Two were refused before
 ran, by the schema's own records, which admit no actor and no trap on a cell the fog hides
 (ADR-0005): the whitelist by construction, doing its work.
 
-**What is not held here.** The toggle test exercises a blob passing out of view only as "none
-outside the view", since floor one has no gas at its first wait; `EnvironmentLeakTest` holds a gas
-on a remembered cell absent. Magic mapping's actors are held to the rule and not to equality, for
+**What is not held here.** The other members of the vision set, shadows, magical sight,
+awareness and Light, share the code paths tested and are not toggled; FR-10 names three.
+The pre-mortem above expected the toggle tests to compare the
+Observation against the fog and sprite state of a headless scene; `FogParityTest` is that
+comparison for the fog, and this suite is the other half, the whole Observation against an exact
+set. Magic mapping's actors are held to the rule and not to equality, for
 the turn the read spends. The behavioural form of the differential test, a Brain given both worlds
 deciding alike, is E4's (FR-9).

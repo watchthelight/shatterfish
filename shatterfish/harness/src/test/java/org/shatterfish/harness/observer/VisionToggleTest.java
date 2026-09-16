@@ -3,12 +3,16 @@ package org.shatterfish.harness.observer;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Char;
+import com.shatteredpixel.shatteredpixeldungeon.actors.blobs.Blob;
+import com.shatteredpixel.shatteredpixeldungeon.actors.blobs.ToxicGas;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Blindness;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.MindVision;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mimic;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
+import com.shatteredpixel.shatteredpixeldungeon.items.Heap;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.Scroll;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfMagicMapping;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
@@ -16,6 +20,7 @@ import com.shatteredpixel.shatteredpixeldungeon.levels.Terrain;
 import com.shatteredpixel.shatteredpixeldungeon.levels.traps.FrostTrap;
 import com.shatteredpixel.shatteredpixeldungeon.levels.traps.Trap;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
+import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.tiles.DungeonTileSheet;
 import com.watabou.utils.PathFinder;
 import org.junit.jupiter.api.AfterEach;
@@ -25,13 +30,16 @@ import org.junit.jupiter.api.Timeout;
 import org.shatterfish.api.ActorView;
 import org.shatterfish.api.BuffView;
 import org.shatterfish.api.Fog;
+import org.shatterfish.api.HeapView;
 import org.shatterfish.api.ItemKind;
 import org.shatterfish.api.ItemView;
 import org.shatterfish.api.KnownAppearance;
 import org.shatterfish.api.LogLine;
+import org.shatterfish.api.LogSection;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.Tile;
 import org.shatterfish.api.TransitionKind;
+import org.shatterfish.api.TransitionView;
 import org.shatterfish.api.TrapView;
 import org.shatterfish.harness.driver.HeadlessDriver;
 
@@ -94,8 +102,19 @@ class VisionToggleTest {
     @DisplayName("blinded, the field of view is the three-by-three block the game computes, and only the fog, the actors, the blobs and the buff move")
     void blindness() {
         atTheFirstWait();
+        // A mob and a gas in view but outside the block, so that losing them is exercised: the mob
+        // moved there the way the actor suite moves one, the gas seeded through the game's own
+        // method and given its emitter by the scene (GameScene.java:1131-1136).
+        Set<Integer> block = block(hero.pos);
+        List<Integer> outside = floorsInViewOutside(block, 2);
+        Mob far = mobOutOfView();
+        far.pos = outside.get(0);
+        far.sprite.place(far.pos);
+        GameScene.add(Blob.seed(outside.get(1), 20, ToxicGas.class));
         Observation before = observe();
         boolean[] fovBefore = level.heroFOV.clone();
+        assertTrue(before.actors().actors().stream().anyMatch(a -> a.cell() == outside.get(0)), "the mob is drawn before");
+        assertTrue(before.map().blobs().stream().anyMatch(b -> b.cell() == outside.get(1)), "the gas is drawn before");
 
         Buff.affect(hero, Blindness.class, 10f);
         Dungeon.observe();
@@ -104,7 +123,6 @@ class VisionToggleTest {
         // discoverable cells within sense radius 1 are copied back (Level.java:1318-1319,
         // :1370-1372, :1374, :1386-1406), which with rounding[1][1] == 1 (ShadowCaster.java:35-45)
         // is the nine cells around the hero, clipped to the map.
-        Set<Integer> block = block(hero.pos);
         for (int cell = 0; cell < level.length(); cell++) {
             assertEquals(block.contains(cell) && level.discoverable[cell], level.heroFOV[cell],
                     "cell " + cell + " (Level.java:1386-1406)");
@@ -113,14 +131,17 @@ class VisionToggleTest {
         Observation blind = observe();
         Set<String> diff = ObservationDiff.of(before, blind);
         assertTrue(Set.of("map.fog", "actors", "map.blobs", "hero.buffs", "log").containsAll(diff), "only what the screen changes: " + diff);
-        assertTrue(diff.containsAll(Set.of("map.fog", "hero.buffs", "log")), diff.toString());
+        assertEquals(Set.of("map.fog", "actors", "map.blobs", "hero.buffs", "log"), diff, "and all of it");
 
-        // The log: blindness is an announced buff (Blindness.java:33; Buff.java:45-50), so the
-        // hero's message is on the screen, and nothing else is.
+        // The log: the hero logs a buff's message when the buff is added (Hero.java:2130-2136;
+        // Buff.java:118-125; actors.properties, blindness.heromsg), so it is on the screen, and
+        // nothing else is. The buff's announced flag is the floating text over the sprite
+        // (Char.java:1234-1246), not the log.
         assertEquals(List.of(hero.buff(Blindness.class).heroMessage()), said(before.log().lines(), blind.log().lines()));
 
-        // The fog: in view only inside the block; outside it, what was in view is now remembered
-        // (Dungeon.observe ORs the view into visited, Dungeon.java:934-940), and nothing else moves.
+        // The fog: in view only inside the block; outside it, what was in view is now remembered,
+        // since the observe at the wait before ORed the view into visited (Dungeon.java:930-938),
+        // and nothing else moves.
         for (int cell = 0; cell < level.length(); cell++) {
             Fog was = before.map().fog().get(cell);
             Fog now = blind.map().fog().get(cell);
@@ -143,7 +164,9 @@ class VisionToggleTest {
             }
         }
         assertEquals(expected, blind.actors().actors(), "a mob is drawn exactly in the field of view");
-        assertTrue(blind.map().blobs().stream().allMatch(b -> blind.map().fog().get(b.cell()) == Fog.VISIBLE));
+        assertTrue(blind.actors().actors().stream().noneMatch(a -> a.cell() == outside.get(0)), "the mob outside the block is gone");
+        assertTrue(blind.map().blobs().stream().noneMatch(b -> b.cell() == outside.get(1)),
+                "the gas outside the block is gone: the emitter draws in view only (BlobEmitter.java:47-70)");
 
         // The buff: the blindness icon, and nothing else.
         assertEquals(List.of(hero.buff(Blindness.class).name()), added(before.hero().buffs(), blind.hero().buffs()));
@@ -169,20 +192,36 @@ class VisionToggleTest {
         Buff.affect(hero, MindVision.class, 5f);
         Dungeon.observe();
 
-        // The citation: a cell newly in view is within the rounded radius of 2 the buff gives
-        // (Level.java:1377-1379, :1386-1406; MindVision.java:32) or within one cell of a mob that
-        // is neither a hidden mimic nor an object (Level.java:1433-1434, :1457-1468).
+        // The citation, held on the game's own array both ways, as the blind block is: a cell newly
+        // in view is within the rounded radius of 2 the buff gives (Level.java:1377-1379, :1386-1406;
+        // MindVision.java:32) or within one cell of a mob that is neither a hidden mimic nor an
+        // object (Level.java:1433-1434, :1457-1468); and every discoverable cell within that radius,
+        // and every cell around such a mob the sighted view did not reach, is in view.
         for (int cell = 0; cell < level.length(); cell++) {
             assertTrue(!fovBefore[cell] || level.heroFOV[cell], "the view only grows: " + cell);
             if (level.heroFOV[cell] && !fovBefore[cell]) {
                 assertTrue(withinRoundedTwo(hero.pos, cell) || nextToAMob(cell), "cell " + cell + " is in view by no rule");
             }
+            if (withinRoundedTwo(hero.pos, cell) && level.discoverable[cell]) {
+                assertTrue(level.heroFOV[cell], "a discoverable cell within the radius is in view: " + cell);
+            }
         }
+        int mobsOpened = 0;
+        for (Mob mob : level.mobs) {
+            if (stealthyNeutralMimic(mob) || Char.hasProp(mob, Char.Property.OBJECT) || fovBefore[mob.pos]) {
+                continue;
+            }
+            mobsOpened++;
+            for (int offset : PathFinder.NEIGHBOURS9) {
+                assertTrue(level.heroFOV[mob.pos + offset], "the cells around " + mob.name() + " at " + mob.pos + " are in view");
+            }
+        }
+        assertTrue(mobsOpened > 0, "a mob the sighted view did not reach");
 
         Observation seeing = observe();
         Set<String> diff = ObservationDiff.of(before, seeing);
-        assertTrue(Set.of("map.fog", "map.tiles", "map.heaps", "actors", "hero.buffs").containsAll(diff),
-                "only what the screen changes: " + diff);
+        assertTrue(Set.of("map.fog", "map.tiles", "map.heaps", "map.traps", "map.transitions", "actors", "hero.buffs")
+                .containsAll(diff), "only what the screen changes: " + diff);
         assertTrue(diff.containsAll(Set.of("map.fog", "actors", "hero.buffs")), diff.toString());
 
         // The fog only opens: a floor cell is in view exactly where the game's array says.
@@ -202,8 +241,12 @@ class VisionToggleTest {
         // Every mob whose cell is in view is drawn, and someone new is.
         assertEquals(drawnMobs(), cells(seeing.actors().actors()), "a mob is drawn exactly in the field of view");
         assertTrue(seeing.actors().actors().size() > before.actors().actors().size());
-        // A heap in view is seen and stays seen (Level.java:1523-1524).
+        // A heap in view is seen and stays seen (Level.java:1521-1525): the heaps drawn are exactly
+        // the seen ones on cells that are not unknown, and a trap or a way down newly drawn sits on
+        // a cell that was unknown before.
+        assertEquals(seenHeaps(seeing), seeing.map().heaps());
         assertTrue(seeing.map().heaps().containsAll(before.map().heaps()));
+        newlyKnown(before, seeing);
         assertEquals(List.of(hero.buff(MindVision.class).name()), added(before.hero().buffs(), seeing.hero().buffs()));
 
         // Taken off (MindVision.detach observes, MindVision.java:48-53): the view is what it was,
@@ -213,7 +256,10 @@ class VisionToggleTest {
         assertArrayEquals(level.heroFOV, fovBefore, "the field of view returns");
         Observation after = observe();
         Set<String> memory = ObservationDiff.of(before, after);
-        assertTrue(Set.of("map.fog", "map.tiles", "map.heaps").containsAll(memory), "only memory remains: " + memory);
+        assertTrue(Set.of("map.fog", "map.tiles", "map.heaps", "map.traps", "map.transitions").containsAll(memory),
+                "only memory remains: " + memory);
+        assertEquals(seenHeaps(after), after.map().heaps());
+        newlyKnown(before, after);
         assertEquals(ObservationDiff.cellsAt(before, Fog.VISIBLE), ObservationDiff.cellsAt(after, Fog.VISIBLE));
         for (int cell : ObservationDiff.fogCells(before, after)) {
             assertEquals(Fog.UNKNOWN, before.map().fog().get(cell), "cell " + cell);
@@ -241,16 +287,21 @@ class VisionToggleTest {
         Observation before = observe();
         assertEquals(Tile.WALL, before.map().tiles().get(door));
         assertTrue(trapAt(before, trapCell).isEmpty());
+        assertTrue(before.map().transitions().stream().noneMatch(t -> t.kind() == TransitionKind.REGULAR_EXIT),
+                "the way down is not in view at the first wait: " + before.map().transitions());
 
         // Reading takes a turn, so the world after is the next Input wait's: the effect is held
-        // exactly, and the actors, whose turn also passed, to the drawing rule.
+        // exactly, and the actors, whose turn also passed, to the drawing rule. The turn could move
+        // other parts too, the hero's numbers, a heap a mob eats, a gas; on this seed at this wait
+        // it moves none, which the set below pins, and a part that moves elsewhere names itself.
         scroll.execute(hero, Scroll.AC_READ);
         driver.stepToInputWait();
         Observation mapped = observe();
         Set<String> diff = ObservationDiff.of(before, mapped);
         assertTrue(Set.of("map.fog", "map.tiles", "map.traps", "map.transitions", "actors", "inventory", "journal.known", "log")
                 .containsAll(diff), "only what the screen changes: " + diff);
-        assertTrue(diff.containsAll(Set.of("map.fog", "map.tiles", "map.traps", "inventory", "journal.known", "log")), diff.toString());
+        assertTrue(diff.containsAll(Set.of("map.fog", "map.tiles", "map.traps", "map.transitions", "inventory", "journal.known", "log")),
+                diff.toString());
 
         // The fog: every discoverable cell is mapped; what changed was unknown and is now mapped.
         for (int cell = 0; cell < level.length(); cell++) {
@@ -300,6 +351,17 @@ class VisionToggleTest {
             onMappedCells += mapped.map().fog().get(mob.pos) == Fog.MAPPED ? 1 : 0;
         }
         assertTrue(onMappedCells > 0, "a mob stands on a mapped cell the screen does not show it on");
+        // Nor does mapping show a heap: a heap is seen only in view (Level.java:1521-1525), so one
+        // on a merely mapped cell exists and is not drawn.
+        int heapsOnMappedCells = 0;
+        for (Heap heap : level.heaps.valueList()) {
+            if (!heap.seen && mapped.map().fog().get(heap.pos) == Fog.MAPPED) {
+                heapsOnMappedCells++;
+                assertTrue(mapped.map().heaps().stream().noneMatch(h -> h.cell() == heap.pos), "an unseen heap is drawn at " + heap.pos);
+            }
+        }
+        assertTrue(heapsOnMappedCells > 0, "a heap lies on a mapped cell the screen does not show it on");
+        assertEquals(before.map().heaps(), mapped.map().heaps());
         // The scroll is gone from the bag and known in the journal; the log says the layout appeared.
         List<ItemView> left = new ArrayList<>(before.inventory().items());
         left.removeIf(item -> item.kind() == ItemKind.SCROLL && item.name().equals(rune));
@@ -330,7 +392,12 @@ class VisionToggleTest {
         return block;
     }
 
-    /** Within the rounded circle of radius 2: five by five without the corners (ShadowCaster.java:35-45). */
+    /**
+     * Within the rounded circle of radius 2, which is the shape the copy loop yields from
+     * {@code ShadowCaster.rounding[2]} — half-widths 2, 2 and 1 for rows 0, 1 and 2 away
+     * (ShadowCaster.java:35-45; Level.java:1386-1406): five by five without the corners. A shape
+     * the game's array is held to, as the blind block is, never the expectation itself.
+     */
     private boolean withinRoundedTwo(int from, int cell) {
         int width = level.width();
         int dx = Math.abs(cell % width - from % width);
@@ -338,9 +405,62 @@ class VisionToggleTest {
         return dx <= 2 && dy <= 2 && dx + dy <= 3;
     }
 
+    /** The mimic the mind-vision loop skips, in the game's own words (Level.java:1458). */
+    private static boolean stealthyNeutralMimic(Mob mob) {
+        return mob instanceof Mimic mimic && mimic.alignment == Char.Alignment.NEUTRAL && mimic.stealthy();
+    }
+
+    /** The heaps the map draws: seen, on a cell that is not unknown (Level.java:1521-1525; ItemSprite.java:323-326). */
+    private List<HeapView> seenHeaps(Observation observation) {
+        List<HeapView> heaps = new ArrayList<>();
+        for (HeapView heap : observation.map().heaps()) {
+            heaps.add(heap);
+        }
+        List<Integer> expected = new ArrayList<>();
+        for (Heap heap : level.heaps.valueList()) {
+            if (heap.seen && observation.map().fog().get(heap.pos) != Fog.UNKNOWN && heap.size() > 0) {
+                expected.add(heap.pos);
+            }
+        }
+        expected.sort(Integer::compare);
+        List<Integer> drawn = new ArrayList<>();
+        for (HeapView heap : heaps) {
+            if (Observer.hiddenMimic(mobAt(heap.cell()))) {
+                continue;
+            }
+            drawn.add(heap.cell());
+        }
+        drawn.sort(Integer::compare);
+        assertEquals(expected, drawn, "the heaps drawn are the seen ones on known cells");
+        return heaps;
+    }
+
+    private Mob mobAt(int cell) {
+        for (Mob mob : level.mobs) {
+            if (mob.pos == cell) {
+                return mob;
+            }
+        }
+        return null;
+    }
+
+    /** A trap or a way down drawn in {@code after} and not in {@code before} sits on a cell unknown before. */
+    private static void newlyKnown(Observation before, Observation after) {
+        for (TrapView trap : after.map().traps()) {
+            if (!before.map().traps().contains(trap)) {
+                assertEquals(Fog.UNKNOWN, before.map().fog().get(trap.cell()), "a trap appeared on a known cell: " + trap);
+            }
+        }
+        for (TransitionView transition : after.map().transitions()) {
+            if (!before.map().transitions().contains(transition)) {
+                assertEquals(Fog.UNKNOWN, before.map().fog().get(transition.cell()), "a way appeared on a known cell: " + transition);
+            }
+        }
+    }
+
     private boolean nextToAMob(int cell) {
         for (Mob mob : level.mobs) {
-            if (Observer.hiddenMimic(mob) || Char.hasProp(mob, Char.Property.OBJECT)) {
+            if (stealthyNeutralMimic(mob) || Char.hasProp(mob, Char.Property.OBJECT)) {
                 continue;
             }
             if (level.distance(mob.pos, cell) <= 1) {
@@ -391,6 +511,7 @@ class VisionToggleTest {
     }
 
     private static List<String> said(List<LogLine> before, List<LogLine> after) {
+        assertTrue(before.size() < LogSection.MAX_LINES, "the log has room for the announcement");
         assertEquals(before, after.subList(0, before.size()), "the log keeps its lines");
         List<String> texts = new ArrayList<>();
         for (LogLine line : after.subList(before.size(), after.size())) {
@@ -408,6 +529,38 @@ class VisionToggleTest {
 
     private static java.util.Optional<TrapView> trapAt(Observation observation, int cell) {
         return observation.map().traps().stream().filter(t -> t.cell() == cell).findFirst();
+    }
+
+    private Mob mobOutOfView() {
+        for (Mob mob : level.mobs) {
+            if (!level.heroFOV[mob.pos] && !Observer.hiddenMimic(mob) && mob.sprite != null) {
+                return mob;
+            }
+        }
+        throw new AssertionError("no mob out of view");
+    }
+
+    /** Free floor in view and outside {@code block}, {@code count} cells, not adjacent to each other. */
+    private List<Integer> floorsInViewOutside(Set<Integer> block, int count) {
+        List<Integer> cells = new ArrayList<>();
+        for (int cell = 0; cell < level.length() && cells.size() < count; cell++) {
+            if (level.heroFOV[cell] && !block.contains(cell) && level.map[cell] == Terrain.EMPTY
+                    && level.traps.get(cell, null) == null && level.heaps.get(cell, null) == null
+                    && Actor.findChar(cell) == null && apart(cells, cell)) {
+                cells.add(cell);
+            }
+        }
+        assertEquals(count, cells.size(), "enough free floor in view outside the block");
+        return cells;
+    }
+
+    private boolean apart(List<Integer> cells, int cell) {
+        for (int other : cells) {
+            if (level.distance(other, cell) <= 1) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private int wallInView() {
