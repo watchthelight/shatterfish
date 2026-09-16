@@ -108,6 +108,19 @@ as `…/`.
 
 ## Spec Change Log
 
+- **Review, 2026-09-16 (patches, no loopback).** The frozen matrix names `HeadlessDriver.main`
+  as the launcher; the launcher is `org.shatterfish.harness.Launcher`, since the driver package
+  must not depend on the observer package, which depends on it, and `HeadlessDriver.main` is
+  removed rather than kept as a second command line. The matrix's meaning, one flag on the
+  harness command line and one exempted class, is unchanged. The reviews' other findings were
+  patches: the launcher's branch made testable (`Launcher.read`) and tested; the sidecar's
+  identities, a mob's fields and a hidden mimic asserted; class names beside the localised
+  strings; a hidden trap's armed flag; the sort's tie-break; seed range and duplicate-seed
+  refusals; the exit in a finally; the reflective walk through sealed, wildcard and array types,
+  failing on an open interface; a by-name rule and fixtures the rules bite on; the oracle read
+  shown to leave the game and the generator untouched; citations at the tag for every read.
+  KEEP: the wrapper beside a final Observer; the sidecar as a harness type; the three-way gate.
+
 ## Design Notes
 
 **Why a wrapper, not a switch.** A flag inside `Observer` is a door in the door; a global any code
@@ -193,17 +206,52 @@ tree restored and clean
   M4's first form added a record component, which broke every constructor call and so tested
   nothing; the battery scored it "did not compile" and the break was rewritten as a static field.
 
+## The fairness review
+
+The `fairness-reviewer` subagent read `git diff main...HEAD` and returned **CHANGES**: no path by
+which the sidecar or the marked Observation reaches a Brain, a run log or the measured loop, the
+fair Observer and `api` untouched, and six should-fixes, every one taken. The citations the
+sidecar's reads lacked are now on `OracleObserver`, `OracleView` and the ADR amendment, at the
+tag; the claim that `hiddenTraps` were "the traps the feature layer does not draw" was wrong,
+since the layer also does not draw a visible trap under opaque fog, and now reads "the traps
+hidden by `Trap.hide()`"; "no reflection into upstream" became "no reflection into a private
+upstream member", since the item instances are made through the game's own factory; the
+construction gate gained a by-name rule against `forName` and fixtures each rule is shown to bite
+on; the two seed-brittle assertions, a hidden mimic in view and the trap's name, are held by the
+fair read's rule and by cell; and the frozen matrix's naming of `HeadlessDriver` is logged.
+
+Three more reviews ran under the build workflow. The verification-gap reviewer found the
+launcher's branch parsed but never exercised, and the sidecar's identities, mob fields and hidden
+mimics never asserted: `Launcher.read` now takes a launch and a stream and the test holds the
+branch to the flag and the sidecar's every field to the game. The blind reviewer's patches taken:
+the reflective walk through sealed types, class names beside localised strings, a failure rather
+than an omission when the factory cannot make an item, the oracle read shown to leave the game
+and the generator untouched, the duplicate `HeadlessDriver.main` removed, the architecture
+inventory, the gap the hero's unidentified gear leaves, and the scope of the gate across modules
+written down. The edge-case reviewer's taken: seed overflow, range and duplicates refused by
+name, `Gdx.app.exit()` in a finally, the mob sort's tie-break, the hidden trap's armed flag, and
+wildcard, array and type-variable handling in the walk. Rejected: widening the ArchUnit import
+to every module, which the harness's test classpath cannot see; handled instead by scoping the
+claim and naming the rule each later module carries.
+
 ## Deviations
 
 - The spec's launcher task named `HeadlessDriver.main`; the launcher is `org.shatterfish.harness.Launcher`
-  instead, for the package reason above. `HeadlessDriver.main` is unchanged.
+  instead, for the package reason above, and `HeadlessDriver.main`, which duplicated it line for
+  line, is removed. Logged in the Spec Change Log.
 
 ## Known limitations, handed forward
 
 - **The sidecar is not exhaustive.** It carries what FR-11 names, identities and unseen positions,
-  and the secrets the map hides; a heap's contents out of view, a mob's buffs and the RNG state
-  are not in it. A later consumer (E5's overlay, E9's labels) widens it under the same gate.
+  and the secrets the map hides; the hero's own unidentified gear (a weapon's, armour's, wand's
+  or artifact's level, enchantment and curse while unknown), a heap's contents out of view, a
+  mob's buffs and the RNG state are not in it. A later consumer (E5's overlay, E9's labels)
+  widens it under the same gate.
+- **The gate sees the harness module.** The rig and the overlay compile against the harness and
+  are empty today; each carries its own construction rule when it arrives (story 3.3, E5).
 - **The Run log's `oracle` field** (ADR-0011) and the Rig's refusal (story 3.3) are E3's.
+- **The battery script** lives in the session scratchpad, as every story's has; the story
+  carries its output, and committing the batteries is `deferred-work.md`'s entry.
 
 ## Follow-ups for later stories
 

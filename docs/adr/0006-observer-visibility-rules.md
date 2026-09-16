@@ -718,24 +718,43 @@ abbreviate `core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/` as `�
 **The oracle is a wrapper beside the door, never a switch inside it.** `Observer` is final and
 unchanged. `OracleObserver` reads through it and returns the ordinary Observation with the
 header's oracle bit set, so an oracle Run's hashes differ from a fair Run's in the header's hash
-and in no other section's, and beside it an `OracleView`: the seed, every unknown potion, scroll
-and ring class of the Run under the appearance it draws (`Potion.getUnknown()` and its kin, a
-fresh instance's `name()` and `trueName()`), every mob with its cell, health and AI state whether
-the hero sees it or not, the hidden mimics, the secret doors and the hidden traps. Everything the
-view reads is a public field or method of the game, so it needs no reflection into upstream and no
-hook row. The view is a `harness` type and must never become an `api` one: a Brain reaches `api`
-only (`BrainBoundaryTest`), and the `Decider` takes an Observation alone.
+and in no other section's, and beside it an `OracleView`: the seed (`…/Dungeon.java:213`); every
+unknown potion, scroll and ring class of the Run (`…/items/potions/Potion.java:407-409`;
+`…/items/scrolls/Scroll.java:269-271`; `…/items/rings/Ring.java:284-286`) under the appearance a
+fresh instance draws (`Potion.java:184-187`, `:199-208`, `:378-380`) with the name behind it
+(`…/items/Item.java:499-505`) and its class; every mob of the floor (`…/levels/Level.java:183`)
+with its cell and health (`…/actors/Char.java:168-173`), its AI state by the name of the field it
+equals (`…/actors/mobs/Mob.java:118-124`), and whether the fair read draws it as an actor, which
+is in view and not a hidden mimic; the hidden mimics (`…/actors/mobs/Mimic.java:62-64`,
+`:112-118`); the secret doors (`Level.java:153`; `…/levels/Terrain.java:47`, `:106`); and the
+traps hidden by `Trap.hide()` (`Level.java:187`; `…/levels/traps/Trap.java:63-64`, `:83-91`),
+which the map draws as floor, each with whether it is still armed. The display strings are the
+game's and localised, so the class names ride beside them for any label written from the view.
+Everything the view reads is a public field or method of the game, and the item instances are
+made through the game's own factory as the generator makes them (`…/items/Generator.java:740`;
+`SPD-classes/…/utils/Reflection.java:38-45`), so there is no reflection into a private upstream
+member and no hook row; building the view writes nothing and draws nothing, which the gate test
+holds, so a Run observed by the oracle is the Run observed fairly. The view is a `harness` type and
+must never become an `api` one: a Brain reaches `api` only (`BrainBoundaryTest`), and the
+`Decider` takes an Observation alone.
 
 **The gate is who may construct one.** The harness's command line, `Launcher`, parses a seed and
 `--oracle`, the one flag that exists only there; its oracle branch is the only constructor of an
-`OracleObserver`, and the measured loop (`RunLoop`), the random agent and the executor have no path
-to the class at all. `OracleGateTest` holds it three ways: by ArchUnit over the harness's main
-classes, that no class but the oracle and the launcher depends on the sidecar or the observer and
-none but the launcher constructs the observer; by reflection over every type an Observation is
-made of, through its records and lists, that each lives in `api`, `java.lang` or `java.util`; and
-by the fair read's bytes and JSON carrying none of the sidecar's true names, the trap's name or
-the seed. It also holds the oracle read equal to the fair one but for the header, with the same
-Actions and the ones the marked read implies itself, and the flag parsed as the launcher's alone.
+`OracleObserver` in the harness, and the measured loop (`RunLoop`), the random agent and the
+executor have no path to the class at all. `OracleGateTest` holds it three ways: by ArchUnit over
+the harness's main classes, that no class but the oracle and the launcher depends on the sidecar
+or the observer, none but the launcher constructs the observer, and none reaches a class by its
+name, the one way to construct it the first two rules cannot see; by reflection over every type
+an Observation is made of, through its records, lists and sealed interfaces, that each lives in
+`api`, `java.lang` or `java.util`; and by the fair read's bytes and JSON carrying none of the
+sidecar's true names, class names, the trap's name or the seed. Each rule is shown to bite on a
+fixture that breaks it. It also holds the oracle read equal to the fair one but for the header,
+with the same Actions and the ones the marked read implies itself, the JSON's `oracle` field
+true, the game untouched by the read, and the launcher's branch following its flag, with the
+sidecar printed only under it. The rules see the harness module: a module built on the harness,
+the rig (E3) and the overlay (E5), carries its own rule when it arrives, and the decision text
+above that names the Overlay and the labelling tool as the sidecar's consumers is how that rule
+will read there.
 
 **What is named and not built.** The Rig's refusal of any Run whose `oracle` is true (ADR-0012)
 is story 3.3's, and the Overlay's red border and "ORACLE" label are E5's; both are driven by the

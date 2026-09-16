@@ -25,11 +25,25 @@ import java.util.Set;
  * separate value that carries what the screen hides. The fair {@link Observer} is final and
  * unchanged: this class wraps it and never widens it.
  *
- * <p>The gate is who may construct one. The launcher's {@code --oracle} branch is the only caller,
- * which {@code OracleGateTest} holds by ArchUnit over the harness, so a measured Run
- * ({@code RunLoop}) has no path to this class at all; the Rig's refusal of an oracle Run, on top
- * of that, is story 3.3's (ADR-0012). Everything read here is a public field or method of the
- * game, so the view needs no reflection into upstream and no hook.
+ * <p>The gate is who may construct one. The launcher's {@code --oracle} branch is the only caller
+ * inside the harness, which {@code OracleGateTest} holds by ArchUnit over the harness's main
+ * classes, so a measured Run ({@code RunLoop}) has no path to this class at all; a module built on
+ * the harness carries its own rule when it arrives, and the Rig's refusal of an oracle Run, on top
+ * of that, is story 3.3's (ADR-0012).
+ *
+ * <p>Everything read here is a public field or method of the game, at {@code v4.0.0} with
+ * {@code …/} for {@code core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/}: the unknown
+ * classes of each family ({@code …/items/potions/Potion.java:407-409};
+ * {@code …/items/scrolls/Scroll.java:269-271}; {@code …/items/rings/Ring.java:284-286}), a fresh
+ * instance's appearance and true name ({@code Potion.java:184-187}, {@code :199-208}, {@code :378-380};
+ * {@code …/items/Item.java:499-505}), the floor's mobs ({@code …/levels/Level.java:183}) with their
+ * cell and health ({@code …/actors/Char.java:168-173}) and state ({@code …/actors/mobs/Mob.java:118-124}),
+ * the terrain ({@code Level.java:153}; {@code …/levels/Terrain.java:47}), the traps
+ * ({@code Level.java:187}; {@code …/levels/traps/Trap.java:63-64}) and the seed
+ * ({@code …/Dungeon.java:213}). The instances are made through the game's own factory, as the
+ * generator makes them ({@code …/items/Generator.java:740}; {@code SPD-classes/…/utils/Reflection.java:38-45}),
+ * so there is no reflection into a private upstream member and no hook row. Building the view
+ * writes nothing and draws nothing: a Run observed by the oracle is the Run observed fairly.
  */
 public final class OracleObserver {
 
@@ -54,22 +68,29 @@ public final class OracleObserver {
     }
 
     /** What the screen hides on {@code level}, from public game state only. */
-    static OracleView view(Level level) {
+    private static OracleView view(Level level) {
         List<OracleView.Identity> identities = new ArrayList<>();
         identities(identities, "potion", Potion.getUnknown());
         identities(identities, "scroll", Scroll.getUnknown());
         identities(identities, "ring", Ring.getUnknown());
-        identities.sort(Comparator.comparing(OracleView.Identity::family).thenComparing(OracleView.Identity::appearance));
+        identities.sort(Comparator.comparing(OracleView.Identity::family).thenComparing(OracleView.Identity::appearance)
+                .thenComparing(OracleView.Identity::type));
 
         List<OracleView.Presence> mobs = new ArrayList<>();
         List<Integer> hiddenMimics = new ArrayList<>();
         for (Mob mob : level.mobs) {
-            mobs.add(new OracleView.Presence(mob.pos, mob.name(), mob.HP, mob.HT, state(mob), level.heroFOV[mob.pos]));
-            if (Observer.hiddenMimic(mob)) {
+            boolean hidden = Observer.hiddenMimic(mob);
+            // Drawn as an actor exactly when in view and not a hidden mimic (Observer.actors()).
+            boolean seen = level.heroFOV[mob.pos] && !hidden;
+            mobs.add(new OracleView.Presence(mob.pos, mob.getClass().getSimpleName(), mob.name(), mob.HP, mob.HT,
+                    state(mob), seen));
+            if (hidden) {
                 hiddenMimics.add(mob.pos);
             }
         }
-        mobs.sort(Comparator.comparingInt(OracleView.Presence::cell).thenComparing(OracleView.Presence::name));
+        mobs.sort(Comparator.comparingInt(OracleView.Presence::cell).thenComparing(OracleView.Presence::type)
+                .thenComparing(OracleView.Presence::name).thenComparingInt(OracleView.Presence::hp)
+                .thenComparing(OracleView.Presence::state));
         hiddenMimics.sort(Integer::compare);
 
         List<Integer> secretDoors = new ArrayList<>();
@@ -81,24 +102,29 @@ public final class OracleObserver {
         List<OracleView.Secret> hiddenTraps = new ArrayList<>();
         for (Trap trap : level.traps.valueList()) {
             if (!trap.visible) {
-                hiddenTraps.add(new OracleView.Secret(trap.pos, trap.name()));
+                hiddenTraps.add(new OracleView.Secret(trap.pos, trap.getClass().getSimpleName(), trap.name(), trap.active));
             }
         }
-        hiddenTraps.sort(Comparator.comparingInt(OracleView.Secret::cell));
+        hiddenTraps.sort(Comparator.comparingInt(OracleView.Secret::cell).thenComparing(OracleView.Secret::type));
         return new OracleView(Dungeon.seed, identities, mobs, hiddenMimics, secretDoors, hiddenTraps);
     }
 
-    /** Every unknown class of a family, by the appearance a fresh instance draws under. */
+    /**
+     * Every unknown class of a family, by the appearance a fresh instance draws under. A class the
+     * factory cannot make is an error, never a silent omission: a view that under-reports is worse
+     * than none.
+     */
     private static void identities(List<OracleView.Identity> into, String family, Set<? extends Class<? extends Item>> unknown) {
         for (Class<? extends Item> type : unknown) {
             Item item = Reflection.newInstance(type);
-            if (item != null) {
-                into.add(new OracleView.Identity(family, item.name(), item.trueName()));
+            if (item == null) {
+                throw new IllegalStateException("the oracle could not make a " + type.getName() + " to read its appearance");
             }
+            into.add(new OracleView.Identity(family, item.name(), item.trueName(), type.getSimpleName()));
         }
     }
 
-    /** The mob's AI state by the name the game gives its field, or the state's own class. */
+    /** The mob's AI state by the name the game gives its field (Mob.java:118-124), or the state's own class. */
     private static String state(Mob mob) {
         if (mob.state == mob.SLEEPING) {
             return "SLEEPING";

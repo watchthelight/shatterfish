@@ -55,6 +55,7 @@ enabled only by an explicit `--oracle` flag, draws a red border and an "ORACLE" 
 overlay, and cannot be enabled in ranked rig runs. Since E1 story 1.18 it exists in the harness:
 `OracleObserver` returns the ordinary Observation with the header's oracle bit set, so its hashes
 differ from a fair Run's, and an `OracleView` sidecar beside it that no `api` type can hold; the
-harness `Launcher`'s `--oracle` is the only place one is constructed, and `OracleGateTest` holds
-that by ArchUnit and by reflection over everything an Observation can reach. The overlay's marking
-is E5's and the rig's refusal is E3's (story 3.3), both driven by the same header bit.
+harness `Launcher`'s `--oracle` is the only place one is constructed inside the harness, and
+`OracleGateTest` holds that by ArchUnit and by reflection over everything an Observation can
+reach. The overlay's marking is E5's and the rig's refusal is E3's (story 3.3), both driven by the
+same header bit; each of those modules carries its own construction rule when it arrives.
