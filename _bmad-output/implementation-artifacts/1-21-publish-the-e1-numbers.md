@@ -134,7 +134,7 @@ Implemented on `story/1-21-publish-the-e1-numbers` from `1682a62cf`. The benchma
 the launcher, nested there because the tactics half reads the oracle sidecar and only the
 launcher may construct the oracle (`OracleGateTest`, story 1.18); a `benchmark` Gradle task on the
 harness's main runtime classpath is the reproducing command. The recorded invocation ran at
-`8d28fab5b`, after the font fix below. No hook, no upstream file, no change to the fair path.
+`c976188c6`, after the font fix below. No hook, no upstream file, no change to the fair path.
 
 ## Acceptance criteria and how each was met
 
@@ -172,8 +172,17 @@ harness's main runtime classpath is the reproducing command. The recorded invoca
 - **Mobs cannot be hidden facts of a disambiguation factor.** A mob's position is hidden and shown
   again as it moves, so its "revelation" would never settle; the factor counts the static facts
   and the page reports mobs first drawn per wait beside it.
-- **The random agent reveals nothing in twenty waits.** The factor read 0.000; the page says
-  why that is the agent's floor and not the game's rate, and ADR-0010's amendment carries it.
+- **The random agent reveals nothing in twenty waits, and its siblings agree by chance.** The
+  factor read 0.000 and the leaf correlation 0.877 against a chance agreement of 0.876
+  (kappa 0.010.); the page says why neither is on Long et al.'s scale, and ADR-0010's amendment
+  records the two definitional changes E6 makes before its readings are compared.
+- **The oracle had a second switch.** The tactics half read the sidecar without `--oracle` and
+  printed no mark; the review made it the same switch, marked every line, and named the two
+  classes in the gate (ADR-0006's amendment).
+- **Four reviews, forty findings.** The fairness reviewer (six), the adversarial lens (twenty-six),
+  the edge-case hunter (twenty-one) and the verification-gap lens (ten) overlapped on the median,
+  the early-ended playouts, the chance agreement, the unmarked oracle and the uncaught stall; the
+  patch is one commit and the Review section lists what was and was not taken.
 
 ## Decisions taken inside the story
 
@@ -186,23 +195,31 @@ harness's main runtime classpath is the reproducing command. The recorded invoca
 - **The font fix is this story's.** The alternative was publishing a rate with thirty thousand
   stack traces in it and an issue; the fix is one harness class, no hook, and the page is the
   deliverable.
+- **A refusal re-serves the wait, as in the Run loop.** On the approach to a sample and inside a
+  playout, a refused Action is retried at the same wait up to twenty times; twenty refusals cut
+  the playout, which is dropped rather than scored.
+- **Three invocations, the first published.** The report on the page is the first run's; the
+  three wait rates are given beside it as the spread, since one number of unknown variance is a
+  poor foundation for E3's sizes.
 
 ## Evidence
 
-- `BenchmarkSmokeTest` green, 2 tests; `HeadlessTextTest` green, 2 tests; `OracleGateTest` and
-  `ThreadConfinementTest` green with the nested benchmark in the launcher; `HeadlessBootTest`,
+- `BenchmarkSmokeTest` green, 4 tests, with the tiny configuration's outcomes pinned and played
+  twice; `HeadlessTextTest` green, 2 tests, the application logger captured through a Run's first
+  waits; `OracleGateTest` green, 6 tests, naming the two classes; `ThreadConfinementTest` and
+  `MonitorConfinementTest` green with the nested benchmark in the launcher; `HeadlessBootTest`,
   `SceneDrawParityTest`, `HeadlessSceneTest`, `FenceInvariantTest`, `ProfileTest` green with the
   display reported, and no `[GAME]` error in any of their outputs.
 - The recorded invocation: `./gradlew :harness:benchmark -Pshatterfish.mobile=off` at
-  `8d28fab5b`, whose report is the page. The same command before the font fix, at `20ee7cc30`,
+  `c976188c6`, three times; the first report is the page, the three rates are on it. The same command before the font fix, at `20ee7cc30`,
   played the same 13337 waits and the same 23 samples with the same payoffs, at 371.2 waits per
   second: text rendering is not in the game, and the traces cost an eighth of every wait.
 - Mutation battery, five mutations of the launcher and the graphics, each run against
   `BenchmarkSmokeTest` and `HeadlessTextTest`:
     - M1 the report drops its tactics section: caught by `BenchmarkSmokeTest`.
-    - M2 a skipped sample is not counted: **survived**. The tiny configuration's two samples land
-      on windowless waits, so nothing is skipped and the accounting is not exercised; the
-      recorded run is where it shows, 24 asked, 23 taken, 1 skipped under a window.
+    - M2 a skipped sample is not counted: **survived** before the review. The tiny configuration's
+      two samples land on windowless waits, so nothing is skipped; the review's smoke test pins the
+      sample lines and the skip counts by reason, and the battery was rerun after the patch (below).
     - M3 a count of zero is accepted: caught by `BenchmarkSmokeTest`.
     - M4 the cost Run never steps: caught by `BenchmarkSmokeTest`.
     - M5 the back buffer is zero wide again: caught by `HeadlessTextTest`, both tests.
@@ -219,7 +236,11 @@ harness's main runtime classpath is the reproducing command. The recorded invoca
   reruns the method from mid-fight snapshots with the simulator it builds.
 - **A sample under a window is skipped**; the page counts them.
 - **Both properties are the random agent's.** A Brain moves the disambiguation factor off its
-  floor; E6 reads it again.
+  floor; E6 reads it again, with the denominator and the death count changed as ADR-0010's
+  amendment says.
+- **The journal is a process's.** The 225 Runs of one invocation share the journal the process
+  loaded first (story 1.20's limit); the pins and the determinism test hold the outcomes within
+  a process, and the per-process reading is story 3.4's.
 
 ## Follow-ups for later stories
 

@@ -107,13 +107,27 @@ or anything it could inflate into one (AD-7, AD-9).
 ## Amendment: story 1.21 (2026-09-16)
 
 Two of the three measurements above have a first reading before E6, on the E1 harness with the
-random agent, published at `docs/results/e1-throughput.md`: leaf correlation 0.884 and a
-disambiguation factor of 0.000, both defined on that page and measured with random playouts
-from snapshots (story 1.20) to a horizon of twenty waits, with the hidden facts counted through
-the oracle sidecar (story 1.18) from the launcher, the one place that may construct it. Bias is
-not measured, as decided. Both readings are the random agent's on floor one, a floor for the
-disambiguation factor rather than the game's rate; the simulator speed and the search leak test
-stay E6's, since no rollout host and no Search exist, and when they do the same page's method is
-rerun from the `smoke` set's mid-fight snapshots with a Brain, as the table above says, and the
-two readings are compared. The harness's own rate, about 417.9 Input waits per second per
-process on the described machine, is the number the Rig's seed-set sizes (E3) rest on.
+random agent, published at `docs/results/e1-throughput.md`: leaf correlation 0.877 against a
+chance agreement of 0.876 at the observed survival (kappa 0.010.), and a disambiguation
+factor of 0.000 with the hidden facts and the revealed share given by kind. Both are defined
+on that page and measured with random playouts from snapshots (story 1.20) to a horizon of twenty
+waits, with the hidden facts counted through the oracle sidecar (story 1.18) from the launcher
+under `--oracle`, the one place that may construct it and the one switch that marks it. The
+playouts are perfect-information rollouts on live snapshots by design and not a Simulator; they
+are the method, not the search. Bias is not measured, as decided.
+
+Neither reading is on the scale the table above compares to, and neither is placed on it. The
+leaf correlation is the survival rate's: at a random floor-one wait the hero is nearly always
+alive twenty waits on whichever sibling was chosen, so siblings agree by chance and the kappa is
+about nothing. The disambiguation factor is the random agent's floor: nothing revealed in twenty
+random waits, over surviving playouts, with a denominator the Run-wide unknown appearances
+dominate. The readings validate the method and its definitions, and the definitions are what E6
+inherits, with two changes it must make before its numbers are compared with these: the
+denominator is the facts reachable on the floor of the sample rather than the Run's whole set
+of unknown appearances, and the count is taken at a death as well as at the horizon, since on a
+floor the events that reveal a fact are the ones that kill. The simulator speed and the search
+leak test stay E6's, since no rollout host and no Search exist; when they do, the same page's
+method is rerun from the `smoke` set's mid-fight snapshots with a Brain, where survival is
+uncertain and the agreement of siblings means something. The harness's own rate, about 399.5
+Input waits per second per process on the described machine over three invocations, is the
+number the Rig's seed-set sizes (E3) rest on.

@@ -369,4 +369,7 @@ renders as this ADR says; the frame id stays at minus one and the backend still 
 `HeadlessTextTest` holds the scale and a measured text block inside a Run. Three alternatives were
 weighed: a hook on `DeviceCompat` (an upstream edit and a ledger row for a harness concern),
 leaving it and publishing the rate with the traces in it (a measurement of a bug), and this,
-which is the harness telling the game the truth about the display it declared.
+which is the harness telling the game the truth about the display it declared. `Gdx.graphics` is
+the static the game reads; the backend's own `getGraphics()` still returns libGDX's mock, which
+nothing in the game calls. The scissor in `NoosaScript` (`SPD-classes/…/noosa/NoosaScript.java:170-176`)
+reads the same scale on the draw path, which a headless Run never takes.
