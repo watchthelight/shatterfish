@@ -1,8 +1,45 @@
-// codex: reflection dump of upstream tables into codex/<tag>/*.json and generated docs.
+// codex: the generator that writes codex/<tag>/*.json from the pinned upstream classes (E2), and
+// later the generated docs, the completeness check, the vocabulary diff and the citation checker.
 apply from: "$rootDir/shatterfish/java-module.gradle"
 
 dependencies {
     implementation project(':core')
     // The Codex writes api-typed JSON (AD-13); it never hands a game class to the Brain.
     api project(':api')
+    // The leak test plays a live Run while it generates, and the seed-free test prepares two
+    // Profiles: both come from the harness, on the test classpath only. The generator itself
+    // reaches neither the harness nor a Run (CodexLeakTest's gate).
+    testImplementation project(':harness')
+}
+
+// The Codex folder is named by the upstream tag, v plus the version the root build script
+// declares; stamped into a resource as the harness does for its boot.
+processResources {
+    def versionName = rootProject.ext.appVersionName
+    inputs.property('upstreamVersionName', versionName)
+    filesMatching('org/shatterfish/codex/upstream.properties') {
+        expand(versionName: versionName)
+    }
+}
+
+// The tests that boot the game need its assets on the classpath, as the harness's do.
+def gameAssets = files(
+        new File(project(':core').projectDir, 'src/main/assets'),
+        new File(project(':desktop').projectDir, 'src/main/assets'))
+sourceSets {
+    test {
+        runtimeClasspath += gameAssets
+    }
+}
+
+// `./gradlew :codex:generate` writes codex/<tag>/ at the repository root: one task, no Run, no
+// seed. CI's drift check (story 2.9) reruns it and fails on a difference.
+tasks.register('generate', JavaExec) {
+    group = 'shatterfish'
+    description = 'Writes codex/<tag>/ from the pinned upstream classes.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.codex.Generate'
+    workingDir = rootDir
+    args = [rootDir.absolutePath]
+    outputs.upToDateWhen { false }
 }

@@ -148,7 +148,11 @@ class JsonRenderingTest {
             // final simulate refuses an unscrubbed handle, a result of Observations only, an opaque
             // sample, and two interfaces with no implementation. None reads text or bytes into the
             // schema; RolloutResult's constructor takes Observations already made.
-            "SnapshotHandle", "Simulator", "RolloutResult", "RolloutEnd", "BeliefSample", "BeliefSampler", "Redeterminer");
+            "SnapshotHandle", "Simulator", "RolloutResult", "RolloutEnd", "BeliefSample", "BeliefSampler", "Redeterminer",
+            // The Codex's shape (story 2.1): records of types and tables with citations, and the
+            // canonical text they are written as. None reads a Run; the generator that fills them
+            // lives in codex, and a Brain's caller hands them in as data (E4).
+            "Codex", "Codex$Citation", "Codex$Manifest", "Codex$HeroClassEntry", "Codex$ChallengeEntry", "CodexJson");
 
     @Test
     @DisplayName("api is the schema, Action and the named helpers, and nothing in it reads text or bytes into a record")
