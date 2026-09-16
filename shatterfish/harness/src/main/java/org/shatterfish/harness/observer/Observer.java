@@ -78,6 +78,7 @@ import org.shatterfish.api.TransitionView;
 import org.shatterfish.api.TrapView;
 import org.shatterfish.api.ValidActions;
 import org.shatterfish.harness.driver.HeadlessDriver;
+import org.shatterfish.harness.driver.UiRole;
 import org.shatterfish.harness.driver.Prompts;
 import org.shatterfish.harness.driver.Windows;
 
@@ -928,6 +929,8 @@ public final class Observer {
      * front is a failure (ADR-0006, Prompt). The message says which part failed.
      */
     private static void atInputWait() {
+        // The thread first, before a single game field is read (ADR-0013; story 1.19).
+        UiRole.require("Observer.observe()");
         Level level = Dungeon.level;
         Hero hero = Dungeon.hero;
         require(level != null && hero != null, "no Run is in progress");

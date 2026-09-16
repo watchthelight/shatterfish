@@ -157,3 +157,50 @@ worker, and a future polled without blocking.
   Mitigation: it is tagged with its `k` like any Decision and greyed as advisory.
 - `Fast as it can` starves the render loop. Mitigation: at most one Action per frame; the Rig is
   the place for speed.
+
+## Amendment: story 1.19 (2026-09-16)
+
+The roles above are asserted, and the deadlock rule is a test. Paths abbreviate
+`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/` as `…/`, at `v4.0.0`.
+
+**The UI-role thread is a claimed identity.** `UiRole`, in the driver package, holds the thread
+that owns the role: `HeadlessDriver` claims it for the thread that starts a Run, in its
+constructor, and releases it in `close()`; the Overlay's driver will claim the render thread the
+same way (E5). A second claim while a Run holds the role is refused by name. The identity is the
+thread object, never its name, so a foreign call cannot pass by being called the same thing.
+
+**The ports ask on entry, before they read a game field.** `Observer`'s every read begins with
+`UiRole.require("Observer.observe()")` and `ActionExecutor.execute` with its own; on any thread but
+the owner they throw an `IllegalStateException` naming the port, the role, the owning thread and
+the calling thread. The executor throws rather than refuses: a refusal is for a Brain's choice, a
+wrong thread is a programming error. `ThreadConfinementTest` calls each port from a foreign thread
+at a wait and holds the failure and its names, holds that the foreign calls changed nothing, that
+the driver thread is the role from start to close, and that the role is released and not claimable
+twice.
+
+**No Shatterfish code takes a monitor on a game type, as an ArchUnit rule.** `MonitorConfinementTest`
+reads each Shatterfish class's bytecode through ASM and holds that no `monitorenter` has an operand
+whose static type is a game type, a class under `com.shatteredpixel` or `com.watabou` or a subclass
+of one, and that no synchronized method sits on a class that is a game type. The operand's type is
+what produced it, a field's declared type, a parameter's, a local's from the debug table, a call's
+return type or the class of a `new`, followed back through javac's `dup; astore; monitorenter`; a
+producer the analysis cannot type is a violation, never a pass. A Shatterfish object that
+implements a game interface, the log listener on the game's signal, is Shatterfish's own object
+and may be locked; a game object behind a variable declared `Object` passes by static type, which
+is the rule's limit and is written beside it. The rule is shown to bite on fixtures that lock a
+game field, a game parameter, a game local, a call's result and a game subclass's own method, and
+to pass an own field, `this` and the listener.
+
+**Two exemptions, each load-bearing.** `SceneStepper` holds the actor thread's monitor and every
+moving sprite's across a frame: the fence of story 1.3, on purpose, so the frame and the actor
+thread cannot interleave, and `FenceInvariantTest` holds that design; this record's deadlock rule
+was written before that fence and this amendment reconciles them. `HeadlessScene` is the scene,
+and the game locks its scene on the render thread, `GameScene.update` being synchronized
+(`…/scenes/GameScene.java:867`) as are `erase` (`:967`) and `addMobSprite` (`:1087`), with the
+actor thread taking `synchronized (scene)` (`:1098`); the override of `update()` keeps the game's
+lock and `openWindow()` reads the member list under the lock `erase` writes it under. That is the
+game's rule for its scene, not a monitor Shatterfish invented. The test holds that each exemption
+would violate the bare rule, so neither can go stale unnoticed.
+
+**The Brain holds no game object** by `BrainBoundaryTest`'s allowlist and its denial of
+`org.shatterfish.harness..`, which this story names and does not repeat.

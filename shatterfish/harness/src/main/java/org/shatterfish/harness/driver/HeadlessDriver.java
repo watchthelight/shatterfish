@@ -165,6 +165,9 @@ public final class HeadlessDriver implements AutoCloseable {
         this.scene = scene;
         this.rng = rng;
         Hooks.inputWait = this::noticed;
+        // The thread that starts the Run is the UI-role thread (ADR-0013): the one thread that
+        // observes and executes, which the ports assert on entry.
+        UiRole.claim(Thread.currentThread());
         live = this;
     }
 
@@ -604,6 +607,7 @@ public final class HeadlessDriver implements AutoCloseable {
             } finally {
                 Hooks.clear();
                 GameLogListener.uninstall();
+                UiRole.release();
             }
         }
     }
