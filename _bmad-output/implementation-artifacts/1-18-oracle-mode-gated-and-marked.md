@@ -5,7 +5,7 @@ title: "Oracle mode, gated and marked"
 epic: 1
 issue: 31
 type: 'feature'
-status: 'in-review'
+status: 'done'
 created: '2026-09-16'
 updated: '2026-09-16'
 review_loop_iteration: 0
@@ -185,8 +185,11 @@ the observer package. The fairness review follows below.
 
 ## Evidence
 
-- `:harness:test` for `OracleGateTest`, `HarnessReflectionTest` and `HarnessPackageAnchorTest`:
-  green, 4, 5 and 1 tests.
+- `build -Pshatterfish.mobile=off` at `bbcbac5d5` (after the review's patches, the build run
+  before the story file's last edits): green, 538 tests in 55 suites, 0 failures; `mkdocs build
+  --strict` green.
+- `:harness:test` for `OracleGateTest`, `HarnessReflectionTest`, `HarnessPackageAnchorTest` and
+  `HeadlessBootTest`: green, 5, 5, 1 and 12 tests.
 - The battery, `mutations118.py`, on the committed tree, restored clean after each break:
 
 ```
@@ -258,3 +261,53 @@ claim and naming the rule each later module carries.
 - Story 1.19 (#32): thread confinement.
 - Story 3.3: the Rig refuses any Run whose header says oracle.
 - E5: the overlay's red border and label, driven by the header bit.
+
+## Suggested Review Order
+
+**The gate: who may construct the oracle, and what a Brain can reach**
+
+- The entry point: three ArchUnit rules, dependency, constructor and by-name, each shown to bite
+  [`OracleGateTest.java:86`](https://github.com/watchthelight/shatterfish/blob/bbcbac5d5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/OracleGateTest.java#L86)
+
+- The rules checked over the harness, and the reflective walk of every type an Observation is made of
+  [`OracleGateTest.java:246`](https://github.com/watchthelight/shatterfish/blob/bbcbac5d5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/OracleGateTest.java#L246)
+
+- The walk: records, lists, sealed interfaces, wildcards, arrays; an open interface fails
+  [`OracleGateTest.java:344`](https://github.com/watchthelight/shatterfish/blob/bbcbac5d5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/OracleGateTest.java#L344)
+
+- The fixtures the rules bite on
+  [`OracleGateTest.java:277`](https://github.com/watchthelight/shatterfish/blob/bbcbac5d5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/OracleGateTest.java#L277)
+
+**The marked read and the sidecar**
+
+- The fair read re-headed with the oracle bit; the Actions carried, not recomputed
+  [`OracleObserver.java:51`](https://github.com/watchthelight/shatterfish/blob/bbcbac5d5/shatterfish/harness/src/main/java/org/shatterfish/harness/observer/OracleObserver.java#L51)
+
+- What the screen hides, from public game state only, cited at the tag
+  [`OracleObserver.java:71`](https://github.com/watchthelight/shatterfish/blob/bbcbac5d5/shatterfish/harness/src/main/java/org/shatterfish/harness/observer/OracleObserver.java#L71)
+
+- The sidecar's shape, a harness type by design; seen means drawn as an actor
+  [`OracleView.java:49`](https://github.com/watchthelight/shatterfish/blob/bbcbac5d5/shatterfish/harness/src/main/java/org/shatterfish/harness/observer/OracleView.java#L49)
+
+- Marked, hashed apart, the game and the generator untouched
+  [`OracleGateTest.java:130`](https://github.com/watchthelight/shatterfish/blob/bbcbac5d5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/OracleGateTest.java#L130)
+
+- Identities, a hurt hunting mob, a hidden mimic, a secret door and a hidden trap, held to the game and absent from the fair bytes
+  [`OracleGateTest.java:170`](https://github.com/watchthelight/shatterfish/blob/bbcbac5d5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/OracleGateTest.java#L170)
+
+**The launcher**
+
+- The one flag, parsed and refused by name
+  [`Launcher.java:37`](https://github.com/watchthelight/shatterfish/blob/bbcbac5d5/shatterfish/harness/src/main/java/org/shatterfish/harness/Launcher.java#L37)
+
+- The branch the flag picks, testable at a wait
+  [`Launcher.java:95`](https://github.com/watchthelight/shatterfish/blob/bbcbac5d5/shatterfish/harness/src/main/java/org/shatterfish/harness/Launcher.java#L95)
+
+- The branch held to the flag, the sidecar printed only under it
+  [`OracleGateTest.java:288`](https://github.com/watchthelight/shatterfish/blob/bbcbac5d5/shatterfish/harness/src/test/java/org/shatterfish/harness/observer/OracleGateTest.java#L288)
+
+**The record**
+
+- ADR-0006's story 1.18 amendment: the wrapper, the sidecar, the gate and its scope, what is named for E3 and E5
+  [`0006-observer-visibility-rules.md:713`](https://github.com/watchthelight/shatterfish/blob/bbcbac5d5/docs/adr/0006-observer-visibility-rules.md#L713)
+
