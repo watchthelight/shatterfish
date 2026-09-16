@@ -352,3 +352,21 @@ Action can name, and the first Run to affix the broken seal stopped there. The c
 shows the same selector as a `WndBag`, which the Observer reads and an Action answers. Both are the
 game's own interfaces and a person plays on either; this is the one a headless Run can play, and it
 is declared rather than inherited so that two Runs agree about what the screen is.
+
+## Amendment: story 1.21 (2026-09-16)
+
+**The back buffer is the virtual display.** "FreeType for text" above was not true until this
+story: libGDX's headless `MockGraphics` reports a back buffer of zero width, the game divides it
+by `Game.width` for the real pixels per logical pixel (`SPD-classes/…/utils/DeviceCompat.java:64-71`)
+and multiplies every text block's font size by the result (`…/scenes/PixelScene.java:337-339`), so
+every block asked FreeType for size zero, FreeType refused, `PlatformSupport.getFont` logged the
+refusal as a stack trace and returned no font (`SPD-classes/…/utils/PlatformSupport.java:175-181`),
+and the block was zoomed by one over zero. The failure was silent under the test output and the
+E1 benchmark was the first thing to read the console: thirty thousand traces in two hundred Runs,
+in the time it was measuring. `HeadlessGraphics` now reports the boot's 800 by 600 for the width,
+the height and the back buffer, so the scale is one as on a desktop without HiDPI and text
+renders as this ADR says; the frame id stays at minus one and the backend still renders nothing.
+`HeadlessTextTest` holds the scale and a measured text block inside a Run. Three alternatives were
+weighed: a hook on `DeviceCompat` (an upstream edit and a ledger row for a harness concern),
+leaving it and publishing the rate with the traces in it (a measurement of a bug), and this,
+which is the harness telling the game the truth about the display it declared.

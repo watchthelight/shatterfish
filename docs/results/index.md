@@ -23,6 +23,7 @@ From E3 onward no brain change merges without a results file in the pull request
 | Page | What it measures | Epic |
 |---|---|---|
 | [E1 touchpoint audit](e1-touchpoint-audit.md) | Whether a hero turn resolves with no renderer, and what it costs in hooks | E1, story 1.1 |
+| [E1 throughput and tactics](e1-throughput.md) | Input waits per second per process, Runs per minute, the median Run length, the codec's and the writer's cost, and the tactics' leaf correlation and disambiguation factor | E1, story 1.21 |
 
 The rig's own result files, in the shape described above, begin with the random-agent baseline in
 E3. The audit above is a findings page rather than a rig run: it has no seed set and no sequential

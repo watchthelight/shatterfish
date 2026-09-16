@@ -5,7 +5,7 @@ title: "Publish the E1 numbers"
 epic: 1
 issue: 34
 type: 'feature'
-status: 'in-progress'
+status: 'review'
 created: '2026-09-16'
 updated: '2026-09-16'
 review_loop_iteration: 0
@@ -80,16 +80,16 @@ the described machine; no Brain (E4); no rollout host (E6); no hook.
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `shatterfish/harness/.../Launcher.java` -- `--benchmark`, `--runs`, `--samples`,
+- [x] `shatterfish/harness/.../Launcher.java` -- `--benchmark`, `--runs`, `--samples`,
   `--siblings`, `--horizon` parsed; a nested `Benchmark` that plays, times, snapshots, plays out
   and prints the report as Markdown -- the measurement.
-- [ ] `shatterfish/harness/build.gradle` -- a `benchmark` `JavaExec` task with the harness's
+- [x] `shatterfish/harness/build.gradle` -- a `benchmark` `JavaExec` task with the harness's
   runtime classpath and the desktop assets -- the reproducing command.
-- [ ] `shatterfish/harness/src/test/.../BenchmarkSmokeTest.java` -- a tiny configuration runs and
+- [x] `shatterfish/harness/src/test/.../BenchmarkSmokeTest.java` -- a tiny configuration runs and
   every field is present and finite; the flags parse -- the test.
-- [ ] `docs/results/e1-throughput.md`, `docs/results/index.md`, `mkdocs.yml` -- the page, its row,
+- [x] `docs/results/e1-throughput.md`, `docs/results/index.md`, `mkdocs.yml` -- the page, its row,
   its navigation entry.
-- [ ] `docs/adr/0010-tactical-search-deferral-criteria.md` -- amendment: the two properties are
+- [x] `docs/adr/0010-tactical-search-deferral-criteria.md` -- amendment: the two properties are
   measured, where, and what they say; the simulator speed and the search leak test stay E6's.
 
 **Acceptance Criteria:**
@@ -127,3 +127,91 @@ cannot be snapshotted and is skipped, counted, and reported.
 - `./gradlew :harness:benchmark -Pshatterfish.mobile=off` -- expected: a Markdown report on stdout.
 - `./gradlew :harness:test -Pshatterfish.mobile=off --tests "org.shatterfish.harness.BenchmarkSmokeTest"` -- expected: green.
 - `./gradlew build -Pshatterfish.mobile=off` -- expected: green; `mkdocs build --strict` green.
+
+## Dev notes
+
+Implemented on `story/1-21-publish-the-e1-numbers` from `1682a62cf`. The benchmark is a mode of
+the launcher, nested there because the tactics half reads the oracle sidecar and only the
+launcher may construct the oracle (`OracleGateTest`, story 1.18); a `benchmark` Gradle task on the
+harness's main runtime classpath is the reproducing command. The recorded invocation ran at
+`8d28fab5b`, after the font fix below. No hook, no upstream file, no change to the fair path.
+
+## Acceptance criteria and how each was met
+
+- **The page reports the rate, Runs per minute, the median Run length, and the codec's and the
+  writer's costs separately**, from one recorded invocation: `docs/results/e1-throughput.md`.
+- **Leaf correlation and the disambiguation factor with their definitions, and no bias**: the
+  page's Tactics and Definitions sections.
+- **The benchmark with a Brain named as E4's; the machine, the tag, the commit and the command
+  stated; the determinism test cited**: the page's head and its SM-4 section.
+- **A tiny configuration reports every field**: `BenchmarkSmokeTest`, 2 tests.
+
+## What was built
+
+- `Launcher`: `--benchmark`, `--runs`, `--samples`, `--siblings`, `--horizon`; the nested
+  `Benchmark` with its `Report` and its Markdown.
+- `shatterfish/harness/build.gradle`: the `benchmark` task.
+- `BenchmarkSmokeTest`; `docs/results/e1-throughput.md`; the results index row; the navigation;
+  ADR-0010's amendment.
+- `HeadlessGraphics` and its line in `HeadlessBoot`, `HeadlessTextTest`, ADR-0015's amendment:
+  the fix for what the first benchmark run found (below).
+
+## What the story found
+
+- **Text never rendered headlessly, and every render logged a stack trace.** The first run's
+  report carried thirty thousand FreeType refusals: libGDX's mock graphics report a zero-wide
+  back buffer, the game scales every text block's font by it (`DeviceCompat.java:64-71`,
+  `PixelScene.java:337-339`), so every block asked for size zero. Silent since the headless scene,
+  under the test output. `HeadlessGraphics` reports the boot's display; the rate with the traces
+  was 371.2 waits per second, and the published rate is from the fixed commit.
+- **The tactics half had to live in the launcher.** The disambiguation factor counts hidden facts,
+  which are the oracle's; the gate of story 1.18 admits no other constructor, and a nested class
+  belongs to the launcher under ArchUnit's rule, so the gate holds unchanged.
+- **The JSON is not larger than the canonical bytes**, contrary to the first smoke assertion; the
+  page reports both sizes rather than assuming their order.
+- **Mobs cannot be hidden facts of a disambiguation factor.** A mob's position is hidden and shown
+  again as it moves, so its "revelation" would never settle; the factor counts the static facts
+  and the page reports mobs first drawn per wait beside it.
+- **The random agent reveals nothing in twenty waits.** The factor read 0.000; the page says
+  why that is the agent's floor and not the game's rate, and ADR-0010's amendment carries it.
+
+## Decisions taken inside the story
+
+- **Alive at the horizon as the payoff.** A tactical search scores a short horizon; a binary
+  payoff there is what leaf correlation compares.
+- **Tuples as a function of the seed base.** The benchmark's salts are the seed's, so the command
+  replays the same Runs; the rates are the machine's, the properties the game's.
+- **Playouts never descend.** The floor below would read the process's journal and the tactical
+  horizon is short.
+- **The font fix is this story's.** The alternative was publishing a rate with thirty thousand
+  stack traces in it and an issue; the fix is one harness class, no hook, and the page is the
+  deliverable.
+
+## Evidence
+
+- `BenchmarkSmokeTest` green, 2 tests; `HeadlessTextTest` green, 2 tests; `OracleGateTest` and
+  `ThreadConfinementTest` green with the nested benchmark in the launcher; `HeadlessBootTest`,
+  `SceneDrawParityTest`, `HeadlessSceneTest`, `FenceInvariantTest`, `ProfileTest` green with the
+  display reported, and no `[GAME]` error in any of their outputs.
+- The recorded invocation: `./gradlew :harness:benchmark -Pshatterfish.mobile=off` at
+  `8d28fab5b`, whose report is the page.
+
+## Deviations
+
+- The font fix, `HeadlessGraphics` and `HeadlessTextTest`, was not in the spec's tasks; the
+  benchmark found it and the page would otherwise have measured it.
+
+## Known limitations, handed forward
+
+- **The rates are one machine's, one process's**; the cross-platform reading is story 3.4's.
+- **The horizon is twenty waits**, and the properties are taken at it rather than per move; E6
+  reruns the method from mid-fight snapshots with the simulator it builds.
+- **A sample under a window is skipped**; the page counts them.
+- **Both properties are the random agent's.** A Brain moves the disambiguation factor off its
+  floor; E6 reads it again.
+
+## Follow-ups for later stories
+
+- E3: the seed-set sizes from the rate; the paired-seed variance (SM-5).
+- E4: the benchmark with a Brain attached.
+- E6: simulator speed, the search leak test, and the two properties from mid-fight snapshots.

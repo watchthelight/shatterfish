@@ -103,3 +103,17 @@ or anything it could inflate into one (AD-7, AD-9).
   they predict there. Mitigation: they are explanatory only; the choice rule never gates on them.
 - The Rig cannot resolve a small tactical gain on `standard` at 500 seeds. Mitigation: ADR-0012's
   burn-in and undecided outcome are honest; the `bosses` set targets fights specifically.
+
+## Amendment: story 1.21 (2026-09-16)
+
+Two of the three measurements above have a first reading before E6, on the E1 harness with the
+random agent, published at `docs/results/e1-throughput.md`: leaf correlation 0.884 and a
+disambiguation factor of 0.000, both defined on that page and measured with random playouts
+from snapshots (story 1.20) to a horizon of twenty waits, with the hidden facts counted through
+the oracle sidecar (story 1.18) from the launcher, the one place that may construct it. Bias is
+not measured, as decided. Both readings are the random agent's on floor one, a floor for the
+disambiguation factor rather than the game's rate; the simulator speed and the search leak test
+stay E6's, since no rollout host and no Search exist, and when they do the same page's method is
+rerun from the `smoke` set's mid-fight snapshots with a Brain, as the table above says, and the
+two readings are compared. The harness's own rate, about 417.9 Input waits per second per
+process on the described machine, is the number the Rig's seed-set sizes (E3) rest on.
