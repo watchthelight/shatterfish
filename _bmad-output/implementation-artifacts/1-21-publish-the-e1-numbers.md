@@ -223,6 +223,18 @@ harness's main runtime classpath is the reproducing command. The recorded invoca
     - M3 a count of zero is accepted: caught by `BenchmarkSmokeTest`.
     - M4 the cost Run never steps: caught by `BenchmarkSmokeTest`.
     - M5 the back buffer is zero wide again: caught by `HeadlessTextTest`, both tests.
+- The battery rerun after the review patch, eight mutations against `BenchmarkSmokeTest` and
+  `HeadlessTextTest`:
+    - M1 the tactics section dropped: caught. M4 the cost Run never steps: caught. M5 the back
+      buffer zero wide: caught, both tests. M6 the median is the upper middle again: caught by
+      the statistics test. M7 agreement is the mean payoff: caught. M8 the tactics half runs
+      without `--oracle`: caught.
+    - M2 a skipped sample is not counted: **survived**, as before; the tiny configuration skips
+      nothing, and the skip counts by reason are held only through the pinned sample lines of a
+      configuration that skips, which none found does.
+    - M3 a count of zero accepted by parse: **survived**, and is dead code since the review: the
+      record refuses the count before parse's message would; the parse check stays for its
+      message naming the flag.
 
 ## Deviations
 
