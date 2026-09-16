@@ -930,7 +930,7 @@ public final class Observer {
      */
     private static void atInputWait() {
         // The thread first, before a single game field is read (ADR-0013; story 1.19).
-        UiRole.require("Observer.observe()");
+        UiRole.require("the Observer's read");
         Level level = Dungeon.level;
         Hero hero = Dungeon.hero;
         require(level != null && hero != null, "no Run is in progress");

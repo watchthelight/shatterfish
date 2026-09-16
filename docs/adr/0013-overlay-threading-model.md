@@ -164,19 +164,27 @@ The roles above are asserted, and the deadlock rule is a test. Paths abbreviate
 `core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/` as `…/`, at `v4.0.0`.
 
 **The UI-role thread is a claimed identity.** `UiRole`, in the driver package, holds the thread
-that owns the role: `HeadlessDriver` claims it for the thread that starts a Run, in its
-constructor, and releases it in `close()`; the Overlay's driver will claim the render thread the
-same way (E5). A second claim while a Run holds the role is refused by name. The identity is the
-thread object, never its name, so a foreign call cannot pass by being called the same thing.
+that owns the role: `HeadlessDriver.start` claims it for the calling thread before anything is
+built, so a refusal leaves nothing behind, releases it again if the start fails, and releases it
+last in `close()`, after the scene, the hooks and the listener are gone; the Overlay's driver will
+claim the render thread the same way (E5). A claim by the thread that already holds the role is
+idempotent, a claim while another thread holds it is refused by name, a thread that is not alive
+cannot hold it, and only the owner may release it, so a stray release cannot make the owner's next
+call fail as if no Run were live. The identity is the thread object, never its name; the messages
+carry each thread's id beside its name, so two threads called `main` are told apart.
 
-**The ports ask on entry, before they read a game field.** `Observer`'s every read begins with
-`UiRole.require("Observer.observe()")` and `ActionExecutor.execute` with its own; on any thread but
-the owner they throw an `IllegalStateException` naming the port, the role, the owning thread and
-the calling thread. The executor throws rather than refuses: a refusal is for a Brain's choice, a
-wrong thread is a programming error. `ThreadConfinementTest` calls each port from a foreign thread
-at a wait and holds the failure and its names, holds that the foreign calls changed nothing, that
-the driver thread is the role from start to close, and that the role is released and not claimable
-twice.
+**The ports ask on entry, before they read a game field.** `Observer`'s every read,
+`OracleObserver.observe()`, `ActionExecutor.execute` and the driver's own stepping,
+`stepToInputWait` and `step`, begin with `UiRole.require`; on any thread but the owner they throw
+an `IllegalStateException` naming the port, the role, the owning thread and the calling thread.
+The executor throws rather than refuses: a refusal is for a Brain's choice, a wrong thread is a
+programming error. `ThreadConfinementTest` calls each port from a foreign thread at a wait and
+holds the failure and its names, holds a foreign thread wearing the owner's name refused and told
+apart by id, holds that the foreign calls changed nothing, holds the order of the check by the
+no-Run case, where only the role's own refusal names the role and the executor throws where it
+would have refused after a read, and holds the role from start to close: claimed, not claimable
+by a dead thread or another live one, not releasable by a stranger, released on close, and free
+for another thread's Run, on which the ports then work.
 
 **No Shatterfish code takes a monitor on a game type, as an ArchUnit rule.** `MonitorConfinementTest`
 reads each Shatterfish class's bytecode through ASM and holds that no `monitorenter` has an operand
@@ -186,8 +194,19 @@ what produced it, a field's declared type, a parameter's, a local's from the deb
 return type or the class of a `new`, followed back through javac's `dup; astore; monitorenter`; a
 producer the analysis cannot type is a violation, never a pass. A Shatterfish object that
 implements a game interface, the log listener on the game's signal, is Shatterfish's own object
-and may be locked; a game object behind a variable declared `Object` passes by static type, which
-is the rule's limit and is written beside it. The rule is shown to bite on fixtures that lock a
+and may be locked, and a variable declared as a game interface is not a game object either; a
+static synchronized method locks the Class object, which is the class's own; a game object behind
+a variable declared `Object` passes by static type, which is the rule's limit and is written
+beside it; a type the rule cannot load to look at is a violation, not a pass. The rule reads
+local variable tables, which the shared module script now pins with `-g:source,lines,vars`
+rather than leaving to Gradle's default, and its ASM is the harness module's own test dependency.
+The two exemptions are the two classes themselves, not their nested classes. A second limit,
+found by the fairness review: the rule sees the monitors Shatterfish code declares, not the ones a
+synchronized game method takes on its behalf; every read of the window in front goes through
+`Group.shatterfishMembers()`, synchronized on the scene (`SPD-classes/…/noosa/Group.java:49`), so
+the fair path holds the scene monitor for the length of that call, held and released inside the
+game's own method with nothing of Shatterfish's nested in it. The deadlock rule is about monitors
+held across Shatterfish code, and the record's "never takes the scene monitor" reads that way. The rule is shown to bite on fixtures that lock a
 game field, a game parameter, a game local, a call's result and a game subclass's own method, and
 to pass an own field, `this` and the listener.
 
@@ -197,8 +216,10 @@ thread cannot interleave, and `FenceInvariantTest` holds that design; this recor
 was written before that fence and this amendment reconciles them. `HeadlessScene` is the scene,
 and the game locks its scene on the render thread, `GameScene.update` being synchronized
 (`…/scenes/GameScene.java:867`) as are `erase` (`:967`) and `addMobSprite` (`:1087`), with the
-actor thread taking `synchronized (scene)` (`:1098`); the override of `update()` keeps the game's
-lock and `openWindow()` reads the member list under the lock `erase` writes it under. That is the
+actor thread taking `synchronized (scene)` (`:1098`) and every member-list method of `Group`
+synchronized on the group (`SPD-classes/…/noosa/Group.java:49`, `:99`, `:124`, `:201`); the
+override of `update()` keeps the game's lock and `openWindow()` reads the member list under the
+lock the group's own writers take. That is the
 game's rule for its scene, not a monitor Shatterfish invented. The test holds that each exemption
 would violate the bare rule, so neither can go stale unnoticed.
 

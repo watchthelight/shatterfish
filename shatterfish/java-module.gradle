@@ -15,7 +15,6 @@ tasks.withType(JavaCompile).configureEach {
 ext {
     junitVersion = '5.11.4'
     archunitVersion = '1.5.0'
-    asmVersion = '9.9'
 }
 
 dependencies {
@@ -23,10 +22,12 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation "com.tngtech.archunit:archunit-junit5:${archunitVersion}"
-    // The monitor rule of story 1.19 reads bytecode: ArchUnit shades ASM's core, not its analysis.
-    testImplementation "org.ow2.asm:asm:${asmVersion}"
-    testImplementation "org.ow2.asm:asm-tree:${asmVersion}"
-    testImplementation "org.ow2.asm:asm-analysis:${asmVersion}"
+}
+
+// Local variable tables in every class: the monitor rule of story 1.19 types a monitor's operand
+// through them, and Gradle's default of -g is a default, not a promise.
+tasks.withType(JavaCompile).configureEach {
+    options.debugOptions.debugLevel = 'source,lines,vars'
 }
 
 tasks.withType(Test).configureEach {

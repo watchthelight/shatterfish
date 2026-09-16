@@ -21,7 +21,13 @@ with upstream's use of the same word, this page says so.
     same code paths the UI uses, by the ActionExecutor.
 
 **ActionExecutor**
-:   The single class in `harness` that drives the hero. Applies an Action on the render thread.
+:   The single class in `harness` that drives the hero. Applies an Action on the UI-role thread,
+    which it asserts on entry (story 1.19).
+
+**UI-role thread**
+:   The one thread that observes and executes (ADR-0013): the driver thread headless, the render
+    thread in the overlay. `UiRole` holds it as a claimed thread identity; the Observer, the
+    executor and the driver's stepping fail loudly on any other thread.
 
 **Decision**
 :   The brain's output for one turn: the chosen Action, the top alternatives with scores and

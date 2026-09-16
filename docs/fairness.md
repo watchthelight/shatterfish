@@ -39,7 +39,7 @@ All live in `harness` and run in CI on every pull request.
 | Toggle tests | The same world with and without `MindVision`, `Blindness`, and magic mapping produces exactly the expected differences | done: `VisionToggleTest` (E1 story 1.17) |
 | ArchUnit test | `brain` imports nothing from `com.shatteredpixel.*` or `com.watabou.*` | done |
 | Determinism test | The same (tag, seed, action list) twice gives identical Observation hashes at every turn | done: `DeterminismTwoJvmTest` (E1 story 1.16), in one process and across two; the cross-platform comparison is story 3.4 |
-| Thread-confinement test | The Observer and the executor fail loudly on any thread but the UI-role thread, naming it; no Shatterfish code takes a monitor on a game type | done: `ThreadConfinementTest`, `MonitorConfinementTest` (E1 story 1.19), with the stepper's fence and the headless scene as the two named exemptions |
+| Thread-confinement test | The Observer and the executor fail loudly on any thread but the UI-role thread, naming it; no Shatterfish code declares a monitor on a game type | done: `ThreadConfinementTest`, `MonitorConfinementTest` (E1 story 1.19), with the stepper's fence and the headless scene as the two named exemptions; the rule sees monitors Shatterfish declares, not those a synchronized game method takes inside one call |
 
 ## Search
 

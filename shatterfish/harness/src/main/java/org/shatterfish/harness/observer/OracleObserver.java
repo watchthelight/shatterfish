@@ -12,6 +12,7 @@ import com.shatteredpixel.shatteredpixeldungeon.levels.traps.Trap;
 import com.watabou.utils.Reflection;
 import org.shatterfish.api.HeaderSection;
 import org.shatterfish.api.Observation;
+import org.shatterfish.harness.driver.UiRole;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -58,6 +59,8 @@ public final class OracleObserver {
 
     /** The fair read at this wait, its header marked, and the view beside it. */
     public Read observe() {
+        // The thread first, as the fair Observer asks it: the sidecar reads the level directly.
+        UiRole.require("OracleObserver.observe()");
         Observation read = fair.observe();
         HeaderSection h = read.header();
         HeaderSection marked = new HeaderSection(h.version(), h.upstreamTag(), h.codexVersion(), h.heroClass(),

@@ -114,6 +114,19 @@ returning a refusal: a refusal is for a Brain's choice, a wrong thread is a prog
 
 ## Spec Change Log
 
+- **Review, 2026-09-16 (patches, no loopback).** The matrix's "No Run" row names "the
+  Observer's own 'no Run is in progress'"; with the role asked first, the refusal is the role's
+  and carries the same words plus the role's name, which is what makes it the ordering evidence
+  the test now uses. The matrix's "second claim refused" is refined: a claim by the owner is
+  idempotent, by another live thread refused, by a dead thread refused. The reviews' other
+  findings were patches: the claim moved to the top of `start()` with an unwind on failure, the
+  release last in `close()` and refused to a stranger, thread ids in every message, the oracle
+  observer and the driver's stepping asking too, ASM confined to the harness module with debug
+  info pinned, a static synchronized method and an interface-typed variable not counted, an
+  unloadable type reported, the violation's message asserted, the exemptions narrowed to the two
+  classes, a hang guard on the foreign calls, and a second thread's Run shown to take the role.
+  KEEP: the claimed identity; the throw rather than the refusal; the two named exemptions.
+
 ## Design Notes
 
 **Why an owner thread, not a name.** The Overlay's UI-role thread is the render thread and the
@@ -121,8 +134,8 @@ headless one is the driver thread; a name would tie the ports to one driver. A c
 what the driver knows and what a foreign call cannot fake.
 
 **Why the scene's methods are exempt.** `HeadlessScene` is the scene; `GameScene.update` is
-synchronized upstream and the override must be too, and `openWindow` reads the member list under
-the lock the game's own `erase` writes it under. That is the game's rule for its scene, not a
+synchronized upstream and the override keeps that lock, and `openWindow` reads the member list
+under the lock the group's own writers take (`Group.java:49`, `:99`, `:124`, `:201`). That is the game's rule for its scene, not a
 monitor Shatterfish invented; ADR-0013's amendment says so.
 
 **Pre-mortem.** A test that starts a Run on one thread and reads on another would now fail by
@@ -179,8 +192,12 @@ file touched. The fairness review follows below.
   upstream and the override must be; `openWindow` reads under the lock `erase` writes under. The
   deadlock rule as ADR-0013 wrote it predates the fence of story 1.3 and the scene of the same
   story; the amendment reconciles them with two named, load-bearing exemptions.
-- **The no-Run message had to be the Observer's.** The role check runs before the Observer's own
-  "no Run is in progress", so its message says the same words.
+- **The no-Run message had to be the Observer's, and became the ordering evidence.** The role
+  check runs before the Observer's own "no Run is in progress", so its message says the same words
+  and names the role; the test holds that the refusal naming the role is the one that fires, and
+  that the executor throws where it would have refused after reading the hero.
+- **The claim's first home leaked.** In the driver's constructor, a refused claim left the scene,
+  the actor thread and the hook registered; it now comes first in `start()` and unwinds.
 
 ## Decisions taken inside the story
 
@@ -229,6 +246,9 @@ tree restored and clean
 
 - **The monitor rule sees static types.** A game object held behind `Object` passes; the fixture
   `HidesAGameObjectBehindObject` shows it. Shatterfish code has no such variable today.
+- **The rule's "cannot type" branches have no fixture.** javac always emits a typed producer for
+  a source-level monitor, so an untyped operand cannot be written in Java; those branches are
+  read, not run.
 - **The rule sees the harness's classpath**, `api` and `harness` main; `codex` (E2) and the
   overlay (E5) carry the same rule when they arrive, since each depends on the game.
 - **The Overlay's claim** of the render thread is E5's, through the same `UiRole.claim`.

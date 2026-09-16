@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -60,11 +61,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * interleave; {@code FenceInvariantTest} holds that design.</li>
  * <li>{@link HeadlessScene}: it is the scene, and the game locks its scene on the render thread —
  * {@code GameScene.update} is synchronized ({@code …/scenes/GameScene.java:867}), as are
- * {@code erase} ({@code :967}) and {@code addMobSprite} ({@code :1087}), and the actor thread
- * takes {@code synchronized (scene)} ({@code :1098}); the override of {@code update()} must keep
- * the game's lock, and {@code openWindow()} reads the member list under the lock {@code erase}
- * writes it under. That is the game's rule for its scene, not a monitor Shatterfish invented.</li>
+ * {@code erase} ({@code :967}) and {@code addMobSprite} ({@code :1087}), the actor thread takes
+ * {@code synchronized (scene)} ({@code :1098}), and every member-list method of {@code Group} is
+ * synchronized on the group ({@code SPD-classes/…/noosa/Group.java:49}, {@code :99}, {@code :124},
+ * {@code :201}); the override of {@code update()} keeps the game's lock, and {@code openWindow()}
+ * reads the member list under the lock the group's own writers take. That is the game's rule for
+ * its scene, not a monitor Shatterfish invented.</li>
  * </ul>
+ *
+ * <p>The rule sees the monitors Shatterfish code declares, a {@code monitorenter} or a
+ * synchronized method of its own, not the ones a synchronized game method takes on its behalf:
+ * every read of the window in front goes through {@code Group.shatterfishMembers()}, which is
+ * synchronized on the scene ({@code Group.java:49}), so the fair path does hold the scene monitor
+ * for the length of that call. That is the game's method and the game's lock, held and released
+ * inside one call with nothing of Shatterfish's nested in it; the deadlock rule is about monitors
+ * held across Shatterfish code, and that is what this rule holds.
  *
  * <p>The operand's type is the static type of what produced it: a field's declared type, a
  * parameter's, a local's from the debug table, a call's return type, or the class of a
@@ -79,10 +90,13 @@ class MonitorConfinementTest {
     /** The packages of the game and its engine: a type under them, or a subtype of one, is a game type. */
     private static final List<String> GAME_PACKAGES = List.of("com.shatteredpixel.", "com.watabou.");
 
+    // The rule reads local variable tables, which java-module.gradle pins with -g:source,lines,vars.
+
     @ArchTest
     static final ArchRule no_shatterfish_code_takes_a_monitor_on_a_game_type = classes()
             .that().resideInAPackage("org.shatterfish..")
-            .and().doNotBelongToAnyOf(SceneStepper.class, HeadlessScene.class)
+            .and().doNotHaveFullyQualifiedName(SceneStepper.class.getName())
+            .and().doNotHaveFullyQualifiedName(HeadlessScene.class.getName())
             .should(takeNoMonitorOnAGameType())
             .because("Shatterfish code never takes the scene monitor or any game object's monitor (ADR-0013);"
                     + " the stepper's fence and the scene's own methods are the two exemptions, each with its reason");
@@ -108,6 +122,8 @@ class MonitorConfinementTest {
         assertFalse(violates(SynchronizesOnItsOwnField.class), "synchronized (lock) on an Object of its own");
         assertFalse(violates(SynchronizesOnItself.class), "synchronized (this) on a Shatterfish class");
         assertFalse(violates(ImplementsAGameInterfaceAndSynchronizes.class), "a Shatterfish object behind a game interface is its own");
+        assertFalse(violates(SynchronizesOnAnInterfaceTypedField.class), "a variable declared as a game interface is not a game object");
+        assertFalse(violates(StaticSynchronizedOnAGameSubclass.class), "a static synchronized method locks the Class object");
         // The limit: a game object behind a variable declared Object passes by static type.
         assertFalse(violates(HidesAGameObjectBehindObject.class), "the rule sees static types only");
     }
@@ -116,6 +132,20 @@ class MonitorConfinementTest {
         EvaluationResult result = classes().should(takeNoMonitorOnAGameType())
                 .evaluate(new ClassFileImporter().importClasses(fixture));
         return result.hasViolation();
+    }
+
+    @Test
+    @DisplayName("a violation names the class, the method and the type")
+    void a_violation_names_the_class_the_method_and_the_type() {
+        List<String> found = monitorsOnGameTypes(new ClassFileImporter().importClasses(SynchronizesOnAGameField.class)
+                .get(SynchronizesOnAGameField.class));
+        assertEquals(1, found.size(), found.toString());
+        assertTrue(found.get(0).contains(SynchronizesOnAGameField.class.getName() + ".f"), found.get(0));
+        assertTrue(found.get(0).contains(Hero.class.getName() + ", a game type"), found.get(0));
+        List<String> method = monitorsOnGameTypes(new ClassFileImporter().importClasses(ExtendsAGameTypeAndSynchronizes.class)
+                .get(ExtendsAGameTypeAndSynchronizes.class));
+        assertEquals(1, method.size(), method.toString());
+        assertTrue(method.get(0).contains(".f is synchronized"), method.get(0));
     }
 
     // --- the fixtures
@@ -183,6 +213,21 @@ class MonitorConfinementTest {
         }
     }
 
+    static final class SynchronizesOnAnInterfaceTypedField {
+        private final com.watabou.utils.Signal.Listener<String> listener = s -> false;
+
+        void f() {
+            synchronized (listener) {
+                f();
+            }
+        }
+    }
+
+    static final class StaticSynchronizedOnAGameSubclass extends Item {
+        static synchronized void f() {
+        }
+    }
+
     static final class HidesAGameObjectBehindObject {
         void f() {
             Object o = Dungeon.level;
@@ -211,7 +256,8 @@ class MonitorConfinementTest {
         ClassNode node = read(item);
         boolean ownerIsGame = isGameType(item.getName());
         for (MethodNode method : node.methods) {
-            if ((method.access & Opcodes.ACC_SYNCHRONIZED) != 0 && ownerIsGame) {
+            // A static synchronized method locks the Class object, which is this class's own.
+            if ((method.access & Opcodes.ACC_SYNCHRONIZED) != 0 && (method.access & Opcodes.ACC_STATIC) == 0 && ownerIsGame) {
                 found.add(item.getName() + "." + method.name + " is synchronized, and " + item.getSimpleName()
                         + " is a game type: the method locks a game object");
             }
@@ -236,6 +282,9 @@ class MonitorConfinementTest {
                     if (type.startsWith("?")) {
                         found.add(item.getName() + "." + method.name + " takes a monitor on a value the rule cannot type ("
                                 + type.substring(1) + "): name the type or take no monitor");
+                    } else if (!loadable(type)) {
+                        found.add(item.getName() + "." + method.name + " takes a monitor on a " + type
+                                + ", which the rule cannot load to type: name a type on the classpath or take no monitor");
                     } else if (isGameType(type)) {
                         found.add(item.getName() + "." + method.name + " takes a monitor on a " + type + ", a game type");
                     }
@@ -306,24 +355,41 @@ class MonitorConfinementTest {
         return "?local " + load.var + " with no debug entry at " + at;
     }
 
+    private static final Set<String> PRIMITIVES = Set.of("int", "long", "boolean", "byte", "short", "char", "float",
+            "double", "void");
+
+    /** Whether the rule can load {@code className} to look at what it extends; a primitive or array needs no loading. */
+    static boolean loadable(String className) {
+        return className.endsWith("[]") || PRIMITIVES.contains(className) || load(className) != null;
+    }
+
+    private static Class<?> load(String className) {
+        try {
+            return Class.forName(className, false, MonitorConfinementTest.class.getClassLoader());
+        } catch (ClassNotFoundException | LinkageError missing) {
+            return null;
+        }
+    }
+
     /**
      * Whether {@code className} or a class it extends lives under a game package. Interfaces do not
-     * count: a Shatterfish object that implements a game interface, the log listener on the game's
-     * signal, is still Shatterfish's own object, and a monitor on it is a monitor the game never
-     * takes; an object of a class the game defines, or a subclass of one, is the game's.
+     * count, as a type or as a declared type: a Shatterfish object that implements a game interface,
+     * the log listener on the game's signal, is still Shatterfish's own object, and a monitor on it
+     * is a monitor the game never takes; an object of a class the game defines, or a subclass of
+     * one, is the game's. A type the rule cannot load is reported by the caller, never passed here.
      */
     static boolean isGameType(String className) {
-        if (className.endsWith("[]")) {
+        if (className.endsWith("[]") || PRIMITIVES.contains(className)) {
             return false;
         }
-        Set<String> primitives = Set.of("int", "long", "boolean", "byte", "short", "char", "float", "double", "void");
-        if (primitives.contains(className)) {
-            return false;
+        for (String prefix : GAME_PACKAGES) {
+            if (className.startsWith(prefix)) {
+                Class<?> named = load(className);
+                return named == null || !named.isInterface();
+            }
         }
-        Class<?> type;
-        try {
-            type = Class.forName(className, false, MonitorConfinementTest.class.getClassLoader());
-        } catch (ClassNotFoundException | LinkageError missing) {
+        Class<?> type = load(className);
+        if (type == null || type.isInterface()) {
             return false;
         }
         for (Class<?> c = type; c != null; c = c.getSuperclass()) {
@@ -352,6 +418,9 @@ class MonitorConfinementTest {
             return node;
         } catch (IOException unreadable) {
             throw new UncheckedIOException("cannot read " + uri, unreadable);
+        } catch (IllegalArgumentException unsupported) {
+            throw new AssertionError(item.getName() + ": a class file version ASM 9.9 does not read; raise org.ow2.asm in"
+                    + " shatterfish/harness/build.gradle", unsupported);
         }
     }
 }
