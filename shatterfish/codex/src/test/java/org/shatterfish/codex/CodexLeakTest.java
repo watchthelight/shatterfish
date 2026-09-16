@@ -31,9 +31,11 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.tngtech.archunit.core.domain.JavaCall.Predicates.target;
-import static com.tngtech.archunit.core.domain.properties.HasName.Predicates.name;
-import static com.tngtech.archunit.core.domain.properties.HasOwner.Predicates.With.owner;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.belongToAnyOf;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.type;
+import static com.tngtech.archunit.core.domain.properties.HasName.Predicates.name;
+import static com.tngtech.archunit.core.domain.properties.HasName.Predicates.nameMatching;
+import static com.tngtech.archunit.core.domain.properties.HasOwner.Predicates.With.owner;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
@@ -45,11 +47,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * from a Run. Held three ways. Statically, over the module's compiled classes: every class is in
  * the package the rules cover; none depends on the game's state classes, the game's toolkit or
  * libGDX (so the generator cannot boot), the harness, the RNG, the clock, reflection, the
- * network, a hash-ordered collection, or holds a monitor; file I/O is confined to the three
- * classes that read the source and write the folder. Dynamically: generation at an Input wait
- * of a live Run played under challenges and in another language equals a generation made
- * before it in the same JVM, and both equal the committed folder. And every citation opens to a
- * line holding the entry's declaration, in order.
+ * network, a hash-ordered collection, or holds a monitor; file I/O is confined to the classes
+ * that read the source and write the folder; {@code GameContext} alone may name {@code Dungeon},
+ * for the two fields a table is parameterised by (story 2.2), and {@code Class} is admitted for
+ * the game's class-keyed tables while everything that reaches a class by name or looks inside
+ * one stays banned. Dynamically: generation at an Input wait of a live Run played under
+ * challenges and in another language equals a generation made before it in the same JVM, both
+ * equal the committed folder, and the Run's depth and challenges are what they were. And every
+ * citation opens to a line holding the entry's declaration, in order.
  */
 @Timeout(value = 5, unit = TimeUnit.MINUTES)
 class CodexLeakTest {
@@ -67,35 +72,59 @@ class CodexLeakTest {
     /** The game's state: what a Run, a save, a Profile or a badge sets, and a Codex must never read. */
     static final ArchRule NO_RUN_STATE = noClasses()
             .that().resideInAPackage("org.shatterfish.codex..")
+            .and().doNotHaveFullyQualifiedName(GameContext.class.getName())
             .should().dependOnClassesThat().belongToAnyOf(Dungeon.class, Statistics.class, Badges.class, Rankings.class,
                     SPDSettings.class, GamesInProgress.class, Bones.class)
             .orShould().dependOnClassesThat().resideInAnyPackage("com.shatteredpixel.shatteredpixeldungeon.journal..",
                     "com.watabou..", "com.badlogic..", "org.shatterfish.harness..")
             .because("a Codex describes types and tables, never a Run, a Profile or a process that booted (FR-14)");
 
-    /** As the api's and the brain's denied list: the doors a value could come through that are not the pinned classes. */
+    /** The one door to the Run statics reaches Dungeon and nothing else of the game's state. */
+    static final ArchRule THE_CONTEXT_IS_NARROW = noClasses()
+            .that().haveFullyQualifiedName(GameContext.class.getName())
+            .should().dependOnClassesThat().belongToAnyOf(Statistics.class, Badges.class, Rankings.class,
+                    SPDSettings.class, GamesInProgress.class, Bones.class)
+            .orShould().dependOnClassesThat().resideInAnyPackage("com.shatteredpixel.shatteredpixeldungeon.journal..",
+                    "com.watabou..", "com.badlogic..", "org.shatterfish.harness..")
+            .orShould().accessField(Dungeon.class, "hero")
+            .orShould().accessField(Dungeon.class, "level")
+            .orShould().accessField(Dungeon.class, "seed")
+            .orShould().accessField(Dungeon.class, "branch")
+            .because("the context sets the depth and the challenges around a construction and reads nothing else");
+
+    /** As the api's and the brain's denied list, less Class: the doors a value could come through that are not the pinned classes. */
     private static final Class<?>[] DENIED = {
-            Class.class, ClassLoader.class, Module.class, ModuleLayer.class, Package.class,
+            ClassLoader.class, Module.class, ModuleLayer.class, Package.class,
             System.class, Runtime.class, Process.class, ProcessBuilder.class, ProcessHandle.class,
             Thread.class, ThreadGroup.class, ThreadLocal.class, StackWalker.class, StackTraceElement.class,
             java.util.Random.class, java.util.SplittableRandom.class, java.util.Scanner.class,
             java.util.ServiceLoader.class, java.util.Date.class, java.util.Calendar.class,
             java.util.Timer.class, java.util.UUID.class, java.util.ResourceBundle.class,
             java.util.Locale.class, java.util.TimeZone.class, java.util.Currency.class,
-            java.util.HashMap.class, java.util.HashSet.class, java.util.Hashtable.class,
             java.util.IdentityHashMap.class, java.util.WeakHashMap.class,
     };
+
+    /**
+     * No hash-ordered collection is made in the generator: an enum- or class-keyed hash order is a
+     * machine's. The game hands over its own ({@code properties()}, {@code RARE_ALTS}), which the
+     * generator may read and must sort before it writes.
+     */
+    static final ArchRule NO_HASH_ORDER = noClasses()
+            .that().resideInAPackage("org.shatterfish.codex..")
+            .should().callConstructorWhere(target(owner(belongToAnyOf(java.util.HashMap.class, java.util.HashSet.class,
+                    java.util.Hashtable.class, java.util.LinkedHashSet.class))))
+            .because("a hash order is a machine's; what the game hands over is sorted before it is written");
 
     static final ArchRule NO_SIDE_DOORS = noClasses()
             .that().resideInAPackage("org.shatterfish.codex..")
             .should().dependOnClassesThat().belongToAnyOf(DENIED)
             .orShould().dependOnClassesThat().resideInAnyPackage("java.net..", "java.lang.reflect..", "java.lang.invoke..",
                     "java.util.concurrent..", "java.security..", "java.time..", "javax..", "sun..", "jdk..")
-            .orShould().callMethodWhere(target(name("forName")).and(target(owner(type(Class.class)))))
+            .orShould().callMethodWhere(target(owner(type(Class.class))).and(target(nameMatching(
+                    "forName|getClassLoader|getResource|getResourceAsStream|newInstance|getConstructors?|getDeclared\\w+|getMethods?|getFields?|cast"))))
             .orShould().callMethodWhere(target(name("random")).and(target(owner(type(Math.class)))))
             .orShould().callMethodWhere(target(name("setAccessible")))
-            .because("nothing drawn, nothing from a clock, a name or the network reaches a Codex, and a hash-ordered"
-                    + " collection would make the bytes a machine's");
+            .because("nothing drawn, nothing from a clock, a name or the network reaches a Codex; a class is a key, never a door");
 
     /** Reading the pinned source and writing the folder are the only file I/O, in the classes that do them. */
     static final ArchRule FILES_CONFINED = noClasses()
@@ -103,7 +132,11 @@ class CodexLeakTest {
             .and().doNotHaveFullyQualifiedName(Citations.class.getName())
             .and().doNotHaveFullyQualifiedName(Upstream.class.getName())
             .and().doNotHaveFullyQualifiedName(Generate.class.getName())
-            .should().dependOnClassesThat().resideInAnyPackage("java.io..", "java.nio..")
+            .and().doNotHaveFullyQualifiedName(Sources.class.getName())
+            .should().dependOnClassesThat().belongToAnyOf(java.nio.file.Files.class, java.nio.file.FileSystems.class,
+                    java.nio.channels.FileChannel.class, java.io.File.class, java.io.FileInputStream.class, java.io.FileOutputStream.class,
+                    java.io.FileReader.class, java.io.FileWriter.class, java.io.RandomAccessFile.class, java.io.InputStream.class,
+                    java.io.OutputStream.class, java.io.Reader.class, java.io.Writer.class)
             .allowEmptyShould(true)
             .because("a save file reads as easily as a source file; the classes that may open one are named");
 
@@ -116,16 +149,18 @@ class CodexLeakTest {
     @Test
     @DisplayName("statically, every class is in the package, and none reaches Run state, the toolkit, the harness, the RNG, the clock, a name, the network or a hash order")
     void the_gate() {
-        assertTrue(GENERATOR.size() >= 3, "the generator's classes were imported: " + GENERATOR.size());
+        assertTrue(GENERATOR.size() >= 6, "the generator's classes were imported: " + GENERATOR.size());
         ANCHOR.check(GENERATOR);
         NO_RUN_STATE.check(GENERATOR);
+        THE_CONTEXT_IS_NARROW.check(GENERATOR);
         NO_SIDE_DOORS.check(GENERATOR);
+        NO_HASH_ORDER.check(GENERATOR);
         FILES_CONFINED.check(GENERATOR);
         NO_MONITORS.check(GENERATOR);
     }
 
     @Test
-    @DisplayName("generation at an Input wait of a live Run under challenges and in another language equals the generation before it, and the committed folder")
+    @DisplayName("generation at an Input wait of a live Run under challenges and in another language equals the generation before it and the committed folder, and leaves the Run's depth and challenges as they were")
     void a_live_run_changes_nothing() throws IOException {
         Path folder = CodexSeedFreeTest.ROOT.resolve(Generate.FOLDER).resolve(Upstream.tag(CodexSeedFreeTest.ROOT));
         Map<String, String> before = Generate.generate(CodexSeedFreeTest.ROOT);
@@ -141,9 +176,13 @@ class CodexLeakTest {
             // under them here, as a save under challenges would be loaded, so that a value read
             // through Dungeon.isChallenged would differ from a cold generation's.
             Dungeon.challenges = Challenges.NO_FOOD | Challenges.DARKNESS | Challenges.STRONGER_BOSSES;
+            Dungeon.depth = 3;
             assertTrue(Dungeon.isChallenged(Challenges.DARKNESS) && Dungeon.challenges != 0, "the Run is under challenges: " + Dungeon.challenges);
             assertEquals(Languages.GERMAN, Messages.lang(), "the Run is in another language");
             live = Generate.generate(CodexSeedFreeTest.ROOT);
+            assertEquals(3, Dungeon.depth, "the generation left the Run's depth as it was");
+            assertEquals(Challenges.NO_FOOD | Challenges.DARKNESS | Challenges.STRONGER_BOSSES, Dungeon.challenges,
+                    "the generation left the Run's challenges as they were");
         } finally {
             SPDSettings.challenges(0);
             SPDSettings.language(Languages.ENGLISH);
@@ -155,6 +194,50 @@ class CodexLeakTest {
             String committed = Files.readString(folder.resolve(file.getKey()), StandardCharsets.UTF_8);
             assertEquals(committed, file.getValue(), file.getKey() + " differs from the committed folder; run ./gradlew :codex:generate");
         }
+    }
+
+    @Test
+    @DisplayName("the depth-scaled mobs and the Stronger Bosses variants fall out of the constructors, and a random facet is named")
+    void the_variants_are_the_games() {
+        Path root = CodexSeedFreeTest.ROOT;
+        Map<String, Codex.MobEntry> byName = new java.util.TreeMap<>();
+        for (Codex.MobEntry entry : Mobs.entries(root)) {
+            byName.put(entry.className(), entry);
+        }
+        Codex.MobEntry rat = byName.get("actors.mobs.Rat");
+        assertEquals(8, rat.ht());
+        assertEquals(2, rat.defenseSkill());
+        assertEquals(1, rat.exp());
+        assertEquals(5, rat.maxLvl());
+        assertEquals(Codex.RollKind.NORMAL, rat.damage().kind());
+        assertEquals(1, rat.damage().min());
+        assertEquals(4, rat.damage().max());
+        assertEquals(Codex.RollKind.CONSTANT, rat.attack().kind());
+        assertEquals(8, rat.attack().min());
+        assertEquals(Codex.RollKind.NORMAL, rat.dr().kind());
+        assertEquals(0, rat.dr().min());
+        assertEquals(1, rat.dr().max());
+        assertTrue(rat.variants().isEmpty(), "a rat is a rat at every depth: " + rat.variants());
+        for (String scaled : new String[] {"actors.mobs.Piranha", "actors.mobs.Statue", "actors.mobs.ArmoredStatue", "actors.mobs.PhantomPiranha"}) {
+            Codex.MobEntry entry = byName.get(scaled);
+            long byDepth = entry.variants().stream().filter(v -> v.challenge().isEmpty()).count();
+            assertEquals(Mobs.MAX_DEPTH - 1, byDepth, scaled + " scales with every depth");
+        }
+        for (String boss : new String[] {"actors.mobs.Goo", "actors.mobs.Tengu", "actors.mobs.DM300", "actors.mobs.DwarfKing", "actors.mobs.Pylon"}) {
+            Codex.MobEntry entry = byName.get(boss);
+            List<String> challenges = entry.variants().stream().map(Codex.Variant::challenge).filter(c -> !c.isEmpty()).toList();
+            assertEquals(List.of("STRONGER_BOSSES"), challenges, boss + " differs under Stronger Bosses and no other flag");
+        }
+        Codex.MobEntry goo = byName.get("actors.mobs.Goo");
+        assertEquals(100, goo.ht());
+        assertEquals("120", goo.variants().get(0).fields().get(0).value(), "Goo under Stronger Bosses");
+        Codex.MobEntry vaultBoss = byName.get("actors.mobs.quest.vault.VaultBossElemental");
+        assertTrue(vaultBoss.propertiesRandom() && vaultBoss.properties().isEmpty(), "the element is a draw");
+        assertEquals(Codex.LootKind.RANDOM, byName.get("actors.mobs.Thief").loot().kind());
+        assertTrue(byName.get("actors.mobs.Thief").loot().random());
+        Codex.MobEntry decoy = byName.get("actors.hero.abilities.rogue.SmokeBomb.NinjaLog");
+        assertEquals(List.of("ht"), decoy.runDependent(), "the decoy's hit points are the hero's talent's");
+        assertEquals(0, decoy.ht());
     }
 
     @Test
@@ -181,6 +264,28 @@ class CodexLeakTest {
             assertTrue(wordAt(line, entry.challenge().name(), 0) >= 0 && line.contains("= " + entry.mask() + ";"),
                     entry.citation().reference() + " holds " + entry.challenge() + " = " + entry.mask() + ": " + line);
         }
+        for (Codex.MobEntry entry : Mobs.entries(root)) {
+            String simple = entry.className().substring(entry.className().lastIndexOf('.') + 1);
+            assertTrue(wordAt(lineOf(root, entry.citation()), simple, 0) >= 0, entry.citation().reference() + " declares " + simple);
+            for (Codex.Roll roll : List.of(entry.damage(), entry.attack(), entry.dr())) {
+                String line = lineOf(root, roll.citation());
+                assertTrue(line.contains("damageRoll") || line.contains("attackSkill") || line.contains("drRoll"),
+                        roll.citation().reference() + " declares a roll: " + line);
+            }
+            assertTrue(lineOf(root, entry.loot().citation()).contains("loot"), entry.loot().citation().reference() + " declares loot");
+        }
+        Codex.SpawnRotation rotation = Rotation.read(root);
+        for (Codex.RotationDepth depth : rotation.depths()) {
+            assertTrue(lineOf(root, depth.citation()).contains("case " + depth.depth() + ":") || depth.depth() == 1,
+                    depth.citation().reference() + " is the case of depth " + depth.depth());
+        }
+        for (Codex.RareMob rare : rotation.rareMobs()) {
+            assertTrue(lineOf(root, rare.citation()).contains(rare.className() + ".class"), rare.citation().reference());
+        }
+        for (Codex.RareAlt alt : rotation.alternates()) {
+            assertTrue(lineOf(root, alt.citation()).contains(alt.className() + ".class"), alt.citation().reference());
+        }
+        assertTrue(lineOf(root, rotation.champion().citation()).contains("rollForChampion"));
     }
 
     @Test

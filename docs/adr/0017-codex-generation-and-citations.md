@@ -109,3 +109,50 @@ match the declaration's shape (`^\s*NAME\s*\(`, `public static final int NAME\s*
   applies to its own: the line at the tag holds the declaration.
 - ADR-0003's edge `codex -> core` is amended by this decision: `codex -> core, api`, with the
   harness on its test classpath only.
+
+## Amendment: story 2.2 (2026-09-16)
+
+**A table parameterised by the Run's depth and challenges is read through one door.** The game's
+initialisers read `Dungeon.depth` and `Dungeon.challenges` to scale a mob or to strengthen a
+boss, so a mob "at depth d under challenge c" is read by constructing it under those values.
+`GameContext.under(depth, challenges, make)` is the one generator class that names `Dungeon`:
+it sets the two fields around a construction and restores what was there, and the gate holds
+by name that no other class reaches `Dungeon` and that this one reaches nothing else of the
+game's state. `CodexLeakTest`'s live Run, at depth 3 under challenges, holds that a generation
+leaves both fields as it found them. The depth-scaled mobs and the Stronger Bosses variants
+fall out of the constructors as variants, never as a transcription.
+
+**`Class` is admitted; a name is not a door.** The game's tables are keyed by class
+(`MobSpawner.RARE_ALTS`, the rotation literals), so the generator may hold and name a class; what
+stays banned is everything that reaches a class by name or looks inside one: `forName`, class
+loaders, resources, `newInstance`, the declared-member reflection. Mob classes are listed as
+constructors in `Mobs.ALL`, compile-checked, and `CodexCompletenessTest` enumerates the game's
+concrete mob classes on the test side and holds that the two agree; the fourteen mobs declared
+outside the mobs package (the heroes' summons, the wands' and artifacts' allies, a room's and a
+trap's guardians) were found that way.
+
+**A roll is read from its declaring class's source.** `damageRoll()`, `attackSkill(Char)` and
+`drRoll()` draw, so the expression is read from the nearest class in the hierarchy that declares
+the method, up to `Char`, and parsed only where it is one plain `Random.NormalIntRange`,
+`Random.IntRange` or a constant; anything else is `OTHER` with the line's text, for story 2.5 to
+measure. A nested class's methods are not its enclosing class's: the source reader skips nested
+type blocks when it searches a class's own lines. The loot is read from the declaration the same
+way, with flags for a class that overrides `createLoot()` or `lootChance()`.
+
+**A value a constructor draws or takes from the hero is named, not dumped.** The vault boss
+elemental picks its element at construction (`propertiesRandom`); the rogue's decoy multiplies its
+hit points by a hero talent when a hero exists (`runDependent: ["ht"]`, the field dumped as
+zero and not compared). Both sets are written in `Mobs` by class with the citation, and both were
+found by the tests, the first by the seed-free comparison and the second by the live Run.
+
+**The spawn rotation is read from the spawner's literals.** `getMobRotation` draws and
+`standardMobRotation` is private; a hook was refused. The per-depth literal is read case by
+case, the random families (`Shaman.random()`, `Elemental.random()`) from their thresholds as
+thousandths with the remainder absorbing the rounding, the rare additions and the alternate
+swap chance from their lines, the alternates from the public map sorted by name, and the
+champion rule from `ChampionEnemy.rollForChampion`: the six buffs, the four exclusions, the
+counter's expression. The game hands over hash-ordered collections (`properties()`,
+`RARE_ALTS`); the rule now forbids making one, not reading one, and what is read is sorted
+before it is written.
+
+Codex version 2.

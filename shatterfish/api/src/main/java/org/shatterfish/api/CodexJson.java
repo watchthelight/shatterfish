@@ -82,6 +82,160 @@ public final class CodexJson {
         return close(table);
     }
 
+    /** The mobs file's text (story 2.2); every class once. */
+    public static String mobs(List<Codex.MobEntry> entries) {
+        Objects.requireNonNull(entries, "entries");
+        Set<String> classes = new HashSet<>();
+        StringBuilder table = table();
+        for (int i = 0; i < entries.size(); i++) {
+            Codex.MobEntry entry = entries.get(i);
+            Codex.distinct(classes, entry.className(), "a mob class");
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("className").value(entry.className());
+            out.key("alignment").value(entry.alignment().name());
+            out.key("properties").beginArray();
+            for (String property : entry.properties()) {
+                out.value(property);
+            }
+            out.endArray();
+            out.key("propertiesRandom").value(entry.propertiesRandom());
+            out.key("runDependent").beginArray();
+            for (String field : entry.runDependent()) {
+                out.value(field);
+            }
+            out.endArray();
+            out.key("ht").value(entry.ht());
+            out.key("defenseSkill").value(entry.defenseSkill());
+            out.key("exp").value(entry.exp());
+            out.key("maxLvl").value(entry.maxLvl());
+            out.key("damage");
+            roll(out, entry.damage());
+            out.key("attack");
+            roll(out, entry.attack());
+            out.key("dr");
+            roll(out, entry.dr());
+            out.key("loot").beginObject();
+            out.key("kind").value(entry.loot().kind().name());
+            out.key("name").value(entry.loot().name());
+            out.key("chanceThousandths").value(entry.loot().chanceThousandths());
+            out.key("chanceExpression").value(entry.loot().chanceExpression());
+            out.key("random").value(entry.loot().random());
+            out.key("customLoot").value(entry.loot().customLoot());
+            out.key("customChance").value(entry.loot().customChance());
+            citation(out, entry.loot().citation());
+            out.endObject();
+            out.key("variants").beginArray();
+            for (Codex.Variant variant : entry.variants()) {
+                out.beginObject();
+                out.key("depth").value(variant.depth());
+                out.key("challenge").value(variant.challenge());
+                out.key("fields").beginObject();
+                for (Codex.Field field : variant.fields()) {
+                    out.key(field.name()).value(field.value());
+                }
+                out.endObject();
+                out.endObject();
+            }
+            out.endArray();
+            citation(out, entry.citation());
+            out.endObject();
+            row(table, out, i + 1 == entries.size());
+        }
+        return close(table);
+    }
+
+    /** The spawn rotation file's text (story 2.2): one object, its keys in order, its depths one per line. */
+    public static String spawnRotation(Codex.SpawnRotation rotation) {
+        Objects.requireNonNull(rotation, "rotation");
+        StringBuilder text = new StringBuilder("{\n");
+        JsonWriter alternates = new JsonWriter();
+        alternates.beginArray();
+        for (Codex.RareAlt alt : rotation.alternates()) {
+            alternates.beginObject();
+            alternates.key("className").value(alt.className());
+            alternates.key("alternate").value(alt.alternate());
+            citation(alternates, alt.citation());
+            alternates.endObject();
+        }
+        alternates.endArray();
+        text.append("\"alternateChanceExpression\":").append(JsonWriter.quote(rotation.alternateChanceExpression())).append(",\n");
+        text.append("\"alternateChancePerMille\":").append(rotation.alternateChancePerMille()).append(",\n");
+        text.append("\"alternates\":").append(alternates.toJson()).append(",\n");
+        JsonWriter champion = new JsonWriter();
+        champion.beginObject();
+        champion.key("challenge").value(rotation.champion().challenge().name());
+        champion.key("buffs").beginArray();
+        for (String buff : rotation.champion().buffs()) {
+            champion.value(buff);
+        }
+        champion.endArray();
+        champion.key("exclusions").beginArray();
+        for (Codex.Exclusion exclusion : rotation.champion().exclusions()) {
+            champion.beginObject();
+            champion.key("className").value(exclusion.className());
+            champion.key("maxDepth").value(exclusion.maxDepth());
+            champion.endObject();
+        }
+        champion.endArray();
+        champion.key("counterExpression").value(rotation.champion().counterExpression());
+        citation(champion, rotation.champion().citation());
+        champion.endObject();
+        text.append("\"champion\":").append(champion.toJson()).append(",\n");
+        text.append("\"depths\":[\n");
+        List<Codex.RotationDepth> depths = rotation.depths();
+        for (int i = 0; i < depths.size(); i++) {
+            Codex.RotationDepth depth = depths.get(i);
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("depth").value(depth.depth());
+            out.key("entries").beginArray();
+            for (Codex.RotationEntry entry : depth.entries()) {
+                out.beginObject();
+                out.key("className").value(entry.className());
+                out.key("count").value(entry.count());
+                out.key("family").beginArray();
+                for (Codex.Odds odds : entry.family()) {
+                    out.beginObject();
+                    out.key("className").value(odds.className());
+                    out.key("perMille").value(odds.perMille());
+                    out.endObject();
+                }
+                out.endArray();
+                out.endObject();
+            }
+            out.endArray();
+            citation(out, depth.citation());
+            out.endObject();
+            text.append("  ").append(out.toJson()).append(i + 1 == depths.size() ? "\n" : ",\n");
+        }
+        text.append("],\n");
+        JsonWriter rare = new JsonWriter();
+        rare.beginArray();
+        for (Codex.RareMob mob : rotation.rareMobs()) {
+            rare.beginObject();
+            rare.key("depth").value(mob.depth());
+            rare.key("className").value(mob.className());
+            rare.key("perMille").value(mob.perMille());
+            citation(rare, mob.citation());
+            rare.endObject();
+        }
+        rare.endArray();
+        text.append("\"rareMobs\":").append(rare.toJson()).append("\n");
+        text.append("}\n");
+        return text.toString();
+    }
+
+    private static void roll(JsonWriter out, Codex.Roll roll) {
+        out.beginObject();
+        out.key("kind").value(roll.kind().name());
+        out.key("min").value(roll.min());
+        out.key("max").value(roll.max());
+        out.key("expression").value(roll.expression());
+        citation(out, roll.citation());
+        out.endObject();
+    }
+
     private static void citation(JsonWriter out, Codex.Citation citation) {
         out.key("citation").beginObject();
         out.key("path").value(citation.path());

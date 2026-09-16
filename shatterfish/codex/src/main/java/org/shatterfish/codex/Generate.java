@@ -29,8 +29,10 @@ import java.util.stream.Stream;
  * no Profile. Every value is a type's or a table's, read from the class or its declaration and
  * cited to the line it was found on; nothing is drawn, nothing is read from a save, and the
  * generator's classes cannot reach the Run's statics, the game's toolkit, the RNG, the clock or
- * the harness, which {@code CodexLeakTest} holds by class and by package. Later stories add tables
- * to {@link #generate(Path)}; the manifest lists whatever files there are; none adds a task.
+ * the harness, which {@code CodexLeakTest} holds by class and by package; {@link GameContext} is
+ * the one named door to the depth and the challenges a table is parameterised by (story 2.2).
+ * Later stories add tables to {@link #generate(Path)}; the manifest lists whatever files there
+ * are; none adds a task.
  *
  * <p>The files are UTF-8 with line feeds only and lists in a stated order, so that a generation
  * on any machine is the committed bytes; {@code CodexSeedFreeTest} holds it. A file in the folder
@@ -106,6 +108,8 @@ public final class Generate {
         Map<String, String> tables = new LinkedHashMap<>();
         tables.put("challenges.json", CodexJson.challenges(challenges(root)));
         tables.put("hero-classes.json", CodexJson.heroClasses(heroClasses(root)));
+        tables.put("mobs.json", CodexJson.mobs(Mobs.entries(root)));
+        tables.put("spawn-rotation.json", CodexJson.spawnRotation(Rotation.read(root)));
         Map<String, String> files = new LinkedHashMap<>();
         files.put(MANIFEST, CodexJson.manifest(manifest(Upstream.tag(root), tables.keySet())));
         files.putAll(tables);
@@ -138,6 +142,21 @@ public final class Generate {
         return entries;
     }
 
+    /** The game's bit for an api challenge, constant by constant. */
+    static int mask(Challenge challenge) {
+        return switch (challenge) {
+            case NO_FOOD -> Challenges.NO_FOOD;
+            case NO_ARMOR -> Challenges.NO_ARMOR;
+            case NO_HEALING -> Challenges.NO_HEALING;
+            case NO_HERBALISM -> Challenges.NO_HERBALISM;
+            case SWARM_INTELLIGENCE -> Challenges.SWARM_INTELLIGENCE;
+            case DARKNESS -> Challenges.DARKNESS;
+            case NO_SCROLLS -> Challenges.NO_SCROLLS;
+            case CHAMPION_ENEMIES -> Challenges.CHAMPION_ENEMIES;
+            case STRONGER_BOSSES -> Challenges.STRONGER_BOSSES;
+        };
+    }
+
     /**
      * The nine challenge flags in the api's order, which is the declaration order of
      * {@code Challenges.java:30-38} (the player-facing order is {@code NAME_IDS}, {@code :43}),
@@ -152,17 +171,7 @@ public final class Generate {
         int union = 0;
         TreeSet<Integer> masks = new TreeSet<>();
         for (Challenge challenge : Challenge.values()) {
-            int mask = switch (challenge) {
-                case NO_FOOD -> Challenges.NO_FOOD;
-                case NO_ARMOR -> Challenges.NO_ARMOR;
-                case NO_HEALING -> Challenges.NO_HEALING;
-                case NO_HERBALISM -> Challenges.NO_HERBALISM;
-                case SWARM_INTELLIGENCE -> Challenges.SWARM_INTELLIGENCE;
-                case DARKNESS -> Challenges.DARKNESS;
-                case NO_SCROLLS -> Challenges.NO_SCROLLS;
-                case CHAMPION_ENEMIES -> Challenges.CHAMPION_ENEMIES;
-                case STRONGER_BOSSES -> Challenges.STRONGER_BOSSES;
-            };
+            int mask = mask(challenge);
             union |= mask;
             masks.add(mask);
             entries.add(new Codex.ChallengeEntry(challenge, mask,

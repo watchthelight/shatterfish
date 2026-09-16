@@ -67,6 +67,13 @@ with upstream's use of the same word, this page says so.
     declaration's line in the pinned source with an anchor (`Citations.at`), never typed from
     memory; an anchor that matches no line or two fails the task (ADR-0017).
 
+**Variant (Codex)**
+:   A mob's fields under a depth or a challenge where they differ from the base at depth 1 with
+    no challenge, read by constructing the mob under those values through the generator's one
+    door to `Dungeon.depth` and `Dungeon.challenges` (`GameContext`, story 2.2). A field a
+    constructor takes from the hero of a Run is `runDependent`, dumped as zero and not compared;
+    a facet a constructor draws is named random and not dumped.
+
 **Rig**
 :   Fishtest-style statistical testing: thousands of seeded runs in parallel, SPRT comparisons
     between two brains, JSONL run logs, replay. Nothing about the brain is believed until the rig
