@@ -709,3 +709,37 @@ comparison for the fog, and this suite is the other half, the whole Observation 
 set. Magic mapping's actors are held to the rule and not to equality, for
 the turn the read spends. The behavioural form of the differential test, a Brain given both worlds
 deciding alike, is E4's (FR-9).
+
+## Amendment: story 1.18 (2026-09-16)
+
+Oracle mode exists, gated and marked, as the decision above and ADR-0005 describe it. Paths
+abbreviate `core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/` as `…/`, at the tag.
+
+**The oracle is a wrapper beside the door, never a switch inside it.** `Observer` is final and
+unchanged. `OracleObserver` reads through it and returns the ordinary Observation with the
+header's oracle bit set, so an oracle Run's hashes differ from a fair Run's in the header's hash
+and in no other section's, and beside it an `OracleView`: the seed, every unknown potion, scroll
+and ring class of the Run under the appearance it draws (`Potion.getUnknown()` and its kin, a
+fresh instance's `name()` and `trueName()`), every mob with its cell, health and AI state whether
+the hero sees it or not, the hidden mimics, the secret doors and the hidden traps. Everything the
+view reads is a public field or method of the game, so it needs no reflection into upstream and no
+hook row. The view is a `harness` type and must never become an `api` one: a Brain reaches `api`
+only (`BrainBoundaryTest`), and the `Decider` takes an Observation alone.
+
+**The gate is who may construct one.** The harness's command line, `Launcher`, parses a seed and
+`--oracle`, the one flag that exists only there; its oracle branch is the only constructor of an
+`OracleObserver`, and the measured loop (`RunLoop`), the random agent and the executor have no path
+to the class at all. `OracleGateTest` holds it three ways: by ArchUnit over the harness's main
+classes, that no class but the oracle and the launcher depends on the sidecar or the observer and
+none but the launcher constructs the observer; by reflection over every type an Observation is
+made of, through its records and lists, that each lives in `api`, `java.lang` or `java.util`; and
+by the fair read's bytes and JSON carrying none of the sidecar's true names, the trap's name or
+the seed. It also holds the oracle read equal to the fair one but for the header, with the same
+Actions and the ones the marked read implies itself, and the flag parsed as the launcher's alone.
+
+**What is named and not built.** The Rig's refusal of any Run whose `oracle` is true (ADR-0012)
+is story 3.3's, and the Overlay's red border and "ORACLE" label are E5's; both are driven by the
+header bit this story sets. The Run log's `oracle` field (ADR-0011) is E3's. A battery of five
+breaks, the fair read marked, the oracle read unmarked, the measured loop reading through the
+oracle, a fair record holding the sidecar, and the flag ignored, was run once and each caught by
+the gate; the story file carries it.

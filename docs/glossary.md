@@ -75,7 +75,9 @@ with upstream's use of the same word, this page says so.
 **Oracle mode**
 :   A debugging and labelling mode in which the true hidden state (item identities, unseen
     enemies) is exposed. Off by default, enabled only by `--oracle`, visibly flagged in the
-    overlay, never allowed in ranked rig runs.
+    overlay, never allowed in ranked rig runs. In the harness it is `OracleObserver`, whose
+    Observation carries the header's oracle bit and whose `OracleView` sidecar is a harness type
+    no Brain can reach (E1 story 1.18).
 
 **Redetermination**
 :   Before each search rollout, re-sample everything hidden (unknown item identities, unseen

@@ -5,7 +5,7 @@ title: "Oracle mode, gated and marked"
 epic: 1
 issue: 31
 type: 'feature'
-status: 'in-progress'
+status: 'in-review'
 created: '2026-09-16'
 updated: '2026-09-16'
 review_loop_iteration: 0
@@ -82,15 +82,15 @@ as `…/`.
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `shatterfish/harness/src/main/java/org/shatterfish/harness/observer/OracleView.java` -- a record
+- [x] `shatterfish/harness/src/main/java/org/shatterfish/harness/observer/OracleView.java` -- a record
   of what the screen hides, built from public game state -- the sidecar ADR-0005 names.
-- [ ] `…/observer/OracleObserver.java` -- wraps the fair Observer; returns the Observation re-headed
+- [x] `…/observer/OracleObserver.java` -- wraps the fair Observer; returns the Observation re-headed
   with `oracle == true` and the view beside it -- the marked read.
-- [ ] `…/driver/HeadlessDriver.java` -- `main` parses `--oracle` through a small `Launch` record and
+- [x] `…/driver/HeadlessDriver.java` -- `main` parses `--oracle` through a small `Launch` record and
   takes the oracle branch only then -- the launcher flag.
-- [ ] `shatterfish/harness/src/test/java/org/shatterfish/harness/observer/OracleGateTest.java` -- the
+- [x] `shatterfish/harness/src/test/java/org/shatterfish/harness/observer/OracleGateTest.java` -- the
   matrix's gate and reads -- FR-11's test.
-- [ ] `docs/adr/0006-observer-visibility-rules.md` -- amendment for story 1.18; `docs/fairness.md` --
+- [x] `docs/adr/0006-observer-visibility-rules.md` -- amendment for story 1.18; `docs/fairness.md` --
   the oracle row of its table.
 
 **Acceptance Criteria:**
@@ -127,3 +127,86 @@ reads private-looking things through public fields only, or `HarnessReflectionTe
 **Commands:**
 - `./gradlew :harness:test -Pshatterfish.mobile=off --tests "org.shatterfish.harness.observer.OracleGateTest"` -- expected: green.
 - `./gradlew build -Pshatterfish.mobile=off` -- expected: green; `mkdocs build --strict` green.
+
+## Dev notes
+
+Implemented on `story/1-18-oracle-mode-gated-and-marked` from `13d4ee25a`. Three main classes in
+`harness` (`OracleView`, `OracleObserver`, `Launcher`) and one suite; the fair Observer, the
+driver, the loop and `api` untouched; no hook spent. The launcher is its own class at the harness
+root rather than a branch of `HeadlessDriver.main`, so the driver package gains no dependency on
+the observer package. The fairness review follows below.
+
+## Acceptance criteria and how each was met
+
+- **The oracle read equals the fair read but for the header's oracle bit, and the hashes
+  differ.** `OracleGateTest.the_oracle_read_is_marked`: every other section's hash equal, the
+  Actions equal and self-implied.
+- **The sidecar carries the true identities and unseen positions and the fair bytes carry none.**
+  `OracleGateTest.the_sidecar_holds_what_the_screen_hides`, with a secret door and a hidden trap
+  planted in view.
+- **No fair path reaches the sidecar.** `OracleGateTest.no_fair_path_reaches_the_sidecar`:
+  ArchUnit over the harness's main classes and a reflective walk of every type an Observation is
+  made of; a Decider takes an Observation alone.
+- **The flag is the launcher's.** `OracleGateTest.the_flag_is_the_launchers`.
+- **The Rig's refusal is story 3.3's.** Named in ADR-0006's amendment, the fairness page and here.
+
+## What was built
+
+- `OracleView` — the sidecar record: seed, identities, every mob, hidden mimics, secret doors,
+  hidden traps; a harness type by design.
+- `OracleObserver` — the fair read re-headed with the oracle bit, and the view beside it.
+- `Launcher` — the harness command line: a seed and `--oracle`, parsed by `Launch.parse`; the
+  only constructor of the oracle.
+- `OracleGateTest`; ADR-0006's story 1.18 amendment; the fairness page's oracle section and the
+  glossary entry.
+
+## Decisions taken inside the story
+
+- **A wrapper, not a switch.** A flag inside the Observer is a door in the door, and a global any
+  code can flip is worse; a wrapper beside a final Observer leaves the fair path untouched and
+  turns the gate into a question ArchUnit can answer.
+- **The launcher is its own class.** `HeadlessDriver.main` stays a boot smoke; the driver package
+  must not depend on the observer package, which depends on it.
+- **The Actions are carried, not recomputed.** The marked read keeps the fair read's Actions and
+  the test holds them equal to what the marked read implies, so the oracle bit changes no screen.
+
+## Evidence
+
+- `:harness:test` for `OracleGateTest`, `HarnessReflectionTest` and `HarnessPackageAnchorTest`:
+  green, 4, 5 and 1 tests.
+- The battery, `mutations118.py`, on the committed tree, restored clean after each break:
+
+```
+=== M1 the fair read is marked: Observer.header() sets the oracle bit
+  -> caught by: OracleGateTest (the_oracle_read_is_marked)
+=== M2 the oracle read is not marked: OracleObserver passes the fair header through
+  -> caught by: OracleGateTest (the_oracle_read_is_marked)
+=== M3 the measured loop reads through the oracle: RunLoop constructs an OracleObserver
+  -> caught by: OracleGateTest (no_fair_path_reaches_the_sidecar, the ArchUnit rule)
+=== M4 a fair type holds the sidecar: RunOutcome gains a static OracleView field
+  -> caught by: OracleGateTest (no_fair_path_reaches_the_sidecar, the ArchUnit rule)
+=== M5 the flag is ignored: Launch.parse never sets oracle
+  -> caught by: OracleGateTest (the_flag_is_the_launchers)
+tree restored and clean
+```
+
+  M4's first form added a record component, which broke every constructor call and so tested
+  nothing; the battery scored it "did not compile" and the break was rewritten as a static field.
+
+## Deviations
+
+- The spec's launcher task named `HeadlessDriver.main`; the launcher is `org.shatterfish.harness.Launcher`
+  instead, for the package reason above. `HeadlessDriver.main` is unchanged.
+
+## Known limitations, handed forward
+
+- **The sidecar is not exhaustive.** It carries what FR-11 names, identities and unseen positions,
+  and the secrets the map hides; a heap's contents out of view, a mob's buffs and the RNG state
+  are not in it. A later consumer (E5's overlay, E9's labels) widens it under the same gate.
+- **The Run log's `oracle` field** (ADR-0011) and the Rig's refusal (story 3.3) are E3's.
+
+## Follow-ups for later stories
+
+- Story 1.19 (#32): thread confinement.
+- Story 3.3: the Rig refuses any Run whose header says oracle.
+- E5: the overlay's red border and label, driven by the header bit.
