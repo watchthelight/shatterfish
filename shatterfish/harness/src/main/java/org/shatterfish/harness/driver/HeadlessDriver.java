@@ -160,10 +160,14 @@ public final class HeadlessDriver implements AutoCloseable {
     private Window lastSeenWindow;
     private int windowFramesShown;
 
-    private HeadlessDriver(HeadlessBoot boot, HeadlessScene scene, RngControl rng) {
+    /** The thread this Run claimed the UI role for; close() releases it, whichever thread closes. */
+    private final Thread uiThread;
+
+    private HeadlessDriver(HeadlessBoot boot, HeadlessScene scene, RngControl rng, Thread uiThread) {
         this.boot = boot;
         this.scene = scene;
         this.rng = rng;
+        this.uiThread = uiThread;
         Hooks.inputWait = this::noticed;
         live = this;
     }
@@ -224,6 +228,19 @@ public final class HeadlessDriver implements AutoCloseable {
      * one from {@link Salt#draw()} and records what it drew.
      */
     public static HeadlessDriver start(long seed, HeroClass heroClass, long salt) {
+        // The thread that starts the Run is the UI-role thread (ADR-0013): claimed before anything
+        // is built, so a refusal leaves nothing behind, and released again if the start fails.
+        Thread uiThread = Thread.currentThread();
+        UiRole.claim(uiThread);
+        try {
+            return startClaimed(seed, heroClass, salt, uiThread);
+        } catch (RuntimeException | Error failed) {
+            UiRole.release(uiThread);
+            throw failed;
+        }
+    }
+
+    private static HeadlessDriver startClaimed(long seed, HeroClass heroClass, long salt, Thread uiThread) {
         HeadlessBoot boot = HeadlessBoot.ensure();
         // A scene left by a Run that was never closed, whose actor thread ended on its own, goes
         // now and in its own profile: destroying a scene writes the badges and the journal
@@ -250,7 +267,7 @@ public final class HeadlessDriver implements AutoCloseable {
         GameLogListener.install();
         HeadlessScene scene = new HeadlessScene();
         boot.game().switchTo(scene);
-        return new HeadlessDriver(boot, scene, rng);
+        return new HeadlessDriver(boot, scene, rng, uiThread);
     }
 
     /**
@@ -357,6 +374,7 @@ public final class HeadlessDriver implements AutoCloseable {
      * @throws IllegalStateException if no scene change was requested, or the Run is closed
      */
     public void serveSceneSwitch(Runnable levelWork) {
+        UiRole.require("HeadlessDriver.serveSceneSwitch()");
         if (closed) {
             throw new IllegalStateException("the Run is closed");
         }
@@ -406,6 +424,7 @@ public final class HeadlessDriver implements AutoCloseable {
      * @throws Stalled if none of the three happened within the budget
      */
     public Halt stepToInputWait(int frameBudget) {
+        UiRole.require("HeadlessDriver.stepToInputWait()");
         requireOpen();
         if (frameBudget < 1) {
             throw new IllegalArgumentException("the frame budget must be at least one frame: " + frameBudget);
@@ -541,6 +560,7 @@ public final class HeadlessDriver implements AutoCloseable {
 
     /** One fenced frame; see {@link SceneStepper#step()}. */
     public void step() {
+        UiRole.require("HeadlessDriver.step()");
         requireOpen();
         scene.stepper().step();
         frames++;
@@ -595,15 +615,22 @@ public final class HeadlessDriver implements AutoCloseable {
         // The stack is left as the Run found it. This is not wrapped in a catch: popping does not
         // throw at this tag (it reports and returns, SPD-classes/.../utils/Random.java:68-73), so
         // the only way here is a failure worth seeing rather than swallowing.
-        rng.release();
         try {
-            scene.stepper().endActorThread();
+            rng.release();
         } finally {
             try {
-                boot.game().destroy();
+                scene.stepper().endActorThread();
             } finally {
-                Hooks.clear();
-                GameLogListener.uninstall();
+                try {
+                    boot.game().destroy();
+                } finally {
+                    try {
+                        Hooks.clear();
+                        GameLogListener.uninstall();
+                    } finally {
+                        UiRole.release(uiThread);
+                    }
+                }
             }
         }
     }

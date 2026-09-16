@@ -22,6 +22,7 @@ import org.shatterfish.api.ItemRef;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.ValidActions;
 import org.shatterfish.harness.driver.HeadlessDriver;
+import org.shatterfish.harness.driver.UiRole;
 import org.shatterfish.harness.driver.Windows;
 
 import java.util.ArrayList;
@@ -69,6 +70,9 @@ public final class ActionExecutor {
      * {@link Reason#NO_SELECTOR} is decided before the game is called, so the state is untouched.
      */
     public Outcome execute(Observation observation, Action action) {
+        // The thread first, before a single game field is read: a wrong thread is a programming
+        // error and throws, where a wrong Action is a Brain's choice and is refused (ADR-0013).
+        UiRole.require("ActionExecutor.execute()");
         Hero hero = Dungeon.hero;
         Window window = Windows.front();
         if (hero == null || !HeadlessDriver.waitState(hero, window)) {

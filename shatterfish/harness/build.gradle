@@ -3,6 +3,10 @@
 apply from: "$rootDir/shatterfish/java-module.gradle"
 
 dependencies {
+    // The monitor rule of story 1.19 reads bytecode: ArchUnit shades ASM's core, not its analysis.
+    testImplementation 'org.ow2.asm:asm:9.9'
+    testImplementation 'org.ow2.asm:asm-tree:9.9'
+    testImplementation 'org.ow2.asm:asm-analysis:9.9'
     api project(':api')
     implementation project(':core')
     implementation "com.badlogicgames.gdx:gdx-backend-headless:$gdxVersion"

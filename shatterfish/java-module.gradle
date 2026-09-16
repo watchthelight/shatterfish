@@ -24,6 +24,12 @@ dependencies {
     testImplementation "com.tngtech.archunit:archunit-junit5:${archunitVersion}"
 }
 
+// Local variable tables in every class: the monitor rule of story 1.19 types a monitor's operand
+// through them, and Gradle's default of -g is a default, not a promise.
+tasks.withType(JavaCompile).configureEach {
+    options.debugOptions.debugLevel = 'source,lines,vars'
+}
+
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
     testLogging {
