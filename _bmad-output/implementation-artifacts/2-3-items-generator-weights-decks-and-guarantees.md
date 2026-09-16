@@ -90,7 +90,7 @@ or flavour text (2.7); no combat numbers (2.5); no Brain reading (E4).
 - [x] `shatterfish/codex/.../Items.java` -- the constructors of every constructible catalogue class, the source-read classes by literal, the exclusions with reasons; `entry(root, ...)` constructing under `GameContext` with a bare hero, or reading `value()`'s return and the `actions.add(AC_...)` lines up the hierarchy; the strength from `STRReq()` at level 0 and the static formula's line -- the items table.
 - [x] `shatterfish/codex/.../Decks.java` -- the categories from the enum's public fields with citations of the `X.classes =` and `X.defaultProbs =` lines; the label pools from the `put` lines and the bundle; the exotic pairs from the public maps and the chance from source -- the decks table.
 - [x] `shatterfish/codex/.../Generate.java` -- `items.json` and `decks.json` in the tables map -- the task extended.
-- [x] `shatterfish/codex/src/test/.../CodexCompletenessTest.java` -- every concrete `Item` subclass in the table once or excluded with a reason, none extra; every deck class is in the table; every source-read class is one that fails to initialise without the toolkit (asserted by trying, on the test side) -- the enumeration.
+- [x] `shatterfish/codex/src/test/.../CodexCompletenessTest.java` -- every concrete `Item` subclass in the table once or excluded with a reason, none extra; every deck class is in the table; every source-read class is one that fails to initialise without the toolkit (held from bytecode: exactly those touch the icon film at construction) -- the enumeration.
 - [x] `shatterfish/codex/src/test/.../CodexLeakTest.java` -- the live Run's deck state (`Generator.Category.POTION.probs`, `seed`, `dropped`) and identification state (`Potion.getKnown()`) unchanged by a generation; the matrix's items asserted -- NFR-1.
 - [x] `codex/v4.0.0/` regenerated; `docs/adr/0017-...md` amendment; `docs/codex/index.md`; `docs/glossary.md` -- NFR-6.
 
@@ -110,7 +110,9 @@ or flavour text (2.7); no combat numbers (2.5); no Brain reading (E4).
   nine selector placeholders and the regrowth wand's two never-dropped seeds are excluded (273
   construct, 26 of them are not items a player meets). `Strength` carries `present` and
   `tier` beside the spec's three fields; `Weighted` carries the total; `CategoryEntry` a second
-  citation for the class list; `LabelPool` a citation.
+  citation for the class list; `LabelPool` a citation. After the review: `CategoryEntry` carries
+  `decks` and the weights' citations, `Label` the exotic name, `ItemEntry` `customName` and
+  `quantity`; `GameContext` holds a third field, the level.
 
 ## Design Notes
 
@@ -199,6 +201,33 @@ No hook, no upstream file, no change to the fair path or to the Observation sche
   method body's own level, so the table offers what a fresh instance offers.
 - **The spirit bow has no tier field.** It is a `Weapon`, not a `MeleeWeapon`; its own formula
   is `return STRReq(1, lvl);`, so the entry says tier 0 with that text, and the doc says why.
+- **Four categories have no defaults, and the first reader read their Run copy.** GOLD, ARMOR,
+  WEAPON and MISSILE assign `probs` alone, and the game draws them another way (an armor by
+  the floor's tier table); the reader fell back to `probs` against the spec, and the leak test
+  bumped only the potion deck. A category now says how many decks it draws by, a category
+  with none lists its classes with zero weights, and the live Run moves every category's copy
+  (all four reviews).
+- **An item's actions can ask what level the hero stands on.** A pickaxe on the mining level
+  is neither dropped nor thrown, and the dried rose asks the ghost's quest; the context sets
+  the depth and the challenges but left the level, so a generation on that level would have
+  differed from a cold one with every test green. The context holds no level now, the leak
+  test's Run stands on a mining level, and the item-side reads are enumerated from bytecode
+  to a fixpoint over a class's own methods and named: the pickaxe, the rose, the pasty's
+  clock through `Holiday`, the spellbook's draw of its scrolls (the fairness and edge-case
+  reviews).
+- **The actions reader was brace counting.** A one-line `if (x) actions.add(Y);`, a braceless
+  `if` over two lines, an Allman brace, a brace in a literal, `actions.clear()`, an add with a
+  space, a reversed ternary: the pinned source writes several of these outside the source-read
+  chain. The reader now offers nothing on or under a control line, counts braces outside
+  literals, and refuses by line what it does not know; `ItemsReaderTest` holds each shape (the
+  adversarial, edge-case and verification-gap reviews).
+- **An unidentified exotic shows the exotic family's label.** "exotic crimson potion" is the
+  bundle line under the exotic family's key; the pools carry it beside the regular name (the
+  edge-case review).
+- **A value is a stack's.** A fresh stack of throwing stones is three, and its value is the
+  stack's; the entry carries the quantity now (the adversarial and edge-case reviews).
+- **Twelve anonymous item classes exist**, the stand-ins a slot, a window, a recipe or a chooser
+  draws; the completeness test pins them by name (the fairness review).
 
 ## Decisions taken inside the story
 
@@ -214,12 +243,18 @@ No hook, no upstream file, no change to the fair path or to the Observation sche
 - **A value that is not one literal is -1 with the text**, the superclass's appended where it
   defers; parsing the `isKnown` ternary into two numbers is an idea.
 - **ASCII lowering** rather than a locale, since the gate bans `Locale` by class.
+- **The brews and elixirs are constructed.** The spec asked first before constructing a potion;
+  these are `Potion` subclasses that set no icon from the film and answer `isKnown()` true
+  without a handler, so they touch no identification state, and the completeness test holds
+  the split from bytecode.
+- **The level is a third field of the context**, held to none rather than left, since a cold
+  generation has none; the allowlist names the field and the level's type and nothing of it.
 
 ## Evidence
 
-- `:api:test` green, 343 tests, with `CodexJsonTest` (9); `:codex:test` green, 28 tests
-  (`CodexSeedFreeTest` 3, `CodexLeakTest` 8, `CodexCompletenessTest` 6, `SourcesTest` 5,
-  `RotationTest` 3, `NamesTest` 3).
+- `:api:test` green, 343 tests, with `CodexJsonTest` (9); `:codex:test` green, 36 tests
+  (`CodexSeedFreeTest` 3, `CodexLeakTest` 8, `CodexCompletenessTest` 9, `SourcesTest` 5,
+  `RotationTest` 3, `NamesTest` 3, `ItemsReaderTest` 5).
 - `./gradlew :codex:generate` twice: `git status --short codex/` empty after the commit.
 - Mutation battery, thirteen mutations of the generator's classes, each run against the codex
   tests:
@@ -237,6 +272,30 @@ No hook, no upstream file, no change to the fair path or to the Observation sche
     - M12 a source-read item carries another reason: caught by CodexLeakTest, CodexSeedFreeTest.
     - M13 an item that constructs is excluded as one that cannot: caught by CodexCompletenessTest, CodexLeakTest, CodexSeedFreeTest.
 
+- The battery rerun after the review patch, nineteen mutations, six of them of the review's own
+  fixes (the level left in place, a braceless if governing nothing, a brace in a literal
+  counted, a read dropped from the named list, the exotic name not read, an add under a
+  one-line if offered), and the Run's-deck mutation now bumping a category with no defaults:
+    - M1 an item is dropped from the constructed list: caught by CodexCompletenessTest, CodexLeakTest, CodexSeedFreeTest.
+    - M2 an action added under an if is offered: caught by ItemsReaderTest.
+    - M3 a ternary takes its equipped branch: caught by CodexLeakTest, CodexSeedFreeTest, ItemsReaderTest.
+    - M4 a name does not fall back to the superclass: caught by CodexCompletenessTest, CodexLeakTest, CodexSeedFreeTest, NamesTest.
+    - M5 the second deck is dropped: caught by CodexCompletenessTest, CodexLeakTest, CodexSeedFreeTest.
+    - M6 the Run's deck is read for the default: caught by CodexCompletenessTest, CodexLeakTest, CodexSeedFreeTest.
+    - M7 the strength is read at level 1: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M8 a value that defers to super.value() loses the superclass's text: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M9 a label pool skips its first put: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M10 the exotic chance without the trinket is read at level 0: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M11 the lowering is lost: caught by CodexCompletenessTest, CodexLeakTest, CodexSeedFreeTest, NamesTest.
+    - M12 a source-read item carries another reason: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M13 an item that constructs is excluded as one that cannot: caught by CodexCompletenessTest, CodexLeakTest, CodexSeedFreeTest.
+    - M14 the context leaves the Run's level in place: caught by CodexLeakTest.
+    - M15 a braceless if governs nothing: caught by ItemsReaderTest.
+    - M16 a brace in a literal is counted: caught by ItemsReaderTest.
+    - M17 a read is dropped from the named list: caught by CodexCompletenessTest.
+    - M18 the exotic name is not read: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M19 an add under a one-line if is offered: caught by ItemsReaderTest.
+
 ## Deviations
 
 - The matrix's three wrong examples, corrected in the tests (the Spec Change Log).
@@ -249,10 +308,82 @@ No hook, no upstream file, no change to the fair path or to the Observation sche
   artifact's equipped actions are not offered; the reader counts unconditional adds only.
 - **The tier of a weapon without a tier field is 0**, with the formula naming the tier.
 - **The category is the deck that lists the class**; the tiered weapon and missile categories
-  draw a tier, so a sword's category is `WEP_T3`, not `WEAPON`.
+  draw a tier, so a sword's category is `WEP_T3`, not `WEAPON`; an exotic has none.
+- **The armor category's draw** is the floor's tier table (`floorSetTierProbs`), which is not in
+  the Codex yet; its classes are listed with zero weights and the ADR names the table.
+- **A construction that fails** surfaces with the game's stack, not the class's name; the
+  supplier is a lambda.
 
 ## Follow-ups for later stories
 
 - 2.4: the traps and the level feelings, or whatever the epic orders next.
 - 2.5: the combat tables; the strength formulas here feed the encumbrance rule.
 - 2.9: the drift check in CI and the generated index page listing these tables.
+
+## Review
+
+Four reviewers on `git diff main...HEAD` from the committed state: the fairness reviewer
+(seven findings, none blocking, one proved by a generation on the mining level), the
+adversarial lens (nineteen), the edge-case hunter (ten) and the verification-gap lens (nine).
+One patch commit, `9b5c3f1ce`.
+
+**Taken.**
+
+- The decks from the public defaults only: a category says how many decks it draws by, a
+  category with none lists its classes with zero weights, the game's total deck is held
+  against the sum, each deck's weights are cited to their assignment, and the live Run moves
+  every category's copy, seed, drop count and flag and holds them (fairness 1, 4, 5;
+  adversarial 1, 9, 10, 13; edge 2, 3, 4, 10; gap 1, 4, 5).
+- The level held to none by the context, the gate widened by exactly that field and the
+  level's type, the item-side reads enumerated from bytecode to a fixpoint and named with
+  reasons (the pickaxe, the rose, the pasty's clock, the spellbook's draw), the live Run on a
+  mining level, the pickaxe's and the rose's cold actions pinned (fairness 2, 3; edge 1).
+- The actions reader: braces outside literals, the opening brace wherever it is, nothing on or
+  under a control line with or without braces, a clear, an add with a space, a ternary on
+  being equipped on either side, `super.actions` seen only at the body's level, every other
+  shape refused by line; `ItemsReaderTest` on synthetic text (adversarial 2, 3, 4, 5, 15;
+  edge 8, 9; gap 3).
+- The exotic names under each label; the exotic's value deferral followed to the regular; the
+  quantity and the value at it; `customName` (adversarial 6, 11; edge 5, 6, 7).
+- The exclusions' reasons held one by one, the hand-typed line numbers dropped, the anonymous
+  stand-ins pinned (fairness 6, 7; adversarial 14; gap 2).
+- The scrolls' and rings' identification, the holiday cached, the seed and the flag in the live
+  Run's snapshot (fairness 4; adversarial 13; edge 10).
+- The record invariants: a family one pool, an action once, a pair two classes, no weight
+  without a deck (adversarial 17).
+- The documents: the ADR's amendment rewritten for all of it, the spec's code map corrected
+  (the armor formula, the line ranges), the task's wording, the Names javadoc's citation
+  (adversarial 19; gap 6, 9).
+
+**Not taken, with reasons.**
+
+- The bundle read as libGDX reads it, every file in order with unescaping (adversarial 7): no
+  `.name` line at this tag has an escape, a continuation or a key outside its segment's file,
+  and a divergence fails loudly; a limitation handed forward.
+- The bare hero pinned to a class (adversarial 12): the game constructs a rogue; the ADR says
+  so and the actions the entry carries are the unequipped, talentless ones.
+- Constructing a potion on the test side to cross-check the reader (gap 3): the reader is
+  held on synthetic text for every shape the pinned source writes; the source-read families'
+  actions are pinned in the leak test.
+- A construction that fails named by class (gap 8): the supplier is a lambda; the failure
+  surfaces with the stack, which names the class.
+- Parsing the `isKnown` ternary into two values (adversarial 11; edge 6): an idea, recorded.
+
+## Suggested review order
+
+1. [`Items.java`](https://github.com/watchthelight/shatterfish/blob/9b5c3f1ce/shatterfish/codex/src/main/java/org/shatterfish/codex/Items.java),
+   the three lists, the named reads, `readActions`, `valueText`, `strength`.
+2. [`ItemsReaderTest.java`](https://github.com/watchthelight/shatterfish/blob/9b5c3f1ce/shatterfish/codex/src/test/java/org/shatterfish/codex/ItemsReaderTest.java),
+   what the reader offers and refuses, shape by shape.
+3. [`Decks.java`](https://github.com/watchthelight/shatterfish/blob/9b5c3f1ce/shatterfish/codex/src/main/java/org/shatterfish/codex/Decks.java),
+   the defaults, the deck count, the pools with the exotic names, the swap.
+4. [`GameContext.java`](https://github.com/watchthelight/shatterfish/blob/9b5c3f1ce/shatterfish/codex/src/main/java/org/shatterfish/codex/GameContext.java)
+   and the gate in [`CodexLeakTest.java`](https://github.com/watchthelight/shatterfish/blob/9b5c3f1ce/shatterfish/codex/src/test/java/org/shatterfish/codex/CodexLeakTest.java),
+   the third field and the live Run.
+5. [`CodexCompletenessTest.java`](https://github.com/watchthelight/shatterfish/blob/9b5c3f1ce/shatterfish/codex/src/test/java/org/shatterfish/codex/CodexCompletenessTest.java),
+   the enumerations: the classes, the split, the reasons, the reads.
+6. [`Names.java`](https://github.com/watchthelight/shatterfish/blob/9b5c3f1ce/shatterfish/codex/src/main/java/org/shatterfish/codex/Names.java)
+   and [`Codex.java`](https://github.com/watchthelight/shatterfish/blob/9b5c3f1ce/shatterfish/api/src/main/java/org/shatterfish/api/Codex.java),
+   the key rule and the records' invariants.
+7. [`0017-codex-generation-and-citations.md`](https://github.com/watchthelight/shatterfish/blob/9b5c3f1ce/docs/adr/0017-codex-generation-and-citations.md),
+   the amendment.
