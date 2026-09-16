@@ -194,7 +194,18 @@ harness's main runtime classpath is the reproducing command. The recorded invoca
   `SceneDrawParityTest`, `HeadlessSceneTest`, `FenceInvariantTest`, `ProfileTest` green with the
   display reported, and no `[GAME]` error in any of their outputs.
 - The recorded invocation: `./gradlew :harness:benchmark -Pshatterfish.mobile=off` at
-  `8d28fab5b`, whose report is the page.
+  `8d28fab5b`, whose report is the page. The same command before the font fix, at `20ee7cc30`,
+  played the same 13337 waits and the same 23 samples with the same payoffs, at 371.2 waits per
+  second: text rendering is not in the game, and the traces cost an eighth of every wait.
+- Mutation battery, five mutations of the launcher and the graphics, each run against
+  `BenchmarkSmokeTest` and `HeadlessTextTest`:
+    - M1 the report drops its tactics section: caught by `BenchmarkSmokeTest`.
+    - M2 a skipped sample is not counted: **survived**. The tiny configuration's two samples land
+      on windowless waits, so nothing is skipped and the accounting is not exercised; the
+      recorded run is where it shows, 24 asked, 23 taken, 1 skipped under a window.
+    - M3 a count of zero is accepted: caught by `BenchmarkSmokeTest`.
+    - M4 the cost Run never steps: caught by `BenchmarkSmokeTest`.
+    - M5 the back buffer is zero wide again: caught by `HeadlessTextTest`, both tests.
 
 ## Deviations
 
