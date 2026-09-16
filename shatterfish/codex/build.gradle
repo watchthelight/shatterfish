@@ -12,16 +12,6 @@ dependencies {
     testImplementation project(':harness')
 }
 
-// The Codex folder is named by the upstream tag, v plus the version the root build script
-// declares; stamped into a resource as the harness does for its boot.
-processResources {
-    def versionName = rootProject.ext.appVersionName
-    inputs.property('upstreamVersionName', versionName)
-    filesMatching('org/shatterfish/codex/upstream.properties') {
-        expand(versionName: versionName)
-    }
-}
-
 // The tests that boot the game need its assets on the classpath, as the harness's do.
 def gameAssets = files(
         new File(project(':core').projectDir, 'src/main/assets'),
@@ -32,8 +22,19 @@ sourceSets {
     }
 }
 
+// The tests compare the committed Codex with a generation from the pinned source and read the
+// ledger's pin; Gradle cannot know that from the task graph, and without these inputs a
+// hand-edited JSON file, a moved declaration or a re-pinned tag leaves :codex:test UP-TO-DATE.
+tasks.named('test') {
+    inputs.dir(rootProject.file('codex')).withPropertyName('committedCodex').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(rootProject.file('docs/UPSTREAM.md')).withPropertyName('ledger').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(rootProject.file('build.gradle')).withPropertyName('rootBuildScript').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(rootProject.file('core/src/main/java')).withPropertyName('pinnedSource').withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
 // `./gradlew :codex:generate` writes codex/<tag>/ at the repository root: one task, no Run, no
-// seed. CI's drift check (story 2.9) reruns it and fails on a difference.
+// seed, on the main classpath, where no harness and no libGDX application exist to boot. CI's
+// drift check (story 2.9) reruns it and fails on a difference.
 tasks.register('generate', JavaExec) {
     group = 'shatterfish'
     description = 'Writes codex/<tag>/ from the pinned upstream classes.'

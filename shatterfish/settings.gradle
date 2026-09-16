@@ -16,7 +16,7 @@ if (mobile == 'on') {
 // Allowed dependency edges (docs/adr/0003-module-layout.md):
 //   api      -> (nothing)
 //   harness  -> core, api
-//   codex    -> core
+//   codex    -> core, api (the harness on its test classpath only; ADR-0017)
 //   brain    -> api
 //   rig      -> harness, brain
 //   overlay  -> core, harness, brain

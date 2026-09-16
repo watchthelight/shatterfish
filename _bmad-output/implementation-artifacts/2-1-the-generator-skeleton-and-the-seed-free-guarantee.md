@@ -165,6 +165,14 @@ upstream file, no change to the fair path or to the Observation schema.
 - **A cold start is the task's, by construction.** JUnit runs a module's tests in one JVM, so
   "before any boot" cannot be promised inside the leak test; the committed folder, written by
   the task in a process that never booted, is the cold generation the live one is compared to.
+- **The first gate held six fields and no method.** The fairness reviewer put a Run value through
+  `Dungeon.isChallenged` and a Profile value through `SPDSettings.language` and the tests stayed
+  green, since the live Run had no challenges and the two Profiles held the same settings. The
+  gate now bans the state classes, the toolkit and libGDX whole, the api's denied list, reflection
+  and file I/O outside three classes; the live Run plays under challenges in German, and the
+  second Profile differs in what it holds.
+- **The tag was stamped, and the generator's only `Class` use was reading the stamp.** The tag is
+  now read from the root build script the way a citation is read, and `Class` is denied.
 - **Nothing on floor one is a secret to the skeleton.** The two tables carry no Run-mutable
   static; the deck probabilities of story 2.3 are the first that a live Run mutates, and
   ADR-0017's pre-mortem tells that story to arrange a Run that has drawn.
@@ -179,7 +187,13 @@ upstream file, no change to the fair path or to the Observation schema.
   that wires the Run-log header (E3) or the drift check (2.9) decides it, per the spec's
   ask-first.
 - **The committed-copy comparison lives in the seed-free test now**, ahead of 2.9's CI wiring:
-  drift fails the build locally from day one.
+  drift fails the build locally from day one, with the committed folder, the ledger and the
+  pinned source declared as the test's inputs so a warm build reruns it.
+- **The cold half is a static ban, not a forked process.** A generation from the task's own JVM
+  is not compared by a test; the generator's classes cannot depend on the toolkit, so nothing in
+  that process can boot, and 2.9's CI drift check runs the task itself.
+- **A previous pin's folder is allowed beside the current one**, since the upgrade procedure
+  keeps it until the upgrade's PR merges; the seed-free test checks the current tag's folder only.
 
 ## Evidence
 

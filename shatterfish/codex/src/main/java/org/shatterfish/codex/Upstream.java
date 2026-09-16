@@ -1,36 +1,44 @@
 package org.shatterfish.codex;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
-import java.util.Properties;
+import org.shatterfish.api.Codex;
+
+import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * The upstream tag the Codex folder is named by: {@code v} and the version the root build script
- * declares ({@code build.gradle: appVersionName}), stamped into a resource by
- * {@code :codex:processResources} as the harness does for its own boot. {@code docs/UPSTREAM.md}
+ * declares ({@code build.gradle: appVersionName}), read from that script at generation the way a
+ * citation is read, so that nothing is stamped and nothing remembered. {@code docs/UPSTREAM.md}
  * pins the tag, and {@code CodexSeedFreeTest} holds that the two agree.
  */
 final class Upstream {
+
+    static final String BUILD_SCRIPT = "build.gradle";
+    private static final String ANCHOR = "^\\s*appVersionName\\s*=\\s*'([^']*)'";
+    private static final Pattern DECLARATION = Pattern.compile(ANCHOR);
 
     private Upstream() {
     }
 
     /** The tag, {@code v4.0.0} at the pin this story was written against. */
-    static String tag() {
-        Properties properties = new Properties();
-        try (InputStream in = Upstream.class.getResourceAsStream("upstream.properties")) {
-            if (in == null) {
-                throw new IllegalStateException("upstream.properties is not on the classpath; :codex:processResources stamps it");
-            }
-            properties.load(in);
-        } catch (IOException e) {
-            throw new UncheckedIOException("upstream.properties could not be read", e);
+    static String tag(Path root) {
+        Codex.Citation where = Citations.at(root, BUILD_SCRIPT, ANCHOR);
+        String line;
+        try {
+            line = java.nio.file.Files.readAllLines(root.resolve(BUILD_SCRIPT), java.nio.charset.StandardCharsets.UTF_8).get(where.line() - 1);
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(BUILD_SCRIPT + " could not be read under " + root, e);
         }
-        String version = properties.getProperty("version.name");
-        if (version == null || version.isBlank() || version.contains("$")) {
-            throw new IllegalStateException("upstream.properties carries no stamped version: " + version);
+        Matcher m = DECLARATION.matcher(line);
+        if (!m.find()) {
+            throw new IllegalStateException(where.reference() + " does not declare appVersionName as the anchor found it");
         }
-        return "v" + version.trim();
+        String tag = "v" + m.group(1).trim();
+        if (!tag.matches(Codex.TAG_PATTERN)) {
+            throw new IllegalStateException(BUILD_SCRIPT + " appVersionName is not a version a tag is named by: '" + m.group(1)
+                    + "' (" + where.reference() + "); a tag is " + Codex.TAG_PATTERN);
+        }
+        return tag;
     }
 }

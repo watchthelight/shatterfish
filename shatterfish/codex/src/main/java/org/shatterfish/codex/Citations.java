@@ -4,6 +4,7 @@ import org.shatterfish.api.Codex;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.MalformedInputException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,15 +25,21 @@ final class Citations {
 
     /**
      * The one line of {@code root/path} matching {@code anchor}, as a citation with {@code path}
-     * kept relative and forward-slashed.
+     * kept relative and forward-slashed. The file is read as UTF-8; a byte-order mark on the
+     * first line is not part of it.
      */
     static Codex.Citation at(Path root, String path, String anchor) {
         Path file = root.resolve(path);
         List<String> lines;
         try {
             lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+        } catch (MalformedInputException e) {
+            throw new UncheckedIOException("citation " + path + " for anchor " + anchor + ": the file is not UTF-8", e);
         } catch (IOException e) {
-            throw new UncheckedIOException("citation " + path + " for anchor " + anchor + ": the file could not be read", e);
+            throw new UncheckedIOException("citation " + path + " for anchor " + anchor + ": the file could not be read under " + root, e);
+        }
+        if (!lines.isEmpty() && lines.get(0).startsWith("﻿")) {
+            lines.set(0, lines.get(0).substring(1));
         }
         Pattern pattern = Pattern.compile(anchor);
         List<Integer> hits = new ArrayList<>();

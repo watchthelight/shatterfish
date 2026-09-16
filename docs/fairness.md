@@ -35,6 +35,7 @@ All live in `harness` and run in CI on every pull request.
 | Test | What it checks | Status |
 |---|---|---|
 | Leak tests | An unidentified scroll, a mob behind a wall, a secret door, a hidden trap, an invisible enemy: none may appear in the serialized Observation | done: `MapLeakTest`, `ActorLeakTest`, `ItemLeakTest`, `EnvironmentLeakTest`, `FogParityTest`, `MimicDifferentialTest` (E1 stories 1.8 to 1.11); `VisibilityChecklistTest` holds every row of ADR-0006 to a suite |
+| Codex leak test | No Codex value derives from a seed, a Profile or a Run: the generator's classes cannot reach the game's state, the toolkit or the harness, and a generation at a live Run's Input wait equals one before it and the committed folder | done: `CodexLeakTest`, `CodexSeedFreeTest` (E2 story 2.1, ADR-0017) |
 | Differential test | Two worlds identical to the player but different in hidden state serialize to byte-identical Observations | done: `HiddenStateDifferentialTest` (E1 story 1.17); the behavioural form is E4 |
 | Toggle tests | The same world with and without `MindVision`, `Blindness`, and magic mapping produces exactly the expected differences | done: `VisionToggleTest` (E1 story 1.17) |
 | ArchUnit test | `brain` imports nothing from `com.shatteredpixel.*` or `com.watabou.*` | done |

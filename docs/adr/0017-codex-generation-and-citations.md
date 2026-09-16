@@ -17,23 +17,31 @@ generation mechanics to its stories; the skeleton story decides them for every t
 
 ## Decision
 
-**One task, no Run.** `./gradlew :codex:generate` runs `org.shatterfish.codex.Generate` in a
-process that boots nothing: no libGDX application, no Profile, no seed. It reads the pinned
-classes and their declarations and writes `codex/<tag>/`, where the tag is `v` plus the version
-the root build script declares, stamped into a resource at build time and checked against the
-pin in `docs/UPSTREAM.md` by `CodexSeedFreeTest`. The first two tables were probed in a bare JVM
-and load; a later table whose classes need the game's text or assets decides then whether the
-generator boots the headless backend, and records it here.
+**One task, no Run.** `./gradlew :codex:generate` runs `org.shatterfish.codex.Generate` on the
+module's main classpath, where no harness and no libGDX application exist to boot: the
+generator's classes may not depend on `com.badlogic..` or `com.watabou..` at all (the gate
+below), so a generation cannot boot, rather than merely does not. It reads the pinned classes
+and their declarations and writes `codex/<tag>/`, deleting any file it no longer writes; the tag
+is `v` plus the version the root build script declares, read from `build.gradle` at generation
+the way a citation is read (nothing stamped, nothing remembered) and checked against the pin in
+`docs/UPSTREAM.md` by `CodexSeedFreeTest`. The first two tables were probed in a bare JVM and
+load; a later table whose classes need the game's text or assets cannot boot the game from the
+generator and must read what it needs another way, or amend this decision.
 
 **Records in `api`, canonical text.** Every Codex file is a list of `api` records (`Codex.*`)
 rendered by `CodexJson` through the same `JsonWriter` an Observation uses: keys sorted, lists in
-the order the records hold, no floats, no timestamps, no machine names, UTF-8, line feeds only,
-one file one text. The manifest carries `Codex.VERSION`, the Codex's own version, distinct from
-the schema's and the tag's: it changes when a table's meaning or shape changes, and it is what
-the Run-log header records (ADR-0011) so that a Brain's behaviour is tied to the knowledge it had.
-The Observation header's `codexVersion` stays empty until the story that wires it, since filling
-it changes every Observation's hash. `.gitattributes` declares the folder's line ends, so a
-checkout's autocrlf cannot make the committed bytes differ from a generation's.
+the order the records hold, one entry per line so that a drift diff names the entry, no floats,
+no timestamps, no machine names, UTF-8, line feeds only, one file one text; a table naming a key
+twice is refused at rendering. The manifest lists the table files from the same map the files
+are written from, and carries `Codex.VERSION`, the Codex's own version, distinct from the
+schema's and the tag's: it changes when a table's meaning or shape changes, and it is what the
+Run-log header will record (ADR-0011, E3) so that a Brain's behaviour is tied to the knowledge it
+had. The Observation header's `codexVersion` stays empty until the story that wires it, since
+filling it changes every Observation's hash. The generator's own determinism is part of the
+guarantee: no hash-ordered collection may be used in it, since an enum- or class-keyed hash
+order is a machine's. `.gitattributes` declares the folder's line ends, and the committed-copy
+test refuses a carriage return, so a checkout's autocrlf cannot make the committed bytes differ
+from a generation's.
 
 **Citations are read, not remembered.** A generator names the source file and an anchor, a regular
 expression that matches the declaration's line, and `Citations.at` reads the pinned file at
@@ -41,17 +49,28 @@ generation and returns the one line that matches. No line matching, or more than
 task naming the file and the anchor: a declaration that moved keeps its citation right, and one
 that was renamed cannot keep a stale one. No citation string is written by hand anywhere in the
 generator. The masks of the challenge flags are named constant by constant rather than read by
-reflection, so that a renamed constant fails to compile rather than to resolve.
+reflection, so that a renamed constant fails to compile rather than to resolve, and their count,
+union and set are checked against the game's own `MAX_CHALS`, `MAX_VALUE` and `MASKS` so that a
+flag the game adds is missing loudly; the table's order is the declaration order of
+`Challenges.java:30-38`, not the player-facing order of `NAME_IDS`.
 
 **The guarantee, held three ways.** `CodexSeedFreeTest` generates under two seeds and two Profiles
-and compares bytes, and compares the committed folder with a fresh generation, naming the first
-differing file. `CodexLeakTest` generates at an Input wait of a live Run and compares with the
-committed folder, which the task wrote in a process that never booted the game; opens every
-citation and finds the declaration on the line; and holds statically, with ArchUnit over the
-generator's classes only, that none reaches `Dungeon`'s Run statics, the game's or the JDK's
-random number generator, the harness, the network or the concurrency packages, and that none
-holds a monitor (story 1.19's rule in the form this module needs). The harness is on the codex
-test classpath for the live Run and the Profiles, and nowhere else.
+that differ in what they hold (a language, a scale) and compares bytes; compares the committed
+folder with a fresh generation byte for byte, naming the first differing file; and runs the
+task's own `main` into a temporary folder. `CodexLeakTest` generates before and at an Input wait
+of a live Run played under challenges and in another language, and compares the two with each
+other and with the committed folder; opens every citation and finds the declaration on the
+line, its parts in order; and holds statically, with ArchUnit over the module's compiled
+classes, that every class is in the package, that none depends on the game's state classes
+(`Dungeon`, `Statistics`, `Badges`, `Rankings`, `SPDSettings`, `GamesInProgress`, `Bones`, the
+journal), on the toolkit or libGDX, on the harness, on the api's and the brain's denied list
+(the RNG, the clock, `Class`, `System`, the hash-ordered collections), on reflection, the network,
+concurrency, security or time, that file I/O is confined to the three classes that read the
+source and write the folder, and that none declares a synchronized method (story 1.19's
+monitorenter rule stays the harness's). What is not tested: that the task's own process, as
+opposed to the test JVM, generates the committed bytes; the static ban on the toolkit is what
+makes a boot impossible there, and story 2.9's CI drift check runs the task itself. The harness
+is on the codex test classpath for the live Run and the Profiles, and nowhere else.
 
 ## Alternatives considered
 
@@ -73,7 +92,9 @@ tables were probed and load; the story that adds such a table decides the boot. 
 line ending on a checkout would fail the committed-copy comparison: `.gitattributes` declares
 it. A table read from a static that a Run mutates (the generator's deck probabilities, story
 2.3) would pass the seed-free test and fail the leak test only if the live Run had drawn from
-the deck: that story's leak test must arrange a Run that has. A citation whose anchor matches a
+the deck: that story's leak test must arrange a Run that has. A value read through a game method
+rather than a field (`Dungeon.isChallenged`, `Challenges.activeChallenges`) is why the gate bans
+the state classes whole rather than fields, and why the live Run plays under challenges. A citation whose anchor matches a
 comment as well as the declaration fails the task, which is the point; anchors are written to
 match the declaration's shape (`^\s*NAME\s*\(`, `public static final int NAME\s*=`).
 
@@ -86,3 +107,5 @@ match the declaration's shape (`^\s*NAME\s*\(`, `public static final int NAME\s*
   committed-copy comparison in `CodexSeedFreeTest` already fails the build locally on drift.
 - The citation checker of story 2.10 verifies `docs/` citations by the same rule the generator
   applies to its own: the line at the tag holds the declaration.
+- ADR-0003's edge `codex -> core` is amended by this decision: `codex -> core, api`, with the
+  harness on its test classpath only.
