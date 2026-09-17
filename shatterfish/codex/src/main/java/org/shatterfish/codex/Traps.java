@@ -269,17 +269,7 @@ final class Traps {
             }
             List<List<Integer>> weightArms = new ArrayList<>();
             for (String literal : literals(chancesText, "new float")) {
-                List<Integer> weights = new ArrayList<>();
-                Matcher weight = WEIGHT.matcher(literal);
-                while (weight.find()) {
-                    int thousandths = Sources.thousandths(weight.group(1));
-                    if (thousandths % 1000 != 0) {
-                        throw new IllegalStateException(level.getSimpleName() + " weights a trap at " + weight.group(1)
-                                + "; the table carries whole weights and will not round one away");
-                    }
-                    weights.add(thousandths / 1000);
-                }
-                weightArms.add(weights);
+                weightArms.add(weights(level.getSimpleName(), literal));
             }
             if (arms.size() != weightArms.size()) {
                 throw new IllegalStateException(level.getSimpleName() + " draws from " + arms.size() + " pools with " + weightArms.size()
@@ -323,6 +313,26 @@ final class Traps {
             }
         }
         return pools;
+    }
+
+    /**
+     * The weights of one array literal, each whole. A level weights its traps with small whole
+     * numbers, and a fraction would divide to zero and publish a trap the floor draws as one it
+     * never draws; the reader refuses rather than rounding a stated chance away. No level writes
+     * one at this tag, which is why the refusal is held by a test rather than by the tree.
+     */
+    static List<Integer> weights(String level, String literal) {
+        List<Integer> weights = new ArrayList<>();
+        Matcher weight = WEIGHT.matcher(literal);
+        while (weight.find()) {
+            int thousandths = Sources.thousandths(weight.group(1));
+            if (thousandths % 1000 != 0) {
+                throw new IllegalStateException(level + " weights a trap at " + weight.group(1)
+                        + "; the table carries whole weights and will not round one away");
+            }
+            weights.add(thousandths / 1000);
+        }
+        return weights;
     }
 
     /**

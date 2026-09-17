@@ -40,6 +40,15 @@ class ReadersRefuseTest {
     }
 
     @Test
+    @DisplayName("a weight that is not whole is refused rather than divided away to nothing")
+    void a_weight_is_whole() {
+        assertEquals(List.of(4, 2, 1), Traps.weights("Made", "4, 2, 1"));
+        assertEquals(List.of(4, 2, 1), Traps.weights("Made", "4f, 2f, 1f"));
+        assertThrows(IllegalStateException.class, () -> Traps.weights("Made", "4, 0.5f, 1"),
+                "half a weight would divide to zero and say the trap is never drawn");
+    }
+
+    @Test
     @DisplayName("the condition of a two-armed method is the one before its literal, not the question mark of its own type")
     void a_condition_is_read_before_the_literal() {
         assertEquals("", Traps.condition("return new Class<?>[]{A.class};", "new Class"),
