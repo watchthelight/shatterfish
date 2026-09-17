@@ -923,16 +923,28 @@ public final class Codex {
      * needs a level to run, so the table carries what it says and not what it does), and the
      * citation of its declaration.
      */
-    public record TrapEntry(String className, String name, Citation nameCitation, boolean canBeHidden, boolean canBeSearched,
-                            boolean active, String activateExpression, Citation citation) {
+    public record TrapEntry(String className, String name, String nameFrom, Citation nameCitation, boolean canBeHidden,
+                            boolean canBeSearched, boolean active, String activateFrom, String activateExpression,
+                            Citation activateCitation, Citation citation, List<Rule> alsoOnTheCell) {
 
         public TrapEntry {
             className = Canon.text(className, "trap class");
             name = Canon.text(name, "trap name");
+            nameFrom = Canon.text(nameFrom, "the class a name was read from");
+            activateFrom = Canon.text(activateFrom, "the class an effect was read from");
             activateExpression = Canon.text(activateExpression, "trap effect");
             Canon.require(!className.isEmpty() && !name.isEmpty(), "a trap names its class and itself");
-            Canon.require(nameCitation != null && citation != null, "a trap carries its citations");
-            Canon.require(active || activateExpression.isEmpty(), "a trap the game deactivates does nothing when stepped on");
+            Canon.require(nameCitation != null && citation != null && activateCitation != null, "a trap carries its citations");
+            Canon.require(!nameFrom.equals(className), "a name read from the trap's own class says so by naming no other");
+            Canon.require(!activateFrom.equals(className), "an effect read from the trap's own class says so by naming no other");
+            alsoOnTheCell = Canon.positional(alsoOnTheCell, "what else stands on a trap's cell");
+            // The same blob can be seeded from two places in one class, so a row is one place, not
+            // one thing: the pair of what it is and where it was read is what must be distinct.
+            Set<String> seen = new HashSet<>();
+            for (Rule rule : alsoOnTheCell) {
+                Canon.require(seen.add(rule.what() + " " + rule.citation().reference()),
+                        "one row per place something reaches the cell: " + rule.what());
+            }
         }
     }
 
@@ -941,12 +953,17 @@ public final class Codex {
      * chooses this pool where the level has more than one (the sewers draw one trap on the first
      * floor and eleven after it); empty where the level draws one pool always.
      */
-    public record TrapPool(String levelClass, String condition, List<Weighted> traps, Citation citation) {
+    public record TrapPool(String levelClass, String declaredBy, String condition, List<Weighted> traps,
+                           String nTrapsExpression, Citation nTrapsCitation, Citation citation) {
 
         public TrapPool {
             levelClass = Canon.text(levelClass, "level class");
+            declaredBy = Canon.text(declaredBy, "the class a pool was read from");
             condition = Canon.text(condition, "pool condition");
+            nTrapsExpression = Canon.text(nTrapsExpression, "how many traps a floor lays");
             Canon.require(!levelClass.isEmpty() && citation != null, "a pool names its level and is cited");
+            Canon.require(!declaredBy.equals(levelClass), "a pool read from the level's own class says so by naming no other");
+            Canon.require(!nTrapsExpression.isEmpty() && nTrapsCitation != null, "a pool says how many traps the floor lays, and cites it");
             traps = Canon.positional(traps, "traps");
             Canon.require(!traps.isEmpty(), "a pool draws something");
             Set<String> seen = new HashSet<>();
@@ -998,12 +1015,38 @@ public final class Codex {
      * What one depth of one branch builds: the level class, and whether it holds a shop, is a boss
      * floor, or seals behind the hero.
      */
-    public record LevelEntry(int depth, int branch, String levelClass, boolean shop, boolean boss, boolean sealed, Citation citation) {
+    public record LevelEntry(int depth, int branch, String levelClass, boolean shop, Citation shopCitation, boolean boss,
+                            boolean sealed, String sealedBy, Citation sealCitation, Citation citation) {
 
         public LevelEntry {
             Canon.require(depth >= 1 && branch >= 0, "a floor is a depth of a branch: " + depth + ", " + branch);
             levelClass = Canon.text(levelClass, "level class");
+            sealedBy = Canon.text(sealedBy, "how a floor seals");
             Canon.require(!levelClass.isEmpty() && citation != null, "a floor names its level class and is cited");
+            Canon.require(shopCitation != null, "a floor cites where its shop was decided");
+            Canon.require(sealed == !sealedBy.isEmpty(), "a floor that seals says how, and one that does not says nothing");
+            Canon.require(sealed == (sealCitation != null), "a floor that seals cites the line that seals it");
+        }
+    }
+
+    /**
+     * One level feeling: the chance the game's own roll gives it in thousandths, the arm that sets
+     * it as cited text, and every place the game reads it afterwards, since a feeling whose effect
+     * is not in the arm that sets it has one somewhere else.
+     */
+    public record FeelingEntry(String what, int chancePerMille, String expression, Citation citation, List<Rule> effects) {
+
+        public FeelingEntry {
+            what = Canon.text(what, "feeling name");
+            expression = Canon.text(expression, "feeling expression");
+            Canon.require(!what.isEmpty() && !expression.isEmpty(), "a feeling names itself and carries its arm");
+            Canon.require(citation != null, "a feeling is cited");
+            Canon.require(chancePerMille >= 0 && chancePerMille <= 1000, "a chance is a share of one: " + chancePerMille);
+            effects = Canon.positional(effects, "feeling effects");
+            Set<String> seen = new HashSet<>();
+            for (Rule effect : effects) {
+                Canon.require(seen.add(effect.what()), "one row per place a feeling is read: " + effect.what());
+            }
         }
     }
 
@@ -1011,7 +1054,10 @@ public final class Codex {
      * The shape of a Run: every floor of every branch the game builds, the rules that decide the
      * shops and the sealing as cited text, and the level feelings with what each changes.
      */
-    public record Structure(List<LevelEntry> levels, List<Rule> feelings, String shopExpression, Citation shopCitation, Citation sealedCitation) {
+    public record Structure(List<LevelEntry> levels, List<FeelingEntry> feelings, String shopExpression, Citation shopCitation,
+                           String bossExpression, Citation bossCitation, String feelingGate, Citation feelingCitation,
+                           List<Rule> otherFeelingSources, String otherwiseClass, Citation otherwiseCitation,
+                           Citation sealedCitation, Citation roomsCitation) {
 
         public Structure {
             levels = Canon.positional(levels, "levels");
@@ -1024,11 +1070,23 @@ public final class Codex {
             feelings = Canon.positional(feelings, "feelings");
             Canon.require(!feelings.isEmpty(), "a floor can feel like something");
             Set<String> named = new HashSet<>();
-            for (Rule feeling : feelings) {
+            int total = 0;
+            for (FeelingEntry feeling : feelings) {
                 Canon.require(named.add(feeling.what()), "a feeling once: " + feeling.what());
+                total += feeling.chancePerMille();
             }
+            Canon.require(total <= 1000, "the feelings share one roll between them: " + total);
             shopExpression = Canon.text(shopExpression, "shop rule");
+            bossExpression = Canon.text(bossExpression, "boss rule");
+            feelingGate = Canon.text(feelingGate, "the gate on the feeling roll");
+            otherFeelingSources = Canon.positional(otherFeelingSources, "the assignments that are not a literal feeling");
             Canon.require(!shopExpression.isEmpty() && shopCitation != null && sealedCitation != null, "the structure carries its rules and citations");
+            Canon.require(!bossExpression.isEmpty() && bossCitation != null, "the structure carries the boss rule and cites it");
+            Canon.require(!feelingGate.isEmpty() && feelingCitation != null, "the structure carries the gate on the feeling roll and cites it");
+            Canon.require(roomsCitation != null, "the structure cites the table that carries the rooms a floor draws");
+            otherwiseClass = Canon.text(otherwiseClass, "what an unnamed depth builds");
+            Canon.require(!otherwiseClass.isEmpty() && otherwiseCitation != null,
+                    "the structure says what a depth it does not name builds, and cites it");
         }
     }
 

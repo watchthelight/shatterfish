@@ -314,6 +314,68 @@ final class Sources {
         return String.join(" ", parts).replaceAll("\\s+", " ").trim();
     }
 
+    /**
+     * A body's lines with every comment removed, one entry per line of the body and indexed as
+     * the body's own lines are: a {@code //} to the end of its line, and a {@code /* *}{@code /}
+     * wherever it runs, including across lines. {@link #stripComment(String)} cannot see a block
+     * comment that opened on an earlier line, so a reader that scans line by line for a statement
+     * reads a commented-out one as live; this is what such a reader walks instead.
+     */
+    static List<String> stripped(Body body) {
+        List<String> out = new ArrayList<>();
+        boolean inBlockComment = false;
+        for (int i = body.from(); i < body.to(); i++) {
+            String source = body.lines().get(i);
+            StringBuilder line = new StringBuilder();
+            for (int c = 0; c < source.length(); c++) {
+                if (inBlockComment) {
+                    if (source.startsWith("*/", c)) {
+                        inBlockComment = false;
+                        c++;
+                    }
+                } else if (source.startsWith("/*", c)) {
+                    inBlockComment = true;
+                    c++;
+                } else if (source.startsWith("//", c)) {
+                    break;
+                } else {
+                    line.append(source.charAt(c));
+                }
+            }
+            out.add(line.toString());
+        }
+        return out;
+    }
+
+    /**
+     * Every source file under one folder of the pinned core, in sorted order, as paths this class
+     * can open. A table that claims to name every place the game reads something has to look at
+     * every file that could read it, and the order is the file system's, sorted, so two
+     * generations agree.
+     */
+    static List<String> under(Path root, String folder) {
+        if (!folder.startsWith(SOURCE_ROOT)) {
+            throw new IllegalStateException("not a folder of the pinned core: " + folder);
+        }
+        Path start = root.resolve(folder);
+        List<String> paths = new ArrayList<>();
+        try (java.util.stream.Stream<Path> found = Files.walk(start)) {
+            for (Path p : found.toList()) {
+                String path = root.relativize(p).toString().replace('\\', '/');
+                if (path.endsWith(".java")) {
+                    paths.add(path);
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("the sources under " + folder + " could not be listed", e);
+        }
+        if (paths.isEmpty()) {
+            throw new IllegalStateException("no source under " + folder + "; the folder the reader walks is no longer there");
+        }
+        java.util.Collections.sort(paths);
+        return paths;
+    }
+
     /** A method's block and declaration line in the class that declares it. */
     record Declared(Class<?> owner, Body block, int line) {
     }

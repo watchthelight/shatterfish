@@ -166,7 +166,8 @@ class JsonRenderingTest {
             // The measured combat tables (story 2.5).
             "Codex$Grid", "Codex$HitCell", "Codex$HitTable", "Codex$Spread", "Codex$RollEntry", "Codex$Combat",
             // The traps, the recipes and the level structure (story 2.6).
-            "Codex$TrapEntry", "Codex$TrapPool", "Codex$Ingredient", "Codex$RecipeEntry", "Codex$LevelEntry", "Codex$Structure");
+            "Codex$TrapEntry", "Codex$TrapPool", "Codex$Ingredient", "Codex$RecipeEntry", "Codex$LevelEntry", "Codex$FeelingEntry",
+            "Codex$Structure");
 
     @Test
     @DisplayName("api is the schema, Action and the named helpers, and nothing in it reads text or bytes into a record")

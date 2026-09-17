@@ -29,14 +29,35 @@ final class Recipes {
     /**
      * The recipe classes the game declares and never registers, each with its reason: the pot
      * cannot make them, so the table does not carry them, and the completeness test holds this
-     * list against the difference rather than leaving it unexplained.
+     * list against the difference rather than leaving it unexplained. Empty at this tag, because
+     * the game registers every recipe class it declares.
      */
-    static final java.util.TreeSet<String> UNREGISTERED = new java.util.TreeSet<>();
+    static final List<java.util.Map.Entry<String, String>> UNREGISTERED = List.of();
 
-    /** The registries the game keeps, in the order the pot tries them. */
-    static final List<String> REGISTRIES = List.of("oneIngredientRecipes", "twoIngredientRecipes", "threeIngredientRecipes");
+    /**
+     * The registries the pot tries, read from the method that tries them rather than named here,
+     * so a registry the game adds cannot be missed. The game keeps one it tries for every count of
+     * ingredients and one per count; the reader takes them in the order that method walks them.
+     */
+    static List<String> registries(Sources.Body registry) {
+        int find = registry.find("public static ArrayList<Recipe> findRecipes\\(");
+        if (find < 0) {
+            throw new IllegalStateException("Recipe declares no findRecipes(); the reader cannot say which registries the pot tries");
+        }
+        List<String> names = new ArrayList<>();
+        Matcher tried = Pattern.compile("for \\(Recipe recipe : (\\w+)\\)").matcher(Sources.text(registry.block(find)));
+        while (tried.find()) {
+            if (!names.contains(tried.group(1))) {
+                names.add(tried.group(1));
+            }
+        }
+        if (names.isEmpty()) {
+            throw new IllegalStateException("findRecipes walks no registry; the pot no longer reads as the generator knows");
+        }
+        return names;
+    }
 
-    private static final Pattern MADE = Pattern.compile("new\\s+([\\w.]+)\\s*\\(\\s*\\)");
+    private static final Pattern MADE = Pattern.compile("new\\s+([\\w.]+)\\s*\\(([^)]*)\\)");
     private static final Pattern CLASS_TOKEN = Pattern.compile("\\b([\\w.]+)\\.class\\b");
     private static final Pattern NUMBER = Pattern.compile("-?\\d+");
     private static final Pattern NAME = Pattern.compile("\\b([A-Z][A-Z0-9_]{2,})\\b");
@@ -49,12 +70,12 @@ final class Recipes {
         Sources.Body registry = Sources.file(root, RECIPE);
         List<Codex.RecipeEntry> entries = new ArrayList<>();
         java.util.Set<String> seen = new java.util.TreeSet<>();
-        for (String name : REGISTRIES) {
+        for (String name : registries(registry)) {
             int line = registry.find("private static Recipe\\[\\] " + name + "\\s*=");
             if (line < 0) {
                 throw new IllegalStateException("Recipe declares no " + name + "; the pot's registries no longer read as the generator knows");
             }
-            String ingredients = name.substring(0, name.indexOf("Ingredient"));
+            String ingredients = name.endsWith("IngredientRecipes") ? name.substring(0, name.indexOf("Ingredient")) : name;
             for (String made : made(registry, line)) {
                 if (!seen.add(made)) {
                     throw new IllegalStateException(made + " is registered twice; a recipe is listed once");
@@ -68,10 +89,15 @@ final class Recipes {
     /** The classes a registry's literal constructs, resolved through the file's imports. */
     private static List<String> made(Sources.Body registry, int line) {
         List<String> made = new ArrayList<>();
+        List<String> lines = Sources.stripped(registry);
         for (int i = line; i < registry.to(); i++) {
-            String text = Sources.stripComment(registry.lines().get(i));
+            String text = lines.get(i - registry.from());
             Matcher entry = MADE.matcher(text);
             while (entry.find()) {
+                if (!entry.group(2).isBlank()) {
+                    throw new IllegalStateException(registry.path() + ":" + (i + 1) + ": a registry builds " + entry.group(1)
+                            + " with arguments; the reader does not know what a recipe built with arguments is");
+                }
                 made.add(entry.group(1));
             }
             if (text.contains("};")) {
@@ -89,7 +115,7 @@ final class Recipes {
     static Codex.RecipeEntry entry(Path root, Sources.Body registry, String written, String ingredients, Codex.Citation registryCitation) {
         String outer = written.contains(".") ? written.substring(0, written.indexOf('.')) : written;
         String nested = written.contains(".") ? written.substring(written.indexOf('.') + 1) : written;
-        String path = resolve(registry, outer);
+        String path = resolved(root, registry, outer);
         Sources.Body file = Sources.file(root, path);
         Sources.Body body = written.equals(outer) ? file : file.block(file.declaration(nested));
         int declaration = written.equals(outer) ? file.declaration(outer) : file.declaration(nested);
@@ -107,7 +133,7 @@ final class Recipes {
             }
             return new Codex.RecipeEntry(className, ingredients, false, List.of(), "", 0, -1, answers, registryCitation, body.citation(declaration));
         }
-        List<String> classes = tokens(body, inputs, CLASS_TOKEN, file);
+        List<String> classes = tokens(root, body, inputs, CLASS_TOKEN, file);
         List<Integer> quantities = numbers(body, file, body.find("\\binQuantity\\s*=\\s*new int"));
         if (classes.size() != quantities.size()) {
             throw new IllegalStateException(className + " states " + classes.size() + " inputs and " + quantities.size() + " quantities");
@@ -120,19 +146,29 @@ final class Recipes {
         if (outputLine < 0) {
             throw new IllegalStateException(className + " states inputs and no output");
         }
-        String output = tokens(body, outputLine, CLASS_TOKEN, file).get(0);
-        List<Integer> outQuantity = numbers(body, file, body.find("\\boutQuantity\\s*="));
-        List<Integer> cost = numbers(body, file, body.find("\\bcost\\s*="));
-        if (outQuantity.isEmpty() || cost.isEmpty()) {
-            throw new IllegalStateException(className + " states its inputs and " + (cost.isEmpty() ? "no cost" : "no output quantity")
-                    + "; the reader does not know what the pot spends or makes, and will not default it");
-        }
+        String output = tokens(root, body, outputLine, CLASS_TOKEN, file).get(0);
+        int outQuantity = scalar(className, "outQuantity", numbers(body, file, body.find("\\boutQuantity\\s*=")));
+        int cost = scalar(className, "cost", numbers(body, file, body.find("\\bcost\\s*=")));
         return new Codex.RecipeEntry(className, ingredients, true, ingredientList, output,
-                outQuantity.get(0), cost.get(0), List.of(), registryCitation, body.citation(declaration));
+                outQuantity, cost, List.of(), registryCitation, body.citation(declaration));
+    }
+
+    /**
+     * The one number a recipe states for a quantity or a cost. A statement that yields no number,
+     * or more than one, is one the reader cannot read: taking the first would publish the first
+     * integer that happens to appear in an expression the game computes, which is the defect the
+     * named-constant reading was written to end.
+     */
+    private static int scalar(String className, String field, List<Integer> numbers) {
+        if (numbers.size() != 1) {
+            throw new IllegalStateException(className + " states " + numbers.size() + " numbers for " + field
+                    + "; the reader will not pick one of them");
+        }
+        return numbers.get(0);
     }
 
     /** The class tokens of one statement, each resolved through the file's imports. */
-    private static List<String> tokens(Sources.Body body, int line, Pattern pattern, Sources.Body file) {
+    private static List<String> tokens(Path root, Sources.Body body, int line, Pattern pattern, Sources.Body file) {
         if (line < 0) {
             throw new IllegalStateException(body.path() + ": a statement the reader expected is not there");
         }
@@ -142,7 +178,7 @@ final class Recipes {
             String written = token.group(1);
             String outer = written.contains(".") ? written.substring(0, written.indexOf('.')) : written;
             String nested = written.substring(outer.length());
-            String path = resolve(file, outer);
+            String path = resolved(root, file, outer);
             names.add(path.substring(Sources.SOURCE_ROOT.length() + Sources.ROOT_PACKAGE_PREFIX.length(), path.length() - ".java".length())
                     .replace('/', '.') + nested);
         }
@@ -225,6 +261,17 @@ final class Recipes {
         // A class of the same package needs no import; the game keeps the recipe base beside it.
         String folder = body.path().substring(0, body.path().lastIndexOf('/') + 1);
         return folder + simpleName + ".java";
+    }
+
+    /**
+     * A resolved path, checked to be a file of the pinned core. Without this a name reached
+     * without an import resolves to a path nothing backs, and the table publishes a class name a
+     * reader cannot follow, which is a guess wearing the shape of a reading.
+     */
+    private static String resolved(Path root, Sources.Body body, String simpleName) {
+        String path = resolve(body, simpleName);
+        Sources.file(root, path);
+        return path;
     }
 
     /** The registry class the pot reads, for a citation that names it. */

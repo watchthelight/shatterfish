@@ -226,7 +226,12 @@ class CodexCompletenessTest {
         }
         TreeSet<String> unregistered = new TreeSet<>(declared);
         unregistered.removeAll(listed);
-        assertEquals(Recipes.UNREGISTERED, unregistered,
+        TreeSet<String> named = new TreeSet<>();
+        for (java.util.Map.Entry<String, String> entry : Recipes.UNREGISTERED) {
+            assertFalse(entry.getValue().isBlank(), entry.getKey() + " is excluded without a reason");
+            named.add(entry.getKey());
+        }
+        assertEquals(named, unregistered,
                 "the recipe classes the game declares and does not register; name each in Recipes.UNREGISTERED with its reason");
         TreeSet<String> strangers = new TreeSet<>(listed);
         strangers.removeAll(declared);
@@ -333,6 +338,85 @@ class CodexCompletenessTest {
             assertFalse(read.getValue().isBlank(), read.getKey().getName() + " is named with a reason");
         }
         assertEquals(named, new TreeSet<>(found.keySet()), "the item classes that read a Run, a Profile, a quest, the clock or a generator, against Items.READS: " + found);
+    }
+
+    @Test
+    @DisplayName("every trap class whose construction reads a Run, a quest, the clock or a generator is named in Traps.READS with its reason")
+    void every_trap_read_is_named() {
+        TreeSet<Class<?>> hierarchy = new TreeSet<>(java.util.Comparator.comparing(Class::getName));
+        for (java.util.function.Supplier<com.shatteredpixel.shatteredpixeldungeon.levels.traps.Trap> make : Traps.ALL) {
+            for (Class<?> c = GameContext.under(1, 0, make).getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+                hierarchy.add(c);
+            }
+        }
+        TreeMap<String, String> found = new TreeMap<>();
+        for (Class<?> type : hierarchy) {
+            if (!GAME.contain(type.getName())) {
+                continue;
+            }
+            JavaClass c = GAME.get(type);
+            List<JavaCodeUnit> units = new java.util.ArrayList<>(c.getConstructors());
+            c.getStaticInitializer().ifPresent(units::add);
+            for (int i = 0; i < units.size(); i++) {
+                for (JavaMethodCall call : units.get(i).getMethodCallsFromSelf()) {
+                    if (call.getTargetOwner().equals(c)) {
+                        call.getTarget().resolveMember().ifPresent(method -> {
+                            if (!units.contains(method)) {
+                                units.add(method);
+                            }
+                        });
+                    }
+                }
+            }
+            StringBuilder reads = new StringBuilder();
+            for (JavaCodeUnit unit : units) {
+                for (JavaFieldAccess access : unit.getFieldAccesses()) {
+                    String owner = access.getTargetOwner().getName();
+                    if (owner.equals(Dungeon.class.getName()) || owner.equals(Statistics.class.getName()) || owner.endsWith("$Quest")
+                            || owner.equals(Holiday.class.getName())) {
+                        reads.append(' ').append(unit.getName()).append(':').append(owner.substring(owner.lastIndexOf('.') + 1))
+                                .append('.').append(access.getTarget().getName());
+                    }
+                }
+                for (JavaMethodCall call : unit.getMethodCallsFromSelf()) {
+                    String owner = call.getTargetOwner().getName();
+                    if (owner.equals(Dungeon.class.getName()) || owner.equals(Statistics.class.getName()) || owner.endsWith("$Quest")
+                            || owner.equals(Holiday.class.getName()) || owner.equals(com.watabou.utils.Random.class.getName())) {
+                        reads.append(' ').append(unit.getName()).append(':').append(owner.substring(owner.lastIndexOf('.') + 1))
+                                .append('.').append(call.getTarget().getName()).append("()");
+                    }
+                }
+            }
+            if (reads.length() > 0) {
+                found.put(Sources.name(type), reads.toString().trim());
+            }
+        }
+        TreeSet<String> named = new TreeSet<>();
+        for (Map.Entry<Class<?>, String> read : Traps.READS) {
+            assertTrue(named.add(Sources.name(read.getKey())), read.getKey().getName() + " is named twice");
+            assertFalse(read.getValue().isBlank(), read.getKey().getName() + " is named with a reason");
+        }
+        assertEquals(named, new TreeSet<>(found.keySet()),
+                "the trap classes whose construction reads a Run, a Profile, a quest, the clock or a generator, against Traps.READS: " + found);
+    }
+
+    @Test
+    @DisplayName("every class a recipe takes in or makes is an item the items table carries, so the two tables join")
+    void the_recipes_name_items() {
+        TreeSet<String> items = new TreeSet<>();
+        for (Codex.ItemEntry item : Items.entries(ROOT)) {
+            items.add(item.className());
+        }
+        for (Codex.RecipeEntry recipe : Recipes.entries(ROOT)) {
+            for (Codex.Ingredient input : recipe.inputs()) {
+                assertTrue(items.contains(input.className()), recipe.className() + " takes in " + input.className()
+                        + ", which the items table does not carry");
+            }
+            if (recipe.simple()) {
+                assertTrue(items.contains(recipe.output()), recipe.className() + " makes " + recipe.output()
+                        + ", which the items table does not carry");
+            }
+        }
     }
 
     @Test

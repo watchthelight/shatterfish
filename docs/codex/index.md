@@ -46,11 +46,13 @@ armour worn, and of every mob's own damage reduction, each naming the method tha
 it and carrying the samples behind it; the table that decides whether an attack lands names its
 method and says plainly that a generator which may not boot cannot run it. Story 2.6 adds
 `traps.json`, every concrete trap class with the two flags a player can act on, whether the game
-leaves it active, the text of its effect, and the pool each level draws from with the condition
-that chooses it where a level has more than one; `recipes.json`, the alchemy pot's three
-registries in the order it tries them, each recipe with its inputs, output and energy cost where
-it states them and with the text of the methods it answers with where it does not; and
-`levels.json`, what every depth of every branch builds, which floors hold a shop, which are boss
-floors, which seal behind the hero, and the level feelings with the text of what each changes.
+leaves it active, the text of its own effect and whose effect that is, what else the placing class
+puts on the cell, and the pool each level draws from with the class that declares it, the condition
+that chooses it and how many traps the floor lays; `recipes.json`, the alchemy pot's registries in
+the order its own method tries them, each recipe with its inputs, output and energy cost where it
+states them and with the text of the methods it answers with where it does not; and `levels.json`,
+what every depth of every branch builds and what an unnamed depth builds, which floors place a shop
+and where that was decided, which are boss floors, which seal behind the hero and how, and the
+level feelings with their chances, their arms and every place the game reads them.
 The tables that follow are their stories', and this page is replaced by the
 generator's index when story 2.9 renders it.
