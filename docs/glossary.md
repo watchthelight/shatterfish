@@ -107,6 +107,14 @@ with upstream's use of the same word, this page says so.
     with the rules that an armor picks its class by the drawn index and a weapon or missile
     picks a tier category, and the tier arrays they index.
 
+**Measurement (Codex)**
+:   A Codex number produced by running the engine's own method and counting what came back,
+    rather than by restating its arithmetic (FR-14). A measured entry names the method, cites
+    its declaration and carries the samples behind it, and draws under a measurement seed of its
+    own so that moving the Codex's construction seed moves nothing measured. A method the
+    generator cannot run, because reaching it needs the toolkit, is named with that reason
+    instead of guessed at.
+
 **Rig**
 :   Fishtest-style statistical testing: thousands of seeded runs in parallel, SPRT comparisons
     between two brains, JSONL run logs, replay. Nothing about the brain is believed until the rig

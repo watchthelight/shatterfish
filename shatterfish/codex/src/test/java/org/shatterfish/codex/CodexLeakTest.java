@@ -19,6 +19,7 @@ import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.shatteredpixel.shatteredpixeldungeon.levels.MiningLevel;
 import com.shatteredpixel.shatteredpixeldungeon.utils.Holiday;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Languages;
+import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaModifier;
@@ -100,20 +101,31 @@ class CodexLeakTest {
             .because("a Codex describes types and tables, never a Run, a Profile or a process that booted (FR-14)");
 
     /**
-     * The one door to the Run statics: {@code Dungeon.depth}, {@code Dungeon.challenges} and
-     * {@code Dungeon.level} read and written (the level only to hold none and restore),
-     * {@code Random.pushGenerator} and {@code popGenerator} called, and nothing else of the game
-     * at all; the level's type is named to hold it and nothing of it is called.
+     * The one door to the Run statics: {@code Dungeon.depth}, {@code Dungeon.challenges},
+     * {@code Dungeon.level} and {@code Dungeon.hero} read and written (the level only to hold
+     * none and restore, the hero only to hold a fresh one and restore),
+     * {@code Random.pushGenerator} and {@code popGenerator} called, the scene's redraw flag held
+     * and put back, and nothing else of the game at all. The level's, the hero's and the scene's
+     * types are named so the door can hold their statics; nothing of the level or the scene is
+     * called, nothing of the hero is called but its constructor, and the only field of the scene
+     * it may touch is the redraw flag an item's level write sets. So the door cannot ask a Run's
+     * hero anything.
      */
     static final ArchRule THE_CONTEXT_IS_NARROW = noClasses()
             .that().haveFullyQualifiedName(GameContext.class.getName())
-            .should().dependOnClassesThat(resideInAPackage("com.shatteredpixel..").and(not(belongToAnyOf(Dungeon.class, Level.class))))
+            .should().dependOnClassesThat(resideInAPackage("com.shatteredpixel..")
+                    .and(not(belongToAnyOf(Dungeon.class, Level.class, Hero.class, GameScene.class))))
             .orShould().callMethodWhere(target(owner(type(Level.class))))
             .orShould().accessFieldWhere(com.tngtech.archunit.core.domain.JavaFieldAccess.Predicates.target(owner(type(Level.class))))
+            .orShould().callMethodWhere(target(owner(type(Hero.class))))
+            .orShould().accessFieldWhere(com.tngtech.archunit.core.domain.JavaFieldAccess.Predicates.target(owner(type(Hero.class))))
+            .orShould().callMethodWhere(target(owner(type(GameScene.class))))
+            .orShould().accessFieldWhere(com.tngtech.archunit.core.domain.JavaFieldAccess.Predicates.target(owner(type(GameScene.class)))
+                    .and(not(com.tngtech.archunit.core.domain.JavaFieldAccess.Predicates.target(name("updateItemDisplays")))))
             .orShould().dependOnClassesThat(resideInAPackage("com.watabou..").and(not(belongToAnyOf(Random.class))))
             .orShould().dependOnClassesThat().resideInAnyPackage("com.badlogic..", "org.shatterfish.harness..")
             .orShould().accessFieldWhere(com.tngtech.archunit.core.domain.JavaFieldAccess.Predicates.target(owner(type(Dungeon.class)))
-                    .and(not(com.tngtech.archunit.core.domain.JavaFieldAccess.Predicates.target(nameMatching("depth|challenges|level")))))
+                    .and(not(com.tngtech.archunit.core.domain.JavaFieldAccess.Predicates.target(nameMatching("depth|challenges|level|hero")))))
             .orShould().callMethodWhere(target(owner(type(Dungeon.class))))
             .orShould().callMethodWhere(target(owner(type(Random.class))).and(not(target(nameMatching("pushGenerator|popGenerator")))))
             .orShould().accessFieldWhere(com.tngtech.archunit.core.domain.JavaFieldAccess.Predicates.target(owner(type(Random.class))))
@@ -839,6 +851,17 @@ class CodexLeakTest {
             roomCitations(root, room);
         }
         assertTrue(lineOf(root, rooms.secretsCitation()).contains("baseRegionSecrets"));
+        Codex.Combat combat = Combat.read(root);
+        assertTrue(lineOf(root, combat.hit().citation()).contains("boolean hit("), combat.hit().citation().reference());
+        for (Codex.RollEntry entry : combat.weapons()) {
+            assertTrue(lineOf(root, entry.citation()).contains("damageRoll"), entry.citation().reference() + " rolls damage for " + entry.className());
+        }
+        for (Codex.RollEntry entry : combat.armours()) {
+            assertTrue(lineOf(root, entry.citation()).contains("drRoll"), entry.citation().reference() + " rolls reduction for " + entry.className());
+        }
+        for (Codex.RollEntry entry : combat.mobs()) {
+            assertTrue(lineOf(root, entry.citation()).contains("drRoll"), entry.citation().reference() + " rolls reduction for " + entry.className());
+        }
         assertTrue(lineOf(root, rooms.queue().citation()).contains("Random.chances"));
     }
 

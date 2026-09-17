@@ -104,3 +104,23 @@ it re-reads ADR-0006's Blobs row.
   armor one set deeper from the crypt, a scroll from the library) with its odds, read from those
   lines and the decks, would let the Brain price a key. The shop's stock (`ShopRoom`, placed by
   `Dungeon.shopOnLevel`) is a table of its own.
+
+- **The hit table, measured where a process has booted.** Story 2.5 wrote the rig for accuracy
+  against evasion and could not run it: `Char.hit` initialises `FloatingText`, which builds a
+  texture film. The harness boots headlessly and already runs measurements (story 1.21's
+  benchmark), so a task there could sweep the grid and write `codex/<tag>/combat-hit.json` beside
+  the generated tables, with the manifest listing it and CI regenerating both; the alternative is
+  a hook that lets `Char.hit` skip the icon when no scene exists, which is an upstream edit and a
+  row in the ledger. The grid, the sampling and the rig are written already in `Combat` and
+  `Sparring`, and `CombatTableStabilityTest` exercises them.
+- **The modified combat paths.** The measured tables are the bare ones: no ring of accuracy or
+  evasion, no enchantment or glyph, no champion buff, no hero talent, no encumbrance penalty
+  below an armour's strength. Each is a multiplier or a branch the engine applies in the same
+  methods, so the same rig measures them with the modifier in place.
+
+- **The composition the Codex cannot carry.** An expected damage is a damage roll less a reduction
+  roll, and the engine does that subtraction in `Char.attack`, behind the same toolkit wall as
+  `Char.hit` (it plays a sound and writes the log). So story 2.5's three measured tables are the
+  parts, not the product. The story that measures behind the wall should measure the composition
+  too, and until it does, a consumer doing the subtraction itself should know that the engine
+  applies its multipliers between the two rolls.

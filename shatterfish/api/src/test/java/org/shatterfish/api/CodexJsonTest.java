@@ -24,7 +24,7 @@ class CodexJsonTest {
     @DisplayName("the manifest renders its version, its tag and its tables, keys and tables sorted")
     void the_manifest_renders() {
         Codex.Manifest manifest = new Codex.Manifest(Codex.VERSION, "v4.0.0", List.of("hero-classes.json", "challenges.json"));
-        assertEquals("{\"codexVersion\":4,\"tables\":[\"challenges.json\",\"hero-classes.json\"],\"upstreamTag\":\"v4.0.0\"}\n",
+        assertEquals("{\"codexVersion\":5,\"tables\":[\"challenges.json\",\"hero-classes.json\"],\"upstreamTag\":\"v4.0.0\"}\n",
                 CodexJson.manifest(manifest));
         assertEquals("v4.1.0-beta2", new Codex.Manifest(1, "v4.1.0-beta2", List.of()).upstreamTag(), "a pre-release tag is a tag");
     }
@@ -409,6 +409,86 @@ class CodexJsonTest {
         assertThrows(NullPointerException.class, () -> CodexJson.guarantees(null));
         assertThrows(NullPointerException.class, () -> CodexJson.tiers(null));
         assertThrows(NullPointerException.class, () -> CodexJson.rooms(null));
+    }
+
+    @Test
+    @DisplayName("the combat tables render their keys in order, the cells and the rolls one per line, and an unmeasured hit table says why")
+    void the_combat_tables_render() {
+        String cite = "{\"line\":7,\"path\":\"core/src/main/java/X.java\"}";
+        Codex.Grid accuracy = new Codex.Grid("accuracy", 0, 2, 2);
+        Codex.Grid evasion = new Codex.Grid("evasion", 0, 2, 2);
+        Codex.HitTable measured = new Codex.HitTable("Char.hit", AT, accuracy, evasion, true, "",
+                List.of(new Codex.HitCell(0, 0, 10, 1000), new Codex.HitCell(0, 2, 10, 0),
+                        new Codex.HitCell(2, 0, 10, 1000), new Codex.HitCell(2, 2, 10, 500)));
+        Codex.RollEntry sword = new Codex.RollEntry("items.weapon.melee.Sword", 3, 0, new Codex.Spread(3, 20, 11529, 20000), "damageRoll", AT);
+        Codex.RollEntry plate = new Codex.RollEntry("items.armor.PlateArmor", 5, 0, new Codex.Spread(0, 10, 4996, 20000), "Hero.drRoll", AT);
+        Codex.RollEntry rat = new Codex.RollEntry("actors.mobs.Rat", 0, 0, new Codex.Spread(0, 1, 500, 20000), "drRoll", AT);
+        String text = CodexJson.combat(new Codex.Combat(0xC0FFEEL, measured, List.of(sword), List.of(plate), List.of(rat)));
+        assertEquals("{\n"
+                + "\"armours\":[\n"
+                + "  {" + CITE + ",\"className\":\"items.armor.PlateArmor\",\"level\":0,\"method\":\"Hero.drRoll\","
+                + "\"spread\":{\"max\":10,\"meanPerMille\":4996,\"min\":0,\"samples\":20000},\"tier\":5}\n"
+                + "],\n"
+                + "\"hit\":{\"accuracy\":{\"from\":0,\"step\":2,\"to\":2,\"what\":\"accuracy\"}," + CITE
+                + ",\"evasion\":{\"from\":0,\"step\":2,\"to\":2,\"what\":\"evasion\"},\"measured\":true,\"method\":\"Char.hit\",\"reason\":\"\"},\n"
+                + "\"hitCells\":[\n"
+                + "  {\"accuracy\":0,\"evasion\":0,\"hitPerMille\":1000,\"samples\":10},\n"
+                + "  {\"accuracy\":0,\"evasion\":2,\"hitPerMille\":0,\"samples\":10},\n"
+                + "  {\"accuracy\":2,\"evasion\":0,\"hitPerMille\":1000,\"samples\":10},\n"
+                + "  {\"accuracy\":2,\"evasion\":2,\"hitPerMille\":500,\"samples\":10}\n"
+                + "],\n"
+                + "\"mobs\":[\n"
+                + "  {" + CITE + ",\"className\":\"actors.mobs.Rat\",\"level\":0,\"method\":\"drRoll\","
+                + "\"spread\":{\"max\":1,\"meanPerMille\":500,\"min\":0,\"samples\":20000},\"tier\":0}\n"
+                + "],\n"
+                + "\"seed\":12648430,\n"
+                + "\"weapons\":[\n"
+                + "  {" + CITE + ",\"className\":\"items.weapon.melee.Sword\",\"level\":0,\"method\":\"damageRoll\","
+                + "\"spread\":{\"max\":20,\"meanPerMille\":11529,\"min\":3,\"samples\":20000},\"tier\":3}\n"
+                + "]\n"
+                + "}\n", text);
+        List<String> keys = new java.util.ArrayList<>();
+        for (String line : text.split("\n")) {
+            if (line.startsWith("\"")) {
+                keys.add(line.substring(1, line.indexOf('"', 1)));
+            }
+        }
+        assertEquals(keys.stream().sorted().toList(), keys, "the top-level keys are in order");
+        Codex.HitTable unmeasured = new Codex.HitTable("Char.hit", AT, accuracy, evasion, false, "it needs the toolkit", List.of());
+        assertTrue(CodexJson.combat(new Codex.Combat(1L, unmeasured, List.of(), List.of(), List.of()))
+                .contains("\"measured\":false,\"method\":\"Char.hit\",\"reason\":\"it needs the toolkit\""));
+    }
+
+    @Test
+    @DisplayName("the combat records refuse what a measurement cannot mean")
+    void the_combat_records_refuse() {
+        Codex.Grid one = new Codex.Grid("accuracy", 0, 2, 2);
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Grid("", 0, 2, 2));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Grid("a", 0, 2, 0), "a step is positive");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Grid("a", 3, 2, 1), "an axis runs forwards");
+        assertEquals(2, one.size());
+        assertThrows(IllegalArgumentException.class, () -> new Codex.HitCell(-1, 0, 10, 0));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.HitCell(0, 0, 0, 0), "a cell was sampled");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.HitCell(0, 0, 10, 1001));
+        Codex.HitCell cell = new Codex.HitCell(0, 0, 10, 1000);
+        assertThrows(IllegalArgumentException.class, () -> new Codex.HitTable("m", AT, one, one, true, "", List.of(cell)), "a measured table covers its grid");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.HitTable("m", AT, one, one, false, "why", List.of(cell)), "an unmeasured table has no cell");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.HitTable("m", AT, one, one, true, "why", List.of()), "a measured table says no why");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.HitTable("m", AT, one, one, false, "", List.of()), "an unmeasured table says why");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Spread(3, 1, 2000, 10), "a spread runs forwards");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Spread(1, 3, 500, 10), "a mean lies inside its bounds");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Spread(1, 3, 3500, 10));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Spread(1, 3, 2000, 0));
+        Codex.Spread spread = new Codex.Spread(1, 3, 2000, 10);
+        assertThrows(IllegalArgumentException.class, () -> new Codex.RollEntry("", 0, 0, spread, "m", AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.RollEntry("X", -1, 0, spread, "m", AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.RollEntry("X", 0, 0, spread, "", AT));
+        Codex.RollEntry entry = new Codex.RollEntry("X", 0, 0, spread, "m", AT);
+        Codex.HitTable table = new Codex.HitTable("m", AT, one, one, false, "why", List.of());
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Combat(1L, table, List.of(entry, entry), List.of(), List.of()),
+                "a class and level once per table");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Combat(1L, null, List.of(), List.of(), List.of()));
+        assertThrows(NullPointerException.class, () -> CodexJson.combat(null));
     }
 
     @Test

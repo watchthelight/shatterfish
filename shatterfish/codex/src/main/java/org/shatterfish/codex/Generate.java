@@ -107,6 +107,7 @@ public final class Generate {
     public static Map<String, String> generate(Path root) {
         Map<String, String> tables = new LinkedHashMap<>();
         tables.put("challenges.json", CodexJson.challenges(challenges(root)));
+        tables.put("combat.json", CodexJson.combat(Combat.read(root)));
         tables.put("hero-classes.json", CodexJson.heroClasses(heroClasses(root)));
         tables.put("mobs.json", CodexJson.mobs(Mobs.entries(root)));
         tables.put("spawn-rotation.json", CodexJson.spawnRotation(Rotation.read(root, Mobs.canonicalNames())));
