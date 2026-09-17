@@ -234,7 +234,7 @@ audit and the join between the recipes and the items.
 **Build and tests.**
 
 - `./gradlew build -Pshatterfish.mobile=off`: green.
-- `:api:test` 350 tests, `:codex:test` 63 tests, no failures.
+- `:api:test` 350 tests, `:codex:test` 64 tests, no failures.
 - `./gradlew :codex:generate` then `git status --short codex/`: no drift.
 - `uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict`: green.
 
@@ -252,8 +252,21 @@ quantity of one whenever a recipe named a constant instead of writing a number, 
 pot's recipes do. The aqua brew makes eight and recycling makes twelve. Fixed in `7e1315146`, and
 the mutation was replaced with one that is reachable.
 
-**Mutation battery, after review.** Fourteen mutations rerun against the reviewed readers; results
-below.
+**Mutation battery, after review.** Twenty mutations against the reviewed readers, one for each way
+a table could quietly be wrong: a trap flag inverted, the two nested traps dropped, a pool read as
+one arm, the condition of an arm lost, a weight taken from anywhere in the method, a fractional
+weight rounded away, a pool read only from a class's own file, a pool given to a floor that lays no
+traps, an inherited effect passed off as the trap's own, the hazard on a deactivated trap's cell
+dropped, the pot read from one registry, an input quantity flattened to one, a cost read from the
+count it makes, one branch of the level switch read, a shop read from the depth alone, the sealing
+read from the base level, a floor that calls the sealing no longer counted, every feeling given the
+same chance, and the places a feeling is read dropped.
+
+Nineteen were caught on the first run. The survivor was the refusal against a weight that is not
+whole: no level writes a fractional weight at this tag, so removing the guard changed no generated
+byte and no test could fail. That is a refusal nobody checks, which the verification-gap review had
+named as a class of gap. The parsing moved into a helper the refusal test calls with a weight the
+game does not write, and the mutation is now caught. All twenty are caught.
 
 ## Verification
 
