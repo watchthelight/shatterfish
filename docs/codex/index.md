@@ -32,5 +32,13 @@ bundle, the deck that lists it, its value, its strength requirement at level 0 w
 and the actions it offers a fresh instance (the identifiable potions, scrolls and rings read from
 source, since their icons need the toolkit, and marked so with the reason), and `decks.json`,
 the generator's categories with their two deck weights and their classes' weights, the three
-appearance-label pools, and the exotic swap with its chance. The tables that follow are their
-stories', and this page is replaced by the generator's index when story 2.9 renders it.
+appearance-label pools, and the exotic swap with its chance. Story 2.4 adds `guarantees.json`,
+every limited drop the level's creation decides (the strength potions, the upgrade scrolls,
+the styli, the two stones, the trinket catalyst, the laboratory) as the game's method text and
+as a schedule, the exact chance for every depth and counter state that the drop is needed and
+placed, with what level class each floor of the main branch is and whether it places the floor's
+spawn list at all, and the Forbidden Runes rule; `tiers.json`, the floor-set tier table with the
+armor, weapon and missile rules that draw by it; and `rooms.json`, the special and secret rooms
+with the game's lists, what each puts on the floor (keys, solution potions, a honeypot at a
+coin) and what it draws. The tables that follow are their stories', and this page is replaced by the
+generator's index when story 2.9 renders it.

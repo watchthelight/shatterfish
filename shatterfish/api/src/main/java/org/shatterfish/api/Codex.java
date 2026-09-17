@@ -22,9 +22,10 @@ public final class Codex {
 
     /**
      * The Codex version: 1 was the skeleton with the hero classes and the challenge flags; 2 added
-     * the mobs and the spawn rotation (story 2.2); 3 adds the items and the decks (story 2.3).
+     * the mobs and the spawn rotation (story 2.2); 3 added the items and the decks (story 2.3);
+     * 4 adds the guarantees, the tier tables and the rooms (story 2.4).
      */
-    public static final int VERSION = 3;
+    public static final int VERSION = 4;
 
     /** The shape of an upstream tag: {@code v}, a dotted version, and an optional pre-release suffix. */
     public static final String TAG_PATTERN = "v[0-9]+([.][0-9]+)*(-[A-Za-z0-9.]+)?";
@@ -541,6 +542,269 @@ public final class Codex {
             reason = Canon.text(reason, "reason");
             Canon.require(constructed == reason.isEmpty(), "an unconstructed item says why");
             Canon.require(citation != null, "an item carries its citation");
+        }
+    }
+
+    // --- the guarantees, the tiers and the rooms (story 2.4)
+
+    /**
+     * One state of a limited drop's schedule: at {@code depth} with the counter at {@code count},
+     * the chance in thousandths that the game's method says the drop is needed, that the floor
+     * places it (a boss floor places none), and that it places it under Forbidden Runes (every
+     * second upgrade scroll is withheld; every other drop is unchanged).
+     */
+    public record ScheduleEntry(int depth, int count, int neededPerMille, int placedPerMille, int placedNoScrollsPerMille) {
+
+        public ScheduleEntry {
+            Canon.require(depth >= 1, "a depth is a floor: " + depth);
+            Canon.require(count >= 0, "a counter is not negative: " + count);
+            Canon.require(neededPerMille >= 0 && neededPerMille <= 1000, "a chance is thousandths: " + neededPerMille);
+            Canon.require(placedPerMille == 0 || placedPerMille == neededPerMille,
+                    "a floor either places what is needed or places nothing: " + placedPerMille + " of " + neededPerMille);
+            Canon.require(placedNoScrollsPerMille == 0 || placedNoScrollsPerMille == placedPerMille,
+                    "Forbidden Runes withholds the whole drop or none of it: " + placedNoScrollsPerMille + " of " + placedPerMille);
+        }
+    }
+
+    /**
+     * A limited drop the level's creation decides: its counter's name, the item, the method, whether
+     * it drops once in a Run (else {@code perSet} per floor set), the method's text and citation,
+     * the placement's citation, and the schedule over every depth and counter state.
+     */
+    public record DropSchedule(String name, String item, String method, boolean once, int perSet, String expression, Citation citation,
+                               Citation placementCitation, List<ScheduleEntry> entries) {
+
+        public DropSchedule {
+            name = Canon.text(name, "drop name");
+            item = Canon.text(item, "drop item");
+            method = Canon.text(method, "drop method");
+            expression = Canon.text(expression, "drop expression");
+            Canon.require(!name.isEmpty() && !item.isEmpty() && !method.isEmpty() && !expression.isEmpty(), "a drop is named, with its item, method and text");
+            Canon.require(perSet >= 1, "a drop comes at least once: " + perSet);
+            Canon.require(!once || perSet == 1, "a once-only drop comes once");
+            Canon.require(citation != null && placementCitation != null, "a drop carries its citations");
+            entries = Canon.positional(entries, "schedule entries");
+            Canon.require(!entries.isEmpty(), "a schedule has entries");
+            int depths = 0;
+            int counts = 0;
+            for (ScheduleEntry entry : entries) {
+                depths = Math.max(depths, entry.depth());
+                counts = Math.max(counts, entry.count());
+            }
+            Canon.require(entries.size() == depths * (counts + 1),
+                    "a schedule covers every depth and counter state it reaches: " + entries.size() + " of " + depths + " by " + (counts + 1));
+            Set<Long> states = new HashSet<>();
+            for (ScheduleEntry entry : entries) {
+                Canon.require(states.add(((long) entry.depth() << 32) | entry.count()), "a state once: depth " + entry.depth() + " count " + entry.count());
+            }
+        }
+    }
+
+    /**
+     * What the main branch builds at one depth: the level class the game names in its own
+     * switch, and whether that class empties the floor's spawn list, which is what places a
+     * guaranteed drop. A depth whose level does not (the amulet floor, a boss floor) places
+     * none however the counter stands.
+     */
+    public record Placement(int depth, String levelClass, boolean placesSpawnList, Citation citation) {
+
+        public Placement {
+            Canon.require(depth >= 1, "a depth is a floor: " + depth);
+            levelClass = Canon.text(levelClass, "level class");
+            Canon.require(!levelClass.isEmpty() && citation != null, "a placement names its level class and is cited");
+        }
+    }
+
+    /**
+     * The guarantees: every limited-drop counter the game keeps, the boss depths, the gate the
+     * level's creation applies (the main branch only, a boss floor never), the Forbidden Runes
+     * rule, what each depth of the main branch builds, and the schedules.
+     */
+    public record Guarantees(List<String> counters, Citation countersCitation, List<Integer> bossDepths, Citation bossCitation,
+                             String gateExpression, Citation placementCitation, String noScrollsExpression, Citation noScrollsCitation,
+                             List<Placement> placements, List<DropSchedule> drops) {
+
+        public Guarantees {
+            gateExpression = Canon.text(gateExpression, "gate expression");
+            Canon.require(!gateExpression.isEmpty(), "the placement gate has text");
+            placements = Canon.positional(placements, "placements");
+            Canon.require(!placements.isEmpty(), "the main branch builds floors");
+            for (int i = 0; i < placements.size(); i++) {
+                Canon.require(placements.get(i).depth() == i + 1, "the placements are the depths in order from one");
+            }
+            counters = Canon.positional(counters, "counters");
+            Canon.require(!counters.isEmpty(), "the game keeps counters");
+            Set<String> names = new HashSet<>();
+            for (String counter : counters) {
+                Canon.require(names.add(counter), "a counter once: " + counter);
+            }
+            bossDepths = Canon.sorted(bossDepths, Comparator.naturalOrder(), "boss depths");
+            Canon.noRepeats(bossDepths, "boss depths");
+            for (int depth : bossDepths) {
+                Canon.require(depth >= 1, "a boss depth is a floor: " + depth);
+            }
+            Canon.require(countersCitation != null && bossCitation != null && placementCitation != null && noScrollsCitation != null,
+                    "the guarantees carry their citations");
+            noScrollsExpression = Canon.text(noScrollsExpression, "Forbidden Runes expression");
+            Canon.require(!noScrollsExpression.isEmpty(), "the Forbidden Runes rule has text");
+            drops = Canon.positional(drops, "drops");
+            Set<String> dropNames = new HashSet<>();
+            for (DropSchedule drop : drops) {
+                Canon.require(dropNames.add(drop.name()), "a drop once: " + drop.name());
+                Canon.require(names.contains(drop.name()), "a drop's counter is one the game keeps: " + drop.name());
+            }
+        }
+    }
+
+    /** One floor set's tier weights: the set, the depths it covers, the five weights by tier. */
+    public record TierRow(int floorSet, int depthFrom, int depthTo, List<Integer> weights) {
+
+        public TierRow {
+            Canon.require(floorSet >= 0, "a floor set is not negative");
+            Canon.require(depthFrom >= 1 && depthTo >= depthFrom, "a floor set covers depths: " + depthFrom + "-" + depthTo);
+            weights = Canon.positional(weights, "tier weights");
+            Canon.require(weights.size() == 5, "five tiers");
+            int sum = 0;
+            for (int weight : weights) {
+                Canon.require(weight >= 0, "a weight is not negative");
+                sum += weight;
+            }
+            Canon.require(sum > 0, "a floor set draws some tier");
+        }
+    }
+
+    /** A rule read as text: what it decides, the text, the citation. */
+    public record Rule(String what, String expression, Citation citation) {
+
+        public Rule {
+            what = Canon.text(what, "rule name");
+            expression = Canon.text(expression, "rule expression");
+            Canon.require(!what.isEmpty() && !expression.isEmpty() && citation != null, "a rule is named, with its text and citation");
+        }
+    }
+
+    /**
+     * The tier tables: the rows by floor set, the literal's citation, the gate every draw
+     * applies, the armor, weapon and missile rules, and the tier arrays the weapon and missile
+     * rules index, each cited to its own declaration.
+     */
+    public record Tiers(List<TierRow> rows, Citation citation, Rule gate, Rule armor, Rule weapon, Rule missile, List<Rule> arrays) {
+
+        public Tiers {
+            arrays = Canon.positional(arrays, "tier arrays");
+            Set<String> named = new HashSet<>();
+            for (Rule array : arrays) {
+                Canon.require(named.add(array.what()), "a tier array once: " + array.what());
+            }
+            rows = Canon.positional(rows, "tier rows");
+            Canon.require(!rows.isEmpty(), "the table has rows");
+            for (int i = 0; i < rows.size(); i++) {
+                Canon.require(rows.get(i).floorSet() == i, "the rows are the floor sets in order");
+                Canon.require(i == 0 || rows.get(i).depthFrom() == rows.get(i - 1).depthTo() + 1, "the depth ranges abut");
+            }
+            Canon.require(citation != null && gate != null && armor != null && weapon != null && missile != null, "the tiers carry their citation and rules");
+        }
+    }
+
+    /**
+     * An item a room puts on the floor: the class, how many, whether the room drops it on its own
+     * cells ({@code floorDrop}) rather than adding it to the level's spawn list, whether it does
+     * so under a condition the reader does not evaluate ({@code conditional}, so the count is how
+     * many statements put it there and not how many a floor gets), and the citation of the first
+     * line that does so. A spawn-list item is placed anywhere on the floor; a floor drop is
+     * placed in the room. An item added to the spawn list is never conditional: the reader
+     * refuses one it cannot count, since a guaranteed drop that is not guaranteed is worse than
+     * no entry.
+     */
+    public record Spawn(String className, int count, boolean floorDrop, boolean conditional, Citation citation) {
+
+        public Spawn {
+            className = Canon.text(className, "spawned class");
+            Canon.require(!className.isEmpty() && count >= 1 && citation != null, "a spawn names its class, counts at least one and is cited");
+        }
+    }
+
+    /** A draw a room makes, as cited text. */
+    public record Draw(String expression, Citation citation) {
+
+        public Draw {
+            expression = Canon.text(expression, "draw expression");
+            Canon.require(!expression.isEmpty() && citation != null, "a draw has text and a citation");
+        }
+    }
+
+    /**
+     * One special or secret room: its class, whether it is a secret room, the items it puts on
+     * the floor, the draws its painting makes (every line that asks the generator, picks by
+     * chances or makes an instance by class, as cited text), and the citation of its
+     * declaration.
+     */
+    public record RoomEntry(String className, boolean secret, List<Spawn> spawns, List<Draw> draws, Citation citation) {
+
+        public RoomEntry {
+            className = Canon.text(className, "room class");
+            Canon.require(!className.isEmpty() && citation != null, "a room names its class and is cited");
+            spawns = Canon.sorted(spawns, Comparator.comparing(Spawn::className), "spawns");
+            Set<String> classes = new HashSet<>();
+            for (Spawn spawn : spawns) {
+                Canon.require(classes.add(spawn.className() + (spawn.floorDrop() ? " dropped" : " spawned")),
+                        "a spawned class once per placement: " + spawn.className());
+                Canon.require(spawn.floorDrop() || !spawn.conditional(), "an item added to the spawn list is not conditional: " + spawn.className());
+            }
+            draws = Canon.positional(draws, "draws");
+        }
+    }
+
+    /** One of the game's room lists: its name, its members in the game's order, the citation of the literal. */
+    public record RoomList(String name, List<String> members, Citation citation) {
+
+        public RoomList {
+            name = Canon.text(name, "list name");
+            members = Canon.positional(members, "members");
+            Canon.require(!name.isEmpty() && !members.isEmpty() && citation != null, "a list is named, has members and is cited");
+            Set<String> seen = new HashSet<>();
+            for (String member : members) {
+                Canon.require(seen.add(member), "a member once: " + member);
+            }
+        }
+    }
+
+    /**
+     * The rooms: the specials, the secrets, the game's lists, the base count of secret rooms per
+     * region times a thousand (the whole part is the count the region gets and the fraction is
+     * the chance of one more, rolled once per Run), and the queue rule.
+     */
+    public record Rooms(List<RoomEntry> specials, List<RoomEntry> secrets, List<RoomList> lists, List<Integer> baseSecretsPerRegionThousandths,
+                        Citation secretsCitation, Rule queue) {
+
+        public Rooms {
+            specials = Canon.sorted(specials, Comparator.comparing(RoomEntry::className), "specials");
+            secrets = Canon.sorted(secrets, Comparator.comparing(RoomEntry::className), "secrets");
+            Canon.noRepeats(specials.stream().map(RoomEntry::className).toList(), "specials");
+            Canon.noRepeats(secrets.stream().map(RoomEntry::className).toList(), "secrets");
+            for (RoomEntry room : specials) {
+                Canon.require(!room.secret(), "a special is not a secret: " + room.className());
+            }
+            for (RoomEntry room : secrets) {
+                Canon.require(room.secret(), "a secret is a secret: " + room.className());
+            }
+            lists = Canon.positional(lists, "lists");
+            Set<String> names = new HashSet<>();
+            Set<String> known = new HashSet<>();
+            specials.forEach(r -> known.add(r.className()));
+            secrets.forEach(r -> known.add(r.className()));
+            for (RoomList list : lists) {
+                Canon.require(names.add(list.name()), "a list once: " + list.name());
+                for (String member : list.members()) {
+                    Canon.require(known.contains(member), "a listed room is in the table: " + member);
+                }
+            }
+            baseSecretsPerRegionThousandths = Canon.positional(baseSecretsPerRegionThousandths, "secrets per region");
+            Canon.require(!baseSecretsPerRegionThousandths.isEmpty(), "the secrets per region are given");
+            for (int perRegion : baseSecretsPerRegionThousandths) {
+                Canon.require(perRegion >= 0, "secrets per region are not negative");
+            }
+            Canon.require(secretsCitation != null && queue != null, "the rooms carry their citation and the queue rule");
         }
     }
 

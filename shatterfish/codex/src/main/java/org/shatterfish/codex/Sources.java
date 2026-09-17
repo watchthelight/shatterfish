@@ -258,6 +258,62 @@ final class Sources {
         return body;
     }
 
+    /**
+     * The body of the file at {@code path} under the root (story 2.4), for a class the generator
+     * may not name ({@code Dungeon}): the whole file, named by the file's simple name.
+     */
+    static Body file(Path root, String path) {
+        if (!path.startsWith(SOURCE_ROOT) || !path.endsWith(".java")) {
+            throw new IllegalStateException("not a source of the pinned core: " + path);
+        }
+        List<String> lines;
+        try {
+            lines = Files.readAllLines(root.resolve(path), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException("the source could not be read at " + path, e);
+        }
+        if (!lines.isEmpty() && lines.get(0).startsWith("\uFEFF")) {
+            lines.set(0, lines.get(0).substring(1));
+        }
+        String name = path.substring(path.lastIndexOf('/') + 1, path.length() - ".java".length());
+        return new Body(path, lines, 0, lines.size(), name);
+    }
+
+    /**
+     * A block's body as one line: its statements between the braces, comments stripped (a
+     * {@code //} to the end of its line and a {@code /* *}{@code /} wherever it runs, so that a
+     * comment a later tag adds inside a pinned method is not mistaken for the method moving),
+     * blank lines dropped, whitespace collapsed.
+     */
+    static String text(Body block) {
+        List<String> parts = new ArrayList<>();
+        boolean inBlockComment = false;
+        for (int i = block.from() + 1; i < block.to() - 1; i++) {
+            StringBuilder line = new StringBuilder();
+            String source = block.lines().get(i);
+            for (int c = 0; c < source.length(); c++) {
+                if (inBlockComment) {
+                    if (source.startsWith("*/", c)) {
+                        inBlockComment = false;
+                        c++;
+                    }
+                } else if (source.startsWith("/*", c)) {
+                    inBlockComment = true;
+                    c++;
+                } else if (source.startsWith("//", c)) {
+                    break;
+                } else {
+                    line.append(source.charAt(c));
+                }
+            }
+            String text = line.toString().trim();
+            if (!text.isEmpty()) {
+                parts.add(text);
+            }
+        }
+        return String.join(" ", parts).replaceAll("\\s+", " ").trim();
+    }
+
     /** A method's block and declaration line in the class that declares it. */
     record Declared(Class<?> owner, Body block, int line) {
     }
