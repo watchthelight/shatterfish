@@ -55,6 +55,45 @@ class TextReaderTest {
     }
 
     @Test
+    @DisplayName("the longest prefix wins, which the pinned keys cannot show because none has two class prefixes")
+    void the_longest_prefix_wins() {
+        Map<String, String> outers = new java.util.TreeMap<>(Map.of("a.b", "a.B", "a.b.c", "a.b.C"));
+        Map<String, List<String>> declared = new java.util.TreeMap<>();
+        assertEquals("a.b.C", Text.resolve(ROOT, outers, declared, "a.b.c.name").className(),
+                "a key whose shorter prefix is also a class belongs to the longer one");
+        assertEquals("a.b", Text.resolve(ROOT, outers, declared, "a.b.c.name").className().substring(0, 3));
+        assertEquals("a.B", Text.resolve(ROOT, outers, declared, "a.b.other.name").className(),
+                "and a key the longer prefix does not cover falls back to the shorter");
+    }
+
+    @Test
+    @DisplayName("the bundles keep the game's own order, which the pinned nine cannot show because they are alphabetical already")
+    void the_bundles_keep_the_games_order() {
+        Sources.Body messages = body("core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/messages/Made.java",
+                "class Made {",
+                "\tprivate static String[] prop_files = new String[]{",
+                "\t\t\tAssets.Messages.WINDOWS,",
+                "\t\t\tAssets.Messages.ACTORS",
+                "\t};",
+                "}");
+        Sources.Body assets = body("core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/Made.java",
+                "class Made {",
+                "\tpublic static class Messages {",
+                "\t\tpublic static final String ACTORS = \"messages/actors/actors\";",
+                "\t\tpublic static final String WINDOWS = \"messages/windows/windows\";",
+                "\t}",
+                "}");
+        assertEquals(List.of("messages/windows/windows.properties", "messages/actors/actors.properties"),
+                Text.bundles(messages, assets), "the order the game's own array walks them, not the order they sort in");
+    }
+
+    /** A body of made-up source, as the readers see a file. */
+    private static Sources.Body body(String path, String... lines) {
+        List<String> all = List.of(lines);
+        return new Sources.Body(path, all, 0, all.size(), "Made");
+    }
+
+    @Test
     @DisplayName("a bundle line the reader cannot read fails naming it, and a key given twice fails")
     void the_bundle_reader_refuses_what_it_cannot_read() {
         assertThrows(java.io.UncheckedIOException.class, () -> Names.lines(ROOT, "core/src/main/assets/messages/none/none.properties"),

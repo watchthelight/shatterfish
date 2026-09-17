@@ -51,12 +51,19 @@ final class Text {
      * rather than named here: a bundle a later tag adds would otherwise be missed in silence.
      */
     static List<String> bundles(Path root) {
-        Sources.Body messages = Sources.file(root, MESSAGES);
+        return bundles(Sources.file(root, MESSAGES), Sources.file(root, ASSETS));
+    }
+
+    /**
+     * The same, from two bodies. The game's nine bundles are in alphabetical order as it happens,
+     * so a reader that sorted them would read the same list here and no test could tell: the order
+     * is held on source written for the test instead.
+     */
+    static List<String> bundles(Sources.Body messages, Sources.Body assets) {
         int line = messages.find("private static String\\[\\] prop_files\\s*=");
         if (line < 0) {
             throw new IllegalStateException("Messages declares no prop_files; the bundles the game searches are no longer where the reader looks");
         }
-        Sources.Body assets = Sources.file(root, ASSETS);
         List<String> paths = new ArrayList<>();
         Matcher named = CONSTANT.matcher(Sources.text(messages.block(line)));
         while (named.find()) {
