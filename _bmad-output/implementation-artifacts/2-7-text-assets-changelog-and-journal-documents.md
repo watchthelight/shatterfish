@@ -266,7 +266,7 @@ invariant.
 **Build and tests.**
 
 - `./gradlew build -Pshatterfish.mobile=off`: green.
-- `:api:test` 354 tests, `:codex:test` 76 tests, no failures.
+- `:api:test` 354 tests, `:codex:test` 77 tests, no failures.
 - `./gradlew :codex:generate` then `git status --short codex/`: no drift.
 - `uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict`: green.
 
@@ -285,8 +285,22 @@ prefixes that are both classes, and the game's nine bundles already sit in alpha
 rule nothing can falsify is a rule the reader is free to lose, so both are now stated against source
 written for the test, and both mutations are caught.
 
-**Mutation battery, after review.** Sixteen mutations rerun against the reviewed readers; results
-below.
+**Mutation battery, after review.** Twenty-two mutations against the reviewed readers: the first
+sixteen re-aimed where the readers moved, and six written for what the reviews found — a heading's
+later texts dropped, an asset constant lost to an extension list, a group not restored when its
+class closes, the changelog published in the order the files sort in, a bundle key carried in a
+form the strings table does not hold, and a value carried raw.
+
+Twenty-one were caught on the first run. The survivor was the rule that the class map reads every
+module the game compiles rather than the core alone: every key of the pinned bundles names a class
+of the core, so narrowing the read changes no published byte. The desktop launcher is a class of
+the game under its own module, and the reader is now held to finding it. All twenty-two are caught.
+
+**An incident worth recording.** I ran the full build and the battery as two background jobs at
+once. They share the Gradle test-results folder and wiped each other: the build reported a failure
+with no failing task, and the battery reported that nothing ran. Neither result meant anything. The
+rule this project already knew — one Gradle at a time — now has a second occasion behind it. Both
+were rerun alone, and the results above are from those runs.
 
 ## Verification
 
