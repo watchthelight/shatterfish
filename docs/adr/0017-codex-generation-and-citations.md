@@ -344,11 +344,17 @@ measurement seed and the cell's own coordinates, never from the Codex's construc
 cell does not depend on the order the table was filled in, two measurements agree byte for byte,
 and moving the construction seed (which `CodexSeedFreeTest` does between two generations) moves
 no measured number. The measurement runs through `GameContext`, which gains its fourth field for
-it: `Dungeon.hero`, set to a bare hero and restored, because the engine's combat methods
-dereference the hero for a talent check and throw without one. A bare hero is a rogue with no
-talents, no items and no buffs, so nothing it carries reaches a measured number; the gate admits
-the field and the hero's type and holds that nothing else of it is reached, and the live Run
-holds that a Run's own hero is still its own afterwards.
+it: `Dungeon.hero`, set to a hero fresh from the game's own constructor and restored, because the
+engine's combat methods dereference the hero for a talent check and throw without one. That hero
+has no class at all (`heroClass` is null until a Run chooses one), no talent, no item, no ring
+and no buff, so every modifier those methods look up through it is the identity; it is not a
+played hero, and a measurement that wanted one would be measuring a Run. Setting an item's level
+writes one more Run static, the flag that asks a scene to redraw its item displays, so the door
+holds and restores that too. The gate closes what it admits: it may name the hero's and the
+scene's types and the four `Dungeon` fields, call nothing of the level or the scene, call nothing
+of the hero but its constructor, and touch no field of the scene but the redraw flag — so the
+door cannot ask a Run's hero anything. The live Run holds that a Run's own hero is still its own
+afterwards.
 
 **A method the generator cannot run says so.** `Char.hit`, which decides whether an attack lands,
 writes the icon of the reason it landed or missed; reaching that code initialises `FloatingText`,
@@ -360,5 +366,23 @@ hand. The rig that measurement needs (two sparring characters that return an acc
 evasion and nothing else) is written and kept, and `CombatTableStabilityTest` runs it against the
 engine in a process that has booted, so the story that fills the table in the harness has nothing
 left to invent.
+
+**A roll a bare instance cannot make is named, not shipped.** A mob whose stats the game sets when
+it spawns it rolls a placeholder if a generator constructs it and asks: four throw outright, and
+the rest return a number that looks like a measurement and is not (the earth guardian rolls from a
+wand level of minus one until the game sets it). The unmeasurable list is therefore story 2.2's
+own `STATS_SET_LATER` plus those four, held against it by the stability test, so a mob that joins
+that list there cannot be quietly measured here. The same discipline names what is measured: the
+weapon table measures every class the game calls a `Weapon`, not only the melee and missile
+families, because the spirit bow is neither and was missing while a test written with the reader's
+own test reported full coverage; the stability test now builds its expectation from the game's
+compiled hierarchy instead, so the reader and its test cannot be wrong together.
+
+**What the tables do not compose.** Turning three measured tables into an expected damage needs
+the engine's own subtraction of a reduction from a damage, and that step (`Char.attack`) is behind
+the same toolkit wall as `Char.hit`. So the Codex carries the parts and not the product, and a
+consumer that wants the product must either wait for the story that measures behind the wall or
+do the subtraction itself. Saying so is the point: the Codex does not pretend to carry what it
+has not measured.
 
 Codex version 5.

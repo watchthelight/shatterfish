@@ -3,6 +3,7 @@ package org.shatterfish.codex;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
+import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.watabou.utils.Random;
 
 import java.util.function.Supplier;
@@ -24,11 +25,17 @@ import java.util.function.Supplier;
  * set to none around a construction, as a cold generation has it, and restored.
  *
  * <p>The fourth is {@code Dungeon.hero} (story 2.5), which only {@link #measure} sets: the
- * engine's own {@code Char.hit} dereferences it for a talent check ({@code Char.java:648-652},
- * {@code :668-672}) and throws without one, so a measurement of the engine's combat runs with a
- * bare hero, which is a rogue with no talents and no items and therefore contributes nothing to
- * what is measured. It is restored with the rest, and the leak test holds that a live Run's own
- * hero is still its own afterwards.
+ * engine's own combat methods dereference it for a talent check ({@code Char.java:648-652},
+ * {@code :668-672}) and throw without one, so a measurement runs with a hero fresh from the
+ * game's own constructor. That hero has no class at all ({@code heroClass} is null until a Run
+ * chooses one), no talent, no item, no ring and no buff, so every modifier those methods look up
+ * through it is the identity; what it is not is a played hero, and a measurement that wanted one
+ * would be measuring a Run. It is restored with the rest.
+ *
+ * <p>Setting an item's level to measure it writes one more Run static, the flag that tells a
+ * scene to redraw its item displays ({@code Item.java:576-578}), so the door snapshots and
+ * restores that too. The gate admits exactly these: the four {@code Dungeon} fields, the level's
+ * and the hero's types, the hero's constructor, the redraw flag, and the two generator calls.
  */
 final class GameContext {
 
@@ -59,11 +66,13 @@ final class GameContext {
     static <T> T measure(long key, java.util.function.Function<Hero, T> work) {
         Hero hero = new Hero();
         Hero heroBefore = Dungeon.hero;
+        boolean redrawBefore = GameScene.updateItemDisplays;
         Dungeon.hero = hero;
         try {
             return under(1, 0, MEASUREMENT_SEED + key * 0x9E3779B97F4A7C15L, () -> work.apply(hero));
         } finally {
             Dungeon.hero = heroBefore;
+            GameScene.updateItemDisplays = redrawBefore;
         }
     }
 

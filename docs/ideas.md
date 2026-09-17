@@ -117,3 +117,10 @@ it re-reads ADR-0006's Blobs row.
   evasion, no enchantment or glyph, no champion buff, no hero talent, no encumbrance penalty
   below an armour's strength. Each is a multiplier or a branch the engine applies in the same
   methods, so the same rig measures them with the modifier in place.
+
+- **The composition the Codex cannot carry.** An expected damage is a damage roll less a reduction
+  roll, and the engine does that subtraction in `Char.attack`, behind the same toolkit wall as
+  `Char.hit` (it plays a sound and writes the log). So story 2.5's three measured tables are the
+  parts, not the product. The story that measures behind the wall should measure the composition
+  too, and until it does, a consumer doing the subtraction itself should know that the engine
+  applies its multipliers between the two rolls.

@@ -7,6 +7,7 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.ArmoredStatue;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Statue;
 import com.shatteredpixel.shatteredpixeldungeon.items.armor.Armor;
+import com.shatteredpixel.shatteredpixeldungeon.items.weapon.Weapon;
 import com.shatteredpixel.shatteredpixeldungeon.items.weapon.melee.MeleeWeapon;
 import com.shatteredpixel.shatteredpixeldungeon.items.weapon.missiles.MissileWeapon;
 import com.shatteredpixel.shatteredpixeldungeon.levels.traps.GuardianTrap;
@@ -106,12 +107,15 @@ final class Combat {
         Sparring.Fighter wielder = Sparring.attacker(0);
         for (Supplier<com.shatteredpixel.shatteredpixeldungeon.items.Item> make : Items.CONSTRUCTED) {
             com.shatteredpixel.shatteredpixeldungeon.items.Item item = GameContext.under(1, 0, make);
-            if (!(item instanceof MeleeWeapon) && !(item instanceof MissileWeapon)) {
+            if (!(item instanceof Weapon)) {
                 continue;
             }
-            int tier = item instanceof MeleeWeapon melee ? melee.tier : ((MissileWeapon) item).tier;
+            // A weapon that is neither melee nor missile carries no tier field of its own (the
+            // spirit bow's own formula names the tier it uses); the entry says zero rather than
+            // inventing one, as the item table's strength does.
+            int tier = item instanceof MeleeWeapon melee ? melee.tier : item instanceof MissileWeapon missile ? missile.tier : 0;
             Sources.Declared method = Sources.declared(root, item.getClass(),
-                    com.shatteredpixel.shatteredpixeldungeon.items.weapon.Weapon.class, "public int damageRoll\\s*\\(\\s*Char owner\\s*\\)");
+                    Weapon.class, "public int damageRoll\\s*\\(\\s*Char owner\\s*\\)");
             if (method == null) {
                 throw new IllegalStateException(item.getClass().getName() + " declares no damageRoll(Char) up to Weapon");
             }
@@ -120,7 +124,7 @@ final class Combat {
                 at.level(level);
                 entries.add(new Codex.RollEntry(Sources.name(item.getClass()), tier, level,
                         spread(Sources.name(item.getClass()).hashCode() * 31L + level,
-                                hero -> ((com.shatteredpixel.shatteredpixeldungeon.items.weapon.Weapon) at).damageRoll(wielder)),
+                                hero -> ((Weapon) at).damageRoll(wielder)),
                         "damageRoll", method.block().citation(method.line())));
             }
         }
@@ -160,32 +164,62 @@ final class Combat {
 
     /** What the engine takes off an attack for a bare hero wearing {@code armour} with the strength it asks. */
     private static int worn(Hero hero, Armor armour) {
+        Armor armourBefore = hero.belongings.armor;
+        int strengthBefore = hero.STR;
         hero.belongings.armor = armour;
         hero.STR = armour.STRReq();
         try {
             return hero.drRoll();
         } finally {
-            hero.belongings.armor = null;
+            hero.belongings.armor = armourBefore;
+            hero.STR = strengthBefore;
         }
     }
 
     /**
-     * The mobs whose damage reduction cannot be rolled on a bare instance, each with its reason:
-     * the game hands them what they roll with when it spawns them, so a generator that constructs
-     * and asks would be measuring nothing. Story 2.2's table already carries their reduction as
-     * the expression its source states.
+     * Why a mob's reduction is not measured: the game gives it what it rolls with when it spawns
+     * it, so a bare instance would roll a placeholder. Four throw outright (they dereference the
+     * weapon the level hands them); the rest return a number that is not the game's, which is
+     * worse, because it looks like a measurement. Story 2.2 already names the same classes as the
+     * ones whose stats the game sets later, and this list is held against that one, so a mob that
+     * joins it there cannot be quietly measured here.
      */
-    static final List<Map.Entry<Class<? extends Mob>, String>> NOT_ROLLED = List.of(
-            Map.entry(Statue.class, "rolls with the weapon the level gives it when it spawns (Statue.java:114)"),
-            Map.entry(ArmoredStatue.class, "rolls with the weapon and the armour the level gives it when it spawns"),
-            Map.entry(GuardianTrap.Guardian.class, "rolls with the weapon the trap gives it when it spawns"),
-            Map.entry(Ratmogrify.TransmogRat.class, "rolls as the mob it was made from, which a bare one does not have"));
+    static final String EQUIPPED_AT_SPAWN = "the game gives it what it rolls with when it spawns it; a bare instance rolls a placeholder";
 
     /**
-     * Every mob of the mob table whose reduction a bare instance can roll: the spread of its own
-     * {@code drRoll}, which story 2.2 carries as the expression its source states. The four that
-     * cannot are named in {@link #NOT_ROLLED} with their reasons, and
-     * {@code CodexCompletenessTest} holds that those two lists cover the mobs exactly.
+     * The mobs whose damage reduction a bare instance cannot roll as the game would, each with its
+     * reason. The four that throw are named for what they dereference; the others are exactly
+     * story 2.2's {@code STATS_SET_LATER}, and {@code CombatTableStabilityTest} holds that this
+     * list is that one plus those four.
+     */
+    static final List<Map.Entry<Class<? extends Mob>, String>> NOT_ROLLED = notRolled();
+
+    private static List<Map.Entry<Class<? extends Mob>, String>> notRolled() {
+        List<Map.Entry<Class<? extends Mob>, String>> named = new ArrayList<>();
+        named.add(Map.entry(Statue.class, "rolls with the weapon the level gives it when it spawns (Statue.java:114)"));
+        named.add(Map.entry(ArmoredStatue.class, "rolls with the weapon and the armour the level gives it when it spawns"));
+        named.add(Map.entry(GuardianTrap.Guardian.class, "rolls with the weapon the trap gives it when it spawns"));
+        named.add(Map.entry(Ratmogrify.TransmogRat.class, "rolls as the mob it was made from, which a bare one does not have"));
+        java.util.TreeMap<String, Class<?>> later = new java.util.TreeMap<>();
+        for (Class<?> type : Mobs.STATS_SET_LATER) {
+            later.put(Sources.name(type), type);
+        }
+        java.util.TreeSet<String> already = new java.util.TreeSet<>();
+        named.forEach(e -> already.add(Sources.name(e.getKey())));
+        for (Map.Entry<String, Class<?>> type : later.entrySet()) {
+            if (already.add(type.getKey())) {
+                @SuppressWarnings("unchecked")
+                Class<? extends Mob> mob = (Class<? extends Mob>) type.getValue();
+                named.add(Map.entry(mob, EQUIPPED_AT_SPAWN));
+            }
+        }
+        return List.copyOf(named);
+    }
+
+    /**
+     * Every mob whose reduction a bare instance rolls as the game would: the spread of its own
+     * {@code drRoll} at the depth the door sets, which story 2.2 carries as the expression its
+     * source states. The ones that cannot are named in {@link #NOT_ROLLED} with their reasons.
      */
     static List<Codex.RollEntry> mobs(Path root) {
         java.util.Set<String> named = new java.util.TreeSet<>();

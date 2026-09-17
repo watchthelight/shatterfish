@@ -6,6 +6,9 @@ import com.shatteredpixel.shatteredpixeldungeon.items.armor.Armor;
 import com.shatteredpixel.shatteredpixeldungeon.items.weapon.Weapon;
 import com.shatteredpixel.shatteredpixeldungeon.items.weapon.melee.MeleeWeapon;
 import com.shatteredpixel.shatteredpixeldungeon.items.weapon.missiles.MissileWeapon;
+import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaModifier;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -74,10 +77,17 @@ class CombatTableStabilityTest {
             assertTrue(make != null, entry.className() + " is a weapon of the item table");
             Weapon weapon = (Weapon) GameContext.under(1, 0, make);
             weapon.level(entry.level());
-            int min = weapon instanceof MeleeWeapon melee ? melee.min(entry.level()) : ((MissileWeapon) weapon).min(entry.level());
-            int max = weapon instanceof MeleeWeapon melee ? melee.max(entry.level()) : ((MissileWeapon) weapon).max(entry.level());
-            assertTrue(entry.spread().min() >= min, entry.className() + " +" + entry.level() + " rolled " + entry.spread().min() + ", under its own min " + min);
-            assertTrue(entry.spread().max() <= max, entry.className() + " +" + entry.level() + " rolled " + entry.spread().max() + ", over its own max " + max);
+            // The bounds a weapon states for itself, where it states them by level: the two
+            // families do, and a weapon that is neither (the spirit bow) is held by the
+            // re-measurement below instead.
+            if (weapon instanceof MeleeWeapon || weapon instanceof MissileWeapon) {
+                int min = weapon instanceof MeleeWeapon melee ? melee.min(entry.level()) : ((MissileWeapon) weapon).min(entry.level());
+                int max = weapon instanceof MeleeWeapon melee ? melee.max(entry.level()) : ((MissileWeapon) weapon).max(entry.level());
+                assertTrue(entry.spread().min() >= min,
+                        entry.className() + " +" + entry.level() + " rolled " + entry.spread().min() + ", under its own min " + min);
+                assertTrue(entry.spread().max() <= max,
+                        entry.className() + " +" + entry.level() + " rolled " + entry.spread().max() + ", over its own max " + max);
+            }
             assertEquals(Combat.ROLL_SAMPLES, entry.spread().samples());
             weapons++;
         }
@@ -92,11 +102,28 @@ class CombatTableStabilityTest {
             assertEquals(0, entry.tier(), "a mob's reduction has no tier");
             assertEquals(0, entry.level(), "a mob's reduction has no level");
             assertEquals("drRoll", entry.method());
+            assertTrue(entry.spread().min() >= 0,
+                    entry.className() + " reduced a negative amount, which no mob the game spawns does: " + entry.spread());
         }
-        // A reduction can go below zero: the earth guardian's own roll subtracts an amount before
-        // it adds, so the table carries what the engine returned rather than a tidied number.
-        Codex.RollEntry guardian = combat.mobs().stream().filter(e -> e.className().endsWith("EarthGuardian")).findFirst().orElseThrow();
-        assertTrue(guardian.spread().min() < 0, "the engine's own roll went below zero, and the table says so: " + guardian.spread());
+        // The mean is the measurement's, not the midpoint of the bounds a reader could have
+        // guessed: every weapon's row at level zero is re-measured here against the engine, and
+        // some measured mean is not that midpoint, so a table that guessed would be seen.
+        int asymmetric = 0;
+        for (Codex.RollEntry entry : combat.weapons()) {
+            if (entry.level() != 0) {
+                continue;
+            }
+            Weapon weapon = (Weapon) GameContext.under(1, 0, items.get(entry.className()));
+            Codex.Spread again = Combat.spread(entry.className().hashCode() * 31L + entry.level(),
+                    hero -> weapon.damageRoll(Sparring.attacker(0)));
+            assertEquals(again.meanPerMille(), entry.spread().meanPerMille(), entry.className() + " measures the same mean twice");
+            assertEquals(again.min(), entry.spread().min(), entry.className() + " measures the same minimum twice");
+            assertEquals(again.max(), entry.spread().max(), entry.className() + " measures the same maximum twice");
+            if (entry.spread().meanPerMille() != (entry.spread().min() + entry.spread().max()) * 500) {
+                asymmetric++;
+            }
+        }
+        assertTrue(asymmetric > 0, "a measured mean is not the midpoint of its bounds, so the table is a measurement and not a guess");
     }
 
     @Test
@@ -107,18 +134,34 @@ class CombatTableStabilityTest {
         combat.weapons().forEach(e -> measuredWeapons.add(e.className()));
         TreeSet<String> measuredArmours = new TreeSet<>();
         combat.armours().forEach(e -> measuredArmours.add(e.className()));
+        TreeSet<String> constructed = new TreeSet<>();
+        for (Supplier<Item> make : Items.CONSTRUCTED) {
+            constructed.add(Sources.name(GameContext.under(1, 0, make).getClass()));
+        }
+        // The expectation is the game's own hierarchy, read from the compiled classes, so that
+        // the reader's predicate and the test's cannot be wrong together: a weapon is whatever
+        // the game calls a Weapon. The spirit bow was missing from the table while a test built
+        // from the reader's own instanceof reported full coverage.
         TreeSet<String> weapons = new TreeSet<>();
         TreeSet<String> armours = new TreeSet<>();
-        for (Supplier<Item> make : Items.CONSTRUCTED) {
-            Item item = GameContext.under(1, 0, make);
-            if (item instanceof MeleeWeapon || item instanceof MissileWeapon) {
-                weapons.add(Sources.name(item.getClass()));
-            } else if (item instanceof Armor) {
-                armours.add(Sources.name(item.getClass()));
+        for (JavaClass c : new ClassFileImporter().importPackages(Sources.GAME)) {
+            if (c.getModifiers().contains(JavaModifier.ABSTRACT) || c.isInterface() || c.isAnonymousClass() || c.isLocalClass()) {
+                continue;
+            }
+            String name = c.getName().substring(Sources.ROOT_PACKAGE_PREFIX.length()).replace('$', '.');
+            if (!constructed.contains(name)) {
+                continue;
+            }
+            if (c.isAssignableTo(Weapon.class)) {
+                weapons.add(name);
+            } else if (c.isAssignableTo(Armor.class)) {
+                armours.add(name);
             }
         }
         assertEquals(weapons, measuredWeapons, "every weapon the item table constructs is measured");
         assertEquals(armours, measuredArmours, "every armour the item table constructs is measured");
+        assertTrue(measuredWeapons.contains("items.weapon.SpiritBow"),
+                "the spirit bow is a weapon that is neither melee nor missile, and it is measured");
         for (Codex.RollEntry entry : combat.weapons()) {
             assertTrue(Combat.LEVELS.contains(entry.level()), entry.className() + " was measured at a level the grid names");
         }
@@ -128,13 +171,30 @@ class CombatTableStabilityTest {
         }
         TreeSet<String> covered = new TreeSet<>();
         combat.mobs().forEach(e -> covered.add(e.className()));
+        TreeSet<String> named = new TreeSet<>();
         for (Map.Entry<Class<? extends Mob>, String> skipped : Combat.NOT_ROLLED) {
             String name = Sources.name(skipped.getKey());
             assertFalse(covered.contains(name), name + " is named as unrollable and measured anyway");
             assertFalse(skipped.getValue().isBlank(), name + " is named with a reason");
+            assertTrue(named.add(name), name + " is named twice");
             assertTrue(covered.add(name));
         }
         assertEquals(mobs, covered, "every mob is measured or named with the reason it cannot be");
+        // The named list is story 2.2's own: a mob whose stats the game sets when it spawns it
+        // cannot be rolled bare, so one added to that list cannot be quietly measured here.
+        TreeSet<String> later = new TreeSet<>();
+        for (Class<?> type : Mobs.STATS_SET_LATER) {
+            later.add(Sources.name(type));
+        }
+        TreeSet<String> missing = new TreeSet<>(later);
+        missing.removeAll(named);
+        assertEquals(new TreeSet<>(), missing, "every mob whose stats the game sets later is named here");
+        TreeSet<String> beyond = new TreeSet<>(named);
+        beyond.removeAll(later);
+        assertEquals(java.util.Set.of("actors.mobs.Statue", "actors.mobs.ArmoredStatue"), beyond,
+                "the two statues are named beyond that list, since the level arms them rather than setting their stats");
+        assertTrue(named.contains("items.wands.WandOfLivingEarth.EarthGuardian"),
+                "the earth guardian rolls from a wand level of minus one until the game sets it, so it is named, not measured");
     }
 
     @Test

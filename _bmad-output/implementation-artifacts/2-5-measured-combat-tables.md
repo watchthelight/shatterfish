@@ -114,6 +114,15 @@ story 2.2's table); no procs.
   are named with their reasons rather than measured. A measurement draws under its own seed, not
   the Codex's construction seed, so that story 2.1's seed-free guarantee still holds.
 
+- 2026-09-16, after the review: the unmeasurable mobs are story 2.2's `STATS_SET_LATER` plus the
+  four that throw, not the four alone; seven rows that had shipped as measurements of states the
+  game never produces are gone, and the earth guardian's negative row, which the first test
+  asserted and explained as a mechanic, was the defect and not the mechanic. The weapon table
+  measures every class the game calls a `Weapon`, which adds the spirit bow. The door closes the
+  hero (its constructor only) and holds the scene's redraw flag that an item's level write sets.
+  The wearer's strength is restored after an armour is measured, the mean is re-measured against
+  the engine rather than asserted by nothing, and every combat citation is opened.
+
 ## Design Notes
 
 Micro-brainstorm on the rig. (a) Sweep the grid with stock mobs, refused: every mob overrides
