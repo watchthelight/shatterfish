@@ -58,6 +58,17 @@ class TextReaderTest {
     }
 
     @Test
+    @DisplayName("the class map reads every module the game compiles, not the core alone")
+    void the_class_map_reads_every_module() {
+        Map<String, String> outers = Text.outers(ROOT);
+        assertEquals("desktop.DesktopLauncher", outers.get("desktop.desktoplauncher"),
+                "the desktop launcher is a class of the game under its own module, and a key naming one"
+                        + " must not read as naming no class at all");
+        assertTrue(outers.containsKey("items.armor.platearmor"), "and the core's classes are still there");
+        assertTrue(outers.size() > 500, "the game compiles this many classes under its root package: " + outers.size());
+    }
+
+    @Test
     @DisplayName("the longest prefix wins, which the pinned keys cannot show because none has two class prefixes")
     void the_longest_prefix_wins() {
         Map<String, String> outers = new java.util.TreeMap<>(Map.of("a.b", "a.B", "a.b.c", "a.b.C"));
