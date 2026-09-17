@@ -100,6 +100,13 @@ entry cites its declaration. Codex version 4.
 
 ## Spec Change Log
 
+- 2026-09-16, after the review: `Guarantees` carries `placements` (the level class of every
+  depth of the main branch and whether it empties the floor's spawn list) and the gate's text,
+  since the placed column was wrong at the amulet floor; each drop's placement block is pinned
+  as the deciding method is. `Spawn` carries `floorDrop` and `conditional`; `Tiers` carries the
+  tier arrays; `Rooms.secretsPerRegionPerMille` is `baseSecretsPerRegionThousandths`, which is
+  what it always was. The arithmetic test's band is four standard deviations of the sample size,
+  not a flat forty-five at 2,000 samples.
 - 2026-09-16, during implementation: `RoomEntry` carries no membership flags; the game's lists
   are a `RoomList` each (`EQUIP_SPECIALS`, `CONSUMABLE_SPECIALS`, `CRYSTAL_KEY_SPECIALS`,
   `POTION_SPAWN_ROOMS`, `LABORATORY`, `ALL_SECRETS`) with their citations, and the entry is the
@@ -188,6 +195,28 @@ change to `GameContext`, the fair path or the Observation schema.
   nothing and its draws are four; the laboratory is placed by `labRoomNeeded`, not the queue.
 - **The rat king's room is a secret room the sewer boss level places**; it, the shop and the
   demon spawner are the three rooms outside the queues.
+- **The amulet floor decides and places nothing.** Depth 26 is `LastLevel`, which is not a
+  regular level; it runs the gate in `Level.create`, moves the counters and never empties the
+  floor's spawn list, since only `RegularLevel.createItems` does. The first table said it placed
+  everything it needed. The placed column is now the level class's own answer, read from the
+  game's `newLevel` switch and its `createItems` overrides (the fairness, adversarial and
+  edge-case reviews).
+- **A boss floor is a regular level by type.** `SewerBossLevel extends SewerLevel`, so the type
+  alone says it empties the spawn list; it declares its own `createItems`, which places its bones
+  and its reward and never the list. The predicate walks the overrides, not the hierarchy.
+- **Rooms drop items on their own cells under conditions.** A honeypot at a coin, gold in a loop,
+  the chasm room's four golden keys, the artillery room's double bomb: refusing every conditional
+  placement would have failed the generation, and counting them as guarantees would have lied.
+  They are carried and marked, and only an item added to the level's *spawn list* under a
+  condition is refused (the adversarial and edge-case reviews).
+- **The secret library and laboratory draw by chances and make by class.** They never name
+  `Generator.random`, so the first table said they drew nothing; the reader now also reads
+  `Random.chances` and `Reflection.newInstance`, and reads each draw as a whole statement, since
+  six of them continue on later lines (the adversarial and edge-case reviews).
+- **A flat tolerance cannot separate one in seven from one in eight.** Eighteen thousandths apart,
+  against a band of forty-five: the sampled hold could not have caught a mirror wrong by one
+  outcome at one state. The band is four standard deviations of the sample size now, and the
+  samples are eight thousand (the fairness and adversarial reviews).
 
 ## Decisions taken inside the story
 
@@ -201,9 +230,9 @@ change to `GameContext`, the fair path or the Observation schema.
 
 ## Evidence
 
-- `:api:test` green, 345 tests, with `CodexJsonTest` (11); `:codex:test` green, 42 tests
-  (`GuaranteeArithmeticTest` 4, `CodexSeedFreeTest` 3, `CodexLeakTest` 9, `CodexCompletenessTest` 10,
-  `SourcesTest` 5, `RotationTest` 3, `NamesTest` 3, `ItemsReaderTest` 5).
+- `:api:test` green, 345 tests, with `CodexJsonTest` (11); `:codex:test` green, 48 tests
+  (`GuaranteeArithmeticTest` 5, `CodexSeedFreeTest` 3, `CodexLeakTest` 9, `CodexCompletenessTest` 10,
+  `RoomsReaderTest` 5, `ItemsReaderTest` 5, `SourcesTest` 5, `RotationTest` 3, `NamesTest` 3).
 - `./gradlew :codex:generate` twice: `git status --short codex/` empty after the commit.
 - Mutation battery, thirteen mutations of the generator's classes, each run against the codex
   tests:
@@ -221,6 +250,34 @@ change to `GameContext`, the fair path or the Observation schema.
     - M12 the secrets per region are read as whole numbers: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
     - M13 the counters are cut short at the first: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
 
+- The battery rerun after the review patch, twenty-three mutations, ten of them of the review's
+  own fixes (a floor that places nothing, a level class with its own item placement, the amulet
+  floor, a placement block's pin, a placement outside the gate, a conditional drop unmarked, a
+  braceless if, a draw made by class, a block comment kept, a list read past its parentheses):
+    - M1 a mirror pin does not bite: caught by GuaranteeArithmeticTest.
+    - M2 the strength potions' target ignores the pairing of floors: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M3 the upgrade scrolls' floors left are one short: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M4 every floor places what is needed: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M5 the Forbidden Runes rule withholds the odd scroll: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M6 the enchantment stone's floor-10 skip is dropped: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M7 the last tier row is not widened past its set: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M8 every tier weight is one more than the literal: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M9 a spawn-list item under a condition is counted: caught by RoomsReaderTest.
+    - M10 a room's repeated item counts once: caught by CodexLeakTest, CodexSeedFreeTest, RoomsReaderTest.
+    - M11 a room is dropped from the literals: caught by CodexCompletenessTest, CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest, RoomsReaderTest.
+    - M12 the secrets per region are read as whole numbers: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M13 the counters are cut short at the first: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M14 a level class that declares its own createItems is taken to place the spawn list: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M15 the amulet floor is taken to place the spawn list: caught by CodexLeakTest, CodexSeedFreeTest, GuaranteeArithmeticTest.
+    - M16 a placement block pin does not bite: **survived**, as expected: nothing at this tag drives it.
+    - M17 a placement outside the gate is accepted: **survived**, as expected: nothing at this tag drives it.
+    - M18 a drop under a condition is not marked: caught by CodexLeakTest, CodexSeedFreeTest, RoomsReaderTest.
+    - M19 a braceless if governs nothing in a room: caught by RoomsReaderTest.
+    - M20 a draw made by class is not read: caught by CodexLeakTest, CodexSeedFreeTest, RoomsReaderTest.
+    - M21 a block comment is not stripped from a pinned text: **survived**, as expected: nothing at this tag drives it.
+    - M22 the tier gate is checked in the armor draw only: **survived**, as expected: nothing at this tag drives it.
+    - M23 a list literal is read past its own parentheses: caught by RoomsReaderTest.
+
 ## Deviations
 
 - None from the spec's tasks; the record shapes changed as the Spec Change Log says.
@@ -230,9 +287,18 @@ change to `GameContext`, the fair path or the Observation schema.
 - **The schedules are mirrors.** The generator computes what the game computes, pinned to the
   text and held by sampling; a tag that rewrites a method fails the generation until the
   mirror is rewritten and re-pinned.
+- **The schedule enumerates states no Run can reach** (a counter at 4 on floor 1). A reachability
+  mark is an idea; every state the table carries is the game's answer for that state.
+- **A branch is not a column.** The gate is the main branch's, and the table's placed column is
+  the main branch's; a mining or vault floor places none of these, and the gate's text says so.
 - **The Forbidden Runes column is held by rule, not by a level built**: the rule is one line of
   `Level.create`, cited, and the test re-derives it.
 - **Room prizes are text**; their odds and the shop's stock are an idea.
+- **A room's floor drops are counted as statements**, not as items a floor gets, wherever a
+  condition governs them; the entry marks which.
+- **The rules that consume the room lists** (one crystal-key room and one potion room per floor,
+  the interleave, the pit's rule, the weak floor before a boss) are not in the table; story 2.6
+  owns the level's composition.
 - **The food per floor** (one draw, a second on a large floor) is not a schedule; it is
   unconditional and cited nowhere yet.
 
@@ -241,3 +307,68 @@ change to `GameContext`, the fair path or the Observation schema.
 - 2.5: the combat tables; the tier rows here feed what a floor's equipment is.
 - 2.6: the traps, recipes, levels and rooms' layouts.
 - 2.9: the drift check in CI and the generated index page listing these tables.
+
+## Review
+
+Four reviewers on `git diff main...HEAD` from the committed state: the fairness reviewer (eight
+findings, none blocking), the adversarial lens (twenty-three), the edge-case hunter (sixteen)
+and the verification-gap lens (nine). One patch commit, `19b4f8d19`.
+
+**Taken.**
+
+- The placed column from the level class of each depth, read from the game's own switch and its
+  `createItems` overrides; the amulet floor and the boss floors place nothing; the placements
+  carried in the table; the gate's text carried and every placement held to lie inside it
+  (fairness 1, 2; adversarial 1, 2, 3; edge 1, 2; gap 4).
+- Each drop's placement block pinned as the deciding method is, so the Forbidden Runes column is
+  the source's; the test asks the game's own condition with the counter where the placement
+  leaves it (fairness 1; adversarial 4; gap 1).
+- The room reader: whole statements, the painting's own brace level, a braceless if, a helper
+  method, two items in one statement, a nested class name, a shape it cannot name, a list read
+  between its own parentheses; conditional floor drops carried and marked; the pit's key visible;
+  draws widened to chances and by-class and read whole (adversarial 8, 9, 10, 11, 17; edge 3, 4,
+  5, 9, 10, 14; gap 2).
+- `RoomsReaderTest` on synthetic text, since the pinned tree writes only some of those shapes
+  (gap 2, 3).
+- The sampled band by sample size, eight thousand samples, the tiers drawn from the default decks
+  and the room queues restored (fairness 2, 3; adversarial 5, 18; edge 15).
+- The record invariants: the grid covered, a placed column all or nothing, a spawn-list item never
+  conditional, a family one pool, a tier array once (adversarial 7; edge 12).
+- The tier gate held in all three draws and the tier arrays cited; block comments stripped from a
+  pinned text; the counters refused rather than dropped when their shape changes (fairness 5;
+  adversarial 14, 15, 16, 19; edge 11, 13).
+- The names: `baseSecretsPerRegionThousandths` says what it is (adversarial 13).
+- The leak test puts the counters back in a finally; the documents and the story's numbers
+  corrected (adversarial 23; edge 16; gap 5, 6, 9).
+
+**Not taken, with reasons.**
+
+- A reachability mark on the schedule's states (adversarial 22): every state carries the game's
+  answer for that state, which is what a Brain asks; which states a Run can reach is its own
+  arithmetic, recorded as an idea and a limitation.
+- The rules that consume the room lists, the interleave and the per-floor limits (adversarial 12;
+  edge 6, 8): story 2.6 owns the level's composition; the queue rule and the lists are this
+  story's boundary.
+- A branch column (edge 2): the gate is the main branch's and the table says so; a branch level's
+  own guarantees are its own table when a story needs them.
+- The placement lookup's shape and the rendering's helpers (adversarial 20, 21): cosmetic, and the
+  duplication is one read of a small file.
+
+## Suggested review order
+
+1. [`Guarantees.java`](https://github.com/watchthelight/shatterfish/blob/19b4f8d19/shatterfish/codex/src/main/java/org/shatterfish/codex/Guarantees.java),
+   the mirrors, their pins, the placements and the placed column.
+2. [`GuaranteeArithmeticTest.java`](https://github.com/watchthelight/shatterfish/blob/19b4f8d19/shatterfish/codex/src/test/java/org/shatterfish/codex/GuaranteeArithmeticTest.java),
+   the sampled hold, the band, the placements and the Forbidden Runes question.
+3. [`Rooms.java`](https://github.com/watchthelight/shatterfish/blob/19b4f8d19/shatterfish/codex/src/main/java/org/shatterfish/codex/Rooms.java)
+   and [`RoomsReaderTest.java`](https://github.com/watchthelight/shatterfish/blob/19b4f8d19/shatterfish/codex/src/test/java/org/shatterfish/codex/RoomsReaderTest.java),
+   what a room puts on the floor and what the reader refuses.
+4. [`Tiers.java`](https://github.com/watchthelight/shatterfish/blob/19b4f8d19/shatterfish/codex/src/main/java/org/shatterfish/codex/Tiers.java),
+   the literal, the gate in all three draws, the arrays.
+5. [`Codex.java`](https://github.com/watchthelight/shatterfish/blob/19b4f8d19/shatterfish/api/src/main/java/org/shatterfish/api/Codex.java),
+   the records and their invariants.
+6. [`CodexLeakTest.java`](https://github.com/watchthelight/shatterfish/blob/19b4f8d19/shatterfish/codex/src/test/java/org/shatterfish/codex/CodexLeakTest.java)
+   and [`CodexCompletenessTest.java`](https://github.com/watchthelight/shatterfish/blob/19b4f8d19/shatterfish/codex/src/test/java/org/shatterfish/codex/CodexCompletenessTest.java),
+   the live Run's counters and the rooms enumerated.
+7. [`0017-codex-generation-and-citations.md`](https://github.com/watchthelight/shatterfish/blob/19b4f8d19/docs/adr/0017-codex-generation-and-citations.md),
+   the amendment.
