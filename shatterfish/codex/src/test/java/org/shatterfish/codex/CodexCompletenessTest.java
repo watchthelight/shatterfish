@@ -180,6 +180,162 @@ class CodexCompletenessTest {
         assertEquals(new TreeSet<>(UNNAMED), unnamed, "anonymous or local item classes, against the stand-ins named; decide each new one");
     }
 
+    /** The lines of one file of the pinned game, read here rather than through a reader under test. */
+    private static List<String> sourceLines(String path) {
+        try {
+            return java.nio.file.Files.readAllLines(ROOT.resolve(path), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+    }
+
+    @Test
+    @DisplayName("every line of every bundle the game searches is in the strings table once, with the class its key names")
+    void every_string_is_listed() {
+        List<Codex.StringEntry> strings = Text.entries(ROOT);
+        TreeSet<String> keys = new TreeSet<>();
+        for (Codex.StringEntry entry : strings) {
+            assertTrue(keys.add(entry.key()), entry.key() + " is listed twice");
+        }
+        // The expected keys come from a properties reader, not from the reader under test: counting
+        // with the reader's own skip rule would miscount both sides alike.
+        TreeSet<String> expected = new TreeSet<>();
+        for (String bundle : List.of("actors", "items", "journal", "levels", "misc", "plants", "scenes", "ui", "windows")) {
+            java.util.Properties held = new java.util.Properties();
+            try (java.io.Reader reader = java.nio.file.Files.newBufferedReader(
+                    ROOT.resolve("core/src/main/assets/messages/" + bundle + "/" + bundle + ".properties"),
+                    java.nio.charset.StandardCharsets.UTF_8)) {
+                held.load(reader);
+            } catch (java.io.IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+            for (Object key : held.keySet()) {
+                assertTrue(expected.add((String) key), key + " is given twice across the bundles");
+            }
+        }
+        assertEquals(expected, keys, "every key the game's own bundles hold, and nothing else");
+        TreeSet<String> classes = new TreeSet<>();
+        for (JavaClass c : GAME) {
+            classes.add(c.getName().substring(Sources.ROOT_PACKAGE_PREFIX.length()).replace('$', '.'));
+        }
+        TreeSet<String> unresolved = new TreeSet<>();
+        for (Codex.StringEntry entry : strings) {
+            if (entry.className().isEmpty()) {
+                unresolved.add(entry.key().substring(0, entry.key().lastIndexOf('.')));
+            } else {
+                assertTrue(classes.contains(entry.className()),
+                        entry.key() + " names " + entry.className() + ", which the game does not compile");
+            }
+        }
+        TreeSet<String> named = new TreeSet<>();
+        for (Map.Entry<String, String> prefix : Text.NO_CLASS_PREFIXES) {
+            assertFalse(prefix.getValue().isBlank(), prefix.getKey() + " is named with a reason");
+            assertFalse(classes.contains(prefix.getKey()), prefix.getKey() + " is claimed dead and the game compiles it");
+            named.add(prefix.getKey());
+        }
+        assertEquals(named, unresolved, "the key prefixes that name no class, against Text.NO_CLASS_PREFIXES");
+    }
+
+    @Test
+    @DisplayName("every asset the game names is in the asset index once, the constants of every group and the literals the codebase map records")
+    void every_asset_is_listed() {
+        List<Codex.AssetEntry> assets = AssetIndex.entries(ROOT);
+        TreeSet<String> paths = new TreeSet<>();
+        for (Codex.AssetEntry asset : assets) {
+            assertTrue(paths.add(asset.path()), asset.path() + " is listed twice");
+        }
+        for (String path : List.of("effects/fireball-tall.png", "effects/fireball-short.png", "gdx/cursor_mouse.png",
+                "gdx/cursor_controller.png", "gdx/textfield.json", "fonts/pixel_font.ttf")) {
+            assertTrue(paths.contains(path), path + " is loaded by a literal string and the index must carry it");
+        }
+        assertTrue(paths.contains("splashes/warrior.jpg"), "a splash image is an asset the game names");
+        // The expected constants come from the class that declares them, read here rather than
+        // taken from the table: a reader that dropped a kind of asset would otherwise be checked
+        // against its own output, which is how eleven splash images went missing unnoticed.
+        TreeSet<String> declared = new TreeSet<>();
+        TreeSet<String> skipped = new TreeSet<>();
+        for (Map.Entry<String, String> named : AssetIndex.NOT_A_FILE) {
+            assertFalse(named.getValue().isBlank(), named.getKey() + " is named with a reason");
+            skipped.add(named.getKey());
+        }
+        java.util.regex.Pattern constant = java.util.regex.Pattern.compile("static final String \\w+\\s*=\\s*\"([\\w/. -]+)\"");
+        java.util.regex.Pattern group = java.util.regex.Pattern.compile("^\\s*public static class (\\w+)");
+        String holding = "";
+        for (String line : sourceLines(AssetIndex.ASSETS)) {
+            java.util.regex.Matcher opens = group.matcher(line);
+            if (opens.find()) {
+                holding = opens.group(1);
+                continue;
+            }
+            java.util.regex.Matcher value = constant.matcher(line);
+            if (value.find() && !skipped.contains(holding)) {
+                declared.add(value.group(1));
+            }
+        }
+        TreeSet<String> carried = new TreeSet<>();
+        for (Codex.AssetEntry asset : assets) {
+            if (!asset.constant().isEmpty()) {
+                carried.add(asset.path());
+            }
+        }
+        assertEquals(declared, carried, "every constant the asset class declares, against the index");
+        TreeSet<String> groups = new TreeSet<>();
+        for (Codex.AssetEntry asset : assets) {
+            if (!asset.group().isEmpty()) {
+                groups.add(asset.group());
+            }
+        }
+        assertEquals(new TreeSet<>(List.of("Effects", "Environment", "Fonts", "Interfaces", "Music", "Sounds",
+                        "Splashes", "Splashes.Title", "Sprites")),
+                groups, "the groups the asset class holds, a nested one named by its whole nesting");
+        // Every asset-shaped literal under the game's three source roots is either in the index or
+        // a save file, which is not an asset. A hand-kept list of the files that load one would
+        // otherwise miss a sixth file in silence.
+        TreeSet<String> loose = new TreeSet<>();
+        java.util.regex.Pattern literal = java.util.regex.Pattern.compile("\"([\\w/. -]+\\.(?:png|jpg|ttf|ogg|mp3|json))\"");
+        for (String source : Sources.SOURCE_ROOTS) {
+            for (String path : Sources.under(ROOT, source)) {
+                if (path.equals(AssetIndex.ASSETS)) {
+                    continue;
+                }
+                for (String line : sourceLines(path)) {
+                    java.util.regex.Matcher found = literal.matcher(line);
+                    while (found.find()) {
+                        loose.add(found.group(1));
+                    }
+                }
+            }
+        }
+        loose.removeAll(paths);
+        assertEquals(new TreeSet<>(), loose, "an asset loaded by a literal string that the index does not carry");
+    }
+
+    @Test
+    @DisplayName("every class of the changelist package writes an entry, and every document and page of the journal is in the table")
+    void every_version_entry_and_document_is_listed() {
+        List<Codex.ChangeEntry> entries = Changelog.entries(ROOT, Text.entries(ROOT));
+        TreeSet<String> writing = new TreeSet<>();
+        for (Codex.ChangeEntry entry : entries) {
+            writing.add(entry.className());
+        }
+        TreeSet<String> declared = new TreeSet<>();
+        for (String path : Sources.under(ROOT, Changelog.CHANGELIST)) {
+            String className = path.substring(Sources.SOURCE_ROOT.length() + Sources.ROOT_PACKAGE_PREFIX.length(),
+                    path.length() - ".java".length()).replace('/', '.');
+            if (className.matches(".*\\.(v[\\w_]+_Changes|Pixel_Dungeon_Changes)")) {
+                declared.add(className);
+            }
+        }
+        assertEquals(declared, writing, "every class of changes the game keeps writes at least one entry");
+        List<Codex.DocumentEntry> documents = Documents.entries(ROOT);
+        assertEquals(List.of("ADVENTURERS_GUIDE", "ALCHEMY_GUIDE", "INTROS", "SEWERS_GUARD", "PRISON_WARDEN",
+                        "CAVES_EXPLORER", "CITY_WARLOCK", "HALLS_KING"),
+                documents.stream().map(Codex.DocumentEntry::document).toList(),
+                "the documents the game declares, in the order it declares them");
+        assertEquals(List.of(14, 9, 6, 6, 6, 6, 6, 6), documents.stream().map(d -> d.pages().size()).toList(),
+                "the pages each document holds");
+    }
+
     @Test
     @DisplayName("every concrete trap class of the game is in the trap table once, and every trap a level draws is one of them")
     void every_trap_is_listed() {

@@ -29,6 +29,13 @@ final class Sources {
     static final String ROOT_PACKAGE_PREFIX = GAME + ".";
     static final String SOURCE_ROOT = "core/src/main/java/";
 
+    /**
+     * The source roots of the pinned game. The Codex reads the game's own code, and the game is
+     * three modules: the core, the toolkit it is built on, and the desktop launcher that starts
+     * it. A path outside all three is not the game's and is refused.
+     */
+    static final List<String> SOURCE_ROOTS = List.of(SOURCE_ROOT, "SPD-classes/src/main/java/", "desktop/src/main/java/");
+
     private static final Pattern TYPE_DECLARATION = Pattern.compile(
             "^\\s*(?:@\\w+(?:\\([^)]*\\))?\\s+)*(?:(?:public|private|protected|static|abstract|final|sealed|non-sealed|strictfp)\\s+)*"
                     + "(?:class|enum|interface|record)\\s+(\\w+)");
@@ -263,8 +270,8 @@ final class Sources {
      * may not name ({@code Dungeon}): the whole file, named by the file's simple name.
      */
     static Body file(Path root, String path) {
-        if (!path.startsWith(SOURCE_ROOT) || !path.endsWith(".java")) {
-            throw new IllegalStateException("not a source of the pinned core: " + path);
+        if (SOURCE_ROOTS.stream().noneMatch(path::startsWith) || !path.endsWith(".java")) {
+            throw new IllegalStateException("not a source of the pinned game: " + path);
         }
         List<String> lines;
         try {
@@ -354,8 +361,8 @@ final class Sources {
      * generations agree.
      */
     static List<String> under(Path root, String folder) {
-        if (!folder.startsWith(SOURCE_ROOT)) {
-            throw new IllegalStateException("not a folder of the pinned core: " + folder);
+        if (SOURCE_ROOTS.stream().noneMatch(folder::startsWith)) {
+            throw new IllegalStateException("not a folder of the pinned game: " + folder);
         }
         Path start = root.resolve(folder);
         List<String> paths = new ArrayList<>();
@@ -374,6 +381,39 @@ final class Sources {
         }
         java.util.Collections.sort(paths);
         return paths;
+    }
+
+    /** The folders the game keeps its own assets in, which are the only folders {@link #exists} looks in. */
+    static final List<String> ASSET_ROOTS = List.of("core/src/main/assets/", "desktop/src/main/assets/");
+
+    /**
+     * Whether a file of the pinned game is there. The Codex names the game's own asset files, and
+     * a name with nothing behind it is a broken asset, not a fact worth publishing.
+     *
+     * <p>Guarded like every other door in this class: a path outside the game's own source and
+     * asset folders, or one that climbs out of them, is refused rather than probed. The gate that
+     * names the classes allowed to open a file rests on these guards, so a door without one would
+     * make that list less true than it reads.
+     */
+    static boolean exists(Path root, String path) {
+        guard(path);
+        return Files.isRegularFile(root.resolve(path));
+    }
+
+    /** Whether a folder of the pinned game is there, guarded the same way. */
+    static boolean has(Path root, String folder) {
+        guard(folder);
+        return Files.isDirectory(root.resolve(folder));
+    }
+
+    /** A path the Codex may look at: inside the game's own source or asset folders, and never above them. */
+    private static void guard(String path) {
+        if (path.contains("..")) {
+            throw new IllegalStateException("a path that climbs out of the pinned game: " + path);
+        }
+        if (SOURCE_ROOTS.stream().noneMatch(path::startsWith) && ASSET_ROOTS.stream().noneMatch(path::startsWith)) {
+            throw new IllegalStateException("not a file of the pinned game: " + path);
+        }
     }
 
     /** A method's block and declaration line in the class that declares it. */

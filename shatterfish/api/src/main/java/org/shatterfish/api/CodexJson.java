@@ -395,7 +395,7 @@ public final class CodexJson {
         StringBuilder text = new StringBuilder("{\n");
         text.append("\"bossCitation\":").append(citationJson(guarantees.bossCitation())).append(",\n");
         text.append("\"bossDepths\":").append(ints(guarantees.bossDepths())).append(",\n");
-        text.append("\"counters\":").append(strings(guarantees.counters())).append(",\n");
+        text.append("\"counters\":").append(values(guarantees.counters())).append(",\n");
         text.append("\"countersCitation\":").append(citationJson(guarantees.countersCitation())).append(",\n");
         text.append("\"drops\":[\n");
         List<Codex.DropSchedule> drops = guarantees.drops();
@@ -588,7 +588,7 @@ public final class CodexJson {
         return out.toJson();
     }
 
-    private static String strings(List<String> values) {
+    private static String values(List<String> values) {
         JsonWriter out = new JsonWriter();
         out.beginArray();
         for (String value : values) {
@@ -896,6 +896,161 @@ public final class CodexJson {
         out.key("path").value(citation.path());
         out.key("line").value(citation.line());
         out.endObject();
+    }
+
+    /** The documents file's text (story 2.7): one document per line, its pages in the game's own order. */
+    public static String documents(List<Codex.DocumentEntry> documents) {
+        Objects.requireNonNull(documents, "documents");
+        Set<String> named = new HashSet<>();
+        StringBuilder table = table();
+        for (int i = 0; i < documents.size(); i++) {
+            Codex.DocumentEntry document = documents.get(i);
+            Codex.distinct(named, document.document(), "a document");
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("document").value(document.document());
+            out.key("lore").value(document.lore());
+            out.key("title").value(document.title());
+            out.key("hint").value(document.hint());
+            out.key("titleCitation").beginObject();
+            out.key("path").value(document.titleCitation().path());
+            out.key("line").value(document.titleCitation().line());
+            out.endObject();
+            if (!document.hint().isEmpty()) {
+                out.key("hintCitation").beginObject();
+                out.key("path").value(document.hintCitation().path());
+                out.key("line").value(document.hintCitation().line());
+                out.endObject();
+            }
+            out.key("pages").beginArray();
+            for (Codex.DocumentPage page : document.pages()) {
+                out.beginObject();
+                out.key("page").value(page.page());
+                out.key("title").value(page.title());
+                out.key("body").value(page.body());
+                citation(out, page.citation());
+                out.key("titleCitation").beginObject();
+                out.key("path").value(page.titleCitation().path());
+                out.key("line").value(page.titleCitation().line());
+                out.endObject();
+                out.endObject();
+            }
+            out.endArray();
+            citation(out, document.citation());
+            out.endObject();
+            row(table, out, i + 1 == documents.size());
+        }
+        return close(table);
+    }
+
+    /**
+     * The changelog file's text (story 2.7): the version record, then one entry per line in the
+     * order the game's own package writes them.
+     */
+    public static String changelog(Codex.VersionRecord version, List<Codex.ChangeEntry> entries) {
+        Objects.requireNonNull(version, "version");
+        Objects.requireNonNull(entries, "entries");
+        StringBuilder text = new StringBuilder("{\n");
+        text.append("\"entries\":[\n");
+        for (int i = 0; i < entries.size(); i++) {
+            Codex.ChangeEntry entry = entries.get(i);
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("className").value(entry.className());
+            out.key("tab").value(entry.tab());
+            out.key("title").value(entry.title());
+            out.key("titleKey").value(entry.titleKey());
+            out.key("titleExpression").value(entry.titleExpression());
+            out.key("major").value(entry.major());
+            out.key("text").value(entry.text());
+            out.key("conditionExpression").value(entry.conditionExpression());
+            out.key("dates").beginArray();
+            for (String date : entry.dates()) {
+                out.value(date);
+            }
+            out.endArray();
+            out.key("headings").beginArray();
+            for (Codex.ChangeHeading heading : entry.headings()) {
+                out.beginObject();
+                out.key("title").value(heading.title());
+                out.key("titleKey").value(heading.titleKey());
+                out.key("titleExpression").value(heading.titleExpression());
+                out.key("conditionExpression").value(heading.conditionExpression());
+                out.key("dates").beginArray();
+                for (String date : heading.dates()) {
+                    out.value(date);
+                }
+                out.endArray();
+                citation(out, heading.citation());
+                out.endObject();
+            }
+            out.endArray();
+            citation(out, entry.citation());
+            out.endObject();
+            text.append("  ").append(out.toJson()).append(i + 1 == entries.size() ? "\n" : ",\n");
+        }
+        text.append("],\n");
+        JsonWriter saves = new JsonWriter();
+        saves.beginArray();
+        for (Codex.Rule saveCode : version.saveCodes()) {
+            saves.beginObject();
+            saves.key("what").value(saveCode.what());
+            saves.key("expression").value(saveCode.expression());
+            citation(saves, saveCode.citation());
+            saves.endObject();
+        }
+        saves.endArray();
+        text.append("\"saveCodes\":").append(saves.toJson()).append(",\n");
+        text.append("\"versionCitation\":").append(citationJson(version.citation())).append(",\n");
+        text.append("\"versionCode\":").append(version.code()).append(",\n");
+        text.append("\"versionName\":").append(string(version.name())).append("\n");
+        text.append("}\n");
+        return text.toString();
+    }
+
+    /** The assets file's text (story 2.7): one asset per line, the constants first and then the literals. */
+    public static String assets(List<Codex.AssetEntry> assets) {
+        Objects.requireNonNull(assets, "assets");
+        Set<String> paths = new HashSet<>();
+        StringBuilder table = table();
+        for (int i = 0; i < assets.size(); i++) {
+            Codex.AssetEntry asset = assets.get(i);
+            Codex.distinct(paths, asset.path(), "an asset");
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("path").value(asset.path());
+            out.key("group").value(asset.group());
+            out.key("constant").value(asset.constant());
+            out.key("present").value(asset.present());
+            out.key("assetRoot").value(asset.assetRoot());
+            citation(out, asset.citation());
+            out.endObject();
+            row(table, out, i + 1 == assets.size());
+        }
+        return close(table);
+    }
+
+    /** The strings file's text (story 2.7): one line of the game's own text per line, in bundle order. */
+    public static String strings(List<Codex.StringEntry> strings) {
+        Objects.requireNonNull(strings, "strings");
+        Set<String> keys = new HashSet<>();
+        StringBuilder table = table();
+        for (int i = 0; i < strings.size(); i++) {
+            Codex.StringEntry entry = strings.get(i);
+            Codex.distinct(keys, entry.key(), "a text key");
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("key").value(entry.key());
+            out.key("value").value(entry.value());
+            out.key("bundle").value(entry.bundle());
+            out.key("className").value(entry.className());
+            out.key("suffix").value(entry.suffix());
+            out.key("reason").value(entry.reason());
+            citation(out, entry.citation());
+            out.endObject();
+            row(table, out, i + 1 == strings.size());
+        }
+        return close(table);
     }
 
     private static StringBuilder table() {

@@ -131,6 +131,26 @@ with upstream's use of the same word, this page says so.
     the arm that names them. The gate on the roll is carried beside them: a boss floor, a floor of
     a branch and the first floor never roll one.
 
+**Text key (Codex)**
+:   The name the game looks a string up by: a class's own name, lower-cased, with the root package
+    dropped and a nested class's `$` kept, plus the suffix the caller asks for. `strings.json`
+    reads that rule backwards, taking the longest prefix of a key that is a class the game
+    compiles. A key matching none carries an empty class and says so; the game keeps text for
+    classes it no longer has, and keys plenty of text to no class at all.
+
+**Asset index (Codex)**
+:   `assets.json`: every path the game names, whether a constant of its asset class names it or a
+    literal string at the place that loads it does, with the group that holds it (a nested group by
+    its whole nesting), which of the game's two asset folders holds the file, and the line that
+    names it. One name is dead at this tag and is carried as absent with its reason.
+
+**Version record (Codex)**
+:   The version the pinned tree builds as and the save codes the game still names, carried in
+    `changelog.json` beside every entry of the game's own changelist, in the order the game shows
+    them. An entry carries every date its own text states; no entry states one at this tag, and all
+    93 dates the game states are on headings, which the table shows rather than tidies. A heading
+    the game shows only on one platform carries that condition.
+
 **Tier table (Codex)**
 :   The generator's `floorSetTierProbs` as `tiers.json` carries it: per floor set
     (`depth / 5`, gated so the last row covers every deeper floor) the five weights by tier,

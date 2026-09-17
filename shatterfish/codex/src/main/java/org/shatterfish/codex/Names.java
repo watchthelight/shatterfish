@@ -57,15 +57,30 @@ final class Names {
         return named;
     }
 
+    /**
+     * The lines of one bundle file of the pinned game. This class is one of the few the gate lets
+     * open a file, so every reader of the game's text comes through here rather than opening one
+     * of its own.
+     */
+    static List<String> lines(Path root, String bundle) {
+        if (!bundle.startsWith(BUNDLES) || !bundle.endsWith(".properties")) {
+            throw new IllegalStateException("not a bundle of the pinned game: " + bundle);
+        }
+        try {
+            List<String> lines = Files.readAllLines(root.resolve(bundle), StandardCharsets.UTF_8);
+            if (!lines.isEmpty() && lines.get(0).startsWith("\uFEFF")) {
+                lines.set(0, lines.get(0).substring(1));
+            }
+            return lines;
+        } catch (IOException e) {
+            throw new UncheckedIOException("the bundle could not be read at " + bundle, e);
+        }
+    }
+
     /** The bundle line for {@code key}, or null when the bundle has none; two lines fail. */
     static Named find(Path root, String key) {
         String bundle = BUNDLES + key.substring(0, key.indexOf('.')) + "/" + key.substring(0, key.indexOf('.')) + ".properties";
-        List<String> lines;
-        try {
-            lines = Files.readAllLines(root.resolve(bundle), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new UncheckedIOException("the bundle for " + key + " could not be read at " + bundle, e);
-        }
+        List<String> lines = lines(root, bundle);
         String value = null;
         int at = -1;
         for (int i = 0; i < lines.size(); i++) {

@@ -1,1 +1,1 @@
-{"codexVersion":6,"tables":["challenges.json","combat.json","decks.json","guarantees.json","hero-classes.json","items.json","levels.json","mobs.json","recipes.json","rooms.json","spawn-rotation.json","tiers.json","traps.json"],"upstreamTag":"v4.0.0"}
+{"codexVersion":7,"tables":["assets.json","challenges.json","changelog.json","combat.json","decks.json","documents.json","guarantees.json","hero-classes.json","items.json","levels.json","mobs.json","recipes.json","rooms.json","spawn-rotation.json","strings.json","tiers.json","traps.json"],"upstreamTag":"v4.0.0"}

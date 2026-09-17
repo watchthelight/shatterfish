@@ -26,7 +26,7 @@ public final class Codex {
      * 4 added the guarantees, the tier tables and the rooms (story 2.4); 5 added the measured
      * combat tables (story 2.5); 6 adds the traps, the recipes and the level structure (story 2.6).
      */
-    public static final int VERSION = 6;
+    public static final int VERSION = 7;
 
     /** The shape of an upstream tag: {@code v}, a dotted version, and an optional pre-release suffix. */
     public static final String TAG_PATTERN = "v[0-9]+([.][0-9]+)*(-[A-Za-z0-9.]+)?";
@@ -945,6 +945,176 @@ public final class Codex {
                 Canon.require(seen.add(rule.what() + " " + rule.citation().reference()),
                         "one row per place something reaches the cell: " + rule.what());
             }
+        }
+    }
+
+    /**
+     * One page of a journal document (story 2.7): the name the game keeps it under, and the title
+     * and body the bundle gives it.
+     */
+    public record DocumentPage(String page, String title, String body, Citation titleCitation, Citation citation) {
+
+        public DocumentPage {
+            page = Canon.text(page, "page name");
+            title = Canon.text(title, "page title");
+            body = Canon.text(body, "page body");
+            Canon.require(!page.isEmpty() && !title.isEmpty() && !body.isEmpty(), "a page names itself and says something");
+            Canon.require(titleCitation != null && citation != null, "a page cites its title and its body");
+        }
+    }
+
+    /**
+     * One journal document (story 2.7): whether it is lore rather than a guide, its title, the hint
+     * the game shows before it is found where the bundle gives one (a guide is handed over and has
+     * none), and its pages in the order the game keeps them, which is the order a page index means.
+     */
+    public record DocumentEntry(String document, boolean lore, String title, Citation titleCitation, String hint,
+                                Citation hintCitation, List<DocumentPage> pages, Citation citation) {
+
+        public DocumentEntry {
+            document = Canon.text(document, "document name");
+            title = Canon.text(title, "document title");
+            hint = Canon.text(hint, "document hint");
+            Canon.require(!document.isEmpty() && !title.isEmpty(), "a document names itself and its title");
+            Canon.require(citation != null && titleCitation != null, "a document cites itself and its title");
+            Canon.require(hint.isEmpty() == (hintCitation == null), "a document that shows a hint cites it");
+            // A guide is handed to the hero and a lore document must be found, so the game gives a
+            // hint to exactly the ones that must be found. A hint on a guide, or a lore document
+            // without one, means the bundle moved and the table would be guessing which.
+            Canon.require(lore == !hint.isEmpty(), "a document a player must find says where to look, and a guide does not");
+            pages = Canon.positional(pages, "pages");
+            Canon.require(!pages.isEmpty(), "a document holds a page");
+            Set<String> seen = new HashSet<>();
+            for (DocumentPage page : pages) {
+                Canon.require(seen.add(page.page()), "a page once per document: " + page.page());
+            }
+        }
+    }
+
+    /**
+     * One heading under a changelog entry (story 2.7): its title, the bundle key the game named it
+     * by where it named one rather than writing it, every date its text states, and the condition
+     * the game shows it under where it shows it only under one. The texts themselves are the game's
+     * release notes and are not carried; the dates in them are.
+     */
+    public record ChangeHeading(String title, String titleKey, String titleExpression, List<String> dates,
+                                String conditionExpression, Citation citation) {
+
+        public ChangeHeading {
+            title = Canon.text(title, "heading title");
+            titleKey = Canon.text(titleKey, "the bundle key a title came from");
+            titleExpression = Canon.text(titleExpression, "the expression a title is computed by");
+            conditionExpression = Canon.text(conditionExpression, "the condition a heading is shown under");
+            Canon.require(citation != null, "a heading is cited");
+            Canon.require(title.isEmpty() != titleExpression.isEmpty(),
+                    "a heading carries its title or the expression that computes one, never both and never neither");
+            Canon.require(titleKey.isEmpty() || !title.isBlank(), "a title named by a bundle key has that bundle's words");
+            dates = Canon.positional(dates, "the dates a heading states");
+            Set<String> seen = new HashSet<>();
+            for (String date : dates) {
+                Canon.require(!date.isBlank(), "a date is a phrase the game wrote");
+                Canon.require(seen.add(date), "a date once per heading: " + date);
+            }
+        }
+    }
+
+    /**
+     * One entry of the game's own changelog (story 2.7): the class that writes it, the tab the game
+     * shows it under (0 is the newest), its title, whether the game shows it as a major heading, its
+     * own text and every date that text states, the condition it is shown under where it has one,
+     * and the headings under it. The title is the argument the game passes; the game title-cases it
+     * before drawing it ({@code Messages.titleCase}), so what a player reads is that rule applied
+     * to this text.
+     */
+    public record ChangeEntry(String className, int tab, String title, String titleKey, String titleExpression, boolean major,
+                              String text, List<String> dates, String conditionExpression,
+                              List<ChangeHeading> headings, Citation citation) {
+
+        public ChangeEntry {
+            className = Canon.text(className, "the class that writes an entry");
+            title = Canon.text(title, "entry title");
+            titleKey = Canon.text(titleKey, "the bundle key a title came from");
+            titleExpression = Canon.text(titleExpression, "the expression a title is computed by");
+            text = Canon.text(text, "entry text");
+            conditionExpression = Canon.text(conditionExpression, "the condition an entry is shown under");
+            Canon.require(!className.isEmpty(), "an entry names the class that writes it");
+            Canon.require(tab >= 0, "an entry is shown under a tab of the game: " + tab);
+            // The game writes an entry whose title is one space, as a spacer between two blocks of
+            // changes. That is a title it passes, so the table carries it as read; what it may not
+            // carry is a blank title that also claims to come from a bundle.
+            Canon.require(title.isEmpty() != titleExpression.isEmpty(),
+                    "an entry carries its title or the expression that computes one, never both and never neither");
+            Canon.require(titleKey.isEmpty() || !title.isBlank(), "a title named by a bundle key has that bundle's words");
+            Canon.require(citation != null, "an entry is cited");
+            dates = Canon.positional(dates, "the dates an entry states");
+            Set<String> seen = new HashSet<>();
+            for (String date : dates) {
+                Canon.require(text.contains(date), "an entry's date is its own text's: " + date);
+                Canon.require(seen.add(date), "a date once per entry: " + date);
+            }
+            headings = Canon.positional(headings, "headings");
+        }
+    }
+
+    /**
+     * What version the pinned tree builds as (story 2.7), and the save codes the game still names:
+     * a claim about a mechanic can be dated against the version that made it.
+     */
+    public record VersionRecord(String name, int code, List<Rule> saveCodes, Citation citation) {
+
+        public VersionRecord {
+            name = Canon.text(name, "version name");
+            Canon.require(!name.isEmpty() && code > 0 && citation != null, "the version names itself, counts and is cited");
+            saveCodes = Canon.positional(saveCodes, "save codes");
+            Canon.require(!saveCodes.isEmpty(), "the game names the saves it reads");
+            Set<String> seen = new HashSet<>();
+            for (Rule saveCode : saveCodes) {
+                Canon.require(seen.add(saveCode.what()), "a save code once: " + saveCode.what());
+            }
+        }
+    }
+
+    /**
+     * One asset the game names (story 2.7): its path under the game's own asset folder, the group
+     * of the asset class that holds it and the constant's name where a constant names it, which of
+     * the game's asset folders holds the file (empty when none does), and the line that names it.
+     */
+    public record AssetEntry(String path, String group, String constant, String assetRoot, Citation citation) {
+
+        public AssetEntry {
+            path = Canon.text(path, "asset path");
+            group = Canon.text(group, "asset group");
+            constant = Canon.text(constant, "asset constant");
+            assetRoot = Canon.text(assetRoot, "the folder that holds a file");
+            Canon.require(!path.isEmpty() && citation != null, "an asset names its path and is cited");
+            Canon.require(group.isEmpty() == constant.isEmpty(), "an asset named by a constant names the group that holds it");
+        }
+
+        /** Whether a file is actually behind the name, which is the folder being known. */
+        public boolean present() {
+            return !assetRoot.isEmpty();
+        }
+    }
+
+    /**
+     * One line of the game's own text (story 2.7): the key, its value, the bundle it was found in,
+     * the class the game's key rule names and the suffix the caller asks for, or an empty class
+     * and the reason where the key names no class at all.
+     */
+    public record StringEntry(String key, String value, String bundle, String className, String suffix,
+                              String reason, Citation citation) {
+
+        public StringEntry {
+            key = Canon.text(key, "text key");
+            value = Canon.text(value, "text value");
+            bundle = Canon.text(bundle, "bundle");
+            className = Canon.text(className, "the class a key names");
+            suffix = Canon.text(suffix, "the suffix a key asks for");
+            reason = Canon.text(reason, "why a key names no class");
+            Canon.require(!key.isEmpty() && !bundle.isEmpty() && !suffix.isEmpty(), "a line names its key, its bundle and its suffix");
+            Canon.require(citation != null, "a line is cited");
+            Canon.require(className.isEmpty() == !reason.isEmpty(), "a key names a class or says why it names none");
+            Canon.require(key.endsWith(suffix), "a suffix is the end of its key: " + key + ", " + suffix);
         }
     }
 

@@ -672,6 +672,146 @@ class CodexLeakTest {
     }
 
     @Test
+    @DisplayName("the strings, the assets, the version record and the documents are the game's: its own words, its own files, its own dates")
+    void the_text_and_the_version_record_are_the_games() {
+        Path root = CodexSeedFreeTest.ROOT;
+        List<Codex.StringEntry> strings = Text.entries(root);
+        assertEquals(4976, strings.size(), "every line of the nine English bundles");
+        Map<String, Codex.StringEntry> byKey = new java.util.TreeMap<>();
+        for (Codex.StringEntry entry : strings) {
+            byKey.put(entry.key(), entry);
+        }
+        Codex.StringEntry plate = byKey.get("items.armor.platearmor.name");
+        assertEquals("plate armor", plate.value());
+        assertEquals("items.armor.PlateArmor", plate.className());
+        assertEquals("name", plate.suffix());
+        assertEquals("messages/items/items.properties", plate.bundle());
+        assertEquals("", plate.reason());
+        Codex.StringEntry blazing = byKey.get("actors.buffs.championenemy$blazing.name");
+        assertEquals("actors.buffs.ChampionEnemy.Blazing", blazing.className(), "a nested class keeps its own name");
+        Codex.StringEntry dead = byKey.get("windows.wndclass.mastery");
+        assertEquals("", dead.className(), "the game keeps text for a class it no longer compiles");
+        assertFalse(dead.reason().isEmpty(), "and the entry says so");
+        assertEquals(Text.NO_CLASS_PREFIXES.stream().map(java.util.Map.Entry::getKey).sorted().toList(),
+                strings.stream().filter(e -> e.className().isEmpty())
+                        .map(e -> e.key().substring(0, e.key().lastIndexOf('.'))).distinct().sorted().toList(),
+                "the key prefixes that name no class the game compiles, each named with its reason");
+        List<Codex.AssetEntry> assets = AssetIndex.entries(root);
+        assertEquals(259, assets.size(), "every path the game names");
+        assertEquals("core/src/main/assets/", byPathRoot(assets, "interfaces/banners.png"),
+                "the folder that holds a file, not merely that one of two does");
+        assertEquals("desktop/src/main/assets/", byPathRoot(assets, "icons/icon_64.png"),
+                "the launcher keeps its own window icons");
+        assertEquals("", byPathRoot(assets, "effects/fireball.png"), "and a dead name is held by neither");
+        Map<String, Codex.AssetEntry> byPath = new java.util.TreeMap<>();
+        for (Codex.AssetEntry asset : assets) {
+            byPath.put(asset.path(), asset);
+        }
+        assertEquals("Interfaces", byPath.get("interfaces/banners.png").group());
+        assertEquals("Splashes", byPath.get("splashes/warrior.jpg").group(), "a splash image is an asset the game names");
+        assertEquals("Splashes.Title", byPath.get("splashes/title/archs.png").group(),
+                "a group inside a group is named by its whole nesting");
+        assertEquals("BANNERS", byPath.get("interfaces/banners.png").constant());
+        assertTrue(byPath.get("interfaces/banners.png").present());
+        assertEquals("", byPath.get("effects/fireball-tall.png").constant(), "a literal names no constant");
+        assertFalse(byPath.get("effects/fireball.png").present(), "the fireball constant names a file that is not there");
+        Codex.VersionRecord version = Changelog.version(root);
+        assertEquals("4.0.0", version.name());
+        assertEquals(912, version.code());
+        assertEquals(List.of("v1_2_3", "v3_1_1", "v3_2_1", "v3_2_5", "v3_3_0", "v4_0_0"),
+                version.saveCodes().stream().map(Codex.Rule::what).toList());
+        assertEquals("909", version.saveCodes().get(5).expression());
+        List<Codex.ChangeEntry> changes = Changelog.entries(root, strings);
+        assertEquals(193, changes.size(), "every entry of the changelist package");
+        assertEquals(588, changes.stream().mapToInt(c -> c.headings().size()).sum(), "and every heading under them");
+        assertEquals(List.of("v4_X_Changes", "v3_X_Changes", "v2_X_Changes", "v1_X_Changes", "v0_9_X_Changes",
+                        "v0_8_X_Changes", "v0_7_X_Changes", "v0_6_X_Changes", "v0_5_X_Changes", "v0_4_X_Changes",
+                        "v0_3_X_Changes", "v0_2_X_Changes", "v0_1_X_Changes", "Pixel_Dungeon_Changes"),
+                changes.stream().map(c -> c.className().substring(c.className().lastIndexOf('.') + 1)).distinct().toList(),
+                "the order the game shows its changelog in, newest first, not the order the files sort in");
+        assertEquals(0, changes.get(0).tab(), "the newest tab is the one the game opens on");
+        Codex.ChangeEntry pinned = changes.stream().filter(c -> c.title().equals("v4.0")).findFirst().orElseThrow();
+        assertTrue(pinned.major(), "the pinned version is a major heading");
+        assertEquals(List.of(), pinned.dates(), "and its own entry states no date");
+        assertEquals(0, changes.stream().filter(c -> !c.dates().isEmpty()).count(),
+                "no entry states a date in its own text at this tag; every date the game states is in a heading");
+        // Every date the changelist source writes, against every date the table carries. Reading
+        // only the first of a heading's several texts once dropped a third of them.
+        java.util.TreeSet<String> stated = new java.util.TreeSet<>();
+        java.util.regex.Pattern phrase = java.util.regex.Pattern.compile("\\b([A-Z][a-z]+ \\d{1,2}(?:st|nd|rd|th)?, \\d{4})\\b");
+        for (String path : Sources.under(root, Changelog.CHANGELIST)) {
+            for (String line : sourceLines(root, path)) {
+                java.util.regex.Matcher found = phrase.matcher(line);
+                while (found.find()) {
+                    stated.add(found.group(1));
+                }
+            }
+        }
+        java.util.TreeSet<String> carried = new java.util.TreeSet<>();
+        for (Codex.ChangeEntry entry : changes) {
+            carried.addAll(entry.dates());
+            for (Codex.ChangeHeading heading : entry.headings()) {
+                carried.addAll(heading.dates());
+            }
+        }
+        assertEquals(stated, carried, "every date the game's own changelist writes, against the table");
+        assertEquals(93, carried.size(), "the game states this many dates at the pinned tag");
+        Codex.ChangeEntry latest = changes.stream()
+                .filter(c -> c.headings().stream().anyMatch(h -> h.dates().contains("September 9th, 2026")))
+                .findFirst().orElseThrow();
+        assertEquals("v4_X_Changes", latest.className().substring(latest.className().lastIndexOf('.') + 1));
+        assertEquals("Dev Commentary", latest.headings().stream().filter(h -> !h.dates().isEmpty()).findFirst().orElseThrow().title(),
+                "the release date is written in the heading the game calls its commentary");
+        Codex.ChangeHeading several = changes.stream().flatMap(c -> c.headings().stream())
+                .filter(h -> h.dates().size() > 1).findFirst().orElseThrow();
+        assertTrue(several.dates().size() >= 2, "a heading whose several texts state several dates carries them all");
+        assertEquals(List.of("HeroClass.DUELIST.title()"),
+                changes.stream().flatMap(c -> c.headings().stream()).map(Codex.ChangeHeading::titleExpression)
+                        .filter(e -> !e.isEmpty()).toList(),
+                "the one title the game computes rather than writing, carried as its expression");
+        assertEquals(List.of("iOS 12 end of support"),
+                changes.stream().flatMap(c -> c.headings().stream()).filter(h -> !h.conditionExpression().isEmpty())
+                        .map(Codex.ChangeHeading::title).toList(),
+                "the one heading the game shows only on a platform, carried with the condition");
+        assertEquals("DeviceCompat.isiOS() && DeviceCompat.getPlatformVersion() <= 12",
+                changes.stream().flatMap(c -> c.headings().stream()).map(Codex.ChangeHeading::conditionExpression)
+                        .filter(e -> !e.isEmpty()).findFirst().orElseThrow());
+        java.util.TreeSet<String> keys = new java.util.TreeSet<>();
+        for (Codex.StringEntry entry : strings) {
+            keys.add(entry.key());
+        }
+        for (Codex.ChangeEntry entry : changes) {
+            if (!entry.titleKey().isEmpty()) {
+                assertTrue(keys.contains(entry.titleKey()),
+                        entry.titleKey() + " is a key the strings table does not have, so the two tables cannot be joined");
+            }
+        }
+        assertEquals("scenes.changesscene.new",
+                changes.stream().map(Codex.ChangeEntry::titleKey).filter(k -> !k.isEmpty()).findFirst().orElseThrow(),
+                "a title the game takes from the bundle carries the whole key the game's own rule builds");
+        assertEquals(" ", changes.stream().filter(c -> c.title().isBlank()).findFirst().orElseThrow().title(),
+                "the game writes one entry whose title is a single space, as a spacer, and the table carries it as read");
+        List<Codex.DocumentEntry> documents = Documents.entries(root);
+        Map<String, Codex.DocumentEntry> byName = new java.util.TreeMap<>();
+        for (Codex.DocumentEntry document : documents) {
+            byName.put(document.document(), document);
+        }
+        Codex.DocumentEntry guide = byName.get("ADVENTURERS_GUIDE");
+        assertFalse(guide.lore(), "the adventurer's guide is a guide, not lore");
+        assertEquals("Tome of Dungeon Mastery", guide.title());
+        assertEquals("", guide.hint(), "a guide is handed over, so the bundle gives it no hint");
+        assertEquals("Intro", guide.pages().get(0).page(), "the first page is the one the game puts first");
+        assertEquals("Introduction", guide.pages().get(0).title());
+        assertTrue(guide.pages().get(0).body().startsWith("Greetings Adventurer"), guide.pages().get(0).body());
+        assertEquals(List.of("Intro", "Examining", "Surprise_Attacks", "Identifying", "Food", "Alchemy", "Dieing",
+                        "Searching", "Strength", "Upgrades", "Looting", "Levelling", "Positioning", "Magic"),
+                guide.pages().stream().map(Codex.DocumentPage::page).toList());
+        Codex.DocumentEntry halls = byName.get("HALLS_KING");
+        assertTrue(halls.lore(), "a king's journal is lore");
+        assertFalse(halls.hint().isEmpty(), "and lore carries the hint that says where to find it");
+    }
+
+    @Test
     @DisplayName("the traps, the recipes and the structure are the game's: the flags a player can act on, the pot's inputs, the shape of a Run")
     void the_traps_recipes_and_structure_are_the_games() {
         Path root = CodexSeedFreeTest.ROOT;
@@ -1002,6 +1142,44 @@ class CodexLeakTest {
         assertTrue(lineOf(root, rooms.secretsCitation()).contains("baseRegionSecrets"));
         Codex.Combat combat = Combat.read(root);
         assertTrue(lineOf(root, combat.hit().citation()).contains("boolean hit("), combat.hit().citation().reference());
+        for (Codex.StringEntry entry : Text.entries(root)) {
+            String line = lineOf(root, entry.citation());
+            assertTrue(line.startsWith(entry.key() + "="),
+                    entry.citation().reference() + " is the bundle line of " + entry.key());
+            assertEquals(Text.decoded(entry.citation().path(), entry.citation().line(),
+                            line.substring(entry.key().length() + 1).trim()),
+                    entry.value(), entry.citation().reference() + " says what the table carries for " + entry.key());
+        }
+        for (Codex.AssetEntry asset : AssetIndex.entries(root)) {
+            assertTrue(lineOf(root, asset.citation()).contains(asset.path()),
+                    asset.citation().reference() + " names " + asset.path());
+            if (!asset.constant().isEmpty()) {
+                assertTrue(lineOf(root, asset.citation()).matches(".*\\bString " + asset.constant() + "\\s*=.*"),
+                        asset.citation().reference() + " declares " + asset.constant());
+            }
+        }
+        Codex.VersionRecord version = Changelog.version(root);
+        assertTrue(lineOf(root, version.citation()).contains("appVersionName"), version.citation().reference());
+        for (Codex.Rule saveCode : version.saveCodes()) {
+            assertTrue(lineOf(root, saveCode.citation()).matches(".*\\bint " + saveCode.what() + "\\s*=.*"),
+                    saveCode.citation().reference() + " declares " + saveCode.what());
+        }
+        for (Codex.ChangeEntry entry : Changelog.entries(root, Text.entries(root))) {
+            assertTrue(lineOf(root, entry.citation()).contains("new ChangeInfo("),
+                    entry.citation().reference() + " builds an entry");
+            for (Codex.ChangeHeading heading : entry.headings()) {
+                assertTrue(lineOf(root, heading.citation()).contains("new ChangeButton("),
+                        heading.citation().reference() + " builds a heading");
+            }
+        }
+        for (Codex.DocumentEntry document : Documents.entries(root)) {
+            assertTrue(lineOf(root, document.citation()).matches("\\s*" + document.document() + "\\s*\\(.*"),
+                    document.citation().reference() + " declares " + document.document());
+            for (Codex.DocumentPage page : document.pages()) {
+                assertTrue(lineOf(root, page.citation()).endsWith("=" + page.body()),
+                        page.citation().reference() + " is the bundle line of " + document.document() + "'s " + page.page());
+            }
+        }
         for (Codex.TrapEntry trap : Traps.entries(root)) {
             String simple = trap.className().substring(trap.className().lastIndexOf('.') + 1);
             assertTrue(lineOf(root, trap.citation()).matches(".*\\bclass\\s+" + simple + "\\b.*"), trap.citation().reference() + " declares " + simple);
@@ -1111,6 +1289,20 @@ class CodexLeakTest {
     private static int wordAt(String line, String word, int from) {
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\b" + java.util.regex.Pattern.quote(word) + "\\b").matcher(line);
         return m.find(from) ? m.start() : -1;
+    }
+
+    /** The lines of one file of the pinned game, read here rather than through a reader under test. */
+    private static List<String> sourceLines(Path root, String path) {
+        try {
+            return Files.readAllLines(root.resolve(path), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+    }
+
+    /** The asset folder one path is held in, for a message that says which. */
+    private static String byPathRoot(List<Codex.AssetEntry> assets, String path) {
+        return assets.stream().filter(a -> a.path().equals(path)).findFirst().orElseThrow().assetRoot();
     }
 
     /** The outermost class of a Codex name, which is the class a source file is named for. */
