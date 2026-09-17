@@ -143,7 +143,7 @@ class RoomsReaderTest {
                 "\t\t\tWeakFloorRoom.class, CryptRoom.class",
                 "\t) );",
                 "\tprivate static final ArrayList<Class<? extends SpecialRoom>> OTHER = new ArrayList<>( Arrays.asList(",
-                "\t\t\tPitRoom.class) ); // PoolRoom.class is not one",
+                "\t\t\tPitRoom.class) ){{ add(PoolRoom.class); }}; // and a comment naming GardenRoom.class",
                 "}");
         Sources.Body body = new Sources.Body("core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/rooms/special/SpecialRoom.java",
                 lines, 0, lines.size(), "SpecialRoom");
@@ -155,6 +155,7 @@ class RoomsReaderTest {
         assertEquals(List.of("levels.rooms.special.WeakFloorRoom", "levels.rooms.special.CryptRoom"), equip.members());
         assertEquals(2, equip.citation().line());
         Codex.RoomList other = Rooms.list(body, "OTHER", byName);
-        assertEquals(List.of("levels.rooms.special.PitRoom"), other.members(), "the comment after the literal names no member");
+        assertEquals(List.of("levels.rooms.special.PitRoom"), other.members(),
+                "a class named after the literal's own parentheses, in the same statement or in a comment, is not a member");
     }
 }
