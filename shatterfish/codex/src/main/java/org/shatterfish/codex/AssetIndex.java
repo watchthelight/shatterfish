@@ -12,10 +12,11 @@ import java.util.regex.Pattern;
  * Every asset the game names (story 2.7): the constants of the class that holds them, and the
  * paths loaded by a literal string somewhere else.
  *
- * <p>The asset class is the game's index of its own files, but it is not the whole index: six
- * paths are written as literals at the place that loads them, which the codebase map recorded and
- * this table reads rather than repeating. Two of them are in the toolkit module and one in the
- * desktop launcher, so the reader looks outside the core the other tables read.
+ * <p>The asset class is the game's index of its own files, but it is not the whole index: thirteen
+ * paths are written as literals at the place that loads them — two in the core, three in the
+ * toolkit module and eight in the desktop launcher — so the reader looks outside the core the
+ * other tables read. The codebase map recorded six of them; the reader found the rest, and a test
+ * sweeps all three source roots so a fourteenth cannot appear unnoticed.
  *
  * <p>Each entry says whether a file is actually there and which of the two folders the game keeps
  * assets in holds it: the core's, or the desktop launcher's own, which holds the fonts and the

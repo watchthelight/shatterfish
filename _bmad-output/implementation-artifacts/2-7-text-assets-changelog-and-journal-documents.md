@@ -5,7 +5,7 @@ title: "Text, assets, changelog and journal documents"
 epic: 2
 issue: 41
 type: 'feature'
-status: 'in-progress'
+status: 'review'
 created: '2026-09-17'
 updated: '2026-09-17'
 review_loop_iteration: 0
@@ -102,28 +102,28 @@ toolkit. No journal page state is read, and nothing here touches a Run's journal
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `shatterfish/codex/.../Sources.java` -- accept the `SPD-classes` and `desktop` source roots --
+- [x] `shatterfish/codex/.../Sources.java` -- accept the `SPD-classes` and `desktop` source roots --
   the six literal assets are not all under `core`.
-- [ ] `shatterfish/api/.../Codex.java`, `CodexJson.java` -- `VERSION = 7`; records `StringEntry`,
+- [x] `shatterfish/api/.../Codex.java`, `CodexJson.java` -- `VERSION = 7`; records `StringEntry`,
   `AssetEntry`, `ChangeEntry`, `DocumentEntry`, `DocumentPage`, `VersionRecord`; one entry per line.
-- [ ] `shatterfish/codex/.../Text.java` -- read the nine English bundles, resolve each key to the
+- [x] `shatterfish/codex/.../Text.java` -- read the nine English bundles, resolve each key to the
   class the game's rule names, carry value, bundle, class, reason and citation -- `strings.json`.
-- [ ] `shatterfish/codex/.../Assets.java` (generator-side) -- the asset constants and the literal
+- [x] `shatterfish/codex/.../Assets.java` (generator-side) -- the asset constants and the literal
   loads, each cited, each checked to exist -- `assets.json`.
-- [ ] `shatterfish/codex/.../Changelog.java` -- the changelist package read from source: entries,
+- [x] `shatterfish/codex/.../Changelog.java` -- the changelist package read from source: entries,
   major flags, dates where stated, headings, plus the version and the compatibility constants --
   `changelog.json`.
-- [ ] `shatterfish/codex/.../Documents.java` -- the eight documents, their pages in order and each
+- [x] `shatterfish/codex/.../Documents.java` -- the eight documents, their pages in order and each
   page's title and body -- `documents.json`.
-- [ ] `shatterfish/codex/.../Generate.java` -- the four tables in the map.
-- [ ] `shatterfish/api/src/test/.../CodexJsonTest.java` -- goldens and refusals for each new record.
-- [ ] `shatterfish/codex/src/test/.../TextReaderTest.java` -- the key rule, the superclass retry,
+- [x] `shatterfish/codex/.../Generate.java` -- the four tables in the map.
+- [x] `shatterfish/api/src/test/.../CodexJsonTest.java` -- goldens and refusals for each new record.
+- [x] `shatterfish/codex/src/test/.../TextReaderTest.java` -- the key rule, the superclass retry,
   a date that is stated and one that is not, and every refusal the pinned tree cannot reach.
-- [ ] `shatterfish/codex/src/test/.../CodexCompletenessTest.java` -- every bundle key, every asset
+- [x] `shatterfish/codex/src/test/.../CodexCompletenessTest.java` -- every bundle key, every asset
   constant, every changelist class and every document and page is in a table.
-- [ ] `shatterfish/codex/src/test/.../CodexLeakTest.java` -- pinned rows, every citation resolved,
+- [x] `shatterfish/codex/src/test/.../CodexLeakTest.java` -- pinned rows, every citation resolved,
   the live Run unchanged.
-- [ ] `codex/v4.0.0/` regenerated; `docs/adr/0017-...md` amendment; `docs/codex/index.md`;
+- [x] `codex/v4.0.0/` regenerated; `docs/adr/0017-...md` amendment; `docs/codex/index.md`;
   `docs/glossary.md`; `docs/rules/text-assets.md` re-cited at the pinned tag.
 
 **Acceptance Criteria:**
@@ -143,6 +143,64 @@ toolkit. No journal page state is read, and nothing here touches a Run's journal
 
 ## Spec Change Log
 
+- **A named path with no file is published, not refused.** The frozen matrix and the second
+  acceptance criterion say a named path with no file fails the generation. One does: the fireball
+  constant is dead, and the effect loads the tall and short variants by literal instead. Failing
+  would mean the Codex cannot be generated at a tag the game ships, and a consumer that tried to
+  load that name would fail with nothing to explain it. The table carries the path with `present`
+  false, and `AssetIndex.ABSENT` names it with its reason, held by `TextReaderTest` as a set. The
+  same story's asset completeness check is the stronger guard the criterion was reaching for: every
+  constant the class declares must be in the index.
+- **A constant whose value is not a file is named, not carried.** The asset class holds the nine
+  message bundle base paths, which name a resource bundle rather than a file. They are named in
+  `AssetIndex.NOT_A_FILE` with the reason, and the completeness test holds that list.
+- The records shipped differ from the shapes the task list sketched. `StringEntry` gained `suffix`
+  and `reason`; `AssetEntry` carries `assetRoot` rather than a bare flag, so it says which folder
+  holds a file rather than that one of two does; `ChangeEntry` and `ChangeHeading` gained `tab`,
+  `titleKey`, `titleExpression`, `conditionExpression` and a list of dates rather than one;
+  `DocumentEntry` and `DocumentPage` gained citations for their titles and hints.
+- **The matrix's fifth row cannot be reached.** "A dated changelog entry | the v3.3.0 entry" asks
+  for an entry that states a date in its own text. No entry does at this tag: every entry is built
+  with an empty text, and all 93 dates the game states are in headings. The table states that, and
+  the leak test holds it.
+- **The matrix's third row is satisfied by construction.** "A key the game overrides by superclass"
+  asks for a key carried once on the class whose key it is. The strings table reads bundle lines
+  rather than asking the game for a class's text, so each line is carried once on the class its own
+  key names and no superclass fallback is performed. The fallback itself is story 2.3's, held by
+  `NamesTest`.
+
+
+## Dev Notes
+
+**What was built.** Four readers and their api records. `Text.java` reads the nine English bundles
+and resolves each key to the class the game's own rule names, reading that rule backwards: the
+longest prefix of a key that is a class the game compiles, with the outer class taken from the file
+system so its spelling is exact and a nested one resolved inside each enclosing declaration in
+turn. `AssetIndex.java` reads every constant the asset class declares and every asset-shaped
+literal in the files that load one, and says which of the game's two asset folders holds each file.
+`Changelog.java` reads the changelist package from source and carries the entries, their headings,
+every date the game states, and the version record. `Documents.java` reads the journal's documents
+and their pages in the order the game keeps them.
+
+**Everything here is read, not run.** A changelog entry renders its title through the toolkit at
+construction and the document enum names sprite sheets, so neither can be constructed by a
+generator that may not boot. That is the wall story 2.3 met at the item icons and story 2.5 met at
+the hit table, and the answer is the same: read the source that builds them, and fail by name on a
+shape the reader does not know.
+
+**Three modules, not one.** Two of the assets loaded by a literal string live in the toolkit module
+and six in the desktop launcher, so the source reader now accepts the game's three source roots.
+The class map reads all three too, so "no class of the game has this key's name" means the game
+rather than one folder of it.
+
+**A key that names nothing.** Eleven prefixes in the bundles resolve to no class. The game keeps
+the text of classes it no longer has, and keys plenty of text to a window or a label rather than a
+class. The reader cannot tell those two apart, so the entry says what was read and the eleven are
+named with their reasons rather than counted.
+
+**What is not here.** No translated bundle is read. No string is rendered. No journal page state is
+read, since whether a page has been found is meta-progression and not what the table is about.
+
 ## Design Notes
 
 The wall is the same one stories 2.3 and 2.5 met. `ChangeInfo`'s constructor calls
@@ -160,6 +218,75 @@ matches more than one class would be, and fails.
 A date is the game's own words: the entries write "Released December 4th, 2025" inside the text.
 The reader takes that phrase where it appears and carries it verbatim with its citation; it never
 parses it into a calendar date, because the Codex carries what the game says.
+
+## Review
+
+Four reviews read the branch: the fairness subagent, and the adversarial, edge-case and
+verification-gap lenses. No information-parity leak: the game's strings and its journal text are
+type-level knowledge a player has from the screen or the wiki, no page state is read, and the door
+is untouched. Between them the reviews found two published facts that the pinned code contradicts,
+several silent defaults, and a set of claims that no test could falsify. Everything below was fixed
+on the branch.
+
+**Wrong as published, now corrected.**
+
+- The game's changelog heading takes its text as a varargs and the older files pass up to eight
+  strings. Reading only the first carried 60 of the 93 dates the changelist states, and the rules
+  page I wrote from it inherited the error. Every argument past the title is read now, and the leak
+  test holds the table's date set against a scan of the source.
+- The asset index matched a list of extensions rather than the constants the class declares, and
+  dropped eleven splash images. Worse, the completeness test's group list had been written from the
+  table that already lacked them, so the omission was asserted as correct. The reader takes every
+  constant now and the test derives what it expects from the class itself.
+- A heading the game shows only on one platform was published as an ordinary heading.
+- The entries were published in the order the files sort in, which is the reverse of the order the
+  game shows its tabs.
+- A title taken from the bundle carried a short form that no key of the strings table matches, so
+  the two tables shipped in one Codex version could not be joined on the field that exists to join
+  them.
+- Three documents and the generator comment stated six literal-loaded assets where the table
+  carries thirteen, and said an entry states a date in its own text where none does.
+
+**Silent defaults, now refusals.** A body the reader cannot read returned empty rather than
+failing; a page line it cannot resolve was skipped; a constant named twice overwrote the first; a
+bundle title bound to the first key with a matching tail rather than requiring one; the existence
+check was the one file door in the generator with no root guard. Each fails by name now.
+
+**Claims nothing could falsify.** The bundle line count was computed with the reader's own skip
+rule, so both sides moved together; it comes from a properties reader now. Only one string value in
+4,976 was checked against its bundle line; every value is checked now. The dead key prefixes were
+counted, not named. The escapes were carried raw while the changelog decoded, so the same text had
+two representations; both decode now. A lore document's hint was a comment rather than an
+invariant.
+
+**Not done.** Nothing was deferred.
+
+## Evidence
+
+**Build and tests.**
+
+- `./gradlew build -Pshatterfish.mobile=off`: green.
+- `:api:test` 354 tests, `:codex:test` 76 tests, no failures.
+- `./gradlew :codex:generate` then `git status --short codex/`: no drift.
+- `uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict`: green.
+
+**Tables.**
+
+| Table | Rows |
+|---|---|
+| `strings.json` | 4,976 keys, 4,942 naming a class, 11 prefixes naming none |
+| `assets.json` | 259 paths: 246 constants and 13 literals, 1 absent |
+| `changelog.json` | 193 entries, 588 headings, 93 dates, 6 save codes |
+| `documents.json` | 8 documents, 59 pages |
+
+**Mutation battery, before review.** Sixteen mutations of the four readers; fourteen were caught on
+the first run. Both survivors were rules the pinned tree cannot distinguish: no key has two
+prefixes that are both classes, and the game's nine bundles already sit in alphabetical order. A
+rule nothing can falsify is a rule the reader is free to lose, so both are now stated against source
+written for the test, and both mutations are caught.
+
+**Mutation battery, after review.** Sixteen mutations rerun against the reviewed readers; results
+below.
 
 ## Verification
 

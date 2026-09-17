@@ -498,15 +498,34 @@ file system instead of parsing.
 compiles: it keeps the text of classes it no longer has, and it keys plenty of text to a window or
 a label rather than to a class at all. The reader cannot tell those two apart, so the entry states
 what was read — no class of the game has this key's name — rather than guessing which it is, and
-never attaches the text to whatever class happens to share a prefix.
+never attaches the text to whatever class happens to share a prefix. The eleven are named with
+their reasons and held as a set, since a count would let a live class quietly stop resolving while
+a dead one disappeared. The class map reads every module that compiles a class under the game's
+root package, not the core alone, so the sentence means the game and not one folder of it.
 
-**The asset index is the class plus what the class does not hold.** Six paths are written as
-literals at the place that loads them, which the codebase map recorded; the table reads them from
-those files rather than repeating the map. Two live in the toolkit module and four in the desktop
-launcher, so the source reader now accepts the game's three source roots rather than the core
-alone, and a file is looked for in both folders the game keeps assets in. An asset the game names
-with no file behind it is carried as absent with a named reason: the fireball constant is dead, and
-the effect loads the tall and short variants by literal instead.
+**A value is the text the game shows.** The bundles are a properties file and the game loads them
+through a reader that decodes the escapes, so a table carrying the raw text would publish a
+backslash and an n where the game prints a new line — and the changelog table, which decodes, would
+disagree with the strings table about what the game says. Both decode now, and an escape the reader
+does not know fails rather than passing through.
+
+**The asset index is the class plus what the class does not hold.** Thirteen paths are written as
+literals at the place that loads them: two in the core, three in the toolkit module and eight in
+the desktop launcher. The codebase map had recorded six, and the reader found the rest, which is
+why the source reader now accepts the game's three source roots rather than the core alone and a
+test sweeps all three for an asset-shaped literal the index does not carry. A file is looked for in
+both folders the game keeps assets in, and the entry says which folder holds it rather than that
+one of them does. An asset the game names with no file behind it is carried as absent with a named
+reason: the fireball constant is dead, and the effect loads the tall and short variants by literal
+instead.
+
+**Every constant the class declares, not every constant of a shape the reader expected.** The first
+draft matched a list of extensions and silently dropped eleven splash images, and the test that
+should have caught it had been written from the reader's own output, so the omission was asserted
+as correct. The reader now takes every constant the class declares, the test derives what it
+expects from the class itself, and a constant whose value is not a file at all — the bundle base
+paths — is named with its reason. A group nested inside a group is named by its whole nesting and
+restored when it closes.
 
 **The changelog is read, never constructed.** A changelog entry renders its title through the
 toolkit at construction, the same wall story 2.3 met at the item icons and story 2.5 at the hit
@@ -514,12 +533,28 @@ table, so the entries and their headings are read from the source that builds th
 literal, a bundle lookup, or something the game computes from a running game; the third kind is
 carried as its expression rather than as a guess at what it renders to.
 
-**A date is the game's own words.** The entries write "Released September 9th, 2026" inside their
-text, and the reader carries that phrase verbatim rather than parsing it into a calendar date. The
-pinned version's own entry states no date at all: the release date is written in the heading the
-game calls its dev commentary, under the entry that follows. The table shows both facts rather than
-moving the date onto the entry, because moving it would be the table saying something the game does
-not.
+**A date is the game's own words.** The game writes "Released September 9th, 2026" inside the text
+of a heading, and the reader carries that phrase verbatim rather than parsing it into a calendar
+date. No entry states a date in its own text at this tag: every entry is built with an empty text,
+and every date the game states is in a heading. The table shows that rather than moving a date onto
+the entry above it, because moving it would be the table saying something the game does not.
+
+**A heading's text is a varargs, and reading one argument is reading a third of the dates.** The
+game's heading constructor takes any number of strings and the older files pass up to eight. The
+first draft read only the first and carried 60 of the 93 dates the changelist states. Every
+argument past the title is now read, and the test holds the whole set against a scan of the source,
+so a date the game writes cannot go missing quietly.
+
+**The changelog is published in the order the game shows it.** That order is the scene's, read from
+the switch that chooses a tab: newest first, with the oldest tab holding several files. The order a
+file system lists the package in is the changelog backwards, which is what the first draft
+published. A heading the game shows only on one platform carries the condition it is shown under,
+since a table that published it plainly would say the game shows something it does not.
+
+**A title from the bundle carries the whole key.** The first draft carried a short form that no key
+of the strings table matches, so the two tables shipped in one Codex version could not be joined on
+the field that exists to join them. Two bundle lines that could answer to one name now fail rather
+than the first winning.
 
 **The documents are what pages exist and what they say, never what has been read.** Page state is
 meta-progression, saved outside a Run, and no part of it belongs in a table about types. The pages

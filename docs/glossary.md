@@ -140,15 +140,16 @@ with upstream's use of the same word, this page says so.
 
 **Asset index (Codex)**
 :   `assets.json`: every path the game names, whether a constant of its asset class names it or a
-    literal string at the place that loads it does, with the group that holds it, whether a file is
-    actually there, and the line that names it. One name is dead at this tag and is carried as
-    absent with its reason.
+    literal string at the place that loads it does, with the group that holds it (a nested group by
+    its whole nesting), which of the game's two asset folders holds the file, and the line that
+    names it. One name is dead at this tag and is carried as absent with its reason.
 
 **Version record (Codex)**
 :   The version the pinned tree builds as and the save codes the game still names, carried in
-    `changelog.json` beside every entry of the game's own changelist. An entry carries the date its
-    own text states; the pinned version's entry states none, and the release date is on a heading
-    under a later entry, which the table shows rather than tidies.
+    `changelog.json` beside every entry of the game's own changelist, in the order the game shows
+    them. An entry carries every date its own text states; no entry states one at this tag, and all
+    93 dates the game states are on headings, which the table shows rather than tidies. A heading
+    the game shows only on one platform carries that condition.
 
 **Tier table (Codex)**
 :   The generator's `floorSetTierProbs` as `tiers.json` carries it: per floor set
