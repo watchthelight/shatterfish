@@ -119,6 +119,8 @@ public final class Generate {
         tables.put("items.json", CodexJson.items(Items.entries(root)));
         tables.put("rooms.json", CodexJson.rooms(Rooms.read(root)));
         tables.put("tiers.json", CodexJson.tiers(Tiers.read(root)));
+        tables.put("strings.json", CodexJson.strings(Text.entries(root)));
+        tables.put("assets.json", CodexJson.assets(AssetIndex.entries(root)));
         Map<String, String> files = new LinkedHashMap<>();
         files.put(MANIFEST, CodexJson.manifest(manifest(Upstream.tag(root), tables.keySet())));
         files.putAll(tables);

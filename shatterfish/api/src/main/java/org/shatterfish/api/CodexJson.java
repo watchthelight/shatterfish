@@ -395,7 +395,7 @@ public final class CodexJson {
         StringBuilder text = new StringBuilder("{\n");
         text.append("\"bossCitation\":").append(citationJson(guarantees.bossCitation())).append(",\n");
         text.append("\"bossDepths\":").append(ints(guarantees.bossDepths())).append(",\n");
-        text.append("\"counters\":").append(strings(guarantees.counters())).append(",\n");
+        text.append("\"counters\":").append(values(guarantees.counters())).append(",\n");
         text.append("\"countersCitation\":").append(citationJson(guarantees.countersCitation())).append(",\n");
         text.append("\"drops\":[\n");
         List<Codex.DropSchedule> drops = guarantees.drops();
@@ -588,7 +588,7 @@ public final class CodexJson {
         return out.toJson();
     }
 
-    private static String strings(List<String> values) {
+    private static String values(List<String> values) {
         JsonWriter out = new JsonWriter();
         out.beginArray();
         for (String value : values) {
@@ -896,6 +896,50 @@ public final class CodexJson {
         out.key("path").value(citation.path());
         out.key("line").value(citation.line());
         out.endObject();
+    }
+
+    /** The assets file's text (story 2.7): one asset per line, the constants first and then the literals. */
+    public static String assets(List<Codex.AssetEntry> assets) {
+        Objects.requireNonNull(assets, "assets");
+        Set<String> paths = new HashSet<>();
+        StringBuilder table = table();
+        for (int i = 0; i < assets.size(); i++) {
+            Codex.AssetEntry asset = assets.get(i);
+            Codex.distinct(paths, asset.path(), "an asset");
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("path").value(asset.path());
+            out.key("group").value(asset.group());
+            out.key("constant").value(asset.constant());
+            out.key("present").value(asset.present());
+            citation(out, asset.citation());
+            out.endObject();
+            row(table, out, i + 1 == assets.size());
+        }
+        return close(table);
+    }
+
+    /** The strings file's text (story 2.7): one line of the game's own text per line, in bundle order. */
+    public static String strings(List<Codex.StringEntry> strings) {
+        Objects.requireNonNull(strings, "strings");
+        Set<String> keys = new HashSet<>();
+        StringBuilder table = table();
+        for (int i = 0; i < strings.size(); i++) {
+            Codex.StringEntry entry = strings.get(i);
+            Codex.distinct(keys, entry.key(), "a text key");
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("key").value(entry.key());
+            out.key("value").value(entry.value());
+            out.key("bundle").value(entry.bundle());
+            out.key("className").value(entry.className());
+            out.key("suffix").value(entry.suffix());
+            out.key("reason").value(entry.reason());
+            citation(out, entry.citation());
+            out.endObject();
+            row(table, out, i + 1 == strings.size());
+        }
+        return close(table);
     }
 
     private static StringBuilder table() {

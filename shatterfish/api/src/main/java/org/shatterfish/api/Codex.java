@@ -26,7 +26,7 @@ public final class Codex {
      * 4 added the guarantees, the tier tables and the rooms (story 2.4); 5 added the measured
      * combat tables (story 2.5); 6 adds the traps, the recipes and the level structure (story 2.6).
      */
-    public static final int VERSION = 6;
+    public static final int VERSION = 7;
 
     /** The shape of an upstream tag: {@code v}, a dotted version, and an optional pre-release suffix. */
     public static final String TAG_PATTERN = "v[0-9]+([.][0-9]+)*(-[A-Za-z0-9.]+)?";
@@ -945,6 +945,44 @@ public final class Codex {
                 Canon.require(seen.add(rule.what() + " " + rule.citation().reference()),
                         "one row per place something reaches the cell: " + rule.what());
             }
+        }
+    }
+
+    /**
+     * One asset the game names (story 2.7): its path under the game's own asset folder, the group
+     * of the asset class that holds it and the constant's name where a constant names it, whether
+     * a file is actually there, and the line that names it.
+     */
+    public record AssetEntry(String path, String group, String constant, boolean present, Citation citation) {
+
+        public AssetEntry {
+            path = Canon.text(path, "asset path");
+            group = Canon.text(group, "asset group");
+            constant = Canon.text(constant, "asset constant");
+            Canon.require(!path.isEmpty() && citation != null, "an asset names its path and is cited");
+            Canon.require(group.isEmpty() == constant.isEmpty(), "an asset named by a constant names the group that holds it");
+        }
+    }
+
+    /**
+     * One line of the game's own text (story 2.7): the key, its value, the bundle it was found in,
+     * the class the game's key rule names and the suffix the caller asks for, or an empty class
+     * and the reason where the key names no class at all.
+     */
+    public record StringEntry(String key, String value, String bundle, String className, String suffix,
+                              String reason, Citation citation) {
+
+        public StringEntry {
+            key = Canon.text(key, "text key");
+            value = Canon.text(value, "text value");
+            bundle = Canon.text(bundle, "bundle");
+            className = Canon.text(className, "the class a key names");
+            suffix = Canon.text(suffix, "the suffix a key asks for");
+            reason = Canon.text(reason, "why a key names no class");
+            Canon.require(!key.isEmpty() && !bundle.isEmpty() && !suffix.isEmpty(), "a line names its key, its bundle and its suffix");
+            Canon.require(citation != null, "a line is cited");
+            Canon.require(className.isEmpty() == !reason.isEmpty(), "a key names a class or says why it names none");
+            Canon.require(key.endsWith(suffix), "a suffix is the end of its key: " + key + ", " + suffix);
         }
     }
 
