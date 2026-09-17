@@ -53,6 +53,13 @@ the order its own method tries them, each recipe with its inputs, output and ene
 states them and with the text of the methods it answers with where it does not; and `levels.json`,
 what every depth of every branch builds and what an unnamed depth builds, which floors place a shop
 and where that was decided, which are boss floors, which seal behind the hero and how, and the
-level feelings with their chances, their arms and every place the game reads them.
+level feelings with their chances, their arms and every place the game reads them. Story 2.7 adds
+the game's own words and its version record: `strings.json`, every line of the nine English bundles
+with the class the game's key rule names and the reason where it names none; `assets.json`, every
+path the game names, from the asset class and from the literal strings loaded outside it, each said
+to be there or not; `changelog.json`, every entry of the game's changelist with the headings under
+it, the date where an entry or a heading states one, and the version the tree builds as beside the
+save codes it still reads; and `documents.json`, the journal's guides and lore with their pages in
+the game's own order and the words of each.
 The tables that follow are their stories', and this page is replaced by the
 generator's index when story 2.9 renders it.

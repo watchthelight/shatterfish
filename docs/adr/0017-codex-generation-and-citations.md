@@ -483,3 +483,47 @@ opened on an earlier line, so a reader scanning for a statement would read a com
 live. Every scan in these readers walks the lines with all comments removed instead.
 
 Codex version 6.
+
+## Amendment: story 2.7 (2026-09-17)
+
+**A key names a class, and the reader reads that rule backwards.** The game builds a text key from
+a class's own name, lower-cased, with the root package dropped and a nested class's dollar kept. So
+the class a key belongs to is the longest prefix of that key which is a class the game compiles.
+The outer class comes from the file system, which carries the spelling exactly; a nested one is the
+declaration in that file whose name lower-cases to the key's next segment. Counting braces to track
+nesting was tried first and silently lost classes that do exist, which is why the reader asks the
+file system instead of parsing.
+
+**A key that names no class says so.** Eleven prefixes in the bundles match nothing the game
+compiles: it keeps the text of classes it no longer has, and it keys plenty of text to a window or
+a label rather than to a class at all. The reader cannot tell those two apart, so the entry states
+what was read — no class of the game has this key's name — rather than guessing which it is, and
+never attaches the text to whatever class happens to share a prefix.
+
+**The asset index is the class plus what the class does not hold.** Six paths are written as
+literals at the place that loads them, which the codebase map recorded; the table reads them from
+those files rather than repeating the map. Two live in the toolkit module and four in the desktop
+launcher, so the source reader now accepts the game's three source roots rather than the core
+alone, and a file is looked for in both folders the game keeps assets in. An asset the game names
+with no file behind it is carried as absent with a named reason: the fireball constant is dead, and
+the effect loads the tall and short variants by literal instead.
+
+**The changelog is read, never constructed.** A changelog entry renders its title through the
+toolkit at construction, the same wall story 2.3 met at the item icons and story 2.5 at the hit
+table, so the entries and their headings are read from the source that builds them. A title is a
+literal, a bundle lookup, or something the game computes from a running game; the third kind is
+carried as its expression rather than as a guess at what it renders to.
+
+**A date is the game's own words.** The entries write "Released September 9th, 2026" inside their
+text, and the reader carries that phrase verbatim rather than parsing it into a calendar date. The
+pinned version's own entry states no date at all: the release date is written in the heading the
+game calls its dev commentary, under the entry that follows. The table shows both facts rather than
+moving the date onto the entry, because moving it would be the table saying something the game does
+not.
+
+**The documents are what pages exist and what they say, never what has been read.** Page state is
+meta-progression, saved outside a Run, and no part of it belongs in a table about types. The pages
+are carried in the order the game's own static block puts them in, which is what a page index means
+to the game. A hint is optional: only a document a player has to find carries one.
+
+Codex version 7.
