@@ -672,6 +672,74 @@ class CodexLeakTest {
     }
 
     @Test
+    @DisplayName("the traps, the recipes and the structure are the game's: the flags a player can act on, the pot's inputs, the shape of a Run")
+    void the_traps_recipes_and_structure_are_the_games() {
+        Path root = CodexSeedFreeTest.ROOT;
+        Map<String, Codex.TrapEntry> traps = new java.util.TreeMap<>();
+        for (Codex.TrapEntry entry : Traps.entries(root)) {
+            traps.put(entry.className(), entry);
+        }
+        assertEquals(35, traps.size(), "every concrete trap class");
+        Codex.TrapEntry dart = traps.get("levels.traps.PoisonDartTrap");
+        assertFalse(dart.canBeHidden(), "a poison dart trap is never hidden");
+        assertTrue(dart.canBeSearched());
+        assertEquals("poison dart trap", dart.name());
+        Codex.TrapEntry tengu = traps.get("levels.traps.TenguDartTrap");
+        assertTrue(tengu.canBeHidden() && !tengu.canBeSearched(), "the boss's darts are hidden and cannot be found by searching");
+        Codex.TrapEntry alarm = traps.get("levels.traps.AlarmTrap");
+        assertTrue(alarm.canBeHidden() && alarm.canBeSearched(), "an ordinary trap is both");
+        assertTrue(alarm.activateExpression().contains("Dungeon"), alarm.activateExpression());
+        List<Codex.TrapPool> pools = Traps.pools(root, List.copyOf(Guarantees.LEVELS));
+        Map<String, Codex.TrapPool> byLevel = new java.util.TreeMap<>();
+        for (Codex.TrapPool pool : pools) {
+            byLevel.put(pool.levelClass() + " " + pool.condition(), pool);
+        }
+        Codex.TrapPool firstFloor = byLevel.get("levels.SewerLevel Dungeon.depth == 1");
+        assertEquals(List.of("levels.traps.WornDartTrap"), firstFloor.traps().stream().map(Codex.Weighted::className).toList(),
+                "the first floor draws one trap and it is the worn one");
+        Codex.TrapPool sewers = byLevel.get("levels.SewerLevel otherwise");
+        assertEquals(11, sewers.traps().size());
+        assertEquals(4, sewers.traps().get(0).firstDeck(), "the sewers weight their first four traps heaviest");
+        Map<String, Codex.RecipeEntry> recipes = new java.util.TreeMap<>();
+        for (Codex.RecipeEntry entry : Recipes.entries(root)) {
+            recipes.put(entry.className(), entry);
+        }
+        Codex.RecipeEntry blizzard = recipes.get("items.potions.brews.BlizzardBrew.Recipe");
+        assertTrue(blizzard.simple(), "a brew states its inputs");
+        assertEquals(List.of("items.potions.PotionOfFrost"), blizzard.inputs().stream().map(Codex.Ingredient::className).toList());
+        assertEquals(1, blizzard.inputs().get(0).quantity());
+        assertEquals("items.potions.brews.BlizzardBrew", blizzard.output());
+        assertEquals(1, blizzard.outQuantity());
+        assertEquals(8, blizzard.cost(), "the energy the pot spends");
+        assertEquals("one", blizzard.ingredients());
+        Codex.RecipeEntry stones = recipes.get("items.scrolls.Scroll.ScrollToStone");
+        assertFalse(stones.simple(), "a scroll turned to its own stone states no fixed inputs");
+        assertTrue(stones.inputs().isEmpty() && stones.output().isEmpty());
+        assertEquals(List.of("testIngredients", "cost", "sampleOutput"), stones.answers().stream().map(Codex.Rule::what).toList());
+        Codex.Structure structure = Structure.read(root);
+        Map<String, Codex.LevelEntry> floors = new java.util.TreeMap<>();
+        for (Codex.LevelEntry level : structure.levels()) {
+            floors.put(level.branch() + ":" + level.depth(), level);
+        }
+        assertEquals("levels.SewerLevel", floors.get("0:1").levelClass());
+        assertTrue(floors.get("0:6").shop(), "the first shop is on the sixth floor");
+        assertTrue(floors.get("0:5").boss() && floors.get("0:5").sealed(), "a boss floor seals");
+        assertFalse(floors.get("0:4").sealed(), "an ordinary floor does not");
+        assertTrue(floors.get("0:10").sealed(), "the prison's boss seals by calling the level's own sealing");
+        assertEquals("levels.LastLevel", floors.get("0:26").levelClass());
+        assertFalse(floors.get("0:26").boss() || floors.get("0:26").shop());
+        assertEquals("levels.MiningLevel", floors.get("1:11").levelClass(), "the mining branch is built beside the caves");
+        assertTrue(floors.get("1:16").sealed(), "the vault seals");
+        assertEquals(List.of("NONE", "CHASM", "WATER", "GRASS", "DARK", "LARGE", "TRAPS", "SECRETS"),
+                structure.feelings().stream().map(Codex.Rule::what).toList());
+        assertTrue(structure.feelings().stream().anyMatch(f -> f.what().equals("LARGE") && f.expression().contains("addItemToSpawn")),
+                "a large floor is given another ration, and the table says so");
+        assertTrue(structure.feelings().stream().anyMatch(f -> f.what().equals("DARK") && f.expression().contains("viewDistance")),
+                "a dark floor shortens the view, and the table says so");
+        assertEquals("return depth == 6 || depth == 11 || depth == 16;", structure.shopExpression());
+    }
+
+    @Test
     @DisplayName("the rotation is the spawner's: the families' odds, the champion rule, depth 11, the rare mobs, the unreachable alternate")
     void the_rotation_is_the_spawners() {
         Codex.SpawnRotation rotation = Rotation.read(CodexSeedFreeTest.ROOT, Mobs.canonicalNames());
@@ -853,6 +921,32 @@ class CodexLeakTest {
         assertTrue(lineOf(root, rooms.secretsCitation()).contains("baseRegionSecrets"));
         Codex.Combat combat = Combat.read(root);
         assertTrue(lineOf(root, combat.hit().citation()).contains("boolean hit("), combat.hit().citation().reference());
+        for (Codex.TrapEntry trap : Traps.entries(root)) {
+            String simple = trap.className().substring(trap.className().lastIndexOf('.') + 1);
+            assertTrue(lineOf(root, trap.citation()).matches(".*\\bclass\\s+" + simple + "\\b.*"), trap.citation().reference() + " declares " + simple);
+            assertTrue(lineOf(root, trap.nameCitation()).endsWith("=" + trap.name()), trap.nameCitation().reference() + " names " + simple);
+        }
+        for (Codex.TrapPool pool : Traps.pools(root, List.copyOf(Guarantees.LEVELS))) {
+            assertTrue(lineOf(root, pool.citation()).contains("trapClasses"), pool.citation().reference() + " lists what " + pool.levelClass() + " draws");
+        }
+        for (Codex.RecipeEntry recipe : Recipes.entries(root)) {
+            String simple = recipe.className().substring(recipe.className().lastIndexOf('.') + 1);
+            assertTrue(lineOf(root, recipe.citation()).matches(".*\\bclass\\s+" + simple + "\\b.*"), recipe.citation().reference() + " declares " + simple);
+            assertTrue(lineOf(root, recipe.registryCitation()).contains("IngredientRecipes"), recipe.registryCitation().reference() + " is a registry");
+            for (Codex.Rule answer : recipe.answers()) {
+                assertTrue(lineOf(root, answer.citation()).contains(answer.what()), answer.citation().reference() + " declares " + answer.what());
+            }
+        }
+        Codex.Structure structure = Structure.read(root);
+        for (Codex.LevelEntry level : structure.levels()) {
+            assertTrue(lineOf(root, level.citation()).contains("level = new"), level.citation().reference() + " builds a level");
+        }
+        assertTrue(lineOf(root, structure.shopCitation()).contains("shopOnLevel"));
+        assertTrue(lineOf(root, structure.sealedCitation()).contains("locked"));
+        for (Codex.Rule feeling : structure.feelings()) {
+            String line = lineOf(root, feeling.citation());
+            assertTrue(line.contains("Feeling") || line.contains("feeling"), feeling.citation().reference() + " is where " + feeling.what() + " is set");
+        }
         for (Codex.RollEntry entry : combat.weapons()) {
             assertTrue(lineOf(root, entry.citation()).contains("damageRoll"), entry.citation().reference() + " rolls damage for " + entry.className());
         }

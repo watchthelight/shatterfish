@@ -386,3 +386,53 @@ do the subtraction itself. Saying so is the point: the Codex does not pretend to
 has not measured.
 
 Codex version 5.
+
+## Amendment: story 2.6 (2026-09-16)
+
+**A trap is constructed; where it lives is read.** Every concrete trap class the game compiles is
+constructed bare through the door, so `traps.json` carries the two flags a player can act on
+(whether the trap can be hidden, and whether searching can find it) as the game's own initialiser
+set them, rather than as a reading of its source. Two of those classes are declared inside the
+place that uses them rather than beside the rest (the vault's flame jets, the toxic gas room's
+vent) and are carried like any other, since a player meets them like any other. What a trap does
+is its own `activate` as cited text, because the effect is a method and not a number.
+
+**A trap that does nothing says so rather than rendering blank.** The two nested traps override
+their effect with an empty body: they are decoration, and the game's own initialiser deactivates
+them. So a trap entry carries the game's `active` flag beside the text, and the api refuses an
+entry that is inactive and still carries an effect. A reader is owed the fact that stepping on it
+does nothing, not an empty string it must interpret.
+
+**A pool with two arms is two pools.** A level's trap list is a method, and some levels return a
+different list under a condition (the sewers draw one trap on the first floor and eleven after
+it). Reading the whole method's text as one list mixed the arms and read the literal `1` of
+`Dungeon.depth == 1` as a weight. So each array literal is read separately and each arm becomes
+its own pool carrying the condition that chooses it, with `otherwise` for the arm that follows;
+a level whose classes and weights do not pair off fails the generation by name.
+
+**A recipe is read through the registries, not through a class list.** The alchemy pot tries three
+private registries in order, so `recipes.json` is those registries as the game writes them: a
+recipe named by the entry that constructs it, resolved to a source path through the file's own
+imports, so the reader needs no class literal and a registry that names something it cannot find
+fails the generation. A recipe that states fixed inputs carries them with their quantities, its
+output and its energy cost. One that does not (a scroll turned to its own stone, a seed turned to
+its potion, a potion made exotic) carries the text of the three methods it answers with instead,
+and says that its inputs are not a list. The completeness test holds the game's own compiled set
+of recipe classes against the registries, so a recipe the game declares and never registers is
+named with its reason rather than quietly missing.
+
+**The shape of a Run is the switch, read whole.** Story 2.4 read `newLevel` for the main branch;
+`levels.json` reads every branch of it, so the mining floors and the vault are named at the depths
+that build them. Which floors hold a shop and which are boss floors are the game's own two rules,
+pinned to their text as story 2.4 pins its mirrors, and the depths are read from the pinned text
+rather than restated.
+
+**A floor seals if it seals itself, by either means.** Whether a floor locks behind the hero is an
+Observation a player has, so the table carries it. Reading it from the base level's own source
+said every floor seals, because the base is where the flag is set. Reading it as "the class
+overrides the sealing" missed the prison's boss floor, which calls the inherited one instead. So
+the predicate is the honest disjunction: a class that either overrides the sealing or calls it in
+its own source seals, and the walk stops before the base. The five boss floors and the vault read
+as sealed, and nothing else does.
+
+Codex version 6.

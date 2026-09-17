@@ -44,5 +44,13 @@ coin) and what it draws. Story 2.5 adds `combat.json`, measured rather than tran
 spread of every weapon's own damage roll by level, of the engine's own absorption roll with each
 armour worn, and of every mob's own damage reduction, each naming the method that was run, citing
 it and carrying the samples behind it; the table that decides whether an attack lands names its
-method and says plainly that a generator which may not boot cannot run it. The tables that follow are their stories', and this page is replaced by the
+method and says plainly that a generator which may not boot cannot run it. Story 2.6 adds
+`traps.json`, every concrete trap class with the two flags a player can act on, whether the game
+leaves it active, the text of its effect, and the pool each level draws from with the condition
+that chooses it where a level has more than one; `recipes.json`, the alchemy pot's three
+registries in the order it tries them, each recipe with its inputs, output and energy cost where
+it states them and with the text of the methods it answers with where it does not; and
+`levels.json`, what every depth of every branch builds, which floors hold a shop, which are boss
+floors, which seal behind the hero, and the level feelings with the text of what each changes.
+The tables that follow are their stories', and this page is replaced by the
 generator's index when story 2.9 renders it.

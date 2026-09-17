@@ -6,6 +6,7 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
 import com.shatteredpixel.shatteredpixeldungeon.items.Generator;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.levels.rooms.Room;
+import com.shatteredpixel.shatteredpixeldungeon.levels.traps.Trap;
 import com.shatteredpixel.shatteredpixeldungeon.utils.Holiday;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
@@ -177,6 +178,71 @@ class CodexCompletenessTest {
             }
         }
         assertEquals(new TreeSet<>(UNNAMED), unnamed, "anonymous or local item classes, against the stand-ins named; decide each new one");
+    }
+
+    @Test
+    @DisplayName("every concrete trap class of the game is in the trap table once, and every trap a level draws is one of them")
+    void every_trap_is_listed() {
+        TreeSet<String> expected = new TreeSet<>();
+        for (JavaClass c : GAME) {
+            if (c.isAssignableTo(Trap.class) && !c.getModifiers().contains(JavaModifier.ABSTRACT) && !c.isInterface()
+                    && !c.isAnonymousClass() && !c.isLocalClass()) {
+                expected.add(c.getName().substring(Sources.ROOT_PACKAGE_PREFIX.length()).replace('$', '.'));
+            }
+        }
+        assertTrue(expected.size() >= 30, "the game has its traps: " + expected.size());
+        TreeSet<String> listed = new TreeSet<>();
+        for (Codex.TrapEntry entry : Traps.entries(ROOT)) {
+            assertTrue(listed.add(entry.className()), entry.className() + " is listed twice");
+            assertFalse(entry.name().isBlank(), entry.className() + " has a display name");
+            assertTrue(entry.active() != entry.activateExpression().isBlank(),
+                    entry.className() + " carries the text of its effect, or the game deactivates it and it has none");
+        }
+        assertEquals(expected, listed, "the game's traps against Traps.ALL");
+        for (Codex.TrapPool pool : Traps.pools(ROOT, List.copyOf(Guarantees.LEVELS))) {
+            for (Codex.Weighted trap : pool.traps()) {
+                assertTrue(listed.contains(trap.className()), pool.levelClass() + " draws " + trap.className() + ", which the table does not have");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("every recipe the game registers is in the recipe table once, and every recipe class the game declares is registered or named")
+    void every_recipe_is_listed() {
+        TreeSet<String> listed = new TreeSet<>();
+        for (Codex.RecipeEntry entry : Recipes.entries(ROOT)) {
+            assertTrue(listed.add(entry.className()), entry.className() + " is listed twice");
+        }
+        assertTrue(listed.size() >= 30, "the pot knows its recipes: " + listed.size());
+        // Every concrete recipe class the game compiles, against what its own registries hold: a
+        // recipe the game declares and never registers is one the pot cannot make, and the test
+        // says which rather than leaving the difference unexplained.
+        TreeSet<String> declared = new TreeSet<>();
+        for (JavaClass c : GAME) {
+            if (c.isAssignableTo(com.shatteredpixel.shatteredpixeldungeon.items.Recipe.class)
+                    && !c.getModifiers().contains(JavaModifier.ABSTRACT) && !c.isInterface() && !c.isAnonymousClass() && !c.isLocalClass()) {
+                declared.add(c.getName().substring(Sources.ROOT_PACKAGE_PREFIX.length()).replace('$', '.'));
+            }
+        }
+        TreeSet<String> unregistered = new TreeSet<>(declared);
+        unregistered.removeAll(listed);
+        assertEquals(Recipes.UNREGISTERED, unregistered,
+                "the recipe classes the game declares and does not register; name each in Recipes.UNREGISTERED with its reason");
+        TreeSet<String> strangers = new TreeSet<>(listed);
+        strangers.removeAll(declared);
+        assertEquals(new TreeSet<>(), strangers, "the table names a recipe the game does not declare");
+    }
+
+    @Test
+    @DisplayName("every depth of every branch the game builds is in the level table once")
+    void every_floor_is_listed() {
+        Codex.Structure structure = Structure.read(ROOT);
+        TreeSet<String> floors = new TreeSet<>();
+        for (Codex.LevelEntry level : structure.levels()) {
+            assertTrue(floors.add(level.branch() + ":" + level.depth()), "a floor once: " + level.branch() + ":" + level.depth());
+        }
+        assertEquals(Mobs.MAX_DEPTH, structure.levels().stream().filter(l -> l.branch() == 0).count(), "the main branch names every floor to the amulet");
+        assertTrue(structure.levels().stream().anyMatch(l -> l.branch() > 0), "the game builds branches beside the main one");
     }
 
     @Test

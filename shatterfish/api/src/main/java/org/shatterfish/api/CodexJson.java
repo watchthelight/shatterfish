@@ -686,6 +686,139 @@ public final class CodexJson {
         }
     }
 
+    /** The traps file's text (story 2.6): the traps and then the pools, one per line. */
+    public static String traps(List<Codex.TrapEntry> traps, List<Codex.TrapPool> pools) {
+        Objects.requireNonNull(traps, "traps");
+        Objects.requireNonNull(pools, "pools");
+        Set<String> classes = new HashSet<>();
+        StringBuilder text = new StringBuilder("{\n\"pools\":[\n");
+        Set<String> levels = new HashSet<>();
+        for (int i = 0; i < pools.size(); i++) {
+            Codex.TrapPool pool = pools.get(i);
+            Codex.distinct(levels, pool.levelClass() + " " + pool.condition(), "a level's trap pool");
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("levelClass").value(pool.levelClass());
+            out.key("condition").value(pool.condition());
+            out.key("traps").beginArray();
+            for (Codex.Weighted trap : pool.traps()) {
+                out.beginObject();
+                out.key("className").value(trap.className());
+                out.key("weight").value(trap.firstDeck());
+                out.endObject();
+            }
+            out.endArray();
+            citation(out, pool.citation());
+            out.endObject();
+            text.append("  ").append(out.toJson()).append(i + 1 == pools.size() ? "\n" : ",\n");
+        }
+        text.append("],\n\"traps\":[\n");
+        for (int i = 0; i < traps.size(); i++) {
+            Codex.TrapEntry trap = traps.get(i);
+            Codex.distinct(classes, trap.className(), "a trap");
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("className").value(trap.className());
+            out.key("name").value(trap.name());
+            out.key("canBeHidden").value(trap.canBeHidden());
+            out.key("canBeSearched").value(trap.canBeSearched());
+            out.key("active").value(trap.active());
+            out.key("activateExpression").value(trap.activateExpression());
+            citation(out, trap.citation());
+            out.key("nameCitation").beginObject();
+            out.key("path").value(trap.nameCitation().path());
+            out.key("line").value(trap.nameCitation().line());
+            out.endObject();
+            out.endObject();
+            text.append("  ").append(out.toJson()).append(i + 1 == traps.size() ? "\n" : ",\n");
+        }
+        text.append("]\n}\n");
+        return text.toString();
+    }
+
+    /** The recipes file's text (story 2.6): one recipe per line, in the order the pot tries them. */
+    public static String recipes(List<Codex.RecipeEntry> recipes) {
+        Objects.requireNonNull(recipes, "recipes");
+        Set<String> classes = new HashSet<>();
+        StringBuilder table = table();
+        for (int i = 0; i < recipes.size(); i++) {
+            Codex.RecipeEntry recipe = recipes.get(i);
+            Codex.distinct(classes, recipe.className(), "a recipe");
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("className").value(recipe.className());
+            out.key("ingredients").value(recipe.ingredients());
+            out.key("simple").value(recipe.simple());
+            out.key("inputs").beginArray();
+            for (Codex.Ingredient input : recipe.inputs()) {
+                out.beginObject();
+                out.key("className").value(input.className());
+                out.key("quantity").value(input.quantity());
+                out.endObject();
+            }
+            out.endArray();
+            out.key("output").value(recipe.output());
+            out.key("outQuantity").value(recipe.outQuantity());
+            out.key("cost").value(recipe.cost());
+            out.key("answers").beginArray();
+            for (Codex.Rule answer : recipe.answers()) {
+                out.beginObject();
+                out.key("what").value(answer.what());
+                out.key("expression").value(answer.expression());
+                citation(out, answer.citation());
+                out.endObject();
+            }
+            out.endArray();
+            citation(out, recipe.citation());
+            out.key("registryCitation").beginObject();
+            out.key("path").value(recipe.registryCitation().path());
+            out.key("line").value(recipe.registryCitation().line());
+            out.endObject();
+            out.endObject();
+            row(table, out, i + 1 == recipes.size());
+        }
+        return close(table);
+    }
+
+    /** The level structure's text (story 2.6): one object, its keys in order, the floors one per line. */
+    public static String structure(Codex.Structure structure) {
+        Objects.requireNonNull(structure, "structure");
+        StringBuilder text = new StringBuilder("{\n");
+        JsonWriter feelings = new JsonWriter();
+        feelings.beginArray();
+        for (Codex.Rule feeling : structure.feelings()) {
+            feelings.beginObject();
+            feelings.key("what").value(feeling.what());
+            feelings.key("expression").value(feeling.expression());
+            citation(feelings, feeling.citation());
+            feelings.endObject();
+        }
+        feelings.endArray();
+        text.append("\"feelings\":").append(feelings.toJson()).append(",\n");
+        text.append("\"levels\":[\n");
+        List<Codex.LevelEntry> levels = structure.levels();
+        for (int i = 0; i < levels.size(); i++) {
+            Codex.LevelEntry level = levels.get(i);
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("branch").value(level.branch());
+            out.key("depth").value(level.depth());
+            out.key("levelClass").value(level.levelClass());
+            out.key("boss").value(level.boss());
+            out.key("shop").value(level.shop());
+            out.key("sealed").value(level.sealed());
+            citation(out, level.citation());
+            out.endObject();
+            text.append("  ").append(out.toJson()).append(i + 1 == levels.size() ? "\n" : ",\n");
+        }
+        text.append("],\n");
+        text.append("\"sealedCitation\":").append(citationJson(structure.sealedCitation())).append(",\n");
+        text.append("\"shopCitation\":").append(citationJson(structure.shopCitation())).append(",\n");
+        text.append("\"shopExpression\":").append(string(structure.shopExpression())).append("\n");
+        text.append("}\n");
+        return text.toString();
+    }
+
     private static void roll(JsonWriter out, Codex.Roll roll) {
         out.beginObject();
         out.key("kind").value(roll.kind().name());

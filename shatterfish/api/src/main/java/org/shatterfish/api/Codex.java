@@ -23,10 +23,10 @@ public final class Codex {
     /**
      * The Codex version: 1 was the skeleton with the hero classes and the challenge flags; 2 added
      * the mobs and the spawn rotation (story 2.2); 3 added the items and the decks (story 2.3);
-     * 4 added the guarantees, the tier tables and the rooms (story 2.4); 5 adds the measured
-     * combat tables (story 2.5).
+     * 4 added the guarantees, the tier tables and the rooms (story 2.4); 5 added the measured
+     * combat tables (story 2.5); 6 adds the traps, the recipes and the level structure (story 2.6).
      */
-    public static final int VERSION = 5;
+    public static final int VERSION = 6;
 
     /** The shape of an upstream tag: {@code v}, a dotted version, and an optional pre-release suffix. */
     public static final String TAG_PATTERN = "v[0-9]+([.][0-9]+)*(-[A-Za-z0-9.]+)?";
@@ -912,6 +912,123 @@ public final class Codex {
                 Canon.require(seen.add(entry.className() + "@" + entry.level()), "a class and level once: " + entry.className() + " +" + entry.level());
             }
             return sorted;
+        }
+    }
+
+    // --- the traps, the recipes and the level structure (story 2.6)
+
+    /**
+     * One trap: its class, its display name with the bundle line cited, whether the level may
+     * hide it and whether a player may find it by searching, the text of its own effect (which
+     * needs a level to run, so the table carries what it says and not what it does), and the
+     * citation of its declaration.
+     */
+    public record TrapEntry(String className, String name, Citation nameCitation, boolean canBeHidden, boolean canBeSearched,
+                            boolean active, String activateExpression, Citation citation) {
+
+        public TrapEntry {
+            className = Canon.text(className, "trap class");
+            name = Canon.text(name, "trap name");
+            activateExpression = Canon.text(activateExpression, "trap effect");
+            Canon.require(!className.isEmpty() && !name.isEmpty(), "a trap names its class and itself");
+            Canon.require(nameCitation != null && citation != null, "a trap carries its citations");
+            Canon.require(active || activateExpression.isEmpty(), "a trap the game deactivates does nothing when stepped on");
+        }
+    }
+
+    /**
+     * The traps one level class draws, with the weight it gives each, and the condition that
+     * chooses this pool where the level has more than one (the sewers draw one trap on the first
+     * floor and eleven after it); empty where the level draws one pool always.
+     */
+    public record TrapPool(String levelClass, String condition, List<Weighted> traps, Citation citation) {
+
+        public TrapPool {
+            levelClass = Canon.text(levelClass, "level class");
+            condition = Canon.text(condition, "pool condition");
+            Canon.require(!levelClass.isEmpty() && citation != null, "a pool names its level and is cited");
+            traps = Canon.positional(traps, "traps");
+            Canon.require(!traps.isEmpty(), "a pool draws something");
+            Set<String> seen = new HashSet<>();
+            for (Weighted trap : traps) {
+                Canon.require(seen.add(trap.className()), "a trap once per pool: " + trap.className());
+            }
+        }
+    }
+
+    /** One input of a recipe: the class and how many of it. */
+    public record Ingredient(String className, int quantity) {
+
+        public Ingredient {
+            className = Canon.text(className, "ingredient class");
+            Canon.require(!className.isEmpty() && quantity >= 1, "an ingredient names its class and counts at least one");
+        }
+    }
+
+    /**
+     * One recipe the pot knows: its class, which registry holds it (by how many ingredients it
+     * takes), whether it states its inputs and output as fixed lists, those lists with the
+     * quantities and the energy cost where it does, the text of the methods it answers with where
+     * it does not, the citation of the registry and of its own declaration.
+     */
+    public record RecipeEntry(String className, String ingredients, boolean simple, List<Ingredient> inputs, String output, int outQuantity,
+                              int cost, List<Rule> answers, Citation registryCitation, Citation citation) {
+
+        public RecipeEntry {
+            className = Canon.text(className, "recipe class");
+            ingredients = Canon.text(ingredients, "recipe registry");
+            output = Canon.text(output, "recipe output");
+            Canon.require(!className.isEmpty() && !ingredients.isEmpty(), "a recipe names its class and its registry");
+            Canon.require(registryCitation != null && citation != null, "a recipe carries its citations");
+            inputs = Canon.positional(inputs, "inputs");
+            answers = Canon.positional(answers, "answers");
+            Canon.require(simple == !inputs.isEmpty(), "a recipe that states its inputs has them, and one that does not has none");
+            Canon.require(simple == !output.isEmpty(), "a recipe that states its inputs names its output, and one that does not names none");
+            Canon.require(simple == answers.isEmpty(), "a recipe that states no inputs carries its methods, and one that does carries none");
+            Canon.require(!simple || outQuantity >= 1, "a stated recipe makes at least one");
+            Canon.require(cost >= -1, "a cost is stated or -1");
+            Set<String> seen = new HashSet<>();
+            for (Ingredient input : inputs) {
+                Canon.require(seen.add(input.className()), "an input once per recipe: " + input.className());
+            }
+        }
+    }
+
+    /**
+     * What one depth of one branch builds: the level class, and whether it holds a shop, is a boss
+     * floor, or seals behind the hero.
+     */
+    public record LevelEntry(int depth, int branch, String levelClass, boolean shop, boolean boss, boolean sealed, Citation citation) {
+
+        public LevelEntry {
+            Canon.require(depth >= 1 && branch >= 0, "a floor is a depth of a branch: " + depth + ", " + branch);
+            levelClass = Canon.text(levelClass, "level class");
+            Canon.require(!levelClass.isEmpty() && citation != null, "a floor names its level class and is cited");
+        }
+    }
+
+    /**
+     * The shape of a Run: every floor of every branch the game builds, the rules that decide the
+     * shops and the sealing as cited text, and the level feelings with what each changes.
+     */
+    public record Structure(List<LevelEntry> levels, List<Rule> feelings, String shopExpression, Citation shopCitation, Citation sealedCitation) {
+
+        public Structure {
+            levels = Canon.positional(levels, "levels");
+            Canon.require(!levels.isEmpty(), "the game builds floors");
+            Set<Long> seen = new HashSet<>();
+            for (LevelEntry level : levels) {
+                Canon.require(seen.add(((long) level.branch() << 32) | level.depth()),
+                        "a floor once: depth " + level.depth() + " of branch " + level.branch());
+            }
+            feelings = Canon.positional(feelings, "feelings");
+            Canon.require(!feelings.isEmpty(), "a floor can feel like something");
+            Set<String> named = new HashSet<>();
+            for (Rule feeling : feelings) {
+                Canon.require(named.add(feeling.what()), "a feeling once: " + feeling.what());
+            }
+            shopExpression = Canon.text(shopExpression, "shop rule");
+            Canon.require(!shopExpression.isEmpty() && shopCitation != null && sealedCitation != null, "the structure carries its rules and citations");
         }
     }
 
