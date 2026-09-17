@@ -96,6 +96,24 @@ story 2.2's table); no procs.
 
 ## Spec Change Log
 
+- 2026-09-16, during implementation: **the hit table cannot be measured by the generator.**
+  `Char.hit` writes the icon of the reason an attack landed, and reaching that code initialises
+  `FloatingText`, whose initialiser builds a texture film; a generator that may not boot (ADR-0017)
+  cannot run it. The table therefore names the method, cites it, states the grid and carries
+  `measured: false` with the reason, exactly as story 2.3's items carry `constructed: false`; the
+  rig is written, kept and exercised against the engine by `CombatTableStabilityTest`, which runs
+  in a booted process, and the measurement itself is handed forward as an idea (a harness task, or
+  a hook that lets the engine skip the icon with no scene). The first acceptance criterion is
+  therefore met in part: the method is named, cited and gridded, and the cells are absent with a
+  reason rather than transcribed.
+- 2026-09-16, during implementation: the armour spread is measured through the engine's own
+  `Hero.drRoll` with the armour worn and the wearer's strength at the armour's requirement, since
+  the game has no roll of the armour's own; `Codex.RollEntry` replaces the spec's `DamageEntry` and
+  carries the method's name, so a reader knows which it was. Four mobs (the two statues, the
+  guardian trap's guardian, the transmogrified rat) roll with what the game gives them at spawn and
+  are named with their reasons rather than measured. A measurement draws under its own seed, not
+  the Codex's construction seed, so that story 2.1's seed-free guarantee still holds.
+
 ## Design Notes
 
 Micro-brainstorm on the rig. (a) Sweep the grid with stock mobs, refused: every mob overrides

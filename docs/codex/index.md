@@ -40,5 +40,9 @@ placed, with what level class each floor of the main branch is and whether it pl
 spawn list at all, and the Forbidden Runes rule; `tiers.json`, the floor-set tier table with the
 armor, weapon and missile rules that draw by it; and `rooms.json`, the special and secret rooms
 with the game's lists, what each puts on the floor (keys, solution potions, a honeypot at a
-coin) and what it draws. The tables that follow are their stories', and this page is replaced by the
+coin) and what it draws. Story 2.5 adds `combat.json`, measured rather than transcribed: the
+spread of every weapon's own damage roll by level, of the engine's own absorption roll with each
+armour worn, and of every mob's own damage reduction, each naming the method that was run, citing
+it and carrying the samples behind it; the table that decides whether an attack lands names its
+method and says plainly that a generator which may not boot cannot run it. The tables that follow are their stories', and this page is replaced by the
 generator's index when story 2.9 renders it.

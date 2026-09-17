@@ -327,3 +327,38 @@ is excluded by name with its reason, and `CodexCompletenessTest` enumerates the 
 concrete rooms against the table and the exclusions.
 
 Codex version 4.
+
+## Amendment: story 2.5 (2026-09-16)
+
+**A combat number is measured, never written out.** FR-14 says combat enters the Codex as
+measurement, so `combat.json` carries what the engine's own methods returned when the generator
+ran them: each weapon's own `damageRoll` at the levels the grid names, the engine's own
+`Hero.drRoll` with each armour worn (the game has no roll of the armour's own; the wearer rolls
+it), and each mob's own `drRoll`. Every entry names the method it ran, cites its declaration and
+carries the count of samples behind the spread, so a consumer can weigh it; the bounds are
+checkable against the engine's own `min`, `max`, `DRMin` and `DRMax` without any arithmetic being
+restated, which `CombatTableStabilityTest` does.
+
+**A measurement draws under a seed of its own.** Each cell seeds the generator from a constant
+measurement seed and the cell's own coordinates, never from the Codex's construction seed, so a
+cell does not depend on the order the table was filled in, two measurements agree byte for byte,
+and moving the construction seed (which `CodexSeedFreeTest` does between two generations) moves
+no measured number. The measurement runs through `GameContext`, which gains its fourth field for
+it: `Dungeon.hero`, set to a bare hero and restored, because the engine's combat methods
+dereference the hero for a talent check and throw without one. A bare hero is a rogue with no
+talents, no items and no buffs, so nothing it carries reaches a measured number; the gate admits
+the field and the hero's type and holds that nothing else of it is reached, and the live Run
+holds that a Run's own hero is still its own afterwards.
+
+**A method the generator cannot run says so.** `Char.hit`, which decides whether an attack lands,
+writes the icon of the reason it landed or missed; reaching that code initialises `FloatingText`,
+whose own initialiser builds a texture film, and a generator that may not boot cannot run it.
+This is the same wall story 2.3 met at `ItemSpriteSheet.Icons`, and the answer is the same one:
+the hit table names the method, cites it, states the grid a measurement would sweep and carries
+`measured: false` with the reason, rather than a number nobody ran or a formula written out by
+hand. The rig that measurement needs (two sparring characters that return an accuracy and an
+evasion and nothing else) is written and kept, and `CombatTableStabilityTest` runs it against the
+engine in a process that has booted, so the story that fills the table in the harness has nothing
+left to invent.
+
+Codex version 5.

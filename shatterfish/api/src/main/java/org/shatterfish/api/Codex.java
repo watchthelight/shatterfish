@@ -23,9 +23,10 @@ public final class Codex {
     /**
      * The Codex version: 1 was the skeleton with the hero classes and the challenge flags; 2 added
      * the mobs and the spawn rotation (story 2.2); 3 added the items and the decks (story 2.3);
-     * 4 adds the guarantees, the tier tables and the rooms (story 2.4).
+     * 4 added the guarantees, the tier tables and the rooms (story 2.4); 5 adds the measured
+     * combat tables (story 2.5).
      */
-    public static final int VERSION = 4;
+    public static final int VERSION = 5;
 
     /** The shape of an upstream tag: {@code v}, a dotted version, and an optional pre-release suffix. */
     public static final String TAG_PATTERN = "v[0-9]+([.][0-9]+)*(-[A-Za-z0-9.]+)?";
@@ -805,6 +806,112 @@ public final class Codex {
                 Canon.require(perRegion >= 0, "secrets per region are not negative");
             }
             Canon.require(secretsCitation != null && queue != null, "the rooms carry their citation and the queue rule");
+        }
+    }
+
+    // --- the measured combat tables (story 2.5)
+
+    /** One axis a measurement swept: what it varied, from and to inclusive, and the step. */
+    public record Grid(String what, int from, int to, int step) {
+
+        public Grid {
+            what = Canon.text(what, "grid axis");
+            Canon.require(!what.isEmpty(), "an axis is named");
+            Canon.require(step >= 1, "a step is positive: " + step);
+            Canon.require(to >= from, "an axis runs forwards: " + from + " to " + to);
+        }
+
+        /** How many values the axis takes. */
+        public int size() {
+            return (to - from) / step + 1;
+        }
+    }
+
+    /** One measured cell of the hit table: the two stats, how many attacks were made, and how many landed, in thousandths. */
+    public record HitCell(int accuracy, int evasion, int samples, int hitPerMille) {
+
+        public HitCell {
+            Canon.require(accuracy >= 0 && evasion >= 0, "a stat is not negative");
+            Canon.require(samples >= 1, "a cell was sampled: " + samples);
+            Canon.require(hitPerMille >= 0 && hitPerMille <= 1000, "a share is thousandths: " + hitPerMille);
+        }
+    }
+
+    /**
+     * The hit table: the method that decides whether an attack lands, its citation, the two axes a
+     * measurement sweeps, whether it was measured, and, when it was, every cell in the order the
+     * grid gives them (accuracy outer, evasion inner). A table that was not measured carries no
+     * cell and says why, as an item that could not be constructed does: a consumer is told what
+     * the Codex does not know rather than handed a number nobody ran.
+     */
+    public record HitTable(String method, Citation citation, Grid accuracy, Grid evasion, boolean measured, String reason, List<HitCell> cells) {
+
+        public HitTable {
+            method = Canon.text(method, "hit method");
+            Canon.require(!method.isEmpty() && citation != null, "the hit table names the method and cites it");
+            Canon.require(accuracy != null && evasion != null, "the hit table carries its axes");
+            reason = Canon.text(reason, "reason");
+            Canon.require(measured == reason.isEmpty(), "an unmeasured table says why, a measured one does not");
+            cells = Canon.positional(cells, "hit cells");
+            Canon.require(!measured || cells.size() == accuracy.size() * evasion.size(),
+                    "a measured table covers its grid: " + cells.size() + " of " + accuracy.size() + " by " + evasion.size());
+            Canon.require(measured || cells.isEmpty(), "an unmeasured table carries no cell");
+            Set<Long> seen = new HashSet<>();
+            for (HitCell cell : cells) {
+                Canon.require(seen.add(((long) cell.accuracy() << 32) | cell.evasion()),
+                        "a cell once: accuracy " + cell.accuracy() + " evasion " + cell.evasion());
+            }
+        }
+    }
+
+    /** A measured distribution: the least and greatest value seen, the mean in thousandths, and the samples behind them. */
+    public record Spread(int min, int max, int meanPerMille, int samples) {
+
+        public Spread {
+            Canon.require(max >= min, "a spread runs forwards: " + min + " to " + max);
+            Canon.require(samples >= 1, "a spread was sampled: " + samples);
+            Canon.require(meanPerMille >= min * 1000 && meanPerMille <= max * 1000,
+                    "a mean lies inside its bounds: " + meanPerMille + " in " + (min * 1000) + " to " + (max * 1000));
+        }
+    }
+
+    /**
+     * One measured roll: the class rolled, its tier and level (zero where the roll has neither),
+     * what was measured, the method that was run and its citation.
+     */
+    public record RollEntry(String className, int tier, int level, Spread spread, String method, Citation citation) {
+
+        public RollEntry {
+            className = Canon.text(className, "rolled class");
+            method = Canon.text(method, "roll method");
+            Canon.require(!className.isEmpty() && !method.isEmpty(), "a roll names its class and its method");
+            Canon.require(tier >= 0 && level >= 0, "a tier and a level are not negative");
+            Canon.require(spread != null && citation != null, "a roll carries its spread and its citation");
+        }
+    }
+
+    /**
+     * The measured combat tables: the generator seed every measurement drew under, the hit table,
+     * and the rolls of the weapons, the armours and the mobs, each sorted by class, tier and
+     * level.
+     */
+    public record Combat(long seed, HitTable hit, List<RollEntry> weapons, List<RollEntry> armours, List<RollEntry> mobs) {
+
+        public Combat {
+            Canon.require(hit != null, "the combat tables carry the hit table");
+            weapons = rolls(weapons, "weapons");
+            armours = rolls(armours, "armours");
+            mobs = rolls(mobs, "mobs");
+        }
+
+        private static List<RollEntry> rolls(List<RollEntry> in, String what) {
+            List<RollEntry> sorted = Canon.sorted(in, Comparator.comparing(RollEntry::className)
+                    .thenComparingInt(RollEntry::tier).thenComparingInt(RollEntry::level), what);
+            Set<String> seen = new HashSet<>();
+            for (RollEntry entry : sorted) {
+                Canon.require(seen.add(entry.className() + "@" + entry.level()), "a class and level once: " + entry.className() + " +" + entry.level());
+            }
+            return sorted;
         }
     }
 

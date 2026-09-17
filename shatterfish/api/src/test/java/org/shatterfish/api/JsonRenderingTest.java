@@ -162,7 +162,9 @@ class JsonRenderingTest {
             "Codex$Decks", "Codex$Strength", "Codex$ItemEntry",
             // The guarantees, the tiers and the rooms (story 2.4).
             "Codex$ScheduleEntry", "Codex$DropSchedule", "Codex$Guarantees", "Codex$Placement", "Codex$TierRow", "Codex$Rule", "Codex$Tiers",
-            "Codex$Spawn", "Codex$Draw", "Codex$RoomEntry", "Codex$RoomList", "Codex$Rooms");
+            "Codex$Spawn", "Codex$Draw", "Codex$RoomEntry", "Codex$RoomList", "Codex$Rooms",
+            // The measured combat tables (story 2.5).
+            "Codex$Grid", "Codex$HitCell", "Codex$HitTable", "Codex$Spread", "Codex$RollEntry", "Codex$Combat");
 
     @Test
     @DisplayName("api is the schema, Action and the named helpers, and nothing in it reads text or bytes into a record")

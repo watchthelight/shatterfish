@@ -15,6 +15,7 @@ import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.Potion;
 import com.shatteredpixel.shatteredpixeldungeon.items.rings.Ring;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.Scroll;
+import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Belongings;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.shatteredpixel.shatteredpixeldungeon.levels.MiningLevel;
 import com.shatteredpixel.shatteredpixeldungeon.utils.Holiday;
@@ -107,13 +108,13 @@ class CodexLeakTest {
      */
     static final ArchRule THE_CONTEXT_IS_NARROW = noClasses()
             .that().haveFullyQualifiedName(GameContext.class.getName())
-            .should().dependOnClassesThat(resideInAPackage("com.shatteredpixel..").and(not(belongToAnyOf(Dungeon.class, Level.class))))
+            .should().dependOnClassesThat(resideInAPackage("com.shatteredpixel..").and(not(belongToAnyOf(Dungeon.class, Level.class, Hero.class, Belongings.class))))
             .orShould().callMethodWhere(target(owner(type(Level.class))))
             .orShould().accessFieldWhere(com.tngtech.archunit.core.domain.JavaFieldAccess.Predicates.target(owner(type(Level.class))))
             .orShould().dependOnClassesThat(resideInAPackage("com.watabou..").and(not(belongToAnyOf(Random.class))))
             .orShould().dependOnClassesThat().resideInAnyPackage("com.badlogic..", "org.shatterfish.harness..")
             .orShould().accessFieldWhere(com.tngtech.archunit.core.domain.JavaFieldAccess.Predicates.target(owner(type(Dungeon.class)))
-                    .and(not(com.tngtech.archunit.core.domain.JavaFieldAccess.Predicates.target(nameMatching("depth|challenges|level")))))
+                    .and(not(com.tngtech.archunit.core.domain.JavaFieldAccess.Predicates.target(nameMatching("depth|challenges|level|hero")))))
             .orShould().callMethodWhere(target(owner(type(Dungeon.class))))
             .orShould().callMethodWhere(target(owner(type(Random.class))).and(not(target(nameMatching("pushGenerator|popGenerator")))))
             .orShould().accessFieldWhere(com.tngtech.archunit.core.domain.JavaFieldAccess.Predicates.target(owner(type(Random.class))))

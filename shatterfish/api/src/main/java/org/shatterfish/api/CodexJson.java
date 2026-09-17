@@ -607,6 +607,85 @@ public final class CodexJson {
         return array.substring(1, array.length() - 1);
     }
 
+    /** The combat file's text (story 2.5): one object, its keys in order, the cells and the rolls one per line. */
+    public static String combat(Codex.Combat combat) {
+        Objects.requireNonNull(combat, "combat");
+        StringBuilder text = new StringBuilder("{\n");
+        text.append("\"armours\":[\n");
+        rollRows(text, combat.armours());
+        text.append("],\n");
+        JsonWriter head = new JsonWriter();
+        head.beginObject();
+        head.key("method").value(combat.hit().method());
+        head.key("measured").value(combat.hit().measured());
+        head.key("reason").value(combat.hit().reason());
+        citation(head, combat.hit().citation());
+        head.key("accuracy").beginObject();
+        axis(head, combat.hit().accuracy());
+        head.endObject();
+        head.key("evasion").beginObject();
+        axis(head, combat.hit().evasion());
+        head.endObject();
+        head.endObject();
+        text.append("\"hit\":").append(head.toJson()).append(",\n");
+        text.append("\"hitCells\":[\n");
+        List<Codex.HitCell> cells = combat.hit().cells();
+        for (int i = 0; i < cells.size(); i++) {
+            Codex.HitCell cell = cells.get(i);
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("accuracy").value(cell.accuracy());
+            out.key("evasion").value(cell.evasion());
+            out.key("hitPerMille").value(cell.hitPerMille());
+            out.key("samples").value(cell.samples());
+            out.endObject();
+            text.append("  ").append(out.toJson()).append(i + 1 == cells.size() ? "\n" : ",\n");
+        }
+        text.append("],\n");
+        text.append("\"mobs\":[\n");
+        rollRows(text, combat.mobs());
+        text.append("],\n");
+        JsonWriter seed = new JsonWriter();
+        seed.beginArray();
+        seed.value(combat.seed());
+        seed.endArray();
+        String seedText = seed.toJson();
+        text.append("\"seed\":").append(seedText, 1, seedText.length() - 1).append(",\n");
+        text.append("\"weapons\":[\n");
+        rollRows(text, combat.weapons());
+        text.append("]\n");
+        text.append("}\n");
+        return text.toString();
+    }
+
+    private static void axis(JsonWriter out, Codex.Grid grid) {
+        out.key("what").value(grid.what());
+        out.key("from").value(grid.from());
+        out.key("to").value(grid.to());
+        out.key("step").value(grid.step());
+    }
+
+    private static void rollRows(StringBuilder text, List<Codex.RollEntry> rolls) {
+        for (int i = 0; i < rolls.size(); i++) {
+            Codex.RollEntry entry = rolls.get(i);
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("className").value(entry.className());
+            out.key("tier").value(entry.tier());
+            out.key("level").value(entry.level());
+            out.key("method").value(entry.method());
+            out.key("spread").beginObject();
+            out.key("min").value(entry.spread().min());
+            out.key("max").value(entry.spread().max());
+            out.key("meanPerMille").value(entry.spread().meanPerMille());
+            out.key("samples").value(entry.spread().samples());
+            out.endObject();
+            citation(out, entry.citation());
+            out.endObject();
+            text.append("  ").append(out.toJson()).append(i + 1 == rolls.size() ? "\n" : ",\n");
+        }
+    }
+
     private static void roll(JsonWriter out, Codex.Roll roll) {
         out.beginObject();
         out.key("kind").value(roll.kind().name());

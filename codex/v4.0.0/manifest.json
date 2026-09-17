@@ -1,1 +1,1 @@
-{"codexVersion":4,"tables":["challenges.json","decks.json","guarantees.json","hero-classes.json","items.json","mobs.json","rooms.json","spawn-rotation.json","tiers.json"],"upstreamTag":"v4.0.0"}
+{"codexVersion":5,"tables":["challenges.json","combat.json","decks.json","guarantees.json","hero-classes.json","items.json","mobs.json","rooms.json","spawn-rotation.json","tiers.json"],"upstreamTag":"v4.0.0"}
