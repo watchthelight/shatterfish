@@ -19,6 +19,27 @@ class CodexJsonTest {
 
     private static final Codex.Citation AT = new Codex.Citation("core/src/main/java/X.java", 7);
     private static final String CITE = "\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"}";
+    private static final String GOLDEN_STRINGS = "[\n"
+            + "  {\"bundle\":\"messages/items/items.properties\",\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"className\":\"items.armor.PlateArmor\",\"key\":\"items.armor.platearmor.name\",\"reason\":\"\",\"suffix\":\"name\",\"value\":\"plate armor\"},\n"
+            + "  {\"bundle\":\"messages/windows/windows.properties\",\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"className\":\"\",\"key\":\"windows.wndclass.mastery\",\"reason\":\"no class the game compiles has this key's name\",\"suffix\":\"windows.wndclass.mastery\",\"value\":\"Mastery\"}\n"
+            + "]\n";
+    private static final String GOLDEN_ASSETS = "[\n"
+            + "  {\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"constant\":\"BANNERS\",\"group\":\"Interfaces\",\"path\":\"interfaces/banners.png\",\"present\":true},\n"
+            + "  {\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"constant\":\"\",\"group\":\"\",\"path\":\"effects/fireball-tall.png\",\"present\":true},\n"
+            + "  {\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"constant\":\"FIREBALL\",\"group\":\"Effects\",\"path\":\"effects/fireball.png\",\"present\":false}\n"
+            + "]\n";
+    private static final String GOLDEN_CHANGELOG = "{\n"
+            + "\"entries\":[\n"
+            + "  {\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"className\":\"ui.changelist.v4_X_Changes\",\"date\":\"\",\"headings\":[{\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"date\":\"September 9th, 2026\",\"title\":\"Dev Commentary\",\"titleExpression\":\"\",\"titleKey\":\"\"},{\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"date\":\"\",\"title\":\"\",\"titleExpression\":\"HeroClass.DUELIST.title()\",\"titleKey\":\"\"}],\"major\":true,\"text\":\"\",\"title\":\"v4.0\",\"titleExpression\":\"\",\"titleKey\":\"\"}\n"
+            + "],\n"
+            + "\"saveCodes\":[{\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"expression\":\"909\",\"what\":\"v4_0_0\"}],\n"
+            + "\"versionCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\n"
+            + "\"versionCode\":912,\n"
+            + "\"versionName\":\"4.0.0\"\n"
+            + "}\n";
+    private static final String GOLDEN_DOCUMENTS = "[\n"
+            + "  {\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"document\":\"ADVENTURERS_GUIDE\",\"hint\":\"\",\"lore\":false,\"pages\":[{\"body\":\"Greetings Adventurer\",\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"page\":\"Intro\",\"title\":\"Introduction\"},{\"body\":\"Eat when hungry\",\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"page\":\"Food\",\"title\":\"Food\"}],\"title\":\"Tome of Dungeon Mastery\"}\n"
+            + "]\n";
     private static final String GOLDEN_TRAPS = "{\n"
             + "\"pools\":[\n"
             + "  {\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"condition\":\"Dungeon.depth == 1\",\"declaredBy\":\"levels.SewerLevel\",\"levelClass\":\"levels.SewerBossLevel\",\"nTrapsCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"nTrapsExpression\":\"return 0;\",\"traps\":[{\"className\":\"levels.traps.WornDartTrap\",\"weightPerMille\":1}]}\n"
@@ -59,7 +80,7 @@ class CodexJsonTest {
     @DisplayName("the manifest renders its version, its tag and its tables, keys and tables sorted")
     void the_manifest_renders() {
         Codex.Manifest manifest = new Codex.Manifest(Codex.VERSION, "v4.0.0", List.of("hero-classes.json", "challenges.json"));
-        assertEquals("{\"codexVersion\":6,\"tables\":[\"challenges.json\",\"hero-classes.json\"],\"upstreamTag\":\"v4.0.0\"}\n",
+        assertEquals("{\"codexVersion\":7,\"tables\":[\"challenges.json\",\"hero-classes.json\"],\"upstreamTag\":\"v4.0.0\"}\n",
                 CodexJson.manifest(manifest));
         assertEquals("v4.1.0-beta2", new Codex.Manifest(1, "v4.1.0-beta2", List.of()).upstreamTag(), "a pre-release tag is a tag");
     }
@@ -444,6 +465,107 @@ class CodexJsonTest {
         assertThrows(NullPointerException.class, () -> CodexJson.guarantees(null));
         assertThrows(NullPointerException.class, () -> CodexJson.tiers(null));
         assertThrows(NullPointerException.class, () -> CodexJson.rooms(null));
+    }
+
+    @Test
+    @DisplayName("the strings render one line of the game's text per line, and refuse a key that names a class and no suffix of its own")
+    void the_strings_render() {
+        Codex.StringEntry named = new Codex.StringEntry("items.armor.platearmor.name", "plate armor",
+                "messages/items/items.properties", "items.armor.PlateArmor", "name", "", AT);
+        Codex.StringEntry loose = new Codex.StringEntry("windows.wndclass.mastery", "Mastery",
+                "messages/windows/windows.properties", "", "windows.wndclass.mastery", "no class the game compiles has this key's name", AT);
+        assertEquals(GOLDEN_STRINGS, CodexJson.strings(List.of(named, loose)));
+        assertThrows(IllegalArgumentException.class, () -> CodexJson.strings(List.of(named, named)), "a key once");
+        assertThrows(NullPointerException.class, () -> CodexJson.strings(null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new Codex.StringEntry("a.b", "v", "b", "a.B", "b", "a reason", AT),
+                "a key names a class or says why it names none, never both");
+        assertThrows(IllegalArgumentException.class,
+                () -> new Codex.StringEntry("a.b", "v", "b", "", "b", "", AT),
+                "a key that names no class says why");
+        assertThrows(IllegalArgumentException.class,
+                () -> new Codex.StringEntry("a.b", "v", "b", "a.B", "c", "", AT),
+                "a suffix is the end of its key");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.StringEntry("", "v", "b", "a.B", "b", "", AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.StringEntry("a.b", "v", "", "a.B", "b", "", AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.StringEntry("a.b", "v", "b", "a.B", "b", "", null));
+    }
+
+    @Test
+    @DisplayName("the assets render one path per line and say whether a file is there, and refuse a literal that names a group")
+    void the_assets_render() {
+        Codex.AssetEntry constant = new Codex.AssetEntry("interfaces/banners.png", "Interfaces", "BANNERS", true, AT);
+        Codex.AssetEntry literal = new Codex.AssetEntry("effects/fireball-tall.png", "", "", true, AT);
+        Codex.AssetEntry dead = new Codex.AssetEntry("effects/fireball.png", "Effects", "FIREBALL", false, AT);
+        assertEquals(GOLDEN_ASSETS, CodexJson.assets(List.of(constant, literal, dead)));
+        assertThrows(IllegalArgumentException.class, () -> CodexJson.assets(List.of(constant, constant)), "an asset once");
+        assertThrows(NullPointerException.class, () -> CodexJson.assets(null));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.AssetEntry("a.png", "Group", "", true, AT),
+                "an asset named by a constant names the group that holds it");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.AssetEntry("a.png", "", "CONSTANT", true, AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.AssetEntry("", "", "", true, AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.AssetEntry("a.png", "", "", true, null));
+    }
+
+    @Test
+    @DisplayName("the changelog renders the version record and its entries, and refuses a date its own text does not state")
+    void the_changelog_renders() {
+        Codex.ChangeHeading dated = new Codex.ChangeHeading("Dev Commentary", "", "", "September 9th, 2026", AT);
+        Codex.ChangeHeading computed = new Codex.ChangeHeading("", "", "HeroClass.DUELIST.title()", "", AT);
+        Codex.ChangeEntry entry = new Codex.ChangeEntry("ui.changelist.v4_X_Changes", "v4.0", "", "", true, "", "",
+                List.of(dated, computed), AT);
+        Codex.VersionRecord version = new Codex.VersionRecord("4.0.0", 912,
+                List.of(new Codex.Rule("v4_0_0", "909", AT)), AT);
+        assertEquals(GOLDEN_CHANGELOG, CodexJson.changelog(version, List.of(entry)));
+        assertThrows(NullPointerException.class, () -> CodexJson.changelog(null, List.of(entry)));
+        assertThrows(NullPointerException.class, () -> CodexJson.changelog(version, null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new Codex.ChangeEntry("X", "t", "", "", true, "no date here", "March 1st, 2020", List.of(), AT),
+                "an entry's date is its own text's");
+        assertThrows(IllegalArgumentException.class,
+                () -> new Codex.ChangeEntry("X", "t", "", "expression", true, "", "", List.of(), AT),
+                "an entry carries its title or the expression that computes one, never both");
+        assertThrows(IllegalArgumentException.class,
+                () -> new Codex.ChangeEntry("X", "", "", "", true, "", "", List.of(), AT),
+                "and never neither");
+        assertThrows(IllegalArgumentException.class,
+                () -> new Codex.ChangeEntry("X", "", "a.key", "expression", true, "", "", List.of(), AT),
+                "a title named by a bundle key has that bundle's words");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ChangeEntry("", "t", "", "", true, "", "", List.of(), AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ChangeHeading("t", "", "e", "", AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ChangeHeading("", "", "", "", AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.ChangeHeading("t", "", "", "", null));
+        Codex.Rule code = new Codex.Rule("v4_0_0", "909", AT);
+        assertThrows(IllegalArgumentException.class, () -> new Codex.VersionRecord("", 912, List.of(code), AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.VersionRecord("4.0.0", 0, List.of(code), AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.VersionRecord("4.0.0", 912, List.of(), AT),
+                "the game names the saves it reads");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.VersionRecord("4.0.0", 912, List.of(code, code), AT),
+                "a save code once");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.VersionRecord("4.0.0", 912, List.of(code), null));
+    }
+
+    @Test
+    @DisplayName("the documents render their pages in the game's own order, and refuse a document with no page or a page twice")
+    void the_documents_render() {
+        Codex.DocumentPage intro = new Codex.DocumentPage("Intro", "Introduction", "Greetings Adventurer", AT);
+        Codex.DocumentPage food = new Codex.DocumentPage("Food", "Food", "Eat when hungry", AT);
+        Codex.DocumentEntry guide = new Codex.DocumentEntry("ADVENTURERS_GUIDE", false, "Tome of Dungeon Mastery", "",
+                List.of(intro, food), AT);
+        assertEquals(GOLDEN_DOCUMENTS, CodexJson.documents(List.of(guide)));
+        assertThrows(IllegalArgumentException.class, () -> CodexJson.documents(List.of(guide, guide)), "a document once");
+        assertThrows(NullPointerException.class, () -> CodexJson.documents(null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new Codex.DocumentEntry("D", false, "t", "", List.of(), AT), "a document holds a page");
+        assertThrows(IllegalArgumentException.class,
+                () -> new Codex.DocumentEntry("D", false, "t", "", List.of(intro, intro), AT), "a page once per document");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.DocumentEntry("", false, "t", "", List.of(intro), AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.DocumentEntry("D", false, "", "", List.of(intro), AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.DocumentEntry("D", false, "t", "", List.of(intro), null));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.DocumentPage("", "t", "b", AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.DocumentPage("p", "", "b", AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.DocumentPage("p", "t", "", AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.DocumentPage("p", "t", "b", null));
     }
 
     @Test

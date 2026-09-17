@@ -672,6 +672,85 @@ class CodexLeakTest {
     }
 
     @Test
+    @DisplayName("the strings, the assets, the version record and the documents are the game's: its own words, its own files, its own dates")
+    void the_text_and_the_version_record_are_the_games() {
+        Path root = CodexSeedFreeTest.ROOT;
+        List<Codex.StringEntry> strings = Text.entries(root);
+        assertEquals(4976, strings.size(), "every line of the nine English bundles");
+        Map<String, Codex.StringEntry> byKey = new java.util.TreeMap<>();
+        for (Codex.StringEntry entry : strings) {
+            byKey.put(entry.key(), entry);
+        }
+        Codex.StringEntry plate = byKey.get("items.armor.platearmor.name");
+        assertEquals("plate armor", plate.value());
+        assertEquals("items.armor.PlateArmor", plate.className());
+        assertEquals("name", plate.suffix());
+        assertEquals("messages/items/items.properties", plate.bundle());
+        assertEquals("", plate.reason());
+        Codex.StringEntry blazing = byKey.get("actors.buffs.championenemy$blazing.name");
+        assertEquals("actors.buffs.ChampionEnemy.Blazing", blazing.className(), "a nested class keeps its own name");
+        Codex.StringEntry dead = byKey.get("windows.wndclass.mastery");
+        assertEquals("", dead.className(), "the game keeps text for a class it no longer compiles");
+        assertFalse(dead.reason().isEmpty(), "and the entry says so");
+        assertEquals(11, strings.stream().filter(e -> e.className().isEmpty())
+                        .map(e -> e.key().substring(0, e.key().lastIndexOf('.'))).distinct().count(),
+                "the key prefixes that name no class the game compiles");
+        List<Codex.AssetEntry> assets = AssetIndex.entries(root);
+        assertEquals(248, assets.size(), "every path the game names");
+        Map<String, Codex.AssetEntry> byPath = new java.util.TreeMap<>();
+        for (Codex.AssetEntry asset : assets) {
+            byPath.put(asset.path(), asset);
+        }
+        assertEquals("Interfaces", byPath.get("interfaces/banners.png").group());
+        assertEquals("BANNERS", byPath.get("interfaces/banners.png").constant());
+        assertTrue(byPath.get("interfaces/banners.png").present());
+        assertEquals("", byPath.get("effects/fireball-tall.png").constant(), "a literal names no constant");
+        assertFalse(byPath.get("effects/fireball.png").present(), "the fireball constant names a file that is not there");
+        Codex.VersionRecord version = Changelog.version(root);
+        assertEquals("4.0.0", version.name());
+        assertEquals(912, version.code());
+        assertEquals(List.of("v1_2_3", "v3_1_1", "v3_2_1", "v3_2_5", "v3_3_0", "v4_0_0"),
+                version.saveCodes().stream().map(Codex.Rule::what).toList());
+        assertEquals("909", version.saveCodes().get(5).expression());
+        List<Codex.ChangeEntry> changes = Changelog.entries(root, strings);
+        assertEquals(193, changes.size(), "every entry of the changelist package");
+        assertEquals(588, changes.stream().mapToInt(c -> c.headings().size()).sum(), "and every heading under them");
+        Codex.ChangeEntry pinned = changes.stream().filter(c -> c.title().equals("v4.0")).findFirst().orElseThrow();
+        assertTrue(pinned.major(), "the pinned version is a major heading");
+        assertEquals("", pinned.date(), "and its own entry states no date");
+        Codex.ChangeEntry latest = changes.stream()
+                .filter(c -> c.headings().stream().anyMatch(h -> h.date().equals("September 9th, 2026")))
+                .findFirst().orElseThrow();
+        assertEquals("v4_X_Changes", latest.className().substring(latest.className().lastIndexOf('.') + 1));
+        assertEquals("Dev Commentary", latest.headings().stream().filter(h -> !h.date().isEmpty()).findFirst().orElseThrow().title(),
+                "the release date is written in the heading the game calls its commentary");
+        assertEquals(List.of("HeroClass.DUELIST.title()"),
+                changes.stream().flatMap(c -> c.headings().stream()).map(Codex.ChangeHeading::titleExpression)
+                        .filter(e -> !e.isEmpty()).toList(),
+                "the one title the game computes rather than writing, carried as its expression");
+        assertTrue(changes.stream().anyMatch(c -> !c.titleKey().isEmpty()),
+                "a title the game takes from the bundle carries the key it took");
+        List<Codex.DocumentEntry> documents = Documents.entries(root);
+        Map<String, Codex.DocumentEntry> byName = new java.util.TreeMap<>();
+        for (Codex.DocumentEntry document : documents) {
+            byName.put(document.document(), document);
+        }
+        Codex.DocumentEntry guide = byName.get("ADVENTURERS_GUIDE");
+        assertFalse(guide.lore(), "the adventurer's guide is a guide, not lore");
+        assertEquals("Tome of Dungeon Mastery", guide.title());
+        assertEquals("", guide.hint(), "a guide is handed over, so the bundle gives it no hint");
+        assertEquals("Intro", guide.pages().get(0).page(), "the first page is the one the game puts first");
+        assertEquals("Introduction", guide.pages().get(0).title());
+        assertTrue(guide.pages().get(0).body().startsWith("Greetings Adventurer"), guide.pages().get(0).body());
+        assertEquals(List.of("Intro", "Examining", "Surprise_Attacks", "Identifying", "Food", "Alchemy", "Dieing",
+                        "Searching", "Strength", "Upgrades", "Looting", "Levelling", "Positioning", "Magic"),
+                guide.pages().stream().map(Codex.DocumentPage::page).toList());
+        Codex.DocumentEntry halls = byName.get("HALLS_KING");
+        assertTrue(halls.lore(), "a king's journal is lore");
+        assertFalse(halls.hint().isEmpty(), "and lore carries the hint that says where to find it");
+    }
+
+    @Test
     @DisplayName("the traps, the recipes and the structure are the game's: the flags a player can act on, the pot's inputs, the shape of a Run")
     void the_traps_recipes_and_structure_are_the_games() {
         Path root = CodexSeedFreeTest.ROOT;
@@ -1002,6 +1081,40 @@ class CodexLeakTest {
         assertTrue(lineOf(root, rooms.secretsCitation()).contains("baseRegionSecrets"));
         Codex.Combat combat = Combat.read(root);
         assertTrue(lineOf(root, combat.hit().citation()).contains("boolean hit("), combat.hit().citation().reference());
+        for (Codex.StringEntry entry : Text.entries(root)) {
+            assertTrue(lineOf(root, entry.citation()).startsWith(entry.key() + "="),
+                    entry.citation().reference() + " is the bundle line of " + entry.key());
+        }
+        for (Codex.AssetEntry asset : AssetIndex.entries(root)) {
+            assertTrue(lineOf(root, asset.citation()).contains(asset.path()),
+                    asset.citation().reference() + " names " + asset.path());
+            if (!asset.constant().isEmpty()) {
+                assertTrue(lineOf(root, asset.citation()).matches(".*\\bString " + asset.constant() + "\\s*=.*"),
+                        asset.citation().reference() + " declares " + asset.constant());
+            }
+        }
+        Codex.VersionRecord version = Changelog.version(root);
+        assertTrue(lineOf(root, version.citation()).contains("appVersionName"), version.citation().reference());
+        for (Codex.Rule saveCode : version.saveCodes()) {
+            assertTrue(lineOf(root, saveCode.citation()).matches(".*\\bint " + saveCode.what() + "\\s*=.*"),
+                    saveCode.citation().reference() + " declares " + saveCode.what());
+        }
+        for (Codex.ChangeEntry entry : Changelog.entries(root, Text.entries(root))) {
+            assertTrue(lineOf(root, entry.citation()).contains("new ChangeInfo("),
+                    entry.citation().reference() + " builds an entry");
+            for (Codex.ChangeHeading heading : entry.headings()) {
+                assertTrue(lineOf(root, heading.citation()).contains("new ChangeButton("),
+                        heading.citation().reference() + " builds a heading");
+            }
+        }
+        for (Codex.DocumentEntry document : Documents.entries(root)) {
+            assertTrue(lineOf(root, document.citation()).matches("\\s*" + document.document() + "\\s*\\(.*"),
+                    document.citation().reference() + " declares " + document.document());
+            for (Codex.DocumentPage page : document.pages()) {
+                assertTrue(lineOf(root, page.citation()).endsWith("=" + page.body()),
+                        page.citation().reference() + " is the bundle line of " + document.document() + "'s " + page.page());
+            }
+        }
         for (Codex.TrapEntry trap : Traps.entries(root)) {
             String simple = trap.className().substring(trap.className().lastIndexOf('.') + 1);
             assertTrue(lineOf(root, trap.citation()).matches(".*\\bclass\\s+" + simple + "\\b.*"), trap.citation().reference() + " declares " + simple);

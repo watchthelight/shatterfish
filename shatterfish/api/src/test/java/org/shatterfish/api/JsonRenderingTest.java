@@ -167,6 +167,8 @@ class JsonRenderingTest {
             "Codex$Grid", "Codex$HitCell", "Codex$HitTable", "Codex$Spread", "Codex$RollEntry", "Codex$Combat",
             // The traps, the recipes and the level structure (story 2.6).
             "Codex$TrapEntry", "Codex$TrapPool", "Codex$Ingredient", "Codex$RecipeEntry", "Codex$LevelEntry", "Codex$FeelingEntry",
+            "Codex$StringEntry", "Codex$AssetEntry", "Codex$ChangeHeading", "Codex$ChangeEntry", "Codex$VersionRecord",
+            "Codex$DocumentPage", "Codex$DocumentEntry",
             "Codex$Structure");
 
     @Test

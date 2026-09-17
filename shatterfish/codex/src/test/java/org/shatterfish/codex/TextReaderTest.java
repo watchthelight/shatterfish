@@ -1,0 +1,94 @@
+package org.shatterfish.codex;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.shatterfish.api.Codex;
+
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * Story 2.7's readers held against what the pinned tree cannot show them: a key whose class is
+ * nested, a key that names nothing, a date the game states and one it does not, and the refusals
+ * that guard each. A refusal no input can reach is a claim nobody checks, so the ones the tree
+ * cannot produce are produced here.
+ */
+class TextReaderTest {
+
+    private static final Path ROOT = CodexSeedFreeTest.ROOT;
+
+    @Test
+    @DisplayName("a key's class is the longest prefix that is a class, so a nested class beats the file it lives in")
+    void a_key_resolves_to_the_longest_class() {
+        Map<String, String> outers = Text.outers(ROOT);
+        Map<String, List<String>> declared = new java.util.TreeMap<>();
+        assertEquals("items.armor.PlateArmor",
+                Text.resolve(ROOT, outers, declared, "items.armor.platearmor.name").className());
+        assertEquals("actors.buffs.ChampionEnemy.Blazing",
+                Text.resolve(ROOT, outers, declared, "actors.buffs.championenemy$blazing.name").className(),
+                "a nested class is named with a dollar in the key and with dots in the table");
+        assertEquals("actors.hero.Talent.FollowupStrikeTracker",
+                Text.resolve(ROOT, outers, declared, "actors.hero.talent$followupstriketracker.name").className(),
+                "a nested class the outer file declares far from its own head still resolves");
+        assertEquals("", Text.resolve(ROOT, outers, declared, "windows.wndclass.title").className(),
+                "a key naming a class the game no longer compiles names no class");
+        assertEquals("", Text.resolve(ROOT, outers, declared, "nosuchthing.at.all").className());
+        Text.Resolved resolved = Text.resolve(ROOT, outers, declared, "items.armor.platearmor.name");
+        assertEquals("items.armor.platearmor".length(), resolved.prefix(), "the suffix is what the class did not take");
+    }
+
+    @Test
+    @DisplayName("the bundles are the ones the game searches, in the order it searches them")
+    void the_bundles_are_the_games() {
+        assertEquals(List.of("messages/actors/actors.properties", "messages/items/items.properties",
+                        "messages/journal/journal.properties", "messages/levels/levels.properties",
+                        "messages/misc/misc.properties", "messages/plants/plants.properties",
+                        "messages/scenes/scenes.properties", "messages/ui/ui.properties",
+                        "messages/windows/windows.properties"),
+                Text.bundles(ROOT));
+    }
+
+    @Test
+    @DisplayName("a bundle line the reader cannot read fails naming it, and a key given twice fails")
+    void the_bundle_reader_refuses_what_it_cannot_read() {
+        assertThrows(java.io.UncheckedIOException.class, () -> Names.lines(ROOT, "core/src/main/assets/messages/none/none.properties"),
+                "a bundle that is not there fails naming the file rather than reading as empty");
+        assertThrows(IllegalStateException.class, () -> Names.lines(ROOT, "build.gradle"),
+                "a file that is not a bundle of the game");
+    }
+
+    @Test
+    @DisplayName("a date is the phrase the game writes, and a text that states none carries none")
+    void a_date_is_the_games_own_words() {
+        assertEquals("September 9th, 2026", Changelog.date("**-** Released September 9th, 2026 and more text"));
+        assertEquals("December 4th, 2025", Changelog.date("Released December 4th, 2025"));
+        assertEquals("", Changelog.date("no date at all in this one"));
+        assertEquals("", Changelog.date("v4.0.1 is coming in 2026 sometime"), "a year alone is not a date the game states");
+    }
+
+    @Test
+    @DisplayName("the game names one asset with no file behind it, and the table says which")
+    void an_asset_with_no_file_is_named() {
+        List<Codex.AssetEntry> assets = AssetIndex.entries(ROOT);
+        java.util.TreeSet<String> absent = new java.util.TreeSet<>();
+        for (Codex.AssetEntry asset : assets) {
+            if (!asset.present()) {
+                absent.add(asset.path());
+            }
+        }
+        java.util.TreeSet<String> named = new java.util.TreeSet<>();
+        for (Map.Entry<String, String> entry : AssetIndex.ABSENT) {
+            assertFalse(entry.getValue().isBlank(), entry.getKey() + " is named with a reason");
+            named.add(entry.getKey());
+        }
+        assertEquals(named, absent, "the paths the game names with no file behind them, against AssetIndex.ABSENT");
+        assertTrue(assets.stream().anyMatch(a -> a.path().equals("gdx/textfield.json") && a.present()),
+                "a file the toolkit module loads by a literal is there");
+    }
+}

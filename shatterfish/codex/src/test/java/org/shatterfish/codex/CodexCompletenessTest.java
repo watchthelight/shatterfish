@@ -181,6 +181,84 @@ class CodexCompletenessTest {
     }
 
     @Test
+    @DisplayName("every line of every bundle the game searches is in the strings table once, with the class its key names")
+    void every_string_is_listed() {
+        List<Codex.StringEntry> strings = Text.entries(ROOT);
+        TreeSet<String> keys = new TreeSet<>();
+        int lines = 0;
+        for (String bundle : Text.bundles(ROOT)) {
+            for (String line : Names.lines(ROOT, "core/src/main/assets/" + bundle)) {
+                if (!line.isBlank() && !line.startsWith("#") && !line.startsWith("!")) {
+                    lines++;
+                }
+            }
+        }
+        for (Codex.StringEntry entry : strings) {
+            assertTrue(keys.add(entry.key()), entry.key() + " is listed twice");
+            assertTrue(entry.key().endsWith(entry.suffix()), entry.key() + " does not end in " + entry.suffix());
+        }
+        assertEquals(lines, strings.size(), "every line of every bundle, and nothing else");
+        TreeSet<String> classes = new TreeSet<>();
+        for (JavaClass c : GAME) {
+            classes.add(c.getName().substring(Sources.ROOT_PACKAGE_PREFIX.length()).replace('$', '.'));
+        }
+        for (Codex.StringEntry entry : strings) {
+            if (!entry.className().isEmpty()) {
+                assertTrue(classes.contains(entry.className()),
+                        entry.key() + " names " + entry.className() + ", which the game does not compile");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("every asset the game names is in the asset index once, the constants of every group and the literals the codebase map records")
+    void every_asset_is_listed() {
+        List<Codex.AssetEntry> assets = AssetIndex.entries(ROOT);
+        TreeSet<String> paths = new TreeSet<>();
+        for (Codex.AssetEntry asset : assets) {
+            assertTrue(paths.add(asset.path()), asset.path() + " is listed twice");
+        }
+        for (String path : List.of("effects/fireball-tall.png", "effects/fireball-short.png", "gdx/cursor_mouse.png",
+                "gdx/cursor_controller.png", "gdx/textfield.json", "fonts/pixel_font.ttf")) {
+            assertTrue(paths.contains(path), path + " is loaded by a literal string and the index must carry it");
+        }
+        TreeSet<String> groups = new TreeSet<>();
+        for (Codex.AssetEntry asset : assets) {
+            if (!asset.group().isEmpty()) {
+                groups.add(asset.group());
+            }
+        }
+        assertEquals(new TreeSet<>(List.of("Effects", "Environment", "Fonts", "Interfaces", "Music", "Sounds", "Sprites", "Title")),
+                groups, "the groups the asset class holds");
+    }
+
+    @Test
+    @DisplayName("every class of the changelist package writes an entry, and every document and page of the journal is in the table")
+    void every_version_entry_and_document_is_listed() {
+        List<Codex.ChangeEntry> entries = Changelog.entries(ROOT, Text.entries(ROOT));
+        TreeSet<String> writing = new TreeSet<>();
+        for (Codex.ChangeEntry entry : entries) {
+            writing.add(entry.className());
+        }
+        TreeSet<String> declared = new TreeSet<>();
+        for (String path : Sources.under(ROOT, Changelog.CHANGELIST)) {
+            String className = path.substring(Sources.SOURCE_ROOT.length() + Sources.ROOT_PACKAGE_PREFIX.length(),
+                    path.length() - ".java".length()).replace('/', '.');
+            if (className.matches(".*\\.(v[\\w_]+_Changes|Pixel_Dungeon_Changes)")) {
+                declared.add(className);
+            }
+        }
+        assertEquals(declared, writing, "every class of changes the game keeps writes at least one entry");
+        List<Codex.DocumentEntry> documents = Documents.entries(ROOT);
+        assertEquals(List.of("ADVENTURERS_GUIDE", "ALCHEMY_GUIDE", "INTROS", "SEWERS_GUARD", "PRISON_WARDEN",
+                        "CAVES_EXPLORER", "CITY_WARLOCK", "HALLS_KING"),
+                documents.stream().map(Codex.DocumentEntry::document).toList(),
+                "the documents the game declares, in the order it declares them");
+        assertEquals(List.of(14, 9, 6, 6, 6, 6, 6, 6), documents.stream().map(d -> d.pages().size()).toList(),
+                "the pages each document holds");
+    }
+
+    @Test
     @DisplayName("every concrete trap class of the game is in the trap table once, and every trap a level draws is one of them")
     void every_trap_is_listed() {
         TreeSet<String> expected = new TreeSet<>();

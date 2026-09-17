@@ -157,7 +157,7 @@ final class Changelog {
     }
 
     /** The one date a text states, as the game words it, or nothing; two dates in one text fail. */
-    private static String date(String text) {
+    static String date(String text) {
         Matcher date = DATE.matcher(text);
         if (!date.find()) {
             return "";
