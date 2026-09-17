@@ -29,6 +29,19 @@ final class Citations {
      * first line is not part of it.
      */
     static Codex.Citation at(Path root, String path, String anchor) {
+        return found(root, path, anchor).citation();
+    }
+
+    /** What one line said, with the citation of that line. */
+    record Found(String value, Codex.Citation citation) {
+    }
+
+    /**
+     * The one line of {@code root/path} matching {@code anchor}, with what its first capture group
+     * held. A caller that needs the value as well as the line reads both here rather than opening
+     * the file a second time.
+     */
+    static Found found(Path root, String path, String anchor) {
         Path file = root.resolve(path);
         List<String> lines;
         try {
@@ -52,6 +65,8 @@ final class Citations {
             throw new IllegalStateException("citation " + path + " for anchor " + anchor + ": "
                     + (hits.isEmpty() ? "no line matches" : "lines " + hits + " all match; one declaration is one line"));
         }
-        return new Codex.Citation(path, hits.get(0));
+        java.util.regex.Matcher found = pattern.matcher(lines.get(hits.get(0) - 1));
+        String value = found.find() && found.groupCount() >= 1 ? found.group(1) : "";
+        return new Found(value, new Codex.Citation(path, hits.get(0)));
     }
 }

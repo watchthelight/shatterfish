@@ -898,6 +898,91 @@ public final class CodexJson {
         out.endObject();
     }
 
+    /** The documents file's text (story 2.7): one document per line, its pages in the game's own order. */
+    public static String documents(List<Codex.DocumentEntry> documents) {
+        Objects.requireNonNull(documents, "documents");
+        Set<String> named = new HashSet<>();
+        StringBuilder table = table();
+        for (int i = 0; i < documents.size(); i++) {
+            Codex.DocumentEntry document = documents.get(i);
+            Codex.distinct(named, document.document(), "a document");
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("document").value(document.document());
+            out.key("lore").value(document.lore());
+            out.key("title").value(document.title());
+            out.key("hint").value(document.hint());
+            out.key("pages").beginArray();
+            for (Codex.DocumentPage page : document.pages()) {
+                out.beginObject();
+                out.key("page").value(page.page());
+                out.key("title").value(page.title());
+                out.key("body").value(page.body());
+                citation(out, page.citation());
+                out.endObject();
+            }
+            out.endArray();
+            citation(out, document.citation());
+            out.endObject();
+            row(table, out, i + 1 == documents.size());
+        }
+        return close(table);
+    }
+
+    /**
+     * The changelog file's text (story 2.7): the version record, then one entry per line in the
+     * order the game's own package writes them.
+     */
+    public static String changelog(Codex.VersionRecord version, List<Codex.ChangeEntry> entries) {
+        Objects.requireNonNull(version, "version");
+        Objects.requireNonNull(entries, "entries");
+        StringBuilder text = new StringBuilder("{\n");
+        text.append("\"entries\":[\n");
+        for (int i = 0; i < entries.size(); i++) {
+            Codex.ChangeEntry entry = entries.get(i);
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("className").value(entry.className());
+            out.key("title").value(entry.title());
+            out.key("titleKey").value(entry.titleKey());
+            out.key("titleExpression").value(entry.titleExpression());
+            out.key("major").value(entry.major());
+            out.key("text").value(entry.text());
+            out.key("date").value(entry.date());
+            out.key("headings").beginArray();
+            for (Codex.ChangeHeading heading : entry.headings()) {
+                out.beginObject();
+                out.key("title").value(heading.title());
+                out.key("titleKey").value(heading.titleKey());
+                out.key("titleExpression").value(heading.titleExpression());
+                out.key("date").value(heading.date());
+                citation(out, heading.citation());
+                out.endObject();
+            }
+            out.endArray();
+            citation(out, entry.citation());
+            out.endObject();
+            text.append("  ").append(out.toJson()).append(i + 1 == entries.size() ? "\n" : ",\n");
+        }
+        text.append("],\n");
+        JsonWriter saves = new JsonWriter();
+        saves.beginArray();
+        for (Codex.Rule saveCode : version.saveCodes()) {
+            saves.beginObject();
+            saves.key("what").value(saveCode.what());
+            saves.key("expression").value(saveCode.expression());
+            citation(saves, saveCode.citation());
+            saves.endObject();
+        }
+        saves.endArray();
+        text.append("\"saveCodes\":").append(saves.toJson()).append(",\n");
+        text.append("\"versionCitation\":").append(citationJson(version.citation())).append(",\n");
+        text.append("\"versionCode\":").append(version.code()).append(",\n");
+        text.append("\"versionName\":").append(string(version.name())).append("\n");
+        text.append("}\n");
+        return text.toString();
+    }
+
     /** The assets file's text (story 2.7): one asset per line, the constants first and then the literals. */
     public static String assets(List<Codex.AssetEntry> assets) {
         Objects.requireNonNull(assets, "assets");
