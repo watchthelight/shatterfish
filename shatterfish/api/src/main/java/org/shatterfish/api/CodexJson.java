@@ -686,6 +686,201 @@ public final class CodexJson {
         }
     }
 
+    /** The traps file's text (story 2.6): the pools and then the traps, one per line. */
+    public static String traps(List<Codex.TrapEntry> traps, List<Codex.TrapPool> pools) {
+        Objects.requireNonNull(traps, "traps");
+        Objects.requireNonNull(pools, "pools");
+        Set<String> classes = new HashSet<>();
+        StringBuilder text = new StringBuilder("{\n\"pools\":[\n");
+        Set<String> levels = new HashSet<>();
+        for (int i = 0; i < pools.size(); i++) {
+            Codex.TrapPool pool = pools.get(i);
+            Codex.distinct(levels, pool.levelClass() + " " + pool.condition(), "a level's trap pool");
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("levelClass").value(pool.levelClass());
+            out.key("declaredBy").value(pool.declaredBy());
+            out.key("condition").value(pool.condition());
+            out.key("nTrapsExpression").value(pool.nTrapsExpression());
+            out.key("traps").beginArray();
+            for (Codex.Weighted trap : pool.traps()) {
+                out.beginObject();
+                out.key("className").value(trap.className());
+                out.key("weightPerMille").value(trap.firstDeck());
+                out.endObject();
+            }
+            out.endArray();
+            citation(out, pool.citation());
+            out.key("nTrapsCitation").beginObject();
+            out.key("path").value(pool.nTrapsCitation().path());
+            out.key("line").value(pool.nTrapsCitation().line());
+            out.endObject();
+            out.endObject();
+            text.append("  ").append(out.toJson()).append(i + 1 == pools.size() ? "\n" : ",\n");
+        }
+        text.append("],\n\"traps\":[\n");
+        for (int i = 0; i < traps.size(); i++) {
+            Codex.TrapEntry trap = traps.get(i);
+            Codex.distinct(classes, trap.className(), "a trap");
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("className").value(trap.className());
+            out.key("name").value(trap.name());
+            out.key("nameFrom").value(trap.nameFrom());
+            out.key("canBeHidden").value(trap.canBeHidden());
+            out.key("canBeSearched").value(trap.canBeSearched());
+            out.key("active").value(trap.active());
+            out.key("activateFrom").value(trap.activateFrom());
+            out.key("activateExpression").value(trap.activateExpression());
+            out.key("alsoOnTheCell").beginArray();
+            for (Codex.Rule rule : trap.alsoOnTheCell()) {
+                out.beginObject();
+                out.key("what").value(rule.what());
+                out.key("expression").value(rule.expression());
+                citation(out, rule.citation());
+                out.endObject();
+            }
+            out.endArray();
+            citation(out, trap.citation());
+            out.key("activateCitation").beginObject();
+            out.key("path").value(trap.activateCitation().path());
+            out.key("line").value(trap.activateCitation().line());
+            out.endObject();
+            out.key("nameCitation").beginObject();
+            out.key("path").value(trap.nameCitation().path());
+            out.key("line").value(trap.nameCitation().line());
+            out.endObject();
+            out.endObject();
+            text.append("  ").append(out.toJson()).append(i + 1 == traps.size() ? "\n" : ",\n");
+        }
+        text.append("]\n}\n");
+        return text.toString();
+    }
+
+    /** The recipes file's text (story 2.6): one recipe per line, in the order the pot tries them. */
+    public static String recipes(List<Codex.RecipeEntry> recipes) {
+        Objects.requireNonNull(recipes, "recipes");
+        Set<String> classes = new HashSet<>();
+        StringBuilder table = table();
+        for (int i = 0; i < recipes.size(); i++) {
+            Codex.RecipeEntry recipe = recipes.get(i);
+            Codex.distinct(classes, recipe.className(), "a recipe");
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("className").value(recipe.className());
+            out.key("ingredients").value(recipe.ingredients());
+            out.key("simple").value(recipe.simple());
+            out.key("inputs").beginArray();
+            for (Codex.Ingredient input : recipe.inputs()) {
+                out.beginObject();
+                out.key("className").value(input.className());
+                out.key("quantity").value(input.quantity());
+                out.endObject();
+            }
+            out.endArray();
+            out.key("output").value(recipe.output());
+            out.key("outQuantity").value(recipe.outQuantity());
+            out.key("cost").value(recipe.cost());
+            out.key("answers").beginArray();
+            for (Codex.Rule answer : recipe.answers()) {
+                out.beginObject();
+                out.key("what").value(answer.what());
+                out.key("expression").value(answer.expression());
+                citation(out, answer.citation());
+                out.endObject();
+            }
+            out.endArray();
+            citation(out, recipe.citation());
+            out.key("registryCitation").beginObject();
+            out.key("path").value(recipe.registryCitation().path());
+            out.key("line").value(recipe.registryCitation().line());
+            out.endObject();
+            out.endObject();
+            row(table, out, i + 1 == recipes.size());
+        }
+        return close(table);
+    }
+
+    /** The level structure's text (story 2.6): one object, its keys in order, the floors one per line. */
+    public static String structure(Codex.Structure structure) {
+        Objects.requireNonNull(structure, "structure");
+        StringBuilder text = new StringBuilder("{\n");
+        text.append("\"bossCitation\":").append(citationJson(structure.bossCitation())).append(",\n");
+        text.append("\"bossExpression\":").append(string(structure.bossExpression())).append(",\n");
+        text.append("\"feelingCitation\":").append(citationJson(structure.feelingCitation())).append(",\n");
+        text.append("\"feelingGate\":").append(string(structure.feelingGate())).append(",\n");
+        text.append("\"feelings\":[\n");
+        List<Codex.FeelingEntry> feelings = structure.feelings();
+        for (int i = 0; i < feelings.size(); i++) {
+            Codex.FeelingEntry feeling = feelings.get(i);
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("what").value(feeling.what());
+            out.key("chancePerMille").value(feeling.chancePerMille());
+            out.key("expression").value(feeling.expression());
+            out.key("effects").beginArray();
+            for (Codex.Rule effect : feeling.effects()) {
+                out.beginObject();
+                out.key("what").value(effect.what());
+                out.key("expression").value(effect.expression());
+                citation(out, effect.citation());
+                out.endObject();
+            }
+            out.endArray();
+            citation(out, feeling.citation());
+            out.endObject();
+            text.append("  ").append(out.toJson()).append(i + 1 == feelings.size() ? "\n" : ",\n");
+        }
+        text.append("],\n");
+        text.append("\"levels\":[\n");
+        List<Codex.LevelEntry> levels = structure.levels();
+        for (int i = 0; i < levels.size(); i++) {
+            Codex.LevelEntry level = levels.get(i);
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("branch").value(level.branch());
+            out.key("depth").value(level.depth());
+            out.key("levelClass").value(level.levelClass());
+            out.key("boss").value(level.boss());
+            out.key("shop").value(level.shop());
+            out.key("sealed").value(level.sealed());
+            out.key("sealedBy").value(level.sealedBy());
+            citation(out, level.citation());
+            out.key("shopCitation").beginObject();
+            out.key("path").value(level.shopCitation().path());
+            out.key("line").value(level.shopCitation().line());
+            out.endObject();
+            if (level.sealed()) {
+                out.key("sealCitation").beginObject();
+                out.key("path").value(level.sealCitation().path());
+                out.key("line").value(level.sealCitation().line());
+                out.endObject();
+            }
+            out.endObject();
+            text.append("  ").append(out.toJson()).append(i + 1 == levels.size() ? "\n" : ",\n");
+        }
+        text.append("],\n");
+        JsonWriter others = new JsonWriter();
+        others.beginArray();
+        for (Codex.Rule other : structure.otherFeelingSources()) {
+            others.beginObject();
+            others.key("what").value(other.what());
+            others.key("expression").value(other.expression());
+            citation(others, other.citation());
+            others.endObject();
+        }
+        others.endArray();
+        text.append("\"otherFeelingSources\":").append(others.toJson()).append(",\n");
+        text.append("\"otherwiseCitation\":").append(citationJson(structure.otherwiseCitation())).append(",\n");
+        text.append("\"otherwiseClass\":").append(string(structure.otherwiseClass())).append(",\n");
+        text.append("\"roomsCitation\":").append(citationJson(structure.roomsCitation())).append(",\n");
+        text.append("\"sealedCitation\":").append(citationJson(structure.sealedCitation())).append(",\n");
+        text.append("\"shopCitation\":").append(citationJson(structure.shopCitation())).append(",\n");
+        text.append("\"shopExpression\":").append(string(structure.shopExpression())).append("\n");
+        text.append("}\n");
+        return text.toString();
+    }
+
     private static void roll(JsonWriter out, Codex.Roll roll) {
         out.beginObject();
         out.key("kind").value(roll.kind().name());

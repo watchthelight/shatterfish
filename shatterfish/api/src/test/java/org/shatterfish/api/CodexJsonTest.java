@@ -19,12 +19,47 @@ class CodexJsonTest {
 
     private static final Codex.Citation AT = new Codex.Citation("core/src/main/java/X.java", 7);
     private static final String CITE = "\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"}";
+    private static final String GOLDEN_TRAPS = "{\n"
+            + "\"pools\":[\n"
+            + "  {\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"condition\":\"Dungeon.depth == 1\",\"declaredBy\":\"levels.SewerLevel\",\"levelClass\":\"levels.SewerBossLevel\",\"nTrapsCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"nTrapsExpression\":\"return 0;\",\"traps\":[{\"className\":\"levels.traps.WornDartTrap\",\"weightPerMille\":1}]}\n"
+            + "],\n"
+            + "\"traps\":[\n"
+            + "  {\"activateCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"activateExpression\":\"Char ch = Actor.findChar(pos); if (ch != null) { Buff.affect(ch, Poison.class); }\",\"activateFrom\":\"\",\"active\":true,\"alsoOnTheCell\":[],\"canBeHidden\":false,\"canBeSearched\":true,\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"className\":\"levels.traps.PoisonDartTrap\",\"name\":\"poison dart trap\",\"nameCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"nameFrom\":\"\"},\n"
+            + "  {\"activateCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"activateExpression\":\"\",\"activateFrom\":\"\",\"active\":false,\"alsoOnTheCell\":[{\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"expression\":\"Blob.seed(cell, 100, ToxicGas.class);\",\"what\":\"ToxicGas\"}],\"canBeHidden\":false,\"canBeSearched\":false,\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"className\":\"levels.rooms.special.ToxicGasRoom.ToxicVent\",\"name\":\"toxic vent\",\"nameCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"nameFrom\":\"\"}\n"
+            + "]\n"
+            + "}\n";
+    private static final String GOLDEN_RECIPES = "[\n"
+            + "  {\"answers\":[],\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"className\":\"items.potions.brews.BlizzardBrew.Recipe\",\"cost\":8,\"ingredients\":\"one\",\"inputs\":[{\"className\":\"items.potions.PotionOfFrost\",\"quantity\":1}],\"outQuantity\":1,\"output\":\"items.potions.brews.BlizzardBrew\",\"registryCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"simple\":true},\n"
+            + "  {\"answers\":[{\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"expression\":\"return 0;\",\"what\":\"cost\"}],\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"className\":\"items.scrolls.Scroll.ScrollToStone\",\"cost\":-1,\"ingredients\":\"one\",\"inputs\":[],\"outQuantity\":0,\"output\":\"\",\"registryCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"simple\":false}\n"
+            + "]\n";
+    private static final String GOLDEN_STRUCTURE = "{\n"
+            + "\"bossCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\n"
+            + "\"bossExpression\":\"return depth == 5;\",\n"
+            + "\"feelingCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\n"
+            + "\"feelingGate\":\"if (!Dungeon.bossLevel()) and if (Dungeon.depth > 1)\",\n"
+            + "\"feelings\":[\n"
+            + "  {\"chancePerMille\":71,\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"effects\":[{\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"expression\":\"if (feeling == Feeling.DARK) {\",\"what\":\"CityLevel.java:44\"}],\"expression\":\"feeling = Feeling.DARK; viewDistance = Math.round(5*viewDistance/8f); break;\",\"what\":\"DARK\"}\n"
+            + "],\n"
+            + "\"levels\":[\n"
+            + "  {\"boss\":false,\"branch\":0,\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"depth\":1,\"levelClass\":\"levels.SewerLevel\",\"sealed\":false,\"sealedBy\":\"\",\"shop\":false,\"shopCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"}},\n"
+            + "  {\"boss\":true,\"branch\":0,\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"depth\":5,\"levelClass\":\"levels.SewerBossLevel\",\"sealCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"sealed\":true,\"sealedBy\":\"overrides the level's own sealing\",\"shop\":false,\"shopCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"}},\n"
+            + "  {\"boss\":false,\"branch\":0,\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"depth\":6,\"levelClass\":\"levels.PrisonLevel\",\"sealed\":false,\"sealedBy\":\"\",\"shop\":true,\"shopCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"}}\n"
+            + "],\n"
+            + "\"otherFeelingSources\":[{\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"expression\":\"MossyClump.getNextFeeling()\",\"what\":\"Level.java:292\"}],\n"
+            + "\"otherwiseCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\n"
+            + "\"otherwiseClass\":\"levels.DeadEndLevel\",\n"
+            + "\"roomsCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\n"
+            + "\"sealedCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\n"
+            + "\"shopCitation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\n"
+            + "\"shopExpression\":\"return depth == 6 || depth == 11 || depth == 16;\"\n"
+            + "}\n";
+
 
     @Test
     @DisplayName("the manifest renders its version, its tag and its tables, keys and tables sorted")
     void the_manifest_renders() {
         Codex.Manifest manifest = new Codex.Manifest(Codex.VERSION, "v4.0.0", List.of("hero-classes.json", "challenges.json"));
-        assertEquals("{\"codexVersion\":5,\"tables\":[\"challenges.json\",\"hero-classes.json\"],\"upstreamTag\":\"v4.0.0\"}\n",
+        assertEquals("{\"codexVersion\":6,\"tables\":[\"challenges.json\",\"hero-classes.json\"],\"upstreamTag\":\"v4.0.0\"}\n",
                 CodexJson.manifest(manifest));
         assertEquals("v4.1.0-beta2", new Codex.Manifest(1, "v4.1.0-beta2", List.of()).upstreamTag(), "a pre-release tag is a tag");
     }
@@ -409,6 +444,127 @@ class CodexJsonTest {
         assertThrows(NullPointerException.class, () -> CodexJson.guarantees(null));
         assertThrows(NullPointerException.class, () -> CodexJson.tiers(null));
         assertThrows(NullPointerException.class, () -> CodexJson.rooms(null));
+    }
+
+    @Test
+    @DisplayName("the traps render their pools and their entries one per line, say whose name and whose effect they carry, and name what else stands on the cell")
+    void the_traps_render() {
+        Codex.TrapEntry dart = new Codex.TrapEntry("levels.traps.PoisonDartTrap", "poison dart trap", "", AT, false, true, true,
+                "", "Char ch = Actor.findChar(pos); if (ch != null) { Buff.affect(ch, Poison.class); }", AT, AT, List.of());
+        Codex.TrapEntry vent = new Codex.TrapEntry("levels.rooms.special.ToxicGasRoom.ToxicVent", "toxic vent", "", AT, false, false,
+                false, "", "", AT, AT, List.of(new Codex.Rule("ToxicGas", "Blob.seed(cell, 100, ToxicGas.class);", AT)));
+        Codex.TrapPool pool = new Codex.TrapPool("levels.SewerBossLevel", "levels.SewerLevel", "Dungeon.depth == 1",
+                List.of(new Codex.Weighted("levels.traps.WornDartTrap", 1, 0, 1)), "return 0;", AT, AT);
+        assertEquals(GOLDEN_TRAPS, CodexJson.traps(List.of(dart, vent), List.of(pool)));
+        assertThrows(IllegalArgumentException.class, () -> CodexJson.traps(List.of(dart, dart), List.of()), "a trap once");
+        assertThrows(IllegalArgumentException.class, () -> CodexJson.traps(List.of(), List.of(pool, pool)), "a pool once per level and condition");
+        assertThrows(NullPointerException.class, () -> CodexJson.traps(null, List.of()));
+        assertThrows(NullPointerException.class, () -> CodexJson.traps(List.of(), null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new Codex.TrapEntry("levels.traps.X", "x", "levels.traps.X", AT, false, true, true, "", "x;", AT, AT, List.of()),
+                "a name read from the trap's own class names no other");
+        assertThrows(IllegalArgumentException.class,
+                () -> new Codex.TrapEntry("levels.traps.X", "x", "", AT, false, true, true, "levels.traps.X", "x;", AT, AT, List.of()),
+                "an effect read from the trap's own class names no other");
+        Codex.Rule twice = new Codex.Rule("ToxicGas", "Blob.seed(cell, 100, ToxicGas.class);", AT);
+        assertThrows(IllegalArgumentException.class,
+                () -> new Codex.TrapEntry("levels.traps.X", "x", "", AT, false, true, true, "", "x;", AT, AT, List.of(twice, twice)),
+                "one row per place something reaches the cell");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.TrapEntry("", "x", "", AT, false, true, true, "", "x;", AT, AT, List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.TrapEntry("X", "", "", AT, false, true, true, "", "x;", AT, AT, List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.TrapEntry("X", "x", "", null, false, true, true, "", "x;", AT, AT, List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.TrapEntry("X", "x", "", AT, false, true, true, "", "x;", null, AT, List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.TrapPool("", "", "", List.of(), "return 0;", AT, AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.TrapPool("X", "X", "", List.of(), "return 0;", AT, AT),
+                "a pool read from the level's own class names no other");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.TrapPool("X", "", "", List.of(), "", AT, AT),
+                "a pool says how many traps the floor lays");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.TrapPool("X", "", "", List.of(), "return 0;", null, AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.TrapPool("X", "", "", List.of(), "return 0;", AT, null));
+    }
+
+    @Test
+    @DisplayName("the recipes render a stated recipe with its inputs and one that answers with its methods, and refuse a recipe that is both or neither")
+    void the_recipes_render() {
+        Codex.RecipeEntry brew = new Codex.RecipeEntry("items.potions.brews.BlizzardBrew.Recipe", "one", true,
+                List.of(new Codex.Ingredient("items.potions.PotionOfFrost", 1)), "items.potions.brews.BlizzardBrew", 1, 8, List.of(), AT, AT);
+        Codex.RecipeEntry stone = new Codex.RecipeEntry("items.scrolls.Scroll.ScrollToStone", "one", false, List.of(), "", 0, -1,
+                List.of(new Codex.Rule("cost", "return 0;", AT)), AT, AT);
+        assertEquals(GOLDEN_RECIPES, CodexJson.recipes(List.of(brew, stone)));
+        assertThrows(IllegalArgumentException.class, () -> CodexJson.recipes(List.of(brew, brew)), "a recipe once");
+        assertThrows(NullPointerException.class, () -> CodexJson.recipes(null));
+        Codex.Ingredient one = new Codex.Ingredient("X", 1);
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Ingredient("X", 0), "an ingredient counts at least one");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Ingredient("", 1));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.RecipeEntry("X", "one", true, List.of(one, one), "Y", 1, 1, List.of(), AT, AT),
+                "an input once per recipe");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.RecipeEntry("X", "one", true, List.of(), "Y", 1, 1, List.of(), AT, AT),
+                "a stated recipe has inputs");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.RecipeEntry("X", "one", true, List.of(one), "", 1, 1, List.of(), AT, AT),
+                "a stated recipe names its output");
+        assertThrows(IllegalArgumentException.class,
+                () -> new Codex.RecipeEntry("X", "one", true, List.of(one), "Y", 1, 1, List.of(new Codex.Rule("cost", "0", AT)), AT, AT),
+                "a stated recipe carries no methods");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.RecipeEntry("X", "one", false, List.of(), "", 0, 1, List.of(), AT, AT),
+                "a recipe that states no inputs carries its methods");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.RecipeEntry("X", "one", true, List.of(one), "Y", 0, 1, List.of(), AT, AT),
+                "a stated recipe makes at least one");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.RecipeEntry("X", "one", true, List.of(one), "Y", 1, -2, List.of(), AT, AT),
+                "a cost is stated or -1");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.RecipeEntry("X", "", true, List.of(one), "Y", 1, 1, List.of(), AT, AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.RecipeEntry("X", "one", true, List.of(one), "Y", 1, 1, List.of(), null, AT));
+    }
+
+    @Test
+    @DisplayName("the structure renders its floors one per line with what seals them, its feelings with their chances, and what an unnamed depth builds")
+    void the_structure_renders() {
+        Codex.LevelEntry first = new Codex.LevelEntry(1, 0, "levels.SewerLevel", false, AT, false, false, "", null, AT);
+        Codex.LevelEntry boss = new Codex.LevelEntry(5, 0, "levels.SewerBossLevel", false, AT, true, true,
+                "overrides the level's own sealing", AT, AT);
+        Codex.LevelEntry shop = new Codex.LevelEntry(6, 0, "levels.PrisonLevel", true, AT, false, false, "", null, AT);
+        Codex.FeelingEntry dark = new Codex.FeelingEntry("DARK", 71,
+                "feeling = Feeling.DARK; viewDistance = Math.round(5*viewDistance/8f); break;", AT,
+                List.of(new Codex.Rule("CityLevel.java:44", "if (feeling == Feeling.DARK) {", AT)));
+        Codex.Structure structure = new Codex.Structure(List.of(first, boss, shop), List.of(dark),
+                "return depth == 6 || depth == 11 || depth == 16;", AT, "return depth == 5;", AT,
+                "if (!Dungeon.bossLevel()) and if (Dungeon.depth > 1)", AT,
+                List.of(new Codex.Rule("Level.java:292", "MossyClump.getNextFeeling()", AT)), "levels.DeadEndLevel", AT, AT, AT);
+        assertEquals(GOLDEN_STRUCTURE, CodexJson.structure(structure));
+        assertThrows(NullPointerException.class, () -> CodexJson.structure(null));
+        assertThrows(IllegalArgumentException.class, () -> structure(List.of(first, first), List.of(dark)), "a floor once");
+        assertThrows(IllegalArgumentException.class, () -> structure(List.of(first), List.of(dark, dark)), "a feeling once");
+        assertThrows(IllegalArgumentException.class, () -> structure(List.of(), List.of(dark)), "the game builds floors");
+        assertThrows(IllegalArgumentException.class, () -> structure(List.of(first), List.of()), "a floor can feel like something");
+        Codex.FeelingEntry most = new Codex.FeelingEntry("A", 600, "x;", AT, List.of());
+        Codex.FeelingEntry rest = new Codex.FeelingEntry("B", 600, "x;", AT, List.of());
+        assertThrows(IllegalArgumentException.class, () -> structure(List.of(first), List.of(most, rest)),
+                "the feelings share one roll between them");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.FeelingEntry("A", 1001, "x;", AT, List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.FeelingEntry("A", -1, "x;", AT, List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.FeelingEntry("", 0, "x;", AT, List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.FeelingEntry("A", 0, "", AT, List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.FeelingEntry("A", 0, "x;", null, List.of()));
+        Codex.Rule same = new Codex.Rule("X.java:1", "x;", AT);
+        assertThrows(IllegalArgumentException.class, () -> new Codex.FeelingEntry("A", 0, "x;", AT, List.of(same, same)),
+                "one row per place a feeling is read");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.LevelEntry(0, 0, "X", false, AT, false, false, "", null, AT),
+                "a floor has a depth");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.LevelEntry(1, -1, "X", false, AT, false, false, "", null, AT),
+                "a floor has a branch");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.LevelEntry(1, 0, "", false, AT, false, false, "", null, AT));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.LevelEntry(1, 0, "X", false, AT, false, false, "", null, null));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.LevelEntry(1, 0, "X", false, null, false, false, "", null, AT),
+                "a floor cites where its shop was decided");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.LevelEntry(1, 0, "X", false, AT, false, true, "", AT, AT),
+                "a floor that seals says how");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.LevelEntry(1, 0, "X", false, AT, false, true, "calls it", null, AT),
+                "a floor that seals cites the line that seals it");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.LevelEntry(1, 0, "X", false, AT, false, false, "calls it", AT, AT),
+                "a floor that does not seal says nothing about how");
+    }
+
+    private static Codex.Structure structure(List<Codex.LevelEntry> levels, List<Codex.FeelingEntry> feelings) {
+        return new Codex.Structure(levels, feelings, "r;", AT, "r;", AT, "g;", AT, List.of(), "levels.DeadEndLevel", AT, AT, AT);
     }
 
     @Test

@@ -386,3 +386,100 @@ do the subtraction itself. Saying so is the point: the Codex does not pretend to
 has not measured.
 
 Codex version 5.
+
+## Amendment: story 2.6 (2026-09-16)
+
+**A trap is constructed; where it lives is read.** Every concrete trap class the game compiles is
+constructed bare through the door, so `traps.json` carries the two flags a player can act on
+(whether the trap can be hidden, and whether searching can find it) as the game's own initialiser
+set them, rather than as a reading of its source. Two of those classes are declared inside the
+place that uses them rather than beside the rest (the vault's flame jets, the toxic gas room's
+vent) and are carried like any other, since a player meets them like any other. What a trap does
+is its own `activate` as cited text, because the effect is a method and not a number.
+
+**An empty effect is not a harmless cell.** The two nested traps override their effect with an
+empty body and the game's own initialiser deactivates them, so it is tempting to call them
+decoration. They are not: the class that places each one seeds a blob on the same cell, and that
+blob burns or gasses whatever stands there. So an entry carries the `active` flag, and beside it
+every place the placing class reaches the cell, cited. The table says what it read — this trap's
+own effect is empty — and names what else is there, rather than telling a reader the most dangerous
+cell on the floor is scenery.
+
+**A name or an effect may be another class's.** The game falls back to a superclass's bundle key
+when a class has none, and a trap that overrides nothing inherits its effect. The tengu's darts
+have neither of their own and are the poison dart trap's on both counts. An entry therefore says
+which class its name and its effect were read from and cites the line in *that* class, so a reader
+following the citation finds what the table quoted. A trap whose effect calls the one it inherits
+carries that inherited text too.
+
+**A pool with two arms is two pools.** A level's trap list is a method, and some levels return a
+different list under a condition (the sewers draw one trap on the first floor and eleven after
+it). Reading the whole method's text as one list mixed the arms and read the literal `1` of
+`Dungeon.depth == 1` as a weight. So each array literal is read separately, closed by its matching
+brace, and each arm becomes its own pool carrying the condition that chooses it, with `otherwise`
+for the arm that follows. The condition is read from both methods and they must agree, since the
+arms are paired by position and a disagreement would attach every weight to the wrong trap. A level
+whose classes and weights do not pair off, that draws from more arms than the reader can name, or
+that weights a trap at a fraction, fails the generation by name rather than rounding it to nothing.
+
+**A pool belongs to the floor that draws it, not to the file that declares it.** A level inherits
+its trap methods as readily as any other, and three floor families do. Reading only a class's own
+file left those floors with no pool at all, which reads as "this floor has no traps" and is false.
+So the pool is read from whichever class up to the regular level declares it, the entry names that
+class, and each pool carries how many traps the floor lays. A floor that draws from a pool and lays
+none of them now says exactly that. Whether a floor lays traps is read from the painter it actually
+uses: the mining floors build their own and never ask it for traps, so they have no pool, and the
+table is right about them for a reason it read.
+
+**A recipe is read through the registries, not through a class list.** The alchemy pot's registries
+are read from the method that tries them, in the order it walks them, rather than named in the
+generator: a registry a later tag adds would otherwise be missed silently, and the pot keeps one it
+tries before all the others that is empty at this tag. `recipes.json` is those registries as the
+game writes them: a
+recipe named by the entry that constructs it, resolved to a source path through the file's own
+imports, so the reader needs no class literal and a registry that names something it cannot find
+fails the generation. A recipe that states fixed inputs carries them with their quantities, its
+output and its energy cost. One that does not (a scroll turned to its own stone, a seed turned to
+its potion, a potion made exotic) carries the text of the three methods it answers with instead,
+and says that its inputs are not a list. The completeness test holds the game's own compiled set
+of recipe classes against the registries, so a recipe the game declares and never registers is
+named with its reason rather than quietly missing.
+
+**The shape of a Run is the switch, read whole.** Story 2.4 read `newLevel` for the main branch;
+`levels.json` reads every branch of it, including the arms the switch does not label. Those arms
+all build one floor, the dead end, so the table says so once and refuses if a tag ever makes two of
+them differ, rather than leaving a reader unable to tell an unbuilt depth from an unread one. Boss
+floors are the game's own rule, pinned to its text as story 2.4 pins its mirrors.
+
+**A shop is placed by a room list, not by a depth.** The depth rule is only half of it: the
+placement is one line of the base's room list, and a level that builds its own list decides for
+itself whether it ever reaches that line. Most hand their list to the base's and so do; the mining
+floors and the vault build their own and never call it, which is the whole reason those depths hold
+no shop. So each floor's shop is read by walking its room list to the placement or to the class
+that stops short of it, and is cited there. Publishing the depth rule and then quietly excepting
+the branch would have been a claim the table's own citation does not contain.
+
+**A floor seals if it seals itself, by either means.** Whether a floor locks behind the hero is an
+Observation a player has, so the table carries it. Reading it from the base level's own source
+said every floor seals, because the base is where the flag is set. Reading it as "the class
+overrides the sealing" missed the prison's boss floor, which calls the inherited one instead. So
+the predicate is the honest disjunction: a class that either overrides the sealing or calls it in
+its own source seals, and the walk stops before the base and reads only a class's own lines, so a
+nested type's call is not the level's. The entry says which of the two it was and cites the line,
+because a boolean with no citation is a mechanics claim with no evidence. The five boss floors and
+the vault read as sealed, and nothing else does.
+
+**A feeling is a chance, an arm, and everywhere it is read.** A feeling whose arm does nothing but
+name it still changes the floor: five of the seven do their work in the painter or the room count
+instead. Carrying only the arm published five feelings that appear to change nothing. So each
+feeling carries the chance the game's roll gives it in thousandths, the arm as cited text, and every
+place under the levels of the game that reads it, each cited. The gate on the roll is carried too,
+since no boss floor, no floor of a branch and no first floor rolls a feeling at all. Two trinkets
+can set a feeling without the roll naming it; the table carries those two assignments rather than
+leaving a reader to believe the arms are all there is.
+
+**A comment is not a statement.** The per-line comment stripper cannot see a block comment that
+opened on an earlier line, so a reader scanning for a statement would read a commented-out one as
+live. Every scan in these readers walks the lines with all comments removed instead.
+
+Codex version 6.

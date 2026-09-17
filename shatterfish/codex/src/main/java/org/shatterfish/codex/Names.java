@@ -90,10 +90,24 @@ final class Names {
      * level fails.
      */
     static Named of(Path root, Class<?> type) {
+        return sourced(root, type).named();
+    }
+
+    /** A bundle name with the class whose own key carried it, which is not always the class asked for. */
+    record Sourced(Class<?> owner, Named named) {
+    }
+
+    /**
+     * The bundle name for a class and the class it was found on. The game falls back to a
+     * superclass's name when a subclass has no key of its own (the tengu's darts are named as the
+     * poison dart trap), so a table that cites the line must be able to say the name is not this
+     * class's own; otherwise the citation names a key for a different class with nothing to mark it.
+     */
+    static Sourced sourced(Path root, Class<?> type) {
         for (Class<?> c = type; c != null && c.getName().startsWith(Sources.ROOT_PACKAGE_PREFIX); c = c.getSuperclass()) {
             Named named = find(root, key(c, "name"));
             if (named != null) {
-                return named;
+                return new Sourced(c, named);
             }
         }
         throw new IllegalStateException("no bundle names " + type.getName() + " or a superclass of it");

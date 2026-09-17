@@ -101,6 +101,36 @@ with upstream's use of the same word, this page says so.
     pinned to its exact source text and held to the game's own method by
     `GuaranteeArithmeticTest`.
 
+**Trap pool (Codex)**
+:   One arm of a level's trap list as `traps.json` carries it: the trap classes that level draws
+    and the weight it gives each, with the condition that chooses this arm where the level has
+    more than one (the sewers draw one trap on the first floor and eleven after it) and an empty
+    condition where it has one. Read from the two array literals the methods return in whichever
+    class declares them, never from the method text as a whole, since the condition itself contains
+    numbers. A pool names the class it was read from when that is not the level's own, and carries
+    how many traps the floor lays, so a floor that draws from a pool and lays none says so.
+
+**Recipe registry (Codex)**
+:   One of the private lists the alchemy pot tries, in the order its own method walks them, which
+    is where the generator reads their names rather than holding a list of its own. `recipes.json`
+    carries every recipe of every registry, named by the entry that constructs it. A recipe that
+    states fixed inputs carries them, its output and its energy cost; one that does not carries the
+    text of `testIngredients`, `cost` and `sampleOutput` instead and is marked as stating no list.
+    A quantity the recipe names rather than writes is resolved to the constant's own declaration.
+
+**Sealed floor (Codex)**
+:   A floor that locks behind the hero while a fight is on, which a player observes. `levels.json`
+    marks one when the level class either overrides the base's sealing or calls it in its own
+    source, says which of the two it was, and cites the line. The five boss floors and the vault
+    seal; nothing else does.
+
+**Level feeling (Codex)**
+:   One of the eight moods a floor can be built with. `levels.json` carries each with the chance
+    the game's roll gives it in thousandths, the arm that sets it as cited text, and every place
+    under the levels of the game that reads it, since most feelings do their work elsewhere than in
+    the arm that names them. The gate on the roll is carried beside them: a boss floor, a floor of
+    a branch and the first floor never roll one.
+
 **Tier table (Codex)**
 :   The generator's `floorSetTierProbs` as `tiers.json` carries it: per floor set
     (`depth / 5`, gated so the last row covers every deeper floor) the five weights by tier,
