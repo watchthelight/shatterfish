@@ -29,6 +29,27 @@ final class Text {
     static final String BUNDLES = "core/src/main/assets/messages/";
     static final String MESSAGES = Sources.SOURCE_ROOT + Sources.GAME.replace('.', '/') + "/messages/Messages.java";
     static final String ASSETS = Sources.SOURCE_ROOT + Sources.GAME.replace('.', '/') + "/Assets.java";
+    /**
+     * The key prefixes that name no class the game compiles, each with the reason, held by the
+     * completeness test against what the reader finds. The game keeps the text of classes it no
+     * longer has, and keys some text to nothing at all; a count would let a live class quietly
+     * stop resolving while a dead one disappeared, so the prefixes are named.
+     */
+    static final List<java.util.Map.Entry<String, String>> NO_CLASS_PREFIXES = List.of(
+            java.util.Map.entry("actors.buffs.earthimbue", "no EarthImbue is declared in any module; the text outlived the buff"),
+            java.util.Map.entry("actors.buffs.revealedchar", "no RevealedChar is declared in any module"),
+            java.util.Map.entry("actors.mobs.tengu$bombability$bombblob",
+                    "Tengu.BombAbility is a live class, but it declares no BombBlob; only the last segment names nothing"),
+            java.util.Map.entry("items.merchantsbeacon", "no MerchantsBeacon is declared in any module"),
+            java.util.Map.entry("items.quest.corpsedust&dustwraith",
+                    "a key naming two things at once, which the game's own rule never builds from a class"),
+            java.util.Map.entry("items.spells.magicalporter", "no MagicalPorter is declared in any module"),
+            java.util.Map.entry("items.stones.stoneofdisarming", "no StoneOfDisarming is declared in any module"),
+            java.util.Map.entry("items.weapon.missiles.boomerang", "no Boomerang is declared in any module"),
+            java.util.Map.entry("ui.updatenotification", "no UpdateNotification is declared in any module"),
+            java.util.Map.entry("ui.updatenotification$wndupdate", "nor the window it would have held"),
+            java.util.Map.entry("windows.wndclass", "no WndClass is declared in any module"));
+
     // Some keys name no class because the game keys the text to nothing (a window, a scene label);
     // others name a class the game no longer compiles and keep its text. The reader cannot tell
     // those apart, so it states what it read rather than guessing which of the two this is.
@@ -98,15 +119,24 @@ final class Text {
      */
     static Map<String, String> outers(Path root) {
         Map<String, String> byKey = new TreeMap<>();
-        for (String path : Sources.under(root, Sources.SOURCE_ROOT + Sources.GAME.replace('.', '/') + "/")) {
-            String className = path.substring(Sources.SOURCE_ROOT.length() + Sources.ROOT_PACKAGE_PREFIX.length(),
-                    path.length() - ".java".length()).replace('/', '.');
-            String key = Names.lower(className);
-            String held = byKey.get(key);
-            if (held != null && !held.equals(className)) {
-                throw new IllegalStateException("two files share the key form " + key + ": " + held + " and " + className);
+        // Every module that compiles a class under the game's root package, not the core alone: a
+        // key naming a class of another module would otherwise be published as naming no class at
+        // all, which is a wrong statement rather than a cautious one.
+        for (String source : Sources.SOURCE_ROOTS) {
+            String folder = source + Sources.GAME.replace('.', '/') + "/";
+            if (!Sources.has(root, folder)) {
+                continue;
             }
-            byKey.put(key, className);
+            for (String path : Sources.under(root, folder)) {
+                String className = path.substring(source.length() + Sources.ROOT_PACKAGE_PREFIX.length(),
+                        path.length() - ".java".length()).replace('/', '.');
+                String key = Names.lower(className);
+                String held = byKey.get(key);
+                if (held != null && !held.equals(className)) {
+                    throw new IllegalStateException("two files share the key form " + key + ": " + held + " and " + className);
+                }
+                byKey.put(key, className);
+            }
         }
         if (byKey.size() < 500) {
             throw new IllegalStateException("the game compiles more classes than the reader found: " + byKey.size());
@@ -125,7 +155,7 @@ final class Text {
      * segment no declaration matches means the prefix is not a class, and a shorter one is tried.
      * A key that matches nothing names no class, which is true of plenty of the game's text.
      */
-    static Resolved resolve(Path root, Map<String, String> outers, Map<String, List<String>> declared, String key) {
+    static Resolved resolve(Path root, Map<String, String> outers, String key) {
         for (int dot = key.lastIndexOf('.'); dot > 0; dot = key.lastIndexOf('.', dot - 1)) {
             String prefix = key.substring(0, dot);
             int dollar = prefix.indexOf('$');
@@ -137,22 +167,20 @@ final class Text {
             if (dollar < 0) {
                 return new Resolved(outer, prefix.length());
             }
-            List<String> names = declared.computeIfAbsent(outer, c -> declarations(root, c));
+            // Each segment is looked for inside the one before it, not anywhere in the file: a
+            // type nested under a sibling would otherwise answer for a nesting that does not exist.
+            Sources.Body enclosing = Sources.file(root, sourceOf(root, outer));
+            enclosing = enclosing.block(enclosing.declaration(outer.substring(outer.lastIndexOf('.') + 1)));
             StringBuilder className = new StringBuilder(outer);
             boolean whole = true;
             for (String segment : prefix.substring(dollar + 1).split("\\$")) {
-                String found = null;
-                for (String name : names) {
-                    if (Names.lower(name).equals(segment)) {
-                        found = name;
-                        break;
-                    }
-                }
+                String found = nested(enclosing, segment);
                 if (found == null) {
                     whole = false;
                     break;
                 }
                 className.append('.').append(found);
+                enclosing = enclosing.block(enclosing.declaration(found));
             }
             if (whole) {
                 return new Resolved(className.toString(), prefix.length());
@@ -161,25 +189,89 @@ final class Text {
         return new Resolved("", 0);
     }
 
-    /** Every type declared in one class's file, in the order the file writes them. */
-    private static List<String> declarations(Path root, String className) {
-        Sources.Body file = Sources.file(root, Sources.SOURCE_ROOT + Sources.ROOT_PACKAGE_PREFIX.replace('.', '/')
-                + className.replace('.', '/') + ".java");
-        List<String> lines = Sources.stripped(file);
-        List<String> names = new ArrayList<>();
-        for (int i = file.from(); i < file.to(); i++) {
-            Matcher declared = DECLARED.matcher(lines.get(i - file.from()));
-            if (declared.find() && !names.contains(declared.group(1))) {
-                names.add(declared.group(1));
+    /**
+     * The type declared directly inside {@code enclosing} whose name lower-cases to {@code segment},
+     * or null when it declares none. Two at the same level whose names lower-case alike would make
+     * a key ambiguous and fail, as two files whose names do fail in {@link #outers}.
+     */
+    private static String nested(Sources.Body enclosing, String segment) {
+        List<String> lines = Sources.stripped(enclosing);
+        String found = null;
+        // The body's own lines stop at a nested type's block, declaration line and all, so the
+        // walk is the same one with the declaration kept: a type directly inside this one, then
+        // past its whole block, never into it.
+        int i = enclosing.from() + 1;
+        while (i < enclosing.to()) {
+            Matcher declared = DECLARED.matcher(lines.get(i - enclosing.from()));
+            if (!declared.find()) {
+                i++;
+                continue;
+            }
+            if (Names.lower(declared.group(1)).equals(segment)) {
+                if (found != null && !found.equals(declared.group(1))) {
+                    throw new IllegalStateException(enclosing.path() + ":" + (i + 1) + ": two types nested here lower-case to "
+                            + segment + ": " + found + " and " + declared.group(1));
+                }
+                found = declared.group(1);
+            }
+            i = Math.max(i + 1, enclosing.block(i).to());
+        }
+        return found;
+    }
+
+    /**
+     * A bundle value as the game shows it. The bundles are a properties file and the game loads
+     * them through a reader that decodes the escapes, so a table that carried the raw text would
+     * publish a backslash and an n where the game prints a new line — and story 2.7's changelog
+     * table, which decodes, would then disagree with this one about what the game says. An escape
+     * the reader does not know fails rather than being passed through.
+     */
+    static String decoded(String path, int line, String value) {
+        StringBuilder out = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c != '\\' || i + 1 >= value.length()) {
+                out.append(c);
+                continue;
+            }
+            char next = value.charAt(++i);
+            switch (next) {
+                case 'n' -> out.append('\n');
+                case 't' -> out.append('\t');
+                case 'r' -> out.append('\r');
+                case 'f' -> out.append('\f');
+                case '\\' -> out.append('\\');
+                case '=' -> out.append('=');
+                case ':' -> out.append(':');
+                case ' ' -> out.append(' ');
+                case 'u' -> {
+                    if (i + 4 >= value.length()) {
+                        throw new IllegalStateException(path + ":" + (line + 1) + ": a unicode escape that does not finish");
+                    }
+                    out.append((char) Integer.parseInt(value.substring(i + 1, i + 5), 16));
+                    i += 4;
+                }
+                default -> throw new IllegalStateException(path + ":" + (line + 1)
+                        + ": an escape the reader does not know: \\" + next);
             }
         }
-        return names;
+        return out.toString();
+    }
+
+    /** The file a class of the game is declared in, in whichever module compiles it. */
+    static String sourceOf(Path root, String className) {
+        for (String source : Sources.SOURCE_ROOTS) {
+            String path = source + Sources.ROOT_PACKAGE_PREFIX.replace('.', '/') + className.replace('.', '/') + ".java";
+            if (Sources.exists(root, path)) {
+                return path;
+            }
+        }
+        throw new IllegalStateException("no module of the pinned game declares " + className);
     }
 
     /** Every line of every English bundle, in the order the game searches the bundles and the order each is written. */
     static List<Codex.StringEntry> entries(Path root) {
         Map<String, String> outers = outers(root);
-        Map<String, List<String>> declared = new TreeMap<>();
         List<Codex.StringEntry> entries = new ArrayList<>();
         java.util.Set<String> seen = new java.util.TreeSet<>();
         for (String bundle : bundles(root)) {
@@ -198,10 +290,10 @@ final class Text {
                 if (!seen.add(key)) {
                     throw new IllegalStateException(path + ":" + (i + 1) + ": " + key + " is given twice");
                 }
-                Resolved resolved = resolve(root, outers, declared, key);
+                Resolved resolved = resolve(root, outers, key);
                 String className = resolved.className();
                 String suffix = className.isEmpty() ? key : key.substring(resolved.prefix() + 1);
-                entries.add(new Codex.StringEntry(key, entry.group(2).trim(), bundle, className, suffix,
+                entries.add(new Codex.StringEntry(key, decoded(path, i, entry.group(2).trim()), bundle, className, suffix,
                         className.isEmpty() ? NO_CLASS : "", new Codex.Citation(path, i + 1)));
             }
         }

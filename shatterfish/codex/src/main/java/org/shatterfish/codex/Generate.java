@@ -119,9 +119,12 @@ public final class Generate {
         tables.put("items.json", CodexJson.items(Items.entries(root)));
         tables.put("rooms.json", CodexJson.rooms(Rooms.read(root)));
         tables.put("tiers.json", CodexJson.tiers(Tiers.read(root)));
-        tables.put("strings.json", CodexJson.strings(Text.entries(root)));
+        // The strings are read once and handed to both tables that need them: reading them twice
+        // walks every source file of the game twice and makes two lists that must agree.
+        List<Codex.StringEntry> strings = Text.entries(root);
+        tables.put("strings.json", CodexJson.strings(strings));
         tables.put("assets.json", CodexJson.assets(AssetIndex.entries(root)));
-        tables.put("changelog.json", CodexJson.changelog(Changelog.version(root), Changelog.entries(root, Text.entries(root))));
+        tables.put("changelog.json", CodexJson.changelog(Changelog.version(root), Changelog.entries(root, strings)));
         tables.put("documents.json", CodexJson.documents(Documents.entries(root)));
         Map<String, String> files = new LinkedHashMap<>();
         files.put(MANIFEST, CodexJson.manifest(manifest(Upstream.tag(root), tables.keySet())));

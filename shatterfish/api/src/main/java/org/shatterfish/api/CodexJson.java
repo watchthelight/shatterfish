@@ -912,6 +912,16 @@ public final class CodexJson {
             out.key("lore").value(document.lore());
             out.key("title").value(document.title());
             out.key("hint").value(document.hint());
+            out.key("titleCitation").beginObject();
+            out.key("path").value(document.titleCitation().path());
+            out.key("line").value(document.titleCitation().line());
+            out.endObject();
+            if (!document.hint().isEmpty()) {
+                out.key("hintCitation").beginObject();
+                out.key("path").value(document.hintCitation().path());
+                out.key("line").value(document.hintCitation().line());
+                out.endObject();
+            }
             out.key("pages").beginArray();
             for (Codex.DocumentPage page : document.pages()) {
                 out.beginObject();
@@ -919,6 +929,10 @@ public final class CodexJson {
                 out.key("title").value(page.title());
                 out.key("body").value(page.body());
                 citation(out, page.citation());
+                out.key("titleCitation").beginObject();
+                out.key("path").value(page.titleCitation().path());
+                out.key("line").value(page.titleCitation().line());
+                out.endObject();
                 out.endObject();
             }
             out.endArray();
@@ -943,19 +957,30 @@ public final class CodexJson {
             JsonWriter out = new JsonWriter();
             out.beginObject();
             out.key("className").value(entry.className());
+            out.key("tab").value(entry.tab());
             out.key("title").value(entry.title());
             out.key("titleKey").value(entry.titleKey());
             out.key("titleExpression").value(entry.titleExpression());
             out.key("major").value(entry.major());
             out.key("text").value(entry.text());
-            out.key("date").value(entry.date());
+            out.key("conditionExpression").value(entry.conditionExpression());
+            out.key("dates").beginArray();
+            for (String date : entry.dates()) {
+                out.value(date);
+            }
+            out.endArray();
             out.key("headings").beginArray();
             for (Codex.ChangeHeading heading : entry.headings()) {
                 out.beginObject();
                 out.key("title").value(heading.title());
                 out.key("titleKey").value(heading.titleKey());
                 out.key("titleExpression").value(heading.titleExpression());
-                out.key("date").value(heading.date());
+                out.key("conditionExpression").value(heading.conditionExpression());
+                out.key("dates").beginArray();
+                for (String date : heading.dates()) {
+                    out.value(date);
+                }
+                out.endArray();
                 citation(out, heading.citation());
                 out.endObject();
             }
@@ -997,6 +1022,7 @@ public final class CodexJson {
             out.key("group").value(asset.group());
             out.key("constant").value(asset.constant());
             out.key("present").value(asset.present());
+            out.key("assetRoot").value(asset.assetRoot());
             citation(out, asset.citation());
             out.endObject();
             row(table, out, i + 1 == assets.size());

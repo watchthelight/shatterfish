@@ -25,10 +25,13 @@ import java.util.regex.Pattern;
  */
 final class Documents {
 
+    /** The class the keys are built from, as the game names it: the gate forbids naming the type itself. */
+    static final String DOCUMENT_CLASS = "journal.Document";
+
     static final String DOCUMENT = Sources.SOURCE_ROOT + Sources.GAME.replace('.', '/') + "/journal/Document.java";
 
     private static final Pattern CONSTANT = Pattern.compile("^\\s*([A-Z][A-Z0-9_]*)\\s*\\(\\s*([\\w.]+)\\s*,\\s*(true|false)\\s*\\)\\s*[,;]");
-    private static final Pattern PAGE = Pattern.compile("^\\s*([A-Z][A-Z0-9_]*)\\.pagesStates\\.put\\(\\s*([\\w\"]+)\\s*,");
+    private static final Pattern PAGE = Pattern.compile("^\\s*([A-Z][A-Z0-9_]*)\\.pagesStates\\.put\\(\\s*(.+?)\\s*,");
     private static final Pattern NAMED = Pattern.compile("static final String (\\w+)\\s*=\\s*\"([^\"]+)\"");
 
     private Documents() {
@@ -42,7 +45,11 @@ final class Documents {
         for (int i = file.from(); i < file.to(); i++) {
             Matcher named = NAMED.matcher(lines.get(i - file.from()));
             if (named.find()) {
-                constants.put(named.group(1), named.group(2));
+                String held = constants.put(named.group(1), named.group(2));
+                if (held != null && !held.equals(named.group(2))) {
+                    throw new IllegalStateException(file.path() + ":" + (i + 1) + ": " + named.group(1)
+                            + " names two pages: " + held + " and " + named.group(2));
+                }
             }
         }
         Map<String, Boolean> lore = new java.util.LinkedHashMap<>();
@@ -73,7 +80,8 @@ final class Documents {
                         + ", which the game declares no document for");
             }
             String named = page.group(2);
-            String name = named.startsWith("\"") ? named.substring(1, named.length() - 1) : constants.get(named);
+            String name = named.startsWith("\"") && named.endsWith("\"") ? named.substring(1, named.length() - 1)
+                    : constants.get(named.substring(named.lastIndexOf('.') + 1));
             if (name == null) {
                 throw new IllegalStateException(file.path() + ":" + (i + 1) + ": a page named " + named
                         + ", which the reader cannot resolve to a page name");
@@ -87,7 +95,9 @@ final class Documents {
             if (named == null || named.isEmpty()) {
                 throw new IllegalStateException(name + " is a document with no page; the reader does not know what it holds");
             }
-            String key = "journal.document." + Names.lower(name);
+            // The key is the game's own rule applied to the document class and the constant's
+            // name, so the one place that knows how a key is built stays the one place.
+            String key = Names.lower(DOCUMENT_CLASS) + "." + Names.lower(name);
             Names.Named title = Names.lookup(root, key + ".title");
             // Only the documents a player has to find carry a hint; a guide is handed over, so the
             // bundle gives it none and the game would render its missing-key marker for one.
@@ -97,10 +107,12 @@ final class Documents {
                 String pageKey = key + "." + Names.lower(page);
                 Names.Named pageTitle = Names.lookup(root, pageKey + ".title");
                 Names.Named pageBody = Names.lookup(root, pageKey + ".body");
-                carried.add(new Codex.DocumentPage(page, pageTitle.value(), pageBody.value(), pageBody.citation()));
+                carried.add(new Codex.DocumentPage(page, pageTitle.value(), pageBody.value(), pageTitle.citation(),
+                        pageBody.citation()));
             }
-            entries.add(new Codex.DocumentEntry(name, document.getValue(), title.value(),
-                    hint == null ? "" : hint.value(), carried, file.citation(declared.get(name))));
+            entries.add(new Codex.DocumentEntry(name, document.getValue(), title.value(), title.citation(),
+                    hint == null ? "" : hint.value(), hint == null ? null : hint.citation(), carried,
+                    file.citation(declared.get(name))));
         }
         return entries;
     }

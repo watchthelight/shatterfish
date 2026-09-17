@@ -383,12 +383,37 @@ final class Sources {
         return paths;
     }
 
+    /** The folders the game keeps its own assets in, which are the only folders {@link #exists} looks in. */
+    static final List<String> ASSET_ROOTS = List.of("core/src/main/assets/", "desktop/src/main/assets/");
+
     /**
      * Whether a file of the pinned game is there. The Codex names the game's own asset files, and
      * a name with nothing behind it is a broken asset, not a fact worth publishing.
+     *
+     * <p>Guarded like every other door in this class: a path outside the game's own source and
+     * asset folders, or one that climbs out of them, is refused rather than probed. The gate that
+     * names the classes allowed to open a file rests on these guards, so a door without one would
+     * make that list less true than it reads.
      */
     static boolean exists(Path root, String path) {
+        guard(path);
         return Files.isRegularFile(root.resolve(path));
+    }
+
+    /** Whether a folder of the pinned game is there, guarded the same way. */
+    static boolean has(Path root, String folder) {
+        guard(folder);
+        return Files.isDirectory(root.resolve(folder));
+    }
+
+    /** A path the Codex may look at: inside the game's own source or asset folders, and never above them. */
+    private static void guard(String path) {
+        if (path.contains("..")) {
+            throw new IllegalStateException("a path that climbs out of the pinned game: " + path);
+        }
+        if (SOURCE_ROOTS.stream().noneMatch(path::startsWith) && ASSET_ROOTS.stream().noneMatch(path::startsWith)) {
+            throw new IllegalStateException("not a file of the pinned game: " + path);
+        }
     }
 
     /** A method's block and declaration line in the class that declares it. */
