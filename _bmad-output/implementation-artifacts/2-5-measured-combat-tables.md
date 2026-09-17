@@ -5,7 +5,7 @@ title: "Measured combat tables"
 epic: 2
 issue: 39
 type: 'feature'
-status: 'in-progress'
+status: 'review'
 created: '2026-09-16'
 updated: '2026-09-16'
 review_loop_iteration: 0
@@ -77,15 +77,15 @@ story 2.2's table); no procs.
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `shatterfish/api/.../Codex.java`, `CodexJson.java` -- `VERSION = 5`; records `Grid(what, from, to, step, citation)`, `HitCell(accuracy, evasion, samples, hitPerMille)`, `HitTable(method, citation, grids, cells)`, `Spread(min, max, meanPerMille, samples)`, `DamageEntry(className, tier, level, spread, method, citation)`, `Combat(seed, hit, weapons, armours, mobs)`; rendering one cell and one entry per line -- api-typed tables.
-- [ ] `shatterfish/api/src/test/.../CodexJsonTest.java` -- goldens for a hit cell, a damage entry and the grids; refusals (a share out of range, a spread whose mean is outside its bounds, a cell twice, an empty grid) -- the text held.
-- [ ] `shatterfish/codex/.../Sparring.java` -- two minimal `Char` subclasses (an attacker whose `attackSkill` returns the grid's accuracy, a defender whose `defenseSkill` returns the grid's evasion), `act()` doing nothing, nothing else overridden -- the rig that feeds the engine.
-- [ ] `shatterfish/codex/.../GameContext.java` -- a fourth field, `Dungeon.hero`, set to a bare hero around a measurement and restored, since `Char.hit` dereferences it -- the door widened by one, with the gate's allowlist and ADR-0017 updated.
-- [ ] `shatterfish/codex/.../Combat.java` -- the measurements: `Char.hit` over the accuracy and evasion grid; each melee weapon's `damageRoll` and each armour's `DRRoll` by tier and level; each mob's `drRoll`; every table cited to the method measured and every cell carrying its sample count -- the combat table.
-- [ ] `shatterfish/codex/.../Generate.java` -- `combat.json` in the tables map -- the task extended.
-- [ ] `shatterfish/codex/src/test/.../CombatTableStabilityTest.java` -- two generations in one process are identical with the Codex seed moved between them; a sampled cell is re-measured against the engine and agrees within the band its sample count earns; the bounds of every spread are the method's own; the grid covers what the table says -- the measurement held.
-- [ ] `shatterfish/codex/src/test/.../CodexLeakTest.java`, `CodexCompletenessTest.java` -- the live Run's hero, depth and generator unchanged by a generation; every weapon and armour of the item table is in the damage tables; every citation resolves -- NFR-1.
-- [ ] `codex/v4.0.0/` regenerated; `docs/adr/0017-...md` amendment; `docs/codex/index.md`; `docs/glossary.md` -- NFR-6.
+- [x] `shatterfish/api/.../Codex.java`, `CodexJson.java` -- `VERSION = 5`; records `Grid(what, from, to, step, citation)`, `HitCell(accuracy, evasion, samples, hitPerMille)`, `HitTable(method, citation, grids, cells)`, `Spread(min, max, meanPerMille, samples)`, `DamageEntry(className, tier, level, spread, method, citation)`, `Combat(seed, hit, weapons, armours, mobs)`; rendering one cell and one entry per line -- api-typed tables.
+- [x] `shatterfish/api/src/test/.../CodexJsonTest.java` -- goldens for a hit cell, a damage entry and the grids; refusals (a share out of range, a spread whose mean is outside its bounds, a cell twice, an empty grid) -- the text held.
+- [x] `shatterfish/codex/.../Sparring.java` -- two minimal `Char` subclasses (an attacker whose `attackSkill` returns the grid's accuracy, a defender whose `defenseSkill` returns the grid's evasion), `act()` doing nothing, nothing else overridden -- the rig that feeds the engine.
+- [x] `shatterfish/codex/.../GameContext.java` -- a fourth field, `Dungeon.hero`, set to a bare hero around a measurement and restored, since `Char.hit` dereferences it -- the door widened by one, with the gate's allowlist and ADR-0017 updated.
+- [x] `shatterfish/codex/.../Combat.java` -- the measurements: `Char.hit` over the accuracy and evasion grid; each melee weapon's `damageRoll` and each armour's `DRRoll` by tier and level; each mob's `drRoll`; every table cited to the method measured and every cell carrying its sample count -- the combat table.
+- [x] `shatterfish/codex/.../Generate.java` -- `combat.json` in the tables map -- the task extended.
+- [x] `shatterfish/codex/src/test/.../CombatTableStabilityTest.java` -- two generations in one process are identical with the Codex seed moved between them; a sampled cell is re-measured against the engine and agrees within the band its sample count earns; the bounds of every spread are the method's own; the grid covers what the table says -- the measurement held.
+- [x] `shatterfish/codex/src/test/.../CodexLeakTest.java`, `CodexCompletenessTest.java` -- the live Run's hero, depth and generator unchanged by a generation; every weapon and armour of the item table is in the damage tables; every citation resolves -- NFR-1.
+- [x] `codex/v4.0.0/` regenerated; `docs/adr/0017-...md` amendment; `docs/codex/index.md`; `docs/glossary.md` -- NFR-6.
 
 **Acceptance Criteria:**
 - Given the accuracy and evasion grid, when the table is read, then every cell carries the share of the engine's own `Char.hit` that landed and the samples it came from, and the method is cited (`CombatTableStabilityTest`, `CodexLeakTest`).
@@ -151,3 +151,197 @@ is reproducible on its own and the table does not depend on the order cells are 
 - `./gradlew :codex:test :api:test -Pshatterfish.mobile=off` -- expected: green, `CombatTableStabilityTest` among them.
 - `./gradlew build -Pshatterfish.mobile=off` -- expected: green.
 - `uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict` -- expected: green.
+
+## Dev notes
+
+Implemented on `story/2-5-measured-combat-tables` from `834b3fee1`. One table joined
+`:codex:generate`: `combat.json`, measured by running the engine's own methods. The generator
+gained `Combat` (the measurements and the names of what cannot be measured) and `Sparring` (the
+rig: two characters that return an accuracy and an evasion and nothing else); `GameContext`
+gained its fourth field and a seeded `measure`. The api gained the grid, cell, spread, roll and
+combat records and their rendering; Codex version 5. No hook, no upstream file, no change to the
+fair path or the Observation schema.
+
+## Acceptance criteria and how each was met
+
+- **The tables cover accuracy against evasion**: met in part, and the part that is missing says
+  so. `Char.hit` cannot run in a generator that may not boot (it initialises `FloatingText`, which
+  builds a texture film), so the table names the method, cites it, states the grid and carries
+  `measured: false` with the reason, as story 2.3's items carry `constructed: false`. The rig is
+  written and `CombatTableStabilityTest` runs it against the engine in a booted process: no
+  evasion always lands, no accuracy never does, even stats land about half the time, and more of
+  either moves it the way it should.
+- **Damage and damage-reduction distributions for each weapon and armour tier**: every class the
+  game calls a `Weapon` (372 rows: 62 classes at six levels) and every armour (66 rows) with the
+  measured minimum, maximum and mean, plus every mob whose reduction a bare instance can roll
+  (110); `CombatTableStabilityTest` holds the bounds against the engine's own and re-measures
+  every weapon's mean.
+- **Each table names the method it measured with its `path:line`, and the grid it swept**: every
+  entry carries the method's name and citation, `CodexLeakTest` opens each one, and the grid and
+  the sample counts are in the table.
+- **`CombatTableStabilityTest` asserts the tables are reproducible across runs and platforms**:
+  two measurements in one process are identical, a measurement draws under its own seed so moving
+  the Codex's construction seed changes nothing (`CodexSeedFreeTest`), and CI's comparison of the
+  committed bytes on Linux against a generation on Windows is the two-platform check.
+- **No combat formula is written out by hand in `codex` or `brain`**: held by reading, and the
+  review checked it; the tables carry the citations instead.
+
+## What was built
+
+- `api`: `Codex.Grid`, `HitCell`, `HitTable`, `Spread`, `RollEntry`, `Combat`; `CodexJson.combat`;
+  `VERSION = 5`; goldens and refusals in `CodexJsonTest`.
+- `codex`: `Combat`, `Sparring`; `GameContext.measure` with the hero and the redraw flag;
+  `Generate` extended; `CombatTableStabilityTest`; `CodexLeakTest` extended.
+- `codex/v4.0.0/combat.json`, the manifest at version 5.
+- ADR-0017's amendment; the Codex index; the glossary (measurement); three ideas.
+
+## What the story found
+
+- **The method that decides a hit cannot be run by the generator.** Every return path of
+  `Char.hit` writes the icon of the reason, which initialises `FloatingText`, whose initialiser
+  builds a texture film. The wall is one class further down than story 2.3's, and the answer is
+  the same: say so in the table.
+- **The engine has no armour roll of its own.** The wearer rolls it, so the measurement equips a
+  bare hero and runs `Hero.drRoll`, with the wearer's strength at the armour's requirement.
+- **A bare hero has no class at all.** `heroClass` is null until a Run chooses one, which is what
+  makes the hero safe to measure with, and is not what the first draft of this story's documents
+  said (they called it a rogue).
+- **A mob the game equips at spawn rolls a placeholder.** Four throw; seven more returned a number
+  that looked measured. The earth guardian rolls from a wand level of minus one, and the first
+  version of this story shipped that negative row and asserted it in a test as though it were a
+  mechanic. The unmeasurable list is story 2.2's own, held against it.
+- **The spirit bow is a weapon that is neither melee nor missile**, so a reader that tested for
+  those two families dropped it, and a coverage test written with the same test could not see it.
+- **Setting an item's level writes a Run static**, the flag that asks a scene to redraw its item
+  displays, so the door holds and restores it.
+
+## Decisions taken inside the story
+
+- **The rig over transcription.** Two minimal characters feed the engine its own inputs; the
+  generator writes no combat arithmetic.
+- **The door gains the hero**, which the story's own "Ask First" named. Taken under the owner's
+  standing instruction to keep working, recorded here, in the ADR and in the pull request, and put
+  first to the fairness reviewer, who judged the decision correct and the enforcement too loose;
+  the gate now closes it.
+- **A measurement seed of its own**, so that story 2.1's seed-free guarantee still holds.
+- **What cannot be measured is named, not guessed**: the hit table, the four that throw, the seven
+  the game equips later.
+
+## Evidence
+
+- `:api:test` green, 347 tests, with `CodexJsonTest` (13); `:codex:test` green, 53 tests
+  (`CombatTableStabilityTest` 5, `CodexLeakTest` 9, `CodexCompletenessTest` 10,
+  `GuaranteeArithmeticTest` 5, `CodexSeedFreeTest` 3, `RoomsReaderTest` 5, `ItemsReaderTest` 5,
+  `SourcesTest` 5, `RotationTest` 3, `NamesTest` 3).
+- `./gradlew build` green: 629 tests, 73 suites.
+- `./gradlew :codex:generate` twice: `git status --short codex/` empty after the commit.
+- Mutation battery, thirteen mutations before the review:
+    - M1 a measurement draws under the Codex's construction seed: caught by CodexLeakTest, CodexSeedFreeTest, CombatTableStabilityTest.
+    - M2 every cell draws under the same seed: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M3 a spread reports the midpoint of its bounds rather than the mean it measured: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M4 a spread keeps only the first value it saw: caught by CodexLeakTest, CodexSeedFreeTest, CombatTableStabilityTest, GuaranteeArithmeticTest.
+    - M5 a weapon is measured with a hero as its wielder, which adds the hero's strength: caught by CodexLeakTest, CodexSeedFreeTest, CombatTableStabilityTest, GuaranteeArithmeticTest.
+    - M6 an armour is measured by a wearer too weak for it: caught by CodexLeakTest, CodexSeedFreeTest, CombatTableStabilityTest.
+    - M7 a mob that cannot roll is skipped without being named: caught by CodexLeakTest, CodexSeedFreeTest, CombatTableStabilityTest.
+    - M8 the rig's fighters swap their stats: caught by CombatTableStabilityTest.
+    - M9 a hit share is rounded down rather than half up: caught by CombatTableStabilityTest.
+    - M10 the door leaves its bare hero in place: caught by CodexLeakTest.
+    - M11 the samples a spread carries are not the samples it took: caught by CodexLeakTest, CodexSeedFreeTest, CombatTableStabilityTest.
+    - M12 the hit table claims it was measured: caught by CodexLeakTest, CodexSeedFreeTest, CombatTableStabilityTest, GuaranteeArithmeticTest.
+    - M13 a weapon is measured at one level only: caught by CodexLeakTest, CodexSeedFreeTest, CombatTableStabilityTest.
+
+- The battery rerun after the review patch, seventeen mutations, four of them of the review's own
+  fixes (a mob whose stats the game sets later measured anyway, the spirit bow dropped, the
+  wearer's strength not put back, the redraw flag left set):
+    - M1 a measurement draws under the Codex's construction seed: caught by CodexLeakTest, CodexSeedFreeTest, CombatTableStabilityTest.
+    - M2 every cell draws under the same seed: caught by CodexLeakTest, CodexSeedFreeTest.
+    - M3 a spread reports the midpoint of its bounds rather than the mean it measured: caught by CodexLeakTest, CodexSeedFreeTest, CombatTableStabilityTest.
+    - M4 a spread keeps only the first value it saw: caught by CodexLeakTest, CodexSeedFreeTest, CombatTableStabilityTest, GuaranteeArithmeticTest.
+    - M5 a weapon is measured with a hero as its wielder, which adds the hero's strength: caught by CodexLeakTest, CodexSeedFreeTest, CombatTableStabilityTest, GuaranteeArithmeticTest.
+    - M6 an armour is measured by a wearer too weak for it: caught by CodexLeakTest, CodexSeedFreeTest, CombatTableStabilityTest.
+    - M7 a mob whose stats the game sets later is measured anyway: caught by CodexLeakTest, CodexSeedFreeTest, CombatTableStabilityTest.
+    - M8 the rig's fighters swap their stats: caught by CombatTableStabilityTest.
+    - M9 a hit share is rounded down rather than half up: caught by CombatTableStabilityTest.
+    - M10 the door leaves its bare hero in place: caught by CodexLeakTest.
+    - M11 the samples a spread carries are not the samples it took: caught by CodexLeakTest, CodexSeedFreeTest, CombatTableStabilityTest.
+    - M12 the hit table claims it was measured: caught by CodexLeakTest, CodexSeedFreeTest, CombatTableStabilityTest, GuaranteeArithmeticTest.
+    - M13 a weapon is measured at one level only: caught by CodexLeakTest, CodexSeedFreeTest, CombatTableStabilityTest.
+    - M14 only the melee and missile families are measured, so the spirit bow is dropped: caught by CodexLeakTest, CodexSeedFreeTest, CombatTableStabilityTest.
+    - M15 the wearer's strength is not put back: **survived**, as expected: every armour is measured under a hero of its own, so the next measurement sets the strength again before it rolls.
+    - M16 the scene's redraw flag is left set: **survived**, as expected: no test watches that flag, since a live Run would have to set it before a generation to see it put back.
+    - M17 a mob that rolls a placeholder is measured as if it were the game: caught by CodexLeakTest, CodexSeedFreeTest, CombatTableStabilityTest, GuaranteeArithmeticTest.
+
+## Deviations
+
+- The first acceptance criterion is met in part; the Spec Change Log says so and the table says so.
+- `Codex.RollEntry` replaces the spec's `DamageEntry`, and the armour rows name `Hero.drRoll`
+  rather than a roll of the armour's own, which the game does not have.
+
+## Known limitations, handed forward
+
+- **The hit table is empty.** The rig is written; a story that runs in the harness, where booting
+  is ordinary, can fill it. An idea records both routes (a harness task, or a hook that lets the
+  engine skip the icon when no scene exists).
+- **The tables do not compose.** An expected damage is a damage roll less a reduction roll, and
+  the engine's subtraction is behind the same wall; the Codex carries the parts.
+- **The measured paths are the bare ones**: no ring, enchantment, glyph, champion buff, talent or
+  encumbrance penalty. Each is a branch of the same methods, so the same rig measures them.
+- **Two engine statics the door does not hold**: a dart's bow reference and a flail's spin boost
+  are read by their own damage rolls, so a Run holding a crossbow would shift the dart rows of a
+  generation made inside it. Neither is reachable from the generator's own code, and the live-Run
+  test's Run holds neither; a story that measures the modified paths should hold them.
+- **The measured means are the bare paths' at the levels the grid names**, six of them; a level
+  the grid does not name is not in the table.
+
+## Follow-ups for later stories
+
+- 2.6: the traps, the recipes and the level structure.
+- The hit table, measured where a process has booted (the idea).
+- 2.9: the drift check in CI and the generated index page listing these tables.
+
+## Review
+
+Four reviewers on `git diff main...HEAD` from the committed state: the fairness reviewer (nine
+findings, two blocking), the adversarial lens (twenty-two), the edge-case hunter (nineteen) and
+the verification-gap lens (eight). One patch commit, `044c3f56d`.
+
+**Taken.**
+
+- The mobs that cannot be rolled bare: story 2.2's `STATS_SET_LATER` plus the four that throw,
+  held against that list, and the wrong test that asserted the earth guardian's placeholder as a
+  mechanic removed (fairness 2; edge 1; adversarial 3).
+- The gate closed: the hero's constructor only, the belongings type dropped, the scene's redraw
+  flag admitted and held by the door (fairness 1; adversarial 18).
+- The spirit bow measured, and the coverage test's expectation built from the game's compiled
+  hierarchy rather than the reader's own test (adversarial 4, 22; edge 2).
+- The wearer's strength restored; the mean re-measured against the engine for every weapon, with a
+  check that some mean is not the midpoint a guess would give; every combat citation opened
+  (fairness 3; gap 1, 2; adversarial 11).
+- The documents: a bare hero has no class, the gate's claim matches the rule, the composition the
+  tables do not carry is stated, and the javadoc no longer credits a test that holds nothing of
+  the kind (gap 3, 5; adversarial 13, 18).
+
+**Not taken, with reasons.**
+
+- Measuring the modified paths, the composition, or the hit table itself (adversarial 13; edge
+  several): each is named as a limitation and an idea; this story's boundary is the bare paths,
+  and the wall is documented rather than tunnelled under.
+- Holding a dart's bow and a flail's spin boost in the door (edge 3): neither is reachable from
+  the generator's own code and the door may not name every static the game keeps; recorded as a
+  limitation for the story that measures the modified paths.
+- A tighter band on the hit rig's even-stats check (fairness caveat): the rig's table is not
+  shipped, so the check is a smoke test of the rig, not of a table.
+
+## Suggested review order
+
+1. [`Combat.java`](https://github.com/watchthelight/shatterfish/blob/044c3f56d/shatterfish/codex/src/main/java/org/shatterfish/codex/Combat.java),
+   what is measured, what is named instead, and why.
+2. [`GameContext.java`](https://github.com/watchthelight/shatterfish/blob/044c3f56d/shatterfish/codex/src/main/java/org/shatterfish/codex/GameContext.java)
+   and the gate in [`CodexLeakTest.java`](https://github.com/watchthelight/shatterfish/blob/044c3f56d/shatterfish/codex/src/test/java/org/shatterfish/codex/CodexLeakTest.java),
+   the fourth field and what closes it.
+3. [`CombatTableStabilityTest.java`](https://github.com/watchthelight/shatterfish/blob/044c3f56d/shatterfish/codex/src/test/java/org/shatterfish/codex/CombatTableStabilityTest.java),
+   the re-measurement, the bounds, the coverage and the rig.
+4. [`Sparring.java`](https://github.com/watchthelight/shatterfish/blob/044c3f56d/shatterfish/codex/src/main/java/org/shatterfish/codex/Sparring.java),
+   the rig itself.
+5. [`0017-codex-generation-and-citations.md`](https://github.com/watchthelight/shatterfish/blob/044c3f56d/docs/adr/0017-codex-generation-and-citations.md),
+   the amendment.
