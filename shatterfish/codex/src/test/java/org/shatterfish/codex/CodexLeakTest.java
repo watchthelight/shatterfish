@@ -712,6 +712,11 @@ class CodexLeakTest {
         assertEquals(1, blizzard.outQuantity());
         assertEquals(8, blizzard.cost(), "the energy the pot spends");
         assertEquals("one", blizzard.ingredients());
+        Codex.RecipeEntry aqua = recipes.get("items.potions.brews.AquaBrew.Recipe");
+        assertEquals(8, aqua.outQuantity(), "the aqua brew names the count it makes rather than writing the number, and the table reads the constant");
+        Codex.RecipeEntry recycle = recipes.get("items.spells.Recycle.Recipe");
+        assertEquals(12, recycle.outQuantity());
+        assertEquals(12, recycle.cost());
         Codex.RecipeEntry stones = recipes.get("items.scrolls.Scroll.ScrollToStone");
         assertFalse(stones.simple(), "a scroll turned to its own stone states no fixed inputs");
         assertTrue(stones.inputs().isEmpty() && stones.output().isEmpty());

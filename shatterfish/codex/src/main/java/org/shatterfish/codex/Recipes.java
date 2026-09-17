@@ -39,6 +39,7 @@ final class Recipes {
     private static final Pattern MADE = Pattern.compile("new\\s+([\\w.]+)\\s*\\(\\s*\\)");
     private static final Pattern CLASS_TOKEN = Pattern.compile("\\b([\\w.]+)\\.class\\b");
     private static final Pattern NUMBER = Pattern.compile("-?\\d+");
+    private static final Pattern NAME = Pattern.compile("\\b([A-Z][A-Z0-9_]{2,})\\b");
 
     private Recipes() {
     }
@@ -107,7 +108,7 @@ final class Recipes {
             return new Codex.RecipeEntry(className, ingredients, false, List.of(), "", 0, -1, answers, registryCitation, body.citation(declaration));
         }
         List<String> classes = tokens(body, inputs, CLASS_TOKEN, file);
-        List<Integer> quantities = numbers(body, body.find("\\binQuantity\\s*=\\s*new int"));
+        List<Integer> quantities = numbers(body, file, body.find("\\binQuantity\\s*=\\s*new int"));
         if (classes.size() != quantities.size()) {
             throw new IllegalStateException(className + " states " + classes.size() + " inputs and " + quantities.size() + " quantities");
         }
@@ -120,11 +121,14 @@ final class Recipes {
             throw new IllegalStateException(className + " states inputs and no output");
         }
         String output = tokens(body, outputLine, CLASS_TOKEN, file).get(0);
-        List<Integer> outQuantity = numbers(body, body.find("\\boutQuantity\\s*="));
-        List<Integer> cost = numbers(body, body.find("\\bcost\\s*=\\s*\\d"));
+        List<Integer> outQuantity = numbers(body, file, body.find("\\boutQuantity\\s*="));
+        List<Integer> cost = numbers(body, file, body.find("\\bcost\\s*="));
+        if (outQuantity.isEmpty() || cost.isEmpty()) {
+            throw new IllegalStateException(className + " states its inputs and " + (cost.isEmpty() ? "no cost" : "no output quantity")
+                    + "; the reader does not know what the pot spends or makes, and will not default it");
+        }
         return new Codex.RecipeEntry(className, ingredients, true, ingredientList, output,
-                outQuantity.isEmpty() ? 1 : outQuantity.get(0), cost.isEmpty() ? -1 : cost.get(0), List.of(),
-                registryCitation, body.citation(declaration));
+                outQuantity.get(0), cost.get(0), List.of(), registryCitation, body.citation(declaration));
     }
 
     /** The class tokens of one statement, each resolved through the file's imports. */
@@ -145,17 +149,52 @@ final class Recipes {
         return names;
     }
 
-    /** The numbers of one statement, in order. */
-    private static List<Integer> numbers(Sources.Body body, int line) {
+    /**
+     * The numbers of one statement, in order. A recipe may set a quantity from a constant it names
+     * rather than from a literal (the aqua brew makes {@code OUT_QUANTITY} potions), so a name is
+     * resolved to the constant's own declaration in the same file; a name the reader cannot
+     * resolve fails the generation rather than being read as nothing, which once left a recipe
+     * carrying a default the game never stated.
+     */
+    private static List<Integer> numbers(Sources.Body body, Sources.Body file, int line) {
         List<Integer> numbers = new ArrayList<>();
         if (line < 0) {
             return numbers;
         }
-        Matcher number = NUMBER.matcher(statement(body, line));
+        String text = statement(body, line);
+        String assigned = text.substring(text.indexOf('=') + 1);
+        Matcher number = NUMBER.matcher(assigned);
         while (number.find()) {
             numbers.add(Integer.parseInt(number.group()));
         }
+        if (!numbers.isEmpty()) {
+            return numbers;
+        }
+        Matcher named = NAME.matcher(assigned);
+        while (named.find()) {
+            numbers.add(constant(file, named.group(1)));
+        }
         return numbers;
+    }
+
+    /** The value of a constant the file declares, which a recipe may name instead of a literal. */
+    private static int constant(Sources.Body file, String name) {
+        Pattern declared = Pattern.compile("\\bfinal int " + name + "\\s*=\\s*(-?\\d+)\\s*;");
+        Integer value = null;
+        for (int i = file.from(); i < file.to(); i++) {
+            Matcher m = declared.matcher(Sources.stripComment(file.lines().get(i)));
+            if (m.find()) {
+                if (value != null) {
+                    throw new IllegalStateException(file.path() + " declares " + name + " twice; the reader cannot say which the recipe means");
+                }
+                value = Integer.parseInt(m.group(1));
+            }
+        }
+        if (value == null) {
+            throw new IllegalStateException(file.path() + " names " + name + " in a recipe's quantity and declares no constant of that name;"
+                    + " the reader will not guess what the pot makes");
+        }
+        return value;
     }
 
     /** The whole statement at {@code line}, joined to its semicolon. */
