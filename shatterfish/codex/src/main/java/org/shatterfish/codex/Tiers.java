@@ -11,9 +11,10 @@ import java.util.regex.Pattern;
 
 /**
  * The tier tables (story 2.4): the generator's floor-set tier literal, private and so read from
- * source, one row of five weights per floor set ({@code depth / 5}, gated to the last row), and
- * the rules that draw by it: an armor picks its class by the drawn index into the armor
- * category's class list, a weapon or a missile picks the tier category of the drawn index.
+ * source, one row of five weights per floor set ({@code depth / 5}, gated to the last row in
+ * all three draws, which the reader holds), and the rules that draw by it: an armor picks its
+ * class by the drawn index into the armor category's class list, a weapon or a missile picks
+ * the tier category of the drawn index, each tier array cited to its own declaration.
  */
 final class Tiers {
 
@@ -45,16 +46,20 @@ final class Tiers {
             throw new IllegalStateException("the tier literal has " + rows.size() + " rows, not five; the reader knows five floor sets");
         }
         rows.set(4, new Codex.TierRow(4, 20, Mobs.MAX_DEPTH, rows.get(4).weights()));
-        Codex.Rule armor = rule(generator, "armor", "public static Armor randomArmor\\s*\\(\\s*int floorSet\\s*\\)");
+        String armorAnchor = "public static Armor randomArmor\\s*\\(\\s*int floorSet\\s*\\)";
+        Codex.Rule armor = rule(generator, "armor", armorAnchor);
         Codex.Rule weapon = rule(generator, "weapon", "public static MeleeWeapon randomWeapon\\s*\\(\\s*int floorSet\\s*,\\s*boolean useDefaults\\s*\\)");
         Codex.Rule missile = rule(generator, "missile", "public static MissileWeapon randomMissile\\s*\\(\\s*int floorSet\\s*,\\s*boolean useDefaults\\s*\\)");
+        String gating = "GameMath.gate(0, floorSet, floorSetTierProbs.length-1)";
         for (Codex.Rule drawn : List.of(armor, weapon, missile)) {
             if (!drawn.expression().contains("Random.chances(floorSetTierProbs[floorSet])")) {
                 throw new IllegalStateException("the " + drawn.what() + " rule no longer draws by the tier literal: " + drawn.expression());
             }
+            if (!drawn.expression().contains(gating)) {
+                throw new IllegalStateException("the " + drawn.what() + " rule no longer gates the floor set to the literal: " + drawn.expression());
+            }
         }
-        int gateLine = generator.block(generator.find("public static Armor randomArmor\\s*\\(\\s*int floorSet\\s*\\)"))
-                .find("GameMath\\.gate\\(0, floorSet, floorSetTierProbs\\.length-1\\)");
+        int gateLine = generator.block(generator.find(armorAnchor)).find("GameMath\\.gate\\(0, floorSet, floorSetTierProbs\\.length-1\\)");
         if (gateLine < 0) {
             throw new IllegalStateException("randomArmor no longer gates the floor set to the literal");
         }
@@ -64,9 +69,9 @@ final class Tiers {
         if (tiers < 0 || missiles < 0) {
             throw new IllegalStateException("Generator declares no wepTiers or misTiers");
         }
-        weapon = new Codex.Rule("weapon", weapon.expression() + " where wepTiers: " + Sources.text(generator.block(tiers)), weapon.citation());
-        missile = new Codex.Rule("missile", missile.expression() + " where misTiers: " + Sources.text(generator.block(missiles)), missile.citation());
-        return new Codex.Tiers(rows, generator.citation(literal), gate, armor, weapon, missile);
+        List<Codex.Rule> arrays = List.of(new Codex.Rule("wepTiers", Sources.text(generator.block(tiers)), generator.citation(tiers)),
+                new Codex.Rule("misTiers", Sources.text(generator.block(missiles)), generator.citation(missiles)));
+        return new Codex.Tiers(rows, generator.citation(literal), gate, armor, weapon, missile, arrays);
     }
 
     private static Codex.Rule rule(Sources.Body generator, String what, String anchor) {

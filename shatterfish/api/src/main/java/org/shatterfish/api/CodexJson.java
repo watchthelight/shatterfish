@@ -393,8 +393,6 @@ public final class CodexJson {
     public static String guarantees(Codex.Guarantees guarantees) {
         Objects.requireNonNull(guarantees, "guarantees");
         StringBuilder text = new StringBuilder("{\n");
-        JsonWriter head = new JsonWriter();
-        head.beginObject();
         text.append("\"bossCitation\":").append(citationJson(guarantees.bossCitation())).append(",\n");
         text.append("\"bossDepths\":").append(ints(guarantees.bossDepths())).append(",\n");
         text.append("\"counters\":").append(strings(guarantees.counters())).append(",\n");
@@ -431,9 +429,24 @@ public final class CodexJson {
             text.append("  ").append(out.toJson()).append(i + 1 == drops.size() ? "\n" : ",\n");
         }
         text.append("],\n");
+        text.append("\"gateExpression\":").append(string(guarantees.gateExpression())).append(",\n");
         text.append("\"noScrollsCitation\":").append(citationJson(guarantees.noScrollsCitation())).append(",\n");
         text.append("\"noScrollsExpression\":").append(string(guarantees.noScrollsExpression())).append(",\n");
-        text.append("\"placementCitation\":").append(citationJson(guarantees.placementCitation())).append("\n");
+        text.append("\"placementCitation\":").append(citationJson(guarantees.placementCitation())).append(",\n");
+        text.append("\"placements\":[\n");
+        List<Codex.Placement> placements = guarantees.placements();
+        for (int i = 0; i < placements.size(); i++) {
+            Codex.Placement placement = placements.get(i);
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("depth").value(placement.depth());
+            out.key("levelClass").value(placement.levelClass());
+            out.key("placesSpawnList").value(placement.placesSpawnList());
+            citation(out, placement.citation());
+            out.endObject();
+            text.append("  ").append(out.toJson()).append(i + 1 == placements.size() ? "\n" : ",\n");
+        }
+        text.append("]\n");
         text.append("}\n");
         return text.toString();
     }
@@ -443,6 +456,17 @@ public final class CodexJson {
         Objects.requireNonNull(tiers, "tiers");
         StringBuilder text = new StringBuilder("{\n");
         text.append("\"armor\":").append(rule(tiers.armor())).append(",\n");
+        JsonWriter arrays = new JsonWriter();
+        arrays.beginArray();
+        for (Codex.Rule array : tiers.arrays()) {
+            arrays.beginObject();
+            arrays.key("what").value(array.what());
+            arrays.key("expression").value(array.expression());
+            citation(arrays, array.citation());
+            arrays.endObject();
+        }
+        arrays.endArray();
+        text.append("\"arrays\":").append(arrays.toJson()).append(",\n");
         text.append("\"citation\":").append(citationJson(tiers.citation())).append(",\n");
         text.append("\"gate\":").append(rule(tiers.gate())).append(",\n");
         text.append("\"missile\":").append(rule(tiers.missile())).append(",\n");
@@ -473,6 +497,7 @@ public final class CodexJson {
     public static String rooms(Codex.Rooms rooms) {
         Objects.requireNonNull(rooms, "rooms");
         StringBuilder text = new StringBuilder("{\n");
+        text.append("\"baseSecretsPerRegionThousandths\":").append(ints(rooms.baseSecretsPerRegionThousandths())).append(",\n");
         text.append("\"lists\":[\n");
         List<Codex.RoomList> lists = rooms.lists();
         for (int i = 0; i < lists.size(); i++) {
@@ -495,7 +520,6 @@ public final class CodexJson {
         roomRows(text, rooms.secrets());
         text.append("],\n");
         text.append("\"secretsCitation\":").append(citationJson(rooms.secretsCitation())).append(",\n");
-        text.append("\"secretsPerRegionPerMille\":").append(ints(rooms.secretsPerRegionPerMille())).append(",\n");
         text.append("\"specials\":[\n");
         roomRows(text, rooms.specials());
         text.append("]\n");
@@ -515,6 +539,8 @@ public final class CodexJson {
                 out.beginObject();
                 out.key("className").value(spawn.className());
                 out.key("count").value(spawn.count());
+                out.key("conditional").value(spawn.conditional());
+                out.key("floorDrop").value(spawn.floorDrop());
                 citation(out, spawn.citation());
                 out.endObject();
             }

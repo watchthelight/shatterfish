@@ -161,7 +161,7 @@ class JsonRenderingTest {
             "Codex$Weighted", "Codex$CategoryEntry", "Codex$Label", "Codex$LabelPool", "Codex$ExoticPair", "Codex$ExoticSwap",
             "Codex$Decks", "Codex$Strength", "Codex$ItemEntry",
             // The guarantees, the tiers and the rooms (story 2.4).
-            "Codex$ScheduleEntry", "Codex$DropSchedule", "Codex$Guarantees", "Codex$TierRow", "Codex$Rule", "Codex$Tiers",
+            "Codex$ScheduleEntry", "Codex$DropSchedule", "Codex$Guarantees", "Codex$Placement", "Codex$TierRow", "Codex$Rule", "Codex$Tiers",
             "Codex$Spawn", "Codex$Draw", "Codex$RoomEntry", "Codex$RoomList", "Codex$Rooms");
 
     @Test

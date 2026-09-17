@@ -36,8 +36,9 @@ appearance-label pools, and the exotic swap with its chance. Story 2.4 adds `gua
 every limited drop the level's creation decides (the strength potions, the upgrade scrolls,
 the styli, the two stones, the trinket catalyst, the laboratory) as the game's method text and
 as a schedule, the exact chance for every depth and counter state that the drop is needed and
-placed, with the boss floors and the Forbidden Runes rule; `tiers.json`, the floor-set tier
-table with the armor, weapon and missile rules that draw by it; and `rooms.json`, the special
-and secret rooms with the game's lists, what each adds to the floor (keys, solution potions)
-and what it draws. The tables that follow are their stories', and this page is replaced by the
+placed, with what level class each floor of the main branch is and whether it places the floor's
+spawn list at all, and the Forbidden Runes rule; `tiers.json`, the floor-set tier table with the
+armor, weapon and missile rules that draw by it; and `rooms.json`, the special and secret rooms
+with the game's lists, what each puts on the floor (keys, solution potions, a honeypot at a
+coin) and what it draws. The tables that follow are their stories', and this page is replaced by the
 generator's index when story 2.9 renders it.

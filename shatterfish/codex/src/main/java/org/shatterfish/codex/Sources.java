@@ -279,17 +279,39 @@ final class Sources {
         return new Body(path, lines, 0, lines.size(), name);
     }
 
-    /** A block's body as one line: its statements between the braces, comments stripped, blank lines dropped, whitespace collapsed. */
+    /**
+     * A block's body as one line: its statements between the braces, comments stripped (a
+     * {@code //} to the end of its line and a {@code /* *}{@code /} wherever it runs, so that a
+     * comment a later tag adds inside a pinned method is not mistaken for the method moving),
+     * blank lines dropped, whitespace collapsed.
+     */
     static String text(Body block) {
         List<String> parts = new ArrayList<>();
+        boolean inBlockComment = false;
         for (int i = block.from() + 1; i < block.to() - 1; i++) {
-            String line = stripComment(block.lines().get(i)).trim();
-            if (!line.isEmpty()) {
-                parts.add(line);
+            StringBuilder line = new StringBuilder();
+            String source = block.lines().get(i);
+            for (int c = 0; c < source.length(); c++) {
+                if (inBlockComment) {
+                    if (source.startsWith("*/", c)) {
+                        inBlockComment = false;
+                        c++;
+                    }
+                } else if (source.startsWith("/*", c)) {
+                    inBlockComment = true;
+                    c++;
+                } else if (source.startsWith("//", c)) {
+                    break;
+                } else {
+                    line.append(source.charAt(c));
+                }
+            }
+            String text = line.toString().trim();
+            if (!text.isEmpty()) {
+                parts.add(text);
             }
         }
-        String joined = String.join(" ", parts);
-        return joined.replaceAll("\\s+", " ").trim();
+        return String.join(" ", parts).replaceAll("\\s+", " ").trim();
     }
 
     /** A method's block and declaration line in the class that declares it. */

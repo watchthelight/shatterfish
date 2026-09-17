@@ -1,10 +1,16 @@
 package org.shatterfish.codex;
 
+import com.shatteredpixel.shatteredpixeldungeon.Challenges;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.items.Generator;
 import com.shatteredpixel.shatteredpixeldungeon.items.armor.Armor;
 import com.shatteredpixel.shatteredpixeldungeon.items.weapon.melee.MeleeWeapon;
 import com.shatteredpixel.shatteredpixeldungeon.items.weapon.missiles.MissileWeapon;
+import com.shatteredpixel.shatteredpixeldungeon.levels.LastLevel;
+import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
+import com.shatteredpixel.shatteredpixeldungeon.levels.RegularLevel;
+import com.shatteredpixel.shatteredpixeldungeon.levels.SewerBossLevel;
+import com.shatteredpixel.shatteredpixeldungeon.levels.SewerLevel;
 import com.shatteredpixel.shatteredpixeldungeon.levels.rooms.Room;
 import com.shatteredpixel.shatteredpixeldungeon.levels.rooms.secret.SecretRoom;
 import com.shatteredpixel.shatteredpixeldungeon.levels.rooms.special.SpecialRoom;
@@ -22,6 +28,7 @@ import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -36,8 +43,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GuaranteeArithmeticTest {
 
     private static final Path ROOT = CodexSeedFreeTest.ROOT;
-    private static final int SAMPLES = 2000;
-    private static final int TOLERANCE = 45;
+    private static final int SAMPLES = 8000;
+
+    /**
+     * Four standard deviations of the sampled share at {@code perMille}, in thousandths, and
+     * never less than ten: a flat band would be far wider than the gap between the adjacent
+     * chances a mirror can be wrong by (one in seven against one in eight is eighteen
+     * thousandths), so the band is the one the sample size earns.
+     */
+    private static int tolerance(int perMille) {
+        double p = perMille / 1000.0;
+        return (int) Math.max(10, Math.ceil(4000 * Math.sqrt(p * (1 - p) / SAMPLES)));
+    }
 
     @Test
     @DisplayName("every schedule entry reproduces the game's own decision at that depth and counter, sampled under a seeded generator")
@@ -73,12 +90,17 @@ class GuaranteeArithmeticTest {
                             assertEquals(SAMPLES, hits, state + " is always needed, and the game said no");
                         } else {
                             int observed = (int) Math.round(1000.0 * hits / SAMPLES);
-                            assertTrue(Math.abs(observed - entry.neededPerMille()) <= TOLERANCE,
-                                    state + ": the game says " + observed + " per mille, the table " + entry.neededPerMille());
+                            int band = tolerance(entry.neededPerMille());
+                            assertTrue(Math.abs(observed - entry.neededPerMille()) <= band,
+                                    state + ": the game says " + observed + " per mille, the table " + entry.neededPerMille() + " (band " + band + ")");
                         }
-                        assertEquals(guarantees.bossDepths().contains(entry.depth()) ? 0 : entry.neededPerMille(), entry.placedPerMille(), state + " placed");
-                        int noScrolls = drop.name().equals("UPGRADE_SCROLLS") && (entry.count() + 1) % 2 == 0 ? 0 : entry.placedPerMille();
-                        assertEquals(noScrolls, entry.placedNoScrollsPerMille(), state + " under Forbidden Runes");
+                        // The floor that places is the level class the main branch builds there.
+                        assertEquals(guarantees.placements().get(entry.depth() - 1).placesSpawnList() ? entry.neededPerMille() : 0,
+                                entry.placedPerMille(), state + " placed");
+                        // Forbidden Runes: the game's own condition, with the counter as the level
+                        // leaves it (the placement increments before the check).
+                        assertEquals(placesUnderNoScrolls(drop, entry) ? entry.placedPerMille() : 0, entry.placedNoScrollsPerMille(),
+                                state + " under Forbidden Runes");
                         states++;
                     }
                     assertEquals(Guarantees.MAX_DEPTH * (maxCount(drop) + 1), states, drop.name() + " covers every depth and counter state");
@@ -88,6 +110,56 @@ class GuaranteeArithmeticTest {
             }
         } finally {
             Dungeon.depth = depthBefore;
+        }
+    }
+
+    /**
+     * Whether the game places this drop with Forbidden Runes on, asked of the game's own
+     * condition with the counter where the placement leaves it. Only the upgrade scrolls are
+     * withheld; every other drop's placement block names no challenge.
+     */
+    private static boolean placesUnderNoScrolls(Codex.DropSchedule drop, Codex.ScheduleEntry entry) {
+        if (!drop.name().equals("UPGRADE_SCROLLS")) {
+            return true;
+        }
+        int challengesBefore = Dungeon.challenges;
+        int countBefore = Dungeon.LimitedDrops.UPGRADE_SCROLLS.count;
+        try {
+            Dungeon.challenges = Challenges.NO_SCROLLS;
+            Dungeon.LimitedDrops.UPGRADE_SCROLLS.count = entry.count() + 1;
+            return !Dungeon.isChallenged(Challenges.NO_SCROLLS) || Dungeon.LimitedDrops.UPGRADE_SCROLLS.count % 2 != 0;
+        } finally {
+            Dungeon.challenges = challengesBefore;
+            Dungeon.LimitedDrops.UPGRADE_SCROLLS.count = countBefore;
+        }
+    }
+
+    @Test
+    @DisplayName("a floor places the spawn list only where the level class the main branch builds inherits the regular level's item placement")
+    void the_placements_are_the_games() {
+        Codex.Guarantees guarantees = Guarantees.read(ROOT);
+        assertEquals(26, guarantees.placements().size(), "the main branch's switch names every floor to the amulet");
+        Map<Integer, Codex.Placement> byDepth = new TreeMap<>();
+        for (Codex.Placement placement : guarantees.placements()) {
+            byDepth.put(placement.depth(), placement);
+        }
+        assertEquals("levels.SewerLevel", byDepth.get(1).levelClass());
+        assertEquals("levels.SewerBossLevel", byDepth.get(5).levelClass());
+        assertEquals("levels.LastLevel", byDepth.get(26).levelClass());
+        assertTrue(byDepth.get(1).placesSpawnList(), "a sewer floor places the list");
+        assertFalse(byDepth.get(5).placesSpawnList(), "a boss floor does not");
+        assertFalse(byDepth.get(26).placesSpawnList(), "the amulet floor runs the gate and places none of it");
+        // The type is the game's: a boss level is a level of its chapter and still places nothing,
+        // so the table cannot be read off the class hierarchy alone.
+        assertTrue(RegularLevel.class.isAssignableFrom(SewerLevel.class));
+        assertTrue(RegularLevel.class.isAssignableFrom(SewerBossLevel.class), "a sewer boss level is a regular level by type");
+        assertFalse(RegularLevel.class.isAssignableFrom(LastLevel.class));
+        assertTrue(Level.class.isAssignableFrom(LastLevel.class));
+        assertTrue(Guarantees.placesSpawnList(ROOT, SewerLevel.class));
+        assertFalse(Guarantees.placesSpawnList(ROOT, SewerBossLevel.class), "it declares its own createItems and never empties the list");
+        assertFalse(Guarantees.placesSpawnList(ROOT, LastLevel.class));
+        for (int depth : guarantees.bossDepths()) {
+            assertFalse(byDepth.get(depth).placesSpawnList(), "the boss floor at depth " + depth + " places nothing");
         }
     }
 
@@ -127,9 +199,11 @@ class GuaranteeArithmeticTest {
                 Random.pushGenerator(2_718_281L + row.floorSet());
                 try {
                     for (int i = 0; i < samples; i++) {
+                        // The default decks, so that a Run that drew earlier in this JVM cannot
+                        // move what the tiers are sampled from.
                         Armor armor = Generator.randomArmor(row.floorSet());
-                        MeleeWeapon weapon = Generator.randomWeapon(row.floorSet());
-                        MissileWeapon missile = Generator.randomMissile(row.floorSet());
+                        MeleeWeapon weapon = Generator.randomWeapon(row.floorSet(), true);
+                        MissileWeapon missile = Generator.randomMissile(row.floorSet(), true);
                         armors[armor.tier]++;
                         weapons[weapon.tier]++;
                         missiles[missile.tier]++;
@@ -171,6 +245,18 @@ class GuaranteeArithmeticTest {
     @Test
     @DisplayName("the room lists are the game's: the crystal-key specials as the game publishes them, the queues as a Run's shuffle fills them")
     void the_room_lists_are_the_games() {
+        List<Class<? extends Room>> specialsBefore = List.copyOf(SpecialRoom.runSpecials);
+        List<Class<? extends SecretRoom>> secretsBefore = List.copyOf(SecretRoom.runSecrets);
+        try {
+            theRoomListsAreTheGames();
+        } finally {
+            // The queues are statics of the JVM and another test's Run may be using them.
+            SpecialRoom.runSpecials = new java.util.ArrayList<>(specialsBefore);
+            SecretRoom.runSecrets = new java.util.ArrayList<>(secretsBefore);
+        }
+    }
+
+    private void theRoomListsAreTheGames() {
         Codex.Rooms rooms = Rooms.read(ROOT);
         Map<String, Codex.RoomList> lists = new TreeMap<>();
         for (Codex.RoomList list : rooms.lists()) {
@@ -194,13 +280,15 @@ class GuaranteeArithmeticTest {
         rooms.specials().forEach(r -> table.add(r.className()));
         rooms.secrets().forEach(r -> table.add(r.className()));
         assertEquals(table, all, "every room in the table is in a list and every listed room is in the table");
-        assertEquals(List.of(2000, 2250, 2500, 2750, 3000), rooms.secretsPerRegionPerMille());
+        assertEquals(List.of(2000, 2250, 2500, 2750, 3000), rooms.baseSecretsPerRegionThousandths(),
+                "a count of secret rooms per region times a thousand, the fraction the chance of one more");
     }
 
     @Test
     @DisplayName("a mirror whose pinned text is not the method's fails the generation naming the method and both texts")
     void a_moved_mirror_fails() {
         Sources.Body dungeon = Sources.file(ROOT, Guarantees.DUNGEON);
+        assertEquals(26, Guarantees.placements(ROOT, dungeon).size());
         int line = Guarantees.pinned(dungeon, "souNeeded", "public static boolean souNeeded\\s*\\(\\s*\\)", Guarantees.SOU);
         assertTrue(line > 0);
         IllegalStateException moved = org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
