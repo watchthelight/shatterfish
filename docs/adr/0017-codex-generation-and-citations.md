@@ -562,3 +562,39 @@ are carried in the order the game's own static block puts them in, which is what
 to the game. A hint is optional: only a document a player has to find carries one.
 
 Codex version 7.
+
+## Amendment: story 2.8 (2026-09-19)
+
+**A second pinned source, read and never built.** The vocabulary diff needs the game this one
+descends from, because most of what is written about Pixel Dungeon on the internet is about the
+original and a claim true there may be false here. So the Codex pins a second tree:
+`00-Evan/pixel-dungeon-gradle` at its only tag, `archive`, recorded in `vanilla.pin` and put under
+`vanilla-src/` by `tools/fetch-vanilla.sh`, which continuous integration runs too. That tree is
+never merged, never built, never on a compile path, and no module imports it — the gate that bans
+the toolkit's package already bans it, and the leak test holds the rest. It spends no row of the
+hook budget, because it is not a hook: nothing in it is edited, only read.
+
+**The join is by the words a player sees.** A forum post says "a marsupial rat", not a class name,
+and the two games share almost no class names anyway. So a row is a display name, matched without
+regard to case since one game capitalises its potions and the other does not, and each side keeps
+its own spelling. The classes are what a row cites: more than one where a game gives two classes
+one name.
+
+**The other game states what it is in its own initialiser.** It has no bundles: a class writes
+`name = "marsupial rat";` and its health and defence beside it, and writes its rolls as methods. A
+subclass there changes one number and inherits the rest, so a fact a class does not state is read
+from the class it extends and cited there. Without that walk an albino rat reads as a mob that
+states nothing, and the row has nothing to set against this game's.
+
+**A mechanic is compared only where both games state the same kind of fact.** Health and defence
+are plain numbers on both sides, so a row can say the two differ and by how much. A roll this game
+measures and the other writes as a method is carried as the text each states and marked as not
+comparable — the row says what each game says and judges nothing. An item carries names only: a
+weapon's numbers there are constructor arguments and a potion's are its own method, and calling
+those one measurement would be exactly the folklore this epic exists to prevent.
+
+**The table says what it is for.** Nothing reads it. It is the input the variant classifier of
+epic 7 will use, and the table states that of itself rather than leaving a reader to wonder why a
+Codex file has no consumer.
+
+Codex version 8.
