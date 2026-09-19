@@ -190,6 +190,47 @@ class CodexCompletenessTest {
     }
 
     @Test
+    @DisplayName("every class of either game that names itself is in the vocabulary diff, and every name is there once")
+    void every_name_either_game_gives_is_listed() {
+        Codex.Vocabulary vocabulary = Vocabulary.read(ROOT, Text.entries(ROOT), Mobs.entries(ROOT), Items.entries(ROOT));
+        TreeSet<String> rows = new TreeSet<>();
+        for (Codex.VocabularyEntry entry : vocabulary.entries()) {
+            assertTrue(rows.add(entry.kind() + " " + entry.name()), entry.name() + " is listed twice");
+        }
+        // Every class of the other game that names itself, against the classes the diff cites on
+        // that side: a class dropped by the reader would otherwise be a name nobody misses.
+        TreeSet<String> named = new TreeSet<>();
+        for (Vanilla.Named mob : Vanilla.mobs(ROOT)) {
+            named.add(mob.className());
+        }
+        for (Vanilla.Named item : Vanilla.items(ROOT)) {
+            named.add(item.className());
+        }
+        TreeSet<String> cited = new TreeSet<>();
+        for (Codex.VocabularyEntry entry : vocabulary.entries()) {
+            if (entry.there() != null) {
+                cited.addAll(entry.there().classNames());
+            }
+        }
+        assertEquals(named, cited, "every class of the other game that names itself is a side of some row");
+        assertTrue(named.size() > 100, "the other game names this many things: " + named.size());
+        // And every name this game gives a mob is a side of some row too.
+        TreeSet<String> ours = new TreeSet<>();
+        for (Codex.StringEntry entry : Text.entries(ROOT)) {
+            if (entry.suffix().equals("name") && entry.className().startsWith("actors.mobs.")) {
+                ours.add(entry.className());
+            }
+        }
+        TreeSet<String> here = new TreeSet<>();
+        for (Codex.VocabularyEntry entry : vocabulary.entries()) {
+            if (entry.here() != null && entry.kind().equals("mob")) {
+                here.addAll(entry.here().classNames());
+            }
+        }
+        assertEquals(ours, here, "every mob this game names is a side of some row");
+    }
+
+    @Test
     @DisplayName("every line of every bundle the game searches is in the strings table once, with the class its key names")
     void every_string_is_listed() {
         List<Codex.StringEntry> strings = Text.entries(ROOT);

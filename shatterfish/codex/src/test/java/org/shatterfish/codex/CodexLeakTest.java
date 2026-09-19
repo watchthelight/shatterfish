@@ -672,6 +672,62 @@ class CodexLeakTest {
     }
 
     @Test
+    @DisplayName("the vocabulary diff is the two games': what each calls a thing, what each states about it, and what neither judges")
+    void the_vocabulary_diff_is_the_two_games() throws IOException {
+        Path root = CodexSeedFreeTest.ROOT;
+        Codex.Vocabulary vocabulary = Vocabulary.read(root, Text.entries(root), Mobs.entries(root), Items.entries(root));
+        assertEquals("v4.0.0", vocabulary.tag());
+        assertEquals("archive", vocabulary.vanillaTag(), "the other game's only tag");
+        Map<String, Codex.VocabularyEntry> rows = new java.util.TreeMap<>();
+        for (Codex.VocabularyEntry entry : vocabulary.entries()) {
+            rows.put(entry.kind() + " " + entry.name(), entry);
+        }
+        assertEquals(445, rows.size(), "every name either game gives a mob or an item");
+        assertEquals(105, vocabulary.entries().stream().filter(Codex.VocabularyEntry::shared).count(),
+                "the names both games give");
+        assertEquals(39, vocabulary.entries().stream().filter(e -> e.here() == null).count(),
+                "the names only the other game gives");
+        assertEquals(301, vocabulary.entries().stream().filter(e -> e.there() == null).count(),
+                "the names only this game gives");
+        Codex.VocabularyEntry rat = rows.get("mob albino rat");
+        assertEquals("12", difference(rat, "health").here());
+        assertEquals("15", difference(rat, "health").there());
+        assertTrue(difference(rat, "health").comparable());
+        assertFalse(difference(rat, "damageRoll").comparable(),
+                "a roll one game writes as a method and the other measures is carried, not resolved");
+        assertTrue(rows.get("item dew vial").there() != null && rows.get("item dew vial").here() == null,
+                "the other game keeps dew in a vial and this one does not");
+        assertTrue(rows.get("mob crystal guardian").here() != null && rows.get("mob crystal guardian").there() == null,
+                "and this game has mobs the other never had");
+        assertEquals(0, vocabulary.entries().stream().filter(e -> !e.shared() && !e.differences().isEmpty()).count(),
+                "only a name both games give can have a difference between them");
+        assertEquals(0, vocabulary.entries().stream().filter(e -> e.kind().equals("item") && !e.differences().isEmpty()).count(),
+                "the two games state an item's numbers in shapes the table will not pretend are one");
+        for (Codex.VocabularyEntry entry : vocabulary.entries()) {
+            if (entry.there() != null) {
+                for (Codex.Citation citation : entry.there().citations()) {
+                    assertTrue(citation.path().startsWith(Sources.VANILLA_ROOT), citation.reference());
+                    assertTrue(lineOf(root, citation).contains("name"), citation.reference() + " names " + entry.name());
+                }
+                for (Codex.Rule fact : entry.there().facts()) {
+                    assertTrue(fact.citation().path().startsWith(Sources.VANILLA_ROOT), fact.citation().reference());
+                }
+            }
+            if (entry.here() != null) {
+                for (Codex.Citation citation : entry.here().citations()) {
+                    assertFalse(citation.path().startsWith(Sources.VANILLA_ROOT),
+                            "this game is cited in its own tree: " + citation.reference());
+                }
+            }
+        }
+    }
+
+    /** One mechanic of one row, for a message that names it. */
+    private static Codex.MechanicDifference difference(Codex.VocabularyEntry entry, String what) {
+        return entry.differences().stream().filter(d -> d.what().equals(what)).findFirst().orElseThrow();
+    }
+
+    @Test
     @DisplayName("the strings, the assets, the version record and the documents are the game's: its own words, its own files, its own dates")
     void the_text_and_the_version_record_are_the_games() {
         Path root = CodexSeedFreeTest.ROOT;
