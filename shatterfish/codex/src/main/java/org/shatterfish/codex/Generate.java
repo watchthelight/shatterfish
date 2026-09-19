@@ -126,6 +126,8 @@ public final class Generate {
         tables.put("assets.json", CodexJson.assets(AssetIndex.entries(root)));
         tables.put("changelog.json", CodexJson.changelog(Changelog.version(root), Changelog.entries(root, strings)));
         tables.put("documents.json", CodexJson.documents(Documents.entries(root)));
+        tables.put("vocabulary.json", CodexJson.vocabulary(
+                Vocabulary.read(root, strings, Mobs.entries(root), Items.entries(root))));
         Map<String, String> files = new LinkedHashMap<>();
         files.put(MANIFEST, CodexJson.manifest(manifest(Upstream.tag(root), tables.keySet())));
         files.putAll(tables);
