@@ -1,0 +1,15 @@
+# The second pinned source of the Codex (story 2.8, PRD section 11, FR-16).
+#
+# Vanilla Pixel Dungeon, read only: the vocabulary diff needs a side to compare this
+# fork against, and a forum claim about "a marsupial rat" is a claim about this game,
+# not about Shattered Pixel Dungeon. Nothing here is ever built, compiled against, or
+# imported by a Shatterfish module; the generator reads its source text and cites it.
+#
+# The repository carries exactly one tag, so the tag chose itself. GPL-3.0, by Watabou,
+# packaged for gradle by 00-Evan. `tools/fetch-vanilla.sh` puts it under `vanilla-src/`,
+# which is not committed; continuous integration runs the same script.
+
+repository=https://github.com/00-Evan/pixel-dungeon-gradle.git
+tag=archive
+commit=6fffc0768905b5b1f167a05df7274acc10a7ae34
+folder=vanilla-src
