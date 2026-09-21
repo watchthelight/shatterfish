@@ -112,11 +112,15 @@ public final class Generate {
         tables.put("recipes.json", CodexJson.recipes(Recipes.entries(root)));
         tables.put("traps.json", CodexJson.traps(Traps.entries(root), Traps.pools(root, List.<Class<?>>copyOf(Guarantees.LEVELS))));
         tables.put("hero-classes.json", CodexJson.heroClasses(heroClasses(root)));
-        tables.put("mobs.json", CodexJson.mobs(Mobs.entries(root)));
+        // The mobs and the items are read once each for the same reason as the strings below:
+        // three tables need them, and three readings are three lists that must agree.
+        List<Codex.MobEntry> mobs = Mobs.entries(root);
+        List<Codex.ItemEntry> items = Items.entries(root);
+        tables.put("mobs.json", CodexJson.mobs(mobs));
         tables.put("spawn-rotation.json", CodexJson.spawnRotation(Rotation.read(root, Mobs.canonicalNames())));
         tables.put("decks.json", CodexJson.decks(Decks.read(root)));
         tables.put("guarantees.json", CodexJson.guarantees(Guarantees.read(root)));
-        tables.put("items.json", CodexJson.items(Items.entries(root)));
+        tables.put("items.json", CodexJson.items(items));
         tables.put("rooms.json", CodexJson.rooms(Rooms.read(root)));
         tables.put("tiers.json", CodexJson.tiers(Tiers.read(root)));
         // The strings are read once and handed to both tables that need them: reading them twice
@@ -126,6 +130,7 @@ public final class Generate {
         tables.put("assets.json", CodexJson.assets(AssetIndex.entries(root)));
         tables.put("changelog.json", CodexJson.changelog(Changelog.version(root), Changelog.entries(root, strings)));
         tables.put("documents.json", CodexJson.documents(Documents.entries(root)));
+        tables.put("vocabulary.json", CodexJson.vocabulary(Vocabulary.read(root, strings, mobs, items)));
         Map<String, String> files = new LinkedHashMap<>();
         files.put(MANIFEST, CodexJson.manifest(manifest(Upstream.tag(root), tables.keySet())));
         files.putAll(tables);

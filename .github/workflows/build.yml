@@ -30,6 +30,12 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # The Codex's second pinned source (story 2.8): vanilla Pixel Dungeon, read only, at
+      # the commit vanilla.pin names. The vocabulary diff reads and cites it, so the drift
+      # check needs it here too. Nothing is built from it.
+      - name: Fetch the vanilla Pixel Dungeon source
+        run: sh tools/fetch-vanilla.sh
+
       # Mobile modules are excluded by default (hook #1, docs/UPSTREAM.md); the
       # ubuntu runner ships an Android SDK, so be explicit that we never want it.
       - name: Build and test all modules

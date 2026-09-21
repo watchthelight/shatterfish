@@ -562,3 +562,68 @@ are carried in the order the game's own static block puts them in, which is what
 to the game. A hint is optional: only a document a player has to find carries one.
 
 Codex version 7.
+
+## Amendment: story 2.8 (2026-09-19)
+
+**A second pinned source, read and never built.** The vocabulary diff needs the game this one
+descends from, because most of what is written about Pixel Dungeon on the internet is about the
+original and a claim true there may be false here. So the Codex pins a second tree:
+`00-Evan/pixel-dungeon-gradle` at its only tag, `archive`, recorded in `vanilla.pin` and put under
+`vanilla-src/` by `tools/fetch-vanilla.sh`, which continuous integration runs too. That tree is
+never merged, never built, never on a compile path, and no module imports it — the gate that bans
+the toolkit's package already bans it, and the leak test holds the rest. It spends no row of the
+hook budget, because it is not a hook: nothing in it is edited, only read.
+
+**The join is by the words a player sees.** A forum post says "a marsupial rat", not a class name,
+and the two games share almost no class names anyway. So a row is a display name, matched without
+regard to case since one game capitalises its potions and the other does not, and each side keeps
+its own spelling. The classes are what a row cites: more than one where a game gives two classes
+one name.
+
+**The other game states what it is in its own initialiser.** It has no bundles: a class writes
+`name = "marsupial rat";` and its health and defence beside it, and writes its rolls as methods. A
+subclass there changes one number and inherits the rest, so a fact a class does not state is read
+from the class it extends and cited there. Without that walk an albino rat reads as a mob that
+states nothing, and the row has nothing to set against this game's.
+
+**Both games are read by one reader, and three rules keep a fact from becoming a guess.** The
+review of this story found the table asserting that the other game has no Goo, no Tengu and no
+rotting fist, and publishing a number for a mob whose cited line says something else. All of it
+came from reading one game more narrowly than the other, so `Stated` now reads both:
+
+- *A field's declaration is not a statement.* `protected int defenseSkill = 0;` in an abstract base
+  declares a field; it does not say a mob has no defence. Only an assignment states anything, and
+  the walk stops at the first class that states the field at all — even where what it states is an
+  expression the table cannot compare. Walking past such a class to an ancestor is how a base
+  class's default came to be published, cited to a line that declares a field.
+- *A name a game chooses when it shows it is still a name.* The other game's bosses write
+  `name = <condition> ? "Goo" : "spawn of Goo";`, so the class contributes both names, and a name
+  statement this reader cannot read stops the generation rather than being passed over. A boss
+  quietly missing is the table asserting the other game does not have it.
+- *A class is what it extends, not where its file sits.* The other game declares its sheep inside a
+  wand and its rotting fist inside its Yog-Dzewa, and this game declares buffs and items inside its
+  mob classes. So nested types are read on both sides, what counts as a mob on this side comes from
+  the mob table, and on the other side from the class's own ancestry.
+
+**A number this game does not state is not published.** Where the mob table records that a mob's
+stats are set after it is built, or that they depend on the run, the class states nothing at
+construction and the row carries nothing — the sentinel zero that stands in for "not yet known" is
+not a claim that a golden bee has no hit points.
+
+**A mechanic is compared only where both games state the same kind of fact.** Health and defence
+are plain numbers on both sides, so a row can say the two differ and by how much. A roll this game
+measures and the other writes as a method is carried as the text each states and marked as not
+comparable — the row says what each game says and judges nothing. An item carries names only: a
+weapon's numbers there are constructor arguments and a potion's are its own method, and calling
+those one measurement would be exactly the folklore this epic exists to prevent.
+
+**A difference is a difference.** Two sides that state a mechanic in the same words do not
+differ, whatever shape those words are in, and a mechanic the two games call by different method
+names — this game's `drRoll` against the other's `dr` — is one mechanic, keyed by what it is rather
+than by what either game calls it.
+
+**The table says what it is for.** Nothing reads it. It is the input the variant classifier of
+epic 7 will use, and the table states that of itself rather than leaving a reader to wonder why a
+Codex file has no consumer.
+
+Codex version 8.

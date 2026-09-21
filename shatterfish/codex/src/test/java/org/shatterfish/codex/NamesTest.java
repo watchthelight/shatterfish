@@ -57,4 +57,24 @@ class NamesTest {
         assertTrue(type.getMessage().contains(Item.class.getName()), type.getMessage());
         assertThrows(java.io.UncheckedIOException.class, () -> Names.lookup(ROOT, "nosuchbundle.x.name"), "a bundle that is not there");
     }
+
+    @Test
+    @DisplayName("a display name is joined on trimmed, its whitespace collapsed, and lower-cased, and is refused where it is not ASCII")
+    void a_display_name_is_normalised_before_it_is_joined_on() {
+        // The vocabulary diff (story 2.8) joins the two games on this, and neither pinned tree
+        // spells a name in a way that exercises the rule: no display name in either game carries
+        // a stray space. So the rule is stated here rather than left to a tree to demonstrate --
+        // an upstream tag that adds one would otherwise split a row in two, silently, and the
+        // table would report a name as belonging to one game alone.
+        assertEquals("potion of healing", Names.display("Potion of Healing"));
+        assertEquals("potion of healing", Names.display("  Potion of Healing  "), "trimmed");
+        assertEquals("gnoll scout", Names.display("gnoll  scout"), "and its inner whitespace collapsed");
+        assertEquals("gnoll scout", Names.display("gnoll\tscout"), "whatever the whitespace is");
+        assertEquals("spawn of goo", Names.display("spawn of Goo"));
+        IllegalStateException outside = assertThrows(IllegalStateException.class, () -> Names.display("café au lait"));
+        assertTrue(outside.getMessage().contains("display name"), outside.getMessage());
+        assertTrue(outside.getMessage().contains("café au lait"), "and names the name it refused: " + outside.getMessage());
+        IllegalStateException blank = assertThrows(IllegalStateException.class, () -> Names.display("   "));
+        assertTrue(blank.getMessage().contains("whitespace"), blank.getMessage());
+    }
 }

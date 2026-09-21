@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: '2026-09-04'
-last_updated: '2026-09-16'
+last_updated: 2026-09-21
 project: shatterfish
 project_key: NOKEY
 tracking_system: file-system
@@ -67,7 +67,7 @@ development_status:
   2-5-measured-combat-tables: done
   2-6-traps-recipes-levels-and-rooms: done
   2-7-text-assets-changelog-and-journal-documents: done
-  2-8-the-vanilla-versus-shattered-vocabulary-diff: backlog
+  2-8-the-vanilla-versus-shattered-vocabulary-diff: review
   2-9-the-drift-check-and-the-generated-documentation: backlog
   2-10-the-citation-checker: backlog
   epic-2-retrospective: optional

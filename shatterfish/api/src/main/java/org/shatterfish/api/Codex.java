@@ -24,9 +24,11 @@ public final class Codex {
      * The Codex version: 1 was the skeleton with the hero classes and the challenge flags; 2 added
      * the mobs and the spawn rotation (story 2.2); 3 added the items and the decks (story 2.3);
      * 4 added the guarantees, the tier tables and the rooms (story 2.4); 5 added the measured
-     * combat tables (story 2.5); 6 adds the traps, the recipes and the level structure (story 2.6).
+     * combat tables (story 2.5); 6 added the traps, the recipes and the level structure (story 2.6);
+     * 7 added the strings, the assets, the changelog and the journal's documents (story 2.7);
+     * 8 adds the vanilla-versus-Shattered vocabulary diff (story 2.8).
      */
-    public static final int VERSION = 7;
+    public static final int VERSION = 8;
 
     /** The shape of an upstream tag: {@code v}, a dotted version, and an optional pre-release suffix. */
     public static final String TAG_PATTERN = "v[0-9]+([.][0-9]+)*(-[A-Za-z0-9.]+)?";
@@ -1093,6 +1095,91 @@ public final class Codex {
         /** Whether a file is actually behind the name, which is the folder being known. */
         public boolean present() {
             return !assetRoot.isEmpty();
+        }
+    }
+
+    /**
+     * One game's side of a name in the vocabulary diff (story 2.8): what that game spells it, the
+     * classes that carry it there (more than one where a game reuses a name), what that game
+     * states about it, and where each of those was read.
+     */
+    public record VocabularySide(String name, List<String> classNames, List<Rule> facts, List<Citation> citations) {
+
+        public VocabularySide {
+            name = Canon.text(name, "a name one game gives");
+            Canon.require(!name.isEmpty(), "a side spells the name it gives");
+            classNames = Canon.positional(classNames, "the classes that carry a name");
+            citations = Canon.positional(citations, "where a name was read");
+            facts = Canon.positional(facts, "what a game states about a name");
+            Canon.require(!classNames.isEmpty(), "a side names the class that carries it");
+            Canon.require(classNames.size() == citations.size(), "a side cites every class it names");
+        }
+    }
+
+    /**
+     * One mechanic two games both state about one name, and how they differ (story 2.8).
+     * {@code comparable} is false where the two write the fact in shapes that cannot be set
+     * against each other — a number on one side and a method's text on the other — in which case
+     * the row carries what each says and judges nothing.
+     */
+    public record MechanicDifference(String what, String here, String there, boolean comparable) {
+
+        public MechanicDifference {
+            what = Canon.text(what, "the mechanic that differs");
+            here = Canon.text(here, "what this game states");
+            there = Canon.text(there, "what the other game states");
+            Canon.require(!what.isEmpty(), "a difference names the mechanic");
+            Canon.require(!here.isEmpty() && !there.isEmpty(), "a difference is between two statements");
+            Canon.require(!comparable || !here.equals(there), "two statements that agree are not a difference");
+        }
+    }
+
+    /**
+     * One name in the vocabulary diff (story 2.8): the kind of thing it names, the name itself as
+     * the join is made (lower-cased, since one game capitalises and the other does not), each
+     * game's side where that game has it, and the mechanics the two state differently.
+     */
+    public record VocabularyEntry(String kind, String name, VocabularySide here, VocabularySide there,
+                                  List<MechanicDifference> differences) {
+
+        public VocabularyEntry {
+            kind = Canon.text(kind, "the kind of thing a name names");
+            name = Canon.text(name, "a name");
+            Canon.require(!kind.isEmpty() && !name.isEmpty(), "a row names a kind and a name");
+            Canon.require(here != null || there != null, "a row is a name at least one game gives");
+            differences = Canon.positional(differences, "the mechanics two games state differently");
+            Canon.require(differences.isEmpty() || (here != null && there != null),
+                    "only a name both games give can have a difference between them");
+            Set<String> seen = new HashSet<>();
+            for (MechanicDifference difference : differences) {
+                Canon.require(seen.add(difference.what()), "a mechanic once per row: " + difference.what());
+            }
+        }
+
+        /** Whether both games give this name, which is what makes a difference meaningful. */
+        public boolean shared() {
+            return here != null && there != null;
+        }
+    }
+
+    /**
+     * The vocabulary diff (story 2.8): every name either game gives a mob or an item, each game's
+     * tag, and what the table is for. Nothing reads it yet, which the table says of itself.
+     */
+    public record Vocabulary(List<VocabularyEntry> entries, String tag, String vanillaTag, String consumer) {
+
+        public Vocabulary {
+            tag = Canon.text(tag, "this game's tag");
+            vanillaTag = Canon.text(vanillaTag, "the other game's tag");
+            consumer = Canon.text(consumer, "what the diff is for");
+            Canon.require(!tag.isEmpty() && !vanillaTag.isEmpty(), "the diff names both pinned sources");
+            Canon.require(!consumer.isEmpty(), "the diff says what it is for");
+            entries = Canon.positional(entries, "the names either game gives");
+            Canon.require(!entries.isEmpty(), "the two games name things");
+            Set<String> seen = new HashSet<>();
+            for (VocabularyEntry entry : entries) {
+                Canon.require(seen.add(entry.kind() + " " + entry.name()), "a name once per kind: " + entry.name());
+            }
         }
     }
 

@@ -13,6 +13,7 @@ You are the sole engineer; the human (watchthelight, "Bash" in BMAD config) is p
 ./gradlew :harness:test                    # fairness + determinism tests (E1 onward)
 ./gradlew :desktop:debug                   # the unmodified game (`run` has no version properties and dies in the launcher)
 ./gradlew build -Pshatterfish.mobile=on    # only if you really want upstream's android/ios modules
+sh tools/fetch-vanilla.sh                  # the Codex's second pinned source (E2); `build` needs it
 ./gradlew :codex:generate                  # regenerate codex/<tag>/ (E2); CI fails on drift
 ./gradlew :rig:run --args="..."            # the rig (E3); see /rig
 uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict   # docs, as CI runs it

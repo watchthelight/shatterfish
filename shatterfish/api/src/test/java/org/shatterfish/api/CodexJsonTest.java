@@ -19,6 +19,15 @@ class CodexJsonTest {
 
     private static final Codex.Citation AT = new Codex.Citation("core/src/main/java/X.java", 7);
     private static final String CITE = "\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"}";
+    private static final String GOLDEN_VOCABULARY = "{\n"
+            + "\"consumer\":\"the input the epic 7 variant classifier will use; nothing reads it yet\",\n"
+            + "\"entries\":[\n"
+            + "  {\"differences\":[{\"comparable\":true,\"here\":\"12\",\"there\":\"15\",\"what\":\"health\"}],\"here\":{\"citations\":[{\"line\":7,\"path\":\"core/src/main/java/X.java\"}],\"classNames\":[\"actors.mobs.Albino\"],\"facts\":[{\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"expression\":\"12\",\"what\":\"health\"}],\"name\":\"albino rat\"},\"kind\":\"mob\",\"name\":\"albino rat\",\"shared\":true,\"there\":{\"citations\":[{\"line\":7,\"path\":\"core/src/main/java/X.java\"}],\"classNames\":[\"actors.mobs.Albino\"],\"facts\":[{\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"expression\":\"15\",\"what\":\"health\"}],\"name\":\"albino rat\"}},\n"
+            + "  {\"differences\":[],\"here\":{\"citations\":[{\"line\":7,\"path\":\"core/src/main/java/X.java\"}],\"classNames\":[\"items.trinkets.TrinketCatalyst\"],\"facts\":[],\"name\":\"trinket catalyst\"},\"kind\":\"item\",\"name\":\"trinket catalyst\",\"shared\":false}\n"
+            + "],\n"
+            + "\"tag\":\"v4.0.0\",\n"
+            + "\"vanillaTag\":\"archive\"\n"
+            + "}\n";
     private static final String GOLDEN_STRINGS = "[\n"
             + "  {\"bundle\":\"messages/items/items.properties\",\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"className\":\"items.armor.PlateArmor\",\"key\":\"items.armor.platearmor.name\",\"reason\":\"\",\"suffix\":\"name\",\"value\":\"plate armor\"},\n"
             + "  {\"bundle\":\"messages/windows/windows.properties\",\"citation\":{\"line\":7,\"path\":\"core/src/main/java/X.java\"},\"className\":\"\",\"key\":\"windows.wndclass.mastery\",\"reason\":\"no class the game compiles has this key's name\",\"suffix\":\"windows.wndclass.mastery\",\"value\":\"Mastery\"}\n"
@@ -80,7 +89,7 @@ class CodexJsonTest {
     @DisplayName("the manifest renders its version, its tag and its tables, keys and tables sorted")
     void the_manifest_renders() {
         Codex.Manifest manifest = new Codex.Manifest(Codex.VERSION, "v4.0.0", List.of("hero-classes.json", "challenges.json"));
-        assertEquals("{\"codexVersion\":7,\"tables\":[\"challenges.json\",\"hero-classes.json\"],\"upstreamTag\":\"v4.0.0\"}\n",
+        assertEquals("{\"codexVersion\":8,\"tables\":[\"challenges.json\",\"hero-classes.json\"],\"upstreamTag\":\"v4.0.0\"}\n",
                 CodexJson.manifest(manifest));
         assertEquals("v4.1.0-beta2", new Codex.Manifest(1, "v4.1.0-beta2", List.of()).upstreamTag(), "a pre-release tag is a tag");
     }
@@ -465,6 +474,55 @@ class CodexJsonTest {
         assertThrows(NullPointerException.class, () -> CodexJson.guarantees(null));
         assertThrows(NullPointerException.class, () -> CodexJson.tiers(null));
         assertThrows(NullPointerException.class, () -> CodexJson.rooms(null));
+    }
+
+    @Test
+    @DisplayName("the vocabulary diff renders one name per line with each game's side, and refuses a difference between two games that agree")
+    void the_vocabulary_renders() {
+        Codex.VocabularySide here = new Codex.VocabularySide("albino rat", List.of("actors.mobs.Albino"),
+                List.of(new Codex.Rule("health", "12", AT)), List.of(AT));
+        Codex.VocabularySide there = new Codex.VocabularySide("albino rat", List.of("actors.mobs.Albino"),
+                List.of(new Codex.Rule("health", "15", AT)), List.of(AT));
+        Codex.VocabularyEntry shared = new Codex.VocabularyEntry("mob", "albino rat", here, there,
+                List.of(new Codex.MechanicDifference("health", "12", "15", true)));
+        Codex.VocabularyEntry ours = new Codex.VocabularyEntry("item", "trinket catalyst",
+                new Codex.VocabularySide("trinket catalyst", List.of("items.trinkets.TrinketCatalyst"), List.of(), List.of(AT)),
+                null, List.of());
+        Codex.Vocabulary vocabulary = new Codex.Vocabulary(List.of(shared, ours), "v4.0.0", "archive",
+                "the input the epic 7 variant classifier will use; nothing reads it yet");
+        assertEquals(GOLDEN_VOCABULARY, CodexJson.vocabulary(vocabulary));
+        assertThrows(NullPointerException.class, () -> CodexJson.vocabulary(null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new Codex.MechanicDifference("health", "12", "12", true),
+                "two statements that agree are not a difference");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.MechanicDifference("", "12", "15", true));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.MechanicDifference("health", "", "15", true));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.MechanicDifference("health", "12", "", true));
+        assertThrows(IllegalArgumentException.class,
+                () -> new Codex.VocabularyEntry("mob", "x", here, null,
+                        List.of(new Codex.MechanicDifference("health", "12", "15", true))),
+                "only a name both games give can have a difference between them");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.VocabularyEntry("mob", "x", null, null, List.of()),
+                "a row is a name at least one game gives");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.VocabularyEntry("", "x", here, null, List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.VocabularyEntry("mob", "", here, null, List.of()));
+        Codex.MechanicDifference twice = new Codex.MechanicDifference("health", "12", "15", true);
+        assertThrows(IllegalArgumentException.class,
+                () -> new Codex.VocabularyEntry("mob", "x", here, there, List.of(twice, twice)), "a mechanic once per row");
+        assertThrows(IllegalArgumentException.class,
+                () -> new Codex.VocabularySide("x", List.of("A", "B"), List.of(), List.of(AT)),
+                "a side cites every class it names");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.VocabularySide("", List.of("A"), List.of(), List.of(AT)));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.VocabularySide("x", List.of(), List.of(), List.of()),
+                "a side names the class that carries it");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Vocabulary(List.of(), "v4.0.0", "archive", "for"),
+                "the two games name things");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Vocabulary(List.of(shared), "", "archive", "for"));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Vocabulary(List.of(shared), "v4.0.0", "", "for"));
+        assertThrows(IllegalArgumentException.class, () -> new Codex.Vocabulary(List.of(shared), "v4.0.0", "archive", ""),
+                "the diff says what it is for");
+        assertThrows(IllegalArgumentException.class,
+                () -> new Codex.Vocabulary(List.of(shared, shared), "v4.0.0", "archive", "for"), "a name once per kind");
     }
 
     @Test

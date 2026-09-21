@@ -30,6 +30,11 @@ tasks.named('test') {
     inputs.file(rootProject.file('docs/UPSTREAM.md')).withPropertyName('ledger').withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.file(rootProject.file('build.gradle')).withPropertyName('rootBuildScript').withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir(rootProject.file('core/src/main/java')).withPropertyName('pinnedSource').withPathSensitivity(PathSensitivity.RELATIVE)
+    // The second pinned source and the pin that names it (story 2.8): the vocabulary diff reads
+    // and cites that tree, so a re-pin or a re-fetch has to rerun these tests rather than leave
+    // a cached run standing over a tree it never read.
+    inputs.file(rootProject.file('vanilla.pin')).withPropertyName('vanillaPin').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(rootProject.file('vanilla-src')).withPropertyName('vanillaSource').withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 // `./gradlew :codex:generate` writes codex/<tag>/ at the repository root: one task, no Run, no

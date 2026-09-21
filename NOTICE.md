@@ -19,3 +19,10 @@ project; file them at <https://github.com/watchthelight/shatterfish/issues>.
 
 Upstream is pinned to a release tag and every edit to an upstream file is
 recorded in `docs/UPSTREAM.md`.
+
+The Codex also reads a second pinned source, named in `vanilla.pin`: vanilla
+Pixel Dungeon by Watabou, packaged for Gradle by Evan Debenham at
+<https://github.com/00-Evan/pixel-dungeon-gradle>, GPL-3.0-or-later. It is read
+and never built, merged, or imported, and `codex/<tag>/vocabulary.json`
+redistributes fragments of its source text as the cited evidence for what that
+game states. See the second-pinned-source section of `docs/UPSTREAM.md`.

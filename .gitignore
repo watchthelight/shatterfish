@@ -38,3 +38,8 @@ _bmad-output/**/.working/
 
 # IDE output under the Shatterfish modules
 shatterfish/*/bin/
+
+# The second pinned source of the Codex (story 2.8): vanilla Pixel Dungeon, read only,
+# fetched by tools/fetch-vanilla.sh at the commit vanilla.pin names. Not committed, because
+# it is another project's tree and the pin is what this repository owns.
+vanilla-src/

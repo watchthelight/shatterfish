@@ -672,6 +672,136 @@ class CodexLeakTest {
     }
 
     @Test
+    @DisplayName("the vocabulary diff is the two games': what each calls a thing, what each states about it, and what neither judges")
+    void the_vocabulary_diff_is_the_two_games() throws IOException {
+        Path root = CodexSeedFreeTest.ROOT;
+        Codex.Vocabulary vocabulary = Vocabulary.read(root, Text.entries(root), Mobs.entries(root), Items.entries(root));
+        assertEquals("v4.0.0", vocabulary.tag());
+        assertEquals("archive", vocabulary.vanillaTag(), "the other game's only tag");
+        Map<String, Codex.VocabularyEntry> rows = new java.util.TreeMap<>();
+        for (Codex.VocabularyEntry entry : vocabulary.entries()) {
+            rows.put(entry.kind() + " " + entry.name(), entry);
+        }
+        // Relationships rather than a snapshot of totals: a count copied out of a reader's own
+        // output records whatever that reader did, and blesses the mistakes along with the rest.
+        long shared = vocabulary.entries().stream().filter(Codex.VocabularyEntry::shared).count();
+        long theirs = vocabulary.entries().stream().filter(e -> e.here() == null).count();
+        long ours = vocabulary.entries().stream().filter(e -> e.there() == null).count();
+        assertEquals(rows.size(), vocabulary.entries().size(), "every name is listed once");
+        assertEquals(vocabulary.entries().size(), shared + theirs + ours,
+                "every row is a name both games give, or a name one of them gives");
+        assertTrue(shared > 100, "the two games share this many names: " + shared);
+        assertTrue(theirs > 0 && ours > 0, "and each has names the other does not");
+        Codex.VocabularyEntry rat = rows.get("mob albino rat");
+        assertEquals("12", difference(rat, "health").here());
+        assertEquals("15", difference(rat, "health").there());
+        assertTrue(difference(rat, "health").comparable());
+        assertFalse(difference(rat, "damageRoll").comparable(),
+                "a roll one game writes as a method and the other measures is carried, not resolved");
+        assertTrue(rows.get("item dew vial").there() != null && rows.get("item dew vial").here() == null,
+                "the other game keeps dew in a vial and this one does not");
+        assertTrue(rows.get("mob crystal guardian").here() != null && rows.get("mob crystal guardian").there() == null,
+                "and this game has mobs the other never had");
+        assertEquals(0, vocabulary.entries().stream().filter(e -> !e.shared() && !e.differences().isEmpty()).count(),
+                "only a name both games give can have a difference between them");
+        assertEquals(0, vocabulary.entries().stream().filter(e -> e.kind().equals("item") && !e.differences().isEmpty()).count(),
+                "the two games state an item's numbers in shapes the table will not pretend are one");
+        for (Codex.VocabularyEntry entry : vocabulary.entries()) {
+            if (entry.there() != null) {
+                assertEquals(entry.there().classNames().size(), entry.there().citations().size(),
+                        "every class a side names is cited");
+                for (Codex.Citation citation : entry.there().citations()) {
+                    assertTrue(citation.path().startsWith(Sources.VANILLA_ROOT), citation.reference());
+                    // The cited line must state this row's name, not merely hold the letters of
+                    // the word "name": the point of a citation is that a reader can resolve it.
+                    assertTrue(lineOf(root, citation).contains("\"" + entry.there().name() + "\""),
+                            citation.reference() + " does not state " + entry.there().name());
+                }
+                for (Codex.Rule fact : entry.there().facts()) {
+                    assertTrue(fact.citation().path().startsWith(Sources.VANILLA_ROOT), fact.citation().reference());
+                    assertTrue(states(lineOf(root, fact.citation()), fact),
+                            fact.citation().reference() + " does not state " + fact.what() + " " + fact.expression());
+                }
+            }
+            if (entry.here() != null) {
+                for (Codex.Citation citation : entry.here().citations()) {
+                    assertFalse(citation.path().startsWith(Sources.VANILLA_ROOT),
+                            "this game is cited in its own tree: " + citation.reference());
+                }
+                for (Codex.Rule fact : entry.here().facts()) {
+                    assertFalse(fact.citation().path().startsWith(Sources.VANILLA_ROOT), fact.citation().reference());
+                    assertTrue(states(lineOf(root, fact.citation()), fact),
+                            fact.citation().reference() + " does not state " + fact.what() + " " + fact.expression());
+                }
+            }
+            for (Codex.MechanicDifference difference : entry.differences()) {
+                assertFalse(difference.here().equals(difference.there()),
+                        entry.name() + " states " + difference.what() + " alike in both games");
+            }
+        }
+        // A shared mob row that compared nothing reads exactly like a shared row where the two
+        // games agree. Every mob this game states numbers for states at least one of them here.
+        for (Codex.VocabularyEntry entry : vocabulary.entries()) {
+            if (entry.shared() && entry.kind().equals("mob")) {
+                assertFalse(entry.here().facts().isEmpty(),
+                        entry.name() + " is shared and this game's side states nothing, so nothing was compared");
+                assertFalse(entry.there().facts().isEmpty(),
+                        entry.name() + " is shared and the other game's side states nothing");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("the other game is read and nothing else: no module compiles it, imports it, or reads the diff")
+    void the_second_pinned_source_is_read_and_nothing_else() throws IOException {
+        Path root = CodexSeedFreeTest.ROOT;
+        // The claim docs/UPSTREAM.md makes about the second pinned source, as a test rather than
+        // as an intention. ArchUnit cannot hold it: it sees compiled classes, and the whole point
+        // is that the other game is never compiled, so its rules would pass either way.
+        assertFalse(Files.readString(root.resolve("settings.gradle"), StandardCharsets.UTF_8).contains("vanilla"),
+                "settings.gradle names no project under the other game's tree");
+        List<String> reads = new java.util.ArrayList<>();
+        List<String> imports = new java.util.ArrayList<>();
+        try (java.util.stream.Stream<Path> found = Files.walk(root.resolve("shatterfish"))) {
+            for (Path file : found.toList()) {
+                String path = root.relativize(file).toString().replace('\\', '/');
+                if (!path.endsWith(".java")) {
+                    continue;
+                }
+                String text = Files.readString(file, StandardCharsets.UTF_8);
+                for (String line : text.split("\\R")) {
+                    if (line.trim().startsWith("import com.watabou.pixeldungeon")) {
+                        imports.add(path);
+                    }
+                }
+                boolean mayRead = path.startsWith("shatterfish/codex/") || path.startsWith("shatterfish/api/");
+                if (!mayRead && (text.contains("vocabulary.json") || text.contains("Vocabulary"))) {
+                    reads.add(path);
+                }
+            }
+        }
+        assertEquals(List.of(), imports, "no Shatterfish class imports the other game");
+        assertEquals(List.of(), reads, "nothing reads the vocabulary diff yet; the epic 7 classifier will be the first");
+    }
+
+    /**
+     * Whether the cited line states the fact: a number is stated on the line that assigns it, and
+     * a roll is carried as the text of a method and cited to the line that declares it, so the
+     * line names the method. Either way the citation has to resolve to something that says it.
+     */
+    private static boolean states(String line, Codex.Rule fact) {
+        if (fact.what().equals("health") || fact.what().equals("defence")) {
+            return line.contains(fact.expression());
+        }
+        return line.contains(fact.what()) && line.contains("(");
+    }
+
+    /** One mechanic of one row, for a message that names it. */
+    private static Codex.MechanicDifference difference(Codex.VocabularyEntry entry, String what) {
+        return entry.differences().stream().filter(d -> d.what().equals(what)).findFirst().orElseThrow();
+    }
+
+    @Test
     @DisplayName("the strings, the assets, the version record and the documents are the game's: its own words, its own files, its own dates")
     void the_text_and_the_version_record_are_the_games() {
         Path root = CodexSeedFreeTest.ROOT;

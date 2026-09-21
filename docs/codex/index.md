@@ -60,6 +60,10 @@ path the game names, from the asset class and from the literal strings loaded ou
 to be there or not; `changelog.json`, every entry of the game's changelist with the headings under
 it, the date where an entry or a heading states one, and the version the tree builds as beside the
 save codes it still reads; and `documents.json`, the journal's guides and lore with their pages in
-the game's own order and the words of each.
+the game's own order and the words of each. Story 2.8 adds `vocabulary.json`, the one table read
+from two pinned games: every display name either this game or vanilla Pixel Dungeon gives a mob or
+an item, which of them has it, the classes that carry it on each side with their citations, and the
+mechanics the two state differently. Nothing reads it; it is the input the epic 7 variant
+classifier will use.
 The tables that follow are their stories', and this page is replaced by the
 generator's index when story 2.9 renders it.

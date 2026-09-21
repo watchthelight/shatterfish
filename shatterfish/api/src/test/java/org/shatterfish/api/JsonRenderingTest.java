@@ -169,6 +169,7 @@ class JsonRenderingTest {
             "Codex$TrapEntry", "Codex$TrapPool", "Codex$Ingredient", "Codex$RecipeEntry", "Codex$LevelEntry", "Codex$FeelingEntry",
             "Codex$StringEntry", "Codex$AssetEntry", "Codex$ChangeHeading", "Codex$ChangeEntry", "Codex$VersionRecord",
             "Codex$DocumentPage", "Codex$DocumentEntry",
+            "Codex$VocabularySide", "Codex$MechanicDifference", "Codex$VocabularyEntry", "Codex$Vocabulary",
             "Codex$Structure");
 
     @Test

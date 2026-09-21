@@ -151,6 +151,23 @@ with upstream's use of the same word, this page says so.
     93 dates the game states are on headings, which the table shows rather than tidies. A heading
     the game shows only on one platform carries that condition.
 
+**Vocabulary diff (Codex)**
+:   `vocabulary.json`: the one Codex table read from two pinned games. A row is a display name,
+    since that is what a forum post carries and the two games share almost no class names. It says
+    which games give the name, names and cites the classes that carry it on each side, and lists
+    the mechanics the two state differently. Nothing reads it yet.
+
+**Not comparable (Codex)**
+:   What the vocabulary diff says where both games state a fact but in shapes that cannot be set
+    against each other: a roll this game measures and the other writes as a method, or an item's
+    numbers one game passes to a constructor. The row carries the text each game states and judges
+    nothing, because deciding what such a difference means is not a thing the source says.
+
+**The second pinned source**
+:   Vanilla Pixel Dungeon at tag `archive`, named in `vanilla.pin` and fetched by
+    `tools/fetch-vanilla.sh` into `vanilla-src/`, which is not committed. Read only: never merged,
+    never built, never on a compile path, and imported by nothing. See `docs/UPSTREAM.md`.
+
 **Tier table (Codex)**
 :   The generator's `floorSetTierProbs` as `tiers.json` carries it: per floor set
     (`depth / 5`, gated so the last row covers every deeper floor) the five weights by tier,

@@ -190,6 +190,71 @@ class CodexCompletenessTest {
     }
 
     @Test
+    @DisplayName("every class of either game that names itself is in the vocabulary diff, and every name is there once")
+    void every_name_either_game_gives_is_listed() {
+        Codex.Vocabulary vocabulary = Vocabulary.read(ROOT, Text.entries(ROOT), Mobs.entries(ROOT), Items.entries(ROOT));
+        TreeSet<String> rows = new TreeSet<>();
+        for (Codex.VocabularyEntry entry : vocabulary.entries()) {
+            assertTrue(rows.add(entry.kind() + " " + entry.name()), entry.name() + " is listed twice");
+        }
+        // The expectation is read here rather than through the reader under test. A test that
+        // builds both sides of its equality from one predicate proves only that the predicate is
+        // itself, and that is how five of the other game's bosses were once published as things
+        // the other game does not have.
+        TreeSet<String> cited = new TreeSet<>();
+        for (Codex.VocabularyEntry entry : vocabulary.entries()) {
+            if (entry.there() != null) {
+                cited.addAll(entry.there().classNames());
+            }
+        }
+        String folder = Vanilla.folder(ROOT);
+        TreeSet<String> files = new TreeSet<>();
+        for (String where : List.of(folder + Vanilla.MOBS, folder + Vanilla.ITEMS)) {
+            for (String path : Sources.under(ROOT, where)) {
+                boolean names = false;
+                for (String line : Sources.file(ROOT, path).lines()) {
+                    names = names || line.matches("\\s*name\\s*=.*");
+                }
+                if (!names) {
+                    continue;
+                }
+                String className = path.substring((folder + Vanilla.SOURCE).length(),
+                        path.length() - ".java".length()).replace('/', '.');
+                files.add(className);
+                assertTrue(cited.contains(className) || cited.stream().anyMatch(c -> c.startsWith(className + ".")),
+                        path + " states a name and no row of the vocabulary diff cites it");
+            }
+        }
+        assertTrue(files.size() > 100, "the other game's files that name something: " + files.size());
+        // The names a reader of the other game's source would expect to find, written out here:
+        // a boss that names itself with a condition, a mob declared inside another class, and a
+        // mob whose file sits under the items folder.
+        TreeSet<String> names = new TreeSet<>();
+        for (Codex.VocabularyEntry entry : vocabulary.entries()) {
+            if (entry.there() != null) {
+                names.add(entry.kind() + " " + entry.name());
+            }
+        }
+        for (String name : List.of("mob goo", "mob spawn of goo", "mob tengu", "mob dm-300", "mob yog-dzewa",
+                "mob king of dwarves", "mob undead dwarf", "mob rotting fist", "mob sheep",
+                "mob marsupial rat", "mob gnoll scout", "item dew vial", "item tome of mastery")) {
+            assertTrue(names.contains(name), "the other game has a " + name + " and the diff does not say so");
+        }
+        // And every name this game gives an item is a side of some row.
+        TreeSet<String> ourItems = new TreeSet<>();
+        for (Codex.ItemEntry item : Items.entries(ROOT)) {
+            ourItems.add(Names.display(item.name()));
+        }
+        TreeSet<String> hereItems = new TreeSet<>();
+        for (Codex.VocabularyEntry entry : vocabulary.entries()) {
+            if (entry.here() != null && entry.kind().equals("item")) {
+                hereItems.add(entry.name());
+            }
+        }
+        assertEquals(ourItems, hereItems, "every item this game names is a side of some row");
+    }
+
+    @Test
     @DisplayName("every line of every bundle the game searches is in the strings table once, with the class its key names")
     void every_string_is_listed() {
         List<Codex.StringEntry> strings = Text.entries(ROOT);

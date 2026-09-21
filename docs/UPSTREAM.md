@@ -19,6 +19,40 @@ upstream, and no Shatterfish issue is ever filed against upstream.
 Note: the first pin, `v3.3.8`, was chosen over a lightweight `4.0.0-beta` tag that pointed at the
 same commit; `v4.0.0` proper was released on 2026-09-09 and is the pin from 2026-09-11.
 
+## The second pinned source, read only
+
+The Codex's vocabulary diff (FR-16, story 2.8) compares this game against the one it descends
+from, because most of the internet's Pixel Dungeon knowledge is about the original and a claim
+that is true there may be false here. That comparison needs the original's source to read and to
+cite, so the Codex pins a second tree.
+
+| | |
+|---|---|
+| Repository | <https://github.com/00-Evan/pixel-dungeon-gradle> |
+| Tag | `archive` (the only tag the repository carries) |
+| Commit | `6fffc0768905b5b1f167a05df7274acc10a7ae34` |
+| Licence | GPL-3.0, Pixel Dungeon by Watabou, packaged for gradle by 00-Evan |
+| Pinned on | 2026-09-19, story 2.8 |
+| Where it lives | `vanilla-src/`, not committed; `tools/fetch-vanilla.sh` puts it there and continuous integration runs the same script |
+| How it arrives | `git fetch <url> <tag>`, no named remote: a remote left behind is a second repository for `gh` to target, and would put `git merge` against this tree one command away |
+| How it is verified | the script writes the commit it extracted to `vanilla-src/.pinned`, and the generator refuses to read or cite the tree unless that file matches the pin |
+| The pin itself | `vanilla.pin` at the repository root, which the script reads and the generator cites |
+
+This tree is **read only** and the rules below do not apply to it. It is never merged, never
+built, never on a compile path, and no Shatterfish class imports `com.watabou.pixeldungeon`.
+
+That last sentence is a test rather than an intention: `CodexLeakTest`'s *the other game is read
+and nothing else* reads `settings.gradle` and every Shatterfish source file and fails on an import
+of that package, on a project under `vanilla-src/`, and on anything outside `codex` and `api`
+naming the vocabulary diff. ArchUnit cannot hold this one — it sees compiled classes, and the
+whole point is that this tree is never compiled, so its rules would pass whether or not the claim
+were true.
+
+`./gradlew build` therefore needs the fetch to have run: the vocabulary diff reads this tree on
+every generation, and a clean clone that skips the script fails with a message naming it. An upgrade of the first pin is the procedure in this
+document; this pin moves only if the vocabulary diff needs a different tag, which would be its own
+story. Nothing about it is a hook, and it spends no row of the hook budget.
+
 ## Rules
 
 1. **Prefer new modules over edits.** Shatterfish code lives in `api`, `harness`,

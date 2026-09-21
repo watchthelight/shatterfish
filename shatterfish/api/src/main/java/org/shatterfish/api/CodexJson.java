@@ -1030,6 +1030,74 @@ public final class CodexJson {
         return close(table);
     }
 
+    /** The vocabulary file's text (story 2.8): one name per line, in the order the join sorts them. */
+    public static String vocabulary(Codex.Vocabulary vocabulary) {
+        Objects.requireNonNull(vocabulary, "vocabulary");
+        StringBuilder text = new StringBuilder("{\n");
+        text.append("\"consumer\":").append(string(vocabulary.consumer())).append(",\n");
+        text.append("\"entries\":[\n");
+        List<Codex.VocabularyEntry> entries = vocabulary.entries();
+        for (int i = 0; i < entries.size(); i++) {
+            Codex.VocabularyEntry entry = entries.get(i);
+            JsonWriter out = new JsonWriter();
+            out.beginObject();
+            out.key("kind").value(entry.kind());
+            out.key("name").value(entry.name());
+            out.key("shared").value(entry.shared());
+            side(out, "here", entry.here());
+            side(out, "there", entry.there());
+            out.key("differences").beginArray();
+            for (Codex.MechanicDifference difference : entry.differences()) {
+                out.beginObject();
+                out.key("what").value(difference.what());
+                out.key("here").value(difference.here());
+                out.key("there").value(difference.there());
+                out.key("comparable").value(difference.comparable());
+                out.endObject();
+            }
+            out.endArray();
+            out.endObject();
+            text.append("  ").append(out.toJson()).append(i + 1 == entries.size() ? "\n" : ",\n");
+        }
+        text.append("],\n");
+        text.append("\"tag\":").append(string(vocabulary.tag())).append(",\n");
+        text.append("\"vanillaTag\":").append(string(vocabulary.vanillaTag())).append("\n");
+        text.append("}\n");
+        return text.toString();
+    }
+
+    /** One game's side of a name, or nothing where that game does not have it. */
+    private static void side(JsonWriter out, String key, Codex.VocabularySide side) {
+        if (side == null) {
+            return;
+        }
+        out.key(key).beginObject();
+        out.key("name").value(side.name());
+        out.key("classNames").beginArray();
+        for (String className : side.classNames()) {
+            out.value(className);
+        }
+        out.endArray();
+        out.key("facts").beginArray();
+        for (Codex.Rule fact : side.facts()) {
+            out.beginObject();
+            out.key("what").value(fact.what());
+            out.key("expression").value(fact.expression());
+            citation(out, fact.citation());
+            out.endObject();
+        }
+        out.endArray();
+        out.key("citations").beginArray();
+        for (Codex.Citation citation : side.citations()) {
+            out.beginObject();
+            out.key("path").value(citation.path());
+            out.key("line").value(citation.line());
+            out.endObject();
+        }
+        out.endArray();
+        out.endObject();
+    }
+
     /** The strings file's text (story 2.7): one line of the game's own text per line, in bundle order. */
     public static String strings(List<Codex.StringEntry> strings) {
         Objects.requireNonNull(strings, "strings");
