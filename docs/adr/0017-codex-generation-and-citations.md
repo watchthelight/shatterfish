@@ -682,6 +682,12 @@ changed; what changed is that the module's `test` task now declares `docs/codex/
 as inputs, since without them a hand-edited page or a deleted nav entry would leave a cached run
 standing.
 
+Story 2.1's Consequences predicted this check would be `git diff --exit-code codex/` run after the
+task in continuous integration. It is not, and the prediction is superseded here: it is a JUnit
+test that regenerates in process and compares, which `./gradlew build` already runs on every pull
+request. That costs no workflow step, covers the pages the same way, and lets the failure name the
+file and the command that fixes it instead of printing a diff of a 1.7 MB table.
+
 **A gate nobody has watched bite is a gate nobody knows works.** The local test is necessary and
 not sufficient, so this story deliberately edited one byte of a committed Codex file on the branch
 and watched continuous integration go red: `BUILD FAILED`, `:codex:test`, 2 of 100 tests failing,
