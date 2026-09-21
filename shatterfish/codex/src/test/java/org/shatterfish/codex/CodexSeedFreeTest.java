@@ -33,6 +33,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * differ in what they hold gives the same bytes, the committed folder is what a fresh generation
  * writes, byte for byte, and the folder's name is the tag the ledger pins. Together these are
  * the guarantee every later table inherits by being generated the same way.
+ *
+ * <p>Story 2.9 puts the generated pages under the same check: {@code docs/codex/} is compared with
+ * a fresh rendering the way {@code codex/<tag>/} is, both folders are written by one run of
+ * {@code main}, and a file neither output holds any more is deleted from its folder. So a
+ * hand-edited page fails the build exactly as a hand-edited table does, naming the file and the
+ * command that fixes it.
  */
 @Timeout(value = 5, unit = TimeUnit.MINUTES)
 class CodexSeedFreeTest {
@@ -51,7 +57,7 @@ class CodexSeedFreeTest {
     }
 
     @Test
-    @DisplayName("two generations under different seeds and Profiles that differ are byte-identical")
+    @DisplayName("two generations under different seeds and Profiles that differ are byte-identical, tables and pages alike")
     void two_generations_are_identical(@TempDir Path first, @TempDir Path second) {
         HeadlessBoot boot = HeadlessBoot.ensure();
         Profile.prepare(boot, first);
@@ -90,42 +96,55 @@ class CodexSeedFreeTest {
         for (String file : a.keySet()) {
             assertEquals(a.get(file), b.get(file), file + " differs between two seeds and two Profiles");
         }
+        // The pages are rendered from the text above, so they are seed-free for the same reason;
+        // the rendering is held here too, since a page that read a clock or a machine would be a
+        // drift the table comparison above could not see (story 2.9).
+        Map<String, String> pagesA = Pages.pages(ROOT, a);
+        Map<String, String> pagesB = Pages.pages(ROOT, b);
+        assertEquals(pagesA.keySet(), pagesB.keySet());
+        for (String page : pagesA.keySet()) {
+            assertEquals(pagesA.get(page), pagesB.get(page), page + " differs between two seeds and two Profiles");
+        }
     }
 
     @Test
-    @DisplayName("the committed codex/<tag>/ is a fresh generation, byte for byte, with line feeds only and no file extra")
+    @DisplayName("the committed codex/<tag>/ and docs/codex/ are a fresh generation, byte for byte, with line feeds only and no file extra")
     void the_committed_folder_is_a_fresh_generation() throws IOException {
-        Path folder = ROOT.resolve(Generate.FOLDER).resolve(Upstream.tag(ROOT));
-        assertTrue(Files.isDirectory(folder), folder + " is committed");
         Map<String, String> fresh = Generate.generate(ROOT);
+        assertCommitted(ROOT.resolve(Generate.FOLDER).resolve(Upstream.tag(ROOT)), fresh, Generate.FOLDER + "/");
+        // The pages are held exactly as the tables are, and by the same words: a hand-edited page
+        // fails the build naming the page and the one command that writes it (story 2.9).
+        assertCommitted(ROOT.resolve(Pages.FOLDER), Pages.pages(ROOT, fresh), Pages.FOLDER + "/");
+    }
+
+    /** {@code folder} holds exactly {@code fresh}, byte for byte, with line feeds only. */
+    private static void assertCommitted(Path folder, Map<String, String> fresh, String renormalise) throws IOException {
+        assertTrue(Files.isDirectory(folder), folder + " is committed");
         TreeSet<String> committed = new TreeSet<>();
         try (Stream<Path> files = Files.list(folder)) {
-            files.forEach(f -> committed.add(f.getFileName().toString()));
+            files.filter(Files::isRegularFile).forEach(f -> committed.add(f.getFileName().toString()));
         }
         assertEquals(new TreeSet<>(fresh.keySet()), committed, "the files under " + folder + "; run ./gradlew :codex:generate and commit");
         for (String file : new TreeSet<>(fresh.keySet())) {
             byte[] onDisk = Files.readAllBytes(folder.resolve(file));
             assertFalse(new String(onDisk, StandardCharsets.UTF_8).contains("\r"),
-                    file + " holds a carriage return; run git add --renormalize codex/ and commit");
+                    file + " holds a carriage return; run git add --renormalize " + renormalise + " and commit");
             assertArrayEquals(fresh.get(file).getBytes(StandardCharsets.UTF_8), onDisk,
                     "the first differing file is " + file + "; run ./gradlew :codex:generate and commit");
         }
     }
 
     @Test
-    @DisplayName("the task's main writes the same bytes, deletes a stale file, and the folder is named by the tag docs/UPSTREAM.md pins")
-    void main_writes_the_folder_and_the_tag_is_the_pinned_one(@TempDir Path out) throws IOException {
+    @DisplayName("the task's main writes the tables and the pages, deletes a stale file from each, and the folder is named by the tag docs/UPSTREAM.md pins")
+    void main_writes_the_folder_and_the_tag_is_the_pinned_one(@TempDir Path out, @TempDir Path site) throws IOException {
         Files.writeString(out.resolve("stale.json"), "[]\n", StandardCharsets.UTF_8);
-        Generate.main(new String[] {ROOT.toString(), out.toString()});
+        // A page whose table the generator no longer writes is deleted with it, so the folder is
+        // exactly what was generated (story 2.9).
+        Files.writeString(site.resolve("stale.md"), "# gone\n", StandardCharsets.UTF_8);
+        Generate.main(new String[] {ROOT.toString(), out.toString(), site.toString()});
         Map<String, String> fresh = Generate.generate(ROOT);
-        TreeSet<String> written = new TreeSet<>();
-        try (Stream<Path> files = Files.list(out)) {
-            files.forEach(f -> written.add(f.getFileName().toString()));
-        }
-        assertEquals(new TreeSet<>(fresh.keySet()), written, "main writes every file and deletes the stale one");
-        for (String file : fresh.keySet()) {
-            assertArrayEquals(fresh.get(file).getBytes(StandardCharsets.UTF_8), Files.readAllBytes(out.resolve(file)), file);
-        }
+        assertWritten(out, fresh);
+        assertWritten(site, Pages.pages(ROOT, fresh));
         String ledger = Files.readString(ROOT.resolve("docs/UPSTREAM.md"), StandardCharsets.UTF_8);
         Matcher pinned = Pattern.compile("\\|\\s*Tag\\s*\\|\\s*`([^`]+)`\\s*\\|").matcher(ledger);
         assertTrue(pinned.find(), "docs/UPSTREAM.md pins a tag in its table");
@@ -133,6 +152,23 @@ class CodexSeedFreeTest {
         assertFalse(pinned.find(), "docs/UPSTREAM.md pins one tag");
         assertEquals(tag, Upstream.tag(ROOT), "the generator's tag and the ledger's pin");
         assertThrowsNotACheckout(out);
+        // One folder named and not the other would write the repository's pages over a test's, so
+        // main takes either one argument or three.
+        IllegalArgumentException refused = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> Generate.main(new String[] {ROOT.toString(), out.toString()}));
+        assertTrue(refused.getMessage().contains("usage: Generate"), refused.getMessage());
+    }
+
+    /** {@code folder} holds exactly {@code fresh}, and the stale file put there is gone. */
+    private static void assertWritten(Path folder, Map<String, String> fresh) throws IOException {
+        TreeSet<String> written = new TreeSet<>();
+        try (Stream<Path> files = Files.list(folder)) {
+            files.filter(Files::isRegularFile).forEach(f -> written.add(f.getFileName().toString()));
+        }
+        assertEquals(new TreeSet<>(fresh.keySet()), written, "main writes every file under " + folder + " and deletes the stale one");
+        for (String file : fresh.keySet()) {
+            assertArrayEquals(fresh.get(file).getBytes(StandardCharsets.UTF_8), Files.readAllBytes(folder.resolve(file)), file);
+        }
     }
 
     private static void assertThrowsNotACheckout(Path notAcheckout) {
