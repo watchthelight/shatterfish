@@ -34,10 +34,14 @@ import java.util.stream.Stream;
  * Later stories add tables to {@link #generate(Path)}; the manifest lists whatever files there
  * are; none adds a task.
  *
+ * <p>The one task writes the site's Codex pages too (story 2.9): {@link Pages#pages(Path, Map)}
+ * renders {@code docs/codex/} from the text just written, so that a page cannot describe a table
+ * that is not there, and the drift check covers both folders.
+ *
  * <p>The files are UTF-8 with line feeds only and lists in a stated order, so that a generation
- * on any machine is the committed bytes; {@code CodexSeedFreeTest} holds it. A file in the folder
- * that the generator no longer writes is deleted, so that the one command returns the tree to
- * what the tests expect.
+ * on any machine is the committed bytes; {@code CodexSeedFreeTest} holds it. A file in either
+ * folder that the generator no longer writes is deleted, so that the one command returns the tree
+ * to what the tests expect.
  */
 public final class Generate {
 
@@ -54,16 +58,47 @@ public final class Generate {
     }
 
     /**
-     * Writes the Codex: the first argument is the repository root, the optional second the folder
-     * to write into, {@code <root>/codex/<tag>/} by default. Silent; the folder is the output.
+     * Writes the Codex: the first argument is the repository root; the tables go to
+     * {@code <root>/codex/<tag>/} and the pages to {@code <root>/docs/codex/} unless both folders
+     * are named, which only a test does. Either both are named or neither, so that a caller naming
+     * one folder cannot write the other over the repository's. Silent; the folders are the output.
      */
     public static void main(String[] args) {
-        if (args.length < 1 || args.length > 2) {
-            throw new IllegalArgumentException("usage: Generate <repository root> [<output folder>]");
+        if (args.length != 1 && args.length != 3) {
+            throw new IllegalArgumentException("usage: Generate <repository root> [<table folder> <page folder>]");
         }
         Path root = checkout(args[0]);
-        Path folder = args.length == 2 ? Path.of(args[1]).toAbsolutePath().normalize() : root.resolve(FOLDER).resolve(Upstream.tag(root));
-        write(generate(root), folder);
+        Path tables = args.length == 3 ? Path.of(args[1]).toAbsolutePath().normalize()
+                : root.resolve(FOLDER).resolve(Upstream.tag(root));
+        Path pages = args.length == 3 ? Path.of(args[2]).toAbsolutePath().normalize() : root.resolve(Pages.FOLDER);
+        if (tables.equals(pages)) {
+            throw new IllegalArgumentException("the tables and the pages cannot share a folder: " + tables
+                    + "; each is written whole and what it does not write there is deleted");
+        }
+        // Everything is rendered before anything is written, so that a table the renderer refuses
+        // cannot leave one folder regenerated and the other standing at what it said before.
+        Map<String, Map<String, String>> written = outputs(root);
+        write(written.get(FOLDER), tables);
+        write(written.get(Pages.FOLDER), pages);
+    }
+
+    /**
+     * Everything the one task writes, by the folder it goes under: the tables under {@link #FOLDER}
+     * and the pages under {@link Pages#FOLDER}. It is one value rather than two calls because the
+     * drift check walks it, and a check that named each folder itself could stop covering one of
+     * them by losing a line, which is a gate that fails open.
+     */
+    public static Map<String, Map<String, String>> outputs(Path root) {
+        Map<String, String> tables = generate(root);
+        Map<String, Map<String, String>> written = new LinkedHashMap<>();
+        written.put(FOLDER, tables);
+        written.put(Pages.FOLDER, Pages.pages(root, tables));
+        return written;
+    }
+
+    /** Where a folder of {@link #outputs} is written under the repository root. */
+    public static Path folder(Path root, String output) {
+        return FOLDER.equals(output) ? root.resolve(FOLDER).resolve(Upstream.tag(root)) : root.resolve(output);
     }
 
     /** The repository root the argument names, real and checked to be a Shatterfish checkout. */
@@ -88,7 +123,14 @@ public final class Generate {
         try {
             Files.createDirectories(folder);
             try (Stream<Path> present = Files.list(folder)) {
-                for (Path stale : present.filter(Files::isRegularFile).filter(p -> !files.containsKey(p.getFileName().toString())).toList()) {
+                for (Path stale : present.filter(p -> !files.containsKey(p.getFileName().toString())).toList()) {
+                    // A folder is refused rather than removed: the generator owns the files it
+                    // writes, and deleting a tree it never wrote is not a thing one command should
+                    // do quietly. It is also what made a directory invisible to the drift check.
+                    if (Files.isDirectory(stale)) {
+                        throw new IllegalStateException(stale + " is not the generator's; "
+                                + folder + " holds only what the Codex writes");
+                    }
                     Files.delete(stale);
                 }
             }

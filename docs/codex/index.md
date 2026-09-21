@@ -1,69 +1,52 @@
 # Codex
 
-Generated. Never hand-edited.
+!!! info "Generated"
 
-The `codex` module (E2) dumps, by reflection from the pinned upstream tag, every mob, item,
-generator table, mob rotation, trap, alchemy recipe, and changelog entry, parameterised by depth
-and challenge flags, into `codex/<tag>/*.json`, and renders the pages under this section from
-those files. One Gradle task regenerates everything:
+    From `codex/v4.0.0/` at upstream tag `v4.0.0`, Codex version 8.
+    Never hand edited: run `./gradlew :codex:generate` and commit what it writes.
 
-```sh
-./gradlew :codex:generate
-```
+The Codex is the general game knowledge the Brain is allowed to have (FR-14 to FR-17,
+[ADR-0017](../adr/0017-codex-generation-and-citations.md)) and the ground truth the lore
+pipeline's variant classifier checks against. One task reads the pinned upstream tag -- no Run,
+no seed, no Profile -- and writes both the tables under `codex/v4.0.0/` and the pages under this
+section; continuous integration regenerates and fails the build if either has drifted, so a page
+can never describe a tag it does not come from. Every value is cited to the `path:line` it was
+read from, which is what a claim about the game is settled by
+([Fairness](../fairness.md)).
 
-CI regenerates and fails if the committed output differs from the working tree, so the Codex can
-never drift from the tag it claims to describe. Edits to these pages are rejected in review;
-change the generator instead.
+These pages index the tables; they do not repeat them. The entries are already committed,
+diffable and cited in the JSON each page links, and one table alone holds 4976 of them.
+What a page adds is what a reader brings to a table: what it holds, how many entries there
+are, how a row is shaped, which files of the pinned tree it was read from, and, in full, the
+entries whose reader had to name a reason.
 
-The Codex is the source of the "general game knowledge" the bot is allowed to have
-([Fairness](../fairness.md)) and the ground truth the lore pipeline's variant classifier checks
-against (the PD-vs-SPD vocabulary diff lives here too).
+## The tables
 
-The generator's skeleton is story 2.1's (ADR-0017): `codex/v4.0.0/` holds the manifest with the
-Codex version and the tag, the hero classes with their subclasses, and the challenge flags with
-their masks, each entry cited to the `path:line` it was read from at generation. Story 2.2 adds
-`mobs.json`, every concrete mob class of the game with its hit points, defense skill,
-experience, maximum level, alignment, properties, loot, the three rolls as cited expressions,
-and its variants by depth and by challenge (the depth-scaled mobs, the Stronger Bosses
-variants), and `spawn-rotation.json`, the standard rotation per depth, the random families with
-their odds, the rare additions, the alternates and the champion rule. Story 2.3 adds
-`items.json`, every concrete item class a player can meet with its display name from the
-bundle, the deck that lists it, its value, its strength requirement at level 0 with the formula,
-and the actions it offers a fresh instance (the identifiable potions, scrolls and rings read from
-source, since their icons need the toolkit, and marked so with the reason), and `decks.json`,
-the generator's categories with their two deck weights and their classes' weights, the three
-appearance-label pools, and the exotic swap with its chance. Story 2.4 adds `guarantees.json`,
-every limited drop the level's creation decides (the strength potions, the upgrade scrolls,
-the styli, the two stones, the trinket catalyst, the laboratory) as the game's method text and
-as a schedule, the exact chance for every depth and counter state that the drop is needed and
-placed, with what level class each floor of the main branch is and whether it places the floor's
-spawn list at all, and the Forbidden Runes rule; `tiers.json`, the floor-set tier table with the
-armor, weapon and missile rules that draw by it; and `rooms.json`, the special and secret rooms
-with the game's lists, what each puts on the floor (keys, solution potions, a honeypot at a
-coin) and what it draws. Story 2.5 adds `combat.json`, measured rather than transcribed: the
-spread of every weapon's own damage roll by level, of the engine's own absorption roll with each
-armour worn, and of every mob's own damage reduction, each naming the method that was run, citing
-it and carrying the samples behind it; the table that decides whether an attack lands names its
-method and says plainly that a generator which may not boot cannot run it. Story 2.6 adds
-`traps.json`, every concrete trap class with the two flags a player can act on, whether the game
-leaves it active, the text of its own effect and whose effect that is, what else the placing class
-puts on the cell, and the pool each level draws from with the class that declares it, the condition
-that chooses it and how many traps the floor lays; `recipes.json`, the alchemy pot's registries in
-the order its own method tries them, each recipe with its inputs, output and energy cost where it
-states them and with the text of the methods it answers with where it does not; and `levels.json`,
-what every depth of every branch builds and what an unnamed depth builds, which floors place a shop
-and where that was decided, which are boss floors, which seal behind the hero and how, and the
-level feelings with their chances, their arms and every place the game reads them. Story 2.7 adds
-the game's own words and its version record: `strings.json`, every line of the nine English bundles
-with the class the game's key rule names and the reason where it names none; `assets.json`, every
-path the game names, from the asset class and from the literal strings loaded outside it, each said
-to be there or not; `changelog.json`, every entry of the game's changelist with the headings under
-it, the date where an entry or a heading states one, and the version the tree builds as beside the
-save codes it still reads; and `documents.json`, the journal's guides and lore with their pages in
-the game's own order and the words of each. Story 2.8 adds `vocabulary.json`, the one table read
-from two pinned games: every display name either this game or vanilla Pixel Dungeon gives a mob or
-an item, which of them has it, the classes that carry it on each side with their citations, and the
-mechanics the two state differently. Nothing reads it; it is the input the epic 7 variant
-classifier will use.
-The tables that follow are their stories', and this page is replaced by the
-generator's index when story 2.9 renders it.
+An entry is an object in one of a table's own lists: the list the file is, where the file is a
+list, or the lists the object at its root holds. A number a table states that is not an entry
+-- a threshold, an expression, a tag -- is a value, and that table's page names it.
+
+| Table | Entries | Page | JSON |
+|---|---:|---|---|
+| `assets.json` | 259 | [Assets](assets.md) | [58.5 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/assets.json) |
+| `challenges.json` | 9 | [Challenges](challenges.md) | [1.3 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/challenges.json) |
+| `changelog.json` | 199 | [Changelog](changelog.md) | [196.7 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/changelog.json) |
+| `combat.json` | 548 | [Combat](combat.md) | [150.1 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/combat.json) |
+| `decks.json` | 26 | [Decks](decks.md) | [38.8 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/decks.json) |
+| `documents.json` | 8 | [Documents](documents.md) | [44.3 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/documents.json) |
+| `guarantees.json` | 33 | [Guarantees](guarantees.md) | [130.3 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/guarantees.json) |
+| `hero-classes.json` | 6 | [Hero classes](hero-classes.md) | [1.1 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/hero-classes.json) |
+| `items.json` | 307 | [Items](items.md) | [185.4 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/items.json) |
+| `levels.json` | 44 | [Levels](levels.md) | [21.8 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/levels.json) |
+| `mobs.json` | 129 | [Mobs](mobs.md) | [172.8 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/mobs.json) |
+| `recipes.json` | 39 | [Recipes](recipes.md) | [29.2 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/recipes.json) |
+| `rooms.json` | 39 | [Rooms](rooms.md) | [26.2 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/rooms.json) |
+| `spawn-rotation.json` | 43 | [Spawn rotation](spawn-rotation.md) | [14.0 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/spawn-rotation.json) |
+| `strings.json` | 4976 | [Strings](strings.md) | [1.7 MB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/strings.json) |
+| `tiers.json` | 7 | [Tiers](tiers.md) | [2.4 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/tiers.json) |
+| `traps.json` | 44 | [Traps](traps.md) | [60.9 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/traps.json) |
+| `vocabulary.json` | 449 | [Vocabulary](vocabulary.md) | [268.8 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/vocabulary.json) |
+
+Codex version 8 names the shape of these tables; it is recorded in a Run
+log's header ([ADR-0011](../adr/0011-run-log-format.md)), so a log says which Codex a Run was
+played with.

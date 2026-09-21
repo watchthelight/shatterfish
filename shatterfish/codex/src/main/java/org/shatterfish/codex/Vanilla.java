@@ -78,6 +78,21 @@ final class Vanilla {
     }
 
     /**
+     * Where a line of the other game is read, since the tree itself is never committed here: the
+     * repository the pin names, at the commit it names, so a citation into it opens to the same
+     * line the generator read (story 2.9). A pin naming a repository no browser can open is
+     * refused rather than turned into a link that goes nowhere.
+     */
+    static String blob(Path root) {
+        String repository = Citations.found(root, PIN, "^repository=(\\S+)$").value().trim();
+        if (!repository.startsWith("https://") || !repository.endsWith(".git")) {
+            throw new IllegalStateException(PIN + " names " + repository
+                    + ", which is not an https repository a citation can be opened in");
+        }
+        return repository.substring(0, repository.length() - ".git".length()) + "/blob/" + commit(root) + "/";
+    }
+
+    /**
      * That the tree under the pin's folder is the commit the pin names, checked before anything is
      * read from it. A citation into a tree nobody verified is not a citation: the line numbers in
      * this table are only true of one commit, and the fetch script records which one it wrote.
