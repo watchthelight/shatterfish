@@ -2,7 +2,7 @@
 title: 'The drift check and the generated documentation'
 type: 'feature'
 created: '2026-09-21'
-status: 'review'
+status: 'done'
 updated: '2026-09-21'
 baseline_commit: 'a6f0ae28a'
 review_loop_iteration: 0
