@@ -34,10 +34,14 @@ import java.util.stream.Stream;
  * Later stories add tables to {@link #generate(Path)}; the manifest lists whatever files there
  * are; none adds a task.
  *
+ * <p>The one task writes the site's Codex pages too (story 2.9): {@link Pages#pages(Path, Map)}
+ * renders {@code docs/codex/} from the text just written, so that a page cannot describe a table
+ * that is not there, and the drift check covers both folders.
+ *
  * <p>The files are UTF-8 with line feeds only and lists in a stated order, so that a generation
- * on any machine is the committed bytes; {@code CodexSeedFreeTest} holds it. A file in the folder
- * that the generator no longer writes is deleted, so that the one command returns the tree to
- * what the tests expect.
+ * on any machine is the committed bytes; {@code CodexSeedFreeTest} holds it. A file in either
+ * folder that the generator no longer writes is deleted, so that the one command returns the tree
+ * to what the tests expect.
  */
 public final class Generate {
 
@@ -54,16 +58,22 @@ public final class Generate {
     }
 
     /**
-     * Writes the Codex: the first argument is the repository root, the optional second the folder
-     * to write into, {@code <root>/codex/<tag>/} by default. Silent; the folder is the output.
+     * Writes the Codex: the first argument is the repository root; the tables go to
+     * {@code <root>/codex/<tag>/} and the pages to {@code <root>/docs/codex/} unless both folders
+     * are named, which only a test does. Either both are named or neither, so that a caller naming
+     * one folder cannot write the other over the repository's. Silent; the folders are the output.
      */
     public static void main(String[] args) {
-        if (args.length < 1 || args.length > 2) {
-            throw new IllegalArgumentException("usage: Generate <repository root> [<output folder>]");
+        if (args.length != 1 && args.length != 3) {
+            throw new IllegalArgumentException("usage: Generate <repository root> [<table folder> <page folder>]");
         }
         Path root = checkout(args[0]);
-        Path folder = args.length == 2 ? Path.of(args[1]).toAbsolutePath().normalize() : root.resolve(FOLDER).resolve(Upstream.tag(root));
-        write(generate(root), folder);
+        Path tables = args.length == 3 ? Path.of(args[1]).toAbsolutePath().normalize()
+                : root.resolve(FOLDER).resolve(Upstream.tag(root));
+        Path pages = args.length == 3 ? Path.of(args[2]).toAbsolutePath().normalize() : root.resolve(Pages.FOLDER);
+        Map<String, String> generated = generate(root);
+        write(generated, tables);
+        write(Pages.pages(root, generated), pages);
     }
 
     /** The repository root the argument names, real and checked to be a Shatterfish checkout. */

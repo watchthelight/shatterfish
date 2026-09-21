@@ -27,6 +27,10 @@ sourceSets {
 // hand-edited JSON file, a moved declaration or a re-pinned tag leaves :codex:test UP-TO-DATE.
 tasks.named('test') {
     inputs.dir(rootProject.file('codex')).withPropertyName('committedCodex').withPathSensitivity(PathSensitivity.RELATIVE)
+    // The generated pages and the nav that must name them (story 2.9): a hand-edited page or a
+    // nav entry removed has to rerun these tests, not leave a cached run standing.
+    inputs.dir(rootProject.file('docs/codex')).withPropertyName('committedPages').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(rootProject.file('mkdocs.yml')).withPropertyName('siteNav').withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.file(rootProject.file('docs/UPSTREAM.md')).withPropertyName('ledger').withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.file(rootProject.file('build.gradle')).withPropertyName('rootBuildScript').withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir(rootProject.file('core/src/main/java')).withPropertyName('pinnedSource').withPathSensitivity(PathSensitivity.RELATIVE)
@@ -37,12 +41,13 @@ tasks.named('test') {
     inputs.dir(rootProject.file('vanilla-src')).withPropertyName('vanillaSource').withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
-// `./gradlew :codex:generate` writes codex/<tag>/ at the repository root: one task, no Run, no
-// seed, on the main classpath, where no harness and no libGDX application exist to boot. CI's
-// drift check (story 2.9) reruns it and fails on a difference.
+// `./gradlew :codex:generate` writes codex/<tag>/ and the site's docs/codex/ pages at the
+// repository root: one task, no Run, no seed, on the main classpath, where no harness and no
+// libGDX application exist to boot. CI's drift check (story 2.9) reruns it and fails on a
+// difference in either folder.
 tasks.register('generate', JavaExec) {
     group = 'shatterfish'
-    description = 'Writes codex/<tag>/ from the pinned upstream classes.'
+    description = 'Writes codex/<tag>/ and docs/codex/ from the pinned upstream classes.'
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'org.shatterfish.codex.Generate'
     workingDir = rootDir
