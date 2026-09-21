@@ -38,8 +38,8 @@ import java.util.regex.Pattern;
  */
 final class Stated {
 
-    /** A type declared in a pinned tree: where it is written, and what the file around it says. */
-    record Type(String className, String path, int line) {
+    /** A type declared in a pinned tree: what the Codex calls it, and the file it is written in. */
+    record Type(String className, String path) {
     }
 
     private static final Pattern DECLARED = Pattern.compile(
@@ -76,11 +76,6 @@ final class Stated {
         }
     }
 
-    /** The path prefix every class of this tree is named under. */
-    String source() {
-        return source;
-    }
-
     /**
      * Every type declared under one folder of this tree, the nested ones included, named the way
      * the Codex names a class: the file's path under the tree's source root, dotted, with each
@@ -96,7 +91,7 @@ final class Stated {
         for (String path : Sources.under(root, folder)) {
             Sources.Body file = Sources.file(root, path);
             String outer = className(path);
-            types.add(new Type(outer, path, file.declaration(simpleName(outer))));
+            types.add(new Type(outer, path));
             for (Type nested : nestedOf(file, outer)) {
                 types.add(nested);
             }
@@ -116,7 +111,7 @@ final class Stated {
             if (declared.find() && !declared.group(1).equals(simpleName(enclosing))) {
                 String name = enclosing + "." + declared.group(1);
                 Sources.Body nested = body.block(i);
-                types.add(new Type(name, body.path(), i));
+                types.add(new Type(name, body.path()));
                 types.addAll(nestedOf(nested, name));
                 i = Math.max(nested.to(), i + 1);
                 continue;

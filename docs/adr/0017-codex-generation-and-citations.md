@@ -586,12 +586,41 @@ subclass there changes one number and inherits the rest, so a fact a class does 
 from the class it extends and cited there. Without that walk an albino rat reads as a mob that
 states nothing, and the row has nothing to set against this game's.
 
+**Both games are read by one reader, and three rules keep a fact from becoming a guess.** The
+review of this story found the table asserting that the other game has no Goo, no Tengu and no
+rotting fist, and publishing a number for a mob whose cited line says something else. All of it
+came from reading one game more narrowly than the other, so `Stated` now reads both:
+
+- *A field's declaration is not a statement.* `protected int defenseSkill = 0;` in an abstract base
+  declares a field; it does not say a mob has no defence. Only an assignment states anything, and
+  the walk stops at the first class that states the field at all — even where what it states is an
+  expression the table cannot compare. Walking past such a class to an ancestor is how a base
+  class's default came to be published, cited to a line that declares a field.
+- *A name a game chooses when it shows it is still a name.* The other game's bosses write
+  `name = <condition> ? "Goo" : "spawn of Goo";`, so the class contributes both names, and a name
+  statement this reader cannot read stops the generation rather than being passed over. A boss
+  quietly missing is the table asserting the other game does not have it.
+- *A class is what it extends, not where its file sits.* The other game declares its sheep inside a
+  wand and its rotting fist inside its Yog-Dzewa, and this game declares buffs and items inside its
+  mob classes. So nested types are read on both sides, what counts as a mob on this side comes from
+  the mob table, and on the other side from the class's own ancestry.
+
+**A number this game does not state is not published.** Where the mob table records that a mob's
+stats are set after it is built, or that they depend on the run, the class states nothing at
+construction and the row carries nothing — the sentinel zero that stands in for "not yet known" is
+not a claim that a golden bee has no hit points.
+
 **A mechanic is compared only where both games state the same kind of fact.** Health and defence
 are plain numbers on both sides, so a row can say the two differ and by how much. A roll this game
 measures and the other writes as a method is carried as the text each states and marked as not
 comparable — the row says what each game says and judges nothing. An item carries names only: a
 weapon's numbers there are constructor arguments and a potion's are its own method, and calling
 those one measurement would be exactly the folklore this epic exists to prevent.
+
+**A difference is a difference.** Two sides that state a mechanic in the same words do not
+differ, whatever shape those words are in, and a mechanic the two games call by different method
+names — this game's `drRoll` against the other's `dr` — is one mechanic, keyed by what it is rather
+than by what either game calls it.
 
 **The table says what it is for.** Nothing reads it. It is the input the variant classifier of
 epic 7 will use, and the table states that of itself rather than leaving a reader to wonder why a
