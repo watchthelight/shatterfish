@@ -5,7 +5,7 @@ title: "The vanilla-versus-Shattered vocabulary diff"
 epic: 2
 issue: 42
 type: 'feature'
-status: 'review'
+status: 'done'
 created: '2026-09-17'
 updated: '2026-09-17'
 review_loop_iteration: 0
