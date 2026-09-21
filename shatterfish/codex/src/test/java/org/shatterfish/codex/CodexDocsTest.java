@@ -20,6 +20,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * The generated documentation and the site's shape agree (story 2.9). The nav in
@@ -128,6 +129,35 @@ class CodexDocsTest {
             assertTrue(text.contains("Never hand edited: run `" + Pages.COMMAND + "`"),
                     named.getKey() + " says it is never hand edited and names the command that writes it");
         }
+    }
+
+    @Test
+    @DisplayName("every file a page links is a file that is there: this repository's own, or the other pinned game's at the commit the pin names")
+    void every_linked_file_is_there() throws IOException {
+        // A page that linked a path nothing holds would send a reader to a missing page, and the
+        // second pinned game is the one tree that is read and never committed: its citations have
+        // to be opened in its own repository at the commit vanilla.pin names.
+        String vanilla = Vanilla.blob(ROOT);
+        Pattern link = Pattern.compile("\\((https://github\\.com/[^)\\s]+)\\)");
+        int checked = 0;
+        for (String name : committedPages()) {
+            Matcher links = link.matcher(page(name));
+            while (links.find()) {
+                String target = links.group(1);
+                if (target.startsWith(Pages.BLOB)) {
+                    String path = target.substring(Pages.BLOB.length());
+                    assertTrue(Files.exists(ROOT.resolve(path)), name + " links " + path + ", which this repository does not hold");
+                } else if (target.startsWith(vanilla)) {
+                    String path = target.substring(vanilla.length());
+                    assertTrue(Files.exists(ROOT.resolve(Sources.VANILLA_ROOT).resolve(path)),
+                            name + " links " + path + " of the other pinned game, which is not in the fetched tree");
+                } else {
+                    fail(name + " links " + target + ", which is neither this repository nor the pinned game the pin names");
+                }
+                checked++;
+            }
+        }
+        assertTrue(checked > 0, "the pages link the sources they were read from");
     }
 
     @Test

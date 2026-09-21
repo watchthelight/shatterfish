@@ -77,13 +77,16 @@ public final class Pages {
             }
             summaries.add(summarise(table, text));
         }
+        // A citation into the other pinned game names a tree this repository never commits, so it
+        // is opened where it is actually read: that repository, at the commit the pin names.
+        String vanilla = Vanilla.blob(root);
         Map<String, String> pages = new LinkedHashMap<>();
         pages.put(INDEX, index(tag, version, summaries));
         for (Summary summary : summaries) {
             if (INDEX.equals(summary.page())) {
                 throw new IllegalStateException("the table " + summary.table() + " would overwrite the section's index");
             }
-            pages.put(summary.page(), page(tag, version, summary));
+            pages.put(summary.page(), page(tag, version, vanilla, summary));
         }
         return pages;
     }
@@ -125,8 +128,8 @@ public final class Pages {
         return out.toString();
     }
 
-    /** One table's page. */
-    private static String page(String tag, long version, Summary summary) {
+    /** One table's page. {@code vanilla} is where a line of the other pinned game is read. */
+    private static String page(String tag, long version, String vanilla, Summary summary) {
         StringBuilder out = new StringBuilder();
         out.append("# ").append(summary.title()).append("\n\n");
         stamp(out, tag, version, Generate.FOLDER + "/" + tag + "/" + summary.table());
@@ -177,7 +180,7 @@ public final class Pages {
             out.append("| Source | Citations | Lines |\n|---|---:|---|\n");
             for (Map.Entry<String, long[]> file : summary.citations().entrySet()) {
                 long[] range = file.getValue();
-                out.append("| [`").append(file.getKey()).append("`](").append(BLOB).append(file.getKey()).append(") | ")
+                out.append("| [`").append(file.getKey()).append("`](").append(source(vanilla, file.getKey())).append(") | ")
                         .append(range[0]).append(" | ").append(range[1])
                         .append(range[1] == range[2] ? "" : "-" + range[2]).append(" |\n");
             }
@@ -206,6 +209,17 @@ public final class Pages {
                 .append("    From `").append(source).append("` at upstream tag `").append(tag)
                 .append("`, Codex version ").append(version).append(".\n")
                 .append("    Never hand edited: run `").append(COMMAND).append("` and commit what it writes.\n\n");
+    }
+
+    /**
+     * Where a cited file is read. This repository's own tree is read here; a line of the other
+     * pinned game is read in its own repository at the pinned commit, since {@code vanilla-src/}
+     * is fetched and never committed, and a link into it here would open nothing.
+     */
+    private static String source(String vanilla, String path) {
+        return path.startsWith(Sources.VANILLA_ROOT)
+                ? vanilla + path.substring(Sources.VANILLA_ROOT.length())
+                : BLOB + path;
     }
 
     /** A count with the word for it, so that a page says one file rather than 1 files. */
