@@ -100,6 +100,68 @@ and stays human-owned. No new Gradle task. Do not weaken the seed-free or leak t
 
 ## Spec Change Log
 
+**A file the Code Map did not name (2026-09-21, from review).** `Pages.java` reads the generated
+JSON back rather than the game, so a page is derived from the bytes a table was written as and a
+table added later gets a page with no new rule. The spec named no such reader; it is the same work
+done the only way that makes "a page cannot describe a table that is not there" true.
+
+**What "indexes rather than repeats" is, mechanically (2026-09-21, from review).** The spec and
+the first implementation asserted a size ratio of the pages to the tables. That is not the rule
+and, applied per table, states something false: a page carries a stamp, headings and prose whatever
+its table holds, so the page of a 1 KB table is legitimately larger than the table. The rule is
+that a page has no row per entry, and that is what the test holds -- a ceiling per page, a bound on
+the pages against the tables together, and, for the one table that could not be indexed by
+enumeration, that its page's rows are under a tenth of its entries, counted from the JSON.
+
+## Review
+
+Four reviews read the branch over a still tree: the `fairness-reviewer` subagent and three lenses
+(adversarial, edge-case hunter, verification gap). No blocking finding, and the story's two
+headline results both stand -- the deliberate-edit run that turned continuous integration red, and
+the fix to the 227 vanilla citations that had been linked into a tree this repository never
+commits. What the reviews found was a third instance of the pattern stories 2.7 and 2.8 each
+recorded, plus a set of statements the pages made that were not so.
+
+**The pages said things that are not true.** The index stated "one table alone holds 4,976 of
+them" from a literal while deriving 4976 from the same table nine lines below; an upstream tag bump
+would have made the prose false and the drift check would have regenerated it faithfully, because
+it compares the output with itself. The combat page read "1 of the table's 548 entries name a
+reason" about a reason belonging to a value at the table's root, which is not among those 548 --
+two populations counted as one, in a table whose page also got the verb wrong because the plural
+was keyed to the table's entry count rather than to the number of reasons. One dash stood for four
+different facts: the table states no value, it states nothing, the value is too long for a cell, or
+a cell would break on it. Every expression in the Codex is longer than a cell, so the tier page --
+whose entire subject is four expressions -- rendered four dashes, and the combat page printed a
+reason as `--` in one table and in full six lines below.
+
+**The tests mostly compared the renderer with itself.** The drift gate, which is the story's whole
+point, was one un-asserted call: deleting the line that compares the pages left every test green,
+and the only evidence it bit was a continuous-integration run on a commit that had since been
+reverted. The two generations under different seeds and Profiles rendered both sets of pages after
+the first Profile had been restored, so a page that read a Profile would have passed. Every number
+a page states was derived once and checked against that same derivation. `Pages.COMMAND`, the blob
+URL and the page names supplied both sides of their own assertions. The nav test accepted a nav
+that called the items page "Mobs", and counted a page filed under any section as navigated.
+
+**What changed.** Every falsehood above is fixed and the fixes are held: the index derives its
+number, reasons are reported against what they were recorded on (`Judgment.where`, computed and
+never read, is what tells an entry from a value, and is now shown), a value a cell cannot hold is
+printed in full beneath its table, and a cell escapes what would break it. The drift check is
+driven over a folder edited by hand and has to fail naming that file and the command; its message
+names the folder as well as the file, since both hold an `index`. The pages are rendered under each
+Profile in turn. The counts, the command, the repository and the site's own extensions are held
+against their real sources. A folder under a generated folder is refused rather than passed over.
+The JSON reader's refusals got the test they never had, and it found one: a key written twice whose
+first value was null was accepted, because the check read what `put` returned.
+
+**Declined, with reasons.** The reviews asked for this repository's own citation links to be
+pinned to a commit as the vanilla links are. They cannot be: a commit sha in a generated file
+changes on every commit, so the drift check would fail on every commit, and the fork's citations
+are read from the working tree, whose hooked files run longer than the tag -- `main` is both the
+byte-stable choice and the correct line numbering. A suggestion to exclude the generated pages from
+the site's edit button is a change to the whole site's chrome and belongs to whoever owns that, not
+to this story; the pages say they are generated in their own first line.
+
 ## Design Notes
 
 **Why the pages index the data.** Rendering 4,976 string rows into Markdown would double what the
@@ -115,6 +177,56 @@ directions costs one line per future table and names exactly what to add.
 gate nobody knows works; the local test is necessary and not sufficient.
 
 ## Verification
+
+**Dev notes:**
+- **Never run two gradle jobs at once**, and do not `git add` while a mutation battery runs: its
+  restore is `git checkout --`, so a commit in the wrong window stages a mutated reader.
+- **Write patch scripts with the editor, not with a shell heredoc**, which halves the backslashes
+  on the way to Python. It cost two round trips here -- once on a Java regex, once on a probe.
+- A branch that already has a pull request open is not a branch to rewind: pushing an older commit
+  to it points the open request at that commit. Check for the request before force-pushing, even on
+  a story branch where force-pushing is otherwise allowed.
+- The site's table of contents slugifies a heading by dropping everything that is not a letter or
+  a digit, so `weapon.expression` anchors as `weaponexpression`; `mkdocs build --strict` is what
+  catches a link to an anchor that is not there.
+
+
+**Evidence:**
+
+- `./gradlew build -Pshatterfish.mobile=off` -- **BUILD SUCCESSFUL**, every module; `:codex:test`
+  green at 109 tests, up from 100.
+- `./gradlew :codex:generate && git status --short codex/ docs/codex/` -- nothing changed: 19
+  tables, 19 pages, 19 nav entries.
+- `mkdocs build --strict` -- green, 90 pages, every generated page reachable from the nav.
+- **The deliberate edit, on a real CI run** -- the acceptance criterion this story exists for. One
+  byte of `codex/v4.0.0/mobs.json` changed by hand so a Scorpio's attack roll read `max:37` where
+  the pinned class says `return 36;`, pushed as the head of the pull request:
+  [run 35650222072](https://github.com/watchthelight/shatterfish/actions/runs/35650222072) **BUILD
+  FAILED**, `CodexSeedFreeTest` naming *"the first differing file is mobs.json; run
+  `./gradlew :codex:generate` and commit"*, with `CodexLeakTest` catching it independently.
+  Reverted in the commit after, and CI green again.
+- **CI green on the reviewed head** -- build + test 10m02s, `mkdocs --strict` 21s.
+
+**Mutation battery (12 mutations).** Two survivors were real and both are fixed:
+
+- **M1, the one that mattered**: the drift check stopped covering the pages if one line went, and
+  nothing noticed -- the gate this story exists to prove, failing open. The test written for that
+  very risk did not close it, because it drove the comparison itself rather than the call the
+  committed folders go through. What the task writes is now one value it produces
+  (`Generate.outputs`), and the check walks it; dropping the pages is a change to what the
+  generator writes. Retargeted at that production fact, M1 is caught.
+- **M4**: a folder under a generated folder was refused by the write and by nothing else, because
+  no test had put one there. Now one does, and M4 is caught.
+
+Four further survivors are mutations of tests rather than of the code the tests hold, and a
+weakened assertion cannot be caught by the suite it lives in -- the battery's reach ends at
+production code, which is worth recording rather than papering over. One of them, M5, is a no-op
+at this pin: the literal the index used to carry and the count derived from the tables are the same
+number today, so nothing can tell them apart until a tag moves, which is exactly when the new
+assertion bites.
+
+This is the third story running where the battery found something four independent reviews did
+not, and the second where what it found was the story's own headline guarantee.
 
 **Commands:**
 - `./gradlew :codex:generate -Pshatterfish.mobile=off && git status --short codex/ docs/codex/` --
