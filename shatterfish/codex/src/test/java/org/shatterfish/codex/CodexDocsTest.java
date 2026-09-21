@@ -163,6 +163,55 @@ class CodexDocsTest {
     }
 
     @Test
+    @DisplayName("what a page says about its own table is true of the table: the counts, the reasons, and the values it says are below")
+    void a_page_states_what_is_so() throws IOException {
+        Path folder = ROOT.resolve(Generate.FOLDER).resolve(Upstream.tag(ROOT));
+        // The one number the index states in prose rather than in its table. It was a literal,
+        // and a literal in a generated file is a claim nothing regenerates.
+        long largest = 0;
+        for (Object table : tables()) {
+            Object held = Pages.parse(Files.readString(folder.resolve(String.valueOf(table)), StandardCharsets.UTF_8));
+            largest = Math.max(largest, entriesOf(held));
+        }
+        assertTrue(page(Pages.INDEX).contains("one table alone holds " + largest + " of them"),
+                Pages.INDEX + " says the largest table holds " + largest + " entries; run " + Pages.COMMAND);
+
+        for (Object table : tables()) {
+            String name = String.valueOf(table);
+            String text = page(Pages.page(name));
+            long entries = entriesOf(Pages.parse(Files.readString(folder.resolve(name), StandardCharsets.UTF_8)));
+            // A reason recorded against a value at a table's root is not one of the entries, and
+            // a page that counted the two together said so of a table where it was false.
+            Matcher counted = Pattern.compile("(\\d+) entr(?:y|ies) of the table's (\\d+) ").matcher(text);
+            if (counted.find()) {
+                assertEquals(entries, Long.parseLong(counted.group(2)),
+                        Pages.page(name) + " counts the table's entries as the table holds them");
+                assertTrue(Long.parseLong(counted.group(1)) <= entries,
+                        Pages.page(name) + " says more entries name a reason than the table has entries");
+            }
+            // A value the page says is printed below has to be printed below.
+            Matcher below = Pattern.compile("\\[below]\\(#([a-z0-9_-]+)\\)").matcher(text);
+            while (below.find()) {
+                assertTrue(text.contains("\n#### "), Pages.page(name) + " says a value is below and prints none");
+            }
+        }
+    }
+
+    /** How many entries a table holds, counted here rather than taken from the page. */
+    private static long entriesOf(Object table) {
+        if (table instanceof List<?> list) {
+            return list.size();
+        }
+        long entries = 0;
+        for (Object held : ((Map<?, ?>) table).values()) {
+            if (held instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof Map<?, ?>) {
+                entries += list.size();
+            }
+        }
+        return entries;
+    }
+
+    @Test
     @DisplayName("the nav calls each page what the page calls itself, and no page ships asking to be written")
     void the_nav_names_the_pages_and_no_page_is_a_placeholder() throws IOException {
         Map<String, String> titles = navTitles();
