@@ -5,7 +5,7 @@ title: "The vanilla-versus-Shattered vocabulary diff"
 epic: 2
 issue: 42
 type: 'feature'
-status: 'in-progress'
+status: 'review'
 created: '2026-09-17'
 updated: '2026-09-17'
 review_loop_iteration: 0
@@ -233,6 +233,46 @@ three rows that made it look otherwise were the identical-text defect, now fixed
 - `uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict` -- expected:
   green.
 - `sh tools/fetch-vanilla.sh` -- expected: idempotent, and the index untouched.
+
+**Evidence:**
+
+- `./gradlew build -Pshatterfish.mobile=off` -- **BUILD SUCCESSFUL**, 42 tasks, every module.
+- `./gradlew :codex:test` -- green, 95 tests, including `CodexSeedFreeTest`'s drift check, which
+  regenerates the whole Codex and compares it byte for byte with what is committed.
+- `uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict` -- green,
+  89 artifact pages published.
+- `sh tools/fetch-vanilla.sh` -- run twice from a marked tree and once from an unmarked one: the
+  early exit holds, the fetch-and-extract path writes the tree and the marker, and `git status`
+  is unchanged throughout, so nothing reaches this repository's index.
+- **The table**: 449 rows -- 114 names both games give, 288 only this game, 47 only the other --
+  carrying 115 mechanic differences, 23 of them between two plain numbers. Every citation in the
+  generated file was resolved back to its line and checked to state what the row claims: 0 name
+  citations that do not state the name, 0 fact citations that do not state the fact, 0 facts read
+  off a field's declaration.
+
+**Mutation battery, first pass (14 mutations, before review).** All fourteen caught, none by
+nobody. Its one survivor at the time was a real defect and was fixed before review: a recipe's
+output quantity taken from a named constant fell through to a default.
+
+**Mutation battery, second pass (22 mutations, over the reviewed readers).** The set covers the
+shapes the four reviews found broken as well as the first pass's: a field's declaration read as a
+statement (M15), a name the reader cannot read passed over instead of refused (M16), a nested
+class never read (M17), a kind taken from a folder rather than from what a class extends (M18), a
+sentinel published as a number (M19), a mechanic keyed by one game's method name so the two never
+meet (M20), and a tree cited without being checked against the pinned commit (M21).
+
+Twenty-one of twenty-two were caught on the first run. **The survivor was M22**: a display name
+joined on without its whitespace collapsed. Neither pinned game spells a name with a stray space,
+so no tree can demonstrate the rule and nothing stated it. This is the same survivor class story
+2.7 recorded -- *a rule the pinned tree cannot distinguish needs a seam so a test can state it* --
+and it is worth noting that a mutation battery finds this class of gap reliably while four
+independent reviews did not raise it once. `NamesTest` now states the rule directly, and M22 is
+caught. On the re-run, all twenty-two are caught, none by nobody.
+
+After the battery, two dead members were removed from `Stated` -- an accessor nothing called and a
+record component nothing read. M17 and M18, the two mutations coupled to the method that changed,
+were re-run and are still caught, and the drift check confirms the generated table is byte for
+byte what it was before the removal.
 
 **Dev notes:**
 - **Never run two gradle jobs at once.** They share `build/test-results` and wipe each other; story
