@@ -2,7 +2,9 @@
 title: 'The drift check and the generated documentation'
 type: 'feature'
 created: '2026-09-21'
-status: 'ready-for-dev'
+status: 'done'
+updated: '2026-09-21'
+baseline_commit: 'a6f0ae28a'
 review_loop_iteration: 0
 context: []
 ---
@@ -69,19 +71,19 @@ and stays human-owned. No new Gradle task. Do not weaken the seed-free or leak t
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `shatterfish/codex/.../Pages.java` -- render the Codex pages: an index from the manifest
+- [x] `shatterfish/codex/.../Pages.java` -- render the Codex pages: an index from the manifest
   (tag, version, every table with its entry count and a link to the JSON) and one page per table
   saying what it holds, how a row is shaped, the citations its reader recorded, and in full any
   list the reader named a reason for, those being the judgments a human audits.
-- [ ] `shatterfish/codex/.../Generate.java` -- `pages(root, tables)` beside `generate(root)`;
+- [x] `shatterfish/codex/.../Generate.java` -- `pages(root, tables)` beside `generate(root)`;
   `main` writes tables to `codex/<tag>/` and pages to `docs/codex/`, each with stale-file deletion.
-- [ ] `docs/codex/*.md` -- generated and committed, replacing the hand-written page.
-- [ ] `mkdocs.yml` -- the Codex section gains a nav entry per generated page.
-- [ ] `CodexSeedFreeTest.java` -- the drift check covers the pages as it covers the tables, and
+- [x] `docs/codex/*.md` -- generated and committed, replacing the hand-written page.
+- [x] `mkdocs.yml` -- the Codex section gains a nav entry per generated page.
+- [x] `CodexSeedFreeTest.java` -- the drift check covers the pages as it covers the tables, and
   `main`'s two destinations are held.
-- [ ] `CodexDocsTest.java` -- every generated page has a nav entry and every Codex nav entry a
+- [x] `CodexDocsTest.java` -- every generated page has a nav entry and every Codex nav entry a
   page; the index lists every table the manifest lists; every page states tag and version.
-- [ ] `docs/adr/0017-...md` -- what the pages are, and why they index rather than repeat.
+- [x] `docs/adr/0017-...md` -- what the pages are, and why they index rather than repeat.
 
 **Acceptance Criteria:**
 - Given a committed Codex matching the tag, when CI runs `./gradlew build`, then the drift test
@@ -123,3 +125,38 @@ gate nobody knows works; the local test is necessary and not sufficient.
   expected: green, the Codex section carrying every generated page.
 - A deliberate edit pushed to the branch -- expected: CI red, the failure naming the edited file;
   then reverted and CI green.
+
+**Evidence:**
+
+- `./gradlew build -Pshatterfish.mobile=off` -- **BUILD SUCCESSFUL**, 42 tasks, every module.
+- `./gradlew :codex:test -Pshatterfish.mobile=off` -- green, including the drift check over both
+  folders and the four new `CodexDocsTest` cases.
+- `./gradlew :codex:generate -Pshatterfish.mobile=off && git status --short codex/ docs/codex/` --
+  nothing changed after the commit; the one task writes both folders.
+- `uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict` -- green,
+  90 artifact pages, and all nineteen Codex pages built into `site/codex/`.
+- **The deliberate edit, on a real CI run.** One byte of `codex/v4.0.0/mobs.json` changed by hand
+  (a Scorpio's attack roll reading 37 where the pinned class says 36), pushed as commit
+  `43c9fa8be`. Continuous integration went red:
+  [run 35650222072](https://github.com/watchthelight/shatterfish/actions/runs/35650222072) --
+  `BUILD FAILED in 7m 50s`, `Execution failed for task ':codex:test'`, 100 tests completed, 2
+  failed. `CodexSeedFreeTest` failed with *"the first differing file is mobs.json; run
+  `./gradlew :codex:generate` and commit"*, naming the file and the command exactly as the story
+  requires, and `CodexLeakTest`'s live-Run comparison failed on the same file independently. The
+  byte was reverted in `877e6855f` and CI is green again. The gate has now been watched to bite.
+
+**What the pages come to.** Nineteen pages, 316 KB of Markdown, against 3.1 MB of JSON: one index
+and one page per table, covering 7,165 entries. 85 of those entries name a reason and are listed
+in full -- 60 items whose icons need the toolkit, 24 bundle keys naming no class the game compiles,
+and one hit table a generator that may not boot cannot measure. `CodexDocsTest` holds the ratio, so
+a page that started repeating its table would fail.
+
+**Dev notes:**
+- `Pages` is the one place in the repository that reads JSON rather than writing it. That is
+  deliberate: a page derived from the bytes that were written cannot disagree with them, and a
+  second pass over the game could. The reader is small, refuses floats and duplicate keys, and
+  lives beside the renderer that needs it.
+- The review catch of this story was a dead link, not a wrong number: the vocabulary table cites
+  `vanilla-src/`, which is fetched and never committed, so every one of its 227 vanilla citations
+  linked a path this repository does not hold. `CodexDocsTest` now resolves every link a page
+  makes back to a file that is there.

@@ -627,3 +627,66 @@ epic 7 will use, and the table states that of itself rather than leaving a reade
 Codex file has no consumer.
 
 Codex version 8.
+
+## Amendment: story 2.9 (2026-09-21)
+
+**One task writes the pages too.** `./gradlew :codex:generate` now writes `docs/codex/` beside
+`codex/<tag>/`, from the text it has just written rather than from a second reading of the game, so
+a page cannot describe a table that is not there. Both folders go through the same flat,
+stale-deleting write, so a page whose table the generator no longer writes is deleted with it and
+each folder is exactly what was generated. `main` takes either one argument or three: naming one
+folder and not the other would write the repository's pages over a test's.
+
+**The pages index the data; they do not repeat it.** Rendering the entries into Markdown would
+double what the repository commits — 3.1 MB of JSON, 1.7 MB of it one table of 4,976 strings — to
+restate bytes that are already committed, diffable and cited, and would produce pages no reader
+could use. So a page answers what a reader brings to a table and links the JSON for the rest: what
+the table holds, how many entries there are, how a row is shaped (every field any entry holds, by
+the path it is reached at), which files of the pinned tree it was read from with how many citations
+and over what lines, and — in full — every entry whose reader had to name a reason. Those last are
+the judgments a human audits: 60 items read from source because their icons need the toolkit, 24
+bundle keys naming no class the game compiles, and one hit table a generator that may not boot
+cannot measure. There are 85 of them against 7,165 entries, and they are the part of a Codex that
+is not simply a reading. `CodexDocsTest` holds the ratio too: pages that approach their tables'
+size are repeating them.
+
+**A page is derived from the bytes, so a later table needs no new rule.** Everything on a page —
+the entry counts, the shape, the citations, the judgments — is read back out of the generated JSON
+by a reader in `Pages`, the one place in the repository that reads JSON rather than writing it.
+The only hand-written part is the sentence saying what a table holds, and a table without one still
+gets its page and says where to add it. An entry, for counting, is an object in one of a table's
+own lists: the list the file is, or the lists the object at its root holds; anything else a table
+states is a value the page names with its type and, where it is short enough to read, its value.
+
+**A cited file is linked where it is actually read.** This repository's own tree is linked at
+`main`. The second pinned game is the one tree that is read and never committed — `vanilla-src/`
+is fetched by `tools/fetch-vanilla.sh` and ignored — so a citation into it is opened in its own
+repository at the commit `vanilla.pin` names, which is the only commit its line numbers are true
+of. A pin naming a repository no browser can open is refused rather than turned into a link that
+goes nowhere, and `CodexDocsTest` resolves every link a page makes back to a file that is there.
+
+**The nav stays human-owned and is held by a test.** `mkdocs.yml` is the whole site's shape, and a
+generator rewriting it would make every unrelated nav edit a generated-file conflict. So it is not
+generated. Instead `CodexDocsTest` holds it in both directions — a generated page has a nav entry,
+a nav entry has a generated page — which costs one line per future table and names exactly what to
+add, before `mkdocs build --strict` gets there and fails a page no nav names. The same test holds
+that the index lists every table the manifest lists and that every page states the tag and the
+Codex version it came from.
+
+**The drift check covers both folders, in the same words.** `CodexSeedFreeTest` compares
+`docs/codex/` with a fresh rendering exactly as it compares `codex/<tag>/`: same byte comparison,
+same carriage-return check, same "the first differing file is … ; run `./gradlew :codex:generate`
+and commit". Two generations under different seeds and Profiles are compared page by page as well
+as table by table. `./gradlew build` already runs these on every pull request, so no workflow
+changed; what changed is that the module's `test` task now declares `docs/codex/` and `mkdocs.yml`
+as inputs, since without them a hand-edited page or a deleted nav entry would leave a cached run
+standing.
+
+**A gate nobody has watched bite is a gate nobody knows works.** The local test is necessary and
+not sufficient, so this story deliberately edited one byte of a committed Codex file on the branch
+and watched continuous integration go red: `BUILD FAILED`, `:codex:test`, 2 of 100 tests failing,
+`CodexSeedFreeTest` saying *"the first differing file is mobs.json; run `./gradlew :codex:generate`
+and commit"* and `CodexLeakTest` catching the same file independently. The byte was then reverted.
+The run is linked from the story's Evidence.
+
+No Codex version bump: no table's bytes changed.
