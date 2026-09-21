@@ -116,11 +116,14 @@ class CodexSeedFreeTest {
     @Test
     @DisplayName("the committed codex/<tag>/ and docs/codex/ are a fresh generation, byte for byte, with line feeds only and no file extra")
     void the_committed_folder_is_a_fresh_generation() throws IOException {
-        Map<String, String> fresh = Generate.generate(ROOT);
-        assertCommitted(ROOT.resolve(Generate.FOLDER).resolve(Upstream.tag(ROOT)), fresh, Generate.FOLDER + "/");
-        // The pages are held exactly as the tables are, and by the same words: a hand-edited page
-        // fails the build naming the page and the one command that writes it (story 2.9).
-        assertCommitted(ROOT.resolve(Pages.FOLDER), Pages.pages(ROOT, fresh), Pages.FOLDER + "/");
+        // Every folder the task writes, walked rather than named one at a time: naming them here
+        // meant the pages were covered by a line that could be deleted with every test still
+        // green, which a mutation battery found and four reviews predicted.
+        Map<String, Map<String, String>> outputs = Generate.outputs(ROOT);
+        assertEquals(2, outputs.size(), "the task writes the tables and the pages");
+        for (Map.Entry<String, Map<String, String>> output : outputs.entrySet()) {
+            assertCommitted(Generate.folder(ROOT, output.getKey()), output.getValue(), output.getKey() + "/");
+        }
     }
 
     /** {@code folder} holds exactly {@code fresh}, byte for byte, with line feeds only. */
@@ -162,6 +165,14 @@ class CodexSeedFreeTest {
         assertFalse(pinned.find(), "docs/UPSTREAM.md pins one tag");
         assertEquals(tag, Upstream.tag(ROOT), "the generator's tag and the ledger's pin");
         assertThrowsNotACheckout(out);
+        // A folder the generator did not write is refused rather than passed over: passing over
+        // it made it invisible to the write and to the comparison alike, so the matrix row saying
+        // the folder is exactly what was generated was not true of a directory.
+        Files.createDirectory(site.resolve("pictures"));
+        IllegalStateException intruder = org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> Generate.main(new String[] {ROOT.toString(), out.toString(), site.toString()}));
+        assertTrue(intruder.getMessage().contains("pictures"), intruder.getMessage());
+        Files.delete(site.resolve("pictures"));
         // One folder named and not the other would write the repository's pages over a test's, so
         // main takes either one argument or three.
         IllegalArgumentException refused = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,

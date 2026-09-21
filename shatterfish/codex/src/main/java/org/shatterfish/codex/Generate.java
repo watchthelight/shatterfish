@@ -75,12 +75,30 @@ public final class Generate {
             throw new IllegalArgumentException("the tables and the pages cannot share a folder: " + tables
                     + "; each is written whole and what it does not write there is deleted");
         }
-        // Both are rendered before either is written, so that a table the renderer refuses cannot
-        // leave one folder regenerated and the other standing at what it said before.
-        Map<String, String> generated = generate(root);
-        Map<String, String> rendered = Pages.pages(root, generated);
-        write(generated, tables);
-        write(rendered, pages);
+        // Everything is rendered before anything is written, so that a table the renderer refuses
+        // cannot leave one folder regenerated and the other standing at what it said before.
+        Map<String, Map<String, String>> written = outputs(root);
+        write(written.get(FOLDER), tables);
+        write(written.get(Pages.FOLDER), pages);
+    }
+
+    /**
+     * Everything the one task writes, by the folder it goes under: the tables under {@link #FOLDER}
+     * and the pages under {@link Pages#FOLDER}. It is one value rather than two calls because the
+     * drift check walks it, and a check that named each folder itself could stop covering one of
+     * them by losing a line, which is a gate that fails open.
+     */
+    public static Map<String, Map<String, String>> outputs(Path root) {
+        Map<String, String> tables = generate(root);
+        Map<String, Map<String, String>> written = new LinkedHashMap<>();
+        written.put(FOLDER, tables);
+        written.put(Pages.FOLDER, Pages.pages(root, tables));
+        return written;
+    }
+
+    /** Where a folder of {@link #outputs} is written under the repository root. */
+    public static Path folder(Path root, String output) {
+        return FOLDER.equals(output) ? root.resolve(FOLDER).resolve(Upstream.tag(root)) : root.resolve(output);
     }
 
     /** The repository root the argument names, real and checked to be a Shatterfish checkout. */
