@@ -6,7 +6,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 /**
  * The Codex's pages (story 2.9): the same task that writes {@code codex/<tag>/} renders the site's
@@ -105,8 +107,10 @@ public final class Pages {
                 .append("/` and the pages under this\nsection; continuous integration regenerates and fails the build if either has drifted, so a page\n")
                 .append("can never describe a tag it does not come from. Every value is cited to the `path:line` it was\n")
                 .append("read from, which is what a claim about the game is settled by\n([Fairness](../fairness.md)).\n\n");
+        long largest = summaries.stream().mapToLong(Summary::entries).max().orElse(0);
         out.append("These pages index the tables; they do not repeat them. The entries are already committed,\n")
-                .append("diffable and cited in the JSON each page links, and one table alone holds 4,976 of them.\n")
+                .append("diffable and cited in the JSON each page links, and one table alone holds ").append(largest)
+                .append(" of them.\n")
                 .append("What a page adds is what a reader brings to a table: what it holds, how many entries there\n")
                 .append("are, how a row is shaped, which files of the pinned tree it was read from, and, in full, the\n")
                 .append("entries whose reader had to name a reason.\n\n");
@@ -138,16 +142,36 @@ public final class Pages {
                 .append(BLOB).append(Generate.FOLDER).append("/").append(tag).append("/").append(summary.table())
                 .append(") holds ").append(many(summary.entries(), "entry", "entries")).append(" in ")
                 .append(kilobytes(summary.bytes()))
-                .append(". The entries are not repeated here: they are committed, diffable and cited in that file.\n\n");
+                .append(". The entries are not repeated here: they are committed, diffable and cited in that file.\n")
+                .append("An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the\n")
+                .append("table states beside them is a value, and the values are below.\n\n");
         if (!summary.values().isEmpty()) {
             out.append("## What the table states of itself\n\n");
             out.append("The values the table carries beside its entries, by the path each is reached at.\n\n");
             out.append("| Field | Type | Value |\n|---|---|---|\n");
+            List<Field> below = new ArrayList<>();
             for (Field value : summary.values()) {
-                out.append("| `").append(value.path()).append("` | ").append(value.type()).append(" | ")
-                        .append(value.value().isEmpty() ? "--" : "`" + value.value() + "`").append(" |\n");
+                String held;
+                if (value.kind() == Held.TOO_LONG) {
+                    held = "[below](#" + anchor(value.path()) + ")";
+                    below.add(value);
+                } else if (value.kind() == Held.EMPTY) {
+                    held = "*(empty)*";
+                } else if (value.kind() == Held.NONE) {
+                    held = "*(none)*";
+                } else {
+                    held = "`" + value.value() + "`";
+                }
+                out.append("| `").append(cell(value.path())).append("` | ").append(value.type()).append(" | ")
+                        .append(held).append(" |\n");
             }
             out.append('\n');
+            // A value a cell cannot hold is the substance of some tables -- the tier rules are
+            // expressions and nothing else -- so it is printed rather than hidden behind a dash.
+            for (Field value : below) {
+                out.append("#### `").append(cell(value.path())).append("`\n\n```\n")
+                        .append(value.value()).append("\n```\n\n");
+            }
         }
         out.append("## How a row is shaped\n\n");
         if (summary.sections().isEmpty()) {
@@ -174,10 +198,11 @@ public final class Pages {
             for (long[] range : summary.citations().values()) {
                 total += range[0];
             }
-            out.append("Every value above was read from the pinned tree at the line the entry carries. The reader\n")
+            out.append("Every value above is cited to the pinned tree: the line it was read from, or, where a table\n")
+                    .append("is measured rather than transcribed, the method that was run. The reader\n")
                     .append("recorded ").append(many(total, "citation", "citations")).append(" in ")
                     .append(many(summary.citations().size(), "file", "files")).append(":\n\n");
-            out.append("| Source | Citations | Lines |\n|---|---:|---|\n");
+            out.append("| Source | Citations | Line span |\n|---|---:|---|\n");
             for (Map.Entry<String, long[]> file : summary.citations().entrySet()) {
                 long[] range = file.getValue();
                 out.append("| [`").append(file.getKey()).append("`](").append(source(vanilla, file.getKey())).append(") | ")
@@ -191,13 +216,32 @@ public final class Pages {
             out.append("The reader named no reason in this table: every entry is a fact the pinned tree states, and\n")
                     .append("nothing was left out or decided.\n");
         } else {
-            out.append("Where the reader could not simply read a value it recorded why, and every such entry is here\n")
-                    .append("in full -- these are the judgments a human audits, and the list is short on purpose. ")
-                    .append(summary.judgments().size()).append(" of the\ntable's ").append(summary.entries())
-                    .append(summary.entries() == 1 ? " entry names" : " entries name").append(" a reason:\n\n");
-            out.append("| Entry | Reason |\n|---|---|\n");
+            List<Judgment> ofEntries = new ArrayList<>();
+            List<Judgment> ofValues = new ArrayList<>();
             for (Judgment judgment : summary.judgments()) {
-                out.append("| `").append(judgment.what()).append("` | ").append(judgment.reason()).append(" |\n");
+                (judgment.entry() ? ofEntries : ofValues).add(judgment);
+            }
+            out.append("Where the reader could not simply read a value it recorded why, and every such reason is\n")
+                    .append("here in full -- these are the judgments a human audits, and the list is short on purpose.\n\n");
+            if (!ofEntries.isEmpty()) {
+                out.append(many(ofEntries.size(), "entry", "entries")).append(" of the table's ")
+                        .append(summary.entries()).append(' ').append(ofEntries.size() == 1 ? "names" : "name")
+                        .append(" a reason:\n\n");
+                out.append("| Entry | Reason |\n|---|---|\n");
+                for (Judgment judgment : ofEntries) {
+                    out.append("| `").append(judgment.what()).append("` | ").append(judgment.reason()).append(" |\n");
+                }
+                out.append('\n');
+            }
+            if (!ofValues.isEmpty()) {
+                out.append(many(ofValues.size(), "value", "values"))
+                        .append(" the table states of itself, which the count above does not include, ")
+                        .append(ofValues.size() == 1 ? "names" : "name").append(" a reason:\n\n");
+                out.append("| Value | Where | Reason |\n|---|---|---|\n");
+                for (Judgment judgment : ofValues) {
+                    out.append("| `").append(judgment.what()).append("` | `").append(cell(judgment.where()))
+                            .append("` | ").append(judgment.reason()).append(" |\n");
+                }
             }
         }
         return out.toString();
@@ -350,7 +394,11 @@ public final class Pages {
         }
         Map<String, long[]> citations = new TreeMap<>();
         List<Judgment> judgments = new ArrayList<>();
-        walk(value, "", citations, judgments);
+        Set<String> counted = new TreeSet<>();
+        for (Section section : sections) {
+            counted.add(section.name());
+        }
+        walk(value, "", citations, judgments, counted);
         return new Summary(table, page(table), title(table), entries,
                 text.getBytes(StandardCharsets.UTF_8).length, sections, values, citations, judgments);
     }
@@ -405,7 +453,7 @@ public final class Pages {
     private static void values(String path, Object value, List<Field> into) {
         if (value instanceof Map<?, ?> object) {
             if (object.isEmpty()) {
-                into.add(new Field(path, "object", ""));
+                into.add(new Field(path, "object", "", Held.EMPTY));
                 return;
             }
             if (cited(object)) {
@@ -420,28 +468,24 @@ public final class Pages {
         }
         if (value instanceof List<?> list) {
             if (list.isEmpty()) {
-                into.add(new Field(path, "empty list", ""));
+                into.add(new Field(path, "empty list", "", Held.EMPTY));
                 return;
             }
             String element = type(list.get(0));
             if ("object".equals(element) || "list".equals(element)) {
-                into.add(new Field(path, "list of " + element, ""));
+                into.add(new Field(path, "list of " + element, "", Held.NONE));
                 return;
             }
             StringBuilder joined = new StringBuilder();
             for (Object held : list) {
-                String one = printed(held);
-                if (one.isEmpty()) {
-                    joined.setLength(0);
-                    break;
-                }
-                joined.append(joined.length() == 0 ? "" : ", ").append(one);
+                joined.append(joined.length() == 0 ? "" : ", ").append(String.valueOf(held));
             }
             String all = joined.toString();
-            into.add(new Field(path, "list of " + element, all.length() <= SHORT ? all : ""));
+            into.add(new Field(path, "list of " + element, all,
+                    all.length() <= SHORT && safe(all) ? Held.SHOWN : Held.TOO_LONG));
             return;
         }
-        into.add(new Field(path, type(value), printed(value)));
+        into.add(held(path, value));
     }
 
     /** A citation as every table writes one: a path and the line it was read on, and nothing else. */
@@ -449,16 +493,31 @@ public final class Pages {
         return object.size() == 2 && object.get("path") instanceof String && object.get("line") instanceof Long;
     }
 
-    /** A value as a cell holds it, or nothing where it is too long or would break the table. */
-    private static String printed(Object value) {
+    /**
+     * A value and why a cell can or cannot hold it. The four cases were one dash before: a value
+     * the table does not state, a value it states as nothing, a value too long for a cell, and a
+     * value a cell would break on. They are different facts, and for the tables whose substance
+     * is an expression the third was the whole page.
+     */
+    private static Field held(String path, Object value) {
+        if (value == null) {
+            return new Field(path, "none", "", Held.NONE);
+        }
         if (value instanceof Long || value instanceof Boolean) {
-            return String.valueOf(value);
+            return new Field(path, type(value), String.valueOf(value));
         }
-        if (value instanceof String held && !held.isEmpty() && held.length() <= SHORT
-                && held.indexOf('`') < 0 && held.indexOf('|') < 0 && held.indexOf('\n') < 0) {
-            return held;
+        String text = String.valueOf(value);
+        if (text.isEmpty()) {
+            return new Field(path, type(value), "", Held.EMPTY);
         }
-        return "";
+        return new Field(path, type(value), text,
+                text.length() <= SHORT && safe(text) ? Held.SHOWN : Held.TOO_LONG);
+    }
+
+    /** Whether a cell can carry the text as it stands, without an escape changing what it says. */
+    private static boolean safe(String text) {
+        return text.indexOf('`') < 0 && text.indexOf('|') < 0 && text.indexOf('\n') < 0
+                && text.indexOf('\r') < 0 && text.indexOf('\\') < 0;
     }
 
     private static String type(Object value) {
@@ -486,10 +545,11 @@ public final class Pages {
      * entries whose reader named a reason, which is any object with a {@code reason} that is not
      * empty.
      */
-    private static void walk(Object value, String where, Map<String, long[]> citations, List<Judgment> judgments) {
+    private static void walk(Object value, String where, Map<String, long[]> citations,
+                            List<Judgment> judgments, Set<String> counted) {
         if (value instanceof List<?> list) {
             for (int i = 0; i < list.size(); i++) {
-                walk(list.get(i), where + "[" + i + "]", citations, judgments);
+                walk(list.get(i), where + "[" + i + "]", citations, judgments, counted);
             }
             return;
         }
@@ -510,12 +570,23 @@ public final class Pages {
             return;
         }
         if (object.get("reason") instanceof String reason && !reason.isEmpty()) {
-            judgments.add(new Judgment(where, names(object, where), cell(reason)));
+            judgments.add(new Judgment(where, names(object, where), cell(reason), counts(where, counted)));
         }
         for (Map.Entry<?, ?> member : object.entrySet()) {
             String key = String.valueOf(member.getKey());
-            walk(member.getValue(), where.isEmpty() ? key : where + "." + key, citations, judgments);
+            walk(member.getValue(), where.isEmpty() ? key : where + "." + key, citations, judgments, counted);
         }
+    }
+
+    /**
+     * Whether what stands at this path is one of the entries the page counts: an element of the
+     * list the file is, or of one of the lists at its root. Anything deeper, and anything beside
+     * them, is a value the table states of itself, and saying otherwise made one page state that
+     * a reason recorded against a root value was one of five hundred entries it is not among.
+     */
+    private static boolean counts(String where, Set<String> counted) {
+        int bracket = where.indexOf('[');
+        return bracket >= 0 && counted.contains(where.substring(0, bracket));
     }
 
     /** What an entry is called, by the first field an entry of any table is named by. */
@@ -528,9 +599,53 @@ public final class Pages {
         return cell(where);
     }
 
-    /** Text as a Markdown table cell holds it. */
+    /**
+     * Text as a Markdown table cell holds it: the escape first, so that a backslash already
+     * before a pipe cannot close the escape the pipe needs; every line break flattened, the
+     * carriage return included, since a page is written with line feeds only; and the characters
+     * that would otherwise render the game's own prose as emphasis, a link or raw HTML.
+     */
     private static String cell(String text) {
-        return text.replace("|", "\\|").replace("\n", " ").replace("`", "'");
+        StringBuilder out = new StringBuilder(text.length());
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '\n' || c == '\r' || c == '\t') {
+                out.append(' ');
+            } else if (c == '\\' || c == '|' || c == '*' || c == '_' || c == '[' || c == ']' || c == '<' || c == '>') {
+                out.append('\\').append(c);
+            } else if (c == '`') {
+                out.append('\'');
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString();
+    }
+
+    /**
+     * A heading's anchor as the site derives one, for a link to a value printed below its table.
+     * The site's table of contents lower-cases, turns a run of spaces into one hyphen and drops
+     * everything else, so a dotted path becomes one word. {@code mkdocs build --strict} is what
+     * holds this: it fails on a link to an anchor no heading on the page carries.
+     */
+    private static String anchor(String heading) {
+        StringBuilder out = new StringBuilder(heading.length());
+        boolean space = false;
+        for (int i = 0; i < heading.length(); i++) {
+            char c = Character.toLowerCase(heading.charAt(i));
+            if (c >= 'a' && c <= 'z' || c >= '0' && c <= '9') {
+                if (space && out.length() > 0) {
+                    out.append('-');
+                }
+                space = false;
+                out.append(c);
+            } else if (c == ' ' || c == '\t') {
+                space = true;
+            } else if (c == '-' || c == '_') {
+                out.append(c);
+            }
+        }
+        return out.toString();
     }
 
     private record Summary(String table, String page, String title, long entries, long bytes,
@@ -541,10 +656,18 @@ public final class Pages {
     private record Section(String name, long entries, List<Field> shape) {
     }
 
-    private record Field(String path, String type, String value) {
+    /** Why a value is not printed in its cell, where it is not. */
+    private enum Held {
+        SHOWN, NONE, EMPTY, TOO_LONG
     }
 
-    private record Judgment(String where, String what, String reason) {
+    private record Field(String path, String type, String value, Held kind) {
+        Field(String path, String type, String value) {
+            this(path, type, value, Held.SHOWN);
+        }
+    }
+
+    private record Judgment(String where, String what, String reason, boolean entry) {
     }
 
     // ---------------------------------------------------------------- reading the JSON back
@@ -643,9 +766,12 @@ public final class Pages {
                 spaces();
                 expect(':');
                 spaces();
-                if (object.put(key, value()) != null) {
+                // containsKey, not the value put returns: a key written twice whose first value
+                // was null returned null and passed, and the tables do write nulls.
+                if (object.containsKey(key)) {
                     throw new IllegalStateException("the key " + key + " is written twice at " + at);
                 }
+                object.put(key, value());
                 spaces();
                 char next = peek();
                 at++;

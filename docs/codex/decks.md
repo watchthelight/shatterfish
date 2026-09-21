@@ -9,6 +9,8 @@ The item generator's categories with their two deck weights and their classes' w
 three appearance-label pools, and the exotic swap with its chance (story 2.3).
 
 [`codex/v4.0.0/decks.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/decks.json) holds 26 entries in 38.8 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
+table states beside them is a value, and the values are below.
 
 ## What the table states of itself
 
@@ -16,10 +18,16 @@ The values the table carries beside its entries, by the path each is reached at.
 
 | Field | Type | Value |
 |---|---|---|
-| `exotic.chanceExpression` | string | -- |
+| `exotic.chanceExpression` | string | [below](#exoticchanceexpression) |
 | `exotic.chanceWithoutTrinketPerMille` | number | `0` |
 | `exotic.citation` | citation | `ExoticCrystals.java:52` |
-| `exotic.pairs` | list of object | -- |
+| `exotic.pairs` | list of object | *(none)* |
+
+#### `exotic.chanceExpression`
+
+```
+return 0f; | return 0.2f + 0.2f*level;
+```
 
 ## How a row is shaped
 
@@ -82,10 +90,11 @@ The values the table carries beside its entries, by the path each is reached at.
 
 ## Citations
 
-Every value above was read from the pinned tree at the line the entry carries. The reader
+Every value above is cited to the pinned tree: the line it was read from, or, where a table
+is measured rather than transcribed, the method that was run. The reader
 recorded 167 citations in 6 files:
 
-| Source | Citations | Lines |
+| Source | Citations | Line span |
 |---|---:|---|
 | [`core/src/main/assets/messages/items/items.properties`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/assets/messages/items/items.properties) | 60 | 725-1235 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/Generator.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/Generator.java) | 67 | 222-599 |

@@ -11,6 +11,8 @@ the cell, and the pool each level draws from with the class that declares it, th
 chooses it and how many traps the floor lays (story 2.6).
 
 [`codex/v4.0.0/traps.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/traps.json) holds 44 entries in 60.9 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
+table states beside them is a value, and the values are below.
 
 ## How a row is shaped
 
@@ -70,10 +72,11 @@ chooses it and how many traps the floor lays (story 2.6).
 
 ## Citations
 
-Every value above was read from the pinned tree at the line the entry carries. The reader
+Every value above is cited to the pinned tree: the line it was read from, or, where a table
+is measured rather than transcribed, the method that was run. The reader
 recorded 129 citations in 43 files:
 
-| Source | Citations | Lines |
+| Source | Citations | Line span |
 |---|---:|---|
 | [`core/src/main/assets/messages/levels/levels.properties`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/assets/messages/levels/levels.properties) | 35 | 23-305 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/CavesLevel.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/CavesLevel.java) | 1 | 178 |

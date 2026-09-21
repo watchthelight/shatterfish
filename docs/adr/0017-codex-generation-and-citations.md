@@ -646,9 +646,22 @@ the path it is reached at), which files of the pinned tree it was read from with
 and over what lines, and — in full — every entry whose reader had to name a reason. Those last are
 the judgments a human audits: 60 items read from source because their icons need the toolkit, 24
 bundle keys naming no class the game compiles, and one hit table a generator that may not boot
-cannot measure. There are 85 of them against 7,165 entries, and they are the part of a Codex that
-is not simply a reading. `CodexDocsTest` holds the ratio too: pages that approach their tables'
-size are repeating them.
+cannot measure. They are the part of a Codex that is not simply a reading.
+
+A reason is reported against what it was recorded on. The first eighty-five were counted as one
+population and printed as "N of the table's M entries", which was false for the hit table: that
+reason belongs to a value at the table's root and is not among the entries the same sentence
+counted. The page now separates the reasons recorded against entries from those recorded against
+the values a table states of itself, and says of the second that the entry count does not include
+them — the path the walk already carried is what tells the two apart.
+
+What "indexes rather than repeats" is, mechanically, is that a page has no row per entry. A ratio
+of each page to its own table is not that rule and asserting it would state something false about
+small tables: a page carries a stamp, headings and prose whatever its table holds, so the page of a
+1 KB table is legitimately larger than the table. `CodexDocsTest` holds a ceiling on every page, a
+quarter-size bound on the pages against the tables together, and — for the 4,976-entry table that
+could not be indexed by enumeration at all — that its page's rows are under a tenth of its
+entries, counted from the JSON rather than from the page.
 
 **A page is derived from the bytes, so a later table needs no new rule.** Everything on a page —
 the entry counts, the shape, the citations, the judgments — is read back out of the generated JSON
@@ -656,7 +669,11 @@ by a reader in `Pages`, the one place in the repository that reads JSON rather t
 The only hand-written part is the sentence saying what a table holds, and a table without one still
 gets its page and says where to add it. An entry, for counting, is an object in one of a table's
 own lists: the list the file is, or the lists the object at its root holds; anything else a table
-states is a value the page names with its type and, where it is short enough to read, its value.
+states is a value the page names with its type and its value. Where a cell cannot carry that value
+the page says which of the three reasons applies — the table states none, it states nothing, or it
+is too long for a cell — and prints the long ones in full beneath the table. One dash for all three
+hid the substance of the tables whose values are expressions: the tier rules are four expressions
+and nothing else, and the page showed four dashes.
 
 **A cited file is linked where it is actually read.** This repository's own tree is linked at
 `main`. The second pinned game is the one tree that is read and never committed — `vanilla-src/`
@@ -673,11 +690,21 @@ add, before `mkdocs build --strict` gets there and fails a page no nav names. Th
 that the index lists every table the manifest lists and that every page states the tag and the
 Codex version it came from.
 
-**The drift check covers both folders, in the same words.** `CodexSeedFreeTest` compares
-`docs/codex/` with a fresh rendering exactly as it compares `codex/<tag>/`: same byte comparison,
-same carriage-return check, same "the first differing file is … ; run `./gradlew :codex:generate`
-and commit". Two generations under different seeds and Profiles are compared page by page as well
-as table by table. `./gradlew build` already runs these on every pull request, so no workflow
+**The drift check covers both folders, in the same words, and a test watches it bite.** The
+failure names the folder as well as the file, since both hold an `index`. More to the point, the
+gate was one un-asserted call: deleting the line that compares the pages left every test green.
+`CodexSeedFreeTest` now writes each folder to a temporary directory, edits one byte of a table and
+one word of a page the way a careless commit would, and asserts the comparison fails naming that
+file and the one command that fixes it. The continuous-integration run that proved it once did so
+on a commit that has been reverted; this proves it on every run.
+
+`CodexSeedFreeTest` compares `docs/codex/` with a fresh rendering exactly as it compares
+`codex/<tag>/`: same byte comparison, same carriage-return check, same "the first differing file
+is … ; run `./gradlew :codex:generate` and commit". A folder holds files: one holding a directory
+is refused by the write and by the comparison, rather than passed over by both. Two generations under different seeds and Profiles are compared page by page as well
+as table by table, each rendered while its own Profile is in force — rendering both after the
+first had been restored compared two runs of one environment, and a page that read a Profile
+would have passed. `./gradlew build` already runs these on every pull request, so no workflow
 changed; what changed is that the module's `test` task now declares `docs/codex/` and `mkdocs.yml`
 as inputs, since without them a hand-edited page or a deleted nav entry would leave a cached run
 standing.

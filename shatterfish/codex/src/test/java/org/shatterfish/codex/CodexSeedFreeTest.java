@@ -24,6 +24,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -64,8 +65,10 @@ class CodexSeedFreeTest {
         Dungeon.seed = 1_234L;
         Random.pushGenerator(1_234L);
         Map<String, String> a;
+        Map<String, String> pagesA;
         try {
             a = Generate.generate(ROOT);
+            pagesA = Pages.pages(ROOT, a);
         } finally {
             Random.popGenerator();
         }
@@ -82,9 +85,14 @@ class CodexSeedFreeTest {
         // carried would differ here (story 2.2).
         GameContext.generatorSeed = 987_654_321L;
         Map<String, String> b;
+        Map<String, String> pagesB;
         try {
             assertEquals(Languages.GERMAN, Messages.lang());
             b = Generate.generate(ROOT);
+            // Rendered here, under the second language, scale and seed: rendering both after the
+            // first Profile had been restored compared two runs of one environment, and a page
+            // that read a Profile would have passed.
+            pagesB = Pages.pages(ROOT, b);
         } finally {
             GameContext.generatorSeed = GameContext.CODEX_GENERATOR_SEED;
             Random.popGenerator();
@@ -97,10 +105,8 @@ class CodexSeedFreeTest {
             assertEquals(a.get(file), b.get(file), file + " differs between two seeds and two Profiles");
         }
         // The pages are rendered from the text above, so they are seed-free for the same reason;
-        // the rendering is held here too, since a page that read a clock or a machine would be a
-        // drift the table comparison above could not see (story 2.9).
-        Map<String, String> pagesA = Pages.pages(ROOT, a);
-        Map<String, String> pagesB = Pages.pages(ROOT, b);
+        // the rendering is held here too, since a page that read a clock, a Profile or a machine
+        // would be a drift the table comparison above could not see (story 2.9).
         assertEquals(pagesA.keySet(), pagesB.keySet());
         for (String page : pagesA.keySet()) {
             assertEquals(pagesA.get(page), pagesB.get(page), page + " differs between two seeds and two Profiles");
@@ -122,15 +128,19 @@ class CodexSeedFreeTest {
         assertTrue(Files.isDirectory(folder), folder + " is committed");
         TreeSet<String> committed = new TreeSet<>();
         try (Stream<Path> files = Files.list(folder)) {
-            files.filter(Files::isRegularFile).forEach(f -> committed.add(f.getFileName().toString()));
+            files.forEach(f -> {
+                assertTrue(Files.isRegularFile(f), f + " is not a file the Codex writes");
+                committed.add(f.getFileName().toString());
+            });
         }
-        assertEquals(new TreeSet<>(fresh.keySet()), committed, "the files under " + folder + "; run ./gradlew :codex:generate and commit");
+        assertEquals(new TreeSet<>(fresh.keySet()), committed,
+                "the files under " + folder + "; run " + Pages.COMMAND + " and commit");
         for (String file : new TreeSet<>(fresh.keySet())) {
             byte[] onDisk = Files.readAllBytes(folder.resolve(file));
             assertFalse(new String(onDisk, StandardCharsets.UTF_8).contains("\r"),
                     file + " holds a carriage return; run git add --renormalize " + renormalise + " and commit");
             assertArrayEquals(fresh.get(file).getBytes(StandardCharsets.UTF_8), onDisk,
-                    "the first differing file is " + file + "; run ./gradlew :codex:generate and commit");
+                    "the first differing file is " + renormalise + file + "; run " + Pages.COMMAND + " and commit");
         }
     }
 
@@ -159,11 +169,42 @@ class CodexSeedFreeTest {
         assertTrue(refused.getMessage().contains("usage: Generate"), refused.getMessage());
     }
 
+    @Test
+    @DisplayName("the drift check fails on a hand-edited table and on a hand-edited page, naming the file and the command")
+    void the_drift_check_bites(@TempDir Path tables, @TempDir Path site) throws IOException {
+        Map<String, String> fresh = Generate.generate(ROOT);
+        Map<String, String> pages = Pages.pages(ROOT, fresh);
+        // A gate nobody has watched bite is a gate nobody knows works. One continuous-integration
+        // run proved it once, on a commit that has been reverted; this proves it on every run.
+        assertEditCaught(tables, fresh, Generate.FOLDER + "/", "mobs.json", "\"ht\":110", "\"ht\":111");
+        assertEditCaught(site, pages, Pages.FOLDER + "/", "index.md", "# Codex", "# Codicil");
+    }
+
+    /**
+     * A folder written whole, then edited by hand the way a careless commit would, fails the
+     * drift check with a message that names the file and the one command that fixes it.
+     */
+    private static void assertEditCaught(Path folder, Map<String, String> fresh, String renormalise,
+                                         String file, String from, String to) throws IOException {
+        Generate.write(fresh, folder);
+        assertDoesNotThrow(() -> assertCommitted(folder, fresh, renormalise), "the folder as written is not drifted");
+        String held = Files.readString(folder.resolve(file), StandardCharsets.UTF_8);
+        assertTrue(held.contains(from), file + " no longer holds " + from + ", so this edit proves nothing");
+        Files.writeString(folder.resolve(file), held.replaceFirst(Pattern.quote(from), to), StandardCharsets.UTF_8);
+        AssertionError caught = org.junit.jupiter.api.Assertions.assertThrows(AssertionError.class,
+                () -> assertCommitted(folder, fresh, renormalise), "a hand-edited " + file + " is a drift");
+        assertTrue(caught.getMessage().contains(renormalise + file), caught.getMessage());
+        assertTrue(caught.getMessage().contains(Pages.COMMAND), caught.getMessage());
+    }
+
     /** {@code folder} holds exactly {@code fresh}, and the stale file put there is gone. */
     private static void assertWritten(Path folder, Map<String, String> fresh) throws IOException {
         TreeSet<String> written = new TreeSet<>();
         try (Stream<Path> files = Files.list(folder)) {
-            files.filter(Files::isRegularFile).forEach(f -> written.add(f.getFileName().toString()));
+            files.forEach(f -> {
+                assertTrue(Files.isRegularFile(f), f + " is not a file the Codex writes");
+                written.add(f.getFileName().toString());
+            });
         }
         assertEquals(new TreeSet<>(fresh.keySet()), written, "main writes every file under " + folder + " and deletes the stale one");
         for (String file : fresh.keySet()) {

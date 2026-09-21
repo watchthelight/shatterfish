@@ -10,6 +10,8 @@ heading states one, and the version the tree builds as beside the save codes it 
 (story 2.7).
 
 [`codex/v4.0.0/changelog.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/changelog.json) holds 199 entries in 196.7 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
+table states beside them is a value, and the values are below.
 
 ## What the table states of itself
 
@@ -69,10 +71,11 @@ The values the table carries beside its entries, by the path each is reached at.
 
 ## Citations
 
-Every value above was read from the pinned tree at the line the entry carries. The reader
+Every value above is cited to the pinned tree: the line it was read from, or, where a table
+is measured rather than transcribed, the method that was run. The reader
 recorded 788 citations in 16 files:
 
-| Source | Citations | Lines |
+| Source | Citations | Line span |
 |---|---:|---|
 | [`build.gradle`](https://github.com/watchthelight/shatterfish/blob/main/build.gradle) | 1 | 19 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/ShatteredPixelDungeon.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/ShatteredPixelDungeon.java) | 6 | 37-46 |

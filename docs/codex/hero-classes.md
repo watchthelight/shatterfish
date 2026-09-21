@@ -9,6 +9,8 @@ The six hero classes in the game's declaration order, each with its subclasses i
 the constructor lists them (story 2.1).
 
 [`codex/v4.0.0/hero-classes.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/hero-classes.json) holds 6 entries in 1.1 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
+table states beside them is a value, and the values are below.
 
 ## How a row is shaped
 
@@ -26,10 +28,11 @@ the constructor lists them (story 2.1).
 
 ## Citations
 
-Every value above was read from the pinned tree at the line the entry carries. The reader
+Every value above is cited to the pinned tree: the line it was read from, or, where a table
+is measured rather than transcribed, the method that was run. The reader
 recorded 6 citations in 1 file:
 
-| Source | Citations | Lines |
+| Source | Citations | Line span |
 |---|---:|---|
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/HeroClass.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/HeroClass.java) | 6 | 87-92 |
 

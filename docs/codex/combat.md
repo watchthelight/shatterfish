@@ -12,6 +12,8 @@ behind it. The table that decides whether an attack lands names its method and s
 that a generator which may not boot cannot run it.
 
 [`codex/v4.0.0/combat.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/combat.json) holds 548 entries in 150.1 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
+table states beside them is a value, and the values are below.
 
 ## What the table states of itself
 
@@ -30,9 +32,15 @@ The values the table carries beside its entries, by the path each is reached at.
 | `hit.evasion.what` | string | `evasion` |
 | `hit.measured` | boolean | `false` |
 | `hit.method` | string | `Char.hit` |
-| `hit.reason` | string | -- |
-| `hitCells` | empty list | -- |
+| `hit.reason` | string | [below](#hitreason) |
+| `hitCells` | empty list | *(empty)* |
 | `seed` | number | `12648430` |
+
+#### `hit.reason`
+
+```
+Char.hit writes the icon of the reason an attack landed, which initialises FloatingText, whose initialiser builds a texture film; a generator that may not boot cannot run it
+```
 
 ## How a row is shaped
 
@@ -98,10 +106,11 @@ The values the table carries beside its entries, by the path each is reached at.
 
 ## Citations
 
-Every value above was read from the pinned tree at the line the entry carries. The reader
+Every value above is cited to the pinned tree: the line it was read from, or, where a table
+is measured rather than transcribed, the method that was run. The reader
 recorded 549 citations in 64 files:
 
-| Source | Citations | Lines |
+| Source | Citations | Line span |
 |---|---:|---|
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/Char.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/Char.java) | 25 | 619-701 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/Hero.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/Hero.java) | 66 | 644 |
@@ -170,10 +179,11 @@ recorded 549 citations in 64 files:
 
 ## Judgments
 
-Where the reader could not simply read a value it recorded why, and every such entry is here
-in full -- these are the judgments a human audits, and the list is short on purpose. 1 of the
-table's 548 entries name a reason:
+Where the reader could not simply read a value it recorded why, and every such reason is
+here in full -- these are the judgments a human audits, and the list is short on purpose.
 
-| Entry | Reason |
-|---|---|
-| `Char.hit` | Char.hit writes the icon of the reason an attack landed, which initialises FloatingText, whose initialiser builds a texture film; a generator that may not boot cannot run it |
+1 value the table states of itself, which the count above does not include, names a reason:
+
+| Value | Where | Reason |
+|---|---|---|
+| `Char.hit` | `hit` | Char.hit writes the icon of the reason an attack landed, which initialises FloatingText, whose initialiser builds a texture film; a generator that may not boot cannot run it |

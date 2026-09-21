@@ -19,6 +19,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -41,8 +42,8 @@ class CodexDocsTest {
     private static final String NAV = "mkdocs.yml";
 
     /** Every page the site's nav names under the Codex section, in the order it names them. */
-    private static final Pattern ENTRY = Pattern.compile("(?m)^\\s*-\\s*(?:[^:\\n]+:\\s*)?(" + Pages.FOLDER.substring("docs/".length())
-            + "/[A-Za-z0-9._-]+\\.md)\\s*$");
+    private static final Pattern ENTRY = Pattern.compile("(?m)^\\s*-\\s*(?:([^:\\n]+):\\s*)?[\"']?("
+            + Pages.FOLDER.substring("docs/".length()) + "/[A-Za-z0-9._/-]+\\.md)[\"']?\\s*(?:#.*)?$");
 
     private static TreeSet<String> committedPages() throws IOException {
         TreeSet<String> pages = new TreeSet<>();
@@ -53,14 +54,49 @@ class CodexDocsTest {
     }
 
     private static TreeSet<String> navigated() throws IOException {
-        String nav = Files.readString(ROOT.resolve(NAV), StandardCharsets.UTF_8);
-        assertTrue(nav.contains("- Codex:"), NAV + " has a Codex section in its nav");
         TreeSet<String> named = new TreeSet<>();
-        Matcher entries = ENTRY.matcher(nav);
+        Matcher entries = ENTRY.matcher(codexSection());
         while (entries.find()) {
-            named.add(entries.group(1).substring("codex/".length()));
+            named.add(entries.group(2).substring("codex/".length()));
         }
         return named;
+    }
+
+    /**
+     * The Codex section of the nav alone. Matching the whole file counted a page named anywhere
+     * as navigated, so a generated page filed under Rules would have satisfied both directions
+     * of the set comparison while the site's navigation said something else.
+     */
+    private static String codexSection() throws IOException {
+        List<String> lines = Files.readAllLines(ROOT.resolve(NAV), StandardCharsets.UTF_8);
+        int start = -1;
+        for (int i = 0; i < lines.size(); i++) {
+            if (lines.get(i).strip().equals("- Codex:")) {
+                assertEquals(-1, start, NAV + " has one Codex section");
+                start = i;
+            }
+        }
+        assertTrue(start >= 0, NAV + " has a Codex section in its nav");
+        int indent = lines.get(start).indexOf('-');
+        StringBuilder out = new StringBuilder(lines.get(start)).append('\n');
+        for (int i = start + 1; i < lines.size(); i++) {
+            String line = lines.get(i);
+            if (!line.isBlank() && line.indexOf('-') <= indent && !line.strip().startsWith("#")) {
+                break;
+            }
+            out.append(line).append('\n');
+        }
+        return out.toString();
+    }
+
+    /** What the nav calls each page of the Codex section. */
+    private static Map<String, String> navTitles() throws IOException {
+        Map<String, String> titles = new TreeMap<>();
+        Matcher entries = ENTRY.matcher(codexSection());
+        while (entries.find()) {
+            titles.put(entries.group(2).substring("codex/".length()), entries.group(1) == null ? "" : entries.group(1).strip());
+        }
+        return titles;
     }
 
     private static String page(String name) throws IOException {
@@ -111,6 +147,55 @@ class CodexDocsTest {
                     Pages.INDEX + " links the JSON of " + name + "; run " + Pages.COMMAND);
         }
         assertEquals(expected, pages, "a page per table the manifest lists, and the section's index; run " + Pages.COMMAND);
+        // A count the renderer derived, checked against a count this test derives: the index says
+        // how many entries mobs.json holds, and mobs.json is a list, so its length is the answer
+        // and nothing about Pages decides it. Stories 2.7 and 2.8 each shipped a wrong table
+        // behind an assertion that recomputed the reader's own predicate.
+        Object mobs = Pages.parse(Files.readString(
+                ROOT.resolve(Generate.FOLDER).resolve(Upstream.tag(ROOT)).resolve("mobs.json"), StandardCharsets.UTF_8));
+        long counted = ((List<?>) mobs).size();
+        assertTrue(index.contains("| `mobs.json` | " + counted + " |"),
+                Pages.INDEX + " says mobs.json holds " + counted + " entries; run " + Pages.COMMAND);
+        assertTrue(page("mobs.md").contains("holds " + counted + " entries"),
+                "the mobs page says how many entries the table holds; run " + Pages.COMMAND);
+        // And one page name written out, so that the set above is not Pages.page() twice over.
+        assertTrue(pages.contains("mobs.md"), "the mobs table has a page");
+    }
+
+    @Test
+    @DisplayName("the nav calls each page what the page calls itself, and no page ships asking to be written")
+    void the_nav_names_the_pages_and_no_page_is_a_placeholder() throws IOException {
+        Map<String, String> titles = navTitles();
+        for (Object table : tables()) {
+            String name = String.valueOf(table);
+            assertEquals(Pages.title(name), titles.get(Pages.page(name)),
+                    NAV + " calls " + Pages.page(name) + " what its page is titled");
+        }
+        // A table whose sentence nobody wrote still gets a page, and that page tells the reader
+        // to go and edit a Java file. That is a build failure, not a published one.
+        for (String name : committedPages()) {
+            assertFalse(page(name).contains("No sentence saying what this table holds"),
+                    name + " is a placeholder page: write the table's sentence in Pages.what()");
+        }
+    }
+
+    @Test
+    @DisplayName("the site still renders what the pages are written in, and the pages link what they say they link")
+    void the_pages_and_the_site_agree() throws IOException {
+        String nav = Files.readString(ROOT.resolve(NAV), StandardCharsets.UTF_8);
+        // The provenance stamp is an admonition and every page is mostly tables; without these
+        // the pages still pass every assertion here and render as literal markup on the site.
+        assertTrue(nav.contains("- admonition"), NAV + " keeps the extension the pages' stamp is written in");
+        assertTrue(nav.contains("- tables"), NAV + " keeps the extension the pages' tables are written in");
+        // Where a page links this repository is where the site says the repository is.
+        Matcher repository = Pattern.compile("(?m)^repo_url:\\s*(\\S+)\\s*$").matcher(nav);
+        assertTrue(repository.find(), NAV + " names the repository");
+        assertTrue(Pages.BLOB.startsWith(repository.group(1)),
+                "the pages link " + Pages.BLOB + " and the site says the repository is " + repository.group(1));
+        // And the command every page names is the task that writes them.
+        String build = Files.readString(ROOT.resolve("shatterfish/codex/build.gradle"), StandardCharsets.UTF_8);
+        assertTrue(build.contains("tasks.register('" + Pages.COMMAND.substring(Pages.COMMAND.lastIndexOf(':') + 1) + "'"),
+                "the pages name `" + Pages.COMMAND + "`, which has to be the task that writes them");
     }
 
     @Test
@@ -138,13 +223,16 @@ class CodexDocsTest {
         // second pinned game is the one tree that is read and never committed: its citations have
         // to be opened in its own repository at the commit vanilla.pin names.
         String vanilla = Vanilla.blob(ROOT);
-        Pattern link = Pattern.compile("\\((https://github\\.com/[^)\\s]+)\\)");
+        Pattern link = Pattern.compile("\\(((?:https://github\\.com/|\\.\\./)[^)\\s]+)\\)");
         int checked = 0;
         for (String name : committedPages()) {
             Matcher links = link.matcher(page(name));
             while (links.find()) {
                 String target = links.group(1);
-                if (target.startsWith(Pages.BLOB)) {
+                if (target.startsWith("../")) {
+                    Path relative = ROOT.resolve(Pages.FOLDER).resolve(target.split("#", 2)[0]).normalize();
+                    assertTrue(Files.exists(relative), name + " links " + target + ", which is not there");
+                } else if (target.startsWith(Pages.BLOB)) {
                     String path = target.substring(Pages.BLOB.length());
                     assertTrue(Files.exists(ROOT.resolve(path)), name + " links " + path + ", which this repository does not hold");
                 } else if (target.startsWith(vanilla)) {
@@ -163,18 +251,34 @@ class CodexDocsTest {
     @Test
     @DisplayName("a table's page indexes the table rather than repeating it: the pages are a fraction of the JSON they describe")
     void the_pages_index_rather_than_repeat() throws IOException {
-        long pages = 0;
-        for (String name : committedPages()) {
-            pages += Files.size(ROOT.resolve(Pages.FOLDER).resolve(name));
-        }
-        long json = 0;
+        // A ratio of each page to its own table is not the rule, and asserting it would be a
+        // false statement about small tables: a page carries a stamp, headings and prose whatever
+        // its table holds, so the page of a 1 KB table is legitimately larger than the table. The
+        // rule is that a page does not enumerate entries -- it holds a row per value, per field
+        // of a row's shape, and per judgment, and never one per entry.
         Path folder = ROOT.resolve(Generate.FOLDER).resolve(Upstream.tag(ROOT));
-        try (Stream<Path> files = Files.list(folder)) {
-            for (Path file : files.filter(Files::isRegularFile).toList()) {
-                json += Files.size(file);
-            }
+        long pages = 0;
+        long json = 0;
+        for (Object table : tables()) {
+            String name = String.valueOf(table);
+            long page = Files.size(ROOT.resolve(Pages.FOLDER).resolve(Pages.page(name)));
+            assertTrue(page < CEILING, Pages.page(name) + " is " + page + " bytes; a page is a map of its table"
+                    + " and a map does not grow past " + CEILING + " (ADR-0017)");
+            pages += page;
+            json += Files.size(folder.resolve(name));
         }
-        assertTrue(pages * 2 < json, "the pages are " + pages + " bytes against the tables' " + json
+        assertTrue(pages * 4 < json, "the pages are " + pages + " bytes against the tables' " + json
                 + "; a page that approaches its table's size is repeating it rather than indexing it (ADR-0017)");
+        // The table nothing could index by enumeration: 4,976 entries, and a page that states
+        // them one per row would carry thousands. This is the assertion a page that started
+        // repeating its table would fail first, and it is derived from the JSON, not the page.
+        Object strings = Pages.parse(Files.readString(folder.resolve("strings.json"), StandardCharsets.UTF_8));
+        long entries = ((List<?>) strings).size();
+        long rows = page("strings.md").lines().filter(line -> line.startsWith("|")).count();
+        assertTrue(rows * 10 < entries, "strings.md holds " + rows + " table rows for " + entries
+                + " entries; a page that states an entry per row is repeating its table (ADR-0017)");
     }
+
+    /** The largest a page may be: far under the smallest table a page could be repeating. */
+    private static final long CEILING = 128 * 1024;
 }

@@ -11,6 +11,8 @@ it offers a fresh instance. The identifiable potions, scrolls and rings are read
 instead, since their icons need the toolkit, and each says so (story 2.3).
 
 [`codex/v4.0.0/items.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/items.json) holds 307 entries in 185.4 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
+table states beside them is a value, and the values are below.
 
 ## How a row is shaped
 
@@ -47,10 +49,11 @@ instead, since their icons need the toolkit, and each says so (story 2.3).
 
 ## Citations
 
-Every value above was read from the pinned tree at the line the entry carries. The reader
+Every value above is cited to the pinned tree: the line it was read from, or, where a table
+is measured rather than transcribed, the method that was run. The reader
 recorded 687 citations in 300 files:
 
-| Source | Citations | Lines |
+| Source | Citations | Line span |
 |---|---:|---|
 | [`core/src/main/assets/messages/items/items.properties`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/assets/messages/items/items.properties) | 294 | 117-2506 |
 | [`core/src/main/assets/messages/plants/plants.properties`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/assets/messages/plants/plants.properties) | 13 | 4-78 |
@@ -355,9 +358,10 @@ recorded 687 citations in 300 files:
 
 ## Judgments
 
-Where the reader could not simply read a value it recorded why, and every such entry is here
-in full -- these are the judgments a human audits, and the list is short on purpose. 60 of the
-table's 307 entries name a reason:
+Where the reader could not simply read a value it recorded why, and every such reason is
+here in full -- these are the judgments a human audits, and the list is short on purpose.
+
+60 entries of the table's 307 name a reason:
 
 | Entry | Reason |
 |---|---|
@@ -421,3 +425,4 @@ table's 307 entries name a reason:
 | `items.scrolls.exotic.ScrollOfPrismaticImage` | its icon needs the toolkit at class initialisation (ItemSpriteSheet.Icons) |
 | `items.scrolls.exotic.ScrollOfPsionicBlast` | its icon needs the toolkit at class initialisation (ItemSpriteSheet.Icons) |
 | `items.scrolls.exotic.ScrollOfSirensSong` | its icon needs the toolkit at class initialisation (ItemSpriteSheet.Icons) |
+

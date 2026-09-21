@@ -11,6 +11,8 @@ the level feelings with their chances, their arms and every place the game reads
 (story 2.6).
 
 [`codex/v4.0.0/levels.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/levels.json) holds 44 entries in 21.8 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
+table states beside them is a value, and the values are below.
 
 ## What the table states of itself
 
@@ -19,15 +21,33 @@ The values the table carries beside its entries, by the path each is reached at.
 | Field | Type | Value |
 |---|---|---|
 | `bossCitation` | citation | `Dungeon.java:441` |
-| `bossExpression` | string | -- |
+| `bossExpression` | string | [below](#bossexpression) |
 | `feelingCitation` | citation | `Level.java:262` |
-| `feelingGate` | string | -- |
+| `feelingGate` | string | [below](#feelinggate) |
 | `otherwiseCitation` | citation | `Dungeon.java:354` |
 | `otherwiseClass` | string | `levels.DeadEndLevel` |
 | `roomsCitation` | citation | `RegularLevel.java:124` |
 | `sealedCitation` | citation | `Level.java:181` |
 | `shopCitation` | citation | `Dungeon.java:433` |
-| `shopExpression` | string | -- |
+| `shopExpression` | string | [below](#shopexpression) |
+
+#### `bossExpression`
+
+```
+return depth == 5 || depth == 10 || depth == 15 || depth == 20 || depth == 25;
+```
+
+#### `feelingGate`
+
+```
+if (!Dungeon.bossLevel() && Dungeon.branch == 0) and if (Dungeon.depth > 1)
+```
+
+#### `shopExpression`
+
+```
+return depth == 6 || depth == 11 || depth == 16;
+```
 
 ## How a row is shaped
 
@@ -91,10 +111,11 @@ The values the table carries beside its entries, by the path each is reached at.
 
 ## Citations
 
-Every value above was read from the pinned tree at the line the entry carries. The reader
+Every value above is cited to the pinned tree: the line it was read from, or, where a table
+is measured rather than transcribed, the method that was run. The reader
 recorded 121 citations in 18 files:
 
-| Source | Citations | Lines |
+| Source | Citations | Line span |
 |---|---:|---|
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/Dungeon.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/Dungeon.java) | 37 | 309-441 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/CavesBossLevel.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/CavesBossLevel.java) | 2 | 73-288 |

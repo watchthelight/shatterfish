@@ -71,9 +71,16 @@ public final class Generate {
         Path tables = args.length == 3 ? Path.of(args[1]).toAbsolutePath().normalize()
                 : root.resolve(FOLDER).resolve(Upstream.tag(root));
         Path pages = args.length == 3 ? Path.of(args[2]).toAbsolutePath().normalize() : root.resolve(Pages.FOLDER);
+        if (tables.equals(pages)) {
+            throw new IllegalArgumentException("the tables and the pages cannot share a folder: " + tables
+                    + "; each is written whole and what it does not write there is deleted");
+        }
+        // Both are rendered before either is written, so that a table the renderer refuses cannot
+        // leave one folder regenerated and the other standing at what it said before.
         Map<String, String> generated = generate(root);
+        Map<String, String> rendered = Pages.pages(root, generated);
         write(generated, tables);
-        write(Pages.pages(root, generated), pages);
+        write(rendered, pages);
     }
 
     /** The repository root the argument names, real and checked to be a Shatterfish checkout. */
@@ -98,7 +105,14 @@ public final class Generate {
         try {
             Files.createDirectories(folder);
             try (Stream<Path> present = Files.list(folder)) {
-                for (Path stale : present.filter(Files::isRegularFile).filter(p -> !files.containsKey(p.getFileName().toString())).toList()) {
+                for (Path stale : present.filter(p -> !files.containsKey(p.getFileName().toString())).toList()) {
+                    // A folder is refused rather than removed: the generator owns the files it
+                    // writes, and deleting a tree it never wrote is not a thing one command should
+                    // do quietly. It is also what made a directory invisible to the drift check.
+                    if (Files.isDirectory(stale)) {
+                        throw new IllegalStateException(stale + " is not the generator's; "
+                                + folder + " holds only what the Codex writes");
+                    }
                     Files.delete(stale);
                 }
             }

@@ -9,6 +9,8 @@ Every line of the nine English bundles with the class the game's key rule names,
 reason where it names none (story 2.7).
 
 [`codex/v4.0.0/strings.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/strings.json) holds 4976 entries in 1.7 MB. The entries are not repeated here: they are committed, diffable and cited in that file.
+An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
+table states beside them is a value, and the values are below.
 
 ## How a row is shaped
 
@@ -29,10 +31,11 @@ reason where it names none (story 2.7).
 
 ## Citations
 
-Every value above was read from the pinned tree at the line the entry carries. The reader
+Every value above is cited to the pinned tree: the line it was read from, or, where a table
+is measured rather than transcribed, the method that was run. The reader
 recorded 4976 citations in 9 files:
 
-| Source | Citations | Lines |
+| Source | Citations | Line span |
 |---|---:|---|
 | [`core/src/main/assets/messages/actors/actors.properties`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/assets/messages/actors/actors.properties) | 1609 | 2-1928 |
 | [`core/src/main/assets/messages/items/items.properties`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/assets/messages/items/items.properties) | 2073 | 2-2515 |
@@ -46,9 +49,10 @@ recorded 4976 citations in 9 files:
 
 ## Judgments
 
-Where the reader could not simply read a value it recorded why, and every such entry is here
-in full -- these are the judgments a human audits, and the list is short on purpose. 24 of the
-table's 4976 entries name a reason:
+Where the reader could not simply read a value it recorded why, and every such reason is
+here in full -- these are the judgments a human audits, and the list is short on purpose.
+
+24 entries of the table's 4976 name a reason:
 
 | Entry | Reason |
 |---|---|
@@ -57,9 +61,9 @@ table's 4976 entries name a reason:
 | `actors.buffs.revealedchar.name` | no class the game compiles has this key's name |
 | `actors.buffs.revealedchar.desc` | no class the game compiles has this key's name |
 | `actors.mobs.tengu$bombability$bombblob.desc` | no class the game compiles has this key's name |
-| `items.quest.corpsedust&dustwraith.rankings_desc` | no class the game compiles has this key's name |
+| `items.quest.corpsedust&dustwraith.rankings\_desc` | no class the game compiles has this key's name |
 | `items.spells.magicalporter.name` | no class the game compiles has this key's name |
-| `items.spells.magicalporter.inv_title` | no class the game compiles has this key's name |
+| `items.spells.magicalporter.inv\_title` | no class the game compiles has this key's name |
 | `items.spells.magicalporter.nowhere` | no class the game compiles has this key's name |
 | `items.spells.magicalporter.desc` | no class the game compiles has this key's name |
 | `items.stones.stoneofdisarming.name` | no class the game compiles has this key's name |
@@ -68,11 +72,12 @@ table's 4976 entries name a reason:
 | `items.weapon.missiles.boomerang.desc` | no class the game compiles has this key's name |
 | `items.weapon.missiles.boomerang.durability` | no class the game compiles has this key's name |
 | `items.merchantsbeacon.name` | no class the game compiles has this key's name |
-| `items.merchantsbeacon.ac_use` | no class the game compiles has this key's name |
+| `items.merchantsbeacon.ac\_use` | no class the game compiles has this key's name |
 | `items.merchantsbeacon.desc` | no class the game compiles has this key's name |
 | `ui.updatenotification.title` | no class the game compiles has this key's name |
 | `ui.updatenotification$wndupdate.title` | no class the game compiles has this key's name |
-| `ui.updatenotification$wndupdate.versioned_title` | no class the game compiles has this key's name |
+| `ui.updatenotification$wndupdate.versioned\_title` | no class the game compiles has this key's name |
 | `ui.updatenotification$wndupdate.desc` | no class the game compiles has this key's name |
 | `ui.updatenotification$wndupdate.button` | no class the game compiles has this key's name |
 | `windows.wndclass.mastery` | no class the game compiles has this key's name |
+

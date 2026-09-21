@@ -10,6 +10,8 @@ level, alignment, properties, loot and the three rolls as cited expressions, and
 depth and by challenge -- the depth-scaled mobs and the Stronger Bosses variants (story 2.2).
 
 [`codex/v4.0.0/mobs.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/mobs.json) holds 129 entries in 172.8 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
+table states beside them is a value, and the values are below.
 
 ## How a row is shaped
 
@@ -84,10 +86,11 @@ depth and by challenge -- the depth-scaled mobs and the Stronger Bosses variants
 
 ## Citations
 
-Every value above was read from the pinned tree at the line the entry carries. The reader
+Every value above is cited to the pinned tree: the line it was read from, or, where a table
+is measured rather than transcribed, the method that was run. The reader
 recorded 671 citations in 107 files:
 
-| Source | Citations | Lines |
+| Source | Citations | Line span |
 |---|---:|---|
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/Char.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/Char.java) | 80 | 689-709 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/abilities/Ratmogrify.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/abilities/Ratmogrify.java) | 4 | 191-279 |

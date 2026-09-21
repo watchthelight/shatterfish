@@ -11,6 +11,8 @@ checked against the game's own `MAX_CHALS`, `MAX_VALUE` and `MASKS`, so a flag t
 stops the generation rather than going missing (story 2.1).
 
 [`codex/v4.0.0/challenges.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/challenges.json) holds 9 entries in 1.3 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
+table states beside them is a value, and the values are below.
 
 ## How a row is shaped
 
@@ -27,10 +29,11 @@ stops the generation rather than going missing (story 2.1).
 
 ## Citations
 
-Every value above was read from the pinned tree at the line the entry carries. The reader
+Every value above is cited to the pinned tree: the line it was read from, or, where a table
+is measured rather than transcribed, the method that was run. The reader
 recorded 9 citations in 1 file:
 
-| Source | Citations | Lines |
+| Source | Citations | Line span |
 |---|---:|---|
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/Challenges.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/Challenges.java) | 9 | 30-38 |
 

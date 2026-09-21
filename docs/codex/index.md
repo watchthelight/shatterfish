@@ -15,7 +15,7 @@ read from, which is what a claim about the game is settled by
 ([Fairness](../fairness.md)).
 
 These pages index the tables; they do not repeat them. The entries are already committed,
-diffable and cited in the JSON each page links, and one table alone holds 4,976 of them.
+diffable and cited in the JSON each page links, and one table alone holds 4976 of them.
 What a page adds is what a reader brings to a table: what it holds, how many entries there
 are, how a row is shaped, which files of the pinned tree it was read from, and, in full, the
 entries whose reader had to name a reason.

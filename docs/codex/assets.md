@@ -10,6 +10,8 @@ loaded outside it, each with the group it belongs to, the asset root it is resol
 and whether a file was there when the table was read (story 2.7).
 
 [`codex/v4.0.0/assets.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/assets.json) holds 259 entries in 58.5 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
+table states beside them is a value, and the values are below.
 
 ## How a row is shaped
 
@@ -29,10 +31,11 @@ and whether a file was there when the table was read (story 2.7).
 
 ## Citations
 
-Every value above was read from the pinned tree at the line the entry carries. The reader
+Every value above is cited to the pinned tree: the line it was read from, or, where a table
+is measured rather than transcribed, the method that was run. The reader
 recorded 259 citations in 6 files:
 
-| Source | Citations | Lines |
+| Source | Citations | Line span |
 |---|---:|---|
 | [`SPD-classes/src/main/java/com/watabou/noosa/TextInput.java`](https://github.com/watchthelight/shatterfish/blob/main/SPD-classes/src/main/java/com/watabou/noosa/TextInput.java) | 1 | 79 |
 | [`SPD-classes/src/main/java/com/watabou/noosa/ui/Cursor.java`](https://github.com/watchthelight/shatterfish/blob/main/SPD-classes/src/main/java/com/watabou/noosa/ui/Cursor.java) | 2 | 40-41 |

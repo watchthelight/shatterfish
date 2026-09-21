@@ -10,6 +10,8 @@ inputs, output and energy cost where it states them, and with the text of the me
 with where it does not (story 2.6).
 
 [`codex/v4.0.0/recipes.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/recipes.json) holds 39 entries in 29.2 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
+table states beside them is a value, and the values are below.
 
 ## How a row is shaped
 
@@ -44,10 +46,11 @@ with where it does not (story 2.6).
 
 ## Citations
 
-Every value above was read from the pinned tree at the line the entry carries. The reader
+Every value above is cited to the pinned tree: the line it was read from, or, where a table
+is measured rather than transcribed, the method that was run. The reader
 recorded 120 citations in 38 files:
 
-| Source | Citations | Lines |
+| Source | Citations | Line span |
 |---|---:|---|
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/ArcaneResin.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/ArcaneResin.java) | 4 | 150-179 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/LiquidMetal.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/LiquidMetal.java) | 4 | 191-221 |
