@@ -277,6 +277,7 @@ final class Sources {
      * may not name ({@code Dungeon}): the whole file, named by the file's simple name.
      */
     static Body file(Path root, String path) {
+        guard(path);
         if ((SOURCE_ROOTS.stream().noneMatch(path::startsWith) && !path.startsWith(VANILLA_ROOT)) || !path.endsWith(".java")) {
             throw new IllegalStateException("not a source of a pinned game: " + path);
         }
@@ -368,6 +369,7 @@ final class Sources {
      * generations agree.
      */
     static List<String> under(Path root, String folder) {
+        guard(folder);
         if (SOURCE_ROOTS.stream().noneMatch(folder::startsWith) && !folder.startsWith(VANILLA_ROOT)) {
             throw new IllegalStateException("not a folder of a pinned game: " + folder);
         }
@@ -407,6 +409,21 @@ final class Sources {
         return Files.isRegularFile(root.resolve(path));
     }
 
+    /**
+     * The text of one guarded file of a pinned tree that is not source: the marker the fetch
+     * script writes beside the second pinned game to record which commit it wrote (story 2.8).
+     * It is read here rather than by its reader so that the list of classes allowed to open a
+     * file stays as short as it reads.
+     */
+    static String contents(Path root, String path) {
+        guard(path);
+        try {
+            return Files.readString(root.resolve(path), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException("the file could not be read at " + path, e);
+        }
+    }
+
     /** Whether a folder of the pinned game is there, guarded the same way. */
     static boolean has(Path root, String folder) {
         guard(folder);
@@ -419,7 +436,7 @@ final class Sources {
             throw new IllegalStateException("a path that climbs out of the pinned game: " + path);
         }
         if (SOURCE_ROOTS.stream().noneMatch(path::startsWith) && ASSET_ROOTS.stream().noneMatch(path::startsWith)
-                && !path.startsWith(VANILLA_ROOT) && !path.equals(Vanilla.PIN)) {
+                && !path.startsWith(VANILLA_ROOT)) {
             throw new IllegalStateException("not a file of a pinned source: " + path);
         }
     }

@@ -15,9 +15,27 @@ import java.util.regex.Pattern;
  * they cannot construct.
  *
  * <p>Vanilla names a thing in the class's own initialiser — {@code name = "marsupial rat";} —
- * rather than in a bundle, and states a mob's health and defence beside it. What it rolls for
- * damage, accuracy and reduction are methods, carried as their text, because the two games do not
- * write those in one shape and the table's job is to say so rather than to resolve it.
+ * rather than in a bundle, and states a mob's health and defence beside it. Three shapes made the
+ * difference between a table and a rumour, and each is read rather than skipped:
+ *
+ * <ul>
+ *   <li><b>A name the game chooses at the moment it is shown.</b> Its bosses write
+ *       {@code name = Dungeon.depth == Statistics.deepestFloor ? "Goo" : "spawn of Goo";}. Both
+ *       are names a player sees, so the class contributes both, and a name statement that states
+ *       no name at all is refused rather than passed over — a boss quietly missing from this
+ *       table is the table asserting the other game does not have it.
+ *   <li><b>A thing written inside another class.</b> Its Yog-Dzewa declares the rotting fist and
+ *       the god's larva inside itself, and its wand of flock declares the sheep. This game does
+ *       the same, so a reader that saw only files would compare one game's nested classes against
+ *       nothing.
+ *   <li><b>What a class is, rather than where its file sits.</b> The sheep is declared under the
+ *       items folder and is a mob, so a class is a mob when it descends from the other game's
+ *       {@code Mob}, not when its path says so.
+ * </ul>
+ *
+ * <p>What it rolls for damage, accuracy and reduction are methods, carried as their text, because
+ * the two games do not write those in one shape and the table's job is to say so rather than to
+ * resolve it.
  */
 final class Vanilla {
 
@@ -25,152 +43,155 @@ final class Vanilla {
     static final String SOURCE = "core/src/main/java/com/watabou/pixeldungeon/";
     static final String MOBS = SOURCE + "actors/mobs/";
     static final String ITEMS = SOURCE + "items/";
+    static final String MARKER = ".pinned";
+    static final String FETCH = "tools/fetch-vanilla.sh";
 
-    private static final Pattern NAME = Pattern.compile("^\\s*name\\s*=\\s*\"([^\"]+)\"\\s*;");
-    private static final Pattern HEALTH = Pattern.compile("\\bHT\\s*=\\s*(\\d+)\\s*;");
-    private static final Pattern DEFENCE = Pattern.compile("\\bdefenseSkill\\s*=\\s*(\\d+)\\s*;");
-    private static final Pattern EXTENDS = Pattern.compile("\\bclass\\s+\\w+\\s+extends\\s+(\\w+)");
-    private static final Pattern DECLARED = Pattern.compile(
-            "^\\s*(?:@\\w+\\s+)*(?:(?:public|private|protected|static|abstract|final)\\s+)*"
-                    + "(?:class|enum|interface)\\s+(\\w+)");
+    private static final Pattern NAME = Pattern.compile("^\\s*name\\s*=\\s*([^;]+);");
+    private static final Pattern LITERAL = Pattern.compile("\"([^\"]*)\"");
+    private static final Pattern HEALTH = Pattern.compile("\\bHT\\s*=\\s*([^;]+);");
+    private static final Pattern DEFENCE = Pattern.compile("\\bdefenseSkill\\s*=\\s*([^;]+);");
+
+    /** The rolls the other game writes as methods, carried as text on both sides of the diff. */
+    static final List<String> ROLLS = List.of("damageRoll", "attackSkill", "dr");
 
     private Vanilla() {
     }
 
-    /** Where the pinned tree sits, read from the pin rather than named here. */
+    /** Where the pinned tree sits. The pin names it; this constant is what the file gate allows. */
     static String folder(Path root) {
-        return Citations.found(root, PIN, "^folder=(\\S+)$").value() + "/";
-    }
-
-    /** The tag the pin names, for a citation that says which game it points into. */
-    static String tag(Path root) {
-        return Citations.found(root, PIN, "^tag=(\\S+)$").value();
-    }
-
-    /** One thing the other game has: what it calls itself, and what it states about itself. */
-    record Named(String className, String name, List<Codex.Rule> facts, Codex.Citation citation) {
-    }
-
-    /** Every mob of the other game, with the health and defence it states and the rolls it writes as methods. */
-    static List<Named> mobs(Path root) {
-        List<Named> named = new ArrayList<>();
-        for (String path : Sources.under(root, folder(root) + MOBS)) {
-            Sources.Body file = Sources.file(root, path);
-            String className = className(root, path);
-            int line = nameLine(file);
-            if (line < 0) {
-                continue;
-            }
-            named.add(new Named(className, name(file, line), facts(root, file), file.citation(line)));
-        }
-        if (named.isEmpty()) {
-            throw new IllegalStateException("the other game names no mob; the second pinned source is not where the reader looks");
+        String named = Citations.found(root, PIN, "^folder=(\\S+)$").value().trim() + "/";
+        if (!named.equals(Sources.VANILLA_ROOT)) {
+            throw new IllegalStateException(PIN + " puts the other game at " + named
+                    + ", and the file gate only opens " + Sources.VANILLA_ROOT);
         }
         return named;
     }
 
+    /** The tag the pin names, for a citation that says which game it points into. */
+    static String tag(Path root) {
+        return Citations.found(root, PIN, "^tag=(\\S+)$").value().trim();
+    }
+
+    /** The commit the pin names, which the fetched tree has to be at before a line of it is cited. */
+    static String commit(Path root) {
+        return Citations.found(root, PIN, "^commit=(\\S+)$").value().trim();
+    }
+
     /**
-     * Every item of the other game. It states a name and little else in a shape this game also
-     * states: a weapon's numbers are constructor arguments and a potion's are its own method, so
-     * the diff carries what each says and does not pretend the two are one measurement.
+     * That the tree under the pin's folder is the commit the pin names, checked before anything is
+     * read from it. A citation into a tree nobody verified is not a citation: the line numbers in
+     * this table are only true of one commit, and the fetch script records which one it wrote.
      */
-    static List<Named> items(Path root) {
-        List<Named> named = new ArrayList<>();
-        for (String path : Sources.under(root, folder(root) + ITEMS)) {
-            Sources.Body file = Sources.file(root, path);
-            int line = nameLine(file);
-            if (line < 0) {
-                continue;
-            }
-            named.add(new Named(className(root, path), name(file, line), List.of(), file.citation(line)));
+    static void pinned(Path root) {
+        String folder = folder(root);
+        if (!Sources.has(root, folder)) {
+            throw new IllegalStateException(folder + " is not there: the other game is read, never committed."
+                    + " Run " + FETCH + " to fetch it.");
         }
-        if (named.isEmpty()) {
+        String marker = folder + MARKER;
+        if (!Sources.exists(root, marker)) {
+            throw new IllegalStateException(folder + " carries no " + MARKER + " and so is at no known commit."
+                    + " Run " + FETCH + " to fetch it.");
+        }
+        String at = Sources.contents(root, marker).trim();
+        String wanted = commit(root);
+        if (!at.equals(wanted)) {
+            throw new IllegalStateException(folder + " is at " + at + " and " + PIN + " names " + wanted
+                    + ". Run " + FETCH + " to fetch the pinned commit.");
+        }
+    }
+
+    /** One thing the other game has: what it calls itself, and what it states about itself. */
+    record Named(String className, String kind, String name, List<Codex.Rule> facts, Codex.Citation citation) {
+    }
+
+    /**
+     * Every mob and item the other game names, with the health and defence each states and the
+     * rolls each writes as methods. A class states its own name, so the walk is over the classes
+     * the two folders declare rather than over the files, and a class that names itself twice
+     * because the game shows two names contributes both.
+     */
+    static List<Named> named(Path root) {
+        pinned(root);
+        Stated tree = new Stated(root, folder(root) + SOURCE);
+        List<Named> named = new ArrayList<>();
+        List<Stated.Type> types = new ArrayList<>(tree.declared(folder(root) + MOBS));
+        types.addAll(tree.declared(folder(root) + ITEMS));
+        for (Stated.Type type : types) {
+            Sources.Body body = tree.body(type.className());
+            for (int line : names(body)) {
+                boolean mob = tree.descendsFrom(type.className(), "Mob");
+                List<Codex.Rule> facts = mob ? facts(tree, type.className()) : List.of();
+                for (String name : literals(body, line)) {
+                    named.add(new Named(type.className(), mob ? "mob" : "item", name, facts, body.citation(line)));
+                }
+            }
+        }
+        if (named.stream().noneMatch(n -> n.kind().equals("mob"))) {
+            throw new IllegalStateException("the other game names no mob; the second pinned source is not where the reader looks");
+        }
+        if (named.stream().noneMatch(n -> n.kind().equals("item"))) {
             throw new IllegalStateException("the other game names no item; the second pinned source is not where the reader looks");
         }
         return named;
     }
 
-    /**
-     * What a mob of the other game states about itself, walking up what it extends for anything its
-     * own class does not state. A subclass there changes one number and inherits the rest, so a
-     * reader that looked only at the class's own lines would call an albino rat a mob that states
-     * nothing, and the diff would have nothing to set against this game's.
-     */
-    private static List<Codex.Rule> facts(Path root, Sources.Body file) {
+    /** What a mob of the other game states about itself, its ancestors' statements included. */
+    private static List<Codex.Rule> facts(Stated tree, String className) {
         List<Codex.Rule> facts = new ArrayList<>();
-        for (Sources.Body body = file; body != null; body = extended(root, body)) {
-            number(body, HEALTH, "health", facts);
-            number(body, DEFENCE, "defence", facts);
-            for (String method : List.of("damageRoll", "attackSkill", "dr")) {
-                if (facts.stream().anyMatch(f -> f.what().equals(method))) {
-                    continue;
-                }
-                int at = body.find("public int " + method + "\\s*\\(");
-                if (at >= 0) {
-                    facts.add(new Codex.Rule(method, Sources.text(body.block(at)), body.citation(at)));
-                }
-            }
+        add(facts, tree.stated(className, HEALTH, "health"));
+        add(facts, tree.stated(className, DEFENCE, "defence"));
+        for (String roll : ROLLS) {
+            add(facts, tree.method(className, roll, roll));
         }
         return facts;
     }
 
-    /** The class one class of the other game extends, when that class is a mob of the same folder. */
-    private static Sources.Body extended(Path root, Sources.Body body) {
-        List<String> lines = Sources.stripped(body);
-        for (int i : body.ownLines()) {
-            Matcher declared = EXTENDS.matcher(lines.get(i - body.from()));
-            if (!declared.find()) {
-                continue;
-            }
-            String path = body.path().substring(0, body.path().lastIndexOf('/') + 1) + declared.group(1) + ".java";
-            return Sources.exists(root, path) ? Sources.file(root, path) : null;
+    private static void add(List<Codex.Rule> facts, Codex.Rule rule) {
+        if (rule != null) {
+            facts.add(rule);
         }
-        return null;
     }
 
-    /** The one line of a class's own members that names it, or none when the class names nothing. */
-    private static int nameLine(Sources.Body file) {
-        int found = -1;
-        List<String> lines = Sources.stripped(file);
-        for (int i : file.ownLines()) {
-            if (!NAME.matcher(lines.get(i - file.from())).find()) {
+    /** The lines of a class's own members that name it: none where it names nothing, one for each name it states. */
+    private static List<Integer> names(Sources.Body body) {
+        List<Integer> found = new ArrayList<>();
+        List<String> lines = Sources.stripped(body);
+        List<Integer> where = new ArrayList<>(body.memberLines());
+        where.addAll(body.constructorLines());
+        java.util.Collections.sort(where);
+        for (int i : where) {
+            String line = lines.get(i - body.from());
+            if (!NAME.matcher(line).find() || Stated.declaresField(line)) {
                 continue;
             }
-            if (found >= 0) {
-                throw new IllegalStateException(file.path() + ":" + (i + 1) + ": two lines name this class");
-            }
-            found = i;
+            found.add(i);
         }
         return found;
     }
 
-    /** The name a line states. */
-    private static String name(Sources.Body file, int line) {
-        Matcher named = NAME.matcher(Sources.stripped(file).get(line - file.from()));
-        if (!named.find()) {
-            throw new IllegalStateException(file.path() + ":" + (line + 1) + ": no name where the reader found one");
+    /**
+     * The names one name statement states. A statement that states none is refused: a class that
+     * names itself in a shape this reader cannot read must stop the generation, because the
+     * alternative is a row saying the other game has no such thing.
+     */
+    private static List<String> literals(Sources.Body body, int line) {
+        String text = Sources.stripped(body).get(line - body.from());
+        Matcher statement = NAME.matcher(text);
+        if (!statement.find()) {
+            throw new IllegalStateException(body.path() + ":" + (line + 1) + ": no name where the reader found one");
         }
-        return named.group(1);
-    }
-
-    /** One number a class states plainly about itself, where it states one. */
-    private static void number(Sources.Body file, Pattern pattern, String what, List<Codex.Rule> facts) {
-        if (facts.stream().anyMatch(f -> f.what().equals(what))) {
-            return;
-        }
-        List<String> lines = Sources.stripped(file);
-        for (int i : file.ownLines()) {
-            Matcher found = pattern.matcher(lines.get(i - file.from()));
-            if (found.find()) {
-                facts.add(new Codex.Rule(what, found.group(1), file.citation(i)));
-                return;
+        List<String> names = new ArrayList<>();
+        Matcher literal = LITERAL.matcher(statement.group(1));
+        while (literal.find()) {
+            if (!literal.group(1).isBlank()) {
+                names.add(literal.group(1));
             }
         }
-    }
-
-    /** A class of the other game as the table names it: its path under that game's own source. */
-    private static String className(Path root, String path) {
-        String prefix = folder(root) + SOURCE;
-        return path.substring(prefix.length(), path.length() - ".java".length()).replace('/', '.');
+        if (names.isEmpty()) {
+            throw new IllegalStateException(body.path() + ":" + (line + 1)
+                    + ": this class names itself in a shape the reader cannot read: " + statement.group(1).trim());
+        }
+        return names;
     }
 }

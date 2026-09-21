@@ -2,9 +2,14 @@ package org.shatterfish.codex;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.shatterfish.api.Codex;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -18,9 +23,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Story 2.8's diff held against the two pinned games, and against source written here for the
- * shapes neither tree has. The four rows of the story's matrix are each named: a name both games
- * give, a name whose numbers differ, a name only one game gives, and a fact the two write in
- * shapes that cannot be compared.
+ * shapes neither tree has. The rows of the story's matrix are each named: a name both games give,
+ * a name whose numbers differ, a name only one game gives, one name carried by two classes of one
+ * game, a fact the two write in shapes that cannot be compared, and a name a class states in a
+ * shape the reader cannot read — which fails rather than passing quietly.
  */
 class VocabularyTest {
 
@@ -72,7 +78,7 @@ class VocabularyTest {
         assertEquals("15", differences.get("health").there());
         assertTrue(differences.get("defence").comparable());
         assertFalse(differences.get("damageRoll").comparable(),
-                "one game writes its roll as a method and the other measures it, so the two are not set against each other");
+                "the two games write their rolls as different methods, so the two are not set against each other");
         assertFalse(differences.get("dr").comparable());
         assertFalse(differences.get("damageRoll").there().isBlank(), "and the text each states is carried");
     }
@@ -95,7 +101,19 @@ class VocabularyTest {
     }
 
     @Test
-    @DisplayName("the diff names both pinned tags and says what it is for, and nothing reads it")
+    @DisplayName("one name carried by two classes of one game names and cites both")
+    void one_name_two_classes() {
+        Codex.VocabularyEntry imp = byName(diff()).get("mob ambitious imp");
+        assertNotNull(imp, "the other game has two classes it calls an ambitious imp");
+        assertEquals(List.of("actors.mobs.npcs.Imp", "actors.mobs.npcs.ImpShopkeeper"), imp.there().classNames());
+        assertEquals(2, imp.there().citations().size(), "both are cited, since the row is about the name");
+        for (Codex.Citation citation : imp.there().citations()) {
+            assertTrue(citation.path().startsWith(Sources.VANILLA_ROOT), citation.reference());
+        }
+    }
+
+    @Test
+    @DisplayName("the diff names both pinned tags and says what it is for")
     void the_diff_says_what_it_is_for() {
         Codex.Vocabulary vocabulary = diff();
         assertEquals("v4.0.0", vocabulary.tag());
@@ -108,7 +126,7 @@ class VocabularyTest {
     @DisplayName("the other game's reader takes a fact from the class that states it, walking up what a class extends")
     void the_other_game_inherits_what_it_does_not_restate() {
         Map<String, Vanilla.Named> mobs = new TreeMap<>();
-        for (Vanilla.Named mob : Vanilla.mobs(ROOT)) {
+        for (Vanilla.Named mob : Vanilla.named(ROOT)) {
             mobs.put(mob.className(), mob);
         }
         Vanilla.Named rat = mobs.get("actors.mobs.Rat");
@@ -127,13 +145,159 @@ class VocabularyTest {
     }
 
     @Test
-    @DisplayName("the other game's reader refuses a class that names itself twice and reads no name where there is none")
-    void the_other_games_reader_refuses_what_it_cannot_read() {
-        assertThrows(java.io.UncheckedIOException.class, () -> Vanilla.mobs(ROOT.resolve("no-such-tree")),
-                "a tree that is not there fails naming the folder rather than reading as a game with no mobs");
+    @DisplayName("a class that names itself with a condition contributes every name a player sees")
+    void a_conditional_name_contributes_both_names() {
+        List<String> named = new ArrayList<>();
+        for (Vanilla.Named mob : Vanilla.named(ROOT)) {
+            if (mob.className().equals("actors.mobs.Goo")) {
+                named.add(mob.name());
+            }
+        }
+        assertEquals(List.of("Goo", "spawn of Goo"), named,
+                "the other game's Goo names itself one thing or the other and a player sees both");
+        Map<String, Codex.VocabularyEntry> rows = byName(diff());
+        for (String name : List.of("mob goo", "mob tengu", "mob dm-300", "mob yog-dzewa", "mob king of dwarves")) {
+            assertNotNull(rows.get(name).there(), name + " is a mob the other game has");
+        }
+    }
+
+    @Test
+    @DisplayName("a thing one game declares inside another class is read, and what it is decides its kind")
+    void a_nested_class_is_read_and_typed_by_what_it_extends() {
+        Map<String, Codex.VocabularyEntry> rows = byName(diff());
+        Codex.VocabularyEntry fist = rows.get("mob rotting fist");
+        assertNotNull(fist.there(), "the other game declares its rotting fist inside its Yog-Dzewa");
+        assertEquals(List.of("actors.mobs.Yog.RottingFist"), fist.there().classNames());
+        Codex.VocabularyEntry sheep = rows.get("mob sheep");
+        assertNotNull(sheep.there(), "and its sheep inside a wand, which is a mob all the same");
+        assertEquals(List.of("items.wands.WandOfFlock.Sheep"), sheep.there().classNames(),
+                "a class is what it extends, not the folder its file sits in");
+        assertNull(rows.get("item sheep"), "so the sheep is not also an item");
+    }
+
+    @Test
+    @DisplayName("a number is taken from a class that states it and never from a field's declaration")
+    void a_declaration_is_not_a_statement() {
+        Map<String, Codex.VocabularyEntry> rows = byName(diff());
+        Codex.VocabularyEntry statue = rows.get("mob animated statue");
+        Codex.Rule defence = statue.there().facts().stream()
+                .filter(f -> f.what().equals("defence")).findFirst().orElseThrow();
+        assertEquals("4 + Dungeon.depth", defence.expression(),
+                "the other game's statue states its defence as an expression, not as the zero its base class declares");
+        assertTrue(defence.citation().path().endsWith("Statue.java"), defence.citation().reference());
+        assertEquals(0, statue.differences().stream().filter(Codex.MechanicDifference::comparable).count(),
+                "a number against an expression is not a difference the table resolves");
+    }
+
+    @Test
+    @DisplayName("a number this game does not state at construction is not published as a fact")
+    void a_stat_set_later_is_not_a_fact() {
+        Codex.VocabularyEntry bee = byName(diff()).get("mob golden bee");
+        assertNotNull(bee.here());
+        assertEquals(0, bee.here().facts().stream().filter(f -> f.what().equals("health")).count(),
+                "this game's bee takes its health from the hero who summons it, so it states none");
+    }
+
+    @Test
+    @DisplayName("every difference the table states is a difference, and no row states one about itself")
+    void a_difference_differs() {
+        for (Codex.VocabularyEntry entry : diff().entries()) {
+            for (Codex.MechanicDifference difference : entry.differences()) {
+                assertFalse(difference.here().equals(difference.there()),
+                        entry.kind() + " " + entry.name() + " states " + difference.what()
+                                + " the same in both games and the table calls it a difference");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("the other game's reader refuses a name it cannot read, and a class that names itself twice")
+    void the_other_games_reader_refuses_what_it_cannot_read(@TempDir Path fixture) throws IOException {
+        pinned(fixture);
+        mob(fixture, "Mob", "public class Mob {\n\tprotected int defenseSkill = 0;\n}\n");
+        item(fixture, "Dew", "public class Dew {\n\t{\n\t\tname = \"dew\";\n\t}\n}\n");
+        mob(fixture, "Named", "public class Named extends Mob {\n\t{\n\t\tname = \"a mob\";\n\t\tHT = 9;\n\t}\n}\n");
+        List<Vanilla.Named> read = Vanilla.named(fixture);
+        assertEquals(1, read.stream().filter(n -> n.className().equals("actors.mobs.Named")).count(),
+                "the fixture reads before the shapes below are added to it");
+
+        mob(fixture, "Unreadable", "public class Unreadable extends Mob {\n\t{\n\t\tname = someName();\n\t}\n}\n");
+        IllegalStateException unreadable = assertThrows(IllegalStateException.class, () -> Vanilla.named(fixture));
+        assertTrue(unreadable.getMessage().contains("a shape the reader cannot read"), unreadable.getMessage());
+        assertTrue(unreadable.getMessage().contains("Unreadable.java"), unreadable.getMessage());
+        Files.delete(mobPath(fixture, "Unreadable"));
+
+        mob(fixture, "Twice", "public class Twice extends Mob {\n\t{\n\t\tname = \"one\";\n\t\tname = \"two\";\n\t}\n}\n");
+        List<String> both = Vanilla.named(fixture).stream()
+                .filter(n -> n.className().equals("actors.mobs.Twice")).map(Vanilla.Named::name).toList();
+        assertEquals(List.of("one", "two"), both, "a class that states two names carries both");
+    }
+
+    @Test
+    @DisplayName("the second pinned source being absent or at another commit fails naming the script that fetches it")
+    void the_second_source_must_be_fetched(@TempDir Path fixture) throws IOException {
+        Files.writeString(fixture.resolve(Vanilla.PIN), pin("6fffc0768905b5b1f167a05df7274acc10a7ae34"),
+                StandardCharsets.UTF_8);
+        IllegalStateException absent = assertThrows(IllegalStateException.class, () -> Vanilla.named(fixture));
+        assertTrue(absent.getMessage().contains(Vanilla.FETCH), absent.getMessage());
+
+        Files.createDirectories(fixture.resolve(Sources.VANILLA_ROOT));
+        IllegalStateException unmarked = assertThrows(IllegalStateException.class, () -> Vanilla.named(fixture));
+        assertTrue(unmarked.getMessage().contains(Vanilla.FETCH), unmarked.getMessage());
+
+        Files.writeString(fixture.resolve(Sources.VANILLA_ROOT + Vanilla.MARKER), "0123456789abcdef",
+                StandardCharsets.UTF_8);
+        IllegalStateException elsewhere = assertThrows(IllegalStateException.class, () -> Vanilla.named(fixture));
+        assertTrue(elsewhere.getMessage().contains("0123456789abcdef"), elsewhere.getMessage());
+        assertTrue(elsewhere.getMessage().contains(Vanilla.FETCH), elsewhere.getMessage());
+    }
+
+    @Test
+    @DisplayName("the pinned tree the table cites is the commit the pin names")
+    void the_tree_read_is_the_tree_pinned() throws IOException {
+        String marked = Files.readString(ROOT.resolve(Sources.VANILLA_ROOT + Vanilla.MARKER), StandardCharsets.UTF_8);
+        assertEquals(Vanilla.commit(ROOT), marked.trim(),
+                "the fetched tree is at the commit " + Vanilla.PIN + " names, so its line numbers mean something");
+    }
+
+    @Test
+    @DisplayName("the readers refuse a file that is not source and a folder of neither pinned game")
+    void the_readers_refuse_what_is_not_a_pinned_source() {
         assertThrows(IllegalStateException.class, () -> Sources.file(ROOT, "vanilla-src/build.gradle"),
                 "a file of the other game that is not source");
         assertThrows(IllegalStateException.class, () -> Sources.under(ROOT, "somewhere-else/"),
                 "a folder outside either pinned game");
+        assertThrows(IllegalStateException.class, () -> Sources.under(ROOT, "vanilla-src/../"),
+                "and a folder that climbs out of one");
+    }
+
+    /** A fixture tree the reader will open: a pin, a marker at the pinned commit, and nothing else. */
+    private static void pinned(Path fixture) throws IOException {
+        String commit = "6fffc0768905b5b1f167a05df7274acc10a7ae34";
+        Files.writeString(fixture.resolve(Vanilla.PIN), pin(commit), StandardCharsets.UTF_8);
+        Files.createDirectories(fixture.resolve(Sources.VANILLA_ROOT));
+        Files.writeString(fixture.resolve(Sources.VANILLA_ROOT + Vanilla.MARKER), commit, StandardCharsets.UTF_8);
+    }
+
+    private static String pin(String commit) {
+        return "repository=https://example.invalid/pixel-dungeon.git\ntag=archive\ncommit=" + commit
+                + "\nfolder=vanilla-src\n";
+    }
+
+    private static Path mobPath(Path fixture, String name) {
+        return fixture.resolve(Sources.VANILLA_ROOT + Vanilla.MOBS + name + ".java");
+    }
+
+    private static void mob(Path fixture, String name, String body) throws IOException {
+        write(mobPath(fixture, name), body);
+    }
+
+    private static void item(Path fixture, String name, String body) throws IOException {
+        write(fixture.resolve(Sources.VANILLA_ROOT + Vanilla.ITEMS + name + ".java"), body);
+    }
+
+    private static void write(Path path, String body) throws IOException {
+        Files.createDirectories(path.getParent());
+        Files.writeString(path, "package com.watabou.pixeldungeon;\n\n" + body, StandardCharsets.UTF_8);
     }
 }

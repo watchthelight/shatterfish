@@ -45,6 +45,29 @@ final class Names {
         return out.toString();
     }
 
+    /**
+     * A display name as the vocabulary diff joins on it (story 2.8): trimmed, its runs of
+     * whitespace collapsed to one space, and lower-cased so that one game's "Potion of Healing"
+     * meets the other's "potion of healing".
+     *
+     * <p>This is a name a player reads, not a key a class derives, so it is normalised on its own
+     * terms. A character outside ASCII is still refused — the two pinned games name everything in
+     * ASCII and a guess at a mapping would silently split a row in two — but the refusal names
+     * the display name rather than speaking of a key that does not exist.
+     */
+    static String display(String text) {
+        String collapsed = text.trim().replaceAll("\\s+", " ");
+        for (int i = 0; i < collapsed.length(); i++) {
+            if (collapsed.charAt(i) >= 128) {
+                throw new IllegalStateException("a display name with a character outside ASCII: " + text);
+            }
+        }
+        if (collapsed.isEmpty()) {
+            throw new IllegalStateException("a display name that is nothing but whitespace");
+        }
+        return lower(collapsed);
+    }
+
     /** The bundle line for {@code key}: its value and the citation of the line; no line, or two, fails naming the key. */
     record Named(String value, Codex.Citation citation) {
     }

@@ -24,7 +24,9 @@ public final class Codex {
      * The Codex version: 1 was the skeleton with the hero classes and the challenge flags; 2 added
      * the mobs and the spawn rotation (story 2.2); 3 added the items and the decks (story 2.3);
      * 4 added the guarantees, the tier tables and the rooms (story 2.4); 5 added the measured
-     * combat tables (story 2.5); 6 adds the traps, the recipes and the level structure (story 2.6).
+     * combat tables (story 2.5); 6 added the traps, the recipes and the level structure (story 2.6);
+     * 7 added the strings, the assets, the changelog and the journal's documents (story 2.7);
+     * 8 adds the vanilla-versus-Shattered vocabulary diff (story 2.8).
      */
     public static final int VERSION = 8;
 

@@ -197,37 +197,61 @@ class CodexCompletenessTest {
         for (Codex.VocabularyEntry entry : vocabulary.entries()) {
             assertTrue(rows.add(entry.kind() + " " + entry.name()), entry.name() + " is listed twice");
         }
-        // Every class of the other game that names itself, against the classes the diff cites on
-        // that side: a class dropped by the reader would otherwise be a name nobody misses.
-        TreeSet<String> named = new TreeSet<>();
-        for (Vanilla.Named mob : Vanilla.mobs(ROOT)) {
-            named.add(mob.className());
-        }
-        for (Vanilla.Named item : Vanilla.items(ROOT)) {
-            named.add(item.className());
-        }
+        // The expectation is read here rather than through the reader under test. A test that
+        // builds both sides of its equality from one predicate proves only that the predicate is
+        // itself, and that is how five of the other game's bosses were once published as things
+        // the other game does not have.
         TreeSet<String> cited = new TreeSet<>();
         for (Codex.VocabularyEntry entry : vocabulary.entries()) {
             if (entry.there() != null) {
                 cited.addAll(entry.there().classNames());
             }
         }
-        assertEquals(named, cited, "every class of the other game that names itself is a side of some row");
-        assertTrue(named.size() > 100, "the other game names this many things: " + named.size());
-        // And every name this game gives a mob is a side of some row too.
-        TreeSet<String> ours = new TreeSet<>();
-        for (Codex.StringEntry entry : Text.entries(ROOT)) {
-            if (entry.suffix().equals("name") && entry.className().startsWith("actors.mobs.")) {
-                ours.add(entry.className());
+        String folder = Vanilla.folder(ROOT);
+        TreeSet<String> files = new TreeSet<>();
+        for (String where : List.of(folder + Vanilla.MOBS, folder + Vanilla.ITEMS)) {
+            for (String path : Sources.under(ROOT, where)) {
+                boolean names = false;
+                for (String line : Sources.file(ROOT, path).lines()) {
+                    names = names || line.matches("\\s*name\\s*=.*");
+                }
+                if (!names) {
+                    continue;
+                }
+                String className = path.substring((folder + Vanilla.SOURCE).length(),
+                        path.length() - ".java".length()).replace('/', '.');
+                files.add(className);
+                assertTrue(cited.contains(className) || cited.stream().anyMatch(c -> c.startsWith(className + ".")),
+                        path + " states a name and no row of the vocabulary diff cites it");
             }
         }
-        TreeSet<String> here = new TreeSet<>();
+        assertTrue(files.size() > 100, "the other game's files that name something: " + files.size());
+        // The names a reader of the other game's source would expect to find, written out here:
+        // a boss that names itself with a condition, a mob declared inside another class, and a
+        // mob whose file sits under the items folder.
+        TreeSet<String> names = new TreeSet<>();
         for (Codex.VocabularyEntry entry : vocabulary.entries()) {
-            if (entry.here() != null && entry.kind().equals("mob")) {
-                here.addAll(entry.here().classNames());
+            if (entry.there() != null) {
+                names.add(entry.kind() + " " + entry.name());
             }
         }
-        assertEquals(ours, here, "every mob this game names is a side of some row");
+        for (String name : List.of("mob goo", "mob spawn of goo", "mob tengu", "mob dm-300", "mob yog-dzewa",
+                "mob king of dwarves", "mob undead dwarf", "mob rotting fist", "mob sheep",
+                "mob marsupial rat", "mob gnoll scout", "item dew vial", "item tome of mastery")) {
+            assertTrue(names.contains(name), "the other game has a " + name + " and the diff does not say so");
+        }
+        // And every name this game gives an item is a side of some row.
+        TreeSet<String> ourItems = new TreeSet<>();
+        for (Codex.ItemEntry item : Items.entries(ROOT)) {
+            ourItems.add(Names.display(item.name()));
+        }
+        TreeSet<String> hereItems = new TreeSet<>();
+        for (Codex.VocabularyEntry entry : vocabulary.entries()) {
+            if (entry.here() != null && entry.kind().equals("item")) {
+                hereItems.add(entry.name());
+            }
+        }
+        assertEquals(ourItems, hereItems, "every item this game names is a side of some row");
     }
 
     @Test
