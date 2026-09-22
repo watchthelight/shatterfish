@@ -2,7 +2,7 @@
 title: 'Seed sets as committed, versioned files'
 type: 'feature'
 created: '2026-09-21'
-status: 'review'
+status: 'done'
 baseline_commit: 'a91d3dc2e'
 review_loop_iteration: 0
 context: []
