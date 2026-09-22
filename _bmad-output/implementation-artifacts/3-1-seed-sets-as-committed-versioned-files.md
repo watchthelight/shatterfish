@@ -2,7 +2,7 @@
 title: 'Seed sets as committed, versioned files'
 type: 'feature'
 created: '2026-09-21'
-status: 'in-progress'
+status: 'review'
 baseline_commit: 'a91d3dc2e'
 review_loop_iteration: 0
 context: []
@@ -125,6 +125,27 @@ Do not choose set sizes by argument here; the PRD fixed them and the ADR will re
 
 ## Spec Change Log
 
+- **Hero classes, after implementation.** The spec fixed the sizes and left the classes open. The
+  four general sets cycle the game's six in its own declaration order, and `goo` is Warrior only
+  because FR-20 names it as the E4 gate's set. Recorded in ADR-0018 rather than only in the code.
+- **The Profile grants the five earned classes** (product owner's choice, asked during review).
+  Five of the six classes are badge-locked and the Profile installs a profile that has played
+  nothing, so `standard`, `smoke`, `holdout` and `bosses` named hundreds of triples for heroes no
+  Run could have started as. The alternatives were to restrict the sets to the Warrior or to unlock
+  at the class screen; the Profile was chosen because it is the menu a player reaches by having
+  played and it changes nothing the bot reads. `Profile.VERSION` is raised to 3 and ADR-0007
+  carries the amendment.
+- **The seed code's guard moved from a claim to a test.** The spec said a divergence between
+  `SeedSet.code` and the game's encoder would refuse the Run. It would not: `HeadlessDriver.newGame`
+  makes its own code from the number (`HeadlessDriver.java:310`), so the committed code never
+  reaches the game. `SeedCodeParityTest` in `harness` holds the two implementations against each
+  other instead. The spec's claim was wrong, not the design.
+- **FR-20's holdout budget is half built.** "At most once per Brain version, every use recorded" —
+  `publish` carries the reason and counts nothing. Issue #116 carries the counting; this story
+  states the gap rather than implying it is closed.
+- **Two findings sent out of scope**, both with issues: the holdout use counter (#116) and the
+  Profile's global badges surviving a Run (#117).
+
 ## Design Notes
 
 **Why derived rather than drawn.** A set drawn from an unseeded source and committed is a set a
@@ -136,6 +157,13 @@ argument the Codex makes about its tables, and the same drift check.
 **Why the seed code is carried beside the number.** `5429503678975` is what the engine takes and
 `ZZZ-ZZZ-ZZZ` is what a human types into the game's own seed box. A stranger checking a published
 number will do the second, so the file carries both.
+
+**Why the holdout's derivation is package-private.** A guard on `load` guards the committed file,
+and a set *is* its formula: `set(name)` recomputes all 500 holdout triples from the name alone, so
+leaving it public left the door open beside the lock. `set`, `files` and `constant` are
+package-private, `publish` is the only way in from outside `org.shatterfish.rig`, and the
+consequence — that (set name, run index) is seed-equivalent information a Brain must never be
+handed — is written into ADR-0018 and enforced by name in `BrainBoundaryTest`.
 
 **Why `holdout` is guarded at the door.** FR-20 makes it testable: the rig refuses a development
 comparison on `holdout`. A guard anywhere later is a guard someone routes around; a `load` that
@@ -172,6 +200,51 @@ the files.
 lower bound of 0.70532, above the 0.70 FR-20 requires; over 300 it is 0.69805 and does not clear
 it, so the test states that the size is what makes the bound hold.
 
+**The mutation battery** (`mutations31.py`, twenty mutations, `:rig:test` and `:harness:test`
+after each). Fifteen were caught; the five that were not are the substance of the second review
+patch.
+
+| # | Mutation | Caught by |
+|---|----------|-----------|
+| M1 | the holdout door opens: a development read is no longer refused | `SeedSetsTest` |
+| M2 | a published read may state a blank reason | `SeedSetsTest` |
+| M3 | the reader accepts a file that is well formed and is not the derivation | **nobody** |
+| M4 | the reader stops checking the number of triples | `SeedSetsTest` |
+| M5 | the reader stops checking the schema version | `SeedSetsTest` |
+| M6 | the reader stops checking the set's name | `SeedSetsTest` |
+| M7 | the reader stops checking a code against its seed | `SeedSetsTest` |
+| M8 | the reader accepts carriage returns | `SeedSetsTest` |
+| M9 | the task deletes as it walks, so it empties a folder and then refuses it | **nobody** |
+| M10 | the task accepts any folder at all | **nobody** |
+| M11 | the encoder's base drifts from the game's | `SeedCodeParityTest`, `SeedSetsTest` |
+| M12 | the decoder reads the most significant digit last | `SeedCodeParityTest`, `SeedSetsTest` |
+| M13 | a null class list is a NullPointerException again | `SeedSetsTest` |
+| M14 | a definition accepts a hero class named twice | **nobody** |
+| M15 | the derivation stops cycling the classes | `SeedSetsTest` |
+| M16 | the derivation takes the remainder, so a seed can be negative | `SeedSetsTest` |
+| M17 | the name's constant is the sum of its letters | `SeedSetsTest` |
+| M18 | the Profile stops granting the badges | **nobody** |
+| M19 | the drift check stops comparing the committed bytes | `SeedSetsTest` |
+| M20 | the reader stops refusing text after the set | `SeedSetsTest` |
+
+M3 is the one that matters most: every other refusal in the reader rejects a *shape*, and this is
+the only one that rejects a *lie* — the single thing standing between a tampered working tree and a
+published number citing a set that did not produce it. M9 and M10 are the task's two guards, one
+asserted by its message alone and one asserted by nothing. M18 found a defect rather than a missing
+test, below. All five now bite; the battery was rerun on the five to confirm it.
+
+**Review (four reviewers on the working tree, before the battery).** `fairness-reviewer` returned
+BLOCK on two findings, both addressed in `93242cc89`: the seed code had no guard at all
+(`SeedCodeParityTest` now), and the holdout had three public doors besides `load` (all
+package-private now — and the patch that claimed this did not actually make the change, which
+`617d03117` corrected). The three lens reviews (adversarial, edge-case, verification-gap)
+independently reproduced all 1,525 triples from the published formula and checked the encoder over
+200,000 values, so the substance stood; what they found was a set of claims the code did not
+support — a false mitigation in `SeedSet`'s javadoc, a "one door" that was four, tests asserting a
+value against the code that set it, the bound's counter-assertion at 300 where the edge is 322, and
+the overlap check comparing triples rather than seeds so a shared dungeon under a different hero
+passed. Every one is fixed; none required a design change.
+
 **Dev notes:**
 - The story's first design put the name-to-`HeroClass` resolution in `api`. `JsonRenderingTest`
   caught it: a method in `api` that returns a value of the schema and takes a `String` is a
@@ -192,4 +265,21 @@ it, so the test states that the size is what makes the bound hold.
   object, text after the object, a carriage return, a missing final line feed, lost indentation, a
   trailing comma after the last triple, and a set of the wrong size.
 - `seeds/** text eol=lf` was added to `.gitattributes` for the reason `codex/**` has it: without
-  it a Windows checkout fails the byte comparison and nowhere else does.
+  it a Windows checkout fails the byte comparison and nowhere else does. The branch had already
+  written CRLF into six committed files, which turned a six-line edit to a fairness gate into a
+  248-line diff — exactly the cover such a widening would travel under — so the rules were widened
+  to our own sources and documents and the six renormalised.
+- **The badge grant never worked after the first Run of a process, and two defects hid it.**
+  `UNLOCK_MAGE` and its four are `LOCAL`-type badges (`Badges.java:77-81`), and `Badges.unlock`
+  refuses a LOCAL badge while `Dungeon.customSeedText` is non-empty (`Badges.java:1209-1214`) —
+  which it is, holding the *previous* Run's code, because `Profile.prepare` runs before
+  `Dungeon.initSeed` (`HeadlessDriver.java:335`, `:358`). The grant was therefore a no-op from Run
+  2 onward, and it looked correct only because `Badges.reset()` never clears the global set, so Run
+  1's grant stood for the life of the process. The Profile now clears the seed text the last Run
+  left, which is inherited state like any other. Found by writing M18's test, not by the reviews.
+- **The global badges are not emptied, and that is issue #117.** Emptying them through
+  `Badges.disown` — the only public door, and the same shape as the `Document` loop beside it —
+  works and breaks 35 harness tests: with the set empty a Run earns badges again during play, and
+  earning one posts a badge window to the render thread, so the next Run refuses to start on a
+  queue that is not empty. The sweep needs somewhere to put the display, which is a decision and
+  probably a hook row. Reverted, recorded, and out of this story's scope.
