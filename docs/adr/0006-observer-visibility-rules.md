@@ -319,7 +319,7 @@ carry: the items are drawn and listed, and a use the game refuses is the executo
 **The journal is every note the tab draws, and the identified potions, scrolls and rings.** The
 notes tab draws the written notes, then every floor's landmarks and keys down from the deepest
 (`…/windows/WndJournal.java:497-541`), and the Observer reads through the tab's own two calls
-(`…/journal/Notes.java:685-705`), so a record on a floor the tab does not list, which no caller
+(`…/journal/Notes.java:642-663`), so a record on a floor the tab does not list, which no caller
 writes today, is not a note, as the review asked: a landmark's title at its floor (`:206-217`), a key's title and
 count (`:324-331`, `:344-346`), a written note's title, body and the floor it names, if it names
 one (`:430-437`, `:487-495`). The known appearances are the three `getKnown()` sets
@@ -537,7 +537,7 @@ or claiming an equivalence that has stopped holding.
   above says the field of view *is* the sprite's visibility; at this tag it is the common case and
   not the rule, and `actors()` drops those two where a player sees them.
 - **The health bar draws a third band.** It now shows the damage already owed by poison and the
-  like, `Char.incomingDOT()` (`…/actors/Char.java:811`; `…/ui/HealthBar.java:86-102`), and the
+  like, `Char.incomingDOT()` (`…/actors/Char.java:811`; `…/ui/HealthBar.java:86-100`), and the
   indicator shows the bar at full health when any is pending
   (`…/ui/CharHealthIndicator.java:55-57`). The actors' health is still the health pips alone, and
   the hero section carries no such number: a loss, and a number a brain would want.

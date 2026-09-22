@@ -27,11 +27,8 @@ sourceSets {
 // hand-edited JSON file, a moved declaration or a re-pinned tag leaves :codex:test UP-TO-DATE.
 tasks.named('test') {
     inputs.dir(rootProject.file('codex')).withPropertyName('committedCodex').withPathSensitivity(PathSensitivity.RELATIVE)
-    // The generated pages and the nav that must name them (story 2.9): a hand-edited page or a
-    // nav entry removed has to rerun these tests, not leave a cached run standing.
-    inputs.dir(rootProject.file('docs/codex')).withPropertyName('committedPages').withPathSensitivity(PathSensitivity.RELATIVE)
+    // The nav that must name the generated pages (story 2.9).
     inputs.file(rootProject.file('mkdocs.yml')).withPropertyName('siteNav').withPathSensitivity(PathSensitivity.RELATIVE)
-    inputs.file(rootProject.file('docs/UPSTREAM.md')).withPropertyName('ledger').withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.file(rootProject.file('build.gradle')).withPropertyName('rootBuildScript').withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir(rootProject.file('core/src/main/java')).withPropertyName('pinnedSource').withPathSensitivity(PathSensitivity.RELATIVE)
     // The second pinned source and the pin that names it (story 2.8): the vocabulary diff reads
@@ -39,6 +36,30 @@ tasks.named('test') {
     // a cached run standing over a tree it never read.
     inputs.file(rootProject.file('vanilla.pin')).withPropertyName('vanillaPin').withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir(rootProject.file('vanilla-src')).withPropertyName('vanillaSource').withPathSensitivity(PathSensitivity.RELATIVE)
+    // The whole of docs/ (story 2.10): the generated pages, the ledger and every page the
+    // citation checker sweeps are all under it, so one input covers what three used to, and a
+    // doc edit reruns the sweep instead of leaving a cached run standing over text it never read.
+    inputs.dir(rootProject.file('docs')).withPropertyName('documentation').withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
+// `./gradlew :codex:citations` prints the citation report and exits non-zero on a finding: the one
+// command the upgrade procedure's re-verification step names (story 2.10). It runs from the test
+// classes, where the checker lives, because the Codex's leak gate denies the generator's own
+// classes a process and a print stream and that gate is worth more than the placement.
+tasks.register('citations', JavaExec) {
+    group = 'shatterfish'
+    description = 'Resolves every path:line citation in docs/ against the tag the citation names.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'org.shatterfish.codex.DocsCitations'
+    workingDir = rootDir
+    args = [rootDir.absolutePath]
+    // The documentation elides a path with a Unicode ellipsis, and the report quotes the citation
+    // as written. Without this the JVM writes the report in the platform encoding and the
+    // elision arrives as a question mark on Windows.
+    systemProperty 'stdout.encoding', 'UTF-8'
+    systemProperty 'stderr.encoding', 'UTF-8'
+    outputs.upToDateWhen { false }
 }
 
 // `./gradlew :codex:generate` writes codex/<tag>/ and the site's docs/codex/ pages at the
