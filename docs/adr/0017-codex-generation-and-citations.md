@@ -723,3 +723,80 @@ and commit"* and `CodexLeakTest` catching the same file independently. The byte 
 The run is linked from the story's Evidence.
 
 No Codex version bump: no table's bytes changed.
+
+## Amendment: story 2.10 (2026-09-21)
+
+**A citation is resolved at the tag it names, not at the pin.** The documentation carries 1,860
+`path:line` citations and nothing checked that any of them still pointed at what it claimed, which
+is non-negotiable 8 failing silently: the sentence keeps an authority it has lost, and no build says
+so. The checker resolves each one against `git show <tag>:<path>` for the tag the citation itself
+names. Against the pin instead, it would report the ninety rules rows the `v4.0.0` upgrade
+deliberately left at `v3.3.8`, and a report nobody reads is not a check. A row left there is still
+true of `v3.3.8`; what it is not, any more, is a claim about the pin, and that is a fact about the
+row rather than about the code. So the convention `docs/UPSTREAM.md` already records is now held in
+both directions: a rules row at another tag has to say `needs-review`, and a row that says
+`needs-review` has to be at another tag. A row that was quietly re-cited cannot keep the flag, and a
+row that was quietly left behind cannot lose it.
+
+**The tag-age rule is a rules-table rule, and nothing wider.** `docs/UPSTREAM.md` already says which
+documents move with the pin and which stay: an accepted decision record's citations are the evidence
+for a decision taken at that tag and stay there for good. Applying the tag-age rule to every
+citation in `docs/` would have made every ADR a finding at the next upgrade, and the answer would
+have been to weaken the rule or to rewrite the records — both worse than the problem. So an older
+tag is a finding only inside a `docs/rules/` table row, which is the only place the `needs-review`
+convention has force. Everywhere else a citation is simply resolved at the tag it names, which is
+exactly what an ADR wants.
+
+**A name without a path resolves by search, and refuses to guess.** 167 citations name a file
+without a path and 47 elide the middle of one — `Random.java:202-229`, `core/…/actors/mobs/Snake.java:35`
+— and the project writes them that way on purpose, because the full path of a Shattered class is
+eighty characters of ceremony. Refusing them all would report prose the project means; taking the
+first match would be folklore with a line number on it. So a bare name, or a path whose middle is
+elided by `…` or `...`, resolves when exactly one file in the tree at that tag carries it, is
+reported as ambiguous when more than one does, and as missing when none does. That is the same rule
+`Stated` uses to resolve a superclass in story 2.8, for the same reason. The 179 citations that name
+only lines (`:1033`, meaning "in the file the sentence just named") are the one shape the checker
+does not read: resolving those means reading the prose around them, and the checker resolves line
+ranges rather than sentences.
+
+**A tag is resolved by commit, the way the hook ledger resolves the pin.** `HooksLedgerTest` learned
+this already and the reason is written beside it: the tag lives in upstream's repository, this fork
+carries it only if someone pushed it, and continuous integration clones the fork. `v3.3.8` is on the
+fork's remote and `v4.0.0` is not, so a lookup by tag name would pass on every developer's machine
+and fail in CI for a reason with nothing to do with the documentation. The pinned tag therefore
+resolves through the `Commit` row of `docs/UPSTREAM.md`; any other ref is looked for as a tag, then
+as anything git will resolve, then on `origin`, because a pull-request checkout has `origin/main`
+and no local `main`. A ref that survives none of that is reported by name, which is the honest
+answer.
+
+**The checker lives in the module's test sources, and the leak gate is why.** It runs git and prints
+a report, and `CodexLeakTest` denies every class of the generator `Process`, `ProcessBuilder` and
+`System` — a Codex value derives from a type or a table, never from a process or a clock. Putting
+the checker in `codex`'s main source set would have meant naming it in an exemption to that gate,
+and a named hole in the fairness gate of the module that feeds the Brain costs more than the
+placement does. It is not a new module either, which the story forbids and which would have been the
+other way out: `codex` already reads pinned source and already runs in CI.
+
+**What the first sweep found.** Fourteen citations that had stopped resolving, in two documents, all
+of them wrong when they were written rather than broken since. Nine were in one rules page whose
+session-10 reader had recorded line numbers with a constant offset — 589 in `FileUtils.java`, 278 in
+`Challenges.java`, 222 in `Bones.java`, each pointing hundreds of lines past the end of a file that
+is byte-identical at both tags. Three more on that page used an undefined `$C/` shorthand for the
+game's package, which names no file at any tag; they are now written out and linked at `v3.3.8`,
+where their lines are exactly right. Two were in ADR-0006, a line range overrunning the end of
+`Notes.java` and another overrunning `HealthBar.java`. Every one was corrected by reading the code
+at the tag the citation names and citing what is there; none was corrected by moving a citation to
+where the checker would accept it, which is the failure mode this instrument would otherwise create.
+
+**A gate nobody has watched bite is a gate nobody knows works.** `DocsCitationTest` writes a
+repository of its own — two tags, a file deleted between them, two files that share a name, a
+documentation tree whose every page is a case — and asserts that the checker reports exactly those
+cases and no others, which reading the real `docs/` for could never do, since a test over the
+project's own text stops testing the moment somebody fixes a page. Beside it, the sweep over the
+real `docs/` must report nothing, and a third test asserts the sweep still finds the citations
+there, so a lexer that quietly stopped matching could not turn the gate green by checking nothing.
+This story also broke one committed citation on the branch and watched `:codex:test` go red naming
+the page, the line and the way it failed, then reverted it.
+
+No Codex version bump: no table's bytes changed, and nothing under `codex/` or `docs/codex/` is
+written by this story.

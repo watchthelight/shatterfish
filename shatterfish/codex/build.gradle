@@ -39,6 +39,29 @@ tasks.named('test') {
     // a cached run standing over a tree it never read.
     inputs.file(rootProject.file('vanilla.pin')).withPropertyName('vanillaPin').withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir(rootProject.file('vanilla-src')).withPropertyName('vanillaSource').withPathSensitivity(PathSensitivity.RELATIVE)
+    // The documentation the citation checker sweeps (story 2.10): every page is an input, so a
+    // doc edit reruns the sweep instead of leaving a cached run standing over text it never read.
+    inputs.dir(rootProject.file('docs')).withPropertyName('documentation').withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
+// `./gradlew :codex:citations` prints the citation report and exits non-zero on a finding: the one
+// command the upgrade procedure's re-verification step names (story 2.10). It runs from the test
+// classes, where the checker lives, because the Codex's leak gate denies the generator's own
+// classes a process and a print stream and that gate is worth more than the placement.
+tasks.register('citations', JavaExec) {
+    group = 'shatterfish'
+    description = 'Resolves every path:line citation in docs/ against the tag the citation names.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'org.shatterfish.codex.DocsCitations'
+    workingDir = rootDir
+    args = [rootDir.absolutePath]
+    // The documentation elides a path with a Unicode ellipsis, and the report quotes the citation
+    // as written. Without this the JVM writes the report in the platform encoding and the
+    // elision arrives as a question mark on Windows.
+    systemProperty 'stdout.encoding', 'UTF-8'
+    systemProperty 'stderr.encoding', 'UTF-8'
+    outputs.upToDateWhen { false }
 }
 
 // `./gradlew :codex:generate` writes codex/<tag>/ and the site's docs/codex/ pages at the

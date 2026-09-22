@@ -18,9 +18,22 @@ each a table:
 | Tier | 1 = the code confirms it, 2 = the harness confirms it, 3 = hypothesis for the rig, F = false or obsolete for this tag, needs-review = its citation stopped resolving at an upgrade and nobody has re-read it yet |
 | Since | Session or PR that added or last re-verified it, and the tag that flipped it if it is waiting |
 
-Rules are re-verified on every upstream upgrade (`docs/UPSTREAM.md`, upgrade procedure step 9):
-a citation that no longer resolves, or resolves to different code, flips the rule to needs-review
-until re-read.
+Rules are re-verified on every upstream upgrade (`docs/UPSTREAM.md`, upgrade procedure steps 9 and
+9a): a citation that no longer resolves, or resolves to different code, flips the rule to
+needs-review until re-read.
+
+Since story 2.10 there is an instrument for the first half of that, and it runs on every build.
+`./gradlew :codex:citations` resolves every `path:line` in `docs/` against the tree at the tag that
+citation names — not against the pin, because a row deliberately left at an older tag is still true
+of that tag — and prints the page, the line, the file and which way each one failed: a file gone
+from the tree, a line past the end of it, a code span and the link beside it saying different
+things, a bare name that is now two files, a ref this checkout does not have. It also holds the
+needs-review convention in both directions: a row at an older tag has to say needs-review, and a row
+that says needs-review has to be at an older tag, so a row that was quietly re-cited cannot keep the
+flag. `DocsCitationTest` runs the same sweep inside `./gradlew build`, so a citation that stops
+resolving turns the build red rather than waiting for an upgrade. What it does not do is read the
+sentence: that the cited lines still *mean* what the row says is what re-reading is for, and the
+paragraph below still applies.
 
 The upgrade to `v4.0.0` (2026-09-11) ran that check line by line. Every citation's text at the old
 tag was looked for at the new one: where it sits unchanged, the link now points at `v4.0.0`, at the
@@ -67,3 +80,12 @@ Every test column still reads "none yet": the tests arrive with the epics that r
 (E1 for the game loop, visibility, RNG and identification pages; E3 for score and win; E5 for the
 UI page), tracked under [#1](https://github.com/watchthelight/shatterfish/issues/1) until the
 story issues exist.
+
+## The Brain's own Rules index
+
+These pages are every claim about the game the project has read. Which of them the *Brain* relies
+on is a different list, and it does not exist yet, because no Brain exists to rely on anything.
+It is story 4.4's: the Decision and the strategy log arrive there, and the index is created with
+them — one entry per mechanics claim a heuristic rests on, each pointing at the row of a page here,
+so that "every heuristic is cited" is a number somebody can count rather than a thing the project
+says about itself (FR-17). Until then, a claim about the game has exactly one home, which is here.

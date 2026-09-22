@@ -69,8 +69,8 @@ story. Nothing about it is a hook, and it spends no row of the hook budget.
 
 ## What enforces this
 
-The table below is a promise; these tests are what make it true. All of them run in
-`./gradlew :harness:test` and read the tree and the pinned tag, never runtime state.
+The table below is a promise; these tests are what make it true. All but the last run in
+`./gradlew :harness:test`, and all of them read the tree and the pinned tag, never runtime state.
 
 | Check | What it catches |
 |---|---|
@@ -88,6 +88,7 @@ The table below is a promise; these tests are what make it true. All of them run
 | `HooksVanillaTest`: `Hooks.clear()` nulls every point declared in `Hooks` | A listener belonging to a finished Run being reachable from the next one |
 | `HooksLedgerTest`: nothing tells git to stop reading upstream files as text | The one edit that disarms every check in this table at once. A `.gitattributes` line marking source binary empties every diff, so the digest, the line counts and the wrap rule all go quiet together — and the file itself is a root-level addition nothing else looks at |
 | `HooksLedgerTest`: nothing under an upstream module is hidden from git by a rule of ours | The same move through `.gitignore`: an ignored file is in neither the diff nor the untracked listing. Upstream's own ignore rules at the pinned tag are still honoured |
+| `DocsCitationTest` (in `./gradlew :codex:test`): every `path:line` citation in `docs/` resolves at the tag that citation names | A claim about the game still carrying an authority it lost: a cited file gone from the tree, a line past the end of it, a code span and the link beside it saying different things, a bare name that is now two files, a rules row at an older tag that nobody flagged and a flag that outlived its re-citation. Print the report with `./gradlew :codex:citations` |
 
 Both classes compare the tree against the pin, and they resolve it by **commit** rather than by tag
 name. The tag lives in upstream's repository: this fork carries it only if someone pushes it, and
@@ -235,6 +236,14 @@ project skill (Session 4) automates these steps.
 8. Rerun the rig baseline and publish `docs/results/<date>-<sha>.md`.
 9. Update this file (pinned table, hooks' "Verified at tag" column), `README.md`,
    and `docs/codebase-map.md` for anything the new tag contradicts.
+9a. Re-verify every citation: `./gradlew :codex:citations`. This is the instrument for the
+   promise in rule 2 and for the re-verification `docs/rules/index.md` describes — it resolves
+   every `path:line` in `docs/` against the tree at the tag that citation names, and prints the
+   page, the line, the file and which way each one failed. Read the report and act on it row by
+   row: where the cited text is still there, move the link to the line it moved to; where it is
+   gone, changed, or now in more than one place, flip the row to `needs-review` and leave its link
+   at the tag where it was true. Never re-cite a document to make the report empty. The same check
+   runs as `DocsCitationTest` in `./gradlew build`, so the upgrade cannot merge with it red.
 10. PR with label `touches-upstream`; merge only when CI is green.
 
 ### What moves with the pin, and what does not
@@ -248,3 +257,11 @@ A tag move rewrites some documents and deliberately leaves others alone, so that
 | `README.md` and `docs/codebase-map.md`, which name files rather than lines | `docs/BOOTSTRAP-PROMPT.md` and anything under `docs/results/`, which are records of a moment |
 | Every `docs/rules/` row whose cited text is still there, at the line it moved to | A rules row flipped to needs-review: its link stays where it was true until someone re-reads the code |
 | The harness's own assertions about the release it runs | A story file in `_bmad-output/`, which says what was true when the story ran |
+
+Since story 2.10 the left-hand column is checked rather than remembered. `DocsCitationTest` resolves
+every citation at the tag that citation itself names, so a rules row deliberately left behind is not
+reported — and the convention holds in both directions instead of one: a rules row at an older tag
+has to say `needs-review`, and a row that says `needs-review` has to be at an older tag. The
+right-hand column is why the tag-age rule is a rules-table rule and nothing wider: a decision
+record's citations are the evidence for a decision taken at that tag, so they are resolved there and
+never flagged for it.

@@ -79,21 +79,21 @@ existing rules pages' Tier column or the `needs-review` convention.
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `shatterfish/codex/.../DocsCitations.java` -- read every citation in `docs/`: the code span,
+- [x] `shatterfish/codex/.../DocsCitations.java` -- read every citation in `docs/`: the code span,
   the link, the tag, the path and the line range; resolve each against `git show <tag>:<path>`;
   return the findings as values, each naming the page, the citation and which rule it broke.
-- [ ] `shatterfish/codex/.../DocsCitations.java` -- a `main` that prints the report, so the upgrade
+- [x] `shatterfish/codex/.../DocsCitations.java` -- a `main` that prints the report, so the upgrade
   procedure has one command to run and read.
-- [ ] `shatterfish/codex/build.gradle` -- a `citations` task for that `main`, and `docs/` as an
+- [x] `shatterfish/codex/build.gradle` -- a `citations` task for that `main`, and `docs/` as an
   input of `test` so a doc edit reruns the sweep.
-- [ ] `shatterfish/codex/src/test/.../DocsCitationTest.java` -- the checker's own rules against
+- [x] `shatterfish/codex/src/test/.../DocsCitationTest.java` -- the checker's own rules against
   source written in the test (a line past the end, a missing file, a disagreeing span, an older
   tag with and without `needs-review`, an ambiguous bare name), then the sweep over the real
   `docs/`, which must report nothing.
-- [ ] `docs/UPSTREAM.md` -- the upgrade procedure's re-verification step names the command.
-- [ ] `docs/rules/index.md` -- the Brain's own Rules index is named as story 4.4's, since no Brain
+- [x] `docs/UPSTREAM.md` -- the upgrade procedure's re-verification step names the command.
+- [x] `docs/rules/index.md` -- the Brain's own Rules index is named as story 4.4's, since no Brain
   exists yet to rely on anything.
-- [ ] `docs/adr/0017-...md` -- the amendment: what a citation is checked against and why the tag
+- [x] `docs/adr/0017-...md` -- the amendment: what a citation is checked against and why the tag
   the citation names, not the pin, is the thing to resolve it at.
 
 **Acceptance Criteria:**
@@ -124,6 +124,63 @@ exactly one file in the tree carries that name, and refusing when more than one 
 rule `Stated` uses for a superclass in story 2.8.
 
 ## Verification
+
+**Dev notes:**
+- **The checker lives in the module's test sources, not its main ones, and the leak gate decides
+  that.** `CodexLeakTest.NO_SIDE_DOORS` denies every class of `org.shatterfish.codex` main
+  `Process`, `ProcessBuilder` and `System`, and `FILES_CONFINED` names the classes that may open a
+  file. A checker that runs git and prints a report cannot be one of the generator's classes
+  without a named hole in that gate. The story's task list does not name `CodexLeakTest`, which is
+  the same conclusion read the other way. `shatterfish/codex/src/test/.../DocsCitations.java`, with
+  the `citations` task on `sourceSets.test.runtimeClasspath`.
+- **`git cat-file --batch` deadlocks if the names are written before the answers are read.** git
+  answers while it reads; a pipe holds a few kilobytes; on Windows the hang arrived at about four
+  kilobytes of names, with no message. The names go down a daemon thread while the answers come up
+  the main one. One process reads every cited file: a process per file was most of a minute.
+- **A tag is resolved by commit, not by name.** `v3.3.8` is on the fork's remote and **`v4.0.0` is
+  not**, so `git show v4.0.0:...` works on this machine and fails in CI. The pinned tag resolves
+  through the ledger's `Commit` row, exactly as `Ledger.pinnedRevision` does and for the reason
+  `docs/UPSTREAM.md` already writes down. `main` resolves through `refs/remotes/origin/main`,
+  because a pull-request checkout has no local `main`.
+- **The documentation elides paths two ways**, `core/.../Mob.java` and `core/…/Mob.java` with a
+  Unicode ellipsis. The first sweep read only the first spelling and found 11 findings; reading
+  both found 14 and raised the citation count from 1,426 to 1,860. A lexer that silently stops
+  matching is a gate that fails open, which is why `DocsCitationTest` asserts the sweep still finds
+  at least 1,500 citations.
+- **179 citations name lines and no file** (`:1033`, meaning "in the file the sentence just
+  named"). Resolving those means reading the prose around them; the checker resolves line ranges,
+  so it does not read them. Recorded in the ADR rather than left implicit.
+
+**Evidence:**
+
+- `./gradlew :codex:citations -Pshatterfish.mobile=off` -- 1,860 citations under `docs/`, **no
+  findings**, about five seconds.
+- `./gradlew :codex:test --tests '*DocsCitationTest*'` -- 5 tests, green.
+- **The first sweep found 14 citations that had stopped resolving**, all wrong when written rather
+  than broken since, and all fixed by reading the code at the tag the citation names:
+  - `docs/rules/save-score-win.md`, nine citations across five rows, each recorded with a constant
+    offset by the session-10 reader: +589 in `FileUtils.java` (789-808 -> 200-219, 668-707 ->
+    79-118), +278 in `Challenges.java` (337-347 -> 59-69, 308-347 -> 30-69, 349-356 -> 71-78),
+    +222 in `Bones.java` (278-306 -> 56-84, 308-374 -> 86-152, 376-480 -> 154-258, 482-493 ->
+    260-271). All three files are byte-identical at `v3.3.8` and `v4.0.0`, so the rows keep their
+    tag and their `needs-review` flag; only the line numbers were wrong.
+  - `docs/rules/save-score-win.md`, three citations using an undefined `$C/` shorthand for the
+    game's package, which names no file at any tag. Written out and linked at `v3.3.8`, where
+    `Actor.java:188` (the `VaultLevel` exclusion), `Rankings.java:483` (the comment) and
+    `Rankings.java:351` (`rec.score = calculateScore()` inside `loadGameData`) are exactly right.
+  - `docs/adr/0006-observer-visibility-rules.md`, two ranges overrunning the end of their file:
+    `Notes.java:685-705` on a 696-line file, re-read as `642-663`, the two `getRecords` overloads
+    `WndJournal` actually calls; `HealthBar.java:86-102` on a 101-line file, re-read as `86-100`.
+- **The gate bitten once on purpose**: `Random.java:37-45` changed by hand to `:37-9999` on the
+  branch, `./gradlew :codex:test` **FAILED**, `DocsCitationTest` naming *"docs/rules/rng.md:9 the
+  code span and the link around it state different things -- the span says ...Random.java:37-9999
+  and the link opens #L37-L45"* and the command that prints the report. Reverted.
+- `uv run ... mkdocs build --strict` -- green.
+
+**Open, for the product owner:** the `v4.0.0` tag exists in this checkout but has **never been
+pushed to `origin`**, so the 1,129 `blob/v4.0.0/` links in `docs/` currently 404 on github.com for
+a reader. The checker is unaffected (it resolves the pin by commit), and pushing a tag is a remote
+mutation, so it was not done here.
 
 **Commands:**
 - `./gradlew :codex:citations -Pshatterfish.mobile=off` -- expected: a report with no findings.
