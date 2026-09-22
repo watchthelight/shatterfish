@@ -112,14 +112,25 @@ public final class RunLoop {
      * @param brain        which Brain played, and which build of it
      * @param registration the Registration this Run was played under, or empty
      * @param machine      what it ran on -- recorded, and left out of the chain
+     * @param oracle       whether this Run may see what a player could not. The caller states it
+     *                     rather than the loop assuming it: a field that is always {@code false}
+     *                     because nothing can set it is not a flag, and the Rig refuses a Run whose
+     *                     header carries it (non-negotiable 1). Every wait then checks the
+     *                     Observation's own oracle bit against this one, so a Run that says it is
+     *                     fair and is not stops at its first wait.
      */
     public record Logging(Path folder, String commit, RunLog.Brain brain, String registration,
-                          String machine) {
+                          String machine, boolean oracle) {
 
         public Logging {
             if (folder == null || commit == null || brain == null || registration == null || machine == null) {
                 throw new IllegalArgumentException("a logged Run states where it is written and who played it");
             }
+        }
+
+        /** A fair Run, which is every Run the Rig ranks. */
+        public Logging(Path folder, String commit, RunLog.Brain brain, String registration, String machine) {
+            this(folder, commit, brain, registration, machine, false);
         }
     }
 
@@ -137,23 +148,39 @@ public final class RunLoop {
         // Booted before the tag is read: Game.version is null until the boot sets it, and the
         // header names the release this Run was played on.
         HeadlessBoot.ensure();
-        RunLog.Header header = new RunLog.Header(RunLog.VERSION, Observer.upstreamTag(), logging.commit(),
-                org.shatterfish.api.HeroClass.valueOf(heroClass.name()), Dungeon.challenges, seed,
-                SeedSet.code(seed), salt, Profile.VERSION, ObservationCodec.SCHEMA_VERSION, Codex.VERSION,
-                logging.brain(), logging.registration(), false, logging.machine(),
-                Instant.now().toString());
-        try (RunLogWriter log = RunLogWriter.open(logging.folder(), header)) {
-            return play(seed, heroClass, salt, agent, turnCap, log);
+        // The Run is started before its header is written, because the header is a statement about
+        // this Run and half of it does not exist until the game has been initialised. The
+        // challenges are the case that bit: `Dungeon.challenges` is assigned in `Dungeon.init`
+        // (core/.../Dungeon.java:236), which runs inside the start below, so a header built first
+        // recorded whatever the previous Run in this process had left in the static -- and the
+        // challenges are part of the run id, so it named the file after a Run nobody played.
+        HeadlessDriver driver = HeadlessDriver.start(seed, heroClass, salt);
+        RunLogWriter opened;
+        try {
+            opened = RunLogWriter.open(logging.folder(), new RunLog.Header(RunLog.VERSION,
+                    Observer.upstreamTag(), logging.commit(),
+                    org.shatterfish.api.HeroClass.valueOf(heroClass.name()), Dungeon.challenges, seed,
+                    SeedSet.code(seed), salt, Profile.VERSION, ObservationCodec.SCHEMA_VERSION,
+                    Codex.VERSION, logging.brain(), logging.registration(), logging.oracle(),
+                    logging.machine(), Instant.now().toString()));
+        } catch (RuntimeException | Error opening) {
+            // The Run was started and nothing will play it, so the driver is closed here rather
+            // than left holding the process's one UI role.
+            driver.close();
+            throw opening;
+        }
+        try (RunLogWriter log = opened) {
+            return play(driver, seed, heroClass, salt, agent, turnCap, log, logging.oracle());
         }
     }
 
     public RunOutcome play(long seed, HeroClass heroClass, long salt, Decider agent, int turnCap) {
-        return play(seed, heroClass, salt, agent, turnCap, (RunLogWriter) null);
+        return play(HeadlessDriver.start(seed, heroClass, salt), seed, heroClass, salt, agent,
+                turnCap, null, false);
     }
 
-    private RunOutcome play(long seed, HeroClass heroClass, long salt, Decider agent, int turnCap,
-                            RunLogWriter log) {
-        HeadlessDriver driver = HeadlessDriver.start(seed, heroClass, salt);
+    private RunOutcome play(HeadlessDriver driver, long seed, HeroClass heroClass, long salt,
+                            Decider agent, int turnCap, RunLogWriter log, boolean oracle) {
         long waits = 0;
         long applied = 0;
         long refused = 0;
@@ -167,18 +194,18 @@ public final class RunLoop {
                 try {
                     halt = driver.stepToInputWait(FRAME_BUDGET);
                 } catch (HeadlessDriver.Stalled stalled) {
-                    return ending(log, waits, outcome(RunOutcome.Cause.UNKNOWN_WINDOW, salt, waits, applied,
+                    return ending(log, driver.waitIndex(), outcome(RunOutcome.Cause.UNKNOWN_WINDOW, salt, waits, applied,
                             refused, describeWindow() + ", after " + lastAction
                                     + (lastRefusal.isEmpty() ? "" : ", last refusal " + lastRefusal)));
                 }
                 switch (halt.reason()) {
                     case HERO_DEAD -> {
-                        return ending(log, waits, outcome(RunOutcome.Cause.DEATH, salt, waits, applied, refused, ""));
+                        return ending(log, halt.waitIndex(), outcome(RunOutcome.Cause.DEATH, salt, waits, applied, refused, ""));
                     }
                     case SCENE_SWITCH -> {
                         RunOutcome served = serve(driver, halt, salt, waits, applied, refused);
                         if (served != null) {
-                            return ending(log, waits, served);
+                            return ending(log, halt.waitIndex(), served);
                         }
                         continue;
                     }
@@ -187,7 +214,7 @@ public final class RunLoop {
                     }
                 }
                 if (turns() >= turnCap) {
-                    return ending(log, waits, outcome(RunOutcome.Cause.TURN_CAP, salt, waits, applied, refused, ""));
+                    return ending(log, halt.waitIndex(), outcome(RunOutcome.Cause.TURN_CAP, salt, waits, applied, refused, ""));
                 }
 
                 Observation observation = new Observer().observe();
@@ -198,19 +225,30 @@ public final class RunLoop {
                 Action chosen = agent.decide(observation);
                 long thinkMs = (System.nanoTime() - before) / 1_000_000L;
                 if (chosen == null) {
-                    return ending(log, waits, outcome(RunOutcome.Cause.NOTHING_OFFERED, salt, waits, applied,
-                            refused, "at wait " + halt.waitIndex()));
+                    return ending(log, halt.waitIndex(), outcome(RunOutcome.Cause.NOTHING_OFFERED, salt, waits,
+                            applied, refused, "at wait " + halt.waitIndex()));
                 }
-                record(log, halt.waitIndex(), observation, chosen, thinkMs);
                 waits++;
                 lastAction = chosen;
                 Outcome outcome = executor.execute(observation, chosen);
+                // Recorded after the executor has answered, not before: a wait record used to say
+                // an Action was taken at it when the executor had refused it and the game had not
+                // moved, and a Replay applying that Action would have reproduced a different Run
+                // with nothing in the file to explain the divergence.
+                record(log, halt.waitIndex(), observation, chosen,
+                        !(outcome instanceof Outcome.Rejected), thinkMs, oracle);
                 if (outcome instanceof Outcome.Rejected rejected) {
                     refused++;
                     refusalsInARow++;
                     lastRefusal = rejected.reason() + ": " + rejected.detail();
-                    if (refusalsInARow >= REFUSALS_IN_A_ROW) {
-                        return outcome(RunOutcome.Cause.REFUSED, salt, waits, applied, refused, lastRefusal);
+                        if (refusalsInARow >= REFUSALS_IN_A_ROW) {
+                        // This was the one ending of the seven that wrote no end record, so its
+                        // log was byte-identical to a killed Run's -- and ADR-0012 scores a killed
+                        // Run's pair as a tie. A Brain that emitted refusable Actions until the
+                        // executor gave up would have turned a loss into a tie, which is exactly
+                        // what "a Brain cannot improve its standing by failing" is meant to stop.
+                        return ending(log, halt.waitIndex(), outcome(RunOutcome.Cause.REFUSED, salt,
+                                waits, applied, refused, lastRefusal));
                     }
                 } else {
                     applied++;
@@ -324,32 +362,67 @@ public final class RunLoop {
      * it. A Prompt gets its own record beside the wait, because a Prompt is a thing the game did and
      * the wait says what was done about it (ADR-0011).
      *
-     * <p>Everything here is read from the Observation the decider was given rather than from the
-     * game a second time. A log that said what the game held while the decider held something else
-     * would be a record of a Run nobody played.
+     * <p>Nearly everything here is read from the Observation the decider was given rather than
+     * from the game a second time, because a log that said what the game held while the decider
+     * held something else would be a record of a Run nobody played. The turn is the exception and
+     * has to be: the Observation carries no turn counter, deliberately -- a player reads the clock
+     * off the screen and the bot may not -- so it is read from the game, at an instant when nothing
+     * has stepped it since the Observation was made.
      */
-    private static void record(RunLogWriter log, long k, Observation observation, Action chosen, long thinkMs) {
+    private static void record(RunLogWriter log, long k, Observation observation, Action chosen,
+                               boolean applied, long thinkMs, boolean oracle) {
         if (log == null) {
             return;
         }
-        if (observation.header().prompt() != PromptKind.NONE) {
+        // The header said once, before the Run, whether this Run may see what a player could not.
+        // Every wait says it again, from the Observation the decider was actually handed, so a Run
+        // whose header claims to be fair and whose Observations are an Oracle's stops here rather
+        // than being published with a chain that lends the claim credibility.
+        if (observation.header().oracle() != oracle) {
+            throw new IllegalStateException("the header says oracle=" + oracle + " and the Observation at"
+                    + " wait " + k + " says " + observation.header().oracle()
+                    + "; a Run does not change which of the two it is halfway through");
+        }
+        // A Prompt record carries the option taken, so it is written when an option was taken. A
+        // decider that answered a Prompt with something that is not an answer had its Action
+        // refused by the executor, and the wait record below says so.
+        if (observation.header().prompt() != PromptKind.NONE && answers(chosen)) {
             log.write(new RunLog.Prompt(k, observation.header().prompt(), chosen));
         }
         log.write(new RunLog.Wait(k, thousandths(), observation.header().depth(), observation.header().branch(),
-                observation.hash(), observation.sectionHashes(), chosen, null, "", List.of(), thinkMs));
+                observation.hash(), observation.sectionHashes(), chosen, applied, RunLog.BOT, null, "",
+                List.of(), thinkMs));
+    }
+
+    /** Whether an Action answers a Prompt, which is what a Prompt record records (ADR-0011). */
+    private static boolean answers(Action chosen) {
+        return chosen instanceof Action.AnswerPrompt || chosen instanceof Action.DismissPrompt;
     }
 
     /**
      * Writes the record that says how a Run ended, and returns the outcome unchanged. A log without
      * one is a Run that was killed, which the Rig counts rather than repairs (ADR-0012).
      */
-    private static RunOutcome ending(RunLogWriter log, long waits, RunOutcome outcome) {
+    private static RunOutcome ending(RunLogWriter log, long k, RunOutcome outcome) {
         if (log == null) {
             return outcome;
         }
-        log.write(new RunLog.End(waits, new RunLog.Outcome(Statistics.gameWon, Statistics.ascended,
-                Math.max(0, score()), outcome.depth(), thousandths(), outcome.cause().name(), bosses()),
-                true));
+        // The cause is the authority on whether this Run was won, not `Statistics.gameWon`. The
+        // game sets that flag in `Dungeon.win` (core/.../Dungeon.java:883), which runs from the
+        // surface scene's own callback -- and this loop ends the Run when the game *asks* for that
+        // scene, without serving it, so the flag is never set here. It sets `Statistics.ascended`
+        // earlier, at the stairs (core/.../levels/SewerLevel.java:157). So every logged Run that
+        // won used to build (win=false, ascended=true) and die on the record's own refusal: the one
+        // ending the rig exists to measure was the one ending that crashed.
+        boolean win = outcome.cause() == RunOutcome.Cause.WIN;
+        log.write(new RunLog.End(k, new RunLog.Outcome(win, win && Statistics.ascended, score(),
+                outcome.depth(), thousandths(), outcome.cause().name(), bosses()),
+                // A Replay reproduces a Run by applying its Actions and comparing Observations. It
+                // can do that for a Run that died, won or hit the cap; it cannot for one that
+                // stopped because the harness could not follow the game, which is what the other
+                // four causes say. Claiming otherwise under a valid chain is the shape of lie this
+                // format exists to prevent.
+                outcome.ordinary()));
         return outcome;
     }
 
@@ -358,9 +431,26 @@ public final class RunLoop {
      * ({@code core/.../Rankings.java:187-257}) -- never a second implementation of the game's rule
      * (non-negotiable 4). It needs a hero to read a level from, so a Run that ended without one
      * scores nothing rather than guessing.
+     *
+     * <p>It is the game's own whole number of points, not ten-thousandths of anything. ADR-0011's
+     * "scores are integers in ten-thousandths" is about a <em>Decision's</em> score -- a Brain's own
+     * evaluation of an Action, which needs a fraction -- and this field had inherited that sentence
+     * in its documentation while carrying the game's points, so a reader following the published
+     * unit would have divided a published score by ten thousand.
      */
     private static int score() {
-        return Dungeon.hero == null ? 0 : Rankings.INSTANCE.calculateScore();
+        if (Dungeon.hero == null) {
+            return 0;
+        }
+        try {
+            return Rankings.INSTANCE.calculateScore();
+        } catch (RuntimeException torn) {
+            // The scorer walks the hero's belongings (core/.../Rankings.java:203-206), which a Run
+            // that ended badly may have torn down. A Run that ended is a result to count and not a
+            // crash to debug (`RunOutcome`), so the ending is still recorded and the score it could
+            // not compute is 0.
+            return 0;
+        }
     }
 
     /**
@@ -379,9 +469,15 @@ public final class RunLoop {
     }
 
     /**
-     * The turns passed, in thousandths. {@link #turns()} rounds two of the game's floats down to an
-     * int for a person to read; a chained field holds no float and loses no fraction, so the log
-     * carries the same quantity as a whole number of thousandths.
+     * The turns passed, in thousandths. {@link #turns()} rounds two of the game's floats down to
+     * an int for a person to read; a chained field holds no float, so the log carries the same
+     * quantity as a whole number instead.
+     *
+     * <p>A thousandth is the unit, not the precision. The game counts turns in single precision
+     * ({@code Statistics.duration} and {@code Actor.now()} are both {@code float}), so past about
+     * eight thousand turns its own resolution is coarser than a thousandth and the trailing digits
+     * are whatever the float could hold. Two Runs of one tuple quantise identically, which is what
+     * a Replay compares; nobody should read the third digit as a measurement.
      */
     private static long thousandths() {
         return Math.round((double) (Statistics.duration + Actor.now()) * 1000.0);

@@ -31,9 +31,12 @@ import java.util.Map;
  * produces them yet. They are defined, rendered and chained here all the same, so that the story
  * which starts writing them adds a caller and not a rule about the format.
  *
- * <p>No float reaches a chained field. A turn is thousandths of a turn and a score is
- * ten-thousandths, both as whole numbers, because two machines agreeing on a float's text is a
- * thing to hope for rather than a thing to rely on.
+ * <p>No float reaches a chained field, because two machines agreeing on a float's text is a thing
+ * to hope for rather than to rely on. A turn is thousandths of a turn; a {@link Choice}'s score,
+ * which is a Brain's own evaluation, is ten-thousandths; and an {@link Outcome}'s score is the
+ * game's own whole points. A salt is sixteen lower-case hex digits rather than a number, because a
+ * salt runs the whole 64-bit range and a JSON number above 2^53 is rounded by any reader built on
+ * doubles -- which is most of the scripts a stranger would write from the published rules.
  */
 public sealed interface RunLog
         permits RunLog.Header, RunLog.Wait, RunLog.Prompt, RunLog.Mode, RunLog.Shadow,
@@ -42,8 +45,32 @@ public sealed interface RunLog
     /** The log schema version, which a reader refuses to guess at across (ADR-0011). */
     int VERSION = 1;
 
-    /** The characters a run id's parts may hold, so that an id is one file name and not a path. */
-    String PART_PATTERN = "[A-Za-z0-9][A-Za-z0-9._-]*";
+    /**
+     * The characters a run id's parts may hold: no separator, so that the six parts can be read
+     * back out of the id, and nothing that makes a path.
+     *
+     * <p>It excludes {@code -} on purpose. The parts are joined with {@code -}, so a tag
+     * {@code v4.0.0-beta} or a Brain {@code greedy-v2} made an id that could be split in more than
+     * one way -- and a review built two different tuples that produce one id. Lower case only for
+     * the Brain, because the file systems this project runs on do not all tell {@code Random} from
+     * {@code random}, and two Runs of one comparison must never be one file.
+     */
+    String PART_PATTERN = "[A-Za-z0-9][A-Za-z0-9._]*";
+
+    /** A Brain's name: {@link #PART_PATTERN}, and lower case for the reason {@link #runId} gives. */
+    String BRAIN_PATTERN = "[a-z0-9][a-z0-9._]*";
+
+    /** How a salt is written wherever a log writes one: unsigned, lower-case, sixteen hex digits. */
+    static String salt(long salt) {
+        String hex = Long.toHexString(salt);
+        return "0".repeat(16 - hex.length()) + hex;
+    }
+
+    /** A Run the bot played, which is every Run the Rig ranks. */
+    String BOT = "bot";
+
+    /** A Run a person played, at the Overlay (ADR-0013). */
+    String HUMAN = "human";
 
     /** The kind's own name, which every line writes first as {@code t}. */
     String t();
@@ -65,17 +92,36 @@ public sealed interface RunLog
         Canon.text(seedCode, "a run id's seed code");
         Canon.require(seedCode.matches(SeedSet.CODE_PATTERN),
                 "a run id's seed code is " + SeedSet.CODE_PATTERN + ": " + seedCode);
-        part(brain, "the brain");
+        Canon.text(brain, "the brain");
+        Canon.require(brain.matches(BRAIN_PATTERN),
+                "a brain's name is " + BRAIN_PATTERN + ": lower case, because two run ids differing"
+                        + " only in case are one file on Windows and on macOS, and without the"
+                        + " separator, because the parts are joined with it: " + brain);
+        // The seed code carries two dashes of its own, so an id has seven of them and not five.
+        // That is stated here and on the methodology page rather than left for a reader to discover
+        // by splitting on the separator and getting the wrong answer.
         return tag + "-" + heroClass.name() + "-" + challenges + "-" + seedCode + "-"
-                + Long.toUnsignedString(salt, 16) + "-" + brain;
+                + salt(salt) + "-" + brain;
     }
 
-    /** The file name {@link #runId} names. */
+    /**
+     * The file name {@link #runId} names.
+     *
+     * <p>It checks the whole id rather than trusting the caller to have built it here: this is the
+     * method that turns text into a path, and a guarantee that lives on the other method is a
+     * guarantee the next caller does not get. {@code fileName("../../evidence")} used to return a
+     * path that climbed out of the folder it was resolved against.
+     */
     static String fileName(String runId) {
         Canon.text(runId, "a run id");
-        Canon.require(!runId.isEmpty(), "a run id is not empty");
+        Canon.require(runId.matches(ID_PATTERN),
+                "a run id is " + ID_PATTERN + ", which is what runId builds: " + runId);
         return runId + ".jsonl";
     }
+
+    /** The shape of a whole run id: six parts, the seed code contributing two dashes of its own. */
+    String ID_PATTERN = "[A-Za-z0-9][A-Za-z0-9._]*-[A-Z]+-\\d{1,3}-[A-Z]{3}-[A-Z]{3}-[A-Z]{3}"
+            + "-[0-9a-f]{16}-[a-z0-9][a-z0-9._]*";
 
     private static String part(String value, String what) {
         Canon.text(value, what);
@@ -194,13 +240,20 @@ public sealed interface RunLog
      * @param turn      thousandths of a turn, as the game counts the duration it shows a player
      * @param obs       the Observation's hash, which a Replay recomputes and compares (story 3.4)
      * @param sections  the section hashes, so a mismatch names the section rather than the wait
+     * @param applied   whether the executor applied the Action or refused it. A refused Action
+     *                  changes nothing and leaves the wait open, and a Replay that applied it
+     *                  anyway would reproduce a different Run with nothing in the file to say why
+     * @param actor     who took this wait: {@link #BOT} or {@link #HUMAN} (ADR-0011). Every Run the
+     *                  Rig ranks is the bot's; the Overlay's are not, and the field is here now so
+     *                  that E5 adds a caller rather than a chained field, which would change the
+     *                  chained text of every wait ever written and orphan every log
      * @param decision  why, when the decider says; null when it does not
      * @param belief    the Belief's hash, or empty when the decider carries none
      * @param thinkMs   how long the decider took -- the one field the chain leaves out
      */
     record Wait(long k, long turn, int depth, int branch, String obs, Map<String, String> sections,
-                Action action, Decision decision, String belief, List<Integer> highlights,
-                long thinkMs) implements RunLog {
+                Action action, boolean applied, String actor, Decision decision, String belief,
+                List<Integer> highlights, long thinkMs) implements RunLog {
 
         public Wait {
             Canon.require(k >= 0, "a wait index is at least 0: " + k);
@@ -209,7 +262,10 @@ public sealed interface RunLog
             Canon.require(branch >= 0, "a branch is at least 0: " + branch);
             digest(obs, "an Observation hash");
             sections = sections(sections);
-            Canon.require(action != null, "a wait records the Action taken at it");
+            Canon.require(action != null, "a wait records the Action the decider chose at it");
+            Canon.text(actor, "who took a wait");
+            Canon.require(BOT.equals(actor) || HUMAN.equals(actor),
+                    "a wait was taken by " + BOT + " or " + HUMAN + ", not " + actor);
             Canon.text(belief, "a Belief hash");
             Canon.require(belief.isEmpty() || belief.matches("[0-9a-f]{64}"),
                     "a Belief hash is a SHA-256 in lower-case hex, or empty: " + belief);
@@ -247,7 +303,14 @@ public sealed interface RunLog
         public Prompt {
             Canon.require(k >= 0, "a wait index is at least 0: " + k);
             Canon.require(kind != null, "a prompt record names the Prompt's kind");
+            Canon.require(kind != PromptKind.NONE,
+                    "a prompt record is written when there was a Prompt; " + PromptKind.NONE
+                            + " is what the header says when there was none");
             Canon.require(answer != null, "a prompt record names the option taken");
+            // ADR-0011: "the option chosen (an Action of kind answer)". Anything else is an Action
+            // the executor refused, and the wait record beside this one is where that belongs.
+            Canon.require(answer instanceof Action.AnswerPrompt || answer instanceof Action.DismissPrompt,
+                    "a prompt is answered or dismissed, and " + answer.kind() + " is neither");
         }
 
         @Override
@@ -337,8 +400,14 @@ public sealed interface RunLog
     // --------------------------------------------------------------------------------- the ending
 
     /**
-     * How a Run ended and what it did. Scores are ten-thousandths, turns are thousandths, and both
-     * are whole numbers for the reason nothing in a chained field is a float.
+     * How a Run ended and what it did.
+     *
+     * <p>The score is the game's own, in the whole points its own scorer returns
+     * ({@code core/.../Rankings.java:187-257}) -- not ten-thousandths. ADR-0011's "scores are
+     * integers in ten-thousandths" is about a {@link Choice}'s score, which is a Brain's evaluation
+     * and needs a fraction; this one is the number the game shows a player. The turns are
+     * thousandths of a turn. Both are whole numbers for the reason nothing in a chained field is a
+     * float.
      */
     record Outcome(boolean win, boolean ascended, long score, int depth, long turns, String cause,
                    int bosses) {

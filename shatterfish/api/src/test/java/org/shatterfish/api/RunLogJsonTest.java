@@ -39,8 +39,8 @@ class RunLogJsonTest {
         Map<String, String> sections = new LinkedHashMap<>();
         sections.put("map", ZERO);
         sections.put("hero", ONE);
-        return new RunLog.Wait(4, 1_500, 2, 0, ZERO, sections, new Action.Step(17), null, "",
-                List.of(), thinkMs);
+        return new RunLog.Wait(4, 1_500, 2, 0, ZERO, sections, new Action.Step(17), true, RunLog.BOT,
+                null, "", List.of(), thinkMs);
     }
 
     // --------------------------------------------------------------------- the lines, character by character
@@ -54,7 +54,7 @@ class RunLogJsonTest {
         assertEquals("{\"input\":\"a two-finger swipe\",\"k\":5,\"t\":\"unsupported\"}",
                 RunLogJson.canonical(new RunLog.Unsupported(5, "a two-finger swipe")));
 
-        assertEquals("{\"chainAt\":\"" + ONE + "\",\"k\":7,\"salt\":42,\"t\":\"boundary\"}",
+        assertEquals("{\"chainAt\":\"" + ONE + "\",\"k\":7,\"salt\":\"000000000000002a\",\"t\":\"boundary\"}",
                 RunLogJson.canonical(new RunLog.Boundary(7, 42, ONE)));
 
         assertEquals("{\"answer\":{\"kind\":\"AnswerPrompt\",\"option\":1},\"k\":2,"
@@ -67,7 +67,8 @@ class RunLogJsonTest {
                 RunLogJson.canonical(new RunLog.End(9,
                         new RunLog.Outcome(false, false, 1234, 5, 6000, "DEATH", 1), true)));
 
-        assertEquals("{\"action\":{\"cell\":17,\"kind\":\"Step\"},\"branch\":0,\"depth\":2,\"k\":4,"
+        assertEquals("{\"action\":{\"cell\":17,\"kind\":\"Step\"},\"actor\":\"bot\",\"applied\":true,"
+                        + "\"branch\":0,\"depth\":2,\"k\":4,"
                         + "\"obs\":\"" + ZERO + "\",\"sections\":{\"hero\":\"" + ONE + "\",\"map\":\""
                         + ZERO + "\"},\"t\":\"wait\",\"think_ms\":12,\"turn\":1500}",
                 RunLogJson.canonical(served(12)));
@@ -79,7 +80,7 @@ class RunLogJsonTest {
         assertEquals("{\"brain\":{\"commit\":\"def5678\",\"config\":\"" + ZERO + "\",\"name\":\"random\"},"
                         + "\"challenges\":0,\"class\":\"WARRIOR\",\"codex\":8,\"commit\":\"abc1234\","
                         + "\"machine\":\"a laptop\",\"obsv\":2,\"oracle\":false,\"profile\":3,"
-                        + "\"registration\":\"\",\"salt\":7,\"seed\":12345,\"seedcode\":\""
+                        + "\"registration\":\"\",\"salt\":\"0000000000000007\",\"seed\":12345,\"seedcode\":\""
                         + SeedSet.code(SEED) + "\",\"started\":\"2026-09-22T12:00:00Z\","
                         + "\"t\":\"header\",\"tag\":\"v4.0.0\",\"v\":1}",
                 RunLogJson.canonical(header()));
@@ -135,7 +136,7 @@ class RunLogJsonTest {
         assertNotEquals(was, RunLogJson.chain("", later), "a different hero is a different Run");
 
         RunLog.Wait moved = new RunLog.Wait(4, 1_500, 2, 0, ONE, served(12).sections(),
-                new Action.Step(17), null, "", List.of(), 12);
+                new Action.Step(17), true, RunLog.BOT, null, "", List.of(), 12);
         assertNotEquals(RunLogJson.chain("", served(12)), RunLogJson.chain("", moved),
                 "a different Observation is a different wait");
     }
@@ -191,17 +192,17 @@ class RunLogJsonTest {
                 "challenge flags past the game's own mask");
 
         assertThrows(IllegalArgumentException.class,
-                () -> new RunLog.Wait(-1, 0, 0, 0, ZERO, Map.of("map", ZERO), new Action.PickUp(), null,
-                        "", List.of(), 0), "a negative wait index");
+                () -> new RunLog.Wait(-1, 0, 0, 0, ZERO, Map.of("map", ZERO), new Action.PickUp(), true,
+                        RunLog.BOT, null, "", List.of(), 0), "a negative wait index");
         assertThrows(IllegalArgumentException.class,
                 () -> new RunLog.Wait(0, 0, 0, 0, "not a hash", Map.of("map", ZERO), new Action.PickUp(),
-                        null, "", List.of(), 0), "an Observation hash that is not one");
+                        true, RunLog.BOT, null, "", List.of(), 0), "an Observation hash that is not one");
         assertThrows(IllegalArgumentException.class,
-                () -> new RunLog.Wait(0, 0, 0, 0, ZERO, Map.of(), new Action.PickUp(), null, "",
-                        List.of(), 0), "no section hashes at all");
+                () -> new RunLog.Wait(0, 0, 0, 0, ZERO, Map.of(), new Action.PickUp(), true, RunLog.BOT,
+                        null, "", List.of(), 0), "no section hashes at all");
         assertThrows(IllegalArgumentException.class,
-                () -> new RunLog.Wait(0, 0, 0, 0, ZERO, Map.of("map", ZERO), new Action.PickUp(), null,
-                        "", List.of(), -1), "thinking that took less than no time");
+                () -> new RunLog.Wait(0, 0, 0, 0, ZERO, Map.of("map", ZERO), new Action.PickUp(), true,
+                        RunLog.BOT, null, "", List.of(), -1), "thinking that took less than no time");
 
         assertThrows(IllegalArgumentException.class,
                 () -> new RunLog.Outcome(false, true, 0, 0, 0, "DEATH", 0),
@@ -244,10 +245,10 @@ class RunLogJsonTest {
         String first = RunLog.runId("v4.0.0", HeroClass.WARRIOR, 0, "AAA-AAA-AAB", 7L, "random");
         String second = RunLog.runId("v4.0.0", HeroClass.WARRIOR, 0, "AAA-AAA-AAB", 7L, "greedy");
 
-        assertEquals("v4.0.0-WARRIOR-0-AAA-AAA-AAB-7-random", first);
+        assertEquals("v4.0.0-WARRIOR-0-AAA-AAA-AAB-0000000000000007-random", first);
         assertNotEquals(first, second, "one triple, one salt, two Brains, two files (AD-14)");
-        assertEquals("v4.0.0-WARRIOR-0-AAA-AAA-AAB-7-random.jsonl", RunLog.fileName(first));
-        assertEquals("v4.0.0-WARRIOR-0-" + SeedSet.code(SEED) + "-7-random", header().runId(),
+        assertEquals("v4.0.0-WARRIOR-0-AAA-AAA-AAB-0000000000000007-random.jsonl", RunLog.fileName(first));
+        assertEquals("v4.0.0-WARRIOR-0-" + SeedSet.code(SEED) + "-0000000000000007-random", header().runId(),
                 "the header's own id is built the same way, from its own fields");
 
         assertThrows(IllegalArgumentException.class,

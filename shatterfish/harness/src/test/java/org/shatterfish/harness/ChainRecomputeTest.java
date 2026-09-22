@@ -102,7 +102,8 @@ class ChainRecomputeTest {
         assertEquals(String.valueOf(SEED), LogText.value(header, "seed"));
         assertEquals(SeedSet.code(SEED), LogText.string(header, "seedcode"),
                 "the code beside the number is the one the game reads");
-        assertEquals(String.valueOf(SALT), LogText.value(header, "salt"));
+        assertEquals(RunLog.salt(SALT), LogText.string(header, "salt"),
+                "the salt is the same sixteen hex digits the file name uses");
         assertEquals(String.valueOf(Profile.VERSION), LogText.value(header, "profile"));
         assertEquals(String.valueOf(ObservationCodec.SCHEMA_VERSION), LogText.value(header, "obsv"));
         assertEquals(String.valueOf(Codex.VERSION), LogText.value(header, "codex"),

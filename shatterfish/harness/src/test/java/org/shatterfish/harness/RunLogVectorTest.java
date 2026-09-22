@@ -113,7 +113,7 @@ class RunLogVectorTest {
 
         // The rules are not decoration: each one below is a thing the writer does.
         RunLog.Wait wait = new RunLog.Wait(0, 1, 1, 0, ZERO, Map.of("map", ZERO),
-                new Action.Step(1), null, "", List.of(), 5);
+                new Action.Step(1), true, RunLog.BOT, null, "", List.of(), 5);
         String line = RunLogJson.line("", wait);
         assertTrue(!line.contains(" "), "no whitespace outside a string, as the page says");
         assertTrue(!line.contains("null"), "a field with nothing to say is absent, as the page says");

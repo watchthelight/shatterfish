@@ -138,7 +138,13 @@ public final class RunLogJson {
         out.key("challenges").value(header.challenges());
         out.key("seed").value(header.seed());
         out.key("seedcode").value(header.seedCode());
-        out.key("salt").value(header.salt());
+        // The same sixteen lower-case hex digits the run id uses, and a string rather than a
+        // number: a salt is drawn across the whole 64-bit range, and a JSON number above 2^53 is
+        // silently rounded by every reader built on IEEE doubles -- which is most of the scripts
+        // the methodology page invites a stranger to write. A file name that says
+        // `ffffffffffffffff` and a header that said `-1` were two spellings of one value on one
+        // line.
+        out.key("salt").value(RunLog.salt(header.salt()));
         out.key("profile").value(header.profile());
         out.key("obsv").value(header.obsv());
         out.key("codex").value(header.codex());
@@ -168,6 +174,8 @@ public final class RunLogJson {
         out.endObject();
         out.key("action");
         ObservationJson.write(out, wait.action());
+        out.key("applied").value(wait.applied());
+        out.key("actor").value(wait.actor());
         if (wait.decision() != null) {
             out.key("decision");
             write(out, wait.decision());
@@ -236,7 +244,7 @@ public final class RunLogJson {
 
     private static void write(JsonWriter out, RunLog.Boundary boundary) {
         out.key("k").value(boundary.k());
-        out.key("salt").value(boundary.salt());
+        out.key("salt").value(RunLog.salt(boundary.salt()));
         out.key("chainAt").value(boundary.chainAt());
     }
 

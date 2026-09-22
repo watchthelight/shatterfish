@@ -245,9 +245,9 @@ hash the remaining text as UTF-8, and you should get the same:
 
 | What | Value |
 |---|---|
-| The record | `{"brain":{"commit":"def5678","config":"0000000000000000000000000000000000000000000000000000000000000000","name":"random"},"challenges":0,"class":"WARRIOR","codex":8,"commit":"abc1234","machine":"a laptop","obsv":2,"oracle":false,"profile":3,"registration":"","salt":7,"seed":12345,"seedcode":"AAA-AAA-SGV","started":"2026-09-22T12:00:00Z","t":"header","tag":"v4.0.0","v":1}` |
-| Chained (the same, without `machine` and `started`) | `{"brain":{"commit":"def5678","config":"0000000000000000000000000000000000000000000000000000000000000000","name":"random"},"challenges":0,"class":"WARRIOR","codex":8,"commit":"abc1234","obsv":2,"oracle":false,"profile":3,"registration":"","salt":7,"seed":12345,"seedcode":"AAA-AAA-SGV","t":"header","tag":"v4.0.0","v":1}` |
-| `chain` | `5f742797d561c07ca0f385847675cd4e34d0f625a6d8281309659bc7b4cb68e7` |
+| The record | `{"brain":{"commit":"def5678","config":"0000000000000000000000000000000000000000000000000000000000000000","name":"random"},"challenges":0,"class":"WARRIOR","codex":8,"commit":"abc1234","machine":"a laptop","obsv":2,"oracle":false,"profile":3,"registration":"","salt":"0000000000000007","seed":12345,"seedcode":"AAA-AAA-SGV","started":"2026-09-22T12:00:00Z","t":"header","tag":"v4.0.0","v":1}` |
+| Chained (the same, without `machine` and `started`) | `{"brain":{"commit":"def5678","config":"0000000000000000000000000000000000000000000000000000000000000000","name":"random"},"challenges":0,"class":"WARRIOR","codex":8,"commit":"abc1234","obsv":2,"oracle":false,"profile":3,"registration":"","salt":"0000000000000007","seed":12345,"seedcode":"AAA-AAA-SGV","t":"header","tag":"v4.0.0","v":1}` |
+| `chain` | `53aa5c6fc977dce9da982096d39e3c3663d010b466ce794a4641ca163b485fb5` |
 
 `RunLogVectorTest` recomputes this table from the code on every build, so the page cannot drift
 away from what the writer does.
