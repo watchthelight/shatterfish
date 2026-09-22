@@ -2,6 +2,7 @@ package org.shatterfish.harness.agent;
 
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.GamesInProgress;
+import com.shatteredpixel.shatteredpixeldungeon.Rankings;
 import com.shatteredpixel.shatteredpixeldungeon.Statistics;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
@@ -14,9 +15,17 @@ import com.shatteredpixel.shatteredpixeldungeon.scenes.InterlevelScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.SurfaceScene;
 import com.watabou.noosa.Scene;
 import org.shatterfish.api.Action;
+import org.shatterfish.api.Codex;
 import org.shatterfish.api.Decider;
 import org.shatterfish.api.Observation;
+import org.shatterfish.api.ObservationCodec;
+import org.shatterfish.api.PromptKind;
+import org.shatterfish.api.RunLog;
+import org.shatterfish.api.SeedSet;
+import org.shatterfish.harness.boot.HeadlessBoot;
+import org.shatterfish.harness.boot.Profile;
 import org.shatterfish.harness.driver.HeadlessDriver;
+import org.shatterfish.harness.driver.RunLogWriter;
 import org.shatterfish.harness.driver.Windows;
 import org.shatterfish.harness.executor.ActionExecutor;
 import org.shatterfish.harness.executor.Outcome;
@@ -25,6 +34,9 @@ import org.shatterfish.harness.rng.Salt;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Path;
+import java.util.List;
+import java.time.Instant;
 
 /**
  * Plays one Run from its first Input wait to its ending. This is the loop above the driver: the
@@ -88,7 +100,59 @@ public final class RunLoop {
      * number and the behaviour at it is a rule; a test that wants the rule should not have to spend
      * twenty thousand turns reaching it, and a Run that wants the rule gets {@link #TURN_CAP}.
      */
+    /**
+     * What only the caller can say about a Run (story 3.2). The driver has no checkout to read a
+     * commit from and no Registration to read an id from, so the header's provenance arrives here
+     * or not at all. It is attested rather than verified: the chain shows nobody changed these
+     * after the Run, not that they were true when it started, which is what the Registration
+     * committed before the first Run is for (story 3.5).
+     *
+     * @param folder       where the log file goes; the file's name is the run id
+     * @param commit       the Shatterfish commit this build was made from
+     * @param brain        which Brain played, and which build of it
+     * @param registration the Registration this Run was played under, or empty
+     * @param machine      what it ran on -- recorded, and left out of the chain
+     */
+    public record Logging(Path folder, String commit, RunLog.Brain brain, String registration,
+                          String machine) {
+
+        public Logging {
+            if (folder == null || commit == null || brain == null || registration == null || machine == null) {
+                throw new IllegalArgumentException("a logged Run states where it is written and who played it");
+            }
+        }
+    }
+
+    /**
+     * Plays a Run and writes its log (story 3.2, ADR-0011). The Run is the same Run either way:
+     * logging observes and records, and changes nothing about what is played -- the only value it
+     * reads that the unlogged loop does not is the wall clock, and that one goes in the field the
+     * chain leaves out.
+     */
+    public RunOutcome play(long seed, HeroClass heroClass, long salt, Decider agent, int turnCap,
+                           Logging logging) {
+        if (logging == null) {
+            throw new IllegalArgumentException("a logged Run says where its log goes");
+        }
+        // Booted before the tag is read: Game.version is null until the boot sets it, and the
+        // header names the release this Run was played on.
+        HeadlessBoot.ensure();
+        RunLog.Header header = new RunLog.Header(RunLog.VERSION, Observer.upstreamTag(), logging.commit(),
+                org.shatterfish.api.HeroClass.valueOf(heroClass.name()), Dungeon.challenges, seed,
+                SeedSet.code(seed), salt, Profile.VERSION, ObservationCodec.SCHEMA_VERSION, Codex.VERSION,
+                logging.brain(), logging.registration(), false, logging.machine(),
+                Instant.now().toString());
+        try (RunLogWriter log = RunLogWriter.open(logging.folder(), header)) {
+            return play(seed, heroClass, salt, agent, turnCap, log);
+        }
+    }
+
     public RunOutcome play(long seed, HeroClass heroClass, long salt, Decider agent, int turnCap) {
+        return play(seed, heroClass, salt, agent, turnCap, (RunLogWriter) null);
+    }
+
+    private RunOutcome play(long seed, HeroClass heroClass, long salt, Decider agent, int turnCap,
+                            RunLogWriter log) {
         HeadlessDriver driver = HeadlessDriver.start(seed, heroClass, salt);
         long waits = 0;
         long applied = 0;
@@ -103,18 +167,18 @@ public final class RunLoop {
                 try {
                     halt = driver.stepToInputWait(FRAME_BUDGET);
                 } catch (HeadlessDriver.Stalled stalled) {
-                    return outcome(RunOutcome.Cause.UNKNOWN_WINDOW, salt, waits, applied, refused,
-                            describeWindow() + ", after " + lastAction
-                                    + (lastRefusal.isEmpty() ? "" : ", last refusal " + lastRefusal));
+                    return ending(log, waits, outcome(RunOutcome.Cause.UNKNOWN_WINDOW, salt, waits, applied,
+                            refused, describeWindow() + ", after " + lastAction
+                                    + (lastRefusal.isEmpty() ? "" : ", last refusal " + lastRefusal)));
                 }
                 switch (halt.reason()) {
                     case HERO_DEAD -> {
-                        return outcome(RunOutcome.Cause.DEATH, salt, waits, applied, refused, "");
+                        return ending(log, waits, outcome(RunOutcome.Cause.DEATH, salt, waits, applied, refused, ""));
                     }
                     case SCENE_SWITCH -> {
-                        RunOutcome ending = serve(driver, halt, salt, waits, applied, refused);
-                        if (ending != null) {
-                            return ending;
+                        RunOutcome served = serve(driver, halt, salt, waits, applied, refused);
+                        if (served != null) {
+                            return ending(log, waits, served);
                         }
                         continue;
                     }
@@ -123,15 +187,21 @@ public final class RunLoop {
                     }
                 }
                 if (turns() >= turnCap) {
-                    return outcome(RunOutcome.Cause.TURN_CAP, salt, waits, applied, refused, "");
+                    return ending(log, waits, outcome(RunOutcome.Cause.TURN_CAP, salt, waits, applied, refused, ""));
                 }
 
                 Observation observation = new Observer().observe();
+                // The clock is read around the decision and nowhere else, and what it measures goes
+                // in the one field the chain leaves out, so a slow machine and a fast one write the
+                // same chain for the same Run.
+                long before = System.nanoTime();
                 Action chosen = agent.decide(observation);
+                long thinkMs = (System.nanoTime() - before) / 1_000_000L;
                 if (chosen == null) {
-                    return outcome(RunOutcome.Cause.NOTHING_OFFERED, salt, waits, applied, refused,
-                            "at wait " + halt.waitIndex());
+                    return ending(log, waits, outcome(RunOutcome.Cause.NOTHING_OFFERED, salt, waits, applied,
+                            refused, "at wait " + halt.waitIndex()));
                 }
+                record(log, halt.waitIndex(), observation, chosen, thinkMs);
                 waits++;
                 lastAction = chosen;
                 Outcome outcome = executor.execute(observation, chosen);
@@ -247,6 +317,74 @@ public final class RunLoop {
      */
     public static int turns() {
         return (int) (Statistics.duration + Actor.now());
+    }
+
+    /**
+     * Writes the record of one served wait: the wait as the decider saw it, and what was done about
+     * it. A Prompt gets its own record beside the wait, because a Prompt is a thing the game did and
+     * the wait says what was done about it (ADR-0011).
+     *
+     * <p>Everything here is read from the Observation the decider was given rather than from the
+     * game a second time. A log that said what the game held while the decider held something else
+     * would be a record of a Run nobody played.
+     */
+    private static void record(RunLogWriter log, long k, Observation observation, Action chosen, long thinkMs) {
+        if (log == null) {
+            return;
+        }
+        if (observation.header().prompt() != PromptKind.NONE) {
+            log.write(new RunLog.Prompt(k, observation.header().prompt(), chosen));
+        }
+        log.write(new RunLog.Wait(k, thousandths(), observation.header().depth(), observation.header().branch(),
+                observation.hash(), observation.sectionHashes(), chosen, null, "", List.of(), thinkMs));
+    }
+
+    /**
+     * Writes the record that says how a Run ended, and returns the outcome unchanged. A log without
+     * one is a Run that was killed, which the Rig counts rather than repairs (ADR-0012).
+     */
+    private static RunOutcome ending(RunLogWriter log, long waits, RunOutcome outcome) {
+        if (log == null) {
+            return outcome;
+        }
+        log.write(new RunLog.End(waits, new RunLog.Outcome(Statistics.gameWon, Statistics.ascended,
+                Math.max(0, score()), outcome.depth(), thousandths(), outcome.cause().name(), bosses()),
+                true));
+        return outcome;
+    }
+
+    /**
+     * The Run's score, as the game's own scorer computes it
+     * ({@code core/.../Rankings.java:187-257}) -- never a second implementation of the game's rule
+     * (non-negotiable 4). It needs a hero to read a level from, so a Run that ended without one
+     * scores nothing rather than guessing.
+     */
+    private static int score() {
+        return Dungeon.hero == null ? 0 : Rankings.INSTANCE.calculateScore();
+    }
+
+    /**
+     * The bosses this Run killed, counted the way the game's own score does: an entry of
+     * {@code Statistics.bossScores} above zero is a boss whose fight scored
+     * ({@code core/.../Rankings.java:221-224}; {@code core/.../Statistics.java:51}).
+     */
+    private static int bosses() {
+        int killed = 0;
+        for (int score : Statistics.bossScores) {
+            if (score > 0) {
+                killed++;
+            }
+        }
+        return killed;
+    }
+
+    /**
+     * The turns passed, in thousandths. {@link #turns()} rounds two of the game's floats down to an
+     * int for a person to read; a chained field holds no float and loses no fraction, so the log
+     * carries the same quantity as a whole number of thousandths.
+     */
+    private static long thousandths() {
+        return Math.round((double) (Statistics.duration + Actor.now()) * 1000.0);
     }
 
     private static String describeWindow() {
