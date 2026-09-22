@@ -1,6 +1,7 @@
 package org.shatterfish.harness.boot;
 
 import com.shatteredpixel.shatteredpixeldungeon.Badges;
+import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.SPDSettings;
 import com.shatteredpixel.shatteredpixeldungeon.Rankings;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Document;
@@ -36,7 +37,7 @@ public final class Profile {
      * empty history changes — and say why in the ADR-0007 amendment, because a raised version
      * invalidates every recorded Run against the old one.
      */
-    public static final int VERSION = 2;
+    public static final int VERSION = 3;
 
     /** The file the version is written to, beside the game's own save files. */
     public static final String VERSION_FILE = "shatterfish-profile.txt";
@@ -125,6 +126,18 @@ public final class Profile {
      * a fresh directory does not have, through the same public calls they use.
      */
     private static void emptyTheHistory() {
+        // The seed text the last Run left behind. It is inherited state like any other -- the game
+        // sets it in Dungeon.initSeed (core/.../Dungeon.java:223-228), which runs after this -- and
+        // leaving it standing does more than untidiness: Badges.unlock refuses a LOCAL-type badge
+        // while it is non-empty (core/.../Badges.java:1209-1214), so the grant below silently did
+        // nothing from the second Run of a process onward.
+        Dungeon.customSeedText = "";
+        // Badges.reset clears the local badges and calls loadGlobal, which returns early once the
+        // static is set (core/.../Badges.java:244-247, :315-325), so the global badges an earlier
+        // Run in this process earned survive it. Emptying them here through disown -- the only
+        // public door -- was tried and put back: a Run then earns them again during play, and
+        // earning one posts a badge window to the render thread, which the next Run refuses to
+        // start on top of. That is ADR-0007's leak rather than this story's, and it is issue #117.
         Badges.reset();
         unlockTheClasses();
         // Every page of every document, deleted one by one, because that is the only public way to
@@ -156,6 +169,11 @@ public final class Profile {
      * having played, and the rig skips the earning rather than the playing. Nothing the bot reads
      * changes, so information parity is untouched -- what changes is which hero the Run may start
      * as, which is a Run's own tuple and not something the bot may know.
+     *
+     * <p>It has to run after the global badges are emptied and after the seed text is cleared, and
+     * both for the same reason: these are {@code LOCAL}-type badges (core/.../Badges.java:77-81),
+     * and {@code Badges.unlock} refuses one while a custom seed is set
+     * (core/.../Badges.java:1209-1214), which is how a seeded game avoids handing out unlocks.
      */
     private static void unlockTheClasses() {
         for (Badges.Badge badge : List.of(Badges.Badge.UNLOCK_MAGE, Badges.Badge.UNLOCK_ROGUE,

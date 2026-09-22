@@ -1,6 +1,7 @@
 package org.shatterfish.harness.boot;
 
 import com.shatteredpixel.shatteredpixeldungeon.Badges;
+import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.SPDSettings;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import org.shatterfish.api.Action;
@@ -39,6 +40,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * against a directory some other version prepared.
  */
 class ProfileTest {
+
+    /** The five classes a player earns, which the Profile grants (story 3.1). */
+    private static final List<Badges.Badge> UNLOCKS = List.of(Badges.Badge.UNLOCK_MAGE,
+            Badges.Badge.UNLOCK_ROGUE, Badges.Badge.UNLOCK_HUNTRESS, Badges.Badge.UNLOCK_DUELIST,
+            Badges.Badge.UNLOCK_CLERIC);
 
     /** The salt these Runs declare. There is no default: see ADR-0007 and {@code Salt}. */
     private static final long RUN_SALT = 0x5A17_5A17L;
@@ -99,6 +105,39 @@ class ProfileTest {
         assertEquals(0, Badges.totalUnlocked(false), "and the next Run starts with nothing");
         assertTrue(!Document.ADVENTURERS_GUIDE.isPageFound(Document.GUIDE_SEARCHING),
                 "and with none of the pages the last Run found");
+    }
+
+    @Test
+    @DisplayName("every hero class a seed set names can be selected, because the Profile grants the badges")
+    void the_six_classes_can_be_started() throws IOException {
+        // The empty history the Profile installs is a profile that has played nothing, and five of
+        // the six classes are earned (core/.../actors/hero/HeroClass.java:330-347). The seed sets
+        // name all six, so a Profile that did not grant the badges would commit hundreds of triples
+        // for heroes no Run could start as -- a set that lies rather than a set that is held out.
+        // Badges.reset leaves the global badges alone (issue #117), so the five are taken away
+        // here: without this the test would pass on whatever an earlier Run in this process left
+        // behind rather than on what the Profile does.
+        for (Badges.Badge held : UNLOCKS) {
+            Badges.disown(held);
+        }
+        assertTrue(!Badges.isUnlocked(Badges.Badge.UNLOCK_MAGE),
+                "a profile that has played nothing has not earned the Mage");
+        // The state a Run leaves behind: the game sets this in initSeed and never clears it, and
+        // Badges.unlock refuses a LOCAL badge while it stands (core/.../Badges.java:1209-1214), so
+        // without the Profile clearing it the grant below is a silent no-op.
+        Dungeon.customSeedText = "ZZZ-ZZZ-ZZZ";
+
+        Profile.prepare(HeadlessBoot.ensure(), Files.createTempDirectory("shatterfish-profile-classes"));
+
+        assertEquals("", Dungeon.customSeedText, "the Profile clears the seed text the last Run left");
+
+        for (Badges.Badge badge : UNLOCKS) {
+            assertTrue(Badges.isUnlocked(badge), badge + " is not granted, and a seed set names its class");
+        }
+        for (HeroClass heroClass : HeroClass.values()) {
+            assertTrue(heroClass.isUnlocked(),
+                    heroClass + " cannot be selected at the class screen, and the seed sets name it");
+        }
     }
 
     @Test

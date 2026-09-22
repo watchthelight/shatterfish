@@ -289,6 +289,16 @@ version 1 of the Profile inherited from the process. The Profile now clears the 
 declares its own, so a Run begins from the game's defaults whatever the process did before it, and
 the version is raised because what a Run inherits changed. Version 1 was never published against.
 
+**The Profile is version 3, and the class screen is a played player's.** Story 3.1 named all six
+hero classes in the seed sets, and five of them are earned: `HeroClass.isUnlocked` reads the
+`UNLOCK_*` badges (`core/…/actors/hero/HeroClass.java:330-347`), and the empty history version 2
+installs is a profile that has earned nothing, so only the Warrior could be selected. A set naming
+Runs that cannot be started is a set that lies, so the Profile now grants those five badges
+deliberately after `Badges.reset()`. It is the menu a player reaches by having played — the rig
+skips the earning, not the playing — and nothing the bot may read changes, so information parity is
+untouched. The version is raised because what a Run inherits changed, which is this ADR's own rule;
+version 2 was never published against, and `ProfileTest.the_six_classes_can_be_started` holds it.
+
 **What row 6 does not reach.** Two places keep identity order, and neither can be hooked add-only:
 `Random.element(Collection)` is one return expression, so the class-keyed collections that go
 through it — the censer's gases, the distortion trap's mobs, the spawner's rare alternatives — are

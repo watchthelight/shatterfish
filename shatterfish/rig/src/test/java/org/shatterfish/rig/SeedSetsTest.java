@@ -320,6 +320,10 @@ class SeedSetsTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new SeedSets.Definition("ok", 1, List.of(HeroClass.WARRIOR), 512),
                 "flags past the game's mask");
+        assertThrows(IllegalArgumentException.class,
+                () -> new SeedSets.Definition("ok", 6, List.of(HeroClass.WARRIOR, HeroClass.MAGE,
+                        HeroClass.WARRIOR), 0),
+                "a class named twice: the cycle covers two classes and the definition claims three");
     }
 
     // ------------------------------------------------------------------ the goo set's size
@@ -438,15 +442,44 @@ class SeedSetsTest {
                     Files.readAllBytes(folder.resolve(file)), file);
         }
         Files.createDirectory(folder.resolve("pictures"));
+        // A stale file beside the directory, and it sorts first: a task that deleted as it walked
+        // would remove this one and only then refuse, so the refusal would arrive after the damage
+        // it exists to prevent. Asserting the message alone never saw that.
+        Files.writeString(folder.resolve("left-over.json"), "[]\n", StandardCharsets.UTF_8);
         IllegalStateException intruder = assertThrows(IllegalStateException.class,
                 () -> Seeds.main(new String[] {ROOT.toString(), folder.toString()}));
         assertTrue(intruder.getMessage().contains("pictures"), intruder.getMessage());
+        assertTrue(Files.exists(folder.resolve("left-over.json")),
+                "the task deleted a file on its way to refusing the folder");
+        for (String file : fresh.keySet()) {
+            assertTrue(Files.exists(folder.resolve(file)), file + " was deleted before the refusal");
+        }
         Files.delete(folder.resolve("pictures"));
+        Files.delete(folder.resolve("left-over.json"));
 
         assertThrows(IllegalArgumentException.class, () -> Seeds.main(new String[] {ROOT.toString(), "a", "b"}));
         IllegalArgumentException notAcheckout = assertThrows(IllegalArgumentException.class,
                 () -> Seeds.main(new String[] {folder.toString()}));
         assertTrue(notAcheckout.getMessage().contains("not a Shatterfish checkout"), notAcheckout.getMessage());
+    }
+
+    @Test
+    @DisplayName("the task refuses a folder that is not the seed folder and holds something else, rather than emptying it")
+    void the_task_will_not_empty_a_folder_it_does_not_own(@TempDir Path folder) throws IOException {
+        // The argument is a path, and a path can be mistyped. Without this the task would have
+        // taken any folder at all, deleted what it held and written the five sets into it in
+        // whatever order the file system listed.
+        Files.writeString(folder.resolve("letter.txt"), "dear reader\n", StandardCharsets.UTF_8);
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> Seeds.main(new String[] {ROOT.toString(), folder.toString()}));
+        assertTrue(refused.getMessage().contains(SeedSets.FOLDER), refused.getMessage());
+        assertTrue(refused.getMessage().contains(SeedSets.COMMAND), refused.getMessage());
+        TreeSet<String> held = new TreeSet<>();
+        try (Stream<Path> present = Files.list(folder)) {
+            present.forEach(f -> held.add(f.getFileName().toString()));
+        }
+        assertEquals(new TreeSet<>(List.of("letter.txt")), held,
+                "the task wrote into, or emptied, a folder that was not its own");
     }
 
     @Test
@@ -520,6 +553,16 @@ class SeedSetsTest {
         refuses(root, seeds, good.replaceFirst("\\}\n\\],", "},\n],"), "expected a triple");
         // A set of the wrong size is refused even though every triple in it is well formed.
         refuses(root, seeds, good.replaceFirst("(?m)^  \\{\"challengeFlags\":0[^\n]*\\},\n", ""), "24 triples");
+        // And a file that is well formed in every one of those ways and is still not the
+        // derivation: the right name, the right version, the right size, a seed in range and its
+        // own true code beside it -- just not the seed the formula gives. Nothing above rejects
+        // it, and a tampered working tree could otherwise publish a number citing a set that did
+        // not produce it.
+        SeedSet.Entry first = SeedSets.set("smoke").entries().get(0);
+        String honest = "\"seed\":" + first.seed() + ",\"seedCode\":\"" + first.seedCode() + "\"";
+        assertTrue(good.contains(honest), "the writer no longer writes " + honest);
+        refuses(root, seeds, good.replace(honest, "\"seed\":1,\"seedCode\":\"" + SeedSet.code(1) + "\""),
+                "is not the derivation it names");
     }
 
     private static void refuses(Path root, Path seeds, String text, String said) throws IOException {
@@ -538,11 +581,4 @@ class SeedSetsTest {
         assertTrue(missing.getMessage().contains(SeedSets.COMMAND), missing.getMessage());
     }
 
-    /** A directory the reader will accept as a checkout, so the reader can be tested on its own files. */
-    private static Path unusedCheckout(Path folder) throws IOException {
-        Files.createDirectories(folder.resolve("core/src/main/java"));
-        Files.createDirectories(folder.resolve("docs"));
-        Files.writeString(folder.resolve("docs/UPSTREAM.md"), "# not the real ledger\n", StandardCharsets.UTF_8);
-        return folder;
-    }
 }
