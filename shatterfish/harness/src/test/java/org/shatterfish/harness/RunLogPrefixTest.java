@@ -68,6 +68,10 @@ class RunLogPrefixTest {
             cuts++;
         }
         assertEquals(whole.whole().size(), cuts, "every boundary was cut at");
+        // The offsets were computed by re-encoding each line, so this is the check that they are
+        // the file's own: if they were not, every cut above was at the wrong place and the test
+        // was verifying prefixes of its own arithmetic.
+        assertEquals(bytes.length, at, "the cuts walked the whole file, byte for byte");
     }
 
     @Test
@@ -87,9 +91,12 @@ class RunLogPrefixTest {
         assertEquals(1, cut.whole().size(), "the header is whole");
         assertEquals(0, LogText.firstBrokenLine(cut), "and it verifies");
         // The partial line is not a record. A reader that parsed it would be inventing the half
-        // that never arrived, which is worse than reporting the Run as incomplete.
-        assertThrows(IllegalArgumentException.class, () -> LogText.keys(cut.partial()),
-                "a half-written line is refused rather than guessed at");
+        // that never arrived, which is worse than reporting the Run as incomplete. It is refused
+        // naming what is wrong with it, rather than by an exception with a character offset.
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> LogText.keys(cut.partial()));
+        assertTrue(refused.getMessage().contains("one JSON object"), refused.getMessage());
+        assertFalse(LogText.whole(cut), "and the log is not a whole Run's");
     }
 
     @Test

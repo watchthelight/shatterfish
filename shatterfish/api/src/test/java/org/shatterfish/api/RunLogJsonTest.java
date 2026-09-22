@@ -103,7 +103,16 @@ class RunLogJsonTest {
             for (String key : RunLogJson.UNCHAINED) {
                 assertFalse(chained.contains("\"" + key + "\":"), key + " is not chained: " + chained);
             }
-            assertTrue(whole.length() >= chained.length(), "the chained text is the shorter one");
+            // What the chained text must be is a text transformation of the line, and the test of
+            // that lives where a reader that shares no code with this one can perform it
+            // (`RunLogKindsTest`, in `harness`). Here: the whole record still holds the keys the
+            // chained one drops, so `chained` is dropping them rather than the renderer dropping
+            // them everywhere.
+            for (String key : RunLogJson.UNCHAINED) {
+                assertEquals(whole.contains("\"" + key + "\":"), !chained.contains("\"" + key + "\":")
+                                && whole.contains("\"" + key + "\":"),
+                        key + " is in the record and out of the chained text, or in neither");
+            }
         }
     }
 

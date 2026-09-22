@@ -99,6 +99,28 @@ class RunLogVectorTest {
                 "the published chain is SHA-256 of the published chained text, and nothing else");
     }
 
+    /** Every unquoted run of number characters in a canonical line, strings skipped. */
+    private static List<String> numbers(String line) {
+        List<String> found = new java.util.ArrayList<>();
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == '"') {
+                while (++i < line.length() && line.charAt(i) != '"') {
+                    if (line.charAt(i) == '\\') {
+                        i++;
+                    }
+                }
+            } else if (c == '-' || Character.isDigit(c)) {
+                int from = i;
+                while (i + 1 < line.length() && "0123456789.eE+-".indexOf(line.charAt(i + 1)) >= 0) {
+                    i++;
+                }
+                found.add(line.substring(from, i + 1));
+            }
+        }
+        return found;
+    }
+
     @Test
     @DisplayName("the page states the rules the format actually follows")
     void the_published_rules_are_the_real_ones() throws IOException {
@@ -117,7 +139,17 @@ class RunLogVectorTest {
         String line = RunLogJson.line("", wait);
         assertTrue(!line.contains(" "), "no whitespace outside a string, as the page says");
         assertTrue(!line.contains("null"), "a field with nothing to say is absent, as the page says");
-        assertTrue(!line.contains("."), "whole numbers only, as the page says: " + line);
+        // "Whole numbers only" is about the numbers, not about the line: the header's own tag is
+        // `v4.0.0`, so a line-wide search for a period fails on a legitimate log and passes on the
+        // one record that could not have violated the rule. Every unquoted numeric run, in a header
+        // and a wait and an end, is checked instead.
+        for (RunLog record : List.of(published(), wait,
+                new RunLog.End(1, new RunLog.Outcome(false, false, 7, 2, 3, "DEATH", 0), true))) {
+            for (String number : numbers(RunLogJson.canonical(record))) {
+                assertTrue(number.matches("-?\\d+"), record.t() + " writes " + number
+                        + ", and the page says every number is a whole number");
+            }
+        }
 
         // And a record after another chains onto its bytes, not onto its text.
         String first = RunLogJson.chain("", published());

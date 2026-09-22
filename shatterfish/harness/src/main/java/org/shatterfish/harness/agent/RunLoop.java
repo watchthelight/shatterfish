@@ -181,6 +181,24 @@ public final class RunLoop {
 
     private RunOutcome play(HeadlessDriver driver, long seed, HeroClass heroClass, long salt,
                             Decider agent, int turnCap, RunLogWriter log, boolean oracle) {
+        // Every ending goes through here and nowhere else. Wrapping each of the loop's seven
+        // returns was the first shape of this, and one of the seven was missed -- the Run that the
+        // executor gives up on wrote no end record at all, which made its log byte-identical to a
+        // killed Run's and its pair a tie under ADR-0012. A return added to the loop next year
+        // cannot make that mistake now, because the loop does not write the record.
+        try {
+            // The end record is written while the Run's own state is still standing: the score is
+            // the game's own scorer reading the hero and the statistics, and the driver's close
+            // tears that down. So the close moved out here, after the ending, rather than staying
+            // in the loop where it used to sit.
+            return ending(log, driver, playing(driver, seed, heroClass, salt, agent, turnCap, log, oracle));
+        } finally {
+            driver.close();
+        }
+    }
+
+    private RunOutcome playing(HeadlessDriver driver, long seed, HeroClass heroClass, long salt,
+                               Decider agent, int turnCap, RunLogWriter log, boolean oracle) {
         long waits = 0;
         long applied = 0;
         long refused = 0;
@@ -188,75 +206,65 @@ public final class RunLoop {
         String lastRefusal = "";
         // What the Run last did, which is the first thing anyone asks when a Run stops moving.
         Action lastAction = null;
-        try {
-            while (true) {
-                HeadlessDriver.Halt halt;
-                try {
-                    halt = driver.stepToInputWait(FRAME_BUDGET);
-                } catch (HeadlessDriver.Stalled stalled) {
-                    return ending(log, driver.waitIndex(), outcome(RunOutcome.Cause.UNKNOWN_WINDOW, salt, waits, applied,
-                            refused, describeWindow() + ", after " + lastAction
-                                    + (lastRefusal.isEmpty() ? "" : ", last refusal " + lastRefusal)));
+        while (true) {
+            HeadlessDriver.Halt halt;
+            try {
+                halt = driver.stepToInputWait(FRAME_BUDGET);
+            } catch (HeadlessDriver.Stalled stalled) {
+                return outcome(RunOutcome.Cause.UNKNOWN_WINDOW, salt, waits, applied, refused,
+                        describeWindow() + ", after " + lastAction
+                                + (lastRefusal.isEmpty() ? "" : ", last refusal " + lastRefusal));
+            }
+            switch (halt.reason()) {
+                case HERO_DEAD -> {
+                    return outcome(RunOutcome.Cause.DEATH, salt, waits, applied, refused, "");
                 }
-                switch (halt.reason()) {
-                    case HERO_DEAD -> {
-                        return ending(log, halt.waitIndex(), outcome(RunOutcome.Cause.DEATH, salt, waits, applied, refused, ""));
+                case SCENE_SWITCH -> {
+                    RunOutcome served = serve(driver, halt, salt, waits, applied, refused);
+                    if (served != null) {
+                        return served;
                     }
-                    case SCENE_SWITCH -> {
-                        RunOutcome served = serve(driver, halt, salt, waits, applied, refused);
-                        if (served != null) {
-                            return ending(log, halt.waitIndex(), served);
-                        }
-                        continue;
-                    }
-                    default -> {
-                        // An Input wait: the only case with an Action in it.
-                    }
+                    continue;
                 }
-                if (turns() >= turnCap) {
-                    return ending(log, halt.waitIndex(), outcome(RunOutcome.Cause.TURN_CAP, salt, waits, applied, refused, ""));
-                }
-
-                Observation observation = new Observer().observe();
-                // The clock is read around the decision and nowhere else, and what it measures goes
-                // in the one field the chain leaves out, so a slow machine and a fast one write the
-                // same chain for the same Run.
-                long before = System.nanoTime();
-                Action chosen = agent.decide(observation);
-                long thinkMs = (System.nanoTime() - before) / 1_000_000L;
-                if (chosen == null) {
-                    return ending(log, halt.waitIndex(), outcome(RunOutcome.Cause.NOTHING_OFFERED, salt, waits,
-                            applied, refused, "at wait " + halt.waitIndex()));
-                }
-                waits++;
-                lastAction = chosen;
-                Outcome outcome = executor.execute(observation, chosen);
-                // Recorded after the executor has answered, not before: a wait record used to say
-                // an Action was taken at it when the executor had refused it and the game had not
-                // moved, and a Replay applying that Action would have reproduced a different Run
-                // with nothing in the file to explain the divergence.
-                record(log, halt.waitIndex(), observation, chosen,
-                        !(outcome instanceof Outcome.Rejected), thinkMs, oracle);
-                if (outcome instanceof Outcome.Rejected rejected) {
-                    refused++;
-                    refusalsInARow++;
-                    lastRefusal = rejected.reason() + ": " + rejected.detail();
-                        if (refusalsInARow >= REFUSALS_IN_A_ROW) {
-                        // This was the one ending of the seven that wrote no end record, so its
-                        // log was byte-identical to a killed Run's -- and ADR-0012 scores a killed
-                        // Run's pair as a tie. A Brain that emitted refusable Actions until the
-                        // executor gave up would have turned a loss into a tie, which is exactly
-                        // what "a Brain cannot improve its standing by failing" is meant to stop.
-                        return ending(log, halt.waitIndex(), outcome(RunOutcome.Cause.REFUSED, salt,
-                                waits, applied, refused, lastRefusal));
-                    }
-                } else {
-                    applied++;
-                    refusalsInARow = 0;
+                default -> {
+                    // An Input wait: the only case with an Action in it.
                 }
             }
-        } finally {
-            driver.close();
+            if (turns() >= turnCap) {
+                return outcome(RunOutcome.Cause.TURN_CAP, salt, waits, applied, refused, "");
+            }
+
+            Observation observation = new Observer().observe();
+            // The clock is read around the decision and nowhere else, and what it measures goes
+            // in the one field the chain leaves out, so a slow machine and a fast one write the
+            // same chain for the same Run.
+            long before = System.nanoTime();
+            Action chosen = agent.decide(observation);
+            long thinkMs = (System.nanoTime() - before) / 1_000_000L;
+            if (chosen == null) {
+                return outcome(RunOutcome.Cause.NOTHING_OFFERED, salt, waits, applied, refused,
+                        "at wait " + halt.waitIndex());
+            }
+            waits++;
+            lastAction = chosen;
+            Outcome outcome = executor.execute(observation, chosen);
+            // Recorded after the executor has answered, not before: a wait record used to say
+            // an Action was taken at it when the executor had refused it and the game had not
+            // moved, and a Replay applying that Action would have reproduced a different Run
+            // with nothing in the file to explain the divergence.
+            record(log, halt.waitIndex(), observation, chosen,
+                    !(outcome instanceof Outcome.Rejected), thinkMs, oracle);
+            if (outcome instanceof Outcome.Rejected rejected) {
+                refused++;
+                refusalsInARow++;
+                lastRefusal = rejected.reason() + ": " + rejected.detail();
+                if (refusalsInARow >= REFUSALS_IN_A_ROW) {
+                    return outcome(RunOutcome.Cause.REFUSED, salt, waits, applied, refused, lastRefusal);
+                }
+            } else {
+                applied++;
+                refusalsInARow = 0;
+            }
         }
     }
 
@@ -403,10 +411,15 @@ public final class RunLoop {
      * Writes the record that says how a Run ended, and returns the outcome unchanged. A log without
      * one is a Run that was killed, which the Rig counts rather than repairs (ADR-0012).
      */
-    private static RunOutcome ending(RunLogWriter log, long k, RunOutcome outcome) {
+    private static RunOutcome ending(RunLogWriter log, HeadlessDriver driver, RunOutcome outcome) {
         if (log == null) {
             return outcome;
         }
+        // The driver's own wait index, which every wait record is keyed by and which the spec makes
+        // the driver's to assign. The loop's count of served waits is a different number -- they
+        // part company the first time a wait is confirmed and not served -- and one file had been
+        // using both under one key name.
+        long k = driver.waitIndex();
         // The cause is the authority on whether this Run was won, not `Statistics.gameWon`. The
         // game sets that flag in `Dungeon.win` (core/.../Dungeon.java:883), which runs from the
         // surface scene's own callback -- and this loop ends the Run when the game *asks* for that

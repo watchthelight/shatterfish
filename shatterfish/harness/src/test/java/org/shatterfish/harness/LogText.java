@@ -60,35 +60,70 @@ final class LogText {
         return lines(Files.readAllBytes(file));
     }
 
+    /** What {@link #firstBrokenLine} answers when the file holds no whole line at all. */
+    static final int NOTHING_THERE = -1;
+
     /**
-     * Where the chain first disagrees with the file, counting lines from one, or zero when every
-     * chain in the file is the one the bytes give.
+     * Where the chain first disagrees with the file, counting lines from one; zero when every chain
+     * in the file is the one the bytes give, and {@link #NOTHING_THERE} when there is no line to
+     * check.
+     *
+     * <p>Empty is not the same answer as fine. A zero-length file -- which is exactly what a writer
+     * that died between creating the file and writing the header leaves -- would otherwise report
+     * as a complete, fully verified log with nothing wrong in it.
+     *
+     * <p>It reports and never throws. A malformed line is a broken line, named by its number, not
+     * an exception out of the middle of a twenty-thousand-line file: the criterion is that
+     * verification "fails naming the first record that disagrees", and a stack trace with a
+     * character offset does not do that -- nor should one hostile log stop the Rig from checking
+     * the rest.
      *
      * <p>A partial last line is not checked: it is not a record, and a reader that repaired one
      * would be inventing the half of it that never reached the disk.
      */
     static int firstBrokenLine(Lines lines) {
+        if (lines.whole().isEmpty()) {
+            return NOTHING_THERE;
+        }
         String previous = "";
         for (int i = 0; i < lines.whole().size(); i++) {
             String line = lines.whole().get(i);
-            String stated = string(line, "chain");
-            if (stated == null) {
+            try {
+                String stated = string(line, "chain");
+                if (stated == null || !stated.matches("[0-9a-f]{64}")) {
+                    return i + 1;
+                }
+                String said = string(line, "prev");
+                if (previous.isEmpty() ? said != null : !previous.equals(said)) {
+                    return i + 1;
+                }
+                if (!hex(sha256(concat(unhex(previous), utf8(chained(line))))).equals(stated)) {
+                    return i + 1;
+                }
+                previous = stated;
+            } catch (RuntimeException malformed) {
                 return i + 1;
             }
-            String said = string(line, "prev");
-            if (!previous.isEmpty() && !previous.equals(said)) {
-                return i + 1;
-            }
-            if (previous.isEmpty() && said != null) {
-                return i + 1;
-            }
-            String computed = hex(sha256(concat(unhex(previous), utf8(chained(line)))));
-            if (!computed.equals(stated)) {
-                return i + 1;
-            }
-            previous = stated;
         }
         return 0;
+    }
+
+    /**
+     * Whether a log is a whole Run's: it begins with the one header and ends with an end record.
+     * A chain that verifies says nothing about this -- every prefix of a valid log is itself a
+     * valid log -- so the Rig needs a second question, and this is it.
+     */
+    static boolean whole(Lines lines) {
+        if (!lines.complete() || lines.whole().size() < 2 || firstBrokenLine(lines) != 0) {
+            return false;
+        }
+        for (int i = 1; i < lines.whole().size(); i++) {
+            if ("header".equals(string(lines.whole().get(i), "t"))) {
+                return false;
+            }
+        }
+        return "header".equals(string(lines.whole().get(0), "t"))
+                && "end".equals(string(lines.whole().get(lines.whole().size() - 1), "t"));
     }
 
     /** The same line with the unchained keys removed: what the chain is taken over. */
@@ -154,6 +189,13 @@ final class LogText {
             }
             int valueFrom = keyEnd + 1;
             int to = endOfValue(line, valueFrom);
+            for (Member seen : members) {
+                if (seen.key.equals(key)) {
+                    throw new IllegalArgumentException("the key " + key + " is written twice, and a"
+                            + " reader that took the last one would read a different Run from the"
+                            + " one the chain covers: " + line);
+                }
+            }
             members.add(new Member(key, from, valueFrom, to));
             at = to;
             if (at < line.length() - 1) {
