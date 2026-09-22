@@ -5,6 +5,8 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -37,9 +39,37 @@ public final class Seeds {
         Path root = checkout(args[0]);
         Path folder = args.length == 2 ? Path.of(args[1]).toAbsolutePath().normalize()
                 : root.resolve(SeedSets.FOLDER);
+        // A folder this task has never written is a folder it may not empty. Without this, one
+        // mistyped argument turned a repository's own files into the five seed sets, in an order
+        // the file system chose.
+        if (!folder.equals(root.resolve(SeedSets.FOLDER)) && !ownedByTheTask(folder)) {
+            throw new IllegalArgumentException(folder + " is not the seed folder and does not hold"
+                    + " only seed sets; " + SeedSets.COMMAND + " writes " + SeedSets.FOLDER + "/");
+        }
         // Everything is derived before anything is written, so that a set the records refuse
         // cannot leave the folder half regenerated.
         write(SeedSets.files(), folder);
+    }
+
+    /**
+     * Whether a folder is one the task may write whole: absent, empty, or holding nothing but the
+     * files it writes. A test names its own folder; nothing else should.
+     */
+    private static boolean ownedByTheTask(Path folder) {
+        if (!Files.isDirectory(folder)) {
+            return true;
+        }
+        try (Stream<Path> present = Files.list(folder)) {
+            // Seed sets and nothing else: the task writes `.json` and deletes the `.json` it no
+            // longer writes, so a folder of them is one it can own. A folder holding anything
+            // else is somebody's, and a mistyped argument must not empty it.
+            // A directory is left to `write`, whose refusal names it; this asks only whether the
+            // files here are the kind the task writes.
+            return present.allMatch(held -> Files.isDirectory(held)
+                    || Files.isRegularFile(held) && held.getFileName().toString().endsWith(".json"));
+        } catch (IOException e) {
+            throw new UncheckedIOException("the folder " + folder + " could not be read", e);
+        }
     }
 
     /** The repository root the argument names, real and checked to be a Shatterfish checkout. */
@@ -65,14 +95,28 @@ public final class Seeds {
     public static void write(Map<String, String> files, Path folder) {
         try {
             Files.createDirectories(folder);
+            // Everything the folder holds is read and judged before anything is removed. Deleting
+            // as the walk went meant a folder holding one directory lost every file beside it and
+            // then refused -- the refusal arrived after the damage it was written to prevent.
+            List<Path> stale = new ArrayList<>();
             try (Stream<Path> present = Files.list(folder)) {
-                for (Path stale : present.filter(p -> !files.containsKey(p.getFileName().toString())).toList()) {
-                    if (Files.isDirectory(stale)) {
-                        throw new IllegalStateException(stale + " is not the task's; " + folder
+                for (Path held : present.toList()) {
+                    if (Files.isDirectory(held)) {
+                        throw new IllegalStateException(held + " is not the task's; " + folder
                                 + " holds only the seed sets " + SeedSets.COMMAND + " writes");
                     }
-                    Files.delete(stale);
+                    String name = held.getFileName().toString();
+                    if (!files.containsKey(name)) {
+                        if (!name.endsWith(".json")) {
+                            throw new IllegalStateException(held + " is not the task's; " + folder
+                                    + " holds only the seed sets " + SeedSets.COMMAND + " writes");
+                        }
+                        stale.add(held);
+                    }
                 }
+            }
+            for (Path gone : stale) {
+                Files.delete(gone);
             }
             for (Map.Entry<String, String> file : files.entrySet()) {
                 Files.write(folder.resolve(file.getKey()), file.getValue().getBytes(StandardCharsets.UTF_8));

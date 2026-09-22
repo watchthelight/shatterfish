@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -109,9 +110,16 @@ public final class SeedSets {
             if (size < 1) {
                 throw new IllegalArgumentException("a set holds at least one triple: " + size);
             }
-            classes = List.copyOf(classes);
-            if (classes.isEmpty()) {
+            // Checked before the copy: List.copyOf refuses a null with a NullPointerException,
+            // so the refusal this record states was unreachable for the one input most likely to
+            // reach it.
+            if (classes == null || classes.isEmpty()) {
                 throw new IllegalArgumentException("a set names the hero classes it fixes: " + name);
+            }
+            classes = List.copyOf(classes);
+            if (Set.copyOf(classes).size() != classes.size()) {
+                throw new IllegalArgumentException("a set names each hero class once, or the cycle"
+                        + " covers fewer classes than it appears to: " + classes);
             }
             if (challengeFlags < 0 || challengeFlags > SeedSet.MAX_CHALLENGE_VALUE) {
                 throw new IllegalArgumentException("challenge flags are 0 through "
@@ -357,6 +365,14 @@ public final class SeedSets {
             throw new IllegalStateException(file + " holds " + set.size() + " triples and the set "
                     + definition.name() + " is defined as " + definition.size() + "; run " + COMMAND
                     + " and commit");
+        }
+        // The file has to be the derivation, not merely a well-formed file that agrees with
+        // itself. A tampered set was impossible to commit, because the drift check lives in a
+        // test -- and perfectly runnable outside continuous integration, attributing a published
+        // number to a set that did not produce it.
+        if (!set.equals(set(definition.name()))) {
+            throw new IllegalStateException(file + " is not the derivation it names; run "
+                    + COMMAND + " and commit what it writes");
         }
         return set;
     }

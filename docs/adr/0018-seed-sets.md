@@ -95,8 +95,10 @@ takes; `ZZZ-ZZZ-ZZZ` is what a person types into the game's own custom-seed wind
 what a stranger checking a published number will do. The code is nine base-26 digits with `A` for
 zero, which is the inverse of the game's own `convertFromCode`
 (`core/…/utils/DungeonSeed.java:52-75`) and agrees with its `convertToCode`
-(`core/…/utils/DungeonSeed.java:77-105`) everywhere; both directions and both ends of the range
-are tested, the upper end against the example the pinned file states itself.
+(`core/…/utils/DungeonSeed.java:77-106`) everywhere. `SeedCodeParityTest` in `harness` -- the
+one module that can see both `api` and the game -- runs the two against each other over both
+ends, every digit boundary and a fixed spread, and holds `SeedSet.TOTAL_SEEDS` and
+`SeedSet.MAX_CHALLENGE_VALUE` against the game's compiled constants.
 
 **The derivation.** For a set named `name` and a triple at index `i`:
 
@@ -146,9 +148,13 @@ does not clear it. `SeedSetsTest` computes both from the formula rather than ass
 so a later ADR that shrinks the set has to face the arithmetic.
 
 **`holdout` is guarded at the read.** `SeedSets.load(root, name)` is what development calls and it
-refuses `holdout` outright, naming the set and what it is for. The only way to read it is
-`SeedSets.publish(root, name, reason)`, which requires the reason it is being published and hands
-it back on the value, so the Results page has the record FR-20 requires. A set that has been run
+refuses `holdout` outright, naming the set and what it is for. `SeedSets.publish(root, name,
+reason)` is the only way in, and it requires the reason it is being published and hands it back on
+the value. The derivation itself (`set`, `files`, `constant`) is package-private, because a set
+*is* its formula: a guard standing only on the committed file stands on a copy, and the first
+draft of this design left all three public, so the holdout could be had in one call with no reason
+recorded. FR-20 also asks that a holdout be used at most once per Brain version and every use
+recorded; `publish` carries the reason but counts nothing, and that half is issue #116. A set that has been run
 during development is no longer held out, whatever anyone intended by the run, and there is no way
 to un-run it — which is why the refusal is at the door rather than in a runner that would have to
 remember. `SeedSetsTest` also holds that `holdout` shares no triple with the four sets development
@@ -165,14 +171,20 @@ derivation above if they do not trust the file. Nothing else about a set may be 
 - Good: a published number can be checked without this repository. The set is a formula, the
   committed file is a convenience, and CI proves they agree.
 - Good: one door to a set, so the `holdout` rule is enforced by the type system and not by
-  discipline; adding a later reader means either calling `load` and inheriting the refusal or
-  writing a second door, which is a visible thing to review.
+  discipline; adding a later reader means either calling `publish` and stating a reason or making
+  a package-private method public, which is a visible thing to review.
+- Bad, and new: because a seed is now a published function of a set name and an index, **the pair
+  (set name, run index) is seed-equivalent information**. A Brain handed a run index could
+  recompute the seed with `java.lang` arithmetic alone -- SplitMix64 needs nothing else. So
+  `SeedSet` and its entry are denied to `brain` by name in `BrainBoundaryTest`, and every later
+  story that plumbs rig metadata toward a Brain has to treat a run index the way it treats the
+  seed itself.
 - Good: a set's identity is (name, version), so a size revision is a version bump and every
   Results page that cited the old pair still says what it measured.
 - Bad: the seed code's encoding is written in `api` rather than called from the game, because `api`
   depends on nothing. Two implementations of one mapping can diverge. Mitigated three ways: the
-  test pins both directions, the two ends of the range and the pinned file's own example; the
-  bounds are read from the pinned declarations at every test run; and a Run is still started
+  differential test above runs both implementations against each other on every build; the
+  bounds are held against the game's compiled constants; and a Run is still started
   through the game's own `convertToCode` in the harness, so a divergence would refuse the Run
   rather than play a different one.
 - Bad: the sizes are not derived from anything. FR-20 set them before throughput was measured, and

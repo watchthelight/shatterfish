@@ -249,21 +249,77 @@ class SeedSetsTest {
     }
 
     @Test
-    @DisplayName("the holdout set shares no triple with the sets development runs")
-    void the_holdout_does_not_overlap_the_development_sets() {
-        Set<SeedSet.Entry> development = new HashSet<>();
-        // Every set but the held-out one, taken from the definitions rather than from a list here,
-        // so that a set added later is covered without anyone remembering to add it.
-        for (String name : SeedSets.names()) {
-            if (!SeedSets.HOLDOUT.equals(name)) {
-                development.addAll(SeedSets.set(name).entries());
+    @DisplayName("no two sets share a seed, so the holdout is held out whatever class plays it")
+    void the_sets_share_no_seed() {
+        // Seeds, not triples. The same seed under a different hero class is the same dungeon, and
+        // a dungeon development has run is not held out -- comparing Entry records would call two
+        // Runs of one floor distinct because the hero differs, which is the leak, not the defence.
+        // And every pair, not the holdout against a bag: an overlap between smoke and standard is
+        // a measurement counted twice.
+        List<String> names = SeedSets.names();
+        for (int a = 0; a < names.size(); a++) {
+            Set<Long> first = seedsOf(names.get(a));
+            assertEquals(SeedSets.definition(names.get(a)).size(), first.size(),
+                    names.get(a) + " repeats a seed inside itself");
+            for (int b = a + 1; b < names.size(); b++) {
+                Set<Long> shared = new HashSet<>(first);
+                shared.retainAll(seedsOf(names.get(b)));
+                assertEquals(Set.of(), shared,
+                        names.get(a) + " and " + names.get(b) + " share these seeds, so a dungeon one"
+                                + " set measures is a dungeon the other measures too");
             }
         }
-        for (SeedSet.Entry held : SeedSets.set("holdout").entries()) {
-            assertFalse(development.contains(held),
-                    "the holdout set holds " + held + ", which a development set also holds: a set that"
-                            + " overlaps what development runs is not held out");
+    }
+
+    /** The seeds one set names, read through the module's own derivation. */
+    private static Set<Long> seedsOf(String name) {
+        Set<Long> seeds = new HashSet<>();
+        for (SeedSet.Entry held : SeedSets.set(name).entries()) {
+            seeds.add(held.seed());
         }
+        return seeds;
+    }
+
+    @Test
+    @DisplayName("the four general sets cycle the game's six classes and version 1 carries no challenge flags")
+    void the_sets_fix_the_classes_and_the_flags() {
+        // Written out rather than read from the definitions: asserting definition.classes() against
+        // definition.classes() is the shape that shipped three wrong tables in epic 2.
+        List<HeroClass> six = List.of(HeroClass.WARRIOR, HeroClass.MAGE, HeroClass.ROGUE,
+                HeroClass.HUNTRESS, HeroClass.DUELIST, HeroClass.CLERIC);
+        for (String name : List.of("smoke", "standard", "holdout", "bosses")) {
+            assertEquals(six, SeedSets.definition(name).classes(), name + " cycles the game's six");
+        }
+        assertEquals(List.of(HeroClass.WARRIOR), SeedSets.definition("goo").classes(),
+                "the goo set is the E4 gate's, and FR-20 fixes it to the Warrior");
+        for (String name : SeedSets.names()) {
+            assertEquals(0, SeedSets.definition(name).challengeFlags(),
+                    name + " carries no challenge flags; version 1 has none and a set that gains"
+                            + " them is a new version");
+        }
+    }
+
+    @Test
+    @DisplayName("a definition refuses a name, a size, a class list or a flag value it cannot derive from")
+    void a_definition_refuses_what_it_cannot_derive() {
+        // Every one of these guards was unreachable as shipped: the five definitions are literals,
+        // so nothing had ever constructed one that breaks a rule the ADR publishes.
+        assertThrows(IllegalArgumentException.class,
+                () -> new SeedSets.Definition("toolonganame", 1, List.of(HeroClass.WARRIOR), 0),
+                "a name longer than eight letters has no constant");
+        assertThrows(IllegalArgumentException.class,
+                () -> new SeedSets.Definition("Smoke", 1, List.of(HeroClass.WARRIOR), 0), "not lower case");
+        assertThrows(IllegalArgumentException.class,
+                () -> new SeedSets.Definition("", 1, List.of(HeroClass.WARRIOR), 0), "no name at all");
+        assertThrows(IllegalArgumentException.class,
+                () -> new SeedSets.Definition("ok", 0, List.of(HeroClass.WARRIOR), 0), "no triples");
+        assertThrows(IllegalArgumentException.class,
+                () -> new SeedSets.Definition("ok", 1, List.of(), 0), "no classes");
+        assertThrows(IllegalArgumentException.class,
+                () -> new SeedSets.Definition("ok", 1, null, 0), "no class list");
+        assertThrows(IllegalArgumentException.class,
+                () -> new SeedSets.Definition("ok", 1, List.of(HeroClass.WARRIOR), 512),
+                "flags past the game's mask");
     }
 
     // ------------------------------------------------------------------ the goo set's size
@@ -278,8 +334,12 @@ class SeedSetsTest {
                         + ", which FR-20 requires to be above 0.70");
         // The size is load-bearing rather than decorative: the same observation over a smaller set
         // does not clear the bound, so a later ADR that shrinks the set has to say so.
-        assertFalse(wilsonLowerBound(0.75, 300) > 0.70,
-                "300 Runs would clear the bound too, so the PRD's 400 is not what makes it hold");
+        // 322 is the largest size that does not clear it, so this says where the edge actually
+        // is. Against 300 the assertion passed for every size from 323 up, which would have let a
+        // later ADR shrink the set by a fifth and still call the bound load-bearing.
+        assertFalse(wilsonLowerBound(0.75, 322) > 0.70,
+                "322 Runs clear the bound, so the size a later ADR may choose is not bounded here");
+        assertTrue(wilsonLowerBound(0.75, 323) > 0.70, "and 323 is where it starts to clear");
         // Sanity: the bound is below the observation and rises towards it with n.
         assertTrue(lower < 0.75 && wilsonLowerBound(0.75, 4_000) > lower);
     }
@@ -389,6 +449,17 @@ class SeedSetsTest {
         assertTrue(notAcheckout.getMessage().contains("not a Shatterfish checkout"), notAcheckout.getMessage());
     }
 
+    @Test
+    @DisplayName("the command every refusal names is the task that writes the sets")
+    void the_command_is_the_task() throws IOException {
+        // Nine refusals tell a reader to run this, and every assertion about it compared the
+        // constant with itself. Rename the task and they would all point at nothing.
+        String build = Files.readString(ROOT.resolve("shatterfish/rig/build.gradle"), StandardCharsets.UTF_8);
+        String task = SeedSets.COMMAND.substring(SeedSets.COMMAND.lastIndexOf(':') + 1);
+        assertTrue(build.contains("tasks.register('" + task + "'"),
+                "the refusals name `" + SeedSets.COMMAND + "`, which has to be the task that writes them");
+    }
+
     // ------------------------------------------------------------------------- the holdout door
 
     @Test
@@ -468,7 +539,7 @@ class SeedSetsTest {
     }
 
     /** A directory the reader will accept as a checkout, so the reader can be tested on its own files. */
-    private static Path checkout(Path folder) throws IOException {
+    private static Path unusedCheckout(Path folder) throws IOException {
         Files.createDirectories(folder.resolve("core/src/main/java"));
         Files.createDirectories(folder.resolve("docs"));
         Files.writeString(folder.resolve("docs/UPSTREAM.md"), "# not the real ledger\n", StandardCharsets.UTF_8);

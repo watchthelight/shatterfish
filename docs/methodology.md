@@ -11,7 +11,7 @@ A Run is determined by its **tuple**:
 | Part | What it is |
 |---|---|
 | Upstream tag | The Shattered Pixel Dungeon release the game code comes from, `v4.0.0` today |
-| Hero class | Warrior, Mage, Rogue or Huntress |
+| Hero class | Warrior, Mage, Rogue, Huntress, Duelist or Cleric (`core/…/actors/hero/HeroClass.java:87-92`) |
 | Challenges | The challenge flags the game was started with |
 | Seed | The seed a player could type into the custom-seed window; it decides the dungeon |
 | Salt | A 64-bit number the runner chooses, which decides what the game draws once play begins |
@@ -136,6 +136,13 @@ and its version and nothing else, and that pair fixes the size, the classes and 
 | `standard` | 500 | `8319381538418553444` (`0x7374616E64617264`) | the game's six, cycled | none |
 | `holdout` | 500 | `29395908910085492` (`0x686F6C646F7574`) | the game's six, cycled | none |
 | `bosses` | 100 | `108230817834355` (`0x626F73736573`) | the game's six, cycled | none |
+
+The game's six, cycled, are `WARRIOR, MAGE, ROGUE, HUNTRESS, DUELIST, CLERIC` -- the order the
+game declares them in (`core/…/actors/hero/HeroClass.java:87-92`) -- taken as `classes[i % 6]`
+for the triple at index `i`. Five of them are badge-locked for a profile that has played nothing
+(`core/…/actors/hero/HeroClass.java:330-347`), so the Profile grants those badges deliberately
+and every Run a set names can be started. That is the menu a player reaches by having played, and
+it changes nothing the bot may read.
 | `goo` | 400 | `6778735` (`0x676F6F`) | Warrior only | none |
 
 **The sets are derived, not drawn**, and this is the part that does not ask you to trust anything.

@@ -94,6 +94,12 @@ class BrainBoundaryTest {
 			java.util.Timer.class, java.util.UUID.class, java.util.ResourceBundle.class,
 			java.util.Locale.class, java.util.TimeZone.class, java.util.Currency.class,
 			java.util.IdentityHashMap.class, java.util.WeakHashMap.class,
+			// A seed set is a published function of a set name and an index (story 3.1,
+			// ADR-0018), so a Brain holding one -- or holding a run index and the derivation --
+			// could recompute the seed from java.lang arithmetic alone. The seed is the first
+			// thing non-negotiable 1 names, so the type is denied here even though `api` as a
+			// whole is allowed.
+			org.shatterfish.api.SeedSet.class, org.shatterfish.api.SeedSet.Entry.class,
 	};
 
 	/**

@@ -6,6 +6,7 @@ import com.shatteredpixel.shatteredpixeldungeon.Rankings;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Document;
 import com.watabou.utils.FileUtils;
 
+import java.util.List;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -125,6 +126,7 @@ public final class Profile {
      */
     private static void emptyTheHistory() {
         Badges.reset();
+        unlockTheClasses();
         // Every page of every document, deleted one by one, because that is the only public way to
         // put one back: restore() adds what a bundle holds and never takes anything away
         // (core/.../journal/Document.java:357-375), so restoring from an empty bundle leaves a
@@ -137,6 +139,29 @@ public final class Profile {
         // Rankings holds its records for the life of the process once loaded; dropping them makes
         // the next load read this Run's own directory, which is empty.
         Rankings.INSTANCE.records = null;
+    }
+
+    /**
+     * The five hero classes a new player has to earn, granted deliberately (story 3.1).
+     *
+     * <p>{@code Badges.reset()} above leaves a profile that has played nothing, and
+     * {@code HeroClass.isUnlocked()} reads exactly these badges
+     * ({@code core/.../actors/hero/HeroClass.java:330-347}) -- it returns true unconditionally
+     * only on a build whose version says {@code INDEV}
+     * ({@code SPD-classes/.../DeviceCompat.java:54-56}), which a pinned release never does. So a
+     * profile that has forgotten everything can select the Warrior and nothing else.
+     *
+     * <p>The seed sets name all six classes, and a set whose Runs cannot be started is a set that
+     * lies. Granting the badges is not an advantage at play: it is the menu a player reaches by
+     * having played, and the rig skips the earning rather than the playing. Nothing the bot reads
+     * changes, so information parity is untouched -- what changes is which hero the Run may start
+     * as, which is a Run's own tuple and not something the bot may know.
+     */
+    private static void unlockTheClasses() {
+        for (Badges.Badge badge : List.of(Badges.Badge.UNLOCK_MAGE, Badges.Badge.UNLOCK_ROGUE,
+                Badges.Badge.UNLOCK_HUNTRESS, Badges.Badge.UNLOCK_DUELIST, Badges.Badge.UNLOCK_CLERIC)) {
+            Badges.unlock(badge);
+        }
     }
 
     private static void write(Path stamp) {

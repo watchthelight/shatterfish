@@ -47,7 +47,7 @@ public record SeedSet(String name, int version, List<Entry> entries) {
 
     /**
      * The largest value the nine challenge flags can add up to: {@code Challenges.MAX_VALUE}
-     * ({@code core/…/Challenges.java:39}), the union of the nine bits at
+     * ({@code core/…/Challenges.java:40}), the union of the nine bits at
      * {@code core/…/Challenges.java:30-38}.
      */
     public static final int MAX_CHALLENGE_VALUE = 511;
@@ -113,12 +113,18 @@ public record SeedSet(String name, int version, List<Entry> entries) {
      * ({@code core/…/utils/DungeonSeed.java:52-75}), which says what number a code means:
      * {@code seed = Σ (code[i] - 'A') · 26^(8-i)}. Since every seed is under {@code 26^9} there is
      * exactly one nine-letter code per seed, so the inverse is a function and agrees with the
-     * game's own {@code convertToCode} ({@code core/…/utils/DungeonSeed.java:77-105}) everywhere;
-     * {@code SeedSetsTest} holds both directions and the two ends of the range. It is written here
-     * rather than called from the game because {@code api} depends on nothing (AD-13, ADR-0003):
-     * what a Run is actually started with is still the game's own call
+     * game's own {@code convertToCode} ({@code core/…/utils/DungeonSeed.java:77-106}) everywhere.
+     * It is written here rather than called from the game because {@code api} depends on nothing
+     * (AD-13, ADR-0003).
+     *
+     * <p>Nothing about starting a Run would catch a divergence. {@code HeadlessDriver.newGame}
+     * takes the number and makes the code itself
      * ({@code shatterfish/harness/src/main/java/org/shatterfish/harness/driver/HeadlessDriver.java:310}),
-     * so a divergence would refuse the Run rather than play the wrong one.
+     * so this code never reaches the game: a divergence would run the right dungeons and publish
+     * codes that open different ones, which is the failure FR-20 exists to prevent. So
+     * {@code SeedCodeParityTest} in {@code harness} -- the one module that can see both this class
+     * and the game -- holds the two against each other over the ends, the digit boundaries and a
+     * spread, and holds these constants against the game's as compiled values.
      */
     public static String code(long seed) {
         Canon.require(seed >= 0 && seed < TOTAL_SEEDS,
