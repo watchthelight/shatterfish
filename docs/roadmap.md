@@ -23,6 +23,8 @@ when it is worked and not months before.
 | **E8 Overlay v2** | [E8](https://github.com/watchthelight/shatterfish/milestone/9) | [#52](https://github.com/watchthelight/shatterfish/issues/52) | titles only | The instrument becomes a teacher | Feature-complete per bootstrap §5 | deferred |
 | **E9 Learned evaluation (optional)** | [E9](https://github.com/watchthelight/shatterfish/milestone/10) | [#53](https://github.com/watchthelight/shatterfish/issues/53) | titles only | A learned value function that plays fair | Beats the hand-tuned Evaluation under the Sequential test | optional |
 
+The Seed sets every E3 and E4 number is measured on are committed under `seeds/` and derived rather than drawn, so a stranger can reproduce a set instead of downloading it: the five sets, their sizes, the derivation and the rule that keeps `holdout` out of development are [ADR-0018](adr/0018-seed-sets.md), with the formula and a test vector on the [methodology page](methodology.md#the-seed-sets). E4's done-when above cites the `goo` set, whose 400 triples are the size that bound needs.
+
 ## Bootstrap sessions (E0)
 
 Tracked as a task list on [#1](https://github.com/watchthelight/shatterfish/issues/1).

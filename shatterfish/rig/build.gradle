@@ -4,4 +4,29 @@ apply from: "$rootDir/shatterfish/java-module.gradle"
 dependencies {
     implementation project(':harness')
     implementation project(':brain')
+    // A Seed set is an api value with a schema version of its own (AD-13, ADR-0018), written by
+    // the canonical writer in api. It already arrives through the harness, which exposes api as
+    // part of its own interface; it is declared here because the rig uses it directly and a
+    // module should not depend on what another module happens to re-export.
+    implementation project(':api')
+}
+
+// The Seed set drift check reads the committed seeds/ and compares it with a fresh derivation, and
+// Gradle cannot know that from the task graph. Without this input a hand-edited set leaves
+// :rig:test UP-TO-DATE and the check simply does not run: the build stays green because nothing
+// looked. This is the declaration the Codex's own test needed for the same reason.
+tasks.named('test') {
+    inputs.dir(rootProject.file('seeds')).withPropertyName('committedSeedSets').withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
+// `./gradlew :rig:seeds` writes seeds/ at the repository root: one task, no Run, no game boot,
+// nothing drawn. CI's drift check (SeedSetsTest) reruns the derivation and fails on a difference.
+tasks.register('seeds', JavaExec) {
+    group = 'shatterfish'
+    description = 'Writes seeds/ from the derivation in SeedSets.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.rig.Seeds'
+    workingDir = rootDir
+    args = [rootDir.absolutePath]
+    outputs.upToDateWhen { false }
 }

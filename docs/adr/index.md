@@ -23,6 +23,7 @@ skill drafts new ones; add the new file to this list and to `mkdocs.yml`.
 | [0015](0015-headless-scene-and-input-wait-detection.md) | The headless scene, the main loop, and Input-wait detection | accepted | 2026-09-04 |
 | [0016](0016-hook-ledger-corrected-by-story-1-1.md) | The hook ledger, corrected by story 1.1 (supersedes ADR-0008's table) | accepted | 2026-09-04 |
 | [0017](0017-codex-generation-and-citations.md) | Codex generation and citations: one task with no Run, api records as canonical text, citations read from the pinned source | accepted | 2026-09-16 |
+| [0018](0018-seed-sets.md) | Seed sets are derived, committed and versioned, and `holdout` is guarded at the door | accepted | 2026-09-21 |
 
 ## Decisions still to make
 

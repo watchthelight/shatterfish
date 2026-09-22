@@ -87,25 +87,25 @@ Do not choose set sizes by argument here; the PRD fixed them and the ADR will re
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `shatterfish/api/.../SeedSet.java` (or records in the existing `api` value file) -- `SeedSet`
+- [x] `shatterfish/api/.../SeedSet.java` (or records in the existing `api` value file) -- `SeedSet`
   (name, version, entries) and the triple (seed, hero class, challenge flags, seed code), each
   refusing a value outside the game's domains, with the schema version beside the Codex's.
-- [ ] `shatterfish/api/.../RigJson.java` -- the canonical writer for a seed set, one entry per line
+- [x] `shatterfish/api/.../RigJson.java` -- the canonical writer for a seed set, one entry per line
   like `CodexJson`, so a committed file is diffable and byte-stable.
-- [ ] `shatterfish/rig/.../SeedSets.java` -- the five sets from a stated derivation: a named
+- [x] `shatterfish/rig/.../SeedSets.java` -- the five sets from a stated derivation: a named
   constant per set mixed with the triple's index, so the file is reproducible and a reviewer can
   check it rather than trust it; the hero classes each set fixes; no challenge flags in version 1.
-- [ ] `shatterfish/rig/.../SeedSets.java` -- `load(name)` reads a committed set and **refuses
+- [x] `shatterfish/rig/.../SeedSets.java` -- `load(name)` reads a committed set and **refuses
   `holdout`** unless the caller states the reason it is published, which the returned value carries.
-- [ ] `shatterfish/rig/.../Seeds.java` -- the task's `main`: writes `seeds/<name>.json`, deleting
+- [x] `shatterfish/rig/.../Seeds.java` -- the task's `main`: writes `seeds/<name>.json`, deleting
   what it no longer writes, as the Codex's does.
-- [ ] `shatterfish/rig/build.gradle` -- an `api` dependency and a `seeds` task; `seeds/` as an
+- [x] `shatterfish/rig/build.gradle` -- an `api` dependency and a `seeds` task; `seeds/` as an
   input of `test`.
-- [ ] `seeds/*.json` -- the five sets, generated and committed.
-- [ ] `shatterfish/rig/src/test/.../SeedSetsTest.java` -- the matrix: sizes, domains, the refusals,
+- [x] `seeds/*.json` -- the five sets, generated and committed.
+- [x] `shatterfish/rig/src/test/.../SeedSetsTest.java` -- the matrix: sizes, domains, the refusals,
   regeneration byte-identical, the committed files a fresh generation, the `holdout` guard in both
   directions, and the `goo` set's Wilson lower bound computed rather than asserted by hand.
-- [ ] `docs/adr/0018-seed-sets.md` -- what a set is, why it is derived rather than drawn, what
+- [x] `docs/adr/0018-seed-sets.md` -- what a set is, why it is derived rather than drawn, what
   `holdout` is for, and that the sizes are revisable once E3 has throughput; `docs/roadmap.md` and
   the rig page reference it.
 
@@ -143,12 +143,53 @@ refuses unless the caller states why it is publishing is the narrowest place to 
 
 ## Verification
 
-**Commands:**
-- `./gradlew :rig:seeds -Pshatterfish.mobile=off && git status --short seeds/` -- expected: nothing
-  changed after the commit.
-- `./gradlew :rig:test -Pshatterfish.mobile=off` -- expected: green.
-- `./gradlew build -Pshatterfish.mobile=off` -- expected: green.
-- `./gradlew :codex:citations -Pshatterfish.mobile=off` -- expected: no findings, since the ADR
-  cites the pinned code.
-- `uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict` -- expected:
-  green.
+**Commands, as run:**
+- `./gradlew :rig:seeds -Pshatterfish.mobile=off && git status --short seeds/` -- the task writes
+  the five files; a second run changes nothing (`seeds/` is untracked until this branch's commit,
+  which is what `git status` reports).
+- `./gradlew :rig:test -Pshatterfish.mobile=off` -- green, 13 tests, 0 skipped.
+- `./gradlew build -Pshatterfish.mobile=off` -- green, every module.
+- `./gradlew :codex:citations -Pshatterfish.mobile=off` -- no findings; 2,944 citations on 45 pages,
+  which includes ADR-0018's and the methodology page's new ones.
+- `uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict` -- green,
+  92 artifact pages published.
+
+**The sets**: 1,525 triples over five files -- `smoke` 25, `standard` 500, `holdout` 500,
+`bosses` 100, `goo` 400 -- every seed in `[0, 26^9)`, every class one of the game's six, every
+challenge-flag value 0, every code the one the game's own `convertToCode` writes.
+
+**Independent reproduction.** The derivation was recomputed outside the JVM, in Python, from the
+formula the ADR and the methodology page publish and nothing else: the first triple of all five
+sets matches the committed files (`smoke` 3343871708117 / `QAI-OCF-LGF`, `standard` 648322377831,
+`holdout` 464228844029, `bosses` 3315639145122, `goo` 381980784027). The encoder was checked
+against the game's own `DungeonSeed.convertToCode` in a `jshell` session with `core`'s classes on
+the classpath: `0` -> `AAA-AAA-AAA`, `1` -> `AAA-AAA-AAB`, `26` -> `AAA-AAA-ABA`,
+`TOTAL_SEEDS - 1` -> `ZZZ-ZZZ-ZZZ`, and both generated seeds above. That is the claim the whole
+story rests on, so it was checked by two implementations neither of which is the one that wrote
+the files.
+
+**The `goo` bound**, computed rather than asserted: an observed 75% over 400 Runs has a 95% Wilson
+lower bound of 0.70532, above the 0.70 FR-20 requires; over 300 it is 0.69805 and does not clear
+it, so the test states that the size is what makes the bound hold.
+
+**Dev notes:**
+- The story's first design put the name-to-`HeroClass` resolution in `api`. `JsonRenderingTest`
+  caught it: a method in `api` that returns a value of the schema and takes a `String` is a
+  reader, and `api` does not read (story 2.1). It moved to `SeedSets`, where the rest of the
+  reader lives, which is the right place for the reason the gate gives. Three classes were added
+  to that test's `HELPERS` list after review: `SeedSet`, `SeedSet$Entry` and `RigJson`.
+- `rig` cannot see `core` at compile time (`harness` depends on it with `implementation`, and
+  ADR-0003's edges do not give `rig` the game), so the seed-code encoding is written in `api` and
+  the bounds are mirrored constants. `SeedSetsTest` closes that gap by reading the pinned
+  declarations of `TOTAL_SEEDS`, `Challenges.MAX_VALUE` and the six hero classes out of
+  `core/src/main/java` **as text**, the way the Codex's readers do, and holding the mirrors
+  against them -- so a divergence at an upgrade fails at the tag that caused it. This is recorded
+  as the one residual risk in ADR-0018's consequences.
+- The reader is a reader of the canonical shape, not of JSON. Twelve ways a committed file could
+  be wrong are held in `the_reader_refuses_what_is_not_the_canonical_text`, each asserting that
+  the refusal names the file and what was wrong: a wrong schema version, a wrong set name, a hero
+  class the game does not have, a code that means another seed, flags past the mask, a truncated
+  object, text after the object, a carriage return, a missing final line feed, lost indentation, a
+  trailing comma after the last triple, and a set of the wrong size.
+- `seeds/** text eol=lf` was added to `.gitattributes` for the reason `codex/**` has it: without
+  it a Windows checkout fails the byte comparison and nowhere else does.
