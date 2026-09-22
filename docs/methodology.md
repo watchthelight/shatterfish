@@ -190,6 +190,80 @@ reads a set: the development read refuses `holdout` outright, and the only other
 reason it is being published and carries that reason onto the page. `standard` and `holdout` are
 derived from different constants and are checked to share no triple.
 
+## The Run log and its chain
+
+Every Run writes `<run-id>.jsonl`: one record per line, plain text, no compression, readable with
+`grep` and a text editor. The run id is
+`<tag>-<class>-<challenges>-<seedcode>-<salt>-<brain>`, and the Brain is part of it because a
+comparison plays two Brains on the same triple under the same salt -- without it, a pair's two Runs
+would agree on every other part and write to one file.
+
+Each line carries a chain value over itself and everything before it, so a byte changed anywhere
+breaks every chain from that record on. The point of publishing the rules below is that the chain
+can be recomputed by something that has never seen this repository: a shell script with `sha256sum`
+is enough.
+
+### Canonical JSON
+
+A record is one JSON object on one line, written so that two writers of the same values produce the
+same bytes:
+
+- every object's keys are sorted by their UTF-16 code units, whatever order they were given in;
+- there is no whitespace anywhere outside a string;
+- every number is a whole number -- no floats, no exponents, no leading `+`. A turn is thousandths
+  of a turn and a score is ten-thousandths, both as integers, because two machines agreeing on a
+  float's text is a thing to hope for rather than to rely on;
+- a string is quoted with only the escapes JSON requires, plus one: an unpaired surrogate is
+  written `\uXXXX`, since raw it would not survive as the same UTF-8 everywhere;
+- a field with nothing to say is absent, never `null`;
+- the file is UTF-8, line feeds only, and ends with one.
+
+### The chain
+
+```
+chained(record) = the record's canonical JSON with these keys removed:
+                  prev, chain, think_ms, machine, started
+chain(header)   = SHA-256( utf8(chained(header)) )
+chain(record_k) = SHA-256( bytes(chain_{k-1}) || utf8(chained(record_k)) )
+```
+
+`bytes(...)` is the previous chain as its thirty-two raw bytes, not as its sixty-four hex
+characters. Every line then carries `chain`, and every line after the header also carries `prev`,
+which repeats the line before it -- so a forger who edits a field and recomputes that one line's
+own chain is caught by the next line's `prev`.
+
+The five excluded keys are excluded because they say *when* and *where* rather than *what*:
+`think_ms` is how long the decider took, `machine` and `started` are the header's own, and `prev`
+and `chain` are the envelope. So the same Run recorded on a slow laptop and a fast server chains
+identically, and nothing excluded is needed to replay the Run -- which is the test of whether a
+field belongs on that list.
+
+### Test vector
+
+One header, alone, with the values below, chains to the value in the last row. Strip the five keys,
+hash the remaining text as UTF-8, and you should get the same:
+
+| What | Value |
+|---|---|
+| The record | `{"brain":{"commit":"def5678","config":"0000000000000000000000000000000000000000000000000000000000000000","name":"random"},"challenges":0,"class":"WARRIOR","codex":8,"commit":"abc1234","machine":"a laptop","obsv":2,"oracle":false,"profile":3,"registration":"","salt":7,"seed":12345,"seedcode":"AAA-AAA-SGV","started":"2026-09-22T12:00:00Z","t":"header","tag":"v4.0.0","v":1}` |
+| Chained (the same, without `machine` and `started`) | `{"brain":{"commit":"def5678","config":"0000000000000000000000000000000000000000000000000000000000000000","name":"random"},"challenges":0,"class":"WARRIOR","codex":8,"commit":"abc1234","obsv":2,"oracle":false,"profile":3,"registration":"","salt":7,"seed":12345,"seedcode":"AAA-AAA-SGV","t":"header","tag":"v4.0.0","v":1}` |
+| `chain` | `5f742797d561c07ca0f385847675cd4e34d0f625a6d8281309659bc7b4cb68e7` |
+
+`RunLogVectorTest` recomputes this table from the code on every build, so the page cannot drift
+away from what the writer does.
+
+### What the chain does not prove
+
+The header's `tag`, `commit`, `brain` and `registration` are supplied by whoever started the Run:
+the driver has no checkout to read a commit from and no Registration to read an id from. They are
+*attested*, not verified. The chain shows that nobody changed them after the Run; what makes them
+worth anything is the Registration committed before the first Run, and the Replay that plays the
+log back and compares every Observation hash.
+
+A Run that ends without an `end` record is *incomplete* -- killed, crashed, or timed out. Its
+prefix still reads and still verifies as far as it goes, and the Rig counts it as incomplete and
+scores its pair as a tie, so a Brain cannot improve its standing by failing.
+
 ## What is shown, and what is not
 
 The same tuple, played by the same policy, gives the same Observation hash at every wait — twice in

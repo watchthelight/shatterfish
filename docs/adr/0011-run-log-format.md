@@ -93,6 +93,36 @@ results.
 - Bad: a schema bump (`v`) orphans old logs for Replay; they stay readable and their chains stay
   verifiable, which is what a published number needs.
 
+### What story 3.2 settled
+
+The decision above says what the records are; implementing it in story 3.2 settled four things it
+left open.
+
+**Where the header's provenance comes from.** `tag`, `commit`, `brain` and `registration` are
+supplied by the caller, as one value the logged Run requires. The driver has no checkout and no
+Registration, so there was no other honest source. They are attested rather than verified: the
+chain shows nobody changed them after the Run, not that they were true when it began. The
+Registration (story 3.5) and the Replay (story 3.4) are what make them worth anything, and the
+methodology page says so in as many words.
+
+**Which kinds a headless Run writes.** `header`, `wait`, `prompt` and `end`. `mode`, `shadow` and
+`boundary` are the Overlay's (ADR-0013) and `unsupported` is a human input the executor could not
+express, so nothing in the Rig produces them. All four are defined, rendered and chained now, and
+held against hand-built records, so the story that starts writing them adds a caller and not a rule
+about the format.
+
+**`wait.decision` stays absent until there is a Brain.** A decider that states no reason carries
+none, and a partial decision -- a goal with nothing chosen, a choice with no policy -- is refused,
+so E4 cannot half-fill it and call it a Decision.
+
+**`boundary` carries `chainAt`, not `chain`.** The record's own chain value and the envelope's are
+two different things; spelling them the same would have made a line that says `chain` twice.
+
+Two details the ADR did not state and now does. The previous chain enters the hash as its
+thirty-two raw bytes, not as its hex text. And the turn a `wait` records is thousandths -- the
+harness's own `turns()` rounds two of the game's floats down to an int for a person to read, and a
+chained field holds no float and loses no fraction.
+
 ## Pre-mortem
 
 *If this is wrong in six months, why?*
