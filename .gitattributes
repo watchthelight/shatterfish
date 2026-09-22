@@ -11,3 +11,19 @@ docs/codex/** text eol=lf
 # in the shell, and turns a `#!/usr/bin/env sh` line into a shebang no kernel knows.
 vanilla.pin text eol=lf
 tools/*.sh text eol=lf
+
+# The Seed sets are derived bytes compared byte for byte on every platform (story 3.1): a
+# checkout that turned their line feeds into carriage returns would fail the drift check on
+# Windows and nowhere else.
+seeds/** text eol=lf
+
+# Shatterfish's own sources and documents are line feeds, whatever a Windows checkout would
+# otherwise write (story 3.1). Six files were rewritten CRLF for four lines of content, which
+# turned a six-line edit to a fairness gate into a 248-line diff -- exactly the cover a widening
+# of that gate would travel under. Upstream's own modules are deliberately not named here: their
+# index is line feeds already and their worktree is not.
+shatterfish/** text eol=lf
+docs/** text eol=lf
+tools/** text eol=lf
+*.md text eol=lf
+mkdocs.yml text eol=lf

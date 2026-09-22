@@ -1,0 +1,31 @@
+{
+"entries":[
+  {"challengeFlags":0,"heroClass":"WARRIOR","seed":3343871708117,"seedCode":"QAI-OCF-LGF"},
+  {"challengeFlags":0,"heroClass":"MAGE","seed":2204215268527,"seedCode":"KOL-INM-GDZ"},
+  {"challengeFlags":0,"heroClass":"ROGUE","seed":2127745194024,"seedCode":"KEX-UKC-SEI"},
+  {"challengeFlags":0,"heroClass":"HUNTRESS","seed":2246569184187,"seedCode":"KTS-LGM-TOD"},
+  {"challengeFlags":0,"heroClass":"DUELIST","seed":956134529682,"seedCode":"EPB-DJZ-JVU"},
+  {"challengeFlags":0,"heroClass":"CLERIC","seed":1456654449712,"seedCode":"GZJ-JVC-CSU"},
+  {"challengeFlags":0,"heroClass":"WARRIOR","seed":4458542768457,"seedCode":"VJC-WTM-IDL"},
+  {"challengeFlags":0,"heroClass":"MAGE","seed":4429000870973,"seedCode":"VFL-GIZ-KJD"},
+  {"challengeFlags":0,"heroClass":"ROGUE","seed":3440532208947,"seedCode":"QMJ-LOG-TUP"},
+  {"challengeFlags":0,"heroClass":"HUNTRESS","seed":4674286114844,"seedCode":"WJZ-GWJ-MGI"},
+  {"challengeFlags":0,"heroClass":"DUELIST","seed":4866530115098,"seedCode":"XHX-PDR-IAC"},
+  {"challengeFlags":0,"heroClass":"CLERIC","seed":2557491060791,"seedCode":"MGK-YCL-JZR"},
+  {"challengeFlags":0,"heroClass":"WARRIOR","seed":5072090822566,"seedCode":"YHN-AFX-KUO"},
+  {"challengeFlags":0,"heroClass":"MAGE","seed":3809481558488,"seedCode":"SGH-UHQ-ZGI"},
+  {"challengeFlags":0,"heroClass":"ROGUE","seed":379675803443,"seedCode":"BVH-BOC-AVB"},
+  {"challengeFlags":0,"heroClass":"HUNTRESS","seed":3280280656732,"seedCode":"PSK-RXZ-UPO"},
+  {"challengeFlags":0,"heroClass":"DUELIST","seed":1525977129347,"seedCode":"HHZ-UJV-DJV"},
+  {"challengeFlags":0,"heroClass":"CLERIC","seed":4978543973191,"seedCode":"XVW-EVL-RNJ"},
+  {"challengeFlags":0,"heroClass":"WARRIOR","seed":2753710526134,"seedCode":"NEW-CZG-JGW"},
+  {"challengeFlags":0,"heroClass":"MAGE","seed":2959159273386,"seedCode":"OEL-EQM-KLE"},
+  {"challengeFlags":0,"heroClass":"ROGUE","seed":2631860005744,"seedCode":"MPR-RJX-OEI"},
+  {"challengeFlags":0,"heroClass":"HUNTRESS","seed":4732929652522,"seedCode":"WRH-CPY-NQG"},
+  {"challengeFlags":0,"heroClass":"DUELIST","seed":4532369038750,"seedCode":"VSH-WJK-PDU"},
+  {"challengeFlags":0,"heroClass":"CLERIC","seed":2012519456678,"seedCode":"JQO-UJT-ZZQ"},
+  {"challengeFlags":0,"heroClass":"WARRIOR","seed":3005814088988,"seedCode":"OKG-FJD-XVW"}
+],
+"name":"smoke",
+"version":1
+}

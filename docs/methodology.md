@@ -11,7 +11,7 @@ A Run is determined by its **tuple**:
 | Part | What it is |
 |---|---|
 | Upstream tag | The Shattered Pixel Dungeon release the game code comes from, `v4.0.0` today |
-| Hero class | Warrior, Mage, Rogue or Huntress |
+| Hero class | Warrior, Mage, Rogue, Huntress, Duelist or Cleric (`core/…/actors/hero/HeroClass.java:87-92`) |
 | Challenges | The challenge flags the game was started with |
 | Seed | The seed a player could type into the custom-seed window; it decides the dungeon |
 | Salt | A 64-bit number the runner chooses, which decides what the game draws once play begins |
@@ -121,6 +121,74 @@ the first boss has been slain (`core/src/main/java/com/shatteredpixel/shatteredp
 The Profile is part of the tuple in the sense that matters: change it and the Runs recorded against
 the old one are no longer comparable, which is why it carries a version and the version is in every
 results page.
+
+## The Seed sets
+
+Every number the Rig publishes is measured on a **Seed set**: a committed, versioned file of
+(seed, hero class, challenge flags) triples, with each seed's `@@@-@@@-@@@` code beside the number
+because that is what you type into the game's own custom-seed window. A Results page names the set
+and its version and nothing else, and that pair fixes the size, the classes and the flags
+([ADR-0018](adr/0018-seed-sets.md)).
+
+| Set | Size | Derivation constant | Hero classes | Challenge flags |
+|---|---|---|---|---|
+| `smoke` | 25 | `495757257573` (`0x736D6F6B65`) | the game's six, cycled | none |
+| `standard` | 500 | `8319381538418553444` (`0x7374616E64617264`) | the game's six, cycled | none |
+| `holdout` | 500 | `29395908910085492` (`0x686F6C646F7574`) | the game's six, cycled | none |
+| `bosses` | 100 | `108230817834355` (`0x626F73736573`) | the game's six, cycled | none |
+
+The game's six, cycled, are `WARRIOR, MAGE, ROGUE, HUNTRESS, DUELIST, CLERIC` -- the order the
+game declares them in (`core/…/actors/hero/HeroClass.java:87-92`) -- taken as `classes[i % 6]`
+for the triple at index `i`. Five of them are badge-locked for a profile that has played nothing
+(`core/…/actors/hero/HeroClass.java:330-347`), so the Profile grants those badges deliberately
+and every Run a set names can be started. That is the menu a player reaches by having played, and
+it changes nothing the bot may read.
+| `goo` | 400 | `6778735` (`0x676F6F`) | Warrior only | none |
+
+**The sets are derived, not drawn**, and this is the part that does not ask you to trust anything.
+A set drawn from an unseeded source and committed is a set whose only evidence is the file, and
+nothing in the file says the draw was not repeated until it flattered someone. Instead, the triple
+at index `i` of the set named `name` is:
+
+```
+constant = the name's ASCII letters, big-endian, in the low bytes of a 64-bit word
+seed     = floorMod(mix(constant, i), 5429503678976)
+class    = the set's classes, cycled: classes[i mod classes.size()]
+flags    = the set's flags, which are 0 at seed-set schema version 1
+```
+
+where `mix` is the same function as above and `5429503678976` is `26^9`, the number of seeds the
+game has (`core/…/utils/DungeonSeed.java:31`). Two details matter if you are recomputing this:
+`mix` returns a **signed** 64-bit value, and `floorMod` is the non-negative remainder, so a
+negative mix still gives a seed in range. The constant is the set's own name and nothing else, so
+there is no free parameter anybody could have chosen: naming a set fixes its seeds.
+
+### Test vector
+
+The first triple of each set, which is enough to check an implementation of the whole derivation:
+
+| Set | Constant | `i` | Seed | Code | Class |
+|---|---|---|---|---|---|
+| `smoke` | `495757257573` | 0 | `3343871708117` | `QAI-OCF-LGF` | Warrior |
+| `standard` | `8319381538418553444` | 0 | `648322377831` | `DCS-SHA-XYL` | Warrior |
+| `holdout` | `29395908910085492` | 0 | `464228844029` | `CFU-TZK-DFP` | Warrior |
+| `bosses` | `108230817834355` | 0 | `3315639145122` | `PWV-DWY-CUS` | Warrior |
+| `goo` | `6778735` | 0 | `381980784027` | `BVO-NOB-RKL` | Warrior |
+
+A code is nine base-26 digits, most significant first, with `A` for zero: the number a code means
+is the game's own `convertFromCode` (`core/…/utils/DungeonSeed.java:52-75`), so `AAA-AAA-AAA` is
+0 and `ZZZ-ZZZ-ZZZ` is 5,429,503,678,975.
+
+The committed files under `seeds/` are therefore a convenience rather than an authority. One
+command writes all five — `./gradlew :rig:seeds` — and the build compares what is committed with a
+fresh derivation, so a hand-edited set fails naming the file and that command.
+
+**`holdout` is different.** It exists to publish a release-level number, at most once per Brain
+version, and every use is recorded in the Results. A set that has been run during development is
+no longer held out, and there is no way to un-run it, so the refusal is at the only door that
+reads a set: the development read refuses `holdout` outright, and the only other way in takes the
+reason it is being published and carries that reason onto the page. `standard` and `holdout` are
+derived from different constants and are checked to share no triple.
 
 ## What is shown, and what is not
 

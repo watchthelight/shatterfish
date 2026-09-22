@@ -170,7 +170,12 @@ class JsonRenderingTest {
             "Codex$StringEntry", "Codex$AssetEntry", "Codex$ChangeHeading", "Codex$ChangeEntry", "Codex$VersionRecord",
             "Codex$DocumentPage", "Codex$DocumentEntry",
             "Codex$VocabularySide", "Codex$MechanicDifference", "Codex$VocabularyEntry", "Codex$Vocabulary",
-            "Codex$Structure");
+            "Codex$Structure",
+            // The Seed sets and the Rig's canonical writer (story 3.1). SeedSet is a committed api
+            // value with a schema version of its own, like a Codex table, and RigJson writes it;
+            // neither reads one back, which is why the name of a hero class becomes a HeroClass in
+            // the rig's reader and not here.
+            "SeedSet", "SeedSet$Entry", "RigJson");
 
     @Test
     @DisplayName("api is the schema, Action and the named helpers, and nothing in it reads text or bytes into a record")
