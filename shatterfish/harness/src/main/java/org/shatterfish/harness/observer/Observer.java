@@ -193,11 +193,22 @@ public final class Observer {
      * published Run attributing itself to no release at all.
      */
     public static String upstreamTag() {
-        if (Game.version == null || Game.version.isEmpty()) {
+        return tag(Game.version);
+    }
+
+    /**
+     * The tag a version names, refusing a version that is not one. It is separate from the reader
+     * above so that a test can ask it: a JVM that has booted cannot be un-booted, so the refusal
+     * was unreachable from any test while it lived inside the reader -- and a guard nothing can
+     * reach is a guard nobody knows works. Story 3.2's mutation battery deleted it and every test
+     * stayed green.
+     */
+    static String tag(String version) {
+        if (version == null || version.isEmpty()) {
             throw new IllegalStateException("the game has no version yet, so it has no tag: boot it"
                     + " with HeadlessBoot.ensure() before asking which release this is");
         }
-        return "v" + Game.version;
+        return "v" + version;
     }
 
     /**

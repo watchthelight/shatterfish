@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -182,13 +183,20 @@ class RunLogRunTest {
         assertEquals(outcome.turns(), turns / 1000, "the end record's turns, in thousandths");
         assertEquals("true", LogText.value(end, "verifiable"),
                 "a Run that reached the cap can be replayed");
+        // The score is the game's own (`Rankings.calculateScore`), and its first term is the hero's
+        // level times the deepest floor, so a Run that reached a floor at all scores something. A
+        // stub returning zero passed every other assertion in this story.
+        long score = Long.parseLong(held.replaceAll(".*\"score\":(\\d+).*", "$1"));
+        assertTrue(score > 0, "the Run reached floor " + outcome.depth() + " and scored " + score);
     }
 
     @Test
     @DisplayName("the last wait's index is the end record's, so `k` means one thing in one file")
     @Timeout(value = 5, unit = TimeUnit.MINUTES)
     void the_end_is_keyed_by_the_drivers_index(@TempDir Path folder) throws IOException {
-        List<String> lines = play(folder, "random", new RandomAgent(7L));
+        RunOutcome outcome = new RunLoop().play(SEED, HeroClass.WARRIOR, SALT, new RandomAgent(7L), CAP,
+                logging(folder, "random"));
+        List<String> lines = LogText.lines(file(folder, "random", SEED, SALT)).whole();
         long last = 0;
         for (String line : lines) {
             if ("wait".equals(LogText.string(line, "t"))) {
@@ -196,8 +204,13 @@ class RunLogRunTest {
             }
         }
         long end = Long.parseLong(LogText.value(lines.get(lines.size() - 1), "k"));
-        assertTrue(end >= last, "the end is keyed at or after the last wait, not before it: "
-                + end + " after " + last);
+
+        // Exactly, not "at least". A Run stopped by the turn cap was stopped at a wait the driver
+        // had already confirmed and the loop never served, so the end is keyed one past the last
+        // wait record -- and `at least` was satisfied by a mutant that keyed the end one short.
+        assertEquals(RunOutcome.Cause.TURN_CAP, outcome.cause(),
+                "this test is about the wait that was confirmed and not served: " + outcome);
+        assertEquals(last + 1, end, "the end record is keyed by the driver's index, not the loop's count");
     }
 
     // ---------------------------------------------------------------- an ending that is not tidy
@@ -300,5 +313,23 @@ class RunLogRunTest {
                     "the prompt record carries the option the wait took");
             assertNotEquals("NONE", LogText.string(prompt, "prompt"), "and names the Prompt's kind");
         }
+    }
+
+    @Test
+    @DisplayName("a Run whose header claims to be an oracle's and whose Observations are not stops at the first wait")
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void the_header_cannot_lie_about_the_oracle(@TempDir Path folder) {
+        // The header says once, before the Run, whether this Run may see what a player could not.
+        // Every wait says it again from the Observation the decider was handed. Without the second
+        // question the field is a literal nobody can contradict -- and it is the field the Rig's
+        // refusal of an oracle Run keys on (non-negotiable 1).
+        RunLoop.Logging claiming = new RunLoop.Logging(folder, ZERO,
+                new RunLog.Brain("random", ZERO, "0".repeat(64)), "", "test", true);
+
+        IllegalStateException caught = assertThrows(IllegalStateException.class,
+                () -> new RunLoop().play(SEED, HeroClass.WARRIOR, SALT, new RandomAgent(7L), CAP, claiming));
+
+        assertTrue(caught.getMessage().contains("oracle=true"), caught.getMessage());
+        assertTrue(caught.getMessage().contains("halfway through"), caught.getMessage());
     }
 }

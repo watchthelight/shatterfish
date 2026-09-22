@@ -137,6 +137,28 @@ a check that recomputes by calling the writer again checks nothing.
 - Rig numbers: none. This story writes the record a Run leaves; it changes no Brain and runs no
   comparison. The first numbers arrive with the runner (3.3) and the statistic (3.6).
 
+## Spec Change Log
+
+- **A wait carries `applied` and `actor`.** `actor` is in ADR-0011's own table and the first
+  implementation did not write it; adding it in E5 would have changed the chained text of every wait
+  ever written and forced a schema bump that orphaned every log this story produced — the exact
+  outcome the "defined, rendered and chained now" rule exists to prevent. `applied` is new and not
+  in the ADR: the record was written before the executor answered, so a refused Action was logged
+  exactly like an applied one, and a Replay applying it would reproduce a different Run.
+- **A salt is sixteen lower-case hex digits in a string, not a JSON number** (review). The run id
+  already spelt it that way; a salt runs the whole 64-bit range, and any reader built on IEEE
+  doubles silently corrupts a number above 2^53.
+- **A run id has no separator inside a part, and a Brain's name is lower case** (review). Two
+  different tuples could otherwise produce one id, and two ids differing only in case are one file
+  on Windows and on macOS.
+- **`oracle` is the caller's to state and is re-checked at every wait**; **`verifiable` follows the
+  ending** (review). Both had been literals in the only code that wrote them, which makes a flag
+  that cannot say otherwise — and `oracle` is the field the Rig's ranked-Run refusal keys on.
+- **A Run's score is the game's own whole points.** ADR-0011's "scores are integers in
+  ten-thousandths" is about a Decision's score; this story had put that sentence on the Run's field,
+  so the published unit was wrong by a factor of ten thousand.
+- **The loop has one exit.** See the design note below.
+
 ## Design Notes
 
 **Where the header's provenance comes from.** `tag`, `commit`, `brain` and `registration` are not
@@ -161,7 +183,46 @@ so E5 adds a caller and not a format rule, and the tests hold them against hand-
 policy) and no Brain exists. The field is absent for a decider that states none, and a partial
 decision is refused, so E4 cannot half-fill it.
 
+**Why the loop has one exit.** The first implementation wrapped each of the loop's seven returns
+in the call that writes the `end` record. Six were wrapped; one was not, and nothing could tell,
+because a log with no `end` record is a valid log — ADR-0012 reads it as a killed Run and scores its
+pair as a tie, so a Brain that failed in that particular way scored a tie instead of a loss. The
+general fix is the one epic 2 ended on: make the pairing a production fact rather than a line
+somebody remembers. The loop returns its outcome to one caller and that caller writes the ending, so
+a return added next year cannot skip it.
+
+**Why the checker may not share code with the writer, restated after the fact.** It held up. The
+verification-gap review traced `LogText` and confirmed it imports nothing from `api`'s renderer and
+that drift between the two copies of the unchained key set is caught in both directions. What the
+reviews then found was the *other* half of the same lesson: the property the whole design rests on —
+strip those five keys from a line's text and what is left is the text the chain covers — was
+asserted nowhere. The nearest thing to it compared two string lengths, which is true of any
+implementation, including one that returned the same value from both.
+
 ## Verification
+
+**Review (four reviewers on the working tree).** `fairness-reviewer` returned BLOCK. Between the
+four, eleven things in the branch were wrong rather than merely untested, and one was a crash.
+
+- **Every logged Run that *won* threw.** The game sets `Statistics.ascended` at the stairs
+  (`core/…/levels/SewerLevel.java:157`) and sets `gameWon` inside `Dungeon.win`
+  (`core/…/Dungeon.java:883`), which runs from the surface scene's own callback — and the loop ends
+  the Run when the game *asks* for that scene, without serving it. So the end record was built as
+  (win=false, ascended=true) and died on its own refusal. The one ending the rig exists to measure
+  was the one ending that crashed, and no test reached it because they all cap at a few hundred
+  turns.
+- **A `REFUSED` ending wrote no end record**, which ADR-0012 scores as a tie (above).
+- **The header attested the previous Run's challenges.** `Dungeon.challenges` is assigned in
+  `Dungeon.init`, inside the driver's start, and the header was built before it — and the challenges
+  are part of the run id, so the file was named after a Run nobody played.
+- `k` meant two things in one file; `oracle` and `verifiable` were literals; the run id was not
+  injective; the salt was spelt two ways; the score's published unit was wrong by 10⁴; the escape
+  rule on the methodology page was too vague to implement against; the page's "absent, never null"
+  rule was contradicted by the page's own vector two lines below it; an empty log file verified
+  clean; and a log with carriage returns crashed the published reader instead of naming a line.
+
+Every one is fixed. The three commits are `da5b1b7d7` (the production half), `486739204` (the single
+exit and the test gaps) and `35c9f9781` (the published rules).
 
 **Commands:**
 - `./gradlew build -Pshatterfish.mobile=off` — green, every module.

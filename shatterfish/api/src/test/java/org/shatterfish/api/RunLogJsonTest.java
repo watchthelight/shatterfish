@@ -221,6 +221,15 @@ class RunLogJsonTest {
 
         assertThrows(IllegalArgumentException.class, () -> new RunLog.Mode(0, "SPRINTING", "fast"),
                 "a Mode ADR-0013 does not name");
+        // ADR-0011: a prompt record carries "the option chosen (an Action of kind answer)". A
+        // decider that answered a Prompt with a step had that step refused by the executor, and the
+        // wait record beside it is where a refused Action belongs.
+        assertThrows(IllegalArgumentException.class,
+                () -> new RunLog.Prompt(0, PromptKind.SUBCLASS, new Action.Step(3)),
+                "an answer that does not answer");
+        assertThrows(IllegalArgumentException.class,
+                () -> new RunLog.Prompt(0, PromptKind.NONE, new Action.AnswerPrompt(0)),
+                "a prompt record for a Prompt that was not there");
         assertThrows(IllegalArgumentException.class, () -> new RunLog.Boundary(0, 0, "short"),
                 "a chain value that is not one");
     }
@@ -269,5 +278,25 @@ class RunLogJsonTest {
         assertThrows(IllegalArgumentException.class,
                 () -> RunLog.runId("v4.0.0", HeroClass.WARRIOR, 0, "not a code", 7L, "random"),
                 "a seed code the game does not write");
+
+        // The parts are joined with `-`, so no part may hold one: a reviewer built two different
+        // tuples that produce one id, and a Brain named `greedy-v2` is the everyday version of it.
+        assertThrows(IllegalArgumentException.class,
+                () -> RunLog.runId("v4.0.0", HeroClass.WARRIOR, 0, "AAA-AAA-AAB", 7L, "greedy-v2"),
+                "a Brain whose name holds the separator");
+        assertThrows(IllegalArgumentException.class,
+                () -> RunLog.runId("v4.0.0-beta", HeroClass.WARRIOR, 0, "AAA-AAA-AAB", 7L, "random"),
+                "a tag that holds the separator");
+        assertThrows(IllegalArgumentException.class,
+                () -> RunLog.runId("v4.0.0", HeroClass.WARRIOR, 0, "AAA-AAA-AAB", 7L, "Random"),
+                "a Brain whose name differs from another only in case, which is one file on Windows");
+
+        // fileName is the method that turns text into a path, so it checks what it is handed rather
+        // than trusting a caller to have built it above.
+        for (String notAnId : new String[] {"", "../../evidence", "v4.0.0-WARRIOR-0-AAA-AAA-AAB-7-random",
+                "v4.0.0-WARRIOR-0-AAA-AAA-AAB-0000000000000007-Random"}) {
+            assertThrows(IllegalArgumentException.class, () -> RunLog.fileName(notAnId),
+                    "a path is made from a run id, and " + notAnId + " is not one");
+        }
     }
 }
