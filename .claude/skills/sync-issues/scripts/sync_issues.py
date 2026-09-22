@@ -5,7 +5,7 @@ REPO = "watchthelight/shatterfish"
 EP = "_bmad-output/planning-artifacts/epics.md"
 STATUS = "_bmad-output/implementation-artifacts/sprint-status.yaml"
 BLOB = "https://github.com/watchthelight/shatterfish/blob/main/_bmad-output/planning-artifacts/epics.md"
-STORY_EPICS = {1, 2}  # sync-issues scope: the current epic and the next one
+STORY_EPICS = {2, 3, 4}  # sync-issues scope: the current epic and the next one
 
 
 def gh(*args, data=None):

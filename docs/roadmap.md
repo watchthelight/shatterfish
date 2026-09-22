@@ -6,15 +6,16 @@ the mirror exact and is safe to re-run. The epics and their stories come from
 [the epic breakdown](bmad/planning-artifacts/epics.md); the goals and done-when below are its
 words, which supersede the starting position in the [bootstrap prompt](BOOTSTRAP-PROMPT.md).
 
-Story issues exist for E1 and E2 today. The rest are created when their epic becomes current or
-next, so that a story is mirrored close to when it is worked and not months before.
+Story issues exist for E1 through E4 today (E1 and E2 are closed; E3 is current and E4 is next).
+The rest are created when their epic becomes current or next, so that a story is mirrored close to
+when it is worked and not months before.
 
 | Epic | Milestone | Issue | Stories | Goal | Done when | Status |
 |---|---|---|---|---|---|---|
 | **E0 Bootstrap** | [E0](https://github.com/watchthelight/shatterfish/milestone/1) | [#1](https://github.com/watchthelight/shatterfish/issues/1) | 14 sessions | Repository, pinned upstream, module skeleton with the boundary enforced, docs, CI and the full planning artifact set | Bootstrap section 11 checklist complete | in progress |
 | **E1 Harness** | [E1](https://github.com/watchthelight/shatterfish/milestone/2) | [#45](https://github.com/watchthelight/shatterfish/issues/45) | 21 stories | The game runs headlessly, reproducibly, and behind a fair Observation | A seeded Warrior Run completes headlessly, the same tuple twice is identical across two JVMs, and the whole fairness suite is green | done |
 | **E2 Codex** | [E2](https://github.com/watchthelight/shatterfish/milestone/3) | [#46](https://github.com/watchthelight/shatterfish/issues/46) | 10 stories | Every fact the Brain needs about the game, generated from the pinned code and never drifting | One Gradle task regenerates `codex/<tag>/` and CI fails on drift | done |
-| **E3 Rig** | [E3](https://github.com/watchthelight/shatterfish/milestone/4) | [#47](https://github.com/watchthelight/shatterfish/issues/47) | 12 stories | Any claim about a Brain can be measured, published and reproduced by a stranger | A random-agent Baseline is published and a deliberately worse Brain is rejected by the Sequential test | next |
+| **E3 Rig** | [E3](https://github.com/watchthelight/shatterfish/milestone/4) | [#47](https://github.com/watchthelight/shatterfish/issues/47) | 12 stories | Any claim about a Brain can be measured, published and reproduced by a stranger | A random-agent Baseline is published and a deliberately worse Brain is rejected by the Sequential test | current |
 | **E4 Baseline brain** | [E4](https://github.com/watchthelight/shatterfish/milestone/5) | [#48](https://github.com/watchthelight/shatterfish/issues/48) | 14 stories | A hand-built bot that plays the sewers competently | The Warrior kills Goo on at least 75% of the `goo` Seed set with a lower bound of at least 70% | planned |
 | **E5 Overlay v1** | [E5](https://github.com/watchthelight/shatterfish/milestone/6) | [#49](https://github.com/watchthelight/shatterfish/issues/49) | 16 stories | A person can watch the bot think, step it, and take the controls mid-fight | A full sewers Run watched end to end with a mid-fight takeover and no desync | planned |
 | **E6 Tactical search** | [E6](https://github.com/watchthelight/shatterfish/milestone/7) | [#50](https://github.com/watchthelight/shatterfish/issues/50) | titles only | Better fighting, if and only if the numbers say so | A candidate design is accepted against the one-ply model under the Sequential test, or the measurements are published and the question is closed | deferred |
