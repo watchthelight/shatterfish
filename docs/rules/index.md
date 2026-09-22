@@ -19,7 +19,7 @@ each a table:
 | Since | Session or PR that added or last re-verified it, and the tag that flipped it if it is waiting |
 
 Rules are re-verified on every upstream upgrade (`docs/UPSTREAM.md`, upgrade procedure steps 9 and
-9a): a citation that no longer resolves, or resolves to different code, flips the rule to
+10): a citation that no longer resolves, or resolves to different code, flips the rule to
 needs-review until re-read.
 
 Since story 2.10 there is an instrument for the first half of that, and it runs on every build.

@@ -90,7 +90,10 @@ The table below is a promise; these tests are what make it true. All but the las
 | `HooksLedgerTest`: nothing under an upstream module is hidden from git by a rule of ours | The same move through `.gitignore`: an ignored file is in neither the diff nor the untracked listing. Upstream's own ignore rules at the pinned tag are still honoured |
 | `DocsCitationTest` (in `./gradlew :codex:test`): every `path:line` citation in `docs/` resolves at the tag that citation names | A claim about the game still carrying an authority it lost: a cited file gone from the tree, a line past the end of it, a code span and the link beside it saying different things, a bare name that is now two files, a rules row at an older tag that nobody flagged and a flag that outlived its re-citation. Print the report with `./gradlew :codex:citations` |
 
-Both classes compare the tree against the pin, and they resolve it by **commit** rather than by tag
+`HooksLedgerTest` and `HooksVanillaTest` compare the tree against the pin, and `DocsCitationTest`
+compares each citation against the tag that citation names — which is the one thing in this table
+that is deliberately not the pin, because a rules row left at an older tag is still true of it. All
+three resolve a ref by **commit** rather than by tag
 name. The tag lives in upstream's repository: this fork carries it only if someone pushes it, and
 continuous integration clones the fork, so a tag-based check passes on a developer's machine and
 fails in CI for a reason that has nothing to do with the code. The commit needs no such arrangement,
@@ -236,7 +239,7 @@ project skill (Session 4) automates these steps.
 8. Rerun the rig baseline and publish `docs/results/<date>-<sha>.md`.
 9. Update this file (pinned table, hooks' "Verified at tag" column), `README.md`,
    and `docs/codebase-map.md` for anything the new tag contradicts.
-9a. Re-verify every citation: `./gradlew :codex:citations`. This is the instrument for the
+10. Re-verify every citation: `./gradlew :codex:citations`. This is the instrument for the
    promise in rule 2 and for the re-verification `docs/rules/index.md` describes — it resolves
    every `path:line` in `docs/` against the tree at the tag that citation names, and prints the
    page, the line, the file and which way each one failed. Read the report and act on it row by
@@ -244,7 +247,7 @@ project skill (Session 4) automates these steps.
    gone, changed, or now in more than one place, flip the row to `needs-review` and leave its link
    at the tag where it was true. Never re-cite a document to make the report empty. The same check
    runs as `DocsCitationTest` in `./gradlew build`, so the upgrade cannot merge with it red.
-10. PR with label `touches-upstream`; merge only when CI is green.
+11. PR with label `touches-upstream`; merge only when CI is green.
 
 ### What moves with the pin, and what does not
 

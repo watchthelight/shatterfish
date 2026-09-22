@@ -12,6 +12,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.TreeSet;
+import java.util.stream.Stream;
+import java.util.regex.Pattern;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -19,6 +22,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -43,6 +47,9 @@ class DocsCitationTest {
     private static final String PIN = "v1.0.0";
     private static final String BEFORE = "v0.9.0";
 
+    /** A ref that resolves and is not a tag, which is a thing a citation must not rest on. */
+    private static final String MOVING = "a-branch";
+
     /** The files the written repository holds, and what a citation into them looks like. */
     private static final String WIDGET = "core/src/main/java/com/example/Widget.java";
     private static final String OTHER_WIDGET = "core/src/main/java/com/example/parts/Widget.java";
@@ -62,16 +69,70 @@ class DocsCitationTest {
     }
 
     @Test
-    @DisplayName("the sweep reads what the project actually wrote, so it is not a check of nothing")
-    void the_sweep_reads_every_page_and_finds_citations() {
-        List<DocsCitations.Finding> ignored = new ArrayList<>();
-        int pages = DocsCitations.pages(ROOT).size();
-        int citations = DocsCitations.read(ROOT, ignored).size();
-        assertTrue(pages >= 50, "docs/ holds " + pages + " pages; the sweep reads Markdown only");
-        assertTrue(citations >= 1_500,
-                "the sweep found " + citations + " citations in docs/, which is fewer than the"
-                        + " project has written. A lexer that stopped matching would make this test"
-                        + " green by checking nothing");
+    @DisplayName("the sweep reads every page the project wrote, and every page that cites anything is read")
+    void the_sweep_reads_every_page_and_finds_citations() throws IOException {
+        // A floor on the total let any one page fall out of the sweep in silence -- including the
+        // Observer visibility record, which carries more citations than any other page. So the
+        // claim is coverage: every Markdown page under docs/ is walked, and every page that writes
+        // a citation is a page the reader found one on. Both sides are computed here, not by the
+        // reader under test.
+        TreeSet<String> walked = new TreeSet<>();
+        for (Path page : DocsCitations.pages(ROOT)) {
+            walked.add(ROOT.relativize(page).toString().replace('\\', '/'));
+        }
+        TreeSet<String> markdown = new TreeSet<>();
+        try (Stream<Path> tree = Files.walk(ROOT.resolve(DocsCitations.DOCS))) {
+            for (Path file : tree.filter(Files::isRegularFile).toList()) {
+                String page = ROOT.relativize(file).toString().replace('\\', '/');
+                if (page.endsWith(".md")) {
+                    markdown.add(page);
+                }
+            }
+        }
+        assertEquals(markdown, walked, "every Markdown page under docs/ is walked");
+
+        TreeSet<String> cited = new TreeSet<>();
+        for (DocsCitations.Citation citation : DocsCitations.read(ROOT, new ArrayList<>())) {
+            cited.add(citation.page());
+        }
+        // Read here with a pattern of this test's own: a page holding a repository link or a
+        // `path:line` outside a fence is a page the reader has to have found a citation on.
+        Pattern looksLikeOne = Pattern.compile("\\.[A-Za-z][A-Za-z0-9]*:\\d|" + Pattern.quote(DocsCitations.BLOB));
+        TreeSet<String> ought = new TreeSet<>();
+        for (String page : markdown) {
+            boolean fenced = false;
+            for (String line : Files.readAllLines(ROOT.resolve(page), StandardCharsets.UTF_8)) {
+                if (line.strip().startsWith("```") || line.strip().startsWith("~~~")) {
+                    fenced = !fenced;
+                } else if (!fenced && looksLikeOne.matcher(line).find()) {
+                    ought.add(page);
+                    break;
+                }
+            }
+        }
+        TreeSet<String> missed = new TreeSet<>(ought);
+        missed.removeAll(cited);
+        assertEquals(new TreeSet<String>(), missed,
+                "these pages write something that looks like a citation and the reader found none on"
+                        + " them; a reader that stopped matching would make the sweep green by"
+                        + " checking nothing");
+    }
+
+    @Test
+    @DisplayName("the command the upgrade procedure names says how much it read, and its status is the answer")
+    void the_report_says_how_much_it_read(@TempDir Path repository) throws IOException {
+        Repository written = new Repository(repository);
+        List<DocsCitations.Finding> findings = DocsCitations.sweep(repository);
+        List<DocsCitations.Citation> citations = DocsCitations.read(repository, new ArrayList<>());
+        String report = DocsCitations.report(repository, citations, findings);
+        // A report that says only "no findings" reads the same whether the checker read every
+        // citation or none, and it is what a reader at the re-verification step is handed.
+        assertTrue(report.contains(citations.size() + " citations on "),
+                "the report says how many citations it read: " + report);
+        assertTrue(report.contains(DocsCitations.SKIPPED), "and what it does not read: " + report);
+        assertFalse(written.cases().isEmpty(), "the written repository has broken citations");
+        assertEquals(1, DocsCitations.status(findings), "findings are a non-zero status");
+        assertEquals(0, DocsCitations.status(List.of()), "and a clean sweep is zero");
     }
 
     @Test
@@ -136,6 +197,7 @@ class DocsCitationTest {
             git("config", "commit.gpgsign", "false");
             // The line counts are the whole point, so git must not rewrite the endings it stores.
             git("config", "core.autocrlf", "false");
+            git("config", "core.hooksPath", "");
 
             write(WIDGET, java(12));
             write(OTHER_WIDGET, java(6));
@@ -145,6 +207,7 @@ class DocsCitationTest {
             git("add", "-A", "-f");
             git("commit", "-q", "-m", "the tag before");
             git("tag", BEFORE);
+            git("branch", MOVING);
 
             Files.delete(root.resolve(GONE));
             git("add", "-A", "-f");
@@ -163,8 +226,11 @@ class DocsCitationTest {
 
         private void ledger() throws IOException {
             String commit = git("rev-parse", PIN + "^{commit}").get(0).trim();
+            // Two Commit rows, as the real ledger has carried since the second pinned source
+            // arrived: the rule is the first in document order, and one row cannot show that.
             write("docs/UPSTREAM.md", "# Upstream\n\n| | |\n|---|---|\n| Tag | `" + PIN + "` |\n"
-                    + "| Commit | `" + commit + "` |\n");
+                    + "| Commit | `" + commit + "` |\n\n## The second pinned source\n\n| | |\n|---|---|\n"
+                    + "| Commit | `0000000000000000000000000000000000000000` |\n");
         }
 
         /** The rules table: the only place the tag-age convention has force. */
@@ -189,6 +255,20 @@ class DocsCitationTest {
                     "a span and a link that state different lines", "SPAN_AND_LINK");
             page.line(row(cite(WIDGET, 1, 12, "v9.9.9", 1, 12), DocsCitations.FLAG),
                     "a ref this repository does not have", "NO_SUCH_REF");
+            page.line(row("[`" + WIDGET + ":1-8`](" + DocsCitations.BLOB + PIN + "/" + ONLY + "#L1-L8)", "1"),
+                    "a span and a link that name different files", "SPAN_AND_LINK");
+            page.line(row("[the widget](" + DocsCitations.BLOB + PIN + "/" + ONLY + "#L1-L9999)", "1"),
+                    "a link whose label is not a citation is a citation all the same", "PAST_THE_END");
+            page.line(row("[the widget](" + DocsCitations.BLOB + PIN + "/" + GONE + ")", "1"),
+                    "a link with no anchor claims the file is there", "NOT_IN_THE_TREE");
+            page.line(row(cite(WIDGET, 0, 0, PIN, 1, 12), "1"),
+                    "a line zero, which no file has", "SPAN_AND_LINK");
+            page.line(row("`" + WIDGET + ":12-1`", "1"),
+                    "a range that ends before it starts", "PAST_THE_END");
+            page.line(row("`" + WIDGET + ":99999999999999999999`", "1"),
+                    "a number too long to hold, which used to end the sweep", "PAST_THE_END");
+            page.line(row("[`" + WIDGET + ":1-12`](" + DocsCitations.BLOB + MOVING + "/" + WIDGET + "#L1-L12)", "1"),
+                    "a row citing a moving ref for a path the tag pins", "A_REF_THAT_IS_NOT_A_TAG");
             page.write();
         }
 
@@ -205,6 +285,12 @@ class DocsCitationTest {
             page.line("An elided middle still resolves: `core/…/example/Only.java:3`.");
             page.line("Outside a table an older tag is evidence, not a finding: "
                     + cite(WIDGET, 1, 12, BEFORE, 1, 12) + ".");
+            // An illustration is not a claim: without this the first page that shows a broken
+            // citation turns the build red and the only fix is to delete the illustration.
+            page.line("```");
+            page.line("A fenced example: `" + WIDGET + ":9999` is how a stale citation looks.");
+            page.line("```");
+            page.line("<!-- And a commented one: `" + WIDGET + ":9998` -->");
             page.write();
         }
 

@@ -106,7 +106,10 @@ public final class DocsCitations {
 
     /** A code span linked into this repository, with the ref, the path and the anchor it opens. */
     private static final Pattern LINK = Pattern.compile(
-            "\\[`([^`\\]]*)`\\]\\(" + Pattern.quote(BLOB) + "([^/]+)/([^)#]+)(?:#L(\\d+)(?:-L(\\d+))?)?\\)");
+            "\\[([^\\]]*)\\]\\(" + Pattern.quote(BLOB) + "([^/]+)/([^)#]+)(?:#L(\\d+)(?:-L(\\d+))?)?\\)");
+
+    /** A link into this repository the reader could not read as one, which is a finding of its own. */
+    private static final Pattern UNREADABLE = Pattern.compile(Pattern.quote(BLOB) + "\\S*");
 
     /** What a ref has to look like before the tag-age rule has an opinion about it. */
     private static final Pattern TAG = Pattern.compile("^v[0-9]+([.][0-9]+)*(-[A-Za-z0-9.]+)?$");
@@ -117,7 +120,28 @@ public final class DocsCitations {
     /** What an elided middle is replaced by while a path is being matched. Never in a path. */
     private static final String ELISION = " ";
 
+    /** What a citation's lines are when it claims only that the file is there. */
+    private static final int NO_LINES = -1;
+
+    /** The largest line a file could have, so that a number too big to hold is past every end. */
+    private static final int BEYOND = Integer.MAX_VALUE;
+
     private DocsCitations() {
+    }
+
+    /**
+     * A written line number. A citation is prose, so the number in it can be longer than a line
+     * number can be; one such typo used to end the sweep with a {@code NumberFormatException} and
+     * hide all 1,800 of the citations behind it. Anything too large is past the end of every file,
+     * which is what the report will say.
+     */
+    private static int number(String written) {
+        try {
+            long held = Long.parseLong(written);
+            return held > BEYOND ? BEYOND : (int) held;
+        } catch (NumberFormatException tooLong) {
+            return BEYOND;
+        }
     }
 
     /** The ways a citation fails, each as the report says it. */
@@ -128,7 +152,9 @@ public final class DocsCitations {
         PAST_THE_END("the line is past the end of the file at that tag"),
         SPAN_AND_LINK("the code span and the link around it state different things"),
         A_TAG_NOBODY_FLAGGED("the row cites another tag and does not say " + FLAG),
-        A_FLAG_THAT_OUTLIVED_ITS_RE_CITATION("the row says " + FLAG + " and its link is at the pin");
+        A_FLAG_THAT_OUTLIVED_ITS_RE_CITATION("the row says " + FLAG + " and every citation on it is at the pin"),
+        A_REF_THAT_IS_NOT_A_TAG("the row cites a ref that is not a tag, so its authority moves"),
+        A_LINK_THIS_CHECKER_CANNOT_READ("the line links this repository in a shape the reader cannot read");
 
         final String said;
 
@@ -172,36 +198,96 @@ public final class DocsCitations {
             throw new IllegalArgumentException("usage: DocsCitations [<repository root>]");
         }
         Path root = args.length == 1 ? Generate.checkout(args[0]) : root();
-        List<Finding> findings = sweep(root);
-        System.out.println(report(root, findings));
-        if (!findings.isEmpty()) {
-            System.exit(1);
+        List<Finding> findings = new ArrayList<>();
+        List<Citation> citations = List.of();
+        int status = 0;
+        try {
+            citations = read(root, findings);
+            resolve(root, citations, findings);
+            sort(findings);
+            status = status(findings);
+        } catch (RuntimeException broken) {
+            // The checker broke rather than the documentation, and the two need different
+            // answers from whoever is reading the report.
+            System.out.println(report(root, citations, findings));
+            System.err.println(broken);
+            System.exit(2);
+        }
+        System.out.println(report(root, citations, findings));
+        if (status != 0) {
+            System.exit(status);
         }
     }
 
-    /** The report, whether or not anything failed, so that a green run says what it checked. */
+    /**
+     * The report, whether or not anything failed, so that a green run says what it read. The
+     * count is the point: a reader at the upgrade procedure's re-verification step cannot tell a
+     * clean sweep from a reader that has stopped matching unless the report says how much it read,
+     * and a gate that fails open silently is worse than no gate.
+     */
     static String report(Path root, List<Finding> findings) {
+        return report(root, read(root, new ArrayList<>()), findings);
+    }
+
+    /** The report, with the citations that were read, so a green run says how much it read. */
+    static String report(Path root, List<Citation> citations, List<Finding> findings) {
         StringBuilder text = new StringBuilder();
-        text.append("citations under ").append(DOCS).append('/')
-                .append(", each resolved at the tag it names (the pin is ").append(Upstream.tag(root))
-                .append(")\n");
+        TreeMap<String, Integer> byRef = new TreeMap<>();
+        TreeSet<String> pages = new TreeSet<>();
+        for (Citation citation : citations) {
+            byRef.merge(citation.ref(), 1, Integer::sum);
+            pages.add(citation.page());
+        }
+        text.append(citations.size()).append(" citations on ").append(pages.size()).append(" pages under ")
+                .append(DOCS).append('/').append(", each resolved at the tag it names (the pin is ")
+                .append(Upstream.tag(root)).append(")\n");
+        for (Map.Entry<String, Integer> ref : byRef.entrySet()) {
+            text.append("  ").append(ref.getValue()).append(" at ").append(ref.getKey()).append('\n');
+        }
+        text.append(SKIPPED).append('\n');
         if (findings.isEmpty()) {
             return text.append("no findings").toString();
         }
-        text.append(findings.size()).append(findings.size() == 1 ? " finding" : " findings").append("\n\n");
-        for (Finding finding : findings) {
+        text.append('\n').append(findings.size()).append(findings.size() == 1 ? " finding" : " findings")
+                .append("\n\n");
+        // Capped, because the failure that produces thousands is a broken checkout rather than
+        // broken documentation, and a wall of them is unreadable exactly when it matters.
+        for (Finding finding : findings.subList(0, Math.min(CAP, findings.size()))) {
             text.append(finding).append('\n');
+        }
+        if (findings.size() > CAP) {
+            text.append("... and ").append(findings.size() - CAP).append(" more\n");
         }
         return text.toString();
     }
+
+    /** What the exit status says: findings, or none. The upgrade procedure reads this. */
+    static int status(List<Finding> findings) {
+        return findings.isEmpty() ? 0 : 1;
+    }
+
+    /** What this checker does not read, said in the report rather than only in a document. */
+    static final String SKIPPED =
+            "  a citation naming only lines (`:1033`) is not resolved: which file it means is prose";
+
+    /** How many findings the report prints before it says how many more there are. */
+    private static final int CAP = 50;
 
     /** Every citation in {@code docs/} that does not resolve, in page then line order. */
     static List<Finding> sweep(Path root) {
         List<Finding> findings = new ArrayList<>();
         resolve(root, read(root, findings), findings);
+        sort(findings);
+        return List.copyOf(findings);
+    }
+
+    /** The findings in page then line order, each once: one line may write one citation twice. */
+    private static void sort(List<Finding> findings) {
+        List<Finding> once = new ArrayList<>(new java.util.LinkedHashSet<>(findings));
+        findings.clear();
+        findings.addAll(once);
         findings.sort(Comparator.comparing(Finding::page).thenComparingInt(Finding::line)
                 .thenComparing(f -> f.rule().name()).thenComparing(Finding::detail));
-        return List.copyOf(findings);
     }
 
     // --------------------------------------------------------------- reading the documentation
@@ -223,8 +309,22 @@ public final class DocsCitations {
             } catch (IOException e) {
                 throw new UncheckedIOException(page + " could not be read as UTF-8", e);
             }
+            boolean fenced = false;
+            boolean commented = false;
             for (int i = 0; i < lines.size(); i++) {
-                readLine(page, i + 1, lines.get(i), rulesPage, pin, citations, findings);
+                String line = lines.get(i);
+                if (line.strip().startsWith("```") || line.strip().startsWith("~~~")) {
+                    fenced = !fenced;
+                    continue;
+                }
+                boolean opens = line.contains("<!--");
+                boolean closes = line.contains("-->");
+                boolean inside = commented || opens;
+                commented = commented ? !closes : opens && !closes;
+                if (fenced || inside) {
+                    continue;
+                }
+                readLine(page, i + 1, line, rulesPage, pin, citations, findings);
             }
         }
         return citations;
@@ -232,16 +332,39 @@ public final class DocsCitations {
 
     private static void readLine(String page, int number, String line, boolean rulesPage, String pin,
                                  List<Citation> citations, List<Finding> findings) {
-        boolean row = rulesPage && line.startsWith("|");
+        boolean row = rulesPage && line.strip().startsWith("|");
         boolean flagged = row && flagged(line);
         List<Anchor> anchors = anchors(line);
         List<Anchor> unread = new ArrayList<>(anchors);
+        int written = 0;
+        Matcher unreadable = UNREADABLE.matcher(line);
+        while (unreadable.find()) {
+            written++;
+        }
+        if (written > anchors.size()) {
+            findings.add(new Finding(page, number, Rule.A_LINK_THIS_CHECKER_CANNOT_READ,
+                    "the line writes " + written + " links into this repository and the reader read "
+                            + anchors.size()));
+        }
+        // A rules row's unlinked spans belong to the tree its links name: the row is one claim
+        // about one tree, and reading half of it at the pin was one row citing two trees.
+        String here = rulesPage ? rowTag(anchors, pin) : pin;
+        List<Citation> mine = new ArrayList<>();
 
         Matcher span = CITATION.matcher(line);
         while (span.find()) {
             String path = span.group(1);
-            int from = Integer.parseInt(span.group(2));
-            int to = span.group(3) == null ? from : Integer.parseInt(span.group(3));
+            if (span.start() > 0 && truncating(line.charAt(span.start() - 1))) {
+                // The path began mid-token: a space, a backslash or a letter this reader does not
+                // take for a path character. Its tail may name a real file, and checking that file
+                // would be checking the wrong one.
+                findings.add(new Finding(page, number, Rule.A_LINK_THIS_CHECKER_CANNOT_READ,
+                        span.group() + " follows '" + line.charAt(span.start() - 1)
+                                + "', so the path it names is not whole"));
+                continue;
+            }
+            int from = number(span.group(2));
+            int to = span.group(3) == null ? from : number(span.group(3));
             Anchor around = null;
             for (Anchor anchor : anchors) {
                 if (anchor.labelStart() <= span.start() && span.end() <= anchor.labelEnd()) {
@@ -249,34 +372,79 @@ public final class DocsCitations {
                 }
             }
             if (around == null) {
-                // A citation that names no tag is written against the pin, which is the tag the
-                // documentation as a whole is written against.
-                citations.add(new Citation(page, number, span.group(), path, from, to, pin, row, flagged));
+                // A citation that names no tag is written against the tree its row names, or
+                // against the pin where there is no row.
+                Citation only = new Citation(page, number, span.group(), path, from, to, here, row, flagged);
+                citations.add(only);
+                mine.add(only);
                 continue;
             }
             unread.remove(around);
             disagreement(page, number, span.group(), path, from, to, around, findings);
-            tagAge(page, number, span.group(), around.ref(), pin, row, flagged, findings);
             // The link is the citation once there is one: it names the ref and the whole path, and
             // the span beside it is the abbreviation a reader reads. A number the two disagree
             // about is already a finding above, so it is not resolved twice here.
-            citations.add(new Citation(page, number, span.group(), around.path(),
+            Citation linked = new Citation(page, number, span.group(), around.path(),
                     around.hasLines() ? around.from() : from, around.hasLines() ? around.to() : to,
-                    around.ref(), row, flagged));
+                    around.ref(), row, flagged);
+            citations.add(linked);
+            mine.add(linked);
         }
 
-        // A link that carries line numbers and whose label is not a citation is a citation all the
-        // same: the anchor is the claim, and nothing else in this class would look at it.
+        // A link whose label is not a citation is a citation all the same: the anchor is the
+        // claim, and nothing else in this class would look at it. A link with no anchor claims
+        // that the file is there, which is less than a line but more than nothing -- and it is
+        // the shape of nearly half the repository links the documentation writes.
         for (Anchor orphan : unread) {
-            if (!orphan.hasLines()) {
+            String text = orphan.hasLines()
+                    ? orphan.path() + "#L" + orphan.from() + (orphan.to() == orphan.from() ? "" : "-L" + orphan.to())
+                    : orphan.path();
+            Citation alone = new Citation(page, number, text, orphan.path(),
+                    orphan.hasLines() ? orphan.from() : NO_LINES, orphan.hasLines() ? orphan.to() : NO_LINES,
+                    orphan.ref(), row, flagged);
+            citations.add(alone);
+            mine.add(alone);
+        }
+        if (row) {
+            tagAgeOfRow(page, number, mine, pin, flagged, findings);
+        }
+    }
+
+    /**
+     * The tag a rules row's citations are read at: the one tag its links name where they name one,
+     * and the pin otherwise.
+     */
+    private static String rowTag(List<Anchor> anchors, String pin) {
+        String found = null;
+        for (Anchor anchor : anchors) {
+            if (!TAG.matcher(anchor.ref()).matches() || anchor.ref().equals(pin)) {
                 continue;
             }
-            String text = orphan.path() + "#L" + orphan.from()
-                    + (orphan.to() == orphan.from() ? "" : "-L" + orphan.to());
-            tagAge(page, number, text, orphan.ref(), pin, row, flagged, findings);
-            citations.add(new Citation(page, number, text, orphan.path(), orphan.from(), orphan.to(),
-                    orphan.ref(), row, flagged));
+            if (found != null && !found.equals(anchor.ref())) {
+                return pin;
+            }
+            found = anchor.ref();
         }
+        return found == null ? pin : found;
+    }
+
+    /** Whether a path is one the upstream tag pins, rather than one of Shatterfish's own. */
+    private static boolean pinned(String path) {
+        for (String module : UPSTREAM) {
+            if (path.startsWith(module)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The modules an upstream release holds, so a citation into one of them names a tag. */
+    private static final List<String> UPSTREAM = List.of("core/", "SPD-classes/", "desktop/",
+            "android/", "ios/", "services/", "metadata/");
+
+    /** Whether a character before a citation means the path this reader read is not the whole one. */
+    private static boolean truncating(char before) {
+        return before == '\\' || Character.isLetterOrDigit(before);
     }
 
     /** Every link into this repository on one line, with where its label sits. */
@@ -284,8 +452,8 @@ public final class DocsCitations {
         List<Anchor> anchors = new ArrayList<>();
         Matcher link = LINK.matcher(line);
         while (link.find()) {
-            int from = link.group(4) == null ? 0 : Integer.parseInt(link.group(4));
-            int to = link.group(5) == null ? from : Integer.parseInt(link.group(5));
+            int from = link.group(4) == null ? 0 : number(link.group(4));
+            int to = link.group(5) == null ? from : number(link.group(5));
             anchors.add(new Anchor(link.start(1), link.end(1), link.group(2), link.group(3), from, to));
         }
         return anchors;
@@ -332,22 +500,44 @@ public final class DocsCitations {
     }
 
     /**
-     * The two halves of the {@code needs-review} convention, which hold of a rules row and of
-     * nothing else: a row at another tag has to say it, and a row that says it has to be at
-     * another tag.
+     * The two halves of the {@code needs-review} convention, held of the row rather than of each
+     * citation on it: a row citing another tag has to say so, and a row that says so has to cite
+     * another tag. Stating it per citation left a row that cites two tags with no green state at
+     * all, and left an unlinked span in a flagged row reported as though the row were re-cited.
+     *
+     * <p>A ref that is not a tag is a third finding. The convention is about a tree that does not
+     * move; a row citing a branch has an authority that changes under it, and neither half of the
+     * rule had an opinion about that.
      */
-    private static void tagAge(String page, int number, String text, String ref, String pin,
-                               boolean row, boolean flagged, List<Finding> findings) {
-        if (!row || !TAG.matcher(ref).matches()) {
-            return;
+    private static void tagAgeOfRow(String page, int number, List<Citation> onRow, String pin,
+                                    boolean flagged, List<Finding> findings) {
+        TreeSet<String> moving = new TreeSet<>();
+        TreeSet<String> older = new TreeSet<>();
+        List<String> refs = new ArrayList<>();
+        for (Citation citation : onRow) {
+            refs.add(citation.ref());
+            if (!TAG.matcher(citation.ref()).matches()) {
+                // Only a path a tag pins can be cited at a tag. Shatterfish's own files are not
+                // in the upstream release at all, so a row citing one of them has to name a
+                // moving ref, and saying otherwise would forbid citing our own code.
+                if (pinned(citation.path())) {
+                    moving.add(citation.ref());
+                }
+            } else if (!citation.ref().equals(pin)) {
+                older.add(citation.ref());
+            }
         }
-        if (!ref.equals(pin) && !flagged) {
+        if (!moving.isEmpty()) {
+            findings.add(new Finding(page, number, Rule.A_REF_THAT_IS_NOT_A_TAG,
+                    "the row cites " + String.join(", ", moving)));
+        }
+        if (!older.isEmpty() && !flagged) {
             findings.add(new Finding(page, number, Rule.A_TAG_NOBODY_FLAGGED,
-                    text + " is cited at " + ref + " and the pin is " + pin));
+                    "the row cites " + String.join(", ", older) + " and the pin is " + pin));
         }
-        if (ref.equals(pin) && flagged) {
+        if (older.isEmpty() && moving.isEmpty() && flagged && !refs.isEmpty()) {
             findings.add(new Finding(page, number, Rule.A_FLAG_THAT_OUTLIVED_ITS_RE_CITATION,
-                    text + " is cited at the pin " + pin));
+                    "every citation on the row is at the pin " + pin));
         }
     }
 
@@ -372,6 +562,10 @@ public final class DocsCitations {
     /** Resolves every citation against the tree of the ref it names, adding what does not resolve. */
     private static void resolve(Path root, List<Citation> citations, List<Finding> findings) {
         String pin = Upstream.tag(root);
+        if (revision(root, pin, pin).isEmpty()) {
+            throw new IllegalStateException("the pinned commit is not in this checkout, so no citation can be"
+                    + " resolved; continuous integration checks out with fetch-depth: 0. Root: " + root);
+        }
         Map<String, Optional<String>> revisions = new TreeMap<>();
         Map<String, Tree> trees = new TreeMap<>();
         Map<String, List<Citation>> located = new LinkedHashMap<>();
@@ -409,10 +603,18 @@ public final class DocsCitations {
                 if (length < 0) {
                     findings.add(new Finding(citation.page(), citation.line(), Rule.NOT_IN_THE_TREE,
                             citation.text() + " at " + citation.ref() + ": " + path + " could not be read"));
-                } else if (citation.to() > length) {
+                } else if (citation.from() == NO_LINES) {
+                    continue;
+                } else if (citation.from() == 0 || citation.to() == 0) {
+                    findings.add(new Finding(citation.page(), citation.line(), Rule.PAST_THE_END,
+                            citation.text() + " at " + citation.ref() + ": no file has a line 0"));
+                } else if (Math.max(citation.from(), citation.to()) > length) {
                     findings.add(new Finding(citation.page(), citation.line(), Rule.PAST_THE_END,
                             citation.text() + " at " + citation.ref() + ": " + path + " has " + length
                                     + (length == 1 ? " line" : " lines")));
+                } else if (citation.from() > citation.to()) {
+                    findings.add(new Finding(citation.page(), citation.line(), Rule.PAST_THE_END,
+                            citation.text() + " at " + citation.ref() + ": the range ends before it starts"));
                 }
             }
         }
@@ -536,6 +738,8 @@ public final class DocsCitations {
         ProcessBuilder builder = new ProcessBuilder("git", "--no-pager", "cat-file", "--batch")
                 .directory(root.toFile())
                 .redirectError(ProcessBuilder.Redirect.DISCARD);
+        // The process is reaped whatever happens below: an orphaned git holds the repository open,
+        // and on Windows that turns one failure into a second, unrelated one about a temp folder.
         try {
             Process process = builder.start();
             // The names go down one thread while the answers come back up this one. git answers
@@ -564,7 +768,9 @@ public final class DocsCitations {
                         // "<object> missing": no body follows, and the caller reports the object.
                         continue;
                     }
-                    byte[] body = read(from, Integer.parseInt(fields[2]));
+                            // The size is the last field, and a missing object's name may hold a space,
+                    // so the header is read from the right rather than from the left.
+                    byte[] body = read(from, number(fields[fields.length - 1]));
                     // git writes one newline after each object's bytes, whatever the object held.
                     if (from.read() < 0) {
                         throw new IOException("git cat-file --batch ended after " + object);

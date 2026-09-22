@@ -726,8 +726,9 @@ No Codex version bump: no table's bytes changed.
 
 ## Amendment: story 2.10 (2026-09-21)
 
-**A citation is resolved at the tag it names, not at the pin.** The documentation carries 1,860
-`path:line` citations and nothing checked that any of them still pointed at what it claimed, which
+**A citation is resolved at the tag it names, not at the pin.** The documentation carries 2,939
+citations the checker reads -- a `path:line`, or a link into this repository with or without a line
+anchor and nothing checked that any of them still pointed at what it claimed, which
 is non-negotiable 8 failing silently: the sentence keeps an authority it has lost, and no build says
 so. The checker resolves each one against `git show <tag>:<path>` for the tag the citation itself
 names. Against the pin instead, it would report the ninety rules rows the `v4.0.0` upgrade
@@ -747,17 +748,19 @@ tag is a finding only inside a `docs/rules/` table row, which is the only place 
 convention has force. Everywhere else a citation is simply resolved at the tag it names, which is
 exactly what an ADR wants.
 
-**A name without a path resolves by search, and refuses to guess.** 167 citations name a file
-without a path and 47 elide the middle of one — `Random.java:202-229`, `core/…/actors/mobs/Snake.java:35`
+**A name without a path resolves by search, and refuses to guess.** 168 citations name a file
+without a path and 429 elide the middle of one -- 384 with the ellipsis character and 45 with three dots — `Random.java:202-229`, `core/…/actors/mobs/Snake.java:35`
 — and the project writes them that way on purpose, because the full path of a Shattered class is
 eighty characters of ceremony. Refusing them all would report prose the project means; taking the
 first match would be folklore with a line number on it. So a bare name, or a path whose middle is
 elided by `…` or `...`, resolves when exactly one file in the tree at that tag carries it, is
 reported as ambiguous when more than one does, and as missing when none does. That is the same rule
-`Stated` uses to resolve a superclass in story 2.8, for the same reason. The 179 citations that name
-only lines (`:1033`, meaning "in the file the sentence just named") are the one shape the checker
-does not read: resolving those means reading the prose around them, and the checker resolves line
-ranges rather than sentences.
+`Stated` uses to resolve a superclass in story 2.8, for the same reason. The 180 citations that name
+only lines (`:1033`, meaning "in the file the sentence just named") are the shape the checker does
+not read: resolving those means reading the prose around them, and the checker resolves line ranges
+rather than sentences. It says so in its own report, rather than leaving a reader to find it here,
+because a report that reads as complete over a shape it skipped is the same failure as a report that
+reads as clean over a page it never opened.
 
 **A tag is resolved by commit, the way the hook ledger resolves the pin.** `HooksLedgerTest` learned
 this already and the reason is written beside it: the tag lives in upstream's repository, this fork
@@ -780,7 +783,7 @@ other way out: `codex` already reads pinned source and already runs in CI.
 **What the first sweep found.** Fourteen citations that had stopped resolving, in two documents, all
 of them wrong when they were written rather than broken since. Nine were in one rules page whose
 session-10 reader had recorded line numbers with a constant offset — 589 in `FileUtils.java`, 278 in
-`Challenges.java`, 222 in `Bones.java`, each pointing hundreds of lines past the end of a file that
+`Challenges.java`, 222 in `Bones.java`, each pointing past the end of a file that
 is byte-identical at both tags. Three more on that page used an undefined `$C/` shorthand for the
 game's package, which names no file at any tag; they are now written out and linked at `v3.3.8`,
 where their lines are exactly right. Two were in ADR-0006, a line range overrunning the end of
