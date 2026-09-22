@@ -2,7 +2,7 @@
 title: 'The citation checker'
 type: 'feature'
 created: '2026-09-21'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '636f66fdc'
 review_loop_iteration: 0
 context: []
