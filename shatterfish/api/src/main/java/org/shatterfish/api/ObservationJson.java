@@ -386,7 +386,13 @@ public final class ObservationJson {
         out.endObject();
     }
 
-    private static void write(JsonWriter out, Action action) {
+    /**
+     * An Action, as the readable Observation and the Run log both write it (story 3.2). It is
+     * package-private rather than private so that {@link RunLogJson} writes an Action through this
+     * one writer: two renderings of one value are two spellings of it, and a Replay comparing a
+     * logged Action with an observed one would be comparing spellings.
+     */
+    static void write(JsonWriter out, Action action) {
         out.beginObject();
         out.key(KIND).value(action.kind());
         if (action instanceof Action.Step step) {
