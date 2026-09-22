@@ -208,8 +208,13 @@ public final class SeedSets {
      * The derivation's constant for a set: the name's ASCII letters as a big-endian 64-bit word,
      * so that the constant is the name and nothing else. A name longer than eight letters has no
      * constant, which is why {@link Definition} refuses one.
+     *
+     * <p>Package-private, with {@link #set} and {@link #files}, because a set <em>is</em> its
+     * formula: a guard that stands only on the committed file stands on a copy, and these three
+     * hand over every triple of any set without a reason being recorded. {@link #publish} is the
+     * only way in from outside.
      */
-    public static long constant(String name) {
+    static long constant(String name) {
         Definition definition = definition(name);
         long value = 0;
         for (int i = 0; i < definition.name().length(); i++) {
@@ -218,8 +223,11 @@ public final class SeedSets {
         return value;
     }
 
-    /** The set {@code name}, derived: the same value on every machine, at every hour. */
-    public static SeedSet set(String name) {
+    /**
+     * The set {@code name}, derived: the same value on every machine, at every hour.
+     * Package-private for the reason {@link #constant} gives.
+     */
+    static SeedSet set(String name) {
         Definition definition = definition(name);
         long constant = constant(name);
         List<SeedSet.Entry> entries = new ArrayList<>(definition.size());
@@ -236,8 +244,11 @@ public final class SeedSets {
         return definition(name).name() + ".json";
     }
 
-    /** Every file the task writes, by file name, in the order {@link #names()} gives. */
-    public static Map<String, String> files() {
+    /**
+     * Every file the task writes, by file name, in the order {@link #names()} gives.
+     * Package-private for the reason {@link #constant} gives; {@link Seeds} is its one caller.
+     */
+    static Map<String, String> files() {
         Map<String, String> files = new LinkedHashMap<>();
         for (String name : names()) {
             files.put(file(name), RigJson.seedSet(set(name)));
