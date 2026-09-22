@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -157,5 +158,70 @@ class RunLogVectorTest {
                         LogText.utf8(RunLogJson.chained(wait))))),
                 RunLogJson.chain(first, wait),
                 "the previous chain enters as its thirty-two bytes, as the page says");
+    }
+
+    @Test
+    @DisplayName("the escape table on the page is the one the writer follows, character by character")
+    void the_published_escapes_are_the_real_ones() throws IOException {
+        String page = page();
+
+        // Each row of the page's table, as a pair: what goes in, what must come out. A second
+        // implementation that follows the page and differs here computes a different chain for
+        // every log holding a tab, a control character or a lone surrogate.
+        String[][] rows = {
+                {Q_, BS_ + Q_}, {BS_, BS_ + BS_}, {BSP_, BS_ + "b"}, {FF_, BS_ + "f"},
+                {LF_, BS_ + "n"}, {CR_, BS_ + "r"}, {TAB_, BS_ + "t"},
+                {"" + (char) 1, BS_ + "u0001"}, {"" + (char) 0x1f, BS_ + "u001f"},
+                {"" + (char) 0xD800, BS_ + "ud800"}, {"e" + (char) 0xE9, "e" + (char) 0xE9},
+                {"/", "/"}, {new String(Character.toChars(0x1F600)), new String(Character.toChars(0x1F600))},
+        };
+        for (String[] row : rows) {
+            RunLog.Unsupported record = new RunLog.Unsupported(0, "x" + row[0] + "y");
+            assertTrue(RunLogJson.canonical(record).contains(Q_ + "x" + row[1] + "y" + Q_),
+                    "the writer does not escape " + describe(row[0]) + " as the page says ("
+                            + row[1] + "): " + RunLogJson.canonical(record));
+        }
+        assertTrue(page.contains("lower-case"), "the page says which case the hex digits are in");
+        assertTrue(page.contains("| `/` | `/` |") || page.contains("including `/`"),
+                "the page says the solidus is not escaped");
+    }
+
+    private static final String Q_ = String.valueOf((char) 34);
+
+    private static final String BS_ = String.valueOf((char) 92);
+
+    private static final String BSP_ = String.valueOf((char) 8);
+
+    private static final String FF_ = String.valueOf((char) 12);
+
+    private static final String LF_ = String.valueOf((char) 10);
+
+    private static final String CR_ = String.valueOf((char) 13);
+
+    private static final String TAB_ = String.valueOf((char) 9);
+
+    private static String describe(String in) {
+        return in.length() == 1 ? "U+" + String.format("%04X", (int) in.charAt(0)) : in;
+    }
+
+    @Test
+    @DisplayName("the page's per-field table is what the writer does with a field that has nothing to say")
+    void absent_or_empty_is_what_the_page_says() {
+        RunLog.Wait bare = new RunLog.Wait(0, 1, 1, 0, ZERO, Map.of("map", ZERO), new Action.Step(1),
+                true, RunLog.BOT, null, "", List.of(), 5);
+        String line = RunLogJson.canonical(bare);
+
+        for (String absent : List.of("decision", "belief", "highlights")) {
+            assertFalse(line.contains(Q_ + absent + Q_ + ":"), absent + " is absent when it has nothing to say");
+        }
+        assertFalse(RunLogJson.line("", published()).contains(Q_ + "prev" + Q_),
+                "nothing comes before the header");
+        assertTrue(RunLogJson.canonical(published()).contains(Q_ + "registration" + Q_ + ":" + Q_ + Q_),
+                "an unregistered Run writes an empty registration rather than omitting it");
+        String shadow = RunLogJson.canonical(new RunLog.Shadow(1, new RunLog.Decision("g",
+                new RunLog.Choice(new Action.PickUp(), 0, ""), List.of(), List.of(), "p")));
+        assertTrue(shadow.contains(Q_ + "alternatives" + Q_ + ":[]"), shadow);
+        assertTrue(shadow.contains(Q_ + "flags" + Q_ + ":[]"), shadow);
+        assertFalse(line.contains("null"), "no field is ever null");
     }
 }

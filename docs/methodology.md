@@ -208,15 +208,44 @@ is enough.
 A record is one JSON object on one line, written so that two writers of the same values produce the
 same bytes:
 
-- every object's keys are sorted by their UTF-16 code units, whatever order they were given in;
+- every object's keys are sorted by their UTF-16 code units, whatever order they were given in,
+  and no key appears twice in one object;
 - there is no whitespace anywhere outside a string;
-- every number is a whole number -- no floats, no exponents, no leading `+`. A turn is thousandths
-  of a turn and a score is ten-thousandths, both as integers, because two machines agreeing on a
-  float's text is a thing to hope for rather than to rely on;
-- a string is quoted with only the escapes JSON requires, plus one: an unpaired surrogate is
-  written `\uXXXX`, since raw it would not survive as the same UTF-8 everywhere;
-- a field with nothing to say is absent, never `null`;
+- every number is a whole number -- no floats, no exponents, no leading `+`, no `-0`. A turn is
+  thousandths of a turn; a Decision's score is ten-thousandths; a Run's score is the game's own
+  whole points. Two machines agreeing on a float's text is a thing to hope for rather than rely on;
+- a **salt** is not a number. It is sixteen lower-case hex digits in a string, the same sixteen the
+  file name carries. A salt is drawn across the whole 64-bit range, and a JSON number above 2^53 is
+  silently rounded by every reader built on IEEE doubles -- which is most of the scripts this page
+  invites you to write;
 - the file is UTF-8, line feeds only, and ends with one.
+
+**Strings, exactly.** "The escapes JSON requires" is not a specification -- JSON permits `\u000a`
+wherever it permits `\n` -- so here is the whole rule, which is what a second implementation has to
+match byte for byte:
+
+| Character | Written as |
+|---|---|
+| `"` | `\"` |
+| `\` | `\\` |
+| backspace, form feed, line feed, carriage return, tab | `\b` `\f` `\n` `\r` `\t` |
+| any other character below U+0020 | `\u00xx`, **lower-case** hex |
+| an unpaired surrogate | `\uxxxx`, lower-case hex -- raw it would not survive as the same UTF-8 |
+| a matched surrogate pair | both characters, raw, as UTF-8 |
+| everything else, including `/` and every non-ASCII character | raw, as UTF-8 |
+
+**Absent, empty, or always written.** The general rule "a field with nothing to say is absent" was
+wrong about this format in both directions, so here is the per-field truth:
+
+| Field | When it has nothing to say |
+|---|---|
+| `decision`, `belief`, `highlights` (on a wait) | the key is absent |
+| `prev` (on the header) | the key is absent -- nothing comes before it |
+| `registration` (on the header) | written as `""` |
+| `alternatives`, `flags` (inside a decision) | written as `[]` |
+| `machine`, `started` | always written, and never chained |
+
+No field is ever `null`.
 
 ### The chain
 
@@ -237,6 +266,19 @@ The five excluded keys are excluded because they say *when* and *where* rather t
 and `chain` are the envelope. So the same Run recorded on a slow laptop and a fast server chains
 identically, and nothing excluded is needed to replay the Run -- which is the test of whether a
 field belongs on that list.
+
+**What the chain proves, and what it does not.** It proves the file is internally consistent: no
+record was changed, removed from the middle, or reordered after it was written, because every chain
+is over everything before it and each line repeats the one before it in `prev`. It does **not**
+prove the file was not written from scratch afterwards -- the rules on this page are enough to
+forge a whole log that verifies perfectly. A chain becomes evidence only when its final value is
+recorded somewhere its author does not control, which is what the Registration committed before the
+first Run (story 3.5) and the Rig's own index (story 3.3) are for.
+
+Nor is truncation detectable from the log alone: every prefix of a valid log is itself a valid log.
+That is what makes a killed Run readable, and it means "incomplete" is a claim the log cannot
+refute -- so a reader has a second question to ask beyond whether the chain verifies, which is
+whether the file begins with a header and ends with an `end` record.
 
 ### Test vector
 
