@@ -402,7 +402,8 @@ public final class Runner {
             // Tested only under a Registration that fixes a comparison: the bounds are the
             // hypothesis, and a test whose bounds were chosen after the pairs were seen is the thing
             // FR-22 exists to prevent. An unranked comparison still scores and counts its pairs.
-            Gsprt test = registration != null ? Gsprt.of(registration.registration()) : null;
+            SequentialTest test = registration != null
+                    ? SequentialTest.of(registration.registration()) : null;
             Comparison.Report report = Comparison.of(triples, salts, tag, out, brain, against, test);
             // ADR-0012: `smoke` is a direction check, and only `standard` and `bosses` can accept.
             // The test still runs and prints its trace; the report says what its ACCEPT is worth.

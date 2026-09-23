@@ -67,6 +67,9 @@ Non-negotiables touched: #5 (measured and reproducible), #1 indirectly (Oracle r
 
 ## Decision outcome
 
+*The evaluation this decision called for has run: see [Outcome of the evaluation](#outcome-of-the-evaluation-story-38-2026-09-23)
+below. The GSPRT remains the gate.*
+
 - `rig` implements `PairScore` (the lexicographic Composite comparison), `Gsprt` (option 6) and,
   in E3's calibration story, `EProcess` (option 8) side by side.
 - A Registration fixes: Hypothesis id, both Brains (name, commit, config hash), Seed set and
@@ -104,6 +107,18 @@ Non-negotiables touched: #5 (measured and reproducible), #1 indirectly (Oracle r
   test falsely; the burn-in guards the asymptotic approximation.
 - Bad: pairing's benefit is unknown until measured; the design does not depend on it being large.
 - Bad: two tests in E3 is more work than one; it is the price of trusting the bounds.
+
+## Outcome of the evaluation (story 3.8, 2026-09-23)
+
+The calibration (story 3.7) chose `p0` 0.50, `p1` 0.60, α = β = 0.05, `n0` 20, `nmax` 500 and a
+missing cap of 0.25, and declared a margin of 0.010. On 10,000 fresh sequences bootstrapped from the
+random Brain's `standard` outcomes, the GSPRT's realized false-accept rate is 5.73% and false-reject
+3.99%; the aGRAPA betting e-process's are 2.21% and 2.29%, with equal power at that `p1` and
+about 50% more pairs under H0, 60% more under H1. At `p1` = 0.55 the e-process's power falls to 37%
+against the GSPRT's 66%. The GSPRT is within its margin, so under this ADR's rule it remains the
+gate (option 6); the e-process (option 8) stays in the tree as `EProcess` behind
+`SequentialTest.GATE`, measured again by every calibration, and would take the gate only if it were
+itself within the margin and powerful. The numbers are on `docs/results/calibration-v4.0.0.md`.
 
 ## Pre-mortem
 
