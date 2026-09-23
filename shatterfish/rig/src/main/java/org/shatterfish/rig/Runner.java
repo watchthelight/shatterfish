@@ -250,8 +250,13 @@ public final class Runner {
         int deadline = bounded(arguments, DEADLINE, 1, DEADLINE_MOST, DEADLINE_SECONDS);
 
         // `load` refuses the holdout set outright (story 3.1), so the runner inherits that refusal
-        // rather than restating it -- a second copy of a rule is a second thing to keep true.
-        SeedSet triples = SeedSets.load(root, set).set();
+        // rather than restating it -- a second copy of a rule is a second thing to keep true. The
+        // one way past that door is the one FR-20 allows: a Registration that claims a release-level
+        // result, which is what `publish` demands a reason for, and the reason is the hypothesis.
+        SeedSet triples = published(registration, set)
+                ? SeedSets.publish(root, set, registration.registration().id() + ": "
+                        + registration.registration().claim()).set()
+                : SeedSets.load(root, set).set();
         RunIndex index = new RunIndex(out);
         AtomicLong waits = new AtomicLong();
         String machine = machine();
@@ -324,6 +329,18 @@ public final class Runner {
     }
 
     /**
+     * Whether this invocation is the one use of a held-out set that FR-20 permits.
+     *
+     * <p>Both halves have to hold: a Registration that claims a release-level result, and the set
+     * it claims it about. Everything else goes through `load`, which refuses the holdout set and
+     * says why.
+     */
+    private static boolean published(Registrations.Committed registration, String set) {
+        return registration != null && registration.registration().releaseLevel()
+                && Registrations.HOLDOUT.equals(set);
+    }
+
+    /**
      * The Registration this invocation runs under, or null when it is unranked.
      *
      * <p>Every refusal happens here, before a folder exists: a Registration that is not committed,
@@ -340,11 +357,9 @@ public final class Runner {
                                                 String set, String brain, String brainCommit,
                                                 String brainConfig, Ledger ledger) {
         if (!arguments.containsKey(REGISTRATION)) {
-            if (Registrations.HOLDOUT.equals(set)) {
-                throw new IllegalArgumentException("the " + Registrations.HOLDOUT + " set is run"
-                        + " only to publish a release-level number, under a Registration committed"
-                        + " before the Runs (FR-20, FR-22); this invocation names none");
-            }
+            // An unranked invocation of the holdout set is refused too -- by `SeedSets.load`, which
+            // states the whole of FR-20 and is the door story 3.1 built. Restating it here was a
+            // second place for the rule to live, and the Rig's own test caught it.
             return null;
         }
         Registrations.Committed committed = Registrations.read(root, required(arguments, REGISTRATION));
