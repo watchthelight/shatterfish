@@ -94,6 +94,25 @@ class GalleryTest {
     }
 
     @Test
+    @DisplayName("deaths come first even when a group the game did not end is larger than every death group")
+    void deaths_before_a_larger_non_death(@TempDir Path out) throws IOException {
+        List<String> index = new ArrayList<>();
+        index.add(log(out, 1000, ended("DEATH", 1, 1000)));
+        for (long seed : new long[] {2000, 3000, 4000}) {
+            index.add(log(out, seed, ended("UNKNOWN_WINDOW", 1, 900)));
+        }
+        Files.write(out.resolve(RunIndex.RUNS), index, StandardCharsets.UTF_8);
+
+        List<Gallery.Group> groups = Gallery.of(out);
+
+        assertEquals(List.of("DEATH", "UNKNOWN_WINDOW"), groups.stream().map(Gallery.Group::cause).toList(),
+                "one death before three lost windows");
+        Gallery.write(out, 0);
+        String page = Files.readString(out.resolve(Gallery.FILE), StandardCharsets.UTF_8);
+        assertTrue(page.indexOf("### DEATH at depth 1") < page.indexOf("### UNKNOWN\\_WINDOW at depth 1"), page);
+    }
+
+    @Test
     @DisplayName("a log with no ending takes the depth of its last wait")
     void no_ending_has_a_depth(@TempDir Path out) throws IOException {
         Path reference = SeedSetsTest.ROOT.resolve("reference").resolve(Reference.fileName());
@@ -309,6 +328,11 @@ class GalleryTest {
         assertThrows(IllegalArgumentException.class, () -> Gallery.main(new String[] {"x", "--snapshots"}));
         assertThrows(IllegalArgumentException.class,
                 () -> Gallery.main(new String[] {out.toString(), "--snapshots", "0"}));
-        assertThrows(IllegalArgumentException.class, () -> Gallery.write(out, -1));
+        // On a folder that is otherwise fine, so the refusal is the count's and nothing else's.
+        Files.writeString(out.resolve(RunIndex.RUNS), log(out, 1000, ended("DEATH", 1, 1000)) + "\n",
+                StandardCharsets.UTF_8);
+        IllegalArgumentException negative = assertThrows(IllegalArgumentException.class,
+                () -> Gallery.write(out, -1));
+        assertTrue(negative.getMessage().contains("not negative"), negative.getMessage());
     }
 }
