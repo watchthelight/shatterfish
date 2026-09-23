@@ -245,6 +245,55 @@ class RegistrationsTest {
                 "and it does not say the hypothesis was never committed: " + refused.getMessage());
     }
 
+    @Test
+    @DisplayName("the questions git is asked are all about the same file")
+    void a_root_inside_a_repository_reads_its_own_file(@TempDir Path top) throws IOException {
+        // The finding no amount of reading produces. `ls-files` and `status` resolve a pathspec
+        // against the directory git runs in; `show HEAD:<path>` resolves against the repository
+        // top. With a --root inside a repository rather than at its top, the "is it committed, is
+        // it unmodified" verdict was about one file and the bytes hashed into every Run log's
+        // header were another file's.
+        Path inner = top.resolve("inner");
+        Files.createDirectories(inner.resolve(Registrations.FOLDER));
+        Files.createDirectories(top.resolve(Registrations.FOLDER));
+        // One id, two files, both committed, different claims.
+        Registration outer = baseline("H-0040-two", "smoke", false);
+        Registration nested = baseline("H-0040-two", "standard", false);
+        Files.writeString(file(top, "H-0040-two"), text(outer) + System.lineSeparator(),
+                StandardCharsets.UTF_8);
+        Files.writeString(file(inner, "H-0040-two"), text(nested) + System.lineSeparator(),
+                StandardCharsets.UTF_8);
+        run(top, "git", "init", "-q");
+        run(top, "git", "config", "user.name", "a test");
+        run(top, "git", "config", "user.email", "test@example.invalid");
+        run(top, "git", "add", "-A");
+        run(top, "git", "commit", "-q", "-m", "one id, two files, two claims");
+
+        Registrations.Committed committed = Registrations.read(inner, "H-0040-two");
+
+        assertEquals("standard", committed.registration().seedSet(),
+                "the Registration read is the one inside --root, not the repository top's");
+        assertEquals(Registration.hashOf(text(nested)), committed.hash(),
+                "and the hash is over that file's committed bytes");
+    }
+
+    @Test
+    @DisplayName("a commit git cannot name is a refusal, not an empty string in the ledger")
+    void a_commit_that_cannot_be_named_is_refused(@TempDir Path root) throws IOException {
+        // `at` is the field the design calls what lets a stranger check the order of events. It
+        // used to be recorded as "" whenever git could not answer, which looks like a record.
+        repository(root, baseline("H-0041-here", "smoke", false));
+
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> Registrations.commit(root, Registrations.FOLDER + "/never-committed.json"));
+
+        assertTrue(refused.getMessage().contains("could not say which commit"), refused.getMessage());
+        assertTrue(refused.getMessage().contains("FR-22"), refused.getMessage());
+        // And for a file that is committed, it is the commit that carries it.
+        assertTrue(Registrations.commit(root, Registrations.FOLDER + "/H-0041-here.json")
+                .matches("[0-9a-f]{40}"));
+    }
+
     // ------------------------------------------------------------------------- what it refuses
 
     @Test

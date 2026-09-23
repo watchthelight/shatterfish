@@ -124,10 +124,15 @@ public final class Registrations {
         String text = committedText(root, relative);
         Registration registration = of(text, id);
         // Hashed over the text that came out of HEAD, not over a re-rendering of what was read out
-        // of it. The two agree -- `of` refuses a file that is not the canonical text of what it
-        // means -- and that is exactly why hashing the re-rendering proved nothing: both sides of
-        // the comparison would have moved together. The documents all say "the committed bytes",
-        // and now so does the code.
+        // of it. The two agree, and they agree *by construction*: `of` refuses a file that is not
+        // the canonical text of what it means, so the re-rendering is the committed text. The
+        // battery confirmed that by surviving a mutation of this line -- there is no input on which
+        // the two expressions differ while that check stands.
+        //
+        // It stays written this way regardless. The javadoc above, the methodology page and the
+        // story all say the hash is over the committed bytes, and a line that computes it from
+        // those bytes says so without asking a reader to hold an invariant from two lines away in
+        // their head.
         return new Committed(registration, commit(root, relative), Registration.hashOf(text.strip()));
     }
 
@@ -295,8 +300,15 @@ public final class Registrations {
         return text;
     }
 
-    /** The commit that last changed this Registration, which is when the hypothesis was fixed. */
-    private static String commit(Path root, String relative) {
+    /**
+     * The commit that last changed this Registration, which is when the hypothesis was fixed.
+     *
+     * <p>Package-private so that its refusal can be reached. Through {@link #read} it cannot be:
+     * the two checks above fire first for every file git cannot answer about, so the guard here is
+     * the third lock on a door that is already shut — and a lock nothing can test is a lock nobody
+     * knows works.
+     */
+    static String commit(Path root, String relative) {
         String said = git(root, "log", "-1", "--format=%H", "--", relative);
         if (said == null || !said.strip().matches("[0-9a-f]{40}")) {
             // Fails closed, like every other git question on this path. It used to return an empty
