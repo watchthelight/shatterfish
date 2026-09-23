@@ -89,11 +89,11 @@ development_status:
 
   epic-4: in-progress
   4-1-the-brain-skeleton-arbitration-and-re-planning: done
-  4-2-beliefs-about-unknown-items-and-the-floor: backlog
-  4-3-safetest-the-worst-case-check: backlog
-  4-4-the-decision-output-and-the-strategy-log: backlog
-  4-5-the-evaluation-with-weights-as-data: backlog
-  4-6-the-explore-policy: backlog
+  4-2-beliefs-about-unknown-items-and-the-floor: done
+  4-3-safetest-the-worst-case-check: review
+  4-4-the-decision-output-and-the-strategy-log: done
+  4-5-the-evaluation-with-weights-as-data: done
+  4-6-the-explore-policy: in-progress
   4-7-the-fight-in-corridors-policy: backlog
   4-8-the-pick-up-and-equip-policies: backlog
   4-9-the-eat-and-heal-policies: backlog
