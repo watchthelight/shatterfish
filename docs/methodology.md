@@ -190,6 +190,63 @@ reads a set: the development read refuses `holdout` outright, and the only other
 reason it is being published and carries that reason onto the page. `standard` and `holdout` are
 derived from different constants and are checked to share no triple.
 
+## Running many Runs
+
+```
+./gradlew :rig:run --args="--brain random --seeds smoke --parallel 4 --out runs/2026-09-22"
+```
+
+One process hosts one Run. The game keeps its state in statics — the dungeon, the statistics, the
+badges, the scene — so two Runs in one process share the thing that defines them; the parent plays
+nothing and starts a child for each Run, each with its own working directory and its own Profile.
+`--parallel` defaults to one process per core the machine reports, and whatever was used is written
+into the summary rather than assumed by a reader.
+
+The salt is drawn when a Run executes, not before, and written into that Run's log. It is in no
+registration and is not derived from the tuple, so a Brain's author cannot precompute the stream
+their Brain will face.
+
+An invocation writes two files beside the logs. `runs.jsonl` holds one line per Run — its id, its
+log, its state, its final chain, and why it ended if it did not finish. A Run is written down when
+it is **dispatched**, not when it ends: a Run that crashed is a measurement that failed and counts
+as *incomplete*, whose pair scores a tie, while a Run that simply vanished would not be counted at
+all and would quietly bias whatever was left. `summary.json` holds the counts, the wall clock and
+the measured throughput.
+
+A Run that passes its deadline is killed and counted incomplete, and its partial log stays on disk
+— a killed Run's evidence is the thing the Rig must not lose. Whatever a failed child printed is
+kept beside its log as `<run-id>.err`.
+
+There is no oracle flag on this command line, in any spelling, and an argument the Rig does not
+know is refused by name rather than ignored. The runner also reads every finished log's header back
+and fails the whole invocation if one claims the oracle. The second check is not redundancy: the
+first is a property of today's code and the second is a property of the artifact.
+
+### What it costs, measured
+
+Measured on this project's development machine — 24 cores, JDK 21, Windows — with the random agent,
+which is the Baseline every Brain is compared against. Both invocations played every Run to its
+natural ending.
+
+| Set | Runs | Processes | Wall clock | Runs/s | Waits/s | Waits |
+|---|---|---|---|---|---|---|
+| `smoke` | 25 | 24 | 13.5 s | 1.85 | 133 | 1,797 |
+| `standard` | 500 | 24 | 161 s | 3.10 | 213 | 34,348 |
+
+Two things in those numbers are worth saying plainly.
+
+**A 500-Run acceptance invocation takes under three minutes.** The requirement was that it fit
+overnight on the development laptop; it fits in a coffee break. Seed-set sizes are therefore not
+constrained by throughput at this Brain's speed, which is what ADR-0018 said to revisit once the
+cost was measured rather than guessed.
+
+**The process start dominates a short Run.** A random Warrior dies in about seventy waits, and E1
+measured roughly 400 waits/s in a single warm process — yet twenty-four processes deliver 133. The
+per-Run JVM start is the floor, which is why the smoke set is *slower* per Run than the standard set
+that keeps the pool saturated. A Brain that thinks harder will shift that balance; a Brain that
+plays longer Runs will shift it further. The number to plan a comparison from is Runs per second at
+the set size being used, not waits per second.
+
 ## The Run log and its chain
 
 Every Run writes `<run-id>.jsonl`: one record per line, plain text, no compression, readable with

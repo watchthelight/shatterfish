@@ -146,6 +146,22 @@ starts, and that line is updated, never created, when the Run ends.
 
 ## Verification
 
+**Rig numbers, measured.** The development machine (24 cores, JDK 21, Windows), the random agent,
+every Run played to its natural ending:
+
+| Set | Runs | Processes | Wall clock | Runs/s | Waits/s | Waits |
+|---|---|---|---|---|---|---|
+| `smoke` | 25 | 24 | 13.5 s | 1.85 | 133 | 1,797 |
+| `standard` | 500 | 24 | 161 s | 3.10 | 213 | 34,348 |
+
+A 500-Run acceptance invocation takes under three minutes, against a requirement that it fit
+overnight — so seed-set sizes are not throughput-constrained at this Brain's speed, which is what
+ADR-0018 deferred to a measurement. And the per-Run JVM start is the floor: a random Warrior dies in
+about seventy waits, E1 measured ~400 waits/s in one warm process, and twenty-four processes deliver
+133 on the smoke set. That is the cost of AD-6, it is why the smaller set is slower per Run than the
+larger one that keeps the pool saturated, and it means a comparison is planned from Runs per second
+at the size being used rather than from waits per second.
+
 **Commands:**
 - `./gradlew build -Pshatterfish.mobile=off` — green, every module.
 - `./gradlew :rig:test -Pshatterfish.mobile=off` — green.
