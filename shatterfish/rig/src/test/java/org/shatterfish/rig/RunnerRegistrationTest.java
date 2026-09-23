@@ -64,7 +64,7 @@ class RunnerRegistrationTest {
         Files.createDirectories(root.resolve(Registrations.FOLDER));
         for (Registration registration : registrations) {
             Files.writeString(root.resolve(Registrations.FOLDER).resolve(registration.id() + ".json"),
-                    registration.canonical() + "\n", StandardCharsets.UTF_8);
+                    registration.canonical() + System.lineSeparator(), StandardCharsets.UTF_8);
         }
         run(root, "git", "add", "-A");
         run(root, "git", "commit", "-q", "-m", "the hypotheses, before the numbers");
@@ -243,6 +243,58 @@ class RunnerRegistrationTest {
     }
 
     // -------------------------------------------------------------------------------- the refusals
+
+    @Test
+    @DisplayName("a held-out set is claimed before it is read, so killing the Rig still spends it")
+    @Timeout(value = 20, unit = TimeUnit.MINUTES)
+    void the_set_is_claimed_before_it_is_read(@TempDir Path root, @TempDir Path out)
+            throws IOException {
+        // `publish` opening the set is the moment it is spent: those triples have been seen,
+        // whatever happens to the Runs afterwards. Recording the use at the end meant Ctrl-C left
+        // the set played and the ledger silent, and the next invocation's check passed.
+        repository(root, baseline("H-0106-release", SeedSets.HOLDOUT, true, "0000000"));
+        Registration release = baseline("H-0106-release", SeedSets.HOLDOUT, true,
+                Brains.version(root, Brains.RANDOM).substring(0, 7));
+        Files.writeString(root.resolve(Registrations.FOLDER).resolve("H-0106-release.json"),
+                release.canonical() + System.lineSeparator(), StandardCharsets.UTF_8);
+        run(root, "git", "add", "-A");
+        run(root, "git", "commit", "-q", "-m", "the release hypothesis, naming the Brain");
+
+        // The real held-out set is five hundred triples -- `SeedSets.read` refuses a file whose
+        // count is not the one the set is defined as, so it cannot be made small for a test. A cap
+        // of ten turns and every core makes it about a minute, which is what this property costs.
+        Runner.run(arguments(root, out, Runner.REGISTRATION, "H-0106-release",
+                Runner.SEEDS, SeedSets.HOLDOUT, Runner.CAP, "10",
+                Runner.PARALLEL, Integer.toString(Runner.defaultParallel())));
+
+        List<Ledger.Entry> entries = new Ledger(root.resolve(Registrations.FOLDER)).entries();
+        assertEquals(2, entries.size(), "the claim and the outcome: " + entries);
+        assertEquals(Ledger.Outcome.CLAIMED, entries.get(0).outcome(),
+                "the first line is written before the set is opened");
+        assertTrue(entries.get(0).holdout(), "and it is what spends the allowance");
+        assertEquals(Ledger.Outcome.FINISHED, entries.get(1).outcome());
+        // And the reason `publish` demanded reaches the summary, which is what FR-20 asks for.
+        String summary = Files.readString(out.resolve(RunIndex.SUMMARY), StandardCharsets.UTF_8).strip();
+        assertTrue(LogHeader.string(summary, "reason").contains("H-0106-release"), summary);
+    }
+
+    @Test
+    @DisplayName("a Registration fixing another Seed set version does not govern this one")
+    void the_seed_set_version_is_enforced(@TempDir Path root, @TempDir Path out) throws IOException {
+        // A Registration names a set *and a version* so that "smoke" means the same thing later.
+        // Every set in the repository is version 1 and every Registration written so far fixes 1,
+        // so nothing could tell whether the field was enforced or merely recorded.
+        Registration later = new Registration("H-0107-later", "the random Brain finishes every Run",
+                null, new Registration.Brain("random", "abc1234", ZERO), SeedSets.SMOKE, 2, 50, 50,
+                8, 25, 0, "a laptop", false);
+        repository(root, later);
+
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> Runner.run(arguments(root, out, Runner.REGISTRATION, "H-0107-later")));
+
+        assertTrue(refused.getMessage().contains("version 2"), refused.getMessage());
+        assertTrue(refused.getMessage().contains("names the Runs it is about"), refused.getMessage());
+    }
 
     @Test
     @DisplayName("a Registration about another Brain, or another set, refuses before a Run starts")
