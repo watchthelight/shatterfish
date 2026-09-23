@@ -465,6 +465,64 @@ over, so the Runs a verdict rests on cannot be swapped underneath it. The ledger
 comparison carries the verdict and the baseline, so the ledger can say how many attempts were
 rejected before one was accepted.
 
+## Calibrating the bounds
+
+```sh
+./gradlew :rig:calibrate
+```
+
+`Gsprt`'s error rates are nominal: its guarantees are asymptotic, and the pair score it runs on is
+three-valued, often tied, and sometimes missing. FR-21 asks for the realized rates to be measured on
+this project's own outcomes before a bound is trusted, so story 3.7 measured them.
+
+**What it is bootstrapped from.** `calibration/v4.0.0-random-standard.jsonl` holds the Composite
+outcome of each of the 500 Runs of the random Brain on `standard` (version 1, turn cap 20,000),
+with each Run's chain and, in its first line, the tag, the commit, the Seed set, the command and
+the SHA-256 of the run index it was read from. The 37 MB of logs are not committed; the table is.
+`./gradlew :rig:calibrate --args="<root> extract <runs folder>"` writes it from a folder the Rig
+wrote.
+
+**H0 and H1.** A simulated pair is two independent draws from the table, scored by `PairScore`:
+two Brains of equal strength, paired as pessimistically as possible, since two different Brains
+diverge at their first differing Decision and correlation only shrinks the variance. Its mean is
+one half by symmetry. H1 is the same stream with a share `q = 2(p1 − ½)` of its pairs made wins,
+which puts the mean at exactly `p1` and keeps every other property of the real stream: its ties,
+its missing Runs, their rate. Each cell of a grid — `p1` of 0.55, 0.60 and 0.65, `n0` of 10, 20 and
+40, a missing cap of 0.10 or 0.25, with `p0` = 0.50, α = β = 0.05 and `nmax` = 500 — runs `Gsprt`
+over the same 10,000 sequences per hypothesis, from a `SplittableRandom` with a fixed seed. The
+page it writes is a generated file, and `CalibrationTest` fails when a fresh render differs from
+the committed one.
+
+**What it found.** Under H0, 18.2% of pairs tie, and almost all of that is missing Runs: 16.1% of
+pairs have a Run the game did not end, because the random Brain meets a window the Harness does not
+know in 8.4% of its Runs (`UNKNOWN_WINDOW`), and only 2.1% of pairs tie with both Runs reached.
+The statistic resolves; what it cannot absorb is a missing cap below its own missing rate: at a cap
+of 0.10 nearly every result is void. `p1` = 0.55 leaves 31% of H1 sequences undecided at 500 pairs.
+And `n0` = 10 is not enough: the normal approximation overshoots, and the realized false-accept rate
+is 6.1% at `p1` = 0.60 against a nominal 5%.
+
+**The chosen bounds**, by a rule fixed before the numbers — of the cells within calibration and
+accepting H1 at least 90% of the time, the smallest `p1`, then the smallest missing cap, then the
+fewest pairs under H1:
+
+| `p0` | `p1` | α | β | `n0` | `nmax` | missing cap |
+|---|---|---|---|---|---|---|
+| 0.500 | 0.600 | 0.050 | 0.050 | 20 | 500 | 0.250 |
+
+Realized false-accept 5.44%, realized false-reject 4.67%; H1 accepted in 94.2% of sequences after
+105.7 pairs on average. The full grid is on the [calibration page](results/calibration-v4.0.0.md).
+
+**The margin.** A realized error rate is within calibration when it is at most its nominal rate
+plus **0.010**. Ten thousand sequences put the Monte-Carlo standard error of a rate near 0.05 at
+about 0.0022, so the margin is four and a half standard errors. It is declared here, before story
+3.8's e-process exists, so that the e-process is judged by a number it did not choose.
+
+**What the missing cap costs.** A cap of one pair in four is the price of the Harness's unknown
+windows: it is what lets a comparison of today's Brains conclude at all, and it is also room for a
+Brain to crash on a quarter of the seeds it would lose. When the Harness learns the windows the
+random Brain meets, the missing rate falls, the calibration is re-run, and the cap comes down with
+it — a new Registration, never an edit.
+
 ## The Run log and its chain
 
 Every Run writes `<run-id>.jsonl`: one record per line, plain text, no compression, readable with

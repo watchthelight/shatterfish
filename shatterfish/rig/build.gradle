@@ -23,6 +23,23 @@ tasks.named('test') {
     // above: RegistrationsTest and LedgerTest hold the real files, and without this a hand-edited
     // Registration or a shortened ledger leaves those checks UP-TO-DATE and they do not run.
     inputs.dir(rootProject.file('registrations')).withPropertyName('committedRegistrations').withPathSensitivity(PathSensitivity.RELATIVE)
+    // The calibration table and the page generated from it (story 3.7): CalibrationTest renders the
+    // page afresh and compares it with the committed one.
+    inputs.dir(rootProject.file('calibration')).withPropertyName('calibrationTables').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(rootProject.file('docs/results/calibration-v4.0.0.md')).withPropertyName('calibrationPage').withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
+// `./gradlew :rig:calibrate` writes docs/results/calibration-v4.0.0.md from the committed table in
+// calibration/ (story 3.7). With `--args="<root> extract <runs folder>"` it writes the table from a
+// folder the Rig wrote instead. Nothing is played: the simulation bootstraps the table's outcomes.
+tasks.register('calibrate', JavaExec) {
+    group = 'shatterfish'
+    description = 'Calibrates the sequential test on committed outcomes and writes its results page.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.rig.Calibration'
+    workingDir = rootDir
+    args = [rootDir.absolutePath]
+    outputs.upToDateWhen { false }
 }
 
 // `./gradlew :rig:seeds` writes seeds/ at the repository root: one task, no Run, no game boot,
