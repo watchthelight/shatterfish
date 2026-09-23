@@ -72,7 +72,7 @@ class ResultsTest {
     /** A Baseline folder for the first {@code n} triples of smoke; returns nothing, writes the logs. */
     private static void folder(Path runs, int n, String commit, boolean oracle) throws IOException {
         folder(runs, n, i -> header(i, "random", "", "v4.0.0", 20_000, i == 1 ? commit : "abc1234",
-                oracle && i == 2, "2026-09-23T00:00:0" + i + "Z"));
+                oracle && i == 2, "2026-09-23T00:00:0" + (9 - i) + "Z"));
     }
 
     private static RunLog.Header header(int i, String brain, String stamp, String tag, int cap, String commit,
@@ -118,7 +118,8 @@ class ResultsTest {
         assertEquals("baseline", LogHeader.string(description, "kind"));
         assertEquals("abc1234", LogHeader.string(description, "commit"));
         assertEquals("3", LogHeader.value(description, "runs"));
-        assertEquals("2026-09-23T00:00:00Z", LogHeader.string(description, "started"), "the earliest start");
+        assertEquals("2026-09-23T00:00:07Z", LogHeader.string(description, "started"),
+                "the earliest start, which is the last header's, not the first's");
         List<String> outcomes = Files.readAllLines(into.resolve(Results.OUTCOMES), StandardCharsets.UTF_8);
         assertEquals(3, outcomes.size());
         assertEquals("100000", LogHeader.value(outcomes.get(0), "turns"), "from the log, not the index");
@@ -171,13 +172,19 @@ class ResultsTest {
                 random, worse, SeedSets.SMOKE, 1, 50, 50, 20, 25, 0, "a laptop", false, 500, 600, 250);
         org.shatterfish.api.Registration other = new org.shatterfish.api.Registration("H-0301-other", "another",
                 random, worse, SeedSets.SMOKE, 1, 50, 50, 20, 25, 0, "a laptop", false, 500, 600, 250);
-        RunnerRegistrationTest.repository(root, mine, other);
+        org.shatterfish.api.Registration elsewhere = new org.shatterfish.api.Registration("H-0302-else", "else",
+                worse, new org.shatterfish.api.Registration.Brain("random", "ccccccc", ZERO), SeedSets.SMOKE, 1,
+                50, 50, 20, 25, 0, "a laptop", false, 500, 600, 250);
+        RunnerRegistrationTest.repository(root, mine, other, elsewhere);
         Registrations.Committed committed = Registrations.read(root, "H-0300-mine");
         Ledger ledger = new Ledger(root.resolve(Registrations.FOLDER));
         ledger.record(committed, "random_norest", "bbbbbbb", ZERO, SeedSets.SMOKE, Ledger.Outcome.FINISHED, false, "one");
         ledger.record(committed, "random_norest", "bbbbbbb", ZERO, SeedSets.SMOKE, Ledger.Outcome.FINISHED, false, "two");
         ledger.record(Registrations.read(root, "H-0301-other"), "random_norest", "bbbbbbb", ZERO, SeedSets.SMOKE,
                 Ledger.Outcome.FINISHED, false, "a sibling");
+        // Another candidate Brain on the same set: not a sibling of this claim.
+        ledger.record(Registrations.read(root, "H-0302-else"), "random", "ccccccc", ZERO, SeedSets.SMOKE,
+                Ledger.Outcome.FINISHED, false, "not a sibling");
         for (String side : List.of(Comparison.CANDIDATE, Comparison.BASELINE)) {
             String brain = side.equals(Comparison.CANDIDATE) ? "random_norest" : "random";
             // Started long after the three ledger lines, which are therefore all prior.
@@ -200,6 +207,17 @@ class ResultsTest {
         assertTrue(Files.isRegularFile(into.resolve(Comparison.CANDIDATE).resolve(Results.OUTCOMES)));
         assertTrue(Files.isRegularFile(into.resolve(Comparison.BASELINE).resolve(Results.OUTCOMES)));
         assertTrue(Files.isRegularFile(into.resolve(Comparison.FILE)));
+
+        // Started before any of those ledger lines were written: none of them is prior.
+        for (String side : List.of(Comparison.CANDIDATE, Comparison.BASELINE)) {
+            String brain = side.equals(Comparison.CANDIDATE) ? "random_norest" : "random";
+            folder(runs.resolve(side), 3, i -> header(i, brain, committed.stamp(), "v4.0.0", 20_000, "abc1234",
+                    false, "2000-01-01T00:00:00Z"));
+        }
+        Results.extract(runs, root, into);
+        String early = Files.readString(into.resolve(Results.DESCRIPTION), StandardCharsets.UTF_8).strip();
+        assertEquals("0", LogHeader.value(early, "prior_attempts"), early);
+        assertEquals("0", LogHeader.value(early, "prior_sibling_attempts"), early);
 
         // And a comparison.json naming another Registration than its Runs is refused.
         Files.writeString(runs.resolve(Comparison.FILE), "{\"baseline\":\"random\",\"candidate\":\"random_norest\","
@@ -224,7 +242,7 @@ class ResultsTest {
         assertEquals(List.of("1", "-2", "3"), Results.strings("[1,-2,3]"));
         assertEquals(List.of("a,b", "c"), Results.strings("[\"a,b\",\"c\"]"));
         assertEquals(List.of("{\"x\":[1,2]}", "{\"y\":3}"), Results.strings("[{\"x\":[1,2]},{\"y\":3}]"));
-        assertEquals(List.of("a\\", "b\"c"), Results.strings("[\"a\\\\\",\"b\\\"c\"]"),
+        assertEquals(List.of("a\\", "b\",c", "d"), Results.strings("[\"a\\\\\",\"b\\\",c\",\"d\"]"),
                 "an escaped backslash ends no string, and an escaped quote starts none");
     }
 }
