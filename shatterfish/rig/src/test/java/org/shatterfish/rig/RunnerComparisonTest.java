@@ -70,6 +70,15 @@ class RunnerComparisonTest {
         assertEquals(String.valueOf(set.entries().size() - died), LogHeader.value(json, "missing"),
                 "a Run the game did not end is counted as missing");
 
+        // Each side's summary counts its own waits. The two sides played the same Runs, so their
+        // counts are equal; one counter shared by both gave one side all the waits and the other none.
+        String mineSummary = Files.readString(folder.resolve(Comparison.CANDIDATE)
+                .resolve(RunIndex.SUMMARY), StandardCharsets.UTF_8).strip();
+        String theirSummary = Files.readString(folder.resolve(Comparison.BASELINE)
+                .resolve(RunIndex.SUMMARY), StandardCharsets.UTF_8).strip();
+        assertTrue(Long.parseLong(LogHeader.value(mineSummary, "waits")) > 0, mineSummary);
+        assertEquals(LogHeader.value(mineSummary, "waits"), LogHeader.value(theirSummary, "waits"));
+
         // And the folder verifies as a whole: both sides' logs, and the comparison's record of each
         // side's index against the index there now.
         Verify.Report verified = Verify.of(folder);

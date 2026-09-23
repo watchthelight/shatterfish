@@ -129,5 +129,18 @@ class GsprtTest {
         assertThrows(IllegalArgumentException.class, () -> new Gsprt(0.5, 1.0, 0.05, 0.05, 1, 2));
         assertThrows(IllegalArgumentException.class, () -> new Gsprt(0.5, 0.55, 0, 0.05, 1, 2));
         assertThrows(IllegalArgumentException.class, () -> new Gsprt(0.5, 0.55, 0.05, 0.05, 5, 5));
+        // Each rate alone is a rate, but together at one or more the lower bound lands above the
+        // upper one and nearly everything accepts at the burn-in.
+        assertThrows(IllegalArgumentException.class, () -> new Gsprt(0.5, 0.55, 0.6, 0.5, 1, 2));
+    }
+
+    @Test
+    @DisplayName("a result over nothing but missing pairs is void, even when every pair may be missing")
+    void all_missing_is_void() {
+        // allowingMissing(1000) tolerates any share, so only the all-missing rule can void this: a
+        // run of ties that are all missing is no evidence at all, not evidence for H0.
+        Gsprt.Result result = test(10, 100).allowingMissing(1000)
+                .run(repeat(PairScore.EQUAL, 20), Collections.nCopies(20, true));
+        assertEquals(Gsprt.Verdict.VOID, result.verdict());
     }
 }

@@ -134,6 +134,9 @@ class RegistrationTest {
         assertThrows(IllegalArgumentException.class, () -> new Registration("H-0056", "x", null,
                 brain("random"), "smoke", 1, 50, 50, 8, 25, 0, "a laptop", false, 0, 0, 50),
                 "a baseline states no missing fraction either");
+        assertThrows(IllegalArgumentException.class, () -> new Registration("H-0057", "x",
+                brain("random"), brain("greedy"), "smoke", 1, 50, 50, 8, 25, 0, "a laptop", false,
+                500, 550, 1000), "a comparison that tolerates every pair missing can never be void");
         // Absent from a baseline's text, so a baseline written before they existed keeps its hash.
         assertFalse(baseline().canonical().contains("p0_per_mil"));
         assertTrue(comparison().canonical().contains("\"p0_per_mil\":500,\"p1_per_mil\":550"));

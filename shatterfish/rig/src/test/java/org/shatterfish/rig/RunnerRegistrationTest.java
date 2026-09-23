@@ -411,4 +411,39 @@ class RunnerRegistrationTest {
 
         assertTrue(refused.getMessage().contains("compares against the Brain greedy"), refused.getMessage());
     }
+
+    @Test
+    @DisplayName("a comparison against the right Brain configured otherwise is refused")
+    void the_baseline_configuration_is_the_registrations(@TempDir Path root, @TempDir Path out)
+            throws IOException {
+        repository(root, new Registration("H-0114-config", "the random Brain is not better than itself",
+                new Registration.Brain("random", "aaaaaaa", "1".repeat(64)),
+                new Registration.Brain("random", "abc1234", ZERO), SeedSets.SMOKE, 1, 50, 50, 8, 25,
+                0, "a laptop", false, 500, 550, 999));
+
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> Runner.run(arguments(root, out, Runner.REGISTRATION, "H-0114-config",
+                        Runner.AGAINST, Brains.RANDOM)));
+
+        assertTrue(refused.getMessage().contains("configured as " + "1".repeat(64)), refused.getMessage());
+    }
+
+    @Test
+    @DisplayName("a release-level comparison against a baseline version this checkout does not hold is refused")
+    void the_baseline_version_is_the_registrations(@TempDir Path root, @TempDir Path out)
+            throws IOException {
+        // The baseline is checked before the candidate, so the candidate's commit need not match
+        // anything for this refusal to be the one that is raised.
+        repository(root, new Registration("H-0115-release", "the random Brain is not better than itself",
+                new Registration.Brain("random", "aaaaaaa", ZERO),
+                new Registration.Brain("random", "abc1234", ZERO), SeedSets.SMOKE, 1, 50, 50, 8, 25,
+                0, "a laptop", true, 500, 550, 999));
+
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> Runner.run(arguments(root, out, Runner.REGISTRATION, "H-0115-release",
+                        Runner.AGAINST, Brains.RANDOM)));
+
+        assertTrue(refused.getMessage().contains("claims a release-level result against random at aaaaaaa"),
+                refused.getMessage());
+    }
 }

@@ -18,6 +18,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -149,6 +150,42 @@ class ComparisonTest {
 
         assertEquals(List.of(PairScore.EQUAL, PairScore.EQUAL), report.scores());
         assertEquals(2, report.missing());
+    }
+
+    @Test
+    @DisplayName("a log with two headers is two Runs' worth of claims, and counts as missing")
+    void one_header_per_log(@TempDir Path out) throws IOException {
+        // Chained correctly, so the reader finds nothing wrong with it line by line: only the count
+        // of headers says the file is not one Run.
+        SeedSet set = set(1);
+        SeedSet.Entry triple = set.entries().get(0);
+        died(out, Comparison.BASELINE, triple, 7L, "random", 1);
+        RunLog.Header header = new RunLog.Header(RunLog.VERSION, TAG, "abc1234", triple.heroClass(),
+                triple.challengeFlags(), triple.seed(), triple.seedCode(), 7L, 20_000, 3, 2, 8,
+                new RunLog.Brain("greedy", "abc1234", ZERO), "", false, "a laptop",
+                "2026-09-23T00:00:00Z");
+        RunLog.End end = new RunLog.End(0, new RunLog.Outcome(false, false, 0, 9, 100, "DEATH", 0),
+                true);
+        String first = RunLogJson.chain("", header);
+        String second = RunLogJson.chain(first, header);
+        Path folder = out.resolve(Comparison.CANDIDATE);
+        Files.createDirectories(folder);
+        Files.writeString(folder.resolve(RunLog.fileName(header.runId())),
+                RunLogJson.line("", header) + "\n" + RunLogJson.line(first, header) + "\n"
+                        + RunLogJson.line(second, end) + "\n", StandardCharsets.UTF_8);
+
+        Comparison.Report report = Comparison.of(set, List.of(7L), TAG, out, "greedy", "random", null);
+
+        assertEquals(List.of(PairScore.EQUAL), report.scores());
+        assertEquals(1, report.missing());
+    }
+
+    @Test
+    @DisplayName("a value no long can hold in millionths is refused, not written as Long.MAX_VALUE")
+    void micros_refuse_to_saturate() {
+        assertEquals(-2_944_439L, Comparison.micros(-2.944439));
+        assertThrows(IllegalArgumentException.class, () -> Comparison.micros(1.0e13));
+        assertThrows(IllegalArgumentException.class, () -> Comparison.micros(Double.NaN));
     }
 
     @Test
