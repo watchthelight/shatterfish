@@ -128,3 +128,10 @@ it re-reads ADR-0006's Blobs row.
 - The exact GSPRT in the Rig (found in story 3.6's review). `Gsprt` implements Van den Bergh's eq. 2.1, which is what Fishtest's `sprt.set_state` reports, but Fishtest's server stops on the exact generalized LLR (`LLR_logistic`) over the same counts. The two agree near the bounds in ordinary tests and part in the tails. Adopting the exact form is an ADR-0012 amendment and a new reference fixture from the same pinned Fishtest checkout.
 - A lower missing cap (found in story 3.7's calibration). The random Brain ends 8.4% of its Runs at a window the Harness does not know (`UNKNOWN_WINDOW`), so 16% of pairs are missing and the calibrated missing cap is 0.25 -- room for a Brain to crash on a quarter of the seeds it would lose. Teaching the Harness those windows, re-extracting the table and re-running `./gradlew :rig:calibrate` brings the cap down.
 - Publishing the Run logs (found in story 3.10). FR-25 asks each Results page to link its Run logs; a side of `standard` is about 37 MB, too large for the repository, so every page says "not published" and carries each Run's chain instead. Candidates: a GitHub Release asset per page, Actions artifacts (which expire), or an orphan branch. It is a storage decision for the product owner; `results.json` already has a `logs` field for the answer.
+
+- The killer in the Run log (found in story 3.12). A log's ending records the cause (`DEATH`, `WIN`,
+  a stop the game did not decide) and the depth, but not what killed the hero, so the death gallery
+  groups by ending and depth and cannot say "a rat on depth 1" or "hunger". Recording the source of
+  the fatal damage in `RunLog.Outcome` -- from what the game shows the player on the death screen, so
+  it stays inside information parity -- is a Run-log schema change, and would let the gallery group
+  by killer.

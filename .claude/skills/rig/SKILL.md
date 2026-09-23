@@ -21,6 +21,11 @@ numbers where the project expects them.
 - `--parallel`: how many single-Run processes run at once (one process per Run; never threads inside one game).
 - `--out`: directory receiving `runs.jsonl` (one record per run: seed, brain, depth, turns,
   cause of death, Observation hash chain), `summary.json`, and `sprt.json` when comparing.
+- `gallery.md`: written beside each side's summary when an invocation completes -- the Runs grouped
+  by ending and depth (deaths first, then Runs the game did not end), with seeds and links to the
+  logs. `./gradlew :rig:gallery --args="<folder> [--snapshots N]"` rewrites it for any Rig folder
+  and, with `--snapshots`, writes each Run's last N waits into `snapshots/`. The log records the
+  ending and depth, not what killed the hero, so the gallery cannot say "killed by a rat".
 - Oracle mode cannot be enabled through this command. If any flag or config would enable it,
   the rig must refuse, and so must this skill.
 

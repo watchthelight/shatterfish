@@ -642,6 +642,32 @@ since the last agreeing night is suspect on the platform that is wrong. The proc
    is regenerated on the corrected build and republished beside the old one, with the ledger showing
    both. A disagreement is never resolved by choosing the platform whose numbers look better.
 
+## How the Runs ended: the death gallery
+
+```sh
+./gradlew :rig:gallery --args="<folder> --snapshots 5"
+```
+
+When an invocation completes, the Rig writes `gallery.md` beside each side's summary: the Runs
+grouped by how they ended and at what depth, with each group's count and share and, for every Run,
+its seed code, class, whole turns survived and a link to its log. The endings the game decided —
+the deaths, and any wins — come first, largest group first, and the largest is the place to look.
+The Runs the game did not end come after, in a section of their own, because they say what the Rig
+or the Harness did not finish, not how the hero died: a window the Harness does not know, the turn
+cap, a Run with no log (`NO_LOG`), a log that stops before an ending (`NO_ENDING`, at the depth of
+its last wait), a log that cannot be read (`UNREADABLE`). Each ending is read from the Run's own log
+through the harness's reader, not from the run index, one bad log does not stop the rest, and
+nothing is dropped, so the counts add up to the index's.
+
+**What it cannot say.** A Run log's ending records how the Run ended and at what depth, not what
+killed the hero: the log's `Outcome` has no killer — no mob, trap or hunger. So the gallery groups by
+ending and depth, and says so on every page; recording the killer is in `docs/ideas.md`. The command above rewrites the gallery for any folder the Rig wrote (for a
+comparison, one per side) and, with `--snapshots N`, writes the last N waits of every Run into
+`snapshots/`, linked from the gallery: what the Run was doing when it ended. The same gallery for two
+Brains side by side, FR-26's per-Brain view, is E4's. The random Baseline's is in
+[`results/2026-09-23-H-0002/gallery.md`](https://github.com/watchthelight/shatterfish/blob/bdf5ea5b2d38e7911f42e23a5ba08b4237cffc5c/results/2026-09-23-H-0002/gallery.md);
+its links name logs that are not committed.
+
 ## The Run log and its chain
 
 Every Run writes `<run-id>.jsonl`: one record per line, plain text, no compression, readable with

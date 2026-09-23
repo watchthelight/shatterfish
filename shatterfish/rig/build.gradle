@@ -35,6 +35,18 @@ tasks.named('test') {
     inputs.dir(rootProject.file('docs/results')).withPropertyName('resultsPages').withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
+// `./gradlew :rig:gallery --args="<folder> [--snapshots N]"` writes gallery.md for a folder the Rig
+// wrote -- the Runner already writes one after every invocation -- and with --snapshots the last N
+// waits of every Run into snapshots/ (story 3.12, FR-26).
+tasks.register('gallery', JavaExec) {
+    group = 'shatterfish'
+    description = 'Writes the death gallery for a folder the Rig wrote.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.rig.Gallery'
+    workingDir = rootDir
+    outputs.upToDateWhen { false }
+}
+
 // `./gradlew :rig:calibrate` writes docs/results/calibration-v4.0.0.md from the committed table in
 // calibration/ (story 3.7). With `--args="<root> extract <runs folder>"` it writes the table from a
 // folder the Rig wrote instead. Nothing is played: the simulation bootstraps the table's outcomes.

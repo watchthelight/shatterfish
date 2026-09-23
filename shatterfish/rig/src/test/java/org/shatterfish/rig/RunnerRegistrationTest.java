@@ -149,6 +149,30 @@ class RunnerRegistrationTest {
     }
 
     @Test
+    @DisplayName("a gallery that fails does not cost a ranked invocation its summary or its ledger line")
+    @Timeout(value = 20, unit = TimeUnit.MINUTES)
+    void a_failing_gallery_is_reported_not_thrown(@TempDir Path root, @TempDir Path out)
+            throws IOException {
+        repository(root, baseline("H-0121-gallery", SeedSets.SMOKE, false, "abc1234"));
+        java.util.function.Consumer<Path> was = Runner.gallery;
+        // An Error, not an exception: the ledger path's own guard catches both, and so must this.
+        Runner.gallery = folder -> {
+            throw new AssertionError("the gallery broke");
+        };
+        try {
+            Runner.run(arguments(root, out, Runner.REGISTRATION, "H-0121-gallery"));
+        } finally {
+            Runner.gallery = was;
+        }
+
+        assertTrue(Files.isRegularFile(out.resolve(RunIndex.SUMMARY)));
+        assertFalse(Files.exists(out.resolve(Gallery.FILE)));
+        Ledger.Entry entry = new Ledger(root.resolve(Registrations.FOLDER)).entries().get(0);
+        assertEquals("H-0121-gallery", entry.registration());
+        assertEquals(Ledger.Outcome.FINISHED, entry.outcome());
+    }
+
+    @Test
     @DisplayName("an unranked invocation runs, and says in the summary that it is not ranked")
     @Timeout(value = 20, unit = TimeUnit.MINUTES)
     void an_unranked_invocation_says_so(@TempDir Path root, @TempDir Path out) throws IOException {

@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -78,6 +79,17 @@ class RunnerComparisonTest {
                 .resolve(RunIndex.SUMMARY), StandardCharsets.UTF_8).strip();
         assertTrue(Long.parseLong(LogHeader.value(mineSummary, "waits")) > 0, mineSummary);
         assertEquals(LogHeader.value(mineSummary, "waits"), LogHeader.value(theirSummary, "waits"));
+
+        // The Runner writes each side's death gallery when the invocation completes (story 3.12),
+        // and every Run of the side is in it.
+        for (String side : List.of(Comparison.CANDIDATE, Comparison.BASELINE)) {
+            List<Gallery.Group> groups = Gallery.of(folder.resolve(side));
+            assertEquals(set.entries().size(), groups.stream().mapToInt(g -> g.runs().size()).sum(), side);
+            String page = Files.readString(folder.resolve(side).resolve(Gallery.FILE),
+                    StandardCharsets.UTF_8);
+            assertTrue(page.contains("# How the Runs ended: random on smoke"), page);
+            assertTrue(page.startsWith("<!--") && page.contains(set.entries().size() + " Runs: "), page);
+        }
 
         // And the folder verifies as a whole: both sides' logs, and the comparison's record of each
         // side's index against the index there now.

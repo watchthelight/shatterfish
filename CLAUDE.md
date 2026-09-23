@@ -16,6 +16,7 @@ You are the sole engineer; the human (watchthelight, "Bash" in BMAD config) is p
 sh tools/fetch-vanilla.sh                  # the Codex's second pinned source (E2); `build` needs it
 ./gradlew :codex:generate                  # regenerate codex/<tag>/ (E2); CI fails on drift
 ./gradlew :rig:run --args="..."            # the rig (E3); see /rig
+./gradlew :rig:gallery --args="<folder> [--snapshots N]"   # the death gallery for a Rig folder (E3)
 uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict   # docs, as CI runs it
 ```
 
