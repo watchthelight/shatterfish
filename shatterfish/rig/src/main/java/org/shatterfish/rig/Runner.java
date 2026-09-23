@@ -106,9 +106,17 @@ public final class Runner {
      */
     public static final String REGISTRATION = "--registration";
 
+    /**
+     * The Brain {@code --brain} is compared against (story 3.6).
+     *
+     * <p>Both play every triple under one salt, drawn once per triple, into their own folders; the
+     * pairs are scored and, under a Registration that fixes a comparison, tested.
+     */
+    public static final String AGAINST = "--against";
+
     /** Every flag the Rig knows. The list is asserted by name, so a new one is a decision. */
     static final List<String> KNOWN = List.of(BRAIN, SEEDS, PARALLEL, OUT, ROOT, COMMIT, CAP,
-            DEADLINE, VERIFY, REPLAY, FINISHED, REGISTRATION);
+            DEADLINE, VERIFY, REPLAY, FINISHED, REGISTRATION, AGAINST);
 
     /** The two things this command can be asked to do, of which it does exactly one. */
     static final List<String> MODES = List.of(VERIFY, REPLAY);
@@ -233,6 +241,7 @@ public final class Runner {
         // touch the game or load a model -- validating a name by building one is how the parent
         // ends up doing the thing it exists not to do.
         String brain = Brains.named(required(arguments, BRAIN));
+        String against = arguments.containsKey(AGAINST) ? Brains.named(required(arguments, AGAINST)) : null;
         Path root = Path.of(arguments.getOrDefault(ROOT, ".")).toAbsolutePath().normalize();
         String set = required(arguments, SEEDS);
         // One commit, resolved once, used everywhere. It used to be resolved twice: `commitOf(root)`
@@ -245,7 +254,7 @@ public final class Runner {
         // The Registration first, before a folder is made or a Run is dispatched. A refusal that
         // arrives after five hundred Runs is a refusal that cost what it was preventing.
         long checking = System.nanoTime();
-        Registered registered = registration(arguments, root, set, brain, commit);
+        Registered registered = registration(arguments, root, set, brain, against, commit);
         Registrations.Committed registration = registered.committed();
         Ledger ledger = registered.ledger();
         String stamp = registration == null ? "" : registration.stamp();
@@ -287,7 +296,15 @@ public final class Runner {
                     + " and this build's " + set + " is version " + triples.version()
                     + "; a hypothesis names the Runs it is about");
         }
-        RunIndex index = new RunIndex(out);
+        // One side per Brain. A comparison puts each in its own folder, because a Brain compared with
+        // itself -- which is how pairing is checked -- would otherwise write both Runs of a pair to
+        // one file name: the run id names the Brain, and the Brain is the same.
+        List<Side> sides = against == null
+                ? List.of(new Side(brain, out, new RunIndex(out)))
+                : List.of(side(brain, out.resolve(Comparison.CANDIDATE)),
+                        side(against, out.resolve(Comparison.BASELINE)));
+        RunIndex index = sides.get(0).index();
+        List<Long> salts = new ArrayList<>();
         AtomicLong waits = new AtomicLong();
         String machine = machine();
         // The tag from the pin, not from a running game: this process boots nothing (AD-6), and
@@ -308,14 +325,19 @@ public final class Runner {
         try {
             List<Future<?>> started = new ArrayList<>();
             for (SeedSet.Entry triple : triples.entries()) {
+                // One salt per triple, whatever the number of Brains. That is the pair: whatever
+                // the dungeon does at a given moment, it does to both.
                 long salt = Salt.draw();
-                String runId = RunLog.runId(tag,
-                        triple.heroClass(), triple.challengeFlags(), triple.seedCode(), salt, brain);
-                index.started(new RunIndex.Entry(runId, RunLog.fileName(runId), RunIndex.State.STARTED,
-                        "", triple.seed(), triple.heroClass().name(), triple.challengeFlags(), salt,
-                        "", 0, ""));
-                started.add(pool.submit(() -> one(index, out, alive, triple, salt, runId, brain, commit,
-                        machine, cap, deadline, waits, stamp)));
+                salts.add(salt);
+                for (Side side : sides) {
+                    String runId = RunLog.runId(tag, triple.heroClass(), triple.challengeFlags(),
+                            triple.seedCode(), salt, side.brain());
+                    side.index().started(new RunIndex.Entry(runId, RunLog.fileName(runId),
+                            RunIndex.State.STARTED, "", triple.seed(), triple.heroClass().name(),
+                            triple.challengeFlags(), salt, "", 0, ""));
+                    started.add(pool.submit(() -> one(side.index(), side.out(), alive, triple, salt,
+                            runId, side.brain(), commit, machine, cap, deadline, waits, stamp)));
+                }
             }
             // Awaited as they finish rather than in the order they were sent. A refusal on the
             // second Run used to wait out the first Run's deadline before anyone saw it, and on a
@@ -333,6 +355,9 @@ public final class Runner {
             // the refusal with a NullPointerException and left the folder unmarked: the one path
             // that voids a folder of numbers was the one that crashed.
             RuntimeException reason = refuse(index, failed);
+            for (Side side : sides.subList(1, sides.size())) {
+                refuse(side.index(), failed);
+            }
             if (registration != null) {
                 try {
                     // Recorded even though nothing is published. A refused invocation is an
@@ -352,7 +377,22 @@ public final class Runner {
             throw reason;
         }
         long millis = (System.nanoTime() - began) / 1_000_000L;
-        index.summary(brain, set, parallel, cap, millis, waits.get(), stamp, read.reason());
+        for (Side side : sides) {
+            side.index().summary(side.brain(), set, parallel, cap, millis, waits.get(), stamp,
+                    read.reason());
+        }
+        if (against != null) {
+            // Tested only under a Registration that fixes a comparison: the bounds are the
+            // hypothesis, and a test whose bounds were chosen after the pairs were seen is the thing
+            // FR-22 exists to prevent. An unranked comparison still scores and counts its pairs.
+            Gsprt test = registration != null ? Gsprt.of(registration.registration()) : null;
+            Comparison.Report report = Comparison.of(triples, salts, tag, out, brain, against, test);
+            Comparison.write(out, report, stamp);
+            System.out.println(brain + " against " + against + ": " + report.scores().size()
+                    + " pairs, " + report.missing() + " missing"
+                    + (report.result() == null ? ", not tested (no Registration states the bounds)"
+                            : ", " + report.result().verdict() + " after " + report.result().pairs()));
+        }
         if (registration != null) {
             ledger.record(registration, brain, registered.brainVersion(),
                     registered.brainConfig(), set,
@@ -412,6 +452,19 @@ public final class Runner {
                       String brainVersion) {
     }
 
+    /** One Brain's half of an invocation: its name, its folder and its index. */
+    record Side(String brain, Path out, RunIndex index) {
+    }
+
+    private static Side side(String brain, Path out) {
+        try {
+            Files.createDirectories(out);
+        } catch (IOException e) {
+            throw new UncheckedIOException("could not make " + out, e);
+        }
+        return new Side(brain, out, new RunIndex(out));
+    }
+
     /**
      * The Registration this invocation runs under, or null when it is unranked.
      *
@@ -427,6 +480,11 @@ public final class Runner {
      */
     static Registered registration(Map<String, String> arguments, Path root, String set,
                                    String brain, String commit) {
+        return registration(arguments, root, set, brain, null, commit);
+    }
+
+    static Registered registration(Map<String, String> arguments, Path root, String set,
+                                   String brain, String against, String commit) {
         if (!arguments.containsKey(REGISTRATION)) {
             // An unranked invocation of the holdout set is refused too -- by `SeedSets.load`, which
             // states the whole of FR-20 and is the door story 3.1 built. Restating it here was a
@@ -451,7 +509,20 @@ public final class Runner {
             // Brain and an invocation of another produces logs that cite a hypothesis they are not
             // about.
             String measured = committed.registration().brainB().name();
-            if (!measured.equals(brain)) {
+            org.shatterfish.api.Registration.Brain baseline = committed.registration().brainA();
+            if (committed.registration().comparison() != (against != null)) {
+                // A comparison's Registration run as a baseline would never test anything, and a
+                // baseline's run as a comparison would test with bounds nobody stated.
+                refusal = new Registrations.Refusal("the Registration "
+                        + committed.registration().id() + " fixes "
+                        + (committed.registration().comparison() ? "a comparison" : "a baseline")
+                        + " and this invocation runs "
+                        + (against != null ? "a comparison" : "one Brain"));
+            } else if (baseline != null && !baseline.name().equals(against)) {
+                refusal = new Registrations.Refusal("the Registration "
+                        + committed.registration().id() + " compares against the Brain "
+                        + baseline.name() + " and this invocation compares against " + against);
+            } else if (!measured.equals(brain)) {
                 refusal = new Registrations.Refusal("the Registration "
                         + committed.registration().id() + " measures the Brain " + measured
                         + " and this invocation runs " + brain);

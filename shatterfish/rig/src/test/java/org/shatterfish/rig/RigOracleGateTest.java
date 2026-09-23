@@ -111,7 +111,7 @@ class RigOracleGateTest {
         // The counts as well as the names. A flag whose name does not say "oracle" can still be
         // one, so the size is what makes a new flag a decision somebody made here rather than a
         // line that slipped past a substring check. Story 3.4 added `--verify` and `--replay`.
-        assertTrue(Runner.KNOWN.size() == 12 && RunOne.KNOWN.size() == 11,
+        assertTrue(Runner.KNOWN.size() == 13 && RunOne.KNOWN.size() == 11,
                 "the two lists are " + Runner.KNOWN + " and " + RunOne.KNOWN);
     }
 }
