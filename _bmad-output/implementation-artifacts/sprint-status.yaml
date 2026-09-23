@@ -93,7 +93,7 @@ development_status:
   4-3-safetest-the-worst-case-check: in-progress
   4-4-the-decision-output-and-the-strategy-log: done
   4-5-the-evaluation-with-weights-as-data: review
-  4-6-the-explore-policy: backlog
+  4-6-the-explore-policy: in-progress
   4-7-the-fight-in-corridors-policy: backlog
   4-8-the-pick-up-and-equip-policies: backlog
   4-9-the-eat-and-heal-policies: backlog
