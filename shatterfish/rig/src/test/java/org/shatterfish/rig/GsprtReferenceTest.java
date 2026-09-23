@@ -19,9 +19,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>The values in {@code gsprt-reference.txt} were computed by Fishtest itself, at the commit named
  * in the file's first line, by {@code tools/gsprt_reference.py}. Fishtest's code is not in this
  * repository -- it carries no licence -- so {@link Gsprt} implements the published formula on its
- * own, and this is what says the two agree: 270 cases across five pairs of hypotheses, three pairs of
- * error rates, and eighteen sets of counts chosen to reach the regularization and the clamp in both
- * directions.
+ * own, and this is what says the two agree: 435 cases across five pairs of hypotheses, three pairs
+ * of error rates and twenty-nine sets of counts, chosen to reach the regularization, the clamp in both
+ * directions, and the small tie-heavy samples the Rig actually stops on.
  *
  * <p>An oracle rather than a second implementation written here, because a test that recomputed the
  * formula in Java would agree with any mistake the class and the test shared.
@@ -35,10 +35,11 @@ class GsprtReferenceTest {
     @DisplayName("every reference case gives Fishtest's LLR, bounds and clamp")
     void the_port_agrees_with_fishtest() throws IOException {
         List<String> cases = cases();
-        assertEquals(270, cases.size(), "the reference file holds every case the generator writes");
+        // Five pairs of hypotheses, three pairs of error rates, twenty-nine sets of counts.
+        assertEquals(5 * 3 * 29, cases.size(), "the reference file holds every case the generator writes");
         int clamped = 0;
         for (String line : cases) {
-            String[] f = line.trim().split("\s+");
+            String[] f = line.trim().split("[ 	]+");
             double p0 = Double.parseDouble(f[0]);
             double p1 = Double.parseDouble(f[1]);
             double alpha = Double.parseDouble(f[2]);
@@ -51,17 +52,29 @@ class GsprtReferenceTest {
             close(Double.parseDouble(f[8]), test.upper(), "the upper bound: " + line);
             close(Double.parseDouble(f[9]), llr.llr(), "the LLR: " + line);
             assertEquals(Boolean.parseBoolean(f[10]), llr.clamped(), "the clamp: " + line);
-            clamped += llr.clamped() ? 1 : 0;
+            // Before the clamp, too. The raw value is what a stop is decided on and what the trace
+            // records, and over two hundred of these cases sit exactly at a bound after clamping,
+            // where any raw value past it would have passed the comparison above.
+            close(Double.parseDouble(f[11]), llr.raw(), "the unclamped LLR: " + line);
+            // Counted from the file, not from the implementation.
+            clamped += Boolean.parseBoolean(f[10]) ? 1 : 0;
         }
         assertTrue(clamped > 0 && clamped < cases.size(),
                 "the cases reach both sides of the clamp: " + clamped + " of " + cases.size());
     }
 
     @Test
-    @DisplayName("the reference file names the Fishtest commit it came from")
-    void the_reference_is_pinned() throws IOException {
-        String first = text().lines().findFirst().orElse("");
-        assertTrue(first.contains("2e540196ed8a72283a17f40793defd0f4a45d9c9"), first);
+    @DisplayName("the reference file is the one the generator wrote, byte for byte")
+    void the_reference_is_pinned() throws Exception {
+        // Regenerated only by tools/gsprt_reference.py against the pinned Fishtest, and never edited:
+        // a value changed alongside a matching change to Gsprt would otherwise pass. Regenerating it
+        // is a change to this constant too, which makes it a decision somebody sees in review.
+        String text = text();
+        assertTrue(text.lines().findFirst().orElse("").contains("2e540196ed8a72283a17f40793defd0f4a45d9c9"));
+        byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(text.getBytes(StandardCharsets.UTF_8));
+        assertEquals("17c78aabf1716a4a344fc651b26d967e75291a1cc0c943edfe9906d88c819aab",
+                java.util.HexFormat.of().formatHex(digest));
     }
 
     private static void close(double expected, double actual, String what) {

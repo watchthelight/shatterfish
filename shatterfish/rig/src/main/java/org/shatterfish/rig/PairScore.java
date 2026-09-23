@@ -41,15 +41,33 @@ public enum PairScore {
         return halves;
     }
 
+    /** The causes that are the game ending a Run: everything else is the Rig stopping it. */
+    static final java.util.Set<String> ENDINGS = java.util.Set.of("DEATH", "WIN");
+
+    /**
+     * Whether {@code outcome} is a Run the game ended, which is the only kind a pair can score.
+     *
+     * <p>A Run stopped at the turn cap, refused, or ended because nothing was offered did not reach an
+     * outcome the game decided. ADR-0012 counts the turn cap with the crashes and hangs as missing --
+     * and that matters beyond tidiness: scored on turns survived, a Brain that stalls until the cap
+     * would beat every death at the same depth, and stalling would become a strategy the test pays
+     * for.
+     */
+    public static boolean reached(RunLog.Outcome outcome) {
+        return outcome != null && ENDINGS.contains(outcome.cause());
+    }
+
     /**
      * The pair's score from the candidate's side.
      *
-     * <p>A missing outcome -- a crash, a hang, a log with no ending -- scores {@link #EQUAL}. ADR-0012
-     * scores it as a tie so that a Brain cannot win by crashing on the seeds it would lose, and the
-     * caller counts it separately so that a comparison full of missing pairs is visible as one.
+     * <p>A missing outcome -- a crash, a hang, a log with no ending, a Run the game did not end --
+     * scores {@link #EQUAL}, as ADR-0012 says, and the caller counts it. <b>The tie does not protect
+     * a comparison by itself.</b> Turning a loss into a tie raises the mean by a half and lowers the
+     * variance, so a Brain that crashed on the seeds it would lose would improve its LLR by doing it.
+     * What stops that is the Registration's missing fraction, past which the comparison is void.
      */
     public static PairScore of(RunLog.Outcome candidate, RunLog.Outcome baseline) {
-        if (candidate == null || baseline == null) {
+        if (!reached(candidate) || !reached(baseline)) {
             return EQUAL;
         }
         int order = compare(candidate, baseline);
@@ -75,8 +93,8 @@ public enum PairScore {
         if (depth != 0) {
             return depth;
         }
-        // Survived longer is better. A Run stopped by the turn cap and one that died at the same
-        // depth are separated here, which is the one place turns mean anything.
+        // Survived longer is better. Both Runs reached an ending the game decided, so this is two
+        // deaths at the same depth and boss count, or two wins with the same Score.
         return Long.compare(one.turns(), other.turns());
     }
 }

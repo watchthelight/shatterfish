@@ -114,6 +114,9 @@ public final class Runner {
      */
     public static final String AGAINST = "--against";
 
+    /** The Seed sets whose comparisons may accept (ADR-0012); the rest are direction checks. */
+    static final List<String> ACCEPTING = List.of(SeedSets.STANDARD, "bosses");
+
     /** Every flag the Rig knows. The list is asserted by name, so a new one is a decision. */
     static final List<String> KNOWN = List.of(BRAIN, SEEDS, PARALLEL, OUT, ROOT, COMMIT, CAP,
             DEADLINE, VERIFY, REPLAY, FINISHED, REGISTRATION, AGAINST);
@@ -142,6 +145,10 @@ public final class Runner {
         // rule one level up: a command line asking to verify and to replay used to do one of them
         // and say nothing about the other, which is a flag silently ignored.
         List<String> asked = MODES.stream().filter(arguments::containsKey).toList();
+        if (!asked.isEmpty() && arguments.containsKey(AGAINST)) {
+            throw new IllegalArgumentException(AGAINST + " pairs two Brains' Runs, and " + asked
+                    + " plays none; a flag this invocation would ignore is refused, not ignored");
+        }
         if (asked.size() > 1) {
             throw new IllegalArgumentException("the Rig does one thing per invocation and this asks"
                     + " for " + asked + "; verifying a folder and replaying a log are different"
@@ -156,8 +163,14 @@ public final class Runner {
             return;
         }
         Path out = run(arguments);
-        System.out.println("the Rig wrote " + out.resolve(RunIndex.RUNS) + " and "
-                + out.resolve(RunIndex.SUMMARY));
+        if (arguments.containsKey(AGAINST)) {
+            System.out.println("the Rig wrote " + out.resolve(Comparison.FILE) + ", with each side's"
+                    + " index and summary in " + out.resolve(Comparison.CANDIDATE) + " and "
+                    + out.resolve(Comparison.BASELINE));
+        } else {
+            System.out.println("the Rig wrote " + out.resolve(RunIndex.RUNS) + " and "
+                    + out.resolve(RunIndex.SUMMARY));
+        }
     }
 
     /**
@@ -300,7 +313,7 @@ public final class Runner {
         // itself -- which is how pairing is checked -- would otherwise write both Runs of a pair to
         // one file name: the run id names the Brain, and the Brain is the same.
         List<Side> sides = against == null
-                ? List.of(new Side(brain, out, new RunIndex(out)))
+                ? List.of(new Side(brain, out, new RunIndex(out), new AtomicLong()))
                 : List.of(side(brain, out.resolve(Comparison.CANDIDATE)),
                         side(against, out.resolve(Comparison.BASELINE)));
         RunIndex index = sides.get(0).index();
@@ -336,7 +349,7 @@ public final class Runner {
                             RunIndex.State.STARTED, "", triple.seed(), triple.heroClass().name(),
                             triple.challengeFlags(), salt, "", 0, ""));
                     started.add(pool.submit(() -> one(side.index(), side.out(), alive, triple, salt,
-                            runId, side.brain(), commit, machine, cap, deadline, waits, stamp)));
+                            runId, side.brain(), commit, machine, cap, deadline, side.waits(), stamp)));
                 }
             }
             // Awaited as they finish rather than in the order they were sent. A refusal on the
@@ -377,9 +390,13 @@ public final class Runner {
             throw reason;
         }
         long millis = (System.nanoTime() - began) / 1_000_000L;
+        String verdict = "";
         for (Side side : sides) {
-            side.index().summary(side.brain(), set, parallel, cap, millis, waits.get(), stamp,
+            // Each side's own waits. One counter shared by both put each side's summary at twice
+            // its real waits and waits per second.
+            side.index().summary(side.brain(), set, parallel, cap, millis, side.waits().get(), stamp,
                     read.reason());
+            waits.addAndGet(side.waits().get());
         }
         if (against != null) {
             // Tested only under a Registration that fixes a comparison: the bounds are the
@@ -387,16 +404,26 @@ public final class Runner {
             // FR-22 exists to prevent. An unranked comparison still scores and counts its pairs.
             Gsprt test = registration != null ? Gsprt.of(registration.registration()) : null;
             Comparison.Report report = Comparison.of(triples, salts, tag, out, brain, against, test);
-            Comparison.write(out, report, stamp);
-            System.out.println(brain + " against " + against + ": " + report.scores().size()
+            // ADR-0012: `smoke` is a direction check, and only `standard` and `bosses` can accept.
+            // The test still runs and prints its trace; the report says what its ACCEPT is worth.
+            boolean directionCheck = !ACCEPTING.contains(set);
+            Comparison.write(out, report, stamp, directionCheck);
+            verdict = report.result() == null ? "" : report.result().verdict().name()
+                    + (directionCheck ? " (direction check)" : "") + " after "
+                    + report.result().pairs() + " pairs, " + report.missing() + " missing";
+            System.out.println(brain + " against " + against + ": " + report.pairs().size()
                     + " pairs, " + report.missing() + " missing"
                     + (report.result() == null ? ", not tested (no Registration states the bounds)"
-                            : ", " + report.result().verdict() + " after " + report.result().pairs()));
+                            : ", " + verdict));
         }
         if (registration != null) {
+            // The verdict and the baseline in the note. A ledger of identical FINISHED lines could
+            // not say how many attempts were rejected before one was accepted, which is the count
+            // FR-25 exists to publish.
             ledger.record(registration, brain, registered.brainVersion(),
                     registered.brainConfig(), set,
-                    Ledger.Outcome.FINISHED, published(registration, set), "");
+                    Ledger.Outcome.FINISHED, published(registration, set),
+                    against == null ? "" : verdict + " against " + against);
         }
 
         System.out.println(registration == null
@@ -457,7 +484,7 @@ public final class Runner {
     }
 
     /** One Brain's half of an invocation: its name, its folder and its index. */
-    record Side(String brain, Path out, RunIndex index) {
+    record Side(String brain, Path out, RunIndex index, AtomicLong waits) {
     }
 
     private static Side side(String brain, Path out) {
@@ -466,7 +493,7 @@ public final class Runner {
         } catch (IOException e) {
             throw new UncheckedIOException("could not make " + out, e);
         }
-        return new Side(brain, out, new RunIndex(out));
+        return new Side(brain, out, new RunIndex(out), new AtomicLong());
     }
 
     /**
@@ -526,6 +553,20 @@ public final class Runner {
                 refusal = new Registrations.Refusal("the Registration "
                         + committed.registration().id() + " compares against the Brain "
                         + baseline.name() + " and this invocation compares against " + against);
+            } else if (baseline != null && !Brains.configHash(against).equals(baseline.configHash())) {
+                // The baseline's configuration, like the candidate's. Checking only its name let a
+                // Registration naming "random, configuration X" compare against whatever the
+                // checkout's random was that day.
+                refusal = new Registrations.Refusal("the Registration "
+                        + committed.registration().id() + " compares against " + baseline.name()
+                        + " configured as " + baseline.configHash() + ", and this checkout's "
+                        + against + " is configured as " + Brains.configHash(against));
+            } else if (baseline != null && committed.registration().releaseLevel()
+                    && !Brains.version(root, against).startsWith(baseline.commit())) {
+                refusal = new Registrations.Refusal("the Registration "
+                        + committed.registration().id() + " claims a release-level result against "
+                        + baseline.name() + " at " + baseline.commit() + ", and this checkout's "
+                        + against + " was last changed at " + Brains.version(root, against));
             } else if (!measured.equals(brain)) {
                 refusal = new Registrations.Refusal("the Registration "
                         + committed.registration().id() + " measures the Brain " + measured
@@ -615,7 +656,7 @@ public final class Runner {
         try {
             Files.createDirectories(working);
             child = child(out, working, triple, salt, brain, commit, machine, cap, registration);
-            alive.put(runId, child);
+            alive.put(out + "/" + runId, child);
             Process reading = child;
             // A platform thread, not a virtual one: reading a process pipe is a blocking native
             // call that pins its carrier, and pinning `--parallel` carriers at once is how the
@@ -640,7 +681,7 @@ public final class Runner {
         } finally {
             if (child != null) {
                 destroy(child);
-                alive.remove(runId);
+                alive.remove(out + "/" + runId);
             }
         }
         if (!why.isEmpty()) {

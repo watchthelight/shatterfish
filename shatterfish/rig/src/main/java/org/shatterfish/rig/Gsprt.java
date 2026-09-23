@@ -27,10 +27,19 @@ import java.util.List;
  * <p><b>Clamped.</b> An LLR past a bound is reported as the bound, and the test says so when it had
  * gone more than three percent past, which marks a stop the approximation had overshot.
  *
- * <p><b>Why it is written here rather than ported.</b> Fishtest's implementation carries no
- * licence, so its code is all rights reserved and none of it is in this file. This implements the
- * published formula; the pinned Fishtest checkout is used only as an oracle, run outside this
- * repository, to produce the reference values {@code GsprtReferenceTest} holds this class to.
+ * <p><b>What it agrees with, precisely.</b> This is the approximation ADR-0012 chose, and it is the
+ * one Fishtest's {@code sprt.set_state} computes -- {@code GsprtReferenceTest} holds this class to
+ * 270 values from a pinned Fishtest checkout. It is <em>not</em> the LLR Fishtest's server stops on:
+ * {@code stat_util.update_SPRT} overwrites the approximation with the exact generalized LLR
+ * ({@code LLR_logistic}, a one-dimensional root solve), and near a bound the two can disagree -- the
+ * counts (100, 300, 140) under p0 = 0.50, p1 = 0.55 give 2.96 here, past the bound, and 2.93 there.
+ * The approximation is kept because the ADR chose it and because calibration (story 3.7) measures
+ * the realized error rates of the test as run, which is what a skeptic should trust; the exact LLR
+ * is recorded in {@code docs/ideas.md}.
+ *
+ * <p><b>Why it is written here rather than ported.</b> Fishtest carries no licence, so its code is
+ * all rights reserved and none of it is in this file. This implements the published formula; the
+ * pinned Fishtest checkout is used only as an oracle, run outside this repository.
  *
  * <p><b>Pairs are fed in the Seed set's order.</b> This class does not know that and cannot check
  * it, and it matters: stopping is legitimate only when the order was fixed before any outcome was
@@ -54,7 +63,15 @@ public final class Gsprt {
         REJECT,
 
         /** Neither bound reached by the maximum, or the pairs ran out first. */
-        UNDECIDED
+        UNDECIDED,
+
+        /**
+         * More pairs were missing a Run than the Registration allows, so the result says nothing.
+         *
+         * <p>ADR-0012's rule, and the only thing that stops a Brain from turning its losses into ties
+         * by crashing on the seeds it would lose. Checked over the pairs the test consumed.
+         */
+        VOID
     }
 
     /**
@@ -104,8 +121,11 @@ public final class Gsprt {
             throw new IllegalArgumentException("H0 and H1 are pair-score means with 0 < p0 < p1 < 1: "
                     + p0 + ", " + p1);
         }
-        if (!(alpha > 0 && alpha < 1 && beta > 0 && beta < 1)) {
-            throw new IllegalArgumentException("error rates are rates: " + alpha + ", " + beta);
+        if (!(alpha > 0 && alpha < 1 && beta > 0 && beta < 1 && alpha + beta < 1)) {
+            // Together below one, or the lower bound lands above the upper and the test accepts
+            // whatever it is given at the burn-in.
+            throw new IllegalArgumentException("error rates are rates, together below one: " + alpha
+                    + ", " + beta);
         }
         if (burnIn < 1 || maximum <= burnIn) {
             throw new IllegalArgumentException("a burn-in of at least one and a maximum past it: "
@@ -127,7 +147,59 @@ public final class Gsprt {
         }
         return new Gsprt(registration.p0PerMil() / 1000.0, registration.p1PerMil() / 1000.0,
                 registration.alphaPerMil() / 1000.0, registration.betaPerMil() / 1000.0,
-                registration.burnIn(), registration.maximum());
+                registration.burnIn(), registration.maximum())
+                .allowingMissing(registration.missingPerMil());
+    }
+
+    /** The largest missing fraction, in thousandths, before a result is void. */
+    private int missingPerMil = 1000;
+
+    /** This test with a cap on missing pairs, past which a result is {@link Verdict#VOID}. */
+    public Gsprt allowingMissing(int perMil) {
+        if (perMil < 0 || perMil > 1000) {
+            throw new IllegalArgumentException("a missing fraction is a fraction: " + perMil);
+        }
+        this.missingPerMil = perMil;
+        return this;
+    }
+
+    /** Parameters, for a report that has to be recomputable from itself. */
+    public double p0() {
+        return p0;
+    }
+
+    public double p1() {
+        return p1;
+    }
+
+    public int burnIn() {
+        return burnIn;
+    }
+
+    public int maximum() {
+        return maximum;
+    }
+
+    public int missingPerMil() {
+        return missingPerMil;
+    }
+
+    /**
+     * {@link #run}, then void if too many of the consumed pairs were missing a Run.
+     *
+     * @param missing one flag per pair, parallel to {@code pairs}
+     */
+    public Result run(List<PairScore> pairs, List<Boolean> missing) {
+        Result result = run(pairs);
+        long gone = missing.subList(0, result.pairs()).stream().filter(b -> b).count();
+        // Over the pairs consumed: a stop at pair 40 is about pairs 1 to 40, and a set that is
+        // clean after the stop cannot excuse one that was not before it. A result with every pair
+        // missing is void whatever the cap, because it measured nothing.
+        if (result.pairs() > 0 && (gone == result.pairs() || gone * 1000 > (long) missingPerMil * result.pairs())) {
+            return new Result(Verdict.VOID, result.pairs(), result.llr(), result.clamped(),
+                    result.lower(), result.upper(), result.trace(), result.counts());
+        }
+        return result;
     }
 
     /** The lower bound, {@code log(β/(1−α))}. */

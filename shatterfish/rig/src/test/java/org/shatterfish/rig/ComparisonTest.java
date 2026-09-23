@@ -13,17 +13,19 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Pairing and testing two folders of Runs (story 3.6).
  *
- * <p>The logs are written rather than played: a ranked comparison needs two different Brains, and
- * the second arrives with story 3.9. What is being held here is the pairing -- which file answers
- * for which triple under which salt -- the order, the missing count, and the handoff to the test.
+ * <p>The logs are written by hand so that each case can hold exactly what it is about: which file
+ * answers for which triple, in which order, what counts as missing, and when missing voids a verdict.
+ * The real child path -- Runs played, logs written by the harness -- is {@code RunnerComparisonTest}.
  */
 class ComparisonTest {
 
@@ -31,29 +33,37 @@ class ComparisonTest {
 
     private static final String ZERO = "0".repeat(64);
 
+    /** Seeds that are not in ascending order, so that no map keyed by seed can pass for an order. */
     private static SeedSet set(int size) {
         List<SeedSet.Entry> entries = new ArrayList<>();
         for (int i = 0; i < size; i++) {
-            long seed = 1000 + i;
+            long seed = 900_000L - 7919L * i;
             entries.add(new SeedSet.Entry(seed, HeroClass.WARRIOR, 0, SeedSet.code(seed)));
         }
         return new SeedSet("smoke", 1, entries);
     }
 
-    /** A finished log for one side of one triple, reaching the given depth. */
-    private static void log(Path folder, SeedSet.Entry triple, long salt, String brain, int depth)
-            throws IOException {
+    /** A log for one side of one triple: a header, and an ending with this cause at this depth. */
+    private static void log(Path folder, SeedSet.Entry triple, long salt, String brain, int depth,
+                            String cause, boolean ended) throws IOException {
         Files.createDirectories(folder);
         RunLog.Header header = new RunLog.Header(RunLog.VERSION, TAG, "abc1234", triple.heroClass(),
                 triple.challengeFlags(), triple.seed(), triple.seedCode(), salt, 20_000, 3, 2, 8,
                 new RunLog.Brain(brain, "abc1234", ZERO), "", false, "a laptop",
                 "2026-09-23T00:00:00Z");
-        RunLog.End end = new RunLog.End(0, new RunLog.Outcome(false, false, 0, depth, 100, "DEATH", 0),
-                true);
-        String first = RunLogJson.line("", header);
-        String second = RunLogJson.line(RunLogJson.chain("", header), end);
-        Files.writeString(folder.resolve(RunLog.fileName(header.runId())), first + "\n" + second + "\n",
+        StringBuilder text = new StringBuilder(RunLogJson.line("", header)).append('\n');
+        if (ended) {
+            RunLog.End end = new RunLog.End(0, new RunLog.Outcome(false, false, 0, depth, 100, cause, 0),
+                    true);
+            text.append(RunLogJson.line(RunLogJson.chain("", header), end)).append('\n');
+        }
+        Files.writeString(folder.resolve(RunLog.fileName(header.runId())), text.toString(),
                 StandardCharsets.UTF_8);
+    }
+
+    private static void died(Path out, String side, SeedSet.Entry triple, long salt, String brain,
+                             int depth) throws IOException {
+        log(out.resolve(side), triple, salt, brain, depth, "DEATH", true);
     }
 
     @Test
@@ -65,9 +75,9 @@ class ComparisonTest {
         int[] theirs = {4, 3, 6, 2};
         for (int i = 0; i < 4; i++) {
             if (i != 3) {
-                log(out.resolve(Comparison.CANDIDATE), set.entries().get(i), salts.get(i), "greedy", mine[i]);
+                died(out, Comparison.CANDIDATE, set.entries().get(i), salts.get(i), "greedy", mine[i]);
             }
-            log(out.resolve(Comparison.BASELINE), set.entries().get(i), salts.get(i), "random", theirs[i]);
+            died(out, Comparison.BASELINE, set.entries().get(i), salts.get(i), "random", theirs[i]);
         }
 
         Comparison.Report report = Comparison.of(set, salts, TAG, out, "greedy", "random", null);
@@ -78,11 +88,45 @@ class ComparisonTest {
     }
 
     @Test
+    @DisplayName("the order the pairs are consumed in decides where the test stops")
+    void the_order_is_the_seed_sets(@TempDir Path out) throws IOException {
+        // Ten pairs alternating win and loss, then thirty wins, in the Seed set's order. Fed in that
+        // order the test is inside its bounds at the burn-in -- a mean of one half with all the
+        // variance a pair can have -- and accepts some way into the wins. Reversed, the wins come
+        // first and it accepts at the burn-in. So the stop and the trace say which order was used,
+        // which is the one property this class exists to keep.
+        SeedSet set = set(40);
+        List<Long> salts = new ArrayList<>();
+        for (int i = 0; i < 40; i++) {
+            salts.add(1000L + i);
+            died(out, Comparison.CANDIDATE, set.entries().get(i), 1000L + i, "greedy",
+                    i < 10 && i % 2 == 1 ? 1 : 9);
+            died(out, Comparison.BASELINE, set.entries().get(i), 1000L + i, "random", 5);
+        }
+        Gsprt test = new Gsprt(0.50, 0.55, 0.05, 0.05, 10, 100).allowingMissing(50);
+
+        Comparison.Report report = Comparison.of(set, salts, TAG, out, "greedy", "random", test);
+
+        List<PairScore> ordered = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            ordered.add(i % 2 == 1 ? PairScore.WORSE : PairScore.BETTER);
+        }
+        ordered.addAll(Collections.nCopies(30, PairScore.BETTER));
+        List<PairScore> reversed = new ArrayList<>(ordered);
+        Collections.reverse(reversed);
+        Gsprt.Result inOrder = new Gsprt(0.50, 0.55, 0.05, 0.05, 10, 100).run(ordered);
+        Gsprt.Result backwards = new Gsprt(0.50, 0.55, 0.05, 0.05, 10, 100).run(reversed);
+        assertNotEquals(inOrder.pairs(), backwards.pairs(), "the case is one where order matters");
+        assertEquals(inOrder.pairs(), report.result().pairs(), "consumed in the Seed set's order");
+        assertEquals(inOrder.trace(), report.result().trace());
+    }
+
+    @Test
     @DisplayName("a Run under another salt is not this pair's Run, and counts as missing")
     void the_salt_is_part_of_the_pair(@TempDir Path out) throws IOException {
         SeedSet set = set(1);
-        log(out.resolve(Comparison.CANDIDATE), set.entries().get(0), 99L, "greedy", 9);
-        log(out.resolve(Comparison.BASELINE), set.entries().get(0), 11L, "random", 1);
+        died(out, Comparison.CANDIDATE, set.entries().get(0), 99L, "greedy", 9);
+        died(out, Comparison.BASELINE, set.entries().get(0), 11L, "random", 1);
 
         Comparison.Report report = Comparison.of(set, List.of(11L), TAG, out, "greedy", "random", null);
 
@@ -91,27 +135,78 @@ class ComparisonTest {
     }
 
     @Test
-    @DisplayName("under a test, the pairs are handed over in order and the verdict is written down")
-    void the_test_runs_on_the_pairs(@TempDir Path out) throws IOException {
+    @DisplayName("a log with no ending, and a Run stopped at the turn cap, are missing, not scored")
+    void what_counts_as_missing(@TempDir Path out) throws IOException {
+        // The turn cap is the Rig stopping a Run, not the game ending it (ADR-0012). Scored on turns
+        // survived, a Brain that stalled until the cap would beat every death at the same depth.
+        SeedSet set = set(2);
+        log(out.resolve(Comparison.CANDIDATE), set.entries().get(0), 1L, "greedy", 1, "DEATH", false);
+        died(out, Comparison.BASELINE, set.entries().get(0), 1L, "random", 1);
+        log(out.resolve(Comparison.CANDIDATE), set.entries().get(1), 2L, "greedy", 3, "TURN_CAP", true);
+        died(out, Comparison.BASELINE, set.entries().get(1), 2L, "random", 3);
+
+        Comparison.Report report = Comparison.of(set, List.of(1L, 2L), TAG, out, "greedy", "random", null);
+
+        assertEquals(List.of(PairScore.EQUAL, PairScore.EQUAL), report.scores());
+        assertEquals(2, report.missing());
+    }
+
+    @Test
+    @DisplayName("a Brain that crashes on the seeds it would lose gets a void result, not an accept")
+    void crashing_to_a_tie_is_void(@TempDir Path out) throws IOException {
+        // The exploit the fairness review found. Twenty pairs the candidate wins, and twenty it would
+        // lose -- but on those it crashed, so each is missing and scores a tie. Scored as ties, the
+        // mean rises and the variance falls, and the test accepts. Under the Registration's cap of
+        // five percent missing, the result is void instead.
+        SeedSet set = set(40);
+        List<Long> salts = new ArrayList<>();
+        for (int i = 0; i < 40; i++) {
+            salts.add(2000L + i);
+            if (i % 2 == 0) {
+                died(out, Comparison.CANDIDATE, set.entries().get(i), 2000L + i, "greedy", 9);
+            }
+            died(out, Comparison.BASELINE, set.entries().get(i), 2000L + i, "random", 5);
+        }
+
+        Gsprt uncapped = new Gsprt(0.50, 0.55, 0.05, 0.05, 20, 100);
+        Gsprt capped = new Gsprt(0.50, 0.55, 0.05, 0.05, 20, 100).allowingMissing(50);
+
+        assertEquals(Gsprt.Verdict.ACCEPT,
+                Comparison.of(set, salts, TAG, out, "greedy", "random", uncapped).result().verdict(),
+                "without a cap the crashes buy an accept -- which is the exploit");
+        assertEquals(Gsprt.Verdict.VOID,
+                Comparison.of(set, salts, TAG, out, "greedy", "random", capped).result().verdict());
+    }
+
+    @Test
+    @DisplayName("the report carries every pair, the test's parameters and the counts the LLR is over")
+    void the_report_recomputes(@TempDir Path out) throws IOException {
         SeedSet set = set(30);
         List<Long> salts = new ArrayList<>();
         for (int i = 0; i < 30; i++) {
             salts.add(100L + i);
-            log(out.resolve(Comparison.CANDIDATE), set.entries().get(i), 100L + i, "greedy", 5);
-            log(out.resolve(Comparison.BASELINE), set.entries().get(i), 100L + i, "random", 1);
+            died(out, Comparison.CANDIDATE, set.entries().get(i), 100L + i, "greedy", 5);
+            died(out, Comparison.BASELINE, set.entries().get(i), 100L + i, "random", 1);
         }
-        Gsprt test = new Gsprt(0.50, 0.55, 0.05, 0.05, 10, 100);
+        Gsprt test = new Gsprt(0.50, 0.55, 0.05, 0.05, 10, 100).allowingMissing(50);
 
         Comparison.Report report = Comparison.of(set, salts, TAG, out, "greedy", "random", test);
-        Comparison.write(out, report, "H-0001-x@0123456789abcdef");
+        Comparison.write(out, report, "H-0001-x@0123456789abcdef", true);
 
-        assertNotNull(report.result());
-        assertEquals(Gsprt.Verdict.ACCEPT, report.result().verdict());
-        assertEquals(10, report.result().pairs(), "accepted at the burn-in");
         String json = Files.readString(out.resolve(Comparison.FILE), StandardCharsets.UTF_8).strip();
         assertEquals("ACCEPT", LogHeader.string(json, "verdict"), json);
         assertEquals("10", LogHeader.value(json, "stopped_at"), json);
-        assertEquals("30", LogHeader.value(json, "better"), json);
+        // Over the ten pairs consumed, not the thirty played: the counts an LLR is a function of.
+        assertEquals("10", LogHeader.value(json, "consumed_better"), json);
+        assertEquals("0", LogHeader.value(json, "consumed_equal"), json);
+        assertEquals("500000", LogHeader.value(json, "p0_micros"), json);
+        assertEquals("550000", LogHeader.value(json, "p1_micros"), json);
+        assertEquals(String.valueOf(Math.round(Math.log(0.95 / 0.05) * 1_000_000)),
+                LogHeader.value(json, "upper_micros"), json);
+        assertEquals("true", LogHeader.value(json, "direction_check"), json);
         assertEquals("H-0001-x@0123456789abcdef", LogHeader.string(json, "registration"), json);
+        String pairs = LogHeader.value(json, "pairs");
+        assertEquals(30, pairs.split("\"candidate_run\"").length - 1, "every pair, with its Runs");
+        assertTrue(pairs.contains(RunLog.salt(100L)), "and its salt");
     }
 }

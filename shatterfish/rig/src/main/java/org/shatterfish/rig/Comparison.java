@@ -10,7 +10,10 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 
 /**
@@ -19,12 +22,18 @@ import java.util.List;
  * <p><b>A pair is two Runs of one triple under one salt.</b> The Runner draws the salt once per
  * triple and hands it to both children, which is what makes the pair a common-random-numbers
  * comparison: whatever the dungeon does at a given moment it does to both Brains. A pair is found
- * here by the run id both Runs' own headers name, and a Run whose file is absent, unreadable or
- * without an ending is scored a tie and counted as missing.
+ * here by the run id both Runs' own headers name, and a Run whose file is absent, unreadable,
+ * without an ending, or ended by something other than the game is scored a tie and counted as
+ * missing.
  *
  * <p><b>Pairs are consumed in the Seed set's order.</b> Never in the order the Runs finished:
  * completion order depends on which Runs were slow, which depends on how they went, and a sequential
  * test fed in that order would be stopping on information it was not supposed to have yet.
+ *
+ * <p><b>The report can be recomputed from itself.</b> {@code comparison.json} carries every pair
+ * (triple, salt, both run ids, score), the test's parameters, the counts over the pairs the test
+ * actually consumed, and a hash of each side's run index -- so a reader can redo the arithmetic,
+ * find every log it rests on, and see if either index was changed after the verdict was written.
  */
 public final class Comparison {
 
@@ -36,18 +45,31 @@ public final class Comparison {
 
     public static final String BASELINE = "baseline";
 
+    /** One pair: which triple, under which salt, both Runs, and what the pair scored. */
+    public record Pair(SeedSet.Entry triple, long salt, String candidateRun, String baselineRun,
+                       PairScore score, boolean missing) {
+    }
+
     /**
      * What the pairs said.
      *
-     * @param scores  one per triple, in the Seed set's order
-     * @param missing how many of them had a Run missing, and were therefore scored a tie
-     * @param result  the sequential test, or null when there was no Registration to state its bounds
+     * @param pairs  one per triple, in the Seed set's order
+     * @param test   the sequential test that ran, or null when no Registration stated its bounds
+     * @param result what it concluded, or null with it
      */
-    public record Report(String candidate, String baseline, List<PairScore> scores, int missing,
+    public record Report(String candidate, String baseline, List<Pair> pairs, Gsprt test,
                          Gsprt.Result result) {
 
         public Report {
-            scores = List.copyOf(scores);
+            pairs = List.copyOf(pairs);
+        }
+
+        public List<PairScore> scores() {
+            return pairs.stream().map(Pair::score).toList();
+        }
+
+        public int missing() {
+            return (int) pairs.stream().filter(Pair::missing).count();
         }
     }
 
@@ -64,61 +86,95 @@ public final class Comparison {
             throw new IllegalArgumentException("a salt for every triple: " + salts.size() + " for "
                     + triples.entries().size());
         }
-        List<PairScore> scores = new ArrayList<>();
-        int missing = 0;
+        List<Pair> pairs = new ArrayList<>();
         for (int i = 0; i < salts.size(); i++) {
             SeedSet.Entry triple = triples.entries().get(i);
-            RunLog.Outcome mine = outcome(out.resolve(CANDIDATE), tag, triple, salts.get(i), candidate);
-            RunLog.Outcome theirs = outcome(out.resolve(BASELINE), tag, triple, salts.get(i), baseline);
-            if (mine == null || theirs == null) {
-                missing++;
-            }
-            scores.add(PairScore.of(mine, theirs));
+            long salt = salts.get(i);
+            String mineId = runId(tag, triple, salt, candidate);
+            String theirsId = runId(tag, triple, salt, baseline);
+            RunLog.Outcome mine = outcome(out.resolve(CANDIDATE).resolve(RunLog.fileName(mineId)));
+            RunLog.Outcome theirs = outcome(out.resolve(BASELINE).resolve(RunLog.fileName(theirsId)));
+            boolean missing = !PairScore.reached(mine) || !PairScore.reached(theirs);
+            pairs.add(new Pair(triple, salt, mineId, theirsId, PairScore.of(mine, theirs), missing));
         }
-        return new Report(candidate, baseline, scores, missing, test == null ? null : test.run(scores));
+        Gsprt.Result result = test == null ? null
+                : test.run(pairs.stream().map(Pair::score).toList(),
+                        pairs.stream().map(Pair::missing).toList());
+        return new Report(candidate, baseline, pairs, test, result);
     }
 
-    /** The outcome one side's Run of one triple reached, or null when there is none to read. */
-    static RunLog.Outcome outcome(Path folder, String tag, SeedSet.Entry triple, long salt, String brain) {
-        Path file = folder.resolve(RunLog.fileName(RunLog.runId(tag, triple.heroClass(),
-                triple.challengeFlags(), triple.seedCode(), salt, brain)));
+    private static String runId(String tag, SeedSet.Entry triple, long salt, String brain) {
+        return RunLog.runId(tag, triple.heroClass(), triple.challengeFlags(), triple.seedCode(), salt,
+                brain);
+    }
+
+    /**
+     * The outcome a Run's log records, or null when there is no whole, finished log to read.
+     *
+     * <p>Only a log that reads to its end, ends in a record the writer finished, and holds exactly
+     * one header is believed. Anything less is a Run the Rig cannot vouch for, and it is counted as
+     * missing rather than scored -- which is how the index counted it too.
+     */
+    static RunLog.Outcome outcome(Path file) {
         if (!Files.isRegularFile(file)) {
             return null;
         }
-        try {
-            RunLogReader.Log log = RunLogReader.of(file);
-            return log.readable() && log.end() != null ? log.end().outcome() : null;
-        } catch (RuntimeException unreadable) {
+        RunLogReader.Log log = RunLogReader.of(file);
+        if (!log.readable() || !log.complete() || log.end() == null
+                || log.records().stream().filter(RunLog.Header.class::isInstance).count() != 1) {
             return null;
         }
+        return log.end().outcome();
     }
 
     /**
      * Writes {@code report} as {@code comparison.json} in {@code out}.
      *
-     * <p>No floats: the LLR and its trace are written in millionths, as every number this project
-     * writes down is a whole one (ADR-0011).
+     * @param directionCheck whether the Seed set is one that may not accept (ADR-0012: only
+     *                       {@code standard} and {@code bosses} can), so an ACCEPT here is a
+     *                       direction and not a result
      */
-    public static void write(Path out, Report report, String registration) {
+    public static void write(Path out, Report report, String registration, boolean directionCheck) {
         JsonWriter json = new JsonWriter();
         json.beginObject();
         json.key("baseline").value(report.baseline());
+        json.key("baseline_index_sha256").value(sha256(out.resolve(BASELINE).resolve(RunIndex.RUNS)));
         json.key("candidate").value(report.candidate());
-        int[] counts = new int[3];
-        for (PairScore score : report.scores()) {
-            counts[score.halves()]++;
-        }
-        json.key("better").value(counts[2]);
-        json.key("equal").value(counts[1]);
+        json.key("candidate_index_sha256").value(sha256(out.resolve(CANDIDATE).resolve(RunIndex.RUNS)));
+        json.key("direction_check").value(directionCheck);
         json.key("missing").value(report.missing());
-        json.key("pairs").value(report.scores().size());
+        json.key("pairs").beginArray();
+        for (Pair pair : report.pairs()) {
+            json.beginObject();
+            json.key("baseline_run").value(pair.baselineRun());
+            json.key("candidate_run").value(pair.candidateRun());
+            json.key("missing").value(pair.missing());
+            json.key("salt").value(RunLog.salt(pair.salt()));
+            json.key("score_halves").value(pair.score().halves());
+            json.key("seed").value(pair.triple().seed());
+            json.endObject();
+        }
+        json.endArray();
         json.key("registration").value(registration);
         json.key("tested").value(report.result() != null);
         if (report.result() != null) {
+            Gsprt test = report.test();
             Gsprt.Result result = report.result();
+            int[] counts = result.counts();
+            json.key("burn_in").value(test.burnIn());
             json.key("clamped").value(result.clamped());
+            // The counts over the pairs the test consumed, which are the counts the LLR is a
+            // function of. Counting every pair played -- including those after the stop -- gave a
+            // file whose counts could not reproduce its own LLR.
+            json.key("consumed_better").value(counts[2]);
+            json.key("consumed_equal").value(counts[1]);
+            json.key("consumed_worse").value(counts[0]);
             json.key("llr_micros").value(micros(result.llr()));
             json.key("lower_micros").value(micros(result.lower()));
+            json.key("maximum").value(test.maximum());
+            json.key("missing_per_mil").value(test.missingPerMil());
+            json.key("p0_micros").value(micros(test.p0()));
+            json.key("p1_micros").value(micros(test.p1()));
             json.key("stopped_at").value(result.pairs());
             json.key("trace_micros").beginArray();
             for (double step : result.trace()) {
@@ -128,7 +184,6 @@ public final class Comparison {
             json.key("upper_micros").value(micros(result.upper()));
             json.key("verdict").value(result.verdict().name());
         }
-        json.key("worse").value(counts[0]);
         json.endObject();
         try {
             Files.writeString(out.resolve(FILE), json.toJson() + "\n", StandardCharsets.UTF_8);
@@ -137,7 +192,28 @@ public final class Comparison {
         }
     }
 
-    private static long micros(double value) {
-        return Math.round(value * 1_000_000);
+    /**
+     * Millionths, refusing a value no long can hold rather than saturating to one silently.
+     *
+     * <p>The raw LLR grows with the square of a lopsided run's length, and {@code Math.round} of a
+     * double past {@code Long.MAX_VALUE} returns {@code Long.MAX_VALUE} without a word.
+     */
+    static long micros(double value) {
+        double scaled = value * 1_000_000;
+        if (!(Math.abs(scaled) < 9.0e18)) {
+            throw new IllegalArgumentException("a value too large to write in millionths: " + value);
+        }
+        return Math.round(scaled);
+    }
+
+    private static String sha256(Path file) {
+        try {
+            byte[] bytes = Files.isRegularFile(file) ? Files.readAllBytes(file) : new byte[0];
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (IOException e) {
+            throw new UncheckedIOException("could not read " + file, e);
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("every JDK has SHA-256", impossible);
+        }
     }
 }

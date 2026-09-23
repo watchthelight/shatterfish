@@ -17,7 +17,7 @@ class PairScoreTest {
 
     /** A Run: win, score, bosses, depth, turns. */
     private static RunLog.Outcome run(boolean win, long score, int bosses, int depth, long turns) {
-        return new RunLog.Outcome(win, false, score, depth, turns, win ? "WON" : "DEATH", bosses);
+        return new RunLog.Outcome(win, false, score, depth, turns, win ? "WIN" : "DEATH", bosses);
     }
 
     @Test

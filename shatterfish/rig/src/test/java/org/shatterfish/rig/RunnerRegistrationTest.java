@@ -348,4 +348,67 @@ class RunnerRegistrationTest {
         assertTrue(Files.exists(root.resolve("unranked").resolve(RunIndex.SUMMARY)),
                 "and a development run that never looks at the ledger is unaffected");
     }
+
+    /** A comparison of the random Brain at one commit against itself at another, on the smoke set. */
+    private static Registration comparison(String id, String against) {
+        return new Registration(id, "the random Brain is not better than itself", 
+                new Registration.Brain(against, "aaaaaaa", ZERO),
+                new Registration.Brain("random", "abc1234", ZERO), SeedSets.SMOKE, 1, 50, 50, 8, 25,
+                0, "a laptop", false, 500, 550, 999);
+    }
+
+    @Test
+    @DisplayName("a ranked comparison is tested under the Registration's own bounds, and a run of ties rejects")
+    @Timeout(value = 20, unit = TimeUnit.MINUTES)
+    void a_ranked_comparison_is_tested(@TempDir Path root, @TempDir Path out) throws IOException {
+        // Two Registration Brains that differ only in their commit are a legal comparison, and
+        // random against random is the same Run on both sides -- so every pair that reaches an ending
+        // ties, and a run of ties is evidence for H0: the test rejects at the burn-in.
+        repository(root, comparison("H-0110-self", "random"));
+
+        Runner.run(arguments(root, out, Runner.REGISTRATION, "H-0110-self",
+                Runner.AGAINST, Brains.RANDOM, Runner.CAP, "20000"));
+
+        String json = Files.readString(out.resolve(Comparison.FILE), StandardCharsets.UTF_8).strip();
+        assertEquals("true", LogHeader.value(json, "tested"), json);
+        assertEquals("REJECT", LogHeader.string(json, "verdict"), json);
+        assertEquals("8", LogHeader.value(json, "stopped_at"), "at the burn-in: " + json);
+        assertEquals(String.valueOf(Math.round(Math.log(0.05 / 0.95) * 1_000_000)),
+                LogHeader.value(json, "lower_micros"), "the bounds are the Registration's: " + json);
+        assertEquals("true", LogHeader.value(json, "direction_check"),
+                "the smoke set is a direction check and cannot accept: " + json);
+        Ledger.Entry last = new Ledger(root.resolve(Registrations.FOLDER)).entries().get(0);
+        assertTrue(last.note().startsWith("REJECT (direction check) after 8"),
+                "the ledger says what came of it, so rejected attempts are countable: " + last.note());
+        assertTrue(last.note().endsWith("against random"), last.note());
+    }
+
+    @Test
+    @DisplayName("a baseline's Registration with --against, and a comparison's without it, are refused")
+    void the_shape_of_the_registration_is_the_shape_of_the_invocation(@TempDir Path root, @TempDir Path out)
+            throws IOException {
+        repository(root, baseline("H-0111-base", SeedSets.SMOKE, false, "abc1234"),
+                comparison("H-0112-pair", "random"));
+
+        IllegalArgumentException asPair = assertThrows(IllegalArgumentException.class,
+                () -> Runner.run(arguments(root, out, Runner.REGISTRATION, "H-0111-base",
+                        Runner.AGAINST, Brains.RANDOM)));
+        assertTrue(asPair.getMessage().contains("fixes a baseline"), asPair.getMessage());
+
+        IllegalArgumentException alone = assertThrows(IllegalArgumentException.class,
+                () -> Runner.run(arguments(root, out, Runner.REGISTRATION, "H-0112-pair")));
+        assertTrue(alone.getMessage().contains("fixes a comparison"), alone.getMessage());
+    }
+
+    @Test
+    @DisplayName("a comparison against a Brain the Registration does not name is refused")
+    void the_baseline_is_the_registrations(@TempDir Path root, @TempDir Path out) throws IOException {
+        repository(root, comparison("H-0113-greedy", "greedy"));
+
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> Runner.run(arguments(root, out, Runner.REGISTRATION, "H-0113-greedy",
+                        Runner.AGAINST, Brains.RANDOM)));
+
+        assertTrue(refused.getMessage().contains("compares against the Brain greedy"), refused.getMessage());
+    }
 }
