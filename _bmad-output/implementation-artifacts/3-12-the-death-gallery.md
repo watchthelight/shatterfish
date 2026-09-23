@@ -107,6 +107,31 @@ the mutation's escape left a stray file there -- the test now looks inside its o
 
 **Deferred.** The per-Brain comparison view is E4's half of FR-26, said on every gallery page.
 
+**Second review (independent reviews of #127), fixed in `8038dc98f`.** The page now puts the
+endings the game decided (deaths, wins) and the Runs it did not end in separate sections, and only
+the first says the largest group is the place to look. It states that the log's `Outcome` records
+no killer (no mob, trap or hunger), so the gallery groups by ending and depth; the killer is in
+`docs/ideas.md` and `deferred-work.md`. Also fixed:
+- A log the reader throws on is one `UNREADABLE` Run, and its snapshot says so.
+- An index naming a Run or a log twice is refused.
+- `NO_ENDING` takes the depth of its last wait.
+- Snapshots are cleared on every rewrite, even without `--snapshots`, and only the gallery's own
+  `.md` files; the page is written to a temporary file and moved into place before any stale
+  snapshot is deleted.
+- Every cell and link is escaped, and turns are whole turns.
+- The Runner's guard catches `Error` too, and a ranked-invocation test proves a failing gallery
+  keeps the ledger line.
+- `build312.log` was committed by mistake and is removed.
+- `:rig:gallery` is in CLAUDE.md and the rig skill.
+- The H-0002 gallery is regenerated from the final code: 1,962 ms on the 500-Run folder.
+
+**Verification state after the second review.** `GalleryTest` (12) passes and `mkdocs build
+--strict` passes on the final code. The full `./gradlew build` and the second mutation battery
+(19 mutations on the new guards, `mutations312b.py`) have **not** run on it: Claude Code stopped
+the build because the machine ran low on memory, and a stopped build is not restarted without being
+asked. Before that, the full build was green on the first review patch (983 tests; its one failure,
+the doc citation, was fixed). CI on the PR is the full build for this version.
+
 ## Suggested Review Order
 
 - Grouping from each Run's own log, and what is not an ending.
