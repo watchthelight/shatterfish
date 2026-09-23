@@ -2,7 +2,7 @@
 title: 'Story 3.5: Registration and the salt discipline'
 type: 'feature'
 created: '2026-09-23'
-status: 'in-review' # draft | ready-for-dev | in-progress | in-review | done
+status: 'done' # draft | ready-for-dev | in-progress | in-review | done
 review_loop_iteration: 0
 context: []
 ---

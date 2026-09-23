@@ -77,7 +77,7 @@ development_status:
   3-2-run-logs-with-a-hash-chain: done
   3-3-the-parallel-runner: done
   3-4-replay-with-verification: done
-  3-5-registration-and-the-salt-discipline: review
+  3-5-registration-and-the-salt-discipline: done
   3-6-the-per-pair-statistic-and-the-sequential-test: backlog
   3-7-calibrate-the-bounds: backlog
   3-8-the-e-process-alternative: backlog
