@@ -424,10 +424,13 @@ public final class Runner {
             verdict = report.result() == null ? "" : report.result().verdict().name()
                     + (directionCheck ? " (direction check)" : "") + " after "
                     + report.result().pairs() + " pairs, " + report.missing() + " missing";
+            String stopped = report.result() == null ? "" : report.result().verdict().name()
+                    + (directionCheck ? " (direction check)" : "") + " after "
+                    + report.result().pairs() + " pairs";
             System.out.println(brain + " against " + against + ": " + report.pairs().size()
                     + " pairs, " + report.missing() + " missing"
                     + (report.result() == null ? ", not tested (no Registration states the bounds)"
-                            : ", " + verdict));
+                            : ", " + stopped));
         }
         if (registration != null) {
             // The verdict and the baseline in the note. A ledger of identical FINISHED lines could

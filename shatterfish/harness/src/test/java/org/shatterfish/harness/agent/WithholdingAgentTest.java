@@ -21,12 +21,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The deliberately worse Brain (story 3.9): the random agent less {@code Descend}.
+ * The deliberately worse Brains (story 3.9): the random agent less one kind of Action, here
+ * {@code Descend}, the kind SM-5 names.
  *
  * <p>A real Observation from a real wait, with its offered set replaced, so that the one thing
  * varied is whether {@code Descend} is in it.
  */
-class NoDescendAgentTest {
+class WithholdingAgentTest {
 
     private static final long RUN_SALT = 0x5A17_5A17L;
 
@@ -60,7 +61,7 @@ class NoDescendAgentTest {
         withStairs.add(new Action.Descend());
         Observation observation = offering(real, withStairs);
 
-        NoDescendAgent agent = new NoDescendAgent(1L);
+        WithholdingAgent agent = new WithholdingAgent(1L, Action.Descend.class);
         Set<Action> drawn = new HashSet<>();
         for (int draw = 0; draw < 40 * withStairs.size(); draw++) {
             drawn.add(agent.decide(observation));
@@ -78,7 +79,7 @@ class NoDescendAgentTest {
         offered.removeIf(Action.Descend.class::isInstance);
         Observation observation = offering(real, offered);
 
-        NoDescendAgent worse = new NoDescendAgent(7L);
+        WithholdingAgent worse = new WithholdingAgent(7L, Action.Descend.class);
         RandomAgent random = new RandomAgent(7L);
         for (int draw = 0; draw < 50; draw++) {
             assertEquals(random.decide(observation), worse.decide(observation), "draw " + draw);
@@ -90,7 +91,7 @@ class NoDescendAgentTest {
     void nothing_but_stairs() {
         Observation stairs = offering(observed(), List.of(new Action.Descend()));
 
-        assertNull(new NoDescendAgent(3L).decide(stairs));
+        assertNull(new WithholdingAgent(3L, Action.Descend.class).decide(stairs));
         assertTrue(new RandomAgent(3L).decide(stairs) instanceof Action.Descend,
                 "where the random agent would have gone down");
     }

@@ -2,8 +2,8 @@ package org.shatterfish.rig;
 
 import org.shatterfish.api.Decider;
 import org.shatterfish.api.SeedSet;
-import org.shatterfish.harness.agent.NoDescendAgent;
 import org.shatterfish.harness.agent.RandomAgent;
+import org.shatterfish.harness.agent.WithholdingAgent;
 import org.shatterfish.harness.rng.Mix;
 
 import java.io.IOException;
@@ -52,6 +52,16 @@ public final class Brains {
     public static final String NO_DESCEND = "random_nodescend";
 
     /**
+     * The worse Brain that is worse (story 3.9): the Baseline with {@code Rest} withheld. The first
+     * one, {@link #NO_DESCEND}, played the same Run as the Baseline on every triple of
+     * {@code standard} that reached an ending, because the random agent never takes the stairs;
+     * withholding {@code Attack} changed one pair of the 25 in {@code smoke}, because a random Run
+     * seldom meets anything to attack before it dies. Resting is what a random Run spends its turns
+     * on, and without it one dies sooner.
+     */
+    public static final String NO_REST = "random_norest";
+
+    /**
      * The files that decide what a Brain does, by name.
      *
      * <p>FR-20 allows the held-out set one use per <em>Brain version</em>, and a version has to be
@@ -68,8 +78,8 @@ public final class Brains {
             return List.of("shatterfish/harness/src/main/java/org/shatterfish/harness/agent/RandomAgent.java",
                     "shatterfish/rig/src/main/java/org/shatterfish/rig/Brains.java");
         }
-        if (NO_DESCEND.equals(name)) {
-            return List.of("shatterfish/harness/src/main/java/org/shatterfish/harness/agent/NoDescendAgent.java",
+        if (NO_DESCEND.equals(name) || NO_REST.equals(name)) {
+            return List.of("shatterfish/harness/src/main/java/org/shatterfish/harness/agent/WithholdingAgent.java",
                     "shatterfish/rig/src/main/java/org/shatterfish/rig/Brains.java");
         }
         throw new IllegalStateException("the Brain " + name + " has not said which files decide"
@@ -104,7 +114,7 @@ public final class Brains {
 
     /** Every name the Rig answers to, in the order it lists them. */
     public static List<String> names() {
-        return List.of(RANDOM, NO_DESCEND);
+        return List.of(RANDOM, NO_DESCEND, NO_REST);
     }
 
     /** Whether the Rig has a Brain of this name. Asking does not build one. */
@@ -144,7 +154,10 @@ public final class Brains {
             return new RandomAgent(agentSeed(triple));
         }
         if (NO_DESCEND.equals(name)) {
-            return new NoDescendAgent(agentSeed(triple));
+            return new WithholdingAgent(agentSeed(triple), org.shatterfish.api.Action.Descend.class);
+        }
+        if (NO_REST.equals(name)) {
+            return new WithholdingAgent(agentSeed(triple), org.shatterfish.api.Action.Rest.class);
         }
         throw new IllegalStateException("the Rig names the Brain " + name + " and cannot build one");
     }
@@ -155,7 +168,7 @@ public final class Brains {
      * its configuration is the empty one.
      */
     public static String configHash(String name) {
-        if (!RANDOM.equals(named(name)) && !NO_DESCEND.equals(name)) {
+        if (!RANDOM.equals(named(name)) && !NO_DESCEND.equals(name) && !NO_REST.equals(name)) {
             // A real Brain states its own configuration. Returning zeros for it would put an
             // unfalsifiable claim in every log header it wrote, and the Registration (story 3.5)
             // is the thing that pins a Brain's configuration -- so this refuses rather than
