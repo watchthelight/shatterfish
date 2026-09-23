@@ -18,6 +18,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -127,6 +128,72 @@ class RunnerIsolationTest {
             assertTrue(read.complete(), "the Run ended: " + logs.get(0));
             return read.chain();
         }
+    }
+
+    @Test
+    @DisplayName("each Run ran in the working directory the Rig gave it, in its own hand")
+    @Timeout(value = 15, unit = TimeUnit.MINUTES)
+    void every_run_ran_where_it_was_put(@TempDir Path out) throws IOException {
+        Runner.run(arguments(out, 4));
+
+        // The directories were always created; nothing established that a child was ever started in
+        // one. Delete the line that hands the directory over and every child inherits the parent's,
+        // writing beside each other -- which is what AD-6 forbids -- and the old assertion, which
+        // only listed the names of the empty directories, passed.
+        List<String> index = Files.readAllLines(out.resolve(RunIndex.RUNS), StandardCharsets.UTF_8);
+        assertTrue(index.size() >= 25, "the smoke set: " + index.size());
+        for (String line : index) {
+            Path working = out.resolve("work").resolve(LogHeader.string(line, "runId"));
+            Path said = working.resolve(RunOne.WHERE);
+            assertTrue(Files.isRegularFile(said), "the Run left no word of where it ran: " + said);
+            assertEquals(working.toAbsolutePath().toString(),
+                    Files.readString(said, StandardCharsets.UTF_8).strip(),
+                    "and it ran where the Rig put it");
+        }
+    }
+
+    @Test
+    @DisplayName("a second invocation of one set draws different salts, because a salt is drawn and not derived")
+    @Timeout(value = 20, unit = TimeUnit.MINUTES)
+    void a_salt_is_drawn_not_derived(@TempDir Path first, @TempDir Path second) throws IOException {
+        // Distinctness within one invocation is true of any injective function of the tuple, so it
+        // was not the property: a derived salt would let a Brain's author precompute the stream
+        // their Brain will face, which is the thing FR-22 forbids. Two invocations of one set have
+        // to disagree.
+        Runner.run(arguments(first, 4));
+        Runner.run(arguments(second, 4));
+
+        TreeSet<String> once = saltsBySeed(first);
+        TreeSet<String> twice = saltsBySeed(second);
+        TreeSet<String> shared = new TreeSet<>(once);
+        shared.retainAll(twice);
+
+        assertEquals(new TreeSet<String>(), shared,
+                "two invocations of one set drew the same salt for the same seed, so the salt is a"
+                        + " function of the tuple and a Brain's author can compute it");
+    }
+
+    /** Each Run's seed and salt together, so a repeat across invocations is visible. */
+    private static TreeSet<String> saltsBySeed(Path out) throws IOException {
+        TreeSet<String> pairs = new TreeSet<>();
+        for (String line : Files.readAllLines(out.resolve(RunIndex.RUNS), StandardCharsets.UTF_8)) {
+            pairs.add(LogHeader.value(line, "seed") + "/" + LogHeader.string(line, "salt"));
+        }
+        return pairs;
+    }
+
+    @Test
+    @DisplayName("a Run refuses an out folder that is not absolute, because its working directory is its own")
+    void a_run_refuses_a_relative_out() {
+        // The parent always passes an absolute path, so this bites only the person debugging one
+        // Run by hand -- which is exactly when nobody is watching, and the child's own javadoc
+        // invites it.
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> RunOne.play(java.util.Map.of(RunOne.SEED, "1", RunOne.CLASS, "WARRIOR",
+                        RunOne.CHALLENGES, "0", RunOne.SALT, "1", RunOne.OUT, "runs",
+                        RunOne.COMMIT, COMMIT, RunOne.BRAIN, Brains.RANDOM,
+                        RunOne.BRAIN_COMMIT, COMMIT)));
+        assertTrue(refused.getMessage().contains("absolute path"), refused.getMessage());
     }
 
     @Test

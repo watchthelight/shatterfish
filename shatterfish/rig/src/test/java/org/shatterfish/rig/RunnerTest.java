@@ -149,10 +149,18 @@ class RunnerTest {
 
         Runner.run(given);
 
+        // The expectation is the machine's own core count, not `defaultParallel()` -- a mutant
+        // that made the default 1 made both sides 1, and this test, written in this story to fix
+        // exactly that shape, reproduced it. A battery found it; four reviews had not.
+        int cores = Math.min(Runner.MOST, Runtime.getRuntime().availableProcessors());
         String summary = Files.readString(out.resolve(RunIndex.SUMMARY), StandardCharsets.UTF_8).strip();
-        assertEquals(String.valueOf(Runner.defaultParallel()), LogHeader.value(summary, "processes"),
-                "the invocation used the default it publishes");
-        assertTrue(Runner.defaultParallel() >= 1 && Runner.defaultParallel() <= Runner.MOST);
+        assertEquals(String.valueOf(cores), LogHeader.value(summary, "processes"),
+                "an invocation with no --parallel uses one process per core");
+        assertEquals(cores, Runner.defaultParallel(), "which is what the default says it is");
+
+        // And the cap the invocation ran under, because two invocations at different caps are not
+        // the same measurement and the run ids and headers are identical either way.
+        assertEquals("40", LogHeader.value(summary, "turnCap"), summary);
     }
 
     @Test
@@ -274,6 +282,37 @@ class RunnerTest {
         assertTrue(refused.getMessage().contains(runId), refused.getMessage());
         assertTrue(refused.getMessage().contains("what a player could not"), refused.getMessage());
         assertTrue(refused.getMessage().contains("FR-11"), refused.getMessage());
+    }
+
+    @Test
+    @DisplayName("a log the Rig cannot read is not a Run it can vouch for")
+    void an_unreadable_log_is_not_a_fair_run(@TempDir Path out) throws IOException {
+        // Including about the oracle: a log nobody can parse says nothing, and counting it as a
+        // fair Run is the one reading of it that cannot be justified.
+        String runId = "v4.0.0-WARRIOR-0-AAA-AAA-AAB-0000000000000007-random";
+        Files.writeString(out.resolve(runId + ".jsonl"), "this is not a Run log\n", StandardCharsets.UTF_8);
+        RunIndex index = new RunIndex(out);
+        index.started(new RunIndex.Entry(runId, runId + ".jsonl", RunIndex.State.STARTED, "", 1,
+                "WARRIOR", 0, 7, "", 0, ""));
+
+        Runner.finish(index, out, runId, "", 1, new AtomicLong());
+
+        assertEquals(RunIndex.State.INCOMPLETE, index.entries().get(0).state());
+        assertTrue(index.entries().get(0).why().contains("could not be read"),
+                index.entries().get(0).why());
+    }
+
+    @Test
+    @DisplayName("a Brain that has not said what it is configured as cannot have that written down for it")
+    void a_brain_states_its_own_configuration() {
+        // The Baseline has no configuration, and says so with a digest of zeros. Anything else
+        // would be publishing an unfalsifiable claim in every header it wrote, and the field is
+        // what a Registration pins.
+        assertEquals("0".repeat(64), Brains.configHash(Brains.RANDOM));
+        assertThrows(IllegalArgumentException.class, () -> Brains.configHash("greedy"),
+                "a Brain the Rig does not have");
+        assertEquals(List.of(Brains.RANDOM), Brains.names(),
+                "when a real Brain is added here, `configHash` refuses until it states its own");
     }
 
     @Test

@@ -155,12 +155,7 @@ public final class Runner {
             Runtime.getRuntime().removeShutdownHook(hook);
         }
         if (failed != null) {
-            // Nothing is published, and the folder says so. The index and the logs are already on
-            // disk -- they are written as Runs are dispatched, on purpose -- so the honest thing
-            // is not to pretend they are absent but to mark them: a reader who picks this folder
-            // up finds a refusal beside the numbers rather than a complete-looking set.
-            index.refused(failed.getMessage());
-            throw failed;
+            throw refuse(index, failed);
         }
         long millis = (System.nanoTime() - began) / 1_000_000L;
         index.summary(brain, set, parallel, cap, millis, waits.get());
@@ -171,6 +166,20 @@ public final class Runner {
                 + RunIndex.rate(triples.entries().size(), millis) / 1000.0 + " Runs/s, "
                 + RunIndex.rate(waits.get(), millis) / 1000.0 + " waits/s)");
         return out;
+    }
+
+    /**
+     * Marks the invocation refused and hands back the reason to throw.
+     *
+     * <p>One statement, because the mark and the throw have to travel together: the index and the
+     * logs are on disk by the time a refusal fires -- they are written as Runs are dispatched, on
+     * purpose -- so a refusal that threw without marking left a folder that looked like a finished
+     * invocation. A battery deleted the marking call and nothing noticed, which is what this shape
+     * fixes: there is no longer a call to delete on its own.
+     */
+    static RuntimeException refuse(RunIndex index, RuntimeException failed) {
+        index.refused(failed.getMessage());
+        return failed;
     }
 
     /**
