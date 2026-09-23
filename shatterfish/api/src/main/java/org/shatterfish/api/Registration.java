@@ -24,7 +24,13 @@ package org.shatterfish.api;
  *
  * @param hypothesis   the id, which is also the file name: what a Results page cites
  * @param claim        what is being asserted, in one sentence, for a person rather than a machine
- * @param brainA       the Brain the comparison measures against
+ * @param brainA       the Brain the comparison measures against, or null when this Registration
+ *                     fixes a baseline rather than a comparison. ADR-0012 describes comparisons,
+ *                     and every field it lists is about one -- but E3's own done-when is that a
+ *                     baseline is published, and the nightly smoke job compares nothing at all. A
+ *                     baseline is a hypothesis stated before the numbers just as a comparison is;
+ *                     only the shape differs, and a form that could not express one would have
+ *                     forced the first Registration to name a Brain that does not exist
  * @param brainB       the Brain being measured
  * @param seedSet      the Seed set's name, which decides which Runs are played
  * @param seedVersion  the Seed set schema version, so "standard" means the same thing later
@@ -80,8 +86,8 @@ public record Registration(String hypothesis, String claim, Brain brainA, Brain 
                 "a hypothesis id looks like H-0001-a-short-name: " + hypothesis);
         Canon.text(claim, "what a Registration claims");
         Canon.require(!claim.isEmpty(), "a Registration says in words what it is claiming");
-        Canon.require(brainA != null && brainB != null, "a comparison names two Brains");
-        Canon.require(!brainA.equals(brainB),
+        Canon.require(brainB != null, "a Registration names the Brain it is about");
+        Canon.require(brainA == null || !brainA.equals(brainB),
                 "a comparison of a Brain against itself measures the Seed set, not the Brain");
         Canon.text(seedSet, "a Seed set's name");
         Canon.require(seedSet.matches("[a-z][a-z0-9]*"), "a Seed set's name: " + seedSet);
@@ -98,7 +104,10 @@ public record Registration(String hypothesis, String claim, Brain brainA, Brain 
         Canon.text(machineClass, "a machine class");
         Canon.require(!machineClass.isEmpty(),
                 "a Registration says what class of machine its numbers are from");
-        forbidden(hypothesis, claim, seedSet, machineClass, brainA.name(), brainB.name());
+        forbidden(hypothesis, claim, seedSet, machineClass, brainB.name());
+        if (brainA != null) {
+            forbidden(brainA.name());
+        }
     }
 
     /**
@@ -132,6 +141,11 @@ public record Registration(String hypothesis, String claim, Brain brainA, Brain 
         return out.toString();
     }
 
+    /** Whether this fixes a comparison of two Brains, rather than a baseline for one. */
+    public boolean comparison() {
+        return brainA != null;
+    }
+
     /** The id, which is also the name of the file this was read from. */
     public String id() {
         return hypothesis;
@@ -148,7 +162,11 @@ public record Registration(String hypothesis, String claim, Brain brainA, Brain 
         JsonWriter out = new JsonWriter();
         out.beginObject();
         out.key("alpha_per_mil").value(alphaPerMil);
-        brain(out, "brain_a", brainA);
+        if (brainA != null) {
+            // Absent rather than null when there is none: the format writes no nulls (ADR-0011),
+            // and a baseline Registration is not a comparison with a missing half.
+            brain(out, "brain_a", brainA);
+        }
         brain(out, "brain_b", brainB);
         out.key("beta_per_mil").value(betaPerMil);
         out.key("budget_ms").value(budgetMs);
