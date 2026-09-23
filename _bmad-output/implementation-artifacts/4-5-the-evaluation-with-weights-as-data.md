@@ -2,7 +2,7 @@
 title: 'Story 4.5: The Evaluation with weights as data'
 type: 'feature'
 created: '2026-09-23'
-status: 'review'
+status: 'done'
 baseline_commit: '4e95c0ec0'
 review_loop_iteration: 0
 context: []
