@@ -134,15 +134,32 @@ class GalleryTest {
     }
 
     @Test
+    @DisplayName("a log with a header and then a line nobody can read is UNREADABLE, not grouped by what came before")
+    void unreadable_after_a_header(@TempDir Path out) throws IOException {
+        String line = log(out, 8000, null);
+        Path file = out.resolve(LogHeader.string(line, "log"));
+        Files.writeString(file, Files.readString(file, StandardCharsets.UTF_8) + "{\"t\":\"nonsense\"}\n",
+                StandardCharsets.UTF_8);
+        Files.writeString(out.resolve(RunIndex.RUNS), line + "\n", StandardCharsets.UTF_8);
+
+        List<Gallery.Group> groups = Gallery.of(out);
+
+        assertEquals(Gallery.UNREADABLE, groups.get(0).cause());
+    }
+
+    @Test
     @DisplayName("a snapshot is named for its log, so an index line cannot write outside the folder")
-    void snapshot_names(@TempDir Path out) throws IOException {
+    void snapshot_names(@TempDir Path root) throws IOException {
+        // Two levels down, so that "../../" from snapshots/ lands inside this test's own folder,
+        // where the assertion can see it, rather than in a temp directory other tests share.
+        Path out = Files.createDirectories(root.resolve("a").resolve("b"));
         String line = log(out, 7000, ended("DEATH", 1, 1000));
         String hostile = line.replaceFirst("\"runId\":\"[^\"]*\"", "\"runId\":\"../../escaped\"");
         Files.writeString(out.resolve(RunIndex.RUNS), hostile + "\n", StandardCharsets.UTF_8);
 
         Gallery.write(out, 2);
 
-        assertFalse(Files.exists(out.getParent().resolve("escaped.md")));
+        assertFalse(Files.exists(root.resolve("a").resolve("escaped.md")));
         try (var files = Files.list(out.resolve(Gallery.SNAPSHOTS))) {
             assertEquals(List.of(RunLog.fileName(RunLog.runId("v4.0.0", HeroClass.WARRIOR, 0,
                     SeedSet.code(7000), 7100L, "random")).replace(".jsonl", ".md")),
