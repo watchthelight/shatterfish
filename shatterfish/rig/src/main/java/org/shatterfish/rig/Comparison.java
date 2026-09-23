@@ -57,7 +57,7 @@ public final class Comparison {
      * @param test   the sequential test that ran, or null when no Registration stated its bounds
      * @param result what it concluded, or null with it
      */
-    public record Report(String candidate, String baseline, List<Pair> pairs, Gsprt test,
+    public record Report(String candidate, String baseline, List<Pair> pairs, SequentialTest test,
                          Gsprt.Result result) {
 
         public Report {
@@ -81,7 +81,7 @@ public final class Comparison {
      * runs {@code test} on them when there is one.
      */
     public static Report of(SeedSet triples, List<Long> salts, String tag, Path out,
-                            String candidate, String baseline, Gsprt test) {
+                            String candidate, String baseline, SequentialTest test) {
         if (salts.size() != triples.entries().size()) {
             throw new IllegalArgumentException("a salt for every triple: " + salts.size() + " for "
                     + triples.entries().size());
@@ -158,7 +158,7 @@ public final class Comparison {
         json.key("registration").value(registration);
         json.key("tested").value(report.result() != null);
         if (report.result() != null) {
-            Gsprt test = report.test();
+            SequentialTest test = report.test();
             Gsprt.Result result = report.result();
             int[] counts = result.counts();
             json.key("burn_in").value(test.burnIn());
@@ -175,6 +175,9 @@ public final class Comparison {
             json.key("missing_per_mil").value(test.missingPerMil());
             json.key("p0_micros").value(micros(test.p0()));
             json.key("p1_micros").value(micros(test.p1()));
+            // Which design produced the verdict: the bounds and the trace mean different things in
+            // the two (an LLR against Wald bounds, or a log wealth against log(1/alpha)).
+            json.key("statistic").value(test.statistic().name());
             json.key("stopped_at").value(result.pairs());
             json.key("trace_micros").beginArray();
             for (double step : result.trace()) {

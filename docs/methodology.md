@@ -529,6 +529,31 @@ about 0.0022, so the margin is four and a half standard errors. It is declared h
 result is neither error, which is why the rule also asks for power: a cell that voids most of its
 results is within the margin and useless.
 
+**Which test gates: the e-process beside it.** ADR-0012 kept an alternative in reserve, and story
+3.8 measured it on the same fresh sequences. `EProcess` is a betting e-process (Ian Waudby-Smith
+and Aaditya Ramdas, *Estimating means of bounded random variables by betting*): a gambler starting
+at wealth 1 bets, before each pair, a fraction λ of it that the pair scores above ½, sized from the
+pairs already seen by the aGRAPA rule `λ = (μ̂ − ½)/(σ̂² + (μ̂ − ½)²)` and clipped to [0, 1]. If the
+candidate is not better, no such bet makes money on average, and Ville's inequality bounds the
+chance the wealth *ever* reaches 1/α by α — at any stopping time, with no burn-in and no
+alternative. A second gambler bets the mean is below `p1` and stops the test for futility at 1/β.
+
+At the chosen bounds the two compare like this, on the same 10,000 fresh sequences:
+
+| | false-accept | false-reject | power | mean pairs (H0) | mean pairs (H1) |
+|---|---|---|---|---|---|
+| GSPRT (`n0` = 20) | 5.73% | 3.99% | 92.6% | 108 | 102 |
+| e-process | 2.21% | 2.29% | 93.6% | 163 | 164 |
+
+The e-process keeps its promise with room to spare and loses no power, and it pays for both in
+pairs: about 60% more of them. The rule ADR-0012 set was that the e-process replaces the GSPRT only
+if the GSPRT's realized error exceeds its nominal rate by more than the margin; 5.73% is within 5% +
+0.010, so **the GSPRT stays the gate**. `SequentialTest.GATE` says so, `CalibrationTest` holds it to
+what the calibration concludes, and a later tag whose calibration goes the other way fails the build
+until the gate changes with it. The e-process stays in the tree behind that constant, and every run
+of `./gradlew :rig:calibrate` measures both again; `comparison.json` names the `statistic` its
+bounds and trace belong to.
+
 **What the missing cap costs.** A cap of one pair in four is the price of the Harness's unknown
 windows: it is what lets a comparison of today's Brains conclude at all, and it is also room for a
 Brain to crash on a quarter of the seeds it would lose. When the Harness learns the windows the

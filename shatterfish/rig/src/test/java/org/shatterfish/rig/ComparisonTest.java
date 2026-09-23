@@ -238,6 +238,7 @@ class ComparisonTest {
         assertEquals("0", LogHeader.value(json, "consumed_equal"), json);
         assertEquals("500000", LogHeader.value(json, "p0_micros"), json);
         assertEquals("550000", LogHeader.value(json, "p1_micros"), json);
+        assertEquals("GSPRT", LogHeader.string(json, "statistic"), "which design the bounds belong to");
         assertEquals(String.valueOf(Math.round(Math.log(0.95 / 0.05) * 1_000_000)),
                 LogHeader.value(json, "upper_micros"), json);
         assertEquals("true", LogHeader.value(json, "direction_check"), json);

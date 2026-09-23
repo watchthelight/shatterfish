@@ -45,7 +45,7 @@ import java.util.List;
  * it, and it matters: stopping is legitimate only when the order was fixed before any outcome was
  * seen. Completion order depends on which Runs were slow, which depends on how they went.
  */
-public final class Gsprt {
+public final class Gsprt implements SequentialTest {
 
     /** The pseudo-count a zero is replaced by. */
     static final double REGULARIZATION = 1e-3;
@@ -168,6 +168,11 @@ public final class Gsprt {
         return p0;
     }
 
+    @Override
+    public Statistic statistic() {
+        return Statistic.GSPRT;
+    }
+
     public double p1() {
         return p1;
     }
@@ -182,24 +187,6 @@ public final class Gsprt {
 
     public int missingPerMil() {
         return missingPerMil;
-    }
-
-    /**
-     * {@link #run}, then void if too many of the consumed pairs were missing a Run.
-     *
-     * @param missing one flag per pair, parallel to {@code pairs}
-     */
-    public Result run(List<PairScore> pairs, List<Boolean> missing) {
-        Result result = run(pairs);
-        long gone = missing.subList(0, result.pairs()).stream().filter(b -> b).count();
-        // Over the pairs consumed: a stop at pair 40 is about pairs 1 to 40, and a set that is
-        // clean after the stop cannot excuse one that was not before it. A result with every pair
-        // missing is void whatever the cap, because it measured nothing.
-        if (result.pairs() > 0 && (gone == result.pairs() || gone * 1000 > (long) missingPerMil * result.pairs())) {
-            return new Result(Verdict.VOID, result.pairs(), result.llr(), result.clamped(),
-                    result.lower(), result.upper(), result.trace(), result.counts());
-        }
-        return result;
     }
 
     /** The lower bound, {@code log(β/(1−α))}. */

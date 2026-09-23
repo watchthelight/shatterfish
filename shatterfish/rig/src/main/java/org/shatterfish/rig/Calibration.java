@@ -103,6 +103,17 @@ public final class Calibration {
             return new Gsprt(P0_PER_MIL / 1000.0, p1PerMil / 1000.0, ALPHA_PER_MIL / 1000.0,
                     BETA_PER_MIL / 1000.0, burnIn, MAXIMUM).allowingMissing(missingPerMil);
         }
+
+        /** The e-process on the same hypotheses and cap; it has no burn-in. */
+        public EProcess eprocess() {
+            return new EProcess(P0_PER_MIL / 1000.0, p1PerMil / 1000.0, ALPHA_PER_MIL / 1000.0,
+                    BETA_PER_MIL / 1000.0, MAXIMUM).allowingMissing(missingPerMil);
+        }
+
+        /** The test of {@code statistic} this cell describes. */
+        public SequentialTest test(SequentialTest.Statistic statistic) {
+            return statistic == SequentialTest.Statistic.GSPRT ? test() : eprocess();
+        }
     }
 
     /**
@@ -141,11 +152,12 @@ public final class Calibration {
     /**
      * One cell's two tallies.
      *
+     * @param statistic   which design ran
      * @param null0       the H0 sequences' verdicts
      * @param alternative the H1 sequences' verdicts; {@code mean} is the H1 stream's mean pair
      *                    score, which the tilt is meant to put at {@code p1}
      */
-    public record Row(Cell cell, Tally null0, Tally alternative) {
+    public record Row(Cell cell, SequentialTest.Statistic statistic, Tally null0, Tally alternative) {
 
         /** Whether both realized error rates are within nominal + margin. */
         public boolean calibrated() {
@@ -174,10 +186,17 @@ public final class Calibration {
      * @param rows       every cell, on the choosing sequences
      * @param chosen     the rule's choice among {@code rows}, or null when no cell qualifies
      * @param validation the chosen cell again, on fresh sequences, or null with it
+     * @param duel       on the same fresh sequences, both designs at each p1 of the grid, at the
+     *                   chosen burn-in and missing cap; empty when nothing was chosen
+     * @param gate       the design the rule picks: the e-process only if the GSPRT's validated
+     *                   error exceeds nominal by more than the margin
      */
     public record Result(Table table, int sims, long seed, List<Row> rows, Stream stream, Row chosen,
-                         Row validation) {
+                         Row validation, List<Row> duel, SequentialTest.Statistic gate) {
     }
+
+    /** The p1 values the duel runs at: the grid's. */
+    static final List<Integer> DUEL = List.of(550, 600, 650);
 
     /** The committed table: its first line, and one outcome per Run in the order it lists them. */
     public record Table(String provenance, List<RunLog.Outcome> outcomes) {
@@ -225,11 +244,43 @@ public final class Calibration {
      * {@code seed + VALIDATION_OFFSET}.
      */
     public static Result simulate(Table table, List<Cell> grid, int sims, long seed) {
-        Pass pass = pass(table, grid, sims, seed);
+        Pass pass = pass(table, entries(grid, SequentialTest.Statistic.GSPRT), sims, seed);
         Row chosen = choose(pass.rows());
-        Row validation = chosen == null ? null
-                : pass(table, List.of(chosen.cell()), sims, seed + VALIDATION_OFFSET).rows().get(0);
-        return new Result(table, sims, seed, pass.rows(), pass.stream(), chosen, validation);
+        if (chosen == null) {
+            // No GSPRT bound survived the rule, so there is no GSPRT to keep as the gate.
+            return new Result(table, sims, seed, pass.rows(), pass.stream(), null, null, List.of(),
+                    SequentialTest.Statistic.EPROCESS);
+        }
+        // The fresh sequences: the chosen cell, and the duel -- both designs at each p1 at the
+        // chosen burn-in and cap -- all on one draw, so the designs differ only in the test.
+        List<Entry> fresh = new ArrayList<>();
+        fresh.add(new Entry(chosen.cell(), SequentialTest.Statistic.GSPRT));
+        for (int p1 : DUEL) {
+            Cell cell = new Cell(p1, chosen.cell().burnIn(), chosen.cell().missingPerMil());
+            fresh.add(new Entry(cell, SequentialTest.Statistic.GSPRT));
+            fresh.add(new Entry(cell, SequentialTest.Statistic.EPROCESS));
+        }
+        List<Row> rows = pass(table, fresh, sims, seed + VALIDATION_OFFSET).rows();
+        Row validation = rows.get(0);
+        return new Result(table, sims, seed, pass.rows(), pass.stream(), chosen, validation,
+                rows.subList(1, rows.size()), gate(validation));
+    }
+
+    /**
+     * ADR-0012's rule: the e-process replaces the GSPRT as the gate if the GSPRT's realized error
+     * rate, on the fresh sequences, exceeds its nominal rate by more than {@link #MARGIN_PER_MIL}.
+     */
+    static SequentialTest.Statistic gate(Row validation) {
+        return validation.calibrated() ? SequentialTest.Statistic.GSPRT
+                : SequentialTest.Statistic.EPROCESS;
+    }
+
+    /** One test to run in a pass: a cell, in one design. */
+    private record Entry(Cell cell, SequentialTest.Statistic statistic) {
+    }
+
+    private static List<Entry> entries(List<Cell> grid, SequentialTest.Statistic statistic) {
+        return grid.stream().map(cell -> new Entry(cell, statistic)).toList();
     }
 
     private record Pass(List<Row> rows, Stream stream) {
@@ -240,7 +291,7 @@ public final class Calibration {
      * seeded with {@code seed + k}, so every cell sees the same sequences and the cells differ only
      * in the test: the grid is a paired comparison of bounds.
      */
-    private static Pass pass(Table table, List<Cell> grid, int sims, long seed) {
+    private static Pass pass(Table table, List<Entry> grid, int sims, long seed) {
         if (sims < 1 || (long) sims * MAXIMUM > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("between one simulation and as many as an array of"
                     + " pairs can hold: " + sims);
@@ -272,9 +323,10 @@ public final class Calibration {
         }
         Stream stream = new Stream((long) sims * MAXIMUM, ties, gone, reachedTies);
         List<Row> rows = new ArrayList<>();
-        for (Cell cell : grid) {
-            Gsprt test = cell.test();
-            rows.add(new Row(cell, tally(test, score, missing, tilt, sims, 0.0),
+        for (Entry entry : grid) {
+            Cell cell = entry.cell();
+            SequentialTest test = cell.test(entry.statistic());
+            rows.add(new Row(cell, entry.statistic(), tally(test, score, missing, tilt, sims, 0.0),
                     tally(test, score, missing, tilt, sims,
                             tiltFor(cell.p1PerMil(), stream.missingShare()))));
         }
@@ -300,7 +352,7 @@ public final class Calibration {
         return q;
     }
 
-    private static Tally tally(Gsprt test, byte[] score, boolean[] missing, double[] tilt, int sims,
+    private static Tally tally(SequentialTest test, byte[] score, boolean[] missing, double[] tilt, int sims,
                                double q) {
         int accept = 0;
         int reject = 0;
@@ -644,6 +696,32 @@ public final class Calibration {
                 + " | H1 void | H1 mean pairs | H1 median pairs | errors within margin | power |\n");
         out.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
         out.append(row(result.validation()));
+        out.append("\n## The e-process beside it\n\n");
+        out.append(String.format(Locale.ROOT, "On the same %,d fresh sequences, both designs at each"
+                        + " p1 of the grid, at the chosen burn-in and missing cap. The e-process"
+                        + " accepts when its betting wealth against H0 reaches 1/α and needs no"
+                        + " burn-in and no alternative to do so; it rejects when a second wealth,"
+                        + " against a mean of p1 or more, reaches 1/β.\n\n", result.sims()));
+        out.append("| statistic | p1 | n0 | missing cap | H0 accept | H0 reject | H0 undecided"
+                + " | H0 void | H0 mean pairs | H1 mean score | H1 accept (power) | H1 reject"
+                + " | H1 undecided | H1 void | H1 mean pairs | H1 median pairs | errors within margin"
+                + " | power |\n");
+        out.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
+        for (Row row : result.duel()) {
+            out.append("| ").append(row.statistic() == SequentialTest.Statistic.GSPRT ? "GSPRT"
+                    : "e-process").append(' ').append(row(row));
+        }
+        out.append("\n## The gate\n\n");
+        out.append(String.format(Locale.ROOT, "The rule (ADR-0012): the e-process replaces the GSPRT"
+                        + " as the gate if the GSPRT's realized false-accept or false-reject rate on"
+                        + " the fresh sequences exceeds its nominal rate by more than %.3f. The"
+                        + " GSPRT's are %s and %s against %.3f and %.3f, so the gate is **%s**.\n",
+                MARGIN_PER_MIL / 1000.0,
+                share(result.validation().null0().accept(), result.validation().null0().total()),
+                share(result.validation().alternative().reject(),
+                        result.validation().alternative().total()),
+                ALPHA_PER_MIL / 1000.0, BETA_PER_MIL / 1000.0,
+                result.gate() == SequentialTest.Statistic.GSPRT ? "the GSPRT" : "the e-process"));
         return out.toString();
     }
 
