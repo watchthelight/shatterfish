@@ -125,12 +125,18 @@ no killer (no mob, trap or hunger), so the gallery groups by ending and depth; t
 - `:rig:gallery` is in CLAUDE.md and the rig skill.
 - The H-0002 gallery is regenerated from the final code: 1,962 ms on the 500-Run folder.
 
-**Verification state after the second review.** `GalleryTest` (12) passes and `mkdocs build
---strict` passes on the final code. The full `./gradlew build` and the second mutation battery
-(19 mutations on the new guards, `mutations312b.py`) have **not** run on it: Claude Code stopped
-the build because the machine ran low on memory, and a stopped build is not restarted without being
-asked. Before that, the full build was green on the first review patch (983 tests; its one failure,
-the doc citation, was fixed). CI on the PR is the full build for this version.
+**Verification state after the second review.** `GalleryTest` (13) passes and `mkdocs build
+--strict` passes on the final code. **Second mutation battery: 19 mutations on the new guards, 19
+killed.** It was run sequentially to spare memory, and two mutations survived the first run:
+- "deaths first": every death group was also the largest, so sorting by size alone passed. A test
+  now has three lost windows and one death.
+- "negative count refused": the refusal test's folder was already refused for another reason. The
+  negative count is now tested on a folder that is otherwise fine.
+
+The full `./gradlew build` has not been re-run locally on this version: Claude Code stopped it
+because the machine ran low on memory. Before that, the full build was green on the first review
+patch (983 tests; its one failure, the doc citation, was fixed). CI on the PR is the full build for
+this version.
 
 ## Suggested Review Order
 
