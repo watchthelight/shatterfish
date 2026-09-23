@@ -237,11 +237,16 @@ public final class Runner {
         String set = required(arguments, SEEDS);
         // The Registration first, before a folder is made or a Run is dispatched. A refusal that
         // arrives after five hundred Runs is a refusal that cost what it was preventing.
+        long checking = System.nanoTime();
         Ledger ledger = new Ledger(root.resolve(Registrations.FOLDER));
         String brainConfig = Brains.configHash(brain);
         Registrations.Committed registration =
                 registration(arguments, root, set, brain, commitOf(root), brainConfig, ledger);
         String stamp = registration == null ? "" : registration.stamp();
+        // What the pre-flight cost. It asks git three questions and reads a file, and the number
+        // matters because story 3.11 schedules this nightly: a check that costs a measurable
+        // fraction of the measurement is a fact worth having before it is run every night.
+        long checked = (System.nanoTime() - checking) / 1_000_000L;
         int parallel = parallel(arguments);
         Path out = emptyFolder(required(arguments, OUT));
         String commit = arguments.containsKey(COMMIT) ? required(arguments, COMMIT) : commitOf(root);
@@ -309,7 +314,7 @@ public final class Runner {
             throw refuse(index, failed);
         }
         long millis = (System.nanoTime() - began) / 1_000_000L;
-        index.summary(brain, set, parallel, cap, millis, waits.get());
+        index.summary(brain, set, parallel, cap, millis, waits.get(), stamp);
         if (registration != null) {
             ledger.record(registration, brain, commit, brainConfig, set,
                     Ledger.Outcome.FINISHED, Registrations.HOLDOUT.equals(set), "");
@@ -318,8 +323,8 @@ public final class Runner {
         System.out.println(registration == null
                 ? "this invocation is not ranked: it ran under no Registration, so nothing it"
                         + " produced may be published as a measurement (FR-22)"
-                : "ranked under " + stamp + ", recorded in "
-                        + root.resolve(Registrations.FOLDER).resolve(Ledger.FILE));
+                : "ranked under " + stamp + ", checked against git in " + checked + " ms and"
+                        + " recorded in " + root.resolve(Registrations.FOLDER).resolve(Ledger.FILE));
         System.out.println(index.count(RunIndex.State.FINISHED) + " Runs finished and "
                 + index.count(RunIndex.State.INCOMPLETE) + " were incomplete, on " + parallel
                 + " processes, in " + millis + " ms ("

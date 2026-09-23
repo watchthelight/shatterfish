@@ -250,6 +250,10 @@ class RunnerTest {
         assertEquals(String.valueOf(expected), LogHeader.value(summary, "runsFinished"), summary);
         assertEquals("0", LogHeader.value(summary, "runsIncomplete"), summary);
         assertEquals("2", LogHeader.value(summary, "processes"), summary);
+        // And it says which hypothesis, or that there was none. A folder of numbers that does not
+        // say what it was testing is a folder somebody can choose a hypothesis for afterwards.
+        assertEquals("", LogHeader.string(summary, "registration"),
+                "this invocation named no Registration, and the summary says so: " + summary);
         assertTrue(Long.parseLong(LogHeader.value(summary, "waits")) > 0, summary);
         assertTrue(Long.parseLong(LogHeader.value(summary, "runsPerSecondThousandths")) > 0,
                 "a throughput this invocation measured: " + summary);

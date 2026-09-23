@@ -259,6 +259,84 @@ that keeps the pool saturated. A Brain that thinks harder will shift that balanc
 plays longer Runs will shift it further. The number to plan a comparison from is Runs per second at
 the set size being used, not waits per second.
 
+## Registration
+
+**The hypothesis is fixed before the numbers are seen.** A comparison can otherwise be run, looked
+at, and then adjusted — a bound, a seed set, a stopping rule — until the answer is the wanted one,
+with nothing recording that anything was adjusted. So a Registration is written first, committed to
+the repository, and hashed; and every Run played under it carries that hash in its own log.
+
+A Registration lives at `registrations/<id>.json` and fixes:
+
+| | |
+|---|---|
+| `hypothesis` | the id, which is also the file name and what a Results page cites |
+| `claim` | what is being asserted, in one sentence, for a person |
+| `brain_b` | the Brain being measured: name, commit, configuration hash |
+| `brain_a` | the Brain it is measured against — **absent for a baseline** |
+| `seed_set`, `seed_version` | which Runs, and what that set's name meant at the time |
+| `alpha_per_mil`, `beta_per_mil` | the error rates, in thousandths |
+| `burn_in`, `maximum` | pairs before a stop is allowed, and pairs after which it is undecided |
+| `budget_ms` | the per-Decision budget, or 0 when the comparison does not constrain thinking time |
+| `machine_class` | what the numbers were measured on, because throughput is not portable |
+| `release_level` | whether this claims a release-level result, which is the only kind that may touch the held-out set |
+
+**A baseline is a Registration too.** ADR-0012 describes comparisons and every field it lists is
+about one, but E3's own goal is a published *baseline* and the nightly job compares nothing at all —
+it runs the smoke set so that a change which breaks the harness is seen the night it lands. So
+`brain_a` is optional: one Brain fixes a baseline, two fix a comparison, and both are hypotheses
+stated in advance.
+
+**The salt is not in it, and that is the point.** The mixing function is published on this page, so
+a salt known in advance lets a Brain's author compute the game's coming draws as pure data — whether
+the next attack hits, what the next chest holds, where the next floor puts its stairs (ADR-0007). A
+Registration is written before the Runs and is public, so anything in it is something the Brain's
+author has. The salts are drawn when each pair executes, written into both Run logs, and appear
+nowhere else: late enough to be useless to a Brain, early enough to be replayable. A Registration
+carrying the word anywhere, in any field, is refused when it is read.
+
+**Git is the authority on "before".** A file cannot make a claim about time about itself — any bytes
+on disk could have been written a second ago. The Rig asks git whether the path is tracked and
+whether the working copy differs, and then hashes *the committed bytes*, so an edit made after the
+Runs changes nothing the Rig used. The commit the Registration was read at goes into the ledger.
+What a Run log's header carries is the **stamp**: the id and the first sixteen digits of that hash,
+like `H-0001-nightly-smoke@a4d7fe89a612e89b`. A header naming only the id would let the file it
+names be pointed at different bytes afterwards.
+
+### The held-out set, and its budget
+
+`holdout` is never run during development. `SeedSets.load` refuses it outright and states the whole
+of FR-20 in its refusal; the one way past that door is a Registration claiming a release-level
+result, which makes the Rig use `publish` instead — and `publish` demands the reason, which is the
+hypothesis. **At most one use per Brain version**, where a Brain's version is the commit and
+configuration of the Brain that actually ran, not the one the Registration mentions: counting the
+budget against a document would let it be spent again by editing the document.
+
+### The ledger
+
+`registrations/ledger.jsonl` records every invocation under a Registration — finished, refused and
+forbidden alike. A number means something different depending on how many times the question was
+asked before it gave that answer, and the invocations nobody published leave no other trace at all.
+A ledger that recorded only the runs somebody was happy with would be the exact opposite of the
+count FR-25 asks for.
+
+It is append-only and committed, which makes it tamper-*evident* rather than tamper-proof: a deleted
+line shows in a diff. That is what a repository can honestly offer. A ledger with a line nobody can
+read is refused rather than appended to — a count with a hole in it is not a smaller count, it is an
+unknown one.
+
+**What it costs.** The pre-flight asks git three questions and reads the ledger: **146 ms**, against
+a smoke invocation of 6,438 ms (2.3%) and a standard invocation of about 160,000 ms (0.09%). The Rig
+prints the number on every ranked invocation, so it is measured rather than remembered.
+
+```sh
+./gradlew :rig:run --args="--brain random --seeds smoke --out <dir> --registration H-0001-nightly-smoke"
+```
+
+An invocation that names no Registration still runs — that is the normal case during development —
+and says so: its logs carry an empty registration, and its summary records one, so a folder of
+numbers can never be quietly adopted as a measurement of something afterwards.
+
 ## The Run log and its chain
 
 Every Run writes `<run-id>.jsonl`: one record per line, plain text, no compression, readable with
