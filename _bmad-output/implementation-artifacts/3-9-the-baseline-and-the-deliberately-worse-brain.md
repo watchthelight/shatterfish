@@ -85,3 +85,18 @@ Change the calibrated bounds to get a verdict.
 - `./gradlew build` -- green.
 - `./gradlew :rig:run --args="--brain random --seeds standard --out <a> --registration H-0002-random-standard"` -- ranked Baseline.
 - `./gradlew :rig:run --args="--brain random-nodescend --against random --seeds standard --out <b> --registration H-0003-nodescend-worse"` -- REJECT.
+
+## Spec Change Log
+
+- **The worse Brain named in SM-5 is the random agent itself** (found by the first ranked run,
+  H-0004). `random_nodescend` played the same Run as `random` on all 458 pairs of `standard` that
+  reached an ending: the random agent never takes the stairs, so withholding `Descend` withholds
+  nothing, and a one-sided test rejects two identical Brains as readily as a worse one. That REJECT
+  is published as the null result it is. Amended: the deliberately worse Brain is the random agent
+  with `Rest` withheld (`random_norest`), chosen on the development set `smoke` (withholding
+  `Attack` changed 1 pair of 25, withholding `Rest` lost 21 of 25) and registered on `standard`
+  as H-0005, with the reverse comparison as H-0006. KEEP: the H-0004 run and its result.
+- **H-0005's first invocation was VOID** at pair 27: 7 of the first 27 pairs had a Run missing,
+  over the calibrated cap of 0.25, although over all 500 pairs the candidate scored 0.239. Written
+  here before it runs: H-0005 is invoked **once more**, and that invocation is published whatever
+  it concludes, beside the first. There is no third. The ledger carries both.
