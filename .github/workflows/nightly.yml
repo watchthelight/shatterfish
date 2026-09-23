@@ -2,15 +2,21 @@
 #
 # Every night: play the smoke set under the standing Registration H-0001-nightly-smoke, record the
 # night in results/nightly/history.jsonl, regenerate docs/results/nightly.md, and update ONE pull
-# request on the branch rig/nightly -- force-updated, never main, never one pull request per night.
-# A night is a direction check, never an acceptance: H-0001 is a baseline and tests nothing.
+# request on the branch rig/nightly -- force-updated with a lease, never main, never one pull
+# request per night. A night is a direction check, never an acceptance: H-0001 is a baseline.
+#
+# Two jobs, so that the code that plays the Rig never holds a token that can write: `play` reads
+# the repository and hands its folder on as an artifact; `publish` writes the branch and the pull
+# request, and plays nothing.
 #
 # A failed night is visible without opening a log: its status line is the job summary, the pull
-# request's title and body, and the first column of the page; and the job itself goes red.
+# request's title and body, and the first column of the page; and the play job goes red.
 #
-# Network: the checkout, the JDK, Gradle and its dependencies are fetched as in every build; the
-# Rig and the recording step make no network call at all, and the only other calls are git and gh
-# against GitHub's own API (NFR-8).
+# Network: the checkout, the JDK, Gradle and its dependencies, and the artifact store are fetched
+# as in every build (the setup actions reach their own CDNs); the Rig and the recording make no
+# network call, and the publishing step calls only git and gh against GitHub (NFR-8).
+#
+# The checkout is main, so a change to this file or the script is exercised only once it is merged.
 name: nightly
 
 on:
@@ -20,24 +26,32 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: nightly
   cancel-in-progress: false
 
 jobs:
-  smoke:
+  play:
     name: nightly smoke under H-0001 (a direction check)
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      date: ${{ steps.when.outputs.date }}
+      run: ${{ steps.when.outputs.run }}
+      pass: ${{ steps.record.outputs.pass }}
+      record_exit: ${{ steps.record.outputs.record_exit }}
     steps:
       # Full history, on main: the Rig asks git whether the Registration is committed and when the
-      # Brain last changed, and the results branch is rebuilt on main every night.
+      # Brain last changed. No credentials are left behind for the Rig to find.
       - uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: actions/setup-java@v4
         with:
@@ -45,6 +59,14 @@ jobs:
           java-version: '21'
 
       - uses: gradle/actions/setup-gradle@v4
+
+      # The night's date and its run, fixed once and used by every step and by the publish job.
+      - name: fix the night
+        id: when
+        shell: bash
+        run: |
+          echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+          echo "run=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
 
       - name: play the smoke set under H-0001
         id: play
@@ -61,12 +83,17 @@ jobs:
         shell: bash
         run: |
           set +e
-          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          ./gradlew -q --no-daemon :rig:nightly --args="$GITHUB_WORKSPACE night build/nightly $(date -u +%F) $(git rev-parse HEAD) $run_url"
+          mkdir -p build/nightly
+          ./gradlew -q --no-daemon :rig:nightly --args="$GITHUB_WORKSPACE night build/nightly ${{ steps.when.outputs.date }} $(git rev-parse HEAD) ${{ steps.play.outcome }} ${{ steps.when.outputs.run }}"
           rc=$?
+          echo "record_exit=$rc" >> "$GITHUB_OUTPUT"
           if [ "$rc" -eq 0 ]; then echo "pass=true" >> "$GITHUB_OUTPUT"; else echo "pass=false" >> "$GITHUB_OUTPUT"; fi
           # A night the recording itself could not judge still says so, in the same place.
-          [ -s build/nightly/status.md ] || { mkdir -p build/nightly; echo "FAIL -- nightly smoke $(date -u +%F): the night could not be recorded (exit $rc)" > build/nightly/status.md; }
+          [ -s build/nightly/status.md ] || echo "FAIL -- nightly smoke ${{ steps.when.outputs.date }}: the night could not be recorded (exit $rc)" > build/nightly/status.md
+          # The ledger lines the Rig appended tonight, for the publish job, which starts from main.
+          committed=$(git show HEAD:registrations/ledger.jsonl | grep -c '')
+          awk -v n="$committed" 'NR > n' registrations/ledger.jsonl > build/nightly/ledger-tonight.jsonl
+          cp build/nightly-play.log build/nightly/ 2>/dev/null
           {
             echo "## $(head -n 1 build/nightly/status.md)"
             echo
@@ -77,14 +104,7 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: update the results pull request
-        if: always()
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: bash tools/nightly-pr.sh
-
-      - name: keep the night's Run logs
+      - name: keep the night's folder and Run logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -97,5 +117,43 @@ jobs:
         if: steps.record.outputs.pass != 'true'
         shell: bash
         run: |
-          echo "$(cat build/nightly/status.md 2>/dev/null || echo 'the night could not be recorded')"
+          head -n 1 build/nightly/status.md 2>/dev/null || echo 'the night could not be recorded'
           exit 1
+
+  publish:
+    name: update the one results pull request
+    needs: play
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: fetch the night
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: nightly-smoke
+          path: build/nightly
+
+      - name: update the results pull request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NIGHTLY_DATE: ${{ needs.play.outputs.date }}
+          NIGHTLY_RUN_URL: ${{ needs.play.outputs.run }}
+          NIGHTLY_RECORD_EXIT: ${{ needs.play.outputs.record_exit }}
+        run: bash tools/nightly-pr.sh

@@ -112,12 +112,27 @@ public final class Nightly {
      * and a night that could not be recorded would say nothing.
      */
     public static Night night(Path out, int setSize, String date, String commit, String run) {
+        return night(out, setSize, date, commit, run, "success");
+    }
+
+    /** The counts a summary must state; a summary without one is not read as zero. */
+    static final List<String> COUNTS = List.of("runsStarted", "runsFinished", "runsIncomplete",
+            "runsUnaccounted");
+
+    /**
+     * As {@link #night(Path, int, String, String, String)}, with the outcome of the step that
+     * played it: a night whose play step did not succeed fails, whatever its summary says, because
+     * a Rig that exited with an error after writing a clean summary is not a Rig that worked.
+     */
+    public static Night night(Path out, int setSize, String date, String commit, String run,
+                              String played) {
         Path summaryFile = out.resolve(RunIndex.SUMMARY);
         if (!Files.isRegularFile(summaryFile)) {
             return new Night(date, commit, "", 0, 0, 0, 0, 0, "", false,
                     "the Rig wrote no summary: it was refused or stopped before the end", run);
         }
         String registration;
+        String causes;
         int started;
         int finished;
         int incomplete;
@@ -127,6 +142,11 @@ public final class Nightly {
         String brain;
         try {
             String summary = read(summaryFile).strip();
+            for (String key : COUNTS) {
+                if (LogHeader.value(summary, key) == null) {
+                    throw new IllegalArgumentException("it states no " + key);
+                }
+            }
             registration = orEmpty(LogHeader.string(summary, "registration"));
             started = number(summary, "runsStarted");
             finished = number(summary, "runsFinished");
@@ -135,11 +155,12 @@ public final class Nightly {
             ms = Long.parseLong(orZero(LogHeader.value(summary, "ms")));
             set = orEmpty(LogHeader.string(summary, "seedSet"));
             brain = orEmpty(LogHeader.string(summary, "brain"));
+            causes = causes(out.resolve(RunIndex.RUNS));
         } catch (RuntimeException unreadable) {
             // A summary the Rig half wrote is a night that went wrong, and the page has to say so
             // rather than the recording step dying with a parse error nobody reads.
             return new Night(date, commit, "", 0, 0, 0, 0, 0, "", false,
-                    "the Rig's summary could not be read: " + unreadable.getMessage(), run);
+                    "the Rig's summary could not be read: " + message(unreadable), run);
         }
         String why;
         if (!registration.startsWith(REGISTRATION + "@")) {
@@ -151,11 +172,13 @@ public final class Nightly {
         } else if (incomplete > 0 || unaccounted > 0 || finished != started) {
             why = finished + " of " + started + " Runs finished (" + incomplete + " incomplete, "
                     + unaccounted + " unaccounted)";
+        } else if (!"success".equals(played)) {
+            why = "the play step ended " + played + " although its summary looks whole";
         } else {
             why = "";
         }
         return new Night(date, commit, registration, started, finished, incomplete, unaccounted, ms,
-                causes(out.resolve(RunIndex.RUNS)), why.isEmpty(), why, run);
+                causes, why.isEmpty(), why, run);
     }
 
     /** How the Runs in an index ended, {@code CAUSE=n} in name order; empty when there is none. */
@@ -190,7 +213,21 @@ public final class Nightly {
         return (night.pass() ? "PASS" : "FAIL") + " -- nightly smoke " + night.date() + " (a direction"
                 + " check under " + REGISTRATION + ", never an acceptance): "
                 + (night.pass() ? night.finished() + " of " + night.started() + " Runs finished"
-                : night.why());
+                : oneLine(night.why()));
+    }
+
+    /** An exception's message, or its class when it has none. */
+    static String message(Throwable failure) {
+        String said = failure.getMessage();
+        return said == null || said.isBlank() ? failure.getClass().getName() : said;
+    }
+
+    /**
+     * Text on one line with no backticks: a status line is a job summary heading, a pull request
+     * title and a table cell, and a newline or a backtick in an exception's message breaks all three.
+     */
+    static String oneLine(String text) {
+        return text.replace("\r\n", " / ").replace('\n', ' ').replace('\r', ' ').replace('`', '\'');
     }
 
     /** The page for a history: the latest night first, then every night, newest first. */
@@ -228,8 +265,8 @@ public final class Nightly {
         return out.toString().replace("\r\n", "\n");
     }
 
-    private static String cell(String text) {
-        return text.replace("|", "\\|");
+    static String cell(String text) {
+        return oneLine(text).replace("|", "\\|");
     }
 
     private static String read(Path file) {
@@ -253,32 +290,42 @@ public final class Nightly {
     }
 
     /**
-     * {@code <root> night <out> <date> <commit> [<run url>]} judges the night in {@code out} and
+     * {@code <root> night <out> <date> <commit> [<play outcome> [<run url>]]} judges the night in {@code out} and
      * writes its history line to {@code <out>/night.jsonl} and its status to
      * {@code <out>/status.md}, answering 1 when it failed. {@code <root> page} writes the page from
      * the history.
      */
     public static void main(String[] args) throws IOException {
+        int code = run(args);
+        if (code != 0) {
+            System.exit(code);
+        }
+    }
+
+    /**
+     * What {@link #main} does, answering its exit code instead of exiting, so that a test can run
+     * the task end to end. {@code <root> night <out> <date> <commit> [<play outcome> [<run url>]]}.
+     */
+    static int run(String[] args) throws IOException {
         if (args.length == 2 && args[1].equals("page")) {
             Path root = Seeds.checkout(args[0]);
             Files.writeString(root.resolve(PAGE), page(history(root.resolve(HISTORY))),
                     StandardCharsets.UTF_8);
-            return;
+            return 0;
         }
-        if ((args.length != 5 && args.length != 6) || !args[1].equals("night")) {
+        if (args.length < 5 || args.length > 7 || !args[1].equals("night")) {
             throw new IllegalArgumentException("usage: Nightly <root> page | <root> night <out> <date>"
-                    + " <commit> [<run url>], not " + Arrays.toString(args));
+                    + " <commit> [<play outcome> [<run url>]], not " + Arrays.toString(args));
         }
         Path root = Seeds.checkout(args[0]);
         Path out = root.resolve(args[2]);
         int size = SeedSets.load(root, SeedSets.SMOKE).set().entries().size();
-        Night night = night(out, size, args[3], args[4], args.length == 6 ? args[5] : "");
+        Night night = night(out, size, args[3], args[4], args.length == 7 ? args[6] : "",
+                args.length >= 6 ? args[5] : "success");
         Files.createDirectories(out);
         Files.writeString(out.resolve("night.jsonl"), night.line() + "\n", StandardCharsets.UTF_8);
         Files.writeString(out.resolve("status.md"), status(night) + "\n", StandardCharsets.UTF_8);
         System.out.println(status(night));
-        if (!night.pass()) {
-            System.exit(1);
-        }
+        return night.pass() ? 0 : 1;
     }
 }

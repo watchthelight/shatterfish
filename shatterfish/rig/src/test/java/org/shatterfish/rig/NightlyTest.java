@@ -11,11 +11,13 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * The nightly smoke run's record, its page, and the workflow that runs it (story 3.11).
@@ -52,6 +54,15 @@ class NightlyTest {
         Path summary = out.resolve(RunIndex.SUMMARY);
         Files.writeString(summary, Files.readString(summary, StandardCharsets.UTF_8)
                 .replace("\"runsUnaccounted\":0", "\"runsUnaccounted\":2"), StandardCharsets.UTF_8);
+        return out;
+    }
+
+    /** A summary with no count of unaccounted Runs, which is not a count of zero. */
+    private static Path countless(Path out) throws IOException {
+        folder(out, STAMP, "smoke", "random", 25, 25, 0);
+        Path summary = out.resolve(RunIndex.SUMMARY);
+        Files.writeString(summary, Files.readString(summary, StandardCharsets.UTF_8)
+                .replace(",\"runsUnaccounted\":0", ""), StandardCharsets.UTF_8);
         return out;
     }
 
@@ -117,7 +128,8 @@ class NightlyTest {
                 // A summary that contradicts itself -- every Run finished and one incomplete -- is
                 // not a pass: each count is checked on its own, not only through their sum.
                 new Case(folder(root.resolve("contradictory"), STAMP, "smoke", "random", 25, 25, 1),
-                        "25 of 25 Runs finished (1 incomplete"));
+                        "25 of 25 Runs finished (1 incomplete"),
+                new Case(countless(root.resolve("countless")), "it states no runsUnaccounted"));
         for (Case c : cases) {
             Nightly.Night night = Nightly.night(c.folder(), 25, "2026-09-23", "abc1234", "");
             assertFalse(night.pass(), c.folder().toString());
@@ -146,16 +158,77 @@ class NightlyTest {
     }
 
     @Test
-    @DisplayName("the task refuses any shape but page, or night with its four or five arguments")
+    @DisplayName("a summary written by the Rig's own writer passes, and a play step that failed fails it anyway")
+    void the_rigs_own_summary(@TempDir Path out) throws IOException {
+        RunIndex index = new RunIndex(out);
+        for (int i = 0; i < 25; i++) {
+            String id = "run-" + i;
+            index.started(new RunIndex.Entry(id, id + ".jsonl", RunIndex.State.STARTED, "", i,
+                    "WARRIOR", 0, i, "", 0, ""));
+            index.ended(id, RunIndex.State.FINISHED, "c" + i, i < 23 ? "DEATH" : "UNKNOWN_WINDOW", 10, "");
+        }
+        index.summary(Brains.RANDOM, SeedSets.SMOKE, 4, 20_000, 14_090, 2_000, STAMP, "");
+
+        Nightly.Night night = Nightly.night(out, 25, "2026-09-23", "abc1234", "");
+        assertTrue(night.pass(), night.why());
+        assertEquals("DEATH=23 UNKNOWN_WINDOW=2", night.causes());
+
+        Nightly.Night failed = Nightly.night(out, 25, "2026-09-23", "abc1234", "", "failure");
+        assertFalse(failed.pass());
+        assertTrue(failed.why().contains("the play step ended failure"), failed.why());
+    }
+
+    @Test
+    @DisplayName("the task records a night end to end: its line, its status, and an exit code that says which")
+    void the_task_end_to_end(@TempDir Path out) throws IOException {
+        // Run against the repository, into a folder beside it: the task resolves <out> under the
+        // root, and an absolute <out> resolves to itself.
+        folder(out.resolve("good"), STAMP, "smoke", "random", 25, 25, 0, causes(25, 0));
+        folder(out.resolve("bad"), STAMP, "smoke", "random", 25, 22, 3, causes(22, 0));
+        String root = SeedSetsTest.ROOT.toString();
+
+        assertEquals(0, Nightly.run(new String[] {root, "night", out.resolve("good").toString(),
+                "2026-09-23", "abc1234", "success", "https://github.com/x/y/actions/runs/1/attempts/2"}));
+        Nightly.Night night = Nightly.Night.of(Files.readString(out.resolve("good/night.jsonl"),
+                StandardCharsets.UTF_8).strip());
+        assertTrue(night.pass());
+        assertEquals("https://github.com/x/y/actions/runs/1/attempts/2", night.run(), "the attempt is kept");
+        assertTrue(Files.readString(out.resolve("good/status.md"), StandardCharsets.UTF_8).startsWith("PASS -- "));
+
+        assertEquals(1, Nightly.run(new String[] {root, "night", out.resolve("bad").toString(),
+                "2026-09-23", "abc1234"}), "a failed night answers 1");
+        assertTrue(Files.readString(out.resolve("bad/status.md"), StandardCharsets.UTF_8).startsWith("FAIL -- "));
+        assertEquals(1, Nightly.run(new String[] {root, "night", out.resolve("good").toString(),
+                "2026-09-23", "abc1234", "cancelled"}), "and so does a good folder whose play step was cancelled");
+    }
+
+    @Test
+    @DisplayName("the task refuses any shape but page, or night with its four to six arguments")
     void the_task_refuses_other_shapes() {
         String root = SeedSetsTest.ROOT.toString();
         for (String[] args : List.of(new String[] {root}, new String[] {root, "pages"},
                 new String[] {root, "night", "out", "2026-09-23"},
-                new String[] {root, "day", "out", "2026-09-23", "abc1234"})) {
+                new String[] {root, "day", "out", "2026-09-23", "abc1234"},
+                new String[] {root, "night", "out", "2026-09-23", "abc1234", "success", "url", "more"})) {
             IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
-                    () -> Nightly.main(args), String.join(" ", args));
+                    () -> Nightly.run(args), String.join(" ", args));
             assertTrue(refused.getMessage().startsWith("usage: Nightly"), refused.getMessage());
         }
+    }
+
+    @Test
+    @DisplayName("an exception's message reaches the status and the table on one line, with no markdown it did not mean")
+    void messages_are_made_safe() {
+        assertEquals("java.lang.IllegalStateException", Nightly.message(new IllegalStateException()));
+        assertEquals("said", Nightly.message(new IllegalStateException("said")));
+        assertEquals("a / b c 'd'", Nightly.oneLine("a\r\nb\nc `d`"));
+        assertEquals("x \\| y z", Nightly.cell("x | y\nz"));
+        Nightly.Night bad = new Nightly.Night("2026-09-23", "abc", "", 0, 0, 0, 0, 0, "", false,
+                "line one\nline `two` | three", "");
+        String status = Nightly.status(bad);
+        assertFalse(status.contains("\n") || status.contains("`"), status);
+        String page = Nightly.page(List.of(bad));
+        assertTrue(page.contains("| line one line 'two' \\| three |"), page);
     }
 
     // ------------------------------------------------------------------------------ the page
@@ -223,59 +296,179 @@ class NightlyTest {
     }
 
     @Test
-    @DisplayName("the workflow records and publishes even a failed night, goes red on one, and runs on a schedule")
-    void a_failed_night_is_visible() throws IOException {
+    @DisplayName("the workflow plays with a read-only token, publishes with a writing one, and makes a failed night visible")
+    void the_workflow_shape() throws IOException {
         String workflow = Files.readString(SeedSetsTest.ROOT.resolve(".github/workflows/nightly.yml"),
                 StandardCharsets.UTF_8);
+        int play = workflow.indexOf("\n  play:");
+        int publish = workflow.indexOf("\n  publish:");
+        assertTrue(play > 0 && publish > play, "two jobs, play then publish");
+        String playing = workflow.substring(play, publish);
+        String publishing = workflow.substring(publish);
 
         assertTrue(workflow.contains("- cron: '"), "it runs every night");
-        assertTrue(workflow.contains("continue-on-error: true"),
+        // The job that runs the Rig cannot write, and leaves no credential behind.
+        assertTrue(playing.contains("contents: read") && !playing.contains("contents: write"));
+        assertTrue(playing.contains("persist-credentials: false"));
+        assertTrue(playing.contains("timeout-minutes:") && publishing.contains("timeout-minutes:"));
+        assertTrue(publishing.contains("contents: write") && publishing.contains("pull-requests: write"));
+        assertTrue(publishing.contains("needs: play") && publishing.contains("if: always()"),
+                "a failed night is published too");
+        assertFalse(publishing.contains(":rig:run"), "the job that can write plays nothing");
+        assertTrue(publishing.contains("actions/download-artifact") && playing.contains("actions/upload-artifact"),
+                "the night travels between them as an artifact");
+
+        assertTrue(playing.contains("continue-on-error: true"),
                 "a failed play still reaches the steps that say it failed");
-        for (String step : List.of("- name: record the night", "- name: update the results pull request",
-                "- name: keep the night's Run logs")) {
-            int at = workflow.indexOf(step);
+        for (String step : List.of("- name: record the night", "- name: keep the night's folder and Run logs")) {
+            int at = playing.indexOf(step);
             assertTrue(at >= 0, step);
-            String rest = workflow.substring(at, Math.min(workflow.length(), at + 200));
-            assertTrue(rest.contains("if: always()"), step + " runs whatever happened before it");
+            assertTrue(playing.substring(at, Math.min(playing.length(), at + 200)).contains("if: always()"),
+                    step + " runs whatever happened before it");
         }
-        assertTrue(workflow.contains("GITHUB_STEP_SUMMARY"), "the status is the job summary");
-        assertTrue(workflow.contains("rc=$?") && workflow.contains("the night could not be recorded"),
-                "a night the recording could not judge still reports a failure where a person looks");
-        assertTrue(workflow.contains("if: steps.record.outputs.pass != 'true'")
-                        && workflow.contains("exit 1"),
-                "a failed night fails the job, after it is published");
-        assertTrue(workflow.contains("contents: write") && workflow.contains("pull-requests: write"));
+        assertTrue(playing.contains("${{ steps.play.outcome }}"), "the play step's outcome is part of the verdict");
+        assertTrue(playing.contains("GITHUB_STEP_SUMMARY"), "the status is the job summary");
+        assertTrue(playing.contains("rc=$?") && playing.contains("the night could not be recorded"));
+        assertTrue(playing.contains("if: steps.record.outputs.pass != 'true'") && playing.contains("exit 1"),
+                "a failed night fails the job");
+        assertTrue(playing.contains("ledger-tonight.jsonl"), "tonight's ledger lines travel with the night");
+        // The date and the run, fixed once and handed on.
+        assertTrue(playing.contains("echo \"date=$(date -u +%F)\"") && playing.contains("$GITHUB_RUN_ATTEMPT"));
+        assertTrue(publishing.contains("NIGHTLY_DATE: ${{ needs.play.outputs.date }}")
+                && publishing.contains("NIGHTLY_RUN_URL: ${{ needs.play.outputs.run }}"));
         assertTrue(workflow.contains("ref: main") && workflow.contains("fetch-depth: 0"),
                 "played on main, with the history git answers the Rig's questions from");
     }
 
     @Test
-    @DisplayName("the script updates one branch, never main, as watchthelight, carrying unmerged nights forward")
-    void one_branch_never_main() throws IOException {
+    @DisplayName("the script updates one open pull request on one branch, never main, with a lease, and checks before it pushes")
+    void the_script_shape() throws IOException {
         String script = Files.readString(SeedSetsTest.ROOT.resolve("tools/nightly-pr.sh"), StandardCharsets.UTF_8);
 
         assertTrue(script.contains("branch=rig/nightly"));
-        assertTrue(script.contains("git push --quiet --force origin \"$branch\""),
-                "the one branch, force-updated in place");
+        assertTrue(script.contains("git push --quiet --force-with-lease=\"$branch:$lease\" origin \"$branch\""));
         for (String line : script.split("\n")) {
-            if (line.strip().startsWith("#")) {
-                continue;
+            if (!line.strip().startsWith("#")) {
+                assertFalse(line.matches(".*git push.*\\bmain\\b.*"), "never pushes main: " + line);
             }
-            assertFalse(line.matches(".*git push.*\\bmain\\b.*"), "never pushes main: " + line);
         }
+        assertTrue(script.contains("git ls-remote --exit-code --heads origin \"$branch\""),
+                "a missing branch is told apart from a failed question");
+        assertTrue(script.contains("gh pr list --head \"$branch\" --base main --state open"),
+                "only the open pull request is edited");
+        assertTrue(script.indexOf(":rig:test --tests '*NightlyTest'") < script.indexOf("git push"),
+                "the page and history are checked before they are pushed");
         assertTrue(script.contains("git config user.name watchthelight")
                 && script.contains("git config user.email admin@watchthelight.org"));
-        assertTrue(script.contains("gh pr edit \"$branch\"") && script.contains("gh pr create --head \"$branch\" --base main"),
-                "updates the one pull request, or opens it the first night");
-        assertTrue(script.contains("base_of \"$ledger\"") && script.contains("base_of \"$history\""),
-                "the ledger and the history carry unmerged nights forward");
-        assertTrue(script.contains("cmp -s -n \"$size\""), "only when main's copy is a prefix of the branch's");
-        assertTrue(script.contains("cp \"$tmp/previous\" \"$out\""),
-                "the branch's copy is the one kept when it extends main's");
-        assertTrue(script.contains("its unmerged lines were not carried forward.")
-                        && script.contains(">> \"${GITHUB_STEP_SUMMARY:-/dev/null}\""),
-                "and it says so, in the job summary, when it cannot carry them forward");
         assertFalse(script.contains("Co-Authored-By") || script.contains("Generated with"));
+    }
+
+    @Test
+    @DisplayName("the script, run: carries unmerged nights and ledger lines forward, records a lost night, and opens the pull request")
+    @org.junit.jupiter.api.Timeout(value = 3, unit = TimeUnit.MINUTES)
+    void the_script_runs(@TempDir Path work) throws IOException, InterruptedException {
+        String bash = bash();
+        assumeTrue(bash != null, "no bash to run the script with");
+        Path remote = work.resolve("origin.git");
+        Path repo = work.resolve("repo");
+        Path stubs = Files.createDirectories(work.resolve("stubs"));
+        git(work, "init", "-q", "--bare", "-b", "main", remote.toString());
+        git(work, "init", "-q", "-b", "main", repo.toString());
+        git(repo, "config", "user.name", "a test");
+        git(repo, "config", "user.email", "test@example.invalid");
+        git(repo, "remote", "add", "origin", remote.toString());
+        Files.createDirectories(repo.resolve("registrations"));
+        Files.createDirectories(repo.resolve("results/nightly"));
+        Files.createDirectories(repo.resolve("docs/results"));
+        Files.createDirectories(repo.resolve("tools"));
+        Files.copy(SeedSetsTest.ROOT.resolve("tools/nightly-pr.sh"), repo.resolve("tools/nightly-pr.sh"));
+        Files.writeString(repo.resolve("registrations/ledger.jsonl"), "{\"a\":1}\n{\"b\":2}\n");
+        Files.writeString(repo.resolve("results/nightly/history.jsonl"), "");
+        Files.writeString(repo.resolve("docs/results/nightly.md"), "page\n");
+        git(repo, "add", "-A");
+        git(repo, "commit", "-q", "-m", "main");
+        git(repo, "push", "-q", "origin", "main");
+
+        // The branch as a previous night left it: one night, one ledger line of its own.
+        git(repo, "checkout", "-q", "-b", "rig/nightly");
+        Files.writeString(repo.resolve("registrations/ledger.jsonl"), "{\"a\":1}\n{\"b\":2}\n{\"night\":1}\n");
+        Files.writeString(repo.resolve("results/nightly/history.jsonl"), "{\"run\":\"r1\"}\n");
+        git(repo, "commit", "-q", "-am", "night one");
+        git(repo, "push", "-q", "origin", "rig/nightly");
+        // Meanwhile a story pull request appended to main's ledger: main is no longer a prefix.
+        git(repo, "checkout", "-q", "main");
+        Files.writeString(repo.resolve("registrations/ledger.jsonl"), "{\"a\":1}\n{\"b\":2}\n{\"story\":1}\n");
+        git(repo, "commit", "-q", "-am", "a story");
+        git(repo, "push", "-q", "origin", "main");
+
+        // Tonight broke before it was recorded: no night.jsonl, no status, one ledger line.
+        Files.createDirectories(repo.resolve("build/nightly"));
+        Files.writeString(repo.resolve("build/nightly/ledger-tonight.jsonl"), "{\"night\":2}\n");
+        Path log = work.resolve("gh.log");
+        stub(stubs.resolve("gh"), "echo \"$@\" >> '" + log.toString().replace('\\', '/') + "'\n"
+                + "exit 0\n");
+        stub(stubs.resolve("gradle"), "exit 0\n");
+
+        ProcessBuilder builder = new ProcessBuilder(bash, "tools/nightly-pr.sh").directory(repo.toFile())
+                .redirectErrorStream(true);
+        builder.environment().put("PATH", stubs + java.io.File.pathSeparator + builder.environment().get("PATH"));
+        builder.environment().put("NIGHTLY_GRADLE", stubs.resolve("gradle").toString().replace('\\', '/'));
+        builder.environment().put("NIGHTLY_DATE", "2026-09-24");
+        builder.environment().put("NIGHTLY_RUN_URL", "r2");
+        builder.environment().put("NIGHTLY_RECORD_EXIT", "7");
+        builder.environment().remove("GITHUB_STEP_SUMMARY");
+        Process process = builder.start();
+        String said = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertEquals(0, process.waitFor(), said);
+
+        git(repo, "fetch", "-q", "origin");
+        assertEquals("{\"a\":1}\n{\"b\":2}\n{\"story\":1}\n{\"night\":1}\n{\"night\":2}\n",
+                show(repo, "origin/rig/nightly:registrations/ledger.jsonl"),
+                "main's lines, the branch's own, then tonight's: nothing dropped, nothing twice");
+        String history = show(repo, "origin/rig/nightly:results/nightly/history.jsonl");
+        String[] nights = history.strip().split("\n");
+        assertEquals(2, nights.length, history);
+        assertEquals("{\"run\":\"r1\"}", nights[0], "last night carried forward");
+        Nightly.Night lost = Nightly.Night.of(nights[1]);
+        assertFalse(lost.pass());
+        assertEquals("2026-09-24", lost.date());
+        assertEquals("r2", lost.run());
+        assertTrue(lost.why().contains("could not be recorded (recording exit 7)"), lost.why());
+        String gh = Files.readString(log, StandardCharsets.UTF_8);
+        assertTrue(gh.contains("pr list --head rig/nightly --base main --state open"), gh);
+        assertTrue(gh.contains("pr create --head rig/nightly --base main"), "no open pull request, so one is opened: " + gh);
+        assertTrue(gh.contains("FAIL on 2026-09-24"), "and its title says the night failed: " + gh);
+    }
+
+    /** Git's own bash on Windows, or bash on the path elsewhere; null when there is none. */
+    private static String bash() {
+        if (System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win")) {
+            for (String candidate : List.of("C:/Program Files/Git/bin/bash.exe", "C:/Program Files/Git/usr/bin/bash.exe")) {
+                if (Files.isRegularFile(Path.of(candidate))) {
+                    return candidate;
+                }
+            }
+            return null;
+        }
+        return Files.isRegularFile(Path.of("/bin/bash")) ? "/bin/bash" : null;
+    }
+
+    private static void stub(Path file, String body) throws IOException {
+        Files.writeString(file, "#!/usr/bin/env bash\n" + body, StandardCharsets.UTF_8);
+        file.toFile().setExecutable(true);
+    }
+
+    private static String git(Path dir, String... args) throws IOException, InterruptedException {
+        List<String> command = new ArrayList<>(List.of("git"));
+        command.addAll(List.of(args));
+        Process process = new ProcessBuilder(command).directory(dir.toFile()).redirectErrorStream(true).start();
+        String said = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertEquals(0, process.waitFor(), String.join(" ", command) + ": " + said);
+        return said;
+    }
+
+    private static String show(Path repo, String object) throws IOException, InterruptedException {
+        return git(repo, "show", object).replace("\r\n", "\n");
     }
 
     @Test
