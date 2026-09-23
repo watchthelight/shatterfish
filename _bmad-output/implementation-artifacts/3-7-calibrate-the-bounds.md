@@ -138,46 +138,46 @@ checked by what they say.
 **The simulation**
 
 - Entry point: bootstrap, choose by rule, validate on fresh sequences.
-  [`Calibration.java:227`](../../shatterfish/rig/src/main/java/org/shatterfish/rig/Calibration.java#L227)
+  `shatterfish/rig/src/main/java/org/shatterfish/rig/Calibration.java:227`
 
 - H1 tilts reached pairs only; missing pairs stay missing.
-  [`Calibration.java:318`](../../shatterfish/rig/src/main/java/org/shatterfish/rig/Calibration.java#L318)
+  `shatterfish/rig/src/main/java/org/shatterfish/rig/Calibration.java:318`
 
 - The share that puts the mean at p1, and what it refuses.
-  [`Calibration.java:289`](../../shatterfish/rig/src/main/java/org/shatterfish/rig/Calibration.java#L289)
+  `shatterfish/rig/src/main/java/org/shatterfish/rig/Calibration.java:289`
 
 - The rule fixed before the numbers: margin and power, then p1, cap, pairs.
-  [`Calibration.java:361`](../../shatterfish/rig/src/main/java/org/shatterfish/rig/Calibration.java#L361)
+  `shatterfish/rig/src/main/java/org/shatterfish/rig/Calibration.java:361`
 
 - The margin story 3.8 is judged by, and the chosen bounds.
-  [`Calibration.java:76`](../../shatterfish/rig/src/main/java/org/shatterfish/rig/Calibration.java#L76)
+  `shatterfish/rig/src/main/java/org/shatterfish/rig/Calibration.java:76`
 
 **The table**
 
 - Extraction: every row held to one provenance.
-  [`Calibration.java:454`](../../shatterfish/rig/src/main/java/org/shatterfish/rig/Calibration.java#L454)
+  `shatterfish/rig/src/main/java/org/shatterfish/rig/Calibration.java:454`
 
 - Reading: every key, the stated count.
-  [`Calibration.java:391`](../../shatterfish/rig/src/main/java/org/shatterfish/rig/Calibration.java#L391)
+  `shatterfish/rig/src/main/java/org/shatterfish/rig/Calibration.java:391`
 
 **Publication**
 
 - The generated page.
-  [`Calibration.java:570`](../../shatterfish/rig/src/main/java/org/shatterfish/rig/Calibration.java#L570)
+  `shatterfish/rig/src/main/java/org/shatterfish/rig/Calibration.java:570`
 
 - The method and the chosen bounds, for a reader.
-  [`methodology.md:468`](../../docs/methodology.md#L468)
+  `docs/methodology.md:468`
 
 **Tests and config**
 
 - A fresh render is the committed page.
-  [`CalibrationTest.java:66`](../../shatterfish/rig/src/test/java/org/shatterfish/rig/CalibrationTest.java#L66)
+  `shatterfish/rig/src/test/java/org/shatterfish/rig/CalibrationTest.java:66`
 
 - The chosen bounds hold on fresh sequences.
-  [`CalibrationTest.java:75`](../../shatterfish/rig/src/test/java/org/shatterfish/rig/CalibrationTest.java#L75)
+  `shatterfish/rig/src/test/java/org/shatterfish/rig/CalibrationTest.java:75`
 
 - The extraction's provenance, key by key.
-  [`CalibrationTest.java:302`](../../shatterfish/rig/src/test/java/org/shatterfish/rig/CalibrationTest.java#L302)
+  `shatterfish/rig/src/test/java/org/shatterfish/rig/CalibrationTest.java:302`
 
 - The task, and the inputs that keep the checks running.
-  [`build.gradle:38`](../../shatterfish/rig/build.gradle#L38)
+  `shatterfish/rig/build.gradle:38`
