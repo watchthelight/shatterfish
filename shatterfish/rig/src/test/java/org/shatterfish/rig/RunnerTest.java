@@ -448,6 +448,20 @@ class RunnerTest {
     }
 
     @Test
+    @DisplayName("the twin is the random agent on another stream, with no configuration")
+    void the_twin() {
+        org.shatterfish.api.SeedSet.Entry triple = SeedSets.load(SeedSetsTest.ROOT, SeedSets.SMOKE)
+                .set().entries().get(0);
+        assertTrue(Brains.of(Brains.TWIN, triple) instanceof org.shatterfish.harness.agent.RandomAgent);
+        assertEquals(Brains.agentSeed(triple), Brains.seedOf(Brains.RANDOM, triple));
+        assertEquals(org.shatterfish.harness.rng.Mix.mix(Brains.agentSeed(triple), Brains.TWIN_STREAM),
+                Brains.seedOf(Brains.TWIN, triple));
+        assertTrue(Brains.seedOf(Brains.TWIN, triple) != Brains.seedOf(Brains.RANDOM, triple),
+                "a twin on the Baseline's own stream would play its Runs, and every pair would tie");
+        assertEquals("0".repeat(64), Brains.configHash(Brains.TWIN));
+    }
+
+    @Test
     @DisplayName("a refusal comes back out of the invocation in its own words, and marks the folder")
     void a_refusal_reaches_the_caller(@TempDir Path out) {
         // Through `Future.get` a worker's exception arrives wrapped, and the runner used to rewrap

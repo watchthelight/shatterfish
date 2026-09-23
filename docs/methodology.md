@@ -598,8 +598,11 @@ page from the data folder alone, and `ResultsTest` fails when a committed page i
 of its committed data.
 
 **What a page carries.** The upstream tag and the invoking Shatterfish commit; the Seed set and its
-version; every Brain with its commit and configuration; the Registration's stamp and the commit it
-was committed at; how many invocations of that Registration the ledger records before this one;
+version; the Brains as the Registration names them and as the Runs' headers name them (a header's
+commit is the invocation's, a Registration's is the Brain's); the Registration's stamp, its claim, its
+error rates and the commit that added it; how many invocations of that Registration, and of other
+Registrations with the same candidate Brain on the same Seed set, the ledger records before this one
+began;
 the bounds, in natural log units, with the statistic they belong to; the verdict and the whole trace;
 the endings, depths, wins and turns-survived quartiles of each side; the pair correlation and the
 pairs that ended alike; the survival curve and the boss staircase; a table by hero class; the Oracle
@@ -611,8 +614,11 @@ and the page says so rather than linking nothing.
 **Negative and undecided results publish on the same terms.** The worse-Brain comparisons of story
 3.9 include a vacuous REJECT and a VOID beside the REJECT and the ACCEPT, and H-0007 is an
 UNDECIDED one: `random_twin` — the random agent drawing from another stream, equal in strength by
-construction — against `random` on `smoke` with a maximum of 25 pairs, where the trace, after its
-first pair, stayed between −0.52 and 0.57 and stopped at the maximum with nothing concluded.
+construction — against `random` on `smoke`. Its Registration set the maximum at 25, the whole of
+`smoke`, so an undecided result was one of the three it could reach, not an accident; it could as well
+have rejected, as equal Brains usually do on `standard` (calibration: about 90%). Past the burn-in
+the trace stayed between −0.52 and 0.57 and it stopped at the maximum with nothing concluded, and the
+page publishes that on the same terms as an ACCEPT.
 
 ## When platforms disagree
 
@@ -625,8 +631,10 @@ since the last agreeing night is suspect on the platform that is wrong. The proc
    in flight waits; a merged one gets a note naming the night the disagreement was found.
 2. **Find the first differing record.** Replay the reference log on both with `--replay`; the log is
    hash-chained, so the first line whose chain differs is the first place the platforms parted, and
-   the record before it is the last one they agreed on. `--verify` on each platform's replay says
-   which of them still matches the committed chain; that one is not the wrong one.
+   the record before it is the last one they agreed on. The committed reference was written on one
+   platform, so matching it is evidence, not proof: if one replay matches it and the other does not,
+   start with the one that does not; if both part from it, both are suspect and so is the reference
+   build. Every page published so far was produced on Windows, and its page says so under Machine.
 3. **Name the cause at that record** — a floating-point path, an iteration order over a hash map, a
    default charset or locale, a file-system ordering, a time read — by reading the code the record
    exercises, and fix it in Shatterfish (a hook, if it is upstream code: ADR-0008's procedure).

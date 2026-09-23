@@ -55,16 +55,31 @@ public final class Results {
 
     // ------------------------------------------------------------------------------- extract
 
+    /** What a slug may be: a file name, never a path. */
+    static final String SLUG = "[A-Za-z0-9][A-Za-z0-9._-]*";
+
     /**
      * Writes the data folder for {@code runs} into {@code into}. A comparison is recognised by its
-     * {@code comparison.json}; its two sides are read from their own folders. Refuses a folder whose
-     * Runs disagree on the tag or the invoking commit, a Run with the Oracle on, and a Registration
-     * stamp that is not the one every header carries.
+     * {@code comparison.json}; its two sides are read from their own folders.
+     *
+     * <p>Everything is read and checked before anything is written, so a refusal leaves an existing
+     * data folder as it was. Refused: an index line without a log or a seed, a log outside its
+     * folder, Runs that disagree on the tag, the invoking commit, the Registration or the cap, a Run
+     * with the Oracle on, a comparison whose sides name different Seed sets or whose
+     * {@code comparison.json} names another Registration than its Runs, a malformed stamp, and a
+     * Registration git cannot say was committed.
      */
     public static void extract(Path runs, Path root, Path into) {
         boolean comparison = Files.isRegularFile(runs.resolve(Comparison.FILE));
         List<String> sides = comparison ? List.of(Comparison.CANDIDATE, Comparison.BASELINE) : List.of("");
         List<RunLog.Header> headers = new ArrayList<>();
+        int[] unreadable = new int[1];
+        java.util.Map<String, String> outcomes = new java.util.LinkedHashMap<>();
+        for (String side : sides) {
+            Path from = side.isEmpty() ? runs : runs.resolve(side);
+            outcomes.put(side, outcomes(from, headers, unreadable));
+        }
+        String description = description(runs, root, comparison, headers, unreadable[0]);
         try {
             Files.createDirectories(into);
             for (String side : sides) {
@@ -73,48 +88,61 @@ public final class Results {
                 Files.createDirectories(to);
                 Files.copy(from.resolve(RunIndex.RUNS), to.resolve(RunIndex.RUNS), StandardCopyOption.REPLACE_EXISTING);
                 Files.copy(from.resolve(RunIndex.SUMMARY), to.resolve(RunIndex.SUMMARY), StandardCopyOption.REPLACE_EXISTING);
-                Files.writeString(to.resolve(OUTCOMES), outcomes(from, headers), StandardCharsets.UTF_8);
+                Files.writeString(to.resolve(OUTCOMES), outcomes.get(side), StandardCharsets.UTF_8);
             }
             if (comparison) {
                 Files.copy(runs.resolve(Comparison.FILE), into.resolve(Comparison.FILE),
                         StandardCopyOption.REPLACE_EXISTING);
             }
-            Files.writeString(into.resolve(DESCRIPTION), description(runs, root, comparison, headers)
-                    + "\n", StandardCharsets.UTF_8);
+            Files.writeString(into.resolve(DESCRIPTION), description + "\n", StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new UncheckedIOException("the data folder " + into + " could not be written", e);
         }
     }
 
-    /** One outcome line per Run the index lists, read from the Run's own log. */
-    private static String outcomes(Path folder, List<RunLog.Header> headers) throws IOException {
+    /**
+     * One outcome line per Run the index lists, read from the Run's own log. A Run whose log is
+     * missing or unreadable is written as INCOMPLETE and counted, so the page can say how many of
+     * the Runs its checks could not see.
+     */
+    private static String outcomes(Path folder, List<RunLog.Header> headers, int[] unreadable) {
+        Path home = folder.toAbsolutePath().normalize();
         StringBuilder out = new StringBuilder();
-        for (String line : Files.readAllLines(folder.resolve(RunIndex.RUNS), StandardCharsets.UTF_8)) {
+        List<String> lines;
+        try {
+            lines = Files.readAllLines(folder.resolve(RunIndex.RUNS), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException("the run index in " + folder + " could not be read", e);
+        }
+        for (String line : lines) {
             if (line.isBlank()) {
                 continue;
             }
-            String log = LogHeader.string(line, "log");
-            Path file = folder.resolve(log).normalize();
-            if (!file.getParent().equals(folder.toAbsolutePath().normalize())
-                    && !file.getParent().equals(folder.normalize())) {
+            String log = named(line, "log", folder);
+            String seed = LogHeader.value(line, "seed");
+            if (seed == null || !seed.matches("-?[0-9]+")) {
+                throw new IllegalArgumentException("the index in " + folder + " has a line without a seed: " + line);
+            }
+            Path file = home.resolve(log).normalize();
+            if (!home.equals(file.getParent())) {
                 throw new IllegalArgumentException("the index in " + folder + " names a log outside it: " + log);
             }
             RunLog.Outcome outcome = Comparison.outcome(file);
-            if (Files.isRegularFile(file)) {
-                RunLogReader.Log read = RunLogReader.of(file);
-                if (read.readable() && read.header() != null) {
-                    headers.add(read.header());
-                }
+            RunLogReader.Log read = Files.isRegularFile(file) ? RunLogReader.of(file) : null;
+            if (read != null && read.readable() && read.header() != null) {
+                headers.add(read.header());
+            } else {
+                unreadable[0]++;
             }
             JsonWriter row = new JsonWriter().beginObject();
             row.key("bosses").value(outcome == null ? 0 : outcome.bosses());
             row.key("cause").value(outcome == null ? "INCOMPLETE" : outcome.cause());
-            row.key("chain").value(LogHeader.string(line, "chain"));
-            row.key("class").value(LogHeader.string(line, "class"));
+            row.key("chain").value(named(line, "chain", folder));
+            row.key("class").value(named(line, "class", folder));
             row.key("depth").value(outcome == null ? 0 : outcome.depth());
-            row.key("run").value(LogHeader.string(line, "runId"));
+            row.key("run").value(named(line, "runId", folder));
             row.key("score").value(outcome == null ? 0 : outcome.score());
-            row.key("seed").value(Long.parseLong(LogHeader.value(line, "seed")));
+            row.key("seed").value(Long.parseLong(seed));
             row.key("turns").value(outcome == null ? 0 : outcome.turns());
             row.key("win").value(outcome != null && outcome.win());
             out.append(row.endObject().toJson()).append('\n');
@@ -122,58 +150,111 @@ public final class Results {
         return out.toString();
     }
 
-    private static String description(Path runs, Path root, boolean comparison, List<RunLog.Header> headers) {
+    private static String named(String line, String key, Path folder) {
+        String value = LogHeader.string(line, key);
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("the index in " + folder + " has a line without \"" + key
+                    + "\": " + line);
+        }
+        return value;
+    }
+
+    private static String description(Path runs, Path root, boolean comparison, List<RunLog.Header> headers,
+                                      int unreadable) {
         if (headers.isEmpty()) {
             throw new IllegalArgumentException(runs + " holds no readable Run log to describe");
         }
         RunLog.Header first = headers.get(0);
-        String earliest = first.started();
+        java.time.Instant earliest = java.time.Instant.parse(first.started());
+        int oracle = 0;
         for (RunLog.Header h : headers) {
             if (!h.tag().equals(first.tag()) || !h.commit().equals(first.commit())
                     || !h.registration().equals(first.registration()) || h.cap() != first.cap()) {
                 throw new IllegalArgumentException(runs + " mixes invocations: " + h.tag() + " at "
-                        + h.commit() + " under '" + h.registration() + "' and " + first.tag() + " at "
-                        + first.commit() + " under '" + first.registration() + "'");
+                        + h.commit() + " under '" + h.registration() + "', cap " + h.cap() + ", and "
+                        + first.tag() + " at " + first.commit() + " under '" + first.registration()
+                        + "', cap " + first.cap());
             }
-            if (h.oracle()) {
-                throw new IllegalArgumentException("a Run in " + runs + " had the Oracle on; nothing"
-                        + " it produced is published (FR-11)");
-            }
-            earliest = h.started().compareTo(earliest) < 0 ? h.started() : earliest;
+            oracle += h.oracle() ? 1 : 0;
+            java.time.Instant started = java.time.Instant.parse(h.started());
+            earliest = started.isBefore(earliest) ? started : earliest;
         }
-        String summary = read(comparison ? runs.resolve(Comparison.CANDIDATE).resolve(RunIndex.SUMMARY)
-                : runs.resolve(RunIndex.SUMMARY));
-        String set = LogHeader.string(summary, "seedSet");
+        if (oracle > 0) {
+            throw new IllegalArgumentException(oracle + " Run(s) in " + runs + " had the Oracle on;"
+                    + " nothing they produced is published (FR-11)");
+        }
+        String set = seedSet(comparison ? runs.resolve(Comparison.CANDIDATE) : runs);
+        if (comparison && !set.equals(seedSet(runs.resolve(Comparison.BASELINE)))) {
+            throw new IllegalArgumentException("the two sides of " + runs + " name different Seed sets");
+        }
         String stamp = first.registration();
+        if (!stamp.isEmpty() && !stamp.matches(org.shatterfish.api.Registration.ID_PATTERN + "@[0-9a-f]{16}")) {
+            throw new IllegalArgumentException("a Registration stamp that is not one: " + stamp);
+        }
         String id = stamp.isEmpty() ? "" : stamp.substring(0, stamp.indexOf('@'));
+        String cmp = comparison ? read(runs.resolve(Comparison.FILE)) : "";
+        if (comparison && !stamp.equals(LogHeader.string(cmp, "registration"))) {
+            throw new IllegalArgumentException("comparison.json in " + runs + " names the Registration '"
+                    + LogHeader.string(cmp, "registration") + "' and its Runs '" + stamp + "'");
+        }
         String registered = "";
+        String claim = "";
+        List<String> declared = new ArrayList<>();
         int prior = 0;
+        int siblings = 0;
+        int seedVersion = SeedSets.load(root, set).set().version();
+        int alpha = 0;
+        int beta = 0;
+        String candidate = comparison ? LogHeader.string(cmp, "candidate") : first.brain().name();
+        String against = comparison ? LogHeader.string(cmp, "baseline") : "";
         if (!id.isEmpty()) {
-            registered = git(root, "log", "-1", "--format=%H", "--",
+            // The commit that added the Registration, not the last one to touch it: a later
+            // reformatting would otherwise move the date a hypothesis was fixed.
+            String added = git(root, "log", "--diff-filter=A", "--format=%H", "--",
                     Registrations.FOLDER + "/" + id + ".json");
+            String[] commits = added.isEmpty() ? new String[0] : added.split("\\s+");
+            if (commits.length == 0) {
+                throw new IllegalArgumentException("git cannot say when " + id + " was committed; a"
+                        + " Registration that was never committed is not one (FR-22)");
+            }
+            registered = commits[commits.length - 1];
+            org.shatterfish.api.Registration registration = Registrations.read(root, id).registration();
+            claim = registration.claim();
+            seedVersion = registration.seedVersion();
+            alpha = registration.alphaPerMil();
+            beta = registration.betaPerMil();
+            if (registration.brainA() != null) {
+                declared.add(brain(registration.brainA()));
+            }
+            declared.add(brain(registration.brainB()));
             for (Ledger.Entry entry : new Ledger(root.resolve(Registrations.FOLDER)).entries()) {
-                if (entry.registration().equals(id) && entry.when().compareTo(earliest) < 0) {
+                if (!java.time.Instant.parse(entry.when()).isBefore(earliest)) {
+                    continue;
+                }
+                if (entry.registration().equals(id)) {
                     prior++;
+                } else if (entry.brain().equals(candidate) && entry.seedSet().equals(set)) {
+                    siblings++;
                 }
             }
         }
-        List<String> brains = new ArrayList<>();
+        List<String> invoked = new ArrayList<>();
         for (RunLog.Header h : headers) {
             String brain = h.brain().name() + "@" + h.brain().commit() + "/" + h.brain().configHash();
-            if (!brains.contains(brain)) {
-                brains.add(brain);
+            if (!invoked.contains(brain)) {
+                invoked.add(brain);
             }
         }
-        String candidate = comparison ? LogHeader.string(read(runs.resolve(Comparison.FILE)), "candidate")
-                : first.brain().name();
-        String against = comparison ? LogHeader.string(read(runs.resolve(Comparison.FILE)), "baseline") : "";
         JsonWriter out = new JsonWriter().beginObject();
+        out.key("alpha_per_mil").value(alpha);
+        out.key("beta_per_mil").value(beta);
         out.key("brains").beginArray();
-        for (String brain : brains) {
+        for (String brain : invoked) {
             out.value(brain);
         }
         out.endArray();
         out.key("cap").value(first.cap());
+        out.key("claim").value(claim);
         out.key("command").value("./gradlew :rig:run --args=\"--brain " + candidate
                 + (comparison ? " --against " + against : "") + " --seeds " + set + " --cap " + first.cap()
                 + " --out <dir>" + (id.isEmpty() ? "" : " --registration " + id) + "\"");
@@ -181,16 +262,35 @@ public final class Results {
         out.key("kind").value(comparison ? "comparison" : "baseline");
         out.key("logs").value("");
         out.key("machine").value(first.machine());
-        out.key("oracle_runs").value(0);
+        out.key("oracle_runs").value(oracle);
         out.key("prior_attempts").value(prior);
+        out.key("prior_sibling_attempts").value(siblings);
+        out.key("registered_brains").beginArray();
+        for (String brain : declared) {
+            out.value(brain);
+        }
+        out.endArray();
         out.key("registration").value(stamp);
         out.key("registration_commit").value(registered);
-        out.key("runs").value(headers.size());
+        out.key("runs").value(headers.size() + unreadable);
         out.key("seed_set").value(set);
-        out.key("seed_version").value(SeedSets.load(root, set).set().version());
-        out.key("started").value(earliest);
+        out.key("seed_version").value(seedVersion);
+        out.key("started").value(earliest.toString());
         out.key("tag").value(first.tag());
+        out.key("unreadable_runs").value(unreadable);
         return out.endObject().toJson();
+    }
+
+    private static String brain(org.shatterfish.api.Registration.Brain brain) {
+        return brain.name() + "@" + brain.commit() + "/" + brain.configHash();
+    }
+
+    private static String seedSet(Path side) {
+        String set = LogHeader.string(read(side.resolve(RunIndex.SUMMARY)), "seedSet");
+        if (set == null) {
+            throw new IllegalArgumentException("the summary in " + side + " names no Seed set");
+        }
+        return set;
     }
 
     /** What git answers, stripped, or empty when it cannot say. */
@@ -266,18 +366,44 @@ public final class Results {
         out.append("| Shatterfish commit | `").append(commit).append("` |\n");
         out.append("| Seed set | `").append(LogHeader.string(d, "seed_set")).append("` version ")
                 .append(LogHeader.value(d, "seed_version")).append(" |\n");
-        out.append("| Brains (name@commit/configuration) | ");
-        List<String> brains = strings(LogHeader.value(d, "brains"));
-        out.append(String.join(", ", brains.stream().map(b -> "`" + b + "`").toList())).append(" |\n");
+        List<String> registered = strings(need(d, "registered_brains"));
+        List<String> brains = strings(need(d, "brains"));
+        if (brains.isEmpty() || brains.get(0).indexOf('@') < 0) {
+            throw new IllegalArgumentException("the data folder " + data + " names no Brain");
+        }
+        out.append("| Brains, as registered (name@commit/configuration) | ")
+                .append(registered.isEmpty() ? "no Registration names them"
+                        : String.join(", ", registered.stream().map(b -> "`" + b + "`").toList()))
+                .append(" |\n");
+        out.append("| Brains, as the Runs' headers name them | ")
+                .append(String.join(", ", brains.stream().map(b -> "`" + b + "`").toList()))
+                .append(" (the commit a header carries is the invocation's) |\n");
+        String registrationCommit = need(d, "registration_commit");
         out.append("| Registration | ").append(stamp.isEmpty() ? "none: not a measurement (FR-22)"
-                : "`" + stamp + "`, committed at `" + LogHeader.string(d, "registration_commit") + "`").append(" |\n");
-        out.append("| Prior registered attempts | ").append(LogHeader.value(d, "prior_attempts"))
-                .append(" (invocations of this Registration the ledger records before this one) |\n");
-        out.append("| Turn cap | ").append(LogHeader.value(d, "cap")).append(" |\n");
-        out.append("| Oracle | off: ").append(LogHeader.value(d, "oracle_runs")).append(" of ")
-                .append(LogHeader.value(d, "runs")).append(" Runs had it on |\n");
-        out.append("| Fairness suite | runs in CI on every commit; for this one see ")
-                .append("[its checks](https://github.com/watchthelight/shatterfish/commit/").append(commit)
+                : "`" + stamp + "`, [committed](https://github.com/watchthelight/shatterfish/blob/"
+                        + registrationCommit + "/registrations/" + stamp.substring(0, stamp.indexOf('@'))
+                        + ".json) at `" + registrationCommit + "`").append(" |\n");
+        if (!stamp.isEmpty()) {
+            out.append("| Claim | ").append(cell(need(d, "claim"))).append(" |\n");
+            out.append(String.format(Locale.ROOT, "| Error rates | α = %.3f, β = %.3f |\n",
+                    Integer.parseInt(need(d, "alpha_per_mil")) / 1000.0,
+                    Integer.parseInt(need(d, "beta_per_mil")) / 1000.0));
+        }
+        out.append("| Prior registered attempts | ").append(need(d, "prior_attempts"))
+                .append(" of this Registration, and ").append(need(d, "prior_sibling_attempts"))
+                .append(" of other Registrations with the same candidate Brain on the same Seed set,"
+                        + " in the ledger before this invocation began |\n");
+        out.append("| Turn cap | ").append(need(d, "cap")).append(" |\n");
+        out.append("| Oracle | off: ").append(need(d, "oracle_runs")).append(" of ")
+                .append(need(d, "runs")).append(" Runs had it on");
+        if (!"0".equals(need(d, "unreadable_runs"))) {
+            out.append("; ").append(need(d, "unreadable_runs"))
+                    .append(" Run(s) had no readable log, so no header to check");
+        }
+        out.append(" |\n");
+        out.append("| Fairness suite | runs in CI on every pull request and every push to `main`;")
+                .append(" the checks recorded for this commit, if any, are")
+                .append(" [here](https://github.com/watchthelight/shatterfish/commit/").append(commit)
                 .append("/checks) |\n");
         out.append("| Machine | ").append(LogHeader.string(d, "machine")).append(" |\n");
         String logs = LogHeader.string(d, "logs");
@@ -288,7 +414,10 @@ public final class Results {
                 .append("`](https://github.com/watchthelight/shatterfish/tree/main/").append(FOLDER).append('/')
                 .append(data.getFileName()).append(") |\n\n");
         out.append("**Command**, from the repository root at the commit above:\n\n```sh\n")
-                .append(LogHeader.string(d, "command")).append("\n```\n\n");
+                .append(need(d, "command")).append("\n```\n\n")
+                .append("Salts are drawn when each Run executes (ADR-0007), so the command reproduces the"
+                        + " distribution, not these Runs; a Run itself is replayed from its log with"
+                        + " `--replay`, and its salt and chain are in the committed index.\n\n");
         if (comparison) {
             out.append(verdict(json));
         }
@@ -296,10 +425,14 @@ public final class Results {
                 ? List.of(side(data.resolve(Comparison.CANDIDATE), "candidate `" + LogHeader.string(json, "candidate") + "`"),
                         side(data.resolve(Comparison.BASELINE), "baseline `" + LogHeader.string(json, "baseline") + "`"))
                 : List.of(side(data, "`" + brains.get(0).substring(0, brains.get(0).indexOf('@')) + "`"));
+        out.append("Pages this one depends on: [the statistic](../methodology.md#comparing-two-brains),"
+                + " [the Run log and its chain](../methodology.md#the-run-log-and-its-chain),"
+                + " [the mix](../methodology.md#the-mix), and [how to read this page](../methodology.md#results-pages).\n\n");
         out.append("## Per-Run aggregates\n\n");
         out.append(aggregates(sides));
         out.append("\n## Survival curve\n\nThe share of the Runs the game ended that were still alive at each turn."
-                + " A Run with no ending the game decided is left out and counted above.\n\n");
+                + " A Run with no ending the game decided is left out (it is censored, not dead) and"
+                + " counted above; \"alive at T\" is \"survived at least T turns\".\n\n");
         out.append(survival(sides));
         out.append("\n## Boss staircase\n\n");
         out.append(staircase(sides));
@@ -329,9 +462,19 @@ public final class Results {
                 LogHeader.value(json, "consumed_worse"), LogHeader.value(json, "consumed_equal"),
                 LogHeader.value(json, "consumed_better"),
                 strings(LogHeader.value(json, "pairs")).size(), LogHeader.value(json, "missing")));
+        out.append("A pair with a Run the game did not end scores ½ and is counted among the equal"
+                + " ones; the result is void if more of the consumed pairs are missing than the cap allows.\n\n");
+        if ("0".equals(LogHeader.value(json, "consumed_worse")) && "0".equals(LogHeader.value(json, "consumed_better"))) {
+            out.append("**Every consumed pair tied.** A one-sided test rejects two Brains that played alike"
+                    + " as readily as a worse one, so a REJECT here says only that; it is no evidence of"
+                    + " \"worse\".\n\n");
+        }
         out.append("Reported statistic ").append(micros(LogHeader.value(json, "llr_micros")))
                 .append("true".equals(LogHeader.value(json, "clamped")) ? ", clamped at the bound" : "")
-                .append(". The trace, one value per consumed pair:\n\n```\n");
+                .append(". The trace, one value per consumed pair; the first ")
+                .append(LogHeader.value(json, "burn_in"))
+                .append(" are the burn-in, which cannot stop the test, and their size at the start is the"
+                        + " regularization dividing by almost no variance:\n\n```\n");
         List<String> trace = strings(LogHeader.value(json, "trace_micros"));
         for (int i = 0; i < trace.size(); i++) {
             out.append(micros(trace.get(i))).append(i % 10 == 9 || i == trace.size() - 1 ? "\n" : "  ");
@@ -470,7 +613,9 @@ public final class Results {
         int start = 0;
         for (int i = 0; i < inner.length(); i++) {
             char c = inner.charAt(i);
-            if (c == '"' && (i == 0 || inner.charAt(i - 1) != '\\')) {
+            if (quoted && c == '\\') {
+                i++;
+            } else if (c == '"') {
                 quoted = !quoted;
             } else if (!quoted && (c == '{' || c == '[')) {
                 depth++;
@@ -486,7 +631,21 @@ public final class Results {
     }
 
     private static String unquote(String raw) {
-        return raw.startsWith("\"") && raw.endsWith("\"") ? raw.substring(1, raw.length() - 1) : raw;
+        return raw.startsWith("\"") && raw.endsWith("\"") ? org.shatterfish.harness.log.Json.string(raw) : raw;
+    }
+
+    /** A required key of a data folder's description, refused rather than printed as "null". */
+    private static String need(String description, String key) {
+        String value = LogHeader.value(description, key);
+        if (value == null) {
+            throw new IllegalArgumentException("a Results description without \"" + key + "\": " + description);
+        }
+        return value.startsWith("\"") ? LogHeader.string(description, key) : value;
+    }
+
+    /** Text for one Markdown table cell. */
+    private static String cell(String text) {
+        return text.replace("|", "\\|").replace("\n", " ");
     }
 
     // ---------------------------------------------------------------------------------- task
@@ -502,13 +661,17 @@ public final class Results {
         }
         Path root = Seeds.checkout(args[0]);
         long began = System.nanoTime();
+        if (args.length >= 3 && !args[args[1].equals("extract") ? 3 : 2].matches(SLUG)) {
+            throw new IllegalArgumentException("a slug is a file name: " + Arrays.toString(args));
+        }
         if (args.length == 4 && args[1].equals("extract")) {
             extract(Path.of(args[2]).toAbsolutePath().normalize(), root, root.resolve(FOLDER).resolve(args[3]));
         } else if (args.length >= 4 && args[1].equals("page")) {
-            String title = String.join(" ", Arrays.copyOfRange(args, 3, args.length));
+            String title = String.join(" ", Arrays.copyOfRange(args, 3, args.length)).strip();
             Path data = root.resolve(FOLDER).resolve(args[2]);
+            String rendered = page(data, title);
             Files.writeString(data.resolve("title.txt"), title + "\n", StandardCharsets.UTF_8);
-            Files.writeString(root.resolve(PAGES).resolve(args[2] + ".md"), page(data, title), StandardCharsets.UTF_8);
+            Files.writeString(root.resolve(PAGES).resolve(args[2] + ".md"), rendered, StandardCharsets.UTF_8);
         } else if (args.length == 1) {
             for (Path data : generated(root)) {
                 Files.writeString(root.resolve(PAGES).resolve(data.getFileName() + ".md"),
@@ -530,7 +693,12 @@ public final class Results {
         }
         try (var list = Files.list(folder)) {
             for (Path data : list.sorted().toList()) {
-                if (Files.isRegularFile(data.resolve(DESCRIPTION)) && Files.isRegularFile(data.resolve("title.txt"))) {
+                if (Files.isRegularFile(data.resolve(DESCRIPTION)) && !Files.isRegularFile(data.resolve("title.txt"))) {
+                    // An untitled data folder would drop out of the drift check without a word.
+                    throw new IllegalStateException("the data folder " + data + " has no title.txt;"
+                            + " give it a page with " + COMMAND + " --args=\"<root> page <slug> <title>\"");
+                }
+                if (Files.isRegularFile(data.resolve(DESCRIPTION))) {
                     out.add(data);
                 }
             }

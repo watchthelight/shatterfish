@@ -177,6 +177,14 @@ public final class Brains {
     }
 
     /**
+     * The seed the Decider named {@code name} draws from on {@code triple}: the triple's own for
+     * every Brain but the twin, whose stream is the triple's mixed with {@link #TWIN_STREAM}.
+     */
+    static long seedOf(String name, SeedSet.Entry triple) {
+        return TWIN.equals(named(name)) ? Mix.mix(agentSeed(triple), TWIN_STREAM) : agentSeed(triple);
+    }
+
+    /**
      * The Decider named {@code name}, seeded from the triple it will play, refusing a name the Rig
      * does not have.
      */
@@ -186,7 +194,7 @@ public final class Brains {
             return new RandomAgent(agentSeed(triple));
         }
         if (TWIN.equals(name)) {
-            return new RandomAgent(Mix.mix(agentSeed(triple), TWIN_STREAM));
+            return new RandomAgent(seedOf(name, triple));
         }
         if (WITHHELD.containsKey(name)) {
             return new WithholdingAgent(agentSeed(triple), WITHHELD.get(name));
