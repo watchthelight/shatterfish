@@ -30,6 +30,11 @@ tasks.named('test') {
     // RunnerTest and CalibrationTest hold the commands the methodology page publishes; without this
     // an edit to the page alone leaves :rig:test UP-TO-DATE and neither check runs.
     inputs.file(rootProject.file('docs/methodology.md')).withPropertyName('methodologyPage').withPathSensitivity(PathSensitivity.RELATIVE)
+    // The nightly workflow, its script, its history and its page (story 3.11): NightlyTest reads them.
+    inputs.file(rootProject.file('.github/workflows/nightly.yml')).withPropertyName('nightlyWorkflow').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(rootProject.file('tools/nightly-pr.sh')).withPropertyName('nightlyScript').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(rootProject.file('results/nightly')).withPropertyName('nightlyHistory').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(rootProject.file('docs/results/nightly.md')).withPropertyName('nightlyPage').withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 // `./gradlew :rig:calibrate` writes docs/results/calibration-v4.0.0.md from the committed table in
@@ -87,6 +92,19 @@ sourceSets {
     test {
         runtimeClasspath += gameAssets
     }
+}
+
+// `./gradlew :rig:nightly` (story 3.11): with `--args="<root> page"` writes docs/results/nightly.md
+// from results/nightly/history.jsonl; with `--args="<root> night <out> <date> <commit> [<run>]"`
+// judges the night the Rig wrote into <out>. The nightly workflow runs both; nothing is played here.
+tasks.register('nightly', JavaExec) {
+    group = 'shatterfish'
+    description = 'Records a nightly smoke run and writes the nightly results page.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.rig.Nightly'
+    workingDir = rootDir
+    args = [rootDir.absolutePath, 'page']
+    outputs.upToDateWhen { false }
 }
 
 // `./gradlew :rig:run --args=""--brain random --seeds smoke --parallel 4 --out <dir>"` (story 3.3).

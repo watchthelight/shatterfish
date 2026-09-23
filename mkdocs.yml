@@ -166,6 +166,7 @@ nav:
       - Vocabulary: codex/vocabulary.md
   - Results:
       - results/index.md
+      - Nightly smoke: results/nightly.md
       - E1 touchpoint audit: results/e1-touchpoint-audit.md
       - E1 throughput and tactics: results/e1-throughput.md
       - Calibrating the bounds: results/calibration-v4.0.0.md

@@ -369,6 +369,34 @@ An invocation that names no Registration still runs — that is the normal case 
 and says so: its logs carry an empty registration, and its summary records one, so a folder of
 numbers can never be quietly adopted as a measurement of something afterwards.
 
+## The nightly job
+
+Every night at 04:40 UTC the `nightly` workflow (`.github/workflows/nightly.yml`) checks out `main`
+with its full history, plays the `smoke` set under the standing Registration `H-0001-nightly-smoke`
+on four processes, and publishes the night:
+
+1. **It records the night.** `./gradlew :rig:nightly --args="<root> night build/nightly <date> <commit> <run>"`
+   reads the summary and the run index the Rig wrote and judges them. A night **passes** when the
+   Rig ran ranked under H-0001, started every one of the set's 25 triples, and every Run it started
+   finished; anything else **fails**, with the reason in words — not ranked, the wrong set or Brain,
+   Runs missing, Runs incomplete, or no summary at all because the Rig was refused or stopped.
+2. **It publishes it.** `tools/nightly-pr.sh` rebuilds the branch `rig/nightly` on `main`, appends
+   the night to `results/nightly/history.jsonl` and the Rig's line to the ledger, regenerates
+   [the nightly page](results/nightly.md) from the history, force-pushes the branch, and updates
+   the one results pull request (or opens it the first night). Nights recorded on the branch but not
+   yet merged are carried forward, never dropped: the history and the ledger are append-only, so
+   the branch's copy is kept whenever `main`'s is a prefix of it. The job never pushes `main`; a
+   person merges the pull request (ADR-0002).
+3. **It makes a failure impossible to miss.** The night's status line is the job summary, the pull
+   request's title and body, and the first column of the page, and a failed night turns the job red
+   after it has been published.
+
+**Every night is a direction check, never an acceptance.** H-0001 fixes a baseline and tests
+nothing between two Brains, so no night can accept, reject or be undecided; what it can do is fail,
+which is what it is for — a change that breaks the Harness is seen the night it lands. The Run logs
+are kept as a workflow artifact for 90 days. The Rig and the recording make no network call; the
+job's only other calls are git and `gh` against GitHub (NFR-8).
+
 ## Comparing two Brains
 
 ```sh
