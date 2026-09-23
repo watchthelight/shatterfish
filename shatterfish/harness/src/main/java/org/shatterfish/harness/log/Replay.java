@@ -404,6 +404,12 @@ public final class Replay {
             return followed == null ? "" : followed.belief();
         }
 
+        /** The cells the log recorded for the wait followed (story 4.4), so the replayed record is the recorded one. */
+        @Override
+        public List<Integer> lastHighlights() {
+            return followed == null ? List.of() : followed.highlights();
+        }
+
         /** The first wait an {@code unsupported} record makes unreproducible, if there is one. */
         static long firstGap(RunLogReader.Log log) {
             long first = Long.MAX_VALUE;

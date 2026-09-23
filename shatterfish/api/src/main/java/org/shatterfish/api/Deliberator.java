@@ -25,4 +25,13 @@ public interface Deliberator extends Decider {
     default String beliefHash() {
         return belief() == null ? "" : belief().hash();
     }
+
+    /**
+     * The map cells the last Decision points at, which the Run loop writes into the wait record's
+     * {@code highlights} (story 4.4, ADR-0011) so that the Overlay and the Replay scrubber read them
+     * rather than re-deriving them. None by default.
+     */
+    default java.util.List<Integer> lastHighlights() {
+        return java.util.List.of();
+    }
 }

@@ -174,3 +174,17 @@ sequences identical, 1,688 waits. The committed weights leave play unchanged, as
 
 - Mutation battery: 6 of 6 killed (hp weight ignored, enemy alignment swapped, fallback ignores
   scores, feature set unchecked, weights left out of the configuration, canonical check off).
+
+**Integration with stories 4.2 and 4.4.** The Brain is built as
+`Brain(Codex.Knowledge, Weights, seed)`. 4.4's ranking fallback and 4.5's Evaluation combine by
+tiers:
+- The offered Actions are grouped by Evaluation score, highest first, and each tier is drawn from
+  uniformly with the stream until a pick and three alternatives are drawn.
+- The score a Choice records is its chance within its tier, in ten-thousandths (1/k, rounded), not
+  the Evaluation's own figure. That keeps it comparable with the other Policies' scores (a Policy
+  that is sure scores 10000); a position's worth such as 23000 would read as a stronger preference
+  than any Policy can hold.
+- The reason is "uniform 1/k" when every Action scores alike, as under the committed weights, where
+  play and draws are 4.4's exactly. Otherwise it is "top 1/k" or "lower 1/k".
+- `EvaluationMonotonicityTest.tiers` holds both cases, and the battery reran 6 of 6 killed on the
+  merged code.

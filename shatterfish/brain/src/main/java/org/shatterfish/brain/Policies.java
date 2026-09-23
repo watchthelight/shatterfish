@@ -5,17 +5,27 @@ import org.shatterfish.api.Observation;
 import org.shatterfish.api.PromptKind;
 import org.shatterfish.api.RunLog;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 /**
  * The first Policies (story 4.1): the minimum a Run needs to go on. Later stories put the real ones
  * above them -- explore, fight, eat, test items, descend -- and these stay at the bottom as what a
  * Brain does when nothing better applies.
+ *
+ * <p>Their goals and reasons are labels and numbers, not sentences (story 4.4, UX-DR13): a
+ * lower-case word, then either {@code ": "} and a value or a space and a number --
+ * "prompt: close", "decline: No", "uniform 1/5". The Panel and the strategy log print them as they
+ * are, and {@code DecisionShapeTest} holds them to that grammar.
  */
 final class Policies {
 
     private Policies() {
     }
+
+    /** The score of a Choice a Policy is sure of, in ten-thousandths. */
+    static final long CERTAIN = 10_000;
 
     /**
      * The answers that decline, as the Prompt labels them. A Prompt the Brain does not understand is
@@ -30,9 +40,21 @@ final class Policies {
         return DECLINING.stream().anyMatch(stripped::equalsIgnoreCase);
     }
 
+    /** The label of the button an answer presses, or empty when the Prompt draws none for it. */
+    private static String label(List<String> labels, Action.AnswerPrompt answer) {
+        return answer.option() >= 0 && answer.option() < labels.size() ? labels.get(answer.option()).strip() : "";
+    }
+
+    /** The first of a ranking, or null when it is empty. */
+    private static RunLog.Choice first(List<RunLog.Choice> ranked) {
+        return ranked.isEmpty() ? null : ranked.get(0);
+    }
+
     /**
      * Answer a Prompt the screen holds open: decline when an offered answer says so, else the lowest
-     * answer offered, else dismiss it.
+     * answer offered, else dismiss it. It ranks every way of closing the Prompt the screen offers,
+     * best first, and scores only its pick: the others are what it would have done otherwise, not
+     * things it prefers less by some measure.
      */
     static final Policy ANSWER_PROMPT = new Policy() {
         @Override
@@ -42,7 +64,7 @@ final class Policies {
 
         @Override
         public String goal() {
-            return "close the prompt the screen holds open";
+            return "prompt: close";
         }
 
         @Override
@@ -52,49 +74,75 @@ final class Policies {
 
         @Override
         public RunLog.Choice choose(Observation observation, Memory memory, List<Action> offered, Stream stream) {
-            Action.AnswerPrompt first = null;
-            for (Action action : offered) {
-                if (action instanceof Action.AnswerPrompt answer
-                        && (first == null || answer.option() < first.option())) {
-                    first = answer;
-                }
-            }
+            return first(ranked(observation, memory, offered, stream));
+        }
+
+        @Override
+        public List<RunLog.Choice> ranked(Observation observation, Memory memory, List<Action> offered, Stream stream) {
             List<String> labels = observation.prompt().options();
+            List<Action.AnswerPrompt> declining = new ArrayList<>();
+            List<Action.AnswerPrompt> answers = new ArrayList<>();
+            Action dismiss = null;
             for (Action action : offered) {
-                if (action instanceof Action.AnswerPrompt answer && answer.option() >= 0
-                        && answer.option() < labels.size()
-                        && declines(labels.get(answer.option()))) {
-                    return new RunLog.Choice(answer, 0, "the prompt offers to decline: " + labels.get(answer.option()));
+                if (action instanceof Action.AnswerPrompt answer) {
+                    (declines(label(labels, answer)) ? declining : answers).add(answer);
+                } else if (action instanceof Action.DismissPrompt) {
+                    dismiss = action;
                 }
             }
-            if (first != null) {
-                return new RunLog.Choice(first, 0, "the first answer the prompt offers");
+            declining.sort(Comparator.comparingInt(Action.AnswerPrompt::option));
+            answers.sort(Comparator.comparingInt(Action.AnswerPrompt::option));
+            List<RunLog.Choice> ranked = new ArrayList<>();
+            for (Action.AnswerPrompt answer : declining) {
+                ranked.add(new RunLog.Choice(answer, ranked.isEmpty() ? CERTAIN : 0,
+                        "decline: " + label(labels, answer)));
             }
-            for (Action action : offered) {
-                if (action instanceof Action.DismissPrompt) {
-                    return new RunLog.Choice(action, 0, "the prompt offers no answer, so it is dismissed");
-                }
+            for (Action.AnswerPrompt answer : answers) {
+                String label = label(labels, answer);
+                ranked.add(new RunLog.Choice(answer, ranked.isEmpty() ? CERTAIN : 0,
+                        "answer: " + (label.isEmpty() ? Integer.toString(answer.option()) : label)));
             }
-            return null;
+            if (dismiss != null) {
+                ranked.add(new RunLog.Choice(dismiss, ranked.isEmpty() ? CERTAIN : 0, "dismiss"));
+            }
+            return ranked;
         }
     };
 
     /**
-     * The floor under every Policy a later story adds: the Actions the screen offers that score
-     * highest by {@code evaluation}, and among those, uniformly, from the Brain's seeded stream
-     * (story 4.5). While every Action scores alike -- the committed weights give the Action
-     * features no weight -- it is the random agent's choice, drawn the same way it was in 4.1.
+     * The fallback's name, which {@link Brain#policyNames()} lists without building one.
+     */
+    static final String FALLBACK = "fallback";
+
+    /**
+     * The floor under every Policy a later story adds: uniformly, from the Brain's seeded stream,
+     * among the offered Actions that score highest by {@code evaluation} (stories 4.1, 4.4, 4.5).
+     *
+     * <p>It ranks by tiers. The Actions are grouped by their Evaluation score, highest first, and
+     * each tier is drawn from uniformly with the stream, one draw per Choice, until a pick and as
+     * many alternatives as a Decision records are drawn. The pick is the first draw from the top
+     * tier; recording alternatives changes nothing it chooses.
+     *
+     * <p><b>The score a Choice records is the chance of drawing it from its tier</b>, in
+     * ten-thousandths: one in k rounded to the nearest, so 1667 for a tier of six. That is the unit
+     * every Decision score is in, and it is comparable with the other Policies' (a Policy that is
+     * sure scores {@link #CERTAIN}). The Evaluation's own score is not what is recorded: it is a
+     * position's worth, not a Policy's preference, and a figure like 23000 beside a Prompt answer's
+     * 10000 would read as a stronger preference than any Policy can hold. The reason says the tier:
+     * "uniform 1/k" when every Action offered scores alike -- the committed weights, which give the
+     * Action features no weight, so play and draws are story 4.4's exactly -- else "top 1/k" for the
+     * highest tier and "lower 1/k" for a tier below it.
      */
     static Policy fallback(Evaluation evaluation) {
         return new Policy() {
             @Override
             public String name() {
-                return "fallback";
+                return FALLBACK;
             }
 
             @Override
             public String goal() {
-                return "act, when no better Policy applies";
+                return "act: nothing better applies";
             }
 
             @Override
@@ -104,25 +152,33 @@ final class Policies {
 
             @Override
             public RunLog.Choice choose(Observation observation, Memory memory, List<Action> offered, Stream stream) {
-                if (offered.isEmpty()) {
-                    return null;
-                }
-                List<Action> best = new java.util.ArrayList<>();
-                long top = Long.MIN_VALUE;
+                return first(ranked(observation, memory, offered, stream));
+            }
+
+            @Override
+            public List<RunLog.Choice> ranked(Observation observation, Memory memory, List<Action> offered,
+                                              Stream stream) {
+                // The tiers, highest score first, each in the order the screen offers its Actions.
+                java.util.TreeMap<Long, List<Action>> tiers = new java.util.TreeMap<>(Comparator.reverseOrder());
                 for (Action action : offered) {
-                    long score = evaluation.of(observation, action);
-                    if (score > top) {
-                        top = score;
-                        best.clear();
-                    }
-                    if (score == top) {
-                        best.add(action);
-                    }
+                    tiers.computeIfAbsent(evaluation.of(observation, action), score -> new ArrayList<>()).add(action);
                 }
-                return new RunLog.Choice(best.get(stream.below(best.size())), top,
-                        best.size() == offered.size()
-                                ? "uniform over the " + offered.size() + " Actions offered, all scoring " + top
-                                : "uniform over the " + best.size() + " of " + offered.size() + " Actions scoring " + top);
+                boolean alike = tiers.size() <= 1;
+                List<RunLog.Choice> ranked = new ArrayList<>();
+                boolean top = true;
+                for (List<Action> tier : tiers.values()) {
+                    List<Action> left = new ArrayList<>(tier);
+                    // One in k, rounded to the nearest ten-thousandth: 1667 for six, as 0.1667 prints.
+                    long score = (CERTAIN + tier.size() / 2) / tier.size();
+                    String why = (alike ? "uniform 1/" : top ? "top 1/" : "lower 1/") + tier.size();
+                    // The pick and at most as many alternatives as a Decision records: drawing more
+                    // would record nothing, and the stream is this wait's alone.
+                    while (!left.isEmpty() && ranked.size() <= RunLog.Decision.ALTERNATIVES) {
+                        ranked.add(new RunLog.Choice(left.remove(stream.below(left.size())), score, why));
+                    }
+                    top = false;
+                }
+                return ranked;
             }
         };
     }

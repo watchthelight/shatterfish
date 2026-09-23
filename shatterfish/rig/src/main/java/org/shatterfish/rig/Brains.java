@@ -245,7 +245,7 @@ public final class Brains {
      * when it is a Brain that reads them: both are read by the caller, never by the Brain (stories
      * 4.1 and 4.5).
      */
-    public static Decider of(String name, SeedSet.Entry triple, org.shatterfish.api.Codex.Manifest codex,
+    public static Decider of(String name, SeedSet.Entry triple, org.shatterfish.api.Codex.Knowledge codex,
                              org.shatterfish.api.Weights weights) {
         named(name);
         if (SHATTERFISH.equals(name)) {

@@ -154,6 +154,27 @@ class EvaluationMonotonicityTest {
     }
 
     @Test
+    @DisplayName("a Choice records its chance within its tier, and the reason names the tier")
+    void tiers() {
+        Observation screen = Screens.offering(1, new Action.Wait(), new Action.Search(), new Action.Step(0),
+                new Action.Step(2));
+        Brain searching = new Brain(Screens.CODEX, Screens.weights(Map.of("act_search", 5L)), 11L);
+        var decision = searching.decide(screen, searching.update(screen, null)).decision();
+        assertEquals(new Action.Search(), decision.chosen().action());
+        assertEquals(10_000, decision.chosen().score(), "the only Action of the top tier is certain within it");
+        assertEquals("top 1/1", decision.chosen().why());
+        assertEquals(3, decision.alternatives().size());
+        for (var alternative : decision.alternatives()) {
+            assertEquals("lower 1/3", alternative.why());
+            assertEquals(3333, alternative.score());
+        }
+        Brain alike = new Brain(Screens.CODEX, Screens.WEIGHTS, 11L);
+        var uniform = alike.decide(screen, alike.update(screen, null)).decision();
+        assertEquals("uniform 1/4", uniform.chosen().why());
+        assertEquals(2500, uniform.chosen().score());
+    }
+
+    @Test
     @DisplayName("under the committed weights the fallback draws what story 4.1's did")
     void the_same_draws() {
         Action[] offered = {new Action.Wait(), new Action.Search(), new Action.Step(0), new Action.Step(2)};

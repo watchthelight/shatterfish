@@ -20,17 +20,24 @@ import java.util.List;
  * human takes a turn, or the executor refuses an Action, the next Decision is computed from the
  * Observation the game actually produced.
  *
- * <p>It reads nothing but its arguments and what it was built with: the Codex manifest, which its
- * caller read from disk (the Brain cannot open a file), and a seed, from which its randomness is
- * arithmetic ({@link Stream}).
+ * <p>It reads nothing but its arguments and what it was built with: the Codex's knowledge and the
+ * Evaluation's weights, which its caller read from disk (the Brain cannot open a file), and a seed,
+ * from which its randomness is arithmetic ({@link Stream}).
  */
 public final class Brain {
 
-    /** What a wait produced: the Action, the Decision behind it, and, when there is no Action, why. */
-    public record Decided(Action action, RunLog.Decision decision, String why) {
+    /**
+     * What a wait produced: the Action, the Decision behind it, the map cells it points at (story
+     * 4.4), and, when there is no Action, why.
+     */
+    public record Decided(Action action, RunLog.Decision decision, List<Integer> highlights, String why) {
+
+        public Decided {
+            highlights = List.copyOf(highlights);
+        }
     }
 
-    private final Codex.Manifest codex;
+    private final Codex.Knowledge knowledge;
     private final Evaluation evaluation;
     private final long seed;
     private final List<Policy> policies;
@@ -51,15 +58,15 @@ public final class Brain {
     }
 
     /**
-     * @param codex   the Codex manifest, read by the caller; the Brain records what it was built on
-     * @param weights the Evaluation's weights, read by the caller (story 4.5)
-     * @param seed    the seed of the Brain's stream, from the caller
+     * @param knowledge the Codex's general game knowledge, read by the caller (story 4.2)
+     * @param weights   the Evaluation's weights, read by the caller (story 4.5)
+     * @param seed      the seed of the Brain's stream, from the caller
      */
-    public Brain(Codex.Manifest codex, Weights weights, long seed) {
-        if (codex == null) {
+    public Brain(Codex.Knowledge knowledge, Weights weights, long seed) {
+        if (knowledge == null) {
             throw new IllegalArgumentException("a Brain is built on a Codex its caller read");
         }
-        this.codex = codex;
+        this.knowledge = knowledge;
         this.evaluation = new Evaluation(weights);
         this.seed = seed;
         this.policies = policies(evaluation);
@@ -77,7 +84,25 @@ public final class Brain {
 
     /** The Codex this Brain was built on. */
     public Codex.Manifest codex() {
-        return codex;
+        return knowledge.manifest();
+    }
+
+    /** What this Brain believes at {@code observation}, holding {@code belief} (the one {@link #update} returned for it). */
+    public Beliefs beliefs(Observation observation, Belief belief) {
+        return Beliefs.view(Memory.of(belief), observation, knowledge);
+    }
+
+    /**
+     * Every Safety flag a Decision can carry, by label (story 4.4): what the Brain's Rules index has
+     * to account for, alongside the Policies.
+     */
+    public static List<String> safetyFlags() {
+        return Safety.ALL;
+    }
+
+    /** The names of the Policies every Brain arbitrates, highest priority first. */
+    public static List<String> policyNames() {
+        return List.of(Policies.ANSWER_PROMPT.name(), Policies.FALLBACK);
     }
 
     /** The Policies, highest priority first, by name. */
@@ -87,20 +112,21 @@ public final class Brain {
 
     /** The Belief after seeing {@code observation}, given the Belief before it (null at the start). */
     public Belief update(Observation observation, Belief belief) {
-        Memory memory = Memory.of(belief);
-        return new Memory(memory.waits() + 1, Math.max(memory.deepest(), observation.header().depth())).belief();
+        return Beliefs.fold(Memory.of(belief), observation, knowledge).belief();
     }
 
     /**
      * The Decision for {@code observation} under {@code belief}: the first Policy, in priority order,
-     * that enters and offers a Choice takes the wait; the next up to three that would also have
-     * acted are its recorded alternatives.
+     * that enters and ranks a Choice takes the wait with its best one. Up to three alternatives are
+     * recorded, distinct Actions all: the taking Policy's own next ranks first, then what later
+     * Policies would have done (story 4.4). The Decision carries the screen's Safety flags, and
+     * the Decided the cells the chosen Action points at.
      */
     public Decided decide(Observation observation, Belief belief) {
         Memory memory = Memory.of(belief);
         List<Action> offered = observation.actions().actions();
         if (offered.isEmpty()) {
-            return new Decided(null, null, "the screen offers no Action");
+            return new Decided(null, null, List.of(), "the screen offers no Action");
         }
         Policy taken = null;
         RunLog.Choice chosen = null;
@@ -113,30 +139,31 @@ public final class Brain {
             // Each Policy draws from a stream of its own, keyed on its place in the list and the
             // wait, so whether an earlier Policy drew changes nothing a later one chooses, and two
             // Policies that both draw do not draw the same numbers.
-            RunLog.Choice choice = policy.choose(observation, memory, offered,
+            List<RunLog.Choice> ranked = policy.ranked(observation, memory, offered,
                     Stream.at(Stream.mix(seed + index), memory.waits()));
-            if (choice == null) {
-                continue;
-            }
-            if (!offered.contains(choice.action())) {
-                throw new IllegalStateException("the Policy " + policy.name() + " chose " + choice.action()
-                        + ", which the screen does not offer");
-            }
-            if (taken == null) {
-                taken = policy;
-                chosen = choice;
-            } else if (alternatives.size() < RunLog.Decision.ALTERNATIVES
-                    && !choice.action().equals(chosen.action())
-                    && alternatives.stream().noneMatch(other -> other.action().equals(choice.action()))) {
-                // An alternative is another Action a Policy would have taken; the same Action again
-                // is not one.
-                alternatives.add(choice);
+            for (RunLog.Choice choice : ranked) {
+                if (!offered.contains(choice.action())) {
+                    throw new IllegalStateException("the Policy " + policy.name() + " chose " + choice.action()
+                            + ", which the screen does not offer");
+                }
+                if (taken == null) {
+                    taken = policy;
+                    chosen = choice;
+                } else if (alternatives.size() < RunLog.Decision.ALTERNATIVES
+                        && !choice.action().equals(chosen.action())
+                        && alternatives.stream().noneMatch(other -> other.action().equals(choice.action()))) {
+                    // An alternative is another Action a Policy would have taken; the same Action
+                    // again is not one.
+                    alternatives.add(choice);
+                }
             }
         }
         if (taken == null) {
-            return new Decided(null, null, "no Policy offered a Choice among " + offered.size() + " Actions");
+            return new Decided(null, null, List.of(),
+                    "no Policy offered a Choice among " + offered.size() + " Actions");
         }
         return new Decided(chosen.action(),
-                new RunLog.Decision(taken.goal(), chosen, alternatives, List.of(), taken.name()), "");
+                new RunLog.Decision(taken.goal(), chosen, alternatives, Safety.flags(observation), taken.name()),
+                Highlights.of(chosen.action()), "");
     }
 }
