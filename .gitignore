@@ -43,3 +43,7 @@ shatterfish/*/bin/
 # fetched by tools/fetch-vanilla.sh at the commit vanilla.pin names. Not committed, because
 # it is another project's tree and the pin is what this repository owns.
 vanilla-src/
+
+# A Run says where it ran (story 3.3). It belongs in the Run's own working directory,
+# never in a module's: a test that plays a Run in this process leaves one here.
+where.txt
