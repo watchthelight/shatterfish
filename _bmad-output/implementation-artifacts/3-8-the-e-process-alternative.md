@@ -2,7 +2,7 @@
 title: 'Story 3.8: The e-process alternative'
 type: 'feature'
 created: '2026-09-23'
-status: 'in-review'
+status: 'done'
 baseline_commit: '2c81c1cb3f263e8dc8026a524602e1b6d49ae169'
 review_loop_iteration: 0
 context: []
@@ -84,3 +84,73 @@ reaches 1/α under H0 by α, at every stopping time, with no burn-in and no alte
 **Commands:**
 - `./gradlew :rig:calibrate` -- rewrites the page; a second run leaves `git diff` empty.
 - `./gradlew build` -- green.
+
+## Evidence
+
+**Rig numbers.** `./gradlew :rig:calibrate` now runs 27 GSPRT cells on the choosing sequences and 7
+tests on the fresh ones (the validation, and both designs at three values of `p1`), 10,000
+sequences per hypothesis each: **4,130 ms** by the task's own clock, against 3,054 ms with the
+GSPRT alone. No Brain changed, so there is no strength result.
+
+**The result.** At the chosen bounds (p0 0.50, p1 0.60, alpha = beta = 0.05, cap 0.25), on the same
+fresh sequences: GSPRT false-accept 5.73%, false-reject 3.99%, power 92.6%, 108 / 102 pairs under
+H0 / H1; e-process 2.21%, 2.29%, 93.6%, 163 / 164 pairs. At p1 0.55 the e-process's power is 37%
+against the GSPRT's 66%. The GSPRT is within its margin, so the gate stays the GSPRT
+(`SequentialTest.GATE`), and ADR-0012 records the outcome.
+
+**Deviations, argued.** "Behind a flag" is `SequentialTest.GATE`, a constant `CalibrationTest`
+holds to the calibration's own conclusion, not a command-line flag: an unranked comparison runs no
+test at all, and a ranked one must run the gate, so a flag would have had nothing to switch that a
+Registration should allow. The e-process's futility side uses `p1`; acceptance does not, which is
+the property the ADR asked for. The rule was extended in review: the e-process takes the gate only if
+it is itself within the margin and powerful, and with no chosen GSPRT cell the rule picks neither.
+
+**Three reviews.** Fixed: the gate went to the e-process on any GSPRT failure, and on no choice at
+all, without looking at the e-process; an e-process REJECT was a crossing of a wealth not in the
+trace (the reported statistic is now the leading wealth, the futility one negated); the duel's
+`p1` values were hard-coded; `EProcess.of`, `SequentialTest.of` and a comparison under the
+e-process were untested; the docs gave the e-process's cost under H1 only and hid its weakness at
+p1 0.55; the bet's clip and citation were imprecise; the ADR's decision did not point at its
+outcome. Deferred to story 3.9: a Registration does not yet fix which statistic it was registered
+under.
+
+**Mutation battery: 25 mutations, 24 killed, 1 removed.** Two survived the first run. M12 (the
+refusal of a baseline in `EProcess.of`) survived because the constructor refuses a baseline's zero
+hypotheses anyway; the test now checks the refusal is the baseline one. M22 (adding the chosen `p1`
+to the duel) could not be killed because the chosen cell always comes from the grid; the redundant
+line was removed.
+
+## Suggested Review Order
+
+**The alternative**
+
+- Entry point: the betting e-process, acceptance and futility, reporting the leading wealth.
+  `shatterfish/rig/src/main/java/org/shatterfish/rig/EProcess.java:140`
+
+- The aGRAPA bet and its clip.
+  `shatterfish/rig/src/main/java/org/shatterfish/rig/EProcess.java:133`
+
+**One interface, one gate**
+
+- The gate constant, and the VOID rule both designs share.
+  `shatterfish/rig/src/main/java/org/shatterfish/rig/SequentialTest.java:29`
+  `shatterfish/rig/src/main/java/org/shatterfish/rig/SequentialTest.java:71`
+
+- The rule: keep a calibrated GSPRT; else a qualified e-process; else neither.
+  `shatterfish/rig/src/main/java/org/shatterfish/rig/Calibration.java:287`
+
+- Both designs on the same fresh sequences.
+  `shatterfish/rig/src/main/java/org/shatterfish/rig/Calibration.java:265`
+
+**Publication**
+
+- Which test gates, and why, with the numbers.
+  `docs/methodology.md:532`
+
+**Tests**
+
+- The gate follows the calibration, and the duel's rows.
+  `shatterfish/rig/src/test/java/org/shatterfish/rig/CalibrationTest.java:99`
+
+- The rule going the other way, and refusing an unqualified challenger.
+  `shatterfish/rig/src/test/java/org/shatterfish/rig/CalibrationTest.java:135`
