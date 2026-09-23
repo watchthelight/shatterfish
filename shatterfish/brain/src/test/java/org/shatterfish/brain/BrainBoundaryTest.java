@@ -162,8 +162,15 @@ class BrainBoundaryTest {
 	@ArchTest
 	static final ArchRule brain_reaches_nothing_dangerous_inside_the_allowed_packages = noClasses()
 			.that().resideInAPackage("org.shatterfish.brain..")
-			.should().dependOnClassesThat()
-			.belongToAnyOf(DENIED_INSIDE_ALLOWED_PACKAGES)
+			.should().dependOnClassesThat(com.tngtech.archunit.core.domain.JavaClass.Predicates
+					.belongToAnyOf(DENIED_INSIDE_ALLOWED_PACKAGES)
+					// A Brain says why it chose (story 4.1): RunLog.Decision and its Choices are the
+					// two parts of the log it hands the harness, and nothing in them carries a seed
+					// or a salt. belongToAnyOf(RunLog) would take them with the rest of the log.
+					.and(com.tngtech.archunit.base.DescribedPredicate.not(com.tngtech.archunit.core.domain.JavaClass
+							.Predicates.equivalentTo(org.shatterfish.api.RunLog.Decision.class)))
+					.and(com.tngtech.archunit.base.DescribedPredicate.not(com.tngtech.archunit.core.domain.JavaClass
+							.Predicates.equivalentTo(org.shatterfish.api.RunLog.Choice.class))))
 			.because("java.lang and java.util have to be allowed whole for the brain to be writable at"
 					+ " all, and they are where the JDK keeps class loading, the process environment,"
 					+ " service loading, locales and unseeded generators");

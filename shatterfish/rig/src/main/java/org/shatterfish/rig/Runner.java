@@ -352,6 +352,9 @@ public final class Runner {
         // The tag from the pin, not from a running game: this process boots nothing (AD-6), and
         // asking the game which release it is before it exists is what story 3.2's guard refuses.
         String tag = org.shatterfish.harness.boot.HeadlessBoot.pinnedTag();
+        // Every Run is told where the Codex is; a Brain that reads one is built on it, and the rest
+        // ignore it (story 4.1). The Brain never opens it: its caller in the child does.
+        Path codex = root.resolve(CodexManifest.FOLDER).resolve(tag);
 
         long began = System.nanoTime();
         // Every child this invocation has alive, so that a failure anywhere can stop them all. A
@@ -378,7 +381,7 @@ public final class Runner {
                             RunIndex.State.STARTED, "", triple.seed(), triple.heroClass().name(),
                             triple.challengeFlags(), salt, "", 0, ""));
                     started.add(pool.submit(() -> one(side.index(), side.out(), alive, triple, salt,
-                            runId, side.brain(), commit, machine, cap, deadline, side.waits(), stamp)));
+                            runId, side.brain(), commit, machine, cap, deadline, side.waits(), stamp, codex)));
                 }
             }
             // Awaited as they finish rather than in the order they were sent. A refusal on the
@@ -705,7 +708,7 @@ public final class Runner {
     /** One Run, in a child, with its own Profile and working directory. */
     private static void one(RunIndex index, Path out, Map<String, Process> alive, SeedSet.Entry triple,
                             long salt, String runId, String brain, String commit, String machine,
-                            int cap, int deadline, AtomicLong waits, String registration) {
+                            int cap, int deadline, AtomicLong waits, String registration, Path codex) {
         Path working = out.resolve("work").resolve(runId);
         long began = System.nanoTime();
         String why = "";
@@ -715,7 +718,7 @@ public final class Runner {
         Process child = null;
         try {
             Files.createDirectories(working);
-            child = child(out, working, triple, salt, brain, commit, machine, cap, registration);
+            child = child(out, working, triple, salt, brain, commit, machine, cap, registration, codex);
             alive.put(out + "/" + runId, child);
             Process reading = child;
             // A platform thread, not a virtual one: reading a process pipe is a blocking native
@@ -831,7 +834,7 @@ public final class Runner {
 
     private static Process child(Path out, Path working, SeedSet.Entry triple, long salt,
                                  String brain, String commit, String machine, int cap,
-                                 String registration) throws IOException {
+                                 String registration, Path codex) throws IOException {
         Path java = Path.of(System.getProperty("java.home"), "bin", "java");
         Path exe = Path.of(java + ".exe");
         List<String> command = new ArrayList<>(List.of(
@@ -847,7 +850,8 @@ public final class Runner {
                 RunOne.BRAIN_COMMIT, commit,
                 RunOne.MACHINE, machine,
                 RunOne.CAP, Integer.toString(cap),
-                RunOne.CHALLENGES, Integer.toString(triple.challengeFlags())));
+                RunOne.CHALLENGES, Integer.toString(triple.challengeFlags()),
+                RunOne.CODEX, codex.toAbsolutePath().toString()));
         if (!registration.isEmpty()) {
             // Only when there is one. The child's own parser refuses an empty value -- a flag is
             // stated or it is absent -- and an unranked Run's header says so by carrying nothing.

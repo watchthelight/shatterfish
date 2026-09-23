@@ -54,6 +54,9 @@ public final class RunOne {
 
     public static final String CHALLENGES = "--challenges";
 
+    /** The Codex folder a Brain that reads one is built on (story 4.1); the parent passes it always. */
+    public static final String CODEX = "--codex";
+
     private RunOne() {
     }
 
@@ -92,7 +95,10 @@ public final class RunOne {
                 arguments.getOrDefault(REGISTRATION, ""), arguments.getOrDefault(MACHINE, ""));
         int cap = arguments.containsKey(CAP) ? (int) number(arguments, CAP) : RunLoop.TURN_CAP;
         where();
-        return new RunLoop().playTriple(triple, salt, Brains.of(brain, triple), cap, logging);
+        org.shatterfish.api.Codex.Manifest codex = arguments.containsKey(CODEX)
+                ? CodexManifest.read(Path.of(arguments.get(CODEX)), org.shatterfish.harness.boot.HeadlessBoot.pinnedTag())
+                : null;
+        return new RunLoop().playTriple(triple, salt, Brains.of(brain, triple, codex), cap, logging);
     }
 
     /** The file a Run leaves in its own working directory, naming that directory. */
@@ -142,7 +148,7 @@ public final class RunOne {
 
     /** Every flag a Run knows. Held by name, like the parent's (RigOracleGateTest). */
     static final java.util.List<String> KNOWN = java.util.List.of(SEED, CLASS, SALT, OUT,
-            COMMIT, BRAIN, BRAIN_COMMIT, REGISTRATION, MACHINE, CAP, CHALLENGES);
+            COMMIT, BRAIN, BRAIN_COMMIT, REGISTRATION, MACHINE, CAP, CHALLENGES, CODEX);
 
     private static String required(Map<String, String> arguments, String flag) {
         String value = arguments.get(flag);

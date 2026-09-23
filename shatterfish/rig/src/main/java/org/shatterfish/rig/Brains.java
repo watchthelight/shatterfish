@@ -78,6 +78,12 @@ public final class Brains {
     /** Mixed into a Run's agent seed to give the twin its own stream. */
     static final long TWIN_STREAM = 0x7715_7715L;
 
+    /**
+     * The first Brain (story 4.1): arbitration over a priority list of Policies, re-planned from the
+     * Observation at every wait. Its sources are the whole of the {@code brain} module.
+     */
+    public static final String BASELINE = "baseline";
+
     /** The Brains that are the Baseline with one kind of Action withheld, and which kind. */
     private static final java.util.Map<String, Class<? extends org.shatterfish.api.Action>> WITHHELD =
             java.util.Map.of(NO_DESCEND, org.shatterfish.api.Action.Descend.class,
@@ -105,6 +111,9 @@ public final class Brains {
         if (RANDOM.equals(named(name))) {
             return List.of("shatterfish/harness/src/main/java/org/shatterfish/harness/agent/RandomAgent.java",
                     "shatterfish/rig/src/main/java/org/shatterfish/rig/Brains.java");
+        }
+        if (BASELINE.equals(name)) {
+            return List.of("shatterfish/brain/src/main/java", "shatterfish/rig/src/main/java/org/shatterfish/rig/Brains.java");
         }
         if (TWIN.equals(name)) {
             return List.of("shatterfish/harness/src/main/java/org/shatterfish/harness/agent/RandomAgent.java",
@@ -146,7 +155,7 @@ public final class Brains {
 
     /** Every name the Rig answers to, in the order it lists them. */
     public static List<String> names() {
-        return List.of(RANDOM, NO_DESCEND, NO_REST, NO_ATTACK, TWIN);
+        return List.of(RANDOM, NO_DESCEND, NO_REST, NO_ATTACK, TWIN, BASELINE);
     }
 
     /** Whether the Rig has a Brain of this name. Asking does not build one. */
@@ -189,7 +198,22 @@ public final class Brains {
      * does not have.
      */
     public static Decider of(String name, SeedSet.Entry triple) {
+        return of(name, triple, null);
+    }
+
+    /**
+     * The Decider named {@code name} for {@code triple}, built on {@code codex} when it is a Brain
+     * that reads one: the Codex is read by the caller, never by the Brain (story 4.1).
+     */
+    public static Decider of(String name, SeedSet.Entry triple, org.shatterfish.api.Codex.Manifest codex) {
         named(name);
+        if (BASELINE.equals(name)) {
+            if (codex == null) {
+                throw new IllegalArgumentException("the Brain " + name + " is built on a Codex, and none was"
+                        + " read for it; a Run of it states " + RunOne.CODEX);
+            }
+            return new org.shatterfish.brain.BrainDecider(new org.shatterfish.brain.Brain(codex, seedOf(name, triple)));
+        }
         if (RANDOM.equals(name)) {
             return new RandomAgent(agentSeed(triple));
         }
@@ -208,7 +232,8 @@ public final class Brains {
      * its configuration is the empty one.
      */
     public static String configHash(String name) {
-        if (!RANDOM.equals(named(name)) && !WITHHELD.containsKey(name) && !TWIN.equals(name)) {
+        if (!RANDOM.equals(named(name)) && !WITHHELD.containsKey(name) && !TWIN.equals(name)
+                && !BASELINE.equals(name)) {
             // A real Brain states its own configuration. Returning zeros for it would put an
             // unfalsifiable claim in every log header it wrote, and the Registration (story 3.5)
             // is the thing that pins a Brain's configuration -- so this refuses rather than
