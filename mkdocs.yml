@@ -129,6 +129,7 @@ nav:
       - ADR-0018 Seed sets: adr/0018-seed-sets.md
   - Rules:
       - rules/index.md
+      - The Brain's Rules index: brain-rules.md
       - Game loop: rules/game-loop.md
       - Visibility: rules/visibility.md
       - Identification: rules/identification.md

@@ -2,7 +2,10 @@ package org.shatterfish.brain;
 
 import org.shatterfish.api.Action;
 import org.shatterfish.api.ActionsSection;
+import org.shatterfish.api.ActorView;
 import org.shatterfish.api.ActorsSection;
+import org.shatterfish.api.Alignment;
+import org.shatterfish.api.Emote;
 import org.shatterfish.api.Codex;
 import org.shatterfish.api.Feeling;
 import org.shatterfish.api.Fog;
@@ -76,9 +79,23 @@ final class Screens {
                 "Do you really want to jump into the chasm?", labels), actions);
     }
 
+    /**
+     * A starving hero at {@code hp} of {@code ht}, with an enemy rat in view on the cell beside it,
+     * offering {@code actions}: every Safety flag's inputs at once.
+     */
+    static Observation hurt(int hp, int ht, Action... actions) {
+        return screen(1, PromptKind.NONE, PromptSection.NONE, hp, ht, Hunger.STARVING,
+                List.of(new ActorView(2, "rat", Alignment.ENEMY, 5, false, Emote.NONE, List.of())), actions);
+    }
+
     private static Observation screen(int depth, PromptKind kind, PromptSection prompt, Action... actions) {
-        return world(depth, kind, prompt, 3, List.of(Tile.EMPTY, Tile.EMPTY, Tile.EMPTY), List.of(), List.of(),
-                List.of(), List.of(), actions);
+        return screen(depth, kind, prompt, 1, 1, Hunger.NONE, List.of(), actions);
+    }
+
+    private static Observation screen(int depth, PromptKind kind, PromptSection prompt, int hp, int ht,
+                                      Hunger hunger, List<ActorView> actors, Action... actions) {
+        return world(depth, kind, prompt, hp, ht, hunger, 3, List.of(Tile.EMPTY, Tile.EMPTY, Tile.EMPTY), List.of(),
+                actors, List.of(), List.of(), actions);
     }
 
     /** An unidentified or identified item in the backpack. */
@@ -93,12 +110,14 @@ final class Screens {
      */
     static Observation world(int depth, List<Tile> tiles, List<HeapView> heaps, List<ActorView> actors,
                              List<ItemView> items, List<KnownAppearance> known) {
-        return world(depth, PromptKind.NONE, PromptSection.NONE, tiles.size(), tiles, heaps, actors, items, known);
+        return world(depth, PromptKind.NONE, PromptSection.NONE, 1, 1, Hunger.NONE, tiles.size(), tiles, heaps, actors,
+                items, known);
     }
 
     /** As {@link #world}, on a floor {@code width} cells wide, with nobody on it and nothing held. */
     static Observation grid(int depth, int width, List<Tile> tiles, List<HeapView> heaps) {
-        return world(depth, PromptKind.NONE, PromptSection.NONE, width, tiles, heaps, List.of(), List.of(), List.of());
+        return world(depth, PromptKind.NONE, PromptSection.NONE, 1, 1, Hunger.NONE, width, tiles, heaps, List.of(),
+                List.of(), List.of());
     }
 
     /** An enemy in view on {@code cell}. */
@@ -107,15 +126,15 @@ final class Screens {
                 List.of());
     }
 
-    private static Observation world(int depth, PromptKind kind, PromptSection prompt, int width, List<Tile> tiles,
-                                     List<HeapView> heaps, List<ActorView> actors, List<ItemView> items,
-                                     List<KnownAppearance> known, Action... actions) {
+    private static Observation world(int depth, PromptKind kind, PromptSection prompt, int hp, int ht, Hunger hunger,
+                                     int width, List<Tile> tiles, List<HeapView> heaps, List<ActorView> actors,
+                                     List<ItemView> items, List<KnownAppearance> known, Action... actions) {
         HeaderSection header = new HeaderSection(ObservationCodec.SCHEMA_VERSION, "v4.0.0", "", HeroClass.WARRIOR,
                 List.of(), depth, 0, false, false, kind);
         MapSection map = new MapSection(width, tiles.size() / width, tiles, Collections.nCopies(tiles.size(), Fog.VISIBLE),
                 List.of(), heaps, List.of(), Feeling.NONE, List.of());
-        HeroSection hero = new HeroSection(1, "", HeroSubclass.NONE, "", 1, 0, 1, 1, 1, 0, 1, 0, 0, 0,
-                Hunger.NONE, List.of(), List.of(), List.of(0, 0, 0, 0),
+        HeroSection hero = new HeroSection(1, "", HeroSubclass.NONE, "", 1, 0, 1, hp, ht, 0, 1, 0, 0, 0,
+                hunger, List.of(), List.of(), List.of(0, 0, 0, 0),
                 Collections.nCopies(HeroSection.QUICKSLOTS, new QuickslotView("", false)));
         return new Observation(header, map, new ActorsSection(actors), hero, new InventorySection(items),
                 new JournalSection(List.of(), known), new LogSection(List.of()),

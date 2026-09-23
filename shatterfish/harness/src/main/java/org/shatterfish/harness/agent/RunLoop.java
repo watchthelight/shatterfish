@@ -423,15 +423,18 @@ public final class RunLoop {
         }
         // A Deliberator says why and what it now believes (story 4.1); a plain Decider says
         // neither, and its record carries neither rather than a reason nobody gave.
+        // The cells its Decision points at ride on the wait record (story 4.4, ADR-0011).
         RunLog.Decision decision = null;
         String belief = "";
+        List<Integer> highlights = List.of();
         if (agent instanceof org.shatterfish.api.Deliberator deliberator) {
             decision = deliberator.lastDecision();
             belief = deliberator.beliefHash();
+            highlights = deliberator.lastHighlights();
         }
         log.write(new RunLog.Wait(k, thousandths(), observation.header().depth(), observation.header().branch(),
                 observation.hash(), observation.sectionHashes(), chosen, applied, RunLog.BOT, decision, belief,
-                List.of(), thinkMs));
+                highlights, thinkMs));
     }
 
     /** Whether an Action answers a Prompt, which is what a Prompt record records (ADR-0011). */

@@ -31,4 +31,14 @@ interface Policy {
      * all. Only an Action in {@code offered} may be chosen.
      */
     RunLog.Choice choose(Observation observation, Memory memory, List<Action> offered, Stream stream);
+
+    /**
+     * Every Choice this Policy would take, best first (story 4.4): the first is its pick, the rest
+     * what it would have done otherwise, which the Decision records as alternatives. Only Actions in
+     * {@code offered}. A Policy with nothing more to say ranks its one Choice.
+     */
+    default List<RunLog.Choice> ranked(Observation observation, Memory memory, List<Action> offered, Stream stream) {
+        RunLog.Choice choice = choose(observation, memory, offered, stream);
+        return choice == null ? List.of() : List.of(choice);
+    }
 }
