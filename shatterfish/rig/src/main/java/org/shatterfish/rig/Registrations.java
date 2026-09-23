@@ -226,7 +226,9 @@ public final class Registrations {
                 Json.integer(Json.required(held, "maximum", "Registration")),
                 Json.integer(Json.required(held, "budget_ms", "Registration")),
                 Json.string(Json.required(held, "machine_class", "Registration")),
-                Json.bool(Json.required(held, "release_level", "Registration")));
+                Json.bool(Json.required(held, "release_level", "Registration")),
+                held.containsKey("p0_per_mil") ? Json.integer(held.get("p0_per_mil")) : 0,
+                held.containsKey("p1_per_mil") ? Json.integer(held.get("p1_per_mil")) : 0);
         if (!registration.id().equals(id)) {
             throw new IllegalArgumentException("the file " + id + ".json holds the Registration "
                     + registration.id() + "; a hypothesis is named by the file it is in");

@@ -41,7 +41,7 @@ class RegistrationTest {
     private static Registration comparison() {
         return new Registration("H-0002-a-comparison", "greedy beats random on the standard set",
                 brain("random"), brain("greedy"), "standard", 1, 50, 50, 16, 500, 250,
-                "a laptop", false);
+                "a laptop", false, 500, 550);
     }
 
     // ---------------------------------------------------------------------------- the two shapes
@@ -102,12 +102,32 @@ class RegistrationTest {
         Registration was = comparison();
         Registration without = new Registration(was.hypothesis(), was.claim(), null, was.brainB(),
                 was.seedSet(), was.seedVersion(), was.alphaPerMil(), was.betaPerMil(), was.burnIn(),
-                was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel());
+                was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel(), 0, 0);
 
         assertNotEquals(was.hash(), without.hash(),
                 "a comparison and the baseline of the same Brain are different hypotheses");
         assertTrue(was.canonical().contains("brain_a"));
         assertFalse(without.canonical().contains("brain_a"));
+    }
+
+    @Test
+    @DisplayName("a comparison states its hypotheses and a baseline states none")
+    void the_hypotheses_belong_to_a_comparison() {
+        assertThrows(IllegalArgumentException.class, () -> new Registration("H-0050", "x",
+                brain("random"), brain("greedy"), "smoke", 1, 50, 50, 8, 25, 0, "a laptop", false),
+                "a comparison with no hypotheses cannot be tested");
+        assertThrows(IllegalArgumentException.class, () -> new Registration("H-0051", "x",
+                brain("random"), brain("greedy"), "smoke", 1, 50, 50, 8, 25, 0, "a laptop", false,
+                550, 500), "H1 is above H0");
+        assertThrows(IllegalArgumentException.class, () -> new Registration("H-0052", "x",
+                brain("random"), brain("greedy"), "smoke", 1, 50, 50, 8, 25, 0, "a laptop", false,
+                500, 1000), "a mean below one");
+        assertThrows(IllegalArgumentException.class, () -> new Registration("H-0053", "x", null,
+                brain("random"), "smoke", 1, 50, 50, 8, 25, 0, "a laptop", false, 500, 550),
+                "a baseline has nothing to test between");
+        // Absent from a baseline's text, so a baseline written before they existed keeps its hash.
+        assertFalse(baseline().canonical().contains("p0_per_mil"));
+        assertTrue(comparison().canonical().contains("\"p0_per_mil\":500,\"p1_per_mil\":550"));
     }
 
     @Test
@@ -121,15 +141,15 @@ class RegistrationTest {
         assertNotEquals(was.hash(), new Registration(was.hypothesis(), was.claim(),
                 new Registration.Brain("elsewhere", "abc1234", ZERO), was.brainB(), was.seedSet(),
                 was.seedVersion(), was.alphaPerMil(), was.betaPerMil(), was.burnIn(), was.maximum(),
-                was.budgetMs(), was.machineClass(), was.releaseLevel()).hash(), "the name");
+                was.budgetMs(), was.machineClass(), was.releaseLevel(), was.p0PerMil(), was.p1PerMil()).hash(), "the name");
         assertNotEquals(was.hash(), new Registration(was.hypothesis(), was.claim(),
                 new Registration.Brain("random", "def5678", ZERO), was.brainB(), was.seedSet(),
                 was.seedVersion(), was.alphaPerMil(), was.betaPerMil(), was.burnIn(), was.maximum(),
-                was.budgetMs(), was.machineClass(), was.releaseLevel()).hash(), "the commit");
+                was.budgetMs(), was.machineClass(), was.releaseLevel(), was.p0PerMil(), was.p1PerMil()).hash(), "the commit");
         assertNotEquals(was.hash(), new Registration(was.hypothesis(), was.claim(),
                 new Registration.Brain("random", "abc1234", ONE), was.brainB(), was.seedSet(),
                 was.seedVersion(), was.alphaPerMil(), was.betaPerMil(), was.burnIn(), was.maximum(),
-                was.budgetMs(), was.machineClass(), was.releaseLevel()).hash(), "the configuration");
+                was.budgetMs(), was.machineClass(), was.releaseLevel(), was.p0PerMil(), was.p1PerMil()).hash(), "the configuration");
     }
 
     @Test
@@ -166,50 +186,60 @@ class RegistrationTest {
         List<Registration> changed = List.of(
                 new Registration("H-0009-elsewhere", was.claim(), was.brainA(), was.brainB(),
                         was.seedSet(), was.seedVersion(), was.alphaPerMil(), was.betaPerMil(),
-                        was.burnIn(), was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel()),
+                        was.burnIn(), was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel(), was.p0PerMil(), was.p1PerMil()),
                 new Registration(was.hypothesis(), "something else entirely", was.brainA(), was.brainB(),
                         was.seedSet(), was.seedVersion(), was.alphaPerMil(), was.betaPerMil(),
-                        was.burnIn(), was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel()),
+                        was.burnIn(), was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel(), was.p0PerMil(), was.p1PerMil()),
                 new Registration(was.hypothesis(), was.claim(), brain("other"), was.brainB(),
                         was.seedSet(), was.seedVersion(), was.alphaPerMil(), was.betaPerMil(),
-                        was.burnIn(), was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel()),
+                        was.burnIn(), was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel(), was.p0PerMil(), was.p1PerMil()),
                 new Registration(was.hypothesis(), was.claim(), was.brainA(),
                         new Registration.Brain("greedy", "def5678", ZERO), was.seedSet(),
                         was.seedVersion(), was.alphaPerMil(), was.betaPerMil(), was.burnIn(),
-                        was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel()),
+                        was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel(), was.p0PerMil(), was.p1PerMil()),
                 new Registration(was.hypothesis(), was.claim(), was.brainA(),
                         new Registration.Brain("greedy", "abc1234", ONE), was.seedSet(),
                         was.seedVersion(), was.alphaPerMil(), was.betaPerMil(), was.burnIn(),
-                        was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel()),
+                        was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel(), was.p0PerMil(), was.p1PerMil()),
                 new Registration(was.hypothesis(), was.claim(), was.brainA(), was.brainB(),
                         "smoke", was.seedVersion(), was.alphaPerMil(), was.betaPerMil(),
-                        was.burnIn(), was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel()),
+                        was.burnIn(), was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel(), was.p0PerMil(), was.p1PerMil()),
                 new Registration(was.hypothesis(), was.claim(), was.brainA(), was.brainB(),
                         was.seedSet(), 2, was.alphaPerMil(), was.betaPerMil(), was.burnIn(),
-                        was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel()),
+                        was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel(), was.p0PerMil(), was.p1PerMil()),
                 new Registration(was.hypothesis(), was.claim(), was.brainA(), was.brainB(),
                         was.seedSet(), was.seedVersion(), 10, was.betaPerMil(), was.burnIn(),
-                        was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel()),
+                        was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel(), was.p0PerMil(), was.p1PerMil()),
                 new Registration(was.hypothesis(), was.claim(), was.brainA(), was.brainB(),
                         was.seedSet(), was.seedVersion(), was.alphaPerMil(), 10, was.burnIn(),
-                        was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel()),
+                        was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel(), was.p0PerMil(), was.p1PerMil()),
                 new Registration(was.hypothesis(), was.claim(), was.brainA(), was.brainB(),
                         was.seedSet(), was.seedVersion(), was.alphaPerMil(), was.betaPerMil(), 17,
-                        was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel()),
+                        was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel(), was.p0PerMil(), was.p1PerMil()),
                 new Registration(was.hypothesis(), was.claim(), was.brainA(), was.brainB(),
                         was.seedSet(), was.seedVersion(), was.alphaPerMil(), was.betaPerMil(),
-                        was.burnIn(), 501, was.budgetMs(), was.machineClass(), was.releaseLevel()),
+                        was.burnIn(), 501, was.budgetMs(), was.machineClass(), was.releaseLevel(), was.p0PerMil(), was.p1PerMil()),
                 new Registration(was.hypothesis(), was.claim(), was.brainA(), was.brainB(),
                         was.seedSet(), was.seedVersion(), was.alphaPerMil(), was.betaPerMil(),
-                        was.burnIn(), was.maximum(), 251, was.machineClass(), was.releaseLevel()),
+                        was.burnIn(), was.maximum(), 251, was.machineClass(), was.releaseLevel(), was.p0PerMil(), was.p1PerMil()),
                 new Registration(was.hypothesis(), was.claim(), was.brainA(), was.brainB(),
                         was.seedSet(), was.seedVersion(), was.alphaPerMil(), was.betaPerMil(),
-                        was.burnIn(), was.maximum(), was.budgetMs(), "a server", was.releaseLevel()),
+                        was.burnIn(), was.maximum(), was.budgetMs(), "a server", was.releaseLevel(), was.p0PerMil(), was.p1PerMil()),
                 new Registration(was.hypothesis(), was.claim(), was.brainA(), was.brainB(),
                         was.seedSet(), was.seedVersion(), was.alphaPerMil(), was.betaPerMil(),
-                        was.burnIn(), was.maximum(), was.budgetMs(), was.machineClass(), true));
+                        was.burnIn(), was.maximum(), was.budgetMs(), was.machineClass(), true, was.p0PerMil(), was.p1PerMil()),
+                // The two hypotheses, which story 3.5 left out and story 3.6 needs: a test whose H0
+                // could be moved after the numbers are in is a test that accepts whatever it likes.
+                new Registration(was.hypothesis(), was.claim(), was.brainA(), was.brainB(),
+                        was.seedSet(), was.seedVersion(), was.alphaPerMil(), was.betaPerMil(),
+                        was.burnIn(), was.maximum(), was.budgetMs(), was.machineClass(),
+                        was.releaseLevel(), 490, was.p1PerMil()),
+                new Registration(was.hypothesis(), was.claim(), was.brainA(), was.brainB(),
+                        was.seedSet(), was.seedVersion(), was.alphaPerMil(), was.betaPerMil(),
+                        was.burnIn(), was.maximum(), was.budgetMs(), was.machineClass(),
+                        was.releaseLevel(), was.p0PerMil(), 560));
 
-        assertEquals(13, was.getClass().getRecordComponents().length,
+        assertEquals(15, was.getClass().getRecordComponents().length,
                 "a field was added: give it a row above, or it is a field the hash does not cover");
         Set<String> hashes = new LinkedHashSet<>();
         hashes.add(was.hash());
