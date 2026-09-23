@@ -272,7 +272,7 @@ public final class Results {
         out.append("| Registration | ").append(stamp.isEmpty() ? "none: not a measurement (FR-22)"
                 : "`" + stamp + "`, committed at `" + LogHeader.string(d, "registration_commit") + "`").append(" |\n");
         out.append("| Prior registered attempts | ").append(LogHeader.value(d, "prior_attempts"))
-                .append(" invocation(s) of this Registration in the ledger before this one |\n");
+                .append(" (invocations of this Registration the ledger records before this one) |\n");
         out.append("| Turn cap | ").append(LogHeader.value(d, "cap")).append(" |\n");
         out.append("| Oracle | off: ").append(LogHeader.value(d, "oracle_runs")).append(" of ")
                 .append(LogHeader.value(d, "runs")).append(" Runs had it on |\n");
@@ -340,8 +340,8 @@ public final class Results {
         String r = LogHeader.value(json, "turns_correlation_micros");
         out.append("**Pair correlation**: turns survived, over the ").append(LogHeader.value(json, "correlated_pairs"))
                 .append(" pairs both Runs of which ended: ").append(r == null ? "not computable" : "r = " + micros(r))
-                .append("; ").append(LogHeader.value(json, "identical_pairs"))
-                .append(" pairs ended alike in every part of the Composite outcome.\n\n");
+                .append("; pairs that ended alike in every part of the Composite outcome: ")
+                .append(LogHeader.value(json, "identical_pairs")).append(".\n\n");
         return out.toString();
     }
 

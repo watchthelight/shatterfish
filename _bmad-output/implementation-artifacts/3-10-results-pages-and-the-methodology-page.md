@@ -2,7 +2,7 @@
 title: 'Story 3.10: Results pages and the methodology page'
 type: 'feature'
 created: '2026-09-23'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: '2ea46def8a9977d6ac63cadc992455c9f128c919'
 review_loop_iteration: 0
 context: []
@@ -63,10 +63,10 @@ where a location is recorded; choosing a store is the owner's decision.
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `rig/Results.java` + `:rig:results` -- extract (folder → data folder) and page (data folder → Markdown); `ResultsTest`.
-- [ ] `rig/Brains.java` -- `random_twin`; registration `H-0007-twin-undecided` on `smoke`, maximum 25.
-- [ ] Generated pages for H-0002, H-0004, H-0005 (both), H-0006, H-0007; hand-written pages link them.
-- [ ] `docs/methodology.md` -- when platforms disagree; how to read and regenerate a Results page.
+- [x] `rig/Results.java` + `:rig:results` -- extract (folder → data folder) and page (data folder → Markdown); `ResultsTest`.
+- [x] `rig/Brains.java` -- `random_twin`; registration `H-0007-twin-undecided` on `smoke`, maximum 25.
+- [x] Generated pages for H-0002, H-0004, H-0005 (both), H-0006, H-0007; hand-written pages link them.
+- [x] `docs/methodology.md` -- when platforms disagree; how to read and regenerate a Results page.
 
 **Acceptance Criteria:**
 - Given a Rig folder, when `:rig:results` runs, then the page carries every FR-25 field and the committed data regenerates it byte for byte (`ResultsTest`).
