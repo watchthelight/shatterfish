@@ -40,10 +40,21 @@ public final class Registrations {
     /** Where committed Registrations live, beside the seed sets they name. */
     public static final String FOLDER = "registrations";
 
-    /** The seed set FR-20 guards, named once so that the rule has one spelling. */
-    public static final String HOLDOUT = "holdout";
+    /**
+     * The seed set FR-20 guards.
+     *
+     * <p>Taken from {@link SeedSets}, which owns the set and refuses it at the door story 3.1
+     * built. A second constant spelling the same word would be a second place for the rule to
+     * live, which is what the story's own acceptance criterion forbids.
+     */
+    public static final String HOLDOUT = SeedSets.HOLDOUT;
 
-    /** What a Registration could not be used for, and why. Empty when it can. */
+    /** Whether running {@code seedSet} spends a Brain version's held-out allowance (FR-20). */
+    public static boolean spendsTheBudget(String seedSet) {
+        return HOLDOUT.equals(seedSet);
+    }
+
+    /** What a Registration could not be used for, and why. Null when it can. */
     public record Refusal(String why) {
     }
 
@@ -55,9 +66,15 @@ public final class Registrations {
      */
     public record Committed(Registration registration, String at, String hash) {
 
-        /** What a Run log's header records: the id, and the first sixteen digits of the hash. */
+        /**
+         * What a Run log's header records: the id, and the first sixteen digits of the hash.
+         *
+         * <p>Through {@link Registration#stamp()}, not beside it. Two implementations of the
+         * truncation would let a log and a ledger line disagree about the same Registration the
+         * day one of them changed.
+         */
         public String stamp() {
-            return registration.id() + "@" + hash.substring(0, 16);
+            return registration.stamp();
         }
     }
 
@@ -71,6 +88,20 @@ public final class Registrations {
      *                                  file untracked or modified, or when the file is not one
      */
     public static Committed read(Path root, String id) {
+        // Checked before it becomes a path and a git argument. `--registration ../../something` is
+        // refused here rather than three subprocesses later with a message about the wrong thing.
+        if (id == null || !id.matches(Registration.ID_PATTERN)) {
+            throw new IllegalArgumentException("a hypothesis id looks like H-0001-a-short-name,"
+                    + " and this is not one: " + id);
+        }
+        // Git has to be answerable before its silence can mean anything. Without this, a machine
+        // with no git on it reports every hypothesis as uncommitted, which is a true-sounding
+        // accusation about somebody's honesty rather than a true statement about the machine.
+        if (git(root, "rev-parse", "--git-dir") == null) {
+            throw new IllegalArgumentException("git could not be asked about " + root + ", so"
+                    + " whether a hypothesis was committed before the Runs cannot be established"
+                    + " here (FR-22)");
+        }
         Path file = root.resolve(FOLDER).resolve(id + ".json");
         if (!Files.isRegularFile(file)) {
             throw new IllegalArgumentException("there is no Registration " + id + " in "
@@ -92,7 +123,12 @@ public final class Registrations {
         // decision was recorded and checking the decision that was recorded.
         String text = committedText(root, relative);
         Registration registration = of(text, id);
-        return new Committed(registration, commit(root, relative), registration.hash());
+        // Hashed over the text that came out of HEAD, not over a re-rendering of what was read out
+        // of it. The two agree -- `of` refuses a file that is not the canonical text of what it
+        // means -- and that is exactly why hashing the re-rendering proved nothing: both sides of
+        // the comparison would have moved together. The documents all say "the committed bytes",
+        // and now so does the code.
+        return new Committed(registration, commit(root, relative), Registration.hashOf(text.strip()));
     }
 
     /**
@@ -195,9 +231,18 @@ public final class Registrations {
         // a field from a later schema -- would hash as though it were not there, and the stamp in
         // every Run log would be about a document nobody wrote.
         if (!registration.canonical().equals(text.strip())) {
+            // Named, not merely refused. A file carrying a member this reader does not know -- a
+            // salt, a note, a field from a later schema -- would otherwise be reported as "your
+            // file is wrong somewhere", and the member is the whole of what the reader needs to
+            // hear. The story's own matrix asks for the name.
+            List<String> extra = new ArrayList<>(held.keySet());
+            extra.removeAll(Json.object(registration.canonical()).keySet());
             throw new IllegalArgumentException("the Registration " + id + " on disk is not the"
                     + " canonical text of what it means, so its hash would be over bytes nobody"
-                    + " reads; write it as:\n" + registration.canonical());
+                    + " reads"
+                    + (extra.isEmpty() ? "" : "; it carries " + extra + ", which a Registration"
+                            + " does not have")
+                    + ". Write it as:\n" + registration.canonical());
         }
         return registration;
     }
@@ -222,8 +267,27 @@ public final class Registrations {
         return said == null ? "it could not be asked about" : said.strip();
     }
 
+    /**
+     * The path {@code git show HEAD:} needs, which is not always the path the other questions took.
+     *
+     * <p>`ls-files` and `status` resolve a pathspec against the directory git is run in; `show
+     * HEAD:<path>` resolves against the repository top. With a {@code --root} inside a repository
+     * rather than at its top, those are different files -- so the "is it committed, is it
+     * unmodified" verdict was about one and the bytes hashed into every Run log's header were the
+     * other's. Found by a review that built the two-file repository and ran it.
+     */
+    private static String fromTheTop(Path root, String relative) {
+        String prefix = git(root, "rev-parse", "--show-prefix");
+        return (prefix == null ? "" : prefix.strip()) + relative;
+    }
+
+    /** What HEAD holds at {@code relative}, or null when it holds nothing there. */
+    static String committedOrNull(Path root, String relative) {
+        return git(root, "show", "HEAD:" + fromTheTop(root, relative));
+    }
+
     private static String committedText(Path root, String relative) {
-        String text = git(root, "show", "HEAD:" + relative);
+        String text = git(root, "show", "HEAD:" + fromTheTop(root, relative));
         if (text == null) {
             throw new IllegalArgumentException("the Registration " + relative + " is tracked but is"
                     + " not in HEAD; a hypothesis is fixed by the commit that carries it");
@@ -234,7 +298,15 @@ public final class Registrations {
     /** The commit that last changed this Registration, which is when the hypothesis was fixed. */
     private static String commit(Path root, String relative) {
         String said = git(root, "log", "-1", "--format=%H", "--", relative);
-        return said == null ? "" : said.strip();
+        if (said == null || !said.strip().matches("[0-9a-f]{40}")) {
+            // Fails closed, like every other git question on this path. It used to return an empty
+            // string, which was written into the ledger as the commit a hypothesis was fixed by --
+            // the one field the design calls what lets a stranger check the order of events.
+            throw new IllegalArgumentException("git could not say which commit fixed " + relative
+                    + ", and a hypothesis whose commit is unknown cannot be shown to have come"
+                    + " before the numbers (FR-22)");
+        }
+        return said.strip();
     }
 
     /**

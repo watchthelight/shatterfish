@@ -15,8 +15,14 @@ package org.shatterfish.api;
  * A Registration is written before the Runs and is public, so a salt in it would be a salt the
  * Brain's author has. The salts are drawn when each pair executes and appear only in the Run logs
  * they belong to, which is late enough to be useless to a Brain and early enough to be replayable
- * (ADR-0012's own mitigation, line 118). The compact constructor refuses a Brain name or a machine
- * class that smuggles one in as text.
+ * (ADR-0012's own mitigation, line 118).
+ *
+ * <p>What enforces that is structural: there is no field for a salt, a file carrying a member this
+ * record does not have is refused when the Rig reads it, and {@code Salt.draw()} takes its value
+ * from a secret at the moment a Run executes, so there is nothing to write down in advance. The
+ * compact constructor adds a third lock — see {@link #noSaltHere} — which looks for the
+ * <em>shape</em> of a salt in the fields that hold prose, because a word blacklist cannot catch
+ * sixteen hex digits and the first draft of this class tried to.
  *
  * <p><b>It is in {@code api} on purpose.</b> The Rig reads one to decide what it may run; a Results
  * page reads one to say what was claimed. Neither owns it, and a value owned by the thing that
@@ -56,14 +62,75 @@ public record Registration(String hypothesis, String claim, Brain brainA, Brain 
     public static final String ID_PATTERN = "H-[0-9]{4}(-[a-z0-9]+)*";
 
     /**
-     * The words a Registration may not contain anywhere, in any field.
+     * The words a Registration may not use as words.
      *
-     * <p>Crude on purpose. The rule "a Registration carries no salt" is worth more than a tidy
-     * implementation of it, and the failure this prevents — a salt written into the `claim` line,
-     * or into a machine class, by somebody who meant well — is exactly the kind that would survive
-     * a review of the field list.
+     * <p>Whole words, not substrings: the first draft refused a machine class of {@code basalt-ci}
+     * and a claim mentioning Salt Lake, which is a guard that costs more than it catches.
      */
-    private static final String[] FORBIDDEN = {"salt", "seedcode"};
+    private static final String[] FORBIDDEN = {"salt", "salts", "seedcode", "seedcodes"};
+
+    /**
+     * How many hex digits in a row are too many for a field that holds prose.
+     *
+     * <p>A salt is sixteen. Eight is well under that and well over anything that turns up in a
+     * sentence by accident, and the fields this is applied to are the ones a person writes: a
+     * claim, a machine class, a Brain's name. The constrained hex fields — a commit, a
+     * configuration hash — are exempt by not being passed here, which is the honest arrangement:
+     * this cannot tell a salt from a commit, and pretending otherwise would refuse every
+     * Registration ever written.
+     */
+    private static final int TOO_MUCH_HEX = 8;
+
+    /**
+     * <b>What actually keeps a salt out of a Registration.</b>
+     *
+     * <p>Two things, and neither of them is the check below. {@link org.shatterfish.api.Registration}
+     * has no field for one, and a file carrying a member this record does not have is refused by
+     * the Rig's canonical round-trip; and the salt is drawn from a secret at the moment a Run
+     * executes, so there is nothing to write down in advance even for somebody who wanted to.
+     *
+     * <p>The check below is a third lock on the same door, for the case those two do not cover:
+     * somebody writing a salt into a field that holds prose because recording it seemed tidy. It
+     * looks for the shape rather than the word, because a salt is sixteen hex digits and contains
+     * neither of the words a blacklist would hold.
+     */
+    private static void noSaltHere(String what, String word) {
+        String lower = ascii(word);
+        for (String banned : FORBIDDEN) {
+            Canon.require(!isWord(lower, banned),
+                    "a Registration is written before the Runs and is public, so a salt in one is a"
+                            + " salt the Brain's author has (ADR-0007); " + what + " says: " + word);
+        }
+        int run = 0;
+        for (int i = 0; i < lower.length(); i++) {
+            char c = lower.charAt(i);
+            boolean hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+            run = hex ? run + 1 : 0;
+            Canon.require(run < TOO_MUCH_HEX,
+                    "a Registration is public and is written before the Runs, so a run of " + run
+                            + " hex digits in " + what + " is refused whatever it is: a salt is"
+                            + " sixteen of them, and the shape is the only thing a reader can check"
+                            + " (ADR-0007). " + what + " says: " + word);
+        }
+    }
+
+    /** Whether {@code banned} appears in {@code text} as a whole word. */
+    private static boolean isWord(String text, String banned) {
+        int at = text.indexOf(banned);
+        while (at >= 0) {
+            boolean before = at == 0 || !letter(text.charAt(at - 1));
+            int after = at + banned.length();
+            if (before && (after == text.length() || !letter(text.charAt(after)))) {
+                return true;
+            }
+            at = text.indexOf(banned, at + 1);
+        }
+        return false;
+    }
+
+    private static boolean letter(char c) {
+        return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
+    }
 
     /** One Brain, as a Registration names it: what it is and what it was built from. */
     public record Brain(String name, String commit, String configHash) {
@@ -85,7 +152,12 @@ public record Registration(String hypothesis, String claim, Brain brainA, Brain 
         Canon.require(hypothesis.matches(ID_PATTERN),
                 "a hypothesis id looks like H-0001-a-short-name: " + hypothesis);
         Canon.text(claim, "what a Registration claims");
-        Canon.require(!claim.isEmpty(), "a Registration says in words what it is claiming");
+        Canon.require(!claim.isBlank(), "a Registration says in words what it is claiming");
+        // Bounded, because the claim is concatenated into the reason a held-out publication records
+        // and a Results page prints. A hypothesis that needs more than this is a document, and the
+        // Registration should cite it.
+        Canon.require(claim.length() <= 2000,
+                "a claim is one sentence a person reads, not " + claim.length() + " characters");
         Canon.require(brainB != null, "a Registration names the Brain it is about");
         Canon.require(brainA == null || !brainA.equals(brainB),
                 "a comparison of a Brain against itself measures the Seed set, not the Brain");
@@ -102,34 +174,19 @@ public record Registration(String hypothesis, String claim, Brain brainA, Brain 
                         + maximum + " after " + burnIn);
         Canon.require(budgetMs >= 0, "a per-Decision budget is not negative: " + budgetMs);
         Canon.text(machineClass, "a machine class");
-        Canon.require(!machineClass.isEmpty(),
+        Canon.require(!machineClass.isBlank(),
                 "a Registration says what class of machine its numbers are from");
-        forbidden(hypothesis, claim, seedSet, machineClass, brainB.name());
+        Canon.require(machineClass.length() <= 200, "a machine class is a name, not a paragraph");
+        noSaltHere("the hypothesis id", hypothesis);
+        noSaltHere("the claim", claim);
+        noSaltHere("the Seed set", seedSet);
+        noSaltHere("the machine class", machineClass);
+        noSaltHere("the measured Brain's name", brainB.name());
         if (brainA != null) {
-            forbidden(brainA.name());
+            noSaltHere("the baseline Brain's name", brainA.name());
         }
     }
 
-    /**
-     * Refuses a Registration that names a salt in any of its words.
-     *
-     * <p>A Registration is committed before the Runs and is public, so anything in it is something
-     * the Brain's author has. The field list has no salt in it; this is about the fields that take
-     * free text, where one could be written by somebody who thought recording it was tidy.
-     */
-    private static void forbidden(String... words) {
-        for (String word : words) {
-            // Lowered by hand. `String.toLowerCase` without a Locale is locale-dependent -- the
-            // Turkish one maps I to a dotless i -- and `java.util.Locale` is a type `api` may not
-            // reach (ApiBoundaryTest). Every word this looks for is ASCII.
-            String lower = ascii(word);
-            for (String banned : FORBIDDEN) {
-                Canon.require(!lower.contains(banned),
-                        "a Registration is written before the Runs and is public, so a salt in one"
-                                + " is a salt the Brain's author has (ADR-0007): " + word);
-            }
-        }
-    }
 
     /** ASCII lower case, which is all this needs and all it is allowed. */
     private static String ascii(String word) {
@@ -197,11 +254,23 @@ public record Registration(String hypothesis, String claim, Brain brainA, Brain 
      * edited and re-committed after the Runs, leaving every log still agreeing with it; the hash
      * pins the bytes.
      */
+    /**
+     * SHA-256 over any canonical text, in lower-case hex.
+     *
+     * <p>Exposed so that a caller holding the bytes it actually read can hash <em>those</em> rather
+     * than a re-rendering of what it parsed out of them. The two agree when the file is canonical,
+     * which is precisely why hashing the re-rendering proved nothing: both sides of any comparison
+     * moved together.
+     */
+    public static String hashOf(String canonical) {
+        return Sha256.hex(Sha256.digest(Utf8.encode(canonical)));
+    }
+
     public String hash() {
         // Through the module's own digest and its own UTF-8 encoder. `api` reaches no JDK type
         // beyond the language itself (ApiBoundaryTest), which is why `Sha256` exists at all: a
         // module that may not call MessageDigest and must nevertheless hash what it writes.
-        return Sha256.hex(Sha256.digest(Utf8.encode(canonical())));
+        return hashOf(canonical());
     }
 
     /**

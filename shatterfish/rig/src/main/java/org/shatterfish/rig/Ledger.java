@@ -43,6 +43,16 @@ public final class Ledger {
     /** How an invocation ended, as the ledger says it. */
     public enum Outcome {
 
+        /**
+         * A held-out set is about to be read, and is therefore already spent.
+         *
+         * <p>Written before the set is opened rather than after the Runs finish. `publish` is the
+         * act that spends a held-out set: once those triples have been read they have been seen,
+         * whatever happens next. Recording the use at the end meant that killing the process left
+         * the set played and the ledger silent, and the next invocation's budget check passed.
+         */
+        CLAIMED,
+
         /** The invocation ran to the end and its folder holds what it produced. */
         FINISHED,
 
@@ -105,8 +115,48 @@ public final class Ledger {
 
     /** Reads the ledger in {@code folder}, refusing one that cannot be read. */
     public Ledger(Path folder) {
+        this(folder, null);
+    }
+
+    /**
+     * Reads the ledger in {@code folder} and, when {@code root} is given, checks that no committed
+     * line has gone missing.
+     *
+     * <p>The Registration is pinned by git and the count of attempts behind a published number was
+     * pinned by nothing, so deleting this file restored every budget it records. The whole file
+     * cannot be demanded clean -- appending to it is the Rig's job, so the working copy is dirty by
+     * design -- but what HEAD holds must still be a <em>prefix</em> of what is on disk. That is
+     * what append-only means, it is checkable, and it turns deleting the record from a silent act
+     * into a refusal.
+     */
+    public Ledger(Path folder, Path root) {
         this.file = folder.resolve(FILE);
+        if (root != null) {
+            committedLinesAreStillHere(root, folder, file);
+        }
         this.entries = read(file);
+    }
+
+    private static void committedLinesAreStillHere(Path root, Path folder, Path file) {
+        String relative = root.relativize(file).toString().replace('\\', '/');
+        String committed = Registrations.committedOrNull(root, relative);
+        if (committed == null || committed.isEmpty()) {
+            // Never committed, which is the state of a repository that has not published a number
+            // yet. There is nothing to have lost.
+            return;
+        }
+        String now;
+        try {
+            now = Files.exists(file) ? Files.readString(file, StandardCharsets.UTF_8) : "";
+        } catch (IOException e) {
+            throw new UncheckedIOException("the ledger " + file + " could not be read", e);
+        }
+        if (!now.replace("\r\n", "\n").startsWith(committed.replace("\r\n", "\n"))) {
+            throw new IllegalStateException("the ledger " + file + " no longer begins with what is"
+                    + " committed, so lines recording prior attempts have been changed or removed."
+                    + " The count of attempts behind a published number is what FR-25 publishes,"
+                    + " and a ledger that can lose lines quietly is not that count");
+        }
     }
 
     private static List<Entry> read(Path file) {
@@ -140,6 +190,13 @@ public final class Ledger {
         return entries;
     }
 
+    private static boolean endsWithNewline(Path file) throws IOException {
+        try (java.io.RandomAccessFile open = new java.io.RandomAccessFile(file.toFile(), "r")) {
+            open.seek(open.length() - 1);
+            return open.read() == 10;   // a line feed, which is the only ending this format writes
+        }
+    }
+
     /** Every use recorded, oldest first. */
     public List<Entry> entries() {
         return List.copyOf(entries);
@@ -155,6 +212,8 @@ public final class Ledger {
      */
     public String holdoutUse(String brainCommit, String brainConfig) {
         for (Entry entry : entries) {
+            // A CLAIMED entry counts. It says the set was opened, which is the moment the
+            // allowance is spent -- what happened to the Runs afterwards does not give it back.
             if (entry.holdout() && entry.brainCommit().equals(brainCommit)
                     && entry.brainConfig().equals(brainConfig)) {
                 return entry.registration() + " on " + entry.when();
@@ -185,7 +244,12 @@ public final class Ledger {
                 note, Instant.now().toString());
         try {
             Files.createDirectories(file.getParent());
-            Files.writeString(file, entry.line() + "\n", StandardCharsets.UTF_8,
+            // A newline first when the file does not end in one. Appending onto a truncated last
+            // line joins two records into one, and this file refuses to be read when a line cannot
+            // be -- so that mistake is permanent rather than untidy.
+            String first = Files.exists(file) && Files.size(file) > 0 && !endsWithNewline(file)
+                    ? "\n" : "";
+            Files.writeString(file, first + entry.line() + "\n", StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
             throw new UncheckedIOException("the ledger " + file + " could not be written", e);
