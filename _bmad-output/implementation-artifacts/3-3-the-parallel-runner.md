@@ -2,7 +2,7 @@
 title: 'The parallel runner'
 type: 'feature'
 created: '2026-09-22'
-status: 'in-progress'
+status: 'review'
 baseline_commit: 'ec82eb443'
 review_loop_iteration: 0
 context: []
@@ -145,6 +145,66 @@ measurement and biases whatever is left. So every Run the runner starts gets an 
 starts, and that line is updated, never created, when the Run ends.
 
 ## Verification
+
+**Review (four reviewers on the working tree).** `fairness-reviewer` returned BLOCK.
+
+The blocking finding: **the runner handed every Brain the Run's salt.** `Brains.of(name, salt)`
+seeded the Decider from it, and the salt is what the harness reseeds the game's generator from at
+every wait. The mixing function is published on the methodology page, the game's generator is a
+published LCG, and `brain` is allowed `java.lang` — so a Decider holding the salt could compute the
+game's coming draws with 64-bit arithmetic alone, and at the first wait of the first floor would
+know whether its next attack lands and what the next chest holds. ADR-0007 rejected that attack in
+advance; `RunLoop.play` has always taken the salt and the agent's seed as two parameters, and the
+rig collapsed them. A Decider is seeded from the Run's own triple now.
+
+Then, across the four: **the command published on the methodology page did not run** (`--commit`
+was required and no published copy passed it) and this story's own Verification section said it
+had; **the reader guarding FR-11 was weaker than `LogText`**, the reader already in the tree —
+first-match on a key, line 0 only, and a header missing its trailing newline never read at all;
+**no ArchUnit rule covered `rig`**, so the oracle story rested on "there is no flag yet"; a failure
+was noticed in submission order, so a refusal ran the remaining set first; `shutdownNow` abandoned
+live child JVMs; the index was rewritten whole and non-atomically; `--commit --root` attested the
+string `--root` as the commit; `--cap` and `--deadline` were unbounded; and four assertions could
+not fail.
+
+**The mutation battery** (`mutations33.py`, twenty-two mutations, `:rig:test` after each).
+Thirteen caught, nine survivors, all fixed and all re-run.
+
+| # | Mutation | Caught by |
+|---|----------|-----------|
+| M1 | the Brain is handed the salt again | `RunnerIsolationTest`, `RunnerTest` |
+| M2 | the oracle refusal is dropped | `RunnerTest` |
+| M3 | the reader takes a key's first value again | `LogHeaderTest` |
+| M4 | the reader looks at the first header only | `LogHeaderTest` |
+| M5 | a log with no whole line stops being asked | `LogHeaderTest` |
+| M6 | an unreadable log counts as a fair Run | **nobody** |
+| M7 | a Run is indexed after it ends | `RunnerIsolationTest`, `RunnerTest` |
+| M8 | the index accepts an ending with no beginning | `RunnerTest` |
+| M9 | a child keeps the parent's working directory | **nobody** |
+| M10 | the salt is derived from the tuple | **nobody** |
+| M11 | a flag may be another flag's value | `RunnerTest` |
+| M12 | the rate loses its factor of a thousand | `RunnerTest` |
+| M13 | every record counts as a wait | `LogHeaderTest` |
+| M14 | the default parallelism becomes one | **nobody** |
+| M15 | an unknown flag is ignored | `RunnerTest` |
+| M16 | a folder already holding an invocation is accepted | `RunnerTest` |
+| M17 | a killed Run counts as finished | `RunnerTest` |
+| M18 | the summary forgets the turn cap | **nobody** |
+| M19 | a refused invocation stops marking its folder | **nobody** |
+| M20 | the child accepts a relative out folder | **nobody** |
+| M21 | a Brain's configuration hash is invented | **nobody** |
+| M22 | a Run stops saying where it ran | **nobody** |
+
+**M14 is the one worth carrying.** The reviews told me `the_default_is_what_the_machine_says`
+asserted `defaultParallel()` by recomputing its own expression. I replaced it with a test that runs
+an invocation and asserts the summary's process count equals `defaultParallel()` — so a mutant
+returning `1` makes *both sides* `1`. The same defect, one layer out, in a test written in direct
+answer to a review that named the defect. Four reviewers did not see it; one mutation did. The
+expectation is the machine's own core count now.
+
+**M19 produced a structural fix rather than a test.** The call that marks a refused folder was
+deletable on its own, leaving a folder that looked like a finished invocation, so the mark and the
+throw became one statement: `throw refuse(index, failed)`.
 
 **Rig numbers, measured.** The development machine (24 cores, JDK 21, Windows), the random agent,
 every Run played to its natural ending:
