@@ -53,6 +53,22 @@ class ReferenceLogTest {
     private static final String CHAIN =
             "6e17a0bc28da285dade1787a907f017e28777facaa90d0edd80f2645b5b6929e";
 
+    /**
+     * What {@code ls reference/*.jsonl | grep -v '/runs\.jsonl$' | head -1} selects.
+     *
+     * <p>Worked out here rather than asserted about the workflow's text, because the text was
+     * right and the selection was wrong. {@code ls} sorts by name in the C collation, which for
+     * these names is the same as sorting the strings.
+     */
+    private static String selected() {
+        return Verify.logs(REFERENCE).stream()
+                .map(file -> file.getFileName().toString())
+                .filter(name -> !name.equals(RunIndex.RUNS))
+                .sorted()
+                .findFirst()
+                .orElse("");
+    }
+
     @Test
     @DisplayName("the reference folder holds the Run the generator names, and no other")
     void the_reference_log_is_the_one_it_should_be() {
@@ -136,6 +152,14 @@ class ReferenceLogTest {
         assertTrue(workflow.contains("--replay $log"), "the job replays it");
         assertTrue(workflow.contains("ls reference/*.jsonl"),
                 "the job finds the log in the folder this test verifies");
+        // And it finds the *log*, not the index beside it. The first version of this assertion
+        // held that the workflow contained the glob, which it did, while the glob selected
+        // runs.jsonl -- `r` sorts before `v` -- and the job replayed a file that is not a Run log.
+        // Checking that a command was written is not checking that it does anything.
+        assertTrue(workflow.contains("grep -v '/runs\\.jsonl$'"),
+                "the job excludes the run index from what it replays");
+        assertEquals(Reference.fileName(), selected(),
+                "the shell's own selection is the reference Run, not the index beside it");
         for (String os : List.of("ubuntu-latest", "windows-latest")) {
             assertTrue(workflow.contains(os), "the job runs on " + os);
         }

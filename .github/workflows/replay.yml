@@ -68,7 +68,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          log=$(ls reference/*.jsonl | head -1)
+          # Not `ls reference/*.jsonl | head -1`: the folder also holds runs.jsonl, the index
+          # that publishes this Run's chain, and `r` sorts before `v`. That is what the first
+          # version of this job replayed.
+          log=$(ls reference/*.jsonl | grep -v '/runs\.jsonl$' | head -1)
           echo "replaying $log on $RUNNER_OS"
           # The command answers 0 only when the two chains agree. A divergence answers 2 and names
           # the wait and the sections that differ, which is what makes a platform difference
