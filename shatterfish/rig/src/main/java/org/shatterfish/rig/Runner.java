@@ -74,6 +74,9 @@ public final class Runner {
     /** The most processes this command will start at once, whatever it is asked for. */
     public static final int MOST = 64;
 
+    /** The longest deadline a Run may be given: a day, past which nobody is waiting anyway. */
+    public static final int DEADLINE_MOST = 86_400;
+
     private Runner() {
     }
 
@@ -94,15 +97,18 @@ public final class Runner {
 
     /** Runs what the arguments ask for, and returns the folder it wrote. */
     public static Path run(Map<String, String> arguments) {
-        String brain = required(arguments, BRAIN);
-        Brains.of(brain, 0L);
+        // Named, not built. The parent hosts no Run (AD-6), and a real Brain's constructor may
+        // touch the game or load a model -- validating a name by building one is how the parent
+        // ends up doing the thing it exists not to do.
+        String brain = Brains.named(required(arguments, BRAIN));
         Path root = Path.of(arguments.getOrDefault(ROOT, ".")).toAbsolutePath().normalize();
         String set = required(arguments, SEEDS);
         int parallel = parallel(arguments);
         Path out = emptyFolder(required(arguments, OUT));
-        String commit = required(arguments, COMMIT);
-        int cap = arguments.containsKey(CAP) ? (int) number(arguments, CAP) : org.shatterfish.harness.agent.RunLoop.TURN_CAP;
-        long deadline = arguments.containsKey(DEADLINE) ? number(arguments, DEADLINE) : DEADLINE_SECONDS;
+        String commit = arguments.containsKey(COMMIT) ? required(arguments, COMMIT) : commitOf(root);
+        int cap = bounded(arguments, CAP, 1, Integer.MAX_VALUE,
+                org.shatterfish.harness.agent.RunLoop.TURN_CAP);
+        int deadline = bounded(arguments, DEADLINE, 1, DEADLINE_MOST, DEADLINE_SECONDS);
 
         // `load` refuses the holdout set outright (story 3.1), so the runner inherits that refusal
         // rather than restating it -- a second copy of a rule is a second thing to keep true.
@@ -115,7 +121,16 @@ public final class Runner {
         String tag = org.shatterfish.harness.boot.HeadlessBoot.pinnedTag();
 
         long began = System.nanoTime();
+        // Every child this invocation has alive, so that a failure anywhere can stop them all. A
+        // worker interrupted by `shutdownNow` used to return without destroying its child, and a
+        // game JVM with a fifteen-minute deadline outlived the parent by fifteen minutes -- still
+        // writing into a log the parent had already indexed, and still holding a core against the
+        // next invocation's measured throughput.
+        Map<String, Process> alive = new java.util.concurrent.ConcurrentHashMap<>();
+        Thread hook = new Thread(() -> destroyAll(alive), "shatterfish-rig-children");
+        Runtime.getRuntime().addShutdownHook(hook);
         ExecutorService pool = Executors.newFixedThreadPool(parallel);
+        RuntimeException failed = null;
         try {
             List<Future<?>> started = new ArrayList<>();
             for (SeedSet.Entry triple : triples.entries()) {
@@ -125,18 +140,35 @@ public final class Runner {
                 index.started(new RunIndex.Entry(runId, RunLog.fileName(runId), RunIndex.State.STARTED,
                         "", triple.seed(), triple.heroClass().name(), triple.challengeFlags(), salt,
                         "", 0, ""));
-                started.add(pool.submit(() -> one(index, out, root, triple, salt, runId, brain, commit,
+                started.add(pool.submit(() -> one(index, out, alive, triple, salt, runId, brain, commit,
                         machine, cap, deadline, waits)));
             }
+            // Awaited as they finish rather than in the order they were sent. A refusal on the
+            // second Run used to wait out the first Run's deadline before anyone saw it, and on a
+            // five-hundred-Run set that is minutes of further Runs written into a folder the
+            // refusal is about to declare void.
             for (Future<?> run : started) {
                 try {
                     run.get();
-                } catch (Exception failed) {
-                    throw new IllegalStateException("a Run could not be dispatched", failed);
+                } catch (Exception broke) {
+                    Throwable cause = broke.getCause() == null ? broke : broke.getCause();
+                    failed = cause instanceof RuntimeException already ? already
+                            : new IllegalStateException("a Run could not be dispatched", cause);
+                    break;
                 }
             }
         } finally {
             pool.shutdownNow();
+            destroyAll(alive);
+            Runtime.getRuntime().removeShutdownHook(hook);
+        }
+        if (failed != null) {
+            // Nothing is published, and the folder says so. The index and the logs are already on
+            // disk -- they are written as Runs are dispatched, on purpose -- so the honest thing
+            // is not to pretend they are absent but to mark them: a reader who picks this folder
+            // up finds a refusal beside the numbers rather than a complete-looking set.
+            index.refused(failed.getMessage());
+            throw failed;
         }
         long millis = (System.nanoTime() - began) / 1_000_000L;
         index.summary(brain, set, parallel, millis, waits.get());
@@ -150,39 +182,81 @@ public final class Runner {
     }
 
     /** One Run, in a child, with its own Profile and working directory. */
-    private static void one(RunIndex index, Path out, Path root, SeedSet.Entry triple, long salt,
-                            String runId, String brain, String commit, String machine, int cap,
-                            long deadline, AtomicLong waits) {
+    private static void one(RunIndex index, Path out, Map<String, Process> alive, SeedSet.Entry triple,
+                            long salt, String runId, String brain, String commit, String machine,
+                            int cap, int deadline, AtomicLong waits) {
         Path working = out.resolve("work").resolve(runId);
         long began = System.nanoTime();
         String why = "";
+        // A StringBuffer rather than a StringBuilder: the reader thread appends while this thread
+        // reads, and an unsynchronised builder can be seen with a grown array and a stale count.
+        StringBuffer said = new StringBuffer();
+        Process child = null;
         try {
             Files.createDirectories(working);
-            Process child = child(out, root, working, triple, salt, brain, commit, machine, cap);
-            StringBuilder said = new StringBuilder();
-            Thread reading = Thread.ofVirtual().start(() -> collect(child, said));
+            child = child(out, working, triple, salt, brain, commit, machine, cap);
+            alive.put(runId, child);
+            Process reading = child;
+            // A platform thread, not a virtual one: reading a process pipe is a blocking native
+            // call that pins its carrier, and pinning `--parallel` carriers at once is how the
+            // children end up blocked writing into a pipe nobody is draining.
+            Thread reader = new Thread(() -> collect(reading, said), "shatterfish-rig-" + runId);
+            reader.setDaemon(true);
+            reader.start();
             if (!child.waitFor(deadline, TimeUnit.SECONDS)) {
-                child.destroyForcibly();
-                child.waitFor(30, TimeUnit.SECONDS);
-                why = "the Run passed its deadline of " + deadline + "s and was killed";
+                destroy(child);
+                why = child.isAlive()
+                        ? "the Run passed its deadline of " + deadline + "s and would not die"
+                        : "the Run passed its deadline of " + deadline + "s and was killed";
             } else if (child.exitValue() != 0) {
                 why = "the Run exited " + child.exitValue() + ": " + tail(said.toString());
             }
-            reading.join(java.time.Duration.ofSeconds(30));
-            if (!why.isEmpty()) {
-                // What the child said, kept whole beside its log. A Run that failed is evidence
-                // about the harness, and three lines of a stack trace in an index entry is not
-                // enough to act on -- the index says that it failed, this says what it said.
-                Files.writeString(out.resolve(runId + ".err"), said.toString(), StandardCharsets.UTF_8);
-            }
+            reader.join(30_000L);
         } catch (IOException e) {
             why = "the Run could not be started: " + e;
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             why = "the Rig was interrupted while this Run was in flight";
+        } finally {
+            if (child != null) {
+                destroy(child);
+                alive.remove(runId);
+            }
+        }
+        if (!why.isEmpty()) {
+            // What the child said, kept whole beside its log. A Run that failed is evidence about
+            // the harness, and three lines of a stack trace in an index entry is not enough to act
+            // on. Its own try: a full disk here used to replace "the Run exited 3" with "the Run
+            // could not be started", which is a different and untrue story.
+            try {
+                Files.writeString(out.resolve(runId + ".err"), said.toString(), StandardCharsets.UTF_8);
+            } catch (IOException cannot) {
+                why = why + "; and what it said could not be written down (" + cannot + ")";
+            }
         }
         long millis = (System.nanoTime() - began) / 1_000_000L;
         finish(index, out, runId, why, millis, waits);
+    }
+
+    /** Ends a child and everything it started, which `destroyForcibly` alone does not. */
+    private static void destroy(Process child) {
+        if (!child.isAlive()) {
+            return;
+        }
+        child.descendants().forEach(ProcessHandle::destroyForcibly);
+        child.destroyForcibly();
+        try {
+            child.waitFor(30, TimeUnit.SECONDS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void destroyAll(Map<String, Process> alive) {
+        for (Process child : alive.values()) {
+            destroy(child);
+        }
+        alive.clear();
     }
 
     /**
@@ -198,19 +272,33 @@ public final class Runner {
     static void finish(RunIndex index, Path out, String runId, String why, long millis,
                        AtomicLong waits) {
         LogHeader.Read read = LogHeader.of(out.resolve(RunLog.fileName(runId)));
+        if (!read.readable() && read.present()) {
+            // A log this Rig cannot read is a Run it cannot vouch for, including about the oracle.
+            // It is counted incomplete rather than quietly counted fair.
+            index.ended(runId, RunIndex.State.INCOMPLETE, "", "", millis,
+                    (why.isEmpty() ? "" : why + "; ") + "its log could not be read: " + read.unreadable());
+            return;
+        }
         if (read.oracle()) {
             throw new IllegalStateException("the Run " + runId + " says in its own header that it saw"
                     + " what a player could not; an oracle Run is not ranked and this invocation"
                     + " publishes nothing (FR-11)");
         }
+        if (read.present() && !read.runId().isEmpty() && !read.runId().equals(runId)) {
+            // The parent predicts the file name from the tuple and the child writes it from its own
+            // header. If those ever disagree the parent is reading somebody else's Run, and the
+            // oracle check above was asked about the wrong log.
+            throw new IllegalStateException("the log at " + RunLog.fileName(runId) + " says it is the"
+                    + " Run " + read.runId() + "; the Rig is reading a log it did not mean to");
+        }
         waits.addAndGet(read.waits());
-        boolean finished = read.complete() && why.isEmpty();
+        boolean finished = read.complete() && why.isEmpty() && read.chain().matches("[0-9a-f]{64}");
         index.ended(runId, finished ? RunIndex.State.FINISHED : RunIndex.State.INCOMPLETE,
-                read.chain(), finished ? "ended" : "", millis,
+                read.chain(), finished ? read.cause() : "", millis,
                 finished ? "" : (why.isEmpty() ? "the log has no end record" : why));
     }
 
-    private static Process child(Path out, Path root, Path working, SeedSet.Entry triple, long salt,
+    private static Process child(Path out, Path working, SeedSet.Entry triple, long salt,
                                  String brain, String commit, String machine, int cap) throws IOException {
         Path java = Path.of(System.getProperty("java.home"), "bin", "java");
         Path exe = Path.of(java + ".exe");
@@ -236,12 +324,15 @@ public final class Runner {
                 .start();
     }
 
-    private static void collect(Process child, StringBuilder said) {
+    /** The most of a child's output the parent will hold: a looping child must not fill the heap. */
+    private static final int SAID_MOST = 1 << 20;
+
+    private static void collect(Process child, StringBuffer said) {
         try (java.io.BufferedReader reader = new java.io.BufferedReader(
                 new java.io.InputStreamReader(child.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                synchronized (said) {
+                if (said.length() < SAID_MOST) {
                     said.append(line).append('\n');
                 }
             }
@@ -254,6 +345,41 @@ public final class Runner {
         String[] lines = said.strip().split("\n");
         int from = Math.max(0, lines.length - 3);
         return String.join(" | ", List.of(lines).subList(from, lines.length));
+    }
+
+    /**
+     * The Shatterfish commit this invocation is of, from the checkout when the command line does not
+     * say.
+     *
+     * <p>Every Run's header states which build played it, and there is no honest default for that
+     * -- so `--commit` used to be required, and the command published on the methodology page, in
+     * this class's own javadoc, in the Gradle task's comment and in the story's Verification
+     * section did not pass it. None of them ran. A command nobody can copy is worse than a flag
+     * nobody has to type, so the checkout answers when the caller does not, and the refusal names
+     * the flag when the checkout cannot.
+     */
+    static String commitOf(Path root) {
+        try {
+            Process git = new ProcessBuilder("git", "-C", root.toString(), "rev-parse", "HEAD")
+                    .redirectErrorStream(true).start();
+            String said;
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(git.getInputStream(), StandardCharsets.UTF_8))) {
+                said = reader.readLine();
+            }
+            if (!git.waitFor(30, TimeUnit.SECONDS) || git.exitValue() != 0 || said == null
+                    || !said.trim().matches("[0-9a-f]{40}")) {
+                throw new IllegalArgumentException("the checkout at " + root + " does not say which"
+                        + " commit it is of, so state it: " + COMMIT + " <sha>");
+            }
+            return said.trim();
+        } catch (IOException | InterruptedException cannot) {
+            if (cannot instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            throw new IllegalArgumentException("the commit of " + root + " could not be read (" + cannot
+                    + "), so state it: " + COMMIT + " <sha>");
+        }
     }
 
     /** What this invocation ran on. It is recorded and never chained (ADR-0011). */
@@ -275,6 +401,16 @@ public final class Runner {
             if (i + 1 >= args.length) {
                 throw new IllegalArgumentException(flag + " takes a value");
             }
+            if (args[i + 1].startsWith("--")) {
+                // `--commit --root` would otherwise attest the string "--root" as the commit in
+                // every header of the invocation, and `--out --root` would write the whole thing
+                // into a folder of that name. A flag is never a value.
+                throw new IllegalArgumentException(flag + " was given the flag " + args[i + 1]
+                        + " as its value; every flag takes a value of its own");
+            }
+            if (args[i + 1].isEmpty()) {
+                throw new IllegalArgumentException(flag + " is stated, not left empty");
+            }
             if (!KNOWN.contains(flag)) {
                 // Named rather than ignored, and the list is printed, because the one flag this
                 // command must never grow is an oracle and a silently ignored argument is how a
@@ -286,6 +422,26 @@ public final class Runner {
             }
         }
         return given;
+    }
+
+    /**
+     * A number the command line may give, inside the bounds this command will act on.
+     *
+     * <p>`--parallel` was bounded and the other two were not, which is the shape of a rule that
+     * holds where somebody remembered it. `--deadline 0` killed every Run before it booted and
+     * reported the whole set incomplete with nothing saying the operator's typo caused it; a
+     * `--cap` above two billion became a negative int on the way through.
+     */
+    private static int bounded(Map<String, String> arguments, String flag, int least, int most,
+                               int byDefault) {
+        if (!arguments.containsKey(flag)) {
+            return byDefault;
+        }
+        long asked = number(arguments, flag);
+        if (asked < least || asked > most) {
+            throw new IllegalArgumentException(flag + " is " + least + " through " + most + ": " + asked);
+        }
+        return (int) asked;
     }
 
     private static int parallel(Map<String, String> arguments) {
@@ -302,6 +458,12 @@ public final class Runner {
     /** The folder an invocation writes into: absent, or empty. Two invocations are not one. */
     private static Path emptyFolder(String named) {
         Path out = Path.of(named).toAbsolutePath().normalize();
+        if (Files.exists(out) && !Files.isDirectory(out)) {
+            // The emptiness check below asks whether a *directory* holds anything, so a regular
+            // file passed it and the refusal arrived much later, from inside the index writer,
+            // saying something else entirely.
+            throw new IllegalArgumentException(out + " is a file, and an invocation writes a folder");
+        }
         if (Files.isDirectory(out)) {
             try (Stream<Path> held = Files.list(out)) {
                 List<Path> anything = held.toList();

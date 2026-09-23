@@ -52,40 +52,100 @@ public final class LogHeader {
      *                   quantity a throughput number is about, and it is not "lines minus two":
      *                   a Run that met Prompts writes a record for each of those too, and the
      *                   first draft of this counted them as waits
+     * @param cause      how the Run ended, as its own end record says, or empty
+     * @param unreadable what is wrong with the file, or empty when nothing is. A log this reader
+     *                   cannot make sense of is reported, never thrown: one corrupt byte in one
+     *                   Run of five hundred must not stop the Rig reading the other four hundred
+     *                   and ninety-nine, and the reader that checks chains says the same
      */
     public record Read(boolean present, int lines, boolean oracle, boolean complete, String chain,
-                       String runId, int waits) {
+                       String runId, int waits, String cause, String unreadable) {
 
         /** A Run with no log at all: the child died before it could write its header. */
-        public static final Read MISSING = new Read(false, 0, false, false, "", "", 0);
+        public static final Read MISSING = new Read(false, 0, false, false, "", "", 0, "", "");
+
+        /** Whether this log can be believed about anything, the oracle flag included. */
+        public boolean readable() {
+            return unreadable.isEmpty();
+        }
     }
 
-    /** Reads {@code file}, treating anything it cannot parse as a log that is not complete. */
+    /**
+     * Reads {@code file}. A log this reader cannot make sense of comes back marked unreadable
+     * rather than as an exception: the Rig reads five hundred of these on worker threads, and one
+     * bad byte must not end the invocation.
+     */
     public static Read of(Path file) {
         if (!Files.isRegularFile(file)) {
             return Read.MISSING;
         }
-        List<String> lines = wholeLines(file);
-        if (lines.isEmpty()) {
-            // A file with no whole line is a Run that was killed between creating its log and
-            // writing its header. It is present and incomplete, which is a different thing from
-            // absent, and the index says which.
-            return new Read(true, 0, false, false, "", "", 0);
+        Split split;
+        try {
+            split = split(file);
+        } catch (RuntimeException unreadable) {
+            return unreadable(unreadable.getMessage());
         }
+        if (split.whole().isEmpty()) {
+            // No whole line. A killed writer can leave a header whose trailing line feed never
+            // reached the disk, and that header may claim the oracle -- so the partial text is
+            // asked, and a Run whose claim cannot be read is marked unreadable rather than
+            // silently counted as fair.
+            if (split.partial().isEmpty()) {
+                return new Read(true, 0, false, false, "", "", 0, "", "");
+            }
+            try {
+                boolean oracle = "true".equals(value(split.partial(), "oracle"));
+                return oracle
+                        ? new Read(true, 0, true, false, "", "", 0, "", "")
+                        : unreadable("the log holds no whole line, so nothing in it can be believed");
+            } catch (RuntimeException cannot) {
+                return unreadable("the log holds no whole line and its partial one is not readable");
+            }
+        }
+        try {
+            return read(split.whole());
+        } catch (RuntimeException unreadable) {
+            return unreadable(unreadable.getMessage());
+        }
+    }
+
+    private static Read unreadable(String why) {
+        return new Read(true, 0, false, false, "", "", 0, "", why == null ? "unreadable" : why);
+    }
+
+    private static Read read(List<String> lines) {
         String first = lines.get(0);
         if (!HEADER.equals(string(first, KIND))) {
-            throw new IllegalStateException(file + " does not begin with a header, so it is not a Run"
-                    + " log this Rig wrote: " + first);
+            throw new IllegalStateException("a Run log begins with a header, and this begins " + first);
         }
-        String last = lines.get(lines.size() - 1);
+        // Every header, not the first. Two logs concatenated -- a fair Run followed by an oracle
+        // one -- used to read as one fair Run, while `LogText.whole` in the harness refuses a
+        // second header outright. The guard FR-11 keys on may not be weaker than a reader that
+        // already exists.
+        boolean oracle = false;
         int waits = 0;
+        int headers = 0;
         for (String line : lines) {
-            if (WAIT.equals(string(line, KIND))) {
+            String kind = string(line, KIND);
+            if (HEADER.equals(kind)) {
+                headers++;
+                oracle |= "true".equals(value(line, "oracle"));
+            } else if (WAIT.equals(kind)) {
                 waits++;
             }
         }
-        return new Read(true, lines.size(), "true".equals(value(first, "oracle")),
-                END.equals(string(last, KIND)), orEmpty(string(last, "chain")), runId(first), waits);
+        if (headers != 1) {
+            throw new IllegalStateException("a Run log holds one header and this holds " + headers
+                    + "; two Runs in one file are not one Run");
+        }
+        String last = lines.get(lines.size() - 1);
+        boolean complete = END.equals(string(last, KIND));
+        // The end record's own cause, so the index says DEATH or TURN_CAP rather than the word
+        // "ended" for every Run alike -- which is the difference between a tally and a number.
+        String outcome = complete ? value(last, "outcome") : null;
+        String cause = outcome == null ? "" : orEmpty(string(outcome, "cause"));
+        return new Read(true, lines.size(), oracle, complete,
+                orEmpty(string(last, "chain")), runId(first), waits, cause, "");
     }
 
     /** The id the header's own fields name, which has to be the name of the file it is in. */
@@ -104,7 +164,11 @@ public final class LogHeader {
         return value == null ? "" : value;
     }
 
-    private static List<String> wholeLines(Path file) {
+    /** A log's whole lines and whatever a kill left after the last one. */
+    private record Split(List<String> whole, String partial) {
+    }
+
+    private static Split split(Path file) {
         String text;
         try {
             text = Files.readString(file, StandardCharsets.UTF_8);
@@ -116,9 +180,13 @@ public final class LogHeader {
         while (true) {
             int feed = text.indexOf('\n', from);
             if (feed < 0) {
-                return List.copyOf(whole);
+                return new Split(List.copyOf(whole), text.substring(from));
             }
-            whole.add(text.substring(from, feed));
+            String line = text.substring(from, feed);
+            // A log fetched over HTTP or checked out with autocrlf carries a carriage return the
+            // writer never wrote. That is a rule the format states, and it is not a reason to be
+            // unable to read whether the Run claimed the oracle.
+            whole.add(line.endsWith("\r") ? line.substring(0, line.length() - 1) : line);
             from = feed + 1;
         }
     }
@@ -131,6 +199,7 @@ public final class LogHeader {
             throw new IllegalArgumentException("a log line is one JSON object: " + object);
         }
         int at = 1;
+        String found = null;
         while (at < object.length() - 1) {
             if (object.charAt(at) != '"') {
                 throw new IllegalArgumentException("a key is quoted, at " + at + ": " + object);
@@ -142,7 +211,15 @@ public final class LogHeader {
             }
             int to = endOfValue(object, keyEnd + 1);
             if (held.equals(key)) {
-                return object.substring(keyEnd + 1, to);
+                if (found != null) {
+                    // `LogText` refuses a repeated key for a reason it states: every JSON reader
+                    // downstream takes the last one, so a line carrying `oracle` twice means one
+                    // thing to this guard and another to everything else. Returning the first was
+                    // how a hand-made header defeated the refusal.
+                    throw new IllegalArgumentException("the key " + key + " is written twice, and a"
+                            + " reader that took the other one would read a different Run");
+                }
+                found = object.substring(keyEnd + 1, to);
             }
             at = to;
             if (at < object.length() - 1) {
@@ -152,7 +229,7 @@ public final class LogHeader {
                 at++;
             }
         }
-        return null;
+        return found;
     }
 
     /** A string value with its quotes taken off, or null when the object does not hold the key. */

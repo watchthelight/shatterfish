@@ -36,11 +36,21 @@ public final class RunIndex {
 
     public static final String SUMMARY = "summary.json";
 
+    /**
+     * Written when an invocation is refused, so that the folder says so. The logs and the index are
+     * on disk by then -- they are written as Runs are dispatched, on purpose -- and claiming they
+     * are not published would be a claim contradicted by the folder a reader is holding.
+     */
+    public static final String REFUSED = "refused.json";
+
     /** How a Run ended, as the index says it. */
     public enum State {
 
         /** Dispatched, and nothing has been heard back yet. */
         STARTED,
+
+        /** The invocation was refused, so nothing in this folder is a published number. */
+        REFUSED,
 
         /** The child played the Run to an ending and its log says so. */
         FINISHED,
@@ -65,7 +75,8 @@ public final class RunIndex {
                         String why) {
 
         public Entry {
-            if (runId == null || log == null || state == null || chain == null || cause == null || why == null) {
+            if (runId == null || log == null || state == null || chain == null || cause == null
+                    || why == null || heroClass == null) {
                 throw new IllegalArgumentException("an index entry states every field it has");
             }
         }
@@ -103,8 +114,34 @@ public final class RunIndex {
 
     /** Writes a Run down before it is dispatched, so a Run that never comes back is still counted. */
     public synchronized void started(Entry entry) {
+        for (Entry seen : entries) {
+            if (seen.runId().equals(entry.runId())) {
+                throw new IllegalStateException("the Run " + entry.runId() + " was already started;"
+                        + " two Runs of one id would be one file and one line");
+            }
+        }
         entries.add(entry);
         write();
+    }
+
+    /**
+     * Marks every Run of a refused invocation, and writes the reason beside them. Nothing in this
+     * folder is a published number afterwards, and the folder is what says so.
+     */
+    public synchronized void refused(String why) {
+        for (int i = 0; i < entries.size(); i++) {
+            Entry entry = entries.get(i);
+            entries.set(i, entry.ended(State.REFUSED, entry.chain(), entry.cause(), entry.millis(),
+                    "the invocation was refused: " + why));
+        }
+        write();
+        JsonWriter out = new JsonWriter();
+        out.beginObject();
+        out.key("refused").value(true);
+        out.key("why").value(why == null ? "" : why);
+        out.key("runs").value(entries.size());
+        out.endObject();
+        write(folder.resolve(REFUSED), out.toJson() + "\n");
     }
 
     /** Amends the line of a Run that has ended. The line is never created here, only changed. */
@@ -152,6 +189,9 @@ public final class RunIndex {
         out.key("runsStarted").value(entries.size());
         out.key("runsFinished").value(count(State.FINISHED));
         out.key("runsIncomplete").value(count(State.INCOMPLETE));
+        // A Run still marked started when the summary is written is a Run nobody heard back from.
+        // Without this the three counts silently fail to add up to the fourth.
+        out.key("runsUnaccounted").value(count(State.STARTED));
         out.key("waits").value(waits);
         out.key("ms").value(millis);
         // Thousandths of a Run per second and of a wait per second: a rate is a fraction, and
@@ -166,11 +206,26 @@ public final class RunIndex {
         return millis <= 0 ? 0 : Math.round(count * 1_000_000.0 / millis);
     }
 
+    /**
+     * Writes {@code text} to {@code file} so that a reader never sees half of it.
+     *
+     * <p>The index is rewritten whole on every change, and it used to be truncated in place: a
+     * parent killed at the wrong instant left a zero-byte file beside five hundred logs it no
+     * longer accounted for. That is the one thing this class exists to prevent, so the write goes
+     * to a neighbour and is moved over the top in one step.
+     */
     private static void write(Path file, String text) {
+        Path writing = file.resolveSibling(file.getFileName() + ".writing");
         try {
             Files.createDirectories(file.getParent());
-            Files.write(file, text.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE,
+            Files.write(writing, text.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+            try {
+                Files.move(writing, file, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException notHere) {
+                Files.move(writing, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
         } catch (IOException e) {
             throw new UncheckedIOException("the Rig's index could not be written to " + file, e);
         }

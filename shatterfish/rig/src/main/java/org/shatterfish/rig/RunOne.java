@@ -83,7 +83,7 @@ public final class RunOne {
                 new RunLog.Brain(brain, required(arguments, BRAIN_COMMIT), Brains.configHash(brain)),
                 arguments.getOrDefault(REGISTRATION, ""), arguments.getOrDefault(MACHINE, ""));
         int cap = arguments.containsKey(CAP) ? (int) number(arguments, CAP) : RunLoop.TURN_CAP;
-        return new RunLoop().playTriple(triple, salt, Brains.of(brain, salt), cap, logging);
+        return new RunLoop().playTriple(triple, salt, Brains.of(brain, triple), cap, logging);
     }
 
     /** The command line as a map, refusing a flag this child does not know and a value-less one. */
