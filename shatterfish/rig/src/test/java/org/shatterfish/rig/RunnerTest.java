@@ -67,8 +67,42 @@ class RunnerTest {
         // not a copy built from the same constants, which is what this used to compare and which
         // would have let a ninth flag in unnoticed.
         assertEquals(List.of("--brain", "--seeds", "--parallel", "--out", "--root", "--commit",
-                        "--cap", "--deadline"), Runner.KNOWN,
+                        "--cap", "--deadline", "--verify", "--replay", "--finished"), Runner.KNOWN,
                 "a flag added to the Rig is a decision, and this is where it is made");
+    }
+
+    @Test
+    @DisplayName("a command line asking for two things at once is refused, not quietly given one")
+    void one_mode_per_invocation() {
+        // Verifying a folder and replaying a log are different questions with different costs --
+        // one reads files, the other plays a Run. Asking for both used to do one of them and say
+        // nothing about the other, which is a flag silently ignored: the shape of mistake this
+        // command line refuses everywhere else.
+        IllegalArgumentException both = assertThrows(IllegalArgumentException.class,
+                () -> Runner.main(new String[] {Runner.VERIFY, "a", Runner.REPLAY, "b.jsonl",
+                        Runner.OUT, "c"}));
+
+        assertTrue(both.getMessage().contains("does one thing per invocation"), both.getMessage());
+        assertTrue(both.getMessage().contains(Runner.VERIFY)
+                && both.getMessage().contains(Runner.REPLAY), both.getMessage());
+    }
+
+    @Test
+    @DisplayName("a switch is its own answer, and is still refused when it is given twice")
+    void a_switch_takes_no_value() {
+        // `--finished` says a folder must hold only Runs that finished. The parser walked its
+        // arguments in pairs, which made a switch impossible to express at all.
+        Map<String, String> parsed = Runner.arguments(new String[] {Runner.VERIFY, "a", Runner.FINISHED});
+        assertEquals("a", parsed.get(Runner.VERIFY));
+        assertTrue(parsed.containsKey(Runner.FINISHED));
+
+        // And the guard the pair-walk was protecting still holds for the flags that do take one.
+        assertThrows(IllegalArgumentException.class,
+                () -> Runner.arguments(new String[] {Runner.FINISHED, Runner.FINISHED}),
+                "a switch given twice");
+        assertThrows(IllegalArgumentException.class,
+                () -> Runner.arguments(new String[] {Runner.VERIFY, Runner.FINISHED}),
+                "a switch is not a value either");
     }
 
     @Test

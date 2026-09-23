@@ -145,6 +145,7 @@ public final class RunLogJson {
         // `ffffffffffffffff` and a header that said `-1` were two spellings of one value on one
         // line.
         out.key("salt").value(RunLog.salt(header.salt()));
+        out.key("cap").value(header.cap());
         out.key("profile").value(header.profile());
         out.key("obsv").value(header.obsv());
         out.key("codex").value(header.codex());

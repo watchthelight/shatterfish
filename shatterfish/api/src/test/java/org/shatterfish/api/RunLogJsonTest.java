@@ -3,6 +3,7 @@ package org.shatterfish.api;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,10 +30,12 @@ class RunLogJsonTest {
 
     private static final long SEED = 12_345L;
 
+    private static final int CAP = 20_000;
+
     private static RunLog.Header header() {
-        return new RunLog.Header(1, "v4.0.0", "abc1234", HeroClass.WARRIOR, 0, SEED, SeedSet.code(SEED),
-                7L, 3, 2, 8, new RunLog.Brain("random", "def5678", ZERO), "", false,
-                "a laptop", "2026-09-22T12:00:00Z");
+        return new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc1234", HeroClass.WARRIOR, 0, SEED,
+                SeedSet.code(SEED), 7L, CAP, 3, 2, 8, new RunLog.Brain("random", "def5678", ZERO),
+                "", false, "a laptop", "2026-09-22T12:00:00Z");
     }
 
     private static RunLog.Wait served(long thinkMs) {
@@ -75,14 +78,66 @@ class RunLogJsonTest {
     }
 
     @Test
+    @DisplayName("schema version 2 is these header keys, so a new field is a version decision")
+    void the_header_key_set_belongs_to_a_version() {
+        // The page's test vector already fails when a header field is added, and it fails as "the
+        // page is out of date" -- which is fixed by updating the page and leaves the schema still
+        // calling itself the version it was. This is the other direction: the key set is labelled
+        // with the version it belongs to, so adding a field means editing a line that says 2, and
+        // a reader of a version-2 log can be told exactly what to expect in it.
+        assertEquals(2, RunLog.VERSION, "this list is version 2's; a bump rewrites it");
+        assertEquals(List.of("brain", "cap", "challenges", "class", "codex", "commit", "machine",
+                        "obsv", "oracle", "profile", "registration", "salt", "seed", "seedcode",
+                        "started", "t", "tag", "v"),
+                keysOf(RunLogJson.canonical(header())),
+                "the members of a version 2 header, in the order the writer sorts them");
+    }
+
+    /** The top-level keys of one canonical object, in the order they are written. */
+    private static List<String> keysOf(String line) {
+        List<String> keys = new ArrayList<>();
+        int at = 1;
+        while (at < line.length() - 1) {
+            int quote = line.indexOf('"', at);
+            int end = quote + 1;
+            while (line.charAt(end) != '"') {
+                end += line.charAt(end) == '\\' ? 2 : 1;
+            }
+            keys.add(line.substring(quote + 1, end));
+            // Past this member's value, whatever shape it is, to the comma that follows it.
+            int depth = 0;
+            int i = end + 2;
+            while (i < line.length() - 1) {
+                char c = line.charAt(i);
+                if (c == '"') {
+                    i++;
+                    while (line.charAt(i) != '"') {
+                        i += line.charAt(i) == '\\' ? 2 : 1;
+                    }
+                } else if (c == '{' || c == '[') {
+                    depth++;
+                } else if (c == '}' || c == ']') {
+                    depth--;
+                } else if (c == ',' && depth == 0) {
+                    break;
+                }
+                i++;
+            }
+            at = i + 1;
+        }
+        return keys;
+    }
+
+    @Test
     @DisplayName("the header carries the tuple, the versions and who played, and nothing else")
     void the_header_line_is_the_tuple_and_the_versions() {
         assertEquals("{\"brain\":{\"commit\":\"def5678\",\"config\":\"" + ZERO + "\",\"name\":\"random\"},"
-                        + "\"challenges\":0,\"class\":\"WARRIOR\",\"codex\":8,\"commit\":\"abc1234\","
-                        + "\"machine\":\"a laptop\",\"obsv\":2,\"oracle\":false,\"profile\":3,"
-                        + "\"registration\":\"\",\"salt\":\"0000000000000007\",\"seed\":12345,\"seedcode\":\""
-                        + SeedSet.code(SEED) + "\",\"started\":\"2026-09-22T12:00:00Z\","
-                        + "\"t\":\"header\",\"tag\":\"v4.0.0\",\"v\":1}",
+                        + "\"cap\":20000,\"challenges\":0,\"class\":\"WARRIOR\",\"codex\":8,"
+                        + "\"commit\":\"abc1234\",\"machine\":\"a laptop\",\"obsv\":2,\"oracle\":false,"
+                        + "\"profile\":3,\"registration\":\"\",\"salt\":\"0000000000000007\","
+                        + "\"seed\":12345,\"seedcode\":\"" + SeedSet.code(SEED) + "\","
+                        + "\"started\":\"2026-09-22T12:00:00Z\",\"t\":\"header\",\"tag\":\"v4.0.0\","
+                        + "\"v\":2}",
                 RunLogJson.canonical(header()));
     }
 
@@ -128,8 +183,9 @@ class RunLogJsonTest {
     @Test
     @DisplayName("the same header on two machines at two times chains identically")
     void the_machine_and_the_hour_are_not_chained() {
-        RunLog.Header elsewhere = new RunLog.Header(1, "v4.0.0", "abc1234", HeroClass.WARRIOR, 0, SEED,
-                SeedSet.code(SEED), 7L, 3, 2, 8, new RunLog.Brain("random", "def5678", ZERO), "", false,
+        RunLog.Header elsewhere = new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc1234",
+                HeroClass.WARRIOR, 0, SEED, SeedSet.code(SEED), 7L, CAP, 3, 2, 8,
+                new RunLog.Brain("random", "def5678", ZERO), "", false,
                 "a server in another country", "2027-01-01T00:00:00Z");
 
         assertEquals(RunLogJson.chain("", header()), RunLogJson.chain("", elsewhere));
@@ -139,10 +195,20 @@ class RunLogJsonTest {
     @DisplayName("anything the chain does cover changes it")
     void everything_else_is_chained() {
         String was = RunLogJson.chain("", header());
-        RunLog.Header later = new RunLog.Header(1, "v4.0.0", "abc1234", HeroClass.MAGE, 0, SEED,
-                SeedSet.code(SEED), 7L, 3, 2, 8, new RunLog.Brain("random", "def5678", ZERO), "", false,
-                "a laptop", "2026-09-22T12:00:00Z");
+        RunLog.Header later = new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc1234", HeroClass.MAGE,
+                0, SEED, SeedSet.code(SEED), 7L, CAP, 3, 2, 8,
+                new RunLog.Brain("random", "def5678", ZERO), "", false, "a laptop",
+                "2026-09-22T12:00:00Z");
         assertNotEquals(was, RunLogJson.chain("", later), "a different hero is a different Run");
+
+        // The cap decides whether a Run ended or was stopped, so two Runs under different caps are
+        // two Runs. Story 3.4 found this by replaying one: everything matched and the endings did
+        // not, because the Replay did not know what had stopped the original.
+        RunLog.Header shorter = new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc1234",
+                HeroClass.WARRIOR, 0, SEED, SeedSet.code(SEED), 7L, CAP / 2, 3, 2, 8,
+                new RunLog.Brain("random", "def5678", ZERO), "", false, "a laptop",
+                "2026-09-22T12:00:00Z");
+        assertNotEquals(was, RunLogJson.chain("", shorter), "a different cap is a different Run");
 
         RunLog.Wait moved = new RunLog.Wait(4, 1_500, 2, 0, ONE, served(12).sections(),
                 new Action.Step(17), true, RunLog.BOT, null, "", List.of(), 12);
@@ -184,20 +250,29 @@ class RunLogJsonTest {
     @DisplayName("a record refuses a value the log could not mean")
     void the_records_refuse_what_they_cannot_mean() {
         assertThrows(IllegalArgumentException.class,
-                () -> new RunLog.Header(2, "v4.0.0", "abc", HeroClass.WARRIOR, 0, SEED, SeedSet.code(SEED),
-                        7L, 3, 2, 8, new RunLog.Brain("random", "def", ZERO), "", false, "", ""),
+                () -> new RunLog.Header(RunLog.VERSION + 1, "v4.0.0", "abc", HeroClass.WARRIOR, 0,
+                        SEED, SeedSet.code(SEED), 7L, CAP, 3, 2, 8,
+                        new RunLog.Brain("random", "def", ZERO), "", false, "", ""),
                 "a schema version this build does not write");
         assertThrows(IllegalArgumentException.class,
-                () -> new RunLog.Header(1, "v4.0.0", "abc", HeroClass.WARRIOR, 0, SEED, SeedSet.code(SEED + 1),
-                        7L, 3, 2, 8, new RunLog.Brain("random", "def", ZERO), "", false, "", ""),
+                () -> new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc", HeroClass.WARRIOR, 0, SEED,
+                        SeedSet.code(SEED + 1), 7L, CAP, 3, 2, 8,
+                        new RunLog.Brain("random", "def", ZERO), "", false, "", ""),
                 "a seed code that means another seed");
         assertThrows(IllegalArgumentException.class,
-                () -> new RunLog.Header(1, "v4.0.0", "", HeroClass.WARRIOR, 0, SEED, SeedSet.code(SEED),
-                        7L, 3, 2, 8, new RunLog.Brain("random", "def", ZERO), "", false, "", ""),
+                () -> new RunLog.Header(RunLog.VERSION, "v4.0.0", "", HeroClass.WARRIOR, 0, SEED,
+                        SeedSet.code(SEED), 7L, CAP, 3, 2, 8,
+                        new RunLog.Brain("random", "def", ZERO), "", false, "", ""),
                 "no commit, so nothing says which build played it");
         assertThrows(IllegalArgumentException.class,
-                () -> new RunLog.Header(1, "v4.0.0", "abc", HeroClass.WARRIOR, 512, SEED, SeedSet.code(SEED),
-                        7L, 3, 2, 8, new RunLog.Brain("random", "def", ZERO), "", false, "", ""),
+                () -> new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc", HeroClass.WARRIOR, 0, SEED,
+                        SeedSet.code(SEED), 7L, 0, 3, 2, 8,
+                        new RunLog.Brain("random", "def", ZERO), "", false, "", ""),
+                "a turn cap of nothing, which is not a Run anybody played");
+        assertThrows(IllegalArgumentException.class,
+                () -> new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc", HeroClass.WARRIOR, 512, SEED,
+                        SeedSet.code(SEED), 7L, CAP, 3, 2, 8,
+                        new RunLog.Brain("random", "def", ZERO), "", false, "", ""),
                 "challenge flags past the game's own mask");
 
         assertThrows(IllegalArgumentException.class,

@@ -17,6 +17,8 @@ dependencies {
 // looked. This is the declaration the Codex's own test needed for the same reason.
 tasks.named('test') {
     inputs.dir(rootProject.file('seeds')).withPropertyName('committedSeedSets').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(rootProject.file('reference')).withPropertyName('referenceRun').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(rootProject.file('.github/workflows/replay.yml')).withPropertyName('replayWorkflow').withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 // `./gradlew :rig:seeds` writes seeds/ at the repository root: one task, no Run, no game boot,
@@ -28,6 +30,20 @@ tasks.register('seeds', JavaExec) {
     mainClass = 'org.shatterfish.rig.Seeds'
     workingDir = rootDir
     args = [rootDir.absolutePath]
+    outputs.upToDateWhen { false }
+}
+
+// `./gradlew :rig:reference` writes the committed reference Run: one log and the index that
+// publishes its chain. The nightly cross-platform workflow replays it on Windows and on Linux.
+// The tuple and the reason for every part of it are in Reference itself, so that the values are
+// stated once, in Java, where a test can hold the committed file against them.
+tasks.register('reference', JavaExec) {
+    group = 'shatterfish'
+    description = 'Writes reference/ : one Run, fixed in every part, for the cross-platform replay.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.rig.Reference'
+    workingDir = rootDir
+    args = [new File(rootDir, 'reference').absolutePath]
     outputs.upToDateWhen { false }
 }
 

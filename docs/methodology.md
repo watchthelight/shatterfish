@@ -267,6 +267,15 @@ Every Run writes `<run-id>.jsonl`: one record per line, plain text, no compressi
 comparison plays two Brains on the same triple under the same salt -- without it, a pair's two Runs
 would agree on every other part and write to one file.
 
+**The header states what the Run was**, which is the tuple -- upstream tag, hero class,
+challenges, seed, salt -- and then the three things that decide what this build *meant* by it: the
+Observation schema version, the Profile version, and the turn cap. The cap is there because a Run
+stopped at turn 20,000 and a Run stopped at turn 150 are different Runs even on one tuple, and a
+Replay that did not know which would reproduce every wait and then end differently. That is how it
+was found: story 3.4's round-trip test reproduced a Run exactly, disagreed on the ending alone, and
+the cap went into the header (schema version 2) rather than into a comment explaining the
+disagreement.
+
 Each line carries a chain value over itself and everything before it, so a byte changed anywhere
 breaks every chain from that record on. The point of publishing the rules below is that the chain
 can be recomputed by something that has never seen this repository: a shell script with `sha256sum`
@@ -313,6 +322,7 @@ wrong about this format in both directions, so here is the per-field truth:
 | `registration` (on the header) | written as `""` |
 | `alternatives`, `flags` (inside a decision) | written as `[]` |
 | `machine`, `started` | always written, and never chained |
+| `cap` (on the header) | always written; a Run has no unbounded form |
 
 No field is ever `null`.
 
@@ -320,10 +330,25 @@ No field is ever `null`.
 
 ```
 chained(record) = the record's canonical JSON with these keys removed:
-                  prev, chain, think_ms, machine, started
+                  prev, chain                 from a record of any kind
+                  machine, started            from a header
+                  think_ms                    from a wait
 chain(header)   = SHA-256( utf8(chained(header)) )
 chain(record_k) = SHA-256( bytes(chain_{k-1}) || utf8(chained(record_k)) )
 ```
+
+**Per kind, and this matters.** `think_ms` is a wait's field and `machine` and `started` are the
+header's, so a checker that struck those names from every record alike would leave every other
+record in the log with three names' worth of bytes the chain does not cover. A `mode` record
+carrying `"think_ms":"anything at all"` would hash as though the member were not there. The first
+implementation of this in Shatterfish did exactly that, and the rule is stated this way so that a
+third implementation does not. A record carrying an excluded key that its own kind does not have is
+not a record this format can chain: refuse it rather than hash the text without it.
+
+A key is matched **as it is written**, not as it decodes. The writer escapes nothing in a key, so
+`"\u0070rev"` is not `prev` -- it is a key the writer would never have produced, and a file holding
+one is refused rather than stripped. Without that rule a `sed`-based checker and a decoding one
+disagree about the same file, which is the one thing a published format may not permit.
 
 `bytes(...)` is the previous chain as its thirty-two raw bytes, not as its sixty-four hex
 characters. Every line then carries `chain`, and every line after the header also carries `prev`,
@@ -356,20 +381,101 @@ hash the remaining text as UTF-8, and you should get the same:
 
 | What | Value |
 |---|---|
-| The record | `{"brain":{"commit":"def5678","config":"0000000000000000000000000000000000000000000000000000000000000000","name":"random"},"challenges":0,"class":"WARRIOR","codex":8,"commit":"abc1234","machine":"a laptop","obsv":2,"oracle":false,"profile":3,"registration":"","salt":"0000000000000007","seed":12345,"seedcode":"AAA-AAA-SGV","started":"2026-09-22T12:00:00Z","t":"header","tag":"v4.0.0","v":1}` |
-| Chained (the same, without `machine` and `started`) | `{"brain":{"commit":"def5678","config":"0000000000000000000000000000000000000000000000000000000000000000","name":"random"},"challenges":0,"class":"WARRIOR","codex":8,"commit":"abc1234","obsv":2,"oracle":false,"profile":3,"registration":"","salt":"0000000000000007","seed":12345,"seedcode":"AAA-AAA-SGV","t":"header","tag":"v4.0.0","v":1}` |
-| `chain` | `53aa5c6fc977dce9da982096d39e3c3663d010b466ce794a4641ca163b485fb5` |
+| The record | `{"brain":{"commit":"def5678","config":"0000000000000000000000000000000000000000000000000000000000000000","name":"random"},"cap":20000,"challenges":0,"class":"WARRIOR","codex":8,"commit":"abc1234","machine":"a laptop","obsv":2,"oracle":false,"profile":3,"registration":"","salt":"0000000000000007","seed":12345,"seedcode":"AAA-AAA-SGV","started":"2026-09-22T12:00:00Z","t":"header","tag":"v4.0.0","v":2}` |
+| Chained (the same, without `machine` and `started`) | `{"brain":{"commit":"def5678","config":"0000000000000000000000000000000000000000000000000000000000000000","name":"random"},"cap":20000,"challenges":0,"class":"WARRIOR","codex":8,"commit":"abc1234","obsv":2,"oracle":false,"profile":3,"registration":"","salt":"0000000000000007","seed":12345,"seedcode":"AAA-AAA-SGV","t":"header","tag":"v4.0.0","v":2}` |
+| `chain` | `aa72885f80d8f4cad6626e9e85c99390e82d38e86802a4811edfaff1fabb21c2` |
 
 `RunLogVectorTest` recomputes this table from the code on every build, so the page cannot drift
 away from what the writer does.
+
+### Replay
+
+A **Replay is a Run whose decider is the log.** At each Input wait it checks that this build is
+seeing the Observation the log recorded, hands back the Action that was taken, and writes its own
+log as it goes. It plays through the same loop, the same executor, the same driver and the same
+Profile as the Run it is checking: a reproduction through a different path would prove less, and a
+second loop would be a second set of rules about what a Run is.
+
+**The comparison is the two chains.** A chain covers everything about a Run except how long the
+decider took and which machine it ran on, so a Replay that arrives at the same value has reproduced
+every Observation, every Action, every section hash, the turn counts and the ending -- in one value
+a person can check by eye. Comparing Observation hashes wait by wait is what *names* a divergence;
+comparing chains is what says there was none. Both are reported, and they answer different
+questions: a log whose Actions were changed reproduces every Observation and then reaches a
+different chain, which a wait-by-wait check alone would pass.
+
+**Four things are refused before a Run is started**, because a difference in any of them makes a
+comparison meaningless rather than negative: the log schema version, the upstream tag, the
+Observation schema version and the Profile version. Each decides what a Run *is*. A log whose chain
+does not verify is refused for the same reason -- it describes a Run that never happened, and
+replaying it would measure this build against a fiction.
+
+**What a Replay proves** is that this build, on this machine, plays the tuple in the log the way the
+log says it was played. It does not prove the log describes a Run anybody performed: the rules on
+this page are enough to write one from scratch, and four of this story's own tests do exactly that.
+The forgery is caught by playing it.
+
+Two commands, and they cost very different things:
+
+```sh
+./gradlew :rig:run --args="--verify <folder>"        # every log in a folder, against its own bytes
+./gradlew :rig:run --args="--replay <log> --out <folder>"   # one Run, played again
+```
+
+`--verify` recomputes every chain, checks each against the chain the run index published for that
+Run, checks that no log's header claims the oracle, that each file is named for the Run its own
+header states, and that each log begins with a header and holds exactly one. It plays nothing.
+
+It does **not** require a Run to have finished unless you ask with `--finished`. Every prefix of a
+valid log is a valid log, a folder of five hundred Runs normally holds a few that were killed, and
+the run index already counts those as incomplete — failing the folder for them would make a busy
+machine look like a dishonest one. The nightly job passes `--finished`, because a reference log
+truncated to its header verifies perfectly and would then be "replayed" as a one-line Run that
+reports success on both platforms.
+
+**A folder with no `runs.jsonl` is refused.** Without the index nothing in the folder is held
+against a published value, so the command is comparing each file with itself — and deleting one
+file is the cheapest way to launder a folder that was edited. A folder in that state has not been
+verified; it has been read, and `--verify` says so rather than printing a clean pass. `--replay` takes one log rather than a folder, because a Replay is a Run and AD-6
+gives a Run its own process: the game's state is static and process-wide, so a command that
+replayed a folder in one JVM would be measuring the order the logs went in.
+
+**What they cost.** Measured on the standard set, 500 Runs of the random Brain, 24 processes, cap
+2000, on the machine the E3 numbers above come from:
+
+| | Time | Per Run |
+|---|---|---|
+| Playing the 500 Runs | 159,797 ms | 320 ms |
+| `--verify` over the folder | 1,402 ms | 2.8 ms |
+| `--replay` of one Run (31 waits) | 1,025 ms | -- |
+
+So **verifying a folder costs about one percent of producing it**, single-threaded and with no game
+booted, which is what makes it something to run on every folder rather than on a sample. **Replaying
+costs what running costs**, because it is running: the same loop, the same game, one process. The
+two are not alternatives. Verification answers "was this file changed after it was written" for
+everything; a Replay answers "does this build still do what this log describes" for one Run at a
+time, and the nightly cross-platform job spends that cost on a committed reference log so that a
+difference between Windows and Linux is found by the project rather than by a reader.
 
 ### What the chain does not prove
 
 The header's `tag`, `commit`, `brain` and `registration` are supplied by whoever started the Run:
 the driver has no checkout to read a commit from and no Registration to read an id from. They are
-*attested*, not verified. The chain shows that nobody changed them after the Run; what makes them
-worth anything is the Registration committed before the first Run, and the Replay that plays the
-log back and compares every Observation hash.
+*attested*, not verified, and the chain shows only that nobody changed them after the Run.
+
+**A Replay does not check three of them.** It refuses a log whose `tag` is not this build's, because
+the tag is the game's own rules and a comparison across two of them means nothing. It takes
+`commit`, `brain` and `registration` from the log and writes them into its own — it has to, or no
+other checkout could ever reach the log's chain, which is the whole of what the cross-platform job
+does. So a log whose attestations were rewritten and rechained replays to the same chain and is
+reported as reproduced, correctly: *the Run reproduced*. Nothing about who played it was checked,
+and a reproduction should never be read as saying otherwise. `--replay` prints the commit of the
+build that did the replaying next to the commit the log attests, because those are two different
+facts and only one of them is evidence about the machine in front of you.
+
+What makes an attestation worth anything is the Registration committed before the first Run
+(story 3.5), which puts the claim somewhere its author does not control. A Replay is evidence about
+this build and this machine; it is not evidence about a stranger's.
 
 A Run that ends without an `end` record is *incomplete* -- killed, crashed, or timed out. Its
 prefix still reads and still verifies as far as it goes, and the Rig counts it as incomplete and

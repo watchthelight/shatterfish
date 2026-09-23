@@ -1,5 +1,10 @@
 package org.shatterfish.rig;
 
+import org.shatterfish.api.RunLog;
+import org.shatterfish.harness.log.Json;
+import org.shatterfish.harness.log.RunLogReader;
+import org.shatterfish.harness.log.RunLogVerifier;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -7,33 +12,29 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
- * What the Rig reads back out of a Run's log (story 3.3): whether the Run claimed the oracle, and
- * the chain it ended on.
+ * What the Rig reads back out of a Run's log (story 3.3, consolidated in story 3.4).
  *
- * <p>It reads the text. {@code RunLogJson} writes and never reads — by rule, because {@code api}
- * has no JSON reader (story 2.1), and by design, because the thing that checks a log must not be
- * the thing that wrote it. A reader built out of the writer agrees with any writer that agrees with
- * itself, which is the defect that survived four independent reviews in each of three stories. So
- * this walks the line's characters, the way story 3.2's own checker does, and the two agreeing is
- * evidence rather than tautology.
+ * <p>It reads the text, not the writer. {@code RunLogJson} writes and never reads — by rule,
+ * because {@code api} has no JSON reader (story 2.1), and by design, because a reader built out of
+ * the writer agrees with any writer that agrees with itself, which is the defect that survived four
+ * independent reviews in each of three stories.
  *
- * <p>It reads as little as it can. The Rig needs two facts out of a log it did not write: the
- * oracle flag, which FR-11 makes the enforcement point, and the last chain, which is what a Results
- * page publishes. Verifying the chain is the Replay's work (story 3.4), and a reader that did it
- * here would be a second implementation of it.
+ * <p><b>It no longer has a reader of its own.</b> Story 3.3 left this class walking the characters
+ * itself, and story 3.4 added {@link RunLogReader} in the harness — which would have made three
+ * implementations of one grammar, counting the harness's test reader. Three is not more honest than
+ * two; it is two places for a drift to hide. So the parsing here is gone and this is a Rig-shaped
+ * view over the harness's readers: {@link RunLogReader} for the records, {@link RunLogVerifier} for
+ * the chain, {@link Json} for the one raw field this needs before a record exists. The arrangement
+ * that keeps them honest is unchanged — one production reader, one deliberately independent test
+ * reader in the harness, and a test that they agree.
+ *
+ * <p>It still reads as little as it can, and it still reports rather than throws: the Rig reads
+ * five hundred of these on worker threads, and one corrupt byte must not end the invocation.
  */
 public final class LogHeader {
-
-    /** The key the log's first line writes the kind under, and the kinds this reader cares about. */
-    private static final String KIND = "t";
-
-    private static final String HEADER = "header";
-
-    private static final String END = "end";
-
-    private static final String WAIT = "wait";
 
     private LogHeader() {
     }
@@ -46,7 +47,9 @@ public final class LogHeader {
      * @param lines      the whole lines it holds; a partial last line is not one
      * @param oracle     the header's own oracle flag
      * @param complete   whether the last whole line is an {@code end} record
-     * @param chain      the chain of the last whole line, or empty when there is none
+     * @param chain      the chain of the last whole line, or empty when there is none. It is what
+     *                   the file states, not what its bytes give: recomputing it is the Replay's
+     *                   work, which {@code --verify} does and the run index does not
      * @param runId      the id the header's own fields give, or empty when it cannot be read
      * @param waits      how many Input waits the Run served, counted as wait records. It is the
      *                   quantity a throughput number is about, and it is not "lines minus two":
@@ -79,210 +82,218 @@ public final class LogHeader {
         if (!Files.isRegularFile(file)) {
             return Read.MISSING;
         }
-        Split split;
+        String text;
         try {
-            split = split(file);
-        } catch (RuntimeException unreadable) {
-            return unreadable(unreadable.getMessage());
+            text = Files.readString(file, StandardCharsets.UTF_8);
+        } catch (IOException | RuntimeException | OutOfMemoryError cannot) {
+            // A file locked by another process, a byte that is not UTF-8, a log too large for the
+            // heap. This used to be thrown, and the Rig reads five hundred of these on worker
+            // threads -- so one such file ended the whole invocation, which is the case the record
+            // below promises in its own javadoc to survive.
+            return unreadable(false, "the Run log " + file + " could not be read: " + cannot);
         }
-        if (split.whole().isEmpty()) {
-            // No whole line. A killed writer can leave a header whose trailing line feed never
-            // reached the disk, and that header may claim the oracle -- so the partial text is
-            // asked, and a Run whose claim cannot be read is marked unreadable rather than
-            // silently counted as fair.
-            if (split.partial().isEmpty()) {
-                return new Read(true, 0, false, false, "", "", 0, "", "");
-            }
+        return of(text, file);
+    }
+
+    /**
+     * Reads a log's text, naming {@code file} in what it reports.
+     *
+     * <p>Taking the text lets a caller that has already read the file -- {@code --verify} reads it
+     * once for the chain -- hold the same bytes up to both questions. Two reads of a file that is
+     * still being written answer about two different files.
+     */
+    public static Read of(String text, Path file) {
+        List<String> whole = whole(text);
+        // The oracle flag, off the text, before anything is asked to be a record. FR-11 keys on
+        // this and it may not need a well-formed header to fire: a hand-made line claiming the
+        // oracle and nothing else parses as an object and says what it says, and a reader that
+        // required all eighteen header fields before it would believe that line would answer
+        // "unreadable" -- which the Rig counts as an incomplete Run rather than as a refusal.
+        // That is exactly how this guard was weakened when the Rig's own reader was folded into
+        // the harness's, and it is why the flag is read separately from the records.
+        boolean claimed;
+        try {
+            claimed = claimsTheOracle(whole, text);
+        } catch (RuntimeException cannot) {
+            // `oracle` held as something that is not true or false. The claim cannot be read, and
+            // an unreadable claim is treated as a claim: the alternative is INCOMPLETE, which
+            // ADR-0012 scores as a tie, so a Run could escape FR-11 by being malformed as well as
+            // unfair. Refusing a fair Run whose log is corrupt costs one Run; the other way costs
+            // the rule.
+            return unreadable(true, "the log's own oracle flag could not be read, and a claim"
+                    + " that cannot be read is treated as a claim: " + cannot.getMessage());
+        }
+        RunLogReader.Log log;
+        try {
+            log = RunLogReader.of(text);
+        } catch (RuntimeException unreadable) {
+            return unreadable(claimed, unreadable.getMessage());
+        }
+        if (whole.isEmpty()) {
+            return headless(claimed, log.partial());
+        }
+        if (!log.readable()) {
+            return unreadable(claimed, log.unreadable());
+        }
+        try {
+            return read(claimed, log, whole);
+        } catch (RuntimeException unreadable) {
+            return unreadable(claimed, unreadable.getMessage());
+        }
+    }
+
+    /**
+     * Whether any line in this file says in its own text that the Run saw what a player could not.
+     *
+     * <p>Every line, not the first, and the partial one too. Two logs concatenated -- a fair Run
+     * followed by an oracle one -- used to read as one fair Run, and a killed writer can leave a
+     * header whose trailing line feed never reached the disk.
+     */
+    private static boolean claimsTheOracle(List<String> whole, String text) {
+        boolean claimed = false;
+        List<String> every = new ArrayList<>(whole);
+        String partial = text.substring(text.lastIndexOf('\n') + 1);
+        if (!partial.isEmpty()) {
+            every.add(partial);
+        }
+        for (String line : every) {
+            Map<String, String> held;
             try {
-                boolean oracle = "true".equals(value(split.partial(), "oracle"));
-                return oracle
-                        ? new Read(true, 0, true, false, "", "", 0, "", "")
-                        : unreadable("the log holds no whole line, so nothing in it can be believed");
-            } catch (RuntimeException cannot) {
-                return unreadable("the log holds no whole line and its partial one is not readable");
+                held = Json.object(line);
+            } catch (RuntimeException notAnObject) {
+                // A line this reader will not parse still says what it says. A byte order mark at
+                // the front of a file, a key written twice, bytes after the closing brace: each
+                // makes `Json.object` refuse, and the first draft took that as "claims nothing" --
+                // which handed a hand-made oracle header the easiest possible disguise, and made
+                // the duplicate-key case this method's own comment names unreachable. So the text
+                // is asked instead, and a line that mentions the flag at all is treated as
+                // claiming it. A fair Run's log never contains the word except as `false`.
+                if (mentionsTheOracle(line)) {
+                    return true;
+                }
+                continue;
             }
+            String oracle = held.get("oracle");
+            claimed |= oracle != null && Json.bool(oracle);
         }
-        try {
-            return read(split.whole());
-        } catch (RuntimeException unreadable) {
-            return unreadable(unreadable.getMessage());
-        }
+        return claimed;
     }
 
-    private static Read unreadable(String why) {
-        return new Read(true, 0, false, false, "", "", 0, "", why == null ? "unreadable" : why);
+    /**
+     * Whether a line this reader could not parse mentions the oracle as anything but false.
+     *
+     * <p>Deliberately crude, and deliberately in the direction of refusing. This is only reached
+     * for a line the format says should not exist, and between "refuse a Run that was probably
+     * fair" and "publish a Run that was probably not", FR-11 decides which way to be wrong.
+     */
+    private static boolean mentionsTheOracle(String line) {
+        int at = line.indexOf("oracle");
+        while (at >= 0) {
+            String rest = line.substring(at + "oracle".length());
+            if (!rest.startsWith("\":false")) {
+                return true;
+            }
+            at = line.indexOf("oracle", at + 1);
+        }
+        return false;
     }
 
-    private static Read read(List<String> lines) {
-        String first = lines.get(0);
-        if (!HEADER.equals(string(first, KIND))) {
-            throw new IllegalStateException("a Run log begins with a header, and this begins " + first);
+    /**
+     * A log with no whole line in it.
+     *
+     * <p>A killed writer can leave a header whose trailing line feed never reached the disk, and
+     * that header may claim the oracle — so the partial text is asked, and a Run whose claim cannot
+     * be read is marked unreadable rather than silently counted as fair.
+     */
+    private static Read headless(boolean claimed, String partial) {
+        if (partial.isEmpty()) {
+            return new Read(true, 0, false, false, "", "", 0, "", "");
+        }
+        if (claimed) {
+            return new Read(true, 0, true, false, "", "", 0, "", "");
+        }
+        return unreadable(false, "the log holds no whole line, so nothing in it can be believed");
+    }
+
+    private static Read unreadable(boolean claimed, String why) {
+        return new Read(true, 0, claimed, false, "", "", 0, "", why == null ? "unreadable" : why);
+    }
+
+    private static Read read(boolean claimed, RunLogReader.Log log, List<String> whole) {
+        List<RunLog> records = log.records();
+        if (records.isEmpty() || !(records.get(0) instanceof RunLog.Header)) {
+            throw new IllegalStateException("a Run log begins with a header, and this begins "
+                    + whole.get(0));
         }
         // Every header, not the first. Two logs concatenated -- a fair Run followed by an oracle
-        // one -- used to read as one fair Run, while `LogText.whole` in the harness refuses a
-        // second header outright. The guard FR-11 keys on may not be weaker than a reader that
-        // already exists.
+        // one -- used to read as one fair Run, while `LogText` in the harness refuses a second
+        // header outright. The guard FR-11 keys on may not be weaker than a reader that already
+        // exists.
         boolean oracle = false;
         int waits = 0;
         int headers = 0;
-        for (String line : lines) {
-            String kind = string(line, KIND);
-            if (HEADER.equals(kind)) {
+        for (RunLog record : records) {
+            if (record instanceof RunLog.Header header) {
                 headers++;
-                oracle |= "true".equals(value(line, "oracle"));
-            } else if (WAIT.equals(kind)) {
+                oracle |= header.oracle();
+            } else if (record instanceof RunLog.Wait) {
                 waits++;
             }
         }
+        oracle |= claimed;
         if (headers != 1) {
             throw new IllegalStateException("a Run log holds one header and this holds " + headers
                     + "; two Runs in one file are not one Run");
         }
-        String last = lines.get(lines.size() - 1);
-        boolean complete = END.equals(string(last, KIND));
+        RunLog.End end = log.end();
         // The end record's own cause, so the index says DEATH or TURN_CAP rather than the word
         // "ended" for every Run alike -- which is the difference between a tally and a number.
-        String outcome = complete ? value(last, "outcome") : null;
-        String cause = outcome == null ? "" : orEmpty(string(outcome, "cause"));
-        return new Read(true, lines.size(), oracle, complete,
-                orEmpty(string(last, "chain")), runId(first), waits, cause, "");
+        String cause = end == null ? "" : end.outcome().cause();
+        return new Read(true, whole.size(), oracle, end != null, chain(whole.get(whole.size() - 1)),
+                ((RunLog.Header) records.get(0)).runId(), waits, cause, "");
     }
 
-    /** The id the header's own fields name, which has to be the name of the file it is in. */
-    private static String runId(String header) {
-        return orEmpty(string(header, "tag")) + "-" + orEmpty(string(header, "class")) + "-"
-                + orEmpty(value(header, "challenges")) + "-" + orEmpty(string(header, "seedcode"))
-                + "-" + orEmpty(string(header, "salt")) + "-" + brainName(header);
+    /** The chain the last whole line states, which is the value the run index publishes. */
+    private static String chain(String line) {
+        Map<String, String> held = Json.object(line);
+        String chain = held.get("chain");
+        return chain == null ? "" : Json.string(chain);
     }
 
-    private static String brainName(String header) {
-        String brain = value(header, "brain");
-        return brain == null ? "" : orEmpty(string(brain, "name"));
-    }
-
-    private static String orEmpty(String value) {
-        return value == null ? "" : value;
-    }
-
-    /** A log's whole lines and whatever a kill left after the last one. */
-    private record Split(List<String> whole, String partial) {
-    }
-
-    private static Split split(Path file) {
-        String text;
-        try {
-            text = Files.readString(file, StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new UncheckedIOException("the Run log " + file + " could not be read", e);
-        }
-        List<String> whole = new ArrayList<>();
+    /** A log's whole lines. A partial last line is not one. */
+    private static List<String> whole(String text) {
+        List<String> lines = new ArrayList<>();
         int from = 0;
         while (true) {
             int feed = text.indexOf('\n', from);
             if (feed < 0) {
-                return new Split(List.copyOf(whole), text.substring(from));
+                return List.copyOf(lines);
             }
             String line = text.substring(from, feed);
             // A log fetched over HTTP or checked out with autocrlf carries a carriage return the
             // writer never wrote. That is a rule the format states, and it is not a reason to be
             // unable to read whether the Run claimed the oracle.
-            whole.add(line.endsWith("\r") ? line.substring(0, line.length() - 1) : line);
+            lines.add(line.endsWith("\r") ? line.substring(0, line.length() - 1) : line);
             from = feed + 1;
         }
     }
 
-    // ------------------------------------------------- a reader of one shape, walked as characters
+    // ---------------------------------------------------- the Rig's own files, which are not logs
 
-    /** The text of {@code key}'s value, or null when the object does not hold it. */
-    static String value(String object, String key) {
-        if (object.length() < 2 || object.charAt(0) != '{' || object.charAt(object.length() - 1) != '}') {
-            throw new IllegalArgumentException("a log line is one JSON object: " + object);
-        }
-        int at = 1;
-        String found = null;
-        while (at < object.length() - 1) {
-            if (object.charAt(at) != '"') {
-                throw new IllegalArgumentException("a key is quoted, at " + at + ": " + object);
-            }
-            int keyEnd = endOfString(object, at);
-            String held = object.substring(at + 1, keyEnd - 1);
-            if (object.charAt(keyEnd) != ':') {
-                throw new IllegalArgumentException("a key is followed by a colon, at " + keyEnd);
-            }
-            int to = endOfValue(object, keyEnd + 1);
-            if (held.equals(key)) {
-                if (found != null) {
-                    // `LogText` refuses a repeated key for a reason it states: every JSON reader
-                    // downstream takes the last one, so a line carrying `oracle` twice means one
-                    // thing to this guard and another to everything else. Returning the first was
-                    // how a hand-made header defeated the refusal.
-                    throw new IllegalArgumentException("the key " + key + " is written twice, and a"
-                            + " reader that took the other one would read a different Run");
-                }
-                found = object.substring(keyEnd + 1, to);
-            }
-            at = to;
-            if (at < object.length() - 1) {
-                if (object.charAt(at) != ',') {
-                    throw new IllegalArgumentException("members are comma separated, at " + at);
-                }
-                at++;
-            }
-        }
-        return found;
+    /**
+     * The text of {@code key}'s value in one canonical object, or null when it holds no such key.
+     *
+     * <p>The run index and the summary are written in the log's own canonical shape but are not
+     * logs — they hold no records — so they are read as objects. {@link Json} refuses a key written
+     * twice, which is how a hand-made header once defeated the oracle guard.
+     */
+    public static String value(String object, String key) {
+        return Json.object(object).get(key);
     }
 
-    /** A string value with its quotes taken off, or null when the object does not hold the key. */
-    static String string(String object, String key) {
+    /** A string value, unquoted and unescaped, or null when the object does not hold the key. */
+    public static String string(String object, String key) {
         String raw = value(object, key);
-        if (raw == null) {
-            return null;
-        }
-        if (raw.length() < 2 || raw.charAt(0) != '"' || raw.charAt(raw.length() - 1) != '"') {
-            throw new IllegalArgumentException("the value of " + key + " is not a string: " + raw);
-        }
-        return raw.substring(1, raw.length() - 1);
-    }
-
-    private static int endOfString(String line, int at) {
-        for (int i = at + 1; i < line.length(); i++) {
-            char c = line.charAt(i);
-            if (c == '\\') {
-                i++;
-            } else if (c == '"') {
-                return i + 1;
-            }
-        }
-        throw new IllegalArgumentException("a string is not closed, from " + at + ": " + line);
-    }
-
-    private static int endOfValue(String line, int at) {
-        int depth = 0;
-        int i = at;
-        while (i < line.length()) {
-            char c = line.charAt(i);
-            if (c == '"') {
-                i = endOfString(line, i);
-                if (depth == 0) {
-                    return i;
-                }
-                continue;
-            }
-            if (c == '{' || c == '[') {
-                depth++;
-            } else if (c == '}' || c == ']') {
-                if (depth == 0) {
-                    return i;
-                }
-                depth--;
-                if (depth == 0) {
-                    return i + 1;
-                }
-            } else if (c == ',' && depth == 0) {
-                return i;
-            }
-            i++;
-        }
-        throw new IllegalArgumentException("a value is not closed, from " + at + ": " + line);
+        return raw == null ? null : Json.string(raw);
     }
 }

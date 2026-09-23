@@ -2,9 +2,11 @@ package org.shatterfish.rig;
 
 import org.shatterfish.api.RunLog;
 import org.shatterfish.api.SeedSet;
+import org.shatterfish.harness.log.Replay;
 import org.shatterfish.harness.rng.Salt;
 
 import java.io.IOException;
+import java.io.PrintStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -66,8 +68,43 @@ public final class Runner {
 
     public static final String DEADLINE = "--deadline";
 
+    /**
+     * Checks a folder the Rig wrote: every log against its own bytes, and against the index.
+     *
+     * <p>It plays nothing, so it costs what reading the files costs and can be run on every folder
+     * rather than on a sample. It answers "was this folder changed after it was written"; it does
+     * not answer "does this build still do what these logs describe", which is {@link #REPLAY}.
+     */
+    public static final String VERIFY = "--verify";
+
+    /**
+     * Replays one log in this process and reports whether the chains agree.
+     *
+     * <p>One log, not a folder. A Replay is a Run, and AD-6 gives a Run its own process because the
+     * game's state is static and process-wide -- so a command that replayed five hundred logs in
+     * one JVM would be measuring the order they went in.
+     */
+    public static final String REPLAY = "--replay";
+
+    /**
+     * Requires every log in a {@code --verify} folder to be a Run that finished.
+     *
+     * <p>Without it an incomplete log passes, which is right for a folder of five hundred Runs
+     * where a machine ran out of time. It is wrong for the nightly job's reference folder, where a
+     * log truncated to its header would otherwise pre-flight clean and then be "replayed" as a
+     * one-line Run that reports success.
+     */
+    public static final String FINISHED = "--finished";
+
     /** Every flag the Rig knows. The list is asserted by name, so a new one is a decision. */
-    static final List<String> KNOWN = List.of(BRAIN, SEEDS, PARALLEL, OUT, ROOT, COMMIT, CAP, DEADLINE);
+    static final List<String> KNOWN = List.of(BRAIN, SEEDS, PARALLEL, OUT, ROOT, COMMIT, CAP,
+            DEADLINE, VERIFY, REPLAY, FINISHED);
+
+    /** The two things this command can be asked to do, of which it does exactly one. */
+    static final List<String> MODES = List.of(VERIFY, REPLAY);
+
+    /** The flags that are their own answer and take no value after them. */
+    static final List<String> SWITCHES = List.of(FINISHED);
 
     /** How long one Run may take before it is killed and counted incomplete. */
     public static final int DEADLINE_SECONDS = 900;
@@ -82,9 +119,93 @@ public final class Runner {
     }
 
     public static void main(String[] args) {
-        Path out = run(arguments(args));
+        Map<String, String> arguments = arguments(args);
+        // One mode. `arguments` refuses a flag twice and a flag with no value, and this is the same
+        // rule one level up: a command line asking to verify and to replay used to do one of them
+        // and say nothing about the other, which is a flag silently ignored.
+        List<String> asked = MODES.stream().filter(arguments::containsKey).toList();
+        if (asked.size() > 1) {
+            throw new IllegalArgumentException("the Rig does one thing per invocation and this asks"
+                    + " for " + asked + "; verifying a folder and replaying a log are different"
+                    + " questions with different costs");
+        }
+        if (arguments.containsKey(VERIFY)) {
+            System.exit(verify(arguments, System.out));
+            return;
+        }
+        if (arguments.containsKey(REPLAY)) {
+            System.exit(replay(arguments, System.out));
+            return;
+        }
+        Path out = run(arguments);
         System.out.println("the Rig wrote " + out.resolve(RunIndex.RUNS) + " and "
                 + out.resolve(RunIndex.SUMMARY));
+    }
+
+    /**
+     * Checks every log in a folder, and answers with a status the shell can branch on.
+     *
+     * <p>An incomplete Run is not a failure here. A Run that was killed leaves a log whose prefix
+     * verifies perfectly, the Rig already counts it as incomplete, and treating it as tampering
+     * would make a busy machine look like a dishonest one.
+     */
+    static int verify(Map<String, String> arguments, PrintStream out) {
+        long began = System.nanoTime();
+        Verify.Report report = Verify.of(Path.of(required(arguments, VERIFY)));
+        boolean finished = arguments.containsKey(FINISHED);
+        out.println(report.text() + ", in " + (System.nanoTime() - began) / 1_000_000L + " ms");
+        return report.ok(!finished) ? 0 : 1;
+    }
+
+    /**
+     * Replays one log and answers with a status the shell can branch on.
+     *
+     * <p>The Replay writes its own log beside the original, under `--out`, because the comparison
+     * is between two logs and throwing one of them away would leave the answer unexaminable. What
+     * it prints is the two chains, which is the whole result in two values a person can read.
+     */
+    static int replay(Map<String, String> arguments, PrintStream out) {
+        Path log = Path.of(required(arguments, REPLAY)).toAbsolutePath().normalize();
+        Path into = emptyFolder(required(arguments, OUT));
+        // No commit is taken here. A Replay attests what the log attests, because it is reproducing
+        // the Run the log describes rather than making a claim of its own -- and a Replay that
+        // signed its own checkout's commit could never reach the log's chain from any other one.
+        long began = System.nanoTime();
+        Replay.Result result;
+        try {
+            result = Replay.of(log, into, machine());
+        } catch (Replay.Diverged diverged) {
+            out.println("this build and " + log + " stop agreeing at wait " + diverged.at()
+                    + "; the sections that differ are " + diverged.sections());
+            return 2;
+        } catch (Replay.Unverifiable unverifiable) {
+            out.println(unverifiable.getMessage());
+            return 3;
+        } catch (java.io.UncheckedIOException broken) {
+            // A file that could not be read is not a log this build refuses; it is a machine
+            // problem, and reporting it as a refusal would send whoever reads the nightly job
+            // looking for a schema difference that is not there.
+            out.println("the log could not be read: " + broken.getMessage());
+            return 5;
+        } catch (RuntimeException refused) {
+            out.println(refused.getMessage());
+            return 4;
+        }
+        long millis = (System.nanoTime() - began) / 1_000_000L;
+        out.println((result.ok() ? "reproduced " : "did not reproduce ") + result.runId() + ": "
+                + result.verified() + " of " + result.waits() + " waits verified, the log chains to "
+                + result.originalChain() + " and this build to " + result.chain() + ", in " + millis
+                + " ms");
+        if (!result.ok()) {
+            out.println(result.why());
+        }
+        // What the log attests, beside what is actually running. A Replay attests the log's commit
+        // so that the two chains can be compared at all, which means the chain says nothing about
+        // which build did the reproducing -- so the command says it, every time, in the one place
+        // a person is looking.
+        out.println("replayed by this build, at commit " + commitOf(Path.of(".").toAbsolutePath()
+                .normalize()) + ", against a log attesting " + result.attested());
+        return result.ok() ? 0 : 1;
     }
 
     /**
@@ -298,17 +419,21 @@ public final class Runner {
     static void finish(RunIndex index, Path out, String runId, String why, long millis,
                        AtomicLong waits) {
         LogHeader.Read read = LogHeader.of(out.resolve(RunLog.fileName(runId)));
-        if (!read.readable() && read.present()) {
-            // A log this Rig cannot read is a Run it cannot vouch for, including about the oracle.
-            // It is counted incomplete rather than quietly counted fair.
-            index.ended(runId, RunIndex.State.INCOMPLETE, "", "", millis,
-                    (why.isEmpty() ? "" : why + "; ") + "its log could not be read: " + read.unreadable());
-            return;
-        }
+        // The oracle first, before readability. "I cannot read this file, and it says it saw what a
+        // player could not" is a refusal, not an incomplete Run: a log that makes the claim makes
+        // it whether or not the rest of it parses, and the weaker ordering would let a Run escape
+        // the guard by being malformed as well as unfair.
         if (read.oracle()) {
             throw new IllegalStateException("the Run " + runId + " says in its own header that it saw"
                     + " what a player could not; an oracle Run is not ranked and this invocation"
                     + " publishes nothing (FR-11)");
+        }
+        if (!read.readable() && read.present()) {
+            // A log this Rig cannot read is a Run it cannot vouch for. It is counted incomplete
+            // rather than quietly counted fair.
+            index.ended(runId, RunIndex.State.INCOMPLETE, "", "", millis,
+                    (why.isEmpty() ? "" : why + "; ") + "its log could not be read: " + read.unreadable());
+            return;
         }
         if (read.present() && !read.runId().isEmpty() && !read.runId().equals(runId)) {
             // The parent predicts the file name from the tuple and the child writes it from its own
@@ -425,23 +550,11 @@ public final class Runner {
 
     static Map<String, String> arguments(String[] args) {
         Map<String, String> given = new LinkedHashMap<>();
-        for (int i = 0; i < args.length; i += 2) {
+        int i = 0;
+        while (i < args.length) {
             String flag = args[i];
             if (!flag.startsWith("--")) {
                 throw new IllegalArgumentException("expected a flag at argument " + i + ", found " + flag);
-            }
-            if (i + 1 >= args.length) {
-                throw new IllegalArgumentException(flag + " takes a value");
-            }
-            if (args[i + 1].startsWith("--")) {
-                // `--commit --root` would otherwise attest the string "--root" as the commit in
-                // every header of the invocation, and `--out --root` would write the whole thing
-                // into a folder of that name. A flag is never a value.
-                throw new IllegalArgumentException(flag + " was given the flag " + args[i + 1]
-                        + " as its value; every flag takes a value of its own");
-            }
-            if (args[i + 1].isEmpty()) {
-                throw new IllegalArgumentException(flag + " is stated, not left empty");
             }
             if (!KNOWN.contains(flag)) {
                 // Named rather than ignored, and the list is printed, because the one flag this
@@ -449,9 +562,33 @@ public final class Runner {
                 // reader convinces themselves it has one.
                 throw new IllegalArgumentException("the Rig does not know " + flag + "; it knows " + KNOWN);
             }
-            if (given.put(flag, args[i + 1]) != null) {
+            String value;
+            if (SWITCHES.contains(flag)) {
+                // A switch is its own answer. It is written down as the word so that everything
+                // downstream reads the map the same way, and so that a switch given twice is
+                // caught by the same line that catches a flag given twice.
+                value = "yes";
+            } else {
+                if (i + 1 >= args.length) {
+                    throw new IllegalArgumentException(flag + " takes a value");
+                }
+                value = args[i + 1];
+                if (value.startsWith("--")) {
+                    // `--commit --root` would otherwise attest the string "--root" as the commit in
+                    // every header of the invocation, and `--out --root` would write the whole
+                    // thing into a folder of that name. A flag is never a value.
+                    throw new IllegalArgumentException(flag + " was given the flag " + value
+                            + " as its value; every flag takes a value of its own");
+                }
+                if (value.isEmpty()) {
+                    throw new IllegalArgumentException(flag + " is stated, not left empty");
+                }
+                i++;
+            }
+            if (given.put(flag, value) != null) {
                 throw new IllegalArgumentException(flag + " is given twice");
             }
+            i++;
         }
         return given;
     }
