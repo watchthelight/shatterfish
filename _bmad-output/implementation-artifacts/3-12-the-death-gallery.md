@@ -2,7 +2,7 @@
 title: 'Story 3.12: The death gallery'
 type: 'feature'
 created: '2026-09-23'
-status: 'in-review'
+status: 'done'
 baseline_commit: '2ea46def8bb4d9de3ad2f84a2af66c5cbb9c95c6'
 review_loop_iteration: 0
 context: []
@@ -75,3 +75,45 @@ Plain Markdown (NFR-9). The same folder gives the same page.
 **Commands:**
 - `./gradlew build` -- green.
 - `./gradlew :rig:gallery --args="<folder> --snapshots 5"` -- writes `gallery.md` and `snapshots/`.
+
+## Evidence
+
+**Rig numbers.** `./gradlew :rig:gallery` on the H-0002 folder (500 Runs of the random Brain on
+`standard`, 37 MB of logs): **1,377 ms** for the gallery alone, **2,917 ms** with `--snapshots 5`
+(500 snapshot pages), by the task's own clock. The Runner writes the gallery after each side's
+summary, so a 500-Run invocation pays about 1.4 s on top of its ~177 s. The gallery counts agree
+with the Baseline page: 446 `DEATH` at depth 1, 47 `UNKNOWN_WINDOW` at depth 1, 7 `DEATH` at depth 2.
+The published gallery is `results/2026-09-23-H-0002/gallery.md`; its log links name logs that are
+not committed.
+
+**Deviations.** No Runner flag: the Runner always writes the plain gallery, and snapshots are
+`:rig:gallery --snapshots N`, so `Runner.KNOWN` and the oracle gate's flag count are untouched.
+Endings the game did not decide are shown as groups of their own (`NO_LOG`, `NO_ENDING`,
+`UNREADABLE`) rather than dropped. The gallery links pinned to the commit that added it, since
+`DocsCitationTest` resolves `blob/main` links at `main`, where the file does not yet exist.
+
+**Review.** This story was built by a worker that cannot launch review subagents, so the three
+lenses (blind, edge-case, verification-gap) were run by the worker itself over the diff. Found and
+fixed: a snapshot's file name came from the index's run id, so a line saying `"runId":"../x"` wrote
+outside `snapshots/` (now named for the log, which the index check confines); snapshots of Runs no
+longer in the index survived a rewrite (cleared); an exception from the gallery would have cost a
+ranked invocation its ledger line (now reported, not thrown); the doc links failed the citation
+check. The parent may want an independent review before merging.
+
+**Mutation battery: 16 mutations, 16 killed.** Two survived the first run: `UNREADABLE` without the
+readability check (the fixture had no records at all; a log unreadable after its header now tests
+it), and the snapshot name, where the test looked in a temp directory shared with other tests and
+the mutation's escape left a stray file there -- the test now looks inside its own folder.
+
+**Deferred.** The per-Brain comparison view is E4's half of FR-26, said on every gallery page.
+
+## Suggested Review Order
+
+- Grouping from each Run's own log, and what is not an ending.
+  `shatterfish/rig/src/main/java/org/shatterfish/rig/Gallery.java`
+- Written after each side's summary, and never at the ledger's expense.
+  `shatterfish/rig/src/main/java/org/shatterfish/rig/Runner.java`
+- The cases, with hand-written logs and the reference Run.
+  `shatterfish/rig/src/test/java/org/shatterfish/rig/GalleryTest.java`
+- The method, for a reader.
+  `docs/methodology.md`
