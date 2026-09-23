@@ -123,6 +123,31 @@ class GalleryTest {
         try (var files = Files.list(folder.resolve(Gallery.SNAPSHOTS))) {
             assertEquals(6, files.count(), "every Run but the one with no log");
         }
+
+        // Rewritten after the index shrank: last time's snapshots do not linger beside this time's.
+        List<String> index = Files.readAllLines(folder.resolve(RunIndex.RUNS), StandardCharsets.UTF_8);
+        Files.write(folder.resolve(RunIndex.RUNS), index.subList(0, 2), StandardCharsets.UTF_8);
+        Gallery.write(folder, 3);
+        try (var files = Files.list(folder.resolve(Gallery.SNAPSHOTS))) {
+            assertEquals(2, files.count());
+        }
+    }
+
+    @Test
+    @DisplayName("a snapshot is named for its log, so an index line cannot write outside the folder")
+    void snapshot_names(@TempDir Path out) throws IOException {
+        String line = log(out, 7000, ended("DEATH", 1, 1000));
+        String hostile = line.replaceFirst("\"runId\":\"[^\"]*\"", "\"runId\":\"../../escaped\"");
+        Files.writeString(out.resolve(RunIndex.RUNS), hostile + "\n", StandardCharsets.UTF_8);
+
+        Gallery.write(out, 2);
+
+        assertFalse(Files.exists(out.getParent().resolve("escaped.md")));
+        try (var files = Files.list(out.resolve(Gallery.SNAPSHOTS))) {
+            assertEquals(List.of(RunLog.fileName(RunLog.runId("v4.0.0", HeroClass.WARRIOR, 0,
+                    SeedSet.code(7000), 7100L, "random")).replace(".jsonl", ".md")),
+                    files.map(f -> f.getFileName().toString()).toList());
+        }
     }
 
     @Test

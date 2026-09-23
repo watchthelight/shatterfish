@@ -594,7 +594,7 @@ next thing to fix. The command above rewrites the gallery for any folder the Rig
 comparison, one per side) and, with `--snapshots N`, writes the last N waits of every Run into
 `snapshots/`, linked from the gallery: what the Run was doing when it ended. The same gallery for two
 Brains side by side, FR-26's per-Brain view, is E4's. The random Baseline's is in
-[`results/2026-09-23-H-0002/gallery.md`](https://github.com/watchthelight/shatterfish/blob/main/results/2026-09-23-H-0002/gallery.md);
+[`results/2026-09-23-H-0002/gallery.md`](https://github.com/watchthelight/shatterfish/blob/bdf5ea5b2d38e7911f42e23a5ba08b4237cffc5c/results/2026-09-23-H-0002/gallery.md);
 its links name logs that are not committed.
 
 ## The Run log and its chain

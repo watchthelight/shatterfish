@@ -421,7 +421,14 @@ public final class Runner {
                     read.reason());
             waits.addAndGet(side.waits().get());
             // FR-26: how the Runs ended, grouped, beside the summary, read from each Run's own log.
-            Gallery.write(side.out(), 0);
+            // Derived, so a failure here is reported and not thrown: an exception from the gallery
+            // must not cost a ranked invocation the ledger line below, which is the record.
+            try {
+                Gallery.write(side.out(), 0);
+            } catch (RuntimeException gallery) {
+                System.out.println("the gallery could not be written in " + side.out() + ": "
+                        + note(gallery));
+            }
         }
         if (against != null) {
             // Tested only under a Registration that fixes a comparison: the bounds are the

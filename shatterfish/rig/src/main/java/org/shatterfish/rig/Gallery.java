@@ -170,7 +170,7 @@ public final class Gallery {
                         .append(" |");
                 if (snapshots) {
                     out.append(NO_LOG.equals(run.cause()) ? " —" : " [snapshot](" + SNAPSHOTS + "/"
-                            + run.runId() + ".md)").append(" |");
+                            + snapshotName(run) + ")").append(" |");
                 }
                 out.append('\n');
             }
@@ -178,6 +178,16 @@ public final class Gallery {
         out.append("\nThe per-Brain comparison view, this gallery for two Brains side by side, is E4's"
                 + " half of FR-26 and is not written here.\n");
         return out.toString();
+    }
+
+    /**
+     * A snapshot's file name: the log's, which the index check has already confined to the folder,
+     * with {@code .md} for {@code .jsonl}. Named from the run id, an index line saying
+     * {@code "runId":"../x"} wrote outside {@code snapshots/}.
+     */
+    static String snapshotName(Run run) {
+        String log = Path.of(run.log()).getFileName().toString();
+        return (log.endsWith(".jsonl") ? log.substring(0, log.length() - ".jsonl".length()) : log) + ".md";
     }
 
     private static String depth(int depth) {
@@ -222,10 +232,17 @@ public final class Gallery {
         try {
             if (snapshots > 0) {
                 Path into = Files.createDirectories(folder.resolve(SNAPSHOTS));
+                // The folder is the gallery's own: last time's snapshots of Runs no longer in the
+                // index would otherwise sit beside this time's as though they were part of it.
+                try (var stale = Files.list(into)) {
+                    for (Path old : stale.filter(f -> f.getFileName().toString().endsWith(".md")).toList()) {
+                        Files.delete(old);
+                    }
+                }
                 for (Group group : groups) {
                     for (Run run : group.runs()) {
                         if (!NO_LOG.equals(run.cause())) {
-                            Files.writeString(into.resolve(run.runId() + ".md"),
+                            Files.writeString(into.resolve(snapshotName(run)),
                                     snapshot(folder.resolve(run.log()), snapshots), StandardCharsets.UTF_8);
                         }
                     }
