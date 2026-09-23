@@ -2,7 +2,7 @@
 title: 'Story 3.5: Registration and the salt discipline'
 type: 'feature'
 created: '2026-09-23'
-status: 'ready-for-dev' # draft | ready-for-dev | in-progress | in-review | done
+status: 'in-review' # draft | ready-for-dev | in-progress | in-review | done
 review_loop_iteration: 0
 context: []
 ---
@@ -92,30 +92,30 @@ Registration. Do not weaken `SeedSets.publish`'s existing holdout door.
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `shatterfish/api/.../Registration.java` -- NEW: the record and its canonical form. Fields
+- [x] `shatterfish/api/.../Registration.java` -- NEW: the record and its canonical form. Fields
   exactly ADR-0012's list plus `releaseLevel`; `hash()` over the canonical text with the log's own
   rules; `id()`; a compact constructor refusing a member named `salt`. In `api` because a Results
   page (3.10) and the Rig both read it, and neither owns it.
-- [ ] `shatterfish/rig/.../Registrations.java` -- NEW: read `registrations/<id>.json`, refuse one git
+- [x] `shatterfish/rig/.../Registrations.java` -- NEW: read `registrations/<id>.json`, refuse one git
   reports untracked or modified, hash the **committed** bytes (`git show HEAD:<path>`), and refuse a
   file carrying a salt. One reader, so "committed before the Run" is checked in one place.
-- [ ] `shatterfish/rig/.../Ledger.java` -- NEW: `registrations/ledger.jsonl`, append-only, one record
+- [x] `shatterfish/rig/.../Ledger.java` -- NEW: `registrations/ledger.jsonl`, append-only, one record
   per invocation: registration id and hash, the commit it was read at, the seed set, the outcome,
   and whether it consumed a holdout use. Refuses a malformed existing line rather than appending.
-- [ ] `shatterfish/rig/.../Runner.java` -- `--registration <id>`; pass it to every child so the logs
+- [x] `shatterfish/rig/.../Runner.java` -- `--registration <id>`; pass it to every child so the logs
   carry it; refuse `holdout` unless the Registration claims a release-level result; refuse a second
   holdout use for a Brain version; append to the ledger when the invocation ends; say in the summary
   whether the invocation was ranked.
-- [ ] `shatterfish/api/.../RunLog.java` -- constrain a non-empty `registration` to `<id>@<hash>` so a
+- [x] `shatterfish/api/.../RunLog.java` -- constrain a non-empty `registration` to `<id>@<hash>` so a
   log pins the Registration's content and not merely its name.
-- [ ] `registrations/H-0001-nightly-smoke.json` -- NEW, committed: the standing Registration story
+- [x] `registrations/H-0001-nightly-smoke.json` -- NEW, committed: the standing Registration story
   3.11's nightly job runs under. Its numbers are the E3 defaults and are stated, not derived.
-- [ ] `shatterfish/rig/src/test/.../RegistrationsTest.java` -- every row of the I/O matrix.
-- [ ] `shatterfish/rig/src/test/.../LedgerTest.java` -- append-only, the budget count, a malformed
+- [x] `shatterfish/rig/src/test/.../RegistrationsTest.java` -- every row of the I/O matrix.
+- [x] `shatterfish/rig/src/test/.../LedgerTest.java` -- append-only, the budget count, a malformed
   line refused.
-- [ ] `shatterfish/api/src/test/.../RegistrationTest.java` -- the canonical form is stable and the
+- [x] `shatterfish/api/src/test/.../RegistrationTest.java` -- the canonical form is stable and the
   hash changes with every field; a salt member is refused.
-- [ ] `docs/methodology.md` -- what a Registration fixes, why the salt is not in it, the holdout
+- [x] `docs/methodology.md` -- what a Registration fixes, why the salt is not in it, the holdout
   budget, and how to read the ledger.
 
 **Acceptance Criteria:**
@@ -134,6 +134,46 @@ Registration. Do not weaken `SeedSets.publish`'s existing holdout door.
   invocation, in the story's Evidence and beside the E3 throughput numbers on the methodology page —
   a pre-flight that costs a measurable fraction of the measurement is worth knowing before 3.11
   schedules it nightly.
+
+## Evidence
+
+**Rig numbers.** The pre-flight of a ranked invocation -- three questions to git, the ledger read,
+the Brain's version -- costs **146 ms**, printed by the Rig on every ranked invocation. Against the
+smoke set (25 Runs, 24 processes, 6,438 ms) that is 2.3%; against the standard set (500 Runs, about
+160,000 ms, story 3.4's measurement) it is 0.09%. Both are on the methodology page beside the command.
+
+**Deviations from the task list, argued.** `brainA` is optional: ADR-0012 describes comparisons, but
+E3's own done-when is a published *baseline* and the nightly job compares nothing, so the first
+Registration this project commits would otherwise have had to name a Brain that does not exist. A
+Brain's version is the commit that last changed the Brain's own source, not the invocation's
+commit: a README typo would otherwise mint a fresh holdout allowance, and a release-level
+Registration could never name the commit that carries it. The committed ledger lines from
+development runs are real attempts under the standing Registration and stay; they read as
+development invocations of the nightly baseline, not failed measurements.
+
+**Four reviews, all blocking.** The blocking finding, found independently by two lenses with a
+working exploit: the holdout budget was checked against `commitOf(root)` and recorded against
+`--commit`, so the held-out set -- whose triples are derived from a published formula and committed
+-- could be spent without limit, each ledger line reading as a lawful first use. Also: "hashes the
+committed bytes" was not what the code did, and the test compared the same method on both sides;
+with `--root` inside a repository, git's pathspec questions and `git show HEAD:` were about two
+different files; `Brains.configHash` was called unconditionally, making every Brain but `random`
+unrunnable by the Rig; the salt guard was a word blacklist that could not catch sixteen hex digits
+and covered none of the fields shaped like one; a held-out set was recorded after the Runs, so
+Ctrl-C left it spent and unrecorded; a refusal burned the allowance; a message-less exception
+replaced the refusal that voids a folder; deleting the ledger restored every budget. Every one is
+fixed and tested.
+
+**Mutation battery: 29 mutations, 28 killed, 1 deliberate survivor.** Eleven survived their first
+run, and **every one was a guard written in answer to a review**: the budget key, the claim before
+the set is read, the Seed set version, the null-message note, the id check, the git-answerable
+check, the subdirectory prefix, `commit()` failing closed, the newline before an append, the
+committed-prefix check, and the header's stamp pattern. Each now has a test that kills it. M12 --
+hashing the committed text versus the re-rendering -- survives because the canonical check makes the
+two equal by construction; it is kept as written and says so in the code.
+
+**Process.** The battery harness restores only the file it mutated, and twice this story an
+uncommitted edit in that file was discarded by the restore. Commit before each batch.
 
 ## Design Notes
 
