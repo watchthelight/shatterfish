@@ -205,3 +205,5 @@ The lens review's claims were each checked at the pinned code before changing an
 6. **Tests:** the blast's depth scaling (`cursed_blast_deep`), worst-first ordering with an enemy in
    view (`ordering_with_enemies`), lullaby, flight and scaling, occupied water, and the odds check.
    `SafeTestWorstCaseTest` has 13 cases.
+
+Mutation battery after the review: 15 of 15 killed by `SafeTestWorstCaseTest`. The mutants: the mean decides; water ignored; one hit on water; a diagonal not beside; an occupied refuge; levitation ignored; no ascension; enemies ignored; Rage harmless; Lullaby harmless; no blast; strict lethal; flat gas; no sum check; lethal not ordered first.
