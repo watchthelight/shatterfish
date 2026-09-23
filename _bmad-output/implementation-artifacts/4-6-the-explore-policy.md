@@ -148,6 +148,20 @@ upgrade. Each was re-read at the pin and re-cited, Tier 1:
 
 `:codex:citations` reports no findings.
 
+**Tests:** `:brain:test` passes, including `ExplorePolicyTest` (6). `ShatterfishRunTest`,
+`BrainRulesIndexTest` and `StrategyLogTest` pass. In the `smoke` Runs of `ShatterfishRunTest`, the
+explore Policy takes waits, and every one of them is a Step or a Search.
+
+**Mutation battery: 10 of 10 killed.** The mutants:
+- a transition, a chest or an armed trap made walkable;
+- the chasm made walkable;
+- an enemy in view ignored;
+- depth-first instead of breadth-first;
+- no search bound;
+- searching the same spot twice;
+- never yielding when stuck;
+- a streak that never grows.
+
 **For the direction check** (the parent runs it), measure on `smoke` against the 4.5 Brain, since
 depth cannot move:
 - the share of waits the explore Policy takes;
