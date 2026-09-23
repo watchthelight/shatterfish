@@ -113,7 +113,11 @@ class NightlyTest {
                         "22 of 25 Runs finished (3 incomplete"),
                 new Case(root.resolve("absent"), "the Rig wrote no summary"),
                 new Case(unaccounted(root.resolve("unaccounted")), "0 incomplete, 2 unaccounted"),
-                new Case(garbled(root.resolve("garbled")), "the Rig's summary could not be read"));
+                new Case(garbled(root.resolve("garbled")), "the Rig's summary could not be read"),
+                // A summary that contradicts itself -- every Run finished and one incomplete -- is
+                // not a pass: each count is checked on its own, not only through their sum.
+                new Case(folder(root.resolve("contradictory"), STAMP, "smoke", "random", 25, 25, 1),
+                        "25 of 25 Runs finished (1 incomplete"));
         for (Case c : cases) {
             Nightly.Night night = Nightly.night(c.folder(), 25, "2026-09-23", "abc1234", "");
             assertFalse(night.pass(), c.folder().toString());
@@ -134,8 +138,11 @@ class NightlyTest {
 
         assertEquals(List.of(night, night), Nightly.history(history));
         assertEquals(List.of(), Nightly.history(out.resolve("absent.jsonl")));
-        String keyless = night.line().replace("\"why\":\"\"", "\"because\":\"\"");
-        assertThrows(IllegalArgumentException.class, () -> Nightly.Night.of(keyless));
+        // A key that still sorts last, so the reader accepts the shape and the key check is what refuses.
+        String keyless = night.line().replace("\"why\":\"\"", "\"zwhy\":\"\"");
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> Nightly.Night.of(keyless));
+        assertTrue(refused.getMessage().contains("without \"why\""), refused.getMessage());
     }
 
     @Test
@@ -263,8 +270,11 @@ class NightlyTest {
         assertTrue(script.contains("base_of \"$ledger\"") && script.contains("base_of \"$history\""),
                 "the ledger and the history carry unmerged nights forward");
         assertTrue(script.contains("cmp -s -n \"$size\""), "only when main's copy is a prefix of the branch's");
-        assertTrue(script.contains("does not extend main's; its unmerged lines"),
-                "and says so, in the job summary, when it cannot carry them forward");
+        assertTrue(script.contains("cp \"$tmp/previous\" \"$out\""),
+                "the branch's copy is the one kept when it extends main's");
+        assertTrue(script.contains("its unmerged lines were not carried forward.")
+                        && script.contains(">> \"${GITHUB_STEP_SUMMARY:-/dev/null}\""),
+                "and it says so, in the job summary, when it cannot carry them forward");
         assertFalse(script.contains("Co-Authored-By") || script.contains("Generated with"));
     }
 
