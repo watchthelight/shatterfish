@@ -389,13 +389,62 @@ class RunnerTest {
         // The worse Brain of story 3.9 is the Baseline with one Action withheld, and has no more
         // configuration than the Baseline does.
         assertEquals("0".repeat(64), Brains.configHash(Brains.NO_DESCEND));
-        assertEquals(List.of(Brains.RANDOM, Brains.NO_DESCEND, Brains.NO_REST), Brains.names(),
+        assertEquals(List.of(Brains.RANDOM, Brains.NO_DESCEND, Brains.NO_REST, Brains.NO_ATTACK), Brains.names(),
                 "when a real Brain is added here, `configHash` refuses until it states its own");
         // Every name is one a Run log and a Registration will take. "random-nodescend" was not: the
         // run id is hyphen-separated, and nothing refused it until the first ranked invocation.
         for (String name : Brains.names()) {
             assertTrue(name.matches(org.shatterfish.api.RunLog.BRAIN_PATTERN), name);
         }
+    }
+
+    @Test
+    @DisplayName("the calibrated bounds pass, and moving any one of the seven numbers fails")
+    void calibrated_is_every_number() {
+        org.shatterfish.api.Registration.Brain a = new org.shatterfish.api.Registration.Brain(
+                "random", "aaaaaaa", "0".repeat(64));
+        org.shatterfish.api.Registration.Brain b = new org.shatterfish.api.Registration.Brain(
+                "random_norest", "abc1234", "0".repeat(64));
+        java.util.function.IntFunction<int[]> base = ignored -> new int[] {50, 50, 20, 500, 500, 600, 250};
+        java.util.function.Function<int[], org.shatterfish.api.Registration> build = n ->
+                new org.shatterfish.api.Registration("H-0200-x", "x", a, b, SeedSets.STANDARD, 1, n[0],
+                        n[1], n[2], n[3], 0, "a laptop", false, n[4], n[5], n[6], "GSPRT");
+
+        assertTrue(Runner.calibrated(build.apply(base.apply(0))), "exactly the calibrated cell");
+        // alpha, beta, burn-in, maximum, p0, p1, missing cap: each moved alone.
+        int[][] moved = {{40, 50, 20, 500, 500, 600, 250}, {50, 40, 20, 500, 500, 600, 250},
+                {50, 50, 21, 500, 500, 600, 250}, {50, 50, 20, 499, 500, 600, 250},
+                {50, 50, 20, 500, 490, 600, 250}, {50, 50, 20, 500, 500, 610, 250},
+                {50, 50, 20, 500, 500, 600, 240}};
+        for (int[] n : moved) {
+            assertFalse(Runner.calibrated(build.apply(n)), java.util.Arrays.toString(n));
+        }
+    }
+
+    @Test
+    @DisplayName("standard, bosses and the held-out set may accept; smoke is a direction check")
+    void which_sets_accept() {
+        assertTrue(Runner.accepts(SeedSets.STANDARD));
+        assertTrue(Runner.accepts("bosses"));
+        assertTrue(Runner.accepts(Registrations.HOLDOUT),
+                "a release-level claim on the held-out set is held to the calibrated bounds too");
+        assertFalse(Runner.accepts(SeedSets.SMOKE));
+    }
+
+    @Test
+    @DisplayName("each withholding Brain withholds the kind its name says, and is built as one")
+    void the_withholding_brains() {
+        assertEquals(org.shatterfish.api.Action.Descend.class, Brains.withheld(Brains.NO_DESCEND));
+        assertEquals(org.shatterfish.api.Action.Rest.class, Brains.withheld(Brains.NO_REST));
+        assertEquals(org.shatterfish.api.Action.Attack.class, Brains.withheld(Brains.NO_ATTACK));
+        assertEquals(null, Brains.withheld(Brains.RANDOM));
+        org.shatterfish.api.SeedSet.Entry triple = SeedSets.load(SeedSetsTest.ROOT, SeedSets.SMOKE)
+                .set().entries().get(0);
+        for (String name : List.of(Brains.NO_DESCEND, Brains.NO_REST, Brains.NO_ATTACK)) {
+            assertTrue(Brains.of(name, triple) instanceof org.shatterfish.harness.agent.WithholdingAgent, name);
+            assertEquals("0".repeat(64), Brains.configHash(name));
+        }
+        assertTrue(Brains.of(Brains.RANDOM, triple) instanceof org.shatterfish.harness.agent.RandomAgent);
     }
 
     @Test

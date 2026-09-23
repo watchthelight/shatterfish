@@ -81,10 +81,11 @@ Change the calibrated bounds to get a verdict.
 
 ## Verification
 
-**Commands:**
+**Commands** (amended; see the change log -- H-0003 and `random-nodescend` do not exist):
 - `./gradlew build` -- green.
 - `./gradlew :rig:run --args="--brain random --seeds standard --out <a> --registration H-0002-random-standard"` -- ranked Baseline.
-- `./gradlew :rig:run --args="--brain random-nodescend --against random --seeds standard --out <b> --registration H-0003-nodescend-worse"` -- REJECT.
+- `./gradlew :rig:run --args="--brain random_norest --against random --seeds standard --out <b> --registration H-0005-norest-worse"` -- REJECT.
+- `./gradlew :rig:run --args="--brain random --against random_norest --seeds standard --out <c> --registration H-0006-random-over-norest"` -- ACCEPT.
 
 ## Spec Change Log
 
@@ -100,3 +101,21 @@ Change the calibrated bounds to get a verdict.
   over the calibrated cap of 0.25, although over all 500 pairs the candidate scored 0.239. Written
   here before it runs: H-0005 is invoked **once more**, and that invocation is published whatever
   it concludes, beside the first. There is no third. The ledger carries both.
+- **H-0003 withdrawn, and the classes renamed** (found by the first invocation). The Registration
+  committed for `random-nodescend` could not be read: a Brain's name may not hold a hyphen, because
+  the run id is hyphen-separated. It never ran and has no ledger line (the refusal is raised before
+  the ledger is opened); the file was removed in `ffb2446a4` and the Brain renamed
+  `random_nodescend`, registered as H-0004. `NoDescendAgent` became `WithholdingAgent`, which
+  withholds any one kind, and `NoDescendAgentTest` became `WithholdingAgentTest`. The frozen
+  intent's names (H-0003, `random-nodescend`, `NoDescendAgent`) are superseded by these.
+- **Decided under the owner's standing delegation, and open for the owner to confirm.** Replacing
+  the worse Brain SM-5 names is on this spec's Ask First list. The owner has asked for the loop to
+  make the best decisions without stopping, so the engineer made it: the letter of SM-5 (H-0004's
+  REJECT) is published beside the evidence that it proves nothing, and the spirit (H-0005's REJECT,
+  H-0006's ACCEPT) is published beside it. The handoff raises it as the one open question.
+- **The retry of H-0005 was decided with more than the void in view**: after H-0005's first
+  invocation had played all 500 pairs and after H-0006 had accepted. The Results page says so, and
+  says what a second chance costs.
+- **Holdout comparisons held to the calibrated bounds** (fairness review): a release-level
+  comparison on the held-out set was labelled a direction check and exempt; it now may accept and
+  is held to the bounds like `standard` and `bosses`.

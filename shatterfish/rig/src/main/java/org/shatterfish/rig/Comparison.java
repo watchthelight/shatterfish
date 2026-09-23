@@ -53,7 +53,10 @@ public final class Comparison {
                        PairScore score, boolean missing, RunLog.Outcome candidateOutcome,
                        RunLog.Outcome baselineOutcome) {
 
-        /** Whether both Runs ended the same way in every part of the Composite outcome. */
+        /**
+         * Whether both Runs ended the same way in every part of the Composite outcome -- not that
+         * they were the same Run, which the logs' chains cannot say across two Brains' headers.
+         */
         public boolean identical() {
             return !missing && candidateOutcome.equals(baselineOutcome);
         }
@@ -88,7 +91,9 @@ public final class Comparison {
         if (varA == 0 || varB == 0) {
             return new Correlation(n, null);
         }
-        return new Correlation(n, cov / Math.sqrt(varA * varB));
+        // Clamped: rounding can carry a perfect correlation a hair past one, and a file that says
+        // 1000001 millionths is claiming something no correlation can be.
+        return new Correlation(n, Math.max(-1.0, Math.min(1.0, cov / Math.sqrt(varA * varB))));
     }
 
     /**

@@ -87,6 +87,27 @@ class WithholdingAgentTest {
     }
 
     @Test
+    @DisplayName("it withholds whichever kind it is given: Rest, for the worse Brain that is worse")
+    void withholds_rest() {
+        Observation real = observed();
+        List<Action> offered = new ArrayList<>(real.actions().actions());
+        offered.removeIf(Action.Rest.class::isInstance);
+        List<Action> withRest = new ArrayList<>(offered);
+        withRest.add(new Action.Rest(false));
+        withRest.add(new Action.Rest(true));
+        Observation observation = offering(real, withRest);
+
+        WithholdingAgent agent = new WithholdingAgent(5L, Action.Rest.class);
+        Set<Action> drawn = new HashSet<>();
+        for (int draw = 0; draw < 40 * withRest.size(); draw++) {
+            drawn.add(agent.decide(observation));
+        }
+
+        assertTrue(drawn.stream().noneMatch(Action.Rest.class::isInstance), drawn.toString());
+        assertEquals(new HashSet<>(offered), drawn);
+    }
+
+    @Test
     @DisplayName("with Descend all there is, it has nothing to choose and says so")
     void nothing_but_stairs() {
         Observation stairs = offering(observed(), List.of(new Action.Descend()));

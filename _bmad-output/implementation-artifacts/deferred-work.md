@@ -14,3 +14,12 @@ Findings surfaced by a story's review that are not that story's problem, one ent
 - source_spec: `_bmad-output/implementation-artifacts/3-8-the-e-process-alternative.md`
   summary: A Registration does not fix which sequential test it was registered under, so flipping SequentialTest.GATE would run earlier Registrations under the other design.
   evidence: SequentialTest.of(registration) reads a compile-time constant; the Registration's canonical text carries p0, p1, alpha, beta and n0 but no statistic. Story 3.9 writes the first comparison Registration and is where a statistic field, or a refusal on mismatch, belongs.
+- source_spec: `_bmad-output/implementation-artifacts/3-9-the-baseline-and-the-deliberately-worse-brain.md`
+  summary: A Registration that cannot be read is refused before the ledger is opened, so the attempt leaves no ledger line.
+  evidence: H-0003 was committed, invoked and refused inside Registrations.read, and appears only on the Results page and in the story file.
+- source_spec: `_bmad-output/implementation-artifacts/3-9-the-baseline-and-the-deliberately-worse-brain.md`
+  summary: The withholding Brains share one source list, so they share one Brain version and would share one held-out allowance under FR-20.
+  evidence: Brains.sourceOf returns WithholdingAgent.java and Brains.java for random_nodescend, random_norest and random_noattack alike.
+- source_spec: `_bmad-output/implementation-artifacts/3-9-the-baseline-and-the-deliberately-worse-brain.md`
+  summary: The Results pages lack FR-25's per-Run distributions, survival curve, fairness-suite status, the paired score's variance against an unpaired shuffle, and the fixed-sample cross-check.
+  evidence: Story 3.10 owns the Results page format; 3.9's pages were written by hand from the runs' own files.

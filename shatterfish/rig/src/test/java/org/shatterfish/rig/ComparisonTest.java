@@ -248,6 +248,28 @@ class ComparisonTest {
         assertEquals(null, Comparison.correlation(report.pairs().subList(0, 2)).r(), "two pairs is not enough");
     }
 
+    @Test
+    @DisplayName("pairs that ended alike are counted identical, a missing pair never is, and no variance means no correlation")
+    void identical_pairs(@TempDir Path out) throws IOException {
+        SeedSet set = set(4);
+        List<Long> salts = List.of(1L, 2L, 3L, 4L);
+        RunLog.Outcome same = new RunLog.Outcome(false, false, 0, 1, 700, "DEATH", 0);
+        for (int i = 0; i < 4; i++) {
+            written(out.resolve(Comparison.CANDIDATE), set.entries().get(i), salts.get(i), "greedy",
+                    i == 3 ? null : same);
+            written(out.resolve(Comparison.BASELINE), set.entries().get(i), salts.get(i), "random", same);
+        }
+
+        Comparison.Report report = Comparison.of(set, salts, TAG, out, "greedy", "random", null);
+        Comparison.write(out, report, "", true);
+        String json = Files.readString(out.resolve(Comparison.FILE), StandardCharsets.UTF_8).strip();
+
+        assertEquals("3", LogHeader.value(json, "identical_pairs"), "the missing fourth is not identical: " + json);
+        assertEquals("3", LogHeader.value(json, "correlated_pairs"), json);
+        assertEquals(null, LogHeader.value(json, "turns_correlation_micros"),
+                "every turn count the same, so there is no correlation to write: " + json);
+    }
+
     /** A log for one side of one triple ending in exactly this outcome, or with no ending when null. */
     private static void written(Path folder, SeedSet.Entry triple, long salt, String brain,
                                 RunLog.Outcome outcome) throws IOException {

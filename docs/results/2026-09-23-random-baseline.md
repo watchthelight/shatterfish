@@ -12,6 +12,7 @@ Brain is compared with: what no Brain at all achieves.
 | Seed set | `standard` version 1, 500 triples, all six hero classes |
 | Turn cap | 20,000 |
 | Machine | Intel Core Ultra 9 275HX (24 logical processors), Windows 11 Pro, Zulu OpenJDK 21 |
+| Oracle | off in every Run's header |
 | Ledger | `FINISHED`, the first line for H-0002 in [`registrations/ledger.jsonl`](https://github.com/watchthelight/shatterfish/blob/main/registrations/ledger.jsonl) |
 
 **Command**, from the repository root at the commit above:
@@ -41,9 +42,12 @@ Input waits per second across the pool.
 | 1 | 493 |
 | 2 | 7 |
 
-No Run killed a boss or won. Seven reached the second floor, none of them by the stairs: the random
-agent never took a `Descend` in any Run that reached an ending (see the
-[worse-Brain page](2026-09-23-worse-brain.md)), so the few that went down fell.
+No Run killed a boss or won. Seven reached the second floor, and not by `Descend`: the random agent
+with `Descend` withheld ended every Run that reached an ending exactly as this one did (see the
+[worse-Brain page](2026-09-23-worse-brain.md)), so none of them chose it.
+
+**Turns survived**, over the 453 Runs the game ended: median **1,384**, quartiles 1,368 and 1,401,
+mean 1,439.5. The spread is narrow: most random Runs end within a few dozen turns of one another.
 
 ## Beside E1's numbers
 

@@ -129,6 +129,17 @@ public final class Runner {
     /** The Seed sets whose comparisons may accept (ADR-0012); the rest are direction checks. */
     static final List<String> ACCEPTING = List.of(SeedSets.STANDARD, "bosses");
 
+    /**
+     * Whether a comparison on {@code set} may accept: {@link #ACCEPTING}, and the held-out set.
+     * The only comparisons FR-20 lets the held-out set hold are release-level and headline claims,
+     * which are the ones that most need an ACCEPT to mean something; leaving it out labelled them
+     * direction checks and exempted them from the calibrated bounds. It is asked of its owner, not
+     * named here (HoldoutRuleTest).
+     */
+    static boolean accepts(String set) {
+        return ACCEPTING.contains(set) || Registrations.spendsTheBudget(set);
+    }
+
     /** Every flag the Rig knows. The list is asserted by name, so a new one is a decision. */
     static final List<String> KNOWN = List.of(BRAIN, SEEDS, PARALLEL, OUT, ROOT, COMMIT, CAP,
             DEADLINE, VERIFY, REPLAY, FINISHED, REGISTRATION, AGAINST);
@@ -419,14 +430,12 @@ public final class Runner {
             Comparison.Report report = Comparison.of(triples, salts, tag, out, brain, against, test);
             // ADR-0012: `smoke` is a direction check, and only `standard` and `bosses` can accept.
             // The test still runs and prints its trace; the report says what its ACCEPT is worth.
-            boolean directionCheck = !ACCEPTING.contains(set);
+            boolean directionCheck = !accepts(set);
             Comparison.write(out, report, stamp, directionCheck);
-            verdict = report.result() == null ? "" : report.result().verdict().name()
-                    + (directionCheck ? " (direction check)" : "") + " after "
-                    + report.result().pairs() + " pairs, " + report.missing() + " missing";
             String stopped = report.result() == null ? "" : report.result().verdict().name()
                     + (directionCheck ? " (direction check)" : "") + " after "
                     + report.result().pairs() + " pairs";
+            verdict = stopped.isEmpty() ? "" : stopped + ", " + report.missing() + " missing";
             System.out.println(brain + " against " + against + ": " + report.pairs().size()
                     + " pairs, " + report.missing() + " missing"
                     + (report.result() == null ? ", not tested (no Registration states the bounds)"
@@ -574,7 +583,7 @@ public final class Runner {
                         + committed.registration().id() + " states bounds for the "
                         + committed.registration().statistic() + " and the Rig's gate is the "
                         + SequentialTest.GATE.name());
-            } else if (baseline != null && ACCEPTING.contains(set)
+            } else if (baseline != null && accepts(set)
                     && !calibrated(committed.registration())) {
                 // A comparison that may accept (ADR-0012) runs at the calibrated bounds, the only
                 // ones whose realized error rates were measured (story 3.7). A direction check on
