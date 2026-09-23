@@ -147,8 +147,12 @@ class RunnerTest {
         // that the moment a second command was published, it was published unchecked -- which is
         // how story 3.5's registration command arrived, and the fourth time in two stories that
         // asserting a command was *written* turned out not to check that it works.
+        // The Rig's own command, that is: another task's `--args` are not the Rig's flags.
+        // `:rig:calibrate` takes a root and a mode, and CalibrationTest holds that command; a task
+        // published on this page later needs a check of its own there too.
         int checked = 0;
-        for (int at = page.indexOf("--args="); at >= 0; at = page.indexOf("--args=", at + 1)) {
+        String run = ":rig:run --args=";
+        for (int at = page.indexOf(run); at >= 0; at = page.indexOf(run, at + 1)) {
             int opens = page.indexOf('"', at);
             String published = page.substring(opens + 1, page.indexOf('"', opens + 1));
             Map<String, String> parsed = Runner.arguments(published.trim().split("\\s+"));

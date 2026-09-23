@@ -8,3 +8,6 @@ Findings surfaced by a story's review that are not that story's problem, one ent
 - source_spec: `_bmad-output/implementation-artifacts/1-19-thread-confinement.md`
   summary: The monitor rule of story 1.19 runs over the harness's test classpath only; `codex` (E2) and `overlay` (E5) depend on the game and need the same rule in their own test trees when they gain classes.
   evidence: `MonitorConfinementTest` imports `org.shatterfish` from the harness test classpath, which cannot see the modules built on the harness; both are package-info-only today.
+- source_spec: `_bmad-output/implementation-artifacts/3-7-calibrate-the-bounds.md`
+  summary: A comparison Registration is not held to calibrated bounds; nothing refuses one with n0 = 10, which the calibration shows overshoots its false-accept rate.
+  evidence: Gsprt.of(Registration) builds the test from any Registration's p1, burn-in and missing cap; story 3.9 writes the first comparison Registration and is where Calibration.CHOSEN should be required or cited.
