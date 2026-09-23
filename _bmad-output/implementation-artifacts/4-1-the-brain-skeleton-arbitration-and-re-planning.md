@@ -2,7 +2,7 @@
 title: 'Story 4.1: The Brain skeleton, arbitration and re-planning'
 type: 'feature'
 created: '2026-09-23'
-status: 'review'
+status: 'done'
 baseline_commit: 'df12f8e1a1e4e6a19a061f54460a3087c85f61e6'
 review_loop_iteration: 0
 context: []
