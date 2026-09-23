@@ -114,7 +114,10 @@ class EProcessTest {
         assertEquals(SequentialTest.Statistic.EPROCESS, test.statistic());
         org.shatterfish.api.Registration baseline = new org.shatterfish.api.Registration("H-0121-b",
                 "a baseline", null, random, SeedSets.SMOKE, 1, 50, 50, 8, 25, 0, "a laptop", false);
-        assertThrows(IllegalArgumentException.class, () -> EProcess.of(baseline));
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> EProcess.of(baseline));
+        assertTrue(refused.getMessage().contains("fixes a baseline"),
+                "refused as a baseline, not for the zero hypotheses it carries: " + refused.getMessage());
         // And the Rig asks the interface, which answers in the gate's design.
         assertEquals(SequentialTest.GATE, SequentialTest.of(comparison).statistic());
     }

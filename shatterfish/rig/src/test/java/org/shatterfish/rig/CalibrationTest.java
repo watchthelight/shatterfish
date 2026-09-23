@@ -104,7 +104,7 @@ class CalibrationTest {
         assertEquals(SequentialTest.GATE, result.gate(),
                 "SequentialTest.GATE must follow the calibration; change it with the page");
         List<Calibration.Row> duel = result.duel();
-        List<Integer> p1s = Calibration.duelAt(Calibration.GRID, Calibration.CHOSEN);
+        List<Integer> p1s = Calibration.duelAt(Calibration.GRID);
         assertEquals(List.of(550, 600, 650), p1s, "every p1 of the grid, the chosen one among them");
         assertEquals(2 * p1s.size(), duel.size());
         for (int i = 0; i < duel.size(); i += 2) {

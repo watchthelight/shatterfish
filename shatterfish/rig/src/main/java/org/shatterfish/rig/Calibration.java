@@ -255,7 +255,7 @@ public final class Calibration {
         // chosen burn-in and cap -- all on one draw, so the designs differ only in the test.
         List<Entry> fresh = new ArrayList<>();
         fresh.add(new Entry(chosen.cell(), SequentialTest.Statistic.GSPRT));
-        for (int p1 : duelAt(grid, chosen.cell())) {
+        for (int p1 : duelAt(grid)) {
             Cell cell = new Cell(p1, chosen.cell().burnIn(), chosen.cell().missingPerMil());
             fresh.add(new Entry(cell, SequentialTest.Statistic.GSPRT));
             fresh.add(new Entry(cell, SequentialTest.Statistic.EPROCESS));
@@ -271,11 +271,10 @@ public final class Calibration {
                 gate(validation, challenger));
     }
 
-    /** The p1 values the duel runs at: every p1 of the grid, which includes the chosen one. */
-    static List<Integer> duelAt(List<Cell> grid, Cell chosen) {
+    /** The p1 values the duel runs at: every p1 of the grid, which the chosen cell was one of. */
+    static List<Integer> duelAt(List<Cell> grid) {
         java.util.TreeSet<Integer> p1s = new java.util.TreeSet<>();
         grid.forEach(cell -> p1s.add(cell.p1PerMil()));
-        p1s.add(chosen.p1PerMil());
         return List.copyOf(p1s);
     }
 
