@@ -136,6 +136,13 @@ it re-reads ADR-0006's Blobs row.
   it stays inside information parity -- is a Run-log schema change, and would let the gallery group
   by killer.
 
+- Comparing two weight sets in the Rig (found in story 4.5's review). A comparison's two sides each
+  read `weights/<brain>.json` for their Brain, so the Rig cannot run an SPRT of the same Brain under
+  two weight sets: the file names one set per Brain. Tuning needs a way to name the second set --
+  a flag naming the other file, or a named variant of the Brain whose weights live beside it -- with
+  the second set's canonical text in its side's configuration hash and in the Registration. Deferred
+  to the story that first tunes a weight.
+
 ## From story 4.2 (Beliefs)
 
 - **Kills from the log.** A remembered enemy stays remembered until an enemy of its name is seen again or

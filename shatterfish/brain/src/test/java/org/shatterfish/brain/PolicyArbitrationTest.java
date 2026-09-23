@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PolicyArbitrationTest {
 
     private static Brain brain() {
-        return new Brain(Screens.CODEX, 11L);
+        return new Brain(Screens.CODEX, Screens.WEIGHTS, 11L);
     }
 
     @Test
@@ -67,7 +67,8 @@ class PolicyArbitrationTest {
     @Test
     @DisplayName("the configuration names the Policies and the memory's version")
     void the_configuration() {
-        assertEquals("policies=answer-prompt,fallback;memory=" + Memory.VERSION, Brain.configuration());
+        assertEquals("policies=answer-prompt,fallback;memory=" + Memory.VERSION + ";weights=" + Screens.WEIGHTS.canonical(),
+                Brain.configuration(Screens.WEIGHTS));
     }
 
     @Test
@@ -121,7 +122,8 @@ class PolicyArbitrationTest {
         byte[] longer = java.util.Arrays.copyOf(memory.belief().bytes(), memory.belief().bytes().length + 1);
         assertThrows(IllegalArgumentException.class, () -> Memory.of(new Belief(Memory.VERSION, longer)),
                 "bytes left over are refused");
-        assertThrows(IllegalArgumentException.class, () -> new Brain(null, 1L));
+        assertThrows(IllegalArgumentException.class, () -> new Brain(null, Screens.WEIGHTS, 1L));
+        assertThrows(IllegalArgumentException.class, () -> new Brain(Screens.CODEX, null, 1L));
     }
 
     @Test

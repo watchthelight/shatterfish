@@ -19,6 +19,9 @@ seeds/** text eol=lf
 # The Registrations and the comparison ledger: the Rig appends to the ledger, and a checkout
 # that rewrote its endings would weld a CRLF into a file whose format says line feeds only.
 registrations/** text eol=lf
+# The Brains' weight sets (story 4.5): each file must be its canonical text, byte for byte, because
+# its text is hashed into the Brain's configuration; a carriage return would make it another file.
+weights/** text eol=lf
 
 # Shatterfish's own sources and documents are line feeds, whatever a Windows checkout would
 # otherwise write (story 3.1). Six files were rewritten CRLF for four lines of content, which

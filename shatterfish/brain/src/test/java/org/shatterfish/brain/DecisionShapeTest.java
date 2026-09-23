@@ -43,7 +43,7 @@ class DecisionShapeTest {
     void goal_and_alternatives() {
         int decisions = 0;
         for (long seed = 0; seed < 20; seed++) {
-            Brain brain = new Brain(Screens.CODEX, seed);
+            Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, seed);
             Belief belief = null;
             for (Observation screen : screens()) {
                 belief = brain.update(screen, belief);
@@ -70,7 +70,7 @@ class DecisionShapeTest {
     @Test
     @DisplayName("an ordinary screen of six Actions records three alternatives, each scored one in six")
     void three_alternatives() {
-        Brain brain = new Brain(Screens.CODEX, 3L);
+        Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, 3L);
         Observation screen = screens().get(2);
         RunLog.Decision decision = brain.decide(screen, brain.update(screen, null)).decision();
         assertEquals(3, decision.alternatives().size());
@@ -84,7 +84,7 @@ class DecisionShapeTest {
     @Test
     @DisplayName("the prompt Policy scores its pick and names the button it presses")
     void the_prompt_says_which_button() {
-        Brain brain = new Brain(Screens.CODEX, 3L);
+        Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, 3L);
         Observation screen = screens().get(6);
         RunLog.Decision decision = brain.decide(screen, brain.update(screen, null)).decision();
         assertEquals(new Action.AnswerPrompt(2), decision.chosen().action());
@@ -103,7 +103,7 @@ class DecisionShapeTest {
     void labels_not_sentences() {
         int said = 0;
         for (long seed = 0; seed < 10; seed++) {
-            Brain brain = new Brain(Screens.CODEX, seed);
+            Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, seed);
             for (Observation screen : screens()) {
                 RunLog.Decision decision = brain.decide(screen, brain.update(screen, null)).decision();
                 List<String> texts = new ArrayList<>(List.of(decision.goal(), decision.chosen().why()));
@@ -124,7 +124,7 @@ class DecisionShapeTest {
     @Test
     @DisplayName("the Safety flags are read off the screen, and the cells the chosen Action targets are highlighted")
     void flags_and_highlights() {
-        Brain brain = new Brain(Screens.CODEX, 0L);
+        Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, 0L);
         Observation calm = Screens.offering(1, new Action.Step(2));
         Brain.Decided decided = brain.decide(calm, brain.update(calm, null));
         assertEquals(List.of(), decided.decision().flags());
