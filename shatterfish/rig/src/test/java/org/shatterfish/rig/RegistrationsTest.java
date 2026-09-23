@@ -98,6 +98,23 @@ class RegistrationsTest {
     // ------------------------------------------------------------------------------ what it reads
 
     @Test
+    @DisplayName("every Registration this repository has committed reads")
+    void every_committed_registration_reads() throws IOException {
+        // Story 3.9 committed one that did not -- a Brain name the record refuses -- and learned it
+        // only from the refusal of its first ranked invocation. Reading them all is cheap.
+        java.nio.file.Path folder = SeedSetsTest.ROOT.resolve(Registrations.FOLDER);
+        int read = 0;
+        try (var files = java.nio.file.Files.list(folder)) {
+            for (java.nio.file.Path file : files.filter(f -> f.toString().endsWith(".json")).toList()) {
+                String id = file.getFileName().toString().replaceAll("\\.json$", "");
+                assertEquals(id, Registrations.read(SeedSetsTest.ROOT, id).registration().id());
+                read++;
+            }
+        }
+        assertTrue(read >= 3, "H-0001, H-0002 and H-0004 at least: " + read);
+    }
+
+    @Test
     @DisplayName("a committed Registration reads, and its stamp is over the committed bytes")
     void a_committed_registration_reads(@TempDir Path root) throws IOException {
         Registration was = baseline("H-0001-smoke", "smoke", false);

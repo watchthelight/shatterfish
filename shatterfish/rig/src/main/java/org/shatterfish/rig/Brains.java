@@ -3,6 +3,7 @@ package org.shatterfish.rig;
 import org.shatterfish.api.Decider;
 import org.shatterfish.api.SeedSet;
 import org.shatterfish.harness.agent.RandomAgent;
+import org.shatterfish.harness.agent.WithholdingAgent;
 import org.shatterfish.harness.rng.Mix;
 
 import java.io.IOException;
@@ -45,6 +46,40 @@ public final class Brains {
     public static final String RANDOM = "random";
 
     /**
+     * The deliberately worse Brain (story 3.9, SM-5): the Baseline with {@code Descend} taken out of
+     * what it may choose. It exists so the Rig can be shown rejecting something.
+     */
+    public static final String NO_DESCEND = "random_nodescend";
+
+    /**
+     * The worse Brain that is worse (story 3.9): the Baseline with {@code Rest} withheld. The first
+     * one, {@link #NO_DESCEND}, played the same Run as the Baseline on every triple of
+     * {@code standard} that reached an ending, because the random agent never takes the stairs;
+     * withholding {@code Attack} ({@link #NO_ATTACK}) changed one pair of the 25 in {@code smoke}.
+     * Without {@code Rest} a random Run takes many more, shorter Actions and dies far sooner in turns:
+     * a median of 288 against the Baseline's 1,384 on {@code standard}.
+     */
+    public static final String NO_REST = "random_norest";
+
+    /**
+     * The Baseline with {@code Attack} withheld: the second candidate story 3.9 tried on
+     * {@code smoke}, kept so that the number the worse-Brain page quotes for it can be reproduced.
+     * Not registered on any accepting set.
+     */
+    public static final String NO_ATTACK = "random_noattack";
+
+    /** The Brains that are the Baseline with one kind of Action withheld, and which kind. */
+    private static final java.util.Map<String, Class<? extends org.shatterfish.api.Action>> WITHHELD =
+            java.util.Map.of(NO_DESCEND, org.shatterfish.api.Action.Descend.class,
+                    NO_REST, org.shatterfish.api.Action.Rest.class,
+                    NO_ATTACK, org.shatterfish.api.Action.Attack.class);
+
+    /** The kind of Action a withholding Brain withholds, or null for any other Brain. */
+    static Class<? extends org.shatterfish.api.Action> withheld(String name) {
+        return WITHHELD.get(name);
+    }
+
+    /**
      * The files that decide what a Brain does, by name.
      *
      * <p>FR-20 allows the held-out set one use per <em>Brain version</em>, and a version has to be
@@ -59,6 +94,10 @@ public final class Brains {
     private static List<String> sourceOf(String name) {
         if (RANDOM.equals(named(name))) {
             return List.of("shatterfish/harness/src/main/java/org/shatterfish/harness/agent/RandomAgent.java",
+                    "shatterfish/rig/src/main/java/org/shatterfish/rig/Brains.java");
+        }
+        if (WITHHELD.containsKey(name)) {
+            return List.of("shatterfish/harness/src/main/java/org/shatterfish/harness/agent/WithholdingAgent.java",
                     "shatterfish/rig/src/main/java/org/shatterfish/rig/Brains.java");
         }
         throw new IllegalStateException("the Brain " + name + " has not said which files decide"
@@ -93,7 +132,7 @@ public final class Brains {
 
     /** Every name the Rig answers to, in the order it lists them. */
     public static List<String> names() {
-        return List.of(RANDOM);
+        return List.of(RANDOM, NO_DESCEND, NO_REST, NO_ATTACK);
     }
 
     /** Whether the Rig has a Brain of this name. Asking does not build one. */
@@ -132,6 +171,9 @@ public final class Brains {
         if (RANDOM.equals(name)) {
             return new RandomAgent(agentSeed(triple));
         }
+        if (WITHHELD.containsKey(name)) {
+            return new WithholdingAgent(agentSeed(triple), WITHHELD.get(name));
+        }
         throw new IllegalStateException("the Rig names the Brain " + name + " and cannot build one");
     }
 
@@ -141,7 +183,7 @@ public final class Brains {
      * its configuration is the empty one.
      */
     public static String configHash(String name) {
-        if (!RANDOM.equals(named(name))) {
+        if (!RANDOM.equals(named(name)) && !WITHHELD.containsKey(name)) {
             // A real Brain states its own configuration. Returning zeros for it would put an
             // unfalsifiable claim in every log header it wrote, and the Registration (story 3.5)
             // is the thing that pins a Brain's configuration -- so this refuses rather than

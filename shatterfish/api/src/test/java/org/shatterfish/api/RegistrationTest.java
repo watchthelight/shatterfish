@@ -137,8 +137,19 @@ class RegistrationTest {
         assertThrows(IllegalArgumentException.class, () -> new Registration("H-0057", "x",
                 brain("random"), brain("greedy"), "smoke", 1, 50, 50, 8, 25, 0, "a laptop", false,
                 500, 550, 1000), "a comparison that tolerates every pair missing can never be void");
+        assertThrows(IllegalArgumentException.class, () -> new Registration("H-0058", "x",
+                brain("random"), brain("greedy"), "smoke", 1, 50, 50, 8, 25, 0, "a laptop", false,
+                500, 550, 50, ""), "a comparison names its sequential test");
+        assertThrows(IllegalArgumentException.class, () -> new Registration("H-0059", "x",
+                brain("random"), brain("greedy"), "smoke", 1, 50, 50, 8, 25, 0, "a laptop", false,
+                500, 550, 50, "SPRT"), "one of the two the Rig has");
+        assertThrows(IllegalArgumentException.class, () -> new Registration("H-0060", "x", null,
+                brain("random"), "smoke", 1, 50, 50, 8, 25, 0, "a laptop", false, 0, 0, 0, "GSPRT"),
+                "and a baseline names none");
         // Absent from a baseline's text, so a baseline written before they existed keeps its hash.
         assertFalse(baseline().canonical().contains("p0_per_mil"));
+        assertFalse(baseline().canonical().contains("statistic"));
+        assertTrue(comparison().canonical().contains("\"statistic\":\"GSPRT\""));
         assertTrue(comparison().canonical().contains("\"p0_per_mil\":500,\"p1_per_mil\":550"));
     }
 
@@ -255,9 +266,15 @@ class RegistrationTest {
                 new Registration(was.hypothesis(), was.claim(), was.brainA(), was.brainB(),
                         was.seedSet(), was.seedVersion(), was.alphaPerMil(), was.betaPerMil(),
                         was.burnIn(), was.maximum(), was.budgetMs(), was.machineClass(),
-                        was.releaseLevel(), was.p0PerMil(), was.p1PerMil(), 999));
+                        was.releaseLevel(), was.p0PerMil(), was.p1PerMil(), 999),
+                // The statistic: the same four numbers are different bounds to the two designs.
+                new Registration(was.hypothesis(), was.claim(), was.brainA(), was.brainB(),
+                        was.seedSet(), was.seedVersion(), was.alphaPerMil(), was.betaPerMil(),
+                        was.burnIn(), was.maximum(), was.budgetMs(), was.machineClass(),
+                        was.releaseLevel(), was.p0PerMil(), was.p1PerMil(), was.missingPerMil(),
+                        "EPROCESS"));
 
-        assertEquals(16, was.getClass().getRecordComponents().length,
+        assertEquals(17, was.getClass().getRecordComponents().length,
                 "a field was added: give it a row above, or it is a field the hash does not cover");
         Set<String> hashes = new LinkedHashSet<>();
         hashes.add(was.hash());
