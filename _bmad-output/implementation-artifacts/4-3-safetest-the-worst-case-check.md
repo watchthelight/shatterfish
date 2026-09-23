@@ -138,3 +138,14 @@ which only moves the mean. The level is irrelevant to the hero's safety.
 - `docs/brain-rules.md` (the Brain's Rules index) arrives with story 4.4. Once both are merged, it
   gains a row for `SafeTest` pointing at the new `identification.md` row.
 - Tests: `:api:test` and `:brain:test` pass (`SafeTestWorstCaseTest`, 7 cases).
+- `:codex:citations`: no findings; the new rules row resolves at `v4.0.0`. `mkdocs build --strict`
+  is clean.
+- Mutation battery, 8 of 8 killed by `SafeTestWorstCaseTest`:
+  - the mean decides;
+  - water ignored;
+  - a diagonal neighbour not counted as beside;
+  - enemies ignored;
+  - Rage harmless;
+  - a cursed wand harmless;
+  - lethal made strict (`>`);
+  - toxic gas made flat in depth.
