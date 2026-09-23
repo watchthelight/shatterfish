@@ -190,6 +190,122 @@ reads a set: the development read refuses `holdout` outright, and the only other
 reason it is being published and carries that reason onto the page. `standard` and `holdout` are
 derived from different constants and are checked to share no triple.
 
+## The Run log and its chain
+
+Every Run writes `<run-id>.jsonl`: one record per line, plain text, no compression, readable with
+`grep` and a text editor. The run id is
+`<tag>-<class>-<challenges>-<seedcode>-<salt>-<brain>`, and the Brain is part of it because a
+comparison plays two Brains on the same triple under the same salt -- without it, a pair's two Runs
+would agree on every other part and write to one file.
+
+Each line carries a chain value over itself and everything before it, so a byte changed anywhere
+breaks every chain from that record on. The point of publishing the rules below is that the chain
+can be recomputed by something that has never seen this repository: a shell script with `sha256sum`
+is enough.
+
+### Canonical JSON
+
+A record is one JSON object on one line, written so that two writers of the same values produce the
+same bytes:
+
+- every object's keys are sorted by their UTF-16 code units, whatever order they were given in,
+  and no key appears twice in one object;
+- there is no whitespace anywhere outside a string;
+- every number is a whole number -- no floats, no exponents, no leading `+`, no `-0`. A turn is
+  thousandths of a turn; a Decision's score is ten-thousandths; a Run's score is the game's own
+  whole points. Two machines agreeing on a float's text is a thing to hope for rather than rely on;
+- a **salt** is not a number. It is sixteen lower-case hex digits in a string, the same sixteen the
+  file name carries. A salt is drawn across the whole 64-bit range, and a JSON number above 2^53 is
+  silently rounded by every reader built on IEEE doubles -- which is most of the scripts this page
+  invites you to write;
+- the file is UTF-8, line feeds only, and ends with one.
+
+**Strings, exactly.** "The escapes JSON requires" is not a specification -- JSON permits `\u000a`
+wherever it permits `\n` -- so here is the whole rule, which is what a second implementation has to
+match byte for byte:
+
+| Character | Written as |
+|---|---|
+| `"` | `\"` |
+| `\` | `\\` |
+| backspace, form feed, line feed, carriage return, tab | `\b` `\f` `\n` `\r` `\t` |
+| any other character below U+0020 | `\u00xx`, **lower-case** hex |
+| an unpaired surrogate | `\uxxxx`, lower-case hex -- raw it would not survive as the same UTF-8 |
+| a matched surrogate pair | both characters, raw, as UTF-8 |
+| everything else, including `/` and every non-ASCII character | raw, as UTF-8 |
+
+**Absent, empty, or always written.** The general rule "a field with nothing to say is absent" was
+wrong about this format in both directions, so here is the per-field truth:
+
+| Field | When it has nothing to say |
+|---|---|
+| `decision`, `belief`, `highlights` (on a wait) | the key is absent |
+| `prev` (on the header) | the key is absent -- nothing comes before it |
+| `registration` (on the header) | written as `""` |
+| `alternatives`, `flags` (inside a decision) | written as `[]` |
+| `machine`, `started` | always written, and never chained |
+
+No field is ever `null`.
+
+### The chain
+
+```
+chained(record) = the record's canonical JSON with these keys removed:
+                  prev, chain, think_ms, machine, started
+chain(header)   = SHA-256( utf8(chained(header)) )
+chain(record_k) = SHA-256( bytes(chain_{k-1}) || utf8(chained(record_k)) )
+```
+
+`bytes(...)` is the previous chain as its thirty-two raw bytes, not as its sixty-four hex
+characters. Every line then carries `chain`, and every line after the header also carries `prev`,
+which repeats the line before it -- so a forger who edits a field and recomputes that one line's
+own chain is caught by the next line's `prev`.
+
+The five excluded keys are excluded because they say *when* and *where* rather than *what*:
+`think_ms` is how long the decider took, `machine` and `started` are the header's own, and `prev`
+and `chain` are the envelope. So the same Run recorded on a slow laptop and a fast server chains
+identically, and nothing excluded is needed to replay the Run -- which is the test of whether a
+field belongs on that list.
+
+**What the chain proves, and what it does not.** It proves the file is internally consistent: no
+record was changed, removed from the middle, or reordered after it was written, because every chain
+is over everything before it and each line repeats the one before it in `prev`. It does **not**
+prove the file was not written from scratch afterwards -- the rules on this page are enough to
+forge a whole log that verifies perfectly. A chain becomes evidence only when its final value is
+recorded somewhere its author does not control, which is what the Registration committed before the
+first Run (story 3.5) and the Rig's own index (story 3.3) are for.
+
+Nor is truncation detectable from the log alone: every prefix of a valid log is itself a valid log.
+That is what makes a killed Run readable, and it means "incomplete" is a claim the log cannot
+refute -- so a reader has a second question to ask beyond whether the chain verifies, which is
+whether the file begins with a header and ends with an `end` record.
+
+### Test vector
+
+One header, alone, with the values below, chains to the value in the last row. Strip the five keys,
+hash the remaining text as UTF-8, and you should get the same:
+
+| What | Value |
+|---|---|
+| The record | `{"brain":{"commit":"def5678","config":"0000000000000000000000000000000000000000000000000000000000000000","name":"random"},"challenges":0,"class":"WARRIOR","codex":8,"commit":"abc1234","machine":"a laptop","obsv":2,"oracle":false,"profile":3,"registration":"","salt":"0000000000000007","seed":12345,"seedcode":"AAA-AAA-SGV","started":"2026-09-22T12:00:00Z","t":"header","tag":"v4.0.0","v":1}` |
+| Chained (the same, without `machine` and `started`) | `{"brain":{"commit":"def5678","config":"0000000000000000000000000000000000000000000000000000000000000000","name":"random"},"challenges":0,"class":"WARRIOR","codex":8,"commit":"abc1234","obsv":2,"oracle":false,"profile":3,"registration":"","salt":"0000000000000007","seed":12345,"seedcode":"AAA-AAA-SGV","t":"header","tag":"v4.0.0","v":1}` |
+| `chain` | `53aa5c6fc977dce9da982096d39e3c3663d010b466ce794a4641ca163b485fb5` |
+
+`RunLogVectorTest` recomputes this table from the code on every build, so the page cannot drift
+away from what the writer does.
+
+### What the chain does not prove
+
+The header's `tag`, `commit`, `brain` and `registration` are supplied by whoever started the Run:
+the driver has no checkout to read a commit from and no Registration to read an id from. They are
+*attested*, not verified. The chain shows that nobody changed them after the Run; what makes them
+worth anything is the Registration committed before the first Run, and the Replay that plays the
+log back and compares every Observation hash.
+
+A Run that ends without an `end` record is *incomplete* -- killed, crashed, or timed out. Its
+prefix still reads and still verifies as far as it goes, and the Rig counts it as incomplete and
+scores its pair as a tie, so a Brain cannot improve its standing by failing.
+
 ## What is shown, and what is not
 
 The same tuple, played by the same policy, gives the same Observation hash at every wait — twice in

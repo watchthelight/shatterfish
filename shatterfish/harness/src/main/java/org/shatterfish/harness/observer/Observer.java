@@ -184,9 +184,31 @@ public final class Observer {
     public Observer() {
     }
 
-    /** The upstream release the game is: the version the launcher set, as the tag names it. */
+    /**
+     * The upstream release the game is: the version the launcher set, as the tag names it.
+     *
+     * <p>It refuses to answer before the game has been booted. {@code Game.version} is null until
+     * {@code HeadlessBoot} sets it, and "vnull" is a string that passes for a tag everywhere it is
+     * written -- an Observation header, and from story 3.2 a Run log's header, where it would be a
+     * published Run attributing itself to no release at all.
+     */
     public static String upstreamTag() {
-        return "v" + Game.version;
+        return tag(Game.version);
+    }
+
+    /**
+     * The tag a version names, refusing a version that is not one. It is separate from the reader
+     * above so that a test can ask it: a JVM that has booted cannot be un-booted, so the refusal
+     * was unreachable from any test while it lived inside the reader -- and a guard nothing can
+     * reach is a guard nobody knows works. Story 3.2's mutation battery deleted it and every test
+     * stayed green.
+     */
+    static String tag(String version) {
+        if (version == null || version.isEmpty()) {
+            throw new IllegalStateException("the game has no version yet, so it has no tag: boot it"
+                    + " with HeadlessBoot.ensure() before asking which release this is");
+        }
+        return "v" + version;
     }
 
     /**

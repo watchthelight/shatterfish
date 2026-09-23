@@ -175,7 +175,16 @@ class JsonRenderingTest {
             // value with a schema version of its own, like a Codex table, and RigJson writes it;
             // neither reads one back, which is why the name of a hero class becomes a HeroClass in
             // the rig's reader and not here.
-            "SeedSet", "SeedSet$Entry", "RigJson");
+            "SeedSet", "SeedSet$Entry", "RigJson",
+            // The Run log (story 3.2, ADR-0011): eight record kinds a Run leaves behind, and the
+            // renderer that writes one of them to one line and computes the chain over it.
+            // RunLogJson writes and never reads -- deliberately, because the thing that checks a
+            // chain has to be something other than the thing that wrote it, or it checks only that
+            // the writer agrees with itself. The reader of a committed log lives in the tests and,
+            // from story 3.4, in the Replay.
+            "RunLog", "RunLog$Header", "RunLog$Brain", "RunLog$Wait", "RunLog$Prompt", "RunLog$Mode",
+            "RunLog$Shadow", "RunLog$Boundary", "RunLog$Unsupported", "RunLog$End", "RunLog$Outcome",
+            "RunLog$Decision", "RunLog$Choice", "RunLogJson");
 
     @Test
     @DisplayName("api is the schema, Action and the named helpers, and nothing in it reads text or bytes into a record")

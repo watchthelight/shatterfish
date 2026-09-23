@@ -93,6 +93,80 @@ results.
 - Bad: a schema bump (`v`) orphans old logs for Replay; they stay readable and their chains stay
   verifiable, which is what a published number needs.
 
+### What story 3.2 settled
+
+The decision above says what the records are; implementing it in story 3.2 settled four things it
+left open.
+
+**Where the header's provenance comes from.** `tag`, `commit`, `brain` and `registration` are
+supplied by the caller, as one value the logged Run requires. The driver has no checkout and no
+Registration, so there was no other honest source. They are attested rather than verified: the
+chain shows nobody changed them after the Run, not that they were true when it began. The
+Registration (story 3.5) and the Replay (story 3.4) are what make them worth anything, and the
+methodology page says so in as many words.
+
+**Which kinds a headless Run writes.** `header`, `wait`, `prompt` and `end`. `mode`, `shadow` and
+`boundary` are the Overlay's (ADR-0013) and `unsupported` is a human input the executor could not
+express, so nothing in the Rig produces them. All four are defined, rendered and chained now, and
+held against hand-built records, so the story that starts writing them adds a caller and not a rule
+about the format.
+
+**`wait.decision` stays absent until there is a Brain.** A decider that states no reason carries
+none, and a partial decision -- a goal with nothing chosen, a choice with no policy -- is refused,
+so E4 cannot half-fill it and call it a Decision.
+
+**`boundary` carries `chainAt`, not `chain`.** The record's own chain value and the envelope's are
+two different things; spelling them the same would have made a line that says `chain` twice, and
+would have made a textual checker strip the record's own payload along with the envelope.
+
+### What the review then found, and what changed
+
+Four reviews read the branch. Six things in this ADR's own terms turned out to be wrong or missing
+in the first implementation, and the decision above is amended by them.
+
+**A `wait` carries `actor` and `applied`.** `actor` (`bot` or `human`) is in the table above and was
+not written; adding it in E5 would have changed the chained text of every wait ever written and
+forced a schema bump that orphaned every log. `applied` is new and not in the table: the record was
+written before the executor answered, so a refused Action -- which changes nothing and leaves the
+wait open -- was logged exactly like an applied one, and a Replay applying it would have reproduced
+a different Run with nothing in the file to explain the divergence.
+
+**A salt is sixteen lower-case hex digits in a string, not a JSON number.** The run id already spelt
+it that way; the header spelt the same value as a signed decimal, and a salt runs the whole 64-bit
+range, so any reader built on IEEE doubles silently corrupted it. One spelling, in both places.
+
+**A Run's score is the game's own whole points.** "Scores are integers in ten-thousandths" above is
+about a Decision's score, which is a Brain's evaluation; the `end` record's score is what the game's
+own scorer returns. The first implementation documented the Decision's unit on the Run's field.
+
+**A run id can be read back.** The six parts are joined with `-`, so no part may contain one: a tag
+`v4.0.0-beta` or a Brain `greedy-v2` made an id that split more than one way, and a reviewer built
+two different tuples that produce one id. A Brain's name is lower case, because two ids differing
+only in case are one file on Windows and on macOS. The seed code contributes two dashes of its own,
+so an id holds seven and not five -- stated here and on the methodology page, because a reader who
+splits on the separator and counts gets it wrong.
+
+**The `oracle` and `verifiable` fields are derived, not asserted.** Both were literals in the only
+code that wrote them, which makes a flag that cannot say otherwise. `oracle` is now the caller's to
+state and is re-checked at every wait against the Observation the decider was handed; `verifiable`
+follows the ending, because a Replay cannot reproduce a Run that stopped when the harness could not
+follow the game.
+
+**Every ending writes an `end` record, structurally.** The first implementation wrapped each of the
+loop's seven returns; one was missed, and a log with no `end` is indistinguishable from a killed
+Run's, which ADR-0012 scores as a tie -- so a Brain that failed in that particular way scored a tie
+instead of a loss. The loop now returns its outcome to one caller and that caller writes the record.
+
+**What the chain does not prove** is now stated on the methodology page rather than implied: it
+proves internal consistency, not authorship, and every prefix of a valid log is a valid log. The
+final chain value has to be recorded somewhere its author does not control -- the Registration
+(story 3.5) and the Rig's index (story 3.3) -- before it is evidence of anything.
+
+Two details the ADR did not state and now does. The previous chain enters the hash as its
+thirty-two raw bytes, not as its hex text. And the turn a `wait` records is thousandths -- the
+harness's own `turns()` rounds two of the game's floats down to an int for a person to read, and a
+chained field holds no float and loses no fraction.
+
 ## Pre-mortem
 
 *If this is wrong in six months, why?*

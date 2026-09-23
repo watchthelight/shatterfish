@@ -100,6 +100,15 @@ class BrainBoundaryTest {
 			// thing non-negotiable 1 names, so the type is denied here even though `api` as a
 			// whole is allowed.
 			org.shatterfish.api.SeedSet.class, org.shatterfish.api.SeedSet.Entry.class,
+			// A Run log's header carries the seed and the salt outright, and the boundary record
+			// carries the salt again (story 3.2, ADR-0011). The log is a record a Run leaves
+			// behind, never an input to one, so nothing a Brain does needs to read it -- and a
+			// Brain that could would be reading the two numbers non-negotiable 1 exists to keep
+			// from it. `RunLog.Decision` and its parts stay allowed: a Brain says why it chose,
+			// and the harness is what writes that down.
+			org.shatterfish.api.RunLog.class, org.shatterfish.api.RunLog.Header.class,
+			org.shatterfish.api.RunLog.Brain.class, org.shatterfish.api.RunLog.Boundary.class,
+			org.shatterfish.api.RunLogJson.class,
 	};
 
 	/**
