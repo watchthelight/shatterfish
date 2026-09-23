@@ -2,7 +2,7 @@
 title: 'Story 3.7: Calibrate the bounds'
 type: 'feature'
 created: '2026-09-23'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: 'f1b070c0c2e3b671b9d6786ee7e06e7224e71960'
 review_loop_iteration: 0
 context: []

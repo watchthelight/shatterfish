@@ -9,12 +9,12 @@ Story 3.7, [#96](https://github.com/watchthelight/shatterfish/issues/96). The me
 | | |
 |---|---|
 | Upstream tag | `v4.0.0` |
-| Brain | `random` at `f1b070c0c2e3b671b9d6786ee7e06e7224e71960` |
+| Brain | `random`, invoked at `f1b070c0c2e3b671b9d6786ee7e06e7224e71960`, configuration `0000000000000000000000000000000000000000000000000000000000000000` |
 | Seed set | `standard` version 1 |
 | Turn cap | 20000 |
 | Runs | 500, of which 42 did not reach an ending the game decided |
 | Run index SHA-256 | `88bdb203b16bbdf91b5e36966f5c687a4f1a9e449e96a74887f3ea125c151336` |
-| Command | `./gradlew :rig:run --args="--brain random --seeds standard --parallel 24 --out <dir>"` |
+| Command | `./gradlew :rig:run --args="--brain random --seeds standard --cap 20000 --out <dir>"` |
 
 | Ending | Runs |
 |---|---|
@@ -29,7 +29,7 @@ Story 3.7, [#96](https://github.com/watchthelight/shatterfish/issues/96). The me
 
 ## The pair statistic under H0
 
-Two independent draws per pair, 5,000,000 pairs in all.
+Two independent draws per pair, 5,000,000 pairs in all. A pair is scored by the Composite order, whose last step is turns survived, counted in thousandths of a turn.
 
 | | share |
 |---|---|
@@ -39,29 +39,46 @@ Two independent draws per pair, 5,000,000 pairs in all.
 
 ## The grid
 
-Every cell: p0 = 0.500, α = β = 0.050, maximum 500 pairs; 10,000 sequences per hypothesis, seed 20260923. A realized rate is calibrated when it is at most nominal + 0.010; a cell is powerful when at least 90.0% of H1 sequences accept.
+Every cell: p0 = 0.500, α = β = 0.050, maximum 500 pairs; 10,000 sequences per hypothesis, seed 20260923, the same sequences for every cell. H1 makes a share of the reached pairs wins; missing pairs stay missing. *Errors within margin* means realized false-accept (H0 accept) and false-reject (H1 reject) are each at most nominal + 0.010; a void result is neither, so a cell that voids most results can be within margin and still useless, which *power* (at least 90.0% of H1 sequences accept) catches. Pair counts are over all sequences, whatever the verdict; the median is the upper median.
 
-| p1 | n0 | missing cap | H0 accept | H0 reject | H0 undecided | H0 void | H1 accept | H1 reject | H1 undecided | H1 void | H1 mean pairs | H1 median pairs | calibrated | powerful |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 0.550 | 10 | 0.100 | 0.20% | 0.73% | 0.00% | 99.07% | 2.61% | 0.18% | 0.05% | 97.16% | 336.3 | 348 | yes | no |
-| 0.550 | 20 | 0.100 | 0.10% | 0.59% | 0.00% | 99.31% | 2.32% | 0.10% | 0.05% | 97.53% | 339.2 | 350 | yes | no |
-| 0.550 | 40 | 0.100 | 0.05% | 0.55% | 0.00% | 99.40% | 2.10% | 0.09% | 0.05% | 97.76% | 340.4 | 351 | yes | no |
-| 0.600 | 10 | 0.100 | 0.92% | 7.54% | 0.00% | 91.54% | 24.16% | 0.89% | 0.02% | 74.93% | 101.6 | 79 | yes | no |
-| 0.600 | 20 | 0.100 | 0.54% | 6.78% | 0.00% | 92.68% | 23.05% | 0.78% | 0.02% | 76.15% | 105.7 | 82 | yes | no |
-| 0.600 | 40 | 0.100 | 0.34% | 6.16% | 0.00% | 93.50% | 22.49% | 0.65% | 0.02% | 76.84% | 111.7 | 86 | yes | no |
-| 0.650 | 10 | 0.100 | 2.00% | 16.38% | 0.00% | 81.62% | 47.16% | 1.47% | 0.00% | 51.37% | 43.8 | 33 | yes | no |
-| 0.650 | 20 | 0.100 | 1.10% | 14.70% | 0.00% | 84.20% | 45.85% | 1.21% | 0.00% | 52.94% | 49.0 | 36 | yes | no |
-| 0.650 | 40 | 0.100 | 0.52% | 12.60% | 0.00% | 86.88% | 44.92% | 0.94% | 0.00% | 54.14% | 59.6 | 44 | yes | no |
-| 0.550 | 10 | 0.250 | 3.62% | 65.14% | 30.67% | 0.57% | 65.46% | 3.62% | 30.52% | 0.40% | 336.3 | 348 | yes | no |
-| 0.550 | 20 | 0.250 | 3.43% | 65.42% | 30.91% | 0.24% | 65.66% | 3.50% | 30.75% | 0.09% | 339.2 | 350 | yes | no |
-| 0.550 | 40 | 0.250 | 3.35% | 65.44% | 31.01% | 0.20% | 65.62% | 3.47% | 30.86% | 0.05% | 340.4 | 351 | yes | no |
-| 0.600 | 10 | 0.250 | 6.14% | 88.74% | 0.29% | 4.83% | 93.23% | 4.80% | 0.29% | 1.68% | 101.6 | 79 | no | yes |
-| 0.600 | 20 | 0.250 | 5.44% | 90.80% | 0.30% | 3.46% | 94.22% | 4.67% | 0.29% | 0.82% | 105.7 | 82 | yes | yes |
-| 0.600 | 40 | 0.250 | 4.82% | 92.48% | 0.33% | 2.37% | 94.96% | 4.36% | 0.31% | 0.37% | 111.7 | 86 | yes | yes |
-| 0.650 | 10 | 0.250 | 6.78% | 83.12% | 0.00% | 10.10% | 93.48% | 3.89% | 0.00% | 2.63% | 43.8 | 33 | no | yes |
-| 0.650 | 20 | 0.250 | 5.34% | 87.39% | 0.00% | 7.27% | 95.58% | 3.55% | 0.00% | 0.87% | 49.0 | 36 | yes | yes |
-| 0.650 | 40 | 0.250 | 3.78% | 92.31% | 0.00% | 3.91% | 96.95% | 2.86% | 0.00% | 0.19% | 59.6 | 44 | yes | yes |
+| p1 | n0 | missing cap | H0 accept | H0 reject | H0 undecided | H0 void | H0 mean pairs | H1 mean score | H1 accept (power) | H1 reject | H1 undecided | H1 void | H1 mean pairs | H1 median pairs | errors within margin | power |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0.550 | 10 | 0.100 | 0.20% | 0.73% | 0.00% | 99.07% | 338.4 | 0.5497 | 1.18% | 0.12% | 0.00% | 98.70% | 332.1 | 340 | yes | no |
+| 0.550 | 20 | 0.100 | 0.10% | 0.59% | 0.00% | 99.31% | 341.0 | 0.5497 | 0.91% | 0.04% | 0.00% | 99.05% | 335.1 | 342 | yes | no |
+| 0.550 | 40 | 0.100 | 0.05% | 0.55% | 0.00% | 99.40% | 342.0 | 0.5497 | 0.79% | 0.02% | 0.00% | 99.19% | 336.3 | 343 | yes | no |
+| 0.600 | 10 | 0.100 | 0.92% | 7.54% | 0.00% | 91.54% | 104.6 | 0.5998 | 11.00% | 0.38% | 0.00% | 88.62% | 98.2 | 76 | yes | no |
+| 0.600 | 20 | 0.100 | 0.54% | 6.78% | 0.00% | 92.68% | 108.2 | 0.5998 | 9.49% | 0.27% | 0.00% | 90.24% | 102.5 | 79 | yes | no |
+| 0.600 | 40 | 0.100 | 0.34% | 6.16% | 0.00% | 93.50% | 113.2 | 0.5998 | 8.20% | 0.18% | 0.00% | 91.62% | 108.5 | 83 | yes | no |
+| 0.650 | 10 | 0.100 | 2.00% | 16.38% | 0.00% | 81.62% | 46.1 | 0.6499 | 23.28% | 0.56% | 0.00% | 76.16% | 40.9 | 31 | yes | no |
+| 0.650 | 20 | 0.100 | 1.10% | 14.70% | 0.00% | 84.20% | 50.3 | 0.6499 | 20.10% | 0.30% | 0.00% | 79.60% | 46.3 | 35 | yes | no |
+| 0.650 | 40 | 0.100 | 0.52% | 12.60% | 0.00% | 86.88% | 60.1 | 0.6499 | 15.16% | 0.17% | 0.00% | 84.67% | 57.5 | 43 | yes | no |
+| 0.550 | 10 | 0.200 | 3.37% | 61.06% | 30.41% | 5.16% | 338.4 | 0.5497 | 62.17% | 3.30% | 29.66% | 4.87% | 332.1 | 340 | yes | no |
+| 0.550 | 20 | 0.200 | 3.16% | 61.33% | 30.65% | 4.86% | 341.0 | 0.5497 | 62.26% | 3.22% | 29.95% | 4.57% | 335.1 | 342 | yes | no |
+| 0.550 | 40 | 0.200 | 3.10% | 61.35% | 30.75% | 4.80% | 342.0 | 0.5497 | 62.32% | 3.20% | 30.04% | 4.44% | 336.3 | 343 | yes | no |
+| 0.600 | 10 | 0.200 | 5.25% | 77.25% | 0.29% | 17.21% | 104.6 | 0.5998 | 79.40% | 3.37% | 0.20% | 17.03% | 98.2 | 76 | yes | no |
+| 0.600 | 20 | 0.200 | 4.63% | 78.41% | 0.30% | 16.66% | 108.2 | 0.5998 | 80.16% | 3.27% | 0.22% | 16.35% | 102.5 | 79 | yes | no |
+| 0.600 | 40 | 0.200 | 4.18% | 80.40% | 0.33% | 15.09% | 113.2 | 0.5998 | 82.35% | 3.10% | 0.22% | 14.33% | 108.5 | 83 | yes | no |
+| 0.650 | 10 | 0.200 | 5.97% | 69.71% | 0.00% | 24.32% | 46.1 | 0.6499 | 75.72% | 2.43% | 0.00% | 21.85% | 40.9 | 31 | yes | no |
+| 0.650 | 20 | 0.200 | 4.47% | 72.91% | 0.00% | 22.62% | 50.3 | 0.6499 | 76.45% | 2.41% | 0.00% | 21.14% | 46.3 | 35 | yes | no |
+| 0.650 | 40 | 0.200 | 3.21% | 77.34% | 0.00% | 19.45% | 60.1 | 0.6499 | 80.13% | 2.02% | 0.00% | 17.85% | 57.5 | 43 | yes | no |
+| 0.550 | 10 | 0.250 | 3.62% | 65.14% | 30.67% | 0.57% | 338.4 | 0.5497 | 65.87% | 3.54% | 29.94% | 0.65% | 332.1 | 340 | yes | no |
+| 0.550 | 20 | 0.250 | 3.43% | 65.42% | 30.91% | 0.24% | 341.0 | 0.5497 | 66.05% | 3.46% | 30.23% | 0.26% | 335.1 | 342 | yes | no |
+| 0.550 | 40 | 0.250 | 3.35% | 65.44% | 31.01% | 0.20% | 342.0 | 0.5497 | 66.03% | 3.44% | 30.32% | 0.21% | 336.3 | 343 | yes | no |
+| 0.600 | 10 | 0.250 | 6.14% | 88.74% | 0.29% | 4.83% | 104.6 | 0.5998 | 91.05% | 4.11% | 0.20% | 4.64% | 98.2 | 76 | no | yes |
+| 0.600 | 20 | 0.250 | 5.44% | 90.80% | 0.30% | 3.46% | 108.2 | 0.5998 | 92.32% | 4.13% | 0.22% | 3.33% | 102.5 | 79 | yes | yes |
+| 0.600 | 40 | 0.250 | 4.82% | 92.48% | 0.33% | 2.37% | 113.2 | 0.5998 | 93.70% | 3.88% | 0.22% | 2.20% | 108.5 | 83 | yes | yes |
+| 0.650 | 10 | 0.250 | 6.78% | 83.12% | 0.00% | 10.10% | 46.1 | 0.6499 | 87.34% | 3.27% | 0.00% | 9.39% | 40.9 | 31 | no | no |
+| 0.650 | 20 | 0.250 | 5.34% | 87.39% | 0.00% | 7.27% | 50.3 | 0.6499 | 90.60% | 3.19% | 0.00% | 6.21% | 46.3 | 35 | yes | yes |
+| 0.650 | 40 | 0.250 | 3.78% | 92.31% | 0.00% | 3.91% | 60.1 | 0.6499 | 93.52% | 2.60% | 0.00% | 3.88% | 57.5 | 43 | yes | yes |
 
 ## The chosen bounds
 
-p0 = 0.500, p1 = 0.600, α = 0.050, β = 0.050, n0 = 20, nmax = 500, missing cap = 0.250. Realized false-accept 5.44%, realized false-reject 4.67%, H1 accepted in 94.22% after 105.7 pairs on average.
+The rule, fixed in code before the grid was run: of the cells within margin and powerful, the smallest p1, then the smallest missing cap, then the fewest H1 pairs on average.
+
+p0 = 0.500, p1 = 0.600, α = 0.050, β = 0.050, n0 = 20, nmax = 500, missing cap = 0.250.
+
+Its rates on the choosing sequences flatter it, because it was chosen on them. On 10,000 fresh sequences (seed 1020260930), the rates to quote:
+
+| p1 | n0 | missing cap | H0 accept | H0 reject | H0 undecided | H0 void | H0 mean pairs | H1 mean score | H1 accept (power) | H1 reject | H1 undecided | H1 void | H1 mean pairs | H1 median pairs | errors within margin | power |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0.600 | 20 | 0.250 | 5.73% | 90.70% | 0.23% | 3.34% | 108.4 | 0.6001 | 92.61% | 3.99% | 0.19% | 3.21% | 102.0 | 80 | yes | yes |

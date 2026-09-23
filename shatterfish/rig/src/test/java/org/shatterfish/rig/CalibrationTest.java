@@ -3,7 +3,6 @@ package org.shatterfish.rig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.shatterfish.api.HeroClass;
 import org.shatterfish.api.RunLog;
 import org.shatterfish.api.RunLogJson;
 import org.shatterfish.api.SeedSet;
@@ -12,11 +11,17 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -26,12 +31,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>The committed page is the calibration's claim, so the test that matters most is that a fresh
  * render of the committed table is that page, byte for byte: a change to the simulation, the grid,
  * the rule that chooses, or the test being calibrated moves a number on it. The rest holds the
- * pieces a fresh render would agree with whatever they did: the tilt's arithmetic, the refusals, how
- * a missing Run enters the stream, and the extraction from a folder the Rig wrote.
+ * pieces a fresh render would agree with whatever they did: the tilt, the rule, the refusals, how a
+ * missing Run enters the stream, and the extraction from a folder the Rig wrote -- which the page
+ * test never runs, since it reads the committed table.
  */
 class CalibrationTest {
 
     private static final String PROVENANCE = "{\"tag\":\"v4.0.0\"}";
+
+    /** The committed calibration, simulated once for the tests that read it. */
+    private static Calibration.Result committed;
+
+    private static synchronized Calibration.Result committed() {
+        if (committed == null) {
+            committed = Calibration.simulate(Calibration.read(
+                            SeedSetsTest.ROOT.resolve(Calibration.FOLDER).resolve(Calibration.TABLE)),
+                    Calibration.GRID, Calibration.SIMULATIONS, Calibration.SEED);
+        }
+        return committed;
+    }
 
     private static RunLog.Outcome died(int depth) {
         return new RunLog.Outcome(false, false, 0, depth, 100, "DEATH", 0);
@@ -46,46 +64,58 @@ class CalibrationTest {
     @Test
     @DisplayName("the committed page is a fresh render of the committed table")
     void the_page_is_generated() throws IOException {
-        Calibration.Table table = Calibration.read(
-                SeedSetsTest.ROOT.resolve(Calibration.FOLDER).resolve(Calibration.TABLE));
-        Calibration.Result result = Calibration.simulate(table, Calibration.GRID,
-                Calibration.SIMULATIONS, Calibration.SEED);
-        String committed = Files.readString(SeedSetsTest.ROOT.resolve(Calibration.PAGE),
+        String page = Files.readString(SeedSetsTest.ROOT.resolve(Calibration.PAGE),
                 StandardCharsets.UTF_8).replace("\r\n", "\n");
 
-        assertEquals(committed, Calibration.page(result, Calibration.SIMULATIONS, Calibration.SEED),
-                "regenerate with " + Calibration.COMMAND);
+        assertEquals(page, Calibration.page(committed()), "regenerate with " + Calibration.COMMAND);
     }
 
     @Test
-    @DisplayName("the chosen bounds are within nominal plus the declared margin, and are the ones published")
+    @DisplayName("the rule chooses the published bounds, and they hold within the margin on fresh sequences")
     void the_chosen_bounds_are_calibrated() {
-        Calibration.Table table = Calibration.read(
-                SeedSetsTest.ROOT.resolve(Calibration.FOLDER).resolve(Calibration.TABLE));
-        Calibration.Row chosen = Calibration.simulate(table, Calibration.GRID,
-                Calibration.SIMULATIONS, Calibration.SEED).chosen();
+        Calibration.Result result = committed();
 
-        assertNotNull(chosen, "some cell is calibrated and powerful");
         // The expectation is written down, not computed: these are the numbers the methodology page
         // states, and a change that moves them has to move the page with it.
-        assertEquals(new Calibration.Cell(600, 20, 250), chosen.cell());
-        Calibration.Tally h0 = chosen.null0();
-        Calibration.Tally h1 = chosen.alternative();
-        assertTrue(h0.accept() * 1000L <= 60L * h0.total(), "false-accept within 0.050 + 0.010: " + h0);
-        assertTrue(h1.reject() * 1000L <= 60L * h1.total(), "false-reject within 0.050 + 0.010: " + h1);
+        assertEquals(new Calibration.Cell(600, 20, 250), Calibration.CHOSEN);
+        assertNotNull(result.chosen(), "some cell is within margin and powerful");
+        assertEquals(Calibration.CHOSEN, result.chosen().cell());
+        // Chosen on one set of sequences, quoted from another.
+        Calibration.Row fresh = result.validation();
+        assertEquals(Calibration.CHOSEN, fresh.cell());
+        assertTrue(fresh.null0().accept() * 1000L <= 60L * fresh.null0().total(),
+                "false-accept within 0.050 + 0.010 on fresh sequences: " + fresh.null0());
+        assertTrue(fresh.alternative().reject() * 1000L <= 60L * fresh.alternative().total(),
+                "false-reject within 0.050 + 0.010 on fresh sequences: " + fresh.alternative());
+        assertTrue(fresh.powerful(), fresh.alternative().toString());
+        assertNotEquals(result.chosen().null0(), fresh.null0(), "the validation is other sequences");
         assertEquals(10, Calibration.MARGIN_PER_MIL, "the margin story 3.8 tests against");
+    }
+
+    @Test
+    @DisplayName("the tilted stream's mean is p1 in every cell, with its missing pairs left missing")
+    void the_tilt_reaches_p1() {
+        for (Calibration.Row row : committed().rows()) {
+            assertEquals(row.cell().p1PerMil() / 1000.0, row.alternative().mean(), 0.002,
+                    row.cell().toString());
+        }
     }
 
     // ------------------------------------------------------------------------------ the pieces
 
     @Test
-    @DisplayName("the tilt puts H1's mean at exactly p1, and refuses a p1 it cannot reach")
+    @DisplayName("the tilt's share, and the p1 it refuses because no share of the reached pairs reaches it")
     void the_tilt() {
-        for (int p1 : new int[] {550, 600, 650, 999}) {
-            assertEquals(p1 / 1000.0, 0.5 + Calibration.tiltFor(p1) / 2, 1e-12);
+        for (int p1 : new int[] {550, 600, 650}) {
+            for (double m : new double[] {0, 0.16, 0.5}) {
+                assertEquals(p1 / 1000.0, 0.5 + (1 - m) * Calibration.tiltFor(p1, m) / 2, 1e-12);
+            }
         }
-        assertThrows(IllegalArgumentException.class, () -> Calibration.tiltFor(500));
-        assertThrows(IllegalArgumentException.class, () -> Calibration.tiltFor(1000));
+        assertThrows(IllegalArgumentException.class, () -> Calibration.tiltFor(500, 0));
+        assertThrows(IllegalArgumentException.class, () -> Calibration.tiltFor(1000, 0));
+        assertThrows(IllegalArgumentException.class, () -> Calibration.tiltFor(600, 1.0));
+        assertThrows(IllegalArgumentException.class, () -> Calibration.tiltFor(800, 0.5),
+                "half the pairs missing caps the mean at three quarters");
     }
 
     @Test
@@ -106,7 +136,7 @@ class CalibrationTest {
     }
 
     @Test
-    @DisplayName("a Run with no ending makes its pair a tie counted missing, and past the cap the result is void")
+    @DisplayName("a Run with no ending makes its pair a tie counted missing, it stays missing under H1, and past the cap the result is void")
     void missing_runs() {
         // Half the Runs never ended, so three pairs in four are missing and every pair ties.
         Calibration.Table table = new Calibration.Table(PROVENANCE, List.of(died(1), lost()));
@@ -118,6 +148,43 @@ class CalibrationTest {
         assertEquals(stream.pairs(), stream.missing() + stream.reachedTies());
         assertTrue(stream.missing() * 10 > stream.pairs() * 7, "about three in four: " + stream);
         assertEquals(200, result.rows().get(0).null0().voided(), "far past a cap of one in ten");
+        assertEquals(200, result.rows().get(0).alternative().voided(),
+                "a better Brain meets the same unknown windows, so H1 voids as often");
+    }
+
+    @Test
+    @DisplayName("the rule: within margin and powerful, then the smallest p1, the smallest cap, the fewest pairs")
+    void the_rule() {
+        Calibration.Tally good0 = new Calibration.Tally(50, 950, 0, 0, 1000, 10, 0.5);
+        Calibration.Tally bad0 = new Calibration.Tally(70, 930, 0, 0, 1000, 10, 0.5);
+        Calibration.Tally strong = new Calibration.Tally(950, 50, 0, 0, 1000, 10, 0.6);
+        Calibration.Tally faster = new Calibration.Tally(950, 50, 0, 0, 900, 9, 0.6);
+        Calibration.Tally weak = new Calibration.Tally(800, 50, 150, 0, 1000, 10, 0.6);
+
+        Calibration.Row loose = new Calibration.Row(new Calibration.Cell(550, 10, 250), bad0, strong);
+        Calibration.Row feeble = new Calibration.Row(new Calibration.Cell(550, 20, 250), good0, weak);
+        Calibration.Row wideCap = new Calibration.Row(new Calibration.Cell(600, 20, 250), good0, faster);
+        Calibration.Row narrowCap = new Calibration.Row(new Calibration.Cell(600, 20, 200), good0, strong);
+        Calibration.Row slow = new Calibration.Row(new Calibration.Cell(600, 40, 200), good0, strong);
+        Calibration.Row quick = new Calibration.Row(new Calibration.Cell(600, 10, 200), good0, faster);
+        Calibration.Row coarse = new Calibration.Row(new Calibration.Cell(650, 10, 100), good0, faster);
+
+        assertNull(Calibration.choose(List.of(loose, feeble)), "out of margin, and underpowered");
+        assertSame(narrowCap, Calibration.choose(List.of(coarse, wideCap, narrowCap)),
+                "the smallest p1, then the smallest cap, even over fewer pairs");
+        assertSame(quick, Calibration.choose(List.of(slow, quick, coarse)), "then the fewest pairs");
+    }
+
+    @Test
+    @DisplayName("no qualifying cell renders as no choice, not as the best of the bad ones")
+    void no_choice() {
+        Calibration.Table table = new Calibration.Table(PROVENANCE, List.of(died(1), lost()));
+        Calibration.Result result = Calibration.simulate(table,
+                List.of(new Calibration.Cell(600, 10, 100)), 50, 3);
+
+        assertNull(result.chosen());
+        assertNull(result.validation());
+        assertTrue(Calibration.page(result).contains("no bounds are chosen from this table"));
     }
 
     @Test
@@ -127,16 +194,16 @@ class CalibrationTest {
                 List.of(died(1), died(2), died(3), lost()));
         List<Calibration.Cell> grid = List.of(new Calibration.Cell(600, 10, 500));
 
-        String once = Calibration.page(Calibration.simulate(table, grid, 300, 5), 300, 5);
-        String twice = Calibration.page(Calibration.simulate(table, grid, 300, 5), 300, 5);
-        String other = Calibration.page(Calibration.simulate(table, grid, 300, 6), 300, 6);
+        String once = Calibration.page(Calibration.simulate(table, grid, 300, 5));
+        String twice = Calibration.page(Calibration.simulate(table, grid, 300, 5));
+        String other = Calibration.page(Calibration.simulate(table, grid, 300, 6));
 
         assertEquals(once, twice);
         assertNotEquals(once, other);
     }
 
     @Test
-    @DisplayName("a table with no Run the game ended, an empty file, and no simulations are refused")
+    @DisplayName("no Run the game ended, a table short of its own count, a missing key, and a count no array holds are refused")
     void refusals(@TempDir Path folder) throws IOException {
         assertThrows(IllegalArgumentException.class,
                 () -> new Calibration.Table(PROVENANCE, List.of(lost(), lost())));
@@ -145,16 +212,39 @@ class CalibrationTest {
         Path empty = folder.resolve("empty.jsonl");
         Files.writeString(empty, "", StandardCharsets.UTF_8);
         assertThrows(IllegalArgumentException.class, () -> Calibration.read(empty));
+
+        List<String> lines = Files.readAllLines(
+                SeedSetsTest.ROOT.resolve(Calibration.FOLDER).resolve(Calibration.TABLE));
+        Path shortened = folder.resolve("short.jsonl");
+        Files.write(shortened, lines.subList(0, lines.size() - 1), StandardCharsets.UTF_8);
+        IllegalArgumentException truncated = assertThrows(IllegalArgumentException.class,
+                () -> Calibration.read(shortened));
+        assertTrue(truncated.getMessage().contains("states 500 Runs and holds 499"),
+                truncated.getMessage());
+        Path keyless = folder.resolve("keyless.jsonl");
+        List<String> edited = new ArrayList<>(lines);
+        edited.set(1, edited.get(1).replace("\"win\":false", "\"won\":false"));
+        Files.write(keyless, edited, StandardCharsets.UTF_8);
+        IllegalArgumentException noWin = assertThrows(IllegalArgumentException.class,
+                () -> Calibration.read(keyless));
+        assertTrue(noWin.getMessage().contains("without \"win\""), noWin.getMessage());
+        Path headless = folder.resolve("headless.jsonl");
+        Files.write(headless, lines.subList(1, lines.size()), StandardCharsets.UTF_8);
+        assertThrows(IllegalArgumentException.class, () -> Calibration.read(headless),
+                "a first line that is a row is not a provenance");
+
         Calibration.Table table = new Calibration.Table(PROVENANCE, List.of(died(1)));
         assertThrows(IllegalArgumentException.class,
                 () -> Calibration.simulate(table, Calibration.GRID, 0, 1));
+        assertThrows(IllegalArgumentException.class,
+                () -> Calibration.simulate(table, Calibration.GRID, 5_000_000, 1));
     }
 
     @Test
     @DisplayName("the commands the methodology page publishes are the task and the shape its main accepts")
     void the_published_commands() throws IOException {
         String page = Files.readString(SeedSetsTest.ROOT.resolve("docs/methodology.md"),
-                StandardCharsets.UTF_8);
+                StandardCharsets.UTF_8).replace("\r\n", "\n");
         assertTrue(page.contains(Calibration.COMMAND + "\n"), "the page's own block runs the task");
         assertTrue(page.contains(Calibration.COMMAND + " --args=\"<root> extract <runs folder>\""),
                 "and the extraction, in the shape main reads");
@@ -168,44 +258,98 @@ class CalibrationTest {
 
     // --------------------------------------------------------------------------- the extraction
 
-    @Test
-    @DisplayName("the table is extracted from what each Run's own log says, and a Run with no ending is INCOMPLETE")
-    void extraction(@TempDir Path runs) throws IOException {
+    /** A folder of logs for the whole smoke set, as the Rig writes one; the index lines are returned. */
+    private static List<String> folder(Path runs, String brain, int incomplete, int won)
+            throws IOException {
         SeedSet set = SeedSets.load(SeedSetsTest.ROOT, SeedSets.SMOKE).set();
-        StringBuilder index = new StringBuilder();
-        for (int i = 0; i < 3; i++) {
+        List<String> index = new ArrayList<>();
+        for (int i = 0; i < set.entries().size(); i++) {
             SeedSet.Entry triple = set.entries().get(i);
             RunLog.Header header = new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc1234",
                     triple.heroClass(), triple.challengeFlags(), triple.seed(), triple.seedCode(),
-                    100L + i, 20_000, 3, 2, 8, new RunLog.Brain("random", "abc1234", "0".repeat(64)),
+                    100L + i, 20_000, 3, 2, 8,
+                    new RunLog.Brain(i == 3 ? brain : "random", "abc1234", "0".repeat(64)),
                     "", false, "a laptop", "2026-09-23T00:00:00Z");
             StringBuilder text = new StringBuilder(RunLogJson.line("", header)).append('\n');
-            if (i != 2) {
-                RunLog.End end = new RunLog.End(0,
-                        new RunLog.Outcome(false, false, 10 * i, 1 + i, 1000 + i, "DEATH", i), true);
+            if (i != incomplete) {
+                RunLog.End end = new RunLog.End(0, new RunLog.Outcome(i == won, i == won, 10 * i,
+                        1 + i % 3, 1000 + i, i == won ? "WIN" : "DEATH", i % 2), true);
                 text.append(RunLogJson.line(RunLogJson.chain("", header), end)).append('\n');
             }
             String file = RunLog.fileName(header.runId());
             Files.writeString(runs.resolve(file), text.toString(), StandardCharsets.UTF_8);
-            index.append("{\"chain\":\"c").append(i).append("\",\"log\":\"").append(file)
-                    .append("\",\"runId\":\"").append(header.runId()).append("\"}\n");
+            index.add("{\"chain\":\"" + LogHeader.of(runs.resolve(file)).chain() + "\",\"log\":\""
+                    + file + "\",\"runId\":\"" + header.runId() + "\"}");
         }
-        Files.writeString(runs.resolve(RunIndex.RUNS), index.toString(), StandardCharsets.UTF_8);
+        Files.write(runs.resolve(RunIndex.RUNS), index, StandardCharsets.UTF_8);
         Files.writeString(runs.resolve(RunIndex.SUMMARY), "{\"seedSet\":\"smoke\"}\n",
                 StandardCharsets.UTF_8);
+        return index;
+    }
+
+    @Test
+    @DisplayName("the table is what each Run's own log says, under a provenance every row agrees with")
+    void extraction(@TempDir Path runs) throws IOException, NoSuchAlgorithmException {
+        folder(runs, "random", 2, 1);
 
         String text = Calibration.extract(runs, SeedSetsTest.ROOT);
         Path file = runs.resolve("table.jsonl");
         Files.writeString(file, text, StandardCharsets.UTF_8);
         Calibration.Table table = Calibration.read(file);
 
-        assertEquals(List.of(new RunLog.Outcome(false, false, 0, 1, 1000, "DEATH", 0),
-                        new RunLog.Outcome(false, false, 10, 2, 1001, "DEATH", 1),
-                        new RunLog.Outcome(false, false, 0, 0, 0, "INCOMPLETE", 0)),
-                table.outcomes());
-        assertEquals("smoke", LogHeader.string(table.provenance(), "seed_set"));
-        assertEquals(String.valueOf(set.version()), LogHeader.value(table.provenance(), "seed_version"));
-        assertEquals("random", LogHeader.string(table.provenance(), "brain"));
-        assertTrue(text.contains("\"chain\":\"c1\""), "each row carries its Run's chain: " + text);
+        assertEquals(new RunLog.Outcome(false, false, 0, 1, 1000, "DEATH", 0), table.outcomes().get(0));
+        assertEquals(new RunLog.Outcome(true, true, 10, 2, 1001, "WIN", 1), table.outcomes().get(1),
+                "a win reads back as a win");
+        assertEquals(new RunLog.Outcome(false, false, 0, 0, 0, "INCOMPLETE", 0), table.outcomes().get(2));
+        String p = table.provenance();
+        assertEquals("v4.0.0", LogHeader.string(p, "tag"));
+        assertEquals("random", LogHeader.string(p, "brain"));
+        assertEquals("abc1234", LogHeader.string(p, "brain_commit"));
+        assertEquals("0".repeat(64), LogHeader.string(p, "brain_config"));
+        assertEquals("20000", LogHeader.value(p, "cap"));
+        assertEquals("25", LogHeader.value(p, "runs"));
+        assertEquals("smoke", LogHeader.string(p, "seed_set"));
+        assertEquals(String.valueOf(SeedSets.load(SeedSetsTest.ROOT, SeedSets.SMOKE).set().version()),
+                LogHeader.value(p, "seed_version"));
+        assertEquals(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                        .digest(Files.readAllBytes(runs.resolve(RunIndex.RUNS)))),
+                LogHeader.string(p, "index_sha256"), "the index's own bytes, not the summary's");
+        assertEquals("./gradlew :rig:run --args=\"--brain random --seeds smoke --cap 20000 --out <dir>\"",
+                LogHeader.string(p, "command"), "the command that made this folder, not a standard one");
+        assertEquals("v4.0.0-random-smoke.jsonl", Calibration.tableName(text));
+    }
+
+    @Test
+    @DisplayName("a folder that mixes Brains, an index whose chain is not the log's, and an index short of the set are refused")
+    void extraction_refusals(@TempDir Path root) throws IOException {
+        Path mixed = Files.createDirectories(root.resolve("mixed"));
+        folder(mixed, "greedy", -1, -1);
+        IllegalArgumentException twoBrains = assertThrows(IllegalArgumentException.class,
+                () -> Calibration.extract(mixed, SeedSetsTest.ROOT));
+        assertTrue(twoBrains.getMessage().contains("mixes Runs"), twoBrains.getMessage());
+
+        Path forged = Files.createDirectories(root.resolve("forged"));
+        List<String> index = folder(forged, "random", -1, -1);
+        index.set(4, index.get(4).replaceFirst("\"chain\":\"[0-9a-f]{64}\"", "\"chain\":\"" + "f".repeat(64) + "\""));
+        Files.write(forged.resolve(RunIndex.RUNS), index, StandardCharsets.UTF_8);
+        IllegalArgumentException chain = assertThrows(IllegalArgumentException.class,
+                () -> Calibration.extract(forged, SeedSetsTest.ROOT));
+        assertTrue(chain.getMessage().contains("its log ends on"), chain.getMessage());
+
+        Path partial = Files.createDirectories(root.resolve("partial"));
+        List<String> some = folder(partial, "random", -1, -1);
+        Files.write(partial.resolve(RunIndex.RUNS), some.subList(0, 20), StandardCharsets.UTF_8);
+        IllegalArgumentException shortIndex = assertThrows(IllegalArgumentException.class,
+                () -> Calibration.extract(partial, SeedSetsTest.ROOT));
+        assertTrue(shortIndex.getMessage().contains("lists 20 Runs and the Seed set smoke holds 25"),
+                shortIndex.getMessage());
+
+        Path escaping = Files.createDirectories(root.resolve("escaping"));
+        List<String> out = folder(escaping, "random", -1, -1);
+        out.set(0, out.get(0).replaceFirst("\"log\":\"", "\"log\":\"../"));
+        Files.write(escaping.resolve(RunIndex.RUNS), out, StandardCharsets.UTF_8);
+        IllegalArgumentException outside = assertThrows(IllegalArgumentException.class,
+                () -> Calibration.extract(escaping, SeedSetsTest.ROOT));
+        assertTrue(outside.getMessage().contains("outside"), outside.getMessage());
     }
 }

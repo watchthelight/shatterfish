@@ -27,6 +27,9 @@ tasks.named('test') {
     // page afresh and compares it with the committed one.
     inputs.dir(rootProject.file('calibration')).withPropertyName('calibrationTables').withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.file(rootProject.file('docs/results/calibration-v4.0.0.md')).withPropertyName('calibrationPage').withPathSensitivity(PathSensitivity.RELATIVE)
+    // RunnerTest and CalibrationTest hold the commands the methodology page publishes; without this
+    // an edit to the page alone leaves :rig:test UP-TO-DATE and neither check runs.
+    inputs.file(rootProject.file('docs/methodology.md')).withPropertyName('methodologyPage').withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 // `./gradlew :rig:calibrate` writes docs/results/calibration-v4.0.0.md from the committed table in
