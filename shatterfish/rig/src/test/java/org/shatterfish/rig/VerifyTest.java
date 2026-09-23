@@ -249,6 +249,27 @@ class VerifyTest {
     // ------------------------------------------------------------------ what the command answers
 
     @Test
+    @DisplayName("--finished is what makes the command refuse a Run that never ended")
+    void the_finished_switch_bites(@TempDir Path folder) throws IOException {
+        // Without it an incomplete Run passes, which is right for a folder of five hundred Runs on
+        // a machine that ran out of time. With it, a reference log truncated to its header fails --
+        // which is the case the nightly job cares about, because such a log verifies perfectly and
+        // would then be "replayed" as a one-line Run that reports success on both platforms.
+        String chain = log(folder, 7L, List.of(header(7L), served(1)));
+        index(folder, 7L, chain);
+
+        ByteArrayOutputStream said = new ByteArrayOutputStream();
+        assertEquals(0, Runner.verify(Map.of(Runner.VERIFY, folder.toString()),
+                new PrintStream(said, true, StandardCharsets.UTF_8)),
+                "a killed Run is not a changed file");
+
+        said.reset();
+        assertEquals(1, Runner.verify(Map.of(Runner.VERIFY, folder.toString(), Runner.FINISHED, "yes"),
+                new PrintStream(said, true, StandardCharsets.UTF_8)),
+                "and it is still not a Run that finished");
+    }
+
+    @Test
     @DisplayName("the command answers 0 for a folder that verifies and 1 for one that does not")
     void the_command_answers_with_a_status(@TempDir Path folder) throws IOException {
         String chain = good(folder, 7L);

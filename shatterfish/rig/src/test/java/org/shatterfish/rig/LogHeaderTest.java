@@ -97,6 +97,42 @@ class LogHeaderTest {
 
         assertFalse(read.readable(), "a line with a key written twice is not readable");
         assertTrue(read.unreadable().contains("twice"), read.unreadable());
+        // And the claim is still found. Being unreadable is how this header hides: the Rig counts
+        // an unreadable log as incomplete, which ADR-0012 scores as a tie, so a Run that was
+        // malformed as well as unfair would slip past the rule it breaks. The flag is read off the
+        // text, so a line this reader will not parse still says what it says.
+        assertTrue(read.oracle(), "a header claiming the oracle claims it even when it will not parse");
+    }
+
+    @Test
+    @DisplayName("a byte order mark does not hide an oracle claim")
+    void a_marked_header_does_not_hide_the_claim(@TempDir Path folder) throws IOException {
+        // Invisible, and what a text editor adds. It makes the line something no reader of this
+        // format will parse -- and the first draft took "will not parse" as "claims nothing".
+        Path file = folder.resolve("marked.jsonl");
+        String line = RunLogJson.line("", header(true));
+        Files.writeString(file, "\uFEFF" + line + "\n", StandardCharsets.UTF_8);
+
+        LogHeader.Read read = LogHeader.of(file);
+
+        assertTrue(read.oracle(), "the claim is in the text whether or not the line parses");
+        assertFalse(read.readable(), "and the file is still not one this reader can believe");
+    }
+
+    @Test
+    @DisplayName("an oracle flag that is neither true nor false is treated as a claim")
+    void an_unreadable_claim_is_a_claim(@TempDir Path folder) throws IOException {
+        // Between refusing a Run that was probably fair and publishing one that was probably not,
+        // FR-11 decides which way to be wrong.
+        Path file = folder.resolve("maybe.jsonl");
+        String line = RunLogJson.line("", header(false));
+        Files.writeString(file, line.replace("\"oracle\":false", "\"oracle\":\"maybe\"") + "\n",
+                StandardCharsets.UTF_8);
+
+        LogHeader.Read read = LogHeader.of(file);
+
+        assertTrue(read.oracle(), "a claim that cannot be read is treated as a claim");
+        assertFalse(read.readable(), read.unreadable());
     }
 
     @Test
