@@ -32,7 +32,7 @@ public final class Brain {
     /** The Policies, highest priority first. */
     private static final List<Policy> POLICIES = List.of(Policies.ANSWER_PROMPT, Policies.FALLBACK);
 
-    private final Codex.Manifest codex;
+    private final Codex.Knowledge knowledge;
     private final long seed;
     private final List<Policy> policies;
 
@@ -46,14 +46,14 @@ public final class Brain {
     }
 
     /**
-     * @param codex the Codex manifest, read by the caller; the Brain records what it was built on
-     * @param seed  the seed of the Brain's stream, from the caller
+     * @param knowledge the Codex's general game knowledge, read by the caller (story 4.2)
+     * @param seed      the seed of the Brain's stream, from the caller
      */
-    public Brain(Codex.Manifest codex, long seed) {
-        if (codex == null) {
+    public Brain(Codex.Knowledge knowledge, long seed) {
+        if (knowledge == null) {
             throw new IllegalArgumentException("a Brain is built on a Codex its caller read");
         }
-        this.codex = codex;
+        this.knowledge = knowledge;
         this.seed = seed;
         this.policies = POLICIES;
     }
@@ -65,7 +65,12 @@ public final class Brain {
 
     /** The Codex this Brain was built on. */
     public Codex.Manifest codex() {
-        return codex;
+        return knowledge.manifest();
+    }
+
+    /** What this Brain believes at {@code observation}, holding {@code belief} (the one {@link #update} returned for it). */
+    public Beliefs beliefs(Observation observation, Belief belief) {
+        return Beliefs.view(Memory.of(belief), observation, knowledge);
     }
 
     /** The Policies, highest priority first, by name. */
@@ -75,8 +80,7 @@ public final class Brain {
 
     /** The Belief after seeing {@code observation}, given the Belief before it (null at the start). */
     public Belief update(Observation observation, Belief belief) {
-        Memory memory = Memory.of(belief);
-        return new Memory(memory.waits() + 1, Math.max(memory.deepest(), observation.header().depth())).belief();
+        return Beliefs.fold(Memory.of(belief), observation, knowledge).belief();
     }
 
     /**

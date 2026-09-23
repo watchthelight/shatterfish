@@ -166,6 +166,8 @@ class JsonRenderingTest {
             "Codex$RollKind", "Codex$Roll", "Codex$LootKind", "Codex$Loot", "Codex$Field", "Codex$Variant", "Codex$MobEntry",
             "Codex$Odds", "Codex$Family", "Codex$RotationEntry", "Codex$RotationDepth", "Codex$RareMob", "Codex$RareAlt", "Codex$Exclusion",
             "Codex$ChampionRule", "Codex$SpawnRotation",
+            // What a Brain is built on (story 4.2): records of Codex values the rig reads and hands over.
+            "Codex$Candidate", "Codex$Identities", "Codex$RoomSpawn", "Codex$Guarantee", "Codex$Knowledge",
             // The decks and the items (story 2.3).
             "Codex$Weighted", "Codex$CategoryEntry", "Codex$Label", "Codex$LabelPool", "Codex$ExoticPair", "Codex$ExoticSwap",
             "Codex$Decks", "Codex$Strength", "Codex$ItemEntry",
