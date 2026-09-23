@@ -5,6 +5,7 @@ import org.shatterfish.api.Belief;
 import org.shatterfish.api.Codex;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.RunLog;
+import org.shatterfish.api.Weights;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,9 +20,9 @@ import java.util.List;
  * human takes a turn, or the executor refuses an Action, the next Decision is computed from the
  * Observation the game actually produced.
  *
- * <p>It reads nothing but its arguments and what it was built with: the Codex manifest, which its
- * caller read from disk (the Brain cannot open a file), and a seed, from which its randomness is
- * arithmetic ({@link Stream}).
+ * <p>It reads nothing but its arguments and what it was built with: the Codex's knowledge and the
+ * Evaluation's weights, which its caller read from disk (the Brain cannot open a file), and a seed,
+ * from which its randomness is arithmetic ({@link Stream}).
  */
 public final class Brain {
 
@@ -36,33 +37,44 @@ public final class Brain {
         }
     }
 
-    /** The Policies, highest priority first. */
-    private static final List<Policy> POLICIES = List.of(Policies.ANSWER_PROMPT, Policies.FALLBACK);
-
     private final Codex.Knowledge knowledge;
+    private final Evaluation evaluation;
     private final long seed;
     private final List<Policy> policies;
 
+    /** The Policies, highest priority first, scoring by {@code evaluation}. */
+    private static List<Policy> policies(Evaluation evaluation) {
+        return List.of(Policies.ANSWER_PROMPT, Policies.fallback(evaluation));
+    }
+
     /**
      * What decides this Brain's behaviour besides its code and its seed: the Policies in priority
-     * order and the version of the memory it carries. The rig hashes it into the log header.
+     * order, the version of the memory it carries, and the weights it scores by (story 4.5). The
+     * rig hashes it into the log header, so two weight sets are two configurations.
      */
-    public static String configuration() {
-        return "policies=" + String.join(",", POLICIES.stream().map(Policy::name).toList())
-                + ";memory=" + Memory.VERSION;
+    public static String configuration(Weights weights) {
+        return "policies=" + String.join(",", policies(new Evaluation(weights)).stream().map(Policy::name).toList())
+                + ";memory=" + Memory.VERSION + ";weights=" + weights.canonical();
     }
 
     /**
      * @param knowledge the Codex's general game knowledge, read by the caller (story 4.2)
+     * @param weights   the Evaluation's weights, read by the caller (story 4.5)
      * @param seed      the seed of the Brain's stream, from the caller
      */
-    public Brain(Codex.Knowledge knowledge, long seed) {
+    public Brain(Codex.Knowledge knowledge, Weights weights, long seed) {
         if (knowledge == null) {
             throw new IllegalArgumentException("a Brain is built on a Codex its caller read");
         }
         this.knowledge = knowledge;
+        this.evaluation = new Evaluation(weights);
         this.seed = seed;
-        this.policies = POLICIES;
+        this.policies = policies(evaluation);
+    }
+
+    /** The weights this Brain scores by. */
+    public Weights weights() {
+        return evaluation.weights();
     }
 
     /** The seed of this Brain's stream, as its caller gave it. */
@@ -90,7 +102,7 @@ public final class Brain {
 
     /** The names of the Policies every Brain arbitrates, highest priority first. */
     public static List<String> policyNames() {
-        return POLICIES.stream().map(Policy::name).toList();
+        return List.of(Policies.ANSWER_PROMPT.name(), Policies.FALLBACK);
     }
 
     /** The Policies, highest priority first, by name. */

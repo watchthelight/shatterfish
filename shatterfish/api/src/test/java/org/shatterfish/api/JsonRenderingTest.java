@@ -142,6 +142,9 @@ class JsonRenderingTest {
             // Deliberator is Decider plus what a Brain says about its choice (story 4.1): an
             // interface with no state and no I/O, two getters the Run loop reads to log them.
             "Deliberator",
+            // The weights of a Brain's Evaluation (story 4.5): a record of numbers the Rig reads
+            // from a committed file and hands to the Brain, plus its own canonical text.
+            "Weights", "Weights$Term",
             // Decider is the seam a Brain arrives at: Observation in, Action out, and no second
             // argument to ask for anything else (story 1.14's review moved it here from the module
             // that imports the game). It is an interface with no state and no I/O, which is what

@@ -25,7 +25,7 @@ class BeliefConsistencyTest {
     private static final List<Tile> FLOOR = List.of(Tile.EMPTY, Tile.EMPTY, Tile.EMPTY);
 
     private static Brain brain() {
-        return new Brain(Screens.CODEX, 3L);
+        return new Brain(Screens.CODEX, Screens.WEIGHTS, 3L);
     }
 
     /** The Beliefs after showing {@code screens} in order, at the last of them. */
@@ -291,7 +291,7 @@ class BeliefConsistencyTest {
         Observation seen = Screens.world(1, FLOOR, List.of(), List.of(Screens.enemy("rat", 2)),
                 List.of(Screens.item(ItemKind.POTION, "potion of strength", 1)), List.of());
         Brain one = brain();
-        Brain other = new Brain(Screens.CODEX, 99L);
+        Brain other = new Brain(Screens.CODEX, Screens.WEIGHTS, 99L);
         assertEquals(one.update(seen, one.update(seen, null)), other.update(seen, other.update(seen, null)),
                 "the seed shapes choices, never beliefs");
     }

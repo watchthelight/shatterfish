@@ -27,14 +27,14 @@ class ReplanAfterForeignActionTest {
         // Two seeds, so the two Brains chose differently at the first wait; then a human's turn
         // opened a Prompt neither of them chose. Both now answer the Prompt, the same way, for the
         // same reason: what either of them meant to do a moment ago does not enter into it.
-        BrainDecider one = new BrainDecider(new Brain(Screens.CODEX, 1L));
-        BrainDecider other = new BrainDecider(new Brain(Screens.CODEX, 2L));
+        BrainDecider one = new BrainDecider(new Brain(Screens.CODEX, Screens.WEIGHTS, 1L));
+        BrainDecider other = new BrainDecider(new Brain(Screens.CODEX, Screens.WEIGHTS, 2L));
         Observation floor = Screens.offering(1, FLOOR);
         Action mine = null;
         Action theirs = null;
         for (int i = 0; i < 20 && (mine == null || mine.equals(theirs)); i++) {
-            one = new BrainDecider(new Brain(Screens.CODEX, 1L + 2 * i));
-            other = new BrainDecider(new Brain(Screens.CODEX, 2L + 2 * i));
+            one = new BrainDecider(new Brain(Screens.CODEX, Screens.WEIGHTS, 1L + 2 * i));
+            other = new BrainDecider(new Brain(Screens.CODEX, Screens.WEIGHTS, 2L + 2 * i));
             mine = one.decide(floor);
             theirs = other.decide(floor);
         }
@@ -54,7 +54,7 @@ class ReplanAfterForeignActionTest {
     void no_stale_action() {
         int checked = 0;
         for (long seed = 0; seed < 50; seed++) {
-            BrainDecider brain = new BrainDecider(new Brain(Screens.CODEX, seed));
+            BrainDecider brain = new BrainDecider(new Brain(Screens.CODEX, Screens.WEIGHTS, seed));
             Action intended = brain.decide(Screens.offering(1, FLOOR));
             // The Action it chose was not applied, and it is no longer offered.
             Observation after = Screens.offering(1, new Action.Step(2), new Action.Search(), new Action.Wait());
@@ -76,11 +76,11 @@ class ReplanAfterForeignActionTest {
         // and the Belief is a function of the screens.
         Observation first = Screens.offering(1, FLOOR);
         Observation second = Screens.offering(2, new Action.Descend(), new Action.Search(), new Action.Wait());
-        BrainDecider used = new BrainDecider(new Brain(Screens.CODEX, 7L));
+        BrainDecider used = new BrainDecider(new Brain(Screens.CODEX, Screens.WEIGHTS, 7L));
         used.decide(first);
         Action after = used.decide(second);
 
-        Brain fresh = new Brain(Screens.CODEX, 7L);
+        Brain fresh = new Brain(Screens.CODEX, Screens.WEIGHTS, 7L);
         var belief = fresh.update(second, fresh.update(first, null));
         assertEquals(fresh.decide(second, belief).action(), after);
         assertEquals(belief, used.belief());

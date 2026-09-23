@@ -29,9 +29,11 @@ import org.shatterfish.api.PromptKind;
 import org.shatterfish.api.PromptSection;
 import org.shatterfish.api.QuickslotView;
 import org.shatterfish.api.Tile;
+import org.shatterfish.api.Weights;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Observations built from {@code api} records alone, which is all a Brain's test can reach: a
@@ -60,6 +62,20 @@ final class Screens {
             List.of(new Codex.Guarantee("STRENGTH_POTIONS", "items.potions.PotionOfStrength", "potion of strength", 2, 5),
                     new Codex.Guarantee("UPGRADE_SCROLLS", "items.scrolls.ScrollOfUpgrade", "scroll of upgrade", 3, 5)));
 
+    /** The committed weight set's values (weights/shatterfish.json), which WeightsFileTest holds to the file. */
+    static final Weights WEIGHTS = weights(Map.of());
+
+    /** The committed weights with {@code changed} weights replaced. */
+    static Weights weights(Map<String, Long> changed) {
+        Map<String, Long> terms = new java.util.TreeMap<>(Map.of(
+                "act_attack", 0L, "act_descend", 0L, "act_rest_hurt", 0L, "act_search", 0L, "act_wait", 0L,
+                "depth", 10000L, "enemies", -3000L, "hp", 10L, "hunger", -5000L, "level", 5000L));
+        terms.put("strength", 2000L);
+        terms.putAll(changed);
+        return new Weights("shatterfish", 1,
+                terms.entrySet().stream().map(term -> new Weights.Term(term.getKey(), term.getValue())).toList());
+    }
+
     private Screens() {
     }
 
@@ -77,6 +93,24 @@ final class Screens {
     static Observation asking(List<String> labels, Action... actions) {
         return screen(1, PromptKind.CHASM_JUMP, new PromptSection(PromptKind.CHASM_JUMP, "Chasm",
                 "Do you really want to jump into the chasm?", labels), actions);
+    }
+
+    /** A hero at full health, level 1, strength 1, fed. */
+    static HeroSection hero() {
+        return hero(1, 1, 1, 1, Hunger.NONE);
+    }
+
+    /** A stand-in hero with these numbers. */
+    static HeroSection hero(int hp, int ht, int level, int strength, Hunger hunger) {
+        return new HeroSection(1, "", HeroSubclass.NONE, "", level, 0, 1, hp, ht, 0, strength, 0, 0, 0,
+                hunger, List.of(), List.of(), List.of(0, 0, 0, 0),
+                Collections.nCopies(HeroSection.QUICKSLOTS, new QuickslotView("", false)));
+    }
+
+    /** A screen at {@code depth} with this hero and these actors in view, offering {@code actions} (story 4.5). */
+    static Observation showing(int depth, HeroSection hero, List<ActorView> actors, Action... actions) {
+        return world(depth, PromptKind.NONE, PromptSection.NONE, hero, 3, List.of(Tile.EMPTY, Tile.EMPTY, Tile.EMPTY),
+                List.of(), actors, List.of(), List.of(), actions);
     }
 
     /**
@@ -129,13 +163,17 @@ final class Screens {
     private static Observation world(int depth, PromptKind kind, PromptSection prompt, int hp, int ht, Hunger hunger,
                                      int width, List<Tile> tiles, List<HeapView> heaps, List<ActorView> actors,
                                      List<ItemView> items, List<KnownAppearance> known, Action... actions) {
+        return world(depth, kind, prompt, hero(hp, ht, 1, 1, hunger), width, tiles, heaps, actors, items, known,
+                actions);
+    }
+
+    private static Observation world(int depth, PromptKind kind, PromptSection prompt, HeroSection hero,
+                                     int width, List<Tile> tiles, List<HeapView> heaps, List<ActorView> actors,
+                                     List<ItemView> items, List<KnownAppearance> known, Action... actions) {
         HeaderSection header = new HeaderSection(ObservationCodec.SCHEMA_VERSION, "v4.0.0", "", HeroClass.WARRIOR,
                 List.of(), depth, 0, false, false, kind);
         MapSection map = new MapSection(width, tiles.size() / width, tiles, Collections.nCopies(tiles.size(), Fog.VISIBLE),
                 List.of(), heaps, List.of(), Feeling.NONE, List.of());
-        HeroSection hero = new HeroSection(1, "", HeroSubclass.NONE, "", 1, 0, 1, hp, ht, 0, 1, 0, 0, 0,
-                hunger, List.of(), List.of(), List.of(0, 0, 0, 0),
-                Collections.nCopies(HeroSection.QUICKSLOTS, new QuickslotView("", false)));
         return new Observation(header, map, new ActorsSection(actors), hero, new InventorySection(items),
                 new JournalSection(List.of(), known), new LogSection(List.of()),
                 new ActionsSection(List.of(actions)), prompt);

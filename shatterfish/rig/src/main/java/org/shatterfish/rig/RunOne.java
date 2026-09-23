@@ -57,6 +57,9 @@ public final class RunOne {
     /** The Codex folder a Brain that reads one is built on (story 4.1); the parent passes it always. */
     public static final String CODEX = "--codex";
 
+    /** The weight set a Brain that scores by one is built on (story 4.5); read here, never by the Brain. */
+    public static final String WEIGHTS = "--weights";
+
     private RunOne() {
     }
 
@@ -89,16 +92,23 @@ public final class RunOne {
             throw new IllegalArgumentException(OUT + " is an absolute path: a Run's working directory"
                     + " is its own, so a relative one names somewhere the caller did not mean: " + out);
         }
+        if (Brains.readsWeights(brain) && !arguments.containsKey(WEIGHTS)) {
+            throw new IllegalArgumentException("the Brain " + brain + " scores by a weight set, and a Run of it"
+                    + " states the file with " + WEIGHTS);
+        }
+        org.shatterfish.api.Weights weights = Brains.readsWeights(brain)
+                ? WeightsFile.read(Path.of(arguments.get(WEIGHTS)), brain)
+                : null;
         RunLoop.Logging logging = new RunLoop.Logging(out,
                 required(arguments, COMMIT),
-                new RunLog.Brain(brain, required(arguments, BRAIN_COMMIT), Brains.configHash(brain)),
+                new RunLog.Brain(brain, required(arguments, BRAIN_COMMIT), Brains.configHash(brain, weights)),
                 arguments.getOrDefault(REGISTRATION, ""), arguments.getOrDefault(MACHINE, ""));
         int cap = arguments.containsKey(CAP) ? (int) number(arguments, CAP) : RunLoop.TURN_CAP;
         where();
         org.shatterfish.api.Codex.Knowledge codex = arguments.containsKey(CODEX) && Brains.readsCodex(brain)
                 ? CodexKnowledge.read(Path.of(arguments.get(CODEX)), org.shatterfish.harness.boot.HeadlessBoot.pinnedTag())
                 : null;
-        return new RunLoop().playTriple(triple, salt, Brains.of(brain, triple, codex), cap, logging);
+        return new RunLoop().playTriple(triple, salt, Brains.of(brain, triple, codex, weights), cap, logging);
     }
 
     /** The file a Run leaves in its own working directory, naming that directory. */
@@ -148,7 +158,7 @@ public final class RunOne {
 
     /** Every flag a Run knows. Held by name, like the parent's (RigOracleGateTest). */
     static final java.util.List<String> KNOWN = java.util.List.of(SEED, CLASS, SALT, OUT,
-            COMMIT, BRAIN, BRAIN_COMMIT, REGISTRATION, MACHINE, CAP, CHALLENGES, CODEX);
+            COMMIT, BRAIN, BRAIN_COMMIT, REGISTRATION, MACHINE, CAP, CHALLENGES, CODEX, WEIGHTS);
 
     private static String required(Map<String, String> arguments, String flag) {
         String value = arguments.get(flag);

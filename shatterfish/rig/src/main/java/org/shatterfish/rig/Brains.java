@@ -124,7 +124,9 @@ public final class Brains {
             return List.of("shatterfish/brain/src/main/java",
                     "shatterfish/api/src/main/java/org/shatterfish/api/Deliberator.java",
                     "shatterfish/rig/src/main/java/org/shatterfish/rig/Brains.java",
-                    CodexManifest.FOLDER);
+                    CodexManifest.FOLDER,
+                    // Its weights are data (story 4.5): a changed weight is a changed Brain.
+                    WeightsFile.FOLDER + "/" + name + ".json");
         }
         if (TWIN.equals(name)) {
             return List.of("shatterfish/harness/src/main/java/org/shatterfish/harness/agent/RandomAgent.java",
@@ -212,6 +214,11 @@ public final class Brains {
         return Mix.mix(BRAIN_STREAM, named(name).hashCode());
     }
 
+    /** Whether the Brain named {@code name} scores by a weight set, which its caller then reads (story 4.5). */
+    public static boolean readsWeights(String name) {
+        return SHATTERFISH.equals(named(name));
+    }
+
     /** Whether the Brain named {@code name} is built on a Codex, which its caller then reads. */
     public static boolean readsCodex(String name) {
         return SHATTERFISH.equals(named(name));
@@ -230,21 +237,28 @@ public final class Brains {
      * does not have.
      */
     public static Decider of(String name, SeedSet.Entry triple) {
-        return of(name, triple, null);
+        return of(name, triple, null, null);
     }
 
     /**
-     * The Decider named {@code name} for {@code triple}, built on {@code codex} when it is a Brain
-     * that reads one: the Codex is read by the caller, never by the Brain (story 4.1).
+     * The Decider named {@code name} for {@code triple}, built on {@code codex} and {@code weights}
+     * when it is a Brain that reads them: both are read by the caller, never by the Brain (stories
+     * 4.1 and 4.5).
      */
-    public static Decider of(String name, SeedSet.Entry triple, org.shatterfish.api.Codex.Knowledge codex) {
+    public static Decider of(String name, SeedSet.Entry triple, org.shatterfish.api.Codex.Knowledge codex,
+                             org.shatterfish.api.Weights weights) {
         named(name);
         if (SHATTERFISH.equals(name)) {
             if (codex == null) {
                 throw new IllegalArgumentException("the Brain " + name + " is built on a Codex, and none was"
                         + " read for it; a Run of it states " + RunOne.CODEX);
             }
-            return new org.shatterfish.brain.BrainDecider(new org.shatterfish.brain.Brain(codex, brainSeed(name)));
+            if (weights == null) {
+                throw new IllegalArgumentException("the Brain " + name + " scores by a weight set, and none was"
+                        + " read for it; a Run of it states " + RunOne.WEIGHTS);
+            }
+            return new org.shatterfish.brain.BrainDecider(
+                    new org.shatterfish.brain.Brain(codex, weights, brainSeed(name)));
         }
         if (RANDOM.equals(name)) {
             return new RandomAgent(agentSeed(triple));
@@ -264,10 +278,33 @@ public final class Brains {
      * its configuration is the empty one.
      */
     public static String configHash(String name) {
+        if (readsWeights(name)) {
+            // Its configuration includes its weights, which live in a file this overload was not
+            // told about; asking without them would describe a Brain that does not exist.
+            throw new IllegalStateException("the Brain " + name + " is configured by its weights too;"
+                    + " ask with the weights, or with the root they are committed under");
+        }
+        return configHash(name, null);
+    }
+
+    /** The configuration hash of the Brain named {@code name}, reading its weights under {@code root}. */
+    public static String configHash(Path root, String name) {
+        return configHash(name, readsWeights(name) ? WeightsFile.read(WeightsFile.of(root, name), name) : null);
+    }
+
+    /**
+     * The configuration hash of the Brain named {@code name} scoring by {@code weights} (null for a
+     * Brain with none).
+     */
+    public static String configHash(String name, org.shatterfish.api.Weights weights) {
         if (SHATTERFISH.equals(named(name))) {
+            if (weights == null) {
+                throw new IllegalArgumentException("the Brain " + name + " is configured by its weights");
+            }
             // What the Brain says it is: its Policies in order, the version of the memory it
-            // carries, and the seed of its stream. A change to any of them is a different Brain.
-            String configuration = org.shatterfish.brain.Brain.configuration()
+            // carries, its weights, and the seed of its stream. A change to any of them is a
+            // different Brain, and a Registration tells two weight sets apart (story 4.5).
+            String configuration = org.shatterfish.brain.Brain.configuration(weights)
                     + ";seed=" + Long.toHexString(brainSeed(name));
             try {
                 return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
