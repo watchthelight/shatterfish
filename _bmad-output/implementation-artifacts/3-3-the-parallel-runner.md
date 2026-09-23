@@ -2,7 +2,7 @@
 title: 'The parallel runner'
 type: 'feature'
 created: '2026-09-22'
-status: 'review'
+status: 'done'
 baseline_commit: 'ec82eb443'
 review_loop_iteration: 0
 context: []
