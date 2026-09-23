@@ -85,7 +85,10 @@ class RunnerComparisonTest {
         for (String side : List.of(Comparison.CANDIDATE, Comparison.BASELINE)) {
             List<Gallery.Group> groups = Gallery.of(folder.resolve(side));
             assertEquals(set.entries().size(), groups.stream().mapToInt(g -> g.runs().size()).sum(), side);
-            assertTrue(Files.isRegularFile(folder.resolve(side).resolve(Gallery.FILE)), side);
+            String page = Files.readString(folder.resolve(side).resolve(Gallery.FILE),
+                    StandardCharsets.UTF_8);
+            assertTrue(page.contains("# How the Runs ended: random on smoke"), page);
+            assertTrue(page.startsWith("<!--") && page.contains(set.entries().size() + " Runs: "), page);
         }
 
         // And the folder verifies as a whole: both sides' logs, and the comparison's record of each

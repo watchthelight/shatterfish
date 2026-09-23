@@ -126,6 +126,12 @@ public final class Runner {
                 && registration.maximum() == Calibration.MAXIMUM;
     }
 
+    /**
+     * What writes a side's death gallery after its summary (story 3.12). A field so that a test can
+     * make it fail and see that the invocation still finishes and still records its ledger line.
+     */
+    static java.util.function.Consumer<Path> gallery = folder -> Gallery.write(folder, 0);
+
     /** The Seed sets whose comparisons may accept (ADR-0012); the rest are direction checks. */
     static final List<String> ACCEPTING = List.of(SeedSets.STANDARD, "bosses");
 
@@ -424,10 +430,11 @@ public final class Runner {
             // Derived, so a failure here is reported and not thrown: an exception from the gallery
             // must not cost a ranked invocation the ledger line below, which is the record.
             try {
-                Gallery.write(side.out(), 0);
-            } catch (RuntimeException gallery) {
+                gallery.accept(side.out());
+            } catch (RuntimeException | Error gallery) {
+                String said = gallery.getMessage();
                 System.out.println("the gallery could not be written in " + side.out() + ": "
-                        + note(gallery));
+                        + (said == null || said.isEmpty() ? gallery.getClass().getName() : said));
             }
         }
         if (against != null) {

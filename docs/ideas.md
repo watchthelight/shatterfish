@@ -127,3 +127,9 @@ it re-reads ADR-0006's Blobs row.
 - Early stopping in the Rig: once the sequential test decides, cancel the pairs not yet dispatched (story 3.6 plays every pair and evaluates in Seed-set order; stopping dispatch must still respect that order, so pairs are dispatched in order and the test consumes only a completed prefix).
 - The exact GSPRT in the Rig (found in story 3.6's review). `Gsprt` implements Van den Bergh's eq. 2.1, which is what Fishtest's `sprt.set_state` reports, but Fishtest's server stops on the exact generalized LLR (`LLR_logistic`) over the same counts. The two agree near the bounds in ordinary tests and part in the tails. Adopting the exact form is an ADR-0012 amendment and a new reference fixture from the same pinned Fishtest checkout.
 - A lower missing cap (found in story 3.7's calibration). The random Brain ends 8.4% of its Runs at a window the Harness does not know (`UNKNOWN_WINDOW`), so 16% of pairs are missing and the calibrated missing cap is 0.25 -- room for a Brain to crash on a quarter of the seeds it would lose. Teaching the Harness those windows, re-extracting the table and re-running `./gradlew :rig:calibrate` brings the cap down.
+- The killer in the Run log (found in story 3.12). A log's ending records the cause (`DEATH`, `WIN`,
+  a stop the game did not decide) and the depth, but not what killed the hero, so the death gallery
+  groups by ending and depth and cannot say "a rat on depth 1" or "hunger". Recording the source of
+  the fatal damage in `RunLog.Outcome` -- from what the game shows the player on the death screen, so
+  it stays inside information parity -- is a Run-log schema change, and would let the gallery group
+  by killer.

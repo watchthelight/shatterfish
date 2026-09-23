@@ -8,31 +8,42 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
- * The death gallery (story 3.12, FR-26): how the Runs of one Rig invocation ended, grouped by cause
- * and depth, with the seeds, so that the next thing to fix is the biggest group.
+ * The death gallery (story 3.12, FR-26): how the Runs of one Rig invocation ended, grouped by
+ * ending and depth, with the seeds, so that the next thing to fix is in front of you.
  *
- * <p>Every ending is read from the Run's own log, through the harness's reader, never from the run
- * index: the index is the parent's account of a child, and the gallery is about what each child
- * wrote. A Run whose log is absent is grouped as {@code NO_LOG}; one whose log holds no ending, as
- * {@code NO_ENDING}; one whose log cannot be read or holds no header, as {@code UNREADABLE}. None
- * is dropped, so the counts add up to the index's.
+ * <p><b>What it groups by.</b> A Run log's ending records how the Run ended ({@code DEATH},
+ * {@code WIN}, or a stop the game did not decide) and at what depth, and nothing about what killed
+ * the hero: {@link RunLog.Outcome} has no killer -- no mob, trap or hunger. So the gallery groups by
+ * ending and depth, and says so on every page; the killer is an idea for later (docs/ideas.md).
+ *
+ * <p><b>Two sections.</b> Endings the game decided ({@link PairScore#ENDINGS}) come first, largest
+ * group first: those are the deaths, and the largest is the place to look. Runs the game did not
+ * end -- a window the Harness does not know, the turn cap, no log, a log with no ending, a log that
+ * cannot be read -- come after, because they say what the Rig or the Harness failed at, not how the
+ * hero died.
+ *
+ * <p><b>Nothing is dropped.</b> Every ending is read from the Run's own log, through the harness's
+ * reader, never from the run index. A Run whose log is absent is {@code NO_LOG}; one whose log stops
+ * before an ending, {@code NO_ENDING} at the depth of its last wait; one whose log cannot be read,
+ * or throws while being read, {@code UNREADABLE}. The counts add up to the index's.
  *
  * <p>The Runner writes {@code gallery.md} beside each side's summary when an invocation completes.
  * {@code ./gradlew :rig:gallery --args="<folder> [--snapshots N]"} rewrites it for any folder the
- * Rig wrote, and with {@code --snapshots} also writes {@code snapshots/<run id>.md}, the last N waits
- * of every Run, which the gallery then links to.
- *
- * <p>Plain Markdown, readable with a text editor (NFR-9). The per-Brain comparison view -- the same
- * gallery side by side for two Brains -- is E4's half of FR-26 and is not here.
+ * Rig wrote -- for a comparison, one per side -- and with {@code --snapshots} also writes the last N
+ * waits of every Run into {@code snapshots/}, which the gallery then links. Plain Markdown, every
+ * cell escaped, readable with a text editor (NFR-9). The per-Brain comparison view is E4's half of
+ * FR-26 and is not here.
  */
 public final class Gallery {
 
@@ -47,20 +58,30 @@ public final class Gallery {
     /** A Run whose log is not there. */
     public static final String NO_LOG = "NO_LOG";
 
-    /** A Run whose log was read and ends before an ending. */
+    /** A Run whose log was read and stops before an ending. */
     public static final String NO_ENDING = "NO_ENDING";
 
-    /** A Run whose log could not be read, or has no header. */
+    /** A Run whose log could not be read, has no header, or failed while being read. */
     public static final String UNREADABLE = "UNREADABLE";
+
+    /** What every page says about what it groups by. */
+    static final String NO_KILLER = "A Run log's ending records how the Run ended and at what depth,"
+            + " not what killed the hero: the log's Outcome has no killer (a mob, a trap, hunger), so"
+            + " this gallery groups by ending and depth.";
 
     /**
      * One Run, as its log tells it.
      *
-     * @param depth the depth its ending records, or -1 when there is no ending to say
-     * @param turns turns survived in thousandths, or -1 with it
+     * @param depth the depth its ending records -- or, with no ending, its last wait's -- or -1
+     * @param turns turns survived in thousandths, or -1 when there is no ending to say
      */
     public record Run(String runId, String log, String seedCode, String heroClass, String cause,
                       int depth, long turns) {
+
+        /** Whether the game decided this ending, which is what makes it a death (or a win). */
+        public boolean decided() {
+            return PairScore.ENDINGS.contains(cause);
+        }
     }
 
     /** The Runs that ended one way at one depth. */
@@ -69,31 +90,44 @@ public final class Gallery {
         public Group {
             runs = List.copyOf(runs);
         }
+
+        public boolean decided() {
+            return PairScore.ENDINGS.contains(cause);
+        }
     }
 
     private Gallery() {
     }
 
     /**
-     * The groups for the Runs {@code folder}'s index lists, largest first; ties by cause, then
-     * depth, and the Runs in each by seed code, then run id, so the same folder gives the same page.
+     * The groups for the Runs {@code folder}'s index lists: decided endings first, then the rest,
+     * each largest first, ties by cause then depth, and the Runs in each by seed code then run id,
+     * so the same folder gives the same page. An index that names one run id or one log twice is
+     * refused: one of the two lines would be a Run counted twice.
      */
     public static List<Group> of(Path folder) {
+        Path home = folder.toAbsolutePath().normalize();
         List<Run> runs = new ArrayList<>();
+        Set<String> ids = new HashSet<>();
+        Set<Path> logs = new HashSet<>();
         for (String line : lines(folder.resolve(RunIndex.RUNS))) {
             if (line.isBlank()) {
                 continue;
             }
             String runId = LogHeader.string(line, "runId");
             String log = LogHeader.string(line, "log");
-            if (runId == null || log == null) {
+            if (runId == null || runId.isEmpty() || log == null || log.isEmpty()) {
                 throw new IllegalArgumentException("the index in " + folder
                         + " has a line without a run id or a log: " + line);
             }
-            Path file = folder.resolve(log).normalize();
-            if (!folder.toAbsolutePath().normalize().equals(file.toAbsolutePath().getParent())) {
+            Path file = home.resolve(log).normalize();
+            if (!home.equals(file.getParent())) {
                 throw new IllegalArgumentException("the index in " + folder + " names a log outside"
                         + " it: " + log);
+            }
+            if (!ids.add(runId) || !logs.add(file)) {
+                throw new IllegalArgumentException("the index in " + folder + " names the Run " + runId
+                        + " or the log " + log + " twice");
             }
             runs.add(run(runId, log, file, LogHeader.string(line, "class")));
         }
@@ -107,7 +141,8 @@ public final class Gallery {
             sorted.sort(Comparator.comparing(Run::seedCode).thenComparing(Run::runId));
             groups.add(new Group(sorted.get(0).cause(), sorted.get(0).depth(), sorted));
         }
-        groups.sort(Comparator.comparingInt((Group g) -> -g.runs().size())
+        groups.sort(Comparator.comparing((Group g) -> !g.decided())
+                .thenComparingInt(g -> -g.runs().size())
                 .thenComparing(Group::cause).thenComparingInt(Group::depth));
         return List.copyOf(groups);
     }
@@ -117,17 +152,26 @@ public final class Gallery {
         if (!Files.isRegularFile(file)) {
             return new Run(runId, log, "", heroClass, NO_LOG, -1, -1);
         }
-        RunLogReader.Log read = RunLogReader.of(file);
-        if (!read.readable() || read.records().isEmpty()
-                || !(read.records().get(0) instanceof RunLog.Header header)) {
+        try {
+            RunLogReader.Log read = RunLogReader.of(file);
+            if (!read.readable() || read.records().isEmpty()
+                    || !(read.records().get(0) instanceof RunLog.Header header)) {
+                return new Run(runId, log, "", heroClass, UNREADABLE, -1, -1);
+            }
+            RunLog.End end = read.end();
+            if (end == null) {
+                List<RunLog.Wait> waits = read.waits();
+                int depth = waits.isEmpty() ? -1 : waits.get(waits.size() - 1).depth();
+                return new Run(runId, log, header.seedCode(), header.heroClass().name(), NO_ENDING,
+                        depth, -1);
+            }
+            return new Run(runId, log, header.seedCode(), header.heroClass().name(),
+                    end.outcome().cause(), end.outcome().depth(), end.outcome().turns());
+        } catch (RuntimeException unreadable) {
+            // One bad log must not cost the gallery every other Run: it is a Run the gallery
+            // could not read, and it is counted as one.
             return new Run(runId, log, "", heroClass, UNREADABLE, -1, -1);
         }
-        RunLog.End end = read.end();
-        if (end == null) {
-            return new Run(runId, log, header.seedCode(), header.heroClass().name(), NO_ENDING, -1, -1);
-        }
-        return new Run(runId, log, header.seedCode(), header.heroClass().name(),
-                end.outcome().cause(), end.outcome().depth(), end.outcome().turns());
     }
 
     /** The gallery page for {@code folder}; {@code snapshots} says whether to link each Run's. */
@@ -137,46 +181,102 @@ public final class Gallery {
         String brain = summary.isEmpty() ? null : LogHeader.string(summary, "brain");
         String set = summary.isEmpty() ? null : LogHeader.string(summary, "seedSet");
         int total = groups.stream().mapToInt(g -> g.runs().size()).sum();
+        int decided = groups.stream().filter(Group::decided).mapToInt(g -> g.runs().size()).sum();
         StringBuilder out = new StringBuilder();
         out.append("<!-- Written by the Rig (and by ").append(COMMAND).append("). Each ending is read")
                 .append(" from the Run's own log. -->\n\n");
         out.append("# How the Runs ended");
         if (brain != null && set != null) {
-            out.append(": `").append(brain).append("` on `").append(set).append('`');
+            out.append(": ").append(cell(brain)).append(" on ").append(cell(set));
         }
         out.append("\n\n");
-        out.append(total).append(" Runs in ").append(groups.size())
-                .append(groups.size() == 1 ? " group" : " groups")
-                .append(", largest first. Turns are turns survived, from the log's ending.\n\n");
+        out.append(total).append(" Runs: ").append(decided).append(" ended by the game, ")
+                .append(total - decided).append(" not. ").append(NO_KILLER)
+                .append(" Turns are whole turns survived, from the log's ending.\n\n");
+        out.append("Each Run links its log by file name, in the folder this page sits in. A copy of"
+                + " this page published without its logs -- as `results/` publishes them -- links"
+                + " logs that are not committed.\n\n");
+        section(out, "Endings the game decided",
+                "Largest group first: the largest is the place to look.",
+                groups.stream().filter(Group::decided).toList(), total, snapshots);
+        section(out, "Runs the game did not end",
+                "A window the Harness does not know, the turn cap, a missing or unreadable log: what"
+                        + " the Rig or the Harness did not finish, not how the hero died.",
+                groups.stream().filter(g -> !g.decided()).toList(), total, snapshots);
+        out.append("\nThe per-Brain comparison view, this gallery for two Brains side by side, is E4's"
+                + " half of FR-26 and is not written here.\n");
+        return out.toString();
+    }
+
+    private static void section(StringBuilder out, String title, String note, List<Group> groups,
+                                int total, boolean snapshots) {
+        out.append("## ").append(title).append("\n\n");
+        if (groups.isEmpty()) {
+            out.append("None.\n\n");
+            return;
+        }
+        out.append(note).append("\n\n");
         out.append("| Ending | Depth | Runs | Share |\n|---|---|---|---|\n");
         for (Group group : groups) {
-            out.append("| `").append(group.cause()).append("` | ").append(depth(group.depth()))
+            out.append("| ").append(cell(group.cause())).append(" | ").append(depth(group.depth()))
                     .append(" | ").append(group.runs().size()).append(" | ")
-                    .append(String.format(Locale.ROOT, "%.1f%%", 100.0 * group.runs().size() / total))
+                    .append(String.format(java.util.Locale.ROOT, "%.1f%%",
+                            100.0 * group.runs().size() / total))
                     .append(" |\n");
         }
         for (Group group : groups) {
-            out.append("\n## `").append(group.cause()).append("` at depth ").append(depth(group.depth()))
-                    .append(" — ").append(group.runs().size())
+            out.append("\n### ").append(cell(group.cause())).append(" at depth ")
+                    .append(depth(group.depth())).append(" — ").append(group.runs().size())
                     .append(group.runs().size() == 1 ? " Run" : " Runs").append("\n\n");
             out.append("| Seed | Class | Turns | Log |").append(snapshots ? " Last waits |" : "")
                     .append("\n|---|---|---|---|").append(snapshots ? "---|" : "").append('\n');
             for (Run run : group.runs()) {
-                out.append("| ").append(run.seedCode().isEmpty() ? "—" : "`" + run.seedCode() + "`")
-                        .append(" | ").append(run.heroClass().isEmpty() ? "—" : run.heroClass())
-                        .append(" | ").append(run.turns() < 0 ? "—"
-                                : String.format(Locale.ROOT, "%.1f", run.turns() / 1000.0))
-                        .append(" | [").append(run.runId()).append("](").append(run.log()).append(')')
-                        .append(" |");
+                out.append("| ").append(run.seedCode().isEmpty() ? "—" : cell(run.seedCode()))
+                        .append(" | ").append(run.heroClass().isEmpty() ? "—" : cell(run.heroClass()))
+                        .append(" | ").append(run.turns() < 0 ? "—" : String.valueOf(run.turns() / 1000))
+                        .append(" | [").append(cell(run.runId())).append("](").append(href(run.log()))
+                        .append(") |");
                 if (snapshots) {
                     out.append(NO_LOG.equals(run.cause()) ? " —" : " [snapshot](" + SNAPSHOTS + "/"
-                            + snapshotName(run) + ")").append(" |");
+                            + href(snapshotName(run)) + ")").append(" |");
                 }
                 out.append('\n');
             }
         }
-        out.append("\nThe per-Brain comparison view, this gallery for two Brains side by side, is E4's"
-                + " half of FR-26 and is not written here.\n");
+        out.append('\n');
+    }
+
+    /**
+     * Text safe in a Markdown table cell or a line: the characters that end a cell, open a code
+     * span, a link, emphasis or HTML are backslash-escaped, and a line break becomes a space.
+     */
+    static String cell(String text) {
+        StringBuilder out = new StringBuilder(text.length());
+        for (char c : text.toCharArray()) {
+            if (c == '\n' || c == '\r') {
+                out.append(' ');
+            } else {
+                if ("\\`|[]*_<>#".indexOf(c) >= 0) {
+                    out.append('\\');
+                }
+                out.append(c);
+            }
+        }
+        return out.toString();
+    }
+
+    /** A link target: anything outside a plain path's characters percent-encoded, as UTF-8. */
+    static String href(String path) {
+        StringBuilder out = new StringBuilder();
+        for (byte b : path.getBytes(StandardCharsets.UTF_8)) {
+            int c = b & 0xff;
+            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+                    || "-._~/".indexOf(c) >= 0) {
+                out.append((char) c);
+            } else {
+                out.append('%').append(String.format(java.util.Locale.ROOT, "%02X", c));
+            }
+        }
         return out.toString();
     }
 
@@ -194,31 +294,44 @@ public final class Gallery {
         return depth < 0 ? "—" : String.valueOf(depth);
     }
 
-    /** The last {@code count} waits of a Run's log, as a page: what it did before it ended. */
+    /**
+     * The last {@code count} waits of a Run's log, as a page: what it did before it ended. A log
+     * that cannot be read, or has no ending, says so rather than failing.
+     */
     public static String snapshot(Path file, int count) {
         if (count < 1) {
             throw new IllegalArgumentException("a snapshot of at least one wait: " + count);
         }
-        RunLogReader.Log read = RunLogReader.of(file);
+        StringBuilder out = new StringBuilder("# The last waits of ")
+                .append(cell(file.getFileName().toString())).append("\n\n");
+        RunLogReader.Log read;
+        try {
+            read = RunLogReader.of(file);
+        } catch (RuntimeException unreadable) {
+            return out.append("This log could not be read: ").append(cell(String.valueOf(unreadable.getMessage())))
+                    .append(".\n").toString();
+        }
+        if (!read.readable()) {
+            out.append("This log could not be read to its end: ").append(cell(read.unreadable()))
+                    .append(". The waits before that line follow.\n\n");
+        }
         List<RunLog.Wait> waits = read.waits();
         List<RunLog.Wait> last = waits.subList(Math.max(0, waits.size() - count), waits.size());
         RunLog.End end = read.end();
-        StringBuilder out = new StringBuilder("# The last waits of `")
-                .append(file.getFileName()).append("`\n\n");
         out.append("The last ").append(last.size()).append(" of ").append(waits.size())
                 .append(" waits, from the Run's own log");
         if (end != null) {
-            out.append(String.format(Locale.ROOT, "; it ended `%s` at depth %d after %.1f turns",
-                    end.outcome().cause(), end.outcome().depth(), end.outcome().turns() / 1000.0));
+            out.append("; it ended ").append(cell(end.outcome().cause())).append(" at depth ")
+                    .append(end.outcome().depth()).append(" after ").append(end.outcome().turns() / 1000)
+                    .append(" turns");
         } else {
             out.append("; it has no ending");
         }
         out.append(".\n\n| Wait | Turn | Depth | Actor | Action |\n|---|---|---|---|---|\n");
         for (RunLog.Wait wait : last) {
-            out.append("| ").append(wait.k()).append(" | ")
-                    .append(String.format(Locale.ROOT, "%.1f", wait.turn() / 1000.0)).append(" | ")
-                    .append(wait.depth()).append(" | ").append(wait.actor()).append(" | `")
-                    .append(wait.action()).append("` |\n");
+            out.append("| ").append(wait.k()).append(" | ").append(wait.turn() / 1000).append(" | ")
+                    .append(wait.depth()).append(" | ").append(cell(wait.actor())).append(" | ")
+                    .append(cell(String.valueOf(wait.action()))).append(" |\n");
         }
         return out.toString();
     }
@@ -226,30 +339,47 @@ public final class Gallery {
     /**
      * Writes {@code gallery.md} in {@code folder}, and with {@code snapshots} above zero the last
      * that many waits of every Run with a log into {@code snapshots/}.
+     *
+     * <p>In an order that cannot leave the page linking a snapshot that is not there: the new
+     * snapshots are written first, then the page (to a temporary file, moved into place), and only
+     * then are the snapshots this page does not link deleted -- the regular {@code .md} files in
+     * {@code snapshots/}, which are the gallery's own. Written with no snapshots, every one goes.
      */
     public static void write(Path folder, int snapshots) {
+        if (snapshots < 0) {
+            throw new IllegalArgumentException("a snapshot count is not negative: " + snapshots);
+        }
         List<Group> groups = of(folder);
+        Path into = folder.resolve(SNAPSHOTS);
+        Set<String> wrote = new HashSet<>();
         try {
             if (snapshots > 0) {
-                Path into = Files.createDirectories(folder.resolve(SNAPSHOTS));
-                // The folder is the gallery's own: last time's snapshots of Runs no longer in the
-                // index would otherwise sit beside this time's as though they were part of it.
-                try (var stale = Files.list(into)) {
-                    for (Path old : stale.filter(f -> f.getFileName().toString().endsWith(".md")).toList()) {
-                        Files.delete(old);
-                    }
-                }
+                Files.createDirectories(into);
                 for (Group group : groups) {
                     for (Run run : group.runs()) {
                         if (!NO_LOG.equals(run.cause())) {
-                            Files.writeString(into.resolve(snapshotName(run)),
+                            String name = snapshotName(run);
+                            Files.writeString(into.resolve(name),
                                     snapshot(folder.resolve(run.log()), snapshots), StandardCharsets.UTF_8);
+                            wrote.add(name);
                         }
                     }
                 }
             }
-            Files.writeString(folder.resolve(FILE), page(folder, groups, snapshots > 0),
-                    StandardCharsets.UTF_8);
+            Path page = folder.resolve(FILE);
+            Path temporary = folder.resolve(FILE + ".tmp");
+            Files.writeString(temporary, page(folder, groups, snapshots > 0), StandardCharsets.UTF_8);
+            Files.move(temporary, page, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            if (Files.isDirectory(into)) {
+                try (var present = Files.list(into)) {
+                    for (Path old : present.toList()) {
+                        String name = old.getFileName().toString();
+                        if (Files.isRegularFile(old) && name.endsWith(".md") && !wrote.contains(name)) {
+                            Files.delete(old);
+                        }
+                    }
+                }
+            }
         } catch (IOException e) {
             throw new UncheckedIOException("the gallery could not be written in " + folder, e);
         }

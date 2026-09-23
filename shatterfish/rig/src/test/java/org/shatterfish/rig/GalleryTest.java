@@ -74,45 +74,102 @@ class GalleryTest {
     }
 
     @Test
-    @DisplayName("Runs are grouped by ending and depth, largest first, and every Run in the index is in a group")
+    @DisplayName("deaths first, largest first; then the Runs the game did not end; every Run in the index in one group")
     void grouped(@TempDir Path out) throws IOException {
         List<Gallery.Group> groups = Gallery.of(folder(out));
 
         assertEquals(7, groups.stream().mapToInt(g -> g.runs().size()).sum(), "none dropped");
+        assertEquals(List.of("DEATH", "DEATH", Gallery.NO_ENDING, Gallery.NO_LOG, "UNKNOWN_WINDOW",
+                        Gallery.UNREADABLE),
+                groups.stream().map(Gallery.Group::cause).toList(),
+                "the decided endings before the rest, whatever their size");
         Gallery.Group first = groups.get(0);
-        assertEquals("DEATH", first.cause());
         assertEquals(1, first.depth());
         assertEquals(2, first.runs().size());
         assertEquals(List.of(SeedSet.code(1000), SeedSet.code(3000)),
                 first.runs().stream().map(Gallery.Run::seedCode).toList(), "by seed code within a group");
-        // The rest are singletons, ordered by cause then depth.
-        assertEquals(List.of("DEATH", Gallery.NO_ENDING, Gallery.NO_LOG, "UNKNOWN_WINDOW", Gallery.UNREADABLE),
-                groups.subList(1, groups.size()).stream().map(Gallery.Group::cause).toList());
         assertEquals(2, groups.get(1).depth());
         assertEquals(-1, groups.stream().filter(g -> g.cause().equals(Gallery.NO_LOG)).findFirst()
                 .orElseThrow().depth(), "no ending, no depth");
     }
 
     @Test
-    @DisplayName("the page is Markdown with the counts, the seeds, the turns and a link to each log")
+    @DisplayName("a log with no ending takes the depth of its last wait")
+    void no_ending_has_a_depth(@TempDir Path out) throws IOException {
+        Path reference = SeedSetsTest.ROOT.resolve("reference").resolve(Reference.fileName());
+        List<String> lines = Files.readAllLines(reference, StandardCharsets.UTF_8);
+        Files.write(out.resolve(Reference.fileName()), lines.subList(0, lines.size() - 1),
+                StandardCharsets.UTF_8);
+        String runId = Reference.fileName().replace(".jsonl", "");
+        Files.writeString(out.resolve(RunIndex.RUNS), indexLine(runId, Reference.fileName()) + "\n",
+                StandardCharsets.UTF_8);
+
+        Gallery.Group only = Gallery.of(out).get(0);
+
+        assertEquals(Gallery.NO_ENDING, only.cause());
+        assertEquals(1, only.depth(), "the reference Run's last wait is on depth 1");
+    }
+
+    @Test
+    @DisplayName("the page: deaths and non-deaths apart, the counts, the seeds, whole turns, a link to each log, and what it cannot say")
     void the_page(@TempDir Path out) throws IOException {
         Path folder = folder(out);
         Gallery.write(folder, 0);
         String page = Files.readString(folder.resolve(Gallery.FILE), StandardCharsets.UTF_8);
 
-        assertTrue(page.contains("# How the Runs ended: `random` on `smoke`"), page);
-        assertTrue(page.contains("7 Runs in 6 groups"), page);
-        assertTrue(page.contains("| `DEATH` | 1 | 2 | 28.6% |"), page);
-        assertTrue(page.contains("| `" + SeedSet.code(1000) + "` | WARRIOR | 1100.5 | ["), page);
+        assertTrue(page.contains("# How the Runs ended: random on smoke"), page);
+        assertTrue(page.contains("7 Runs: 3 ended by the game, 4 not."), page);
+        assertTrue(page.contains(Gallery.NO_KILLER), "the page says it has no killer to group by");
+        assertTrue(page.indexOf("## Endings the game decided") < page.indexOf("## Runs the game did not end"));
+        String decided = page.substring(page.indexOf("## Endings the game decided"),
+                page.indexOf("## Runs the game did not end"));
+        assertTrue(decided.contains("| DEATH | 1 | 2 | 28.6% |"), decided);
+        assertFalse(decided.contains("UNKNOWN"), "a lost window is not a death: " + decided);
+        assertTrue(decided.contains("the largest is the place to look"), decided);
+        assertFalse(page.substring(page.indexOf("## Runs the game did not end")).contains("place to look"),
+                "and nothing says to fix the largest non-death first");
+        assertTrue(page.contains("| " + SeedSet.code(1000) + " | WARRIOR | 1100 | ["), "whole turns: " + page);
         assertTrue(page.contains("](" + RunLog.fileName(RunLog.runId("v4.0.0", HeroClass.WARRIOR, 0,
                 SeedSet.code(1000), 1100L, "random")) + ")"), "a link to the log itself");
+        assertTrue(page.contains("links logs that are not committed"), "and says they may not be there");
         assertTrue(page.contains("E4's half of FR-26"), "the deferral is said on the page");
         assertFalse(page.contains("Last waits"), "no snapshot column unless asked for");
         assertFalse(Files.exists(folder.resolve(Gallery.SNAPSHOTS)));
     }
 
     @Test
-    @DisplayName("on request, every Run with a log gets a snapshot of its last waits, and the page links it")
+    @DisplayName("the same folder writes the same bytes")
+    void deterministic(@TempDir Path out) throws IOException {
+        Path folder = folder(out);
+        Gallery.write(folder, 2);
+        byte[] once = Files.readAllBytes(folder.resolve(Gallery.FILE));
+        Gallery.write(folder, 2);
+        assertEquals(new String(once, StandardCharsets.UTF_8),
+                Files.readString(folder.resolve(Gallery.FILE), StandardCharsets.UTF_8));
+    }
+
+    @Test
+    @DisplayName("every cell is escaped: a pipe or a backtick in a run id, a cause or an Action cannot break the table")
+    void escaped(@TempDir Path out) throws IOException {
+        assertEquals("a\\|b\\`c\\[d\\]", Gallery.cell("a|b`c[d]"));
+        assertEquals("x y", Gallery.cell("x\ny"));
+        assertEquals("a%20b%29.jsonl", Gallery.href("a b).jsonl"));
+
+        String line = log(out, 9000, ended("DE|ATH`", 1, 5000));
+        String hostile = line.replaceFirst("\"runId\":\"[^\"]*\"", "\"runId\":\"r|u`n\"");
+        Files.writeString(out.resolve(RunIndex.RUNS), hostile + "\n", StandardCharsets.UTF_8);
+        Gallery.write(out, 0);
+        String page = Files.readString(out.resolve(Gallery.FILE), StandardCharsets.UTF_8);
+
+        assertTrue(page.contains("[r\\|u\\`n]("), page);
+        assertTrue(page.contains("| DE\\|ATH\\` | 1 | 1 |"), page);
+        for (String row : page.lines().filter(l -> l.startsWith("| DE")).toList()) {
+            assertEquals(5, row.replace("\\|", "").chars().filter(c -> c == '|').count(), row);
+        }
+    }
+
+    @Test
+    @DisplayName("snapshots on request, linked; cleared whenever the gallery is rewritten, even without them, and only the gallery's own")
     void snapshots(@TempDir Path out) throws IOException {
         Path folder = folder(out);
         Gallery.write(folder, 3);
@@ -131,6 +188,16 @@ class GalleryTest {
         try (var files = Files.list(folder.resolve(Gallery.SNAPSHOTS))) {
             assertEquals(2, files.count());
         }
+
+        // Rewritten with none: every snapshot goes, but a file that is not the gallery's stays.
+        Files.writeString(folder.resolve(Gallery.SNAPSHOTS).resolve("notes.txt"), "mine\n",
+                StandardCharsets.UTF_8);
+        Gallery.write(folder, 0);
+        try (var files = Files.list(folder.resolve(Gallery.SNAPSHOTS))) {
+            assertEquals(List.of("notes.txt"), files.map(f -> f.getFileName().toString()).toList());
+        }
+        assertFalse(Files.readString(folder.resolve(Gallery.FILE), StandardCharsets.UTF_8).contains("snapshot]("));
+        assertFalse(Files.exists(folder.resolve(Gallery.FILE + ".tmp")), "the page is moved into place");
     }
 
     @Test
@@ -145,6 +212,26 @@ class GalleryTest {
         List<Gallery.Group> groups = Gallery.of(out);
 
         assertEquals(Gallery.UNREADABLE, groups.get(0).cause());
+        Gallery.write(out, 2);
+        String snapshot = Files.readString(out.resolve(Gallery.SNAPSHOTS)
+                .resolve(Gallery.snapshotName(groups.get(0).runs().get(0))), StandardCharsets.UTF_8);
+        assertTrue(snapshot.contains("could not be read to its end"), snapshot);
+        assertTrue(snapshot.contains("it has no ending"), snapshot);
+    }
+
+    @Test
+    @DisplayName("a log the reader throws on is one UNREADABLE Run, not the end of the gallery")
+    void one_bad_log(@TempDir Path out) throws IOException {
+        String good = log(out, 1000, ended("DEATH", 1, 1000));
+        // Not UTF-8, so reading it throws rather than reporting a bad line.
+        Files.write(out.resolve("bytes.jsonl"), new byte[] {(byte) 0xff, (byte) 0xfe, (byte) 0x80, '\n'});
+        Files.writeString(out.resolve(RunIndex.RUNS), good + "\n" + indexLine("bytes", "bytes.jsonl") + "\n",
+                StandardCharsets.UTF_8);
+
+        List<Gallery.Group> groups = Gallery.of(out);
+
+        assertEquals(List.of("DEATH", Gallery.UNREADABLE), groups.stream().map(Gallery.Group::cause).toList());
+        assertTrue(Gallery.snapshot(out.resolve("bytes.jsonl"), 2).contains("could not be read"));
     }
 
     @Test
@@ -175,15 +262,36 @@ class GalleryTest {
         String three = Gallery.snapshot(reference, 3);
 
         assertTrue(three.contains("The last 3 of 12 waits"), three);
-        assertTrue(three.contains("it ended `TURN_CAP` at depth 1 after 446.0 turns"), three);
-        assertTrue(three.contains("| 12 | 11.0 | 1 | bot | `Rest[full=true]` |"), three);
+        assertTrue(three.contains("it ended TURN\\_CAP at depth 1 after 446 turns"), three);
+        assertTrue(three.contains("| 12 | 11 | 1 | bot | Rest\\[full=true\\] |"), three);
         assertEquals(3, three.lines().filter(l -> l.startsWith("| 1")).count(), three);
         assertTrue(Gallery.snapshot(reference, 100).contains("The last 12 of 12 waits"));
         assertThrows(IllegalArgumentException.class, () -> Gallery.snapshot(reference, 0));
     }
 
     @Test
-    @DisplayName("an index line without a run id, or naming a log outside the folder, is refused")
+    @DisplayName("on a comparison folder the command writes both sides' galleries, with snapshots when asked")
+    void main_on_a_comparison(@TempDir Path out) throws IOException {
+        for (String side : List.of(Comparison.CANDIDATE, Comparison.BASELINE)) {
+            Path folder = Files.createDirectories(out.resolve(side));
+            Files.writeString(folder.resolve(RunIndex.RUNS), log(folder, 1234, ended("DEATH", 1, 2000))
+                    + "\n", StandardCharsets.UTF_8);
+        }
+        Files.writeString(out.resolve(Comparison.FILE), "{}\n", StandardCharsets.UTF_8);
+
+        Gallery.main(new String[] {out.toString(), "--snapshots", "2"});
+
+        for (String side : List.of(Comparison.CANDIDATE, Comparison.BASELINE)) {
+            assertTrue(Files.isRegularFile(out.resolve(side).resolve(Gallery.FILE)), side);
+            try (var files = Files.list(out.resolve(side).resolve(Gallery.SNAPSHOTS))) {
+                assertEquals(1, files.count(), side);
+            }
+        }
+        assertFalse(Files.exists(out.resolve(Gallery.FILE)), "not one for the comparison folder itself");
+    }
+
+    @Test
+    @DisplayName("an index line without a run id, a log outside the folder, and a Run or log named twice are refused")
     void refusals(@TempDir Path out) throws IOException {
         Files.writeString(out.resolve(RunIndex.RUNS), "{\"log\":\"x.jsonl\"}\n", StandardCharsets.UTF_8);
         assertThrows(IllegalArgumentException.class, () -> Gallery.of(out));
@@ -191,8 +299,16 @@ class GalleryTest {
                 StandardCharsets.UTF_8);
         IllegalArgumentException outside = assertThrows(IllegalArgumentException.class, () -> Gallery.of(out));
         assertTrue(outside.getMessage().contains("outside"), outside.getMessage());
+        Files.writeString(out.resolve(RunIndex.RUNS), "{\"log\":\"x.jsonl\",\"runId\":\"x\"}\n"
+                + "{\"log\":\"y.jsonl\",\"runId\":\"x\"}\n", StandardCharsets.UTF_8);
+        IllegalArgumentException twice = assertThrows(IllegalArgumentException.class, () -> Gallery.of(out));
+        assertTrue(twice.getMessage().contains("twice"), twice.getMessage());
+        Files.writeString(out.resolve(RunIndex.RUNS), "{\"log\":\"x.jsonl\",\"runId\":\"x\"}\n"
+                + "{\"log\":\"x.jsonl\",\"runId\":\"y\"}\n", StandardCharsets.UTF_8);
+        assertThrows(IllegalArgumentException.class, () -> Gallery.of(out), "one log for two Runs");
         assertThrows(IllegalArgumentException.class, () -> Gallery.main(new String[] {"x", "--snapshots"}));
         assertThrows(IllegalArgumentException.class,
                 () -> Gallery.main(new String[] {out.toString(), "--snapshots", "0"}));
+        assertThrows(IllegalArgumentException.class, () -> Gallery.write(out, -1));
     }
 }

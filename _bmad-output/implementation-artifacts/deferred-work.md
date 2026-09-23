@@ -23,3 +23,6 @@ Findings surfaced by a story's review that are not that story's problem, one ent
 - source_spec: `_bmad-output/implementation-artifacts/3-9-the-baseline-and-the-deliberately-worse-brain.md`
   summary: The Results pages lack FR-25's per-Run distributions, survival curve, fairness-suite status, the paired score's variance against an unpaired shuffle, and the fixed-sample cross-check.
   evidence: Story 3.10 owns the Results page format; 3.9's pages were written by hand from the runs' own files.
+- source_spec: `_bmad-output/implementation-artifacts/3-12-the-death-gallery.md`
+  summary: The death gallery cannot group by what killed the hero, because RunLog.Outcome records the ending and depth but no killer.
+  evidence: FR-26 asks for Runs grouped by cause of death; the gallery groups by ending and depth and says so on every page. Recording the killer is a Run-log schema change (docs/ideas.md).
