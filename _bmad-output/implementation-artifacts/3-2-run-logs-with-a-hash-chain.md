@@ -2,7 +2,7 @@
 title: 'Run logs with a hash chain'
 type: 'feature'
 created: '2026-09-22'
-status: 'review'
+status: 'done'
 baseline_commit: '5945ad139'
 review_loop_iteration: 0
 context: []
