@@ -14,8 +14,10 @@ import java.util.List;
  * above them -- explore, fight, eat, test items, descend -- and these stay at the bottom as what a
  * Brain does when nothing better applies.
  *
- * <p>Their reasons are labels and numbers, not sentences (story 4.4, UX-DR13): "decline: No",
- * "uniform 1/5". The Panel and the strategy log print them as they are.
+ * <p>Their goals and reasons are labels and numbers, not sentences (story 4.4, UX-DR13): a
+ * lower-case word, then either {@code ": "} and a value or a space and a number --
+ * "prompt: close", "decline: No", "uniform 1/5". The Panel and the strategy log print them as they
+ * are, and {@code DecisionShapeTest} holds them to that grammar.
  */
 final class Policies {
 
@@ -62,7 +64,7 @@ final class Policies {
 
         @Override
         public String goal() {
-            return "close the prompt";
+            return "prompt: close";
         }
 
         @Override
@@ -98,7 +100,7 @@ final class Policies {
             for (Action.AnswerPrompt answer : answers) {
                 String label = label(labels, answer);
                 ranked.add(new RunLog.Choice(answer, ranked.isEmpty() ? CERTAIN : 0,
-                        "answer " + answer.option() + (label.isEmpty() ? "" : ": " + label)));
+                        "answer: " + (label.isEmpty() ? Integer.toString(answer.option()) : label)));
             }
             if (dismiss != null) {
                 ranked.add(new RunLog.Choice(dismiss, ranked.isEmpty() ? CERTAIN : 0, "dismiss"));
@@ -138,7 +140,8 @@ final class Policies {
         public List<RunLog.Choice> ranked(Observation observation, Memory memory, List<Action> offered, Stream stream) {
             List<RunLog.Choice> ranked = new ArrayList<>();
             List<Action> left = new ArrayList<>(offered);
-            long score = offered.isEmpty() ? 0 : CERTAIN / offered.size();
+            // One in n, rounded to the nearest ten-thousandth: 1667 for six, as 0.1667 prints.
+            long score = offered.isEmpty() ? 0 : (CERTAIN + offered.size() / 2) / offered.size();
             String why = "uniform 1/" + offered.size();
             // The pick and at most as many alternatives as a Decision records: drawing more would
             // record nothing, and the stream is this wait's alone.

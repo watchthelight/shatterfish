@@ -155,3 +155,51 @@ there. `mkdocs build --strict` is clean.
 
 **Open:** row 3 of the Brain's Rules index (declining the chasm prompt) points at a game-loop Rule
 at needs-review since `v4.0.0`. Re-reading it is upstream-rule work, not this story's.
+
+**Rig numbers (direction check).** Set `smoke`, 25 triples. The `shatterfish` Brain at main
+`4e95c0ec0` (story 4.1) against this branch before the 4.2 merge, with the salts fixed through
+`RunOne`. All 25 Action sequences are identical, over 1,688 waits. The change moves no Run: it adds
+what the log says, not what the Brain does.
+
+### Review
+
+Fairness review: PASS, with one should-fix, which is fixed. The index claimed row 3 was the only
+claim resting on a needs-review Rule, but row 4 (`hp-low`) rested on `ui.md`'s status-pane row,
+still cited at v3.3.8.
+
+Lens review findings, all fixed:
+1. **`hp-low` had no cited threshold.** It now uses the status pane's own low-health warning, `HP/HT
+   < 0.334`, from `StatusPane.java:300-310`, compared in integers as `1000·HP < 334·HT`. A new
+   `ui.md` row cites it at v4.0.0 (Tier 1), and index row 4 points at that row. Zero health counts as
+   low: the pane darkens a dead hero rather than tinting it, but a Brain asked to decide at zero is in
+   the worst danger there is. `DecisionShapeTest` pins 333/1000 (low), 334/1000 (not low) and 0.
+2. **The index test only checked that rows were valid.** `BrainRulesIndexTest` now also requires
+   every Policy except the fallback (`Brain.policyNames()`) and every Safety flag
+   (`Brain.safetyFlags()`) to be named in some row's "Used by". The needs-review rows are reported,
+   not refused: the page states "Rows resting on a needs-review Rule: 3." and the test holds that
+   statement to the Tier each Rule page shows. A Rule that flips at an upgrade therefore shows up
+   as a named row, without blocking a Brain story on upstream-rule work.
+3. **`Highlights.of` had a default branch.** It now names all 21 Action kinds with no default, so the
+   compiler checks exhaustiveness over the sealed type.
+4. **`ShatterfishRunTest` did not check the Decision's shape in real waits.** At every real wait it
+   now checks:
+   - the goal is not blank;
+   - the alternatives are distinct from each other and from the choice;
+   - a fallback wait records `min(n-1, 3)` alternatives, with `n` read from its "uniform 1/n" reason.
+5. **Highlights were checked only for Steps.** Every wait's highlights now equal the cells for its
+   action kind, computed by the test's own switch. A new random-agent Run checks that its waits carry
+   no Decision and no highlights.
+6. **Scores were truncated.** The fallback's score is `1/n` rounded to the nearest ten-thousandth,
+   so one in six is 1667, and the javadoc, fixture and test agree.
+7. **A reason could break the strategy log.** Reasons, goals, flags, Policy names and Actions print
+   with control characters as spaces and `|` as `/`.
+8. **Labels were checked loosely.** Goals and reasons are held to `^[a-z-]+(: .+| [0-9/]+)?$`. The
+   prompt Policy's goal became `prompt: close`, and its non-declining answers `answer: <label>`.
+9. **The strategy log stopped at the first bad log.** `StrategyLog.main` now reports an unreadable
+   log and continues, and a wait that answered a Prompt names the Prompt's kind from the log's
+   Prompt record.
+
+Tests after the fixes:
+- `:brain:test` passes.
+- `StrategyLogTest` (3), `BrainRulesIndexTest` (2) and `ShatterfishRunTest` (4, one skipped in the
+  worktree) pass.

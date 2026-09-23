@@ -74,9 +74,9 @@ class DecisionShapeTest {
         Observation screen = screens().get(2);
         RunLog.Decision decision = brain.decide(screen, brain.update(screen, null)).decision();
         assertEquals(3, decision.alternatives().size());
-        assertEquals(Policies.CERTAIN / 6, decision.chosen().score());
+        assertEquals(1_667, decision.chosen().score(), "one in six, rounded to the nearest ten-thousandth");
         for (RunLog.Choice alternative : decision.alternatives()) {
-            assertEquals(Policies.CERTAIN / 6, alternative.score());
+            assertEquals(1_667, alternative.score());
             assertEquals("uniform 1/6", alternative.why());
         }
     }
@@ -90,27 +90,34 @@ class DecisionShapeTest {
         assertEquals(new Action.AnswerPrompt(2), decision.chosen().action());
         assertEquals(Policies.CERTAIN, decision.chosen().score());
         assertEquals("decline: Cancel", decision.chosen().why());
-        assertEquals("answer 0: Take the gold", decision.alternatives().get(0).why());
+        assertEquals("answer: Take the gold", decision.alternatives().get(0).why());
         assertEquals(0, decision.alternatives().get(0).score());
-        assertEquals("close the prompt", decision.goal());
+        assertEquals("prompt: close", decision.goal());
     }
+
+    /** A label: a lower-case word, then ": " and a value, or a space and a number (UX-DR13). */
+    private static final java.util.regex.Pattern LABEL = java.util.regex.Pattern.compile("^[a-z-]+(: .+| [0-9/]+)?$");
 
     @Test
     @DisplayName("reasons and goals are labels and numbers, not sentences")
     void labels_not_sentences() {
+        int said = 0;
         for (long seed = 0; seed < 10; seed++) {
             Brain brain = new Brain(Screens.CODEX, seed);
             for (Observation screen : screens()) {
                 RunLog.Decision decision = brain.decide(screen, brain.update(screen, null)).decision();
-                List<String> said = new ArrayList<>(List.of(decision.goal(), decision.chosen().why()));
-                decision.alternatives().forEach(alternative -> said.add(alternative.why()));
-                for (String text : said) {
-                    assertFalse(text.isBlank(), decision.toString());
+                List<String> texts = new ArrayList<>(List.of(decision.goal(), decision.chosen().why()));
+                decision.alternatives().forEach(alternative -> texts.add(alternative.why()));
+                for (String text : texts) {
+                    assertTrue(LABEL.matcher(text).matches(), "a label, not a sentence: \"" + text + "\"");
                     assertTrue(text.length() <= 40, "a label, not a paragraph: " + text);
-                    assertFalse(text.endsWith("."), "no sentence ends a label: " + text);
-                    assertFalse(text.startsWith("the ") || text.startsWith("The "), "no article opens a label: " + text);
+                    said++;
                 }
             }
+        }
+        assertTrue(said > 100, "labels were checked: " + said);
+        for (String sentence : List.of("the first answer the prompt offers", "Close the prompt.", "act, when idle")) {
+            assertFalse(LABEL.matcher(sentence).matches(), "the grammar refuses a sentence: " + sentence);
         }
     }
 
@@ -129,5 +136,10 @@ class DecisionShapeTest {
         assertEquals(List.of(), flagged.highlights(), "a Wait points at no cell");
         assertFalse(Safety.flags(Screens.hurt(2, 3, new Action.Wait())).contains(Safety.HP_LOW),
                 "two of three is not low");
+        // The status pane's threshold, HP/HT < 0.334 (StatusPane.java:300-310), exactly.
+        assertTrue(Safety.flags(Screens.hurt(333, 1000, new Action.Wait())).contains(Safety.HP_LOW));
+        assertFalse(Safety.flags(Screens.hurt(334, 1000, new Action.Wait())).contains(Safety.HP_LOW),
+                "0.334 is not below 0.334");
+        assertTrue(Safety.flags(Screens.hurt(0, 20, new Action.Wait())).contains(Safety.HP_LOW), "zero health is low");
     }
 }

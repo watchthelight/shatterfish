@@ -80,6 +80,19 @@ public final class Brain {
         return Beliefs.view(Memory.of(belief), observation, knowledge);
     }
 
+    /**
+     * Every Safety flag a Decision can carry, by label (story 4.4): what the Brain's Rules index has
+     * to account for, alongside the Policies.
+     */
+    public static List<String> safetyFlags() {
+        return Safety.ALL;
+    }
+
+    /** The names of the Policies every Brain arbitrates, highest priority first. */
+    public static List<String> policyNames() {
+        return POLICIES.stream().map(Policy::name).toList();
+    }
+
     /** The Policies, highest priority first, by name. */
     public List<String> policies() {
         return policies.stream().map(Policy::name).toList();

@@ -19,7 +19,13 @@ import java.util.List;
  */
 final class Safety {
 
-    /** The hero shows at most a third of its health. */
+    /**
+     * The hero's health is below the status pane's low-health warning: {@code HP/HT < 0.334}, the
+     * ratio at which the pane starts tinting the portrait ({@code StatusPane.java:300-310}),
+     * compared in integers as {@code 1000·HP < 334·HT}. Shielding is not counted, as the pane does
+     * not count it. Zero health is low: the pane darkens a dead hero instead of tinting it, but a
+     * Brain asked to decide at zero health is in the worst danger there is, and the flag says so.
+     */
     static final String HP_LOW = "hp-low";
 
     /** An enemy is in view. */
@@ -31,6 +37,9 @@ final class Safety {
     /** The hunger icon shows starving. */
     static final String STARVING = "starving";
 
+    /** Every flag, in the order {@link #flags} lists them. */
+    static final List<String> ALL = List.of(HP_LOW, ENEMY_IN_VIEW, HUNGRY, STARVING);
+
     private Safety() {
     }
 
@@ -38,7 +47,7 @@ final class Safety {
     static List<String> flags(Observation observation) {
         List<String> flags = new ArrayList<>();
         HeroSection hero = observation.hero();
-        if (hero.ht() > 0 && 3L * hero.hp() <= hero.ht()) {
+        if (hero.ht() > 0 && 1000L * hero.hp() < 334L * hero.ht()) {
             flags.add(HP_LOW);
         }
         for (ActorView actor : observation.actors().actors()) {

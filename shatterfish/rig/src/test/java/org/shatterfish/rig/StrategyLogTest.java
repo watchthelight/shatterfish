@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.shatterfish.api.Action;
 import org.shatterfish.api.HeroClass;
+import org.shatterfish.api.PromptKind;
 import org.shatterfish.api.RunLog;
 import org.shatterfish.api.RunLogJson;
 
@@ -42,7 +43,11 @@ class StrategyLogTest {
                         null, "", List.of(), 1),
                 new RunLog.Wait(3, 2_000, 2, 0, ZERO, Map.of("map", ZERO), new Action.Descend(), false,
                         RunLog.HUMAN, null, "", List.of(), 1),
-                new RunLog.End(3, new RunLog.Outcome(false, false, 0, 2, 2_000, "DEATH", 0), true));
+                new RunLog.Prompt(4, PromptKind.CHASM_JUMP, new Action.AnswerPrompt(1)),
+                new RunLog.Wait(4, 2_000, 2, 0, ZERO, Map.of("map", ZERO), new Action.AnswerPrompt(1), true, RunLog.BOT,
+                        new RunLog.Decision("prompt: close", new RunLog.Choice(new Action.AnswerPrompt(1), 10_000,
+                                "decline: No | k=9\nforged"), List.of(), List.of(), "answer-prompt"), ZERO, List.of(), 1),
+                new RunLog.End(4, new RunLog.Outcome(false, false, 0, 2, 2_000, "DEATH", 0), true));
         StringBuilder text = new StringBuilder();
         String chain = "";
         for (RunLog record : records) {
@@ -61,7 +66,7 @@ class StrategyLogTest {
 
         assertTrue(written.getFileName().toString().endsWith(StrategyLog.SUFFIX), written.toString());
         List<String> lines = Files.readAllLines(written, StandardCharsets.UTF_8);
-        assertEquals(6, lines.size(), String.join("\n", lines));
+        assertEquals(7, lines.size(), String.join("\n", lines));
         assertTrue(lines.get(0).startsWith("# v4.0.0-"), lines.get(0));
         assertEquals("# brain shatterfish, warrior, tag v4.0.0", lines.get(1));
         assertEquals("k=1 d=1 | fallback | act: nothing better applies | Step[cell=5] 0.1667 uniform 1/6"
@@ -69,7 +74,29 @@ class StrategyLogTest {
                 + " | flags hp-low,enemy-in-view | cells 5", lines.get(2));
         assertEquals("k=2 d=1 | Search[]", lines.get(3), "a wait whose decider said nothing prints its Action alone");
         assertEquals("k=3 d=2 human | Descend[] | refused", lines.get(4));
-        assertEquals("# end DEATH, depth 2", lines.get(5));
+        assertEquals("k=4 d=2 prompt CHASM_JUMP | answer-prompt | prompt: close | AnswerPrompt[option=1] 1.0000"
+                + " decline: No / k=9 forged | flags -", lines.get(5),
+                "the Prompt is named, and a reason cannot break the line or fake a column");
+        assertEquals("# end DEATH, depth 2", lines.get(6));
+    }
+
+    @Test
+    @DisplayName("an unreadable log in a folder is reported and passed over, and the rest are written")
+    void one_bad_log(@TempDir Path folder) throws IOException {
+        Path good = log(folder);
+        Files.writeString(folder.resolve("v4.0.0-broken.jsonl"), "not json\n", StandardCharsets.UTF_8);
+        java.io.PrintStream was = System.out;
+        java.io.ByteArrayOutputStream said = new java.io.ByteArrayOutputStream();
+        System.setOut(new java.io.PrintStream(said, true, StandardCharsets.UTF_8));
+        try {
+            StrategyLog.main(new String[] {folder.toString()});
+        } finally {
+            System.setOut(was);
+        }
+        String out = said.toString(StandardCharsets.UTF_8);
+        assertTrue(out.contains("skipped") && out.contains("v4.0.0-broken.jsonl"), out);
+        String name = good.getFileName().toString();
+        assertTrue(Files.isRegularFile(good.resolveSibling(name.replace(".jsonl", StrategyLog.SUFFIX))), out);
     }
 
     @Test
