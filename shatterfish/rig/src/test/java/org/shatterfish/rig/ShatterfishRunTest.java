@@ -46,6 +46,7 @@ class ShatterfishRunTest {
         List<Path> logs = Verify.logs(out);
         assertEquals(SeedSets.load(SeedSetsTest.ROOT, SeedSets.SMOKE).set().entries().size(), logs.size());
         int waits = 0;
+        int highlighted = 0;
         for (Path log : logs) {
             RunLogReader.Log read = RunLogReader.of(log);
             assertTrue(read.readable(), log + ": " + read.unreadable());
@@ -55,10 +56,16 @@ class ShatterfishRunTest {
                 assertTrue(List.of("answer-prompt", "fallback").contains(wait.decision().policy()), wait.decision().policy());
                 assertEquals(wait.action(), wait.decision().chosen().action(), "the Action logged is the one decided");
                 assertTrue(wait.belief().matches("[0-9a-f]{64}"), wait.belief());
+                // Story 4.4: the cells a Step points at ride on the wait record.
+                if (wait.action() instanceof org.shatterfish.api.Action.Step step) {
+                    assertEquals(List.of(step.cell()), wait.highlights(), "at " + wait.k());
+                    highlighted++;
+                }
                 waits++;
             }
         }
         assertTrue(waits > 0, "the Runs served waits");
+        assertTrue(highlighted > 0, "some wait stepped, and its cell was highlighted");
         // A Brain's log replays: the follower states the Decision and Belief hash each wait
         // recorded, so the replayed records, and the chain over them, are the original's.
         // A Run the harness stopped following (an unknown window) says it is not verifiable, which
@@ -69,6 +76,10 @@ class ShatterfishRunTest {
                 verifiable, out.resolve("replay"), "test");
         assertTrue(replayed.ok(), replayed.why());
         assertEquals(replayed.originalChain(), replayed.chain());
+        // And it renders as a strategy log, a line per wait between the two header lines and the end.
+        RunLogReader.Log verified = RunLogReader.of(verifiable);
+        String strategy = StrategyLog.render(verified);
+        assertEquals(verified.waits().size() + 3, strategy.lines().count(), strategy);
         String summary = Files.readString(out.resolve(RunIndex.SUMMARY), StandardCharsets.UTF_8).strip();
         assertEquals("0", LogHeader.value(summary, "runsIncomplete"), summary);
     }

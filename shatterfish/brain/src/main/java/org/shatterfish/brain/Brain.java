@@ -25,8 +25,15 @@ import java.util.List;
  */
 public final class Brain {
 
-    /** What a wait produced: the Action, the Decision behind it, and, when there is no Action, why. */
-    public record Decided(Action action, RunLog.Decision decision, String why) {
+    /**
+     * What a wait produced: the Action, the Decision behind it, the map cells it points at (story
+     * 4.4), and, when there is no Action, why.
+     */
+    public record Decided(Action action, RunLog.Decision decision, List<Integer> highlights, String why) {
+
+        public Decided {
+            highlights = List.copyOf(highlights);
+        }
     }
 
     /** The Policies, highest priority first. */
@@ -81,14 +88,16 @@ public final class Brain {
 
     /**
      * The Decision for {@code observation} under {@code belief}: the first Policy, in priority order,
-     * that enters and offers a Choice takes the wait; the next up to three that would also have
-     * acted are its recorded alternatives.
+     * that enters and ranks a Choice takes the wait with its best one. Up to three alternatives are
+     * recorded, distinct Actions all: the taking Policy's own next ranks first, then what later
+     * Policies would have done (story 4.4). The Decision carries the screen's Safety flags, and
+     * the Decided the cells the chosen Action points at.
      */
     public Decided decide(Observation observation, Belief belief) {
         Memory memory = Memory.of(belief);
         List<Action> offered = observation.actions().actions();
         if (offered.isEmpty()) {
-            return new Decided(null, null, "the screen offers no Action");
+            return new Decided(null, null, List.of(), "the screen offers no Action");
         }
         Policy taken = null;
         RunLog.Choice chosen = null;
@@ -101,30 +110,31 @@ public final class Brain {
             // Each Policy draws from a stream of its own, keyed on its place in the list and the
             // wait, so whether an earlier Policy drew changes nothing a later one chooses, and two
             // Policies that both draw do not draw the same numbers.
-            RunLog.Choice choice = policy.choose(observation, memory, offered,
+            List<RunLog.Choice> ranked = policy.ranked(observation, memory, offered,
                     Stream.at(Stream.mix(seed + index), memory.waits()));
-            if (choice == null) {
-                continue;
-            }
-            if (!offered.contains(choice.action())) {
-                throw new IllegalStateException("the Policy " + policy.name() + " chose " + choice.action()
-                        + ", which the screen does not offer");
-            }
-            if (taken == null) {
-                taken = policy;
-                chosen = choice;
-            } else if (alternatives.size() < RunLog.Decision.ALTERNATIVES
-                    && !choice.action().equals(chosen.action())
-                    && alternatives.stream().noneMatch(other -> other.action().equals(choice.action()))) {
-                // An alternative is another Action a Policy would have taken; the same Action again
-                // is not one.
-                alternatives.add(choice);
+            for (RunLog.Choice choice : ranked) {
+                if (!offered.contains(choice.action())) {
+                    throw new IllegalStateException("the Policy " + policy.name() + " chose " + choice.action()
+                            + ", which the screen does not offer");
+                }
+                if (taken == null) {
+                    taken = policy;
+                    chosen = choice;
+                } else if (alternatives.size() < RunLog.Decision.ALTERNATIVES
+                        && !choice.action().equals(chosen.action())
+                        && alternatives.stream().noneMatch(other -> other.action().equals(choice.action()))) {
+                    // An alternative is another Action a Policy would have taken; the same Action
+                    // again is not one.
+                    alternatives.add(choice);
+                }
             }
         }
         if (taken == null) {
-            return new Decided(null, null, "no Policy offered a Choice among " + offered.size() + " Actions");
+            return new Decided(null, null, List.of(),
+                    "no Policy offered a Choice among " + offered.size() + " Actions");
         }
         return new Decided(chosen.action(),
-                new RunLog.Decision(taken.goal(), chosen, alternatives, List.of(), taken.name()), "");
+                new RunLog.Decision(taken.goal(), chosen, alternatives, Safety.flags(observation), taken.name()),
+                Highlights.of(chosen.action()), "");
     }
 }

@@ -723,6 +723,35 @@ Brains side by side, FR-26's per-Brain view, is E4's. The random Baseline's is i
 [`results/2026-09-23-H-0002/gallery.md`](https://github.com/watchthelight/shatterfish/blob/bdf5ea5b2d38e7911f42e23a5ba08b4237cffc5c/results/2026-09-23-H-0002/gallery.md);
 its links name logs that are not committed.
 
+## What the Brain said: the strategy log
+
+A Brain's wait record carries its Decision (story 4.4, FR-32):
+
+- the goal, in plain words;
+- the chosen Action with its score, in ten-thousandths;
+- up to three alternatives, each a distinct Action with a score and a one-line reason;
+- the Safety flags read off the screen (`hp-low`, `enemy-in-view`, `hungry`, `starving`);
+- the Policy that fired.
+
+Reasons are labels and numbers, such as `decline: No` or `uniform 1/6`, never sentences
+(UX-DR13). The cells the chosen Action points at go in the wait record's own `highlights`, as
+ADR-0011 places them. The Overlay and the Replay scrubber read them from there rather than
+re-deriving them, and a replay restates them, so a Brain's log still reproduces its chain.
+
+`./gradlew :rig:strategy --args="<log.jsonl or folder>"` writes `<run-id>.strategy.txt` beside each
+Run log (FR-36, NFR-9): one plain-text line per Input wait, rendered from the log, so there is no
+second source of truth.
+
+```text
+k=1 d=1 | fallback | act: nothing better applies | Step[cell=5] 0.1667 uniform 1/6 | alt Wait[] 0.1667 uniform 1/6 | flags hp-low | cells 5
+k=2 d=1 | Search[]
+k=3 d=2 human | Descend[] | refused
+```
+
+A score prints as a fraction of one. A wait whose decider said nothing, such as the random agent's
+or a human's, prints its Action alone. The claims about the game that the Brain relies on are
+enumerated in [the Brain's Rules index](brain-rules.md).
+
 ## The Run log and its chain
 
 Every Run writes `<run-id>.jsonl`: one record per line, plain text, no compression, readable with

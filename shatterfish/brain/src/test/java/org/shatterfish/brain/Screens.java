@@ -2,7 +2,10 @@ package org.shatterfish.brain;
 
 import org.shatterfish.api.Action;
 import org.shatterfish.api.ActionsSection;
+import org.shatterfish.api.ActorView;
 import org.shatterfish.api.ActorsSection;
+import org.shatterfish.api.Alignment;
+import org.shatterfish.api.Emote;
 import org.shatterfish.api.Codex;
 import org.shatterfish.api.Feeling;
 import org.shatterfish.api.Fog;
@@ -52,16 +55,30 @@ final class Screens {
                 "Do you really want to jump into the chasm?", labels), actions);
     }
 
+    /**
+     * A starving hero at {@code hp} of {@code ht}, with an enemy rat in view on the cell beside it,
+     * offering {@code actions}: every Safety flag's inputs at once.
+     */
+    static Observation hurt(int hp, int ht, Action... actions) {
+        return screen(1, PromptKind.NONE, PromptSection.NONE, hp, ht, Hunger.STARVING,
+                List.of(new ActorView(2, "rat", Alignment.ENEMY, 5, false, Emote.NONE, List.of())), actions);
+    }
+
     private static Observation screen(int depth, PromptKind kind, PromptSection prompt, Action... actions) {
+        return screen(depth, kind, prompt, 1, 1, Hunger.NONE, List.of(), actions);
+    }
+
+    private static Observation screen(int depth, PromptKind kind, PromptSection prompt, int hp, int ht,
+                                      Hunger hunger, List<ActorView> actors, Action... actions) {
         HeaderSection header = new HeaderSection(ObservationCodec.SCHEMA_VERSION, "v4.0.0", "", HeroClass.WARRIOR,
                 List.of(), depth, 0, false, false, kind);
         MapSection map = new MapSection(3, 1, List.of(Tile.EMPTY, Tile.EMPTY, Tile.EMPTY),
                 List.of(Fog.VISIBLE, Fog.VISIBLE, Fog.VISIBLE), List.of(), List.of(), List.of(), Feeling.NONE,
                 List.of());
-        HeroSection hero = new HeroSection(1, "", HeroSubclass.NONE, "", 1, 0, 1, 1, 1, 0, 1, 0, 0, 0,
-                Hunger.NONE, List.of(), List.of(), List.of(0, 0, 0, 0),
+        HeroSection hero = new HeroSection(1, "", HeroSubclass.NONE, "", 1, 0, 1, hp, ht, 0, 1, 0, 0, 0,
+                hunger, List.of(), List.of(), List.of(0, 0, 0, 0),
                 Collections.nCopies(HeroSection.QUICKSLOTS, new QuickslotView("", false)));
-        return new Observation(header, map, new ActorsSection(List.of()), hero, new InventorySection(List.of()),
+        return new Observation(header, map, new ActorsSection(actors), hero, new InventorySection(List.of()),
                 new JournalSection(List.of(), List.of()), new LogSection(List.of()),
                 new ActionsSection(List.of(actions)), prompt);
     }
