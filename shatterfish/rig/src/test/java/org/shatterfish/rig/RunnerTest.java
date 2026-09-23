@@ -391,6 +391,11 @@ class RunnerTest {
         assertEquals("0".repeat(64), Brains.configHash(Brains.NO_DESCEND));
         assertEquals(List.of(Brains.RANDOM, Brains.NO_DESCEND), Brains.names(),
                 "when a real Brain is added here, `configHash` refuses until it states its own");
+        // Every name is one a Run log and a Registration will take. "random-nodescend" was not: the
+        // run id is hyphen-separated, and nothing refused it until the first ranked invocation.
+        for (String name : Brains.names()) {
+            assertTrue(name.matches(org.shatterfish.api.RunLog.BRAIN_PATTERN), name);
+        }
     }
 
     @Test

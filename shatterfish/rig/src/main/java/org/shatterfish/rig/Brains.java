@@ -49,7 +49,7 @@ public final class Brains {
      * The deliberately worse Brain (story 3.9, SM-5): the Baseline with {@code Descend} taken out of
      * what it may choose. It exists so the Rig can be shown rejecting something.
      */
-    public static final String NO_DESCEND = "random-nodescend";
+    public static final String NO_DESCEND = "random_nodescend";
 
     /**
      * The files that decide what a Brain does, by name.

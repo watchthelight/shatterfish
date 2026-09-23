@@ -157,7 +157,11 @@ public record Registration(String hypothesis, String claim, Brain brainA, Brain 
 
         public Brain {
             Canon.text(name, "a Brain's name");
-            Canon.require(name.matches(RunLog.BRAIN_PATTERN), "a Brain's name is lower case: " + name);
+            // Lower-case letters, digits, dots and underscores -- and no hyphen, because the run id
+            // the name is written into is hyphen-separated. Story 3.9 committed a Registration for
+            // "random-nodescend" and learned this from the refusal of its first invocation.
+            Canon.require(name.matches(RunLog.BRAIN_PATTERN), "a Brain's name is lower case, with"
+                    + " letters, digits, dots and underscores and no hyphen: " + name);
             Canon.text(commit, "a Brain's commit");
             Canon.require(commit.matches("[0-9a-f]{7,40}"),
                     "a Brain's commit is a git object name: " + commit);
