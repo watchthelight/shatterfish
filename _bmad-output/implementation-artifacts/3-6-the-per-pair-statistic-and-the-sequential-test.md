@@ -2,7 +2,7 @@
 title: 'Story 3.6: The Per-pair statistic and the sequential test'
 type: 'feature'
 created: '2026-09-23'
-status: 'review'
+status: 'done'
 review_loop_iteration: 1
 context: []
 ---
