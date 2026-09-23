@@ -18,6 +18,10 @@ through a reviewed pull request ([ADR-0002](../adr/0002-ci-shape.md)). Each file
 
 From E3 onward no brain change merges without a results file in the pull request.
 
+The [nightly smoke page](nightly.md) is generated every night by the `nightly` workflow and reaches
+`main` through one results pull request on `rig/nightly` (story 3.11): a direction check under the
+standing Registration `H-0001-nightly-smoke`, with every night's status in its table.
+
 ## Published
 
 | Page | What it measures | Epic |

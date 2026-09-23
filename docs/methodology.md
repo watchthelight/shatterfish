@@ -369,6 +369,53 @@ An invocation that names no Registration still runs — that is the normal case 
 and says so: its logs carry an empty registration, and its summary records one, so a folder of
 numbers can never be quietly adopted as a measurement of something afterwards.
 
+## The nightly job
+
+Every night at 04:40 UTC the `nightly` workflow (`.github/workflows/nightly.yml`) plays the `smoke`
+set under the standing Registration `H-0001-nightly-smoke` and publishes the night. It is two jobs,
+so that the code that plays the Rig never holds a token that can write:
+
+1. **`play`** checks out `main` with its full history and no stored credentials, with a read-only
+   token. It fixes the night's date and its run (with the attempt number) once, plays the set on
+   four processes, and records the night with
+   `./gradlew :rig:nightly --args="<root> night build/nightly <date> <commit> <play outcome> <run>"`.
+   A night **passes** when the play step succeeded, the Rig ran ranked under H-0001, started every
+   one of the set's 25 triples, and every Run it started finished; anything else **fails**, with the
+   reason in words — not ranked, the wrong set or Brain, Runs missing or incomplete, a summary that
+   does not state its counts, or no summary at all because the Rig was refused or stopped. The
+   folder, tonight's ledger lines and the Run logs go on as an artifact kept for 90 days, and a
+   failed night turns this job red.
+2. **`publish`**, with a token that can write contents and pull requests, downloads the folder and
+   runs `tools/nightly-pr.sh`. The script rebuilds the branch `rig/nightly` on `main`, appends the
+   night to `results/nightly/history.jsonl` — or, when the night broke before it could be recorded,
+   a failing line of its own saying so — merges the ledger, regenerates
+   [the nightly page](results/nightly.md), runs `NightlyTest` against the result, force-pushes the
+   branch with a lease, and edits the one open results pull request, opening it when there is none.
+   Nights recorded on the branch but not yet merged are carried forward: the history, which only
+   this job writes, is kept from the branch whenever `main`'s copy is a prefix of it; the ledger,
+   which ranked story pull requests also append to, is merged as a set of lines — `main`'s, then the
+   branch's that `main` lacks, then tonight's. A night already in the history under the same run is
+   not appended twice. The job never pushes `main`; a person merges the pull request (ADR-0002).
+
+**Every night is a direction check, never an acceptance.** H-0001 fixes a baseline and tests
+nothing between two Brains, so no night can accept, reject or be undecided; what it can do is fail,
+which is what it is for — a change that breaks the Harness is seen the night it lands. A failure is
+the job summary, the pull request's title and body, and the first column of the page.
+
+**What this needs, and what it cannot check.**
+
+- The repository setting *Allow GitHub Actions to create and approve pull requests* must be on for
+  the workflow to open the results pull request; with it off, open the first one by hand from
+  `rig/nightly`, and later nights only edit it. The setting is the owner's to change.
+- A push or pull request made with the workflow's token starts no other workflow, so the results
+  pull request gets **no CI of its own**. That is why the publish job runs `NightlyTest` on the page
+  and the history before it pushes.
+- NFR-8 is held by a text check (`NightlyTest` refuses any host but GitHub in the workflow and the
+  script). The setup actions reach their own CDNs for the JDK, Gradle and the artifact store, as
+  every build does; the Rig and the recording make no network call.
+- The workflow checks out `main`, so a change to it or to the script is exercised only after it is
+  merged, on the next night or a manual dispatch.
+
 ## Comparing two Brains
 
 ```sh

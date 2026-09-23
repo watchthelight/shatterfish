@@ -48,6 +48,17 @@ Codex drift (E2) is a `build`-job check: regenerate and `git diff --exit-code co
 - Bad: nightly results PR needs a human click; acceptable, and it keeps the human in the loop on what the numbers say.
 - Bad: the rig-on-PR path means a brain PR needs a second commit with the results file; the `rig` project skill will do that locally as the normal path, with the Action as the fallback.
 
+## Note, 2026-09-23: the nightly job as shipped (story 3.11)
+
+The nightly job differs from the table above in three ways, none of which reverses the decision.
+It publishes **one generated page**, `docs/results/nightly.md`, rebuilt from an append-only
+`results/nightly/history.jsonl`, rather than a `docs/results/<date>-<sha>.md` per night, because the
+site refuses pages its navigation does not list. It runs the **`smoke` baseline** under
+`H-0001-nightly-smoke` — a direction check — rather than a comparison against the last published
+baseline, which waits for a Brain to compare. And it does **not yet run `build` on windows-latest**;
+the nightly `replay` workflow is what runs on Windows. The results pull request on `rig/nightly`,
+while open, is work the handoff lists.
+
 ## Pre-mortem
 
 *If this is wrong in six months, why?*
