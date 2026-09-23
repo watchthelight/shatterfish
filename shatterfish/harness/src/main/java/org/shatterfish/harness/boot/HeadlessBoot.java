@@ -255,6 +255,25 @@ public final class HeadlessBoot {
         }
     }
 
+    /**
+     * The upstream release this build is pinned to, as the tag names it, read without booting
+     * anything (story 3.3).
+     *
+     * <p>The Rig's parent process needs the tag to name a Run's log and never boots the game --
+     * one process hosts one Run (AD-6), and the parent hosts none. {@code Observer.upstreamTag()}
+     * reads {@code Game.version}, which is a fact about a running game and is null until the boot
+     * sets it; asking it from the parent is what story 3.2's guard refuses, correctly. This reads
+     * the same resource the boot reads, so there is one source for the tag and not two.
+     */
+    public static String pinnedTag() {
+        String version = upstreamProperties().getProperty("version.name");
+        if (version == null || version.isEmpty()) {
+            throw new IllegalStateException("upstream.properties names no version.name, so this build"
+                    + " cannot say which release it is pinned to");
+        }
+        return "v" + version;
+    }
+
     private static Properties upstreamProperties() {
         Properties properties = new Properties();
         try (InputStream in = HeadlessBoot.class.getResourceAsStream("upstream.properties")) {

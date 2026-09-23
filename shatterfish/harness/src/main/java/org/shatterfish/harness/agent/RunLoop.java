@@ -179,6 +179,29 @@ public final class RunLoop {
                 turnCap, null, false);
     }
 
+    /**
+     * One triple of a Seed set, played and logged (story 3.3).
+     *
+     * <p>The Rig cannot see the game: `harness` depends on `core` with `implementation` and
+     * ADR-0003's edges do not give `rig` the game, so the game's own {@code HeroClass} is not a type
+     * the Rig can name — it cannot even take part in resolving an overload. What crosses a module
+     * edge is an {@code api} value, which is the architecture's rule rather than a convenience, and
+     * a triple is the value the Rig has in its hand. So this is where the two spellings of a hero
+     * class meet, once, rather than the Rig growing a copy of the mapping.
+     *
+     * <p>The challenge flags travel with the triple and are not applied here: version 1 of every
+     * Seed set carries none (ADR-0018), and the story that gives a Run challenges is the one that
+     * adds a set with them.
+     */
+    public RunOutcome playTriple(org.shatterfish.api.SeedSet.Entry triple, long salt, Decider agent,
+                                 int turnCap, Logging logging) {
+        if (triple == null) {
+            throw new IllegalArgumentException("a Run is a triple from a Seed set");
+        }
+        return play(triple.seed(), HeroClass.valueOf(triple.heroClass().name()), salt, agent, turnCap,
+                logging);
+    }
+
     private RunOutcome play(HeadlessDriver driver, long seed, HeroClass heroClass, long salt,
                             Decider agent, int turnCap, RunLogWriter log, boolean oracle) {
         // Every ending goes through here and nowhere else. Wrapping each of the loop's seven
