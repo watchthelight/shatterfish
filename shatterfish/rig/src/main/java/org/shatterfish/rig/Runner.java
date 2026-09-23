@@ -404,10 +404,14 @@ public final class Runner {
                         + " produced may be published as a measurement (FR-22)"
                 : "ranked under " + stamp + ", checked against git in " + checked + " ms and"
                         + " recorded in " + root.resolve(Registrations.FOLDER).resolve(Ledger.FILE));
-        System.out.println(index.count(RunIndex.State.FINISHED) + " Runs finished and "
-                + index.count(RunIndex.State.INCOMPLETE) + " were incomplete, on " + parallel
+        // Every side's Runs. A comparison plays two per triple, and counting one side's made the
+        // first paired smoke run report half the Runs it played and half the rate.
+        long finished = sides.stream().mapToLong(side -> side.index().count(RunIndex.State.FINISHED)).sum();
+        long incomplete = sides.stream().mapToLong(side -> side.index().count(RunIndex.State.INCOMPLETE)).sum();
+        System.out.println(finished + " Runs finished and "
+                + incomplete + " were incomplete, on " + parallel
                 + " processes, in " + millis + " ms ("
-                + RunIndex.rate(triples.entries().size(), millis) / 1000.0 + " Runs/s, "
+                + RunIndex.rate((long) triples.entries().size() * sides.size(), millis) / 1000.0 + " Runs/s, "
                 + RunIndex.rate(waits.get(), millis) / 1000.0 + " waits/s)");
         return out;
     }

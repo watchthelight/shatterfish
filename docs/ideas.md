@@ -124,3 +124,4 @@ it re-reads ADR-0006's Blobs row.
   parts, not the product. The story that measures behind the wall should measure the composition
   too, and until it does, a consumer doing the subtraction itself should know that the engine
   applies its multipliers between the two rolls.
+- Early stopping in the Rig: once the sequential test decides, cancel the pairs not yet dispatched (story 3.6 plays every pair and evaluates in Seed-set order; stopping dispatch must still respect that order, so pairs are dispatched in order and the test consumes only a completed prefix).
