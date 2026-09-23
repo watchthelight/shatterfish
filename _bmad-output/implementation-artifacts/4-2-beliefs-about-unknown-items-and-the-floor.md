@@ -2,7 +2,7 @@
 title: 'Story 4.2: Beliefs about unknown items and the floor'
 type: 'feature'
 created: '2026-09-23'
-status: 'in-progress'
+status: 'review'
 baseline_commit: 'main after story 4.1'
 review_loop_iteration: 0
 context: []
