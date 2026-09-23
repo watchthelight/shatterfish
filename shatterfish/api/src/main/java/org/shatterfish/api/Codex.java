@@ -1347,6 +1347,94 @@ public final class Codex {
         }
     }
 
+    // --- what a Brain is built on (story 4.2)
+
+    /**
+     * One identity an unidentified item of a family may turn out to be: its class, its display name
+     * once identified, and its weight in the generator's decks (the two decks' total; zero for a
+     * class the decks never draw, such as the potion of strength, which arrives by a guarantee).
+     */
+    public record Candidate(String className, String name, int weight) {
+
+        public Candidate {
+            className = Canon.text(className, "candidate class");
+            name = Canon.text(name, "candidate name");
+            Canon.require(!className.isEmpty() && !name.isEmpty(), "a candidate is named");
+            Canon.require(weight >= 0, "a weight is not negative: " + weight);
+        }
+    }
+
+    /**
+     * An identifiable family, as the screen meets it: the kind, the display names its unidentified
+     * items wear (one per appearance, "crimson potion"), and the identities behind them.
+     */
+    public record Identities(ItemKind kind, List<String> labels, List<Candidate> candidates) {
+
+        public Identities {
+            Canon.require(kind != null, "a family has a kind");
+            labels = Canon.positional(labels, "labels");
+            candidates = Canon.positional(candidates, "candidates");
+            Set<String> seen = new HashSet<>();
+            for (String label : labels) {
+                distinct(seen, Canon.text(label, "label"), "a label");
+            }
+            for (Candidate candidate : candidates) {
+                distinct(seen, candidate.name(), "a candidate's name");
+            }
+            Canon.require(!labels.isEmpty() && !candidates.isEmpty(), "a family has appearances and identities");
+        }
+    }
+
+    /** An item a special room places on its floor: the room's class, the item's class and display name. */
+    public record RoomSpawn(String room, String className, String name) {
+
+        public RoomSpawn {
+            room = Canon.text(room, "room");
+            className = Canon.text(className, "spawn class");
+            name = Canon.text(name, "spawn name");
+            Canon.require(!room.isEmpty() && !className.isEmpty() && !name.isEmpty(), "a room spawn is named");
+        }
+    }
+
+    /**
+     * A limited drop the game guarantees per set of floors: its counter, the item's class and display
+     * name, how many per set, and how many floors a set is.
+     */
+    public record Guarantee(String counter, String className, String name, int perSet, int floorsPerSet) {
+
+        public Guarantee {
+            counter = Canon.text(counter, "counter");
+            className = Canon.text(className, "guarantee class");
+            name = Canon.text(name, "guarantee name");
+            Canon.require(!counter.isEmpty() && !className.isEmpty() && !name.isEmpty(), "a guarantee is named");
+            Canon.require(perSet > 0 && floorsPerSet > 0, "a guarantee places something per set of floors");
+        }
+    }
+
+    /**
+     * The general game knowledge a Brain is built on: the manifest it came from, the identifiable
+     * families, the items special rooms place, and the guaranteed drops. The caller reads it from
+     * the committed Codex folder; a Brain cannot open a file. Nothing in it is about a Run.
+     */
+    public record Knowledge(Manifest manifest, List<Identities> families, List<RoomSpawn> rooms, List<Guarantee> guarantees) {
+
+        public Knowledge {
+            Canon.require(manifest != null, "knowledge says which Codex it came from");
+            families = Canon.positional(families, "families");
+            rooms = Canon.positional(rooms, "rooms");
+            guarantees = Canon.positional(guarantees, "guarantees");
+            Set<ItemKind> kinds = new HashSet<>();
+            for (Identities family : families) {
+                distinct(kinds, family.kind(), "a family's kind");
+            }
+        }
+
+        /** Knowledge with nothing in it but the manifest: a Brain that knows no mechanics. */
+        public static Knowledge of(Manifest manifest) {
+            return new Knowledge(manifest, List.of(), List.of(), List.of());
+        }
+    }
+
     /** Refuses a table naming a key twice. */
     static <T> void distinct(Set<T> seen, T key, String what) {
         Canon.require(seen.add(key), what + " is listed twice: " + key);
