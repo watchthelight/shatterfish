@@ -188,9 +188,15 @@ public final class Runner {
     /**
      * Reads the log back and records what it says. This is where the oracle refusal lives: a Run
      * whose own header claims it fails the invocation, whatever the command line asked for.
+     *
+     * <p>It is package-private so that a test can hand it a log claiming the oracle. The Rig cannot
+     * produce one -- there is no flag, in any spelling -- so the refusal is unreachable from the
+     * outside, and a guard nothing can reach is a guard nobody knows works: story 3.2's battery
+     * deleted exactly such a guard with every test still green. The seam is the answer story 2.7
+     * gave to the same shape.
      */
-    private static void finish(RunIndex index, Path out, String runId, String why, long millis,
-                               AtomicLong waits) {
+    static void finish(RunIndex index, Path out, String runId, String why, long millis,
+                       AtomicLong waits) {
         LogHeader.Read read = LogHeader.of(out.resolve(RunLog.fileName(runId)));
         if (read.oracle()) {
             throw new IllegalStateException("the Run " + runId + " says in its own header that it saw"
