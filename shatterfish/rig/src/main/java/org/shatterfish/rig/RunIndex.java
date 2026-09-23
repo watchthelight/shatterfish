@@ -180,12 +180,17 @@ public final class RunIndex {
      * Writes the summary: what was run, how it went, and how fast. The throughput is measured and
      * not assumed, which is the PRD's own rule about this number.
      */
-    public synchronized void summary(String brain, String set, int parallel, long millis, long waits) {
+    public synchronized void summary(String brain, String set, int parallel, int cap, long millis,
+                                     long waits) {
         JsonWriter out = new JsonWriter();
         out.beginObject();
         out.key("brain").value(brain);
         out.key("seedSet").value(set);
         out.key("processes").value(parallel);
+        // The turn cap decides whether a Run ends by dying or by being stopped, so two invocations
+        // at different caps are not the same measurement -- and nothing recorded it: the run id,
+        // the header and the index were identical either way.
+        out.key("turnCap").value(cap);
         out.key("runsStarted").value(entries.size());
         out.key("runsFinished").value(count(State.FINISHED));
         out.key("runsIncomplete").value(count(State.INCOMPLETE));

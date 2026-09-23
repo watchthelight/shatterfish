@@ -163,7 +163,7 @@ public final class Runner {
             throw failed;
         }
         long millis = (System.nanoTime() - began) / 1_000_000L;
-        index.summary(brain, set, parallel, millis, waits.get());
+        index.summary(brain, set, parallel, cap, millis, waits.get());
 
         System.out.println(index.count(RunIndex.State.FINISHED) + " Runs finished and "
                 + index.count(RunIndex.State.INCOMPLETE) + " were incomplete, on " + parallel
@@ -309,10 +309,16 @@ public final class Runner {
                     + " Run " + read.runId() + "; the Rig is reading a log it did not mean to");
         }
         waits.addAndGet(read.waits());
-        boolean finished = read.complete() && why.isEmpty() && read.chain().matches("[0-9a-f]{64}");
+        // The log decides, not the process. A child that wrote its end record and was then killed
+        // a moment later -- a deadline that expired while it was exiting -- did finish its Run, and
+        // calling that incomplete would discard a real measurement. ADR-0012 scores an incomplete
+        // pair as a tie, so counting a finished Run as incomplete biases the set in the opposite
+        // direction to the one the index exists to prevent. Whatever went wrong is kept as a note
+        // beside the verdict rather than becoming it.
+        boolean finished = read.complete() && read.chain().matches("[0-9a-f]{64}");
         index.ended(runId, finished ? RunIndex.State.FINISHED : RunIndex.State.INCOMPLETE,
                 read.chain(), finished ? read.cause() : "", millis,
-                finished ? "" : (why.isEmpty() ? "the log has no end record" : why));
+                finished ? why : (why.isEmpty() ? "the log has no end record" : why));
     }
 
     private static Process child(Path out, Path working, SeedSet.Entry triple, long salt,

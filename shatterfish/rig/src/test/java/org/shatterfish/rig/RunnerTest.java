@@ -234,6 +234,8 @@ class RunnerTest {
                 continue;
             }
             assertFalse(LogHeader.string(line, "why").isEmpty(), "an incomplete Run says why: " + line);
+            assertEquals("", LogHeader.string(line, "cause"),
+                    "a Run that did not finish has no ending to report: " + line);
             Path log = out.resolve(LogHeader.string(line, "log"));
             Path said = out.resolve(LogHeader.string(line, "runId") + ".err");
             // Whatever the Run left is kept. A child killed one second in may not have reached the

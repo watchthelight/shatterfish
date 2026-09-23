@@ -198,15 +198,20 @@ derived from different constants and are checked to share no triple.
 
 One process hosts one Run. The game keeps its state in statics — the dungeon, the statistics, the
 badges, the scene — so two Runs in one process share the thing that defines them; the parent plays
-nothing and starts a child for each Run, each with its own working directory and its own Profile.
-`--parallel` defaults to one process per core the machine reports, and whatever was used is written
-into the summary rather than assumed by a reader.
+nothing and starts a child for each Run, each in a working directory of its own. Each child makes
+its own Profile, because a process makes exactly one: that is a consequence of one Run per process
+rather than something the Rig arranges, and it is why the Rig can say nothing about a Profile
+beyond having put each Run in a process of its own. `--parallel` defaults to one process per core
+the machine reports, and whatever was used is written into the summary rather than assumed by a
+reader.
 
 The salt is drawn when a Run executes, not before, and written into that Run's log. It is in no
 registration and is not derived from the tuple, so a Brain's author cannot precompute the stream
-their Brain will face.
+their Brain will face — and it is never handed to the Brain. A Decider that wants randomness is
+seeded from the Run's own triple, which is what a person at that screen has; seeding one from the
+salt would let it compute the game's coming draws from the mixing function published above.
 
-An invocation writes two files beside the logs. `runs.jsonl` holds one line per Run — its id, its
+An invocation writes two files beside the logs (three, if it is refused). `runs.jsonl` holds one line per Run — its id, its
 log, its state, its final chain, and why it ended if it did not finish. A Run is written down when
 it is **dispatched**, not when it ends: a Run that crashed is a measurement that failed and counts
 as *incomplete*, whose pair scores a tie, while a Run that simply vanished would not be counted at
@@ -218,9 +223,16 @@ A Run that passes its deadline is killed and counted incomplete, and its partial
 kept beside its log as `<run-id>.err`.
 
 There is no oracle flag on this command line, in any spelling, and an argument the Rig does not
-know is refused by name rather than ignored. The runner also reads every finished log's header back
-and fails the whole invocation if one claims the oracle. The second check is not redundancy: the
-first is a property of today's code and the second is a property of the artifact.
+know is refused by name rather than ignored. Nothing in the Rig can build an oracle observer, reach
+a class by its name, or read an environment variable, which an architecture test holds. And the
+runner reads every finished log's header back and fails the whole invocation if one claims the
+oracle. The three are not redundancy: the first two are properties of the code and the last is a
+property of the artifact, and each survives a different mistake.
+
+A refused invocation publishes nothing, and the folder says so rather than merely lacking a
+summary: every index line is marked `REFUSED` and a `refused.json` is written beside them. The logs
+are already on disk by then — they are written as Runs are dispatched, on purpose — so the honest
+thing is to mark them, not to pretend they are absent.
 
 ### What it costs, measured
 
