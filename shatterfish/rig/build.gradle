@@ -19,6 +19,10 @@ tasks.named('test') {
     inputs.dir(rootProject.file('seeds')).withPropertyName('committedSeedSets').withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir(rootProject.file('reference')).withPropertyName('referenceRun').withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.file(rootProject.file('.github/workflows/replay.yml')).withPropertyName('replayWorkflow').withPathSensitivity(PathSensitivity.RELATIVE)
+    // The committed Registrations and the comparison ledger, for the same reason as the seed sets
+    // above: RegistrationsTest and LedgerTest hold the real files, and without this a hand-edited
+    // Registration or a shortened ledger leaves those checks UP-TO-DATE and they do not run.
+    inputs.dir(rootProject.file('registrations')).withPropertyName('committedRegistrations').withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 // `./gradlew :rig:seeds` writes seeds/ at the repository root: one task, no Run, no game boot,

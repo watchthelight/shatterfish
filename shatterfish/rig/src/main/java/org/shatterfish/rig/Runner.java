@@ -270,8 +270,8 @@ public final class Runner {
         // caps, defeated by something that is not an attack, it is Tuesday.
         if (published(registration, set)) {
             ledger.record(registration, brain, registered.brainVersion(),
-                    registered.brainConfig(), set,
-                    Ledger.Outcome.CLAIMED, true, "the held-out set is about to be read");
+                    registered.brainConfig(), set, Ledger.Outcome.CLAIMED,
+                    Registrations.spendsTheBudget(set), "the held-out set is about to be read");
         }
         SeedSets.Read read = published(registration, set)
                 ? SeedSets.publish(root, set, registration.registration().id() + ": "
