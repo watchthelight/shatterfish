@@ -85,30 +85,37 @@ rules about what a Run is. Do not let a Replay write into the folder it is repla
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `shatterfish/harness/.../log/RunLogReader.java` — the one production reader: a log's bytes to
+- [x] `shatterfish/harness/.../log/RunLogReader.java` — the one production reader: a log's bytes to
   its records, refusing a line the writer would never have produced and naming the line. Story 3.3's
   `LogHeader` becomes a thin caller of this, so there is one grammar in production and not three.
-- [ ] `shatterfish/harness/.../log/RunLogVerifier.java` — recomputes every chain from the file's own
+- [x] `shatterfish/harness/.../log/RunLogVerifier.java` — recomputes every chain from the file's own
   text with the JDK's digest, and **must not depend on `RunLogJson`**, which an ArchUnit rule holds.
-- [ ] `shatterfish/harness/.../log/Replay.java` — refuses a mismatched `v`, `tag`, `obsv` or
+- [x] `shatterfish/harness/.../log/Replay.java` — refuses a mismatched `v`, `tag`, `obsv` or
   `profile` naming which; builds a `Decider` over the log's waits that compares each Observation's
   hash and section hashes before handing back the Action; stops at an `unsupported` record.
-- [ ] `shatterfish/harness/.../log/Replay.java` — plays it through `RunLoop`, writing its own log,
+- [x] `shatterfish/harness/.../log/Replay.java` — plays it through `RunLoop`, writing its own log,
   and reports the outcome: verified to wait k, the first differing wait and section, or unverifiable
   from k.
-- [ ] `shatterfish/rig/.../Runner.java` — `--verify <dir>`: replay every Run of a finished invocation
-  and report how many reproduced, writing the result beside the index.
-- [ ] `shatterfish/harness/src/test/.../ReplayRoundTripTest.java` — a full random-agent Run replayed:
+- [x] `shatterfish/rig/.../Runner.java` — `--verify <dir>` and `--replay <log>`. **This is not what
+  the task said**, and the change is argued here rather than made quietly. The task asked `--verify`
+  to replay every Run of an invocation; AD-6 gives a Run its own process, because the game's state
+  is static and process-wide, so a command that replayed five hundred logs in one JVM would be
+  measuring the order they went in. It is two commands instead: `--verify` checks every chain in a
+  folder against the file's own bytes and against the published index and plays nothing, and
+  `--replay` takes one log. The numbers below are why that split is worth having and not only
+  unavoidable — verifying costs about one percent of producing, and replaying costs what running
+  costs.
+- [x] `shatterfish/harness/src/test/.../ReplayRoundTripTest.java` — a full random-agent Run replayed:
   every hash matches, the two chains are equal, and the Actions applied are the same.
-- [ ] `shatterfish/harness/src/test/.../ReplayRefusalTest.java` — each of the four version refusals
+- [x] `shatterfish/harness/src/test/.../ReplayRefusalTest.java` — each of the four version refusals
   names which; a section moved is named; an `unsupported` record stops with the wait; a tampered log
   fails the chain check before a Run starts.
-- [ ] `shatterfish/harness/src/test/.../LogReaderAgreementTest.java` — the production reader and
+- [x] `shatterfish/harness/src/test/.../LogReaderAgreementTest.java` — the production reader and
   `LogText` agree on every line of a real log, key by key. Two independent readers agreeing is
   evidence; one reader agreeing with itself is not.
-- [ ] `.github/workflows/` — a nightly job that replays a committed reference log on Windows and on
+- [x] `.github/workflows/` — a nightly job that replays a committed reference log on Windows and on
   Linux and compares the chains (NFR-2), with the reference log committed as a fixture.
-- [ ] `docs/methodology.md` — what a Replay proves and what it does not, and the command.
+- [x] `docs/methodology.md` — what a Replay proves and what it does not, and the command.
 
 **Acceptance Criteria:**
 - Given a log from another tag, schema, Observation version or Profile version, when a Replay is
@@ -126,6 +133,70 @@ rules about what a Run is. Do not let a Replay write into the folder it is repla
 - Rig numbers: the cost of verifying an invocation — how long replaying a `smoke` set takes beside
   running it — recorded in the story's Evidence and on the methodology page. A verification that
   costs more than the measurement it checks is a fact worth knowing before 3.11 schedules one nightly.
+
+## Evidence
+
+**Rig numbers.** The standard set, 500 Runs of the random Brain, 24 processes, cap 2000, on the
+machine the E3 numbers come from:
+
+| | Time | Per Run |
+|---|---|---|
+| Playing the 500 Runs | 159,797 ms | 320 ms |
+| `--verify` over the folder | 1,402 ms | 2.8 ms |
+| `--replay` of one Run (31 waits) | 1,025 ms | — |
+
+So verifying a folder costs **about one percent** of producing it, single-threaded and with no game
+booted, which is what makes it something to run on every folder rather than on a sample. Replaying
+costs what running costs, because it is running. The AC asked for the `smoke` set; the standard set
+is reported instead because smoke is 25 Runs and dominated by JVM start, which is the wrong thing to
+measure a per-log cost against. Both commands and both numbers are on the methodology page.
+
+**Four reviews, all blocking.** The fairness reviewer and three lenses (adversarial, edge-case
+hunter, verification gap) read the committed tree. Between them they found, and this branch fixed:
+
+- **The chain did not cover what the page said it covered.** `chained` struck all five unchained
+  keys off every record alike, but `think_ms` is a wait's field and `machine` and `started` are the
+  header's — so every other record in the log carried three names' worth of bytes removed before
+  hashing. Free space in the one file whose purpose is having none. The rule is per kind now, in the
+  page first and then independently in both readers.
+- **The grammar reader promised four properties and implemented one.** Unsorted keys, trailing
+  commas, empty values and `{"a":[1}` all parsed; keys were stripped by decoded name while the
+  published rules strip by written name, so `\u0070rev` was stripped here and kept by a stranger's
+  script — one file, two verdicts. `Json` now has the test file it never had.
+- **`Replay.of` passed the log's own oracle flag into the Run it started** (fairness, blocking): the
+  only production caller in the repository able to set that flag at all, out of a file named on the
+  Rig's command line. `--verify` had the same flag in hand and ignored it, and could be defeated by
+  deleting `runs.jsonl`.
+- **The story's own headline test had the standing defect** — it compared the two logs through the
+  function under test, so a mutant stripping every key from every line passed it. Sixth consecutive
+  story with that shape.
+- Plus: `codex` missing from the refusals, challenges not applied, an unbounded cap taken from a
+  file, `Following` handed a Log that transitively holds the salt, `unsupported` semantics, a killed
+  Run reported as a failed reproduction, and a Replay that would write over the log it was checking.
+
+**Mutation battery: 27 mutations, 25 killed, 2 deliberate survivors.**
+
+Three mutations survived and were real gaps, each now with a test: **M13** (two logs concatenated
+and rechained are a valid chain over valid records, and nothing fed the Replay one), **M14**
+(*unverifiable from* the wait it names weakened to *at* that wait — both unsupported tests put the
+mark either exactly on a recorded wait or past every wait, and the case in between is the only one
+that can actually happen, because the input the executor could not express is precisely why there is
+no wait record at that index), and **M25** (the bound on a cap read out of a file, written in answer
+to a review and never asked to do anything). A further four survived the last batch and are also
+fixed: **M20** and **M21**, the two FR-11 guards that catch an oracle claim on a line this reader
+will not parse and a claim that cannot be read — the existing duplicate-key test walked straight past
+the flag without looking at it — and **M23** and **M24**, the two switches this story added to the
+command line, neither of which any test had used.
+
+**M2 and M11 survive deliberately.** Each is a second lock on a door whose first lock is tested: the
+literal-key match in `chained` is unreachable because `Json.object` refuses an escaped key first, and
+passing `false` for the oracle flag is unreachable because `refusal` refuses an oracle log before
+anything is played. Both stay — a fairness-critical flag should not be one refusal away from being
+data — but their comments claimed to *be* the guard, and the battery is what showed they are not.
+
+**One defect in the battery harness itself**: it restored the whole tree between mutations rather
+than the file it had edited, which silently discarded a fix between two batches. It restores only
+what it mutated now.
 
 ## Design Notes
 
@@ -151,7 +222,12 @@ each other, rather than three kept honest by nobody.
 **Commands:**
 - `./gradlew build -Pshatterfish.mobile=off` — green, every module.
 - `./gradlew :harness:test :rig:test -Pshatterfish.mobile=off` — green.
-- `./gradlew :rig:run --args="--brain random --seeds smoke --out <a>"` then
-  `./gradlew :rig:run --args="--verify <a>"` — every Run reproduces.
+- `./gradlew :rig:run --args="--brain random --seeds standard --out <a> --cap 2000"` then
+  `./gradlew :rig:run --args="--verify <a>"` — 500 of 500 logs verify against their own bytes and
+  against the chains the index published for them. `--verify` plays nothing and reproduces nothing;
+  the first draft of this line said "every Run reproduces", which is `--replay`'s sentence and not
+  this command's.
+- `./gradlew :rig:run --args="--replay reference/<log> --out <b>"` — reproduced, 12 of 12 waits
+  verified, both chains `6e17a0bc…5b6929e`.
 - `uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict` — green.
 - `./gradlew :codex:citations -Pshatterfish.mobile=off` — no findings.
