@@ -63,12 +63,20 @@ package org.shatterfish.api;
  *                     the variance move the test toward accepting. 0 for a baseline
  * @param releaseLevel whether this Registration claims a release-level result, which is the only
  *                     kind that may touch the holdout set (FR-20)
+ * @param statistic    for a comparison, the sequential test its bounds belong to: {@code GSPRT} or
+ *                     {@code EPROCESS}. The same four numbers mean different things to the two
+ *                     designs, so a comparison registered under one may not be run under the other
+ *                     (story 3.8's gate can change on a later tag; a Registration cannot). Empty for
+ *                     a baseline, and then absent from the canonical text
  */
 public record Registration(String hypothesis, String claim, Brain brainA, Brain brainB,
                            String seedSet, int seedVersion, int alphaPerMil, int betaPerMil,
                            int burnIn, int maximum, int budgetMs, String machineClass,
                            boolean releaseLevel, int p0PerMil, int p1PerMil,
-                           int missingPerMil) {
+                           int missingPerMil, String statistic) {
+
+    /** The sequential tests a comparison may be registered under, by the names the Rig gives them. */
+    public static final java.util.List<String> STATISTICS = java.util.List.of("GSPRT", "EPROCESS");
 
     /** The id's shape: readable, sortable, and safe as a file name on every platform. */
     public static final String ID_PATTERN = "H-[0-9]{4}(-[a-z0-9]+)*";
@@ -149,7 +157,11 @@ public record Registration(String hypothesis, String claim, Brain brainA, Brain 
 
         public Brain {
             Canon.text(name, "a Brain's name");
-            Canon.require(name.matches(RunLog.BRAIN_PATTERN), "a Brain's name is lower case: " + name);
+            // Lower-case letters, digits, dots and underscores -- and no hyphen, because the run id
+            // the name is written into is hyphen-separated. Story 3.9 committed a Registration for
+            // "random-nodescend" and learned this from the refusal of its first invocation.
+            Canon.require(name.matches(RunLog.BRAIN_PATTERN), "a Brain's name is lower case, with"
+                    + " letters, digits, dots and underscores and no hyphen: " + name);
             Canon.text(commit, "a Brain's commit");
             Canon.require(commit.matches("[0-9a-f]{7,40}"),
                     "a Brain's commit is a git object name: " + commit);
@@ -190,7 +202,10 @@ public record Registration(String hypothesis, String claim, Brain brainA, Brain 
                 "a maximum past which a result is undecided, and it is more than the burn-in: "
                         + maximum + " after " + burnIn);
         Canon.require(budgetMs >= 0, "a per-Decision budget is not negative: " + budgetMs);
+        Canon.require(statistic != null, "a statistic, empty for a baseline");
         if (brainA == null) {
+            Canon.require(statistic.isEmpty(),
+                    "a baseline tests nothing, so it names no sequential test: " + statistic);
             Canon.require(p0PerMil == 0 && p1PerMil == 0 && missingPerMil == 0,
                     "a baseline tests no hypothesis, so it states no p0, p1 or missing fraction: "
                             + p0PerMil + ", " + p1PerMil + ", " + missingPerMil);
@@ -202,6 +217,9 @@ public record Registration(String hypothesis, String claim, Brain brainA, Brain 
                             + " H1 above one half: " + p0PerMil + ", " + p1PerMil + " per mil");
             Canon.require(missingPerMil >= 0 && missingPerMil < 1000,
                     "a missing fraction is a fraction: " + missingPerMil + " per mil");
+            Canon.require(STATISTICS.contains(statistic),
+                    "a comparison names the sequential test its bounds are for, one of " + STATISTICS
+                            + ": " + statistic);
         }
         Canon.text(machineClass, "a machine class");
         Canon.require(!machineClass.isBlank(),
@@ -238,7 +256,21 @@ public record Registration(String hypothesis, String claim, Brain brainA, Brain 
                         int seedVersion, int alphaPerMil, int betaPerMil, int burnIn, int maximum,
                         int budgetMs, String machineClass, boolean releaseLevel) {
         this(hypothesis, claim, brainA, brainB, seedSet, seedVersion, alphaPerMil, betaPerMil, burnIn,
-                maximum, budgetMs, machineClass, releaseLevel, 0, 0, 0);
+                maximum, budgetMs, machineClass, releaseLevel, 0, 0, 0, "");
+    }
+
+    /**
+     * A comparison under the GSPRT, the test every comparison ran before a Registration had to say
+     * which. A committed file always says: the Rig's reader passes what the file holds, and a
+     * comparison without a {@code statistic} is refused there.
+     */
+    public Registration(String hypothesis, String claim, Brain brainA, Brain brainB, String seedSet,
+                        int seedVersion, int alphaPerMil, int betaPerMil, int burnIn, int maximum,
+                        int budgetMs, String machineClass, boolean releaseLevel, int p0PerMil,
+                        int p1PerMil, int missingPerMil) {
+        this(hypothesis, claim, brainA, brainB, seedSet, seedVersion, alphaPerMil, betaPerMil, burnIn,
+                maximum, budgetMs, machineClass, releaseLevel, p0PerMil, p1PerMil, missingPerMil,
+                brainA == null ? "" : "GSPRT");
     }
 
     /** Whether this fixes a comparison of two Brains, rather than a baseline for one. */
@@ -285,6 +317,9 @@ public record Registration(String hypothesis, String claim, Brain brainA, Brain 
         out.key("release_level").value(releaseLevel);
         out.key("seed_set").value(seedSet);
         out.key("seed_version").value(seedVersion);
+        if (brainA != null) {
+            out.key("statistic").value(statistic);
+        }
         out.endObject();
         return out.toJson();
     }

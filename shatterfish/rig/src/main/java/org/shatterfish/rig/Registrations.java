@@ -229,7 +229,10 @@ public final class Registrations {
                 Json.bool(Json.required(held, "release_level", "Registration")),
                 held.containsKey("p0_per_mil") ? Json.integer(held.get("p0_per_mil")) : 0,
                 held.containsKey("p1_per_mil") ? Json.integer(held.get("p1_per_mil")) : 0,
-                held.containsKey("missing_per_mil") ? Json.integer(held.get("missing_per_mil")) : 0);
+                held.containsKey("missing_per_mil") ? Json.integer(held.get("missing_per_mil")) : 0,
+                // Never defaulted for a comparison: an empty statistic on one is refused by the
+                // record, so a committed comparison has to say which test its bounds are for.
+                held.containsKey("statistic") ? Json.string(held.get("statistic")) : "");
         if (!registration.id().equals(id)) {
             throw new IllegalArgumentException("the file " + id + ".json holds the Registration "
                     + registration.id() + "; a hypothesis is named by the file it is in");

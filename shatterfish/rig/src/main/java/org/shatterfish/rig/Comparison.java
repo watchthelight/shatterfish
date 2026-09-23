@@ -45,9 +45,55 @@ public final class Comparison {
 
     public static final String BASELINE = "baseline";
 
-    /** One pair: which triple, under which salt, both Runs, and what the pair scored. */
+    /**
+     * One pair: which triple, under which salt, both Runs, what the pair scored, and the two
+     * outcomes it was scored from (null for a Run with no whole, finished log).
+     */
     public record Pair(SeedSet.Entry triple, long salt, String candidateRun, String baselineRun,
-                       PairScore score, boolean missing) {
+                       PairScore score, boolean missing, RunLog.Outcome candidateOutcome,
+                       RunLog.Outcome baselineOutcome) {
+
+        /**
+         * Whether both Runs ended the same way in every part of the Composite outcome -- not that
+         * they were the same Run, which the logs' chains cannot say across two Brains' headers.
+         */
+        public boolean identical() {
+            return !missing && candidateOutcome.equals(baselineOutcome);
+        }
+    }
+
+    /**
+     * The within-pair correlation of turns survived over the pairs where both Runs reached an
+     * ending, with the number of those pairs: what pairing buys (ADR-0012's open question). Pearson's
+     * r; absent when fewer than three pairs qualify or either side's turns do not vary.
+     */
+    public record Correlation(int pairs, Double r) {
+    }
+
+    static Correlation correlation(List<Pair> pairs) {
+        List<Pair> reached = pairs.stream().filter(pair -> !pair.missing()).toList();
+        int n = reached.size();
+        if (n < 3) {
+            return new Correlation(n, null);
+        }
+        double meanA = reached.stream().mapToDouble(p -> p.candidateOutcome().turns()).average().orElse(0);
+        double meanB = reached.stream().mapToDouble(p -> p.baselineOutcome().turns()).average().orElse(0);
+        double cov = 0;
+        double varA = 0;
+        double varB = 0;
+        for (Pair pair : reached) {
+            double a = pair.candidateOutcome().turns() - meanA;
+            double b = pair.baselineOutcome().turns() - meanB;
+            cov += a * b;
+            varA += a * a;
+            varB += b * b;
+        }
+        if (varA == 0 || varB == 0) {
+            return new Correlation(n, null);
+        }
+        // Clamped: rounding can carry a perfect correlation a hair past one, and a file that says
+        // 1000001 millionths is claiming something no correlation can be.
+        return new Correlation(n, Math.max(-1.0, Math.min(1.0, cov / Math.sqrt(varA * varB))));
     }
 
     /**
@@ -95,7 +141,8 @@ public final class Comparison {
             RunLog.Outcome mine = outcome(out.resolve(CANDIDATE).resolve(RunLog.fileName(mineId)));
             RunLog.Outcome theirs = outcome(out.resolve(BASELINE).resolve(RunLog.fileName(theirsId)));
             boolean missing = !PairScore.reached(mine) || !PairScore.reached(theirs);
-            pairs.add(new Pair(triple, salt, mineId, theirsId, PairScore.of(mine, theirs), missing));
+            pairs.add(new Pair(triple, salt, mineId, theirsId, PairScore.of(mine, theirs), missing,
+                    mine, theirs));
         }
         Gsprt.Result result = test == null ? null
                 : test.run(pairs.stream().map(Pair::score).toList(),
@@ -141,7 +188,12 @@ public final class Comparison {
         json.key("baseline_index_sha256").value(sha256(out.resolve(BASELINE).resolve(RunIndex.RUNS)));
         json.key("candidate").value(report.candidate());
         json.key("candidate_index_sha256").value(sha256(out.resolve(CANDIDATE).resolve(RunIndex.RUNS)));
+        // What pairing bought: the within-pair correlation of turns survived over the pairs both
+        // Runs of which reached an ending, and how many pairs were the same Run to the last turn.
+        Correlation correlation = correlation(report.pairs());
+        json.key("correlated_pairs").value(correlation.pairs());
         json.key("direction_check").value(directionCheck);
+        json.key("identical_pairs").value((int) report.pairs().stream().filter(Pair::identical).count());
         json.key("missing").value(report.missing());
         json.key("pairs").beginArray();
         for (Pair pair : report.pairs()) {
@@ -157,6 +209,9 @@ public final class Comparison {
         json.endArray();
         json.key("registration").value(registration);
         json.key("tested").value(report.result() != null);
+        if (correlation.r() != null) {
+            json.key("turns_correlation_micros").value(micros(correlation.r()));
+        }
         if (report.result() != null) {
             SequentialTest test = report.test();
             Gsprt.Result result = report.result();
