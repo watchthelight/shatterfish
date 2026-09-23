@@ -50,13 +50,25 @@ package org.shatterfish.api;
  * @param budgetMs     the per-Decision budget for the comparisons where thinking time is the thing
  *                     being changed; 0 when the comparison does not constrain it
  * @param machineClass what the numbers were measured on, because throughput is not portable
+ * @param p0PerMil     the pair-score mean under H0, in thousandths: what "no better" means for this
+ *                     comparison. Story 3.5 shipped the record without it and ADR-0012 lists it;
+ *                     a sequential test cannot run without its two hypotheses (story 3.6)
+ * @param p1PerMil     the pair-score mean under H1, in thousandths, above {@code p0PerMil}. Both are
+ *                     0 for a baseline, which tests nothing, and are then absent from the canonical
+ *                     text -- so a baseline committed before they existed keeps its hash
+ * @param missingPerMil the largest fraction of pairs, in thousandths, that may have a Run missing
+ *                     before the comparison is void. ADR-0012 requires it and story 3.6 first
+ *                     shipped without it, which let a Brain turn its losses into ties by crashing:
+ *                     a missing Run scores a half, a death scores nothing, and both the mean and
+ *                     the variance move the test toward accepting. 0 for a baseline
  * @param releaseLevel whether this Registration claims a release-level result, which is the only
  *                     kind that may touch the holdout set (FR-20)
  */
 public record Registration(String hypothesis, String claim, Brain brainA, Brain brainB,
                            String seedSet, int seedVersion, int alphaPerMil, int betaPerMil,
                            int burnIn, int maximum, int budgetMs, String machineClass,
-                           boolean releaseLevel) {
+                           boolean releaseLevel, int p0PerMil, int p1PerMil,
+                           int missingPerMil) {
 
     /** The id's shape: readable, sortable, and safe as a file name on every platform. */
     public static final String ID_PATTERN = "H-[0-9]{4}(-[a-z0-9]+)*";
@@ -168,11 +180,29 @@ public record Registration(String hypothesis, String claim, Brain brainA, Brain 
                 "a false-accept rate is a rate: " + alphaPerMil + " per mil");
         Canon.require(betaPerMil >= 1 && betaPerMil < 1000,
                 "a false-reject rate is a rate: " + betaPerMil + " per mil");
+        // Together below one, or the lower bound log(β/(1−α)) lands above the upper log((1−β)/α)
+        // and almost every run accepts at the burn-in.
+        Canon.require(alphaPerMil + betaPerMil < 1000,
+                "the two error rates together are below one: " + alphaPerMil + " + " + betaPerMil
+                        + " per mil");
         Canon.require(burnIn >= 1, "pairs are played before a stop is allowed: " + burnIn);
         Canon.require(maximum > burnIn,
                 "a maximum past which a result is undecided, and it is more than the burn-in: "
                         + maximum + " after " + burnIn);
         Canon.require(budgetMs >= 0, "a per-Decision budget is not negative: " + budgetMs);
+        if (brainA == null) {
+            Canon.require(p0PerMil == 0 && p1PerMil == 0 && missingPerMil == 0,
+                    "a baseline tests no hypothesis, so it states no p0, p1 or missing fraction: "
+                            + p0PerMil + ", " + p1PerMil + ", " + missingPerMil);
+        } else {
+            // H1 above one half, so that accepting means "better" and not merely "not much worse":
+            // a comparison registered at p0 = 0.40, p1 = 0.48 accepts two equal Brains.
+            Canon.require(p0PerMil > 0 && p0PerMil < p1PerMil && p1PerMil < 1000 && p1PerMil > 500,
+                    "a comparison states H0 and H1 as pair-score means with 0 < p0 < p1 < 1 and"
+                            + " H1 above one half: " + p0PerMil + ", " + p1PerMil + " per mil");
+            Canon.require(missingPerMil >= 0 && missingPerMil < 1000,
+                    "a missing fraction is a fraction: " + missingPerMil + " per mil");
+        }
         Canon.text(machineClass, "a machine class");
         Canon.require(!machineClass.isBlank(),
                 "a Registration says what class of machine its numbers are from");
@@ -196,6 +226,19 @@ public record Registration(String hypothesis, String claim, Brain brainA, Brain 
             out.append(c >= 'A' && c <= 'Z' ? (char) (c + 32) : c);
         }
         return out.toString();
+    }
+
+    /**
+     * A baseline: one Brain, no hypotheses to test between.
+     *
+     * <p>Every baseline states {@code p0} and {@code p1} as zero, so this spares its callers the two
+     * zeros and keeps a comparison the only kind that has to think about them.
+     */
+    public Registration(String hypothesis, String claim, Brain brainA, Brain brainB, String seedSet,
+                        int seedVersion, int alphaPerMil, int betaPerMil, int burnIn, int maximum,
+                        int budgetMs, String machineClass, boolean releaseLevel) {
+        this(hypothesis, claim, brainA, brainB, seedSet, seedVersion, alphaPerMil, betaPerMil, burnIn,
+                maximum, budgetMs, machineClass, releaseLevel, 0, 0, 0);
     }
 
     /** Whether this fixes a comparison of two Brains, rather than a baseline for one. */
@@ -232,6 +275,13 @@ public record Registration(String hypothesis, String claim, Brain brainA, Brain 
         out.key("hypothesis").value(hypothesis);
         out.key("machine_class").value(machineClass);
         out.key("maximum").value(maximum);
+        if (brainA != null) {
+            // Only a comparison has hypotheses. Absent rather than zero for a baseline, so the
+            // baselines committed before these fields existed keep the hash every log stamped.
+            out.key("missing_per_mil").value(missingPerMil);
+            out.key("p0_per_mil").value(p0PerMil);
+            out.key("p1_per_mil").value(p1PerMil);
+        }
         out.key("release_level").value(releaseLevel);
         out.key("seed_set").value(seedSet);
         out.key("seed_version").value(seedVersion);

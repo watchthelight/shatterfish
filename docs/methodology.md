@@ -369,6 +369,102 @@ An invocation that names no Registration still runs — that is the normal case 
 and says so: its logs carry an empty registration, and its summary records one, so a folder of
 numbers can never be quietly adopted as a measurement of something afterwards.
 
+## Comparing two Brains
+
+```sh
+./gradlew :rig:run --args="--brain <candidate> --against <baseline> --seeds standard --out <dir> --registration <id>"
+```
+
+**A pair is two Runs of one triple under one salt.** The Rig draws the salt once per triple and
+hands it to both Brains, so whatever the dungeon does at a given moment it does to both — the
+strongest common-random-numbers design available. The two sides write into `<dir>/candidate/` and
+`<dir>/baseline/`, each with its own index and summary, and `<dir>/comparison.json` holds the
+verdict.
+
+**The pair score** compares the two Composite outcomes in order: Win; then Score, only between two
+wins (a losing Run's Score rewards gold picked up on the way to dying); then bosses killed, above
+depth so that diving past nothing is not rewarded; then Floor depth; then turns survived. The first
+step that differs decides, and the pair scores 1, ½ or 0 from the candidate's side.
+
+**A pair with a missing Run scores ½ and is counted.** Missing means the log is absent, unreadable,
+has no ending, or ended by something other than the game: only `DEATH` and `WIN` are endings the
+game reached. A Run stopped at the turn cap is the Rig stopping it (ADR-0012), and scored on turns
+survived a Brain that stalled until the cap would beat every death at the same depth, so it counts
+as missing too. A half is not a free pass, though. The fairness review of story 3.6 found that a
+Brain which crashes on exactly the seeds it would lose turns losses into ties, and ties both raise
+the mean and cut the variance — enough to buy an accept. So a comparison's Registration states
+`missing_per_mil`, the share of consumed pairs that may be missing, and past it the verdict is
+`VOID`: a result nobody may cite, whichever way the LLR pointed. A result where every consumed pair
+is missing is void whatever the cap.
+
+**The test** is the generalized sequential probability ratio test between two hypotheses about the
+mean pair score, H0: `p0` and H1: `p1`, both stated in the Registration. It uses Michel Van den
+Bergh's normal approximation to the generalized log-likelihood ratio (*A simple approximation for
+the GSPRT*, eq. 2.1):
+
+```
+LLR(N) = N · (p1 − p0) · (2μ̂ − p0 − p1) / (2σ̂²)
+```
+
+where μ̂ and σ̂² are the mean and variance of the N pair scores, every zero count replaced by a
+thousandth of a pair so that a sample with one outcome missing has a variance to divide by. The test
+accepts at `log((1−β)/α)`, rejects at `log(β/(1−α))`, never stops before the burn-in `n0`, and is
+undecided at the maximum `nmax` or when the Seed set runs out first. An LLR past a bound is reported
+as the bound, and `clamped` says when it went more than three percent past.
+
+**Pairs are consumed in the Seed set's order**, never in the order the Runs finished. Completion
+order depends on which Runs were slow, which depends on how they went, and a sequential test fed in
+that order would be stopping on information it was not supposed to have yet. The Rig currently plays
+every pair and then evaluates the test over them in order; `stopped_at` says where the test would
+have stopped, and the pairs after it are played but not counted. `consumed_better`,
+`consumed_equal` and `consumed_worse` count the pairs up to the stop, which are the counts the
+reported LLR is a function of.
+
+**A run of ties is evidence for H0**, not an absence of evidence. Two identical Brains tie every
+pair, and a mean of exactly one half with almost no variance says as clearly as data can that the
+candidate is not better: the test rejects at the burn-in. `random` against `random` is how the
+pairing itself is checked — the Decider is seeded from the triple and the pair shares the salt, so
+both halves are the same Run, and `RunnerComparisonTest` holds each pair's two logs to one salt and
+one chain, read from what each child wrote rather than from the parent's index.
+
+**`smoke` is a direction check.** ADR-0012 lets only `standard` and `bosses` accept. A comparison on
+any other set still runs the test and prints its trace, but `comparison.json` says
+`"direction_check":true` and the ledger note says "(direction check)": its ACCEPT is a direction to
+look in, not a result.
+
+**Only a Registration can test.** The bounds are the hypothesis, and bounds chosen after the pairs
+were seen are what FR-22 exists to prevent. An unranked comparison scores and counts its pairs and
+says `"tested":false`.
+
+**Where the implementation comes from.** ADR-0012 chose Fishtest's GSPRT. Fishtest carries no
+licence, so its code is all rights reserved and none of it is in this repository. `Gsprt` implements
+the published formula, and `tools/gsprt_reference.py` — ours — imports a Fishtest checkout pinned at
+`2e540196ed8a72283a17f40793defd0f4a45d9c9` and asks its own `sprt.set_state` for the bounds, the
+LLR, the raw LLR and the clamp flag of 435 cases (five hypotheses, three error rates, twenty-nine
+sets of counts including tie-heavy small samples); `GsprtReferenceTest` holds `Gsprt` to every one
+of them and pins the fixture's SHA-256.
+
+To be precise about what that proves: `Gsprt` matches the approximation `set_state` computes. It is
+not what Fishtest's server stops on, which is the exact generalized LLR (`LLR_logistic`) over the
+same counts. The two agree closely in the region a test normally stops in and can disagree in the
+tails, and ADR-0012 chose eq. 2.1 for being closed-form and reproducible from the counts by hand.
+Moving to the exact form is in `docs/ideas.md`.
+
+**What it costs.** The `smoke` set, 24 processes, cap 400: one Brain plays its 25 Runs in 7,538 ms;
+a comparison plays 50 Runs in 9,996 ms. Twice the Runs for a third more time, because the pool is
+fuller.
+
+`comparison.json` writes every pair (seed, salt, both run ids, `score_halves`, `missing`), the
+Registration stamp, `direction_check`, and — when a Registration stated bounds — the test's
+parameters (`p0_micros`, `p1_micros`, `burn_in`, `maximum`, `missing_per_mil`), the bounds, the
+LLR and its trace, `clamped`, `stopped_at`, the consumed counts and the `verdict` (`ACCEPT`,
+`REJECT`, `UNDECIDED` or `VOID`). Numbers are in millionths: no number this project writes down is a
+float. It also records the SHA-256 of each side's `runs.jsonl`, and `--verify <dir>` on a comparison
+folder verifies both sides' logs and checks each index still hashes to what the verdict was written
+over, so the Runs a verdict rests on cannot be swapped underneath it. The ledger line for a ranked
+comparison carries the verdict and the baseline, so the ledger can say how many attempts were
+rejected before one was accepted.
+
 ## The Run log and its chain
 
 Every Run writes `<run-id>.jsonl`: one record per line, plain text, no compression, readable with

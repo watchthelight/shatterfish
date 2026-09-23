@@ -120,6 +120,13 @@ public final class Verify {
 
     /** Checks every log the folder's index names, and every log it holds that the index does not. */
     public static Report of(Path folder) {
+        // A comparison's folder holds no logs of its own: each side's are in its own folder, with its
+        // own index. Both are verified, the reports are joined, and the comparison's record of each
+        // index -- a SHA-256 written when the verdict was -- is held against the index on disk, so a
+        // verdict cannot be kept while the Runs it rests on are swapped underneath it.
+        if (Files.isRegularFile(folder.resolve(Comparison.FILE))) {
+            return comparison(folder);
+        }
         if (!Files.isDirectory(folder)) {
             return new Report(folder, List.of(), "there is no folder at " + folder);
         }
@@ -220,6 +227,49 @@ public final class Verify {
         }
         return new Checked(runId, name, true, verified.lines(), 0, read.complete(), indexed,
                 verified.chain(), why);
+    }
+
+    private static Report comparison(Path folder) {
+        List<Checked> checked = new ArrayList<>();
+        StringBuilder why = new StringBuilder();
+        String json;
+        try {
+            json = Files.readString(folder.resolve(Comparison.FILE), StandardCharsets.UTF_8).strip();
+        } catch (IOException e) {
+            throw new UncheckedIOException("could not read " + folder.resolve(Comparison.FILE), e);
+        }
+        for (String side : List.of(Comparison.CANDIDATE, Comparison.BASELINE)) {
+            Report report = of(folder.resolve(side));
+            checked.addAll(report.checked());
+            if (!report.why().isEmpty()) {
+                why.append(side).append(": ").append(report.why()).append('\n');
+            }
+            String stated;
+            try {
+                stated = LogHeader.string(json, side + "_index_sha256");
+            } catch (RuntimeException unreadable) {
+                stated = null;
+            }
+            String actual = sha256(folder.resolve(side).resolve(RunIndex.RUNS));
+            if (stated == null || !stated.equals(actual)) {
+                why.append("the comparison was written over a ").append(side).append(" index hashing to ")
+                        .append(stated).append(" and the index there now hashes to ").append(actual)
+                        .append('\n');
+            }
+        }
+        return new Report(folder, List.copyOf(checked), why.toString().strip());
+    }
+
+    private static String sha256(Path file) {
+        try {
+            byte[] bytes = Files.isRegularFile(file) ? Files.readAllBytes(file) : new byte[0];
+            return java.util.HexFormat.of().formatHex(
+                    java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (IOException e) {
+            throw new UncheckedIOException("could not read " + file, e);
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("every JDK has SHA-256", impossible);
+        }
     }
 
     /** The chain the run index states for each Run, or an empty map when there is no index. */
