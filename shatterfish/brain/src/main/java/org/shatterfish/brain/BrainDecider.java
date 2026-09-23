@@ -20,6 +20,7 @@ public final class BrainDecider implements Deliberator {
     private Belief belief;
     private RunLog.Decision last;
     private String why = "";
+    private java.util.List<Integer> highlights = java.util.List.of();
 
     public BrainDecider(Brain brain) {
         if (brain == null) {
@@ -39,7 +40,13 @@ public final class BrainDecider implements Deliberator {
         Brain.Decided decided = brain.decide(observation, belief);
         last = decided.decision();
         why = decided.why();
+        highlights = decided.highlights();
         return decided.action();
+    }
+
+    @Override
+    public java.util.List<Integer> lastHighlights() {
+        return highlights;
     }
 
     /** Why the last {@link #decide} returned no Action, or the empty string when it returned one. */

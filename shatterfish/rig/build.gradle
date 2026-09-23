@@ -33,6 +33,9 @@ tasks.named('test') {
     // The Results data folders and the pages generated from them (story 3.10).
     inputs.dir(rootProject.file('results')).withPropertyName('resultsData').withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir(rootProject.file('docs/results')).withPropertyName('resultsPages').withPathSensitivity(PathSensitivity.RELATIVE)
+    // The Brain's Rules index and the pages it points at (story 4.4): BrainRulesIndexTest reads them.
+    inputs.file(rootProject.file('docs/brain-rules.md')).withPropertyName('brainRules').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(rootProject.file('docs/rules')).withPropertyName('rulePages').withPathSensitivity(PathSensitivity.RELATIVE)
     // The Brain is built on the Codex the rig reads for it (story 4.1)
     inputs.dir(rootProject.file('codex')).withPropertyName('codex').withPathSensitivity(PathSensitivity.RELATIVE)
     // The nightly workflow, its script, its history and its page (story 3.11): NightlyTest reads them.
@@ -50,6 +53,17 @@ tasks.register('gallery', JavaExec) {
     description = 'Writes the death gallery for a folder the Rig wrote.'
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'org.shatterfish.rig.Gallery'
+    workingDir = rootDir
+    outputs.upToDateWhen { false }
+}
+
+// `./gradlew :rig:strategy --args="<log.jsonl or folder> [...]"` writes <run-id>.strategy.txt beside
+// each Run log: the strategy log, one plain-text line per Input wait (story 4.4, FR-36, NFR-9).
+tasks.register('strategy', JavaExec) {
+    group = 'shatterfish'
+    description = 'Writes the plain-text strategy log beside each Run log named.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.rig.StrategyLog'
     workingDir = rootDir
     outputs.upToDateWhen { false }
 }

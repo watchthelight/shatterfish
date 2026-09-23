@@ -17,6 +17,7 @@ sh tools/fetch-vanilla.sh                  # the Codex's second pinned source (E
 ./gradlew :codex:generate                  # regenerate codex/<tag>/ (E2); CI fails on drift
 ./gradlew :rig:run --args="..."            # the rig (E3); see /rig
 ./gradlew :rig:gallery --args="<folder> [--snapshots N]"   # the death gallery for a Rig folder (E3)
+./gradlew :rig:strategy --args="<log.jsonl or folder>"     # the plain-text strategy log beside each Run log (E4)
 uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict   # docs, as CI runs it
 ```
 
