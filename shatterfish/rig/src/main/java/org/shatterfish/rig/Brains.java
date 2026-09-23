@@ -237,7 +237,7 @@ public final class Brains {
      * The Decider named {@code name} for {@code triple}, built on {@code codex} when it is a Brain
      * that reads one: the Codex is read by the caller, never by the Brain (story 4.1).
      */
-    public static Decider of(String name, SeedSet.Entry triple, org.shatterfish.api.Codex.Manifest codex) {
+    public static Decider of(String name, SeedSet.Entry triple, org.shatterfish.api.Codex.Knowledge codex) {
         named(name);
         if (SHATTERFISH.equals(name)) {
             if (codex == null) {

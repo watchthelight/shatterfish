@@ -110,10 +110,17 @@ class PolicyArbitrationTest {
         Brain brain = brain();
         Belief belief = brain.update(Screens.offering(3, new Action.Wait()), null);
         belief = brain.update(Screens.offering(2, new Action.Wait()), belief);
-        assertEquals(new Memory(2, 3), Memory.of(belief));
+        Memory memory = Memory.of(belief);
+        assertEquals(2, memory.waits());
+        assertEquals(3, memory.deepest());
+        assertEquals(memory, Memory.of(memory.belief()), "the bytes round-trip");
         assertEquals(Memory.START, Memory.of(null));
-        assertThrows(IllegalArgumentException.class, () -> Memory.of(new Belief(2, new byte[12])));
-        assertThrows(IllegalArgumentException.class, () -> Memory.of(new Belief(1, new byte[3])));
+        assertThrows(IllegalArgumentException.class, () -> Memory.of(new Belief(1, new byte[12])),
+                "a Belief of the first version is not this one");
+        assertThrows(IllegalArgumentException.class, () -> Memory.of(new Belief(Memory.VERSION, new byte[3])));
+        byte[] longer = java.util.Arrays.copyOf(memory.belief().bytes(), memory.belief().bytes().length + 1);
+        assertThrows(IllegalArgumentException.class, () -> Memory.of(new Belief(Memory.VERSION, longer)),
+                "bytes left over are refused");
         assertThrows(IllegalArgumentException.class, () -> new Brain(null, 1L));
     }
 

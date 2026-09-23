@@ -93,9 +93,9 @@ class ShatterfishRunTest {
         assertTrue(refused.getMessage().contains(RunOne.CODEX), refused.getMessage());
 
         String tag = org.shatterfish.harness.boot.HeadlessBoot.pinnedTag();
-        org.shatterfish.api.Codex.Manifest codex = CodexManifest.read(
+        org.shatterfish.api.Codex.Knowledge codex = CodexKnowledge.read(
                 SeedSetsTest.ROOT.resolve(CodexManifest.FOLDER).resolve(tag), tag);
-        assertEquals(org.shatterfish.api.Codex.VERSION, codex.version());
+        assertEquals(org.shatterfish.api.Codex.VERSION, codex.manifest().version());
         assertTrue(Brains.of(Brains.SHATTERFISH, triple, codex) instanceof org.shatterfish.brain.BrainDecider);
         assertThrows(IllegalArgumentException.class, () -> CodexManifest.read(
                 SeedSetsTest.ROOT.resolve(CodexManifest.FOLDER).resolve(tag), "v0.0.1"),
@@ -124,7 +124,7 @@ class ShatterfishRunTest {
                 "the Brain states its configuration");
         assertFalse(Brains.readsCodex(Brains.RANDOM), "the random agent is built on no Codex");
         String tag = org.shatterfish.harness.boot.HeadlessBoot.pinnedTag();
-        org.shatterfish.api.Codex.Manifest codex = CodexManifest.read(
+        org.shatterfish.api.Codex.Knowledge codex = CodexKnowledge.read(
                 SeedSetsTest.ROOT.resolve(CodexManifest.FOLDER).resolve(tag), tag);
         org.shatterfish.brain.BrainDecider a = (org.shatterfish.brain.BrainDecider) Brains.of(Brains.SHATTERFISH, one, codex);
         org.shatterfish.brain.BrainDecider b = (org.shatterfish.brain.BrainDecider) Brains.of(Brains.SHATTERFISH, other, codex);

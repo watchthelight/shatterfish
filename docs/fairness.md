@@ -27,6 +27,7 @@ Mind vision, magic mapping, and similar count only when the in-game effect is ac
 | Single door | `Observer` in `harness` is the only class that reads game state into `api` types; it builds the Observation from what the game already computes for drawing (`heroFOV`, `visited`, `mapped`, `Trap.visible`, `Heap.seen`, `Item.isIdentified()` and friends), never from raw model fields | E1 |
 | Leak tests | Every change to `Observer` ships with leak tests (below) | E1 |
 | The Brain's seed | A Brain's stream is seeded from its name and nothing about the Run (`Brains.brainSeed`). The random agents' seed mixes the dungeon seed with the hero class and challenges, which the Observation header states, and the mix is a bijection: a Brain holding it could recover the dungeon seed. The Run log's header and boundary records, which carry the seed and the salt, and seed-set entries are denied types in `brain`; the Decision a Brain hands over for the log is the one part of `RunLog` it may name | done: `ShatterfishRunTest`, `BrainBoundaryRulesBiteTest` (E4 story 4.1) |
+| Beliefs | What the Brain believes about an unidentified item is inferred from the appearance's name, the journal's identified list and the Codex's deck weights, never read; floor facts come from what the map draws; remembered enemies are the ones the actors section showed | done: `BeliefConsistencyTest` (E4 story 4.2) |
 | Review | Any diff touching `Observer`, `ActionExecutor`, or `brain` gets the `fairness` label and an adversarial review by the `fairness-reviewer` subagent | session 4 |
 
 ## The tests
