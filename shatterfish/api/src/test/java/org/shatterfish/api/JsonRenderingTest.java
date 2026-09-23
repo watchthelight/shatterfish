@@ -144,6 +144,12 @@ class JsonRenderingTest {
             // that imports the game). It is an interface with no state and no I/O, which is what
             // this allowlist exists to check before a name is added to it.
             "Decider",
+            // The Registration (story 3.5): the hypothesis fixed before the numbers are seen. It is
+            // a record of what was decided plus the canonical text and hash of itself, written
+            // through JsonWriter and Sha256 the way every other hashed value in this module is. It
+            // reads nothing -- the Rig reads the file and hands the values in -- which is the
+            // property this list is checking before a name is added to it.
+            "Registration", "Registration$Brain",
             // ADR-0009's reserved half (story 1.20): an opaque handle, an abstract simulator whose
             // final simulate refuses an unscrubbed handle, a result of Observations only, an opaque
             // sample, and two interfaces with no implementation. None reads text or bytes into the

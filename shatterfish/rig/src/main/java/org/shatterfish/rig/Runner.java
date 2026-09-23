@@ -96,9 +96,19 @@ public final class Runner {
      */
     public static final String FINISHED = "--finished";
 
+    /**
+     * The Registration this invocation runs under, by id.
+     *
+     * <p>Without it an invocation is not ranked: it runs, it writes logs, and nothing it produces
+     * may be published as a measurement of anything. With it, the Registration must be committed to
+     * git before the Runs -- which is the whole of FR-22, and is why this takes an id and reads a
+     * file rather than taking the numbers on the command line.
+     */
+    public static final String REGISTRATION = "--registration";
+
     /** Every flag the Rig knows. The list is asserted by name, so a new one is a decision. */
     static final List<String> KNOWN = List.of(BRAIN, SEEDS, PARALLEL, OUT, ROOT, COMMIT, CAP,
-            DEADLINE, VERIFY, REPLAY, FINISHED);
+            DEADLINE, VERIFY, REPLAY, FINISHED, REGISTRATION);
 
     /** The two things this command can be asked to do, of which it does exactly one. */
     static final List<String> MODES = List.of(VERIFY, REPLAY);
@@ -225,16 +235,58 @@ public final class Runner {
         String brain = Brains.named(required(arguments, BRAIN));
         Path root = Path.of(arguments.getOrDefault(ROOT, ".")).toAbsolutePath().normalize();
         String set = required(arguments, SEEDS);
+        // One commit, resolved once, used everywhere. It used to be resolved twice: `commitOf(root)`
+        // for the holdout budget check and `--commit` for what the ledger recorded -- so a run with
+        // `--commit <any sha>` was checked against one identity and recorded under another, and the
+        // held-out set could be spent without limit, every line reading as a lawful first use. It is
+        // also resolved lazily, because `commitOf` refuses a checkout with no git in it and
+        // `--commit` is the documented way to run the Rig from a source export.
+        String commit = arguments.containsKey(COMMIT) ? required(arguments, COMMIT) : commitOf(root);
+        // The Registration first, before a folder is made or a Run is dispatched. A refusal that
+        // arrives after five hundred Runs is a refusal that cost what it was preventing.
+        long checking = System.nanoTime();
+        Registered registered = registration(arguments, root, set, brain, commit);
+        Registrations.Committed registration = registered.committed();
+        Ledger ledger = registered.ledger();
+        String stamp = registration == null ? "" : registration.stamp();
+        // What the pre-flight cost. It asks git a few questions and reads a file, and the number
+        // matters because story 3.11 schedules this nightly: a check that costs a measurable
+        // fraction of the measurement is a fact worth having before it is run every night.
+        long checked = (System.nanoTime() - checking) / 1_000_000L;
         int parallel = parallel(arguments);
         Path out = emptyFolder(required(arguments, OUT));
-        String commit = arguments.containsKey(COMMIT) ? required(arguments, COMMIT) : commitOf(root);
         int cap = bounded(arguments, CAP, 1, Integer.MAX_VALUE,
                 org.shatterfish.harness.agent.RunLoop.TURN_CAP);
         int deadline = bounded(arguments, DEADLINE, 1, DEADLINE_MOST, DEADLINE_SECONDS);
 
         // `load` refuses the holdout set outright (story 3.1), so the runner inherits that refusal
-        // rather than restating it -- a second copy of a rule is a second thing to keep true.
-        SeedSet triples = SeedSets.load(root, set).set();
+        // rather than restating it -- a second copy of a rule is a second thing to keep true. The
+        // one way past that door is the one FR-20 allows: a Registration that claims a release-level
+        // result, which is what `publish` demands a reason for, and the reason is the hypothesis.
+        // Claimed before the set is opened, not after the Runs finish. `publish` is the act that
+        // spends a held-out set: once those triples have been read, they have been seen, whatever
+        // happens next. Recording the use afterwards meant Ctrl-C left the set played and the
+        // ledger silent, and the next invocation's check passed -- which is the exact move FR-20
+        // caps, defeated by something that is not an attack, it is Tuesday.
+        if (published(registration, set)) {
+            ledger.record(registration, brain, registered.brainVersion(),
+                    registered.brainConfig(), set, Ledger.Outcome.CLAIMED,
+                    Registrations.spendsTheBudget(set), "the held-out set is about to be read");
+        }
+        SeedSets.Read read = published(registration, set)
+                ? SeedSets.publish(root, set, registration.registration().id() + ": "
+                        + registration.registration().claim())
+                : SeedSets.load(root, set);
+        SeedSet triples = read.set();
+        // The Seed set's version, against the one the hypothesis fixed. A Registration names a set
+        // *and a version* so that "standard" means the same thing later; without this the field is
+        // recorded and enforces nothing.
+        if (registration != null && registration.registration().seedVersion() != triples.version()) {
+            throw new IllegalArgumentException("the Registration " + registration.registration().id()
+                    + " fixes " + set + " at version " + registration.registration().seedVersion()
+                    + " and this build's " + set + " is version " + triples.version()
+                    + "; a hypothesis names the Runs it is about");
+        }
         RunIndex index = new RunIndex(out);
         AtomicLong waits = new AtomicLong();
         String machine = machine();
@@ -263,7 +315,7 @@ public final class Runner {
                         "", triple.seed(), triple.heroClass().name(), triple.challengeFlags(), salt,
                         "", 0, ""));
                 started.add(pool.submit(() -> one(index, out, alive, triple, salt, runId, brain, commit,
-                        machine, cap, deadline, waits)));
+                        machine, cap, deadline, waits, stamp)));
             }
             // Awaited as they finish rather than in the order they were sent. A refusal on the
             // second Run used to wait out the first Run's deadline before anyone saw it, and on a
@@ -276,17 +328,163 @@ public final class Runner {
             Runtime.getRuntime().removeShutdownHook(hook);
         }
         if (failed != null) {
-            throw refuse(index, failed);
+            // The refusal is built first and thrown last. Recording used to come first and could
+            // throw on its own -- a null message reaches `Canon.text` as a null -- which replaced
+            // the refusal with a NullPointerException and left the folder unmarked: the one path
+            // that voids a folder of numbers was the one that crashed.
+            RuntimeException reason = refuse(index, failed);
+            if (registration != null) {
+                try {
+                    // Recorded even though nothing is published. A refused invocation is an
+                    // attempt, and a ledger that counted only the invocations somebody was happy
+                    // with would be the opposite of the count FR-25 asks for.
+                    ledger.record(registration, brain, registered.brainVersion(),
+                    registered.brainConfig(), set,
+                            Ledger.Outcome.REFUSED, published(registration, set), note(failed));
+                } catch (RuntimeException | Error couldNotRecord) {
+                    // A read-only tree, a full disk. The refusal is what the operator needs and it
+                    // is what gets thrown; failing to write the line is attached to it rather than
+                    // replacing it, which is what used to happen when a null message reached the
+                    // writer and a NullPointerException arrived instead of the reason.
+                    reason.addSuppressed(couldNotRecord);
+                }
+            }
+            throw reason;
         }
         long millis = (System.nanoTime() - began) / 1_000_000L;
-        index.summary(brain, set, parallel, cap, millis, waits.get());
+        index.summary(brain, set, parallel, cap, millis, waits.get(), stamp, read.reason());
+        if (registration != null) {
+            ledger.record(registration, brain, registered.brainVersion(),
+                    registered.brainConfig(), set,
+                    Ledger.Outcome.FINISHED, published(registration, set), "");
+        }
 
+        System.out.println(registration == null
+                ? "this invocation is not ranked: it ran under no Registration, so nothing it"
+                        + " produced may be published as a measurement (FR-22)"
+                : "ranked under " + stamp + ", checked against git in " + checked + " ms and"
+                        + " recorded in " + root.resolve(Registrations.FOLDER).resolve(Ledger.FILE));
         System.out.println(index.count(RunIndex.State.FINISHED) + " Runs finished and "
                 + index.count(RunIndex.State.INCOMPLETE) + " were incomplete, on " + parallel
                 + " processes, in " + millis + " ms ("
                 + RunIndex.rate(triples.entries().size(), millis) / 1000.0 + " Runs/s, "
                 + RunIndex.rate(waits.get(), millis) / 1000.0 + " waits/s)");
         return out;
+    }
+
+    /**
+     * Whether this invocation is the one use of a held-out set that FR-20 permits.
+     *
+     * <p>Both halves have to hold: a Registration that claims a release-level result, and the set
+     * it claims it about. Everything else goes through `load`, which refuses the holdout set and
+     * says why.
+     */
+    private static boolean published(Registrations.Committed registration, String set) {
+        return registration != null && registration.registration().releaseLevel()
+                && Registrations.spendsTheBudget(set);
+    }
+
+    /**
+     * What a refusal is called in a ledger line when the exception did not say.
+     *
+     * <p>Package-private so that it can be held directly. Reaching it through {@code run} needs a
+     * child that fails with a message-less exception, which is a thing to arrange in production and
+     * not in a test -- and the guard matters: `JsonWriter` refuses a null, so without this the
+     * ledger write threw and replaced the refusal that voids the folder.
+     */
+    static String note(RuntimeException failed) {
+        String said = failed.getMessage();
+        return said == null || said.isEmpty() ? failed.getClass().getName() : said;
+    }
+
+    /**
+     * The Registration an invocation runs under, the ledger it is recorded in, and the Brain's
+     * configuration hash -- or nulls and an empty hash when the invocation is unranked.
+     *
+     * <p>Three things travel together because two of them must not be computed for an unranked
+     * invocation. `Brains.configHash` refuses a Brain that has not stated its configuration, which
+     * is every Brain except `random`, so asking for it unconditionally would have made the first
+     * real Brain unrunnable by the Rig at all. And a ledger with one unreadable line refuses to be
+     * read, which is right when a count is about to be relied on and wrong when nothing is going to
+     * look at it.
+     */
+    record Registered(Registrations.Committed committed, Ledger ledger, String brainConfig,
+                      String brainVersion) {
+    }
+
+    /**
+     * The Registration this invocation runs under, or null when it is unranked.
+     *
+     * <p>Every refusal happens here, before a folder exists: a Registration that is not committed,
+     * one that is about a different Seed set, a holdout Run with no release-level claim, and a
+     * second holdout Run for a Brain version that has already had its one. The last two are FR-20,
+     * and they are written once -- {@link Registrations#refusal} is the only place that rule lives,
+     * which is what story 3.1 left an issue open for (#116).
+     *
+     * <p>An unranked invocation is allowed and is the normal case during development. What is not
+     * allowed is an unranked invocation of the holdout set: the set exists to be spent once on a
+     * claim, and spending it on nothing at all is still spending it.
+     */
+    static Registered registration(Map<String, String> arguments, Path root, String set,
+                                   String brain, String commit) {
+        if (!arguments.containsKey(REGISTRATION)) {
+            // An unranked invocation of the holdout set is refused too -- by `SeedSets.load`, which
+            // states the whole of FR-20 and is the door story 3.1 built. Restating it here was a
+            // second place for the rule to live, and the Rig's own test caught it.
+            //
+            // Nothing else is computed here. An unranked invocation reads no ledger and asks no
+            // Brain for a configuration hash, so a corrupt ledger and an unconfigured Brain both
+            // stop being reasons a development run cannot happen.
+            return new Registered(null, null, "", "");
+        }
+        Registrations.Committed committed = Registrations.read(root, required(arguments, REGISTRATION));
+        String brainConfig = Brains.configHash(brain);
+        // The Brain's own version, not the repository's. FR-20 counts one held-out use per Brain
+        // version, and a key that moved when a README did would have handed an unchanged Brain a
+        // fresh allowance every time somebody fixed a comment.
+        String brainVersion = Brains.version(root, brain);
+        Ledger ledger = new Ledger(root.resolve(Registrations.FOLDER), root);
+        Registrations.Refusal refusal =
+                Registrations.refusal(committed, set, brainVersion, brainConfig, ledger);
+        if (refusal == null) {
+            // The Brain being measured has to be the Brain being run. A Registration about one
+            // Brain and an invocation of another produces logs that cite a hypothesis they are not
+            // about.
+            String measured = committed.registration().brainB().name();
+            if (!measured.equals(brain)) {
+                refusal = new Registrations.Refusal("the Registration "
+                        + committed.registration().id() + " measures the Brain " + measured
+                        + " and this invocation runs " + brain);
+            } else if (committed.registration().releaseLevel()
+                    && !brainVersion.startsWith(committed.registration().brainB().commit())) {
+                // A release-level claim names the build it is about, and this is the one kind of
+                // Registration where that has to bind: the held-out set is spent once per Brain
+                // version, so a Registration that governed an unlimited sequence of Brains would
+                // hand each of them its own allowance. A development Registration is deliberately
+                // looser -- it names a Brain, not a build, and a baseline outlives a commit.
+                //
+                // Against the Brain's version, not the invocation's commit: committing the
+                // Registration is itself a commit, so a rule comparing against HEAD could never be
+                // satisfied by any Registration that named a real value.
+                refusal = new Registrations.Refusal("the Registration "
+                        + committed.registration().id() + " claims a release-level result for the"
+                        + " Brain at " + committed.registration().brainB().commit()
+                        + " and the " + brain + " Brain in this checkout was last changed at "
+                        + (brainVersion.isEmpty() ? "a commit git could not name" : brainVersion)
+                        + "; a release-level hypothesis names the Brain it is about (FR-20)");
+            }
+        }
+        if (refusal != null) {
+            // Every refusal under a committed Registration is an attempt, and every one of them is
+            // counted -- the Brain-name mismatch used to throw without recording, which is a use
+            // the count FR-25 publishes would not have shown. It spends no holdout allowance: a
+            // refusal reads no seeds, and burning the one use on a typo would be a rule punishing
+            // the wrong thing.
+            ledger.record(committed, brain, brainVersion, brainConfig, set,
+                    Ledger.Outcome.FORBIDDEN, false, refusal.why());
+            throw new IllegalArgumentException(refusal.why());
+        }
+        return new Registered(committed, ledger, brainConfig, brainVersion);
     }
 
     /**
@@ -331,7 +529,7 @@ public final class Runner {
     /** One Run, in a child, with its own Profile and working directory. */
     private static void one(RunIndex index, Path out, Map<String, Process> alive, SeedSet.Entry triple,
                             long salt, String runId, String brain, String commit, String machine,
-                            int cap, int deadline, AtomicLong waits) {
+                            int cap, int deadline, AtomicLong waits, String registration) {
         Path working = out.resolve("work").resolve(runId);
         long began = System.nanoTime();
         String why = "";
@@ -341,7 +539,7 @@ public final class Runner {
         Process child = null;
         try {
             Files.createDirectories(working);
-            child = child(out, working, triple, salt, brain, commit, machine, cap);
+            child = child(out, working, triple, salt, brain, commit, machine, cap, registration);
             alive.put(runId, child);
             Process reading = child;
             // A platform thread, not a virtual one: reading a process pipe is a blocking native
@@ -456,7 +654,8 @@ public final class Runner {
     }
 
     private static Process child(Path out, Path working, SeedSet.Entry triple, long salt,
-                                 String brain, String commit, String machine, int cap) throws IOException {
+                                 String brain, String commit, String machine, int cap,
+                                 String registration) throws IOException {
         Path java = Path.of(System.getProperty("java.home"), "bin", "java");
         Path exe = Path.of(java + ".exe");
         List<String> command = new ArrayList<>(List.of(
@@ -473,6 +672,12 @@ public final class Runner {
                 RunOne.MACHINE, machine,
                 RunOne.CAP, Integer.toString(cap),
                 RunOne.CHALLENGES, Integer.toString(triple.challengeFlags())));
+        if (!registration.isEmpty()) {
+            // Only when there is one. The child's own parser refuses an empty value -- a flag is
+            // stated or it is absent -- and an unranked Run's header says so by carrying nothing.
+            command.add(RunOne.REGISTRATION);
+            command.add(registration);
+        }
         return new ProcessBuilder(command)
                 // Its own working directory, so a Run that writes beside itself writes beside
                 // itself and not beside another Run (AD-6).

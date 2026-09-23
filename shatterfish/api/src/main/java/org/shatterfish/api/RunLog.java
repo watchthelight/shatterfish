@@ -196,6 +196,14 @@ public sealed interface RunLog
             Canon.require(codex >= 1, "a Codex version is positive: " + codex);
             Canon.require(brain != null, "a Run names the Brain that played it");
             Canon.text(registration, "a Run's registration");
+            // Empty, or the Registration's own stamp: its id and the first sixteen digits of the
+            // hash over its canonical text. A header that recorded only the id would let the file
+            // it names be edited and re-committed after the Runs, with every log still agreeing
+            // with it -- which is the whole thing a Registration exists to prevent (story 3.5).
+            Canon.require(registration.isEmpty()
+                            || registration.matches(Registration.ID_PATTERN + "@[0-9a-f]{16}"),
+                    "a Run is played under no Registration or under one it names by id and hash: "
+                            + registration);
             Canon.text(machine, "the machine a Run ran on");
             Canon.text(started, "when a Run started");
         }

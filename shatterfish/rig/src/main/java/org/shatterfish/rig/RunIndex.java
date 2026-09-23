@@ -181,11 +181,18 @@ public final class RunIndex {
      * not assumed, which is the PRD's own rule about this number.
      */
     public synchronized void summary(String brain, String set, int parallel, int cap, long millis,
-                                     long waits) {
+                                     long waits, String registration, String reason) {
         JsonWriter out = new JsonWriter();
         out.beginObject();
         out.key("brain").value(brain);
         out.key("seedSet").value(set);
+        // The Registration this invocation ran under, or empty when it ran under none. A Results
+        // page reads this file, and a folder of numbers that does not say which hypothesis it was
+        // testing is a folder of numbers somebody can choose a hypothesis for afterwards (FR-22).
+        out.key("registration").value(registration);
+        // Why a held-out set was published, when one was. `SeedSets.publish` demands the reason and
+        // FR-20 requires it to reach the Results; the first draft computed it and threw it away.
+        out.key("reason").value(reason);
         out.key("processes").value(parallel);
         // The turn cap decides whether a Run ends by dying or by being stopped, so two invocations
         // at different caps are not the same measurement -- and nothing recorded it: the run id,

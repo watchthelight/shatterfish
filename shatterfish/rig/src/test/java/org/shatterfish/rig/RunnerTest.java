@@ -67,7 +67,8 @@ class RunnerTest {
         // not a copy built from the same constants, which is what this used to compare and which
         // would have let a ninth flag in unnoticed.
         assertEquals(List.of("--brain", "--seeds", "--parallel", "--out", "--root", "--commit",
-                        "--cap", "--deadline", "--verify", "--replay", "--finished"), Runner.KNOWN,
+                        "--cap", "--deadline", "--verify", "--replay", "--finished",
+                        "--registration"), Runner.KNOWN,
                 "a flag added to the Rig is a decision, and this is where it is made");
     }
 
@@ -106,6 +107,20 @@ class RunnerTest {
     }
 
     @Test
+    @DisplayName("a refusal with nothing to say is still written down, and still thrown")
+    void a_message_less_refusal_is_recorded() {
+        // `JsonWriter` refuses a null value, so a ledger line built from a message-less exception
+        // threw -- and replaced the refusal that marks a folder void with a NullPointerException
+        // about the word "value". The one path that says a folder of numbers cannot be trusted was
+        // the path that crashed.
+        assertEquals("a child died", Runner.note(new IllegalStateException("a child died")));
+        assertEquals("java.lang.NullPointerException", Runner.note(new NullPointerException()),
+                "an exception that says nothing is named by its type");
+        assertEquals("java.lang.IllegalStateException", Runner.note(new IllegalStateException("")),
+                "and so is one whose message is empty");
+    }
+
+    @Test
     @DisplayName("a flag is never a value, and a value is never empty")
     void a_flag_is_not_a_value() {
         // `--commit --root` used to attest the string "--root" as the Shatterfish commit in every
@@ -127,18 +142,36 @@ class RunnerTest {
         // ran, and the Verification section said one of them had.
         String page = Files.readString(SeedSetsTest.ROOT.resolve("docs/methodology.md"),
                 StandardCharsets.UTF_8);
-        int at = page.indexOf("--args=");
-        assertTrue(at > 0, "the page publishes the command");
-        int opens = page.indexOf('"', at);
-        String published = page.substring(opens + 1, page.indexOf('"', opens + 1));
 
-        Map<String, String> parsed = Runner.arguments(published.trim().split("\\s+"));
-
-        assertEquals(Brains.RANDOM, parsed.get(Runner.BRAIN), published);
-        assertTrue(parsed.containsKey(Runner.SEEDS) && parsed.containsKey(Runner.OUT), published);
-        for (String flag : parsed.keySet()) {
-            assertTrue(Runner.KNOWN.contains(flag), flag + " is not a flag the Rig knows: " + published);
+        // Every block on the page, not the first one. Reading only `page.indexOf("--args=")` meant
+        // that the moment a second command was published, it was published unchecked -- which is
+        // how story 3.5's registration command arrived, and the fourth time in two stories that
+        // asserting a command was *written* turned out not to check that it works.
+        int checked = 0;
+        for (int at = page.indexOf("--args="); at >= 0; at = page.indexOf("--args=", at + 1)) {
+            int opens = page.indexOf('"', at);
+            String published = page.substring(opens + 1, page.indexOf('"', opens + 1));
+            Map<String, String> parsed = Runner.arguments(published.trim().split("\\s+"));
+            for (String flag : parsed.keySet()) {
+                assertTrue(Runner.KNOWN.contains(flag),
+                        flag + " is not a flag the Rig knows: " + published);
+            }
+            // Whatever it asks for, it says where to put what it makes -- except `--verify`, which
+            // makes nothing.
+            assertTrue(parsed.containsKey(Runner.OUT) || parsed.containsKey(Runner.VERIFY),
+                    published);
+            checked++;
         }
+        assertTrue(checked >= 4, "the page publishes " + checked + " commands and this read them all");
+        Map<String, String> first = Runner.arguments(firstCommand(page).trim().split("\\s+"));
+        assertEquals(Brains.RANDOM, first.get(Runner.BRAIN), "the first is still a Run");
+        assertTrue(first.containsKey(Runner.SEEDS) && first.containsKey(Runner.OUT));
+    }
+
+    private static String firstCommand(String page) {
+        int at = page.indexOf("--args=");
+        int opens = page.indexOf('"', at);
+        return page.substring(opens + 1, page.indexOf('"', opens + 1));
     }
 
     @Test
@@ -249,6 +282,10 @@ class RunnerTest {
         assertEquals(String.valueOf(expected), LogHeader.value(summary, "runsFinished"), summary);
         assertEquals("0", LogHeader.value(summary, "runsIncomplete"), summary);
         assertEquals("2", LogHeader.value(summary, "processes"), summary);
+        // And it says which hypothesis, or that there was none. A folder of numbers that does not
+        // say what it was testing is a folder somebody can choose a hypothesis for afterwards.
+        assertEquals("", LogHeader.string(summary, "registration"),
+                "this invocation named no Registration, and the summary says so: " + summary);
         assertTrue(Long.parseLong(LogHeader.value(summary, "waits")) > 0, summary);
         assertTrue(Long.parseLong(LogHeader.value(summary, "runsPerSecondThousandths")) > 0,
                 "a throughput this invocation measured: " + summary);

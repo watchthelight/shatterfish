@@ -269,6 +269,20 @@ class RunLogJsonTest {
                         SeedSet.code(SEED), 7L, 0, 3, 2, 8,
                         new RunLog.Brain("random", "def", ZERO), "", false, "", ""),
                 "a turn cap of nothing, which is not a Run anybody played");
+        // A registration is empty or a stamp. A bare id would let the file it names be pointed at
+        // other bytes after the Runs, with every log still agreeing (story 3.5).
+        for (String registration : new String[] {"H-0001-x", "reg-1", "H-0001-x@0123",
+                "H-0001-x@0123456789ABCDEF"}) {
+            assertThrows(IllegalArgumentException.class,
+                    () -> new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc", HeroClass.WARRIOR, 0,
+                            SEED, SeedSet.code(SEED), 7L, CAP, 3, 2, 8,
+                            new RunLog.Brain("random", "def", ZERO), registration, false, "", ""),
+                    "not a stamp: " + registration);
+        }
+        assertEquals("H-0001-x@0123456789abcdef", new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc",
+                HeroClass.WARRIOR, 0, SEED, SeedSet.code(SEED), 7L, CAP, 3, 2, 8,
+                new RunLog.Brain("random", "def", ZERO), "H-0001-x@0123456789abcdef", false, "", "")
+                .registration());
         assertThrows(IllegalArgumentException.class,
                 () -> new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc", HeroClass.WARRIOR, 512, SEED,
                         SeedSet.code(SEED), 7L, CAP, 3, 2, 8,
