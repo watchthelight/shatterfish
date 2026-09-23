@@ -23,16 +23,51 @@ class PolicyArbitrationTest {
     }
 
     @Test
-    @DisplayName("an open Prompt goes to the prompt Policy, with the fallback recorded as the alternative")
+    @DisplayName("an open Prompt goes to the prompt Policy, which declines when it can")
     void a_prompt_comes_first() {
         Brain.Decided decided = brain().decide(
                 Screens.prompting(new Action.AnswerPrompt(1), new Action.AnswerPrompt(0)), null);
 
-        assertEquals(new Action.AnswerPrompt(0), decided.action(), "the first answer, whatever the order offered");
+        assertEquals(new Action.AnswerPrompt(1), decided.action(), "\"No\" to the chasm, whatever the order offered");
         RunLog.Decision decision = decided.decision();
         assertEquals("answer-prompt", decision.policy());
-        assertEquals(1, decision.alternatives().size(), "the fallback would also have acted");
+        assertTrue(decision.goal().contains("prompt"), decision.goal());
         assertEquals(List.of("answer-prompt", "fallback"), brain().policies());
+    }
+
+    @Test
+    @DisplayName("a Prompt with no declining answer gets its lowest answer")
+    void no_way_to_decline() {
+        Brain.Decided decided = brain().decide(Screens.asking(List.of("Take the gold", "Take the key"),
+                new Action.AnswerPrompt(1), new Action.AnswerPrompt(0)), null);
+        assertEquals(new Action.AnswerPrompt(0), decided.action());
+        assertEquals(new Action.AnswerPrompt(1), brain().decide(Screens.asking(List.of("Jump", " cancel "),
+                new Action.AnswerPrompt(0), new Action.AnswerPrompt(1)), null).action(), "labels are case- and space-blind");
+    }
+
+    @Test
+    @DisplayName("an alternative is another Action, never the one chosen")
+    void alternatives_differ() {
+        Brain brain = brain();
+        Belief belief = null;
+        int seen = 0;
+        for (int i = 0; i < 60; i++) {
+            var screen = Screens.prompting(new Action.AnswerPrompt(0), new Action.AnswerPrompt(1));
+            belief = brain.update(screen, belief);
+            RunLog.Decision decision = brain.decide(screen, belief).decision();
+            for (RunLog.Choice alternative : decision.alternatives()) {
+                assertTrue(!alternative.action().equals(decision.chosen().action()), "wait " + i + ": " + decision);
+                seen++;
+            }
+            assertTrue(decision.alternatives().size() <= 1, decision.toString());
+        }
+        assertTrue(seen > 0, "the fallback sometimes chose otherwise, and was recorded");
+    }
+
+    @Test
+    @DisplayName("the configuration names the Policies and the memory's version")
+    void the_configuration() {
+        assertEquals("policies=answer-prompt,fallback;memory=" + Memory.VERSION, Brain.configuration());
     }
 
     @Test

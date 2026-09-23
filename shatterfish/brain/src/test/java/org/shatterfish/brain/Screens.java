@@ -41,10 +41,15 @@ final class Screens {
         return screen(depth, PromptKind.NONE, PromptSection.NONE, actions);
     }
 
-    /** A screen with the chasm Prompt open, offering {@code actions}. */
+    /** A screen with the chasm Prompt open, its buttons "Yes" and "No", offering {@code actions}. */
     static Observation prompting(Action... actions) {
+        return asking(List.of("Yes", "No"), actions);
+    }
+
+    /** A screen with the chasm Prompt open, its buttons labelled {@code labels}, offering {@code actions}. */
+    static Observation asking(List<String> labels, Action... actions) {
         return screen(1, PromptKind.CHASM_JUMP, new PromptSection(PromptKind.CHASM_JUMP, "Chasm",
-                "Do you really want to jump into the chasm?", List.of("Yes", "No")), actions);
+                "Do you really want to jump into the chasm?", labels), actions);
     }
 
     private static Observation screen(int depth, PromptKind kind, PromptSection prompt, Action... actions) {

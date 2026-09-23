@@ -11,7 +11,8 @@ import org.shatterfish.api.Belief;
  * <em>did</em> -- its last Action, its plan -- because a human may take any turn, and a Brain that
  * remembered its intention would act on an intention the game never carried out (FR-27, FR-28).
  *
- * @param waits   the Input waits served so far
+ * @param waits   the Observations folded in so far: one per {@link Brain#update}, which the Brain's
+ *                driver calls once per Input wait it is asked about
  * @param deepest the deepest floor any Observation has shown
  */
 record Memory(long waits, int deepest) {

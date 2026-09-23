@@ -2,7 +2,7 @@
 title: 'Story 4.1: The Brain skeleton, arbitration and re-planning'
 type: 'feature'
 created: '2026-09-23'
-status: 'in-progress'
+status: 'review'
 baseline_commit: 'df12f8e1a1e4e6a19a061f54460a3087c85f61e6'
 review_loop_iteration: 0
 context: []
@@ -64,14 +64,71 @@ for this story: it is the first Brain and has nothing to compare against (the ep
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `api/Deliberator.java` -- a Decider that also reports its last Decision and Belief.
-- [ ] `brain/Brain.java`, `Policy.java`, `Stream.java` (seeded arithmetic), `Memory` (Belief bytes), `policies/AnswerPrompt`, `policies/Fallback`, `BrainDecider` (a Deliberator).
-- [ ] `harness/RunLoop.java` -- log a Deliberator's Decision and Belief hash (fairness label).
-- [ ] `rig/Brains.java` + `rig/CodexManifest` reading -- the Brain `baseline`, the manifest handed at construction.
-- [ ] Tests: `ReplanAfterForeignActionTest`, `BrainDeterminismTest`, `PolicyArbitrationTest`, boundary green, a Run-loop test that the log carries the Decision and Belief.
+- [x] `api/Deliberator.java` -- a Decider that also reports its last Decision and Belief.
+- [x] `brain/Brain.java`, `Policy.java`, `Stream.java` (seeded arithmetic), `Memory` (Belief bytes), `policies/AnswerPrompt`, `policies/Fallback`, `BrainDecider` (a Deliberator).
+- [x] `harness/RunLoop.java` -- log a Deliberator's Decision and Belief hash (fairness label).
+- [x] `rig/Brains.java` + `rig/CodexManifest` reading -- the Brain `baseline`, the manifest handed at construction.
+- [x] Tests: `ReplanAfterForeignActionTest`, `BrainDeterminismTest`, `PolicyArbitrationTest`, boundary green, a Run-loop test that the log carries the Decision and Belief.
 
 **Acceptance Criteria:**
 - Given a Decision and a different Action applied, when the next wait comes, then the Decision is the one computed from the new Observation (`ReplanAfterForeignActionTest`).
 - Given the same Observation sequence and seed, then the Decisions and Beliefs are identical (`BrainDeterminismTest`).
 - Given the Brain in a real Run, then each Wait record carries its Decision and Belief hash.
 - The PR states the Rig-numbers exemption.
+
+## Dev Notes
+
+Four reviews ran on the first commit: blind, edge-case, verification-gap and fairness.
+
+**Fairness: BLOCK, resolved.** The first draft seeded the Brain from `Brains.agentSeed(triple)`, the
+seed the random agents use. That is `mix(mix(seed, class), challenges)`: a bijection, with two of its
+three inputs in the Observation header. A Brain holding it could recover the dungeon seed, and from
+it every unidentified item's identity and every floor's layout; non-negotiable #1 names the seed
+among what the bot never reads. Three alternatives were weighed:
+
+1. derive the Brain's seed from the salt through a one-way hash: rejected, because anything the
+   Brain can compute from the salt brings it closer to the game's RNG, and a hash of a 64-bit value
+   is brute-forceable in principle;
+2. key the triple's mix with a secret the Brain never gets: rejected, because it adds a secret
+   whose custody is new machinery and still varies the Brain with hidden state;
+3. **a constant per Brain** (`Brains.brainSeed`, `mix(BRAIN_STREAM, name.hashCode())`), advanced by
+   the waits the Brain has served: chosen. The Brain is then a function of what it has seen and
+   nothing else, which is the property FR-27 wants anyway. The cost is that the Brain's stream does
+   not vary across seeds; the game does, and the salt varies it again.
+
+The random agents keep `agentSeed`: they never read their seed, and changing it would move every
+published E3 number. `docs/fairness.md` and `docs/methodology.md` record the rule.
+
+**Deviation from the frozen intent:** the Brain is named `shatterfish`, not `baseline`. The Baseline
+is the random agent throughout the rig and the methodology, and the comparison folder of that name
+holds its side.
+
+**Other findings fixed:**
+- Replay could not reproduce a Brain's log: its follower was a plain Decider, so the replayed Wait
+  records lacked the Decision and Belief hash and the chains differed. `Deliberator.beliefHash()`
+  (default from `belief()`); the follower is a Deliberator stating the logged Decision and hash.
+  `ShatterfishRunTest` replays one of the Brain's logs to the original chain.
+- The Codex is read only for a Brain built on one (`Brains.readsCodex`); `codex/` is a rig test input.
+- `configHash` hashes `Brain.configuration()` (Policies, memory version) and the seed, not zeros.
+- `sourceOf` adds `api/Deliberator.java` and `codex/`.
+- Each Policy draws from its own stream, salted by its place in the list; an alternative that repeats
+  the chosen Action, or another alternative, is not recorded.
+- The prompt Policy declines when an offered answer is labelled "No", "Cancel", "Never mind" or "Not
+  now" (case-blind without a Locale), else takes the lowest answer, else dismisses.
+- `BrainDecider.why()` exposes why no Action was returned; `Memory.waits` is documented as the
+  Observations folded in.
+- `ReplanAfterForeignActionTest.no_stale_action` counts the cases it checked.
+- `BrainBoundaryRulesBiteTest` holds the narrowed log ban: the header, the boundary record and a seed
+  set's entry are rejected; a `RunLog.Decision` is not.
+
+**Not changed:** arbitration still asks every Policy that enters, because the alternatives are the
+Decision's record of what else would have acted, and the two Policies are cheap. The fallback still
+acts when a Prompt is open and offers neither an answer nor a dismissal: a null Action would end the
+Run, and the executor refuses whatever the Prompt does not accept, which the log records.
+
+Seven of the 25 `smoke` Runs capped at 60 turns end otherwise than on the cap: three deaths and two
+unknown windows. An unknown window is the harness's existing limit (the random agent meets it too) and
+its log says it is not verifiable, so the replay check takes a verifiable log.
+
+**Rig numbers:** exempt. The Brain plays as the random agent does outside Prompts; its first
+measured comparison is story 4.2's.

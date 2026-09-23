@@ -43,7 +43,7 @@ class ReplanAfterForeignActionTest {
         Observation prompt = Screens.prompting(new Action.AnswerPrompt(0), new Action.AnswerPrompt(1));
         Action next = one.decide(prompt);
 
-        assertEquals(new Action.AnswerPrompt(0), next);
+        assertEquals(new Action.AnswerPrompt(1), next);
         assertEquals(next, other.decide(prompt));
         assertEquals(one.lastDecision().policy(), other.lastDecision().policy());
         assertEquals(one.belief(), other.belief(), "and they believe the same: the Belief holds what was seen");
@@ -52,6 +52,7 @@ class ReplanAfterForeignActionTest {
     @Test
     @DisplayName("an Action the screen no longer offers is never taken, whatever was intended")
     void no_stale_action() {
+        int checked = 0;
         for (long seed = 0; seed < 50; seed++) {
             BrainDecider brain = new BrainDecider(new Brain(Screens.CODEX, seed));
             Action intended = brain.decide(Screens.offering(1, FLOOR));
@@ -62,7 +63,9 @@ class ReplanAfterForeignActionTest {
             }
             Action next = brain.decide(after);
             assertTrue(after.actions().actions().contains(next), seed + ": " + next);
+            checked++;
         }
+        assertTrue(checked > 10, "the case needs Brains whose intended Action was withdrawn: " + checked);
     }
 
     @Test

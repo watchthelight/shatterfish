@@ -19,6 +19,7 @@ public final class BrainDecider implements Deliberator {
     private final Brain brain;
     private Belief belief;
     private RunLog.Decision last;
+    private String why = "";
 
     public BrainDecider(Brain brain) {
         if (brain == null) {
@@ -27,12 +28,23 @@ public final class BrainDecider implements Deliberator {
         this.brain = brain;
     }
 
+    /** The Brain this drives. */
+    public Brain brain() {
+        return brain;
+    }
+
     @Override
     public Action decide(Observation observation) {
         belief = brain.update(observation, belief);
         Brain.Decided decided = brain.decide(observation, belief);
         last = decided.decision();
+        why = decided.why();
         return decided.action();
+    }
+
+    /** Why the last {@link #decide} returned no Action, or the empty string when it returned one. */
+    public String why() {
+        return why;
     }
 
     @Override

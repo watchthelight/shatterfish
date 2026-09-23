@@ -17,4 +17,12 @@ public interface Deliberator extends Decider {
 
     /** The Belief held after the last {@link #decide}, or null before the first. */
     Belief belief();
+
+    /**
+     * The hash of {@link #belief()} as the Run log records it, or the empty string when there is
+     * none. A replay follows a log without the Belief behind it, only its hash, and says so here.
+     */
+    default String beliefHash() {
+        return belief() == null ? "" : belief().hash();
+    }
 }

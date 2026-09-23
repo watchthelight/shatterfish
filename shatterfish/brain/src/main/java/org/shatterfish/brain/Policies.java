@@ -17,7 +17,23 @@ final class Policies {
     private Policies() {
     }
 
-    /** Answer a Prompt the screen holds open, with the first answer it offers or by dismissing it. */
+    /**
+     * The answers that decline, as the Prompt labels them. A Prompt the Brain does not understand is
+     * usually a confirmation -- jump into the chasm, drink the unknown potion, leave the item behind
+     * -- and declining is what leaves the Run as it was.
+     */
+    private static final List<String> DECLINING = List.of("no", "cancel", "never mind", "not now");
+
+    /** Whether a button label declines. Case-blind without a Locale, which the Brain may not read. */
+    private static boolean declines(String label) {
+        String stripped = label.strip();
+        return DECLINING.stream().anyMatch(stripped::equalsIgnoreCase);
+    }
+
+    /**
+     * Answer a Prompt the screen holds open: decline when an offered answer says so, else the lowest
+     * answer offered, else dismiss it.
+     */
     static final Policy ANSWER_PROMPT = new Policy() {
         @Override
         public String name() {
@@ -41,6 +57,14 @@ final class Policies {
                 if (action instanceof Action.AnswerPrompt answer
                         && (first == null || answer.option() < first.option())) {
                     first = answer;
+                }
+            }
+            List<String> labels = observation.prompt().options();
+            for (Action action : offered) {
+                if (action instanceof Action.AnswerPrompt answer && answer.option() >= 0
+                        && answer.option() < labels.size()
+                        && declines(labels.get(answer.option()))) {
+                    return new RunLog.Choice(answer, 0, "the prompt offers to decline: " + labels.get(answer.option()));
                 }
             }
             if (first != null) {

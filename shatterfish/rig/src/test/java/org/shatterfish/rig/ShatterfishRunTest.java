@@ -27,14 +27,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * caller read, and every wait it served is recorded with the Decision behind it and the Belief it
  * held.
  */
-class BaselineRunTest {
+class ShatterfishRunTest {
 
     @Test
-    @DisplayName("every wait the baseline Brain serves is logged with its Decision and Belief")
+    @DisplayName("every wait the Brain serves is logged with its Decision and Belief, and the log replays")
     @Timeout(value = 20, unit = TimeUnit.MINUTES)
     void the_log_says_why(@TempDir Path out) throws IOException {
         Map<String, String> arguments = new LinkedHashMap<>();
-        arguments.put(Runner.BRAIN, Brains.BASELINE);
+        arguments.put(Runner.BRAIN, Brains.SHATTERFISH);
         arguments.put(Runner.SEEDS, SeedSets.SMOKE);
         arguments.put(Runner.OUT, out.toString());
         arguments.put(Runner.ROOT, SeedSetsTest.ROOT.toString());
@@ -49,7 +49,7 @@ class BaselineRunTest {
         for (Path log : logs) {
             RunLogReader.Log read = RunLogReader.of(log);
             assertTrue(read.readable(), log + ": " + read.unreadable());
-            assertEquals(Brains.BASELINE, read.header().brain().name());
+            assertEquals(Brains.SHATTERFISH, read.header().brain().name());
             for (RunLog.Wait wait : read.waits()) {
                 assertNotNull(wait.decision(), "a Brain's wait says why: " + log.getFileName() + " at " + wait.k());
                 assertTrue(List.of("answer-prompt", "fallback").contains(wait.decision().policy()), wait.decision().policy());
@@ -59,27 +59,64 @@ class BaselineRunTest {
             }
         }
         assertTrue(waits > 0, "the Runs served waits");
+        // A Brain's log replays: the follower states the Decision and Belief hash each wait
+        // recorded, so the replayed records, and the chain over them, are the original's.
+        // A Run the harness stopped following (an unknown window) says it is not verifiable, which
+        // is the harness's limit rather than the Brain's, so the replay takes one that is.
+        Path verifiable = logs.stream().filter(log -> RunLogReader.of(log).end().verifiable())
+                .findFirst().orElseThrow();
+        org.shatterfish.harness.log.Replay.Result replayed = org.shatterfish.harness.log.Replay.of(
+                verifiable, out.resolve("replay"), "test");
+        assertTrue(replayed.ok(), replayed.why());
+        assertEquals(replayed.originalChain(), replayed.chain());
         String summary = Files.readString(out.resolve(RunIndex.SUMMARY), StandardCharsets.UTF_8).strip();
         assertEquals("0", LogHeader.value(summary, "runsIncomplete"), summary);
     }
 
     @Test
-    @DisplayName("a Run of the baseline Brain states the Codex it is built on, and one that does not is refused")
+    @DisplayName("a Run of the Brain states the Codex it is built on, and one that does not is refused")
     void built_on_the_codex() {
         org.shatterfish.api.SeedSet.Entry triple = SeedSets.load(SeedSetsTest.ROOT, SeedSets.SMOKE).set().entries().get(0);
         IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
-                () -> Brains.of(Brains.BASELINE, triple));
+                () -> Brains.of(Brains.SHATTERFISH, triple));
         assertTrue(refused.getMessage().contains(RunOne.CODEX), refused.getMessage());
 
         String tag = org.shatterfish.harness.boot.HeadlessBoot.pinnedTag();
         org.shatterfish.api.Codex.Manifest codex = CodexManifest.read(
                 SeedSetsTest.ROOT.resolve(CodexManifest.FOLDER).resolve(tag), tag);
         assertEquals(org.shatterfish.api.Codex.VERSION, codex.version());
-        assertTrue(Brains.of(Brains.BASELINE, triple, codex) instanceof org.shatterfish.brain.BrainDecider);
+        assertTrue(Brains.of(Brains.SHATTERFISH, triple, codex) instanceof org.shatterfish.brain.BrainDecider);
         assertThrows(IllegalArgumentException.class, () -> CodexManifest.read(
                 SeedSetsTest.ROOT.resolve(CodexManifest.FOLDER).resolve(tag), "v0.0.1"),
                 "a Codex for another tag is not this build's");
-        assertFalse(Brains.version(SeedSetsTest.ROOT, Brains.BASELINE).isEmpty(),
+        org.junit.jupiter.api.Assumptions.assumeTrue(java.nio.file.Files.isDirectory(SeedSetsTest.ROOT.resolve(".git")),
+                "a source export has no history to date the Brain by");
+        assertFalse(Brains.version(SeedSetsTest.ROOT, Brains.SHATTERFISH).isEmpty(),
                 "the Brain's version is the commit that last changed brain/");
+    }
+
+    @Test
+    @DisplayName("the Brain's stream owes nothing to the dungeon seed: two triples, the same screens, the same Actions")
+    void blind_to_the_seed() {
+        // Non-negotiable #1: the random agents' seed is a bijection of the dungeon seed and what
+        // the header shows, so a Brain seeded from it could recover the seed. Two triples that
+        // differ only in the seed must give Brains that are the same function of the screen.
+        java.util.List<org.shatterfish.api.SeedSet.Entry> entries =
+                SeedSets.load(SeedSetsTest.ROOT, SeedSets.SMOKE).set().entries();
+        org.shatterfish.api.SeedSet.Entry one = entries.get(0);
+        org.shatterfish.api.SeedSet.Entry other = entries.stream()
+                .filter(entry -> entry.seed() != one.seed()).findFirst().orElseThrow();
+        assertEquals(Brains.brainSeed(Brains.SHATTERFISH), Brains.brainSeed(Brains.SHATTERFISH));
+        assertTrue(Brains.brainSeed(Brains.SHATTERFISH) != Brains.agentSeed(one));
+        assertTrue(Brains.configHash(Brains.SHATTERFISH).matches("[0-9a-f]{64}"));
+        assertTrue(!Brains.configHash(Brains.SHATTERFISH).equals("0".repeat(64)),
+                "the Brain states its configuration");
+        assertFalse(Brains.readsCodex(Brains.RANDOM), "the random agent is built on no Codex");
+        String tag = org.shatterfish.harness.boot.HeadlessBoot.pinnedTag();
+        org.shatterfish.api.Codex.Manifest codex = CodexManifest.read(
+                SeedSetsTest.ROOT.resolve(CodexManifest.FOLDER).resolve(tag), tag);
+        org.shatterfish.brain.BrainDecider a = (org.shatterfish.brain.BrainDecider) Brains.of(Brains.SHATTERFISH, one, codex);
+        org.shatterfish.brain.BrainDecider b = (org.shatterfish.brain.BrainDecider) Brains.of(Brains.SHATTERFISH, other, codex);
+        assertEquals(a.brain().seed(), b.brain().seed());
     }
 }

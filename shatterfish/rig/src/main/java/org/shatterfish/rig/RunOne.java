@@ -95,7 +95,7 @@ public final class RunOne {
                 arguments.getOrDefault(REGISTRATION, ""), arguments.getOrDefault(MACHINE, ""));
         int cap = arguments.containsKey(CAP) ? (int) number(arguments, CAP) : RunLoop.TURN_CAP;
         where();
-        org.shatterfish.api.Codex.Manifest codex = arguments.containsKey(CODEX)
+        org.shatterfish.api.Codex.Manifest codex = arguments.containsKey(CODEX) && Brains.readsCodex(brain)
                 ? CodexManifest.read(Path.of(arguments.get(CODEX)), org.shatterfish.harness.boot.HeadlessBoot.pinnedTag())
                 : null;
         return new RunLoop().playTriple(triple, salt, Brains.of(brain, triple, codex), cap, logging);

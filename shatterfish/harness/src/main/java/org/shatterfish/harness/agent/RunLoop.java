@@ -427,7 +427,7 @@ public final class RunLoop {
         String belief = "";
         if (agent instanceof org.shatterfish.api.Deliberator deliberator) {
             decision = deliberator.lastDecision();
-            belief = deliberator.belief() == null ? "" : deliberator.belief().hash();
+            belief = deliberator.beliefHash();
         }
         log.write(new RunLog.Wait(k, thousandths(), observation.header().depth(), observation.header().branch(),
                 observation.hash(), observation.sectionHashes(), chosen, applied, RunLog.BOT, decision, belief,

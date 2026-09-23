@@ -29,9 +29,21 @@ public final class Brain {
     public record Decided(Action action, RunLog.Decision decision, String why) {
     }
 
+    /** The Policies, highest priority first. */
+    private static final List<Policy> POLICIES = List.of(Policies.ANSWER_PROMPT, Policies.FALLBACK);
+
     private final Codex.Manifest codex;
     private final long seed;
     private final List<Policy> policies;
+
+    /**
+     * What decides this Brain's behaviour besides its code and its seed: the Policies in priority
+     * order and the version of the memory it carries. The rig hashes it into the log header.
+     */
+    public static String configuration() {
+        return "policies=" + String.join(",", POLICIES.stream().map(Policy::name).toList())
+                + ";memory=" + Memory.VERSION;
+    }
 
     /**
      * @param codex the Codex manifest, read by the caller; the Brain records what it was built on
@@ -43,7 +55,12 @@ public final class Brain {
         }
         this.codex = codex;
         this.seed = seed;
-        this.policies = List.of(Policies.ANSWER_PROMPT, Policies.FALLBACK);
+        this.policies = POLICIES;
+    }
+
+    /** The seed of this Brain's stream, as its caller gave it. */
+    public long seed() {
+        return seed;
     }
 
     /** The Codex this Brain was built on. */
@@ -76,13 +93,16 @@ public final class Brain {
         Policy taken = null;
         RunLog.Choice chosen = null;
         List<RunLog.Choice> alternatives = new ArrayList<>();
-        for (Policy policy : policies) {
+        for (int index = 0; index < policies.size(); index++) {
+            Policy policy = policies.get(index);
             if (!policy.enters(observation, memory)) {
                 continue;
             }
-            // Each Policy draws from its own copy of the wait's stream, so whether an earlier
-            // Policy drew changes nothing a later one chooses.
-            RunLog.Choice choice = policy.choose(observation, memory, offered, Stream.at(seed, memory.waits()));
+            // Each Policy draws from a stream of its own, keyed on its place in the list and the
+            // wait, so whether an earlier Policy drew changes nothing a later one chooses, and two
+            // Policies that both draw do not draw the same numbers.
+            RunLog.Choice choice = policy.choose(observation, memory, offered,
+                    Stream.at(Stream.mix(seed + index), memory.waits()));
             if (choice == null) {
                 continue;
             }
@@ -93,7 +113,11 @@ public final class Brain {
             if (taken == null) {
                 taken = policy;
                 chosen = choice;
-            } else if (alternatives.size() < RunLog.Decision.ALTERNATIVES) {
+            } else if (alternatives.size() < RunLog.Decision.ALTERNATIVES
+                    && !choice.action().equals(chosen.action())
+                    && alternatives.stream().noneMatch(other -> other.action().equals(choice.action()))) {
+                // An alternative is another Action a Policy would have taken; the same Action again
+                // is not one.
                 alternatives.add(choice);
             }
         }
