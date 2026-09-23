@@ -2,7 +2,7 @@
 title: 'Story 3.9: The baseline and the deliberately worse Brain'
 type: 'feature'
 created: '2026-09-23'
-status: 'in-review'
+status: 'done'
 baseline_commit: '34f8f032ee27eb5f37f91c060a9c4ecab221bc5e'
 review_loop_iteration: 0
 context: []
@@ -119,3 +119,61 @@ Change the calibrated bounds to get a verdict.
 - **Holdout comparisons held to the calibrated bounds** (fairness review): a release-level
   comparison on the held-out set was labelled a direction check and exempt; it now may accept and
   is held to the bounds like `standard` and `bosses`.
+
+## Evidence
+
+**Rig numbers**, 24 processes, Intel Core Ultra 9 275HX, Windows 11, `standard` v1, cap 20,000:
+
+| Invocation | Runs | Time | Runs/s | Waits/s |
+|---|---|---|---|---|
+| H-0002, random Baseline | 500 | 177,193 ms | 2.82 | 191 |
+| H-0004, random_nodescend against random | 1,000 | 376,198 ms | 2.66 | 178 |
+| H-0005 first, random_norest against random | 1,000 | 371,513 ms | 2.69 | 551 |
+| H-0006, random against random_norest | 1,000 | 392,894 ms | 2.55 | 532 |
+| H-0005 second | 1,000 | 397,396 ms | 2.52 | 538 |
+
+Beside E1's 399.5 Input waits per second in one process and 362.3 Runs per minute: the Rig's cost
+per short Run is mostly its per-Run start-up. Both Results pages restate this.
+
+**The result.** SM-5 met with every attempt published: H-0004 rejected a Brain that played the
+same Run as the Baseline (vacuous, and said so); H-0005 was void on its first invocation and
+rejected at pair 22 on the one further invocation fixed in advance; H-0006 accepted the same
+difference the other way at pair 49. Within-pair turns correlation 1.00 for identical Brains,
+0.12 to 0.19 once they differ.
+
+**Four reviews** (three lenses and fairness; no information-parity leak). Fixed: the held-out set
+exempt from the calibrated bounds; H-0003 missing from the record; the retry's circumstances
+unstated; unsupported claims ("dies sooner", "fell", an unattributed figure); untested bounds,
+wiring and correlation edges; the Attack exploration unreproducible. Deferred (deferred-work.md):
+an unreadable Registration leaves no ledger line; the withholding Brains share a Brain version;
+FR-25's distributions, survival curve and cross-checks belong to story 3.10.
+
+**Mutation battery: 24 mutations, 24 killed.** Four survived the first run (the null-kind guard,
+the correlation clamp, a pair lost alike on both sides counted identical or correlated); each now
+has a test.
+
+## Suggested Review Order
+
+**The worse Brain**
+
+- The agent: the random agent less one kind.
+  `shatterfish/harness/src/main/java/org/shatterfish/harness/agent/WithholdingAgent.java`
+
+- Which Brain withholds what.
+  `shatterfish/rig/src/main/java/org/shatterfish/rig/Brains.java`
+
+**Held to the Registration**
+
+- The statistic and the calibrated bounds, and which sets may accept.
+  `shatterfish/rig/src/main/java/org/shatterfish/rig/Runner.java`
+
+- A comparison names its statistic.
+  `shatterfish/api/src/main/java/org/shatterfish/api/Registration.java`
+
+**What was published**
+
+- The attempts, in order, including the ones that showed nothing.
+  `docs/results/2026-09-23-worse-brain.md`
+
+- The Baseline.
+  `docs/results/2026-09-23-random-baseline.md`
