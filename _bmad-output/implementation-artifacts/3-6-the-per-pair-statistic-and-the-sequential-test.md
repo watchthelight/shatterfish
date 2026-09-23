@@ -2,8 +2,8 @@
 title: 'Story 3.6: The Per-pair statistic and the sequential test'
 type: 'feature'
 created: '2026-09-23'
-status: 'ready-for-dev'
-review_loop_iteration: 0
+status: 'review'
+review_loop_iteration: 1
 context: []
 ---
 
@@ -67,14 +67,14 @@ text, so `H-0001-nightly-smoke` keeps its hash.
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `api/Registration.java` -- `p0`/`p1` per mil; comparison needs 0 < p0 < p1 < 1000, baseline needs both 0 and omits them.
-- [ ] `rig/PairScore.java` -- the Composite comparison and the pair's score.
-- [ ] `rig/Gsprt.java` -- counts, LLR, clamp, verdict, trace.
-- [ ] `rig/Comparison.java` -- pairs two folders' logs by triple and salt, in Seed-set order, and runs the test.
-- [ ] `rig/Runner.java` -- `--against`; one salt per triple for both children; `comparison.json` beside the summary.
-- [ ] `rig/src/test/resources/gsprt-reference.json` + `tools/gsprt_reference.py` -- values from the pinned Fishtest.
-- [ ] Tests: `PairScoreTest`, `GsprtTest`, `GsprtReferenceTest`, `ComparisonTest`, and a random-vs-random Runner case.
-- [ ] `docs/methodology.md` -- the statistic, the test, the licence decision, how to read `comparison.json`.
+- [x] `api/Registration.java` -- `p0`/`p1` per mil; comparison needs 0 < p0 < p1 < 1000, baseline needs both 0 and omits them.
+- [x] `rig/PairScore.java` -- the Composite comparison and the pair's score.
+- [x] `rig/Gsprt.java` -- counts, LLR, clamp, verdict, trace.
+- [x] `rig/Comparison.java` -- pairs two folders' logs by triple and salt, in Seed-set order, and runs the test.
+- [x] `rig/Runner.java` -- `--against`; one salt per triple for both children; `comparison.json` beside the summary.
+- [x] `rig/src/test/resources/gsprt-reference.json` + `tools/gsprt_reference.py` -- values from the pinned Fishtest.
+- [x] Tests: `PairScoreTest`, `GsprtTest`, `GsprtReferenceTest`, `ComparisonTest`, and a random-vs-random Runner case.
+- [x] `docs/methodology.md` -- the statistic, the test, the licence decision, how to read `comparison.json`.
 
 **Acceptance Criteria:**
 - Given two Composite outcomes, when scored, then the order is Win; Score for two wins; bosses; depth; turns survived (`PairScoreTest`).
@@ -82,6 +82,50 @@ text, so `H-0001-nightly-smoke` keeps its hash.
 - Given a bound crossed before `n0`, then the test continues; at `nmax` it is undecided (`GsprtTest`).
 - Given `--against random`, then every pair shares a salt and scores ½ (`RunnerComparisonTest`).
 - Rig numbers: the cost of a paired `smoke` comparison against a single-Brain one, in Evidence.
+
+## Evidence
+
+**Rig numbers.** The `smoke` set, 24 processes, default cap: one Brain plays its 25 Runs in
+**7,538 ms**; `--brain random --against random` plays 50 Runs in **9,996 ms** (5.0 Runs/s). Twice
+the Runs for a third more time, because the pool is fuller. On the methodology page beside the
+command.
+
+**The Fishtest reference.** `tools/gsprt_reference.py` (ours) imports a Fishtest checkout at
+`2e540196ed8a72283a17f40793defd0f4a45d9c9` and writes 435 cases -- five hypotheses, three error-rate
+pairs, twenty-nine count sets including tie-heavy small samples -- with bounds, LLR, raw LLR and the
+clamp flag. `GsprtReferenceTest` checks every column to 1e-9 and pins the fixture's SHA-256
+(`17c78aab...`). Fishtest has no licence, so none of its code is in the repository.
+
+**Deviations from the task list, argued.** The fixture is `gsprt-reference.txt`, whitespace
+columns, not JSON: the rig reads it with a split rather than a parser it would otherwise not need.
+`random` against `random` does not "score 1/2 on every pair" for the reason the spec imagined: the
+two halves of a pair are the same Run (same salt, same chain, checked from each child's own log),
+so every pair that reaches an ending ties, and the Runs stopped by the turn cap count as missing,
+which also score a half. The Registration gained `missing_per_mil` beside `p0`/`p1`, which the spec
+did not name; see the reviews.
+
+**Four reviews.** The blocking finding, from the fairness review with a worked example: a missing
+pair scored a tie, and ties both raise the mean and cut the variance, so a Brain that crashed on
+exactly the seeds it would lose bought an ACCEPT. A comparison now states the share of missing
+pairs it tolerates, and past it -- or when every consumed pair is missing -- the verdict is `VOID`.
+A Run stopped at the turn cap is the Rig's stop, not the game's ending, and counts as missing. Also
+found and fixed: Fishtest's server stops on the exact GLR and not on eq. 2.1, and the page claimed
+more than the reference proves; the baseline's configuration and release-level version were never
+checked; a comparison could register H1 at or below one half, or error rates summing past one;
+`smoke` could accept although ADR-0012 lets only `standard` and `bosses`; `comparison.json` counted
+every pair played rather than those consumed, so its counts did not reproduce its own LLR; one wait
+counter was shared by both sides; a Brain compared with itself collided in the alive map;
+`--against` with `--verify` or `--replay` was silently ignored; `--verify` on a comparison folder
+failed; the ledger's FINISHED lines did not say what was concluded.
+
+**Mutation battery: 32 mutations, 31 killed, 1 deliberate survivor.** Nine survived the first run:
+the all-missing void, `Gsprt`'s alpha-plus-beta check, the baseline's configuration and version
+checks, per-side waits, the one-header rule, `micros` refusing to saturate, the Registration's
+missing fraction below one, and the alive-map key. Seven of the nine were review-patch guards --
+the pattern of every E3 story so far. Each now has a test that kills it, except M20: the alive map
+is only read when children must be destroyed after a failure, and a collision there leaks a child
+process rather than changing any number; a test would have to kill a comparison mid-run and count
+processes. Kept, and said here.
 
 ## Design Notes
 
