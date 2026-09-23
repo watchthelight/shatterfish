@@ -2,7 +2,7 @@
 title: 'Story 3.11: The nightly job and the results pull request'
 type: 'feature'
 created: '2026-09-23'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '34f8f032ee27eb5f37f91c060a9c4ecab221bc5e'
 review_loop_iteration: 0
 context: []
@@ -58,13 +58,13 @@ repository (a setting, and currently off). Running comparisons nightly.
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `shatterfish/rig/.../Nightly.java` -- judge a night, its history line, the page; `main` for `night` and `page`.
-- [ ] `.github/workflows/nightly.yml` -- schedule, play, record, publish, artifacts, red on failure.
-- [ ] `tools/nightly-pr.sh` -- rebuild `rig/nightly`, carry forward, force-push, create or edit the PR.
-- [ ] `shatterfish/rig/build.gradle` -- `:rig:nightly`; the workflow, script, history and page as test inputs.
-- [ ] `results/nightly/history.jsonl`, `docs/results/nightly.md` -- empty history, generated page.
-- [ ] `shatterfish/rig/src/test/.../NightlyTest.java` -- the matrix, the page, the workflow's text.
-- [ ] `docs/methodology.md`, `docs/results/index.md`, `mkdocs.yml` -- the nightly job described and linked.
+- [x] `shatterfish/rig/.../Nightly.java` -- judge a night, its history line, the page; `main` for `night` and `page`.
+- [x] `.github/workflows/nightly.yml` -- schedule, play, record, publish, artifacts, red on failure.
+- [x] `tools/nightly-pr.sh` -- rebuild `rig/nightly`, carry forward, force-push, create or edit the PR.
+- [x] `shatterfish/rig/build.gradle` -- `:rig:nightly`; the workflow, script, history and page as test inputs.
+- [x] `results/nightly/history.jsonl`, `docs/results/nightly.md` -- empty history, generated page.
+- [x] `shatterfish/rig/src/test/.../NightlyTest.java` -- the matrix, the page, the workflow's text.
+- [x] `docs/methodology.md`, `docs/results/index.md`, `mkdocs.yml` -- the nightly job described and linked.
 
 **Acceptance Criteria:**
 - Given the workflow, when it runs, then it plays `smoke` under H-0001 with flags the Rig knows and updates one pull request on `rig/nightly` (`NightlyTest`).
@@ -78,3 +78,36 @@ repository (a setting, and currently off). Running comparisons nightly.
 **Commands:**
 - `./gradlew :rig:run --args="--brain random --seeds smoke --parallel 4 --out build/nightly --registration H-0001-nightly-smoke"` then `./gradlew :rig:nightly --args=". night build/nightly <date> <commit>"` -- PASS.
 - `./gradlew build` -- green.
+
+## Evidence
+
+**Rig numbers.** A local ranked night, the command the workflow plays: `smoke` under
+`H-0001-nightly-smoke@a4d7fe89a612e89b`, 4 processes, **25 of 25 Runs finished in 14,090 ms**
+(1.77 Runs/s, 112 waits/s), endings DEATH=23 UNKNOWN_WINDOW=2; recorded by
+`./gradlew :rig:nightly --args=". night build/nightly 2026-09-23 <commit>"` as
+`PASS -- nightly smoke 2026-09-23 (a direction check under H-0001-nightly-smoke, never an acceptance): 25 of 25 Runs finished`.
+Its ledger line was a development run and was not committed. `./gradlew build`: 986 tests, 0
+failures; `mkdocs build --strict`: green.
+
+**What cannot be verified before the first night.** The workflow and `tools/nightly-pr.sh` run
+only on GitHub; `NightlyTest` holds their text (the command against the Rig's own flags, the
+branch, never `main`, `if: always()` on every reporting step, red on failure, no host but GitHub).
+The branch rebuild, the carry-forward of unmerged nights and `gh pr create` first run on the first
+scheduled night, or on a manual dispatch.
+
+**Needs the owner.** The repository setting "Allow GitHub Actions to create and approve pull
+requests" is off (`can_approve_pull_request_reviews: false`), so the first night's `gh pr create`
+will fail and the script will say so; the branch `rig/nightly` is still pushed. Turning the
+setting on, or opening the pull request from `rig/nightly` by hand once, is the owner's call; every
+later night then edits that pull request.
+
+**Review** (three lenses, run by the engineer: the forked worker that built this could not spawn
+reviewers). Fixed: the record step read `$?` inside a command substitution; a night the recording
+could not judge left an empty summary heading; the script dropped unmerged nights silently when the
+branch's history did not extend `main`'s; a half-written summary crashed the step instead of failing
+the night.
+
+**Mutation battery: 17 mutations, 17 killed.** Four survived the first run: `incomplete > 0`
+(only ever tested with `finished != started` also true), the history key check (the JSON reader
+refused the test's unsorted key first), the carry-forward copy, and the job-summary warning. Each
+now has a test.
