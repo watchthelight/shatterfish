@@ -53,8 +53,9 @@ class RunLogKindsTest {
     /** One of each kind, with the optional fields filled in where a kind has any. */
     private static List<RunLog> everyKind() {
         return List.of(
-                new RunLog.Header(1, "v4.0.0", "abc1234", HeroClass.CLERIC, 3, 99L, SeedSet.code(99L),
-                        -1L, 3, 2, 8, new RunLog.Brain("greedy", "def5678", ZERO), "reg-1", false,
+                new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc1234", HeroClass.CLERIC, 3, 99L,
+                        SeedSet.code(99L), -1L, 20_000, 3, 2, 8,
+                        new RunLog.Brain("greedy", "def5678", ZERO), "reg-1", false,
                         "a laptop", "2026-09-22T12:00:00Z"),
                 new RunLog.Wait(1, 1_500, 2, 0, ZERO, Map.of("map", ONE, "hero", TWO),
                         new Action.Step(17), true, RunLog.BOT, decision(), ONE, List.of(3, 4, 5), 12),

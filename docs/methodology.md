@@ -267,6 +267,15 @@ Every Run writes `<run-id>.jsonl`: one record per line, plain text, no compressi
 comparison plays two Brains on the same triple under the same salt -- without it, a pair's two Runs
 would agree on every other part and write to one file.
 
+**The header states what the Run was**, which is the tuple -- upstream tag, hero class,
+challenges, seed, salt -- and then the three things that decide what this build *meant* by it: the
+Observation schema version, the Profile version, and the turn cap. The cap is there because a Run
+stopped at turn 20,000 and a Run stopped at turn 150 are different Runs even on one tuple, and a
+Replay that did not know which would reproduce every wait and then end differently. That is how it
+was found: story 3.4's round-trip test reproduced a Run exactly, disagreed on the ending alone, and
+the cap went into the header (schema version 2) rather than into a comment explaining the
+disagreement.
+
 Each line carries a chain value over itself and everything before it, so a byte changed anywhere
 breaks every chain from that record on. The point of publishing the rules below is that the chain
 can be recomputed by something that has never seen this repository: a shell script with `sha256sum`
@@ -313,6 +322,7 @@ wrong about this format in both directions, so here is the per-field truth:
 | `registration` (on the header) | written as `""` |
 | `alternatives`, `flags` (inside a decision) | written as `[]` |
 | `machine`, `started` | always written, and never chained |
+| `cap` (on the header) | always written; a Run has no unbounded form |
 
 No field is ever `null`.
 
@@ -356,9 +366,9 @@ hash the remaining text as UTF-8, and you should get the same:
 
 | What | Value |
 |---|---|
-| The record | `{"brain":{"commit":"def5678","config":"0000000000000000000000000000000000000000000000000000000000000000","name":"random"},"challenges":0,"class":"WARRIOR","codex":8,"commit":"abc1234","machine":"a laptop","obsv":2,"oracle":false,"profile":3,"registration":"","salt":"0000000000000007","seed":12345,"seedcode":"AAA-AAA-SGV","started":"2026-09-22T12:00:00Z","t":"header","tag":"v4.0.0","v":1}` |
-| Chained (the same, without `machine` and `started`) | `{"brain":{"commit":"def5678","config":"0000000000000000000000000000000000000000000000000000000000000000","name":"random"},"challenges":0,"class":"WARRIOR","codex":8,"commit":"abc1234","obsv":2,"oracle":false,"profile":3,"registration":"","salt":"0000000000000007","seed":12345,"seedcode":"AAA-AAA-SGV","t":"header","tag":"v4.0.0","v":1}` |
-| `chain` | `53aa5c6fc977dce9da982096d39e3c3663d010b466ce794a4641ca163b485fb5` |
+| The record | `{"brain":{"commit":"def5678","config":"0000000000000000000000000000000000000000000000000000000000000000","name":"random"},"cap":20000,"challenges":0,"class":"WARRIOR","codex":8,"commit":"abc1234","machine":"a laptop","obsv":2,"oracle":false,"profile":3,"registration":"","salt":"0000000000000007","seed":12345,"seedcode":"AAA-AAA-SGV","started":"2026-09-22T12:00:00Z","t":"header","tag":"v4.0.0","v":2}` |
+| Chained (the same, without `machine` and `started`) | `{"brain":{"commit":"def5678","config":"0000000000000000000000000000000000000000000000000000000000000000","name":"random"},"cap":20000,"challenges":0,"class":"WARRIOR","codex":8,"commit":"abc1234","obsv":2,"oracle":false,"profile":3,"registration":"","salt":"0000000000000007","seed":12345,"seedcode":"AAA-AAA-SGV","t":"header","tag":"v4.0.0","v":2}` |
+| `chain` | `aa72885f80d8f4cad6626e9e85c99390e82d38e86802a4811edfaff1fabb21c2` |
 
 `RunLogVectorTest` recomputes this table from the code on every build, so the page cannot drift
 away from what the writer does.

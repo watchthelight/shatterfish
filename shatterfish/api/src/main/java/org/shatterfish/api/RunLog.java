@@ -42,8 +42,16 @@ public sealed interface RunLog
         permits RunLog.Header, RunLog.Wait, RunLog.Prompt, RunLog.Mode, RunLog.Shadow,
                 RunLog.Boundary, RunLog.Unsupported, RunLog.End {
 
-    /** The log schema version, which a reader refuses to guess at across (ADR-0011). */
-    int VERSION = 1;
+    /**
+     * The log schema version, which a reader refuses to guess at across (ADR-0011).
+     *
+     * <p>Version 2 added the turn cap to the header. Story 3.4's round-trip test found that a log
+     * without it cannot reproduce the Run it describes: everything matched and the endings differed,
+     * because the original was stopped by a cap the Replay knew nothing about. The cap decides what
+     * a Run <em>is</em> -- two Runs of one tuple under different caps are different Runs, one of
+     * them truncated -- so it belongs in the tuple the header states.
+     */
+    int VERSION = 2;
 
     /**
      * The characters a run id's parts may hold: no separator, so that the six parts can be read
@@ -155,13 +163,16 @@ public sealed interface RunLog
      * The first line of every log: the whole tuple a Run is determined by, and the versions of
      * everything that decided what it saw.
      *
+     * @param cap          the turn cap this Run was played under. It decides whether a Run ends by
+     *                     dying or by being stopped, so a Replay that did not know it would
+     *                     reproduce every wait and then end differently (story 3.4)
      * @param registration the Registration this Run was played under, or empty when there is none
      *                     (story 3.5); a ranked Run has one
      * @param machine      what the Run ran on -- not chained, because it says nothing about the Run
      * @param started      when it began, ISO-8601 -- not chained, for the same reason
      */
     record Header(int v, String tag, String commit, HeroClass heroClass, int challenges, long seed,
-                  String seedCode, long salt, int profile, int obsv, int codex, Brain brain,
+                  String seedCode, long salt, int cap, int profile, int obsv, int codex, Brain brain,
                   String registration, boolean oracle, String machine, String started)
             implements RunLog {
 
@@ -179,6 +190,7 @@ public sealed interface RunLog
             Canon.text(seedCode, "a Run's seed code");
             Canon.require(seedCode.equals(SeedSet.code(seed)),
                     "the code for seed " + seed + " is " + SeedSet.code(seed) + ", not " + seedCode);
+            Canon.require(cap >= 1, "a Run is played under a turn cap of at least one: " + cap);
             Canon.require(profile >= 1, "a Profile version is positive: " + profile);
             Canon.require(obsv >= 1, "an Observation schema version is positive: " + obsv);
             Canon.require(codex >= 1, "a Codex version is positive: " + codex);

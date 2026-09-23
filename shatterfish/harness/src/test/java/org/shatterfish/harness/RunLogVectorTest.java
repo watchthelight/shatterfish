@@ -55,8 +55,9 @@ class RunLogVectorTest {
 
     /** The header the page publishes, built here from its stated values. */
     private static RunLog.Header published() {
-        return new RunLog.Header(1, "v4.0.0", "abc1234", HeroClass.WARRIOR, 0, SEED, SeedSet.code(SEED),
-                7L, 3, 2, 8, new RunLog.Brain("random", "def5678", ZERO), "", false,
+        return new RunLog.Header(2, "v4.0.0", "abc1234", HeroClass.WARRIOR, 0, SEED,
+                SeedSet.code(SEED), 7L, 20_000, 3, 2, 8,
+                new RunLog.Brain("random", "def5678", ZERO), "", false,
                 "a laptop", "2026-09-22T12:00:00Z");
     }
 

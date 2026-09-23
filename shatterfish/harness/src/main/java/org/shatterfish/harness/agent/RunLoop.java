@@ -160,9 +160,10 @@ public final class RunLoop {
             opened = RunLogWriter.open(logging.folder(), new RunLog.Header(RunLog.VERSION,
                     Observer.upstreamTag(), logging.commit(),
                     org.shatterfish.api.HeroClass.valueOf(heroClass.name()), Dungeon.challenges, seed,
-                    SeedSet.code(seed), salt, Profile.VERSION, ObservationCodec.SCHEMA_VERSION,
-                    Codex.VERSION, logging.brain(), logging.registration(), logging.oracle(),
-                    logging.machine(), Instant.now().toString()));
+                    SeedSet.code(seed), salt, turnCap, Profile.VERSION,
+                    ObservationCodec.SCHEMA_VERSION, Codex.VERSION, logging.brain(),
+                    logging.registration(), logging.oracle(), logging.machine(),
+                    Instant.now().toString()));
         } catch (RuntimeException | Error opening) {
             // The Run was started and nothing will play it, so the driver is closed here rather
             // than left holding the process's one UI role.

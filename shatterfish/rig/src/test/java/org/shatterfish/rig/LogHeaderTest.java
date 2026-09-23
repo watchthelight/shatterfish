@@ -39,8 +39,9 @@ class LogHeaderTest {
     private static final long SEED = 12_345L;
 
     private static RunLog.Header header(boolean oracle) {
-        return new RunLog.Header(1, "v4.0.0", "abc1234", HeroClass.WARRIOR, 0, SEED, SeedSet.code(SEED),
-                7L, 3, 2, 8, new RunLog.Brain("random", "def5678", ZERO), "", oracle, "a laptop",
+        return new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc1234", HeroClass.WARRIOR, 0, SEED,
+                SeedSet.code(SEED), 7L, 20_000, 3, 2, 8,
+                new RunLog.Brain("random", "def5678", ZERO), "", oracle, "a laptop",
                 "2026-09-22T12:00:00Z");
     }
 

@@ -144,6 +144,7 @@ public final class RunLogReader {
                 Json.number(Json.required(held, "seed", "header")),
                 Json.string(Json.required(held, "seedcode", "header")),
                 salt(Json.string(Json.required(held, "salt", "header"))),
+                Json.integer(Json.required(held, "cap", "header")),
                 Json.integer(Json.required(held, "profile", "header")),
                 Json.integer(Json.required(held, "obsv", "header")),
                 Json.integer(Json.required(held, "codex", "header")),

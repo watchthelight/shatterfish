@@ -29,10 +29,12 @@ class RunLogJsonTest {
 
     private static final long SEED = 12_345L;
 
+    private static final int CAP = 20_000;
+
     private static RunLog.Header header() {
-        return new RunLog.Header(1, "v4.0.0", "abc1234", HeroClass.WARRIOR, 0, SEED, SeedSet.code(SEED),
-                7L, 3, 2, 8, new RunLog.Brain("random", "def5678", ZERO), "", false,
-                "a laptop", "2026-09-22T12:00:00Z");
+        return new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc1234", HeroClass.WARRIOR, 0, SEED,
+                SeedSet.code(SEED), 7L, CAP, 3, 2, 8, new RunLog.Brain("random", "def5678", ZERO),
+                "", false, "a laptop", "2026-09-22T12:00:00Z");
     }
 
     private static RunLog.Wait served(long thinkMs) {
@@ -78,11 +80,12 @@ class RunLogJsonTest {
     @DisplayName("the header carries the tuple, the versions and who played, and nothing else")
     void the_header_line_is_the_tuple_and_the_versions() {
         assertEquals("{\"brain\":{\"commit\":\"def5678\",\"config\":\"" + ZERO + "\",\"name\":\"random\"},"
-                        + "\"challenges\":0,\"class\":\"WARRIOR\",\"codex\":8,\"commit\":\"abc1234\","
-                        + "\"machine\":\"a laptop\",\"obsv\":2,\"oracle\":false,\"profile\":3,"
-                        + "\"registration\":\"\",\"salt\":\"0000000000000007\",\"seed\":12345,\"seedcode\":\""
-                        + SeedSet.code(SEED) + "\",\"started\":\"2026-09-22T12:00:00Z\","
-                        + "\"t\":\"header\",\"tag\":\"v4.0.0\",\"v\":1}",
+                        + "\"cap\":20000,\"challenges\":0,\"class\":\"WARRIOR\",\"codex\":8,"
+                        + "\"commit\":\"abc1234\",\"machine\":\"a laptop\",\"obsv\":2,\"oracle\":false,"
+                        + "\"profile\":3,\"registration\":\"\",\"salt\":\"0000000000000007\","
+                        + "\"seed\":12345,\"seedcode\":\"" + SeedSet.code(SEED) + "\","
+                        + "\"started\":\"2026-09-22T12:00:00Z\",\"t\":\"header\",\"tag\":\"v4.0.0\","
+                        + "\"v\":2}",
                 RunLogJson.canonical(header()));
     }
 
@@ -128,8 +131,9 @@ class RunLogJsonTest {
     @Test
     @DisplayName("the same header on two machines at two times chains identically")
     void the_machine_and_the_hour_are_not_chained() {
-        RunLog.Header elsewhere = new RunLog.Header(1, "v4.0.0", "abc1234", HeroClass.WARRIOR, 0, SEED,
-                SeedSet.code(SEED), 7L, 3, 2, 8, new RunLog.Brain("random", "def5678", ZERO), "", false,
+        RunLog.Header elsewhere = new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc1234",
+                HeroClass.WARRIOR, 0, SEED, SeedSet.code(SEED), 7L, CAP, 3, 2, 8,
+                new RunLog.Brain("random", "def5678", ZERO), "", false,
                 "a server in another country", "2027-01-01T00:00:00Z");
 
         assertEquals(RunLogJson.chain("", header()), RunLogJson.chain("", elsewhere));
@@ -139,10 +143,20 @@ class RunLogJsonTest {
     @DisplayName("anything the chain does cover changes it")
     void everything_else_is_chained() {
         String was = RunLogJson.chain("", header());
-        RunLog.Header later = new RunLog.Header(1, "v4.0.0", "abc1234", HeroClass.MAGE, 0, SEED,
-                SeedSet.code(SEED), 7L, 3, 2, 8, new RunLog.Brain("random", "def5678", ZERO), "", false,
-                "a laptop", "2026-09-22T12:00:00Z");
+        RunLog.Header later = new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc1234", HeroClass.MAGE,
+                0, SEED, SeedSet.code(SEED), 7L, CAP, 3, 2, 8,
+                new RunLog.Brain("random", "def5678", ZERO), "", false, "a laptop",
+                "2026-09-22T12:00:00Z");
         assertNotEquals(was, RunLogJson.chain("", later), "a different hero is a different Run");
+
+        // The cap decides whether a Run ended or was stopped, so two Runs under different caps are
+        // two Runs. Story 3.4 found this by replaying one: everything matched and the endings did
+        // not, because the Replay did not know what had stopped the original.
+        RunLog.Header shorter = new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc1234",
+                HeroClass.WARRIOR, 0, SEED, SeedSet.code(SEED), 7L, CAP / 2, 3, 2, 8,
+                new RunLog.Brain("random", "def5678", ZERO), "", false, "a laptop",
+                "2026-09-22T12:00:00Z");
+        assertNotEquals(was, RunLogJson.chain("", shorter), "a different cap is a different Run");
 
         RunLog.Wait moved = new RunLog.Wait(4, 1_500, 2, 0, ONE, served(12).sections(),
                 new Action.Step(17), true, RunLog.BOT, null, "", List.of(), 12);
@@ -184,20 +198,29 @@ class RunLogJsonTest {
     @DisplayName("a record refuses a value the log could not mean")
     void the_records_refuse_what_they_cannot_mean() {
         assertThrows(IllegalArgumentException.class,
-                () -> new RunLog.Header(2, "v4.0.0", "abc", HeroClass.WARRIOR, 0, SEED, SeedSet.code(SEED),
-                        7L, 3, 2, 8, new RunLog.Brain("random", "def", ZERO), "", false, "", ""),
+                () -> new RunLog.Header(RunLog.VERSION + 1, "v4.0.0", "abc", HeroClass.WARRIOR, 0,
+                        SEED, SeedSet.code(SEED), 7L, CAP, 3, 2, 8,
+                        new RunLog.Brain("random", "def", ZERO), "", false, "", ""),
                 "a schema version this build does not write");
         assertThrows(IllegalArgumentException.class,
-                () -> new RunLog.Header(1, "v4.0.0", "abc", HeroClass.WARRIOR, 0, SEED, SeedSet.code(SEED + 1),
-                        7L, 3, 2, 8, new RunLog.Brain("random", "def", ZERO), "", false, "", ""),
+                () -> new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc", HeroClass.WARRIOR, 0, SEED,
+                        SeedSet.code(SEED + 1), 7L, CAP, 3, 2, 8,
+                        new RunLog.Brain("random", "def", ZERO), "", false, "", ""),
                 "a seed code that means another seed");
         assertThrows(IllegalArgumentException.class,
-                () -> new RunLog.Header(1, "v4.0.0", "", HeroClass.WARRIOR, 0, SEED, SeedSet.code(SEED),
-                        7L, 3, 2, 8, new RunLog.Brain("random", "def", ZERO), "", false, "", ""),
+                () -> new RunLog.Header(RunLog.VERSION, "v4.0.0", "", HeroClass.WARRIOR, 0, SEED,
+                        SeedSet.code(SEED), 7L, CAP, 3, 2, 8,
+                        new RunLog.Brain("random", "def", ZERO), "", false, "", ""),
                 "no commit, so nothing says which build played it");
         assertThrows(IllegalArgumentException.class,
-                () -> new RunLog.Header(1, "v4.0.0", "abc", HeroClass.WARRIOR, 512, SEED, SeedSet.code(SEED),
-                        7L, 3, 2, 8, new RunLog.Brain("random", "def", ZERO), "", false, "", ""),
+                () -> new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc", HeroClass.WARRIOR, 0, SEED,
+                        SeedSet.code(SEED), 7L, 0, 3, 2, 8,
+                        new RunLog.Brain("random", "def", ZERO), "", false, "", ""),
+                "a turn cap of nothing, which is not a Run anybody played");
+        assertThrows(IllegalArgumentException.class,
+                () -> new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc", HeroClass.WARRIOR, 512, SEED,
+                        SeedSet.code(SEED), 7L, CAP, 3, 2, 8,
+                        new RunLog.Brain("random", "def", ZERO), "", false, "", ""),
                 "challenge flags past the game's own mask");
 
         assertThrows(IllegalArgumentException.class,
