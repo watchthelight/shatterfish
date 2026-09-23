@@ -50,9 +50,34 @@ class RegistrationsTest {
         return root;
     }
 
+    /**
+     * Writes a Registration as a file, from text this test controls.
+     *
+     * <p>The first draft wrote {@code registration.canonical()}, which is the method
+     * {@code Registrations.of} validates against -- so both sides of the round-trip moved together
+     * and renaming a key passed every test in this file. The text comes from {@link #text} now,
+     * which builds it by hand.
+     */
     private static void write(Path root, Registration registration) throws IOException {
-        Files.writeString(file(root, registration.id()), registration.canonical() + "\n",
+        Files.writeString(file(root, registration.id()), text(registration) + "\n",
                 StandardCharsets.UTF_8);
+    }
+
+    /**
+     * The canonical text of a baseline Registration, assembled here rather than asked for.
+     *
+     * <p>Only the fields {@link #baseline} varies are parameters; the rest are the constants that
+     * helper uses. If the record's shape changes, this stops matching and these tests fail -- which
+     * is the point, because the shape is what every published hash is over.
+     */
+    private static String text(Registration registration) {
+        return "{\"alpha_per_mil\":50,\"beta_per_mil\":50,\"brain_b\":{\"commit\":\"abc1234\","
+                + "\"config\":\"" + ZERO + "\",\"name\":\"random\"},\"budget_ms\":0,"
+                + "\"burn_in\":8,\"claim\":\"the random Brain finishes every Run\","
+                + "\"hypothesis\":\"" + registration.hypothesis() + "\","
+                + "\"machine_class\":\"a laptop\",\"maximum\":25,"
+                + "\"release_level\":" + registration.releaseLevel() + ","
+                + "\"seed_set\":\"" + registration.seedSet() + "\",\"seed_version\":1}";
     }
 
     private static Path file(Path root, String id) {
@@ -81,7 +106,10 @@ class RegistrationsTest {
         Registrations.Committed committed = Registrations.read(root, "H-0001-smoke");
 
         assertEquals(was, committed.registration());
-        assertEquals(was.hash(), committed.hash());
+        // Against the hash of the text on disk, computed here, rather than against the record's own
+        // method -- which is what the first draft compared, on both sides.
+        assertEquals(Registration.hashOf(text(was)), committed.hash(),
+                "the hash is over the committed bytes");
         assertEquals(was.id() + "@" + was.hash().substring(0, 16), committed.stamp());
         assertTrue(committed.at().matches("[0-9a-f]{40}"),
                 "the commit the hypothesis was fixed by: " + committed.at());
@@ -94,10 +122,13 @@ class RegistrationsTest {
         // adjusts the bounds. Git knows; and because the Rig hashes HEAD's bytes rather than the
         // working copy's, it refuses rather than quietly running under the new ones.
         repository(root, baseline("H-0002-edited", "smoke", false));
-        Registration after = new Registration("H-0002-edited", "the random Brain finishes every Run",
-                null, new Registration.Brain("random", "abc1234", ZERO), "smoke", 1, 500, 50, 8, 25,
-                0, "a laptop", false);
-        write(root, after);
+        // The bounds, loosened after the fact. Written as text rather than through `write`, which
+        // pins the bytes on purpose and would have produced the same file.
+        Files.writeString(file(root, "H-0002-edited"),
+                text(baseline("H-0002-edited", "smoke", false))
+                        .replace("\"alpha_per_mil\":50", "\"alpha_per_mil\":500")
+                        + System.lineSeparator(),
+                StandardCharsets.UTF_8);
 
         IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
                 () -> Registrations.read(root, "H-0002-edited"));
@@ -142,9 +173,10 @@ class RegistrationsTest {
         // wrote. So the reader writes back what it understood and compares.
         Registration was = baseline("H-0006-extra", "smoke", false);
         Files.createDirectories(root.resolve(Registrations.FOLDER));
-        String text = was.canonical();
+        String text = text(was);
         Files.writeString(file(root, "H-0006-extra"),
-                text.substring(0, text.length() - 1) + ",\"zzz_note\":\"and a salt of 7\"}\n",
+                text.replace(",\"seed_set\"", ",\"salt\":\"0000000000000007\",\"seed_set\"")
+                        + System.lineSeparator(),
                 StandardCharsets.UTF_8);
         run(root, "git", "init", "-q");
         run(root, "git", "config", "user.name", "a test");
@@ -156,6 +188,9 @@ class RegistrationsTest {
                 () -> Registrations.read(root, "H-0006-extra"));
 
         assertTrue(refused.getMessage().contains("canonical text"), refused.getMessage());
+        // Naming the member, which is what the story's own matrix asked for: "your file is wrong
+        // somewhere" is not a thing a person can act on, and the member is the whole of it.
+        assertTrue(refused.getMessage().contains("salt"), refused.getMessage());
     }
 
     @Test

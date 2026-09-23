@@ -70,6 +70,68 @@ class RegistrationTest {
 
     // ------------------------------------------------------------------- the text and the hash
 
+    /**
+     * The canonical text of {@link #baseline()}, written out.
+     *
+     * <p>Pinned rather than derived, because a test that builds its expectation with the method it
+     * is testing agrees with whatever that method currently does. Rename a key here and the hash
+     * every Run log stamps changes meaning; this is the line that says so out loud.
+     */
+    private static final String BASELINE_TEXT =
+            "{\"alpha_per_mil\":50,\"beta_per_mil\":50,\"brain_b\":{\"commit\":\"abc1234\","
+                    + "\"config\":\"" + ZERO + "\",\"name\":\"random\"},\"budget_ms\":0,"
+                    + "\"burn_in\":8,\"claim\":\"the random Brain finishes every Run\","
+                    + "\"hypothesis\":\"H-0001-a-baseline\",\"machine_class\":\"a laptop\","
+                    + "\"maximum\":25,\"release_level\":false,\"seed_set\":\"smoke\","
+                    + "\"seed_version\":1}";
+
+    @Test
+    @DisplayName("the canonical text is the one this repository committed to, key for key")
+    void the_text_is_the_pinned_one() {
+        assertEquals(BASELINE_TEXT, baseline().canonical(),
+                "the shape of a Registration is what every published hash is over; changing it is a"
+                        + " decision, and this is where it is made");
+    }
+
+    @Test
+    @DisplayName("a baseline and the comparison it came from differ in the text and the hash")
+    void a_baseline_is_not_a_comparison() {
+        // The row `every_field_moves_the_hash` could not have: everything identical except the
+        // presence of the baseline Brain. The assertion that used to stand in for it compared two
+        // Registrations differing in seven fields.
+        Registration was = comparison();
+        Registration without = new Registration(was.hypothesis(), was.claim(), null, was.brainB(),
+                was.seedSet(), was.seedVersion(), was.alphaPerMil(), was.betaPerMil(), was.burnIn(),
+                was.maximum(), was.budgetMs(), was.machineClass(), was.releaseLevel());
+
+        assertNotEquals(was.hash(), without.hash(),
+                "a comparison and the baseline of the same Brain are different hypotheses");
+        assertTrue(was.canonical().contains("brain_a"));
+        assertFalse(without.canonical().contains("brain_a"));
+    }
+
+    @Test
+    @DisplayName("a Brain has three components, and all three are in the hash")
+    void a_brain_is_wholly_hashed() {
+        // The guard `Registration` has and `Brain` did not. A fourth component -- a weights hash,
+        // say -- would be silently outside everything the chain and the ledger cover.
+        assertEquals(3, Registration.Brain.class.getRecordComponents().length,
+                "a component was added to Brain: give it a row below, or it is outside the hash");
+        Registration was = comparison();
+        assertNotEquals(was.hash(), new Registration(was.hypothesis(), was.claim(),
+                new Registration.Brain("elsewhere", "abc1234", ZERO), was.brainB(), was.seedSet(),
+                was.seedVersion(), was.alphaPerMil(), was.betaPerMil(), was.burnIn(), was.maximum(),
+                was.budgetMs(), was.machineClass(), was.releaseLevel()).hash(), "the name");
+        assertNotEquals(was.hash(), new Registration(was.hypothesis(), was.claim(),
+                new Registration.Brain("random", "def5678", ZERO), was.brainB(), was.seedSet(),
+                was.seedVersion(), was.alphaPerMil(), was.betaPerMil(), was.burnIn(), was.maximum(),
+                was.budgetMs(), was.machineClass(), was.releaseLevel()).hash(), "the commit");
+        assertNotEquals(was.hash(), new Registration(was.hypothesis(), was.claim(),
+                new Registration.Brain("random", "abc1234", ONE), was.brainB(), was.seedSet(),
+                was.seedVersion(), was.alphaPerMil(), was.betaPerMil(), was.burnIn(), was.maximum(),
+                was.budgetMs(), was.machineClass(), was.releaseLevel()).hash(), "the configuration");
+    }
+
     @Test
     @DisplayName("the canonical text is one object, keys sorted, no whitespace, no floats")
     void the_text_is_canonical() {
@@ -162,6 +224,27 @@ class RegistrationTest {
     // --------------------------------------------------------------------------- what it refuses
 
     @Test
+    @DisplayName("a value shaped like a salt is refused, whatever it is called")
+    void a_salt_shaped_value_is_refused() {
+        // The guard that matters. A salt is sixteen hex digits and contains neither of the words a
+        // blacklist holds, so the first draft of this class could not catch the thing it was named
+        // for -- which is what the fairness review said in as many words.
+        assertThrows(IllegalArgumentException.class,
+                () -> new Registration("H-0020", "the stream begins 5a17c9f3e1b20d48", null,
+                        brain("random"), "smoke", 1, 50, 50, 8, 25, 0, "a laptop", false),
+                "sixteen hex digits in the claim");
+        assertThrows(IllegalArgumentException.class,
+                () -> new Registration("H-0021", "x", null, brain("random"), "smoke", 1, 50, 50, 8,
+                        25, 0, "rig-deadbeef01", false),
+                "and in the machine class");
+
+        // And a word that merely contains one of the banned ones is not a refusal. The first draft
+        // used `contains`, which would have turned a real machine class into an argument.
+        assertEquals("basalt-ci", new Registration("H-0022", "the Brain finishes every Run", null,
+                brain("random"), "smoke", 1, 50, 50, 8, 25, 0, "basalt-ci", false).machineClass());
+    }
+
+    @Test
     @DisplayName("a Registration that names a salt is refused, in whichever field it is written")
     void a_salt_is_refused_anywhere() {
         // A Registration is committed before the Runs and is public, so anything in it is something
@@ -179,6 +262,12 @@ class RegistrationTest {
                 () -> new Registration("H-0006", "the seedcode is AAA-AAA-AAB", null, brain("random"),
                         "smoke", 1, 50, 50, 8, 25, 0, "a laptop", false),
                 "and a seed code, which names one Run of it");
+        // The baseline Brain's name, which had no test at all: deleting the branch that checks it
+        // passed the whole suite.
+        assertThrows(IllegalArgumentException.class,
+                () -> new Registration("H-0023", "x", new Registration.Brain("salt", "abc1234", ZERO),
+                        brain("random"), "smoke", 1, 50, 50, 8, 25, 0, "a laptop", false),
+                "in the baseline Brain's name");
     }
 
     @Test
@@ -199,6 +288,19 @@ class RegistrationTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new Registration("H-0010", "x", null, brain("random"), "smoke", 1, 50, 50, 8,
                         25, 0, "", false), "a Registration says what it was measured on");
+        assertThrows(IllegalArgumentException.class,
+                () -> new Registration("H-0011", "   ", null, brain("random"), "smoke", 1, 50, 50, 8,
+                        25, 0, "a laptop", false), "a blank claim is not a claim");
+        assertThrows(IllegalArgumentException.class,
+                () -> new Registration("H-0012", "x".repeat(2001), null, brain("random"), "smoke", 1,
+                        50, 50, 8, 25, 0, "a laptop", false),
+                "a claim is a sentence, and it is concatenated into a published reason");
+        // The rates at their limits, which nothing exercised: only 0 was refused.
+        assertEquals(999, new Registration("H-0013", "x", null, brain("random"), "smoke", 1, 999, 1,
+                8, 25, 0, "a laptop", false).alphaPerMil());
+        assertThrows(IllegalArgumentException.class,
+                () -> new Registration("H-0014", "x", null, brain("random"), "smoke", 1, 1000, 50, 8,
+                        25, 0, "a laptop", false), "a rate below one");
         assertThrows(IllegalArgumentException.class,
                 () -> new Registration.Brain("Random", "abc1234", ZERO), "a Brain's name is lower case");
         assertThrows(IllegalArgumentException.class,
