@@ -2,7 +2,7 @@
 title: 'Story 3.10: Results pages and the methodology page'
 type: 'feature'
 created: '2026-09-23'
-status: 'in-review'
+status: 'done'
 baseline_commit: '2ea46def8a9977d6ac63cadc992455c9f128c919'
 review_loop_iteration: 0
 context: []
@@ -77,3 +77,36 @@ where a location is recorded; choosing a store is the owner's decision.
 
 **Commands:**
 - `./gradlew build` -- green; `mkdocs build --strict` -- green.
+
+## Evidence
+
+**Rig numbers.** H-0007, `random_twin` against `random` on `smoke` (the maximum at 25): 50 Runs in
+**25,262 ms** on 24 processes (1.98 Runs/s), UNDECIDED at pair 25 as a direction check, 9 / 2 / 14
+worse / equal / better, one pair missing. The generator, by the task's own clock: extracting a
+1,000-Run comparison folder from its logs takes 4.5 to 28.7 s (the logs are read once each), a
+50-Run one 0.9 s, and regenerating all six pages from their committed data 0.96 s. No Brain's
+strength changed, so there is no strength result.
+
+**Deviations, argued.** The Run logs are not linked: a side of `standard` is about 37 MB and where
+to publish them is the owner's decision (spec: Ask First); every page says so, carries each Run's
+chain, and `results.json` has a `logs` field for the answer (`docs/ideas.md`). The fairness suite's
+status is a link to the invoking commit's checks rather than a recorded pass/fail, because the Rig
+runs locally and CI records the suite; the page says CI runs on pull requests and pushes to `main`,
+so an intermediate commit may have no checks. H-0007's maximum was set to the whole of `smoke`, so
+UNDECIDED was one of its possible outcomes; the methodology page says so rather than presenting it
+as a surprise.
+
+**Three reviews.** Fixed: the Brains shown were the headers' (the invocation's commit) and are now
+the Registration's beside them; the Registration's commit is the one that added it, refused when git
+cannot say; prior attempts compared timestamps as strings and counted only the same Registration
+(now instants, and siblings with the same candidate Brain and Seed set as well); unreadable logs
+vanished from the Run count; the Oracle count was written, not counted; extraction wrote before it
+had checked; a comparison.json naming another Registration, a malformed stamp, sides on different
+Seed sets and index lines without a log or seed were not refused; the page did not say what the
+command reproduces, where the burn-in ends, how missing pairs are scored, or that a REJECT of pairs
+that all tied means nothing; the twin's stream, the comparison path and three of four
+disagreements were untested; an untitled data folder dropped out of the drift check.
+
+**Mutation battery: 16 mutations, 16 killed.** Four survived the first run: attempts after the
+invocation began, another candidate's attempts, the earliest start when it is not the first
+header's, and an escaped quote before a comma. Each now has a test.
