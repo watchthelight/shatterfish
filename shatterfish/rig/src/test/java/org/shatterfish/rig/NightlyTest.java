@@ -438,6 +438,16 @@ class NightlyTest {
         assertTrue(gh.contains("pr list --head rig/nightly --base main --state open"), gh);
         assertTrue(gh.contains("pr create --head rig/nightly --base main"), "no open pull request, so one is opened: " + gh);
         assertTrue(gh.contains("FAIL on 2026-09-24"), "and its title says the night failed: " + gh);
+
+        // The publish job re-run for the same night: the same run, already in the branch's history,
+        // is not appended a second time.
+        git(repo, "checkout", "-q", "main");
+        Process again = builder.start();
+        String saidAgain = new String(again.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertEquals(0, again.waitFor(), saidAgain);
+        git(repo, "fetch", "-q", "origin");
+        assertEquals(history, show(repo, "origin/rig/nightly:results/nightly/history.jsonl"),
+                "one night, one line, however often it is published: " + saidAgain);
     }
 
     /** Git's own bash on Windows, or bash on the path elsewhere; null when there is none. */
