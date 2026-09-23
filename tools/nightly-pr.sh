@@ -32,6 +32,8 @@ tail -n "+$((committed + 1))" "$ledger" > "$tmp/tonight-ledger.jsonl"
 git fetch --quiet origin "$branch" 2>/dev/null || true
 
 # base_of <path> <out>: main's committed copy, or the branch's when main's is a prefix of it.
+# When the branch's copy is not an extension of main's, the branch's unmerged lines cannot be
+# carried forward without rewriting main's history; that is said aloud rather than done quietly.
 base_of() {
   local path=$1 out=$2 size
   git show "HEAD:$path" > "$out" 2>/dev/null || : > "$out"
@@ -39,6 +41,10 @@ base_of() {
     size=$(wc -c < "$out")
     if [ "$(wc -c < "$tmp/previous")" -ge "$size" ] && cmp -s -n "$size" "$out" "$tmp/previous"; then
       cp "$tmp/previous" "$out"
+    else
+      echo "::warning::$branch's $path does not extend main's; its unmerged lines are not carried forward"
+      echo "WARNING: $branch's \`$path\` does not extend main's; its unmerged lines were not carried forward." \
+        >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
     fi
   fi
 }

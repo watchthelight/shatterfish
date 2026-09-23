@@ -46,6 +46,23 @@ class NightlyTest {
         return out;
     }
 
+    /** Every Run finished and none incomplete, but two the index cannot account for. */
+    private static Path unaccounted(Path out) throws IOException {
+        folder(out, STAMP, "smoke", "random", 25, 25, 0);
+        Path summary = out.resolve(RunIndex.SUMMARY);
+        Files.writeString(summary, Files.readString(summary, StandardCharsets.UTF_8)
+                .replace("\"runsUnaccounted\":0", "\"runsUnaccounted\":2"), StandardCharsets.UTF_8);
+        return out;
+    }
+
+    /** A summary the Rig only half wrote. */
+    private static Path garbled(Path out) throws IOException {
+        Files.createDirectories(out);
+        Files.writeString(out.resolve(RunIndex.SUMMARY), "{\"runsStarted\":\"twenty-five\"}\n",
+                StandardCharsets.UTF_8);
+        return out;
+    }
+
     private static String[] causes(int deaths, int unknown) {
         List<String> all = new ArrayList<>();
         for (int i = 0; i < deaths; i++) {
@@ -94,7 +111,9 @@ class NightlyTest {
                         "20 Runs started of the 25"),
                 new Case(folder(root.resolve("incomplete"), STAMP, "smoke", "random", 25, 22, 3),
                         "22 of 25 Runs finished (3 incomplete"),
-                new Case(root.resolve("absent"), "the Rig wrote no summary"));
+                new Case(root.resolve("absent"), "the Rig wrote no summary"),
+                new Case(unaccounted(root.resolve("unaccounted")), "0 incomplete, 2 unaccounted"),
+                new Case(garbled(root.resolve("garbled")), "the Rig's summary could not be read"));
         for (Case c : cases) {
             Nightly.Night night = Nightly.night(c.folder(), 25, "2026-09-23", "abc1234", "");
             assertFalse(night.pass(), c.folder().toString());
@@ -117,6 +136,19 @@ class NightlyTest {
         assertEquals(List.of(), Nightly.history(out.resolve("absent.jsonl")));
         String keyless = night.line().replace("\"why\":\"\"", "\"because\":\"\"");
         assertThrows(IllegalArgumentException.class, () -> Nightly.Night.of(keyless));
+    }
+
+    @Test
+    @DisplayName("the task refuses any shape but page, or night with its four or five arguments")
+    void the_task_refuses_other_shapes() {
+        String root = SeedSetsTest.ROOT.toString();
+        for (String[] args : List.of(new String[] {root}, new String[] {root, "pages"},
+                new String[] {root, "night", "out", "2026-09-23"},
+                new String[] {root, "day", "out", "2026-09-23", "abc1234"})) {
+            IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                    () -> Nightly.main(args), String.join(" ", args));
+            assertTrue(refused.getMessage().startsWith("usage: Nightly"), refused.getMessage());
+        }
     }
 
     // ------------------------------------------------------------------------------ the page
@@ -200,6 +232,8 @@ class NightlyTest {
             assertTrue(rest.contains("if: always()"), step + " runs whatever happened before it");
         }
         assertTrue(workflow.contains("GITHUB_STEP_SUMMARY"), "the status is the job summary");
+        assertTrue(workflow.contains("rc=$?") && workflow.contains("the night could not be recorded"),
+                "a night the recording could not judge still reports a failure where a person looks");
         assertTrue(workflow.contains("if: steps.record.outputs.pass != 'true'")
                         && workflow.contains("exit 1"),
                 "a failed night fails the job, after it is published");
@@ -229,6 +263,8 @@ class NightlyTest {
         assertTrue(script.contains("base_of \"$ledger\"") && script.contains("base_of \"$history\""),
                 "the ledger and the history carry unmerged nights forward");
         assertTrue(script.contains("cmp -s -n \"$size\""), "only when main's copy is a prefix of the branch's");
+        assertTrue(script.contains("does not extend main's; its unmerged lines"),
+                "and says so, in the job summary, when it cannot carry them forward");
         assertFalse(script.contains("Co-Authored-By") || script.contains("Generated with"));
     }
 

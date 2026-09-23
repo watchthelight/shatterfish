@@ -117,15 +117,30 @@ public final class Nightly {
             return new Night(date, commit, "", 0, 0, 0, 0, 0, "", false,
                     "the Rig wrote no summary: it was refused or stopped before the end", run);
         }
-        String summary = read(summaryFile).strip();
-        String registration = orEmpty(LogHeader.string(summary, "registration"));
-        int started = number(summary, "runsStarted");
-        int finished = number(summary, "runsFinished");
-        int incomplete = number(summary, "runsIncomplete");
-        int unaccounted = number(summary, "runsUnaccounted");
-        long ms = Long.parseLong(orZero(LogHeader.value(summary, "ms")));
-        String set = orEmpty(LogHeader.string(summary, "seedSet"));
-        String brain = orEmpty(LogHeader.string(summary, "brain"));
+        String registration;
+        int started;
+        int finished;
+        int incomplete;
+        int unaccounted;
+        long ms;
+        String set;
+        String brain;
+        try {
+            String summary = read(summaryFile).strip();
+            registration = orEmpty(LogHeader.string(summary, "registration"));
+            started = number(summary, "runsStarted");
+            finished = number(summary, "runsFinished");
+            incomplete = number(summary, "runsIncomplete");
+            unaccounted = number(summary, "runsUnaccounted");
+            ms = Long.parseLong(orZero(LogHeader.value(summary, "ms")));
+            set = orEmpty(LogHeader.string(summary, "seedSet"));
+            brain = orEmpty(LogHeader.string(summary, "brain"));
+        } catch (RuntimeException unreadable) {
+            // A summary the Rig half wrote is a night that went wrong, and the page has to say so
+            // rather than the recording step dying with a parse error nobody reads.
+            return new Night(date, commit, "", 0, 0, 0, 0, 0, "", false,
+                    "the Rig's summary could not be read: " + unreadable.getMessage(), run);
+        }
         String why;
         if (!registration.startsWith(REGISTRATION + "@")) {
             why = "not ranked under " + REGISTRATION + " (registration: \"" + registration + "\")";

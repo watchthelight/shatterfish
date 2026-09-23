@@ -63,9 +63,12 @@ jobs:
           set +e
           run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           ./gradlew -q --no-daemon :rig:nightly --args="$GITHUB_WORKSPACE night build/nightly $(date -u +%F) $(git rev-parse HEAD) $run_url"
-          echo "pass=$([ $? -eq 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          rc=$?
+          if [ "$rc" -eq 0 ]; then echo "pass=true" >> "$GITHUB_OUTPUT"; else echo "pass=false" >> "$GITHUB_OUTPUT"; fi
+          # A night the recording itself could not judge still says so, in the same place.
+          [ -s build/nightly/status.md ] || { mkdir -p build/nightly; echo "FAIL -- nightly smoke $(date -u +%F): the night could not be recorded (exit $rc)" > build/nightly/status.md; }
           {
-            echo "## $(cat build/nightly/status.md)"
+            echo "## $(head -n 1 build/nightly/status.md)"
             echo
             echo "Last lines the Rig printed:"
             echo
