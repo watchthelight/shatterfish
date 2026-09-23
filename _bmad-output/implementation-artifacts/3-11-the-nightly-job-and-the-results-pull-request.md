@@ -127,7 +127,9 @@ repository with a bare remote and a stub `gh` (14 of 14 `NightlyTest`, the scrip
 skipped). Docs: the repository setting, no CI on the results pull request, NFR-8 as a text check,
 workflow changes exercised only after merge; a dated note on ADR-0002.
 
-**Not re-run after the second review:** the full `./gradlew build` was stopped by the host for low
-memory, and the mutation battery on the new guards (16 mutations, `mutations311b.py`, patterns
-checked) was not started for the same reason. `NightlyTest` passed 14 of 14 on the committed code
-and `mkdocs build --strict` passed; CI on the pull request runs the full build.
+**Mutation battery on the second review's guards: 16 mutations, 16 killed.** Fifteen died on the
+first run; M13 (the check that a night already in the history under the same run is not appended
+twice) survived, and the script test now publishes the same night twice and holds the history to
+one line. The full `./gradlew build` was stopped by the host for low memory after this review and
+was not re-run locally; `NightlyTest` passed 14 of 14 and `mkdocs build --strict` passed, and CI on
+the pull request runs the full build.
