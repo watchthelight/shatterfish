@@ -31,3 +31,4 @@ tools/** text eol=lf
 *.md text eol=lf
 mkdocs.yml text eol=lf
 calibration/** text eol=lf
+results/** text eol=lf

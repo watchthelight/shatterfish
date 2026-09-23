@@ -2,7 +2,7 @@
 title: 'Story 3.9: The baseline and the deliberately worse Brain'
 type: 'feature'
 created: '2026-09-23'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: '34f8f032ee27eb5f37f91c060a9c4ecab221bc5e'
 review_loop_iteration: 0
 context: []
@@ -65,13 +65,13 @@ Change the calibrated bounds to get a verdict.
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `harness/.../agent/NoDescendAgent.java` + `Brains` -- the worse Brain, its sources and config.
-- [ ] `api/Registration`, `rig/Registrations` -- `statistic` for comparisons, absent for baselines.
-- [ ] `rig/Runner` -- refuse uncalibrated bounds on accepting sets, and a statistic other than the gate.
-- [ ] `rig/Comparison` -- within-pair correlation of turns in `comparison.json`.
-- [ ] `registrations/H-0002-*.json`, `H-0003-*.json` -- committed before the Runs.
-- [ ] Tests: `NoDescendAgentTest`, `RegistrationTest`, `RunnerRegistrationTest`, `ComparisonTest`.
-- [ ] The two ranked runs; `docs/results/` pages; `docs/methodology.md` and `docs/results/index.md`.
+- [x] `harness/.../agent/NoDescendAgent.java` + `Brains` -- the worse Brain, its sources and config.
+- [x] `api/Registration`, `rig/Registrations` -- `statistic` for comparisons, absent for baselines.
+- [x] `rig/Runner` -- refuse uncalibrated bounds on accepting sets, and a statistic other than the gate.
+- [x] `rig/Comparison` -- within-pair correlation of turns in `comparison.json`.
+- [x] `registrations/H-0002-*.json`, `H-0003-*.json` -- committed before the Runs.
+- [x] Tests: `NoDescendAgentTest`, `RegistrationTest`, `RunnerRegistrationTest`, `ComparisonTest`.
+- [x] The two ranked runs; `docs/results/` pages; `docs/methodology.md` and `docs/results/index.md`.
 
 **Acceptance Criteria:**
 - Given H-0002, when the random Baseline runs on `standard`, then its Results page exists with the command that reproduces it.

@@ -454,7 +454,7 @@ Moving to the exact form is in `docs/ideas.md`.
 a comparison plays 50 Runs in 9,996 ms. Twice the Runs for a third more time, because the pool is
 fuller.
 
-`comparison.json` writes every pair (seed, salt, both run ids, `score_halves`, `missing`), the
+`comparison.json` reports what pairing bought — `turns_correlation_micros`, the within-pair correlation of turns survived over the `correlated_pairs` both Runs of which ended, and `identical_pairs`, the pairs that were the same Run to the last turn — and writes every pair (seed, salt, both run ids, `score_halves`, `missing`), the
 Registration stamp, `direction_check`, and — when a Registration stated bounds — the test's
 parameters (`p0_micros`, `p1_micros`, `burn_in`, `maximum`, `missing_per_mil`), the bounds, the
 LLR and its trace, `clamped`, `stopped_at`, the consumed counts and the `verdict` (`ACCEPT`,
@@ -561,6 +561,13 @@ what the calibration concludes, and a later tag whose calibration goes the other
 until the gate changes with it. The e-process stays in the tree behind that constant, and every run
 of `./gradlew :rig:calibrate` measures both again; `comparison.json` names the `statistic` its
 bounds and trace belong to.
+
+**Held to it.** A comparison's Registration states the `statistic` its bounds are for, and the Rig
+refuses one registered for a statistic other than the gate. A comparison on a Seed set that may
+accept — `standard` or `bosses` — must state exactly the calibrated bounds (`p0`, `p1`, α, β, `n0`,
+`nmax` and the missing cap above) or it is refused and counted in the ledger as `FORBIDDEN`. A
+direction check on `smoke` may state what it likes, since it cannot accept anything. The first
+comparisons run under these rules are on the [worse-Brain page](results/2026-09-23-worse-brain.md).
 
 **What the missing cap costs.** A cap of one pair in four is the price of the Harness's unknown
 windows: it is what lets a comparison of today's Brains conclude at all, and it is also room for a
