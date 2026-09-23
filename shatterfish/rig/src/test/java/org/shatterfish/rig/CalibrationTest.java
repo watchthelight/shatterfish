@@ -230,8 +230,18 @@ class CalibrationTest {
         assertTrue(noWin.getMessage().contains("without \"win\""), noWin.getMessage());
         Path headless = folder.resolve("headless.jsonl");
         Files.write(headless, lines.subList(1, lines.size()), StandardCharsets.UTF_8);
-        assertThrows(IllegalArgumentException.class, () -> Calibration.read(headless),
-                "a first line that is a row is not a provenance");
+        // Refused for what it is, not for the number its missing "runs" fails to parse into: a
+        // NumberFormatException is an IllegalArgumentException too, and passed for this refusal.
+        IllegalArgumentException noProvenance = assertThrows(IllegalArgumentException.class,
+                () -> Calibration.read(headless));
+        assertTrue(noProvenance.getMessage().contains("without \"brain\""), noProvenance.getMessage());
+        Path numeric = folder.resolve("numeric.jsonl");
+        List<String> numbered = new ArrayList<>(lines);
+        numbered.set(1, numbered.get(1).replace("\"win\":false", "\"win\":0"));
+        Files.write(numeric, numbered, StandardCharsets.UTF_8);
+        IllegalArgumentException notBoolean = assertThrows(IllegalArgumentException.class,
+                () -> Calibration.read(numeric), "a win that is not a boolean is not read as a loss");
+        assertTrue(notBoolean.getMessage().contains("not a boolean"), notBoolean.getMessage());
 
         Calibration.Table table = new Calibration.Table(PROVENANCE, List.of(died(1)));
         assertThrows(IllegalArgumentException.class,
@@ -343,6 +353,22 @@ class CalibrationTest {
                 () -> Calibration.extract(partial, SeedSetsTest.ROOT));
         assertTrue(shortIndex.getMessage().contains("lists 20 Runs and the Seed set smoke holds 25"),
                 shortIndex.getMessage());
+
+        Path unnamed = Files.createDirectories(root.resolve("unnamed"));
+        folder(unnamed, "random", -1, -1);
+        Files.writeString(unnamed.resolve(RunIndex.SUMMARY), "{\"brain\":\"random\"}\n",
+                StandardCharsets.UTF_8);
+        IllegalArgumentException noSet = assertThrows(IllegalArgumentException.class,
+                () -> Calibration.extract(unnamed, SeedSetsTest.ROOT));
+        assertTrue(noSet.getMessage().contains("names no Seed set"), noSet.getMessage());
+
+        Path blank = Files.createDirectories(root.resolve("blank"));
+        List<String> blanked = folder(blank, "random", -1, -1);
+        blanked.set(0, blanked.get(0).replaceFirst("\"chain\":\"[0-9a-f]{64}\"", "\"chain\":\"\""));
+        Files.write(blank.resolve(RunIndex.RUNS), blanked, StandardCharsets.UTF_8);
+        IllegalArgumentException noChain = assertThrows(IllegalArgumentException.class,
+                () -> Calibration.extract(blank, SeedSetsTest.ROOT));
+        assertTrue(noChain.getMessage().contains("without \"chain\""), noChain.getMessage());
 
         Path escaping = Files.createDirectories(root.resolve("escaping"));
         List<String> out = folder(escaping, "random", -1, -1);
