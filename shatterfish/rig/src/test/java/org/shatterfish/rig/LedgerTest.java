@@ -151,6 +151,67 @@ class LedgerTest {
     }
 
     @Test
+    @DisplayName("an append onto a last line with no newline does not weld two records together")
+    void a_truncated_last_line_is_not_welded(@TempDir Path folder) throws IOException {
+        // Somebody edited the file and their editor dropped the final newline. Appending straight
+        // onto it joins two records into one line, and this file refuses to be read when a line
+        // cannot be -- so the mistake is permanent rather than untidy.
+        Ledger ledger = new Ledger(folder);
+        ledger.record(committed("H-0007-first", false), "random", "abc1234", ZERO, "smoke",
+                Ledger.Outcome.FINISHED, false, "");
+        String text = Files.readString(lines(folder), StandardCharsets.UTF_8);
+        Files.writeString(lines(folder), text.strip(), StandardCharsets.UTF_8);
+
+        new Ledger(folder).record(committed("H-0007-first", false), "random", "abc1234", ZERO,
+                "smoke", Ledger.Outcome.FINISHED, false, "");
+
+        assertEquals(2, new Ledger(folder).entries().size(), "two records, still readable");
+    }
+
+    @Test
+    @DisplayName("a ledger that has lost committed lines is refused")
+    void committed_lines_may_not_disappear(@TempDir Path root) throws IOException {
+        // The Registration is pinned by git; the count of attempts was pinned by nothing, so
+        // deleting lines restored every budget they recorded. HEAD's ledger must still be a prefix
+        // of the one on disk.
+        Path folder = root.resolve(Registrations.FOLDER);
+        Files.createDirectories(folder);
+        Ledger ledger = new Ledger(folder);
+        ledger.record(committed("H-0008-kept", true), "random", "abc1234", ZERO, "holdout",
+                Ledger.Outcome.CLAIMED, true, "");
+        ledger.record(committed("H-0008-kept", true), "random", "abc1234", ZERO, "holdout",
+                Ledger.Outcome.FINISHED, true, "");
+        for (String[] command : new String[][] {{"git", "init", "-q"},
+                {"git", "config", "user.name", "a test"},
+                {"git", "config", "user.email", "test@example.invalid"},
+                {"git", "add", "-A"}, {"git", "commit", "-q", "-m", "the record"}}) {
+            Process process = new ProcessBuilder(command).directory(root.toFile())
+                    .redirectErrorStream(true).start();
+            process.getInputStream().readAllBytes();
+            try {
+                assertEquals(0, process.waitFor(), String.join(" ", command));
+            } catch (InterruptedException interrupted) {
+                throw new IllegalStateException(interrupted);
+            }
+        }
+        assertEquals(2, new Ledger(folder, root).entries().size(), "intact, it reads");
+
+        // Appending is fine: the committed text is still a prefix.
+        new Ledger(folder, root).record(committed("H-0008-kept", true), "random", "def5678", ZERO,
+                "smoke", Ledger.Outcome.FINISHED, false, "");
+        assertEquals(3, new Ledger(folder, root).entries().size());
+
+        // Removing the first line is not.
+        String text = Files.readString(lines(folder), StandardCharsets.UTF_8);
+        Files.writeString(lines(folder), text.substring(text.indexOf('\n') + 1),
+                StandardCharsets.UTF_8);
+        IllegalStateException refused = assertThrows(IllegalStateException.class,
+                () -> new Ledger(folder, root));
+        assertTrue(refused.getMessage().contains("no longer begins with what is committed"),
+                refused.getMessage());
+    }
+
+    @Test
     @DisplayName("the ledger this repository committed is about Registrations this repository holds")
     void the_committed_ledger_is_real() {
         // Nothing checked it. An unparseable line was caught only incidentally -- every Runner test
