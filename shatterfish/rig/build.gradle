@@ -30,3 +30,33 @@ tasks.register('seeds', JavaExec) {
     args = [rootDir.absolutePath]
     outputs.upToDateWhen { false }
 }
+
+// The game reads its message bundles, atlases and sounds from the classpath through Gdx.files,
+// and core/src/main/assets is not a resources dir, so Gradle does not put it there (the harness's
+// own build does the same thing, for the same reason). The rig needs them on *its* classpath
+// because it hands that classpath to the child processes it starts: a child inherits
+// java.class.path from this process, so an asset the rig cannot see is an asset no Run can read.
+// The first invocation of the runner failed exactly there, with every Run dying in Messages.setup.
+def gameAssets = files(
+        new File(project(':core').projectDir, 'src/main/assets'),
+        new File(project(':desktop').projectDir, 'src/main/assets'))
+sourceSets {
+    main {
+        runtimeClasspath += gameAssets
+    }
+    test {
+        runtimeClasspath += gameAssets
+    }
+}
+
+// `./gradlew :rig:run --args=""--brain random --seeds smoke --parallel 4 --out <dir>"` (story 3.3).
+// The runner plays nothing itself: it starts one child JVM per Run, because the game's state is
+// static and process-wide (AD-6). The children inherit this task's classpath.
+tasks.register('run', JavaExec) {
+    group = 'shatterfish'
+    description = 'Runs a Brain over a Seed set, one process per Run.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.rig.Runner'
+    workingDir = rootDir
+    outputs.upToDateWhen { false }
+}
