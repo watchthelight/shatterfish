@@ -384,8 +384,15 @@ public final class Runner {
                 && Registrations.spendsTheBudget(set);
     }
 
-    /** What a refusal is called in a ledger line when the exception did not say. */
-    private static String note(RuntimeException failed) {
+    /**
+     * What a refusal is called in a ledger line when the exception did not say.
+     *
+     * <p>Package-private so that it can be held directly. Reaching it through {@code run} needs a
+     * child that fails with a message-less exception, which is a thing to arrange in production and
+     * not in a test -- and the guard matters: `JsonWriter` refuses a null, so without this the
+     * ledger write threw and replaced the refusal that voids the folder.
+     */
+    static String note(RuntimeException failed) {
         String said = failed.getMessage();
         return said == null || said.isEmpty() ? failed.getClass().getName() : said;
     }

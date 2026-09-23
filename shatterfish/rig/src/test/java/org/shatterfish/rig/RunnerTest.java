@@ -107,6 +107,20 @@ class RunnerTest {
     }
 
     @Test
+    @DisplayName("a refusal with nothing to say is still written down, and still thrown")
+    void a_message_less_refusal_is_recorded() {
+        // `JsonWriter` refuses a null value, so a ledger line built from a message-less exception
+        // threw -- and replaced the refusal that marks a folder void with a NullPointerException
+        // about the word "value". The one path that says a folder of numbers cannot be trusted was
+        // the path that crashed.
+        assertEquals("a child died", Runner.note(new IllegalStateException("a child died")));
+        assertEquals("java.lang.NullPointerException", Runner.note(new NullPointerException()),
+                "an exception that says nothing is named by its type");
+        assertEquals("java.lang.IllegalStateException", Runner.note(new IllegalStateException("")),
+                "and so is one whose message is empty");
+    }
+
+    @Test
     @DisplayName("a flag is never a value, and a value is never empty")
     void a_flag_is_not_a_value() {
         // `--commit --root` used to attest the string "--root" as the Shatterfish commit in every

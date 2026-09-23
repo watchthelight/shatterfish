@@ -211,6 +211,40 @@ class RegistrationsTest {
         assertTrue(refused.getMessage().contains("named by the file"), refused.getMessage());
     }
 
+    @Test
+    @DisplayName("an id that is not one is refused before it becomes a path or a git argument")
+    void a_bad_id_is_refused_first(@TempDir Path root) throws IOException {
+        repository(root, baseline("H-0030-here", "smoke", false));
+
+        for (String id : List.of("../../CLAUDE", "H-0030-here/../../CLAUDE", "*", "",
+                "H-30-here", "h-0030-here", "H-0030-HERE")) {
+            IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                    () -> Registrations.read(root, id),
+                    "this is not a hypothesis id: " + id);
+            assertTrue(refused.getMessage().contains("H-0001-a-short-name"),
+                    "refused for its shape, before three subprocesses run against a path somebody"
+                            + " else chose: " + refused.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("a folder git cannot be asked about is a machine problem, not an accusation")
+    void git_being_unanswerable_is_said_plainly(@TempDir Path root) throws IOException {
+        // Not a repository at all. The refusal used to be "this hypothesis is not committed", which
+        // is a true-sounding statement about somebody's honesty and a false one about the machine.
+        Files.createDirectories(root.resolve(Registrations.FOLDER));
+        Files.writeString(file(root, "H-0031-orphan"),
+                text(baseline("H-0031-orphan", "smoke", false)) + System.lineSeparator(),
+                StandardCharsets.UTF_8);
+
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> Registrations.read(root, "H-0031-orphan"));
+
+        assertTrue(refused.getMessage().contains("git could not be asked"), refused.getMessage());
+        assertFalse(refused.getMessage().contains("not committed"),
+                "and it does not say the hypothesis was never committed: " + refused.getMessage());
+    }
+
     // ------------------------------------------------------------------------- what it refuses
 
     @Test
