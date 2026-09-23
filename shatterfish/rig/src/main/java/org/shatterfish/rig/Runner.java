@@ -2,9 +2,11 @@ package org.shatterfish.rig;
 
 import org.shatterfish.api.RunLog;
 import org.shatterfish.api.SeedSet;
+import org.shatterfish.harness.log.Replay;
 import org.shatterfish.harness.rng.Salt;
 
 import java.io.IOException;
+import java.io.PrintStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -66,8 +68,27 @@ public final class Runner {
 
     public static final String DEADLINE = "--deadline";
 
+    /**
+     * Checks a folder the Rig wrote: every log against its own bytes, and against the index.
+     *
+     * <p>It plays nothing, so it costs what reading the files costs and can be run on every folder
+     * rather than on a sample. It answers "was this folder changed after it was written"; it does
+     * not answer "does this build still do what these logs describe", which is {@link #REPLAY}.
+     */
+    public static final String VERIFY = "--verify";
+
+    /**
+     * Replays one log in this process and reports whether the chains agree.
+     *
+     * <p>One log, not a folder. A Replay is a Run, and AD-6 gives a Run its own process because the
+     * game's state is static and process-wide -- so a command that replayed five hundred logs in
+     * one JVM would be measuring the order they went in.
+     */
+    public static final String REPLAY = "--replay";
+
     /** Every flag the Rig knows. The list is asserted by name, so a new one is a decision. */
-    static final List<String> KNOWN = List.of(BRAIN, SEEDS, PARALLEL, OUT, ROOT, COMMIT, CAP, DEADLINE);
+    static final List<String> KNOWN = List.of(BRAIN, SEEDS, PARALLEL, OUT, ROOT, COMMIT, CAP,
+            DEADLINE, VERIFY, REPLAY);
 
     /** How long one Run may take before it is killed and counted incomplete. */
     public static final int DEADLINE_SECONDS = 900;
@@ -82,9 +103,66 @@ public final class Runner {
     }
 
     public static void main(String[] args) {
-        Path out = run(arguments(args));
+        Map<String, String> arguments = arguments(args);
+        if (arguments.containsKey(VERIFY)) {
+            System.exit(verify(arguments, System.out));
+            return;
+        }
+        if (arguments.containsKey(REPLAY)) {
+            System.exit(replay(arguments, System.out));
+            return;
+        }
+        Path out = run(arguments);
         System.out.println("the Rig wrote " + out.resolve(RunIndex.RUNS) + " and "
                 + out.resolve(RunIndex.SUMMARY));
+    }
+
+    /**
+     * Checks every log in a folder, and answers with a status the shell can branch on.
+     *
+     * <p>An incomplete Run is not a failure here. A Run that was killed leaves a log whose prefix
+     * verifies perfectly, the Rig already counts it as incomplete, and treating it as tampering
+     * would make a busy machine look like a dishonest one.
+     */
+    static int verify(Map<String, String> arguments, PrintStream out) {
+        Verify.Report report = Verify.of(Path.of(required(arguments, VERIFY)));
+        out.println(report.text());
+        return report.ok(true) ? 0 : 1;
+    }
+
+    /**
+     * Replays one log and answers with a status the shell can branch on.
+     *
+     * <p>The Replay writes its own log beside the original, under `--out`, because the comparison
+     * is between two logs and throwing one of them away would leave the answer unexaminable. What
+     * it prints is the two chains, which is the whole result in two values a person can read.
+     */
+    static int replay(Map<String, String> arguments, PrintStream out) {
+        Path log = Path.of(required(arguments, REPLAY)).toAbsolutePath().normalize();
+        Path into = emptyFolder(required(arguments, OUT));
+        Path root = Path.of(arguments.getOrDefault(ROOT, ".")).toAbsolutePath().normalize();
+        String commit = arguments.containsKey(COMMIT) ? required(arguments, COMMIT) : commitOf(root);
+        long began = System.nanoTime();
+        Replay.Result result;
+        try {
+            result = Replay.of(log, into, commit, machine());
+        } catch (Replay.Diverged diverged) {
+            out.println("this build and " + log + " stop agreeing at wait " + diverged.at()
+                    + "; the sections that differ are " + diverged.sections());
+            return 2;
+        } catch (Replay.Unverifiable unverifiable) {
+            out.println(unverifiable.getMessage());
+            return 3;
+        } catch (RuntimeException refused) {
+            out.println(refused.getMessage());
+            return 4;
+        }
+        long millis = (System.nanoTime() - began) / 1_000_000L;
+        out.println((result.ok() ? "reproduced " : "did not reproduce ") + result.runId() + ": "
+                + result.verified() + " of " + result.waits() + " waits verified, the log chains to "
+                + result.originalChain() + " and this build to " + result.chain() + ", in " + millis
+                + " ms");
+        return result.ok() ? 0 : 1;
     }
 
     /**

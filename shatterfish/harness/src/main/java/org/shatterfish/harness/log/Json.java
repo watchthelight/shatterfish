@@ -55,8 +55,8 @@ public final class Json {
             require(keyEnd < text.length() && text.charAt(keyEnd) == ':', "a colon at " + keyEnd, text);
             int to = endOfValue(text, keyEnd + 1);
             require(members.put(key, text.substring(keyEnd + 1, to)) == null,
-                    "the key " + key + " written once, and a reader taking the other one would read"
-                            + " something else", text);
+                    "the key " + key + " written once and not twice, because a reader taking the"
+                            + " other one would read something else", text);
             at = to;
             if (at < text.length() - 1) {
                 require(text.charAt(at) == ',', "a comma at " + at, text);
