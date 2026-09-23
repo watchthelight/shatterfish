@@ -2,7 +2,7 @@
 title: 'Run logs with a hash chain'
 type: 'feature'
 created: '2026-09-22'
-status: 'in-progress'
+status: 'review'
 baseline_commit: '5945ad139'
 review_loop_iteration: 0
 context: []
@@ -223,6 +223,44 @@ four, eleven things in the branch were wrong rather than merely untested, and on
 
 Every one is fixed. The three commits are `da5b1b7d7` (the production half), `486739204` (the single
 exit and the test gaps) and `35c9f9781` (the published rules).
+
+**The mutation battery** (`mutations32.py`, twenty-two mutations, `:api:test` and `:harness:test`
+after each). Fourteen were caught. Seven of the eight survivors were rules the review patch itself
+had added days earlier and nothing then exercised — the review's own lesson arriving a second time.
+
+| # | Mutation | Caught by |
+|---|----------|-----------|
+| M1 | the chain stops covering everything before it | six suites |
+| M2 | the chain stops covering the Observation hash | `RunLogJsonTest`, `RunLogVectorTest` |
+| M3 | the chain starts covering how long the decider took | `RunLogJsonTest` |
+| M4 | a line stops repeating the chain before it | five suites |
+| M5 | the writer buffers, so a killed Run loses records | **nobody**, then `RunLogRunTest` |
+| M6 | the writer overwrites a log already there | `RunLogPrefixTest` |
+| M7 | a Prompt the game put up is not recorded | `RunLogRunTest` |
+| M8 | every Action is recorded as applied | `RunLogRunTest` |
+| M9 | the wait records a hash that is not the Observation's | `RunLogRunTest` |
+| M10 | a Run the harness could not follow claims it is replayable | `RunLogRunTest` |
+| M11 | the end record is keyed by the loop's count, not the driver's | **nobody** |
+| M12 | the header's oracle claim stops being re-checked | **nobody** |
+| M13 | a run id's parts may hold the separator again | **nobody** |
+| M14 | `fileName` stops checking what it was handed | **nobody** |
+| M15 | the salt goes back to a JSON number | three suites |
+| M16 | a prompt record accepts an answer that does not answer | **nobody** |
+| M17 | the reader calls an empty file a verified one | `RunLogKindsTest` |
+| M18 | the reader accepts a key written twice | `RunLogKindsTest` |
+| M19 | the chained text keeps the machine and the hour | six suites |
+| M20 | a Run that ends badly writes no ending | `RunLogRunTest` |
+| M21 | the tag is read from a game that has not been booted | **nobody** |
+| M22 | the Run's score is not the game's | **nobody** |
+
+Two are worth more than their row. **M5 was a weak mutation**: `Files.newOutputStream` returns an
+unbuffered stream, so deleting `flush()` changes nothing — the guarantee behind "a killed Run leaves
+whole lines" is the unbuffered channel and not the call. Re-run with a real `BufferedOutputStream`,
+it is caught, so the test does hold the property. **M21 was unreachable**: a JVM that has booted
+cannot be un-booted, so no test could arrange the state the guard exists for. The rule moved into
+`Observer.tag(version)`, which a test can ask directly — story 2.7's lesson, that a rule the world
+cannot be arranged to violate needs a seam. All eight were re-run after the fixes and all eight now
+bite.
 
 **Commands:**
 - `./gradlew build -Pshatterfish.mobile=off` — green, every module.
