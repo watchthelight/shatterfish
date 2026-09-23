@@ -111,3 +111,23 @@ the night.
 (only ever tested with `finished != started` also true), the history key check (the JSON reader
 refused the test's unsorted key first), the carry-forward copy, and the job-summary warning. Each
 now has a test.
+
+**Second review** (independent reviews of #128). Fixed: `gh pr view` found merged pull requests
+(now only the open one is edited); the ledger lost nights once a ranked story appended to `main`'s
+(now merged as a set of lines); a night that broke the build or the Rig never reached the page
+(the script now writes its failing line, and the play step's outcome is part of the verdict);
+multi-line and message-less exceptions broke the status and the table; one job held a writing
+token while running the Rig (now `play`, read-only with no stored credentials, and `publish`);
+the push had no lease and a failed branch lookup looked like a missing branch; pushes made with
+the workflow's token start no CI (the publish job runs `NightlyTest` first, and the page says so);
+the date was computed twice and a re-run could append a night twice; the script could not run
+outside Actions; a summary without its counts was read as zeros. Tests added: `Nightly.run` end to
+end, a summary written by `RunIndex`'s own writer, and the script run against a temporary
+repository with a bare remote and a stub `gh` (14 of 14 `NightlyTest`, the script test not
+skipped). Docs: the repository setting, no CI on the results pull request, NFR-8 as a text check,
+workflow changes exercised only after merge; a dated note on ADR-0002.
+
+**Not re-run after the second review:** the full `./gradlew build` was stopped by the host for low
+memory, and the mutation battery on the new guards (16 mutations, `mutations311b.py`, patterns
+checked) was not started for the same reason. `NightlyTest` passed 14 of 14 on the committed code
+and `mkdocs build --strict` passed; CI on the pull request runs the full build.
