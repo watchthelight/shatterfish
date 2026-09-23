@@ -149,4 +149,25 @@ class LedgerTest {
         assertTrue(line.contains("\"note\":\"the release number\""), line);
         assertEquals(entry, Ledger.Entry.of(line), "and it reads back to the same record");
     }
+
+    @Test
+    @DisplayName("the ledger this repository committed is about Registrations this repository holds")
+    void the_committed_ledger_is_real() {
+        // Nothing checked it. An unparseable line was caught only incidentally -- every Runner test
+        // reads this folder -- and a line pointing at a hash no Registration ever had, or naming a
+        // hypothesis that does not exist, was invisible. The count of prior attempts behind a
+        // published number is what FR-25 publishes, so it has to be about something.
+        Ledger ledger = new Ledger(SeedSetsTest.ROOT.resolve(Registrations.FOLDER));
+        List<String> ids = Registrations.ids(SeedSetsTest.ROOT);
+
+        for (Ledger.Entry entry : ledger.entries()) {
+            assertTrue(ids.contains(entry.registration()),
+                    "the ledger names " + entry.registration() + " and the folder holds " + ids);
+            assertEquals(Registrations.read(SeedSetsTest.ROOT, entry.registration()).hash(),
+                    entry.hash(),
+                    "the line for " + entry.registration() + " names bytes that Registration has");
+            assertTrue(entry.at().matches("[0-9a-f]{40}"),
+                    "and the commit the hypothesis was fixed by: " + entry.at());
+        }
+    }
 }

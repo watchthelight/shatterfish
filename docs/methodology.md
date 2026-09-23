@@ -292,16 +292,36 @@ a salt known in advance lets a Brain's author compute the game's coming draws as
 the next attack hits, what the next chest holds, where the next floor puts its stairs (ADR-0007). A
 Registration is written before the Runs and is public, so anything in it is something the Brain's
 author has. The salts are drawn when each pair executes, written into both Run logs, and appear
-nowhere else: late enough to be useless to a Brain, early enough to be replayable. A Registration
-carrying the word anywhere, in any field, is refused when it is read.
+nowhere else: late enough to be useless to a Brain, early enough to be replayable.
+
+**What enforces that is structural, and it is worth being precise about which part does what.** A
+Registration has no field for a salt; a file carrying a member the record does not have is refused
+when the Rig reads it; and the value is drawn from a secret at the moment a Run executes, so there
+is nothing to write down in advance even for somebody who wanted to. On top of those, the record
+refuses a *shape*: a run of eight or more hex digits in any field that holds prose, because a salt
+is sixteen of them and a word like "salt" is not what one looks like. An earlier draft checked for
+the word instead, which could not catch the thing it was named for and would have refused a machine
+class of `basalt-ci`.
 
 **Git is the authority on "before".** A file cannot make a claim about time about itself — any bytes
 on disk could have been written a second ago. The Rig asks git whether the path is tracked and
-whether the working copy differs, and then hashes *the committed bytes*, so an edit made after the
-Runs changes nothing the Rig used. The commit the Registration was read at goes into the ledger.
-What a Run log's header carries is the **stamp**: the id and the first sixteen digits of that hash,
-like `H-0001-nightly-smoke@a4d7fe89a612e89b`. A header naming only the id would let the file it
-names be pointed at different bytes afterwards.
+whether the working copy differs, and then hashes *the committed bytes* — the text `git show
+HEAD:<path>` returns — so an edit made after the Runs changes nothing the Rig used. The commit the
+Registration was read at goes into the ledger. What a Run log's header carries is the **stamp**: the
+id and the first sixteen digits of that hash, like `H-0001-nightly-smoke@a4d7fe89a612e89b`. A header
+naming only the id would let the file it names be pointed at different bytes afterwards.
+
+`registration` is a chained field, so **a Run's chain depends on the hypothesis it ran under**: the
+same tuple played under two Registrations reaches two different chains. That is deliberate — the
+hypothesis is part of what the Run was — and it means a Replay carries the original's stamp through,
+which is why it reproduces.
+
+**What a Registration does *not* prove.** A Run log's header is checked for the stamp's *shape* and
+nothing more: no reader confirms that the Registration named exists, or that its hash is the hash of
+anything committed. A log can therefore claim a hypothesis it was not run under, and would verify
+cleanly. What catches that is the Rig's own index and this ledger, both written by the invocation
+rather than by the Run — and, for a published number, a reader who checks the three against each
+other.
 
 ### The held-out set, and its budget
 
@@ -323,7 +343,19 @@ count FR-25 asks for.
 It is append-only and committed, which makes it tamper-*evident* rather than tamper-proof: a deleted
 line shows in a diff. That is what a repository can honestly offer. A ledger with a line nobody can
 read is refused rather than appended to — a count with a hole in it is not a smaller count, it is an
-unknown one.
+unknown one. And what HEAD holds must still be a **prefix** of what is on disk: the working copy is
+dirty by design, because appending is the Rig's job, but committed lines may not disappear. Without
+that, deleting one file restored every budget the file recorded.
+
+**A held-out use is claimed before the set is read**, not recorded once the Runs finish. `publish`
+opening the set is the moment it is spent — those triples have been seen, whatever happens next —
+and recording it at the end meant that killing the process left the set played and the ledger
+silent. A *refusal* spends nothing, because burning a Brain version's single allowance on a typo
+would be a rule punishing the wrong thing.
+
+**A Brain version is the commit that last changed the Brain's own source**, not the repository's
+HEAD. Otherwise a README typo mints a fresh allowance for an unchanged Brain, and FR-20's cap of one
+is uncapped in practice.
 
 **What it costs.** The pre-flight asks git three questions and reads the ledger: **146 ms**, against
 a smoke invocation of 6,438 ms (2.3%) and a standard invocation of about 160,000 ms (0.09%). The Rig
