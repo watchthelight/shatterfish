@@ -85,7 +85,12 @@ class ShatterfishRunTest {
         org.shatterfish.api.Codex.Manifest codex = CodexManifest.read(
                 SeedSetsTest.ROOT.resolve(CodexManifest.FOLDER).resolve(tag), tag);
         assertEquals(org.shatterfish.api.Codex.VERSION, codex.version());
-        assertTrue(Brains.of(Brains.SHATTERFISH, triple, codex) instanceof org.shatterfish.brain.BrainDecider);
+        org.shatterfish.api.Weights weights = WeightsFile.read(
+                WeightsFile.of(SeedSetsTest.ROOT, Brains.SHATTERFISH), Brains.SHATTERFISH);
+        assertTrue(Brains.of(Brains.SHATTERFISH, triple, codex, weights) instanceof org.shatterfish.brain.BrainDecider);
+        IllegalArgumentException unweighted = assertThrows(IllegalArgumentException.class,
+                () -> Brains.of(Brains.SHATTERFISH, triple, codex, null));
+        assertTrue(unweighted.getMessage().contains(RunOne.WEIGHTS), unweighted.getMessage());
         assertThrows(IllegalArgumentException.class, () -> CodexManifest.read(
                 SeedSetsTest.ROOT.resolve(CodexManifest.FOLDER).resolve(tag), "v0.0.1"),
                 "a Codex for another tag is not this build's");
@@ -108,15 +113,17 @@ class ShatterfishRunTest {
                 .filter(entry -> entry.seed() != one.seed()).findFirst().orElseThrow();
         assertTrue(Brains.agentSeed(one) != Brains.agentSeed(other), "the two triples seed the random agents apart");
         assertTrue(Brains.brainSeed(Brains.SHATTERFISH) != Brains.agentSeed(one));
-        assertTrue(Brains.configHash(Brains.SHATTERFISH).matches("[0-9a-f]{64}"));
-        assertTrue(!Brains.configHash(Brains.SHATTERFISH).equals("0".repeat(64)),
+        assertTrue(Brains.configHash(SeedSetsTest.ROOT, Brains.SHATTERFISH).matches("[0-9a-f]{64}"));
+        assertTrue(!Brains.configHash(SeedSetsTest.ROOT, Brains.SHATTERFISH).equals("0".repeat(64)),
                 "the Brain states its configuration");
         assertFalse(Brains.readsCodex(Brains.RANDOM), "the random agent is built on no Codex");
         String tag = org.shatterfish.harness.boot.HeadlessBoot.pinnedTag();
         org.shatterfish.api.Codex.Manifest codex = CodexManifest.read(
                 SeedSetsTest.ROOT.resolve(CodexManifest.FOLDER).resolve(tag), tag);
-        org.shatterfish.brain.BrainDecider a = (org.shatterfish.brain.BrainDecider) Brains.of(Brains.SHATTERFISH, one, codex);
-        org.shatterfish.brain.BrainDecider b = (org.shatterfish.brain.BrainDecider) Brains.of(Brains.SHATTERFISH, other, codex);
+        org.shatterfish.api.Weights weights = WeightsFile.read(
+                WeightsFile.of(SeedSetsTest.ROOT, Brains.SHATTERFISH), Brains.SHATTERFISH);
+        org.shatterfish.brain.BrainDecider a = (org.shatterfish.brain.BrainDecider) Brains.of(Brains.SHATTERFISH, one, codex, weights);
+        org.shatterfish.brain.BrainDecider b = (org.shatterfish.brain.BrainDecider) Brains.of(Brains.SHATTERFISH, other, codex, weights);
         assertEquals(a.brain().seed(), b.brain().seed());
     }
 }

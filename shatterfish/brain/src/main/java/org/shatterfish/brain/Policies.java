@@ -80,32 +80,50 @@ final class Policies {
     };
 
     /**
-     * Anything the screen offers, uniformly, from the Brain's seeded stream: the random agent's
-     * choice, as the floor under every Policy a later story adds.
+     * The floor under every Policy a later story adds: the Actions the screen offers that score
+     * highest by {@code evaluation}, and among those, uniformly, from the Brain's seeded stream
+     * (story 4.5). While every Action scores alike -- the committed weights give the Action
+     * features no weight -- it is the random agent's choice, drawn the same way it was in 4.1.
      */
-    static final Policy FALLBACK = new Policy() {
-        @Override
-        public String name() {
-            return "fallback";
-        }
-
-        @Override
-        public String goal() {
-            return "act, when no better Policy applies";
-        }
-
-        @Override
-        public boolean enters(Observation observation, Memory memory) {
-            return true;
-        }
-
-        @Override
-        public RunLog.Choice choose(Observation observation, Memory memory, List<Action> offered, Stream stream) {
-            if (offered.isEmpty()) {
-                return null;
+    static Policy fallback(Evaluation evaluation) {
+        return new Policy() {
+            @Override
+            public String name() {
+                return "fallback";
             }
-            return new RunLog.Choice(offered.get(stream.below(offered.size())), 0,
-                    "uniform over the " + offered.size() + " Actions offered");
-        }
-    };
+
+            @Override
+            public String goal() {
+                return "act, when no better Policy applies";
+            }
+
+            @Override
+            public boolean enters(Observation observation, Memory memory) {
+                return true;
+            }
+
+            @Override
+            public RunLog.Choice choose(Observation observation, Memory memory, List<Action> offered, Stream stream) {
+                if (offered.isEmpty()) {
+                    return null;
+                }
+                List<Action> best = new java.util.ArrayList<>();
+                long top = Long.MIN_VALUE;
+                for (Action action : offered) {
+                    long score = evaluation.of(observation, action);
+                    if (score > top) {
+                        top = score;
+                        best.clear();
+                    }
+                    if (score == top) {
+                        best.add(action);
+                    }
+                }
+                return new RunLog.Choice(best.get(stream.below(best.size())), top,
+                        best.size() == offered.size()
+                                ? "uniform over the " + offered.size() + " Actions offered, all scoring " + top
+                                : "uniform over the " + best.size() + " of " + offered.size() + " Actions scoring " + top);
+            }
+        };
+    }
 }

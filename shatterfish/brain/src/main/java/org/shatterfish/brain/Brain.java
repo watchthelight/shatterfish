@@ -5,6 +5,7 @@ import org.shatterfish.api.Belief;
 import org.shatterfish.api.Codex;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.RunLog;
+import org.shatterfish.api.Weights;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,33 +30,44 @@ public final class Brain {
     public record Decided(Action action, RunLog.Decision decision, String why) {
     }
 
-    /** The Policies, highest priority first. */
-    private static final List<Policy> POLICIES = List.of(Policies.ANSWER_PROMPT, Policies.FALLBACK);
-
     private final Codex.Manifest codex;
+    private final Evaluation evaluation;
     private final long seed;
     private final List<Policy> policies;
 
-    /**
-     * What decides this Brain's behaviour besides its code and its seed: the Policies in priority
-     * order and the version of the memory it carries. The rig hashes it into the log header.
-     */
-    public static String configuration() {
-        return "policies=" + String.join(",", POLICIES.stream().map(Policy::name).toList())
-                + ";memory=" + Memory.VERSION;
+    /** The Policies, highest priority first, scoring by {@code evaluation}. */
+    private static List<Policy> policies(Evaluation evaluation) {
+        return List.of(Policies.ANSWER_PROMPT, Policies.fallback(evaluation));
     }
 
     /**
-     * @param codex the Codex manifest, read by the caller; the Brain records what it was built on
-     * @param seed  the seed of the Brain's stream, from the caller
+     * What decides this Brain's behaviour besides its code and its seed: the Policies in priority
+     * order, the version of the memory it carries, and the weights it scores by (story 4.5). The
+     * rig hashes it into the log header, so two weight sets are two configurations.
      */
-    public Brain(Codex.Manifest codex, long seed) {
+    public static String configuration(Weights weights) {
+        return "policies=" + String.join(",", policies(new Evaluation(weights)).stream().map(Policy::name).toList())
+                + ";memory=" + Memory.VERSION + ";weights=" + weights.canonical();
+    }
+
+    /**
+     * @param codex   the Codex manifest, read by the caller; the Brain records what it was built on
+     * @param weights the Evaluation's weights, read by the caller (story 4.5)
+     * @param seed    the seed of the Brain's stream, from the caller
+     */
+    public Brain(Codex.Manifest codex, Weights weights, long seed) {
         if (codex == null) {
             throw new IllegalArgumentException("a Brain is built on a Codex its caller read");
         }
         this.codex = codex;
+        this.evaluation = new Evaluation(weights);
         this.seed = seed;
-        this.policies = POLICIES;
+        this.policies = policies(evaluation);
+    }
+
+    /** The weights this Brain scores by. */
+    public Weights weights() {
+        return evaluation.weights();
     }
 
     /** The seed of this Brain's stream, as its caller gave it. */

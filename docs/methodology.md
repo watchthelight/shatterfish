@@ -482,6 +482,15 @@ what it has seen, and two Runs that show it the same screens get the same Action
 the Codex, which the rig reads from `codex/<tag>/` and hands to the child with `--codex`; the
 child reads it only for a Brain that is built on one.
 
+**A Brain's weights are part of its configuration.** The Evaluation's weights are data, committed
+at `weights/<brain>.json` in their canonical spelling (sorted keys, no whitespace, integers only)
+with a `version`, and the Rig reads them and hands them to the Brain, which cannot open a file; the
+child gets the file through `--weights`. The configuration hash in every log header and every
+Registration is taken over the Brain's Policies, its memory version, the canonical text of its
+weights and its seed, so changing a weight -- or only the version -- is a different Brain to a
+Registration, and the Brain's version for the held-out budget moves with the file too. Changing a
+weight changes what the Brain does without recompiling it.
+
 **`smoke` is a direction check.** ADR-0012 lets only `standard` and `bosses` accept. A comparison on
 any other set still runs the test and prints its trace, but `comparison.json` says
 `"direction_check":true` and the ledger note says "(direction check)": its ACCEPT is a direction to

@@ -35,7 +35,7 @@ class BrainDeterminismTest {
     }
 
     private static List<String> play(long seed) {
-        BrainDecider brain = new BrainDecider(new Brain(Screens.CODEX, seed));
+        BrainDecider brain = new BrainDecider(new Brain(Screens.CODEX, Screens.WEIGHTS, seed));
         List<String> trace = new ArrayList<>();
         for (Observation screen : screens()) {
             Action action = brain.decide(screen);

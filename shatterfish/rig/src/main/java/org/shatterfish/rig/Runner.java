@@ -355,6 +355,8 @@ public final class Runner {
         // Every Run is told where the Codex is; a Brain that reads one is built on it, and the rest
         // ignore it (story 4.1). The Brain never opens it: its caller in the child does.
         Path codex = root.resolve(CodexManifest.FOLDER).resolve(tag);
+        // And where the weight sets are: a Brain that scores by one is built on its own (story 4.5).
+        Path weights = root.resolve(WeightsFile.FOLDER);
 
         long began = System.nanoTime();
         // Every child this invocation has alive, so that a failure anywhere can stop them all. A
@@ -381,7 +383,7 @@ public final class Runner {
                             RunIndex.State.STARTED, "", triple.seed(), triple.heroClass().name(),
                             triple.challengeFlags(), salt, "", 0, ""));
                     started.add(pool.submit(() -> one(side.index(), side.out(), alive, triple, salt,
-                            runId, side.brain(), commit, machine, cap, deadline, side.waits(), stamp, codex)));
+                            runId, side.brain(), commit, machine, cap, deadline, side.waits(), stamp, codex, weights)));
                 }
             }
             // Awaited as they finish rather than in the order they were sent. A refusal on the
@@ -571,7 +573,7 @@ public final class Runner {
             return new Registered(null, null, "", "");
         }
         Registrations.Committed committed = Registrations.read(root, required(arguments, REGISTRATION));
-        String brainConfig = Brains.configHash(brain);
+        String brainConfig = Brains.configHash(root, brain);
         // The Brain's own version, not the repository's. FR-20 counts one held-out use per Brain
         // version, and a key that moved when a README did would have handed an unchanged Brain a
         // fresh allowance every time somebody fixed a comment.
@@ -616,14 +618,14 @@ public final class Runner {
                 refusal = new Registrations.Refusal("the Registration "
                         + committed.registration().id() + " compares against the Brain "
                         + baseline.name() + " and this invocation compares against " + against);
-            } else if (baseline != null && !Brains.configHash(against).equals(baseline.configHash())) {
+            } else if (baseline != null && !Brains.configHash(root, against).equals(baseline.configHash())) {
                 // The baseline's configuration, like the candidate's. Checking only its name let a
                 // Registration naming "random, configuration X" compare against whatever the
                 // checkout's random was that day.
                 refusal = new Registrations.Refusal("the Registration "
                         + committed.registration().id() + " compares against " + baseline.name()
                         + " configured as " + baseline.configHash() + ", and this checkout's "
-                        + against + " is configured as " + Brains.configHash(against));
+                        + against + " is configured as " + Brains.configHash(root, against));
             } else if (baseline != null && committed.registration().releaseLevel()
                     && !Brains.version(root, against).startsWith(baseline.commit())) {
                 refusal = new Registrations.Refusal("the Registration "
@@ -708,7 +710,8 @@ public final class Runner {
     /** One Run, in a child, with its own Profile and working directory. */
     private static void one(RunIndex index, Path out, Map<String, Process> alive, SeedSet.Entry triple,
                             long salt, String runId, String brain, String commit, String machine,
-                            int cap, int deadline, AtomicLong waits, String registration, Path codex) {
+                            int cap, int deadline, AtomicLong waits, String registration, Path codex,
+                            Path weights) {
         Path working = out.resolve("work").resolve(runId);
         long began = System.nanoTime();
         String why = "";
@@ -718,7 +721,7 @@ public final class Runner {
         Process child = null;
         try {
             Files.createDirectories(working);
-            child = child(out, working, triple, salt, brain, commit, machine, cap, registration, codex);
+            child = child(out, working, triple, salt, brain, commit, machine, cap, registration, codex, weights);
             alive.put(out + "/" + runId, child);
             Process reading = child;
             // A platform thread, not a virtual one: reading a process pipe is a blocking native
@@ -834,7 +837,7 @@ public final class Runner {
 
     private static Process child(Path out, Path working, SeedSet.Entry triple, long salt,
                                  String brain, String commit, String machine, int cap,
-                                 String registration, Path codex) throws IOException {
+                                 String registration, Path codex, Path weights) throws IOException {
         Path java = Path.of(System.getProperty("java.home"), "bin", "java");
         Path exe = Path.of(java + ".exe");
         List<String> command = new ArrayList<>(List.of(
@@ -852,6 +855,10 @@ public final class Runner {
                 RunOne.CAP, Integer.toString(cap),
                 RunOne.CHALLENGES, Integer.toString(triple.challengeFlags()),
                 RunOne.CODEX, codex.toAbsolutePath().toString()));
+        if (Brains.readsWeights(brain)) {
+            command.add(RunOne.WEIGHTS);
+            command.add(weights.resolve(brain + ".json").toAbsolutePath().toString());
+        }
         if (!registration.isEmpty()) {
             // Only when there is one. The child's own parser refuses an empty value -- a flag is
             // stated or it is absent -- and an unranked Run's header says so by carrying nothing.
