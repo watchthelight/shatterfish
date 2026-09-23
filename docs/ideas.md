@@ -125,3 +125,4 @@ it re-reads ADR-0006's Blobs row.
   too, and until it does, a consumer doing the subtraction itself should know that the engine
   applies its multipliers between the two rolls.
 - Early stopping in the Rig: once the sequential test decides, cancel the pairs not yet dispatched (story 3.6 plays every pair and evaluates in Seed-set order; stopping dispatch must still respect that order, so pairs are dispatched in order and the test consumes only a completed prefix).
+- The exact GSPRT in the Rig (found in story 3.6's review). `Gsprt` implements Van den Bergh's eq. 2.1, which is what Fishtest's `sprt.set_state` reports, but Fishtest's server stops on the exact generalized LLR (`LLR_logistic`) over the same counts. The two agree near the bounds in ordinary tests and part in the tails. Adopting the exact form is an ADR-0012 amendment and a new reference fixture from the same pinned Fishtest checkout.
