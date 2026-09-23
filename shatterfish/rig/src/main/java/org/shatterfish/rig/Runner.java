@@ -66,7 +66,8 @@ public final class Runner {
 
     public static final String DEADLINE = "--deadline";
 
-    private static final List<String> KNOWN = List.of(BRAIN, SEEDS, PARALLEL, OUT, ROOT, COMMIT, CAP, DEADLINE);
+    /** Every flag the Rig knows. The list is asserted by name, so a new one is a decision. */
+    static final List<String> KNOWN = List.of(BRAIN, SEEDS, PARALLEL, OUT, ROOT, COMMIT, CAP, DEADLINE);
 
     /** How long one Run may take before it is killed and counted incomplete. */
     public static final int DEADLINE_SECONDS = 900;
@@ -147,16 +148,7 @@ public final class Runner {
             // second Run used to wait out the first Run's deadline before anyone saw it, and on a
             // five-hundred-Run set that is minutes of further Runs written into a folder the
             // refusal is about to declare void.
-            for (Future<?> run : started) {
-                try {
-                    run.get();
-                } catch (Exception broke) {
-                    Throwable cause = broke.getCause() == null ? broke : broke.getCause();
-                    failed = cause instanceof RuntimeException already ? already
-                            : new IllegalStateException("a Run could not be dispatched", cause);
-                    break;
-                }
-            }
+            failed = await(started);
         } finally {
             pool.shutdownNow();
             destroyAll(alive);
@@ -179,6 +171,31 @@ public final class Runner {
                 + RunIndex.rate(triples.entries().size(), millis) / 1000.0 + " Runs/s, "
                 + RunIndex.rate(waits.get(), millis) / 1000.0 + " waits/s)");
         return out;
+    }
+
+    /**
+     * Waits for every Run and returns the first failure, or null.
+     *
+     * <p>It unwraps. A worker's {@code IllegalStateException} used to come back out of
+     * {@code Future.get} as an {@code ExecutionException} and be rewrapped as "a Run could not be
+     * dispatched" -- so the oracle refusal's own message, which names the Run and FR-11, sat two
+     * levels down a cause chain and the operator saw none of it. It is a seam so that a test can
+     * ask what a failing Run does to the invocation without needing an invocation that fails.
+     */
+    static RuntimeException await(List<Future<?>> started) {
+        RuntimeException failed = null;
+        for (Future<?> run : started) {
+            try {
+                run.get();
+            } catch (Exception broke) {
+                Throwable cause = broke.getCause() == null ? broke : broke.getCause();
+                if (failed == null) {
+                    failed = cause instanceof RuntimeException already ? already
+                            : new IllegalStateException("a Run could not be dispatched", cause);
+                }
+            }
+        }
+        return failed;
     }
 
     /** One Run, in a child, with its own Profile and working directory. */

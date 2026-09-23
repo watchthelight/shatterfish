@@ -78,12 +78,43 @@ public final class RunOne {
         HeroClass heroClass = SeedSets.heroClass(required(arguments, CLASS));
         int challenges = (int) number(arguments, CHALLENGES);
         SeedSet.Entry triple = new SeedSet.Entry(seed, heroClass, challenges, SeedSet.code(seed));
-        RunLoop.Logging logging = new RunLoop.Logging(Path.of(required(arguments, OUT)),
+        Path out = Path.of(required(arguments, OUT));
+        if (!out.isAbsolute()) {
+            // A Run's working directory is its own, not the caller's, so a relative path here means
+            // two different places to the parent and the child. Hand-running one Run is exactly when
+            // that bites, and exactly when nobody is watching for it.
+            throw new IllegalArgumentException(OUT + " is an absolute path: a Run's working directory"
+                    + " is its own, so a relative one names somewhere the caller did not mean: " + out);
+        }
+        RunLoop.Logging logging = new RunLoop.Logging(out,
                 required(arguments, COMMIT),
                 new RunLog.Brain(brain, required(arguments, BRAIN_COMMIT), Brains.configHash(brain)),
                 arguments.getOrDefault(REGISTRATION, ""), arguments.getOrDefault(MACHINE, ""));
         int cap = arguments.containsKey(CAP) ? (int) number(arguments, CAP) : RunLoop.TURN_CAP;
+        where();
         return new RunLoop().playTriple(triple, salt, Brains.of(brain, triple), cap, logging);
+    }
+
+    /** The file a Run leaves in its own working directory, naming that directory. */
+    public static final String WHERE = "where.txt";
+
+    /**
+     * Writes down where this Run is running.
+     *
+     * <p>A Run gets a working directory of its own so that a Run which writes beside itself writes
+     * beside itself and not beside another Run (AD-6). Nothing observed that: the parent made the
+     * directory and then handed it to `ProcessBuilder.directory`, and deleting that one call left
+     * every child in the parent's own directory with every test still green. This is the mark that
+     * makes the claim checkable -- the Run says, in its own hand, where it was.
+     */
+    private static void where() {
+        java.nio.file.Path here = java.nio.file.Path.of("").toAbsolutePath();
+        try {
+            java.nio.file.Files.writeString(here.resolve(WHERE), here + System.lineSeparator(),
+                    java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException("a Run could not say where it is running: " + here, e);
+        }
     }
 
     /** The command line as a map, refusing a flag this child does not know and a value-less one. */
@@ -109,7 +140,8 @@ public final class RunOne {
         return given;
     }
 
-    private static final java.util.List<String> KNOWN = java.util.List.of(SEED, CLASS, SALT, OUT,
+    /** Every flag a Run knows. Held by name, like the parent's (RigOracleGateTest). */
+    static final java.util.List<String> KNOWN = java.util.List.of(SEED, CLASS, SALT, OUT,
             COMMIT, BRAIN, BRAIN_COMMIT, REGISTRATION, MACHINE, CAP, CHALLENGES);
 
     private static String required(Map<String, String> arguments, String flag) {

@@ -63,14 +63,48 @@ class RunnerTest {
         assertThrows(IllegalArgumentException.class,
                 () -> Runner.arguments(new String[] {"--brain", "a", "--brain", "b"}), "a flag twice");
 
-        // There is no oracle flag, in any spelling. This is the list, and it does not hold one.
+        // There is no oracle flag, in any spelling. This is the list the *code* checks against --
+        // not a copy built from the same constants, which is what this used to compare and which
+        // would have let a ninth flag in unnoticed.
         assertEquals(List.of("--brain", "--seeds", "--parallel", "--out", "--root", "--commit",
-                "--cap", "--deadline"), knownFlags());
+                        "--cap", "--deadline"), Runner.KNOWN,
+                "a flag added to the Rig is a decision, and this is where it is made");
     }
 
-    private static List<String> knownFlags() {
-        return List.of(Runner.BRAIN, Runner.SEEDS, Runner.PARALLEL, Runner.OUT, Runner.ROOT,
-                Runner.COMMIT, Runner.CAP, Runner.DEADLINE);
+    @Test
+    @DisplayName("a flag is never a value, and a value is never empty")
+    void a_flag_is_not_a_value() {
+        // `--commit --root` used to attest the string "--root" as the Shatterfish commit in every
+        // header of the invocation, and `--out --root` wrote the whole thing into a folder of that
+        // name.
+        IllegalArgumentException asValue = assertThrows(IllegalArgumentException.class,
+                () -> Runner.arguments(new String[] {Runner.COMMIT, Runner.ROOT}));
+        assertTrue(asValue.getMessage().contains("as its value"), asValue.getMessage());
+        IllegalArgumentException empty = assertThrows(IllegalArgumentException.class,
+                () -> Runner.arguments(new String[] {Runner.COMMIT, ""}));
+        assertTrue(empty.getMessage().contains("not left empty"), empty.getMessage());
+    }
+
+    @Test
+    @DisplayName("the command the methodology page publishes is a command the Rig accepts")
+    void the_published_command_is_accepted() throws IOException {
+        // It was not. `--commit` was required, and the page, the runner's own javadoc, the Gradle
+        // task's comment and this story's Verification section all omitted it -- so none of them
+        // ran, and the Verification section said one of them had.
+        String page = Files.readString(SeedSetsTest.ROOT.resolve("docs/methodology.md"),
+                StandardCharsets.UTF_8);
+        int at = page.indexOf("--args=");
+        assertTrue(at > 0, "the page publishes the command");
+        int opens = page.indexOf('"', at);
+        String published = page.substring(opens + 1, page.indexOf('"', opens + 1));
+
+        Map<String, String> parsed = Runner.arguments(published.trim().split("\\s+"));
+
+        assertEquals(Brains.RANDOM, parsed.get(Runner.BRAIN), published);
+        assertTrue(parsed.containsKey(Runner.SEEDS) && parsed.containsKey(Runner.OUT), published);
+        for (String flag : parsed.keySet()) {
+            assertTrue(Runner.KNOWN.contains(flag), flag + " is not a flag the Rig knows: " + published);
+        }
     }
 
     @Test
@@ -104,11 +138,48 @@ class RunnerTest {
     }
 
     @Test
-    @DisplayName("the default parallelism is one process per core, stated rather than assumed")
-    void the_default_is_what_the_machine_says() {
-        assertEquals(Math.max(1, Math.min(Runner.MOST, Runtime.getRuntime().availableProcessors())),
-                Runner.defaultParallel());
+    @DisplayName("an invocation not told how many processes to use takes the default, and records it")
+    @Timeout(value = 15, unit = TimeUnit.MINUTES)
+    void the_default_is_used_and_recorded(@TempDir Path out) throws IOException {
+        // Every test used to pass `--parallel`, so the fallback was dead code in the suite: change
+        // it to `return 1` and nothing failed, while the page's claim became false and every
+        // default invocation ran one core at a time.
+        Map<String, String> given = arguments(out, Runner.CAP, "40");
+        given.remove(Runner.PARALLEL);
+
+        Runner.run(given);
+
+        String summary = Files.readString(out.resolve(RunIndex.SUMMARY), StandardCharsets.UTF_8).strip();
+        assertEquals(String.valueOf(Runner.defaultParallel()), LogHeader.value(summary, "processes"),
+                "the invocation used the default it publishes");
         assertTrue(Runner.defaultParallel() >= 1 && Runner.defaultParallel() <= Runner.MOST);
+    }
+
+    @Test
+    @DisplayName("the rate the summary publishes is thousandths of a per-second rate, and the page quotes it so")
+    void the_published_rate_is_thousandths() throws IOException {
+        // The only assertion on this used to be "above zero". Drop the factor of a thousand and the
+        // summary would report 0.00185 Runs/s as `1` while the page's table stayed unreproducible.
+        assertEquals(3_102, RunIndex.rate(500, 161_199), "500 Runs in 161.199 s");
+        assertEquals(1_852, RunIndex.rate(25, 13_502), "25 Runs in 13.502 s");
+        assertEquals(1_000, RunIndex.rate(1, 1_000), "one Run a second");
+        assertEquals(0, RunIndex.rate(7, 0), "no time has passed, so no rate has been measured");
+
+        // And the page's table quotes that unit: each row's Runs/s is what its own Runs and wall
+        // clock give, to within the hundredth the wall clock itself is rounded to. A row nobody can
+        // recompute from the row is a number nobody can check.
+        String page = Files.readString(SeedSetsTest.ROOT.resolve("docs/methodology.md"),
+                StandardCharsets.UTF_8);
+        for (String[] row : new String[][] {{"25", "13.5", "1.85"}, {"500", "161", "3.10"}}) {
+            double fromTheRow = RunIndex.rate(Long.parseLong(row[0]),
+                    Math.round(Double.parseDouble(row[1]) * 1000)) / 1000.0;
+            double quoted = Double.parseDouble(row[2]);
+            assertTrue(page.contains("| " + row[2] + " |"),
+                    "the page quotes " + row[2] + " Runs/s for " + row[0] + " Runs in " + row[1] + " s");
+            assertTrue(Math.abs(fromTheRow - quoted) <= 0.02,
+                    row[0] + " Runs in " + row[1] + " s is " + fromTheRow + " Runs/s, and the page says "
+                            + quoted);
+        }
     }
 
     // ------------------------------------------------------------------ what an invocation writes
@@ -164,9 +235,15 @@ class RunnerTest {
             }
             assertFalse(LogHeader.string(line, "why").isEmpty(), "an incomplete Run says why: " + line);
             Path log = out.resolve(LogHeader.string(line, "log"));
-            // The partial log is kept. A killed Run's evidence is the thing the Rig must not lose.
-            assertTrue(Files.isRegularFile(log), "the partial log is still there: " + log);
-            assertFalse(LogHeader.of(log).complete(), "and it has no end record: " + log);
+            Path said = out.resolve(LogHeader.string(line, "runId") + ".err");
+            // Whatever the Run left is kept. A child killed one second in may not have reached the
+            // point of creating its log, so the evidence is the log or what it printed -- asserting
+            // only the log made this test fail whenever a JVM start ran long.
+            assertTrue(Files.isRegularFile(log) || Files.isRegularFile(said),
+                    "a killed Run left neither a log nor a word: " + log);
+            if (Files.isRegularFile(log)) {
+                assertFalse(LogHeader.of(log).complete(), "and its log has no end record: " + log);
+            }
         }
 
         String summary = Files.readString(out.resolve(RunIndex.SUMMARY), StandardCharsets.UTF_8).strip();
@@ -195,6 +272,30 @@ class RunnerTest {
         assertTrue(refused.getMessage().contains(runId), refused.getMessage());
         assertTrue(refused.getMessage().contains("what a player could not"), refused.getMessage());
         assertTrue(refused.getMessage().contains("FR-11"), refused.getMessage());
+    }
+
+    @Test
+    @DisplayName("a refusal comes back out of the invocation in its own words, and marks the folder")
+    void a_refusal_reaches_the_caller(@TempDir Path out) {
+        // Through `Future.get` a worker's exception arrives wrapped, and the runner used to rewrap
+        // it again as "a Run could not be dispatched" -- so the refusal's own message, which names
+        // the Run and FR-11, sat two levels down a cause chain where the operator never saw it.
+        IllegalStateException refusal = new IllegalStateException("the Run r saw what a player could not (FR-11)");
+        java.util.concurrent.FutureTask<Void> failing = new java.util.concurrent.FutureTask<>(() -> {
+            throw refusal;
+        });
+        failing.run();
+
+        assertEquals(refusal, Runner.await(List.of(failing)), "the refusal itself, not a wrapper");
+
+        // And the folder says the invocation was refused rather than looking like a finished one.
+        RunIndex index = new RunIndex(out);
+        index.started(new RunIndex.Entry("r", "r.jsonl", RunIndex.State.STARTED, "", 1, "WARRIOR",
+                0, 7, "", 0, ""));
+        index.refused(refusal.getMessage());
+        assertEquals(RunIndex.State.REFUSED, index.entries().get(0).state());
+        assertTrue(Files.isRegularFile(out.resolve(RunIndex.REFUSED)),
+                "a reader who picks this folder up finds the refusal beside the numbers");
     }
 
     @Test
