@@ -17,9 +17,9 @@ import java.util.List;
  * accepts when it does. Nothing about H1 enters: the bet is sized from the pairs already seen.
  *
  * <p><b>The bet</b> is aGRAPA, from Ian Waudby-Smith and Aaditya Ramdas, <i>Estimating means of
- * bounded random variables by betting</i> (JRSS B, 2024): λ = (μ̂ − p0) / (σ̂² + (μ̂ − p0)²), the
- * growth-rate-optimal bet for the running estimates μ̂ and σ̂², which start from ½ and ¼ as one prior
- * pair and are updated only after the pair they bet on. It is clipped to [0, ½/p0] so that the wealth
+ * bounded random variables by betting</i> (JRSS B, 2024): λ = (μ̂ − p0) / (σ̂² + (μ̂ − p0)²), their
+ * approximation to the growth-rate-optimal bet, from running estimates μ̂ and σ̂² that start from ½
+ * and ¼ as one prior pair and are updated only after the pair they bet on. It is clipped to [0, ½/p0] so that the wealth
  * never falls below half on one pair and never bets that the candidate is worse.
  *
  * <p><b>Futility</b> is the same construction the other way: a second gambler bets that the mean is
@@ -27,10 +27,16 @@ import java.util.List;
  * and the test rejects when that wealth reaches {@code 1/β}. That side does use {@code p1}: "not
  * better by as much as p1" is the only thing a futility stop can mean.
  *
- * <p><b>What the result reports.</b> {@code llr} and the trace are the log of the acceptance wealth,
- * which is compared with {@code upper = log(1/α)}. The futility wealth is not in the trace; its
- * crossing is reported as a REJECT with {@code lower = −log(1/β)}. The missing-pair VOID rule is
- * {@link SequentialTest}'s, the same as the GSPRT's. {@code burnIn} is 1: validity does not need one.
+ * <p><b>What the result reports</b>, so that a verdict can be checked against its own trace: after
+ * each pair, the log wealth of whichever process is ahead, the acceptance wealth as it is and the
+ * futility wealth negated. The test accepts when that reaches {@code upper = log(1/α)} and rejects
+ * when it reaches {@code lower = −log(1/β)}, like a GSPRT's LLR against its two bounds -- but it is a
+ * log wealth, not a likelihood ratio, which is why {@code comparison.json} names the statistic.
+ * Both wealths cannot cross on one pair when {@code p0} is ½: a win moves them apart, a loss the
+ * other way, and a tie leaves the acceptance wealth where it was. Should they, ACCEPT is checked
+ * first. A missing pair scores ½ here as in the GSPRT, and so counts against a mean of {@code p1}
+ * as a tie does; the missing-pair VOID rule is {@link SequentialTest}'s. {@code burnIn} is 1:
+ * validity does not need one.
  */
 public final class EProcess implements SequentialTest {
 
@@ -157,17 +163,20 @@ public final class EProcess implements SequentialTest {
             sum += x;
             double after = (0.5 + sum) / (consumed + 1);
             squares += (x - after) * (x - after);
-            trace.add(wealth);
             if (wealth >= upper) {
+                trace.add(wealth);
                 return new Gsprt.Result(Gsprt.Verdict.ACCEPT, consumed, wealth, false, lower, upper,
                         trace, counts);
             }
-            if (futility >= -lower) {
-                return new Gsprt.Result(Gsprt.Verdict.REJECT, consumed, wealth, false, lower, upper,
-                        trace, counts);
+            double leading = wealth >= futility ? wealth : -futility;
+            trace.add(leading);
+            if (-futility <= lower) {
+                return new Gsprt.Result(Gsprt.Verdict.REJECT, consumed, -futility, false, lower,
+                        upper, trace, counts);
             }
         }
-        return new Gsprt.Result(Gsprt.Verdict.UNDECIDED, consumed, wealth, false, lower, upper,
+        double last = trace.isEmpty() ? 0 : trace.get(trace.size() - 1);
+        return new Gsprt.Result(Gsprt.Verdict.UNDECIDED, consumed, last, false, lower, upper,
                 trace, counts);
     }
 }

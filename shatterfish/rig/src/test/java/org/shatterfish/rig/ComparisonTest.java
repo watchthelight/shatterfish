@@ -189,6 +189,33 @@ class ComparisonTest {
     }
 
     @Test
+    @DisplayName("under the e-process the crash exploit is void too, and the report names the statistic")
+    void the_eprocess_in_a_comparison(@TempDir Path out) throws IOException {
+        // The same forty pairs as the crash case below: wins where the candidate finished, missing
+        // Runs where it crashed. The e-process shares the VOID rule, so the result is void.
+        SeedSet set = set(40);
+        List<Long> salts = new ArrayList<>();
+        for (int i = 0; i < 40; i++) {
+            salts.add(3000L + i);
+            if (i % 2 == 0) {
+                died(out, Comparison.CANDIDATE, set.entries().get(i), 3000L + i, "greedy", 9);
+            }
+            died(out, Comparison.BASELINE, set.entries().get(i), 3000L + i, "random", 5);
+        }
+        EProcess test = new EProcess(0.50, 0.60, 0.05, 0.05, 100).allowingMissing(50);
+
+        Comparison.Report report = Comparison.of(set, salts, TAG, out, "greedy", "random", test);
+        Comparison.write(out, report, "H-0001-x@0123456789abcdef", true);
+
+        assertEquals(Gsprt.Verdict.VOID, report.result().verdict());
+        String json = Files.readString(out.resolve(Comparison.FILE), StandardCharsets.UTF_8).strip();
+        assertEquals("EPROCESS", LogHeader.string(json, "statistic"), json);
+        assertEquals(String.valueOf(Math.round(Math.log(20) * 1_000_000)),
+                LogHeader.value(json, "upper_micros"), json);
+        assertEquals("1", LogHeader.value(json, "burn_in"), "the e-process has none: " + json);
+    }
+
+    @Test
     @DisplayName("a Brain that crashes on the seeds it would lose gets a void result, not an accept")
     void crashing_to_a_tie_is_void(@TempDir Path out) throws IOException {
         // The exploit the fairness review found. Twenty pairs the candidate wins, and twenty it would

@@ -85,16 +85,16 @@ Its rates on the choosing sequences flatter it, because it was chosen on them. O
 
 ## The e-process beside it
 
-On the same 10,000 fresh sequences, both designs at each p1 of the grid, at the chosen burn-in and missing cap. The e-process accepts when its betting wealth against H0 reaches 1/α and needs no burn-in and no alternative to do so; it rejects when a second wealth, against a mean of p1 or more, reaches 1/β.
+On the same 10,000 fresh sequences, both designs at each p1 of the grid, at the chosen burn-in and missing cap. The e-process accepts when its betting wealth against H0 reaches 1/α and needs no burn-in and no alternative to do so; it rejects when a second wealth, against a mean of p1 or more, reaches 1/β. n0 applies to the GSPRT alone. *Errors within margin* holds both designs to nominal + the margin; the e-process's own promise is stricter, a false-accept probability of at most α at any stopping time.
 
 | statistic | p1 | n0 | missing cap | H0 accept | H0 reject | H0 undecided | H0 void | H0 mean pairs | H1 mean score | H1 accept (power) | H1 reject | H1 undecided | H1 void | H1 mean pairs | H1 median pairs | errors within margin | power |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | GSPRT | 0.550 | 20 | 0.250 | 3.53% | 64.61% | 31.55% | 0.31% | 342.9 | 0.5501 | 66.39% | 3.22% | 30.21% | 0.18% | 335.3 | 341 | yes | no |
-| e-process | 0.550 | 20 | 0.250 | 2.26% | 37.06% | 59.64% | 1.04% | 389.8 | 0.5501 | 37.36% | 2.46% | 59.19% | 0.99% | 387.2 | 500 | yes | no |
+| e-process | 0.550 | — | 0.250 | 2.26% | 37.06% | 59.64% | 1.04% | 389.8 | 0.5501 | 37.36% | 2.46% | 59.19% | 0.99% | 387.2 | 500 | yes | no |
 | GSPRT | 0.600 | 20 | 0.250 | 5.73% | 90.70% | 0.23% | 3.34% | 108.4 | 0.6001 | 92.61% | 3.99% | 0.19% | 3.21% | 102.0 | 80 | yes | yes |
-| e-process | 0.600 | 20 | 0.250 | 2.21% | 92.96% | 1.58% | 3.25% | 162.6 | 0.6001 | 93.62% | 2.29% | 1.83% | 2.26% | 163.5 | 139 | yes | yes |
+| e-process | 0.600 | — | 0.250 | 2.21% | 92.96% | 1.58% | 3.25% | 162.6 | 0.6001 | 93.62% | 2.29% | 1.83% | 2.26% | 163.5 | 139 | yes | yes |
 | GSPRT | 0.650 | 20 | 0.250 | 5.55% | 87.75% | 0.00% | 6.70% | 50.6 | 0.6499 | 90.74% | 3.04% | 0.00% | 6.22% | 46.8 | 35 | yes | yes |
-| e-process | 0.650 | 20 | 0.250 | 2.00% | 91.10% | 0.00% | 6.90% | 68.4 | 0.6499 | 93.52% | 1.76% | 0.00% | 4.72% | 69.7 | 57 | yes | yes |
+| e-process | 0.650 | — | 0.250 | 2.00% | 91.10% | 0.00% | 6.90% | 68.4 | 0.6499 | 93.52% | 1.76% | 0.00% | 4.72% | 69.7 | 57 | yes | yes |
 
 ## The gate
 

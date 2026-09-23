@@ -11,3 +11,6 @@ Findings surfaced by a story's review that are not that story's problem, one ent
 - source_spec: `_bmad-output/implementation-artifacts/3-7-calibrate-the-bounds.md`
   summary: A comparison Registration is not held to calibrated bounds; nothing refuses one with n0 = 10, which the calibration shows overshoots its false-accept rate.
   evidence: Gsprt.of(Registration) builds the test from any Registration's p1, burn-in and missing cap; story 3.9 writes the first comparison Registration and is where Calibration.CHOSEN should be required or cited.
+- source_spec: `_bmad-output/implementation-artifacts/3-8-the-e-process-alternative.md`
+  summary: A Registration does not fix which sequential test it was registered under, so flipping SequentialTest.GATE would run earlier Registrations under the other design.
+  evidence: SequentialTest.of(registration) reads a compile-time constant; the Registration's canonical text carries p0, p1, alpha, beta and n0 but no statistic. Story 3.9 writes the first comparison Registration and is where a statistic field, or a refusal on mismatch, belongs.

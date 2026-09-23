@@ -47,7 +47,12 @@ class EProcessTest {
 
         assertEquals(Gsprt.Verdict.REJECT, result.verdict());
         assertTrue(result.pairs() < 20, "quickly: " + result.pairs());
-        assertEquals(0.0, result.llr(), 1e-12, "a candidate that only loses is never bet on");
+        // The reported statistic is the leading wealth, the futility one negated, so the REJECT can
+        // be checked against the trace and the lower bound like a GSPRT's.
+        assertTrue(result.llr() <= result.lower(), result.llr() + " past " + result.lower());
+        assertEquals(result.llr(), result.trace().get(result.trace().size() - 1));
+        assertTrue(result.trace().subList(0, result.trace().size() - 1).stream()
+                .allMatch(w -> w > result.lower()), "and not before the pair it stopped on");
     }
 
     @Test
@@ -55,7 +60,9 @@ class EProcessTest {
     void ties_never_accept() {
         Gsprt.Result result = test().run(Collections.nCopies(500, PairScore.EQUAL));
 
-        assertTrue(result.trace().stream().allMatch(w -> w == 0.0), "the mean never leaves p0");
+        // The acceptance wealth never moves (the mean never leaves p0, so the bet is 0), which
+        // leaves the futility wealth ahead from the first pair: every entry is that, negated.
+        assertTrue(result.trace().stream().allMatch(w -> w < 0.0), result.trace().toString());
         assertTrue(result.verdict() != Gsprt.Verdict.ACCEPT, result.verdict().toString());
         assertEquals(Gsprt.Verdict.REJECT, result.verdict(),
                 "and ties at ½ are evidence against a mean of 0.6");
@@ -87,9 +94,37 @@ class EProcessTest {
     }
 
     @Test
+    @DisplayName("a Registration's thousandths become the test, missing cap included, and a baseline is refused")
+    void from_a_registration() {
+        org.shatterfish.api.Registration.Brain random = new org.shatterfish.api.Registration.Brain(
+                "random", "abc1234", "0".repeat(64));
+        org.shatterfish.api.Registration comparison = new org.shatterfish.api.Registration(
+                "H-0120-e", "a comparison", new org.shatterfish.api.Registration.Brain("random",
+                        "aaaaaaa", "0".repeat(64)), random, SeedSets.SMOKE, 1, 40, 60, 20, 300, 0,
+                "a laptop", false, 500, 600, 250);
+
+        EProcess test = EProcess.of(comparison);
+
+        assertEquals(0.5, test.p0());
+        assertEquals(0.6, test.p1());
+        assertEquals(Math.log(1 / 0.04), test.upper(), 1e-12, "alpha from alpha");
+        assertEquals(-Math.log(1 / 0.06), test.lower(), 1e-12, "beta from beta");
+        assertEquals(300, test.maximum());
+        assertEquals(250, test.missingPerMil(), "the crash cap travels with it");
+        assertEquals(SequentialTest.Statistic.EPROCESS, test.statistic());
+        org.shatterfish.api.Registration baseline = new org.shatterfish.api.Registration("H-0121-b",
+                "a baseline", null, random, SeedSets.SMOKE, 1, 50, 50, 8, 25, 0, "a laptop", false);
+        assertThrows(IllegalArgumentException.class, () -> EProcess.of(baseline));
+        // And the Rig asks the interface, which answers in the gate's design.
+        assertEquals(SequentialTest.GATE, SequentialTest.of(comparison).statistic());
+    }
+
+    @Test
     @DisplayName("parameters that are not hypotheses, rates or a maximum are refused")
     void refusals() {
         assertThrows(IllegalArgumentException.class, () -> new EProcess(0.6, 0.5, 0.05, 0.05, 10));
+        assertThrows(IllegalArgumentException.class, () -> new EProcess(0.5, 0.5, 0.05, 0.05, 10));
+        assertThrows(IllegalArgumentException.class, () -> new EProcess(0.0, 0.6, 0.05, 0.05, 10));
         assertThrows(IllegalArgumentException.class, () -> new EProcess(0.5, 1.0, 0.05, 0.05, 10));
         assertThrows(IllegalArgumentException.class, () -> new EProcess(0.5, 0.6, 0.6, 0.5, 10));
         assertThrows(IllegalArgumentException.class, () -> new EProcess(0.5, 0.6, 0.05, 0.05, 0));

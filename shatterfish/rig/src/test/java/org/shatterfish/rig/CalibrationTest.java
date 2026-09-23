@@ -103,39 +103,54 @@ class CalibrationTest {
         assertEquals(GSPRT, result.gate());
         assertEquals(SequentialTest.GATE, result.gate(),
                 "SequentialTest.GATE must follow the calibration; change it with the page");
-        assertEquals(GSPRT, Calibration.gate(result.validation()));
         List<Calibration.Row> duel = result.duel();
-        assertEquals(2 * Calibration.DUEL.size(), duel.size());
+        List<Integer> p1s = Calibration.duelAt(Calibration.GRID, Calibration.CHOSEN);
+        assertEquals(List.of(550, 600, 650), p1s, "every p1 of the grid, the chosen one among them");
+        assertEquals(2 * p1s.size(), duel.size());
         for (int i = 0; i < duel.size(); i += 2) {
             Calibration.Row gsprt = duel.get(i);
             Calibration.Row eprocess = duel.get(i + 1);
             assertEquals(GSPRT, gsprt.statistic());
             assertEquals(EPROCESS, eprocess.statistic());
             assertEquals(gsprt.cell(), eprocess.cell(), "the same bounds");
-            assertEquals(Calibration.DUEL.get(i / 2), gsprt.cell().p1PerMil());
+            assertEquals(p1s.get(i / 2), gsprt.cell().p1PerMil());
             // Same sequences, so the same simulated H1 stream.
             assertEquals(gsprt.alternative().mean(), eprocess.alternative().mean());
-            // Ville's inequality, on the page's own numbers: the e-process's false-accept rate is at
+            // Ville's inequality bounds the probability, not the rate on 10,000 draws; with the
+            // realized rates near 2% against 5%, sampling noise could not carry a sound e-process
+            // past alpha, so a rate above it would mean a bug. On the page's own numbers, then: at
             // most alpha, with no margin needed.
             assertTrue(eprocess.null0().accept() * 1000L
                             <= (long) Calibration.ALPHA_PER_MIL * eprocess.null0().total(),
                     eprocess.null0().toString());
         }
-        assertEquals(result.validation(), duel.get(2), "the chosen p1's GSPRT row is the validation");
+        assertEquals(result.validation(), duel.stream()
+                        .filter(row -> row.statistic() == GSPRT && row.cell().equals(result.chosen().cell()))
+                        .findFirst().orElseThrow(),
+                "the chosen cell's GSPRT row in the duel is the validation: same sequences, same test");
     }
 
     @Test
-    @DisplayName("a GSPRT outside the margin on the fresh sequences hands the gate to the e-process")
+    @DisplayName("a GSPRT outside the margin hands the gate to an e-process that is within it and powerful, and to nothing else")
     void the_rule_can_go_the_other_way() {
         Calibration.Tally within = new Calibration.Tally(60, 940, 0, 0, 1000, 10, 0.5);
         Calibration.Tally over = new Calibration.Tally(61, 939, 0, 0, 1000, 10, 0.5);
         Calibration.Tally h1 = new Calibration.Tally(950, 50, 0, 0, 1000, 10, 0.6);
         Calibration.Tally h1over = new Calibration.Tally(900, 61, 39, 0, 1000, 10, 0.6);
+        Calibration.Tally h1weak = new Calibration.Tally(800, 20, 180, 0, 1000, 10, 0.6);
         Calibration.Cell cell = new Calibration.Cell(600, 20, 250);
+        Calibration.Row able = new Calibration.Row(cell, EPROCESS, within, h1);
+        Calibration.Row feeble = new Calibration.Row(cell, EPROCESS, within, h1weak);
+        Calibration.Row loose = new Calibration.Row(cell, EPROCESS, over, h1);
 
-        assertEquals(GSPRT, Calibration.gate(new Calibration.Row(cell, GSPRT, within, h1)));
-        assertEquals(EPROCESS, Calibration.gate(new Calibration.Row(cell, GSPRT, over, h1)));
-        assertEquals(EPROCESS, Calibration.gate(new Calibration.Row(cell, GSPRT, within, h1over)));
+        assertEquals(GSPRT, Calibration.gate(new Calibration.Row(cell, GSPRT, within, h1), feeble),
+                "a GSPRT within the margin stays, whatever the e-process did");
+        assertEquals(EPROCESS, Calibration.gate(new Calibration.Row(cell, GSPRT, over, h1), able));
+        assertEquals(EPROCESS, Calibration.gate(new Calibration.Row(cell, GSPRT, within, h1over), able));
+        assertNull(Calibration.gate(new Calibration.Row(cell, GSPRT, over, h1), feeble),
+                "an e-process without the power is no replacement");
+        assertNull(Calibration.gate(new Calibration.Row(cell, GSPRT, over, h1), loose),
+                "nor one outside the margin itself");
     }
 
     @Test
@@ -230,7 +245,9 @@ class CalibrationTest {
 
         assertNull(result.chosen());
         assertNull(result.validation());
-        assertTrue(Calibration.page(result).contains("no bounds are chosen from this table"));
+        assertTrue(result.duel().isEmpty());
+        assertNull(result.gate(), "nothing measured the e-process, so the rule picks neither");
+        assertTrue(Calibration.page(result).contains("the rule picks no gate"));
     }
 
     @Test
