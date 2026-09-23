@@ -216,6 +216,56 @@ class ComparisonTest {
     }
 
     @Test
+    @DisplayName("the within-pair correlation of turns is over reached pairs, and absent when it cannot be computed")
+    void the_correlation(@TempDir Path out) throws IOException {
+        SeedSet set = set(5);
+        List<Long> salts = new ArrayList<>();
+        long[] mine = {100, 200, 300, 400, 0};
+        long[] theirs = {110, 190, 330, 390, 50};
+        for (int i = 0; i < 5; i++) {
+            salts.add(500L + i);
+            RunLog.Outcome a = new RunLog.Outcome(false, false, 0, 1, mine[i], "DEATH", 0);
+            RunLog.Outcome b = new RunLog.Outcome(false, false, 0, 1, theirs[i], "DEATH", 0);
+            written(out.resolve(Comparison.CANDIDATE), set.entries().get(i), 500L + i, "greedy",
+                    i == 4 ? null : a);
+            written(out.resolve(Comparison.BASELINE), set.entries().get(i), 500L + i, "random", b);
+        }
+
+        Comparison.Report report = Comparison.of(set, salts, TAG, out, "greedy", "random", null);
+        Comparison.Correlation r = Comparison.correlation(report.pairs());
+
+        // By hand over the four reached pairs: mean 250 and 255; deviations (-150, -50, 50, 150)
+        // and (-145, -65, 75, 135); covariance sum 21750 + 3250 + 3750 + 20250 = 49000; variances
+        // 50000 and 21025 + 4225 + 5625 + 18225 = 49100; r = 49000 / sqrt(50000 * 49100) = 0.988941.
+        assertEquals(4, r.pairs(), "the pair with a missing Run is left out");
+        assertEquals(0.988941, r.r(), 1e-6);
+        Comparison.write(out, report, "", true);
+        String json = Files.readString(out.resolve(Comparison.FILE), StandardCharsets.UTF_8).strip();
+        assertEquals("988941", LogHeader.value(json, "turns_correlation_micros"), json);
+        assertEquals("4", LogHeader.value(json, "correlated_pairs"), json);
+        assertEquals("0", LogHeader.value(json, "identical_pairs"), json);
+
+        assertEquals(null, Comparison.correlation(report.pairs().subList(0, 2)).r(), "two pairs is not enough");
+    }
+
+    /** A log for one side of one triple ending in exactly this outcome, or with no ending when null. */
+    private static void written(Path folder, SeedSet.Entry triple, long salt, String brain,
+                                RunLog.Outcome outcome) throws IOException {
+        Files.createDirectories(folder);
+        RunLog.Header header = new RunLog.Header(RunLog.VERSION, TAG, "abc1234", triple.heroClass(),
+                triple.challengeFlags(), triple.seed(), triple.seedCode(), salt, 20_000, 3, 2, 8,
+                new RunLog.Brain(brain, "abc1234", ZERO), "", false, "a laptop",
+                "2026-09-23T00:00:00Z");
+        StringBuilder text = new StringBuilder(RunLogJson.line("", header)).append('\n');
+        if (outcome != null) {
+            text.append(RunLogJson.line(RunLogJson.chain("", header), new RunLog.End(0, outcome, true)))
+                    .append('\n');
+        }
+        Files.writeString(folder.resolve(RunLog.fileName(header.runId())), text.toString(),
+                StandardCharsets.UTF_8);
+    }
+
+    @Test
     @DisplayName("a Brain that crashes on the seeds it would lose gets a void result, not an accept")
     void crashing_to_a_tie_is_void(@TempDir Path out) throws IOException {
         // The exploit the fairness review found. Twenty pairs the candidate wins, and twenty it would

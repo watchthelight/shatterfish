@@ -2,6 +2,7 @@ package org.shatterfish.rig;
 
 import org.shatterfish.api.Decider;
 import org.shatterfish.api.SeedSet;
+import org.shatterfish.harness.agent.NoDescendAgent;
 import org.shatterfish.harness.agent.RandomAgent;
 import org.shatterfish.harness.rng.Mix;
 
@@ -45,6 +46,12 @@ public final class Brains {
     public static final String RANDOM = "random";
 
     /**
+     * The deliberately worse Brain (story 3.9, SM-5): the Baseline with {@code Descend} taken out of
+     * what it may choose. It exists so the Rig can be shown rejecting something.
+     */
+    public static final String NO_DESCEND = "random-nodescend";
+
+    /**
      * The files that decide what a Brain does, by name.
      *
      * <p>FR-20 allows the held-out set one use per <em>Brain version</em>, and a version has to be
@@ -59,6 +66,10 @@ public final class Brains {
     private static List<String> sourceOf(String name) {
         if (RANDOM.equals(named(name))) {
             return List.of("shatterfish/harness/src/main/java/org/shatterfish/harness/agent/RandomAgent.java",
+                    "shatterfish/rig/src/main/java/org/shatterfish/rig/Brains.java");
+        }
+        if (NO_DESCEND.equals(name)) {
+            return List.of("shatterfish/harness/src/main/java/org/shatterfish/harness/agent/NoDescendAgent.java",
                     "shatterfish/rig/src/main/java/org/shatterfish/rig/Brains.java");
         }
         throw new IllegalStateException("the Brain " + name + " has not said which files decide"
@@ -93,7 +104,7 @@ public final class Brains {
 
     /** Every name the Rig answers to, in the order it lists them. */
     public static List<String> names() {
-        return List.of(RANDOM);
+        return List.of(RANDOM, NO_DESCEND);
     }
 
     /** Whether the Rig has a Brain of this name. Asking does not build one. */
@@ -132,6 +143,9 @@ public final class Brains {
         if (RANDOM.equals(name)) {
             return new RandomAgent(agentSeed(triple));
         }
+        if (NO_DESCEND.equals(name)) {
+            return new NoDescendAgent(agentSeed(triple));
+        }
         throw new IllegalStateException("the Rig names the Brain " + name + " and cannot build one");
     }
 
@@ -141,7 +155,7 @@ public final class Brains {
      * its configuration is the empty one.
      */
     public static String configHash(String name) {
-        if (!RANDOM.equals(named(name))) {
+        if (!RANDOM.equals(named(name)) && !NO_DESCEND.equals(name)) {
             // A real Brain states its own configuration. Returning zeros for it would put an
             // unfalsifiable claim in every log header it wrote, and the Registration (story 3.5)
             // is the thing that pins a Brain's configuration -- so this refuses rather than

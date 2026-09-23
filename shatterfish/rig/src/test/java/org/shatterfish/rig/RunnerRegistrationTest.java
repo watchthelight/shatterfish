@@ -400,6 +400,49 @@ class RunnerRegistrationTest {
         assertTrue(alone.getMessage().contains("fixes a comparison"), alone.getMessage());
     }
 
+    /** A comparison on `standard`, which may accept, with the given bounds and statistic. */
+    private static Registration accepting(String id, int p1, int burnIn, int missing, int maximum,
+                                          String statistic) {
+        return new Registration(id, "the random Brain is not better than itself",
+                new Registration.Brain("random", "aaaaaaa", ZERO),
+                new Registration.Brain("random", "abc1234", ZERO), SeedSets.STANDARD, 1, 50, 50,
+                burnIn, maximum, 0, "a laptop", false, 500, p1, missing, statistic);
+    }
+
+    @Test
+    @DisplayName("a comparison that may accept runs at the calibrated bounds, every one of them, and nothing else")
+    void an_accepting_comparison_is_calibrated(@TempDir Path root, @TempDir Path out)
+            throws IOException {
+        repository(root, accepting("H-0116-p1", 550, 20, 250, 500, "GSPRT"),
+                accepting("H-0117-burn", 600, 10, 250, 500, "GSPRT"),
+                accepting("H-0118-cap", 600, 20, 999, 500, "GSPRT"),
+                accepting("H-0119-max", 600, 20, 250, 400, "GSPRT"));
+
+        for (String id : List.of("H-0116-p1", "H-0117-burn", "H-0118-cap", "H-0119-max")) {
+            IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                    () -> Runner.run(arguments(root, out, Runner.REGISTRATION, id,
+                            Runner.AGAINST, Brains.RANDOM, Runner.SEEDS, SeedSets.STANDARD)), id);
+            assertTrue(refused.getMessage().contains("other than the calibrated ones"),
+                    id + ": " + refused.getMessage());
+        }
+        // Counted: a refused attempt is an attempt the ledger has to be able to show.
+        List<Ledger.Entry> entries = new Ledger(root.resolve(Registrations.FOLDER)).entries();
+        assertEquals(4, entries.stream().filter(e -> e.outcome() == Ledger.Outcome.FORBIDDEN).count());
+    }
+
+    @Test
+    @DisplayName("a comparison registered for a statistic other than the gate is refused")
+    void the_statistic_is_the_registrations(@TempDir Path root, @TempDir Path out) throws IOException {
+        repository(root, accepting("H-0120-e", 600, 20, 250, 500, "EPROCESS"));
+
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> Runner.run(arguments(root, out, Runner.REGISTRATION, "H-0120-e",
+                        Runner.AGAINST, Brains.RANDOM, Runner.SEEDS, SeedSets.STANDARD)));
+
+        assertTrue(refused.getMessage().contains("bounds for the EPROCESS and the Rig's gate is the GSPRT"),
+                refused.getMessage());
+    }
+
     @Test
     @DisplayName("a comparison against a Brain the Registration does not name is refused")
     void the_baseline_is_the_registrations(@TempDir Path root, @TempDir Path out) throws IOException {

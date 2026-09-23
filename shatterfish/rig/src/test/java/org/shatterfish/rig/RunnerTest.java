@@ -386,7 +386,10 @@ class RunnerTest {
         assertEquals("0".repeat(64), Brains.configHash(Brains.RANDOM));
         assertThrows(IllegalArgumentException.class, () -> Brains.configHash("greedy"),
                 "a Brain the Rig does not have");
-        assertEquals(List.of(Brains.RANDOM), Brains.names(),
+        // The worse Brain of story 3.9 is the Baseline with one Action withheld, and has no more
+        // configuration than the Baseline does.
+        assertEquals("0".repeat(64), Brains.configHash(Brains.NO_DESCEND));
+        assertEquals(List.of(Brains.RANDOM, Brains.NO_DESCEND), Brains.names(),
                 "when a real Brain is added here, `configHash` refuses until it states its own");
     }
 

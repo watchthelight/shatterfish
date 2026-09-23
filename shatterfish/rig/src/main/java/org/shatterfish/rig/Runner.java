@@ -114,6 +114,18 @@ public final class Runner {
      */
     public static final String AGAINST = "--against";
 
+    /** Whether a comparison's bounds are the calibrated ones, every number of them. */
+    static boolean calibrated(org.shatterfish.api.Registration registration) {
+        Calibration.Cell chosen = Calibration.CHOSEN;
+        return registration.p0PerMil() == Calibration.P0_PER_MIL
+                && registration.p1PerMil() == chosen.p1PerMil()
+                && registration.burnIn() == chosen.burnIn()
+                && registration.missingPerMil() == chosen.missingPerMil()
+                && registration.alphaPerMil() == Calibration.ALPHA_PER_MIL
+                && registration.betaPerMil() == Calibration.BETA_PER_MIL
+                && registration.maximum() == Calibration.MAXIMUM;
+    }
+
     /** The Seed sets whose comparisons may accept (ADR-0012); the rest are direction checks. */
     static final List<String> ACCEPTING = List.of(SeedSets.STANDARD, "bosses");
 
@@ -550,6 +562,25 @@ public final class Runner {
                         + (committed.registration().comparison() ? "a comparison" : "a baseline")
                         + " and this invocation runs "
                         + (against != null ? "a comparison" : "one Brain"));
+            } else if (baseline != null
+                    && !committed.registration().statistic().equals(SequentialTest.GATE.name())) {
+                // The bounds belong to the test they were registered for. Story 3.8's gate can
+                // change on a later tag; a Registration cannot, so it is refused rather than run
+                // under a design whose bounds mean something else.
+                refusal = new Registrations.Refusal("the Registration "
+                        + committed.registration().id() + " states bounds for the "
+                        + committed.registration().statistic() + " and the Rig's gate is the "
+                        + SequentialTest.GATE.name());
+            } else if (baseline != null && ACCEPTING.contains(set)
+                    && !calibrated(committed.registration())) {
+                // A comparison that may accept (ADR-0012) runs at the calibrated bounds, the only
+                // ones whose realized error rates were measured (story 3.7). A direction check on
+                // another set may state what it likes: it cannot accept anything.
+                refusal = new Registrations.Refusal("the Registration "
+                        + committed.registration().id() + " may accept on " + set + " and states"
+                        + " bounds other than the calibrated ones " + Calibration.CHOSEN + " with"
+                        + " alpha and beta " + Calibration.ALPHA_PER_MIL + " per mil and a maximum of "
+                        + Calibration.MAXIMUM + "; see docs/results/calibration-v4.0.0.md");
             } else if (baseline != null && !baseline.name().equals(against)) {
                 refusal = new Registrations.Refusal("the Registration "
                         + committed.registration().id() + " compares against the Brain "
