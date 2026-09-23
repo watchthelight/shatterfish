@@ -333,7 +333,11 @@ class RunnerTest {
         RunIndex index = new RunIndex(out);
         index.started(new RunIndex.Entry("r", "r.jsonl", RunIndex.State.STARTED, "", 1, "WARRIOR",
                 0, 7, "", 0, ""));
-        index.refused(refusal.getMessage());
+        // Through `Runner.refuse`, which is the one statement the invocation uses: the marking and
+        // the throwing travel together there, so neither can go missing on its own. Calling
+        // `index.refused` here instead is what let a battery delete the marking with this test
+        // still green.
+        assertEquals(refusal, Runner.refuse(index, refusal), "the reason, to be thrown");
         assertEquals(RunIndex.State.REFUSED, index.entries().get(0).state());
         assertTrue(Files.isRegularFile(out.resolve(RunIndex.REFUSED)),
                 "a reader who picks this folder up finds the refusal beside the numbers");
