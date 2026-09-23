@@ -163,7 +163,8 @@ class VerifyTest {
     void an_incomplete_log_still_verifies(@TempDir Path folder) throws IOException {
         // Every prefix of a valid log is a valid log. The Rig already counts this Run incomplete;
         // calling it tampering would make a machine that ran out of time look like a dishonest one.
-        log(folder, 7L, List.of(header(7L), served(1)));
+        String chain = log(folder, 7L, List.of(header(7L), served(1)));
+        index(folder, 7L, chain);
 
         Verify.Report report = Verify.of(folder);
 
@@ -171,6 +172,60 @@ class VerifyTest {
         assertFalse(report.ok(false), "and it is still not a finished Run");
         assertFalse(report.checked().get(0).complete());
         assertTrue(report.text().contains("incomplete"), report.text());
+    }
+
+    @Test
+    @DisplayName("a log whose header claims the oracle is reported, not counted as intact")
+    void an_oracle_log_is_reported(@TempDir Path folder) throws IOException {
+        // FR-11 is enforced when a Run is dispatched, in the process whoever ran it controls. This
+        // is the only place it is asked of the artifact, which is the half that survives a folder
+        // being handed to somebody else -- and the first draft had the flag in its hand and never
+        // looked at it, so a folder of disqualified Runs printed a clean pass.
+        RunLog.Header h = header(7L);
+        RunLog.Header oracle = new RunLog.Header(h.v(), h.tag(), h.commit(), h.heroClass(),
+                h.challenges(), h.seed(), h.seedCode(), h.salt(), h.cap(), h.profile(), h.obsv(),
+                h.codex(), h.brain(), h.registration(), true, h.machine(), h.started());
+        String chain = log(folder, 7L, List.of(oracle, served(1), end()));
+        index(folder, 7L, chain);
+
+        Verify.Report report = Verify.of(folder);
+
+        assertFalse(report.ok(true), report.text());
+        assertTrue(report.checked().get(0).verified(), "the file itself is intact");
+        assertTrue(report.checked().get(0).why().contains("FR-11"), report.checked().get(0).why());
+    }
+
+    @Test
+    @DisplayName("a folder with no index has not been verified, it has been read")
+    void a_folder_without_an_index_is_not_a_pass(@TempDir Path folder) throws IOException {
+        // The cheapest way to pass a folder that was edited: rewrite a log, rechain it, and delete
+        // runs.jsonl. Every log still verifies against its own bytes and not one of them is held
+        // against anything published, which is the whole of what the index check is for.
+        good(folder, 7L);
+
+        Verify.Report report = Verify.of(folder);
+
+        assertFalse(report.ok(true), report.text());
+        assertEquals(1, report.unindexed());
+        assertTrue(report.why().contains("cannot be verified"), report.why());
+        assertTrue(report.text().contains("no published chain"), report.text());
+    }
+
+    @Test
+    @DisplayName("a log whose name is not the Run its header states is reported")
+    void a_misnamed_log_is_reported(@TempDir Path folder) throws IOException {
+        // `Runner.finish` makes exactly this check for the Rig's own writes, and said why: without
+        // it two files claiming one Run are both held against one index row, and which one is
+        // believed is whichever sorts first.
+        String chain = good(folder, 7L);
+        index(folder, 7L, chain);
+        Path was = Verify.logs(folder).get(0);
+        Files.move(was, folder.resolve("v4.0.0-WARRIOR-0-AAA-AAA-AAB-000000000000000e-random.jsonl"));
+
+        Verify.Report report = Verify.of(folder);
+
+        assertFalse(report.ok(true), report.text());
+        assertTrue(report.text().contains("its header says it is the Run"), report.text());
     }
 
     @Test

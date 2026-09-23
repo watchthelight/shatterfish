@@ -1,5 +1,7 @@
 package org.shatterfish.harness.log;
 
+import org.shatterfish.harness.LogText;
+
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,6 +16,8 @@ import org.shatterfish.harness.agent.RunOutcome;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -89,14 +93,50 @@ class ReplayRoundTripTest {
 
         assertEquals(original.size(), replay.size(), "the same records, in the same number");
         for (int i = 0; i < original.size(); i++) {
-            // The chained text is the line minus the clock and the machine, so this is every field
-            // a reproduction has to get right, compared one line at a time.
-            assertEquals(RunLogVerifier.chained(original.get(i)), RunLogVerifier.chained(replay.get(i)),
-                    "line " + (i + 1) + " differs in something the chain covers");
+            // Named, not derived. The first draft of this compared the two lines by putting both
+            // through `RunLogVerifier.chained` -- the function this test exists to hold -- so a
+            // mutant that stripped every key from every line passed, and the chain covered nothing
+            // while every assertion here stayed green. What a reproduction has to get right is a
+            // list, and a list is what this states.
+            Set<String> differing = differingKeys(original.get(i), replay.get(i));
+            Set<String> allowed = i == 0 ? Set.of("machine", "started", "chain")
+                    : Set.of("think_ms", "prev", "chain");
+            assertTrue(allowed.containsAll(differing), "line " + (i + 1) + " differs in "
+                    + differing + ", and only " + allowed + " may differ between a Run and its"
+                    + " reproduction");
+        }
+        // And again through the reader that shares no code with the one under test. Two routes to
+        // the same answer is the arrangement this project keeps for exactly this reason.
+        for (int i = 0; i < original.size(); i++) {
+            assertEquals(LogText.chained(original.get(i)), LogText.chained(replay.get(i)),
+                    "line " + (i + 1) + ", read by the independent reader, differs in something"
+                            + " the chain covers");
         }
         // And the header did differ where it is allowed to: this Replay said it ran elsewhere.
         assertNotEquals(original.get(0), replay.get(0),
                 "the two headers are not identical -- the machine and the hour are not the same");
+    }
+
+    /**
+     * Which top-level keys two lines disagree about, by name.
+     *
+     * <p>Written here out of the raw text rather than taken from any reader, because a test that
+     * asks the code under test which fields differ is a test that agrees with whatever that code
+     * currently thinks.
+     */
+    private static Set<String> differingKeys(String left, String right) {
+        Set<String> differing = new TreeSet<>();
+        for (String key : LogText.keys(left)) {
+            if (!LogText.value(left, key).equals(LogText.value(right, key))) {
+                differing.add(key);
+            }
+        }
+        for (String key : LogText.keys(right)) {
+            if (!LogText.keys(left).contains(key)) {
+                differing.add(key);
+            }
+        }
+        return differing;
     }
 
     private static List<String> lines(Path file) throws IOException {

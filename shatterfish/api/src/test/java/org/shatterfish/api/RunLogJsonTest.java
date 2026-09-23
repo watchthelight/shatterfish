@@ -3,6 +3,7 @@ package org.shatterfish.api;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -74,6 +75,57 @@ class RunLogJsonTest {
                         + "\"obs\":\"" + ZERO + "\",\"sections\":{\"hero\":\"" + ONE + "\",\"map\":\""
                         + ZERO + "\"},\"t\":\"wait\",\"think_ms\":12,\"turn\":1500}",
                 RunLogJson.canonical(served(12)));
+    }
+
+    @Test
+    @DisplayName("schema version 2 is these header keys, so a new field is a version decision")
+    void the_header_key_set_belongs_to_a_version() {
+        // The page's test vector already fails when a header field is added, and it fails as "the
+        // page is out of date" -- which is fixed by updating the page and leaves the schema still
+        // calling itself the version it was. This is the other direction: the key set is labelled
+        // with the version it belongs to, so adding a field means editing a line that says 2, and
+        // a reader of a version-2 log can be told exactly what to expect in it.
+        assertEquals(2, RunLog.VERSION, "this list is version 2's; a bump rewrites it");
+        assertEquals(List.of("brain", "cap", "challenges", "class", "codex", "commit", "machine",
+                        "obsv", "oracle", "profile", "registration", "salt", "seed", "seedcode",
+                        "started", "t", "tag", "v"),
+                keysOf(RunLogJson.canonical(header())),
+                "the members of a version 2 header, in the order the writer sorts them");
+    }
+
+    /** The top-level keys of one canonical object, in the order they are written. */
+    private static List<String> keysOf(String line) {
+        List<String> keys = new ArrayList<>();
+        int at = 1;
+        while (at < line.length() - 1) {
+            int quote = line.indexOf('"', at);
+            int end = quote + 1;
+            while (line.charAt(end) != '"') {
+                end += line.charAt(end) == '\\' ? 2 : 1;
+            }
+            keys.add(line.substring(quote + 1, end));
+            // Past this member's value, whatever shape it is, to the comma that follows it.
+            int depth = 0;
+            int i = end + 2;
+            while (i < line.length() - 1) {
+                char c = line.charAt(i);
+                if (c == '"') {
+                    i++;
+                    while (line.charAt(i) != '"') {
+                        i += line.charAt(i) == '\\' ? 2 : 1;
+                    }
+                } else if (c == '{' || c == '[') {
+                    depth++;
+                } else if (c == '}' || c == ']') {
+                    depth--;
+                } else if (c == ',' && depth == 0) {
+                    break;
+                }
+                i++;
+            }
+            at = i + 1;
+        }
+        return keys;
     }
 
     @Test

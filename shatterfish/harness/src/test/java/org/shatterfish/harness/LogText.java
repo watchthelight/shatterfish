@@ -25,10 +25,28 @@ import java.util.List;
  * {@code MessageDigest}. It is the skeptic's script, in the test sources, and the methodology page
  * publishes the same rules for anyone who would rather write their own.
  */
-final class LogText {
+public final class LogText {
 
     /** The keys the chain does not cover, written out here rather than imported (see above). */
     static final List<String> UNCHAINED = List.of("prev", "chain", "think_ms", "machine", "started");
+
+    /**
+     * Which of those a record of each kind actually carries.
+     *
+     * <p>The page states the exclusion per kind, and it has to: a name struck from every record
+     * alike leaves the records that do not own it with a member the chain does not cover, which is
+     * free space in a file whose whole point is that it has none. Written here as its own map, from
+     * the page, rather than taken from the production reader -- this class exists to follow the
+     * published rules by a different route and agree, and agreement is only evidence when the two
+     * routes are separate.
+     */
+    static String allowed(String kind) {
+        return switch (kind) {
+            case "header" -> "prev chain machine started";
+            case "wait" -> "prev chain think_ms";
+            default -> "prev chain";
+        };
+    }
 
     private LogText() {
     }
@@ -127,10 +145,16 @@ final class LogText {
     }
 
     /** The same line with the unchained keys removed: what the chain is taken over. */
-    static String chained(String line) {
+    public static String chained(String line) {
         StringBuilder out = new StringBuilder("{");
+        String kind = string(line, "t");
+        List<String> strip = List.of(allowed(kind == null ? "" : kind).split(" "));
         for (Member member : members(line)) {
-            if (UNCHAINED.contains(member.key)) {
+            if (UNCHAINED.contains(member.key) && !strip.contains(member.key)) {
+                throw new IllegalArgumentException("a " + kind + " record does not carry "
+                        + member.key + ", so nothing excuses it from the chain: " + line);
+            }
+            if (strip.contains(member.key)) {
                 continue;
             }
             if (out.length() > 1) {
@@ -142,12 +166,12 @@ final class LogText {
     }
 
     /** The keys a line holds, in the order it holds them. */
-    static List<String> keys(String line) {
+    public static List<String> keys(String line) {
         return members(line).stream().map(m -> m.key).toList();
     }
 
     /** The text of a key's value, quotes and braces included, or null when the line lacks the key. */
-    static String value(String line, String key) {
+    public static String value(String line, String key) {
         for (Member member : members(line)) {
             if (member.key.equals(key)) {
                 return line.substring(member.valueFrom, member.to);
@@ -157,7 +181,7 @@ final class LogText {
     }
 
     /** A string value with its quotes taken off, or null when the line lacks the key. */
-    static String string(String line, String key) {
+    public static String string(String line, String key) {
         String raw = value(line, key);
         if (raw == null) {
             return null;
@@ -184,6 +208,16 @@ final class LogText {
             }
             int keyEnd = endOfString(line, at);
             String key = line.substring(at + 1, keyEnd - 1);
+            // The writer escapes nothing in a key, so a key holding an escape is a key it did not
+            // write. It matters more than it looks: this reader strips the unchained keys by the
+            // text they are written in, and a reader that decoded first would see `prev` as
+            // `prev` and strip it. One of the two would then be hashing a line the other was not.
+            // Found by reading the published rules rather than the other reader -- which is the
+            // arrangement this class is for.
+            if (key.indexOf((char) 92) >= 0) {
+                throw new IllegalArgumentException("a key is written plainly and this one is not, at "
+                        + at + ": " + line);
+            }
             if (line.charAt(keyEnd) != ':') {
                 throw new IllegalArgumentException("a key is followed by a colon, at " + keyEnd + ": " + line);
             }
@@ -196,6 +230,13 @@ final class LogText {
                             + " one the chain covers: " + line);
                 }
             }
+            if (!members.isEmpty() && key.compareTo(members.get(members.size() - 1).key) <= 0) {
+                // The writer sorts its keys, so a line that is not sorted is a line it did not
+                // write -- and a reader that accepted one would let a hand-made record chain to
+                // its own text and read as intact.
+                throw new IllegalArgumentException("keys are written in order and " + key
+                        + " is not after " + members.get(members.size() - 1).key + ": " + line);
+            }
             members.add(new Member(key, from, valueFrom, to));
             at = to;
             if (at < line.length() - 1) {
@@ -203,6 +244,10 @@ final class LogText {
                     throw new IllegalArgumentException("members are comma separated, at " + at + ": " + line);
                 }
                 at++;
+                if (at >= line.length() - 1) {
+                    throw new IllegalArgumentException("a comma is followed by a member, at " + at
+                            + ": " + line);
+                }
             }
         }
         return members;
@@ -220,29 +265,50 @@ final class LogText {
         throw new IllegalArgumentException("a string is not closed, from " + at + ": " + line);
     }
 
+    /**
+     * Where the value beginning at {@code at} ends.
+     *
+     * <p>What opened a bracket is remembered, not merely that one did. Counting depth made
+     * {@code {"a":[1}} a value in this reader and in the production one alike -- two implementations
+     * agreeing because they had read the same rule the same wrong way, which is the failure mode
+     * that two implementations are supposed to make unlikely rather than impossible.
+     */
     private static int endOfValue(String line, int at) {
-        int depth = 0;
+        StringBuilder opened = new StringBuilder();
         int i = at;
         while (i < line.length()) {
             char c = line.charAt(i);
             if (c == '"') {
                 i = endOfString(line, i);
-                if (depth == 0) {
+                if (opened.isEmpty()) {
                     return i;
                 }
                 continue;
             }
             if (c == '{' || c == '[') {
-                depth++;
+                opened.append(c);
             } else if (c == '}' || c == ']') {
-                if (depth == 0) {
+                if (opened.isEmpty()) {
+                    // The end of whatever holds this value, so the value is whatever came before
+                    // it -- and it may not be nothing.
+                    if (i == at) {
+                        throw new IllegalArgumentException("a value is not empty, at " + at + ": " + line);
+                    }
                     return i;
                 }
-                depth--;
-                if (depth == 0) {
+                char was = opened.charAt(opened.length() - 1);
+                if (c == '}' ? was != '{' : was != '[') {
+                    throw new IllegalArgumentException("a " + c + " closes a " + was + ", at " + i
+                            + ": " + line);
+                }
+                opened.setLength(opened.length() - 1);
+                if (opened.isEmpty()) {
                     return i + 1;
                 }
-            } else if (c == ',' && depth == 0) {
+            } else if (c == ',' && opened.isEmpty()) {
+                if (i == at) {
+                    throw new IllegalArgumentException("a value is not empty, at " + at + ": " + line);
+                }
                 return i;
             }
             i++;

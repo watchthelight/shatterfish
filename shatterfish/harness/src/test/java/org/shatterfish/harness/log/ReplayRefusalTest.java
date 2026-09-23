@@ -24,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -119,6 +120,110 @@ class ReplayRefusalTest {
         IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
                 () -> Replay.of(file, folder.resolve("out"), "test"));
         assertTrue(refused.getMessage().contains("does not verify"), refused.getMessage());
+    }
+
+    @Test
+    @DisplayName("a log that claims the oracle is refused, and no Run is started to find that out")
+    void an_oracle_log_is_refused(@TempDir Path folder) throws IOException {
+        // The blocking finding of this story's fairness review. `Replay.of` used to pass the log's
+        // own oracle flag into the Run it started, which made it the only production caller in the
+        // repository that could set that flag at all -- out of a file named on the Rig's command
+        // line. The rules are published, so writing the file is three lines.
+        RunLog.Header h = good();
+        Path file = folder.resolve("oracle.jsonl");
+        Path out = folder.resolve("out");
+        rechain(file, List.of(new RunLog.Header(h.v(), h.tag(), h.commit(), h.heroClass(),
+                h.challenges(), h.seed(), h.seedCode(), h.salt(), h.cap(), h.profile(), h.obsv(),
+                h.codex(), h.brain(), h.registration(), true, h.machine(), h.started())));
+
+        assertEquals("oracle", Replay.refusal(RunLogReader.of(file).header()).field());
+
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> Replay.of(file, out, "test"));
+        assertTrue(refused.getMessage().contains("FR-11"), refused.getMessage());
+        assertFalse(Files.exists(out) && Files.list(out).findAny().isPresent(),
+                "nothing was played, so nothing was written");
+    }
+
+    @Test
+    @DisplayName("a refusal happens before a Run is started, which is the half the cost depends on")
+    void a_refusal_costs_no_run(@TempDir Path folder) throws IOException {
+        // Asserting this against `refusal()` alone proves nothing about ordering: that method
+        // starts no Run whatever it returns. The claim is about `of`, so this goes through `of`
+        // and then looks at the folder, which is empty only if nothing played.
+        RunLog.Header h = good();
+        Path file = folder.resolve("elsewhen.jsonl");
+        Path out = folder.resolve("out");
+        rechain(file, List.of(new RunLog.Header(h.v(), h.tag(), h.commit(), h.heroClass(),
+                h.challenges(), h.seed(), h.seedCode(), h.salt(), h.cap(), h.profile(),
+                h.obsv(), h.codex() + 1, h.brain(), h.registration(), h.oracle(), h.machine(),
+                h.started())));
+
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> Replay.of(file, out, "test"));
+        assertTrue(refused.getMessage().contains("Codex version"), refused.getMessage());
+        assertFalse(Files.exists(out) && Files.list(out).findAny().isPresent(),
+                "a refused log costs no Run");
+    }
+
+    @Test
+    @DisplayName("a Replay will not write into the folder it is reading, which the story froze as a Never")
+    void a_replay_does_not_write_over_the_log_it_is_checking(@TempDir Path folder) {
+        Path file = played(folder);
+
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> Replay.of(file, folder, "test"));
+
+        assertTrue(refused.getMessage().contains("not over it"), refused.getMessage());
+        assertTrue(Files.isRegularFile(file), "the log it was asked to check is still there");
+    }
+
+    @Test
+    @DisplayName("an unsupported record past the last wait still makes the Run unverifiable")
+    @Timeout(value = 15, unit = TimeUnit.MINUTES)
+    void an_unsupported_record_after_the_waits_is_not_ignored(@TempDir Path folder, @TempDir Path out)
+            throws IOException {
+        Path file = played(folder);
+        List<RunLog> records = new ArrayList<>(RunLogReader.of(file).records());
+
+        // The realistic overlay case, and the one the first draft ignored completely: the input the
+        // executor could not express is the reason there is no wait record at that index. Matching
+        // an unsupported mark against a wait the log also wrote only ever fired for the case that
+        // cannot really happen.
+        long past = records.stream().filter(RunLog.Wait.class::isInstance)
+                .mapToLong(record -> ((RunLog.Wait) record).k()).max().orElseThrow() + 1;
+        List<RunLog> with = new ArrayList<>(records);
+        with.add(with.size() - 1, new RunLog.Unsupported(past, "dragged an item onto the quickslot"));
+        rechain(file, with);
+
+        Replay.Unverifiable stopped = assertThrows(Replay.Unverifiable.class,
+                () -> Replay.of(file, out, "test"));
+
+        assertEquals(past, stopped.at());
+        // And it says how much of the Run was checked before it gave up, because a Run verified to
+        // wait 400 and unverifiable from 401 is not the same thing as one unverifiable from wait 1.
+        assertTrue(stopped.verified() > 10, stopped.getMessage());
+        assertTrue(stopped.getMessage().contains("waits before it"), stopped.getMessage());
+    }
+
+    @Test
+    @DisplayName("a killed Run's log replays as far as it goes and is reported incomplete, not failed")
+    @Timeout(value = 15, unit = TimeUnit.MINUTES)
+    void an_incomplete_log_is_not_a_failed_reproduction(@TempDir Path folder, @TempDir Path out)
+            throws IOException {
+        // The story's own frozen I/O matrix says so, and the first draft reported it as "did not
+        // reproduce" -- which reads as "this build disagrees with the log" when what happened is
+        // that the log records no ending for a reproduction to reach.
+        Path file = played(folder);
+        List<RunLog> records = new ArrayList<>(RunLogReader.of(file).records());
+        rechain(file, records.subList(0, records.size() - 1));
+
+        Replay.Result result = Replay.of(file, out, "test");
+
+        assertFalse(result.ok());
+        assertTrue(result.why().contains("no ending"), result.why());
+        assertEquals(result.waits(), result.verified(),
+                "every wait the log does record was reproduced");
     }
 
     private static void assertRefused(RunLog.Header header, String field) {

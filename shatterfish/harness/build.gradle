@@ -89,6 +89,12 @@ tasks.named('test') {
     inputs.file(rootProject.file('docs/UPSTREAM.md'))
             .withPropertyName('hookLedger')
             .withPathSensitivity(PathSensitivity.RELATIVE)
+    // RunLogVectorTest holds the methodology page's published test vector against what the writer
+    // produces. Without this the page can be edited and :harness:test stays UP-TO-DATE, so the
+    // drift check that exists to catch exactly that edit does not run.
+    inputs.file(rootProject.file('docs/methodology.md'))
+            .withPropertyName('methodologyPage')
+            .withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.files(fileTree(rootDir) {
         include 'core/**', 'SPD-classes/**', 'desktop/**', 'services/**', 'android/**', 'ios/**'
         // Every root-level file, not just the build scripts: Ledger treats all of them as upstream's,

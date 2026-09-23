@@ -41,6 +41,23 @@ public final class RunLogVerifier {
      */
     public static final Set<String> UNCHAINED = Set.of("prev", "chain", "think_ms", "machine", "started");
 
+    /** The envelope, which every record carries and no record's chain covers. */
+    private static final Set<String> ENVELOPE = Set.of("prev", "chain");
+
+    /**
+     * Where each unchained key is allowed to be, by record kind.
+     *
+     * <p>This is the half the first draft left out, and it was not a detail. {@code think_ms} is a
+     * wait's field and {@code machine} and {@code started} are the header's, but a stripper that
+     * worked by name alone took them off <em>any</em> line -- so every record that is not a wait had
+     * room for a key called {@code think_ms} holding anything at all, removed before hashing and
+     * therefore invisible to the chain. Three names of free space on every line of every log, in the
+     * one function whose whole purpose is that nothing in the file is free.
+     */
+    private static final Map<String, Set<String>> ALLOWED = Map.of(
+            "header", Set.of("prev", "chain", "machine", "started"),
+            "wait", Set.of("prev", "chain", "think_ms"));
+
     /** What a verification found. */
     public record Verified(int lines, boolean complete, int brokenLine, String chain, String why) {
 
@@ -121,9 +138,17 @@ public final class RunLogVerifier {
     /**
      * The same line with the unchained keys removed: the text the chain was taken over.
      *
-     * <p>By name, on the text. Each excluded key belongs to exactly one place in the schema, so a
-     * checker can strip them without knowing which kind of record it is holding — which is what
-     * lets this work without the writer, and what lets a stranger's script do the same.
+     * <p><b>By the key's own literal text, and only where the schema puts it.</b> Each excluded key
+     * belongs to exactly one kind of record, so this reads the line's {@code t} first and then
+     * strips only what that kind is allowed to carry. A {@code think_ms} on anything but a wait, or
+     * a {@code machine} on anything but a header, is not a field with nothing to say — it is a
+     * member the writer never wrote, and this refuses the line rather than quietly hashing the text
+     * with it taken out.
+     *
+     * <p>The key is matched as it is written, not as it decodes. A key spelled with a unicode
+     * escape decodes to a name this would strip and that a checker written from the published rules
+     * would keep, which is one file with two verdicts. {@link Json#object} refuses an escaped key
+     * outright, and this agrees with it by comparing the literal.
      */
     public static String chained(String line) {
         StringBuilder out = new StringBuilder("{");
@@ -131,18 +156,23 @@ public final class RunLogVerifier {
         if (line.length() < 2 || line.charAt(0) != '{' || line.charAt(line.length() - 1) != '}') {
             throw new IllegalArgumentException("a log line is one JSON object: " + line);
         }
+        Set<String> strip = ALLOWED.getOrDefault(kind(line), ENVELOPE);
         while (at < line.length() - 1) {
             int from = at;
             if (line.charAt(at) != '"') {
                 throw new IllegalArgumentException("a key is quoted, at " + at + ": " + line);
             }
             int keyEnd = Json.endOfString(line, at);
-            String key = Json.string(line.substring(at, keyEnd));
+            String key = line.substring(at + 1, keyEnd - 1);
             if (line.charAt(keyEnd) != ':') {
                 throw new IllegalArgumentException("a key is followed by a colon, at " + keyEnd);
             }
             int to = Json.endOfValue(line, keyEnd + 1);
-            if (!UNCHAINED.contains(key)) {
+            if (UNCHAINED.contains(key) && !strip.contains(key)) {
+                throw new IllegalArgumentException("the key " + key + " is not one this kind of"
+                        + " record carries, and the chain does not cover it: " + line);
+            }
+            if (!strip.contains(key)) {
                 if (out.length() > 1) {
                     out.append(',');
                 }
@@ -157,6 +187,18 @@ public final class RunLogVerifier {
             }
         }
         return out.append('}').toString();
+    }
+
+    /**
+     * The kind of record this line is, as its own {@code t} says.
+     *
+     * <p>Read through {@link Json}, which refuses a line the writer would not have written. A line
+     * with no {@code t} is not a record and carries no unchained key but the envelope, so it is
+     * given the envelope and left to fail the chain comparison on its own merits.
+     */
+    private static String kind(String line) {
+        String stated = Json.object(line).get("t");
+        return stated == null ? "" : Json.string(stated);
     }
 
     // --------------------------------------------------------------------- the JDK's own digest

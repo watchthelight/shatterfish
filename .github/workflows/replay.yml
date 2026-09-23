@@ -24,6 +24,7 @@ on:
       - 'shatterfish/api/src/main/java/org/shatterfish/api/RunLog*.java'
       - 'shatterfish/harness/src/main/java/org/shatterfish/harness/log/**'
       - 'shatterfish/rig/src/main/java/org/shatterfish/rig/Verify.java'
+      - 'shatterfish/rig/src/main/java/org/shatterfish/rig/Runner.java'
       - '.github/workflows/replay.yml'
 
 permissions:
@@ -58,7 +59,10 @@ jobs:
         run: |
           # Before any Run is played. A reference log that was changed in the repository would make
           # every platform agree about the wrong thing, and this costs milliseconds.
-          ./gradlew --no-daemon :rig:run --args="--verify reference"
+          # `--finished`, because a reference log truncated to its header verifies perfectly --
+          # every prefix of a valid log is a valid log -- and would then be "replayed" as a
+          # one-line Run that reports success on both platforms.
+          ./gradlew --no-daemon :rig:run --args="--verify reference --finished"
 
       - name: replay it
         shell: bash

@@ -1,6 +1,7 @@
 package org.shatterfish.harness.log;
 
 import org.shatterfish.api.Action;
+import org.shatterfish.api.Codex;
 import org.shatterfish.api.Decider;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.ObservationCodec;
@@ -11,8 +12,11 @@ import org.shatterfish.harness.agent.RunOutcome;
 import org.shatterfish.harness.boot.HeadlessBoot;
 import org.shatterfish.harness.boot.Profile;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
@@ -52,9 +56,16 @@ public final class Replay {
         }
     }
 
-    /** What a Replay found. */
+    /**
+     * What a Replay found.
+     *
+     * @param attested the commit the log says played the original Run, which the Replay copies into
+     *                 its own log so the two chains can be compared at all. It is therefore the one
+     *                 header field that says nothing about the build that did the reproducing, and
+     *                 a caller that reports a reproduction should say whose commit this is
+     */
     public record Result(String runId, int waits, int verified, boolean reproduced, String chain,
-                         String originalChain, String why) {
+                         String originalChain, String attested, String why) {
 
         /** Whether every wait matched and the two chains agree. */
         public boolean ok() {
@@ -96,27 +107,71 @@ public final class Replay {
 
         private final long at;
 
-        Unverifiable(long at) {
+        private final int verified;
+
+        Unverifiable(long at, int verified) {
             super("unverifiable from wait " + at + ": the log records an input the executor could"
-                    + " not express, so nothing after it can be reproduced");
+                    + " not express, so nothing after it can be reproduced; the " + verified
+                    + " waits before it were reproduced");
             this.at = at;
+            this.verified = verified;
         }
 
         /** The wait from which nothing can be reproduced. */
         public long at() {
             return at;
         }
+
+        /**
+         * How many waits were reproduced before it.
+         *
+         * <p>A Run verified to wait 400 and unverifiable from 401 is a different thing from one
+         * unverifiable from wait 1, and the first draft reported them identically. When the overlay
+         * starts recording human Runs this is the number that says how much of one was checked.
+         */
+        public int verified() {
+            return verified;
+        }
     }
 
+    /**
+     * The largest turn cap a Replay will take out of a file.
+     *
+     * <p>The cap comes from the log, the log can say anything, and `Canon` only requires that it be
+     * at least one -- so a header claiming two billion turns makes `--replay` run until the hero
+     * dies of something. Ten times the Rig's own cap is past any Run this project plays and well
+     * short of a machine nobody can stop.
+     */
+    public static final int CAP_MOST = RunLoop.TURN_CAP * 10;
+
     private Replay() {
+    }
+
+    private static String read(Path file) {
+        try {
+            return Files.readString(file, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException("the Run log " + file + " could not be read", e);
+        }
     }
 
     /**
      * Whether this build can replay {@code header} at all, and what differs when it cannot.
      *
-     * <p>Four things, checked before anything is played: the log's schema version, the upstream tag,
-     * the Observation schema version and the Profile version. Each decides what a Run <em>is</em>,
-     * so a difference in any of them makes a comparison meaningless rather than negative.
+     * <p><b>The versions that decide what a Run is,</b> checked before anything is played: the log's
+     * schema version, the upstream tag, the Observation schema version, the Profile version and the
+     * Codex version. Every one of them is a chained header field, and that is the test for
+     * membership here — a chained field this build would write differently makes the two chains
+     * differ for a reason that has nothing to do with whether the Run reproduced, so it has to be a
+     * refusal rather than a comparison. The Codex was missing from the first draft, which would
+     * have turned the next Codex regeneration into a nightly job reporting that Windows and Linux
+     * disagree about a Run.
+     *
+     * <p><b>And two things about the Run itself.</b> A log that claims the oracle is refused
+     * outright: an oracle Run is not ranked (FR-11), and replaying one is the only way this build
+     * could be asked to start a Run that may see what a player could not. A log with challenges set
+     * is refused because {@code playTriple} does not apply them, so replaying it would quietly play
+     * an unchallenged Run and compare it against a challenged one.
      */
     public static Refusal refusal(RunLog.Header header) {
         HeadlessBoot.ensure();
@@ -135,6 +190,24 @@ public final class Replay {
         if (header.profile() != Profile.VERSION) {
             return new Refusal("Profile version", String.valueOf(header.profile()),
                     String.valueOf(Profile.VERSION));
+        }
+        if (header.codex() != Codex.VERSION) {
+            return new Refusal("Codex version", String.valueOf(header.codex()),
+                    String.valueOf(Codex.VERSION));
+        }
+        if (header.oracle()) {
+            return new Refusal("oracle", "a Run that saw what a player could not",
+                    "a build that plays fair Runs and replays fair Runs (FR-11)");
+        }
+        if (header.challenges() != 0) {
+            return new Refusal("challenges", String.valueOf(header.challenges()),
+                    "0, because a Replay does not yet apply a challenge set and would play"
+                            + " a different Run");
+        }
+        if (header.cap() > CAP_MOST) {
+            return new Refusal("turn cap", String.valueOf(header.cap()),
+                    "at most " + CAP_MOST + ", because a Replay takes its cap from the file and a"
+                            + " file can say anything");
         }
         return null;
     }
@@ -159,16 +232,37 @@ public final class Replay {
      * @throws Unverifiable             at an {@code unsupported} record
      */
     public static Result of(Path file, Path out, String machine) {
-        RunLogVerifier.Verified verified = RunLogVerifier.of(file);
+        // The folder it is reading, before anything else. A Replay writes a log named for the Run
+        // it is reproducing, so a Replay into the source folder writes over the only copy of the
+        // file it is checking -- and if it then diverges, the evidence needed to look into the
+        // divergence is the file it just destroyed. The story froze this as a Never and nothing
+        // enforced it; `Runner` was safe only because `emptyFolder` happened to refuse.
+        Path from = file.toAbsolutePath().normalize();
+        if (from.getParent() != null && from.getParent().equals(out.toAbsolutePath().normalize())) {
+            throw new IllegalArgumentException("a Replay writes beside the log it is checking and"
+                    + " not over it, and " + out + " is the folder " + file + " is in");
+        }
+        // Read once. Verifying and reading used to open the file twice, so a log being written, or
+        // swapped, between the two calls could verify as one thing and be replayed as another.
+        String text = read(file);
+        RunLogVerifier.Verified verified = RunLogVerifier.of(text);
         if (!verified.ok()) {
             // The chain first, before a Run is started. A log that was edited describes a Run that
             // never happened, and replaying it would be measuring this build against a fiction.
             throw new IllegalArgumentException("the log " + file + " does not verify, so there is"
                     + " nothing to reproduce: " + verified.why());
         }
-        RunLogReader.Log log = RunLogReader.of(file);
+        RunLogReader.Log log = RunLogReader.of(text);
         if (!log.readable()) {
             throw new IllegalArgumentException("the log " + file + " could not be read: " + log.unreadable());
+        }
+        long headers = log.records().stream().filter(RunLog.Header.class::isInstance).count();
+        if (headers != 1) {
+            // Two logs concatenated and rechained. Each is a valid log and the join is a valid
+            // chain, so only counting catches it -- and `header()` would hand back the first while
+            // the waits came from both.
+            throw new IllegalArgumentException("a Run log holds one header and " + file + " holds "
+                    + headers + "; two Runs in one file are not one Run");
         }
         RunLog.Header header = log.header();
         Refusal refusal = refusal(header);
@@ -176,9 +270,18 @@ public final class Replay {
             throw new IllegalArgumentException(refusal.toString());
         }
 
-        Following following = new Following(log);
+        // The waits and the unsupported marks, and nothing else. `Following` is a Decider, and the
+        // Log it used to be handed holds the header, which holds the salt and the seed. Nothing
+        // read them -- but story 3.3's blocking finding was a Decider seeded from the salt, and
+        // "the constructor happens not to keep it" is a weaker sentence than "it is never given
+        // it". A Decider is handed Observations and the Actions it is reproducing.
+        Following following = new Following(log.waits(), Following.firstGap(log),
+                log.end() != null && !log.end().verifiable());
+        // `false`, in the source. The oracle flag was read out of the log here, which made this the
+        // only production caller that could set it at all -- from a file. `refusal` refuses such a
+        // log above; this is the second lock on the same door.
         RunLoop.Logging logging = new RunLoop.Logging(out, header.commit(), header.brain(),
-                header.registration(), machine, header.oracle());
+                header.registration(), machine, false);
         SeedSet.Entry triple = new SeedSet.Entry(header.seed(), header.heroClass(),
                 header.challenges(), header.seedCode());
 
@@ -188,12 +291,32 @@ public final class Replay {
         RunOutcome outcome = new RunLoop().playTriple(triple, header.salt(), following,
                 header.cap(), logging);
 
+        // After the Run, not only inside the decider. A mark past the last recorded wait is never
+        // reached by `decide`: the Run ends at its cap, or the hero dies, before anything asks for
+        // another Action -- so the Replay would finish, compare two chains that cannot match, and
+        // report a failed reproduction of a Run that is simply not reproducible.
+        if (following.unverifiableFrom != Long.MAX_VALUE) {
+            throw new Unverifiable(following.unverifiableFrom, following.verified);
+        }
         String ours = RunLogVerifier.of(out.resolve(RunLog.fileName(header.runId()))).chain();
         String theirs = verified.chain();
         boolean reproduced = !ours.isEmpty() && ours.equals(theirs);
-        return new Result(header.runId(), log.waits().size(), following.verified, reproduced, ours,
-                theirs, reproduced ? "" : "the Replay's chain is " + ours + " and the log's is " + theirs
-                        + ", so this build did not reproduce the Run the log describes (" + outcome.cause() + ")");
+        String why = "";
+        if (log.end() == null) {
+            // A killed Run's log. Its prefix is a valid log and every wait in it can be reproduced,
+            // but it records no ending, so there is no ending to reach and the chains cannot agree
+            // however faithful the reproduction was. Saying "did not reproduce" of that would be
+            // reporting an incomplete measurement as a failed one.
+            why = "the log records no ending, so there is no chain to reach: the " + following.verified
+                    + " waits it does record were reproduced, and the Run it describes was killed"
+                    + " before it finished";
+        } else if (!reproduced) {
+            why = "the Replay's chain is " + ours + " and the log's is " + theirs
+                    + ", so this build did not reproduce the Run the log describes ("
+                    + outcome.cause() + ")";
+        }
+        return new Result(header.runId(), log.waits().size(), following.verified,
+                reproduced && log.end() != null, ours, theirs, header.commit(), why);
     }
 
     /**
@@ -203,30 +326,47 @@ public final class Replay {
     private static final class Following implements Decider {
 
         private final List<RunLog.Wait> waits;
-        private final List<Long> unsupported = new ArrayList<>();
+
+        /**
+         * The first wait from which nothing can be reproduced, or {@code Long.MAX_VALUE}.
+         *
+         * <p>One number rather than a list, because an {@code unsupported} record makes everything
+         * <em>from</em> the wait it names unverifiable -- which is what {@code End.verifiable}'s own
+         * javadoc says -- and the first draft only fired when the mark named a wait the log also
+         * recorded. The realistic overlay case is the other one: the input the executor could not
+         * express is the reason there is no wait record there, and a mark after the last recorded
+         * wait was ignored entirely.
+         */
+        private final long unverifiableFrom;
+
         private int at;
         private int verified;
 
-        Following(RunLogReader.Log log) {
-            this.waits = log.waits();
-            for (RunLog record : log.records()) {
-                if (record instanceof RunLog.Unsupported gap) {
-                    unsupported.add(gap.k());
-                }
-            }
+        Following(List<RunLog.Wait> waits, long unverifiableFrom, boolean saidUnverifiable) {
+            this.waits = List.copyOf(waits);
+            // The log's own end record is believed when it says the Run was not verifiable, even if
+            // no surviving `unsupported` mark says which wait: a writer that marked its Run
+            // unverifiable knows something this reader does not.
+            this.unverifiableFrom = saidUnverifiable && unverifiableFrom == Long.MAX_VALUE
+                    ? 0 : unverifiableFrom;
         }
 
         @Override
         public Action decide(Observation observation) {
             if (at >= waits.size()) {
+                if (unverifiableFrom != Long.MAX_VALUE) {
+                    // The waits ran out and the log says something past them could not be
+                    // expressed. That is not a Run that ended; it is a Run nothing can check.
+                    throw new Unverifiable(unverifiableFrom, verified);
+                }
                 // The log has nothing more to say, so the Run is over as far as a reproduction
                 // goes. Returning null ends the loop by its own rule rather than inventing an
                 // Action nobody recorded.
                 return null;
             }
             RunLog.Wait wait = waits.get(at++);
-            if (unsupported.contains(wait.k())) {
-                throw new Unverifiable(wait.k());
+            if (wait.k() >= unverifiableFrom) {
+                throw new Unverifiable(unverifiableFrom, verified);
             }
             if (!observation.hash().equals(wait.obs())) {
                 throw new Diverged(wait.k(), moved(observation, wait),
@@ -236,6 +376,17 @@ public final class Replay {
             }
             verified++;
             return wait.action();
+        }
+
+        /** The first wait an {@code unsupported} record makes unreproducible, if there is one. */
+        static long firstGap(RunLogReader.Log log) {
+            long first = Long.MAX_VALUE;
+            for (RunLog record : log.records()) {
+                if (record instanceof RunLog.Unsupported gap) {
+                    first = Math.min(first, gap.k());
+                }
+            }
+            return first;
         }
 
         /** Which sections differ, because "wait 412 differs" is not something anyone can act on. */

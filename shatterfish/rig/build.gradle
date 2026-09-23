@@ -17,6 +17,8 @@ dependencies {
 // looked. This is the declaration the Codex's own test needed for the same reason.
 tasks.named('test') {
     inputs.dir(rootProject.file('seeds')).withPropertyName('committedSeedSets').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(rootProject.file('reference')).withPropertyName('referenceRun').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(rootProject.file('.github/workflows/replay.yml')).withPropertyName('replayWorkflow').withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 // `./gradlew :rig:seeds` writes seeds/ at the repository root: one task, no Run, no game boot,
@@ -31,26 +33,17 @@ tasks.register('seeds', JavaExec) {
     outputs.upToDateWhen { false }
 }
 
-// `./gradlew :rig:reference` writes the committed reference log at reference/. It is one Run of a
-// fixed tuple under a fixed salt and a fixed cap, played by the random Brain, whose only job is to
-// be replayed: the nightly cross-platform workflow replays it on Windows and on Linux, and a
-// difference between the two is a difference this project finds rather than a reader.
-//
-// Its attested commit is forty zeros on purpose. A real commit would change every time the file was
-// regenerated and would say nothing true about the build that replays it -- the log's job here is
-// to be the same bytes on every machine, which is exactly what the chain is over.
+// `./gradlew :rig:reference` writes the committed reference Run: one log and the index that
+// publishes its chain. The nightly cross-platform workflow replays it on Windows and on Linux.
+// The tuple and the reason for every part of it are in Reference itself, so that the values are
+// stated once, in Java, where a test can hold the committed file against them.
 tasks.register('reference', JavaExec) {
     group = 'shatterfish'
     description = 'Writes reference/ : one Run, fixed in every part, for the cross-platform replay.'
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'org.shatterfish.rig.RunOne'
+    mainClass = 'org.shatterfish.rig.Reference'
     workingDir = rootDir
-    args = ['--seed', '12648430', '--class', 'WARRIOR', '--challenges', '0',
-            '--salt', '1511527447', '--cap', '400', '--brain', 'random',
-            '--brain-commit', '0000000000000000000000000000000000000000',
-            '--commit', '0000000000000000000000000000000000000000',
-            '--machine', 'the reference', '--registration', '',
-            '--out', new File(rootDir, 'reference').absolutePath]
+    args = [new File(rootDir, 'reference').absolutePath]
     outputs.upToDateWhen { false }
 }
 

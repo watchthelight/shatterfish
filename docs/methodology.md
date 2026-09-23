@@ -330,10 +330,25 @@ No field is ever `null`.
 
 ```
 chained(record) = the record's canonical JSON with these keys removed:
-                  prev, chain, think_ms, machine, started
+                  prev, chain                 from a record of any kind
+                  machine, started            from a header
+                  think_ms                    from a wait
 chain(header)   = SHA-256( utf8(chained(header)) )
 chain(record_k) = SHA-256( bytes(chain_{k-1}) || utf8(chained(record_k)) )
 ```
+
+**Per kind, and this matters.** `think_ms` is a wait's field and `machine` and `started` are the
+header's, so a checker that struck those names from every record alike would leave every other
+record in the log with three names' worth of bytes the chain does not cover. A `mode` record
+carrying `"think_ms":"anything at all"` would hash as though the member were not there. The first
+implementation of this in Shatterfish did exactly that, and the rule is stated this way so that a
+third implementation does not. A record carrying an excluded key that its own kind does not have is
+not a record this format can chain: refuse it rather than hash the text without it.
+
+A key is matched **as it is written**, not as it decodes. The writer escapes nothing in a key, so
+`"\u0070rev"` is not `prev` -- it is a key the writer would never have produced, and a file holding
+one is refused rather than stripped. Without that rule a `sed`-based checker and a decoding one
+disagree about the same file, which is the one thing a published format may not permit.
 
 `bytes(...)` is the previous chain as its thirty-two raw bytes, not as its sixty-four hex
 characters. Every line then carries `chain`, and every line after the header also carries `prev`,
@@ -408,8 +423,20 @@ Two commands, and they cost very different things:
 ```
 
 `--verify` recomputes every chain, checks each against the chain the run index published for that
-Run, and checks that each log begins with a header, holds one, and ends with an `end` record. It
-plays nothing. `--replay` takes one log rather than a folder, because a Replay is a Run and AD-6
+Run, checks that no log's header claims the oracle, that each file is named for the Run its own
+header states, and that each log begins with a header and holds exactly one. It plays nothing.
+
+It does **not** require a Run to have finished unless you ask with `--finished`. Every prefix of a
+valid log is a valid log, a folder of five hundred Runs normally holds a few that were killed, and
+the run index already counts those as incomplete — failing the folder for them would make a busy
+machine look like a dishonest one. The nightly job passes `--finished`, because a reference log
+truncated to its header verifies perfectly and would then be "replayed" as a one-line Run that
+reports success on both platforms.
+
+**A folder with no `runs.jsonl` is refused.** Without the index nothing in the folder is held
+against a published value, so the command is comparing each file with itself — and deleting one
+file is the cheapest way to launder a folder that was edited. A folder in that state has not been
+verified; it has been read, and `--verify` says so rather than printing a clean pass. `--replay` takes one log rather than a folder, because a Replay is a Run and AD-6
 gives a Run its own process: the game's state is static and process-wide, so a command that
 replayed a folder in one JVM would be measuring the order the logs went in.
 
@@ -434,9 +461,21 @@ difference between Windows and Linux is found by the project rather than by a re
 
 The header's `tag`, `commit`, `brain` and `registration` are supplied by whoever started the Run:
 the driver has no checkout to read a commit from and no Registration to read an id from. They are
-*attested*, not verified. The chain shows that nobody changed them after the Run; what makes them
-worth anything is the Registration committed before the first Run, and the Replay that plays the
-log back and compares every Observation hash.
+*attested*, not verified, and the chain shows only that nobody changed them after the Run.
+
+**A Replay does not check three of them.** It refuses a log whose `tag` is not this build's, because
+the tag is the game's own rules and a comparison across two of them means nothing. It takes
+`commit`, `brain` and `registration` from the log and writes them into its own — it has to, or no
+other checkout could ever reach the log's chain, which is the whole of what the cross-platform job
+does. So a log whose attestations were rewritten and rechained replays to the same chain and is
+reported as reproduced, correctly: *the Run reproduced*. Nothing about who played it was checked,
+and a reproduction should never be read as saying otherwise. `--replay` prints the commit of the
+build that did the replaying next to the commit the log attests, because those are two different
+facts and only one of them is evidence about the machine in front of you.
+
+What makes an attestation worth anything is the Registration committed before the first Run
+(story 3.5), which puts the claim somewhere its author does not control. A Replay is evidence about
+this build and this machine; it is not evidence about a stranger's.
 
 A Run that ends without an `end` record is *incomplete* -- killed, crashed, or timed out. Its
 prefix still reads and still verifies as far as it goes, and the Rig counts it as incomplete and

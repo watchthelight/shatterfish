@@ -86,9 +86,25 @@ public final class Runner {
      */
     public static final String REPLAY = "--replay";
 
+    /**
+     * Requires every log in a {@code --verify} folder to be a Run that finished.
+     *
+     * <p>Without it an incomplete log passes, which is right for a folder of five hundred Runs
+     * where a machine ran out of time. It is wrong for the nightly job's reference folder, where a
+     * log truncated to its header would otherwise pre-flight clean and then be "replayed" as a
+     * one-line Run that reports success.
+     */
+    public static final String FINISHED = "--finished";
+
     /** Every flag the Rig knows. The list is asserted by name, so a new one is a decision. */
     static final List<String> KNOWN = List.of(BRAIN, SEEDS, PARALLEL, OUT, ROOT, COMMIT, CAP,
-            DEADLINE, VERIFY, REPLAY);
+            DEADLINE, VERIFY, REPLAY, FINISHED);
+
+    /** The two things this command can be asked to do, of which it does exactly one. */
+    static final List<String> MODES = List.of(VERIFY, REPLAY);
+
+    /** The flags that are their own answer and take no value after them. */
+    static final List<String> SWITCHES = List.of(FINISHED);
 
     /** How long one Run may take before it is killed and counted incomplete. */
     public static final int DEADLINE_SECONDS = 900;
@@ -104,6 +120,15 @@ public final class Runner {
 
     public static void main(String[] args) {
         Map<String, String> arguments = arguments(args);
+        // One mode. `arguments` refuses a flag twice and a flag with no value, and this is the same
+        // rule one level up: a command line asking to verify and to replay used to do one of them
+        // and say nothing about the other, which is a flag silently ignored.
+        List<String> asked = MODES.stream().filter(arguments::containsKey).toList();
+        if (asked.size() > 1) {
+            throw new IllegalArgumentException("the Rig does one thing per invocation and this asks"
+                    + " for " + asked + "; verifying a folder and replaying a log are different"
+                    + " questions with different costs");
+        }
         if (arguments.containsKey(VERIFY)) {
             System.exit(verify(arguments, System.out));
             return;
@@ -127,8 +152,9 @@ public final class Runner {
     static int verify(Map<String, String> arguments, PrintStream out) {
         long began = System.nanoTime();
         Verify.Report report = Verify.of(Path.of(required(arguments, VERIFY)));
+        boolean finished = arguments.containsKey(FINISHED);
         out.println(report.text() + ", in " + (System.nanoTime() - began) / 1_000_000L + " ms");
-        return report.ok(true) ? 0 : 1;
+        return report.ok(!finished) ? 0 : 1;
     }
 
     /**
@@ -155,6 +181,12 @@ public final class Runner {
         } catch (Replay.Unverifiable unverifiable) {
             out.println(unverifiable.getMessage());
             return 3;
+        } catch (java.io.UncheckedIOException broken) {
+            // A file that could not be read is not a log this build refuses; it is a machine
+            // problem, and reporting it as a refusal would send whoever reads the nightly job
+            // looking for a schema difference that is not there.
+            out.println("the log could not be read: " + broken.getMessage());
+            return 5;
         } catch (RuntimeException refused) {
             out.println(refused.getMessage());
             return 4;
@@ -164,6 +196,15 @@ public final class Runner {
                 + result.verified() + " of " + result.waits() + " waits verified, the log chains to "
                 + result.originalChain() + " and this build to " + result.chain() + ", in " + millis
                 + " ms");
+        if (!result.ok()) {
+            out.println(result.why());
+        }
+        // What the log attests, beside what is actually running. A Replay attests the log's commit
+        // so that the two chains can be compared at all, which means the chain says nothing about
+        // which build did the reproducing -- so the command says it, every time, in the one place
+        // a person is looking.
+        out.println("replayed by this build, at commit " + commitOf(Path.of(".").toAbsolutePath()
+                .normalize()) + ", against a log attesting " + result.attested());
         return result.ok() ? 0 : 1;
     }
 
@@ -509,23 +550,11 @@ public final class Runner {
 
     static Map<String, String> arguments(String[] args) {
         Map<String, String> given = new LinkedHashMap<>();
-        for (int i = 0; i < args.length; i += 2) {
+        int i = 0;
+        while (i < args.length) {
             String flag = args[i];
             if (!flag.startsWith("--")) {
                 throw new IllegalArgumentException("expected a flag at argument " + i + ", found " + flag);
-            }
-            if (i + 1 >= args.length) {
-                throw new IllegalArgumentException(flag + " takes a value");
-            }
-            if (args[i + 1].startsWith("--")) {
-                // `--commit --root` would otherwise attest the string "--root" as the commit in
-                // every header of the invocation, and `--out --root` would write the whole thing
-                // into a folder of that name. A flag is never a value.
-                throw new IllegalArgumentException(flag + " was given the flag " + args[i + 1]
-                        + " as its value; every flag takes a value of its own");
-            }
-            if (args[i + 1].isEmpty()) {
-                throw new IllegalArgumentException(flag + " is stated, not left empty");
             }
             if (!KNOWN.contains(flag)) {
                 // Named rather than ignored, and the list is printed, because the one flag this
@@ -533,9 +562,33 @@ public final class Runner {
                 // reader convinces themselves it has one.
                 throw new IllegalArgumentException("the Rig does not know " + flag + "; it knows " + KNOWN);
             }
-            if (given.put(flag, args[i + 1]) != null) {
+            String value;
+            if (SWITCHES.contains(flag)) {
+                // A switch is its own answer. It is written down as the word so that everything
+                // downstream reads the map the same way, and so that a switch given twice is
+                // caught by the same line that catches a flag given twice.
+                value = "yes";
+            } else {
+                if (i + 1 >= args.length) {
+                    throw new IllegalArgumentException(flag + " takes a value");
+                }
+                value = args[i + 1];
+                if (value.startsWith("--")) {
+                    // `--commit --root` would otherwise attest the string "--root" as the commit in
+                    // every header of the invocation, and `--out --root` would write the whole
+                    // thing into a folder of that name. A flag is never a value.
+                    throw new IllegalArgumentException(flag + " was given the flag " + value
+                            + " as its value; every flag takes a value of its own");
+                }
+                if (value.isEmpty()) {
+                    throw new IllegalArgumentException(flag + " is stated, not left empty");
+                }
+                i++;
+            }
+            if (given.put(flag, value) != null) {
                 throw new IllegalArgumentException(flag + " is given twice");
             }
+            i++;
         }
         return given;
     }

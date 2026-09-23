@@ -67,7 +67,7 @@ class RunnerTest {
         // not a copy built from the same constants, which is what this used to compare and which
         // would have let a ninth flag in unnoticed.
         assertEquals(List.of("--brain", "--seeds", "--parallel", "--out", "--root", "--commit",
-                        "--cap", "--deadline", "--verify", "--replay"), Runner.KNOWN,
+                        "--cap", "--deadline", "--verify", "--replay", "--finished"), Runner.KNOWN,
                 "a flag added to the Rig is a decision, and this is where it is made");
     }
 

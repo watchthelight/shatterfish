@@ -85,9 +85,24 @@ public final class LogHeader {
         String text;
         try {
             text = Files.readString(file, StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new UncheckedIOException("the Run log " + file + " could not be read", e);
+        } catch (IOException | RuntimeException | OutOfMemoryError cannot) {
+            // A file locked by another process, a byte that is not UTF-8, a log too large for the
+            // heap. This used to be thrown, and the Rig reads five hundred of these on worker
+            // threads -- so one such file ended the whole invocation, which is the case the record
+            // below promises in its own javadoc to survive.
+            return unreadable(false, "the Run log " + file + " could not be read: " + cannot);
         }
+        return of(text, file);
+    }
+
+    /**
+     * Reads a log's text, naming {@code file} in what it reports.
+     *
+     * <p>Taking the text lets a caller that has already read the file -- {@code --verify} reads it
+     * once for the chain -- hold the same bytes up to both questions. Two reads of a file that is
+     * still being written answer about two different files.
+     */
+    public static Read of(String text, Path file) {
         List<String> whole = whole(text);
         // The oracle flag, off the text, before anything is asked to be a record. FR-11 keys on
         // this and it may not need a well-formed header to fire: a hand-made line claiming the
@@ -100,11 +115,13 @@ public final class LogHeader {
         try {
             claimed = claimsTheOracle(whole, text);
         } catch (RuntimeException cannot) {
-            // A line holding `oracle` twice, or holding it as something that is not true or false.
-            // The claim cannot be read, so the log cannot be vouched for -- which the Rig counts
-            // as incomplete, never as fair.
-            return unreadable(false, "the log's own oracle flag could not be read: "
-                    + cannot.getMessage());
+            // `oracle` held as something that is not true or false. The claim cannot be read, and
+            // an unreadable claim is treated as a claim: the alternative is INCOMPLETE, which
+            // ADR-0012 scores as a tie, so a Run could escape FR-11 by being malformed as well as
+            // unfair. Refusing a fair Run whose log is corrupt costs one Run; the other way costs
+            // the rule.
+            return unreadable(true, "the log's own oracle flag could not be read, and a claim"
+                    + " that cannot be read is treated as a claim: " + cannot.getMessage());
         }
         RunLogReader.Log log;
         try {
@@ -144,14 +161,41 @@ public final class LogHeader {
             try {
                 held = Json.object(line);
             } catch (RuntimeException notAnObject) {
-                // A line that is not an object claims nothing. Whether the file as a whole is
-                // readable is the next question, and it is answered separately.
+                // A line this reader will not parse still says what it says. A byte order mark at
+                // the front of a file, a key written twice, bytes after the closing brace: each
+                // makes `Json.object` refuse, and the first draft took that as "claims nothing" --
+                // which handed a hand-made oracle header the easiest possible disguise, and made
+                // the duplicate-key case this method's own comment names unreachable. So the text
+                // is asked instead, and a line that mentions the flag at all is treated as
+                // claiming it. A fair Run's log never contains the word except as `false`.
+                if (mentionsTheOracle(line)) {
+                    return true;
+                }
                 continue;
             }
             String oracle = held.get("oracle");
             claimed |= oracle != null && Json.bool(oracle);
         }
         return claimed;
+    }
+
+    /**
+     * Whether a line this reader could not parse mentions the oracle as anything but false.
+     *
+     * <p>Deliberately crude, and deliberately in the direction of refusing. This is only reached
+     * for a line the format says should not exist, and between "refuse a Run that was probably
+     * fair" and "publish a Run that was probably not", FR-11 decides which way to be wrong.
+     */
+    private static boolean mentionsTheOracle(String line) {
+        int at = line.indexOf("oracle");
+        while (at >= 0) {
+            String rest = line.substring(at + "oracle".length());
+            if (!rest.startsWith("\":false")) {
+                return true;
+            }
+            at = line.indexOf("oracle", at + 1);
+        }
+        return false;
     }
 
     /**
