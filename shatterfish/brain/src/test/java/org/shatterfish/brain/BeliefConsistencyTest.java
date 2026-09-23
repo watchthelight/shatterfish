@@ -47,24 +47,53 @@ class BeliefConsistencyTest {
     }
 
     @Test
-    @DisplayName("each unidentified appearance in view carries a distribution over its family's identities")
+    @DisplayName("an unidentified appearance in view carries its family's identities, by deck weight")
     void a_distribution() {
-        Beliefs beliefs = after(Screens.world(1, FLOOR, List.of(new HeapView(2, HeapKind.HEAP, false, "amber potion", 0, "")),
-                List.of(), List.of(Screens.item(ItemKind.POTION, "crimson potion", 2)), List.of()));
+        Beliefs beliefs = after(Screens.world(1, FLOOR, List.of(), List.of(),
+                List.of(Screens.item(ItemKind.POTION, "crimson potion", 2)), List.of()));
 
-        assertEquals(List.of("crimson potion", "amber potion"),
-                beliefs.identities().stream().map(Beliefs.Guess::label).toList(), "the backpack's and the floor's");
         Beliefs.Guess crimson = guess(beliefs, "crimson potion");
         assertEquals(1.0, sum(crimson), 1e-12);
         assertEquals(4, crimson.odds().size(), "strength is a candidate though the decks weight it zero");
-        // Healing 6, strength weighted as the commonest (6), mind vision 4, frost 3: of 19.
+        // Healing 6, strength weighted as the heaviest (6), mind vision 4, frost 3: of 19.
         assertEquals("potion of healing", crimson.odds().get(0).name());
         assertEquals(6.0 / 19, crimson.odds().get(0).probability(), 1e-12);
         assertEquals(6.0 / 19, crimson.odds().get(1).probability(), 1e-12);
         assertEquals("potion of frost", crimson.odds().get(3).name());
         assertEquals(3.0 / 19, crimson.odds().get(3).probability(), 1e-12);
-        assertTrue(beliefs.identities().stream().noneMatch(guess -> guess.label().equals("golden potion")),
-                "an appearance not in view is not guessed at");
+        assertEquals(1, beliefs.identities().size(), "an appearance not in view is not guessed at");
+    }
+
+    @Test
+    @DisplayName("two appearances in view are two identities: each one's odds are its marginal over the pairs")
+    void distinct_identities() {
+        Beliefs beliefs = after(Screens.world(1, FLOOR, List.of(new HeapView(2, HeapKind.HEAP, false, "amber potion x2", 0, "")),
+                List.of(), List.of(Screens.item(ItemKind.POTION, "crimson potion", 1)), List.of()));
+
+        assertEquals(List.of("crimson potion", "amber potion"),
+                beliefs.identities().stream().map(Beliefs.Guess::label).toList(), "a heap's stack count is not its name");
+        // P(x) is w_x times the other's total, 19 - w_x: healing and strength 6*13, mind vision
+        // 4*15, frost 3*16, of 264.
+        for (Beliefs.Guess guess : beliefs.identities()) {
+            assertEquals(1.0, sum(guess), 1e-12);
+            assertEquals(78.0 / 264, guess.odds().get(0).probability(), 1e-12, guess.toString());
+            assertEquals(48.0 / 264, guess.odds().get(3).probability(), 1e-12, guess.toString());
+        }
+    }
+
+    @Test
+    @DisplayName("with every remaining appearance in view, each is equally likely to be any remaining identity")
+    void all_in_view() {
+        List<KnownAppearance> known = List.of(new KnownAppearance(ItemKind.POTION, "potion of healing"));
+        Beliefs beliefs = after(Screens.world(1, FLOOR, List.of(), List.of(),
+                List.of(Screens.item(ItemKind.POTION, "crimson potion", 1), Screens.item(ItemKind.POTION, "amber potion", 1),
+                        Screens.item(ItemKind.POTION, "golden potion", 1)), known));
+        assertEquals(3, beliefs.identities().size());
+        for (Beliefs.Guess guess : beliefs.identities()) {
+            for (Beliefs.Odds odds : guess.odds()) {
+                assertEquals(1.0 / 3, odds.probability(), 1e-12, guess.toString());
+            }
+        }
     }
 
     @Test
@@ -81,7 +110,18 @@ class BeliefConsistencyTest {
             assertEquals(3, guess.odds().size(), guess.toString());
         }
         assertEquals(2, beliefs.identities().size(), "an identified item wears its own name and is not guessed at");
-        assertEquals(6.0 / 13, guess(beliefs, "amber potion").odds().get(0).probability(), 1e-12);
+        // Strength 6*7, mind vision 4*9, frost 3*10, of 108.
+        assertEquals(42.0 / 108, guess(beliefs, "amber potion").odds().get(0).probability(), 1e-12);
+    }
+
+    @Test
+    @DisplayName("a heap's title is its item's name without the stack count or the level")
+    void heap_titles() {
+        assertEquals("crimson potion", Beliefs.untitled("crimson potion x12"));
+        assertEquals("ring of accuracy", Beliefs.untitled("ring of accuracy +2"));
+        assertEquals("dagger", Beliefs.untitled("dagger -1 x2"));
+        assertEquals("scroll of KAUNAN", Beliefs.untitled("scroll of KAUNAN"));
+        assertEquals("box x", Beliefs.untitled("box x"));
     }
 
     @Test
@@ -145,6 +185,69 @@ class BeliefConsistencyTest {
     }
 
     @Test
+    @DisplayName("an appearance found unidentified and then identified as strength counts in the set it was found in")
+    void found_unidentified() {
+        List<KnownAppearance> strength = List.of(new KnownAppearance(ItemKind.POTION, "potion of strength"));
+        Observation found = Screens.world(2, FLOOR, List.of(), List.of(),
+                List.of(Screens.item(ItemKind.POTION, "crimson potion", 1)), List.of());
+        Observation drunk = Screens.world(6, FLOOR, List.of(), List.of(), List.of(), strength);
+        Observation back = Screens.world(4, FLOOR, List.of(), List.of(), List.of(), strength);
+
+        // Drunk on floor 6: the one potion that was crimson is gone and strength is known, so the
+        // crimson potion found on floor 2 was strength, and the first set found it.
+        assertEquals(new Beliefs.Chapter("STRENGTH_POTIONS", "potion of strength", 0, 1, 1),
+                after(found, drunk, back).chapters().get(0));
+        assertEquals(new Beliefs.Chapter("STRENGTH_POTIONS", "potion of strength", 1, 0, 2),
+                after(found, drunk).chapters().get(0), "not the set it was drunk in");
+
+        // Identified in the pack: two crimson potions become two potions of strength on floor 6,
+        // found on floor 2 -- not a find on floor 6.
+        Observation two = Screens.world(2, FLOOR, List.of(), List.of(),
+                List.of(Screens.item(ItemKind.POTION, "crimson potion", 2)), List.of());
+        Observation named = Screens.world(6, FLOOR, List.of(), List.of(),
+                List.of(Screens.item(ItemKind.POTION, "potion of strength", 2)), strength);
+        assertEquals(new Beliefs.Chapter("STRENGTH_POTIONS", "potion of strength", 1, 0, 2),
+                after(two, named).chapters().get(0));
+        assertEquals(new Beliefs.Chapter("STRENGTH_POTIONS", "potion of strength", 0, 2, 0),
+                after(two, named, back).chapters().get(0));
+
+        // Two appearances gone at the wait strength became known: which was strength cannot be
+        // told, so neither is counted.
+        Observation both = Screens.world(2, FLOOR, List.of(), List.of(),
+                List.of(Screens.item(ItemKind.POTION, "crimson potion", 1), Screens.item(ItemKind.POTION, "amber potion", 1)),
+                List.of());
+        assertEquals(new Beliefs.Chapter("STRENGTH_POTIONS", "potion of strength", 0, 0, 2),
+                after(both, drunk, back).chapters().get(0));
+    }
+
+    @Test
+    @DisplayName("a memory with something in every list survives its bytes, and refuses a negative count")
+    void round_trip() {
+        Brain brain = brain();
+        Belief belief = null;
+        for (Observation screen : List.of(
+                Screens.grid(3, 3, List.of(Tile.EMPTY, Tile.WATER, Tile.EMPTY, Tile.WATER, Tile.PEDESTAL,
+                        Tile.WATER, Tile.EMPTY, Tile.WALL, Tile.EMPTY), List.of(new HeapView(4, HeapKind.CHEST, false, "", 0, ""))),
+                Screens.world(3, FLOOR, List.of(), List.of(Screens.enemy("rat", 2)),
+                        List.of(Screens.item(ItemKind.POTION, "potion of strength", 1), Screens.item(ItemKind.POTION, "amber potion", 1)),
+                        List.of(new KnownAppearance(ItemKind.POTION, "potion of strength"))))) {
+            belief = brain.update(screen, belief);
+        }
+        Memory memory = Memory.of(belief);
+        for (List<?> list : List.of(memory.facts(), memory.found(), memory.held(), memory.known(), memory.labels(),
+                memory.pending(), memory.monsters())) {
+            assertTrue(!list.isEmpty(), memory.toString());
+        }
+        assertEquals(memory, Memory.of(memory.belief()));
+        byte[] bytes = memory.belief().bytes();
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> Memory.of(new Belief(Memory.VERSION, java.util.Arrays.copyOf(bytes, bytes.length - 3))),
+                "cut short inside the last record");
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> new Memory.Found("x", 0, -1));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> new Memory.Seen("rat", 1, -2, 0));
+    }
+
+    @Test
     @DisplayName("an enemy seen and then lost is remembered where it was last, and marked stale")
     void remembered_monsters() {
         Observation seen = Screens.world(1, FLOOR, List.of(), List.of(Screens.enemy("rat", 2)), List.of(), List.of());
@@ -160,6 +263,26 @@ class BeliefConsistencyTest {
         assertEquals(List.of(), after(seen, lost, below).monsters(), "another floor's enemies are not this one's");
         assertEquals(List.of(new Beliefs.Monster("rat", 2, 1, true)), after(seen, lost, below, lost).monsters(),
                 "and are still remembered on the way back");
+    }
+
+    @Test
+    @DisplayName("two enemies of one name are two sightings, and the oldest are forgotten past the cap")
+    void many_monsters() {
+        Observation two = Screens.world(1, FLOOR, List.of(), List.of(Screens.enemy("rat", 0), Screens.enemy("rat", 2)),
+                List.of(), List.of());
+        Observation one = Screens.world(1, FLOOR, List.of(), List.of(Screens.enemy("rat", 2)), List.of(), List.of());
+        assertEquals(List.of(new Beliefs.Monster("rat", 2, 2, false), new Beliefs.Monster("rat", 0, 1, true)),
+                after(two, one).monsters(), "one rat in view accounts for one of the two remembered");
+
+        List<Memory.Seen> many = new java.util.ArrayList<>();
+        for (int i = 0; i < Memory.MONSTERS; i++) {
+            many.add(new Memory.Seen("bat " + i, 1, 0, i));
+        }
+        List<Memory.Seen> after = Beliefs.sightings(many, one, 100);
+        assertEquals(Memory.MONSTERS, after.size());
+        assertEquals(new Memory.Seen("rat", 1, 2, 100), after.get(0));
+        assertTrue(after.stream().noneMatch(seen -> seen.name().equals("bat " + (Memory.MONSTERS - 1))),
+                "the last remembered is the first forgotten");
     }
 
     @Test

@@ -18,7 +18,7 @@ import java.util.List;
  * appearances in view and the journal's identified list) and the Codex, and is recomputed at every
  * wait ({@link Beliefs}). What is here is what the screen stops showing: a floor fact once the
  * room that implies it is out of view, a guaranteed drop already found, a monster that walked out
- * of sight.
+ * of sight, and the appearances picked up before anyone knew what they were.
  *
  * @param waits    the Observations folded in so far: one per {@link Brain#update}, which the Brain's
  *                 driver calls once per Input wait it is asked about
@@ -26,9 +26,14 @@ import java.util.List;
  * @param facts    what the floors seen imply, each once
  * @param found    the guaranteed drops found, per counter and set of floors
  * @param held     how many of each guaranteed item the inventory last showed identified
+ * @param known    the counters whose item the journal listed as identified at the last wait
+ * @param labels   how many of each unidentified appearance the inventory last showed
+ * @param pending  the rises in an unidentified appearance's quantity, per set of floors, not yet
+ *                 attributed to an identity
  * @param monsters the enemies seen, the latest sighting of each, fresh or stale
  */
-record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<Seen> monsters) {
+record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
+              List<Held> labels, List<Found> pending, List<Seen> monsters) {
 
     /** The meaning of the bytes; bumped when it changes. */
     static final int VERSION = 2;
@@ -36,43 +41,66 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     /** The most sightings remembered; the oldest is forgotten first. */
     static final int MONSTERS = 64;
 
-    static final Memory START = new Memory(0, 0, List.of(), List.of(), List.of(), List.of());
+    static final Memory START = new Memory(0, 0, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+            List.of());
 
     /** An item a floor is known to hold, and why: "potion of invisibility" on depth 3, from a pool room. */
     record Fact(int depth, String item, String because) {
+
+        Fact {
+            require(depth >= 0, "a depth");
+        }
     }
 
-    /** How many of a guaranteed drop were found in a set of floors (set = depth / floors per set). */
-    record Found(String counter, int set, int count) {
+    /** How many of something were found in a set of floors (set = depth / floors per set). */
+    record Found(String key, int set, int count) {
+
+        Found {
+            require(set >= 0 && count >= 0, "a set and a count");
+        }
     }
 
-    /** How many identified items of a guaranteed drop the inventory last showed. */
-    record Held(String counter, int quantity) {
+    /** How many of something the inventory last showed. */
+    record Held(String key, int quantity) {
+
+        Held {
+            require(quantity >= 0, "a quantity");
+        }
     }
 
     /** An enemy's latest sighting: its name, floor and cell, and the wait it was last seen at. */
     record Seen(String name, int depth, int cell, long at) {
+
+        Seen {
+            require(depth >= 0 && cell >= 0 && at >= 0, "a floor, a cell and a wait");
+        }
     }
 
     Memory {
-        if (waits < 0 || deepest < 0) {
-            throw new IllegalArgumentException("a memory counts from zero: " + waits + ", " + deepest);
-        }
+        require(waits >= 0 && deepest >= 0, "a memory counts from zero");
         facts = List.copyOf(facts);
         found = List.copyOf(found);
         held = List.copyOf(held);
+        known = List.copyOf(known);
+        labels = List.copyOf(labels);
+        pending = List.copyOf(pending);
         monsters = List.copyOf(monsters);
     }
 
-    /** The count found for {@code counter} in {@code set}. */
-    int found(String counter, int set) {
-        return found.stream().filter(one -> one.counter().equals(counter) && one.set() == set)
-                .mapToInt(Found::count).sum();
+    private static void require(boolean held, String what) {
+        if (!held) {
+            throw new IllegalArgumentException("a memory holds no negative " + what);
+        }
     }
 
-    /** The identified quantity of {@code counter}'s item last held. */
-    int held(String counter) {
-        return held.stream().filter(one -> one.counter().equals(counter)).mapToInt(Held::quantity).sum();
+    /** The count in {@code of} for {@code key} in {@code set}. */
+    static int count(List<Found> of, String key, int set) {
+        return of.stream().filter(one -> one.key().equals(key) && one.set() == set).mapToInt(Found::count).sum();
+    }
+
+    /** The quantity in {@code of} for {@code key}. */
+    static int quantity(List<Held> of, String key) {
+        return of.stream().filter(one -> one.key().equals(key)).mapToInt(Held::quantity).sum();
     }
 
     Belief belief() {
@@ -81,19 +109,33 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         for (Fact fact : facts) {
             out.integer(fact.depth()).text(fact.item()).text(fact.because());
         }
-        out.integer(found.size());
-        for (Found one : found) {
-            out.text(one.counter()).integer(one.set()).integer(one.count());
+        founds(out, found);
+        helds(out, held);
+        out.integer(known.size());
+        for (String counter : known) {
+            out.text(counter);
         }
-        out.integer(held.size());
-        for (Held one : held) {
-            out.text(one.counter()).integer(one.quantity());
-        }
+        helds(out, labels);
+        founds(out, pending);
         out.integer(monsters.size());
         for (Seen seen : monsters) {
             out.text(seen.name()).integer(seen.depth()).integer(seen.cell()).number(seen.at());
         }
         return new Belief(VERSION, out.bytes());
+    }
+
+    private static void founds(Bytes.Writer out, List<Found> founds) {
+        out.integer(founds.size());
+        for (Found one : founds) {
+            out.text(one.key()).integer(one.set()).integer(one.count());
+        }
+    }
+
+    private static void helds(Bytes.Writer out, List<Held> helds) {
+        out.integer(helds.size());
+        for (Held one : helds) {
+            out.text(one.key()).integer(one.quantity());
+        }
     }
 
     /** The memory a Belief holds; the start for none. Refuses a Belief of another version or shape. */
@@ -112,23 +154,39 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
             for (int i = count(in); i > 0; i--) {
                 facts.add(new Fact(in.integer(), in.text(), in.text()));
             }
-            List<Found> found = new ArrayList<>();
+            List<Found> found = founds(in);
+            List<Held> held = helds(in);
+            List<String> known = new ArrayList<>();
             for (int i = count(in); i > 0; i--) {
-                found.add(new Found(in.text(), in.integer(), in.integer()));
+                known.add(in.text());
             }
-            List<Held> held = new ArrayList<>();
-            for (int i = count(in); i > 0; i--) {
-                held.add(new Held(in.text(), in.integer()));
-            }
+            List<Held> labels = helds(in);
+            List<Found> pending = founds(in);
             List<Seen> monsters = new ArrayList<>();
             for (int i = count(in); i > 0; i--) {
                 monsters.add(new Seen(in.text(), in.integer(), in.integer(), in.number()));
             }
             in.end();
-            return new Memory(waits, deepest, facts, found, held, monsters);
+            return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters);
         } catch (IllegalArgumentException malformed) {
             throw new IllegalArgumentException("not a Belief this Brain wrote: " + belief + ": " + malformed.getMessage());
         }
+    }
+
+    private static List<Found> founds(Bytes.Reader in) {
+        List<Found> founds = new ArrayList<>();
+        for (int i = count(in); i > 0; i--) {
+            founds.add(new Found(in.text(), in.integer(), in.integer()));
+        }
+        return founds;
+    }
+
+    private static List<Held> helds(Bytes.Reader in) {
+        List<Held> helds = new ArrayList<>();
+        for (int i = count(in); i > 0; i--) {
+            helds.add(new Held(in.text(), in.integer()));
+        }
+        return helds;
     }
 
     private static int count(Bytes.Reader in) {

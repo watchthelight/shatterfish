@@ -75,7 +75,7 @@ at every wait from the Codex, the appearances in view and the journal's identifi
 - [x] `rig/CodexKnowledge` and `CodexKnowledgeTest` against the committed Codex.
 - [x] `brain/Beliefs`, `Memory` v2, `Bytes`; `Brain` built on Knowledge.
 - [x] `BeliefConsistencyTest`.
-- [ ] Smoke direction check against the previous Brain.
+- [x] Smoke direction check against the previous Brain.
 
 **Acceptance Criteria:**
 - Given an unidentified item in view, then it carries a candidate set with probabilities weighted
@@ -114,8 +114,6 @@ Pre-mortem:
   in the code, and left to a later story to measure.
 - A chapter counter counts a rise in the identified quantity held, so dropping an item and picking
   it up again would count it twice. The Brain does not drop items yet.
-- An unidentified strength potion that is identified later is counted in the set where it was
-  identified, not the one where it was found.
 - The pool-room recogniser could match another room. Checked against the pinned code: the rooms
   that set a chest on a pedestal are the pool room, the suspicious chest room, the sentry room, the
   traps room and the vault treasure rooms. None of the others paints water. The level's own water
@@ -123,3 +121,41 @@ Pre-mortem:
   at its room's centre (`SuspiciousChestRoom.java:61-63`). The recogniser therefore requires water
   on exactly three sides and a wall on the fourth, which is the pool room's shape (`PoolRoom.java:52`,
   `:59-89`) and never the centre of a room.
+
+## Dev Notes
+
+**Reviews.**
+- Fairness reviewer: PASS. Two test gaps it named (a non-enemy actor, a chest's contents) are covered
+  by the existing `alignment == ENEMY` filter and `Observer.java:303`; no leak.
+- Lens review (edge case, verification gap, correctness against the game) found real defects, all fixed:
+  - **Found unidentified, then identified.** Most heroes meet the first strength potion unidentified,
+    and drinking identifies it as it is consumed (`PotionOfStrength.java:44`), so the first draft never
+    counted it. The memory now sets aside every rise in an unidentified appearance of a family a
+    guarantee places into, per set. When the guarantee's identity first appears in the journal, and
+    exactly one appearance held a wait ago is held no more, the finds set aside under that appearance
+    are the guarantee's, in the sets they were picked up in. With two or more such appearances, which
+    one it was cannot be told, and nothing is counted (`found_unidentified`).
+  - **Heap titles.** A heap shows its top item's `title()` (`Observer.java:302`), which adds " x2" for
+    a stack and a signed level (`Item.java:485-497`). Stacked heaps matched no appearance.
+    `Beliefs.untitled` strips both.
+  - **Distinct appearances are distinct identities.** The first draft gave every appearance in view
+    the same weight-over-total odds, which is no joint distribution at all. The appearances are
+    shuffled uniformly per Run, and each appearance in view is taken as one draw by deck weight, so
+    the joint weight of an assignment is the product of the weights it assigns. Each appearance's odds
+    are its exact marginal, computed by a dynamic programme over subsets of at most 12 identities.
+    With every remaining appearance in view it is uniform (`distinct_identities`, `all_in_view`).
+  - The test fixture's scroll appearances now read as the game draws them ("scroll of KAUNAN",
+    `items.properties:1137`).
+  - Memory records refuse negative values; `CodexKnowledge` refuses a Codex with no boss depth or
+    without the two guaranteed drops the Brain counts.
+  - Sightings are matched to the nearest remembered one of the same name; the cap and two same-named
+    enemies are tested (`many_monsters`); a non-empty memory round-trips (`round_trip`).
+- **Not changed:** a killed enemy stays remembered as a stale sighting. Dropping a sighting whose
+  last cell is in view would also forget an enemy that walked out of view, which is what the
+  acceptance criterion asks to remember. Reading kills from the log is recorded in `docs/ideas.md`
+  for the fight Policy.
+
+**Direction check (rig numbers).** `smoke`, 25 triples, each played by the 4.1 Brain (main at `4e95c0ec0`, built in a separate worktree) and by this branch under the same fixed salt
+(1000 + the triple's index), through `RunOne` directly: **25 of 25 Runs played the identical Action
+sequence, 1,688 waits.** The Beliefs change no Action, as intended. The script is
+`direction.py` in the session scratchpad; the Runner's own `--against` cannot compare two builds.

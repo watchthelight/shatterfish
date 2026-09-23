@@ -30,6 +30,12 @@ public final class CodexKnowledge {
     /** The families a Brain reasons about the identity of: the ones whose appearances are shuffled per Run. */
     private static final List<ItemKind> FAMILIES = List.of(ItemKind.POTION, ItemKind.SCROLL, ItemKind.RING);
 
+    /**
+     * The guaranteed drops a Brain counts (story 4.2). A drop whose item the Codex does not name --
+     * the laboratory room, which is a room -- is skipped; these two may not be.
+     */
+    static final List<String> REQUIRED = List.of("STRENGTH_POTIONS", "UPGRADE_SCROLLS");
+
     private CodexKnowledge() {
     }
 
@@ -98,6 +104,9 @@ public final class CodexKnowledge {
         List<String> bosses = Json.array(Json.required(guarantees, "bossDepths", "guarantees"));
         // A set of floors ends at a boss: the drop rules count sets as depth / 5
         // (Dungeon.java:531, :548), and the boss depths are 5, 10, 15, 20, 25 (Dungeon.java:441).
+        if (bosses.isEmpty()) {
+            throw new IllegalArgumentException("the Codex in " + folder + " names no boss depth, so no set of floors");
+        }
         int floorsPerSet = Json.integer(bosses.get(0));
         List<Codex.Guarantee> drops = new ArrayList<>();
         for (String raw : Json.array(Json.required(guarantees, "drops", "guarantees"))) {
@@ -108,6 +117,12 @@ public final class CodexKnowledge {
             }
             drops.add(new Codex.Guarantee(Json.string(Json.required(drop, "name", "drop")), item, names.get(item),
                     Json.integer(Json.required(drop, "perSet", "drop")), floorsPerSet));
+        }
+        for (String counter : REQUIRED) {
+            if (drops.stream().noneMatch(drop -> drop.counter().equals(counter))) {
+                throw new IllegalArgumentException("the Codex in " + folder + " has no guaranteed drop " + counter
+                        + " for an item it names; a Brain built on it would count nothing owed");
+            }
         }
         return new Codex.Knowledge(manifest, families, spawns, drops);
     }

@@ -57,6 +57,9 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
     /** The room whose sight implies its floor's spawns: the pool room (PoolRoom.java:91). */
     static final String POOL_ROOM = "PoolRoom";
 
+    /** The most identities the exact computation enumerates by subsets: more than any family has. */
+    private static final int EXACT = 16;
+
     /** The memory after seeing {@code observation}, given the memory before. */
     static Memory fold(Memory memory, Observation observation, Codex.Knowledge knowledge) {
         long waits = memory.waits() + 1;
@@ -69,26 +72,62 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
             }
         }
 
+        // The unidentified appearances of the families a guarantee places into, as held now, and
+        // every rise in them, set aside until an identity claims it.
+        List<Memory.Held> labels = new ArrayList<>();
+        List<Memory.Found> pending = new ArrayList<>(memory.pending());
+        for (Codex.Identities family : knowledge.families()) {
+            if (knowledge.guarantees().stream().noneMatch(guarantee -> places(family, guarantee))) {
+                continue;
+            }
+            for (String label : family.labels()) {
+                int now = heldQuantity(observation, label);
+                int before = Memory.quantity(memory.labels(), label);
+                if (now > before) {
+                    add(pending, label, depth / floorsPerSet(knowledge), now - before);
+                }
+                if (now > 0) {
+                    labels.add(new Memory.Held(label, now));
+                }
+            }
+        }
+
         List<Memory.Found> found = new ArrayList<>(memory.found());
         List<Memory.Held> held = new ArrayList<>();
+        List<String> known = new ArrayList<>();
         for (Codex.Guarantee guarantee : knowledge.guarantees()) {
-            int now = identifiedQuantity(observation, guarantee.name());
-            int before = memory.held(guarantee.counter());
-            if (now > before) {
+            int now = heldQuantity(observation, guarantee.name());
+            int before = Memory.quantity(memory.held(), guarantee.counter());
+            boolean identified = identifiedAnywhere(observation, guarantee.name());
+            String claimed = identified && !memory.known().contains(guarantee.counter())
+                    ? vanished(memory, labels, pending, knowledge, guarantee) : null;
+            if (claimed != null) {
+                // The identity was learned at this wait, and exactly one appearance of its family
+                // that was held a wait ago is held no more: drunk, read or identified, it is this
+                // one. What was picked up under that appearance was this identity, in the sets it
+                // was picked up in; the copies still held now wear the identity's name and were
+                // counted among those, so their rise is not a find.
+                for (Memory.Found rise : List.copyOf(pending)) {
+                    if (rise.key().equals(claimed)) {
+                        add(found, guarantee.counter(), rise.set(), rise.count());
+                        pending.remove(rise);
+                    }
+                }
+            } else if (now > before) {
                 // A rise in what the inventory shows identified: found, in the set this floor
                 // belongs to. A drop and a pick-up of the same item would count twice; the Brain
                 // does not drop items yet.
-                int set = depth / guarantee.floorsPerSet();
-                int already = memory.found(guarantee.counter(), set);
-                found.removeIf(one -> one.counter().equals(guarantee.counter()) && one.set() == set);
-                found.add(new Memory.Found(guarantee.counter(), set, already + now - before));
+                add(found, guarantee.counter(), depth / guarantee.floorsPerSet(), now - before);
             }
             if (now > 0) {
                 held.add(new Memory.Held(guarantee.counter(), now));
             }
+            if (identified) {
+                known.add(guarantee.counter());
+            }
         }
 
-        return new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held,
+        return new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
                 sightings(memory.monsters(), observation, waits));
     }
 
@@ -100,7 +139,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         List<Chapter> chapters = new ArrayList<>();
         for (Codex.Guarantee guarantee : knowledge.guarantees()) {
             int set = depth / guarantee.floorsPerSet();
-            int found = memory.found(guarantee.counter(), set);
+            int found = Memory.count(memory.found(), guarantee.counter(), set);
             chapters.add(new Chapter(guarantee.counter(), guarantee.name(), set, found,
                     Math.max(0, guarantee.perSet() - found)));
         }
@@ -110,50 +149,59 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
     }
 
     /**
-     * What each unidentified appearance in view may be. The candidates are the family's identities
-     * less those the journal lists as identified -- an identified identity wears its own name, so
-     * no appearance still unidentified can be it -- each weighted by its deck weight. An identity
-     * the decks never draw but a guarantee places (the potion of strength, the scroll of upgrade)
-     * is weighted as the family's commonest identity: an assumption, not a Codex fact, and the one
-     * number here a later story should measure.
+     * What each unidentified appearance in view may be.
+     *
+     * <p>The appearances are shuffled over the identities once per Run, so before anything is seen
+     * every unidentified appearance is as likely to be any identity not yet identified as any
+     * other. What moves the odds is that an appearance was <em>found</em>: items are drawn by deck
+     * weight, so an appearance in view is likelier to be a heavily weighted identity. Each
+     * appearance in view is taken as one draw, and distinct appearances are distinct identities, so
+     * the joint weight of an assignment is the product of the weights it assigns, and each
+     * appearance's odds are its marginal over every assignment -- computed exactly, by subsets of
+     * the identities. With one appearance in view that is its deck weight over the total; with
+     * every remaining appearance in view it is uniform, because every assignment has the same
+     * product.
+     *
+     * <p>An identity the decks never draw but a guarantee places (the potion of strength, the
+     * scroll of upgrade) is weighted as the heaviest identity in its family's deck: an assumption,
+     * not a Codex fact, and the one number here a later story should measure.
      */
     static List<Guess> identities(Observation observation, Codex.Knowledge knowledge) {
-        Set<String> labels = new LinkedHashSet<>();
+        Set<String> inView = new LinkedHashSet<>();
         for (ItemView item : observation.inventory().items()) {
-            labels.add(item.name());
+            inView.add(item.name());
         }
         for (HeapView heap : observation.map().heaps()) {
             if (!heap.item().isEmpty()) {
-                labels.add(heap.item());
+                inView.add(untitled(heap.item()));
             }
         }
         List<Guess> guesses = new ArrayList<>();
         for (Codex.Identities family : knowledge.families()) {
-            List<Codex.Candidate> open = new ArrayList<>();
-            for (Codex.Candidate candidate : family.candidates()) {
-                if (!identified(observation, family.kind(), candidate.name())) {
-                    open.add(candidate);
-                }
-            }
-            int commonest = family.candidates().stream().mapToInt(Codex.Candidate::weight).max().orElse(0);
+            int heaviest = family.candidates().stream().mapToInt(Codex.Candidate::weight).max().orElse(0);
+            List<String> names = new ArrayList<>();
             List<Integer> weights = new ArrayList<>();
-            long total = 0;
-            for (Codex.Candidate candidate : open) {
+            for (Codex.Candidate candidate : family.candidates()) {
                 int weight = candidate.weight();
-                if (weight == 0 && guaranteed(knowledge, candidate.className())) {
-                    weight = commonest;
+                if (weight == 0 && knowledge.guarantees().stream()
+                        .anyMatch(guarantee -> guarantee.className().equals(candidate.className()))) {
+                    weight = heaviest;
                 }
-                weights.add(weight);
-                total += weight;
+                if (weight > 0 && !identified(observation, family.kind(), candidate.name())) {
+                    names.add(candidate.name());
+                    weights.add(weight);
+                }
             }
-            for (String label : family.labels()) {
-                if (!labels.contains(label)) {
-                    continue;
-                }
+            List<String> labels = family.labels().stream().filter(inView::contains).toList();
+            if (labels.isEmpty() || names.isEmpty()) {
+                continue;
+            }
+            double[] marginal = marginal(weights, labels.size());
+            for (String label : labels) {
                 List<Odds> odds = new ArrayList<>();
-                for (int i = 0; i < open.size(); i++) {
-                    if (weights.get(i) > 0) {
-                        odds.add(new Odds(open.get(i).name(), (double) weights.get(i) / total));
+                for (int x = 0; x < names.size(); x++) {
+                    if (marginal[x] > 0) {
+                        odds.add(new Odds(names.get(x), marginal[x]));
                     }
                 }
                 odds.sort((a, b) -> a.probability() != b.probability()
@@ -162,6 +210,81 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
             }
         }
         return guesses;
+    }
+
+    /**
+     * One of {@code k} distinct appearances' odds over identities of the given weights, when the
+     * joint weight of an assignment is the product of the weights it assigns. The appearances are
+     * interchangeable, so each has the same odds. Beyond {@link #EXACT} identities, or with more
+     * appearances than identities (which a consistent screen never shows), it is the weight over
+     * the total.
+     */
+    static double[] marginal(List<Integer> weights, int k) {
+        int n = weights.size();
+        double[] row = new double[n];
+        if (n > EXACT || k > n) {
+            double total = weights.stream().mapToDouble(Integer::doubleValue).sum();
+            for (int x = 0; x < n; x++) {
+                row[x] = weights.get(x) / total;
+            }
+            return row;
+        }
+        // f[S]: the summed weight of every way to give the other k-1 appearances exactly the
+        // identities in S. The odds of x are then w_x times the sum of f over the sets without x.
+        double[] f = new double[1 << n];
+        f[0] = 1;
+        for (int placed = 0; placed < k - 1; placed++) {
+            double[] next = new double[1 << n];
+            for (int s = 0; s < f.length; s++) {
+                if (f[s] == 0) {
+                    continue;
+                }
+                for (int x = 0; x < n; x++) {
+                    if ((s & (1 << x)) == 0) {
+                        next[s | (1 << x)] += f[s] * weights.get(x);
+                    }
+                }
+            }
+            f = next;
+        }
+        double total = 0;
+        for (int x = 0; x < n; x++) {
+            double sum = 0;
+            for (int s = 0; s < f.length; s++) {
+                if ((s & (1 << x)) == 0) {
+                    sum += f[s];
+                }
+            }
+            row[x] = weights.get(x) * sum;
+            total += row[x];
+        }
+        for (int x = 0; x < n; x++) {
+            row[x] /= total;
+        }
+        return row;
+    }
+
+    /**
+     * A heap's title as its item's name. A heap shows its top item's title (Observer.java:302),
+     * which is the name with " x" and the quantity for a stack and a signed level for a visible
+     * one (Item.java:485-497).
+     */
+    static String untitled(String title) {
+        String name = title;
+        for (int round = 0; round < 2; round++) {
+            int space = name.lastIndexOf(' ');
+            if (space <= 0) {
+                break;
+            }
+            String tail = name.substring(space + 1);
+            if (tail.length() > 1 && (tail.charAt(0) == 'x' || tail.charAt(0) == '+' || tail.charAt(0) == '-')
+                    && tail.substring(1).chars().allMatch(c -> c >= '0' && c <= '9')) {
+                name = name.substring(0, space);
+            } else {
+                break;
+            }
+        }
+        return name;
     }
 
     private static boolean identified(Observation observation, ItemKind kind, String name) {
@@ -173,11 +296,52 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         return false;
     }
 
-    private static boolean guaranteed(Codex.Knowledge knowledge, String className) {
-        return knowledge.guarantees().stream().anyMatch(guarantee -> guarantee.className().equals(className));
+    private static boolean identifiedAnywhere(Observation observation, String name) {
+        return observation.journal().known().stream().anyMatch(known -> known.name().equals(name));
     }
 
-    private static int identifiedQuantity(Observation observation, String name) {
+    private static boolean places(Codex.Identities family, Codex.Guarantee guarantee) {
+        return family.candidates().stream().anyMatch(candidate -> candidate.className().equals(guarantee.className()));
+    }
+
+    private static int floorsPerSet(Codex.Knowledge knowledge) {
+        return knowledge.guarantees().get(0).floorsPerSet();
+    }
+
+    /** Adds {@code count} under {@code key} in {@code set}. */
+    private static void add(List<Memory.Found> into, String key, int set, int count) {
+        int already = Memory.count(into, key, set);
+        into.removeIf(one -> one.key().equals(key) && one.set() == set);
+        into.add(new Memory.Found(key, set, already + count));
+    }
+
+    /**
+     * The one appearance of {@code guarantee}'s family that was held at the last wait, is held no
+     * more, and has finds set aside -- or null when there is not exactly one.
+     */
+    private static String vanished(Memory memory, List<Memory.Held> labelsNow, List<Memory.Found> pending,
+                                   Codex.Knowledge knowledge, Codex.Guarantee guarantee) {
+        String only = null;
+        for (Codex.Identities family : knowledge.families()) {
+            if (!places(family, guarantee)) {
+                continue;
+            }
+            for (String label : family.labels()) {
+                boolean was = Memory.quantity(memory.labels(), label) > 0;
+                boolean is = Memory.quantity(labelsNow, label) > 0;
+                boolean set = pending.stream().anyMatch(rise -> rise.key().equals(label));
+                if (was && !is && set) {
+                    if (only != null) {
+                        return null;
+                    }
+                    only = label;
+                }
+            }
+        }
+        return only;
+    }
+
+    private static int heldQuantity(Observation observation, String name) {
         int quantity = 0;
         for (ItemView item : observation.inventory().items()) {
             if (item.name().equals(name)) {
@@ -241,8 +405,10 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
     /**
      * The sightings after this screen: every enemy in view, fresh, then every earlier sighting not
      * accounted for by an enemy of the same name in view, kept as it was. A sighting is matched by
-     * name because the screen gives an enemy no identity; two rats in view and one remembered leave
-     * no rat remembered.
+     * name, the nearest first, because the screen gives an enemy no identity; two rats in view and
+     * one remembered leave no rat remembered. An enemy killed out of the Brain's reckoning stays remembered until a
+     * same-named enemy is seen or the oldest sightings are forgotten; reading kills from the log is
+     * for the fight Policy (docs/ideas.md).
      */
     static List<Memory.Seen> sightings(List<Memory.Seen> before, Observation observation, long waits) {
         int depth = observation.header().depth();
@@ -252,22 +418,24 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 fresh.add(new Memory.Seen(actor.name(), depth, actor.cell(), waits));
             }
         }
-        List<Memory.Seen> unmatched = new ArrayList<>(fresh);
-        List<Memory.Seen> kept = new ArrayList<>();
-        for (Memory.Seen old : before) {
-            Memory.Seen match = null;
-            if (old.depth() == depth) {
-                for (Memory.Seen now : unmatched) {
-                    if (now.name().equals(old.name())) {
-                        match = now;
-                        break;
+        // Each enemy in view accounts for the nearest remembered sighting of its name on this floor.
+        List<Memory.Seen> kept = new ArrayList<>(before);
+        int width = observation.map().width();
+        for (Memory.Seen now : fresh) {
+            Memory.Seen nearest = null;
+            int best = Integer.MAX_VALUE;
+            for (Memory.Seen old : kept) {
+                if (old.depth() == depth && old.name().equals(now.name())) {
+                    int distance = Math.max(Math.abs(old.cell() % width - now.cell() % width),
+                            Math.abs(old.cell() / width - now.cell() / width));
+                    if (distance < best) {
+                        best = distance;
+                        nearest = old;
                     }
                 }
             }
-            if (match != null) {
-                unmatched.remove(match);
-            } else {
-                kept.add(old);
+            if (nearest != null) {
+                kept.remove(nearest);
             }
         }
         List<Memory.Seen> all = new ArrayList<>(fresh);

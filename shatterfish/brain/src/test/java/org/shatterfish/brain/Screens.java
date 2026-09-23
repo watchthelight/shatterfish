@@ -49,7 +49,7 @@ final class Screens {
                                     new Codex.Candidate("items.potions.PotionOfHealing", "potion of healing", 6),
                                     new Codex.Candidate("items.potions.PotionOfMindVision", "potion of mind vision", 4),
                                     new Codex.Candidate("items.potions.PotionOfFrost", "potion of frost", 3))),
-                    new Codex.Identities(ItemKind.SCROLL, List.of("scroll \"KAUNAN\"", "scroll \"SOWILO\""),
+                    new Codex.Identities(ItemKind.SCROLL, List.of("scroll of KAUNAN", "scroll of SOWILO"),
                             List.of(new Codex.Candidate("items.scrolls.ScrollOfUpgrade", "scroll of upgrade", 0),
                                     new Codex.Candidate("items.scrolls.ScrollOfIdentify", "scroll of identify", 6)))),
             List.of(new Codex.RoomSpawn("levels.rooms.special.PoolRoom", "items.potions.PotionOfInvisibility",
