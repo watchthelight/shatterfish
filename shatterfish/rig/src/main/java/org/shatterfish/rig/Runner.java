@@ -420,6 +420,8 @@ public final class Runner {
             side.index().summary(side.brain(), set, parallel, cap, millis, side.waits().get(), stamp,
                     read.reason());
             waits.addAndGet(side.waits().get());
+            // FR-26: how the Runs ended, grouped, beside the summary, read from each Run's own log.
+            Gallery.write(side.out(), 0);
         }
         if (against != null) {
             // Tested only under a Registration that fixes a comparison: the bounds are the

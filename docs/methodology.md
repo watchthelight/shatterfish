@@ -578,6 +578,25 @@ Brain to crash on a quarter of the seeds it would lose. When the Harness learns 
 random Brain meets, the missing rate falls, the calibration is re-run, and the cap comes down with
 it — a new Registration, never an edit.
 
+## How the Runs ended: the death gallery
+
+```sh
+./gradlew :rig:gallery --args="<folder> --snapshots 5"
+```
+
+When an invocation completes, the Rig writes `gallery.md` beside each side's summary: the Runs
+grouped by how they ended and at what depth, largest group first, with each group's count and share
+and, for every Run, its seed code, class, turns survived and a link to its log. The ending is read
+from the Run's own log through the harness's reader, not from the run index, and nothing is dropped:
+a Run with no log is grouped as `NO_LOG`, a log that stops before an ending as `NO_ENDING`, and one
+that cannot be read as `UNREADABLE`, so the counts add up to the index's. The biggest group is the
+next thing to fix. The command above rewrites the gallery for any folder the Rig wrote (for a
+comparison, one per side) and, with `--snapshots N`, writes the last N waits of every Run into
+`snapshots/`, linked from the gallery: what the Run was doing when it ended. The same gallery for two
+Brains side by side, FR-26's per-Brain view, is E4's. The random Baseline's is in
+[`results/2026-09-23-H-0002/gallery.md`](https://github.com/watchthelight/shatterfish/blob/main/results/2026-09-23-H-0002/gallery.md);
+its links name logs that are not committed.
+
 ## The Run log and its chain
 
 Every Run writes `<run-id>.jsonl`: one record per line, plain text, no compression, readable with

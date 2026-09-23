@@ -37,6 +37,9 @@ Input waits per second across the pool.
 | `DEATH` | 453 |
 | `UNKNOWN_WINDOW` (a window the Harness does not know; counted missing in a comparison) | 47 |
 
+The [death gallery](https://github.com/watchthelight/shatterfish/blob/main/results/2026-09-23-H-0002/gallery.md)
+lists every Run by ending and depth, with its seed and turns survived.
+
 | Depth reached | Runs |
 |---|---|
 | 1 | 493 |
