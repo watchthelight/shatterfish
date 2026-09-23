@@ -89,23 +89,69 @@ public final class LogHeader {
             throw new UncheckedIOException("the Run log " + file + " could not be read", e);
         }
         List<String> whole = whole(text);
+        // The oracle flag, off the text, before anything is asked to be a record. FR-11 keys on
+        // this and it may not need a well-formed header to fire: a hand-made line claiming the
+        // oracle and nothing else parses as an object and says what it says, and a reader that
+        // required all eighteen header fields before it would believe that line would answer
+        // "unreadable" -- which the Rig counts as an incomplete Run rather than as a refusal.
+        // That is exactly how this guard was weakened when the Rig's own reader was folded into
+        // the harness's, and it is why the flag is read separately from the records.
+        boolean claimed;
+        try {
+            claimed = claimsTheOracle(whole, text);
+        } catch (RuntimeException cannot) {
+            // A line holding `oracle` twice, or holding it as something that is not true or false.
+            // The claim cannot be read, so the log cannot be vouched for -- which the Rig counts
+            // as incomplete, never as fair.
+            return unreadable(false, "the log's own oracle flag could not be read: "
+                    + cannot.getMessage());
+        }
         RunLogReader.Log log;
         try {
             log = RunLogReader.of(text);
         } catch (RuntimeException unreadable) {
-            return unreadable(unreadable.getMessage());
+            return unreadable(claimed, unreadable.getMessage());
         }
         if (whole.isEmpty()) {
-            return headless(log.partial());
+            return headless(claimed, log.partial());
         }
         if (!log.readable()) {
-            return unreadable(log.unreadable());
+            return unreadable(claimed, log.unreadable());
         }
         try {
-            return read(log, whole);
+            return read(claimed, log, whole);
         } catch (RuntimeException unreadable) {
-            return unreadable(unreadable.getMessage());
+            return unreadable(claimed, unreadable.getMessage());
         }
+    }
+
+    /**
+     * Whether any line in this file says in its own text that the Run saw what a player could not.
+     *
+     * <p>Every line, not the first, and the partial one too. Two logs concatenated -- a fair Run
+     * followed by an oracle one -- used to read as one fair Run, and a killed writer can leave a
+     * header whose trailing line feed never reached the disk.
+     */
+    private static boolean claimsTheOracle(List<String> whole, String text) {
+        boolean claimed = false;
+        List<String> every = new ArrayList<>(whole);
+        String partial = text.substring(text.lastIndexOf('\n') + 1);
+        if (!partial.isEmpty()) {
+            every.add(partial);
+        }
+        for (String line : every) {
+            Map<String, String> held;
+            try {
+                held = Json.object(line);
+            } catch (RuntimeException notAnObject) {
+                // A line that is not an object claims nothing. Whether the file as a whole is
+                // readable is the next question, and it is answered separately.
+                continue;
+            }
+            String oracle = held.get("oracle");
+            claimed |= oracle != null && Json.bool(oracle);
+        }
+        return claimed;
     }
 
     /**
@@ -115,25 +161,21 @@ public final class LogHeader {
      * that header may claim the oracle — so the partial text is asked, and a Run whose claim cannot
      * be read is marked unreadable rather than silently counted as fair.
      */
-    private static Read headless(String partial) {
+    private static Read headless(boolean claimed, String partial) {
         if (partial.isEmpty()) {
             return new Read(true, 0, false, false, "", "", 0, "", "");
         }
-        try {
-            String oracle = Json.object(partial).get("oracle");
-            return oracle != null && Json.bool(oracle)
-                    ? new Read(true, 0, true, false, "", "", 0, "", "")
-                    : unreadable("the log holds no whole line, so nothing in it can be believed");
-        } catch (RuntimeException cannot) {
-            return unreadable("the log holds no whole line and its partial one is not readable");
+        if (claimed) {
+            return new Read(true, 0, true, false, "", "", 0, "", "");
         }
+        return unreadable(false, "the log holds no whole line, so nothing in it can be believed");
     }
 
-    private static Read unreadable(String why) {
-        return new Read(true, 0, false, false, "", "", 0, "", why == null ? "unreadable" : why);
+    private static Read unreadable(boolean claimed, String why) {
+        return new Read(true, 0, claimed, false, "", "", 0, "", why == null ? "unreadable" : why);
     }
 
-    private static Read read(RunLogReader.Log log, List<String> whole) {
+    private static Read read(boolean claimed, RunLogReader.Log log, List<String> whole) {
         List<RunLog> records = log.records();
         if (records.isEmpty() || !(records.get(0) instanceof RunLog.Header)) {
             throw new IllegalStateException("a Run log begins with a header, and this begins "
@@ -154,6 +196,7 @@ public final class LogHeader {
                 waits++;
             }
         }
+        oracle |= claimed;
         if (headers != 1) {
             throw new IllegalStateException("a Run log holds one header and this holds " + headers
                     + "; two Runs in one file are not one Run");

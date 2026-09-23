@@ -204,6 +204,10 @@ class VerifyTest {
                 new PrintStream(said, true, StandardCharsets.UTF_8)));
         assertTrue(said.toString(StandardCharsets.UTF_8).contains("1 of 1 logs"),
                 said.toString(StandardCharsets.UTF_8));
+        // The cost, printed by the command, because the methodology page publishes it as a number
+        // and a number nobody measured is a number nobody should quote.
+        assertTrue(said.toString(StandardCharsets.UTF_8).contains(" ms"),
+                said.toString(StandardCharsets.UTF_8));
 
         index(folder, 7L, "f".repeat(64));
         said.reset();

@@ -60,7 +60,7 @@ class ReplayRoundTripTest {
     void a_run_replays_to_the_same_chain(@TempDir Path first, @TempDir Path again) {
         RunOutcome outcome = play(first, CAP);
 
-        Replay.Result result = Replay.of(log(first), again, COMMIT, "test");
+        Replay.Result result = Replay.of(log(first), again, "test");
 
         assertTrue(result.ok(), result.why());
         assertTrue(result.waits() > 10, "the Run served waits: " + result.waits());
@@ -82,7 +82,7 @@ class ReplayRoundTripTest {
     @Timeout(value = 15, unit = TimeUnit.MINUTES)
     void the_two_logs_differ_only_where_they_may(@TempDir Path first, @TempDir Path again) throws IOException {
         play(first, CAP);
-        Replay.of(log(first), again, COMMIT, "elsewhere");
+        Replay.of(log(first), again, "elsewhere");
 
         List<String> original = lines(log(first));
         List<String> replay = lines(log(again));

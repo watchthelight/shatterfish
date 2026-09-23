@@ -373,6 +373,63 @@ hash the remaining text as UTF-8, and you should get the same:
 `RunLogVectorTest` recomputes this table from the code on every build, so the page cannot drift
 away from what the writer does.
 
+### Replay
+
+A **Replay is a Run whose decider is the log.** At each Input wait it checks that this build is
+seeing the Observation the log recorded, hands back the Action that was taken, and writes its own
+log as it goes. It plays through the same loop, the same executor, the same driver and the same
+Profile as the Run it is checking: a reproduction through a different path would prove less, and a
+second loop would be a second set of rules about what a Run is.
+
+**The comparison is the two chains.** A chain covers everything about a Run except how long the
+decider took and which machine it ran on, so a Replay that arrives at the same value has reproduced
+every Observation, every Action, every section hash, the turn counts and the ending -- in one value
+a person can check by eye. Comparing Observation hashes wait by wait is what *names* a divergence;
+comparing chains is what says there was none. Both are reported, and they answer different
+questions: a log whose Actions were changed reproduces every Observation and then reaches a
+different chain, which a wait-by-wait check alone would pass.
+
+**Four things are refused before a Run is started**, because a difference in any of them makes a
+comparison meaningless rather than negative: the log schema version, the upstream tag, the
+Observation schema version and the Profile version. Each decides what a Run *is*. A log whose chain
+does not verify is refused for the same reason -- it describes a Run that never happened, and
+replaying it would measure this build against a fiction.
+
+**What a Replay proves** is that this build, on this machine, plays the tuple in the log the way the
+log says it was played. It does not prove the log describes a Run anybody performed: the rules on
+this page are enough to write one from scratch, and four of this story's own tests do exactly that.
+The forgery is caught by playing it.
+
+Two commands, and they cost very different things:
+
+```sh
+./gradlew :rig:run --args="--verify <folder>"        # every log in a folder, against its own bytes
+./gradlew :rig:run --args="--replay <log> --out <folder>"   # one Run, played again
+```
+
+`--verify` recomputes every chain, checks each against the chain the run index published for that
+Run, and checks that each log begins with a header, holds one, and ends with an `end` record. It
+plays nothing. `--replay` takes one log rather than a folder, because a Replay is a Run and AD-6
+gives a Run its own process: the game's state is static and process-wide, so a command that
+replayed a folder in one JVM would be measuring the order the logs went in.
+
+**What they cost.** Measured on the standard set, 500 Runs of the random Brain, 24 processes, cap
+2000, on the machine the E3 numbers above come from:
+
+| | Time | Per Run |
+|---|---|---|
+| Playing the 500 Runs | 159,797 ms | 320 ms |
+| `--verify` over the folder | 1,402 ms | 2.8 ms |
+| `--replay` of one Run (31 waits) | 1,025 ms | -- |
+
+So **verifying a folder costs about one percent of producing it**, single-threaded and with no game
+booted, which is what makes it something to run on every folder rather than on a sample. **Replaying
+costs what running costs**, because it is running: the same loop, the same game, one process. The
+two are not alternatives. Verification answers "was this file changed after it was written" for
+everything; a Replay answers "does this build still do what this log describes" for one Run at a
+time, and the nightly cross-platform job spends that cost on a committed reference log so that a
+difference between Windows and Linux is found by the project rather than by a reader.
+
 ### What the chain does not prove
 
 The header's `tag`, `commit`, `brain` and `registration` are supplied by whoever started the Run:

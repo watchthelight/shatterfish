@@ -31,6 +31,29 @@ tasks.register('seeds', JavaExec) {
     outputs.upToDateWhen { false }
 }
 
+// `./gradlew :rig:reference` writes the committed reference log at reference/. It is one Run of a
+// fixed tuple under a fixed salt and a fixed cap, played by the random Brain, whose only job is to
+// be replayed: the nightly cross-platform workflow replays it on Windows and on Linux, and a
+// difference between the two is a difference this project finds rather than a reader.
+//
+// Its attested commit is forty zeros on purpose. A real commit would change every time the file was
+// regenerated and would say nothing true about the build that replays it -- the log's job here is
+// to be the same bytes on every machine, which is exactly what the chain is over.
+tasks.register('reference', JavaExec) {
+    group = 'shatterfish'
+    description = 'Writes reference/ : one Run, fixed in every part, for the cross-platform replay.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.rig.RunOne'
+    workingDir = rootDir
+    args = ['--seed', '12648430', '--class', 'WARRIOR', '--challenges', '0',
+            '--salt', '1511527447', '--cap', '400', '--brain', 'random',
+            '--brain-commit', '0000000000000000000000000000000000000000',
+            '--commit', '0000000000000000000000000000000000000000',
+            '--machine', 'the reference', '--registration', '',
+            '--out', new File(rootDir, 'reference').absolutePath]
+    outputs.upToDateWhen { false }
+}
+
 // The game reads its message bundles, atlases and sounds from the classpath through Gdx.files,
 // and core/src/main/assets is not a resources dir, so Gradle does not put it there (the harness's
 // own build does the same thing, for the same reason). The rig needs them on *its* classpath

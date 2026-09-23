@@ -142,11 +142,23 @@ public final class Replay {
     /**
      * Replays the log at {@code file}, writing the Replay's own log under {@code out}.
      *
+     * <p><b>The Replay attests what the log attests.</b> The tag, the commit, the Brain and the
+     * Registration are all supplied by whoever started a Run -- the methodology page calls them
+     * attested rather than verified -- and a Replay is reproducing the Run those fields describe,
+     * not making a fresh claim of its own. Taking the Brain and the Registration from the log while
+     * taking the commit from the caller is what the committed reference log caught: every wait
+     * reproduced, and the chains differed in the one chained field no other checkout could match.
+     *
+     * <p>{@code machine} is the exception, and it is the exception because it is unchained: where
+     * this execution happened is a true thing to record and is not part of what the Run was. A
+     * Replay's own log therefore differs from the original in exactly the fields the chain excludes,
+     * which is the property the round-trip test asserts line by line.
+     *
      * @throws IllegalArgumentException when this build cannot replay the log at all
      * @throws Diverged                 when a wait's Observation is not the one recorded
      * @throws Unverifiable             at an {@code unsupported} record
      */
-    public static Result of(Path file, Path out, String commit, String machine) {
+    public static Result of(Path file, Path out, String machine) {
         RunLogVerifier.Verified verified = RunLogVerifier.of(file);
         if (!verified.ok()) {
             // The chain first, before a Run is started. A log that was edited describes a Run that
@@ -165,7 +177,7 @@ public final class Replay {
         }
 
         Following following = new Following(log);
-        RunLoop.Logging logging = new RunLoop.Logging(out, commit, header.brain(),
+        RunLoop.Logging logging = new RunLoop.Logging(out, header.commit(), header.brain(),
                 header.registration(), machine, header.oracle());
         SeedSet.Entry triple = new SeedSet.Entry(header.seed(), header.heroClass(),
                 header.challenges(), header.seedCode());

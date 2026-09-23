@@ -125,8 +125,9 @@ public final class Runner {
      * would make a busy machine look like a dishonest one.
      */
     static int verify(Map<String, String> arguments, PrintStream out) {
+        long began = System.nanoTime();
         Verify.Report report = Verify.of(Path.of(required(arguments, VERIFY)));
-        out.println(report.text());
+        out.println(report.text() + ", in " + (System.nanoTime() - began) / 1_000_000L + " ms");
         return report.ok(true) ? 0 : 1;
     }
 
@@ -140,12 +141,13 @@ public final class Runner {
     static int replay(Map<String, String> arguments, PrintStream out) {
         Path log = Path.of(required(arguments, REPLAY)).toAbsolutePath().normalize();
         Path into = emptyFolder(required(arguments, OUT));
-        Path root = Path.of(arguments.getOrDefault(ROOT, ".")).toAbsolutePath().normalize();
-        String commit = arguments.containsKey(COMMIT) ? required(arguments, COMMIT) : commitOf(root);
+        // No commit is taken here. A Replay attests what the log attests, because it is reproducing
+        // the Run the log describes rather than making a claim of its own -- and a Replay that
+        // signed its own checkout's commit could never reach the log's chain from any other one.
         long began = System.nanoTime();
         Replay.Result result;
         try {
-            result = Replay.of(log, into, commit, machine());
+            result = Replay.of(log, into, machine());
         } catch (Replay.Diverged diverged) {
             out.println("this build and " + log + " stop agreeing at wait " + diverged.at()
                     + "; the sections that differ are " + diverged.sections());
@@ -376,17 +378,21 @@ public final class Runner {
     static void finish(RunIndex index, Path out, String runId, String why, long millis,
                        AtomicLong waits) {
         LogHeader.Read read = LogHeader.of(out.resolve(RunLog.fileName(runId)));
-        if (!read.readable() && read.present()) {
-            // A log this Rig cannot read is a Run it cannot vouch for, including about the oracle.
-            // It is counted incomplete rather than quietly counted fair.
-            index.ended(runId, RunIndex.State.INCOMPLETE, "", "", millis,
-                    (why.isEmpty() ? "" : why + "; ") + "its log could not be read: " + read.unreadable());
-            return;
-        }
+        // The oracle first, before readability. "I cannot read this file, and it says it saw what a
+        // player could not" is a refusal, not an incomplete Run: a log that makes the claim makes
+        // it whether or not the rest of it parses, and the weaker ordering would let a Run escape
+        // the guard by being malformed as well as unfair.
         if (read.oracle()) {
             throw new IllegalStateException("the Run " + runId + " says in its own header that it saw"
                     + " what a player could not; an oracle Run is not ranked and this invocation"
                     + " publishes nothing (FR-11)");
+        }
+        if (!read.readable() && read.present()) {
+            // A log this Rig cannot read is a Run it cannot vouch for. It is counted incomplete
+            // rather than quietly counted fair.
+            index.ended(runId, RunIndex.State.INCOMPLETE, "", "", millis,
+                    (why.isEmpty() ? "" : why + "; ") + "its log could not be read: " + read.unreadable());
+            return;
         }
         if (read.present() && !read.runId().isEmpty() && !read.runId().equals(runId)) {
             // The parent predicts the file name from the tuple and the child writes it from its own

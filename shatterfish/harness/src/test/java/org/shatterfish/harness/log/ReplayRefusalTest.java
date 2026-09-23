@@ -117,7 +117,7 @@ class ReplayRefusalTest {
         // It no longer chains, because `v` is chained -- so this is refused as a broken file rather
         // than as a version, and either refusal is honest. What must not happen is a comparison.
         IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
-                () -> Replay.of(file, folder.resolve("out"), COMMIT, "test"));
+                () -> Replay.of(file, folder.resolve("out"), "test"));
         assertTrue(refused.getMessage().contains("does not verify"), refused.getMessage());
     }
 
@@ -170,7 +170,7 @@ class ReplayRefusalTest {
                 + text.substring(at + 8), StandardCharsets.UTF_8);
 
         IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
-                () -> Replay.of(file, folder.resolve("out"), COMMIT, "test"));
+                () -> Replay.of(file, folder.resolve("out"), "test"));
         assertTrue(refused.getMessage().contains("nothing to reproduce"), refused.getMessage());
     }
 
@@ -203,7 +203,7 @@ class ReplayRefusalTest {
         assertTrue(RunLogVerifier.of(file).ok(), "a rewritten log chains perfectly");
 
         Replay.Diverged diverged = assertThrows(Replay.Diverged.class,
-                () -> Replay.of(file, out, COMMIT, "test"));
+                () -> Replay.of(file, out, "test"));
         assertEquals(20L, diverged.at(), "the first wait this build and the log disagree at");
         assertTrue(diverged.sections().contains("map"),
                 "the section that differs is named: " + diverged.sections());
@@ -231,7 +231,7 @@ class ReplayRefusalTest {
         rechain(file, with);
 
         Replay.Unverifiable stopped = assertThrows(Replay.Unverifiable.class,
-                () -> Replay.of(file, out, COMMIT, "test"));
+                () -> Replay.of(file, out, "test"));
         assertEquals(12L, stopped.at());
         assertTrue(stopped.getMessage().contains("could not express"), stopped.getMessage());
     }
@@ -257,7 +257,7 @@ class ReplayRefusalTest {
         }
         rechain(file, records);
 
-        Replay.Result result = Replay.of(file, out, COMMIT, "test");
+        Replay.Result result = Replay.of(file, out, "test");
 
         assertFalse(result.ok(), "the log does not describe what this build does");
         assertEquals(result.waits(), result.verified(), "every Observation in it was genuine");

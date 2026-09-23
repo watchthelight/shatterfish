@@ -1,0 +1,80 @@
+# The committed reference Run, replayed on every platform the project claims to run on.
+#
+# A Run is meant to be a property of its tuple and nothing else. That claim is only worth as much
+# as the number of places it has been checked, and the one difference no test on one machine can
+# find is a difference between machines: a float that rounds differently, a map iteration order, a
+# line ending, a locale that uppercases a letter its own way. The chain makes that check a single
+# comparison -- the reference log's chain is one value, and a platform that reaches it has
+# reproduced every Observation, every Action, every section hash, the turn counts and the ending.
+#
+# Nightly rather than per-push because it costs a Run on each platform and the thing it is looking
+# for does not arrive with a commit; it arrives with a runner image, a JDK update, or a dependency.
+name: replay
+
+on:
+  schedule:
+    # 04:20 UTC, which is nobody's working hours in either hemisphere.
+    - cron: '20 4 * * *'
+  workflow_dispatch:
+  # And on any change to the log format, the Replay, or the reference log itself, because those are
+  # the changes that can break this without breaking anything a push already runs.
+  push:
+    paths:
+      - 'reference/**'
+      - 'shatterfish/api/src/main/java/org/shatterfish/api/RunLog*.java'
+      - 'shatterfish/harness/src/main/java/org/shatterfish/harness/log/**'
+      - 'shatterfish/rig/src/main/java/org/shatterfish/rig/Verify.java'
+      - '.github/workflows/replay.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: replay-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    name: replay the reference Run on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Every platform is reported. `fail-fast` would tell us Windows disagrees and leave us
+      # guessing whether Linux does too, which is half of the answer we came for.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: the reference log verifies against its own bytes
+        shell: bash
+        run: |
+          # Before any Run is played. A reference log that was changed in the repository would make
+          # every platform agree about the wrong thing, and this costs milliseconds.
+          ./gradlew --no-daemon :rig:run --args="--verify reference"
+
+      - name: replay it
+        shell: bash
+        run: |
+          set -euo pipefail
+          log=$(ls reference/*.jsonl | head -1)
+          echo "replaying $log on $RUNNER_OS"
+          # The command answers 0 only when the two chains agree. A divergence answers 2 and names
+          # the wait and the sections that differ, which is what makes a platform difference
+          # something to go and look at rather than something to argue about.
+          ./gradlew --no-daemon :rig:run --args="--replay $log --out build/replay"
+
+      - name: keep what the Replay wrote
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: replay-${{ matrix.os }}
+          path: build/replay
+          if-no-files-found: ignore
