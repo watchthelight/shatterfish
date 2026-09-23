@@ -145,7 +145,8 @@ uniformly among the top scorers.
 - `Brains.configHash(name)` now refuses the weighted Brain. Callers that have the repository use
   `configHash(root, name)`; the child uses `configHash(name, weights)` with the set it read.
 - **Units.** The Evaluation's integer is read in ten-thousandths, like every Decision score
-  (ADR-0011, `RunLog.Choice`), and the fallback logs it as its Choice's score. The committed weights
+  (ADR-0011, `RunLog.Choice`). The fallback ranks by it but logs its Choice's chance within a tier
+  (see the integration note below). The committed weights
   are scaled to that unit:
   - hp 10, so a full bar (1000 thousandths) is one point;
   - depth 10000, level 5000, strength 2000, hunger -5000, enemies -3000;
