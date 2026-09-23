@@ -38,7 +38,7 @@ class RunnerRegistrationTest {
     private static final String ZERO = "0".repeat(64);
 
     /** A repository holding a committed Registration and the seed sets the Rig reads. */
-    private static Path repository(Path root, Registration... registrations) throws IOException {
+    static Path repository(Path root, Registration... registrations) throws IOException {
         run(root, "git", "init", "-q");
         run(root, "git", "config", "user.name", "a test");
         run(root, "git", "config", "user.email", "test@example.invalid");

@@ -1,5 +1,9 @@
 # The deliberately worse Brain, rejected
 
+*Each attempt's generated page, with every FR-25 field: [H-0004](2026-09-23-H-0004.md),
+[H-0005 first](2026-09-23-H-0005-1.md), [H-0005 second](2026-09-23-H-0005-2.md),
+[H-0006](2026-09-23-H-0006.md).*
+
 Story 3.9, [#98](https://github.com/watchthelight/shatterfish/issues/98): SM-5, the proof that the
 Rig can tell a worse Brain from a better one, and E3's done-when. Every Registration this story
 committed is on this page, including the ones that did not show what they were meant to.

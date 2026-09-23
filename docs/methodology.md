@@ -578,6 +578,70 @@ Brain to crash on a quarter of the seeds it would lose. When the Harness learns 
 random Brain meets, the missing rate falls, the calibration is re-run, and the cap comes down with
 it — a new Registration, never an edit.
 
+## Results pages
+
+```sh
+./gradlew :rig:results --args="<root> extract <runs folder> <slug>"   # a folder the Rig wrote -> results/<slug>/
+./gradlew :rig:results --args="<root> page <slug> <title>"           # results/<slug>/ -> docs/results/<slug>.md
+./gradlew :rig:results                                              # every page, from its committed data
+```
+
+A published number carries everything needed to check it (FR-25), and a page that is written by hand
+carries what its writer remembered. So a Results page is generated, in two steps. The first reads a
+folder the Rig wrote — a Baseline's, or a comparison's with its two sides — through the Harness's
+reader, and writes a small data folder that is committed: each side's run index and summary, the
+comparison's own `comparison.json`, one outcome line per Run taken from that Run's own log
+(`outcomes.jsonl`), and a `results.json` holding what the logs' headers, the Registration and the
+ledger say about the invocation. It refuses a folder whose Runs disagree on the tag, the invoking
+commit, the Registration or the cap, and any Run with the Oracle on. The second step renders the
+page from the data folder alone, and `ResultsTest` fails when a committed page is not a fresh render
+of its committed data.
+
+**What a page carries.** The upstream tag and the invoking Shatterfish commit; the Seed set and its
+version; the Brains as the Registration names them and as the Runs' headers name them (a header's
+commit is the invocation's, a Registration's is the Brain's); the Registration's stamp, its claim, its
+error rates and the commit that added it; how many invocations of that Registration, and of other
+Registrations with the same candidate Brain on the same Seed set, the ledger records before this one
+began;
+the bounds, in natural log units, with the statistic they belong to; the verdict and the whole trace;
+the endings, depths, wins and turns-survived quartiles of each side; the pair correlation and the
+pairs that ended alike; the survival curve and the boss staircase; a table by hero class; the Oracle
+state of every Run; where the fairness suite's result for that commit is; and the command. The
+Run logs are not in the data folder: a side of `standard` is about 37 MB. Each Run's chain is, so a log
+published later can be checked against the page; where the logs are published is not yet decided,
+and the page says so rather than linking nothing.
+
+**Negative and undecided results publish on the same terms.** The worse-Brain comparisons of story
+3.9 include a vacuous REJECT and a VOID beside the REJECT and the ACCEPT, and H-0007 is an
+UNDECIDED one: `random_twin` — the random agent drawing from another stream, equal in strength by
+construction — against `random` on `smoke`. Its Registration set the maximum at 25, the whole of
+`smoke`, so an undecided result was one of the three it could reach, not an accident; it could as well
+have rejected, as equal Brains usually do on `standard` (calibration: about 90%). Past the burn-in
+the trace stayed between −0.52 and 0.57 and it stopped at the maximum with nothing concluded, and the
+page publishes that on the same terms as an ACCEPT.
+
+## When platforms disagree
+
+A Run is a pure function of the upstream tag, the triple, the salt and the actions, and the nightly
+cross-platform job replays the committed reference Run on Windows and on Linux and compares the
+chains. If they differ, one of the two platforms computed something differently, and every result
+since the last agreeing night is suspect on the platform that is wrong. The procedure:
+
+1. **Nothing is published** from either platform until the disagreement is explained. A Results page
+   in flight waits; a merged one gets a note naming the night the disagreement was found.
+2. **Find the first differing record.** Replay the reference log on both with `--replay`; the log is
+   hash-chained, so the first line whose chain differs is the first place the platforms parted, and
+   the record before it is the last one they agreed on. The committed reference was written on one
+   platform, so matching it is evidence, not proof: if one replay matches it and the other does not,
+   start with the one that does not; if both part from it, both are suspect and so is the reference
+   build. Every page published so far was produced on Windows, and its page says so under Machine.
+3. **Name the cause at that record** — a floating-point path, an iteration order over a hash map, a
+   default charset or locale, a file-system ordering, a time read — by reading the code the record
+   exercises, and fix it in Shatterfish (a hook, if it is upstream code: ADR-0008's procedure).
+4. **Re-run and re-publish.** Any result produced on the wrong platform since the last agreeing night
+   is regenerated on the corrected build and republished beside the old one, with the ledger showing
+   both. A disagreement is never resolved by choosing the platform whose numbers look better.
+
 ## The Run log and its chain
 
 Every Run writes `<run-id>.jsonl`: one record per line, plain text, no compression, readable with

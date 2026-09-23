@@ -68,6 +68,16 @@ public final class Brains {
      */
     public static final String NO_ATTACK = "random_noattack";
 
+    /**
+     * The random agent drawing from another stream (story 3.10): equal in strength to the Baseline
+     * by construction, and playing different Runs, so a comparison of the two is H0 exactly. It is
+     * the Brain an UNDECIDED result is shown with.
+     */
+    public static final String TWIN = "random_twin";
+
+    /** Mixed into a Run's agent seed to give the twin its own stream. */
+    static final long TWIN_STREAM = 0x7715_7715L;
+
     /** The Brains that are the Baseline with one kind of Action withheld, and which kind. */
     private static final java.util.Map<String, Class<? extends org.shatterfish.api.Action>> WITHHELD =
             java.util.Map.of(NO_DESCEND, org.shatterfish.api.Action.Descend.class,
@@ -93,6 +103,10 @@ public final class Brains {
      */
     private static List<String> sourceOf(String name) {
         if (RANDOM.equals(named(name))) {
+            return List.of("shatterfish/harness/src/main/java/org/shatterfish/harness/agent/RandomAgent.java",
+                    "shatterfish/rig/src/main/java/org/shatterfish/rig/Brains.java");
+        }
+        if (TWIN.equals(name)) {
             return List.of("shatterfish/harness/src/main/java/org/shatterfish/harness/agent/RandomAgent.java",
                     "shatterfish/rig/src/main/java/org/shatterfish/rig/Brains.java");
         }
@@ -132,7 +146,7 @@ public final class Brains {
 
     /** Every name the Rig answers to, in the order it lists them. */
     public static List<String> names() {
-        return List.of(RANDOM, NO_DESCEND, NO_REST, NO_ATTACK);
+        return List.of(RANDOM, NO_DESCEND, NO_REST, NO_ATTACK, TWIN);
     }
 
     /** Whether the Rig has a Brain of this name. Asking does not build one. */
@@ -163,6 +177,14 @@ public final class Brains {
     }
 
     /**
+     * The seed the Decider named {@code name} draws from on {@code triple}: the triple's own for
+     * every Brain but the twin, whose stream is the triple's mixed with {@link #TWIN_STREAM}.
+     */
+    static long seedOf(String name, SeedSet.Entry triple) {
+        return TWIN.equals(named(name)) ? Mix.mix(agentSeed(triple), TWIN_STREAM) : agentSeed(triple);
+    }
+
+    /**
      * The Decider named {@code name}, seeded from the triple it will play, refusing a name the Rig
      * does not have.
      */
@@ -170,6 +192,9 @@ public final class Brains {
         named(name);
         if (RANDOM.equals(name)) {
             return new RandomAgent(agentSeed(triple));
+        }
+        if (TWIN.equals(name)) {
+            return new RandomAgent(seedOf(name, triple));
         }
         if (WITHHELD.containsKey(name)) {
             return new WithholdingAgent(agentSeed(triple), WITHHELD.get(name));
@@ -183,7 +208,7 @@ public final class Brains {
      * its configuration is the empty one.
      */
     public static String configHash(String name) {
-        if (!RANDOM.equals(named(name)) && !WITHHELD.containsKey(name)) {
+        if (!RANDOM.equals(named(name)) && !WITHHELD.containsKey(name) && !TWIN.equals(name)) {
             // A real Brain states its own configuration. Returning zeros for it would put an
             // unfalsifiable claim in every log header it wrote, and the Registration (story 3.5)
             // is the thing that pins a Brain's configuration -- so this refuses rather than

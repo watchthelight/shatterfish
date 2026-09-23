@@ -30,6 +30,9 @@ tasks.named('test') {
     // RunnerTest and CalibrationTest hold the commands the methodology page publishes; without this
     // an edit to the page alone leaves :rig:test UP-TO-DATE and neither check runs.
     inputs.file(rootProject.file('docs/methodology.md')).withPropertyName('methodologyPage').withPathSensitivity(PathSensitivity.RELATIVE)
+    // The Results data folders and the pages generated from them (story 3.10).
+    inputs.dir(rootProject.file('results')).withPropertyName('resultsData').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(rootProject.file('docs/results')).withPropertyName('resultsPages').withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 // `./gradlew :rig:calibrate` writes docs/results/calibration-v4.0.0.md from the committed table in
@@ -98,5 +101,18 @@ tasks.register('run', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'org.shatterfish.rig.Runner'
     workingDir = rootDir
+    outputs.upToDateWhen { false }
+}
+
+// `./gradlew :rig:results` regenerates every Results page from its committed data folder in
+// results/ (story 3.10). `--args="<root> extract <runs folder> <slug>"` writes a data folder from a
+// folder the Rig wrote; `--args="<root> page <slug> <title>"` writes its page.
+tasks.register('results', JavaExec) {
+    group = 'shatterfish'
+    description = 'Writes the Results pages from the committed data folders.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.rig.Results'
+    workingDir = rootDir
+    args = [rootDir.absolutePath]
     outputs.upToDateWhen { false }
 }

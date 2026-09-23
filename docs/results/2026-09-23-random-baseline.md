@@ -1,5 +1,8 @@
 # The random Baseline on `standard`
 
+*The generated page with every FR-25 field — distributions, survival curve, boss staircase, by
+class — is [H-0002](2026-09-23-H-0002.md).*
+
 Story 3.9, [#98](https://github.com/watchthelight/shatterfish/issues/98). The Baseline every later
 Brain is compared with: what no Brain at all achieves.
 

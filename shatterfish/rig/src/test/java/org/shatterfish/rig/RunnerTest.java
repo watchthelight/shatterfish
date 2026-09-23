@@ -389,7 +389,7 @@ class RunnerTest {
         // The worse Brain of story 3.9 is the Baseline with one Action withheld, and has no more
         // configuration than the Baseline does.
         assertEquals("0".repeat(64), Brains.configHash(Brains.NO_DESCEND));
-        assertEquals(List.of(Brains.RANDOM, Brains.NO_DESCEND, Brains.NO_REST, Brains.NO_ATTACK), Brains.names(),
+        assertEquals(List.of(Brains.RANDOM, Brains.NO_DESCEND, Brains.NO_REST, Brains.NO_ATTACK, Brains.TWIN), Brains.names(),
                 "when a real Brain is added here, `configHash` refuses until it states its own");
         // Every name is one a Run log and a Registration will take. "random-nodescend" was not: the
         // run id is hyphen-separated, and nothing refused it until the first ranked invocation.
@@ -445,6 +445,20 @@ class RunnerTest {
             assertEquals("0".repeat(64), Brains.configHash(name));
         }
         assertTrue(Brains.of(Brains.RANDOM, triple) instanceof org.shatterfish.harness.agent.RandomAgent);
+    }
+
+    @Test
+    @DisplayName("the twin is the random agent on another stream, with no configuration")
+    void the_twin() {
+        org.shatterfish.api.SeedSet.Entry triple = SeedSets.load(SeedSetsTest.ROOT, SeedSets.SMOKE)
+                .set().entries().get(0);
+        assertTrue(Brains.of(Brains.TWIN, triple) instanceof org.shatterfish.harness.agent.RandomAgent);
+        assertEquals(Brains.agentSeed(triple), Brains.seedOf(Brains.RANDOM, triple));
+        assertEquals(org.shatterfish.harness.rng.Mix.mix(Brains.agentSeed(triple), Brains.TWIN_STREAM),
+                Brains.seedOf(Brains.TWIN, triple));
+        assertTrue(Brains.seedOf(Brains.TWIN, triple) != Brains.seedOf(Brains.RANDOM, triple),
+                "a twin on the Baseline's own stream would play its Runs, and every pair would tie");
+        assertEquals("0".repeat(64), Brains.configHash(Brains.TWIN));
     }
 
     @Test
