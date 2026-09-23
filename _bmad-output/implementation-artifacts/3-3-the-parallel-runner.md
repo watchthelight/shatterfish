@@ -166,6 +166,10 @@ at the size being used rather than from waits per second.
 - `./gradlew build -Pshatterfish.mobile=off` — green, every module.
 - `./gradlew :rig:test -Pshatterfish.mobile=off` — green.
 - `./gradlew :rig:run --args="--brain random --seeds smoke --parallel 4 --out <tmp>"` — 25 logs, an
-  index naming 25, a stated throughput; every chain verifies.
+  index naming 25, a stated throughput. **This is the command the methodology page publishes, and
+  as first written it did not run**: `--commit` was required and neither the page nor this line
+  passed it, so what was actually run was a different command and this line said otherwise. The
+  checkout answers for the commit now, and `RunnerTest.the_published_command_is_accepted` parses
+  the page's own text, so the two cannot part company again.
 - `uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict` — green.
 - `./gradlew :codex:citations -Pshatterfish.mobile=off` — no findings.
