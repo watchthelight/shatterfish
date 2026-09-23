@@ -2,7 +2,7 @@
 title: 'Story 4.4: The Decision output and the strategy log'
 type: 'feature'
 created: '2026-09-23'
-status: 'in-progress'
+status: 'review'
 baseline_commit: '4e95c0ec0'
 review_loop_iteration: 0
 context: []
@@ -125,3 +125,33 @@ meant. A person watching cannot tell thinking from flailing (FR-32, FR-36, UX-DR
 - Every row of the Brain's Rules index names a rule that exists on its page
   (`BrainRulesIndexTest`).
 - The PR carries a `smoke` direction check against the 4.1 Brain.
+
+## Dev Notes
+
+**Schema:** no version bump. `RunLog.Decision` is unchanged, and the Brain's highlights go into the
+wait record's existing `highlights` field (ADR-0011). Committed logs are untouched: the random
+agent's waits carry neither a Decision nor highlights, as before.
+
+**Behaviour:** the chosen Action is the one 4.1 chose on every screen. The fallback's pick is still
+the first draw of the wait's stream, and the alternatives come from later draws. The prompt Policy's
+pick is unchanged. The Runs, and so the direction check against the 4.1 Brain, should be identical;
+only the log's Decisions and highlights differ.
+
+**Tests:** `:brain:test` and `:api:test` pass, including `DecisionShapeTest` (5). The harness
+Replay, RunLog and JsonRendering tests pass. `StrategyLogTest` (2), `BrainRulesIndexTest` (1) and
+`ShatterfishRunTest` pass; in the worktree its version check is skipped because `.git` is a file
+there. `mkdocs build --strict` is clean.
+
+**Mutation battery: 9 of 9 killed.**
+- An alternative repeating the chosen Action.
+- Two alternatives instead of three.
+- `hp-low` made strict.
+- A Step left unhighlighted.
+- The decline label lost.
+- The refused marker dropped from the strategy log.
+- An index row pointing at no Rule.
+- The Run loop dropping highlights.
+- The replay dropping highlights.
+
+**Open:** row 3 of the Brain's Rules index (declining the chasm prompt) points at a game-loop Rule
+at needs-review since `v4.0.0`. Re-reading it is upstream-rule work, not this story's.
