@@ -277,7 +277,7 @@ public final class RunLoop {
             // moved, and a Replay applying that Action would have reproduced a different Run
             // with nothing in the file to explain the divergence.
             record(log, halt.waitIndex(), observation, chosen,
-                    !(outcome instanceof Outcome.Rejected), thinkMs, oracle);
+                    !(outcome instanceof Outcome.Rejected), thinkMs, oracle, agent);
             if (outcome instanceof Outcome.Rejected rejected) {
                 refused++;
                 refusalsInARow++;
@@ -402,7 +402,7 @@ public final class RunLoop {
      * has stepped it since the Observation was made.
      */
     private static void record(RunLogWriter log, long k, Observation observation, Action chosen,
-                               boolean applied, long thinkMs, boolean oracle) {
+                               boolean applied, long thinkMs, boolean oracle, Decider agent) {
         if (log == null) {
             return;
         }
@@ -421,8 +421,16 @@ public final class RunLoop {
         if (observation.header().prompt() != PromptKind.NONE && answers(chosen)) {
             log.write(new RunLog.Prompt(k, observation.header().prompt(), chosen));
         }
+        // A Deliberator says why and what it now believes (story 4.1); a plain Decider says
+        // neither, and its record carries neither rather than a reason nobody gave.
+        RunLog.Decision decision = null;
+        String belief = "";
+        if (agent instanceof org.shatterfish.api.Deliberator deliberator) {
+            decision = deliberator.lastDecision();
+            belief = deliberator.beliefHash();
+        }
         log.write(new RunLog.Wait(k, thousandths(), observation.header().depth(), observation.header().branch(),
-                observation.hash(), observation.sectionHashes(), chosen, applied, RunLog.BOT, null, "",
+                observation.hash(), observation.sectionHashes(), chosen, applied, RunLog.BOT, decision, belief,
                 List.of(), thinkMs));
     }
 

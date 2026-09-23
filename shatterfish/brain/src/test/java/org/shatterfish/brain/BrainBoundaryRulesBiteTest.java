@@ -59,6 +59,18 @@ class BrainBoundaryRulesBiteTest {
 			BrainBoundaryTest.brain_depends_on_no_other_shatterfish_module);
 
 	@Test
+	@DisplayName("the Run log's header, its boundary record and a seed set's entry are rejected, and a Decision is not")
+	void the_log_is_closed_but_for_the_decision() {
+		assertRejected(ReadsTheLogHeader.class);
+		assertRejected(ReadsTheBoundary.class);
+		assertRejected(HoldsASeedSetEntry.class);
+		JavaClasses says = new ClassFileImporter().importClasses(SaysWhy.class);
+		for (ArchRule rule : ALL_RULES) {
+			assertDoesNotThrow(() -> rule.check(says), "a Brain may say why: " + rule.getDescription());
+		}
+	}
+
+	@Test
 	@DisplayName("the exploit from the first review is rejected: Class.forName plus method handles")
 	void the_method_handles_exploit_is_rejected() {
 		assertRejected(ReachesByMethodHandle.class);
@@ -388,6 +400,35 @@ class BrainBoundaryRulesBiteTest {
 
 	/** Turkish maps i to a dotted capital, so a name used as a key stops matching. */
 	@SuppressWarnings("unused")
+	/** The Run log's header, which carries the seed and the salt (story 4.1 narrowed the log ban). */
+	static final class ReadsTheLogHeader {
+		static long seed(org.shatterfish.api.RunLog.Header header) {
+			return header.seed();
+		}
+	}
+
+	/** The boundary record, which carries the salt again. */
+	static final class ReadsTheBoundary {
+		static Object salt(org.shatterfish.api.RunLog.Boundary boundary) {
+			return boundary;
+		}
+	}
+
+	/** A seed set's entry, from which a published derivation gives back the seed. */
+	static final class HoldsASeedSetEntry {
+		static long seed(org.shatterfish.api.SeedSet.Entry entry) {
+			return entry.seed();
+		}
+	}
+
+	/** The Decision a Brain hands over for the log: allowed, and the only part of the log that is. */
+	static final class SaysWhy {
+		static org.shatterfish.api.RunLog.Decision why(org.shatterfish.api.Action action) {
+			return new org.shatterfish.api.RunLog.Decision("a goal",
+					new org.shatterfish.api.RunLog.Choice(action, 0, "a reason"), List.of(), List.of(), "a policy");
+		}
+	}
+
 	static final class ChangesCaseForTheHost {
 		static String key(String name) {
 			return name.toUpperCase();

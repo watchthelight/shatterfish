@@ -34,11 +34,11 @@ import java.util.List;
  * next chest holds. ADR-0007 rejected that attack in advance -- "a salt it never sees cannot be
  * predicted" -- and {@code Salt} says the salt is "shown to nothing that plays".
  *
- * <p>So a Decider's seed is {@link #agentSeed}, derived from the Run's own triple: the seed, the
- * hero class and the challenge flags. Those are things a human at the same screen has — the seed is
- * on the screen they typed it into — and they are fixed before the Run starts, so the Decider's
- * stream is reproducible from the tuple alone. The salt still varies the game; the two are
- * different axes, which is why {@code RunLoop.play} has always taken them as two parameters.
+ * <p>So the random agents' seed is {@link #agentSeed}, derived from the Run's own triple: the seed,
+ * the hero class and the challenge flags, fixed before the Run starts, so their stream is
+ * reproducible from the tuple alone. The salt still varies the game; the two are different axes,
+ * which is why {@code RunLoop.play} has always taken them as two parameters. A Brain is not given
+ * even that much: {@link #brainSeed} says why (story 4.1).
  */
 public final class Brains {
 
@@ -78,6 +78,18 @@ public final class Brains {
     /** Mixed into a Run's agent seed to give the twin its own stream. */
     static final long TWIN_STREAM = 0x7715_7715L;
 
+    /**
+     * The first Brain (story 4.1): arbitration over a priority list of Policies, re-planned from the
+     * Observation at every wait. Its sources are the whole of the {@code brain} module.
+     *
+     * <p>Not "baseline": the Baseline is the random agent every Brain is measured against, and the
+     * word already names that in the rig, the methodology and the comparison folders.
+     */
+    public static final String SHATTERFISH = "shatterfish";
+
+    /** Mixed into a Brain's name to give its stream a seed; see {@link #brainSeed}. */
+    static final long BRAIN_STREAM = 0x5F15_B4A1L;
+
     /** The Brains that are the Baseline with one kind of Action withheld, and which kind. */
     private static final java.util.Map<String, Class<? extends org.shatterfish.api.Action>> WITHHELD =
             java.util.Map.of(NO_DESCEND, org.shatterfish.api.Action.Descend.class,
@@ -105,6 +117,14 @@ public final class Brains {
         if (RANDOM.equals(named(name))) {
             return List.of("shatterfish/harness/src/main/java/org/shatterfish/harness/agent/RandomAgent.java",
                     "shatterfish/rig/src/main/java/org/shatterfish/rig/Brains.java");
+        }
+        if (SHATTERFISH.equals(name)) {
+            // The Deliberator contract and the Codex it is built on decide what it does as much as
+            // its own sources do.
+            return List.of("shatterfish/brain/src/main/java",
+                    "shatterfish/api/src/main/java/org/shatterfish/api/Deliberator.java",
+                    "shatterfish/rig/src/main/java/org/shatterfish/rig/Brains.java",
+                    CodexManifest.FOLDER);
         }
         if (TWIN.equals(name)) {
             return List.of("shatterfish/harness/src/main/java/org/shatterfish/harness/agent/RandomAgent.java",
@@ -146,7 +166,7 @@ public final class Brains {
 
     /** Every name the Rig answers to, in the order it lists them. */
     public static List<String> names() {
-        return List.of(RANDOM, NO_DESCEND, NO_REST, NO_ATTACK, TWIN);
+        return List.of(RANDOM, NO_DESCEND, NO_REST, NO_ATTACK, TWIN, SHATTERFISH);
     }
 
     /** Whether the Rig has a Brain of this name. Asking does not build one. */
@@ -177,6 +197,27 @@ public final class Brains {
     }
 
     /**
+     * The seed a Brain's stream starts from: its name, mixed with {@link #BRAIN_STREAM}, and nothing
+     * about the Run.
+     *
+     * <p>Not {@link #agentSeed}. That is a bijection of the dungeon seed and two values the
+     * Observation header states (the hero class and the challenges), so a Brain holding it could
+     * undo the mixing and recover the dungeon seed -- and from the seed, every unidentified item's
+     * identity and the layout of every floor. Non-negotiable #1 names the seed among what the bot
+     * never reads; a seed it could compute is a seed it reads. A Brain's randomness is therefore a
+     * constant stream, advanced by the waits it has served, and the Brain is a function of what it
+     * has seen: two Runs that show it the same screens get the same Actions.
+     */
+    static long brainSeed(String name) {
+        return Mix.mix(BRAIN_STREAM, named(name).hashCode());
+    }
+
+    /** Whether the Brain named {@code name} is built on a Codex, which its caller then reads. */
+    public static boolean readsCodex(String name) {
+        return SHATTERFISH.equals(named(name));
+    }
+
+    /**
      * The seed the Decider named {@code name} draws from on {@code triple}: the triple's own for
      * every Brain but the twin, whose stream is the triple's mixed with {@link #TWIN_STREAM}.
      */
@@ -189,7 +230,22 @@ public final class Brains {
      * does not have.
      */
     public static Decider of(String name, SeedSet.Entry triple) {
+        return of(name, triple, null);
+    }
+
+    /**
+     * The Decider named {@code name} for {@code triple}, built on {@code codex} when it is a Brain
+     * that reads one: the Codex is read by the caller, never by the Brain (story 4.1).
+     */
+    public static Decider of(String name, SeedSet.Entry triple, org.shatterfish.api.Codex.Manifest codex) {
         named(name);
+        if (SHATTERFISH.equals(name)) {
+            if (codex == null) {
+                throw new IllegalArgumentException("the Brain " + name + " is built on a Codex, and none was"
+                        + " read for it; a Run of it states " + RunOne.CODEX);
+            }
+            return new org.shatterfish.brain.BrainDecider(new org.shatterfish.brain.Brain(codex, brainSeed(name)));
+        }
         if (RANDOM.equals(name)) {
             return new RandomAgent(agentSeed(triple));
         }
@@ -208,7 +264,19 @@ public final class Brains {
      * its configuration is the empty one.
      */
     public static String configHash(String name) {
-        if (!RANDOM.equals(named(name)) && !WITHHELD.containsKey(name) && !TWIN.equals(name)) {
+        if (SHATTERFISH.equals(named(name))) {
+            // What the Brain says it is: its Policies in order, the version of the memory it
+            // carries, and the seed of its stream. A change to any of them is a different Brain.
+            String configuration = org.shatterfish.brain.Brain.configuration()
+                    + ";seed=" + Long.toHexString(brainSeed(name));
+            try {
+                return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                        .digest(configuration.getBytes(StandardCharsets.UTF_8)));
+            } catch (java.security.NoSuchAlgorithmException unavailable) {
+                throw new IllegalStateException("every Java platform has SHA-256", unavailable);
+            }
+        }
+        if (!RANDOM.equals(name) && !WITHHELD.containsKey(name) && !TWIN.equals(name)) {
             // A real Brain states its own configuration. Returning zeros for it would put an
             // unfalsifiable claim in every log header it wrote, and the Registration (story 3.5)
             // is the thing that pins a Brain's configuration -- so this refuses rather than

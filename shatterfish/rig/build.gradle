@@ -33,6 +33,8 @@ tasks.named('test') {
     // The Results data folders and the pages generated from them (story 3.10).
     inputs.dir(rootProject.file('results')).withPropertyName('resultsData').withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir(rootProject.file('docs/results')).withPropertyName('resultsPages').withPathSensitivity(PathSensitivity.RELATIVE)
+    // The Brain is built on the Codex the rig reads for it (story 4.1)
+    inputs.dir(rootProject.file('codex')).withPropertyName('codex').withPathSensitivity(PathSensitivity.RELATIVE)
     // The nightly workflow, its script, its history and its page (story 3.11): NightlyTest reads them.
     inputs.file(rootProject.file('.github/workflows/nightly.yml')).withPropertyName('nightlyWorkflow').withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.file(rootProject.file('tools/nightly-pr.sh')).withPropertyName('nightlyScript').withPathSensitivity(PathSensitivity.RELATIVE)

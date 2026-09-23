@@ -474,6 +474,14 @@ pairing itself is checked — the Decider is seeded from the triple and the pair
 both halves are the same Run, and `RunnerComparisonTest` holds each pair's two logs to one salt and
 one chain, read from what each child wrote rather than from the parent's index.
 
+**A Brain is not seeded from the triple.** The random agents are, and that is harmless for agents
+that never look at their seed. A Brain would: the triple's mix is invertible and the Observation
+header states two of its three inputs, so it could recover the dungeon seed. A Brain draws from a
+stream seeded from its own name and advanced by the waits it has served, so it is a function of
+what it has seen, and two Runs that show it the same screens get the same Actions. It is built on
+the Codex, which the rig reads from `codex/<tag>/` and hands to the child with `--codex`; the
+child reads it only for a Brain that is built on one.
+
 **`smoke` is a direction check.** ADR-0012 lets only `standard` and `bosses` accept. A comparison on
 any other set still runs the test and prints its trace, but `comparison.json` says
 `"direction_check":true` and the ledger note says "(direction check)": its ACCEPT is a direction to

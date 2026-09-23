@@ -325,7 +325,7 @@ public final class Replay {
      * The decider that is the log: at each wait it checks that this build is seeing what the log
      * recorded, and hands back the Action that was taken.
      */
-    private static final class Following implements Decider {
+    private static final class Following implements org.shatterfish.api.Deliberator {
 
         private final List<RunLog.Wait> waits;
 
@@ -343,6 +343,13 @@ public final class Replay {
 
         private int at;
         private int verified;
+
+        /**
+         * The wait last followed. A Brain's log says why at every wait (story 4.1); the replay
+         * reproduces the Action and states the same Decision and Belief hash the log recorded, so
+         * the record it writes is the recorded one and the chains compare.
+         */
+        private RunLog.Wait followed;
 
         Following(List<RunLog.Wait> waits, long unverifiableFrom, boolean saidUnverifiable) {
             this.waits = List.copyOf(waits);
@@ -377,7 +384,24 @@ public final class Replay {
                                 + moved(observation, wait));
             }
             verified++;
+            followed = wait;
             return wait.action();
+        }
+
+        @Override
+        public RunLog.Decision lastDecision() {
+            return followed == null ? null : followed.decision();
+        }
+
+        /** The replay holds no Belief, only the hash the log recorded; see {@link #beliefHash}. */
+        @Override
+        public org.shatterfish.api.Belief belief() {
+            return null;
+        }
+
+        @Override
+        public String beliefHash() {
+            return followed == null ? "" : followed.belief();
         }
 
         /** The first wait an {@code unsupported} record makes unreproducible, if there is one. */
