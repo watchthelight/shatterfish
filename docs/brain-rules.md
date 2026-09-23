@@ -25,6 +25,12 @@ behaviour to re-check.
 | 4 | The status pane warns of low health below a third, `HP/HT < 0.334`, which is where the `hp-low` flag starts. | `hp-low` | [ui: "The status pane tints the hero's portrait as a low-health warning"](rules/ui.md) |
 | 5 | The hunger icon has three states, which the `hungry` and `starving` flags read. | `hungry`, `starving` | [ui: "The hunger icon has three states"](rules/ui.md) |
 | 6 | An enemy in view is a mob with the enemy alignment in the hero's field of view, which the `enemy-in-view` flag reads. | `enemy-in-view` | [visibility: "`hero.visibleEnemies` (the number on the DangerIndicator"](rules/visibility.md) |
+| 7 | A click on a stairs cell travels, and a click on a chest, a tomb or remains opens it: neither is a step, so the explore Policy never paths through a transition or a heap that is not a plain one. | `explore` | [game-loop: "`Hero.handle(cell)` sets `curAction` by cell content"](rules/game-loop.md) |
+| 8 | The cells a click steps onto are the walkable tiles the Observation offers Steps onto; the explore Policy walks only on those, less the chasm, which jumps, and the well, which drinks. | `explore` | [levels: "A cell a click steps onto"](rules/levels.md) |
+| 9 | An intentional search finds every searchable secret within its radius at once, so the explore Policy searches from each spot once. | `explore` (searching) | [visibility: "`Hero.search(intentional)` scans"](rules/visibility.md) |
+| 10 | A search reaches the cells beside the hero (two away for the Rogue) and costs two turns, so the explore Policy searches from cells beside a wall. | `explore` (searching) | [game-loop: "Intentional search costs"](rules/game-loop.md) |
+| 11 | Doors may be hidden from depth 2, which is why a floor with no frontier left is searched before it is given up. | `explore` (searching) | [levels: "Hidden doors: on depth > 1"](rules/levels.md) |
+| 12 | A hidden door is drawn as a wall until it is found, so a search spot is a cell beside a wall. | `explore` (searching) | [visibility: "Before discovery a SECRET_DOOR is drawn with the WALL visual"](rules/visibility.md) |
 
 The `fallback` Policy relies on no mechanic. It chooses uniformly among the Actions the Observation
 offers, and the offered set is `ValidActions`' to get right (story 1.12), not the Brain's.

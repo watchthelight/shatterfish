@@ -44,7 +44,7 @@ public final class Brain {
 
     /** The Policies, highest priority first, scoring by {@code evaluation}. */
     private static List<Policy> policies(Evaluation evaluation) {
-        return List.of(Policies.ANSWER_PROMPT, Policies.fallback(evaluation));
+        return List.of(Policies.ANSWER_PROMPT, new Explore(), Policies.fallback(evaluation));
     }
 
     /**
@@ -102,7 +102,7 @@ public final class Brain {
 
     /** The names of the Policies every Brain arbitrates, highest priority first. */
     public static List<String> policyNames() {
-        return List.of(Policies.ANSWER_PROMPT.name(), Policies.FALLBACK);
+        return List.of(Policies.ANSWER_PROMPT.name(), Explore.NAME, Policies.FALLBACK);
     }
 
     /** The Policies, highest priority first, by name. */
@@ -131,16 +131,17 @@ public final class Brain {
         Policy taken = null;
         RunLog.Choice chosen = null;
         List<RunLog.Choice> alternatives = new ArrayList<>();
-        for (int index = 0; index < policies.size(); index++) {
-            Policy policy = policies.get(index);
+        for (Policy policy : policies) {
             if (!policy.enters(observation, memory)) {
                 continue;
             }
-            // Each Policy draws from a stream of its own, keyed on its place in the list and the
-            // wait, so whether an earlier Policy drew changes nothing a later one chooses, and two
-            // Policies that both draw do not draw the same numbers.
+            // Each Policy draws from a stream of its own, keyed on its name and the wait, so
+            // whether an earlier Policy drew changes nothing a later one chooses, two Policies that
+            // both draw do not draw the same numbers, and a Policy added to the list later leaves
+            // every other Policy's draws as they were (story 4.6; the key was the list position
+            // before, which a new Policy would have shifted).
             List<RunLog.Choice> ranked = policy.ranked(observation, memory, offered,
-                    Stream.at(Stream.mix(seed + index), memory.waits()));
+                    Stream.at(Stream.mix(seed ^ Stream.mix(policy.name().hashCode())), memory.waits()));
             for (RunLog.Choice choice : ranked) {
                 if (!offered.contains(choice.action())) {
                     throw new IllegalStateException("the Policy " + policy.name() + " chose " + choice.action()

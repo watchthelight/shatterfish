@@ -184,8 +184,8 @@ class EvaluationMonotonicityTest {
             Observation screen = Screens.offering(1, offered);
             belief = brain.update(screen, belief);
             Action taken = brain.decide(screen, belief).action();
-            // The fallback is the second Policy (index 1), drawing from its own stream at this wait.
-            Stream stream = Stream.at(Stream.mix(11L + 1), Memory.of(belief).waits());
+            // The fallback draws from its own stream at this wait, keyed on its name (story 4.6).
+            Stream stream = Stream.at(Stream.mix(11L ^ Stream.mix(Policies.FALLBACK.hashCode())), Memory.of(belief).waits());
             List<Action> sorted = screen.actions().actions();
             assertEquals(sorted.get(stream.below(sorted.size())), taken, "wait " + i);
         }

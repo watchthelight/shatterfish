@@ -18,7 +18,8 @@ import java.util.List;
  * appearances in view and the journal's identified list) and the Codex, and is recomputed at every
  * wait ({@link Beliefs}). What is here is what the screen stops showing: a floor fact once the
  * room that implies it is out of view, a guaranteed drop already found, a monster that walked out
- * of sight, and the appearances picked up before anyone knew what they were.
+ * of sight, the appearances picked up before anyone knew what they were, and where the hero has been
+ * seen to stand still (story 4.6).
  *
  * @param waits    the Observations folded in so far: one per {@link Brain#update}, which the Brain's
  *                 driver calls once per Input wait it is asked about
@@ -31,18 +32,38 @@ import java.util.List;
  * @param pending  the rises in an unidentified appearance's quantity, per set of floors, not yet
  *                 attributed to an identity
  * @param monsters the enemies seen, the latest sighting of each, fresh or stale
+ * @param at       where the hero stood at the last wait, or {@link Spot#NOWHERE} before the first
+ * @param streak   how many waits in a row, before this one, the hero has been seen on {@code at}
+ * @param dwelt    the cells the hero has been seen on at two waits in a row, per floor: the cells a
+ *                 search could have been made from. Seen, not intended: whether the hero searched,
+ *                 rested or had its step refused there, it stood there, and that is all the screen
+ *                 says (FR-27)
  */
 record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
-              List<Held> labels, List<Found> pending, List<Seen> monsters) {
+              List<Held> labels, List<Found> pending, List<Seen> monsters, Spot at, int streak, List<Spot> dwelt) {
 
-    /** The meaning of the bytes; bumped when it changes. */
-    static final int VERSION = 2;
+    /** The meaning of the bytes; bumped when it changes (3: where the hero stood, story 4.6). */
+    static final int VERSION = 3;
+
+    /** The most cells remembered as dwelt on; the oldest is forgotten first. */
+    static final int DWELT = 256;
 
     /** The most sightings remembered; the oldest is forgotten first. */
     static final int MONSTERS = 64;
 
     static final Memory START = new Memory(0, 0, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-            List.of());
+            List.of(), Spot.NOWHERE, 0, List.of());
+
+    /** A cell on a floor. */
+    record Spot(int depth, int cell) {
+
+        /** Where the hero was before the first wait: nowhere. */
+        static final Spot NOWHERE = new Spot(-1, -1);
+
+        Spot {
+            require((depth >= 0 && cell >= 0) || (depth == -1 && cell == -1), "a floor and a cell");
+        }
+    }
 
     /** An item a floor is known to hold, and why: "potion of invisibility" on depth 3, from a pool room. */
     record Fact(int depth, String item, String because) {
@@ -85,6 +106,8 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         labels = List.copyOf(labels);
         pending = List.copyOf(pending);
         monsters = List.copyOf(monsters);
+        require(at != null && streak >= 0, "a position and a streak");
+        dwelt = List.copyOf(dwelt);
     }
 
     private static void require(boolean held, String what) {
@@ -120,6 +143,11 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         out.integer(monsters.size());
         for (Seen seen : monsters) {
             out.text(seen.name()).integer(seen.depth()).integer(seen.cell()).number(seen.at());
+        }
+        out.integer(at.depth()).integer(at.cell()).integer(streak);
+        out.integer(dwelt.size());
+        for (Spot spot : dwelt) {
+            out.integer(spot.depth()).integer(spot.cell());
         }
         return new Belief(VERSION, out.bytes());
     }
@@ -166,8 +194,14 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
             for (int i = count(in); i > 0; i--) {
                 monsters.add(new Seen(in.text(), in.integer(), in.integer(), in.number()));
             }
+            Spot at = new Spot(in.integer(), in.integer());
+            int streak = in.integer();
+            List<Spot> dwelt = new ArrayList<>();
+            for (int i = count(in); i > 0; i--) {
+                dwelt.add(new Spot(in.integer(), in.integer()));
+            }
             in.end();
-            return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters);
+            return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, dwelt);
         } catch (IllegalArgumentException malformed) {
             throw new IllegalArgumentException("not a Belief this Brain wrote: " + belief + ": " + malformed.getMessage());
         }

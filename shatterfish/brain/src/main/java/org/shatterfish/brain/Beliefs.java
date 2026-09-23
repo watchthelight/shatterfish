@@ -127,8 +127,18 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
             }
         }
 
+        // Where the hero stands, and whether it stood here at the last wait too (story 4.6).
+        Memory.Spot here = new Memory.Spot(depth, observation.hero().cell());
+        boolean still = here.equals(memory.at());
+        List<Memory.Spot> dwelt = new ArrayList<>(memory.dwelt());
+        if (still && !dwelt.contains(here)) {
+            dwelt.add(here);
+            if (dwelt.size() > Memory.DWELT) {
+                dwelt.remove(0);
+            }
+        }
         return new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
-                sightings(memory.monsters(), observation, waits));
+                sightings(memory.monsters(), observation, waits), here, still ? memory.streak() + 1 : 0, dwelt);
     }
 
     /** What the Brain believes, given the memory after {@link #fold} and the same observation. */
