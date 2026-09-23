@@ -278,8 +278,10 @@ public final class Replay {
         Following following = new Following(log.waits(), Following.firstGap(log),
                 log.end() != null && !log.end().verifiable());
         // `false`, in the source. The oracle flag was read out of the log here, which made this the
-        // only production caller that could set it at all -- from a file. `refusal` refuses such a
-        // log above; this is the second lock on the same door.
+        // only production caller that could set it at all -- from a file. The guard that stops that
+        // now is `refusal`, above, which refuses an oracle log before anything is played; the
+        // battery confirmed it by surviving a mutation of this line. It stays `false` anyway,
+        // because a fairness-critical flag should not be one refusal away from being data.
         RunLoop.Logging logging = new RunLoop.Logging(out, header.commit(), header.brain(),
                 header.registration(), machine, false);
         SeedSet.Entry triple = new SeedSet.Entry(header.seed(), header.heroClass(),

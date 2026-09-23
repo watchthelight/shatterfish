@@ -147,8 +147,11 @@ public final class RunLogVerifier {
      *
      * <p>The key is matched as it is written, not as it decodes. A key spelled with a unicode
      * escape decodes to a name this would strip and that a checker written from the published rules
-     * would keep, which is one file with two verdicts. {@link Json#object} refuses an escaped key
-     * outright, and this agrees with it by comparing the literal.
+     * would keep, which is one file with two verdicts. The guard that actually prevents that is in
+     * {@link Json#object}, which refuses an escaped key outright and runs first — this method's
+     * mutation survived the battery for exactly that reason. Matching the literal here is a second
+     * lock on the same door, kept because this method is public and a caller that has not been
+     * through {@code Json} would otherwise strip a key the writer never wrote.
      */
     public static String chained(String line) {
         StringBuilder out = new StringBuilder("{");

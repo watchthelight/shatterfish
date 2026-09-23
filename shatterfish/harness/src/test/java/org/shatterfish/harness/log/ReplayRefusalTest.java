@@ -167,6 +167,54 @@ class ReplayRefusalTest {
     }
 
     @Test
+    @DisplayName("a cap a file states is bounded, because a file can say anything")
+    void an_unbounded_cap_is_refused(@TempDir Path folder, @TempDir Path out) throws IOException {
+        // The Replay takes its cap from the log so that it ends the way the original did. A log is
+        // data, and `Canon` only asks that a cap be at least one -- so a header claiming two
+        // billion turns makes the command run until the hero dies of something, with no deadline
+        // and nobody watching. The rules are published, so writing that header is three lines.
+        RunLog.Header h = good();
+        Path file = folder.resolve("forever.jsonl");
+        rechain(file, List.of(new RunLog.Header(h.v(), h.tag(), h.commit(), h.heroClass(),
+                h.challenges(), h.seed(), h.seedCode(), h.salt(), Integer.MAX_VALUE, h.profile(),
+                h.obsv(), h.codex(), h.brain(), h.registration(), h.oracle(), h.machine(),
+                h.started())));
+
+        Replay.Refusal refusal = Replay.refusal(RunLogReader.of(file).header());
+        assertNotNull(refusal);
+        assertEquals("turn cap", refusal.field());
+
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> Replay.of(file, out, "test"));
+        assertTrue(refused.getMessage().contains("turn cap"), refused.getMessage());
+        assertFalse(Files.exists(out) && Files.list(out).findAny().isPresent(),
+                "and nothing was played to find that out");
+    }
+
+    @Test
+    @DisplayName("two logs concatenated and rechained are two Runs, and are refused as such")
+    void two_logs_in_one_file_are_refused(@TempDir Path folder, @TempDir Path out) throws IOException {
+        // Each half is a real log and the join is arithmetic anybody can do, so the chain verifies
+        // perfectly and every record in the file is one this build understands. Only counting the
+        // headers catches it -- and without that, `header()` hands back the first Run's header
+        // while the waits come from both, which is a reproduction of a Run that never happened.
+        Path file = played(folder);
+        List<RunLog> once = RunLogReader.of(file).records();
+        List<RunLog> twice = new ArrayList<>(once);
+        twice.addAll(once);
+        rechain(file, twice);
+
+        assertTrue(RunLogVerifier.of(file).ok(), "the concatenation chains perfectly");
+
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> Replay.of(file, out, "test"));
+
+        assertTrue(refused.getMessage().contains("two Runs in one file"), refused.getMessage());
+        assertFalse(Files.exists(out) && Files.list(out).findAny().isPresent(),
+                "and nothing was played to find that out");
+    }
+
+    @Test
     @DisplayName("a Replay will not write into the folder it is reading, which the story froze as a Never")
     void a_replay_does_not_write_over_the_log_it_is_checking(@TempDir Path folder) {
         Path file = played(folder);
@@ -326,10 +374,16 @@ class ReplayRefusalTest {
         // A human played this Run through the overlay and did something the Action set has no word
         // for. Nothing in the harness writes this record -- only the overlay can -- so the log is
         // built here, and it is the only way this path is exercised before the overlay exists.
+        //
+        // The mark *replaces* the wait, and that is the whole point: the executor could not express
+        // the input, so there is no Action to record and no wait record at that index. A version of
+        // this test that inserted the mark beside a surviving wait 12 passed against a build that
+        // only fired on an exact match, which is a build that ignores every real occurrence.
         List<RunLog> with = new ArrayList<>();
         for (RunLog record : records) {
             if (record instanceof RunLog.Wait wait && wait.k() == 12) {
                 with.add(new RunLog.Unsupported(12, "dragged an item onto the quickslot"));
+                continue;
             }
             with.add(record);
         }
