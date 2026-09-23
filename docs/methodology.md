@@ -489,7 +489,10 @@ child gets the file through `--weights`. The configuration hash in every log hea
 Registration is taken over the Brain's Policies, its memory version, the canonical text of its
 weights and its seed, so changing a weight -- or only the version -- is a different Brain to a
 Registration, and the Brain's version for the held-out budget moves with the file too. Changing a
-weight changes what the Brain does without recompiling it.
+weight changes what the Brain does without recompiling it. An Evaluation's score is read in
+ten-thousandths, as every Decision's score is: a weight of 10000 on a feature that is 0 or 1 is one
+point, and hit points count in thousandths of the maximum, so the committed weight of 10 makes a full
+bar one point. Every weight is at most 10^9 either way, and the sum is exact.
 
 **`smoke` is a direction check.** ADR-0012 lets only `standard` and `bosses` accept. A comparison on
 any other set still runs the test and prints its trace, but `comparison.json` says

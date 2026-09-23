@@ -144,4 +144,33 @@ uniformly among the top scorers.
   feature comes with the story that needs one.
 - `Brains.configHash(name)` now refuses the weighted Brain. Callers that have the repository use
   `configHash(root, name)`; the child uses `configHash(name, weights)` with the set it read.
-- Mutation battery: see the PR.
+- **Units.** The Evaluation's integer is read in ten-thousandths, like every Decision score
+  (ADR-0011, `RunLog.Choice`), and the fallback logs it as its Choice's score. The committed weights
+  are scaled to that unit:
+  - hp 10, so a full bar (1000 thousandths) is one point;
+  - depth 10000, level 5000, strength 2000, hunger -5000, enemies -3000;
+  - the Action features 0.
+
+**Review (lens and fairness).** Fairness PASS. Fixes:
+- `EvaluationMonotonicityTest.the_committed_weights` holds `Screens.WEIGHTS` to the committed file,
+  so the orderings are checked under the weights the Brain plays with.
+- `every_action_feature` checks each of the five Action features against a neutral Step or Attack.
+- Units, as above, in `Evaluation`'s and `Weights`' javadoc and on the methodology page.
+- `RunOne` refuses a weighted Brain without `--weights`, naming the flag.
+- `Runner.weighed` reads and checks each weighted side's file once, before any child starts. The
+  children read the same file, and the header's configuration hash shows they agreed. A parent-side
+  comparison of the children's header hashes is not added.
+- `Weights.Term` bounds a weight at 10^9 either way, and the Evaluation sums with `Math.addExact`
+  and `Math.multiplyExact`.
+- Hunger is an exhaustive switch, not `ordinal()`.
+- `.gitattributes` gives `weights/**` line feeds, and `WeightsFile` refuses a leading byte-order mark.
+
+**Not done here.** The Rig cannot SPRT two weight sets of one Brain, because both sides of a
+comparison read `weights/<brain>.json`. Recorded in `docs/ideas.md` and deferred to the tuning story.
+
+**Rig numbers: direction check.** `smoke`, 25 triples, main `4e95c0ec0` (story 4.1's Brain)
+against this branch, the same fixed salts through `RunOne` with `--weights`: 25 of 25 Action
+sequences identical, 1,688 waits. The committed weights leave play unchanged, as designed.
+
+- Mutation battery: 6 of 6 killed (hp weight ignored, enemy alignment swapped, fallback ignores
+  scores, feature set unchecked, weights left out of the configuration, canonical check off).

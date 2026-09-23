@@ -42,6 +42,12 @@ public final class WeightsFile {
         } catch (IOException e) {
             throw new UncheckedIOException("the weights in " + file + " could not be read", e);
         }
+        if (text.startsWith("\uFEFF")) {
+            // Refused rather than stripped: the file's canonical form is its bytes, and a byte-order
+            // mark is three bytes the hash-relevant text would silently not contain.
+            throw new IllegalArgumentException("the weights in " + file + " begin with a byte-order mark;"
+                    + " save the file as UTF-8 without one");
+        }
         Map<String, String> held = Json.object(text);
         int format = Json.integer(Json.required(held, "format", "weights"));
         if (format != Weights.FORMAT) {

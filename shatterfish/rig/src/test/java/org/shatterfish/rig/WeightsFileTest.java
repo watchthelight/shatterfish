@@ -34,7 +34,7 @@ class WeightsFileTest {
         Weights weights = committed();
         assertEquals(Brains.SHATTERFISH, weights.name());
         assertEquals(1, weights.version());
-        assertEquals(1, weights.weight("hp"));
+        assertEquals(10, weights.weight("hp"));
         assertEquals(List.of("act_attack", "act_descend", "act_rest_hurt", "act_search", "act_wait", "depth",
                 "enemies", "hp", "hunger", "level", "strength"), weights.features());
         assertTrue(Brains.readsWeights(Brains.SHATTERFISH));
@@ -75,7 +75,40 @@ class WeightsFileTest {
         Files.writeString(file, canonical.replace("{\"format\"", "{ \"format\""));
         assertThrows(IllegalArgumentException.class, () -> WeightsFile.read(file, Brains.SHATTERFISH));
 
+        Files.writeString(file, "\uFEFF" + canonical);
+        IllegalArgumentException marked = assertThrows(IllegalArgumentException.class,
+                () -> WeightsFile.read(file, Brains.SHATTERFISH));
+        assertTrue(marked.getMessage().contains("byte-order mark"), marked.getMessage());
+
         Files.writeString(file, canonical + "\n");
         assertEquals(committed(), WeightsFile.read(file, Brains.SHATTERFISH), "a trailing newline is not a spelling");
+    }
+
+    @Test
+    @DisplayName("the Runner reads a weighted Brain's file once before any Run, and refuses a bad one")
+    void the_runner_reads_first(@TempDir Path root) throws IOException {
+        assertThrows(java.io.UncheckedIOException.class,
+                () -> Runner.weighed(root, List.of(Brains.RANDOM, Brains.SHATTERFISH)), "no file is no Run");
+        Files.createDirectories(root.resolve(WeightsFile.FOLDER));
+        Files.writeString(WeightsFile.of(root, Brains.SHATTERFISH),
+                committed().canonical().replace("\"version\":1", "\"version\":0"));
+        assertThrows(IllegalArgumentException.class,
+                () -> Runner.weighed(root, List.of(Brains.SHATTERFISH, Brains.RANDOM)), "a bad file is no Run");
+        Runner.weighed(root, List.of(Brains.RANDOM, Brains.NO_REST));
+        Runner.weighed(SeedSetsTest.ROOT, List.of(Brains.SHATTERFISH, Brains.RANDOM));
+    }
+
+    @Test
+    @DisplayName("a Run of a weighted Brain without --weights is refused, naming the flag")
+    void a_run_states_its_weights(@TempDir Path out) {
+        java.util.Map<String, String> arguments = new java.util.HashMap<>();
+        arguments.put(RunOne.SEED, "1");
+        arguments.put(RunOne.SALT, "1");
+        arguments.put(RunOne.BRAIN, Brains.SHATTERFISH);
+        arguments.put(RunOne.CLASS, "WARRIOR");
+        arguments.put(RunOne.CHALLENGES, "0");
+        arguments.put(RunOne.OUT, out.toAbsolutePath().toString());
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class, () -> RunOne.play(arguments));
+        assertTrue(refused.getMessage().contains(RunOne.WEIGHTS), refused.getMessage());
     }
 }

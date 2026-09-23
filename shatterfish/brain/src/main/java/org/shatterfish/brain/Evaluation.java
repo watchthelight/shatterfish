@@ -20,7 +20,12 @@ import java.util.List;
  * compares. Every feature is something the screen shows; none reads anything the Observation does
  * not carry.
  *
- * <p>Integer arithmetic only, so every machine scores alike. The weight set must weight exactly the
+ * <p><b>Units.</b> A score is read in ten-thousandths, as every Decision's score is (ADR-0011, the
+ * {@code RunLog.Choice} a Policy records): a weight of 10000 on a feature that is 0 or 1 is one
+ * point. The fallback logs the Evaluation's score as its Choice's score, so the two agree.
+ *
+ * <p>Integer arithmetic only, so every machine scores alike, and exact: a sum that would overflow
+ * throws rather than wrapping ({@code Weights.Term} bounds every weight so none does). The weight set must weight exactly the
  * features named here: a set that forgot one, or weighted one this Evaluation does not have, would
  * be a set whose meaning the Brain does not share, and is refused at construction.
  */
@@ -80,12 +85,25 @@ final class Evaluation {
                 enemies++;
             }
         }
-        return weights.weight(HP) * hp
-                + weights.weight(DEPTH) * observation.header().depth()
-                + weights.weight(LEVEL) * hero.level()
-                + weights.weight(STRENGTH) * (hero.strength() + hero.strengthBonus())
-                + weights.weight(HUNGER) * hero.hunger().ordinal()
-                + weights.weight(ENEMIES) * enemies;
+        long score = term(HP, hp);
+        score = Math.addExact(score, term(DEPTH, observation.header().depth()));
+        score = Math.addExact(score, term(LEVEL, hero.level()));
+        score = Math.addExact(score, term(STRENGTH, hero.strength() + hero.strengthBonus()));
+        score = Math.addExact(score, term(HUNGER, hunger(hero.hunger())));
+        return Math.addExact(score, term(ENEMIES, enemies));
+    }
+
+    /** How hungry the screen says the hero is. A switch, so a new state must be given a value here. */
+    static int hunger(org.shatterfish.api.Hunger hunger) {
+        return switch (hunger) {
+            case NONE -> 0;
+            case HUNGRY -> 1;
+            case STARVING -> 2;
+        };
+    }
+
+    private long term(String feature, long value) {
+        return Math.multiplyExact(weights.weight(feature), value);
     }
 
     /** The score of taking {@code action} from this screen: the position's, plus the Action's own. */
@@ -94,15 +112,15 @@ final class Evaluation {
         var hero = observation.hero();
         if (action instanceof Action.Rest) {
             long hp = hero.ht() <= 0 ? 1000 : 1000L * Math.max(0, hero.hp()) / hero.ht();
-            score += weights.weight(REST_HURT) * (1000 - Math.min(1000, hp));
+            score = Math.addExact(score, term(REST_HURT, 1000 - Math.min(1000, hp)));
         } else if (action instanceof Action.Attack) {
-            score += weights.weight(ATTACK);
+            score = Math.addExact(score, term(ATTACK, 1));
         } else if (action instanceof Action.Descend) {
-            score += weights.weight(DESCEND);
+            score = Math.addExact(score, term(DESCEND, 1));
         } else if (action instanceof Action.Search) {
-            score += weights.weight(SEARCH);
+            score = Math.addExact(score, term(SEARCH, 1));
         } else if (action instanceof Action.Wait) {
-            score += weights.weight(WAIT);
+            score = Math.addExact(score, term(WAIT, 1));
         }
         return score;
     }

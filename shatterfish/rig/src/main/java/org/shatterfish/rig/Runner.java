@@ -338,6 +338,11 @@ public final class Runner {
                     + " and this build's " + set + " is version " + triples.version()
                     + "; a hypothesis names the Runs it is about");
         }
+        // A weighted Brain's weight set is read and checked here, once, before any child starts: a
+        // bad file fails the invocation with one clear message instead of every Run with the same
+        // one (story 4.5). Each child reads the same file again for its own Brain; the header's
+        // configuration hash is what shows they agreed.
+        weighed(root, against == null ? List.of(brain) : List.of(brain, against));
         // One side per Brain. A comparison puts each in its own folder, because a Brain compared with
         // itself -- which is how pairing is checked -- would otherwise write both Runs of a pair to
         // one file name: the run id names the Brain, and the Brain is the same.
@@ -530,6 +535,15 @@ public final class Runner {
     }
 
     /** One Brain's half of an invocation: its name, its folder and its index. */
+    /** Reads the weight set of every Brain in {@code brains} that scores by one, refusing a bad file. */
+    static void weighed(Path root, List<String> brains) {
+        for (String brain : brains) {
+            if (Brains.readsWeights(brain)) {
+                WeightsFile.read(WeightsFile.of(root, brain), brain);
+            }
+        }
+    }
+
     record Side(String brain, Path out, RunIndex index, AtomicLong waits) {
     }
 

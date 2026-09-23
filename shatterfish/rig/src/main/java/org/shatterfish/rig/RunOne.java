@@ -92,7 +92,11 @@ public final class RunOne {
             throw new IllegalArgumentException(OUT + " is an absolute path: a Run's working directory"
                     + " is its own, so a relative one names somewhere the caller did not mean: " + out);
         }
-        org.shatterfish.api.Weights weights = arguments.containsKey(WEIGHTS) && Brains.readsWeights(brain)
+        if (Brains.readsWeights(brain) && !arguments.containsKey(WEIGHTS)) {
+            throw new IllegalArgumentException("the Brain " + brain + " scores by a weight set, and a Run of it"
+                    + " states the file with " + WEIGHTS);
+        }
+        org.shatterfish.api.Weights weights = Brains.readsWeights(brain)
                 ? WeightsFile.read(Path.of(arguments.get(WEIGHTS)), brain)
                 : null;
         RunLoop.Logging logging = new RunLoop.Logging(out,

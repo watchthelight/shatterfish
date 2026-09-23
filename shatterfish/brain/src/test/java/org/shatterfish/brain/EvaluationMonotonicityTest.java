@@ -30,6 +30,55 @@ class EvaluationMonotonicityTest {
 
     private static final Evaluation COMMITTED = new Evaluation(Screens.WEIGHTS);
 
+    @Test
+    @DisplayName("the weights these orderings are checked under are the committed file's")
+    void the_committed_weights() throws java.io.IOException {
+        // A test may read a file where the Brain may not: the boundary rules are about brain's
+        // main classes. Without this, Screens.WEIGHTS is a hand copy nothing holds to the file, and
+        // every ordering below could hold for weights nobody plays with.
+        java.nio.file.Path here = java.nio.file.Path.of("").toAbsolutePath();
+        java.nio.file.Path file = null;
+        for (java.nio.file.Path p = here; p != null && file == null; p = p.getParent()) {
+            if (java.nio.file.Files.isRegularFile(p.resolve("weights/shatterfish.json"))) {
+                file = p.resolve("weights/shatterfish.json");
+            }
+        }
+        assertTrue(file != null, "the committed weights are found above " + here);
+        assertEquals(java.nio.file.Files.readString(file, java.nio.charset.StandardCharsets.UTF_8).strip(),
+                Screens.WEIGHTS.canonical());
+    }
+
+    @Test
+    @DisplayName("each Action feature, weighted, makes its Action the one taken over a neutral one")
+    void every_action_feature() {
+        Observation hurt = Screens.showing(1, Screens.hero(5, 20, 1, 10, Hunger.NONE), List.of(),
+                new Action.Step(0), new Action.Rest(false));
+        assertEquals(new Action.Rest(false), taken(Map.of("act_rest_hurt", 1L), hurt));
+        assertEquals(new Action.Attack(0), taken(Map.of("act_attack", 1L),
+                Screens.showing(1, Screens.hero(), List.of(new ActorView(0, "rat", Alignment.ENEMY, 3, false,
+                        Emote.NONE, List.of())), new Action.Step(2), new Action.Attack(0))));
+        assertEquals(new Action.Descend(), taken(Map.of("act_descend", 1L),
+                Screens.offering(1, new Action.Step(0), new Action.Descend())));
+        assertEquals(new Action.Search(), taken(Map.of("act_search", 1L),
+                Screens.offering(1, new Action.Step(0), new Action.Search())));
+        assertEquals(new Action.Wait(), taken(Map.of("act_wait", 1L),
+                Screens.offering(1, new Action.Step(0), new Action.Wait())));
+    }
+
+    /** What a Brain on these weights takes at the first wait of {@code screen}, drawing uniformly. */
+    private static Action taken(Map<String, Long> weights, Observation screen) {
+        Action first = null;
+        for (long seed = 0; seed < 20; seed++) {
+            Brain brain = new Brain(Screens.CODEX, Screens.weights(weights), seed);
+            Action action = brain.decide(screen, brain.update(screen, null)).action();
+            if (first != null) {
+                assertEquals(first, action, "every seed takes the weighted Action");
+            }
+            first = action;
+        }
+        return first;
+    }
+
     private static long score(int depth, int hp, int ht, int level, int strength, Hunger hunger, int enemies) {
         List<ActorView> actors = new ArrayList<>();
         for (int i = 0; i < enemies; i++) {

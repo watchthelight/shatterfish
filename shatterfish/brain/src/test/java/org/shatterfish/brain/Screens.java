@@ -43,8 +43,8 @@ final class Screens {
     static Weights weights(Map<String, Long> changed) {
         Map<String, Long> terms = new java.util.TreeMap<>(Map.of(
                 "act_attack", 0L, "act_descend", 0L, "act_rest_hurt", 0L, "act_search", 0L, "act_wait", 0L,
-                "depth", 100L, "enemies", -150L, "hp", 1L, "hunger", -200L, "level", 50L));
-        terms.put("strength", 20L);
+                "depth", 10000L, "enemies", -3000L, "hp", 10L, "hunger", -5000L, "level", 5000L));
+        terms.put("strength", 2000L);
         terms.putAll(changed);
         return new Weights("shatterfish", 1,
                 terms.entrySet().stream().map(term -> new Weights.Term(term.getKey(), term.getValue())).toList());

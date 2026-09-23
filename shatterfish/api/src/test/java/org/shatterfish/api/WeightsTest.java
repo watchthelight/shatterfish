@@ -31,5 +31,10 @@ class WeightsTest {
         assertThrows(IllegalArgumentException.class, () -> new Weights("shatterfish", 0, List.of()));
         assertThrows(IllegalArgumentException.class, () -> new Weights("Shatter Fish", 1, List.of()));
         assertThrows(IllegalArgumentException.class, () -> new Weights.Term("Hit Points", 1));
+        new Weights.Term("hp", Weights.MAX_WEIGHT);
+        new Weights.Term("hp", -Weights.MAX_WEIGHT);
+        assertThrows(IllegalArgumentException.class, () -> new Weights.Term("hp", Weights.MAX_WEIGHT + 1),
+                "a weight is bounded, so no score overflows");
+        assertThrows(IllegalArgumentException.class, () -> new Weights.Term("hp", -Weights.MAX_WEIGHT - 1));
     }
 }

@@ -12,7 +12,9 @@ import java.util.List;
  * the Brain's configuration, a Registration tells two weight sets apart.
  *
  * <p>Weights are integers: an Evaluation is a sum of weight times feature, both integers, so two
- * machines compute the same score and the file has one spelling for each value.
+ * machines compute the same score and the file has one spelling for each value. The score is read in
+ * ten-thousandths, as every Decision's score is (ADR-0011), so a weight of 10000 on a feature that is
+ * 0 or 1 is one point.
  *
  * @param name    the weight set's name, which is the Brain's name
  * @param version the weight set's version, bumped when a weight changes meaning or value
@@ -22,6 +24,13 @@ public record Weights(String name, int version, List<Term> terms) {
 
     /** The version of the file's shape, which the reader checks. */
     public static final int FORMAT = 1;
+
+    /**
+     * The largest weight, either way. A feature is at most a few thousand (hit points are counted in
+     * thousandths of the maximum), so a weight this size keeps every product and the sum of a dozen
+     * of them far inside a {@code long}.
+     */
+    public static final long MAX_WEIGHT = 1_000_000_000L;
 
     public Weights {
         name = Canon.text(name, "weight set name");
@@ -76,6 +85,8 @@ public record Weights(String name, int version, List<Term> terms) {
         public Term {
             feature = Canon.text(feature, "feature name");
             Canon.require(feature.matches("[a-z][a-z0-9_]*"), "a feature is named in lower snake case: " + feature);
+            Canon.require(weight >= -MAX_WEIGHT && weight <= MAX_WEIGHT,
+                    "a weight is at most " + MAX_WEIGHT + " either way: " + feature + " " + weight);
         }
     }
 }
