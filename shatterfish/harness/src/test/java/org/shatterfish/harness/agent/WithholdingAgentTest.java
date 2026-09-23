@@ -108,6 +108,13 @@ class WithholdingAgentTest {
     }
 
     @Test
+    @DisplayName("withholding nothing is not a Brain: a kind is required")
+    void a_kind_is_required() {
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> new WithholdingAgent(1L, null));
+    }
+
+    @Test
     @DisplayName("with Descend all there is, it has nothing to choose and says so")
     void nothing_but_stairs() {
         Observation stairs = offering(observed(), List.of(new Action.Descend()));
