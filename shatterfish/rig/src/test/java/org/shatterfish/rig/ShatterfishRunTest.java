@@ -106,7 +106,7 @@ class ShatterfishRunTest {
         org.shatterfish.api.SeedSet.Entry one = entries.get(0);
         org.shatterfish.api.SeedSet.Entry other = entries.stream()
                 .filter(entry -> entry.seed() != one.seed()).findFirst().orElseThrow();
-        assertEquals(Brains.brainSeed(Brains.SHATTERFISH), Brains.brainSeed(Brains.SHATTERFISH));
+        assertTrue(Brains.agentSeed(one) != Brains.agentSeed(other), "the two triples seed the random agents apart");
         assertTrue(Brains.brainSeed(Brains.SHATTERFISH) != Brains.agentSeed(one));
         assertTrue(Brains.configHash(Brains.SHATTERFISH).matches("[0-9a-f]{64}"));
         assertTrue(!Brains.configHash(Brains.SHATTERFISH).equals("0".repeat(64)),
