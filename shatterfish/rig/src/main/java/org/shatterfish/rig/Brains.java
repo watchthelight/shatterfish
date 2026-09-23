@@ -5,6 +5,10 @@ import org.shatterfish.api.SeedSet;
 import org.shatterfish.harness.agent.RandomAgent;
 import org.shatterfish.harness.rng.Mix;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -39,6 +43,50 @@ public final class Brains {
 
     /** The Baseline: a uniform choice from the valid set, which is what "no Brain" measures as. */
     public static final String RANDOM = "random";
+
+    /**
+     * The files that decide what a Brain does, by name.
+     *
+     * <p>FR-20 allows the held-out set one use per <em>Brain version</em>, and a version has to be
+     * something that changes when the Brain changes and not when anything else does. The
+     * repository's HEAD is not that: a README typo moves it, which would have handed an unchanged
+     * Brain a fresh allowance every time somebody fixed a comment. The commit that last touched
+     * these paths is.
+     *
+     * <p>A Brain that adds a file and does not add it here is a Brain whose version stops moving
+     * when that file changes, so this list is part of what a Brain is, not an optimisation.
+     */
+    private static List<String> sourceOf(String name) {
+        if (RANDOM.equals(named(name))) {
+            return List.of("shatterfish/harness/src/main/java/org/shatterfish/harness/agent/RandomAgent.java",
+                    "shatterfish/rig/src/main/java/org/shatterfish/rig/Brains.java");
+        }
+        throw new IllegalStateException("the Brain " + name + " has not said which files decide"
+                + " what it does, and FR-20's budget is counted per Brain version");
+    }
+
+    /**
+     * The commit that last changed this Brain, which is the version FR-20's budget is counted per.
+     *
+     * <p>Empty when git cannot say — a source export, a shallow clone. A caller that needs the
+     * answer to enforce something should refuse on empty rather than carry on, and the one that
+     * does is {@link Registrations#refusal}.
+     */
+    public static String version(Path root, String name) {
+        List<String> command = new ArrayList<>(List.of("git", "log", "-1", "--format=%H", "--"));
+        command.addAll(sourceOf(name));
+        try {
+            Process process = new ProcessBuilder(command).directory(root.toFile()).start();
+            String said = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            process.getErrorStream().readAllBytes();
+            return process.waitFor() == 0 && said.strip().matches("[0-9a-f]{40}") ? said.strip() : "";
+        } catch (IOException | RuntimeException cannot) {
+            return "";
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return "";
+        }
+    }
 
     private Brains() {
     }

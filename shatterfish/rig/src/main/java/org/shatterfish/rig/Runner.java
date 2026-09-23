@@ -269,7 +269,8 @@ public final class Runner {
         // ledger silent, and the next invocation's check passed -- which is the exact move FR-20
         // caps, defeated by something that is not an attack, it is Tuesday.
         if (published(registration, set)) {
-            ledger.record(registration, brain, commit, registered.brainConfig(), set,
+            ledger.record(registration, brain, registered.brainVersion(),
+                    registered.brainConfig(), set,
                     Ledger.Outcome.CLAIMED, true, "the held-out set is about to be read");
         }
         SeedSets.Read read = published(registration, set)
@@ -337,7 +338,8 @@ public final class Runner {
                     // Recorded even though nothing is published. A refused invocation is an
                     // attempt, and a ledger that counted only the invocations somebody was happy
                     // with would be the opposite of the count FR-25 asks for.
-                    ledger.record(registration, brain, commit, registered.brainConfig(), set,
+                    ledger.record(registration, brain, registered.brainVersion(),
+                    registered.brainConfig(), set,
                             Ledger.Outcome.REFUSED, published(registration, set), note(failed));
                 } catch (RuntimeException | Error couldNotRecord) {
                     // A read-only tree, a full disk. The refusal is what the operator needs and it
@@ -352,7 +354,8 @@ public final class Runner {
         long millis = (System.nanoTime() - began) / 1_000_000L;
         index.summary(brain, set, parallel, cap, millis, waits.get(), stamp, read.reason());
         if (registration != null) {
-            ledger.record(registration, brain, commit, registered.brainConfig(), set,
+            ledger.record(registration, brain, registered.brainVersion(),
+                    registered.brainConfig(), set,
                     Ledger.Outcome.FINISHED, published(registration, set), "");
         }
 
@@ -398,7 +401,8 @@ public final class Runner {
      * read, which is right when a count is about to be relied on and wrong when nothing is going to
      * look at it.
      */
-    record Registered(Registrations.Committed committed, Ledger ledger, String brainConfig) {
+    record Registered(Registrations.Committed committed, Ledger ledger, String brainConfig,
+                      String brainVersion) {
     }
 
     /**
@@ -424,13 +428,17 @@ public final class Runner {
             // Nothing else is computed here. An unranked invocation reads no ledger and asks no
             // Brain for a configuration hash, so a corrupt ledger and an unconfigured Brain both
             // stop being reasons a development run cannot happen.
-            return new Registered(null, null, "");
+            return new Registered(null, null, "", "");
         }
         Registrations.Committed committed = Registrations.read(root, required(arguments, REGISTRATION));
         String brainConfig = Brains.configHash(brain);
-        Ledger ledger = new Ledger(root.resolve(Registrations.FOLDER));
+        // The Brain's own version, not the repository's. FR-20 counts one held-out use per Brain
+        // version, and a key that moved when a README did would have handed an unchanged Brain a
+        // fresh allowance every time somebody fixed a comment.
+        String brainVersion = Brains.version(root, brain);
+        Ledger ledger = new Ledger(root.resolve(Registrations.FOLDER), root);
         Registrations.Refusal refusal =
-                Registrations.refusal(committed, set, commit, brainConfig, ledger);
+                Registrations.refusal(committed, set, brainVersion, brainConfig, ledger);
         if (refusal == null) {
             // The Brain being measured has to be the Brain being run. A Registration about one
             // Brain and an invocation of another produces logs that cite a hypothesis they are not
@@ -441,17 +449,22 @@ public final class Runner {
                         + committed.registration().id() + " measures the Brain " + measured
                         + " and this invocation runs " + brain);
             } else if (committed.registration().releaseLevel()
-                    && !commit.startsWith(committed.registration().brainB().commit())) {
+                    && !brainVersion.startsWith(committed.registration().brainB().commit())) {
                 // A release-level claim names the build it is about, and this is the one kind of
                 // Registration where that has to bind: the held-out set is spent once per Brain
-                // version, so a Registration that governed an unlimited sequence of commits would
+                // version, so a Registration that governed an unlimited sequence of Brains would
                 // hand each of them its own allowance. A development Registration is deliberately
                 // looser -- it names a Brain, not a build, and a baseline outlives a commit.
+                //
+                // Against the Brain's version, not the invocation's commit: committing the
+                // Registration is itself a commit, so a rule comparing against HEAD could never be
+                // satisfied by any Registration that named a real value.
                 refusal = new Registrations.Refusal("the Registration "
                         + committed.registration().id() + " claims a release-level result for the"
-                        + " Brain built at " + committed.registration().brainB().commit()
-                        + " and this invocation is at " + commit + "; a release-level hypothesis"
-                        + " names the build it is about (FR-20)");
+                        + " Brain at " + committed.registration().brainB().commit()
+                        + " and the " + brain + " Brain in this checkout was last changed at "
+                        + (brainVersion.isEmpty() ? "a commit git could not name" : brainVersion)
+                        + "; a release-level hypothesis names the Brain it is about (FR-20)");
             }
         }
         if (refusal != null) {
@@ -460,11 +473,11 @@ public final class Runner {
             // the count FR-25 publishes would not have shown. It spends no holdout allowance: a
             // refusal reads no seeds, and burning the one use on a typo would be a rule punishing
             // the wrong thing.
-            ledger.record(committed, brain, commit, brainConfig, set, Ledger.Outcome.FORBIDDEN,
-                    false, refusal.why());
+            ledger.record(committed, brain, brainVersion, brainConfig, set,
+                    Ledger.Outcome.FORBIDDEN, false, refusal.why());
             throw new IllegalArgumentException(refusal.why());
         }
-        return new Registered(committed, ledger, brainConfig);
+        return new Registered(committed, ledger, brainConfig, brainVersion);
     }
 
     /**
