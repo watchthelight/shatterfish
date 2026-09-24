@@ -58,12 +58,16 @@ whatever wanders into it (FR-31).
 
 - `shatterfish/brain/.../Explore.java` (new): the Policy; `walkable`, `frontier` and `spot` are
   package-visible for the test.
-- `shatterfish/brain/.../Memory.java`: version 3. It adds `at` (where the hero stood at the last
-  wait), `streak` (waits in a row on it) and `dwelt` (cells stood on at two waits in a row, per floor).
+- `shatterfish/brain/.../Memory.java`: version 3. It adds:
+  - `at`: where the hero stood at the last wait, by depth, branch and cell;
+  - `streak`: waits in a row on that cell;
+  - `calm`: whether the last screen had no Prompt and no enemy in view;
+  - `dwelt`: cells stood on at two waits in a row, the first calm, per floor;
+  - `blocked`: cells a refused Step pointed at, per floor.
 - `shatterfish/brain/.../Beliefs.java`: `fold` records them.
 - `shatterfish/brain/.../Brain.java`: the Policies are answer-prompt, explore, fallback. Each
   Policy's stream is keyed on its name.
-- `docs/brain-rules.md`: rows 7 to 12.
+- `docs/brain-rules.md`: rows 7 to 14.
 - `docs/rules/game-loop.md` (`Hero.handle(cell)`, intentional search cost) and
   `docs/rules/visibility.md` (`Hero.search`): re-read at v4.0.0 and re-cited, Tier 1.
 
@@ -74,7 +78,7 @@ whatever wanders into it (FR-31).
 - [x] `ExplorePolicyTest`; `ShatterfishRunTest` checks that explore's waits are Steps or Searches
   and that it takes some.
 - [x] Rules index rows and the three rules re-read at v4.0.0.
-- [ ] Smoke direction check (parent).
+- [x] Smoke direction check (parent), and again after the review fixes.
 
 **Acceptance Criteria:**
 - It moves toward the nearest unexplored frontier reachable through known-passable cells
@@ -106,8 +110,9 @@ jumps, the well, which drinks, armed traps, and occupied cells.
 **How to search.**
 1. Search in place N times. Rejected: an intentional search finds every searchable secret within
    its radius at once (`Hero.java:2546-2593`), so a second search from the same cell finds nothing.
-2. **Search once from each cell beside a wall, nearest first, at most 12 per floor.** Chosen: every
-   search can find something, and the bound caps the turns spent at 24 plus the walking.
+2. **Search from a cell only where it reaches a wall no search has covered, nearest first, at most
+   12 per floor.** Chosen: every search can find something, and the bound caps the turns spent at 24
+   plus the walking. This is the review's version; see the Dev Notes.
 3. Search from the dead ends only. Rejected: that is a heuristic without a cited basis, and a
    secret door can sit in any wall.
 
@@ -127,8 +132,8 @@ Keying on the name makes adding a Policy leave every other Policy's draws alone.
 the fallback's draws differ from 4.5's even on screens where explore does not act.
 
 **Pre-mortem.**
-- Explore never descends. The AC's "depth reached moving the right way" cannot move until story
-  4.12 adds the descend Policy, so the direction check here measures exploration, not depth.
+- Explore never descended in the first version, so the AC's "depth reached moving the right way"
+  could not move. The review pulled a minimal descent forward from story 4.12; see the Dev Notes.
 - Exploring moves the hero into mobs faster, and fighting is story 4.7. Deaths may come sooner in
   turns.
 - A walkable-looking custom decoration can refuse a Step. The stuck rule bounds that to three
@@ -169,3 +174,61 @@ depth cannot move:
   Observation hashes. That is not logged directly; turns survived and waits per Run are.
 - deepest floor, which is expected to be unchanged;
 - turns survived.
+
+## Review
+
+The fairness review passed. The lens review found the following; each claim was checked at the
+pinned code before it was fixed.
+
+1. **Overlapping searches (high).**
+   - Depth 2's entrance room hides every unlocked door while the guidebook's Searching page has not
+     been found (`RegularPainter.java:268-274`, `EntranceRoom.java:133-145`), which is every
+     headless Run.
+   - A non-Rogue search reaches only the square around the hero (`Hero.java:2506`), and "nearest
+     spot not yet stood on" picked spots whose reach overlapped, so twelve searches covered little.
+   - Fix: a wall is covered once a search was made within the searcher's reach of it (one, two for
+     the Rogue). A spot is worth a search only when it reaches an uncovered wall, and spots whose
+     uncovered walls have never-seen cells within two of them come first.
+   - `docs/rules/levels.md` gains the entrance-room row (Tier 1) and `docs/brain-rules.md` row 14.
+2. **Any pause counted as a search, and the stuck rule fired after any pause (high).**
+   - A cell is now recorded as searched only when the screen before was calm: no Prompt, no enemy
+     in view, a screen explore acts on.
+   - The Policy yields on exactly the wait where the streak reaches `STUCK - 1`, so the fallback
+     gets one wait and explore then acts again.
+3. **A refused Step livelocked (medium).** On the wait where the Policy yields, `fold` records the
+   cell of the Step its plan takes on that screen as blocked on that floor. That cell is a function
+   of the screen and the memory, not an intention. The walkable cells leave blocked cells out, so
+   the next plan goes round.
+4. **The acceptance criterion's depth (the parent's decision).**
+   - Stated deviation: the minimal part of story 4.12 is pulled forward. When no frontier is
+     reachable and the searches are spent or reach no uncovered wall, the Policy walks to the
+     regular exit and onto it; standing on it, it takes the offered `Descend`.
+   - A click on a transition cell with no enemy in view travels (`Hero.java:2000-2007`), and the
+     Policy acts only with none in view. It never descends from a sealed floor.
+   - Story 4.12 refines when to leave a floor. The frozen intent is unchanged. Brain-rules row 13
+     covers it.
+5. **Search hunger.** An intentional search on an unlocked floor adds 4 hunger (10 with a cursed
+   talisman), taken from Well Fed first (`Hero.java:212`, `:2621-2627`, `Hunger.java:136-146`). The
+   game-loop row and brain-rules row 10 now say so.
+6. **Floors keyed by branch.** Searched and blocked spots carry the depth and the branch, so
+   Mining (`branch` 1) and depth 11's main floor are different floors.
+7. **Allies.** An ally's or a neutral's cell is walkable past the first Step, because a click on one
+   swaps places (`Char.java:246-270`, `Mob.java:880-882`). Only an enemy's cell is left out.
+8. **Tests.**
+   - `ShatterfishRunTest` checks that an explore wait's Action matches its reason: a Step names a
+     frontier, a search spot or the exit and a distance; a Search is counted against the bound;
+     otherwise it is `Descend`, reason "descend". A mismatch fails.
+   - The tie-break is pinned: `deterministic` asserts the Step.
+   - `detour` asserts the one Step.
+   - New cases: the well excluded, a plain heap and a disarmed trap walkable, an ally walkable and
+     an enemy not (`what_it_walks_on`); covered walls and the Rogue's reach (`covered_walls`); a
+     pause beside an enemy is no search; 256-spot eviction; the descent, on and off the exit, and
+     sealed; other floors and branches; a refused Step goes round.
+
+**Rig numbers.**
+- Before the review: `smoke`, 25 triples, fixed salts, the 4.5 Brain against `35a20f05e`.
+  - The median turns survived fell from 1,374 to 27.
+  - The mean score rose from 78 to 99; the mean deepest floor stayed at 1.04.
+  - Explore took 49% of waits.
+- The fall in survival is expected until story 4.7 adds fighting. After the review fixes, the
+  parent reruns the check against the pushed head.
