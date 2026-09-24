@@ -67,7 +67,7 @@ whatever wanders into it (FR-31).
 - `shatterfish/brain/.../Beliefs.java`: `fold` records them.
 - `shatterfish/brain/.../Brain.java`: the Policies are answer-prompt, explore, fallback. Each
   Policy's stream is keyed on its name.
-- `docs/brain-rules.md`: rows 7 to 14.
+- `docs/brain-rules.md`: rows 8 to 15 (after story 4.3's row 7).
 - `docs/rules/game-loop.md` (`Hero.handle(cell)`, intentional search cost) and
   `docs/rules/visibility.md` (`Hero.search`): re-read at v4.0.0 and re-cited, Tier 1.
 
@@ -189,7 +189,7 @@ pinned code before it was fixed.
    - Fix: a wall is covered once a search was made within the searcher's reach of it (one, two for
      the Rogue). A spot is worth a search only when it reaches an uncovered wall, and spots whose
      uncovered walls have never-seen cells within two of them come first.
-   - `docs/rules/levels.md` gains the entrance-room row (Tier 1) and `docs/brain-rules.md` row 14.
+   - `docs/rules/levels.md` gains the entrance-room row (Tier 1) and `docs/brain-rules.md` row 15.
 2. **Any pause counted as a search, and the stuck rule fired after any pause (high).**
    - A cell is now recorded as searched only when the screen before was calm: no Prompt, no enemy
      in view, a screen explore acts on.
@@ -205,11 +205,11 @@ pinned code before it was fixed.
      regular exit and onto it; standing on it, it takes the offered `Descend`.
    - A click on a transition cell with no enemy in view travels (`Hero.java:2000-2007`), and the
      Policy acts only with none in view. It never descends from a sealed floor.
-   - Story 4.12 refines when to leave a floor. The frozen intent is unchanged. Brain-rules row 13
+   - Story 4.12 refines when to leave a floor. The frozen intent is unchanged. Brain-rules row 14
      covers it.
 5. **Search hunger.** An intentional search on an unlocked floor adds 4 hunger (10 with a cursed
    talisman), taken from Well Fed first (`Hero.java:212`, `:2621-2627`, `Hunger.java:136-146`). The
-   game-loop row and brain-rules row 10 now say so.
+   game-loop row and brain-rules row 11 now say so.
 6. **Floors keyed by branch.** Searched and blocked spots carry the depth and the branch, so
    Mining (`branch` 1) and depth 11's main floor are different floors.
 7. **Allies.** An ally's or a neutral's cell is walkable past the first Step, because a click on one
