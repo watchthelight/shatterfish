@@ -225,6 +225,8 @@ pinned code before it was fixed.
      pause beside an enemy is no search; 256-spot eviction; the descent, on and off the exit, and
      sealed; other floors and branches; a refused Step goes round.
 
+**Battery after the review: 17 of 17 killed.** The mutants: transitions, chests, armed traps or the chasm made walkable; allies blocked; enemy ignored; depth-first; no search bound; coverage ignored; the Rogue at radius 1; the promising preference ignored; the stuck rule as `>=`; blocked cells never excluded; a pause counted as a search; descending from a sealed floor; never taking Descend; the branch ignored.
+
 **Rig numbers.**
 - Before the review: `smoke`, 25 triples, fixed salts, the 4.5 Brain against `35a20f05e`.
   - The median turns survived fell from 1,374 to 27.
