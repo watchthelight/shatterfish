@@ -2,7 +2,7 @@
 title: 'Story 4.3: safeTest, the worst-case check'
 type: 'feature'
 created: '2026-09-23'
-status: 'review'
+status: 'done'
 baseline_commit: '39d69bcec'
 review_loop_iteration: 0
 context: []
