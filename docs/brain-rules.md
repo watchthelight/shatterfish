@@ -25,6 +25,7 @@ behaviour to re-check.
 | 4 | The status pane warns of low health below a third, `HP/HT < 0.334`, which is where the `hp-low` flag starts. | `hp-low` | [ui: "The status pane tints the hero's portrait as a low-health warning"](rules/ui.md) |
 | 5 | The hunger icon has three states, which the `hungry` and `starving` flags read. | `hungry`, `starving` | [ui: "The hunger icon has three states"](rules/ui.md) |
 | 6 | An enemy in view is a mob with the enemy alignment in the hero's field of view, which the `enemy-in-view` flag reads. | `enemy-in-view` | [visibility: "`hero.visibleEnemies` (the number on the DangerIndicator"](rules/visibility.md) |
+| 7 | Trying an unidentified item where the hero stands does, at worst, what `SafeTest` scores: the fire, gas, sleep and cursed-wand effects of each candidate identity, scaled by the game's scaling depth, with water shortening a burn. | `SafeTest` (no Policy yet; story 4.10) | [identification: "The worst cases `SafeTest` scores an unidentified item by"](rules/identification.md) |
 
 The `fallback` Policy relies on no mechanic. It chooses uniformly among the Actions the Observation
 offers, and the offered set is `ValidActions`' to get right (story 1.12), not the Brain's.
