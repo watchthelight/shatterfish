@@ -127,8 +127,28 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
             }
         }
 
-        return new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
-                sightings(memory.monsters(), observation, waits));
+        // Where the hero stands, and whether it stood here at the last wait too (story 4.6).
+        // A cell counts as searched only when the screen before it was one explore acts on: a
+        // pause for a Prompt or beside an enemy is no search.
+        int branch = observation.header().branch();
+        Memory.Spot here = new Memory.Spot(depth, branch, observation.hero().cell());
+        boolean still = here.equals(memory.at());
+        List<Memory.Spot> dwelt = still && memory.calm() ? Memory.with(memory.dwelt(), here) : memory.dwelt();
+        int streak = still ? memory.streak() + 1 : 0;
+        Memory after = new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
+                sightings(memory.monsters(), observation, waits), here, streak, Explore.calm(observation), dwelt,
+                memory.blocked());
+        // The hero has stood still long enough for explore to yield: the Step it would take on this
+        // screen is one the game refuses, and the cell it points at is blocked on this floor.
+        if (streak == Explore.STUCK - 1 && Explore.calm(observation)) {
+            Integer cell = Explore.stepCell(observation, after);
+            if (cell != null) {
+                after = new Memory(after.waits(), after.deepest(), facts, found, held, known, labels, pending,
+                        after.monsters(), here, streak, after.calm(), dwelt,
+                        Memory.with(after.blocked(), new Memory.Spot(depth, branch, cell)));
+            }
+        }
+        return after;
     }
 
     /** What the Brain believes, given the memory after {@link #fold} and the same observation. */

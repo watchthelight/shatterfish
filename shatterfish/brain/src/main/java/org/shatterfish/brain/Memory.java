@@ -18,7 +18,8 @@ import java.util.List;
  * appearances in view and the journal's identified list) and the Codex, and is recomputed at every
  * wait ({@link Beliefs}). What is here is what the screen stops showing: a floor fact once the
  * room that implies it is out of view, a guaranteed drop already found, a monster that walked out
- * of sight, and the appearances picked up before anyone knew what they were.
+ * of sight, the appearances picked up before anyone knew what they were, and where the hero has been
+ * seen to stand still (story 4.6).
  *
  * @param waits    the Observations folded in so far: one per {@link Brain#update}, which the Brain's
  *                 driver calls once per Input wait it is asked about
@@ -31,18 +32,50 @@ import java.util.List;
  * @param pending  the rises in an unidentified appearance's quantity, per set of floors, not yet
  *                 attributed to an identity
  * @param monsters the enemies seen, the latest sighting of each, fresh or stale
+ * @param at       where the hero stood at the last wait, or {@link Spot#NOWHERE} before the first
+ * @param streak   how many waits in a row, before this one, the hero has been seen on {@code at}
+ * @param calm     whether the last wait's screen had no Prompt open and no enemy in view: a screen the
+ *                 explore Policy acts on
+ * @param dwelt    the cells the hero has been seen on at two waits in a row, the first of them calm,
+ *                 per floor: the cells a search could have been made from. Seen, not intended:
+ *                 whether the hero searched, rested or had its step refused there, it stood there on a
+ *                 calm screen, and that is all the screen says (FR-27)
+ * @param blocked  the cells, per floor, that the explore Policy's Step pointed at on a screen where the
+ *                 hero had already stood still for {@link Explore#STUCK} - 1 waits: a Step the game
+ *                 refuses. A function of the screens and the memory, recomputed, not an intention
  */
 record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
-              List<Held> labels, List<Found> pending, List<Seen> monsters) {
+              List<Held> labels, List<Found> pending, List<Seen> monsters, Spot at, int streak, boolean calm,
+              List<Spot> dwelt, List<Spot> blocked) {
 
-    /** The meaning of the bytes; bumped when it changes. */
-    static final int VERSION = 2;
+    /** The meaning of the bytes; bumped when it changes (3: where the hero stood, story 4.6). */
+    static final int VERSION = 3;
+
+    /** The most cells remembered as dwelt on, or as blocked; the oldest is forgotten first. */
+    static final int DWELT = 256;
 
     /** The most sightings remembered; the oldest is forgotten first. */
     static final int MONSTERS = 64;
 
     static final Memory START = new Memory(0, 0, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-            List.of());
+            List.of(), Spot.NOWHERE, 0, false, List.of(), List.of());
+
+    /** A cell on a floor: its depth, its branch and the cell. */
+    record Spot(int depth, int branch, int cell) {
+
+        /** Where the hero was before the first wait: nowhere. */
+        static final Spot NOWHERE = new Spot(-1, -1, -1);
+
+        Spot {
+            require((depth >= 0 && branch >= 0 && cell >= 0) || (depth == -1 && branch == -1 && cell == -1),
+                    "a floor and a cell");
+        }
+
+        /** Whether this is a cell of the floor at {@code depth} and {@code branch}. */
+        boolean on(int depth, int branch) {
+            return this.depth == depth && this.branch == branch;
+        }
+    }
 
     /** An item a floor is known to hold, and why: "potion of invisibility" on depth 3, from a pool room. */
     record Fact(int depth, String item, String because) {
@@ -85,6 +118,9 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         labels = List.copyOf(labels);
         pending = List.copyOf(pending);
         monsters = List.copyOf(monsters);
+        require(at != null && streak >= 0, "a position and a streak");
+        dwelt = List.copyOf(dwelt);
+        blocked = List.copyOf(blocked);
     }
 
     private static void require(boolean held, String what) {
@@ -121,6 +157,9 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         for (Seen seen : monsters) {
             out.text(seen.name()).integer(seen.depth()).integer(seen.cell()).number(seen.at());
         }
+        out.integer(at.depth()).integer(at.branch()).integer(at.cell()).integer(streak).integer(calm ? 1 : 0);
+        spots(out, dwelt);
+        spots(out, blocked);
         return new Belief(VERSION, out.bytes());
     }
 
@@ -166,8 +205,17 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
             for (int i = count(in); i > 0; i--) {
                 monsters.add(new Seen(in.text(), in.integer(), in.integer(), in.number()));
             }
+            Spot at = new Spot(in.integer(), in.integer(), in.integer());
+            int streak = in.integer();
+            int calm = in.integer();
+            if (calm != 0 && calm != 1) {
+                throw new IllegalArgumentException("calm is 0 or 1: " + calm);
+            }
+            List<Spot> dwelt = spots(in);
+            List<Spot> blocked = spots(in);
             in.end();
-            return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters);
+            return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak,
+                    calm == 1, dwelt, blocked);
         } catch (IllegalArgumentException malformed) {
             throw new IllegalArgumentException("not a Belief this Brain wrote: " + belief + ": " + malformed.getMessage());
         }
@@ -187,6 +235,34 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
             helds.add(new Held(in.text(), in.integer()));
         }
         return helds;
+    }
+
+    private static void spots(Bytes.Writer out, List<Spot> spots) {
+        out.integer(spots.size());
+        for (Spot spot : spots) {
+            out.integer(spot.depth()).integer(spot.branch()).integer(spot.cell());
+        }
+    }
+
+    private static List<Spot> spots(Bytes.Reader in) {
+        List<Spot> spots = new ArrayList<>();
+        for (int i = count(in); i > 0; i--) {
+            spots.add(new Spot(in.integer(), in.integer(), in.integer()));
+        }
+        return spots;
+    }
+
+    /** {@code spots} with {@code spot} added once, the oldest forgotten past {@link #DWELT}. */
+    static List<Spot> with(List<Spot> spots, Spot spot) {
+        if (spots.contains(spot)) {
+            return spots;
+        }
+        List<Spot> more = new ArrayList<>(spots);
+        more.add(spot);
+        while (more.size() > DWELT) {
+            more.remove(0);
+        }
+        return more;
     }
 
     private static int count(Bytes.Reader in) {
