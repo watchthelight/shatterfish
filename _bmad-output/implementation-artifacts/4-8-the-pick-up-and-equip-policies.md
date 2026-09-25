@@ -232,6 +232,13 @@ New Memory fields (version 4, after `refused`):
 - Bytes: after the refused list, `pack.items`, `pack.quantity`, `pack.gold`, `aim.target`,
   `aim.step`, as five integers.
 
+After the verification fixes:
+- Tests pass: `:brain:test`, and in the rig `ShatterfishRunTest`, `StrategyLogTest`,
+  `BrainRulesIndexTest` and `WeightsFileTest`.
+- The battery on the new code killed 9 of 9 mutants: yielding one wait only, never yielding,
+  yielding on the target heap too, Pickup's own Step never blocked, the pack ignored, the aim
+  ignored, the aim never recorded, the aim's Step lost, and gold left out of the pack.
+
 ## Dev Notes
 
 - Tests: `:api:test`, `:brain:test` (`PickupThresholdTest` 5, `EquipPolicyTest` 5), rig
