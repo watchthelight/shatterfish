@@ -2,7 +2,7 @@
 title: 'Story 4.6: The explore Policy'
 type: 'feature'
 created: '2026-09-23'
-status: 'review'
+status: 'done'
 baseline_commit: 'd17fda7ec (story 4.5, which contains 4.2 and 4.4)'
 review_loop_iteration: 0
 context: []

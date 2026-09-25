@@ -44,11 +44,18 @@ mutation battery and a direction check on the `smoke` Seed set):
   game mechanic the Brain relies on.
 - **4.5** The Evaluation, with its weights in a committed data file
   (`weights/shatterfish.json`) that changes play without a recompile.
-- In review or in progress: **4.6** exploring the floor, **4.7** fighting in
-  corridors, **4.8** picking up and equipping items.
+- **4.6** Exploring: one step at a time toward the nearest unexplored part of
+  the floor, then searching walls for secret doors, then taking the stairs down.
+- **4.7** Fighting: estimates each fight from the Codex's enemy figures and the
+  hero's visible gear and health; fights when it wins with a margin, otherwise
+  backs into a corridor or retreats by the stairs.
+- In review: **4.8** picking up and equipping items.
 
-The Brain does not play well yet. Until 4.6 it chose uniformly among the offered
-Actions outside of prompts; exploring and fighting are the stories in flight.
+The Brain is still weak, but it now plays rather than wanders. On the `smoke`
+Seed set, exploring and fighting together take the mean deepest floor from 1.04
+to 2.16 and the mean score from 78 to 405, and leave only 2% of decisions to
+chance (PR #137 has the table). It still dies on every `smoke` Run; the Goo gate
+(story 4.14) is where E4 is judged.
 
 ## The four parts
 
