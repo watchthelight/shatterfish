@@ -51,6 +51,59 @@ class CodexKnowledgeTest {
     }
 
     @Test
+    @DisplayName("the combat tables: enemies by the name the screen shows, weapons and armour by theirs")
+    void combat() {
+        Codex.Knowledge knowledge = read();
+        assertEquals(new Codex.Threat("marsupial rat", 8, 8, 2, 1, 4, 0, 1), knowledge.threat("marsupial rat"),
+                "the rat's figures (Rat.java: HT 8, attackSkill 8, defenseSkill 2, damage 1-4, armour 0-1)");
+        assertTrue(knowledge.threats().size() > 40, "most enemies have fixed figures: " + knowledge.threats().size());
+        assertEquals(null, knowledge.threat("golden bee"), "a bee's figures depend on the Run and are not listed");
+        assertTrue(knowledge.weapons().contains(new Codex.Gear("worn shortsword", 0, 1, 10, 5485)), "the Warrior's sword, measured");
+        assertTrue(knowledge.armours().contains(new Codex.Gear("cloth armor", 0, 0, 2, 1004)), "cloth armour, measured");
+        assertTrue(knowledge.weapons().stream().anyMatch(gear -> gear.name().equals(org.shatterfish.brain.Brain.magesStaff())),
+                "the mage's staff is measured under the name the fight Policy maps a staff to");
+        Codex.Threat crab = knowledge.threat("great crab");
+        assertEquals(java.util.List.of("defense"), crab.unknown(), "a great crab parries by its own rule (GreatCrab.java:95-110)");
+        assertEquals(25, crab.ht());
+        Codex.Threat goo = knowledge.threat("Goo");
+        assertEquals(100, goo.ht(), "Goo's hit points stand (Goo.java:54)");
+        assertEquals(java.util.List.of("attack", "damage", "defense"), goo.unknown(),
+                "its attack and damage are computed at run time, and its evasion is its own rule");
+        assertEquals(2, goo.drMax(), "its damage reduction the Codex read, 0-2");
+        assertTrue(knowledge.immovable().containsAll(java.util.List.of("rot lasher", "rot heart", "DM-201")), knowledge.immovable().toString());
+    }
+
+    @Test
+    @DisplayName("no two enemy classes share a display name at the pin, so which one the table keeps never arises")
+    void distinct_names() throws java.io.IOException {
+        String tag = HeadlessBoot.pinnedTag();
+        java.nio.file.Path folder = SeedSetsTest.ROOT.resolve(CodexManifest.FOLDER).resolve(tag);
+        java.util.Map<String, String> shown = new java.util.HashMap<>();
+        for (String raw : org.shatterfish.harness.log.Json.array(CodexKnowledge.compact(
+                java.nio.file.Files.readString(folder.resolve("strings.json"))))) {
+            java.util.Map<String, String> string = org.shatterfish.harness.log.Json.object(raw);
+            if (org.shatterfish.harness.log.Json.string(string.get("suffix")).equals("name")) {
+                shown.put(org.shatterfish.harness.log.Json.string(string.get("className")),
+                        org.shatterfish.harness.log.Json.string(string.get("value")));
+            }
+        }
+        java.util.Map<String, String> byName = new java.util.HashMap<>();
+        for (String raw : org.shatterfish.harness.log.Json.array(CodexKnowledge.compact(
+                java.nio.file.Files.readString(folder.resolve("mobs.json"))))) {
+            java.util.Map<String, String> mob = org.shatterfish.harness.log.Json.object(raw);
+            String name = shown.get(org.shatterfish.harness.log.Json.string(mob.get("className")));
+            if (name != null && org.shatterfish.harness.log.Json.string(mob.get("alignment")).equals("ENEMY")) {
+                String before = byName.put(name, org.shatterfish.harness.log.Json.string(mob.get("className")));
+                assertEquals(null, before, name + " names two enemy classes");
+            }
+        }
+        // The passive enemies the fight Policy names by hand are names the Codex gives.
+        for (String passive : org.shatterfish.brain.Brain.passiveEnemies()) {
+            assertTrue(byName.containsKey(passive), passive + " is not an enemy's display name at the pin");
+        }
+    }
+
+    @Test
     @DisplayName("a Codex for another tag is refused before a table is read")
     void refused() {
         String tag = HeadlessBoot.pinnedTag();

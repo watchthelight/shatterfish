@@ -38,6 +38,7 @@ public final class BrainDecider implements Deliberator {
     public Action decide(Observation observation) {
         belief = brain.update(observation, belief);
         Brain.Decided decided = brain.decide(observation, belief);
+        belief = brain.handed(observation, belief, decided);
         last = decided.decision();
         why = decided.why();
         highlights = decided.highlights();

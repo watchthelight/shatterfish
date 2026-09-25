@@ -79,6 +79,21 @@ final class Screens {
     private Screens() {
     }
 
+    /**
+     * The Belief {@code brain} holds at the last of {@code screens}: every screen before it seen,
+     * decided on and handed over, as the Brain's driver does it (story 4.7), and the last seen.
+     */
+    static org.shatterfish.api.Belief drive(Brain brain, Observation... screens) {
+        org.shatterfish.api.Belief belief = null;
+        for (int i = 0; i < screens.length; i++) {
+            belief = brain.update(screens[i], belief);
+            if (i < screens.length - 1) {
+                belief = brain.handed(screens[i], belief, brain.decide(screens[i], belief));
+            }
+        }
+        return belief;
+    }
+
     /** A screen at {@code depth} offering {@code actions}, with no Prompt open. */
     static Observation offering(int depth, Action... actions) {
         return screen(depth, PromptKind.NONE, PromptSection.NONE, actions);

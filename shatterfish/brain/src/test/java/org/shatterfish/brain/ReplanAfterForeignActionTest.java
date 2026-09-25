@@ -46,7 +46,11 @@ class ReplanAfterForeignActionTest {
         assertEquals(new Action.AnswerPrompt(1), next);
         assertEquals(next, other.decide(prompt));
         assertEquals(one.lastDecision().policy(), other.lastDecision().policy());
-        assertEquals(one.belief(), other.belief(), "and they believe the same: the Belief holds what was seen");
+        // What they believe about the game is the same: the Belief holds what was seen. Since story
+        // 4.7 it also holds the kind of Action each last handed over, which reads the next screen's
+        // stillness and differs by design, so the comparison is of the Beliefs they hold, not bytes.
+        assertEquals(one.brain().beliefs(prompt, one.belief()), other.brain().beliefs(prompt, other.belief()),
+                "and they believe the same: the Belief holds what was seen");
     }
 
     @Test
@@ -80,9 +84,12 @@ class ReplanAfterForeignActionTest {
         used.decide(first);
         Action after = used.decide(second);
 
+        // Story 4.7: the Belief also keeps the kind of the Action handed over, so the fresh Brain is
+        // driven the same way; what it handed over is still no fact about the game.
         Brain fresh = new Brain(Screens.CODEX, Screens.WEIGHTS, 7L);
-        var belief = fresh.update(second, fresh.update(first, null));
-        assertEquals(fresh.decide(second, belief).action(), after);
-        assertEquals(belief, used.belief());
+        var belief = Screens.drive(fresh, first, second);
+        Brain.Decided decided = fresh.decide(second, belief);
+        assertEquals(decided.action(), after);
+        assertEquals(fresh.handed(second, belief, decided), used.belief());
     }
 }
