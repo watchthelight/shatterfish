@@ -43,11 +43,20 @@ class HealPolicyTest {
     }
 
     /** {@code screen} with every enemy asleep. */
-    private static Observation asleep(Observation screen) {
+    static Observation asleep(Observation screen) {
+        return recast(screen, null, Emote.SLEEP);
+    }
+
+    /** {@code screen} with every enemy named {@code name}. */
+    static Observation named(Observation screen, String name) {
+        return recast(screen, name, null);
+    }
+
+    private static Observation recast(Observation screen, String name, Emote emote) {
         List<ActorView> actors = new ArrayList<>();
         for (ActorView actor : screen.actors().actors()) {
-            actors.add(new ActorView(actor.cell(), actor.name(), actor.alignment(), actor.healthPips(), actor.invisible(),
-                    Emote.SLEEP, actor.buffs()));
+            actors.add(new ActorView(actor.cell(), name == null ? actor.name() : name, actor.alignment(),
+                    actor.healthPips(), actor.invisible(), emote == null ? actor.emote() : emote, actor.buffs()));
         }
         Observation bare = new Observation(screen.header(), screen.map(), new ActorsSection(actors), screen.hero(),
                 screen.inventory(), screen.journal(), screen.log(), ActionsSection.NONE, screen.prompt());
@@ -127,6 +136,19 @@ class HealPolicyTest {
     }
 
     @Test
+    @DisplayName("an enemy that shoots or flies threatens from where the hero cannot walk, and a cornered hero drinks")
+    void shooters_threaten_from_afar() {
+        Observation behind = fight(3, "#@.#B.#", potion("potion of healing", 1));
+        assertEquals(0, danger(behind), "a brute behind a wall cannot reach the hero");
+        for (String name : List.of("evil eye", "gnoll shaman", "dwarf warlock", "DM-100", "scorpio", "acidic scorpio",
+                "vampire bat")) {
+            assertTrue(danger(named(behind, name)) > 0, name);
+        }
+        assertTrue(drinks(decide(named(behind, "evil eye"))), "shot at, cornered and hurt");
+        assertEquals(0, danger(asleep(named(behind, "evil eye"))), "an eye asleep shoots nothing");
+    }
+
+    @Test
     @DisplayName("with no enemy in view the hero never drinks, however hurt")
     void no_enemy_no_drink() {
         Brain.Decided decided = decide(fight(2, "#..@..#", potion("potion of healing", 1)));
@@ -155,12 +177,19 @@ class HealPolicyTest {
     void healing_turns() {
         assertEquals(11, Heal.healingTurns(20));
         assertTrue(Heal.healingTurns(100) > Heal.healingTurns(20));
+        assertEquals(30, Heal.remaining(20, 0));
+        assertEquals(22, Heal.remaining(20, 1));
+        assertEquals(7, Heal.remaining(20, 5));
+        assertEquals(0, Heal.remaining(20, Heal.healingTurns(20)));
+        // A quarter of 30 is 7.5: after four turns 9 is left, after five 7.
+        assertTrue(!Heal.spent(20, 4) && Heal.spent(20, 5));
     }
 
     @Test
-    @DisplayName("over several waits: one potion, none while its heal lands, then another if still in danger")
+    @DisplayName("over several waits: one potion, none while most of its heal is left, then another if still in danger")
     void one_potion_at_a_time() {
-        int turns = Heal.healingTurns(20);
+        int turns = 5;
+        assertTrue(Heal.spent(20, turns) && !Heal.spent(20, turns - 1), "the redrink comes at wait " + turns);
         Observation hurt = fight(3, "#@r...#", potion("potion of healing", 2));
         Observation still = fight(3, "#@r...#", potion("potion of healing", 1));
         Brain brain = brain();

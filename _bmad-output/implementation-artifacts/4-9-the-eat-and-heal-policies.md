@@ -334,3 +334,57 @@ because no `smoke` Run held an identified potion of healing):
   - the fold forgets the drink;
   - `aiming` drops the drink;
   - eat below pick-up.
+
+**Verification round** (the parent's direction check of `0f7c5e7c6` against main at story 4.8, on
+`smoke`: median turns 557 to 752, mean deepest 2.12 to 2.44 with a first depth 4, mean score 637 to
+847, 22 deaths and 3 unknown windows as before). The pass confirmed the retreat gate, the redrink
+floor, the Memory v6 codec and helpers, story 4.8's rules with eat between, parity and determinism.
+Six findings, all fixed:
+1. **The reach filter dropped enemies that shoot or fly.**
+   - The gnoll shaman, DM-100 and dwarf warlock cast bolts, the evil eye beams, the scorpio (and the
+     acidic scorpio) shoots, and the vampire bat flies.
+   - `Heal.AT_RANGE` names them. Each is cited, and a new Tier-1 combat Rule covers them. They count
+     as threatening whatever the steps on foot.
+   - Test: `HealPolicyTest.shooters_threaten_from_afar`. A cornered hero shot by an eye behind a wall
+     drinks, and an eye asleep threatens nothing.
+2. **`StarvationRegressionTest`'s death check could fail on correct play**, for example a starving hero
+   killed while retreating, or by a shot or a trap.
+   - It now fires only when the last screen was calm.
+   - The 200-wait streak bound covers the other screens.
+3. **A starving hero started a meal with an awake enemy two steps off.**
+   - `Eat.pressed` now also counts an awake enemy within `Eat.MEAL_REACH = 3` steps (`Heal.steps`), and
+     an awake one that shoots.
+   - Starving costs only `HT/1000` a turn, so waiting is nearly free.
+   - Test: `EatPolicyTest.what_presses`. It covers three steps off; asleep; four off; an eye four off;
+     no way round a wall.
+4. **Attacks on passive enemies counted as pressure.**
+   - Now only an Attack on one of `Fight.enemies` counts. Test: `what_presses`, with a passive statue
+     beside the hero.
+5. **The cooldown blocked a needed second drink.**
+   - A redrink takes the larger of what is left and a whole potion (Healing.java:97-98).
+   - The Policy may drink again when `Heal.remaining` is under `REDRINK_SHARE_PER_MILLE` = 250
+     (a quarter of a potion). That is an assumption, stated. It is 5 waits at 20 HT, where 7 of 30 is
+     left, and the hit points must still be at the danger.
+   - Waits count as turns, which overstates what is left and never understates it.
+   - Tests: `healing_turns` and `one_potion_at_a_time`.
+6. **Vial of Blood is not modelled** (Healing.java:80-82, :91-93). The `Heal` javadoc and
+   `docs/ideas.md` say so. So does a line on tracing shooters' lines of fire.
+
+**Docs:** `docs/rules/combat.md` gains the "Some mobs attack from where they stand" row (Tier 1).
+`docs/brain-rules.md` row 39 describes the redrink, row 41 names eat, and row 42 is new.
+
+**Tests** (one gradle job at a time):
+- `:brain:test` passes (156 tests).
+- `StarvationRegressionTest` (38 calm hungry and 5 starving screens with food), `ShatterfishRunTest`,
+  `BrainRulesIndexTest` and `StrategyLogTest` pass.
+- `:codex:citations`: no findings. `DocsCitationTest` passes.
+
+**Mutation battery on the new lines:** 11 of 11 killed.
+- Shooters need a path.
+- The eye is missing from the set.
+- Redrink: never, always, or at a half share.
+- `remaining` off by a turn.
+- The meal's reach is one step.
+- Sleepers press, shooters do not press, and unreachable enemies press.
+- Any Attack presses.
+

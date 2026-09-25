@@ -24,7 +24,8 @@ import java.util.List;
  * <p><b>The threshold is the visible threat, not a constant.</b> From story 4.7's threat estimate
  * ({@link Fight}), over the enemies that <em>threaten</em> the hero: awake (no sleep icon over them,
  * docs/rules/combat.md) and able to reach it, by the cells the hero may walk on, within {@code 1 + H}
- * steps. {@code H} is the turns the hero expects to need to kill the enemy it kills soonest, between 1
+ * steps -- or, whatever the steps, one that shoots or flies ({@link #AT_RANGE}), which needs no path on
+ * foot. {@code H} is the turns the hero expects to need to kill the enemy it kills soonest, between 1
  * and {@link #HORIZON}. Of those, the {@code k} that can engage the hero's cell at once
  * ({@link Fight#engage}); {@code perTurn}, the damage they are expected to deal a turn; {@code worst},
  * their largest rolls less the smallest roll of the hero's armour. The danger is
@@ -40,12 +41,18 @@ import java.util.List;
  * <p>The potion heals {@code (int)(0.8 * HT + 14)} over several turns, a quarter of what is left each
  * turn and at least 1, after the hero acts (PotionOfHealing.java:58-69, Healing.java:51-84), and
  * drinking takes a turn (Potion.java:89, :288-292). So the Policy drinks only when the hero is missing
- * at least the first turn's quarter, and not again until the first potion's heal would be spent
- * ({@link #healingTurns}): a second heal replaces what is left of the first rather than adding to it
- * (Healing.java:97-98). The heal draws no buff icon (Buff.java:94-96; Healing.java does not override
+ * at least the first turn's quarter. A second heal replaces what is left of the first with the larger of
+ * the two rather than adding to it (Healing.java:97-98), so while a drink the Brain handed over is still
+ * landing the Policy drinks again only when what is left of it ({@link #remaining}) has fallen under
+ * {@link #REDRINK_SHARE_PER_MILLE} of a whole potion: the new drink then adds at least three quarters of
+ * a potion, and the hit points are at the danger. The heal draws no buff icon (Buff.java:94-96; Healing.java does not override
  * it); the game does show a floating heal number each turn and the sprite's healing state
  * (Healing.java:61, :107-111), but neither is in the Observation, so the Memory counts the waits since
  * the drink the Brain handed over.
+ *
+ * <p>Not modelled: the Vial of Blood trinket spreads a heal over more turns and caps what each turn heals
+ * (Healing.java:80-82, :91-93), so with it the remaining heal is larger than {@link #remaining} says and
+ * the first turn's smaller. The trinket shows in the inventory; docs/ideas.md has the gap.
  *
  * <p>A potion counts only when the screen shows it identified by name. An unidentified potion is
  * story 4.10's to test.
@@ -56,6 +63,23 @@ final class Heal implements Policy {
 
     /** The Policy's name, as the Decision records it and {@link Brain#policyNames()} lists it. */
     static final String NAME = "heal";
+
+    /**
+     * The enemies that attack from where they stand, by the name the screen shows, and the one that
+     * flies: the gnoll shaman, the DM-100 and the dwarf warlock cast along a magic bolt
+     * (Shaman.java:72-75, DM100.java:75-78, Warlock.java:77-80), the evil eye beams (Eye.java:90-106),
+     * the scorpio and the acidic scorpio, which is one, shoot along a projectile line (Scorpio.java:72-76,
+     * Acidic extends Scorpio), and the vampire bat flies over what the hero cannot cross (Bat.java:45).
+     * Names from actors.properties:1499, :1513, :1561, :1629, :1772, :1778, :1882.
+     */
+    static final java.util.Set<String> AT_RANGE = java.util.Set.of("gnoll shaman", "DM-100", "dwarf warlock",
+            "evil eye", "scorpio", "acidic scorpio", "vampire bat");
+
+    /**
+     * What is left of a heal, in thousandths of a whole potion, under which a second drink is worth
+     * it: a quarter. An assumption, not a Codex fact.
+     */
+    static final int REDRINK_SHARE_PER_MILLE = 250;
 
     /** The potion's name once identified (items.properties:759). */
     static final String POTION = "potion of healing";
@@ -83,7 +107,6 @@ final class Heal implements Policy {
     public boolean enters(Observation observation, Memory memory) {
         HeroSection hero = observation.hero();
         return observation.header().prompt() == PromptKind.NONE && hero.hp() < hero.ht()
-                && (memory.drank() < 0 || memory.waits() - memory.drank() >= healingTurns(hero.ht()))
                 && !Fight.enemies(observation).isEmpty();
     }
 
@@ -92,6 +115,9 @@ final class Heal implements Policy {
         HeroSection hero = observation.hero();
         int danger = danger(observation, knowledge, memory);
         if (hero.hp() > danger || hero.ht() - hero.hp() < firstTurn(hero.ht())) {
+            return null;
+        }
+        if (memory.drank() >= 0 && !spent(hero.ht(), memory.waits() - memory.drank())) {
             return null;
         }
         List<ActorView> enemies = Fight.enemies(observation);
@@ -121,6 +147,24 @@ final class Heal implements Policy {
     /** What it heals on its first turn: a quarter of it, rounded, at least 1 (Healing.java:76-79). */
     static int firstTurn(int ht) {
         return Math.max(1, Math.round(heals(ht) * 0.25f));
+    }
+
+    /**
+     * What is left of a potion's heal {@code turns} turns after it was drunk: each turn heals a quarter
+     * of what is left, rounded, at least 1 (Healing.java:62, :76-79). A wait is at least a turn, so
+     * counting waits as turns overstates what is left, never understates it.
+     */
+    static int remaining(int ht, long turns) {
+        int left = heals(ht);
+        for (long turn = 0; turn < turns && left > 0; turn++) {
+            left -= Math.max(1, Math.min(left, Math.round(left * 0.25f)));
+        }
+        return left;
+    }
+
+    /** Whether a drink {@code since} waits ago has little enough left that another is worth it. */
+    static boolean spent(int ht, long since) {
+        return 1000L * remaining(ht, since) < (long) REDRINK_SHARE_PER_MILLE * heals(ht);
     }
 
     /**
@@ -162,7 +206,7 @@ final class Heal implements Policy {
         List<Integer> worst = new ArrayList<>();
         for (ActorView enemy : awake) {
             int reach = steps[enemy.cell()];
-            if (reach < 0 || reach > turns + 1) {
+            if (!AT_RANGE.contains(enemy.name()) && (reach < 0 || reach > turns + 1)) {
                 continue;
             }
             Codex.Threat threat = Fight.threat(observation, knowledge, enemy);

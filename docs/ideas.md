@@ -175,6 +175,12 @@ it re-reads ADR-0006's Blobs row.
   The heal Policy instead counts waits since the drink it handed over. Carrying the sprite's healing
   state in the hero section (an Observer change, with its leak tests) would let the Brain see a heal
   running, whoever started it.
+- **The Vial of Blood.** The trinket spreads a potion's heal over more turns and caps each turn's heal
+  (Healing.java:80-82, :91-93). The heal Policy's first-turn and remaining-heal figures assume it is
+  absent; the trinket shows in the inventory, so its level could be read and the figures scaled.
+- **Shooters by line of fire.** The heal and eat Policies treat a shooting enemy in view as able to hit
+  the hero wherever it stands. The game fires only along a clear bolt or projectile line (Ballistica);
+  the Brain could trace the line over the tiles the map draws.
 - **Cooking.** Mystery meat is eaten last because of its side effects; frozen carpaccio and chargrilled
   meat have none. Cooking it (fire, frost, the alchemy pot) and brewing blandfruit are left to a later
   story, and the table lists blandfruit as never eaten until then.

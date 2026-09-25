@@ -185,8 +185,29 @@ class EatPolicyTest {
         // an Action set a wait old): both halves of the test stand on their own.
         Observation unoffered = near.withActions(new ActionsSection(near.actions().actions().stream()
                 .filter(action -> !(action instanceof Action.Attack)).toList()));
-        assertTrue(Eat.pressed(unoffered));
-        assertFalse(Eat.pressed(far));
+        assertTrue(Eat.pressed(unoffered, Memory.START));
+        assertFalse(Eat.pressed(far, Memory.START));
+    }
+
+    @Test
+    @DisplayName("an awake enemy a few steps off, or one that shoots, presses; asleep, far, or a passive statue, not")
+    void what_presses() {
+        Observation twoOff = holding(FightPolicyTest.screen(1, 20, false, "worn shortsword", Hunger.STARVING,
+                "########", "#@..r..#", "########"), food("ration of food", 1));
+        Observation fourOff = holding(FightPolicyTest.screen(1, 20, false, "worn shortsword", Hunger.STARVING,
+                "########", "#@...r.#", "########"), food("ration of food", 1));
+        assertTrue(Eat.pressed(twoOff, Memory.START), "three steps from the hero");
+        assertFalse(Eat.pressed(HealPolicyTest.asleep(twoOff), Memory.START), "asleep");
+        assertFalse(Eat.pressed(fourOff, Memory.START), "four steps off");
+        assertTrue(Eat.pressed(HealPolicyTest.named(fourOff, "evil eye"), Memory.START), "an eye shoots from there");
+        Observation walled = holding(FightPolicyTest.screen(1, 20, false, "worn shortsword", Hunger.STARVING,
+                "#######", "#@.#r.#", "#######"), food("ration of food", 1));
+        assertFalse(Eat.pressed(walled, Memory.START), "no way round the wall");
+        Observation statue = holding(FightPolicyTest.screen(1, 20, false, "worn shortsword", Hunger.STARVING,
+                "#######", "#@T...#", "#######"), food("ration of food", 1));
+        assertTrue(statue.actions().actions().contains(new Action.Attack(statue.actors().actors().get(0).cell())), "the screen offers an attack on the statue");
+        assertFalse(Eat.pressed(statue, Memory.START), "an attack on a passive statue is no pressure");
+        assertTrue(new Eat().enters(statue, Memory.START));
     }
 
     @Test

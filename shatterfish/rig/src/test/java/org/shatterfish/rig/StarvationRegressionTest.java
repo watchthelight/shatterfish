@@ -46,9 +46,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <li>Starving with a known food held, the Brain eats within {@link #STARVING_WAITS} waits whatever
  *       is in view: an enemy that never comes (an immovable one, one across a chasm) keeps the screen
  *       from ever being calm, and a Brain that ate only on calm screens would starve before it.</li>
- *   <li>No Run ends with its last screen starving, a known food in the pack and no enemy beside the
- *       hero, unless the last Action was eating: a hero may die mid-meal, and the screen before the
- *       Action is the one the test sees.</li>
+ *   <li>No Run ends with its last screen calm, starving and a known food in the pack, unless the last
+ *       Action was eating: a hero may die mid-meal, and the screen before the Action is the one the
+ *       test sees. With an enemy in view the hero may die to it, to a shot or to a trap while retreating,
+ *       which is not starving; the streak bound above covers those screens.</li>
  * </ul>
  *
  * <p>Every hero starts with a ration (HeroClass.java:108), so every Run has food available at the
@@ -69,14 +70,6 @@ class StarvationRegressionTest {
     private static boolean edible(Observation observation, ItemView item, int most) {
         Integer energy = Brain.foods().get(item.name());
         return item.kind() == ItemKind.FOOD && energy != null && energy <= most && item.actions().contains("EAT");
-    }
-
-    /** Whether an enemy stands beside the hero. */
-    private static boolean beside(Observation observation) {
-        int hero = observation.hero().cell();
-        int width = observation.map().width();
-        return observation.actors().actors().stream().anyMatch(actor -> actor.alignment() == Alignment.ENEMY
-                && Math.max(Math.abs(hero % width - actor.cell() % width), Math.abs(hero / width - actor.cell() / width)) <= 1);
     }
 
     /** Whether a starving hero holds a food the eat Policy knows. */
@@ -222,9 +215,9 @@ class StarvationRegressionTest {
             starving += watched.starvingSeen;
             Observation last = watched.last;
             boolean lastAte = watched.lastChosen instanceof Action.UseItem use && use.action().equals("EAT");
-            if (outcome.cause() == RunOutcome.Cause.DEATH && last != null && !lastAte && !beside(last)
+            if (outcome.cause() == RunOutcome.Cause.DEATH && last != null && !lastAte && calm(last)
                     && starvingWithFood(last)) {
-                failures.add(run + ": died starving with food held and no enemy beside it");
+                failures.add(run + ": died starving on a calm screen with food held");
             }
         }
         assertTrue(failures.isEmpty(), String.join("\n", failures));

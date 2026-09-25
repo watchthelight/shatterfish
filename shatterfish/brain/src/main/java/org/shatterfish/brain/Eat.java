@@ -106,24 +106,47 @@ final class Eat implements Policy {
     public boolean enters(Observation observation, Memory memory) {
         Hunger hunger = observation.hero().hunger();
         return hunger == Hunger.HUNGRY ? Explore.calm(observation)
-                : hunger == Hunger.STARVING && observation.header().prompt() == PromptKind.NONE && !pressed(observation);
+                : hunger == Hunger.STARVING && observation.header().prompt() == PromptKind.NONE && !pressed(observation, memory);
     }
 
+    /** The steps within which an awake enemy could arrive during a meal's three turns (Food.java:47). */
+    static final int MEAL_REACH = 3;
+
     /**
-     * Whether an enemy stands beside the hero or is offered as an Attack: the three turns of a meal
-     * would be free hits. A starving hero with only distant, sleeping or unreachable enemies in view
-     * eats when the fight Policy stands aside, since starving turns regeneration off and costs hit
-     * points every turn it lasts (Regeneration.java:56, Hunger.java:78-85).
+     * Whether an enemy could spend the meal's three turns hitting the hero: one beside it; an awake one
+     * (no sleep icon) that can reach it within {@link #MEAL_REACH} steps ({@link Heal#steps}); an awake
+     * one that attacks from where it stands ({@link Heal#AT_RANGE}); or an Attack the screen offers on an
+     * enemy, never on a passive one it would only provoke. Starving costs only {@code HT/1000} a turn
+     * (Hunger.java:78-85), so waiting for such an enemy to be dealt with is nearly free; a starving hero
+     * with only sleeping, distant or unreachable enemies in view eats when the fight Policy stands aside,
+     * since starving also turns regeneration off (Regeneration.java:56).
      */
-    static boolean pressed(Observation observation) {
+    static boolean pressed(Observation observation, Memory memory) {
         int hero = observation.hero().cell();
         int width = observation.map().width();
-        for (ActorView enemy : Fight.enemies(observation)) {
+        List<ActorView> enemies = Fight.enemies(observation);
+        int[] steps = null;
+        java.util.Set<Integer> cells = new java.util.HashSet<>();
+        for (ActorView enemy : enemies) {
+            cells.add(enemy.cell());
             if (Math.max(Math.abs(hero % width - enemy.cell() % width), Math.abs(hero / width - enemy.cell() / width)) <= 1) {
                 return true;
             }
+            if (enemy.emote() == org.shatterfish.api.Emote.SLEEP) {
+                continue;
+            }
+            if (Heal.AT_RANGE.contains(enemy.name())) {
+                return true;
+            }
+            if (steps == null) {
+                steps = Heal.steps(observation, memory);
+            }
+            if (steps[enemy.cell()] >= 0 && steps[enemy.cell()] <= MEAL_REACH) {
+                return true;
+            }
         }
-        return observation.actions().actions().stream().anyMatch(action -> action instanceof Action.Attack);
+        return observation.actions().actions().stream()
+                .anyMatch(action -> action instanceof Action.Attack attack && cells.contains(attack.cell()));
     }
 
     @Override
