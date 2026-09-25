@@ -508,17 +508,7 @@ final class Fight implements Policy {
         if (item == null) {
             return null;
         }
-        String shown = item.name();
-        // "staff of <wand>" as whole words anywhere in the name: an enchantment or the holy weapon
-        // wraps it ("blazing staff of magic missile", MagesStaff.java:341-342; Weapon.java:411-414).
-        String name = contains(shown, "staff of") ? MAGES_STAFF : null;
-        if (name == null) {
-            for (Codex.Gear entry : gear) {
-                if (contains(shown, entry.name()) && (name == null || entry.name().length() > name.length())) {
-                    name = entry.name();
-                }
-            }
-        }
+        String name = measured(item.name(), gear);
         int level = item.levelKnown() ? Math.max(0, item.visiblyUpgraded()) : 0;
         Codex.Gear best = null;
         Codex.Gear weakest = null;
@@ -531,6 +521,28 @@ final class Fight implements Policy {
             }
         }
         return best != null ? best : weakest;
+    }
+
+    /**
+     * The measured name a shown item name stands for, or null: the measured name it contains as
+     * whole words, longest first, so an enchantment or glyph in the name ("blazing worn shortsword",
+     * Weapon.java:411-418; "cloth armor of flow", Armor.java:573-580) still finds its item, and the
+     * mage's staff for any "staff of <wand>" (MagesStaff.java:338-345). Shared by the fight and equip
+     * Policies (story 4.8).
+     */
+    static String measured(String shown, List<Codex.Gear> gear) {
+        // "staff of <wand>" as whole words anywhere in the name: an enchantment or the holy weapon
+        // wraps it ("blazing staff of magic missile", MagesStaff.java:341-342; Weapon.java:411-414).
+        if (contains(shown, "staff of")) {
+            return MAGES_STAFF;
+        }
+        String name = null;
+        for (Codex.Gear entry : gear) {
+            if (contains(shown, entry.name()) && (name == null || entry.name().length() > name.length())) {
+                name = entry.name();
+            }
+        }
+        return name;
     }
 
     /** The mage's staff, as the Codex names it (items.properties, MagesStaff). */

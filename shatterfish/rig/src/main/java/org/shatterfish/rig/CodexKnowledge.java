@@ -210,19 +210,35 @@ public final class CodexKnowledge {
         return shown;
     }
 
-    /** The weapons' damage or the armours' damage reduction the combat table measured, by display name and level. */
+    /**
+     * The weapons' damage or the armours' damage reduction the combat table measured, by display name
+     * and level, with each item's tier and level-0 strength from the item table (story 4.8), 0 and 0
+     * where the item table states no strength.
+     */
     private static List<Codex.Gear> gear(Path folder, Map<String, String> names, String list) {
+        Map<String, int[]> strengths = new HashMap<>();
+        for (String raw : Json.array(table(folder, "items.json"))) {
+            Map<String, String> item = Json.object(raw);
+            Map<String, String> strength = Json.object(Json.required(item, "strength", "item"));
+            if (Json.bool(Json.required(strength, "present", "strength"))) {
+                strengths.put(Json.string(Json.required(item, "className", "item")),
+                        new int[] {Json.integer(Json.required(strength, "tier", "strength")),
+                                Json.integer(Json.required(strength, "atLevel0", "strength"))});
+            }
+        }
         List<Codex.Gear> gear = new ArrayList<>();
         for (String raw : Json.array(Json.required(Json.object(table(folder, "combat.json")), list, "combat"))) {
             Map<String, String> entry = Json.object(raw);
-            String name = names.get(Json.string(Json.required(entry, "className", list)));
+            String className = Json.string(Json.required(entry, "className", list));
+            String name = names.get(className);
             if (name == null) {
                 continue;
             }
             Map<String, String> spread = Json.object(Json.required(entry, "spread", list));
+            int[] strength = strengths.getOrDefault(className, new int[] {0, 0});
             gear.add(new Codex.Gear(name, Json.integer(Json.required(entry, "level", list)),
                     Json.integer(Json.required(spread, "min", "spread")), Json.integer(Json.required(spread, "max", "spread")),
-                    Json.integer(Json.required(spread, "meanPerMille", "spread"))));
+                    Json.integer(Json.required(spread, "meanPerMille", "spread")), strength[0], strength[1]));
         }
         return gear;
     }

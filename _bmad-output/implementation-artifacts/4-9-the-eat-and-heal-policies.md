@@ -66,16 +66,16 @@ below `fight` and above `explore`, and acts only on calm screens.
 - `shatterfish/brain/.../Eat.java`: the Policy and its food table.
 - `shatterfish/brain/.../Heal.java`: the Policy and its threshold.
 - `shatterfish/brain/.../Brain.java`: the Policy order
-  `answer-prompt, heal, fight, eat, explore, fallback`; `handed` records a drink; `foods()` and
+  `answer-prompt, heal, fight, eat, pick-up, equip, explore, fallback` (after merging story 4.8); `handed` records a drink; `foods()` and
   `uneaten()` for the Codex drift test.
 - `shatterfish/brain/.../Memory.java`: `drank`, the wait at which the heal Policy last handed over
-  a drink (VERSION 5), with story 4.7's twenty-argument constructor kept.
+  a drink (VERSION 6 after merging story 4.8), with story 4.8's and story 4.7's constructors kept.
 - `shatterfish/brain/.../Beliefs.java`: the fold carries `drank` over.
 - `shatterfish/brain/.../Policies.java`: the fallback never draws an eat Action.
 - `shatterfish/rig/.../StarvationRegressionTest.java`: real `smoke` Runs.
 - `shatterfish/rig/.../FoodCodexTest.java`: the food table against the Codex's item and string tables.
 - `docs/rules/buffs.md`: the hunger row re-read at v4.0.0; new rows for food and for the potion of healing.
-- `docs/brain-rules.md`: rows 30 to 35, and the fallback's note.
+- `docs/brain-rules.md`: rows 35 to 41 (after story 4.8's 30 to 34), and the fallback's note.
 - `docs/architecture.md`, `docs/fairness.md`, `docs/rules/index.md`, `docs/ideas.md`.
 
 ## Tasks & Acceptance
@@ -298,3 +298,39 @@ because no `smoke` Run held an identified potion of healing):
     - an adjacent enemy does not press.
   - The last one first survived, because an adjacent enemy is always offered as an Attack.
     `Eat.pressed` is now tested with the Attack removed from the offered set.
+
+**Merged with main at story 4.8** (`232afa008`, PR #138):
+- **Memory VERSION 6**, one record of 25 components:
+  - `waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm, dwelt, blocked,
+    last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank`.
+  - `drank` is appended after story 4.8's `aim`.
+  - `Bytes`: story 4.8's layout, then `number(drank)`. The reader matches field for field.
+  - Every helper passes every field: `handed`, `avoiding`, `aiming`, `drinking`.
+  - Story 4.8's 24-argument shape defaults `drank` to -1, and chains to story 4.7's and 4.6's shapes.
+  - `Beliefs.fold` carries `memory.drank()` through both of its constructions.
+- **Policy order:** `answer-prompt, heal, fight, eat, pick-up, equip, explore, fallback`. `eat` stands
+  above `pick-up`:
+  - A hungry hero eats the food it already holds before walking to a heap. The meal is certain; the
+    heap is a walk, and its item may not be food.
+  - Story 4.8's refused-heap and stuck rules key on the Action handed over (a pick-up, or a Step on a
+    calm screen), so a meal in between counts as neither.
+  - `PolicyArbitrationTest` and `ShatterfishRunTest` list the order, and a post-merge mutant putting
+    `eat` below `pick-up` is killed.
+- **Docs:**
+  - `docs/brain-rules.md`: story 4.8's rows 30 to 34 stand, and this story's follow as 35 to 41. Row 37
+    now says eating waits for a calm screen only while hungry.
+  - `docs/fairness.md` keeps both stories' rows.
+  - `docs/architecture.md` appends the 4.9 sentence after the 4.8 one.
+- **Tests after the merge** (one gradle job at a time):
+  - `:api:test` passes, and `:brain:test` passes (154 tests).
+  - Rig tests pass: `ShatterfishRunTest` (its git-history check skipped in the worktree),
+    `StarvationRegressionTest`, `FoodCodexTest`, `BrainRulesIndexTest`, `StrategyLogTest`,
+    `CodexKnowledgeTest`, `SafeTestCodexTest` and `WeightsFileTest`.
+  - `StarvationRegressionTest` saw 38 calm hungry screens with food and 5 starving screens with food.
+  - `:codex:citations`: no findings. `DocsCitationTest` passes.
+- **Post-merge mutants:** 5 of 5 killed, run against `:brain:test`:
+  - the reader drops the drink;
+  - the writer drops the drink;
+  - the fold forgets the drink;
+  - `aiming` drops the drink;
+  - eat below pick-up.

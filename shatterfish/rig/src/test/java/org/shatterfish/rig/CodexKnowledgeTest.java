@@ -58,8 +58,16 @@ class CodexKnowledgeTest {
                 "the rat's figures (Rat.java: HT 8, attackSkill 8, defenseSkill 2, damage 1-4, armour 0-1)");
         assertTrue(knowledge.threats().size() > 40, "most enemies have fixed figures: " + knowledge.threats().size());
         assertEquals(null, knowledge.threat("golden bee"), "a bee's figures depend on the Run and are not listed");
-        assertTrue(knowledge.weapons().contains(new Codex.Gear("worn shortsword", 0, 1, 10, 5485)), "the Warrior's sword, measured");
-        assertTrue(knowledge.armours().contains(new Codex.Gear("cloth armor", 0, 0, 2, 1004)), "cloth armour, measured");
+        assertTrue(knowledge.weapons().contains(new Codex.Gear("worn shortsword", 0, 1, 10, 5485, 1, 10)),
+                "the Warrior's sword, measured, tier 1 asking 10 strength");
+        assertTrue(knowledge.armours().contains(new Codex.Gear("cloth armor", 0, 0, 2, 1004, 1, 10)), "cloth armour, measured");
+        // Story 4.8: the item table's tier and level-0 strength ride on every measured level.
+        assertTrue(knowledge.weapons().stream().anyMatch(gear -> gear.name().equals("shortsword") && gear.level() == 0
+                && gear.meanPerMille() == 8485 && gear.tier() == 2 && gear.strength() == 12), knowledge.weapons().toString());
+        assertTrue(knowledge.armours().stream().anyMatch(gear -> gear.name().equals("leather armor") && gear.level() == 0
+                && gear.meanPerMille() == 2013 && gear.tier() == 2 && gear.strength() == 12));
+        assertTrue(knowledge.weapons().stream().filter(gear -> gear.level() == 0 && gear.tier() > 0).count() >= 20,
+                "the melee weapons state a tier and a strength");
         assertTrue(knowledge.weapons().stream().anyMatch(gear -> gear.name().equals(org.shatterfish.brain.Brain.magesStaff())),
                 "the mage's staff is measured under the name the fight Policy maps a staff to");
         Codex.Threat crab = knowledge.threat("great crab");

@@ -33,10 +33,11 @@ class WeightsFileTest {
     void the_committed_set() {
         Weights weights = committed();
         assertEquals(Brains.SHATTERFISH, weights.name());
-        assertEquals(1, weights.version());
+        assertEquals(2, weights.version(), "story 4.8 added the item, gold, turn, gear and curse weights");
         assertEquals(10, weights.weight("hp"));
-        assertEquals(List.of("act_attack", "act_descend", "act_rest_hurt", "act_search", "act_wait", "depth",
-                "enemies", "hp", "hunger", "level", "strength"), weights.features());
+        assertEquals(List.of("act_attack", "act_descend", "act_rest_hurt", "act_search", "act_wait", "armor",
+                "cursed", "depth", "enemies", "gold", "hp", "hunger", "item", "level", "strength", "turn", "weapon"),
+                weights.features());
         assertTrue(Brains.readsWeights(Brains.SHATTERFISH));
         assertTrue(!Brains.readsWeights(Brains.RANDOM));
     }
@@ -51,7 +52,7 @@ class WeightsFileTest {
         terms.set(0, new Weights.Term(terms.get(0).feature(), terms.get(0).weight() + 1));
         assertNotEquals(hash, Brains.configHash(Brains.SHATTERFISH, new Weights(Brains.SHATTERFISH, 1, terms)),
                 "a changed weight is a changed Brain");
-        assertNotEquals(hash, Brains.configHash(Brains.SHATTERFISH, new Weights(Brains.SHATTERFISH, 2, weights.terms())),
+        assertNotEquals(hash, Brains.configHash(Brains.SHATTERFISH, new Weights(Brains.SHATTERFISH, 3, weights.terms())),
                 "and so is a changed version");
         assertThrows(IllegalStateException.class, () -> Brains.configHash(Brains.SHATTERFISH),
                 "a Brain configured by its weights is not described without them");
@@ -91,7 +92,7 @@ class WeightsFileTest {
                 () -> Runner.weighed(root, List.of(Brains.RANDOM, Brains.SHATTERFISH)), "no file is no Run");
         Files.createDirectories(root.resolve(WeightsFile.FOLDER));
         Files.writeString(WeightsFile.of(root, Brains.SHATTERFISH),
-                committed().canonical().replace("\"version\":1", "\"version\":0"));
+                committed().canonical().replace("\"version\":2", "\"version\":0"));
         assertThrows(IllegalArgumentException.class,
                 () -> Runner.weighed(root, List.of(Brains.SHATTERFISH, Brains.RANDOM)), "a bad file is no Run");
         Runner.weighed(root, List.of(Brains.RANDOM, Brains.NO_REST));

@@ -32,7 +32,19 @@ class PolicyArbitrationTest {
         RunLog.Decision decision = decided.decision();
         assertEquals("answer-prompt", decision.policy());
         assertTrue(decision.goal().contains("prompt"), decision.goal());
-        assertEquals(List.of("answer-prompt", "heal", "fight", "eat", "explore", "fallback"), brain().policies());
+        assertEquals(List.of("answer-prompt", "heal", "fight", "eat", "pick-up", "equip", "explore", "fallback"), brain().policies());
+    }
+
+    @Test
+    @DisplayName("the Warrior's broken seal prompt is answered yes, so the seal moves to the armour put on")
+    void the_seal_moves() {
+        Brain.Decided decided = brain().decide(Screens.titled("Broken Seal", "The Warrior's broken seal must be affixed"
+                + " to his currently worn armor in order to benefit him.", List.of("yes", "no"),
+                new Action.AnswerPrompt(0), new Action.AnswerPrompt(1)), null);
+        assertEquals(new Action.AnswerPrompt(0), decided.action());
+        assertEquals("affirm: yes", decided.decision().chosen().why());
+        assertEquals(new Action.AnswerPrompt(1), brain().decide(Screens.titled("Chasm", "Jump?", List.of("yes", "no"),
+                new Action.AnswerPrompt(0), new Action.AnswerPrompt(1)), null).action(), "any other prompt still declines");
     }
 
     @Test
@@ -67,7 +79,7 @@ class PolicyArbitrationTest {
     @Test
     @DisplayName("the configuration names the Policies and the memory's version")
     void the_configuration() {
-        assertEquals("policies=answer-prompt,heal,fight,eat,explore,fallback;memory=" + Memory.VERSION + ";weights=" + Screens.WEIGHTS.canonical(),
+        assertEquals("policies=answer-prompt,heal,fight,eat,pick-up,equip,explore,fallback;memory=" + Memory.VERSION + ";weights=" + Screens.WEIGHTS.canonical(),
                 Brain.configuration(Screens.WEIGHTS));
     }
 

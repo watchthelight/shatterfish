@@ -41,10 +41,12 @@ public final class Brain {
     private final Evaluation evaluation;
     private final long seed;
     private final List<Policy> policies;
+    private final Pickup pickup;
 
     /** The Policies, highest priority first, fighting by {@code knowledge} and scoring by {@code evaluation}. */
     private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation) {
-        return List.of(Policies.ANSWER_PROMPT, new Heal(knowledge), new Fight(knowledge), new Eat(), new Explore(),
+        return List.of(Policies.ANSWER_PROMPT, new Heal(knowledge), new Fight(knowledge), new Eat(),
+                new Pickup(evaluation, knowledge), new Equip(evaluation, knowledge), new Explore(),
                 Policies.fallback(evaluation));
     }
 
@@ -73,6 +75,7 @@ public final class Brain {
         this.evaluation = new Evaluation(weights);
         this.seed = seed;
         this.policies = policies(knowledge, evaluation);
+        this.pickup = new Pickup(evaluation, knowledge);
     }
 
     /** The weights this Brain scores by. */
@@ -125,7 +128,8 @@ public final class Brain {
 
     /** The names of the Policies every Brain arbitrates, highest priority first. */
     public static List<String> policyNames() {
-        return List.of(Policies.ANSWER_PROMPT.name(), Heal.NAME, Fight.NAME, Eat.NAME, Explore.NAME, Policies.FALLBACK);
+        return List.of(Policies.ANSWER_PROMPT.name(), Heal.NAME, Fight.NAME, Eat.NAME, Pickup.NAME, Equip.NAME,
+                Explore.NAME, Policies.FALLBACK);
     }
 
     /** The Policies, highest priority first, by name. */
@@ -178,7 +182,11 @@ public final class Brain {
 
     /** The Belief after seeing {@code observation}, given the Belief before it (null at the start). */
     public Belief update(Observation observation, Belief belief) {
-        return Beliefs.fold(Memory.of(belief), observation, knowledge).belief();
+        // Where the pick-up Policy's plan goes on this screen (story 4.8): computed from the screen
+        // and the memory, so the next screen can tell a refused pick-up or Step from a wait spent
+        // otherwise.
+        Memory memory = Beliefs.fold(Memory.of(belief), observation, knowledge);
+        return memory.aiming(pickup.aim(observation, memory)).belief();
     }
 
     /**

@@ -60,7 +60,17 @@ final class Screens {
             List.of(new Codex.RoomSpawn("levels.rooms.special.PoolRoom", "items.potions.PotionOfInvisibility",
                     "potion of invisibility")),
             List.of(new Codex.Guarantee("STRENGTH_POTIONS", "items.potions.PotionOfStrength", "potion of strength", 2, 5),
-                    new Codex.Guarantee("UPGRADE_SCROLLS", "items.scrolls.ScrollOfUpgrade", "scroll of upgrade", 3, 5)));
+                    new Codex.Guarantee("UPGRADE_SCROLLS", "items.scrolls.ScrollOfUpgrade", "scroll of upgrade", 3, 5)),
+            List.of(),
+            // Story 4.8: the level-0 rolls the committed combat table measured, with the item
+            // table's tier and strength.
+            List.of(new Codex.Gear("worn shortsword", 0, 1, 10, 5485, 1, 10),
+                    new Codex.Gear("shortsword", 0, 2, 15, 8485, 2, 12),
+                    new Codex.Gear("greataxe", 0, 5, 45, 25035, 5, 18),
+                    new Codex.Gear("mage's staff", 0, 1, 6, 3501, 1, 10)),
+            List.of(new Codex.Gear("cloth armor", 0, 0, 2, 1004, 1, 10),
+                    new Codex.Gear("leather armor", 0, 0, 4, 2013, 2, 12)),
+            List.of());
 
     /** The committed weight set's values (weights/shatterfish.json), which WeightsFileTest holds to the file. */
     static final Weights WEIGHTS = weights(Map.of());
@@ -71,8 +81,9 @@ final class Screens {
                 "act_attack", 0L, "act_descend", 0L, "act_rest_hurt", 0L, "act_search", 0L, "act_wait", 0L,
                 "depth", 10000L, "enemies", -3000L, "hp", 10L, "hunger", -5000L, "level", 5000L));
         terms.put("strength", 2000L);
+        terms.putAll(Map.of("item", 2000L, "gold", 10L, "turn", -150L, "weapon", 2L, "armor", 4L, "cursed", -10000L));
         terms.putAll(changed);
-        return new Weights("shatterfish", 1,
+        return new Weights("shatterfish", 2,
                 terms.entrySet().stream().map(term -> new Weights.Term(term.getKey(), term.getValue())).toList());
     }
 
@@ -102,6 +113,11 @@ final class Screens {
     /** A screen with the chasm Prompt open, its buttons "Yes" and "No", offering {@code actions}. */
     static Observation prompting(Action... actions) {
         return asking(List.of("Yes", "No"), actions);
+    }
+
+    /** A screen with the chasm Prompt open, its buttons labelled {@code labels}, offering {@code actions}. */
+    static Observation titled(String title, String text, List<String> labels, Action... actions) {
+        return screen(1, PromptKind.OTHER, new PromptSection(PromptKind.OTHER, title, text, labels), actions);
     }
 
     /** A screen with the chasm Prompt open, its buttons labelled {@code labels}, offering {@code actions}. */
@@ -161,6 +177,35 @@ final class Screens {
                              List<ItemView> items, List<KnownAppearance> known) {
         return world(depth, PromptKind.NONE, PromptSection.NONE, 1, 1, Hunger.NONE, tiles.size(), tiles, heaps, actors,
                 items, known);
+    }
+
+    /**
+     * A one-row floor of {@code tiles}, all in view, with this hero (on its own cell), these heaps
+     * and this backpack, offering {@code actions} (story 4.8).
+     */
+    static Observation floor(int depth, HeroSection hero, List<Tile> tiles, List<HeapView> heaps, List<ItemView> items,
+                             Action... actions) {
+        return world(depth, PromptKind.NONE, PromptSection.NONE, hero, tiles.size(), tiles, heaps, List.of(), items,
+                List.of(), actions);
+    }
+
+    /** A hero standing on {@code cell}, at full health (20), of this strength. */
+    static HeroSection heroAt(int cell, int strength) {
+        return heroAt(cell, strength, 20, 20);
+    }
+
+    /** A hero standing on {@code cell}, of this strength, with {@code hp} of {@code ht}. */
+    static HeroSection heroAt(int cell, int strength, int hp, int ht) {
+        return new HeroSection(cell, "", HeroSubclass.NONE, "", 1, 0, 1, hp, ht, 0, strength, 0, 0, 0,
+                Hunger.NONE, List.of(), List.of(), List.of(0, 0, 0, 0),
+                Collections.nCopies(HeroSection.QUICKSLOTS, new QuickslotView("", false)));
+    }
+
+    /** A weapon or armour in the pack or worn, its curse shown or not. */
+    static ItemView gear(ItemKind kind, String name, org.shatterfish.api.EquipSlot slot, boolean cursedKnown,
+                         boolean cursed) {
+        return new ItemView(kind, name, 1, false, 0, cursedKnown, cursed, "", slot,
+                List.of(slot == org.shatterfish.api.EquipSlot.NONE ? "EQUIP" : "UNEQUIP"), "");
     }
 
     /** As {@link #world}, on a floor {@code width} cells wide, with nobody on it and nothing held. */
