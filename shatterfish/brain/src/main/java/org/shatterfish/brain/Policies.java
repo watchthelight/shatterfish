@@ -132,6 +132,11 @@ final class Policies {
         }
     };
 
+    /** Whether {@code action} eats an item, which only the eat Policy does (story 4.9). */
+    static boolean eats(Action action) {
+        return action instanceof Action.UseItem use && use.action().equals("EAT");
+    }
+
     /**
      * The fallback's name, which {@link Brain#policyNames()} lists without building one.
      */
@@ -140,6 +145,8 @@ final class Policies {
     /**
      * The floor under every Policy a later story adds: uniformly, from the Brain's seeded stream,
      * among the offered Actions that score highest by {@code evaluation} (stories 4.1, 4.4, 4.5).
+     * Eating is not among them (story 4.9): it is the eat Policy's, which eats only when the hunger
+     * icon says the food will not be wasted, and a uniform draw would eat at full satiety.
      *
      * <p>It ranks by tiers. The Actions are grouped by their Evaluation score, highest first, and
      * each tier is drawn from uniformly with the stream, one draw per Choice, until a pick and as
@@ -183,7 +190,9 @@ final class Policies {
                                               Stream stream) {
                 // The tiers, highest score first, each in the order the screen offers its Actions.
                 java.util.TreeMap<Long, List<Action>> tiers = new java.util.TreeMap<>(Comparator.reverseOrder());
-                for (Action action : offered) {
+                // Never eating, unless eating is all the screen offers: a Run is not ended for it.
+                List<Action> drawn = offered.stream().filter(action -> !eats(action)).toList();
+                for (Action action : drawn.isEmpty() ? offered : drawn) {
                     tiers.computeIfAbsent(evaluation.of(observation, action), score -> new ArrayList<>()).add(action);
                 }
                 boolean alike = tiers.size() <= 1;

@@ -56,7 +56,7 @@ class ShatterfishRunTest {
             assertEquals(Brains.SHATTERFISH, read.header().brain().name());
             for (RunLog.Wait wait : read.waits()) {
                 assertNotNull(wait.decision(), "a Brain's wait says why: " + log.getFileName() + " at " + wait.k());
-                assertTrue(List.of("answer-prompt", "fight", "pick-up", "equip", "explore", "fallback")
+                assertTrue(List.of("answer-prompt", "heal", "fight", "eat", "pick-up", "equip", "explore", "fallback")
                         .contains(wait.decision().policy()), wait.decision().policy());
                 // Story 4.8: a pick-up wait Steps toward an item, naming it and its distance, or
                 // takes the one underfoot; an equip wait puts on the piece its reason names.
@@ -73,6 +73,18 @@ class ShatterfishRunTest {
                     org.shatterfish.api.Action.UseItem use = (org.shatterfish.api.Action.UseItem) wait.action();
                     assertEquals("EQUIP", use.action());
                     assertEquals("wear: " + use.item().name(), wait.decision().chosen().why());
+                }
+                // Story 4.9: the eat Policy eats a named food, and the heal Policy drinks with its hit
+                // points and the danger it measured in the reason.
+                if ("eat".equals(wait.decision().policy())) {
+                    assertTrue(wait.decision().chosen().why().matches("eat: .+"), wait.decision().chosen().why());
+                    assertTrue(wait.action() instanceof org.shatterfish.api.Action.UseItem use && use.action().equals("EAT"),
+                            wait.action().toString());
+                }
+                if ("heal".equals(wait.decision().policy())) {
+                    assertTrue(wait.decision().chosen().why().matches("heal [0-9]+/[0-9]+"), wait.decision().chosen().why());
+                    assertTrue(wait.action() instanceof org.shatterfish.api.Action.UseItem use && use.action().equals("DRINK"),
+                            wait.action().toString());
                 }
                 if ("fight".equals(wait.decision().policy())) {
                     fought++;

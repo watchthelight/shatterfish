@@ -32,7 +32,7 @@ class PolicyArbitrationTest {
         RunLog.Decision decision = decided.decision();
         assertEquals("answer-prompt", decision.policy());
         assertTrue(decision.goal().contains("prompt"), decision.goal());
-        assertEquals(List.of("answer-prompt", "fight", "pick-up", "equip", "explore", "fallback"), brain().policies());
+        assertEquals(List.of("answer-prompt", "heal", "fight", "eat", "pick-up", "equip", "explore", "fallback"), brain().policies());
     }
 
     @Test
@@ -79,7 +79,7 @@ class PolicyArbitrationTest {
     @Test
     @DisplayName("the configuration names the Policies and the memory's version")
     void the_configuration() {
-        assertEquals("policies=answer-prompt,fight,pick-up,equip,explore,fallback;memory=" + Memory.VERSION + ";weights=" + Screens.WEIGHTS.canonical(),
+        assertEquals("policies=answer-prompt,heal,fight,eat,pick-up,equip,explore,fallback;memory=" + Memory.VERSION + ";weights=" + Screens.WEIGHTS.canonical(),
                 Brain.configuration(Screens.WEIGHTS));
     }
 

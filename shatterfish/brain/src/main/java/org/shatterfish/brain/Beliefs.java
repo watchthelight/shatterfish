@@ -219,7 +219,8 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         }
         Memory after = new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
                 sightings(memory.monsters(), observation, waits), here, streak, calm, dwelt, memory.blocked(),
-                memory.last(), holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE);
+                memory.last(), holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE,
+                memory.drank());
         // Two Steps refused in a row: the stepping Policy yields this wait, and the cell its Step
         // points at is blocked on this floor. On a calm screen the pick-up Policy stands above
         // explore, so when its plan on the last screen was a Step, that was the Step refused, and its
@@ -231,7 +232,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 after = new Memory(after.waits(), after.deepest(), facts, found, held, known, labels, pending,
                         after.monsters(), here, streak, calm, dwelt,
                         Memory.with(after.blocked(), new Memory.Spot(depth, branch, cell)), after.last(), holds, near,
-                        before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE);
+                        before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE, memory.drank());
             }
         }
         return after;
