@@ -2,7 +2,7 @@
 title: 'Story 4.9: The eat and heal Policies'
 type: 'feature'
 created: '2026-09-25'
-status: 'review'
+status: 'done'
 baseline_commit: '3e3fea87d'
 review_loop_iteration: 0
 context: []
