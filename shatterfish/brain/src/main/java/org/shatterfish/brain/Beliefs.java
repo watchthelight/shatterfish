@@ -135,9 +135,11 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         boolean still = here.equals(memory.at());
         List<Memory.Spot> dwelt = still && memory.calm() ? Memory.with(memory.dwelt(), here) : memory.dwelt();
         int streak = still ? memory.streak() + 1 : 0;
-        // The plain heap underfoot, and whether it is one the game would not let the hero take: the
-        // hero stood on it at the last wait too, that screen was calm, and it still shows the same
-        // title (story 4.8).
+        // The plain heap underfoot, and whether it is one the game would not let the hero take
+        // (story 4.8): the pick-up Policy's target on the last screen was this heap, that screen was
+        // calm, the hero stands on it still, it shows the same title, and the pack is unchanged. A
+        // heap of several like items shows the next one's title after a pick-up, but the pack grows;
+        // a heap the Policy was not going for was not tried.
         String underfoot = "";
         for (HeapView heap : observation.map().heaps()) {
             if (heap.cell() == here.cell() && heap.kind() == HeapKind.HEAP) {
@@ -146,8 +148,9 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         }
         List<Memory.Refused> refused = memory.refused();
         Memory.Refused one = new Memory.Refused(depth, branch, here.cell(), underfoot);
+        Memory.Pack pack = pack(observation);
         if (still && memory.calm() && !underfoot.isEmpty() && underfoot.equals(memory.underfoot())
-                && !refused.contains(one)) {
+                && memory.aim().target() == here.cell() && pack.equals(memory.pack()) && !refused.contains(one)) {
             refused = new ArrayList<>(refused);
             refused.add(one);
             if (refused.size() > Memory.DWELT) {
@@ -156,7 +159,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         }
         Memory after = new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
                 sightings(memory.monsters(), observation, waits), here, streak, Explore.calm(observation), dwelt,
-                memory.blocked(), underfoot, refused);
+                pickupBlocked(memory, streak, observation, depth, branch), underfoot, refused, pack, Memory.Aim.NONE);
         // The hero has stood still long enough for explore to yield: the Step it would take on this
         // screen is one the game refuses, and the cell it points at is blocked on this floor.
         if (streak == Explore.STUCK - 1 && Explore.calm(observation)) {
@@ -164,10 +167,33 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
             if (cell != null) {
                 after = new Memory(after.waits(), after.deepest(), facts, found, held, known, labels, pending,
                         after.monsters(), here, streak, after.calm(), dwelt,
-                        Memory.with(after.blocked(), new Memory.Spot(depth, branch, cell)), underfoot, refused);
+                        Memory.with(after.blocked(), new Memory.Spot(depth, branch, cell)), underfoot, refused, pack,
+                        Memory.Aim.NONE);
             }
         }
         return after;
+    }
+
+    /** The pack as far as a pick-up changes it (story 4.8). */
+    static Memory.Pack pack(Observation observation) {
+        int quantity = 0;
+        for (org.shatterfish.api.ItemView item : observation.inventory().items()) {
+            quantity += item.quantity();
+        }
+        return new Memory.Pack(observation.inventory().items().size(), quantity, observation.hero().gold());
+    }
+
+    /**
+     * The blocked cells, with the pick-up Policy's own Step added when the hero has stood still long
+     * enough for it to yield (story 4.8): the Step its plan took on the last screen, which was calm,
+     * is one the game refuses, so its next plan goes round it.
+     */
+    private static List<Memory.Spot> pickupBlocked(Memory memory, int streak, Observation observation, int depth,
+                                                   int branch) {
+        if (streak == Explore.STUCK - 1 && memory.calm() && Explore.calm(observation) && memory.aim().step() >= 0) {
+            return Memory.with(memory.blocked(), new Memory.Spot(depth, branch, memory.aim().step()));
+        }
+        return memory.blocked();
     }
 
     /** What the Brain believes, given the memory after {@link #fold} and the same observation. */

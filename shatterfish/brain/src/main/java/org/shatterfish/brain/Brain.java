@@ -41,6 +41,7 @@ public final class Brain {
     private final Evaluation evaluation;
     private final long seed;
     private final List<Policy> policies;
+    private final Pickup pickup;
 
     /** The Policies, highest priority first, scoring by {@code evaluation} over {@code knowledge}. */
     private static List<Policy> policies(Evaluation evaluation, Codex.Knowledge knowledge) {
@@ -71,6 +72,7 @@ public final class Brain {
         this.evaluation = new Evaluation(weights);
         this.seed = seed;
         this.policies = policies(evaluation, knowledge);
+        this.pickup = new Pickup(evaluation, knowledge);
     }
 
     /** The weights this Brain scores by. */
@@ -113,7 +115,11 @@ public final class Brain {
 
     /** The Belief after seeing {@code observation}, given the Belief before it (null at the start). */
     public Belief update(Observation observation, Belief belief) {
-        return Beliefs.fold(Memory.of(belief), observation, knowledge).belief();
+        // Where the pick-up Policy's plan goes on this screen (story 4.8): computed from the screen
+        // and the memory, so the next screen can tell a refused pick-up or Step from a wait spent
+        // otherwise.
+        Memory memory = Beliefs.fold(Memory.of(belief), observation, knowledge);
+        return memory.aiming(pickup.aim(observation, memory)).belief();
     }
 
     /**

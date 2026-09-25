@@ -68,8 +68,36 @@ final class Pickup implements Policy {
 
     @Override
     public boolean enters(Observation observation, Memory memory) {
-        return Explore.calm(observation) && memory.streak() != Explore.STUCK - 1
+        return Explore.calm(observation)
                 && observation.map().heaps().stream().anyMatch(heap -> takeable(heap, observation, memory));
+    }
+
+    /**
+     * Whether the hero has stood still long enough for this Policy to yield: from
+     * {@link Explore#STUCK} - 1 waits on, until it moves, unless it stands on the heap it is going
+     * for, where the only Action is the pick-up and a refusal is the Memory's to record.
+     */
+    static boolean stuck(Memory memory) {
+        return memory.streak() >= Explore.STUCK - 1;
+    }
+
+    /**
+     * Where this Policy's plan goes on {@code observation} under {@code memory}: the heap it targets
+     * and the Step it takes toward it, or {@link Memory.Aim#NONE}. The Brain records it in the Memory
+     * after each fold, so the next screen can be read against it.
+     */
+    Memory.Aim aim(Observation observation, Memory memory) {
+        if (!enters(observation, memory)) {
+            return Memory.Aim.NONE;
+        }
+        RunLog.Choice choice = choose(observation, memory, observation.actions().actions(), null);
+        if (choice == null) {
+            return Memory.Aim.NONE;
+        }
+        if (choice.action() instanceof Action.Step step) {
+            return new Memory.Aim(target(observation, memory), step.cell());
+        }
+        return new Memory.Aim(observation.hero().cell(), -1);
     }
 
     /** Whether a heap is one this Policy may go for: a plain heap it has not seen refused, nobody on it. */
@@ -88,12 +116,16 @@ final class Pickup implements Policy {
         return observation.actors().actors().stream().noneMatch(actor -> actor.cell() == heap.cell());
     }
 
-    @Override
-    public RunLog.Choice choose(Observation observation, Memory memory, List<Action> offered, Stream stream) {
+    /** The cell of the heap this Policy goes for, or -1. */
+    int target(Observation observation, Memory memory) {
+        HeapView best = best(observation, memory);
+        return best == null ? -1 : best.cell();
+    }
+
+    private HeapView best(Observation observation, Memory memory) {
         MapSection map = observation.map();
-        int hero = observation.hero().cell();
         boolean[] walk = Explore.walkable(observation, memory);
-        int[] distance = distances(map, walk, hero);
+        int[] distance = distances(map, walk, observation.hero().cell());
         HeapView best = null;
         long bestNet = 0;
         for (HeapView heap : map.heaps()) {
@@ -107,7 +139,17 @@ final class Pickup implements Policy {
                 best = heap;
             }
         }
-        if (best == null) {
+        return best;
+    }
+
+    @Override
+    public RunLog.Choice choose(Observation observation, Memory memory, List<Action> offered, Stream stream) {
+        MapSection map = observation.map();
+        int hero = observation.hero().cell();
+        boolean[] walk = Explore.walkable(observation, memory);
+        int[] distance = distances(map, walk, hero);
+        HeapView best = best(observation, memory);
+        if (best == null || (stuck(memory) && best.cell() != hero)) {
             return null;
         }
         String label = Beliefs.untitled(best.item());

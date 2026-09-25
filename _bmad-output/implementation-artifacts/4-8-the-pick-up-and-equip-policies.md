@@ -203,6 +203,35 @@ After the review:
   - a cursed weapon as the blast alone;
   - the seal declined.
 
+Verification pass on `147489e86`: two more findings, each fixed and tested.
+1. **Pickup's own refused Step looped.** When the game refuses a Step (a forge drawn as floor:
+   `getCloser` fails and the hero is made ready without spending time, Hero.java:1025-1037), Pickup
+   sat out one wait and then took the same Step again. Only Explore's step cell was ever blocked.
+   - Pickup now yields whenever the streak is at least `Explore.STUCK - 1`, until the hero moves.
+     The one exception is standing on the heap it is going for, where the only Action is the
+     pick-up and a refusal is caught by the refused-heap rule.
+   - When the streak reaches `STUCK - 1` after a calm screen, the cell of Pickup's own Step from the
+     last screen is added to `blocked` (`PickupThresholdTest.refused_step`).
+   - The guard counts the streak however it is counted. Under story 4.7's rule (the streak counts
+     only after a handed Step on a calm screen), a refused Pickup Step still counts.
+2. **False refusals.** Two cases recorded a heap as refused when it was not:
+   - A heap of several like items shows the next one's title after a successful pick-up (the
+     Observer shows the top item only).
+   - The hero can stand on a heap for two calm waits without Pickup trying it.
+   - A refusal is now recorded only when the pack is unchanged between the two waits (items listed,
+     total quantity, gold), and only when the heap was Pickup's target on the earlier screen
+     (`refusal_false_positives`).
+
+New Memory fields (version 4, after `refused`):
+- `Pack pack`, where `Pack(int items, int quantity, int gold)`: the pack on the last screen, with
+  `Pack.NONE` = (-1, -1, -1) before any.
+- `Aim aim`, where `Aim(int target, int step)`: where Pickup's plan went on the last screen, the
+  heap's cell and its Step's cell, -1 for none, `Aim.NONE` = (-1, -1).
+- `Brain.update` sets `aim` after the fold with `Pickup.aim(...)`, a pure function of the screen and
+  the memory: what the Policy computes, not what was handed over.
+- Bytes: after the refused list, `pack.items`, `pack.quantity`, `pack.gold`, `aim.target`,
+  `aim.step`, as five integers.
+
 ## Dev Notes
 
 - Tests: `:api:test`, `:brain:test` (`PickupThresholdTest` 5, `EquipPolicyTest` 5), rig

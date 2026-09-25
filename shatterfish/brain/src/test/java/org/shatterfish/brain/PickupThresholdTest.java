@@ -153,8 +153,57 @@ class PickupThresholdTest {
         Observation near = room(12, 3, "potion of strength", STEPS);
         Memory stuck = new Memory(3, 1, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
                 new Memory.Spot(1, 0, 1), Explore.STUCK - 1, true, List.of(), List.of());
-        assertFalse(PICKUP.enters(near, stuck), "it yields when the hero has stood still as long as explore does");
-        assertTrue(PICKUP.enters(near, Memory.START));
+        assertNull(PICKUP.choose(near, stuck, near.actions().actions(), Stream.at(1, 1)), "it yields when the hero has stood still as long as explore does");
+        Memory longer = new Memory(5, 1, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                new Memory.Spot(1, 0, 1), Explore.STUCK + 2, true, List.of(), List.of());
+        assertNull(PICKUP.choose(near, longer, near.actions().actions(), Stream.at(1, 1)),
+                "and for as long as the hero stays put, not one wait only");
+        assertEquals(new Action.Step(2), choose(near).action());
+        Observation on = Screens.floor(1, Screens.heroAt(3, 10), Collections.nCopies(6, Tile.EMPTY),
+                List.of(new HeapView(3, HeapKind.HEAP, false, "potion of strength", 0, "")), List.of(),
+                new Action.PickUp(), new Action.Step(2));
+        assertEquals(new Action.PickUp(), PICKUP.choose(on, longer, on.actions().actions(), Stream.at(1, 1)).action(),
+                "standing on the heap it goes for, the pick-up is still taken");
+    }
+
+    @Test
+    @DisplayName("a Step the game keeps refusing: pick-up yields from then on, and its own Step's cell is blocked")
+    void refused_step() {
+        // The game refuses the Step to cell 2 (a forge drawn as floor, say): the hero stays on 1.
+        Observation screen = room(12, 3, "potion of strength", STEPS);
+        Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, 3L);
+        org.shatterfish.api.Belief belief = null;
+        List<String> policies = new java.util.ArrayList<>();
+        for (int wait = 0; wait < 6; wait++) {
+            belief = brain.update(screen, belief);
+            policies.add(brain.decide(screen, belief).decision().policy());
+        }
+        assertEquals(List.of("pick-up", "pick-up"), policies.subList(0, 2), policies.toString());
+        assertTrue(policies.subList(2, 6).stream().noneMatch("pick-up"::equals), policies.toString());
+        assertTrue(Memory.of(belief).blocked().contains(new Memory.Spot(1, 0, 2)), Memory.of(belief).blocked().toString());
+        assertEquals(new Memory.Aim(3, 2), Memory.of(brain.update(screen, null)).aim(), "the aim is recorded");
+    }
+
+    @Test
+    @DisplayName("no refusal when the pack changed (a heap of like items) or when pick-up was not going for that heap")
+    void refusal_false_positives() {
+        List<HeapView> heap = List.of(new HeapView(3, HeapKind.HEAP, false, "ration of food", 0, ""));
+        Observation before = Screens.floor(2, Screens.heroAt(3, 10), Collections.nCopies(6, Tile.EMPTY), heap,
+                List.of(), new Action.PickUp(), new Action.Step(2));
+        Observation after = Screens.floor(2, Screens.heroAt(3, 10), Collections.nCopies(6, Tile.EMPTY), heap,
+                List.of(Screens.gear(org.shatterfish.api.ItemKind.FOOD, "ration of food",
+                        org.shatterfish.api.EquipSlot.NONE, true, false)), new Action.PickUp(), new Action.Step(2));
+        Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, 3L);
+        org.shatterfish.api.Belief first = brain.update(before, null);
+        assertTrue(Memory.of(brain.update(after, first)).refused().isEmpty(),
+                "the next ration shows the same title, but the pack grew: taken, not refused");
+        assertEquals(1, Memory.of(brain.update(before, first)).refused().size(), "unchanged: refused");
+
+        Memory elsewhere = Memory.of(first).aiming(Memory.Aim.NONE);
+        assertTrue(Beliefs.fold(elsewhere, before, Screens.CODEX).refused().isEmpty(),
+                "a heap stood on that pick-up was not going for was never tried");
+        Memory otherTarget = Memory.of(first).aiming(new Memory.Aim(5, 4));
+        assertTrue(Beliefs.fold(otherTarget, before, Screens.CODEX).refused().isEmpty());
     }
 
     @Test
