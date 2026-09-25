@@ -51,6 +51,20 @@ class CodexKnowledgeTest {
     }
 
     @Test
+    @DisplayName("the melee weapons and armour, with their tier, strength and level-0 mean from the combat table")
+    void the_gear() {
+        List<Codex.Gear> gear = read().gear();
+        assertTrue(gear.contains(new Codex.Gear("items.weapon.melee.Shortsword", "shortsword", ItemKind.WEAPON, 2, 12, 8485)),
+                gear.toString());
+        assertTrue(gear.contains(new Codex.Gear("items.armor.LeatherArmor", "leather armor", ItemKind.ARMOR, 2, 12, 2013)),
+                gear.toString());
+        assertTrue(gear.stream().anyMatch(piece -> piece.name().equals("worn shortsword")));
+        assertTrue(gear.stream().noneMatch(piece -> piece.className().contains("missiles")),
+                "thrown weapons are not worn in the weapon slot");
+        assertTrue(gear.stream().filter(piece -> piece.kind() == ItemKind.WEAPON).count() >= 20, gear.size() + " pieces");
+    }
+
+    @Test
     @DisplayName("a Codex for another tag is refused before a table is read")
     void refused() {
         String tag = HeadlessBoot.pinnedTag();

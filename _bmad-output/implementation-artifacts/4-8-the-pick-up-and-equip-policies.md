@@ -1,0 +1,147 @@
+---
+title: 'Story 4.8: The pick-up and equip Policies'
+type: 'feature'
+created: '2026-09-25'
+status: 'review'
+baseline_commit: '265e5e9f2 (story 4.6, with main at story 4.3)'
+review_loop_iteration: 0
+context: []
+---
+
+<frozen-after-approval reason="human-owned intent — do not modify unless human renegotiates">
+
+## Intent
+
+**Problem:** The Brain walks past items and never changes its gear. Explore's Steps pick up the
+items they happen to cross (a click on a plain heap picks it up on arrival), but nothing goes out of
+its way for a strength potion, and a better sword in the pack stays in the pack (FR-31).
+
+**Approach:** Two Policies over the Evaluation of story 4.5, with new weights for what items and gear
+are worth:
+- `pick-up` goes to the heap whose worth carried most exceeds the turns to reach and take it.
+- `equip` puts on a melee weapon or armour the Evaluation prefers to what is worn, after the
+  strength it asks and the chance a hidden curse holds, and never one whose worst case under
+  `SafeTest` is unsurvivable.
+
+The Codex's knowledge gains the melee weapons and armour with their tier, strength and level-0 mean
+roll from the combat table.
+
+## Boundaries & Constraints
+
+**Always:**
+- An item's worth comes from its shown name, the Beliefs' odds for an unidentified appearance, and
+  the Codex; never from what it is.
+- A piece's curse comes only from what the screen shows (`cursedKnown`, `visiblyCursed`), with the
+  generator's three in ten for a hidden curse.
+- One Action per wait, always one the screen offers.
+- `brain` opens no file; the Codex and weights arrive from the rig.
+
+**Ask First:** a feature the Observation does not carry (an item's level before it is known, a heap
+under another).
+
+**Never:** equip a piece shown cursed, replace a worn piece shown cursed, or put on a piece whose
+worst case `SafeTest` refuses.
+
+## I/O & Edge-Case Matrix
+
+| Scenario | Input / State | Expected Output / Behavior | Error Handling |
+|----------|--------------|---------------------------|----------------|
+| Strength potion near | heap "potion of strength" two cells away, calm | a Step toward it | N/A |
+| Gold far | heap "gold" across an explored room | not taken | N/A |
+| Standing on a heap | the screen offers PickUp | PickUp | N/A |
+| Enemy in view | any heap | the Policy does not enter | N/A |
+| Better weapon, hidden curse | shortsword in pack, worn shortsword on, strength 12 | EQUIP | N/A |
+| Two points short | the same at strength 10 | nothing | N/A |
+| Unsurvivable worst case | hidden curse, cursed blast ≥ hp | nothing | N/A |
+| Cursed worn | worn piece shown cursed | nothing replaces it | N/A |
+
+</frozen-after-approval>
+
+## Code Map
+
+- `shatterfish/api/.../Codex.java`: `Codex.Gear` (class, name, weapon/armour, tier, strength, mean in
+  thousandths); `Knowledge.gear()`, with a four-argument constructor kept for callers without gear.
+- `shatterfish/rig/.../CodexKnowledge.java`: `gear(folder)` joins `items.json`'s strength with
+  `combat.json`'s level-0 means (a separate method, so story 4.7's additions merge beside it).
+- `shatterfish/brain/.../Pickup.java` and `Equip.java`: the Policies.
+- `shatterfish/brain/.../Evaluation.java`: features `item`, `gold`, `turn`, `weapon`, `armor`,
+  `cursed`, with `identity(className)` for what strength and experience add to the position.
+- `shatterfish/brain/.../SafeTest.java`: `gear(...)` candidates and the cursed weapon's and armour's
+  worst proc.
+- `shatterfish/brain/.../Brain.java`: Policy order answer-prompt, pick-up, equip, explore, fallback.
+- `weights/shatterfish.json`: version 2.
+
+## Tasks & Acceptance
+
+**Execution:**
+- [x] `Codex.Gear`, `CodexKnowledge.gear`, `CodexKnowledgeTest.the_gear`.
+- [x] Evaluation features and the committed weights (version 2).
+- [x] `Pickup`, `PickupThresholdTest`.
+- [x] `Equip`, `SafeTest.gear`, `EquipPolicyTest`.
+- [x] Docs: `docs/rules/identification.md` (one row), `docs/brain-rules.md` (rows 16–19),
+  `docs/architecture.md`, `docs/fairness.md`.
+- [ ] Smoke direction check (the parent runs it).
+
+**Acceptance Criteria:**
+- A potion of strength two cells away is taken; a single gold piece across an explored room is not
+  (`PickupThresholdTest.the_ordering`).
+- It equips a weapon or armour when the Evaluation prefers it, accounting for the strength
+  requirement and the curse risk (`EquipPolicyTest.strength`, `curse_risk`, `armour`).
+- It never equips an item whose worst case under `SafeTest` is unsurvivable
+  (`EquipPolicyTest.safe_test_refuses`).
+- The PR carries a smoke-set direction check.
+
+## Design Notes
+
+Constraints restated: non-negotiable #1 (worth and curse from the screen, the Beliefs and the Codex,
+never the item's truth), #8 (every mechanic cited at `v4.0.0`), and the Evaluation as the one scoring
+function whose weights are data (story 4.5).
+
+**How to value an item. Alternatives:**
+1. A hand table of item values in the Brain. Rejected: it would be a second set of weights outside
+   the weights file, invisible to the configuration hash.
+2. The Codex's `value` (shop gold). Rejected: it is a shop price, `-1` for every potion and scroll in
+   the table (an expression), and says nothing of what an item does for play.
+3. **The Evaluation**: a flat `item` weight per stack carried, `gold` per piece, and what an identity
+   adds to the position's own features (strength +1, a level). Chosen: it is the one scoring
+   function, tunable by the rig, and an unidentified item's worth is the Beliefs' expectation of the
+   same.
+
+**How to value gear. Alternatives:**
+1. The tier alone. Rejected: tiers overlap (a worn shortsword and a dagger are both tier 1 with
+   different rolls).
+2. Recompute damage from the tier formula in the Brain. Rejected: a second implementation of a game
+   rule (#4).
+3. **The combat table's measured level-0 mean** (`combat.json`, `MeleeWeapon.damageRoll` and
+   `Hero.drRoll`), cut by 1.5 per point of strength short. Chosen: measured, cited, already in the
+   Codex.
+
+**Policy order:** answer-prompt, pick-up, equip, explore, fallback. Both new Policies enter only on a
+calm screen, so the fight Policy (story 4.7), which takes the enemy-in-view case, can sit above them
+without their competing.
+
+**Weights (version 2, ten-thousandths, untuned, a starting point for the rig):**
+- `item` 2000: a stack is worth about 13 turns of detour.
+- `gold` 10 a piece.
+- `turn` -150.
+- `weapon` 2 and `armor` 4 per thousandth of mean roll: armour absorbs every hit it is struck with,
+  a weapon rolls once per swing, and absorbed damage is half the typical weapon roll.
+- `cursed` -10000: at three in ten, a hidden curse costs 3000, so a shortsword over a worn
+  shortsword (+6000) is worth the risk, and a sideways swap is not.
+
+**Pre-mortem:**
+- The flat `item` weight values a ration and a scroll of identify alike. Food belongs to the eat
+  Policy (story 4.9); for now any stack is worth the same.
+- A level the screen shows (`+2`) is ignored: gear is valued at level 0. An upgraded piece is
+  undervalued, never overvalued.
+- Two pieces of the same name (an identified sword with an enchantment prefix) do not match the
+  Codex name and are ignored, which is conservative.
+- A heap's title shows only its top item; a heap of several items is valued by that one.
+- `Pickup` computes its own breadth-first distances rather than reusing `Explore`'s private search,
+  so the two Policies do not couple; both use `Explore.walkable`.
+
+## Dev Notes
+
+- Tests: `:api:test`, `:brain:test` (`PickupThresholdTest` 5, `EquipPolicyTest` 5), rig
+  `CodexKnowledgeTest`, `WeightsFileTest`, `BrainRulesIndexTest`, `SafeTestCodexTest`,
+  `ShatterfishRunTest` and `StrategyLogTest` pass.

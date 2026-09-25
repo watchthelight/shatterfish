@@ -60,7 +60,13 @@ final class Screens {
             List.of(new Codex.RoomSpawn("levels.rooms.special.PoolRoom", "items.potions.PotionOfInvisibility",
                     "potion of invisibility")),
             List.of(new Codex.Guarantee("STRENGTH_POTIONS", "items.potions.PotionOfStrength", "potion of strength", 2, 5),
-                    new Codex.Guarantee("UPGRADE_SCROLLS", "items.scrolls.ScrollOfUpgrade", "scroll of upgrade", 3, 5)));
+                    new Codex.Guarantee("UPGRADE_SCROLLS", "items.scrolls.ScrollOfUpgrade", "scroll of upgrade", 3, 5)),
+            // Story 4.8: the level-0 means the committed combat table measured.
+            List.of(new Codex.Gear("items.weapon.melee.WornShortsword", "worn shortsword", ItemKind.WEAPON, 1, 10, 5485),
+                    new Codex.Gear("items.weapon.melee.Shortsword", "shortsword", ItemKind.WEAPON, 2, 12, 8485),
+                    new Codex.Gear("items.weapon.melee.Greataxe", "greataxe", ItemKind.WEAPON, 5, 18, 25035),
+                    new Codex.Gear("items.armor.ClothArmor", "cloth armor", ItemKind.ARMOR, 1, 10, 1004),
+                    new Codex.Gear("items.armor.LeatherArmor", "leather armor", ItemKind.ARMOR, 2, 12, 2013)));
 
     /** The committed weight set's values (weights/shatterfish.json), which WeightsFileTest holds to the file. */
     static final Weights WEIGHTS = weights(Map.of());
@@ -71,7 +77,7 @@ final class Screens {
                 "act_attack", 0L, "act_descend", 0L, "act_rest_hurt", 0L, "act_search", 0L, "act_wait", 0L,
                 "depth", 10000L, "enemies", -3000L, "hp", 10L, "hunger", -5000L, "level", 5000L));
         terms.put("strength", 2000L);
-        terms.putAll(Map.of("item", 500L, "gold", 10L, "turn", -150L, "weapon", 1L, "armor", 1L, "cursed", -20000L));
+        terms.putAll(Map.of("item", 2000L, "gold", 10L, "turn", -150L, "weapon", 2L, "armor", 4L, "cursed", -10000L));
         terms.putAll(changed);
         return new Weights("shatterfish", 2,
                 terms.entrySet().stream().map(term -> new Weights.Term(term.getKey(), term.getValue())).toList());
@@ -147,6 +153,30 @@ final class Screens {
                              List<ItemView> items, List<KnownAppearance> known) {
         return world(depth, PromptKind.NONE, PromptSection.NONE, 1, 1, Hunger.NONE, tiles.size(), tiles, heaps, actors,
                 items, known);
+    }
+
+    /**
+     * A one-row floor of {@code tiles}, all in view, with this hero (on its own cell), these heaps
+     * and this backpack, offering {@code actions} (story 4.8).
+     */
+    static Observation floor(int depth, HeroSection hero, List<Tile> tiles, List<HeapView> heaps, List<ItemView> items,
+                             Action... actions) {
+        return world(depth, PromptKind.NONE, PromptSection.NONE, hero, tiles.size(), tiles, heaps, List.of(), items,
+                List.of(), actions);
+    }
+
+    /** A hero standing on {@code cell}, at full health, of this strength. */
+    static HeroSection heroAt(int cell, int strength) {
+        return new HeroSection(cell, "", HeroSubclass.NONE, "", 1, 0, 1, 20, 20, 0, strength, 0, 0, 0,
+                Hunger.NONE, List.of(), List.of(), List.of(0, 0, 0, 0),
+                Collections.nCopies(HeroSection.QUICKSLOTS, new QuickslotView("", false)));
+    }
+
+    /** A weapon or armour in the pack or worn, its curse shown or not. */
+    static ItemView gear(ItemKind kind, String name, org.shatterfish.api.EquipSlot slot, boolean cursedKnown,
+                         boolean cursed) {
+        return new ItemView(kind, name, 1, false, 0, cursedKnown, cursed, "", slot,
+                List.of(slot == org.shatterfish.api.EquipSlot.NONE ? "EQUIP" : "UNEQUIP"), "");
     }
 
     /** As {@link #world}, on a floor {@code width} cells wide, with nobody on it and nothing held. */

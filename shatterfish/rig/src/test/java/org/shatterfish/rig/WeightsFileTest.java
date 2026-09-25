@@ -92,7 +92,7 @@ class WeightsFileTest {
                 () -> Runner.weighed(root, List.of(Brains.RANDOM, Brains.SHATTERFISH)), "no file is no Run");
         Files.createDirectories(root.resolve(WeightsFile.FOLDER));
         Files.writeString(WeightsFile.of(root, Brains.SHATTERFISH),
-                committed().canonical().replace("\"version\":1", "\"version\":0"));
+                committed().canonical().replace("\"version\":2", "\"version\":0"));
         assertThrows(IllegalArgumentException.class,
                 () -> Runner.weighed(root, List.of(Brains.SHATTERFISH, Brains.RANDOM)), "a bad file is no Run");
         Runner.weighed(root, List.of(Brains.RANDOM, Brains.NO_REST));

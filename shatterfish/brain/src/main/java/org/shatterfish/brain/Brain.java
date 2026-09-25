@@ -42,9 +42,10 @@ public final class Brain {
     private final long seed;
     private final List<Policy> policies;
 
-    /** The Policies, highest priority first, scoring by {@code evaluation}. */
-    private static List<Policy> policies(Evaluation evaluation) {
-        return List.of(Policies.ANSWER_PROMPT, new Explore(), Policies.fallback(evaluation));
+    /** The Policies, highest priority first, scoring by {@code evaluation} over {@code knowledge}. */
+    private static List<Policy> policies(Evaluation evaluation, Codex.Knowledge knowledge) {
+        return List.of(Policies.ANSWER_PROMPT, new Pickup(evaluation, knowledge), new Equip(evaluation, knowledge),
+                new Explore(), Policies.fallback(evaluation));
     }
 
     /**
@@ -53,7 +54,7 @@ public final class Brain {
      * rig hashes it into the log header, so two weight sets are two configurations.
      */
     public static String configuration(Weights weights) {
-        return "policies=" + String.join(",", policies(new Evaluation(weights)).stream().map(Policy::name).toList())
+        return "policies=" + String.join(",", policies(new Evaluation(weights), Codex.Knowledge.of(new Codex.Manifest(Codex.VERSION, "v0", List.of()))).stream().map(Policy::name).toList())
                 + ";memory=" + Memory.VERSION + ";weights=" + weights.canonical();
     }
 
@@ -69,7 +70,7 @@ public final class Brain {
         this.knowledge = knowledge;
         this.evaluation = new Evaluation(weights);
         this.seed = seed;
-        this.policies = policies(evaluation);
+        this.policies = policies(evaluation, knowledge);
     }
 
     /** The weights this Brain scores by. */
@@ -102,7 +103,7 @@ public final class Brain {
 
     /** The names of the Policies every Brain arbitrates, highest priority first. */
     public static List<String> policyNames() {
-        return List.of(Policies.ANSWER_PROMPT.name(), Explore.NAME, Policies.FALLBACK);
+        return List.of(Policies.ANSWER_PROMPT.name(), Pickup.NAME, Equip.NAME, Explore.NAME, Policies.FALLBACK);
     }
 
     /** The Policies, highest priority first, by name. */
