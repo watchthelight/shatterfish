@@ -54,9 +54,22 @@ final class Evaluation {
     /** 1 when the Action waits. */
     static final String WAIT = "act_wait";
 
+    /** What any item carried is worth, per stack (story 4.8). */
+    static final String ITEM = "item";
+    /** What a gold piece is worth. */
+    static final String GOLD = "gold";
+    /** What a turn spent costs: getting to an item, taking it, putting it on. */
+    static final String TURN = "turn";
+    /** A melee weapon's mean damage, in thousandths. */
+    static final String WEAPON = "weapon";
+    /** A suit of armour's mean damage absorbed, in thousandths. */
+    static final String ARMOR = "armor";
+    /** A cursed piece of gear worn, which the hero cannot take off (EquipableItem.java:126-129). */
+    static final String CURSED = "cursed";
+
     /** Every feature, sorted, as a weight set must state them. */
     static final List<String> FEATURES = List.of(REST_HURT, ATTACK, DESCEND, SEARCH, WAIT, DEPTH, ENEMIES,
-            HP, HUNGER, LEVEL, STRENGTH).stream().sorted().toList();
+            HP, HUNGER, LEVEL, STRENGTH, ITEM, GOLD, TURN, WEAPON, ARMOR, CURSED).stream().sorted().toList();
 
     private final Weights weights;
 
@@ -104,6 +117,46 @@ final class Evaluation {
 
     private long term(String feature, long value) {
         return Math.multiplyExact(weights.weight(feature), value);
+    }
+
+    /** What {@code stacks} more items carried are worth (story 4.8). */
+    long carried(int stacks) {
+        return term(ITEM, stacks);
+    }
+
+    /** What {@code pieces} more gold are worth. */
+    long gold(int pieces) {
+        return term(GOLD, pieces);
+    }
+
+    /** What {@code turns} turns spent cost: a negative worth under a sensible weight set. */
+    long turns(int turns) {
+        return term(TURN, turns);
+    }
+
+    /** What a piece of gear with this mean roll is worth worn, a weapon or armour. */
+    long gear(org.shatterfish.api.ItemKind kind, long meanPerMille) {
+        return term(kind == org.shatterfish.api.ItemKind.WEAPON ? WEAPON : ARMOR, meanPerMille);
+    }
+
+    /** What wearing a cursed piece costs, beyond what it rolls. */
+    long cursed() {
+        return term(CURSED, 1);
+    }
+
+    /**
+     * What an identity adds to the position when used, for the identities whose effect is one of
+     * the position's own features: a potion of strength raises strength by one
+     * (PotionOfStrength.java:46), a potion of experience gives a level's worth of experience
+     * (PotionOfExperience.java:44). Every other identity adds nothing here; what it is worth carried
+     * is {@link #carried}'s.
+     */
+    long identity(String className) {
+        return switch (className) {
+            case "items.potions.PotionOfStrength" -> term(STRENGTH, 1);
+            case "items.potions.PotionOfExperience" -> term(LEVEL, 1);
+            default -> 0;
+        };
     }
 
     /** The score of taking {@code action} from this screen: the position's, plus the Action's own. */

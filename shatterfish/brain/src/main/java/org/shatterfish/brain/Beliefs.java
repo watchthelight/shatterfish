@@ -66,6 +66,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
     static final String WAIT = "Wait";
     static final String ASCEND = "Ascend";
     static final String DESCEND = "Descend";
+    static final String PICK_UP = "PickUp";
 
     /** The kind of an Action as the Memory keeps it: its record's name. */
     static String kind(org.shatterfish.api.Action action) {
@@ -192,21 +193,57 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
             }
         }
         List<Memory.Avoid> avoid = memory.avoid().stream().filter(region -> region.until() >= waits).toList();
+        // The plain heap underfoot, and whether it is one the game would not let the hero take
+        // (story 4.8): the pick-up Policy's target on the last screen was this heap, that screen was
+        // calm, the hero stands on it still, it shows the same title, and the pack is unchanged. A
+        // heap of several like items shows the next one's title after a pick-up, but the pack grows;
+        // a heap the Policy was not going for was not tried.
+        String underfoot = "";
+        for (HeapView heap : observation.map().heaps()) {
+            if (heap.cell() == here.cell() && heap.kind() == HeapKind.HEAP) {
+                underfoot = heap.item();
+            }
+        }
+        List<Memory.Refused> refused = memory.refused();
+        Memory.Refused refusal = new Memory.Refused(depth, branch, here.cell(), underfoot);
+        Memory.Pack pack = pack(observation);
+        // And the Brain handed over the pick-up: a turn a human spent otherwise refuses nothing.
+        if (still && memory.calm() && memory.last().equals(PICK_UP) && !underfoot.isEmpty()
+                && underfoot.equals(memory.underfoot()) && memory.aim().target() == here.cell()
+                && pack.equals(memory.pack()) && !refused.contains(refusal)) {
+            refused = new ArrayList<>(refused);
+            refused.add(refusal);
+            if (refused.size() > Memory.DWELT) {
+                refused.remove(0);
+            }
+        }
         Memory after = new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
                 sightings(memory.monsters(), observation, waits), here, streak, calm, dwelt, memory.blocked(),
-                memory.last(), holds, near, before, flights, avoid);
-        // Two Steps refused in a row: explore yields this wait, and the cell its Step points at on this
-        // screen is blocked on this floor.
+                memory.last(), holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE);
+        // Two Steps refused in a row: the stepping Policy yields this wait, and the cell its Step
+        // points at is blocked on this floor. On a calm screen the pick-up Policy stands above
+        // explore, so when its plan on the last screen was a Step, that was the Step refused, and its
+        // cell is the one blocked (story 4.8); otherwise explore's Step on this screen.
         if (streak == Explore.STUCK - 1 && calm) {
-            Integer cell = Explore.stepCell(observation, after);
+            Integer cell = memory.aim().step() >= 0 ? Integer.valueOf(memory.aim().step())
+                    : Explore.stepCell(observation, after);
             if (cell != null) {
                 after = new Memory(after.waits(), after.deepest(), facts, found, held, known, labels, pending,
                         after.monsters(), here, streak, calm, dwelt,
                         Memory.with(after.blocked(), new Memory.Spot(depth, branch, cell)), after.last(), holds, near,
-                        before, flights, avoid);
+                        before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE);
             }
         }
         return after;
+    }
+
+    /** The pack as far as a pick-up changes it (story 4.8). */
+    static Memory.Pack pack(Observation observation) {
+        int quantity = 0;
+        for (org.shatterfish.api.ItemView item : observation.inventory().items()) {
+            quantity += item.quantity();
+        }
+        return new Memory.Pack(observation.inventory().items().size(), quantity, observation.hero().gold());
     }
 
     /** What the Brain believes, given the memory after {@link #fold} and the same observation. */

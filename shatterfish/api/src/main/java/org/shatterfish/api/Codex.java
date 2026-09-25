@@ -1496,15 +1496,24 @@ public final class Codex {
     /**
      * A weapon's damage roll, or an armour's damage-reduction roll, at an upgrade level, as the Codex
      * measured it (story 4.7): the least and the most it rolled and its mean in thousandths, by the
-     * item's display name.
+     * item's display name; and the item's tier and the strength it asks at level 0, from the item
+     * table (story 4.8), both 0 when the table states no strength (a thrown weapon, a quest item).
+     * Whether it is a weapon or armour is the list it is in ({@link Knowledge#weapons},
+     * {@link Knowledge#armours}).
      */
-    public record Gear(String name, int level, int min, int max, int meanPerMille) {
+    public record Gear(String name, int level, int min, int max, int meanPerMille, int tier, int strength) {
 
         public Gear {
             name = Canon.text(name, "gear name");
             Canon.require(!name.isEmpty(), "gear is named");
             Canon.require(level >= 0 && min >= 0 && min <= max && meanPerMille >= 0,
                     "a level, a range and a mean: " + name);
+            Canon.require(tier >= 0 && tier <= 5 && strength >= 0, "a tier of 0 to 5 and a strength: " + name);
+        }
+
+        /** A roll without the item table's tier and strength (story 4.7's shape). */
+        public Gear(String name, int level, int min, int max, int meanPerMille) {
+            this(name, level, min, max, meanPerMille, 0, 0);
         }
     }
 

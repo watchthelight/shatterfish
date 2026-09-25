@@ -34,6 +34,17 @@ final class Policies {
      */
     private static final List<String> DECLINING = List.of("no", "cancel", "never mind", "not now");
 
+    /**
+     * The Prompts, by title, whose "yes" is what leaves the Run as it was (story 4.8). The Warrior
+     * putting on new armour is asked whether to move the broken seal from the armour coming off
+     * (Armor.java:261-283, titled with the seal's name, items.properties:2392); "no" leaves the seal
+     * on the armour in the pack, where it does nothing for him (items.properties:96).
+     */
+    private static final List<String> AFFIRMED = List.of("broken seal");
+
+    /** The answer that affirms such a Prompt. */
+    private static final String YES = "yes";
+
     /** Whether a button label declines. Case-blind without a Locale, which the Brain may not read. */
     private static boolean declines(String label) {
         String stripped = label.strip();
@@ -80,6 +91,15 @@ final class Policies {
         @Override
         public List<RunLog.Choice> ranked(Observation observation, Memory memory, List<Action> offered, Stream stream) {
             List<String> labels = observation.prompt().options();
+            String title = observation.prompt().title().strip();
+            List<RunLog.Choice> ranked = new ArrayList<>();
+            if (AFFIRMED.stream().anyMatch(title::equalsIgnoreCase)) {
+                for (Action action : offered) {
+                    if (action instanceof Action.AnswerPrompt answer && YES.equalsIgnoreCase(label(labels, answer))) {
+                        ranked.add(new RunLog.Choice(answer, CERTAIN, "affirm: " + label(labels, answer)));
+                    }
+                }
+            }
             List<Action.AnswerPrompt> declining = new ArrayList<>();
             List<Action.AnswerPrompt> answers = new ArrayList<>();
             Action dismiss = null;
@@ -92,13 +112,16 @@ final class Policies {
             }
             declining.sort(Comparator.comparingInt(Action.AnswerPrompt::option));
             answers.sort(Comparator.comparingInt(Action.AnswerPrompt::option));
-            List<RunLog.Choice> ranked = new ArrayList<>();
+            boolean affirmed = !ranked.isEmpty();
             for (Action.AnswerPrompt answer : declining) {
                 ranked.add(new RunLog.Choice(answer, ranked.isEmpty() ? CERTAIN : 0,
                         "decline: " + label(labels, answer)));
             }
             for (Action.AnswerPrompt answer : answers) {
                 String label = label(labels, answer);
+                if (affirmed && YES.equalsIgnoreCase(label)) {
+                    continue;
+                }
                 ranked.add(new RunLog.Choice(answer, ranked.isEmpty() ? CERTAIN : 0,
                         "answer: " + (label.isEmpty() ? Integer.toString(answer.option()) : label)));
             }
