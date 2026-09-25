@@ -297,6 +297,10 @@ Three low-severity findings, each fixed and tested:
 3. **A piece with a shown negative level was valued at +0.** Equip now skips a candidate whose level
    is known and below zero (`EquipPolicyTest.negative_level`).
 
+Tests pass: `:brain:test`, and in the rig `ShatterfishRunTest`, `StrategyLogTest` and
+`BrainRulesIndexTest`. The battery on these lines killed 5 of 5 mutants: the last kind ignored, the
+passive turn ignored, a passive enemy never seen, a negative level kept, and a level of zero skipped.
+
 ## Dev Notes
 
 - Tests: `:api:test`, `:brain:test` (`PickupThresholdTest` 5, `EquipPolicyTest` 5), rig
