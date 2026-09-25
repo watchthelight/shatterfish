@@ -44,7 +44,8 @@ public final class Brain {
 
     /** The Policies, highest priority first, fighting by {@code knowledge} and scoring by {@code evaluation}. */
     private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation) {
-        return List.of(Policies.ANSWER_PROMPT, new Fight(knowledge), new Explore(), Policies.fallback(evaluation));
+        return List.of(Policies.ANSWER_PROMPT, new Heal(knowledge), new Fight(knowledge), new Eat(), new Explore(),
+                Policies.fallback(evaluation));
     }
 
     /**
@@ -112,9 +113,19 @@ public final class Brain {
         return Fight.MAGES_STAFF;
     }
 
+    /** The foods the eat Policy knows, by the name the inventory shows, and their energy (story 4.9). */
+    public static java.util.Map<String, Integer> foods() {
+        return Eat.ENERGY;
+    }
+
+    /** The foods the Codex names that the eat Policy never eats (story 4.9). */
+    public static java.util.Set<String> uneaten() {
+        return Eat.UNEATEN;
+    }
+
     /** The names of the Policies every Brain arbitrates, highest priority first. */
     public static List<String> policyNames() {
-        return List.of(Policies.ANSWER_PROMPT.name(), Fight.NAME, Explore.NAME, Policies.FALLBACK);
+        return List.of(Policies.ANSWER_PROMPT.name(), Heal.NAME, Fight.NAME, Eat.NAME, Explore.NAME, Policies.FALLBACK);
     }
 
     /** The Policies, highest priority first, by name. */
@@ -126,16 +137,21 @@ public final class Brain {
     static final int AVOID_WAITS = 100;
 
     /**
-     * The Belief after this Brain hands over {@code decided} on {@code observation} (story 4.7): the
+     * The Belief after this Brain hands over {@code decided} on {@code observation} (stories 4.7, 4.9): the
      * kind of the Action, which the next {@link #update} reads to know what a still hero means, and,
      * when the fight Policy retreated, the region around the nearest enemy, which the explore Policy
      * keeps out of for {@link #AVOID_WAITS} waits so it does not walk straight back into view. The
-     * region reaches one past where the enemy was seen from. Nothing here assumes the Action is
-     * applied.
+     * region reaches one past where the enemy was seen from; and, when the heal Policy handed over a
+     * drink, the wait it did. Nothing here assumes the Action is applied.
      */
     public Belief handed(Observation observation, Belief belief, Decided decided) {
         Memory memory = Memory.of(belief).handed(Beliefs.kind(decided.action()));
         RunLog.Decision decision = decided.decision();
+        // A drink the heal Policy handed over (story 4.9): the heal lands over the next turns and the
+        // screen draws nothing for it, so the heal Policy counts the waits since.
+        if (decision != null && Heal.NAME.equals(decision.policy())) {
+            memory = memory.drinking();
+        }
         if (decision != null && Fight.NAME.equals(decision.policy())
                 && decision.chosen().why().startsWith("retreat ")) {
             java.util.List<org.shatterfish.api.ActorView> enemies = Fight.enemies(observation);

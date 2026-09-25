@@ -48,9 +48,16 @@ behaviour to re-check.
 | 27 | A weapon or armour shows its enchantment or glyph around its own name, and a mage's staff the name of its wand, which is how the threat estimate finds what the hero wears. | `fight` (threat estimate) | [combat: "A weapon's shown name wraps"](rules/combat.md) |
 | 28 | Depth 1's up stairs are the surface, which a hero without the Amulet cannot leave by, so the fight Policy retreats only by the regular stairs. | `fight` (retreat) | [levels: "Depth 1's entrance is a `SURFACE` transition"](rules/levels.md) |
 | 29 | Regeneration heals only while the hero is not starving, so the rest before going back down a fled floor is skipped while hungry or starving, and capped. | `explore` (rest) | [buffs: "Regeneration heals 1 HP every 10 turns"](rules/buffs.md) |
+| 30 | The hunger icon shows hungry from 300 and starving at 450, where the value stops, and eating never takes the value below 0; so a food of at most 300 energy is taken whole at the hungry icon and one of at most 450 at the starving icon, and at no icon any food could be partly lost. | `eat` | [buffs: "Hunger rises by"](rules/buffs.md) |
+| 31 | The hunger value itself is never shown, only the icon's three states, so the eat Policy reasons from the icon. | `eat` | [buffs: "The exact hunger value is never shown"](rules/buffs.md) |
+| 32 | Each food restores a fixed energy, which the eat Policy's table holds by the food's shown name, and eating takes three turns, which an enemy in view would spend hitting the hero; so the Policy eats only on a calm screen. | `eat` | [buffs: "Eating takes"](rules/buffs.md) |
+| 33 | A raw blandfruit refuses to be eaten and spends no time, and mystery meat may burn, root, poison or slow the hero; so the eat Policy never eats a blandfruit, and eats mystery meat last and only while starving. | `eat` | [buffs: "Mystery meat, once eaten"](rules/buffs.md) |
+| 34 | A potion of healing heals `(int)(0.8 * HT + 14)`, a quarter of what is left each turn after a one-turn drink; its buff draws no icon, and a second heal adds only what exceeds the first's remainder. So the heal Policy drinks only when the hero is missing at least the first turn's heal, and not again for five waits. | `heal` | [buffs: "A potion of healing, drunk"](rules/buffs.md) |
+| 35 | The heal Policy's threshold is the fight Policy's threat estimate -- the hit chance, damage less damage reduction and the Codex's figures (rows 18 to 23, 26) -- over the turns the fight is expected to last. | `heal` (threshold) | [combat: "`Char.hit`:"](rules/combat.md) |
 
 The `fallback` Policy relies on no mechanic. It chooses uniformly among the Actions the Observation
-offers, and the offered set is `ValidActions`' to get right (story 1.12), not the Brain's.
+offers, less eating, which is the `eat` Policy's alone (story 4.9); the offered set is `ValidActions`'
+to get right (story 1.12), not the Brain's.
 
 Rows resting on a needs-review Rule: 3.
 

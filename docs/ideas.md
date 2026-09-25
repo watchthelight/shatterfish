@@ -154,3 +154,22 @@ it re-reads ADR-0006's Blobs row.
 - **The guaranteed identities' prior.** Strength and upgrade are weighted as the heaviest identity in their
   family's deck, an assumption. The rig can measure the real share of unidentified finds per identity from
   oracle-mode logs, which carry the true identity as a training label.
+
+## From story 4.9 (eat and heal)
+
+- **A Codex food table.** The eat Policy's food energies are a hand-written table in `Eat`, cited line
+  by line and held to the Codex's item names by `FoodCodexTest`. The Codex generator could extract
+  each food class's `energy` initialiser the way it extracts combat figures, and hand it to the Brain
+  through `Codex.Knowledge`, so an upgrade that changes an energy fails the Codex drift check rather
+  than a re-read.
+- **Healing by deduction.** A potion counts as a potion of healing only when the screen shows it
+  identified. When `Beliefs` puts an appearance's odds of healing at one (every other identity
+  accounted for), a player would drink it with the same confidence; story 4.10, which tests unknown
+  items, is where that belongs.
+- **Healing out of combat.** The heal Policy drinks only against enemies in view. A hero poisoned or
+  bleeding for more than its hit points, with nothing in view, dies with the potion in the pack; the
+  potion cures both (PotionOfHealing.java:76-86). Measuring the poison left from the buff's shown turns
+  would give a threshold for that case.
+- **Cooking.** Mystery meat is eaten last because of its side effects; frozen carpaccio and chargrilled
+  meat have none. Cooking it (fire, frost, the alchemy pot) and brewing blandfruit are left to a later
+  story, and the table lists blandfruit as never eaten until then.

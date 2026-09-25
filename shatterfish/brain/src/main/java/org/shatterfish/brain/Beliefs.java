@@ -194,7 +194,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         List<Memory.Avoid> avoid = memory.avoid().stream().filter(region -> region.until() >= waits).toList();
         Memory after = new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
                 sightings(memory.monsters(), observation, waits), here, streak, calm, dwelt, memory.blocked(),
-                memory.last(), holds, near, before, flights, avoid);
+                memory.last(), holds, near, before, flights, avoid, memory.drank());
         // Two Steps refused in a row: explore yields this wait, and the cell its Step points at on this
         // screen is blocked on this floor.
         if (streak == Explore.STUCK - 1 && calm) {
@@ -203,7 +203,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 after = new Memory(after.waits(), after.deepest(), facts, found, held, known, labels, pending,
                         after.monsters(), here, streak, calm, dwelt,
                         Memory.with(after.blocked(), new Memory.Spot(depth, branch, cell)), after.last(), holds, near,
-                        before, flights, avoid);
+                        before, flights, avoid, memory.drank());
             }
         }
         return after;
