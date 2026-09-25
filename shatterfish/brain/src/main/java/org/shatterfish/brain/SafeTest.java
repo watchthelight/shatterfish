@@ -70,6 +70,21 @@ public final class SafeTest {
      */
     public static final String WAND = "wand";
 
+    /** A weapon or armour worn uncursed: harmless to put on. */
+    public static final String GEAR = "gear";
+
+    /** A melee weapon worn cursed; not a Codex class, a stand-in (story 4.8). */
+    public static final String CURSED_WEAPON = "weapon (cursed)";
+
+    /** A suit of armour worn cursed; not a Codex class, a stand-in (story 4.8). */
+    public static final String CURSED_ARMOR = "armor (cursed)";
+
+    /**
+     * A weapon's or armour's chance to be cursed when generated: 30% each
+     * (Weapon.java:439-445, Armor.java:671-677), for the mean only.
+     */
+    static final double GEAR_CURSE_CHANCE = 0.3;
+
     /** The Codex item classes the table scores; every other class is harmless to try. */
     public static final List<String> CLASSES = List.of("items.potions.PotionOfLiquidFlame",
             "items.potions.PotionOfToxicGas", "items.potions.PotionOfParalyticGas", "items.potions.PotionOfFrost",
@@ -121,6 +136,23 @@ public final class SafeTest {
         }
         return List.of(new Candidate(WAND, name, 1 - WAND_CURSE_CHANCE),
                 new Candidate(CURSED_WAND, name, WAND_CURSE_CHANCE));
+    }
+
+    /**
+     * The candidates for putting on a weapon or armour (story 4.8). Its kind is shown; whether it is
+     * cursed is not, until it is worn: equipping reveals the curse and keeps the piece on
+     * (KindOfWeapon.java:130-139, Armor.java:248-254, EquipableItem.java:126-129). A piece whose
+     * curse is shown has one candidate; one whose curse is hidden has two, cursed with the
+     * generator's chance.
+     */
+    public static List<Candidate> gear(String name, org.shatterfish.api.ItemKind kind, boolean curseKnown,
+                                       boolean visiblyCursed) {
+        String cursed = kind == org.shatterfish.api.ItemKind.WEAPON ? CURSED_WEAPON : CURSED_ARMOR;
+        if (curseKnown) {
+            return List.of(new Candidate(visiblyCursed ? cursed : GEAR, name, 1));
+        }
+        return List.of(new Candidate(GEAR, name, 1 - GEAR_CURSE_CHANCE),
+                new Candidate(cursed, name, GEAR_CURSE_CHANCE));
     }
 
     /**
@@ -218,6 +250,13 @@ public final class SafeTest {
      *       transfer that costs the user 2 x depth half the time (CursedWand.java:477-492). It
      *       disables: paralytic gas and the bolt's stun. The rare and very rare effects are not
      *       modelled.
+     *   <li>A cursed weapon or armour carries a curse that acts while the hero fights (story 4.8);
+     *       the worst that can land on the wearer at one proc is scored. A weapon's Explosive curse
+     *       blows up a conjured bomb on the cell beside its target nearest the wielder
+     *       (Explosive.java:71-85), the blast above; the other weapon curses cost less. Armour's
+     *       Anti-Entropy sets the wearer burning for four turns off water (AntiEntropy.java:44-52),
+     *       and Stench seeds 250 units of toxic gas on the wearer's cell (Stench.java:39-42); the
+     *       worse of the two is scored.
      * </ul>
      *
      * <p>{@link Tile#WATER} is what the screen draws as water, which includes one decoration the
@@ -249,6 +288,10 @@ public final class SafeTest {
                         Math.max(10 + depth / 4, Math.max(12 + 3 * depth, 2 * depth)));
                 return new Harm(name + " (cursed)", damage, true, false, "cursed zap: fire, gas, bolt or blast");
             }
+            case CURSED_WEAPON:
+                return new Harm(name + " (cursed)", 12 + 3 * depth, false, false, "cursed: explosive blast");
+            case CURSED_ARMOR:
+                return new Harm(name + " (cursed)", Math.max(4 * burn, gas), false, false, "cursed: burning or gas");
             default:
                 return Harm.none(name);
         }

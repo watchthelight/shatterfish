@@ -124,7 +124,50 @@ public final class CodexKnowledge {
                         + " for an item it names; a Brain built on it would count nothing owed");
             }
         }
-        return new Codex.Knowledge(manifest, families, spawns, drops);
+        return new Codex.Knowledge(manifest, families, spawns, drops, gear(folder));
+    }
+
+    /**
+     * The melee weapons and armour a Brain weighs (story 4.8): each item of a melee weapon tier or
+     * of armour that states its strength, with the mean of its level-0 roll from the combat table --
+     * damage for a weapon ({@code MeleeWeapon.damageRoll}), damage absorbed for armour
+     * ({@code Hero.drRoll}). A piece the combat table did not measure, or a name another piece
+     * already wears, is left out.
+     */
+    static List<Codex.Gear> gear(Path folder) {
+        Map<String, Integer> means = new HashMap<>();
+        Map<String, String> combat = Json.object(table(folder, "combat.json"));
+        for (String list : List.of("weapons", "armours")) {
+            for (String raw : Json.array(Json.required(combat, list, "combat"))) {
+                Map<String, String> roll = Json.object(raw);
+                if (Json.integer(Json.required(roll, "level", "roll")) == 0) {
+                    Map<String, String> spread = Json.object(Json.required(roll, "spread", "roll"));
+                    means.put(Json.string(Json.required(roll, "className", "roll")),
+                            Json.integer(Json.required(spread, "meanPerMille", "spread")));
+                }
+            }
+        }
+        List<Codex.Gear> gear = new ArrayList<>();
+        java.util.Set<String> names = new java.util.HashSet<>();
+        for (String raw : Json.array(table(folder, "items.json"))) {
+            Map<String, String> item = Json.object(raw);
+            String category = Json.string(Json.required(item, "category", "item"));
+            ItemKind kind = category.equals("ARMOR") ? ItemKind.ARMOR
+                    : category.startsWith("WEP_T") ? ItemKind.WEAPON : null;
+            if (kind == null) {
+                continue;
+            }
+            Map<String, String> strength = Json.object(Json.required(item, "strength", "item"));
+            String className = Json.string(Json.required(item, "className", "item"));
+            String name = Json.string(Json.required(item, "name", "item"));
+            if (!Json.bool(Json.required(strength, "present", "strength")) || !means.containsKey(className)
+                    || !names.add(name)) {
+                continue;
+            }
+            gear.add(new Codex.Gear(className, name, kind, Json.integer(Json.required(strength, "tier", "strength")),
+                    Json.integer(Json.required(strength, "atLevel0", "strength")), means.get(className)));
+        }
+        return gear;
     }
 
     private static String named(Map<String, String> names, String className) {

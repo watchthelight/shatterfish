@@ -1416,22 +1416,51 @@ public final class Codex {
      * families, the items special rooms place, and the guaranteed drops. The caller reads it from
      * the committed Codex folder; a Brain cannot open a file. Nothing in it is about a Run.
      */
-    public record Knowledge(Manifest manifest, List<Identities> families, List<RoomSpawn> rooms, List<Guarantee> guarantees) {
+    public record Knowledge(Manifest manifest, List<Identities> families, List<RoomSpawn> rooms, List<Guarantee> guarantees,
+                            List<Gear> gear) {
 
         public Knowledge {
             Canon.require(manifest != null, "knowledge says which Codex it came from");
             families = Canon.positional(families, "families");
             rooms = Canon.positional(rooms, "rooms");
             guarantees = Canon.positional(guarantees, "guarantees");
+            gear = Canon.positional(gear, "gear");
             Set<ItemKind> kinds = new HashSet<>();
             for (Identities family : families) {
                 distinct(kinds, family.kind(), "a family's kind");
             }
+            Set<String> names = new HashSet<>();
+            for (Gear piece : gear) {
+                distinct(names, piece.name(), "a piece of gear's name");
+            }
+        }
+
+        /** Knowledge without gear: what a Brain was built on before story 4.8. */
+        public Knowledge(Manifest manifest, List<Identities> families, List<RoomSpawn> rooms, List<Guarantee> guarantees) {
+            this(manifest, families, rooms, guarantees, List.of());
         }
 
         /** Knowledge with nothing in it but the manifest: a Brain that knows no mechanics. */
         public static Knowledge of(Manifest manifest) {
-            return new Knowledge(manifest, List.of(), List.of(), List.of());
+            return new Knowledge(manifest, List.of(), List.of(), List.of(), List.of());
+        }
+    }
+
+    /**
+     * A melee weapon or a suit of armour, as a Brain weighs one (story 4.8): its class and display
+     * name, whether it is a weapon or armour, its tier, the strength it asks at level 0, and its mean
+     * damage (a weapon) or mean damage absorbed (armour) at level 0, in thousandths, as the combat
+     * table measured it.
+     */
+    public record Gear(String className, String name, ItemKind kind, int tier, int strength, int meanPerMille) {
+
+        public Gear {
+            className = Canon.text(className, "gear class");
+            name = Canon.text(name, "gear name");
+            Canon.require(!className.isEmpty() && !name.isEmpty(), "a piece of gear is named");
+            Canon.require(kind == ItemKind.WEAPON || kind == ItemKind.ARMOR, "gear is a weapon or armour: " + kind);
+            Canon.require(tier >= 1 && tier <= 5, "a tier is 1 to 5: " + tier);
+            Canon.require(strength >= 0 && meanPerMille >= 0, "a strength and a mean are not negative");
         }
     }
 
