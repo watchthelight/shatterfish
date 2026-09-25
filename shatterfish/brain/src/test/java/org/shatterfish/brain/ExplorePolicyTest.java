@@ -175,13 +175,13 @@ class ExplorePolicyTest {
     }
 
     @Test
-    @DisplayName("an enemy in view leaves the wait to the Policies below it")
+    @DisplayName("an enemy in view leaves the wait to the fight Policy")
     void yields_to_an_enemy() {
         Observation rat = screen(1,
                 "#########",
                 "#@...r  #",
                 "#########");
-        assertEquals(Policies.FALLBACK, after(rat).decision().policy());
+        assertEquals(Fight.NAME, after(rat).decision().policy());
     }
 
     @Test

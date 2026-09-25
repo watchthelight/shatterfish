@@ -51,6 +51,18 @@ class CodexKnowledgeTest {
     }
 
     @Test
+    @DisplayName("the combat tables: enemies by the name the screen shows, weapons and armour by theirs")
+    void combat() {
+        Codex.Knowledge knowledge = read();
+        assertEquals(new Codex.Threat("marsupial rat", 8, 8, 2, 1, 4, 0, 1), knowledge.threat("marsupial rat"),
+                "the rat's figures (Rat.java: HT 8, attackSkill 8, defenseSkill 2, damage 1-4, armour 0-1)");
+        assertTrue(knowledge.threats().size() > 40, "most enemies have fixed figures: " + knowledge.threats().size());
+        assertEquals(null, knowledge.threat("golden bee"), "a bee's figures depend on the Run and are not listed");
+        assertTrue(knowledge.weapons().contains(new Codex.Gear("worn shortsword", 0, 5485)), "the Warrior's sword, measured");
+        assertTrue(knowledge.armours().contains(new Codex.Gear("cloth armor", 0, 1004)), "cloth armour, measured");
+    }
+
+    @Test
     @DisplayName("a Codex for another tag is refused before a table is read")
     void refused() {
         String tag = HeadlessBoot.pinnedTag();

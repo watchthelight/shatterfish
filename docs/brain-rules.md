@@ -31,6 +31,15 @@ behaviour to re-check.
 | 10 | A search reaches the cells beside the hero (two away for the Rogue) and costs two turns, so the explore Policy searches from cells beside a wall. | `explore` (searching) | [game-loop: "Intentional search costs"](rules/game-loop.md) |
 | 11 | Doors may be hidden from depth 2, which is why a floor with no frontier left is searched before it is given up. | `explore` (searching) | [levels: "Hidden doors: on depth > 1"](rules/levels.md) |
 | 12 | A hidden door is drawn as a wall until it is found, so a search spot is a cell beside a wall. | `explore` (searching) | [visibility: "Before discovery a SECRET_DOOR is drawn with the WALL visual"](rules/visibility.md) |
+| 13 | Adjacent means Chebyshev distance 1, so any of a cell's eight neighbours is next to it, walls or no walls; how many enemies can engage a cell is how many of its neighbours an enemy can stand on. | `fight` | [combat: "`distance` is Chebyshev"](rules/combat.md) |
+| 14 | A hunting mob attacks when it can attack its enemy, which is when it is adjacent, so an enemy beside the hero is one that is fighting it. | `fight` | [combat: "A hunting mob attacks when"](rules/combat.md) |
+| 15 | An attack lands when a uniform roll under the attacker's accuracy is at least a uniform roll under the defender's evasion, which gives the fight Policy its hit chance. | `fight` (threat estimate) | [combat: "`Char.hit`:"](rules/combat.md) |
+| 16 | The hero's accuracy is 10 and its evasion 5, each one more per level, before its weapon, armour, rings and talents. | `fight` (threat estimate) | [combat: "Hero base `attackSkill = 10`"](rules/combat.md) |
+| 17 | A hit does the damage roll less the defender's damage-reduction roll, never below 0. | `fight` (threat estimate) | [combat: "On a hit the defender takes the attacker's damage roll"](rules/combat.md) |
+| 18 | A mob's hit points, accuracy, evasion, damage and damage reduction are fixed figures in its class, which the Codex reads into the table the fight Policy estimates by. | `fight` (threat estimate) | [combat: "Mob combat numbers live in per-class overrides"](rules/combat.md) |
+| 19 | The hero's damage reduction is its armour's roll, which the Codex measured per armour and level. | `fight` (threat estimate) | [combat: "Hero `drRoll`"](rules/combat.md) |
+| 20 | Bare-handed, the hero rolls `NormalIntRange(1, max(STR - 8, 1))`. | `fight` (threat estimate) | [combat: "A hero fighting bare-handed"](rules/combat.md) |
+| 21 | While a boss fight has sealed the floor, no transition activates, so the fight Policy never plans a retreat by the stairs on a sealed floor. | `fight` (retreat) | [levels: "`Level.locked` is set by `seal()`"](rules/levels.md) |
 
 The `fallback` Policy relies on no mechanic. It chooses uniformly among the Actions the Observation
 offers, and the offered set is `ValidActions`' to get right (story 1.12), not the Brain's.

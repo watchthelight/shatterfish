@@ -64,7 +64,7 @@ final class Explore implements Policy {
     static final int STUCK = 3;
 
     /** The tiles a click steps onto, as {@code ValidActions} offers them, less the chasm and the well. */
-    private static final Set<Tile> WALK = EnumSet.of(Tile.EMPTY, Tile.EMPTY_SP, Tile.EMPTY_DECO,
+    static final Set<Tile> WALK = EnumSet.of(Tile.EMPTY, Tile.EMPTY_SP, Tile.EMPTY_DECO,
             Tile.GRASS, Tile.HIGH_GRASS, Tile.FURROWED_GRASS, Tile.EMBERS, Tile.WATER,
             Tile.EMPTY_WELL, Tile.PEDESTAL, Tile.DOOR, Tile.OPEN_DOOR, Tile.ENTRANCE,
             Tile.ENTRANCE_SP, Tile.EXIT, Tile.UNLOCKED_EXIT);

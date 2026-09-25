@@ -1416,22 +1416,75 @@ public final class Codex {
      * families, the items special rooms place, and the guaranteed drops. The caller reads it from
      * the committed Codex folder; a Brain cannot open a file. Nothing in it is about a Run.
      */
-    public record Knowledge(Manifest manifest, List<Identities> families, List<RoomSpawn> rooms, List<Guarantee> guarantees) {
+    public record Knowledge(Manifest manifest, List<Identities> families, List<RoomSpawn> rooms, List<Guarantee> guarantees,
+                            List<Threat> threats, List<Gear> weapons, List<Gear> armours) {
 
         public Knowledge {
             Canon.require(manifest != null, "knowledge says which Codex it came from");
             families = Canon.positional(families, "families");
             rooms = Canon.positional(rooms, "rooms");
             guarantees = Canon.positional(guarantees, "guarantees");
+            threats = Canon.positional(threats, "threats");
+            weapons = Canon.positional(weapons, "weapons");
+            armours = Canon.positional(armours, "armours");
             Set<ItemKind> kinds = new HashSet<>();
             for (Identities family : families) {
                 distinct(kinds, family.kind(), "a family's kind");
             }
+            Set<String> named = new HashSet<>();
+            for (Threat threat : threats) {
+                distinct(named, threat.name(), "an enemy's name");
+            }
+        }
+
+        /** Knowledge without the combat tables (story 4.2's shape). */
+        public Knowledge(Manifest manifest, List<Identities> families, List<RoomSpawn> rooms, List<Guarantee> guarantees) {
+            this(manifest, families, rooms, guarantees, List.of(), List.of(), List.of());
         }
 
         /** Knowledge with nothing in it but the manifest: a Brain that knows no mechanics. */
         public static Knowledge of(Manifest manifest) {
             return new Knowledge(manifest, List.of(), List.of(), List.of());
+        }
+
+        /** The enemy the screen names {@code name}, or null when the Codex has no figures for it. */
+        public Threat threat(String name) {
+            for (Threat threat : threats) {
+                if (threat.name().equals(name)) {
+                    return threat;
+                }
+            }
+            return null;
+        }
+    }
+
+    /**
+     * An enemy's combat figures, by the name the screen shows it under (story 4.7): its hit points,
+     * its accuracy and evasion, the range its attack rolls, and the range of the damage it shrugs
+     * off. Read from the Codex's mob table; an enemy whose figures the table computes at run time is
+     * not listed.
+     */
+    public record Threat(String name, int ht, int attack, int defense, int damageMin, int damageMax, int drMin, int drMax) {
+
+        public Threat {
+            name = Canon.text(name, "enemy name");
+            Canon.require(!name.isEmpty(), "an enemy is named");
+            Canon.require(ht > 0 && attack >= 0 && defense >= 0, "an enemy has hit points and skills: " + name);
+            Canon.require(damageMin >= 0 && damageMin <= damageMax && drMin >= 0 && drMin <= drMax,
+                    "an enemy's ranges are ranges: " + name);
+        }
+    }
+
+    /**
+     * A weapon's mean damage roll, or an armour's mean damage reduction, at an upgrade level, in
+     * thousandths, as the Codex measured it (story 4.7), by the item's display name.
+     */
+    public record Gear(String name, int level, int meanPerMille) {
+
+        public Gear {
+            name = Canon.text(name, "gear name");
+            Canon.require(!name.isEmpty(), "gear is named");
+            Canon.require(level >= 0 && meanPerMille >= 0, "a level and a mean are not negative: " + name);
         }
     }
 
