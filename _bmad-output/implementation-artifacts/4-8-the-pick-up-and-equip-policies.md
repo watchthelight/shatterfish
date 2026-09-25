@@ -184,6 +184,25 @@ Also fixed:
   (`unknown_or_upgraded_worn`).
 - Citation corrections: Item.java:130, and Hero.java:1974-1977.
 
+After the review:
+- Tests pass: `:api:test`, `:brain:test`, and in the rig `BrainRulesIndexTest`, `SafeTestCodexTest`,
+  `WeightsFileTest`, `CodexKnowledgeTest`, `ShatterfishRunTest` and `StrategyLogTest`.
+- The battery on the new code killed 14 of 14 mutants:
+  - refusal never recorded;
+  - refusal recorded without a calm screen;
+  - a refused heap taken;
+  - a dewdrop at full health;
+  - an occupied heap;
+  - a sideways Step;
+  - never yielding;
+  - an unknown worn piece replaced;
+  - an upgraded worn piece replaced;
+  - a swap for one turn;
+  - armour priced at the weapon's chance;
+  - a cursed weapon not disabling;
+  - a cursed weapon as the blast alone;
+  - the seal declined.
+
 ## Dev Notes
 
 - Tests: `:api:test`, `:brain:test` (`PickupThresholdTest` 5, `EquipPolicyTest` 5), rig
