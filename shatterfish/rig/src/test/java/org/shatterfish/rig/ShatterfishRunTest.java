@@ -56,8 +56,20 @@ class ShatterfishRunTest {
             assertEquals(Brains.SHATTERFISH, read.header().brain().name());
             for (RunLog.Wait wait : read.waits()) {
                 assertNotNull(wait.decision(), "a Brain's wait says why: " + log.getFileName() + " at " + wait.k());
-                assertTrue(List.of("answer-prompt", "fight", "pick-up", "equip", "explore", "fallback")
+                assertTrue(List.of("answer-prompt", "fight", "test-item", "pick-up", "equip", "explore", "fallback")
                         .contains(wait.decision().policy()), wait.decision().policy());
+                // Story 4.10: a test-item wait drinks or reads the appearance its reason names,
+                // plainly, or Steps toward the cell it tests on, or out of its own fire or gas.
+                if ("test-item".equals(wait.decision().policy())) {
+                    String why = wait.decision().chosen().why();
+                    if (wait.action() instanceof org.shatterfish.api.Action.UseItem use) {
+                        assertTrue(List.of("DRINK", "READ").contains(use.action()), why);
+                        assertEquals("test: " + use.item().name(), why);
+                    } else {
+                        assertTrue(wait.action() instanceof org.shatterfish.api.Action.Step, why);
+                        assertTrue(why.matches("cell: .+|escape: .+"), why);
+                    }
+                }
                 // Story 4.8: a pick-up wait Steps toward an item, naming it and its distance, or
                 // takes the one underfoot; an equip wait puts on the piece its reason names.
                 if ("pick-up".equals(wait.decision().policy())) {

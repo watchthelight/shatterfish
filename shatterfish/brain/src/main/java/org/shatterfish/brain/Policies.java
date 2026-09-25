@@ -132,6 +132,12 @@ final class Policies {
         }
     };
 
+    /** Whether {@code action} uses an item from the pack: on its own, at a cell or on another item. */
+    static boolean usesItem(Action action) {
+        return action instanceof Action.UseItem || action instanceof Action.UseItemAt
+                || action instanceof Action.UseItemOn;
+    }
+
     /**
      * The fallback's name, which {@link Brain#policyNames()} lists without building one.
      */
@@ -155,6 +161,14 @@ final class Policies {
      * "uniform 1/k" when every Action offered scores alike -- the committed weights, which give the
      * Action features no weight, so play and draws are story 4.4's exactly -- else "top 1/k" for the
      * highest tier and "lower 1/k" for a tier below it.
+     *
+     * <p>It leaves the items alone while anything else is offered (story 4.10): an item use is drawn
+     * only on a screen that offers nothing but item uses. A random use wastes the item and can open a
+     * window no Action answers -- the Cleric's spell window from the holy tome (HolyTome.java:93),
+     * the upgrade window from a scroll of upgrade read onto an item (ScrollOfUpgrade.java:64), the
+     * guess window from a stone of intuition (StoneOfIntuition.java:73) -- which is how every Run
+     * that ended on an unknown window in story 4.8's direction check ended. Using items is the
+     * Policies' to do deliberately: equip wears gear, test-item drinks and reads.
      */
     static Policy fallback(Evaluation evaluation) {
         return new Policy() {
@@ -183,7 +197,8 @@ final class Policies {
                                               Stream stream) {
                 // The tiers, highest score first, each in the order the screen offers its Actions.
                 java.util.TreeMap<Long, List<Action>> tiers = new java.util.TreeMap<>(Comparator.reverseOrder());
-                for (Action action : offered) {
+                List<Action> drawn = offered.stream().filter(action -> !usesItem(action)).toList();
+                for (Action action : drawn.isEmpty() ? offered : drawn) {
                     tiers.computeIfAbsent(evaluation.of(observation, action), score -> new ArrayList<>()).add(action);
                 }
                 boolean alike = tiers.size() <= 1;

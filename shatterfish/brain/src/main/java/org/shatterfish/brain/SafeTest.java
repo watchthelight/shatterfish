@@ -111,6 +111,15 @@ public final class SafeTest {
      */
     static final int GAS_TURNS = 10;
 
+    /**
+     * How many turns a hero who drinks toxic gas beside a closed door stays in it (story 4.10): an
+     * assumption, the drink, the doorway and the first cell beyond. A closed door is solid
+     * (Terrain.java:90) and a blob spreads only through cells that are not (Blob.java:156-158); the
+     * door opens when entered and shuts behind the last one out (Level.java:1270, Door.java:45-58,
+     * Char.java:1312), so the cloud stays in the room once the hero is through.
+     */
+    static final int GAS_TURNS_BY_A_DOOR = 3;
+
     /** A wand's chance to be cursed when generated (Wand.java:562-563), for the mean only. */
     static final double WAND_CURSE_CHANCE = 0.3;
 
@@ -179,6 +188,19 @@ public final class SafeTest {
      * reads it alone at low hit points is choosing to fight what comes, which is its call.
      */
     public static Verdict of(List<Candidate> candidates, Observation observation) {
+        return of(candidates, observation, observation.hero().cell());
+    }
+
+    /**
+     * The verdict on trying an item with {@code candidates} on {@code cell} of the screen in
+     * {@code observation}, as if the hero stood there with its hit points, buffs and the enemies in
+     * view (story 4.10): the cell a testing Policy may walk to first. Only what the cell changes is
+     * re-read -- the water on and beside it, a closed door beside it.
+     */
+    public static Verdict of(List<Candidate> candidates, Observation observation, int cell) {
+        if (cell < 0 || cell >= observation.map().tiles().size()) {
+            throw new IllegalArgumentException("a cell of the map: " + cell);
+        }
         if (candidates.isEmpty()) {
             throw new IllegalArgumentException("an item to test has at least one identity");
         }
@@ -197,7 +219,7 @@ public final class SafeTest {
         List<Harm> harms = new ArrayList<>();
         double mean = 0;
         for (Candidate candidate : candidates) {
-            Harm harm = harm(candidate, observation);
+            Harm harm = harm(candidate, observation, cell);
             harms.add(harm);
             mean += candidate.probability() * harm.damage();
         }
@@ -280,16 +302,22 @@ public final class SafeTest {
      * sheet draws as water (DungeonTileSheet.java:436): a hero there would be misjudged as on water.
      */
     static Harm harm(Candidate candidate, Observation observation) {
+        return harm(candidate, observation, observation.hero().cell());
+    }
+
+    /** {@link #harm(Candidate, Observation)} for a hero trying the item on {@code cell}. */
+    static Harm harm(Candidate candidate, Observation observation, int cell) {
         int depth = scalingDepth(observation);
         int burn = 3 + depth / 4;
-        int gas = GAS_TURNS * (1 + depth / 5);
-        int flame = flameTurns(observation) * burn;
+        int gasTurns = gasTurns(observation, cell);
+        int gas = gasTurns * (1 + depth / 5);
+        int flame = flameTurns(observation, cell) * burn;
         String name = candidate.name();
         switch (candidate.className()) {
             case "items.potions.PotionOfLiquidFlame":
-                return new Harm(name, flame, false, false, "burns " + flameTurns(observation) + " turns");
+                return new Harm(name, flame, false, false, "burns " + flameTurns(observation, cell) + " turns");
             case "items.potions.PotionOfToxicGas":
-                return new Harm(name, gas, false, false, "gas " + GAS_TURNS + " turns");
+                return new Harm(name, gas, false, false, "gas " + gasTurns + " turns");
             case "items.potions.PotionOfParalyticGas":
                 return new Harm(name, 0, true, false, "paralysed");
             case "items.potions.PotionOfFrost":
@@ -323,15 +351,56 @@ public final class SafeTest {
 
     /** How many turns fire seeded on and around the hero burns the hero before water puts it out. */
     static int flameTurns(Observation observation) {
+        return flameTurns(observation, observation.hero().cell());
+    }
+
+    /** {@link #flameTurns(Observation)} for a hero on {@code cell}. */
+    static int flameTurns(Observation observation, int cell) {
         if (has(observation, LEVITATING)) {
             return 8 + 2;
         }
         MapSection map = observation.map();
-        int cell = observation.hero().cell();
         if (map.tiles().get(cell) == Tile.WATER) {
             return 2;
         }
-        return refugeBeside(observation) ? 3 : 8 + 2;
+        return refugeBeside(observation, cell) ? 3 : 8 + 2;
+    }
+
+    /**
+     * How many turns a hero drinking toxic gas on {@code cell} stays in the cloud: fewer with a door
+     * beside it, orthogonally, that will be shut once the hero is through ({@link #GAS_TURNS_BY_A_DOOR}):
+     * a closed door no creature stands in, or the open door the hero itself stands in, which shuts
+     * behind it. A door with a heap on it stays open (Door.java:52-58), and one another creature stands
+     * in is open while it does.
+     */
+    static int gasTurns(Observation observation, int cell) {
+        MapSection map = observation.map();
+        int width = map.width();
+        int x = cell % width;
+        int y = cell / width;
+        int[][] sides = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        for (int[] side : sides) {
+            int nx = x + side[0];
+            int ny = y + side[1];
+            if (nx < 0 || ny < 0 || nx >= width || ny >= map.height()) {
+                continue;
+            }
+            int neighbour = nx + ny * width;
+            boolean taken = false;
+            for (ActorView actor : observation.actors().actors()) {
+                taken |= actor.cell() == neighbour;
+            }
+            boolean heaped = false;
+            for (org.shatterfish.api.HeapView heap : map.heaps()) {
+                heaped |= heap.cell() == neighbour;
+            }
+            Tile tile = map.tiles().get(neighbour);
+            boolean shut = tile == Tile.DOOR || (tile == Tile.OPEN_DOOR && neighbour == observation.hero().cell());
+            if (shut && !taken && !heaped) {
+                return GAS_TURNS_BY_A_DOOR;
+            }
+        }
+        return GAS_TURNS;
     }
 
     private static boolean has(Observation observation, String buff) {
@@ -344,9 +413,8 @@ public final class SafeTest {
     }
 
     /** Water on a neighbouring cell that no creature stands on. */
-    private static boolean refugeBeside(Observation observation) {
+    private static boolean refugeBeside(Observation observation, int cell) {
         MapSection map = observation.map();
-        int cell = observation.hero().cell();
         int x = cell % map.width();
         int y = cell / map.width();
         for (int dx = -1; dx <= 1; dx++) {
