@@ -51,17 +51,64 @@ class CodexKnowledgeTest {
     }
 
     @Test
-    @DisplayName("the melee weapons and armour, with their tier, strength and level-0 mean from the combat table")
-    void the_gear() {
-        List<Codex.Gear> gear = read().gear();
-        assertTrue(gear.contains(new Codex.Gear("items.weapon.melee.Shortsword", "shortsword", ItemKind.WEAPON, 2, 12, 8485)),
-                gear.toString());
-        assertTrue(gear.contains(new Codex.Gear("items.armor.LeatherArmor", "leather armor", ItemKind.ARMOR, 2, 12, 2013)),
-                gear.toString());
-        assertTrue(gear.stream().anyMatch(piece -> piece.name().equals("worn shortsword")));
-        assertTrue(gear.stream().noneMatch(piece -> piece.className().contains("missiles")),
-                "thrown weapons are not worn in the weapon slot");
-        assertTrue(gear.stream().filter(piece -> piece.kind() == ItemKind.WEAPON).count() >= 20, gear.size() + " pieces");
+    @DisplayName("the combat tables: enemies by the name the screen shows, weapons and armour by theirs")
+    void combat() {
+        Codex.Knowledge knowledge = read();
+        assertEquals(new Codex.Threat("marsupial rat", 8, 8, 2, 1, 4, 0, 1), knowledge.threat("marsupial rat"),
+                "the rat's figures (Rat.java: HT 8, attackSkill 8, defenseSkill 2, damage 1-4, armour 0-1)");
+        assertTrue(knowledge.threats().size() > 40, "most enemies have fixed figures: " + knowledge.threats().size());
+        assertEquals(null, knowledge.threat("golden bee"), "a bee's figures depend on the Run and are not listed");
+        assertTrue(knowledge.weapons().contains(new Codex.Gear("worn shortsword", 0, 1, 10, 5485, 1, 10)),
+                "the Warrior's sword, measured, tier 1 asking 10 strength");
+        assertTrue(knowledge.armours().contains(new Codex.Gear("cloth armor", 0, 0, 2, 1004, 1, 10)), "cloth armour, measured");
+        // Story 4.8: the item table's tier and level-0 strength ride on every measured level.
+        assertTrue(knowledge.weapons().stream().anyMatch(gear -> gear.name().equals("shortsword") && gear.level() == 0
+                && gear.meanPerMille() == 8485 && gear.tier() == 2 && gear.strength() == 12), knowledge.weapons().toString());
+        assertTrue(knowledge.armours().stream().anyMatch(gear -> gear.name().equals("leather armor") && gear.level() == 0
+                && gear.meanPerMille() == 2013 && gear.tier() == 2 && gear.strength() == 12));
+        assertTrue(knowledge.weapons().stream().filter(gear -> gear.level() == 0 && gear.tier() > 0).count() >= 20,
+                "the melee weapons state a tier and a strength");
+        assertTrue(knowledge.weapons().stream().anyMatch(gear -> gear.name().equals(org.shatterfish.brain.Brain.magesStaff())),
+                "the mage's staff is measured under the name the fight Policy maps a staff to");
+        Codex.Threat crab = knowledge.threat("great crab");
+        assertEquals(java.util.List.of("defense"), crab.unknown(), "a great crab parries by its own rule (GreatCrab.java:95-110)");
+        assertEquals(25, crab.ht());
+        Codex.Threat goo = knowledge.threat("Goo");
+        assertEquals(100, goo.ht(), "Goo's hit points stand (Goo.java:54)");
+        assertEquals(java.util.List.of("attack", "damage", "defense"), goo.unknown(),
+                "its attack and damage are computed at run time, and its evasion is its own rule");
+        assertEquals(2, goo.drMax(), "its damage reduction the Codex read, 0-2");
+        assertTrue(knowledge.immovable().containsAll(java.util.List.of("rot lasher", "rot heart", "DM-201")), knowledge.immovable().toString());
+    }
+
+    @Test
+    @DisplayName("no two enemy classes share a display name at the pin, so which one the table keeps never arises")
+    void distinct_names() throws java.io.IOException {
+        String tag = HeadlessBoot.pinnedTag();
+        java.nio.file.Path folder = SeedSetsTest.ROOT.resolve(CodexManifest.FOLDER).resolve(tag);
+        java.util.Map<String, String> shown = new java.util.HashMap<>();
+        for (String raw : org.shatterfish.harness.log.Json.array(CodexKnowledge.compact(
+                java.nio.file.Files.readString(folder.resolve("strings.json"))))) {
+            java.util.Map<String, String> string = org.shatterfish.harness.log.Json.object(raw);
+            if (org.shatterfish.harness.log.Json.string(string.get("suffix")).equals("name")) {
+                shown.put(org.shatterfish.harness.log.Json.string(string.get("className")),
+                        org.shatterfish.harness.log.Json.string(string.get("value")));
+            }
+        }
+        java.util.Map<String, String> byName = new java.util.HashMap<>();
+        for (String raw : org.shatterfish.harness.log.Json.array(CodexKnowledge.compact(
+                java.nio.file.Files.readString(folder.resolve("mobs.json"))))) {
+            java.util.Map<String, String> mob = org.shatterfish.harness.log.Json.object(raw);
+            String name = shown.get(org.shatterfish.harness.log.Json.string(mob.get("className")));
+            if (name != null && org.shatterfish.harness.log.Json.string(mob.get("alignment")).equals("ENEMY")) {
+                String before = byName.put(name, org.shatterfish.harness.log.Json.string(mob.get("className")));
+                assertEquals(null, before, name + " names two enemy classes");
+            }
+        }
+        // The passive enemies the fight Policy names by hand are names the Codex gives.
+        for (String passive : org.shatterfish.brain.Brain.passiveEnemies()) {
+            assertTrue(byName.containsKey(passive), passive + " is not an enemy's display name at the pin");
+        }
     }
 
     @Test

@@ -60,6 +60,23 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
     /** The most identities the exact computation enumerates by subsets: more than any family has. */
     private static final int EXACT = 16;
 
+    /** The kinds of Action the fold reads {@link Memory#last()} for. */
+    static final String STEP = "Step";
+    static final String SEARCH = "Search";
+    static final String WAIT = "Wait";
+    static final String ASCEND = "Ascend";
+    static final String DESCEND = "Descend";
+
+    /** The kind of an Action as the Memory keeps it: its record's name. */
+    static String kind(org.shatterfish.api.Action action) {
+        if (action == null) {
+            return "";
+        }
+        String shown = action.toString();
+        int bracket = shown.indexOf('[');
+        return bracket < 0 ? shown : shown.substring(0, bracket);
+    }
+
     /** The memory after seeing {@code observation}, given the memory before. */
     static Memory fold(Memory memory, Observation observation, Codex.Knowledge knowledge) {
         long waits = memory.waits() + 1;
@@ -127,14 +144,54 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
             }
         }
 
-        // Where the hero stands, and whether it stood here at the last wait too (story 4.6).
-        // A cell counts as searched only when the screen before it was one explore acts on: a
-        // pause for a Prompt or beside an enemy is no search.
+        // Where the hero stands, and whether it stood here at the last wait too (story 4.6). What a
+        // still hero means depends on what the Brain last handed over (story 4.7): after a Step on a
+        // calm screen, the Step was refused, and the streak of refusals grows; after a Search on a
+        // calm screen, the spot was searched. After anything else -- an attack, a pick-up, a wait --
+        // standing still is what the Action does, and it counts for neither.
         int branch = observation.header().branch();
         Memory.Spot here = new Memory.Spot(depth, branch, observation.hero().cell());
         boolean still = here.equals(memory.at());
-        List<Memory.Spot> dwelt = still && memory.calm() ? Memory.with(memory.dwelt(), here) : memory.dwelt();
-        int streak = still ? memory.streak() + 1 : 0;
+        List<Memory.Spot> dwelt = still && memory.calm() && memory.last().equals(SEARCH)
+                ? Memory.with(memory.dwelt(), here) : memory.dwelt();
+        int streak = still && memory.calm() && memory.last().equals(STEP) ? memory.streak() + 1 : 0;
+        boolean calm = Explore.calm(observation);
+        // The fight Policy's holds, and how near the nearest enemy is now and was a wait ago.
+        int holds = !memory.calm() && memory.last().equals(WAIT) && !calm ? memory.holds() + 1 : 0;
+        // Both distances are measured from where the hero stands now: to the enemies in view, and to
+        // where the enemies seen a wait ago stood then. The hero's own steps change neither side
+        // alike, so near < before says the enemies came closer.
+        int near = Fight.nearest(observation.map(), observation.hero().cell(), Fight.enemies(observation));
+        int before = -1;
+        int width = observation.map().width();
+        for (Memory.Seen seen : memory.monsters()) {
+            if (seen.depth() == depth && seen.at() == memory.waits() && memory.at().on(depth, branch)
+                    && seen.cell() < observation.map().tiles().size() && !Fight.PASSIVE.contains(seen.name())) {
+                int hero = observation.hero().cell();
+                int distance = Math.max(Math.abs(hero % width - seen.cell() % width),
+                        Math.abs(hero / width - seen.cell() / width));
+                before = before < 0 ? distance : Math.min(before, distance);
+            }
+        }
+        // A floor left by the stairs while an enemy was in view has been fled.
+        List<Memory.Found> flights = new ArrayList<>(memory.flights());
+        if (!memory.calm() && (memory.last().equals(ASCEND) || memory.last().equals(DESCEND))
+                && !memory.at().on(depth, branch) && memory.at().depth() >= 0) {
+            add(flights, memory.at().depth() + ":" + memory.at().branch(), 0, 1);
+        }
+        // On the floor above one fled: a rest counts toward Explore.RESTS, and full health settles
+        // every flight so far (set 1 catches up with set 0), so the next flight owes a rest again.
+        String below = Explore.below(observation);
+        int fled = Memory.count(flights, below, 0);
+        if (fled > Memory.count(flights, below, 1)) {
+            if (observation.hero().hp() >= observation.hero().ht()) {
+                add(flights, below, 1, fled - Memory.count(flights, below, 1));
+                flights.removeIf(one -> one.key().equals(below) && one.set() == 2);
+            } else if (memory.last().equals("Rest") && memory.at().on(depth, branch)) {
+                add(flights, below, 2, 1);
+            }
+        }
+        List<Memory.Avoid> avoid = memory.avoid().stream().filter(region -> region.until() >= waits).toList();
         // The plain heap underfoot, and whether it is one the game would not let the hero take
         // (story 4.8): the pick-up Policy's target on the last screen was this heap, that screen was
         // calm, the hero stands on it still, it shows the same title, and the pack is unchanged. A
@@ -147,28 +204,31 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
             }
         }
         List<Memory.Refused> refused = memory.refused();
-        Memory.Refused one = new Memory.Refused(depth, branch, here.cell(), underfoot);
+        Memory.Refused refusal = new Memory.Refused(depth, branch, here.cell(), underfoot);
         Memory.Pack pack = pack(observation);
         if (still && memory.calm() && !underfoot.isEmpty() && underfoot.equals(memory.underfoot())
-                && memory.aim().target() == here.cell() && pack.equals(memory.pack()) && !refused.contains(one)) {
+                && memory.aim().target() == here.cell() && pack.equals(memory.pack()) && !refused.contains(refusal)) {
             refused = new ArrayList<>(refused);
-            refused.add(one);
+            refused.add(refusal);
             if (refused.size() > Memory.DWELT) {
                 refused.remove(0);
             }
         }
         Memory after = new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
-                sightings(memory.monsters(), observation, waits), here, streak, Explore.calm(observation), dwelt,
-                pickupBlocked(memory, streak, observation, depth, branch), underfoot, refused, pack, Memory.Aim.NONE);
-        // The hero has stood still long enough for explore to yield: the Step it would take on this
-        // screen is one the game refuses, and the cell it points at is blocked on this floor.
-        if (streak == Explore.STUCK - 1 && Explore.calm(observation)) {
-            Integer cell = Explore.stepCell(observation, after);
+                sightings(memory.monsters(), observation, waits), here, streak, calm, dwelt, memory.blocked(),
+                memory.last(), holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE);
+        // Two Steps refused in a row: the stepping Policy yields this wait, and the cell its Step
+        // points at is blocked on this floor. On a calm screen the pick-up Policy stands above
+        // explore, so when its plan on the last screen was a Step, that was the Step refused, and its
+        // cell is the one blocked (story 4.8); otherwise explore's Step on this screen.
+        if (streak == Explore.STUCK - 1 && calm) {
+            Integer cell = memory.aim().step() >= 0 ? Integer.valueOf(memory.aim().step())
+                    : Explore.stepCell(observation, after);
             if (cell != null) {
                 after = new Memory(after.waits(), after.deepest(), facts, found, held, known, labels, pending,
-                        after.monsters(), here, streak, after.calm(), dwelt,
-                        Memory.with(after.blocked(), new Memory.Spot(depth, branch, cell)), underfoot, refused, pack,
-                        Memory.Aim.NONE);
+                        after.monsters(), here, streak, calm, dwelt,
+                        Memory.with(after.blocked(), new Memory.Spot(depth, branch, cell)), after.last(), holds, near,
+                        before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE);
             }
         }
         return after;
@@ -181,19 +241,6 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
             quantity += item.quantity();
         }
         return new Memory.Pack(observation.inventory().items().size(), quantity, observation.hero().gold());
-    }
-
-    /**
-     * The blocked cells, with the pick-up Policy's own Step added when the hero has stood still long
-     * enough for it to yield (story 4.8): the Step its plan took on the last screen, which was calm,
-     * is one the game refuses, so its next plan goes round it.
-     */
-    private static List<Memory.Spot> pickupBlocked(Memory memory, int streak, Observation observation, int depth,
-                                                   int branch) {
-        if (streak == Explore.STUCK - 1 && memory.calm() && Explore.calm(observation) && memory.aim().step() >= 0) {
-            return Memory.with(memory.blocked(), new Memory.Spot(depth, branch, memory.aim().step()));
-        }
-        return memory.blocked();
     }
 
     /** What the Brain believes, given the memory after {@link #fold} and the same observation. */

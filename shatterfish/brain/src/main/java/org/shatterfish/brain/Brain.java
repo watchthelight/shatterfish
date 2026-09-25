@@ -43,10 +43,10 @@ public final class Brain {
     private final List<Policy> policies;
     private final Pickup pickup;
 
-    /** The Policies, highest priority first, scoring by {@code evaluation} over {@code knowledge}. */
-    private static List<Policy> policies(Evaluation evaluation, Codex.Knowledge knowledge) {
-        return List.of(Policies.ANSWER_PROMPT, new Pickup(evaluation, knowledge), new Equip(evaluation, knowledge),
-                new Explore(), Policies.fallback(evaluation));
+    /** The Policies, highest priority first, fighting by {@code knowledge} and scoring by {@code evaluation}. */
+    private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation) {
+        return List.of(Policies.ANSWER_PROMPT, new Fight(knowledge), new Pickup(evaluation, knowledge),
+                new Equip(evaluation, knowledge), new Explore(), Policies.fallback(evaluation));
     }
 
     /**
@@ -55,7 +55,9 @@ public final class Brain {
      * rig hashes it into the log header, so two weight sets are two configurations.
      */
     public static String configuration(Weights weights) {
-        return "policies=" + String.join(",", policies(new Evaluation(weights), Codex.Knowledge.of(new Codex.Manifest(Codex.VERSION, "v0", List.of()))).stream().map(Policy::name).toList())
+        // A weight set the Evaluation would refuse is no configuration at all.
+        new Evaluation(weights);
+        return "policies=" + String.join(",", policyNames())
                 + ";memory=" + Memory.VERSION + ";weights=" + weights.canonical();
     }
 
@@ -71,7 +73,7 @@ public final class Brain {
         this.knowledge = knowledge;
         this.evaluation = new Evaluation(weights);
         this.seed = seed;
-        this.policies = policies(evaluation, knowledge);
+        this.policies = policies(knowledge, evaluation);
         this.pickup = new Pickup(evaluation, knowledge);
     }
 
@@ -103,14 +105,62 @@ public final class Brain {
         return Safety.ALL;
     }
 
+    /** The enemies the fight Policy treats as scenery, by the name the screen shows (story 4.7). */
+    public static java.util.Set<String> passiveEnemies() {
+        return Fight.PASSIVE;
+    }
+
+    /** The name under which the Codex measures the mage's staff, whatever wand it holds (story 4.7). */
+    public static String magesStaff() {
+        return Fight.MAGES_STAFF;
+    }
+
     /** The names of the Policies every Brain arbitrates, highest priority first. */
     public static List<String> policyNames() {
-        return List.of(Policies.ANSWER_PROMPT.name(), Pickup.NAME, Equip.NAME, Explore.NAME, Policies.FALLBACK);
+        return List.of(Policies.ANSWER_PROMPT.name(), Fight.NAME, Pickup.NAME, Equip.NAME, Explore.NAME,
+                Policies.FALLBACK);
     }
 
     /** The Policies, highest priority first, by name. */
     public List<String> policies() {
         return policies.stream().map(Policy::name).toList();
+    }
+
+    /** How many waits a region the fight Policy retreated from stays avoided. */
+    static final int AVOID_WAITS = 100;
+
+    /**
+     * The Belief after this Brain hands over {@code decided} on {@code observation} (story 4.7): the
+     * kind of the Action, which the next {@link #update} reads to know what a still hero means, and,
+     * when the fight Policy retreated, the region around the nearest enemy, which the explore Policy
+     * keeps out of for {@link #AVOID_WAITS} waits so it does not walk straight back into view. The
+     * region reaches one past where the enemy was seen from. Nothing here assumes the Action is
+     * applied.
+     */
+    public Belief handed(Observation observation, Belief belief, Decided decided) {
+        Memory memory = Memory.of(belief).handed(Beliefs.kind(decided.action()));
+        RunLog.Decision decision = decided.decision();
+        if (decision != null && Fight.NAME.equals(decision.policy())
+                && decision.chosen().why().startsWith("retreat ")) {
+            java.util.List<org.shatterfish.api.ActorView> enemies = Fight.enemies(observation);
+            int hero = observation.hero().cell();
+            int width = observation.map().width();
+            org.shatterfish.api.ActorView nearest = null;
+            int best = Integer.MAX_VALUE;
+            for (org.shatterfish.api.ActorView enemy : enemies) {
+                int distance = Math.max(Math.abs(hero % width - enemy.cell() % width),
+                        Math.abs(hero / width - enemy.cell() / width));
+                if (distance < best) {
+                    best = distance;
+                    nearest = enemy;
+                }
+            }
+            if (nearest != null) {
+                memory = memory.avoiding(new Memory.Avoid(observation.header().depth(), observation.header().branch(),
+                        nearest.cell(), Math.min(8, best + 1), memory.waits() + AVOID_WAITS));
+            }
+        }
+        return memory.belief();
     }
 
     /** The Belief after seeing {@code observation}, given the Belief before it (null at the start). */

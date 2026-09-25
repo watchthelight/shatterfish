@@ -239,6 +239,44 @@ After the verification fixes:
   yielding on the target heap too, Pickup's own Step never blocked, the pack ignored, the aim
   ignored, the aim never recorded, the aim's Step lost, and gold left out of the pack.
 
+### Merge with stories 4.6 and 4.7 (main at 644393fb3)
+
+- **Policy order:** answer-prompt, fight, pick-up, equip, explore, fallback. Pick-up and equip
+  enter only on a calm screen, so they stay out while an enemy is in view, which is fight's to take.
+- **Memory is version 5**, story 4.7's 20 fields followed by this story's four: `underfoot`,
+  `refused`, `pack`, `aim`.
+  - One Bytes layout, with the reader and writer symmetric. After 4.7's `avoid` list come
+    `text(underfoot)`, then the refused count with each entry as depth, branch, cell, `text(title)`,
+    then `pack.items`, `pack.quantity`, `pack.gold`, then `aim.target` and `aim.step`.
+  - Constructors chain from 14 arguments (4.6's shape) to 20 (4.7's shape) to 24.
+  - 4.7's `handed` and `avoiding` carry the new fields through.
+- **What 4.7's rule made redundant, and what stays.** 4.7 counts the streak only after a handed Step
+  on a calm screen, and a searched spot only after a Search. That replaces this story's earlier
+  inference from standing still. This story keeps:
+  - the refused-heap rule (a calm screen, standing still, the same title, an unchanged pack, and
+    Pickup's aim on the heap);
+  - Pickup yielding while `streak >= STUCK - 1`.
+- **Blocking a refused Step.** When the streak reaches `STUCK - 1` on a calm screen, the blocked
+  cell is Pickup's own Step from its aim on the screen before, if it planned one. Otherwise it is
+  explore's Step on this screen, as in 4.7. The reason: on a calm screen Pickup stands above explore,
+  so when its plan was a Step, that was the Step refused.
+- **One `Codex.Gear` record:** 4.7's `(name, level, min, max, meanPerMille)`, extended with `tier`
+  and `strength` (the level-0 strength from the item table; both 0 where the table states none).
+  - 4.7's 5-argument constructor defaults them to 0.
+  - The reader fills them for every measured level.
+  - `Knowledge` is 4.7's, with `threats`, `weapons`, `armours` and `immovable`. The 4-argument
+    constructor and `Knowledge.of` still work. This story's `gear` field and its separate Gear
+    record are gone.
+  - Equip reads the kind from the list a piece is measured in, and uses `Equip.Piece` for level 0.
+- **One name matcher:** `Fight.measured(shown, gear)`, extracted from `Fight.worn`. Equip counts only
+  a piece whose shown name is its measured name. An enchanted name, the mage's staff and a renamed
+  holy weapon are neither put on nor replaced (`EquipPolicyTest.entering`).
+- **Docs:** this story's Rules index rows are now 30–34 (they were 16–20), following 4.7's 16–29.
+  The architecture row keeps every story's sentence, with 4.8's after 4.7's.
+- **Tests:** `:api:test`, `:brain:test`, and in the rig `CodexKnowledgeTest`, `BrainRulesIndexTest`,
+  `SafeTestCodexTest`, `WeightsFileTest`, `ShatterfishRunTest` and `StrategyLogTest` pass;
+  `:codex:citations` has no findings.
+
 ## Dev Notes
 
 - Tests: `:api:test`, `:brain:test` (`PickupThresholdTest` 5, `EquipPolicyTest` 5), rig

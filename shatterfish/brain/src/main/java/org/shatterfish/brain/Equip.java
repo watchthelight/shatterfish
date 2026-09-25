@@ -81,7 +81,7 @@ final class Equip implements Policy {
         long bestGain = 0;
         for (int index = 0; index < items.size(); index++) {
             ItemView item = items.get(index);
-            Codex.Gear gear = gear(item.name());
+            Piece gear = gear(item.name());
             if (item.slot() != EquipSlot.NONE || gear == null || (item.cursedKnown() && item.visiblyCursed())) {
                 continue;
             }
@@ -113,7 +113,7 @@ final class Equip implements Policy {
      * What putting {@code item} on gains over wearing {@code worn} (null when nothing is worn), after
      * the curse risk and the turn it takes.
      */
-    long gain(Observation observation, ItemView item, Codex.Gear gear, ItemView worn) {
+    long gain(Observation observation, ItemView item, Piece gear, ItemView worn) {
         int strength = observation.hero().strength() + observation.hero().strengthBonus();
         long now = worn == null || gear(worn.name()) == null ? 0 : worth(gear(worn.name()), strength);
         long gain = Math.subtractExact(worth(gear, strength), now);
@@ -124,7 +124,7 @@ final class Equip implements Policy {
     }
 
     /** What {@code gear} is worth worn by a hero of {@code strength}. */
-    long worth(Codex.Gear gear, int strength) {
+    long worth(Piece gear, int strength) {
         long mean = gear.meanPerMille();
         for (int short_ = gear.strength() - strength; short_ > 0; short_--) {
             mean = mean * 2 / 3;
@@ -132,11 +132,31 @@ final class Equip implements Policy {
         return evaluation.gear(gear.kind(), mean);
     }
 
-    /** The piece the Codex names {@code name}, or null for anything that is not melee gear. */
-    Codex.Gear gear(String name) {
-        for (Codex.Gear gear : knowledge.gear()) {
-            if (gear.name().equals(name)) {
-                return gear;
+    /**
+     * A piece of melee gear as this Policy weighs it: its level-0 figures from the Codex and whether it
+     * is a weapon or armour, by the list the Codex measured it in.
+     */
+    record Piece(String name, ItemKind kind, int tier, int strength, int meanPerMille) {
+    }
+
+    /**
+     * The piece a shown name is, or null. The name is resolved by the fight Policy's matcher
+     * ({@link Fight#measured}), and only a plain name counts: a piece whose shown name is its measured
+     * name and nothing more, with a tier the item table states. An enchantment or glyph in the name,
+     * the mage's staff (which shows its wand's name), a holy weapon's name, or a level the screen
+     * shows are all a worth the level-0 figures do not give, so such a piece is neither put on nor
+     * replaced.
+     */
+    Piece gear(String name) {
+        for (ItemKind kind : List.of(ItemKind.WEAPON, ItemKind.ARMOR)) {
+            List<Codex.Gear> measured = kind == ItemKind.WEAPON ? knowledge.weapons() : knowledge.armours();
+            if (!name.equals(Fight.measured(name, measured))) {
+                continue;
+            }
+            for (Codex.Gear gear : measured) {
+                if (gear.name().equals(name) && gear.level() == 0 && gear.tier() > 0) {
+                    return new Piece(gear.name(), kind, gear.tier(), gear.strength(), gear.meanPerMille());
+                }
             }
         }
         return null;

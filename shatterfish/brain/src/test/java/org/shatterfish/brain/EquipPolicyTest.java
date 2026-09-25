@@ -150,11 +150,18 @@ class EquipPolicyTest {
                 List.of(unknown(ItemKind.WEAPON, "shortsword")), List.of());
         assertFalse(EQUIP.enters(fight, Memory.START));
         assertNull(choose(pack(1, 12, List.of(unknown(ItemKind.WEAPON, "a mystery blade")), WORN_SWORD)));
+        // The fight Policy's matcher resolves the names (story 4.8's merge with 4.7): an enchanted
+        // name finds its item, but only a plain name is worth its level-0 figures.
+        assertEquals("shortsword", Fight.measured("blazing shortsword", Screens.CODEX.weapons()));
+        assertNull(EQUIP.gear("blazing shortsword"));
+        assertNull(EQUIP.gear("staff of magic missile"), "the staff resolves to the mage's staff, never a plain piece");
+        assertEquals(ItemKind.ARMOR, EQUIP.gear("leather armor").kind(), "the list it is measured in says its kind");
+        assertNull(choose(pack(1, 12, List.of(unknown(ItemKind.WEAPON, "blazing shortsword")), WORN_SWORD)));
     }
 
     /** The test Codex's gear, by name. */
     private static final class Codex_ {
-        final org.shatterfish.api.Codex.Gear sword = EQUIP.gear("shortsword");
-        final org.shatterfish.api.Codex.Gear leather = EQUIP.gear("leather armor");
+        final Equip.Piece sword = EQUIP.gear("shortsword");
+        final Equip.Piece leather = EQUIP.gear("leather armor");
     }
 }

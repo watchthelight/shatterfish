@@ -54,9 +54,12 @@ class EvaluationMonotonicityTest {
         Observation hurt = Screens.showing(1, Screens.hero(5, 20, 1, 10, Hunger.NONE), List.of(),
                 new Action.Step(0), new Action.Rest(false));
         assertEquals(new Action.Rest(false), taken(Map.of("act_rest_hurt", 1L), hurt));
-        assertEquals(new Action.Attack(0), taken(Map.of("act_attack", 1L),
-                Screens.showing(1, Screens.hero(), List.of(new ActorView(0, "rat", Alignment.ENEMY, 3, false,
-                        Emote.NONE, List.of())), new Action.Step(2), new Action.Attack(0))));
+        // With an enemy in view the fight Policy takes the wait (story 4.7), so the attack feature is
+        // held on the Evaluation itself: weighted, it scores the Attack above the Step.
+        Observation rat = Screens.showing(1, Screens.hero(), List.of(new ActorView(0, "rat", Alignment.ENEMY, 3, false,
+                Emote.NONE, List.of())), new Action.Step(2), new Action.Attack(0));
+        Evaluation attacking = new Evaluation(Screens.weights(Map.of("act_attack", 1L)));
+        assertTrue(attacking.of(rat, new Action.Attack(0)) > attacking.of(rat, new Action.Step(2)));
         assertEquals(new Action.Descend(), taken(Map.of("act_descend", 1L),
                 Screens.offering(1, new Action.Step(0), new Action.Descend())));
         assertEquals(new Action.Search(), taken(Map.of("act_search", 1L),

@@ -175,8 +175,11 @@ class PickupThresholdTest {
         org.shatterfish.api.Belief belief = null;
         List<String> policies = new java.util.ArrayList<>();
         for (int wait = 0; wait < 6; wait++) {
+            // As the driver does: fold the screen, decide, and record the kind handed over (story 4.7).
             belief = brain.update(screen, belief);
-            policies.add(brain.decide(screen, belief).decision().policy());
+            Brain.Decided decided = brain.decide(screen, belief);
+            policies.add(decided.decision().policy());
+            belief = brain.handed(screen, belief, decided);
         }
         assertEquals(List.of("pick-up", "pick-up"), policies.subList(0, 2), policies.toString());
         assertTrue(policies.subList(2, 6).stream().noneMatch("pick-up"::equals), policies.toString());

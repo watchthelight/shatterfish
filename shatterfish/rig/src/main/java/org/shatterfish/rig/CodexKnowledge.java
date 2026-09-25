@@ -124,48 +124,121 @@ public final class CodexKnowledge {
                         + " for an item it names; a Brain built on it would count nothing owed");
             }
         }
-        return new Codex.Knowledge(manifest, families, spawns, drops, gear(folder));
+        return new Codex.Knowledge(manifest, families, spawns, drops, threats(folder), gear(folder, names, "weapons"),
+                gear(folder, names, "armours"), immovable(folder));
     }
 
     /**
-     * The melee weapons and armour a Brain weighs (story 4.8): each item of a melee weapon tier or
-     * of armour that states its strength, with the mean of its level-0 roll from the combat table --
-     * damage for a weapon ({@code MeleeWeapon.damageRoll}), damage absorbed for armour
-     * ({@code Hero.drRoll}). A piece the combat table did not measure, or a name another piece
-     * already wears, is left out.
+     * The enemies' combat figures (story 4.7), by the display name the strings table gives each
+     * class (the name the screen shows). Only an enemy whose accuracy is a constant and whose damage
+     * and damage reduction are rolled ranges the Codex could read; one whose figures depend on the
+     * Run (a bee, a wraith) or are computed otherwise is left out, and the Brain says so when it
+     * meets one. A figure computed at run time, or an evasion that is the enemy's own rule
+     * (customDefense), is marked unknown, and the rest stand. When two classes share a display name,
+     * the first is kept.
      */
-    static List<Codex.Gear> gear(Path folder) {
-        Map<String, Integer> means = new HashMap<>();
-        Map<String, String> combat = Json.object(table(folder, "combat.json"));
-        for (String list : List.of("weapons", "armours")) {
-            for (String raw : Json.array(Json.required(combat, list, "combat"))) {
-                Map<String, String> roll = Json.object(raw);
-                if (Json.integer(Json.required(roll, "level", "roll")) == 0) {
-                    Map<String, String> spread = Json.object(Json.required(roll, "spread", "roll"));
-                    means.put(Json.string(Json.required(roll, "className", "roll")),
-                            Json.integer(Json.required(spread, "meanPerMille", "spread")));
-                }
+    private static List<Codex.Threat> threats(Path folder) {
+        Map<String, String> shown = shown(folder);
+        List<Codex.Threat> threats = new ArrayList<>();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (String raw : Json.array(table(folder, "mobs.json"))) {
+            Map<String, String> mob = Json.object(raw);
+            String name = shown.get(Json.string(Json.required(mob, "className", "mob")));
+            if (!Json.string(Json.required(mob, "alignment", "mob")).equals("ENEMY") || name == null
+                    || Json.bool(Json.required(mob, "statsSetLater", "mob"))
+                    || Json.integer(Json.required(mob, "ht", "mob")) <= 0 || !seen.add(name)) {
+                continue;
+            }
+            Map<String, String> attack = Json.object(Json.required(mob, "attack", "mob"));
+            Map<String, String> damage = Json.object(Json.required(mob, "damage", "mob"));
+            Map<String, String> dr = Json.object(Json.required(mob, "dr", "mob"));
+            List<String> unknown = new ArrayList<>();
+            // A figure the Codex could not read is named, and the Brain supplies its own guess for it;
+            // the figures it could read, the hit points first, stand (Goo: HT 100, Goo.java:54).
+            boolean attackKnown = Json.string(Json.required(attack, "kind", "attack")).equals("CONSTANT");
+            boolean damageKnown = !Json.string(Json.required(damage, "kind", "damage")).equals("OTHER");
+            boolean drKnown = !Json.string(Json.required(dr, "kind", "dr")).equals("OTHER");
+            if (!attackKnown) {
+                unknown.add("attack");
+            }
+            if (!damageKnown) {
+                unknown.add("damage");
+            }
+            if (Json.bool(Json.required(mob, "customDefense", "mob"))) {
+                unknown.add("defense");
+            }
+            if (!drKnown) {
+                unknown.add("dr");
+            }
+            threats.add(new Codex.Threat(name, Json.integer(Json.required(mob, "ht", "mob")),
+                    attackKnown ? Json.integer(Json.required(attack, "min", "attack")) : 0,
+                    Json.integer(Json.required(mob, "defenseSkill", "mob")),
+                    damageKnown ? Json.integer(Json.required(damage, "min", "damage")) : 0,
+                    damageKnown ? Json.integer(Json.required(damage, "max", "damage")) : 0,
+                    drKnown ? Json.integer(Json.required(dr, "min", "dr")) : 0,
+                    drKnown ? Json.integer(Json.required(dr, "max", "dr")) : 0, unknown));
+        }
+        return threats;
+    }
+
+    /** The enemies the Codex marks IMMOVABLE, by display name: they fight only what stands beside them. */
+    private static List<String> immovable(Path folder) {
+        Map<String, String> shown = shown(folder);
+        List<String> names = new ArrayList<>();
+        for (String raw : Json.array(table(folder, "mobs.json"))) {
+            Map<String, String> mob = Json.object(raw);
+            String name = shown.get(Json.string(Json.required(mob, "className", "mob")));
+            if (name != null && Json.string(Json.required(mob, "alignment", "mob")).equals("ENEMY")
+                    && Json.array(Json.required(mob, "properties", "mob")).stream().map(Json::string)
+                    .anyMatch("IMMOVABLE"::equals) && !names.contains(name)) {
+                names.add(name);
+            }
+        }
+        return names;
+    }
+
+    /** Every class's display name, from the strings table. */
+    private static Map<String, String> shown(Path folder) {
+        Map<String, String> shown = new HashMap<>();
+        for (String raw : Json.array(table(folder, "strings.json"))) {
+            Map<String, String> string = Json.object(raw);
+            if (Json.string(Json.required(string, "suffix", "string")).equals("name")) {
+                shown.put(Json.string(Json.required(string, "className", "string")),
+                        Json.string(Json.required(string, "value", "string")));
+            }
+        }
+        return shown;
+    }
+
+    /**
+     * The weapons' damage or the armours' damage reduction the combat table measured, by display name
+     * and level, with each item's tier and level-0 strength from the item table (story 4.8), 0 and 0
+     * where the item table states no strength.
+     */
+    private static List<Codex.Gear> gear(Path folder, Map<String, String> names, String list) {
+        Map<String, int[]> strengths = new HashMap<>();
+        for (String raw : Json.array(table(folder, "items.json"))) {
+            Map<String, String> item = Json.object(raw);
+            Map<String, String> strength = Json.object(Json.required(item, "strength", "item"));
+            if (Json.bool(Json.required(strength, "present", "strength"))) {
+                strengths.put(Json.string(Json.required(item, "className", "item")),
+                        new int[] {Json.integer(Json.required(strength, "tier", "strength")),
+                                Json.integer(Json.required(strength, "atLevel0", "strength"))});
             }
         }
         List<Codex.Gear> gear = new ArrayList<>();
-        java.util.Set<String> names = new java.util.HashSet<>();
-        for (String raw : Json.array(table(folder, "items.json"))) {
-            Map<String, String> item = Json.object(raw);
-            String category = Json.string(Json.required(item, "category", "item"));
-            ItemKind kind = category.equals("ARMOR") ? ItemKind.ARMOR
-                    : category.startsWith("WEP_T") ? ItemKind.WEAPON : null;
-            if (kind == null) {
+        for (String raw : Json.array(Json.required(Json.object(table(folder, "combat.json")), list, "combat"))) {
+            Map<String, String> entry = Json.object(raw);
+            String className = Json.string(Json.required(entry, "className", list));
+            String name = names.get(className);
+            if (name == null) {
                 continue;
             }
-            Map<String, String> strength = Json.object(Json.required(item, "strength", "item"));
-            String className = Json.string(Json.required(item, "className", "item"));
-            String name = Json.string(Json.required(item, "name", "item"));
-            if (!Json.bool(Json.required(strength, "present", "strength")) || !means.containsKey(className)
-                    || !names.add(name)) {
-                continue;
-            }
-            gear.add(new Codex.Gear(className, name, kind, Json.integer(Json.required(strength, "tier", "strength")),
-                    Json.integer(Json.required(strength, "atLevel0", "strength")), means.get(className)));
+            Map<String, String> spread = Json.object(Json.required(entry, "spread", list));
+            int[] strength = strengths.getOrDefault(className, new int[] {0, 0});
+            gear.add(new Codex.Gear(name, Json.integer(Json.required(entry, "level", list)),
+                    Json.integer(Json.required(spread, "min", "spread")), Json.integer(Json.required(spread, "max", "spread")),
+                    Json.integer(Json.required(spread, "meanPerMille", "spread")), strength[0], strength[1]));
         }
         return gear;
     }

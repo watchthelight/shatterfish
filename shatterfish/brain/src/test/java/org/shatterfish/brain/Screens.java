@@ -61,12 +61,16 @@ final class Screens {
                     "potion of invisibility")),
             List.of(new Codex.Guarantee("STRENGTH_POTIONS", "items.potions.PotionOfStrength", "potion of strength", 2, 5),
                     new Codex.Guarantee("UPGRADE_SCROLLS", "items.scrolls.ScrollOfUpgrade", "scroll of upgrade", 3, 5)),
-            // Story 4.8: the level-0 means the committed combat table measured.
-            List.of(new Codex.Gear("items.weapon.melee.WornShortsword", "worn shortsword", ItemKind.WEAPON, 1, 10, 5485),
-                    new Codex.Gear("items.weapon.melee.Shortsword", "shortsword", ItemKind.WEAPON, 2, 12, 8485),
-                    new Codex.Gear("items.weapon.melee.Greataxe", "greataxe", ItemKind.WEAPON, 5, 18, 25035),
-                    new Codex.Gear("items.armor.ClothArmor", "cloth armor", ItemKind.ARMOR, 1, 10, 1004),
-                    new Codex.Gear("items.armor.LeatherArmor", "leather armor", ItemKind.ARMOR, 2, 12, 2013)));
+            List.of(),
+            // Story 4.8: the level-0 rolls the committed combat table measured, with the item
+            // table's tier and strength.
+            List.of(new Codex.Gear("worn shortsword", 0, 1, 10, 5485, 1, 10),
+                    new Codex.Gear("shortsword", 0, 2, 15, 8485, 2, 12),
+                    new Codex.Gear("greataxe", 0, 5, 45, 25035, 5, 18),
+                    new Codex.Gear("mage's staff", 0, 1, 6, 3501, 1, 10)),
+            List.of(new Codex.Gear("cloth armor", 0, 0, 2, 1004, 1, 10),
+                    new Codex.Gear("leather armor", 0, 0, 4, 2013, 2, 12)),
+            List.of());
 
     /** The committed weight set's values (weights/shatterfish.json), which WeightsFileTest holds to the file. */
     static final Weights WEIGHTS = weights(Map.of());
@@ -84,6 +88,21 @@ final class Screens {
     }
 
     private Screens() {
+    }
+
+    /**
+     * The Belief {@code brain} holds at the last of {@code screens}: every screen before it seen,
+     * decided on and handed over, as the Brain's driver does it (story 4.7), and the last seen.
+     */
+    static org.shatterfish.api.Belief drive(Brain brain, Observation... screens) {
+        org.shatterfish.api.Belief belief = null;
+        for (int i = 0; i < screens.length; i++) {
+            belief = brain.update(screens[i], belief);
+            if (i < screens.length - 1) {
+                belief = brain.handed(screens[i], belief, brain.decide(screens[i], belief));
+            }
+        }
+        return belief;
     }
 
     /** A screen at {@code depth} offering {@code actions}, with no Prompt open. */
