@@ -133,8 +133,9 @@ public final class CodexKnowledge {
      * class (the name the screen shows). Only an enemy whose accuracy is a constant and whose damage
      * and damage reduction are rolled ranges the Codex could read; one whose figures depend on the
      * Run (a bee, a wraith) or are computed otherwise is left out, and the Brain says so when it
-     * meets one. An enemy whose evasion is its own rule (customDefense) is left out too: its figures
-     * would mislead. When two classes share a display name, the first with fixed figures is kept.
+     * meets one. A figure computed at run time, or an evasion that is the enemy's own rule
+     * (customDefense), is marked unknown, and the rest stand. When two classes share a display name,
+     * the first is kept.
      */
     private static List<Codex.Threat> threats(Path folder) {
         Map<String, String> shown = shown(folder);
@@ -145,23 +146,37 @@ public final class CodexKnowledge {
             String name = shown.get(Json.string(Json.required(mob, "className", "mob")));
             if (!Json.string(Json.required(mob, "alignment", "mob")).equals("ENEMY") || name == null
                     || Json.bool(Json.required(mob, "statsSetLater", "mob"))
-                    || Json.bool(Json.required(mob, "customDefense", "mob")) || !seen.add(name)) {
+                    || Json.integer(Json.required(mob, "ht", "mob")) <= 0 || !seen.add(name)) {
                 continue;
             }
             Map<String, String> attack = Json.object(Json.required(mob, "attack", "mob"));
             Map<String, String> damage = Json.object(Json.required(mob, "damage", "mob"));
             Map<String, String> dr = Json.object(Json.required(mob, "dr", "mob"));
-            if (!Json.string(Json.required(attack, "kind", "attack")).equals("CONSTANT")
-                    || Json.string(Json.required(damage, "kind", "damage")).equals("OTHER")
-                    || Json.string(Json.required(dr, "kind", "dr")).equals("OTHER")) {
-                seen.remove(name);
-                continue;
+            List<String> unknown = new ArrayList<>();
+            // A figure the Codex could not read is named, and the Brain supplies its own guess for it;
+            // the figures it could read, the hit points first, stand (Goo: HT 100, Goo.java:54).
+            boolean attackKnown = Json.string(Json.required(attack, "kind", "attack")).equals("CONSTANT");
+            boolean damageKnown = !Json.string(Json.required(damage, "kind", "damage")).equals("OTHER");
+            boolean drKnown = !Json.string(Json.required(dr, "kind", "dr")).equals("OTHER");
+            if (!attackKnown) {
+                unknown.add("attack");
+            }
+            if (!damageKnown) {
+                unknown.add("damage");
+            }
+            if (Json.bool(Json.required(mob, "customDefense", "mob"))) {
+                unknown.add("defense");
+            }
+            if (!drKnown) {
+                unknown.add("dr");
             }
             threats.add(new Codex.Threat(name, Json.integer(Json.required(mob, "ht", "mob")),
-                    Json.integer(Json.required(attack, "min", "attack")),
+                    attackKnown ? Json.integer(Json.required(attack, "min", "attack")) : 0,
                     Json.integer(Json.required(mob, "defenseSkill", "mob")),
-                    Json.integer(Json.required(damage, "min", "damage")), Json.integer(Json.required(damage, "max", "damage")),
-                    Json.integer(Json.required(dr, "min", "dr")), Json.integer(Json.required(dr, "max", "dr"))));
+                    damageKnown ? Json.integer(Json.required(damage, "min", "damage")) : 0,
+                    damageKnown ? Json.integer(Json.required(damage, "max", "damage")) : 0,
+                    drKnown ? Json.integer(Json.required(dr, "min", "dr")) : 0,
+                    drKnown ? Json.integer(Json.required(dr, "max", "dr")) : 0, unknown));
         }
         return threats;
     }

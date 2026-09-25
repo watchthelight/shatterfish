@@ -62,7 +62,14 @@ class CodexKnowledgeTest {
         assertTrue(knowledge.armours().contains(new Codex.Gear("cloth armor", 0, 0, 2, 1004)), "cloth armour, measured");
         assertTrue(knowledge.weapons().stream().anyMatch(gear -> gear.name().equals(org.shatterfish.brain.Brain.magesStaff())),
                 "the mage's staff is measured under the name the fight Policy maps a staff to");
-        assertEquals(null, knowledge.threat("great crab"), "a great crab parries by its own rule, and is left out");
+        Codex.Threat crab = knowledge.threat("great crab");
+        assertEquals(java.util.List.of("defense"), crab.unknown(), "a great crab parries by its own rule (GreatCrab.java:95-110)");
+        assertEquals(25, crab.ht());
+        Codex.Threat goo = knowledge.threat("Goo");
+        assertEquals(100, goo.ht(), "Goo's hit points stand (Goo.java:54)");
+        assertEquals(java.util.List.of("attack", "damage", "defense"), goo.unknown(),
+                "its attack and damage are computed at run time, and its evasion is its own rule");
+        assertEquals(2, goo.drMax(), "its damage reduction the Codex read, 0-2");
         assertTrue(knowledge.immovable().containsAll(java.util.List.of("rot lasher", "rot heart", "DM-201")), knowledge.immovable().toString());
     }
 

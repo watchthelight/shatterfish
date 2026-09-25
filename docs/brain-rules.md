@@ -43,10 +43,11 @@ behaviour to re-check.
 | 22 | The hero's damage reduction is its armour's roll, which the Codex measured per armour and level. | `fight` (threat estimate) | [combat: "Hero `drRoll`"](rules/combat.md) |
 | 23 | Bare-handed, the hero rolls `NormalIntRange(1, max(STR - 8, 1))`. | `fight` (threat estimate) | [combat: "A hero fighting bare-handed"](rules/combat.md) |
 | 24 | While a boss fight has sealed the floor, no transition activates, so the fight Policy never plans a retreat by the stairs on a sealed floor. | `fight` (retreat) | [levels: "`Level.locked` is set by `seal()`"](rules/levels.md) |
-| 25 | The animated and armored statues and the gnoll exile stay passive until provoked, so the fight Policy neither fights nor flees them and the explore Policy walks past them. | `fight`, `explore` | [combat: "The animated statue is created `PASSIVE`"](rules/combat.md) |
+| 25 | The animated and armored statues and the gnoll exile stay passive until provoked -- a statue by damage, an exile by a debuff -- so while one shows a full health bar, no buff and no alert, the fight Policy neither fights nor flees it and the explore Policy walks past it. | `fight`, `explore` | [combat: "The animated statue is created `PASSIVE`"](rules/combat.md) |
 | 26 | Damage and damage-reduction rolls are `NormalIntRange`, a triangular distribution, which the threat estimate takes the exact expectation over. | `fight` (threat estimate) | [combat: "`Random.NormalIntRange(min, max)`"](rules/combat.md) |
 | 27 | A weapon or armour shows its enchantment or glyph around its own name, and a mage's staff the name of its wand, which is how the threat estimate finds what the hero wears. | `fight` (threat estimate) | [combat: "A weapon's shown name wraps"](rules/combat.md) |
 | 28 | Depth 1's up stairs are the surface, which a hero without the Amulet cannot leave by, so the fight Policy retreats only by the regular stairs. | `fight` (retreat) | [levels: "Depth 1's entrance is a `SURFACE` transition"](rules/levels.md) |
+| 29 | Regeneration heals only while the hero is not starving, so the rest before going back down a fled floor is skipped while hungry or starving, and capped. | `explore` (rest) | [buffs: "Regeneration heals 1 HP every 10 turns"](rules/buffs.md) |
 
 The `fallback` Policy relies on no mechanic. It chooses uniformly among the Actions the Observation
 offers, and the offered set is `ValidActions`' to get right (story 1.12), not the Brain's.

@@ -102,7 +102,7 @@ final class Explore implements Policy {
         }
         for (ActorView actor : observation.actors().actors()) {
             // An enemy the game keeps passive until provoked is scenery (story 4.7, Fight.PASSIVE).
-            if (actor.alignment() == Alignment.ENEMY && !Fight.PASSIVE.contains(actor.name())) {
+            if (actor.alignment() == Alignment.ENEMY && !Fight.passive(actor)) {
                 return false;
             }
         }
@@ -131,13 +131,18 @@ final class Explore implements Policy {
         return choice != null && choice.action() instanceof Action.Step step ? step.cell() : null;
     }
 
-    /** The plan, before the stuck rule: frontier, then a search, then the way down. */
+    /**
+     * The plan, before the stuck rule: out of an avoided region, a rest owed, then frontier, a search,
+     * the way down. The frontier, search and way down are planned around the regions the fight
+     * Policy retreated from; when that finds nothing -- a region over the only corridor -- they are
+     * planned again through them, rather than leave the wait to chance.
+     */
     private static RunLog.Choice plan(Observation observation, Memory memory, List<Action> offered) {
         MapSection map = observation.map();
         int depth = observation.header().depth();
         int branch = observation.header().branch();
         int hero = observation.hero().cell();
-        boolean[] walk = walkable(observation, memory);
+        boolean[] open = walkable(observation, memory, false);
 
         // Inside a region the fight Policy retreated from (story 4.7): out of it first, a Step at a
         // time, before any plan takes the hero back toward what it fled.
@@ -147,7 +152,7 @@ final class Explore implements Policy {
                 Action.Step away = null;
                 int farthest = distance(map, hero, region.cell());
                 for (Action action : offered) {
-                    if (action instanceof Action.Step step && step.cell() < walk.length
+                    if (action instanceof Action.Step step && step.cell() < open.length && open[step.cell()]
                             && distance(map, step.cell(), region.cell()) > farthest
                             && !map.transitions().stream().anyMatch(t -> t.cell() == step.cell())) {
                         away = step;
@@ -163,8 +168,7 @@ final class Explore implements Policy {
         // On the floor above one the hero fled by the stairs (story 4.7): rest to full health before
         // anything else, so the plan that leads back down does not return to the fight it left at
         // the health it left with.
-        String below = (depth + 1) + ":" + branch;
-        if (Memory.count(memory.flights(), below, 0) > 0 && observation.hero().hp() < observation.hero().ht()) {
+        if (restOwed(observation, memory)) {
             for (Action rest : List.of(new Action.Rest(true), new Action.Rest(false), new Action.Search())) {
                 if (offered.contains(rest)) {
                     return new RunLog.Choice(rest, Policies.CERTAIN, "rest: before-descent");
@@ -172,6 +176,38 @@ final class Explore implements Policy {
             }
         }
 
+        RunLog.Choice around = route(observation, memory, offered, walkable(observation, memory, true));
+        return around != null ? around : route(observation, memory, offered, open);
+    }
+
+    /**
+     * Whether a rest is owed before going back down (story 4.7): the floor below was fled by the
+     * stairs since the hero was last healed there, its hit points are short, it is neither hungry
+     * nor starving -- a starving hero does not regenerate (Regeneration.java:56) -- and it has not
+     * already rested {@link #RESTS} waits for it.
+     */
+    static boolean restOwed(Observation observation, Memory memory) {
+        String below = below(observation);
+        return Memory.count(memory.flights(), below, 0) > Memory.count(memory.flights(), below, 1)
+                && observation.hero().hp() < observation.hero().ht()
+                && observation.hero().hunger() == org.shatterfish.api.Hunger.NONE
+                && Memory.count(memory.flights(), below, 2) < RESTS;
+    }
+
+    /** The key of the floor below this one, as the Memory counts flights. */
+    static String below(Observation observation) {
+        return (observation.header().depth() + 1) + ":" + observation.header().branch();
+    }
+
+    /** The most waits the hero rests before going back to a floor it fled. */
+    static final int RESTS = 50;
+
+    /** Frontier, then a search, then the way down, over the cells {@code walk} allows. */
+    private static RunLog.Choice route(Observation observation, Memory memory, List<Action> offered, boolean[] walk) {
+        MapSection map = observation.map();
+        int depth = observation.header().depth();
+        int branch = observation.header().branch();
+        int hero = observation.hero().cell();
         Path frontier = nearest(map, walk, hero, offered, cell -> frontier(map, walk, cell));
         if (frontier != null) {
             return new RunLog.Choice(frontier.step, Policies.CERTAIN, "frontier " + frontier.distance);

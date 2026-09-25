@@ -100,9 +100,11 @@ class ShatterfishRunTest {
                     // The fallback's reason says how many Actions were offered: "uniform 1/n".
                     int offered = Integer.parseInt(decision.chosen().why().substring("uniform 1/".length()));
                     assertEquals(Math.min(offered - 1, RunLog.Decision.ALTERNATIVES), decision.alternatives().size(), at);
-                    if (offered > 1) {
-                        withAlternatives++;
-                    }
+                }
+                // Story 4.7: the fight and explore Policies take nearly every wait now, and the
+                // fallback's picks are their alternatives; any wait that recorded one counts.
+                if (!decision.alternatives().isEmpty()) {
+                    withAlternatives++;
                 }
                 assertEquals(cells(wait.action()), wait.highlights(), at);
                 if (!wait.highlights().isEmpty()) {
@@ -113,7 +115,7 @@ class ShatterfishRunTest {
         }
         assertTrue(waits > 0, "the Runs served waits");
         assertTrue(highlighted > 0, "some wait pointed at a cell, and it was highlighted");
-        assertTrue(withAlternatives > 0, "some fallback wait had a choice, and recorded alternatives");
+        assertTrue(withAlternatives > 0, "some wait had a choice, and recorded alternatives");
         assertTrue(explored > 0, "the explore Policy took some waits");
         assertTrue(fought > 0, "the fight Policy took some waits: enemies came into view");
         // A Brain's log replays: the follower states the Decision and Belief hash each wait

@@ -207,7 +207,39 @@ takes every screen with an enemy in view.
 - `Codex.Knowledge` adds `threats`, `weapons`, `armours` and `immovable` (a list of display names),
   with `threat(name)`. Story 4.2's four-argument constructor is kept.
 
+**Verification pass on `50c68eb16`: 7 more problems, all fixed.**
+1. **Walkable cells only.** The explore Policy's step out of an avoided region, and the fight
+   Policy's step away, took any offered Step that added distance: a chasm (a jump Prompt), a well (a
+   drink), an armed trap, or a cell a Step was refused onto. Both now require a walkable cell
+   (`never_onto_a_chasm`).
+2. **A region over the only way on.** Frontier, search and the way down are planned around the
+   avoided regions first, and planned again through them when that finds nothing, instead of
+   leaving the wait to the random fallback (`region_over_the_only_corridor`).
+3. **The rest before descending.** It is skipped while the hero is hungry or starving, because a
+   starving hero does not regenerate (`Regeneration.java:56`, Brain Rules index row 29). It is capped
+   at `Explore.RESTS` = 50 waits. Full health settles every flight so far, so a rest is owed again
+   only after another flight (`rest_is_bounded`).
+4. **The mage's staff.** It is found by "staff of" as whole words anywhere in the name, so an
+   enchantment or the holy weapon's wrap no longer hides it (`MagesStaff.java:341-342`,
+   `Weapon.java:411-414`) (`wrapped_staff`).
+5. **Partial figures.** An enemy the Codex has hit points for is listed even when some of its
+   figures are computed at run time. `Codex.Threat.unknown` names those figures, and the fight Policy
+   guesses only them:
+   - Goo keeps HT 100 (`Goo.java:54`) and its damage reduction 0-2, and takes the pessimistic attack
+     and damage.
+   - An evasion that is the enemy's own rule (Goo, great crab, monks, crystal guardian) takes the
+     higher of the Codex's figure and the guess (`partial_figures`, `CodexKnowledgeTest.combat`).
+6. **Idling forever.** Idling is capped like the holds: at most `HOLDS` waits in a row, after which
+   the fight Policy offers nothing and the Policies below take the wait (`unreachable_enemy`).
+7. **Provoked passives.** A statue or exile is scenery only while it shows a full health bar, no buff
+   and no alert. Hurt, debuffed or alerted, it is an enemy again (`provoked_statue`).
+
 **Docs:**
 - `docs/rules/combat.md`: three new rows (`NormalIntRange`, the passive statues and exile, gear names).
 - `docs/rules/levels.md`: the surface-entrance row.
-- `docs/brain-rules.md`: rows 16 to 28.
+- `docs/brain-rules.md`: rows 16 to 29.
+
+**Codex records after the verification pass:**
+- `Codex.Threat(name, ht, attack, defense, damageMin, damageMax, drMin, drMax, List<String> unknown)`,
+  with an eight-argument constructor for a fully known enemy.
+- `Codex.Gear(name, level, min, max, meanPerMille)`, unchanged.

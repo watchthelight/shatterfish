@@ -179,6 +179,18 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 && !memory.at().on(depth, branch) && memory.at().depth() >= 0) {
             add(flights, memory.at().depth() + ":" + memory.at().branch(), 0, 1);
         }
+        // On the floor above one fled: a rest counts toward Explore.RESTS, and full health settles
+        // every flight so far (set 1 catches up with set 0), so the next flight owes a rest again.
+        String below = Explore.below(observation);
+        int fled = Memory.count(flights, below, 0);
+        if (fled > Memory.count(flights, below, 1)) {
+            if (observation.hero().hp() >= observation.hero().ht()) {
+                add(flights, below, 1, fled - Memory.count(flights, below, 1));
+                flights.removeIf(one -> one.key().equals(below) && one.set() == 2);
+            } else if (memory.last().equals("Rest") && memory.at().on(depth, branch)) {
+                add(flights, below, 2, 1);
+            }
+        }
         List<Memory.Avoid> avoid = memory.avoid().stream().filter(region -> region.until() >= waits).toList();
         Memory after = new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
                 sightings(memory.monsters(), observation, waits), here, streak, calm, dwelt, memory.blocked(),

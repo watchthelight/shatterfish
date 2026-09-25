@@ -85,6 +85,17 @@ final class Fight implements Policy {
      */
     static final Set<String> PASSIVE = Set.of("animated statue", "armored statue", "gnoll exile");
 
+    /**
+     * Whether {@code actor} is one of the {@link #PASSIVE} enemies and still looks untouched: its
+     * health bar full, no buff drawn on it and no alert over it. A statue a trap or a gas has hurt is
+     * hunting (Statue.java:128-136), and a debuffed exile turns (GnollExile.java:137-146); what the
+     * screen shows of either is the bar, the buff icons and the alert, so any of them ends the truce.
+     */
+    static boolean passive(ActorView actor) {
+        return PASSIVE.contains(actor.name()) && actor.healthPips() == ObservationCodec.MAX_HEALTH_PIPS
+                && actor.buffs().isEmpty() && actor.emote() != org.shatterfish.api.Emote.ALERT;
+    }
+
     private final Codex.Knowledge knowledge;
 
     Fight(Codex.Knowledge knowledge) {
@@ -145,7 +156,7 @@ final class Fight implements Policy {
         }
         if (!favourable) {
             add(ranked, retreat);
-            idle(ranked, offered);
+            idle(ranked, offered, memory);
             return ranked;
         }
         List<ActorView> mobile = enemies.stream().filter(enemy -> !knowledge.immovable().contains(enemy.name())).toList();
@@ -164,7 +175,7 @@ final class Fight implements Policy {
         }
         add(ranked, approach(observation, memory, offered, enemies));
         add(ranked, retreat);
-        idle(ranked, offered);
+        idle(ranked, offered, memory);
         return ranked;
     }
 
@@ -175,16 +186,21 @@ final class Fight implements Policy {
         }
     }
 
-    /** End the ranking with a turn spent in place, so the Policy never enters and returns nothing. */
-    private static void idle(List<RunLog.Choice> ranked, List<Action> offered) {
-        for (Action action : List.of(new Action.Search(), new Action.Wait())) {
+    /**
+     * End the ranking with a turn spent in place, for at most {@link #HOLDS} waits in a row: an enemy
+     * that neither comes nor can be reached or fled (asleep across a chasm, from a dead end) would
+     * otherwise hold the hero forever. Past that the Policy offers nothing more, and the Policies
+     * below it take the wait.
+     */
+    private static void idle(List<RunLog.Choice> ranked, List<Action> offered, Memory memory) {
+        if (memory.holds() >= HOLDS) {
+            return;
+        }
+        for (Action action : List.of(new Action.Wait(), new Action.Search())) {
             if (offered.contains(action)) {
                 add(ranked, new RunLog.Choice(action, Policies.CERTAIN, "hold: no-way"));
                 return;
             }
-        }
-        if (ranked.isEmpty() && !offered.isEmpty()) {
-            ranked.add(new RunLog.Choice(offered.get(0), Policies.CERTAIN, "hold: no-way"));
         }
     }
 
@@ -192,7 +208,7 @@ final class Fight implements Policy {
     static List<ActorView> enemies(Observation observation) {
         List<ActorView> enemies = new ArrayList<>();
         for (ActorView actor : observation.actors().actors()) {
-            if (actor.alignment() == Alignment.ENEMY && !PASSIVE.contains(actor.name())) {
+            if (actor.alignment() == Alignment.ENEMY && !passive(actor)) {
                 enemies.add(actor);
             }
         }
@@ -313,11 +329,15 @@ final class Fight implements Policy {
                 return new RunLog.Choice(path.step, Policies.CERTAIN, "retreat: stairs");
             }
         }
+        // Away, onto a cell the hero may walk on: not a chasm, which jumps, a well, which drinks, an
+        // armed trap, or a cell a Step was refused onto.
+        boolean[] open = Explore.walkable(observation, memory, false);
         Action.Step best = null;
         int farthest = from;
         int fewest = Integer.MAX_VALUE;
         for (Action action : offered) {
-            if (action instanceof Action.Step step && !transition(map, step.cell())) {
+            if (action instanceof Action.Step step && step.cell() < open.length && open[step.cell()]
+                    && !transition(map, step.cell())) {
                 int distance = nearest(map, step.cell(), enemies);
                 int engage = engage(map, step.cell());
                 if (distance > farthest || (best != null && distance == farthest && engage < fewest)) {
@@ -489,7 +509,9 @@ final class Fight implements Policy {
             return null;
         }
         String shown = item.name();
-        String name = shown.startsWith("staff of ") ? MAGES_STAFF : null;
+        // "staff of <wand>" as whole words anywhere in the name: an enchantment or the holy weapon
+        // wraps it ("blazing staff of magic missile", MagesStaff.java:341-342; Weapon.java:411-414).
+        String name = contains(shown, "staff of") ? MAGES_STAFF : null;
         if (name == null) {
             for (Codex.Gear entry : gear) {
                 if (contains(shown, entry.name()) && (name == null || entry.name().length() > name.length())) {
@@ -558,10 +580,27 @@ final class Fight implements Policy {
         return new Codex.Threat(name, 10 + 5 * d, 10 + 2 * d, 3 + d, 1, 4 + 2 * d, 0, 1 + d / 2);
     }
 
-    /** The enemy's figures: the Codex's, or the assumed ones. */
+    /**
+     * The enemy's figures: the Codex's where it read them, and the assumed ones for the rest. An
+     * evasion that is the enemy's own rule takes the higher of the Codex's figure and the assumed
+     * one. With no Codex entry at all, the assumed figures throughout.
+     */
     static Codex.Threat threat(Observation observation, Codex.Knowledge knowledge, ActorView enemy) {
+        Codex.Threat guess = assumed(enemy.name(), observation.header().depth());
         Codex.Threat threat = knowledge.threat(enemy.name());
-        return threat != null ? threat : assumed(enemy.name(), observation.header().depth());
+        if (threat == null) {
+            return guess;
+        }
+        if (threat.unknown().isEmpty()) {
+            return threat;
+        }
+        boolean attack = threat.unknown().contains("attack");
+        boolean damage = threat.unknown().contains("damage");
+        boolean dr = threat.unknown().contains("dr");
+        int defense = threat.unknown().contains("defense") ? Math.max(threat.defense(), guess.defense()) : threat.defense();
+        return new Codex.Threat(threat.name(), threat.ht(), attack ? guess.attack() : threat.attack(), defense,
+                damage ? guess.damageMin() : threat.damageMin(), damage ? guess.damageMax() : threat.damageMax(),
+                dr ? guess.drMin() : threat.drMin(), dr ? guess.drMax() : threat.drMax());
     }
 
     /** The enemy's hit points as its health bar shows them, rounded up. */

@@ -1462,12 +1462,18 @@ public final class Codex {
     /**
      * An enemy's combat figures, by the name the screen shows it under (story 4.7): its hit points,
      * its accuracy and evasion, the range its attack rolls, and the range of the damage it shrugs
-     * off. Read from the Codex's mob table; an enemy whose figures the table computes at run time, or
-     * whose evasion is its own rule (a great crab's parry, a monk's), is not listed. When two enemy
-     * classes share a display name, the first in the Codex's order with fixed figures is listed; at
-     * v4.0.0 no two do.
+     * off, read from the Codex's mob table, and which of those figures the table could not read
+     * ({@link #UNKNOWN_FIGURES}): a figure computed at run time (Goo's attack and damage) is
+     * {@code "attack"} or {@code "damage"} or {@code "dr"}, zero here, and an evasion that is the
+     * enemy's own rule (a great crab's parry, a monk's) is {@code "defense"}, kept here as the table's
+     * figure. An enemy whose hit points are set at run time is not listed. When two enemy classes share
+     * a display name, the first in the Codex's order is listed; at v4.0.0 no two do.
      */
-    public record Threat(String name, int ht, int attack, int defense, int damageMin, int damageMax, int drMin, int drMax) {
+    public record Threat(String name, int ht, int attack, int defense, int damageMin, int damageMax, int drMin, int drMax,
+                         List<String> unknown) {
+
+        /** The figures a Threat can say it does not know. */
+        public static final List<String> UNKNOWN_FIGURES = List.of("attack", "damage", "defense", "dr");
 
         public Threat {
             name = Canon.text(name, "enemy name");
@@ -1475,6 +1481,15 @@ public final class Codex {
             Canon.require(ht > 0 && attack >= 0 && defense >= 0, "an enemy has hit points and skills: " + name);
             Canon.require(damageMin >= 0 && damageMin <= damageMax && drMin >= 0 && drMin <= drMax,
                     "an enemy's ranges are ranges: " + name);
+            unknown = Canon.positional(unknown, "unknown figures");
+            for (String figure : unknown) {
+                Canon.require(UNKNOWN_FIGURES.contains(figure), "not a figure: " + figure);
+            }
+        }
+
+        /** An enemy whose every figure the Codex read. */
+        public Threat(String name, int ht, int attack, int defense, int damageMin, int damageMax, int drMin, int drMax) {
+            this(name, ht, attack, defense, damageMin, damageMax, drMin, drMax, List.of());
         }
     }
 
