@@ -49,13 +49,18 @@ mutation battery and a direction check on the `smoke` Seed set):
 - **4.7** Fighting: estimates each fight from the Codex's enemy figures and the
   hero's visible gear and health; fights when it wins with a margin, otherwise
   backs into a corridor or retreats by the stairs.
-- In review: **4.8** picking up and equipping items.
+- **4.8** Picking up and equipping: walks to items worth carrying (valuing
+  unidentified ones by their odds, never their true identity) and wears a better
+  weapon or armour when the chance of a hidden curse is worth it.
+- In review or in progress: **4.9** eating and healing, **4.10** testing unknown
+  items.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
-Seed set, exploring and fighting together take the mean deepest floor from 1.04
-to 2.16 and the mean score from 78 to 405, and leave only 2% of decisions to
-chance (PR #137 has the table). It still dies on every `smoke` Run; the Goo gate
-(story 4.14) is where E4 is judged.
+Seed set, exploring and fighting took the mean deepest floor from 1.04 to 2.16
+and the mean score from 78 to 405 (PR #137); picking up and equipping then took
+the score to 637 and the median turns survived from 422 to 557 (PR #138). Under
+1% of decisions are left to chance. It still dies on nearly every `smoke` Run;
+the Goo gate (story 4.14) is where E4 is judged.
 
 ## The four parts
 

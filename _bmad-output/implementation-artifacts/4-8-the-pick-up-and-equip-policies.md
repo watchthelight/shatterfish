@@ -2,7 +2,7 @@
 title: 'Story 4.8: The pick-up and equip Policies'
 type: 'feature'
 created: '2026-09-25'
-status: 'review'
+status: 'done'
 baseline_commit: '265e5e9f2 (story 4.6, with main at story 4.3)'
 review_loop_iteration: 0
 context: []
