@@ -106,7 +106,7 @@ final class Fight implements Policy {
         }
         boolean favourable = favourable(observation, knowledge, enemies);
         RunLog.Choice attack = attack(observation, adjacent);
-        RunLog.Choice retreat = retreat(observation, offered, enemies);
+        RunLog.Choice retreat = retreat(observation, memory, offered, enemies);
         List<RunLog.Choice> ranked = new ArrayList<>();
         if (!adjacent.isEmpty()) {
             if (favourable || retreat == null) {
@@ -124,7 +124,7 @@ final class Fight implements Policy {
             RunLog.Choice choke = chokepoint(observation, offered, enemies);
             if (choke != null) {
                 ranked.add(choke);
-                add(ranked, favourable ? approach(observation, offered, enemies) : retreat);
+                add(ranked, favourable ? approach(observation, memory, offered, enemies) : retreat);
                 return ranked;
             }
         }
@@ -133,7 +133,7 @@ final class Fight implements Policy {
             add(ranked, retreat);
             return ranked;
         }
-        RunLog.Choice approach = approach(observation, offered, enemies);
+        RunLog.Choice approach = approach(observation, memory, offered, enemies);
         if (favourable && approach != null) {
             ranked.add(approach);
             add(ranked, retreat);
@@ -225,9 +225,9 @@ final class Fight implements Policy {
     }
 
     /** The offered Step that starts the shortest walk to a cell beside the nearest enemy. */
-    private static RunLog.Choice approach(Observation observation, List<Action> offered, List<ActorView> enemies) {
+    private static RunLog.Choice approach(Observation observation, Memory memory, List<Action> offered, List<ActorView> enemies) {
         MapSection map = observation.map();
-        boolean[] walk = Explore.walkable(observation);
+        boolean[] walk = Explore.walkable(observation, memory);
         Path path = walk(map, walk, offered, cell -> nearest(map, cell, enemies) == 1);
         return path == null ? null : new RunLog.Choice(path.step, Policies.CERTAIN, "approach " + path.distance);
     }
@@ -237,7 +237,7 @@ final class Fight implements Policy {
      * when the hero stands on them, else the offered Step that most increases the distance to the
      * nearest enemy, fewer engaging first. Null when nothing gets the hero farther away.
      */
-    private static RunLog.Choice retreat(Observation observation, List<Action> offered, List<ActorView> enemies) {
+    private static RunLog.Choice retreat(Observation observation, Memory memory, List<Action> offered, List<ActorView> enemies) {
         MapSection map = observation.map();
         if (!observation.header().sealed()) {
             for (Action leave : List.of(new Action.Descend(), new Action.Ascend())) {
@@ -245,7 +245,7 @@ final class Fight implements Policy {
                     return new RunLog.Choice(leave, Policies.CERTAIN, "retreat: stairs");
                 }
             }
-            boolean[] walk = Explore.walkable(observation);
+            boolean[] walk = Explore.walkable(observation, memory);
             for (TransitionView transition : map.transitions()) {
                 // A Step onto the stairs is the way off the floor; the walk may end on them.
                 if (map.fog().get(transition.cell()) != Fog.UNKNOWN) {

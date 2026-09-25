@@ -59,9 +59,19 @@ class ShatterfishRunTest {
                         wait.decision().policy());
                 if ("explore".equals(wait.decision().policy())) {
                     explored++;
-                    // Story 4.6: one Step or one Search per wait, never anything else.
-                    assertTrue(wait.action() instanceof org.shatterfish.api.Action.Step
-                            || wait.action() instanceof org.shatterfish.api.Action.Search, wait.action().toString());
+                    // Story 4.6: one Step, one Search or the Descend per wait, and the reason names
+                    // which of its plans the Action serves: a Step goes to a frontier, a search
+                    // spot or the exit, n Steps away; a Search is counted against the floor's bound.
+                    org.shatterfish.api.Action action = wait.action();
+                    String why = wait.decision().chosen().why();
+                    if (action instanceof org.shatterfish.api.Action.Step) {
+                        assertTrue(why.matches("(frontier|search-spot|exit) [1-9][0-9]*"), why);
+                    } else if (action instanceof org.shatterfish.api.Action.Search) {
+                        assertTrue(why.matches("search ([1-9]|1[0-2])/12"), why);
+                    } else {
+                        assertEquals(new org.shatterfish.api.Action.Descend(), action, why);
+                        assertEquals("descend", why);
+                    }
                 }
                 assertEquals(wait.action(), wait.decision().chosen().action(), "the Action logged is the one decided");
                 assertTrue(wait.belief().matches("[0-9a-f]{64}"), wait.belief());
