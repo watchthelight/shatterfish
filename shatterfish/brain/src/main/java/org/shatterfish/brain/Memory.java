@@ -61,7 +61,8 @@ import java.util.List;
  * @param avoid    regions the fight Policy retreated from, which the explore Policy keeps out of until
  *                 they lapse
  * @param drank    the wait at which the heal Policy last handed over a drink, or -1 (story 4.9): the heal
- *                 lands over several turns and draws no icon, so the screen does not say one is running
+ *                 lands over several turns with no buff icon, and the floating heal text the game shows is
+ *                 not in the Observation
  */
 record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
               List<Held> labels, List<Found> pending, List<Seen> monsters, Spot at, int streak, boolean calm,

@@ -67,7 +67,7 @@ records where the code contradicted the bootstrap prompt.
 | [Game loop and hero input](game-loop.md) | 24 | Actor scheduling, the actor thread, how a hero turn starts and ends, sprite-gated turn resolution, windows and scene switches. |
 | [Visibility](visibility.md) | 24 | What `Dungeon.observe` computes, field of view, fog, secret doors and traps, heaps, mob sprites, and every leak of unseen mobs found. |
 | [Items and identification](identification.md) | 28 | What an unidentified item shows the player, how appearances are shuffled from the seed, what identifies on use or equip, and what the Observer must never read. |
-| [Mobs, AI and combat](combat.md) | 34 | AI states, noticing, `Char.hit`, damage and armor rolls, spawn tables, boss floors and the stair lock. |
+| [Mobs, AI and combat](combat.md) | 35 | AI states, noticing, `Char.hit`, damage and armor rolls, spawn tables, boss floors and the stair lock. |
 | [Level generation and floors](levels.md) | 28 | Depths and branches, per-floor seeding, room lists, special and secret rooms, guaranteed solution items, traps, hidden doors, stairs. |
 | [Item generation and guarantees](generation.md) | 22 | `Generator` decks and weights, the strength potion and upgrade scroll schedules, `LimitedDrops`, bones, heap types. |
 | [Random numbers and seeding](rng.md) | 21 | The generator stack, what the seed fixes, what runs on the unseeded base generator, and every other source of nondeterminism found. |

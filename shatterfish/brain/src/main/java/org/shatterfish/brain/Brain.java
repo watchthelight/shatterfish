@@ -147,8 +147,9 @@ public final class Brain {
     public Belief handed(Observation observation, Belief belief, Decided decided) {
         Memory memory = Memory.of(belief).handed(Beliefs.kind(decided.action()));
         RunLog.Decision decision = decided.decision();
-        // A drink the heal Policy handed over (story 4.9): the heal lands over the next turns and the
-        // screen draws nothing for it, so the heal Policy counts the waits since.
+        // A drink the heal Policy handed over (story 4.9): the heal lands over the next turns with no
+        // buff icon, and the floating heal text the game shows is not in the Observation, so the heal
+        // Policy counts the waits since.
         if (decision != null && Heal.NAME.equals(decision.policy())) {
             memory = memory.drinking();
         }

@@ -41,11 +41,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <ul>
  *   <li>On every calm screen (no Prompt open, no enemy in view) where the hunger icon shows starving
  *       and a food the eat Policy knows is held and offered, the Brain eats; and where it shows hungry
- *       and a food the hunger takes whole is held, likewise. Starving costs {@code HT/1000} a turn
- *       (docs/rules/buffs.md), so a hero cannot starve to death without passing through many of
- *       these screens.</li>
- *   <li>No Run ends with its last screen calm, starving, and a known food in the pack: the only way
- *       such a hero dies with nothing in view is starving (or a trap or burn it could not see).</li>
+ *       and a food the hunger takes whole is held, likewise. It eats without waste: at hungry a food of
+ *       at most 300 energy, at starving one that wastes no more than any other held.</li>
+ *   <li>Starving with a known food held, the Brain eats within {@link #STARVING_WAITS} waits whatever
+ *       is in view: an enemy that never comes (an immovable one, one across a chasm) keeps the screen
+ *       from ever being calm, and a Brain that ate only on calm screens would starve before it.</li>
+ *   <li>No Run ends with its last screen starving, a known food in the pack and no enemy beside the
+ *       hero, unless the last Action was eating: a hero may die mid-meal, and the screen before the
+ *       Action is the one the test sees.</li>
  * </ul>
  *
  * <p>Every hero starts with a ration (HeroClass.java:108), so every Run has food available at the
@@ -59,10 +62,49 @@ class StarvationRegressionTest {
 
     private static final String COMMIT = "0".repeat(40);
 
+    /** The most waits in a row a starving hero holding a known food may go without eating. */
+    static final int STARVING_WAITS = 200;
+
     /** A food the eat Policy knows, which the screen offers to eat. */
     private static boolean edible(Observation observation, ItemView item, int most) {
         Integer energy = Brain.foods().get(item.name());
         return item.kind() == ItemKind.FOOD && energy != null && energy <= most && item.actions().contains("EAT");
+    }
+
+    /** Whether an enemy stands beside the hero. */
+    private static boolean beside(Observation observation) {
+        int hero = observation.hero().cell();
+        int width = observation.map().width();
+        return observation.actors().actors().stream().anyMatch(actor -> actor.alignment() == Alignment.ENEMY
+                && Math.max(Math.abs(hero % width - actor.cell() % width), Math.abs(hero / width - actor.cell() / width)) <= 1);
+    }
+
+    /** Whether a starving hero holds a food the eat Policy knows. */
+    private static boolean starvingWithFood(Observation observation) {
+        return observation.hero().hunger() == Hunger.STARVING
+                && observation.inventory().items().stream().anyMatch(item -> edible(observation, item, Integer.MAX_VALUE));
+    }
+
+    /**
+     * Why eating {@code eaten} on {@code observation} wastes food, or null when it does not: at hungry
+     * a food above 300 or mystery meat; at starving a food that wastes more than another held.
+     */
+    static String waste(Observation observation, String eaten) {
+        Integer energy = Brain.foods().get(eaten);
+        if (energy == null) {
+            return "ate " + eaten + ", which the table does not know";
+        }
+        if (observation.hero().hunger() == Hunger.HUNGRY) {
+            return energy <= 300 && !eaten.equals("mystery meat") ? null : "ate " + eaten + " while only hungry";
+        }
+        int least = Integer.MAX_VALUE;
+        for (ItemView item : observation.inventory().items()) {
+            if (edible(observation, item, Integer.MAX_VALUE) && !item.name().equals("mystery meat")) {
+                least = Math.min(least, Math.max(0, Brain.foods().get(item.name()) - 450));
+            }
+        }
+        return least == Integer.MAX_VALUE || Math.max(0, energy - 450) <= least ? null
+                : "ate " + eaten + ", which wastes more than another food held";
     }
 
     /** Whether the screen is calm: no Prompt, no enemy drawn. */
@@ -97,7 +139,10 @@ class StarvationRegressionTest {
         private final Deliberator brain;
         final List<String> broken = new ArrayList<>();
         int mustEat;
+        int starvingStreak;
+        int starvingSeen;
         Observation last;
+        Action lastChosen;
 
         Watched(Deliberator brain) {
             this.brain = brain;
@@ -107,11 +152,29 @@ class StarvationRegressionTest {
         public Action decide(Observation observation) {
             Action chosen = brain.decide(observation);
             last = observation;
+            lastChosen = chosen;
+            boolean eats = chosen instanceof Action.UseItem use && use.action().equals("EAT");
             if (mustEat(observation)) {
                 mustEat++;
-                if (!(chosen instanceof Action.UseItem use && use.action().equals("EAT"))) {
+                if (!eats) {
                     broken.add(observation.hero().hunger() + " with food, calm, and the Brain chose " + chosen);
                 }
+            }
+            if (eats) {
+                String wasted = waste(observation, ((Action.UseItem) chosen).item().name());
+                if (wasted != null) {
+                    broken.add(observation.hero().hunger() + ": " + wasted);
+                }
+            }
+            if (starvingWithFood(observation)) {
+                starvingSeen++;
+                starvingStreak = eats ? 0 : starvingStreak + 1;
+                if (starvingStreak == STARVING_WAITS) {
+                    broken.add("starving with food held for " + STARVING_WAITS + " waits without eating, the last with "
+                            + observation.actors().actors().size() + " actors in view");
+                }
+            } else {
+                starvingStreak = 0;
             }
             return chosen;
         }
@@ -143,6 +206,7 @@ class StarvationRegressionTest {
         List<SeedSet.Entry> triples = SeedSets.load(root, SeedSets.SMOKE).set().entries();
         List<String> failures = new ArrayList<>();
         int mustEat = 0;
+        int starving = 0;
         for (int i = 0; i < triples.size(); i++) {
             SeedSet.Entry triple = triples.get(i);
             Watched watched = new Watched((Deliberator) Brains.of(Brains.SHATTERFISH, triple, codex, weights));
@@ -155,14 +219,17 @@ class StarvationRegressionTest {
                 failures.add(run + ": " + broken);
             }
             mustEat += watched.mustEat;
+            starving += watched.starvingSeen;
             Observation last = watched.last;
-            if (outcome.cause() == RunOutcome.Cause.DEATH && last != null && calm(last)
-                    && last.hero().hunger() == Hunger.STARVING
-                    && last.inventory().items().stream().anyMatch(item -> edible(last, item, Integer.MAX_VALUE))) {
-                failures.add(run + ": died starving on a calm screen with food held");
+            boolean lastAte = watched.lastChosen instanceof Action.UseItem use && use.action().equals("EAT");
+            if (outcome.cause() == RunOutcome.Cause.DEATH && last != null && !lastAte && !beside(last)
+                    && starvingWithFood(last)) {
+                failures.add(run + ": died starving with food held and no enemy beside it");
             }
         }
         assertTrue(failures.isEmpty(), String.join("\n", failures));
         assertTrue(mustEat > 0, "no Run showed a calm hungry screen with food, so nothing was held to account");
+        System.out.println("StarvationRegressionTest: " + mustEat + " calm hungry screens with food, " + starving
+                + " starving screens with food");
     }
 }

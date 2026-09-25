@@ -133,14 +133,16 @@ below `fight` and above `explore`, and acts only on calm screens.
 1. A constant share of maximum health. Rejected by the acceptance criterion.
 2. A search over the next turns. Rejected: that is E6's tactical search.
 3. **The fight Policy's estimate: the damage the engaging enemies are expected to deal until the
-   fight is over, and never less than their worst single turn.** Chosen. With `E` the enemies in
-   view, `k` the enemies that can engage the hero's cell at once, `perTurn` the sum of the `k`
-   largest expected damages per turn (`Fight.enemyDamage`), `worst` the sum of the `k` largest
-   damage maxima less the hero's armour minimum, and `H` the turns the hero expects to need to kill
-   the enemy it kills soonest, between 1 and 10: `danger = max(worst, ceil(perTurn × H))`. The
+   fight is over, and never less than their worst single turn.** Chosen. With `H` the turns the hero
+   expects to need to kill the enemy it kills soonest, between 1 and 10, the enemies that threaten
+   are the awake ones (no sleep icon) that can reach the hero within `1 + H` steps over the cells it
+   may walk on; of those, `k` can engage the hero's cell at once, `perTurn` is the sum of the `k`
+   largest expected damages per turn (`Fight.enemyDamage`) and `worst` the sum of the `k` largest
+   damage maxima less the hero's armour minimum: `danger = max(worst, ceil(perTurn × H))`. The
    Policy drinks when `hp ≤ danger`, the hero is missing at least a quarter of the potion's heal
-   (the first turn's heal is a quarter of what is left, Healing.java:76-79), and no drink was handed
-   over in the last 5 waits. With no enemy in view the danger is 0 and it never drinks.
+   (the first turn's heal is a quarter of what is left, Healing.java:76-79), the fight is favourable
+   or the fight Policy has no retreat, and the last drink's heal would be spent. With no enemy
+   threatening the danger is 0 and it never drinks.
 
 **Where the Policies stand:**
 - `heal` above `fight`: when the hero is expected to die before the fight is over, drinking is
@@ -176,7 +178,8 @@ below `fight` and above `explore`, and acts only on calm screens.
   - The Policy drinks when all three hold:
     - `hp <= danger`;
     - the hero is missing at least `firstTurn(HT) = max(1, round((int)(0.8 * HT + 14) / 4))`;
-    - no drink was handed over in the last `Heal.HEALING = 5` waits.
+    - no drink was handed over in the last `Heal.HEALING = 5` waits (since the review:
+      `Heal.healingTurns(HT)` waits, 11 at 20 HT).
   - With no enemy in view the danger is 0.
 - **Memory:**
   - `VERSION` 5, with one new component after `avoid`: `long drank`, -1 until a drink.
@@ -239,3 +242,59 @@ tests each directly.
 stories' fields into one version then, keeping `drank` and its codec position after story 4.8's fields.
 The Policy order becomes `answer-prompt, heal, fight, eat, pick-up, equip, explore, fallback`, or with
 pick-up above eat. Neither is settled by this story.
+
+**Review round** (the parent's direction check against main at story 4.7: median turns 422 to 575,
+mean score 405 to 488, mean deepest 2.16 to 2.20; eat took 0.2% of waits, and heal never fired,
+because no `smoke` Run held an identified potion of healing):
+- **Fairness reviewer:** no violation. Two wording fixes under #8:
+  - (a) The heal is not invisible. It has no buff icon, but the game draws a floating heal number
+    each turn and the sprite's healing state (Healing.java:61, :107-111); neither is in the
+    Observation. `Heal`, `Brain.handed` and `Memory.drank` now say so, and `docs/ideas.md` has a
+    line on exposing it.
+  - (b) The per-turn quarter is `Healing.java:76-79` (with the tick at :62), re-checked.
+- **Lens review, all fixed with tests:**
+  1. The danger counted every enemy in view, including sleeping, distant and unreachable ones.
+     - Now only awake enemies count, and only if they can reach the hero within `1 + H` steps over
+       the walkable cells (`Heal.steps`).
+     - Cited by a new Tier-1 combat Rule re-read at v4.0.0: a sleeping mob never attacks, and shows
+       the sleep icon (Mob.java:1182-1240, :1248-1261; MobSprite.java:36-40; CharSprite.java:636-641).
+     - Test: `HealPolicyTest.only_what_threatens`.
+  2. Against an enemy the hero cannot kill, the danger was large and heal pre-empted the fight
+     Policy's retreat every few waits until the potions were gone.
+     - Now, when the fight is not favourable and `Fight.retreat` has a move, the retreat takes the
+       wait. The hero drinks when cornered, or when the fight is favourable and the hit points are at
+       the danger.
+     - Tests: `retreat_before_drinking`, and `retreats_rather_than_drinks` over several waits.
+  3. A starving hero with an enemy in view that never comes (immovable, unreachable) never ate: the
+     eat Policy needed a calm screen, and the fallback never eats.
+     - Now eat enters while starving with no Prompt open and no enemy beside the hero or offered as
+       an Attack (`Eat.pressed`), on the waits the fight Policy stands aside.
+     - Tests: `EatPolicyTest.starving_with_an_enemy_far`, and `starving_before_an_immovable_enemy`
+       over several waits: the fight Policy holds four waits, then the hero eats.
+     - `StarvationRegressionTest` adds a starving-with-food streak bound of 200 waits, whatever is
+       in view.
+  4. `StarvationRegressionTest`'s ending check read the screen before the last Action.
+     - It now skips a Run whose last Action was eating (a hero may die mid-meal), and covers screens
+       with enemies in view that are not beside the hero.
+     - Every meal is also checked for waste: at hungry a food of at most 300 energy and not mystery
+       meat; at starving no more waste than another food held.
+  - Minor: the cooldown was 5 waits, but a second drink replaces what is left of the first
+    (Healing.java:98), and a heal of 30 lands over 11 turns. The cooldown is now
+    `Heal.healingTurns(HT)`, derived from the formula (`HealPolicyTest.healing_turns`,
+    `one_potion_at_a_time`).
+- **Tests:**
+  - `:brain:test` passes: `EatPolicyTest` 12 cases, `HealPolicyTest` 12.
+  - `StarvationRegressionTest` passes. Across the 25 `smoke` Runs it saw 22 calm hungry screens
+    with food and 5 starving screens with food.
+- **Mutation battery on the fixes:** 8 of 8 killed.
+  - The mutants:
+    - sleeping enemies threaten;
+    - reach ignored;
+    - unreachable enemies counted;
+    - drinking over an open retreat;
+    - a five-wait cooldown;
+    - half healed per turn;
+    - starving eats only when calm;
+    - an adjacent enemy does not press.
+  - The last one first survived, because an adjacent enemy is always offered as an Attack.
+    `Eat.pressed` is now tested with the Attack removed from the offered set.

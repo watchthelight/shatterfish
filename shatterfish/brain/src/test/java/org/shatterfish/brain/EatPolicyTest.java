@@ -169,6 +169,47 @@ class EatPolicyTest {
     }
 
     @Test
+    @DisplayName("starving with an enemy in view that is not beside it, the Policy enters; beside it, or hungry, it does not")
+    void starving_with_an_enemy_far() {
+        Eat eat = new Eat();
+        Observation far = holding(FightPolicyTest.screen(1, 20, false, "worn shortsword", Hunger.STARVING,
+                "#######", "#@...L#", "#######"), food("ration of food", 1));
+        Observation near = holding(FightPolicyTest.screen(1, 20, false, "worn shortsword", Hunger.STARVING,
+                "#######", "#@L...#", "#######"), food("ration of food", 1));
+        Observation hungry = holding(FightPolicyTest.screen(1, 20, false, "worn shortsword", Hunger.HUNGRY,
+                "#######", "#@...L#", "#######"), food("ration of food", 1));
+        assertTrue(eat.enters(far, Memory.START));
+        assertFalse(eat.enters(near, Memory.START), "beside the hero, the meal's three turns are free hits");
+        assertFalse(eat.enters(hungry, Memory.START), "hungry, it waits for a calm screen");
+        // Beside the hero counts even on a screen that offers no Attack on it (a Prompt just closed,
+        // an Action set a wait old): both halves of the test stand on their own.
+        Observation unoffered = near.withActions(new ActionsSection(near.actions().actions().stream()
+                .filter(action -> !(action instanceof Action.Attack)).toList()));
+        assertTrue(Eat.pressed(unoffered));
+        assertFalse(Eat.pressed(far));
+    }
+
+    @Test
+    @DisplayName("over several waits: starving before a lasher that never comes, the hero holds, then eats")
+    void starving_before_an_immovable_enemy() {
+        Observation screen = holding(FightPolicyTest.screen(1, 20, false, "worn shortsword", Hunger.STARVING,
+                "#######", "#@...L#", "#######"), food("ration of food", 1));
+        Brain brain = brain();
+        Belief belief = null;
+        List<String> policies = new ArrayList<>();
+        String ate = null;
+        for (int i = 0; i < Fight.HOLDS + 2 && ate == null; i++) {
+            belief = brain.update(screen, belief);
+            Brain.Decided decided = brain.decide(screen, belief);
+            policies.add(decided.decision().policy());
+            ate = eaten(decided);
+            belief = brain.handed(screen, belief, decided);
+        }
+        assertEquals("ration of food", ate, "the hero eats before it starves: " + policies);
+        assertEquals("eat", policies.get(policies.size() - 1));
+    }
+
+    @Test
     @DisplayName("over several waits: the hero eats berries until the icon clears, then walks on")
     void eats_until_fed() {
         Observation first = room(Hunger.HUNGRY, food("dungeon berry", 3));

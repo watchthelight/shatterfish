@@ -1,11 +1,13 @@
 package org.shatterfish.brain;
 
 import org.shatterfish.api.Action;
+import org.shatterfish.api.ActorView;
 import org.shatterfish.api.Hunger;
 import org.shatterfish.api.ItemKind;
 import org.shatterfish.api.ItemRef;
 import org.shatterfish.api.ItemView;
 import org.shatterfish.api.Observation;
+import org.shatterfish.api.PromptKind;
 import org.shatterfish.api.RunLog;
 
 import java.util.ArrayList;
@@ -33,10 +35,12 @@ import java.util.Set;
  * <p>Mystery meat is eaten last and only while starving: one time in five each it sets the hero
  * alight, roots it, poisons it or slows it (MysteryMeat.java:54-73).
  *
- * <p>The Policy acts only on a calm screen (no Prompt open, no enemy in view): eating takes three
- * turns (Food.java:47, :87), which an enemy in view would spend hitting the hero, and starving costs
- * only {@code HT/1000} a turn (Hunger.java:80-85). Food is known by the name the inventory shows,
- * from {@link #ENERGY}; a food the table does not name is not eaten.
+ * <p>Hungry, the Policy acts only on a calm screen (no Prompt open, no enemy in view): eating takes
+ * three turns (Food.java:47, :87), which an enemy in view would spend hitting the hero. Starving, it
+ * also acts with enemies in view that are not beside the hero and not offered as an Attack, on the
+ * waits the fight Policy stands aside (an enemy that cannot move or be reached keeps the screen from
+ * ever being calm again). Food is known by the name the inventory shows, from {@link #ENERGY}; a food
+ * the table does not name is not eaten.
  */
 final class Eat implements Policy {
 
@@ -100,7 +104,26 @@ final class Eat implements Policy {
 
     @Override
     public boolean enters(Observation observation, Memory memory) {
-        return observation.hero().hunger() != Hunger.NONE && Explore.calm(observation);
+        Hunger hunger = observation.hero().hunger();
+        return hunger == Hunger.HUNGRY ? Explore.calm(observation)
+                : hunger == Hunger.STARVING && observation.header().prompt() == PromptKind.NONE && !pressed(observation);
+    }
+
+    /**
+     * Whether an enemy stands beside the hero or is offered as an Attack: the three turns of a meal
+     * would be free hits. A starving hero with only distant, sleeping or unreachable enemies in view
+     * eats when the fight Policy stands aside, since starving turns regeneration off and costs hit
+     * points every turn it lasts (Regeneration.java:56, Hunger.java:78-85).
+     */
+    static boolean pressed(Observation observation) {
+        int hero = observation.hero().cell();
+        int width = observation.map().width();
+        for (ActorView enemy : Fight.enemies(observation)) {
+            if (Math.max(Math.abs(hero % width - enemy.cell() % width), Math.abs(hero / width - enemy.cell() / width)) <= 1) {
+                return true;
+            }
+        }
+        return observation.actions().actions().stream().anyMatch(action -> action instanceof Action.Attack);
     }
 
     @Override

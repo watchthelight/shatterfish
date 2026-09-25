@@ -170,6 +170,11 @@ it re-reads ADR-0006's Blobs row.
   bleeding for more than its hit points, with nothing in view, dies with the potion in the pack; the
   potion cures both (PotionOfHealing.java:76-86). Measuring the poison left from the buff's shown turns
   would give a threshold for that case.
+- **The heal in progress.** The game shows a floating heal number over the hero each turn a heal lands,
+  and the sprite's healing state (Healing.java:61, :107-111), neither of which is in the Observation.
+  The heal Policy instead counts waits since the drink it handed over. Carrying the sprite's healing
+  state in the hero section (an Observer change, with its leak tests) would let the Brain see a heal
+  running, whoever started it.
 - **Cooking.** Mystery meat is eaten last because of its side effects; frozen carpaccio and chargrilled
   meat have none. Cooking it (fire, frost, the alchemy pot) and brewing blandfruit are left to a later
   story, and the table lists blandfruit as never eaten until then.
