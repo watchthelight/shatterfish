@@ -48,6 +48,7 @@ class ShatterfishRunTest {
         int waits = 0;
         int highlighted = 0;
         int withAlternatives = 0;
+        int fought = 0;
         int explored = 0;
         for (Path log : logs) {
             RunLogReader.Log read = RunLogReader.of(log);
@@ -55,8 +56,16 @@ class ShatterfishRunTest {
             assertEquals(Brains.SHATTERFISH, read.header().brain().name());
             for (RunLog.Wait wait : read.waits()) {
                 assertNotNull(wait.decision(), "a Brain's wait says why: " + log.getFileName() + " at " + wait.k());
-                assertTrue(List.of("answer-prompt", "explore", "fallback").contains(wait.decision().policy()),
+                assertTrue(List.of("answer-prompt", "fight", "explore", "fallback").contains(wait.decision().policy()),
                         wait.decision().policy());
+                if ("fight".equals(wait.decision().policy())) {
+                    fought++;
+                    // Story 4.7: the fight Policy attacks, steps, holds, or takes the stairs, and
+                    // its reason names which.
+                    String why = wait.decision().chosen().why();
+                    assertTrue(why.matches("(attack|cornered): .+|approach [1-9][0-9]*|chokepoint [0-2]|hold: chokepoint"
+                            + "|hold: no-way|retreat: stairs|retreat [0-9]+"), why);
+                }
                 if ("explore".equals(wait.decision().policy())) {
                     explored++;
                     // Story 4.6: one Step, one Search or the Descend per wait, and the reason names
@@ -65,9 +74,12 @@ class ShatterfishRunTest {
                     org.shatterfish.api.Action action = wait.action();
                     String why = wait.decision().chosen().why();
                     if (action instanceof org.shatterfish.api.Action.Step) {
-                        assertTrue(why.matches("(frontier|search-spot|exit) [1-9][0-9]*"), why);
+                        assertTrue(why.matches("(frontier|search-spot|exit|away) [1-9][0-9]*"), why);
                     } else if (action instanceof org.shatterfish.api.Action.Search) {
-                        assertTrue(why.matches("search ([1-9]|1[0-2])/12"), why);
+                        assertTrue(why.matches("search ([1-9]|1[0-2])/12|rest: before-descent"), why);
+                    } else if (action instanceof org.shatterfish.api.Action.Rest) {
+                        // Story 4.7: healing on the floor above one it fled by the stairs.
+                        assertEquals("rest: before-descent", why);
                     } else {
                         assertEquals(new org.shatterfish.api.Action.Descend(), action, why);
                         assertEquals("descend", why);
@@ -103,6 +115,7 @@ class ShatterfishRunTest {
         assertTrue(highlighted > 0, "some wait pointed at a cell, and it was highlighted");
         assertTrue(withAlternatives > 0, "some fallback wait had a choice, and recorded alternatives");
         assertTrue(explored > 0, "the explore Policy took some waits");
+        assertTrue(fought > 0, "the fight Policy took some waits: enemies came into view");
         // A Brain's log replays: the follower states the Decision and Belief hash each wait
         // recorded, so the replayed records, and the chain over them, are the original's.
         // A Run the harness stopped following (an unknown window) says it is not verifiable, which

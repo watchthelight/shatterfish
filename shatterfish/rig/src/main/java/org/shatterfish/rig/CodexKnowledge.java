@@ -125,7 +125,7 @@ public final class CodexKnowledge {
             }
         }
         return new Codex.Knowledge(manifest, families, spawns, drops, threats(folder), gear(folder, names, "weapons"),
-                gear(folder, names, "armours"));
+                gear(folder, names, "armours"), immovable(folder));
     }
 
     /**
@@ -133,24 +133,19 @@ public final class CodexKnowledge {
      * class (the name the screen shows). Only an enemy whose accuracy is a constant and whose damage
      * and damage reduction are rolled ranges the Codex could read; one whose figures depend on the
      * Run (a bee, a wraith) or are computed otherwise is left out, and the Brain says so when it
-     * meets one.
+     * meets one. An enemy whose evasion is its own rule (customDefense) is left out too: its figures
+     * would mislead. When two classes share a display name, the first with fixed figures is kept.
      */
     private static List<Codex.Threat> threats(Path folder) {
-        Map<String, String> shown = new HashMap<>();
-        for (String raw : Json.array(table(folder, "strings.json"))) {
-            Map<String, String> string = Json.object(raw);
-            if (Json.string(Json.required(string, "suffix", "string")).equals("name")) {
-                shown.put(Json.string(Json.required(string, "className", "string")),
-                        Json.string(Json.required(string, "value", "string")));
-            }
-        }
+        Map<String, String> shown = shown(folder);
         List<Codex.Threat> threats = new ArrayList<>();
         java.util.Set<String> seen = new java.util.HashSet<>();
         for (String raw : Json.array(table(folder, "mobs.json"))) {
             Map<String, String> mob = Json.object(raw);
             String name = shown.get(Json.string(Json.required(mob, "className", "mob")));
             if (!Json.string(Json.required(mob, "alignment", "mob")).equals("ENEMY") || name == null
-                    || Json.bool(Json.required(mob, "statsSetLater", "mob")) || !seen.add(name)) {
+                    || Json.bool(Json.required(mob, "statsSetLater", "mob"))
+                    || Json.bool(Json.required(mob, "customDefense", "mob")) || !seen.add(name)) {
                 continue;
             }
             Map<String, String> attack = Json.object(Json.required(mob, "attack", "mob"));
@@ -171,6 +166,35 @@ public final class CodexKnowledge {
         return threats;
     }
 
+    /** The enemies the Codex marks IMMOVABLE, by display name: they fight only what stands beside them. */
+    private static List<String> immovable(Path folder) {
+        Map<String, String> shown = shown(folder);
+        List<String> names = new ArrayList<>();
+        for (String raw : Json.array(table(folder, "mobs.json"))) {
+            Map<String, String> mob = Json.object(raw);
+            String name = shown.get(Json.string(Json.required(mob, "className", "mob")));
+            if (name != null && Json.string(Json.required(mob, "alignment", "mob")).equals("ENEMY")
+                    && Json.array(Json.required(mob, "properties", "mob")).stream().map(Json::string)
+                    .anyMatch("IMMOVABLE"::equals) && !names.contains(name)) {
+                names.add(name);
+            }
+        }
+        return names;
+    }
+
+    /** Every class's display name, from the strings table. */
+    private static Map<String, String> shown(Path folder) {
+        Map<String, String> shown = new HashMap<>();
+        for (String raw : Json.array(table(folder, "strings.json"))) {
+            Map<String, String> string = Json.object(raw);
+            if (Json.string(Json.required(string, "suffix", "string")).equals("name")) {
+                shown.put(Json.string(Json.required(string, "className", "string")),
+                        Json.string(Json.required(string, "value", "string")));
+            }
+        }
+        return shown;
+    }
+
     /** The weapons' damage or the armours' damage reduction the combat table measured, by display name and level. */
     private static List<Codex.Gear> gear(Path folder, Map<String, String> names, String list) {
         List<Codex.Gear> gear = new ArrayList<>();
@@ -180,8 +204,10 @@ public final class CodexKnowledge {
             if (name == null) {
                 continue;
             }
+            Map<String, String> spread = Json.object(Json.required(entry, "spread", list));
             gear.add(new Codex.Gear(name, Json.integer(Json.required(entry, "level", list)),
-                    Json.integer(Json.required(Json.object(Json.required(entry, "spread", list)), "meanPerMille", "spread"))));
+                    Json.integer(Json.required(spread, "min", "spread")), Json.integer(Json.required(spread, "max", "spread")),
+                    Json.integer(Json.required(spread, "meanPerMille", "spread"))));
         }
         return gear;
     }

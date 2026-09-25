@@ -101,7 +101,8 @@ final class Explore implements Policy {
             return false;
         }
         for (ActorView actor : observation.actors().actors()) {
-            if (actor.alignment() == Alignment.ENEMY) {
+            // An enemy the game keeps passive until provoked is scenery (story 4.7, Fight.PASSIVE).
+            if (actor.alignment() == Alignment.ENEMY && !Fight.PASSIVE.contains(actor.name())) {
                 return false;
             }
         }
@@ -138,6 +139,39 @@ final class Explore implements Policy {
         int hero = observation.hero().cell();
         boolean[] walk = walkable(observation, memory);
 
+        // Inside a region the fight Policy retreated from (story 4.7): out of it first, a Step at a
+        // time, before any plan takes the hero back toward what it fled.
+        List<Memory.Avoid> regions = memory.avoided(depth, branch, memory.waits());
+        for (Memory.Avoid region : regions) {
+            if (region.covers(depth, branch, hero, map.width())) {
+                Action.Step away = null;
+                int farthest = distance(map, hero, region.cell());
+                for (Action action : offered) {
+                    if (action instanceof Action.Step step && step.cell() < walk.length
+                            && distance(map, step.cell(), region.cell()) > farthest
+                            && !map.transitions().stream().anyMatch(t -> t.cell() == step.cell())) {
+                        away = step;
+                        farthest = distance(map, step.cell(), region.cell());
+                    }
+                }
+                if (away != null) {
+                    return new RunLog.Choice(away, Policies.CERTAIN, "away " + farthest);
+                }
+            }
+        }
+
+        // On the floor above one the hero fled by the stairs (story 4.7): rest to full health before
+        // anything else, so the plan that leads back down does not return to the fight it left at
+        // the health it left with.
+        String below = (depth + 1) + ":" + branch;
+        if (Memory.count(memory.flights(), below, 0) > 0 && observation.hero().hp() < observation.hero().ht()) {
+            for (Action rest : List.of(new Action.Rest(true), new Action.Rest(false), new Action.Search())) {
+                if (offered.contains(rest)) {
+                    return new RunLog.Choice(rest, Policies.CERTAIN, "rest: before-descent");
+                }
+            }
+        }
+
         Path frontier = nearest(map, walk, hero, offered, cell -> frontier(map, walk, cell));
         if (frontier != null) {
             return new RunLog.Choice(frontier.step, Policies.CERTAIN, "frontier " + frontier.distance);
@@ -162,14 +196,21 @@ final class Explore implements Policy {
                 return new RunLog.Choice(spot.step, Policies.CERTAIN, "search-spot " + spot.distance);
             }
         }
-        return down(observation, walk, offered);
+        return down(observation, memory, walk, offered);
+    }
+
+    /** The Chebyshev distance between two cells. */
+    private static int distance(MapSection map, int a, int b) {
+        int width = map.width();
+        return Math.max(Math.abs(a % width - b % width), Math.abs(a / width - b / width));
     }
 
     /** The way down: Descend on the exit, or a Step toward it; nothing on a sealed floor. */
-    private static RunLog.Choice down(Observation observation, boolean[] walk, List<Action> offered) {
+    private static RunLog.Choice down(Observation observation, Memory memory, boolean[] walk, List<Action> offered) {
         if (observation.header().sealed()) {
             return null;
         }
+
         MapSection map = observation.map();
         int hero = observation.hero().cell();
         boolean[] toward = walk.clone();
@@ -340,6 +381,14 @@ final class Explore implements Policy {
      * else, nor an enemy's cell, nor a cell where the game refused this floor's Step before.
      */
     static boolean[] walkable(Observation observation, Memory memory) {
+        return walkable(observation, memory, true);
+    }
+
+    /**
+     * The cells the Policy may walk on, less, when {@code avoiding}, the regions the fight Policy
+     * retreated from and has not yet let lapse (story 4.7).
+     */
+    static boolean[] walkable(Observation observation, Memory memory, boolean avoiding) {
         MapSection map = observation.map();
         int cells = map.tiles().size();
         boolean[] walk = new boolean[cells];
@@ -369,6 +418,15 @@ final class Explore implements Policy {
         for (Memory.Spot spot : memory.blocked()) {
             if (spot.on(depth, branch) && spot.cell() < cells) {
                 walk[spot.cell()] = false;
+            }
+        }
+        if (avoiding) {
+            for (Memory.Avoid region : memory.avoided(depth, branch, memory.waits())) {
+                for (int cell = 0; cell < cells; cell++) {
+                    if (region.covers(depth, branch, cell, map.width())) {
+                        walk[cell] = false;
+                    }
+                }
             }
         }
         return walk;

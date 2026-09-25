@@ -122,12 +122,7 @@ class ExplorePolicyTest {
 
     /** The Belief after showing {@code screens} in order. */
     private static Belief seen(Observation... screens) {
-        Brain brain = brain();
-        Belief belief = null;
-        for (Observation screen : screens) {
-            belief = brain.update(screen, belief);
-        }
-        return belief;
+        return Screens.drive(brain(), screens);
     }
 
     /** The Decision after showing {@code screens} in order, at the last. */
@@ -138,7 +133,7 @@ class ExplorePolicyTest {
     /** A memory whose searched spots are {@code dwelt}, and nothing else. */
     private static Memory searched(List<Memory.Spot> dwelt) {
         return new Memory(1, 1, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-                Memory.Spot.NOWHERE, 0, false, dwelt, List.of());
+                Memory.Spot.NOWHERE, 0, false, dwelt, List.of(), "", 0, -1, -1, List.of(), List.of());
     }
 
     private static int cell(Observation screen, int x, int y) {

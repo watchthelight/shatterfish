@@ -1417,7 +1417,7 @@ public final class Codex {
      * the committed Codex folder; a Brain cannot open a file. Nothing in it is about a Run.
      */
     public record Knowledge(Manifest manifest, List<Identities> families, List<RoomSpawn> rooms, List<Guarantee> guarantees,
-                            List<Threat> threats, List<Gear> weapons, List<Gear> armours) {
+                            List<Threat> threats, List<Gear> weapons, List<Gear> armours, List<String> immovable) {
 
         public Knowledge {
             Canon.require(manifest != null, "knowledge says which Codex it came from");
@@ -1427,6 +1427,7 @@ public final class Codex {
             threats = Canon.positional(threats, "threats");
             weapons = Canon.positional(weapons, "weapons");
             armours = Canon.positional(armours, "armours");
+            immovable = Canon.positional(immovable, "immovable enemies");
             Set<ItemKind> kinds = new HashSet<>();
             for (Identities family : families) {
                 distinct(kinds, family.kind(), "a family's kind");
@@ -1439,7 +1440,7 @@ public final class Codex {
 
         /** Knowledge without the combat tables (story 4.2's shape). */
         public Knowledge(Manifest manifest, List<Identities> families, List<RoomSpawn> rooms, List<Guarantee> guarantees) {
-            this(manifest, families, rooms, guarantees, List.of(), List.of(), List.of());
+            this(manifest, families, rooms, guarantees, List.of(), List.of(), List.of(), List.of());
         }
 
         /** Knowledge with nothing in it but the manifest: a Brain that knows no mechanics. */
@@ -1461,8 +1462,10 @@ public final class Codex {
     /**
      * An enemy's combat figures, by the name the screen shows it under (story 4.7): its hit points,
      * its accuracy and evasion, the range its attack rolls, and the range of the damage it shrugs
-     * off. Read from the Codex's mob table; an enemy whose figures the table computes at run time is
-     * not listed.
+     * off. Read from the Codex's mob table; an enemy whose figures the table computes at run time, or
+     * whose evasion is its own rule (a great crab's parry, a monk's), is not listed. When two enemy
+     * classes share a display name, the first in the Codex's order with fixed figures is listed; at
+     * v4.0.0 no two do.
      */
     public record Threat(String name, int ht, int attack, int defense, int damageMin, int damageMax, int drMin, int drMax) {
 
@@ -1476,15 +1479,17 @@ public final class Codex {
     }
 
     /**
-     * A weapon's mean damage roll, or an armour's mean damage reduction, at an upgrade level, in
-     * thousandths, as the Codex measured it (story 4.7), by the item's display name.
+     * A weapon's damage roll, or an armour's damage-reduction roll, at an upgrade level, as the Codex
+     * measured it (story 4.7): the least and the most it rolled and its mean in thousandths, by the
+     * item's display name.
      */
-    public record Gear(String name, int level, int meanPerMille) {
+    public record Gear(String name, int level, int min, int max, int meanPerMille) {
 
         public Gear {
             name = Canon.text(name, "gear name");
             Canon.require(!name.isEmpty(), "gear is named");
-            Canon.require(level >= 0 && meanPerMille >= 0, "a level and a mean are not negative: " + name);
+            Canon.require(level >= 0 && min >= 0 && min <= max && meanPerMille >= 0,
+                    "a level, a range and a mean: " + name);
         }
     }
 

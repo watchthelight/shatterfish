@@ -29,6 +29,7 @@ import org.shatterfish.api.ObservationCodec;
 import org.shatterfish.api.PromptKind;
 import org.shatterfish.api.PromptSection;
 import org.shatterfish.api.QuickslotView;
+import org.shatterfish.api.RunLog;
 import org.shatterfish.api.Tile;
 import org.shatterfish.api.TransitionKind;
 import org.shatterfish.api.TransitionView;
@@ -45,26 +46,41 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The fight-in-corridors Policy (story 4.7, FR-31): attack when the fight is favourable by the
- * Codex's figures, take the cell fewest enemies can engage when several are coming, retreat when the
- * fight is not favourable -- toward stairs only while the floor is not sealed -- and never target a
- * character the screen does not show.
+ * Codex's figures, take the cell fewest enemies can engage when several are closing in, retreat when
+ * the fight is not favourable -- by the regular stairs only while the floor is not sealed -- and
+ * never target a character the screen does not show. The multi-wait cases drive several screens
+ * through the Brain as its driver does, because the loops a single screen cannot show are the ones
+ * that end Runs.
  *
  * <p>Screens are drawn as text: {@code #} wall, {@code .} floor, a space a cell never seen,
- * {@code @} the hero on floor, {@code >} the stairs down, {@code H} the hero on the stairs down,
- * {@code r} a rat, {@code B} a brute, {@code ?} an enemy the Codex has no figures for.
+ * {@code @} the hero on floor, {@code >} the stairs down, {@code <} the stairs up, {@code H} the hero
+ * on the stairs down, {@code U} the hero on the stairs up, {@code S} the hero on the surface stairs,
+ * {@code r} a rat, {@code i} a rat drawn faint (invisible), {@code B} a brute, {@code ?} an enemy the
+ * Codex has no figures for, {@code L} a lasher that cannot move, {@code T} an animated statue.
  */
 class FightPolicyTest {
 
-    /** A rat as the Codex has it (actors.mobs.Rat: ht 8, accuracy 8, evasion 2, damage 1-4, armour 0-1), and a brute no level-one hero should stand next to. */
+    /**
+     * A rat as the Codex has it (actors.mobs.Rat: ht 8, accuracy 8, evasion 2, damage 1-4, armour
+     * 0-1), a brute no level-one hero should stand next to, a lasher that cannot move, and the
+     * shortsword and cloth armour as the Codex measured them.
+     */
     static final Codex.Knowledge KNOWLEDGE = new Codex.Knowledge(Screens.CODEX.manifest(), Screens.CODEX.families(),
             Screens.CODEX.rooms(), Screens.CODEX.guarantees(),
             List.of(new Codex.Threat("marsupial rat", 8, 8, 2, 1, 4, 0, 1),
-                    new Codex.Threat("brute", 80, 30, 20, 10, 20, 0, 8)),
-            List.of(new Codex.Gear("worn shortsword", 0, 5485), new Codex.Gear("worn shortsword", 1, 7009)),
-            List.of(new Codex.Gear("cloth armor", 0, 1004)));
+                    new Codex.Threat("brute", 80, 30, 20, 10, 20, 0, 8),
+                    new Codex.Threat("lasher", 40, 25, 0, 8, 12, 0, 8)),
+            List.of(new Codex.Gear("worn shortsword", 0, 1, 10, 5485), new Codex.Gear("worn shortsword", 1, 2, 12, 7009),
+                    new Codex.Gear("dagger", 0, 1, 8, 4500), new Codex.Gear(Fight.MAGES_STAFF, 0, 1, 6, 3500)),
+            List.of(new Codex.Gear("cloth armor", 0, 0, 2, 1004)),
+            List.of("lasher"));
 
-    /** A screen from rows of text, with the hero at {@code hp} of 20, the floor {@code sealed} or not. */
     static Observation screen(int hp, boolean sealed, String... rows) {
+        return screen(1, hp, sealed, "worn shortsword", rows);
+    }
+
+    /** A screen at {@code depth} from rows of text, the hero at {@code hp} of 20 wielding {@code weapon}. */
+    static Observation screen(int depth, int hp, boolean sealed, String weapon, String... rows) {
         int width = rows[0].length();
         List<Tile> tiles = new ArrayList<>();
         List<Fog> fog = new ArrayList<>();
@@ -79,6 +95,7 @@ class FightPolicyTest {
                     case ' ' -> Tile.NONE;
                     case '#' -> Tile.WALL;
                     case '>', 'H' -> Tile.EXIT;
+                    case '<', 'U', 'S' -> Tile.ENTRANCE;
                     default -> Tile.EMPTY;
                 });
                 fog.add(c == ' ' ? Fog.UNKNOWN : Fog.VISIBLE);
@@ -88,50 +105,86 @@ class FightPolicyTest {
                         hero = cell;
                         transitions.add(new TransitionView(cell, TransitionKind.REGULAR_EXIT));
                     }
+                    case 'U' -> {
+                        hero = cell;
+                        transitions.add(new TransitionView(cell, TransitionKind.REGULAR_ENTRANCE));
+                    }
+                    case 'S' -> {
+                        hero = cell;
+                        transitions.add(new TransitionView(cell, TransitionKind.SURFACE));
+                    }
                     case '>' -> transitions.add(new TransitionView(cell, TransitionKind.REGULAR_EXIT));
-                    case 'r' -> actors.add(enemy(cell, "marsupial rat"));
-                    case 'B' -> actors.add(enemy(cell, "brute"));
-                    case '?' -> actors.add(enemy(cell, "stranger"));
+                    case '<' -> transitions.add(new TransitionView(cell, TransitionKind.REGULAR_ENTRANCE));
+                    case 'r' -> actors.add(enemy(cell, "marsupial rat", false));
+                    case 'i' -> actors.add(enemy(cell, "marsupial rat", true));
+                    case 'B' -> actors.add(enemy(cell, "brute", false));
+                    case '?' -> actors.add(enemy(cell, "stranger", false));
+                    case 'L' -> actors.add(enemy(cell, "lasher", false));
+                    case 'T' -> actors.add(enemy(cell, "animated statue", false));
                     default -> {
                     }
                 }
             }
         }
         HeaderSection header = new HeaderSection(ObservationCodec.SCHEMA_VERSION, "v4.0.0", "", HeroClass.WARRIOR,
-                List.of(), 1, 0, sealed, false, PromptKind.NONE);
+                List.of(), depth, 0, sealed, false, PromptKind.NONE);
         MapSection map = new MapSection(width, rows.length, tiles, fog, List.of(), List.of(), List.of(), Feeling.NONE,
                 transitions);
         HeroSection section = new HeroSection(hero, "", HeroSubclass.NONE, "", 1, 0, 1, hp, 20, 0, 10, 0, 0, 0,
                 Hunger.NONE, List.of(), List.of(), List.of(0, 0, 0, 0),
                 Collections.nCopies(HeroSection.QUICKSLOTS, new QuickslotView("", false)));
-        List<ItemView> worn = List.of(
-                new ItemView(ItemKind.WEAPON, "worn shortsword", 1, true, 0, true, false, "", EquipSlot.WEAPON, List.of(), ""),
-                new ItemView(ItemKind.ARMOR, "cloth armor", 1, true, 0, true, false, "", EquipSlot.ARMOR, List.of(), ""));
+        List<ItemView> worn = weapon == null
+                ? List.of(new ItemView(ItemKind.ARMOR, "cloth armor", 1, true, 0, true, false, "", EquipSlot.ARMOR, List.of(), ""))
+                : List.of(new ItemView(ItemKind.WEAPON, weapon, 1, true, 0, true, false, "", EquipSlot.WEAPON, List.of(), ""),
+                        new ItemView(ItemKind.ARMOR, "cloth armor", 1, true, 0, true, false, "", EquipSlot.ARMOR, List.of(), ""));
         Observation bare = new Observation(header, map, new ActorsSection(actors), section, new InventorySection(worn),
                 new JournalSection(List.of(), List.of()), new LogSection(List.of()), ActionsSection.NONE,
                 PromptSection.NONE);
         return bare.withActions(ValidActions.of(bare));
     }
 
-    private static ActorView enemy(int cell, String name) {
-        return new ActorView(cell, name, Alignment.ENEMY, ObservationCodec.MAX_HEALTH_PIPS, false, Emote.NONE, List.of());
+    private static ActorView enemy(int cell, String name, boolean invisible) {
+        return new ActorView(cell, name, Alignment.ENEMY, ObservationCodec.MAX_HEALTH_PIPS, invisible, Emote.NONE, List.of());
     }
 
+    private static Brain brain() {
+        return new Brain(KNOWLEDGE, Screens.WEIGHTS, 9L);
+    }
+
+    /** The Decision at the last of {@code screens}, the earlier ones driven through the Brain. */
     private static Brain.Decided after(Observation... screens) {
-        Brain brain = new Brain(KNOWLEDGE, Screens.WEIGHTS, 9L);
-        Belief belief = null;
-        for (Observation screen : screens) {
-            belief = brain.update(screen, belief);
-        }
+        Brain brain = brain();
+        Belief belief = Screens.drive(brain, screens);
         Brain.Decided decided = brain.decide(screens[screens.length - 1], belief);
         assertTrue(screens[screens.length - 1].actions().actions().contains(decided.action()),
                 "only an Action the screen offers: " + decided.action());
         return decided;
     }
 
+    /** The Decisions at each of {@code screens} in turn, driven as the Brain's driver drives them. */
+    private static List<Brain.Decided> each(Observation... screens) {
+        Brain brain = brain();
+        Belief belief = null;
+        List<Brain.Decided> all = new ArrayList<>();
+        for (Observation screen : screens) {
+            belief = brain.update(screen, belief);
+            Brain.Decided decided = brain.decide(screen, belief);
+            assertTrue(screen.actions().actions().contains(decided.action()), "offered: " + decided.action());
+            all.add(decided);
+            belief = brain.handed(screen, belief, decided);
+        }
+        return all;
+    }
+
     private static int cell(Observation screen, int x, int y) {
         return x + y * screen.map().width();
     }
+
+    private static String why(Brain.Decided decided) {
+        return decided.decision().chosen().why();
+    }
+
+    // --------------------------------------------------------------------------------- one screen
 
     @Test
     @DisplayName("two enemies coming across a room: the hero steps back into the corridor, where two cells can reach it, not four")
@@ -146,7 +199,7 @@ class FightPolicyTest {
         Brain.Decided decided = after(doorway);
         assertEquals(Fight.NAME, decided.decision().policy());
         assertEquals(new Action.Step(cell(doorway, 3, 2)), decided.action(), decided.decision().toString());
-        assertEquals("chokepoint 2", decided.decision().chosen().why());
+        assertEquals("chokepoint 2", why(decided));
 
         Observation corridor = screen(20, false,
                 "############",
@@ -167,8 +220,18 @@ class FightPolicyTest {
                 "#######");
         Brain.Decided decided = after(rat);
         assertEquals(new Action.Attack(cell(rat, 3, 1)), decided.action());
-        assertEquals("attack: marsupial rat", decided.decision().chosen().why());
+        assertEquals("attack: marsupial rat", why(decided));
         assertTrue(Fight.favourable(rat, KNOWLEDGE, Fight.enemies(rat)));
+    }
+
+    @Test
+    @DisplayName("a rat drawn faint is still on the screen, and is fought like any other")
+    void faint_enemy() {
+        Observation faint = screen(20, false,
+                "#######",
+                "#.@i..#",
+                "#######");
+        assertEquals(new Action.Attack(cell(faint, 3, 1)), after(faint).action());
     }
 
     @Test
@@ -180,7 +243,7 @@ class FightPolicyTest {
                 "#.......#",
                 "#########");
         Brain.Decided decided = after(rat);
-        assertTrue(decided.decision().chosen().why().startsWith("approach "), decided.decision().toString());
+        assertTrue(why(decided).startsWith("approach "), decided.decision().toString());
         Action.Step step = (Action.Step) decided.action();
         assertTrue(Fight.nearest(rat.map(), step.cell(), Fight.enemies(rat)) < Fight.nearest(rat.map(), rat.hero().cell(),
                 Fight.enemies(rat)), "each step closes on it");
@@ -198,7 +261,7 @@ class FightPolicyTest {
         Brain.Decided decided = after(brute);
         Action.Step step = (Action.Step) decided.action();
         assertTrue(Fight.nearest(brute.map(), step.cell(), Fight.enemies(brute)) > 1, decided.decision().toString());
-        assertTrue(decided.decision().chosen().why().startsWith("retreat "), decided.decision().toString());
+        assertTrue(why(decided).startsWith("retreat "), decided.decision().toString());
         assertTrue(decided.decision().alternatives().stream().anyMatch(alt -> alt.action() instanceof Action.Attack),
                 "the attack it passed over is recorded");
 
@@ -208,34 +271,58 @@ class FightPolicyTest {
                 "#####");
         Brain.Decided last = after(cornered);
         assertEquals(new Action.Attack(cell(cornered, 2, 1)), last.action());
-        assertEquals("cornered: brute", last.decision().chosen().why());
+        assertEquals("cornered: brute", why(last));
     }
 
     @Test
-    @DisplayName("the stairs are a way out while the floor is open, and never the plan on a sealed floor")
-    void sealed_floor() {
+    @DisplayName("the stairs are a way out while the floor is open, never the plan on a sealed floor, and never the surface")
+    void stairs() {
         String[] rows = {
                 "##########",
                 "#>...@B..#",
                 "#........#",
                 "##########"};
-        Brain.Decided open = after(screen(20, false, rows));
-        assertEquals("retreat: stairs", open.decision().chosen().why());
+        assertEquals("retreat: stairs", why(after(screen(20, false, rows))));
         Brain.Decided sealed = after(screen(20, true, rows));
-        assertNotEquals("retreat: stairs", sealed.decision().chosen().why(), sealed.decision().toString());
-        assertTrue(sealed.decision().chosen().why().startsWith("retreat "), sealed.decision().toString());
+        assertNotEquals("retreat: stairs", why(sealed), sealed.decision().toString());
+        assertTrue(why(sealed).startsWith("retreat "), sealed.decision().toString());
 
         String[] onStairs = {
                 "######",
-                "#H B.#",
+                "#HB..#",
                 "#....#",
                 "######"};
-        onStairs[1] = "#HB..#";
         assertEquals(new Action.Descend(), after(screen(20, false, onStairs)).action(), "on the stairs, it leaves");
         Brain.Decided locked = after(screen(20, true, onStairs));
         assertNotEquals(new Action.Descend(), locked.action());
         assertTrue(locked.decision().alternatives().stream().noneMatch(alt -> alt.action() instanceof Action.Descend),
                 "a sealed floor offers no descent, and the Policy plans none");
+
+        // The surface stairs are offered as an ascent (ValidActions), but at depth 1 they open a
+        // window and the hero stays (SewerLevel.java:146-156): not a way out of a fight.
+        Observation surface = screen(1, 20, false, "worn shortsword",
+                "######",
+                "#SB..#",
+                "#....#",
+                "######");
+        assertTrue(surface.actions().actions().contains(new Action.Ascend()));
+        Brain.Decided up = after(surface);
+        assertNotEquals(new Action.Ascend(), up.action(), up.decision().toString());
+        assertTrue(new Fight(KNOWLEDGE).ranked(surface, Memory.START, surface.actions().actions(), Stream.at(1, 1))
+                .stream().noneMatch(choice -> choice.action() instanceof Action.Ascend), "the fight Policy never ranks it");
+    }
+
+    @Test
+    @DisplayName("the way to the stairs does not pass beside the enemy it flees")
+    void stairs_path_keeps_clear() {
+        // The stairs lie past the brute: the only way there runs beside it, so the Policy steps away.
+        Observation past = screen(20, false,
+                "##########",
+                "#...@B..>#",
+                "##########");
+        Brain.Decided decided = after(past);
+        assertNotEquals("retreat: stairs", why(decided), decided.decision().toString());
+        assertEquals(new Action.Step(cell(past, 3, 1)), decided.action());
     }
 
     @Test
@@ -257,45 +344,248 @@ class FightPolicyTest {
     }
 
     @Test
-    @DisplayName("an enemy the Codex has no figures for is fought rather than fled")
-    void unknown_enemy() {
-        Observation stranger = screen(20, false,
-                "#######",
-                "#.@?..#",
-                "#.....#",
-                "#######");
-        assertEquals(new Action.Attack(cell(stranger, 3, 1)), after(stranger).action());
-    }
-
-    @Test
-    @DisplayName("the hit rule: a uniform roll under accuracy against a uniform roll under evasion")
-    void hit_chance() {
-        assertEquals(0.9, Fight.hitChance(10, 2), 1e-12);
-        assertEquals(0.1, Fight.hitChance(2, 10), 1e-12);
-        assertEquals(0.5, Fight.hitChance(7, 7), 1e-12);
-        assertEquals(0.0, Fight.hitChance(0, 5), 1e-12);
-        assertEquals(1.0, Fight.hitChance(5, 0), 1e-12);
+    @DisplayName("an Attack is only ever on a cell a shown enemy stands on")
+    void attack_only_shown() {
         Observation rat = screen(20, false,
                 "#######",
                 "#.@r..#",
                 "#######");
-        // Shortsword 5.485 less the rat's half point of armour, landing 0.9 of the time: 8 hit
-        // points in under two turns.
-        assertEquals(8 / (0.9 * (5.485 - 0.5)), Fight.turnsToKill(rat, KNOWLEDGE, Fight.enemies(rat).get(0)), 1e-9);
-        // The rat's 2.5 less cloth's 1.004, landing 1 - 5/16 of the time.
-        assertEquals((1 - 5 / 16.0) * (2.5 - 1.004),
-                Fight.enemyDamage(rat, KNOWLEDGE, KNOWLEDGE.threat("marsupial rat")), 1e-9);
+        // Ranked with an Attack on an empty cell in the offered set: the Policy never takes it.
+        List<Action> offered = new ArrayList<>(rat.actions().actions());
+        offered.add(new Action.Attack(cell(rat, 1, 1)));
+        List<RunLog.Choice> ranked = new Fight(KNOWLEDGE).ranked(rat, Memory.START, offered, Stream.at(1, 1));
+        assertTrue(ranked.stream().noneMatch(choice -> choice.action().equals(new Action.Attack(cell(rat, 1, 1)))), ranked.toString());
+        assertEquals(new Action.Attack(cell(rat, 3, 1)), ranked.get(0).action());
     }
 
     @Test
-    @DisplayName("hurt badly enough, even a rat is not worth the risk")
+    @DisplayName("an enemy the Codex has no figures for is taken at a pessimistic figure: fought when healthy, fled when hurt")
+    void unknown_enemy() {
+        String[] rows = {
+                "#######",
+                "#.@?..#",
+                "#.....#",
+                "#######"};
+        assertEquals(new Action.Attack(cell(screen(20, false, rows), 3, 1)), after(screen(20, false, rows)).action());
+        Brain.Decided hurt = after(screen(9, false, rows));
+        assertTrue(hurt.action() instanceof Action.Step, "an unknown enemy is no reason to stay: " + hurt.decision());
+        assertTrue(Fight.turnsToKill(screen(20, false, rows), KNOWLEDGE, Fight.enemies(screen(20, false, rows)).get(0)) > 0,
+                "an unknown enemy is not assumed dead already");
+    }
+
+    @Test
+    @DisplayName("hurt badly enough, even a rat is not worth the risk: never favourable while the status pane warns")
     void hurt_retreats() {
-        Observation rat = screen(2, false,
+        Observation rat = screen(6, false,
                 "#########",
                 "#...@r..#",
                 "#.......#",
                 "#########");
         assertFalse(Fight.favourable(rat, KNOWLEDGE, Fight.enemies(rat)));
         assertTrue(after(rat).action() instanceof Action.Step);
+    }
+
+    @Test
+    @DisplayName("an animated statue is scenery: neither fought nor fled, and the floor is explored past it")
+    void passive_statue() {
+        Observation statue = screen(20, false,
+                "#######",
+                "#.@T.  ",
+                "#......",
+                "#######");
+        Brain.Decided decided = after(statue);
+        assertNotEquals(Fight.NAME, decided.decision().policy());
+        assertFalse(decided.action() instanceof Action.Attack);
+        assertEquals(Explore.NAME, decided.decision().policy());
+    }
+
+    @Test
+    @DisplayName("the hero's weapon is found by its name inside an enchanted name, and a mage's staff by the wand it holds")
+    void gear_names() {
+        String[] rows = {"#####", "#@r.#", "#####"};
+        assertEquals(new Codex.Gear("worn shortsword", 0, 1, 10, 5485),
+                Fight.worn(screen(1, 20, false, "blazing worn shortsword", rows), KNOWLEDGE.weapons(), EquipSlot.WEAPON));
+        assertEquals(new Codex.Gear(Fight.MAGES_STAFF, 0, 1, 6, 3500),
+                Fight.worn(screen(1, 20, false, "staff of magic missile", rows), KNOWLEDGE.weapons(), EquipSlot.WEAPON));
+        assertEquals(new Codex.Gear("cloth armor", 0, 0, 2, 1004),
+                Fight.worn(screen(1, 20, false, "dagger", rows), KNOWLEDGE.armours(), EquipSlot.ARMOR));
+        // A weapon worn that the Codex does not know is the weakest one measured, never bare hands.
+        assertEquals(new Codex.Gear(Fight.MAGES_STAFF, 0, 1, 6, 3500),
+                Fight.worn(screen(1, 20, false, "mystery blade", rows), KNOWLEDGE.weapons(), EquipSlot.WEAPON));
+        assertEquals(null, Fight.worn(screen(1, 20, false, null, rows), KNOWLEDGE.weapons(), EquipSlot.WEAPON));
+        assertEquals(1, Fight.heroDamage(screen(1, 20, false, null, rows), KNOWLEDGE)[0], "bare hands: 1 to STR - 8");
+        assertEquals(2, Fight.heroDamage(screen(1, 20, false, null, rows), KNOWLEDGE)[1]);
+    }
+
+    @Test
+    @DisplayName("the hit rule, and the exact expectation of a roll less a reduction roll")
+    void arithmetic() {
+        assertEquals(0.9, Fight.hitChance(10, 2), 1e-12);
+        assertEquals(0.1, Fight.hitChance(2, 10), 1e-12);
+        assertEquals(0.5, Fight.hitChance(7, 7), 1e-12);
+        assertEquals(0.0, Fight.hitChance(0, 5), 1e-12);
+        assertEquals(1.0, Fight.hitChance(5, 0), 1e-12);
+        // NormalIntRange(1, 4): the floor of a triangular variable, 1/8, 3/8, 3/8, 1/8.
+        double[] p = Fight.normal(1, 4);
+        assertEquals(0.125, p[0], 1e-12);
+        assertEquals(0.375, p[1], 1e-12);
+        assertEquals(0.375, p[2], 1e-12);
+        assertEquals(0.125, p[3], 1e-12);
+        assertEquals(2.0, Fight.landed(1, 4, 0, 1), 1e-12, "no overlap: the difference of the means");
+        // Overlapping ranges: 0-2 less 0-2, each 2/9, 5/9, 2/9. E[max(0, X - Y)] = 28/81, where the
+        // difference of the means says 0.
+        assertEquals(28.0 / 81, Fight.landed(0, 2, 0, 2), 1e-12);
+    }
+
+    // ------------------------------------------------------------------------------ several waits
+
+    @Test
+    @DisplayName("two attacks from one cell are not a refused step: when the rat is dead, explore goes on")
+    void attacks_are_not_refusals() {
+        Observation rat = screen(20, false,
+                "#######",
+                "#.@r.  ",
+                "#......",
+                "#######");
+        Observation calm = screen(20, false,
+                "#######",
+                "#.@..  ",
+                "#......",
+                "#######");
+        List<Brain.Decided> all = each(rat, rat, calm, calm);
+        assertTrue(all.get(0).action() instanceof Action.Attack);
+        assertTrue(all.get(1).action() instanceof Action.Attack);
+        assertEquals(Explore.NAME, all.get(2).decision().policy(), all.get(2).decision().toString());
+        assertEquals(Explore.NAME, all.get(3).decision().policy(), "and the step it took was not blocked");
+        Brain brain = brain();
+        Memory memory = Memory.of(Screens.drive(brain, rat, rat, calm));
+        assertEquals(0, memory.streak());
+        assertTrue(memory.blocked().isEmpty(), memory.blocked().toString());
+    }
+
+    @Test
+    @DisplayName("a floor fled by the stairs is not walked back into until the hero is healed")
+    void no_stairs_ping_pong() {
+        Observation fleeing = screen(2, 20, false, "worn shortsword",
+                "######",
+                "#UB..#",
+                "#....#",
+                "######");
+        Observation above = screen(1, 12, false, "worn shortsword",
+                "######",
+                "#<.H.#",
+                "######");
+        Observation healed = screen(1, 20, false, "worn shortsword",
+                "######",
+                "#<.H.#",
+                "######");
+        List<Brain.Decided> all = each(fleeing, above, above, healed);
+        assertEquals(new Action.Ascend(), all.get(0).action(), "fled up");
+        assertEquals("rest: before-descent", why(all.get(1)), all.get(1).decision().toString());
+        assertEquals("rest: before-descent", why(all.get(2)));
+        assertFalse(why(all.get(3)).startsWith("rest"), "healed, it goes on: " + all.get(3).decision());
+    }
+
+    @Test
+    @DisplayName("enemies that do not come are not waited for: the hero goes to them rather than step in and out of a corridor")
+    void no_chokepoint_oscillation() {
+        Observation doorway = screen(20, false,
+                "############",
+                "#####......#",
+                "....@..r...#",
+                "#####...r..#",
+                "############");
+        Observation corridor = screen(20, false,
+                "############",
+                "#####......#",
+                "...@...r...#",
+                "#####...r..#",
+                "############");
+        List<Brain.Decided> all = each(doorway, corridor, doorway, doorway);
+        assertEquals("chokepoint 2", why(all.get(0)), "first sight: they may be coming");
+        assertTrue(why(all.get(1)).startsWith("approach "), "they stood still: " + all.get(1).decision());
+        assertTrue(why(all.get(2)).startsWith("approach "), "and it keeps going: " + all.get(2).decision());
+        assertTrue(why(all.get(3)).startsWith("approach "), all.get(3).decision().toString());
+    }
+
+    @Test
+    @DisplayName("a chokepoint is held while the enemies close in, and at most four waits")
+    void bounded_hold() {
+        List<Observation> screens = new ArrayList<>();
+        for (int step = 0; step < 6; step++) {
+            char[] row = "#.@..........#".toCharArray();
+            char[] other = "##############".toCharArray();
+            row[12 - step] = 'r';
+            screens.add(screen(20, false, new String(other), new String(row), "#.#########.##".substring(0, 14),
+                    new String(other)));
+        }
+        List<Brain.Decided> all = each(screens.toArray(new Observation[0]));
+        assertTrue(all.stream().allMatch(decided -> Fight.NAME.equals(decided.decision().policy())));
+        // One rat is not a crowd: a lone enemy is approached, never held for.
+        assertTrue(why(all.get(0)).startsWith("approach "), all.get(0).decision().toString());
+
+        List<Observation> two = new ArrayList<>();
+        for (int step = 0; step < 7; step++) {
+            char[] row = "...@..............#".toCharArray();
+            char[] low = "#####.............#".toCharArray();
+            row[16 - step] = 'r';
+            low[17 - step] = 'r';
+            two.add(screen(20, false, "###################", "#####.............#", new String(row), new String(low),
+                    "###################"));
+        }
+        List<Brain.Decided> held = each(two.toArray(new Observation[0]));
+        for (int i = 0; i < Fight.HOLDS; i++) {
+            assertEquals("hold: chokepoint", why(held.get(i)), i + ": " + held.get(i).decision());
+        }
+        assertTrue(why(held.get(Fight.HOLDS)).startsWith("approach "), "the holds ran out: " + held.get(Fight.HOLDS).decision());
+    }
+
+    @Test
+    @DisplayName("after a retreat from a brute out of sight, explore keeps out of the region instead of walking back into view")
+    void retreat_is_remembered() {
+        Observation brute = screen(20, false,
+                "###########",
+                "#....@.B.  ",
+                "#........  ",
+                "###########");
+        Observation away = screen(20, false,
+                "###########",
+                "#...@.     ",
+                "#.....     ",
+                "###########");
+        List<Brain.Decided> all = each(brute, away, away);
+        assertTrue(why(all.get(0)).startsWith("retreat "), all.get(0).decision().toString());
+        Brain.Decided next = all.get(1);
+        assertEquals(Explore.NAME, next.decision().policy());
+        if (next.action() instanceof Action.Step step) {
+            assertTrue(step.cell() % away.map().width() <= 4, "not back toward the brute: " + next.decision());
+        }
+    }
+
+    @Test
+    @DisplayName("a lasher that cannot move is no crowd: the hero does not hold a chokepoint waiting for it")
+    void immovable_is_not_waited_for() {
+        Observation lasher = screen(20, false,
+                "############",
+                "#####......#",
+                "...@...r.L.#",
+                "#####......#",
+                "############");
+        Brain.Decided decided = after(lasher);
+        assertNotEquals("hold: chokepoint", why(decided), decided.decision().toString());
+    }
+
+    @Test
+    @DisplayName("whenever the fight Policy enters, it returns an Action")
+    void always_acts() {
+        // A brute beside the hero in a dead end with nowhere farther to go and the fight unfavourable:
+        // cornered, it attacks; and with no enemy adjacent and nowhere to retreat, it holds.
+        Observation boxed = screen(3, false,
+                "#####",
+                "#@.B#",
+                "#####");
+        Brain.Decided decided = after(boxed);
+        assertEquals(Fight.NAME, decided.decision().policy());
+        assertTrue(decided.action() != null);
     }
 }

@@ -102,6 +102,16 @@ public final class Brain {
         return Safety.ALL;
     }
 
+    /** The enemies the fight Policy treats as scenery, by the name the screen shows (story 4.7). */
+    public static java.util.Set<String> passiveEnemies() {
+        return Fight.PASSIVE;
+    }
+
+    /** The name under which the Codex measures the mage's staff, whatever wand it holds (story 4.7). */
+    public static String magesStaff() {
+        return Fight.MAGES_STAFF;
+    }
+
     /** The names of the Policies every Brain arbitrates, highest priority first. */
     public static List<String> policyNames() {
         return List.of(Policies.ANSWER_PROMPT.name(), Fight.NAME, Explore.NAME, Policies.FALLBACK);
@@ -110,6 +120,43 @@ public final class Brain {
     /** The Policies, highest priority first, by name. */
     public List<String> policies() {
         return policies.stream().map(Policy::name).toList();
+    }
+
+    /** How many waits a region the fight Policy retreated from stays avoided. */
+    static final int AVOID_WAITS = 100;
+
+    /**
+     * The Belief after this Brain hands over {@code decided} on {@code observation} (story 4.7): the
+     * kind of the Action, which the next {@link #update} reads to know what a still hero means, and,
+     * when the fight Policy retreated, the region around the nearest enemy, which the explore Policy
+     * keeps out of for {@link #AVOID_WAITS} waits so it does not walk straight back into view. The
+     * region reaches one past where the enemy was seen from. Nothing here assumes the Action is
+     * applied.
+     */
+    public Belief handed(Observation observation, Belief belief, Decided decided) {
+        Memory memory = Memory.of(belief).handed(Beliefs.kind(decided.action()));
+        RunLog.Decision decision = decided.decision();
+        if (decision != null && Fight.NAME.equals(decision.policy())
+                && decision.chosen().why().startsWith("retreat ")) {
+            java.util.List<org.shatterfish.api.ActorView> enemies = Fight.enemies(observation);
+            int hero = observation.hero().cell();
+            int width = observation.map().width();
+            org.shatterfish.api.ActorView nearest = null;
+            int best = Integer.MAX_VALUE;
+            for (org.shatterfish.api.ActorView enemy : enemies) {
+                int distance = Math.max(Math.abs(hero % width - enemy.cell() % width),
+                        Math.abs(hero / width - enemy.cell() / width));
+                if (distance < best) {
+                    best = distance;
+                    nearest = enemy;
+                }
+            }
+            if (nearest != null) {
+                memory = memory.avoiding(new Memory.Avoid(observation.header().depth(), observation.header().branch(),
+                        nearest.cell(), Math.min(8, best + 1), memory.waits() + AVOID_WAITS));
+            }
+        }
+        return memory.belief();
     }
 
     /** The Belief after seeing {@code observation}, given the Belief before it (null at the start). */

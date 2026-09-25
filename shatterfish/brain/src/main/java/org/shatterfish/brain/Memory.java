@@ -9,10 +9,14 @@ import java.util.List;
  * What the Brain carries from one Input wait to the next, and nothing else (stories 4.1, 4.2).
  *
  * <p>It is written into a {@link Belief}'s bytes, so the harness can hash it for the Run log without
- * knowing its shape, and it holds only what the Brain has <em>seen</em>. Deliberately absent is
- * anything the Brain <em>did</em> -- its last Action, its plan -- because a human may take any
- * turn, and a Brain that remembered its intention would act on an intention the game never carried
- * out (FR-27, FR-28).
+ * knowing its shape, and it holds what the Brain has <em>seen</em>. Absent is any plan: a human may
+ * take any turn, and a Brain that remembered its intention would act on an intention the game never
+ * carried out (FR-27, FR-28). One thing the Brain did is kept (story 4.7): the <em>kind</em> of the
+ * last Action it handed over, {@link #last}, and never as a fact about the game. It is read only to
+ * interpret the next screen -- a hero standing where it stood after a Step had the Step refused;
+ * after a Search, the spot was searched; after an Attack or a pick-up, nothing was refused -- and
+ * when a human took the turn instead, the reading is at worst one cell wrongly marked blocked or one
+ * spot wrongly marked searched. Nothing in the Brain assumes the Action was applied.
  *
  * <p>What an unidentified item may be is not here: it is a function of the screen at hand (the
  * appearances in view and the journal's identified list) and the Codex, and is recomputed at every
@@ -43,13 +47,31 @@ import java.util.List;
  * @param blocked  the cells, per floor, that the explore Policy's Step pointed at on a screen where the
  *                 hero had already stood still for {@link Explore#STUCK} - 1 waits: a Step the game
  *                 refuses. A function of the screens and the memory, recomputed, not an intention
+ * @param last     the kind of the last Action this Brain handed over ({@code "Step"}, {@code "Search"},
+ *                 ...), or empty before the first; see the note above
+ * @param holds    how many waits in a row the fight Policy has held its cell with an enemy in view
+ * @param near     the distance from the hero to the nearest enemy in view on this screen, or -1
+ * @param before   the distance from where the hero stands on this screen to the nearest enemy seen on
+ *                 the screen before, where it stood then, or -1: less {@code near} than this, and the
+ *                 enemies came closer
+ * @param flights  how many times the hero has left each floor by the stairs with an enemy in view,
+ *                 keyed {@code "depth:branch"} (the set is unused and 0)
+ * @param avoid    regions the fight Policy retreated from, which the explore Policy keeps out of until
+ *                 they lapse
  */
 record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
               List<Held> labels, List<Found> pending, List<Seen> monsters, Spot at, int streak, boolean calm,
-              List<Spot> dwelt, List<Spot> blocked) {
+              List<Spot> dwelt, List<Spot> blocked, String last, int holds, int near, int before,
+              List<Found> flights, List<Avoid> avoid) {
 
-    /** The meaning of the bytes; bumped when it changes (3: where the hero stood, story 4.6). */
-    static final int VERSION = 3;
+    /**
+     * The meaning of the bytes; bumped when it changes (3: where the hero stood, story 4.6; 4: the
+     * last Action's kind, holds, distances, flights and regions avoided, story 4.7).
+     */
+    static final int VERSION = 4;
+
+    /** The most regions avoided at once; the oldest is forgotten first. */
+    static final int AVOIDED = 16;
 
     /** The most cells remembered as dwelt on, or as blocked; the oldest is forgotten first. */
     static final int DWELT = 256;
@@ -58,7 +80,47 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     static final int MONSTERS = 64;
 
     static final Memory START = new Memory(0, 0, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-            List.of(), Spot.NOWHERE, 0, false, List.of(), List.of());
+            List.of(), Spot.NOWHERE, 0, false, List.of(), List.of(), "", 0, -1, -1, List.of(), List.of());
+
+    /**
+     * A region of a floor to keep out of: every cell within {@code radius} of {@code cell}, until the
+     * wait {@code until}.
+     */
+    record Avoid(int depth, int branch, int cell, int radius, long until) {
+
+        Avoid {
+            require(depth >= 0 && branch >= 0 && cell >= 0 && radius >= 0 && until >= 0, "region");
+        }
+
+        /** Whether {@code at} on this floor lies inside the region, on a map {@code width} wide. */
+        boolean covers(int depth, int branch, int at, int width) {
+            return this.depth == depth && this.branch == branch
+                    && Math.max(Math.abs(at % width - cell % width), Math.abs(at / width - cell / width)) <= radius;
+        }
+    }
+
+    /** This memory with the Action handed over recorded as {@code kind} (story 4.7). */
+    Memory handed(String kind) {
+        return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
+                dwelt, blocked, kind, holds, near, before, flights, avoid);
+    }
+
+    /** This memory with {@code region} avoided as well, the oldest forgotten past {@link #AVOIDED}. */
+    Memory avoiding(Avoid region) {
+        List<Avoid> more = new ArrayList<>(avoid);
+        more.add(region);
+        while (more.size() > AVOIDED) {
+            more.remove(0);
+        }
+        return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
+                dwelt, blocked, last, holds, near, before, flights, more);
+    }
+
+    /** The regions still avoided at wait {@code now} on the floor at {@code depth} and {@code branch}. */
+    List<Avoid> avoided(int depth, int branch, long now) {
+        return avoid.stream().filter(region -> region.depth() == depth && region.branch() == branch
+                && region.until() >= now).toList();
+    }
 
     /** A cell on a floor: its depth, its branch and the cell. */
     record Spot(int depth, int branch, int cell) {
@@ -121,6 +183,9 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         require(at != null && streak >= 0, "a position and a streak");
         dwelt = List.copyOf(dwelt);
         blocked = List.copyOf(blocked);
+        require(last != null && holds >= 0 && near >= -1 && before >= -1, "last Action, holds and distances");
+        flights = List.copyOf(flights);
+        avoid = List.copyOf(avoid);
     }
 
     private static void require(boolean held, String what) {
@@ -160,6 +225,13 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         out.integer(at.depth()).integer(at.branch()).integer(at.cell()).integer(streak).integer(calm ? 1 : 0);
         spots(out, dwelt);
         spots(out, blocked);
+        out.text(last).integer(holds).integer(near).integer(before);
+        founds(out, flights);
+        out.integer(avoid.size());
+        for (Avoid region : avoid) {
+            out.integer(region.depth()).integer(region.branch()).integer(region.cell()).integer(region.radius())
+                    .number(region.until());
+        }
         return new Belief(VERSION, out.bytes());
     }
 
@@ -213,9 +285,18 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
             }
             List<Spot> dwelt = spots(in);
             List<Spot> blocked = spots(in);
+            String last = in.text();
+            int holds = in.integer();
+            int near = in.integer();
+            int before = in.integer();
+            List<Found> flights = founds(in);
+            List<Avoid> avoid = new ArrayList<>();
+            for (int i = count(in); i > 0; i--) {
+                avoid.add(new Avoid(in.integer(), in.integer(), in.integer(), in.integer(), in.number()));
+            }
             in.end();
             return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak,
-                    calm == 1, dwelt, blocked);
+                    calm == 1, dwelt, blocked, last, holds, near, before, flights, avoid);
         } catch (IllegalArgumentException malformed) {
             throw new IllegalArgumentException("not a Belief this Brain wrote: " + belief + ": " + malformed.getMessage());
         }
