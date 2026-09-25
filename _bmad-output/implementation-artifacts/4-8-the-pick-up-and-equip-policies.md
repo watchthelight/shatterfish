@@ -145,3 +145,7 @@ without their competing.
 - Tests: `:api:test`, `:brain:test` (`PickupThresholdTest` 5, `EquipPolicyTest` 5), rig
   `CodexKnowledgeTest`, `WeightsFileTest`, `BrainRulesIndexTest`, `SafeTestCodexTest`,
   `ShatterfishRunTest` and `StrategyLogTest` pass.
+- Mutation battery: 13 of 13 killed (turn cost ignored, gold as a plain item, gold quantity ignored,
+  Beliefs ignored, entering with an enemy in view, a chest taken, the strength penalty off, the curse
+  risk off, SafeTest ignored, a piece shown cursed worn, a worn cursed piece replaced, strength adding
+  nothing, a cursed weapon harmless).
