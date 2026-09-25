@@ -24,11 +24,13 @@ import java.util.List;
  * {@code turn} weight times the Steps to the heap plus the turn picking it up takes
  * ({@code Item.TIME_TO_PICK_UP}, Item.java:67, spent at Item.java:130).
  *
- * <p>It enters only on a calm screen, no Prompt and no enemy in view, because a click on a heap
- * with an enemy in view does not pick it up on arrival (Hero.java:1974-1977). It takes one Step per
- * wait toward the best heap, always one the screen offers, and {@link Action.PickUp} when standing
- * on it. A Step onto a plain heap's cell is itself a pick-up once the hero arrives (the same
- * branch), so the last Step and the pick-up are one click; the PickUp is for a hero already there.
+ * <p>It enters only on a calm screen, no Prompt and no enemy in view but a passive one (the fight
+ * Policy takes the rest). It takes one Step per wait toward the best heap, always one the screen
+ * offers, and {@link Action.PickUp} when standing on it. A Step onto a plain heap's cell is itself a
+ * pick-up once the hero arrives, unless an enemy is visible (Hero.java:1974-1977); a passive statue
+ * or gnoll exile is scenery to {@link Explore#calm} but the game still counts it among the visible
+ * enemies, so with one in view the arriving Step does not pick up, a PickUp wait follows, and the
+ * cost counts that one more turn.
  *
  * <p>Only plain heaps: a chest, a tomb or a for-sale heap is not an item on the floor. Not a heap a
  * character stands on: the screen offers an Interact or an Attack onto that cell, not a Step
@@ -116,6 +118,15 @@ final class Pickup implements Policy {
         return observation.actors().actors().stream().noneMatch(actor -> actor.cell() == heap.cell());
     }
 
+    /**
+     * Whether an enemy the game keeps passive is in view: scenery to {@link Explore#calm}, but one of
+     * the hero's visible enemies, so arriving on a heap does not pick it up (Hero.java:1974-1977).
+     */
+    static boolean passiveInView(Observation observation) {
+        return observation.actors().actors().stream()
+                .anyMatch(actor -> actor.alignment() == org.shatterfish.api.Alignment.ENEMY && Fight.passive(actor));
+    }
+
     /** The cell of the heap this Policy goes for, or -1. */
     int target(Observation observation, Memory memory) {
         HeapView best = best(observation, memory);
@@ -133,7 +144,8 @@ final class Pickup implements Policy {
                     || distance[heap.cell()] < 0) {
                 continue;
             }
-            long net = Math.addExact(worth(heap.item(), observation), evaluation.turns(distance[heap.cell()] + 1));
+            int turns = distance[heap.cell()] + 1 + (distance[heap.cell()] > 0 && passiveInView(observation) ? 1 : 0);
+            long net = Math.addExact(worth(heap.item(), observation), evaluation.turns(turns));
             if (net > bestNet) {
                 bestNet = net;
                 best = heap;

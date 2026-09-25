@@ -277,6 +277,26 @@ After the verification fixes:
   `SafeTestCodexTest`, `WeightsFileTest`, `ShatterfishRunTest` and `StrategyLogTest` pass;
   `:codex:citations` has no findings.
 
+### Merge review of 7d9367cda
+
+The smoke direction check against main:
+- score 405 → 637;
+- median turns 422 → 557;
+- deepest floor 2.16 → 2.12;
+- pick-up takes 14% of waits, the fallback 0.6%.
+
+Three low-severity findings, each fixed and tested:
+1. **A heap was marked refused after a turn the Brain did not take.** The refused-heap rule now also
+   requires that the last Action handed over was a pick-up (`memory.last()` is `PickUp`, the kind
+   story 4.7 records). A human's Wait or Search, or a wait with nothing handed over, refuses nothing
+   (`refused_heap`, `refusal_false_positives`).
+2. **A passive enemy in view cost one more turn than counted.** A passive statue or gnoll exile is
+   scenery to `calm`, but the game counts it among the hero's visible enemies, so the arriving Step
+   does not pick up (Hero.java:1974-1977) and a PickUp wait follows. The cost now counts that turn
+   (`Pickup.passiveInView`, `passive_in_view`), and the class comment says so.
+3. **A piece with a shown negative level was valued at +0.** Equip now skips a candidate whose level
+   is known and below zero (`EquipPolicyTest.negative_level`).
+
 ## Dev Notes
 
 - Tests: `:api:test`, `:brain:test` (`PickupThresholdTest` 5, `EquipPolicyTest` 5), rig

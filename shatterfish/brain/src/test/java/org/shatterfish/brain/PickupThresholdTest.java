@@ -105,8 +105,9 @@ class PickupThresholdTest {
                 new Action.PickUp(), new Action.Step(2));
         Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, 3L);
         org.shatterfish.api.Belief first = brain.update(on, null);
-        assertEquals("pick-up", brain.decide(on, first).decision().policy(), "the first time, it tries");
-        org.shatterfish.api.Belief second = brain.update(on, first);
+        Brain.Decided tried = brain.decide(on, first);
+        assertEquals("pick-up", tried.decision().policy(), "the first time, it tries");
+        org.shatterfish.api.Belief second = brain.update(on, brain.handed(on, first, tried));
         Memory memory = Memory.of(second);
         assertTrue(memory.refuses(2, 0, 3, "ration of food"), memory.refused().toString());
         assertFalse(PICKUP.enters(on, memory), "still there under the same title: refused, not tried again");
@@ -126,6 +127,26 @@ class PickupThresholdTest {
                 List.of(new HeapView(3, HeapKind.HEAP, false, "ration of food", 0, "")), List.of(), STEPS);
         assertTrue(Memory.of(brain.update(on, brain.update(passing, null))).refused().isEmpty(),
                 "arriving on a heap is not standing on it twice");
+    }
+
+    @Test
+    @DisplayName("a passive enemy in view costs one more turn: the arriving Step does not pick up")
+    void passive_in_view() {
+        // Strength potion: 2000 carried + 2000 strength; 150 a turn. 25 Steps and the pick-up: taken.
+        List<HeapView> heap = List.of(new HeapView(26, HeapKind.HEAP, false, "potion of strength", 0, ""));
+        Observation clear = Screens.floor(1, Screens.heroAt(1, 10), Collections.nCopies(30, Tile.EMPTY), heap,
+                List.of(), STEPS);
+        assertEquals(new Action.Step(2), choose(clear).action());
+        Observation statue = Screens.world(1, Collections.nCopies(30, Tile.EMPTY), heap,
+                List.of(new org.shatterfish.api.ActorView(29, "animated statue", org.shatterfish.api.Alignment.ENEMY,
+                        org.shatterfish.api.ObservationCodec.MAX_HEALTH_PIPS, false, org.shatterfish.api.Emote.NONE,
+                        List.of())), List.of(), List.of());
+        assertTrue(Pickup.passiveInView(statue) && Explore.calm(statue), "scenery to calm, an enemy to the game");
+        Observation withStatue = Screens.floor(1, Screens.heroAt(1, 10), Collections.nCopies(30, Tile.EMPTY), heap,
+                List.of(), STEPS);
+        withStatue = new Observation(withStatue.header(), withStatue.map(), statue.actors(), withStatue.hero(),
+                withStatue.inventory(), withStatue.journal(), withStatue.log(), withStatue.actions(), withStatue.prompt());
+        assertNull(choose(withStatue), "with the statue in view the pick-up is one more turn: not worth it");
     }
 
     @Test
@@ -200,7 +221,13 @@ class PickupThresholdTest {
         org.shatterfish.api.Belief first = brain.update(before, null);
         assertTrue(Memory.of(brain.update(after, first)).refused().isEmpty(),
                 "the next ration shows the same title, but the pack grew: taken, not refused");
-        assertEquals(1, Memory.of(brain.update(before, first)).refused().size(), "unchanged: refused");
+        org.shatterfish.api.Belief pickedUp = Memory.of(first).handed(Beliefs.PICK_UP).belief();
+        assertTrue(Memory.of(brain.update(after, Memory.of(first).handed(Beliefs.PICK_UP).belief())).refused().isEmpty(),
+                "after a pick-up handed over, a grown pack is still a take");
+        assertEquals(1, Memory.of(brain.update(before, pickedUp)).refused().size(), "unchanged: refused");
+        assertTrue(Memory.of(brain.update(before, Memory.of(first).handed("Wait").belief())).refused().isEmpty(),
+                "a turn spent otherwise (a human's wait) refuses nothing");
+        assertTrue(Memory.of(brain.update(before, first)).refused().isEmpty(), "nor does a wait with nothing handed over");
 
         Memory elsewhere = Memory.of(first).aiming(Memory.Aim.NONE);
         assertTrue(Beliefs.fold(elsewhere, before, Screens.CODEX).refused().isEmpty(),

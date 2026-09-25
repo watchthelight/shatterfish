@@ -82,7 +82,9 @@ final class Equip implements Policy {
         for (int index = 0; index < items.size(); index++) {
             ItemView item = items.get(index);
             Piece gear = gear(item.name());
-            if (item.slot() != EquipSlot.NONE || gear == null || (item.cursedKnown() && item.visiblyCursed())) {
+            // A shown negative level is worth less than the level-0 figures say: not put on.
+            if (item.slot() != EquipSlot.NONE || gear == null || (item.cursedKnown() && item.visiblyCursed())
+                    || (item.levelKnown() && item.visiblyUpgraded() < 0)) {
                 continue;
             }
             ItemView worn = worn(items, gear.kind());

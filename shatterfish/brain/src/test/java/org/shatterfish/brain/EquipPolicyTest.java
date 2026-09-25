@@ -119,6 +119,17 @@ class EquipPolicyTest {
     }
 
     @Test
+    @DisplayName("a piece whose level shows negative is not put on")
+    void negative_level() {
+        ItemView degraded = new ItemView(ItemKind.WEAPON, "shortsword", 1, true, -1, true, false, "",
+                EquipSlot.NONE, List.of("EQUIP"), "");
+        assertNull(choose(pack(1, 12, List.of(degraded), WORN_SWORD)), "a -1 sword is not the +0 the Codex measured");
+        ItemView plain = new ItemView(ItemKind.WEAPON, "shortsword", 1, true, 0, true, false, "",
+                EquipSlot.NONE, List.of("EQUIP"), "");
+        assertEquals("wear: shortsword", choose(pack(1, 12, List.of(plain), WORN_SWORD)).why());
+    }
+
+    @Test
     @DisplayName("a swap costs two turns, putting on into an empty slot one")
     void swap_costs_two() {
         Observation screen = pack(1, 12, List.of(), null);

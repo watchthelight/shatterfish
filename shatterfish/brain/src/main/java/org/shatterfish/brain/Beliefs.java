@@ -66,6 +66,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
     static final String WAIT = "Wait";
     static final String ASCEND = "Ascend";
     static final String DESCEND = "Descend";
+    static final String PICK_UP = "PickUp";
 
     /** The kind of an Action as the Memory keeps it: its record's name. */
     static String kind(org.shatterfish.api.Action action) {
@@ -206,8 +207,10 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         List<Memory.Refused> refused = memory.refused();
         Memory.Refused refusal = new Memory.Refused(depth, branch, here.cell(), underfoot);
         Memory.Pack pack = pack(observation);
-        if (still && memory.calm() && !underfoot.isEmpty() && underfoot.equals(memory.underfoot())
-                && memory.aim().target() == here.cell() && pack.equals(memory.pack()) && !refused.contains(refusal)) {
+        // And the Brain handed over the pick-up: a turn a human spent otherwise refuses nothing.
+        if (still && memory.calm() && memory.last().equals(PICK_UP) && !underfoot.isEmpty()
+                && underfoot.equals(memory.underfoot()) && memory.aim().target() == here.cell()
+                && pack.equals(memory.pack()) && !refused.contains(refusal)) {
             refused = new ArrayList<>(refused);
             refused.add(refusal);
             if (refused.size() > Memory.DWELT) {
