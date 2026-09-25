@@ -98,6 +98,66 @@ class PickupThresholdTest {
     }
 
     @Test
+    @DisplayName("a heap the game would not let the hero take is refused on that floor: no pick-up handed over forever")
+    void refused_heap() {
+        Observation on = Screens.floor(2, Screens.heroAt(3, 10), Collections.nCopies(6, Tile.EMPTY),
+                List.of(new HeapView(3, HeapKind.HEAP, false, "ration of food", 0, "")), List.of(),
+                new Action.PickUp(), new Action.Step(2));
+        Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, 3L);
+        org.shatterfish.api.Belief first = brain.update(on, null);
+        assertEquals("pick-up", brain.decide(on, first).decision().policy(), "the first time, it tries");
+        org.shatterfish.api.Belief second = brain.update(on, first);
+        Memory memory = Memory.of(second);
+        assertTrue(memory.refuses(2, 0, 3, "ration of food"), memory.refused().toString());
+        assertFalse(PICKUP.enters(on, memory), "still there under the same title: refused, not tried again");
+        assertFalse("pick-up".equals(brain.decide(on, second).decision().policy()));
+        assertEquals(memory, Memory.of(memory.belief()), "the refusal survives the Belief's bytes");
+
+        Observation other = Screens.floor(3, Screens.heroAt(3, 10), Collections.nCopies(6, Tile.EMPTY),
+                List.of(new HeapView(3, HeapKind.HEAP, false, "ration of food", 0, "")), List.of(),
+                new Action.PickUp(), new Action.Step(2));
+        assertTrue(PICKUP.enters(other, memory), "on another floor the same cell and title are another heap");
+        Observation lighter = Screens.floor(2, Screens.heroAt(3, 10), Collections.nCopies(6, Tile.EMPTY),
+                List.of(new HeapView(3, HeapKind.HEAP, false, "ration of food x2", 0, "")), List.of(),
+                new Action.PickUp(), new Action.Step(2));
+        assertTrue(PICKUP.enters(lighter, memory), "a heap showing another title is not the one refused");
+
+        Observation passing = Screens.floor(2, Screens.heroAt(2, 10), Collections.nCopies(6, Tile.EMPTY),
+                List.of(new HeapView(3, HeapKind.HEAP, false, "ration of food", 0, "")), List.of(), STEPS);
+        assertTrue(Memory.of(brain.update(on, brain.update(passing, null))).refused().isEmpty(),
+                "arriving on a heap is not standing on it twice");
+    }
+
+    @Test
+    @DisplayName("a dewdrop at full health is not gone for; hurt, it is")
+    void dewdrop() {
+        List<HeapView> dew = List.of(new HeapView(3, HeapKind.HEAP, false, "dewdrop", 0, ""));
+        assertNull(choose(Screens.floor(1, Screens.heroAt(1, 10, 20, 20), Collections.nCopies(6, Tile.EMPTY), dew,
+                List.of(), STEPS)));
+        assertEquals(new Action.Step(2), choose(Screens.floor(1, Screens.heroAt(1, 10, 12, 20),
+                Collections.nCopies(6, Tile.EMPTY), dew, List.of(), STEPS)).action());
+    }
+
+    @Test
+    @DisplayName("not a heap a character stands on, never a Step away from the heap, and it yields when stuck")
+    void no_wandering() {
+        Observation ally = Screens.world(1, Collections.nCopies(6, Tile.EMPTY),
+                List.of(new HeapView(3, HeapKind.HEAP, false, "potion of strength", 0, "")),
+                List.of(new org.shatterfish.api.ActorView(3, "sheep", org.shatterfish.api.Alignment.NEUTRAL, 1, false,
+                        org.shatterfish.api.Emote.NONE, List.of())), List.of(), List.of());
+        assertFalse(PICKUP.enters(ally, Memory.START), "the screen offers an Interact onto that cell, not a Step");
+
+        assertNull(choose(room(12, 5, "potion of strength", new Action.Step(0))),
+                "the one Step offered leads away: no Step at all rather than a sideways one");
+
+        Observation near = room(12, 3, "potion of strength", STEPS);
+        Memory stuck = new Memory(3, 1, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                new Memory.Spot(1, 0, 1), Explore.STUCK - 1, true, List.of(), List.of());
+        assertFalse(PICKUP.enters(near, stuck), "it yields when the hero has stood still as long as explore does");
+        assertTrue(PICKUP.enters(near, Memory.START));
+    }
+
+    @Test
     @DisplayName("an item no walkable path reaches is not planned for")
     void unreachable() {
         List<Tile> walled = new java.util.ArrayList<>(Collections.nCopies(12, Tile.EMPTY));

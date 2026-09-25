@@ -135,9 +135,28 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         boolean still = here.equals(memory.at());
         List<Memory.Spot> dwelt = still && memory.calm() ? Memory.with(memory.dwelt(), here) : memory.dwelt();
         int streak = still ? memory.streak() + 1 : 0;
+        // The plain heap underfoot, and whether it is one the game would not let the hero take: the
+        // hero stood on it at the last wait too, that screen was calm, and it still shows the same
+        // title (story 4.8).
+        String underfoot = "";
+        for (HeapView heap : observation.map().heaps()) {
+            if (heap.cell() == here.cell() && heap.kind() == HeapKind.HEAP) {
+                underfoot = heap.item();
+            }
+        }
+        List<Memory.Refused> refused = memory.refused();
+        Memory.Refused one = new Memory.Refused(depth, branch, here.cell(), underfoot);
+        if (still && memory.calm() && !underfoot.isEmpty() && underfoot.equals(memory.underfoot())
+                && !refused.contains(one)) {
+            refused = new ArrayList<>(refused);
+            refused.add(one);
+            if (refused.size() > Memory.DWELT) {
+                refused.remove(0);
+            }
+        }
         Memory after = new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
                 sightings(memory.monsters(), observation, waits), here, streak, Explore.calm(observation), dwelt,
-                memory.blocked());
+                memory.blocked(), underfoot, refused);
         // The hero has stood still long enough for explore to yield: the Step it would take on this
         // screen is one the game refuses, and the cell it points at is blocked on this floor.
         if (streak == Explore.STUCK - 1 && Explore.calm(observation)) {
@@ -145,7 +164,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
             if (cell != null) {
                 after = new Memory(after.waits(), after.deepest(), facts, found, held, known, labels, pending,
                         after.monsters(), here, streak, after.calm(), dwelt,
-                        Memory.with(after.blocked(), new Memory.Spot(depth, branch, cell)));
+                        Memory.with(after.blocked(), new Memory.Spot(depth, branch, cell)), underfoot, refused);
             }
         }
         return after;

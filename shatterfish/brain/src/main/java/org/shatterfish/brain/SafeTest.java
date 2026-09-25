@@ -80,10 +80,24 @@ public final class SafeTest {
     public static final String CURSED_ARMOR = "armor (cursed)";
 
     /**
-     * A weapon's or armour's chance to be cursed when generated: 30% each
-     * (Weapon.java:439-445, Armor.java:671-677), for the mean only.
+     * A melee weapon's chance to be cursed, given that it shows no enchantment. The generator curses
+     * 30% and enchants 10% (Weapon.java:439-447); an enchantment shows in the name
+     * (Weapon.java:411-419), so a piece whose name shows none is one of the other 90%, cursed 0.3/0.9.
+     * The Parchment Scrap trinket scales the 30% (Weapon.java:441); it is not scaled here (issue #136).
      */
-    static final double GEAR_CURSE_CHANCE = 0.3;
+    static final double WEAPON_CURSE_CHANCE = 0.3 / 0.9;
+
+    /**
+     * A suit of armour's chance to be cursed, given that it shows no glyph: 30% cursed, 15% inscribed
+     * (Armor.java:671-679), a glyph shown in the name (Armor.java:578), so 0.3/0.85. The Parchment
+     * Scrap trinket scales the 30% (Armor.java:673); not scaled here (issue #136).
+     */
+    static final double ARMOR_CURSE_CHANCE = 0.3 / 0.85;
+
+    /** A hidden curse's chance on a piece of this kind that shows no enchantment or glyph. */
+    static double curseChance(org.shatterfish.api.ItemKind kind) {
+        return kind == org.shatterfish.api.ItemKind.WEAPON ? WEAPON_CURSE_CHANCE : ARMOR_CURSE_CHANCE;
+    }
 
     /** The Codex item classes the table scores; every other class is harmless to try. */
     public static final List<String> CLASSES = List.of("items.potions.PotionOfLiquidFlame",
@@ -151,8 +165,8 @@ public final class SafeTest {
         if (curseKnown) {
             return List.of(new Candidate(visiblyCursed ? cursed : GEAR, name, 1));
         }
-        return List.of(new Candidate(GEAR, name, 1 - GEAR_CURSE_CHANCE),
-                new Candidate(cursed, name, GEAR_CURSE_CHANCE));
+        double chance = curseChance(kind);
+        return List.of(new Candidate(GEAR, name, 1 - chance), new Candidate(cursed, name, chance));
     }
 
     /**
@@ -251,12 +265,15 @@ public final class SafeTest {
      *       disables: paralytic gas and the bolt's stun. The rare and very rare effects are not
      *       modelled.
      *   <li>A cursed weapon or armour carries a curse that acts while the hero fights (story 4.8);
-     *       the worst that can land on the wearer at one proc is scored. A weapon's Explosive curse
-     *       blows up a conjured bomb on the cell beside its target nearest the wielder
-     *       (Explosive.java:71-85), the blast above; the other weapon curses cost less. Armour's
-     *       Anti-Entropy sets the wearer burning for four turns off water (AntiEntropy.java:44-52),
-     *       and Stench seeds 250 units of toxic gas on the wearer's cell (Stench.java:39-42); the
-     *       worse of the two is scored.
+     *       the worst that can land on the wearer at one proc is scored. A weapon's Wondrous curse
+     *       runs a random cursed-wand effect from the wielder (Wondrous.java:38-47), so a cursed
+     *       weapon is scored as a cursed wand's zap, which includes the Explosive curse's blast
+     *       beside its target (Explosive.java:71-85). Armour's Anti-Entropy sets the wearer burning
+     *       for four turns off water (AntiEntropy.java:44-52), Stench seeds 250 units of toxic gas on
+     *       the wearer's cell (Stench.java:39-42), and Overgrowth grows a random seed's plant under
+     *       the wearer (Overgrowth.java:40-52): a Firebloom's fire of amount 2, as liquid flame's
+     *       (Firebloom.java:57), or a Blindweed's blinding. The worst of fire and gas is scored, and
+     *       it disables.
      * </ul>
      *
      * <p>{@link Tile#WATER} is what the screen draws as water, which includes one decoration the
@@ -289,9 +306,11 @@ public final class SafeTest {
                 return new Harm(name + " (cursed)", damage, true, false, "cursed zap: fire, gas, bolt or blast");
             }
             case CURSED_WEAPON:
-                return new Harm(name + " (cursed)", 12 + 3 * depth, false, false, "cursed: explosive blast");
+                return new Harm(name + " (cursed)", Math.max(Math.max(flame, gas),
+                        Math.max(10 + depth / 4, Math.max(12 + 3 * depth, 2 * depth))), true, false,
+                        "cursed: a wand's cursed effect or a blast");
             case CURSED_ARMOR:
-                return new Harm(name + " (cursed)", Math.max(4 * burn, gas), false, false, "cursed: burning or gas");
+                return new Harm(name + " (cursed)", Math.max(flame, gas), true, false, "cursed: fire, gas or blinding");
             default:
                 return Harm.none(name);
         }

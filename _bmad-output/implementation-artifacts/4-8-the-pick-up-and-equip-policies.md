@@ -140,6 +140,50 @@ without their competing.
 - `Pickup` computes its own breadth-first distances rather than reusing `Explore`'s private search,
   so the two Policies do not couple; both use `Explore.walkable`.
 
+## Review
+
+Fairness reviewer: PASS, no leak. Its two should-fixes are done:
+- The curse chance is the conditional one, given that no enchantment or glyph shows: 0.3/0.9 for a
+  weapon (Weapon.java:439-447) and 0.3/0.85 for armour (Armor.java:671-679).
+- The Parchment Scrap trinket scales the 30% (Weapon.java:441, Armor.java:673). The Brain does not
+  scale it yet; the rules row says so and issue #136 tracks it.
+
+Lens review, seven findings; each is fixed and has a test.
+1. **A refused pick-up livelocked.** A pick-up the game refuses spends no turn (a dewdrop at full
+   health with no waterskin room, a full pack; Hero.java:1162-1188, Dewdrop.java:63-69, :120-122).
+   The screen did not change, so PickUp was chosen again forever.
+   - The Memory records a heap as refused when the hero stood on it at two waits in a row, the
+     first calm, under the same title. This is inferred from the screen alone.
+   - Pickup skips refused heaps, and a dewdrop while the hero is at full health.
+   - Memory is version 4. Its new fields are `underfoot` (the title of the plain heap under the
+     hero at the last wait) and `refused` (depth, branch, cell, title). A 14-argument constructor
+     keeps story 4.6's shape (`PickupThresholdTest.refused_heap`, `dewdrop`).
+2. **Stationary Pickup and Equip waits counted as searches and as a stuck streak.** Per the
+   coordinator, story 4.7 owns the generic fix: record the last Action kind in the Memory, and
+   count the streak only after a Step and a searched spot only after a Search. This story keeps its
+   own part: Pickup yields when the streak reaches `Explore.STUCK - 1`, and every Step it takes
+   brings the hero nearer the heap (`no_wandering`).
+3. **An unrecognised worn piece counted as worth zero.** The Mage's staff, a piece whose name shows
+   an enchantment or glyph, and a renamed holy weapon all made any recognised piece look better.
+   Nothing now replaces a worn piece the Codex does not name (`unknown_or_upgraded_worn`).
+4. **The Warrior's seal was lost on an armour swap.** The seal-transfer Prompt (Armor.java:261-283)
+   was declined, which left the seal on the armour coming off. Answer-prompt now affirms a Prompt
+   titled "Broken Seal" (`PolicyArbitrationTest.the_seal_moves`).
+5. **SafeTest understated cursed gear.**
+   - A cursed weapon is now scored as a cursed wand's zap, because of Wondrous (Wondrous.java:38-47).
+   - A cursed armour is scored as the worse of fire and gas, and it disables. Overgrowth's Firebloom
+     and Blindweed are the reason (Overgrowth.java:40-52, Firebloom.java:57).
+6. **Pickup could oscillate near an ally.** The ally's cell is walkable, but the screen offers an
+   Interact there, not a Step. Now a Step must bring the hero nearer the heap, and a heap with a
+   character on it is skipped (`no_wandering`).
+7. **A swap costs two turns.** The worn piece comes off first (KindOfWeapon.java:127,
+   EquipableItem.java:132-136, Armor.java:246). Swaps are now charged two turns (`swap_costs_two`).
+
+Also fixed:
+- A worn piece whose level shows an upgrade is never swapped off: the Codex's means are level 0's
+  (`unknown_or_upgraded_worn`).
+- Citation corrections: Item.java:130, and Hero.java:1974-1977.
+
 ## Dev Notes
 
 - Tests: `:api:test`, `:brain:test` (`PickupThresholdTest` 5, `EquipPolicyTest` 5), rig

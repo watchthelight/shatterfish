@@ -33,6 +33,11 @@ class EquipPolicyTest {
 
     /** A hero of {@code strength} at depth {@code depth} with {@code worn} on (or nothing) and {@code backpack}, offered every EQUIP. */
     private static Observation pack(int depth, int strength, List<ItemView> backpack, ItemView worn) {
+        return pack(depth, strength, 40, backpack, worn);
+    }
+
+    /** As above, with {@code hp} of forty. */
+    private static Observation pack(int depth, int strength, int hp, List<ItemView> backpack, ItemView worn) {
         // The inventory lists what is worn first (InventorySection).
         List<ItemView> items = new ArrayList<>();
         if (worn != null) {
@@ -45,7 +50,7 @@ class EquipPolicyTest {
                 offered.add(new Action.UseItem(new ItemRef(i, items.get(i).name(), 1), "EQUIP"));
             }
         }
-        return Screens.floor(depth, Screens.heroAt(1, strength), Collections.nCopies(4, Tile.EMPTY), List.of(), items,
+        return Screens.floor(depth, Screens.heroAt(1, strength, hp, 40), Collections.nCopies(4, Tile.EMPTY), List.of(), items,
                 offered.toArray(new Action[0]));
     }
 
@@ -77,7 +82,12 @@ class EquipPolicyTest {
         long hidden = EQUIP.gain(screen, unknown(ItemKind.WEAPON, "shortsword"), gear.sword, WORN_SWORD);
         long clean = EQUIP.gain(screen, Screens.gear(ItemKind.WEAPON, "shortsword", EquipSlot.NONE, true, false),
                 gear.sword, WORN_SWORD);
-        assertEquals(3000L, clean - hidden, "three in ten of the cursed weight");
+        assertEquals(3333L, clean - hidden, "a third of the cursed weight: 0.3 of the 0.9 that shows no enchantment");
+        ItemView leather = unknown(ItemKind.ARMOR, "leather armor");
+        ItemView cleanLeather = Screens.gear(ItemKind.ARMOR, "leather armor", EquipSlot.NONE, true, false);
+        Codex_ codex = new Codex_();
+        assertEquals(3529L, EQUIP.gain(screen, cleanLeather, codex.leather, null) - EQUIP.gain(screen, leather, codex.leather, null),
+                "0.3 of the 0.85 of armour that shows no glyph");
         assertNull(choose(pack(1, 12, List.of(Screens.gear(ItemKind.WEAPON, "shortsword", EquipSlot.NONE, true, true)),
                 WORN_SWORD)), "a piece shown cursed never goes on");
         assertNull(choose(pack(1, 12, List.of(unknown(ItemKind.WEAPON, "shortsword")),
@@ -86,13 +96,39 @@ class EquipPolicyTest {
     }
 
     @Test
-    @DisplayName("never a piece whose worst case SafeTest calls unsurvivable: a cursed weapon's blast at depth three")
+    @DisplayName("never a piece whose worst case SafeTest calls unsurvivable: a cursed weapon's wand effect at low health")
     void safe_test_refuses() {
-        // At depth 1 the Explosive curse's blast is 12 + 3 = 15 < 20 hit points; at depth 3 it is 21.
-        assertTrue(choose(pack(1, 12, List.of(unknown(ItemKind.WEAPON, "shortsword")), WORN_SWORD)) != null);
-        assertNull(choose(pack(3, 12, List.of(unknown(ItemKind.WEAPON, "shortsword")), WORN_SWORD)));
-        assertTrue(choose(pack(3, 12, List.of(Screens.gear(ItemKind.WEAPON, "shortsword", EquipSlot.NONE, true, false)),
+        // A cursed weapon is scored as a cursed wand's zap: at depth 1 the worst is a dry burn, 10
+        // turns of 3, which forty hit points survive and twenty do not.
+        assertTrue(choose(pack(1, 12, 40, List.of(unknown(ItemKind.WEAPON, "shortsword")), WORN_SWORD)) != null);
+        assertNull(choose(pack(1, 12, 20, List.of(unknown(ItemKind.WEAPON, "shortsword")), WORN_SWORD)));
+        assertTrue(choose(pack(1, 12, 20, List.of(Screens.gear(ItemKind.WEAPON, "shortsword", EquipSlot.NONE, true, false)),
                 WORN_SWORD)) != null, "the same piece known uncursed goes on");
+    }
+
+    @Test
+    @DisplayName("nothing replaces a worn piece the Codex does not name, or one whose level shows an upgrade")
+    void unknown_or_upgraded_worn() {
+        ItemView staff = Screens.gear(ItemKind.WEAPON, "staff of magic missile", EquipSlot.WEAPON, true, false);
+        assertNull(choose(pack(1, 12, List.of(Screens.gear(ItemKind.WEAPON, "shortsword", EquipSlot.NONE, true, false)),
+                staff)), "the Mage's staff is worth what the Codex cannot say, not zero");
+        ItemView upgraded = new ItemView(ItemKind.WEAPON, "worn shortsword", 1, true, 2, true, false, "",
+                EquipSlot.WEAPON, List.of("UNEQUIP"), "");
+        assertNull(choose(pack(1, 12, List.of(Screens.gear(ItemKind.WEAPON, "shortsword", EquipSlot.NONE, true, false)),
+                upgraded)), "a +2 worn piece is worth more than its level 0");
+    }
+
+    @Test
+    @DisplayName("a swap costs two turns, putting on into an empty slot one")
+    void swap_costs_two() {
+        Observation screen = pack(1, 12, List.of(), null);
+        Codex_ codex = new Codex_();
+        ItemView sword = Screens.gear(ItemKind.WEAPON, "shortsword", EquipSlot.NONE, true, false);
+        ItemView worn = Screens.gear(ItemKind.WEAPON, "worn shortsword", EquipSlot.WEAPON, true, false);
+        long intoEmpty = EQUIP.gain(screen, sword, codex.sword, null);
+        long swap = EQUIP.gain(screen, sword, codex.sword, worn);
+        assertEquals(2 * 8485 - 150, intoEmpty);
+        assertEquals(2 * (8485 - 5485) - 300, swap);
     }
 
     @Test
@@ -119,5 +155,6 @@ class EquipPolicyTest {
     /** The test Codex's gear, by name. */
     private static final class Codex_ {
         final org.shatterfish.api.Codex.Gear sword = EQUIP.gear("shortsword");
+        final org.shatterfish.api.Codex.Gear leather = EQUIP.gear("leather armor");
     }
 }

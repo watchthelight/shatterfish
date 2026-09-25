@@ -21,12 +21,19 @@ import java.util.List;
  * evasion are divided by 1.5 for each point short (Weapon.java:291-303, Armor.java:420-422), which
  * the worth is divided by too. A level the screen shows is not counted: the Codex measured level 0.
  *
- * <p>A piece whose curse is hidden is cursed three times in ten (Weapon.java:439-445,
- * Armor.java:671-677), and a cursed piece cannot be taken off once worn (EquipableItem.java:126-129,
- * shown on equipping at KindOfWeapon.java:135-139 and Armor.java:250-254): its expected worth adds
- * that chance times the {@code cursed} weight. A piece shown cursed is never put on, and nothing
- * replaces a worn piece shown cursed, which would not come off. Putting on takes a turn
- * (EquipableItem.java:118-120), which the {@code turn} weight costs.
+ * <p>A piece whose curse is hidden and whose name shows no enchantment or glyph is cursed with
+ * {@link SafeTest#curseChance} (a third for a weapon, 0.3/0.85 for armour), and a cursed piece
+ * cannot be taken off once worn (EquipableItem.java:126-129, shown on equipping at
+ * KindOfWeapon.java:135-139 and Armor.java:250-254): its expected worth adds that chance times the
+ * {@code cursed} weight. A piece shown cursed is never put on, and nothing replaces a worn piece
+ * shown cursed, which would not come off. Putting on takes a turn (EquipableItem.java:118-120), and
+ * a swap two: the worn piece comes off first (KindOfWeapon.java:127, EquipableItem.java:132-136,
+ * then :141; Armor.java:246, :259), which the {@code turn} weight costs.
+ *
+ * <p>Nothing replaces a worn piece the Codex does not name: the Mage's staff, a piece whose name
+ * shows an enchantment or a glyph (Weapon.java:411-419, Armor.java:578), a renamed holy weapon.
+ * Its worth is not known, and zero would make anything look better. Nor a worn piece whose level
+ * shows an upgrade: the Codex's means are level 0's, and a +2 worn sword is worth more than that.
  *
  * <p>Never a piece whose worst case under {@link SafeTest} is unsurvivable: a cursed weapon's or
  * armour's worst proc is scored there, and the verdict must be safe.
@@ -79,7 +86,8 @@ final class Equip implements Policy {
                 continue;
             }
             ItemView worn = worn(items, gear.kind());
-            if (worn != null && worn.cursedKnown() && worn.visiblyCursed()) {
+            if (worn != null && ((worn.cursedKnown() && worn.visiblyCursed()) || gear(worn.name()) == null
+                    || worn.visiblyUpgraded() > 0)) {
                 continue;
             }
             long gain = gain(observation, item, gear, worn);
@@ -110,9 +118,9 @@ final class Equip implements Policy {
         long now = worn == null || gear(worn.name()) == null ? 0 : worth(gear(worn.name()), strength);
         long gain = Math.subtractExact(worth(gear, strength), now);
         if (!item.cursedKnown()) {
-            gain = Math.addExact(gain, Math.round(SafeTest.GEAR_CURSE_CHANCE * evaluation.cursed()));
+            gain = Math.addExact(gain, Math.round(SafeTest.curseChance(gear.kind()) * evaluation.cursed()));
         }
-        return Math.addExact(gain, evaluation.turns(1));
+        return Math.addExact(gain, evaluation.turns(worn == null ? 1 : 2));
     }
 
     /** What {@code gear} is worth worn by a hero of {@code strength}. */

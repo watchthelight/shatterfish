@@ -97,6 +97,11 @@ final class Screens {
     }
 
     /** A screen with the chasm Prompt open, its buttons labelled {@code labels}, offering {@code actions}. */
+    static Observation titled(String title, String text, List<String> labels, Action... actions) {
+        return screen(1, PromptKind.OTHER, new PromptSection(PromptKind.OTHER, title, text, labels), actions);
+    }
+
+    /** A screen with the chasm Prompt open, its buttons labelled {@code labels}, offering {@code actions}. */
     static Observation asking(List<String> labels, Action... actions) {
         return screen(1, PromptKind.CHASM_JUMP, new PromptSection(PromptKind.CHASM_JUMP, "Chasm",
                 "Do you really want to jump into the chasm?", labels), actions);
@@ -165,9 +170,14 @@ final class Screens {
                 List.of(), actions);
     }
 
-    /** A hero standing on {@code cell}, at full health, of this strength. */
+    /** A hero standing on {@code cell}, at full health (20), of this strength. */
     static HeroSection heroAt(int cell, int strength) {
-        return new HeroSection(cell, "", HeroSubclass.NONE, "", 1, 0, 1, 20, 20, 0, strength, 0, 0, 0,
+        return heroAt(cell, strength, 20, 20);
+    }
+
+    /** A hero standing on {@code cell}, of this strength, with {@code hp} of {@code ht}. */
+    static HeroSection heroAt(int cell, int strength, int hp, int ht) {
+        return new HeroSection(cell, "", HeroSubclass.NONE, "", 1, 0, 1, hp, ht, 0, strength, 0, 0, 0,
                 Hunger.NONE, List.of(), List.of(), List.of(0, 0, 0, 0),
                 Collections.nCopies(HeroSection.QUICKSLOTS, new QuickslotView("", false)));
     }

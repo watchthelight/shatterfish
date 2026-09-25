@@ -22,15 +22,23 @@ import java.util.List;
  * position's features adds that ({@link Evaluation#identity}). An unidentified item is worth the
  * expectation over what the Beliefs say it may be (story 4.2), never what it is. The cost is the
  * {@code turn} weight times the Steps to the heap plus the turn picking it up takes
- * ({@code Item.TIME_TO_PICK_UP}, Item.java:67, spent at Item.java:129).
+ * ({@code Item.TIME_TO_PICK_UP}, Item.java:67, spent at Item.java:130).
  *
  * <p>It enters only on a calm screen, no Prompt and no enemy in view, because a click on a heap
- * with an enemy in view does not pick it up on arrival (Hero.java:1972-1975). It takes one Step per
+ * with an enemy in view does not pick it up on arrival (Hero.java:1974-1977). It takes one Step per
  * wait toward the best heap, always one the screen offers, and {@link Action.PickUp} when standing
  * on it. A Step onto a plain heap's cell is itself a pick-up once the hero arrives (the same
  * branch), so the last Step and the pick-up are one click; the PickUp is for a hero already there.
  *
- * <p>Only plain heaps: a chest, a tomb or a for-sale heap is not an item on the floor.
+ * <p>Only plain heaps: a chest, a tomb or a for-sale heap is not an item on the floor. Not a heap a
+ * character stands on: the screen offers an Interact or an Attack onto that cell, not a Step
+ * (ValidActions.java:171-176). Not a heap the game would not let the hero take: a pick-up the game
+ * refuses spends no turn (Hero.java:1162-1188), so the Memory records a heap as refused when the
+ * hero stood on it at two waits in a row, the first calm, under the same title (story 4.8's review);
+ * nor a dewdrop while the hero is at full health, which is refused unless a waterskin has room
+ * (Dewdrop.java:63-69, :120-122), and whether it has is not on the screen. Every Step it takes
+ * brings the hero nearer the heap; when the hero has stood still long enough for the explore Policy
+ * to yield ({@link Explore#STUCK} - 1 waits), this one yields too.
  */
 final class Pickup implements Policy {
 
@@ -55,10 +63,29 @@ final class Pickup implements Policy {
         return "items: take";
     }
 
+    /** A dewdrop's title (items.properties): refused at full health unless a waterskin has room. */
+    static final String DEWDROP = "dewdrop";
+
     @Override
     public boolean enters(Observation observation, Memory memory) {
-        return Explore.calm(observation) && observation.map().heaps().stream()
-                .anyMatch(heap -> heap.kind() == HeapKind.HEAP && !heap.item().isEmpty());
+        return Explore.calm(observation) && memory.streak() != Explore.STUCK - 1
+                && observation.map().heaps().stream().anyMatch(heap -> takeable(heap, observation, memory));
+    }
+
+    /** Whether a heap is one this Policy may go for: a plain heap it has not seen refused, nobody on it. */
+    static boolean takeable(HeapView heap, Observation observation, Memory memory) {
+        if (heap.kind() != HeapKind.HEAP || heap.item().isEmpty()) {
+            return false;
+        }
+        var header = observation.header();
+        if (memory.refuses(header.depth(), header.branch(), heap.cell(), heap.item())) {
+            return false;
+        }
+        var hero = observation.hero();
+        if (Beliefs.untitled(heap.item()).equals(DEWDROP) && hero.hp() >= hero.ht()) {
+            return false;
+        }
+        return observation.actors().actors().stream().noneMatch(actor -> actor.cell() == heap.cell());
     }
 
     @Override
@@ -70,7 +97,7 @@ final class Pickup implements Policy {
         HeapView best = null;
         long bestNet = 0;
         for (HeapView heap : map.heaps()) {
-            if (heap.kind() != HeapKind.HEAP || heap.item().isEmpty() || heap.cell() >= distance.length
+            if (!takeable(heap, observation, memory) || heap.cell() >= distance.length
                     || distance[heap.cell()] < 0) {
                 continue;
             }
@@ -163,11 +190,15 @@ final class Pickup implements Policy {
         return distance;
     }
 
-    /** The offered Step that starts a shortest way from the hero to {@code target}, or null. */
+    /**
+     * The offered Step that starts a shortest way from the hero to {@code target}, or null: a Step that
+     * brings the hero nearer, never one sideways, so a cell that is walkable but offered no Step (an
+     * ally's, which is offered as an Interact) cannot make it wander.
+     */
     static Action firstStep(MapSection map, boolean[] walk, int hero, int target, List<Action> offered) {
         int[] fromTarget = distances(map, walk, target);
         Action best = null;
-        int bestDistance = Integer.MAX_VALUE;
+        int bestDistance = fromTarget[hero] < 0 ? Integer.MAX_VALUE : fromTarget[hero];
         for (Action action : offered) {
             if (action instanceof Action.Step step && step.cell() < walk.length && walk[step.cell()]
                     && fromTarget[step.cell()] >= 0 && fromTarget[step.cell()] < bestDistance) {

@@ -36,6 +36,18 @@ class PolicyArbitrationTest {
     }
 
     @Test
+    @DisplayName("the Warrior's broken seal prompt is answered yes, so the seal moves to the armour put on")
+    void the_seal_moves() {
+        Brain.Decided decided = brain().decide(Screens.titled("Broken Seal", "The Warrior's broken seal must be affixed"
+                + " to his currently worn armor in order to benefit him.", List.of("yes", "no"),
+                new Action.AnswerPrompt(0), new Action.AnswerPrompt(1)), null);
+        assertEquals(new Action.AnswerPrompt(0), decided.action());
+        assertEquals("affirm: yes", decided.decision().chosen().why());
+        assertEquals(new Action.AnswerPrompt(1), brain().decide(Screens.titled("Chasm", "Jump?", List.of("yes", "no"),
+                new Action.AnswerPrompt(0), new Action.AnswerPrompt(1)), null).action(), "any other prompt still declines");
+    }
+
+    @Test
     @DisplayName("a Prompt with no declining answer gets its lowest answer")
     void no_way_to_decline() {
         Brain.Decided decided = brain().decide(Screens.asking(List.of("Take the gold", "Take the key"),

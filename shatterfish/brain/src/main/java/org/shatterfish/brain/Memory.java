@@ -43,13 +43,22 @@ import java.util.List;
  * @param blocked  the cells, per floor, that the explore Policy's Step pointed at on a screen where the
  *                 hero had already stood still for {@link Explore#STUCK} - 1 waits: a Step the game
  *                 refuses. A function of the screens and the memory, recomputed, not an intention
+ * @param underfoot the title of the plain heap the hero stood on at the last wait, or empty (story 4.8)
+ * @param refused  the heaps, per floor, the hero was seen standing on at two waits in a row, the first
+ *                 of them calm, under the same title: an item the game would not let it take. Seen,
+ *                 not intended, as {@code dwelt} is: on a calm screen with a takeable heap underfoot
+ *                 the pick-up Policy takes it, and a heap still there under the same title a wait
+ *                 later was refused (a dewdrop with nothing to fill, a full pack; Hero.java:1162-1188)
  */
 record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
               List<Held> labels, List<Found> pending, List<Seen> monsters, Spot at, int streak, boolean calm,
-              List<Spot> dwelt, List<Spot> blocked) {
+              List<Spot> dwelt, List<Spot> blocked, String underfoot, List<Refused> refused) {
 
-    /** The meaning of the bytes; bumped when it changes (3: where the hero stood, story 4.6). */
-    static final int VERSION = 3;
+    /**
+     * The meaning of the bytes; bumped when it changes (3: where the hero stood, story 4.6; 4: the
+     * heap underfoot and the heaps refused, story 4.8).
+     */
+    static final int VERSION = 4;
 
     /** The most cells remembered as dwelt on, or as blocked; the oldest is forgotten first. */
     static final int DWELT = 256;
@@ -58,7 +67,28 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     static final int MONSTERS = 64;
 
     static final Memory START = new Memory(0, 0, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-            List.of(), Spot.NOWHERE, 0, false, List.of(), List.of());
+            List.of(), Spot.NOWHERE, 0, false, List.of(), List.of(), "", List.of());
+
+    /** A memory with no heap underfoot and none refused: story 4.6's shape, for its callers. */
+    Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
+           List<Held> labels, List<Found> pending, List<Seen> monsters, Spot at, int streak, boolean calm,
+           List<Spot> dwelt, List<Spot> blocked) {
+        this(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm, dwelt, blocked,
+                "", List.of());
+    }
+
+    /** A heap the game would not let the hero take: its floor, its cell and the title it showed. */
+    record Refused(int depth, int branch, int cell, String title) {
+
+        Refused {
+            require(depth >= 0 && branch >= 0 && cell >= 0, "a floor and a cell");
+        }
+    }
+
+    /** Whether the heap titled {@code title} on {@code cell} of this floor was refused. */
+    boolean refuses(int depth, int branch, int cell, String title) {
+        return refused.contains(new Refused(depth, branch, cell, title));
+    }
 
     /** A cell on a floor: its depth, its branch and the cell. */
     record Spot(int depth, int branch, int cell) {
@@ -121,6 +151,8 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         require(at != null && streak >= 0, "a position and a streak");
         dwelt = List.copyOf(dwelt);
         blocked = List.copyOf(blocked);
+        require(underfoot != null, "a heap underfoot");
+        refused = List.copyOf(refused);
     }
 
     private static void require(boolean held, String what) {
@@ -160,6 +192,11 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         out.integer(at.depth()).integer(at.branch()).integer(at.cell()).integer(streak).integer(calm ? 1 : 0);
         spots(out, dwelt);
         spots(out, blocked);
+        out.text(underfoot);
+        out.integer(refused.size());
+        for (Refused one : refused) {
+            out.integer(one.depth()).integer(one.branch()).integer(one.cell()).text(one.title());
+        }
         return new Belief(VERSION, out.bytes());
     }
 
@@ -213,9 +250,14 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
             }
             List<Spot> dwelt = spots(in);
             List<Spot> blocked = spots(in);
+            String underfoot = in.text();
+            List<Refused> refused = new ArrayList<>();
+            for (int i = count(in); i > 0; i--) {
+                refused.add(new Refused(in.integer(), in.integer(), in.integer(), in.text()));
+            }
             in.end();
             return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak,
-                    calm == 1, dwelt, blocked);
+                    calm == 1, dwelt, blocked, underfoot, refused);
         } catch (IllegalArgumentException malformed) {
             throw new IllegalArgumentException("not a Belief this Brain wrote: " + belief + ": " + malformed.getMessage());
         }
