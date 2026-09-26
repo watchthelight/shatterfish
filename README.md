@@ -87,8 +87,11 @@ E5 (the Overlay) so far:
   small windows or the phone layout. The Overlay plays at the mixed interface
   size so the Panel can show; that changes a few hint lines in the game log, a
   second named exception to reproducibility until #169.
-- Next: **5.3**, the Panel's content: the Mode strip, the Goal line and the
-  Decision card.
+- **5.3** The Panel's content: the Mode strip (mode, speed, turn, floor), the
+  Brain's goal, and the Decision card with the chosen Action and up to three
+  alternatives, their scores in aligned columns and their reasons, plus an
+  Explain control that expands the card in place.
+- Next: **5.4**, the Safety flags, the Belief summary and the Decision log.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:
