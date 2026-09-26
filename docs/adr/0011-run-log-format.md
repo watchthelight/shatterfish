@@ -60,7 +60,7 @@ the two Runs of a pair would collide on one file (AD-14).
 | `shadow` | `k`, the Decision the Brain would have taken during a human turn, never executed (ADR-0013) | yes |
 | `boundary` | `k`, the salt and the chain value at a save-and-quit, so a resumed Run continues the same log (ADR-0013) | yes |
 | `unsupported` | `k`, the human input the executor could not express; from here `verifiable` is false | yes |
-| `end` | `k`, `outcome` (`win`, `ascended`, `score`, `depth`, `turns`, `cause`, `bosses`), `verifiable`, `chain` (final) | yes |
+| `end` | `k`, `outcome` (`win`, `ascended`, `score`, `depth`, `turns`, `cause`, `bosses`), `verifiable`, `detail` (only when not empty; story 4.11), `chain` (final) | yes |
 
 A Run that ends without an `end` record (a crash or a kill) is *incomplete*; a Run that reaches the
 turn cap ends with `cause = turn cap`. The Rig counts incomplete Runs separately and scores their
@@ -166,6 +166,28 @@ Two details the ADR did not state and now does. The previous chain enters the ha
 thirty-two raw bytes, not as its hex text. And the turn a `wait` records is thousandths -- the
 harness's own `turns()` rounds two of the game's floats down to an int for a person to read, and a
 chained field holds no float and loses no fraction.
+
+### Story 4.11: the `end` record's `detail`
+
+A Run can now end because the Brain could not decide (`BRAIN_ERROR`: it met a screen it has no rule
+for) or because a hundred waits passed without a turn (`STALLED`). The cause alone says neither what
+the Brain met nor what looped, and the log is where the Rig reads endings from, so the `end` record
+carries an optional `detail`: the wait and the Brain's own message, or the count and the last
+Action. It is chained like every other member of the record.
+
+Both endings are logged verifiable, and a Replay checks them like any other. A stall reproduces
+because the loop counts waits without a turn before it asks for a decision, so the same Actions stall
+at the same wait. A Brain error reproduces because the follower, out of recorded waits where the
+original Brain threw, throws the same message from the log, and the loop writes the same `end`
+record byte for byte.
+
+It is written only when it is not empty, and only these two causes fill it, so every Run that ends
+by death, a win or the cap writes exactly the `end` record it wrote before, byte for byte. A reader
+of a log that has none reads an empty `detail`. The log schema version stays 2: the version names
+the header's key set (`RunLogJsonTest`), and optional record members have joined the format without
+a bump before (`decision` and `belief` on the `wait`, story 4.1). A reader written for version 2 that
+refuses unknown members of an `end` record would refuse these logs; the harness's own reader does
+not, and nothing else reads them.
 
 ## Pre-mortem
 

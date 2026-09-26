@@ -72,7 +72,7 @@ records where the code contradicted the bootstrap prompt.
 | [Item generation and guarantees](generation.md) | 22 | `Generator` decks and weights, the strength potion and upgrade scroll schedules, `LimitedDrops`, bones, heap types. |
 | [Random numbers and seeding](rng.md) | 21 | The generator stack, what the seed fixes, what runs on the unseeded base generator, and every other source of nondeterminism found. |
 | [Buffs, status effects and blobs](buffs.md) | 28 | How buffs reach the HUD, what each vision buff does, hunger, food and regeneration, the potion of healing, dangerous effects with their numbers, gas and fire visibility. |
-| [UI toolkit and layout](ui.md) | 26 | UI pixels and `defaultZoom`, the full desktop layout with its sizes, `Chrome` types, text sizes, default key bindings, the camera offset, what an overlay can reach. |
+| [UI toolkit and layout](ui.md) | 31 | UI pixels and `defaultZoom`, the full desktop layout with its sizes, `Chrome` types, text sizes, default key bindings, the camera offset, what an overlay can reach. |
 | [Save, score, win and profiles](save-score-win.md) | 26 | `Bundle` saves, slots and save paths, the score formula, what a Win is, ascension, the class list, challenges, cross-run state. |
 | [Text, assets, changelog and build](text-assets.md) | 24 | `Messages` key derivation, the journal documents, the changelog, version constants, the Gradle modules and toolchain. |
 

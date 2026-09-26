@@ -22,8 +22,22 @@ package org.shatterfish.api;
  * 1.13 found that it waits on these too, since the hero is ready underneath and the Run cannot go
  * on until the window goes. It carries no options, and the one Action it offers is
  * {@code DismissPrompt}.
+ *
+ * <p>Story 4.11 names three windows an item opens that are not windows of options, and which a Run
+ * used to end on as unknown windows:
+ * <ul>
+ *   <li>{@link #UPGRADE}, the scroll of upgrade's or magical infusion's confirmation of the item
+ *       chosen ({@code core/.../windows/WndUpgrade.java:75-486}), with its two buttons, upgrade and
+ *       back;</li>
+ *   <li>{@link #GUESS}, the stone of intuition's guess
+ *       ({@code core/.../items/stones/StoneOfIntuition.java:94-224}), whose options are the item
+ *       types it draws as icons, named, and the guess button once one is chosen;</li>
+ *   <li>{@link #SPELL}, the Cleric's holy tome's spell list
+ *       ({@code core/.../windows/WndClericSpells.java:59-130}), whose spells are icons the section
+ *       does not carry, so the one Action it offers is {@code DismissPrompt}.</li>
+ * </ul>
  */
 public enum PromptKind {
     NONE, SUBCLASS, TALENT, QUEST, SHOP, ALCHEMY, CHASM_JUMP, HARMFUL_POTION, RESURRECTION, ITEM, OTHER,
-    MESSAGE
+    MESSAGE, UPGRADE, GUESS, SPELL
 }

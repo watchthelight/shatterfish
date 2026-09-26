@@ -266,6 +266,9 @@ public final class RunLogJson {
         out.key("bosses").value(end.outcome().bosses());
         out.endObject();
         out.key("verifiable").value(end.verifiable());
+        if (!end.detail().isEmpty()) {
+            out.key("detail").value(end.detail());
+        }
     }
 
     private static byte[] unhex(String hex) {

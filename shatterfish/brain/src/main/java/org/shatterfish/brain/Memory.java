@@ -104,13 +104,17 @@ import java.util.List;
  * @param fleeting cells blocked on a screen with an enemy in view, per floor, until a wait (story 4.12): a
  *                 Step refused in a fight may have been refused for the fight's sake, so the block lapses
  *                 after {@link #FLEETING_WAITS} waits
+ * @param windows  what the prompt Policy needs across waits (story 4.11): the last Action handed over
+ *                 and the item it aimed at, the Action that opened the window open now, and the
+ *                 Actions, per floor, whose window the Brain has already left
  */
 record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
               List<Held> labels, List<Found> pending, List<Seen> monsters, Spot at, int streak, boolean calm,
               List<Spot> dwelt, List<Spot> blocked, String last, int holds, int near, int before,
               List<Found> flights, List<Avoid> avoid, String underfoot, List<Refused> refused, Pack pack, Aim aim,
               long drank, Trial trial, List<Balk> balked, int walking, long tested, List<Cloud> clouds,
-              int refuge, long arrived, int rests, int stepped, int tried, List<Cloud> fleeting) {
+              int refuge, long arrived, int rests, int stepped, int tried, List<Cloud> fleeting,
+              Windows windows) {
 
     /**
      * The meaning of the bytes; bumped when it changes (3: where the hero stood, story 4.6; 4: the
@@ -124,9 +128,9 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
      * <p>Version 8 carries, in this order: waits, deepest, facts, found, held, known, labels,
      * pending, monsters, at, streak, calm, dwelt, blocked, last, holds, near, before, flights, avoid,
      * underfoot, refused, pack, aim, drank, trial, balked, walking, tested, clouds, refuge, arrived,
-     * rests, stepped, tried and fleeting.
+     * rests, stepped, tried, fleeting and, from version 9 (story 4.11), windows.
      */
-    static final int VERSION = 8;
+    static final int VERSION = 9;
 
     /**
      * How many waits a cell seen showing fire or gas is kept out of at most, unseen (story 4.10): the
@@ -157,7 +161,63 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
 
     static final Memory START = new Memory(0, 0, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
             List.of(), Spot.NOWHERE, 0, false, List.of(), List.of(), "", 0, -1, -1, List.of(), List.of(), "", List.of(),
-            Pack.NONE, Aim.NONE, -1, Trial.NONE, List.of(), 0, -1, List.of(), -1, 0, 0, -1, -1, List.of());
+            Pack.NONE, Aim.NONE, -1, Trial.NONE, List.of(), 0, -1, List.of(), -1, 0, 0, -1, -1, List.of(), Windows.NONE);
+
+    /** Story 4.12's shape: no window opened or left. */
+    Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
+           List<Held> labels, List<Found> pending, List<Seen> monsters, Spot at, int streak, boolean calm,
+           List<Spot> dwelt, List<Spot> blocked, String last, int holds, int near, int before, List<Found> flights,
+           List<Avoid> avoid, String underfoot, List<Refused> refused, Pack pack, Aim aim, long drank, Trial trial,
+           List<Balk> balked, int walking, long tested, List<Cloud> clouds, int refuge, long arrived, int rests,
+           int stepped, int tried, List<Cloud> fleeting) {
+        this(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm, dwelt, blocked,
+                last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial, balked, walking,
+                tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, Windows.NONE);
+    }
+
+    /**
+     * What the prompt Policy carries across waits (story 4.11).
+     *
+     * @param action  the last Action this Brain handed over, as its record prints, or empty
+     * @param target  the name of the item that Action used another item on, or empty
+     * @param opener  the Action that opened the window open now, or empty: the Action handed over just
+     *                before a shop, a guess or a spell list appeared
+     * @param shunned the Actions, per floor, whose window the Brain left: offering them again would only
+     *                reopen it, with no time passing
+     */
+    record Windows(String action, String target, String opener, List<Shun> shunned) {
+
+        /** Nothing handed over, nothing opened, nothing left. */
+        static final Windows NONE = new Windows("", "", "", List.of());
+
+        /** The most Actions shunned at once; the oldest is forgotten first. */
+        static final int SHUNNED = 64;
+
+        Windows {
+            require(action != null && target != null && opener != null, "an action, a target and an opener");
+            shunned = List.copyOf(shunned);
+        }
+
+        /** Whether {@code action} is shunned on the floor at {@code depth} and {@code branch}. */
+        boolean shuns(int depth, int branch, String action) {
+            return shunned.contains(new Shun(depth, branch, action));
+        }
+    }
+
+    /** An Action whose window the Brain left on a floor. */
+    record Shun(int depth, int branch, String action) {
+
+        Shun {
+            require(depth >= 0 && branch >= 0 && action != null && !action.isEmpty(), "a floor and an action");
+        }
+    }
+
+    /** This memory with {@code windows} as what the prompt Policy carries (story 4.11). */
+    Memory windowing(Windows windows) {
+        return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
+                dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows);
+    }
 
     /** Story 4.10's shape: arrived at the start, no rest before going down, no Step handed over. */
     Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
@@ -259,7 +319,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
                 balked, walking, test ? waits : tested, clouds, test ? refuge : this.refuge, arrived, rests, stepped, tried,
-                fleeting);
+                fleeting, windows);
     }
 
     /** Story 4.7's shape: nothing underfoot, nothing refused, no pack seen, no aim. */
@@ -317,7 +377,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     Memory aiming(Aim aim) {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting);
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows);
     }
 
     /**
@@ -341,21 +401,21 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     Memory handed(String kind, int stepped) {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, kind, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting);
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows);
     }
 
     /** This memory with a drink handed over at this wait (story 4.9). */
     Memory drinking() {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, waits, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting);
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows);
     }
 
     /** This memory with one more rest handed over by the descend Policy on this floor (story 4.12). */
     Memory resting() {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests + 1, stepped, tried, fleeting);
+                balked, walking, tested, clouds, refuge, arrived, rests + 1, stepped, tried, fleeting, windows);
     }
 
     /** This memory with {@code region} avoided as well, the oldest forgotten past {@link #AVOIDED}. */
@@ -367,7 +427,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         }
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, more, underfoot, refused, pack, aim, drank, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting);
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows);
     }
 
     /** The regions still avoided at wait {@code now} on the floor at {@code depth} and {@code branch}. */
@@ -449,6 +509,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         fleeting = List.copyOf(fleeting);
         clouds = List.copyOf(clouds);
         balked = List.copyOf(balked);
+        require(windows != null, "the windows");
     }
 
     private static void require(boolean held, String what) {
@@ -518,6 +579,11 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         out.integer(fleeting.size());
         for (Cloud block : fleeting) {
             out.integer(block.depth()).integer(block.branch()).integer(block.cell()).number(block.until());
+        }
+        out.text(windows.action()).text(windows.target()).text(windows.opener());
+        out.integer(windows.shunned().size());
+        for (Shun shun : windows.shunned()) {
+            out.integer(shun.depth()).integer(shun.branch()).text(shun.action());
         }
         return new Belief(VERSION, out.bytes());
     }
@@ -616,10 +682,18 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
             for (int i = count(in); i > 0; i--) {
                 fleeting.add(new Cloud(in.integer(), in.integer(), in.integer(), in.number()));
             }
+            String action = in.text();
+            String target = in.text();
+            String opener = in.text();
+            List<Shun> shunned = new ArrayList<>();
+            for (int i = count(in); i > 0; i--) {
+                shunned.add(new Shun(in.integer(), in.integer(), in.text()));
+            }
+            Windows windows = new Windows(action, target, opener, shunned);
             in.end();
             return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak,
                     calm == 1, dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim,
-                    drank, trial, balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting);
+                    drank, trial, balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows);
         } catch (IllegalArgumentException malformed) {
             throw new IllegalArgumentException("not a Belief this Brain wrote: " + belief + ": " + malformed.getMessage());
         }

@@ -119,6 +119,31 @@ public final class ValidActions {
     private static final Set<String> ON_AN_ITEM = Set.of("READ", "USE", "AFFIX", "IMBUE", "ADD", "FEED",
             "STORE", "IDENTIFY", "APPLY", "INSCRIBE", "TIP", "TRANSFER", "OUTFIT");
 
+    /**
+     * The Prompts with buttons that the back key also closes (story 4.11). Every window's back key
+     * hides it ({@code core/.../ui/Window.java:223-225}); these are the ones a Brain can leave instead
+     * of answering:
+     * <ul>
+     *   <li>a shop: the shopkeeper's window, and the trade window a step onto an item for sale opens,
+     *       whose back key leaves the item on its heap and the gold untouched
+     *       ({@code core/.../actors/mobs/npcs/Shopkeeper.java:238-308};
+     *       {@code core/.../windows/WndTradeItem.java:140-219}, {@code :222-231}). The trade window
+     *       draws a buy button, and a steal button beside it when the hero holds the thieves'
+     *       armband; leaving takes neither. Not clean everywhere: the trade window opened from the
+     *       shopkeeper's sell bag reopens that bag when it closes ({@code WndTradeItem.java:231};
+     *       {@code Shopkeeper.java:217-233}), a window no Action answers, which only the shopkeeper's
+     *       "sell" option reaches;</li>
+     *   <li>the stone of intuition's guess, which consumes nothing until the guess is pressed
+     *       ({@code core/.../items/stones/StoneOfIntuition.java:113-142});</li>
+     *   <li>the holy tome's spell list, which casts nothing until a spell is pressed
+     *       ({@code core/.../windows/WndClericSpells.java:186-206}).</li>
+     * </ul>
+     * Not the resurrection window, whose back key does nothing
+     * ({@code core/.../windows/WndResurrect.java:181-182}), and not the upgrade window, whose back key
+     * reopens the item selector behind it ({@code core/.../windows/WndUpgrade.java:497-504}).
+     */
+    static final Set<PromptKind> CLOSED_BY_BACK = EnumSet.of(PromptKind.SHOP, PromptKind.GUESS, PromptKind.SPELL);
+
     private ValidActions() {
     }
 
@@ -130,9 +155,10 @@ public final class ValidActions {
             for (int option = 0; option < observation.prompt().options().size(); option++) {
                 actions.add(new Action.AnswerPrompt(option));
             }
-            if (observation.prompt().options().isEmpty()) {
+            if (observation.prompt().options().isEmpty() || CLOSED_BY_BACK.contains(observation.prompt().kind())) {
                 // A Prompt with no buttons is a message, and the one thing a person can do with it
-                // is send it away (core/.../ui/Window.java:223-225; story 1.13).
+                // is send it away (core/.../ui/Window.java:223-225; story 1.13). A few Prompts with
+                // buttons are sent away the same way and nothing follows (story 4.11).
                 actions.add(new Action.DismissPrompt());
             }
             return new ActionsSection(actions);

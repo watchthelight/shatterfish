@@ -54,6 +54,11 @@ class ShatterfishRunTest {
             RunLogReader.Log read = RunLogReader.of(log);
             assertTrue(read.readable(), log + ": " + read.unreadable());
             assertEquals(Brains.SHATTERFISH, read.header().brain().name());
+            // Story 4.11: every Prompt has a rule, so every Run ends the way a Run is meant to: no
+            // unknown window, no Brain error, no stall.
+            String cause = read.end().outcome().cause();
+            assertTrue(List.of("DEATH", "WIN", "TURN_CAP").contains(cause),
+                    log.getFileName() + " ended " + cause + ": " + read.end().detail());
             for (RunLog.Wait wait : read.waits()) {
                 assertNotNull(wait.decision(), "a Brain's wait says why: " + log.getFileName() + " at " + wait.k());
                 assertTrue(List.of("answer-prompt", "heal", "fight", "eat", "test-item", "pick-up", "equip", "explore", "fallback")
@@ -88,6 +93,11 @@ class ShatterfishRunTest {
                     org.shatterfish.api.Action.UseItem use = (org.shatterfish.api.Action.UseItem) wait.action();
                     assertEquals("EQUIP", use.action());
                     assertEquals("wear: " + use.item().name(), wait.decision().chosen().why());
+                }
+                if ("answer-prompt".equals(wait.decision().policy())) {
+                    // Story 4.11: the prompt Policy's reason names its rule.
+                    String why = wait.decision().chosen().why();
+                    assertTrue(why.matches("(affirm|decline|answer|subclass|upgrade|guess|leave): .+|dismiss"), why);
                 }
                 // Story 4.9: the eat Policy eats a named food, and the heal Policy drinks with its hit
                 // points and the danger it measured in the reason.

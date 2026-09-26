@@ -139,6 +139,9 @@ class JsonRenderingTest {
     private static final Set<String> HELPERS = Set.of("Canon", "Encoder", "Sha256", "Utf8", "JsonWriter",
             "JsonWriter$Frame", "JsonWriter$ObjectFrame", "JsonWriter$ArrayFrame", "ObservationCodec", "ObservationJson",
             "Belief", "ShatterfishApi", "ValidActions",
+            // A decider's way of saying it has no rule for a screen (story 4.11): an exception type,
+            // no field, no text read, so the Run loop can end on it without catching anything else.
+            "Decider$CannotDecide",
             // Deliberator is Decider plus what a Brain says about its choice (story 4.1): an
             // interface with no state and no I/O, two getters the Run loop reads to log them.
             "Deliberator",

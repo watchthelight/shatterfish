@@ -64,6 +64,14 @@ public final class RunLoop {
      */
     private static final int REFUSALS_IN_A_ROW = 64;
 
+    /**
+     * How many Input waits in a row may pass without a turn passing before the Run is stopped as
+     * going nowhere (story 4.11). Answering a Prompt, leaving a window and a refused Action take no
+     * time, and a few of them in a row are ordinary; a hundred is a loop -- a shop opened and left
+     * forever -- that the turn cap, which counts turns, would never end.
+     */
+    static final int WAITS_WITHOUT_A_TURN = 100;
+
     /** Frames the driver may spend on a single wait before the Run is called stuck. */
     private static final int FRAME_BUDGET = 20_000;
 
@@ -230,6 +238,9 @@ public final class RunLoop {
         String lastRefusal = "";
         // What the Run last did, which is the first thing anyone asks when a Run stops moving.
         Action lastAction = null;
+        // The turn count at the last wait it changed, and how many waits since.
+        long lastTurn = -1;
+        int still = 0;
         while (true) {
             HeadlessDriver.Halt halt;
             try {
@@ -257,13 +268,33 @@ public final class RunLoop {
             if (turns() >= turnCap) {
                 return outcome(RunOutcome.Cause.TURN_CAP, salt, waits, applied, refused, "");
             }
+            long turn = turns();
+            if (turn == lastTurn) {
+                still++;
+                if (still >= WAITS_WITHOUT_A_TURN) {
+                    return outcome(RunOutcome.Cause.STALLED, salt, waits, applied, refused,
+                            still + " waits without a turn passing, the last " + lastAction);
+                }
+            } else {
+                lastTurn = turn;
+                still = 0;
+            }
 
             Observation observation = new Observer().observe();
             // The clock is read around the decision and nowhere else, and what it measures goes
             // in the one field the chain leaves out, so a slow machine and a fast one write the
             // same chain for the same Run.
             long before = System.nanoTime();
-            Action chosen = agent.decide(observation);
+            Action chosen;
+            try {
+                chosen = agent.decide(observation);
+            } catch (Decider.CannotDecide error) {
+                // A Brain that cannot decide says so by throwing: a Prompt it has no rule for is the
+                // case story 4.11 names, and it is a result to count, not a stall and not a crash
+                // that loses the Run's log.
+                return outcome(RunOutcome.Cause.BRAIN_ERROR, salt, waits, applied, refused,
+                        "at wait " + halt.waitIndex() + ": " + error.getMessage());
+            }
             long thinkMs = (System.nanoTime() - before) / 1_000_000L;
             if (chosen == null) {
                 return outcome(RunOutcome.Cause.NOTHING_OFFERED, salt, waits, applied, refused,
@@ -466,11 +497,18 @@ public final class RunLoop {
         log.write(new RunLog.End(k, new RunLog.Outcome(win, win && Statistics.ascended, score(),
                 outcome.depth(), thousandths(), outcome.cause().name(), bosses()),
                 // A Replay reproduces a Run by applying its Actions and comparing Observations. It
-                // can do that for a Run that died, won or hit the cap; it cannot for one that
-                // stopped because the harness could not follow the game, which is what the other
-                // four causes say. Claiming otherwise under a valid chain is the shape of lie this
-                // format exists to prevent.
-                outcome.ordinary()));
+                // can do that for a Run that died, won or hit the cap, for one that stalled (the
+                // count runs before any decision, so the same Actions stall at the same wait) and for
+                // one the Brain could not decide in (the follower says the logged message where the
+                // Brain said it; story 4.11). It cannot for one that stopped because the harness
+                // could not follow the game, which is what the other four causes say. Claiming
+                // otherwise under a valid chain is the shape of lie this format exists to prevent.
+                outcome.ordinary() || outcome.cause() == RunOutcome.Cause.BRAIN_ERROR
+                        || outcome.cause() == RunOutcome.Cause.STALLED,
+                // The Brain's own message and the loop's count are what a reader of a Brain error or
+                // a stall needs, and a log is where the rig reads endings from.
+                outcome.cause() == RunOutcome.Cause.BRAIN_ERROR || outcome.cause() == RunOutcome.Cause.STALLED
+                        ? outcome.detail() : ""));
         return outcome;
     }
 
