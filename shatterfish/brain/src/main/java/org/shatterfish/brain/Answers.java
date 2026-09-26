@@ -188,8 +188,8 @@ final class Answers {
      * over was a Step onto a cell this screen draws as a chasm. {@code Brain.decide} offers no Policy a
      * Step onto a chasm, so none reaches the game today, and the question is answered "no"; a Policy that
      * one day means to descend by jumping hands over that Step past the filter, and its "yes" is then
-     * pressed here. A question the Brain did not ask for -- a Step the game turned into a chasm's, a
-     * vertigo's stagger onto one (Char.java:1298-1305) -- follows a Step onto another cell, and is declined.
+     * pressed here. A question that follows anything else -- no Action of the Brain's, or a Step onto a
+     * cell the screen did not draw as a chasm -- is one the Brain did not ask for, and is declined.
      */
     static boolean jumpMeant(Observation observation, Memory memory) {
         return memory != null && Beliefs.STEP.equals(memory.last()) && memory.stepped() >= 0

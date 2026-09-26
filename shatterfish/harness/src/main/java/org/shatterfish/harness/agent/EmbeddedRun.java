@@ -211,6 +211,7 @@ public final class EmbeddedRun implements AutoCloseable {
     private Window guardWindow;
     private float guardSeconds;
     private float lastTimeTotal = Float.NaN;
+    private long lastFrameId = Long.MIN_VALUE;
     /** Frames a Prompt's answer was held back until its window took input (issue #170). */
     private long heldFrames;
     /** The wait being confirmed again after a stale answer, which is not a second wait on the same turn. */
@@ -758,9 +759,13 @@ public final class EmbeddedRun implements AutoCloseable {
      * ({@code Chasm.java:59-62}).
      */
     private void timeTheWindow() {
+        // A game frame advanced the clock or, on the desktop, the backend's frame count: the clock alone is
+        // a float that stops moving by a sixtieth after about three days on one scene (the fairness review).
         float now = Game.timeTotal;
-        boolean framed = !(now == lastTimeTotal);
+        long frame = com.badlogic.gdx.Gdx.graphics == null ? -1 : com.badlogic.gdx.Gdx.graphics.getFrameId();
+        boolean framed = !(now == lastTimeTotal) || frame != lastFrameId;
         lastTimeTotal = now;
+        lastFrameId = frame;
         Window window = Windows.front();
         if (window != guardWindow) {
             guardWindow = window;

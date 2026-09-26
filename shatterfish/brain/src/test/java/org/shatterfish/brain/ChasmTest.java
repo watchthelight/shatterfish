@@ -110,8 +110,7 @@ class ChasmTest {
                 "#####");
         Observation question = asked(floor);
         Brain brain = brain();
-        // Asked cold, and asked after a Step onto a floor cell (a Step the game turned into the chasm's
-        // question, a stagger): both are questions the Brain did not ask.
+        // Asked cold, and asked after a Step onto a floor cell: both are questions the Brain did not ask.
         Brain.Decided cold = brain.decide(question, brain.update(question, null));
         assertEquals(new Action.AnswerPrompt(1), cold.action(), cold.decision().toString());
         assertEquals("decline: No, I changed my mind", cold.decision().chosen().why());

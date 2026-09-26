@@ -81,11 +81,16 @@ class ChasmGuardTest {
             for (int frame = 0; frame < 20_000 && run.state() != EmbeddedRun.State.ENDED && Dungeon.depth == 1; frame++) {
                 host.frame();
             }
-            assertEquals(2, Dungeon.depth, "the hero jumped: " + run.outcome() + " after " + decided);
-            assertEquals(List.of(new Action.Step(chasm), new Action.AnswerPrompt(0)), decided.subList(0, 2),
+            // The worker may already be deciding the first wait of the floor below: a copy, taken under the list's lock.
+            List<Action> seen;
+            synchronized (decided) {
+                seen = new ArrayList<>(decided);
+            }
+            assertEquals(2, Dungeon.depth, "the hero jumped: " + run.outcome() + " after " + seen);
+            assertEquals(List.of(new Action.Step(chasm), new Action.AnswerPrompt(0)), seen.subList(0, 2),
                     "a Step onto the chasm, then the answer");
-            assertEquals(1, decided.stream().filter(action -> action instanceof Action.AnswerPrompt).count(),
-                    "one answer, taken the first time: no tap was lost to the window's guard " + decided);
+            assertEquals(1, seen.stream().filter(action -> action instanceof Action.AnswerPrompt).count(),
+                    "one answer, taken the first time: no tap was lost to the window's guard " + seen);
             if (held) {
                 assertTrue(run.heldFrames() > 0, "the answer was held until the window took input");
             } else {
