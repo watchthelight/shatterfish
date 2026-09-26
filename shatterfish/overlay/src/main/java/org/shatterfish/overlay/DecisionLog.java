@@ -28,12 +28,29 @@ import java.util.List;
  * than consuming it ({@code PointerArea.java:58-62}). {@code DecisionLogTest} holds this the same
  * way {@code PanelContentTest.explain_does_not_steal_a_synthetic_tap_while_locked} holds Explain's.
  *
- * <p><b>Review round.</b> Each {@link org.shatterfish.harness.agent.BoundedLog.Entry} carries the
- * {@link org.shatterfish.harness.agent.ActionContext} {@link ActionText} needs to label its Action
- * the way the Decision card does (a compass direction, a named target), rather than the raw cell a
- * null context falls back to. {@link #snappedViewportHeight} floors this pane's own viewport to a
- * whole number of rows, so no row -- top or bottom, auto-scrolled or dragged -- is ever shown half
- * clipped.
+ * <p><b>Review round (first pass).</b> Each {@link org.shatterfish.harness.agent.BoundedLog.Entry}
+ * carries the {@link org.shatterfish.harness.agent.ActionContext} {@link ActionText} needs to label
+ * its Action the way the Decision card does (a compass direction, a named target), rather than the
+ * raw cell a null context falls back to.
+ *
+ * <p><b>Review round (second pass, real Action labels): a guessed pitch was still not enough.</b>
+ * Flooring the viewport to a whole number of {@code SIZE + ROW_GAP} (a nominal pitch) did not fix
+ * the clipped top row the review's own screenshot still showed, because the pitch itself was a
+ * guess in two different ways: a bitmap or TTF font's real line height at a given point size is a
+ * metric of the font, not necessarily the point size itself, <em>and</em> {@code PixelScene.align}
+ * snaps every row's own position to a whole device pixel, so a fractional real pitch (the actually
+ * measured one, not the nominal one) does not even predict where {@code align} lands a row far down
+ * a long list -- rounding drifts row to row, not by a constant amount.
+ *
+ * <p><b>Third pass: read the real, aligned positions back, never predict them.</b> {@link #rebuild}
+ * keeps {@link #rowTops} -- each row's own top, exactly as {@code PixelScene.align} actually left it
+ * after positioning row {@code i} directly beneath row {@code i - 1}'s own real bottom (not at a
+ * formula's {@code i * pitch}) -- and sizes the content to the last real row's own bottom, no
+ * trailing gap. {@link #layout} then picks the viewport's height, not by flooring to a guessed
+ * pitch, but by finding the {@link #rowTops} entry that is itself the top of whichever row would be
+ * topmost within the room available, and setting the viewport to exactly the room from there to the
+ * content's own bottom: a bottom scroll (content height minus viewport height) then lands on that
+ * exact, already-real position by construction, not by hoping two guesses about the pitch agree.
  */
 final class DecisionLog extends Component {
 
@@ -46,14 +63,16 @@ final class DecisionLog extends Component {
     static final float ROW_GAP = 2;
     /** UX-DR2 / {@code PanelLayout.MIN_PANEL_HEIGHT}: this pane is never given less room than three lines. */
     static final int MIN_LINES = 3;
-    /** One row's own pitch: its height (the small size, the same approximation {@code PanelLayout.MIN_PANEL_HEIGHT} makes) plus the gap after it. */
-    static final float LINE_PITCH = SIZE + ROW_GAP;
+    /** The pitch nothing has been rendered against yet (before the first {@link #rebuild}): {@link #SIZE} plus the gap, the same guess {@code PanelLayout.MIN_PANEL_HEIGHT} makes. */
+    static final float NOMINAL_PITCH = SIZE + ROW_GAP;
 
     private ScrollPane pane;
     private Component rows;
     private final List<RenderedTextBlock> lineBlocks = new ArrayList<>();
     private List<DecisionLogContent.Line> lastLines = List.of();
     private float lastInnerWidth = -1;
+    /** Each visible row's own top, exactly as {@code PixelScene.align} left it -- read back, never predicted. */
+    private final List<Float> rowTops = new ArrayList<>();
 
     @Override
     protected void createChildren() {
@@ -100,43 +119,79 @@ final class DecisionLog extends Component {
                 block.text("");
             }
         }
+        // Row i placed directly beneath row i-1's own real, already-aligned bottom (never at a
+        // formula's i * pitch): whatever PixelScene.align actually does to one row's position is
+        // folded into where the next one starts, so rowTops is the ground truth, not a prediction.
+        rowTops.clear();
         float rowY = 0;
+        float contentBottom = 0;
         for (int i = 0; i < lines.size(); i++) {
             RenderedTextBlock block = lineBlocks.get(i);
             block.setPos(0, rowY);
             PixelScene.align(block);
-            rowY += block.height() + ROW_GAP;
+            rowTops.add(block.top());
+            rowY = block.top() + block.height() + ROW_GAP;
+            contentBottom = block.top() + block.height();
         }
-        float contentHeight = lines.isEmpty() ? 0 : rowY - ROW_GAP;
-        rows.setSize(innerWidth, Math.max(minHeight(), contentHeight));
+        rows.setSize(innerWidth, Math.max(minHeight(), contentBottom));
+        // The framework's own layout() (called by Panel.layout(), before content() -- design note
+        // "Content before layout, except for the log") sized the viewport from whatever rowTops
+        // existed *before* this rebuild -- empty on the very first fill, stale on every one after.
+        // Re-applied here, now that rowTops is this frame's real, freshly measured ground truth, so
+        // the scrollToBottom() call right after this returns is never sized from yesterday's rows.
+        resizeViewport();
     }
 
-    /** Three lines' worth at the small size, rows two apart (matches {@code PanelLayout.MIN_PANEL_HEIGHT}). */
+    /** Three lines' worth, at the best pitch estimate available (the first real row's, once there is one; the nominal guess otherwise). */
     private float minHeight() {
-        return MIN_LINES * (SIZE + ROW_GAP) - ROW_GAP;
+        float pitch = lineBlocks.isEmpty() || !lineBlocks.get(0).visible
+                ? NOMINAL_PITCH : lineBlocks.get(0).height() + ROW_GAP;
+        return MIN_LINES * pitch - ROW_GAP;
     }
 
     @Override
     protected void layout() {
-        if (pane == null) {
-            return;
-        }
-        pane.setRect(x, y, width, snappedViewportHeight(height));
+        resizeViewport();
     }
 
     /**
-     * {@code height}, snapped down to fit a whole number of rows with no trailing gap wasted, never
-     * fewer than one (review round: the Panel's own height is a pure function of the screen and is
-     * rarely already a whole number of row pitches, so the viewport used to clip the topmost visible
-     * row mid-glyph whenever it was not -- most visibly when auto-scrolled to the bottom, where the
-     * clipped row sat right at the top with nothing above it to say why. Flooring the viewport itself
-     * to a whole number of rows means no scroll position, auto or dragged, can ever show a partial
-     * row: a few pixels of the Panel's own translucent background show below the last whole row
-     * instead, which reads as room rather than as something cut off).
+     * Sizes the {@code ScrollPane}'s own viewport from this log's own outer rect ({@code x, y,
+     * width, height}, whatever {@code Panel.layout()} last gave it) and its current
+     * {@link #rowTops}. Called both by the framework's own {@link #layout} (an outer-rect change
+     * with no new rows -- a screen resize) and again at the end of {@link #rebuild} (new rows, the
+     * same outer rect): the two can happen in either order within one {@code Panel.content()} call
+     * (design note "Content before layout, except for the log"), and only the one that runs *after*
+     * {@link #rebuild} has this frame's real rowTops rather than the previous frame's.
      */
-    static float snappedViewportHeight(float height) {
-        int rows = Math.max(1, (int) Math.floor((height + ROW_GAP) / LINE_PITCH));
-        return rows * LINE_PITCH - ROW_GAP;
+    private void resizeViewport() {
+        if (pane == null) {
+            return;
+        }
+        pane.setRect(x, y, width, viewportHeightFor(rowTops, rows.height(), height));
+    }
+
+    /**
+     * The viewport height to give the {@code ScrollPane}, so that a bottom scroll
+     * ({@code contentHeight - viewportHeight}) always lands on a real row's own top: among
+     * {@code rowTops} (ascending), the one whose distance to {@code contentHeight} is the largest
+     * that still fits within {@code available} -- the topmost row that can be shown whole, showing
+     * as much history as the room allows, never fewer than one row's worth
+     * ({@code contentHeight - rowTops[last]}, the whole point of {@code rowTops} being non-empty).
+     * A pure function of the real positions {@link #rebuild} already found (for
+     * {@code DecisionLogTest} to hold directly against a constructed list); {@link #resizeViewport}
+     * always calls it with this log's own {@link #rowTops}, never a formula's guess at them.
+     */
+    static float viewportHeightFor(List<Float> rowTops, float contentHeight, float available) {
+        if (rowTops.isEmpty()) {
+            return Math.max(1, available);
+        }
+        for (float top : rowTops) {
+            float needed = contentHeight - top;
+            if (needed <= available) {
+                return Math.max(1, needed);
+            }
+        }
+        return Math.max(1, contentHeight - rowTops.get(rowTops.size() - 1));
     }
 
     /** Whether the view was scrolled all the way down before the lines this call is about to show. */
@@ -152,6 +207,11 @@ final class DecisionLog extends Component {
     /** The {@code ScrollPane}, for tests. */
     ScrollPane pane() {
         return pane;
+    }
+
+    /** Each visible row's own real top (oldest first), for tests. */
+    List<Float> rowTops() {
+        return rowTops;
     }
 
     /** The line blocks (index order = display order), for tests. */

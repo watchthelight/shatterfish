@@ -5,6 +5,7 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RedButton;
+import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
 import com.watabou.input.PointerEvent;
 import com.watabou.noosa.Camera;
 import com.watabou.noosa.Game;
@@ -177,36 +178,99 @@ class DecisionLogTest {
     }
 
     /**
-     * Story 5.4's review round: the top visible row used to be shown half clipped (most visibly
-     * auto-scrolled to the bottom, where it sat right at the viewport's top with nothing above it to
-     * say why -- {@code s54-1600x900.png}). {@link DecisionLog#snappedViewportHeight} floors the
-     * pane's own viewport to a whole number of rows, so the scroll position this test already holds
-     * (the bottom, from {@link #auto_scrolls_while_at_the_bottom}) never lands mid-row.
+     * Story 5.4's review round, third pass: the second pass (flooring the viewport to a whole number
+     * of a *measured* pitch) was still not enough, because {@code PixelScene.align} snaps each row's
+     * own position to a whole device pixel, and a fractional real pitch does not predict where align
+     * lands a row far down a long list -- rounding drifts row to row, not by a constant amount. This
+     * holds what the screen actually shows: first, that this scenario's real content height is not a
+     * whole multiple of the merely nominal pitch (the case neither of the first two passes' own tests
+     * exposed, since both measured only against a pitch, nominal or measured, rather than the real,
+     * already-aligned row positions {@code DecisionLog} now reads back); then that the bottom-scrolled
+     * offset lands exactly on one of those real positions, not between two of them.
      */
     @Test
-    @DisplayName("the log's viewport is a whole number of row heights, so no row is ever shown half clipped")
-    void viewport_height_is_a_whole_number_of_rows() {
+    @DisplayName("the topmost visible row is never shown clipped when scrolled to the bottom, even though the real content height is not a nominal-pitch multiple")
+    void top_visible_row_is_never_clipped_when_scrolled_to_the_bottom() {
         GameScene scene = fullScene();
         PanelDock dock = new PanelDock();
         dock.frame(scene, snapshotWith(manyWaits(50)), false);
         DecisionLog log = dock.panel().log();
 
-        float pitch = DecisionLog.LINE_PITCH;
-        float remainder = (log.pane().height() + DecisionLog.ROW_GAP) % pitch;
-        assertTrue(remainder < 0.05f || remainder > pitch - 0.05f,
-                "the viewport height (" + log.pane().height() + ") plus one row gap is a whole multiple of the row pitch (" + pitch + ")");
+        // The property that broke the first two passes' own fixes: real content, real font, and the
+        // real content height this scenario produces is not a whole multiple of the merely nominal
+        // pitch (SIZE + ROW_GAP) the first pass floored the viewport to.
+        float nominalPitch = DecisionLog.NOMINAL_PITCH;
+        float contentHeight = log.pane().content().height();
+        float remainderAgainstNominal = contentHeight % nominalPitch;
+        assertTrue(remainderAgainstNominal > 0.05f && remainderAgainstNominal < nominalPitch - 0.05f,
+                "this scenario's real content height (" + contentHeight + ") is not a nominal-pitch (" + nominalPitch
+                        + ") multiple, which is the exact case the first two passes' fixes did not cover");
+
+        // What the screen actually shows: the bottom-scrolled offset lands exactly on some row's own
+        // real, already-aligned top (within rounding), not strictly between two rows -- which is what
+        // "the topmost visible row is not shown clipped" means in real screen coordinates, independent
+        // of any formula built from a guessed or measured-but-still-predicted pitch.
+        float scrollY = log.pane().content().camera.scroll.y;
+        boolean landsExactlyOnARowTop = false;
+        for (float top : log.rowTops()) {
+            if (Math.abs(top - scrollY) < 0.5f) {
+                landsExactlyOnARowTop = true;
+                break;
+            }
+        }
+        assertTrue(landsExactlyOnARowTop, "the bottom-scrolled offset (" + scrollY
+                + ") lands exactly on a row's own real top (" + log.rowTops() + "), not part-way through one");
+    }
+
+    /**
+     * {@link DecisionLog#viewportHeightFor} directly, against a constructed (non-uniform) set of row
+     * tops -- so the algorithm itself is held without needing a real font's real, only-discoverable-
+     * by-running-the-game metrics.
+     */
+    @Test
+    @DisplayName("viewportHeightFor picks the largest room that fits, exactly one row's own top away from the content's bottom")
+    void viewport_height_for_picks_an_exact_row_boundary() {
+        // Four rows, non-uniform heights (9, 11, 9, 10), gaps of 2: tops 0, 11, 24, 35; bottom 45.
+        List<Float> rowTops = List.of(0f, 11f, 24f, 35f);
+        float contentHeight = 45f;
+
+        // Room for everything: the earliest (topmost) row's own top.
+        assertEquals(45f, DecisionLog.viewportHeightFor(rowTops, contentHeight, 100f), 0.001f);
+        // Room for exactly the last three rows (11 to 45): row 1's own top is 11 short of the bottom.
+        assertEquals(34f, DecisionLog.viewportHeightFor(rowTops, contentHeight, 34f), 0.001f);
+        // Less room than that: falls back to the next row boundary that does fit (row 2, 21 short).
+        assertEquals(21f, DecisionLog.viewportHeightFor(rowTops, contentHeight, 33f), 0.001f);
+        // Less room than even the last row alone needs: shows the last row anyway (never below one).
+        assertEquals(10f, DecisionLog.viewportHeightFor(rowTops, contentHeight, 1f), 0.001f);
+        // No rows at all: whatever room is offered, floored to at least one pixel.
+        assertEquals(50f, DecisionLog.viewportHeightFor(List.of(), contentHeight, 50f), 0.001f);
+        assertEquals(1f, DecisionLog.viewportHeightFor(List.of(), contentHeight, 0f), 0.001f);
     }
 
     @Test
-    @DisplayName("snappedViewportHeight floors to a whole number of rows, never below one")
-    void snapped_viewport_height_floors_and_has_a_floor_of_one_row() {
-        float pitch = DecisionLog.LINE_PITCH;
-        assertEquals(3 * pitch - DecisionLog.ROW_GAP, DecisionLog.snappedViewportHeight(3 * pitch - DecisionLog.ROW_GAP),
-                0.001f, "already a whole number of rows: unchanged");
-        assertEquals(3 * pitch - DecisionLog.ROW_GAP, DecisionLog.snappedViewportHeight(3 * pitch - DecisionLog.ROW_GAP + 5),
-                0.001f, "a partial fourth row's worth of extra height is discarded, not shown clipped");
-        assertEquals(pitch - DecisionLog.ROW_GAP, DecisionLog.snappedViewportHeight(1),
-                0.001f, "never below one whole row, even when given less room than that");
+    @DisplayName("consecutive rows are ROW_GAP apart, not touching")
+    void consecutive_rows_have_the_row_gap_between_them() {
+        GameScene scene = fullScene();
+        PanelDock dock = new PanelDock();
+        dock.frame(scene, snapshotWith(manyWaits(5)), false);
+        DecisionLog log = dock.panel().log();
+
+        float rowHeight = log.lineBlocks().get(0).height();
+        float gap = log.rowTops().get(1) - log.rowTops().get(0) - rowHeight;
+        assertEquals(DecisionLog.ROW_GAP, gap, 0.5f);
+    }
+
+    @Test
+    @DisplayName("with fewer than three real rows, the content is still at least three lines' worth (UX-DR2)")
+    void content_height_has_a_floor_of_three_lines_worth() {
+        GameScene scene = fullScene();
+        PanelDock dock = new PanelDock();
+        dock.frame(scene, snapshotWith(manyWaits(1)), false);
+        DecisionLog log = dock.panel().log();
+
+        float rowHeight = log.lineBlocks().get(0).height();
+        float expectedMin = DecisionLog.MIN_LINES * (rowHeight + DecisionLog.ROW_GAP) - DecisionLog.ROW_GAP;
+        assertEquals(expectedMin, log.pane().content().height(), 0.5f);
     }
 
     private static List<BoundedLog.Entry> manyWaits(int count) {

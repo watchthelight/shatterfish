@@ -508,6 +508,22 @@ every Action with a null Observation (a `Wait` only carries its Observation's ha
 `"step 700"` where the Decision card, given the real Observation, read `"step NW"`.
 `ActionText.of(Action, Observation)` (the card's route) now builds an `ActionContext` and delegates
 to a new `ActionText.of(Action, ActionContext)` (the log's route); one implementation, so the two
-cannot drift. Second, `DecisionLog.snappedViewportHeight` floors the `ScrollPane`'s own viewport to a
-whole number of row pitches: the Panel's height is rarely already one, so the viewport used to clip
-whichever row landed at an edge, most visibly the topmost row while auto-scrolled to the bottom.
+cannot drift.
+
+**No row half clipped: two attempts, then the real one.** The first attempt floored the
+`ScrollPane`'s own viewport to a whole number of a *nominal* row pitch (`SIZE + ROW_GAP`); the
+coordinator's own read of the resulting screenshot found the top row still shown half clipped, and
+the reason is that the content's real height, built from each row's actually measured height, is
+not guaranteed to be a multiple of that nominal guess -- a bitmap or TTF font's real line height at
+a point size is a metric of the font, not the point size itself (measured in the running game: 6.5
+UI pixels for the small size, not 6). `DecisionLog` no longer sizes anything from a pitch formula at
+all: `rebuild` positions each row directly beneath the previous one's own real,
+`PixelScene.align`-ed bottom and reads the result back into `rowTops` -- ground truth, never a
+prediction -- and `viewportHeightFor(rowTops, contentHeight, available)`, a pure function, picks
+among those real positions the one that lets the viewport show as much history as fits, so a bottom
+scroll (`contentHeight - viewportHeight`, unchanged arithmetic) always lands on a real row's own top
+by construction. Because `rowTops` is only current *after* `rebuild` runs, and `Panel.content()`
+calls `layout()` (which used to be the only place the viewport was sized) *before* `log.content()`
+(design note "Content before layout, except for the log," this story's own first pass), `rebuild`
+now also re-sizes the viewport at its own end, so the frame's real rows -- not the previous frame's,
+or none at all on the very first fill -- are what the viewport is ever actually sized from.

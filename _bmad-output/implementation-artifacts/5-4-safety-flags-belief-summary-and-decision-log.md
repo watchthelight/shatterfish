@@ -560,14 +560,111 @@ more mutants (23 in total with the original battery), each planted, run, killed,
 | R7: `ActionText.direction`'s null-context fallback is dropped (NPEs instead of returning the raw cell) | `ActionTextTest.every_kind_without_an_observation` |
 | R8: `ActionContext.of` swaps `heroCell` and `mapWidth` | `ActionTextTest.action_context_matches_observation` |
 
-### Real launch (review round)
+### Real launch (review round, second pass)
 
 `:overlay:launch --agent brain --seed 2000 --class WARRIOR --turn-cap 300 --exit-when-over --window
 1600x900 --screenshot s54-review-1600x900.png`. Same tuple as the first launch's, a fresh Run (log
 `v4.0.0-WARRIOR-0-AAA-AAA-CYY-4328d6a4bd269ed5-shatterfish.jsonl`); ended at TURN_CAP, 289 waits,
 deepest floor 1. The Decision log now reads `turn N bot step N 1.0000` / `step NW 1.0000` -- real
-compass directions, not `step 700` / `step 740` -- and the topmost visible row is a whole row, not
-one shown cut through the middle of its glyphs the way the first screenshot's was.
+compass directions, not `step 700` / `step 740`; item 1 fixed. **Item 2 was not**: the coordinator's
+own read of this exact screenshot found the topmost row still shown half clipped, directly under
+"nothing believed yet" -- the viewport-only snap this pass made was not enough, for the reason the
+third pass below explains.
+
+## Review round, third pass (the real clipping fix)
+
+The coordinator's diagnosis: flooring only the viewport to a whole number of `SIZE + ROW_GAP` (the
+*nominal* pitch, the second pass's own fix) cannot by itself land a bottom scroll on a real row's
+own top, because the content's own height -- built from each row's actually measured height -- is
+not guaranteed to be a multiple of that guess. Two things make the guess wrong in different ways: a
+bitmap or TTF font's real line height at a given point size is a metric of the font, not necessarily
+the point size itself (measured in the running game: 6.5 UI pixels for the small size, not the
+nominal 8 this class assumed); and `PixelScene.align` snaps every row's own position to a whole
+device pixel, so even a *measured* (not merely nominal) fractional pitch does not reliably predict
+where `align` lands a row far down a long list -- rounding can drift row to row, not by one constant
+amount throughout.
+
+### What was built
+
+`DecisionLog` no longer computes anything from a pitch formula for either sizing or scrolling.
+`rebuild` positions row `i` directly beneath row `i - 1`'s own real, already-`PixelScene.align`-ed
+bottom (never at a formula's `i * pitch`), and reads each row's own top back into `rowTops` --
+ground truth, not a prediction. The content's height is set to the last real row's own bottom, no
+trailing gap (the coordinator's own "no leading or trailing padding inside the content").
+`viewportHeightFor(rowTops, contentHeight, available)` (a pure function, `DecisionLogTest` holds it
+directly against a constructed, non-uniform set of tops) then picks, among `rowTops`, the one whose
+distance to `contentHeight` is the largest that still fits within `available` -- the topmost row
+that can be shown whole, using as much of the offered room as the real rows allow. Because the
+viewport height returned is *always* exactly `contentHeight` minus some real `rowTops` entry, a
+bottom scroll (`contentHeight - viewportHeight`, unchanged arithmetic) lands on that same real
+position by construction, not by hoping a nominal or measured-but-still-predicted pitch happens to
+agree with where rows actually rendered. This is the coordinator's "alternatively" option (anchor
+the rows so the bottom row's own bottom sits exactly at the viewport's bottom, with the viewport
+itself a whole number of real row pitches) rather than snapping every `scrollTo` call and the
+pane's own drag to a multiple of a pitch: the anchoring approach gets the same guarantee from sizing
+alone, at one call site (`resizeViewport`), rather than needing to intercept every place a scroll
+position could be set, including the upstream `ScrollPane`'s own drag handling, which this module
+does not own and would rather not subclass.
+
+**The ordering bug this surfaced.** The first attempt at this third pass still failed a real,
+running-game test: `Panel.content()` calls `layout()` (which sizes the log's viewport from whatever
+`rowTops` currently exist) *before* `log.content()` (whose `rebuild()` is what actually recomputes
+`rowTops` for this frame -- design note "Content before layout, except for the log," story 5.4's own
+first pass). With a nominal or merely-approximate pitch this did not matter, because the pitch is
+frame-invariant; with real `rowTops` it does, because the list itself grows and shifts as more waits
+land. `rebuild` now calls `resizeViewport()` again at its own end, so the viewport is sized from
+this frame's real rows, not last frame's (or, on the very first fill, none at all) -- caught by
+`DecisionLogTest.top_visible_row_is_never_clipped_when_scrolled_to_the_bottom` and
+`.auto_scrolls_while_at_the_bottom` both failing until this second call was added.
+
+**The Belief summary gap, checked.** `Panel.layout`'s `logTop = belief.bottom() + SECTION_GAP` is
+unchanged and is the same one-section-gap pattern every other section transition already uses
+(`cardTop`, `flagsTop`, `beliefTop`); this story's fix touches only the log's own internal viewport
+sizing, never its outer `y` position. `PanelContentTest.full_panel_shows_flags_belief_and_log`'s own
+`assertEquals(belief.bottom() + Panel.SECTION_GAP, log.top(), ...)` still passes unchanged, which is
+what "checked, not a bug" means here rather than an assertion taken on faith.
+
+### Tests
+
+`DecisionLogTest.top_visible_row_is_never_clipped_when_scrolled_to_the_bottom` (rewritten): first
+asserts the scenario itself has the property that broke the first two passes (a real content height
+that is *not* a nominal-pitch multiple -- proving the test would have caught either of the earlier,
+insufficient fixes), then asserts the bottom-scrolled offset lands exactly on one of `rowTops`, not
+between two of them -- measuring what the screen actually shows, not a formula's prediction of it.
+`DecisionLogTest.consecutive_rows_have_the_row_gap_between_them` (new): real rows are `ROW_GAP` apart,
+not touching. `DecisionLogTest.content_height_has_a_floor_of_three_lines_worth` (new): with fewer
+than three real rows, the content is still at least `MIN_LINES` lines' worth (UX-DR2), at the real
+pitch. `DecisionLogTest.viewport_height_for_picks_an_exact_row_boundary` (new): `viewportHeightFor`
+directly, against a constructed, non-uniform set of row tops (every branch: room for everything, an
+exact boundary, falling back past one that does not fit, the one-row floor, and no rows at all).
+
+`:overlay:test` (full module, forced with `--rerun-tasks` to rule out a stale result) and
+`:harness:test`'s three touched classes all green.
+
+### Mutation battery (third pass)
+
+A control run of `:overlay:test` passed first (forced fresh with `--rerun-tasks`); then 5 more
+mutants (28 in total across all rounds), each planted, run (each also forced fresh at least once,
+after one mutant -- swapping `width` for `height` in `resizeViewport`'s call -- was found to survive
+under a stale, `UP-TO-DATE`-cached test result and was discarded rather than counted as a kill),
+killed, and reverted.
+
+| Mutant | Killed by |
+|---|---|
+| S1: `rebuild`'s second `resizeViewport()` call (the ordering fix) is removed | `DecisionLogTest.top_visible_row_is_never_clipped_when_scrolled_to_the_bottom`, `.auto_scrolls_while_at_the_bottom` |
+| S2: `viewportHeightFor`'s `needed <= available` becomes `needed < available` | `DecisionLogTest.viewport_height_for_picks_an_exact_row_boundary` (the exact-boundary case) |
+| S3: `viewportHeightFor`'s fallback uses `rowTops.get(0)` instead of the last | `DecisionLogTest.viewport_height_for_picks_an_exact_row_boundary` (the one-row floor case) |
+| S4: `rebuild`'s row spacing drops `+ ROW_GAP` (rows touch) | `DecisionLogTest.consecutive_rows_have_the_row_gap_between_them` |
+| S5: `minHeight`'s `- ROW_GAP` is dropped | `DecisionLogTest.content_height_has_a_floor_of_three_lines_worth` |
+
+### Real launch (review round, third pass)
+
+`:overlay:launch --agent brain --seed 2000 --class WARRIOR --turn-cap 300 --exit-when-over --window
+1600x900 --screenshot s54-review3-1600x900.png`. Same tuple, a fresh Run (log
+`v4.0.0-WARRIOR-0-AAA-AAA-CYY-796ab0d2cac0c87c-shatterfish.jsonl`); ended at TURN_CAP, 292 waits,
+deepest floor 1. The Decision log's topmost visible row (`turn 3 bot step N 1.0000`) is now shown
+whole, directly under "nothing believed yet," with no partial glyph at the panel's own inner edge --
+both review-round items confirmed together in one frame.
 
 ### Deferred
 
