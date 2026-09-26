@@ -165,6 +165,10 @@ public final class Brain {
      * for sale opens the trade window too, but the hero has moved by then and shunning a Step could
      * wall off a floor; and the opener is the Brain's own last Action, so a window a person opened
      * over the Brain's turn would otherwise shun whatever the Brain did before it.
+     *
+     * <p>Issue #174 adds three: a retreat by the stairs sets a region too; a Step the explore or the
+     * descend Policy hands over into a region lifts it, since they plan through one only when there is
+     * no way around; and an approach records where its enemy stands, the fight Policy's chase.
      */
     public Belief handed(Observation observation, Belief belief, Decided decided) {
         Memory before = Memory.of(belief);
@@ -214,16 +218,36 @@ public final class Brain {
         if (decision != null && Descend.NAME.equals(decision.policy()) && decided.action() instanceof Action.Rest) {
             memory = memory.resting();
         }
+        int depth = observation.header().depth();
+        int branch = observation.header().branch();
         // An Unlock the descend Policy handed over at a locked exit (issue #163's fairness review),
         // recorded whether or not it succeeds: once it does the exit is no longer LOCKED_EXIT and
         // Descend never consults this again for it, so recording every try costs nothing and a
         // refusal is never walked back into on its own.
         if (decision != null && Descend.NAME.equals(decision.policy()) && decided.action() instanceof Action.Unlock unlock) {
-            memory = memory.unlockRefused(new Memory.Spot(observation.header().depth(), observation.header().branch(),
-                    unlock.cell()));
+            memory = memory.unlockRefused(new Memory.Spot(depth, branch, unlock.cell()));
         }
+        // The chase (issue #174): an approach records the enemy it goes for, where the screen shows it; a
+        // chase keeps it; anything else the fight Policy hands over -- an attack, a retreat, a hold -- ends it.
+        if (decision != null && Fight.NAME.equals(decision.policy())) {
+            String why = decision.chosen().why();
+            if (why.startsWith("approach ") && Fight.quarry(observation) >= 0) {
+                memory = memory.chasing(new Memory.Spot(depth, branch, Fight.quarry(observation)), memory.waits());
+            } else if (!why.startsWith("chase ")) {
+                memory = memory.chasing(Memory.Spot.NOWHERE, -1);
+            }
+        }
+        // A Step into a region the fight Policy retreated from, handed over by the explore or the descend
+        // Policy, which plan around the regions and through one only when no way around is left (issue
+        // #174): the region is crossed, and lifted. Explore's own way out of a region ("away") is no crossing.
+        if (decision != null && (Explore.NAME.equals(decision.policy()) || Descend.NAME.equals(decision.policy()))
+                && decided.action() instanceof Action.Step step && !decision.chosen().why().startsWith("away ")) {
+            memory = memory.lifting(depth, branch, step.cell(), observation.map().width());
+        }
+        // A retreat, by the stairs or away (issue #174 added the stairs: an enemy that drops out of view
+        // one Step toward them let the explore Policy walk straight back, with no region to keep it out).
         if (decision != null && Fight.NAME.equals(decision.policy())
-                && decision.chosen().why().startsWith("retreat ")) {
+                && decision.chosen().why().startsWith("retreat")) {
             java.util.List<org.shatterfish.api.ActorView> enemies = Fight.enemies(observation);
             int hero = observation.hero().cell();
             int width = observation.map().width();
@@ -294,7 +318,8 @@ public final class Brain {
                     || action instanceof Action.Descend || action instanceof Action.Ascend)).toList();
         }
         // Back and forth between two cells for Memory.BOUNCES waits: the Step back is withheld from
-        // every Policy for this wait, so two Policies that undo each other's Step stop (story 4.13).
+        // every Policy for this wait, so two Policies that undo each other's Step stop (story 4.13); the fold
+        // has blocked its cell for Memory.BOUNCE_WAITS waits too, so they do not start again (issue #174).
         if (memory.bounces() >= Memory.BOUNCES && memory.prior() >= 0) {
             Action back = new Action.Step(memory.prior());
             offered = offered.stream().filter(action -> !action.equals(back)).toList();

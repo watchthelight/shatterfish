@@ -422,6 +422,28 @@ class TestItemPolicyTest {
     }
 
     @Test
+    @DisplayName("a walk to a testing cell goes on through a doorway it passes, where nothing is tested (issue #174)")
+    void walk_through_a_doorway() {
+        ItemView jade = Screens.unknown(ItemKind.POTION, "jade potion", 1);
+        // The testing cell is 4, beside the door at 5 with a way through; the hero stands in the doorway at 2.
+        List<Tile> tiles = row(7, -1, 5);
+        tiles.set(2, Tile.OPEN_DOOR);
+        Observation inDoor = screen(1, tiles, Screens.heroAt(2, 14, 40, List.of()), List.of(jade, RATION), List.of(),
+                List.of(), List.of(), drink(0, "jade potion", 1));
+        Memory walking = new Memory(3, 1, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                new Memory.Spot(1, 0, 2), 0, true, List.of(), List.of(), "Step", 0, -1, -1, List.of(), List.of(), "",
+                List.of(), Memory.Pack.NONE, Memory.Aim.NONE, -1, Memory.Trial.NONE, List.of(), 1, -1, List.of(), -1);
+        TestItem policy = new TestItem(GAS);
+        assertTrue(TestItem.passing(inDoor, walking));
+        assertTrue(policy.enters(inDoor, walking), "mid-walk, the doorway does not stop the walk");
+        TestItem.Plan plan = policy.plan(inDoor, walking, inDoor.actions().actions());
+        assertTrue(plan != null && plan.choice().action() instanceof Action.Step, String.valueOf(plan));
+        assertEquals("cell: jade potion", plan.choice().why());
+        assertFalse(TestItem.passing(inDoor, Memory.START), "not walking: the doorway stops it, as before");
+        assertFalse(policy.enters(inDoor, Memory.START));
+    }
+
+    @Test
     @DisplayName("a door with no way through is no credit: the escape could not leave the gas behind it")
     void door_without_a_way_through() {
         List<Tile> tiles = row(4, -1, 2);

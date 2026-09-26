@@ -252,6 +252,27 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         boolean bounced = sameFloor && !still && memory.prior() == here.cell();
         int bounces = bounced ? memory.bounces() + 1 : 0;
         int prior = sameFloor ? memory.at().cell() : -1;
+        // Bounced BOUNCES times: the cell the Step back would return to is blocked for BOUNCE_WAITS waits, as a
+        // fleeting block (issue #174), so every Policy plans around it and the loop ends; Brain.decide still
+        // withholds the Step itself this wait, from the Policies that plan without the walkable cells too.
+        if (bounces >= Memory.BOUNCES && prior >= 0) {
+            List<Memory.Cloud> blocking = new ArrayList<>(fleeting);
+            blocking.add(new Memory.Cloud(depth, branch, prior, waits + Memory.BOUNCE_WAITS));
+            while (blocking.size() > Memory.DWELT) {
+                blocking.remove(0);
+            }
+            fleeting = blocking;
+        }
+        // The enemy the fight Policy last approached (issue #174): kept on its floor for Fight.CHASE_WAITS waits
+        // after the approach, until the hero stands beside the cell it was seen on.
+        Memory.Spot chase = memory.chase();
+        long chased = memory.chased();
+        if (chase.cell() >= 0 && (!chase.on(depth, branch) || waits - chased > Fight.CHASE_WAITS
+                || chase.cell() >= observation.map().tiles().size()
+                || Fight.chebyshev(observation.map(), here.cell(), chase.cell()) <= 1)) {
+            chase = Memory.Spot.NOWHERE;
+            chased = -1;
+        }
         // The hunger clock (story 4.13, Larder): what the last Action cost, less a meal, clamped by the icon.
         int hp = observation.hero().hp();
         int food = Larder.food(observation);
@@ -283,7 +304,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 memory.last(), holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE,
                 memory.drank(), Memory.Trial.NONE, balked, walking, memory.tested(), clouds(memory, observation, waits),
                 memory.refuge(), arrived, rests, memory.stepped(), tried, fleeting, opened(memory, observation), prior,
-                bounces, hunger, hp, food, tail, pump, pumpWait, memory.triedExits());
+                bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, memory.triedExits());
         // Two Steps in a row refused at one cell: the stepping Policy yields this wait, and that cell is
         // blocked on this floor, whichever Policy chose it (story 4.12; stories 4.8 and 4.10 recomputed
         // it from their own plans). Refused on a calm screen, for good; refused with an enemy in view,
@@ -304,7 +325,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                     holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE, memory.drank(),
                     Memory.Trial.NONE, balked, walking, memory.tested(), after.clouds(),
                     memory.refuge(), arrived, rests, memory.stepped(), -1, lapsing, after.windows(), prior, bounces,
-                    hunger, hp, food, tail, pump, pumpWait, after.triedExits());
+                    hunger, hp, food, tail, pump, pumpWait, chase, chased, after.triedExits());
         }
         return after;
     }
