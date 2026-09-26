@@ -284,3 +284,32 @@ it re-reads ADR-0006's Blobs row.
   window.
 - **A Panel narrower than the strip's minimum.** In the mobile layout on a very narrow window the Mode
   strip is squeezed below 160; it keeps its place but its content (story 5.3) will need to elide.
+
+## From story 5.3 (the Mode strip, Goal line and Decision card)
+
+- **Per-column text, not a padded string.** `DESIGN.md` Typography: "alignment is by column position,
+  never by padding with characters," because the pixel font is not monospace. Today's rows (the Mode
+  strip's line, each Decision-card row) are one `RenderedTextBlock` with the numeric field space-padded
+  to a fixed character width (`Columns.rightAlign`), which gives every number the same column *start*
+  but not true pixel alignment, since the font's glyphs are not all one width. Story 5.4's Belief rows
+  and Decision log need real columns too; a shared multi-`RenderedTextBlock` row component, each part
+  positioned at a fixed x, would fix all of them at once rather than one row kind at a time.
+- **Real Mode, speed mode and THINKING.** `ModeState.of` reads a placeholder Mode (always RUNNING) and
+  speed mode (`normal`, with a placeholder interval); only the turn, the floor and the live THINKING
+  flag are real, from `EmbeddedRun.snapshot()`. Stories 5.5 to 5.7 give PAUSED, HUMAN, Next Step, Run N,
+  Human play speed and Fast their own controls; `ModeState` and `ModeStripContent` already handle every
+  value, so those stories add a caller rather than a format.
+- **Explain while a Run plays.** The Decision card's Explain `RedButton` cannot be clicked while
+  `InputLock` closes the game's input multiplexer (every Run but one that has ended): the click never
+  reaches `PointerArea`. It works once the Run is over, to read the last Decision. Story 5.5's
+  input-gate hook is for hero-directed input, not Panel buttons; whichever story gives PAUSED a real
+  click (5.6's controls row) should route one to the Panel too, or give the Panel its own listener that
+  the gate does not close.
+- **The Decision card's own height can overflow the Panel's.** Nothing below it (Safety flags, the
+  Belief summary, the Decision log) exists yet, so there is blank room today; story 5.4 will need the
+  Panel to give the sections above it only what they ask for and the Decision log the rest, per
+  UX-DR2's "never fewer than three lines," which today's fixed layout does not yet arbitrate.
+- **The Goal line's two-line wrap.** `DESIGN.md` says "wrapping to two lines at most"; `GoalLine` wraps
+  through the game's own `RenderedTextBlock` but does not cap it at two lines or ellipsize a third, since
+  a Brain's goal today is always the short label `DecisionShapeTest` holds it to (at most 40 characters).
+  A longer goal from a future Policy would need the cap this story left unenforced.

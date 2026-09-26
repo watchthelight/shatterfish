@@ -15,6 +15,7 @@ import com.watabou.noosa.Game;
 import com.watabou.noosa.Scene;
 import org.shatterfish.api.Action;
 import org.shatterfish.api.Decider;
+import org.shatterfish.api.Deliberator;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.Rewindable;
 import org.shatterfish.api.RunLog;
@@ -113,6 +114,16 @@ public final class EmbeddedRun implements AutoCloseable {
         ENDED
     }
 
+    /**
+     * What {@link #snapshot()} publishes to the render thread (story 5.3, FR-38): the last served
+     * wait's Decision, turn and floor, and the Run's live state -- {@link State#THINKING} exactly
+     * when a decision is pending, so the Panel's {@code THINKING} marker is real rather than guessed.
+     * {@code decision} is null before the first wait is served, or when the Brain is not a
+     * {@link Deliberator}.
+     */
+    public record Snapshot(RunLog.Decision decision, int turn, int floor, State state) {
+    }
+
     private record Decided(Action action, long thinkMs) {
     }
 
@@ -166,6 +177,12 @@ public final class EmbeddedRun implements AutoCloseable {
     private Action lastAction;
     private long lastTurn = -1;
     private int still;
+    /** The turn a wait was confirmed at, carried from {@link #frame()} to {@link #serve()} (story 5.3). */
+    private int pendingTurn;
+    /** The last served wait's Decision, turn and floor, for {@link #snapshot()} (story 5.3). */
+    private RunLog.Decision lastDecision;
+    private int lastDecisionTurn;
+    private int lastDecisionFloor;
     private Future<Decided> pending;
     private long pendingWait;
     private Observation pendingObservation;
@@ -362,6 +379,7 @@ public final class EmbeddedRun implements AutoCloseable {
         // The head of the wait, in ADR-0013's order: the index, the reseed, then the rest.
         rng.reseed(k);
         int turn = RunLoop.turns();
+        pendingTurn = turn;
         if (turn >= turnCap) {
             end(RunOutcome.Cause.TURN_CAP, "");
             return State.ENDED;
@@ -462,6 +480,13 @@ public final class EmbeddedRun implements AutoCloseable {
         Outcome result = executor.execute(observation, chosen);
         RunLoop.record(log, k, observation, chosen, !(result instanceof Outcome.Rejected), decided.thinkMs(),
                 oracle, brain);
+        // The same read RunLoop.record makes of the Brain's own reasons, kept here too so the render
+        // thread has a Decision to show without reopening the log (story 5.3): both reads happen on
+        // this thread, after the worker's Future is done, which is the happens-before edge over
+        // whatever decide() set on its own thread (ADR-0013).
+        lastDecision = brain instanceof Deliberator deliberator ? deliberator.lastDecision() : null;
+        lastDecisionTurn = pendingTurn;
+        lastDecisionFloor = observation.header().depth();
         if (result instanceof Outcome.Rejected rejected) {
             refused++;
             refusalsInARow++;
@@ -594,6 +619,19 @@ public final class EmbeddedRun implements AutoCloseable {
     /** How the Run ended, or null while it plays. */
     public RunOutcome outcome() {
         return outcome;
+    }
+
+    /**
+     * A snapshot for the render thread to draw (story 5.3): the last served wait's Decision, turn and
+     * floor, and the Run's live state. Called on the UI-role thread, every frame if the caller likes --
+     * the fields it reads are written only by {@link #serve()}, which runs there too, so this is a
+     * same-thread read of the Run's own state, not a cross-thread one (the one cross-thread edge, the
+     * Brain worker publishing its Decision through the Future, is already crossed by the time
+     * {@link #serve()} stores it).
+     */
+    public Snapshot snapshot() {
+        UiRole.require("EmbeddedRun.snapshot()");
+        return new Snapshot(lastDecision, lastDecisionTurn, lastDecisionFloor, state());
     }
 
     /** The index of the last wait confirmed; 0 before the first. It survives every floor. */

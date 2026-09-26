@@ -379,3 +379,44 @@ The Panel, the first thing the Overlay draws, lives on the same render thread an
   still leaves a picture); a screenshot that cannot be written is logged and the Run plays on. Each change
   of the Panel's placement is logged. `-Plaunch.args` splits on whitespace and keeps a single- or
   double-quoted value whole, so a path with a space can be passed.
+
+## Amendment: story 5.3 (2026-09-26)
+
+The Panel's content -- the Mode strip's line, the Goal line and the Decision card -- reads the Brain's
+own Decision without adding a thread or a lock.
+
+**The hand-off is same-thread, not cross-thread.** `EmbeddedRun.frame()` and `EmbeddedRun.serve()`
+already run on the render thread (the UI-role thread, story 5.1); `serve()` now also stores the last
+served wait's Decision (from `Deliberator.lastDecision()`, read the same way `RunLoop.record` already
+does, after the worker's `Future` is done, which is the happens-before edge over whatever `decide()`
+set on its own thread), its turn and its floor. `EmbeddedRun.snapshot()`, guarded by `UiRole.require`
+like every other port, reads those three fields and the Run's live `state()` -- so `Snapshot.state()`
+can be `THINKING` while `Snapshot.decision()` still shows the *previous* wait's Decision, which is
+exactly the "Panel shows the previous Decision until the new one lands" rule (`EXPERIENCE.md`,
+Thinking indicator). Both the write (inside `serve()`) and the read (`PanelDock.frame`, from
+`OverlayGame.update()`) happen on the render thread, so this is one thread reading its own state, not
+a second cross-thread hand-off beside the worker's `Future`; no new lock, volatile field or queue was
+added. `EmbeddedSnapshotTest` holds the THINKING/previous-Decision case and that `snapshot()` refuses a
+foreign thread by name, as every other port does.
+
+**Modes and speed modes are not real yet.** `ModeState.of` reads a placeholder: Mode is always
+`RUNNING` and the speed mode always `normal` with a documented placeholder interval, since nothing
+before story 5.5 (PAUSED), 5.6 (the controls row) or 5.7 (the speed selector and its interval) changes
+either. Only the turn, the floor and whether the Brain is `THINKING` are read from the Run. This is
+short of FR-38's full state table on purpose (`docs/ideas.md`, "Real Mode, speed mode and THINKING");
+the point of doing it now is that `ModeStripContent` and `DecisionCardContent` already handle every
+real value those stories will produce, so they add a caller rather than a format change.
+
+**The Explain control and the input lock.** The Decision card's Explain is a native `RedButton`,
+which -- like every click -- reaches the game only through `InputHandler`'s multiplexer, where
+`InputLock` sits first and swallows every touch and key while a Run plays (story 5.1's review). Three
+options were weighed: (a) carve an exemption for the Panel's own rectangle out of `InputLock`, rejected
+because it duplicates `PanelLayout`'s geometry inside the lock and reopens exactly the door the lock
+was built to close, ahead of story 5.5's own input-gate hook; (b) give Explain a key binding through
+the game's own `SPDAction`/`KeyBindings` path, rejected because that path is reached through the same
+multiplexer `InputLock` sits in front of, so it is blocked the same way; (c) **let Explain work only
+when the lock does not hold**, chosen. Concretely: nothing routes around `InputLock`, so Explain is
+unreachable while a Run plays and reachable once it has ended (`OverlayGame.render()` already calls
+`lock.unlock()` there) -- a real, useful case (reading the final Decision), not a stub. Story 5.5's
+input-gate hook is for hero-directed input (`CellSelector`), not Panel buttons, so closing this fully
+is left to whichever story gives PAUSED a real click (`docs/ideas.md`).

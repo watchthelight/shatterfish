@@ -9,6 +9,7 @@ import com.shatteredpixel.shatteredpixeldungeon.ui.Toast;
 import com.watabou.noosa.Camera;
 import com.watabou.noosa.Gizmo;
 import com.watabou.noosa.Scene;
+import org.shatterfish.harness.agent.EmbeddedRun;
 
 /**
  * Keeps the Panel on the play scene and the camera offset the Panel needs (story 5.2).
@@ -40,15 +41,18 @@ final class PanelDock {
      * The end of the Overlay's frame update: {@code sceneUpdate}, then the Panel and its offset, then the
      * cameras' matrices, so the frame drawn next shows the offset the Panel set rather than the one the
      * scene's layout pass left.
+     *
+     * @param snapshot the Run's Decision, turn, floor and live state (story 5.3), or null before a Run is
+     *                 attached; {@link ModeState#of} reads either.
      */
-    void step(Scene scene, Runnable sceneUpdate) {
+    void step(Scene scene, Runnable sceneUpdate, EmbeddedRun.Snapshot snapshot) {
         sceneUpdate.run();
-        frame(scene);
+        frame(scene, snapshot);
         Camera.updateAll();
     }
 
-    /** The Panel on {@code scene} if it is a play scene, placed for this frame, and the offset set. */
-    void frame(Scene scene) {
+    /** The Panel on {@code scene} if it is a play scene, placed and filled in for this frame, and the offset set. */
+    void frame(Scene scene, EmbeddedRun.Snapshot snapshot) {
         if (!(scene instanceof GameScene)) {
             return;
         }
@@ -67,6 +71,7 @@ final class PanelDock {
                     + SPDSettings.interfaceSize() + ", camera offset " + layout.offsetUi() + " UI px)");
         }
         panel.place(layout);
+        panel.content(ModeState.of(snapshot), snapshot == null ? null : snapshot.decision());
         panel.dim(covered(scene));
         Camera world = Camera.main;
         PanelCamera.apply(world, PanelCamera.world(layout.offsetUi(), PixelScene.uiCamera.zoom, world.zoom));
