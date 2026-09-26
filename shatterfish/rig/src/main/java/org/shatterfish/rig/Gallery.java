@@ -42,8 +42,8 @@ import java.util.Set;
  * {@code ./gradlew :rig:gallery --args="<folder> [--snapshots N]"} rewrites it for any folder the
  * Rig wrote -- for a comparison, one per side -- and with {@code --snapshots} also writes the last N
  * waits of every Run into {@code snapshots/}, which the gallery then links. Plain Markdown, every
- * cell escaped, readable with a text editor (NFR-9). The per-Brain comparison view is E4's half of
- * FR-26 and is not here.
+ * cell escaped, readable with a text editor (NFR-9). The per-Brain comparison view, E4's half of
+ * FR-26, is {@link GalleryComparison}.
  */
 public final class Gallery {
 
@@ -203,8 +203,9 @@ public final class Gallery {
                 "A window the Harness does not know, the turn cap, a missing or unreadable log: what"
                         + " the Rig or the Harness did not finish, not how the hero died.",
                 groups.stream().filter(g -> !g.decided()).toList(), total, snapshots);
-        out.append("\nThe per-Brain comparison view, this gallery for two Brains side by side, is E4's"
-                + " half of FR-26 and is not written here.\n");
+        out.append("\nFor two Brains side by side -- endings, deaths by the situation that ended them,"
+                + " and every triple both played -- see the comparison view (`")
+                .append(GalleryComparison.FILE).append("`, written beside a comparison's two sides).\n");
         return out.toString();
     }
 
@@ -403,12 +404,21 @@ public final class Gallery {
 
     /**
      * {@code <folder> [--snapshots N]}: writes the gallery for a folder the Rig wrote -- for a
-     * comparison folder, one per side.
+     * comparison folder, one per side, and the per-Brain comparison view
+     * ({@link GalleryComparison}) beside them. {@code --compare <baseline> <candidate> <page>}
+     * writes the comparison view for any two folders of Run logs.
      */
     public static void main(String[] args) {
+        if (args.length == 4 && args[0].equals("--compare")) {
+            Path into = Path.of(args[3]).toAbsolutePath().normalize();
+            GalleryComparison.write(Path.of(args[1]).toAbsolutePath().normalize(),
+                    Path.of(args[2]).toAbsolutePath().normalize(), into);
+            System.out.println("the comparison view wrote " + into);
+            return;
+        }
         if (args.length != 1 && !(args.length == 3 && args[1].equals("--snapshots"))) {
-            throw new IllegalArgumentException("usage: Gallery <folder> [--snapshots N], not "
-                    + Arrays.toString(args));
+            throw new IllegalArgumentException("usage: Gallery <folder> [--snapshots N], or Gallery --compare"
+                    + " <baseline> <candidate> <page>, not " + Arrays.toString(args));
         }
         Path folder = Path.of(args[0]).toAbsolutePath().normalize();
         int snapshots = args.length == 3 ? Integer.parseInt(args[2]) : 0;
@@ -422,6 +432,11 @@ public final class Gallery {
         for (Path one : folders) {
             write(one, snapshots);
             System.out.println("the gallery wrote " + one.resolve(FILE));
+        }
+        if (folders.size() == 2) {
+            Path into = folder.resolve(GalleryComparison.FILE);
+            GalleryComparison.write(folders.get(1), folders.get(0), into);
+            System.out.println("the comparison view wrote " + into);
         }
         System.out.println("in " + (System.nanoTime() - began) / 1_000_000L + " ms");
     }

@@ -730,10 +730,26 @@ nothing is dropped, so the counts add up to the index's.
 killed the hero: the log's `Outcome` has no killer — no mob, trap or hunger. So the gallery groups by
 ending and depth, and says so on every page; recording the killer is in `docs/ideas.md`. The command above rewrites the gallery for any folder the Rig wrote (for a
 comparison, one per side) and, with `--snapshots N`, writes the last N waits of every Run into
-`snapshots/`, linked from the gallery: what the Run was doing when it ended. The same gallery for two
-Brains side by side, FR-26's per-Brain view, is E4's. The random Baseline's is in
+`snapshots/`, linked from the gallery: what the Run was doing when it ended. The random Baseline's is in
 [`results/2026-09-23-H-0002/gallery.md`](https://github.com/watchthelight/shatterfish/blob/bdf5ea5b2d38e7911f42e23a5ba08b4237cffc5c/results/2026-09-23-H-0002/gallery.md);
 its links name logs that are not committed.
+
+### Two Brains side by side
+
+FR-26's per-Brain view (story 4.13) compares two folders of Run logs of the same triples:
+
+```
+./gradlew :rig:gallery --args="--compare <baseline folder> <candidate folder> <page.md>"
+```
+
+A comparison folder gets the same page, `gallery-comparison.md`, written beside its two sides by
+the plain `:rig:gallery <folder>` command. A folder is read through its run index when it has one,
+and otherwise every `*.jsonl` in it is one Run, so the per-Run logs `RunOne` writes compare too. Runs
+are matched by triple and salt. The page has three tables: endings by cause and depth for both sides;
+the deaths by **situation** -- the last wait's Policy and Safety flags, which say what the Brain was
+doing and what was wrong on the screen that ended the Run, the closest a log comes to a killer; and
+every triple both sides played, worst change first (shallower, then shorter survival), with both
+situations beside it.
 
 ## What the Brain said: the strategy log
 

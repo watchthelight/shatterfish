@@ -221,10 +221,17 @@ public final class Brain {
         Memory memory = Memory.of(belief);
         List<Action> offered = observation.actions().actions();
         // A rooted hero's Steps and stairs are refused with no time spent, so they are no choice at all
-        // until the roots wear off (story 4.12, Explore.rooted).
-        if (Explore.rooted(observation)) {
+        // until the roots wear off (story 4.12, Explore.rooted); nor, on a calm screen, a dizzy hero's,
+        // which go where the vertigo sends them (story 4.13, Explore.dizzy).
+        if (Explore.rooted(observation) || Explore.dizzy(observation)) {
             offered = offered.stream().filter(action -> !(action instanceof Action.Step
                     || action instanceof Action.Descend || action instanceof Action.Ascend)).toList();
+        }
+        // Back and forth between two cells for Memory.BOUNCES waits: the Step back is withheld from
+        // every Policy for this wait, so two Policies that undo each other's Step stop (story 4.13).
+        if (memory.bounces() >= Memory.BOUNCES && memory.prior() >= 0) {
+            Action back = new Action.Step(memory.prior());
+            offered = offered.stream().filter(action -> !action.equals(back)).toList();
         }
         if (offered.isEmpty()) {
             return new Decided(null, null, List.of(), "the screen offers no Action");

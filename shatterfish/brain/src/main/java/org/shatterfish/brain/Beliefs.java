@@ -68,6 +68,15 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
     static final String DESCEND = "Descend";
     static final String PICK_UP = "PickUp";
 
+    /**
+     * The refusals in a row at one cell that block it while the hero shows vertigo (story 4.13).
+     * A Step under vertigo goes to a random one of eight neighbours and stays put when that one is
+     * blocked (Char.java:1298-1305); in a corridor six of the eight are walls, and six misses in a row
+     * there happen about one time in six (0.75^6, 0.18), against a Step at a held cell, which is refused
+     * every time. An assumption, chosen so a fleeting block (a fight screen's) is rarely set by chance.
+     */
+    static final int VERTIGO_REFUSALS = 6;
+
     /** The kind of an Action as the Memory keeps it: its record's name. */
     static String kind(org.shatterfish.api.Action action) {
         if (action == null) {
@@ -158,11 +167,13 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         List<Memory.Spot> dwelt = still && memory.calm() && memory.last().equals(SEARCH)
                 ? Memory.with(memory.dwelt(), here) : memory.dwelt();
         // A still hero after a Step is a refusal, unless the screen shows the hero rooted, which refuses
-        // every Step until the roots wear off, or under vertigo, which moves it at random and may
-        // spend the Step against a wall (Hero.java:1822-1825, Char.java:1296-1305): neither says the
-        // cell is out of reach. Refusals count toward a block only while they are aimed at one cell.
-        boolean refusedStep = still && memory.last().equals(STEP) && memory.stepped() >= 0 && !Explore.rooted(observation)
-                && !Explore.has(observation, Explore.VERTIGO);
+        // every Step until the roots wear off (Hero.java:1822-1825): that says nothing about the cell.
+        // Under vertigo a Step goes to a random neighbour, and a blocked one spends the Step
+        // (Char.java:1296-1305); but a Step at a cell an undrawn character holds spends no time at all
+        // (Hero.java:1831-1834) and would be handed over forever. So vertigo's refusals count too, and
+        // it takes VERTIGO_REFUSALS of them in a row, not two, to block the cell (story 4.13).
+        // Refusals count toward a block only while they are aimed at one cell.
+        boolean refusedStep = still && memory.last().equals(STEP) && memory.stepped() >= 0 && !Explore.rooted(observation);
         int streak = !refusedStep ? 0 : memory.tried() == memory.stepped() ? memory.streak() + 1 : 1;
         int tried = refusedStep ? memory.stepped() : -1;
         boolean calm = Explore.calm(observation);
@@ -234,17 +245,23 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         List<Memory.Balk> balked = balked(memory, observation, here, still);
         int walking = walking(memory, still);
         List<Memory.Cloud> fleeting = memory.fleeting().stream().filter(block -> block.until() >= waits).toList();
+        // Back and forth between two cells (story 4.13): the hero is back on the cell of two waits ago,
+        // having left it. Counted only on one floor; anything else starts the count again.
+        boolean sameFloor = !arriving && memory.at().on(depth, branch);
+        boolean bounced = sameFloor && !still && memory.prior() == here.cell();
+        int bounces = bounced ? memory.bounces() + 1 : 0;
+        int prior = sameFloor ? memory.at().cell() : -1;
         Memory after = new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
                 sightings(memory.monsters(), observation, waits), here, streak, calm, dwelt, memory.blocked(),
                 memory.last(), holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE,
                 memory.drank(), Memory.Trial.NONE, balked, walking, memory.tested(), clouds(memory, observation, waits),
-                memory.refuge(), arrived, rests, memory.stepped(), tried, fleeting);
+                memory.refuge(), arrived, rests, memory.stepped(), tried, fleeting, prior, bounces);
         // Two Steps in a row refused at one cell: the stepping Policy yields this wait, and that cell is
         // blocked on this floor, whichever Policy chose it (story 4.12; stories 4.8 and 4.10 recomputed
         // it from their own plans). Refused on a calm screen, for good; refused with an enemy in view,
         // for FLEETING_WAITS waits, since the fight may have been the reason. The count then starts
         // again, so a second cell refused twice is blocked in turn.
-        if (streak >= Explore.STUCK - 1) {
+        if (streak >= (Explore.has(observation, Explore.VERTIGO) ? VERTIGO_REFUSALS : Explore.STUCK - 1)) {
             Memory.Spot cell = new Memory.Spot(depth, branch, memory.stepped());
             List<Memory.Spot> blocked = memory.calm() ? Memory.with(after.blocked(), cell) : after.blocked();
             List<Memory.Cloud> lapsing = new ArrayList<>(fleeting);
@@ -258,7 +275,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                     after.monsters(), here, streak, calm, dwelt, blocked, after.last(),
                     holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE, memory.drank(),
                     Memory.Trial.NONE, balked, walking, memory.tested(), after.clouds(),
-                    memory.refuge(), arrived, rests, memory.stepped(), -1, lapsing);
+                    memory.refuge(), arrived, rests, memory.stepped(), -1, lapsing, prior, bounces);
         }
         return after;
     }

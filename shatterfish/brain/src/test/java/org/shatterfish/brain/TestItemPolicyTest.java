@@ -65,6 +65,20 @@ class TestItemPolicyTest {
      * magic mapping and teleportation the rest. {@link Screens#CODEX}'s scrolls are all item-picker
      * scrolls (upgrade and identify).
      */
+    /** Crimson potions that are healing one time in two, and never strength or experience. */
+    private static final Codex.Knowledge NO_GAINS = new Codex.Knowledge(Screens.MANIFEST,
+            List.of(new Codex.Identities(ItemKind.POTION, List.of("crimson potion"),
+                    List.of(new Codex.Candidate("items.potions.PotionOfHealing", "potion of healing", 1),
+                            new Codex.Candidate("items.potions.PotionOfMindVision", "potion of mind vision", 1)))),
+            List.of(), List.of());
+
+    /** Crimson potions that are strength one time in four (story 4.13's gains). */
+    private static final Codex.Knowledge GAINS = new Codex.Knowledge(Screens.MANIFEST,
+            List.of(new Codex.Identities(ItemKind.POTION, List.of("crimson potion"),
+                    List.of(new Codex.Candidate("items.potions.PotionOfStrength", "potion of strength", 1),
+                            new Codex.Candidate("items.potions.PotionOfMindVision", "potion of mind vision", 3)))),
+            List.of(), List.of());
+
     private static final Codex.Knowledge SCROLLS = new Codex.Knowledge(Screens.MANIFEST,
             List.of(new Codex.Identities(ItemKind.SCROLL, List.of("scroll of KAUNAN", "scroll of SOWILO"),
                     List.of(new Codex.Candidate("items.scrolls.ScrollOfIdentify", "scroll of identify", 1),
@@ -157,10 +171,10 @@ class TestItemPolicyTest {
     }
 
     @Test
-    @DisplayName("a potion is drunk only at half health or below, and only when healing is likely enough")
+    @DisplayName("a potion that can only heal is drunk only at half health or below, and only when healing is likely enough")
     void potion_needs_a_use() {
         ItemView crimson = Screens.unknown(ItemKind.POTION, "crimson potion", 1);
-        TestItem policy = new TestItem(Screens.CODEX);
+        TestItem policy = new TestItem(NO_GAINS);
         for (int hp : new int[]{20, 11}) {
             Observation whole = screen(1, row(3, -1, -1), Screens.heroAt(1, hp, 20, List.of()), List.of(crimson),
                     List.of(), List.of(), List.of(), drink(0, "crimson potion", 1));
@@ -173,6 +187,22 @@ class TestItemPolicyTest {
         Observation rare = screen(1, row(3, -1, -1), Screens.heroAt(1, 10, 20, List.of()), List.of(jade), List.of(),
                 List.of(), List.of(), drink(0, "jade potion", 1));
         assertFalse(new TestItem(RARE_HEALING).enters(rare, Memory.START), "healing one time in ten");
+    }
+
+    @Test
+    @DisplayName("a potion likely enough to be strength or experience is drunk at any health, the reserve kept (story 4.13)")
+    void potion_for_gains() {
+        ItemView crimson = Screens.unknown(ItemKind.POTION, "crimson potion", 1);
+        TestItem policy = new TestItem(GAINS);
+        for (int hp : new int[]{20, 15, 10}) {
+            Observation screen = screen(1, row(3, -1, -1), Screens.heroAt(1, hp, 20, List.of()), List.of(crimson),
+                    List.of(), List.of(), List.of(), drink(0, "crimson potion", 1));
+            assertTrue(policy.enters(screen, Memory.START), hp + " of 20: strength one time in four");
+        }
+        Observation none = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(crimson),
+                List.of(), List.of(), List.of(), drink(0, "crimson potion", 1));
+        assertFalse(new TestItem(NO_GAINS).enters(none, Memory.START), "no strength or experience among the candidates");
+        assertTrue(TestItem.GAIN_ODDS <= 0.25, "one time in four is enough");
     }
 
     @Test

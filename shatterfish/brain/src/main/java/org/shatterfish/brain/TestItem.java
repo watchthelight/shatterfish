@@ -32,9 +32,10 @@ import java.util.Set;
  * elimination and not tried.
  *
  * <p>A test must pay for itself in play (story 4.10's review). A potion is drunk only when the
- * knowledge has a use now: the hero is at half its hit points or below on a calm screen, the odds
- * that it is healing are at least {@link #HEALING_ODDS}, and its worst case leaves at least a quarter
- * of the hero's hit points ({@link #reserved}). Drunk then, a healing potion heals at once, and once
+ * knowledge has a use now, and its worst case leaves at least a quarter of the hero's hit points
+ * ({@link #reserved}): the hero is at half its hit points or below on a calm screen and the odds that
+ * it is healing are at least {@link #HEALING_ODDS}; or, at any health, the odds that it is strength or
+ * experience ({@link #GAINS}) are at least {@link #GAIN_ODDS}, whose use is the drink (story 4.13). Drunk then, a healing potion heals at once, and once
  * known the heal Policy (story 4.9) drinks the rest when a fight turns. A scroll is read only at full
  * health -- Lullaby's sleep is then harmless (MagicalSleep.java:37-50) and Rage's draw is met whole --
  * and only while the four identities that spend a read on their item picker (identify, remove curse,
@@ -89,6 +90,21 @@ final class TestItem implements Policy {
 
     /** The potion of healing, by the Codex's class name. */
     static final String HEALING = "items.potions.PotionOfHealing";
+
+    /**
+     * The potions that make the hero stronger for good when drunk, by the Codex's class names: strength,
+     * one more strength point (PotionOfStrength.java), and experience, a level (PotionOfExperience.java).
+     * Their use is the drink itself, at any health (story 4.13): of 40 Warriors, every one died at its
+     * starting strength of 10 holding unknown potions, the owed strength potions among them.
+     */
+    static final Set<String> GAINS = Set.of("items.potions.PotionOfStrength", "items.potions.PotionOfExperience");
+
+    /**
+     * The least odds of strength or experience an unknown potion is drunk at, whatever the hero's
+     * health (story 4.13). An assumption, tuned against the rig: the worst case must still leave the
+     * reserve ({@link #reserved}), and a healing potion drunk at full health is spent, but identified.
+     */
+    static final double GAIN_ODDS = 0.2;
 
     /** The most waits after a test it rests toward full health (as the explore Policy's RESTS). */
     static final int REST_WAITS = Explore.RESTS;
@@ -202,8 +218,16 @@ final class TestItem implements Policy {
                 int best = -1;
                 int bestDamage = hereFits ? here.worst().damage() : Integer.MAX_VALUE;
                 int bestDistance = Integer.MAX_VALUE;
+                java.util.function.IntPredicate clean = clean(observation, memory);
                 for (int cell = 0; cell < distance.length; cell++) {
                     if (distance[cell] < 1 || distance[cell] > REACH || !harmfulOn(map, cell).isEmpty()) {
+                        continue;
+                    }
+                    // Only a cell a test may happen on once the hero is there (settled): never a
+                    // doorway, never beside a cloud. Walking to one, the hero would find the test
+                    // refused there and walk back and forth with another Policy (story 4.13).
+                    Tile tile = map.tiles().get(cell);
+                    if (tile == Tile.OPEN_DOOR || tile == Tile.DOOR || !clean.test(cell) || !clear(map, cell, clean)) {
                         continue;
                     }
                     SafeTest.Verdict there = SafeTest.of(candidates, observation, cell);
@@ -334,8 +358,9 @@ final class TestItem implements Policy {
             if (guess == null || guess.odds().size() < 2 || memory.balks(depth, branch, item.name())) {
                 continue;
             }
-            String verb = item.kind() == ItemKind.POTION && guess.kind() == ItemKind.POTION && low(observation)
-                    && odds(guess, Set.of(HEALING)) >= HEALING_ODDS ? DRINK
+            String verb = item.kind() == ItemKind.POTION && guess.kind() == ItemKind.POTION
+                    && (low(observation) && odds(guess, Set.of(HEALING)) >= HEALING_ODDS
+                        || odds(guess, GAINS) >= GAIN_ODDS) ? DRINK
                     : item.kind() == ItemKind.SCROLL && guess.kind() == ItemKind.SCROLL && !unreadable
                     && observation.hero().hp() >= observation.hero().ht()
                     && odds(guess, INVENTORY_SCROLLS) < INVENTORY_ODDS ? READ : null;

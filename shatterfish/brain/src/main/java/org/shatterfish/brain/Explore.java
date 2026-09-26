@@ -117,6 +117,17 @@ final class Explore implements Policy {
         return has(observation, ROOTED);
     }
 
+    /**
+     * Whether the hero shows vertigo on a calm screen (story 4.13). A Step under vertigo goes to a
+     * random neighbour (Char.java:1298-1305), and spends no time at all when the cell it aims at holds
+     * a character the screen does not draw (Hero.java:1831-1834): so with nothing to flee, the Brain
+     * stands still and lets the vertigo wear off, as it does for roots. With an enemy in view the fight
+     * Policy still steps, and the refusals count toward a block (Beliefs).
+     */
+    static boolean dizzy(Observation observation) {
+        return has(observation, VERTIGO) && calm(observation);
+    }
+
     /** Whether a screen is one this Policy acts on: no Prompt open and no enemy in view. */
     static boolean calm(Observation observation) {
         if (observation.header().prompt() != PromptKind.NONE) {
@@ -189,10 +200,10 @@ final class Explore implements Policy {
     private static RunLog.Choice plan(Observation observation, Memory memory, List<Action> offered) {
         // Rooted (story 4.12): no Step is offered; a search spends the time the roots need to wear off,
         // and may find something.
-        if (rooted(observation)) {
+        if (rooted(observation) || dizzy(observation)) {
             for (Action pass : List.of(new Action.Search(), new Action.Wait())) {
                 if (offered.contains(pass)) {
-                    return new RunLog.Choice(pass, Policies.CERTAIN, "rooted");
+                    return new RunLog.Choice(pass, Policies.CERTAIN, rooted(observation) ? "rooted" : "vertigo");
                 }
             }
         }

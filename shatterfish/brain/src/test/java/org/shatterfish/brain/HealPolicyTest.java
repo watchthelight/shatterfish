@@ -98,7 +98,10 @@ class HealPolicyTest {
     @Test
     @DisplayName("hurt beside a rat with room behind, the fight Policy retreats and the potion is kept")
     void retreat_before_drinking() {
-        Brain.Decided decided = decide(fight(3, "#..@r.#", potion("potion of healing", 1)));
+        // Above the low-health warning (12 of 20), in danger beside a brute, with room behind: the
+        // retreat first. At the warning the drink comes first instead (drinks_then_retreats).
+        assertTrue(danger(fight(12, "#..@B.#")) >= 12);
+        Brain.Decided decided = decide(fight(12, "#..@B.#", potion("potion of healing", 1)));
         assertEquals("fight", decided.decision().policy());
         assertTrue(decided.decision().chosen().why().startsWith("retreat"), decided.decision().chosen().why());
     }
@@ -215,18 +218,22 @@ class HealPolicyTest {
     }
 
     @Test
-    @DisplayName("over several waits: a retreat is taken each wait and no potion is spent while one is open")
-    void retreats_rather_than_drinks() {
+    @DisplayName("over several waits, at the low-health warning with a retreat open: one drink first, then the retreat, and no second drink while the first heals (story 4.13)")
+    void drinks_then_retreats() {
+        // Heroes at 1 to 4 hit points with a known potion stepped away and died (story 4.13): at the
+        // warning the drink buys the escape. Above it, the retreat still comes first (retreat_before_drinking).
         Brain brain = brain();
         Belief belief = null;
+        List<Boolean> drank = new java.util.ArrayList<>();
         for (String row : List.of("#....@r#", "#...@r.#", "#..@r..#")) {
-            Observation screen = fight(3, row, potion("potion of healing", 1));
+            Observation screen = fight(3, row, potion("potion of healing", 2));
             belief = brain.update(screen, belief);
             Brain.Decided decided = brain.decide(screen, belief);
-            assertTrue(!drinks(decided), row + ": " + decided.decision());
+            drank.add(drinks(decided));
             belief = brain.handed(screen, belief, decided);
         }
-        assertEquals(-1, Memory.of(belief).drank());
+        assertEquals(List.of(true, false, false), drank, "the drink first, then no second while it heals");
+        assertEquals(1, Memory.of(belief).drank());
     }
 
     @Test
