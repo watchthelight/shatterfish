@@ -2,7 +2,7 @@
 title: 'Story 4.10: The test-unknown-items Policy'
 type: 'feature'
 created: '2026-09-25'
-status: 'review'
+status: 'done'
 baseline_commit: '232afa008 (main with stories 4.1-4.8)'
 review_loop_iteration: 0
 context: []
