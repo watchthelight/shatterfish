@@ -360,3 +360,11 @@ it re-reads ADR-0006's Blobs row.
   instance of exactly the pattern that entry predicted (the first being Explain); the controls row
   (5.5 to 5.7) will be the third, fourth and fifth, and is a good place to finally build the shared
   base rather than writing the same one-line gate a third time.
+- **`EmbeddedRun.history()` never carries a `RunLog.Prompt`.** The `fairness-reviewer` subagent's
+  second should-fix: `RunLoop.record` also writes a `Prompt` record (when there is a log and the wait
+  answers one), but only the `Wait` reaches `BoundedLog`, so the in-memory Decision log and the
+  on-disk Run log can diverge in content once logging is on and a Prompt is answered. Not a fairness
+  leak -- both carry the same information, just differently scoped -- and `DecisionLogContent`'s own
+  Javadoc already documents the choice ("a Prompt rides beside the wait that answered it"). Widening
+  `history()` to a small ordered structure carrying both kinds (or teaching `BoundedLog` to accept a
+  `Prompt` beside its `Wait`) is a small, separable follow-up, not folded into story 5.4.

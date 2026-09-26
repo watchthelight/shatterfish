@@ -410,27 +410,45 @@ A control run of `:api:test`, `:brain:test`, `:harness:test` and `:overlay:test`
 
 ### Fairness review
 
-A `fairness-reviewer` subagent pass was launched against the api/brain/harness diff (design notes 1
-and 3). Its full narrative report was not delivered back to this session, but it left one concrete
-artifact in the tree: `shatterfish/harness/src/test/java/org/shatterfish/harness/agent/RunLoopRecordTest.java`,
-its own "should fix #4" -- the oracle-consistency check `RunLoop.record` now runs unconditionally
-(design note 3) had no test exercising it with `log == null`, the one combination this story's change
-actually added (every other test that reaches this check has a real log). The test drives a real
-`Observation` (via `HeadlessDriver`/`Observer`) with its header's `oracle` flipped, and holds that
-`RunLoop.record(null, ...)` still throws on a mismatch and still returns the built `Wait` when there
-is none. Verified here: it compiles, passes, and (planted as mutant Q15 below) is genuinely the thing
-that catches a regression of the fix, not a test that would pass either way.
+A `fairness-reviewer` subagent pass was run against the api/brain/harness diff (design notes 1 and 3),
+asked specifically whether `BeliefSummary.Item.candidate()` could ever carry a true identity, whether
+`beliefSummary()` opens any door beyond what `Beliefs` (story 4.2) already computed, whether the
+oracle path is still sound, and what the now-unconditional check in `RunLoop.record` changes.
+**Verdict: no violation found (high confidence).**
 
-Beyond that one artifact, this engineer's own reading (checked by a test rather than only by
-argument) is: `BeliefSummary.Item.candidate()` is always one of `Beliefs.identities()`'s own candidate
-names (`BeliefSummaryTest.never_names_a_true_identity`, which drives a real `Brain` and `Observation`
-and holds the candidate to the Codex's own four named ones and the probability to strictly between 0
-and 1); `BeliefSummary` adds no new door from game state to the Overlay, only a re-shaping of what
-`Beliefs` already computed from the Observation the Brain was handed; and the oracle-consistency check
-`RunLoop.record` now always runs is a strengthening of an invariant `EmbeddedRun.frame()` already
-checks before a decision is even submitted (`EmbeddedRun.java:407-413`), not a new way for an oracle
-Observation to reach a non-oracle Run or vice versa. If the subagent's full report ever surfaces
-something beyond this, it belongs in a follow-up to this story.
+- `BeliefSummary.Item.candidate()`: fine. `Beliefs.identities()` (`Beliefs.java:458-501`) builds every
+  `Guess.odds()` entry purely from `Codex.Knowledge` family/candidate names, filtered by what is
+  actually identified and actually in view; no true class or hidden identity is read anywhere in it,
+  and `BeliefSummaries.of` takes `odds().get(0)` verbatim. `BeliefSummaryTest.never_names_a_true_identity`
+  confirms this against a real `Brain`/`Observation`.
+- Whether `BeliefSummary` opens a new door: fine. `BrainDecider.decide` calls
+  `brain.beliefs(observation, belief)`, itself `Beliefs.view(Memory.of(belief), observation, knowledge)`
+  -- a pure function of the same `Observation`/`Belief` `decide()` already uses. No new game read on
+  the render thread; `lastBeliefSummary` and `lastDecision` are set together in `EmbeddedRun.serve()`
+  from the same wait.
+- Oracle-mode interaction: fine. The summary is derived from the same Observation the Decision was
+  made on; if that Observation is oracle-flagged, that is an existing, unrelated invariant, untouched
+  by this diff.
+- `RunLoop.record` always building/checking the `Wait` even with `log == null`: a fairness-positive
+  strengthening (an oracle/header mismatch now throws even in an unlogged embedded Run, where it
+  previously did not), not a leak -- but flagged as under-tested: no test exercised
+  `record(null, ...)` with a mismatched oracle flag specifically. **Should-fix, addressed:** the
+  subagent left `RunLoopRecordTest.java` in the tree closing exactly that gap -- a real `Observation`
+  (via `HeadlessDriver`/`Observer`) with its header's `oracle` flipped, holding that
+  `RunLoop.record(null, ...)` still throws on the mismatch and still returns the built `Wait` when
+  there is none. Verified here: it compiles, passes, and (planted as mutant Q15 above) is genuinely
+  the thing that catches a regression of the fix.
+- A second should-fix, not yet acted on: `EmbeddedRun.history()` only receives the `Wait` record; a
+  `RunLog.Prompt` `RunLoop.record` also writes (when `log != null` and the wait answers a Prompt)
+  never reaches `history()`, so the in-memory Decision log and the on-disk Run log can diverge in
+  content when logging is on. Not a fairness leak (nothing hidden, both are the same information
+  differently scoped) -- recorded in `docs/ideas.md` rather than fixed in this story, since
+  `DecisionLogContent`'s own Javadoc already documents that a Prompt "rides beside the wait that
+  answered it," and widening `history()` to carry Prompts too is a small, separable follow-up.
+
+No other class in the diff imports outside `org.shatterfish.api`; no `brain`- or `api`-module
+`build.gradle` changed; `Deliberator.beliefSummary()` defaults to null, so a non-`Deliberator` Decider
+shows nothing rather than a half-filled summary.
 
 ### Real launch
 
