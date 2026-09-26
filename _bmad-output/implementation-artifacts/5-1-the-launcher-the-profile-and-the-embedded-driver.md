@@ -2,7 +2,7 @@
 title: 'Story 5.1: The launcher, the Profile and the embedded driver'
 type: 'feature'
 created: '2026-09-26'
-status: 'in-progress'
+status: 'review'
 baseline_commit: 'd53e33b36'
 review_loop_iteration: 0
 context: []
@@ -78,7 +78,7 @@ another Run or with the player's own directories.
 - `shatterfish/overlay/build.gradle`: `desktop` and the lwjgl3 backend; the `:overlay:launch` task.
 - Tests: `EmbeddedAttachTest`, `EmbeddedThreadingTest`, `EmbeddedDeterminismTest`,
   `EmbeddedRunRulesTest`, `EmbeddedHost` (harness `agent`); `InProcessRunsTest` (harness
-  `determinism`); `LaunchOptionsTest`, `FreshProfileTest`, `OverlayOracleGateTest` (overlay);
+  `determinism`); `LaunchOptionsTest`, `FreshProfileTest`, `OverlayOracleGateTest`, `RenderQueueTest` (overlay);
   `RigOracleGateTest.the_launchers_flag_is_refused_here` (rig).
 - Docs: ADR-0003 and ADR-0013 amendments, `docs/architecture.md`, `docs/fairness.md`,
   `docs/ideas.md`, `shatterfish/settings.gradle`'s edge comment.
@@ -91,8 +91,8 @@ another Run or with the player's own directories.
 - [x] The launcher, its options, the overlay game and backend; `:overlay:launch`.
 - [x] Tests: attach, threading, determinism, rules, in-process Runs, options, fresh Profile, oracle gates.
 - [x] Docs and ADR amendments.
-- [ ] Mutation battery.
-- [ ] Manual launch of the real desktop game.
+- [x] Mutation battery.
+- [x] Manual launch of the real desktop game.
 
 **Acceptance Criteria:**
 - Given FR-37 and ADR-0013, when the launcher starts the desktop game with a Run Profile it owns
@@ -172,6 +172,18 @@ through `Bones.leave()`'s daily branch, the one public door that resets it and w
 (`:62-68`); `InProcessRunsTest` holds it. The Profile version is unchanged: no Run in a fresh process
 is affected.
 
+**Found by the real launch: the backend's own runnables.** The first launch of the real desktop game
+confirmed no wait at all. The render-queue count never reached zero because libGDX's controller
+monitor (`JamepadControllerMonitor`) re-posts itself on every frame. The wait rule is about what the
+game posts (a window queued by the hero's act), which is all the headless backend ever holds, so
+`OverlayApplication` now counts only runnables whose class is the game's (`RenderQueueTest`).
+
+**Found by the real launch: a scene rebuilt on the same floor.** The second launch confirmed no wait
+either: the desktop game rebuilds its play scene whenever the window changes size
+(`SPD-classes/…/noosa/Game.java:136-141`), once at start-up, and re-arming the gate at that rebuild
+discarded the hero's first announcement, which he does not repeat. The gate is now re-armed only on a
+new floor (`Dungeon.level` another object); `EmbeddedAttachTest.a_rebuilt_scene_keeps_the_wait`.
+
 **The Brain the Overlay plays.** The Rig's Brain needs the Codex, which the rig reads
 (`CodexKnowledge`); the Overlay does not depend on the rig. Story 5.1 attaches the random agent; the
 Brain arrives when the reader moves somewhere both can reach (docs/ideas.md), at the latest with
@@ -189,4 +201,56 @@ story 5.16.
 
 ## Review
 
-(to be written after the reviews)
+**Implementation notes:**
+- **No upstream edit.** The Run attaches through hook row 3's scene seam and hears waits through row
+  5's notification, both already in the ledger; the launcher extends upstream's game class.
+- **`WaitGate`** is the headless driver's own confirmation, moved: the whole harness suite (71 classes,
+  321 tests) passes on it, and `HeadlessDriver` keeps its public surface.
+- **The oracle** is built only in `ShatterfishLauncher.observer(true)`; the embedded Run is handed its
+  observer, so the harness's `OracleGateTest` covers it unchanged.
+- **The Brain** in the Overlay is the random agent until the Codex reader leaves the rig (docs/ideas.md).
+- **A test helper deadlock** in `Ledger` (hook-ledger tests): it read the subprocess's output pipe to its
+  end before its error pipe, and this worktree's line-ending warnings filled the error pipe; the first
+  full harness run sat 45 minutes in `HooksLedgerTest`. Standard error now goes to a file. `Brains`,
+  `Registrations`, `Results` (rig) and `DocsCitations` (codex) use the same shape on small outputs and
+  are left alone here.
+
+**The manual launch of the real desktop game** (`:overlay:launch`, seed 12345, the Warrior, salt
+`5a175a17`, the random agent, a 200-turn cap, `--exit-when-over`):
+1. First launch: the game began, the play scene was created and the log header written, and no wait
+   was confirmed. The render-queue count never left 1: libGDX's controller monitor re-posts itself
+   every frame. Fixed: only the game's own runnables are counted (`RenderQueueTest`).
+2. Second launch: still no wait. The desktop rebuilds its play scene when the window changes size, once
+   at start-up, and the rebuild re-armed the gate over the hero's first announcement. Fixed: the gate
+   is re-armed only on a new floor (`EmbeddedAttachTest.a_rebuilt_scene_keeps_the_wait`).
+3. Third launch: the Run played to its end, a death on floor 1 after 80 turns and 73 waits, the window
+   closing itself; the log verifies as a complete chain with a verifiable end record. Against the
+   headless Run of the same tuple and agent, the first 14 waits are identical; they part at wait 15,
+   the first roll decided differently: the desktop's extra frames draw from the Run's generator, which
+   story 5.13 routes away.
+
+**Mutation battery** (a scratch script, not committed; a control run first, each mutant against its
+named tests):
+
+| # | Mutant | Killed by |
+|---|---|---|
+| M1 | the gate confirms with the render queue full | `HeadlessBootTest` |
+| M2 | the gate takes a window on its first frame | `HeadlessBootTest` |
+| M3 | the executor's announcement reaches no gate | `ActionExecutorTest` |
+| M4 | the embedded Run skips the reseed | `EmbeddedDeterminismTest` |
+| M5 | a scene creation not counted | `EmbeddedAttachTest` |
+| M6 | the log listener not re-added at a new scene | `EmbeddedAttachTest` |
+| M7 | the answer taken before it is in | `EmbeddedThreadingTest` |
+| M8 | the Brain decides on the render thread | `EmbeddedThreadingTest` |
+| M9 | no end record | `EmbeddedDeterminismTest` |
+| M10 | remains left for the next Run | `InProcessRunsTest` |
+| M11 | the oracle on by default | `LaunchOptionsTest` |
+| M12 | a used Profile directory taken | `FreshProfileTest` |
+| M13 | the wait index restarted at a scene | `EmbeddedAttachTest` |
+| M14 | hooks left registered at close | `EmbeddedAttachTest` |
+| M15 | a scene rebuilt on the same floor re-arms the gate | `EmbeddedAttachTest` |
+| M16 | the backend's own runnables counted | `RenderQueueTest` |
+
+16 of 16 killed. M14 survived at first (the host's teardown cleared the hooks anyway); the test now
+asserts right after the Run's own close. An earlier battery run reported false kills because the
+wrapper was not found; the script now calls it by full path and runs a control first.

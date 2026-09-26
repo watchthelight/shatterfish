@@ -9,13 +9,21 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * The desktop backend the Overlay runs in: libGDX's own, with one thing counted.
  *
- * <p>An embedded Run confirms an Input wait only when nothing is queued for the render thread
- * (ADR-0015; {@code WaitGate.frame}), because what the hero's act posts there, a window, runs at the
- * start of the next frame before anyone could observe or click. The headless backend exposes its
- * queue; this one keeps it private, so the queue is counted here instead, at the one door the game
- * posts through ({@code Game.runOnRenderThread} is {@code Gdx.app.postRunnable},
+ * <p>An embedded Run confirms an Input wait only when nothing the game posted is queued for the render
+ * thread (ADR-0015; {@code WaitGate.frame}), because what the hero's act posts there, a window, runs at
+ * the start of the next frame before anyone could observe or click. The headless backend exposes its
+ * queue; this one keeps it private, so the game's posts are counted here instead, at the one door the
+ * game posts through ({@code Game.runOnRenderThread} is {@code Gdx.app.postRunnable},
  * {@code SPD-classes/…/noosa/Game.java:306-313}): one more when a runnable is posted, one fewer when
  * it runs.
+ *
+ * <p>Only the game's own runnables are counted, the ones whose class is the game's
+ * ({@code com.shatteredpixel}, {@code com.watabou}). The desktop backend queues its own too: the
+ * controller library's monitor re-posts itself on every frame
+ * ({@code com.badlogic.gdx.controllers.desktop.support.JamepadControllerMonitor}), so the queue is
+ * never empty at the end of a frame and a count of everything would confirm no wait at all, which the
+ * first launch of story 5.1 showed. The headless backend has no controllers and so queues only what
+ * the game posts; counting only that here is the same rule on both backends.
  *
  * <p>The count is static because libGDX runs its whole loop inside this class's constructor
  * ({@code Lwjgl3Application} loops in its own constructor until the window closes), so no instance
@@ -31,6 +39,10 @@ public final class OverlayApplication extends Lwjgl3Application {
 
     @Override
     public void postRunnable(Runnable runnable) {
+        if (!postedByTheGame(runnable)) {
+            super.postRunnable(runnable);
+            return;
+        }
         PENDING.incrementAndGet();
         super.postRunnable(() -> {
             PENDING.decrementAndGet();
@@ -38,7 +50,13 @@ public final class OverlayApplication extends Lwjgl3Application {
         });
     }
 
-    /** Runnables posted to the render thread and not yet run. */
+    /** Whether a runnable is the game's own, which is what the wait rule is about; see the class comment. */
+    static boolean postedByTheGame(Runnable runnable) {
+        String name = runnable.getClass().getName();
+        return name.startsWith("com.shatteredpixel.") || name.startsWith("com.watabou.");
+    }
+
+    /** Runnables the game posted to the render thread and not yet run. */
     public static int pending() {
         return PENDING.get();
     }

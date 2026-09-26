@@ -36,6 +36,8 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
     boolean stepWhileThinking;
     /** Frames the scene was stepped while the Run was thinking. */
     long framesWhileThinking;
+    /** Runnables the host pretends are queued, as the desktop's queue can hold some across frames. */
+    int heldQueue;
 
     EmbeddedHost(long seed, HeroClass heroClass, long salt) {
         this.seed = seed;
@@ -51,7 +53,7 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
 
     @Override
     public int pendingRunnables() {
-        return driver.headlessBoot().pendingRunnables();
+        return driver.headlessBoot().pendingRunnables() + heldQueue;
     }
 
     @Override
@@ -108,6 +110,17 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
         InterlevelScene.curTransition = Dungeon.level.getTransition(LevelTransition.Type.REGULAR_EXIT);
         InterlevelScene.mode = InterlevelScene.Mode.DESCEND;
         Game.switchScene(InterlevelScene.class);
+    }
+
+    /**
+     * Rebuilds the play scene on the same floor, as the desktop game does whenever its window changes
+     * size ({@code SPD-classes/…/noosa/Game.java:136-141}): the scene is destroyed and a new one
+     * created, and nothing about the floor or the hero changes.
+     */
+    void rebuildTheScene() {
+        Game.switchScene(com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene.class);
+        driver.serveSceneSwitch(() -> {
+        });
     }
 
     @Override

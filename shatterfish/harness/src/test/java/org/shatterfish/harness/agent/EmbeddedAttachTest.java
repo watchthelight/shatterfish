@@ -120,6 +120,11 @@ class EmbeddedAttachTest {
             // The log is one file with one chain across both boundaries.
             Path file = run.logFile();
             run.close();
+            // The Run takes back what it registered when it closes, before the host's own teardown
+            // clears everything anyway: a listener of a detached Run must not hear the next scene.
+            assertNull(Hooks.logReplaced, "the Run took back the scene seam at its close");
+            assertNull(Hooks.inputWait, "the Run took back the Input-wait notification at its close");
+            assertNull(WaitGate.live(), "the Run's gate is no longer the executor's");
             RunLogVerifier.Verified verified = RunLogVerifier.of(file);
             assertTrue(verified.ok(), "the chain holds across both floors: " + verified.why());
             RunLogReader.Log read = RunLogReader.of(file);
@@ -159,6 +164,35 @@ class EmbeddedAttachTest {
                         "the Observer's listener is on the new floor's signal");
                 assertEquals(2, GLog.update.numListeners(), "the new pane and the Observer's listener, once");
             }
+        }
+    }
+
+    @Test
+    @DisplayName("a play scene rebuilt on the same floor keeps the wait the hero already announced")
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void a_rebuilt_scene_keeps_the_wait() {
+        // The desktop game rebuilds its play scene when its window changes size, once at start-up
+        // among others; the first launch of story 5.1 lost the hero's first wait to that rebuild and
+        // then waited forever for a wait that had already come.
+        try (EmbeddedHost host = new EmbeddedHost(SEED, HeroClass.WARRIOR, SALT)) {
+            EmbeddedRun run = host.attach(new Remembering(), null, 5_000);
+            host.heldQueue = 1;
+            for (int frame = 0; frame < 2_000 && !(run.hookNotifications() > 0 && Dungeon.hero.ready); frame++) {
+                host.frame();
+            }
+            assertTrue(run.hookNotifications() > 0 && Dungeon.hero.ready, "the hero announced his first wait");
+            assertEquals(0, run.waitIndex(), "which the held queue kept from being confirmed");
+
+            int depth = Dungeon.depth;
+            host.rebuildTheScene();
+            assertEquals(2, run.attachments(), "re-attached to the rebuilt scene");
+            assertEquals(depth, Dungeon.depth, "on the same floor");
+
+            host.heldQueue = 0;
+            for (int frame = 0; frame < 2_000 && run.waitIndex() == 0; frame++) {
+                host.frame();
+            }
+            assertEquals(1, run.waitIndex(), "the wait announced before the rebuild is confirmed after it");
         }
     }
 

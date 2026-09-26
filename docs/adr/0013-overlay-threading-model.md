@@ -249,16 +249,26 @@ throws rather than waits; `EmbeddedRunRulesTest` holds that the class calls noth
 is confirmed while a decision is pending, so the "decision for a `k` no longer current" case cannot
 arise before takeover (story 5.8), and is checked as an invariant until then.
 
-**The render queue.** A wait is confirmed only with nothing queued for the render thread. libGDX's
-desktop backend keeps its queue private, so `OverlayApplication` counts at the one door the game
-posts through, `Gdx.app.postRunnable` (`SPD-classes/…/noosa/Game.java:306-313`).
+**The render queue.** A wait is confirmed only with nothing the game posted queued for the render
+thread. libGDX's desktop backend keeps its queue private, so `OverlayApplication` counts at the one
+door the game posts through, `Gdx.app.postRunnable` (`SPD-classes/…/noosa/Game.java:306-313`), and
+counts only the game's own runnables: the backend's controller monitor re-posts itself on every frame,
+so a count of everything never reaches zero, which the first real launch showed (no wait was ever
+confirmed). The headless backend queues only what the game posts, so the rule is the same on both.
 
 **Scene lifetime.** The Run re-attaches through hook row 3's existing seam, which it chains: the
 Observer's log listener is re-added and the attachment counted. No destruction site was needed; the
-Run holds no scene object.
+Run holds no scene object. The gate is re-armed only when the floor changed (`Dungeon.level` is
+another object): the desktop game also rebuilds its play scene on the same floor whenever the window
+changes size (`SPD-classes/…/noosa/Game.java:136-141`), once at start-up, and a hero who became ready
+in the scene before announced his wait there and does not announce it again. The second real launch
+lost the first wait that way; `EmbeddedAttachTest.a_rebuilt_scene_keeps_the_wait` holds the rule.
 
 **What equality with a Rig Run means.** An embedded Run's log chain equals the headless Run's for the
 same tuple whenever the frames between two waits are the same (`EmbeddedDeterminismTest`). The
 desktop adds frames, drawn while the Brain thinks and paced by the wall clock, and the render thread's
 draws in them come from the Run's generator until story 5.13's draw-routing hook; an Overlay Run is
-reproducible from its own log in the meantime.
+reproducible from its own log in the meantime. Measured on the real desktop game (seed 12345, the
+Warrior, salt `5a175a17`, the random agent, 73 waits to its death): the Overlay Run's log verifies as a
+complete chain, and its first 14 waits are the headless Run's, wait for wait; they part at wait 15,
+the first turn a roll decided differently, which is the difference 5.13 removes.

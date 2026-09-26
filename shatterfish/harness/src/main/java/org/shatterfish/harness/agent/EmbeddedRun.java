@@ -110,6 +110,8 @@ public final class EmbeddedRun implements AutoCloseable {
     private final Hooks.LogReplaced seam = this::sceneCreated;
 
     private int attachments;
+    /** The floor the Run was last attached on, to tell a new floor from a scene rebuilt on the same one. */
+    private Object attachedLevel;
     private long waits;
     private long applied;
     private long refused;
@@ -205,6 +207,7 @@ public final class EmbeddedRun implements AutoCloseable {
         // the scene in front now.
         if (Game.scene() instanceof GameScene) {
             attachments = 1;
+            attachedLevel = Dungeon.level;
             GameLogListener.INSTANCE.onLogReplaced();
         }
     }
@@ -212,12 +215,23 @@ public final class EmbeddedRun implements AutoCloseable {
     /**
      * Hook row 3's seam, on the thread that creates the scene: the render thread, inside
      * {@code GameScene.create()}, right after the log pane replaced every listener on the game's
-     * message signal. The Observer's listener goes back on, and whatever the gate heard belongs to
-     * the floor that is gone.
+     * message signal. The Observer's listener goes back on.
+     *
+     * <p>A new floor re-arms the gate: whatever it heard belongs to the floor that is gone, and the new
+     * floor's first wait is announced by the hero's first act on it, as the headless driver has it. A
+     * play scene rebuilt on the same floor does not: the desktop game rebuilds its scene whenever the
+     * window changes size ({@code SPD-classes/…/noosa/Game.java:136-141}), which it does once at
+     * start-up, and a hero who became ready in the scene before it announced his wait there and will
+     * not announce it again. Discarding that announcement left the first launch of story 5.1 waiting
+     * for a wait that had already come; the headless game never rebuilds a scene on the same floor, so
+     * the two drivers still agree.
      */
     private void sceneCreated() {
         GameLogListener.INSTANCE.onLogReplaced();
-        gate.sceneChanged();
+        if (Dungeon.level != attachedLevel) {
+            gate.sceneChanged();
+            attachedLevel = Dungeon.level;
+        }
         attachments++;
     }
 
@@ -428,7 +442,12 @@ public final class EmbeddedRun implements AutoCloseable {
         return rng.salt();
     }
 
-    /** Play scenes this Run has been attached to: the first, and one more for every floor since. */
+    /** Times hook row 5 has notified this Run: acts of the hero that began unready. */
+    public long hookNotifications() {
+        return gate.notifications();
+    }
+
+    /** Play scenes this Run has been attached to: the first, one more for every floor since, and one for every rebuild. */
     public int attachments() {
         return attachments;
     }
