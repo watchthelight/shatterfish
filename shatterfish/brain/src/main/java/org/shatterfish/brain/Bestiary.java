@@ -14,12 +14,10 @@ import java.util.Map;
  *
  * <p>An enemy the bestiary has no entry for (a Knowledge the caller built without one) answers false
  * to every question here, which is the Brain's behaviour before the bestiary: nothing passive,
- * nothing at range, nothing immobile, nothing it cannot walk away from.
+ * nothing at range, nothing immobile.
  */
 final class Bestiary {
 
-    static final String FAST = "fast";
-    static final String NORMAL = "normal";
     static final String IMMOBILE = "immobile";
     static final String PASSIVE = "passive";
     static final String RANGED = "ranged";
@@ -31,29 +29,29 @@ final class Bestiary {
      * value renamed there cannot leave a comparison here silently false.
      */
     static final Map<String, List<String>> READS = Map.of(
-            "speed", List.of(FAST, NORMAL, IMMOBILE),
+            "speed", List.of(IMMOBILE),
             "ai", List.of(PASSIVE),
             "attack", List.of(RANGED, BOLT));
 
     private Bestiary() {
     }
 
-    /** The entry for the enemy named {@code name} on {@code depth}, or null. */
-    static Codex.Tactics of(Codex.Knowledge knowledge, int depth, String name) {
-        return knowledge.tactics(name, depth);
+    /** The entry for the enemy named {@code name} on {@code depth} of {@code branch}, or null. */
+    static Codex.Tactics of(Codex.Knowledge knowledge, int depth, int branch, String name) {
+        return knowledge.tactics(name, depth, branch);
     }
 
     /**
      * Whether the game creates this enemy passive and keeps it so until provoked, while the screen
      * draws it as an enemy: tagged {@code ai: passive}, created as an enemy, and not immobile. That is
-     * the animated statue (Statue.java:46-47, woken only by damage, :131-136), the armored statue,
-     * which is one, and the gnoll exile, which wanders passive until debuffed (GnollExile.java:49-51,
-     * :137-146). A mimic is tagged passive too, but it is created neutral and drawn as its chest while
+     * the animated statue (Statue.java:46-47, woken by a negative buff, :117-126, or by damage,
+     * :128-136), the armored statue, which is one, and the gnoll exile, which wanders passive until
+     * debuffed (GnollExile.java:49-51, :146-156). A mimic is tagged passive too, but it is created neutral and drawn as its chest while
      * it hides, and once the screen draws it as an enemy it is hunting (docs/rules/visibility.md); the
      * immobile passives (a rot heart, a demon spawner, Yog-Dzewa) are fought where they stand.
      */
-    static boolean passive(Codex.Knowledge knowledge, int depth, String name) {
-        Codex.Tactics tactics = of(knowledge, depth, name);
+    static boolean passive(Codex.Knowledge knowledge, int depth, int branch, String name) {
+        Codex.Tactics tactics = of(knowledge, depth, branch, name);
         return tactics != null && tactics.ai().equals(PASSIVE) && tactics.alignment() == Alignment.ENEMY
                 && !tactics.speed().equals(IMMOBILE);
     }
@@ -63,33 +61,14 @@ final class Bestiary {
      * from where it stands (tagged {@code attack: ranged} or {@code bolt}), or it flies over what the
      * hero cannot cross (tagged {@code flying}).
      */
-    static boolean atRange(Codex.Knowledge knowledge, int depth, String name) {
-        Codex.Tactics tactics = of(knowledge, depth, name);
+    static boolean atRange(Codex.Knowledge knowledge, int depth, int branch, String name) {
+        Codex.Tactics tactics = of(knowledge, depth, branch, name);
         return tactics != null && (tactics.attack().equals(RANGED) || tactics.attack().equals(BOLT) || tactics.flying());
     }
 
     /** Whether this enemy never walks: tagged {@code speed: immobile}. */
-    static boolean immobile(Codex.Knowledge knowledge, int depth, String name) {
-        Codex.Tactics tactics = of(knowledge, depth, name);
+    static boolean immobile(Codex.Knowledge knowledge, int depth, int branch, String name) {
+        Codex.Tactics tactics = of(knowledge, depth, branch, name);
         return tactics != null && tactics.speed().equals(IMMOBILE);
-    }
-
-    /**
-     * Whether the hero cannot walk away from this enemy because it is faster: tagged
-     * {@code speed: fast} and not {@code outrunnable} (the sewer crab, the vampire bat, the ripper
-     * demon; a piranha is fast but bound to its water, so it is outrunnable).
-     */
-    static boolean faster(Codex.Knowledge knowledge, int depth, String name) {
-        Codex.Tactics tactics = of(knowledge, depth, name);
-        return tactics != null && tactics.speed().equals(FAST) && !tactics.outrunnable();
-    }
-
-    /**
-     * Whether the hero cannot gain ground on this enemy because it walks as fast: tagged
-     * {@code speed: normal} and not {@code outrunnable}.
-     */
-    static boolean abreast(Codex.Knowledge knowledge, int depth, String name) {
-        Codex.Tactics tactics = of(knowledge, depth, name);
-        return tactics != null && tactics.speed().equals(NORMAL) && !tactics.outrunnable();
     }
 }

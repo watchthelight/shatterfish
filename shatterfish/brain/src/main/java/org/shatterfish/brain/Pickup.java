@@ -124,7 +124,7 @@ final class Pickup implements Policy {
      */
     static boolean passiveInView(Observation observation, Codex.Knowledge knowledge) {
         return observation.actors().actors().stream().anyMatch(actor -> actor.alignment() == org.shatterfish.api.Alignment.ENEMY
-                && Fight.passive(knowledge, observation.header().depth(), actor));
+                && Fight.passive(knowledge, observation.header(), actor));
     }
 
     /** The cell of the heap this Policy goes for, or -1. */

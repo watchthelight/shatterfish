@@ -144,7 +144,7 @@ final class Eat implements Policy {
             if (enemy.emote() == org.shatterfish.api.Emote.SLEEP) {
                 continue;
             }
-            if (Bestiary.atRange(knowledge, observation.header().depth(), enemy.name())) {
+            if (Bestiary.atRange(knowledge, observation.header().depth(), observation.header().branch(), enemy.name())) {
                 return true;
             }
             if (steps == null) {

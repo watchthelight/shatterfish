@@ -55,7 +55,8 @@ public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path prof
 
     public LaunchOptions {
         if (heroClass == null || out == null || weights == null || codex == null) {
-            throw new IllegalArgumentException("a Run names its hero and where its log goes");
+            throw new IllegalArgumentException("a Run names its hero, where its log goes, and the weights and"
+                    + " Codex a Brain would be built on");
         }
         if (seed < 0 || seed >= DungeonSeed.TOTAL_SEEDS) {
             throw new IllegalArgumentException("a seed is one a player could type: " + seed);

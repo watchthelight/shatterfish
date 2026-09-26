@@ -434,7 +434,8 @@ depths 3 and 4, those not starving dying in fights at strength 11 in tier-1 gear
    below reads it.
    **Done** (branch `brain/bestiary-speed`): `Codex.Tactics`, read by `CodexKnowledge` beside the
    Codex with the mob table's alignment and the rotation's depths (boss floors left out) joined in;
-   `Codex.Knowledge.tactics(name, depth)` takes the class the rotation places on that depth, then
+   `Codex.Knowledge.tactics(name, depth, branch)` takes the class the rotation places on that depth
+   (main branch only), then
    one it places nowhere (a summon, a quest or vault foe), then the first by class name. The hand
    lists went: `Fight.PASSIVE` is `ai: passive` for a walking class created as an enemy (the same
    three names), the IMMOVABLE use is `speed: immobile` (the same names), and `Heal.AT_RANGE` is
@@ -504,7 +505,8 @@ depths 3 and 4, those not starving dying in fights at strength 11 in tier-1 gear
 
 ## From the bestiary's levers 0 and 1
 
-- **The step-away from Goo on its sealed floor never ends.** Goo walks at the hero's pace, so the
+- **The step-away from Goo on its sealed floor never ends.** Goo walks at the hero's pace
+  ([Goo](bestiary/bosses.md#goo), tagged `speed: normal`), so the
   fight Policy's retreat away from it keeps it adjacent and harmless for ever, and the seal refuses
   the stairs; one tuning Run under lever 1's variant B did it for 18,227 waits. A rule for sealed
   floors alone (no stairs, so no retreat that is not a fight) would end it without A's early deaths.
@@ -515,9 +517,12 @@ depths 3 and 4, those not starving dying in fights at strength 11 in tier-1 gear
 - **A crab fight far from the stairs.** Under the fast rule an unfavourable crab fight with the
   stairs far off is fought where it stands and sometimes lost sooner than the walk would have been;
   a thrown stone as it closes (lever 4) or the door ambush (lever 2) is what the tags suggest there.
-- **Key the bestiary by branch as well as depth.** The rotation's depths are the main branch's, so on
-  the Imp's vault (branch 1 of depths 17-19) the vault's own ghoul and elementals resolve to the city's.
-  The header carries the branch.
+- **The bestiary on a branch floor.** The rotation's depths are the main branch's, so on
+  the Imp's vault (branch 1 of depths 16-19, Dungeon.java:356-368) the rotation no longer ranks the city's
+  classes first (the lookup takes the branch), but among the classes placed nowhere the vault's ghoul
+  and golem still lose to the King's by class name. Nothing the Brain reads differs between them today
+  (`BestiaryKnowledgeTest`); a tag that splits them, such as `outrunnable` for the golems, needs a
+  branch-to-class fact before a Brain question reads it.
 - **A Rule for immobile enemies.** The fight Policy has always left enemies that never walk out of the
   chokepoint count, with no row in the Rules index; the bestiary's `immobile` tag and its card
   citations could back a Rule, read at the pin from the IMMOVABLE property's uses in `Char`.

@@ -1,6 +1,8 @@
 package org.shatterfish.rig;
 
+import org.shatterfish.harness.knowledge.CodexKnowledge;
 import org.shatterfish.harness.knowledge.CodexManifest;
+import org.shatterfish.harness.knowledge.ConfigHash;
 import org.shatterfish.api.Decider;
 import org.shatterfish.api.SeedSet;
 import org.shatterfish.harness.agent.RandomAgent;
@@ -286,34 +288,38 @@ public final class Brains {
             throw new IllegalStateException("the Brain " + name + " is configured by its weights too;"
                     + " ask with the weights, or with the root they are committed under");
         }
-        return configHash(name, null);
+        return configHash(name, null, null);
     }
 
-    /** The configuration hash of the Brain named {@code name}, reading its weights under {@code root}. */
+    /**
+     * The configuration hash of the Brain named {@code name}, reading its weights under {@code root}
+     * and, for a Brain built on the Codex, the digest of the Codex and bestiary under it.
+     */
     public static String configHash(Path root, String name) {
-        return configHash(name, readsWeights(name) ? WeightsFile.read(WeightsFile.of(root, name), name) : null);
+        return configHash(name, readsWeights(name) ? WeightsFile.read(WeightsFile.of(root, name), name) : null,
+                readsCodex(name) ? CodexKnowledge.digest(root.resolve(CodexManifest.FOLDER)
+                        .resolve(org.shatterfish.harness.boot.HeadlessBoot.pinnedTag())) : null);
     }
 
     /**
      * The configuration hash of the Brain named {@code name} scoring by {@code weights} (null for a
-     * Brain with none).
+     * Brain with none) and built on the knowledge whose digest is {@code knowledge}
+     * ({@code CodexKnowledge.digest}; null for a Brain that reads no Codex).
      */
-    public static String configHash(String name, org.shatterfish.api.Weights weights) {
+    public static String configHash(String name, org.shatterfish.api.Weights weights, String knowledge) {
         if (SHATTERFISH.equals(named(name))) {
             if (weights == null) {
                 throw new IllegalArgumentException("the Brain " + name + " is configured by its weights");
             }
-            // What the Brain says it is: its Policies in order, the version of the memory it
-            // carries, its weights, and the seed of its stream. A change to any of them is a
-            // different Brain, and a Registration tells two weight sets apart (story 4.5).
-            String configuration = org.shatterfish.brain.Brain.configuration(weights)
-                    + ";seed=" + Long.toHexString(brainSeed(name));
-            try {
-                return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
-                        .digest(configuration.getBytes(StandardCharsets.UTF_8)));
-            } catch (java.security.NoSuchAlgorithmException unavailable) {
-                throw new IllegalStateException("every Java platform has SHA-256", unavailable);
+            if (knowledge == null) {
+                throw new IllegalArgumentException("the Brain " + name + " is configured by the Codex and the"
+                        + " bestiary it is built on; a Run of it states " + RunOne.CODEX);
             }
+            // What the Brain says it is: its Policies in order, the version of the memory it
+            // carries, its weights, the seed of its stream (story 4.5), and the knowledge it was
+            // built on, so that an edited table or an uncommitted bestiary is a different Brain
+            // (the bestiary's lever 0). The Overlay computes it the same way (ConfigHash).
+            return ConfigHash.of(org.shatterfish.brain.Brain.configuration(weights), brainSeed(name), knowledge);
         }
         if (!RANDOM.equals(name) && !WITHHELD.containsKey(name) && !TWIN.equals(name)) {
             // A real Brain states its own configuration. Returning zeros for it would put an

@@ -129,6 +129,30 @@ public final class CodexKnowledge {
                 gear(folder, names, "armours"), immovable(folder), bestiary(folder, tag));
     }
 
+    /** Every file {@link #read} reads in the Codex folder, in the order {@link #digest} takes them. */
+    static final List<String> TABLES = List.of(CodexManifest.FILE, "items.json", "decks.json", "rooms.json",
+            "guarantees.json", "mobs.json", "strings.json", "combat.json", "levels.json", "spawn-rotation.json");
+
+    /**
+     * A SHA-256 digest of everything {@link #read} reads for {@code folder}: each Codex table it reads and
+     * the bestiary beside it, by name, without the whitespace between their tokens (the form it parses).
+     * A table edited by hand, or a bestiary not yet committed, changes it, so a Run log's configuration
+     * hash ({@link ConfigHash}) names the knowledge the Brain was built on and not only the commit.
+     */
+    public static String digest(Path folder) {
+        StringBuilder all = new StringBuilder();
+        for (String file : TABLES) {
+            all.append(file).append('\n').append(table(folder, file)).append('\n');
+        }
+        Path bestiary = bestiaryFile(folder);
+        try {
+            all.append(BESTIARY).append('\n').append(compact(Files.readString(bestiary, StandardCharsets.UTF_8))).append('\n');
+        } catch (IOException e) {
+            throw new UncheckedIOException("the bestiary " + bestiary + " could not be read", e);
+        }
+        return ConfigHash.sha256(all.toString());
+    }
+
     /** The bestiary's file, beside the Codex: {@code codex/<tag>} is two folders below the repository root. */
     public static final String BESTIARY = "tactics/bestiary.json";
 

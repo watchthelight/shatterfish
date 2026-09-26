@@ -122,7 +122,7 @@ public final class Brain {
         java.util.Set<String> names = new java.util.TreeSet<>();
         for (Codex.Tactics tactics : knowledge.bestiary()) {
             int depth = tactics.depths().isEmpty() ? 0 : tactics.depths().get(0);
-            if (Bestiary.passive(knowledge, depth, tactics.name())) {
+            if (Bestiary.passive(knowledge, depth, 0, tactics.name())) {
                 names.add(tactics.name());
             }
         }

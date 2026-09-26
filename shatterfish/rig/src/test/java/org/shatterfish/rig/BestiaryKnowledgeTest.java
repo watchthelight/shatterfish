@@ -89,7 +89,8 @@ class BestiaryKnowledgeTest {
         Codex.Tactics ritual = entry(knowledge, "actors.mobs.Elemental.NewbornFireElemental");
         assertEquals(List.of(ritual.speed(), ritual.flying(), ritual.ai(), ritual.outrunnable()),
                 List.of(newborn.speed(), newborn.flying(), newborn.ai(), newborn.outrunnable()),
-                "the ritual's elemental reads the same to the Brain: it flies, so it is at range either way");
+                "the ritual's elemental reads the same to the Brain: their attacks differ (melee, ranged), but both fly,"
+                        + " so both are at range");
         assertEquals("actors.mobs.Shaman.BlueShaman", knowledge.tactics("gnoll shaman", 12).className(), "first by class");
         assertEquals(null, knowledge.tactics("no such enemy", 3));
     }
@@ -112,6 +113,26 @@ class BestiaryKnowledgeTest {
                 assertEquals(1, read.size(), name.getKey() + " on depth " + depth + " reads differently by class: " + read);
             }
         }
+    }
+
+    @Test
+    @DisplayName("every class of a shared name answers the Brain's questions alike, so the resolution rule decides nothing it reads")
+    void shared_names_read_alike() {
+        Codex.Knowledge knowledge = read();
+        Map<String, Set<String>> answers = new TreeMap<>();
+        for (Codex.Tactics t : knowledge.bestiary()) {
+            // What Bestiary reads: passive (ai, alignment, speed), at range (attack, flying), immobile (speed).
+            boolean passive = t.ai().equals("passive") && t.alignment() == Alignment.ENEMY && !t.speed().equals("immobile");
+            boolean atRange = t.attack().equals("ranged") || t.attack().equals("bolt") || t.flying();
+            boolean immobile = t.speed().equals("immobile");
+            answers.computeIfAbsent(t.name(), k -> new TreeSet<>()).add(passive + "/" + atRange + "/" + immobile);
+        }
+        List<String> differ = answers.entrySet().stream().filter(e -> e.getValue().size() > 1)
+                .map(e -> e.getKey() + " " + e.getValue()).toList();
+        // No known exception at v4.0.0. A tag that splits a shared name (the vault golem is outrunnable
+        // and the King's is not, which no Brain question reads yet) has to be listed here, with the
+        // depth and branch that tell the classes apart, before a Brain question reads it.
+        assertEquals(List.of(), differ, "shared names whose classes answer differently");
     }
 
     @Test
@@ -146,6 +167,30 @@ class BestiaryKnowledgeTest {
         assertEquals(BestiaryTest.VOCABULARY.get("ai"), Set.copyOf(Codex.Tactics.AIS));
         assertEquals(BestiaryTest.VOCABULARY.get("approach"), Set.copyOf(Codex.Tactics.APPROACHES));
         assertEquals(BestiaryTest.VOCABULARY.get("breakContact"), Set.copyOf(Codex.Tactics.BREAK_CONTACT));
+    }
+
+    @Test
+    @DisplayName("the knowledge digest covers the Codex tables and the bestiary: a changed byte of either changes it")
+    void the_digest_covers_what_is_read(@org.junit.jupiter.api.io.TempDir Path copy) throws java.io.IOException {
+        String digest = CodexKnowledge.digest(FOLDER);
+        assertEquals(digest, CodexKnowledge.digest(FOLDER), "the same files, the same digest");
+        Path codex = java.nio.file.Files.createDirectories(copy.resolve("codex").resolve(TAG));
+        for (java.io.File table : FOLDER.toFile().listFiles()) {
+            java.nio.file.Files.copy(table.toPath(), codex.resolve(table.getName()));
+        }
+        Path tactics = java.nio.file.Files.createDirectories(copy.resolve("tactics"));
+        java.nio.file.Files.copy(SeedSetsTest.ROOT.resolve("tactics/bestiary.json"), tactics.resolve("bestiary.json"));
+        assertEquals(digest, CodexKnowledge.digest(codex), "a copy digests alike");
+        String bestiary = java.nio.file.Files.readString(tactics.resolve("bestiary.json"));
+        java.nio.file.Files.writeString(tactics.resolve("bestiary.json"),
+                bestiary.replaceFirst("\"outrunnable\":false", "\"outrunnable\":true"));
+        assertTrue(!digest.equals(CodexKnowledge.digest(codex)), "an edited bestiary is other knowledge");
+        java.nio.file.Files.writeString(tactics.resolve("bestiary.json"), bestiary);
+        String mobs = java.nio.file.Files.readString(codex.resolve("mobs.json"));
+        String edited = mobs.replaceFirst("\"ht\":12", "\"ht\":13");
+        assertTrue(!edited.equals(mobs), "the edit applies");
+        java.nio.file.Files.writeString(codex.resolve("mobs.json"), edited);
+        assertTrue(!digest.equals(CodexKnowledge.digest(codex)), "an edited table is other knowledge");
     }
 
     @Test

@@ -188,7 +188,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         int width = observation.map().width();
         for (Memory.Seen seen : memory.monsters()) {
             if (seen.depth() == depth && seen.at() == memory.waits() && memory.at().on(depth, branch)
-                    && seen.cell() < observation.map().tiles().size() && !Bestiary.passive(knowledge, seen.depth(), seen.name())) {
+                    && seen.cell() < observation.map().tiles().size() && !Bestiary.passive(knowledge, seen.depth(), branch, seen.name())) {
                 int hero = observation.hero().cell();
                 int distance = Math.max(Math.abs(hero % width - seen.cell() % width),
                         Math.abs(hero / width - seen.cell() / width));

@@ -1463,35 +1463,39 @@ public final class Codex {
         }
 
         /**
-         * The bestiary's entry for an enemy the screen names {@code name} on {@code depth}, or null
-         * when the bestiary has none. Fourteen display names belong to more than one class at v4.0.0
-         * (the three gnoll shamans; the King of Dwarves' summons and the city's own; the vault's copies;
-         * Yog-Dzewa's summons and the halls' own), and the screen shows only the name, so the entry is
-         * chosen by rule among the classes of that name: first one the spawn rotation places on this
-         * depth (the city golem on 18); then one the rotation places nowhere, a boss's summon, a quest
-         * or vault foe, a trap's or a room's (the King's golem on the boss floor 20, where no rotation
-         * mob spawns; Yog-Dzewa's evil eye on 25); then one the rotation places on other depths; and
-         * among equals the first by class name (the blue shaman of the three, whose tags the Brain reads
-         * are the red and purple ones' too; the wraith before the corpse dust's; the ally newborn
-         * elemental before the ritual's, which the mob table both creates as enemies and whose speed,
-         * flight, state and pursuit tags agree).
+         * The bestiary's entry for an enemy the screen names {@code name} on {@code depth} of
+         * {@code branch}, or null when the bestiary has none. Fourteen display names belong to more
+         * than one class at v4.0.0 (the three gnoll shamans; the King of Dwarves' summons and the
+         * city's own; the vault's copies; Yog-Dzewa's summons and the halls' own), and the screen shows
+         * only the name, so the entry is chosen by rule among the classes of that name: first one the
+         * spawn rotation places on this depth, which it does on the main branch only (the city golem on
+         * 18); then one the rotation places nowhere, a boss's summon, a quest or vault foe, a trap's or
+         * a room's (the King's golem on the boss floor 20, which, like every boss floor, creates no
+         * rotation mob; the vault's golem on branch 1); then one the rotation places on other depths;
+         * and among equals the first by class name. Where the rule cannot tell the classes apart,
+         * which the Brain reads from them is held by the rig's {@code BestiaryKnowledgeTest}.
          */
-        public Tactics tactics(String name, int depth) {
+        public Tactics tactics(String name, int depth, int branch) {
             Tactics best = null;
             for (Tactics entry : bestiary) {
                 if (!entry.name().equals(name)) {
                     continue;
                 }
-                if (best == null || rank(entry, depth) < rank(best, depth)) {
+                if (best == null || rank(entry, depth, branch) < rank(best, depth, branch)) {
                     best = entry;
                 }
             }
             return best;
         }
 
+        /** {@link #tactics(String, int, int)} on the main branch. */
+        public Tactics tactics(String name, int depth) {
+            return tactics(name, depth, 0);
+        }
+
         /** The rule {@link #tactics} chooses by, lower first; the list is sorted by class name, so ties keep the first. */
-        private static int rank(Tactics entry, int depth) {
-            return entry.spawnsOn(depth) ? 0 : entry.depths().isEmpty() ? 1 : 2;
+        private static int rank(Tactics entry, int depth, int branch) {
+            return branch == 0 && entry.spawnsOn(depth) ? 0 : entry.depths().isEmpty() ? 1 : 2;
         }
 
         /** Knowledge with nothing in it but the manifest: a Brain that knows no mechanics. */
@@ -1575,9 +1579,12 @@ public final class Codex {
      *
      * <p>Beside the tags it carries two Codex facts the caller joins in, so that a Brain can tell apart
      * the classes that share a display name ({@link Knowledge#tactics}): the alignment the class is
-     * created with ({@code mobs.json}), and the depths the spawn rotation places it on, without the
-     * boss floors, which create no rotation mobs ({@code spawn-rotation.json}, {@code levels.json});
-     * empty for a boss, a summon, a quest or trap foe, or a special-room guardian.
+     * created with ({@code mobs.json}), and the depths the main branch's spawn rotation places it on
+     * ({@code spawn-rotation.json}, MobSpawner.java:62-65, :71-212), without the boss floors, which
+     * create no rotation mobs (SewerBossLevel.java:132-138, PrisonBossLevel.java:597-604,
+     * CavesBossLevel.java:207-219, CityBossLevel.java:263-269, HallsBossLevel.java:199-205, each
+     * with an empty {@code createMobs} and no respawner); empty for a boss, a summon, a quest or trap foe,
+     * or a special-room guardian.
      */
     public record Tactics(String className, String name, Alignment alignment, List<Integer> depths, String speed,
                           String attack, int reach, boolean flying, boolean amphibious, List<String> immune,

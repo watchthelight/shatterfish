@@ -82,11 +82,12 @@ final class Fight implements Policy {
      * Whether {@code actor} is an enemy the game keeps passive until provoked ({@link Bestiary#passive}:
      * the animated and armored statues and the gnoll exile) and still looks untouched: its health bar
      * full, no buff drawn on it and no alert over it. A statue a trap or a gas has hurt is hunting
-     * (Statue.java:128-136), and a debuffed exile turns (GnollExile.java:137-146); what the screen shows
+     * (Statue.java:128-136), and so is a debuffed one (:117-126), and a debuffed exile turns
+     * (GnollExile.java:146-156); what the screen shows
      * of either is the bar, the buff icons and the alert, so any of them ends the truce.
      */
-    static boolean passive(Codex.Knowledge knowledge, int depth, ActorView actor) {
-        return Bestiary.passive(knowledge, depth, actor.name()) && actor.healthPips() == ObservationCodec.MAX_HEALTH_PIPS
+    static boolean passive(Codex.Knowledge knowledge, org.shatterfish.api.HeaderSection header, ActorView actor) {
+        return Bestiary.passive(knowledge, header.depth(), header.branch(), actor.name()) && actor.healthPips() == ObservationCodec.MAX_HEALTH_PIPS
                 && actor.buffs().isEmpty() && actor.emote() != org.shatterfish.api.Emote.ALERT;
     }
 
@@ -156,7 +157,7 @@ final class Fight implements Policy {
         MapSection map = observation.map();
         for (Memory.Seen seen : memory.monsters()) {
             if (seen.depth() == observation.header().depth() && seen.at() < memory.waits()
-                    && memory.waits() - seen.at() <= RECALL_WAITS && !Bestiary.passive(knowledge, seen.depth(), seen.name())
+                    && memory.waits() - seen.at() <= RECALL_WAITS && !Bestiary.passive(knowledge, seen.depth(), observation.header().branch(), seen.name())
                     && seen.cell() < map.tiles().size() && map.fog().get(seen.cell()) != Fog.VISIBLE) {
                 threats.add(new ActorView(seen.cell(), seen.name(), Alignment.ENEMY, ObservationCodec.MAX_HEALTH_PIPS,
                         false, org.shatterfish.api.Emote.NONE, List.of()));
@@ -249,7 +250,9 @@ final class Fight implements Policy {
             return ranked;
         }
         int depth = observation.header().depth();
-        List<ActorView> mobile = enemies.stream().filter(enemy -> !Bestiary.immobile(knowledge, depth, enemy.name())).toList();
+        int branch = observation.header().branch();
+        List<ActorView> mobile = enemies.stream()
+                .filter(enemy -> !Bestiary.immobile(knowledge, depth, branch, enemy.name())).toList();
         int here = engage(map, hero);
         boolean held = memory.holds() >= HOLDS;
         // Closing: the enemies stand nearer the hero's cell than they stood a wait ago (Memory.before
@@ -297,9 +300,8 @@ final class Fight implements Policy {
     /** The enemies the screen shows, less those the game keeps passive until provoked. */
     static List<ActorView> enemies(Observation observation, Codex.Knowledge knowledge) {
         List<ActorView> enemies = new ArrayList<>();
-        int depth = observation.header().depth();
         for (ActorView actor : observation.actors().actors()) {
-            if (actor.alignment() == Alignment.ENEMY && !passive(knowledge, depth, actor)) {
+            if (actor.alignment() == Alignment.ENEMY && !passive(knowledge, observation.header(), actor)) {
                 enemies.add(actor);
             }
         }

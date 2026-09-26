@@ -8,6 +8,7 @@ import org.shatterfish.brain.BrainDecider;
 import org.shatterfish.harness.agent.RandomAgent;
 import org.shatterfish.harness.boot.HeadlessBoot;
 import org.shatterfish.harness.knowledge.CodexKnowledge;
+import org.shatterfish.harness.knowledge.ConfigHash;
 import org.shatterfish.harness.log.Json;
 import org.shatterfish.harness.rng.DeciderSeeds;
 
@@ -54,6 +55,19 @@ final class OverlayAgents {
     /** The name the Run log's header gives the agent. */
     static String name(LaunchOptions options) {
         return options.human() ? "human" : options.agent().equals("brain") ? "shatterfish" : "random";
+    }
+
+    /**
+     * The configuration hash the Run log's header gives the agent: for the Brain, the Rig's
+     * ({@code ConfigHash}: its configuration, its seed, and the digest of the Codex and bestiary it
+     * was built on); for the random agent and a human's Run, none, as the Rig gives the random agent.
+     */
+    static String configHash(LaunchOptions options) {
+        if (!options.agent().equals("brain") || options.human()) {
+            return "0".repeat(64);
+        }
+        return ConfigHash.of(Brain.configuration(weights(options.weights())), BRAIN_SEED,
+                CodexKnowledge.digest(options.codex()));
     }
 
     /**

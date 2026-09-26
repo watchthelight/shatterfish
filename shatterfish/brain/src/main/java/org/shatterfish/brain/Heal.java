@@ -201,7 +201,7 @@ final class Heal implements Policy {
         List<Integer> worst = new ArrayList<>();
         for (ActorView enemy : awake) {
             int reach = steps[enemy.cell()];
-            if (!Bestiary.atRange(knowledge, observation.header().depth(), enemy.name()) && (reach < 0 || reach > turns + 1)) {
+            if (!Bestiary.atRange(knowledge, observation.header().depth(), observation.header().branch(), enemy.name()) && (reach < 0 || reach > turns + 1)) {
                 continue;
             }
             Codex.Threat threat = Fight.threat(observation, knowledge, enemy);

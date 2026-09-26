@@ -143,7 +143,7 @@ final class Explore implements Policy {
         }
         for (ActorView actor : observation.actors().actors()) {
             // An enemy the game keeps passive until provoked is scenery (story 4.7, Fight.passive).
-            if (actor.alignment() == Alignment.ENEMY && !Fight.passive(knowledge, observation.header().depth(), actor)) {
+            if (actor.alignment() == Alignment.ENEMY && !Fight.passive(knowledge, observation.header(), actor)) {
                 return false;
             }
         }

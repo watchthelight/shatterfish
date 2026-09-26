@@ -109,6 +109,21 @@ class OverlayAgentsTest {
     }
 
     @Test
+    @DisplayName("the log header names the Brain's configuration and the knowledge it was built on; the others state none")
+    void the_config_hash() {
+        LaunchOptions brain = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior",
+                "--agent", "brain", "--weights", WEIGHTS.toString(), "--codex", CODEX.toString()});
+        String hash = OverlayAgents.configHash(brain);
+        assertEquals(org.shatterfish.harness.knowledge.ConfigHash.of(org.shatterfish.brain.Brain.configuration(
+                OverlayAgents.weights(WEIGHTS)), OverlayAgents.BRAIN_SEED, CodexKnowledge.digest(CODEX)), hash,
+                "the Rig's formula, on the same weights, seed and knowledge");
+        assertNotEquals("0".repeat(64), hash);
+        assertEquals(hash, ShatterfishLauncher.logging(brain, "test").brain().configHash(), "and the header carries it");
+        LaunchOptions random = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior"});
+        assertEquals("0".repeat(64), OverlayAgents.configHash(random));
+    }
+
+    @Test
     @DisplayName("the Codex is looked for under the repository root by default, where :overlay:launch runs")
     void the_default_codex() {
         LaunchOptions options = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior"});

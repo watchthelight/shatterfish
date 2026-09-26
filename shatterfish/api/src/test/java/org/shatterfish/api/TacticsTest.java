@@ -71,5 +71,8 @@ class TacticsTest {
         assertEquals(vault, knowledge.tactics("golem", 20),
                 "placed nowhere before placed elsewhere, and of two placed nowhere the first by class name");
         assertNull(knowledge.tactics("Golem", 18), "names match exactly");
+        assertEquals(vault, knowledge.tactics("golem", 18, 1),
+                "the rotation places the city golem on the main branch only, so on branch 1 it is placed elsewhere");
+        assertEquals(city, knowledge.tactics("golem", 18, 0));
     }
 }
