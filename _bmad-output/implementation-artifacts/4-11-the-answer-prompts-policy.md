@@ -287,6 +287,30 @@ Docs: ADR-0011 (the `detail` member), the ui shop Rule, `docs/brain-rules.md` ro
   fallback.
 - **Brain Rules index:** this story's rows are renumbered 59–64, after main's 58.
 
+### Verification of 242586a11
+
+The codec, the STALLED counter, the chained upgrade, the hash chain and information parity are
+clean. The smoke direction check on main is identical to main: 25 of 25 Runs take the same Actions,
+since story 4.10's fallback already keeps these windows from opening on smoke. Two findings, both
+fixed.
+
+**F1: reproducibility (non-negotiable 5).** `BRAIN_ERROR` and `STALLED` Runs were logged
+`verifiable: false`, so no Replay ever checked them or their `detail`. Both are now logged verifiable.
+- A stall reproduces as it stands: the loop counts before it asks for a decision.
+- For a Brain error, Replay's follower runs out of recorded waits where the original Brain threw, and
+  now throws `Decider.CannotDecide` with the logged message. The loop then writes the same `end`
+  record, byte for byte.
+- `ReplayNewEndingsTest` covers both, and each Replay verifies with an identical chain:
+  - a stall from the Warrior's broken seal, detached and affixed forever, neither of which takes a
+    turn;
+  - a Brain error after three searches.
+- `BrainErrorTest` now expects the Brain error's `end` record to be verifiable.
+- The stale comment in `RunLoop.ending` and ADR-0011's section are updated.
+
+**F2: docs.** The harness's test-only edge to `brain` is now in ADR-0003 (an amendment, following
+story 2.1's codex precedent), in the harness row of `docs/architecture.md`, and in the edge comment
+of `shatterfish/settings.gradle`.
+
 ## Dev Notes
 
 **Tests (one gradle job at a time):**

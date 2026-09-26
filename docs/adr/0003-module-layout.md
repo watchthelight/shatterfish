@@ -73,3 +73,11 @@ as canonical JSON (AD-13, corrected in the readiness review), and the harness is
 test classpath only, for the leak test's live Run and the seed-free test's Profiles; the
 generator's own classes may not depend on it (ADR-0017). `shatterfish/settings.gradle`'s edge
 comment says the same.
+
+## Amendment: story 4.11 (2026-09-25)
+
+The edge `harness -> core, api` above gains `brain` on the harness **test** classpath only, for the
+tests that play the real Brain through the Run loop from states only a harness test can plant in
+the game (`BrainAtTheWindowsTest`). The brain depends on `api` alone, so the edge makes no cycle,
+and the harness's main classes still cannot see it. `shatterfish/settings.gradle`'s edge comment
+says the same.

@@ -56,7 +56,7 @@ class BrainErrorTest {
         RunLog.End end = RunLogReader.of(file).end();
         assertEquals("BRAIN_ERROR", end.outcome().cause());
         assertTrue(end.detail().startsWith("at wait ") && end.detail().contains("no rule for this Prompt"), end.detail());
-        assertFalse(end.verifiable());
+        assertTrue(end.verifiable(), "a Brain error replays (story 4.11)");
     }
 
     @Test

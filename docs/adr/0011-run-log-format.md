@@ -175,6 +175,12 @@ the Brain met nor what looped, and the log is where the Rig reads endings from, 
 carries an optional `detail`: the wait and the Brain's own message, or the count and the last
 Action. It is chained like every other member of the record.
 
+Both endings are logged verifiable, and a Replay checks them like any other. A stall reproduces
+because the loop counts waits without a turn before it asks for a decision, so the same Actions stall
+at the same wait. A Brain error reproduces because the follower, out of recorded waits where the
+original Brain threw, throws the same message from the log, and the loop writes the same `end`
+record byte for byte.
+
 It is written only when it is not empty, and only these two causes fill it, so every Run that ends
 by death, a win or the cap writes exactly the `end` record it wrote before, byte for byte. A reader
 of a log that has none reads an empty `detail`. The log schema version stays 2: the version names
