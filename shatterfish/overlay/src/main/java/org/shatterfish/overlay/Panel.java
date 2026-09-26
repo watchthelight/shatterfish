@@ -5,6 +5,7 @@ import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
 import com.watabou.noosa.NinePatch;
 import com.watabou.noosa.ui.Component;
+import org.shatterfish.api.Observation;
 import org.shatterfish.api.RunLog;
 
 /**
@@ -64,14 +65,14 @@ final class Panel extends Component {
      * collapsed Panel too, so it is set every frame regardless of {@link #place}'s form; the Goal line
      * and the Decision card are laid out only when full, since the strip alone is drawn otherwise.
      */
-    void content(ModeState mode, RunLog.Decision decision) {
+    void content(ModeState mode, RunLog.Decision decision, Observation observation) {
         stripText.text(ModeStripContent.text(mode));
         stripText.hardlight(ModeStripContent.color(mode.mode()));
         boolean full = placed != null && placed.form() == PanelLayout.Form.FULL;
         boolean nextStep = mode.speed() == ModeState.SpeedMode.NEXT_STEP;
         float inner = innerWidth();
         goal.content(full ? decision : null, inner);
-        card.content(full ? decision : null, nextStep, inner);
+        card.content(full ? decision : null, full ? observation : null, nextStep, inner);
         layout();
     }
 

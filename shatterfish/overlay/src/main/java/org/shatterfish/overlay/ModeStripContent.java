@@ -18,6 +18,13 @@ final class ModeStripContent {
     static final int PAUSED_COLOR = 0xFFD34D;
     static final int HUMAN_COLOR = 0x7FB8FF;
 
+    /**
+     * What {@link ModeState.SpeedMode#NORMAL} shows instead of an interval, since it never had one: an
+     * em dash reads as "no value here" (UX-DR14, a state in words), where a number -- even a placeholder
+     * {@code 0.0s} -- reads as a measurement nobody made. Story 5.7 replaces this with the real interval.
+     */
+    static final String NO_INTERVAL_YET = "—";
+
     private ModeStripContent() {
     }
 
@@ -48,6 +55,7 @@ final class ModeStripContent {
         if (!speed.showsInterval) {
             return speed.word;
         }
-        return speed.word + " " + Columns.seconds(state.intervalSeconds());
+        String interval = speed == ModeState.SpeedMode.NORMAL ? NO_INTERVAL_YET : Columns.seconds(state.intervalSeconds());
+        return speed.word + " " + interval;
     }
 }

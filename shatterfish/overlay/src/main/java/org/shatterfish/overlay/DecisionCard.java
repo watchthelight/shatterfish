@@ -4,6 +4,7 @@ import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RedButton;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
 import com.watabou.noosa.ui.Component;
+import org.shatterfish.api.Observation;
 import org.shatterfish.api.RunLog;
 
 import java.util.ArrayList;
@@ -19,6 +20,16 @@ import java.util.List;
  * <p>Content ({@link DecisionCardContent}) is kept apart from drawing on purpose: the content tests
  * hold what the card says against a constructed Decision without booting the game, and this class only
  * turns that into rows of the game's own text renderer.
+ *
+ * <p><b>Real columns, not a padded string (the review after the first launch).</b> The pixel font is
+ * not monospace, so a single {@code RenderedTextBlock} per row with the score space-padded inside its
+ * text does not actually line up on screen (UX-DR5, {@code DESIGN.md}: "alignment is by column
+ * position, never by padding with characters"). Each of the chosen row and the alternatives' rows is
+ * three {@code RenderedTextBlock}s -- the Action's words, its score, its reason -- and
+ * {@link #refresh()} measures every action and score block's real width (after its text is set) to
+ * find the widest of each, which fixes the score column's right edge and the reason column's left edge
+ * for every row alike; {@link #layout()} then right-aligns each score block to that edge
+ * ({@code x = columnRight − block.width()}) and left-aligns every reason block to the other.
  */
 final class DecisionCard extends Component {
 
@@ -29,30 +40,46 @@ final class DecisionCard extends Component {
     static final int ALTERNATIVE_COLOR = 0x7FB8FF;
     static final int INK_MUTED = 0x9C9C9C;
     static final float ROW_GAP = 2;
+    /** Between the action column and the score column, and between the score column and the reason column. */
+    static final float COLUMN_GAP = 4;
     static final float BUTTON_HEIGHT = 11;
     static final float BUTTON_WIDTH = 48;
 
+    /** The chosen Action's row, plus up to three alternatives ({@link RunLog.Decision#ALTERNATIVES}). */
+    static final int TABLE_ROWS = 1 + RunLog.Decision.ALTERNATIVES;
+
     private RenderedTextBlock empty;
     private RenderedTextBlock headline;
-    private RenderedTextBlock chosen;
-    private RenderedTextBlock[] alternatives;
+    private RenderedTextBlock[] actionBlocks;
+    private RenderedTextBlock[] scoreBlocks;
+    private RenderedTextBlock[] reasonBlocks;
     private RenderedTextBlock policyLine;
     private RenderedTextBlock flagsLine;
     private RedButton explainButton;
 
     private RunLog.Decision decision;
+    private Observation observation;
     private boolean nextStep;
     private boolean explain;
     private float innerWidth = 1;
+    /** Table rows shown by the last {@link #refresh()}: the chosen row, plus 0 to 3 alternatives'. */
+    private int rows;
+    /** The score column's right edge and the reason column's left edge, from this component's own x. */
+    private float scoreColumnRight;
+    private float reasonColumnX;
 
     @Override
     protected void createChildren() {
-        empty = row(INK_MUTED);
-        headline = row(INK_MUTED);
-        chosen = row(CHOSEN_COLOR);
-        alternatives = new RenderedTextBlock[RunLog.Decision.ALTERNATIVES];
-        for (int i = 0; i < alternatives.length; i++) {
-            alternatives[i] = row(ALTERNATIVE_COLOR);
+        empty = row(BODY_SIZE, INK_MUTED);
+        headline = row(BODY_SIZE, INK_MUTED);
+        actionBlocks = new RenderedTextBlock[TABLE_ROWS];
+        scoreBlocks = new RenderedTextBlock[TABLE_ROWS];
+        reasonBlocks = new RenderedTextBlock[TABLE_ROWS];
+        for (int i = 0; i < TABLE_ROWS; i++) {
+            int color = i == 0 ? CHOSEN_COLOR : ALTERNATIVE_COLOR;
+            actionBlocks[i] = row(BODY_SIZE, color);
+            scoreBlocks[i] = row(BODY_SIZE, color);
+            reasonBlocks[i] = row(BODY_SIZE, INK_MUTED);
         }
         policyLine = row(SMALL_SIZE, INK_MUTED);
         flagsLine = row(SMALL_SIZE, INK_MUTED);
@@ -65,10 +92,6 @@ final class DecisionCard extends Component {
         add(explainButton);
     }
 
-    private RenderedTextBlock row(int color) {
-        return row(BODY_SIZE, color);
-    }
-
     private RenderedTextBlock row(int size, int color) {
         RenderedTextBlock block = PixelScene.renderTextBlock(size);
         block.hardlight(color);
@@ -77,11 +100,13 @@ final class DecisionCard extends Component {
     }
 
     /**
-     * Sets the Decision this card shows, whether the Mode strip's speed mode is Next Step (the headline
-     * shows what the next press will execute), and the width to wrap at.
+     * Sets the Decision this card shows, the Observation it was made on (for {@code ActionText}; may
+     * be null), whether the Mode strip's speed mode is Next Step (the headline shows what the next
+     * press will execute), and the width to wrap at.
      */
-    void content(RunLog.Decision decision, boolean nextStep, float innerWidth) {
+    void content(RunLog.Decision decision, Observation observation, boolean nextStep, float innerWidth) {
         this.decision = decision;
+        this.observation = observation;
         this.nextStep = nextStep;
         this.innerWidth = Math.max(1, innerWidth);
         refresh();
@@ -109,13 +134,39 @@ final class DecisionCard extends Component {
         headline.visible = content.present() && content.headline() != null;
         headline.text(headline.visible ? content.headline() : "", width);
 
-        chosen.visible = content.present();
-        chosen.text(content.present() ? content.chosen().line() : "", width);
+        List<DecisionCardContent.Row> tableRows = new ArrayList<>();
+        if (content.present()) {
+            tableRows.add(content.chosen());
+            tableRows.addAll(content.alternatives());
+        }
+        rows = tableRows.size();
 
-        for (int i = 0; i < alternatives.length; i++) {
-            boolean shown = content.present() && i < content.alternatives().size();
-            alternatives[i].visible = shown;
-            alternatives[i].text(shown ? content.alternatives().get(i).line() : "", width);
+        // Each action and score block measured at its natural (unwrapped) width, so the widest of
+        // each fixes one shared column for every row -- the property the review's test holds.
+        float maxActionWidth = 0;
+        float maxScoreWidth = 0;
+        for (int i = 0; i < TABLE_ROWS; i++) {
+            boolean shown = i < rows;
+            actionBlocks[i].visible = shown;
+            scoreBlocks[i].visible = shown;
+            reasonBlocks[i].visible = shown;
+            if (shown) {
+                DecisionCardContent.Row tableRow = tableRows.get(i);
+                actionBlocks[i].text(ActionText.of(tableRow.action(), observation));
+                scoreBlocks[i].text(tableRow.score());
+                maxActionWidth = Math.max(maxActionWidth, actionBlocks[i].width());
+                maxScoreWidth = Math.max(maxScoreWidth, scoreBlocks[i].width());
+            } else {
+                actionBlocks[i].text("");
+                scoreBlocks[i].text("");
+                reasonBlocks[i].text("");
+            }
+        }
+        scoreColumnRight = maxActionWidth + COLUMN_GAP + maxScoreWidth;
+        reasonColumnX = scoreColumnRight + COLUMN_GAP;
+        int reasonWidth = (int) Math.max(1, innerWidth - reasonColumnX);
+        for (int i = 0; i < rows; i++) {
+            reasonBlocks[i].text(tableRows.get(i).reason(), reasonWidth);
         }
 
         boolean explaining = content.present() && content.explain() != null;
@@ -127,37 +178,28 @@ final class DecisionCard extends Component {
         explainButton.visible = content.present();
     }
 
-    /** The rows shown now, top to bottom, in the order {@link #layout} stacks them. */
-    private List<RenderedTextBlock> rows() {
-        List<RenderedTextBlock> rows = new ArrayList<>();
-        if (empty.visible) {
-            rows.add(empty);
-            return rows;
-        }
-        if (headline.visible) {
-            rows.add(headline);
-        }
-        rows.add(chosen);
-        for (RenderedTextBlock alternative : alternatives) {
-            if (alternative.visible) {
-                rows.add(alternative);
-            }
-        }
-        if (policyLine.visible) {
-            rows.add(policyLine);
-        }
-        if (flagsLine.visible) {
-            rows.add(flagsLine);
-        }
-        return rows;
+    /** The taller of the three blocks in table row {@code i}. */
+    private float tableRowHeight(int i) {
+        return Math.max(actionBlocks[i].height(), Math.max(scoreBlocks[i].height(), reasonBlocks[i].height()));
     }
 
-    /** The height {@link #content} needs at the width it was given, including the Explain button when shown. */
+    /** The height {@link #content} needs at the width it was given, before this is positioned. */
     float contentHeight() {
-        List<RenderedTextBlock> rows = rows();
+        if (empty.visible) {
+            return empty.height();
+        }
         float height = 0;
-        for (RenderedTextBlock row : rows) {
-            height += row.height() + ROW_GAP;
+        if (headline.visible) {
+            height += headline.height() + ROW_GAP;
+        }
+        for (int i = 0; i < rows; i++) {
+            height += tableRowHeight(i) + ROW_GAP;
+        }
+        if (policyLine.visible) {
+            height += policyLine.height() + ROW_GAP;
+        }
+        if (flagsLine.visible) {
+            height += flagsLine.height() + ROW_GAP;
         }
         if (explainButton.visible) {
             height += BUTTON_HEIGHT + ROW_GAP;
@@ -167,13 +209,38 @@ final class DecisionCard extends Component {
 
     @Override
     protected void layout() {
-        if (alternatives == null) {
+        if (empty == null) {
+            return;
+        }
+        if (empty.visible) {
+            empty.setPos(x, y);
+            PixelScene.align(empty);
             return;
         }
         float rowY = y;
-        for (RenderedTextBlock row : rows()) {
-            row.setPos(x, rowY);
-            rowY += row.height() + ROW_GAP;
+        if (headline.visible) {
+            headline.setPos(x, rowY);
+            PixelScene.align(headline);
+            rowY += headline.height() + ROW_GAP;
+        }
+        for (int i = 0; i < rows; i++) {
+            actionBlocks[i].setPos(x, rowY);
+            PixelScene.align(actionBlocks[i]);
+            scoreBlocks[i].setPos(x + scoreColumnRight - scoreBlocks[i].width(), rowY);
+            PixelScene.align(scoreBlocks[i]);
+            reasonBlocks[i].setPos(x + reasonColumnX, rowY);
+            PixelScene.align(reasonBlocks[i]);
+            rowY += tableRowHeight(i) + ROW_GAP;
+        }
+        if (policyLine.visible) {
+            policyLine.setPos(x, rowY);
+            PixelScene.align(policyLine);
+            rowY += policyLine.height() + ROW_GAP;
+        }
+        if (flagsLine.visible) {
+            flagsLine.setPos(x, rowY);
+            PixelScene.align(flagsLine);
+            rowY += flagsLine.height() + ROW_GAP;
         }
         if (explainButton.visible) {
             explainButton.setRect(x, rowY, Math.min(BUTTON_WIDTH, width), BUTTON_HEIGHT);
@@ -190,14 +257,19 @@ final class DecisionCard extends Component {
         return headline;
     }
 
-    /** The chosen Action's row, for tests. */
-    RenderedTextBlock chosenRow() {
-        return chosen;
+    /** The table rows' Action blocks: index 0 the chosen Action, 1 to 3 the alternatives, for tests. */
+    RenderedTextBlock[] actionBlocks() {
+        return actionBlocks;
     }
 
-    /** The alternatives' rows (up to {@link RunLog.Decision#ALTERNATIVES}), for tests. */
-    RenderedTextBlock[] alternativeRows() {
-        return alternatives;
+    /** The table rows' score blocks, same indexing as {@link #actionBlocks()}, for tests. */
+    RenderedTextBlock[] scoreBlocks() {
+        return scoreBlocks;
+    }
+
+    /** The table rows' reason blocks, same indexing as {@link #actionBlocks()}, for tests. */
+    RenderedTextBlock[] reasonBlocks() {
+        return reasonBlocks;
     }
 
     /** The Explain expansion's Policy row, for tests. */

@@ -8,9 +8,11 @@ import org.shatterfish.harness.agent.EmbeddedRun;
  *
  * <p>Pause (story 5.5), takeover (5.8) and the speed controls (5.6, 5.7) are not built yet, so nothing
  * today changes this Run's {@link Mode} or paces it: {@link #of} always reads {@link Mode#RUNNING} at
- * the placeholder {@link SpeedMode#NORMAL}, whose interval is {@link #PLACEHOLDER_INTERVAL} -- a
- * stand-in this class documents rather than hides, since {@code SpeedMode.HUMAN_PLAY}'s real interval
- * is story 5.7's. The turn, the floor and whether the Brain is thinking are real, read from the Run's
+ * the placeholder {@link SpeedMode#NORMAL}. Its {@link #PLACEHOLDER_INTERVAL} is never shown as a
+ * number -- {@code ModeStripContent} reads an em dash for it instead, so a placeholder cannot be
+ * mistaken for a measurement (the review that found "normal 0.0s" reading as one) -- and stays only
+ * as the field every {@link SpeedMode} carries, since {@code SpeedMode.HUMAN_PLAY}'s real interval is
+ * story 5.7's. The turn, the floor and whether the Brain is thinking are real, read from the Run's
  * last served wait and its live state ({@link EmbeddedRun.Snapshot}).
  */
 final class ModeState {

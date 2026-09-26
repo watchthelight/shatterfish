@@ -1,5 +1,6 @@
 package org.shatterfish.overlay;
 
+import org.shatterfish.api.Action;
 import org.shatterfish.api.RunLog;
 
 import java.util.List;
@@ -15,6 +16,12 @@ import java.util.List;
  * construction, {@code DecisionShapeTest}), so there is no truncated form to expand from, and Explain
  * repeats them unchanged (a design choice recorded in the story file: showing a second, longer reason
  * would be inventing text no Brain said).
+ *
+ * <p>A {@link Row} carries the {@link Action} itself, not a rendered label: {@code DecisionCard} turns
+ * it into words through {@code ActionText} (the review that found {@code Action.toString()} on
+ * screen, "Step[cell=659]"), which needs the Observation the Decision was made on for a Step's
+ * direction, an Attack's target and an AnswerPrompt's option text. This class stays free of that --
+ * it is the Decision's shape, not its rendering.
  */
 final class DecisionCardContent {
 
@@ -27,11 +34,8 @@ final class DecisionCardContent {
     /** The label before a flag list with nothing in it (UX-DR14: absence is a word, not a blank space). */
     static final String NO_FLAGS = "none";
 
-    /** One row: the Action, its score, and its reason, already composed as one line. */
-    record Row(String action, String score, String reason, String line) {
-        Row(String action, String score, String reason) {
-            this(action, score, reason, reason.isEmpty() ? action + "  " + score : action + "  " + score + "  " + reason);
-        }
+    /** One row: the Action, its exact-decimal score, and its reason. */
+    record Row(Action action, String score, String reason) {
     }
 
     /** The Policy and the Safety flags the Explain expansion adds (null unless {@code explain} was asked for). */
@@ -68,6 +72,6 @@ final class DecisionCardContent {
     }
 
     private static Row row(RunLog.Choice choice) {
-        return new Row(choice.action().toString(), Columns.score(choice.score()), choice.why());
+        return new Row(choice.action(), Columns.score(choice.score()), choice.why());
     }
 }

@@ -78,6 +78,7 @@ class EmbeddedSnapshotTest {
             assertNull(snapshot.decision());
             assertEquals(0, snapshot.turn());
             assertEquals(0, snapshot.floor());
+            assertNull(snapshot.observation());
             assertEquals(EmbeddedRun.State.PLAYING, snapshot.state());
         }
     }
@@ -96,6 +97,9 @@ class EmbeddedSnapshotTest {
             assertEquals(1, snapshot.floor());
             assertEquals(RunLoop.turns(), snapshot.turn(), "the turn the wait was confirmed at");
             assertEquals(EmbeddedRun.State.PLAYING, snapshot.state());
+            // The Observation the Decision was made on, for the Panel's ActionText (story 5.3's
+            // review): its own header names the same floor the snapshot does.
+            assertEquals(1, snapshot.observation().header().depth());
 
             // A second wait, after the Brain's Search has spent a turn: the snapshot's turn moves with
             // the Run's own, rather than staying at whatever the first wait happened to read.

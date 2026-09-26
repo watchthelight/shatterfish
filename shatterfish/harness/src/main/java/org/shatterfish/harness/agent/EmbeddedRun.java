@@ -116,12 +116,16 @@ public final class EmbeddedRun implements AutoCloseable {
 
     /**
      * What {@link #snapshot()} publishes to the render thread (story 5.3, FR-38): the last served
-     * wait's Decision, turn and floor, and the Run's live state -- {@link State#THINKING} exactly
-     * when a decision is pending, so the Panel's {@code THINKING} marker is real rather than guessed.
-     * {@code decision} is null before the first wait is served, or when the Brain is not a
-     * {@link Deliberator}.
+     * wait's Decision, turn and floor, the Observation the Decision was made on, and the Run's live
+     * state -- {@link State#THINKING} exactly when a decision is pending, so the Panel's
+     * {@code THINKING} marker is real rather than guessed. {@code decision} and {@code observation}
+     * are null before the first wait is served; {@code decision} is also null when the Brain is not a
+     * {@link Deliberator}, though {@code observation} is not, since it comes from the wait itself.
+     * {@code observation} carries nothing the Decision could not already see (ADR-0014): it is handed
+     * out so the Panel can turn an Action into words (a Step's compass direction, an Attack's target,
+     * an AnswerPrompt's option text) without the Brain seeing anything new.
      */
-    public record Snapshot(RunLog.Decision decision, int turn, int floor, State state) {
+    public record Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state) {
     }
 
     private record Decided(Action action, long thinkMs) {
@@ -179,10 +183,11 @@ public final class EmbeddedRun implements AutoCloseable {
     private int still;
     /** The turn a wait was confirmed at, carried from {@link #frame()} to {@link #serve()} (story 5.3). */
     private int pendingTurn;
-    /** The last served wait's Decision, turn and floor, for {@link #snapshot()} (story 5.3). */
+    /** The last served wait's Decision, turn, floor and Observation, for {@link #snapshot()} (story 5.3). */
     private RunLog.Decision lastDecision;
     private int lastDecisionTurn;
     private int lastDecisionFloor;
+    private Observation lastDecisionObservation;
     private Future<Decided> pending;
     private long pendingWait;
     private Observation pendingObservation;
@@ -487,6 +492,7 @@ public final class EmbeddedRun implements AutoCloseable {
         lastDecision = brain instanceof Deliberator deliberator ? deliberator.lastDecision() : null;
         lastDecisionTurn = pendingTurn;
         lastDecisionFloor = observation.header().depth();
+        lastDecisionObservation = observation;
         if (result instanceof Outcome.Rejected rejected) {
             refused++;
             refusalsInARow++;
@@ -631,7 +637,7 @@ public final class EmbeddedRun implements AutoCloseable {
      */
     public Snapshot snapshot() {
         UiRole.require("EmbeddedRun.snapshot()");
-        return new Snapshot(lastDecision, lastDecisionTurn, lastDecisionFloor, state());
+        return new Snapshot(lastDecision, lastDecisionTurn, lastDecisionFloor, lastDecisionObservation, state());
     }
 
     /** The index of the last wait confirmed; 0 before the first. It survives every floor. */

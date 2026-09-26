@@ -4,33 +4,35 @@ import java.math.BigDecimal;
 import java.util.Locale;
 
 /**
- * Right-aligned, fixed-width number columns (story 5.3, UX-DR5, {@code DESIGN.md} Typography): "scores,
- * probabilities, and turn and Floor counters are right-aligned in fixed-width columns so that the eye
- * can compare them without reading; the pixel font is not monospace, so alignment is by column
- * position, never by padding with characters." Padding with spaces is what this class does anyway,
- * because the Mode strip and the Decision card render each row as one line of text today (a
- * simplification recorded in {@code docs/ideas.md}); a fixed character width still gives every number
- * the same column start, which is the property the tests hold.
+ * Number formatting for the Mode strip and the Decision card (story 5.3, UX-DR5, {@code DESIGN.md}
+ * Typography): exact decimals, never a float, and no character ever stands for a digit that is not
+ * there.
+ *
+ * <p>UX-DR5's "right-aligned in fixed-width columns... by column position, never by padding with
+ * characters" is two different things depending on whether there is more than one row to compare: the
+ * Mode strip is a single line, so {@link #rightAlign} padding it to a fixed character width is the
+ * column (there is nothing else to misalign against); the Decision card stacks several rows, so its
+ * score column is real pixel positioning ({@code DecisionCard}, from each row's measured
+ * {@code RenderedTextBlock} width), and {@link #score} here returns the exact decimal with no padding
+ * of its own, since a pixel column does not need one and adding one would only leave a stray blank
+ * glyph inside the block that column is measured from.
  */
 final class Columns {
-
-    /**
-     * A {@link org.shatterfish.api.RunLog.Choice}'s score, a ten-thousandths {@code long} (the
-     * {@code RunLog} javadoc), rendered as the exact decimal it is -- {@code BigDecimal.valueOf(v, 4)},
-     * the same no-float technique {@code StrategyLog.choice} uses -- and right-aligned to
-     * {@link #SCORE_WIDTH}.
-     */
-    static final int SCORE_WIDTH = 8;
 
     private Columns() {
     }
 
-    /** {@code tenThousandths} as an exact decimal fraction of one, right-aligned to {@link #SCORE_WIDTH}. */
+    /**
+     * A {@link org.shatterfish.api.RunLog.Choice}'s score, a ten-thousandths {@code long} (the
+     * {@code RunLog} javadoc), rendered as the exact decimal it is -- {@code BigDecimal.valueOf(v, 4)},
+     * the same no-float technique {@code StrategyLog.choice} uses. Not padded: {@code DecisionCard}
+     * right-aligns the column by position, not by character.
+     */
     static String score(long tenThousandths) {
-        return rightAlign(BigDecimal.valueOf(tenThousandths, 4).toPlainString(), SCORE_WIDTH);
+        return BigDecimal.valueOf(tenThousandths, 4).toPlainString();
     }
 
-    /** {@code n}, right-aligned to {@code width}. */
+    /** {@code n}, right-aligned to {@code width}: the Mode strip's turn and floor, one line, no rows to compare. */
     static String number(long n, int width) {
         return rightAlign(Long.toString(n), width);
     }

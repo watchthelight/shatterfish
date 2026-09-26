@@ -66,7 +66,9 @@ class ModeStripContentTest {
                 ModeStripContent.text(state(ModeState.Mode.RUNNING, ModeState.SpeedMode.HUMAN_PLAY, 1.0, 1, 1, false)));
         assertEquals(line("RUNNING", "Human 2.5s", 1, 1, false),
                 ModeStripContent.text(state(ModeState.Mode.RUNNING, ModeState.SpeedMode.HUMAN_PLAY, 2.5, 1, 1, false)));
-        assertEquals(line("RUNNING", "normal 0.0s", 1, 1, false),
+        // The placeholder speed shows an em dash, not a number: 0.0s would read as a measurement
+        // nobody made (the review that found "normal 0.0s" on screen).
+        assertEquals(line("RUNNING", "normal " + ModeStripContent.NO_INTERVAL_YET, 1, 1, false),
                 ModeStripContent.text(state(ModeState.Mode.RUNNING, ModeState.SpeedMode.NORMAL,
                         ModeState.PLACEHOLDER_INTERVAL, 1, 1, false)));
     }
@@ -109,7 +111,7 @@ class ModeStripContentTest {
         assertEquals(0, none.floor());
         assertFalse(none.thinking());
 
-        EmbeddedRun.Snapshot snapshot = new EmbeddedRun.Snapshot(null, 42, 3, EmbeddedRun.State.THINKING);
+        EmbeddedRun.Snapshot snapshot = new EmbeddedRun.Snapshot(null, 42, 3, null, EmbeddedRun.State.THINKING);
         ModeState mode = ModeState.of(snapshot);
         assertEquals(ModeState.Mode.RUNNING, mode.mode());
         assertEquals(ModeState.SpeedMode.NORMAL, mode.speed());
@@ -117,7 +119,7 @@ class ModeStripContentTest {
         assertEquals(3, mode.floor());
         assertTrue(mode.thinking());
 
-        EmbeddedRun.Snapshot playing = new EmbeddedRun.Snapshot(null, 42, 3, EmbeddedRun.State.PLAYING);
+        EmbeddedRun.Snapshot playing = new EmbeddedRun.Snapshot(null, 42, 3, null, EmbeddedRun.State.PLAYING);
         assertFalse(ModeState.of(playing).thinking());
     }
 }

@@ -37,11 +37,15 @@ whether the Brain is `THINKING` are real.
    execute.
    Tests: `DecisionCardContentTest` (chosen and alternatives against a constructed Decision; the Next
    Step headline; no Decision yet is a stated word, not a blank card), `PanelContentTest` (the rows on
-   a real card).
+   a real card), `ActionTextTest` (the Action read as words a person can read, added in the review
+   round below after `Action.toString()` reached the screen).
 3. **Numbers are right-aligned in fixed-width columns (UX-DR5).**
-   Tests: `ModeStripContentTest.turn_and_floor_are_fixed_width_columns`,
-   `DecisionCardContentTest.scores_are_fixed_width_columns` (`Columns`, exact `BigDecimal` decimals,
-   never a float).
+   Tests: `ModeStripContentTest.turn_and_floor_are_fixed_width_columns` (the Mode strip's one line);
+   `DecisionCardContentTest.scores_are_exact_decimals` (`Columns`, exact `BigDecimal` decimals, never a
+   float); `PanelContentTest.scores_and_reasons_are_real_pixel_columns` (the Decision card's rows,
+   real pixel positions measured with the game's font, not a padded string -- corrected in the review
+   round below, which the first pass's citation here named as string padding until it was found wrong
+   on screen).
 4. **Every state is stated in words (UX-DR14).**
    Tests: `ModeStripContentTest.every_mode_is_a_word` (colour is never the only signal),
    `DecisionCardContentTest.no_decision_yet` and `.no_flags_says_so` (absence is a word too).
@@ -120,18 +124,97 @@ is a plain method, called by the button and callable directly, so `PanelContentT
 button is a known, written-down limitation (`docs/ideas.md`), not a silent one, and no acceptance
 criterion of this story promises a click during a live Run.
 
-### One `RenderedTextBlock` per row, not one per column
+### Real columns for the Decision card's rows (revised in review; see "Review round" below)
 
-- **A. A separate `RenderedTextBlock` per field (action, score, reason), each positioned at a fixed x, on
-  every row.** Rejected for this story: `DESIGN.md` prefers it ("alignment is by column position, never
-  by padding with characters"), but building it for the Mode strip's line and every Decision-card row
-  today, only to redo it again for story 5.4's Belief rows and Decision log, is machinery ahead of the
-  content it would carry.
-- **B. Space-pad the numeric field to a fixed character width inside one string (`Columns`).** Chosen.
-  It gives every number the same column *start* character, which is what `ModeStripContentTest` and
-  `DecisionCardContentTest` hold (UX-DR5's testable property), at the cost of true pixel alignment,
-  since the pixel font is not monospace. Recorded as a simplification in `docs/ideas.md` ("Per-column
-  text, not a padded string") for story 5.4 to fix once, for every row kind at once.
+The first pass chose a padded string over a separate `RenderedTextBlock` per field, on the reasoning
+that pixel columns for one story's rows would be redone for story 5.4's Belief rows and Decision log
+regardless. The review (`s53-1600x900.png`) found that reasoning did not survive contact with the
+screen: the pixel font is proportional, so a score space-padded inside the same text block as the
+action name does not actually land in one column -- `1.0000` and `0.1111` started at different x
+positions from row to row, which is UX-DR5's own acceptance criterion for this story, not a
+simplification to defer. Re-brainstormed with the same three options:
+
+- **A. A separate `RenderedTextBlock` per field (action, score, reason), each row's column x computed
+  from the widest cell in that column, measured with the game's font.** Chosen this round. Three
+  `RenderedTextBlock`s per table row (`DecisionCard.actionBlocks`, `.scoreBlocks`, `.reasonBlocks`);
+  `refresh()` sets each block's text (natural, unwrapped width for the action and the score, so the
+  measurement is real), then takes the widest action block and the widest score block across the rows
+  shown to fix the score column's right edge (`maxActionWidth + COLUMN_GAP + maxScoreWidth`) and the
+  reason column's left edge (that plus another `COLUMN_GAP`); `layout()` right-aligns each score block
+  to that edge (`x = columnRight − block.width()`) and left-aligns every action and reason block.
+  `PanelContentTest.scores_and_reasons_are_real_pixel_columns` measures the drawn positions, not
+  strings: every row's score block ends at one right edge and every reason block starts at one left x,
+  against rows deliberately built to differ in every measured width (a long action name with a short
+  score, a short action name with a long score, and an empty reason), so the test cannot pass by
+  coincidence of equal-length text.
+- **B. Space-pad the numeric field to a fixed character width inside one string (`Columns`, the first
+  pass's choice).** Reverted: it gives every number the same column *start character*, which
+  `ModeStripContentTest` and the old `DecisionCardContentTest.scores_are_fixed_width_columns` held, but
+  a character position is not a pixel position in a proportional font, which is exactly what the
+  screenshot showed wrong. `Columns.score` keeps the exact-decimal formatting (`BigDecimal.valueOf(v,
+  4)`, UX-DR5's "no floats") and drops the padding, since a pixel column needs none of its own.
+- **C. Wait for story 5.4 and fix every row kind (Decision card, Belief rows, Decision log) in one
+  pass.** Rejected: the reviewer named this an AC failure of *this* story, not a deferral; UX-DR5 is
+  this story's own acceptance criterion, and shipping it wrong now to fix it later is not what "done"
+  means. Story 5.4's Belief rows and Decision log still get their own columns in their own story --
+  this only builds `DecisionCard`'s.
+
+The Mode strip's turn and floor stay a padded string (`Columns.number`, unchanged): it is one line, so
+there is no second row to misalign against, which is the property UX-DR5 is protecting.
+
+Pre-mortem: *A row with no reason (`Action.Wait`'s empty one) still needs to occupy the reason column
+so the next row's reason lines up under it, not so its own empty text lines up under nothing.* The
+reason block is positioned at the column for every visible row regardless of whether its text is
+empty; `PanelContentTest`'s uneven-rows case includes exactly this row and holds the column position,
+not the text, for it.
+
+### A human-readable Action label (added in review)
+
+The review also found `Action.toString()` on screen (`"Step[cell=659]"`, `"Search[]"`): fine for
+`StrategyLog`, wrong for a person reading the card (UX-DR13).
+
+- **A. Add a `describe()`/`toString()`-like method to `Action` itself, in `api`.** Rejected: `api` is
+  shared by `brain`, the harness and the Overlay, and `StrategyLog`'s plain-text log wants the exact
+  machine form it already has; a second, prettier `toString()` on the same sealed type serves one
+  reader (the Overlay) by changing what every reader sees.
+- **B. Teach `DecisionCardContent` to format the label, since it already builds the card's rows.**
+  Rejected: labelling a Step's direction, an Attack's target and an AnswerPrompt's option text needs
+  the Observation the Decision was made on, which is exactly what `DecisionCardContent`'s own doc
+  disclaims ("the Decision's shape, not its rendering"); folding it in would mean every content test
+  needs an Observation to hold a Row at all.
+- **C. A new class, `ActionText`, an exhaustive switch over every kind `Action`'s sealed interface
+  permits (the same discipline `brain`'s `Highlights` holds itself to), taking the Action and the
+  Observation the Decision was made on.** Chosen. `EmbeddedRun.Snapshot` gains an `observation` field
+  (the same Observation `serve()` already reads, carried out unchanged -- ADR-0014: it names nothing
+  the Decision could not already see); null before the first wait and whenever a caller has none.
+  `ActionText.of` covers all 21 kinds with no default, so a kind added to `Action` does not compile
+  here until someone has said what it reads as; a null Observation falls back to a plainer label (the
+  raw cell, "attack" alone, the option's index) rather than throwing. `ActionTextTest` holds the
+  exhaustive fallback list, the eight compass points from a real hero cell and map width, an Attack
+  naming a real actor found at the target cell (and falling back when none is there), and an
+  AnswerPrompt reading a real Prompt's button label (and falling back to the index outside it).
+
+Pre-mortem: *`UseItemOn`'s label names the wrong item.* `UseItemOn`'s `item` is what pressed the
+button (the scroll, say); its `target` is what the bag then chose (the weapon it upgrades). The label
+names the target (`"upgrade wand of magic missile"`), since the action word already says what the
+item itself does, and naming the item again would read as `"upgrade scroll of upgrade"`. Covered by
+`ActionTextTest.every_kind_without_an_observation` and killed by mutant N10 below when reverted.
+
+### The placeholder speed shows an em dash, not a number (fixed in review)
+
+- **A. Leave `SpeedMode.NORMAL`'s interval at the placeholder `0.0` and format it like any other
+  (the first pass's choice: `"normal 0.0s"`).** Reverted: the reviewer read `0.0s` as a measurement
+  nobody made, not as "nothing to show" -- a number always looks like data, however placeholder its
+  source.
+- **B. Hide the interval field entirely for `NORMAL` (just `"normal"`).** Rejected: it collapses
+  `NORMAL` into the same shape as `NEXT_STEP` and `FAST` (which truly never have an interval), erasing
+  the distinction that `NORMAL` is a placeholder for a speed mode that *will* have one (5.7's Human
+  play speed does), not a speed mode that never will.
+- **C. Show the word with an em dash where the number would go (`"normal —"`).** Chosen.
+  `ModeStripContent.NO_INTERVAL_YET` is the one place this is decided; `SpeedMode.NORMAL` still
+  reports `showsInterval = true` (there is a slot for one), and `ModeStripContent.speed` substitutes
+  the em dash only for `NORMAL`, so `HUMAN_PLAY`'s interval (constructed directly in tests today, and
+  real from story 5.7) still formats as a number.
 
 ## Tasks
 
@@ -149,6 +232,8 @@ criterion of this story promises a click during a live Run.
 - [x] A real launch with `--agent brain` and a screenshot.
 - [x] Docs: `docs/architecture.md`, ADR-0013's story 5.3 amendment, `docs/ideas.md`.
 - [x] Mutation battery.
+- [x] *Review round:* real per-column pixel positioning in `DecisionCard`, an `ActionText` label for
+  every `Action` kind, and the em dash for the placeholder speed's interval (below).
 
 ## Review
 
@@ -217,18 +302,103 @@ each planted, run against the tests above, killed, and reverted.
 | M12: `PanelDock.frame` never calls `Panel.content` | `PanelContentTest` (all four) |
 | M13: `EmbeddedRun.frame()` drops `pendingTurn = turn` | `EmbeddedSnapshotTest.a_served_wait` |
 
-### Real launch
+### Real launch (first pass)
 
 `:overlay:launch --agent brain --seed 2000 --class WARRIOR --turn-cap 300 --exit-when-over --window
-1600x900 --screenshot <path>` (see the handoff for the screenshot's absolute path). The window and
-interface size match story 5.2's FULL case, so the Panel shows the Mode strip's line (`RUNNING  normal
-0.0s  turn <n>  floor <n>`), the Goal line and the Decision card with the Brain's chosen Action and its
-alternatives, scores right-aligned.
+1600x900 --screenshot s53-1600x900.png`. The window and interface size match story 5.2's FULL case, so
+the Panel showed the Mode strip's line, the Goal line and the Decision card with the Brain's chosen
+Action and its alternatives -- this launch is what the review round below found wrong (`Action.toString()`
+on screen, `"normal 0.0s"`, scores not actually landing in one column), so its screenshot is superseded
+by the review round's.
 
 ### Deferred
 
-To `docs/ideas.md`: real per-column text (one `RenderedTextBlock` per field, not a padded string) for
-story 5.4 to build once for every row kind; the real Mode, speed mode and their intervals (stories 5.5
-to 5.7); Explain's click while a Run plays (whichever story gives PAUSED a real one); the Decision
-card's height arbitrating room with the sections story 5.4 adds below it; the Goal line's two-line cap,
-unenforced since no Brain goal today is long enough to need it.
+To `docs/ideas.md`, after the review round's fixes below: the real Mode, speed mode and their
+intervals (stories 5.5 to 5.7); Explain's click while a Run plays (whichever story gives PAUSED a real
+one); the Decision card's height arbitrating room with the sections story 5.4 adds below it; the Goal
+line's two-line cap, unenforced since no Brain goal today is long enough to need it.
+
+## Review round (real pixel columns, a human-readable Action label, and the placeholder's em dash)
+
+The reviewer read `s53-1600x900.png` and found three things to fix before this story is done, the
+first an acceptance-criterion failure rather than a polish item:
+
+1. **UX-DR5 was not met on screen.** One padded `RenderedTextBlock` per row does not align in a
+   proportional font; scores and reasons started at different x positions row to row. Fixed by
+   building real columns in `DecisionCard` (see "Design notes" above, the revised "Real columns"
+   section) and holding the drawn positions, not strings, with
+   `PanelContentTest.scores_and_reasons_are_real_pixel_columns`.
+2. **`Action.toString()` was on screen** (`"Step[cell=659]"`, `"Search[]"`), unreadable to a person.
+   Fixed with a new `ActionText` class, an exhaustive switch over every kind covering the whole of
+   `Action`'s sealed interface, using the Observation the Decision was made on (now carried by
+   `EmbeddedRun.Snapshot`) for a Step's compass direction, an Attack's target name and an
+   AnswerPrompt's option text. Held by `ActionTextTest`.
+3. **`"normal 0.0s"` read as a real measurement.** Fixed: the placeholder speed mode shows an em dash
+   where the interval would go (`ModeStripContent.NO_INTERVAL_YET`), so a placeholder cannot be
+   mistaken for data; `HUMAN_PLAY`'s (constructed, and real from 5.7) interval still formats as a
+   number. Held by `ModeStripContentTest.speed_mode_and_interval`.
+
+### What changed
+
+- `Columns.score` no longer pads (real columns replace it); `Columns.rightAlign`/`.number` are
+  unchanged and still carry the Mode strip's single-line turn and floor.
+- `DecisionCardContent.Row` carries the `Action` itself, not a string: content stays "the Decision's
+  shape," and `DecisionCard` (or a test) decides how to show it.
+- New `org.shatterfish.overlay.ActionText`: `of(Action, Observation)`, covering all 21 kinds.
+- `EmbeddedRun.Snapshot` gains `observation` (the Observation the Decision was made on, or null);
+  `serve()` stores it alongside the Decision, turn and floor it already stored.
+- `DecisionCard` rebuilt around `actionBlocks`/`scoreBlocks`/`reasonBlocks` (one `RenderedTextBlock`
+  triad per table row): `refresh()` measures each block's natural width and fixes the shared score and
+  reason column edges; `layout()` positions every row against those edges. `Panel.content` and
+  `PanelDock` thread the Observation through alongside the Decision.
+- `ModeStripContent.NO_INTERVAL_YET` (an em dash), substituted for `SpeedMode.NORMAL`'s interval only.
+
+### Tests
+
+`:overlay:test` in full: 20 classes, all passing (`ActionTextTest` new, 4 tests;
+`ModeStripContentTest`, `DecisionCardContentTest` and `PanelContentTest` updated for the Action-object
+`Row`, the em dash, and the new column test). `:harness:test`'s `EmbeddedSnapshotTest` (updated for
+`observation()`) and the other touched classes all still passing.
+
+| Test | Holds |
+|---|---|
+| `ActionTextTest` | every one of the 21 `Action` kinds reads as a word with no Observation to add detail (the exhaustive fallback list); a Step or MoveTo reads the real compass direction from a real hero cell and map width, all eight points, including the degenerate "here"; an Attack names a real actor found at the target cell and falls back to "attack" when there is none; an AnswerPrompt reads a real Prompt's button label and falls back to the index outside it |
+| `DecisionCardContentTest` (updated) | `Row.action()` is the `Action` object itself, not a string; everything else as before |
+| `PanelContentTest` (updated) | the card's rows read through `ActionText` on a real Panel (`"attack"`, `"step 12"` -- this snapshot carries no Observation, so `ActionTextTest` is where the compass direction and the named target are held); `scores_and_reasons_are_real_pixel_columns`: three rows built to differ in every measured width (a long action name with a short score, a short action name with a long score, an empty reason) still share one score-column right edge and one reason-column left edge, each computed independently of `DecisionCard`'s own private fields (the card's public `left()`, its public `COLUMN_GAP`, and each block's own measured `width()`) |
+| `ModeStripContentTest` (updated) | the placeholder speed shows `"normal —"`, never a number |
+| `EmbeddedSnapshotTest` (updated) | a served wait's snapshot carries the Observation the Decision was made on (its header names the same floor); no Decision yet carries no Observation either |
+
+### Mutation battery
+
+A control run of `:overlay:test` and the touched `:harness:test` classes passed first; then 11 more
+mutants (24 in total with the first pass's 13), each planted, run, killed, and reverted.
+
+| Mutant | Killed by |
+|---|---|
+| N1: `Columns.score` uses three decimals, not four | `DecisionCardContentTest.scores_are_exact_decimals` |
+| N2: the placeholder speed formats a number again, not the em dash | `ModeStripContentTest.speed_mode_and_interval` |
+| N3: `DecisionCard`'s score column drops its `COLUMN_GAP` | `PanelContentTest.scores_and_reasons_are_real_pixel_columns` |
+| N4: the score block is left-aligned (no width subtracted) | `PanelContentTest.scores_and_reasons_are_real_pixel_columns` |
+| N5: the reason column drops its own `COLUMN_GAP` | `PanelContentTest.scores_and_reasons_are_real_pixel_columns` |
+| N6: the action column is offset by `COLUMN_GAP` from the card's own left edge | `PanelContentTest.scores_and_reasons_are_real_pixel_columns` |
+| N7: `ActionText`'s compass north and south are swapped | `ActionTextTest.step_direction` |
+| N8: `ActionText`'s Attack never looks for a target | `ActionTextTest.attack_names_the_target_when_found` |
+| N9: `ActionText`'s AnswerPrompt drops its bounds check (throws instead of falling back) | `ActionTextTest.answer_prompt_reads_the_option_text` |
+| N10: `ActionText`'s UseItemOn names the item pressed, not the target chosen | `ActionTextTest.every_kind_without_an_observation` |
+| N11: `EmbeddedRun.serve()` never stores the Observation on the snapshot | `EmbeddedSnapshotTest.a_served_wait` |
+
+### Real launch (review round)
+
+Same command, a fresh seed's Run, at `s53-1600x900-review.png`. The Mode strip reads `RUNNING  normal
+—  turn    5  floor 1`; the Goal line reads `explore: floor`; the Decision card shows `step NW  1.0000
+frontier 1`, `step NE`, `step N` and `search`, each `0.1111`, with every score ending at the same
+pixel column regardless of the action words' length, and the Explain button below.
+
+### Deferred (after the review round)
+
+To `docs/ideas.md`: the real Mode, speed mode and their intervals (stories 5.5 to 5.7); Explain's
+click while a Run plays; the Decision card's height arbitrating room with story 5.4's sections; the
+Goal line's two-line cap; `Interact`, `PickUp`, `OpenChest`, `Buy`, `Unlock` and `DismissPrompt`'s
+labels are plain fallback words (`"interact"`, `"open"`, ...) since the epic named only some kinds --
+a later story that wants richer text for these has a single exhaustive switch to extend, not a search
+for one.

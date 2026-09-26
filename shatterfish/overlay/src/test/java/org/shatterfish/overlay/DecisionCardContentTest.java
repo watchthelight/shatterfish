@@ -48,16 +48,19 @@ class DecisionCardContentTest {
         assertNull(content.headline(), "not Next Step mode: no headline");
         assertNull(content.explain(), "Explain not asked for");
 
-        assertEquals("Attack[cell=42]", content.chosen().action());
+        // The Action itself, not a rendered label: DecisionCardContent is the Decision's shape, and
+        // ActionText (ActionTextTest) is what turns an Action into words for the screen.
+        assertEquals(new Action.Attack(42), content.chosen().action());
         assertEquals(Columns.score(7_800), content.chosen().score());
         assertEquals("corridor, full hp", content.chosen().reason());
-        assertEquals("Attack[cell=42]  " + Columns.score(7_800) + "  corridor, full hp", content.chosen().line());
 
         assertEquals(2, content.alternatives().size());
-        assertEquals("Step[cell=12]  " + Columns.score(5_100) + "  corridor", content.alternatives().get(0).line());
-        // The second alternative's reason is empty (Action.Wait's, above): no trailing double space, and
-        // the empty reason is not invented text.
-        assertEquals("Wait[]  " + Columns.score(2_000), content.alternatives().get(1).line());
+        assertEquals(new Action.Step(12), content.alternatives().get(0).action());
+        assertEquals(Columns.score(5_100), content.alternatives().get(0).score());
+        assertEquals("corridor", content.alternatives().get(0).reason());
+        // The second alternative's reason is empty (Action.Wait's, above): an empty reason is not
+        // invented text.
+        assertEquals(new Action.Wait(), content.alternatives().get(1).action());
         assertEquals("", content.alternatives().get(1).reason());
     }
 
@@ -100,16 +103,12 @@ class DecisionCardContentTest {
     }
 
     @Test
-    @DisplayName("scores sit in a fixed-width right-aligned column whatever their magnitude (UX-DR5)")
-    void scores_are_fixed_width_columns() {
-        String small = Columns.score(100);
-        String large = Columns.score(9_999);
-        assertEquals(small.length(), large.length(), "one score column width");
-        assertTrue(small.startsWith(" "), "the smaller score is padded");
-        assertEquals("0.0100", small.trim());
-        assertEquals("0.9999", large.trim());
-        // Exact decimals, not floats rounded on the way: a one-in-six score is not "0.17" but the
-        // precise ten-thousandth the Brain recorded (DecisionShapeTest.three_alternatives: 1_667).
-        assertEquals("0.1667", Columns.score(1_667).trim());
+    @DisplayName("a score is its exact decimal, never a float rounded on the way (UX-DR5); the pixel column is DecisionCard's, held by PanelContentTest")
+    void scores_are_exact_decimals() {
+        assertEquals("0.0100", Columns.score(100));
+        assertEquals("0.9999", Columns.score(9_999));
+        // A one-in-six score is not "0.17" but the precise ten-thousandth the Brain recorded
+        // (DecisionShapeTest.three_alternatives: 1_667).
+        assertEquals("0.1667", Columns.score(1_667));
     }
 }

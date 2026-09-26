@@ -389,8 +389,12 @@ own Decision without adding a thread or a lock.
 already run on the render thread (the UI-role thread, story 5.1); `serve()` now also stores the last
 served wait's Decision (from `Deliberator.lastDecision()`, read the same way `RunLoop.record` already
 does, after the worker's `Future` is done, which is the happens-before edge over whatever `decide()`
-set on its own thread), its turn and its floor. `EmbeddedRun.snapshot()`, guarded by `UiRole.require`
-like every other port, reads those three fields and the Run's live `state()` -- so `Snapshot.state()`
+set on its own thread), its turn, its floor and the Observation it was decided from -- the same
+Observation the Observer already built and the Brain already saw, carried out unchanged and naming
+nothing new (ADR-0014), so the Panel can turn an Action into words (`ActionText`, added in this
+story's review: a Step's compass direction, an Attack's target, an AnswerPrompt's option text)
+without a second read of the game. `EmbeddedRun.snapshot()`, guarded by `UiRole.require`
+like every other port, reads those fields and the Run's live `state()` -- so `Snapshot.state()`
 can be `THINKING` while `Snapshot.decision()` still shows the *previous* wait's Decision, which is
 exactly the "Panel shows the previous Decision until the new one lands" rule (`EXPERIENCE.md`,
 Thinking indicator). Both the write (inside `serve()`) and the read (`PanelDock.frame`, from

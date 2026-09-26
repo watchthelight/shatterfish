@@ -287,13 +287,22 @@ it re-reads ADR-0006's Blobs row.
 
 ## From story 5.3 (the Mode strip, Goal line and Decision card)
 
-- **Per-column text, not a padded string.** `DESIGN.md` Typography: "alignment is by column position,
-  never by padding with characters," because the pixel font is not monospace. Today's rows (the Mode
-  strip's line, each Decision-card row) are one `RenderedTextBlock` with the numeric field space-padded
-  to a fixed character width (`Columns.rightAlign`), which gives every number the same column *start*
-  but not true pixel alignment, since the font's glyphs are not all one width. Story 5.4's Belief rows
-  and Decision log need real columns too; a shared multi-`RenderedTextBlock` row component, each part
-  positioned at a fixed x, would fix all of them at once rather than one row kind at a time.
+- **Per-column text for story 5.4's rows too.** The review found that a single padded
+  `RenderedTextBlock` per row does not actually align in the pixel font (it is proportional, not
+  monospace), and fixed the Decision card's rows with a `RenderedTextBlock` triad per row (action,
+  score, reason) whose column edges come from each block's own measured width
+  (`DecisionCard.refresh`/`.layout`). Story 5.4's Belief rows and Decision log will want the same
+  treatment; nothing here shares the column-measuring code between row kinds yet, so each is its own
+  small implementation rather than one shared row component.
+- **The Mode strip's turn and floor stay a padded string on purpose.** `Columns.number`, unchanged:
+  the strip is one line, so there is no second row to misalign against, which is the property UX-DR5
+  is protecting; a future story that puts a second line of numbers beside it (unlikely, since the
+  strip is meant to stay one line) would need to revisit this.
+- **Plain fallback labels for some Action kinds.** `ActionText` gives `Interact`, `PickUp`,
+  `OpenChest`, `Buy`, `Unlock` and `DismissPrompt` short, generic words (`"interact"`, `"open"`, ...)
+  since the epic and its review named only Step, Attack, the item-use kinds, Descend/Ascend, Rest,
+  Search, Wait and AnswerPrompt explicitly. A later story wanting a chest's or a shop's own detail
+  (a cell, a stock item) extends the one exhaustive switch rather than searching for where labels live.
 - **Real Mode, speed mode and THINKING.** `ModeState.of` reads a placeholder Mode (always RUNNING) and
   speed mode (`normal`, with a placeholder interval); only the turn, the floor and the live THINKING
   flag are real, from `EmbeddedRun.snapshot()`. Stories 5.5 to 5.7 give PAUSED, HUMAN, Next Step, Run N,

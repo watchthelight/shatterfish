@@ -71,7 +71,8 @@ final class PanelDock {
                     + SPDSettings.interfaceSize() + ", camera offset " + layout.offsetUi() + " UI px)");
         }
         panel.place(layout);
-        panel.content(ModeState.of(snapshot), snapshot == null ? null : snapshot.decision());
+        panel.content(ModeState.of(snapshot), snapshot == null ? null : snapshot.decision(),
+                snapshot == null ? null : snapshot.observation());
         panel.dim(covered(scene));
         Camera world = Camera.main;
         PanelCamera.apply(world, PanelCamera.world(layout.offsetUi(), PixelScene.uiCamera.zoom, world.zoom));
