@@ -2,7 +2,6 @@ package org.shatterfish.harness.agent;
 
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
-import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroAction;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks;
@@ -41,7 +40,7 @@ import java.util.function.Supplier;
  * The person plays with the game's own input. What they did reaches this class from two places:
  * <ul>
  * <li>hook row 11 ({@link Hooks.HeroInput}): the six methods every hero-directed input converges on,
- * {@code Hero.handle} (with the action it chose), {@code Hero.rest}, {@code Hero.search(true)},
+ * {@code Hero.handle} (the cell only, never the action the game chose), {@code Hero.rest}, {@code Hero.search(true)},
  * {@code Hero.upgradeTalent}, {@code Item.execute} and a targeting {@code CellSelector.select};</li>
  * <li>the Overlay's input lock, which sees the raw tap before the game does, for a window's own button
  * ({@link #pointerUp}: the tap is read against {@link ActionExecutor#optionButtons}, the list the executor
@@ -69,8 +68,8 @@ public final class HumanTurns implements Hooks.HeroInput {
     sealed interface Heard permits Clicked, Targeted, Used, Rested, Searched, Upgraded, Answered, Dismissed, Picked {
     }
 
-    /** {@code Hero.handle}: the cell, the kind of action the game chose for it, and where the hero stood. */
-    record Clicked(int cell, String kind, int heroCell) implements Heard {
+    /** {@code Hero.handle}: the cell and where the hero stood (never what the game chose: {@link #click}). */
+    record Clicked(int cell, int heroCell) implements Heard {
     }
 
     /** A targeting selector was handed a cell. */
@@ -114,9 +113,10 @@ public final class HumanTurns implements Hooks.HeroInput {
     private Window openWindow;
     private boolean recorded;
     private final List<Heard> heard = new ArrayList<>();
-    private boolean inputThisFrame;
+    /** Volatile, as is {@link #outside}: a hook heard on a thread that is not the render thread writes them. */
+    private volatile boolean inputThisFrame;
     /** An input heard while no wait was open, written against the next wait opened. */
-    private String outside;
+    private volatile String outside;
     private long unsupportedAt = -1;
     private long unverifiableFrom;
     private String unverifiableWhy = "";
@@ -197,7 +197,7 @@ public final class HumanTurns implements Hooks.HeroInput {
         switch (primary) {
             case Clicked click -> {
                 taken = click(click);
-                what = "a click on cell " + click.cell() + " that the game read as " + click.kind();
+                what = "a click on cell " + click.cell() + " that no offered Action makes";
             }
             case Rested rest -> {
                 taken = rest.full() ? new Action.Rest(true) : new Action.Wait();
@@ -254,7 +254,11 @@ public final class HumanTurns implements Hooks.HeroInput {
                     taken = pick.item() == null ? null : new Action.UseItemOn(use.item(), use.action(), pick.item());
                     what = use.action() + " of " + use.name() + " on " + pick.name();
                 } else {
-                    taken = new Action.UseItem(use.item(), use.action());
+                    // At the full interface an item picker is the inventory pane, not a bag window
+                    // (core/.../scenes/GameScene.java:1673-1675 at the tag), and a choice there is heard
+                    // by nobody: an item use then is not known to have had no target (the fairness review).
+                    taken = com.shatteredpixel.shatteredpixeldungeon.SPDSettings.interfaceSize() == 2 ? null
+                            : new Action.UseItem(use.item(), use.action());
                     what = use.action() + " of " + use.name();
                 }
             }
@@ -268,28 +272,19 @@ public final class HumanTurns implements Hooks.HeroInput {
      * {@code GameScene.handleCell} on one cell, the hero's own for a pick-up and a transition
      * ({@code ActionExecutor.apply}), and {@code Hero.handle} decides what the click does, so any offered
      * Action that clicks this cell reproduces it: a click on an adjacent heap is the executor's
-     * {@code Step} there, which picks the item up as the game's own click does. The game's own choice
-     * picks the kind among them when more than one is offered, so the record reads as the person meant
-     * it; a click no offered Action makes (a distant cell, which the game walks to over several turns)
-     * is the {@code MoveTo} the person made, and unsupported.
+     * {@code Step} there, which picks the item up as the game's own click does. A click no offered
+     * Action makes (a distant cell, which the game walks to over several turns) is the {@code MoveTo}
+     * the person made, and unsupported.
      */
     private Action click(Clicked click) {
         int cell = click.cell();
         boolean here = cell == click.heroCell();
-        Action meant = switch (click.kind()) {
-            case "Move" -> new Action.Step(cell);
-            case "Attack" -> new Action.Attack(cell);
-            case "Interact" -> new Action.Interact(cell);
-            case "PickUp" -> here ? new Action.PickUp() : new Action.Step(cell);
-            case "OpenChest" -> new Action.OpenChest(cell);
-            case "Buy" -> new Action.Buy(cell);
-            case "Unlock" -> new Action.Unlock(cell);
-            case "LvlTransition" -> offered(new Action.Ascend()) ? new Action.Ascend() : new Action.Descend();
-            default -> new Action.MoveTo(cell);
-        };
-        if (offered(meant)) {
-            return meant;
-        }
+        // Chosen from the wait's valid set alone, in a fixed order, never from the action the game chose:
+        // Hero.handle chooses from the true level (a hidden mimic is an Interact, a heap or an exit in
+        // unexplored fog a pick-up or a transition, core/.../actors/hero/Hero.java:1920-2008 at the tag),
+        // and naming its choice in a fair log or on the Panel would show what the screen does not (the
+        // fairness review). Every Action here is the same handleCell call, so the order decides only the
+        // name, and the name is one the Observation already offered.
         for (Action same : here
                 ? List.<Action>of(new Action.PickUp(), new Action.Descend(), new Action.Ascend(), new Action.OpenChest(cell),
                         new Action.Buy(cell))
@@ -327,10 +322,17 @@ public final class HumanTurns implements Hooks.HeroInput {
     /** Whether the screen now is not the screen the open wait was observed as; only asked at a wait. */
     private boolean changed() {
         Hero hero = Dungeon.hero;
-        if (hero == null || !HeadlessDriver.waitState(hero, org.shatterfish.harness.driver.Windows.front())) {
+        if (hero == null || !HeadlessDriver.waitState(hero, org.shatterfish.harness.driver.Windows.front())
+                || !org.shatterfish.harness.scene.SceneStepper.actorThreadParked()) {
+            // Observed only at rest, as a wait is confirmed: never a game the actor thread is still writing.
             return false;
         }
         return !observer.get().hash().equals(observation.hash());
+    }
+
+    /** Marks the whole Run unverifiable before its first wait (a controller connected at the start). */
+    void unsupportedFromTheStart(String why) {
+        unsupported(0, why);
     }
 
     private void unsupported(long at, String input) {
@@ -341,7 +343,7 @@ public final class HumanTurns implements Hooks.HeroInput {
         written.accept(mark, null);
         unsupportedAt = at;
         if (unverifiableFrom == 0) {
-            unverifiableFrom = at;
+            unverifiableFrom = Math.max(1, at);
             unverifiableWhy = input;
         }
     }
@@ -366,10 +368,9 @@ public final class HumanTurns implements Hooks.HeroInput {
 
     @Override
     public void cellHandled(int cell) {
+        // The cell and where the hero stood, and never the action the game chose for it (see click()).
         Hero hero = Dungeon.hero;
-        HeroAction chosen = hero == null ? null : hero.curAction;
-        String kind = chosen == null ? "nothing" : chosen.getClass().getSimpleName();
-        hear(new Clicked(cell, kind, hero == null ? -1 : hero.pos), "a click on cell " + cell);
+        hear(new Clicked(cell, hero == null ? -1 : hero.pos), "a click on cell " + cell);
     }
 
     @Override
@@ -379,7 +380,14 @@ public final class HumanTurns implements Hooks.HeroInput {
 
     @Override
     public void itemUsed(Item item, String action) {
-        hear(new Used(ref(item), action, item.name()), action + " of " + item.name());
+        ItemRef ref = ref(item);
+        if (ref == null && !heard.isEmpty() && heard.get(heard.size() - 1) instanceof Used outer && outer.item() != null) {
+            // An item an item uses inside its own execute, as a staff zaps its imbued wand
+            // (core/.../items/weapon/melee/MagesStaff.java:153), which the pack does not hold: the person's
+            // input is the outer item's, which the executor's own call reproduces with the inner one.
+            return;
+        }
+        hear(new Used(ref, action, item.name()), action + " of " + item.name());
     }
 
     @Override

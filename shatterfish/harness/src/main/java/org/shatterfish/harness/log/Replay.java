@@ -354,11 +354,30 @@ public final class Replay {
      *
      * @throws Diverged when a wait's Observation is not the one recorded
      */
-    public static Waits waitsOf(Path file, Path out, String machine) {
-        Path from = file.toAbsolutePath().normalize();
-        if (from.getParent() != null && from.getParent().equals(out.toAbsolutePath().normalize())) {
-            throw new IllegalArgumentException("a Replay writes beside the log it is checking and not over it");
+    public static Waits waitsOf(Path file, String machine) {
+        // The replay's own log is a scratch file, deleted before this returns: it would say a person's
+        // Actions were the bot's under a headless header, which is a log the Rig would count (the
+        // fairness review). What this returns is the check, and nothing else survives it.
+        Path out;
+        try {
+            out = Files.createTempDirectory("shatterfish-human-check");
+        } catch (IOException e) {
+            throw new UncheckedIOException("no scratch folder for the human log's check", e);
         }
+        try {
+            return waitsOf(file, out, machine);
+        } finally {
+            try (java.util.stream.Stream<Path> files = Files.walk(out)) {
+                for (Path path : files.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(path);
+                }
+            } catch (IOException | RuntimeException leftBehind) {
+                // A scratch folder under the system's temporary directory; the check stands either way.
+            }
+        }
+    }
+
+    private static Waits waitsOf(Path file, Path out, String machine) {
         String text = read(file);
         RunLogVerifier.Verified verified = RunLogVerifier.of(text);
         if (!verified.ok()) {

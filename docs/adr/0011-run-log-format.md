@@ -254,3 +254,12 @@ both additions; the Rig's readers read them through it and refuse the log by its
 A human's log can never reach the chain a Replay writes (its waits say `human`, and it carries
 records a Replay does not write), so `Replay.waitsOf` checks what a human's Run can be checked for:
 every wait's Observation hash, up to the first `unsupported` record.
+
+**What the fairness review of story 5.9 added.** `Replay.waitsOf` writes its replay's log to a scratch
+folder it deletes before it returns: that log would say a person's Actions were the bot's under a
+headless header, which is exactly a log the Rig would count. A shadow's `skipped` depends on when the
+Brain's worker finished relative to the person, so a human's log is not a function of its tuple and its
+Actions in its bytes; that is acceptable only because a human's log is an Overlay log, declared not
+reproducible and refused by the Rig, and it is stated here so nobody leans on a human log's chain as a
+reproduction. An `unsupported` record's text is written from the Observation alone: it names the cell
+and never what the game made of the click, which is read from the true level.

@@ -347,10 +347,20 @@ public final class EmbeddedRun implements AutoCloseable {
                 run.human = new HumanTurns(log, run.oracle, observer,
                         (record, seen) -> run.history.add(record, ActionContext.of(seen)));
                 Hooks.heroInput = run.human;
+                if (host.controllerConnected()) {
+                    // A gamepad writes the game's key queue past the Overlay's input lock (InputLock's own
+                    // javadoc), so what it does is heard by nothing: the Run is not verifiable from its start.
+                    run.human.unsupportedFromTheStart("a game controller is connected, and its input reaches the"
+                            + " game past the Overlay's input lock");
+                }
             }
             run.arm();
             return run;
         } catch (RuntimeException | Error failed) {
+            if (Hooks.heroInput instanceof HumanTurns) {
+                // A HUMAN Run that failed to attach leaves no listener behind for the next Run to be heard by.
+                Hooks.heroInput = null;
+            }
             if (log != null) {
                 log.close();
             }

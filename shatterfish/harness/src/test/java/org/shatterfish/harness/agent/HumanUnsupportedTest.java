@@ -62,7 +62,10 @@ class HumanUnsupportedTest {
             assertTrue(host.untilOpen(200_000), "the walk ended at a wait");
             EmbeddedRun.Human human = run.snapshot().human();
             assertEquals(2, human.unverifiableFrom(), "the Panel is told from which wait");
-            assertTrue(human.unverifiableWhy().contains("cell " + cell), human.unverifiableWhy());
+            // Said from the Observation alone: what the game made of the click is read from the true level
+            // (a hidden mimic, an exit in the fog), so it is never named (the fairness review).
+            assertEquals("a click on cell " + cell + " that no offered Action makes, which the executor does not"
+                    + " offer at this wait", human.unverifiableWhy());
             // Waits until the cap, so the Run writes its ending.
             while (host.untilOpen(200_000)) {
                 ScriptedHuman.pressWait();
@@ -77,7 +80,7 @@ class HumanUnsupportedTest {
                 .map(r -> ((RunLog.Unsupported) r).k()).toList(), "one mark, at the click's wait");
         assertFalse(read.end().verifiable(), "the ending says the Run cannot be reproduced");
 
-        Replay.Waits replayed = Replay.waitsOf(log, Files.createDirectories(folder.resolve("replay")), "test");
+        Replay.Waits replayed = Replay.waitsOf(log, "test");
         assertEquals(2, replayed.unverifiableFrom());
         assertEquals(1, replayed.verified(), "the wait before it reproduced");
     }
@@ -101,6 +104,21 @@ class HumanUnsupportedTest {
         assertEquals(List.of(1L), read.records().stream().filter(RunLog.Unsupported.class::isInstance)
                 .map(r -> ((RunLog.Unsupported) r).k()).toList());
         assertEquals(new Action.Wait(), read.waits().get(0).action(), "what the person then did is still recorded");
+    }
+
+    @Test
+    @DisplayName("a game controller connected at the start marks the whole Run: its input passes the lock unheard")
+    void a_controller(@TempDir Path folder) throws IOException {
+        try (EmbeddedHost host = new EmbeddedHost(HumanTurnReplayTest.SEED, HeroClass.WARRIOR, HumanTurnReplayTest.SALT)) {
+            host.controller = true;
+            EmbeddedRun run = host.attachHuman(new BrainDecider(EmbeddedDeterminismTest.brain()),
+                    HumanTurnReplayTest.logging(folder), 2_000);
+            assertEquals(1, run.snapshot().human().unverifiableFrom());
+            assertTrue(run.snapshot().human().unverifiableWhy().contains("controller"));
+        }
+        RunLogReader.Log read = RunLogReader.of(HumanTurnReplayTest.only(folder));
+        assertEquals(List.of(0L), read.records().stream().filter(RunLog.Unsupported.class::isInstance)
+                .map(r -> ((RunLog.Unsupported) r).k()).toList());
     }
 
     @Test

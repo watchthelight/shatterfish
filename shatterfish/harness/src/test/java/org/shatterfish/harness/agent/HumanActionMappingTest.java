@@ -189,6 +189,36 @@ class HumanActionMappingTest {
     }
 
     @Test
+    @DisplayName("a tab of a window the person opened, which leaves the window open, is not a Prompt answer either")
+    void a_tab_of_the_persons_own_window(@TempDir Path folder) throws IOException {
+        List<RunLog> records;
+        try (EmbeddedHost host = new EmbeddedHost(HumanTurnReplayTest.SEED, HeroClass.WARRIOR, HumanTurnReplayTest.SALT)) {
+            EmbeddedRun run = host.attachHuman(new BrainDecider(EmbeddedDeterminismTest.brain()),
+                    HumanTurnReplayTest.logging(folder), 2_000);
+            assertTrue(host.untilOpen(20_000));
+            // A journal's tab: a button that changes what the window shows and closes nothing.
+            com.shatteredpixel.shatteredpixeldungeon.ui.Window journal = new com.shatteredpixel.shatteredpixeldungeon.ui.Window();
+            com.shatteredpixel.shatteredpixeldungeon.ui.RedButton tab = new com.shatteredpixel.shatteredpixeldungeon.ui.RedButton("tab");
+            tab.setRect(0, 0, 40, 16);
+            journal.add(tab);
+            journal.resize(40, 16);
+            GameScene.show(journal);
+            Point screen = tab.camera().cameraToScreen(tab.left() + tab.width() / 2, tab.top() + tab.height() / 2);
+            run.pointerUp(screen.x, screen.y);
+            PointerEvent.addPointerEvent(new PointerEvent(screen.x, screen.y, 0, PointerEvent.Type.DOWN, PointerEvent.LEFT));
+            PointerEvent.addPointerEvent(new PointerEvent(screen.x, screen.y, 0, PointerEvent.Type.UP, PointerEvent.LEFT));
+            host.frame();
+            host.frame();
+            journal.hide();
+            host.frame();
+            ScriptedHuman.pressWait();
+            host.untilOpen(20_000);
+            records = RunLogReader.of(HumanTurnReplayTest.only(folder)).records();
+        }
+        assertEquals(new Action.Wait(), first(records).action(), "the tab was nothing the log records");
+    }
+
+    @Test
     @DisplayName("the back key on the message the surface stairs show is DismissPrompt")
     void dismiss_prompt(@TempDir Path folder) throws IOException {
         List<RunLog> records;

@@ -68,4 +68,69 @@ final class ScriptedHuman {
         }
         return null;
     }
+
+    /**
+     * What a person following the Brain's shadow does with their own hands: the input that makes the
+     * shadow's Action, through the calls above; a Decision with nothing to follow is the wait button.
+     */
+    static void follow(EmbeddedRun run, org.shatterfish.api.RunLog.Decision decision, Observation observation) {
+        Action action = decision == null ? new Action.Wait() : decision.chosen().action();
+        int hero = observation.hero().cell();
+        switch (action) {
+            case Action.Step a -> tapCell(a.cell());
+            case Action.Attack a -> tapCell(a.cell());
+            case Action.Interact a -> tapCell(a.cell());
+            case Action.OpenChest a -> tapCell(a.cell());
+            case Action.Buy a -> tapCell(a.cell());
+            case Action.Unlock a -> tapCell(a.cell());
+            case Action.PickUp a -> tapCell(hero);
+            case Action.Descend a -> tapCell(hero);
+            case Action.Ascend a -> tapCell(hero);
+            case Action.Search a -> pressSearch();
+            case Action.Rest a -> {
+                if (a.full()) {
+                    pressRest();
+                } else {
+                    pressWait();
+                }
+            }
+            case Action.UseItem a -> useItem(held(a.item().index()), a.action());
+            case Action.UseItemAt a -> {
+                useItem(held(a.item().index()), a.action());
+                tapCell(a.cell());
+            }
+            case Action.Talent a -> {
+                for (java.util.LinkedHashMap<Talent, Integer> tier : Dungeon.hero.talents) {
+                    for (Talent talent : tier.keySet()) {
+                        if (talent.title().equals(a.talent())) {
+                            upgrade(talent);
+                            return;
+                        }
+                    }
+                }
+            }
+            case Action.AnswerPrompt a -> {
+                com.watabou.noosa.ui.Component button = org.shatterfish.harness.executor.ActionExecutor
+                        .optionButtons(org.shatterfish.harness.driver.Windows.front()).get(a.option());
+                com.watabou.utils.Point screen = button.camera().cameraToScreen(button.left() + button.width() / 2,
+                        button.top() + button.height() / 2);
+                run.pointerUp(screen.x, screen.y);
+                com.watabou.input.PointerEvent.addPointerEvent(new com.watabou.input.PointerEvent(screen.x, screen.y, 0,
+                        com.watabou.input.PointerEvent.Type.DOWN, com.watabou.input.PointerEvent.LEFT));
+                com.watabou.input.PointerEvent.addPointerEvent(new com.watabou.input.PointerEvent(screen.x, screen.y, 0,
+                        com.watabou.input.PointerEvent.Type.UP, com.watabou.input.PointerEvent.LEFT));
+            }
+            default -> pressWait();
+        }
+    }
+
+    private static Item held(int index) {
+        int i = 0;
+        for (Item item : Dungeon.hero.belongings) {
+            if (i++ == index) {
+                return item;
+            }
+        }
+        throw new IllegalStateException("nothing held at " + index);
+    }
 }

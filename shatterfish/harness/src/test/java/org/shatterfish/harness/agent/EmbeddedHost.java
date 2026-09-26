@@ -77,6 +77,14 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
         return false;
     }
 
+    /** Whether the host says a game controller is connected (story 5.9's test of a HUMAN Run with one). */
+    boolean controller;
+
+    @Override
+    public boolean controllerConnected() {
+        return controller;
+    }
+
     @Override
     public int pendingRunnables() {
         return driver.headlessBoot().pendingRunnables() + heldQueue;
