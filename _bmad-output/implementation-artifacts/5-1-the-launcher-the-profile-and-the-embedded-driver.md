@@ -423,3 +423,18 @@ Two should-fixes, both done:
    refused by name. `ShatterfishRunTest` holds that neither seed moved.
 
 The Overlay's closing line also says how many stale answers were not rewound.
+
+### CI on PR #166: the Overlay's dependency on desktop
+
+The full build failed validation: `:overlay:compileJava` read `desktop/build/libs/desktop-4.0.0.jar`,
+which desktop's `jar` task writes and its `release` task (`desktop/build.gradle:32`) also writes, as a
+fat jar with the same name. The Overlay depended on `project(':desktop')`, whose only published
+variant is that jar (desktop has no classes variant), so it consumed an output of `release` without
+depending on it. The Overlay now takes desktop's source-set output (its classes, for
+`DesktopPlatformSupport`, and its processed resources, the game's assets), which Gradle wires to
+desktop's own `classes` and `processResources` tasks. The two libraries that used to arrive through
+desktop (`gdx-freetype`, and `gdx-controllers-desktop` at runtime) are declared on the same version
+properties. No upstream file is edited and nothing is made to depend on `release`.
+Checked with `./gradlew :desktop:release :overlay:compileJava :overlay:test` (it failed before the change
+and passes after), `:overlay:test --rerun`, and a desktop launch (seed 2000, the random agent, a
+100-turn cap) that loaded the game's assets and played to its cap.
