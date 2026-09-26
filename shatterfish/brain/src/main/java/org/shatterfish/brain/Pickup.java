@@ -70,7 +70,7 @@ final class Pickup implements Policy {
 
     @Override
     public boolean enters(Observation observation, Memory memory) {
-        return Explore.calm(observation)
+        return Explore.calm(observation, knowledge)
                 && observation.map().heaps().stream().anyMatch(heap -> takeable(heap, observation, memory));
     }
 
@@ -122,9 +122,9 @@ final class Pickup implements Policy {
      * Whether an enemy the game keeps passive is in view: scenery to {@link Explore#calm}, but one of
      * the hero's visible enemies, so arriving on a heap does not pick it up (Hero.java:1974-1977).
      */
-    static boolean passiveInView(Observation observation) {
-        return observation.actors().actors().stream()
-                .anyMatch(actor -> actor.alignment() == org.shatterfish.api.Alignment.ENEMY && Fight.passive(actor));
+    static boolean passiveInView(Observation observation, Codex.Knowledge knowledge) {
+        return observation.actors().actors().stream().anyMatch(actor -> actor.alignment() == org.shatterfish.api.Alignment.ENEMY
+                && Fight.passive(knowledge, observation.header().depth(), actor));
     }
 
     /** The cell of the heap this Policy goes for, or -1. */
@@ -144,7 +144,7 @@ final class Pickup implements Policy {
                     || distance[heap.cell()] < 0) {
                 continue;
             }
-            int turns = distance[heap.cell()] + 1 + (distance[heap.cell()] > 0 && passiveInView(observation) ? 1 : 0);
+            int turns = distance[heap.cell()] + 1 + (distance[heap.cell()] > 0 && passiveInView(observation, knowledge) ? 1 : 0);
             long net = Math.addExact(worth(heap.item(), observation), evaluation.turns(turns));
             if (net > bestNet) {
                 bestNet = net;

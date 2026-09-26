@@ -165,7 +165,7 @@ final class TestItem implements Policy {
 
     @Override
     public boolean enters(Observation observation, Memory memory) {
-        if (!Explore.calm(observation)) {
+        if (!Explore.calm(observation, knowledge)) {
             return false;
         }
         if (escaping(observation, memory)) {
@@ -186,7 +186,7 @@ final class TestItem implements Policy {
 
     /** The plan on this screen, or null: the same one {@link #choose} takes, which the Brain records. */
     Plan plan(Observation observation, Memory memory, List<Action> offered) {
-        if (!Explore.calm(observation)) {
+        if (!Explore.calm(observation, knowledge)) {
             return null;
         }
         MapSection map = observation.map();

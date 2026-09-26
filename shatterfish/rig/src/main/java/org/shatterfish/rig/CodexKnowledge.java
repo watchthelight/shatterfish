@@ -23,7 +23,8 @@ import java.util.Map;
  * {@code codex/<tag>/}, which the Codex generator reads from the pinned code and which
  * {@code CodexSeedFreeTest} holds free of any seed. The manifest is checked by
  * {@link CodexManifest#read} first, so a Codex of another version or tag is refused before any
- * table is read.
+ * table is read. The bestiary (tactics/bestiary.json) rides along, joined with the mob table and the
+ * spawn rotation (the bestiary's lever 0, docs/ideas.md).
  */
 public final class CodexKnowledge {
 
@@ -125,7 +126,142 @@ public final class CodexKnowledge {
             }
         }
         return new Codex.Knowledge(manifest, families, spawns, drops, threats(folder), gear(folder, names, "weapons"),
-                gear(folder, names, "armours"), immovable(folder));
+                gear(folder, names, "armours"), immovable(folder), bestiary(folder, tag));
+    }
+
+    /** The bestiary's file, beside the Codex: {@code codex/<tag>} is two folders below the repository root. */
+    static final String BESTIARY = "tactics/bestiary.json";
+
+    /** Where the bestiary lies for the Codex in {@code folder} ({@code <root>/codex/<tag>}). */
+    static Path bestiaryFile(Path folder) {
+        Path root = folder.toAbsolutePath().normalize().getParent().getParent();
+        return root.resolve(BESTIARY);
+    }
+
+    /**
+     * The bestiary's tags per enemy class ({@code tactics/bestiary.json}, docs/bestiary/index.md), with
+     * two Codex facts joined in so that a Brain can tell apart the classes sharing a display name
+     * ({@link Codex.Knowledge#tactics}): the alignment the mob table creates each class with, and the
+     * depths the spawn rotation places it on, its own, its family's (the gnoll shamans, the
+     * elementals) and its rare alternate's base (an albino rat is placed where a rat is), plus the
+     * rare-mob depths; the boss floors are left out, since they create no rotation mobs
+     * (docs/bestiary/index.md, "How it was made and checked"). The file is refused when it was read
+     * at another tag or names a class the mob table does not have.
+     */
+    static List<Codex.Tactics> bestiary(Path folder, String tag) {
+        Path file = bestiaryFile(folder);
+        String text;
+        try {
+            text = compact(Files.readString(file, StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            throw new UncheckedIOException("the bestiary " + file + " could not be read", e);
+        }
+        Map<String, String> bestiary = Json.object(text);
+        if (Json.integer(Json.required(bestiary, "version", "bestiary")) != 1) {
+            throw new IllegalArgumentException("the bestiary " + file + " is not format 1");
+        }
+        String read = Json.string(Json.required(bestiary, "tag", "bestiary"));
+        if (!read.equals(tag)) {
+            throw new IllegalArgumentException("the bestiary " + file + " was read at " + read + ", not " + tag);
+        }
+        Map<String, org.shatterfish.api.Alignment> alignments = new HashMap<>();
+        for (String raw : Json.array(table(folder, "mobs.json"))) {
+            Map<String, String> mob = Json.object(raw);
+            alignments.put(Json.string(Json.required(mob, "className", "mob")),
+                    org.shatterfish.api.Alignment.valueOf(Json.string(Json.required(mob, "alignment", "mob"))));
+        }
+        Map<String, java.util.TreeSet<Integer>> depths = rotationDepths(folder);
+        List<Codex.Tactics> entries = new ArrayList<>();
+        for (String raw : Json.array(Json.required(bestiary, "entries", "bestiary"))) {
+            Map<String, String> entry = Json.object(raw);
+            String className = Json.string(Json.required(entry, "className", "bestiary entry"));
+            org.shatterfish.api.Alignment alignment = alignments.get(className);
+            if (alignment == null) {
+                throw new IllegalArgumentException("the bestiary names " + className + ", which the Codex's mob table does not have");
+            }
+            entries.add(new Codex.Tactics(className, Json.string(Json.required(entry, "displayName", className)), alignment,
+                    List.copyOf(depths.getOrDefault(className, new java.util.TreeSet<>())),
+                    Json.string(Json.required(entry, "speed", className)), Json.string(Json.required(entry, "attack", className)),
+                    Json.integer(Json.required(entry, "reach", className)), Json.bool(Json.required(entry, "flying", className)),
+                    Json.bool(Json.required(entry, "amphibious", className)), strings(Json.required(entry, "immune", className)),
+                    strings(Json.required(entry, "inflicts", className)), Json.string(Json.required(entry, "ai", className)),
+                    Json.bool(Json.required(entry, "evasive", className)), Json.bool(Json.required(entry, "splits", className)),
+                    Json.bool(Json.required(entry, "telegraph", className)), Json.string(Json.required(entry, "approach", className)),
+                    Json.bool(Json.required(entry, "rangedFirst", className)), Json.bool(Json.required(entry, "outrunnable", className)),
+                    strings(Json.required(entry, "breakContact", className))));
+        }
+        return entries;
+    }
+
+    /**
+     * The depths the spawn rotation places each class on, boss floors left out: the rotation's own
+     * entries, a family's members for a family entry, the rare mobs at their depth, and a rare
+     * alternate wherever its base is placed (MobSpawner.java:62-65, :71-212, :215-240, :244-275).
+     */
+    static Map<String, java.util.TreeSet<Integer>> rotationDepths(Path folder) {
+        java.util.Set<Integer> bosses = new java.util.HashSet<>();
+        for (String raw : Json.array(Json.required(Json.object(table(folder, "levels.json")), "levels", "levels"))) {
+            Map<String, String> level = Json.object(raw);
+            if (Json.bool(Json.required(level, "boss", "level"))) {
+                bosses.add(Json.integer(Json.required(level, "depth", "level")));
+            }
+        }
+        Map<String, String> rotation = Json.object(table(folder, "spawn-rotation.json"));
+        Map<String, List<String>> families = new HashMap<>();
+        for (String raw : Json.array(Json.required(rotation, "families", "rotation"))) {
+            Map<String, String> family = Json.object(raw);
+            List<String> members = new ArrayList<>();
+            for (String odds : Json.array(Json.required(family, "odds", "family"))) {
+                members.add(Json.string(Json.required(Json.object(odds), "className", "odds")));
+            }
+            families.put(Json.string(Json.required(family, "className", "family")), members);
+        }
+        Map<String, java.util.TreeSet<Integer>> depths = new java.util.TreeMap<>();
+        for (String raw : Json.array(Json.required(rotation, "depths", "rotation"))) {
+            Map<String, String> row = Json.object(raw);
+            int depth = Json.integer(Json.required(row, "depth", "rotation depth"));
+            if (bosses.contains(depth)) {
+                continue;
+            }
+            for (String spawn : Json.array(Json.required(row, "entries", "rotation depth"))) {
+                Map<String, String> one = Json.object(spawn);
+                String className = Json.string(Json.required(one, "className", "rotation entry"));
+                List<String> placed = Json.bool(Json.required(one, "family", "rotation entry"))
+                        ? families.getOrDefault(className, List.of()) : List.of(className);
+                for (String member : placed) {
+                    depths.computeIfAbsent(member, k -> new java.util.TreeSet<>()).add(depth);
+                }
+            }
+        }
+        for (String raw : Json.array(Json.required(rotation, "rareMobs", "rotation"))) {
+            Map<String, String> rare = Json.object(raw);
+            int depth = Json.integer(Json.required(rare, "depth", "rare mob"));
+            if (!bosses.contains(depth)) {
+                depths.computeIfAbsent(Json.string(Json.required(rare, "className", "rare mob")), k -> new java.util.TreeSet<>())
+                        .add(depth);
+            }
+        }
+        for (String raw : Json.array(Json.required(rotation, "alternates", "rotation"))) {
+            Map<String, String> alternate = Json.object(raw);
+            String base = Json.string(Json.required(alternate, "className", "alternate"));
+            java.util.TreeSet<Integer> where = new java.util.TreeSet<>();
+            for (String member : families.getOrDefault(base, List.of(base))) {
+                where.addAll(depths.getOrDefault(member, new java.util.TreeSet<>()));
+            }
+            if (!where.isEmpty()) {
+                depths.computeIfAbsent(Json.string(Json.required(alternate, "alternate", "alternate")),
+                        k -> new java.util.TreeSet<>()).addAll(where);
+            }
+        }
+        return depths;
+    }
+
+    private static List<String> strings(String raw) {
+        List<String> out = new ArrayList<>();
+        for (String element : Json.array(raw)) {
+            out.add(Json.string(element));
+        }
+        return out;
     }
 
     /**

@@ -115,7 +115,7 @@ final class Descend implements Policy {
 
     @Override
     public boolean enters(Observation observation, Memory memory) {
-        return Explore.calm(observation) && !observation.header().sealed();
+        return Explore.calm(observation, knowledge) && !observation.header().sealed();
     }
 
     @Override

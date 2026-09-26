@@ -2,6 +2,7 @@ package org.shatterfish.brain;
 
 import org.shatterfish.api.Action;
 import org.shatterfish.api.ActorView;
+import org.shatterfish.api.Codex;
 import org.shatterfish.api.Hunger;
 import org.shatterfish.api.ItemKind;
 import org.shatterfish.api.ItemRef;
@@ -43,6 +44,13 @@ import java.util.Set;
  * the table does not name is not eaten.
  */
 final class Eat implements Policy {
+
+    private final Codex.Knowledge knowledge;
+
+    /** Eating, with {@code knowledge} telling the enemies that press a meal (the bestiary's tags). */
+    Eat(Codex.Knowledge knowledge) {
+        this.knowledge = knowledge;
+    }
 
     /** The Policy's name, as the Decision records it and {@link Brain#policyNames()} lists it. */
     static final String NAME = "eat";
@@ -105,8 +113,9 @@ final class Eat implements Policy {
     @Override
     public boolean enters(Observation observation, Memory memory) {
         Hunger hunger = observation.hero().hunger();
-        return hunger == Hunger.HUNGRY ? Explore.calm(observation)
-                : hunger == Hunger.STARVING && observation.header().prompt() == PromptKind.NONE && !pressed(observation, memory);
+        return hunger == Hunger.HUNGRY ? Explore.calm(observation, knowledge)
+                : hunger == Hunger.STARVING && observation.header().prompt() == PromptKind.NONE
+                && !pressed(observation, memory, knowledge);
     }
 
     /** The steps within which an awake enemy could arrive during a meal's three turns (Food.java:47). */
@@ -115,16 +124,16 @@ final class Eat implements Policy {
     /**
      * Whether an enemy could spend the meal's three turns hitting the hero: one beside it; an awake one
      * (no sleep icon) that can reach it within {@link #MEAL_REACH} steps ({@link Heal#steps}); an awake
-     * one that attacks from where it stands ({@link Heal#AT_RANGE}); or an Attack the screen offers on an
+     * one that attacks from where it stands or flies ({@link Bestiary#atRange}); or an Attack the screen offers on an
      * enemy, never on a passive one it would only provoke. Starving costs only {@code HT/1000} a turn
      * (Hunger.java:78-85), so waiting for such an enemy to be dealt with is nearly free; a starving hero
      * with only sleeping, distant or unreachable enemies in view eats when the fight Policy stands aside,
      * since starving also turns regeneration off (Regeneration.java:56).
      */
-    static boolean pressed(Observation observation, Memory memory) {
+    static boolean pressed(Observation observation, Memory memory, Codex.Knowledge knowledge) {
         int hero = observation.hero().cell();
         int width = observation.map().width();
-        List<ActorView> enemies = Fight.enemies(observation);
+        List<ActorView> enemies = Fight.enemies(observation, knowledge);
         int[] steps = null;
         java.util.Set<Integer> cells = new java.util.HashSet<>();
         for (ActorView enemy : enemies) {
@@ -135,7 +144,7 @@ final class Eat implements Policy {
             if (enemy.emote() == org.shatterfish.api.Emote.SLEEP) {
                 continue;
             }
-            if (Heal.AT_RANGE.contains(enemy.name())) {
+            if (Bestiary.atRange(knowledge, observation.header().depth(), enemy.name())) {
                 return true;
             }
             if (steps == null) {

@@ -46,10 +46,10 @@ public final class Brain {
 
     /** The Policies, highest priority first, fighting by {@code knowledge} and scoring by {@code evaluation}. */
     private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation) {
-        return List.of(Policies.answerPrompt(knowledge), new Heal(knowledge), new Fight(knowledge), new Eat(),
+        return List.of(Policies.answerPrompt(knowledge), new Heal(knowledge), new Fight(knowledge), new Eat(knowledge),
                 new TestItem(knowledge), new Pickup(evaluation, knowledge), new Equip(evaluation, knowledge),
                 new Descend(knowledge),
-                new Explore(), Policies.fallback(evaluation));
+                new Explore(knowledge), Policies.fallback(evaluation));
     }
 
     /**
@@ -109,9 +109,19 @@ public final class Brain {
         return Safety.ALL;
     }
 
-    /** The enemies the fight Policy treats as scenery, by the name the screen shows (story 4.7). */
-    public static java.util.Set<String> passiveEnemies() {
-        return Fight.PASSIVE;
+    /**
+     * The enemies the fight Policy treats as scenery, by the name the screen shows (story 4.7), as
+     * {@code knowledge}'s bestiary tags them on any depth.
+     */
+    public static java.util.Set<String> passiveEnemies(Codex.Knowledge knowledge) {
+        java.util.Set<String> names = new java.util.TreeSet<>();
+        for (Codex.Tactics tactics : knowledge.bestiary()) {
+            int depth = tactics.depths().isEmpty() ? 0 : tactics.depths().get(0);
+            if (Bestiary.passive(knowledge, depth, tactics.name())) {
+                names.add(tactics.name());
+            }
+        }
+        return names;
     }
 
     /** The name under which the Codex measures the mage's staff, whatever wand it holds (story 4.7). */
@@ -224,8 +234,8 @@ public final class Brain {
         // chase keeps it; anything else the fight Policy hands over -- an attack, a retreat, a hold -- ends it.
         if (decision != null && Fight.NAME.equals(decision.policy())) {
             String why = decision.chosen().why();
-            if (why.startsWith("approach ") && Fight.quarry(observation) >= 0) {
-                memory = memory.chasing(new Memory.Spot(depth, branch, Fight.quarry(observation)), memory.waits());
+            if (why.startsWith("approach ") && Fight.quarry(observation, knowledge) >= 0) {
+                memory = memory.chasing(new Memory.Spot(depth, branch, Fight.quarry(observation, knowledge)), memory.waits());
             } else if (!why.startsWith("chase ")) {
                 memory = memory.chasing(Memory.Spot.NOWHERE, -1);
             }
@@ -241,7 +251,7 @@ public final class Brain {
         // one Step toward them let the explore Policy walk straight back, with no region to keep it out).
         if (decision != null && Fight.NAME.equals(decision.policy())
                 && decision.chosen().why().startsWith("retreat")) {
-            java.util.List<org.shatterfish.api.ActorView> enemies = Fight.enemies(observation);
+            java.util.List<org.shatterfish.api.ActorView> enemies = Fight.enemies(observation, knowledge);
             int hero = observation.hero().cell();
             int width = observation.map().width();
             org.shatterfish.api.ActorView nearest = null;
@@ -306,7 +316,7 @@ public final class Brain {
         // until the roots wear off (story 4.12, Explore.rooted); nor, on a calm screen, a dizzy hero's,
         // which go where the vertigo sends them (story 4.13, Explore.dizzy) -- unless the hero stands in
         // fire or gas, where a Step anywhere beats staying put.
-        if (Explore.rooted(observation) || Explore.dizzy(observation) && !TestItem.inHarm(observation)) {
+        if (Explore.rooted(observation) || Explore.dizzy(observation, knowledge) && !TestItem.inHarm(observation)) {
             offered = offered.stream().filter(action -> !(action instanceof Action.Step
                     || action instanceof Action.Descend || action instanceof Action.Ascend)).toList();
         }

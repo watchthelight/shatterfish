@@ -106,7 +106,7 @@ class EatPolicyTest {
     @Test
     @DisplayName("the icon gates the Policy twice: it does not enter at no icon, and ranks nothing there if asked")
     void the_icon_gates_both() {
-        Eat eat = new Eat();
+        Eat eat = new Eat(FightPolicyTest.KNOWLEDGE);
         Observation fed = room(Hunger.NONE, food("ration of food", 1));
         Observation hungry = room(Hunger.HUNGRY, food("ration of food", 1));
         assertFalse(eat.enters(fed, Memory.START));
@@ -171,7 +171,7 @@ class EatPolicyTest {
     @Test
     @DisplayName("starving with an enemy in view that is not beside it, the Policy enters; beside it, or hungry, it does not")
     void starving_with_an_enemy_far() {
-        Eat eat = new Eat();
+        Eat eat = new Eat(FightPolicyTest.KNOWLEDGE);
         Observation far = holding(FightPolicyTest.screen(1, 20, false, "worn shortsword", Hunger.STARVING,
                 "#######", "#@...L#", "#######"), food("ration of food", 1));
         Observation near = holding(FightPolicyTest.screen(1, 20, false, "worn shortsword", Hunger.STARVING,
@@ -185,8 +185,8 @@ class EatPolicyTest {
         // an Action set a wait old): both halves of the test stand on their own.
         Observation unoffered = near.withActions(new ActionsSection(near.actions().actions().stream()
                 .filter(action -> !(action instanceof Action.Attack)).toList()));
-        assertTrue(Eat.pressed(unoffered, Memory.START));
-        assertFalse(Eat.pressed(far, Memory.START));
+        assertTrue(Eat.pressed(unoffered, Memory.START, FightPolicyTest.KNOWLEDGE));
+        assertFalse(Eat.pressed(far, Memory.START, FightPolicyTest.KNOWLEDGE));
     }
 
     @Test
@@ -196,18 +196,18 @@ class EatPolicyTest {
                 "########", "#@..r..#", "########"), food("ration of food", 1));
         Observation fourOff = holding(FightPolicyTest.screen(1, 20, false, "worn shortsword", Hunger.STARVING,
                 "########", "#@...r.#", "########"), food("ration of food", 1));
-        assertTrue(Eat.pressed(twoOff, Memory.START), "three steps from the hero");
-        assertFalse(Eat.pressed(HealPolicyTest.asleep(twoOff), Memory.START), "asleep");
-        assertFalse(Eat.pressed(fourOff, Memory.START), "four steps off");
-        assertTrue(Eat.pressed(HealPolicyTest.named(fourOff, "evil eye"), Memory.START), "an eye shoots from there");
+        assertTrue(Eat.pressed(twoOff, Memory.START, FightPolicyTest.KNOWLEDGE), "three steps from the hero");
+        assertFalse(Eat.pressed(HealPolicyTest.asleep(twoOff), Memory.START, FightPolicyTest.KNOWLEDGE), "asleep");
+        assertFalse(Eat.pressed(fourOff, Memory.START, FightPolicyTest.KNOWLEDGE), "four steps off");
+        assertTrue(Eat.pressed(HealPolicyTest.named(fourOff, "evil eye"), Memory.START, FightPolicyTest.KNOWLEDGE), "an eye shoots from there");
         Observation walled = holding(FightPolicyTest.screen(1, 20, false, "worn shortsword", Hunger.STARVING,
                 "#######", "#@.#r.#", "#######"), food("ration of food", 1));
-        assertFalse(Eat.pressed(walled, Memory.START), "no way round the wall");
+        assertFalse(Eat.pressed(walled, Memory.START, FightPolicyTest.KNOWLEDGE), "no way round the wall");
         Observation statue = holding(FightPolicyTest.screen(1, 20, false, "worn shortsword", Hunger.STARVING,
                 "#######", "#@T...#", "#######"), food("ration of food", 1));
         assertTrue(statue.actions().actions().contains(new Action.Attack(statue.actors().actors().get(0).cell())), "the screen offers an attack on the statue");
-        assertFalse(Eat.pressed(statue, Memory.START), "an attack on a passive statue is no pressure");
-        assertTrue(new Eat().enters(statue, Memory.START));
+        assertFalse(Eat.pressed(statue, Memory.START, FightPolicyTest.KNOWLEDGE), "an attack on a passive statue is no pressure");
+        assertTrue(new Eat(FightPolicyTest.KNOWLEDGE).enters(statue, Memory.START));
     }
 
     @Test

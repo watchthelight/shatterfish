@@ -19,7 +19,6 @@ import org.shatterfish.api.TransitionView;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Fight where only one enemy can reach the hero, or get away (story 4.7, FR-31).
@@ -51,8 +50,8 @@ import java.util.Set;
  *       A floor already fled twice is not fled by the stairs again. Cornered, it fights.</li>
  * </ul>
  *
- * <p>Enemies the game keeps passive until provoked ({@link #PASSIVE}) are neither fought nor fled:
- * the Policy treats them as scenery, and so does {@link Explore}.
+ * <p>Enemies the game keeps passive until provoked ({@link #passive}, from the bestiary's tags) are
+ * neither fought nor fled: the Policy treats them as scenery, and so does {@link Explore}.
  *
  * <p><b>The threat estimate.</b> For each enemy, the Codex's figures ({@link Codex.Threat}), or, for
  * an enemy the Codex has none for, a pessimistic figure scaled by depth ({@link #assumed}). The
@@ -80,22 +79,14 @@ final class Fight implements Policy {
     static final int FLIGHTS = 2;
 
     /**
-     * Enemies the game creates passive and keeps passive until they are provoked, by the name the
-     * screen shows: the animated statue (Statue.java:46-47, woken only by damage, :131-136), the
-     * armored statue, which is one (ArmoredStatue extends Statue), and the gnoll exile, which wanders
-     * passive until debuffed (GnollExile.java:49-51, :137-146). The mimic is passive too, but a
-     * hidden mimic is drawn as its chest, never as an actor (docs/rules/visibility.md).
+     * Whether {@code actor} is an enemy the game keeps passive until provoked ({@link Bestiary#passive}:
+     * the animated and armored statues and the gnoll exile) and still looks untouched: its health bar
+     * full, no buff drawn on it and no alert over it. A statue a trap or a gas has hurt is hunting
+     * (Statue.java:128-136), and a debuffed exile turns (GnollExile.java:137-146); what the screen shows
+     * of either is the bar, the buff icons and the alert, so any of them ends the truce.
      */
-    static final Set<String> PASSIVE = Set.of("animated statue", "armored statue", "gnoll exile");
-
-    /**
-     * Whether {@code actor} is one of the {@link #PASSIVE} enemies and still looks untouched: its
-     * health bar full, no buff drawn on it and no alert over it. A statue a trap or a gas has hurt is
-     * hunting (Statue.java:128-136), and a debuffed exile turns (GnollExile.java:137-146); what the
-     * screen shows of either is the bar, the buff icons and the alert, so any of them ends the truce.
-     */
-    static boolean passive(ActorView actor) {
-        return PASSIVE.contains(actor.name()) && actor.healthPips() == ObservationCodec.MAX_HEALTH_PIPS
+    static boolean passive(Codex.Knowledge knowledge, int depth, ActorView actor) {
+        return Bestiary.passive(knowledge, depth, actor.name()) && actor.healthPips() == ObservationCodec.MAX_HEALTH_PIPS
                 && actor.buffs().isEmpty() && actor.emote() != org.shatterfish.api.Emote.ALERT;
     }
 
@@ -127,7 +118,7 @@ final class Fight implements Policy {
     @Override
     public boolean enters(Observation observation, Memory memory) {
         return observation.header().prompt() == PromptKind.NONE
-                && (!enemies(observation).isEmpty() || chasing(observation, memory));
+                && (!enemies(observation, knowledge).isEmpty() || chasing(observation, memory, knowledge));
     }
 
     /**
@@ -135,9 +126,9 @@ final class Fight implements Policy {
      * enemy in view, and the Memory's chase on this floor, handed over at most {@link #CHASE_WAITS} waits
      * ago, and not yet reached. The chase is where the screen showed the enemy, never where it is.
      */
-    static boolean chasing(Observation observation, Memory memory) {
+    static boolean chasing(Observation observation, Memory memory, Codex.Knowledge knowledge) {
         Memory.Spot chase = memory.chase();
-        return chase.cell() >= 0 && enemies(observation).isEmpty()
+        return chase.cell() >= 0 && enemies(observation, knowledge).isEmpty()
                 && chase.on(observation.header().depth(), observation.header().branch())
                 && memory.waits() - memory.chased() <= CHASE_WAITS
                 && chase.cell() < observation.map().tiles().size()
@@ -159,12 +150,13 @@ final class Fight implements Policy {
      * the Policy approached and retreated between the two cells for hundreds of turns. A cell the screen
      * shows empty says the enemy is not there, which is how a killed one stops counting.
      */
-    static List<ActorView> threats(Observation observation, Memory memory, List<ActorView> enemies) {
+    static List<ActorView> threats(Observation observation, Memory memory, List<ActorView> enemies,
+                                   Codex.Knowledge knowledge) {
         List<ActorView> threats = new ArrayList<>(enemies);
         MapSection map = observation.map();
         for (Memory.Seen seen : memory.monsters()) {
             if (seen.depth() == observation.header().depth() && seen.at() < memory.waits()
-                    && memory.waits() - seen.at() <= RECALL_WAITS && !PASSIVE.contains(seen.name())
+                    && memory.waits() - seen.at() <= RECALL_WAITS && !Bestiary.passive(knowledge, seen.depth(), seen.name())
                     && seen.cell() < map.tiles().size() && map.fog().get(seen.cell()) != Fog.VISIBLE) {
                 threats.add(new ActorView(seen.cell(), seen.name(), Alignment.ENEMY, ObservationCodec.MAX_HEALTH_PIPS,
                         false, org.shatterfish.api.Emote.NONE, List.of()));
@@ -192,12 +184,12 @@ final class Fight implements Policy {
      * The cell of the enemy an approach handed over on {@code observation} goes for: the nearest in view,
      * ties to the lower cell; -1 with none (issue #174).
      */
-    static int quarry(Observation observation) {
+    static int quarry(Observation observation, Codex.Knowledge knowledge) {
         MapSection map = observation.map();
         int hero = observation.hero().cell();
         int best = -1;
         int nearest = Integer.MAX_VALUE;
-        for (ActorView enemy : enemies(observation)) {
+        for (ActorView enemy : enemies(observation, knowledge)) {
             int distance = chebyshev(map, hero, enemy.cell());
             if (distance < nearest || (distance == nearest && enemy.cell() < best)) {
                 nearest = distance;
@@ -215,9 +207,9 @@ final class Fight implements Policy {
 
     @Override
     public List<RunLog.Choice> ranked(Observation observation, Memory memory, List<Action> offered, Stream stream) {
-        List<ActorView> enemies = enemies(observation);
+        List<ActorView> enemies = enemies(observation, knowledge);
         if (enemies.isEmpty()) {
-            RunLog.Choice chase = chasing(observation, memory) ? chase(observation, memory, offered) : null;
+            RunLog.Choice chase = chasing(observation, memory, knowledge) ? chase(observation, memory, offered) : null;
             return chase == null ? List.of() : List.of(chase);
         }
         MapSection map = observation.map();
@@ -228,7 +220,7 @@ final class Fight implements Policy {
                 adjacent.add(enemy);
             }
         }
-        boolean favourable = favourable(observation, knowledge, threats(observation, memory, enemies));
+        boolean favourable = favourable(observation, knowledge, threats(observation, memory, enemies, knowledge));
         RunLog.Choice retreat = retreat(observation, memory, offered, enemies, knowledge);
         List<RunLog.Choice> ranked = new ArrayList<>();
         // Goo's pump-up, announced in the log: out of its reach first, which makes it step and drop the
@@ -256,7 +248,8 @@ final class Fight implements Policy {
             idle(ranked, offered, memory);
             return ranked;
         }
-        List<ActorView> mobile = enemies.stream().filter(enemy -> !knowledge.immovable().contains(enemy.name())).toList();
+        int depth = observation.header().depth();
+        List<ActorView> mobile = enemies.stream().filter(enemy -> !Bestiary.immobile(knowledge, depth, enemy.name())).toList();
         int here = engage(map, hero);
         boolean held = memory.holds() >= HOLDS;
         // Closing: the enemies stand nearer the hero's cell than they stood a wait ago (Memory.before
@@ -302,10 +295,11 @@ final class Fight implements Policy {
     }
 
     /** The enemies the screen shows, less those the game keeps passive until provoked. */
-    static List<ActorView> enemies(Observation observation) {
+    static List<ActorView> enemies(Observation observation, Codex.Knowledge knowledge) {
         List<ActorView> enemies = new ArrayList<>();
+        int depth = observation.header().depth();
         for (ActorView actor : observation.actors().actors()) {
-            if (actor.alignment() == Alignment.ENEMY && !passive(actor)) {
+            if (actor.alignment() == Alignment.ENEMY && !passive(knowledge, depth, actor)) {
                 enemies.add(actor);
             }
         }

@@ -177,18 +177,18 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         boolean refusedStep = still && memory.last().equals(STEP) && memory.stepped() >= 0 && !Explore.rooted(observation);
         int streak = !refusedStep ? 0 : memory.tried() == memory.stepped() ? memory.streak() + 1 : 1;
         int tried = refusedStep ? memory.stepped() : -1;
-        boolean calm = Explore.calm(observation);
+        boolean calm = Explore.calm(observation, knowledge);
         // The fight Policy's holds, and how near the nearest enemy is now and was a wait ago.
         int holds = !memory.calm() && memory.last().equals(WAIT) && !calm ? memory.holds() + 1 : 0;
         // Both distances are measured from where the hero stands now: to the enemies in view, and to
         // where the enemies seen a wait ago stood then. The hero's own steps change neither side
         // alike, so near < before says the enemies came closer.
-        int near = Fight.nearest(observation.map(), observation.hero().cell(), Fight.enemies(observation));
+        int near = Fight.nearest(observation.map(), observation.hero().cell(), Fight.enemies(observation, knowledge));
         int before = -1;
         int width = observation.map().width();
         for (Memory.Seen seen : memory.monsters()) {
             if (seen.depth() == depth && seen.at() == memory.waits() && memory.at().on(depth, branch)
-                    && seen.cell() < observation.map().tiles().size() && !Fight.PASSIVE.contains(seen.name())) {
+                    && seen.cell() < observation.map().tiles().size() && !Bestiary.passive(knowledge, seen.depth(), seen.name())) {
                 int hero = observation.hero().cell();
                 int distance = Math.max(Math.abs(hero % width - seen.cell() % width),
                         Math.abs(hero / width - seen.cell() / width));

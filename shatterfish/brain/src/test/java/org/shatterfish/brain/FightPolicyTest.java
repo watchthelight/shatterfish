@@ -73,7 +73,7 @@ class FightPolicyTest {
             List.of(new Codex.Gear("worn shortsword", 0, 1, 10, 5485), new Codex.Gear("worn shortsword", 1, 2, 12, 7009),
                     new Codex.Gear("dagger", 0, 1, 8, 4500), new Codex.Gear(Fight.MAGES_STAFF, 0, 1, 6, 3500)),
             List.of(new Codex.Gear("cloth armor", 0, 0, 2, 1004)),
-            List.of("lasher"));
+            List.of("lasher")).withBestiary(Screens.BESTIARY);
 
     static Observation screen(int hp, boolean sealed, String... rows) {
         return screen(1, hp, sealed, "worn shortsword", rows);
@@ -234,7 +234,7 @@ class FightPolicyTest {
         Brain.Decided decided = after(rat);
         assertEquals(new Action.Attack(cell(rat, 3, 1)), decided.action());
         assertEquals("attack: marsupial rat", why(decided));
-        assertTrue(Fight.favourable(rat, KNOWLEDGE, Fight.enemies(rat)));
+        assertTrue(Fight.favourable(rat, KNOWLEDGE, Fight.enemies(rat, FightPolicyTest.KNOWLEDGE)));
     }
 
     @Test
@@ -258,8 +258,8 @@ class FightPolicyTest {
         Brain.Decided decided = after(rat);
         assertTrue(why(decided).startsWith("approach "), decided.decision().toString());
         Action.Step step = (Action.Step) decided.action();
-        assertTrue(Fight.nearest(rat.map(), step.cell(), Fight.enemies(rat)) < Fight.nearest(rat.map(), rat.hero().cell(),
-                Fight.enemies(rat)), "each step closes on it");
+        assertTrue(Fight.nearest(rat.map(), step.cell(), Fight.enemies(rat, FightPolicyTest.KNOWLEDGE)) < Fight.nearest(rat.map(), rat.hero().cell(),
+                Fight.enemies(rat, FightPolicyTest.KNOWLEDGE)), "each step closes on it");
     }
 
     @Test
@@ -270,10 +270,10 @@ class FightPolicyTest {
                 "#...@B..#",
                 "#.......#",
                 "#########");
-        assertFalse(Fight.favourable(brute, KNOWLEDGE, Fight.enemies(brute)));
+        assertFalse(Fight.favourable(brute, KNOWLEDGE, Fight.enemies(brute, FightPolicyTest.KNOWLEDGE)));
         Brain.Decided decided = after(brute);
         Action.Step step = (Action.Step) decided.action();
-        assertTrue(Fight.nearest(brute.map(), step.cell(), Fight.enemies(brute)) > 1, decided.decision().toString());
+        assertTrue(Fight.nearest(brute.map(), step.cell(), Fight.enemies(brute, FightPolicyTest.KNOWLEDGE)) > 1, decided.decision().toString());
         assertTrue(why(decided).startsWith("retreat "), decided.decision().toString());
         assertTrue(decided.decision().alternatives().stream().anyMatch(alt -> alt.action() instanceof Action.Attack),
                 "the attack it passed over is recorded");
@@ -382,7 +382,7 @@ class FightPolicyTest {
         assertEquals(new Action.Attack(cell(screen(20, false, rows), 3, 1)), after(screen(20, false, rows)).action());
         Brain.Decided hurt = after(screen(9, false, rows));
         assertTrue(hurt.action() instanceof Action.Step, "an unknown enemy is no reason to stay: " + hurt.decision());
-        assertTrue(Fight.turnsToKill(screen(20, false, rows), KNOWLEDGE, Fight.enemies(screen(20, false, rows)).get(0)) > 0,
+        assertTrue(Fight.turnsToKill(screen(20, false, rows), KNOWLEDGE, Fight.enemies(screen(20, false, rows), FightPolicyTest.KNOWLEDGE).get(0)) > 0,
                 "an unknown enemy is not assumed dead already");
     }
 
@@ -394,7 +394,7 @@ class FightPolicyTest {
                 "#...@r..#",
                 "#.......#",
                 "#########");
-        assertFalse(Fight.favourable(rat, KNOWLEDGE, Fight.enemies(rat)));
+        assertFalse(Fight.favourable(rat, KNOWLEDGE, Fight.enemies(rat, FightPolicyTest.KNOWLEDGE)));
         assertTrue(after(rat).action() instanceof Action.Step);
     }
 
@@ -739,9 +739,9 @@ class FightPolicyTest {
                 "#######",
                 "#.@A..#",
                 "#######");
-        assertEquals(1, Fight.enemies(hurt).size());
-        assertEquals(1, Fight.enemies(alert).size());
-        assertFalse(Explore.calm(hurt));
+        assertEquals(1, Fight.enemies(hurt, FightPolicyTest.KNOWLEDGE).size());
+        assertEquals(1, Fight.enemies(alert, FightPolicyTest.KNOWLEDGE).size());
+        assertFalse(Explore.calm(hurt, FightPolicyTest.KNOWLEDGE));
         assertEquals(Fight.NAME, after(hurt).decision().policy());
         assertEquals(Fight.NAME, after(alert).decision().policy());
     }

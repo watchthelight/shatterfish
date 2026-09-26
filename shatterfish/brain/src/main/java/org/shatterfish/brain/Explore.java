@@ -3,6 +3,7 @@ package org.shatterfish.brain;
 import org.shatterfish.api.Action;
 import org.shatterfish.api.ActorView;
 import org.shatterfish.api.Alignment;
+import org.shatterfish.api.Codex;
 import org.shatterfish.api.Fog;
 import org.shatterfish.api.HeapKind;
 import org.shatterfish.api.HeapView;
@@ -64,6 +65,13 @@ import java.util.Set;
  */
 final class Explore implements Policy {
 
+    private final Codex.Knowledge knowledge;
+
+    /** Exploring, with {@code knowledge} telling the enemies it may explore past (the passive ones) from the rest. */
+    Explore(Codex.Knowledge knowledge) {
+        this.knowledge = knowledge;
+    }
+
     /** The Policy's name, as the Decision records it and {@link Brain#policyNames()} lists it. */
     static final String NAME = "explore";
 
@@ -124,18 +132,18 @@ final class Explore implements Policy {
      * stands still and lets the vertigo wear off, as it does for roots. With an enemy in view the fight
      * Policy still steps, and the refusals count toward a block (Beliefs).
      */
-    static boolean dizzy(Observation observation) {
-        return has(observation, VERTIGO) && calm(observation);
+    static boolean dizzy(Observation observation, Codex.Knowledge knowledge) {
+        return has(observation, VERTIGO) && calm(observation, knowledge);
     }
 
     /** Whether a screen is one this Policy acts on: no Prompt open and no enemy in view. */
-    static boolean calm(Observation observation) {
+    static boolean calm(Observation observation, Codex.Knowledge knowledge) {
         if (observation.header().prompt() != PromptKind.NONE) {
             return false;
         }
         for (ActorView actor : observation.actors().actors()) {
-            // An enemy the game keeps passive until provoked is scenery (story 4.7, Fight.PASSIVE).
-            if (actor.alignment() == Alignment.ENEMY && !Fight.passive(actor)) {
+            // An enemy the game keeps passive until provoked is scenery (story 4.7, Fight.passive).
+            if (actor.alignment() == Alignment.ENEMY && !Fight.passive(knowledge, observation.header().depth(), actor)) {
                 return false;
             }
         }
@@ -144,7 +152,7 @@ final class Explore implements Policy {
 
     @Override
     public boolean enters(Observation observation, Memory memory) {
-        return calm(observation);
+        return calm(observation, knowledge);
     }
 
     @Override
@@ -197,11 +205,11 @@ final class Explore implements Policy {
      * nothing -- a region over the only corridor -- they are planned again through them, rather than
      * leave the wait to chance.
      */
-    private static RunLog.Choice plan(Observation observation, Memory memory, List<Action> offered) {
+    private RunLog.Choice plan(Observation observation, Memory memory, List<Action> offered) {
         // Rooted (story 4.12) or dizzy (story 4.13): the time the buff needs to wear off is waited out. A
         // wait, not a search: a search costs two turns and four more hunger (Hero.java:2621-2629) and
         // counts as one of the floor's search spots, spent on a place no plan chose.
-        if (rooted(observation) || dizzy(observation)) {
+        if (rooted(observation) || dizzy(observation, knowledge)) {
             for (Action pass : List.of(new Action.Wait(), new Action.Search())) {
                 if (offered.contains(pass)) {
                     return new RunLog.Choice(pass, Policies.CERTAIN, rooted(observation) ? "rooted" : "vertigo");

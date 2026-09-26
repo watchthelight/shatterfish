@@ -141,7 +141,7 @@ class PickupThresholdTest {
                 List.of(new org.shatterfish.api.ActorView(29, "animated statue", org.shatterfish.api.Alignment.ENEMY,
                         org.shatterfish.api.ObservationCodec.MAX_HEALTH_PIPS, false, org.shatterfish.api.Emote.NONE,
                         List.of())), List.of(), List.of());
-        assertTrue(Pickup.passiveInView(statue) && Explore.calm(statue), "scenery to calm, an enemy to the game");
+        assertTrue(Pickup.passiveInView(statue, FightPolicyTest.KNOWLEDGE) && Explore.calm(statue, FightPolicyTest.KNOWLEDGE), "scenery to calm, an enemy to the game");
         Observation withStatue = Screens.floor(1, Screens.heroAt(1, 10), Collections.nCopies(30, Tile.EMPTY), heap,
                 List.of(), STEPS);
         withStatue = new Observation(withStatue.header(), withStatue.map(), statue.actors(), withStatue.hero(),
