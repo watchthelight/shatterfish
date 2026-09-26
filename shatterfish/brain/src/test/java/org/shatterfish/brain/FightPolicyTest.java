@@ -589,6 +589,30 @@ class FightPolicyTest {
     }
 
     @Test
+    @DisplayName("an enemy the bestiary tags immobile is no crowd even when the fight is favourable: the hero goes to the rat")
+    void immobile_by_the_tags() {
+        // A harmless lasher, so the fight stays favourable and only the count of walking enemies
+        // decides between holding the corridor and going to meet the rat.
+        Codex.Knowledge harmless = new Codex.Knowledge(KNOWLEDGE.manifest(), KNOWLEDGE.families(), KNOWLEDGE.rooms(),
+                KNOWLEDGE.guarantees(), List.of(new Codex.Threat("marsupial rat", 8, 8, 2, 1, 4, 0, 1),
+                new Codex.Threat("lasher", 40, 1, 0, 0, 0, 0, 0)), KNOWLEDGE.weapons(), KNOWLEDGE.armours(), List.of())
+                .withBestiary(Screens.BESTIARY);
+        Observation corridor = screen(20, false,
+                "############",
+                "#####......#",
+                "...@...r.L.#",
+                "#####......#",
+                "############");
+        Brain brain = new Brain(harmless, Screens.WEIGHTS, 9L);
+        Brain.Decided decided = brain.decide(corridor, brain.update(corridor, null));
+        assertEquals(Fight.NAME, decided.decision().policy());
+        assertTrue(why(decided).startsWith("approach "), decided.decision().toString());
+        Brain walking = new Brain(harmless.withBestiary(List.of()), Screens.WEIGHTS, 9L);
+        assertEquals("hold: chokepoint", why(walking.decide(corridor, walking.update(corridor, null))),
+                "with no tags the lasher counts as a second enemy coming");
+    }
+
+    @Test
     @DisplayName("whenever the fight Policy enters, it returns an Action")
     void always_acts() {
         // A brute beside the hero in a dead end with nowhere farther to go and the fight unfavourable:
