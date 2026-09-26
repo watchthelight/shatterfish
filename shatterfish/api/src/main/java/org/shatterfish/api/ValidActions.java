@@ -311,12 +311,15 @@ public final class ValidActions {
         return cells;
     }
 
-    /** The talents with a point to spend. */
+    /** The talents with a point to spend and room for it. */
     private static void hero(HeroSection hero, List<Integer> targets, List<Action> actions) {
         for (TalentView talent : hero.talents()) {
             // A tier's stars are the points the pane offers to spend (core/.../ui/TalentsPane.java,
-            // the star row); a talent of a tier with none is drawn and not spendable.
-            if (hero.talentPointsAvailable().get(talent.tier() - 1) > 0) {
+            // the star row); a talent of a tier with none is drawn and not spendable. A talent that
+            // already holds its most takes no more: the pane's button spends a point only below it
+            // (core/.../ui/TalentButton.java:117-121), and the executor refuses one above, which is a
+            // refusal that ends a Run (issue #162).
+            if (hero.talentPointsAvailable().get(talent.tier() - 1) > 0 && talent.points() < talent.maxPoints()) {
                 actions.add(new Action.Talent(talent.name()));
             }
         }

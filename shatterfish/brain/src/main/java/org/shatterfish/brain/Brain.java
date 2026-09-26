@@ -5,13 +5,10 @@ import org.shatterfish.api.Belief;
 import org.shatterfish.api.Codex;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.RunLog;
-import org.shatterfish.api.TalentView;
 import org.shatterfish.api.Weights;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * The Brain (story 4.1, FR-27, FR-28): a pure function of what it has seen.
@@ -287,19 +284,6 @@ public final class Brain {
         if (Explore.rooted(observation) || Explore.dizzy(observation) && !TestItem.inHarm(observation)) {
             offered = offered.stream().filter(action -> !(action instanceof Action.Step
                     || action instanceof Action.Descend || action instanceof Action.Ascend)).toList();
-        }
-        // A talent that already holds its most points is offered (issue #162) and then refused, which
-        // ends the Run: it is no choice. The most is two in tiers 1 and 2, the tier in tiers 3 and 4
-        // (Talent.java:438-445, the tier lists from :98).
-        Set<String> full = new HashSet<>();
-        for (TalentView talent : observation.hero().talents()) {
-            if (talent.points() >= Math.max(2, talent.tier())) {
-                full.add(talent.name());
-            }
-        }
-        if (!full.isEmpty()) {
-            offered = offered.stream().filter(action -> !(action instanceof Action.Talent t && full.contains(t.talent())))
-                    .toList();
         }
         // Back and forth between two cells for Memory.BOUNCES waits: the Step back is withheld from
         // every Policy for this wait, so two Policies that undo each other's Step stop (story 4.13).
