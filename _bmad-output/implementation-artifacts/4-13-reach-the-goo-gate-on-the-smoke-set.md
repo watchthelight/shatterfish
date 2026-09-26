@@ -155,6 +155,7 @@ Tuning set: 40 Warriors of `standard`, salts 1000+j. Each row is a full play of 
 | R1 | G1 + the review fold-in of `6aa5a3711` (below) | 1,270 | 3.10 (5) | 8/8/7/6, 11 on 5 | 11 | 3 | kept; 4 Runs end `UNKNOWN_WINDOW`, 3 of them on depth 5, on a talent at its cap (#162) |
 | T1 | R1 + the Brain offers itself no talent at its cap | 1,270 | 3.13 (5) | 8/8/7/5, 12 on 5 | 12 | 4 | kept: every Run ends in a death |
 | G2 | T1 + the dodge takes any Step that gains distance (two Steps clear the pump) | 1,270 | 3.13 (5) | as T1 | 12 | 4 | identical to T1: still never fires; the probe shows the hero cornered in a corridor beside Goo, having retreated |
+| G3 | G2 + no retreat from Goo (its floor seals, so a retreat only backs the hero into a corridor) | 1,270 | 3.13 (5) | as T1 | 12 | 3 | reverted: the dodge now fires (140 times in 12 Runs) but Goo kills fall 4 to 3; stepping away also gives up attacks, and Goo heals on water |
 | F1 | S4 + the hunger clock; leave a floor whose food is found when under 450 turns of food ("lean"); frugal rests to 70% and no walks to testing cells under 600 | 946 | 2.68 (4) | 6/9/17/8 | 0 | 0 | reverted: 16 starving at death as before, median survival down |
 
 **g0 failure analysis** (comparison view and the probe of each Run's last screen):
