@@ -154,6 +154,7 @@ public final class Gallery {
         }
         try {
             RunLogReader.Log read = RunLogReader.of(file);
+            OverlayLogs.refuse(read, file);
             if (!read.readable() || read.records().isEmpty()
                     || !(read.records().get(0) instanceof RunLog.Header header)) {
                 return new Run(runId, log, "", heroClass, UNREADABLE, -1, -1);
@@ -167,6 +168,8 @@ public final class Gallery {
             }
             return new Run(runId, log, header.seedCode(), header.heroClass().name(),
                     end.outcome().cause(), end.outcome().depth(), end.outcome().turns());
+        } catch (OverlayLogs.Refused overlay) {
+            throw overlay;
         } catch (RuntimeException unreadable) {
             // One bad log must not cost the gallery every other Run: it is a Run the gallery
             // could not read, and it is counted as one.

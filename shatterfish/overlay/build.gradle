@@ -1,8 +1,44 @@
 // overlay: in-game UI (native toolkit only) and ShatterfishLauncher.
 apply from: "$rootDir/shatterfish/java-module.gradle"
 
+// Story 5.1: the launcher starts upstream's desktop game with a Run attached, on upstream's own platform
+// support and libGDX's own desktop backend, as desktop/…/DesktopLauncher.java does. What the Overlay
+// takes from the desktop module is its compiled classes (DesktopPlatformSupport) and its processed
+// resources (the game's assets, which desktop's processResources gathers), and it reverses no edge
+// (ADR-0003's story 5.1 amendment).
+//
+// Not `project(':desktop')`: desktop is an application that publishes only its jar, and its `release`
+// task (desktop/build.gradle:32) writes a fat jar to the same file, build/libs/desktop-<version>.jar, so
+// a consumer of that jar reads an output of a task it does not depend on, and a full build fails
+// validation. Desktop's source-set output is buildable, so Gradle wires this to desktop's own classes
+// and processResources tasks; the libraries desktop's platform class and the game's controller support
+// need are declared here, on the same version properties, instead of arriving through desktop.
+evaluationDependsOn(':desktop')
+def desktopMain = project(':desktop').sourceSets.main
+
 dependencies {
     implementation project(':core')
     implementation project(':harness')
     implementation project(':brain')
+    implementation files(desktopMain.output)
+    implementation "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
+    runtimeOnly "com.badlogicgames.gdx-controllers:gdx-controllers-desktop:$gdxControllersVersion"
+    implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
+    runtimeOnly "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
+    runtimeOnly "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-desktop"
+}
+
+// The Overlay: the desktop game with a Run attached. `-Plaunch.args="--seed AAA-BBB-CCC --class warrior"`
+// states the Run; see LaunchOptions for the flags, among them the one place --oracle is accepted.
+tasks.register('launch', JavaExec) {
+    group = 'shatterfish'
+    description = 'Starts the desktop game with a Shatterfish Run attached (story 5.1).'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.overlay.ShatterfishLauncher'
+    def given = project.findProperty('launch.args')
+    args = given == null || given.toString().trim().isEmpty() ? [] : given.toString().trim().split(/\s+/).toList()
+    if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('mac')) {
+        jvmArgs '-XstartOnFirstThread'
+    }
+    outputs.upToDateWhen { false }
 }

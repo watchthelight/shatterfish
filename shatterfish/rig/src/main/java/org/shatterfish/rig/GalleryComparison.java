@@ -130,6 +130,9 @@ public final class GalleryComparison {
         } catch (RuntimeException unreadable) {
             return new Ending(UNKEYED + name, "", "", Gallery.UNREADABLE, -1, -1, NO_DECISION, name);
         }
+        // It counts endings across two Rig folders, so an Overlay log is refused rather than counted
+        // (story 5.1), as the gallery it compares refuses one.
+        OverlayLogs.refuse(read, file);
         if (read.records().isEmpty() || !(read.records().get(0) instanceof RunLog.Header header)) {
             return new Ending(UNKEYED + name, "", "", Gallery.UNREADABLE, -1, -1, NO_DECISION, name);
         }

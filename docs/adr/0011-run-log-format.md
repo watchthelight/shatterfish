@@ -201,3 +201,12 @@ not, and nothing else reads them.
   chain).
 - The Overlay's human Actions cannot all be expressed. Mitigation: `unsupported` is a first-class
   record and `verifiable` is a first-class field; FR-4's completeness test shrinks the set.
+
+## Amendment: story 5.1 (2026-09-26)
+
+The header gains an optional, chained member, `driver`, written only when a Run was played by the
+Overlay's embedded driver (`"embedded"`), so every headless log keeps its bytes and the schema version
+stays 2, as the `end` record's `detail` did in story 4.11. A reader that meets no `driver` reads the
+headless driver. An Overlay Run is not reproducible from its tuple or its Action list until story 5.13
+(ADR-0013's story 5.1 amendment names the exception to non-negotiable 5), and the member is how its
+log says so: the Rig refuses such a log wherever it reads logs to count, score, calibrate or show them.

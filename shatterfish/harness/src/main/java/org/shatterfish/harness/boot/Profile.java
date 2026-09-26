@@ -1,7 +1,9 @@
 package org.shatterfish.harness.boot;
 
 import com.shatteredpixel.shatteredpixeldungeon.Badges;
+import com.shatteredpixel.shatteredpixeldungeon.Bones;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
+import com.shatteredpixel.shatteredpixeldungeon.GamesInProgress;
 import com.shatteredpixel.shatteredpixeldungeon.SPDSettings;
 import com.shatteredpixel.shatteredpixeldungeon.Rankings;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Document;
@@ -60,6 +62,68 @@ public final class Profile {
      * @throws IllegalStateException if the directory already carries another version's stamp
      */
     public static Profile prepare(HeadlessBoot boot, Path directory) {
+        return prepare(new Target() {
+            @Override
+            public void pointAt(Path where) {
+                boot.profile(where);
+            }
+
+            @Override
+            public void clearPreferences() {
+                boot.preferences().clear();
+            }
+        }, directory);
+    }
+
+    /**
+     * What a Profile is prepared into: where the game's file access points, and the settings it
+     * reads. The headless boot is one ({@link #prepare(HeadlessBoot, Path)}); the Overlay's launcher
+     * is the other (story 5.1), which owns a Run's directory and settings in a desktop game so that a
+     * Run never reads or writes the player's own saves, badges or preferences.
+     */
+    public interface Target {
+        /** Points the game's file access at {@code directory}, which exists. */
+        void pointAt(Path directory);
+
+        /** Forgets every setting, so that the Run begins from the game's defaults. */
+        void clearPreferences();
+    }
+
+    /**
+     * A target for a game this process did not boot headlessly: the game's files at the directory,
+     * as an absolute path, the save slots it remembers forgotten, and {@code preferences} as the
+     * settings, which the caller has installed with {@code GameSettings.set} before the game reads any.
+     */
+    public static Target owned(MemoryPreferences preferences) {
+        if (preferences == null) {
+            throw new IllegalArgumentException("a Run's settings are its own preferences");
+        }
+        return new Target() {
+            @Override
+            public void pointAt(Path directory) {
+                FileUtils.setDefaultFileProperties(com.badlogic.gdx.Files.FileType.Absolute,
+                        directory.toAbsolutePath() + "/");
+                // What HeadlessBoot.profile forgets, for the same reason: the game remembers which
+                // slots it has seen occupied for the life of the process (GamesInProgress.java:40-41).
+                for (int slot = 1; slot <= GamesInProgress.MAX_SLOTS; slot++) {
+                    GamesInProgress.setUnknown(slot);
+                }
+            }
+
+            @Override
+            public void clearPreferences() {
+                preferences.clear();
+            }
+        };
+    }
+
+    /**
+     * Prepares {@code directory} as a Run's Profile through {@code target}: the settings a Run
+     * declares, an empty history, and the version stamped on the directory.
+     *
+     * @throws IllegalStateException if the directory already carries another version's stamp
+     */
+    public static Profile prepare(Target target, Path directory) {
         Path stamp = directory.resolve(VERSION_FILE);
         if (Files.exists(stamp)) {
             int found = readVersion(stamp);
@@ -69,7 +133,7 @@ public final class Profile {
                         + " not be the Run that was recorded. Use a fresh directory, or an older build.");
             }
         }
-        boot.profile(directory);
+        target.pointAt(directory);
         // Fresh preferences, not inherited ones. The game writes its own preferences during play:
         // dragging the waterskin out of a quickslot turns off the setting that slots it for every
         // game after (core/.../ui/QuickSlotButton.java:390; :283 turns it back on), and the hero
@@ -77,7 +141,7 @@ public final class Profile {
         // therefore starts the next one with a different hero screen from a fresh process's, which
         // is exactly what the two-JVM determinism test found on its first full build. Every Run
         // begins from the game's defaults, and then declares its own.
-        boot.preferences().clear();
+        target.clearPreferences();
         declareSettings();
         emptyTheHistory();
         write(stamp);
@@ -132,6 +196,21 @@ public final class Profile {
         // while it is non-empty (core/.../Badges.java:1209-1214), so the grant below silently did
         // nothing from the second Run of a process onward.
         Dungeon.customSeedText = "";
+        // The remains of a hero who died in an earlier Run of this process (story 5.1). Bones keeps
+        // what it last left or read in statics and reads its file only while its depth is -1
+        // (core/.../Bones.java:50-54, :154-160), so a Run's fresh directory, which has no bones file,
+        // is never read, and the Run's floors get the earlier hero's remains: two Runs of one tuple,
+        // one of them with a grave (the determinism test of story 5.1 found it). Bones has no reset;
+        // its own daily branch is the public door that puts the depth back to -1 and writes nothing
+        // (Bones.java:62-68). A Run in a process of its own, which every Rig Run is, starts at -1
+        // anyway, so this changes no Run the Rig has recorded.
+        boolean daily = Dungeon.daily;
+        Dungeon.daily = true;
+        try {
+            Bones.leave();
+        } finally {
+            Dungeon.daily = daily;
+        }
         // Badges.reset clears the local badges and calls loadGlobal, which returns early once the
         // static is set (core/.../Badges.java:244-247, :315-325), so the global badges an earlier
         // Run in this process earned survive it. Emptying them here through disown -- the only

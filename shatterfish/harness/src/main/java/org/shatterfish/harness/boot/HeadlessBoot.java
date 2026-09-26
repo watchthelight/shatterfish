@@ -274,6 +274,21 @@ public final class HeadlessBoot {
         return "v" + version;
     }
 
+    /**
+     * The upstream release's version name and code, read without booting anything, for a game this
+     * process did not boot headlessly: the Overlay's launcher stamps them on {@code Game} as the
+     * desktop launcher stamps its manifest's (story 5.1), so a Run's save and header name the same
+     * release a headless Run's do.
+     */
+    public static String pinnedVersionName() {
+        return upstreamProperties().getProperty("version.name");
+    }
+
+    /** @see #pinnedVersionName() */
+    public static int pinnedVersionCode() {
+        return Integer.parseInt(upstreamProperties().getProperty("version.code"));
+    }
+
     private static Properties upstreamProperties() {
         Properties properties = new Properties();
         try (InputStream in = HeadlessBoot.class.getResourceAsStream("upstream.properties")) {

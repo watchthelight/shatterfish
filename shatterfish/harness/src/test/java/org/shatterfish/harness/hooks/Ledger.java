@@ -664,10 +664,24 @@ final class Ledger {
 			command.addAll(subcommand + 1, List.of("--no-color", "--no-ext-diff", "--text", "--no-textconv"));
 		}
 		try {
-			Process process = new ProcessBuilder(command).directory(repoRoot().toFile()).start();
-			List<String> output = read(process.getInputStream());
-			List<String> errors = read(process.getErrorStream());
-			int status = process.waitFor();
+			// Standard error goes to a file rather than a second pipe. Reading the output pipe to its end
+			// before the error pipe deadlocks as soon as git writes more warnings than a pipe holds:
+			// a checkout with many line-ending-only changes, which a Windows worktree has, prints one
+			// warning per file, git blocks on the full error pipe, and this method waits on the output
+			// pipe forever (story 5.1 found it; the CI checkout is clean and never saw it).
+			java.nio.file.Path errorFile = java.nio.file.Files.createTempFile("shatterfish-ledger-git", ".err");
+			List<String> output;
+			List<String> errors;
+			int status;
+			try {
+				Process process = new ProcessBuilder(command).directory(repoRoot().toFile())
+						.redirectError(errorFile.toFile()).start();
+				output = read(process.getInputStream());
+				status = process.waitFor();
+				errors = java.nio.file.Files.readAllLines(errorFile, StandardCharsets.UTF_8);
+			} finally {
+				java.nio.file.Files.deleteIfExists(errorFile);
+			}
 			if (status != 0) {
 				throw new IllegalStateException(String.join(" ", command) + " exited " + status + ":\n"
 						+ String.join("\n", errors)

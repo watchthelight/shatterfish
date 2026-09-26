@@ -145,6 +145,9 @@ class JsonRenderingTest {
             // Deliberator is Decider plus what a Brain says about its choice (story 4.1): an
             // interface with no state and no I/O, two getters the Run loop reads to log them.
             "Deliberator",
+            // A decider whose state between decisions the Overlay's Run can put back when it drops a
+            // stale answer (story 5.1): an interface with no state and no I/O, an opaque token.
+            "Rewindable",
             // The weights of a Brain's Evaluation (story 4.5): a record of numbers the Rig reads
             // from a committed file and hands to the Brain, plus its own canonical text.
             "Weights", "Weights$Term",

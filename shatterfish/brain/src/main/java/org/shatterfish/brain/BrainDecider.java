@@ -4,6 +4,7 @@ import org.shatterfish.api.Action;
 import org.shatterfish.api.Belief;
 import org.shatterfish.api.Deliberator;
 import org.shatterfish.api.Observation;
+import org.shatterfish.api.Rewindable;
 import org.shatterfish.api.RunLog;
 
 /**
@@ -14,7 +15,7 @@ import org.shatterfish.api.RunLog;
  * that Action was not the one applied -- a human's turn, a refused input -- nothing here assumes
  * otherwise: the next wait's Observation is the only account of what happened.
  */
-public final class BrainDecider implements Deliberator {
+public final class BrainDecider implements Deliberator, Rewindable {
 
     private final Brain brain;
     private Belief belief;
@@ -63,5 +64,29 @@ public final class BrainDecider implements Deliberator {
     @Override
     public Belief belief() {
         return belief;
+    }
+
+    /**
+     * The Belief and the last Decision, for the Overlay's Run to put back when it drops an answer that
+     * went stale (story 5.1, {@link Rewindable}). The Belief is immutable bytes and the Brain holds no
+     * other state between waits, so a mark is these four fields as they stand.
+     */
+    @Override
+    public Object mark() {
+        return new Mark(belief, last, why, highlights);
+    }
+
+    @Override
+    public void rewind(Object mark) {
+        if (!(mark instanceof Mark held)) {
+            throw new IllegalArgumentException("not a mark of this Brain: " + mark);
+        }
+        belief = held.belief();
+        last = held.last();
+        why = held.why();
+        highlights = held.highlights();
+    }
+
+    private record Mark(Belief belief, RunLog.Decision last, String why, java.util.List<Integer> highlights) {
     }
 }

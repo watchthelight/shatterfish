@@ -3,7 +3,14 @@ package org.shatterfish.harness.agent;
 import org.shatterfish.api.Action;
 import org.shatterfish.api.Decider;
 import org.shatterfish.api.Observation;
+import org.shatterfish.api.Rewindable;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Random;
 
@@ -18,9 +25,9 @@ import java.util.Random;
  * the agent has an opinion. The only thing it reads is {@link Observation#actions()}, which is the
  * same door the Brain will use.
  */
-public final class RandomAgent implements Decider {
+public final class RandomAgent implements Decider, Rewindable {
 
-    private final Random choices;
+    private Random choices;
 
     /** An agent whose stream is this seed's, so a Run of the same tuple makes the same choices. */
     public RandomAgent(long seed) {
@@ -39,5 +46,36 @@ public final class RandomAgent implements Decider {
             return null;
         }
         return offered.get(choices.nextInt(offered.size()));
+    }
+
+    /**
+     * The stream's position, for the Overlay's Run to put back when it drops an answer that went stale
+     * (story 5.1, {@link Rewindable}). {@code Random} keeps its seed private and is serializable, so
+     * the mark is the stream serialized.
+     */
+    @Override
+    public Object mark() {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ObjectOutputStream out = new ObjectOutputStream(bytes)) {
+            out.writeObject(choices);
+        } catch (IOException e) {
+            throw new UncheckedIOException("the random agent's stream could not be marked", e);
+        }
+        return new Mark(bytes.toByteArray());
+    }
+
+    @Override
+    public void rewind(Object mark) {
+        if (!(mark instanceof Mark(byte[] stream))) {
+            throw new IllegalArgumentException("not a mark of a random agent: " + mark);
+        }
+        try (ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(stream))) {
+            choices = (Random) in.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            throw new IllegalStateException("the random agent's stream could not be rewound", e);
+        }
+    }
+
+    private record Mark(byte[] stream) {
     }
 }

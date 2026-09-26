@@ -19,7 +19,7 @@ if (mobile == 'on') {
 //   codex    -> core, api (the harness on its test classpath only; ADR-0017)
 //   brain    -> api
 //   rig      -> harness, brain, api (a Seed set is an api value; ADR-0018)
-//   overlay  -> core, harness, brain
+//   overlay  -> core, harness, brain, desktop (the launcher starts the desktop game; story 5.1)
 ['api', 'harness', 'codex', 'brain', 'rig', 'overlay'].each { name ->
     include ":${name}"
     project(":${name}").projectDir = new File(rootDir, "shatterfish/${name}")

@@ -518,6 +518,41 @@ public final class SceneStepper {
         return (Thread) read(ACTOR_THREAD);
     }
 
+    /**
+     * Whether the play scene's actor thread is parked, or there is none: the one moment the game's
+     * state is the actor thread's to publish and no longer its to write (story 5.1). The hero can be
+     * {@code ready} while that thread is still inside the act that made him so, writing settings and
+     * posting windows ({@code core/.../actors/hero/Hero.java:951-975}, {@code :1066-1075}), until it
+     * parks in {@code Actor.process} ({@code core/.../actors/Actor.java:337}). The headless stepper
+     * fences every frame on that park; the Overlay's frames are the render thread's, and its Run asks
+     * this before it confirms a wait or acts on one. The field is read here because this class is the
+     * one place harness code may reach it ({@code HarnessReflectionTest}).
+     *
+     * <p>Parked is waiting on the thread's own monitor, the one {@code Actor.process} waits on
+     * ({@code :335-337}). A thread waiting on a moving sprite ({@code :297-299}) is also WAITING, but
+     * it is mid-turn and will act as soon as the sprite stops, so it is not parked. And seeing the
+     * state is not seeing the writes: {@code getState()} gives no happens-before edge, so once the
+     * thread is seen parked this takes and releases the monitor it gave up in {@code wait()}, which
+     * orders everything it wrote before parking before everything the caller reads after. The actor
+     * thread is woken only by the render thread's own frame ({@code GameScene.update}), so on the render
+     * thread a parked thread stays parked until the caller's frame wakes it.
+     */
+    public static boolean actorThreadParked() {
+        Thread thread = sceneActorThread();
+        if (thread == null || !thread.isAlive()) {
+            return true;
+        }
+        ThreadInfo info = THREADS.getThreadInfo(thread.threadId());
+        if (info == null || info.getThreadState() != Thread.State.WAITING || info.getLockInfo() == null
+                || !matches(info.getLockInfo(), thread)) {
+            return false;
+        }
+        synchronized (thread) {
+            // The fence: nothing to do inside, the acquire is the edge.
+        }
+        return true;
+    }
+
     private static Object read(Field field) {
         try {
             return field.get(null);

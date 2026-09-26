@@ -225,3 +225,90 @@ would violate the bare rule, so neither can go stale unnoticed.
 
 **The Brain holds no game object** by `BrainBoundaryTest`'s allowlist and its denial of
 `org.shatterfish.harness..`, which this story names and does not repeat.
+
+## Amendment: story 5.1 (2026-09-26)
+
+The Overlay's side of the roles above is built. Paths abbreviate
+`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/` as `…/`, at `v4.0.0`.
+
+**The render thread claims the UI role** when the launcher's game attaches a Run
+(`EmbeddedRun.attach`), as the headless driver's thread claims it at `start`; the Observer, the
+executor and the Run's own `frame()` then refuse every other thread by name.
+
+**One confirmation for both drivers.** The per-wait sequence is shared by construction rather than by
+care: the state that decides whether a frame ends at a new Input wait (the hook row 5 count, the
+announcement of an Action handed over, the window in front and its frames shown, the render queue)
+moved out of `HeadlessDriver` into `WaitGate`, which the headless driver asks after each frame it
+steps and the embedded Run asks after each frame the render thread gives it. The executor's
+announcement reaches whichever gate is installed.
+
+**The Brain's worker** is one daemon thread per Run, `shatterfish-brain`. The render thread submits
+the Observation, asks `Future.isDone` once per frame, and takes the answer with `resultNow`, which
+throws rather than waits; `EmbeddedRunRulesTest` holds that the class calls nothing that waits, and
+`EmbeddedThreadingTest` that three hundred frames go by, each at once, while a Brain is held. No wait
+is confirmed while a decision is pending, so the "decision for a `k` no longer current" case cannot
+arise before takeover (story 5.8), and is checked as an invariant until then.
+
+**The render queue.** A wait is confirmed only with nothing the game posted queued for the render
+thread. libGDX's desktop backend keeps its queue private, so `OverlayApplication` counts at the one
+door the game posts through, `Gdx.app.postRunnable` (`SPD-classes/…/noosa/Game.java:306-313`), and
+counts only the game's own runnables: the backend's controller monitor re-posts itself on every frame,
+so a count of everything never reaches zero, which the first real launch showed (no wait was ever
+confirmed). The headless backend queues only what the game posts, so the rule is the same on both.
+
+**Scene lifetime.** The Run re-attaches through hook row 3's existing seam, which it chains: the
+Observer's log listener is re-added and the attachment counted. No destruction site was needed; the
+Run holds no scene object. The gate is re-armed only when the floor changed (`Dungeon.level` is
+another object): the desktop game also rebuilds its play scene on the same floor whenever the window
+changes size (`SPD-classes/…/noosa/Game.java:136-141`), once at start-up, and a hero who became ready
+in the scene before announced his wait there and does not announce it again. The second real launch
+lost the first wait that way; `EmbeddedAttachTest.a_rebuilt_scene_keeps_the_wait` holds the rule.
+
+**What equality with a Rig Run means.** An embedded Run's waits and ending equal the headless Run's
+for the same tuple whenever the frames between two waits are the same (`EmbeddedDeterminismTest`,
+which compares every wait's Observation hash, sections, Action, Decision, Belief, turn and depth, and
+the end record). The desktop adds frames, drawn while the Brain thinks and paced by the wall clock,
+and the render thread's draws in them come from the Run's generator until story 5.13's draw-routing
+hook. Measured on the real desktop game (seed 12345, the Warrior, salt `5a175a17`, the random agent,
+73 waits to its death): the Overlay Run's log verifies as a complete chain, which says only that it
+was not altered, and its first 14 waits are the headless Run's, wait for wait; they part at wait 15,
+the first turn a roll decided differently.
+
+**A named exception to non-negotiable 5.** Until story 5.13, an Overlay Run is **not reproducible from
+its tuple or its Action list**: a Replay of its log under the headless driver parts from it at the
+first roll the desktop's extra frames moved. So an Overlay log's header carries `driver: embedded`
+(chained, written only for the Overlay, so every headless log keeps its bytes; ADR-0011's story 5.1
+amendment), and the Rig refuses such a log on every path that reads logs to count, score, calibrate
+or replay them, by its header even when a later line is unreadable (`OverlayLogs` and
+`Replay.refusal`, held by `OverlayLogsRefusedTest`). The field is a label against an honest mistake,
+not tamper protection: the chain rules are published, and a whole log can be rewritten without it.
+The debug views, the death gallery's snapshots and the strategy log, may show an Overlay log; they
+count nothing. An Overlay Run is a thing to watch and a log to read, never a number. Story 5.13 closes the exception, and its Rig numbers say so.
+
+**The player's input.** Until take-over (story 5.8), the game's own input is closed while a Run is
+attached (`InputLock`, first in the game's input multiplexer, and put first again at the end of every
+frame, because a text-input window inserts its own stage at the head of the same multiplexer), so a
+click or key cannot change the game outside the log. A gamepad writes the game's key queue past the multiplexer and is not closed;
+story 5.5's input-gate hook (option 9 above) closes every path.
+
+**Answers that went stale.** A decision takes frames; if the play scene, the window in front, the
+hero's state or the actor thread's rest changed meanwhile, or anything was announced or handed over,
+the answer is dropped unrecorded and the same wait index is confirmed again from what is in front
+(`WaitGate.reconfirm`), so a log holds one wait per index. The decider is put back to where it stood
+before it was asked (`Rewindable`: the Brain's Belief and last Decision, the random agent's stream),
+so the wait asked again is answered from one Observation, as the headless Run's is, and it is not
+counted as a second wait on the same turn. A decider that cannot be put back keeps what the dropped
+question changed, and the Run counts it; the Overlay's two agents both can. The actor thread must be
+parked (`SceneStepper.actorThreadParked`: waiting on its own monitor in `Actor.process`, not on a
+moving sprite, and then fenced by taking that monitor) before a wait is confirmed or acted on: the
+hero is `ready` a little before his act has finished writing.
+
+**Scenes in front.** The desktop game serves the scene the actor thread asks for in the same frame's
+`step()`, before the Run looks, and the request flag is not volatile; so the Run decides by the scene
+in front: the surface is the win; the loading scene of a descent, an ascent or a fall, and the play
+scene it asks for, go on; any other loading mode, and any other scene, end the Run as unserved, as
+the headless loop ends it. A Run that reaches no wait, while not thinking, within the headless loop's
+budget at sixty frames a second (about 333 seconds) ends as an unknown window. The budget is counted
+in game time, the sum of `Game.elapsed`, not in frames, which the desktop draws at the monitor's
+refresh rate: a frame count would end the same Run sooner on a faster screen; the region intro on a first descent to depths 6, 11, 16 and 21 does, because the
+Overlay does not click through it (the headless game never shows it).

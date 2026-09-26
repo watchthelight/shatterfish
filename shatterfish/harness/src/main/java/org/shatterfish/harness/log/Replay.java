@@ -171,7 +171,10 @@ public final class Replay {
      * outright: an oracle Run is not ranked (FR-11), and replaying one is the only way this build
      * could be asked to start a Run that may see what a player could not. A log with challenges set
      * is refused because {@code playTriple} does not apply them, so replaying it would quietly play
-     * an unchallenged Run and compare it against a challenged one.
+     * an unchallenged Run and compare it against a challenged one. A log whose header says
+     * {@code driver: embedded} is refused because an Overlay Run is not reproducible from its tuple
+     * or its Action list until story 5.13; replaying one would report a Run that "did not reproduce"
+     * when it was never claimed to.
      */
     public static Refusal refusal(RunLog.Header header) {
         HeadlessBoot.ensure();
@@ -198,6 +201,11 @@ public final class Replay {
         if (header.oracle()) {
             return new Refusal("oracle", "a Run that saw what a player could not",
                     "a build that plays fair Runs and replays fair Runs (FR-11)");
+        }
+        if (header.embedded()) {
+            return new Refusal("driver", RunLog.Header.EMBEDDED,
+                    "a headless Run, because an Overlay Run is not reproducible from its tuple or"
+                            + " its Action list until story 5.13 (ADR-0013)");
         }
         if (header.challenges() != 0) {
             return new Refusal("challenges", String.valueOf(header.challenges()),
