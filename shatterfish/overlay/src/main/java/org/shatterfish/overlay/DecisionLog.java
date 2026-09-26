@@ -131,7 +131,8 @@ final class DecisionLog extends Component {
             block.visible = shown;
             if (shown) {
                 block.text(lines.get(i).text(), wrapAt);
-                block.hardlight(i == lines.size() - 1 ? INK : INK_MUTED);
+                // A shadow line is greyed wherever it stands: it was never executed (story 5.9).
+                block.hardlight(i == lines.size() - 1 && !lines.get(i).greyed() ? INK : INK_MUTED);
             } else {
                 block.text("");
             }

@@ -35,8 +35,11 @@ class HooksLedgerTest {
 	private static final String REGISTRY =
 			"core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/shatterfish/Hooks.java";
 
-	/** The ledger's budget for v1. Raising it needs an ADR, not an edit here. */
-	private static final int BUDGET = 10;
+	/**
+	 * The ledger's budget. Raising it needs an ADR, not an edit here: ten in ADR-0016, eleven since its
+	 * story 5.9 amendment (the owner's decision of 2026-09-26, row 11: the record of a human's turns).
+	 */
+	private static final int BUDGET = 11;
 
 	/**
 	 * Modified upstream files that are documentation rather than build or game behaviour, listed as
@@ -124,8 +127,8 @@ class HooksLedgerTest {
 	}
 
 	@Test
-	@DisplayName("the ledger stays inside its budget of ten rows, with no id used twice")
-	void the_budget_is_ten() {
+	@DisplayName("the ledger stays inside its budget of eleven rows, with no id used twice")
+	void the_budget_is_eleven() {
 		List<Integer> rows = Ledger.ledgerRowIds();
 		Set<Integer> distinct = new LinkedHashSet<>(rows);
 

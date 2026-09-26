@@ -177,6 +177,10 @@ public final class Replay {
      * when it was never claimed to.
      */
     public static Refusal refusal(RunLog.Header header) {
+        return refusal(header, true);
+    }
+
+    private static Refusal refusal(RunLog.Header header, boolean refuseTheOverlay) {
         HeadlessBoot.ensure();
         if (header.v() != RunLog.VERSION) {
             return new Refusal("log schema version", String.valueOf(header.v()),
@@ -202,7 +206,7 @@ public final class Replay {
             return new Refusal("oracle", "a Run that saw what a player could not",
                     "a build that plays fair Runs and replays fair Runs (FR-11)");
         }
-        if (header.embedded()) {
+        if (header.embedded() && refuseTheOverlay) {
             return new Refusal("driver", RunLog.Header.EMBEDDED,
                     "a headless Run, because an Overlay Run is not reproducible from its tuple or"
                             + " its Action list until story 5.13 (ADR-0013)");
@@ -327,6 +331,80 @@ public final class Replay {
         }
         return new Result(header.runId(), log.waits().size(), following.verified,
                 reproduced && log.end() != null, ours, theirs, header.commit(), why);
+    }
+
+    /**
+     * What {@link #waitsOf} found: how many waits the log records, how many were reproduced with their
+     * Observation hash matching, and the first wait an {@code unsupported} record makes unreproducible
+     * (0 when there is none).
+     */
+    public record Waits(String runId, int waits, int verified, long unverifiableFrom) {
+    }
+
+    /**
+     * Replays the waits of the log at {@code file} and checks every Observation hash, and nothing else
+     * (story 5.9): for a log whose chain a Replay cannot reach by construction, a human's, whose waits
+     * say {@code actor: human} and which carries {@code mode}, {@code shadow} and {@code note} records a
+     * Replay, which is the executor playing the recorded Actions, never writes. It refuses what
+     * {@link #refusal} refuses except the Overlay's driver, since the point is to check a log the Overlay
+     * wrote; it counts nothing, scores nothing and is not a Rig path (the Rig replays through
+     * {@link #of}, which still refuses such a log). An Overlay log played on the desktop is still not
+     * reproducible (ADR-0013's story 5.1 amendment); one recorded where the frames are the headless
+     * driver's is, and {@code HumanTurnReplayTest} holds it.
+     *
+     * @throws Diverged when a wait's Observation is not the one recorded
+     */
+    public static Waits waitsOf(Path file, String machine) {
+        // The replay's own log is a scratch file, deleted before this returns: it would say a person's
+        // Actions were the bot's under a headless header, which is a log the Rig would count (the
+        // fairness review). What this returns is the check, and nothing else survives it.
+        Path out;
+        try {
+            out = Files.createTempDirectory("shatterfish-human-check");
+        } catch (IOException e) {
+            throw new UncheckedIOException("no scratch folder for the human log's check", e);
+        }
+        try {
+            return waitsOf(file, out, machine);
+        } finally {
+            try (java.util.stream.Stream<Path> files = Files.walk(out)) {
+                for (Path path : files.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(path);
+                }
+            } catch (IOException | RuntimeException leftBehind) {
+                // A scratch folder under the system's temporary directory; the check stands either way.
+            }
+        }
+    }
+
+    private static Waits waitsOf(Path file, Path out, String machine) {
+        String text = read(file);
+        RunLogVerifier.Verified verified = RunLogVerifier.of(text);
+        if (!verified.ok()) {
+            throw new IllegalArgumentException("the log " + file + " does not verify: " + verified.why());
+        }
+        RunLogReader.Log log = RunLogReader.of(text);
+        if (!log.readable()) {
+            throw new IllegalArgumentException("the log " + file + " could not be read: " + log.unreadable());
+        }
+        RunLog.Header header = log.header();
+        Refusal refusal = refusal(header, false);
+        if (refusal != null) {
+            throw new IllegalArgumentException(refusal.toString());
+        }
+        Following following = new Following(log.waits(), Following.firstGap(log),
+                log.end() != null && !log.end().verifiable(), Following.brainError(log));
+        RunLoop.Logging logging = new RunLoop.Logging(out, header.commit(), header.brain(), header.registration(),
+                machine, false);
+        SeedSet.Entry triple = new SeedSet.Entry(header.seed(), header.heroClass(), header.challenges(),
+                header.seedCode());
+        try {
+            new RunLoop().playTriple(triple, header.salt(), following, header.cap(), logging);
+        } catch (Unverifiable gap) {
+            return new Waits(header.runId(), log.waits().size(), gap.verified(), gap.at());
+        }
+        return new Waits(header.runId(), log.waits().size(), following.verified,
+                following.unverifiableFrom == Long.MAX_VALUE ? 0 : following.unverifiableFrom);
     }
 
     /**

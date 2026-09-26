@@ -123,3 +123,42 @@ would.
 **The budget stands at six of ten spent.** Rows 7 to 10 are E5's and E8's, as the table says; row 6
 landed in one story with five markers across four files, `Level` carrying two because it builds the
 same collections in two places.
+
+## Amendment: story 5.9 (2026-09-26): an eleventh row, and a budget of eleven
+
+**The owner's decision.** On 2026-09-26 the product owner decided, for story 5.9, to add an eleventh
+row rather than widen an existing one, and to raise the budget from ten to eleven. This amendment
+records that decision; `HooksLedgerTest` now pins eleven, and raising it again still needs an ADR.
+
+**Row 11: hear a player's input to the hero, so the Overlay can record a human's turns.**
+
+| Id | Reason | Sites | Epic |
+|---|---|---|---|
+| 11 | Hear a player's input to the hero, so the Overlay can record a human's turns (FR-40, ADR-0013's "Recording human Actions") | `Hero.handle`, `Hero.rest`, `Hero.search`, `Hero.upgradeTalent`, `Item.execute(Hero, String)`, `CellSelector.select` | E5, story 5.9 |
+
+Why a hook at all. The only notification a Run has, row 5's, fires at the start of an act the hero
+began unready (`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/Hero.java:846`
+at v4.0.0), after the input is gone: a click chooses the hero's action in `Hero.handle` on the render
+thread and the actor thread consumes it later in the same frame, and the wait, rest, search, talent
+and item buttons all leave the hero merely busy with no action in hand. What was pressed cannot be
+read back from the game afterwards, so it has to be heard where it happens. ADR-0013 already named
+these notification sites; none existed.
+
+Why not widen a row. Three were weighed:
+1. **Widen row 9** ("the input gate that lets PAUSED ignore hero input") to "the Overlay's hold on
+   hero-directed input". Rejected by the owner: row 9 answers "does this site stop a paused input?";
+   recording answers "does this site see every input exactly once?", and two questions under one id
+   is what ADR-0008 forbids.
+2. **File the sites under row 5** (the Input-wait notification). Rejected: row 5's reason is "let the
+   actor loop run with no `GameScene`", which these sites do nothing for.
+3. **An eleventh row, budget raised by this amendment.** Chosen by the owner.
+
+The row's shape is row 5's notification shape: one listener point, `Hooks.heroInput`, read once into
+a local and called if set, at the first statement of `rest`, `search` (only when `intentional`),
+`upgradeTalent` and `execute`, just before `handle` returns `true`, and just before `select` hands a
+cell to its listener. Nothing is wrapped or removed; with nothing registered, which is every Rig Run,
+every headless Run and the unmodified game, every site is vanilla. `docs/UPSTREAM.md` row 11 carries
+the per-site detail, the site index and the digests.
+
+**The budget stands at seven of eleven spent** (rows 1 to 6 and 11); rows 7 to 10 are still E5's and
+E8's as the table above says.

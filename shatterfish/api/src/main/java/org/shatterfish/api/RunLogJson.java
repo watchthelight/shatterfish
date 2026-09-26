@@ -116,6 +116,7 @@ public final class RunLogJson {
             case RunLog.Shadow shadow -> write(out, shadow);
             case RunLog.Boundary boundary -> write(out, boundary);
             case RunLog.Unsupported unsupported -> write(out, unsupported);
+            case RunLog.Note note -> write(out, note);
             case RunLog.End end -> write(out, end);
         }
         if (!chain.isEmpty()) {
@@ -252,6 +253,15 @@ public final class RunLogJson {
         out.key("k").value(shadow.k());
         out.key("decision");
         write(out, shadow.decision());
+        // Written only when true, so a shadow that arrived in time keeps the bytes it always had (story 5.9).
+        if (shadow.skipped()) {
+            out.key("skipped").value(true);
+        }
+    }
+
+    private static void write(JsonWriter out, RunLog.Note note) {
+        out.key("k").value(note.k());
+        out.key("text").value(note.text());
     }
 
     private static void write(JsonWriter out, RunLog.Boundary boundary) {

@@ -205,7 +205,7 @@ class JsonRenderingTest {
             // the writer agrees with itself. The reader of a committed log lives in the tests and,
             // from story 3.4, in the Replay.
             "RunLog", "RunLog$Header", "RunLog$Brain", "RunLog$Wait", "RunLog$Prompt", "RunLog$Mode",
-            "RunLog$Shadow", "RunLog$Boundary", "RunLog$Unsupported", "RunLog$End", "RunLog$Outcome",
+            "RunLog$Shadow", "RunLog$Boundary", "RunLog$Unsupported", "RunLog$Note", "RunLog$End", "RunLog$Outcome",
             "RunLog$Decision", "RunLog$Choice", "RunLogJson",
             // What the Brain currently believes, in the form the Overlay may show (story 5.4).
             // Not reachable from Observation -- it is Deliberator's own output, not the screen's --
