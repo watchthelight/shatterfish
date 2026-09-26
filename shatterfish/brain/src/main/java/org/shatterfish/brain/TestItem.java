@@ -174,7 +174,8 @@ final class TestItem implements Policy {
         if (!settled(observation, memory)) {
             return false;
         }
-        return !testable(observation, memory).isEmpty() || restOwed(observation, memory);
+        return upgrade(observation, observation.actions().actions()) != null
+                || !testable(observation, memory).isEmpty() || restOwed(observation, memory);
     }
 
     @Override
@@ -206,15 +207,9 @@ final class TestItem implements Policy {
         // A known scroll of upgrade goes onto the worn armour (story 4.13): the upgrade window it opens
         // is answered when the Brain's last Action was this read onto an item (story 4.11).
         ItemRef armour = armour(observation);
-        List<ItemView> pack = observation.inventory().items();
-        for (int index = 0; armour != null && index < pack.size(); index++) {
-            ItemView item = pack.get(index);
-            if (item.name().equals(UPGRADE)) {
-                Action upgrade = new Action.UseItemOn(new ItemRef(index, item.name(), item.quantity()), READ, armour);
-                if (offered.contains(upgrade)) {
-                    return new Plan("", 0, new RunLog.Choice(upgrade, Policies.CERTAIN, "upgrade: " + armour.name()));
-                }
-            }
+        Action upgrade = upgrade(observation, offered);
+        if (upgrade != null) {
+            return new Plan("", 0, new RunLog.Choice(upgrade, Policies.CERTAIN, "upgrade: " + armour.name()));
         }
         for (Testable item : testable(observation, memory)) {
             // An unknown scroll is read onto the worn armour (story 4.13): a scroll of upgrade then
@@ -232,7 +227,7 @@ final class TestItem implements Policy {
             boolean hereFits = fits(item, here, observation);
             // No walk to a better testing cell while food is tight (story 4.13, Larder): the walks cost a
             // hundred turns a Run, a third of a floor's food.
-            if (item.guess().kind() == ItemKind.POTION && !Pickup.stuck(memory) && !Larder.frugal(observation, memory)
+            if (item.guess().kind() == ItemKind.POTION && !Pickup.stuck(memory) && !Explore.frugal(observation, memory)
                     && !memory.balksWalking(depth, branch, item.guess().label())) {
                 boolean[] walk = Explore.walkable(observation, memory);
                 int[] distance = Pickup.distances(map, walk, hero);
@@ -356,6 +351,25 @@ final class TestItem implements Policy {
 
     /** The known scroll of upgrade, by the name the inventory shows (items.properties). */
     static final String UPGRADE = "scroll of upgrade";
+
+    /**
+     * The offered read of a known scroll of upgrade onto the worn armour, or null (story 4.13). It
+     * makes this Policy enter, as a testable item does: a known upgrade is not one.
+     */
+    static Action upgrade(Observation observation, List<Action> offered) {
+        ItemRef armour = armour(observation);
+        List<ItemView> pack = observation.inventory().items();
+        for (int index = 0; armour != null && index < pack.size(); index++) {
+            ItemView item = pack.get(index);
+            if (item.name().equals(UPGRADE)) {
+                Action upgrade = new Action.UseItemOn(new ItemRef(index, item.name(), item.quantity()), READ, armour);
+                if (offered.contains(upgrade)) {
+                    return upgrade;
+                }
+            }
+        }
+        return null;
+    }
 
     /** The worn armour's pack reference, or null when none is worn. */
     static ItemRef armour(Observation observation) {

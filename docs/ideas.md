@@ -237,3 +237,7 @@ it re-reads ADR-0006's Blobs row.
 - **The item selector as a Prompt, again.** The upgrade window the game chains after an upgrade, while more
   upgrade items are held, is answered by a Brain error, because its "Back" reopens the selector no Action
   answers. With the selector as a Prompt, the Brain could back out and keep the scroll.
+- **A use for a known scroll of identify (story 4.13).** Unknown scrolls are read onto the worn armour, so a
+  scroll of identify among them is spent identifying itself. No Policy reads a known identify today, so
+  nothing is lost yet; once one does (an unknown ring or wand worth knowing), the read onto the armour should
+  hold back while identify is likely.

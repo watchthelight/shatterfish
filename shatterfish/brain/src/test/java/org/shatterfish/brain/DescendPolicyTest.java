@@ -363,7 +363,7 @@ class DescendPolicyTest {
     }
 
     @Test
-    @DisplayName("rooted, over many waits through the Brain: never a Step or the stairs, a search a wait so time passes, and on again once the roots fall")
+    @DisplayName("rooted, over many waits through the Brain: never a Step or the stairs, a wait each wait so time passes, and on again once the roots fall")
     void rooted() {
         Observation roots = buffed(corridor(3, 20), Explore.ROOTED);
         Observation free = corridor(3, 20);
@@ -374,7 +374,7 @@ class DescendPolicyTest {
         for (int i = 0; i < 7; i++) {
             Action action = all.get(i).action();
             assertFalse(action instanceof Action.Step || action instanceof Action.Descend, "wait " + i + ": " + action);
-            assertEquals(new Action.Search(), action, "wait " + i);
+            assertEquals(new Action.Wait(), action, "wait " + i);
             assertEquals("rooted", all.get(i).decision().chosen().why());
         }
         assertTrue(all.get(7).action() instanceof Action.Step, "the roots fell: on to the exit");
@@ -392,7 +392,7 @@ class DescendPolicyTest {
     }
 
     @Test
-    @DisplayName("dizzy on a calm screen, over many waits through the Brain: no Step and no stairs, a search a wait until the vertigo passes, nothing blocked (story 4.13)")
+    @DisplayName("dizzy on a calm screen, over many waits through the Brain: no Step and no stairs, a wait each wait until the vertigo passes, never a search, nothing blocked (story 4.13)")
     void vertigo() {
         Observation dizzy = buffed(corridor(3, 20), Explore.VERTIGO);
         Observation[] screens = new Observation[7];
@@ -401,7 +401,7 @@ class DescendPolicyTest {
         List<Brain.Decided> all = each(spent(2, 10, 1, 0), screens);
         for (int i = 0; i < 6; i++) {
             Action action = all.get(i).action();
-            assertEquals(new Action.Search(), action, "wait " + i + ": " + action);
+            assertEquals(new Action.Wait(), action, "wait " + i + ": " + action);
             assertEquals("vertigo", all.get(i).decision().chosen().why());
         }
         assertTrue(all.get(6).action() instanceof Action.Step, "the vertigo passed: on to the exit");

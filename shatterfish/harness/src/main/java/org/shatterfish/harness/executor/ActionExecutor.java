@@ -7,6 +7,7 @@ import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndBag;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndUpgrade;
 import com.watabou.input.PointerEvent;
 import com.watabou.noosa.Camera;
 import com.watabou.noosa.Gizmo;
@@ -68,7 +69,9 @@ public final class ActionExecutor {
 
     /**
      * Applies {@code action}, chosen from {@code observation}, or says why not. Every refusal but
-     * {@link Reason#NO_SELECTOR} is decided before the game is called, so the state is untouched.
+     * {@link Reason#NO_SELECTOR} is decided before the game is called, so the state is untouched --
+     * save one frame's update of the upgrade window before its button is asked again, which only turns
+     * that button on (story 4.13; {@link #answer}).
      */
     public Outcome execute(Observation observation, Action action) {
         // The thread first, before a single game field is read: a wrong thread is a programming
@@ -387,13 +390,14 @@ public final class ActionExecutor {
                     "the window draws " + buttons.size() + " buttons and the answer names " + option);
         }
         Component button = buttons.get(option);
-        if (!button.isActive()) {
-            // A window made while the hero was busy draws its button off and turns it on in its next
-            // frame's update, once the hero is ready: the upgrade window the game chains after an upgrade
-            // is made inside the first one's click, before the read's time is spent (…/windows/
-            // WndUpgrade.java:447-455, :477, :489-494). A person sees that frame before tapping; the
-            // headless loop runs none, so the window is given its frame here, and then asked again
-            // (story 4.13).
+        if (!button.isActive() && window instanceof WndUpgrade) {
+            // The upgrade window the game chains after an upgrade is made inside the first one's click,
+            // while the hero is busy with the read, so it draws its upgrade button off, and turns it on
+            // in the first update that finds the hero ready (…/windows/WndUpgrade.java:447-455, :477,
+            // :489-494). The frames the scene stepper ran since all ran while the hero was not yet
+            // ready; the Input wait is found the moment it is, before another frame. A person sees
+            // that next frame before tapping, so the window is given it here, and then asked again
+            // (story 4.13). Only this window: any other inactive button is refused as drawn.
             window.update();
         }
         if (!button.isActive()) {

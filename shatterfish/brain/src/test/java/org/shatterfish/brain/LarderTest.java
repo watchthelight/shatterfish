@@ -28,17 +28,29 @@ class LarderTest {
     @Test
     @DisplayName("the clock: each Action handed over adds what it costs, a meal takes off its energy, and the icon clamps it")
     void clock() {
-        assertEquals(11, Larder.clock(10, "Step", true, 0, 0, Hunger.NONE), "a Step taken: one turn");
-        assertEquals(10, Larder.clock(10, "Step", false, 0, 0, Hunger.NONE), "a Step refused: none");
-        assertEquals(16, Larder.clock(10, "Search", false, 0, 0, Hunger.NONE), "a search: two turns and four hunger");
-        assertEquals(60, Larder.clock(10, "Rest", false, 5, 0, Hunger.NONE), "a rest: ten turns a hit point restored");
-        assertEquals(11, Larder.clock(10, "Rest", false, 0, 0, Hunger.NONE), "a rest that restored nothing: a turn");
-        assertEquals(0, Larder.clock(100, "UseItem", false, 0, 300, Hunger.NONE), "a ration eaten, never below 0");
-        assertEquals(299, Larder.clock(350, "Step", true, 0, 0, Hunger.NONE), "no icon: under 300");
-        assertEquals(300, Larder.clock(50, "Step", true, 0, 0, Hunger.HUNGRY), "the hungry icon: at least 300");
-        assertEquals(449, Larder.clock(600, "Step", true, 0, 0, Hunger.HUNGRY), "the hungry icon: under 450");
-        assertEquals(450, Larder.clock(0, "", false, 0, 0, Hunger.STARVING), "starving: 450");
+        assertEquals(11, Larder.clock(10, "Step", true, 0, 0, OPEN, false, Hunger.NONE), "a Step taken: one turn");
+        assertEquals(10, Larder.clock(10, "Step", false, 0, 0, OPEN, false, Hunger.NONE), "a Step refused: none");
+        assertEquals(16, Larder.clock(10, "Search", false, 0, 0, OPEN, false, Hunger.NONE), "a search: two turns and four hunger");
+        assertEquals(60, Larder.clock(10, "Rest", false, 5, 0, OPEN, false, Hunger.NONE), "a rest: ten turns a hit point restored");
+        assertEquals(11, Larder.clock(10, "Rest", false, 0, 0, OPEN, false, Hunger.NONE), "a rest that restored nothing: a turn");
+        assertEquals(0, Larder.clock(100, "UseItem", false, 0, 300, OPEN, false, Hunger.NONE), "a ration eaten, never below 0");
+        assertEquals(299, Larder.clock(350, "Step", true, 0, 0, OPEN, false, Hunger.NONE), "no icon: under 300");
+        assertEquals(300, Larder.clock(50, "Step", true, 0, 0, OPEN, false, Hunger.HUNGRY), "the hungry icon: at least 300");
+        assertEquals(449, Larder.clock(600, "Step", true, 0, 0, OPEN, false, Hunger.HUNGRY), "the hungry icon: under 450");
+        assertEquals(450, Larder.clock(0, "", false, 0, 0, OPEN, false, Hunger.STARVING), "starving: 450");
+        assertEquals(201, Larder.clock(200, "UseItem", false, 0, 0, OPEN, false, Hunger.NONE), "an item used: one turn");
+        assertEquals(3, Larder.clock(300, "UseItem", false, 0, 300, OPEN, false, Hunger.NONE),
+                "a meal: three turns, not four, less its energy");
+        assertEquals(10, Larder.clock(10, "AnswerPrompt", false, 0, 0, OPEN, false, Hunger.NONE), "an answer: no turn");
+        assertEquals(10, Larder.clock(10, "DismissPrompt", false, 0, 0, OPEN, false, Hunger.NONE), "a dismissal: no turn");
+        assertEquals(21, Larder.clock(10, "Rest", false, 15, 0, 11, false, Hunger.NONE),
+                "a rest while a potion's heal lands: at most the heal's turns");
+        assertEquals(10, Larder.clock(10, "Search", false, 0, 0, OPEN, true, Hunger.NONE), "a locked floor: no hunger");
+        assertEquals(10, Larder.clock(10, "Rest", false, 5, 0, OPEN, true, Hunger.NONE), "nor for a rest there");
     }
+
+    /** No cap on a rest's turns: no potion's heal is landing. */
+    private static final int OPEN = Integer.MAX_VALUE;
 
     @Test
     @DisplayName("the fold keeps the clock, the hit points and the food held, and they survive the Belief's bytes")
@@ -76,6 +88,9 @@ class LarderTest {
                 Hunger.NONE);
         assertEquals(Explore.SEARCHES, Explore.searches(four, Beliefs.fold(Memory.START, four, Screens.CODEX)),
                 "depth 4: the floor below is a boss floor");
-        assertTrue(List.of(new Action.Search()).size() == 1);
+        // Only promising spots while food is tight: this room's walls have no unseen cell near them, so
+        // there is nothing to search, where a fed hero searches them.
+        assertTrue(Explore.spent(room, none), "food tight: no promising wall, the floor is spent");
+        assertFalse(Explore.spent(fed, Beliefs.fold(Memory.START, fed, Screens.CODEX)), "fed: the walls are searched");
     }
 }

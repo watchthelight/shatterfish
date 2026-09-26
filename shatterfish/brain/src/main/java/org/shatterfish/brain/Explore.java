@@ -198,10 +198,11 @@ final class Explore implements Policy {
      * leave the wait to chance.
      */
     private static RunLog.Choice plan(Observation observation, Memory memory, List<Action> offered) {
-        // Rooted (story 4.12): no Step is offered; a search spends the time the roots need to wear off,
-        // and may find something.
+        // Rooted (story 4.12) or dizzy (story 4.13): the time the buff needs to wear off is waited out. A
+        // wait, not a search: a search costs two turns and four more hunger (Hero.java:2621-2629) and
+        // counts as one of the floor's search spots, spent on a place no plan chose.
         if (rooted(observation) || dizzy(observation)) {
-            for (Action pass : List.of(new Action.Search(), new Action.Wait())) {
+            for (Action pass : List.of(new Action.Wait(), new Action.Search())) {
                 if (offered.contains(pass)) {
                     return new RunLog.Choice(pass, Policies.CERTAIN, rooted(observation) ? "rooted" : "vertigo");
                 }
@@ -298,11 +299,17 @@ final class Explore implements Policy {
 
     /**
      * Whether food is tight (story 4.13): then only promising spots are searched. Not on the floor above a
-     * boss floor -- every fifth depth (Dungeon.java:441-443) -- which places no food and seals behind the
-     * hero: a floor spent early there would send a hungry hero down to the boss.
+     * boss floor -- every fifth depth of the main branch (Dungeon.java:441-443) -- which still places its
+     * food (Level.java:224-226) where the boss floor below places none and is sealed once the boss is
+     * met (Goo.java:135, Level.java:657-661): the last floor to find food and items on before the boss.
      */
     static boolean frugal(Observation observation, Memory memory) {
-        return Larder.frugal(observation, memory) && (observation.header().depth() + 1) % 5 != 0;
+        return Larder.frugal(observation, memory) && !beforeBoss(observation);
+    }
+
+    /** Whether this is the main-branch floor just above a boss floor (Dungeon.java:441-443). */
+    static boolean beforeBoss(Observation observation) {
+        return observation.header().branch() == 0 && (observation.header().depth() + 1) % 5 == 0;
     }
 
     /** The most search spots per floor while food is tight: only where a secret is plausible. */

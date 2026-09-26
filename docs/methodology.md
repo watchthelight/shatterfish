@@ -749,7 +749,9 @@ are matched by triple and salt. The page has three tables: endings by cause and 
 the deaths by **situation** -- the last wait's Policy and Safety flags, which say what the Brain was
 doing and what was wrong on the screen that ended the Run, the closest a log comes to a killer; and
 every triple both sides played, worst change first (shallower, then shorter survival), with both
-situations beside it.
+situations beside it. A log the index names that is missing, or one with no header to read its
+triple from, is still one of that side's Runs: it is counted under `NO_LOG` or `UNREADABLE`, keyed
+by its file name, and never compared, so a side that lost logs says so rather than looking smaller.
 
 ## What the Brain said: the strategy log
 

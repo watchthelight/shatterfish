@@ -5,10 +5,13 @@ import org.shatterfish.api.Belief;
 import org.shatterfish.api.Codex;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.RunLog;
+import org.shatterfish.api.TalentView;
 import org.shatterfish.api.Weights;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * The Brain (story 4.1, FR-27, FR-28): a pure function of what it has seen.
@@ -191,8 +194,12 @@ public final class Brain {
         String target = decided.action() instanceof Action.UseItemOn on ? on.target().name()
                 : decided.action() instanceof Action.AnswerPrompt || decided.action() instanceof Action.DismissPrompt
                 ? windows.target() : "";
+        // So is whether it was the worn armour, by its slot on this screen (story 4.13).
+        boolean worn = decided.action() instanceof Action.UseItemOn on ? on.target().equals(TestItem.armour(observation))
+                : (decided.action() instanceof Action.AnswerPrompt || decided.action() instanceof Action.DismissPrompt)
+                && windows.worn();
         memory = memory.windowing(new Memory.Windows(decided.action() == null ? "" : decided.action().toString(),
-                target, windows.opener(), shunned));
+                target, worn, windows.opener(), shunned));
         // A drink the heal Policy handed over (story 4.9): the heal lands over the next turns with no
         // buff icon, and the floating heal text the game shows is not in the Observation, so the heal
         // Policy counts the waits since.
@@ -275,10 +282,24 @@ public final class Brain {
         List<Action> offered = unshunned(observation, memory);
         // A rooted hero's Steps and stairs are refused with no time spent, so they are no choice at all
         // until the roots wear off (story 4.12, Explore.rooted); nor, on a calm screen, a dizzy hero's,
-        // which go where the vertigo sends them (story 4.13, Explore.dizzy).
-        if (Explore.rooted(observation) || Explore.dizzy(observation)) {
+        // which go where the vertigo sends them (story 4.13, Explore.dizzy) -- unless the hero stands in
+        // fire or gas, where a Step anywhere beats staying put.
+        if (Explore.rooted(observation) || Explore.dizzy(observation) && !TestItem.inHarm(observation)) {
             offered = offered.stream().filter(action -> !(action instanceof Action.Step
                     || action instanceof Action.Descend || action instanceof Action.Ascend)).toList();
+        }
+        // A talent that already holds its most points is offered (issue #162) and then refused, which
+        // ends the Run: it is no choice. The most is two in tiers 1 and 2, the tier in tiers 3 and 4
+        // (Talent.java:438-445, the tier lists from :98).
+        Set<String> full = new HashSet<>();
+        for (TalentView talent : observation.hero().talents()) {
+            if (talent.points() >= Math.max(2, talent.tier())) {
+                full.add(talent.name());
+            }
+        }
+        if (!full.isEmpty()) {
+            offered = offered.stream().filter(action -> !(action instanceof Action.Talent t && full.contains(t.talent())))
+                    .toList();
         }
         // Back and forth between two cells for Memory.BOUNCES waits: the Step back is withheld from
         // every Policy for this wait, so two Policies that undo each other's Step stop (story 4.13).

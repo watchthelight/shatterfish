@@ -136,6 +136,71 @@ class ItemWindowsTest {
     }
 
     @Test
+    @DisplayName("an upgrade window whose button its frame does not turn on is refused, the game unchanged (story 4.13)")
+    void the_upgrade_button_still_off() {
+        atTheFirstWait(HeroClass.WARRIOR);
+        ScrollOfUpgrade scroll = new ScrollOfUpgrade();
+        scroll.identify();
+        assertTrue(scroll.collect());
+        Item armour = hero.belongings.armor();
+        int level = armour.level();
+        // Made with the hero busy, as the chained window is, but with no update that turns its button on.
+        hero.ready = false;
+        WndUpgrade stuck = new WndUpgrade(scroll, armour, false) {
+            @Override
+            public synchronized void update() {
+            }
+        };
+        hero.ready = true;
+        GameScene.show(stuck);
+        driver.stepToInputWait();
+        assertTrue(Windows.front() == stuck, "the window is in front");
+
+        Observation asked = new Observer().observe();
+        String before = org.shatterfish.api.ObservationCodec.hash(asked);
+        Outcome outcome = executor.execute(asked, new Action.AnswerPrompt(0));
+        assertInstanceOf(Outcome.Rejected.class, outcome, "a button still off is not pressed");
+        assertEquals(Reason.NO_SUCH_OPTION, ((Outcome.Rejected) outcome).reason());
+        assertTrue(Windows.front() == stuck, "the window stays");
+        assertEquals(level, armour.level(), "nothing upgraded");
+        assertEquals(1, scroll.quantity(), "the scroll kept");
+        assertEquals(before, org.shatterfish.api.ObservationCodec.hash(new Observer().observe()), "the screen unchanged");
+    }
+
+    @Test
+    @DisplayName("the chained upgrade path is deterministic: the same seed and Actions give the same screens (story 4.13)")
+    void the_chained_upgrade_window_is_deterministic() {
+        List<String> first = chainedScreens();
+        driver.close();
+        driver = null;
+        assertEquals(first, chainedScreens(), "a run of the chain and its replay draw the same screens");
+    }
+
+    /** The screens' hashes along the chained upgrade path: before the read, both windows, and after. */
+    private List<String> chainedScreens() {
+        atTheFirstWait(HeroClass.WARRIOR);
+        ScrollOfUpgrade scroll = new ScrollOfUpgrade();
+        scroll.identify();
+        scroll.quantity(2);
+        assertTrue(scroll.collect());
+        Item armour = hero.belongings.armor();
+        List<String> screens = new ArrayList<>();
+        Observation before = new Observer().observe();
+        screens.add(org.shatterfish.api.ObservationCodec.hash(before));
+        Action read = new Action.UseItemOn(ref(before, scroll.name()), "READ", ref(before, armour.name()));
+        assertInstanceOf(Outcome.Applied.class, executor.execute(before, read));
+        for (int i = 0; i < 2; i++) {
+            driver.stepToInputWait();
+            Observation window = new Observer().observe();
+            screens.add(org.shatterfish.api.ObservationCodec.hash(window));
+            assertInstanceOf(Outcome.Applied.class, executor.execute(window, new Action.AnswerPrompt(0)));
+        }
+        driver.stepToInputWait();
+        screens.add(org.shatterfish.api.ObservationCodec.hash(new Observer().observe()));
+        return screens;
+    }
+
+    @Test
     @DisplayName("the upgrade window is an upgrade Prompt with its two buttons, and upgrade upgrades the chosen item")
     void the_upgrade_window() {
         atTheFirstWait(HeroClass.WARRIOR);

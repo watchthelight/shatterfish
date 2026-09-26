@@ -20,8 +20,11 @@ import org.shatterfish.api.Observation;
  * estimate, {@link Memory#hunger}: hunger rises one a turn (Hunger.java:88-95), so each Action it
  * handed over adds the turns it takes -- a Step, an attack or a wait one (Hero.java:210), a search two
  * and four more hunger (Hero.java:211-212, :2624-2629), a meal three (Food.java:47), a rest ten turns
- * for each hit point it restored (Regeneration.java:44) -- and a meal takes off its food's energy
- * (Hunger.java:146-148). The icon then clamps it to its band: under 300 with no icon, 300 to 449
+ * for each hit point it restored (Regeneration.java:44), an answer to a window none -- and a meal takes
+ * off its food's energy (Hunger.java:146-148). While a potion's heal is still landing, the hit points
+ * a rest gained are mostly the potion's, so the rest is billed at most the turns the heal takes
+ * ({@link Heal#healingTurns}). On a locked floor, the boss's, hunger stands still (Hunger.java:66,
+ * Hero.java:2621), and the screen shows it: the "floor is locked" buff (Level.java:657-661). The icon then clamps it to its band: under 300 with no icon, 300 to 449
  * hungry, 450 starving (Hunger.java:40-41). It is an estimate from the Brain's own Actions and the
  * screen, never the game's value.
  *
@@ -41,6 +44,9 @@ final class Larder {
 
     /** A meal: three turns (Food.java:47). */
     static final int MEAL_COST = 3;
+
+    /** The buff a sealed floor gives the hero, as the screen names it (actors.properties:290). */
+    static final String LOCKED = "floor is locked";
 
     /** Hunger at which the icon shows hungry (Hunger.java:40). */
     static final int HUNGRY = 300;
@@ -66,20 +72,23 @@ final class Larder {
     /**
      * The clock after this screen: {@code before}, plus what the Action handed over last cost (its
      * kind {@code last}; {@code moved} whether the hero left its cell; {@code gained} the hit points it
-     * gained; {@code eaten} the turns of food the pack lost), less a meal's energy, clamped to the
-     * icon's band.
+     * gained; {@code eaten} the turns of food the pack lost; {@code restCap} the most turns a rest is
+     * billed; {@code locked} whether the floor was locked), less a meal's energy, clamped to the icon's
+     * band.
      */
-    static int clock(int before, String last, boolean moved, int gained, int eaten, Hunger icon) {
-        int cost = switch (last) {
+    static int clock(int before, String last, boolean moved, int gained, int eaten, int restCap, boolean locked,
+                     Hunger icon) {
+        boolean meal = last.equals("UseItem") && eaten > 0;
+        int cost = locked ? 0 : meal ? MEAL_COST : switch (last) {
             case "Step" -> moved ? 1 : 0;
             case "Search" -> SEARCH_COST;
-            case "Rest" -> Math.max(1, TURNS_PER_HP * Math.max(0, gained));
-            case "" -> 0;
+            case "Rest" -> Math.max(1, Math.min(restCap, TURNS_PER_HP * Math.max(0, gained)));
+            case "", "AnswerPrompt", "DismissPrompt" -> 0;
             default -> 1;
         };
         long value = (long) before + cost;
-        if (last.equals("UseItem") && eaten > 0) {
-            value = Math.max(0, value + MEAL_COST - eaten);
+        if (meal) {
+            value = Math.max(0, value - eaten);
         }
         return switch (icon) {
             case NONE -> (int) Math.min(value, HUNGRY - 1);

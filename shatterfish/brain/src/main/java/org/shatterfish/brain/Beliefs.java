@@ -257,13 +257,33 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         int food = Larder.food(observation);
         int gained = memory.hp() < 0 ? 0 : hp - memory.hp();
         int eaten = memory.food() < 0 ? 0 : Math.max(0, memory.food() - food);
-        int hunger = Larder.clock(memory.hunger(), memory.last(), !still, gained, eaten, observation.hero().hunger());
+        // A rest while a drunk potion's heal still lands is billed at most the turns that heal takes.
+        int ht = observation.hero().ht();
+        int restCap = memory.drank() >= 0 && memory.waits() - memory.drank() <= Heal.healingTurns(ht)
+                ? Heal.healingTurns(ht) : Integer.MAX_VALUE;
+        boolean locked = observation.hero().buffs().stream().anyMatch(buff -> buff.name().equals(Larder.LOCKED));
+        int hunger = Larder.clock(memory.hunger(), memory.last(), !still, gained, eaten, restCap, locked,
+                observation.hero().hunger());
+        // A Goo pump-up the log announces (story 4.13, Goo): new when the log's tail changed and its last
+        // line is the announcement; it lapses once Goo has moved, which drops it (Goo.java:244-250), or
+        // after PUMP_WAITS waits.
+        int tail = Goo.tail(observation);
+        int gooCell = Goo.cell(observation);
+        int pump = memory.pump();
+        long pumpWait = memory.pumpWait();
+        if (gooCell >= 0 && tail != memory.tail() && Goo.announced(observation)) {
+            pump = gooCell;
+            pumpWait = waits;
+        } else if (pump >= 0 && (gooCell != pump || waits - pumpWait > Goo.PUMP_WAITS || arriving)) {
+            pump = -1;
+            pumpWait = -1;
+        }
         Memory after = new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
                 sightings(memory.monsters(), observation, waits), here, streak, calm, dwelt, memory.blocked(),
                 memory.last(), holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE,
                 memory.drank(), Memory.Trial.NONE, balked, walking, memory.tested(), clouds(memory, observation, waits),
                 memory.refuge(), arrived, rests, memory.stepped(), tried, fleeting, opened(memory, observation), prior,
-                bounces, hunger, hp, food);
+                bounces, hunger, hp, food, tail, pump, pumpWait);
         // Two Steps in a row refused at one cell: the stepping Policy yields this wait, and that cell is
         // blocked on this floor, whichever Policy chose it (story 4.12; stories 4.8 and 4.10 recomputed
         // it from their own plans). Refused on a calm screen, for good; refused with an enemy in view,
@@ -284,7 +304,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                     holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE, memory.drank(),
                     Memory.Trial.NONE, balked, walking, memory.tested(), after.clouds(),
                     memory.refuge(), arrived, rests, memory.stepped(), -1, lapsing, after.windows(), prior, bounces,
-                    hunger, hp, food);
+                    hunger, hp, food, tail, pump, pumpWait);
         }
         return after;
     }
@@ -304,7 +324,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         } else if (opener.isEmpty() && !memory.last().equals(ANSWER) && !memory.last().equals(DISMISS)) {
             opener = windows.action();
         }
-        return new Memory.Windows(windows.action(), windows.target(), opener, windows.shunned());
+        return new Memory.Windows(windows.action(), windows.target(), windows.worn(), opener, windows.shunned());
     }
 
     /** The kinds of the two Actions that answer a Prompt, as {@link #kind} names them. */

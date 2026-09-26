@@ -137,4 +137,54 @@ class GalleryComparisonTest {
                 () -> GalleryComparison.of(twice));
         assertTrue(refused.getMessage().contains("two Runs"), refused.getMessage());
     }
+
+    /** A run index for {@code folder}: every log in it, and {@code more} file names besides. */
+    private static void index(Path folder, String... more) throws IOException {
+        List<String> lines = new ArrayList<>();
+        List<String> names = new ArrayList<>();
+        try (var listed = Files.list(folder)) {
+            listed.map(p -> p.getFileName().toString()).filter(n -> n.endsWith(".jsonl")).sorted().forEach(names::add);
+        }
+        names.addAll(List.of(more));
+        for (String name : names) {
+            lines.add("{\"class\":\"WARRIOR\",\"log\":\"" + name + "\",\"runId\":\"" + name.replace(".jsonl", "") + "\"}");
+        }
+        Files.write(folder.resolve(RunIndex.RUNS), lines, StandardCharsets.UTF_8);
+    }
+
+    @Test
+    @DisplayName("through a run index: a log it names that is missing or has no header is counted, by its file name, and never compared")
+    void missing_and_unreadable(@TempDir Path root) throws IOException {
+        Path[] sides = sides(root);
+        Files.writeString(sides[1].resolve("junk.jsonl"), "not a log\n", StandardCharsets.UTF_8);
+        index(sides[0], "gone.jsonl");
+        index(sides[1]);
+        Map<String, GalleryComparison.Ending> baseline = GalleryComparison.of(sides[0]);
+        Map<String, GalleryComparison.Ending> candidate = GalleryComparison.of(sides[1]);
+        assertEquals(4, baseline.size(), "three logs and the missing one");
+        assertEquals(Gallery.NO_LOG, baseline.get(GalleryComparison.UNKEYED + "gone.jsonl").cause());
+        assertEquals(Gallery.UNREADABLE, candidate.get(GalleryComparison.UNKEYED + "junk.jsonl").cause());
+
+        String page = GalleryComparison.page("baseline", baseline, "candidate", candidate);
+        assertTrue(page.contains("2 triples were played by both"), page);
+        assertTrue(page.contains("1 only by the baseline and 1 only by the candidate"), "unkeyed logs are not triples: " + page);
+        assertTrue(page.contains("1 baseline and 1 candidate logs are missing or have no header"), page);
+        assertTrue(page.contains("| NO\\_LOG | — | 1 | 0 | -1 |"), page);
+        assertTrue(page.contains("| UNREADABLE | — | 0 | 1 | +1 |"), page);
+    }
+
+    @Test
+    @DisplayName("the gallery command on a comparison folder writes each side's gallery and the comparison view beside them")
+    void comparison_folder(@TempDir Path root) throws IOException {
+        Path[] sides = sides(root);
+        index(sides[0]);
+        index(sides[1]);
+        Files.writeString(root.resolve(Comparison.FILE), "{}\n", StandardCharsets.UTF_8);
+        Gallery.main(new String[] {root.toString()});
+        assertTrue(Files.isRegularFile(sides[0].resolve(Gallery.FILE)));
+        assertTrue(Files.isRegularFile(sides[1].resolve(Gallery.FILE)));
+        String page = Files.readString(root.resolve(GalleryComparison.FILE), StandardCharsets.UTF_8);
+        assertTrue(page.contains("candidate against baseline"), "the candidate is the candidate: " + page);
+        assertTrue(page.contains("2 triples were played by both"), page);
+    }
 }

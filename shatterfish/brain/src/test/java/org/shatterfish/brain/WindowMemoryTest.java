@@ -100,7 +100,9 @@ class WindowMemoryTest {
         Belief belief = openAndAnswer(brain, TALK, shop());
         Memory memory = Memory.of(belief);
         assertEquals(memory, Memory.of(memory.belief()), "the bytes carry every field of the windows");
-        assertTrue(Memory.VERSION >= 9, "version 9 brought the windows (story 4.11)");
+        Memory worn = memory.windowing(new Memory.Windows("x", "cloth armor", true, "", memory.windows().shunned()));
+        assertEquals(worn, Memory.of(worn.belief()), "and whether the item read onto was the worn armour (story 4.13)");
+        assertTrue(Memory.of(worn.belief()).windows().worn());
         Observation calm = Screens.offering(1, new Action.Wait());
         Memory later = Memory.of(brain.update(calm, belief));
         assertEquals("", later.windows().opener(), "no window open, no opener");

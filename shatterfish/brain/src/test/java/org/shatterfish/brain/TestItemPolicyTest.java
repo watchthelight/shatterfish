@@ -218,6 +218,9 @@ class TestItemPolicyTest {
         TestItem.Plan upgraded = new TestItem(Screens.CODEX).plan(known, Memory.START, known.actions().actions());
         assertEquals(up, upgraded.choice().action(), "a known scroll of upgrade goes onto the armour, at any health");
         assertEquals("upgrade: cloth armor", upgraded.choice().why());
+        assertTrue(new TestItem(Screens.CODEX).enters(known, Memory.START), "a known upgrade alone makes the Policy enter");
+        Brain.Decided decided = new Brain(Screens.CODEX, Screens.WEIGHTS, 5L).decide(known, Memory.START.belief());
+        assertEquals(up, decided.action(), "and the Brain reads it onto the armour: " + decided.decision());
     }
 
     @Test
@@ -233,8 +236,27 @@ class TestItemPolicyTest {
         Observation none = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(crimson),
                 List.of(), List.of(), List.of(), drink(0, "crimson potion", 1));
         assertFalse(new TestItem(NO_GAINS).enters(none, Memory.START), "no strength or experience among the candidates");
-        assertTrue(TestItem.GAIN_ODDS <= 0.25, "one time in four is enough");
+        // Gas and flame among the candidates: drunk at full health, where the worst of them is survived,
+        // and not at 4 of 20, where it is not (SafeTest), gains or no gains.
+        TestItem harmful = new TestItem(GAINS_HARM);
+        Action drink = new Action.UseItem(new ItemRef(0, "crimson potion", 1), TestItem.DRINK);
+        Observation whole = screen(1, row(3, -1, -1), Screens.heroAt(1, 60, 60, List.of()), List.of(crimson),
+                List.of(), List.of(), List.of(), drink(0, "crimson potion", 1));
+        TestItem.Plan drunk = harmful.plan(whole, Memory.START, whole.actions().actions());
+        assertEquals(drink, drunk == null ? null : drunk.choice().action(), "60 of 60 survives gas or flame");
+        Observation low = screen(1, row(3, -1, -1), Screens.heroAt(1, 4, 20, List.of()), List.of(crimson),
+                List.of(), List.of(), List.of(), drink(0, "crimson potion", 1));
+        TestItem.Plan risked = harmful.plan(low, Memory.START, low.actions().actions());
+        assertNotEquals(drink, risked == null ? null : risked.choice().action(), "4 of 20: gas or flame would kill");
     }
+
+    /** Crimson potions that are strength one time in three, else toxic gas or liquid flame. */
+    private static final Codex.Knowledge GAINS_HARM = new Codex.Knowledge(Screens.MANIFEST,
+            List.of(new Codex.Identities(ItemKind.POTION, List.of("crimson potion"),
+                    List.of(new Codex.Candidate("items.potions.PotionOfStrength", "potion of strength", 1),
+                            new Codex.Candidate("items.potions.PotionOfToxicGas", "potion of toxic gas", 1),
+                            new Codex.Candidate("items.potions.PotionOfLiquidFlame", "potion of liquid flame", 1)))),
+            List.of(), List.of());
 
     @Test
     @DisplayName("a scroll is read only at full health, and only while its item-picker identities are unlikely")
@@ -554,6 +576,16 @@ class TestItemPolicyTest {
         }
         assertEquals(List.of(new Action.Step(2), new Action.Step(3), new Action.Step(4)), taken.subList(0, 3));
         assertEquals(List.of("escape: ToxicGas", "escape: ToxicGas", "escape: edge"), why);
+
+        // Dizzy in the gas (story 4.13): the Brain withholds a dizzy hero's Steps on a calm screen, but
+        // not in harm, where a Step the vertigo may turn still beats staying in the cloud.
+        belief = brain.update(drinking, null);
+        belief = brain.handed(drinking, belief, brain.decide(drinking, belief));
+        Observation dizzy = screen(1, tiles, Screens.heroAt(1, 20, 20,
+                List.of(new BuffView(Explore.VERTIGO, false, 0))), List.of(), List.of(), gas, List.of());
+        belief = brain.update(dizzy, belief);
+        Brain.Decided stepped = brain.decide(dizzy, belief);
+        assertEquals(new Action.Step(2), stepped.action(), stepped.decision().toString());
     }
 
     @Test

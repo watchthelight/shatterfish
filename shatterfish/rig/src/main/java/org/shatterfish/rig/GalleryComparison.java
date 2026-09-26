@@ -41,11 +41,19 @@ import java.util.TreeSet;
  * shorter survival before longer -- so what the candidate broke is at the top. Triples only one side
  * played are counted, not compared. Plain Markdown, every cell escaped (NFR-9); the same two folders
  * give the same page.
+ *
+ * <p><b>A log it cannot key.</b> A log the index names that is not there, or one with no header to
+ * read a triple from, is still a Run of that side: it is counted under {@link Gallery#NO_LOG} or
+ * {@link Gallery#UNREADABLE}, keyed by its file name ({@link #UNKEYED}), and never compared, so a
+ * side that lost logs shows it rather than looking smaller.
  */
 public final class GalleryComparison {
 
     /** The page {@code main} writes into the comparison folder it is given. */
     public static final String FILE = "gallery-comparison.md";
+
+    /** The start of the key of a log with no triple to key it by: its file name follows. */
+    public static final String UNKEYED = "log ";
 
     /** The situation of a Run whose last wait carries no Decision. */
     public static final String NO_DECISION = "no decision";
@@ -100,9 +108,6 @@ public final class GalleryComparison {
         Map<String, Ending> endings = new TreeMap<>();
         for (Path file : files) {
             Ending ending = ending(file);
-            if (ending == null) {
-                continue;
-            }
             if (endings.put(ending.key(), ending) != null) {
                 throw new IllegalArgumentException(folder + " holds two Runs of " + ending.key());
             }
@@ -110,19 +115,23 @@ public final class GalleryComparison {
         return endings;
     }
 
-    /** A log's ending and situation, or null when it has no header to key it by. */
+    /**
+     * A log's ending and situation; for a log that is not there, or has no header to key it by, an
+     * ending under {@link Gallery#NO_LOG} or {@link Gallery#UNREADABLE} keyed by its file name.
+     */
     static Ending ending(Path file) {
+        String name = file.getFileName().toString();
         if (!Files.isRegularFile(file)) {
-            return null;
+            return new Ending(UNKEYED + name, "", "", Gallery.NO_LOG, -1, -1, NO_DECISION, name);
         }
         RunLogReader.Log read;
         try {
             read = RunLogReader.of(file);
         } catch (RuntimeException unreadable) {
-            return null;
+            return new Ending(UNKEYED + name, "", "", Gallery.UNREADABLE, -1, -1, NO_DECISION, name);
         }
         if (read.records().isEmpty() || !(read.records().get(0) instanceof RunLog.Header header)) {
-            return null;
+            return new Ending(UNKEYED + name, "", "", Gallery.UNREADABLE, -1, -1, NO_DECISION, name);
         }
         String key = header.seedCode() + " " + header.heroClass().name() + " " + header.challenges()
                 + " " + Long.toHexString(header.salt());
@@ -130,7 +139,6 @@ public final class GalleryComparison {
         RunLog.Wait last = waits.isEmpty() ? null : waits.get(waits.size() - 1);
         String situation = situation(last);
         RunLog.End end = read.end();
-        String name = file.getFileName().toString();
         if (!read.readable()) {
             return new Ending(key, header.seedCode(), header.heroClass().name(), Gallery.UNREADABLE,
                     last == null ? -1 : last.depth(), -1, situation, name);
@@ -160,14 +168,26 @@ public final class GalleryComparison {
                 .append(" the Run's own log. -->\n\n");
         out.append("# How two Brains' Runs ended: ").append(Gallery.cell(candidateName)).append(" against ")
                 .append(Gallery.cell(baselineName)).append("\n\n");
-        List<String> both = baseline.keySet().stream().filter(candidate::containsKey).sorted().toList();
-        long onlyBaseline = baseline.keySet().stream().filter(k -> !candidate.containsKey(k)).count();
-        long onlyCandidate = candidate.keySet().stream().filter(k -> !baseline.containsKey(k)).count();
+        List<String> both = baseline.keySet().stream().filter(k -> !k.startsWith(UNKEYED))
+                .filter(candidate::containsKey).sorted().toList();
+        long onlyBaseline = baseline.keySet().stream().filter(k -> !k.startsWith(UNKEYED))
+                .filter(k -> !candidate.containsKey(k)).count();
+        long onlyCandidate = candidate.keySet().stream().filter(k -> !k.startsWith(UNKEYED))
+                .filter(k -> !baseline.containsKey(k)).count();
+        long unkeyedBaseline = baseline.keySet().stream().filter(k -> k.startsWith(UNKEYED)).count();
+        long unkeyedCandidate = candidate.keySet().stream().filter(k -> k.startsWith(UNKEYED)).count();
         out.append("The baseline has ").append(baseline.size()).append(" Runs and the candidate ")
                 .append(candidate.size()).append("; ").append(both.size())
                 .append(" triples were played by both and are compared, ").append(onlyBaseline)
                 .append(" only by the baseline and ").append(onlyCandidate)
-                .append(" only by the candidate. ").append(Gallery.NO_KILLER)
+                .append(" only by the candidate. ");
+        if (unkeyedBaseline + unkeyedCandidate > 0) {
+            out.append(unkeyedBaseline).append(" baseline and ").append(unkeyedCandidate)
+                    .append(" candidate logs are missing or have no header: they are counted under ")
+                    .append(Gallery.NO_LOG).append(" or ").append(Gallery.UNREADABLE)
+                    .append(" and never compared. ");
+        }
+        out.append(Gallery.NO_KILLER)
                 .append(" The situation is the last wait's Policy and Safety flags: what the Brain was"
                         + " doing, and what was wrong, when the Run ended.\n\n");
 
