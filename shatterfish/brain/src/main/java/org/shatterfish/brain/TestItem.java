@@ -152,8 +152,11 @@ final class TestItem implements Policy {
         if (!Explore.calm(observation)) {
             return false;
         }
-        if (inHarm(observation)) {
-            return escaping(observation, memory);
+        if (escaping(observation, memory)) {
+            return true;
+        }
+        if (!settled(observation, memory)) {
+            return false;
         }
         return !testable(observation, memory).isEmpty() || restOwed(observation, memory);
     }
@@ -171,11 +174,16 @@ final class TestItem implements Policy {
         }
         MapSection map = observation.map();
         int hero = observation.hero().cell();
-        if (inHarm(observation)) {
-            // Out of harm first; and never a test while standing in it, escape or not.
-            Action step = escaping(observation, memory) ? escape(observation, memory, offered) : null;
+        if (escaping(observation, memory)) {
+            // Out of harm first, and clear of the cloud's edge, which spreads (Blob.java:158-186).
+            Action step = escape(observation, memory, offered);
+            String what = inHarm(observation) ? harm(observation) : "edge";
             return step == null ? null
-                    : new Plan("", 0, new RunLog.Choice(step, Policies.CERTAIN, "escape: " + harm(observation)));
+                    : new Plan("", 0, new RunLog.Choice(step, Policies.CERTAIN, "escape: " + what));
+        }
+        if (!settled(observation, memory)) {
+            // Never a test or a rest in harm, at a cloud's edge, or holding a door open.
+            return null;
         }
         int depth = observation.header().depth();
         int branch = observation.header().branch();
@@ -250,9 +258,42 @@ final class TestItem implements Policy {
      * starving -- a starving hero does not regenerate (Regeneration.java:56).
      */
     static boolean restOwed(Observation observation, Memory memory) {
+        int depth = observation.header().depth();
+        int branch = observation.header().branch();
+        int hero = observation.hero().cell();
+        int width = observation.map().width();
         return memory.tested() >= 0 && memory.waits() - memory.tested() <= REST_WAITS
                 && observation.hero().hp() < observation.hero().ht()
-                && observation.hero().hunger() == org.shatterfish.api.Hunger.NONE;
+                && observation.hero().hunger() == org.shatterfish.api.Hunger.NONE
+                // A locked boss floor stops regeneration and hunger (LockedFloor.java:62-64,
+                // Regeneration.java:112-117): nothing would end the rest, and the Run would stall.
+                && !has(observation, LOCKED)
+                // Not where the fight Policy just retreated from: the enemy comes back mid-rest.
+                && memory.avoided(depth, branch, memory.waits()).stream()
+                        .noneMatch(region -> region.covers(depth, branch, hero, width));
+    }
+
+    /** The buff a locked boss floor shows (actors.properties:290). */
+    static final String LOCKED = "floor is locked";
+
+    /** What counts as clean at a cell: no harmful blob drawn there and no cloud remembered there. */
+    static java.util.function.IntPredicate clean(Observation observation, Memory memory) {
+        MapSection map = observation.map();
+        int depth = observation.header().depth();
+        int branch = observation.header().branch();
+        return cell -> harmfulOn(map, cell).isEmpty() && !memory.clouded(depth, branch, cell, memory.waits());
+    }
+
+    /**
+     * Whether the hero stands where a test or a rest may happen: its cell and every neighbour clean, so
+     * no cloud is about to spread onto it and interrupt a rest (Hero.java:1644-1646), and not in a
+     * doorway, which a hero standing in holds open (Door.java:45-58).
+     */
+    static boolean settled(Observation observation, Memory memory) {
+        int hero = observation.hero().cell();
+        java.util.function.IntPredicate clean = clean(observation, memory);
+        return !inHarm(observation) && clean.test(hero) && clear(observation.map(), hero, clean)
+                && observation.map().tiles().get(hero) != Tile.OPEN_DOOR;
     }
 
     /**
@@ -334,9 +375,30 @@ final class TestItem implements Policy {
         return !harm(observation).isEmpty();
     }
 
-    /** Whether the hero is in harm within {@link #ESCAPE_WAITS} waits of a test this Policy handed over. */
+    /**
+     * Whether, within {@link #ESCAPE_WAITS} waits of a test this Policy handed over, the hero still has
+     * to leave its own fire or gas: it is in harm, or at the cloud's edge ({@link #settled} fails for a
+     * cloud), or a cloud is in sight or remembered on the floor and the hero is not yet on the refuge
+     * beyond the door the test was credited with.
+     */
     static boolean escaping(Observation observation, Memory memory) {
-        return memory.tested() >= 0 && memory.waits() - memory.tested() <= ESCAPE_WAITS && inHarm(observation);
+        if (memory.tested() < 0 || memory.waits() - memory.tested() > ESCAPE_WAITS) {
+            return false;
+        }
+        if (inHarm(observation)) {
+            return true;
+        }
+        int hero = observation.hero().cell();
+        java.util.function.IntPredicate clean = clean(observation, memory);
+        if (!clean.test(hero) || !clear(observation.map(), hero, clean)) {
+            return true;
+        }
+        int depth = observation.header().depth();
+        int branch = observation.header().branch();
+        boolean cloud = observation.map().blobs().stream().anyMatch(blob -> blob.kinds().stream().anyMatch(HARMFUL::contains))
+                || memory.clouds().stream().anyMatch(c -> c.depth() == depth && c.branch() == branch
+                        && c.until() >= memory.waits());
+        return cloud && memory.refuge() >= 0 && hero != memory.refuge();
     }
 
     /**
@@ -375,10 +437,7 @@ final class TestItem implements Policy {
         boolean[] walk = Explore.walkable(observation, memory, true, true);
         int[] distance = Pickup.distances(map, walk, hero);
         boolean burning = has(observation, BURNING);
-        int depth = observation.header().depth();
-        int branch = observation.header().branch();
-        java.util.function.IntPredicate clean = cell -> harmfulOn(map, cell).isEmpty()
-                && !memory.clouded(depth, branch, cell, memory.waits());
+        java.util.function.IntPredicate clean = clean(observation, memory);
         int target = -1;
         // Through the door the test was credited with, when there was one and it can be reached.
         int refuge = memory.refuge();

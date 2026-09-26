@@ -490,3 +490,56 @@ confirmations) and the old ones. All 30 are killed.
   descending is story 4.12's.
 - **The variant.** Drinking at two thirds of the hit points measured the same as half, so the
   recommended half stands.
+
+## Verification pass on 5d1cea0d2
+
+The pass confirmed these as correct:
+- the Memory v7 codec and every 31-argument call;
+- 4.9's `drank`;
+- the Policy order;
+- the scroll-cancel match (the confirmation is classified ITEM, and its text is `items.properties:1155`);
+- the fallback;
+- shut-door clouds;
+- determinism and parity.
+
+It found four issues, each now fixed with a test.
+
+1. **The escape stopped at the first cell with no gas drawn** (medium-high). The hero then rested or
+   tested at the edge of its own spreading cloud (Blob.java:158-186). The gas interrupts a rest
+   (Hero.java:1644-1646), and the hero could drink the next unknown potion there. Resting or testing
+   in the doorway holds the door open (Door.java:45-58) and voids the door's credit.
+   - **Fix:** within `ESCAPE_WAITS` of a test, the escape goes on while the hero's cell or a neighbour
+     shows or remembers a cloud. While a cloud is anywhere on the floor, it also goes on until the
+     hero stands on the refuge.
+   - A test and the after-test rest now need the hero `settled`: cell and neighbours clean, and not in
+     a doorway.
+   - Tests: `no_rest_or_test_at_the_edge` (several screens), `escape_carries_on_to_the_refuge`,
+     `not_in_a_doorway`, and the updated `escapes_its_gas`.
+2. **A rest on a locked boss floor never ends** (medium). Regeneration and hunger stop there
+   (LockedFloor.java:62-64, Regeneration.java:112-117), and the Run stalls.
+   - **Fix:** no after-test rest while the hero shows "floor is locked" (actors.properties:290).
+   - Test: `rest_where_it_ends`.
+3. **The rest happened inside a region the fight Policy had retreated from** (low).
+   - **Fix:** no rest while the hero's cell is in an avoid region.
+   - Test: `rest_where_it_ends`.
+4. **An ally could hold the door open** (low).
+   - **Fix:** no door credit (`SafeTest.refuge` is -1) while an ally is in view.
+   - Test: `no_credit_with_an_ally`.
+
+**Verification.**
+- `:brain:test` passes, with `TestItemPolicyTest` at 35 cases.
+- The eight rig tests pass, each as its own gradle job.
+- `:codex:citations` reports no findings.
+- The mutation battery on the new lines (`scratchpad/mutations410c.py`) killed 8 of 8.
+
+**Direction check** (`smoke`, salts 1000+i, against `fx-49c`):
+
+| | main (4.9) | 4.10 at 5d1cea0d2 | 4.10 now |
+|---|---|---|---|
+| turns survived, median (mean) | 752 (842) | 863 (935) | 863 (915) |
+| deepest floor, mean (max) | 2.44 (4) | 2.32 (4) | 2.32 (4) |
+| score, mean | 847.8 | 924.9 | 917.5 |
+| endings | 22 deaths, 3 unknown windows | 25 deaths | 25 deaths |
+| test-item waits (tests) | none | 12 (5) | 7 (4) |
+
+The changes touch only the few Runs that test, and both 4.10 columns fall within one Run's divergence.

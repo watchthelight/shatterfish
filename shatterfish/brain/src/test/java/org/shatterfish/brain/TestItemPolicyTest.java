@@ -476,21 +476,116 @@ class TestItemPolicyTest {
         assertEquals(drink(0, "crimson potion", 1), drunk.action());
         belief = brain.handed(drinking, belief, drunk);
         List<Action> taken = new ArrayList<>();
-        for (int hero = 1; hero <= 3; hero++) {
+        List<String> why = new ArrayList<>();
+        for (int hero = 1; hero <= 4; hero++) {
             Observation screen = screen(1, tiles, Screens.heroAt(hero, 20, 20, List.of()), List.of(), List.of(), gas,
                     List.of());
             belief = brain.update(screen, belief);
             Brain.Decided decided = brain.decide(screen, belief);
-            if (hero < 3) {
-                assertEquals("test-item", decided.decision().policy(), "in the gas at " + hero);
-                assertEquals("escape: ToxicGas", decided.decision().chosen().why());
+            if (hero < 4) {
+                assertEquals("test-item", decided.decision().policy(), "in the gas or at its edge at " + hero);
+                why.add(decided.decision().chosen().why());
             } else {
-                assertNotEquals("test-item", decided.decision().policy(), "out of it");
+                assertNotEquals("test-item", decided.decision().policy(), "clear of it");
             }
             taken.add(decided.action());
             belief = brain.handed(screen, belief, decided);
         }
-        assertEquals(List.of(new Action.Step(2), new Action.Step(3)), taken.subList(0, 2));
+        assertEquals(List.of(new Action.Step(2), new Action.Step(3), new Action.Step(4)), taken.subList(0, 3));
+        assertEquals(List.of("escape: ToxicGas", "escape: ToxicGas", "escape: edge"), why);
+    }
+
+    @Test
+    @DisplayName("after its test the hero leaves the cloud's edge before it rests or drinks again, over several screens")
+    void no_rest_or_test_at_the_edge() {
+        Brain brain = brain(Screens.CODEX);
+        List<Tile> tiles = row(8, -1, -1);
+        ItemView crimson = Screens.unknown(ItemKind.POTION, "crimson potion", 1);
+        ItemView amber = Screens.unknown(ItemKind.POTION, "amber potion", 1);
+        Observation drinking = screen(1, tiles, Screens.heroAt(1, 10, 20, List.of()), List.of(crimson, amber),
+                List.of(), List.of(), List.of(), drink(0, "crimson potion", 1), drink(1, "amber potion", 1));
+        Belief belief = brain.update(drinking, null);
+        Brain.Decided drunk = brain.decide(drinking, belief);
+        assertEquals(drink(0, "crimson potion", 1), drunk.action());
+        belief = brain.handed(drinking, belief, drunk);
+        // The cloud grows from 0-2 to 0-3 and stays; the hero, hurt and holding amber, is at 1, 2, 3, 4, 5.
+        List<String> why = new ArrayList<>();
+        int[] reach = {2, 3, 3, 3, 3};
+        for (int wait = 0; wait < reach.length; wait++) {
+            int hero = 1 + wait;
+            List<BlobCell> gas = new ArrayList<>();
+            for (int cell = 0; cell <= reach[wait]; cell++) {
+                gas.add(new BlobCell(cell, List.of("ToxicGas")));
+            }
+            Observation screen = screen(1, tiles, Screens.heroAt(hero, 10, 20, List.of()), List.of(amber), List.of(),
+                    gas, List.of(), drink(0, "amber potion", 1), new Action.Rest(true));
+            belief = brain.update(screen, belief);
+            Brain.Decided decided = brain.decide(screen, belief);
+            why.add(decided.decision().policy() + " " + decided.decision().chosen().why());
+            belief = brain.handed(screen, belief, decided);
+        }
+        assertEquals(List.of("test-item escape: ToxicGas", "test-item escape: ToxicGas", "test-item escape: ToxicGas",
+                "test-item escape: edge", "test-item test: amber potion"), why,
+                "no drink and no rest until the cell and its neighbours are clear");
+    }
+
+    @Test
+    @DisplayName("while a cloud is about, the escape carries on to the refuge beyond the credited door")
+    void escape_carries_on_to_the_refuge() {
+        List<Tile> tiles = row(7, -1, -1);
+        Memory tested = Memory.START.trying(new Memory.Trial("jade potion", 1, -1), 6);
+        Observation onTheWay = screen(1, tiles, Screens.heroAt(4, 20, 20, List.of()), List.of(), List.of(),
+                List.of(new BlobCell(0, List.of("ToxicGas"))), List.of());
+        assertTrue(TestItem.escaping(onTheWay, tested), "clear here, but not yet through the door");
+        assertEquals(new Action.Step(5), TestItem.escape(onTheWay, tested, onTheWay.actions().actions()));
+        Observation there = screen(1, tiles, Screens.heroAt(6, 20, 20, List.of()), List.of(), List.of(),
+                List.of(new BlobCell(0, List.of("ToxicGas"))), List.of());
+        assertFalse(TestItem.escaping(there, tested), "on the refuge");
+        Observation noCloud = screen(1, tiles, Screens.heroAt(4, 20, 20, List.of()), List.of(), List.of(), List.of(),
+                List.of());
+        assertFalse(TestItem.escaping(noCloud, tested), "no cloud anywhere: a harmless potion, nothing to flee");
+    }
+
+    @Test
+    @DisplayName("not in a doorway: a hero standing in one holds the door open")
+    void not_in_a_doorway() {
+        List<Tile> tiles = row(3, -1, -1);
+        tiles.set(1, Tile.OPEN_DOOR);
+        ItemView crimson = Screens.unknown(ItemKind.POTION, "crimson potion", 1);
+        Observation inDoor = screen(1, tiles, Screens.heroAt(1, 10, 20, List.of()), List.of(crimson), List.of(),
+                List.of(), List.of(), drink(0, "crimson potion", 1), new Action.Rest(true));
+        TestItem policy = new TestItem(Screens.CODEX);
+        assertFalse(policy.enters(inDoor, Memory.START), "no test in the doorway");
+        assertFalse(policy.enters(inDoor, after(3, 0, -1, List.of(), List.of())), "no rest in the doorway");
+    }
+
+    @Test
+    @DisplayName("no rest on a locked boss floor, where nothing would end it, nor inside a region the fight Policy retreated from")
+    void rest_where_it_ends() {
+        TestItem policy = new TestItem(Screens.CODEX);
+        Memory justTested = after(3, 0, -1, List.of(), List.of());
+        Observation locked = screen(1, row(3, -1, -1),
+                Screens.heroAt(1, 12, 20, List.of(new BuffView(TestItem.LOCKED, false, 0))), List.of(), List.of(),
+                List.of(), List.of(), new Action.Rest(true));
+        assertFalse(policy.enters(locked, justTested), "floor is locked");
+        Observation open = screen(1, row(3, -1, -1), Screens.heroAt(1, 12, 20, List.of()), List.of(), List.of(),
+                List.of(), List.of(), new Action.Rest(true));
+        assertTrue(policy.enters(open, justTested));
+        Memory retreated = justTested.avoiding(new Memory.Avoid(1, 0, 2, 2, 50));
+        assertFalse(policy.enters(open, retreated), "inside the region the fight Policy left");
+    }
+
+    @Test
+    @DisplayName("no door credit while an ally is in view: it could step into the doorway and hold it open")
+    void no_credit_with_an_ally() {
+        ActorView ally = new ActorView(0, "sheep", org.shatterfish.api.Alignment.ALLY, 1, false,
+                org.shatterfish.api.Emote.NONE, List.of());
+        Observation withAlly = screen(1, row(4, -1, 2), Screens.heroAt(1, 20, 40, List.of()), List.of(), List.of(ally),
+                List.of(), List.of());
+        assertEquals(-1, SafeTest.refuge(withAlly, 1));
+        Observation alone = screen(1, row(4, -1, 2), Screens.heroAt(1, 20, 40, List.of()), List.of(), List.of(),
+                List.of(), List.of());
+        assertEquals(3, SafeTest.refuge(alone, 1));
     }
 
     @Test

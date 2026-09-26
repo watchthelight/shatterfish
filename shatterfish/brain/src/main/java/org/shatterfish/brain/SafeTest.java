@@ -383,10 +383,14 @@ public final class SafeTest {
      * through, whose far side -- the next cell straight on -- is a known cell a click steps onto. The
      * escape makes for that cell, so the credit is taken only when the way through exists; gas
      * spreads orthogonally (Blob.java:158-185), and a hero who fled deeper into the room would not
-     * leave it behind.
+     * leave it behind. No door is credited while an ally is in view, which could hold it open.
      */
     static int refuge(Observation observation, int cell) {
         MapSection map = observation.map();
+        // An ally may step into the doorway and hold it open: no credit while one is in view.
+        if (observation.actors().actors().stream().anyMatch(actor -> actor.alignment() == Alignment.ALLY)) {
+            return -1;
+        }
         int width = map.width();
         int x = cell % width;
         int y = cell / width;
