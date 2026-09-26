@@ -118,6 +118,20 @@ final class Explore implements Policy {
     }
 
     /**
+     * Whether {@code cell} is drawn as a chasm (issue #170). A click on one asks whether to jump
+     * ({@code core/.../actors/hero/Hero.java:1881-1893}; {@code core/.../levels/features/Chasm.java:57-97}),
+     * and a jump takes the hero down a floor, where he lands crippled, bleeding and hurt by half his
+     * health or more ({@code Chasm.java:99-121}, {@code :131-152}), with the floor he left unfinished.
+     * {@link #WALK} already leaves the chasm out of every plan; the Brain leaves the offered Steps onto
+     * one out too ({@code Brain.decide}), so no Policy's own pick among them, a fight's chokepoint or the
+     * fallback's, can take one either. No Policy means to jump today.
+     */
+    static boolean chasm(Observation observation, int cell) {
+        MapSection map = observation.map();
+        return cell >= 0 && cell < map.tiles().size() && map.tiles().get(cell) == Tile.CHASM;
+    }
+
+    /**
      * Whether the hero shows vertigo on a calm screen (story 4.13). A Step under vertigo goes to a
      * random neighbour (Char.java:1298-1305), and spends no time at all when the cell it aims at holds
      * a character the screen does not draw (Hero.java:1831-1834): so with nothing to flee, the Brain

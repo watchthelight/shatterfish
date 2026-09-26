@@ -40,6 +40,11 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
     int heldQueue;
     /** Loading-scene frames served: one per floor change the game asked for. */
     int loadingFrames;
+    /**
+     * The game time each frame advances by, or 0 for the headless stepper's own fifth of a second
+     * (issue #170): the desktop's frames are a sixtieth, which is what a window's input guard counts.
+     */
+    float frameTime;
 
     EmbeddedHost(long seed, HeroClass heroClass, long salt) {
         this.seed = seed;
@@ -121,7 +126,11 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
                 game.clearSceneSwitchRequest();
             }
             if (!game.sceneSwitchRequested()) {
-                driver.step();
+                if (frameTime > 0) {
+                    driver.stepper().step(frameTime);
+                } else {
+                    driver.step();
+                }
                 if (thinking) {
                     framesWhileThinking++;
                 }

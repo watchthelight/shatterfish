@@ -194,8 +194,25 @@ public final class EmbeddedRun implements AutoCloseable {
     /** The speed a HUMAN Run's mode record names: the person's own pace, since no speed mode paces it. */
     public static final String HUMAN_SPEED = "player";
 
+    /**
+     * The game time a window must have been in front before the Run taps it (issue #170): the chasm's
+     * confirmation ignores every tap and the back key until its own count of {@code Game.elapsed} is
+     * past a fifth of a second ({@code core/.../levels/features/Chasm.java:69-87}), a guard against a
+     * player's misclick. Headlessly every frame is a fifth of a second and a wait is confirmed at the
+     * window's second frame, so the count is at least twice this by the tap; the desktop draws a frame
+     * every sixtieth of a second and the Brain answers within a few, and a tap that early was lost: the
+     * window stayed, the Brain answered it again, and every answer was a wait with no turn passed.
+     */
+    static final float INPUT_GUARD_SECONDS = 0.2f;
+
     private int attachments;
     private double secondsWithoutAWait;
+    /** The window in front at the last game frame, and the game time it has been in front, its first frame included. */
+    private Window guardWindow;
+    private float guardSeconds;
+    private float lastTimeTotal = Float.NaN;
+    /** Frames a Prompt's answer was held back until its window took input (issue #170). */
+    private long heldFrames;
     /** The wait being confirmed again after a stale answer, which is not a second wait on the same turn. */
     private boolean reconfirming;
     /** The decider's state before it was asked the pending question, when it can be put back. */
@@ -434,8 +451,13 @@ public final class EmbeddedRun implements AutoCloseable {
         if (human != null) {
             return humanFrame();
         }
+        timeTheWindow();
         if (pending != null) {
             if (!pending.isDone()) {
+                return State.THINKING;
+            }
+            if (tooEarlyForTheWindow()) {
+                heldFrames++;
                 return State.THINKING;
             }
             serve();
@@ -725,6 +747,49 @@ public final class EmbeddedRun implements AutoCloseable {
     /** Shadow questions the Brain failed; the person's game went on. */
     public long shadowFailures() {
         return shadowFailures;
+    }
+
+    /**
+     * Counts the game time the window in front has been there, once per game frame: a call to
+     * {@link #frame()} with no game frame before it (a host that does not step while the Brain thinks)
+     * adds nothing. The frame that first shows a window counts whole, which is exact for a window a
+     * runnable put up, since the render thread runs those before the scene's update
+     * ({@code SceneStepper}'s frame; libGDX's loop on the desktop) -- the chasm's is one
+     * ({@code Chasm.java:59-62}).
+     */
+    private void timeTheWindow() {
+        float now = Game.timeTotal;
+        boolean framed = !(now == lastTimeTotal);
+        lastTimeTotal = now;
+        Window window = Windows.front();
+        if (window != guardWindow) {
+            guardWindow = window;
+            guardSeconds = framed ? Game.elapsed : 0f;
+        } else if (framed) {
+            guardSeconds += Game.elapsed;
+        }
+    }
+
+    /**
+     * Whether the Brain's answer is a tap on the window in front, or its back key, that the window would
+     * still ignore (issue #170): then it is held, and served at the first frame the window takes it. The
+     * answer is not changed and nothing is recorded meanwhile; if the screen changes while it is held,
+     * {@link #serve()} drops it as stale, as it drops any other. A hold spends only frames the desktop
+     * draws anyway; headlessly timed frames are never held, so the Run a test host plays at the headless
+     * loop's timing is still that loop's Run.
+     */
+    private boolean tooEarlyForTheWindow() {
+        if (pending.state() != Future.State.SUCCESS) {
+            return false;
+        }
+        Action chosen = pending.resultNow().action();
+        boolean prompt = chosen instanceof Action.AnswerPrompt || chosen instanceof Action.DismissPrompt;
+        return prompt && guardWindow != null && guardWindow == Windows.front() && guardSeconds <= INPUT_GUARD_SECONDS;
+    }
+
+    /** Frames a Prompt's answer was held until its window took input (issue #170). */
+    public long heldFrames() {
+        return heldFrames;
     }
 
     /** The Brain has answered: execute the answer and write the wait's record, as the headless loop does. */

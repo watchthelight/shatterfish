@@ -21,7 +21,7 @@ behaviour to re-check.
 |---|---|---|---|
 | 1 | An options window draws one button per option, in order, so an `AnswerPrompt` index names a button whose label the Observation carries. | `answer-prompt` | [ui: "Every options window the game opens at the tag is an anonymous subclass"](rules/ui.md) |
 | 2 | Pressing an option's button closes the window before the option acts, so an answered Prompt is closed. | `answer-prompt` | [game-loop: "Quest and shop dialogs are shown from the actor thread"](rules/game-loop.md) |
-| 3 | The chasm prompt jumps only on "yes", so declining leaves the hero where it stood. | `answer-prompt` (declining) | [game-loop: "Walking onto a chasm asks first, within one act"](rules/game-loop.md) |
+| 3 | The chasm prompt jumps only on "yes", so declining leaves the hero where it stood; its "no" reads "No, I changed my mind", which the prompt Policy presses unless the Brain meant the jump (issue #170: it pressed the lowest button, "yes", before). | `answer-prompt` (declining) | [game-loop: "Walking onto a chasm asks first, within one act"](rules/game-loop.md) |
 | 4 | The status pane warns of low health below a third, `HP/HT < 0.334`, which is where the `hp-low` flag starts. | `hp-low` | [ui: "The status pane tints the hero's portrait as a low-health warning"](rules/ui.md) |
 | 5 | The hunger icon has three states, which the `hungry` and `starving` flags read. | `hungry`, `starving` | [ui: "The hunger icon has three states"](rules/ui.md) |
 | 6 | An enemy in view is a mob with the enemy alignment in the hero's field of view, which the `enemy-in-view` flag reads. | `enemy-in-view` | [visibility: "`hero.visibleEnemies` (the number on the DangerIndicator"](rules/visibility.md) |
@@ -89,13 +89,14 @@ behaviour to re-check.
 | 68 | Goo announces its pump-up in the log, charges a turn and then attacks from up to two cells for triple damage, and a step it must take drops the pump; so while an announced pump is pending and Goo stands within two cells, the fight Policy steps away from it first, one Step a wait, until it is out of reach or Goo moves (story 4.13). | `fight` (Goo) | [combat: "Goo pumps itself up before a strong attack"](rules/combat.md) |
 | 69 | A talent takes no point beyond its most, two in tiers 1 and 2; so no talent that already holds its most is offered to the Brain (`ValidActions`, issue #162; story 4.13 filtered it in the Brain until then). | the Brain (the Actions it is offered) | [ui: "A talent holds at most two points in tiers 1 and 2"](rules/ui.md) |
 | 70 | A sleeping mob never attacks and its turn either wakes it or passes, so it stays where the screen last showed it; so when an enemy the fight Policy approached drops out of view -- round a corner, across a doorway -- the Policy walks on to beside the cell it was seen on for at most 10 waits, rather than hand the wait to a Policy that walks straight back to where it showed; and a fight is weighed against the enemies seen in the last 20 waits whose cell the screen does not show now, as well as those in view (issue #174). | `fight` (chase, whether favourable) | [combat: "A sleeping mob never attacks"](rules/combat.md) |
+| 71 | A Step onto a chasm asks whether to jump, and a jump is a fall to the floor below that cripples, bleeds and takes half the hero's health or more; so the Brain offers no Policy a Step onto a chasm the screen draws -- the fight Policy's chokepoint and the fallback pick among the offered Steps without a plan's walkable cells, and a chasm, where no enemy stands, was the best chokepoint there was (issue #170). | the Brain (the Actions it is offered) | [game-loop: "Walking onto a chasm asks first, within one act"](rules/game-loop.md) |
 
 The `fallback` Policy relies on no mechanic. It chooses uniformly among the Actions the Observation
 offers, less the item uses -- eating among them -- while anything else is offered: eating is the `eat`
-Policy's (story 4.9), and the other item uses are the Policies' to make deliberately (story 4.10, row 43).
+Policy's (story 4.9), and the other item uses are the Policies' to make deliberately (story 4.10, row 43);
+nor is it offered a Step onto a chasm (row 71).
 The offered set is `ValidActions`' to get right (story 1.12), not the Brain's.
 
-Rows resting on a needs-review Rule: 3.
+Rows resting on a needs-review Rule: none.
 
-Row 3's Rule has been at needs-review since the upgrade to `v4.0.0`. Until it is re-read, the
-Brain's choice to decline a chasm prompt rests on a Rule nobody has confirmed at the pin.
+Row 3's Rule was at needs-review from the upgrade to `v4.0.0` until issue #170 re-read it at the pin.
