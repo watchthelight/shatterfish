@@ -171,6 +171,12 @@ class GalleryComparisonTest {
         assertTrue(page.contains("1 baseline and 1 candidate logs are missing or have no header"), page);
         assertTrue(page.contains("| NO\\_LOG | — | 1 | 0 | -1 |"), page);
         assertTrue(page.contains("| UNREADABLE | — | 0 | 1 | +1 |"), page);
+
+        // The same missing file name on both sides is still no triple both played.
+        index(sides[1], "gone.jsonl");
+        String both = GalleryComparison.page("baseline", baseline, "candidate", GalleryComparison.of(sides[1]));
+        assertTrue(both.contains("2 triples were played by both"), both);
+        assertTrue(!both.contains("| " + GalleryComparison.UNKEYED), "an unkeyed log is not a compared row: " + both);
     }
 
     @Test
