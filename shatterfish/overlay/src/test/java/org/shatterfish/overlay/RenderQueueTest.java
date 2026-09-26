@@ -45,9 +45,10 @@ class RenderQueueTest {
         assertEquals(1, posted.size());
         assertTrue(OverlayApplication.postedByTheGame(posted.get(0)),
                 "the game's own runnable, " + posted.get(0).getClass().getName() + ", holds a wait back");
-        Runnable theBackends = () -> {
+        assertFalse(OverlayApplication.counts("com.badlogic.gdx.controllers.desktop.support.JamepadControllerMonitor"),
+                "libGDX's own, like the controller monitor that re-posts itself every frame, does not");
+        Runnable ours = () -> {
         };
-        assertFalse(OverlayApplication.postedByTheGame(theBackends),
-                "a runnable of anyone else's, like the controller monitor's, does not");
+        assertTrue(OverlayApplication.postedByTheGame(ours), "one of Shatterfish's own would hold a wait back too");
     }
 }

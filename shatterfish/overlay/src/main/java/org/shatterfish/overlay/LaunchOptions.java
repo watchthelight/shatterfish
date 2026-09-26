@@ -27,13 +27,15 @@ import java.util.Map;
  * @param agentSeed     the random agent's seed
  * @param oracle        whether this Run may see what a player could not; a debugging mode
  * @param exitWhenOver  whether the window closes when the Run ends, for an unattended check
+ * @param agent         who plays: {@code random}, the Rig's Baseline, or {@code brain} (OverlayAgents)
+ * @param weights       the Brain's weight set, for {@code --agent brain}
  */
 public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path profile, Path out, int turnCap,
-                            long agentSeed, boolean oracle, boolean exitWhenOver) {
+                            long agentSeed, boolean oracle, boolean exitWhenOver, String agent, Path weights) {
 
     /** The flags the launcher knows. A flag it does not know is refused by name, never ignored. */
     public static final List<String> KNOWN = List.of("--seed", "--class", "--salt", "--profile", "--out",
-            "--turn-cap", "--agent-seed", "--oracle", "--exit-when-over");
+            "--turn-cap", "--agent-seed", "--oracle", "--exit-when-over", "--agent", "--weights");
 
     /** The flags that take no value. */
     private static final List<String> SWITCHES = List.of("--oracle", "--exit-when-over");
@@ -47,6 +49,9 @@ public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path prof
         }
         if (turnCap < 1) {
             throw new IllegalArgumentException("the turn cap is at least one turn: " + turnCap);
+        }
+        if (!agent.equals("random") && !agent.equals("brain")) {
+            throw new IllegalArgumentException("--agent is random or brain: " + agent);
         }
     }
 
@@ -82,7 +87,9 @@ public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path prof
                 Integer.parseInt(given.getOrDefault("--turn-cap", "20000")),
                 Long.parseLong(given.getOrDefault("--agent-seed", "1")),
                 given.containsKey("--oracle"),
-                given.containsKey("--exit-when-over"));
+                given.containsKey("--exit-when-over"),
+                given.getOrDefault("--agent", "random"),
+                Path.of(given.getOrDefault("--weights", "weights/shatterfish.json")));
     }
 
     /** A seed as a number, or as the code a player types into the seed window. */

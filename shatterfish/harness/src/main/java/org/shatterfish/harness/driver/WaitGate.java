@@ -130,6 +130,20 @@ public final class WaitGate {
         windowFramesShown = 0;
     }
 
+    /**
+     * Takes back the confirmation of wait {@code k}, so that the next wait confirmed is {@code k} again,
+     * from whatever is in front then: the embedded Run's answer to it went stale while the Brain thought
+     * (story 5.1). Unlike {@link #restoreTo}, what has been announced since is kept, and the next frame
+     * that finds the hero waiting confirms, whether or not anything new is announced.
+     */
+    public void reconfirm(long k) {
+        waitIndex = k - 1;
+        acted = true;
+        lastConfirmedWindow = null;
+        lastSeenWindow = null;
+        windowFramesShown = 0;
+    }
+
     /** The index of the last wait confirmed; 0 before the first. */
     public long waitIndex() {
         return waitIndex;

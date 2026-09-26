@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -17,23 +18,36 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class FreshProfileTest {
 
     @Test
-    @DisplayName("with no directory asked for, every Run gets a new one")
+    @DisplayName("with no directory asked for, every Run gets a new one, claimed")
     void a_new_one_each_time() {
         Path first = ShatterfishLauncher.freshProfile(null);
         Path second = ShatterfishLauncher.freshProfile(null);
         assertNotEquals(first, second);
-        assertTrue(Files.isDirectory(first) && Files.isDirectory(second));
+        assertTrue(Files.isRegularFile(first.resolve(ShatterfishLauncher.OWNER_FILE)));
+        assertTrue(Files.isRegularFile(second.resolve(ShatterfishLauncher.OWNER_FILE)));
+        OverlayGame.deleteQuietly(first);
+        OverlayGame.deleteQuietly(second);
+        assertFalse(Files.exists(first), "a Profile the launcher made is deleted at the end of its Run");
     }
 
     @Test
-    @DisplayName("an empty or missing directory is taken; one that holds anything is refused")
-    void a_used_one_is_refused(@TempDir Path folder) throws IOException {
-        Path missing = folder.resolve("new");
-        assertEquals(missing, ShatterfishLauncher.freshProfile(missing));
-        assertEquals(missing, ShatterfishLauncher.freshProfile(missing), "still empty");
-        Files.writeString(missing.resolve("shatterfish-profile.txt"), "shatterfish-profile-version=3\n");
+    @DisplayName("a directory is claimed once: a second launcher given it is refused")
+    void claimed_once(@TempDir Path folder) {
+        Path asked = folder.resolve("run");
+        assertEquals(asked, ShatterfishLauncher.freshProfile(asked));
         IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
-                () -> ShatterfishLauncher.freshProfile(missing));
+                () -> ShatterfishLauncher.freshProfile(asked));
+        assertTrue(refused.getMessage().contains("claimed"), refused.getMessage());
+    }
+
+    @Test
+    @DisplayName("a directory that holds anything else is refused, and left unclaimed")
+    void a_used_one_is_refused(@TempDir Path folder) throws IOException {
+        Path used = Files.createDirectories(folder.resolve("used"));
+        Files.writeString(used.resolve("shatterfish-profile.txt"), "shatterfish-profile-version=3\n");
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> ShatterfishLauncher.freshProfile(used));
         assertTrue(refused.getMessage().contains("FR-37"), refused.getMessage());
+        assertFalse(Files.exists(used.resolve(ShatterfishLauncher.OWNER_FILE)), "the claim is taken back");
     }
 }

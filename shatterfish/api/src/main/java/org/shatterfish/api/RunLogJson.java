@@ -156,6 +156,10 @@ public final class RunLogJson {
         out.endObject();
         out.key("registration").value(header.registration());
         out.key("oracle").value(header.oracle());
+        // Written only for the Overlay's driver, so every headless log keeps its bytes (story 5.1).
+        if (!header.driver().isEmpty()) {
+            out.key("driver").value(header.driver());
+        }
         if (!chainedOnly) {
             out.key("machine").value(header.machine());
             out.key("started").value(header.started());

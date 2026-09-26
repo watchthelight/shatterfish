@@ -130,8 +130,21 @@ class EmbeddedDeterminismTest {
             assertEquals(x.action(), y.action(), "the Action at wait " + x.k());
             assertEquals(x.decision(), y.decision(), "the Decision at wait " + x.k());
             assertEquals(x.belief(), y.belief(), "the Belief at wait " + x.k());
+            assertEquals(x.turn(), y.turn(), "the turn at wait " + x.k());
+            assertEquals(x.depth(), y.depth(), "the depth at wait " + x.k());
+            assertEquals(x.applied(), y.applied(), "applied at wait " + x.k());
+            assertEquals(x.sections(), y.sections(), "the sections at wait " + x.k());
         }
-        assertEquals(left.chain(), right.chain(), "one chain for one Run, whichever driver played it");
+        // Everything the chain covers but the driver: the headers' tuples and every wait above, and the
+        // endings here. The chains themselves differ by the header's driver field, and must: an
+        // Overlay log may never pass for a Rig log (story 5.1).
+        RunLogReader.Log readA = RunLogReader.of(a);
+        RunLogReader.Log readB = RunLogReader.of(b);
+        assertTrue(!readA.header().embedded() && readB.header().embedded(), "each log says which driver played it");
+        assertEquals(readA.header().runId(), readB.header().runId(), "one tuple");
+        assertEquals(readA.end().outcome(), readB.end().outcome(), "one ending");
+        assertEquals(readA.end().k(), readB.end().k());
+        assertTrue(!left.chain().equals(right.chain()), "the driver is chained");
         assertTrue(waitsA.size() > 20, "the Run was long enough to mean something: " + waitsA.size() + " waits");
     }
 

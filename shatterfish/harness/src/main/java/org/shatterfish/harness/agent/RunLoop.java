@@ -73,7 +73,7 @@ public final class RunLoop {
     static final int WAITS_WITHOUT_A_TURN = 100;
 
     /** Frames the driver may spend on a single wait before the Run is called stuck. */
-    private static final int FRAME_BUDGET = 20_000;
+    static final int FRAME_BUDGET = 20_000;
 
     private final ActionExecutor executor = new ActionExecutor();
 
@@ -165,7 +165,7 @@ public final class RunLoop {
         HeadlessDriver driver = HeadlessDriver.start(seed, heroClass, salt);
         RunLogWriter opened;
         try {
-            opened = openLog(logging, seed, heroClass, salt, turnCap);
+            opened = openLog(logging, seed, heroClass, salt, turnCap, "");
         } catch (RuntimeException | Error opening) {
             // The Run was started and nothing will play it, so the driver is closed here rather
             // than left holding the process's one UI role.
@@ -186,16 +186,18 @@ public final class RunLoop {
      * Opens a Run's log and writes its header, for a Run whose game has begun: the header's half that
      * the game decides, the challenges, does not exist until then. Both drivers open their logs here,
      * the headless loop above and the Overlay's embedded Run (story 5.1), so the two headers are one
-     * statement about one kind of Run.
+     * statement about one kind of Run; {@code driver} is the one thing they differ in, and it is
+     * chained, so an Overlay log can never pass for a Rig log.
      */
-    static RunLogWriter openLog(Logging logging, long seed, HeroClass heroClass, long salt, int turnCap) {
+    static RunLogWriter openLog(Logging logging, long seed, HeroClass heroClass, long salt, int turnCap,
+                                String driver) {
         return RunLogWriter.open(logging.folder(), new RunLog.Header(RunLog.VERSION,
                 Observer.upstreamTag(), logging.commit(),
                 org.shatterfish.api.HeroClass.valueOf(heroClass.name()), Dungeon.challenges, seed,
                 SeedSet.code(seed), salt, turnCap, Profile.VERSION,
                 ObservationCodec.SCHEMA_VERSION, Codex.VERSION, logging.brain(),
                 logging.registration(), logging.oracle(), logging.machine(),
-                Instant.now().toString()));
+                Instant.now().toString(), driver));
     }
 
     /**

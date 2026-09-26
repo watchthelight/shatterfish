@@ -17,36 +17,44 @@ import org.shatterfish.harness.boot.Profile;
 import org.shatterfish.harness.driver.NewGame;
 import org.shatterfish.harness.rng.RngControl;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 /**
- * The desktop game with a Run attached: upstream's own {@code ShatteredPixelDungeon}, and three
+ * The desktop game with a Run attached: upstream's own {@code ShatteredPixelDungeon}, and a few
  * things added at the edges of its life (story 5.1, FR-37, ADR-0013).
  *
  * <ul>
  * <li>{@link #create()}: the Run's Profile is prepared before the game reads a setting or a file, so
  * a Run never touches the player's own saves, badges or preferences (ADR-0007); the game creates
- * itself as it always does; then, on this render thread, the Run's game begins through the headless
- * driver's own body ({@code NewGame.begin}), the Run is attached, and the game is asked for its play
- * scene, which is created at the first frame and attaches through the scene seam.</li>
+ * itself as it always does; the player's input is closed ({@link InputLock}); then, on this render
+ * thread, the Run's game begins through the headless driver's own body ({@code NewGame.begin}), the Run
+ * is attached, and the game is asked for its play scene, which is created at the first frame and
+ * attaches through the scene seam.</li>
  * <li>{@link #render()}: the game's frame, exactly as upstream draws and steps it, and then the Run's
- * frame, which returns at once whatever the Brain is doing.</li>
- * <li>{@link #dispose()}: the Run is detached before the game is torn down.</li>
+ * frame, which returns at once whatever the Brain is doing. When the Run ends the input opens again.</li>
+ * <li>{@link #dispose()}: the Run is detached before the game is torn down, and a Profile the launcher
+ * made for this Run alone is deleted.</li>
  * </ul>
  *
- * <p>Nothing here edits upstream: the class extends the game, and the three methods call the game's
- * own first or last. The render thread is the Run's UI-role thread, claimed when the Run attaches.
+ * <p>Nothing here edits upstream: the class extends the game, and the methods call the game's own
+ * first or last. The render thread is the Run's UI-role thread, claimed when the Run attaches.
  */
 public final class OverlayGame extends ShatteredPixelDungeon implements EmbeddedRun.Host {
 
     private final LaunchOptions options;
     private final MemoryPreferences preferences;
     private final Path profileDirectory;
+    private final boolean deleteProfile;
     private final long salt;
     private final Supplier<Decider> brain;
     private final Supplier<Observation> observer;
     private final RunLoop.Logging logging;
+    private final InputLock lock = new InputLock();
     private RngControl rng;
     private EmbeddedRun run;
     private boolean reported;
@@ -55,18 +63,21 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
      * @param platform  upstream's desktop platform support
      * @param options   the Run's tuple and where it goes
      * @param preferences the Run's own settings, installed as the game's before this is constructed
-     * @param profileDirectory the directory the Run's Profile is prepared in
+     * @param profileDirectory the directory the Run's Profile is prepared in, claimed for this Run
+     * @param deleteProfile whether the launcher made that directory for this Run and deletes it at the end
      * @param salt      the Run's salt
      * @param brain     what decides, built when the Run begins
      * @param observer  the door the Brain sees through: fair, or the launcher's oracle
      * @param logging   where the Run's log goes and who played it
      */
     OverlayGame(PlatformSupport platform, LaunchOptions options, MemoryPreferences preferences, Path profileDirectory,
-                long salt, Supplier<Decider> brain, Supplier<Observation> observer, RunLoop.Logging logging) {
+                boolean deleteProfile, long salt, Supplier<Decider> brain, Supplier<Observation> observer,
+                RunLoop.Logging logging) {
         super(platform);
         this.options = options;
         this.preferences = preferences;
         this.profileDirectory = profileDirectory;
+        this.deleteProfile = deleteProfile;
         this.salt = salt;
         this.brain = brain;
         this.observer = observer;
@@ -81,6 +92,9 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         // the machine's own locale would have given the game's first read of them (Messages.java:79-82).
         Messages.setup(Languages.ENGLISH);
         super.create();
+        // First in the game's input multiplexer, which super.create() has just built (Game.java:108).
+        lock.lock();
+        inputHandler.addInputProcessor(lock);
         rng = new RngControl(salt);
         NewGame.begin(options.seed(), options.heroClass(), rng);
         run = EmbeddedRun.attach(this, options.seed(), options.heroClass(), rng, brain.get(), observer, logging,
@@ -99,9 +113,13 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         EmbeddedRun.State state = run.frame();
         if (state == EmbeddedRun.State.ENDED && !reported) {
             reported = true;
+            lock.unlock();
             RunOutcome outcome = run.outcome();
-            Gdx.app.log("shatterfish", "the Run ended: " + outcome.cause() + " on floor " + outcome.depth() + " after "
-                    + outcome.turns() + " turns and " + run.waitIndex() + " waits; log " + run.logFile());
+            Gdx.app.log("shatterfish", "the Run ended: " + outcome.cause() + " with deepest floor " + outcome.depth() + " after "
+                    + outcome.turns() + " turns and " + run.waitIndex() + " waits"
+                    + (outcome.detail().isEmpty() ? "" : " (" + outcome.detail() + ")")
+                    + "; " + run.attachments() + " play scenes; " + run.staleAnswers() + " stale answers; log "
+                    + run.logFile());
             if (options.exitWhenOver()) {
                 Gdx.app.exit();
             }
@@ -119,6 +137,20 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
             }
         } finally {
             super.dispose();
+            if (deleteProfile) {
+                deleteQuietly(profileDirectory);
+            }
+        }
+    }
+
+    /** Deletes a Profile directory the launcher made for this Run; a file left open is left behind. */
+    static void deleteQuietly(Path directory) {
+        try (Stream<Path> paths = Files.walk(directory)) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(path);
+            }
+        } catch (IOException | RuntimeException leftBehind) {
+            Gdx.app.log("shatterfish", "the Run's Profile at " + directory + " was not deleted: " + leftBehind);
         }
     }
 

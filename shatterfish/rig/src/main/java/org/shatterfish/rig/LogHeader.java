@@ -137,6 +137,8 @@ public final class LogHeader {
         }
         try {
             return read(claimed, log, whole);
+        } catch (OverlayLogs.Refused overlay) {
+            throw overlay;
         } catch (RuntimeException unreadable) {
             return unreadable(claimed, unreadable.getMessage());
         }
@@ -234,6 +236,7 @@ public final class LogHeader {
         int headers = 0;
         for (RunLog record : records) {
             if (record instanceof RunLog.Header header) {
+                OverlayLogs.refuse(header, "this log");
                 headers++;
                 oracle |= header.oracle();
             } else if (record instanceof RunLog.Wait) {

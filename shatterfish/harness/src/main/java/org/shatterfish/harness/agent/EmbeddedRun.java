@@ -7,12 +7,15 @@ import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.InterlevelScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.SurfaceScene;
 import com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks;
+import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
 import com.watabou.noosa.Game;
 import com.watabou.noosa.Scene;
 import org.shatterfish.api.Action;
 import org.shatterfish.api.Decider;
 import org.shatterfish.api.Observation;
+import org.shatterfish.api.RunLog;
+import org.shatterfish.harness.driver.HeadlessDriver;
 import org.shatterfish.harness.driver.RunLogWriter;
 import org.shatterfish.harness.driver.UiRole;
 import org.shatterfish.harness.driver.WaitGate;
@@ -21,6 +24,7 @@ import org.shatterfish.harness.executor.ActionExecutor;
 import org.shatterfish.harness.executor.Outcome;
 import org.shatterfish.harness.observer.GameLogListener;
 import org.shatterfish.harness.rng.RngControl;
+import org.shatterfish.harness.scene.SceneStepper;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -109,7 +113,21 @@ public final class EmbeddedRun implements AutoCloseable {
     private final Hooks.InputWait inputWait = gate::noticed;
     private final Hooks.LogReplaced seam = this::sceneCreated;
 
+    /**
+     * Frames a Run may go without a confirmed wait, while not thinking, before it ends as stuck: the
+     * headless loop's budget for one wait ({@code RunLoop.FRAME_BUDGET}), counted in the desktop's
+     * frames, which at sixty a second is five and a half minutes.
+     */
+    static final int FRAME_BUDGET = RunLoop.FRAME_BUDGET;
+
     private int attachments;
+    private int framesWithoutAWait;
+    /** The play scene and window in front when the pending wait was confirmed. */
+    private Scene confirmedScene;
+    private Window confirmedWindow;
+    /** Answers dropped because the screen changed while the Brain thought, and the last reason. */
+    private int staleAnswers;
+    private String lastStale = "";
     /** The floor the Run was last attached on, to tell a new floor from a scene rebuilt on the same one. */
     private Object attachedLevel;
     private long waits;
@@ -181,7 +199,7 @@ public final class EmbeddedRun implements AutoCloseable {
         RunLogWriter log = null;
         try {
             if (logging != null) {
-                log = RunLoop.openLog(logging, seed, heroClass, rng.salt(), turnCap);
+                log = RunLoop.openLog(logging, seed, heroClass, rng.salt(), turnCap, RunLog.Header.EMBEDDED);
             }
             EmbeddedRun run = new EmbeddedRun(host, rng, brain, observer, log,
                     logging != null && logging.oracle(), turnCap, ui, claimed);
@@ -243,10 +261,12 @@ public final class EmbeddedRun implements AutoCloseable {
      * are the same frames: the gate confirms the same waits and every draw between them comes from
      * the same generator. The desktop game adds frames the headless one does not have, the ones it
      * draws while the Brain thinks and the ones its wall clock paces, and what the render thread
-     * draws in them comes from the Run's generator today; routing those draws away from it is
-     * story 5.13's hook. Until then an Overlay Run is reproducible from its own log, which records
-     * every Action, and equals a Rig Run exactly when no frame was spent waiting; the tests hold the
-     * second by driving a Run here with a Brain that answers within its frame.
+     * draws in them comes from the Run's generator today. So an Overlay Run is <b>not reproducible
+     * from its tuple or its Action list</b> until story 5.13 routes those draws away: a Replay of its
+     * log parts from it at the first roll the extra frames moved (wait 15 of the first real launch).
+     * That is a named exception to non-negotiable 5 (ADR-0013's story 5.1 amendment), and its log's
+     * header says {@code driver: embedded}, which the Rig refuses. The tests hold the equality where
+     * it does hold, by driving a Run here with a Brain that answers within its frame.
      */
     public State frame() {
         UiRole.require("EmbeddedRun.frame()");
@@ -261,28 +281,30 @@ public final class EmbeddedRun implements AutoCloseable {
                 return State.THINKING;
             }
             serve();
+            framesWithoutAWait = 0;
             return outcome != null ? State.ENDED : State.PLAYING;
         }
-        // The order is the headless driver's: a requested scene first, then a dead hero, then a wait.
-        if (Game.switchingScene()) {
-            Class<? extends Scene> asked = host.requestedScene();
-            if (asked == SurfaceScene.class) {
-                end(RunOutcome.Cause.WIN, "");
-            } else if (asked != InterlevelScene.class) {
-                end(RunOutcome.Cause.UNSERVED_SCENE, asked == null ? "no scene named" : asked.getSimpleName());
-            } else if (InterlevelScene.mode != InterlevelScene.Mode.DESCEND
-                    && InterlevelScene.mode != InterlevelScene.Mode.ASCEND
-                    && InterlevelScene.mode != InterlevelScene.Mode.FALL) {
-                // The game would serve these, but the headless loop does not, and a Run that went on
-                // here would be one a Replay under the Rig cannot follow (RunLoop.serve).
-                end(RunOutcome.Cause.UNSERVED_SCENE, "the interlevel scene in mode " + InterlevelScene.mode);
-            }
+        if (++framesWithoutAWait > FRAME_BUDGET) {
+            // The headless loop's rule (RunLoop, FRAME_BUDGET): a Run that reaches no wait is stuck,
+            // and a stuck Run is a result to count. The region intro the loading scene shows on a first
+            // descent to depths 6, 11, 16 and 21 (core/.../scenes/InterlevelScene.java:279-280,
+            // :608-614) waits for a Continue nobody clicks, and ends here; the Overlay does not click
+            // through it (story 5.1: the headless game never shows it, and clicking it reads a journal
+            // page the headless Run does not).
+            end(RunOutcome.Cause.UNKNOWN_WINDOW, "no wait within " + FRAME_BUDGET + " frames; in front: "
+                    + describeFront());
+            return State.ENDED;
+        }
+        // A request made this frame first, as an early exit; then the scene actually in front, because
+        // a request the actor thread makes is usually served by the same frame's step() before this
+        // looks (SPD-classes/.../noosa/Game.java:230-243), and the flag is not volatile.
+        if (Game.switchingScene() && decideByScene(host.requestedScene(), InterlevelScene.mode)) {
             return outcome != null ? State.ENDED : State.PLAYING;
         }
-        if (!(Game.scene() instanceof GameScene)) {
-            // Between floors: the loading scene is in front, and the play scene's creation is where
-            // this Run picks up again.
-            return State.PLAYING;
+        Scene front = Game.scene();
+        if (!(front instanceof GameScene)) {
+            decideByScene(front == null ? null : front.getClass(), InterlevelScene.mode);
+            return outcome != null ? State.ENDED : State.PLAYING;
         }
         Hero hero = Dungeon.hero;
         if (hero == null) {
@@ -292,10 +314,19 @@ public final class EmbeddedRun implements AutoCloseable {
             end(RunOutcome.Cause.DEATH, "");
             return State.ENDED;
         }
-        long k = gate.frame(hero, Windows.front(), host.pendingRunnables() != 0);
+        if (!SceneStepper.actorThreadParked()) {
+            // The hero can be ready while the actor thread is still inside the act that made him so,
+            // writing and posting; a wait is confirmed only once it has parked (story 5.1).
+            return State.PLAYING;
+        }
+        Window window = Windows.front();
+        long k = gate.frame(hero, window, host.pendingRunnables() != 0);
         if (k == 0) {
             return State.PLAYING;
         }
+        framesWithoutAWait = 0;
+        confirmedScene = front;
+        confirmedWindow = window;
         // The head of the wait, in ADR-0013's order: the index, the reseed, then the rest.
         rng.reseed(k);
         int turn = RunLoop.turns();
@@ -314,6 +345,13 @@ public final class EmbeddedRun implements AutoCloseable {
             still = 0;
         }
         Observation observation = observer.get();
+        if (observation.header().oracle() != oracle) {
+            // An oracle Observation reaches only a Run whose log says it is one: the launcher's
+            // --oracle states both. A Run with no log is not an oracle Run, so it is refused too
+            // (non-negotiable 1, FR-11), as the headless loop refuses one at its record.
+            throw new IllegalStateException("the Run says oracle=" + oracle + " and the Observation at wait " + k
+                    + " says " + observation.header().oracle() + "; an oracle Run is stated with its log");
+        }
         pendingObservation = observation;
         pendingWait = k;
         pending = worker.submit(() -> {
@@ -339,6 +377,17 @@ public final class EmbeddedRun implements AutoCloseable {
             // than a stale answer to skip; the takeover story is where a skipped decision becomes real.
             throw new IllegalStateException("the Brain answered wait " + k + " and the Run stands at wait "
                     + gate.waitIndex());
+        }
+        String stale = stale();
+        if (stale != null) {
+            // The screen the Brain was shown is not the screen in front any more: a scene rebuilt by a
+            // resize destroyed the Prompt, or something the Run did not do moved the hero. The answer
+            // is dropped unrecorded and the same wait is confirmed again from what is there now, so
+            // the log's waits stay one per index (story 5.1).
+            staleAnswers++;
+            lastStale = "wait " + k + ": " + stale;
+            gate.reconfirm(k);
+            return;
         }
         Decided decided;
         if (done.state() == Future.State.SUCCESS) {
@@ -374,6 +423,71 @@ public final class EmbeddedRun implements AutoCloseable {
             applied++;
             refusalsInARow = 0;
         }
+    }
+
+    /**
+     * Why the wait the pending answer is for is no longer the wait in front, or null when it still is:
+     * nothing announced or handed over since, the same play scene and window, the hero still waiting,
+     * nothing queued for the render thread, and the actor thread parked.
+     */
+    private String stale() {
+        if (!gate.quiet()) {
+            return "the hero acted since";
+        }
+        if (gate.acted()) {
+            return "an Action was handed to the game since";
+        }
+        if (Game.switchingScene() || Game.scene() != confirmedScene) {
+            return "the play scene changed";
+        }
+        Window window = Windows.front();
+        if (window != confirmedWindow) {
+            return "the window in front changed";
+        }
+        Hero hero = Dungeon.hero;
+        if (hero == null || !HeadlessDriver.waitState(hero, window)) {
+            return "the hero no longer waits";
+        }
+        if (host.pendingRunnables() != 0 || !SceneStepper.actorThreadParked()) {
+            return "the game is not at rest";
+        }
+        return null;
+    }
+
+    /**
+     * Decides what a scene that is not a play scene means for the Run, by its class, as the headless
+     * loop decides by the scene it is asked for ({@code RunLoop.serve}): the surface is the win; the
+     * loading scene of a descent, an ascent or a fall is a floor change the game is serving, and the
+     * play scene it asks for when done is one being built; any other loading mode (a resurrection, a
+     * return) and any other scene end the Run as unserved, because the headless loop ends it there and
+     * a Run that went on here would part from the Rig's without a word. No scene at all is the
+     * moment between two, in the test host.
+     *
+     * @return whether the scene settled this frame
+     */
+    private boolean decideByScene(Class<?> scene, InterlevelScene.Mode mode) {
+        if (scene == null || GameScene.class.isAssignableFrom(scene)) {
+            return true;
+        }
+        if (SurfaceScene.class.isAssignableFrom(scene)) {
+            end(RunOutcome.Cause.WIN, "");
+        } else if (InterlevelScene.class.isAssignableFrom(scene)) {
+            if (mode != InterlevelScene.Mode.DESCEND && mode != InterlevelScene.Mode.ASCEND
+                    && mode != InterlevelScene.Mode.FALL) {
+                end(RunOutcome.Cause.UNSERVED_SCENE, "the interlevel scene in mode " + mode);
+            }
+        } else {
+            end(RunOutcome.Cause.UNSERVED_SCENE, scene.getSimpleName());
+        }
+        return true;
+    }
+
+    private static String describeFront() {
+        Scene scene = Game.scene();
+        Window window = Windows.front();
+        return (scene == null ? "no scene" : scene.getClass().getSimpleName())
+                + (scene instanceof InterlevelScene ? " (" + InterlevelScene.mode + ")" : "")
+                + (window == null ? "" : ", " + window.getClass().getSimpleName());
     }
 
     private void end(RunOutcome.Cause cause, String detail) {
@@ -440,6 +554,16 @@ public final class EmbeddedRun implements AutoCloseable {
     /** The salt the Run declared, which survives every floor and reaches no Observation. */
     public long salt() {
         return rng.salt();
+    }
+
+    /** Answers dropped unrecorded because the screen changed while the Brain thought. */
+    public int staleAnswers() {
+        return staleAnswers;
+    }
+
+    /** Why the last answer was dropped, or empty. */
+    public String lastStale() {
+        return lastStale;
     }
 
     /** Times hook row 5 has notified this Run: acts of the hero that began unready. */

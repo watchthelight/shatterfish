@@ -76,6 +76,10 @@ another Run or with the player's own directories.
   `OverlayApplication.java` (new): the launcher, its flags, the desktop game with the Run attached,
   and the desktop backend with its render queue counted.
 - `shatterfish/overlay/build.gradle`: `desktop` and the lwjgl3 backend; the `:overlay:launch` task.
+- Second review: `OverlayAgents.java` and `InputLock.java` (overlay); `RunLog.Header.driver` (api) and
+  its reader; `OverlayLogs.java` (rig), applied in `Comparison`, `LogHeader` and `Gallery`;
+  `SceneStepper.actorThreadParked` and `WaitGate.reconfirm` (harness). Tests `EmbeddedEndingsTest`,
+  `OracleToggleTest`, `InputLockTest`, `OverlayAgentsTest`, `OverlayLogsRefusedTest`.
 - Tests: `EmbeddedAttachTest`, `EmbeddedThreadingTest`, `EmbeddedDeterminismTest`,
   `EmbeddedRunRulesTest`, `EmbeddedHost` (harness `agent`); `InProcessRunsTest` (harness
   `determinism`); `LaunchOptionsTest`, `FreshProfileTest`, `OverlayOracleGateTest`, `RenderQueueTest` (overlay);
@@ -105,9 +109,11 @@ another Run or with the player's own directories.
 - The oracle flag exists only on the launcher, never on the Rig (`LaunchOptionsTest.the_oracle_and_the_salt`,
   `OverlayOracleGateTest`, `RigOracleGateTest.the_launchers_flag_is_refused_here`).
 - `EmbeddedAttachTest` asserts attachment and re-attachment across two level changes.
-- Determinism: an embedded Run's log chain equals the headless Run's for the same tuple, Decisions,
-  Beliefs and floor changes included (`EmbeddedDeterminismTest`); the one condition, the frames the
-  desktop adds while the Brain thinks, is named in Design Notes and owned by story 5.13.
+- Determinism: an embedded Run's waits equal the headless Run's for the same tuple, field by field,
+  Decisions, Beliefs and floor changes included, and the two headers differ only in `driver`
+  (`EmbeddedDeterminismTest`); the one condition, the frames the desktop adds while the Brain thinks,
+  is named in Design Notes and owned by story 5.13, and until then the Rig refuses an Overlay log
+  (`OverlayLogsRefusedTest`).
 - No Rig numbers: the Overlay does not change what the Brain decides (epic 5's intro).
 
 ## Design Notes
@@ -158,10 +164,12 @@ between them comes from the same generator. `EmbeddedDeterminismTest` holds this
 agent and for the Brain, with and without floor changes, by comparing whole log chains. The desktop
 game adds frames the headless one does not have: frames drawn while the Brain thinks, and frames
 paced by the wall clock rather than a fixed step. What the render thread draws in them comes from
-the Run's generator today, so an Overlay Run is reproducible from its own log (every Action is
-recorded) but is not guaranteed to be the Rig's Run of the same tuple. Routing the render thread's
-draws away from the Run's generator is story 5.13's hook ("the speed ceiling and the draw-routing
-hook", which carries Rig numbers for exactly this reason).
+the Run's generator today, so an Overlay Run is **not reproducible from its tuple or its Action
+list** until story 5.13: a Replay of its log parts from it at the first roll the extra frames moved.
+That is a named exception to non-negotiable 5 (ADR-0013's story 5.1 amendment); the Overlay log's
+header says `driver: embedded` (chained), and the Rig refuses such a log wherever it reads logs.
+Routing the render thread's draws away from the Run's generator is story 5.13's hook ("the speed
+ceiling and the draw-routing hook", which carries Rig numbers for exactly this reason).
 
 **Found on the way: in-process remains.** The first determinism test failed at wait 11 because the
 headless loop is not reproducible across two Runs in one process when the first dies: `Bones` caches
@@ -208,7 +216,8 @@ story 5.16.
   321 tests) passes on it, and `HeadlessDriver` keeps its public surface.
 - **The oracle** is built only in `ShatterfishLauncher.observer(true)`; the embedded Run is handed its
   observer, so the harness's `OracleGateTest` covers it unchanged.
-- **The Brain** in the Overlay is the random agent until the Codex reader leaves the rig (docs/ideas.md).
+- **The Brain** in the Overlay is the random agent by default; `--agent brain` attaches `shatterfish`
+  on the committed weights and an empty Codex until the Codex reader leaves the rig (docs/ideas.md).
 - **A test helper deadlock** in `Ledger` (hook-ledger tests): it read the subprocess's output pipe to its
   end before its error pipe, and this worktree's line-ending warnings filled the error pipe; the first
   full harness run sat 45 minutes in `HooksLedgerTest`. Standard error now goes to a file. `Brains`,
@@ -254,3 +263,67 @@ named tests):
 16 of 16 killed. M14 survived at first (the host's teardown cleared the hooks anyway); the test now
 asserts right after the Run's own close. An earlier battery run reported false kills because the
 wrapper was not found; the script now calls it by full path and runs a control first.
+
+### Second review (fairness and lens, on 7bb09a0f7)
+
+**Fairness.**
+1. *Reproducibility was overclaimed.* An Overlay Run is now stated, in `EmbeddedRun`, ADR-0013 and
+   this file, as not reproducible from its tuple or its Action list until story 5.13, a named
+   exception to non-negotiable #5 in ADR-0013. Its log header carries `driver: embedded` (Run log
+   schema v2, an optional chained field; ADR-0011 amendment; a headless log's bytes are unchanged),
+   and the Rig refuses such a log by name wherever it scores, calibrates, reads back or shows logs
+   (`OverlayLogs`, applied in `Comparison.outcome`, `LogHeader` and `Gallery`;
+   `OverlayLogsRefusedTest`).
+2. *The oracle toggle was untested end to end.* `OracleToggleTest` holds that
+   `ShatterfishLauncher.observer(false/true)` yields `header.oracle()` false/true and that the window
+   title and `Logging.oracle` follow; `EmbeddedEndingsTest.an_unannounced_oracle_is_refused` holds
+   that the Run refuses an oracle Observation its log does not announce.
+3. *The player could act while a Run played.* `InputLock` is placed first in the game's input
+   multiplexer and swallows keys, touches, drags and scrolls until the Run ends (`InputLockTest`).
+   A gamepad writes the key queue directly and is story 5.5's hook (docs/ideas.md).
+
+**Lens.**
+- F1: a requested play scene means the Run keeps playing; the test host now requests it from inside
+  the frame, as the loading scene does.
+- F2: the Run decides by the scene in front: the surface is a win, the loading scene in a mode other
+  than descend, ascend or fall is unserved, any other scene is unserved by its name
+  (`EmbeddedEndingsTest`: the surface, a resurrection, a descent and a stranger).
+- F3: a wait is confirmed only with the actor thread parked (`SceneStepper.actorThreadParked`;
+  `EmbeddedEndingsTest.no_wait_before_the_actor_thread_parks`).
+- F4: a frame budget (the headless loop's, 20,000 frames without a wait) ends the Run as an unknown
+  window naming the scene in front (`no_wait_within_the_budget`). The region intro on a first descent
+  to depths 6, 11, 16 and 21 is not clicked: a Run reaching it ends there, documented in ADR-0013 and
+  docs/ideas.md.
+- F5: at serve time the Run re-checks that the game is quiet, nothing has acted, the scene and window
+  are the ones it confirmed, and the hero still waits; otherwise it drops the answer and confirms the
+  wait again (`WaitGate.reconfirm`; `a_stale_answer_is_dropped`).
+- F6: the Profile is claimed atomically by creating `.shatterfish-owner`; a temporary Profile is
+  deleted when the game closes (`FreshProfileTest`).
+- F7: the render-queue count excludes `com.badlogic.` rather than listing the game's packages
+  (`RenderQueueTest`).
+- F8: `EmbeddedAttachTest` goes down two floors through the real loading-scene path (the hero is
+  planted beside the exit and the Brain takes it) and asserts exactly: waits 1..n contiguous, one
+  decision per wait on the Brain's thread, depths 1, 2, 3 matching the log, two loading scenes, three
+  attachments, and the embedded header.
+
+**Test runs.** `:api:test` (16 classes, 382 tests), `:harness:test` (72 classes, 329 tests),
+`:overlay:test` (7 classes, 16 tests) and the Rig's log-reading classes (11 classes, 105 tests), all
+green.
+
+**The desktop launch across a floor** (`:overlay:launch`, the Warrior, salt `5a175a17`, `--agent
+brain`, a 3,000-turn cap, `--exit-when-over`):
+
+| Seed | Waits | Floors (first wait on each) | Ending | Stale answers |
+|---|---|---|---|---|
+| 12345 | 1,625 | 1 | death on floor 1 after 1,648 turns | 0 |
+| 1000 | 1,061 | 1, 2 (797), 1 (848) | death on floor 1, deepest 2 | 0 |
+| 2000 | 1,265 | 1, 2 (549), 1 (587), 2 (791), 1, 2 | death on floor 2 | 0 |
+| 3000 | 1,537 | 1, 2 (705), 1 (735), 2 (1,049), 1, 2 | death on floor 2 | 0 |
+| 4000 | 1,809 | 1, 2 (606), 1 (622), 2 (770), 1, 2 | death on floor 2 | 0 |
+
+Every log's waits run 1..n without a gap, its header says `driver: embedded` and `oracle: false`, and
+the window closed itself at the end. The real loading scene served each descent and ascent (up to
+seven play scenes a Run) and the Run followed the hero across every one. Seed 12345 never left floor 1:
+from wait 501 the descend and explore Policies held the hero between two cells until it starved, a
+Brain matter recorded in docs/ideas.md. The end record's depth is the deepest floor reached, as in the
+headless Run; the Overlay's closing line now says so.

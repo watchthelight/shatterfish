@@ -154,7 +154,8 @@ public final class RunLogReader {
                 Json.string(Json.required(held, "registration", "header")),
                 Json.bool(Json.required(held, "oracle", "header")),
                 Json.string(Json.required(held, "machine", "header")),
-                Json.string(Json.required(held, "started", "header")));
+                Json.string(Json.required(held, "started", "header")),
+                held.containsKey("driver") ? Json.string(held.get("driver")) : "");
     }
 
     private static RunLog.Wait wait(Map<String, String> held) {

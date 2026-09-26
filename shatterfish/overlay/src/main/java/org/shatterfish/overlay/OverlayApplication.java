@@ -17,8 +17,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * {@code SPD-classes/…/noosa/Game.java:306-313}): one more when a runnable is posted, one fewer when
  * it runs.
  *
- * <p>Only the game's own runnables are counted, the ones whose class is the game's
- * ({@code com.shatteredpixel}, {@code com.watabou}). The desktop backend queues its own too: the
+ * <p>Everything but libGDX's own runnables is counted ({@code com.badlogic}): the game's, and anything
+ * of Shatterfish's that ever posts to the render thread. The desktop backend queues its own too: the
  * controller library's monitor re-posts itself on every frame
  * ({@code com.badlogic.gdx.controllers.desktop.support.JamepadControllerMonitor}), so the queue is
  * never empty at the end of a frame and a count of everything would confirm no wait at all, which the
@@ -50,10 +50,17 @@ public final class OverlayApplication extends Lwjgl3Application {
         });
     }
 
-    /** Whether a runnable is the game's own, which is what the wait rule is about; see the class comment. */
+    /**
+     * Whether a runnable counts, which is everything but libGDX's own: the game's, and anything of
+     * Shatterfish's that ever posts to the render thread; see the class comment.
+     */
     static boolean postedByTheGame(Runnable runnable) {
-        String name = runnable.getClass().getName();
-        return name.startsWith("com.shatteredpixel.") || name.startsWith("com.watabou.");
+        return counts(runnable.getClass().getName());
+    }
+
+    /** The rule by the runnable's class name. */
+    static boolean counts(String className) {
+        return !className.startsWith("com.badlogic.");
     }
 
     /** Runnables the game posted to the render thread and not yet run. */

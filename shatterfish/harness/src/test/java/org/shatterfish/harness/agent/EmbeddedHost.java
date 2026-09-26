@@ -38,6 +38,8 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
     long framesWhileThinking;
     /** Runnables the host pretends are queued, as the desktop's queue can hold some across frames. */
     int heldQueue;
+    /** Loading-scene frames served: one per floor change the game asked for. */
+    int loadingFrames;
 
     EmbeddedHost(long seed, HeroClass heroClass, long salt) {
         this.seed = seed;
@@ -69,10 +71,22 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
             if (game.sceneSwitchRequested() && game.requestedSceneClass() == InterlevelScene.class
                     && servedByTheLoadingScene(InterlevelScene.mode)) {
                 InterlevelScene.Mode mode = InterlevelScene.mode;
-                driver.serveSceneSwitch(() -> RunLoop.crossFloor(mode));
-                // The frame the loading scene takes; the Run sees the new floor from the next one,
-                // as the headless loop steps before it looks again.
-                return run.state();
+                // The loading scene's own frame: the floor's work, and then, as its fade ends, the
+                // request for the play scene made from inside the frame (…/scenes/InterlevelScene.java:
+                // 509, :523), which the Run sees before the play scene is served. The play scene is
+                // built here at once; the request stays standing for this frame, as it does in the
+                // desktop game until the next step() serves it.
+                driver.serveSceneSwitch(() -> {
+                    RunLoop.crossFloor(mode);
+                    Game.switchScene(com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene.class);
+                });
+                loadingFrames++;
+                return run.frame();
+            }
+            if (game.sceneSwitchRequested()
+                    && game.requestedSceneClass() == com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene.class) {
+                // The next step() serves the play scene the loading scene asked for; it is built.
+                game.clearSceneSwitchRequest();
             }
             if (!game.sceneSwitchRequested()) {
                 driver.step();
@@ -102,14 +116,26 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
     }
 
     /**
-     * Asks the game for the floor below, the way taking the stairs does: the transition the hero
-     * takes, the loading scene's mode, and the scene change ({@code …/levels/Level.java} activating a
-     * transition; {@code SPD-classes/…/noosa/Game.java:212-220}).
+     * Puts the hero beside this floor's regular exit, at a moment the actor thread is parked, so that a
+     * Brain that steps onto the exit takes the stairs itself, the way the game's own transition runs
+     * (…/levels/Level.java activating it from the hero's act); returns the exit's cell.
      */
-    static void askForTheFloorBelow() {
-        InterlevelScene.curTransition = Dungeon.level.getTransition(LevelTransition.Type.REGULAR_EXIT);
-        InterlevelScene.mode = InterlevelScene.Mode.DESCEND;
-        Game.switchScene(InterlevelScene.class);
+    static int standBesideTheExit() {
+        int exit = Dungeon.level.getTransition(LevelTransition.Type.REGULAR_EXIT).cell();
+        for (int step : com.watabou.utils.PathFinder.NEIGHBOURS8) {
+            int cell = exit + step;
+            if (Dungeon.level.passable[cell] && com.shatteredpixel.shatteredpixeldungeon.actors.Actor.findChar(cell) == null
+                    && Dungeon.level.getTransition(cell) == null) {
+                com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero hero = Dungeon.hero;
+                hero.pos = cell;
+                hero.sprite.place(cell);
+                Dungeon.level.occupyCell(hero);
+                Dungeon.observe();
+                com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene.updateFog();
+                return exit;
+            }
+        }
+        throw new IllegalStateException("no open cell beside the exit at " + exit);
     }
 
     /**

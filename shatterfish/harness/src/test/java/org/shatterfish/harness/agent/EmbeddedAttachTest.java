@@ -14,6 +14,8 @@ import org.shatterfish.api.Deliberator;
 import org.shatterfish.api.LogLine;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.RunLog;
+import org.shatterfish.api.TransitionKind;
+import org.shatterfish.api.TransitionView;
 import org.shatterfish.harness.driver.UiRole;
 import org.shatterfish.harness.driver.WaitGate;
 import org.shatterfish.harness.log.RunLogReader;
@@ -36,9 +38,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Run's wait index, salt, Belief and log cross the boundary (story 5.1, FR-37, ADR-0015 "Scene
  * lifetime").
  *
- * <p>The floors are changed by asking the game for the floor below at a wait, the way taking the
- * stairs does, and the host serves the change the way the loading scene serves it; the Run under test
- * sees only what it would see in the desktop game, a scene destroyed and a new one created.
+ * <p>The hero takes the stairs himself: he is put beside the exit and the Brain steps onto it, which
+ * the game turns into a transition and a request for the loading scene from the actor thread. The host
+ * serves that the way the loading scene does, including its request for the play scene from inside its
+ * own frame, which the Run sees before the play scene is served (story 5.1's review, F1).
  */
 class EmbeddedAttachTest {
 
@@ -46,8 +49,9 @@ class EmbeddedAttachTest {
     private static final long SALT = 0x5A17_5A17L;
 
     /**
-     * A Brain whose Belief is the list of every wait it was shown, in order: if the Brain were rebuilt
-     * or its Belief reset at a floor change, the list would start again and the test would see it.
+     * A Brain that takes the stairs whenever a Step onto the floor's regular exit is offered, and
+     * otherwise searches; its Belief is the list of every depth it was shown, in order, so a Brain
+     * rebuilt or a Belief reset at a floor change starts the list again and the test sees it.
      */
     static final class Remembering implements Deliberator {
         final List<Integer> depths = new ArrayList<>();
@@ -57,6 +61,19 @@ class EmbeddedAttachTest {
         public synchronized Action decide(Observation observation) {
             depths.add(observation.header().depth());
             threads.add(Thread.currentThread().getName());
+            // Standing on the exit with an enemy in view, the click on it moved the hero there rather
+            // than taking the stairs (…/actors/hero/Hero.java:1999-2006); the descent is then offered.
+            if (observation.actions().actions().contains(new Action.Descend())) {
+                return new Action.Descend();
+            }
+            for (TransitionView transition : observation.map().transitions()) {
+                if (transition.kind() == TransitionKind.REGULAR_EXIT) {
+                    Action step = new Action.Step(transition.cell());
+                    if (observation.actions().actions().contains(step)) {
+                        return step;
+                    }
+                }
+            }
             return new Action.Search();
         }
 
@@ -69,6 +86,27 @@ class EmbeddedAttachTest {
         public synchronized Belief belief() {
             return new Belief(1, depths.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
         }
+    }
+
+    /**
+     * Plays the Run through two floor changes the hero makes himself: beside the exit at the first
+     * wait of a floor, then a Step onto it, which the game turns into the transition, a request for the
+     * loading scene from the actor thread, the loading scene's floor work and its request for the play
+     * scene from inside its frame (EmbeddedHost), and the new play scene. Returns the Run standing at
+     * the first wait of floor 3.
+     */
+    private static void downTwoFloors(EmbeddedHost host, EmbeddedRun run) {
+        for (int floor = 1; floor <= 2; floor++) {
+            assertEquals(floor, Dungeon.depth);
+            EmbeddedHost.standBesideTheExit();
+            long k = run.waitIndex();
+            playUntilWaits(host, k + 1);
+            // The Search for the wait the hero was moved at, then the Step the next wait offers.
+            int next = floor + 1;
+            playUntil(host, () -> Dungeon.depth == next && run.state() == EmbeddedRun.State.THINKING);
+        }
+        assertEquals(3, Dungeon.depth);
+        assertEquals(2, host.loadingFrames, "two floor changes, each through the loading scene's frame");
     }
 
     @Test
@@ -84,40 +122,20 @@ class EmbeddedAttachTest {
             assertEquals(host.driver.rngControl().salt(), run.salt());
             assertNotNull(WaitGate.live(), "the Run's gate is the one the executor's announcement reaches");
 
-            // Three waits on the first floor, then the floor below, twice.
-            long[] kBefore = new long[2];
-            long[] kAfter = new long[2];
-            playUntilWaits(host, 3);
-            for (int change = 0; change < 2; change++) {
-                int depth = Dungeon.depth;
-                assertEquals(EmbeddedRun.State.THINKING, run.state(), "asked for at a wait, with the hero waiting");
-                kBefore[change] = run.waitIndex();
-                EmbeddedHost.askForTheFloorBelow();
-                playUntilWaits(host, kBefore[change] + 1);
-                assertEquals(depth + 1, Dungeon.depth, "the floor below was served");
-                assertEquals(change + 2, run.attachments(), "re-attached when the new play scene was created");
-                kAfter[change] = run.waitIndex();
-                playUntilWaits(host, kAfter[change] + 2);
-            }
-
-            // The wait index counts on across both floors, one wait at a time.
-            assertEquals(kBefore[0] + 1, kAfter[0], "the first wait on floor 2 is the next wait of the Run");
-            assertEquals(kBefore[1] + 1, kAfter[1], "the first wait on floor 3 is the next wait of the Run");
-            assertEquals(3, Dungeon.depth);
+            playUntilWaits(host, 1);
+            downTwoFloors(host, run);
+            assertEquals(EmbeddedRun.State.THINKING, run.state(), "standing at the first wait of floor 3");
+            assertEquals(3, run.attachments(), "re-attached at each new play scene, and at nothing else");
 
             // The salt is the Run's, not the floor's.
             assertEquals(SALT, run.salt());
             assertEquals(SALT, host.driver.rngControl().salt());
-
-            // The Brain is the same object and saw every wait: one Belief across three floors.
             assertSame(brain, run.brain());
-            long served = run.waitIndex() - (run.state() == EmbeddedRun.State.THINKING ? 1 : 0);
-            assertTrue(brain.depths.size() >= served, "every served wait was decided by the one Brain: "
-                    + brain.depths.size() + " decisions, " + served + " served");
-            assertTrue(brain.depths.contains(1) && brain.depths.contains(2) && brain.depths.contains(3),
-                    "the one Belief holds all three floors: " + brain.depths);
+            assertEquals(0, run.staleAnswers(), "no answer went stale: nothing moved while the Brain thought "
+                    + "but the test's own planting, which changes nothing the gate watches");
 
-            // The log is one file with one chain across both boundaries.
+            // Let the pending decision be served, so every wait the Brain saw is in the log.
+            playUntil(host, () -> run.state() == EmbeddedRun.State.PLAYING);
             Path file = run.logFile();
             run.close();
             // The Run takes back what it registered when it closes, before the host's own teardown
@@ -125,14 +143,32 @@ class EmbeddedAttachTest {
             assertNull(Hooks.logReplaced, "the Run took back the scene seam at its close");
             assertNull(Hooks.inputWait, "the Run took back the Input-wait notification at its close");
             assertNull(WaitGate.live(), "the Run's gate is no longer the executor's");
+
             RunLogVerifier.Verified verified = RunLogVerifier.of(file);
             assertTrue(verified.ok(), "the chain holds across both floors: " + verified.why());
             RunLogReader.Log read = RunLogReader.of(file);
+            assertTrue(read.header().embedded(), "the log says the Overlay's driver played it");
             List<RunLog.Wait> waits = read.waits();
-            for (int i = 1; i < waits.size(); i++) {
-                assertEquals(waits.get(i - 1).k() + 1, waits.get(i).k(), "the log's waits count on: " + waits);
+            // One wait per index, from 1, across both floors: the index survives the scenes.
+            for (int i = 0; i < waits.size(); i++) {
+                assertEquals(i + 1, waits.get(i).k(), "the log's waits count on from 1: " + waits);
             }
-            assertTrue(waits.stream().anyMatch(wait -> wait.depth() == 3), "the log reached floor 3");
+            // Exactly one decision per logged wait, by the one Brain, all on its worker.
+            assertEquals(waits.size(), brain.depths.size(), "every logged wait was decided once, and nothing else");
+            assertEquals(run.waitIndex(), waits.size(), "every confirmed wait was served and logged");
+            for (int i = 0; i < waits.size(); i++) {
+                assertEquals(waits.get(i).depth(), brain.depths.get(i), "the Brain saw the floor the log says");
+            }
+            assertTrue(brain.threads.stream().allMatch("shatterfish-brain"::equals), brain.threads.toString());
+            assertEquals(List.of(1, 2, 3), brain.depths.stream().distinct().toList(), "three floors, in order");
+            // The Steps onto the exits are the Actions logged at the waits before each floor change.
+            for (int i = 1; i < waits.size(); i++) {
+                if (waits.get(i).depth() != waits.get(i - 1).depth()) {
+                    Action took = waits.get(i - 1).action();
+                    assertTrue(took instanceof Action.Step || took instanceof Action.Descend,
+                            "the hero took the stairs himself: " + took);
+                }
+            }
             // Each wait's logged Belief is every depth seen up to it: never reset at a floor.
             for (int i = 0; i < waits.size(); i++) {
                 String expected = new Belief(1, brain.depths.subList(0, i + 1).toString()
@@ -153,11 +189,11 @@ class EmbeddedAttachTest {
     void the_log_is_heard_on_every_floor() {
         try (EmbeddedHost host = new EmbeddedHost(SEED, HeroClass.WARRIOR, SALT)) {
             EmbeddedRun run = host.attach(new Remembering(), null, 5_000);
-            playUntilWaits(host, 2);
-            for (int change = 0; change < 2; change++) {
-                long k = run.waitIndex();
-                EmbeddedHost.askForTheFloorBelow();
-                playUntilWaits(host, k + 1);
+            playUntilWaits(host, 1);
+            for (int floor = 1; floor <= 2; floor++) {
+                EmbeddedHost.standBesideTheExit();
+                int next = floor + 1;
+                playUntil(host, () -> Dungeon.depth == next && run.state() == EmbeddedRun.State.THINKING);
                 GLog.i("heard on floor " + Dungeon.depth);
                 List<LogLine> lines = GameLogListener.INSTANCE.lines();
                 assertEquals("heard on floor " + Dungeon.depth, lines.get(lines.size() - 1).text(),
@@ -194,6 +230,20 @@ class EmbeddedAttachTest {
             }
             assertEquals(1, run.waitIndex(), "the wait announced before the rebuild is confirmed after it");
         }
+    }
+
+    /** Plays frames until {@code done} holds. */
+    static void playUntil(EmbeddedHost host, java.util.function.BooleanSupplier done) {
+        for (int frame = 0; frame < 200_000; frame++) {
+            if (done.getAsBoolean()) {
+                return;
+            }
+            if (host.frame() == EmbeddedRun.State.ENDED) {
+                throw new AssertionError("the Run ended: " + host.run.outcome());
+            }
+        }
+        throw new AssertionError("the condition never held; the Run stands at wait " + host.run.waitIndex()
+                + " on floor " + Dungeon.depth);
     }
 
     /** Plays frames until the Run has confirmed wait {@code k} and is thinking about it. */

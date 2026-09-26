@@ -264,11 +264,40 @@ changes size (`SPD-classes/…/noosa/Game.java:136-141`), once at start-up, and 
 in the scene before announced his wait there and does not announce it again. The second real launch
 lost the first wait that way; `EmbeddedAttachTest.a_rebuilt_scene_keeps_the_wait` holds the rule.
 
-**What equality with a Rig Run means.** An embedded Run's log chain equals the headless Run's for the
-same tuple whenever the frames between two waits are the same (`EmbeddedDeterminismTest`). The
-desktop adds frames, drawn while the Brain thinks and paced by the wall clock, and the render thread's
-draws in them come from the Run's generator until story 5.13's draw-routing hook; an Overlay Run is
-reproducible from its own log in the meantime. Measured on the real desktop game (seed 12345, the
-Warrior, salt `5a175a17`, the random agent, 73 waits to its death): the Overlay Run's log verifies as a
-complete chain, and its first 14 waits are the headless Run's, wait for wait; they part at wait 15,
-the first turn a roll decided differently, which is the difference 5.13 removes.
+**What equality with a Rig Run means.** An embedded Run's waits and ending equal the headless Run's
+for the same tuple whenever the frames between two waits are the same (`EmbeddedDeterminismTest`,
+which compares every wait's Observation hash, sections, Action, Decision, Belief, turn and depth, and
+the end record). The desktop adds frames, drawn while the Brain thinks and paced by the wall clock,
+and the render thread's draws in them come from the Run's generator until story 5.13's draw-routing
+hook. Measured on the real desktop game (seed 12345, the Warrior, salt `5a175a17`, the random agent,
+73 waits to its death): the Overlay Run's log verifies as a complete chain, which says only that it
+was not altered, and its first 14 waits are the headless Run's, wait for wait; they part at wait 15,
+the first turn a roll decided differently.
+
+**A named exception to non-negotiable 5.** Until story 5.13, an Overlay Run is **not reproducible from
+its tuple or its Action list**: a Replay of its log under the headless driver parts from it at the
+first roll the desktop's extra frames moved. So an Overlay log's header carries `driver: embedded`
+(chained, written only for the Overlay, so every headless log keeps its bytes; ADR-0011's story 5.1
+amendment), and the Rig refuses such a log on every path that reads logs to count, score, calibrate
+or show them (`OverlayLogs`, held by `OverlayLogsRefusedTest`). An Overlay Run is a thing to watch
+and a log to read, never a number. Story 5.13 closes the exception, and its Rig numbers say so.
+
+**The player's input.** Until take-over (story 5.8), the game's own input is closed while a Run is
+attached (`InputLock`, first in the game's input multiplexer), so a click or key cannot change the
+game outside the log. A gamepad writes the game's key queue past the multiplexer and is not closed;
+story 5.5's input-gate hook (option 9 above) closes every path.
+
+**Answers that went stale.** A decision takes frames; if the play scene, the window in front, the
+hero's state or the actor thread's rest changed meanwhile, or anything was announced or handed over,
+the answer is dropped unrecorded and the same wait index is confirmed again from what is in front
+(`WaitGate.reconfirm`), so a log holds one wait per index. The actor thread must be parked
+(`SceneStepper.actorThreadParked`) before a wait is confirmed or acted on: the hero is `ready` a little
+before his act has finished writing.
+
+**Scenes in front.** The desktop game serves the scene the actor thread asks for in the same frame's
+`step()`, before the Run looks, and the request flag is not volatile; so the Run decides by the scene
+in front: the surface is the win; the loading scene of a descent, an ascent or a fall, and the play
+scene it asks for, go on; any other loading mode, and any other scene, end the Run as unserved, as
+the headless loop ends it. A Run that reaches no wait within the headless loop's frame budget ends as
+an unknown window; the region intro on a first descent to depths 6, 11, 16 and 21 does, because the
+Overlay does not click through it (the headless game never shows it).

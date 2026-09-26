@@ -170,11 +170,32 @@ public sealed interface RunLog
      *                     (story 3.5); a ranked Run has one
      * @param machine      what the Run ran on -- not chained, because it says nothing about the Run
      * @param started      when it began, ISO-8601 -- not chained, for the same reason
+     * @param driver       which driver played it: empty for the headless driver the Rig uses, or
+     *                     {@link #EMBEDDED} for the Overlay's (story 5.1). Chained. An Overlay Run is
+     *                     not reproducible from its tuple or its Action list until story 5.13 routes
+     *                     the render thread's draws away from the Run's generator, so its log says so
+     *                     and the Rig refuses it (ADR-0013's story 5.1 amendment)
      */
     record Header(int v, String tag, String commit, HeroClass heroClass, int challenges, long seed,
                   String seedCode, long salt, int cap, int profile, int obsv, int codex, Brain brain,
-                  String registration, boolean oracle, String machine, String started)
+                  String registration, boolean oracle, String machine, String started, String driver)
             implements RunLog {
+
+        /** The {@code driver} of a Run played inside the desktop game (story 5.1). */
+        public static final String EMBEDDED = "embedded";
+
+        /** A header of the headless driver's, which every Rig Run is. */
+        public Header(int v, String tag, String commit, HeroClass heroClass, int challenges, long seed,
+                      String seedCode, long salt, int cap, int profile, int obsv, int codex, Brain brain,
+                      String registration, boolean oracle, String machine, String started) {
+            this(v, tag, commit, heroClass, challenges, seed, seedCode, salt, cap, profile, obsv, codex, brain,
+                    registration, oracle, machine, started, "");
+        }
+
+        /** Whether the Overlay played this Run, which no Rig path may take for one of its own. */
+        public boolean embedded() {
+            return EMBEDDED.equals(driver);
+        }
 
         public Header {
             Canon.require(v == VERSION, "this build writes log schema version " + VERSION + ", not " + v);
@@ -206,6 +227,8 @@ public sealed interface RunLog
                             + registration);
             Canon.text(machine, "the machine a Run ran on");
             Canon.text(started, "when a Run started");
+            Canon.require(driver != null && (driver.isEmpty() || driver.equals(EMBEDDED)),
+                    "a Run's driver is the headless one (empty) or \"" + EMBEDDED + "\": " + driver);
         }
 
         @Override

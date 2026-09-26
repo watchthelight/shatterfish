@@ -167,6 +167,7 @@ public final class Comparison {
             return null;
         }
         RunLogReader.Log log = RunLogReader.of(file);
+        OverlayLogs.refuse(log.readable() ? log.header() : null, file);
         if (!log.readable() || !log.complete() || log.end() == null
                 || log.records().stream().filter(RunLog.Header.class::isInstance).count() != 1) {
             return null;

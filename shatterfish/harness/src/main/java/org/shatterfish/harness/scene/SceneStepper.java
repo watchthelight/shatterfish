@@ -518,6 +518,25 @@ public final class SceneStepper {
         return (Thread) read(ACTOR_THREAD);
     }
 
+    /**
+     * Whether the play scene's actor thread is parked, or there is none: the one moment the game's
+     * state is the actor thread's to publish and no longer its to write (story 5.1). The hero can be
+     * {@code ready} while that thread is still inside the act that made him so, writing settings and
+     * posting windows ({@code core/.../actors/hero/Hero.java:951-975}, {@code :1066-1075}), until it
+     * parks in {@code Actor.process} ({@code core/.../actors/Actor.java:337}). The headless stepper
+     * fences every frame on that park; the Overlay's frames are the render thread's, and its Run asks
+     * this before it confirms a wait or acts on one. The field is read here because this class is the
+     * one place harness code may reach it ({@code HarnessReflectionTest}).
+     */
+    public static boolean actorThreadParked() {
+        Thread thread = sceneActorThread();
+        if (thread == null || !thread.isAlive()) {
+            return true;
+        }
+        Thread.State state = thread.getState();
+        return state == Thread.State.WAITING || state == Thread.State.TIMED_WAITING;
+    }
+
     private static Object read(Field field) {
         try {
             return field.get(null);
