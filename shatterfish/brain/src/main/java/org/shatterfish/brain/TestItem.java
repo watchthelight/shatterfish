@@ -204,9 +204,9 @@ final class TestItem implements Policy {
         }
         int depth = observation.header().depth();
         int branch = observation.header().branch();
-        // A known scroll of upgrade goes onto the worn armour (story 4.13): the upgrade window it opens
+        // A known scroll of upgrade goes onto the worn weapon or armour (story 4.13, target): the window it opens
         // is answered when the Brain's last Action was this read onto an item (story 4.11).
-        ItemRef armour = armour(observation);
+        ItemRef armour = target(observation);
         Action upgrade = upgrade(observation, offered);
         if (upgrade != null) {
             return new Plan("", 0, new RunLog.Choice(upgrade, Policies.CERTAIN, "upgrade: " + armour.name()));
@@ -353,11 +353,11 @@ final class TestItem implements Policy {
     static final String UPGRADE = "scroll of upgrade";
 
     /**
-     * The offered read of a known scroll of upgrade onto the worn armour, or null (story 4.13). It
+     * The offered read of a known scroll of upgrade onto the {@link #target}, or null (story 4.13). It
      * makes this Policy enter, as a testable item does: a known upgrade is not one.
      */
     static Action upgrade(Observation observation, List<Action> offered) {
-        ItemRef armour = armour(observation);
+        ItemRef armour = target(observation);
         List<ItemView> pack = observation.inventory().items();
         for (int index = 0; armour != null && index < pack.size(); index++) {
             ItemView item = pack.get(index);
@@ -373,10 +373,35 @@ final class TestItem implements Policy {
 
     /** The worn armour's pack reference, or null when none is worn. */
     static ItemRef armour(Observation observation) {
+        return worn(observation, org.shatterfish.api.EquipSlot.ARMOR);
+    }
+
+    /**
+     * Where a scroll of upgrade goes (story 4.13): the worn melee weapon while the level it shows is
+     * no higher than the worn armour's, else the worn armour, so the two climb together, the weapon
+     * first; null when no armour is worn. A level adds one to a melee weapon's least damage and its
+     * tier plus one to its most (MeleeWeapon.java:250-259), and its tier to an armour's most damage
+     * absorbed (Armor.java:379-384): for the tier-1 pieces a Run starts in, a weapon level is worth
+     * about three armour levels a hit.
+     */
+    static ItemRef target(Observation observation) {
+        ItemRef armour = armour(observation);
+        ItemRef weapon = worn(observation, org.shatterfish.api.EquipSlot.WEAPON);
+        if (armour == null || weapon == null) {
+            return armour;
+        }
+        ItemView a = observation.inventory().items().get(armour.index());
+        ItemView w = observation.inventory().items().get(weapon.index());
+        boolean upgradable = w.kind() == ItemKind.WEAPON && w.levelKnown();
+        return upgradable && w.visiblyUpgraded() <= a.visiblyUpgraded() ? weapon : armour;
+    }
+
+    /** The pack reference of the item worn in {@code slot}, or null. */
+    private static ItemRef worn(Observation observation, org.shatterfish.api.EquipSlot slot) {
         List<ItemView> items = observation.inventory().items();
         for (int index = 0; index < items.size(); index++) {
             ItemView item = items.get(index);
-            if (item.slot() == org.shatterfish.api.EquipSlot.ARMOR) {
+            if (item.slot() == slot) {
                 return new ItemRef(index, item.name(), item.quantity());
             }
         }

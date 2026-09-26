@@ -158,6 +158,7 @@ Tuning set: 40 Warriors of `standard`, salts 1000+j. Each row is a full play of 
 | G3 | G2 + no retreat from Goo (its floor seals, so a retreat only backs the hero into a corridor) | 1,270 | 3.13 (5) | as T1 | 12 | 3 | reverted: the dodge now fires (140 times in 12 Runs) but Goo kills fall 4 to 3; stepping away also gives up attacks, and Goo heals on water |
 | smoke | T1 (`6a62a262f`) on `smoke` | 1,071 (S6: 1,182; mean 1,123, S6: 1,161) | 2.96 (5) (S6: 2.84) | 2/9/7/2, 5 on 5 | 5 | 0 | deeper (depth 5 reached 3 to 5) but shorter: the Runs that reach Goo now die to it sooner |
 | G4 | T1 + no retreat from Goo; the dodge only while Goo stands dry; a Step to the drier cell while Goo stands on water ("pull") | 1,270 | 3.13 (5) | as T1 | 12 | 4 | reverted: no change (pull 51 times, dodge 75). The probe: in 4 of 6 depth-5 Runs Goo stood on water on every screen -- its room is mostly water and the hero is pinned in a corridor mouth with no drier cell offered; the hero arrives at strength 11 in a +0 shortsword, holding a hand axe, a shortsword or mail armour it lacks the strength for |
+| U1 | T1 + a scroll of upgrade, known or read unknown, goes onto the worn weapon while its level is no higher than the armour's, else onto the armour (a weapon level adds 1 to the least and tier+1 to the most damage, MeleeWeapon.java:250-259; an armour level adds the tier to the most absorbed, Armor.java:379-384) | 1,614 | 3.23 (5) | 7/7/6/10, 10 on 5 | 10 | 7 | kept: Goo kills 4 to 7, median survival +344 turns; two fewer reach depth 5 |
 | F1 | S4 + the hunger clock; leave a floor whose food is found when under 450 turns of food ("lean"); frugal rests to 70% and no walks to testing cells under 600 | 946 | 2.68 (4) | 6/9/17/8 | 0 | 0 | reverted: 16 starving at death as before, median survival down |
 
 **g0 failure analysis** (comparison view and the probe of each Run's last screen):
@@ -241,3 +242,10 @@ Two more found on the way:
   G1 accepted only a Step beyond it. Goo takes two turns to land the pump (a charge, then the attack;
   Goo.java:180-186), so two Steps are enough: the dodge now takes a Step that gains distance, and the
   next wait's finishes it.
+
+**Curse pricing, checked.** The equip Policy prices an unknown weapon cursed at 0.3/0.9 and an
+unknown armour at 0.3/0.85, from the generator's 30% curse and 10% or 15% enchantment rolls, an
+enchantment or glyph showing in the name; the pinned code still says so (Weapon.java:438-446,
+Armor.java:671-679). It equips almost nothing (16 wears in T1's 40 Runs): the pieces the heroes carry
+at depth 5 -- a hand axe, a shortsword, mail armour -- ask for more strength than the 11 they have.
+

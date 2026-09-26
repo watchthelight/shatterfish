@@ -221,7 +221,7 @@ final class Answers {
         // last one, spends the next scroll where the Brain would have read it anyway. The armour is known
         // by its slot when the read was handed over, not by its name, which a lifted curse changes.
         boolean chainOnArmour = memory.last().equals(ANSWERED) && memory.windows().worn()
-                && TestItem.armour(observation) != null;
+                && TestItem.target(observation) != null;
         if (!READ_ONTO.equals(memory.last()) && !chainOnArmour) {
             throw new BrainError("the upgrade window opened again after " + (memory.last().isEmpty()
                     ? "no Action" : memory.last()) + ", not after reading onto an item: confirming it would spend"

@@ -224,6 +224,24 @@ class TestItemPolicyTest {
     }
 
     @Test
+    @DisplayName("an upgrade goes onto the worn weapon while its level is no higher than the armour's, else onto the armour (story 4.13)")
+    void upgrade_target() {
+        for (int[] levels : new int[][]{{0, 0, 1}, {0, 1, 1}, {1, 1, 1}, {2, 1, 0}}) {
+            ItemView weapon = new ItemView(ItemKind.WEAPON, "worn shortsword", 1, true, levels[0], true, false, "",
+                    org.shatterfish.api.EquipSlot.WEAPON, List.of(), "");
+            ItemView armour = new ItemView(ItemKind.ARMOR, "cloth armor", 1, true, levels[1], true, false, "",
+                    org.shatterfish.api.EquipSlot.ARMOR, List.of(), "");
+            Observation screen = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(weapon, armour),
+                    List.of(), List.of(), List.of());
+            ItemRef expected = levels[2] == 1 ? new ItemRef(0, "worn shortsword", 1) : new ItemRef(1, "cloth armor", 1);
+            assertEquals(expected, TestItem.target(screen), "weapon +" + levels[0] + ", armour +" + levels[1]);
+        }
+        Observation bare = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(Screens.item(
+                ItemKind.WEAPON, "worn shortsword", 1)), List.of(), List.of(), List.of());
+        assertNull(TestItem.target(bare), "no armour worn: no target");
+    }
+
+    @Test
     @DisplayName("a potion likely enough to be strength or experience is drunk at any health, the reserve kept (story 4.13)")
     void potion_for_gains() {
         ItemView crimson = Screens.unknown(ItemKind.POTION, "crimson potion", 1);
