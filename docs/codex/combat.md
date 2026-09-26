@@ -113,7 +113,7 @@ recorded 549 citations in 64 files:
 | Source | Citations | Line span |
 |---|---:|---|
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/Char.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/Char.java) | 25 | 619-701 |
-| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/Hero.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/Hero.java) | 66 | 644 |
+| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/Hero.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/Hero.java) | 66 | 648 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/abilities/cleric/PowerOfMany.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/abilities/cleric/PowerOfMany.java) | 1 | 312 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/abilities/rogue/SmokeBomb.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/hero/abilities/rogue/SmokeBomb.java) | 1 | 181 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/ArmoredBrute.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/ArmoredBrute.java) | 1 | 55 |

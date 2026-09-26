@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: '2026-09-04'
-last_updated: 2026-09-25
+last_updated: 2026-09-26
 project: shatterfish
 project_key: NOKEY
 tracking_system: file-system
@@ -113,7 +113,7 @@ development_status:
   5-6-the-controls-row-and-the-enablement-matrix: backlog
   5-7-the-speed-modes-and-the-stepping-unit: backlog
   5-8-take-over-and-hand-back: backlog
-  5-9-recording-human-turns-and-the-shadow-decision: backlog
+  5-9-recording-human-turns-and-the-shadow-decision: in-progress  # slice merged in #176 (whole-Run HUMAN mode); takeover waits on 5.8
   5-10-map-highlights: backlog
   5-11-hotkeys-as-game-actions: backlog
   5-12-oracle-marking-in-the-overlay: backlog

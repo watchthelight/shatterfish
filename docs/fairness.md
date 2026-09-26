@@ -87,3 +87,36 @@ spelling, `--oracle`, given to either of the Rig's command lines is refused by n
 (`RigOracleGateTest.the_launchers_flag_is_refused_here`). The embedded Run itself cannot make one: it
 is handed the observer it sees through, and `OracleGateTest` keeps the harness's classes, the
 embedded Run among them, away from the oracle.
+
+## A human's Run (story 5.9)
+
+`--agent human` hands every wait to the person at the window and the Brain only a shadow question.
+What that does and does not change about the rule:
+
+- **The shadow Brain sees the Observation and nothing else.** At each wait the embedded Run observes
+  through the same door (the fair `Observer`, or the launcher's oracle, stated in the header) and
+  hands that immutable Observation to the Brain's worker; what the person did never reaches the Brain
+  except as the next wait's Observation, which is what the screen then shows. The Brain module is
+  unchanged and still imports only `api`.
+- **A shadow is never executed.** The executor is not called in a HUMAN Run at all; a shadow is a log
+  record and a greyed card. `ShadowDecisionTest.too_late` holds that only the person's Actions reach
+  the game, whatever the Brain answers and whenever.
+- **What the person does is recorded as what the game did, or marked.** Hook row 11 hears each
+  hero-directed input where the game handles it; each wait's record is the Action the executor would
+  issue for it, checked against the wait's valid set, and anything else is an `unsupported` record:
+  an Action outside the set, an input nothing heard, an input between two waits, a screen that changed
+  at a wait with no input to explain it. A tap on the Panel is never a game Action: the Panel takes it
+  (`PanelContentTest.a_human_tap_on_the_panel_stays_on_the_panel`), and a window the person opened is
+  not read as a Prompt answer (`HumanActionMappingTest.a_window_of_the_persons_own`).
+- **A human's log is never a Rig number.** It says `driver: embedded` and `actor: human`; the Rig
+  refuses it wherever it counts, scores or replays (`OverlayLogs`, `Replay.of`). `Replay.waitsOf`,
+  which checks a human's waits, is not a Rig path and counts nothing.
+
+The fairness review of story 5.9 found one leak and closed it before the story went to review: the
+recorder named, in the log and on the Panel, the kind of action the game chose for a click
+(`Hero.handle` chooses from the true level, so a hidden mimic reads as an interaction and an exit in
+unexplored fog as a transition). The recorder now takes a click's cell alone and names it from the
+wait's valid set, in a fixed order; `HumanUnsupportedTest.a_distant_click` holds the text of the mark.
+It also found that the check of a human's waits wrote a replay log labelled `bot` under a headless
+header (now a scratch file, deleted), and that a connected game controller's input passes the lock
+unheard (a Run begun with one is marked unverifiable from its start, `HumanUnsupportedTest.a_controller`).

@@ -31,7 +31,9 @@ final class ModeState {
         /** The paced speed; its interval is real only from story 5.7. */
         HUMAN_PLAY("Human", true),
         /** The uncapped speed. */
-        FAST("Fast", false);
+        FAST("Fast", false),
+        /** A HUMAN Run's: the person's own pace, which no speed mode sets (story 5.9). */
+        PLAYER("player", false);
 
         final String word;
         final boolean showsInterval;
@@ -72,6 +74,11 @@ final class ModeState {
     static ModeState of(EmbeddedRun.Snapshot snapshot) {
         if (snapshot == null) {
             return new ModeState(Mode.RUNNING, SpeedMode.NORMAL, PLACEHOLDER_INTERVAL, 0, 0, false);
+        }
+        if (snapshot.human() != null) {
+            // A HUMAN Run (story 5.9) is HUMAN for its whole length; THINKING is the shadow still pending.
+            return new ModeState(Mode.HUMAN, SpeedMode.PLAYER, PLACEHOLDER_INTERVAL, snapshot.turn(), snapshot.floor(),
+                    snapshot.state() == EmbeddedRun.State.THINKING);
         }
         return new ModeState(Mode.RUNNING, SpeedMode.NORMAL, PLACEHOLDER_INTERVAL, snapshot.turn(), snapshot.floor(),
                 snapshot.state() == EmbeddedRun.State.THINKING);
