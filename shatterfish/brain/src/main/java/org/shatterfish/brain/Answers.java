@@ -21,10 +21,11 @@ import java.util.Map;
  * <p>The rules, by kind:
  * <ul>
  *   <li><b>general</b> (talent, quest, alchemy, chasm, harmful potion, resurrection, item, other,
- *       message): story 4.1's rule as stories 4.8 and 4.10 left it. "yes" to the broken seal's
- *       transfer, else decline where a declining answer is offered (an item's confirmation is also
- *       declined by "No, I changed my mind", except the unknown scroll's cancel, whose "Yes, I'm
- *       positive" is the only answer that closes it), else the lowest answer, else dismiss.</li>
+ *       message): story 4.1's rule as stories 4.8 and 4.10 and issue #170 left it. "yes" to the
+ *       broken seal's transfer, and to the chasm's jump only when the Brain meant one, else decline
+ *       where a declining answer is offered (any confirmation is also declined by "No, I changed my
+ *       mind", the chasm's among them, except the unknown scroll's cancel, whose "Yes, I'm positive"
+ *       is the only answer that closes it), else the lowest answer, else dismiss.</li>
  *   <li><b>subclass</b>: the subclass {@link #SUBCLASSES} names for the hero's class, then "yes"
  *       to the game's are-you-sure.</li>
  *   <li><b>shop</b>: leave. The Brain has no model of prices, the shopkeeper's first option is to
@@ -101,7 +102,7 @@ final class Answers {
                                       Codex.Knowledge knowledge) {
         PromptKind kind = observation.prompt().kind();
         List<RunLog.Choice> ranked = switch (rule(kind)) {
-            case GENERAL -> general(observation, offered);
+            case GENERAL -> general(observation, memory, offered);
             case SUBCLASS -> subclass(observation, offered);
             case SHOP, SPELL -> leave(observation, offered);
             case UPGRADE -> upgrade(observation, memory, offered);
@@ -114,11 +115,23 @@ final class Answers {
         return ranked;
     }
 
-    /** Story 4.1's rule, as story 4.8 left it: affirm the seal, else decline, else the lowest answer, else dismiss. */
-    static List<RunLog.Choice> general(Observation observation, List<Action> offered) {
+    /**
+     * Story 4.1's rule, as story 4.8 left it: affirm the seal, else decline, else the lowest answer, else
+     * dismiss. Issue #170: "No, I changed my mind" declines whatever the kind, and the chasm's "yes" is
+     * pressed only for a jump the Brain meant ({@link #jumpMeant}).
+     */
+    static List<RunLog.Choice> general(Observation observation, Memory memory, List<Action> offered) {
         List<String> labels = observation.prompt().options();
         String title = observation.prompt().title().strip();
         List<RunLog.Choice> ranked = new ArrayList<>();
+        PromptKind kind = observation.prompt().kind();
+        if (kind == PromptKind.CHASM_JUMP && jumpMeant(observation, memory)) {
+            for (Action action : offered) {
+                if (action instanceof Action.AnswerPrompt answer && startsWithYes(label(labels, answer))) {
+                    ranked.add(new RunLog.Choice(answer, Policies.CERTAIN, "jump: " + label(labels, answer)));
+                }
+            }
+        }
         if (AFFIRMED.stream().anyMatch(title::equalsIgnoreCase)) {
             for (Action action : offered) {
                 if (action instanceof Action.AnswerPrompt answer && YES.equalsIgnoreCase(label(labels, answer))) {
@@ -129,19 +142,21 @@ final class Answers {
         List<Action.AnswerPrompt> declining = new ArrayList<>();
         List<Action.AnswerPrompt> answers = new ArrayList<>();
         Action dismiss = null;
-        PromptKind kind = observation.prompt().kind();
         boolean item = kind == PromptKind.ITEM || kind == PromptKind.HARMFUL_POTION;
         boolean scrollCancel = item && SCROLL_CANCEL.equals(observation.prompt().text().strip());
         for (Action action : offered) {
             if (action instanceof Action.AnswerPrompt answer) {
                 String said = label(labels, answer);
-                boolean itemDecline = item && ITEM_DECLINE.equalsIgnoreCase(said);
-                // An item confirmation is declined by "No, I changed my mind", unless it is the
-                // scroll's cancel, where that answer would reopen the picker (story 4.10).
-                if (itemDecline && scrollCancel) {
+                boolean changedMind = ITEM_DECLINE.equalsIgnoreCase(said);
+                // A confirmation is declined by "No, I changed my mind", unless it is the scroll's
+                // cancel, where that answer would reopen the picker (story 4.10). Story 4.10 read it for
+                // the item confirmations alone, and the chasm's, which draws the same words
+                // (levels.properties:3-4), was answered by its lowest button, "Yes, I know what I'm
+                // doing": a jump nobody meant (issue #170).
+                if (changedMind && scrollCancel) {
                     continue;
                 }
-                (declines(said) || itemDecline ? declining : answers).add(answer);
+                (declines(said) || changedMind ? declining : answers).add(answer);
             } else if (action instanceof Action.DismissPrompt) {
                 dismiss = action;
             }
@@ -149,13 +164,14 @@ final class Answers {
         declining.sort(Comparator.comparingInt(Action.AnswerPrompt::option));
         answers.sort(Comparator.comparingInt(Action.AnswerPrompt::option));
         boolean affirmed = !ranked.isEmpty();
+        boolean jumping = kind == PromptKind.CHASM_JUMP && affirmed;
         for (Action.AnswerPrompt answer : declining) {
             ranked.add(new RunLog.Choice(answer, ranked.isEmpty() ? Policies.CERTAIN : 0,
                     "decline: " + label(labels, answer)));
         }
         for (Action.AnswerPrompt answer : answers) {
             String label = label(labels, answer);
-            if (affirmed && YES.equalsIgnoreCase(label)) {
+            if (affirmed && YES.equalsIgnoreCase(label) || jumping && startsWithYes(label)) {
                 continue;
             }
             ranked.add(new RunLog.Choice(answer, ranked.isEmpty() ? Policies.CERTAIN : 0,
@@ -165,6 +181,19 @@ final class Answers {
             ranked.add(new RunLog.Choice(dismiss, ranked.isEmpty() ? Policies.CERTAIN : 0, "dismiss"));
         }
         return ranked;
+    }
+
+    /**
+     * Whether the chasm's question follows a jump the Brain meant (issue #170): the last Action it handed
+     * over was a Step onto a cell this screen draws as a chasm. {@code Brain.decide} offers no Policy a
+     * Step onto a chasm, so none reaches the game today, and the question is answered "no"; a Policy that
+     * one day means to descend by jumping hands over that Step past the filter, and its "yes" is then
+     * pressed here. A question that follows anything else -- no Action of the Brain's, or a Step onto a
+     * cell the screen did not draw as a chasm -- is one the Brain did not ask for, and is declined.
+     */
+    static boolean jumpMeant(Observation observation, Memory memory) {
+        return memory != null && Beliefs.STEP.equals(memory.last()) && memory.stepped() >= 0
+                && Explore.chasm(observation, memory.stepped());
     }
 
     /**

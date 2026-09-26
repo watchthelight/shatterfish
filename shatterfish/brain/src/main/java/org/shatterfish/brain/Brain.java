@@ -310,6 +310,12 @@ public final class Brain {
             offered = offered.stream().filter(action -> !(action instanceof Action.Step
                     || action instanceof Action.Descend || action instanceof Action.Ascend)).toList();
         }
+        // A Step onto a chasm asks whether to jump, and a jump is a fall with its damage and the floor
+        // left unfinished; no Policy means one, so none is offered one (issue #170, Explore.chasm). The
+        // fight Policy's chokepoint and retreat pick among the offered Steps without a plan's walkable
+        // cells, and a chasm, which no enemy stands on, looked like the best chokepoint there was.
+        offered = offered.stream().filter(action -> !(action instanceof Action.Step step
+                && Explore.chasm(observation, step.cell()))).toList();
         // Back and forth between two cells for Memory.BOUNCES waits: the Step back is withheld from
         // every Policy for this wait, so two Policies that undo each other's Step stop (story 4.13); the fold
         // has blocked its cell for Memory.BOUNCE_WAITS waits too, so they do not start again (issue #174).
