@@ -42,11 +42,13 @@ public final class Brain {
     private final long seed;
     private final List<Policy> policies;
     private final Pickup pickup;
+    private final TestItem testItem;
 
     /** The Policies, highest priority first, fighting by {@code knowledge} and scoring by {@code evaluation}. */
     private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation) {
         return List.of(Policies.ANSWER_PROMPT, new Heal(knowledge), new Fight(knowledge), new Eat(),
-                new Pickup(evaluation, knowledge), new Equip(evaluation, knowledge), new Descend(knowledge),
+                new TestItem(knowledge), new Pickup(evaluation, knowledge), new Equip(evaluation, knowledge),
+                new Descend(knowledge),
                 new Explore(), Policies.fallback(evaluation));
     }
 
@@ -76,6 +78,7 @@ public final class Brain {
         this.seed = seed;
         this.policies = policies(knowledge, evaluation);
         this.pickup = new Pickup(evaluation, knowledge);
+        this.testItem = new TestItem(knowledge);
     }
 
     /** The weights this Brain scores by. */
@@ -128,8 +131,8 @@ public final class Brain {
 
     /** The names of the Policies every Brain arbitrates, highest priority first. */
     public static List<String> policyNames() {
-        return List.of(Policies.ANSWER_PROMPT.name(), Heal.NAME, Fight.NAME, Eat.NAME, Pickup.NAME, Equip.NAME,
-                Descend.NAME, Explore.NAME, Policies.FALLBACK);
+        return List.of(Policies.ANSWER_PROMPT.name(), Heal.NAME, Fight.NAME, Eat.NAME, TestItem.NAME, Pickup.NAME,
+                Equip.NAME, Descend.NAME, Explore.NAME, Policies.FALLBACK);
     }
 
     /** The Policies, highest priority first, by name. */
@@ -150,13 +153,21 @@ public final class Brain {
      * floor. Nothing here assumes the Action is applied.
      */
     public Belief handed(Observation observation, Belief belief, Decided decided) {
-        Memory memory = Memory.of(belief).handed(Beliefs.kind(decided.action()));
+        Memory before = Memory.of(belief);
+        Memory memory = before.handed(Beliefs.kind(decided.action()));
         RunLog.Decision decision = decided.decision();
         // A drink the heal Policy handed over (story 4.9): the heal lands over the next turns with no
         // buff icon, and the floating heal text the game shows is not in the Observation, so the heal
         // Policy counts the waits since.
         if (decision != null && Heal.NAME.equals(decision.policy())) {
             memory = memory.drinking();
+        }
+        // A test handed over (story 4.10): which appearance, how many were held, and the Step's cell
+        // when it walks to a testing cell, so the next screen can tell a test the game refused.
+        if (decision != null && TestItem.NAME.equals(decision.policy())) {
+            Memory.Trial trial = testItem.trial(observation, before, decided.action());
+            memory = memory.trying(trial, trial.step() < 0 && !trial.label().isEmpty()
+                    ? SafeTest.refuge(observation, observation.hero().cell()) : -1);
         }
         // A rest the descend Policy handed over before going down (story 4.12), counted toward its bound.
         if (decision != null && Descend.NAME.equals(decision.policy()) && decided.action() instanceof Action.Rest) {
@@ -191,7 +202,11 @@ public final class Brain {
         // and the memory, so the next screen can tell a refused pick-up or Step from a wait spent
         // otherwise.
         Memory memory = Beliefs.fold(Memory.of(belief), observation, knowledge);
-        return memory.aiming(pickup.aim(observation, memory)).belief();
+        // The test-item Policy ranks above pick-up (story 4.10): when it plans on this screen, pick-up
+        // does not take the wait, and its plan is no plan.
+        Memory.Aim aim = testItem.plan(observation, memory, observation.actions().actions()) != null
+                ? Memory.Aim.NONE : pickup.aim(observation, memory);
+        return memory.aiming(aim).belief();
     }
 
     /**

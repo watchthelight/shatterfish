@@ -32,7 +32,7 @@ class PolicyArbitrationTest {
         RunLog.Decision decision = decided.decision();
         assertEquals("answer-prompt", decision.policy());
         assertTrue(decision.goal().contains("prompt"), decision.goal());
-        assertEquals(List.of("answer-prompt", "heal", "fight", "eat", "pick-up", "equip", "descend", "explore", "fallback"), brain().policies());
+        assertEquals(List.of("answer-prompt", "heal", "fight", "eat", "test-item", "pick-up", "equip", "descend", "explore", "fallback"), brain().policies());
     }
 
     @Test
@@ -79,7 +79,7 @@ class PolicyArbitrationTest {
     @Test
     @DisplayName("the configuration names the Policies and the memory's version")
     void the_configuration() {
-        assertEquals("policies=answer-prompt,heal,fight,eat,pick-up,equip,descend,explore,fallback;memory=" + Memory.VERSION + ";weights=" + Screens.WEIGHTS.canonical(),
+        assertEquals("policies=answer-prompt,heal,fight,eat,test-item,pick-up,equip,descend,explore,fallback;memory=" + Memory.VERSION + ";weights=" + Screens.WEIGHTS.canonical(),
                 Brain.configuration(Screens.WEIGHTS));
     }
 
@@ -106,6 +106,39 @@ class PolicyArbitrationTest {
             taken.add(decided.action());
         }
         assertEquals(Set.of(offered), taken, "no preference: every Action offered is taken");
+    }
+
+    @Test
+    @DisplayName("the fallback leaves the items alone while anything else is offered (story 4.10)")
+    void fallback_leaves_items() {
+        org.shatterfish.api.ItemRef tome = new org.shatterfish.api.ItemRef(0, "holy tome", 1);
+        Action[] offered = {new Action.Wait(), new Action.Step(0), new Action.UseItemAt(tome, "CAST", 2),
+                new Action.UseItem(tome, "DROP"), new Action.UseItemOn(tome, "USE", tome)};
+        Set<Action> taken = new HashSet<>();
+        Belief belief = null;
+        Brain brain = brain();
+        for (int i = 0; i < 200; i++) {
+            var screen = Screens.holding(List.of(Screens.using("holy tome", "CAST", "DROP", "USE")), offered);
+            belief = brain.update(screen, belief);
+            Brain.Decided decided = brain.decide(screen, belief);
+            assertEquals("fallback", decided.decision().policy());
+            taken.add(decided.action());
+            for (RunLog.Choice alternative : decided.decision().alternatives()) {
+                assertTrue(!Policies.usesItem(alternative.action()), "not even as an alternative: " + alternative);
+            }
+        }
+        assertEquals(Set.of(new Action.Wait(), new Action.Step(0)), taken, "the item uses are never drawn");
+    }
+
+    @Test
+    @DisplayName("the fallback uses an item when nothing but item uses is offered, so a Run never stops for want of one")
+    void fallback_items_when_nothing_else() {
+        org.shatterfish.api.ItemRef tome = new org.shatterfish.api.ItemRef(0, "holy tome", 1);
+        var screen = Screens.holding(List.of(Screens.using("holy tome", "DROP")), new Action.UseItem(tome, "DROP"));
+        Brain brain = brain();
+        Brain.Decided decided = brain.decide(screen, brain.update(screen, null));
+        assertEquals(new Action.UseItem(tome, "DROP"), decided.action());
+        assertEquals("fallback", decided.decision().policy());
     }
 
     @Test

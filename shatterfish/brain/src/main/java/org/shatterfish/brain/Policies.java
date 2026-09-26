@@ -45,6 +45,22 @@ final class Policies {
     /** The answer that affirms such a Prompt. */
     private static final String YES = "yes";
 
+    /**
+     * The one item confirmation answer-prompt affirms (story 4.10): an unknown inventory scroll read
+     * without a target asks this when its picker is sent away, and "Yes, I'm positive" consumes it,
+     * where "No, I changed my mind" reopens a picker no Action answers (InventoryScroll.java:52-80,
+     * :137-139; items.properties:1155-1157).
+     */
+    static final String SCROLL_CANCEL = "Do you really want to cancel this scroll usage? The scroll wasn't previously"
+            + " identified, so it will be consumed anyway.";
+
+    /**
+     * The answer that declines every other item confirmation: a known harmful potion's drink and a
+     * beneficial potion's throw (Potion.java:239-252, :265-281; items.properties:740-741), and the
+     * scroll's cancel read otherwise. Story 4.11 generalises the Prompt rules; this stays narrow.
+     */
+    static final String ITEM_DECLINE = "No, I changed my mind";
+
     /** Whether a button label declines. Case-blind without a Locale, which the Brain may not read. */
     private static boolean declines(String label) {
         String stripped = label.strip();
@@ -103,9 +119,19 @@ final class Policies {
             List<Action.AnswerPrompt> declining = new ArrayList<>();
             List<Action.AnswerPrompt> answers = new ArrayList<>();
             Action dismiss = null;
+            PromptKind kind = observation.prompt().kind();
+            boolean item = kind == PromptKind.ITEM || kind == PromptKind.HARMFUL_POTION;
+            boolean scrollCancel = item && SCROLL_CANCEL.equals(observation.prompt().text().strip());
             for (Action action : offered) {
                 if (action instanceof Action.AnswerPrompt answer) {
-                    (declines(label(labels, answer)) ? declining : answers).add(answer);
+                    String said = label(labels, answer);
+                    boolean itemDecline = item && ITEM_DECLINE.equalsIgnoreCase(said);
+                    // An item confirmation is declined by "No, I changed my mind", unless it is the
+                    // scroll's cancel, where that answer would reopen the picker.
+                    if (itemDecline && scrollCancel) {
+                        continue;
+                    }
+                    (declines(said) || itemDecline ? declining : answers).add(answer);
                 } else if (action instanceof Action.DismissPrompt) {
                     dismiss = action;
                 }
@@ -131,6 +157,12 @@ final class Policies {
             return ranked;
         }
     };
+
+    /** Whether {@code action} uses an item from the pack: on its own, at a cell or on another item. */
+    static boolean usesItem(Action action) {
+        return action instanceof Action.UseItem || action instanceof Action.UseItemAt
+                || action instanceof Action.UseItemOn;
+    }
 
     /** Whether {@code action} eats an item, which only the eat Policy does (story 4.9). */
     static boolean eats(Action action) {
@@ -162,6 +194,14 @@ final class Policies {
      * "uniform 1/k" when every Action offered scores alike -- the committed weights, which give the
      * Action features no weight, so play and draws are story 4.4's exactly -- else "top 1/k" for the
      * highest tier and "lower 1/k" for a tier below it.
+     *
+     * <p>It leaves the items alone while anything else is offered (story 4.10): an item use is drawn
+     * only on a screen that offers nothing but item uses. A random use wastes the item and can open a
+     * window no Action answers -- the Cleric's spell window from the holy tome (HolyTome.java:93),
+     * the upgrade window from a scroll of upgrade read onto an item (ScrollOfUpgrade.java:64), the
+     * guess window from a stone of intuition (StoneOfIntuition.java:73) -- which is how every Run
+     * that ended on an unknown window in story 4.8's direction check ended. Using items is the
+     * Policies' to do deliberately: equip wears gear, test-item drinks and reads.
      */
     static Policy fallback(Evaluation evaluation) {
         return new Policy() {
@@ -190,8 +230,9 @@ final class Policies {
                                               Stream stream) {
                 // The tiers, highest score first, each in the order the screen offers its Actions.
                 java.util.TreeMap<Long, List<Action>> tiers = new java.util.TreeMap<>(Comparator.reverseOrder());
-                // Never eating, unless eating is all the screen offers: a Run is not ended for it.
-                List<Action> drawn = offered.stream().filter(action -> !eats(action)).toList();
+                // Never an item use -- eating among them, which is the eat Policy's (story 4.9) --
+                // unless item uses are all the screen offers: a Run is not ended for want of one.
+                List<Action> drawn = offered.stream().filter(action -> !usesItem(action)).toList();
                 for (Action action : drawn.isEmpty() ? offered : drawn) {
                     tiers.computeIfAbsent(evaluation.of(observation, action), score -> new ArrayList<>()).add(action);
                 }

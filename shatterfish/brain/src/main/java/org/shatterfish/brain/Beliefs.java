@@ -222,17 +222,23 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         boolean arriving = !memory.at().on(depth, branch);
         long arrived = arriving ? waits : memory.arrived();
         int rests = arriving ? 0 : memory.rests();
+        List<Memory.Balk> balked = balked(memory, observation, here, still);
+        int walking = walking(memory, still);
         Memory after = new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
                 sightings(memory.monsters(), observation, waits), here, streak, calm, dwelt, memory.blocked(),
                 memory.last(), holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE,
-                memory.drank(), arrived, rests);
+                memory.drank(), Memory.Trial.NONE, balked, walking, memory.tested(), clouds(memory, observation, waits),
+                memory.refuge(), arrived, rests);
         // Two Steps refused in a row: the stepping Policy yields this wait, and the cell its Step
         // points at is blocked on this floor. On a calm screen the pick-up Policy stands above the
         // descend Policy, which stands above explore, so when the pick-up plan on the last screen was a
         // Step, that was the Step refused, and its cell is the one blocked (story 4.8); otherwise the
         // descend Policy's Step toward the exit (story 4.12), else explore's Step on this screen.
         if (streak == Explore.STUCK - 1 && calm) {
-            Integer cell = memory.aim().step() >= 0 ? Integer.valueOf(memory.aim().step())
+            // A Step the test-item Policy handed toward its testing cell comes first: it ranks above
+            // pick-up (story 4.10).
+            Integer cell = memory.trial().step() >= 0 ? Integer.valueOf(memory.trial().step())
+                    : memory.aim().step() >= 0 ? Integer.valueOf(memory.aim().step())
                     : Descend.stepCell(observation, after, knowledge);
             if (cell == null) {
                 cell = Explore.stepCell(observation, after);
@@ -241,10 +247,92 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 after = new Memory(after.waits(), after.deepest(), facts, found, held, known, labels, pending,
                         after.monsters(), here, streak, calm, dwelt,
                         Memory.with(after.blocked(), new Memory.Spot(depth, branch, cell)), after.last(), holds, near,
-                        before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE, memory.drank(), arrived, rests);
+                        before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE, memory.drank(),
+                        Memory.Trial.NONE, balked, walking, memory.tested(), after.clouds(),
+                        memory.refuge(), arrived, rests);
             }
         }
         return after;
+    }
+
+    /**
+     * The appearances balked at after this screen (story 4.10): the test the test-item Policy handed
+     * over at the last wait, read against what this screen shows. A drink or a read that leaves the
+     * appearance held in the same quantity did not happen -- the game refuses a read without spending
+     * a turn while the hero is blind, immune to magic or under a cursed spellbook's charge
+     * (Scroll.java:172-192) -- and a Step toward the testing cell that leaves the hero where it stood
+     * was refused. Either way the appearance is not tried again on the floor. A test that happened
+     * takes the item out of the pack under that name: a drink detaches it (Potion.java:288-291), an
+     * inventory scroll detaches itself before its picker opens (InventoryScroll.java:41-44), and
+     * every other read spends it; identified, the rest go by their identity's name.
+     */
+    static List<Memory.Balk> balked(Memory memory, Observation observation, Memory.Spot here, boolean still) {
+        Memory.Trial trial = memory.trial();
+        if (trial.label().isEmpty() || !memory.at().on(here.depth(), here.branch())) {
+            return memory.balked();
+        }
+        boolean untried = trial.step() >= 0 ? still || walking(memory, still) > TestItem.WALKS
+                : heldQuantity(observation, trial.label()) >= trial.quantity();
+        // A walk balked at stops only the walking: the test where the hero stands may still be safe.
+        Memory.Balk balk = new Memory.Balk(here.depth(), here.branch(), trial.label(), trial.step() >= 0);
+        if (!untried || memory.balked().contains(balk)) {
+            return memory.balked();
+        }
+        List<Memory.Balk> balked = new ArrayList<>(memory.balked());
+        balked.add(balk);
+        while (balked.size() > Memory.DWELT) {
+            balked.remove(0);
+        }
+        return balked;
+    }
+
+    /**
+     * How many Steps in a row the test-item Policy has walked toward testing cells, this one included
+     * when the hero moved (story 4.10): a walk that goes on past {@link TestItem#WALKS} is one whose
+     * cell keeps moving away, and its appearance is balked at.
+     */
+    static int walking(Memory memory, boolean still) {
+        return !memory.trial().label().isEmpty() && memory.trial().step() >= 0 && !still ? memory.walking() + 1 : 0;
+    }
+
+    /**
+     * The clouded cells after this screen (story 4.10): every cell in view that shows fire or a harmful
+     * gas is kept out of for up to {@link Memory#CLOUD_WAITS} more waits, a cell in view that shows
+     * none is cleared, a shut door's cell is never kept, and a lapsed one is forgotten.
+     */
+    static List<Memory.Cloud> clouds(Memory memory, Observation observation, long waits) {
+        int depth = observation.header().depth();
+        int branch = observation.header().branch();
+        org.shatterfish.api.MapSection map = observation.map();
+        java.util.Set<Integer> clouded = new java.util.HashSet<>();
+        for (org.shatterfish.api.BlobCell blob : map.blobs()) {
+            if (blob.kinds().stream().anyMatch(Explore.HARMFUL::contains)) {
+                clouded.add(blob.cell());
+            }
+        }
+        List<Memory.Cloud> clouds = new ArrayList<>();
+        for (Memory.Cloud cloud : memory.clouds()) {
+            boolean here = cloud.depth() == depth && cloud.branch() == branch;
+            if (cloud.until() < waits || (here && clouded.contains(cloud.cell()))) {
+                continue;
+            }
+            // Seen clear, or a shut door now: a shut door is solid and holds no gas (Terrain.java:90,
+            // Blob.java:158-164), and a cloud kept on one would block the room behind it for as
+            // long as the memory lasts.
+            if (here && cloud.cell() < map.tiles().size()
+                    && (map.fog().get(cloud.cell()) == org.shatterfish.api.Fog.VISIBLE
+                    || map.tiles().get(cloud.cell()) == org.shatterfish.api.Tile.DOOR)) {
+                continue;
+            }
+            clouds.add(cloud);
+        }
+        // In cell order, so the list does not depend on the blobs' order.
+        clouded.stream().sorted().forEach(cell -> clouds.add(new Memory.Cloud(depth, branch, cell,
+                waits + Memory.CLOUD_WAITS)));
+        while (clouds.size() > Memory.CLOUDS) {
+            clouds.remove(0);
+        }
+        return clouds;
     }
 
     /** The pack as far as a pick-up changes it (story 4.8). */

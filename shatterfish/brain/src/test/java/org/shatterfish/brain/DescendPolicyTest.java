@@ -77,7 +77,7 @@ class DescendPolicyTest {
     static Memory at(List<Memory.Spot> dwelt, long waits, long arrived, int rests) {
         return new Memory(waits, 1, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
                 Memory.Spot.NOWHERE, 0, false, dwelt, List.of(), "", 0, -1, -1, List.of(), List.of(), "", List.of(),
-                Memory.Pack.NONE, Memory.Aim.NONE, -1, arrived, rests);
+                Memory.Pack.NONE, Memory.Aim.NONE, -1, Memory.Trial.NONE, List.of(), 0, -1, List.of(), -1, arrived, rests);
     }
 
     private static final Observation ROOM = ExplorePolicyTest.screen(2,
@@ -193,7 +193,7 @@ class DescendPolicyTest {
         Memory found = new Memory(5, 1, List.of(), List.of(new Memory.Found("STRENGTH_POTIONS", 0, 2),
                 new Memory.Found("UPGRADE_SCROLLS", 0, 1)), List.of(), List.of(), List.of(), List.of(), List.of(),
                 Memory.Spot.NOWHERE, 0, false, List.of(), List.of(), "", 0, -1, -1, List.of(), List.of(), "", List.of(),
-                Memory.Pack.NONE, Memory.Aim.NONE, -1, 1, 0);
+                Memory.Pack.NONE, Memory.Aim.NONE, -1, Memory.Trial.NONE, List.of(), 0, -1, List.of(), -1, 1, 0);
         assertEquals(2.0 / 4, Descend.expectedHere(one, found, Screens.CODEX), 1e-9);
     }
 
