@@ -159,6 +159,19 @@ class DescendPolicyTest {
                 at(List.of(), 5, 1, 0).belief());
         assertEquals(Eat.NAME, fed.decision().policy());
 
+        // Hungry holding only a pasty: the eat Policy waits for starving (a pasty wastes at hungry), and
+        // the hero is not without food, so it does not leave a floor with more to see.
+        Brain.Decided pasty = brain().decide(hero(OPEN, 20, 20, Hunger.HUNGRY, EatPolicyTest.food("pasty", 1)),
+                at(List.of(), 5, 1, 0).belief());
+        assertEquals(Explore.NAME, pasty.decision().policy(), "food held is food, eaten now or not");
+        assertFalse(Descend.fed(hero(OPEN, 20, 20, Hunger.HUNGRY)));
+        assertFalse(Descend.fed(hero(OPEN, 20, 20, Hunger.HUNGRY,
+                Screens.item(org.shatterfish.api.ItemKind.SCROLL, "scroll of KAUNAN", 1))), "a scroll is no food");
+        Brain.Decided scroll = brain().decide(hero(OPEN, 20, 20, Hunger.HUNGRY,
+                Screens.item(org.shatterfish.api.ItemKind.SCROLL, "scroll of KAUNAN", 1)), at(List.of(), 5, 1, 0).belief());
+        assertEquals("exit: hungry 2", scroll.decision().chosen().why(), "hungry with only a scroll: down for food");
+        assertTrue(Descend.fed(hero(OPEN, 20, 20, Hunger.HUNGRY, EatPolicyTest.food("pasty", 1))));
+
         Brain.Decided full = brain().decide(hero(OPEN, 20, 20, Hunger.NONE), at(List.of(), 5, 1, 0).belief());
         assertEquals(Explore.NAME, full.decision().policy(), "not hungry, the frontier comes first");
     }
