@@ -4,6 +4,7 @@ import org.shatterfish.api.Action;
 import org.shatterfish.api.ActorView;
 import org.shatterfish.api.Alignment;
 import org.shatterfish.api.Codex;
+import org.shatterfish.api.Emote;
 import org.shatterfish.api.EquipSlot;
 import org.shatterfish.api.Fog;
 import org.shatterfish.api.HeroSection;
@@ -48,6 +49,13 @@ import java.util.List;
  *       otherwise away from the enemies. The surface and branch stairs are not a retreat: the
  *       surface opens a window without leaving (SewerLevel.java:146-156) and a branch can refuse.
  *       A floor already fled twice is not fled by the stairs again. Cornered, it fights.</li>
+ *   <li><b>Speed decides whether it can run</b> (the bestiary's lever 1): a mob's step costs 1/speed
+ *       and its attack a whole turn (Mob.java:1353-1355, :753-757; Char.java:770-783), so from an
+ *       awake enemy the bestiary tags faster and not outrunnable (the sewer crab, the vampire bat) the
+ *       hero never retreats on foot, unless the stairs are the next cell; it <b>stands off</b> instead,
+ *       one step back when the enemy is two cells away, so the enemy's whole turn goes into closing,
+ *       and <b>awaits</b> it farther off. From an awake enemy as fast as the hero and not outrunnable it
+ *       retreats only by the stairs, along a path the enemy cannot cut across, and otherwise fights.</li>
  * </ul>
  *
  * <p>Enemies the game keeps passive until provoked ({@link #passive}, from the bestiary's tags) are
@@ -229,6 +237,10 @@ final class Fight implements Policy {
         if (dodge != null) {
             ranked.add(dodge);
         }
+        RunLog.Choice standOff = adjacent.isEmpty() ? standOff(observation, memory, offered, enemies, knowledge) : null;
+        if (standOff != null) {
+            ranked.add(standOff);
+        }
         if (!adjacent.isEmpty()) {
             RunLog.Choice attack = attack(observation, adjacent);
             if (favourable || retreat == null) {
@@ -385,6 +397,12 @@ final class Fight implements Policy {
      * most increases the distance to the nearest enemy, fewer engaging first. Null when nothing gets
      * the hero farther away.
      *
+     * <p>Speed (the bestiary's lever 1, docs/bestiary/index.md, the speed rule): with an awake enemy
+     * in view that the bestiary tags faster than the hero and not outrunnable, only stairs underfoot
+     * or one Step away; with one as fast as the hero and not outrunnable, only the stairs, along a
+     * path whose j-th cell is more than j cells from each such enemy, so it cannot cut across; never
+     * the Step away, which gains nothing on either. Null otherwise, and the hero fights.
+     *
      * <p>The stairs down count only when they do not lead onto a boss floor, where the boss seals the
      * floor behind the hero (Goo.java:134-136, Level.java:657-661), and not while the hero is hurt and
      * the descend Policy is taking it down (story 4.12): it would arrive on the harder floor hurt, the
@@ -399,6 +417,9 @@ final class Fight implements Policy {
         int hero = observation.hero().cell();
         int from = nearest(map, hero, enemies);
         String floor = observation.header().depth() + ":" + observation.header().branch();
+        // Lever 1: the enemies the hero cannot walk away from, awake (a sleeper chases nothing).
+        List<ActorView> faster = faster(observation, enemies, knowledge);
+        List<ActorView> abreast = abreast(observation, enemies, knowledge);
         if (!observation.header().sealed() && Memory.count(memory.flights(), floor, 0) < FLIGHTS) {
             boolean down = down(observation, memory, knowledge);
             java.util.function.Predicate<TransitionView> stairs = transition -> transition.kind()
@@ -413,6 +434,17 @@ final class Fight implements Policy {
                     return new RunLog.Choice(leave, Policies.CERTAIN, "retreat: stairs");
                 }
             }
+            if (!faster.isEmpty()) {
+                // A faster enemy closes two cells per hero step: only stairs one Step away are reached
+                // before it has struck more than once (docs/bestiary/index.md, speed rule).
+                for (Action action : offered) {
+                    if (action instanceof Action.Step step && map.transitions().stream()
+                            .anyMatch(t -> t.cell() == step.cell() && stairs.test(t))) {
+                        return new RunLog.Choice(step, Policies.CERTAIN, "retreat: stairs");
+                    }
+                }
+                return null;
+            }
             boolean[] walk = Explore.walkable(observation, memory, false);
             for (TransitionView transition : map.transitions()) {
                 if (stairs.test(transition) && map.fog().get(transition.cell()) != Fog.UNKNOWN) {
@@ -426,11 +458,19 @@ final class Fight implements Policy {
             }
             List<Action> away = offered.stream().filter(action -> !(action instanceof Action.Step step)
                     || nearest(map, step.cell(), enemies) >= from).toList();
+            // An enemy as fast as the hero is outwalked only where it cannot cut across: after the
+            // hero's j-th step it has made j - 1 moves, so it can strike the j-th cell only when that
+            // cell is at most j cells from where it stands now.
             Path path = walk(map, walk, hero, away, cell -> map.transitions().stream()
-                    .anyMatch(t -> t.cell() == cell && stairs.test(t)));
+                    .anyMatch(t -> t.cell() == cell && stairs.test(t)),
+                    (cell, steps) -> abreast.isEmpty() || nearest(map, cell, abreast) > steps);
             if (path != null) {
                 return new RunLog.Choice(path.step, Policies.CERTAIN, "retreat: stairs");
             }
+        }
+        if (!faster.isEmpty() || !abreast.isEmpty()) {
+            // On foot the hero gains nothing on an enemy at least as fast, and a faster one strikes as it follows.
+            return null;
         }
         // Away, onto a cell the hero may walk on: not a chasm, which jumps, a well, which drinks, an
         // armed trap, or a cell a Step was refused onto.
@@ -451,6 +491,67 @@ final class Fight implements Policy {
             }
         }
         return best == null ? null : new RunLog.Choice(best, Policies.CERTAIN, "retreat " + farthest);
+    }
+
+    /** The awake enemies of {@code enemies} the bestiary tags faster than the hero and not outrunnable. */
+    static List<ActorView> faster(Observation observation, List<ActorView> enemies, Codex.Knowledge knowledge) {
+        int depth = observation.header().depth();
+        return enemies.stream().filter(enemy -> enemy.emote() != Emote.SLEEP
+                && Bestiary.faster(knowledge, depth, enemy.name())).toList();
+    }
+
+    /** The awake enemies of {@code enemies} the bestiary tags as fast as the hero and not outrunnable. */
+    static List<ActorView> abreast(Observation observation, List<ActorView> enemies, Codex.Knowledge knowledge) {
+        int depth = observation.header().depth();
+        return enemies.stream().filter(enemy -> enemy.emote() != Emote.SLEEP
+                && Bestiary.abreast(knowledge, depth, enemy.name())).toList();
+    }
+
+    /** The distance, in cells, a faster enemy is kept at so that closing it spends its whole turn. */
+    static final int STAND_OFF = 3;
+
+    /**
+     * Against an awake faster enemy coming at the hero, none adjacent (the bestiary's lever 1): a
+     * speed-2 mob's step costs half a turn and its attack a whole one (Mob.java:1353-1355,
+     * :753-757; Char.java:770-783), so one that starts its turn two cells off steps once and strikes,
+     * and one that starts it {@link #STAND_OFF} or more cells off spends it all closing and the hero
+     * strikes first (docs/bestiary/sewers.md#crab; docs/bestiary/index.md, the speed rule). Two
+     * cells off: the offered Step to a cell at least {@link #STAND_OFF} from every faster enemy and
+     * beside no enemy, fewest engaging first, then farther. Farther off: a turn in place, the enemy's
+     * to spend. Null when no faster enemy is closing, or no such Step or wait is offered; the wait
+     * counts among the {@link #HOLDS}, so one that never arrives does not hold the hero.
+     */
+    static RunLog.Choice standOff(Observation observation, Memory memory, List<Action> offered, List<ActorView> enemies,
+                                  Codex.Knowledge knowledge) {
+        List<ActorView> faster = faster(observation, enemies, knowledge);
+        boolean closing = memory.before() < 0 || (memory.near() >= 0 && memory.near() < memory.before());
+        if (faster.isEmpty() || !closing) {
+            return null;
+        }
+        MapSection map = observation.map();
+        int distance = nearest(map, observation.hero().cell(), faster);
+        if (distance >= STAND_OFF) {
+            return memory.holds() < HOLDS && offered.contains(new Action.Wait())
+                    ? new RunLog.Choice(new Action.Wait(), Policies.CERTAIN, "hold: stand off") : null;
+        }
+        boolean[] open = Explore.walkable(observation, memory, false);
+        Action.Step best = null;
+        int fewest = Integer.MAX_VALUE;
+        int farthest = -1;
+        for (Action action : offered) {
+            if (action instanceof Action.Step step && step.cell() < open.length && open[step.cell()]
+                    && !transition(map, step.cell()) && nearest(map, step.cell(), faster) >= STAND_OFF
+                    && nearest(map, step.cell(), enemies) > 1) {
+                int engage = engage(map, step.cell());
+                int away = nearest(map, step.cell(), enemies);
+                if (engage < fewest || (engage == fewest && away > farthest)) {
+                    best = step;
+                    fewest = engage;
+                    farthest = away;
+                }
+            }
+        }
+        return best == null ? null : new RunLog.Choice(best, Policies.CERTAIN, "stand off " + STAND_OFF);
     }
 
     /**
@@ -486,8 +587,22 @@ final class Fight implements Policy {
         boolean at(int cell);
     }
 
+    /** Whether the walk may stand on {@code cell} after {@code steps} Steps. */
+    private interface Safe {
+        boolean at(int cell, int steps);
+    }
+
     /** Breadth-first from the offered Steps over walkable cells to the nearest goal, never through the hero's own cell. */
     private static Path walk(MapSection map, boolean[] walk, int hero, List<Action> offered, Goal goal) {
+        return walk(map, walk, hero, offered, goal, (cell, steps) -> true);
+    }
+
+    /**
+     * {@link #walk(MapSection, boolean[], int, List, Goal)} over the cells {@code safe} allows at the
+     * number of Steps the walk reaches them in. Breadth-first reaches each cell first by its fewest
+     * Steps, and a safety that only tightens with more Steps loses nothing by that.
+     */
+    private static Path walk(MapSection map, boolean[] walk, int hero, List<Action> offered, Goal goal, Safe safe) {
         int cells = walk.length;
         int[] first = new int[cells];
         int[] distance = new int[cells];
@@ -496,7 +611,7 @@ final class Fight implements Policy {
         ArrayDeque<Integer> queue = new ArrayDeque<>();
         for (Action action : offered) {
             if (action instanceof Action.Step step && step.cell() < cells && walk[step.cell()]
-                    && distance[step.cell()] < 0) {
+                    && distance[step.cell()] < 0 && safe.at(step.cell(), 1)) {
                 distance[step.cell()] = 1;
                 first[step.cell()] = step.cell();
                 queue.add(step.cell());
@@ -516,7 +631,7 @@ final class Fight implements Policy {
                         continue;
                     }
                     int next = nx + ny * width;
-                    if (walk[next] && distance[next] < 0) {
+                    if (walk[next] && distance[next] < 0 && safe.at(next, distance[cell] + 1)) {
                         distance[next] = distance[cell] + 1;
                         first[next] = first[cell];
                         queue.add(next);
