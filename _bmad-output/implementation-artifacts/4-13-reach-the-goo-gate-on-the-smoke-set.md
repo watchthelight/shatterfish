@@ -159,6 +159,7 @@ Tuning set: 40 Warriors of `standard`, salts 1000+j. Each row is a full play of 
 | smoke | T1 (`6a62a262f`) on `smoke` | 1,071 (S6: 1,182; mean 1,123, S6: 1,161) | 2.96 (5) (S6: 2.84) | 2/9/7/2, 5 on 5 | 5 | 0 | deeper (depth 5 reached 3 to 5) but shorter: the Runs that reach Goo now die to it sooner |
 | G4 | T1 + no retreat from Goo; the dodge only while Goo stands dry; a Step to the drier cell while Goo stands on water ("pull") | 1,270 | 3.13 (5) | as T1 | 12 | 4 | reverted: no change (pull 51 times, dodge 75). The probe: in 4 of 6 depth-5 Runs Goo stood on water on every screen -- its room is mostly water and the hero is pinned in a corridor mouth with no drier cell offered; the hero arrives at strength 11 in a +0 shortsword, holding a hand axe, a shortsword or mail armour it lacks the strength for |
 | U1 | T1 + a scroll of upgrade, known or read unknown, goes onto the worn weapon while its level is no higher than the armour's, else onto the armour (a weapon level adds 1 to the least and tier+1 to the most damage, MeleeWeapon.java:250-259; an armour level adds the tier to the most absorbed, Armor.java:379-384) | 1,614 | 3.23 (5) | 7/7/6/10, 10 on 5 | 10 | 7 | kept: Goo kills 4 to 7, median survival +344 turns; two fewer reach depth 5 |
+| smoke | U1 (`e74ee9f83`) on `smoke` | 1,094 (T1: 1,071; mean 1,134, T1: 1,123) | 2.84 (5) (T1: 2.96) | 2/8/8/6, 1 on 5 | 1 | 1 | the first Goo kill on `smoke`; fewer reach depth 5 (5 to 1), more die on 4: 25 Runs move a lot on one or two deaths |
 | F1 | S4 + the hunger clock; leave a floor whose food is found when under 450 turns of food ("lean"); frugal rests to 70% and no walks to testing cells under 600 | 946 | 2.68 (4) | 6/9/17/8 | 0 | 0 | reverted: 16 starving at death as before, median survival down |
 
 **g0 failure analysis** (comparison view and the probe of each Run's last screen):
@@ -248,4 +249,46 @@ unknown armour at 0.3/0.85, from the generator's 30% curse and 10% or 15% enchan
 enchantment or glyph showing in the name; the pinned code still says so (Weapon.java:438-446,
 Armor.java:671-679). It equips almost nothing (16 wears in T1's 40 Runs): the pieces the heroes carry
 at depth 5 -- a hand axe, a shortsword, mail armour -- ask for more strength than the 11 they have.
+
+## Assessment: how far from the gate, and why
+
+After U1 the tuning set kills Goo in **7 of 40** Runs (17.5%) against SM-3's 75%, and `smoke` in 1 of
+25. Written so the owner can decide whether 4.13 ships as the direction check and 4.14 becomes a
+correct-course conversation.
+
+**The Goo fight is not the limit any more.** 7 of the 10 heroes that reach depth 5 kill Goo. The
+three Goo-specific tactics tried (G1/G2 dodge, G3 no retreat, G4 off the water) measured neutral or
+worse; the one that moved the kill count was general strength, the weapon upgrades of U1 (4 to 7).
+
+**Reaching depth 5 is the limit.** 30 of 40 die before it: 7 on depth 1, 7 on 2, 6 on 3, 10 on 4.
+14 of those 30 die starving, and the heroes that do arrive at depth 5 arrive hungry or starving with
+no food. The other 16 die in fights they took or could not leave (flies, gnoll scouts, crabs), at
+strength 11 in +0-to-+2 tier-1 gear. To reach 75% kills, roughly 30 of 40 would have to reach Goo
+at the current 70% conditional rate: three times today's reach.
+
+**What limits reach, in order of size:**
+1. **Food.** Every floor places one food item and a ration is 300 turns (Level.java:224-226,
+   Food.java:51); the Brain spends 350 to 550 turns a floor, most of it in fights it retreats from and
+   the rests after them (F1's analysis). The hunger clock and frugal searching (F2) trimmed the edges;
+   the time is in the fights.
+2. **Strength and gear.** Heroes reach depth 4 at strength 11, still carrying unidentified potions,
+   and carry tier-2 and tier-3 pieces they cannot wear. Strength potions come two per five floors in
+   the generator's schedule (docs/rules/generation.md), and the Brain drinks unknown potions only at
+   20% odds of a gain.
+3. **Fights chosen badly.** The fight Policy's favourable test is a one-enemy expectation; swarms and
+   ranged enemies on depths 2 to 4 are where the non-starving half dies.
+
+**The next levers, most promising first:**
+- **Drink unknown potions more readily** once the pool of harmful identities is known or small, to
+  get the strength owed by depth 4 (a threshold change, cheap to measure).
+- **Upgrade and strength together unlock gear**: wear a tier-2 weapon one strength short when its
+  upgrade level makes up the difference (the equip Policy counts no level today).
+- **Fewer, shorter retreats**: a retreat costs its walk and a rest; the tuning log shows fight time is
+  where the food goes.
+- **E6's tactical search**, the real lever for fight choice, is an epic away.
+
+**Recommendation.** Ship 4.13 as the direction check it is scoped as: the numbers move the right way
+(Goo kills 0 to 7, median survival 976 to 1,614 turns on the tuning set) and every step is logged.
+Treat 4.14's 75% as a correct-course item with the owner: at this rate of about one Goo kill per
+kept step, the gate is several stories away, and E6's search is likely a prerequisite.
 
