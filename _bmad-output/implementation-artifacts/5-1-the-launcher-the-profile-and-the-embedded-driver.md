@@ -438,3 +438,22 @@ properties. No upstream file is edited and nothing is made to depend on `release
 Checked with `./gradlew :desktop:release :overlay:compileJava :overlay:test` (it failed before the change
 and passes after), `:overlay:test --rerun`, and a desktop launch (seed 2000, the random agent, a
 100-turn cap) that loaded the game's assets and played to its cap.
+
+### Merging story 4.13 (main 90cf1cce5)
+
+One textual conflict, `docs/ideas.md`, where both stories added ideas; both are kept. Three meetings
+of the two stories, resolved by keeping both behaviours:
+- **4.13's gallery comparison** (`GalleryComparison`) counts endings across two Rig folders, so it
+  refuses an Overlay log as the gallery does (`OverlayLogsRefusedTest`).
+- **4.13's new brain classes** (`Goo`, `Larder`) and its changes to `BrainDecider` and `Memory`: every
+  field outside `BrainDecider` is still final (`BrainHoldsNoStateTest`), so the rewind is still the
+  whole state, and `RewindTest` passes on the merged Brain.
+- **`EmbeddedDeterminismTest.across_floors`** failed after the merge: 4.13's Brain now fights a
+  snake on that seed, and at wait 737 the embedded Run's log showed a guidebook hint the headless
+  Run's did not. Every other part of the two Runs was equal. The cause is not the driver:
+  `Snake.dodges` is a private upstream static (`core/.../actors/mobs/Snake.java:58-70`) that outlives
+  a Run, so the second Run in the test's process started part-way to the hint. It is the case
+  docs/ideas.md's "Upstream statics that outlive a Run" records. The test now resets the counter
+  before each of its two Runs, as the scene tests' `FreshRun.forget` does (the rest of that reset, the
+  journal and badges, the Profile already handles). An Overlay Run, like a Rig Run, has a
+  process of its own.

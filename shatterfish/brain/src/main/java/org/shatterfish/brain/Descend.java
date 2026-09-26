@@ -187,12 +187,14 @@ final class Descend implements Policy {
      * {@code "hungry"} or {@code "overstayed"}. See the class comment.
      */
     static String leaving(Observation observation, Memory memory, Codex.Knowledge knowledge) {
-        if (Explore.spent(observation, memory)) {
-            return "spent";
-        }
+        // Hunger first: a hungry hero with no food leaves for the next floor's, and says so, whether or
+        // not the floor is also spent (with food tight, fewer searches spend it sooner; story 4.13).
         if (observation.hero().hunger() != Hunger.NONE && !fed(observation) && !bossNext(observation, knowledge)
                 && !Explore.frontier(observation, memory)) {
             return "hungry";
+        }
+        if (Explore.spent(observation, memory)) {
+            return "spent";
         }
         long stayed = memory.waits() - memory.arrived();
         // The allowance is never under ALLOWANCE, so the drops expected are read only past it.

@@ -9,7 +9,7 @@ import org.shatterfish.harness.log.RunLogReader;
  * <p>An Overlay Run is played by the embedded driver inside the desktop game, whose extra frames draw
  * from the Run's generator until story 5.13 routes them away, so it is not reproducible from its tuple
  * or its Action list: a named exception to non-negotiable 5. Its log's header says
- * {@code driver: embedded}. Every path by which the Rig reads a Run's log to count, score, calibrate or
+ * {@code driver: embedded}. Every path by which the Rig reads a Run's log to count, score, calibrate, compare or
  * replay it asks this first, and a log that says it was played in the Overlay is refused by name
  * rather than counted, even when a later line of it is unreadable.
  *

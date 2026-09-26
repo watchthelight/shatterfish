@@ -237,6 +237,16 @@ it re-reads ADR-0006's Blobs row.
 - **The item selector as a Prompt, again.** The upgrade window the game chains after an upgrade, while more
   upgrade items are held, is answered by a Brain error, because its "Back" reopens the selector no Action
   answers. With the selector as a Prompt, the Brain could back out and keep the scroll.
+- **A use for a known scroll of identify (story 4.13).** Unknown scrolls are read onto the worn armour, so a
+  scroll of identify among them is spent identifying itself. No Policy reads a known identify today, so
+  nothing is lost yet; once one does (an unknown ring or wand worth knowing), the read onto the armour should
+  hold back while identify is likely.
+- **Unknown scrolls and the Mage's staff (story 4.13).** Unknown scrolls follow the upgrade's target, the weapon
+  or the armour, except the Mage's staff, whose wand an unknown transmutation would take
+  (ScrollOfTransmutation.java:158-159). For the Mage every unknown upgrade therefore goes onto the armour; once
+  the Beliefs can rule transmutation out for an appearance, the staff could take its share.
+- **The chained upgrade window shares the stack (story 4.13).** It spends every scroll held on the item the
+  first went onto. With the item selector as a Prompt, the Brain could back out after one and share the rest.
 
 ## From story 5.1 (the launcher and the embedded driver)
 

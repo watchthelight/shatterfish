@@ -71,6 +71,11 @@ class ShatterfishRunTest {
                     if (wait.action() instanceof org.shatterfish.api.Action.UseItem use) {
                         assertTrue(List.of("DRINK", "READ").contains(use.action()), why);
                         assertEquals("test: " + use.item().name(), why);
+                    } else if (wait.action() instanceof org.shatterfish.api.Action.UseItemOn onto) {
+                        // Story 4.13: a scroll read onto the worn armour, a test or a known upgrade.
+                        assertEquals("READ", onto.action(), why);
+                        assertTrue(why.equals("test: " + onto.item().name()) || why.equals("upgrade: " + onto.target().name()),
+                                why);
                     } else if (wait.action() instanceof org.shatterfish.api.Action.Step) {
                         assertTrue(why.matches("cell: .+|escape: .+"), why);
                     } else {

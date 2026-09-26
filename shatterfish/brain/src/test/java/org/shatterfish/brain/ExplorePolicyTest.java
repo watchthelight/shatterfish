@@ -57,6 +57,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ExplorePolicyTest {
 
+    /**
+     * The pack every screen here holds: the ration every hero starts with (HeroClass.java:108), so food
+     * is not tight (story 4.13, Larder) unless a test says so.
+     */
+    static final List<org.shatterfish.api.ItemView> PACK = List.of(Screens.item(org.shatterfish.api.ItemKind.FOOD,
+            "ration of food", 1));
+
     static Observation screen(int depth, String... rows) {
         return screen(depth, false, HeroClass.WARRIOR, rows);
     }
@@ -111,7 +118,7 @@ class ExplorePolicyTest {
         HeroSection section = new HeroSection(hero, "", HeroSubclass.NONE, "", 1, 0, 1, 20, 20, 0, 10, 0, 0, 0,
                 Hunger.NONE, List.of(), List.of(), List.of(0, 0, 0, 0),
                 Collections.nCopies(HeroSection.QUICKSLOTS, new QuickslotView("", false)));
-        Observation bare = new Observation(header, map, new ActorsSection(actors), section, new InventorySection(List.of()),
+        Observation bare = new Observation(header, map, new ActorsSection(actors), section, new InventorySection(PACK),
                 new JournalSection(List.of(), List.of()), new LogSection(List.of()), ActionsSection.NONE,
                 PromptSection.NONE);
         return bare.withActions(ValidActions.of(bare));

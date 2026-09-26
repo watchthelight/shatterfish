@@ -26,7 +26,7 @@ Documentation: **<https://watchthelight.github.io/shatterfish/>**. The
 | E2 Codex | Every game fact the bot uses, generated from the pinned code with `path:line` citations; CI fails on drift | done |
 | E3 Rig | Parallel seeded Runs, hash-chained Run logs, replay, SPRT with calibrated bounds, results pages, a nightly job, a death gallery | done |
 | E4 Baseline brain | A hand-built bot that plays the sewers competently; done when the Warrior kills Goo on at least 75% of the `goo` Seed set | **in progress** |
-| E5 Overlay v1 | The bot inside the desktop game: watch it think, step it, take the controls mid-fight | planned |
+| E5 Overlay v1 | The bot inside the desktop game: watch it think, step it, take the controls mid-fight | **in progress** |
 | E6–E9 | Tactical search, strategy and lore, overlay v2, learned evaluation | planned |
 
 E4 so far, story by story (each merged with a fairness review, a code review, a
@@ -65,9 +65,17 @@ mutation battery and a direction check on the `smoke` Seed set):
   (subclass choice, shops, upgrade targets, the stone of intuition's guess),
   and a Run that meets one it can't answer, or stops passing time, ends with
   a logged reason that replays.
-- In progress: **4.13** tuning toward the Goo gate. So far no Warrior reaches
-  depth 5; the dominant cause of death is starvation. **4.14** runs the
-  registered 400-Warrior `goo` set.
+- **4.13** Tuning toward the Goo gate, published as a direction check
+  ([results](docs/results/2026-09-26-4-13-direction-check.md)) on 40 Warriors
+  from the `standard` set, never the registered `goo` set: Goo kills went from
+  0 to 7 of 40 and median survival from 967 to 1,614 turns, mostly by reading
+  scrolls onto the worn gear. Goo itself is no longer the limit (7 of the 10
+  who reach it win); reaching depth 5 is. The death gallery gained a
+  side-by-side view of two Brains.
+- Waiting on an owner decision: **4.14**, the registered 400-Warrior `goo` set
+  and its 75% gate, which is several stories away at the current rate.
+- In progress in parallel: **5.1**, the first Overlay story (E5): the launcher
+  and the driver embedded in the real desktop game.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:

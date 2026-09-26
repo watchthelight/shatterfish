@@ -33,10 +33,12 @@ import java.util.List;
  * and never less than one bad turn. The Policy drinks when the hit points are at or under it. With no
  * enemy threatening, the danger is 0.
  *
- * <p><b>Only when drinking is better than the fight's own move.</b> When the fight is not favourable
- * and the fight Policy has a retreat, the retreat takes the wait: a drink would buy a few turns of the
- * same unwinnable fight, and the potion is gone. The Policy drinks when the hero is cornered (no
- * retreat), or when the fight is favourable and the hit points are still at the danger.
+ * <p><b>Only when drinking is better than the fight's own move.</b> When the fight is not favourable,
+ * the fight Policy has a retreat, and the hero is above the low-health warning, the retreat takes the
+ * wait: a drink would buy a few turns of the same unwinnable fight, and the potion is gone. The
+ * Policy drinks when the hero is cornered (no retreat), when the fight is favourable and the hit
+ * points are still at the danger, or when the hero is at the low-health warning, where a retreat
+ * without a drink is how heroes died holding the potion (story 4.13).
  *
  * <p>The potion heals {@code (int)(0.8 * HT + 14)} over several turns, a quarter of what is left each
  * turn and at least 1, after the hero acts (PotionOfHealing.java:58-69, Healing.java:51-84), and
@@ -121,7 +123,11 @@ final class Heal implements Policy {
             return null;
         }
         List<ActorView> enemies = Fight.enemies(observation);
-        if (!Fight.favourable(observation, knowledge, enemies)
+        // Above the low-health warning a retreat is worth more than a drink; at it, the retreat is
+        // what gets the hero killed (story 4.13: of 40 Warriors, heroes at 1 to 4 hit points with a
+        // known potion held stepped away and died), so the drink comes first and buys the escape.
+        boolean low = 1000L * hero.hp() < 334L * hero.ht();
+        if (!low && !Fight.favourable(observation, knowledge, enemies)
                 && Fight.retreat(observation, memory, offered, enemies, knowledge) != null) {
             return null;
         }

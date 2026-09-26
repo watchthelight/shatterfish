@@ -363,7 +363,7 @@ class DescendPolicyTest {
     }
 
     @Test
-    @DisplayName("rooted, over many waits through the Brain: never a Step or the stairs, a search a wait so time passes, and on again once the roots fall")
+    @DisplayName("rooted, over many waits through the Brain: never a Step or the stairs, a wait each wait so time passes, and on again once the roots fall")
     void rooted() {
         Observation roots = buffed(corridor(3, 20), Explore.ROOTED);
         Observation free = corridor(3, 20);
@@ -374,7 +374,7 @@ class DescendPolicyTest {
         for (int i = 0; i < 7; i++) {
             Action action = all.get(i).action();
             assertFalse(action instanceof Action.Step || action instanceof Action.Descend, "wait " + i + ": " + action);
-            assertEquals(new Action.Search(), action, "wait " + i);
+            assertEquals(new Action.Wait(), action, "wait " + i);
             assertEquals("rooted", all.get(i).decision().chosen().why());
         }
         assertTrue(all.get(7).action() instanceof Action.Step, "the roots fell: on to the exit");
@@ -392,17 +392,42 @@ class DescendPolicyTest {
     }
 
     @Test
-    @DisplayName("a still hero under vertigo after a Step is no refusal: the Step may have been spent against a wall")
+    @DisplayName("dizzy on a calm screen, over many waits through the Brain: no Step and no stairs, a wait each wait until the vertigo passes, never a search, nothing blocked (story 4.13)")
     void vertigo() {
         Observation dizzy = buffed(corridor(3, 20), Explore.VERTIGO);
+        Observation[] screens = new Observation[7];
+        java.util.Arrays.fill(screens, dizzy);
+        screens[6] = corridor(3, 20);
+        List<Brain.Decided> all = each(spent(2, 10, 1, 0), screens);
+        for (int i = 0; i < 6; i++) {
+            Action action = all.get(i).action();
+            assertEquals(new Action.Wait(), action, "wait " + i + ": " + action);
+            assertEquals("vertigo", all.get(i).decision().chosen().why());
+        }
+        assertTrue(all.get(6).action() instanceof Action.Step, "the vertigo passed: on to the exit");
         Brain brain = brain();
         Belief belief = spent(2, 10, 1, 0).belief();
-        for (int i = 0; i < 4; i++) {
-            belief = brain.update(dizzy, belief);
-            belief = brain.handed(dizzy, belief, brain.decide(dizzy, belief));
+        for (Observation screen : screens) {
+            belief = brain.update(screen, belief);
+            belief = brain.handed(screen, belief, brain.decide(screen, belief));
         }
-        assertEquals(0, Memory.of(belief).streak());
-        assertTrue(Memory.of(belief).blocked().isEmpty());
+        assertTrue(Memory.of(belief).blocked().isEmpty() && Memory.of(belief).fleeting().isEmpty());
+    }
+
+    @Test
+    @DisplayName("under vertigo a still hero after a Step is a refusal, but it takes VERTIGO_REFUSALS in a row at one cell, not two, to block it (story 4.13)")
+    void vertigo_refusals() {
+        Observation room = buffed(corridor(3, 20), Explore.VERTIGO);
+        int x = room.hero().cell() + 1;
+        Memory memory = Memory.of(Beliefs.fold(spent(2, 10, 1, 0), room, Screens.CODEX).belief());
+        for (int i = 1; i < Beliefs.VERTIGO_REFUSALS; i++) {
+            memory = Beliefs.fold(memory.handed(Beliefs.STEP, x), room, Screens.CODEX);
+            assertEquals(i, memory.streak(), "refusal " + i + " counts");
+            assertTrue(memory.blocked().isEmpty(), "but " + i + " refusals block nothing under vertigo");
+        }
+        memory = Beliefs.fold(memory.handed(Beliefs.STEP, x), room, Screens.CODEX);
+        assertTrue(memory.blocked().contains(new Memory.Spot(2, 0, x)),
+                Beliefs.VERTIGO_REFUSALS + " refusals in a row at one cell block it");
     }
 
     @Test

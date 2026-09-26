@@ -73,6 +73,10 @@ class OverlayLogsRefusedTest {
         Files.write(folder.resolve(RunIndex.RUNS), List.of(index), StandardCharsets.UTF_8);
         assertThrows(OverlayLogs.Refused.class, () -> Gallery.of(folder));
 
+        // The comparison of two galleries (story 4.13), which counts endings across two Rig folders.
+        GalleryComparison.ending(headless);
+        assertThrows(OverlayLogs.Refused.class, () -> GalleryComparison.ending(overlay));
+
         // The Replay (`--replay`), which refuses by the header rather than reporting a Run that
         // "did not reproduce" when it was never claimed to.
         assertNull(Replay.refusal(RunLogReader.of(headless).header()), "the headless log is replayable");
