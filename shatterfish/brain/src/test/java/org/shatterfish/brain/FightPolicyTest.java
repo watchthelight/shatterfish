@@ -143,10 +143,13 @@ class FightPolicyTest {
         HeroSection section = new HeroSection(hero, "", HeroSubclass.NONE, "", 1, 0, 1, hp, 20, 0, 10, 0, 0, 0,
                 hunger, List.of(), List.of(), List.of(0, 0, 0, 0),
                 Collections.nCopies(HeroSection.QUICKSLOTS, new QuickslotView("", false)));
-        List<ItemView> worn = weapon == null
+        // The worn gear, and the ration every hero starts with (HeroClass.java:108), after it so the gear's
+        // pack indices stand: food is not tight (story 4.13, Larder) unless a test says so.
+        List<ItemView> worn = new ArrayList<>(weapon == null
                 ? List.of(new ItemView(ItemKind.ARMOR, "cloth armor", 1, true, 0, true, false, "", EquipSlot.ARMOR, List.of(), ""))
                 : List.of(new ItemView(ItemKind.WEAPON, weapon, 1, true, 0, true, false, "", EquipSlot.WEAPON, List.of(), ""),
-                        new ItemView(ItemKind.ARMOR, "cloth armor", 1, true, 0, true, false, "", EquipSlot.ARMOR, List.of(), ""));
+                        new ItemView(ItemKind.ARMOR, "cloth armor", 1, true, 0, true, false, "", EquipSlot.ARMOR, List.of(), "")));
+        worn.addAll(ExplorePolicyTest.PACK);
         Observation bare = new Observation(header, map, new ActorsSection(actors), section, new InventorySection(worn),
                 new JournalSection(List.of(), List.of()), new LogSection(List.of()), ActionsSection.NONE,
                 PromptSection.NONE);

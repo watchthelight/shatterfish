@@ -109,6 +109,12 @@ import java.util.List;
  *                 two cells (story 4.13): two Policies that each undo the other's Step -- one pulled by
  *                 an enemy that shows only from one of the cells, the other by a heap -- would go on
  *                 for good, so after {@link #BOUNCES} a Step back is not offered to any Policy for a wait
+ * @param hunger   the Brain's estimate of the hunger value the screen never shows (story 4.13; see
+ *                 {@link Larder}): the Actions it handed over add what they cost, a meal takes off its
+ *                 food's energy, and the hunger icon clamps it to its band
+ * @param hp       the hero's hit points on the last screen, or -1 before the first (story 4.13): a rest's
+ *                 cost is the hit points it restored
+ * @param food     the turns of food the pack held on the last screen, or -1 before the first (story 4.13)
  */
 record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
               List<Held> labels, List<Found> pending, List<Seen> monsters, Spot at, int streak, boolean calm,
@@ -116,7 +122,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
               List<Found> flights, List<Avoid> avoid, String underfoot, List<Refused> refused, Pack pack, Aim aim,
               long drank, Trial trial, List<Balk> balked, int walking, long tested, List<Cloud> clouds,
               int refuge, long arrived, int rests, int stepped, int tried, List<Cloud> fleeting, int prior,
-              int bounces) {
+              int bounces, int hunger, int hp, int food) {
 
     /**
      * The meaning of the bytes; bumped when it changes (3: where the hero stood, story 4.6; 4: the
@@ -125,12 +131,12 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
      * drink, story 4.9; 7: the test handed over, the appearances a floor balked at, the walk toward a
      * testing cell, the wait of the last test, the cells seen clouded and the refuge, story 4.10; 8:
      * the wait the hero came to this floor, the rests before going down and the Step handed over, story
-     * 4.12; 9: the cell of two waits ago and the bounces between two cells, story 4.13).
+     * 4.12; 9: the cell of two waits ago, the bounces between two cells and the hunger clock, story 4.13).
      *
      * <p>Version 9 carries, in this order: waits, deepest, facts, found, held, known, labels,
      * pending, monsters, at, streak, calm, dwelt, blocked, last, holds, near, before, flights, avoid,
      * underfoot, refused, pack, aim, drank, trial, balked, walking, tested, clouds, refuge, arrived,
-     * rests, stepped, tried, fleeting, prior and bounces.
+     * rests, stepped, tried, fleeting, prior, bounces, hunger, hp and food.
      */
     static final int VERSION = 9;
 
@@ -140,6 +146,9 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
      * is left alone, short against the hundreds of turns two Policies undoing each other cost.
      */
     static final int BOUNCES = 6;
+
+    /** The hunger value at which the hero starves, and where it stops (Hunger.java:41, :96-102). */
+    static final int HUNGER_STARVING = 450;
 
     /**
      * How many waits a cell seen showing fire or gas is kept out of at most, unseen (story 4.10): the
@@ -170,7 +179,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
 
     static final Memory START = new Memory(0, 0, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
             List.of(), Spot.NOWHERE, 0, false, List.of(), List.of(), "", 0, -1, -1, List.of(), List.of(), "", List.of(),
-            Pack.NONE, Aim.NONE, -1, Trial.NONE, List.of(), 0, -1, List.of(), -1, 0, 0, -1, -1, List.of(), -1, 0);
+            Pack.NONE, Aim.NONE, -1, Trial.NONE, List.of(), 0, -1, List.of(), -1, 0, 0, -1, -1, List.of(), -1, 0, 0, -1, -1);
 
     /** Story 4.12's shape: no cell two waits ago, no bounces. */
     Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
@@ -181,7 +190,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
            int stepped, int tried, List<Cloud> fleeting) {
         this(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm, dwelt, blocked,
                 last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial, balked, walking,
-                tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, -1, 0);
+                tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, -1, 0, 0, -1, -1);
     }
 
     /** Story 4.10's shape: arrived at the start, no rest before going down, no Step handed over. */
@@ -284,7 +293,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
                 balked, walking, test ? waits : tested, clouds, test ? refuge : this.refuge, arrived, rests, stepped, tried,
-                fleeting, prior, bounces);
+                fleeting, prior, bounces, hunger, hp, food);
     }
 
     /** Story 4.7's shape: nothing underfoot, nothing refused, no pack seen, no aim. */
@@ -342,7 +351,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     Memory aiming(Aim aim) {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, prior, bounces);
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, prior, bounces, hunger, hp, food);
     }
 
     /**
@@ -366,21 +375,21 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     Memory handed(String kind, int stepped) {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, kind, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, prior, bounces);
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, prior, bounces, hunger, hp, food);
     }
 
     /** This memory with a drink handed over at this wait (story 4.9). */
     Memory drinking() {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, waits, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, prior, bounces);
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, prior, bounces, hunger, hp, food);
     }
 
     /** This memory with one more rest handed over by the descend Policy on this floor (story 4.12). */
     Memory resting() {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests + 1, stepped, tried, fleeting, prior, bounces);
+                balked, walking, tested, clouds, refuge, arrived, rests + 1, stepped, tried, fleeting, prior, bounces, hunger, hp, food);
     }
 
     /** This memory with {@code region} avoided as well, the oldest forgotten past {@link #AVOIDED}. */
@@ -392,7 +401,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         }
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, more, underfoot, refused, pack, aim, drank, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, prior, bounces);
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, prior, bounces, hunger, hp, food);
     }
 
     /** The regions still avoided at wait {@code now} on the floor at {@code depth} and {@code branch}. */
@@ -479,6 +488,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         clouds = List.copyOf(clouds);
         balked = List.copyOf(balked);
         require(prior >= -1 && bounces >= 0, "a cell two waits ago and bounces");
+        require(hunger >= 0 && hunger <= HUNGER_STARVING && hp >= -1 && food >= -1, "a hunger clock");
     }
 
     private static void require(boolean held, String what) {
@@ -549,7 +559,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         for (Cloud block : fleeting) {
             out.integer(block.depth()).integer(block.branch()).integer(block.cell()).number(block.until());
         }
-        out.integer(prior).integer(bounces);
+        out.integer(prior).integer(bounces).integer(hunger).integer(hp).integer(food);
         return new Belief(VERSION, out.bytes());
     }
 
@@ -649,10 +659,13 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
             }
             int prior = in.integer();
             int bounces = in.integer();
+            int hunger = in.integer();
+            int hp = in.integer();
+            int food = in.integer();
             in.end();
             return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak,
                     calm == 1, dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim,
-                    drank, trial, balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, prior, bounces);
+                    drank, trial, balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, prior, bounces, hunger, hp, food);
         } catch (IllegalArgumentException malformed) {
             throw new IllegalArgumentException("not a Belief this Brain wrote: " + belief + ": " + malformed.getMessage());
         }

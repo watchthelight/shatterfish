@@ -60,11 +60,9 @@ class TestItemPolicyTest {
                             new Codex.Candidate("items.potions.PotionOfMindVision", "potion of mind vision", 9)))),
             List.of(), List.of());
 
-    /**
-     * Scrolls mostly without an item picker: identify one in seven (under {@link TestItem#INVENTORY_ODDS}),
-     * magic mapping and teleportation the rest. {@link Screens#CODEX}'s scrolls are all item-picker
-     * scrolls (upgrade and identify).
-     */
+    /** A ration: food enough that food is not tight (story 4.13, Larder), so the full behaviour shows. */
+    private static final ItemView RATION = Screens.item(ItemKind.FOOD, "ration of food", 1);
+
     /** Crimson potions that are healing one time in two, and never strength or experience. */
     private static final Codex.Knowledge NO_GAINS = new Codex.Knowledge(Screens.MANIFEST,
             List.of(new Codex.Identities(ItemKind.POTION, List.of("crimson potion"),
@@ -79,6 +77,11 @@ class TestItemPolicyTest {
                             new Codex.Candidate("items.potions.PotionOfMindVision", "potion of mind vision", 3)))),
             List.of(), List.of());
 
+    /**
+     * Scrolls mostly without an item picker: identify one in seven (under {@link TestItem#INVENTORY_ODDS}),
+     * magic mapping and teleportation the rest. {@link Screens#CODEX}'s scrolls are all item-picker
+     * scrolls (upgrade and identify).
+     */
     private static final Codex.Knowledge SCROLLS = new Codex.Knowledge(Screens.MANIFEST,
             List.of(new Codex.Identities(ItemKind.SCROLL, List.of("scroll of KAUNAN", "scroll of SOWILO"),
                     List.of(new Codex.Candidate("items.scrolls.ScrollOfIdentify", "scroll of identify", 1),
@@ -261,7 +264,7 @@ class TestItemPolicyTest {
         Belief belief = null;
         List<Action> taken = new ArrayList<>();
         for (int hero = 1; hero <= 6; hero++) {
-            Observation screen = screen(1, tiles, Screens.heroAt(hero, 20, 40, List.of()), List.of(jade), List.of(),
+            Observation screen = screen(1, tiles, Screens.heroAt(hero, 20, 40, List.of()), List.of(jade, RATION), List.of(),
                     List.of(), List.of(), drink(0, "jade potion", 1));
             belief = brain.update(screen, belief);
             Brain.Decided decided = brain.decide(screen, belief);
@@ -307,7 +310,7 @@ class TestItemPolicyTest {
     void door_shortens_gas() {
         ItemView jade = Screens.unknown(ItemKind.POTION, "jade potion", 1);
         List<Tile> tiles = row(4, -1, 2);
-        Observation screen = screen(1, tiles, Screens.heroAt(0, 14, 40, List.of()), List.of(jade), List.of(),
+        Observation screen = screen(1, tiles, Screens.heroAt(0, 14, 40, List.of()), List.of(jade, RATION), List.of(),
                 List.of(), List.of(), drink(0, "jade potion", 1));
         List<SafeTest.Candidate> candidates = SafeTest.candidates(new Beliefs.Guess("jade potion", ItemKind.POTION,
                 List.of(new Beliefs.Odds("potion of toxic gas", 0.5), new Beliefs.Odds("potion of healing", 0.5))), GAS);
@@ -680,7 +683,7 @@ class TestItemPolicyTest {
     @DisplayName("after a test, short of full health on a calm screen: rest, for a bounded while, and not when hungry")
     void rest_after_a_test() {
         TestItem policy = new TestItem(Screens.CODEX);
-        Observation hurt = screen(1, row(3, -1, -1), Screens.heroAt(1, 12, 20, List.of()), List.of(), List.of(),
+        Observation hurt = screen(1, row(3, -1, -1), Screens.heroAt(1, 12, 20, List.of()), List.of(RATION), List.of(),
                 List.of(), List.of(), new Action.Rest(true), new Action.Search());
         Memory justTested = after(3, 0, -1, List.of(), List.of());
         TestItem.Plan plan = policy.plan(hurt, justTested, hurt.actions().actions());

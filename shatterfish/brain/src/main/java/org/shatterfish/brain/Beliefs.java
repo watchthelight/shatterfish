@@ -208,7 +208,8 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
             if (observation.hero().hp() >= observation.hero().ht()) {
                 add(flights, below, 1, fled - Memory.count(flights, below, 1));
                 flights.removeIf(one -> one.key().equals(below) && one.set() == 2);
-            } else if (memory.last().equals("Rest") && memory.at().on(depth, branch)) {
+            } else if ((memory.last().equals("Rest") || memory.last().equals(WAIT)) && memory.at().on(depth, branch)) {
+                // A turn of the wait button is a frugal rest (story 4.13, Larder), bounded like a full one.
                 add(flights, below, 2, 1);
             }
         }
@@ -251,11 +252,17 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         boolean bounced = sameFloor && !still && memory.prior() == here.cell();
         int bounces = bounced ? memory.bounces() + 1 : 0;
         int prior = sameFloor ? memory.at().cell() : -1;
+        // The hunger clock (story 4.13, Larder): what the last Action cost, less a meal, clamped by the icon.
+        int hp = observation.hero().hp();
+        int food = Larder.food(observation);
+        int gained = memory.hp() < 0 ? 0 : hp - memory.hp();
+        int eaten = memory.food() < 0 ? 0 : Math.max(0, memory.food() - food);
+        int hunger = Larder.clock(memory.hunger(), memory.last(), !still, gained, eaten, observation.hero().hunger());
         Memory after = new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
                 sightings(memory.monsters(), observation, waits), here, streak, calm, dwelt, memory.blocked(),
                 memory.last(), holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE,
                 memory.drank(), Memory.Trial.NONE, balked, walking, memory.tested(), clouds(memory, observation, waits),
-                memory.refuge(), arrived, rests, memory.stepped(), tried, fleeting, prior, bounces);
+                memory.refuge(), arrived, rests, memory.stepped(), tried, fleeting, prior, bounces, hunger, hp, food);
         // Two Steps in a row refused at one cell: the stepping Policy yields this wait, and that cell is
         // blocked on this floor, whichever Policy chose it (story 4.12; stories 4.8 and 4.10 recomputed
         // it from their own plans). Refused on a calm screen, for good; refused with an enemy in view,
@@ -275,7 +282,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                     after.monsters(), here, streak, calm, dwelt, blocked, after.last(),
                     holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE, memory.drank(),
                     Memory.Trial.NONE, balked, walking, memory.tested(), after.clouds(),
-                    memory.refuge(), arrived, rests, memory.stepped(), -1, lapsing, prior, bounces);
+                    memory.refuge(), arrived, rests, memory.stepped(), -1, lapsing, prior, bounces, hunger, hp, food);
         }
         return after;
     }

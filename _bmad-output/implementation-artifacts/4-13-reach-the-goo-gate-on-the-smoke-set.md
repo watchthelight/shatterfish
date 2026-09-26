@@ -139,6 +139,9 @@ Tuning set: 40 Warriors of `standard`, salts 1000+j. Each row is a full play of 
 | S2 | rest only as far as the food held pays for (lean rests) | 824 | 2.50 (4) | 6/11/20/3 | 0 | 0 | reverted |
 | S3 | S1 + drink unknown potions likely to be strength or experience at any health | 1,148 | 2.53 (4) | 8/10/15/7 | 0 | 0 | kept: 22 of 40 died at strength 11, none before |
 | S4 | S3 + the bounce breaker; testing cells never a doorway | 1,063 | 2.60 (4) | 7/10/15/8 | 0 | 0 | kept: removes the loops below |
+| smoke | S4 on `smoke` against story 4.12 | 982 (was 1,044; mean 1,020, was 967) | 2.56 (4) (was 2.52) | 2/10/10/3 | 0 | 0 | no regression |
+| F2 | S4 + the hunger clock; with under 600 turns of food, search only promising spots (at most 4 a floor, not above a boss floor) and no walks to testing cells | 1,054 | 2.70 (5) | 6/8/19/6, 1 on 5 | 1 | 0 | kept: the first Run to reach depth 5; survival flat |
+| F1 | S4 + the hunger clock; leave a floor whose food is found when under 450 turns of food ("lean"); frugal rests to 70% and no walks to testing cells under 600 | 946 | 2.68 (4) | 6/9/17/8 | 0 | 0 | reverted: 16 starving at death as before, median survival down |
 
 **g0 failure analysis** (comparison view and the probe of each Run's last screen):
 - One Run of 40 looped forever with no time passing: a dizzy hero stepping at a cell an undrawn
@@ -162,6 +165,14 @@ approaching an enemy seen only from one cell and the pick-up Policy walking back
 other, where the enemy in view stopped the pick-up (571 waits). S4 withholds the Step back after six
 bounces between two cells, whichever Policies are involved, and no longer walks to a testing cell a
 test is refused on.
+
+**F1, reverted -- where the starving Runs' turns go.** The 16 Runs that died starving took 1,556
+turns on average and changed floor 6 to 10 times, reaching depth 3: fight retreats cost 219 turns a
+Run and the flights up the stairs bring rests with them (explore's rest before going back down, 94;
+descend's rest, 107), against a food supply of about 300 turns a floor plus the starting ration
+(Level.java:224-226, HeroClass.java:108). Leaving earlier did not change that: a floor left early
+is a harder floor sooner. The food runs out because fights are lost and fled, so the fight is the
+lever behind the food.
 
 **S2, reverted:** starving deaths fell (fights while starving 10 to 5) but heroes went into the next
 floor weaker and died there sooner; the comparison view's situations showed the move. Hit points

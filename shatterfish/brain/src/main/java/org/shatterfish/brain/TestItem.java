@@ -211,7 +211,9 @@ final class TestItem implements Policy {
             List<SafeTest.Candidate> candidates = SafeTest.candidates(item.guess(), knowledge);
             SafeTest.Verdict here = SafeTest.of(candidates, observation);
             boolean hereFits = fits(item, here, observation);
-            if (item.guess().kind() == ItemKind.POTION && !Pickup.stuck(memory)
+            // No walk to a better testing cell while food is tight (story 4.13, Larder): the walks cost a
+            // hundred turns a Run, a third of a floor's food.
+            if (item.guess().kind() == ItemKind.POTION && !Pickup.stuck(memory) && !Larder.frugal(observation, memory)
                     && !memory.balksWalking(depth, branch, item.guess().label())) {
                 boolean[] walk = Explore.walkable(observation, memory);
                 int[] distance = Pickup.distances(map, walk, hero);
