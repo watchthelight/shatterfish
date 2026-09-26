@@ -163,7 +163,9 @@ public final class Brain {
         // A test handed over (story 4.10): which appearance, how many were held, and the Step's cell
         // when it walks to a testing cell, so the next screen can tell a test the game refused.
         if (decision != null && TestItem.NAME.equals(decision.policy())) {
-            memory = memory.trying(testItem.trial(observation, before, decided.action()));
+            Memory.Trial trial = testItem.trial(observation, before, decided.action());
+            memory = memory.trying(trial, trial.step() < 0 && !trial.label().isEmpty()
+                    ? SafeTest.refuge(observation, observation.hero().cell()) : -1);
         }
         if (decision != null && Fight.NAME.equals(decision.policy())
                 && decision.chosen().why().startsWith("retreat ")) {

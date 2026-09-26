@@ -120,6 +120,11 @@ final class Screens {
         return screen(1, PromptKind.OTHER, new PromptSection(PromptKind.OTHER, title, text, labels), actions);
     }
 
+    /** A screen with a Prompt of {@code kind} open, titled and worded so, its buttons {@code labels} (story 4.10). */
+    static Observation prompted(PromptKind kind, String title, String text, List<String> labels, Action... actions) {
+        return screen(1, kind, new PromptSection(kind, title, text, labels), actions);
+    }
+
     /** A screen with the chasm Prompt open, its buttons labelled {@code labels}, offering {@code actions}. */
     static Observation asking(List<String> labels, Action... actions) {
         return screen(1, PromptKind.CHASM_JUMP, new PromptSection(PromptKind.CHASM_JUMP, "Chasm",

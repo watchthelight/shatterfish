@@ -191,7 +191,7 @@ reopens the picker and stalls the Run.
 two depend on the cell:
 - Liquid flame, which water shortens: 2 hits on water and 3 beside it (`SafeTest`, story 4.3).
 - Toxic gas, which a closed door beside the cell shortens. A closed door is solid
-  (`Terrain.java:90`) and a blob does not spread into solid cells (`Blob.java:156-158`). A door
+  (`Terrain.java:90`) and a blob does not spread into solid cells (`Blob.java:158-164`). A door
   opens when entered and closes behind the last one out (`Level.java:1270`, `Door.java:45-58`,
   `Char.java:1312`).
 
@@ -268,11 +268,15 @@ random use also wastes the item. (c) is a list the next upstream tag breaks. Sto
 change (eat only when nothing else is offered) is a special case of this, and the two unify when
 4.9 merges.
 
-**Placement.** answer-prompt, fight, test-item, pick-up, equip, explore, fallback.
-- Pick-up and equip first was the first draft: pick-up gathers more copies to identify at once.
-- It fails the escape. With the hero in its own toxic cloud, a pick-up Step toward a heap, or an
-  equip taking a turn, would come before the Step out.
-- So test-item is the first calm-screen Policy. A copy picked up after a test is simply known.
+**Placement.** answer-prompt, heal, fight, eat, test-item, pick-up, equip, explore, fallback (after the
+merge with story 4.9).
+- Heal and fight own the screens with an enemy in view, which test-item never enters.
+- Eat before test-item: a hungry hero eats first, a starving one cannot rest off a test's cost
+  (Regeneration.java:56), and eating takes one calm wait.
+- Test-item before pick-up and equip. Pick-up and equip first was the first draft (pick-up gathers
+  more copies to identify at once), but it fails the escape: with the hero in its own toxic cloud, a
+  pick-up Step toward a heap, or an equip taking a turn, would come before the Step out. A copy
+  picked up after a test is simply known.
 
 **Pre-mortem: what would make this fail.**
 - The fallback's lost randomness changes play, so the direction check may move. It is recorded,
@@ -297,7 +301,7 @@ change (eat only when nothing else is offered) is a special case of this, and th
 | An unknown inventory scroll identifies itself and detaches, then opens the picker | `items/scrolls/InventoryScroll.java:39-49` |
 | Cancelling the picker of a scroll identified by use asks to confirm, yes consumes it and no reopens the picker | `items/scrolls/InventoryScroll.java:52-80`, `:137-139`; `assets/messages/items/items.properties:1155-1157` |
 | Upgrade's selection opens `WndUpgrade`; intuition's opens `WndGuess`; the holy tome's cast opens `WndClericSpells` | `items/scrolls/ScrollOfUpgrade.java:60-66`, `items/stones/StoneOfIntuition.java:71-73`, `items/artifacts/HolyTome.java:87-95` |
-| A closed door is solid, an open one not; blobs spread only through non-solid cells | `levels/Terrain.java:90-91`, `actors/blobs/Blob.java:156-158` |
+| A closed door is solid, an open one not; blobs spread only through non-solid cells | `levels/Terrain.java:90-91`, `actors/blobs/Blob.java:158-164` |
 | A door opens on entry and shuts when its last occupant leaves | `levels/Level.java:1270`, `levels/features/Door.java:45-58`, `actors/Char.java:1312` |
 | Identification shows in the name and the journal's identified list | `items/potions/Potion.java:368-379`, `items/scrolls/Scroll.java:211-241` |
 | The blind and magic-immune buffs show as "blinded" and "immune to magic" | `assets/messages/actors/actors.properties:131`, `:305` |
@@ -385,4 +389,104 @@ parent runs the check the PR carries.
 
 - `Explore.walkable` changed for every walking Policy, to leave out remembered clouds (D8). It is a
   change to stories 4.6, 4.7 and 4.8's walking, justified by the direction check.
-- Potions are drunk only when hurt (D1), a rule added after the first measurement.
+- Potions are drunk only when hurt (D1), a rule added after the first measurement, and then only at
+  half health with a reserve (review, below).
+
+## Review and the merge with story 4.9
+
+The fairness review found no violation. It noted one citation, `Blob.java:156-158`, which sat two
+lines early and is now `:158-164`. The lens review explained the score loss:
+- An unknown potion or scroll held counts 30 to the score (Rankings.java:203-211, Potion.java:441-442,
+  Scroll.java:278-279), so three tests cost about 90 points of score.
+- Nothing in main used what a test identified.
+- An inventory scroll read plainly is burned with no effect.
+- Scrolls were read at any health.
+- Nothing rested after a test.
+
+The target is survival and depth (E4's Goo gate), and a test must pay for itself in play.
+
+**Merge.** Main at `58a541254` (story 4.9) was merged in:
+- `Memory` is now version 7 with one field order: 4.8's 24 fields, then `drank` (4.9), then `trial`,
+  `balked`, `walking`, `tested`, `clouds` and `refuge` (4.10). There is one symmetric `Bytes` layout,
+  and every helper passes every field: `handed`, `avoiding`, `aiming`, `drinking` and `trying`.
+- The fallback's rule covers story 4.9's: no item use, eating included, while anything else is offered.
+- The Policy order is given under Placement.
+
+**Rule changes (chosen after the review):**
+- **Potions.** Drunk only when the knowledge has a use now:
+  - the hero is at half its hit points or below on a calm screen;
+  - healing holds at least 0.2 of the odds;
+  - the worst case leaves at least a quarter of the hero's hit points: a reserve margin, not just
+    damage below the hit points.
+
+  Drunk then, a healing potion heals at once, and once known the heal Policy of story 4.9 drinks the
+  rest in a fight. An expected-payoff model was considered. It needs a value for knowing healing that
+  nothing measures yet, so the thresholds stand in for it (idea filed).
+- **Scrolls.** Read only at full health (Lullaby is then harmless, MagicalSleep.java:37-50, and Rage
+  is met whole), and only while identify, remove curse, transmutation and upgrade (InventoryScroll's
+  subclasses) hold under 0.25 of the scroll's odds. Read plainly, one of those is identified and
+  consumed with no effect (InventoryScroll.java:39-50, :137-139). The alternative, never reading
+  until story 4.11 answers the upgrade window, would leave scrolls such as magic mapping unread all
+  game. The chosen rule reads a scroll exactly when that loss is unlikely.
+- **Rest after a test.** Within 50 waits of a drink or read, short of full health and neither hungry
+  nor starving, the Policy rests (`Rest(true)`, "rest: after-test").
+  - Explore's rest (story 4.7) covers only floors fled by the stairs.
+  - A rest inside this Policy keeps the rule minimal and bounded.
+
+**Bugs fixed, each with a test:**
+- A cloud on a shut door's cell never cleared, blocking the room behind the door for the memory's
+  life. No cloud is now kept on a shut door, which is solid and holds no gas. `CLOUD_WAITS` is 100: a
+  potion seeds 1000 units (PotionOfToxicGas.java:49) and every clouded cell loses at least one a turn
+  (Blob.java:186). (`clouds_are_remembered`, including a door out of view.)
+- The door's three-turn credit assumed an escape through the door. It is now credited only when the
+  cell beyond the door is a known walking cell (`SafeTest.refuge`). The drink records that cell as
+  `Memory.refuge`, and the escape makes for it first. (`door_without_a_way_through`,
+  `escape_to_the_refuge`, `door_shortens_gas`)
+- A test could happen while standing in harm. Now no test while in fire or gas, escaping or not.
+  (`no_test_in_harm`)
+- Answer-prompt pressed option 0 on every item Prompt, which drinks a known harmful potion at its
+  confirmation. It now affirms only the scroll's cancel, recognised by its exact text, and declines
+  every other ITEM or HARMFUL_POTION Prompt by "No, I changed my mind". Other Prompt kinds are
+  unchanged, since story 4.11 generalises them. (`cancel_confirmation_answered_yes`,
+  `item_confirmations_declined`)
+- A walk balk stopped the appearance for the whole floor. A `Balk` now carries `walk`: a refused or
+  overlong walk stops only the walking, and the test where the hero stands is still allowed.
+  (`long_walk_balks`, `memory_round_trip`)
+
+**Tests.**
+- `:api:test` and `:brain:test` pass. `TestItemPolicyTest` has 30 cases.
+- Rig tests pass, each run as its own gradle job: `ShatterfishRunTest` (its git-history check skipped
+  in a worktree), `StarvationRegressionTest`, `FoodCodexTest`, `BrainRulesIndexTest`,
+  `StrategyLogTest`, `SafeTestCodexTest`, `CodexKnowledgeTest` and `WeightsFileTest`.
+- `:codex:citations`: no findings.
+
+**Mutation battery.** `scratchpad/mutations410b.py` plants 30 bugs across the new rules (the reserve,
+the healing odds, the half-health boundary, the full-health read, the item-picker odds, the rest and
+its bounds, the refuge, the door's way through, the shut-door cloud, the walk balk, the item
+confirmations) and the old ones. All 30 are killed.
+- Two survived the first run: the single-candidate test, whose last candidate was not healing, and
+  the shut-door cloud test, where every cell was in view.
+- Both tests were strengthened: the last candidate is now healing, and one door is out of view.
+
+**Direction check** (`smoke`, 25 triples, salts 1000+i through `RunOne`). The baseline is story 4.9
+(`fx-49c`, 4.9 at `59c0434a3`, the Brain of main `58a541254`).
+
+| | main (4.9) | 4.10, test-item off | 4.10 | 4.10, potions at two thirds |
+|---|---|---|---|---|
+| turns survived, median (mean) | 752 (842) | 863 (907) | **863 (935)** | 863 (941) |
+| deepest floor, mean (max) | 2.44 (4) | 2.36 (4) | 2.32 (4) | 2.32 (4) |
+| score, mean | 847.8 | 928.0 | 924.9 | 925.4 |
+| endings | 22 deaths, 3 unknown windows | 25 deaths | 25 deaths | 25 deaths |
+| test-item waits (tests) | none | none | 12 (5) | 25 (7) |
+
+- **Survival.** Median turns rise from 752 to 863. The fallback leaving items alone accounts for
+  almost all of it: the ablation with test-item off gets the same median.
+- **Unknown windows.** All three are gone.
+- **Test-item itself.** With the new rules it is roughly neutral: mean turns 935 against 907 off,
+  score 925 against 928, depth 2.32 against 2.36, all within one Run's divergence. It fires rarely,
+  because a calm screen at half health or below with a likely-healing potion is rare on the smoke
+  floors.
+- **Depth.** Mean deepest floor dips from 2.44 to 2.32. The runs live longer on the same floors;
+  descending is story 4.12's.
+- **The variant.** Drinking at two thirds of the hit points measured the same as half, so the
+  recommended half stands.

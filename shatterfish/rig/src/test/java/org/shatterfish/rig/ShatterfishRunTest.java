@@ -59,15 +59,18 @@ class ShatterfishRunTest {
                 assertTrue(List.of("answer-prompt", "heal", "fight", "eat", "test-item", "pick-up", "equip", "explore", "fallback")
                         .contains(wait.decision().policy()), wait.decision().policy());
                 // Story 4.10: a test-item wait drinks or reads the appearance its reason names,
-                // plainly, or Steps toward the cell it tests on, or out of its own fire or gas.
+                // plainly, or Steps toward the cell it tests on, or out of its own fire or gas, or
+                // rests after a test.
                 if ("test-item".equals(wait.decision().policy())) {
                     String why = wait.decision().chosen().why();
                     if (wait.action() instanceof org.shatterfish.api.Action.UseItem use) {
                         assertTrue(List.of("DRINK", "READ").contains(use.action()), why);
                         assertEquals("test: " + use.item().name(), why);
-                    } else {
-                        assertTrue(wait.action() instanceof org.shatterfish.api.Action.Step, why);
+                    } else if (wait.action() instanceof org.shatterfish.api.Action.Step) {
                         assertTrue(why.matches("cell: .+|escape: .+"), why);
+                    } else {
+                        // After a test, short of full health: a rest.
+                        assertEquals("rest: after-test", why);
                     }
                 }
                 // Story 4.8: a pick-up wait Steps toward an item, naming it and its distance, or

@@ -114,7 +114,7 @@ public final class SafeTest {
     /**
      * How many turns a hero who drinks toxic gas beside a closed door stays in it (story 4.10): an
      * assumption, the drink, the doorway and the first cell beyond. A closed door is solid
-     * (Terrain.java:90) and a blob spreads only through cells that are not (Blob.java:156-158); the
+     * (Terrain.java:90) and a blob spreads only through cells that are not (Blob.java:158-164); the
      * door opens when entered and shuts behind the last one out (Level.java:1270, Door.java:45-58,
      * Char.java:1312), so the cloud stays in the room once the hero is through.
      */
@@ -374,6 +374,18 @@ public final class SafeTest {
      * in is open while it does.
      */
     static int gasTurns(Observation observation, int cell) {
+        return refuge(observation, cell) >= 0 ? GAS_TURNS_BY_A_DOOR : GAS_TURNS;
+    }
+
+    /**
+     * The cell beyond the door {@link #gasTurns} credits a hero drinking toxic gas on {@code cell}
+     * with, or -1 (story 4.10): a door orthogonally beside the cell that will be shut once the hero is
+     * through, whose far side -- the next cell straight on -- is a known cell a click steps onto. The
+     * escape makes for that cell, so the credit is taken only when the way through exists; gas
+     * spreads orthogonally (Blob.java:158-185), and a hero who fled deeper into the room would not
+     * leave it behind.
+     */
+    static int refuge(Observation observation, int cell) {
         MapSection map = observation.map();
         int width = map.width();
         int x = cell % width;
@@ -396,11 +408,18 @@ public final class SafeTest {
             }
             Tile tile = map.tiles().get(neighbour);
             boolean shut = tile == Tile.DOOR || (tile == Tile.OPEN_DOOR && neighbour == observation.hero().cell());
-            if (shut && !taken && !heaped) {
-                return GAS_TURNS_BY_A_DOOR;
+            int fx = nx + side[0];
+            int fy = ny + side[1];
+            if (!shut || taken || heaped || fx < 0 || fy < 0 || fx >= width || fy >= map.height()) {
+                continue;
+            }
+            int far = fx + fy * width;
+            if (map.fog().get(far) != org.shatterfish.api.Fog.UNKNOWN && Explore.WALK.contains(map.tiles().get(far))
+                    && map.tiles().get(far) != Tile.DOOR && map.tiles().get(far) != Tile.OPEN_DOOR) {
+                return far;
             }
         }
-        return GAS_TURNS;
+        return -1;
     }
 
     private static boolean has(Observation observation, String buff) {

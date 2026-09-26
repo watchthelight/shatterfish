@@ -45,6 +45,22 @@ final class Policies {
     /** The answer that affirms such a Prompt. */
     private static final String YES = "yes";
 
+    /**
+     * The one item confirmation answer-prompt affirms (story 4.10): an unknown inventory scroll read
+     * without a target asks this when its picker is sent away, and "Yes, I'm positive" consumes it,
+     * where "No, I changed my mind" reopens a picker no Action answers (InventoryScroll.java:52-80,
+     * :137-139; items.properties:1155-1157).
+     */
+    static final String SCROLL_CANCEL = "Do you really want to cancel this scroll usage? The scroll wasn't previously"
+            + " identified, so it will be consumed anyway.";
+
+    /**
+     * The answer that declines every other item confirmation: a known harmful potion's drink and a
+     * beneficial potion's throw (Potion.java:239-252, :265-281; items.properties:740-741), and the
+     * scroll's cancel read otherwise. Story 4.11 generalises the Prompt rules; this stays narrow.
+     */
+    static final String ITEM_DECLINE = "No, I changed my mind";
+
     /** Whether a button label declines. Case-blind without a Locale, which the Brain may not read. */
     private static boolean declines(String label) {
         String stripped = label.strip();
@@ -103,9 +119,19 @@ final class Policies {
             List<Action.AnswerPrompt> declining = new ArrayList<>();
             List<Action.AnswerPrompt> answers = new ArrayList<>();
             Action dismiss = null;
+            PromptKind kind = observation.prompt().kind();
+            boolean item = kind == PromptKind.ITEM || kind == PromptKind.HARMFUL_POTION;
+            boolean scrollCancel = item && SCROLL_CANCEL.equals(observation.prompt().text().strip());
             for (Action action : offered) {
                 if (action instanceof Action.AnswerPrompt answer) {
-                    (declines(label(labels, answer)) ? declining : answers).add(answer);
+                    String said = label(labels, answer);
+                    boolean itemDecline = item && ITEM_DECLINE.equalsIgnoreCase(said);
+                    // An item confirmation is declined by "No, I changed my mind", unless it is the
+                    // scroll's cancel, where that answer would reopen the picker.
+                    if (itemDecline && scrollCancel) {
+                        continue;
+                    }
+                    (declines(said) || itemDecline ? declining : answers).add(answer);
                 } else if (action instanceof Action.DismissPrompt) {
                     dismiss = action;
                 }

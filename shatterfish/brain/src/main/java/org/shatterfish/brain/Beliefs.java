@@ -222,7 +222,8 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         Memory after = new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
                 sightings(memory.monsters(), observation, waits), here, streak, calm, dwelt, memory.blocked(),
                 memory.last(), holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE,
-                memory.drank(), Memory.Trial.NONE, balked, walking, memory.tested(), clouds(memory, observation, waits));
+                memory.drank(), Memory.Trial.NONE, balked, walking, memory.tested(), clouds(memory, observation, waits),
+                memory.refuge());
         // Two Steps refused in a row: the stepping Policy yields this wait, and the cell its Step
         // points at is blocked on this floor. On a calm screen the pick-up Policy stands above
         // explore, so when its plan on the last screen was a Step, that was the Step refused, and its
@@ -238,7 +239,8 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                         after.monsters(), here, streak, calm, dwelt,
                         Memory.with(after.blocked(), new Memory.Spot(depth, branch, cell)), after.last(), holds, near,
                         before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE, memory.drank(),
-                        Memory.Trial.NONE, balked, walking, memory.tested(), after.clouds());
+                        Memory.Trial.NONE, balked, walking, memory.tested(), after.clouds(),
+                        memory.refuge());
             }
         }
         return after;
@@ -262,7 +264,8 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         }
         boolean untried = trial.step() >= 0 ? still || walking(memory, still) > TestItem.WALKS
                 : heldQuantity(observation, trial.label()) >= trial.quantity();
-        Memory.Balk balk = new Memory.Balk(here.depth(), here.branch(), trial.label());
+        // A walk balked at stops only the walking: the test where the hero stands may still be safe.
+        Memory.Balk balk = new Memory.Balk(here.depth(), here.branch(), trial.label(), trial.step() >= 0);
         if (!untried || memory.balked().contains(balk)) {
             return memory.balked();
         }
@@ -286,9 +289,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
     /**
      * The clouded cells after this screen (story 4.10): every cell in view that shows fire or a harmful
      * gas is kept out of for up to {@link Memory#CLOUD_WAITS} more waits, a cell in view that shows
-     * none is cleared -- but not a shut door's, which hides the gas behind it (a closed door is solid,
-     * and a blob does not spread into solid cells, Terrain.java:90, Blob.java:156-158) -- and a lapsed
-     * one is forgotten.
+     * none is cleared, a shut door's cell is never kept, and a lapsed one is forgotten.
      */
     static List<Memory.Cloud> clouds(Memory memory, Observation observation, long waits) {
         int depth = observation.header().depth();
@@ -306,9 +307,12 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
             if (cloud.until() < waits || (here && clouded.contains(cloud.cell()))) {
                 continue;
             }
+            // Seen clear, or a shut door now: a shut door is solid and holds no gas (Terrain.java:90,
+            // Blob.java:158-164), and a cloud kept on one would block the room behind it for as
+            // long as the memory lasts.
             if (here && cloud.cell() < map.tiles().size()
-                    && map.fog().get(cloud.cell()) == org.shatterfish.api.Fog.VISIBLE
-                    && map.tiles().get(cloud.cell()) != org.shatterfish.api.Tile.DOOR) {
+                    && (map.fog().get(cloud.cell()) == org.shatterfish.api.Fog.VISIBLE
+                    || map.tiles().get(cloud.cell()) == org.shatterfish.api.Tile.DOOR)) {
                 continue;
             }
             clouds.add(cloud);

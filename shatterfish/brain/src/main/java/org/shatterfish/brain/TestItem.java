@@ -29,9 +29,19 @@ import java.util.Set;
  * floor as the item allows, and its escape from its own fire or gas comes before anything else. Of the appearances
  * held, it tries first the one worth most to know: the most copies held (a test identifies them
  * all) times the candidates left beyond one. An appearance with a single candidate left is known by
- * elimination and not tried. A potion is drunk only while the hero is down to four fifths of its hit
- * points or below ({@link #hurt}): the likeliest unknown potion is healing, whose drink at full
- * health is wasted, and every other identity costs the same hurt or whole.
+ * elimination and not tried.
+ *
+ * <p>A test must pay for itself in play (story 4.10's review). A potion is drunk only when the
+ * knowledge has a use now: the hero is at half its hit points or below on a calm screen, the odds
+ * that it is healing are at least {@link #HEALING_ODDS}, and its worst case leaves at least a quarter
+ * of the hero's hit points ({@link #reserved}). Drunk then, a healing potion heals at once, and once
+ * known the heal Policy (story 4.9) drinks the rest when a fight turns. A scroll is read only at full
+ * health -- Lullaby's sleep is then harmless (MagicalSleep.java:37-50) and Rage's draw is met whole --
+ * and only while the four identities that spend a read on their item picker (identify, remove curse,
+ * transmutation, upgrade: InventoryScroll's subclasses) hold under {@link #INVENTORY_ODDS} of its
+ * odds: read plainly, such a scroll is identified and consumed with no effect
+ * (InventoryScroll.java:39-50, :137-139). After a test, while the hero is short of full health,
+ * it rests (up to {@link #REST_WAITS} waits) before anything else on a calm screen acts.
  *
  * <p>Every test is one {@link SafeTest} calls safe at the cell it happens on. A potion's worst case
  * depends on the cell -- water shortens liquid flame's burn, a closed door beside it toxic gas's
@@ -62,6 +72,26 @@ final class TestItem implements Policy {
     /** The item actions that test: a potion's drink (Potion.java:84), a scroll's read (Scroll.java). */
     static final String DRINK = "DRINK";
     static final String READ = "READ";
+
+    /** The least odds of healing an unknown potion is drunk at (story 4.10's review). */
+    static final double HEALING_ODDS = 0.2;
+
+    /** The most odds the inventory scrolls may hold of an unknown scroll that is read. */
+    static final double INVENTORY_ODDS = 0.25;
+
+    /**
+     * The scrolls whose read opens an item picker (InventoryScroll's subclasses among the regular
+     * scrolls: ScrollOfIdentify.java, ScrollOfRemoveCurse.java, ScrollOfTransmutation.java,
+     * ScrollOfUpgrade.java), by the Codex's class names.
+     */
+    static final Set<String> INVENTORY_SCROLLS = Set.of("items.scrolls.ScrollOfIdentify",
+            "items.scrolls.ScrollOfRemoveCurse", "items.scrolls.ScrollOfTransmutation", "items.scrolls.ScrollOfUpgrade");
+
+    /** The potion of healing, by the Codex's class name. */
+    static final String HEALING = "items.potions.PotionOfHealing";
+
+    /** The most waits after a test it rests toward full health (as the explore Policy's RESTS). */
+    static final int REST_WAITS = Explore.RESTS;
 
     /** The most Steps it walks to a better testing cell. */
     static final int REACH = 8;
@@ -119,7 +149,13 @@ final class TestItem implements Policy {
 
     @Override
     public boolean enters(Observation observation, Memory memory) {
-        return Explore.calm(observation) && (escaping(observation, memory) || !testable(observation, memory).isEmpty());
+        if (!Explore.calm(observation)) {
+            return false;
+        }
+        if (inHarm(observation)) {
+            return escaping(observation, memory);
+        }
+        return !testable(observation, memory).isEmpty() || restOwed(observation, memory);
     }
 
     @Override
@@ -135,12 +171,14 @@ final class TestItem implements Policy {
         }
         MapSection map = observation.map();
         int hero = observation.hero().cell();
-        if (escaping(observation, memory)) {
-            Action step = escape(observation, memory, offered);
-            if (step != null) {
-                return new Plan("", 0, new RunLog.Choice(step, Policies.CERTAIN, "escape: " + harm(observation)));
-            }
+        if (inHarm(observation)) {
+            // Out of harm first; and never a test while standing in it, escape or not.
+            Action step = escaping(observation, memory) ? escape(observation, memory, offered) : null;
+            return step == null ? null
+                    : new Plan("", 0, new RunLog.Choice(step, Policies.CERTAIN, "escape: " + harm(observation)));
         }
+        int depth = observation.header().depth();
+        int branch = observation.header().branch();
         for (Testable item : testable(observation, memory)) {
             Action use = new Action.UseItem(item.ref(), item.verb());
             if (!offered.contains(use)) {
@@ -148,11 +186,13 @@ final class TestItem implements Policy {
             }
             List<SafeTest.Candidate> candidates = SafeTest.candidates(item.guess(), knowledge);
             SafeTest.Verdict here = SafeTest.of(candidates, observation);
-            if (item.guess().kind() == ItemKind.POTION && !Pickup.stuck(memory)) {
+            boolean hereFits = fits(item, here, observation);
+            if (item.guess().kind() == ItemKind.POTION && !Pickup.stuck(memory)
+                    && !memory.balksWalking(depth, branch, item.guess().label())) {
                 boolean[] walk = Explore.walkable(observation, memory);
                 int[] distance = Pickup.distances(map, walk, hero);
                 int best = -1;
-                int bestDamage = here.safe() ? here.worst().damage() : Integer.MAX_VALUE;
+                int bestDamage = hereFits ? here.worst().damage() : Integer.MAX_VALUE;
                 int bestDistance = Integer.MAX_VALUE;
                 for (int cell = 0; cell < distance.length; cell++) {
                     if (distance[cell] < 1 || distance[cell] > REACH || !harmfulOn(map, cell).isEmpty()) {
@@ -160,7 +200,7 @@ final class TestItem implements Policy {
                     }
                     SafeTest.Verdict there = SafeTest.of(candidates, observation, cell);
                     int damage = there.worst().damage();
-                    if (there.safe() && (damage < bestDamage || (best >= 0 && damage == bestDamage
+                    if (fits(item, there, observation) && (damage < bestDamage || (best >= 0 && damage == bestDamage
                             && distance[cell] < bestDistance))) {
                         best = cell;
                         bestDamage = damage;
@@ -175,12 +215,44 @@ final class TestItem implements Policy {
                     }
                 }
             }
-            if (here.safe()) {
+            if (hereFits) {
                 return new Plan(item.guess().label(), item.quantity(),
                         new RunLog.Choice(use, Policies.CERTAIN, "test: " + item.guess().label()));
             }
         }
+        if (restOwed(observation, memory)) {
+            for (Action rest : List.of(new Action.Rest(true), new Action.Search())) {
+                if (offered.contains(rest)) {
+                    return new Plan("", 0, new RunLog.Choice(rest, Policies.CERTAIN, "rest: after-test"));
+                }
+            }
+        }
         return null;
+    }
+
+    /**
+     * Whether a verdict lets {@code item} be tried: safe, and for a potion, with a quarter of the
+     * hero's hit points left after the worst case ({@link #reserved}).
+     */
+    static boolean fits(Testable item, SafeTest.Verdict verdict, Observation observation) {
+        return verdict.safe() && (item.guess().kind() != ItemKind.POTION
+                || reserved(observation.hero().hp(), observation.hero().ht(), verdict.worst().damage()));
+    }
+
+    /** Whether {@code hp} less {@code damage} leaves at least a quarter of {@code ht}. */
+    static boolean reserved(int hp, int ht, int damage) {
+        return 4L * ((long) hp - damage) >= ht;
+    }
+
+    /**
+     * Whether a rest is owed after a test (story 4.10's review): within {@link #REST_WAITS} waits of a
+     * drink or read this Policy handed over, the hero short of full health and neither hungry nor
+     * starving -- a starving hero does not regenerate (Regeneration.java:56).
+     */
+    static boolean restOwed(Observation observation, Memory memory) {
+        return memory.tested() >= 0 && memory.waits() - memory.tested() <= REST_WAITS
+                && observation.hero().hp() < observation.hero().ht()
+                && observation.hero().hunger() == org.shatterfish.api.Hunger.NONE;
     }
 
     /**
@@ -221,8 +293,11 @@ final class TestItem implements Policy {
             if (guess == null || guess.odds().size() < 2 || memory.balks(depth, branch, item.name())) {
                 continue;
             }
-            String verb = item.kind() == ItemKind.POTION && guess.kind() == ItemKind.POTION && hurt(observation) ? DRINK
-                    : item.kind() == ItemKind.SCROLL && guess.kind() == ItemKind.SCROLL && !unreadable ? READ : null;
+            String verb = item.kind() == ItemKind.POTION && guess.kind() == ItemKind.POTION && low(observation)
+                    && odds(guess, Set.of(HEALING)) >= HEALING_ODDS ? DRINK
+                    : item.kind() == ItemKind.SCROLL && guess.kind() == ItemKind.SCROLL && !unreadable
+                    && observation.hero().hp() >= observation.hero().ht()
+                    && odds(guess, INVENTORY_SCROLLS) < INVENTORY_ODDS ? READ : null;
             if (verb == null || !item.actions().contains(verb)) {
                 continue;
             }
@@ -233,13 +308,20 @@ final class TestItem implements Policy {
         return testable;
     }
 
-    /**
-     * Whether the hero is down to four fifths of its hit points or below, when a potion is drunk to
-     * test it: a healing potion then heals rather than being wasted (the direction check of story
-     * 4.10 measured drinking whole as a loss: potions of healing spent at full health).
-     */
-    static boolean hurt(Observation observation) {
-        return 5L * observation.hero().hp() <= 4L * observation.hero().ht();
+    /** Whether the hero is at half its hit points or below, when an unknown potion is drunk. */
+    static boolean low(Observation observation) {
+        return 2L * observation.hero().hp() <= observation.hero().ht();
+    }
+
+    /** The odds {@code guess} gives the identities of {@code classes}, by the Codex's class names. */
+    double odds(Beliefs.Guess guess, Set<String> classes) {
+        double sum = 0;
+        for (SafeTest.Candidate candidate : SafeTest.candidates(guess, knowledge)) {
+            if (classes.contains(candidate.className())) {
+                sum += candidate.probability();
+            }
+        }
+        return sum;
     }
 
     /** What knowing an appearance is worth: every copy held, times the candidates beyond one. */
@@ -298,7 +380,12 @@ final class TestItem implements Policy {
         java.util.function.IntPredicate clean = cell -> harmfulOn(map, cell).isEmpty()
                 && !memory.clouded(depth, branch, cell, memory.waits());
         int target = -1;
-        if (burning) {
+        // Through the door the test was credited with, when there was one and it can be reached.
+        int refuge = memory.refuge();
+        if (!burning && refuge >= 0 && refuge < distance.length && distance[refuge] >= 1 && clean.test(refuge)) {
+            target = refuge;
+        }
+        if (target < 0 && burning) {
             target = nearest(map, distance, cell -> map.tiles().get(cell) == Tile.WATER && clean.test(cell), REACH);
         }
         if (target < 0) {
