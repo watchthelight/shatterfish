@@ -21,6 +21,7 @@ import org.shatterfish.api.ActionsSection;
 import org.shatterfish.api.ItemRef;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.ValidActions;
+import org.shatterfish.harness.driver.GuessOptions;
 import org.shatterfish.harness.driver.HeadlessDriver;
 import org.shatterfish.harness.driver.UiRole;
 import org.shatterfish.harness.driver.Windows;
@@ -372,7 +373,15 @@ public final class ActionExecutor {
             return new Outcome.Rejected(action, Reason.NO_SUCH_OPTION, "no window is open");
         }
         List<Component> buttons = new ArrayList<>();
-        collectButtons(window, buttons);
+        if (GuessOptions.is(window)) {
+            // The guess window's options are its icons as well as its button, in the Observer's
+            // order (story 4.11; GuessOptions), so a tap on one is the tap a person makes on it.
+            for (GuessOptions.Option guess : GuessOptions.of(window)) {
+                buttons.add(guess.button());
+            }
+        } else {
+            collectButtons(window, buttons);
+        }
         if (option >= buttons.size()) {
             return new Outcome.Rejected(action, Reason.NO_SUCH_OPTION,
                     "the window draws " + buttons.size() + " buttons and the answer names " + option);

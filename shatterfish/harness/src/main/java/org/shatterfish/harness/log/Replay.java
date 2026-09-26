@@ -276,7 +276,7 @@ public final class Replay {
         // "the constructor happens not to keep it" is a weaker sentence than "it is never given
         // it". A Decider is handed Observations and the Actions it is reproducing.
         Following following = new Following(log.waits(), Following.firstGap(log),
-                log.end() != null && !log.end().verifiable());
+                log.end() != null && !log.end().verifiable(), Following.brainError(log));
         // `false`, in the source. The oracle flag was read out of the log here, which made this the
         // only production caller that could set it at all -- from a file. The guard that stops that
         // now is `refusal`, above, which refuses an oracle log before anything is played; the
@@ -351,7 +351,16 @@ public final class Replay {
          */
         private RunLog.Wait followed;
 
-        Following(List<RunLog.Wait> waits, long unverifiableFrom, boolean saidUnverifiable) {
+        /**
+         * The Brain's own message, when the log says the Run ended because the Brain could not decide
+         * (story 4.11), or null. The original threw at the wait after its last recorded one and wrote
+         * no record for it; the follower, out of waits there, says the same thing the same way, so the
+         * Run loop writes the same ending.
+         */
+        private final String brainError;
+
+        Following(List<RunLog.Wait> waits, long unverifiableFrom, boolean saidUnverifiable, String brainError) {
+            this.brainError = brainError;
             this.waits = List.copyOf(waits);
             // The log's own end record is believed when it says the Run was not verifiable, even if
             // no surviving `unsupported` mark says which wait: a writer that marked its Run
@@ -367,6 +376,9 @@ public final class Replay {
                     // The waits ran out and the log says something past them could not be
                     // expressed. That is not a Run that ended; it is a Run nothing can check.
                     throw new Unverifiable(unverifiableFrom, verified);
+                }
+                if (brainError != null) {
+                    throw new org.shatterfish.api.Decider.CannotDecide(brainError);
                 }
                 // The log has nothing more to say, so the Run is over as far as a reproduction
                 // goes. Returning null ends the loop by its own rule rather than inventing an
@@ -408,6 +420,20 @@ public final class Replay {
         @Override
         public List<Integer> lastHighlights() {
             return followed == null ? List.of() : followed.highlights();
+        }
+
+        /**
+         * The message a Run that ended as a Brain error ended with, as the loop wrote it after its
+         * "at wait k: " prefix, or null for any other ending.
+         */
+        static String brainError(RunLogReader.Log log) {
+            RunLog.End end = log.end();
+            if (end == null || !"BRAIN_ERROR".equals(end.outcome().cause())) {
+                return null;
+            }
+            String detail = end.detail();
+            int colon = detail.indexOf(": ");
+            return colon < 0 ? detail : detail.substring(colon + 2);
         }
 
         /** The first wait an {@code unsupported} record makes unreproducible, if there is one. */

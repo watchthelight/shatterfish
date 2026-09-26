@@ -10,6 +10,7 @@ import org.shatterfish.api.ItemView;
 import org.shatterfish.api.KnownAppearance;
 import org.shatterfish.api.MapSection;
 import org.shatterfish.api.Observation;
+import org.shatterfish.api.PromptKind;
 import org.shatterfish.api.Tile;
 
 import java.util.ArrayList;
@@ -208,8 +209,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
             if (observation.hero().hp() >= observation.hero().ht()) {
                 add(flights, below, 1, fled - Memory.count(flights, below, 1));
                 flights.removeIf(one -> one.key().equals(below) && one.set() == 2);
-            } else if ((memory.last().equals("Rest") || memory.last().equals(WAIT)) && memory.at().on(depth, branch)) {
-                // A turn of the wait button is a frugal rest (story 4.13, Larder), bounded like a full one.
+            } else if (memory.last().equals("Rest") && memory.at().on(depth, branch)) {
                 add(flights, below, 2, 1);
             }
         }
@@ -262,7 +262,8 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 sightings(memory.monsters(), observation, waits), here, streak, calm, dwelt, memory.blocked(),
                 memory.last(), holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE,
                 memory.drank(), Memory.Trial.NONE, balked, walking, memory.tested(), clouds(memory, observation, waits),
-                memory.refuge(), arrived, rests, memory.stepped(), tried, fleeting, prior, bounces, hunger, hp, food);
+                memory.refuge(), arrived, rests, memory.stepped(), tried, fleeting, opened(memory, observation), prior,
+                bounces, hunger, hp, food);
         // Two Steps in a row refused at one cell: the stepping Policy yields this wait, and that cell is
         // blocked on this floor, whichever Policy chose it (story 4.12; stories 4.8 and 4.10 recomputed
         // it from their own plans). Refused on a calm screen, for good; refused with an enemy in view,
@@ -282,10 +283,33 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                     after.monsters(), here, streak, calm, dwelt, blocked, after.last(),
                     holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE, memory.drank(),
                     Memory.Trial.NONE, balked, walking, memory.tested(), after.clouds(),
-                    memory.refuge(), arrived, rests, memory.stepped(), -1, lapsing, prior, bounces, hunger, hp, food);
+                    memory.refuge(), arrived, rests, memory.stepped(), -1, lapsing, after.windows(), prior, bounces,
+                    hunger, hp, food);
         }
         return after;
     }
+
+    /**
+     * The windows after seeing {@code observation} (story 4.11): a shop, a guess or a spell list that
+     * appears after an Action other than an answer was opened by that Action, which is remembered
+     * while the window stays open and forgotten once none of the three is.
+     */
+    static Memory.Windows opened(Memory memory, Observation observation) {
+        Memory.Windows windows = memory.windows();
+        PromptKind kind = observation.prompt().kind();
+        boolean leavable = kind == PromptKind.SHOP || kind == PromptKind.GUESS || kind == PromptKind.SPELL;
+        String opener = windows.opener();
+        if (!leavable) {
+            opener = "";
+        } else if (opener.isEmpty() && !memory.last().equals(ANSWER) && !memory.last().equals(DISMISS)) {
+            opener = windows.action();
+        }
+        return new Memory.Windows(windows.action(), windows.target(), opener, windows.shunned());
+    }
+
+    /** The kinds of the two Actions that answer a Prompt, as {@link #kind} names them. */
+    static final String ANSWER = "AnswerPrompt";
+    static final String DISMISS = "DismissPrompt";
 
     /**
      * The appearances balked at after this screen (story 4.10): the test the test-item Policy handed

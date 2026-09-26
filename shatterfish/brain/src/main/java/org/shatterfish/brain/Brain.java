@@ -46,7 +46,7 @@ public final class Brain {
 
     /** The Policies, highest priority first, fighting by {@code knowledge} and scoring by {@code evaluation}. */
     private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation) {
-        return List.of(Policies.ANSWER_PROMPT, new Heal(knowledge), new Fight(knowledge), new Eat(),
+        return List.of(Policies.answerPrompt(knowledge), new Heal(knowledge), new Fight(knowledge), new Eat(),
                 new TestItem(knowledge), new Pickup(evaluation, knowledge), new Equip(evaluation, knowledge),
                 new Descend(knowledge),
                 new Explore(), Policies.fallback(evaluation));
@@ -131,7 +131,7 @@ public final class Brain {
 
     /** The names of the Policies every Brain arbitrates, highest priority first. */
     public static List<String> policyNames() {
-        return List.of(Policies.ANSWER_PROMPT.name(), Heal.NAME, Fight.NAME, Eat.NAME, TestItem.NAME, Pickup.NAME,
+        return List.of(Policies.ANSWER_PROMPT, Heal.NAME, Fight.NAME, Eat.NAME, TestItem.NAME, Pickup.NAME,
                 Equip.NAME, Descend.NAME, Explore.NAME, Policies.FALLBACK);
     }
 
@@ -143,6 +143,10 @@ public final class Brain {
     /** How many waits a region the fight Policy retreated from stays avoided. */
     static final int AVOID_WAITS = 100;
 
+    /** The kinds of Action whose window, once left, is shunned on the floor (story 4.11). */
+    static final java.util.Set<String> OPENERS = java.util.Set.of("Interact", "Buy", "UseItem", "UseItemOn",
+            "UseItemAt");
+
     /**
      * The Belief after this Brain hands over {@code decided} on {@code observation} (stories 4.7, 4.9): the
      * kind of the Action, which the next {@link #update} reads to know what a still hero means, and,
@@ -151,12 +155,44 @@ public final class Brain {
      * region reaches one past where the enemy was seen from; and, when the heal Policy handed over a
      * drink, the wait it did; and, when the descend Policy handed over a rest, one more rest on this
      * floor. Nothing here assumes the Action is applied.
+     *
+     * <p>Story 4.11 adds the windows: the Action itself and the item it was used on, which the next
+     * screen reads to tell the window a read opened from one the game chained after it; and, when the
+     * prompt Policy leaves a shop, a guess or a spell list, the Action that opened it, shunned on this
+     * floor so the Brain does not reopen it (a window left takes no time, so reopening it forever
+     * would pass none either). Only an Action that can open such a window is shunned
+     * ({@link #OPENERS}): a talk with the shopkeeper, a purchase, an item's use. A Step onto an item
+     * for sale opens the trade window too, but the hero has moved by then and shunning a Step could
+     * wall off a floor; and the opener is the Brain's own last Action, so a window a person opened
+     * over the Brain's turn would otherwise shun whatever the Brain did before it.
      */
     public Belief handed(Observation observation, Belief belief, Decided decided) {
         Memory before = Memory.of(belief);
         Memory memory = before.handed(Beliefs.kind(decided.action()),
                 decided.action() instanceof Action.Step step ? step.cell() : -1);
         RunLog.Decision decision = decided.decision();
+        Memory.Windows windows = memory.windows();
+        java.util.List<Memory.Shun> shunned = windows.shunned();
+        if (decided.action() instanceof Action.DismissPrompt && decision != null
+                && decision.chosen().why().startsWith(Answers.LEAVE) && !windows.opener().isEmpty()
+                && OPENERS.contains(windows.opener().substring(0, Math.max(0, windows.opener().indexOf('['))))) {
+            Memory.Shun shun = new Memory.Shun(observation.header().depth(), observation.header().branch(),
+                    windows.opener());
+            if (!shunned.contains(shun)) {
+                shunned = new ArrayList<>(shunned);
+                shunned.add(shun);
+                while (shunned.size() > Memory.Windows.SHUNNED) {
+                    shunned.remove(0);
+                }
+            }
+        }
+        // The item a read went onto is kept while the Brain answers the windows it opened, so the
+        // upgrade window chained after it can still name the item.
+        String target = decided.action() instanceof Action.UseItemOn on ? on.target().name()
+                : decided.action() instanceof Action.AnswerPrompt || decided.action() instanceof Action.DismissPrompt
+                ? windows.target() : "";
+        memory = memory.windowing(new Memory.Windows(decided.action() == null ? "" : decided.action().toString(),
+                target, windows.opener(), shunned));
         // A drink the heal Policy handed over (story 4.9): the heal lands over the next turns with no
         // buff icon, and the floating heal text the game shows is not in the Observation, so the heal
         // Policy counts the waits since.
@@ -211,6 +247,23 @@ public final class Brain {
     }
 
     /**
+     * The Actions the screen offers less those whose window the Brain left on this floor (story 4.11),
+     * unless that would leave none; under a Prompt, all of them, since its answers are all there is.
+     */
+    static List<Action> unshunned(Observation observation, Memory memory) {
+        List<Action> offered = observation.actions().actions();
+        if (observation.header().prompt() != org.shatterfish.api.PromptKind.NONE
+                || memory.windows().shunned().isEmpty()) {
+            return offered;
+        }
+        int depth = observation.header().depth();
+        int branch = observation.header().branch();
+        List<Action> kept = offered.stream()
+                .filter(action -> !memory.windows().shuns(depth, branch, action.toString())).toList();
+        return kept.isEmpty() ? offered : kept;
+    }
+
+    /**
      * The Decision for {@code observation} under {@code belief}: the first Policy, in priority order,
      * that enters and ranks a Choice takes the wait with its best one. Up to three alternatives are
      * recorded, distinct Actions all: the taking Policy's own next ranks first, then what later
@@ -219,7 +272,7 @@ public final class Brain {
      */
     public Decided decide(Observation observation, Belief belief) {
         Memory memory = Memory.of(belief);
-        List<Action> offered = observation.actions().actions();
+        List<Action> offered = unshunned(observation, memory);
         // A rooted hero's Steps and stairs are refused with no time spent, so they are no choice at all
         // until the roots wear off (story 4.12, Explore.rooted); nor, on a calm screen, a dizzy hero's,
         // which go where the vertigo sends them (story 4.13, Explore.dizzy).

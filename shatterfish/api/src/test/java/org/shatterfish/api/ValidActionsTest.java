@@ -58,6 +58,35 @@ class ValidActionsTest {
                 "one Action, and not the wait a Brain must never take at a Prompt");
     }
 
+    /** The corpus's screen with a Prompt of {@code kind} open, drawing {@code options}. */
+    private static Observation under(PromptKind kind, List<String> options) {
+        Observation observation = Corpus.observation();
+        HeaderSection header = new HeaderSection(observation.header().version(), observation.header().upstreamTag(),
+                observation.header().codexVersion(), observation.header().heroClass(),
+                observation.header().challenges(), observation.header().depth(),
+                observation.header().branch(), observation.header().sealed(),
+                observation.header().oracle(), kind);
+        return new Observation(header, observation.map(), observation.actors(), observation.hero(),
+                observation.inventory(), observation.journal(), observation.log(), ActionsSection.NONE,
+                new PromptSection(kind, "A title", "", options));
+    }
+
+    @Test
+    @DisplayName("a shop, a guess and a spell list can be left as well as answered; other Prompts with buttons cannot")
+    void some_prompts_close_by_the_back_key() {
+        for (PromptKind kind : List.of(PromptKind.SHOP, PromptKind.GUESS, PromptKind.SPELL)) {
+            assertEquals(List.of(new Action.AnswerPrompt(0), new Action.AnswerPrompt(1), new Action.DismissPrompt()),
+                    ValidActions.of(under(kind, List.of("One", "Two"))).actions(), kind + ": its buttons, then the back key");
+        }
+        for (PromptKind kind : List.of(PromptKind.UPGRADE, PromptKind.RESURRECTION, PromptKind.CHASM_JUMP,
+                PromptKind.SUBCLASS, PromptKind.ITEM, PromptKind.OTHER)) {
+            assertEquals(List.of(new Action.AnswerPrompt(0), new Action.AnswerPrompt(1)),
+                    ValidActions.of(under(kind, List.of("One", "Two"))).actions(), kind + ": its buttons only");
+        }
+        assertEquals(List.of(new Action.DismissPrompt()), ValidActions.of(under(PromptKind.SPELL, List.of())).actions(),
+                "a spell list draws no labelled button, so the back key is all it offers");
+    }
+
     @Test
     @DisplayName("the wait button is offered once: Rest(false) is the same human input as Wait")
     void the_wait_button_is_offered_once() {

@@ -61,8 +61,13 @@ mutation battery and a direction check on the `smoke` Seed set):
 - **4.12** Going down: leaves a floor once it is spent, overstayed, or out of
   food, resting to full beside the stairs first, never from a sealed floor and
   never fleeing hurt onto a boss floor.
-- In review: **4.11** answering the game's windows (upgrade targets, subclass
-  choice, shops). Next: **4.13** and **4.14**, the Goo gate.
+- **4.11** Answering the game's windows: a rule for every kind of prompt
+  (subclass choice, shops, upgrade targets, the stone of intuition's guess),
+  and a Run that meets one it can't answer, or stops passing time, ends with
+  a logged reason that replays.
+- In progress: **4.13** tuning toward the Goo gate. So far no Warrior reaches
+  depth 5; the dominant cause of death is starvation. **4.14** runs the
+  registered 400-Warrior `goo` set.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:

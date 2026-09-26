@@ -66,7 +66,10 @@ without an Observer change and its leak tests.
 - `shatterfish/brain/.../Heal.java`: at the low-health warning the drink comes before a retreat.
 - `shatterfish/brain/.../TestItem.java`: potions likely to be strength or experience are drunk at any
   health (`GAINS`, `GAIN_ODDS`).
-- `shatterfish/brain/.../Memory.java`: `Spot` checks its own fields (an initialisation cycle).
+- `shatterfish/brain/.../Memory.java`: version 10 -- story 4.11's version 9 (`windows`) plus `prior`,
+  `bounces`, `hunger`, `hp` and `food`; `Spot` checks its own fields (an initialisation cycle).
+- `shatterfish/brain/.../Larder.java`: the hunger clock and the food budget; `Explore` searches only
+  promising spots while food is tight.
 - `docs/methodology.md`: the comparison view.
 
 ## Tasks & Acceptance

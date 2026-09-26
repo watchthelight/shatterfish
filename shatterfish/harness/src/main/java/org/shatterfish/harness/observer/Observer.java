@@ -77,6 +77,7 @@ import org.shatterfish.api.TransitionKind;
 import org.shatterfish.api.TransitionView;
 import org.shatterfish.api.TrapView;
 import org.shatterfish.api.ValidActions;
+import org.shatterfish.harness.driver.GuessOptions;
 import org.shatterfish.harness.driver.HeadlessDriver;
 import org.shatterfish.harness.driver.UiRole;
 import org.shatterfish.harness.driver.Prompts;
@@ -554,6 +555,10 @@ public final class Observer {
      * first text block when there are at least two, a title block coming before its message
      * ({@code WndOptions.java:53-59}). The text is the rest, and the options are the styled
      * buttons' labels; the icon buttons beside them are not options.
+     *
+     * <p>The one exception is the stone of intuition's guess (story 4.11), whose icons are its
+     * options: each item type it draws, by name, after the guess button when that shows
+     * ({@link GuessOptions}, which says why that is fair and why the icons are listed by name).
      */
     static PromptSection promptOf(Window window) {
         Windows.Read read = Windows.read(window);
@@ -567,7 +572,8 @@ public final class Observer {
             title = texts.size() >= 2 ? texts.get(0) : "";
             rest = texts.size() >= 2 ? texts.subList(1, texts.size()) : texts;
         }
-        return new PromptSection(Prompts.kind(window), title, String.join("\n", rest), read.buttons());
+        List<String> options = GuessOptions.is(window) ? GuessOptions.labels(window) : read.buttons();
+        return new PromptSection(Prompts.kind(window), title, String.join("\n", rest), options);
     }
 
     /**

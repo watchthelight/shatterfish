@@ -449,12 +449,22 @@ public sealed interface RunLog
      *
      * @param verifiable whether a Replay can reproduce this Run, which an {@link Unsupported}
      *                   record makes false from the wait it names
+     * @param detail     what a reader needs beyond the cause, or empty (story 4.11): for a Run the
+     *                   Brain could not decide in, the wait and the Brain's own message; for a Run
+     *                   stopped because no time passed, how long. Written only when not empty, so a
+     *                   Run that ended ordinarily writes the record it always did
      */
-    record End(long k, Outcome outcome, boolean verifiable) implements RunLog {
+    record End(long k, Outcome outcome, boolean verifiable, String detail) implements RunLog {
 
         public End {
             Canon.require(k >= 0, "a wait index is at least 0: " + k);
             Canon.require(outcome != null, "a Run that ended says how");
+            detail = Canon.text(detail, "an ending's detail");
+        }
+
+        /** An ending with nothing to say beyond its cause. */
+        public End(long k, Outcome outcome, boolean verifiable) {
+            this(k, outcome, verifiable, "");
         }
 
         @Override

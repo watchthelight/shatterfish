@@ -325,6 +325,9 @@ public final class Gallery {
             out.append("; it ended ").append(cell(end.outcome().cause())).append(" at depth ")
                     .append(end.outcome().depth()).append(" after ").append(end.outcome().turns() / 1000)
                     .append(" turns");
+            if (!end.detail().isEmpty()) {
+                out.append(" (").append(cell(end.detail())).append(')');
+            }
         } else {
             out.append("; it has no ending");
         }
