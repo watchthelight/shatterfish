@@ -387,3 +387,25 @@ it re-reads ADR-0006's Blobs row.
   threshold could still be a few pixels short in practice; a story that wants the constant itself to
   stop guessing has one number to change, once a real measurement is available without booting the
   game to get it (the constant is evaluated at class-load time, before any font exists to measure).
+
+## From issue #163 (the boss floor's worn key)
+
+- **Iron keys and crystal keys are not fetched the same way.** The fix values a worn key's heap
+  (`Pickup.WORN_KEY`) enough to cross the whole floor for and teaches the descend Policy to
+  walk to a locked exit and unlock it, but a `LOCKED_DOOR` (iron key) or `CRYSTAL_DOOR` (crystal key)
+  behind which the Brain wants to go is left exactly as it was: `ValidActions` still offers `Unlock`
+  at one, and nothing picks the matching key up for it or walks it there on purpose. This was in
+  scope for #163 only as far as not breaking it, which needed no change (the fix touches nothing an
+  iron or crystal door's path already ran through). Extending it is more than "give it the same
+  worth": an iron or crystal key is not always worth fetching (a `CryptRoom` or `LibraryRoom`'s key
+  opens a door to that room's own prize, not a floor exit, so a Brain that never means to open that
+  door has no use for its key), and doors, unlike the boss exit, are not always on the way anywhere
+  the Brain would otherwise walk. A future story would need to weigh a door's key by what is judged
+  worth reaching behind it, not by a flat bonus.
+- **The refusal-yield in `Descend.unlock` reads only `Memory.last()`, not which cell was refused.**
+  A boss floor has one locked exit, so the ambiguity does not arise yet: `memory.last()` being
+  `"Unlock"` while the screen still shows a `LOCKED_EXIT` can only mean *that* Unlock was refused.
+  A door-fetching story with more than one locked cell in play at once would need to know which one,
+  which is exactly the kind of small, situational state `Memory` already carries for other Policies
+  (`Memory.Aim`, `Memory.Refused`) -- a candidate for a `Memory.tried`-style cell, bumping the
+  version, rather than reusing `last` past what it can tell apart.

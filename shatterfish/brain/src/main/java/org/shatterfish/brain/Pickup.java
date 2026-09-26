@@ -41,6 +41,12 @@ import java.util.List;
  * (Dewdrop.java:63-69, :120-122), and whether it has is not on the screen. Every Step it takes
  * brings the hero nearer the heap; when the hero has stood still long enough for the explore Policy
  * to yield ({@link Explore#STUCK} - 1 waits), this one yields too.
+ *
+ * <p>One title is worth crossing the whole floor for regardless of the trip: {@link #WORN_KEY}
+ * (issue #163). A weighed worth would leave it behind whenever the trip back from wherever Goo died
+ * cost more than an ordinary item's, and nothing else fetches it, so the descend Policy would walk to
+ * the boss floor's locked exit, hand over an {@link Action.Unlock} the game refuses, and the hero
+ * would starve on the floor it had already cleared.
  */
 final class Pickup implements Policy {
 
@@ -67,6 +73,24 @@ final class Pickup implements Policy {
 
     /** A dewdrop's title (items.properties): refused at full health unless a waterskin has room. */
     static final String DEWDROP = "dewdrop";
+
+    /**
+     * A worn key's title (items.properties: {@code items.keys.wornkey.name=worn key}): Goo drops one
+     * where it dies ({@code core/.../actors/mobs/Goo.java:290}), and it is the only key that unlocks
+     * the boss floor's exit, turning its {@code LOCKED_EXIT} into {@code UNLOCKED_EXIT}
+     * ({@code Hero.java:1291-1296}, {@code :2440-2444}) -- general game knowledge, not a hidden fact
+     * (issue #163). Without it the floor cannot be left, so it is worth fetching from anywhere on the
+     * floor, not weighed against the trip like an ordinary item ({@link #KEY_WORTH}).
+     */
+    static final String WORN_KEY = "worn key";
+
+    /**
+     * What a worn key is worth carried (issue #163): enough to dominate {@link #worth} net of any
+     * turn cost a sensible weight set charges for crossing a whole floor -- a floor holds at most a
+     * few hundred walkable cells, and even at ten times the committed {@code turn} weight
+     * (weights/shatterfish.json) a thousand Steps cost far less than this.
+     */
+    static final long KEY_WORTH = 50_000_000L;
 
     @Override
     public boolean enters(Observation observation, Memory memory) {
@@ -181,6 +205,9 @@ final class Pickup implements Policy {
     long worth(String title, Observation observation) {
         String name = Beliefs.untitled(title);
         int quantity = quantity(title);
+        if (name.equals(WORN_KEY)) {
+            return KEY_WORTH;
+        }
         if (name.equals("gold")) {
             return evaluation.gold(quantity);
         }

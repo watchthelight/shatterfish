@@ -13,6 +13,7 @@ import org.shatterfish.api.ItemView;
 import org.shatterfish.api.MapSection;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.PromptSection;
+import org.shatterfish.api.RunLog;
 import org.shatterfish.api.Tile;
 import org.shatterfish.api.ValidActions;
 
@@ -497,14 +498,95 @@ class DescendPolicyTest {
     }
 
     @Test
-    @DisplayName("a locked exit is no way down: the boss floor's until its key opens it")
+    @DisplayName("a locked exit is no way down: it is walked to and unlocked, never taken as a Descend, and unlocked it goes down as any exit does (issue #163)")
     void locked_exit() {
         int exit = ROOM.map().transitions().get(0).cell();
         Observation locked = tile(ROOM, exit, Tile.LOCKED_EXIT);
         Brain.Decided decided = brain().decide(locked, spent(2, 10, 1, 0).belief());
-        assertFalse(Descend.NAME.equals(decided.decision().policy()), decided.decision().toString());
+        // Not adjacent yet (the exit is three cells off): a Step toward it, never the Descend input,
+        // which the solid LOCKED_EXIT cell never offers anyway.
+        assertEquals(Descend.NAME, decided.decision().policy(), decided.decision().toString());
+        assertEquals(new Action.Step(ROOM.hero().cell() + 1), decided.action());
+        assertTrue(decided.decision().chosen().why().startsWith("boss exit: spent "), decided.decision().chosen().why());
         Observation unlocked = tile(ROOM, exit, Tile.UNLOCKED_EXIT);
         assertEquals("exit: spent 3", brain().decide(unlocked, spent(2, 10, 1, 0).belief()).decision().chosen().why());
+    }
+
+    @Test
+    @DisplayName("a worn key on the boss floor: it is fetched, however far, then the locked exit is walked to and unlocked, then rested beside and gone down (issue #163)")
+    void unlock_boss_exit_through_the_brain() {
+        // #.........# (11 wide): hero at 1, a worn key at 4, the boss exit locked at 9.
+        List<Brain.Decided> all = each(spent(5, 10, 1, 0),
+                boss(1, true, 'L', 20, 20), boss(2, true, 'L', 20, 20), boss(3, true, 'L', 20, 20),
+                // The Step onto the key's cell is itself a pick-up on arrival (Hero.java:1974-1977):
+                // the next screen shows the key gone.
+                boss(4, false, 'L', 20, 20), boss(5, false, 'L', 20, 20), boss(6, false, 'L', 20, 20),
+                boss(7, false, 'L', 20, 20), boss(8, false, 'L', 20, 20),
+                // Unlock handed over off-screen: the next screen shows the exit open, the hero hurt.
+                boss(8, false, 'U', 10, 20), boss(8, false, 'U', 20, 20), boss(9, false, 'U', 20, 20));
+
+        assertEquals(Pickup.NAME, all.get(0).decision().policy(), all.get(0).decision().toString());
+        for (int i = 0; i < 3; i++) {
+            assertEquals(new Action.Step(2 + i), all.get(i).action(), "wait " + i + ": toward the key");
+            assertEquals(Pickup.NAME, all.get(i).decision().policy(), "wait " + i);
+        }
+        for (int i = 3; i < 7; i++) {
+            assertEquals(Descend.NAME, all.get(i).decision().policy(), "wait " + i + ": " + all.get(i).decision());
+            assertEquals(new Action.Step(5 + (i - 3)), all.get(i).action(), "wait " + i + ": toward the locked exit");
+            assertTrue(all.get(i).decision().chosen().why().startsWith("boss exit: spent "), all.get(i).decision().chosen().why());
+        }
+        assertEquals(Descend.NAME, all.get(7).decision().policy(), all.get(7).decision().toString());
+        assertEquals(new Action.Unlock(9), all.get(7).action(), "beside the locked exit: hand over the key");
+        assertEquals("unlock: spent", all.get(7).decision().chosen().why());
+        assertEquals(new Action.Rest(true), all.get(8).action(), "unlocked, hurt: rest before the Step that travels");
+        assertEquals("rest: descent", all.get(8).decision().chosen().why());
+        assertEquals(new Action.Step(9), all.get(9).action(), "healed: onto the now-open exit");
+        assertEquals(new Action.Descend(), all.get(10).action(), "on the exit: down");
+    }
+
+    @Test
+    @DisplayName("a refused Unlock (no key held) does not loop: the Policy reads the refusal off memory.last(), yields once rather than repeat it, and tries again once anything else was handed over (issue #163)")
+    void refused_unlock_does_not_loop() {
+        // Beside a locked exit with no key ever offered and no heap to fetch one from: the screen
+        // never changes, so a repeat of the same Unlock would be the game refusing it again.
+        Descend descend = new Descend(Screens.CODEX);
+        Observation beside = boss(8, false, 'L', 20, 20);
+        List<Action> offered = beside.actions().actions();
+        Memory memory = spent(5, 10, 1, 0);
+
+        RunLog.Choice first = descend.choose(beside, memory, offered, null);
+        assertEquals(new Action.Unlock(9), first.action(), "the first try");
+        assertEquals("unlock: spent", first.why());
+
+        // The Brain's own handed() records exactly this after an Unlock is taken (Brain.handed()).
+        Memory afterRefusal = memory.handed("Unlock", -1);
+        assertNull(descend.choose(beside, afterRefusal, offered, null),
+                "the screen still shows it locked after an Unlock: refused, not repeated");
+
+        // Once anything else was handed over meanwhile (the pick-up or explore Policy's wait, say),
+        // the refusal is stale and it tries the key again.
+        Memory afterSomethingElse = memory.handed("Step", 7);
+        assertEquals(new Action.Unlock(9), descend.choose(beside, afterSomethingElse, offered, null).action(),
+                "tried again once memory.last() is no longer the refused Unlock");
+    }
+
+    /** {@code screen} with the hero at {@code heroX} of an eleven-wide boss-floor corridor, a worn key's
+     * heap at cell 4 while {@code key}, and the exit at cell 9 drawn {@code exit} ({@code 'L'} or
+     * {@code 'U'}), the hero at {@code hp} of {@code ht} (issue #163). */
+    private static Observation boss(int heroX, boolean key, char exit, int hp, int ht) {
+        char[] row = "#.........#".toCharArray();
+        if (key) {
+            row[4] = 'k';
+        }
+        if (heroX == 9 && exit == 'U') {
+            // Hero already on the now-open exit: 'E' is the legend for that (a plain EXIT tile, which
+            // Descend treats exactly as it does UNLOCKED_EXIT -- both are OPEN_EXITS).
+            row[9] = 'E';
+        } else {
+            row[heroX] = '@';
+            row[9] = exit;
+        }
+        return hero(ExplorePolicyTest.screen(5, new String(row)), hp, ht, Hunger.NONE);
     }
 
     @Test

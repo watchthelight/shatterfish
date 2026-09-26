@@ -76,6 +76,21 @@ import java.util.List;
  * 4.7): those plans come first.
  * It yields for one wait when the hero has stood still after {@link Explore#STUCK} - 1 refused Steps,
  * and the cell of the Step is then blocked ({@link Beliefs#fold}).
+ *
+ * <p><b>A locked exit is walked to and unlocked, not skirted.</b> The boss floor's exit draws
+ * {@code LOCKED_EXIT} until a worn key is used on it, which turns it into {@code UNLOCKED_EXIT}
+ * ({@code SewerBossExitRoom.java:63}, {@code Hero.java:1291-1296}, {@code :2440-2444}); it is solid
+ * (Terrain.java:112), so it is never a Step's target ({@code ValidActions} offers {@link Action.Unlock}
+ * at a neighbour instead, {@code ValidActions.java:207-210}), but it is still the {@code REGULAR_EXIT}
+ * transition {@link #known} and {@link #toward} look for -- the transition record does not carry the
+ * lock, only the tile drawn does (issue #163). So once leaving is worth it, the Policy walks to a cell
+ * beside a locked exit, the same way it walks to an open one, and hands over the Unlock the screen
+ * offers there instead of a Step; the key that makes it good is the pick-up Policy's business
+ * ({@link Pickup#WORN_KEY}), never this one's -- it never reads whether one is held, only whether the
+ * tile is still locked. A refusal (no key held) leaves the screen unchanged, which the Policy reads off
+ * {@link Memory#last} rather than a count of its own, and yields the wait rather than handing over the
+ * same Unlock again: a genuine refusal recurs only once the pick-up Policy has had a wait to act, since
+ * it ranks above this one and no other Policy moves the key.
  */
 final class Descend implements Policy {
 
@@ -135,6 +150,10 @@ final class Descend implements Policy {
         String why = leaving(observation, memory, knowledge);
         if (why == null) {
             return null;
+        }
+        RunLog.Choice unlock = unlock(observation, memory, offered, why);
+        if (unlock != null) {
+            return unlock;
         }
         MapSection map = observation.map();
         if (exit(map, observation.hero().cell())) {
@@ -281,6 +300,61 @@ final class Descend implements Policy {
     static boolean rests(Observation observation, Memory memory) {
         return observation.hero().hp() < observation.hero().ht() && observation.hero().hunger() != Hunger.STARVING
                 && memory.rests() < RESTS;
+    }
+
+    /**
+     * The boss floor's exit while it is still locked (issue #163): the cell beside it and an
+     * {@link Action.Unlock} onto it, once leaving is worth it, or null while no key has opened it or
+     * none is offered yet (the hero not yet beside it, or none of the floor's exits locked at all).
+     * The key that makes the Unlock good is the pick-up Policy's to fetch ({@link Pickup#WORN_KEY}):
+     * this method never looks at what is held, only at the tile and the offer.
+     */
+    private static RunLog.Choice unlock(Observation observation, Memory memory, List<Action> offered, String why) {
+        MapSection map = observation.map();
+        int locked = lockedExitCell(map);
+        if (locked < 0) {
+            return null;
+        }
+        Action.Unlock hand = new Action.Unlock(locked);
+        if (offered.contains(hand)) {
+            if ("Unlock".equals(memory.last())) {
+                // The screen still shows the exit locked after handing this over last wait: no key
+                // was held then. Yield rather than repeat a refusal every wait; the pick-up Policy,
+                // which ranks above this one, gets the next wait to fetch one if it can.
+                return null;
+            }
+            return new RunLog.Choice(hand, Policies.CERTAIN, "unlock: " + why);
+        }
+        Explore.Path path = Explore.nearest(map, Explore.walkable(observation, memory, true),
+                observation.hero().cell(), offered, cell -> adjacent(map, cell, locked));
+        if (path == null) {
+            path = Explore.nearest(map, Explore.walkable(observation, memory, false),
+                    observation.hero().cell(), offered, cell -> adjacent(map, cell, locked));
+        }
+        return path == null ? null
+                : new RunLog.Choice(path.step(), Policies.CERTAIN, "boss exit: " + why + " " + path.distance());
+    }
+
+    /**
+     * The cell of a {@code REGULAR_EXIT} transition the screen draws {@code LOCKED_EXIT}, or -1: the
+     * boss floor's exit before its key opens it (issue #163). The transition record carries no lock
+     * of its own (row 31, {@code rules/levels.md}); only the tile drawn does.
+     */
+    private static int lockedExitCell(MapSection map) {
+        for (TransitionView transition : map.transitions()) {
+            if (transition.kind() == TransitionKind.REGULAR_EXIT && map.tiles().get(transition.cell()) == Tile.LOCKED_EXIT) {
+                return transition.cell();
+            }
+        }
+        return -1;
+    }
+
+    /** Whether {@code cell} is one of {@code target}'s eight neighbours (Chebyshev distance 1, never {@code target} itself). */
+    private static boolean adjacent(MapSection map, int cell, int target) {
+        int width = map.width();
+        int dx = Math.abs(cell % width - target % width);
+        int dy = Math.abs(cell / width - target / width);
+        return cell != target && dx <= 1 && dy <= 1;
     }
 
     /** Whether {@code cell} is a regular exit drawn open. */
