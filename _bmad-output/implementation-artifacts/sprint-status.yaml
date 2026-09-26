@@ -96,11 +96,11 @@ development_status:
   4-6-the-explore-policy: done
   4-7-the-fight-in-corridors-policy: done
   4-8-the-pick-up-and-equip-policies: done
-  4-9-the-eat-and-heal-policies: review
-  4-10-the-test-unknown-items-policy: review
+  4-9-the-eat-and-heal-policies: done
+  4-10-the-test-unknown-items-policy: done
   4-11-the-answer-prompts-policy: in-progress
-  4-12-the-descend-policy: backlog
-  4-13-reach-the-goo-gate-on-the-smoke-set: backlog
+  4-12-the-descend-policy: done
+  4-13-reach-the-goo-gate-on-the-smoke-set: in-progress
   4-14-pass-the-goo-gate-on-the-registered-set: backlog
   epic-4-retrospective: optional
 

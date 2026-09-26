@@ -182,8 +182,11 @@ class AnswerRulesTest {
         assertEquals(new Action.AnswerPrompt(0), decide(Screens.asked(HeroClass.WARRIOR, PromptKind.ITEM,
                 "Broken Seal", List.of("Yes", "No"), List.of())));
         assertEquals(new Action.AnswerPrompt(0), decide(Screens.asked(HeroClass.WARRIOR, PromptKind.ITEM,
-                "Scroll of Upgrade", List.of("Yes, I'm positive", "No, I changed my mind"), List.of())),
-                "story 4.10's cancel confirmation: no declining label, so the lowest answer");
+                "Scroll of Upgrade", Answers.SCROLL_CANCEL, List.of("Yes, I'm positive", "No, I changed my mind"),
+                List.of())), "story 4.10's scroll cancel is affirmed: its no reopens a picker no Action answers");
+        assertEquals(new Action.AnswerPrompt(1), decide(Screens.asked(HeroClass.WARRIOR, PromptKind.HARMFUL_POTION,
+                "Harmful Potion", "Are you sure you want to drink it?", List.of("Yes, I'm positive",
+                        "No, I changed my mind"), List.of())), "every other item confirmation is declined (story 4.10)");
         assertEquals(new Action.DismissPrompt(), decide(Screens.asked(HeroClass.WARRIOR, PromptKind.MESSAGE,
                 "Sewers", List.of(), List.of())));
     }

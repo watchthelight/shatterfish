@@ -42,11 +42,14 @@ public final class Brain {
     private final long seed;
     private final List<Policy> policies;
     private final Pickup pickup;
+    private final TestItem testItem;
 
     /** The Policies, highest priority first, fighting by {@code knowledge} and scoring by {@code evaluation}. */
     private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation) {
-        return List.of(Policies.answerPrompt(knowledge), new Fight(knowledge), new Pickup(evaluation, knowledge),
-                new Equip(evaluation, knowledge), new Explore(), Policies.fallback(evaluation));
+        return List.of(Policies.answerPrompt(knowledge), new Heal(knowledge), new Fight(knowledge), new Eat(),
+                new TestItem(knowledge), new Pickup(evaluation, knowledge), new Equip(evaluation, knowledge),
+                new Descend(knowledge),
+                new Explore(), Policies.fallback(evaluation));
     }
 
     /**
@@ -75,6 +78,7 @@ public final class Brain {
         this.seed = seed;
         this.policies = policies(knowledge, evaluation);
         this.pickup = new Pickup(evaluation, knowledge);
+        this.testItem = new TestItem(knowledge);
     }
 
     /** The weights this Brain scores by. */
@@ -115,10 +119,20 @@ public final class Brain {
         return Fight.MAGES_STAFF;
     }
 
+    /** The foods the eat Policy knows, by the name the inventory shows, and their energy (story 4.9). */
+    public static java.util.Map<String, Integer> foods() {
+        return Eat.ENERGY;
+    }
+
+    /** The foods the Codex names that the eat Policy never eats (story 4.9). */
+    public static java.util.Set<String> uneaten() {
+        return Eat.UNEATEN;
+    }
+
     /** The names of the Policies every Brain arbitrates, highest priority first. */
     public static List<String> policyNames() {
-        return List.of(Policies.ANSWER_PROMPT, Fight.NAME, Pickup.NAME, Equip.NAME, Explore.NAME,
-                Policies.FALLBACK);
+        return List.of(Policies.ANSWER_PROMPT, Heal.NAME, Fight.NAME, Eat.NAME, TestItem.NAME, Pickup.NAME,
+                Equip.NAME, Descend.NAME, Explore.NAME, Policies.FALLBACK);
     }
 
     /** The Policies, highest priority first, by name. */
@@ -134,12 +148,13 @@ public final class Brain {
             "UseItemAt");
 
     /**
-     * The Belief after this Brain hands over {@code decided} on {@code observation} (story 4.7): the
+     * The Belief after this Brain hands over {@code decided} on {@code observation} (stories 4.7, 4.9): the
      * kind of the Action, which the next {@link #update} reads to know what a still hero means, and,
      * when the fight Policy retreated, the region around the nearest enemy, which the explore Policy
      * keeps out of for {@link #AVOID_WAITS} waits so it does not walk straight back into view. The
-     * region reaches one past where the enemy was seen from. Nothing here assumes the Action is
-     * applied.
+     * region reaches one past where the enemy was seen from; and, when the heal Policy handed over a
+     * drink, the wait it did; and, when the descend Policy handed over a rest, one more rest on this
+     * floor. Nothing here assumes the Action is applied.
      *
      * <p>Story 4.11 adds the windows: the Action itself and the item it was used on, which the next
      * screen reads to tell the window a read opened from one the game chained after it; and, when the
@@ -152,10 +167,12 @@ public final class Brain {
      * over the Brain's turn would otherwise shun whatever the Brain did before it.
      */
     public Belief handed(Observation observation, Belief belief, Decided decided) {
-        Memory memory = Memory.of(belief).handed(Beliefs.kind(decided.action()));
+        Memory before = Memory.of(belief);
+        Memory memory = before.handed(Beliefs.kind(decided.action()),
+                decided.action() instanceof Action.Step step ? step.cell() : -1);
+        RunLog.Decision decision = decided.decision();
         Memory.Windows windows = memory.windows();
         java.util.List<Memory.Shun> shunned = windows.shunned();
-        RunLog.Decision decision = decided.decision();
         if (decided.action() instanceof Action.DismissPrompt && decision != null
                 && decision.chosen().why().startsWith(Answers.LEAVE) && !windows.opener().isEmpty()
                 && OPENERS.contains(windows.opener().substring(0, Math.max(0, windows.opener().indexOf('['))))) {
@@ -176,6 +193,23 @@ public final class Brain {
                 ? windows.target() : "";
         memory = memory.windowing(new Memory.Windows(decided.action() == null ? "" : decided.action().toString(),
                 target, windows.opener(), shunned));
+        // A drink the heal Policy handed over (story 4.9): the heal lands over the next turns with no
+        // buff icon, and the floating heal text the game shows is not in the Observation, so the heal
+        // Policy counts the waits since.
+        if (decision != null && Heal.NAME.equals(decision.policy())) {
+            memory = memory.drinking();
+        }
+        // A test handed over (story 4.10): which appearance, how many were held, and the Step's cell
+        // when it walks to a testing cell, so the next screen can tell a test the game refused.
+        if (decision != null && TestItem.NAME.equals(decision.policy())) {
+            Memory.Trial trial = testItem.trial(observation, before, decided.action());
+            memory = memory.trying(trial, trial.step() < 0 && !trial.label().isEmpty()
+                    ? SafeTest.refuge(observation, observation.hero().cell()) : -1);
+        }
+        // A rest the descend Policy handed over before going down (story 4.12), counted toward its bound.
+        if (decision != null && Descend.NAME.equals(decision.policy()) && decided.action() instanceof Action.Rest) {
+            memory = memory.resting();
+        }
         if (decision != null && Fight.NAME.equals(decision.policy())
                 && decision.chosen().why().startsWith("retreat ")) {
             java.util.List<org.shatterfish.api.ActorView> enemies = Fight.enemies(observation);
@@ -205,7 +239,11 @@ public final class Brain {
         // and the memory, so the next screen can tell a refused pick-up or Step from a wait spent
         // otherwise.
         Memory memory = Beliefs.fold(Memory.of(belief), observation, knowledge);
-        return memory.aiming(pickup.aim(observation, memory)).belief();
+        // The test-item Policy ranks above pick-up (story 4.10): when it plans on this screen, pick-up
+        // does not take the wait, and its plan is no plan.
+        Memory.Aim aim = testItem.plan(observation, memory, observation.actions().actions()) != null
+                ? Memory.Aim.NONE : pickup.aim(observation, memory);
+        return memory.aiming(aim).belief();
     }
 
     /**
@@ -235,6 +273,12 @@ public final class Brain {
     public Decided decide(Observation observation, Belief belief) {
         Memory memory = Memory.of(belief);
         List<Action> offered = unshunned(observation, memory);
+        // A rooted hero's Steps and stairs are refused with no time spent, so they are no choice at all
+        // until the roots wear off (story 4.12, Explore.rooted).
+        if (Explore.rooted(observation)) {
+            offered = offered.stream().filter(action -> !(action instanceof Action.Step
+                    || action instanceof Action.Descend || action instanceof Action.Ascend)).toList();
+        }
         if (offered.isEmpty()) {
             return new Decided(null, null, List.of(), "the screen offers no Action");
         }

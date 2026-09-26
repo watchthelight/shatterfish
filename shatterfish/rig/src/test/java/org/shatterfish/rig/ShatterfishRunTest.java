@@ -61,8 +61,23 @@ class ShatterfishRunTest {
                     log.getFileName() + " ended " + cause + ": " + read.end().detail());
             for (RunLog.Wait wait : read.waits()) {
                 assertNotNull(wait.decision(), "a Brain's wait says why: " + log.getFileName() + " at " + wait.k());
-                assertTrue(List.of("answer-prompt", "fight", "pick-up", "equip", "explore", "fallback")
+                assertTrue(List.of("answer-prompt", "heal", "fight", "eat", "test-item", "pick-up", "equip", "explore", "fallback")
                         .contains(wait.decision().policy()), wait.decision().policy());
+                // Story 4.10: a test-item wait drinks or reads the appearance its reason names,
+                // plainly, or Steps toward the cell it tests on, or out of its own fire or gas, or
+                // rests after a test.
+                if ("test-item".equals(wait.decision().policy())) {
+                    String why = wait.decision().chosen().why();
+                    if (wait.action() instanceof org.shatterfish.api.Action.UseItem use) {
+                        assertTrue(List.of("DRINK", "READ").contains(use.action()), why);
+                        assertEquals("test: " + use.item().name(), why);
+                    } else if (wait.action() instanceof org.shatterfish.api.Action.Step) {
+                        assertTrue(why.matches("cell: .+|escape: .+"), why);
+                    } else {
+                        // After a test, short of full health: a rest.
+                        assertEquals("rest: after-test", why);
+                    }
+                }
                 // Story 4.8: a pick-up wait Steps toward an item, naming it and its distance, or
                 // takes the one underfoot; an equip wait puts on the piece its reason names.
                 if ("pick-up".equals(wait.decision().policy())) {
@@ -84,6 +99,18 @@ class ShatterfishRunTest {
                     String why = wait.decision().chosen().why();
                     assertTrue(why.matches("(affirm|decline|answer|subclass|upgrade|guess|leave): .+|dismiss"), why);
                 }
+                // Story 4.9: the eat Policy eats a named food, and the heal Policy drinks with its hit
+                // points and the danger it measured in the reason.
+                if ("eat".equals(wait.decision().policy())) {
+                    assertTrue(wait.decision().chosen().why().matches("eat: .+"), wait.decision().chosen().why());
+                    assertTrue(wait.action() instanceof org.shatterfish.api.Action.UseItem use && use.action().equals("EAT"),
+                            wait.action().toString());
+                }
+                if ("heal".equals(wait.decision().policy())) {
+                    assertTrue(wait.decision().chosen().why().matches("heal [0-9]+/[0-9]+"), wait.decision().chosen().why());
+                    assertTrue(wait.action() instanceof org.shatterfish.api.Action.UseItem use && use.action().equals("DRINK"),
+                            wait.action().toString());
+                }
                 if ("fight".equals(wait.decision().policy())) {
                     fought++;
                     // Story 4.7: the fight Policy attacks, steps, holds, or takes the stairs, and
@@ -94,21 +121,38 @@ class ShatterfishRunTest {
                 }
                 if ("explore".equals(wait.decision().policy())) {
                     explored++;
-                    // Story 4.6: one Step, one Search or the Descend per wait, and the reason names
-                    // which of its plans the Action serves: a Step goes to a frontier, a search
-                    // spot or the exit, n Steps away; a Search is counted against the floor's bound.
+                    // Story 4.6: one Step or one Search per wait, and the reason names which of its
+                    // plans the Action serves: a Step goes to a frontier or a search spot, n Steps
+                    // away; a Search is counted against the floor's bound. The way down is the
+                    // descend Policy's (story 4.12).
                     org.shatterfish.api.Action action = wait.action();
                     String why = wait.decision().chosen().why();
                     if (action instanceof org.shatterfish.api.Action.Step) {
-                        assertTrue(why.matches("(frontier|search-spot|exit|away) [1-9][0-9]*"), why);
+                        assertTrue(why.matches("(frontier|search-spot|away) [1-9][0-9]*"), why);
                     } else if (action instanceof org.shatterfish.api.Action.Search) {
                         assertTrue(why.matches("search ([1-9]|1[0-2])/12|rest: before-descent"), why);
-                    } else if (action instanceof org.shatterfish.api.Action.Rest) {
-                        // Story 4.7: healing on the floor above one it fled by the stairs.
-                        assertEquals("rest: before-descent", why);
                     } else {
-                        assertEquals(new org.shatterfish.api.Action.Descend(), action, why);
-                        assertEquals("descend", why);
+                        // Story 4.7: healing on the floor above one it fled by the stairs.
+                        assertTrue(action instanceof org.shatterfish.api.Action.Rest, action.toString());
+                        assertEquals("rest: before-descent", why);
+                    }
+                }
+                if ("descend".equals(wait.decision().policy())) {
+                    // Story 4.12: a Step toward the exit, a rest beside or on it, or the Descend, and
+                    // the reason names why the hero leaves: the floor spent, hungry with no food, or
+                    // overstayed; or, no exit seen yet, explore's search or frontier plan past its budget.
+                    org.shatterfish.api.Action action = wait.action();
+                    String why = wait.decision().chosen().why();
+                    if (why.startsWith("no exit: ")) {
+                        assertTrue(why.matches("no exit: (frontier|search-spot) [1-9][0-9]*|no exit: search [0-9]+/36"), why);
+                    } else if (action instanceof org.shatterfish.api.Action.Step) {
+                        assertTrue(why.matches("exit: (spent|hungry|overstayed) [1-9][0-9]*"), why);
+                    } else if (action instanceof org.shatterfish.api.Action.Descend) {
+                        assertTrue(why.matches("descend: (spent|hungry|overstayed)"), why);
+                    } else {
+                        assertTrue(action instanceof org.shatterfish.api.Action.Rest
+                                || action instanceof org.shatterfish.api.Action.Search, action.toString());
+                        assertEquals("rest: descent", why);
                     }
                 }
                 assertEquals(wait.action(), wait.decision().chosen().action(), "the Action logged is the one decided");

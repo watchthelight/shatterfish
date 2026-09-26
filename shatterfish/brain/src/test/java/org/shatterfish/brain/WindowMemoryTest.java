@@ -100,7 +100,7 @@ class WindowMemoryTest {
         Belief belief = openAndAnswer(brain, TALK, shop());
         Memory memory = Memory.of(belief);
         assertEquals(memory, Memory.of(memory.belief()), "the bytes carry every field of the windows");
-        assertEquals(6, Memory.VERSION);
+        assertEquals(9, Memory.VERSION);
         Observation calm = Screens.offering(1, new Action.Wait());
         Memory later = Memory.of(brain.update(calm, belief));
         assertEquals("", later.windows().opener(), "no window open, no opener");

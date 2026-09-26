@@ -120,6 +120,11 @@ final class Screens {
         return screen(1, PromptKind.OTHER, new PromptSection(PromptKind.OTHER, title, text, labels), actions);
     }
 
+    /** A screen with a Prompt of {@code kind} open, titled and worded so, its buttons {@code labels} (story 4.10). */
+    static Observation prompted(PromptKind kind, String title, String text, List<String> labels, Action... actions) {
+        return screen(1, kind, new PromptSection(kind, title, text, labels), actions);
+    }
+
     /** A screen with the chasm Prompt open, its buttons labelled {@code labels}, offering {@code actions}. */
     static Observation asking(List<String> labels, Action... actions) {
         return screen(1, PromptKind.CHASM_JUMP, new PromptSection(PromptKind.CHASM_JUMP, "Chasm",
@@ -133,6 +138,12 @@ final class Screens {
      */
     static Observation asked(HeroClass heroClass, PromptKind kind, String title, List<String> labels,
                              List<ItemView> items) {
+        return asked(heroClass, kind, title, "", labels, items);
+    }
+
+    /** As {@link #asked(HeroClass, PromptKind, String, List, List)}, with the Prompt's text. */
+    static Observation asked(HeroClass heroClass, PromptKind kind, String title, String text, List<String> labels,
+                             List<ItemView> items) {
         HeaderSection header = new HeaderSection(ObservationCodec.SCHEMA_VERSION, "v4.0.0", "", heroClass,
                 List.of(), 1, 0, false, false, kind);
         List<Tile> tiles = List.of(Tile.EMPTY, Tile.EMPTY, Tile.EMPTY);
@@ -140,7 +151,7 @@ final class Screens {
                 List.of(), Feeling.NONE, List.of());
         Observation bare = new Observation(header, map, new ActorsSection(List.of()), hero(),
                 new InventorySection(items), new JournalSection(List.of(), List.of()), new LogSection(List.of()),
-                ActionsSection.NONE, new PromptSection(kind, title, "", labels));
+                ActionsSection.NONE, new PromptSection(kind, title, text, labels));
         return bare.withActions(org.shatterfish.api.ValidActions.of(bare));
     }
 
@@ -236,6 +247,49 @@ final class Screens {
     static ActorView enemy(String name, int cell) {
         return new ActorView(cell, name, org.shatterfish.api.Alignment.ENEMY, 1, false, org.shatterfish.api.Emote.NONE,
                 List.of());
+    }
+
+    /** An item in the backpack offering {@code actions}, of a kind no Policy acts on (story 4.10). */
+    static ItemView using(String name, String... actions) {
+        return new ItemView(ItemKind.ARTIFACT, name, 1, false, 0, false, false, "", org.shatterfish.api.EquipSlot.NONE,
+                List.of(actions), "");
+    }
+
+    /** An unidentified potion or scroll in the backpack, offering what the game offers for it (story 4.10). */
+    static ItemView unknown(ItemKind kind, String name, int quantity) {
+        List<String> actions = kind == ItemKind.POTION ? List.of("DRINK", "DROP", "THROW") : List.of("DROP", "READ", "THROW");
+        return new ItemView(kind, name, quantity, false, 0, false, false, "", org.shatterfish.api.EquipSlot.NONE, actions,
+                "");
+    }
+
+    /** A three-cell floor, the hero on cell 1, holding {@code items}, offering {@code actions} (story 4.10). */
+    static Observation holding(List<ItemView> items, Action... actions) {
+        return world(1, PromptKind.NONE, PromptSection.NONE, hero(1, 1, 1, 1, Hunger.NONE), 3,
+                List.of(Tile.EMPTY, Tile.EMPTY, Tile.EMPTY), List.of(), List.of(), items, List.of(), actions);
+    }
+
+    /** A hero on {@code cell} with {@code hp} of {@code ht} and these buffs shown (story 4.10). */
+    static HeroSection heroAt(int cell, int hp, int ht, List<org.shatterfish.api.BuffView> buffs) {
+        return new HeroSection(cell, "", HeroSubclass.NONE, "", 1, 0, 1, hp, ht, 0, 10, 0, 0, 0,
+                Hunger.NONE, buffs, List.of(), List.of(0, 0, 0, 0),
+                Collections.nCopies(HeroSection.QUICKSLOTS, new QuickslotView("", false)));
+    }
+
+    /**
+     * A floor for the test-item Policy (story 4.10): {@code width} wide, every tile in view, these
+     * blobs drawn, this hero and pack, these actors in view and these names identified, offering
+     * {@code actions}.
+     */
+    static Observation lab(int depth, int width, List<Tile> tiles, List<org.shatterfish.api.BlobCell> blobs,
+                           HeroSection hero, List<ItemView> items, List<ActorView> actors, List<KnownAppearance> known,
+                           Action... actions) {
+        HeaderSection header = new HeaderSection(ObservationCodec.SCHEMA_VERSION, "v4.0.0", "", HeroClass.WARRIOR,
+                List.of(), depth, 0, false, false, PromptKind.NONE);
+        MapSection map = new MapSection(width, tiles.size() / width, tiles,
+                Collections.nCopies(tiles.size(), Fog.VISIBLE), List.of(), List.of(), blobs, Feeling.NONE, List.of());
+        return new Observation(header, map, new ActorsSection(actors), hero, new InventorySection(items),
+                new JournalSection(List.of(), known), new LogSection(List.of()),
+                new ActionsSection(List.of(actions)), PromptSection.NONE);
     }
 
     private static Observation world(int depth, PromptKind kind, PromptSection prompt, int hp, int ht, Hunger hunger,

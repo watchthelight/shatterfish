@@ -155,6 +155,69 @@ it re-reads ADR-0006's Blobs row.
   family's deck, an assumption. The rig can measure the real share of unidentified finds per identity from
   oracle-mode logs, which carry the true identity as a training label.
 
+## From story 4.9 (eat and heal)
+
+- **A Codex food table.** The eat Policy's food energies are a hand-written table in `Eat`, cited line
+  by line and held to the Codex's item names by `FoodCodexTest`. The Codex generator could extract
+  each food class's `energy` initialiser the way it extracts combat figures, and hand it to the Brain
+  through `Codex.Knowledge`, so an upgrade that changes an energy fails the Codex drift check rather
+  than a re-read.
+- **Healing by deduction.** A potion counts as a potion of healing only when the screen shows it
+  identified. When `Beliefs` puts an appearance's odds of healing at one (every other identity
+  accounted for), a player would drink it with the same confidence; story 4.10, which tests unknown
+  items, is where that belongs.
+- **Healing out of combat.** The heal Policy drinks only against enemies in view. A hero poisoned or
+  bleeding for more than its hit points, with nothing in view, dies with the potion in the pack; the
+  potion cures both (PotionOfHealing.java:76-86). Measuring the poison left from the buff's shown turns
+  would give a threshold for that case.
+- **The heal in progress.** The game shows a floating heal number over the hero each turn a heal lands,
+  and the sprite's healing state (Healing.java:61, :107-111), neither of which is in the Observation.
+  The heal Policy instead counts waits since the drink it handed over. Carrying the sprite's healing
+  state in the hero section (an Observer change, with its leak tests) would let the Brain see a heal
+  running, whoever started it.
+- **The Vial of Blood.** The trinket spreads a potion's heal over more turns and caps each turn's heal
+  (Healing.java:80-82, :91-93). The heal Policy's first-turn and remaining-heal figures assume it is
+  absent; the trinket shows in the inventory, so its level could be read and the figures scaled.
+- **Shooters by line of fire.** The heal and eat Policies treat a shooting enemy in view as able to hit
+  the hero wherever it stands. The game fires only along a clear bolt or projectile line (Ballistica);
+  the Brain could trace the line over the tiles the map draws.
+- **Cooking.** Mystery meat is eaten last because of its side effects; frozen carpaccio and chargrilled
+  meat have none. Cooking it (fire, frost, the alchemy pot) and brewing blandfruit are left to a later
+  story, and the table lists blandfruit as never eaten until then.
+
+## From story 4.10 (the test-item Policy)
+
+- **Read onto a target once the upgrade window is answerable.** An unknown scroll is read plainly, so the
+  first scroll of upgrade, remove curse or transmutation read unknown is spent on identifying itself. Once
+  the harness answers `WndUpgrade` (story 4.11, or a harness story), reading onto the worn armour or weapon
+  would make that first read count.
+- **A test's expected payoff.** Potions are drunk by thresholds (half health, healing at least a fifth of
+  the odds, a quarter of the hit points kept after the worst case) and scrolls by the item-picker share.
+  A model that values a test as the effect's worth now, plus what knowing buys later (a known healing
+  potion is one the heal Policy can drink in a fight), less the 30 score an unknown item holds and the
+  expected hit points spent, would replace them once the rig can measure what knowing healing is worth.
+- **What knowing is worth.** The Policy tests at the first calm moment and ranks appearances by copies held
+  times candidates left. An Evaluation of what an identity buys (a known healing potion in a fight, a
+  known upgrade on the right item) would let it wait, or test a likely-healing potion only when hurt.
+- **Throwing to test.** A thrown potion shatters where it lands (`Potion.java:309-330`, `:336-342`): a harmful one
+  identifies itself, a beneficial one splashes harmlessly and is wasted, and that line then rules the harmful
+  ones out. Worth it only when the harmful share is high and the hero is too weak to drink.
+- **The windows the fallback used to open.** The holy tome's spell window, the upgrade window and the stone
+  of intuition's guess window are not Prompts the harness recognises. The fallback now leaves items alone,
+  and a Policy that means to use those items needs the windows answerable first.
+
+## From story 4.12 (the descend Policy)
+
+- **Which way to flee.** The fight Policy's retreat takes the nearer regular stairs, up or down, except
+  down onto a boss floor or down hurt while the descend Policy is leaving (story 4.12's review). Fleeing
+  only up measured worse on story 4.9's Brain (mean deepest floor 2.52 to 2.20). Worth a proper SPRT once
+  the Goo gate measures depth and survival together.
+- **Traps on the only way to the exit.** The descend Policy never paths through an armed trap. A floor
+  whose only way to the exit crosses a known trap in a one-wide corridor leaves the hero searching for
+  another; walking the trap as a last resort would need its worst case scored.
+- **What an allowance is worth.** The descend Policy's allowance (500 waits, 250 more per guaranteed drop
+  expected) is an assumption, not a measurement. Tuning it needs the rig's SPRT, not `smoke`.
+
 ## From story 4.11 (answer prompts)
 
 - **Read a known scroll of upgrade onto the worn gear.** The upgrade window's rule only confirms a target

@@ -269,6 +269,24 @@ the mutant killed.
 Docs: ADR-0011 (the `detail` member), the ui shop Rule, `docs/brain-rules.md` row 40 (the shun),
 `docs/architecture.md`, and `docs/ideas.md` (the wrong guess, and the selector as a Prompt).
 
+### Merge with main at `5c0d13993` (stories 4.9, 4.10, 4.12)
+
+**Memory is version 9.** It has main's 36 fields, then `windows`, appended.
+- Every helper in `Memory` passes every field: `aiming`, `handed`, `avoiding`, `drinking`, `trying`,
+  `resting` and `windowing`. Eight constructor calls were checked by argument count.
+- The two constructions in `Beliefs.fold` carry the windows (`opened(...)`, `after.windows()`).
+- Story 4.12's 36-argument shape is kept and defaults the windows to none.
+
+**Other resolutions:**
+- **Answer rules:** story 4.10's item-confirmation rule moves into `Answers.general`, and its tests are
+  kept. The scroll-cancel text is affirmed; any other ITEM or HARMFUL_POTION confirmation is declined by
+  "No, I changed my mind". `Policies.SCROLL_CANCEL` and `ITEM_DECLINE` remain as aliases.
+- **`Brain.handed`:** main's Step cell, drink, trial and rest bookkeeping, plus the windows.
+- **`Brain.decide`:** the shunned Actions are filtered first, then main's rooted filter.
+- **Policy order:** answer-prompt, heal, fight, eat, test-item, pick-up, equip, descend, explore,
+  fallback.
+- **Brain Rules index:** this story's rows are renumbered 59–64, after main's 58.
+
 ## Dev Notes
 
 **Tests (one gradle job at a time):**

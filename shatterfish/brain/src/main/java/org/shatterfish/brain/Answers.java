@@ -21,8 +21,10 @@ import java.util.Map;
  * <p>The rules, by kind:
  * <ul>
  *   <li><b>general</b> (talent, quest, alchemy, chasm, harmful potion, resurrection, item, other,
- *       message): story 4.1's rule as story 4.8 left it. "yes" to the broken seal's transfer,
- *       else decline where a declining answer is offered, else the lowest answer, else dismiss.</li>
+ *       message): story 4.1's rule as stories 4.8 and 4.10 left it. "yes" to the broken seal's
+ *       transfer, else decline where a declining answer is offered (an item's confirmation is also
+ *       declined by "No, I changed my mind", except the unknown scroll's cancel, whose "Yes, I'm
+ *       positive" is the only answer that closes it), else the lowest answer, else dismiss.</li>
  *   <li><b>subclass</b>: the subclass {@link #SUBCLASSES} names for the hero's class, then "yes"
  *       to the game's are-you-sure.</li>
  *   <li><b>shop</b>: leave. The Brain has no model of prices, the shopkeeper's first option is to
@@ -126,9 +128,19 @@ final class Answers {
         List<Action.AnswerPrompt> declining = new ArrayList<>();
         List<Action.AnswerPrompt> answers = new ArrayList<>();
         Action dismiss = null;
+        PromptKind kind = observation.prompt().kind();
+        boolean item = kind == PromptKind.ITEM || kind == PromptKind.HARMFUL_POTION;
+        boolean scrollCancel = item && SCROLL_CANCEL.equals(observation.prompt().text().strip());
         for (Action action : offered) {
             if (action instanceof Action.AnswerPrompt answer) {
-                (declines(label(labels, answer)) ? declining : answers).add(answer);
+                String said = label(labels, answer);
+                boolean itemDecline = item && ITEM_DECLINE.equalsIgnoreCase(said);
+                // An item confirmation is declined by "No, I changed my mind", unless it is the
+                // scroll's cancel, where that answer would reopen the picker (story 4.10).
+                if (itemDecline && scrollCancel) {
+                    continue;
+                }
+                (declines(said) || itemDecline ? declining : answers).add(answer);
             } else if (action instanceof Action.DismissPrompt) {
                 dismiss = action;
             }
@@ -282,6 +294,22 @@ final class Answers {
 
     /** The answer that affirms such a Prompt. */
     private static final String YES = "yes";
+
+    /**
+     * The one item confirmation the general rule affirms (story 4.10): an unknown inventory scroll read
+     * without a target asks this when its picker is sent away, and "Yes, I'm positive" consumes it,
+     * where "No, I changed my mind" reopens a picker no Action answers (InventoryScroll.java:52-80,
+     * :137-139; items.properties:1155-1157).
+     */
+    static final String SCROLL_CANCEL = "Do you really want to cancel this scroll usage? The scroll wasn't previously"
+            + " identified, so it will be consumed anyway.";
+
+    /**
+     * The answer that declines every other item confirmation (story 4.10): a known harmful potion's
+     * drink and a beneficial potion's throw (Potion.java:239-252, :265-281; items.properties:740-741),
+     * and the scroll's cancel read otherwise.
+     */
+    static final String ITEM_DECLINE = "No, I changed my mind";
 
     /** Whether a button label declines. Case-blind without a Locale, which the Brain may not read. */
     static boolean declines(String label) {

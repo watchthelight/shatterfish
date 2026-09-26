@@ -28,6 +28,12 @@ final class Policies {
     /** The score of a Choice a Policy is sure of, in ten-thousandths. */
     static final long CERTAIN = 10_000;
 
+    /** Story 4.10's scroll-cancel confirmation, which {@link Answers} affirms (kept here for its tests). */
+    static final String SCROLL_CANCEL = Answers.SCROLL_CANCEL;
+
+    /** The answer that declines every other item confirmation (story 4.10; {@link Answers}). */
+    static final String ITEM_DECLINE = Answers.ITEM_DECLINE;
+
     /** The first of a ranking, or null when it is empty. */
     private static RunLog.Choice first(List<RunLog.Choice> ranked) {
         return ranked.isEmpty() ? null : ranked.get(0);
@@ -73,6 +79,17 @@ final class Policies {
         };
     }
 
+    /** Whether {@code action} uses an item from the pack: on its own, at a cell or on another item. */
+    static boolean usesItem(Action action) {
+        return action instanceof Action.UseItem || action instanceof Action.UseItemAt
+                || action instanceof Action.UseItemOn;
+    }
+
+    /** Whether {@code action} eats an item, which only the eat Policy does (story 4.9). */
+    static boolean eats(Action action) {
+        return action instanceof Action.UseItem use && use.action().equals("EAT");
+    }
+
     /**
      * The fallback's name, which {@link Brain#policyNames()} lists without building one.
      */
@@ -81,6 +98,8 @@ final class Policies {
     /**
      * The floor under every Policy a later story adds: uniformly, from the Brain's seeded stream,
      * among the offered Actions that score highest by {@code evaluation} (stories 4.1, 4.4, 4.5).
+     * Eating is not among them (story 4.9): it is the eat Policy's, which eats only when the hunger
+     * icon says the food will not be wasted, and a uniform draw would eat at full satiety.
      *
      * <p>It ranks by tiers. The Actions are grouped by their Evaluation score, highest first, and
      * each tier is drawn from uniformly with the stream, one draw per Choice, until a pick and as
@@ -96,6 +115,14 @@ final class Policies {
      * "uniform 1/k" when every Action offered scores alike -- the committed weights, which give the
      * Action features no weight, so play and draws are story 4.4's exactly -- else "top 1/k" for the
      * highest tier and "lower 1/k" for a tier below it.
+     *
+     * <p>It leaves the items alone while anything else is offered (story 4.10): an item use is drawn
+     * only on a screen that offers nothing but item uses. A random use wastes the item and can open a
+     * window no Action answers -- the Cleric's spell window from the holy tome (HolyTome.java:93),
+     * the upgrade window from a scroll of upgrade read onto an item (ScrollOfUpgrade.java:64), the
+     * guess window from a stone of intuition (StoneOfIntuition.java:73) -- which is how every Run
+     * that ended on an unknown window in story 4.8's direction check ended. Using items is the
+     * Policies' to do deliberately: equip wears gear, test-item drinks and reads.
      */
     static Policy fallback(Evaluation evaluation) {
         return new Policy() {
@@ -124,7 +151,10 @@ final class Policies {
                                               Stream stream) {
                 // The tiers, highest score first, each in the order the screen offers its Actions.
                 java.util.TreeMap<Long, List<Action>> tiers = new java.util.TreeMap<>(Comparator.reverseOrder());
-                for (Action action : offered) {
+                // Never an item use -- eating among them, which is the eat Policy's (story 4.9) --
+                // unless item uses are all the screen offers: a Run is not ended for want of one.
+                List<Action> drawn = offered.stream().filter(action -> !usesItem(action)).toList();
+                for (Action action : drawn.isEmpty() ? offered : drawn) {
                     tiers.computeIfAbsent(evaluation.of(observation, action), score -> new ArrayList<>()).add(action);
                 }
                 boolean alike = tiers.size() <= 1;
