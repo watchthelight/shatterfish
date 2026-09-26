@@ -40,7 +40,10 @@ import java.util.Set;
  *       neither the hold nor the chokepoint can loop against them. A character attacks
  *       any of its eight neighbours ({@code Mob.canAttack}, {@code Level.adjacent}), so how many can
  *       engage a cell is how many of its neighbours an enemy can stand on.</li>
- *   <li><b>Approach</b> an enemy when the fight is favourable.</li>
+ *   <li><b>Approach</b> an enemy when the fight is favourable; and when the enemy it approached drops out
+ *       of view, <b>chase</b>: walk on to beside the cell the screen last showed it on, for at most
+ *       {@link #CHASE_WAITS} waits (issue #174). The Policy enters for that on a screen with no enemy in
+ *       view, which is the one case it does.</li>
  *   <li><b>Retreat</b> when it is not: by the regular stairs while the floor is not sealed -- the
  *       boss fight's seal refuses every transition -- and not along a path beside an enemy, and
  *       otherwise away from the enemies. The surface and branch stairs are not a retreat: the
@@ -112,9 +115,96 @@ final class Fight implements Policy {
         return "fight: enemy";
     }
 
+    /**
+     * The most waits after an approach the Policy walks on toward where the enemy stood once it is out of
+     * view (issue #174). An enemy seen from one cell and not from the next -- round a corner, across a
+     * doorway -- made the Policy approach from the first and the Policy below it walk back from the
+     * second, for hundreds of turns. An assumption: a sleeping enemy stays where it lies (row 70), and an
+     * awake one that walked off is not followed further than a room's width.
+     */
+    static final int CHASE_WAITS = 10;
+
     @Override
     public boolean enters(Observation observation, Memory memory) {
-        return observation.header().prompt() == PromptKind.NONE && !enemies(observation).isEmpty();
+        return observation.header().prompt() == PromptKind.NONE
+                && (!enemies(observation).isEmpty() || chasing(observation, memory));
+    }
+
+    /**
+     * Whether the Policy walks on toward an enemy it approached that is out of view (issue #174): no
+     * enemy in view, and the Memory's chase on this floor, handed over at most {@link #CHASE_WAITS} waits
+     * ago, and not yet reached. The chase is where the screen showed the enemy, never where it is.
+     */
+    static boolean chasing(Observation observation, Memory memory) {
+        Memory.Spot chase = memory.chase();
+        return chase.cell() >= 0 && enemies(observation).isEmpty()
+                && chase.on(observation.header().depth(), observation.header().branch())
+                && memory.waits() - memory.chased() <= CHASE_WAITS
+                && chase.cell() < observation.map().tiles().size()
+                && chebyshev(observation.map(), observation.hero().cell(), chase.cell()) > 1;
+    }
+
+    /**
+     * How many waits a sighting of an enemy now out of view still counts toward whether a fight is
+     * favourable (issue #174). An assumption: a sleeping enemy stays where it lies (row 70), and an
+     * awake one out of view is not assumed gone for this long.
+     */
+    static final int RECALL_WAITS = 20;
+
+    /**
+     * The enemies a fight is weighed against (issue #174): those in view, and those seen on this floor in
+     * the last {@link #RECALL_WAITS} waits and out of view now, on a cell the screen does not show, at full
+     * health. Weighed against the enemies in view alone, a fight turned favourable as the hero stepped
+     * where one of two enemies was hidden, and unfavourable as it stepped back where both showed, and
+     * the Policy approached and retreated between the two cells for hundreds of turns. A cell the screen
+     * shows empty says the enemy is not there, which is how a killed one stops counting.
+     */
+    static List<ActorView> threats(Observation observation, Memory memory, List<ActorView> enemies) {
+        List<ActorView> threats = new ArrayList<>(enemies);
+        MapSection map = observation.map();
+        for (Memory.Seen seen : memory.monsters()) {
+            if (seen.depth() == observation.header().depth() && seen.at() < memory.waits()
+                    && memory.waits() - seen.at() <= RECALL_WAITS && !PASSIVE.contains(seen.name())
+                    && seen.cell() < map.tiles().size() && map.fog().get(seen.cell()) != Fog.VISIBLE) {
+                threats.add(new ActorView(seen.cell(), seen.name(), Alignment.ENEMY, ObservationCodec.MAX_HEALTH_PIPS,
+                        false, org.shatterfish.api.Emote.NONE, List.of()));
+            }
+        }
+        return threats;
+    }
+
+    /** The Chebyshev distance between two cells of {@code map}. */
+    static int chebyshev(MapSection map, int a, int b) {
+        int width = map.width();
+        return Math.max(Math.abs(a % width - b % width), Math.abs(a / width - b / width));
+    }
+
+    /** The offered Step that starts the shortest walk to beside the cell of the Memory's chase, or null. */
+    private static RunLog.Choice chase(Observation observation, Memory memory, List<Action> offered) {
+        MapSection map = observation.map();
+        int target = memory.chase().cell();
+        Path path = walk(map, Explore.walkable(observation, memory, false), observation.hero().cell(), offered,
+                cell -> chebyshev(map, cell, target) <= 1);
+        return path == null ? null : new RunLog.Choice(path.step, Policies.CERTAIN, "chase " + path.distance);
+    }
+
+    /**
+     * The cell of the enemy an approach handed over on {@code observation} goes for: the nearest in view,
+     * ties to the lower cell; -1 with none (issue #174).
+     */
+    static int quarry(Observation observation) {
+        MapSection map = observation.map();
+        int hero = observation.hero().cell();
+        int best = -1;
+        int nearest = Integer.MAX_VALUE;
+        for (ActorView enemy : enemies(observation)) {
+            int distance = chebyshev(map, hero, enemy.cell());
+            if (distance < nearest || (distance == nearest && enemy.cell() < best)) {
+                nearest = distance;
+                best = enemy.cell();
+            }
+        }
+        return best;
     }
 
     @Override
@@ -127,7 +217,8 @@ final class Fight implements Policy {
     public List<RunLog.Choice> ranked(Observation observation, Memory memory, List<Action> offered, Stream stream) {
         List<ActorView> enemies = enemies(observation);
         if (enemies.isEmpty()) {
-            return List.of();
+            RunLog.Choice chase = chasing(observation, memory) ? chase(observation, memory, offered) : null;
+            return chase == null ? List.of() : List.of(chase);
         }
         MapSection map = observation.map();
         int hero = observation.hero().cell();
@@ -137,7 +228,7 @@ final class Fight implements Policy {
                 adjacent.add(enemy);
             }
         }
-        boolean favourable = favourable(observation, knowledge, enemies);
+        boolean favourable = favourable(observation, knowledge, threats(observation, memory, enemies));
         RunLog.Choice retreat = retreat(observation, memory, offered, enemies, knowledge);
         List<RunLog.Choice> ranked = new ArrayList<>();
         // Goo's pump-up, announced in the log: out of its reach first, which makes it step and drop the

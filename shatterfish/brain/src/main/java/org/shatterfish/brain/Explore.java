@@ -232,34 +232,33 @@ final class Explore implements Policy {
     }
 
     /**
-     * The offered Step that most increases the distance from the centre of a region the fight Policy
-     * retreated from, when the hero stands inside one (story 4.7); null when it stands in none, or no
-     * Step takes it farther out.
+     * The offered Step that starts the shortest walk out of every region the fight Policy retreated from,
+     * when the hero stands inside one (story 4.7); null when it stands in none, or no walk leads out. The
+     * reason counts the Steps out. The first Step never goes nearer the centre of a region the hero
+     * stands in, which is where the enemy was.
+     *
+     * <p>Story 4.7 stepped to the neighbour farthest from the centre of the first region covering the
+     * hero, one region at a time; where two regions overlapped, the way out of one led into the other and
+     * back, for as long as they lasted (issue #174). All of them count at once now.
      */
     static RunLog.Choice away(Observation observation, Memory memory, List<Action> offered) {
         MapSection map = observation.map();
         int depth = observation.header().depth();
         int branch = observation.header().branch();
         int hero = observation.hero().cell();
-        boolean[] open = walkable(observation, memory, false);
-        for (Memory.Avoid region : memory.avoided(depth, branch, memory.waits())) {
-            if (region.covers(depth, branch, hero, map.width())) {
-                Action.Step away = null;
-                int farthest = distance(map, hero, region.cell());
-                for (Action action : offered) {
-                    if (action instanceof Action.Step step && step.cell() < open.length && open[step.cell()]
-                            && distance(map, step.cell(), region.cell()) > farthest
-                            && !map.transitions().stream().anyMatch(t -> t.cell() == step.cell())) {
-                        away = step;
-                        farthest = distance(map, step.cell(), region.cell());
-                    }
-                }
-                if (away != null) {
-                    return new RunLog.Choice(away, Policies.CERTAIN, "away " + farthest);
-                }
-            }
+        int width = map.width();
+        List<Memory.Avoid> regions = memory.avoided(depth, branch, memory.waits());
+        List<Memory.Avoid> around = regions.stream().filter(region -> region.covers(depth, branch, hero, width)).toList();
+        if (around.isEmpty()) {
+            return null;
         }
-        return null;
+        boolean[] open = walkable(observation, memory, false);
+        List<Action> outward = offered.stream().filter(action -> !(action instanceof Action.Step step)
+                || around.stream().allMatch(region -> distance(map, step.cell(), region.cell())
+                        >= distance(map, hero, region.cell()))).toList();
+        Path out = nearest(map, open, hero, outward,
+                cell -> regions.stream().noneMatch(region -> region.covers(depth, branch, cell, width)));
+        return out == null ? null : new RunLog.Choice(out.step(), Policies.CERTAIN, "away " + out.distance());
     }
 
     /**
