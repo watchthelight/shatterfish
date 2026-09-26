@@ -214,6 +214,14 @@ public final class Brain {
         if (decision != null && Descend.NAME.equals(decision.policy()) && decided.action() instanceof Action.Rest) {
             memory = memory.resting();
         }
+        // An Unlock the descend Policy handed over at a locked exit (issue #163's fairness review),
+        // recorded whether or not it succeeds: once it does the exit is no longer LOCKED_EXIT and
+        // Descend never consults this again for it, so recording every try costs nothing and a
+        // refusal is never walked back into on its own.
+        if (decision != null && Descend.NAME.equals(decision.policy()) && decided.action() instanceof Action.Unlock unlock) {
+            memory = memory.unlockRefused(new Memory.Spot(observation.header().depth(), observation.header().branch(),
+                    unlock.cell()));
+        }
         if (decision != null && Fight.NAME.equals(decision.policy())
                 && decision.chosen().why().startsWith("retreat ")) {
             java.util.List<org.shatterfish.api.ActorView> enemies = Fight.enemies(observation);

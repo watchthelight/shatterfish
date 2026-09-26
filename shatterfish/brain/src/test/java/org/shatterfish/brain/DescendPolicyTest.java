@@ -81,6 +81,20 @@ class DescendPolicyTest {
                 Memory.Pack.NONE, Memory.Aim.NONE, -1, Memory.Trial.NONE, List.of(), 0, -1, List.of(), -1, arrived, rests, -1, -1, List.of());
     }
 
+    /**
+     * A memory already standing at {@code cell} of depth 5, branch 0, {@code waits} waits in, arrived
+     * at {@code arrived} (issue #163's fairness review): unlike {@link #at}, whose {@code Spot.NOWHERE}
+     * makes {@code Beliefs.fold} see the very first screen as a fresh arrival and reset {@code arrived}
+     * to that wait (Beliefs.java:243-244), which would undo an overstayed setup before Descend ever saw
+     * it. For a multi-wait test through the Brain that needs a floor already overstayed at wait 0.
+     */
+    static Memory arrivedAt(int cell, long waits, long arrived, int rests) {
+        return new Memory(waits, 5, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                new Memory.Spot(5, 0, cell), 0, false, List.of(), List.of(), "", 0, -1, -1, List.of(), List.of(), "",
+                List.of(), Memory.Pack.NONE, Memory.Aim.NONE, -1, Memory.Trial.NONE, List.of(), 0, -1, List.of(), -1,
+                arrived, rests, -1, -1, List.of());
+    }
+
     private static final Observation ROOM = ExplorePolicyTest.screen(2,
             "#######",
             "#@..>.#",
@@ -517,13 +531,13 @@ class DescendPolicyTest {
     void unlock_boss_exit_through_the_brain() {
         // #.........# (11 wide): hero at 1, a worn key at 4, the boss exit locked at 9.
         List<Brain.Decided> all = each(spent(5, 10, 1, 0),
-                boss(1, true, 'L', 20, 20), boss(2, true, 'L', 20, 20), boss(3, true, 'L', 20, 20),
+                boss(1, true, false, 'L', 20, 20), boss(2, true, false, 'L', 20, 20), boss(3, true, false, 'L', 20, 20),
                 // The Step onto the key's cell is itself a pick-up on arrival (Hero.java:1974-1977):
-                // the next screen shows the key gone.
-                boss(4, false, 'L', 20, 20), boss(5, false, 'L', 20, 20), boss(6, false, 'L', 20, 20),
-                boss(7, false, 'L', 20, 20), boss(8, false, 'L', 20, 20),
+                // the next screen shows the key gone and the journal shows it held.
+                boss(4, false, true, 'L', 20, 20), boss(5, false, true, 'L', 20, 20), boss(6, false, true, 'L', 20, 20),
+                boss(7, false, true, 'L', 20, 20), boss(8, false, true, 'L', 20, 20),
                 // Unlock handed over off-screen: the next screen shows the exit open, the hero hurt.
-                boss(8, false, 'U', 10, 20), boss(8, false, 'U', 20, 20), boss(9, false, 'U', 20, 20));
+                boss(8, false, true, 'U', 10, 20), boss(8, false, true, 'U', 20, 20), boss(9, false, true, 'U', 20, 20));
 
         assertEquals(Pickup.NAME, all.get(0).decision().policy(), all.get(0).decision().toString());
         for (int i = 0; i < 3; i++) {
@@ -545,35 +559,73 @@ class DescendPolicyTest {
     }
 
     @Test
-    @DisplayName("a refused Unlock (no key held) does not loop: the Policy reads the refusal off memory.last(), yields once rather than repeat it, and tries again once anything else was handed over (issue #163)")
+    @DisplayName("a refused Unlock (no key held) is tried once, remembered, and never repeated until the journal shows a key taken (issue #163's fairness review)")
     void refused_unlock_does_not_loop() {
         // Beside a locked exit with no key ever offered and no heap to fetch one from: the screen
         // never changes, so a repeat of the same Unlock would be the game refusing it again.
         Descend descend = new Descend(Screens.CODEX);
-        Observation beside = boss(8, false, 'L', 20, 20);
+        Observation beside = boss(8, false, false, 'L', 20, 20);
         List<Action> offered = beside.actions().actions();
         Memory memory = spent(5, 10, 1, 0);
 
         RunLog.Choice first = descend.choose(beside, memory, offered, null);
-        assertEquals(new Action.Unlock(9), first.action(), "the first try");
+        assertEquals(new Action.Unlock(9), first.action(), "tried once, honestly");
         assertEquals("unlock: spent", first.why());
 
-        // The Brain's own handed() records exactly this after an Unlock is taken (Brain.handed()).
-        Memory afterRefusal = memory.handed("Unlock", -1);
+        // The Brain's own handed() records exactly this after an Unlock is handed over (Brain.handed()).
+        Memory afterRefusal = memory.unlockRefused(new Memory.Spot(5, 0, 9));
         assertNull(descend.choose(beside, afterRefusal, offered, null),
-                "the screen still shows it locked after an Unlock: refused, not repeated");
+                "refused and remembered: never tried again while the journal shows no key");
+        // Nor does it walk back toward the door for it: no plan at all while the memory says so, not
+        // even a Step, however far the hero has wandered since.
+        Observation farAway = boss(4, false, false, 'L', 20, 20);
+        assertNull(descend.choose(farAway, afterRefusal, farAway.actions().actions(), null),
+                "no walk back to the door either, while the memory says so");
 
-        // Once anything else was handed over meanwhile (the pick-up or explore Policy's wait, say),
-        // the refusal is stale and it tries the key again.
-        Memory afterSomethingElse = memory.handed("Step", 7);
-        assertEquals(new Action.Unlock(9), descend.choose(beside, afterSomethingElse, offered, null).action(),
-                "tried again once memory.last() is no longer the refused Unlock");
+        // A worn key for this depth now shows in the journal (Key.java:53-69: collected into Notes on
+        // pickup, never the pack) -- taken since the refusal, so it tries again despite the memory.
+        Observation holding = boss(8, false, true, 'L', 20, 20);
+        assertEquals(new Action.Unlock(9), descend.choose(holding, afterRefusal, offered, null).action(),
+                "a key now shown in the journal: tried again despite the memory");
+    }
+
+    @Test
+    @DisplayName("beside a locked exit with no key, a frontier left and the floor overstayed: it tries the Unlock once, then defers entirely so explore makes real progress across many waits, and tries again once the journal shows a key taken (issue #163's fairness review)")
+    void yields_to_explore_when_refused_with_frontier_left() {
+        // L.........   (13 wide, cells 11-12 never shown): the exit locked at 0, floor 1-10, a
+        // frontier at cell 10 (next to the unknown). Overstayed (waits - arrived >= ALLOWANCE) with a
+        // real frontier left -- not spent -- is exactly the fix's own review found looping.
+        // at()'s Spot.NOWHERE would make Beliefs.fold() see the first screen as a fresh arrival and
+        // reset arrived to that wait (Beliefs.java:243-244), undoing the overstayed setup before
+        // Descend ever sees it; the hero has to already be marked as standing on this floor.
+        Memory start = arrivedAt(1, 600, 1, 0);
+        List<Brain.Decided> all = each(start,
+                doorFrontier(1, false),
+                doorFrontier(1, false), // refused, no time spent: the hero has not moved
+                doorFrontier(2, false), doorFrontier(3, false), doorFrontier(4, false), doorFrontier(5, false),
+                // It walked back for the key elsewhere and returned holding it (the journal says so).
+                doorFrontier(1, true));
+
+        assertEquals(new Action.Unlock(0), all.get(0).action(), "the first, honest try");
+        assertEquals(Descend.NAME, all.get(0).decision().policy());
+        assertEquals(new Action.Step(2), all.get(1).action(), "refused: explore's Step, not a walk back to the door");
+        assertEquals(new Action.Step(3), all.get(2).action());
+        assertEquals(new Action.Step(4), all.get(3).action());
+        assertEquals(new Action.Step(5), all.get(4).action());
+        assertEquals(new Action.Step(6), all.get(5).action(), "five real Steps toward the frontier, none of them back");
+        for (int i = 1; i <= 5; i++) {
+            assertFalse(Descend.NAME.equals(all.get(i).decision().policy()),
+                    "wait " + i + ": descend stays out of the way: " + all.get(i).decision());
+        }
+        assertEquals(new Action.Unlock(0), all.get(6).action(), "a key taken since: tried again despite the memory");
+        assertEquals(Descend.NAME, all.get(6).decision().policy());
     }
 
     /** {@code screen} with the hero at {@code heroX} of an eleven-wide boss-floor corridor, a worn key's
-     * heap at cell 4 while {@code key}, and the exit at cell 9 drawn {@code exit} ({@code 'L'} or
-     * {@code 'U'}), the hero at {@code hp} of {@code ht} (issue #163). */
-    private static Observation boss(int heroX, boolean key, char exit, int hp, int ht) {
+     * heap at cell 4 while {@code key}, the journal showing a worn key held while {@code keyHeld}, and
+     * the exit at cell 9 drawn {@code exit} ({@code 'L'} or {@code 'U'}), the hero at {@code hp} of
+     * {@code ht} (issue #163, its fairness review). */
+    private static Observation boss(int heroX, boolean key, boolean keyHeld, char exit, int hp, int ht) {
         char[] row = "#.........#".toCharArray();
         if (key) {
             row[4] = 'k';
@@ -586,7 +638,28 @@ class DescendPolicyTest {
             row[heroX] = '@';
             row[9] = exit;
         }
-        return hero(ExplorePolicyTest.screen(5, new String(row)), hp, ht, Hunger.NONE);
+        Observation screen = hero(ExplorePolicyTest.screen(5, new String(row)), hp, ht, Hunger.NONE);
+        return keyHeld ? journal(screen, List.of(new org.shatterfish.api.NoteView(org.shatterfish.api.NoteKind.KEY,
+                5, Pickup.WORN_KEY, "", 1))) : screen;
+    }
+
+    /** {@code screen} with the boss exit locked at cell 0, the hero at {@code heroX} of a floor ten
+     * cells long, cells 11-12 never shown (a frontier), the journal showing a worn key held while
+     * {@code keyHeld} (issue #163's fairness review). */
+    private static Observation doorFrontier(int heroX, boolean keyHeld) {
+        char[] row = "L..........  ".toCharArray();
+        row[heroX] = '@';
+        Observation screen = hero(ExplorePolicyTest.screen(5, new String(row)), 20, 20, Hunger.NONE);
+        return keyHeld ? journal(screen, List.of(new org.shatterfish.api.NoteView(org.shatterfish.api.NoteKind.KEY,
+                5, Pickup.WORN_KEY, "", 1))) : screen;
+    }
+
+    /** {@code screen} with its journal's notes replaced by {@code notes} (issue #163's fairness review). */
+    private static Observation journal(Observation screen, List<org.shatterfish.api.NoteView> notes) {
+        Observation bare = new Observation(screen.header(), screen.map(), screen.actors(), screen.hero(),
+                screen.inventory(), new org.shatterfish.api.JournalSection(notes, screen.journal().known()),
+                screen.log(), ActionsSection.NONE, PromptSection.NONE);
+        return bare.withActions(ValidActions.of(bare));
     }
 
     @Test
