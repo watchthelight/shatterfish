@@ -421,10 +421,25 @@ final class Explore implements Policy {
     }
 
     /**
+     * The blobs no Policy walks into, by the class names the Observation carries (story 4.10): fire
+     * and the harmful gases.
+     */
+    static final Set<String> HARMFUL = Set.of("Fire", "ToxicGas", "CorrosiveGas", "ParalyticGas");
+
+    /**
      * The cells the Policy may walk on, less, when {@code avoiding}, the regions the fight Policy
-     * retreated from and has not yet let lapse (story 4.7).
+     * retreated from and has not yet let lapse (story 4.7), and the cells remembered clouded with fire
+     * or a harmful gas (story 4.10, {@link Memory#clouds}).
      */
     static boolean[] walkable(Observation observation, Memory memory, boolean avoiding) {
+        return walkable(observation, memory, avoiding, false);
+    }
+
+    /**
+     * {@link #walkable(Observation, Memory, boolean)}, with the clouded cells let through when
+     * {@code throughClouds}: the way out of one for a hero standing in it (story 4.10).
+     */
+    static boolean[] walkable(Observation observation, Memory memory, boolean avoiding, boolean throughClouds) {
         MapSection map = observation.map();
         int cells = map.tiles().size();
         boolean[] walk = new boolean[cells];
@@ -442,6 +457,19 @@ final class Explore implements Policy {
         for (TrapView trap : map.traps()) {
             if (trap.active()) {
                 walk[trap.cell()] = false;
+            }
+        }
+        if (!throughClouds) {
+            for (org.shatterfish.api.BlobCell blob : map.blobs()) {
+                if (blob.cell() < cells && blob.kinds().stream().anyMatch(HARMFUL::contains)) {
+                    walk[blob.cell()] = false;
+                }
+            }
+            for (Memory.Cloud cloud : memory.clouds()) {
+                if (cloud.cell() < cells && memory.clouded(observation.header().depth(), observation.header().branch(),
+                        cloud.cell(), memory.waits())) {
+                    walk[cloud.cell()] = false;
+                }
             }
         }
         for (ActorView actor : observation.actors().actors()) {

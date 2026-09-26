@@ -73,20 +73,54 @@ import java.util.List;
  * @param drank    the wait at which the heal Policy last handed over a drink, or -1 (story 4.9): the heal
  *                 lands over several turns with no buff icon, and the floating heal text the game shows is
  *                 not in the Observation
+ * @param trial    the test the test-item Policy handed over at the last wait, {@link Trial#NONE} for
+ *                 none (story 4.10): read only to interpret this screen, as {@code last} is
+ * @param balked   the unidentified appearances, per floor, whose test the game did not carry out: the
+ *                 trial's appearance still held in the same quantity after a drink or a read (blind,
+ *                 immune to magic, a cursed spellbook's charge; Scroll.java:172-192), or the hero still
+ *                 where it stood after a Step toward the testing cell, or walked more than
+ *                 {@link TestItem#WALKS} Steps in a row toward testing cells
+ * @param walking  how many Steps in a row the test-item Policy has handed over toward a testing cell
+ *                 and seen carried out (story 4.10)
+ * @param tested   the wait at which the test-item Policy last handed over a drink or a read, or -1
+ *                 (story 4.10): the escape from its own fire or gas is bounded from there
+ * @param clouds   the cells, per floor, seen showing fire or a harmful gas, until a later sight of the
+ *                 cell clear or {@link #CLOUD_WAITS} waits pass (story 4.10); no Policy walks onto
+ *                 them. None is kept on a shut door's cell, which is solid and holds no gas
+ * @param refuge   the cell beyond the shut door the last test was credited with, or -1 (story 4.10):
+ *                 the cell the escape from its own gas makes for
  */
 record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
               List<Held> labels, List<Found> pending, List<Seen> monsters, Spot at, int streak, boolean calm,
               List<Spot> dwelt, List<Spot> blocked, String last, int holds, int near, int before,
               List<Found> flights, List<Avoid> avoid, String underfoot, List<Refused> refused, Pack pack, Aim aim,
-              long drank) {
+              long drank, Trial trial, List<Balk> balked, int walking, long tested, List<Cloud> clouds,
+              int refuge) {
 
     /**
      * The meaning of the bytes; bumped when it changes (3: where the hero stood, story 4.6; 4: the
      * last Action's kind, holds, distances, flights and regions avoided, story 4.7; 5: the heap
      * underfoot, the heaps refused, the pack and the pick-up Policy's aim, story 4.8; 6: the last
-     * drink, story 4.9).
+     * drink, story 4.9; 7: the test handed over, the appearances a floor balked at, the walk toward a
+     * testing cell, the wait of the last test, the cells seen clouded and the refuge, story 4.10).
+     *
+     * <p>Version 7 carries, in this order: waits, deepest, facts, found, held, known, labels,
+     * pending, monsters, at, streak, calm, dwelt, blocked, last, holds, near, before, flights, avoid,
+     * underfoot, refused, pack, aim, drank, trial, balked, walking, tested, clouds and refuge.
      */
-    static final int VERSION = 6;
+    static final int VERSION = 7;
+
+    /**
+     * How many waits a cell seen showing fire or gas is kept out of at most, unseen (story 4.10): the
+     * life of a potion's cloud. A potion seeds 1000 units of gas (PotionOfToxicGas.java:49,
+     * PotionOfParalyticGas.java:49), and every clouded cell loses at least one a turn
+     * (Blob.java:186), so a cloud spread over ten cells or more is gone within a hundred turns. A
+     * cell seen clear before then is cleared at once.
+     */
+    static final int CLOUD_WAITS = 100;
+
+    /** The most cells remembered clouded; the oldest is forgotten first. */
+    static final int CLOUDS = 256;
 
     /** The most regions avoided at once; the oldest is forgotten first. */
     static final int AVOIDED = 16;
@@ -99,9 +133,19 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
 
     static final Memory START = new Memory(0, 0, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
             List.of(), Spot.NOWHERE, 0, false, List.of(), List.of(), "", 0, -1, -1, List.of(), List.of(), "", List.of(),
-            Pack.NONE, Aim.NONE, -1);
+            Pack.NONE, Aim.NONE, -1, Trial.NONE, List.of(), 0, -1, List.of(), -1);
 
-    /** Story 4.8's shape: no drink handed over. */
+    /** Story 4.9's shape: no test handed over, nothing balked at, no clouds. */
+    Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
+           List<Held> labels, List<Found> pending, List<Seen> monsters, Spot at, int streak, boolean calm,
+           List<Spot> dwelt, List<Spot> blocked, String last, int holds, int near, int before, List<Found> flights,
+           List<Avoid> avoid, String underfoot, List<Refused> refused, Pack pack, Aim aim, long drank) {
+        this(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm, dwelt, blocked,
+                last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, Trial.NONE, List.of(),
+                0, -1, List.of(), -1);
+    }
+
+    /** Story 4.8's shape: no drink handed over, and story 4.9's shape's defaults after it. */
     Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
            List<Held> labels, List<Found> pending, List<Seen> monsters, Spot at, int streak, boolean calm,
            List<Spot> dwelt, List<Spot> blocked, String last, int holds, int near, int before, List<Found> flights,
@@ -110,13 +154,85 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
                 last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, -1);
     }
 
+    /**
+     * A test the test-item Policy handed over (story 4.10): the appearance it was for, how many of it
+     * the pack held then, and the cell of the Step toward the testing cell, or -1 for the drink or
+     * read itself.
+     */
+    record Trial(String label, int quantity, int step) {
+
+        /** No test handed over. */
+        static final Trial NONE = new Trial("", 0, -1);
+
+        Trial {
+            require(label != null && quantity >= 0 && step >= -1, "trial");
+        }
+    }
+
+    /** A cell of a floor seen showing fire or a harmful gas, kept out of until the wait {@code until} (story 4.10). */
+    record Cloud(int depth, int branch, int cell, long until) {
+
+        Cloud {
+            require(depth >= 0 && branch >= 0 && cell >= 0 && until >= 0, "cloud");
+        }
+    }
+
+    /** Whether {@code cell} of this floor is remembered clouded at wait {@code now}. */
+    boolean clouded(int depth, int branch, int cell, long now) {
+        for (Cloud cloud : clouds) {
+            if (cloud.cell() == cell && cloud.depth() == depth && cloud.branch() == branch && cloud.until() >= now) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * An unidentified appearance whose test the game did not carry out on a floor (story 4.10): the
+     * drink or read itself ({@code walk} false), which stops testing it on the floor, or the walk to a
+     * better testing cell ({@code walk} true), which stops only the walking.
+     */
+    record Balk(int depth, int branch, String label, boolean walk) {
+
+        Balk {
+            require(depth >= 0 && branch >= 0 && label != null, "a floor");
+        }
+    }
+
+    /** Whether testing the appearance {@code label} was balked at on this floor. */
+    boolean balks(int depth, int branch, String label) {
+        return balked.contains(new Balk(depth, branch, label, false));
+    }
+
+    /** Whether walking to a testing cell for the appearance {@code label} was balked at on this floor. */
+    boolean balksWalking(int depth, int branch, String label) {
+        return balked.contains(new Balk(depth, branch, label, true));
+    }
+
+    /** This memory with {@code trial} as the test handed over (story 4.10), and no refuge. */
+    Memory trying(Trial trial) {
+        return trying(trial, -1);
+    }
+
+    /**
+     * This memory with {@code trial} as the test handed over (story 4.10). A drink or a read records
+     * its wait and {@code refuge}, the cell beyond the door its testing cell was credited with (-1 for
+     * none); a Step toward a testing cell leaves both as they were.
+     */
+    Memory trying(Trial trial, int refuge) {
+        boolean test = !trial.label().isEmpty() && trial.step() < 0;
+        return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
+                dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
+                balked, walking, test ? waits : tested, clouds, test ? refuge : this.refuge);
+    }
+
     /** Story 4.7's shape: nothing underfoot, nothing refused, no pack seen, no aim. */
     Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
            List<Held> labels, List<Found> pending, List<Seen> monsters, Spot at, int streak, boolean calm,
            List<Spot> dwelt, List<Spot> blocked, String last, int holds, int near, int before, List<Found> flights,
            List<Avoid> avoid) {
         this(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm, dwelt, blocked,
-                last, holds, near, before, flights, avoid, "", List.of(), Pack.NONE, Aim.NONE);
+                last, holds, near, before, flights, avoid, "", List.of(), Pack.NONE, Aim.NONE, -1);
     }
 
     /** Story 4.6's shape: nothing handed over, no fight, and story 4.7's shape's defaults after it. */
@@ -164,7 +280,8 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     /** This memory with {@code aim} as where the pick-up Policy's plan went (story 4.8). */
     Memory aiming(Aim aim) {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
-                dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank);
+                dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
+                balked, walking, tested, clouds, refuge);
     }
 
     /**
@@ -187,13 +304,15 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     /** This memory with the Action handed over recorded as {@code kind} (story 4.7). */
     Memory handed(String kind) {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
-                dwelt, blocked, kind, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank);
+                dwelt, blocked, kind, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
+                balked, walking, tested, clouds, refuge);
     }
 
     /** This memory with a drink handed over at this wait (story 4.9). */
     Memory drinking() {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
-                dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, waits);
+                dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, waits, trial,
+                balked, walking, tested, clouds, refuge);
     }
 
     /** This memory with {@code region} avoided as well, the oldest forgotten past {@link #AVOIDED}. */
@@ -204,7 +323,8 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
             more.remove(0);
         }
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
-                dwelt, blocked, last, holds, near, before, flights, more, underfoot, refused, pack, aim, drank);
+                dwelt, blocked, last, holds, near, before, flights, more, underfoot, refused, pack, aim, drank, trial,
+                balked, walking, tested, clouds, refuge);
     }
 
     /** The regions still avoided at wait {@code now} on the floor at {@code depth} and {@code branch}. */
@@ -280,6 +400,9 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         require(underfoot != null && pack != null && aim != null, "a heap underfoot, a pack and an aim");
         refused = List.copyOf(refused);
         require(drank >= -1 && drank <= waits, "last drink");
+        require(trial != null && walking >= 0 && tested >= -1 && refuge >= -1, "trial, walk, test and refuge");
+        clouds = List.copyOf(clouds);
+        balked = List.copyOf(balked);
     }
 
     private static void require(boolean held, String what) {
@@ -334,6 +457,17 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         out.integer(pack.items()).integer(pack.quantity()).integer(pack.gold());
         out.integer(aim.target()).integer(aim.step());
         out.number(drank);
+        out.text(trial.label()).integer(trial.quantity()).integer(trial.step());
+        out.integer(balked.size());
+        for (Balk balk : balked) {
+            out.integer(balk.depth()).integer(balk.branch()).text(balk.label()).integer(balk.walk() ? 1 : 0);
+        }
+        out.integer(walking).number(tested);
+        out.integer(clouds.size());
+        for (Cloud cloud : clouds) {
+            out.integer(cloud.depth()).integer(cloud.branch()).integer(cloud.cell()).number(cloud.until());
+        }
+        out.integer(refuge);
         return new Belief(VERSION, out.bytes());
     }
 
@@ -404,10 +538,29 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
             Pack pack = new Pack(in.integer(), in.integer(), in.integer());
             Aim aim = new Aim(in.integer(), in.integer());
             long drank = in.number();
+            Trial trial = new Trial(in.text(), in.integer(), in.integer());
+            List<Balk> balked = new ArrayList<>();
+            for (int i = count(in); i > 0; i--) {
+                int depth = in.integer();
+                int branch = in.integer();
+                String label = in.text();
+                int walk = in.integer();
+                if (walk != 0 && walk != 1) {
+                    throw new IllegalArgumentException("a balk's walk is 0 or 1: " + walk);
+                }
+                balked.add(new Balk(depth, branch, label, walk == 1));
+            }
+            int walking = in.integer();
+            long tested = in.number();
+            List<Cloud> clouds = new ArrayList<>();
+            for (int i = count(in); i > 0; i--) {
+                clouds.add(new Cloud(in.integer(), in.integer(), in.integer(), in.number()));
+            }
+            int refuge = in.integer();
             in.end();
             return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak,
                     calm == 1, dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim,
-                    drank);
+                    drank, trial, balked, walking, tested, clouds, refuge);
         } catch (IllegalArgumentException malformed) {
             throw new IllegalArgumentException("not a Belief this Brain wrote: " + belief + ": " + malformed.getMessage());
         }
