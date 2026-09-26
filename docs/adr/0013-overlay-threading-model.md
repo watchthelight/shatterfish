@@ -312,3 +312,34 @@ budget at sixty frames a second (about 333 seconds) ends as an unknown window. T
 in game time, the sum of `Game.elapsed`, not in frames, which the desktop draws at the monitor's
 refresh rate: a frame count would end the same Run sooner on a faster screen; the region intro on a first descent to depths 6, 11, 16 and 21 does, because the
 Overlay does not click through it (the headless game never shows it).
+
+## Amendment: story 5.2 (2026-09-26)
+
+The Panel, the first thing the Overlay draws, lives on the same render thread and adds no thread.
+
+- **Where it is placed.** `OverlayGame.update()` runs the game's own update and then `PanelDock.frame`:
+  the Panel is added to each new play scene, placed by `PanelLayout` (a pure function of the UI
+  camera's size, the insets, the interface size and the tag side), and the world camera's horizontal
+  offset is set. `Game.render` draws before it steps and `Game.update` runs the scene's update, in
+  which `GameScene.layoutTags` resets the offset to `(0, y)`, before `Camera.updateAll`
+  (`SPD-classes/.../noosa/Game.java:150-171`, `:269-283`; `core/.../scenes/GameScene.java:931-958`,
+  `:993-999`), so the offset set after `update()` is what the next frame draws, after any reset in
+  this one. No upstream file is edited: a hook in `layoutTags` was rejected as an edit for something
+  our own subclass reaches, and a child gizmo's `update()` as too early (the scene updates its
+  members before `layoutTags`).
+- **The interface it plays on.** The Run Profile declares the compact interface, the phone's, where
+  UX-DR2 collapses the Panel for good, so the Overlay declares the mixed interface (size 1) after the
+  Profile is prepared: the desktop layout, with no inventory pane, so an item selector is still a
+  `WndBag` the executor answers (`GameScene.java:547-556`, `:1673-1674`). The full interface (2), the
+  desktop default that `DESIGN.md` draws, would hand selectors to the inventory pane, which no Action
+  names; `PanelLayout` supports it for the day the executor does (`docs/ideas.md`). The other reads
+  of the setting are layout, the radial menu, and tutorial log text, which an Overlay Run already
+  sees differently from a headless one under story 5.1's named exception to non-negotiable 5. The
+  Rig and the headless driver keep interface 0. The game itself falls back to the compact interface
+  when the window is below its full-UI minimum (`SPDSettings.java:140-146`), where the Panel is the
+  Mode strip.
+- **The launcher's view of it.** `--window WxH` opens the game windowed at that size (the desktop
+  game is otherwise fullscreen by default, `SPDSettings.java:66-68`), and `--screenshot <file>`
+  writes one frame from the game's own framebuffer about ten seconds in: a window OpenGL draws cannot
+  be captured from outside the process on this platform, and a launch nobody watches still leaves a
+  picture. Each change of the Panel's placement is logged.

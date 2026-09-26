@@ -31,13 +31,18 @@ import java.util.Map;
  * @param exitWhenOver  whether the window closes when the Run ends, for an unattended check
  * @param agent         who plays: {@code random}, the Rig's Baseline, or {@code brain} (OverlayAgents)
  * @param weights       the Brain's weight set, for {@code --agent brain}
+ * @param windowWidth   the window's width in pixels, or 0 for the game's own setting ({@code --window WxH})
+ * @param windowHeight  the window's height in pixels, or 0 for the game's own setting
+ * @param screenshot    a PNG of one frame to write once the Run is under way, or null ({@code --screenshot})
  */
 public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path profile, Path out, int turnCap,
-                            long agentSeed, boolean oracle, boolean exitWhenOver, String agent, Path weights) {
+                            long agentSeed, boolean oracle, boolean exitWhenOver, String agent, Path weights,
+                            int windowWidth, int windowHeight, Path screenshot) {
 
     /** The flags the launcher knows. A flag it does not know is refused by name, never ignored. */
     public static final List<String> KNOWN = List.of("--seed", "--class", "--salt", "--profile", "--out",
-            "--turn-cap", "--oracle", "--exit-when-over", "--agent", "--weights");
+            "--turn-cap", "--oracle", "--exit-when-over", "--agent", "--weights", "--window",
+            "--screenshot");
 
     /** The flags that take no value. */
     private static final List<String> SWITCHES = List.of("--oracle", "--exit-when-over");
@@ -51,6 +56,9 @@ public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path prof
         }
         if (turnCap < 1) {
             throw new IllegalArgumentException("the turn cap is at least one turn: " + turnCap);
+        }
+        if (windowWidth < 0 || windowHeight < 0 || (windowWidth == 0) != (windowHeight == 0)) {
+            throw new IllegalArgumentException("--window is WxH, both positive: " + windowWidth + "x" + windowHeight);
         }
         if (!agent.equals("random") && !agent.equals("brain")) {
             throw new IllegalArgumentException("--agent is random or brain: " + agent);
@@ -92,7 +100,24 @@ public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path prof
                 given.containsKey("--oracle"),
                 given.containsKey("--exit-when-over"),
                 given.getOrDefault("--agent", "random"),
-                Path.of(given.getOrDefault("--weights", "weights/shatterfish.json")));
+                Path.of(given.getOrDefault("--weights", "weights/shatterfish.json")),
+                window(given.get("--window"), 0), window(given.get("--window"), 1),
+                given.containsKey("--screenshot") ? Path.of(given.get("--screenshot")) : null);
+    }
+
+    /**
+     * One side of {@code --window WxH}, or 0 when the flag is absent. The window size decides the UI
+     * camera's size, and so where the Panel goes and whether it is collapsed (story 5.2).
+     */
+    private static int window(String text, int side) {
+        if (text == null) {
+            return 0;
+        }
+        String[] sides = text.toLowerCase(Locale.ROOT).split("x");
+        if (sides.length != 2) {
+            throw new IllegalArgumentException("--window is WxH, e.g. 1600x900: " + text);
+        }
+        return Integer.parseInt(sides[side].trim());
     }
 
     /** A seed as a number, or as the code a player types into the seed window. */

@@ -1,6 +1,7 @@
 package org.shatterfish.overlay;
 
 import com.badlogic.gdx.Gdx;
+import com.shatteredpixel.shatteredpixeldungeon.SPDSettings;
 import com.shatteredpixel.shatteredpixeldungeon.ShatteredPixelDungeon;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Languages;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
@@ -37,6 +38,8 @@ import java.util.stream.Stream;
  * attaches through the scene seam.</li>
  * <li>{@link #render()}: the game's frame, exactly as upstream draws and steps it, and then the Run's
  * frame, which returns at once whatever the Brain is doing. When the Run ends the input opens again.</li>
+ * <li>{@link #update()}: the game's update, then the Panel docked beside the dungeon and the camera
+ * offset that keeps the hero in the uncovered map ({@link PanelDock}, story 5.2).</li>
  * <li>{@link #dispose()}: the Run is detached before the game is torn down, and a Profile the launcher
  * made for this Run alone is deleted.</li>
  * </ul>
@@ -54,10 +57,15 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
     private final Supplier<Decider> brain;
     private final Supplier<Observation> observer;
     private final RunLoop.Logging logging;
+    /** The interface the Overlay plays on: the mixed one, desktop layout with no inventory pane (story 5.2). */
+    static final int INTERFACE_SIZE = 1;
+
     private final InputLock lock = new InputLock();
+    private final PanelDock dock = new PanelDock();
     private RngControl rng;
     private EmbeddedRun run;
     private boolean reported;
+    private long frames;
 
     /**
      * @param platform  upstream's desktop platform support
@@ -88,6 +96,17 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
     public void create() {
         // Before the game reads anything: its files at the Run's directory, its settings the Run's.
         Profile.prepare(Profile.owned(preferences), profileDirectory);
+        // The desktop layout without the inventory pane (story 5.2): the Run Profile declares the compact
+        // interface, the phone's, where the Panel only ever shows its Mode strip (UX-DR2). With interface
+        // size 1 there is no inventory pane (GameScene.java:547-556), so an item selector is still a
+        // window the executor answers (:1673-1674); the rest of the setting is layout and tutorial text.
+        SPDSettings.interfaceSize(INTERFACE_SIZE);
+        if (options.windowWidth() > 0) {
+            // A window of the size asked for: the desktop game goes fullscreen by default
+            // (SPDSettings.java:66-68), which would replace --window's size at its first frame. Written
+            // to the Run's own settings directly, since the setter also reaches for the system UI.
+            preferences.putBoolean(SPDSettings.KEY_FULLSCREEN, false);
+        }
         // The strings in the language the Profile declares, as the headless boot sets them up, whatever
         // the machine's own locale would have given the game's first read of them (Messages.java:79-82).
         Messages.setup(Languages.ENGLISH);
@@ -104,9 +123,24 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         switchScene(GameScene.class);
     }
 
+    /**
+     * The game's update, then the Panel: added to a new play scene, placed for this frame, and the
+     * camera's horizontal offset put back after the scene's own layout pass reset it (story 5.2).
+     */
+    @Override
+    protected void update() {
+        super.update();
+        dock.frame(scene);
+    }
+
     @Override
     public void render() {
         super.render();
+        frames++;
+        if (options.screenshot() != null && frames == Screenshot.FRAME) {
+            // The frame this render drew, before it is shown: what a person at the window sees.
+            Screenshot.write(options.screenshot());
+        }
         if (run == null) {
             return;
         }
@@ -188,6 +222,11 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
     @Override
     public Class<? extends Scene> requestedScene() {
         return sceneClass;
+    }
+
+    /** The Panel's dock. */
+    PanelDock dock() {
+        return dock;
     }
 
     /** The Run attached to this game, or null before {@link #create()}. */

@@ -82,7 +82,8 @@ public final class ShatterfishLauncher {
         config.setTitle(title(options));
         config.setPreferencesConfig(profile.toAbsolutePath() + "/", Files.FileType.Absolute);
         config.setWindowSizeLimits(720, 400, -1, -1);
-        Point size = SPDSettings.windowResolution();
+        Point size = options.windowWidth() > 0 ? new Point(options.windowWidth(), options.windowHeight())
+                : SPDSettings.windowResolution();
         config.setWindowedMode(size.x, size.y);
         config.setWindowIcon("icons/icon_16.png", "icons/icon_32.png", "icons/icon_48.png",
                 "icons/icon_64.png", "icons/icon_128.png", "icons/icon_256.png");

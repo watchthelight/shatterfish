@@ -65,4 +65,19 @@ class LaunchOptionsTest {
         assertThrows(IllegalArgumentException.class,
                 () -> LaunchOptions.parse(new String[] {"--seed", "-1", "--class", "warrior"}));
     }
+
+    @Test
+    @DisplayName("--window sets the window's size, and without it the game's own setting is used")
+    void the_window() {
+        LaunchOptions sized = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior", "--window", "1600x900"});
+        assertEquals(1600, sized.windowWidth());
+        assertEquals(900, sized.windowHeight());
+        LaunchOptions unsized = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior"});
+        assertEquals(0, unsized.windowWidth());
+        assertEquals(0, unsized.windowHeight());
+        assertThrows(IllegalArgumentException.class,
+                () -> LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior", "--window", "1600"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior", "--window", "0x900"}));
+    }
 }

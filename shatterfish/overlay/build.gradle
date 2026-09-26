@@ -35,6 +35,9 @@ tasks.register('launch', JavaExec) {
     description = 'Starts the desktop game with a Shatterfish Run attached (story 5.1).'
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'org.shatterfish.overlay.ShatterfishLauncher'
+    // From the repository's root, so the default --weights (weights/shatterfish.json) and --out resolve
+    // there, as they do for the Rig's tasks, rather than inside shatterfish/overlay.
+    workingDir = rootProject.projectDir
     def given = project.findProperty('launch.args')
     args = given == null || given.toString().trim().isEmpty() ? [] : given.toString().trim().split(/\s+/).toList()
     if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('mac')) {
