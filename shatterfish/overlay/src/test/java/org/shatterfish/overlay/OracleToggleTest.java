@@ -82,13 +82,21 @@ class OracleToggleTest {
             try (EmbeddedRun run = EmbeddedRun.attach(host, SEED, HeroClass.WARRIOR, driver.rngControl(), brain,
                     ShatterfishLauncher.observer(observerOracle), ShatterfishLauncher.logging(options, "test"),
                     5_000)) {
-                for (int frame = 0; frame < 20_000 && run.waitIndex() < 3; frame++) {
+                // The bound is on the game's frames, not on the loop's turns: while the Brain thinks on
+                // its worker the render loop steps nothing and only waits, and a loop that counted those
+                // empty turns raced the worker thread, which a loaded machine may not schedule for
+                // thousands of them (CI on PR #168). The wait is left to the test's timeout.
+                int frames = 0;
+                while (frames < 20_000 && run.waitIndex() < 3) {
                     if (run.state() != EmbeddedRun.State.THINKING) {
                         driver.step();
+                        frames++;
+                    } else {
+                        Thread.onSpinWait();
                     }
                     run.frame();
                 }
-                assertTrue(run.waitIndex() >= 3, "the Run reached its third wait");
+                assertTrue(run.waitIndex() >= 3, "the Run reached its third wait, after " + frames + " frames");
             }
         }
         try (Stream<Path> logs = Files.list(options.out())) {
