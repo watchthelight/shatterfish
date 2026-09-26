@@ -2,7 +2,7 @@
 title: 'Story 4.13: Reach the Goo gate on the smoke set'
 type: 'feature'
 created: '2026-09-25'
-status: 'review'
+status: 'done'
 baseline_commit: 'c56636756'
 review_loop_iteration: 0
 context: []

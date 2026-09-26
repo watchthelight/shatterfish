@@ -65,11 +65,15 @@ mutation battery and a direction check on the `smoke` Seed set):
   (subclass choice, shops, upgrade targets, the stone of intuition's guess),
   and a Run that meets one it can't answer, or stops passing time, ends with
   a logged reason that replays.
-- In progress: **4.13** tuning toward the Goo gate, on 40 Warriors from the
-  `standard` set (never the registered `goo` set). Reading scrolls onto the
-  worn armour was the first big lever: 9 of 40 now reach depth 5 and the first
-  Goo kill has landed; the Goo fight itself is next. **4.14** then runs the
-  registered 400-Warrior `goo` set.
+- **4.13** Tuning toward the Goo gate, published as a direction check
+  ([results](docs/results/2026-09-26-4-13-direction-check.md)) on 40 Warriors
+  from the `standard` set, never the registered `goo` set: Goo kills went from
+  0 to 7 of 40 and median survival from 967 to 1,614 turns, mostly by reading
+  scrolls onto the worn gear. Goo itself is no longer the limit (7 of the 10
+  who reach it win); reaching depth 5 is. The death gallery gained a
+  side-by-side view of two Brains.
+- Waiting on an owner decision: **4.14**, the registered 400-Warrior `goo` set
+  and its 75% gate, which is several stories away at the current rate.
 - In progress in parallel: **5.1**, the first Overlay story (E5): the launcher
   and the driver embedded in the real desktop game.
 
