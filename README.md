@@ -100,8 +100,12 @@ E5 (the Overlay) so far:
 - **5.4** The rest of the Panel: Safety flags as chips, a Belief summary of the
   least-certain unknown items with their likeliest identities, and a scrolling
   Decision log built from the Run log itself.
-- Next: **5.9**, playing the game yourself with every action recorded beside
-  what the bot would have done (pulled forward), then the controls (5.5-5.8).
+- **5.9 (first slice)** HUMAN mode: you play the real game and every action
+  is recorded in the chained Run log, with the Brain's own choice logged beside
+  it as a shadow that never runs, and N writes a note at that turn.
+  `./gradlew :rig:strategy --args="overlay-runs"` prints your action against the
+  Brain's, turn by turn. Taking over mid-Run is story 5.8.
+- Next: the controls (5.5-5.8), with bestiary-driven Brain changes in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:
