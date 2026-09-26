@@ -263,23 +263,43 @@ public final class HumanTurns implements Hooks.HeroInput {
         record(taken, what);
     }
 
-    /** The Action a click is: the executor's clicks all call {@code handleCell}, so the game's own choice names the kind. */
+    /**
+     * The Action a click is. Every Action the executor takes by clicking is the same call,
+     * {@code GameScene.handleCell} on one cell, the hero's own for a pick-up and a transition
+     * ({@code ActionExecutor.apply}), and {@code Hero.handle} decides what the click does, so any offered
+     * Action that clicks this cell reproduces it: a click on an adjacent heap is the executor's
+     * {@code Step} there, which picks the item up as the game's own click does. The game's own choice
+     * picks the kind among them when more than one is offered, so the record reads as the person meant
+     * it; a click no offered Action makes (a distant cell, which the game walks to over several turns)
+     * is the {@code MoveTo} the person made, and unsupported.
+     */
     private Action click(Clicked click) {
         int cell = click.cell();
         boolean here = cell == click.heroCell();
-        return switch (click.kind()) {
-            case "Move" -> here ? new Action.MoveTo(cell) : offered(new Action.Step(cell)) ? new Action.Step(cell)
-                    : new Action.MoveTo(cell);
+        Action meant = switch (click.kind()) {
+            case "Move" -> new Action.Step(cell);
             case "Attack" -> new Action.Attack(cell);
             case "Interact" -> new Action.Interact(cell);
-            case "PickUp" -> here ? new Action.PickUp() : new Action.MoveTo(cell);
+            case "PickUp" -> here ? new Action.PickUp() : new Action.Step(cell);
             case "OpenChest" -> new Action.OpenChest(cell);
             case "Buy" -> new Action.Buy(cell);
             case "Unlock" -> new Action.Unlock(cell);
-            case "LvlTransition" -> !here ? new Action.MoveTo(cell)
-                    : offered(new Action.Ascend()) ? new Action.Ascend() : new Action.Descend();
+            case "LvlTransition" -> offered(new Action.Ascend()) ? new Action.Ascend() : new Action.Descend();
             default -> new Action.MoveTo(cell);
         };
+        if (offered(meant)) {
+            return meant;
+        }
+        for (Action same : here
+                ? List.<Action>of(new Action.PickUp(), new Action.Descend(), new Action.Ascend(), new Action.OpenChest(cell),
+                        new Action.Buy(cell))
+                : List.<Action>of(new Action.Step(cell), new Action.Attack(cell), new Action.Interact(cell),
+                        new Action.OpenChest(cell), new Action.Buy(cell), new Action.Unlock(cell))) {
+            if (offered(same)) {
+                return same;
+            }
+        }
+        return new Action.MoveTo(cell);
     }
 
     private void record(Action taken, String what) {
@@ -394,6 +414,12 @@ public final class HumanTurns implements Hooks.HeroInput {
             }
             return;
         }
+        if (front != openWindow) {
+            // A window the person opened at this wait (the journal, the hero's info) is not the wait's
+            // Prompt, and its buttons are not an answer to anything: the first real HUMAN launch recorded a
+            // journal tab as a Prompt answer before this rule.
+            return;
+        }
         List<Component> buttons = ActionExecutor.optionButtons(front);
         for (int i = 0; i < buttons.size(); i++) {
             Component button = buttons.get(i);
@@ -407,7 +433,9 @@ public final class HumanTurns implements Hooks.HeroInput {
     /** A key pressed, before the game has it: the back key on a window in front is its dismissal. */
     public void keyDown(int keycode) {
         inputThisFrame = true;
-        if (!open() || org.shatterfish.harness.driver.Windows.front() == null) {
+        Window front = org.shatterfish.harness.driver.Windows.front();
+        if (!open() || front == null || front != openWindow) {
+            // Only the wait's own Prompt is dismissed by the back key; closing a window the person opened is not an Action.
             return;
         }
         if (KeyBindings.getActionForKey(new KeyEvent(keycode, true)) == GameAction.BACK) {

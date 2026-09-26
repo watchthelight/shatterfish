@@ -77,6 +77,29 @@ class HumanActionMappingTest {
     }
 
     @Test
+    @DisplayName("a tap on an adjacent heap, which the game reads as a pick-up there, is the executor's Step onto it")
+    void adjacent_heap(@TempDir Path folder) throws IOException {
+        // Seed 2000's Warrior begins beside the tome of dungeon mastery (the first real HUMAN launch,
+        // where this tap was first recorded wrongly as a walk the executor could not make).
+        List<RunLog> records;
+        int[] heap = new int[1];
+        try (EmbeddedHost host = new EmbeddedHost(2000L, HeroClass.WARRIOR, HumanTurnReplayTest.SALT)) {
+            host.attachHuman(new BrainDecider(EmbeddedDeterminismTest.brain()), HumanTurnReplayTest.logging(folder), 2_000);
+            assertTrue(host.untilOpen(20_000));
+            for (int step : com.watabou.utils.PathFinder.NEIGHBOURS8) {
+                if (Dungeon.level.heaps.get(Dungeon.hero.pos + step) != null) {
+                    heap[0] = Dungeon.hero.pos + step;
+                }
+            }
+            assertTrue(heap[0] > 0, "a heap beside the hero");
+            ScriptedHuman.tapCell(heap[0]);
+            host.untilOpen(20_000);
+            records = RunLogReader.of(HumanTurnReplayTest.only(folder)).records();
+        }
+        assertEquals(new Action.Step(heap[0]), first(records).action());
+    }
+
+    @Test
     @DisplayName("the rest button is Rest(full)")
     void rest(@TempDir Path folder) throws IOException {
         assertEquals(new Action.Rest(true), first(oneTurn(folder, host -> { }, run -> ScriptedHuman.pressRest())).action());
@@ -147,6 +170,22 @@ class HumanActionMappingTest {
                     PointerEvent.addPointerEvent(new PointerEvent(screen.x, screen.y, 0, PointerEvent.Type.UP, PointerEvent.LEFT));
                 }));
         assertEquals(new Action.AnswerPrompt(1), wait.action());
+    }
+
+    @Test
+    @DisplayName("a button of a window the person opened at the wait (the journal, say) is not a Prompt answer")
+    void a_window_of_the_persons_own(@TempDir Path folder) throws IOException {
+        List<RunLog> records = oneTurn(folder, host -> { }, run -> {
+            // Opened by the person at an open wait, as the journal button opens the journal.
+            GameScene.show(new WndOptions("Journal", "Pages", "first", "second"));
+            Component first = ActionExecutor.optionButtons(Windows.front()).get(0);
+            Point screen = first.camera().cameraToScreen(first.left() + first.width() / 2, first.top() + first.height() / 2);
+            run.pointerUp(screen.x, screen.y);
+            PointerEvent.addPointerEvent(new PointerEvent(screen.x, screen.y, 0, PointerEvent.Type.DOWN, PointerEvent.LEFT));
+            PointerEvent.addPointerEvent(new PointerEvent(screen.x, screen.y, 0, PointerEvent.Type.UP, PointerEvent.LEFT));
+            ScriptedHuman.pressWait();
+        });
+        assertEquals(new Action.Wait(), first(records).action(), "the Action is the wait button, not the window's");
     }
 
     @Test
