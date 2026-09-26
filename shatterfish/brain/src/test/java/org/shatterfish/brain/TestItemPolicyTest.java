@@ -361,7 +361,7 @@ class TestItemPolicyTest {
         assertTrue(policy.enters(inGas, justTested));
         Memory later = new Memory(TestItem.ESCAPE_WAITS + 1, 1, List.of(), List.of(), List.of(), List.of(), List.of(),
                 List.of(), List.of(), Memory.Spot.NOWHERE, 0, true, List.of(), List.of(), "", 0, -1, -1, List.of(),
-                List.of(), "", List.of(), Memory.Pack.NONE, Memory.Aim.NONE, Memory.Trial.NONE, List.of(), 0, 0, List.of());
+                List.of(), "", List.of(), Memory.Pack.NONE, Memory.Aim.NONE, -1, Memory.Trial.NONE, List.of(), 0, 0, List.of());
         assertFalse(policy.enters(inGas, later), "the escape's waits are over");
         assertEquals(0, Memory.START.trying(new Memory.Trial("crimson potion", 1, 3)).walking());
         assertEquals(-1, Memory.START.trying(new Memory.Trial("crimson potion", 1, 3)).tested(),
@@ -392,7 +392,7 @@ class TestItemPolicyTest {
                 memory.known(), memory.labels(), memory.pending(), memory.monsters(), memory.at(), memory.streak(),
                 memory.calm(), memory.dwelt(), memory.blocked(), memory.last(), memory.holds(), memory.near(),
                 memory.before(), memory.flights(), memory.avoid(), memory.underfoot(), memory.refused(), memory.pack(),
-                memory.aim(), memory.trial(), List.of(new Memory.Balk(3, 0, "jade potion")), 4, 9, List.of(new Memory.Cloud(3, 0, 12, 40)));
+                memory.aim(), memory.drank(), memory.trial(), List.of(new Memory.Balk(3, 0, "jade potion")), 4, 9, List.of(new Memory.Cloud(3, 0, 12, 40)));
         assertEquals(memory, Memory.of(memory.belief()));
         assertTrue(memory.balks(3, 0, "jade potion"));
         assertFalse(memory.balks(4, 0, "jade potion"));
@@ -437,7 +437,7 @@ class TestItemPolicyTest {
         assertFalse(Explore.walkable(clear, later)[4], "so the doorway stays out of bounds");
         Memory lapsed = new Memory(later.waits() + Memory.CLOUD_WAITS + 1, 1, List.of(), List.of(), List.of(),
                 List.of(), List.of(), List.of(), List.of(), Memory.Spot.NOWHERE, 0, true, List.of(), List.of(), "", 0,
-                -1, -1, List.of(), List.of(), "", List.of(), Memory.Pack.NONE, Memory.Aim.NONE, Memory.Trial.NONE,
+                -1, -1, List.of(), List.of(), "", List.of(), Memory.Pack.NONE, Memory.Aim.NONE, -1, Memory.Trial.NONE,
                 List.of(), 0, -1, later.clouds());
         assertTrue(Explore.walkable(clear, lapsed)[4], "until the cloud's waits pass");
     }
@@ -462,13 +462,13 @@ class TestItemPolicyTest {
                 List.of(Screens.unknown(ItemKind.POTION, "jade potion", 1)), List.of(), List.of(), List.of());
         Memory walked = new Memory(4, 1, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
                 new Memory.Spot(1, 0, 4), 0, true, List.of(), List.of(), "Step", 0, -1, -1, List.of(), List.of(), "",
-                List.of(), Memory.Pack.NONE, Memory.Aim.NONE, new Memory.Trial("jade potion", 1, 5), List.of(),
+                List.of(), Memory.Pack.NONE, Memory.Aim.NONE, -1, new Memory.Trial("jade potion", 1, 5), List.of(),
                 TestItem.WALKS, -1, List.of());
         Memory after = Beliefs.fold(walked, screen, FLAME);
         assertTrue(after.balks(1, 0, "jade potion"), "one more Step than the bound");
         Memory shorter = new Memory(4, 1, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
                 new Memory.Spot(1, 0, 4), 0, true, List.of(), List.of(), "Step", 0, -1, -1, List.of(), List.of(), "",
-                List.of(), Memory.Pack.NONE, Memory.Aim.NONE, new Memory.Trial("jade potion", 1, 5), List.of(), 3, -1, List.of());
+                List.of(), Memory.Pack.NONE, Memory.Aim.NONE, -1, new Memory.Trial("jade potion", 1, 5), List.of(), 3, -1, List.of());
         Memory fine = Beliefs.fold(shorter, screen, FLAME);
         assertFalse(fine.balks(1, 0, "jade potion"));
         assertEquals(4, fine.walking(), "the Step carried out counts");
