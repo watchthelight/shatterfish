@@ -2,7 +2,7 @@
 title: 'Story 4.11: The answer-prompts Policy'
 type: 'feature'
 created: '2026-09-25'
-status: 'review'
+status: 'done'
 baseline_commit: 'f262d99bc (main, stories 4.1-4.8)'
 review_loop_iteration: 0
 context: []
