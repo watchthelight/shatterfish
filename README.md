@@ -58,8 +58,11 @@ mutation battery and a direction check on the `smoke` Seed set):
 - **4.10** Testing unknown items: drinks or reads an unidentified item only
   when the worst case is survivable and the knowledge is worth the item, walks
   out of its own gas, and rests after; the random fallback no longer uses items.
-- In review or in progress: **4.11** answering the game's windows (upgrade
-  targets, subclass choice, shops), **4.12** deciding when to go down.
+- **4.12** Going down: leaves a floor once it is spent, overstayed, or out of
+  food, resting to full beside the stairs first, never from a sealed floor and
+  never fleeing hurt onto a boss floor.
+- In review: **4.11** answering the game's windows (upgrade targets, subclass
+  choice, shops). Next: **4.13** and **4.14**, the Goo gate.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:
@@ -71,6 +74,7 @@ Seed set:
 | 4.8, picking up and equipping | 2.12 (3) | 557 | 637 |
 | 4.9, eating and healing | 2.44 (4) | 752 | 848 |
 | 4.10, testing unknown items | 2.32 (4) | 863 | 918 |
+| 4.12, going down | 2.52 (4) | 1,044 | 1,043 |
 
 About 1% of decisions are left to chance. It still dies on nearly every `smoke`
 Run; the Goo gate (story 4.14) is where E4 is judged.
