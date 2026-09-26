@@ -26,7 +26,7 @@ Documentation: **<https://watchthelight.github.io/shatterfish/>**. The
 | E2 Codex | Every game fact the bot uses, generated from the pinned code with `path:line` citations; CI fails on drift | done |
 | E3 Rig | Parallel seeded Runs, hash-chained Run logs, replay, SPRT with calibrated bounds, results pages, a nightly job, a death gallery | done |
 | E4 Baseline brain | A hand-built bot that plays the sewers competently; done when the Warrior kills Goo on at least 75% of the `goo` Seed set | **in progress** |
-| E5 Overlay v1 | The bot inside the desktop game: watch it think, step it, take the controls mid-fight | planned |
+| E5 Overlay v1 | The bot inside the desktop game: watch it think, step it, take the controls mid-fight | **in progress** |
 | E6–E9 | Tactical search, strategy and lore, overlay v2, learned evaluation | planned |
 
 E4 so far, story by story (each merged with a fairness review, a code review, a
@@ -65,9 +65,13 @@ mutation battery and a direction check on the `smoke` Seed set):
   (subclass choice, shops, upgrade targets, the stone of intuition's guess),
   and a Run that meets one it can't answer, or stops passing time, ends with
   a logged reason that replays.
-- In progress: **4.13** tuning toward the Goo gate. So far no Warrior reaches
-  depth 5; the dominant cause of death is starvation. **4.14** runs the
+- In progress: **4.13** tuning toward the Goo gate, on 40 Warriors from the
+  `standard` set (never the registered `goo` set). Reading scrolls onto the
+  worn armour was the first big lever: 9 of 40 now reach depth 5 and the first
+  Goo kill has landed; the Goo fight itself is next. **4.14** then runs the
   registered 400-Warrior `goo` set.
+- In progress in parallel: **5.1**, the first Overlay story (E5): the launcher
+  and the driver embedded in the real desktop game.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:
