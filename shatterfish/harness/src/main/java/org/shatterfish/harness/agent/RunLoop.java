@@ -496,6 +496,33 @@ public final class RunLoop {
         return wait;
     }
 
+    /**
+     * Writes the record of a wait a human took at the Overlay (story 5.9): the same wait record the
+     * bot's has, from the same Observation, with {@code actor} human and no Decision or Belief, since a
+     * person carries neither (what the Brain thought is the wait's {@code shadow} record). The Action
+     * is the one the executor would issue for what the person did, so a Replay applies it as it
+     * applies a bot's; one the executor cannot issue is also marked {@code unsupported} by the caller.
+     * {@code turn} is the thousandths read when the wait was confirmed: the game has moved on by the
+     * time a person's input is known, and the record is about the screen they acted on.
+     */
+    static RunLog.Wait recordHuman(RunLogWriter log, long k, long turn, Observation observation, Action taken,
+                                   boolean oracle) {
+        if (observation.header().oracle() != oracle) {
+            throw new IllegalStateException("the header says oracle=" + oracle + " and the Observation at"
+                    + " wait " + k + " says " + observation.header().oracle());
+        }
+        if (log != null && observation.header().prompt() != PromptKind.NONE && answers(taken)) {
+            log.write(new RunLog.Prompt(k, observation.header().prompt(), taken));
+        }
+        RunLog.Wait wait = new RunLog.Wait(k, turn, observation.header().depth(), observation.header().branch(),
+                observation.hash(), observation.sectionHashes(), taken, true, RunLog.HUMAN, null, "",
+                List.of(), 0);
+        if (log != null) {
+            log.write(wait);
+        }
+        return wait;
+    }
+
     /** Whether an Action answers a Prompt, which is what a Prompt record records (ADR-0011). */
     private static boolean answers(Action chosen) {
         return chosen instanceof Action.AnswerPrompt || chosen instanceof Action.DismissPrompt;
@@ -515,6 +542,15 @@ public final class RunLoop {
 
     /** The end record at wait {@code k}, for either driver; see the overload above for the index. */
     static RunOutcome ending(RunLogWriter log, long k, RunOutcome outcome) {
+        return ending(log, k, outcome, false);
+    }
+
+    /**
+     * The end record at wait {@code k}; {@code unverifiable} when the log already holds an
+     * {@code unsupported} record, from which nothing can be reproduced whatever the ending (ADR-0011:
+     * "from here {@code verifiable} is false"; story 5.9).
+     */
+    static RunOutcome ending(RunLogWriter log, long k, RunOutcome outcome, boolean unverifiable) {
         if (log == null) {
             return outcome;
         }
@@ -535,8 +571,8 @@ public final class RunLoop {
                 // Brain said it; story 4.11). It cannot for one that stopped because the harness
                 // could not follow the game, which is what the other four causes say. Claiming
                 // otherwise under a valid chain is the shape of lie this format exists to prevent.
-                outcome.ordinary() || outcome.cause() == RunOutcome.Cause.BRAIN_ERROR
-                        || outcome.cause() == RunOutcome.Cause.STALLED,
+                !unverifiable && (outcome.ordinary() || outcome.cause() == RunOutcome.Cause.BRAIN_ERROR
+                        || outcome.cause() == RunOutcome.Cause.STALLED),
                 // The Brain's own message and the loop's count are what a reader of a Brain error or
                 // a stall needs, and a log is where the rig reads endings from.
                 outcome.cause() == RunOutcome.Cause.BRAIN_ERROR || outcome.cause() == RunOutcome.Cause.STALLED
@@ -597,7 +633,7 @@ public final class RunLoop {
      * are whatever the float could hold. Two Runs of one tuple quantise identically, which is what
      * a Replay compares; nobody should read the third digit as a measurement.
      */
-    private static long thousandths() {
+    static long thousandths() {
         return Math.round((double) (Statistics.duration + Actor.now()) * 1000.0);
     }
 

@@ -22,7 +22,41 @@ import com.watabou.input.InputHandler;
  */
 final class InputLock extends InputAdapter {
 
+    /**
+     * What a HUMAN Run hears from the lock (story 5.9): the raw tap and key the lock passed to the game,
+     * before the game has them, so the record can read a tap against a window's buttons; and the one
+     * key the Overlay keeps for itself, the notes key.
+     */
+    interface Human {
+        /** A tap released at a screen point, which the lock is passing to the game. */
+        void pointerUp(int screenX, int screenY);
+
+        /** A key pressed, which the lock is passing to the game. */
+        void keyDown(int keycode);
+
+        /** Any other press the lock is passing to the game. */
+        void input();
+
+        /** Whether {@code keycode} is the Overlay's own key, which the game then never sees. */
+        boolean overlayKey(int keycode);
+    }
+
     private volatile boolean locked;
+    /** Set for a HUMAN Run: the lock then holds only presses, and tells the Run what it passes. */
+    private Human human;
+    /** Pointers whose press was passed, so their release is passed too and no other release is. */
+    private final java.util.Set<Integer> passed = new java.util.HashSet<>();
+    /** Keys the Overlay took for itself, whose release is kept from the game too. */
+    private final java.util.Set<Integer> taken = new java.util.HashSet<>();
+
+    /**
+     * Makes this the lock of a HUMAN Run (story 5.9): while {@link #locked()}, a press is held back and a
+     * release still passes, so a key held down across the end of a wait is never left stuck in the
+     * game; while open, every press passes and the Run is told of it.
+     */
+    void human(Human human) {
+        this.human = human;
+    }
 
     void lock() {
         locked = true;
@@ -50,12 +84,29 @@ final class InputLock extends InputAdapter {
 
     @Override
     public boolean keyDown(int keycode) {
-        return locked;
+        if (human == null) {
+            return locked;
+        }
+        if (human.overlayKey(keycode)) {
+            taken.add(keycode);
+            return true;
+        }
+        if (locked) {
+            return true;
+        }
+        human.keyDown(keycode);
+        human.input();
+        return false;
     }
 
     @Override
     public boolean keyUp(int keycode) {
-        return locked;
+        if (human == null) {
+            return locked;
+        }
+        // A release always passes, save the Overlay's own key's: a key held across the end of a wait
+        // would otherwise stay held in the game and move the hero on its own.
+        return taken.remove(keycode);
     }
 
     @Override
@@ -65,26 +116,47 @@ final class InputLock extends InputAdapter {
 
     @Override
     public boolean touchDown(int screenX, int screenY, int pointer, int button) {
-        return locked;
+        if (human == null || locked) {
+            return locked;
+        }
+        passed.add(pointer);
+        human.input();
+        return false;
     }
 
     @Override
     public boolean touchUp(int screenX, int screenY, int pointer, int button) {
-        return locked;
+        if (human == null) {
+            return locked;
+        }
+        // Passed exactly when its press was: a release on its own would be read by the game as a tap.
+        if (!passed.remove(pointer)) {
+            return true;
+        }
+        human.pointerUp(screenX, screenY);
+        human.input();
+        return false;
     }
 
     @Override
     public boolean touchCancelled(int screenX, int screenY, int pointer, int button) {
-        return locked;
+        if (human == null) {
+            return locked;
+        }
+        return !passed.remove(pointer);
     }
 
     @Override
     public boolean touchDragged(int screenX, int screenY, int pointer) {
-        return locked;
+        if (human == null) {
+            return locked;
+        }
+        return !passed.contains(pointer);
     }
 
     @Override
     public boolean scrolled(float amountX, float amountY) {
-        return locked;
+        // A HUMAN Run's scroll zooms the camera, which changes nothing the record holds.
+        return human == null && locked;
     }
 }

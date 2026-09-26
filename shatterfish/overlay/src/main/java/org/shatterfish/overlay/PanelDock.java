@@ -79,10 +79,19 @@ final class PanelDock {
         panel.content(ModeState.of(snapshot), snapshot == null ? null : snapshot.decision(),
                 snapshot == null ? null : snapshot.observation(), inputLocked,
                 snapshot == null ? null : snapshot.beliefSummary(),
-                snapshot == null ? java.util.List.of() : snapshot.history());
+                snapshot == null ? java.util.List.of() : snapshot.history(), shadow(snapshot));
         panel.dim(covered(scene));
         Camera world = Camera.main;
         PanelCamera.apply(world, PanelCamera.world(layout.offsetUi(), PixelScene.uiCamera.zoom, world.zoom));
+    }
+
+    /** A HUMAN Run's shadow for the Decision card (story 5.9), or null for a Brain's Run. */
+    static DecisionCardContent.Shadow shadow(EmbeddedRun.Snapshot snapshot) {
+        if (snapshot == null || snapshot.human() == null) {
+            return null;
+        }
+        EmbeddedRun.Human human = snapshot.human();
+        return new DecisionCardContent.Shadow(human.shadowCurrent(), human.unverifiableFrom(), human.unverifiableWhy());
     }
 
     /** The scene's fade from black, if it is still fading, brought back in front of the Panel. */

@@ -28,8 +28,16 @@ import java.util.List;
 final class DecisionLogContent {
 
     /** One line of the log; muted or ink is the component's call ({@code DecisionLog}), not this class's. */
-    record Line(String text) {
+    record Line(String text, boolean greyed) {
+
+        /** A line that is not a shadow's. */
+        Line(String text) {
+            this(text, false);
+        }
     }
+
+    /** What a shadow line begins with, the word the card's headline uses too (story 5.9). */
+    static final String SHADOW = "shadow";
 
     private DecisionLogContent() {
     }
@@ -49,10 +57,19 @@ final class DecisionLogContent {
                 lines.add(new Line(waitLine(wait, entry.context())));
             } else if (record instanceof RunLog.Mode mode) {
                 lines.add(new Line(modeLine(mode)));
+            } else if (record instanceof RunLog.Shadow shadow) {
+                // A HUMAN Run's shadow (story 5.9): what the Brain would have done, greyed, never executed.
+                RunLog.Choice chosen = shadow.decision().chosen();
+                lines.add(new Line("wait " + shadow.k() + "  " + SHADOW + "  " + ActionText.of(chosen.action(), entry.context())
+                        + "  " + Columns.score(chosen.score()) + (shadow.skipped() ? "  late" : ""), true));
+            } else if (record instanceof RunLog.Unsupported unsupported) {
+                lines.add(new Line(DecisionCardContent.UNVERIFIABLE + unsupported.k() + ": " + unsupported.input()));
+            } else if (record instanceof RunLog.Note note) {
+                lines.add(new Line("note: " + note.text()));
             }
-            // Prompt, Shadow, Boundary, Unsupported, Header and End: not a wait and not a line of
-            // their own here. A Prompt rides beside the wait that answered it, which already has a
-            // line; the rest are not something an Input wait's log reads back.
+            // Prompt, Boundary, Header and End: not a line of their own here. A Prompt rides beside the
+            // wait that answered it, which already has a line; the rest are not something an Input
+            // wait's log reads back. A HUMAN Run's shadow, Replay notice and note are (story 5.9).
         }
         return List.copyOf(lines);
     }

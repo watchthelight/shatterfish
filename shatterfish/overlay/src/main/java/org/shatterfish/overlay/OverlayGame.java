@@ -20,6 +20,7 @@ import org.shatterfish.harness.agent.RunOutcome;
 import org.shatterfish.harness.boot.MemoryPreferences;
 import org.shatterfish.harness.boot.Profile;
 import org.shatterfish.harness.driver.NewGame;
+import org.shatterfish.harness.driver.Windows;
 import org.shatterfish.harness.rng.RngControl;
 
 import java.io.IOException;
@@ -124,8 +125,16 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         inputHandler.addInputProcessor(lock);
         rng = new RngControl(salt);
         NewGame.begin(options.seed(), options.heroClass(), rng);
-        run = EmbeddedRun.attach(this, options.seed(), options.heroClass(), rng, brain.get(), observer, logging,
-                options.turnCap());
+        if (options.human()) {
+            // The person plays every wait; the Brain shadows them (story 5.9). The lock then holds only
+            // presses between waits, and tells the Run what it passes.
+            run = EmbeddedRun.attachHuman(this, options.seed(), options.heroClass(), rng, brain.get(), observer,
+                    logging, options.turnCap());
+            lock.human(new HumanInput());
+        } else {
+            run = EmbeddedRun.attach(this, options.seed(), options.heroClass(), rng, brain.get(), observer, logging,
+                    options.turnCap());
+        }
         // The play scene, created at the first frame the way the loading scene asks for it after a new
         // game (core/.../scenes/InterlevelScene.java), with the Run already listening at its seam.
         switchScene(GameScene.class);
@@ -150,9 +159,80 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         Game.timeTotal += Game.elapsed;
         Game.realTime = TimeUtils.millis();
         inputHandler.processAllEvents();
+        if (run != null) {
+            // A HUMAN Run's wait reached late in the last frame is confirmed here, before a held key
+            // moves the hero from inside the scene's update (story 5.9); a Brain's Run does nothing.
+            run.beforeUpdate();
+        }
         Music.INSTANCE.update();
         Sample.INSTANCE.update();
-        dock.step(scene, scene::update, run == null ? null : run.snapshot(), lock.locked());
+        dock.step(scene, scene::update, run == null ? null : run.snapshot(), panelLocked());
+    }
+
+    /**
+     * Whether the Panel's own hot areas (Explain, the Decision log's scroll) and its tap blocker are off.
+     * While a Brain plays, whenever the game's input is locked, since the executor's synthetic taps pass
+     * the lock (story 5.3's fairness review). While a person plays, only while a window is in front
+     * (story 5.9): then the window's own blocker holds the dungeon, and the Panel must not take a tap
+     * meant for the window's buttons; otherwise the Panel takes every tap on itself, so a tap on the
+     * Panel never reaches the dungeon under it and is never a hero's Action.
+     */
+    private boolean panelLocked() {
+        if (run != null && run.human()) {
+            return Windows.front() != null;
+        }
+        return lock.locked();
+    }
+
+    /** What the lock tells a HUMAN Run (story 5.9), on the render thread as the input is polled. */
+    private final class HumanInput implements InputLock.Human {
+
+        @Override
+        public void pointerUp(int screenX, int screenY) {
+            run.pointerUp(screenX, screenY);
+        }
+
+        @Override
+        public void keyDown(int keycode) {
+            run.keyDown(keycode);
+        }
+
+        @Override
+        public void input() {
+            run.inputEvent();
+        }
+
+        @Override
+        public boolean overlayKey(int keycode) {
+            if (keycode != NOTE_KEY || noteOpen()) {
+                return false;
+            }
+            // Opened at the end of this frame, after the key's own typed character has gone by, so the
+            // note does not begin with the key that asked for it.
+            noteAsked = true;
+            return true;
+        }
+    }
+
+    /** The notes key (story 5.9): N, which the game binds to nothing (core/.../SPDAction.java:95-149). */
+    static final int NOTE_KEY = com.badlogic.gdx.Input.Keys.N;
+
+    private boolean noteAsked;
+
+    private static boolean noteOpen() {
+        return Windows.front() instanceof NoteWindow;
+    }
+
+    /** Opens the note window if the notes key asked for one, over the play scene. */
+    private void openNote() {
+        if (!noteAsked) {
+            return;
+        }
+        noteAsked = false;
+        if (run == null || !(scene instanceof GameScene) || noteOpen()) {
+            return;
+        }
+        GameScene.show(new NoteWindow(run));
     }
 
     @Override
@@ -167,7 +247,18 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
             return;
         }
         EmbeddedRun.State state = run.frame();
-        if (lock.locked()) {
+        if (run.human() && state != EmbeddedRun.State.ENDED) {
+            // A press reaches the game only while a wait is open for it, so every input the record holds
+            // was made on the screen its wait observed; off the play scene (a loading scene's region
+            // intro) the person clicks through as the game asks (story 5.9).
+            if (run.inputOpen() || !(scene instanceof GameScene)) {
+                lock.unlock();
+            } else {
+                lock.lock();
+            }
+            openNote();
+        }
+        if (lock.locked() && !noteOpen()) {
             // A window this frame opened (a text input) may have put its own processor in front.
             lock.keepFirst(inputHandler);
         }

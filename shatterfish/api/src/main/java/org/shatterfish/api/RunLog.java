@@ -26,10 +26,12 @@ import java.util.Map;
  * plays the log back (story 3.4).
  *
  * <p><b>Which kinds a headless Run writes.</b> {@link Header}, {@link Wait}, {@link Prompt} and
- * {@link End}. {@link Mode}, {@link Shadow} and {@link Boundary} belong to the Overlay (ADR-0013)
- * and {@link Unsupported} to a human input the executor cannot express, so nothing in the rig
- * produces them yet. They are defined, rendered and chained here all the same, so that the story
- * which starts writing them adds a caller and not a rule about the format.
+ * {@link End}. {@link Mode}, {@link Shadow}, {@link Note} and {@link Boundary} belong to the Overlay
+ * (ADR-0013) and {@link Unsupported} to a human input the executor cannot express, so nothing in the
+ * rig produces them. Story 5.9 writes {@code mode}, {@code shadow}, {@code note} and
+ * {@code unsupported} from a human's Run; {@code boundary} is still unwritten, and is defined,
+ * rendered and chained all the same, so that the story which starts writing it adds a caller and not
+ * a rule about the format.
  *
  * <p>No float reaches a chained field, because two machines agreeing on a float's text is a thing
  * to hope for rather than to rely on. A turn is thousandths of a turn; a {@link Choice}'s score,
@@ -40,7 +42,7 @@ import java.util.Map;
  */
 public sealed interface RunLog
         permits RunLog.Header, RunLog.Wait, RunLog.Prompt, RunLog.Mode, RunLog.Shadow,
-                RunLog.Boundary, RunLog.Unsupported, RunLog.End {
+                RunLog.Boundary, RunLog.Unsupported, RunLog.Note, RunLog.End {
 
     /**
      * The log schema version, which a reader refuses to guess at across (ADR-0011).
@@ -410,12 +412,24 @@ public sealed interface RunLog
     /**
      * What the Brain would have done at a wait a human took (ADR-0013). It was never executed, and
      * the record exists so that a human's Run still says what the Brain thought.
+     *
+     * @param skipped whether the Decision arrived after its wait stopped being current: the human had
+     *                already acted at {@code k}, or a later wait had been confirmed (ADR-0013: "a Decision
+     *                tagged with a wait index that is no longer current is logged as skipped and never
+     *                executed"). It is still the Brain's answer to wait {@code k}'s Observation and to
+     *                nothing else, so it is kept; it was never shown as the current shadow. Written only
+     *                when true, so a shadow that arrived in time has the bytes it always had (story 5.9)
      */
-    record Shadow(long k, Decision decision) implements RunLog {
+    record Shadow(long k, Decision decision, boolean skipped) implements RunLog {
 
         public Shadow {
             Canon.require(k >= 0, "a wait index is at least 0: " + k);
             Canon.require(decision != null, "a shadow record is the decision that was not taken");
+        }
+
+        /** A shadow that arrived while its wait was still the human's to take. */
+        public Shadow(long k, Decision decision) {
+            this(k, decision, false);
         }
 
         @Override
@@ -460,6 +474,47 @@ public sealed interface RunLog
         @Override
         public String t() {
             return "unsupported";
+        }
+    }
+
+    /**
+     * A note the human typed at the Overlay (story 5.9): the player's own reasoning, kept next to the
+     * wait it was written at, so a reader of a human's Run sees why beside what. {@code k} is the wait
+     * current when the note was saved, or the last wait confirmed when the hero was between two.
+     *
+     * <p>It is chained like every other record: the chain is a statement about the whole file, and a
+     * note edited afterwards would be a claim about the player's reasoning that nobody made. It is not
+     * needed to replay a Run, and a Replay passes over it, as it passes over a {@link Shadow}.
+     *
+     * @param text the note, on one line: a line break or any other control character typed is a space
+     *             here ({@link #clean}), so a note cannot break the file's one-record-one-line rule or
+     *             fake a column in a reader's view; at most {@link #MOST} characters
+     */
+    record Note(long k, String text) implements RunLog {
+
+        /** The longest note kept, in characters: a paragraph, not a document. */
+        public static final int MOST = 1_000;
+
+        public Note {
+            Canon.require(k >= 0, "a wait index is at least 0: " + k);
+            Canon.text(text, "a note's text");
+            Canon.require(!text.isBlank(), "a note says something");
+            Canon.require(text.length() <= MOST, "a note is at most " + MOST + " characters: " + text.length());
+            Canon.require(text.codePoints().noneMatch(Character::isISOControl),
+                    "a note is one line, with no control character in it");
+        }
+
+        /** {@code typed} as a note holds it: control characters as spaces, trimmed, cut at {@link #MOST}. */
+        public static String clean(String typed) {
+            StringBuilder line = new StringBuilder();
+            typed.codePoints().forEach(c -> line.appendCodePoint(Character.isISOControl(c) ? ' ' : c));
+            String text = line.toString().strip();
+            return text.length() > MOST ? text.substring(0, MOST) : text;
+        }
+
+        @Override
+        public String t() {
+            return "note";
         }
     }
 

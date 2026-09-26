@@ -39,6 +39,8 @@ final class DecisionCard extends Component {
     static final int CHOSEN_COLOR = 0xFFB347;
     static final int ALTERNATIVE_COLOR = 0x7FB8FF;
     static final int INK_MUTED = 0x9C9C9C;
+    /** The notice that a Replay stops at a wait (story 5.9): the paused amber, a caution, never the only signal. */
+    static final int NOTICE_COLOR = ModeStripContent.PAUSED_COLOR;
     static final float ROW_GAP = 2;
     /** Between the action column and the score column, and between the score column and the reason column. */
     static final float COLUMN_GAP = 4;
@@ -55,7 +57,10 @@ final class DecisionCard extends Component {
     private RenderedTextBlock[] reasonBlocks;
     private RenderedTextBlock policyLine;
     private RenderedTextBlock flagsLine;
+    /** A HUMAN Run's word that a Replay stops at a wait (story 5.9); hidden otherwise. */
+    private RenderedTextBlock noticeLine;
     private RedButton explainButton;
+    private DecisionCardContent.Shadow shadow;
 
     private RunLog.Decision decision;
     private Observation observation;
@@ -84,6 +89,7 @@ final class DecisionCard extends Component {
         }
         policyLine = row(SMALL_SIZE, INK_MUTED);
         flagsLine = row(SMALL_SIZE, INK_MUTED);
+        noticeLine = row(SMALL_SIZE, NOTICE_COLOR);
         explainButton = new RedButton("Explain", SMALL_SIZE) {
             @Override
             protected void onClick() {
@@ -110,6 +116,16 @@ final class DecisionCard extends Component {
      */
     void content(RunLog.Decision decision, Observation observation, boolean nextStep, float innerWidth,
                  boolean inputLocked) {
+        content(decision, observation, nextStep, innerWidth, inputLocked, null);
+    }
+
+    /**
+     * As above, for a HUMAN Run (story 5.9): {@code shadow} non-null makes the card the Brain's shadow,
+     * every row greyed and a headline saying it was not executed, with the Replay notice over it.
+     */
+    void content(RunLog.Decision decision, Observation observation, boolean nextStep, float innerWidth,
+                 boolean inputLocked, DecisionCardContent.Shadow shadow) {
+        this.shadow = shadow;
         this.decision = decision;
         this.observation = observation;
         this.nextStep = nextStep;
@@ -132,8 +148,10 @@ final class DecisionCard extends Component {
     }
 
     private void refresh() {
-        DecisionCardContent.Content content = DecisionCardContent.of(decision, nextStep, explain);
+        DecisionCardContent.Content content = DecisionCardContent.of(decision, nextStep, explain, shadow);
         int width = (int) innerWidth;
+        noticeLine.visible = content.notice() != null;
+        noticeLine.text(content.notice() == null ? "" : content.notice(), width);
         empty.visible = !content.present();
         empty.text(content.present() ? "" : DecisionCardContent.NO_DECISION_YET, width);
 
@@ -157,6 +175,10 @@ final class DecisionCard extends Component {
             scoreBlocks[i].visible = shown;
             reasonBlocks[i].visible = shown;
             if (shown) {
+                // A shadow is greyed, every row alike: it was never executed (story 5.9); the headline says so in words.
+                int color = content.shadow() ? INK_MUTED : i == 0 ? CHOSEN_COLOR : ALTERNATIVE_COLOR;
+                actionBlocks[i].hardlight(color);
+                scoreBlocks[i].hardlight(color);
                 DecisionCardContent.Row tableRow = tableRows.get(i);
                 actionBlocks[i].text(ActionText.of(tableRow.action(), observation));
                 scoreBlocks[i].text(tableRow.score());
@@ -197,10 +219,11 @@ final class DecisionCard extends Component {
 
     /** The height {@link #content} needs at the width it was given, before this is positioned. */
     float contentHeight() {
+        float notice = noticeLine.visible ? noticeLine.height() + ROW_GAP : 0;
         if (empty.visible) {
-            return empty.height();
+            return notice + empty.height();
         }
-        float height = 0;
+        float height = notice;
         if (headline.visible) {
             height += headline.height() + ROW_GAP;
         }
@@ -224,12 +247,17 @@ final class DecisionCard extends Component {
         if (empty == null) {
             return;
         }
+        float rowY = y;
+        if (noticeLine.visible) {
+            noticeLine.setPos(x, rowY);
+            PixelScene.align(noticeLine);
+            rowY += noticeLine.height() + ROW_GAP;
+        }
         if (empty.visible) {
-            empty.setPos(x, y);
+            empty.setPos(x, rowY);
             PixelScene.align(empty);
             return;
         }
-        float rowY = y;
         if (headline.visible) {
             headline.setPos(x, rowY);
             PixelScene.align(headline);
@@ -292,6 +320,11 @@ final class DecisionCard extends Component {
     /** The Explain expansion's Safety flags row, for tests. */
     RenderedTextBlock flagsRow() {
         return flagsLine;
+    }
+
+    /** The Replay notice row, for tests (story 5.9). */
+    RenderedTextBlock noticeRow() {
+        return noticeLine;
     }
 
     /** The Explain control, for tests. */

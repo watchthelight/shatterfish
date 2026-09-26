@@ -210,3 +210,56 @@ stays 2, as the `end` record's `detail` did in story 4.11. A reader that meets n
 headless driver. An Overlay Run is not reproducible from its tuple or its Action list until story 5.13
 (ADR-0013's story 5.1 amendment names the exception to non-negotiable 5), and the member is how its
 log says so: the Rig refuses such a log wherever it reads logs to count, score, calibrate or show them.
+
+## Amendment: story 5.9 (2026-09-26): a human's Run
+
+A human's Run at the Overlay (`--agent human`) is the first writer of four kinds this record defined
+and nothing wrote: `mode`, `shadow`, `unsupported`, and a new one, `note`. The schema version stays 2,
+as it did for `detail` (story 4.11) and `driver` (story 5.1): every addition is a new kind or an
+optional member written only when it has something to say, so every log already written keeps its
+bytes.
+
+| `t` | Fields | Chained? |
+|---|---|---|
+| `note` | `k` (the wait open when it was saved, or the last one confirmed), `text` (one line, control characters as spaces, at most 1,000 characters) | yes |
+| `shadow` | as before, and `skipped` (`true` only, written only when true): the Decision landed after its wait stopped being the person's, because they had already acted or a later wait was confirmed; it is kept, since it is still the Brain's answer to that wait's Observation, and it was never shown as current | yes |
+
+**What a human's log holds.** The header's `brain.name` is `human`; its `driver` is `embedded` and the
+Rig refuses it as it refuses every Overlay log. A `mode` record at `k` 0 says `HUMAN` with speed
+`player`. Each wait the person took is a `wait` record with `actor: human`, `applied: true`, no
+`decision` and no `belief` (a person carries neither), its `obs` the Observation confirmed at that
+wait, its `turn` read when the wait was confirmed, and its `action` the Action the executor would
+issue to do what the person did, so a Replay applies it as it applies a bot's. A `prompt` record rides
+beside a wait that answered a Prompt, as for the bot. A `shadow` record carries the Brain's Decision
+for the same `k`, written when the Brain's worker answers: before the wait record when it was in time,
+after it with `skipped` when it was not. An input the executor cannot express is written as the
+wait's Action where it has one (a click on a distant cell is `MoveTo`) with an `unsupported` record at
+that `k`; an input nothing heard is an `unsupported` record alone, with no wait record, which is the
+case story 3.4's `Following` was written for. The `end` record's `verifiable` is false once any
+`unsupported` record was written.
+
+**Chained or not.** Three options were weighed for `note` and `shadow`:
+1. **Chained records in the same file, like every other kind.** Chosen. The chain is a statement about
+   the whole file; a note edited after the Run would be a claim about the player's reasoning that
+   nobody made, and a shadow edited after it a claim about the Brain's.
+2. Unchained records in the same file, lines without `prev` and `chain`. Rejected: every checker, the
+   stranger's script included, would need a rule for lines the chain skips, and a line the chain
+   skips can be added, removed or edited without a trace.
+3. A side file (`<run-id>.notes.jsonl`). Rejected: two files for one Run is two things to keep
+   together, and the reasoning would no longer sit in order beside the moment it is about.
+
+A Replay passes over `mode`, `shadow` and `note`, as it passes over everything but the waits: they
+are not needed to reproduce a Run, and nothing about the chain changes that. `RunLogReader` reads
+both additions; the Rig's readers read them through it and refuse the log by its header regardless.
+A human's log can never reach the chain a Replay writes (its waits say `human`, and it carries
+records a Replay does not write), so `Replay.waitsOf` checks what a human's Run can be checked for:
+every wait's Observation hash, up to the first `unsupported` record.
+
+**What the fairness review of story 5.9 added.** `Replay.waitsOf` writes its replay's log to a scratch
+folder it deletes before it returns: that log would say a person's Actions were the bot's under a
+headless header, which is exactly a log the Rig would count. A shadow's `skipped` depends on when the
+Brain's worker finished relative to the person, so a human's log is not a function of its tuple and its
+Actions in its bytes; that is acceptable only because a human's log is an Overlay log, declared not
+reproducible and refused by the Rig, and it is stated here so nobody leans on a human log's chain as a
+reproduction. An `unsupported` record's text is written from the Observation alone: it names the cell
+and never what the game made of the click, which is read from the true level.

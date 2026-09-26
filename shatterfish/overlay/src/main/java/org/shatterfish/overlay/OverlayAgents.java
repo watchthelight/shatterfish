@@ -37,9 +37,9 @@ final class OverlayAgents {
     private OverlayAgents() {
     }
 
-    /** The agent the launcher was told to attach. */
+    /** The agent the launcher was told to attach; for a human's Run, the Brain that shadows them (story 5.9). */
     static Supplier<Decider> of(LaunchOptions options) {
-        if (options.agent().equals("brain")) {
+        if (options.agent().equals("brain") || options.human()) {
             Weights weights = weights(options.weights());
             return () -> new BrainDecider(new Brain(emptyCodex(), weights, BRAIN_SEED));
         }
@@ -48,7 +48,7 @@ final class OverlayAgents {
 
     /** The name the Run log's header gives the agent. */
     static String name(LaunchOptions options) {
-        return options.agent().equals("brain") ? "shatterfish" : "random";
+        return options.human() ? "human" : options.agent().equals("brain") ? "shatterfish" : "random";
     }
 
     static Codex.Knowledge emptyCodex() {

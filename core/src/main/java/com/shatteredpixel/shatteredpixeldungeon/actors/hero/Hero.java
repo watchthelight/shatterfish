@@ -375,6 +375,10 @@ public class Hero extends Char {
 	}
 
 	public void upgradeTalent( Talent talent ){
+		// shatterfish-hook:11
+		// A player's input, heard for the Overlay's record of a human's turns (story 5.9).
+		Hooks.HeroInput heard = Hooks.heroInput;
+		if (heard != null) heard.talentUpgraded(talent);
 		for (LinkedHashMap<Talent, Integer> tier : talents){
 			for (Talent f : tier.keySet()){
 				if (f == talent) tier.put(talent, tier.get(talent)+1);
@@ -1512,6 +1516,10 @@ public class Hero extends Char {
 	}
 	
 	public void rest( boolean fullRest ) {
+		// shatterfish-hook:11
+		// A player's input, heard for the Overlay's record of a human's turns (story 5.9).
+		Hooks.HeroInput heard = Hooks.heroInput;
+		if (heard != null) heard.rested(fullRest);
 		spendAndNextConstant( TIME_TO_REST );
 		if (hasTalent(Talent.HOLD_FAST)){
 			if (heroClass != HeroClass.WARRIOR || buff(BrokenSeal.WarriorShield.class) != null) {
@@ -2013,6 +2021,10 @@ public class Hero extends Char {
 			
 		}
 
+		// shatterfish-hook:11
+		// A player's input, heard for the Overlay's record of a human's turns (story 5.9).
+		Hooks.HeroInput heard = Hooks.heroInput;
+		if (heard != null) heard.cellHandled(cell);
 		return true;
 	}
 	
@@ -2497,6 +2509,10 @@ public class Hero extends Char {
 	}
 
 	public boolean search( boolean intentional ) {
+		// shatterfish-hook:11
+		// A player's input, heard for the Overlay's record of a human's turns (story 5.9).
+		Hooks.HeroInput heard = Hooks.heroInput;
+		if (heard != null && intentional) heard.searched();
 		
 		if (!isAlive()) return false;
 		

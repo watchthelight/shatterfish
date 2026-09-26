@@ -111,7 +111,8 @@ public final class StrategyLog {
 
     /**
      * {@code ./gradlew :rig:strategy --args="<log.jsonl> [...]"} writes {@code <run-id>.strategy.txt}
-     * beside each log named, or beside every log in a folder named.
+     * beside each log named, or beside every log in a folder named; for a log with a human's waits
+     * (story 5.9) it also writes and prints {@code <run-id>.human.txt} ({@link HumanPlay}).
      */
     public static void main(String[] args) {
         if (args.length == 0) {
@@ -125,6 +126,14 @@ public final class StrategyLog {
                 // worth reading.
                 try {
                     System.out.println("the strategy log wrote " + written(log));
+                    // A human's Run (story 5.9): the person's play beside the Brain's shadow, one line per
+                    // turn, written beside the log and printed, since that is what its reader came for.
+                    RunLogReader.Log read = RunLogReader.of(log);
+                    if (HumanPlay.human(read)) {
+                        String rendered = HumanPlay.render(read);
+                        System.out.println("the human play log wrote " + HumanPlay.written(log, rendered));
+                        System.out.print(rendered);
+                    }
                 } catch (RuntimeException unreadable) {
                     System.out.println("the strategy log skipped " + log + ": " + unreadable.getMessage());
                 }

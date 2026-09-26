@@ -53,22 +53,52 @@ final class DecisionCardContent {
      * @param alternatives up to {@link RunLog.Decision#ALTERNATIVES} rows, empty when {@code !present}
      * @param explain     the Policy and flags, null unless asked for
      */
-    record Content(boolean present, String headline, Row chosen, List<Row> alternatives, Explain explain) {
+    record Content(boolean present, String headline, Row chosen, List<Row> alternatives, Explain explain,
+                   boolean shadow, String notice) {
+
+        /** A Brain's card: not a shadow, and nothing to say about a Replay. */
+        Content(boolean present, String headline, Row chosen, List<Row> alternatives, Explain explain) {
+            this(present, headline, chosen, alternatives, explain, false, null);
+        }
     }
+
+    /**
+     * A HUMAN Run's card (story 5.9): the Decision is the Brain's shadow, never executed, and greyed;
+     * {@code current} when it answers the wait the person is looking at; {@code unverifiableFrom} the
+     * first wait a Replay cannot reproduce (0 for none), with why.
+     */
+    record Shadow(boolean current, long unverifiableFrom, String why) {
+    }
+
+    /** The headline over a shadow that answers the wait in front (UX-DR14: said in words, not only greyed). */
+    static final String SHADOW_NOW = "shadow, not executed: the Brain would";
+
+    /** The headline over a shadow of a wait the person has already taken. */
+    static final String SHADOW_LAST = "shadow of your last turn, not executed";
+
+    /** The Panel's word that a Replay stops at a wait (FR-4, the story's acceptance criterion). */
+    static final String UNVERIFIABLE = "replay unverifiable from wait ";
 
     private DecisionCardContent() {
     }
 
     /** {@code decision}'s content: {@link #NO_DECISION_YET} when it is null, the rows and Explain otherwise. */
     static Content of(RunLog.Decision decision, boolean nextStep, boolean explain) {
+        return of(decision, nextStep, explain, null);
+    }
+
+    /** As above, and for a HUMAN Run's {@code shadow} (null for a Brain's Run): its headline, greyed rows and notice. */
+    static Content of(RunLog.Decision decision, boolean nextStep, boolean explain, Shadow shadow) {
+        String notice = shadow == null || shadow.unverifiableFrom() <= 0 ? null
+                : UNVERIFIABLE + shadow.unverifiableFrom() + ": " + shadow.why();
         if (decision == null) {
-            return new Content(false, null, null, List.of(), null);
+            return new Content(false, null, null, List.of(), null, shadow != null, notice);
         }
-        String headline = nextStep ? NEXT_PRESS : null;
+        String headline = shadow != null ? (shadow.current() ? SHADOW_NOW : SHADOW_LAST) : nextStep ? NEXT_PRESS : null;
         Row chosen = row(decision.chosen());
         List<Row> alternatives = decision.alternatives().stream().map(DecisionCardContent::row).toList();
         Explain explanation = explain ? new Explain(decision.policy(), decision.flags()) : null;
-        return new Content(true, headline, chosen, alternatives, explanation);
+        return new Content(true, headline, chosen, alternatives, explanation, shadow != null, notice);
     }
 
     private static Row row(RunLog.Choice choice) {

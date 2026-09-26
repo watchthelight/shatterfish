@@ -4,6 +4,7 @@ import com.shatteredpixel.shatteredpixeldungeon.Chrome;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
 import com.watabou.noosa.NinePatch;
+import com.watabou.noosa.PointerArea;
 import com.watabou.noosa.ui.Component;
 import org.shatterfish.api.BeliefSummary;
 import org.shatterfish.api.Observation;
@@ -57,8 +58,21 @@ final class Panel extends Component {
     private PanelLayout.Layout placed;
     private boolean dimmed;
 
+    /**
+     * A HUMAN Run's tap blocker (story 5.9): the game's own {@code PointerArea} over the whole Panel, added
+     * before every other child so the Panel's own controls, registered after it, still take their taps
+     * first, and the play scene's cell selector, registered before the Panel, never gets one on the
+     * Panel ({@code SPD-classes/…/noosa/PointerArea.java:56-80}: the newest area over a point takes it).
+     * Active only while a person plays and no window is in front, so it never takes a tap meant for a
+     * window's own buttons, nor one the executor posts while a Brain plays (story 5.3's fairness review).
+     */
+    private PointerArea blocker;
+
     @Override
     protected void createChildren() {
+        blocker = new PointerArea(0, 0, 0, 0);
+        blocker.active = false;
+        add(blocker);
         frame = Chrome.get(Chrome.Type.TOAST_TR_HEAVY);
         add(frame);
         strip = Chrome.get(Chrome.Type.TOAST_TR);
@@ -89,13 +103,25 @@ final class Panel extends Component {
      */
     void content(ModeState mode, RunLog.Decision decision, Observation observation, boolean inputLocked,
                  BeliefSummary beliefSummary, List<BoundedLog.Entry> history) {
+        content(mode, decision, observation, inputLocked, beliefSummary, history, null);
+    }
+
+    /**
+     * As above, for a HUMAN Run (story 5.9): {@code shadow} non-null makes the Decision card the Brain's
+     * greyed shadow with the Replay notice; and the Panel then takes every tap on itself
+     * ({@link #blocker}) whenever its hot areas are live, so a tap on the Panel never falls through to
+     * the dungeon under it and is never a hero's Action.
+     */
+    void content(ModeState mode, RunLog.Decision decision, Observation observation, boolean inputLocked,
+                 BeliefSummary beliefSummary, List<BoundedLog.Entry> history, DecisionCardContent.Shadow shadow) {
+        blocker.active = shadow != null && !inputLocked;
         stripText.text(ModeStripContent.text(mode));
         stripText.hardlight(ModeStripContent.color(mode.mode()));
         boolean full = placed != null && placed.form() == PanelLayout.Form.FULL;
         boolean nextStep = mode.speed() == ModeState.SpeedMode.NEXT_STEP;
         float inner = innerWidth();
         goal.content(full ? decision : null, inner);
-        card.content(full ? decision : null, full ? observation : null, nextStep, inner, inputLocked);
+        card.content(full ? decision : null, full ? observation : null, nextStep, inner, inputLocked, shadow);
         flags.content(full && decision != null ? decision.flags() : List.of());
         belief.content(full ? beliefSummary : null, inner);
         // layout() before the log's own content: it is what sizes the log's ScrollPane viewport (the
@@ -146,6 +172,10 @@ final class Panel extends Component {
             return;
         }
         boolean full = placed.form() == PanelLayout.Form.FULL;
+        blocker.x = x;
+        blocker.y = y;
+        blocker.width = width;
+        blocker.height = height;
         frame.visible = full;
         if (full) {
             frame.x = x;
@@ -229,6 +259,11 @@ final class Panel extends Component {
     /** The Decision card, for tests (story 5.3). */
     DecisionCard card() {
         return card;
+    }
+
+    /** The HUMAN Run's tap blocker, for tests (story 5.9). */
+    PointerArea blocker() {
+        return blocker;
     }
 
     /** The Safety flags row, for tests (story 5.4). */

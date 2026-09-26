@@ -64,6 +64,8 @@ class RunLogKindsTest {
                 new RunLog.Shadow(4, decision()),
                 new RunLog.Boundary(5, Long.MIN_VALUE, ONE),
                 new RunLog.Unsupported(6, "a two-finger swipe"),
+                new RunLog.Note(6, "the crab first, {then} the \"gold\", a, b"),
+                new RunLog.Shadow(6, decision(), true),
                 new RunLog.End(7, new RunLog.Outcome(true, true, 12_345, 26, 640_500, "WIN", 5), true));
     }
 
@@ -100,9 +102,12 @@ class RunLogKindsTest {
         LogText.Lines lines = LogText.lines(file.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
         assertTrue(lines.complete(), "whole lines");
-        assertEquals(8, lines.whole().size(), "one of each kind");
+        assertEquals(10, lines.whole().size(), "one of each kind, and a skipped shadow");
+        // Story 5.9: the note and a skipped shadow read back as they were written, as every other kind does.
+        assertEquals(everyKind(), org.shatterfish.harness.log.RunLogReader.of(file.toString()).records());
         assertEquals(0, LogText.firstBrokenLine(lines), "a file of every kind verifies");
-        assertEquals(List.of("header", "wait", "prompt", "mode", "shadow", "boundary", "unsupported", "end"),
+        assertEquals(List.of("header", "wait", "prompt", "mode", "shadow", "boundary", "unsupported", "note", "shadow",
+                        "end"),
                 lines.whole().stream().map(l -> LogText.string(l, "t")).toList());
     }
 

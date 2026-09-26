@@ -121,7 +121,10 @@ public final class RunLogReader {
                     Json.string(Json.required(held, "mode", "mode")),
                     Json.string(Json.required(held, "speed", "mode")));
             case "shadow" -> new RunLog.Shadow(Json.number(Json.required(held, "k", "shadow")),
-                    decision(Json.required(held, "decision", "shadow")));
+                    decision(Json.required(held, "decision", "shadow")),
+                    held.containsKey("skipped") && Json.bool(held.get("skipped")));
+            case "note" -> new RunLog.Note(Json.number(Json.required(held, "k", "note")),
+                    Json.string(Json.required(held, "text", "note")));
             case "boundary" -> new RunLog.Boundary(Json.number(Json.required(held, "k", "boundary")),
                     salt(Json.string(Json.required(held, "salt", "boundary"))),
                     Json.string(Json.required(held, "chainAt", "boundary")));

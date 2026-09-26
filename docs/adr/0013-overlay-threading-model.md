@@ -544,3 +544,63 @@ glyphs. Neither of the third pass's own tests could have caught this, since both
 (the un-cast float field) rather than `rows.camera.height` (the actual, sometimes-truncated int the
 render path clips to); `DecisionLogTest.both_edges_are_whole_when_scrolled_to_the_bottom` reads the
 latter, "what the screen actually shows," as the coordinator's own message put it.
+
+## Amendment: story 5.9 (2026-09-26): a HUMAN Run, pulled forward
+
+Story 5.9's human half was pulled forward ahead of 5.5 to 5.8: `--agent human` makes the whole Run
+HUMAN (taking over and handing back mid-Run stays story 5.8's). What it settles of this record:
+
+**The per-wait sequence is the Brain's, with the person in the executor's place.** The render thread
+confirms each wait through the same `WaitGate`, reseeds and observes (`EmbeddedRun.confirmHuman`);
+the Observation goes to the Brain's worker, which runs `decide`, the Brain's update and decision in
+one, and reads `lastDecision()` and `beliefSummary()` on the worker right after, because shadow
+questions queue when the person is quicker than the Brain and the next `decide` would overwrite them.
+The render thread never waits: a shadow is written when its `Future` is done, `shadow` for the wait
+still open, `shadow` with `skipped` for one the person already took (the "Decisions are tagged with
+their `k`" rule above, now real). Nothing is ever executed from a shadow; the executor is not called
+in a HUMAN Run at all. The frame budget does not apply: a person is at the window.
+
+**Recording human Actions, as built.** The design above named `Hero.curAction` and notification sites
+that did not exist; row 5's notification fires after the input is gone. So the sites are a new hook,
+row 11 (ADR-0016's story 5.9 amendment, on the owner's decision to raise the budget to eleven):
+`Hero.handle` (the cell alone: the action the game chose is read from the true level, a hidden mimic or an exit in the fog, and is never recorded or shown), `Hero.rest`,
+`Hero.search(true)`, `Hero.upgradeTalent`, `Item.execute` and `CellSelector.select` (an item's cell
+target). A window's own button and the back key need no hook: the input lock sees the raw tap before
+the game does, and `HumanTurns` reads it against `ActionExecutor.optionButtons`, the list the executor
+presses from, or a bag window's slots, and only on the wait's own Prompt window. At the end of each
+frame what was heard becomes the Action the executor would issue for it, checked against the wait's
+valid set; recording announces the hand-over as the executor's `applied()` does, so the gate numbers
+the next wait exactly as it would for the Brain. `HumanTurnReplayTest` holds the consequence: three
+human turns replay under the executor with every Observation hash matching.
+
+**What cannot be expressed is marked, never passed off.** An Action outside the valid set (a click on a
+distant cell, which the game walks over several turns: `MoveTo`), an input nothing heard, an input
+heard while no wait was open, and a screen that changed at a wait with no input to explain it (checked
+by re-observing on a frame with input) each write `unsupported` at their wait; the Panel says "replay
+unverifiable from wait k" and why, and the `end` record says not verifiable.
+
+**The input lock, per wait.** In a HUMAN Run the lock passes a press only while a wait is confirmed and
+not yet recorded, so every recorded input was made on the screen its wait observed, after its reseed;
+a release always passes, so a key held across the end of a wait is never left held in the game; off
+the play scene it is open (the region intro is the person's to click). A direction key held down moves
+the hero from inside the scene's update rather than from an event, so the Run looks for a wait a second
+time each frame, between the game's input and its scene update (`EmbeddedRun.beforeUpdate`). One thing
+a person could do in the unmodified game is lost: a tap no longer interrupts a walk or a rest, since
+that tap is not an input any Action can record (`docs/ideas.md`).
+
+**The Panel's own taps.** Story 5.3's rule kept every Panel hot area inactive while input is locked,
+because the executor's synthetic taps pass the lock. A HUMAN Run has no executor taps, and its input is
+open, so the Panel's controls are live; a tap on the Panel's own body would then fall through to the
+dungeon's cell selector under it and become a hero's move. The Panel therefore carries a blocker, the
+game's own `PointerArea`, over itself, active only in a HUMAN Run with no window in front (a window's
+own blocker then holds the dungeon, and the Panel must not take a tap meant for its buttons). A tap on
+the Panel is never a game Action, and the recorder never reads one as a Prompt answer.
+
+**Notes.** The notes key, N, which the game binds to nothing, opens the game's own `WndTextInput`; the
+note is a chained `note` record at the wait open (ADR-0011's story 5.9 amendment). The window is a
+window in front, so no wait is confirmed under it, and nothing it does is heard as an input.
+
+**Reproducibility, stated exactly.** Story 5.1's and 5.2's exceptions stand for a HUMAN Run played on
+the desktop: its log says `driver: embedded` and the Rig refuses it. Where the frames are the headless
+driver's, a human's log replays wait for wait, which `Replay.waitsOf` checks (every Observation hash,
+up to the first `unsupported` record) and `Replay.of`, the Rig's path, still refuses.
