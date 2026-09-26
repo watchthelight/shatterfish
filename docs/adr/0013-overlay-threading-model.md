@@ -449,3 +449,98 @@ default), so an inactive Explain lets the event fall through to whatever is real
 the dispatch stack is ordered. `PanelContentTest.explain_does_not_steal_a_synthetic_tap_while_locked`
 reproduces the worst case directly: a window's own button placed exactly where Explain is, registered
 before the Panel is rebuilt, and a synthetic tap at that point still reaches the button, not Explain.
+
+## Amendment: story 5.4 (2026-09-26)
+
+Safety flags, the Belief summary and the Decision log reuse story 5.3's two decided shapes -- the
+same-thread `Snapshot` and the "gate the control's own `active`, not only `visible`" rule -- rather
+than reopening either.
+
+**A wider Snapshot, still one same-thread read.** `EmbeddedRun.Snapshot` gained two fields:
+`beliefSummary` (the api's `BeliefSummary`, story 5.4's own new record, built by the brain module's
+`BeliefSummaries` from `Beliefs` and exposed through a new `Deliberator.beliefSummary()` default
+method) and `history` (a `List<RunLog>`, from a new bounded FIFO, `BoundedLog`, capacity 200).
+Both are written inside `EmbeddedRun.serve()`, at the same point and on the same thread `lastDecision`
+already is -- after the worker's `Future` is done, before the render thread does anything else with
+the wait -- so this amendment adds no new cross-thread edge, only two more fields to the one
+same-thread hand-off story 5.3 already built. `RunLoop.record` changed from `void` to returning the
+`RunLog.Wait` it builds (previously discarded), which is what `EmbeddedRun.serve()` now hands to
+`BoundedLog` -- the same record the file gets, kept here too rather than recomputed, so the Decision
+log is a view over what the log's own writer built and not a second source of truth (the story's own
+acceptance criterion, and its own design note "Decision log source"). `RunLoop.record` now builds and
+checks that `RunLog.Wait` (including the oracle-consistency invariant) even when `log == null`
+(previously an early return skipped both); this is a strengthening of an invariant `EmbeddedRun.frame()`
+already enforces earlier in the same wait, not a new way for a Run to fail.
+
+**The synthetic-tap gate, applied to a second control.** The Decision log wraps the game's own
+`ScrollPane` (`core/.../ui/ScrollPane.java`), whose drag area (`ScrollPane.PointerController`, a
+`ScrollArea`, itself a `PointerArea`) registers on the same `PointerEvent` signal Explain's hot area
+does, and so is dispatched to by the same stack that `ActionExecutor.press`'s synthetic taps reach
+directly, past `InputLock`. `DecisionLog.content` sets `pane.active = !inputLocked` every call, the
+identical mechanism story 5.3's amendment above chose for Explain: `Gizmo.isActive()`'s parent-chain
+walk makes the pane's own child (the drag area) read inactive whenever the pane does, and
+`PointerArea.onSignal`'s default `blockLevel` then lets a tap fall through rather than consuming it.
+`DecisionLogTest.does_not_steal_a_synthetic_tap_while_locked` reproduces
+`PanelContentTest.explain_does_not_steal_a_synthetic_tap_while_locked` exactly, at the log's own
+position -- this is the first real second instance of the general rule story 5.3's fairness review
+named for "every future Panel control" (`docs/ideas.md`), and it held without needing a new idea.
+
+**Content before layout, except for the log.** Every other section (`GoalLine`, `DecisionCard`,
+`SafetyFlagsRow`, `BeliefSummarySection`) keeps story 5.3's two-phase split: `Panel.content` sets a
+section's content, which fixes that section's own `contentHeight()`, and `Panel.layout` (called at
+the end of `content`) then positions it. The Decision log's own height is not something it proposes;
+it is whatever remains below every section above it, which `Panel.layout` computes from the Panel's
+own fixed rectangle. So `Panel.content` now calls `layout()` once *before* `log.content(...)`,
+specifically so the log's `ScrollPane` already has this frame's real viewport height (`pane.height()`)
+before `DecisionLog.content` decides whether to auto-scroll -- otherwise the very first fill of a
+freshly built Panel computes "at the bottom" against the pane's constructed height of zero, scrolling
+to the wrong position (caught by `DecisionLogTest.auto_scrolls_while_at_the_bottom`). `layout()` is
+idempotent and cheap enough that calling it a second time inside `content()` (once via `Panel.place`'s
+own `setRect`, as before, and again here) costs nothing worth avoiding.
+
+**Review round: real labels for the log, no row half clipped.** Two fixes, still one same-thread
+`Snapshot`, no new synchronization. First, `EmbeddedRun.serve()` now captures a new public record,
+`ActionContext` (the hero's cell, the map's width, the actors in view, the open Prompt's option
+labels -- exactly the four things `overlay.ActionText` ever reads out of an Observation), beside each
+`RunLog.Wait` in `BoundedLog` (`BoundedLog.Entry(record, context)`, both types now `public` so the
+Overlay can read them from `EmbeddedRun.Snapshot.history()`): the Decision log's rows used to label
+every Action with a null Observation (a `Wait` only carries its Observation's hash), so they read
+`"step 700"` where the Decision card, given the real Observation, read `"step NW"`.
+`ActionText.of(Action, Observation)` (the card's route) now builds an `ActionContext` and delegates
+to a new `ActionText.of(Action, ActionContext)` (the log's route); one implementation, so the two
+cannot drift.
+
+**No row half clipped: two attempts, then the real one.** The first attempt floored the
+`ScrollPane`'s own viewport to a whole number of a *nominal* row pitch (`SIZE + ROW_GAP`); the
+coordinator's own read of the resulting screenshot found the top row still shown half clipped, and
+the reason is that the content's real height, built from each row's actually measured height, is
+not guaranteed to be a multiple of that nominal guess -- a bitmap or TTF font's real line height at
+a point size is a metric of the font, not the point size itself (measured in the running game: 6.5
+UI pixels for the small size, not 6). `DecisionLog` no longer sizes anything from a pitch formula at
+all: `rebuild` positions each row directly beneath the previous one's own real,
+`PixelScene.align`-ed bottom and reads the result back into `rowTops` -- ground truth, never a
+prediction -- and `viewportHeightFor(rowTops, contentHeight, available)`, a pure function, picks
+among those real positions the one that lets the viewport show as much history as fits, so a bottom
+scroll (`contentHeight - viewportHeight`, unchanged arithmetic) always lands on a real row's own top
+by construction. Because `rowTops` is only current *after* `rebuild` runs, and `Panel.content()`
+calls `layout()` (which used to be the only place the viewport was sized) *before* `log.content()`
+(design note "Content before layout, except for the log," this story's own first pass), `rebuild`
+now also re-sizes the viewport at its own end, so the frame's real rows -- not the previous frame's,
+or none at all on the very first fill -- are what the viewport is ever actually sized from.
+
+**No row half clipped, fourth pass: the bottom edge was truncated one layer down.** The third pass's
+own viewport height, `contentHeight - top`, is usually fractional; the upstream `ScrollPane.layout()`
+casts it to `int` (`cs.resize((int)width, (int)height)`, `ScrollPane.java:147`), truncating toward
+zero -- a cast this module's own code never makes, and so never saw. A real run's own numbers made it
+visible: content height 329.5, the chosen row's own top 286.0, needed height 43.5, cast to 43 -- the
+newest row's own lower half of one UI pixel, unshown, exactly where the coordinator's screenshot
+showed it clipped, and exactly why the third pass's fix held for the top edge (governed by the scroll,
+a plain `float` the pane never casts) and not this one (governed by scroll plus the cast height).
+`viewportHeightFor` now rounds its returned height *up* (`Math.ceil`); `scrollToBottom` is otherwise
+unchanged, and `ScrollPane.scrollTo`'s own clamp (`content.height() - height`, the identical
+subtraction, on its own side) lands the scroll a sub-pixel fraction above the chosen row's own top
+rather than exactly on it -- inside `ROW_GAP` (2 UI pixels), never inside the previous row's own
+glyphs. Neither of the third pass's own tests could have caught this, since both read `pane.height()`
+(the un-cast float field) rather than `rows.camera.height` (the actual, sometimes-truncated int the
+render path clips to); `DecisionLogTest.both_edges_are_whole_when_scrolled_to_the_bottom` reads the
+latter, "what the screen actually shows," as the coordinator's own message put it.

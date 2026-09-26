@@ -34,4 +34,15 @@ public interface Deliberator extends Decider {
     default java.util.List<Integer> lastHighlights() {
         return java.util.List.of();
     }
+
+    /**
+     * What this Deliberator currently believes, in a form fit to show (story 5.4, FR-38): at most
+     * {@link BeliefSummary#ITEMS} of its most ambiguous unknown items, the floor facts and the
+     * chapter counters it holds. Null before the first {@link #decide}, and by default for a
+     * Decider with no beliefs to show -- the random agent has none, and a summary half filled in
+     * would read as a Brain that had some.
+     */
+    default BeliefSummary beliefSummary() {
+        return null;
+    }
 }

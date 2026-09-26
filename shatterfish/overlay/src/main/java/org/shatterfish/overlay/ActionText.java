@@ -3,6 +3,7 @@ package org.shatterfish.overlay;
 import org.shatterfish.api.Action;
 import org.shatterfish.api.ActorView;
 import org.shatterfish.api.Observation;
+import org.shatterfish.harness.agent.ActionContext;
 
 /**
  * A human-readable label for an {@link Action} (story 5.3's review): {@code Action.toString()} is the
@@ -12,26 +13,35 @@ import org.shatterfish.api.Observation;
  * the sealed {@link Action} does not compile here until someone has said what it reads as -- the same
  * discipline {@code brain}'s {@code Highlights} holds itself to.
  *
- * <p>{@code observation} is the one the Decision was made on (carried by
- * {@code EmbeddedRun.Snapshot}), read only for what a label needs: the hero's cell and the map's
- * width, for a {@link Action.Step} or {@link Action.MoveTo}'s compass direction; the actor in view at
- * a cell, for an {@link Action.Attack}'s target name, when one is in view there; and the open
- * Prompt's button labels, for an {@link Action.AnswerPrompt}'s option text. Null (no Decision yet, or
- * a constructed one with no Observation behind it) falls back to a plainer label for those kinds --
- * the raw cell, "attack" alone, the option's index -- never to a blank one.
+ * <p>What a label needs beyond the Action itself -- the hero's cell and the map's width, for a
+ * {@link Action.Step} or {@link Action.MoveTo}'s compass direction; the actor in view at a cell, for
+ * an {@link Action.Attack}'s target name; the open Prompt's button labels, for an
+ * {@link Action.AnswerPrompt}'s option text -- is an {@link ActionContext}. The Decision card has a
+ * whole {@code Observation} to read it from ({@code of(Action, Observation)}, which builds one and
+ * delegates); the Decision log's history entries do not keep the Observation itself, only the
+ * {@code ActionContext} {@code EmbeddedRun} captured at the wait (story 5.4's review round --
+ * previously the log always passed null, so its rows showed a raw cell where the card showed a
+ * compass direction), which is why {@code of(Action, ActionContext)} is the one both routes share.
+ * Null context (no Decision yet, or no Observation behind a constructed one) falls back to a plainer
+ * label for those kinds -- the raw cell, "attack" alone, the option's index -- never to a blank one.
  */
 final class ActionText {
 
     private ActionText() {
     }
 
-    /** {@code action} in words; {@code "none"} for {@code null}, which nothing in the Panel ever passes today. */
+    /** {@code action} in words, from the Observation the Decision was made on; builds its {@link ActionContext}. */
     static String of(Action action, Observation observation) {
+        return of(action, ActionContext.of(observation));
+    }
+
+    /** {@code action} in words, from a context already captured (the Decision log's own route); {@code "none"} for {@code null}. */
+    static String of(Action action, ActionContext context) {
         return switch (action) {
             case null -> "none";
-            case Action.Step step -> "step " + direction(step.cell(), observation);
-            case Action.MoveTo move -> "move " + direction(move.cell(), observation);
-            case Action.Attack attack -> "attack" + target(attack.cell(), observation);
+            case Action.Step step -> "step " + direction(step.cell(), context);
+            case Action.MoveTo move -> "move " + direction(move.cell(), context);
+            case Action.Attack attack -> "attack" + target(attack.cell(), context);
             case Action.Interact interact -> "interact";
             case Action.PickUp pickUp -> "pick up";
             case Action.OpenChest chest -> "open";
@@ -50,7 +60,7 @@ final class ActionText {
             case Action.Talent talent -> "talent: " + talent.talent();
             case Action.Ability ability -> "ability: " + ability.ability();
             case Action.AbilityAt ability -> "ability: " + ability.ability();
-            case Action.AnswerPrompt answer -> "answer: " + option(answer.option(), observation);
+            case Action.AnswerPrompt answer -> "answer: " + option(answer.option(), context);
             case Action.DismissPrompt dismiss -> "dismiss";
             case Action.Wait wait -> "wait";
         };
@@ -59,14 +69,14 @@ final class ActionText {
     /**
      * The compass direction from the hero's cell to {@code cell}, one of the eight a Step ever targets
      * (ADR-0014: one step per Action, always to an adjacent cell); {@code cell}'s own index when
-     * {@code observation} is null.
+     * {@code context} is null.
      */
-    private static String direction(int cell, Observation observation) {
-        if (observation == null) {
+    private static String direction(int cell, ActionContext context) {
+        if (context == null) {
             return String.valueOf(cell);
         }
-        int width = observation.map().width();
-        int from = observation.hero().cell();
+        int width = context.mapWidth();
+        int from = context.heroCell();
         int dx = Integer.signum(cell % width - from % width);
         int dy = Integer.signum(cell / width - from / width);
         return switch (dy) {
@@ -88,10 +98,10 @@ final class ActionText {
         };
     }
 
-    /** {@code " <name>"} of the actor in view at {@code cell}, or {@code ""} when there is none, or no Observation. */
-    private static String target(int cell, Observation observation) {
-        if (observation != null) {
-            for (ActorView actor : observation.actors().actors()) {
+    /** {@code " <name>"} of the actor in view at {@code cell}, or {@code ""} when there is none, or no context. */
+    private static String target(int cell, ActionContext context) {
+        if (context != null) {
+            for (ActorView actor : context.actors()) {
                 if (actor.cell() == cell) {
                     return " " + actor.name();
                 }
@@ -100,10 +110,10 @@ final class ActionText {
         return "";
     }
 
-    /** The open Prompt's button label at {@code option}, or the index itself with no Observation to read it from. */
-    private static String option(int option, Observation observation) {
-        if (observation != null && option >= 0 && option < observation.prompt().options().size()) {
-            return observation.prompt().options().get(option);
+    /** The open Prompt's button label at {@code option}, or the index itself with no context to read it from. */
+    private static String option(int option, ActionContext context) {
+        if (context != null && option >= 0 && option < context.promptOptions().size()) {
+            return context.promptOptions().get(option);
         }
         return String.valueOf(option);
     }

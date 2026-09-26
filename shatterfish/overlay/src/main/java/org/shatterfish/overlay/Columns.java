@@ -46,4 +46,15 @@ final class Columns {
     static String seconds(double seconds) {
         return String.format(Locale.ROOT, "%.1fs", seconds);
     }
+
+    /**
+     * A probability in {@code [0, 1]}, to two decimal places (story 5.4, the Belief summary):
+     * {@code EXPERIENCE.md}'s own convention for it ("healing 0.35 / strength 0.20", Flow 4).
+     * Two places, not four like {@link #score}: a Belief's odds are the Brain's own marginal, not
+     * an exact decimal the way a {@code Choice}'s score is (ten-thousandths, {@code RunLog}'s own
+     * javadoc), so a third digit would claim more precision than the number carries.
+     */
+    static String probability(double probability) {
+        return String.format(Locale.ROOT, "%.2f", probability);
+    }
 }
