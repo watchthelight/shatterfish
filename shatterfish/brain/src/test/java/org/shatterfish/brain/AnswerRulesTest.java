@@ -107,6 +107,69 @@ class AnswerRulesTest {
     }
 
     @Test
+    @DisplayName("the chained upgrade window is confirmed when its item is the worn armour, where every upgrade goes (story 4.13)")
+    void chained_upgrade_on_the_armour() {
+        Brain brain = brain();
+        Observation first = armoured("cloth armor");
+        Belief chained = chain(brain, "cloth armor", org.shatterfish.api.EquipSlot.ARMOR, first);
+        assertEquals(new Action.AnswerPrompt(0), brain.decide(first, chained).action(),
+                "the second scroll goes onto the armour too");
+        // An upgrade that lifts a curse renames the armour (Armor.java:471-472, :578): the chain still
+        // follows the worn slot, not the name the read was handed over with.
+        Observation renamed = armoured("cloth armor of flow");
+        Belief after = chain(brain, "cursed cloth armor", org.shatterfish.api.EquipSlot.ARMOR, renamed);
+        assertEquals(new Action.AnswerPrompt(0), brain.decide(renamed, after).action(), "renamed, still worn");
+    }
+
+    @Test
+    @DisplayName("a chained upgrade window after a read onto an item that is not the worn armour is a Brain error, even when the names match")
+    void chained_upgrade_off_the_armour() {
+        Brain brain = brain();
+        Observation first = armoured("cloth armor");
+        Belief chained = chain(brain, "cloth armor", org.shatterfish.api.EquipSlot.NONE, first);
+        assertThrows(Answers.BrainError.class, () -> brain.decide(first, chained));
+    }
+
+    @Test
+    @DisplayName("a chained upgrade window after a read onto the worn weapon is confirmed too: the stack follows the item the first went onto")
+    void chained_upgrade_on_the_weapon() {
+        Brain brain = brain();
+        Observation first = armoured("cloth armor");
+        Belief chained = chain(brain, "worn shortsword", org.shatterfish.api.EquipSlot.WEAPON, first);
+        assertEquals(new Action.AnswerPrompt(0), brain.decide(first, chained).action());
+    }
+
+    /** The upgrade window over a pack whose worn armour is named {@code name}. */
+    private static Observation armoured(String name) {
+        org.shatterfish.api.ItemView worn = new org.shatterfish.api.ItemView(org.shatterfish.api.ItemKind.ARMOR,
+                name, 1, true, 0, true, false, "", org.shatterfish.api.EquipSlot.ARMOR, List.of(), "");
+        return Screens.asked(HeroClass.WARRIOR, PromptKind.UPGRADE, "Upgrade an Item", List.of("Upgrade", "Back"),
+                List.of(worn));
+    }
+
+    /**
+     * The Belief after a read onto an item named {@code name} in {@code slot}, the upgrade window it
+     * opened confirmed, and the game's chained window, {@code window}, drawn.
+     */
+    private static Belief chain(Brain brain, String name, org.shatterfish.api.EquipSlot slot, Observation window) {
+        org.shatterfish.api.ItemView item = new org.shatterfish.api.ItemView(slot == org.shatterfish.api.EquipSlot.WEAPON
+                ? org.shatterfish.api.ItemKind.WEAPON : org.shatterfish.api.ItemKind.ARMOR,
+                name, 1, true, 0, true, false, "", slot, List.of(), "");
+        org.shatterfish.api.ItemView scroll = new org.shatterfish.api.ItemView(org.shatterfish.api.ItemKind.SCROLL,
+                "scroll of upgrade", 2, true, 0, true, false, "", org.shatterfish.api.EquipSlot.NONE, List.of("READ"), "");
+        Action onto = new Action.UseItemOn(new org.shatterfish.api.ItemRef(1, "scroll of upgrade", 2), "READ",
+                new org.shatterfish.api.ItemRef(0, name, 1));
+        Observation before = Screens.holding(List.of(item, scroll), onto);
+        Belief belief = brain.update(before, null);
+        belief = brain.handed(before, belief, new Brain.Decided(onto, null, List.of(), ""));
+        belief = brain.update(window, belief);
+        Brain.Decided confirmed = brain.decide(window, belief);
+        assertEquals(new Action.AnswerPrompt(0), confirmed.action());
+        belief = brain.handed(window, belief, confirmed);
+        return brain.update(window, belief);
+    }
+
+    @Test
     @DisplayName("an upgrade window no read of the Brain's opened is a Brain error")
     void upgrade_without_a_read() {
         assertThrows(Answers.BrainError.class, () -> decide(upgrading(List.of("Upgrade", "Back"))));

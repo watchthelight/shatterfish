@@ -140,6 +140,12 @@ final class Fight implements Policy {
         boolean favourable = favourable(observation, knowledge, enemies);
         RunLog.Choice retreat = retreat(observation, memory, offered, enemies, knowledge);
         List<RunLog.Choice> ranked = new ArrayList<>();
+        // Goo's pump-up, announced in the log: out of its reach first, which makes it step and drop the
+        // pump (story 4.13, Goo).
+        RunLog.Choice dodge = Goo.dodge(observation, memory, offered);
+        if (dodge != null) {
+            ranked.add(dodge);
+        }
         if (!adjacent.isEmpty()) {
             RunLog.Choice attack = attack(observation, adjacent);
             if (favourable || retreat == null) {

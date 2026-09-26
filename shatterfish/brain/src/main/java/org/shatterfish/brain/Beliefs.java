@@ -69,6 +69,15 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
     static final String DESCEND = "Descend";
     static final String PICK_UP = "PickUp";
 
+    /**
+     * The refusals in a row at one cell that block it while the hero shows vertigo (story 4.13).
+     * A Step under vertigo goes to a random one of eight neighbours and stays put when that one is
+     * blocked (Char.java:1298-1305); in a corridor six of the eight are walls, and six misses in a row
+     * there happen about one time in six (0.75^6, 0.18), against a Step at a held cell, which is refused
+     * every time. An assumption, chosen so a fleeting block (a fight screen's) is rarely set by chance.
+     */
+    static final int VERTIGO_REFUSALS = 6;
+
     /** The kind of an Action as the Memory keeps it: its record's name. */
     static String kind(org.shatterfish.api.Action action) {
         if (action == null) {
@@ -159,11 +168,13 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         List<Memory.Spot> dwelt = still && memory.calm() && memory.last().equals(SEARCH)
                 ? Memory.with(memory.dwelt(), here) : memory.dwelt();
         // A still hero after a Step is a refusal, unless the screen shows the hero rooted, which refuses
-        // every Step until the roots wear off, or under vertigo, which moves it at random and may
-        // spend the Step against a wall (Hero.java:1822-1825, Char.java:1296-1305): neither says the
-        // cell is out of reach. Refusals count toward a block only while they are aimed at one cell.
-        boolean refusedStep = still && memory.last().equals(STEP) && memory.stepped() >= 0 && !Explore.rooted(observation)
-                && !Explore.has(observation, Explore.VERTIGO);
+        // every Step until the roots wear off (Hero.java:1822-1825): that says nothing about the cell.
+        // Under vertigo a Step goes to a random neighbour, and a blocked one spends the Step
+        // (Char.java:1296-1305); but a Step at a cell an undrawn character holds spends no time at all
+        // (Hero.java:1831-1834) and would be handed over forever. So vertigo's refusals count too, and
+        // it takes VERTIGO_REFUSALS of them in a row, not two, to block the cell (story 4.13).
+        // Refusals count toward a block only while they are aimed at one cell.
+        boolean refusedStep = still && memory.last().equals(STEP) && memory.stepped() >= 0 && !Explore.rooted(observation);
         int streak = !refusedStep ? 0 : memory.tried() == memory.stepped() ? memory.streak() + 1 : 1;
         int tried = refusedStep ? memory.stepped() : -1;
         boolean calm = Explore.calm(observation);
@@ -235,17 +246,50 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         List<Memory.Balk> balked = balked(memory, observation, here, still);
         int walking = walking(memory, still);
         List<Memory.Cloud> fleeting = memory.fleeting().stream().filter(block -> block.until() >= waits).toList();
+        // Back and forth between two cells (story 4.13): the hero is back on the cell of two waits ago,
+        // having left it. Counted only on one floor; anything else starts the count again.
+        boolean sameFloor = !arriving && memory.at().on(depth, branch);
+        boolean bounced = sameFloor && !still && memory.prior() == here.cell();
+        int bounces = bounced ? memory.bounces() + 1 : 0;
+        int prior = sameFloor ? memory.at().cell() : -1;
+        // The hunger clock (story 4.13, Larder): what the last Action cost, less a meal, clamped by the icon.
+        int hp = observation.hero().hp();
+        int food = Larder.food(observation);
+        int gained = memory.hp() < 0 ? 0 : hp - memory.hp();
+        int eaten = memory.food() < 0 ? 0 : Math.max(0, memory.food() - food);
+        // A rest while a drunk potion's heal still lands is billed at most the turns that heal takes.
+        int ht = observation.hero().ht();
+        int restCap = memory.drank() >= 0 && memory.waits() - memory.drank() <= Heal.healingTurns(ht)
+                ? Heal.healingTurns(ht) : Integer.MAX_VALUE;
+        boolean locked = observation.hero().buffs().stream().anyMatch(buff -> buff.name().equals(Larder.LOCKED));
+        int hunger = Larder.clock(memory.hunger(), memory.last(), !still, gained, eaten, restCap, locked,
+                observation.hero().hunger());
+        // A Goo pump-up the log announces (story 4.13, Goo): new when the log changed and one of its
+        // last Goo.RECENT lines is the announcement; it lapses once Goo has moved, which drops it (Goo.java:244-250), or
+        // after PUMP_WAITS waits.
+        int tail = Goo.tail(observation);
+        int gooCell = Goo.cell(observation);
+        int pump = memory.pump();
+        long pumpWait = memory.pumpWait();
+        if (gooCell >= 0 && tail != memory.tail() && Goo.announced(observation)) {
+            pump = gooCell;
+            pumpWait = waits;
+        } else if (pump >= 0 && (gooCell != pump || waits - pumpWait > Goo.PUMP_WAITS || arriving)) {
+            pump = -1;
+            pumpWait = -1;
+        }
         Memory after = new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
                 sightings(memory.monsters(), observation, waits), here, streak, calm, dwelt, memory.blocked(),
                 memory.last(), holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE,
                 memory.drank(), Memory.Trial.NONE, balked, walking, memory.tested(), clouds(memory, observation, waits),
-                memory.refuge(), arrived, rests, memory.stepped(), tried, fleeting, opened(memory, observation));
+                memory.refuge(), arrived, rests, memory.stepped(), tried, fleeting, opened(memory, observation), prior,
+                bounces, hunger, hp, food, tail, pump, pumpWait);
         // Two Steps in a row refused at one cell: the stepping Policy yields this wait, and that cell is
         // blocked on this floor, whichever Policy chose it (story 4.12; stories 4.8 and 4.10 recomputed
         // it from their own plans). Refused on a calm screen, for good; refused with an enemy in view,
         // for FLEETING_WAITS waits, since the fight may have been the reason. The count then starts
         // again, so a second cell refused twice is blocked in turn.
-        if (streak >= Explore.STUCK - 1) {
+        if (streak >= (Explore.has(observation, Explore.VERTIGO) ? VERTIGO_REFUSALS : Explore.STUCK - 1)) {
             Memory.Spot cell = new Memory.Spot(depth, branch, memory.stepped());
             List<Memory.Spot> blocked = memory.calm() ? Memory.with(after.blocked(), cell) : after.blocked();
             List<Memory.Cloud> lapsing = new ArrayList<>(fleeting);
@@ -259,7 +303,8 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                     after.monsters(), here, streak, calm, dwelt, blocked, after.last(),
                     holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE, memory.drank(),
                     Memory.Trial.NONE, balked, walking, memory.tested(), after.clouds(),
-                    memory.refuge(), arrived, rests, memory.stepped(), -1, lapsing, after.windows());
+                    memory.refuge(), arrived, rests, memory.stepped(), -1, lapsing, after.windows(), prior, bounces,
+                    hunger, hp, food, tail, pump, pumpWait);
         }
         return after;
     }
@@ -279,7 +324,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         } else if (opener.isEmpty() && !memory.last().equals(ANSWER) && !memory.last().equals(DISMISS)) {
             opener = windows.action();
         }
-        return new Memory.Windows(windows.action(), windows.target(), opener, windows.shunned());
+        return new Memory.Windows(windows.action(), windows.target(), windows.worn(), opener, windows.shunned());
     }
 
     /** The kinds of the two Actions that answer a Prompt, as {@link #kind} names them. */

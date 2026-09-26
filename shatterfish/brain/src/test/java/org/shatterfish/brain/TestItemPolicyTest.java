@@ -60,6 +60,23 @@ class TestItemPolicyTest {
                             new Codex.Candidate("items.potions.PotionOfMindVision", "potion of mind vision", 9)))),
             List.of(), List.of());
 
+    /** A ration: food enough that food is not tight (story 4.13, Larder), so the full behaviour shows. */
+    private static final ItemView RATION = Screens.item(ItemKind.FOOD, "ration of food", 1);
+
+    /** Crimson potions that are healing one time in two, and never strength or experience. */
+    private static final Codex.Knowledge NO_GAINS = new Codex.Knowledge(Screens.MANIFEST,
+            List.of(new Codex.Identities(ItemKind.POTION, List.of("crimson potion"),
+                    List.of(new Codex.Candidate("items.potions.PotionOfHealing", "potion of healing", 1),
+                            new Codex.Candidate("items.potions.PotionOfMindVision", "potion of mind vision", 1)))),
+            List.of(), List.of());
+
+    /** Crimson potions that are strength one time in four (story 4.13's gains). */
+    private static final Codex.Knowledge GAINS = new Codex.Knowledge(Screens.MANIFEST,
+            List.of(new Codex.Identities(ItemKind.POTION, List.of("crimson potion"),
+                    List.of(new Codex.Candidate("items.potions.PotionOfStrength", "potion of strength", 1),
+                            new Codex.Candidate("items.potions.PotionOfMindVision", "potion of mind vision", 3)))),
+            List.of(), List.of());
+
     /**
      * Scrolls mostly without an item picker: identify one in seven (under {@link TestItem#INVENTORY_ODDS}),
      * magic mapping and teleportation the rest. {@link Screens#CODEX}'s scrolls are all item-picker
@@ -157,10 +174,10 @@ class TestItemPolicyTest {
     }
 
     @Test
-    @DisplayName("a potion is drunk only at half health or below, and only when healing is likely enough")
+    @DisplayName("a potion that can only heal is drunk only at half health or below, and only when healing is likely enough")
     void potion_needs_a_use() {
         ItemView crimson = Screens.unknown(ItemKind.POTION, "crimson potion", 1);
-        TestItem policy = new TestItem(Screens.CODEX);
+        TestItem policy = new TestItem(NO_GAINS);
         for (int hp : new int[]{20, 11}) {
             Observation whole = screen(1, row(3, -1, -1), Screens.heroAt(1, hp, 20, List.of()), List.of(crimson),
                     List.of(), List.of(), List.of(), drink(0, "crimson potion", 1));
@@ -174,6 +191,114 @@ class TestItemPolicyTest {
                 List.of(), List.of(), drink(0, "jade potion", 1));
         assertFalse(new TestItem(RARE_HEALING).enters(rare, Memory.START), "healing one time in ten");
     }
+
+    /** The worn cloth armour, identified, in the armour slot. */
+    private static final ItemView ARMOUR = new ItemView(ItemKind.ARMOR, "cloth armor", 1, true, 0, true, false, "",
+            org.shatterfish.api.EquipSlot.ARMOR, List.of(), "");
+
+    @Test
+    @DisplayName("with armour worn, an unknown scroll is read onto it at full health, even an item-picker one; a known scroll of upgrade too (story 4.13)")
+    void scroll_onto_the_armour() {
+        ItemView kaunan = Screens.unknown(ItemKind.SCROLL, "scroll of KAUNAN", 1);
+        ItemRef armour = new ItemRef(0, "cloth armor", 1);
+        Action onto = new Action.UseItemOn(new ItemRef(1, "scroll of KAUNAN", 1), TestItem.READ, armour);
+        Observation worn = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(ARMOUR, kaunan),
+                List.of(), List.of(), List.of(), read(1, "scroll of KAUNAN", 1), onto);
+        TestItem.Plan plan = new TestItem(Screens.CODEX).plan(worn, Memory.START, worn.actions().actions());
+        assertEquals(onto, plan.choice().action(), "upgrade or identify likely, and the armour takes an upgrade");
+        Observation bare = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(kaunan),
+                List.of(), List.of(), List.of(), read(0, "scroll of KAUNAN", 1));
+        assertFalse(new TestItem(Screens.CODEX).enters(bare, Memory.START), "no armour: the item-picker rule of story 4.10");
+
+        ItemView upgrade = new ItemView(ItemKind.SCROLL, TestItem.UPGRADE, 1, true, 0, true, false, "",
+                org.shatterfish.api.EquipSlot.NONE, List.of(TestItem.READ), "");
+        Action up = new Action.UseItemOn(new ItemRef(1, TestItem.UPGRADE, 1), TestItem.READ, armour);
+        Observation known = screen(1, row(3, -1, -1), Screens.heroAt(1, 12, 20, List.of()), List.of(ARMOUR, upgrade),
+                List.of(), List.of(), List.of(), read(1, TestItem.UPGRADE, 1), up);
+        TestItem.Plan upgraded = new TestItem(Screens.CODEX).plan(known, Memory.START, known.actions().actions());
+        assertEquals(up, upgraded.choice().action(), "a known scroll of upgrade goes onto the armour, at any health");
+        assertEquals("upgrade: cloth armor", upgraded.choice().why());
+        assertTrue(new TestItem(Screens.CODEX).enters(known, Memory.START), "a known upgrade alone makes the Policy enter");
+        for (String buff : List.of(TestItem.BLINDED, TestItem.MAGIC_IMMUNE)) {
+            Observation refused = screen(1, row(3, -1, -1), Screens.heroAt(1, 12, 20, List.of(new BuffView(buff, false, 0))),
+                    List.of(ARMOUR, upgrade), List.of(), List.of(), List.of(), read(1, TestItem.UPGRADE, 1), up);
+            assertNull(TestItem.upgrade(refused, refused.actions().actions()),
+                    buff + ": the game refuses the read with no time spent (Scroll.java:179-182)");
+            assertFalse(new TestItem(Screens.CODEX).enters(refused, Memory.START), buff);
+        }
+        Brain.Decided decided = new Brain(Screens.CODEX, Screens.WEIGHTS, 5L).decide(known, Memory.START.belief());
+        assertEquals(up, decided.action(), "and the Brain reads it onto the armour: " + decided.decision());
+    }
+
+    @Test
+    @DisplayName("an upgrade goes onto the worn weapon while its level is no higher than the armour's, else onto the armour (story 4.13)")
+    void upgrade_target() {
+        for (int[] levels : new int[][]{{0, 0, 1}, {0, 1, 1}, {1, 1, 1}, {2, 1, 0}}) {
+            ItemView weapon = new ItemView(ItemKind.WEAPON, "worn shortsword", 1, true, levels[0], true, false, "",
+                    org.shatterfish.api.EquipSlot.WEAPON, List.of(), "");
+            ItemView armour = new ItemView(ItemKind.ARMOR, "cloth armor", 1, true, levels[1], true, false, "",
+                    org.shatterfish.api.EquipSlot.ARMOR, List.of(), "");
+            Observation screen = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(weapon, armour),
+                    List.of(), List.of(), List.of());
+            ItemRef expected = levels[2] == 1 ? new ItemRef(0, "worn shortsword", 1) : new ItemRef(1, "cloth armor", 1);
+            assertEquals(expected, TestItem.target(screen), "weapon +" + levels[0] + ", armour +" + levels[1]);
+        }
+        Observation bare = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(Screens.item(
+                ItemKind.WEAPON, "worn shortsword", 1)), List.of(), List.of(), List.of());
+        assertNull(TestItem.target(bare), "no armour worn: no target");
+    }
+
+    @Test
+    @DisplayName("an unknown scroll is read onto the upgrade's target, the weapon, but never onto the Mage's staff (story 4.13)")
+    void unknown_scroll_target() {
+        ItemView kaunan = Screens.unknown(ItemKind.SCROLL, "scroll of KAUNAN", 1);
+        for (String weaponName : List.of("worn shortsword", "mage's staff of magic missile")) {
+            ItemView weapon = new ItemView(ItemKind.WEAPON, weaponName, 1, true, 0, true, false, "",
+                    org.shatterfish.api.EquipSlot.WEAPON, List.of(), "");
+            ItemRef onto = weaponName.startsWith(Fight.MAGES_STAFF) ? new ItemRef(1, "cloth armor", 1)
+                    : new ItemRef(0, weaponName, 1);
+            Action read = new Action.UseItemOn(new ItemRef(2, "scroll of KAUNAN", 1), TestItem.READ, onto);
+            Observation worn = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()),
+                    List.of(weapon, ARMOUR, kaunan), List.of(), List.of(), List.of(), read(2, "scroll of KAUNAN", 1), read);
+            TestItem.Plan plan = new TestItem(Screens.CODEX).plan(worn, Memory.START, worn.actions().actions());
+            assertEquals(read, plan.choice().action(), weaponName);
+        }
+    }
+
+    @Test
+    @DisplayName("a potion likely enough to be strength or experience is drunk at any health, the reserve kept (story 4.13)")
+    void potion_for_gains() {
+        ItemView crimson = Screens.unknown(ItemKind.POTION, "crimson potion", 1);
+        TestItem policy = new TestItem(GAINS);
+        for (int hp : new int[]{20, 15, 10}) {
+            Observation screen = screen(1, row(3, -1, -1), Screens.heroAt(1, hp, 20, List.of()), List.of(crimson),
+                    List.of(), List.of(), List.of(), drink(0, "crimson potion", 1));
+            assertTrue(policy.enters(screen, Memory.START), hp + " of 20: strength one time in four");
+        }
+        Observation none = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(crimson),
+                List.of(), List.of(), List.of(), drink(0, "crimson potion", 1));
+        assertFalse(new TestItem(NO_GAINS).enters(none, Memory.START), "no strength or experience among the candidates");
+        // Gas and flame among the candidates: drunk at full health, where the worst of them is survived,
+        // and not at 4 of 20, where it is not (SafeTest), gains or no gains.
+        TestItem harmful = new TestItem(GAINS_HARM);
+        Action drink = new Action.UseItem(new ItemRef(0, "crimson potion", 1), TestItem.DRINK);
+        Observation whole = screen(1, row(3, -1, -1), Screens.heroAt(1, 60, 60, List.of()), List.of(crimson),
+                List.of(), List.of(), List.of(), drink(0, "crimson potion", 1));
+        TestItem.Plan drunk = harmful.plan(whole, Memory.START, whole.actions().actions());
+        assertEquals(drink, drunk == null ? null : drunk.choice().action(), "60 of 60 survives gas or flame");
+        Observation low = screen(1, row(3, -1, -1), Screens.heroAt(1, 4, 20, List.of()), List.of(crimson),
+                List.of(), List.of(), List.of(), drink(0, "crimson potion", 1));
+        TestItem.Plan risked = harmful.plan(low, Memory.START, low.actions().actions());
+        assertNotEquals(drink, risked == null ? null : risked.choice().action(), "4 of 20: gas or flame would kill");
+    }
+
+    /** Crimson potions that are strength one time in three, else toxic gas or liquid flame. */
+    private static final Codex.Knowledge GAINS_HARM = new Codex.Knowledge(Screens.MANIFEST,
+            List.of(new Codex.Identities(ItemKind.POTION, List.of("crimson potion"),
+                    List.of(new Codex.Candidate("items.potions.PotionOfStrength", "potion of strength", 1),
+                            new Codex.Candidate("items.potions.PotionOfToxicGas", "potion of toxic gas", 1),
+                            new Codex.Candidate("items.potions.PotionOfLiquidFlame", "potion of liquid flame", 1)))),
+            List.of(), List.of());
 
     @Test
     @DisplayName("a scroll is read only at full health, and only while its item-picker identities are unlikely")
@@ -231,7 +356,7 @@ class TestItemPolicyTest {
         Belief belief = null;
         List<Action> taken = new ArrayList<>();
         for (int hero = 1; hero <= 6; hero++) {
-            Observation screen = screen(1, tiles, Screens.heroAt(hero, 20, 40, List.of()), List.of(jade), List.of(),
+            Observation screen = screen(1, tiles, Screens.heroAt(hero, 20, 40, List.of()), List.of(jade, RATION), List.of(),
                     List.of(), List.of(), drink(0, "jade potion", 1));
             belief = brain.update(screen, belief);
             Brain.Decided decided = brain.decide(screen, belief);
@@ -277,7 +402,7 @@ class TestItemPolicyTest {
     void door_shortens_gas() {
         ItemView jade = Screens.unknown(ItemKind.POTION, "jade potion", 1);
         List<Tile> tiles = row(4, -1, 2);
-        Observation screen = screen(1, tiles, Screens.heroAt(0, 14, 40, List.of()), List.of(jade), List.of(),
+        Observation screen = screen(1, tiles, Screens.heroAt(0, 14, 40, List.of()), List.of(jade, RATION), List.of(),
                 List.of(), List.of(), drink(0, "jade potion", 1));
         List<SafeTest.Candidate> candidates = SafeTest.candidates(new Beliefs.Guess("jade potion", ItemKind.POTION,
                 List.of(new Beliefs.Odds("potion of toxic gas", 0.5), new Beliefs.Odds("potion of healing", 0.5))), GAS);
@@ -493,6 +618,16 @@ class TestItemPolicyTest {
         }
         assertEquals(List.of(new Action.Step(2), new Action.Step(3), new Action.Step(4)), taken.subList(0, 3));
         assertEquals(List.of("escape: ToxicGas", "escape: ToxicGas", "escape: edge"), why);
+
+        // Dizzy in the gas (story 4.13): the Brain withholds a dizzy hero's Steps on a calm screen, but
+        // not in harm, where a Step the vertigo may turn still beats staying in the cloud.
+        belief = brain.update(drinking, null);
+        belief = brain.handed(drinking, belief, brain.decide(drinking, belief));
+        Observation dizzy = screen(1, tiles, Screens.heroAt(1, 20, 20,
+                List.of(new BuffView(Explore.VERTIGO, false, 0))), List.of(), List.of(), gas, List.of());
+        belief = brain.update(dizzy, belief);
+        Brain.Decided stepped = brain.decide(dizzy, belief);
+        assertEquals(new Action.Step(2), stepped.action(), stepped.decision().toString());
     }
 
     @Test
@@ -650,7 +785,7 @@ class TestItemPolicyTest {
     @DisplayName("after a test, short of full health on a calm screen: rest, for a bounded while, and not when hungry")
     void rest_after_a_test() {
         TestItem policy = new TestItem(Screens.CODEX);
-        Observation hurt = screen(1, row(3, -1, -1), Screens.heroAt(1, 12, 20, List.of()), List.of(), List.of(),
+        Observation hurt = screen(1, row(3, -1, -1), Screens.heroAt(1, 12, 20, List.of()), List.of(RATION), List.of(),
                 List.of(), List.of(), new Action.Rest(true), new Action.Search());
         Memory justTested = after(3, 0, -1, List.of(), List.of());
         TestItem.Plan plan = policy.plan(hurt, justTested, hurt.actions().actions());

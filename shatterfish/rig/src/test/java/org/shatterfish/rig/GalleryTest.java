@@ -151,7 +151,7 @@ class GalleryTest {
         assertTrue(page.contains("](" + RunLog.fileName(RunLog.runId("v4.0.0", HeroClass.WARRIOR, 0,
                 SeedSet.code(1000), 1100L, "random")) + ")"), "a link to the log itself");
         assertTrue(page.contains("links logs that are not committed"), "and says they may not be there");
-        assertTrue(page.contains("E4's half of FR-26"), "the deferral is said on the page");
+        assertTrue(page.contains(GalleryComparison.FILE), "the page points at the per-Brain comparison view");
         assertFalse(page.contains("Last waits"), "no snapshot column unless asked for");
         assertFalse(Files.exists(folder.resolve(Gallery.SNAPSHOTS)));
     }
@@ -307,6 +307,8 @@ class GalleryTest {
             }
         }
         assertFalse(Files.exists(out.resolve(Gallery.FILE)), "not one for the comparison folder itself");
+        assertTrue(Files.isRegularFile(out.resolve(GalleryComparison.FILE)),
+                "but the per-Brain comparison view of its two sides is written beside them");
     }
 
     @Test

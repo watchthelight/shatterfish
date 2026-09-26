@@ -32,9 +32,10 @@ import java.util.Set;
  * elimination and not tried.
  *
  * <p>A test must pay for itself in play (story 4.10's review). A potion is drunk only when the
- * knowledge has a use now: the hero is at half its hit points or below on a calm screen, the odds
- * that it is healing are at least {@link #HEALING_ODDS}, and its worst case leaves at least a quarter
- * of the hero's hit points ({@link #reserved}). Drunk then, a healing potion heals at once, and once
+ * knowledge has a use now, and its worst case leaves at least a quarter of the hero's hit points
+ * ({@link #reserved}): the hero is at half its hit points or below on a calm screen and the odds that
+ * it is healing are at least {@link #HEALING_ODDS}; or, at any health, the odds that it is strength or
+ * experience ({@link #GAINS}) are at least {@link #GAIN_ODDS}, whose use is the drink (story 4.13). Drunk then, a healing potion heals at once, and once
  * known the heal Policy (story 4.9) drinks the rest when a fight turns. A scroll is read only at full
  * health -- Lullaby's sleep is then harmless (MagicalSleep.java:37-50) and Rage's draw is met whole --
  * and only while the four identities that spend a read on their item picker (identify, remove curse,
@@ -89,6 +90,21 @@ final class TestItem implements Policy {
 
     /** The potion of healing, by the Codex's class name. */
     static final String HEALING = "items.potions.PotionOfHealing";
+
+    /**
+     * The potions that make the hero stronger for good when drunk, by the Codex's class names: strength,
+     * one more strength point (PotionOfStrength.java), and experience, a level (PotionOfExperience.java).
+     * Their use is the drink itself, at any health (story 4.13): of 40 Warriors, every one died at its
+     * starting strength of 10 holding unknown potions, the owed strength potions among them.
+     */
+    static final Set<String> GAINS = Set.of("items.potions.PotionOfStrength", "items.potions.PotionOfExperience");
+
+    /**
+     * The least odds of strength or experience an unknown potion is drunk at, whatever the hero's
+     * health (story 4.13). An assumption, tuned against the rig: the worst case must still leave the
+     * reserve ({@link #reserved}), and a healing potion drunk at full health is spent, but identified.
+     */
+    static final double GAIN_ODDS = 0.2;
 
     /** The most waits after a test it rests toward full health (as the explore Policy's RESTS). */
     static final int REST_WAITS = Explore.RESTS;
@@ -158,7 +174,8 @@ final class TestItem implements Policy {
         if (!settled(observation, memory)) {
             return false;
         }
-        return !testable(observation, memory).isEmpty() || restOwed(observation, memory);
+        return upgrade(observation, observation.actions().actions()) != null
+                || !testable(observation, memory).isEmpty() || restOwed(observation, memory);
     }
 
     @Override
@@ -187,23 +204,53 @@ final class TestItem implements Policy {
         }
         int depth = observation.header().depth();
         int branch = observation.header().branch();
+        // A known scroll of upgrade goes onto the worn weapon or armour (story 4.13, target): the window it opens
+        // is answered when the Brain's last Action was this read onto an item (story 4.11).
+        Action upgrade = upgrade(observation, offered);
+        if (upgrade != null) {
+            return new Plan("", 0, new RunLog.Choice(upgrade, Policies.CERTAIN, "upgrade: " + target(observation).name()));
+        }
+        // An unknown scroll goes where a known upgrade would, but never onto the Mage's staff: an
+        // unknown scroll of transmutation changes the item it is read onto (ScrollOfTransmutation.java:
+        // 71-75): for a melee weapon, another of its tier with its level, enchantment and curse (:231-253),
+        // no loss; but it takes the staff's wand (:158-159).
+        ItemRef armour = target(observation);
+        if (armour != null && armour.name().startsWith(Fight.MAGES_STAFF)) {
+            armour = armour(observation);
+        }
         for (Testable item : testable(observation, memory)) {
-            Action use = new Action.UseItem(item.ref(), item.verb());
+            // An unknown scroll is read onto the worn armour (story 4.13): a scroll of upgrade then
+            // upgrades it, and any other scroll either ignores the target or, an item-picker scroll that
+            // does not take the armour, is sent away and identified, as a plain read is
+            // (ActionExecutor, the unselectable target; InventoryScroll.java:137-139).
+            Action use = item.verb().equals(READ) && armour != null
+                    ? new Action.UseItemOn(item.ref(), READ, armour)
+                    : new Action.UseItem(item.ref(), item.verb());
             if (!offered.contains(use)) {
                 continue;
             }
             List<SafeTest.Candidate> candidates = SafeTest.candidates(item.guess(), knowledge);
             SafeTest.Verdict here = SafeTest.of(candidates, observation);
             boolean hereFits = fits(item, here, observation);
-            if (item.guess().kind() == ItemKind.POTION && !Pickup.stuck(memory)
+            // No walk to a better testing cell while food is tight (story 4.13, Larder): the walks cost a
+            // hundred turns a Run, a third of a floor's food.
+            if (item.guess().kind() == ItemKind.POTION && !Pickup.stuck(memory) && !Explore.frugal(observation, memory)
                     && !memory.balksWalking(depth, branch, item.guess().label())) {
                 boolean[] walk = Explore.walkable(observation, memory);
                 int[] distance = Pickup.distances(map, walk, hero);
                 int best = -1;
                 int bestDamage = hereFits ? here.worst().damage() : Integer.MAX_VALUE;
                 int bestDistance = Integer.MAX_VALUE;
+                java.util.function.IntPredicate clean = clean(observation, memory);
                 for (int cell = 0; cell < distance.length; cell++) {
                     if (distance[cell] < 1 || distance[cell] > REACH || !harmfulOn(map, cell).isEmpty()) {
+                        continue;
+                    }
+                    // Only a cell a test may happen on once the hero is there (settled): never a
+                    // doorway, never beside a cloud. Walking to one, the hero would find the test
+                    // refused there and walk back and forth with another Policy (story 4.13).
+                    Tile tile = map.tiles().get(cell);
+                    if (tile == Tile.OPEN_DOOR || tile == Tile.DOOR || !clean.test(cell) || !clear(map, cell, clean)) {
                         continue;
                     }
                     SafeTest.Verdict there = SafeTest.of(candidates, observation, cell);
@@ -309,6 +356,75 @@ final class TestItem implements Policy {
                 action instanceof Action.Step step ? step.cell() : -1);
     }
 
+    /** The known scroll of upgrade, by the name the inventory shows (items.properties). */
+    static final String UPGRADE = "scroll of upgrade";
+
+    /**
+     * The offered read of a known scroll of upgrade onto the {@link #target}, or null (story 4.13). It
+     * makes this Policy enter, as a testable item does: a known upgrade is not one.
+     */
+    static Action upgrade(Observation observation, List<Action> offered) {
+        // Blinded or immune to magic, the game refuses the read with no time spent (Scroll.java:179-182),
+        // and the refusal would be handed over forever.
+        if (has(observation, BLINDED) || has(observation, MAGIC_IMMUNE)) {
+            return null;
+        }
+        ItemRef armour = target(observation);
+        List<ItemView> pack = observation.inventory().items();
+        for (int index = 0; armour != null && index < pack.size(); index++) {
+            ItemView item = pack.get(index);
+            if (item.name().equals(UPGRADE)) {
+                Action upgrade = new Action.UseItemOn(new ItemRef(index, item.name(), item.quantity()), READ, armour);
+                if (offered.contains(upgrade)) {
+                    return upgrade;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** The worn armour's pack reference, or null when none is worn. */
+    static ItemRef armour(Observation observation) {
+        return worn(observation, org.shatterfish.api.EquipSlot.ARMOR);
+    }
+
+    /**
+     * Where a scroll of upgrade goes (story 4.13): the worn melee weapon while the level it shows is
+     * no higher than the worn armour's, else the worn armour, so the two climb together, the weapon
+     * first; null when no armour is worn. A level adds one to a melee weapon's least damage and its
+     * tier plus one to its most (MeleeWeapon.java:250-259), and its tier to an armour's most damage
+     * absorbed (Armor.java:379-384): for the tier-1 pieces a Run starts in, a weapon level is worth
+     * about three armour levels a hit.
+     */
+    static ItemRef target(Observation observation) {
+        ItemRef armour = armour(observation);
+        ItemRef weapon = worn(observation, org.shatterfish.api.EquipSlot.WEAPON);
+        if (armour == null || weapon == null) {
+            return armour;
+        }
+        ItemView a = observation.inventory().items().get(armour.index());
+        ItemView w = observation.inventory().items().get(weapon.index());
+        boolean upgradable = w.kind() == ItemKind.WEAPON && w.levelKnown();
+        return upgradable && w.visiblyUpgraded() <= a.visiblyUpgraded() ? weapon : armour;
+    }
+
+    /** Whether {@code ref} is the worn armour or the worn weapon: an item a read may go onto (story 4.13). */
+    static boolean worn(Observation observation, ItemRef ref) {
+        return ref.equals(armour(observation)) || ref.equals(worn(observation, org.shatterfish.api.EquipSlot.WEAPON));
+    }
+
+    /** The pack reference of the item worn in {@code slot}, or null. */
+    private static ItemRef worn(Observation observation, org.shatterfish.api.EquipSlot slot) {
+        List<ItemView> items = observation.inventory().items();
+        for (int index = 0; index < items.size(); index++) {
+            ItemView item = items.get(index);
+            if (item.slot() == slot) {
+                return new ItemRef(index, item.name(), item.quantity());
+            }
+        }
+        return null;
+    }
+
     /** An appearance held that this Policy may test: the pack's reference, its guess and its verb. */
     record Testable(ItemRef ref, int quantity, Beliefs.Guess guess, String verb) {
     }
@@ -334,11 +450,12 @@ final class TestItem implements Policy {
             if (guess == null || guess.odds().size() < 2 || memory.balks(depth, branch, item.name())) {
                 continue;
             }
-            String verb = item.kind() == ItemKind.POTION && guess.kind() == ItemKind.POTION && low(observation)
-                    && odds(guess, Set.of(HEALING)) >= HEALING_ODDS ? DRINK
+            String verb = item.kind() == ItemKind.POTION && guess.kind() == ItemKind.POTION
+                    && (low(observation) && odds(guess, Set.of(HEALING)) >= HEALING_ODDS
+                        || odds(guess, GAINS) >= GAIN_ODDS) ? DRINK
                     : item.kind() == ItemKind.SCROLL && guess.kind() == ItemKind.SCROLL && !unreadable
                     && observation.hero().hp() >= observation.hero().ht()
-                    && odds(guess, INVENTORY_SCROLLS) < INVENTORY_ODDS ? READ : null;
+                    && (odds(guess, INVENTORY_SCROLLS) < INVENTORY_ODDS || armour(observation) != null) ? READ : null;
             if (verb == null || !item.actions().contains(verb)) {
                 continue;
             }

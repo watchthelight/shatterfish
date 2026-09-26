@@ -117,6 +117,17 @@ final class Explore implements Policy {
         return has(observation, ROOTED);
     }
 
+    /**
+     * Whether the hero shows vertigo on a calm screen (story 4.13). A Step under vertigo goes to a
+     * random neighbour (Char.java:1298-1305), and spends no time at all when the cell it aims at holds
+     * a character the screen does not draw (Hero.java:1831-1834): so with nothing to flee, the Brain
+     * stands still and lets the vertigo wear off, as it does for roots. With an enemy in view the fight
+     * Policy still steps, and the refusals count toward a block (Beliefs).
+     */
+    static boolean dizzy(Observation observation) {
+        return has(observation, VERTIGO) && calm(observation);
+    }
+
     /** Whether a screen is one this Policy acts on: no Prompt open and no enemy in view. */
     static boolean calm(Observation observation) {
         if (observation.header().prompt() != PromptKind.NONE) {
@@ -151,8 +162,8 @@ final class Explore implements Policy {
      */
     static boolean spent(Observation observation, Memory memory) {
         List<Action> offered = observation.actions().actions();
-        return uncover(observation, memory, offered, walkable(observation, memory, true), SEARCHES) == null
-                && uncover(observation, memory, offered, walkable(observation, memory, false), SEARCHES) == null;
+        return uncover(observation, memory, offered, walkable(observation, memory, true), searches(observation, memory), frugal(observation, memory)) == null
+                && uncover(observation, memory, offered, walkable(observation, memory, false), searches(observation, memory), frugal(observation, memory)) == null;
     }
 
     /** Whether a frontier is reachable, around the regions avoided or through them (story 4.12). */
@@ -175,9 +186,9 @@ final class Explore implements Policy {
      * spent and no exit has been seen. Null when no spot within the limit reaches an uncovered wall.
      */
     static RunLog.Choice searchOn(Observation observation, Memory memory, List<Action> offered, int limit) {
-        RunLog.Choice around = uncover(observation, memory, offered, walkable(observation, memory, true), limit);
+        RunLog.Choice around = uncover(observation, memory, offered, walkable(observation, memory, true), limit, false);
         return around != null ? around
-                : uncover(observation, memory, offered, walkable(observation, memory, false), limit);
+                : uncover(observation, memory, offered, walkable(observation, memory, false), limit, false);
     }
 
     /**
@@ -187,12 +198,13 @@ final class Explore implements Policy {
      * leave the wait to chance.
      */
     private static RunLog.Choice plan(Observation observation, Memory memory, List<Action> offered) {
-        // Rooted (story 4.12): no Step is offered; a search spends the time the roots need to wear off,
-        // and may find something.
-        if (rooted(observation)) {
-            for (Action pass : List.of(new Action.Search(), new Action.Wait())) {
+        // Rooted (story 4.12) or dizzy (story 4.13): the time the buff needs to wear off is waited out. A
+        // wait, not a search: a search costs two turns and four more hunger (Hero.java:2621-2629) and
+        // counts as one of the floor's search spots, spent on a place no plan chose.
+        if (rooted(observation) || dizzy(observation)) {
+            for (Action pass : List.of(new Action.Wait(), new Action.Search())) {
                 if (offered.contains(pass)) {
-                    return new RunLog.Choice(pass, Policies.CERTAIN, "rooted");
+                    return new RunLog.Choice(pass, Policies.CERTAIN, rooted(observation) ? "rooted" : "vertigo");
                 }
             }
         }
@@ -215,8 +227,8 @@ final class Explore implements Policy {
             }
         }
 
-        RunLog.Choice around = uncover(observation, memory, offered, walkable(observation, memory, true), SEARCHES);
-        return around != null ? around : uncover(observation, memory, offered, walkable(observation, memory, false), SEARCHES);
+        RunLog.Choice around = uncover(observation, memory, offered, walkable(observation, memory, true), searches(observation, memory), frugal(observation, memory));
+        return around != null ? around : uncover(observation, memory, offered, walkable(observation, memory, false), searches(observation, memory), frugal(observation, memory));
     }
 
     /**
@@ -276,8 +288,35 @@ final class Explore implements Policy {
      * Frontier, then a search, over the cells {@code walk} allows, with up to {@code limit} spots
      * searched on the floor; null when neither is left.
      */
+    /**
+     * The most search spots on this floor: {@link #SEARCHES}, or {@link #FRUGAL_SEARCHES} while food is
+     * tight (story 4.13, {@link Larder}): a search costs two turns and four more hunger
+     * (Hero.java:211-212, :2624-2629).
+     */
+    static int searches(Observation observation, Memory memory) {
+        return frugal(observation, memory) ? FRUGAL_SEARCHES : SEARCHES;
+    }
+
+    /**
+     * Whether food is tight (story 4.13): then only promising spots are searched. Not on the floor above a
+     * boss floor -- every fifth depth of the main branch (Dungeon.java:441-443) -- which still places its
+     * food (Level.java:224-226) where the boss floor below places none and is sealed once the boss is
+     * met (Goo.java:135, Level.java:657-661): the last floor to find food and items on before the boss.
+     */
+    static boolean frugal(Observation observation, Memory memory) {
+        return Larder.frugal(observation, memory) && !beforeBoss(observation);
+    }
+
+    /** Whether this is the main-branch floor just above a boss floor (Dungeon.java:441-443). */
+    static boolean beforeBoss(Observation observation) {
+        return observation.header().branch() == 0 && (observation.header().depth() + 1) % 5 == 0;
+    }
+
+    /** The most search spots per floor while food is tight: only where a secret is plausible. */
+    static final int FRUGAL_SEARCHES = 4;
+
     private static RunLog.Choice uncover(Observation observation, Memory memory, List<Action> offered, boolean[] walk,
-                                         int limit) {
+                                         int limit, boolean promisingOnly) {
         MapSection map = observation.map();
         int depth = observation.header().depth();
         int branch = observation.header().branch();
@@ -290,7 +329,7 @@ final class Explore implements Policy {
         int radius = radius(observation);
         List<Memory.Spot> searched = memory.dwelt().stream().filter(spot -> spot.on(depth, branch)).toList();
         if (searched.size() < limit) {
-            if (worth(map, walk, hero, radius, searched, false)
+            if (worth(map, walk, hero, radius, searched, promisingOnly)
                     && !searched.contains(new Memory.Spot(depth, branch, hero))) {
                 Action search = new Action.Search();
                 if (offered.contains(search)) {
@@ -299,7 +338,7 @@ final class Explore implements Policy {
                 }
             }
             Path spot = nearest(map, walk, hero, offered, cell -> worth(map, walk, cell, radius, searched, true));
-            if (spot == null) {
+            if (spot == null && !promisingOnly) {
                 spot = nearest(map, walk, hero, offered, cell -> worth(map, walk, cell, radius, searched, false));
             }
             if (spot != null) {
