@@ -122,7 +122,8 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
             Gdx.app.log("shatterfish", "the Run ended: " + outcome.cause() + " with deepest floor " + outcome.depth() + " after "
                     + outcome.turns() + " turns and " + run.waitIndex() + " waits"
                     + (outcome.detail().isEmpty() ? "" : " (" + outcome.detail() + ")")
-                    + "; " + run.attachments() + " play scenes; " + run.staleAnswers() + " stale answers; log "
+                    + "; " + run.attachments() + " play scenes; " + run.staleAnswers() + " stale answers ("
+                    + run.unrewoundAnswers() + " not rewound); log "
                     + run.logFile());
             if (options.exitWhenOver()) {
                 Gdx.app.exit();

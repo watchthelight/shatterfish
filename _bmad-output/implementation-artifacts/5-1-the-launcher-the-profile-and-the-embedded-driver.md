@@ -361,7 +361,7 @@ Clean on the driver header and chain, F1, F2, F5 (no double record), F6's atomic
    options, attached to an embedded Run and played frame by frame, then what the Brain was shown and
    what the log says are read back, and an oracle observer under a fair log is refused. A stale answer
    from a rebuilt scene (`a_rebuilt_scene_makes_the_answer_stale`). `OverlayAgentsTest` holds the
-   Brain's seed to the one `BrainSeed` both the Rig and the Overlay now use, and `ShatterfishRunTest`
+   Brain's seed to the one `DeciderSeeds` both the Rig and the Overlay now use, and `ShatterfishRunTest`
    holds that the seed did not move.
 
 **Mutation battery for the review fixes** (a scratch script, not committed; a control run of every
@@ -395,8 +395,31 @@ failure, none a build or daemon error):
 | N22 | F7: the backend's runnables counted | `RenderQueueTest` |
 | N23 | the input lock lets keys through | `InputLockTest` |
 | N24 | the input lock not kept first | `InputLockTest` |
+| N25 | the Brain rewinds its Belief but not its last Decision | survives: equivalent (below) |
+| N26 | the random agent does not rewind | `RewindTest` |
+| N27 | the Brain does not rewind its Belief | `RewindTest` |
+| N28 | the Overlay's random agent seeded apart from the Rig's | `OverlayAgentsTest` |
 
-25 of 25 killed. N17 survived the first run: the log writer's own guard (`RunLoop.record`) also
+28 mutants: 27 killed, and N25 is equivalent: the next `decide` overwrites the last Decision, the
+highlights and the reason before anything reads them (a dropped answer is never recorded), so
+putting them back cannot be observed; `BrainDecider` puts them back anyway, so the mark is the whole
+state and not a reasoned subset of it. N17 survived the first run: the log writer's own guard (`RunLoop.record`) also
 refuses an oracle Observation, after the Brain has decided on it, so a test that only looked for an
 exception could not tell the two apart. Both oracle tests now assert that the Run's own guard fired
 at the wait and that the Brain was never shown the screen, and N17 and N17h are killed.
+
+### Fairness review (on 64f52581e): no violation
+
+Two should-fixes, both done:
+1. *The real rewinds were untested.* `RewindTest` asks the real `BrainDecider` and the `RandomAgent`
+   (fifty seeds) a question, puts them back, asks another, and holds the Action, the Belief hash, the
+   Decision and the highlights equal to a decider that never saw the dropped screen.
+   `BrainHoldsNoStateTest` makes "the Brain holds no other state between waits" a rule: every field in
+   `brain` outside `BrainDecider` is final, instance or static, except the per-call scratch objects
+   (`Stream`, `Bytes.Reader`, `Bytes.Writer`), which no field may hold; the rule is shown to bite.
+2. *The Overlay's random agent was seeded from `--agent-seed`, default 1.* It is now seeded from the
+   triple through `DeciderSeeds.agent`, the function the Rig's `Brains.agentSeed` now calls (and
+   `DeciderSeeds.brain` for the Brain, formerly `BrainSeed`); the flag is gone, and a stated one is
+   refused by name. `ShatterfishRunTest` holds that neither seed moved.
+
+The Overlay's closing line also says how many stale answers were not rewound.

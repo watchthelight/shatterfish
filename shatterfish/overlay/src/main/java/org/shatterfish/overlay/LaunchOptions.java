@@ -2,6 +2,7 @@ package org.shatterfish.overlay;
 
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.utils.DungeonSeed;
+import org.shatterfish.harness.rng.DeciderSeeds;
 
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -24,7 +25,8 @@ import java.util.Map;
  * @param profile       the directory the Run's Profile is prepared in, or null for a fresh one
  * @param out           where the Run's log goes
  * @param turnCap       the Run's turn cap
- * @param agentSeed     the random agent's seed
+ * @param agentSeed     the random agent's seed: the one the Rig gives a random agent playing the same
+ *                      triple ({@code DeciderSeeds.agent}; an Overlay Run has no challenges)
  * @param oracle        whether this Run may see what a player could not; a debugging mode
  * @param exitWhenOver  whether the window closes when the Run ends, for an unattended check
  * @param agent         who plays: {@code random}, the Rig's Baseline, or {@code brain} (OverlayAgents)
@@ -35,7 +37,7 @@ public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path prof
 
     /** The flags the launcher knows. A flag it does not know is refused by name, never ignored. */
     public static final List<String> KNOWN = List.of("--seed", "--class", "--salt", "--profile", "--out",
-            "--turn-cap", "--agent-seed", "--oracle", "--exit-when-over", "--agent", "--weights");
+            "--turn-cap", "--oracle", "--exit-when-over", "--agent", "--weights");
 
     /** The flags that take no value. */
     private static final List<String> SWITCHES = List.of("--oracle", "--exit-when-over");
@@ -85,7 +87,8 @@ public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path prof
                 given.containsKey("--profile") ? Path.of(given.get("--profile")) : null,
                 Path.of(given.getOrDefault("--out", "overlay-runs")),
                 Integer.parseInt(given.getOrDefault("--turn-cap", "20000")),
-                Long.parseLong(given.getOrDefault("--agent-seed", "1")),
+                DeciderSeeds.agent(seed(given.get("--seed")),
+                        org.shatterfish.api.HeroClass.valueOf(given.get("--class").toUpperCase(Locale.ROOT)), 0),
                 given.containsKey("--oracle"),
                 given.containsKey("--exit-when-over"),
                 given.getOrDefault("--agent", "random"),

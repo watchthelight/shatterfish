@@ -168,7 +168,7 @@ class EmbeddedDeterminismTest {
     }
 
     /** A Brain on an empty Codex (BrainAtTheWindowsTest). */
-    private static Brain brain() {
+    static Brain brain() {
         return new Brain(new Codex.Knowledge(new Codex.Manifest(Codex.VERSION, "v4.0.0", List.of("manifest.json")),
                 List.of(), List.of(), List.of()), weights(), 19L);
     }

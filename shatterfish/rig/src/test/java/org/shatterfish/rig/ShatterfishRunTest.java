@@ -290,9 +290,15 @@ class ShatterfishRunTest {
                 .filter(entry -> entry.seed() != one.seed()).findFirst().orElseThrow();
         assertTrue(Brains.agentSeed(one) != Brains.agentSeed(other), "the two triples seed the random agents apart");
         assertTrue(Brains.brainSeed(Brains.SHATTERFISH) != Brains.agentSeed(one));
-        // The Overlay seeds its Brain through the same BrainSeed (story 5.1), and the stream is the one
+        // The Overlay seeds its random agent through the same function (story 5.1), and the stream is
+        // the one the random agent has always had.
+        assertEquals(org.shatterfish.harness.rng.DeciderSeeds.agent(one.seed(), one.heroClass(), one.challengeFlags()),
+                Brains.agentSeed(one));
+        assertEquals(org.shatterfish.harness.rng.Mix.mix(org.shatterfish.harness.rng.Mix.mix(one.seed(),
+                one.heroClass().ordinal()), one.challengeFlags()), Brains.agentSeed(one), "the seed did not move");
+        // The Overlay seeds its Brain through the same DeciderSeeds (story 5.1), and the stream is the one
         // this Brain has always had.
-        assertEquals(org.shatterfish.harness.rng.BrainSeed.of(Brains.SHATTERFISH), Brains.brainSeed(Brains.SHATTERFISH));
+        assertEquals(org.shatterfish.harness.rng.DeciderSeeds.brain(Brains.SHATTERFISH), Brains.brainSeed(Brains.SHATTERFISH));
         assertEquals(org.shatterfish.harness.rng.Mix.mix(0x5F15_B4A1L, Brains.SHATTERFISH.hashCode()),
                 Brains.brainSeed(Brains.SHATTERFISH), "the seed did not move when the constant moved");
         assertTrue(Brains.configHash(SeedSetsTest.ROOT, Brains.SHATTERFISH).matches("[0-9a-f]{64}"));

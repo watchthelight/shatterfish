@@ -5,12 +5,13 @@ import org.junit.jupiter.api.Test;
 import org.shatterfish.api.Weights;
 import org.shatterfish.brain.BrainDecider;
 import org.shatterfish.harness.agent.RandomAgent;
-import org.shatterfish.harness.rng.BrainSeed;
+import org.shatterfish.harness.rng.DeciderSeeds;
 
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** Who plays an Overlay Run (story 5.1). */
@@ -44,10 +45,24 @@ class OverlayAgentsTest {
         LaunchOptions other = LaunchOptions.parse(new String[] {"--seed", "987654321", "--class", "mage",
                 "--salt", "1234", "--agent", "brain", "--weights", WEIGHTS.toString()});
         long seeded = ((BrainDecider) OverlayAgents.of(brain).get()).brain().seed();
-        // The seed the rig's Brains.brainSeed gives the Brain of this name, through the one BrainSeed
+        // The seed the rig's Brains.brainSeed gives the Brain of this name, through the one DeciderSeeds
         // both use; and nothing about the Run moves it.
-        assertEquals(BrainSeed.of(OverlayAgents.name(brain)), seeded);
+        assertEquals(DeciderSeeds.brain(OverlayAgents.name(brain)), seeded);
         assertEquals(seeded, ((BrainDecider) OverlayAgents.of(other).get()).brain().seed(),
                 "another tuple and salt, the same stream");
+    }
+
+    @Test
+    @DisplayName("the random agent is seeded from the triple, as the Rig seeds it, and never from the salt")
+    void the_random_agent_seed() {
+        LaunchOptions one = LaunchOptions.parse(new String[] {"--seed", "987654321", "--class", "mage"});
+        LaunchOptions salted = LaunchOptions.parse(new String[] {"--seed", "987654321", "--class", "mage",
+                "--salt", "1234"});
+        LaunchOptions other = LaunchOptions.parse(new String[] {"--seed", "987654321", "--class", "rogue"});
+        assertEquals(DeciderSeeds.agent(987654321L, org.shatterfish.api.HeroClass.MAGE, 0), one.agentSeed());
+        assertEquals(one.agentSeed(), salted.agentSeed(), "the salt moves nothing");
+        assertNotEquals(one.agentSeed(), other.agentSeed(), "the hero class does");
+        assertThrows(IllegalArgumentException.class, () -> LaunchOptions.parse(
+                new String[] {"--seed", "1", "--class", "warrior", "--agent-seed", "7"}), "no second seed to state");
     }
 }

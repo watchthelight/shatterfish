@@ -7,7 +7,7 @@ import org.shatterfish.brain.Brain;
 import org.shatterfish.brain.BrainDecider;
 import org.shatterfish.harness.agent.RandomAgent;
 import org.shatterfish.harness.log.Json;
-import org.shatterfish.harness.rng.BrainSeed;
+import org.shatterfish.harness.rng.DeciderSeeds;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -25,14 +25,14 @@ import java.util.function.Supplier;
  * <p>The Brain here is built on an empty Codex: the Codex reader lives in the rig, which the Overlay
  * may not depend on (docs/ideas.md), so it knows no identities, rooms, guarantees, threats or gear, and
  * plays with its pessimistic defaults. It is the Brain's own code and weights and nothing else. Its
- * stream is seeded from its name and nothing about the Run, through the {@code BrainSeed} the rig's
+ * stream is seeded from its name and nothing about the Run, through the {@code DeciderSeeds} the rig's
  * {@code Brains.brainSeed} uses too, so a Brain never learns the seed through its own randomness
  * (story 4.1's fairness rule).
  */
 final class OverlayAgents {
 
     /** The seed of the Overlay's Brain: the one the rig gives the Brain of the same name. */
-    static final long BRAIN_SEED = BrainSeed.of("shatterfish");
+    static final long BRAIN_SEED = DeciderSeeds.brain("shatterfish");
 
     private OverlayAgents() {
     }
