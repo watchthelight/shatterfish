@@ -88,7 +88,15 @@ public final class GuessOptions {
                 String label = button.text();
                 styled.add(new Option(label == null ? "" : label, button));
             } else if (member instanceof IconButton button) {
-                icons.add(new Option(name(button.icon()), button));
+                // An icon that pictures no type the table knows is not offered: its name would be
+                // empty, and several empty names would keep the screen's order, which differs
+                // between processes. Every type the window can draw is in the table
+                // (StoneOfIntuition.java:159-176 draws only potions, scrolls and rings, regular and
+                // exotic), so this drops nothing the game draws; it guards the order if that changes.
+                String name = name(button.icon());
+                if (!name.isEmpty()) {
+                    icons.add(new Option(name, button));
+                }
             } else if (member instanceof Group child) {
                 walk(child, styled, icons);
             }

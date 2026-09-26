@@ -81,12 +81,58 @@ class AnswerRulesTest {
     @Test
     @DisplayName("the upgrade window is confirmed, never sent back to the selector")
     void upgrade() {
-        assertEquals(new Action.AnswerPrompt(0), decide(Screens.asked(HeroClass.WARRIOR, PromptKind.UPGRADE,
-                "Upgrade an Item", List.of("Upgrade", "Back"), List.of())));
-        assertEquals(new Action.AnswerPrompt(1), decide(Screens.asked(HeroClass.WARRIOR, PromptKind.UPGRADE,
-                "Upgrade an Item", List.of("Back", "Upgrade"), List.of())), "by the label, not the position");
-        assertThrows(Answers.BrainError.class, () -> decide(Screens.asked(HeroClass.WARRIOR, PromptKind.UPGRADE,
-                "Upgrade an Item", List.of("Back"), List.of())), "no upgrade button is a Brain error, not the back button");
+        assertEquals(new Action.AnswerPrompt(0), afterReading(upgrading(List.of("Upgrade", "Back"))).action());
+        Brain.Decided byLabel = afterReading(upgrading(List.of("Back", "Upgrade")));
+        assertEquals(new Action.AnswerPrompt(1), byLabel.action(), "by the label, not the position");
+        assertEquals("upgrade: shortsword", byLabel.decision().chosen().why(), "the reason names the item read onto");
+        assertThrows(Answers.BrainError.class, () -> afterReading(upgrading(List.of("Back"))),
+                "no upgrade button is a Brain error, not the back button");
+    }
+
+    @Test
+    @DisplayName("the upgrade window the game chains after an upgrade is a Brain error, never a second upgrade")
+    void chained_upgrade() {
+        Brain brain = brain();
+        Observation first = upgrading(List.of("Upgrade", "Back"));
+        Belief belief = read(brain, first);
+        Brain.Decided confirmed = brain.decide(first, belief);
+        assertEquals(new Action.AnswerPrompt(0), confirmed.action());
+        belief = brain.handed(first, belief, confirmed);
+        // WndUpgrade.java:447-455: with another scroll held, the same window opens again at once.
+        Observation again = upgrading(List.of("Upgrade", "Back"));
+        Belief chained = brain.update(again, belief);
+        Answers.BrainError error = assertThrows(Answers.BrainError.class, () -> brain.decide(again, chained));
+        assertTrue(error.getMessage().contains("shortsword"), error.getMessage());
+        assertTrue(error instanceof org.shatterfish.api.Decider.CannotDecide, "the error the Run loop ends on");
+    }
+
+    @Test
+    @DisplayName("an upgrade window no read of the Brain's opened is a Brain error")
+    void upgrade_without_a_read() {
+        assertThrows(Answers.BrainError.class, () -> decide(upgrading(List.of("Upgrade", "Back"))));
+    }
+
+    /** The upgrade window, as drawn with {@code labels}. */
+    private static Observation upgrading(List<String> labels) {
+        return Screens.asked(HeroClass.WARRIOR, PromptKind.UPGRADE, "Upgrade an Item", labels, List.of());
+    }
+
+    /** The read of a scroll of upgrade onto the shortsword, as the Brain hands it over. */
+    static final Action READ = new Action.UseItemOn(new org.shatterfish.api.ItemRef(2, "scroll of upgrade", 1), "READ",
+            new org.shatterfish.api.ItemRef(0, "shortsword", 1));
+
+    /** The Belief at {@code window}, the Brain having handed over the read that opened it. */
+    static Belief read(Brain brain, Observation window) {
+        Observation before = Screens.offering(1, new Action.Wait());
+        Belief belief = brain.update(before, null);
+        belief = brain.handed(before, belief, new Brain.Decided(READ, null, List.of(), ""));
+        return brain.update(window, belief);
+    }
+
+    /** What the Brain decides at {@code window}, after the read that opened it. */
+    private static Brain.Decided afterReading(Observation window) {
+        Brain brain = brain();
+        return brain.decide(window, read(brain, window));
     }
 
     /** The guess window for the crimson potion, as the harness lists it: the guess button first once shown, then the icons by name. */

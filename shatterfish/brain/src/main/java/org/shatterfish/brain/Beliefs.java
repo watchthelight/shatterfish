@@ -10,6 +10,7 @@ import org.shatterfish.api.ItemView;
 import org.shatterfish.api.KnownAppearance;
 import org.shatterfish.api.MapSection;
 import org.shatterfish.api.Observation;
+import org.shatterfish.api.PromptKind;
 import org.shatterfish.api.Tile;
 
 import java.util.ArrayList;
@@ -219,7 +220,8 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         }
         Memory after = new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
                 sightings(memory.monsters(), observation, waits), here, streak, calm, dwelt, memory.blocked(),
-                memory.last(), holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE);
+                memory.last(), holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE,
+                opened(memory, observation));
         // Two Steps refused in a row: the stepping Policy yields this wait, and the cell its Step
         // points at is blocked on this floor. On a calm screen the pick-up Policy stands above
         // explore, so when its plan on the last screen was a Step, that was the Step refused, and its
@@ -231,11 +233,33 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 after = new Memory(after.waits(), after.deepest(), facts, found, held, known, labels, pending,
                         after.monsters(), here, streak, calm, dwelt,
                         Memory.with(after.blocked(), new Memory.Spot(depth, branch, cell)), after.last(), holds, near,
-                        before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE);
+                        before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE, after.windows());
             }
         }
         return after;
     }
+
+    /**
+     * The windows after seeing {@code observation} (story 4.11): a shop, a guess or a spell list that
+     * appears after an Action other than an answer was opened by that Action, which is remembered
+     * while the window stays open and forgotten once none of the three is.
+     */
+    static Memory.Windows opened(Memory memory, Observation observation) {
+        Memory.Windows windows = memory.windows();
+        PromptKind kind = observation.prompt().kind();
+        boolean leavable = kind == PromptKind.SHOP || kind == PromptKind.GUESS || kind == PromptKind.SPELL;
+        String opener = windows.opener();
+        if (!leavable) {
+            opener = "";
+        } else if (opener.isEmpty() && !memory.last().equals(ANSWER) && !memory.last().equals(DISMISS)) {
+            opener = windows.action();
+        }
+        return new Memory.Windows(windows.action(), windows.target(), opener, windows.shunned());
+    }
+
+    /** The kinds of the two Actions that answer a Prompt, as {@link #kind} names them. */
+    static final String ANSWER = "AnswerPrompt";
+    static final String DISMISS = "DismissPrompt";
 
     /** The pack as far as a pick-up changes it (story 4.8). */
     static Memory.Pack pack(Observation observation) {

@@ -68,7 +68,7 @@ final class Policies {
             @Override
             public List<RunLog.Choice> ranked(Observation observation, Memory memory, List<Action> offered,
                                               Stream stream) {
-                return Answers.ranked(observation, offered, knowledge);
+                return Answers.ranked(observation, memory, offered, knowledge);
             }
         };
     }

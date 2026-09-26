@@ -68,18 +68,23 @@ import java.util.List;
  * @param aim      where the pick-up Policy's plan on the last wait's screen went: the heap it targeted
  *                 and the cell of the Step it would take, {@link Aim#NONE} for none (story 4.8). What
  *                 the Policy computes from the screen and the memory, not what was handed over
+ * @param windows  what the prompt Policy needs across waits (story 4.11): the last Action handed over
+ *                 and the item it aimed at, the Action that opened the window open now, and the
+ *                 Actions, per floor, whose window the Brain has already left
  */
 record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
               List<Held> labels, List<Found> pending, List<Seen> monsters, Spot at, int streak, boolean calm,
               List<Spot> dwelt, List<Spot> blocked, String last, int holds, int near, int before,
-              List<Found> flights, List<Avoid> avoid, String underfoot, List<Refused> refused, Pack pack, Aim aim) {
+              List<Found> flights, List<Avoid> avoid, String underfoot, List<Refused> refused, Pack pack, Aim aim,
+              Windows windows) {
 
     /**
      * The meaning of the bytes; bumped when it changes (3: where the hero stood, story 4.6; 4: the
      * last Action's kind, holds, distances, flights and regions avoided, story 4.7; 5: the heap
-     * underfoot, the heaps refused, the pack and the pick-up Policy's aim, story 4.8).
+     * underfoot, the heaps refused, the pack and the pick-up Policy's aim, story 4.8; 6: the windows,
+     * story 4.11).
      */
-    static final int VERSION = 5;
+    static final int VERSION = 6;
 
     /** The most regions avoided at once; the oldest is forgotten first. */
     static final int AVOIDED = 16;
@@ -92,7 +97,59 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
 
     static final Memory START = new Memory(0, 0, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
             List.of(), Spot.NOWHERE, 0, false, List.of(), List.of(), "", 0, -1, -1, List.of(), List.of(), "", List.of(),
-            Pack.NONE, Aim.NONE);
+            Pack.NONE, Aim.NONE, Windows.NONE);
+
+    /** Story 4.8's shape: no window opened or left. */
+    Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
+           List<Held> labels, List<Found> pending, List<Seen> monsters, Spot at, int streak, boolean calm,
+           List<Spot> dwelt, List<Spot> blocked, String last, int holds, int near, int before, List<Found> flights,
+           List<Avoid> avoid, String underfoot, List<Refused> refused, Pack pack, Aim aim) {
+        this(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm, dwelt, blocked,
+                last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, Windows.NONE);
+    }
+
+    /**
+     * What the prompt Policy carries across waits (story 4.11).
+     *
+     * @param action  the last Action this Brain handed over, as its record prints, or empty
+     * @param target  the name of the item that Action used another item on, or empty
+     * @param opener  the Action that opened the window open now, or empty: the Action handed over just
+     *                before a shop, a guess or a spell list appeared
+     * @param shunned the Actions, per floor, whose window the Brain left: offering them again would only
+     *                reopen it, with no time passing
+     */
+    record Windows(String action, String target, String opener, List<Shun> shunned) {
+
+        /** Nothing handed over, nothing opened, nothing left. */
+        static final Windows NONE = new Windows("", "", "", List.of());
+
+        /** The most Actions shunned at once; the oldest is forgotten first. */
+        static final int SHUNNED = 64;
+
+        Windows {
+            require(action != null && target != null && opener != null, "an action, a target and an opener");
+            shunned = List.copyOf(shunned);
+        }
+
+        /** Whether {@code action} is shunned on the floor at {@code depth} and {@code branch}. */
+        boolean shuns(int depth, int branch, String action) {
+            return shunned.contains(new Shun(depth, branch, action));
+        }
+    }
+
+    /** An Action whose window the Brain left on a floor. */
+    record Shun(int depth, int branch, String action) {
+
+        Shun {
+            require(depth >= 0 && branch >= 0 && action != null && !action.isEmpty(), "a floor and an action");
+        }
+    }
+
+    /** This memory with {@code windows} as what the prompt Policy carries (story 4.11). */
+    Memory windowing(Windows windows) {
+        return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
+                dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, windows);
+    }
 
     /** Story 4.7's shape: nothing underfoot, nothing refused, no pack seen, no aim. */
     Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
@@ -148,7 +205,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     /** This memory with {@code aim} as where the pick-up Policy's plan went (story 4.8). */
     Memory aiming(Aim aim) {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
-                dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim);
+                dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, windows);
     }
 
     /**
@@ -171,7 +228,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     /** This memory with the Action handed over recorded as {@code kind} (story 4.7). */
     Memory handed(String kind) {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
-                dwelt, blocked, kind, holds, near, before, flights, avoid, underfoot, refused, pack, aim);
+                dwelt, blocked, kind, holds, near, before, flights, avoid, underfoot, refused, pack, aim, windows);
     }
 
     /** This memory with {@code region} avoided as well, the oldest forgotten past {@link #AVOIDED}. */
@@ -182,7 +239,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
             more.remove(0);
         }
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
-                dwelt, blocked, last, holds, near, before, flights, more, underfoot, refused, pack, aim);
+                dwelt, blocked, last, holds, near, before, flights, more, underfoot, refused, pack, aim, windows);
     }
 
     /** The regions still avoided at wait {@code now} on the floor at {@code depth} and {@code branch}. */
@@ -255,7 +312,8 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         require(last != null && holds >= 0 && near >= -1 && before >= -1, "last Action, holds and distances");
         flights = List.copyOf(flights);
         avoid = List.copyOf(avoid);
-        require(underfoot != null && pack != null && aim != null, "a heap underfoot, a pack and an aim");
+        require(underfoot != null && pack != null && aim != null && windows != null,
+                "a heap underfoot, a pack, an aim and the windows");
         refused = List.copyOf(refused);
     }
 
@@ -310,6 +368,11 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         }
         out.integer(pack.items()).integer(pack.quantity()).integer(pack.gold());
         out.integer(aim.target()).integer(aim.step());
+        out.text(windows.action()).text(windows.target()).text(windows.opener());
+        out.integer(windows.shunned().size());
+        for (Shun shun : windows.shunned()) {
+            out.integer(shun.depth()).integer(shun.branch()).text(shun.action());
+        }
         return new Belief(VERSION, out.bytes());
     }
 
@@ -379,9 +442,17 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
             }
             Pack pack = new Pack(in.integer(), in.integer(), in.integer());
             Aim aim = new Aim(in.integer(), in.integer());
+            String action = in.text();
+            String target = in.text();
+            String opener = in.text();
+            List<Shun> shunned = new ArrayList<>();
+            for (int i = count(in); i > 0; i--) {
+                shunned.add(new Shun(in.integer(), in.integer(), in.text()));
+            }
             in.end();
             return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak,
-                    calm == 1, dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim);
+                    calm == 1, dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim,
+                    new Windows(action, target, opener, shunned));
         } catch (IllegalArgumentException malformed) {
             throw new IllegalArgumentException("not a Belief this Brain wrote: " + belief + ": " + malformed.getMessage());
         }

@@ -60,7 +60,10 @@ class PromptCoverageTest {
             Observation observation = Screens.asked(HeroClass.WARRIOR, screen.getKey(), "A Prompt", screen.getValue(),
                     List.of());
             Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, 5L);
-            Brain.Decided decided = brain.decide(observation, brain.update(observation, null));
+            // The upgrade window is answered only when the Brain's own read opened it.
+            org.shatterfish.api.Belief belief = screen.getKey() == PromptKind.UPGRADE
+                    ? AnswerRulesTest.read(brain, observation) : brain.update(observation, null);
+            Brain.Decided decided = brain.decide(observation, belief);
             Action action = decided.action();
             assertTrue(action instanceof Action.AnswerPrompt || action instanceof Action.DismissPrompt,
                     screen.getKey() + " is answered or dismissed: " + action);

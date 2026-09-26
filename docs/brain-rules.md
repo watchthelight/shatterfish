@@ -58,6 +58,7 @@ behaviour to re-check.
 | 37 | The holy tome's spell window closes on the back key and casts nothing, so answer-prompt leaves it. | `answer-prompt` (spell) | [ui: "The holy tome's spell window draws each spell"](rules/ui.md) |
 | 38 | The shopkeeper's first option opens the bag and the trade window's only button spends gold, and the back key leaves both as they were, so answer-prompt leaves a shop. | `answer-prompt` (shop) | [ui: "The shopkeeper's window offers to sell, to talk and to buy back"](rules/ui.md) |
 | 39 | The subclass window's buttons name their subclasses and each asks "Are you sure?" before choosing, so answer-prompt presses the class's chosen subclass and then "Yes". | `answer-prompt` (subclass) | [ui: "The subclass window draws one button per subclass"](rules/ui.md) |
+| 40 | Leaving a shop, a guess or a spell list takes no time and opening one again from where the hero stands would take none either, so the Brain shuns, on that floor, the talk, purchase or item use that opened a window it left. | `answer-prompt` (leave) | [ui: "The shopkeeper's window offers to sell, to talk and to buy back"](rules/ui.md) |
 
 The `fallback` Policy relies on no mechanic. It chooses uniformly among the Actions the Observation
 offers, and the offered set is `ValidActions`' to get right (story 1.12), not the Brain's.

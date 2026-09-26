@@ -202,7 +202,8 @@ public final class RunLogReader {
                         Json.number(Json.required(outcome, "turns", "outcome")),
                         Json.string(Json.required(outcome, "cause", "outcome")),
                         Json.integer(Json.required(outcome, "bosses", "outcome"))),
-                Json.bool(Json.required(held, "verifiable", "end")));
+                Json.bool(Json.required(held, "verifiable", "end")),
+                held.containsKey("detail") ? Json.string(held.get("detail")) : "");
     }
 
     private static RunLog.Decision decision(String raw) {

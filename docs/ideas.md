@@ -168,4 +168,9 @@ it re-reads ADR-0006's Blobs row.
   the section could carry by name the way the guess window's icons are, once a Policy wants to cast.
 - **Buy in shops.** A shop is always left. A Brain with a model of prices and needs (food, a healing potion)
   could buy; the sell flow opens the bag and needs the selector above first.
-
+- **Learn from a wrong guess.** A stone of intuition's wrong guess is logged ("Your guess was incorrect.",
+  `items.properties:1442`) and rules one identity out for that appearance. The Beliefs do not read it yet, so
+  a second stone could guess the same identity again; a fact "not X" per appearance would narrow the odds.
+- **The item selector as a Prompt, again.** The upgrade window the game chains after an upgrade, while more
+  upgrade items are held, is answered by a Brain error, because its "Back" reopens the selector no Action
+  answers. With the selector as a Prompt, the Brain could back out and keep the scroll.

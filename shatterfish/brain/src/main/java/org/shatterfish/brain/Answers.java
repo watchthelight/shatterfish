@@ -27,8 +27,8 @@ import java.util.Map;
  *       to the game's are-you-sure.</li>
  *   <li><b>shop</b>: leave. The Brain has no model of prices, the shopkeeper's first option is to
  *       sell, which opens the bag, and the buy window's only button spends gold.</li>
- *   <li><b>upgrade</b>: upgrade. The item was chosen by the Action that read the scroll onto it,
- *       and the window's other button reopens the selector.</li>
+ *   <li><b>upgrade</b>: upgrade, when the window is the one the read onto an item opened; the window
+ *       the game chains after it, while more upgrade items are held, is a Brain error.</li>
  *   <li><b>guess</b>: the identity the Beliefs rate likeliest for the item the window names, if the
  *       window offers it; else leave, which spends nothing.</li>
  *   <li><b>spell</b>: leave. The section carries no spell, since the Brain casts none.</li>
@@ -40,7 +40,7 @@ final class Answers {
     }
 
     /** A Prompt the Brain cannot answer: a Brain error, never a stall (story 4.11). */
-    static final class BrainError extends IllegalStateException {
+    static final class BrainError extends org.shatterfish.api.Decider.CannotDecide {
         private static final long serialVersionUID = 1L;
 
         BrainError(String message) {
@@ -94,13 +94,14 @@ final class Answers {
     static final String UPGRADE = "upgrade";
 
     /** Every way of closing {@code observation}'s Prompt the screen offers, best first. */
-    static List<RunLog.Choice> ranked(Observation observation, List<Action> offered, Codex.Knowledge knowledge) {
+    static List<RunLog.Choice> ranked(Observation observation, Memory memory, List<Action> offered,
+                                      Codex.Knowledge knowledge) {
         PromptKind kind = observation.prompt().kind();
         List<RunLog.Choice> ranked = switch (rule(kind)) {
             case GENERAL -> general(observation, offered);
             case SUBCLASS -> subclass(observation, offered);
             case SHOP, SPELL -> leave(observation, offered);
-            case UPGRADE -> upgrade(observation, offered);
+            case UPGRADE -> upgrade(observation, memory, offered);
             case GUESS -> guess(observation, offered, knowledge);
         };
         if (ranked.isEmpty()) {
@@ -187,23 +188,43 @@ final class Answers {
         List<RunLog.Choice> ranked = new ArrayList<>();
         for (Action action : offered) {
             if (action instanceof Action.DismissPrompt) {
-                ranked.add(new RunLog.Choice(action, Policies.CERTAIN, "leave: " + WINDOWS.get(observation.prompt().kind())));
+                ranked.add(new RunLog.Choice(action, Policies.CERTAIN, LEAVE + WINDOWS.get(observation.prompt().kind())));
             }
         }
         return ranked;
     }
 
-    /** The upgrade window's upgrade button (WndUpgrade.java:431-457). */
-    static List<RunLog.Choice> upgrade(Observation observation, List<Action> offered) {
+    /**
+     * The upgrade window's upgrade button (WndUpgrade.java:431-457), when the window is the one the last
+     * Action opened by reading onto an item. After an upgrade the game opens the window again for the
+     * same item while another upgrade item is held (WndUpgrade.java:447-455), so confirming whatever
+     * upgrade window shows would spend every scroll held on one item. That chained window is a Brain
+     * error: its other button, "Back", reopens the item selector (WndUpgrade.java:461-471), a window
+     * no Action answers, so there is no answer that leaves the Run where a person would leave it.
+     */
+    static List<RunLog.Choice> upgrade(Observation observation, Memory memory, List<Action> offered) {
+        if (!READ_ONTO.equals(memory.last())) {
+            throw new BrainError("the upgrade window opened again after " + (memory.last().isEmpty()
+                    ? "no Action" : memory.last()) + ", not after reading onto an item: confirming it would spend"
+                    + " another upgrade on " + (memory.windows().target().isEmpty() ? "the same item"
+                    : memory.windows().target()) + ", and backing out opens a selector no Action answers");
+        }
         List<String> labels = observation.prompt().options();
+        String item = memory.windows().target().isEmpty() ? "item" : memory.windows().target();
         List<RunLog.Choice> ranked = new ArrayList<>();
         for (Action action : offered) {
             if (action instanceof Action.AnswerPrompt answer && UPGRADE.equalsIgnoreCase(label(labels, answer))) {
-                ranked.add(new RunLog.Choice(answer, Policies.CERTAIN, "upgrade: " + observation.prompt().title()));
+                ranked.add(new RunLog.Choice(answer, Policies.CERTAIN, "upgrade: " + item));
             }
         }
         return ranked;
     }
+
+    /** The kind of the Action that reads a scroll onto an item, as {@link Beliefs#kind} names it. */
+    static final String READ_ONTO = "UseItemOn";
+
+    /** The start of the reason the prompt Policy gives for leaving a window. */
+    static final String LEAVE = "leave: ";
 
     /**
      * The identity the Beliefs rate likeliest for the item the guess window names in its title

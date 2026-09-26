@@ -60,7 +60,8 @@ public final class StrategyLog {
         }
         RunLog.End end = log.end();
         text.append(end == null ? "# no end: the Run was cut short"
-                : "# end " + end.outcome().cause() + ", depth " + end.outcome().depth()).append('\n');
+                : "# end " + end.outcome().cause() + ", depth " + end.outcome().depth()
+                        + (end.detail().isEmpty() ? "" : ": " + end.detail())).append('\n');
         return text.toString();
     }
 

@@ -176,7 +176,98 @@ subclass.
 
 ## Review
 
-(To be filled by the parent's fairness and lens reviews.)
+**Direction check** (the parent's, `smoke`, against 4.8 at `f262d99bc`):
+- the three `UNKNOWN_WINDOW` endings are gone (25 deaths);
+- mean turns 595 → 657, median flat at 557;
+- deepest 2.12 → 2.16;
+- score 637 → 640.
+
+**Fairness reviewer: no violation.** The guess icons are named by each type's own `icon`, not the
+appearance. Its three test gaps are closed in `ItemWindowsTest`:
+- **Differential:** `the_guess_options_differential` covers every path through the window
+  (`StoneOfIntuition.java:159-176`): regular and exotic potions, regular and exotic scrolls, and
+  rings. Two true identities give the same options, every icon is named, and the options are sorted.
+- **Toggle:** `the_guess_options_toggle` identifies frost mid-Run. Its option goes, and every other
+  stays as it was.
+- **Determinism:** `the_guess_options_are_pinned` pins the Warrior's first unknown-potion list.
+
+**Lens review: 5 bugs, all fixed with tests.**
+1. **HIGH: the Run loop caught every exception from the decider.** That included a diverged
+   Replay, which would have ended as `BRAIN_ERROR`.
+   - `api` now has `Decider.CannotDecide`. `Answers.BrainError` extends it, and `RunLoop` catches
+     only it.
+   - `BrainErrorTest.other_exceptions_propagate`; `ReplayRefusalTest` (the forged log still throws
+     `Diverged`) and the other Replay tests pass.
+2. **HIGH: the Brain error's message never reached the log.**
+   - The `end` record gains an optional, chained `detail`, written only for `BRAIN_ERROR` and
+     `STALLED`. Every other ending writes the bytes it always did.
+   - `RunLogReader` reads it, and `StrategyLog` and `Gallery` print it.
+   - The log schema version stays 2. The reasoning is in ADR-0011's new section: the version names
+     the header's key set, and optional record members have been added without a bump before.
+   - `BrainErrorTest.a_brain_error_is_logged` checks the chain verifies and the reader returns the
+     detail.
+3. **MEDIUM: the upgrade window the game chains after an upgrade was confirmed too, spending every
+   scroll on one item.**
+   - Upgrade is confirmed only when the Brain's last Action was the read onto an item
+     (`Memory.last()` is `UseItemOn`).
+   - The chained window is a Brain error. Its "Back" reopens a selector no Action answers, so no
+     answer leaves the Run as a person would.
+   - The reason now names the item.
+   - Tests: `AnswerRulesTest.chained_upgrade`, `.upgrade_without_a_read`, and
+     `BrainAtTheWindowsTest.two_scrolls_upgrade_once` (a real Run: one upgrade, then `BRAIN_ERROR`).
+4. **MEDIUM: open-and-leave loops with no time passing.**
+   - The Run loop now stops a Run after `WAITS_WITHOUT_A_TURN` (100) waits without a turn, as
+     `STALLED`. Before this there was no guard on zero-time applied Actions, only on refusals.
+   - `Memory` version 6 carries the windows: the last Action and the item it aimed at, the Action
+     that opened the shop, guess or spell list open now, and the openers of windows left.
+   - An opener is shunned on its floor once the Brain leaves its window. Only a talk, a purchase or
+     an item's use can be shunned, never a Step or a search, and a shunned Action is offered again
+     when it is all there is.
+   - Tests: `WindowMemoryTest`, `BrainErrorTest.no_time_passing_is_a_stall`, and
+     `BrainAtTheWindowsTest.the_shopkeeper_is_left` (a real Run: left, gold unchanged, never talked
+     to again).
+5. **MEDIUM: the `ValidActions` javadoc overstated the shop's back key.** It is corrected, as is the
+   ui Rule: the steal button, and the sell-bag trade window that reopens the bag. The Brain never
+   takes "sell", so the back key still suffices for every shop window it meets.
+
+**Low findings:**
+- Unmatched guess icons are dropped, not offered with an empty name. The differential test holds
+  that every icon the window draws is named.
+- A wrong guess is not yet fed to the Beliefs; this is deferred to `docs/ideas.md`.
+- The upgrade reason names the item.
+
+**Test changes:**
+- `ShatterfishRunTest` asserts every smoke Run ends by death, a win or the cap.
+- `BrainAtTheWindowsTest` plays the real Brain through the Run loop from planted states:
+  - the Tengu mask for every class, with the class's subclass taken within two waits;
+  - the shopkeeper;
+  - two upgrade scrolls;
+  - a stone of intuition on an unknown potion, left within two waits.
+- The harness gains a `testImplementation` dependency on `brain` for this. Main code still cannot
+  see it.
+- The opener is handed to the Brain as its own, since no Policy opens these windows yet.
+
+**Mutation battery on the fixes: 14 of 14 killed.** The mutants:
+- the chained upgrade confirmed;
+- the item unnamed in the reason, or forgotten on an answer;
+- a left window not shunned;
+- a search shunned;
+- shunned Actions offered;
+- the shun held on every floor;
+- an answer recorded as an opener;
+- the codec dropping the shunned;
+- every exception a Brain error;
+- the stall cap never tripping;
+- the writer or the reader dropping the detail;
+- unnamed icons offered.
+
+Two survived at first and now have tests: `WindowMemoryTest.an_answer_opens_nothing` and
+`ItemWindowsTest.an_unknown_icon_is_not_an_option`. The stall-cap mutant loops its test forever, since
+no turn passes and the JUnit timeout cannot interrupt the game loop. Its worker was killed, which is
+the mutant killed.
+
+Docs: ADR-0011 (the `detail` member), the ui shop Rule, `docs/brain-rules.md` row 40 (the shun),
+`docs/architecture.md`, and `docs/ideas.md` (the wrong guess, and the selector as a Prompt).
 
 ## Dev Notes
 

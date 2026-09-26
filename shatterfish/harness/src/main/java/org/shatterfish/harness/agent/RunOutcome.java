@@ -53,10 +53,18 @@ public record RunOutcome(Cause cause, long salt, int depth, int turns, long wait
         NOTHING_OFFERED,
 
         /**
-         * The agent threw rather than choose (story 4.11): a Brain meeting a Prompt it has no rule
-         * for says so this way instead of stalling. {@link #detail} carries the wait and the error.
+         * The agent could not decide (story 4.11): it threw {@code Decider.CannotDecide}, which is
+         * how a Brain meeting a Prompt it has no rule for says so instead of stalling. Any other
+         * exception is not this and propagates. {@link #detail} carries the wait and the message.
          */
-        BRAIN_ERROR
+        BRAIN_ERROR,
+
+        /**
+         * {@code RunLoop.WAITS_WITHOUT_A_TURN} Input waits in a row passed without a turn passing
+         * (story 4.11): a loop of zero-time Actions the turn cap cannot end. {@link #detail} says how
+         * many and the last Action.
+         */
+        STALLED
     }
 
     /** Whether this Run ended the way a Run is meant to end, rather than by something going wrong. */

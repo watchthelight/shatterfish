@@ -9,6 +9,16 @@ import com.shatteredpixel.shatteredpixeldungeon.items.artifacts.HolyTome;
 import com.shatteredpixel.shatteredpixeldungeon.items.food.Food;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.Potion;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.PotionOfStrength;
+import com.shatteredpixel.shatteredpixeldungeon.items.potions.PotionOfFrost;
+import com.shatteredpixel.shatteredpixeldungeon.items.potions.exotic.ExoticPotion;
+import com.shatteredpixel.shatteredpixeldungeon.items.rings.Ring;
+import com.shatteredpixel.shatteredpixeldungeon.items.rings.RingOfHaste;
+import com.shatteredpixel.shatteredpixeldungeon.items.rings.RingOfMight;
+import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.Scroll;
+import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfLullaby;
+import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfTeleportation;
+import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.exotic.ExoticScroll;
+import com.watabou.utils.Reflection;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.PotionOfToxicGas;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfUpgrade;
 import com.shatteredpixel.shatteredpixeldungeon.items.stones.StoneOfIntuition;
@@ -192,6 +202,89 @@ class ItemWindowsTest {
         sorted.sort(null);
         assertEquals(sorted, forStrength, "listed by name, not in the HashSet's order (Potion.java:407-409)");
         assertEquals(unknownPotionNames(), forStrength);
+    }
+
+    /** The guess window's options for {@code item}, opened and closed again. */
+    private static List<String> guessOptions(StoneOfIntuition stone, Item item) {
+        GameScene.show(stone.new WndGuess(item));
+        List<String> options = new Observer().prompt().options();
+        Windows.front().hide();
+        return options;
+    }
+
+    @Test
+    @DisplayName("for every path through the guess window, the options do not depend on the true type guessed")
+    void the_guess_options_differential() {
+        atTheFirstWait(HeroClass.WARRIOR);
+        StoneOfIntuition stone = new StoneOfIntuition();
+        // StoneOfIntuition.java:159-176: regular potions, exotic potions, regular scrolls, exotic
+        // scrolls and rings each fill the window their own way. Two unknown types of each, one true
+        // identity against the other, draw the same options.
+        List<List<Item>> pairs = List.of(
+                List.of(new PotionOfStrength(), new PotionOfToxicGas()),
+                List.of(Reflection.newInstance(ExoticPotion.regToExo.get(PotionOfStrength.class)),
+                        Reflection.newInstance(ExoticPotion.regToExo.get(PotionOfToxicGas.class))),
+                List.of(new ScrollOfTeleportation(), new ScrollOfLullaby()),
+                List.of(Reflection.newInstance(ExoticScroll.regToExo.get(ScrollOfTeleportation.class)),
+                        Reflection.newInstance(ExoticScroll.regToExo.get(ScrollOfLullaby.class))),
+                List.of(new RingOfHaste(), new RingOfMight()));
+        List<Integer> unknownCounts = List.of(Potion.getUnknown().size(), Potion.getUnknown().size(),
+                Scroll.getUnknown().size(), Scroll.getUnknown().size(), Ring.getUnknown().size());
+        for (int i = 0; i < pairs.size(); i++) {
+            List<Item> pair = pairs.get(i);
+            List<String> first = guessOptions(stone, pair.get(0));
+            List<String> second = guessOptions(stone, pair.get(1));
+            assertEquals(first, second, pair.get(0).getClass().getSimpleName() + " and "
+                    + pair.get(1).getClass().getSimpleName() + " draw the same options");
+            assertEquals(unknownCounts.get(i), first.size(),
+                    "every icon the window draws is named, none dropped: " + first);
+            assertFalse(first.contains(""), "no unnamed option");
+            List<String> sorted = new ArrayList<>(first);
+            sorted.sort(null);
+            assertEquals(sorted, first, "sorted by name");
+        }
+    }
+
+    @Test
+    @DisplayName("an icon that pictures no known type is not an option: it would have no name and no stable place")
+    void an_unknown_icon_is_not_an_option() {
+        atTheFirstWait(HeroClass.WARRIOR);
+        StoneOfIntuition stone = new StoneOfIntuition();
+        PotionOfStrength strength = new PotionOfStrength();
+        List<String> drawn = guessOptions(stone, strength);
+        GameScene.show(stone.new WndGuess(strength));
+        Windows.front().add(new com.shatteredpixel.shatteredpixeldungeon.ui.IconButton(
+                com.shatteredpixel.shatteredpixeldungeon.ui.Icons.INFO.get()));
+        assertEquals(drawn, new Observer().prompt().options(), "the stranger icon adds no option");
+        Windows.front().hide();
+    }
+
+    @Test
+    @DisplayName("a type identified mid-Run leaves the guess options, and only it")
+    void the_guess_options_toggle() {
+        atTheFirstWait(HeroClass.WARRIOR);
+        StoneOfIntuition stone = new StoneOfIntuition();
+        PotionOfStrength strength = new PotionOfStrength();
+        List<String> before = guessOptions(stone, strength);
+        String frost = Messages.titleCase(Messages.get(PotionOfFrost.class, "name"));
+        assertTrue(before.contains(frost), before.toString());
+
+        new PotionOfFrost().identify();
+        List<String> after = guessOptions(stone, strength);
+        List<String> expected = new ArrayList<>(before);
+        expected.remove(frost);
+        assertEquals(expected, after, "frost is gone, and every other option is as it was");
+    }
+
+    @Test
+    @DisplayName("the guess options for a Warrior's first unknown potion are these, in this order")
+    void the_guess_options_are_pinned() {
+        atTheFirstWait(HeroClass.WARRIOR);
+        // The Warrior knows healing (HeroClass.java:186); every other potion is unknown at the start.
+        assertEquals(List.of("Potion of Experience", "Potion of Frost", "Potion of Haste", "Potion of Invisibility",
+                        "Potion of Levitation", "Potion of Liquid Flame", "Potion of Mind Vision",
+                        "Potion of Paralytic Gas", "Potion of Purity", "Potion of Strength", "Potion of Toxic Gas"),
+                guessOptions(new StoneOfIntuition(), new PotionOfStrength()));
     }
 
     @Test

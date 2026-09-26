@@ -54,10 +54,11 @@ class ShatterfishRunTest {
             RunLogReader.Log read = RunLogReader.of(log);
             assertTrue(read.readable(), log + ": " + read.unreadable());
             assertEquals(Brains.SHATTERFISH, read.header().brain().name());
-            // Story 4.11: every Prompt has a rule, so no Run ends on a window nobody could answer or
-            // on a Prompt the Brain could not.
+            // Story 4.11: every Prompt has a rule, so every Run ends the way a Run is meant to: no
+            // unknown window, no Brain error, no stall.
             String cause = read.end().outcome().cause();
-            assertFalse(List.of("UNKNOWN_WINDOW", "BRAIN_ERROR").contains(cause), log.getFileName() + " ended " + cause);
+            assertTrue(List.of("DEATH", "WIN", "TURN_CAP").contains(cause),
+                    log.getFileName() + " ended " + cause + ": " + read.end().detail());
             for (RunLog.Wait wait : read.waits()) {
                 assertNotNull(wait.decision(), "a Brain's wait says why: " + log.getFileName() + " at " + wait.k());
                 assertTrue(List.of("answer-prompt", "fight", "pick-up", "equip", "explore", "fallback")

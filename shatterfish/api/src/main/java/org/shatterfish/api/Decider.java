@@ -20,4 +20,19 @@ public interface Decider {
      * inventing an input for.
      */
     Action decide(Observation observation);
+
+    /**
+     * What a decider throws when it meets a screen it has no rule for (story 4.11): the one exception
+     * the Run loop turns into an ending of its own, {@code BRAIN_ERROR}, with the message in the log.
+     * Any other exception from a decider -- a Replay that diverged, a bug -- is not a decision the
+     * decider declined to make, and is left to propagate.
+     */
+    class CannotDecide extends RuntimeException {
+
+        private static final long serialVersionUID = 1L;
+
+        public CannotDecide(String message) {
+            super(message);
+        }
+    }
 }

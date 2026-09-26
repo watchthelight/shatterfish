@@ -120,12 +120,19 @@ public final class ValidActions {
             "STORE", "IDENTIFY", "APPLY", "INSCRIBE", "TIP", "TRANSFER", "OUTFIT");
 
     /**
-     * The Prompts with buttons that the back key also closes, leaving nothing open behind them
-     * (story 4.11). Every window's back key hides it ({@code core/.../ui/Window.java:223-225}); these
-     * are the ones where that is the whole of it, so a Brain can leave instead of answering:
+     * The Prompts with buttons that the back key also closes (story 4.11). Every window's back key
+     * hides it ({@code core/.../ui/Window.java:223-225}); these are the ones a Brain can leave instead
+     * of answering:
      * <ul>
-     *   <li>the shop's trade window, whose buy button is its only one and which leaves the item on its
-     *       heap ({@code core/.../windows/WndTradeItem.java:147-158}, {@code :223-231});</li>
+     *   <li>a shop: the shopkeeper's window, and the trade window a step onto an item for sale opens,
+     *       whose back key leaves the item on its heap and the gold untouched
+     *       ({@code core/.../actors/mobs/npcs/Shopkeeper.java:238-308};
+     *       {@code core/.../windows/WndTradeItem.java:140-219}, {@code :222-231}). The trade window
+     *       draws a buy button, and a steal button beside it when the hero holds the thieves'
+     *       armband; leaving takes neither. Not clean everywhere: the trade window opened from the
+     *       shopkeeper's sell bag reopens that bag when it closes ({@code WndTradeItem.java:231};
+     *       {@code Shopkeeper.java:217-233}), a window no Action answers, which only the shopkeeper's
+     *       "sell" option reaches;</li>
      *   <li>the stone of intuition's guess, which consumes nothing until the guess is pressed
      *       ({@code core/.../items/stones/StoneOfIntuition.java:113-142});</li>
      *   <li>the holy tome's spell list, which casts nothing until a spell is pressed

@@ -9,6 +9,10 @@ dependencies {
     testImplementation 'org.ow2.asm:asm-analysis:9.9'
     api project(':api')
     implementation project(':core')
+    // Story 4.11: a few harness tests play the real Brain through the Run loop from states they
+    // plant in the game, which only a harness test can do. The Brain depends on api alone, so this
+    // is no cycle, and main code still cannot see it.
+    testImplementation project(':brain')
     implementation "com.badlogicgames.gdx:gdx-backend-headless:$gdxVersion"
     // The scene renders its text through FreeType (PlatformSupport.getFont), and the harness's own
     // PlatformSupport must name FreeTypeFontGenerator to implement it, so the library is a compile
