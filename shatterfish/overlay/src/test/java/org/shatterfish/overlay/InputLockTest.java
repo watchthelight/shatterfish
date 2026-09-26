@@ -1,7 +1,12 @@
 package org.shatterfish.overlay;
 
-import com.badlogic.gdx.InputMultiplexer;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputAdapter;
+import com.badlogic.gdx.InputMultiplexer;
+import com.badlogic.gdx.InputProcessor;
+import com.watabou.input.InputHandler;
+
+import java.lang.reflect.Proxy;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -71,5 +76,44 @@ class InputLockTest {
         multiplexer.keyDown(66);
         multiplexer.touchDown(10, 10, 0, 0);
         assertEquals(3, reached.get(), "an unlocked game hears everything");
+    }
+
+    @Test
+    @DisplayName("a processor the game puts in front later (a text input's stage) is put behind the lock again")
+    void kept_first() {
+        // The game's own input handler over a stand-in for libGDX's Input, which hands the handler's
+        // multiplexer to whoever sets it: the one place key events enter.
+        InputProcessor[] entry = new InputProcessor[1];
+        Input input = (Input) Proxy.newProxyInstance(Input.class.getClassLoader(), new Class<?>[] {Input.class},
+                (proxy, method, args) -> {
+                    if (method.getName().equals("setInputProcessor")) {
+                        entry[0] = (InputProcessor) args[0];
+                    }
+                    return method.getReturnType() == boolean.class ? Boolean.FALSE : null;
+                });
+        InputHandler handler = new InputHandler(input);
+        InputLock lock = new InputLock();
+        lock.lock();
+        handler.addInputProcessor(lock);
+
+        AtomicInteger typed = new AtomicInteger();
+        InputAdapter stage = new InputAdapter() {
+            @Override
+            public boolean keyDown(int keycode) {
+                typed.incrementAndGet();
+                return true;
+            }
+        };
+        // What TextInput does when a window with a text field opens (SPD-classes/…/noosa/TextInput.java:73).
+        handler.addInputProcessor(stage);
+        entry[0].keyDown(66);
+        assertEquals(1, typed.get(), "added in front of the lock, the stage takes keys");
+
+        lock.keepFirst(handler);
+        entry[0].keyDown(66);
+        assertEquals(1, typed.get(), "the lock is first again, and takes them");
+        lock.keepFirst(handler);
+        entry[0].keyDown(66);
+        assertEquals(1, typed.get(), "keeping it first twice leaves one lock in front");
     }
 }

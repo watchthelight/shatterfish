@@ -267,7 +267,7 @@ it re-reads ADR-0006's Blobs row.
   (`SPD-classes/…/input/ControllerHandler.java:122-134`). Story 5.5's input-gate hook closes it.
 - **The region intro.** The Overlay does not click through the story page the loading scene shows on a
   first descent to depths 6, 11, 16 and 21, so a Run reaching depth 6 ends as an unknown window after
-  the frame budget. Clicking it reads a journal page the headless Run does not; if the Overlay should
+  the budget. Clicking it reads a journal page the headless Run does not; if the Overlay should
   play past the sewers, clicking it and reading that page in both drivers is the choice to make.
 - **Reading subprocess output.** `Brains`, `Registrations`, `Results` (rig) and `DocsCitations` (codex)
   read a subprocess's output to its end before its errors, which deadlocks once the errors fill a pipe;

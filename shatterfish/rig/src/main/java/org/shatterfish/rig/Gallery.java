@@ -154,11 +154,11 @@ public final class Gallery {
         }
         try {
             RunLogReader.Log read = RunLogReader.of(file);
+            OverlayLogs.refuse(read, file);
             if (!read.readable() || read.records().isEmpty()
                     || !(read.records().get(0) instanceof RunLog.Header header)) {
                 return new Run(runId, log, "", heroClass, UNREADABLE, -1, -1);
             }
-            OverlayLogs.refuse(header, file);
             RunLog.End end = read.end();
             if (end == null) {
                 List<RunLog.Wait> waits = read.waits();

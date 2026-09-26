@@ -129,6 +129,7 @@ public final class LogHeader {
         } catch (RuntimeException unreadable) {
             return unreadable(claimed, unreadable.getMessage());
         }
+        OverlayLogs.refuse(log, "this log");
         if (whole.isEmpty()) {
             return headless(claimed, log.partial());
         }

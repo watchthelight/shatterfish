@@ -14,6 +14,7 @@ import com.watabou.noosa.Scene;
 import org.shatterfish.api.Action;
 import org.shatterfish.api.Decider;
 import org.shatterfish.api.Observation;
+import org.shatterfish.api.Rewindable;
 import org.shatterfish.api.RunLog;
 import org.shatterfish.harness.driver.HeadlessDriver;
 import org.shatterfish.harness.driver.RunLogWriter;
@@ -114,14 +115,24 @@ public final class EmbeddedRun implements AutoCloseable {
     private final Hooks.LogReplaced seam = this::sceneCreated;
 
     /**
-     * Frames a Run may go without a confirmed wait, while not thinking, before it ends as stuck: the
-     * headless loop's budget for one wait ({@code RunLoop.FRAME_BUDGET}), counted in the desktop's
-     * frames, which at sixty a second is five and a half minutes.
+     * Seconds of game time a Run may go without a confirmed wait, while not thinking, before it ends
+     * as stuck: the headless loop's budget for one wait ({@code RunLoop.FRAME_BUDGET}) at sixty frames
+     * a second, five and a half minutes. It is counted in game time, the sum of {@code Game.elapsed}
+     * the game itself advances by each frame (capped at a fifth of a second, {@code SPD-classes/…/noosa/
+     * Game.java:269-273}), not in frames: the desktop draws as many frames as the monitor refreshes,
+     * so a frame count would end the same Run at a different moment on a 240 Hz screen than on a 60 Hz
+     * one (story 5.1's review).
      */
-    static final int FRAME_BUDGET = RunLoop.FRAME_BUDGET;
+    static final double BUDGET_SECONDS = RunLoop.FRAME_BUDGET / 60.0;
 
     private int attachments;
-    private int framesWithoutAWait;
+    private double secondsWithoutAWait;
+    /** The wait being confirmed again after a stale answer, which is not a second wait on the same turn. */
+    private boolean reconfirming;
+    /** The decider's state before it was asked the pending question, when it can be put back. */
+    private Object pendingMark;
+    /** Stale answers whose decider could not be put back ({@link Rewindable}); none for the Overlay's two agents. */
+    private int unrewound;
     /** The play scene and window in front when the pending wait was confirmed. */
     private Scene confirmedScene;
     private Window confirmedWindow;
@@ -281,18 +292,19 @@ public final class EmbeddedRun implements AutoCloseable {
                 return State.THINKING;
             }
             serve();
-            framesWithoutAWait = 0;
+            secondsWithoutAWait = 0;
             return outcome != null ? State.ENDED : State.PLAYING;
         }
-        if (++framesWithoutAWait > FRAME_BUDGET) {
+        secondsWithoutAWait += Game.elapsed;
+        if (secondsWithoutAWait > BUDGET_SECONDS) {
             // The headless loop's rule (RunLoop, FRAME_BUDGET): a Run that reaches no wait is stuck,
             // and a stuck Run is a result to count. The region intro the loading scene shows on a first
             // descent to depths 6, 11, 16 and 21 (core/.../scenes/InterlevelScene.java:279-280,
             // :608-614) waits for a Continue nobody clicks, and ends here; the Overlay does not click
             // through it (story 5.1: the headless game never shows it, and clicking it reads a journal
             // page the headless Run does not).
-            end(RunOutcome.Cause.UNKNOWN_WINDOW, "no wait within " + FRAME_BUDGET + " frames; in front: "
-                    + describeFront());
+            end(RunOutcome.Cause.UNKNOWN_WINDOW, "no wait within " + Math.round(BUDGET_SECONDS)
+                    + " seconds of game time; in front: " + describeFront());
             return State.ENDED;
         }
         // A request made this frame first, as an early exit; then the scene actually in front, because
@@ -324,7 +336,7 @@ public final class EmbeddedRun implements AutoCloseable {
         if (k == 0) {
             return State.PLAYING;
         }
-        framesWithoutAWait = 0;
+        secondsWithoutAWait = 0;
         confirmedScene = front;
         confirmedWindow = window;
         // The head of the wait, in ADR-0013's order: the index, the reseed, then the rest.
@@ -334,7 +346,11 @@ public final class EmbeddedRun implements AutoCloseable {
             end(RunOutcome.Cause.TURN_CAP, "");
             return State.ENDED;
         }
-        if (turn == lastTurn) {
+        if (reconfirming) {
+            // The same wait asked again after a stale answer: the headless Run counted it once, and so
+            // does this one, so it neither counts toward a stall nor moves the last turn seen.
+            reconfirming = false;
+        } else if (turn == lastTurn) {
             still++;
             if (still >= RunLoop.WAITS_WITHOUT_A_TURN) {
                 end(RunOutcome.Cause.STALLED, still + " waits without a turn passing, the last " + lastAction);
@@ -354,6 +370,9 @@ public final class EmbeddedRun implements AutoCloseable {
         }
         pendingObservation = observation;
         pendingWait = k;
+        // Taken here, on this thread, before the worker is handed the question; the submit is the
+        // happens-before edge to the worker, and isDone the one back.
+        pendingMark = brain instanceof Rewindable rewindable ? rewindable.mark() : null;
         pending = worker.submit(() -> {
             decidedOn = Thread.currentThread();
             // The clock is read around the decision and nowhere else, and what it measures goes in
@@ -383,12 +402,23 @@ public final class EmbeddedRun implements AutoCloseable {
             // The screen the Brain was shown is not the screen in front any more: a scene rebuilt by a
             // resize destroyed the Prompt, or something the Run did not do moved the hero. The answer
             // is dropped unrecorded and the same wait is confirmed again from what is there now, so
-            // the log's waits stay one per index (story 5.1).
+            // the log's waits stay one per index (story 5.1). The decider is put back to where it
+            // stood before it was asked, so the second asking is answered from one Observation, as
+            // the headless Run's is; a decider that cannot be put back keeps what the dropped question
+            // changed, and is counted (unrewoundAnswers).
             staleAnswers++;
             lastStale = "wait " + k + ": " + stale;
+            if (brain instanceof Rewindable rewindable) {
+                rewindable.rewind(pendingMark);
+            } else {
+                unrewound++;
+            }
+            pendingMark = null;
+            reconfirming = true;
             gate.reconfirm(k);
             return;
         }
+        pendingMark = null;
         Decided decided;
         if (done.state() == Future.State.SUCCESS) {
             decided = done.resultNow();
@@ -559,6 +589,16 @@ public final class EmbeddedRun implements AutoCloseable {
     /** Answers dropped unrecorded because the screen changed while the Brain thought. */
     public int staleAnswers() {
         return staleAnswers;
+    }
+
+    /** Stale answers whose decider was not {@link Rewindable}, so kept what the dropped question changed. */
+    public int unrewoundAnswers() {
+        return unrewound;
+    }
+
+    /** Waits in a row confirmed on the same turn, which the stall rule counts; for the tests. */
+    int waitsWithoutATurn() {
+        return still;
     }
 
     /** Why the last answer was dropped, or empty. */

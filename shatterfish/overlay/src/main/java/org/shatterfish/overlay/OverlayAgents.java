@@ -7,7 +7,7 @@ import org.shatterfish.brain.Brain;
 import org.shatterfish.brain.BrainDecider;
 import org.shatterfish.harness.agent.RandomAgent;
 import org.shatterfish.harness.log.Json;
-import org.shatterfish.harness.rng.Mix;
+import org.shatterfish.harness.rng.BrainSeed;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -25,14 +25,14 @@ import java.util.function.Supplier;
  * <p>The Brain here is built on an empty Codex: the Codex reader lives in the rig, which the Overlay
  * may not depend on (docs/ideas.md), so it knows no identities, rooms, guarantees, threats or gear, and
  * plays with its pessimistic defaults. It is the Brain's own code and weights and nothing else. Its
- * stream is seeded from its name and nothing about the Run, as the rig seeds it ({@code Brains.brainSeed}:
- * the same constant, written here because the rig's is package-private and the Overlay cannot reach it),
- * so a Brain never learns the seed through its own randomness (story 4.1's fairness rule).
+ * stream is seeded from its name and nothing about the Run, through the {@code BrainSeed} the rig's
+ * {@code Brains.brainSeed} uses too, so a Brain never learns the seed through its own randomness
+ * (story 4.1's fairness rule).
  */
 final class OverlayAgents {
 
-    /** The rig's {@code Brains.BRAIN_STREAM}; {@code OverlayAgentsTest} holds the Brain's seed to it. */
-    static final long BRAIN_STREAM = 0x5F15_B4A1L;
+    /** The seed of the Overlay's Brain: the one the rig gives the Brain of the same name. */
+    static final long BRAIN_SEED = BrainSeed.of("shatterfish");
 
     private OverlayAgents() {
     }
@@ -41,7 +41,7 @@ final class OverlayAgents {
     static Supplier<Decider> of(LaunchOptions options) {
         if (options.agent().equals("brain")) {
             Weights weights = weights(options.weights());
-            return () -> new BrainDecider(new Brain(emptyCodex(), weights, Mix.mix(BRAIN_STREAM, "shatterfish".hashCode())));
+            return () -> new BrainDecider(new Brain(emptyCodex(), weights, BRAIN_SEED));
         }
         return () -> new RandomAgent(options.agentSeed());
     }

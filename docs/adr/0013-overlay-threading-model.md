@@ -279,25 +279,36 @@ its tuple or its Action list**: a Replay of its log under the headless driver pa
 first roll the desktop's extra frames moved. So an Overlay log's header carries `driver: embedded`
 (chained, written only for the Overlay, so every headless log keeps its bytes; ADR-0011's story 5.1
 amendment), and the Rig refuses such a log on every path that reads logs to count, score, calibrate
-or show them (`OverlayLogs`, held by `OverlayLogsRefusedTest`). An Overlay Run is a thing to watch
-and a log to read, never a number. Story 5.13 closes the exception, and its Rig numbers say so.
+or replay them, by its header even when a later line is unreadable (`OverlayLogs` and
+`Replay.refusal`, held by `OverlayLogsRefusedTest`). The field is a label against an honest mistake,
+not tamper protection: the chain rules are published, and a whole log can be rewritten without it.
+The debug views, the death gallery's snapshots and the strategy log, may show an Overlay log; they
+count nothing. An Overlay Run is a thing to watch and a log to read, never a number. Story 5.13 closes the exception, and its Rig numbers say so.
 
 **The player's input.** Until take-over (story 5.8), the game's own input is closed while a Run is
-attached (`InputLock`, first in the game's input multiplexer), so a click or key cannot change the
-game outside the log. A gamepad writes the game's key queue past the multiplexer and is not closed;
+attached (`InputLock`, first in the game's input multiplexer, and put first again at the end of every
+frame, because a text-input window inserts its own stage at the head of the same multiplexer), so a
+click or key cannot change the game outside the log. A gamepad writes the game's key queue past the multiplexer and is not closed;
 story 5.5's input-gate hook (option 9 above) closes every path.
 
 **Answers that went stale.** A decision takes frames; if the play scene, the window in front, the
 hero's state or the actor thread's rest changed meanwhile, or anything was announced or handed over,
 the answer is dropped unrecorded and the same wait index is confirmed again from what is in front
-(`WaitGate.reconfirm`), so a log holds one wait per index. The actor thread must be parked
-(`SceneStepper.actorThreadParked`) before a wait is confirmed or acted on: the hero is `ready` a little
-before his act has finished writing.
+(`WaitGate.reconfirm`), so a log holds one wait per index. The decider is put back to where it stood
+before it was asked (`Rewindable`: the Brain's Belief and last Decision, the random agent's stream),
+so the wait asked again is answered from one Observation, as the headless Run's is, and it is not
+counted as a second wait on the same turn. A decider that cannot be put back keeps what the dropped
+question changed, and the Run counts it; the Overlay's two agents both can. The actor thread must be
+parked (`SceneStepper.actorThreadParked`: waiting on its own monitor in `Actor.process`, not on a
+moving sprite, and then fenced by taking that monitor) before a wait is confirmed or acted on: the
+hero is `ready` a little before his act has finished writing.
 
 **Scenes in front.** The desktop game serves the scene the actor thread asks for in the same frame's
 `step()`, before the Run looks, and the request flag is not volatile; so the Run decides by the scene
 in front: the surface is the win; the loading scene of a descent, an ascent or a fall, and the play
 scene it asks for, go on; any other loading mode, and any other scene, end the Run as unserved, as
-the headless loop ends it. A Run that reaches no wait within the headless loop's frame budget ends as
-an unknown window; the region intro on a first descent to depths 6, 11, 16 and 21 does, because the
+the headless loop ends it. A Run that reaches no wait, while not thinking, within the headless loop's
+budget at sixty frames a second (about 333 seconds) ends as an unknown window. The budget is counted
+in game time, the sum of `Game.elapsed`, not in frames, which the desktop draws at the monitor's
+refresh rate: a frame count would end the same Run sooner on a faster screen; the region intro on a first descent to depths 6, 11, 16 and 21 does, because the
 Overlay does not click through it (the headless game never shows it).

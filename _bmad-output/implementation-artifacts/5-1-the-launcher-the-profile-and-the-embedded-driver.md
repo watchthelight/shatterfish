@@ -327,3 +327,76 @@ seven play scenes a Run) and the Run followed the hero across every one. Seed 12
 from wait 501 the descend and explore Policies held the hero between two cells until it starved, a
 Brain matter recorded in docs/ideas.md. The end record's depth is the deepest floor reached, as in the
 headless Run; the Overlay's closing line now says so.
+
+### Verification pass (on cf756bfb6)
+
+Clean on the driver header and chain, F1, F2, F5 (no double record), F6's atomic claim and F7. Fixed:
+
+1. *The Replay did not refuse an Overlay log*; `--replay` would report "did not reproduce".
+   `Replay.refusal` refuses `driver: embedded` by name (`OverlayLogsRefusedTest`).
+2. *The budget counted render frames*, so it ended the same Run at different moments on 60 Hz and
+   240 Hz screens. It is now game time, the sum of `Game.elapsed`, with a budget of the headless loop's
+   20,000 frames at sixty a second (about 333 seconds), and it still pauses while the Brain thinks
+   (`no_wait_within_the_budget`, which now ends after about 1,667 of the host's fifth-of-a-second
+   frames rather than 20,000; `the_budget_pauses_while_thinking`).
+3. *A dropped answer left its mark on the Brain.* A new `api` interface, `Rewindable`, lets the Run
+   put a decider back to where it stood before it was asked: the Brain's Belief and last Decision
+   (`BrainDecider`), the random agent's stream (`RandomAgent`, its `Random` serialized). The wait
+   asked again is answered from one Observation, as the headless Run's is, and it no longer counts
+   toward a stall. A decider that cannot be put back is counted (`unrewoundAnswers`); the Overlay's
+   two agents both can (`a_dropped_answer_leaves_no_belief_behind`, which reads the logged Belief).
+4. *Refusals and claims.* The Rig refuses an Overlay log by its header even when a later line is
+   unreadable (`OverlayLogs.refuse(Log)`, in `Comparison`, `LogHeader` and `Gallery`). The debug views
+   (the gallery's snapshots, the strategy log) may show an Overlay log, and `OverlayLogs` now says so;
+   its javadoc no longer calls the field tamper-proof: it is a label against an honest mistake.
+5. *Parked meant any WAITING.* `actorThreadParked` now requires the actor thread to wait on its own
+   monitor, the park in `Actor.process`, not on a moving sprite, and then takes that monitor as a
+   happens-before fence (`a_sprite_wait_is_not_parked`).
+6. *A text-input window could take keys.* It inserts its stage at the head of the same multiplexer;
+   the lock is put first again at the end of every locked frame (`InputLockTest.kept_first`).
+7. *The Profile.* A directory named with `--profile` survives the Run with its claim file, so it serves
+   one Run (`FreshProfileTest.a_named_one_survives`); a temporary Profile is also deleted by a shutdown
+   hook if the game dies without closing, and the log is then left as a killed Run's.
+8. *Tests.* `OracleToggleTest` now plays: the launcher's own observer and logging from parsed
+   options, attached to an embedded Run and played frame by frame, then what the Brain was shown and
+   what the log says are read back, and an oracle observer under a fair log is refused. A stale answer
+   from a rebuilt scene (`a_rebuilt_scene_makes_the_answer_stale`). `OverlayAgentsTest` holds the
+   Brain's seed to the one `BrainSeed` both the Rig and the Overlay now use, and `ShatterfishRunTest`
+   holds that the seed did not move.
+
+**Mutation battery for the review fixes** (a scratch script, not committed; a control run of every
+named test first, each mutant then against its named tests; every kill below is a named test's
+failure, none a build or daemon error):
+
+| # | Mutant | Killed by |
+|---|---|---|
+| N1 | the Replay takes an Overlay log | `OverlayLogsRefusedTest` |
+| N2 | the Rig takes an Overlay log | `OverlayLogsRefusedTest` |
+| N3 | a corrupt later line hides the header | `OverlayLogsRefusedTest` |
+| N4 | the `driver` field is not written | `OverlayLogsRefusedTest` |
+| N5 | F1: a requested play scene ends the Run | `EmbeddedEndingsTest` |
+| N6 | F2: the surface is not the win | `EmbeddedEndingsTest` |
+| N7 | F2: any loading mode goes on | `EmbeddedEndingsTest` |
+| N8 | F3: a wait confirmed with the actor thread running | `EmbeddedEndingsTest` |
+| N9 | a thread waiting on a sprite counted as parked | `EmbeddedEndingsTest` |
+| N10 | F4: no budget | `EmbeddedEndingsTest` |
+| N11 | the budget counted in frames | `EmbeddedEndingsTest` |
+| N12 | the budget runs while the Brain thinks | `EmbeddedEndingsTest` |
+| N13 | F5: a stale answer served | `EmbeddedEndingsTest` |
+| N14 | the Brain not rewound after a dropped answer | `EmbeddedEndingsTest` |
+| N15 | the wait asked again counts toward a stall | `EmbeddedEndingsTest` |
+| N16 | a rebuilt scene does not make the answer stale | `EmbeddedEndingsTest` |
+| N17 | an unannounced oracle accepted (the Overlay) | `OracleToggleTest` |
+| N17h | the same, in the harness | `EmbeddedEndingsTest` |
+| N18 | the launcher never makes the oracle | `OracleToggleTest` |
+| N19 | F6: the claim is not atomic | `FreshProfileTest` |
+| N20 | F6: the temporary Profile kept | `FreshProfileTest` |
+| N21 | the Profile the player named deleted | `FreshProfileTest` |
+| N22 | F7: the backend's runnables counted | `RenderQueueTest` |
+| N23 | the input lock lets keys through | `InputLockTest` |
+| N24 | the input lock not kept first | `InputLockTest` |
+
+25 of 25 killed. N17 survived the first run: the log writer's own guard (`RunLoop.record`) also
+refuses an oracle Observation, after the Brain has decided on it, so a test that only looked for an
+exception could not tell the two apart. Both oracle tests now assert that the Run's own guard fired
+at the wait and that the Brain was never shown the screen, and N17 and N17h are killed.

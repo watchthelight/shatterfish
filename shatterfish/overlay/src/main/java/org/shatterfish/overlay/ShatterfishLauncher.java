@@ -54,6 +54,14 @@ public final class ShatterfishLauncher {
         LaunchOptions options = LaunchOptions.parse(args);
         long salt = options.salt() != null ? options.salt() : Salt.draw();
         Path profile = freshProfile(options.profile());
+        boolean madeForThisRun = deletesProfile(options);
+        if (madeForThisRun) {
+            // The game deletes it at its close; this is for a game that dies without closing (an
+            // exception out of a frame skips dispose). The Run's log is elsewhere and is left as a killed
+            // Run's is, without an end record, which the reader reports as unfinished (ADR-0012).
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> OverlayGame.deleteQuietly(profile),
+                    "shatterfish-profile-cleanup"));
+        }
         try {
             java.nio.file.Files.createDirectories(options.out());
         } catch (IOException e) {
@@ -80,7 +88,7 @@ public final class ShatterfishLauncher {
                 "icons/icon_64.png", "icons/icon_128.png", "icons/icon_256.png");
 
         new OverlayApplication(new OverlayGame(new DesktopPlatformSupport(), options, preferences, profile,
-                options.profile() == null, salt, OverlayAgents.of(options), observer(options.oracle()),
+                madeForThisRun, salt, OverlayAgents.of(options), observer(options.oracle()),
                 logging(options, machine())), config);
     }
 
@@ -94,6 +102,15 @@ public final class ShatterfishLauncher {
         return new RunLoop.Logging(options.out().toAbsolutePath(), "0".repeat(40),
                 new RunLog.Brain(OverlayAgents.name(options), "0".repeat(40), "0".repeat(64)), "", machine,
                 options.oracle());
+    }
+
+    /**
+     * Whether the Run's Profile is the launcher's to delete: only one it made, never one the player
+     * named with {@code --profile}. A named directory keeps its claim file afterwards, so it is not
+     * reused by a later Run (FR-37); give each Run a new one.
+     */
+    static boolean deletesProfile(LaunchOptions options) {
+        return options.profile() == null;
     }
 
     /**

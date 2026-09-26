@@ -31,6 +31,30 @@ class FreshProfileTest {
     }
 
     @Test
+    @DisplayName("a directory the player named survives the Run's end, claim and all; one the launcher made does not")
+    void a_named_one_survives(@TempDir Path folder) throws IOException {
+        Path asked = folder.resolve("mine");
+        LaunchOptions named = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior",
+                "--profile", asked.toString()});
+        LaunchOptions unnamed = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior"});
+        assertFalse(ShatterfishLauncher.deletesProfile(named));
+        assertTrue(ShatterfishLauncher.deletesProfile(unnamed));
+
+        Path mine = ShatterfishLauncher.freshProfile(named.profile());
+        Files.writeString(mine.resolve("game.dat"), "a save the Run wrote");
+        OverlayGame.releaseProfile(mine, ShatterfishLauncher.deletesProfile(named));
+        assertTrue(Files.isRegularFile(mine.resolve("game.dat")), "the player's directory keeps what the Run wrote");
+        assertTrue(Files.isRegularFile(mine.resolve(ShatterfishLauncher.OWNER_FILE)),
+                "and its claim, so a second Run is refused it");
+        assertThrows(IllegalArgumentException.class, () -> ShatterfishLauncher.freshProfile(named.profile()));
+
+        Path made = ShatterfishLauncher.freshProfile(unnamed.profile());
+        OverlayGame.releaseProfile(made, ShatterfishLauncher.deletesProfile(unnamed));
+        assertFalse(Files.exists(made));
+        OverlayGame.deleteQuietly(made);   // the shutdown hook's second call finds it gone, and says nothing
+    }
+
+    @Test
     @DisplayName("a directory is claimed once: a second launcher given it is refused")
     void claimed_once(@TempDir Path folder) {
         Path asked = folder.resolve("run");

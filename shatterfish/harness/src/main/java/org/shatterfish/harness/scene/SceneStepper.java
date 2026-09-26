@@ -527,14 +527,30 @@ public final class SceneStepper {
      * fences every frame on that park; the Overlay's frames are the render thread's, and its Run asks
      * this before it confirms a wait or acts on one. The field is read here because this class is the
      * one place harness code may reach it ({@code HarnessReflectionTest}).
+     *
+     * <p>Parked is waiting on the thread's own monitor, the one {@code Actor.process} waits on
+     * ({@code :335-337}). A thread waiting on a moving sprite ({@code :297-299}) is also WAITING, but
+     * it is mid-turn and will act as soon as the sprite stops, so it is not parked. And seeing the
+     * state is not seeing the writes: {@code getState()} gives no happens-before edge, so once the
+     * thread is seen parked this takes and releases the monitor it gave up in {@code wait()}, which
+     * orders everything it wrote before parking before everything the caller reads after. The actor
+     * thread is woken only by the render thread's own frame ({@code GameScene.update}), so on the render
+     * thread a parked thread stays parked until the caller's frame wakes it.
      */
     public static boolean actorThreadParked() {
         Thread thread = sceneActorThread();
         if (thread == null || !thread.isAlive()) {
             return true;
         }
-        Thread.State state = thread.getState();
-        return state == Thread.State.WAITING || state == Thread.State.TIMED_WAITING;
+        ThreadInfo info = THREADS.getThreadInfo(thread.threadId());
+        if (info == null || info.getThreadState() != Thread.State.WAITING || info.getLockInfo() == null
+                || !matches(info.getLockInfo(), thread)) {
+            return false;
+        }
+        synchronized (thread) {
+            // The fence: nothing to do inside, the acquire is the edge.
+        }
+        return true;
     }
 
     private static Object read(Field field) {

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.shatterfish.api.Weights;
 import org.shatterfish.brain.BrainDecider;
 import org.shatterfish.harness.agent.RandomAgent;
+import org.shatterfish.harness.rng.BrainSeed;
 
 import java.nio.file.Path;
 
@@ -38,7 +39,15 @@ class OverlayAgentsTest {
     @Test
     @DisplayName("the Brain's stream is seeded as the rig seeds it, from its name and nothing about the Run")
     void the_brain_seed() {
-        // The rig's Brains.BRAIN_STREAM (story 4.1's fairness rule), which the Overlay cannot import.
-        assertEquals(0x5F15_B4A1L, OverlayAgents.BRAIN_STREAM);
+        LaunchOptions brain = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior",
+                "--agent", "brain", "--weights", WEIGHTS.toString()});
+        LaunchOptions other = LaunchOptions.parse(new String[] {"--seed", "987654321", "--class", "mage",
+                "--salt", "1234", "--agent", "brain", "--weights", WEIGHTS.toString()});
+        long seeded = ((BrainDecider) OverlayAgents.of(brain).get()).brain().seed();
+        // The seed the rig's Brains.brainSeed gives the Brain of this name, through the one BrainSeed
+        // both use; and nothing about the Run moves it.
+        assertEquals(BrainSeed.of(OverlayAgents.name(brain)), seeded);
+        assertEquals(seeded, ((BrainDecider) OverlayAgents.of(other).get()).brain().seed(),
+                "another tuple and salt, the same stream");
     }
 }

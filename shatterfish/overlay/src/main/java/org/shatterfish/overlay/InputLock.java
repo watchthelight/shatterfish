@@ -1,6 +1,7 @@
 package org.shatterfish.overlay;
 
 import com.badlogic.gdx.InputAdapter;
+import com.watabou.input.InputHandler;
 
 /**
  * Keeps the player's hands off the game while a Run plays it (story 5.1's fairness review).
@@ -33,6 +34,18 @@ final class InputLock extends InputAdapter {
 
     boolean locked() {
         return locked;
+    }
+
+    /**
+     * Puts this lock back in front of the game's input processors. Anything the game adds later goes
+     * in front of it: the text-input window's stage is inserted at the head of the same multiplexer
+     * ({@code SPD-classes/…/noosa/TextInput.java:73}, through {@code InputHandler.addInputProcessor},
+     * {@code …/input/InputHandler.java:42-44}), and would take keys while a Run plays. The Overlay calls
+     * this at the end of every frame it is locked, which is before the next frame's input is polled.
+     */
+    void keepFirst(InputHandler handler) {
+        handler.removeInputProcessor(this);
+        handler.addInputProcessor(this);
     }
 
     @Override

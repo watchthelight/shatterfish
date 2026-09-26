@@ -111,6 +111,10 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
             return;
         }
         EmbeddedRun.State state = run.frame();
+        if (lock.locked()) {
+            // A window this frame opened (a text input) may have put its own processor in front.
+            lock.keepFirst(inputHandler);
+        }
         if (state == EmbeddedRun.State.ENDED && !reported) {
             reported = true;
             lock.unlock();
@@ -137,20 +141,41 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
             }
         } finally {
             super.dispose();
-            if (deleteProfile) {
-                deleteQuietly(profileDirectory);
-            }
+            releaseProfile(profileDirectory, deleteProfile);
         }
     }
 
-    /** Deletes a Profile directory the launcher made for this Run; a file left open is left behind. */
+    /**
+     * The end of a Run's Profile: deleted if the launcher made it for this Run alone, left as it is if
+     * the player named it ({@code --profile}), claim file and all, so that directory is not taken by a
+     * second Run (FR-37).
+     */
+    static void releaseProfile(Path directory, boolean madeForThisRun) {
+        if (madeForThisRun) {
+            deleteQuietly(directory);
+        }
+    }
+
+    /**
+     * Deletes a Profile directory the launcher made for this Run; one already gone is fine, and a file
+     * left open is left behind. Called at the game's close and again by the launcher's shutdown hook,
+     * which is what runs when the game dies without closing.
+     */
     static void deleteQuietly(Path directory) {
+        if (!Files.exists(directory)) {
+            return;
+        }
         try (Stream<Path> paths = Files.walk(directory)) {
             for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
                 Files.deleteIfExists(path);
             }
         } catch (IOException | RuntimeException leftBehind) {
-            Gdx.app.log("shatterfish", "the Run's Profile at " + directory + " was not deleted: " + leftBehind);
+            String line = "the Run's Profile at " + directory + " was not deleted: " + leftBehind;
+            if (Gdx.app != null) {
+                Gdx.app.log("shatterfish", line);
+            } else {
+                System.err.println("[shatterfish] " + line);
+            }
         }
     }
 

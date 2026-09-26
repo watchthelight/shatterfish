@@ -4,6 +4,7 @@ import org.shatterfish.api.Decider;
 import org.shatterfish.api.SeedSet;
 import org.shatterfish.harness.agent.RandomAgent;
 import org.shatterfish.harness.agent.WithholdingAgent;
+import org.shatterfish.harness.rng.BrainSeed;
 import org.shatterfish.harness.rng.Mix;
 
 import java.io.IOException;
@@ -88,7 +89,7 @@ public final class Brains {
     public static final String SHATTERFISH = "shatterfish";
 
     /** Mixed into a Brain's name to give its stream a seed; see {@link #brainSeed}. */
-    static final long BRAIN_STREAM = 0x5F15_B4A1L;
+    static final long BRAIN_STREAM = BrainSeed.STREAM;
 
     /** The Brains that are the Baseline with one kind of Action withheld, and which kind. */
     private static final java.util.Map<String, Class<? extends org.shatterfish.api.Action>> WITHHELD =
@@ -211,7 +212,7 @@ public final class Brains {
      * has seen: two Runs that show it the same screens get the same Actions.
      */
     static long brainSeed(String name) {
-        return Mix.mix(BRAIN_STREAM, named(name).hashCode());
+        return BrainSeed.of(named(name));
     }
 
     /** Whether the Brain named {@code name} scores by a weight set, which its caller then reads (story 4.5). */
