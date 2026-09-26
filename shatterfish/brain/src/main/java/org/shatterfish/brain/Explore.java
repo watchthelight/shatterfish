@@ -12,7 +12,6 @@ import org.shatterfish.api.Observation;
 import org.shatterfish.api.PromptKind;
 import org.shatterfish.api.RunLog;
 import org.shatterfish.api.Tile;
-import org.shatterfish.api.TransitionKind;
 import org.shatterfish.api.TransitionView;
 import org.shatterfish.api.TrapView;
 
@@ -23,8 +22,8 @@ import java.util.Set;
 
 /**
  * Uncover the floor (story 4.6, FR-31): one step at a time toward the nearest unexplored frontier;
- * when none is left, a bounded round of searches for secret doors; and when those are spent, the way
- * down.
+ * when none is left, a bounded round of searches for secret doors. When those are spent the floor is
+ * {@linkplain #spent spent}, and the way down is the {@link Descend} Policy's (story 4.12).
  *
  * <p>A <em>frontier</em> is a cell the Brain may walk on, known to the screen, with a cell the
  * screen has never shown ({@link Fog#UNKNOWN}) among its eight neighbours. The Brain walks over
@@ -52,12 +51,10 @@ import java.util.Set;
  * {@link #SEARCHES} spots per floor. A Wide Search talent reaches further than the Policy counts,
  * which only makes it search more than it needs to.
  *
- * <p><b>Descending</b> (the minimal part of story 4.12, pulled forward to meet this story's
- * acceptance criterion). When no frontier is reachable and the searches are spent or have nothing
- * left to reach, the Policy walks to the regular exit the screen shows and onto it: a click on a
- * transition cell with no enemy in view travels (docs/rules/game-loop.md, "{@code Hero.handle(cell)}
- * sets"). Standing on the exit, it takes the {@code Descend} the screen offers. It never descends
- * from a floor the header says is sealed. When to leave a floor with more to do is story 4.12's.
+ * <p><b>Descending</b> was this Policy's last plan in story 4.6, a minimal part of story 4.12 pulled
+ * forward; story 4.12 moved it into the {@link Descend} Policy, which ranks above this one and also
+ * decides when to leave a floor with more to do. This Policy only says when the floor is
+ * {@linkplain #spent spent}: no frontier reachable and no search worth making.
  *
  * <p><b>Yielding.</b> The Policy does not enter while an enemy is in view or a Prompt is open, and it
  * yields for one wait when the hero has stood on one cell for {@link #STUCK} - 1 waits in a row: a
@@ -132,10 +129,21 @@ final class Explore implements Policy {
     }
 
     /**
-     * The plan, before the stuck rule: out of an avoided region, a rest owed, then frontier, a search,
-     * the way down. The frontier, search and way down are planned around the regions the fight
-     * Policy retreated from; when that finds nothing -- a region over the only corridor -- they are
-     * planned again through them, rather than leave the wait to chance.
+     * Whether the floor is spent (story 4.12): no frontier is reachable and no search is worth making,
+     * whether around the regions the fight Policy retreated from or through them. What is left of it
+     * is then nothing this Policy can uncover.
+     */
+    static boolean spent(Observation observation, Memory memory) {
+        List<Action> offered = observation.actions().actions();
+        return uncover(observation, memory, offered, walkable(observation, memory, true)) == null
+                && uncover(observation, memory, offered, walkable(observation, memory, false)) == null;
+    }
+
+    /**
+     * The plan, before the stuck rule: out of an avoided region, a rest owed, then frontier and a
+     * search. They are planned around the regions the fight Policy retreated from; when that finds
+     * nothing -- a region over the only corridor -- they are planned again through them, rather than
+     * leave the wait to chance.
      */
     private static RunLog.Choice plan(Observation observation, Memory memory, List<Action> offered) {
         MapSection map = observation.map();
@@ -176,8 +184,8 @@ final class Explore implements Policy {
             }
         }
 
-        RunLog.Choice around = route(observation, memory, offered, walkable(observation, memory, true));
-        return around != null ? around : route(observation, memory, offered, open);
+        RunLog.Choice around = uncover(observation, memory, offered, walkable(observation, memory, true));
+        return around != null ? around : uncover(observation, memory, offered, open);
     }
 
     /**
@@ -202,8 +210,8 @@ final class Explore implements Policy {
     /** The most waits the hero rests before going back to a floor it fled. */
     static final int RESTS = 50;
 
-    /** Frontier, then a search, then the way down, over the cells {@code walk} allows. */
-    private static RunLog.Choice route(Observation observation, Memory memory, List<Action> offered, boolean[] walk) {
+    /** Frontier, then a search, over the cells {@code walk} allows; null when neither is left. */
+    private static RunLog.Choice uncover(Observation observation, Memory memory, List<Action> offered, boolean[] walk) {
         MapSection map = observation.map();
         int depth = observation.header().depth();
         int branch = observation.header().branch();
@@ -232,42 +240,13 @@ final class Explore implements Policy {
                 return new RunLog.Choice(spot.step, Policies.CERTAIN, "search-spot " + spot.distance);
             }
         }
-        return down(observation, memory, walk, offered);
+        return null;
     }
 
     /** The Chebyshev distance between two cells. */
     private static int distance(MapSection map, int a, int b) {
         int width = map.width();
         return Math.max(Math.abs(a % width - b % width), Math.abs(a / width - b / width));
-    }
-
-    /** The way down: Descend on the exit, or a Step toward it; nothing on a sealed floor. */
-    private static RunLog.Choice down(Observation observation, Memory memory, boolean[] walk, List<Action> offered) {
-        if (observation.header().sealed()) {
-            return null;
-        }
-
-        MapSection map = observation.map();
-        int hero = observation.hero().cell();
-        boolean[] toward = walk.clone();
-        boolean any = false;
-        for (TransitionView transition : map.transitions()) {
-            if (transition.kind() != TransitionKind.REGULAR_EXIT) {
-                continue;
-            }
-            if (transition.cell() == hero) {
-                Action descend = new Action.Descend();
-                return offered.contains(descend) ? new RunLog.Choice(descend, Policies.CERTAIN, "descend") : null;
-            }
-            toward[transition.cell()] = true;
-            any = true;
-        }
-        if (!any) {
-            return null;
-        }
-        Path exit = nearest(map, toward, hero, offered, cell -> map.transitions().stream()
-                .anyMatch(t -> t.cell() == cell && t.kind() == TransitionKind.REGULAR_EXIT));
-        return exit == null ? null : new RunLog.Choice(exit.step, Policies.CERTAIN, "exit " + exit.distance);
     }
 
     /** The search radius: one, two for the Rogue (Hero.java:2506). */
@@ -337,10 +316,11 @@ final class Explore implements Policy {
     }
 
     /** A first Step and how many Steps the path takes. */
-    private record Path(Action step, int distance) {
+    record Path(Action step, int distance) {
     }
 
-    private interface Goal {
+    /** What a path search stops at. */
+    interface Goal {
         boolean at(int cell);
     }
 
@@ -349,7 +329,7 @@ final class Explore implements Policy {
      * Step that starts the way there; ties go to the first found, which is the order the screen
      * offers the Steps and then cell order, so the answer is a function of the screen.
      */
-    private static Path nearest(MapSection map, boolean[] walk, int hero, List<Action> offered, Goal goal) {
+    static Path nearest(MapSection map, boolean[] walk, int hero, List<Action> offered, Goal goal) {
         int cells = walk.length;
         int[] first = new int[cells];
         int[] distance = new int[cells];

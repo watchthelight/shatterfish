@@ -217,22 +217,31 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 refused.remove(0);
             }
         }
+        // The wait the hero came to this floor, and the rests the descend Policy handed over on it
+        // (story 4.12): a floor first seen at this wait starts both afresh.
+        boolean arriving = !memory.at().on(depth, branch);
+        long arrived = arriving ? waits : memory.arrived();
+        int rests = arriving ? 0 : memory.rests();
         Memory after = new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
                 sightings(memory.monsters(), observation, waits), here, streak, calm, dwelt, memory.blocked(),
                 memory.last(), holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE,
-                memory.drank());
+                memory.drank(), arrived, rests);
         // Two Steps refused in a row: the stepping Policy yields this wait, and the cell its Step
-        // points at is blocked on this floor. On a calm screen the pick-up Policy stands above
-        // explore, so when its plan on the last screen was a Step, that was the Step refused, and its
-        // cell is the one blocked (story 4.8); otherwise explore's Step on this screen.
+        // points at is blocked on this floor. On a calm screen the pick-up Policy stands above the
+        // descend Policy, which stands above explore, so when the pick-up plan on the last screen was a
+        // Step, that was the Step refused, and its cell is the one blocked (story 4.8); otherwise the
+        // descend Policy's Step toward the exit (story 4.12), else explore's Step on this screen.
         if (streak == Explore.STUCK - 1 && calm) {
             Integer cell = memory.aim().step() >= 0 ? Integer.valueOf(memory.aim().step())
-                    : Explore.stepCell(observation, after);
+                    : Descend.stepCell(observation, after, knowledge);
+            if (cell == null) {
+                cell = Explore.stepCell(observation, after);
+            }
             if (cell != null) {
                 after = new Memory(after.waits(), after.deepest(), facts, found, held, known, labels, pending,
                         after.monsters(), here, streak, calm, dwelt,
                         Memory.with(after.blocked(), new Memory.Spot(depth, branch, cell)), after.last(), holds, near,
-                        before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE, memory.drank());
+                        before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE, memory.drank(), arrived, rests);
             }
         }
         return after;
