@@ -53,6 +53,30 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
         return run;
     }
 
+    /** A HUMAN Run (story 5.9), with {@code shadow} as its shadow Brain; the frames go on while it thinks. */
+    EmbeddedRun attachHuman(Decider shadow, RunLoop.Logging logging, int turnCap) {
+        run = EmbeddedRun.attachHuman(this, seed, heroClass, driver.rngControl(), shadow,
+                () -> new Observer().observe(), logging, turnCap);
+        stepWhileThinking = true;
+        return run;
+    }
+
+    /**
+     * Plays frames until a HUMAN Run has a wait open for input, and stops on the frame that opened it,
+     * which is where the headless loop's executor would act; says whether one opened.
+     */
+    boolean untilOpen(long maxFrames) {
+        for (long frames = 0; frames < maxFrames; frames++) {
+            if (frame() == EmbeddedRun.State.ENDED) {
+                return false;
+            }
+            if (run.inputOpen()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public int pendingRunnables() {
         return driver.headlessBoot().pendingRunnables() + heldQueue;

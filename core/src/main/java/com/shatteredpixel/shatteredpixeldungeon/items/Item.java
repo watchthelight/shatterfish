@@ -155,6 +155,11 @@ public class Item implements Bundlable {
 	}
 	
 	public void execute( Hero hero, String action ) {
+		// shatterfish-hook:11
+		// A player's input, heard for the Overlay's record of a human's turns (story 5.9).
+		com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks.HeroInput heard =
+				com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks.heroInput;
+		if (heard != null) heard.itemUsed(this, action);
 
 		GameScene.cancel();
 		curUser = hero;

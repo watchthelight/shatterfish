@@ -104,11 +104,40 @@ public final class Hooks {
 	public static volatile LogReplaced logReplaced;
 
 	/**
+	 * Notified when a player's input reaches the hero, hook row 11 (story 5.9): the Overlay records a
+	 * human's turns from these sites, and nothing is registered outside a HUMAN Run. Every method is
+	 * called on the thread that handles the input, the render thread, and must not block.
+	 */
+	public interface HeroInput {
+		/** {@code Hero.handle(cell)} chose the hero's action for a cell, just before it returns. */
+		void cellHandled(int cell);
+
+		/** {@code CellSelector.select} is about to hand a cell to its listener. */
+		void cellSelected(int cell);
+
+		/** {@code Item.execute(hero, action)} was entered. */
+		void itemUsed(com.shatteredpixel.shatteredpixeldungeon.items.Item item, String action);
+
+		/** {@code Hero.rest(full)} was entered. */
+		void rested(boolean full);
+
+		/** {@code Hero.search(true)} was entered: the search button, not a passive search. */
+		void searched();
+
+		/** {@code Hero.upgradeTalent(talent)} was entered. */
+		void talentUpgraded(com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent talent);
+	}
+
+	/** @see HeroInput */
+	public static volatile HeroInput heroInput;
+
+	/**
 	 * Unregisters every listener. Called when a Run ends, so that a listener belonging to a finished
 	 * Run cannot be reached by the next one. Every field declared above must be nulled here.
 	 */
 	public static void clear() {
 		inputWait = null;
 		logReplaced = null;
+		heroInput = null;
 	}
 }

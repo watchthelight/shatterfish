@@ -125,7 +125,23 @@ public final class EmbeddedRun implements AutoCloseable {
      * out so the Panel can turn an Action into words (a Step's compass direction, an Attack's target,
      * an AnswerPrompt's option text) without the Brain seeing anything new.
      */
-    public record Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state) {
+    public record Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state,
+                           Human human) {
+
+        /** A Brain's Run: no human part. */
+        public Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state) {
+            this(decision, turn, floor, observation, state, null);
+        }
+    }
+
+    /**
+     * What a HUMAN Run adds to the snapshot (story 5.9): {@code decision} is then the Brain's shadow,
+     * never executed, and this says whether it is for the wait the person is looking at
+     * ({@code shadowCurrent}), whether a wait is open for their input, and the first wait a Replay
+     * cannot reproduce with the input that made it so (0 and empty while every wait is verifiable).
+     */
+    public record Human(boolean shadowCurrent, long shadowWait, boolean inputOpen, long unverifiableFrom,
+                        String unverifiableWhy, long notes) {
     }
 
     private record Decided(Action action, long thinkMs) {
@@ -156,6 +172,9 @@ public final class EmbeddedRun implements AutoCloseable {
      * one (story 5.1's review).
      */
     static final double BUDGET_SECONDS = RunLoop.FRAME_BUDGET / 60.0;
+
+    /** The speed a HUMAN Run's mode record names: the person's own pace, since no speed mode paces it. */
+    public static final String HUMAN_SPEED = "player";
 
     private int attachments;
     private double secondsWithoutAWait;
@@ -196,6 +215,17 @@ public final class EmbeddedRun implements AutoCloseable {
     private RunOutcome outcome;
     private boolean closed;
 
+    /** A shadow question in flight: the wait it was asked at, and the Decision it will answer with. */
+    private record Shadowed(long k, Future<RunLog.Decision> decision) {
+    }
+
+    /** The record of the person's turns in a HUMAN Run (story 5.9), or null for a Brain's Run. */
+    private HumanTurns human;
+    private final java.util.ArrayDeque<Shadowed> shadows = new java.util.ArrayDeque<>();
+    private long shadowWait;
+    private long shadowFailures;
+    private long notes;
+
     private EmbeddedRun(Host host, RngControl rng, Decider brain, Supplier<Observation> observer, RunLogWriter log,
                         boolean oracle, int turnCap, Thread uiThread, boolean claimedTheRole) {
         this.host = host;
@@ -232,6 +262,26 @@ public final class EmbeddedRun implements AutoCloseable {
      */
     public static EmbeddedRun attach(Host host, long seed, HeroClass heroClass, RngControl rng, Decider brain, Supplier<Observation> observer,
                                      RunLoop.Logging logging, int turnCap) {
+        return attach(host, seed, heroClass, rng, brain, observer, logging, turnCap, false);
+    }
+
+    /**
+     * Attaches a HUMAN Run (story 5.9): the person plays every wait with the game's own input, and
+     * {@code brain} is the shadow. At every wait the Run confirms, reseeds and observes exactly as it
+     * does for the Brain; the Observation goes to the Brain's worker, which updates its Belief and
+     * decides, and the Decision is written as a {@code shadow} record and never executed; what the
+     * person did is recorded through hook row 11 as the Action the executor would have issued
+     * ({@link HumanTurns}). The executor is never called. The log opens with a {@code mode} record
+     * saying the whole Run is HUMAN; taking over and handing back mid-Run is story 5.8's.
+     */
+    public static EmbeddedRun attachHuman(Host host, long seed, HeroClass heroClass, RngControl rng, Decider brain,
+                                          Supplier<Observation> observer, RunLoop.Logging logging, int turnCap) {
+        return attach(host, seed, heroClass, rng, brain, observer, logging, turnCap, true);
+    }
+
+    private static EmbeddedRun attach(Host host, long seed, HeroClass heroClass, RngControl rng, Decider brain,
+                                      Supplier<Observation> observer, RunLoop.Logging logging, int turnCap,
+                                      boolean human) {
         if (host == null || rng == null || brain == null || observer == null || heroClass == null) {
             throw new IllegalArgumentException("an embedded Run needs a host, a generator control, a Brain, an"
                     + " observer and a hero class");
@@ -256,6 +306,14 @@ public final class EmbeddedRun implements AutoCloseable {
             }
             EmbeddedRun run = new EmbeddedRun(host, rng, brain, observer, log,
                     logging != null && logging.oracle(), turnCap, ui, claimed);
+            if (human) {
+                if (log != null) {
+                    // The whole Run is the person's, stated once before the first wait (ADR-0011's mode record).
+                    log.write(new RunLog.Mode(0, "HUMAN", HUMAN_SPEED));
+                }
+                run.human = new HumanTurns(log, run.oracle, observer);
+                Hooks.heroInput = run.human;
+            }
             run.arm();
             return run;
         } catch (RuntimeException | Error failed) {
@@ -328,6 +386,9 @@ public final class EmbeddedRun implements AutoCloseable {
         }
         if (outcome != null) {
             return State.ENDED;
+        }
+        if (human != null) {
+            return humanFrame();
         }
         if (pending != null) {
             if (!pending.isDone()) {
@@ -425,6 +486,193 @@ public final class EmbeddedRun implements AutoCloseable {
             return new Decided(chosen, (System.nanoTime() - before) / 1_000_000L);
         });
         return State.THINKING;
+    }
+
+    /**
+     * A HUMAN Run's frame (story 5.9). In order: the shadows that landed are written; the scene in
+     * front is judged as for the Brain; what the person did at the open wait is settled into a record
+     * ({@link HumanTurns#settle}), announcing the hand-over the executor would have announced; and a new
+     * wait is confirmed through the same gate, reseeded, observed and handed to the person and, as a
+     * shadow question, to the Brain's worker. Nothing here waits on the worker: a shadow that has not
+     * landed is written when it does, for the wait it belongs to, and marked skipped if that wait is no
+     * longer the person's to take. There is no frame budget: a person is at the window, and a Run they
+     * leave standing is theirs to close.
+     */
+    private State humanFrame() {
+        pollShadows();
+        if (Game.switchingScene() && decideByScene(host.requestedScene(), InterlevelScene.mode)) {
+            return outcome != null ? State.ENDED : State.PLAYING;
+        }
+        Scene front = Game.scene();
+        if (!(front instanceof GameScene)) {
+            decideByScene(front == null ? null : front.getClass(), InterlevelScene.mode);
+            return outcome != null ? State.ENDED : State.PLAYING;
+        }
+        Hero hero = Dungeon.hero;
+        if (hero == null) {
+            return State.PLAYING;
+        }
+        human.settle(hero, Windows.front());
+        if (!hero.isAlive() && WndResurrect.instance == null) {
+            end(RunOutcome.Cause.DEATH, "");
+            return State.ENDED;
+        }
+        confirmHuman(hero);
+        if (outcome != null) {
+            return State.ENDED;
+        }
+        return shadows.isEmpty() ? State.PLAYING : State.THINKING;
+    }
+
+    /**
+     * The HUMAN Run's second look at the frame, between the game's input and its scene update (story
+     * 5.9), called by the Overlay's update. A direction key held down moves the hero from inside the
+     * scene's update, not from an input event ({@code core/.../scenes/CellSelector.java:385-386},
+     * {@code :464-480}), so a wait the hero reached late in the last frame is confirmed here, reseeded
+     * and observed, before that move is made; a click needs no such look, since the Overlay's lock passes
+     * one only while a wait is open. A Brain's Run does nothing here.
+     */
+    public void beforeUpdate() {
+        UiRole.require("EmbeddedRun.beforeUpdate()");
+        if (human == null || closed || outcome != null || human.open() || Game.switchingScene()
+                || !(Game.scene() instanceof GameScene)) {
+            return;
+        }
+        Hero hero = Dungeon.hero;
+        if (hero != null && hero.isAlive()) {
+            confirmHuman(hero);
+        }
+    }
+
+    /** The head of a HUMAN wait, in ADR-0013's order: the index, the reseed, the Observation. */
+    private void confirmHuman(Hero hero) {
+        if (!SceneStepper.actorThreadParked()) {
+            return;
+        }
+        Window window = Windows.front();
+        long k = gate.frame(hero, window, host.pendingRunnables() != 0);
+        if (k == 0) {
+            return;
+        }
+        rng.reseed(k);
+        int turn = RunLoop.turns();
+        if (turn >= turnCap) {
+            end(RunOutcome.Cause.TURN_CAP, "");
+            return;
+        }
+        if (turn == lastTurn) {
+            still++;
+            if (still >= RunLoop.WAITS_WITHOUT_A_TURN) {
+                end(RunOutcome.Cause.STALLED, still + " waits without a turn passing, the last " + human.lastAction());
+                return;
+            }
+        } else {
+            lastTurn = turn;
+            still = 0;
+        }
+        Observation observation = observer.get();
+        if (observation.header().oracle() != oracle) {
+            throw new IllegalStateException("the Run says oracle=" + oracle + " and the Observation at wait " + k
+                    + " says " + observation.header().oracle() + "; an oracle Run is stated with its log");
+        }
+        waits++;
+        human.open(k, RunLoop.thousandths(), observation);
+        lastDecisionTurn = turn;
+        lastDecisionFloor = observation.header().depth();
+        lastDecisionObservation = observation;
+        // The shadow: the Brain sees this Observation and nothing else, updates its Belief and decides.
+        // The Decision is read on the worker, right after its own decide, because questions queue here
+        // when the person is quicker than the Brain, and the next decide would overwrite it.
+        shadows.add(new Shadowed(k, worker.submit(() -> {
+            decidedOn = Thread.currentThread();
+            brain.decide(observation);
+            return brain instanceof Deliberator deliberator ? deliberator.lastDecision() : null;
+        })));
+    }
+
+    /** Writes every shadow that has landed, in the order asked, for the wait it belongs to. */
+    private void pollShadows() {
+        while (!shadows.isEmpty() && shadows.peek().decision().isDone()) {
+            Shadowed landed = shadows.poll();
+            Future<RunLog.Decision> done = landed.decision();
+            if (done.state() != Future.State.SUCCESS) {
+                // A Brain that cannot decide a shadow costs the person nothing: the game is theirs.
+                shadowFailures++;
+                continue;
+            }
+            RunLog.Decision decision = done.resultNow();
+            if (decision == null) {
+                continue;
+            }
+            boolean current = human.isOpen(landed.k());
+            if (log != null) {
+                log.write(new RunLog.Shadow(landed.k(), decision, !current));
+            }
+            lastDecision = decision;
+            shadowWait = landed.k();
+        }
+    }
+
+    /**
+     * A note the person typed (story 5.9), written at the wait that is open, or the last one confirmed
+     * when the hero is between two. Returns whether it was written: a blank note, a Run with no log and a
+     * Run that has ended write nothing.
+     */
+    public boolean note(String typed) {
+        UiRole.require("EmbeddedRun.note()");
+        if (typed == null || log == null || closed || outcome != null) {
+            return false;
+        }
+        String text = RunLog.Note.clean(typed);
+        if (text.isEmpty()) {
+            return false;
+        }
+        log.write(new RunLog.Note(gate.waitIndex(), text));
+        notes++;
+        return true;
+    }
+
+    /** Whether this Run is the person's (story 5.9). */
+    public boolean human() {
+        return human != null;
+    }
+
+    /**
+     * Whether a HUMAN Run has a wait open for the person's input: confirmed and reseeded, and nothing
+     * recorded for it yet. The Overlay passes a press to the game only then, so every input the record
+     * holds was made on the screen its wait observed.
+     */
+    public boolean inputOpen() {
+        return human != null && outcome == null && human.open();
+    }
+
+    /** A tap released at a screen point, before the game has it; see {@link HumanTurns#pointerUp}. */
+    public void pointerUp(float screenX, float screenY) {
+        UiRole.require("EmbeddedRun.pointerUp()");
+        if (human != null) {
+            human.pointerUp(screenX, screenY);
+        }
+    }
+
+    /** A key pressed, before the game has it; see {@link HumanTurns#keyDown}. */
+    public void keyDown(int keycode) {
+        UiRole.require("EmbeddedRun.keyDown()");
+        if (human != null) {
+            human.keyDown(keycode);
+        }
+    }
+
+    /** Any other input the Overlay passed to the game; see {@link HumanTurns#inputEvent}. */
+    public void inputEvent() {
+        UiRole.require("EmbeddedRun.inputEvent()");
+        if (human != null) {
+            human.inputEvent();
+        }
+    }
+
+    /** Shadow questions the Brain failed; the person's game went on. */
+    public long shadowFailures() {
+        return shadowFailures;
     }
 
     /** The Brain has answered: execute the answer and write the wait's record, as the headless loop does. */
@@ -572,8 +820,14 @@ public final class EmbeddedRun implements AutoCloseable {
     }
 
     private void end(RunOutcome.Cause cause, String detail) {
+        if (human != null) {
+            // Each wait the person took is a wait served and an Action applied; none is refused.
+            pollShadows();
+            applied = human.recordedWaits();
+            waits = applied;
+        }
         outcome = RunLoop.outcome(cause, rng.salt(), waits, applied, refused, detail);
-        RunLoop.ending(log, gate.waitIndex(), outcome);
+        RunLoop.ending(log, gate.waitIndex(), outcome, human != null && human.unverifiableFrom() > 0);
         if (log != null) {
             log.close();
         }
@@ -607,6 +861,9 @@ public final class EmbeddedRun implements AutoCloseable {
             if (Hooks.logReplaced == seam) {
                 Hooks.logReplaced = null;
             }
+            if (human != null && Hooks.heroInput == human) {
+                Hooks.heroInput = null;
+            }
             gate.uninstall();
             if (claimedTheRole) {
                 UiRole.release(uiThread);
@@ -619,7 +876,7 @@ public final class EmbeddedRun implements AutoCloseable {
         if (outcome != null) {
             return State.ENDED;
         }
-        return pending != null ? State.THINKING : State.PLAYING;
+        return pending != null || !shadows.isEmpty() ? State.THINKING : State.PLAYING;
     }
 
     /** How the Run ended, or null while it plays. */
@@ -637,6 +894,11 @@ public final class EmbeddedRun implements AutoCloseable {
      */
     public Snapshot snapshot() {
         UiRole.require("EmbeddedRun.snapshot()");
+        if (human != null) {
+            return new Snapshot(lastDecision, lastDecisionTurn, lastDecisionFloor, lastDecisionObservation, state(),
+                    new Human(shadowWait > 0 && human.isOpen(shadowWait), shadowWait, inputOpen(),
+                            human.unverifiableFrom(), human.unverifiableWhy(), notes));
+        }
         return new Snapshot(lastDecision, lastDecisionTurn, lastDecisionFloor, lastDecisionObservation, state());
     }
 

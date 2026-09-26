@@ -375,16 +375,7 @@ public final class ActionExecutor {
         if (window == null) {
             return new Outcome.Rejected(action, Reason.NO_SUCH_OPTION, "no window is open");
         }
-        List<Component> buttons = new ArrayList<>();
-        if (GuessOptions.is(window)) {
-            // The guess window's options are its icons as well as its button, in the Observer's
-            // order (story 4.11; GuessOptions), so a tap on one is the tap a person makes on it.
-            for (GuessOptions.Option guess : GuessOptions.of(window)) {
-                buttons.add(guess.button());
-            }
-        } else {
-            collectButtons(window, buttons);
-        }
+        List<Component> buttons = optionButtons(window);
         if (option >= buttons.size()) {
             return new Outcome.Rejected(action, Reason.NO_SUCH_OPTION,
                     "the window draws " + buttons.size() + " buttons and the answer names " + option);
@@ -415,6 +406,25 @@ public final class ActionExecutor {
         }
         press(button);
         return applied(action);
+    }
+
+    /**
+     * The window's option buttons, in the order an {@code AnswerPrompt}'s index counts them: the one
+     * list the executor presses from and the Overlay's record of a human's turns reads a tap against
+     * (story 5.9), so the index a human's tap is written as is the index this class would press.
+     */
+    public static List<Component> optionButtons(Window window) {
+        List<Component> buttons = new ArrayList<>();
+        if (GuessOptions.is(window)) {
+            // The guess window's options are its icons as well as its button, in the Observer's
+            // order (story 4.11; GuessOptions), so a tap on one is the tap a person makes on it.
+            for (GuessOptions.Option guess : GuessOptions.of(window)) {
+                buttons.add(guess.button());
+            }
+        } else {
+            collectButtons(window, buttons);
+        }
+        return buttons;
     }
 
     private static void press(Component button) {

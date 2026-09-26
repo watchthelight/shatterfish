@@ -155,6 +155,11 @@ public class CellSelector extends ScrollArea {
 
 			switch (button){
 				default:
+					// shatterfish-hook:11
+					// A player's input, heard for the Overlay's record of a human's turns (story 5.9).
+					com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks.HeroInput heard =
+							com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks.heroInput;
+					if (heard != null) heard.cellSelected(cell);
 					listener.onSelect( cell );
 					break;
 				case PointerEvent.RIGHT:
