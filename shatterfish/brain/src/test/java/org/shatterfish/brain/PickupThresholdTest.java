@@ -221,11 +221,11 @@ class PickupThresholdTest {
         org.shatterfish.api.Belief first = brain.update(before, null);
         assertTrue(Memory.of(brain.update(after, first)).refused().isEmpty(),
                 "the next ration shows the same title, but the pack grew: taken, not refused");
-        org.shatterfish.api.Belief pickedUp = Memory.of(first).handed(Beliefs.PICK_UP).belief();
-        assertTrue(Memory.of(brain.update(after, Memory.of(first).handed(Beliefs.PICK_UP).belief())).refused().isEmpty(),
+        org.shatterfish.api.Belief pickedUp = Memory.of(first).handed(Beliefs.PICK_UP, -1).belief();
+        assertTrue(Memory.of(brain.update(after, Memory.of(first).handed(Beliefs.PICK_UP, -1).belief())).refused().isEmpty(),
                 "after a pick-up handed over, a grown pack is still a take");
         assertEquals(1, Memory.of(brain.update(before, pickedUp)).refused().size(), "unchanged: refused");
-        assertTrue(Memory.of(brain.update(before, Memory.of(first).handed("Wait").belief())).refused().isEmpty(),
+        assertTrue(Memory.of(brain.update(before, Memory.of(first).handed("Wait", -1).belief())).refused().isEmpty(),
                 "a turn spent otherwise (a human's wait) refuses nothing");
         assertTrue(Memory.of(brain.update(before, first)).refused().isEmpty(), "nor does a wait with nothing handed over");
 

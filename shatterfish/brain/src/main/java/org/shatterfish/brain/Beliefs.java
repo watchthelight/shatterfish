@@ -146,16 +146,25 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         }
 
         // Where the hero stands, and whether it stood here at the last wait too (story 4.6). What a
-        // still hero means depends on what the Brain last handed over (story 4.7): after a Step on a
-        // calm screen, the Step was refused, and the streak of refusals grows; after a Search on a
-        // calm screen, the spot was searched. After anything else -- an attack, a pick-up, a wait --
-        // standing still is what the Action does, and it counts for neither.
+        // still hero means depends on what the Brain last handed over (story 4.7): after a Step, the
+        // Step was refused, and the streak of refusals grows, on a calm screen or not -- a Step the
+        // game refuses in a fight spends no time either, and would be handed over again forever
+        // (story 4.12); after a Search on a calm screen, the spot was searched. After anything else
+        // -- an attack, a pick-up, a wait -- standing still is what the Action does, and it counts for
+        // neither.
         int branch = observation.header().branch();
         Memory.Spot here = new Memory.Spot(depth, branch, observation.hero().cell());
         boolean still = here.equals(memory.at());
         List<Memory.Spot> dwelt = still && memory.calm() && memory.last().equals(SEARCH)
                 ? Memory.with(memory.dwelt(), here) : memory.dwelt();
-        int streak = still && memory.calm() && memory.last().equals(STEP) ? memory.streak() + 1 : 0;
+        // A still hero after a Step is a refusal, unless the screen shows the hero rooted, which refuses
+        // every Step until the roots wear off, or under vertigo, which moves it at random and may
+        // spend the Step against a wall (Hero.java:1822-1825, Char.java:1296-1305): neither says the
+        // cell is out of reach. Refusals count toward a block only while they are aimed at one cell.
+        boolean refusedStep = still && memory.last().equals(STEP) && memory.stepped() >= 0 && !Explore.rooted(observation)
+                && !Explore.has(observation, Explore.VERTIGO);
+        int streak = !refusedStep ? 0 : memory.tried() == memory.stepped() ? memory.streak() + 1 : 1;
+        int tried = refusedStep ? memory.stepped() : -1;
         boolean calm = Explore.calm(observation);
         // The fight Policy's holds, and how near the nearest enemy is now and was a wait ago.
         int holds = !memory.calm() && memory.last().equals(WAIT) && !calm ? memory.holds() + 1 : 0;
@@ -217,31 +226,39 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 refused.remove(0);
             }
         }
+        // The wait the hero came to this floor, and the rests the descend Policy handed over on it
+        // (story 4.12): a floor first seen at this wait starts both afresh.
+        boolean arriving = !memory.at().on(depth, branch);
+        long arrived = arriving ? waits : memory.arrived();
+        int rests = arriving ? 0 : memory.rests();
         List<Memory.Balk> balked = balked(memory, observation, here, still);
         int walking = walking(memory, still);
+        List<Memory.Cloud> fleeting = memory.fleeting().stream().filter(block -> block.until() >= waits).toList();
         Memory after = new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
                 sightings(memory.monsters(), observation, waits), here, streak, calm, dwelt, memory.blocked(),
                 memory.last(), holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE,
                 memory.drank(), Memory.Trial.NONE, balked, walking, memory.tested(), clouds(memory, observation, waits),
-                memory.refuge());
-        // Two Steps refused in a row: the stepping Policy yields this wait, and the cell its Step
-        // points at is blocked on this floor. On a calm screen the pick-up Policy stands above
-        // explore, so when its plan on the last screen was a Step, that was the Step refused, and its
-        // cell is the one blocked (story 4.8); otherwise explore's Step on this screen.
-        if (streak == Explore.STUCK - 1 && calm) {
-            // A Step the test-item Policy handed toward its testing cell comes first: it ranks above
-            // pick-up (story 4.10).
-            Integer cell = memory.trial().step() >= 0 ? Integer.valueOf(memory.trial().step())
-                    : memory.aim().step() >= 0 ? Integer.valueOf(memory.aim().step())
-                    : Explore.stepCell(observation, after);
-            if (cell != null) {
-                after = new Memory(after.waits(), after.deepest(), facts, found, held, known, labels, pending,
-                        after.monsters(), here, streak, calm, dwelt,
-                        Memory.with(after.blocked(), new Memory.Spot(depth, branch, cell)), after.last(), holds, near,
-                        before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE, memory.drank(),
-                        Memory.Trial.NONE, balked, walking, memory.tested(), after.clouds(),
-                        memory.refuge());
+                memory.refuge(), arrived, rests, memory.stepped(), tried, fleeting);
+        // Two Steps in a row refused at one cell: the stepping Policy yields this wait, and that cell is
+        // blocked on this floor, whichever Policy chose it (story 4.12; stories 4.8 and 4.10 recomputed
+        // it from their own plans). Refused on a calm screen, for good; refused with an enemy in view,
+        // for FLEETING_WAITS waits, since the fight may have been the reason. The count then starts
+        // again, so a second cell refused twice is blocked in turn.
+        if (streak >= Explore.STUCK - 1) {
+            Memory.Spot cell = new Memory.Spot(depth, branch, memory.stepped());
+            List<Memory.Spot> blocked = memory.calm() ? Memory.with(after.blocked(), cell) : after.blocked();
+            List<Memory.Cloud> lapsing = new ArrayList<>(fleeting);
+            if (!memory.calm()) {
+                lapsing.add(new Memory.Cloud(depth, branch, memory.stepped(), waits + Memory.FLEETING_WAITS));
+                while (lapsing.size() > Memory.DWELT) {
+                    lapsing.remove(0);
+                }
             }
+            after = new Memory(after.waits(), after.deepest(), facts, found, held, known, labels, pending,
+                    after.monsters(), here, streak, calm, dwelt, blocked, after.last(),
+                    holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE, memory.drank(),
+                    Memory.Trial.NONE, balked, walking, memory.tested(), after.clouds(),
+                    memory.refuge(), arrived, rests, memory.stepped(), -1, lapsing);
         }
         return after;
     }

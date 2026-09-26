@@ -647,7 +647,11 @@ class FightPolicyTest {
                 "#<.H.#",
                 "######");
         List<Brain.Decided> fed = each(fleeing, hungry);
-        assertFalse(why(fed.get(1)).startsWith("rest"), "a hungry hero does not wait to heal: " + fed.get(1).decision());
+        // The explore Policy's rest before going back down stops for hunger. (A hungry hero with no food
+        // and nothing left to uncover is going down for food, and the descend Policy rests it beside the
+        // exit first: a hungry hero regenerates, only a starving one does not; story 4.12.)
+        assertFalse(why(fed.get(1)).equals("rest: before-descent"), "explore does not wait to heal a hungry hero: "
+                + fed.get(1).decision());
 
         Observation above = screen(1, 12, false, "worn shortsword",
                 "######",
@@ -737,5 +741,108 @@ class FightPolicyTest {
         assertFalse(Explore.calm(hurt));
         assertEquals(Fight.NAME, after(hurt).decision().policy());
         assertEquals(Fight.NAME, after(alert).decision().policy());
+    }
+
+    // ------------------------------------------------------------------------------- story 4.12
+
+    @Test
+    @DisplayName("a retreat never flees down onto a boss floor, nor down while the hero is hurt and the descend Policy is taking it down")
+    void never_down_hurt_or_onto_a_boss() {
+        String[] rows = {
+                "###########",
+                "#....>@..B#",
+                "#.........#",
+                "#<........#",
+                "###########"};
+        Observation two = screen(2, 20, false, "worn shortsword", rows);
+        int down = cell(two, 5, 1);
+        Brain.Decided flees = after(two);
+        assertEquals("retreat: stairs", why(flees));
+        assertEquals(new Action.Step(down), flees.action(), "on floor 2 the stairs down are nearest");
+        assertTrue(Fight.down(two, Memory.START, KNOWLEDGE));
+
+        Observation four = screen(4, 20, false, "worn shortsword", rows);
+        assertFalse(Fight.down(four, Memory.START, KNOWLEDGE), "floor 5 is Goo's");
+        Brain.Decided up = after(four);
+        assertEquals("retreat: stairs", why(up), up.decision().toString());
+        assertNotEquals(new Action.Step(down), up.action(), "toward the stairs up instead");
+
+        // Hurt, on a floor the descend Policy is leaving (every search spent): not down.
+        Observation hurt = screen(2, 10, false, "worn shortsword", rows);
+        List<Memory.Spot> spent = new ArrayList<>();
+        for (int i = 0; i < Explore.SEARCHES; i++) {
+            spent.add(new Memory.Spot(2, 0, 100 + i));
+        }
+        Memory leaving = new Memory(1, 2, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                Memory.Spot.NOWHERE, 0, false, spent, List.of(), "", 0, -1, -1, List.of(), List.of());
+        Observation calm = screen(2, 10, false, "worn shortsword",
+                "###########",
+                "#....>@...#",
+                "#.........#",
+                "#<........#",
+                "###########");
+        assertEquals("spent", Descend.leaving(calm, leaving, KNOWLEDGE));
+        assertFalse(Fight.down(hurt, leaving, KNOWLEDGE));
+        assertTrue(Fight.down(hurt, Memory.START, KNOWLEDGE), "hurt, but nothing is taking it down yet");
+    }
+
+    @Test
+    @DisplayName("a Step the game refuses in a fight is not retried forever: after two, its cell is blocked and the next plan goes round it")
+    void refused_step_in_a_fight() {
+        Observation brute = screen(20, false,
+                "##########",
+                "#....@B..#",
+                "#........#",
+                "##########");
+        List<Brain.Decided> all = each(brute, brute, brute);
+        assertTrue(all.get(0).action() instanceof Action.Step, all.get(0).decision().toString());
+        assertEquals(all.get(0).action(), all.get(1).action(), "the same Step, refused once");
+        Action.Step refused = (Action.Step) all.get(0).action();
+        Memory memory = Memory.of(Screens.drive(brain(), brute, brute, brute));
+        assertTrue(memory.fleeting().stream().anyMatch(block -> block.cell() == refused.cell()),
+                "blocked for a while: " + memory.fleeting());
+        assertTrue(memory.blocked().isEmpty(), "not for the floor: the fight may have been the reason");
+        assertNotEquals(refused, all.get(2).action(), "the third wait goes round the refused cell");
+    }
+
+    @Test
+    @DisplayName("two different Steps refused in turn in a fight: each is blocked after its own two refusals, and the fight moves on to a third")
+    void two_refusals_in_a_fight() {
+        Observation brute = screen(20, false,
+                "##########",
+                "#....@B..#",
+                "#........#",
+                "##########");
+        List<Brain.Decided> all = each(brute, brute, brute, brute, brute);
+        Action first = all.get(0).action();
+        assertEquals(first, all.get(1).action());
+        Action second = all.get(2).action();
+        assertNotEquals(first, second);
+        assertEquals(second, all.get(3).action(), "the second cell is refused twice too");
+        assertNotEquals(first, all.get(4).action());
+        assertNotEquals(second, all.get(4).action(), "and blocked in turn: no Step repeats forever");
+        Memory memory = Memory.of(Screens.drive(brain(), brute, brute, brute, brute, brute));
+        for (Action refused : List.of(first, second)) {
+            if (refused instanceof Action.Step step) {
+                assertTrue(memory.fleeting().stream().anyMatch(block -> block.cell() == step.cell()), memory.fleeting().toString());
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("rooted beside an enemy: it attacks; rooted with the enemy out of reach: never a Step, which the roots refuse")
+    void rooted() {
+        Observation beside = DescendPolicyTest.buffed(screen(20, false,
+                "##########",
+                "#....@r..#",
+                "##########"), Explore.ROOTED);
+        assertTrue(after(beside).action() instanceof Action.Attack, after(beside).decision().toString());
+        Observation far = DescendPolicyTest.buffed(screen(20, false,
+                "##########",
+                "#.@....B.#",
+                "##########"), Explore.ROOTED);
+        for (Brain.Decided decided : each(far, far, far, far, far, far)) {
+            assertFalse(decided.action() instanceof Action.Step, decided.decision().toString());
+        }
     }
 }

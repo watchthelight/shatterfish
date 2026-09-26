@@ -122,7 +122,7 @@ final class Heal implements Policy {
         }
         List<ActorView> enemies = Fight.enemies(observation);
         if (!Fight.favourable(observation, knowledge, enemies)
-                && Fight.retreat(observation, memory, offered, enemies) != null) {
+                && Fight.retreat(observation, memory, offered, enemies, knowledge) != null) {
             return null;
         }
         List<ItemView> items = observation.inventory().items();

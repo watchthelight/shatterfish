@@ -45,7 +45,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The explore Policy (story 4.6, FR-31): toward the nearest frontier one Step per wait, around
  * the cells where a click is not a step, searching where a search reaches walls no search has
- * covered, a bounded number of spots, then the way down; yielding to an enemy in view, and once to a
+ * covered, a bounded number of spots, and then the floor is spent (the way down is story 4.12's
+ * descend Policy); yielding to an enemy in view, and once to a
  * Step the game keeps refusing, which it then goes round.
  *
  * <p>Screens are drawn as text: {@code #} wall, {@code .} floor, a space a cell never seen,
@@ -262,8 +263,8 @@ class ExplorePolicyTest {
     }
 
     @Test
-    @DisplayName("with the floor's searches spent or covering every wall, it walks to the exit and onto it")
-    void down_when_done() {
+    @DisplayName("with the floor's searches spent or covering every wall the floor is spent, and the way down is the descend Policy's")
+    void spent_when_done() {
         Observation room = screen(2,
                 "#######",
                 "#@..>.#",
@@ -272,17 +273,18 @@ class ExplorePolicyTest {
         for (int i = 0; i < Explore.SEARCHES; i++) {
             spent.add(new Memory.Spot(2, 0, 100 + i));
         }
+        assertTrue(Explore.spent(room, searched(spent)));
         Brain.Decided toward = brain().decide(room, searched(spent).belief());
-        assertEquals(Explore.NAME, toward.decision().policy());
+        assertEquals(Descend.NAME, toward.decision().policy(), "explore has nothing left to plan");
         assertEquals(new Action.Step(cell(room, 2, 1)), toward.action());
-        assertEquals("exit 3", toward.decision().chosen().why(), "onto the exit is the last Step");
+        assertEquals("exit: spent 3", toward.decision().chosen().why(), "onto the exit is the last Step");
 
         List<Memory.Spot> everywhere = new ArrayList<>();
         for (int x = 1; x <= 5; x++) {
             everywhere.add(new Memory.Spot(2, 0, cell(room, x, 1)));
         }
-        assertEquals("exit 3", brain().decide(room, searched(everywhere).belief()).decision().chosen().why(),
-                "every wall covered: nothing left to search");
+        assertTrue(Explore.spent(room, searched(everywhere)), "every wall covered: nothing left to search");
+        assertEquals("exit: spent 3", brain().decide(room, searched(everywhere).belief()).decision().chosen().why());
 
         Observation on = screen(2,
                 "#######",
@@ -290,7 +292,7 @@ class ExplorePolicyTest {
                 "#######");
         Brain.Decided descend = brain().decide(on, searched(spent).belief());
         assertEquals(new Action.Descend(), descend.action());
-        assertEquals("descend", descend.decision().chosen().why());
+        assertEquals("descend: spent", descend.decision().chosen().why());
 
         Observation sealed = screen(2, true, HeroClass.WARRIOR,
                 "#######",
@@ -305,6 +307,7 @@ class ExplorePolicyTest {
         assertEquals(Policies.FALLBACK, brain().decide(sealedOn, searched(spent).belief()).decision().policy());
 
         List<Memory.Spot> elsewhere = spent.stream().map(spot -> new Memory.Spot(3, 0, spot.cell())).toList();
+        assertFalse(Explore.spent(room, searched(elsewhere)));
         assertEquals("search 1/" + Explore.SEARCHES,
                 brain().decide(room, searched(elsewhere).belief()).decision().chosen().why(),
                 "another floor's searches do not count against this one");
@@ -355,6 +358,5 @@ class ExplorePolicyTest {
         assertEquals(new Action.Step(cell(fork, 5, 1)), decided.action());
         assertEquals("frontier 4", decided.decision().chosen().why());
         assertEquals(decided.decision(), after(fork).decision());
-        assertNull(Explore.stepCell(screen(1, "###", "#@#", "###"), Memory.START), "no Step in a closed cell");
     }
 }

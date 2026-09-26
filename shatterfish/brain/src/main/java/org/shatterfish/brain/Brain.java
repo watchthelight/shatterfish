@@ -48,6 +48,7 @@ public final class Brain {
     private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation) {
         return List.of(Policies.ANSWER_PROMPT, new Heal(knowledge), new Fight(knowledge), new Eat(),
                 new TestItem(knowledge), new Pickup(evaluation, knowledge), new Equip(evaluation, knowledge),
+                new Descend(knowledge),
                 new Explore(), Policies.fallback(evaluation));
     }
 
@@ -131,7 +132,7 @@ public final class Brain {
     /** The names of the Policies every Brain arbitrates, highest priority first. */
     public static List<String> policyNames() {
         return List.of(Policies.ANSWER_PROMPT.name(), Heal.NAME, Fight.NAME, Eat.NAME, TestItem.NAME, Pickup.NAME,
-                Equip.NAME, Explore.NAME, Policies.FALLBACK);
+                Equip.NAME, Descend.NAME, Explore.NAME, Policies.FALLBACK);
     }
 
     /** The Policies, highest priority first, by name. */
@@ -148,11 +149,13 @@ public final class Brain {
      * when the fight Policy retreated, the region around the nearest enemy, which the explore Policy
      * keeps out of for {@link #AVOID_WAITS} waits so it does not walk straight back into view. The
      * region reaches one past where the enemy was seen from; and, when the heal Policy handed over a
-     * drink, the wait it did. Nothing here assumes the Action is applied.
+     * drink, the wait it did; and, when the descend Policy handed over a rest, one more rest on this
+     * floor. Nothing here assumes the Action is applied.
      */
     public Belief handed(Observation observation, Belief belief, Decided decided) {
         Memory before = Memory.of(belief);
-        Memory memory = before.handed(Beliefs.kind(decided.action()));
+        Memory memory = before.handed(Beliefs.kind(decided.action()),
+                decided.action() instanceof Action.Step step ? step.cell() : -1);
         RunLog.Decision decision = decided.decision();
         // A drink the heal Policy handed over (story 4.9): the heal lands over the next turns with no
         // buff icon, and the floating heal text the game shows is not in the Observation, so the heal
@@ -166,6 +169,10 @@ public final class Brain {
             Memory.Trial trial = testItem.trial(observation, before, decided.action());
             memory = memory.trying(trial, trial.step() < 0 && !trial.label().isEmpty()
                     ? SafeTest.refuge(observation, observation.hero().cell()) : -1);
+        }
+        // A rest the descend Policy handed over before going down (story 4.12), counted toward its bound.
+        if (decision != null && Descend.NAME.equals(decision.policy()) && decided.action() instanceof Action.Rest) {
+            memory = memory.resting();
         }
         if (decision != null && Fight.NAME.equals(decision.policy())
                 && decision.chosen().why().startsWith("retreat ")) {
@@ -213,6 +220,12 @@ public final class Brain {
     public Decided decide(Observation observation, Belief belief) {
         Memory memory = Memory.of(belief);
         List<Action> offered = observation.actions().actions();
+        // A rooted hero's Steps and stairs are refused with no time spent, so they are no choice at all
+        // until the roots wear off (story 4.12, Explore.rooted).
+        if (Explore.rooted(observation)) {
+            offered = offered.stream().filter(action -> !(action instanceof Action.Step
+                    || action instanceof Action.Descend || action instanceof Action.Ascend)).toList();
+        }
         if (offered.isEmpty()) {
             return new Decided(null, null, List.of(), "the screen offers no Action");
         }
