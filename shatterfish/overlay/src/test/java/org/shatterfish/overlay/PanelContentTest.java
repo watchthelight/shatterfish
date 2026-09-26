@@ -3,7 +3,14 @@ package org.shatterfish.overlay;
 import com.shatteredpixel.shatteredpixeldungeon.SPDSettings;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
+import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
+import com.shatteredpixel.shatteredpixeldungeon.ui.RedButton;
+import com.watabou.input.PointerEvent;
+import com.watabou.noosa.Camera;
 import com.watabou.noosa.Game;
+import com.watabou.noosa.ui.Component;
+import com.watabou.utils.Point;
+import com.watabou.utils.Random;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,6 +45,11 @@ class PanelContentTest {
     void restore() {
         HeadlessBoot boot = HeadlessBoot.ensure();
         boot.game().destroy();
+        // Every PointerArea (every button's hot area, including Explain's) registers itself on one
+        // static, process-wide signal (PointerEvent.java) and is never unregistered on its own; a test
+        // that dispatches a real tap (explain_does_not_steal_a_synthetic_tap_while_locked) must not see
+        // another test's stale button still sitting in that list.
+        PointerEvent.clearListeners();
         if (width != 0) {
             Game.width = width;
             Game.height = height;
@@ -96,7 +108,7 @@ class PanelContentTest {
         GameScene scene = fullScene();
         PanelDock dock = new PanelDock();
         RunLog.Decision decision = decision(List.of());
-        dock.frame(scene, snapshot(decision));
+        dock.frame(scene, snapshot(decision), false);
         Panel panel = dock.panel();
         assertEquals(PanelLayout.Form.FULL, panel.placed().form(), "1600x900 at interface size 1 is FULL (story 5.2)");
 
@@ -120,6 +132,7 @@ class PanelContentTest {
         assertEquals("corridor", card.reasonBlocks()[1].text());
         assertFalse(card.actionBlocks()[2].visible, "only one alternative was given");
         assertTrue(card.explainButton().visible);
+        assertTrue(card.explainButton().active, "input is not locked in this snapshot, so Explain can be pressed");
         assertFalse(card.policyRow().visible, "not expanded yet");
     }
 
@@ -130,7 +143,7 @@ class PanelContentTest {
         PanelDock dock = new PanelDock();
         dock.collapsed(true);
         RunLog.Decision decision = decision(List.of());
-        dock.frame(scene, snapshot(decision));
+        dock.frame(scene, snapshot(decision), false);
         Panel panel = dock.panel();
         assertEquals(PanelLayout.Form.STRIP, panel.placed().form());
         assertFalse(panel.stripText().text().isEmpty(), "the strip is the collapsed Panel and still says the Mode");
@@ -143,7 +156,7 @@ class PanelContentTest {
     void no_decision_yet_on_a_full_panel() {
         GameScene scene = fullScene();
         PanelDock dock = new PanelDock();
-        dock.frame(scene, snapshot(null));
+        dock.frame(scene, snapshot(null), false);
         Panel panel = dock.panel();
         assertEquals(PanelLayout.Form.FULL, panel.placed().form());
         assertFalse(panel.goal().visible);
@@ -152,6 +165,7 @@ class PanelContentTest {
         assertEquals(DecisionCardContent.NO_DECISION_YET, card.emptyRow().text());
         assertFalse(card.actionBlocks()[0].visible);
         assertFalse(card.explainButton().visible, "nothing to explain yet");
+        assertFalse(card.explainButton().active, "nor active, with nothing to explain");
     }
 
     @Test
@@ -160,7 +174,7 @@ class PanelContentTest {
         GameScene scene = fullScene();
         PanelDock dock = new PanelDock();
         RunLog.Decision decision = decision(List.of("hp-low"));
-        dock.frame(scene, snapshot(decision));
+        dock.frame(scene, snapshot(decision), false);
         DecisionCard card = dock.panel().card();
         assertFalse(card.policyRow().visible);
         assertFalse(card.flagsRow().visible);
@@ -184,7 +198,7 @@ class PanelContentTest {
         GameScene scene = fullScene();
         PanelDock dock = new PanelDock();
         RunLog.Decision decision = unevenRowsDecision();
-        dock.frame(scene, snapshot(decision));
+        dock.frame(scene, snapshot(decision), false);
         DecisionCard card = dock.panel().card();
 
         // Three rows shown (the chosen row, two alternatives), each with a different action-name
@@ -224,5 +238,110 @@ class PanelContentTest {
             assertEquals(expectedReasonLeft, card.reasonBlocks()[i].left(), 0.05f,
                     "row " + i + "'s reason block starts at the column's left edge");
         }
+    }
+
+    /**
+     * The fairness review of story 5.3's Explain control: {@code ActionExecutor.press} queues a
+     * synthetic tap as a {@code PointerEvent} directly, which bypasses {@code InputLock} entirely and
+     * is dispatched to every {@code PointerArea} in view order (stack mode, newest first). If the
+     * Panel (and Explain's hot area) was rebuilt after a window's own button already registered --
+     * exactly the order a window opened in {@code create()} leaves things in -- Explain's listener
+     * sits in front and would consume a tap meant for the button under it, and the executor would
+     * report the tap {@code applied} though the game never saw it. Reproduced here at the worst case,
+     * the window's button placed exactly where Explain is.
+     */
+    @Test
+    @DisplayName("Explain's hot area is inactive while a Run plays, so a synthetic tap meant for a window button underneath still reaches it (the fairness review)")
+    void explain_does_not_steal_a_synthetic_tap_while_locked() {
+        PointerEvent.clearListeners();
+        GameScene scene = fullScene();
+
+        // The window's own button, registered first -- behind Explain's listener once the Panel below
+        // is built, the order the review named as the vulnerable one.
+        boolean[] clicked = {false};
+        RedButton underlying = new RedButton("Continue") {
+            @Override
+            protected void onClick() {
+                clicked[0] = true;
+            }
+        };
+        underlying.camera = PixelScene.uiCamera;
+        scene.add(underlying);
+
+        PanelDock dock = new PanelDock();
+        RunLog.Decision decision = decision(List.of());
+        dock.frame(scene, snapshot(decision), true);   // a Run is playing: input is locked
+        DecisionCard card = dock.panel().card();
+        assertTrue(card.explainButton().visible, "Explain is shown whenever a Decision is present");
+        assertFalse(card.explainButton().active, "but not active while input is locked");
+
+        // The worst case: the window's button drawn exactly where Explain is.
+        underlying.setRect(card.explainButton().left(), card.explainButton().top(),
+                card.explainButton().width(), card.explainButton().height());
+
+        press(underlying);
+
+        assertFalse(card.explaining(), "Explain never toggled: its hot area let the tap through");
+        assertTrue(clicked[0], "the tap reached the window's own button underneath");
+    }
+
+    /** {@code ActionExecutor.press}, reproduced: a synthetic DOWN and UP queued directly as {@code PointerEvent}s, bypassing {@code InputLock}. */
+    private static void press(Component button) {
+        Camera camera = button.camera();
+        float x = button.left() + button.width() / 2;
+        float y = button.top() + button.height() / 2;
+        Point screen = camera.cameraToScreen(x, y);
+        PointerEvent.addPointerEvent(new PointerEvent(screen.x, screen.y, 0, PointerEvent.Type.DOWN, PointerEvent.LEFT));
+        PointerEvent.addPointerEvent(new PointerEvent(screen.x, screen.y, 0, PointerEvent.Type.UP, PointerEvent.LEFT));
+        PointerEvent.processPointerEvents();
+    }
+
+    /**
+     * Rendering is read-only (non-negotiable 5, reproducibility): the Panel's content is drawn from
+     * the Decision and the Observation the Brain already produced, and drawing it again -- as every
+     * frame between two Input waits does -- must never itself draw from the Run's own generator.
+     * {@code RngControl} keeps no count of what is drawn from it (its own Javadoc: "there is no
+     * counting of draws"), so this seeds a generator directly, draws one number as a reference,
+     * reseeds to the identical state, calls {@code Panel.content} (and toggles Explain) many times in
+     * between, and holds that the next number drawn is the same one: nothing in between consumed any.
+     */
+    @Test
+    @DisplayName("calling Panel.content repeatedly draws nothing from the Run's generator")
+    void content_does_not_draw_from_the_generator() {
+        GameScene scene = fullScene();
+        PanelDock dock = new PanelDock();
+        RunLog.Decision withGoal = decision(List.of("hp-low"));
+        dock.frame(scene, snapshot(withGoal), false);
+        Panel panel = dock.panel();
+        DecisionCard card = panel.card();
+
+        long seed = 0xC0FFEEL;
+        long reference;
+        Random.pushGenerator(seed);
+        try {
+            reference = Random.Long(Long.MAX_VALUE);
+        } finally {
+            Random.popGenerator();
+        }
+
+        long after;
+        Random.pushGenerator(seed);
+        try {
+            for (int i = 0; i < 50; i++) {
+                RunLog.Decision decision = i % 2 == 0 ? withGoal : null;
+                ModeState mode = ModeState.of(new EmbeddedRun.Snapshot(decision, i, 1, null, EmbeddedRun.State.PLAYING));
+                panel.content(mode, decision, null, i % 3 == 0);
+                if (decision != null) {
+                    card.toggleExplain();
+                    card.toggleExplain();
+                }
+            }
+            after = Random.Long(Long.MAX_VALUE);
+        } finally {
+            Random.popGenerator();
+        }
+
+        assertEquals(reference, after, "the same generator, reseeded identically, drew the same next number: "
+                + "fifty calls to Panel.content and a hundred Explain toggles drew nothing from it");
     }
 }

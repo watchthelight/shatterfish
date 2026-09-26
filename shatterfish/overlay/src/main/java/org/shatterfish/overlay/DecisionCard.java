@@ -61,6 +61,7 @@ final class DecisionCard extends Component {
     private Observation observation;
     private boolean nextStep;
     private boolean explain;
+    private boolean inputLocked;
     private float innerWidth = 1;
     /** Table rows shown by the last {@link #refresh()}: the chosen row, plus 0 to 3 alternatives'. */
     private int rows;
@@ -102,13 +103,18 @@ final class DecisionCard extends Component {
     /**
      * Sets the Decision this card shows, the Observation it was made on (for {@code ActionText}; may
      * be null), whether the Mode strip's speed mode is Next Step (the headline shows what the next
-     * press will execute), and the width to wrap at.
+     * press will execute), the width to wrap at, and whether the game's own input is closed right now
+     * ({@code InputLock}) -- Explain is active only when it is not, since {@code ActionExecutor.press}
+     * queues synthetic taps that bypass the lock, and a live hot area could steal one meant for a
+     * window button drawn under it (the fairness review).
      */
-    void content(RunLog.Decision decision, Observation observation, boolean nextStep, float innerWidth) {
+    void content(RunLog.Decision decision, Observation observation, boolean nextStep, float innerWidth,
+                 boolean inputLocked) {
         this.decision = decision;
         this.observation = observation;
         this.nextStep = nextStep;
         this.innerWidth = Math.max(1, innerWidth);
+        this.inputLocked = inputLocked;
         refresh();
     }
 
@@ -176,6 +182,12 @@ final class DecisionCard extends Component {
         flagsLine.text(explaining ? content.explain().flagsLine() : "", width);
 
         explainButton.visible = content.present();
+        // Visible whenever there is a Decision to explain, but active -- so its hot area can take a
+        // tap at all (Gizmo.isActive() walks the parent chain) -- only when the game's own input is
+        // not locked: a Run playing means ActionExecutor.press may queue a synthetic tap that bypasses
+        // InputLock, and a live hot area sitting over a window's own button would steal it (the
+        // fairness review). Explain becomes clickable once the Run has ended and the lock releases.
+        explainButton.active = content.present() && !inputLocked;
     }
 
     /** The taller of the three blocks in table row {@code i}. */

@@ -234,6 +234,8 @@ item itself does, and naming the item again would read as `"upgrade scroll of up
 - [x] Mutation battery.
 - [x] *Review round:* real per-column pixel positioning in `DecisionCard`, an `ActionText` label for
   every `Action` kind, and the em dash for the placeholder speed's interval (below).
+- [x] *Fairness review round:* Explain's hot area gated by `inputLocked`, an Observation-identity
+  pin in `EmbeddedSnapshotTest`, and a generator-purity test for `Panel.content` (below).
 
 ## Review
 
@@ -402,3 +404,106 @@ Goal line's two-line cap; `Interact`, `PickUp`, `OpenChest`, `Buy`, `Unlock` and
 labels are plain fallback words (`"interact"`, `"open"`, ...) since the epic named only some kinds --
 a later story that wants richer text for these has a single exhaustive switch to extend, not a search
 for one.
+
+## Fairness review round (Explain's hot area, an identity pin, and a generator-purity test)
+
+The fairness reviewer found no leak (nothing here reads what a player at the screen could not), and
+three should-fixes.
+
+### #5: Explain's `PointerArea` could swallow the executor's own synthetic taps
+
+`ActionExecutor.press` (`ActionExecutor.java:420-428`) presses a window's button by queuing a
+`PointerEvent` DOWN and UP directly (`PointerEvent.addPointerEvent`) -- the door on the far side of
+`InputHandler`'s multiplexer, which is where `InputLock` sits and which the executor never passes
+through. `PointerEvent`'s dispatch (`Signal`, stack mode) tries every registered `PointerArea` newest
+first and stops at the one that consumes the tap. The Panel is rebuilt on every new `GameScene`
+(ADR-0013, "Scene lifetime"), which can happen after a window already opened and registered its own
+button's `PointerArea` -- so Explain's listener can end up in front of one it should never compete
+with. `Button.java:160` sets `hotArea.active` from the button's own `visible`, not its `active`, so a
+visible-but-should-not-be-clickable Explain (a Run playing) was never actually made unable to consume
+a tap: only `.visible` was gated, never `.active`.
+
+- **A. Give the executor a way to mark its own taps so a `PointerArea` can tell a real click from a
+  synthetic one.** Rejected: it would mean touching `ActionExecutor` and `PointerArea` itself (an
+  SPD-classes type) to carry a new flag through every `PointerEvent`, for a distinction that already
+  has a simpler answer -- Explain should not be clickable by anyone right then, real click or not.
+- **B. Move the Panel to the back of the dispatch stack, or re-register it last every frame.**
+  Rejected: it does not fix the actual defect (Explain visible-and-clickable during a Run), only
+  reduces how often the ordering happens to matter, and depends on assumptions about how the game
+  orders its own windows' `PointerArea`s that this module does not own.
+- **C. `explainButton.active = content.present() && !inputLocked`, threaded from `InputLock.locked()`
+  through `OverlayGame` → `PanelDock` → `Panel` → `DecisionCard.content`.** Chosen. `Gizmo.isActive()`
+  walks the parent chain (`active && parent.isActive()`) fresh on every call, so setting the button's
+  own `active` (not the hot area's) is enough regardless of whether `Button.update()` has run that
+  frame; `PointerArea.onSignal` returns `false` for any tap while inactive
+  (`PointerArea.java:61-63`), so it never consumes and the dispatch falls through to whatever is
+  really under it. This is the same design already chosen for Explain (the story's "Explain control's
+  input, under `InputLock`" design note): active only when input is not locked, now enforced against
+  every tap, not only a human one.
+
+Pre-mortem: *A future Panel control forgets this and reintroduces the bug.* Recorded in
+`docs/ideas.md` ("A second, general instance of the bug the fairness review found in Explain") as
+something 5.6's controls row should give every button, not re-derive per button.
+
+Also fixed: `Panel`'s stale Javadoc ("It has no pointer area"), which stopped being true the moment
+Explain existed; it now says which parts of the Panel have none and what gates the one that does.
+
+### #2 and #3: two more tests
+
+- `EmbeddedSnapshotTest.a_served_wait` now has `Counting.decide` capture the Observation it was
+  handed, and asserts the snapshot's is the *same object*, not merely an equal one -- pinning that
+  the Panel labels an Action from the Brain's own Observation, not a copy that could quietly drift
+  from it.
+- `PanelContentTest.content_does_not_draw_from_the_generator`: rendering is read-only. `RngControl`
+  itself keeps no draw count to assert against (its own Javadoc says so), so this seeds
+  `com.watabou.utils.Random` directly, draws one reference number, reseeds identically, calls
+  `Panel.content` fifty times (alternating Decisions, `inputLocked`, and toggling Explain a hundred
+  times in between), and holds that the next number drawn is the same reference -- nothing in the
+  whole render path touched the Run's own generator.
+
+### What changed
+
+- `InputLock.locked()` is threaded from `OverlayGame.update()` through `PanelDock.step`/`.frame`,
+  `Panel.content` and into `DecisionCard.content` as `inputLocked`.
+- `DecisionCard.refresh()` sets `explainButton.active = content.present() && !inputLocked` alongside
+  `.visible`.
+- `Panel`'s class Javadoc corrected.
+- `EmbeddedSnapshotTest.Counting` captures the Observation it decided from; `a_served_wait` asserts
+  identity against `snapshot.observation()`.
+- New `PanelContentTest.explain_does_not_steal_a_synthetic_tap_while_locked` and
+  `.content_does_not_draw_from_the_generator`; `full_panel_shows_everything` and
+  `no_decision_yet_on_a_full_panel` gained `explainButton().active` assertions for the unlocked and
+  the no-Decision cases.
+
+### Tests
+
+`:overlay:test` in full: 20 classes, all passing (`PanelContentTest` now 7, two new).
+`:harness:test`'s `EmbeddedSnapshotTest` and the other touched classes all still passing.
+
+| Test | Holds |
+|---|---|
+| `PanelContentTest.explain_does_not_steal_a_synthetic_tap_while_locked` | a window's own button placed exactly where Explain is, registered before the Panel is rebuilt (the vulnerable order); a synthetic DOWN/UP at that point, reproduced the way `ActionExecutor.press` makes one, reaches the window's button, not Explain, and `explaining()` stays false |
+| `PanelContentTest.content_does_not_draw_from_the_generator` | fifty calls to `Panel.content` and a hundred Explain toggles, between two draws from an identically reseeded generator, draw nothing: the next number is the same reference one |
+| `PanelContentTest` (updated) | Explain is `active` when a Decision is present and input is not locked; not `active` with no Decision, even when input is not locked |
+| `EmbeddedSnapshotTest.a_served_wait` (updated) | the snapshot's Observation is the same object the Brain's `decide()` was handed, not merely an equal one |
+
+### Mutation battery
+
+A control run of `:overlay:test` and the touched `:harness:test` classes passed first; then 4 more
+mutants targeting the active-flag logic (28 in total across all three rounds), each planted, run,
+killed, and reverted.
+
+| Mutant | Killed by |
+|---|---|
+| P1: `explainButton.active` drops the `!inputLocked` term (active whenever a Decision is present, locked or not) | `PanelContentTest.explain_does_not_steal_a_synthetic_tap_while_locked` |
+| P2: `explainButton.active` drops the `content.present()` term (active whenever input is not locked, even with no Decision) | `PanelContentTest.no_decision_yet_on_a_full_panel` |
+| P3: `DecisionCard.content` never stores its `inputLocked` parameter (the field stays `false`) | `PanelContentTest.explain_does_not_steal_a_synthetic_tap_while_locked` |
+| P4: `Panel.content` stops passing `inputLocked` through to `card.content` (hardcodes `false`) | `PanelContentTest.explain_does_not_steal_a_synthetic_tap_while_locked` |
+
+### Deferred (after the fairness review round)
+
+To `docs/ideas.md`: every future Panel button (5.6's controls row, the speed selector, the steppers)
+needs the same active-while-locked discipline Explain now has, since `ActionExecutor.press` bypasses
+`InputLock` for any window button, not only ones that happen to overlap the Panel today; a shared base
+that gates `active` from one flag `PanelDock` sets once a frame would make it a property of the class
+rather than something each control has to remember on its own.

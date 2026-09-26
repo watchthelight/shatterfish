@@ -19,8 +19,13 @@ import org.shatterfish.api.RunLog;
  * text renderer ({@code PixelScene.renderTextBlock}) at the body size 8, while the Run can see what a
  * player could not.
  *
- * <p>The Panel is placed by {@link PanelLayout} every frame. It has no pointer area, so it takes no
- * click away from the dungeon, and it lives on {@code PixelScene.uiCamera} like the game's own HUD.
+ * <p>The Panel is placed by {@link PanelLayout} every frame, and lives on {@code PixelScene.uiCamera}
+ * like the game's own HUD. The frame, the strip, the Mode strip's text, the ORACLE label and the Goal
+ * line have no pointer area, so they take no click away from the dungeon; the Decision card's Explain
+ * control does (story 5.3), a native {@code RedButton}, and is kept from taking one meant for the game
+ * by {@link DecisionCard#content}'s own {@code inputLocked} gate (the fairness review: {@code
+ * ActionExecutor.press} queues synthetic taps that bypass {@code InputLock}, so Explain's hot area must
+ * be inactive whenever such a tap could land on it, not only invisible).
  */
 final class Panel extends Component {
 
@@ -65,14 +70,14 @@ final class Panel extends Component {
      * collapsed Panel too, so it is set every frame regardless of {@link #place}'s form; the Goal line
      * and the Decision card are laid out only when full, since the strip alone is drawn otherwise.
      */
-    void content(ModeState mode, RunLog.Decision decision, Observation observation) {
+    void content(ModeState mode, RunLog.Decision decision, Observation observation, boolean inputLocked) {
         stripText.text(ModeStripContent.text(mode));
         stripText.hardlight(ModeStripContent.color(mode.mode()));
         boolean full = placed != null && placed.form() == PanelLayout.Form.FULL;
         boolean nextStep = mode.speed() == ModeState.SpeedMode.NEXT_STEP;
         float inner = innerWidth();
         goal.content(full ? decision : null, inner);
-        card.content(full ? decision : null, full ? observation : null, nextStep, inner);
+        card.content(full ? decision : null, full ? observation : null, nextStep, inner, inputLocked);
         layout();
     }
 

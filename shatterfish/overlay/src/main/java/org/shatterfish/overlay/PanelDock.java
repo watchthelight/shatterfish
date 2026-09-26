@@ -42,17 +42,22 @@ final class PanelDock {
      * cameras' matrices, so the frame drawn next shows the offset the Panel set rather than the one the
      * scene's layout pass left.
      *
-     * @param snapshot the Run's Decision, turn, floor and live state (story 5.3), or null before a Run is
-     *                 attached; {@link ModeState#of} reads either.
+     * @param snapshot     the Run's Decision, turn, floor and live state (story 5.3), or null before a Run
+     *                     is attached; {@link ModeState#of} reads either.
+     * @param inputLocked  whether the game's own input is closed ({@code InputLock}): while a Run plays,
+     *                     the Decision card's Explain control must not be clickable either (the fairness
+     *                     review of story 5.3: {@code ActionExecutor.press} queues synthetic taps that
+     *                     bypass the lock, and Explain's hot area would otherwise be live to steal one
+     *                     meant for a window button drawn under it).
      */
-    void step(Scene scene, Runnable sceneUpdate, EmbeddedRun.Snapshot snapshot) {
+    void step(Scene scene, Runnable sceneUpdate, EmbeddedRun.Snapshot snapshot, boolean inputLocked) {
         sceneUpdate.run();
-        frame(scene, snapshot);
+        frame(scene, snapshot, inputLocked);
         Camera.updateAll();
     }
 
     /** The Panel on {@code scene} if it is a play scene, placed and filled in for this frame, and the offset set. */
-    void frame(Scene scene, EmbeddedRun.Snapshot snapshot) {
+    void frame(Scene scene, EmbeddedRun.Snapshot snapshot, boolean inputLocked) {
         if (!(scene instanceof GameScene)) {
             return;
         }
@@ -72,7 +77,7 @@ final class PanelDock {
         }
         panel.place(layout);
         panel.content(ModeState.of(snapshot), snapshot == null ? null : snapshot.decision(),
-                snapshot == null ? null : snapshot.observation());
+                snapshot == null ? null : snapshot.observation(), inputLocked);
         panel.dim(covered(scene));
         Camera world = Camera.main;
         PanelCamera.apply(world, PanelCamera.world(layout.offsetUi(), PixelScene.uiCamera.zoom, world.zoom));

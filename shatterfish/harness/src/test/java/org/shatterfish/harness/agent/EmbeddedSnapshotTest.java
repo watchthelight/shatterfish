@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -36,6 +37,9 @@ class EmbeddedSnapshotTest {
         final CountDownLatch release;
         final int blockOnCall;
         volatile RunLog.Decision decision;
+        /** The Observation the last {@link #decide} was actually handed, so a test can hold the
+         * Snapshot's to it by identity, not just by content. */
+        volatile Observation observation;
 
         Counting(CountDownLatch release, int blockOnCall) {
             this.release = release;
@@ -44,6 +48,7 @@ class EmbeddedSnapshotTest {
 
         @Override
         public Action decide(Observation observation) {
+            this.observation = observation;
             int n = calls.incrementAndGet();
             decision = new RunLog.Decision("call " + n, new RunLog.Choice(new Action.Search(), 10_000, "only option"),
                     List.of(), List.of(), "counting");
@@ -98,8 +103,11 @@ class EmbeddedSnapshotTest {
             assertEquals(RunLoop.turns(), snapshot.turn(), "the turn the wait was confirmed at");
             assertEquals(EmbeddedRun.State.PLAYING, snapshot.state());
             // The Observation the Decision was made on, for the Panel's ActionText (story 5.3's
-            // review): its own header names the same floor the snapshot does.
+            // review): its own header names the same floor the snapshot does, and it is the very same
+            // Observation object the Brain was handed -- not an equal copy -- pinning that the Panel
+            // labels an Action from what the Brain itself actually saw.
             assertEquals(1, snapshot.observation().header().depth());
+            assertSame(brain.observation, snapshot.observation());
 
             // A second wait, after the Brain's Search has spent a turn: the snapshot's turn moves with
             // the Run's own, rather than staying at whatever the first wait happened to read.

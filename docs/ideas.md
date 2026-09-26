@@ -308,12 +308,19 @@ it re-reads ADR-0006's Blobs row.
   flag are real, from `EmbeddedRun.snapshot()`. Stories 5.5 to 5.7 give PAUSED, HUMAN, Next Step, Run N,
   Human play speed and Fast their own controls; `ModeState` and `ModeStripContent` already handle every
   value, so those stories add a caller rather than a format.
-- **Explain while a Run plays.** The Decision card's Explain `RedButton` cannot be clicked while
-  `InputLock` closes the game's input multiplexer (every Run but one that has ended): the click never
-  reaches `PointerArea`. It works once the Run is over, to read the last Decision. Story 5.5's
-  input-gate hook is for hero-directed input, not Panel buttons; whichever story gives PAUSED a real
-  click (5.6's controls row) should route one to the Panel too, or give the Panel its own listener that
-  the gate does not close.
+- **Explain while a Run plays.** The Decision card's Explain `RedButton` is inactive
+  (`explainButton.active`, not only `.visible`) while `InputLock` is holding (every Run but one that
+  has ended), so neither a human's click nor a stray tap can reach it. It works once the Run is over,
+  to read the last Decision. Story 5.5's input-gate hook is for hero-directed input, not Panel
+  buttons; whichever story gives PAUSED a real click (5.6's controls row) should route one to the
+  Panel too, or give the Panel its own listener that the gate does not close.
+- **A second, general instance of the bug the fairness review found in Explain.** Any Panel control
+  with a `PointerArea` (every future button in 5.6's controls row, the speed selector, the steppers)
+  needs the same `active`-while-locked discipline Explain now has, since `ActionExecutor.press`
+  bypasses `InputLock` for every window button, not only the ones that happen to overlap the Panel
+  today. A shared base (a "Panel button" that gates its own `active` from one flag `PanelDock` sets
+  once per frame) would make this a property of the class rather than something each new control has
+  to remember.
 - **The Decision card's own height can overflow the Panel's.** Nothing below it (Safety flags, the
   Belief summary, the Decision log) exists yet, so there is blank room today; story 5.4 will need the
   Panel to give the sections above it only what they ask for and the Decision log the rest, per

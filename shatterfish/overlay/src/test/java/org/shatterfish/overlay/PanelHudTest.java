@@ -222,7 +222,7 @@ class PanelHudTest {
                 PanelDock dock = new PanelDock();
                 for (boolean collapsed : new boolean[]{false, true}) {
                     dock.collapsed(collapsed);
-                    dock.frame(scene, null);
+                    dock.frame(scene, null, false);
                     Panel panel = dock.panel();
                     assertSame(scene, panel.parent, "the Panel is on the play scene");
                     assertSame(PixelScene.uiCamera, panel.camera, "on the UI camera, like the game's own HUD");
@@ -246,7 +246,7 @@ class PanelHudTest {
     void the_frames_are_the_games() {
         GameScene scene = scene(1, 1920, 1080);
         PanelDock dock = new PanelDock();
-        dock.frame(scene, null);
+        dock.frame(scene, null, false);
         Panel panel = dock.panel();
         assertNotNull(panel.frame());
         assertSame(TextureCache.get(Assets.Interfaces.CHROME), panel.frame().texture, "the Panel's frame is cut from the game's chrome");
@@ -254,7 +254,7 @@ class PanelHudTest {
         assertEquals(PanelLayout.Form.FULL, panel.placed().form());
         assertTrue(panel.frame().visible);
         dock.collapsed(true);
-        dock.frame(scene, null);
+        dock.frame(scene, null, false);
         assertTrue(!panel.frame().visible && panel.strip().visible, "collapsed, only the Mode strip shows");
     }
 
@@ -263,10 +263,10 @@ class PanelHudTest {
     void a_panel_per_scene() {
         PanelDock dock = new PanelDock();
         GameScene first = scene(1, 1920, 1080);
-        dock.frame(first, null);
+        dock.frame(first, null, false);
         Panel before = dock.panel();
         GameScene second = scene(1, 1600, 900);   // a resize or a floor change builds a new play scene
-        dock.frame(second, null);
+        dock.frame(second, null, false);
         assertSame(second, dock.panel().parent, "the Panel is on the scene in front");
         assertTrue(dock.panel() != before, "a new Panel, not the old scene's");
         assertSame(PixelScene.uiCamera, dock.panel().camera, "on the new scene's UI camera");
@@ -277,7 +277,7 @@ class PanelHudTest {
     void offset_survives_the_layout_pass() {
         GameScene scene = scene(1, 1920, 1080);
         PanelDock dock = new PanelDock();
-        dock.frame(scene, null);
+        dock.frame(scene, null, false);
         Layout layout = dock.panel().placed();
         assertEquals(PanelLayout.Form.FULL, layout.form());
         float expected = PanelCamera.world(layout.offsetUi(), PixelScene.uiCamera.zoom, Camera.main.zoom);
@@ -286,11 +286,11 @@ class PanelHudTest {
 
         GameScene.layoutTags();   // the game's own layout pass: (0, y) (GameScene.java:993-999)
         assertEquals(0, Camera.main.centerOffset.x, 1e-4f, "the game's pass reset it, as the story says it does");
-        dock.frame(scene, null);
+        dock.frame(scene, null, false);
         assertEquals(expected, Camera.main.centerOffset.x, 1e-4f, "and the Overlay put it back");
 
         Camera.main.setCenterOffset(0, 9);   // a vertical offset the game might have set
-        dock.frame(scene, null);
+        dock.frame(scene, null, false);
         assertEquals(expected, Camera.main.centerOffset.x, 1e-4f);
         assertEquals(9, Camera.main.centerOffset.y, 1e-4f, "the game's vertical part is kept");
     }
@@ -304,7 +304,7 @@ class PanelHudTest {
         Game.elapsed = 0;   // no pan and no shake: the camera moves only by the offset
         try {
             // The Overlay's order: the scene's update (its layout pass stands in for it), the Panel, the matrices.
-            dock.step(scene, GameScene::layoutTags, null);
+            dock.step(scene, GameScene::layoutTags, null, false);
             assertTrue(Math.abs(Camera.main.centerOffset.x) > 1, "an offset is set");
             float drawn = Camera.main.matrix[12];
             Camera.main.update();   // the matrix the camera's state now gives
@@ -313,7 +313,7 @@ class PanelHudTest {
             // The game's own order with the Panel after it would draw the reset offset for a frame.
             GameScene.layoutTags();
             Camera.updateAll();
-            dock.frame(scene, null);
+            dock.frame(scene, null, false);
             float late = Camera.main.matrix[12];
             Camera.main.update();
             assertNotEquals(Camera.main.matrix[12], late, 1e-6f, "placing the Panel after the matrices is a frame late");
@@ -334,7 +334,7 @@ class PanelHudTest {
         }
         assertNotNull(fader, "a new play scene fades in from black (GameScene.java:784)");
         PanelDock dock = new PanelDock();
-        dock.frame(scene, null);
+        dock.frame(scene, null, false);
         assertTrue(scene.indexOf(fader) > scene.indexOf(dock.panel()),
                 "the fade is drawn after the Panel, so the Panel does not show on black while it fades");
     }
@@ -344,7 +344,7 @@ class PanelHudTest {
     void dims_under_the_prompt() {
         GameScene scene = scene(1, 1600, 900);
         PanelDock dock = new PanelDock();
-        dock.frame(scene, null);
+        dock.frame(scene, null, false);
         assertFalse(dock.panel().dimmed(), "nothing of the game's is over it yet");
         GameScene.selectCell(new CellSelector.Listener() {
             @Override
@@ -356,7 +356,7 @@ class PanelHudTest {
                 return "Choose a location to target";
             }
         });
-        dock.frame(scene, null);
+        dock.frame(scene, null, false);
         assertTrue(PanelDock.covered(scene), "the prompt is a toast on the scene (GameScene.java:1126-1149)");
         assertTrue(dock.panel().dimmed(), "and the Panel dims under it");
         assertEquals(Panel.DIMMED, dock.panel().frame().alpha(), 1e-6f);
@@ -367,19 +367,19 @@ class PanelHudTest {
     void the_oracle_label() {
         GameScene scene = scene(1, 1920, 1080);
         PanelDock dock = new PanelDock();
-        dock.frame(scene, null);
+        dock.frame(scene, null, false);
         assertFalse(dock.panel().oracleLabel().visible, "a fair Run has no label");
         dock.oracle(true);
         assertTrue(dock.panel().oracleLabel().visible, "an oracle Run's does");
         dock.collapsed(true);
-        dock.frame(scene, null);
+        dock.frame(scene, null, false);
         assertTrue(dock.panel().oracleLabel().visible, "and keeps it when the Panel is collapsed");
         Rect strip = dock.panel().placed().rect();
         assertTrue(dock.panel().oracleLabel().left() >= strip.x() && dock.panel().oracleLabel().right() <= strip.right() + 0.01f,
                 "inside the Mode strip");
         PanelDock another = new PanelDock();
         another.oracle(true);
-        another.frame(scene(1, 1600, 900), null);
+        another.frame(scene(1, 1600, 900), null, false);
         assertTrue(another.panel().oracleLabel().visible, "a Panel made after the flag was set carries it too");
     }
 }
