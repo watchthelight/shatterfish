@@ -80,7 +80,7 @@ import java.util.List;
  *
  * <p><b>A locked exit is walked to and unlocked, not skirted.</b> The boss floor's exit draws
  * {@code LOCKED_EXIT} until a worn key is used on it, which turns it into {@code UNLOCKED_EXIT}
- * ({@code SewerBossExitRoom.java:63}, {@code Hero.java:1291-1296}, {@code :2440-2444}); it is solid
+ * ({@code SewerBossExitRoom.java:63}, {@code Hero.java:1291-1296}, {@code :2440-2445}); it is solid
  * (Terrain.java:112), so it is never a Step's target ({@code ValidActions} offers {@link Action.Unlock}
  * at a neighbour instead, {@code ValidActions.java:207-210}), but it is still the {@code REGULAR_EXIT}
  * transition {@link #known} and {@link #toward} look for -- the transition record does not carry the

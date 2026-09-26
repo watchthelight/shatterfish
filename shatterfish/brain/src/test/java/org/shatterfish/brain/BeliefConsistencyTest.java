@@ -234,8 +234,12 @@ class BeliefConsistencyTest {
             belief = brain.update(screen, belief);
         }
         Memory memory = Memory.of(belief);
+        // A locked exit tried and refused (issue #163's fairness review): not something these
+        // screens produce on their own, so put one in directly, as the pick-up and descend Policies'
+        // own belief-consistency review found missing here.
+        memory = memory.unlockRefused(new Memory.Spot(3, 0, 5));
         for (List<?> list : List.of(memory.facts(), memory.found(), memory.held(), memory.known(), memory.labels(),
-                memory.pending(), memory.monsters())) {
+                memory.pending(), memory.monsters(), memory.triedExits())) {
             assertTrue(!list.isEmpty(), memory.toString());
         }
         assertEquals(memory, Memory.of(memory.belief()));

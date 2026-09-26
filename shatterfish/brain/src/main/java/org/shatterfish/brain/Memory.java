@@ -443,7 +443,9 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
      * Whether an Unlock at {@code cell} on this floor was already tried and refused (issue #163's
      * fairness review): the descend Policy's own signal to stop walking back to it, since the game
      * offers Unlock beside a locked tile whether or not a key is held (ValidActions.java:207-210) and
-     * a refusal spends no turn (Hero.java:1304-1306), so nothing else would ever tell the two apart.
+     * a refusal spends no turn (Hero.java:1304-1309: the "locked_door" message and {@code ready()} at
+     * :1305-1306, {@code return false} with no {@code spend()} at :1309), so nothing else would ever
+     * tell the two apart.
      */
     boolean triedUnlock(int depth, int branch, int cell) {
         return triedExits.contains(new Spot(depth, branch, cell));

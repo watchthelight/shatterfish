@@ -78,7 +78,7 @@ final class Pickup implements Policy {
      * A worn key's title (items.properties: {@code items.keys.wornkey.name=worn key}): Goo drops one
      * where it dies ({@code core/.../actors/mobs/Goo.java:290}), and it is the only key that unlocks
      * the boss floor's exit, turning its {@code LOCKED_EXIT} into {@code UNLOCKED_EXIT}
-     * ({@code Hero.java:1291-1296}, {@code :2440-2444}) -- general game knowledge, not a hidden fact
+     * ({@code Hero.java:1291-1296}, {@code :2440-2445}) -- general game knowledge, not a hidden fact
      * (issue #163). Without it the floor cannot be left, so it is worth fetching from anywhere on the
      * floor, not weighed against the trip like an ordinary item ({@link #KEY_WORTH}).
      */
