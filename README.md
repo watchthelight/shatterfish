@@ -91,7 +91,11 @@ E5 (the Overlay) so far:
   Brain's goal, and the Decision card with the chosen Action and up to three
   alternatives, their scores in aligned columns and their reasons, plus an
   Explain control that expands the card in place.
-- Next: **5.4**, the Safety flags, the Belief summary and the Decision log.
+- **5.4** The rest of the Panel: Safety flags as chips, a Belief summary of the
+  least-certain unknown items with their likeliest identities, and a scrolling
+  Decision log built from the Run log itself.
+- Next: **5.9**, playing the game yourself with every action recorded beside
+  what the bot would have done (pulled forward), then the controls (5.5-5.8).
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:

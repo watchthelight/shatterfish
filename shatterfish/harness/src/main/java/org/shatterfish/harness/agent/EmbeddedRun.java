@@ -14,6 +14,7 @@ import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
 import com.watabou.noosa.Game;
 import com.watabou.noosa.Scene;
 import org.shatterfish.api.Action;
+import org.shatterfish.api.BeliefSummary;
 import org.shatterfish.api.Decider;
 import org.shatterfish.api.Deliberator;
 import org.shatterfish.api.Observation;
@@ -30,6 +31,7 @@ import org.shatterfish.harness.observer.GameLogListener;
 import org.shatterfish.harness.rng.RngControl;
 import org.shatterfish.harness.scene.SceneStepper;
 
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -116,21 +118,37 @@ public final class EmbeddedRun implements AutoCloseable {
 
     /**
      * What {@link #snapshot()} publishes to the render thread (story 5.3, FR-38): the last served
-     * wait's Decision, turn and floor, the Observation the Decision was made on, and the Run's live
+     * wait's Decision, turn and floor, the Observation the Decision was made on, the Run's live
      * state -- {@link State#THINKING} exactly when a decision is pending, so the Panel's
-     * {@code THINKING} marker is real rather than guessed. {@code decision} and {@code observation}
-     * are null before the first wait is served; {@code decision} is also null when the Brain is not a
-     * {@link Deliberator}, though {@code observation} is not, since it comes from the wait itself.
-     * {@code observation} carries nothing the Decision could not already see (ADR-0014): it is handed
-     * out so the Panel can turn an Action into words (a Step's compass direction, an Attack's target,
-     * an AnswerPrompt's option text) without the Brain seeing anything new.
+     * {@code THINKING} marker is real rather than guessed -- what the Brain currently believes
+     * (story 5.4), and a bounded history of the wait records this Run has written. {@code decision}
+     * and {@code observation} are null before the first wait is served; {@code decision} and
+     * {@code beliefSummary} are also null when the Brain is not a {@link Deliberator}, though
+     * {@code observation} is not, since it comes from the wait itself. {@code observation} carries
+     * nothing the Decision could not already see (ADR-0014): it is handed out so the Panel can turn
+     * an Action into words (a Step's compass direction, an Attack's target, an AnswerPrompt's option
+     * text) without the Brain seeing anything new.
+     *
+     * @param history the wait records this Run has written, each beside the {@link ActionContext}
+     *                its Action needs to be labelled the way the Decision card labels one (review
+     *                round), oldest first, newest last, at most {@link #HISTORY_CAPACITY} of them
+     *                (story 5.4, FR-38's "200 lines on screen; the Run log holds the rest"): the
+     *                Decision log's own source, so the Panel shows a view over what
+     *                {@code RunLoop.record} already built for the file rather than a second list
+     *                built differently
      */
     public record Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state,
-                           Human human) {
+                           BeliefSummary beliefSummary, List<BoundedLog.Entry> history, Human human) {
 
-        /** A Brain's Run: no human part. */
+        /** A snapshot with no belief summary and no history (story 5.3's own shape, kept for callers built on it). */
         public Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state) {
-            this(decision, turn, floor, observation, state, null);
+            this(decision, turn, floor, observation, state, null, List.of(), null);
+        }
+
+        /** A Brain's Run (story 5.4's shape): no human part. */
+        public Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state,
+                        BeliefSummary beliefSummary, List<BoundedLog.Entry> history) {
+            this(decision, turn, floor, observation, state, beliefSummary, history, null);
         }
     }
 
@@ -207,6 +225,15 @@ public final class EmbeddedRun implements AutoCloseable {
     private int lastDecisionTurn;
     private int lastDecisionFloor;
     private Observation lastDecisionObservation;
+    /** What the Brain currently believes, for {@link #snapshot()} (story 5.4). */
+    private BeliefSummary lastBeliefSummary;
+    /** {@link #history}'s capacity (FR-38: "the Decision log shows ... 200 lines on screen"). */
+    public static final int HISTORY_CAPACITY = 200;
+    /**
+     * The wait records this Run has written, for {@link #snapshot()}'s {@code history} (story 5.4,
+     * FR-38): the Decision log's own source.
+     */
+    private final BoundedLog history = new BoundedLog(HISTORY_CAPACITY);
     private Future<Decided> pending;
     private long pendingWait;
     private Observation pendingObservation;
@@ -216,7 +243,11 @@ public final class EmbeddedRun implements AutoCloseable {
     private boolean closed;
 
     /** A shadow question in flight: the wait it was asked at, and the Decision it will answer with. */
-    private record Shadowed(long k, Future<RunLog.Decision> decision) {
+    private record Shadowed(long k, Observation observation, Future<ShadowAnswer> decision) {
+    }
+
+    /** What the worker hands back for a shadow question: the Decision and the Belief it left, both read on the worker. */
+    private record ShadowAnswer(RunLog.Decision decision, BeliefSummary beliefSummary) {
     }
 
     /** The record of the person's turns in a HUMAN Run (story 5.9), or null for a Brain's Run. */
@@ -307,11 +338,14 @@ public final class EmbeddedRun implements AutoCloseable {
             EmbeddedRun run = new EmbeddedRun(host, rng, brain, observer, log,
                     logging != null && logging.oracle(), turnCap, ui, claimed);
             if (human) {
+                // The whole Run is the person's, stated once before the first wait (ADR-0011's mode record).
+                RunLog.Mode mode = new RunLog.Mode(0, "HUMAN", HUMAN_SPEED);
                 if (log != null) {
-                    // The whole Run is the person's, stated once before the first wait (ADR-0011's mode record).
-                    log.write(new RunLog.Mode(0, "HUMAN", HUMAN_SPEED));
+                    log.write(mode);
                 }
-                run.human = new HumanTurns(log, run.oracle, observer);
+                run.history.add(mode, null);
+                run.human = new HumanTurns(log, run.oracle, observer,
+                        (record, seen) -> run.history.add(record, ActionContext.of(seen)));
                 Hooks.heroInput = run.human;
             }
             run.arm();
@@ -583,10 +617,11 @@ public final class EmbeddedRun implements AutoCloseable {
         // The shadow: the Brain sees this Observation and nothing else, updates its Belief and decides.
         // The Decision is read on the worker, right after its own decide, because questions queue here
         // when the person is quicker than the Brain, and the next decide would overwrite it.
-        shadows.add(new Shadowed(k, worker.submit(() -> {
+        shadows.add(new Shadowed(k, observation, worker.submit(() -> {
             decidedOn = Thread.currentThread();
             brain.decide(observation);
-            return brain instanceof Deliberator deliberator ? deliberator.lastDecision() : null;
+            return brain instanceof Deliberator deliberator
+                    ? new ShadowAnswer(deliberator.lastDecision(), deliberator.beliefSummary()) : null;
         })));
     }
 
@@ -594,20 +629,25 @@ public final class EmbeddedRun implements AutoCloseable {
     private void pollShadows() {
         while (!shadows.isEmpty() && shadows.peek().decision().isDone()) {
             Shadowed landed = shadows.poll();
-            Future<RunLog.Decision> done = landed.decision();
+            Future<ShadowAnswer> done = landed.decision();
             if (done.state() != Future.State.SUCCESS) {
                 // A Brain that cannot decide a shadow costs the person nothing: the game is theirs.
                 shadowFailures++;
                 continue;
             }
-            RunLog.Decision decision = done.resultNow();
-            if (decision == null) {
+            ShadowAnswer answer = done.resultNow();
+            if (answer == null || answer.decision() == null) {
                 continue;
             }
+            RunLog.Decision decision = answer.decision();
+            lastBeliefSummary = answer.beliefSummary();
             boolean current = human.isOpen(landed.k());
+            RunLog.Shadow shadow = new RunLog.Shadow(landed.k(), decision, !current);
             if (log != null) {
-                log.write(new RunLog.Shadow(landed.k(), decision, !current));
+                log.write(shadow);
             }
+            // The Decision log's greyed line, read against the Observation it answered (story 5.4's path).
+            history.add(shadow, ActionContext.of(landed.observation()));
             lastDecision = decision;
             shadowWait = landed.k();
         }
@@ -627,7 +667,9 @@ public final class EmbeddedRun implements AutoCloseable {
         if (text.isEmpty()) {
             return false;
         }
-        log.write(new RunLog.Note(gate.waitIndex(), text));
+        RunLog.Note note = new RunLog.Note(gate.waitIndex(), text);
+        log.write(note);
+        history.add(note, null);
         notes++;
         return true;
     }
@@ -731,8 +773,14 @@ public final class EmbeddedRun implements AutoCloseable {
         waits++;
         lastAction = chosen;
         Outcome result = executor.execute(observation, chosen);
-        RunLoop.record(log, k, observation, chosen, !(result instanceof Outcome.Rejected), decided.thinkMs(),
-                oracle, brain);
+        RunLog.Wait wait = RunLoop.record(log, k, observation, chosen, !(result instanceof Outcome.Rejected),
+                decided.thinkMs(), oracle, brain);
+        // The exact record RunLoop.record built for the file (or would have, with no log): kept here
+        // too, bounded, so the Panel's Decision log is a view over it rather than a second list built
+        // differently (story 5.4, design note "Decision log source"). Beside it, the pieces of this
+        // same Observation ActionText needs to label the Action in words (review round): captured
+        // here, once, rather than keeping the whole Observation for every entry.
+        history.add(wait, ActionContext.of(observation));
         // The same read RunLoop.record makes of the Brain's own reasons, kept here too so the render
         // thread has a Decision to show without reopening the log (story 5.3): both reads happen on
         // this thread, after the worker's Future is done, which is the happens-before edge over
@@ -741,6 +789,9 @@ public final class EmbeddedRun implements AutoCloseable {
         lastDecisionTurn = pendingTurn;
         lastDecisionFloor = observation.header().depth();
         lastDecisionObservation = observation;
+        // What the Brain believes now, for the same reason (story 5.4): read at the same point, after
+        // the same Future is done.
+        lastBeliefSummary = brain instanceof Deliberator deliberator ? deliberator.beliefSummary() : null;
         if (result instanceof Outcome.Rejected rejected) {
             refused++;
             refusalsInARow++;
@@ -894,12 +945,11 @@ public final class EmbeddedRun implements AutoCloseable {
      */
     public Snapshot snapshot() {
         UiRole.require("EmbeddedRun.snapshot()");
-        if (human != null) {
-            return new Snapshot(lastDecision, lastDecisionTurn, lastDecisionFloor, lastDecisionObservation, state(),
-                    new Human(shadowWait > 0 && human.isOpen(shadowWait), shadowWait, inputOpen(),
-                            human.unverifiableFrom(), human.unverifiableWhy(), notes));
-        }
-        return new Snapshot(lastDecision, lastDecisionTurn, lastDecisionFloor, lastDecisionObservation, state());
+        Human humanPart = human == null ? null
+                : new Human(shadowWait > 0 && human.isOpen(shadowWait), shadowWait, inputOpen(),
+                        human.unverifiableFrom(), human.unverifiableWhy(), notes);
+        return new Snapshot(lastDecision, lastDecisionTurn, lastDecisionFloor, lastDecisionObservation, state(),
+                lastBeliefSummary, history.asList(), humanPart);
     }
 
     /** The index of the last wait confirmed; 0 before the first. It survives every floor. */

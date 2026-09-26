@@ -15,6 +15,7 @@ import org.shatterfish.api.ItemRef;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.PromptKind;
 import org.shatterfish.api.PromptSection;
+import org.shatterfish.harness.agent.ActionContext;
 import org.shatterfish.harness.driver.HeadlessDriver;
 import org.shatterfish.harness.observer.Observer;
 
@@ -37,32 +38,32 @@ class ActionTextTest {
     @Test
     @DisplayName("every Action kind reads as a word, with no Observation to add detail")
     void every_kind_without_an_observation() {
-        assertEquals("step 42", ActionText.of(new Action.Step(42), null));
-        assertEquals("move 42", ActionText.of(new Action.MoveTo(42), null));
-        assertEquals("attack", ActionText.of(new Action.Attack(42), null));
-        assertEquals("interact", ActionText.of(new Action.Interact(42), null));
-        assertEquals("pick up", ActionText.of(new Action.PickUp(), null));
-        assertEquals("open", ActionText.of(new Action.OpenChest(42), null));
-        assertEquals("buy", ActionText.of(new Action.Buy(42), null));
-        assertEquals("unlock", ActionText.of(new Action.Unlock(42), null));
-        assertEquals("descend", ActionText.of(new Action.Descend(), null));
-        assertEquals("ascend", ActionText.of(new Action.Ascend(), null));
+        assertEquals("step 42", ActionText.of(new Action.Step(42), (Observation) null));
+        assertEquals("move 42", ActionText.of(new Action.MoveTo(42), (Observation) null));
+        assertEquals("attack", ActionText.of(new Action.Attack(42), (Observation) null));
+        assertEquals("interact", ActionText.of(new Action.Interact(42), (Observation) null));
+        assertEquals("pick up", ActionText.of(new Action.PickUp(), (Observation) null));
+        assertEquals("open", ActionText.of(new Action.OpenChest(42), (Observation) null));
+        assertEquals("buy", ActionText.of(new Action.Buy(42), (Observation) null));
+        assertEquals("unlock", ActionText.of(new Action.Unlock(42), (Observation) null));
+        assertEquals("descend", ActionText.of(new Action.Descend(), (Observation) null));
+        assertEquals("ascend", ActionText.of(new Action.Ascend(), (Observation) null));
         assertEquals("read scroll of identify", ActionText.of(
-                new Action.UseItem(new ItemRef(0, "scroll of identify", 1), "read"), null));
+                new Action.UseItem(new ItemRef(0, "scroll of identify", 1), "read"), (Observation) null));
         assertEquals("read scroll of identify", ActionText.of(
-                new Action.UseItemAt(new ItemRef(0, "scroll of identify", 1), "read", 42), null));
+                new Action.UseItemAt(new ItemRef(0, "scroll of identify", 1), "read", 42), (Observation) null));
         assertEquals("upgrade wand of magic missile", ActionText.of(new Action.UseItemOn(
                 new ItemRef(0, "scroll of upgrade", 1), "upgrade", new ItemRef(1, "wand of magic missile", 1)),
-                null));
-        assertEquals("rest", ActionText.of(new Action.Rest(true), null));
-        assertEquals("search", ActionText.of(new Action.Search(), null));
-        assertEquals("talent: Point-Blank", ActionText.of(new Action.Talent("Point-Blank"), null));
-        assertEquals("ability: Endure", ActionText.of(new Action.Ability("Endure"), null));
-        assertEquals("ability: Endure", ActionText.of(new Action.AbilityAt("Endure", 42), null));
-        assertEquals("answer: 0", ActionText.of(new Action.AnswerPrompt(0), null));
-        assertEquals("dismiss", ActionText.of(new Action.DismissPrompt(), null));
-        assertEquals("wait", ActionText.of(new Action.Wait(), null));
-        assertEquals("none", ActionText.of(null, null));
+                (Observation) null));
+        assertEquals("rest", ActionText.of(new Action.Rest(true), (Observation) null));
+        assertEquals("search", ActionText.of(new Action.Search(), (Observation) null));
+        assertEquals("talent: Point-Blank", ActionText.of(new Action.Talent("Point-Blank"), (Observation) null));
+        assertEquals("ability: Endure", ActionText.of(new Action.Ability("Endure"), (Observation) null));
+        assertEquals("ability: Endure", ActionText.of(new Action.AbilityAt("Endure", 42), (Observation) null));
+        assertEquals("answer: 0", ActionText.of(new Action.AnswerPrompt(0), (Observation) null));
+        assertEquals("dismiss", ActionText.of(new Action.DismissPrompt(), (Observation) null));
+        assertEquals("wait", ActionText.of(new Action.Wait(), (Observation) null));
+        assertEquals("none", ActionText.of(null, (Observation) null));
     }
 
     @Test
@@ -137,6 +138,41 @@ class ActionTextTest {
             assertEquals("answer: Leave it", ActionText.of(new Action.AnswerPrompt(1), withOpenPrompt));
             assertEquals("answer: 2", ActionText.of(new Action.AnswerPrompt(2), withOpenPrompt),
                     "an index the Prompt does not offer falls back to the index itself");
+        }
+    }
+
+    /**
+     * Story 5.4's review round: the Decision log reads every Action through {@code ActionContext}
+     * (what {@code EmbeddedRun} captured at the wait) rather than the whole Observation the Decision
+     * card reads; this holds that the two routes read the same screen the same way, for every kind
+     * this class's own labels depend on the screen for (a Step's direction, an Attack's target, an
+     * AnswerPrompt's option), not only that each compiles and returns something.
+     */
+    @Test
+    @DisplayName("of(Action, ActionContext) reads the same labels as of(Action, Observation) built from the same screen")
+    @Timeout(value = 2, unit = TimeUnit.MINUTES)
+    void action_context_matches_observation() {
+        try (HeadlessDriver driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, SALT)) {
+            driver.stepToInputWait();
+            Observation base = new Observer().observe();
+            int width = base.map().width();
+            int from = base.hero().cell();
+            ActorView gnoll = new ActorView(from - width, "gnoll scout", Alignment.ENEMY, 10, false, Emote.NONE, List.of());
+            Observation observation = new Observation(base.header(), base.map(), new ActorsSection(List.of(gnoll)),
+                    base.hero(), base.inventory(), base.journal(), base.log(), base.actions(), base.prompt());
+            ActionContext context = ActionContext.of(observation);
+
+            List<Action> actions = List.of(new Action.Step(from - width), new Action.Step(from + width + 1),
+                    new Action.MoveTo(from - 1), new Action.Attack(from - width), new Action.Attack(from + 1),
+                    new Action.Wait(), new Action.Search());
+            for (Action action : actions) {
+                assertEquals(ActionText.of(action, observation), ActionText.of(action, context), action.toString());
+            }
+            // Concretely, not only "the same as each other": the compass direction and the named
+            // target are the real thing, from both routes, not two routes that happen to agree by
+            // both falling back to a raw cell.
+            assertEquals("step N", ActionText.of(new Action.Step(from - width), context));
+            assertEquals("attack gnoll scout", ActionText.of(new Action.Attack(from - width), context));
         }
     }
 }

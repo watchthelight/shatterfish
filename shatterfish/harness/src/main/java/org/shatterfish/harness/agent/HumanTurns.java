@@ -105,6 +105,8 @@ public final class HumanTurns implements Hooks.HeroInput {
     private final RunLogWriter log;
     private final boolean oracle;
     private final Supplier<Observation> observer;
+    /** Told of every record written, with the Observation its Action is read against (story 5.4's history). */
+    private final java.util.function.BiConsumer<RunLog, Observation> written;
 
     private long k;
     private long turn;
@@ -121,7 +123,9 @@ public final class HumanTurns implements Hooks.HeroInput {
     private long recordedWaits;
     private Action lastAction;
 
-    HumanTurns(RunLogWriter log, boolean oracle, Supplier<Observation> observer) {
+    HumanTurns(RunLogWriter log, boolean oracle, Supplier<Observation> observer,
+               java.util.function.BiConsumer<RunLog, Observation> written) {
+        this.written = written;
         this.log = log;
         this.oracle = oracle;
         this.observer = observer;
@@ -282,7 +286,7 @@ public final class HumanTurns implements Hooks.HeroInput {
         recorded = true;
         heard.clear();
         if (taken != null) {
-            RunLoop.recordHuman(log, k, turn, observation, taken, oracle);
+            written.accept(RunLoop.recordHuman(log, k, turn, observation, taken, oracle), observation);
             recordedWaits++;
             lastAction = taken;
         }
@@ -310,9 +314,11 @@ public final class HumanTurns implements Hooks.HeroInput {
     }
 
     private void unsupported(long at, String input) {
+        RunLog.Unsupported mark = new RunLog.Unsupported(at, input);
         if (log != null) {
-            log.write(new RunLog.Unsupported(at, input));
+            log.write(mark);
         }
+        written.accept(mark, null);
         unsupportedAt = at;
         if (unverifiableFrom == 0) {
             unverifiableFrom = at;

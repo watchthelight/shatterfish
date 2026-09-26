@@ -445,7 +445,10 @@ public final class RunLoop {
     /**
      * Writes the record of one served wait: the wait as the decider saw it, and what was done about
      * it. A Prompt gets its own record beside the wait, because a Prompt is a thing the game did and
-     * the wait says what was done about it (ADR-0011).
+     * the wait says what was done about it (ADR-0011). Returns the {@link RunLog.Wait} it built even
+     * when {@code log} is null, so a caller that keeps its own bounded history of what it would have
+     * written (story 5.4's Decision log: {@code EmbeddedRun.history()}) reads exactly the record this
+     * built, rather than a second one built the same way twice.
      *
      * <p>Nearly everything here is read from the Observation the decider was given rather than
      * from the game a second time, because a log that said what the game held while the decider
@@ -454,15 +457,14 @@ public final class RunLoop {
      * off the screen and the bot may not -- so it is read from the game, at an instant when nothing
      * has stepped it since the Observation was made.
      */
-    static void record(RunLogWriter log, long k, Observation observation, Action chosen,
+    static RunLog.Wait record(RunLogWriter log, long k, Observation observation, Action chosen,
                                boolean applied, long thinkMs, boolean oracle, Decider agent) {
-        if (log == null) {
-            return;
-        }
         // The header said once, before the Run, whether this Run may see what a player could not.
         // Every wait says it again, from the Observation the decider was actually handed, so a Run
         // whose header claims to be fair and whose Observations are an Oracle's stops here rather
-        // than being published with a chain that lends the claim credibility.
+        // than being published with a chain that lends the claim credibility. Checked even with no
+        // log to write to, since a caller that only wants the record back (story 5.4) gets the same
+        // invariant a written one would have.
         if (observation.header().oracle() != oracle) {
             throw new IllegalStateException("the header says oracle=" + oracle + " and the Observation at"
                     + " wait " + k + " says " + observation.header().oracle()
@@ -471,7 +473,7 @@ public final class RunLoop {
         // A Prompt record carries the option taken, so it is written when an option was taken. A
         // decider that answered a Prompt with something that is not an answer had its Action
         // refused by the executor, and the wait record below says so.
-        if (observation.header().prompt() != PromptKind.NONE && answers(chosen)) {
+        if (log != null && observation.header().prompt() != PromptKind.NONE && answers(chosen)) {
             log.write(new RunLog.Prompt(k, observation.header().prompt(), chosen));
         }
         // A Deliberator says why and what it now believes (story 4.1); a plain Decider says
@@ -485,9 +487,13 @@ public final class RunLoop {
             belief = deliberator.beliefHash();
             highlights = deliberator.lastHighlights();
         }
-        log.write(new RunLog.Wait(k, thousandths(), observation.header().depth(), observation.header().branch(),
+        RunLog.Wait wait = new RunLog.Wait(k, thousandths(), observation.header().depth(), observation.header().branch(),
                 observation.hash(), observation.sectionHashes(), chosen, applied, RunLog.BOT, decision, belief,
-                highlights, thinkMs));
+                highlights, thinkMs);
+        if (log != null) {
+            log.write(wait);
+        }
+        return wait;
     }
 
     /**
@@ -499,21 +505,22 @@ public final class RunLoop {
      * {@code turn} is the thousandths read when the wait was confirmed: the game has moved on by the
      * time a person's input is known, and the record is about the screen they acted on.
      */
-    static void recordHuman(RunLogWriter log, long k, long turn, Observation observation, Action taken,
-                            boolean oracle) {
-        if (log == null) {
-            return;
-        }
+    static RunLog.Wait recordHuman(RunLogWriter log, long k, long turn, Observation observation, Action taken,
+                                   boolean oracle) {
         if (observation.header().oracle() != oracle) {
             throw new IllegalStateException("the header says oracle=" + oracle + " and the Observation at"
                     + " wait " + k + " says " + observation.header().oracle());
         }
-        if (observation.header().prompt() != PromptKind.NONE && answers(taken)) {
+        if (log != null && observation.header().prompt() != PromptKind.NONE && answers(taken)) {
             log.write(new RunLog.Prompt(k, observation.header().prompt(), taken));
         }
-        log.write(new RunLog.Wait(k, turn, observation.header().depth(), observation.header().branch(),
+        RunLog.Wait wait = new RunLog.Wait(k, turn, observation.header().depth(), observation.header().branch(),
                 observation.hash(), observation.sectionHashes(), taken, true, RunLog.HUMAN, null, "",
-                List.of(), 0));
+                List.of(), 0);
+        if (log != null) {
+            log.write(wait);
+        }
+        return wait;
     }
 
     /** Whether an Action answers a Prompt, which is what a Prompt record records (ADR-0011). */

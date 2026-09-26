@@ -103,6 +103,15 @@ class ShadowDecisionTest {
             host.untilOpen(20_000);
             assertFalse(run.snapshot().human().shadowCurrent() && run.snapshot().human().shadowWait() == 1,
                     "once the person has acted, wait 1's shadow is no longer current");
+            // The Decision log's source (story 5.4) holds the same records: the mode, the shadow with the
+            // Observation its Action is read against, the person's wait, and the note.
+            List<BoundedLog.Entry> history = run.snapshot().history();
+            assertTrue(history.stream().anyMatch(e -> e.record() instanceof RunLog.Mode m && m.mode().equals("HUMAN")));
+            assertTrue(history.stream().anyMatch(e -> e.record() instanceof RunLog.Shadow s && s.k() == 1
+                    && e.context() != null));
+            assertTrue(history.stream().anyMatch(e -> e.record() instanceof RunLog.Wait w && w.k() == 1
+                    && RunLog.HUMAN.equals(w.actor()) && e.context() != null));
+            assertTrue(history.stream().anyMatch(e -> e.record() instanceof RunLog.Note));
         }
         List<RunLog> records = RunLogReader.of(HumanTurnReplayTest.only(folder)).records();
         int shadow = indexOf(records, r -> r instanceof RunLog.Shadow s && s.k() == 1);
