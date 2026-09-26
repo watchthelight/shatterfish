@@ -14,6 +14,7 @@ import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
 import com.watabou.noosa.Game;
 import com.watabou.noosa.Scene;
 import org.shatterfish.api.Action;
+import org.shatterfish.api.BeliefSummary;
 import org.shatterfish.api.Decider;
 import org.shatterfish.api.Deliberator;
 import org.shatterfish.api.Observation;
@@ -30,6 +31,7 @@ import org.shatterfish.harness.observer.GameLogListener;
 import org.shatterfish.harness.rng.RngControl;
 import org.shatterfish.harness.scene.SceneStepper;
 
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -116,16 +118,30 @@ public final class EmbeddedRun implements AutoCloseable {
 
     /**
      * What {@link #snapshot()} publishes to the render thread (story 5.3, FR-38): the last served
-     * wait's Decision, turn and floor, the Observation the Decision was made on, and the Run's live
+     * wait's Decision, turn and floor, the Observation the Decision was made on, the Run's live
      * state -- {@link State#THINKING} exactly when a decision is pending, so the Panel's
-     * {@code THINKING} marker is real rather than guessed. {@code decision} and {@code observation}
-     * are null before the first wait is served; {@code decision} is also null when the Brain is not a
-     * {@link Deliberator}, though {@code observation} is not, since it comes from the wait itself.
-     * {@code observation} carries nothing the Decision could not already see (ADR-0014): it is handed
-     * out so the Panel can turn an Action into words (a Step's compass direction, an Attack's target,
-     * an AnswerPrompt's option text) without the Brain seeing anything new.
+     * {@code THINKING} marker is real rather than guessed -- what the Brain currently believes
+     * (story 5.4), and a bounded history of the wait records this Run has written. {@code decision}
+     * and {@code observation} are null before the first wait is served; {@code decision} and
+     * {@code beliefSummary} are also null when the Brain is not a {@link Deliberator}, though
+     * {@code observation} is not, since it comes from the wait itself. {@code observation} carries
+     * nothing the Decision could not already see (ADR-0014): it is handed out so the Panel can turn
+     * an Action into words (a Step's compass direction, an Attack's target, an AnswerPrompt's option
+     * text) without the Brain seeing anything new.
+     *
+     * @param history the wait records this Run has written, oldest first, newest last, at most
+     *                {@link #HISTORY_CAPACITY} of them (story 5.4, FR-38's "200 lines on screen; the
+     *                Run log holds the rest"): the Decision log's own source, so the Panel shows a
+     *                view over what {@code RunLoop.record} already built for the file rather than a
+     *                second list built differently
      */
-    public record Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state) {
+    public record Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state,
+                           BeliefSummary beliefSummary, List<RunLog> history) {
+
+        /** A snapshot with no belief summary and no history (story 5.3's own shape, kept for callers built on it). */
+        public Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state) {
+            this(decision, turn, floor, observation, state, null, List.of());
+        }
     }
 
     private record Decided(Action action, long thinkMs) {
@@ -188,6 +204,15 @@ public final class EmbeddedRun implements AutoCloseable {
     private int lastDecisionTurn;
     private int lastDecisionFloor;
     private Observation lastDecisionObservation;
+    /** What the Brain currently believes, for {@link #snapshot()} (story 5.4). */
+    private BeliefSummary lastBeliefSummary;
+    /** {@link #history}'s capacity (FR-38: "the Decision log shows ... 200 lines on screen"). */
+    public static final int HISTORY_CAPACITY = 200;
+    /**
+     * The wait records this Run has written, for {@link #snapshot()}'s {@code history} (story 5.4,
+     * FR-38): the Decision log's own source.
+     */
+    private final BoundedLog history = new BoundedLog(HISTORY_CAPACITY);
     private Future<Decided> pending;
     private long pendingWait;
     private Observation pendingObservation;
@@ -483,8 +508,12 @@ public final class EmbeddedRun implements AutoCloseable {
         waits++;
         lastAction = chosen;
         Outcome result = executor.execute(observation, chosen);
-        RunLoop.record(log, k, observation, chosen, !(result instanceof Outcome.Rejected), decided.thinkMs(),
-                oracle, brain);
+        RunLog.Wait wait = RunLoop.record(log, k, observation, chosen, !(result instanceof Outcome.Rejected),
+                decided.thinkMs(), oracle, brain);
+        // The exact record RunLoop.record built for the file (or would have, with no log): kept here
+        // too, bounded, so the Panel's Decision log is a view over it rather than a second list built
+        // differently (story 5.4, design note "Decision log source").
+        history.add(wait);
         // The same read RunLoop.record makes of the Brain's own reasons, kept here too so the render
         // thread has a Decision to show without reopening the log (story 5.3): both reads happen on
         // this thread, after the worker's Future is done, which is the happens-before edge over
@@ -493,6 +522,9 @@ public final class EmbeddedRun implements AutoCloseable {
         lastDecisionTurn = pendingTurn;
         lastDecisionFloor = observation.header().depth();
         lastDecisionObservation = observation;
+        // What the Brain believes now, for the same reason (story 5.4): read at the same point, after
+        // the same Future is done.
+        lastBeliefSummary = brain instanceof Deliberator deliberator ? deliberator.beliefSummary() : null;
         if (result instanceof Outcome.Rejected rejected) {
             refused++;
             refusalsInARow++;
@@ -637,7 +669,8 @@ public final class EmbeddedRun implements AutoCloseable {
      */
     public Snapshot snapshot() {
         UiRole.require("EmbeddedRun.snapshot()");
-        return new Snapshot(lastDecision, lastDecisionTurn, lastDecisionFloor, lastDecisionObservation, state());
+        return new Snapshot(lastDecision, lastDecisionTurn, lastDecisionFloor, lastDecisionObservation, state(),
+                lastBeliefSummary, history.asList());
     }
 
     /** The index of the last wait confirmed; 0 before the first. It survives every floor. */

@@ -206,7 +206,12 @@ class JsonRenderingTest {
             // from story 3.4, in the Replay.
             "RunLog", "RunLog$Header", "RunLog$Brain", "RunLog$Wait", "RunLog$Prompt", "RunLog$Mode",
             "RunLog$Shadow", "RunLog$Boundary", "RunLog$Unsupported", "RunLog$End", "RunLog$Outcome",
-            "RunLog$Decision", "RunLog$Choice", "RunLogJson");
+            "RunLog$Decision", "RunLog$Choice", "RunLogJson",
+            // What the Brain currently believes, in the form the Overlay may show (story 5.4).
+            // Not reachable from Observation -- it is Deliberator's own output, not the screen's --
+            // so Variants.records() never finds it; nothing here reads one back either, the same
+            // reason RunLog's kinds are listed rather than reachable.
+            "BeliefSummary", "BeliefSummary$Item");
 
     @Test
     @DisplayName("api is the schema, Action and the named helpers, and nothing in it reads text or bytes into a record")

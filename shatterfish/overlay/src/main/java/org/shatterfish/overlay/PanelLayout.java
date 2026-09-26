@@ -49,10 +49,19 @@ public final class PanelLayout {
     /** Space kept between the Panel and any HUD element (the UI-pixel grid's 2). */
     public static final float GAP = 2;
     /**
-     * The shortest full Panel: its padding, the Mode strip, a section gap of 6 and the Decision log's
-     * three lines at the small size 6 with rows 2 apart, which UX-DR2 says the log never goes below.
+     * The shortest full Panel (story 5.2's own deferred item, resolved in story 5.4 once the sections
+     * below the Decision card existed to arbitrate room with): its padding, the Mode strip, a section
+     * gap, the Decision card's own shortest form (one line at the body size 8 -- it always shows
+     * something, its own "no decision yet," so unlike the Goal line there is no all-the-way-collapsed
+     * case for it to arbitrate room with), a second section gap, and the Decision log's three lines at
+     * the small size 6 with rows 2 apart, which UX-DR2 says the log never goes below. The Goal line,
+     * the Safety flags row and the Belief summary can each still take zero of this floor's own room
+     * (the Goal line hides with no goal; the flags row is absent with no flags; the Belief summary
+     * shows its one-line placeholder, which this floor's own Decision-card line already stands in for
+     * at the same size) -- this is the worst case those three collapsing to nothing leaves, not a
+     * promise that every section fits inside it with real content in all of them.
      */
-    public static final float MIN_PANEL_HEIGHT = PADDING + STRIP_HEIGHT + 6 + 3 * (6 + 2) + PADDING;
+    public static final float MIN_PANEL_HEIGHT = PADDING + STRIP_HEIGHT + 6 + (8 + 2) + 6 + 3 * (6 + 2) + PADDING;
 
     // The game's HUD, in UI pixels (docs/rules/ui.md, Tier 1 rows for the full and mobile layouts).
     /** The menu pane's background, 31 by 21 ({@code MenuPane.java:72}, {@code :78}). */

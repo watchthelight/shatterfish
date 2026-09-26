@@ -77,7 +77,9 @@ final class PanelDock {
         }
         panel.place(layout);
         panel.content(ModeState.of(snapshot), snapshot == null ? null : snapshot.decision(),
-                snapshot == null ? null : snapshot.observation(), inputLocked);
+                snapshot == null ? null : snapshot.observation(), inputLocked,
+                snapshot == null ? null : snapshot.beliefSummary(),
+                snapshot == null ? java.util.List.of() : snapshot.history());
         panel.dim(covered(scene));
         Camera world = Camera.main;
         PanelCamera.apply(world, PanelCamera.world(layout.offsetUi(), PixelScene.uiCamera.zoom, world.zoom));

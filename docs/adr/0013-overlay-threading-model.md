@@ -449,3 +449,51 @@ default), so an inactive Explain lets the event fall through to whatever is real
 the dispatch stack is ordered. `PanelContentTest.explain_does_not_steal_a_synthetic_tap_while_locked`
 reproduces the worst case directly: a window's own button placed exactly where Explain is, registered
 before the Panel is rebuilt, and a synthetic tap at that point still reaches the button, not Explain.
+
+## Amendment: story 5.4 (2026-09-26)
+
+Safety flags, the Belief summary and the Decision log reuse story 5.3's two decided shapes -- the
+same-thread `Snapshot` and the "gate the control's own `active`, not only `visible`" rule -- rather
+than reopening either.
+
+**A wider Snapshot, still one same-thread read.** `EmbeddedRun.Snapshot` gained two fields:
+`beliefSummary` (the api's `BeliefSummary`, story 5.4's own new record, built by the brain module's
+`BeliefSummaries` from `Beliefs` and exposed through a new `Deliberator.beliefSummary()` default
+method) and `history` (a `List<RunLog>`, from a new bounded FIFO, `BoundedLog`, capacity 200).
+Both are written inside `EmbeddedRun.serve()`, at the same point and on the same thread `lastDecision`
+already is -- after the worker's `Future` is done, before the render thread does anything else with
+the wait -- so this amendment adds no new cross-thread edge, only two more fields to the one
+same-thread hand-off story 5.3 already built. `RunLoop.record` changed from `void` to returning the
+`RunLog.Wait` it builds (previously discarded), which is what `EmbeddedRun.serve()` now hands to
+`BoundedLog` -- the same record the file gets, kept here too rather than recomputed, so the Decision
+log is a view over what the log's own writer built and not a second source of truth (the story's own
+acceptance criterion, and its own design note "Decision log source"). `RunLoop.record` now builds and
+checks that `RunLog.Wait` (including the oracle-consistency invariant) even when `log == null`
+(previously an early return skipped both); this is a strengthening of an invariant `EmbeddedRun.frame()`
+already enforces earlier in the same wait, not a new way for a Run to fail.
+
+**The synthetic-tap gate, applied to a second control.** The Decision log wraps the game's own
+`ScrollPane` (`core/.../ui/ScrollPane.java`), whose drag area (`ScrollPane.PointerController`, a
+`ScrollArea`, itself a `PointerArea`) registers on the same `PointerEvent` signal Explain's hot area
+does, and so is dispatched to by the same stack that `ActionExecutor.press`'s synthetic taps reach
+directly, past `InputLock`. `DecisionLog.content` sets `pane.active = !inputLocked` every call, the
+identical mechanism story 5.3's amendment above chose for Explain: `Gizmo.isActive()`'s parent-chain
+walk makes the pane's own child (the drag area) read inactive whenever the pane does, and
+`PointerArea.onSignal`'s default `blockLevel` then lets a tap fall through rather than consuming it.
+`DecisionLogTest.does_not_steal_a_synthetic_tap_while_locked` reproduces
+`PanelContentTest.explain_does_not_steal_a_synthetic_tap_while_locked` exactly, at the log's own
+position -- this is the first real second instance of the general rule story 5.3's fairness review
+named for "every future Panel control" (`docs/ideas.md`), and it held without needing a new idea.
+
+**Content before layout, except for the log.** Every other section (`GoalLine`, `DecisionCard`,
+`SafetyFlagsRow`, `BeliefSummarySection`) keeps story 5.3's two-phase split: `Panel.content` sets a
+section's content, which fixes that section's own `contentHeight()`, and `Panel.layout` (called at
+the end of `content`) then positions it. The Decision log's own height is not something it proposes;
+it is whatever remains below every section above it, which `Panel.layout` computes from the Panel's
+own fixed rectangle. So `Panel.content` now calls `layout()` once *before* `log.content(...)`,
+specifically so the log's `ScrollPane` already has this frame's real viewport height (`pane.height()`)
+before `DecisionLog.content` decides whether to auto-scroll -- otherwise the very first fill of a
+freshly built Panel computes "at the bottom" against the pane's constructed height of zero, scrolling
+to the wrong position (caught by `DecisionLogTest.auto_scrolls_while_at_the_bottom`). `layout()` is
+idempotent and cheap enough that calling it a second time inside `content()` (once via `Panel.place`'s
+own `setRect`, as before, and again here) costs nothing worth avoiding.

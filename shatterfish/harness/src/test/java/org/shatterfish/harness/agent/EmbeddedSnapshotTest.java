@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.shatterfish.api.Action;
 import org.shatterfish.api.Belief;
+import org.shatterfish.api.BeliefSummary;
 import org.shatterfish.api.Deliberator;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.RunLog;
@@ -71,6 +72,12 @@ class EmbeddedSnapshotTest {
         public Belief belief() {
             return null;
         }
+
+        @Override
+        public BeliefSummary beliefSummary() {
+            return new BeliefSummary(List.of(new BeliefSummary.Item("crimson potion", "potion of frost", 0.2)),
+                    List.of(), List.of());
+        }
     }
 
     @Test
@@ -108,6 +115,13 @@ class EmbeddedSnapshotTest {
             // labels an Action from what the Brain itself actually saw.
             assertEquals(1, snapshot.observation().header().depth());
             assertSame(brain.observation, snapshot.observation());
+            // What the Brain currently believes (story 5.4): reaches the snapshot the same way the
+            // Decision does, read at the same point after the same Future is done.
+            assertEquals("crimson potion", snapshot.beliefSummary().items().get(0).label());
+            // The Decision log's own source (story 5.4): the served wait's own record, in the snapshot's
+            // history, its Action the Brain's Search.
+            assertEquals(1, snapshot.history().size());
+            assertEquals(new Action.Search(), ((RunLog.Wait) snapshot.history().get(0)).action());
 
             // A second wait, after the Brain's Search has spent a turn: the snapshot's turn moves with
             // the Run's own, rather than staying at whatever the first wait happened to read.
@@ -118,6 +132,10 @@ class EmbeddedSnapshotTest {
             assertTrue(second.turn() > snapshot.turn(), "a turn passed between the two waits: "
                     + snapshot.turn() + " then " + second.turn());
             assertEquals(RunLoop.turns(), second.turn());
+            // The history grows: both waits, oldest first (story 5.4, "Decision log source").
+            assertEquals(2, second.history().size());
+            assertEquals(new Action.Search(), ((RunLog.Wait) second.history().get(0)).action());
+            assertEquals(new Action.Search(), ((RunLog.Wait) second.history().get(1)).action());
         }
     }
 

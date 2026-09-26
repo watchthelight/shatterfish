@@ -22,6 +22,7 @@ import org.shatterfish.harness.driver.HeadlessDriver;
 import org.shatterfish.harness.scene.HeadlessScene;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -102,6 +103,11 @@ class PanelContentTest {
         return new EmbeddedRun.Snapshot(decision, 14, 2, null, EmbeddedRun.State.PLAYING);
     }
 
+    private static EmbeddedRun.Snapshot snapshot(RunLog.Decision decision, org.shatterfish.api.BeliefSummary beliefSummary,
+                                                 List<RunLog> history) {
+        return new EmbeddedRun.Snapshot(decision, 14, 2, null, EmbeddedRun.State.PLAYING, beliefSummary, history);
+    }
+
     @Test
     @DisplayName("full, the strip shows the Mode line, the Goal line shows the goal, and the card shows the chosen Action and its alternatives")
     void full_panel_shows_everything() {
@@ -136,6 +142,60 @@ class PanelContentTest {
         assertFalse(card.policyRow().visible, "not expanded yet");
     }
 
+    /** Story 5.4: Safety flags as chips, the Belief summary's lines, and the Decision log's lines. */
+    @Test
+    @DisplayName("full, the Safety flags row shows chips, the Belief summary shows its lines, and the Decision log shows its lines")
+    void full_panel_shows_flags_belief_and_log() {
+        GameScene scene = fullScene();
+        PanelDock dock = new PanelDock();
+        RunLog.Decision decision = decision(List.of("hp-low", "enemy-in-view"));
+        org.shatterfish.api.BeliefSummary beliefSummary = new org.shatterfish.api.BeliefSummary(
+                List.of(new org.shatterfish.api.BeliefSummary.Item("crimson potion", "potion of frost", 0.2)),
+                List.of("potion of invisibility (pool room)"), List.of("potion of strength 1/2"));
+        RunLog.Wait waitRecord = new RunLog.Wait(1, 14_000, 2, 0, "a".repeat(64), Map.of("hero", "a".repeat(64)),
+                decision.chosen().action(), true, RunLog.BOT, decision, "", List.of(), 0);
+        List<RunLog> history = List.of(waitRecord);
+        dock.frame(scene, snapshot(decision, beliefSummary, history), false);
+        Panel panel = dock.panel();
+
+        SafetyFlagsRow flags = panel.flags();
+        assertTrue(flags.visible);
+        assertEquals(2, flags.chips().size());
+        assertEquals("hp-low", flags.chips().get(0).text());
+        assertEquals(SafetyFlagVerdict.DANGER, flags.chips().get(0).verdict());
+        assertEquals("enemy-in-view", flags.chips().get(1).text());
+        assertEquals(SafetyFlagVerdict.WARN, flags.chips().get(1).verdict());
+
+        BeliefSummarySection belief = panel.belief();
+        assertTrue(belief.shown().present());
+        assertEquals(List.of("crimson potion: potion of frost 0.20"), belief.shown().items());
+        assertEquals(List.of("potion of invisibility (pool room)"), belief.shown().floor());
+        assertEquals(List.of("potion of strength 1/2"), belief.shown().chapters());
+
+        DecisionLog log = panel.log();
+        List<DecisionLogContent.Line> expected = DecisionLogContent.of(history);
+        assertEquals(expected, log.lines());
+
+        // The section order DESIGN.md names: strip, Goal line, Decision card, Safety flags, Belief
+        // summary, Decision log -- each above the log positioned below the one before it, with no
+        // overlap and one section gap between, so the log's own room is genuinely what is left below
+        // every section above it, not a fixed offset that skips one of them.
+        assertTrue(panel.card().top() >= panel.goal().bottom(), "the card is below the goal line");
+        assertEquals(panel.card().bottom() + Panel.SECTION_GAP, flags.top(), 0.5f, "the flags row is below the card");
+        assertEquals(flags.bottom() + Panel.SECTION_GAP, belief.top(), 0.5f, "the belief summary is below the flags row");
+        assertEquals(belief.bottom() + Panel.SECTION_GAP, log.top(), 0.5f, "the log is below the belief summary");
+    }
+
+    @Test
+    @DisplayName("no flags: the Safety flags row is absent")
+    void no_flags_hides_the_row() {
+        GameScene scene = fullScene();
+        PanelDock dock = new PanelDock();
+        RunLog.Decision decision = decision(List.of());
+        dock.frame(scene, snapshot(decision), false);
+        assertFalse(dock.panel().flags().visible, "absent when there are none (the epic's own acceptance criterion)");
+    }
+
     @Test
     @DisplayName("collapsed, the strip still shows the Mode line, but the Goal line and the card are hidden")
     void collapsed_hides_the_goal_and_the_card() {
@@ -149,6 +209,9 @@ class PanelContentTest {
         assertFalse(panel.stripText().text().isEmpty(), "the strip is the collapsed Panel and still says the Mode");
         assertFalse(panel.goal().visible);
         assertFalse(panel.card().visible);
+        assertFalse(panel.flags().visible, "story 5.4: the Safety flags row is hidden collapsed too");
+        assertFalse(panel.belief().visible, "story 5.4: the Belief summary is hidden collapsed too");
+        assertFalse(panel.log().visible, "story 5.4: the Decision log is hidden collapsed too");
     }
 
     @Test
@@ -330,7 +393,7 @@ class PanelContentTest {
             for (int i = 0; i < 50; i++) {
                 RunLog.Decision decision = i % 2 == 0 ? withGoal : null;
                 ModeState mode = ModeState.of(new EmbeddedRun.Snapshot(decision, i, 1, null, EmbeddedRun.State.PLAYING));
-                panel.content(mode, decision, null, i % 3 == 0);
+                panel.content(mode, decision, null, i % 3 == 0, null, List.of());
                 if (decision != null) {
                     card.toggleExplain();
                     card.toggleExplain();

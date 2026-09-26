@@ -5,8 +5,11 @@ import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
 import com.watabou.noosa.NinePatch;
 import com.watabou.noosa.ui.Component;
+import org.shatterfish.api.BeliefSummary;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.RunLog;
+
+import java.util.List;
 
 /**
  * The Overlay's instrument, docked beside the dungeon (story 5.2, UX-DR1, non-negotiable 6).
@@ -20,12 +23,15 @@ import org.shatterfish.api.RunLog;
  * player could not.
  *
  * <p>The Panel is placed by {@link PanelLayout} every frame, and lives on {@code PixelScene.uiCamera}
- * like the game's own HUD. The frame, the strip, the Mode strip's text, the ORACLE label and the Goal
- * line have no pointer area, so they take no click away from the dungeon; the Decision card's Explain
- * control does (story 5.3), a native {@code RedButton}, and is kept from taking one meant for the game
- * by {@link DecisionCard#content}'s own {@code inputLocked} gate (the fairness review: {@code
- * ActionExecutor.press} queues synthetic taps that bypass {@code InputLock}, so Explain's hot area must
- * be inactive whenever such a tap could land on it, not only invisible).
+ * like the game's own HUD. The frame, the strip, the Mode strip's text, the ORACLE label, the Goal
+ * line, the Safety flags row and the Belief summary have no pointer area, so they take no click away
+ * from the dungeon; the Decision card's Explain control (story 5.3, a native {@code RedButton}) and the
+ * Decision log's {@code ScrollPane} (story 5.4) do, and both are kept from taking a click meant for the
+ * game by their own {@code inputLocked} gate ({@link DecisionCard#content}, {@link DecisionLog#content}):
+ * the fairness review of story 5.3 found that {@code ActionExecutor.press} queues synthetic taps that
+ * bypass {@code InputLock}, so any hot area on the Panel must be inactive whenever such a tap could
+ * land on it, not only invisible -- a rule this story's Decision log follows too, not a special case
+ * Explain alone needed.
  */
 final class Panel extends Component {
 
@@ -44,6 +50,9 @@ final class Panel extends Component {
     private RenderedTextBlock oracleLabel;
     private GoalLine goal;
     private DecisionCard card;
+    private SafetyFlagsRow flags;
+    private BeliefSummarySection belief;
+    private DecisionLog log;
     private PanelLayout.Layout placed;
     private boolean dimmed;
 
@@ -63,14 +72,22 @@ final class Panel extends Component {
         add(goal);
         card = new DecisionCard();
         add(card);
+        flags = new SafetyFlagsRow();
+        add(flags);
+        belief = new BeliefSummarySection();
+        add(belief);
+        log = new DecisionLog();
+        add(log);
     }
 
     /**
-     * What the Mode strip, the Goal line and the Decision card show (story 5.3): the Mode strip is the
-     * collapsed Panel too, so it is set every frame regardless of {@link #place}'s form; the Goal line
-     * and the Decision card are laid out only when full, since the strip alone is drawn otherwise.
+     * What every section shows (stories 5.3, 5.4): the Mode strip is the collapsed Panel too, so it is
+     * set every frame regardless of {@link #place}'s form; the Goal line, the Decision card, the Safety
+     * flags, the Belief summary and the Decision log are set only when full, since the strip alone is
+     * drawn otherwise.
      */
-    void content(ModeState mode, RunLog.Decision decision, Observation observation, boolean inputLocked) {
+    void content(ModeState mode, RunLog.Decision decision, Observation observation, boolean inputLocked,
+                 BeliefSummary beliefSummary, List<RunLog> history) {
         stripText.text(ModeStripContent.text(mode));
         stripText.hardlight(ModeStripContent.color(mode.mode()));
         boolean full = placed != null && placed.form() == PanelLayout.Form.FULL;
@@ -78,7 +95,15 @@ final class Panel extends Component {
         float inner = innerWidth();
         goal.content(full ? decision : null, inner);
         card.content(full ? decision : null, full ? observation : null, nextStep, inner, inputLocked);
+        flags.content(full && decision != null ? decision.flags() : List.of());
+        belief.content(full ? beliefSummary : null, inner);
+        // layout() before the log's own content: it is what sizes the log's ScrollPane viewport (the
+        // remaining room below every section above it), and the log's auto-scroll-to-bottom decision
+        // reads that viewport's height, so the log must already know this frame's height before it
+        // scrolls -- otherwise its first-ever fill (the viewport still at its constructed height, 0)
+        // computes the wrong bottom (caught by DecisionLogTest.auto_scrolls_while_at_the_bottom).
         layout();
+        log.content(full ? history : List.of(), inner, inputLocked);
     }
 
     /** The Panel's own inner width, inside its padding, that the strip's text, the Goal line and the card wrap at. */
@@ -144,6 +169,8 @@ final class Panel extends Component {
         PixelScene.align(stripText);
 
         card.visible = full;
+        belief.visible = full;
+        log.visible = full;
         if (full) {
             float sectionX = x + PanelLayout.PADDING;
             float sectionWidth = innerWidth();
@@ -151,6 +178,15 @@ final class Panel extends Component {
             goal.setRect(sectionX, goalTop, sectionWidth, goal.contentHeight());
             float cardTop = (goal.visible ? goal.bottom() : goalTop) + SECTION_GAP;
             card.setRect(sectionX, cardTop, sectionWidth, card.contentHeight());
+            // The Decision card always shows something (its own "no decision yet"), so unlike the
+            // Goal line above it there is no "skip the gap" case here.
+            float flagsTop = card.bottom() + SECTION_GAP;
+            flags.setRect(sectionX, flagsTop, sectionWidth, flags.contentHeight());
+            float beliefTop = (flags.visible ? flags.bottom() : flagsTop) + SECTION_GAP;
+            belief.setRect(sectionX, beliefTop, sectionWidth, belief.contentHeight());
+            float logTop = belief.bottom() + SECTION_GAP;
+            float logHeight = Math.max(0, y + height - PanelLayout.PADDING - logTop);
+            log.setRect(sectionX, logTop, sectionWidth, logHeight);
         }
     }
 
@@ -192,5 +228,20 @@ final class Panel extends Component {
     /** The Decision card, for tests (story 5.3). */
     DecisionCard card() {
         return card;
+    }
+
+    /** The Safety flags row, for tests (story 5.4). */
+    SafetyFlagsRow flags() {
+        return flags;
+    }
+
+    /** The Belief summary section, for tests (story 5.4). */
+    BeliefSummarySection belief() {
+        return belief;
+    }
+
+    /** The Decision log, for tests (story 5.4). */
+    DecisionLog log() {
+        return log;
     }
 }
