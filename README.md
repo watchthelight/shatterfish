@@ -82,7 +82,13 @@ E5 (the Overlay) so far:
   a Profile of its own, re-attaching across every floor, with the Brain on its
   own thread so the game never waits on it. Overlay Runs are labelled and kept
   out of every published number until story 5.13 makes them reproducible.
-- Next: **5.2**, the Panel docked beside the dungeon.
+- **5.2** The Panel: an instrument docked beside the dungeon, built from the
+  game's own nine-patches, that never covers the HUD and collapses to a strip on
+  small windows or the phone layout. The Overlay plays at the mixed interface
+  size so the Panel can show; that changes a few hint lines in the game log, a
+  second named exception to reproducibility until #169.
+- Next: **5.3**, the Panel's content: the Mode strip, the Goal line and the
+  Decision card.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:
@@ -106,7 +112,7 @@ Run; the Goo gate (story 4.14) is where E4 is judged.
 | **Engine** (`harness`) | SPD's code driven headlessly, fast, reproducibly, through a fair Observation/Action interface | done (E1) |
 | **Brain** (`brain`) | Belief state, scripted policies, tactical search, strategic playbooks, evaluation. No game imports, enforced by the build | in progress (E4); search and strategy later (E6, E7) |
 | **Rig** (`rig`) | Thousands of seeded runs, SPRT comparisons, published numbers | done (E3) |
-| **Overlay** (`overlay`) | The bot inside the real desktop game, in the game's own UI style | in progress (E5): the launcher and embedded driver are in; the Panel is next |
+| **Overlay** (`overlay`) | The bot inside the real desktop game, in the game's own UI style | in progress (E5): the launcher, the embedded driver and the Panel frame are in; its content is next |
 
 Supporting modules: `api` (data types only), `codex` (every mob, item, table and
 recipe at the pinned tag, generated with citations into `codex/<tag>/`), and

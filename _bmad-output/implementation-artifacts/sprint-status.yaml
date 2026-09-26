@@ -106,7 +106,7 @@ development_status:
 
   epic-5: in-progress
   5-1-the-launcher-the-profile-and-the-embedded-driver: done
-  5-2-the-panel-frame-layout-and-collapse: in-progress
+  5-2-the-panel-frame-layout-and-collapse: done
   5-3-the-mode-strip-goal-line-and-decision-card: backlog
   5-4-safety-flags-belief-summary-and-decision-log: backlog
   5-5-paused-ignores-hero-input: backlog

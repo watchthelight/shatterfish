@@ -2,7 +2,7 @@
 title: 'Story 5.2: The Panel frame, layout and collapse'
 type: 'feature'
 created: '2026-09-26'
-status: 'review'
+status: 'done'
 baseline_commit: '2134df11e'
 review_loop_iteration: 0
 context: []
