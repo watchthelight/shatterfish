@@ -411,3 +411,73 @@ it re-reads ADR-0006's Blobs row.
 - **A human's log replays only where the frames are the headless driver's.** On the desktop the
   exceptions of stories 5.1 and 5.2 stand; story 5.13 and issue #169 close them for a human's Run as
   for the Brain's.
+
+## From the bestiary (lore/bestiary): Brain levers
+
+The [bestiary](bestiary/index.md) turns every enemy's mechanics into tactics and tags
+(`tactics/bestiary.json`). These are the levers it opens for the Brain, ranked by the impact expected
+on the current goal, a Warrior reaching depth 5 and killing Goo. The ranking is a hypothesis for the
+rig, not a measurement: on story 4.13's tuning set 30 of 40 heroes die before depth 5, 16 of them on
+depths 3 and 4, those not starving dying in fights at strength 11 in tier-1 gear
+([direction check](results/2026-09-26-4-13-direction-check.md)). Each lever cites the cards it rests on.
+
+0. **Prerequisite: load the bestiary as an `api` record.** The rig reads `tactics/bestiary.json` the
+   way `CodexKnowledge` reads the Codex tables and hands the Brain a record per enemy, keyed by the
+   name the Observation shows, beside `Codex.Threat`. Fourteen names belong to more than one class
+   (the three gnoll shamans, the boss and vault copies), so the key is the name plus the depth. The
+   tags are general game knowledge, which non-negotiable 1 allows. No impact by itself; every lever
+   below reads it.
+1. **Speed-aware retreat.** Never retreat on foot from an enemy tagged `fast` or not `outrunnable`
+   (the sewer crab on depths 3 and 4, later the bat and the piranha) unless the stairs are the next
+   cell: a speed-2 enemy closes two cells per hero step and attacks once per turn, so every step
+   away is a free attack. Fight it from the best cell in reach instead, and against a crab two cells
+   away step back once so it spends its whole turn closing ([crab](bestiary/sewers.md#crab), [speed
+   rule](bestiary/index.md#cross-cutting-rules)). Against a same-speed enemy, retreat only along a
+   path to the stairs that does not pass it. Highest expected impact: the crab is the sewers' hardest
+   hitter (1-7 at accuracy 12) and the fight Policy's retreat today walks away from it.
+2. **Surprise attacks.** Never walk up to a sleeping enemy to open in melee: a sleeper always wakes
+   on its first turn with the hero adjacent, and the hit that follows is not a surprise. Throw from 2
+   or more cells instead, which always hits a sleeper, then close. Against a same-speed hunter,
+   break its sight through a door and hit it as it steps into view (the door ambush), which turns the
+   sewer snake's 25 evasion (a 20% hit at level 1) into a certain hit ([snake](bestiary/sewers.md#snake),
+   [waking and the door ambush](bestiary/index.md#cross-cutting-rules)). Tags: `ai`, `approach`
+   (`surprise`), `evasive`. Most regular enemies are generated asleep, so this is a free first hit in
+   most fights.
+3. **Swarm, slime, crab and Goo special cases.** The swarm (`splits`): never throw at it in the
+   open, since every physical hit makes a clone; fight it from a 1-wide corridor cell
+   ([swarm](bestiary/specials.md#swarm)). The slime: a hit of 5 or more is compressed (7 lands as
+   6, 10 as 7), so a slow heavy weapon is wasted on it ([slime](bestiary/sewers.md#slime)). The crab: `chokepoint`, and lever 1.
+   Goo: open with a thrown stone on the sleeping Goo, fight on dry cells, never let it stand in
+   water, where it heals every turn, even asleep, and step into water yourself to wash off Ooze; the
+   pump itself the `Goo` class already answers ([Goo](bestiary/bosses.md#goo)).
+4. **A throwing Policy.** Pick up throwing weapons and throw them at an enemy closing from 2 or more
+   cells (x1.5 accuracy), never at an adjacent one (x0.5), and pick them up after the fight. Tag:
+   `rangedFirst`. It adds a hit or two per fight with the throwing stones the Warrior starts with;
+   it is also what levers 2 and 3 throw with.
+5. **Line of fire against bolt casters.** Close to adjacency around corners and through doors
+   rather than trading shots with an enemy tagged `bolt` or `ranged` (the gnoll shaman, the DM-100,
+   the dwarf warlock): adjacent, most of them only melee, and a wall, a closed door or a body in the
+   line stops the bolt ([shaman](bestiary/caves.md#shaman-redshaman), [DM-100](bestiary/prison.md#dm100)).
+   Lowest for the depth-5 goal, since the only such enemy before Goo is the Sad Ghost's gnoll
+   trickster on depth 3; first for the prison, where the DM-100 arrives on depth 7.
+
+## From issue #174 (two-cell oscillation)
+
+- **The oscillation count as a rig tool.** Issue #174 counted Steps in runs of six or more alternating
+  between two cells with a scratch script; `direction.py metrics`, the gallery or the strategy log could
+  report it for every Run, so a Policy change that starts a new loop shows up in the numbers it already
+  prints.
+- **A region the plan already crossed, set again at the same spot, could be held.** Issue #174 lifts a
+  region the explore or descend Policy walks into when there is no way around it. When the enemy there
+  is still unfavourable, the fight Policy retreats again, sets a new region, and the plan crosses it
+  again: only the bounce block (`Memory.BOUNCE_WAITS`) ends that loop, after six bounces. A region set
+  inside one lifted a few waits earlier could be kept out of for good instead, which would make the
+  floor spent past it and let the descend Policy leave.
+- **Enemies bound to water.** Most of the long loops on `smoke` were giant piranhas: asleep or awake,
+  they cannot leave the water, yet the fight Policy retreats from them as from any enemy. The Codex
+  does not say which mobs are bound to water; a row for it would let the fight Policy ignore one the
+  hero is not next to the water of.
+- **Without the loops the hero meets fights it used to walk away from by accident.** Issue #174's
+  chase took two `smoke` heroes to sleeping sewer snakes they then lost to, after retreating from the
+  snake with it beside them, which gives it a free hit each Step. The threat estimate for evasive
+  enemies, and whether to retreat from an adjacent enemy at all, deserve their own look.

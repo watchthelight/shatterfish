@@ -75,6 +75,12 @@ mutation battery and a direction check on the `smoke` Seed set):
 - Waiting on an owner decision: **4.14**, the registered 400-Warrior `goo` set
   and its 75% gate, which is several stories away at the current rate.
 
+Knowledge the Brain will fight with: the [bestiary](docs/bestiary/index.md), a
+cited card for every one of the game's 103 enemies and bosses (speed, attack and
+reach, abilities, immunities, surprise and evasion) with derived tactics for each
+hero class, and community tips tiered against the code
+([`lore/bestiary/`](lore/bestiary/), [`tactics/bestiary.json`](tactics/bestiary.json)).
+
 E5 (the Overlay) so far:
 
 - **5.1** The launcher and the embedded driver: `./gradlew :overlay:launch`

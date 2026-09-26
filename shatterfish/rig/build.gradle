@@ -38,6 +38,11 @@ tasks.named('test') {
     inputs.dir(rootProject.file('docs/rules')).withPropertyName('rulePages').withPathSensitivity(PathSensitivity.RELATIVE)
     // The Brain is built on the Codex the rig reads for it (story 4.1)
     inputs.dir(rootProject.file('codex')).withPropertyName('codex').withPathSensitivity(PathSensitivity.RELATIVE)
+    // The bestiary's tags, its pages and the ledger that pins the tag its citations resolve at:
+    // BestiaryTest reads all three.
+    inputs.dir(rootProject.file('tactics')).withPropertyName('bestiaryTags').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(rootProject.file('docs/bestiary')).withPropertyName('bestiaryPages').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(rootProject.file('docs/UPSTREAM.md')).withPropertyName('upstreamLedger').withPathSensitivity(PathSensitivity.RELATIVE)
     // The Brain's committed weight sets (story 4.5)
     inputs.dir(rootProject.file('weights')).withPropertyName('weights').withPathSensitivity(PathSensitivity.RELATIVE)
     // The nightly workflow, its script, its history and its page (story 3.11): NightlyTest reads them.
