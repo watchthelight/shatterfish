@@ -1,7 +1,6 @@
 package org.shatterfish.harness.driver;
 
 import com.badlogic.gdx.Gdx;
-import com.shatteredpixel.shatteredpixeldungeon.Badges;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.GamesInProgress;
 import com.shatteredpixel.shatteredpixeldungeon.SPDSettings;
@@ -10,7 +9,6 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
-import com.shatteredpixel.shatteredpixeldungeon.journal.Journal;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.shatteredpixel.shatteredpixeldungeon.levels.features.Chasm;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
@@ -19,7 +17,6 @@ import com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks;
 import com.shatteredpixel.shatteredpixeldungeon.ui.ActionIndicator;
 import com.shatteredpixel.shatteredpixeldungeon.ui.GameLog;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
-import com.shatteredpixel.shatteredpixeldungeon.utils.DungeonSeed;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
 import com.watabou.noosa.Scene;
 import org.shatterfish.harness.boot.HeadlessBoot;
@@ -151,22 +148,11 @@ public final class HeadlessDriver implements AutoCloseable {
     private final RngControl rng;
     private long frames;
     private boolean closed;
-    /** Written by the actor thread only, inside {@code Hero.act()}; read here between frames. */
-    private volatile long notifications;
-    private long seenNotifications;
-    private long dropped;
-    private volatile boolean acted;
-
     /**
-     * The driver of the Run in this process, so that the executor can say an Action was handed to
-     * the game without every caller having to remember to. One process hosts one Run (ADR-0007),
-     * and the driver already registers itself as hook row 5's listener on the same assumption.
+     * Where Input waits are confirmed and numbered: the same code the Overlay's embedded Run asks
+     * between its frames, so the two drivers cannot disagree about what a wait is (ADR-0013).
      */
-    private static volatile HeadlessDriver live;
-    private long waitIndex;
-    private Window lastConfirmedWindow;
-    private Window lastSeenWindow;
-    private int windowFramesShown;
+    private final WaitGate gate = new WaitGate();
     /** A restored snapshot's log lines, put back once the new scene has run (story 1.20). */
     private List<LogLine> logToRestore;
     /** A restored snapshot's shown emotes, re-shown on the new scene's sprites (story 1.20). */
@@ -180,8 +166,8 @@ public final class HeadlessDriver implements AutoCloseable {
         this.scene = scene;
         this.rng = rng;
         this.uiThread = uiThread;
-        Hooks.inputWait = this::noticed;
-        live = this;
+        Hooks.inputWait = gate::noticed;
+        gate.install();
     }
 
     /**
@@ -198,22 +184,14 @@ public final class HeadlessDriver implements AutoCloseable {
      * been served. An executor that announces its own work needs no such inference.
      */
     public static void actionHandedOver() {
-        HeadlessDriver driver = live;
-        if (driver == null || driver.closed) {
-            // No Run is being driven in this process, so there is no wait to end. A Run that has
-            // been closed keeps nothing: ADR-0007 gives a process one Run, and a stale driver must
-            // not be told anything by the next one's executor.
-            return;
+        // The gate of whichever driver is live, headless or embedded (WaitGate). None means no Run
+        // is being driven in this process, so there is no wait to end; a driver that has been
+        // closed uninstalled its gate, because ADR-0007 gives a process one Run and a stale driver
+        // must not be told anything by the next one's executor.
+        WaitGate gate = WaitGate.live();
+        if (gate != null) {
+            gate.handedOver();
         }
-        driver.acted = true;
-    }
-
-    /**
-     * Hook row 5's listener: on the actor thread, inside {@code Hero.act()}, one volatile write
-     * and nothing else (ADR-0013). The hero acts on that thread only, so the count is exact.
-     */
-    private void noticed() {
-        notifications++;
     }
 
     /** Boots the process, or returns the boot that already happened. */
@@ -307,7 +285,6 @@ public final class HeadlessDriver implements AutoCloseable {
         if (heroClass == null) {
             throw new IllegalArgumentException("a Run needs a hero class");
         }
-        String seedCode = DungeonSeed.convertToCode(seed);
         HeadlessBoot boot = HeadlessBoot.ensure();
         if (SceneStepper.theSceneHasALiveActorThread()) {
             throw new IllegalStateException("a Run is in progress in this process; close it before starting another");
@@ -325,9 +302,6 @@ public final class HeadlessDriver implements AutoCloseable {
             throw new IllegalStateException("a listener from a Run that was not closed is still registered in Hooks;"
                     + " close() clears it");
         }
-        // The game clears this only when the hero falls (Chasm.java:101); a Run closed between a
-        // confirmed jump and the fall would otherwise jump unasked in this one.
-        Chasm.jumpConfirmed = false;
         try {
             // The Profile is what a Run inherits from the player it pretends to be, and it is
             // part of the Run's definition (ADR-0007): its own directory, the settings a Run
@@ -337,37 +311,8 @@ public final class HeadlessDriver implements AutoCloseable {
             throw new UncheckedIOException("could not create a profile directory for the Run", e);
         }
 
-        // What the hero-select screen loads before any game starts (HeroSelectScene.java:106-107).
-        // Both load once per process; story 1.15 owns what a Profile is and when it is reloaded.
-        Badges.loadGlobal();
-        Journal.loadGlobal();
-
-        // HeroSelectScene.java:157-162, the start button, with the seed typed into the seed window
-        // and the class and the slot chosen on the screens before it.
-        SPDSettings.customSeed(seedCode);
-        GamesInProgress.selectedClass = heroClass;
-        GamesInProgress.curSlot = GamesInProgress.firstEmpty();
-        if (GamesInProgress.curSlot < 1) {
-            throw new IllegalStateException("no free save slot: every slot this process has seen is occupied");
-        }
-        Dungeon.hero = null;
-        Dungeon.daily = Dungeon.dailyReplay = false;
-        Dungeon.initSeed();
-        ActionIndicator.clearAction();
-        InterlevelScene.mode = InterlevelScene.Mode.DESCEND;
-
-        // InterlevelScene.java:622-649, descend() with no hero: a new game and its first floor.
-        Mob.clearHeldAllies();
-        Dungeon.init();
-        // The stack is the harness's from here: init has just thrown away every generator, base
-        // included, and replaced the base with one seeded from the system (Dungeon.java:254). Wait
-        // zero's generator goes on top before the first floor is built, so the floor is the tuple's
-        // and not the moment's.
-        rng.reseed(0);
-        GameLog.wipe();
-        GameLogListener.INSTANCE.reset();
-        Level level = Dungeon.newLevel();
-        Dungeon.switchLevel(level, -1);
+        // The game itself begins the way the Overlay's begins, through one body (story 5.1).
+        NewGame.begin(seed, heroClass, rng);
     }
 
     /**
@@ -404,8 +349,7 @@ public final class HeadlessDriver implements AutoCloseable {
         HeadlessScene next = new HeadlessScene();
         boot.game().switchTo(next);
         scene = next;
-        acted = false;
-        seenNotifications = notifications;
+        gate.sceneChanged();
     }
 
     /**
@@ -421,10 +365,10 @@ public final class HeadlessDriver implements AutoCloseable {
         requireOpen();
         Hero hero = Dungeon.hero;
         Window window = scene.openWindow();
-        if (hero == null || !waitState(hero, window) || waitIndex < 1 || acted || notifications != seenNotifications
+        if (hero == null || !waitState(hero, window) || gate.waitIndex() < 1 || gate.acted() || !gate.quiet()
                 || boot.game().sceneSwitchRequested()) {
             throw new IllegalStateException("a snapshot is taken at a confirmed Input wait with nothing handed to the game"
-                    + " since, and the Run is not at one (wait " + waitIndex + ", acted " + acted + ")");
+                    + " since, and the Run is not at one (wait " + gate.waitIndex() + ", acted " + gate.acted() + ")");
         }
         if (window != null) {
             // The game's save carries no window (Dungeon.java:661-697), so a wait under a Prompt
@@ -441,7 +385,7 @@ public final class HeadlessDriver implements AutoCloseable {
             Files.deleteIfExists(game);
             Dungeon.saveAll();
             if (!Files.isRegularFile(game)) {
-                throw new IllegalStateException("the game saved nothing at wait " + waitIndex + " into " + folder);
+                throw new IllegalStateException("the game saved nothing at wait " + gate.waitIndex() + " into " + folder);
             }
             try (Stream<Path> paths = Files.list(folder)) {
                 for (Path path : paths.sorted().toList()) {
@@ -466,7 +410,7 @@ public final class HeadlessDriver implements AutoCloseable {
                 emotes.put(mob.id(), emote);
             }
         }
-        return new Snapshot(id, waitIndex, Dungeon.seed, hero.heroClass.name(), rng.salt(), GamesInProgress.curSlot, files,
+        return new Snapshot(id, gate.waitIndex(), Dungeon.seed, hero.heroClass.name(), rng.salt(), GamesInProgress.curSlot, files,
                 GameLogListener.INSTANCE.lines(), emotes);
     }
 
@@ -550,12 +494,7 @@ public final class HeadlessDriver implements AutoCloseable {
         HeadlessScene next = new HeadlessScene();
         boot.game().switchTo(next);
         scene = next;
-        acted = false;
-        seenNotifications = notifications;
-        waitIndex = snapshot.k() - 1;
-        lastConfirmedWindow = null;
-        lastSeenWindow = null;
-        windowFramesShown = 0;
+        gate.restoreTo(snapshot.k());
         logToRestore = snapshot.log();
         emotesToRestore = snapshot.emotes();
     }
@@ -572,6 +511,15 @@ public final class HeadlessDriver implements AutoCloseable {
     /** The salt this Run declares, which belongs in what the Run records and in no Observation. */
     public long salt() {
         return rng.salt();
+    }
+
+    /**
+     * The generator control this Run's waits reseed through. A caller that drives this driver's scene
+     * frame by frame with its own wait detection, as the Overlay's embedded Run does in a test host
+     * (story 5.1), reseeds through the same control, so the stack holds one wait generator and not two.
+     */
+    public RngControl rngControl() {
+        return rng;
     }
 
     /** Steps until the hero waits for input, the hero is dead or a scene change is requested. */
@@ -599,12 +547,9 @@ public final class HeadlessDriver implements AutoCloseable {
                     + game.requestedSceneClass().getSimpleName() + ", which this driver does not serve; the actor"
                     + " loop picks nobody until it is served, so stepping on would only spend the budget");
         }
-        Hero handed = Dungeon.hero;
-        if (handed != null && (handed.curAction != null || handed.resting)) {
-            // An Action handed to the game by the caller: the hero holds it until its next act,
-            // which may begin and end ready in one go and announce nothing.
-            acted = true;
-        }
+        // An Action handed to the game by the caller: the hero holds it until its next act,
+        // which may begin and end ready in one go and announce nothing.
+        gate.heroHolds(Dungeon.hero);
         long before = frames;
         while (true) {
             step();
@@ -633,40 +578,21 @@ public final class HeadlessDriver implements AutoCloseable {
             // The change first: a taken resurrection clears the pending mark and asks for the
             // loading scene in one click, with the hero still at zero health.
             if (game.sceneSwitchRequested()) {
-                return new Halt(Reason.SCENE_SWITCH, stepped, scene.openWindow(), game.requestedSceneClass(), waitIndex);
+                return new Halt(Reason.SCENE_SWITCH, stepped, scene.openWindow(), game.requestedSceneClass(), gate.waitIndex());
             }
             if (hero == null || (!hero.isAlive() && WndResurrect.instance == null)) {
-                return new Halt(Reason.HERO_DEAD, stepped, scene.openWindow(), null, waitIndex);
+                return new Halt(Reason.HERO_DEAD, stepped, scene.openWindow(), null, gate.waitIndex());
             }
-            if (boot.pendingRunnables() == 0) {
-                Window window = scene.openWindow();
-                if (window != lastSeenWindow) {
-                    lastSeenWindow = window;
-                    windowFramesShown = 1;
-                } else {
-                    windowFramesShown++;
-                }
-                boolean notified = notifications != seenNotifications;
-                seenNotifications = notifications;
-                boolean heroWaits = heroWaits(hero);
-                boolean resurrecting = WndResurrect.instance != null;
-                if ((notified || acted || window != lastConfirmedWindow)
-                        && isInputWait(hero, window, windowFramesShown)) {
-                    waitIndex++;
-                    lastConfirmedWindow = window;
-                    acted = false;
-
-                    // The reseed belongs to the wait and not to any one caller: ADR-0013 puts it
-                    // at the head of the wait, before the Observation is read, and every caller of
-                    // this method is at the head of a wait when it returns. Doing it here is what
-                    // makes a Run a function of its tuple however it is driven — the driver's own
-                    // loop, a test, or the agent's.
-                    rng.reseed(waitIndex);
-                    return new Halt(Reason.INPUT_WAIT, stepped, window, null, waitIndex);
-                }
-                if (notified && !heroWaits && !resurrecting) {
-                    dropped++;
-                }
+            Window window = scene.openWindow();
+            long k = gate.frame(hero, window, boot.pendingRunnables() != 0);
+            if (k != 0) {
+                // The reseed belongs to the wait and not to any one caller: ADR-0013 puts it
+                // at the head of the wait, before the Observation is read, and every caller of
+                // this method is at the head of a wait when it returns. Doing it here is what
+                // makes a Run a function of its tuple however it is driven — the driver's own
+                // loop, a test, or the agent's.
+                rng.reseed(k);
+                return new Halt(Reason.INPUT_WAIT, stepped, window, null, k);
             }
             if (stepped >= frameBudget) {
                 throw new Stalled(diagnose(frameBudget));
@@ -707,8 +633,9 @@ public final class HeadlessDriver implements AutoCloseable {
         return (heroWaits || WndResurrect.instance != null) && Prompts.isRecognised(window);
     }
 
-    private static boolean isInputWait(Hero hero, Window window, int windowFramesShown) {
-        return (window == null || windowFramesShown >= 2) && waitState(hero, window);
+    /** Whether the game is offering the hero a resurrection, the one wait at which he is not ready. */
+    static boolean resurrecting() {
+        return WndResurrect.instance != null;
     }
 
     /**
@@ -753,17 +680,17 @@ public final class HeadlessDriver implements AutoCloseable {
 
     /** The index {@code k} of the last Input wait confirmed; 0 before the first. */
     public long waitIndex() {
-        return waitIndex;
+        return gate.waitIndex();
     }
 
     /** Times hook row 5 has notified this Run: acts of the hero that began unready. */
     public long hookNotifications() {
-        return notifications;
+        return gate.notifications();
     }
 
     /** Notifications that found the hero mid-action: the steps of a move but the last, the turns of a rest. */
     public long droppedNotifications() {
-        return dropped;
+        return gate.dropped();
     }
 
     /** Frames this driver has stepped, counted here and not by the scene or the stepper. */
@@ -794,9 +721,7 @@ public final class HeadlessDriver implements AutoCloseable {
             return;
         }
         closed = true;
-        if (live == this) {
-            live = null;
-        }
+        gate.uninstall();
         // The stack is left as the Run found it. This is not wrapped in a catch: popping does not
         // throw at this tag (it reports and returns, SPD-classes/.../utils/Random.java:68-73), so
         // the only way here is a failure worth seeing rather than swallowing.
@@ -858,21 +783,21 @@ public final class HeadlessDriver implements AutoCloseable {
     private String waitState() {
         Window window = scene.openWindow();
         Hero hero = Dungeon.hero;
-        StringBuilder out = new StringBuilder("Since the Run began: ").append(notifications)
-                .append(" notification(s) from the observe site, ").append(dropped).append(" dropped; waits confirmed: ")
-                .append(waitIndex).append("; in front: ").append(Prompts.describe(window));
+        StringBuilder out = new StringBuilder("Since the Run began: ").append(gate.notifications())
+                .append(" notification(s) from the observe site, ").append(gate.dropped()).append(" dropped; waits confirmed: ")
+                .append(gate.waitIndex()).append("; in front: ").append(Prompts.describe(window));
         if (window == null && GameScene.interfaceBlockingHero()) {
             out.append(", and the inventory pane is selecting an item, so the map refuses clicks"
                     + " (GameScene.java:1373-1382)");
         }
         out.append('.');
-        if (acted) {
+        if (gate.acted()) {
             out.append(" An Action is waiting for its wait: the last one handed to the game has had no wait"
                     + " confirmed since.");
         }
-        if (hero != null && hero.ready && hero.curAction == null && !hero.resting && !acted
-                && notifications == seenNotifications && window == lastConfirmedWindow) {
-            out.append(" The hero has been ready and nothing has happened since wait ").append(waitIndex)
+        if (hero != null && hero.ready && hero.curAction == null && !hero.resting && !gate.acted()
+                && gate.quiet() && window == gate.lastConfirmedWindow()) {
+            out.append(" The hero has been ready and nothing has happened since wait ").append(gate.waitIndex())
                     .append(": no act of the hero began unready and no window changed, so there is no new Input"
                             + " wait; an Action must change something.");
         }

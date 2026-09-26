@@ -5,4 +5,27 @@ dependencies {
     implementation project(':core')
     implementation project(':harness')
     implementation project(':brain')
+    // Story 5.1: the launcher starts upstream's desktop game with a Run attached, on upstream's own
+    // platform support and libGDX's own desktop backend, as desktop/…/DesktopLauncher.java does. The
+    // desktop module is an application; depending on it gives the Overlay its platform class and,
+    // through its resources, the game's assets, and reverses no edge (ADR-0003's story 5.1 amendment).
+    implementation project(':desktop')
+    implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
+    runtimeOnly "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
+    runtimeOnly "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-desktop"
+}
+
+// The Overlay: the desktop game with a Run attached. `-Plaunch.args="--seed AAA-BBB-CCC --class warrior"`
+// states the Run; see LaunchOptions for the flags, among them the one place --oracle is accepted.
+tasks.register('launch', JavaExec) {
+    group = 'shatterfish'
+    description = 'Starts the desktop game with a Shatterfish Run attached (story 5.1).'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.overlay.ShatterfishLauncher'
+    def given = project.findProperty('launch.args')
+    args = given == null || given.toString().trim().isEmpty() ? [] : given.toString().trim().split(/\s+/).toList()
+    if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('mac')) {
+        jvmArgs '-XstartOnFirstThread'
+    }
+    outputs.upToDateWhen { false }
 }

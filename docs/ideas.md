@@ -237,3 +237,20 @@ it re-reads ADR-0006's Blobs row.
 - **The item selector as a Prompt, again.** The upgrade window the game chains after an upgrade, while more
   upgrade items are held, is answered by a Brain error, because its "Back" reopens the selector no Action
   answers. With the selector as a Prompt, the Brain could back out and keep the scroll.
+
+## From story 5.1 (the launcher and the embedded driver)
+
+- **The Overlay plays the random agent.** The Rig's Brain is built on the Codex, which only the rig
+  reads (`rig/CodexKnowledge`), and the Overlay may not depend on the rig. Moving the reader to a
+  module both can reach (the harness, or a small `codex-read` module on `api`) lets the launcher
+  attach `shatterfish`; at the latest story 5.16, whose sewers Run needs the Brain, has to do it.
+- **Bones is one more upstream static that outlives a Run** (see "Upstream statics that outlive a
+  Run" above). The determinism test of story 5.1 found it: a hero who dies in one Run leaves remains
+  on the next Run's floor in the same process (`core/.../Bones.java:50-54`, `:154-160`). The Profile
+  now clears it through `Bones.leave()`'s daily branch, a public door. The sweep that section asks
+  for is still open; `InProcessRunsTest` is a template for a test that plays one tuple twice in a
+  process and fails on any such leak, and running it over more seeds and classes would find the next.
+- **The frames the desktop adds.** An Overlay Run equals the Rig's Run of its tuple only where the
+  frames between two waits are the same; the render thread's draws in the frames the desktop adds
+  come from the Run's generator. Story 5.13 routes them away; until then a checker that replays an
+  Overlay Run's own log (not its tuple under the Rig) is what verifies it.

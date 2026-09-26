@@ -81,3 +81,14 @@ tests that play the real Brain through the Run loop from states only a harness t
 the game (`BrainAtTheWindowsTest`). The brain depends on `api` alone, so the edge makes no cycle,
 and the harness's main classes still cannot see it. `shatterfish/settings.gradle`'s edge comment
 says the same.
+
+## Amendment: story 5.1 (2026-09-26)
+
+The edge `overlay -> core, harness, brain` above gains `desktop`, and libGDX's desktop backend
+(`gdx-backend-lwjgl3`) with its natives. The Overlay's launcher starts upstream's own desktop game
+with a Run attached, on upstream's own platform support (`DesktopPlatformSupport`) and libGDX's own
+desktop backend, exactly as `desktop/…/DesktopLauncher.java` does; depending on the `desktop`
+application module is how it gets that class and, through `desktop`'s resources, the game's assets,
+rather than copying either. No edge is reversed: nothing depends on `overlay`, and `desktop` depends
+on `core` alone. The brain's classpath check already names `:desktop`, so the Brain still cannot
+reach it. `shatterfish/settings.gradle`'s edge comment says the same.

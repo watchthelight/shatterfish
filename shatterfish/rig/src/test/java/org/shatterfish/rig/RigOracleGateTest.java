@@ -116,4 +116,23 @@ class RigOracleGateTest {
         assertTrue(Runner.KNOWN.size() == 13 && RunOne.KNOWN.size() == 13,
                 "the two lists are " + Runner.KNOWN + " and " + RunOne.KNOWN);
     }
+
+    /**
+     * The Overlay's launcher accepts {@code --oracle} (story 5.1): the one place an oracle Run may be
+     * asked for. The same words on either of the Rig's command lines are refused by name, so the flag
+     * exists on the launcher and never on the Rig, and a flag copied from one to the other fails
+     * loudly rather than being ignored.
+     */
+    @Test
+    @DisplayName("the launcher's --oracle, given to either of the Rig's command lines, is refused by name")
+    void the_launchers_flag_is_refused_here() {
+        for (String[] asked : new String[][] {{"--oracle"}, {"--oracle", "true"}}) {
+            IllegalArgumentException parent = org.junit.jupiter.api.Assertions.assertThrows(
+                    IllegalArgumentException.class, () -> Runner.arguments(asked));
+            assertTrue(parent.getMessage().contains("--oracle"), parent.getMessage());
+            IllegalArgumentException child = org.junit.jupiter.api.Assertions.assertThrows(
+                    IllegalArgumentException.class, () -> RunOne.arguments(asked));
+            assertTrue(child.getMessage().contains("--oracle"), child.getMessage());
+        }
+    }
 }

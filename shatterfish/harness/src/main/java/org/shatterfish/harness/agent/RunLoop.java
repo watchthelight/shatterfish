@@ -62,7 +62,7 @@ public final class RunLoop {
      * is a wait old in places — but a screen that refuses everything offered is a disagreement
      * between {@code ValidActions} and the game, and that is worth a story rather than a loop.
      */
-    private static final int REFUSALS_IN_A_ROW = 64;
+    static final int REFUSALS_IN_A_ROW = 64;
 
     /**
      * How many Input waits in a row may pass without a turn passing before the Run is stopped as
@@ -165,13 +165,7 @@ public final class RunLoop {
         HeadlessDriver driver = HeadlessDriver.start(seed, heroClass, salt);
         RunLogWriter opened;
         try {
-            opened = RunLogWriter.open(logging.folder(), new RunLog.Header(RunLog.VERSION,
-                    Observer.upstreamTag(), logging.commit(),
-                    org.shatterfish.api.HeroClass.valueOf(heroClass.name()), Dungeon.challenges, seed,
-                    SeedSet.code(seed), salt, turnCap, Profile.VERSION,
-                    ObservationCodec.SCHEMA_VERSION, Codex.VERSION, logging.brain(),
-                    logging.registration(), logging.oracle(), logging.machine(),
-                    Instant.now().toString()));
+            opened = openLog(logging, seed, heroClass, salt, turnCap);
         } catch (RuntimeException | Error opening) {
             // The Run was started and nothing will play it, so the driver is closed here rather
             // than left holding the process's one UI role.
@@ -186,6 +180,22 @@ public final class RunLoop {
     public RunOutcome play(long seed, HeroClass heroClass, long salt, Decider agent, int turnCap) {
         return play(HeadlessDriver.start(seed, heroClass, salt), seed, heroClass, salt, agent,
                 turnCap, null, false);
+    }
+
+    /**
+     * Opens a Run's log and writes its header, for a Run whose game has begun: the header's half that
+     * the game decides, the challenges, does not exist until then. Both drivers open their logs here,
+     * the headless loop above and the Overlay's embedded Run (story 5.1), so the two headers are one
+     * statement about one kind of Run.
+     */
+    static RunLogWriter openLog(Logging logging, long seed, HeroClass heroClass, long salt, int turnCap) {
+        return RunLogWriter.open(logging.folder(), new RunLog.Header(RunLog.VERSION,
+                Observer.upstreamTag(), logging.commit(),
+                org.shatterfish.api.HeroClass.valueOf(heroClass.name()), Dungeon.challenges, seed,
+                SeedSet.code(seed), salt, turnCap, Profile.VERSION,
+                ObservationCodec.SCHEMA_VERSION, Codex.VERSION, logging.brain(),
+                logging.registration(), logging.oracle(), logging.machine(),
+                Instant.now().toString()));
     }
 
     /**
@@ -362,7 +372,7 @@ public final class RunLoop {
      * {@code :676-691}; the level is loaded when it has been generated before, so climbing back
      * down finds the floor the hero left rather than a new one.
      */
-    private static void crossFloor(InterlevelScene.Mode mode) {
+    static void crossFloor(InterlevelScene.Mode mode) {
         try {
             LevelTransition transition = InterlevelScene.curTransition;
             if (mode == InterlevelScene.Mode.FALL) {
@@ -432,7 +442,7 @@ public final class RunLoop {
      * off the screen and the bot may not -- so it is read from the game, at an instant when nothing
      * has stepped it since the Observation was made.
      */
-    private static void record(RunLogWriter log, long k, Observation observation, Action chosen,
+    static void record(RunLogWriter log, long k, Observation observation, Action chosen,
                                boolean applied, long thinkMs, boolean oracle, Decider agent) {
         if (log == null) {
             return;
@@ -478,14 +488,18 @@ public final class RunLoop {
      * one is a Run that was killed, which the Rig counts rather than repairs (ADR-0012).
      */
     private static RunOutcome ending(RunLogWriter log, HeadlessDriver driver, RunOutcome outcome) {
-        if (log == null) {
-            return outcome;
-        }
         // The driver's own wait index, which every wait record is keyed by and which the spec makes
         // the driver's to assign. The loop's count of served waits is a different number -- they
         // part company the first time a wait is confirmed and not served -- and one file had been
         // using both under one key name.
-        long k = driver.waitIndex();
+        return ending(log, driver.waitIndex(), outcome);
+    }
+
+    /** The end record at wait {@code k}, for either driver; see the overload above for the index. */
+    static RunOutcome ending(RunLogWriter log, long k, RunOutcome outcome) {
+        if (log == null) {
+            return outcome;
+        }
         // The cause is the authority on whether this Run was won, not `Statistics.gameWon`. The
         // game sets that flag in `Dungeon.win` (core/.../Dungeon.java:883), which runs from the
         // surface scene's own callback -- and this loop ends the Run when the game *asks* for that
@@ -575,7 +589,7 @@ public final class RunLoop {
                 : Windows.front().getClass().getSimpleName();
     }
 
-    private static RunOutcome outcome(RunOutcome.Cause cause, long salt, long waits, long applied,
+    static RunOutcome outcome(RunOutcome.Cause cause, long salt, long waits, long applied,
                                       long refused, String detail) {
         return new RunOutcome(cause, salt, Statistics.deepestFloor, turns(), waits, applied, refused, detail);
     }

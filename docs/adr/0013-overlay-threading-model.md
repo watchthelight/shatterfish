@@ -225,3 +225,40 @@ would violate the bare rule, so neither can go stale unnoticed.
 
 **The Brain holds no game object** by `BrainBoundaryTest`'s allowlist and its denial of
 `org.shatterfish.harness..`, which this story names and does not repeat.
+
+## Amendment: story 5.1 (2026-09-26)
+
+The Overlay's side of the roles above is built. Paths abbreviate
+`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/` as `…/`, at `v4.0.0`.
+
+**The render thread claims the UI role** when the launcher's game attaches a Run
+(`EmbeddedRun.attach`), as the headless driver's thread claims it at `start`; the Observer, the
+executor and the Run's own `frame()` then refuse every other thread by name.
+
+**One confirmation for both drivers.** The per-wait sequence is shared by construction rather than by
+care: the state that decides whether a frame ends at a new Input wait (the hook row 5 count, the
+announcement of an Action handed over, the window in front and its frames shown, the render queue)
+moved out of `HeadlessDriver` into `WaitGate`, which the headless driver asks after each frame it
+steps and the embedded Run asks after each frame the render thread gives it. The executor's
+announcement reaches whichever gate is installed.
+
+**The Brain's worker** is one daemon thread per Run, `shatterfish-brain`. The render thread submits
+the Observation, asks `Future.isDone` once per frame, and takes the answer with `resultNow`, which
+throws rather than waits; `EmbeddedRunRulesTest` holds that the class calls nothing that waits, and
+`EmbeddedThreadingTest` that three hundred frames go by, each at once, while a Brain is held. No wait
+is confirmed while a decision is pending, so the "decision for a `k` no longer current" case cannot
+arise before takeover (story 5.8), and is checked as an invariant until then.
+
+**The render queue.** A wait is confirmed only with nothing queued for the render thread. libGDX's
+desktop backend keeps its queue private, so `OverlayApplication` counts at the one door the game
+posts through, `Gdx.app.postRunnable` (`SPD-classes/…/noosa/Game.java:306-313`).
+
+**Scene lifetime.** The Run re-attaches through hook row 3's existing seam, which it chains: the
+Observer's log listener is re-added and the attachment counted. No destruction site was needed; the
+Run holds no scene object.
+
+**What equality with a Rig Run means.** An embedded Run's log chain equals the headless Run's for the
+same tuple whenever the frames between two waits are the same (`EmbeddedDeterminismTest`). The
+desktop adds frames, drawn while the Brain thinks and paced by the wall clock, and the render thread's
+draws in them come from the Run's generator until story 5.13's draw-routing hook; an Overlay Run is
+reproducible from its own log in the meantime.
