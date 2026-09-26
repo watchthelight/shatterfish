@@ -55,6 +55,17 @@ class PickupThresholdTest {
     }
 
     @Test
+    @DisplayName("a worn key is worth fetching from anywhere on the floor, unlike an ordinary item at the same distance (issue #163)")
+    void worn_key_worth_the_whole_floor() {
+        Observation nineteenAway = room(30, 20, "worn key", STEPS);
+        assertEquals(Pickup.KEY_WORTH, PICKUP.worth("worn key", nineteenAway));
+        // Nineteen cells is the crimson-potion test's "not worth it" distance above; the key still is.
+        RunLog.Choice taken = choose(nineteenAway);
+        assertEquals(new Action.Step(2), taken.action(), "still taken, however far");
+        assertNull(choose(room(30, 20, "ration of food", STEPS)), "an ordinary item at the same distance is not");
+    }
+
+    @Test
     @DisplayName("gold is worth its pieces: a stack of a hundred two cells away is taken, forty is not")
     void gold_by_the_piece() {
         assertEquals(new Action.Step(2), choose(room(12, 3, "gold x100", STEPS)).action());

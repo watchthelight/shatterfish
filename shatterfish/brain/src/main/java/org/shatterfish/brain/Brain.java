@@ -220,6 +220,13 @@ public final class Brain {
         }
         int depth = observation.header().depth();
         int branch = observation.header().branch();
+        // An Unlock the descend Policy handed over at a locked exit (issue #163's fairness review),
+        // recorded whether or not it succeeds: once it does the exit is no longer LOCKED_EXIT and
+        // Descend never consults this again for it, so recording every try costs nothing and a
+        // refusal is never walked back into on its own.
+        if (decision != null && Descend.NAME.equals(decision.policy()) && decided.action() instanceof Action.Unlock unlock) {
+            memory = memory.unlockRefused(new Memory.Spot(depth, branch, unlock.cell()));
+        }
         // The chase (issue #174): an approach records the enemy it goes for, where the screen shows it; a
         // chase keeps it; anything else the fight Policy hands over -- an attack, a retreat, a hold -- ends it.
         if (decision != null && Fight.NAME.equals(decision.policy())) {

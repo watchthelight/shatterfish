@@ -6,6 +6,7 @@ import org.shatterfish.api.Hunger;
 import org.shatterfish.api.ItemKind;
 import org.shatterfish.api.ItemView;
 import org.shatterfish.api.MapSection;
+import org.shatterfish.api.NoteKind;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.RunLog;
 import org.shatterfish.api.Tile;
@@ -76,6 +77,24 @@ import java.util.List;
  * 4.7): those plans come first.
  * It yields for one wait when the hero has stood still after {@link Explore#STUCK} - 1 refused Steps,
  * and the cell of the Step is then blocked ({@link Beliefs#fold}).
+ *
+ * <p><b>A locked exit is walked to and unlocked, not skirted.</b> The boss floor's exit draws
+ * {@code LOCKED_EXIT} until a worn key is used on it, which turns it into {@code UNLOCKED_EXIT}
+ * ({@code SewerBossExitRoom.java:63}, {@code Hero.java:1295-1300}, {@code :2452-2457}); it is solid
+ * (Terrain.java:112), so it is never a Step's target ({@code ValidActions} offers {@link Action.Unlock}
+ * at a neighbour instead, {@code ValidActions.java:207-210}), but it is still the {@code REGULAR_EXIT}
+ * transition {@link #known} and {@link #toward} look for -- the transition record does not carry the
+ * lock, only the tile drawn does (issue #163). So once leaving is worth it, the Policy walks to a cell
+ * beside a locked exit, the same way it walks to an open one, and tries the Unlock the screen offers
+ * there once, honestly, whether or not a key is held. A refusal is remembered in
+ * {@link Memory#triedExits} rather than tried again every wait the hero happens to be beside the door
+ * (a fairness review of the first cut found that, ranking above the explore Policy, this would
+ * otherwise leave it at most one Step between refusals -- never enough to go looking for a key it has
+ * not seen): while the journal shows no worn key for this depth ({@link #keyHeld}) and the door was
+ * already tried, this method returns null and the explore Policy gets the wait uncontested. The key
+ * that makes an Unlock good is the pick-up Policy's business ({@link Pickup#WORN_KEY}), never this
+ * one's; once the journal shows it taken, the Policy walks back and tries again, needing no cleared
+ * memory to say so.
  */
 final class Descend implements Policy {
 
@@ -135,6 +154,10 @@ final class Descend implements Policy {
         String why = leaving(observation, memory, knowledge);
         if (why == null) {
             return null;
+        }
+        RunLog.Choice unlock = unlock(observation, memory, offered, why);
+        if (unlock != null) {
+            return unlock;
         }
         MapSection map = observation.map();
         if (exit(map, observation.hero().cell())) {
@@ -281,6 +304,81 @@ final class Descend implements Policy {
     static boolean rests(Observation observation, Memory memory) {
         return observation.hero().hp() < observation.hero().ht() && observation.hero().hunger() != Hunger.STARVING
                 && memory.rests() < RESTS;
+    }
+
+    /**
+     * The boss floor's exit while it is still locked (issue #163): the cell beside it and an
+     * {@link Action.Unlock} onto it, once leaving is worth it, or null while no key has opened it or
+     * none is offered yet (the hero not yet beside it, or none of the floor's exits locked at all).
+     *
+     * <p>Tried honestly once, whether or not a key is held: the screen offers Unlock beside any
+     * locked tile regardless (ValidActions.java:207-210), and there is no other way to tell a floor
+     * that never had one from one whose key is still to fetch. A refusal is recorded in
+     * {@link Memory#triedExits} rather than walked back into every time the hero happens to move away
+     * and back: a fairness review of this Policy's first cut found that, ranking above the explore
+     * Policy, it would otherwise seize every wait it was adjacent and hand the same refused Unlock over
+     * again, leaving explore at most one Step between refusals -- never enough to go looking for a key
+     * heap that has not even been seen. Once {@link #keyHeld} reads a worn key for this depth off the
+     * journal, the record is moot: this method walks to the door and tries again, needing no cleared
+     * entry to say the key was taken, since {@link Pickup#WORN_KEY} is the pick-up Policy's to fetch,
+     * never this one's.
+     */
+    private static RunLog.Choice unlock(Observation observation, Memory memory, List<Action> offered, String why) {
+        MapSection map = observation.map();
+        int locked = lockedExitCell(map);
+        if (locked < 0) {
+            return null;
+        }
+        int depth = observation.header().depth();
+        int branch = observation.header().branch();
+        if (!keyHeld(observation, depth) && memory.triedUnlock(depth, branch, locked)) {
+            return null;
+        }
+        Action.Unlock hand = new Action.Unlock(locked);
+        if (offered.contains(hand)) {
+            return new RunLog.Choice(hand, Policies.CERTAIN, "unlock: " + why);
+        }
+        Explore.Path path = Explore.nearest(map, Explore.walkable(observation, memory, true),
+                observation.hero().cell(), offered, cell -> adjacent(map, cell, locked));
+        if (path == null) {
+            path = Explore.nearest(map, Explore.walkable(observation, memory, false),
+                    observation.hero().cell(), offered, cell -> adjacent(map, cell, locked));
+        }
+        return path == null ? null
+                : new RunLog.Choice(path.step(), Policies.CERTAIN, "boss exit: " + why + " " + path.distance());
+    }
+
+    /**
+     * Whether a worn key for {@code depth} is held (issue #163's fairness review): collected into the
+     * journal's Notes on pickup, counted there and never in the pack (Key.java:53-69,
+     * Notes.java:614), so the screen already says so before any Unlock is tried or retried.
+     */
+    private static boolean keyHeld(Observation observation, int depth) {
+        return observation.journal().notes().stream().anyMatch(note -> note.kind() == NoteKind.KEY
+                && note.depth() == depth && note.title().equals(Pickup.WORN_KEY));
+    }
+
+    /**
+     * The cell of a {@code REGULAR_EXIT} transition the screen draws {@code LOCKED_EXIT}, or -1: the
+     * boss floor's exit before its key opens it (issue #163). A {@code LevelTransition} carries only
+     * its type, destination and centre cell ({@code core/.../levels/features/LevelTransition.java:42-47});
+     * it does not carry the lock, only the tile drawn does.
+     */
+    private static int lockedExitCell(MapSection map) {
+        for (TransitionView transition : map.transitions()) {
+            if (transition.kind() == TransitionKind.REGULAR_EXIT && map.tiles().get(transition.cell()) == Tile.LOCKED_EXIT) {
+                return transition.cell();
+            }
+        }
+        return -1;
+    }
+
+    /** Whether {@code cell} is one of {@code target}'s eight neighbours (Chebyshev distance 1, never {@code target} itself). */
+    private static boolean adjacent(MapSection map, int cell, int target) {
+        int width = map.width();
+        int dx = Math.abs(cell % width - target % width);
+        int dy = Math.abs(cell / width - target / width);
+        return cell != target && dx <= 1 && dy <= 1;
     }
 
     /** Whether {@code cell} is a regular exit drawn open. */
