@@ -143,7 +143,12 @@ every Overlay Run is, is unchanged by it; the sweep behind the list is in `docs/
 ("Statics that outlive a Run"). `HarnessReflectionTest` confines reflection in harness main code to
 those two classes, by dependency rather than by call so that a method reference or a reflective
 call to `getDeclaredField` itself does not slip past, and asserts that the fields each reaches are
-exactly the ones named here, so another cannot arrive unannounced.
+exactly the ones named here, so another cannot arrive unannounced; for `RunStatics` it also asserts
+no `Field` read of any kind, so the class can put state back and never carry any out. One more class
+is exempt from the rule, and reaches no member at all: `NoOpGL`, the headless GL stand-in, is a
+dynamic proxy, and building one means naming `java.lang.reflect.Proxy`, `InvocationHandler` and
+`Method`; a separate rule in the same test holds it to that, with no field, no opening and no
+invocation through `Method`.
 Tests are not confined: the ledger's own tests, the scene fixtures, the row 5 checks and the
 driver's test reach `Random.generators`, `Badges.global`, `Journal.loaded`, `GameScene.scene`,
 `GameScene.emoicons`, `GameScene.cellSelector`, `CellSelector.heldAction1`, `Actor.current` and

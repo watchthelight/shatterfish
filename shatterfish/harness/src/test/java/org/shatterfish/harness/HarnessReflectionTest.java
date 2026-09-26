@@ -190,6 +190,7 @@ class HarnessReflectionTest {
         long lookups = 0;
         long openings = 0;
         long writes = 0;
+        long reads = 0;
         for (JavaClass owner : reset) {
             for (JavaAccess<?> access : owner.getAccessesFromSelf()) {
                 String name = access.getTarget().getName();
@@ -203,11 +204,17 @@ class HarnessReflectionTest {
                         && !name.equals("setAccessible")) {
                     writes++;
                 }
+                // Any get* on a Field: a value read (get, getInt, ...) would carry private upstream
+                // state out of a public harness class the ArchUnit rule exempts, so none at all.
+                if (access.getTarget().getOwner().isEquivalentTo(Field.class) && name.startsWith("get")) {
+                    reads++;
+                }
             }
         }
         assertEquals(1, lookups, "one place looks a field up by name");
         assertEquals(1, openings, "one place opens it");
         assertEquals(1, writes, "one place writes through reflection");
+        assertEquals(0, reads, "RunStatics writes the fields it reaches and never reads one");
     }
 
     @Test
