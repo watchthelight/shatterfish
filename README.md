@@ -112,7 +112,7 @@ Run; the Goo gate (story 4.14) is where E4 is judged.
 | **Engine** (`harness`) | SPD's code driven headlessly, fast, reproducibly, through a fair Observation/Action interface | done (E1) |
 | **Brain** (`brain`) | Belief state, scripted policies, tactical search, strategic playbooks, evaluation. No game imports, enforced by the build | in progress (E4); search and strategy later (E6, E7) |
 | **Rig** (`rig`) | Thousands of seeded runs, SPRT comparisons, published numbers | done (E3) |
-| **Overlay** (`overlay`) | The bot inside the real desktop game, in the game's own UI style | in progress (E5): the launcher, the embedded driver and the Panel frame are in; its content is next |
+| **Overlay** (`overlay`) | The bot inside the real desktop game, in the game's own UI style | in progress (E5): the launcher, the embedded driver and the Panel with its Decision card are in |
 
 Supporting modules: `api` (data types only), `codex` (every mob, item, table and
 recipe at the pinned tag, generated with citations into `codex/<tag>/`), and

@@ -2,7 +2,7 @@
 title: 'Story 5.3: The Mode strip, Goal line and Decision card'
 type: 'feature'
 created: '2026-09-26'
-status: 'review'
+status: 'done'
 baseline_commit: '1d98e35be'
 review_loop_iteration: 0
 context: []
