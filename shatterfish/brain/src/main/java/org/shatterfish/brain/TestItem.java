@@ -206,10 +206,17 @@ final class TestItem implements Policy {
         int branch = observation.header().branch();
         // A known scroll of upgrade goes onto the worn weapon or armour (story 4.13, target): the window it opens
         // is answered when the Brain's last Action was this read onto an item (story 4.11).
-        ItemRef armour = target(observation);
         Action upgrade = upgrade(observation, offered);
         if (upgrade != null) {
-            return new Plan("", 0, new RunLog.Choice(upgrade, Policies.CERTAIN, "upgrade: " + armour.name()));
+            return new Plan("", 0, new RunLog.Choice(upgrade, Policies.CERTAIN, "upgrade: " + target(observation).name()));
+        }
+        // An unknown scroll goes where a known upgrade would, but never onto the Mage's staff: an
+        // unknown scroll of transmutation changes the item it is read onto (ScrollOfTransmutation.java:
+        // 71-75): for a melee weapon, another of its tier with its level, enchantment and curse (:231-253),
+        // no loss; but it takes the staff's wand (:158-159).
+        ItemRef armour = target(observation);
+        if (armour != null && armour.name().startsWith(Fight.MAGES_STAFF)) {
+            armour = armour(observation);
         }
         for (Testable item : testable(observation, memory)) {
             // An unknown scroll is read onto the worn armour (story 4.13): a scroll of upgrade then
@@ -357,6 +364,11 @@ final class TestItem implements Policy {
      * makes this Policy enter, as a testable item does: a known upgrade is not one.
      */
     static Action upgrade(Observation observation, List<Action> offered) {
+        // Blinded or immune to magic, the game refuses the read with no time spent (Scroll.java:179-182),
+        // and the refusal would be handed over forever.
+        if (has(observation, BLINDED) || has(observation, MAGIC_IMMUNE)) {
+            return null;
+        }
         ItemRef armour = target(observation);
         List<ItemView> pack = observation.inventory().items();
         for (int index = 0; armour != null && index < pack.size(); index++) {
@@ -394,6 +406,11 @@ final class TestItem implements Policy {
         ItemView w = observation.inventory().items().get(weapon.index());
         boolean upgradable = w.kind() == ItemKind.WEAPON && w.levelKnown();
         return upgradable && w.visiblyUpgraded() <= a.visiblyUpgraded() ? weapon : armour;
+    }
+
+    /** Whether {@code ref} is the worn armour or the worn weapon: an item a read may go onto (story 4.13). */
+    static boolean worn(Observation observation, ItemRef ref) {
+        return ref.equals(armour(observation)) || ref.equals(worn(observation, org.shatterfish.api.EquipSlot.WEAPON));
     }
 
     /** The pack reference of the item worn in {@code slot}, or null. */

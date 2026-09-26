@@ -130,6 +130,15 @@ class AnswerRulesTest {
         assertThrows(Answers.BrainError.class, () -> brain.decide(first, chained));
     }
 
+    @Test
+    @DisplayName("a chained upgrade window after a read onto the worn weapon is confirmed too: the stack follows the item the first went onto")
+    void chained_upgrade_on_the_weapon() {
+        Brain brain = brain();
+        Observation first = armoured("cloth armor");
+        Belief chained = chain(brain, "worn shortsword", org.shatterfish.api.EquipSlot.WEAPON, first);
+        assertEquals(new Action.AnswerPrompt(0), brain.decide(first, chained).action());
+    }
+
     /** The upgrade window over a pack whose worn armour is named {@code name}. */
     private static Observation armoured(String name) {
         org.shatterfish.api.ItemView worn = new org.shatterfish.api.ItemView(org.shatterfish.api.ItemKind.ARMOR,
@@ -143,7 +152,8 @@ class AnswerRulesTest {
      * opened confirmed, and the game's chained window, {@code window}, drawn.
      */
     private static Belief chain(Brain brain, String name, org.shatterfish.api.EquipSlot slot, Observation window) {
-        org.shatterfish.api.ItemView item = new org.shatterfish.api.ItemView(org.shatterfish.api.ItemKind.ARMOR,
+        org.shatterfish.api.ItemView item = new org.shatterfish.api.ItemView(slot == org.shatterfish.api.EquipSlot.WEAPON
+                ? org.shatterfish.api.ItemKind.WEAPON : org.shatterfish.api.ItemKind.ARMOR,
                 name, 1, true, 0, true, false, "", slot, List.of(), "");
         org.shatterfish.api.ItemView scroll = new org.shatterfish.api.ItemView(org.shatterfish.api.ItemKind.SCROLL,
                 "scroll of upgrade", 2, true, 0, true, false, "", org.shatterfish.api.EquipSlot.NONE, List.of("READ"), "");

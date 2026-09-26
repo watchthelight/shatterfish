@@ -78,7 +78,7 @@ without an Observer change and its leak tests.
 - [x] The comparison view, its tests, the methodology section.
 - [x] The failure analysis: comparison view plus an in-process probe of the last screens.
 - [x] Tuning steps, each measured (the tuning log).
-- [x] The Goo fight (G1-G4, measured; none kept but the pump memory, which is neutral).
+- [x] The Goo fight (G1-G4, measured): kept the pump memory and the G2 dodge, measured neutral (the fight Policy still calls it); G3 and G4 reverted.
 - [x] Rules rows, Brain Rules index rows, docs; the direction check in `docs/results/2026-09-26-4-13-direction-check.md`.
 - [x] Mutation battery (17 of 17 killed, below).
 
@@ -160,6 +160,8 @@ Tuning set: 40 Warriors of `standard`, salts 1000+j. Each row is a full play of 
 | G4 | T1 + no retreat from Goo; the dodge only while Goo stands dry; a Step to the drier cell while Goo stands on water ("pull") | 1,270 | 3.13 (5) | as T1 | 12 | 4 | reverted: no change (pull 51 times, dodge 75). The probe: in 4 of 6 depth-5 Runs Goo stood on water on every screen -- its room is mostly water and the hero is pinned in a corridor mouth with no drier cell offered; the hero arrives at strength 11 in a +0 shortsword, holding a hand axe, a shortsword or mail armour it lacks the strength for |
 | U1 | T1 + a scroll of upgrade, known or read unknown, goes onto the worn weapon while its level is no higher than the armour's, else onto the armour (a weapon level adds 1 to the least and tier+1 to the most damage, MeleeWeapon.java:250-259; an armour level adds the tier to the most absorbed, Armor.java:379-384) | 1,614 | 3.23 (5) | 7/7/6/10, 10 on 5 | 10 | 7 | kept: Goo kills 4 to 7, median survival +344 turns; two fewer reach depth 5 |
 | smoke | U1 (`e74ee9f83`) on `smoke` | 1,094 (T1: 1,071; mean 1,134, T1: 1,123) | 2.84 (5) (T1: 2.96) | 2/8/8/6, 1 on 5 | 1 | 1 | the first Goo kill on `smoke`; fewer reach depth 5 (5 to 1), more die on 4: 25 Runs move a lot on one or two deaths |
+| V1 | U1 + the final review's fixes, with unknown scrolls read onto the armour only | 1,311 | 3.05 (6) | 8/8/10/3, 10 on 5, 1 on 6 | 11 | 5 | not kept: Goo kills 7 to 5, median down 303; `smoke` 1,094, 2 on 5, 1 kill |
+| V2 | U1 + the final review's fixes, unknown scrolls following the upgrade's target except onto the Mage's staff | 1,614 | 3.23 (5) | 7/7/6/10, 10 on 5 | 10 | 7 | kept: every Run identical to U1 on both sets (`smoke` 1,094, 1 on 5, 1 kill); the published numbers stand |
 | P1 | U1 + unknown potions drunk at 10% odds of strength or experience, not 20% | 1,572 | 3.23 (5) | 7/7/6/10, 10 on 5 | 10 | 7 | reverted: no gain (Goo kills 7, median down 42 turns) |
 | main | `main` (`53de13d73`, story 4.11) re-played on the tuning set for the results page | 967 | 2.48 (4) | 6/10/21/2, 1 stalled | 0 | 0 | the published baseline; on `smoke` 1,044 turns, 2.52 (4), none on 5 |
 | F1 | S4 + the hunger clock; leave a floor whose food is found when under 450 turns of food ("lean"); frugal rests to 70% and no walks to testing cells under 600 | 946 | 2.68 (4) | 6/9/17/8 | 0 | 0 | reverted: 16 starving at death as before, median survival down |
@@ -295,7 +297,7 @@ the gate, which counts the kill, but it blocks depth 6. Filed as
 [#163](https://github.com/watchthelight/shatterfish/issues/163).
 
 **Recommendation.** Ship 4.13 as the direction check it is scoped as: the numbers move the right way
-(Goo kills 0 to 7, median survival 976 to 1,614 turns on the tuning set) and every step is logged.
+(Goo kills 0 to 7, median survival 967 to 1,614 turns on the tuning set, against `main` re-played) and every step is logged.
 Treat 4.14's 75% as a correct-course item with the owner: at this rate of about one Goo kill per
 kept step, the gate is several stories away, and E6's search is likely a prerequisite.
 
@@ -327,4 +329,32 @@ find `gradlew.bat`; the control step was added and the battery re-run.
 | 17 | The worn flag not written to the Belief's bytes | `WindowMemoryTest.the_windows_round_trip`, `AnswerRulesTest.chained_upgrade_on_the_armour` |
 
 17 of 17 killed.
+
+### The final reviews of `d1d41cbcc`
+
+Fairness: no violation. Verification: the earlier fixes hold; five findings, each fixed with a test.
+
+- **A. A known upgrade read while blinded or immune to magic** would be refused with no time spent
+  (Scroll.java:179-182) and handed over forever. `TestItem.upgrade` now returns nothing then
+  (`TestItemPolicyTest.scroll_onto_the_armour`).
+- **B. Goo's pump memory went blind on a full log.** The log section holds 64 lines
+  (GameLogListener.java:98-101), so a hash of its size and last four lines stopped changing from the
+  fifth announcement in a row. The hash now covers the whole window, which moves with every new line;
+  and an announcement counts while it is among the last three lines, since the same turn can log more
+  after it. No Observer change. Tests: `GooTest.full_log`, `announcement_not_last` (with Goo not drawn:
+  no pump).
+- **C. The chained upgrade window** follows the item the first scroll went onto, the weapon too since
+  U1, so the stack goes there rather than being shared; accepting it is still right, since "Back"
+  opens a selector no Action answers. The comment and brain-rules row 66 say so
+  (`AnswerRulesTest.chained_upgrade_on_the_weapon`).
+- **D. Unknown scrolls onto the weapon.** An unknown transmutation read onto a melee weapon gives
+  another weapon of its tier with its level, enchantment and curse (ScrollOfTransmutation.java:231-253):
+  no loss. Onto the Mage's staff it takes the wand (:158-159). Measured both ways: armour only (V1)
+  cost two Goo kills; following the target except the staff (V2) plays every Run as U1 did. V2 is kept
+  (`TestItemPolicyTest.unknown_scroll_target`); `docs/ideas.md` notes the staff.
+- **E.** The results page's `smoke` median read 1,095; it is 1,094.
+
+Nits: the Goo-fight task line now says the pump memory and the G2 dodge are kept; the recommendation
+uses the published baseline, 967; `Memory.VERSION` is 11 for the new fields; `TalentCapTest` covers
+tiers 3 and 4.
 

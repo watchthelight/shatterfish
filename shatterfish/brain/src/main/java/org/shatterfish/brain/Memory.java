@@ -117,7 +117,7 @@ import java.util.List;
  * @param hp       the hero's hit points on the last screen, or -1 before the first (story 4.13): a rest's
  *                 cost is the hit points it restored
  * @param food     the turns of food the pack held on the last screen, or -1 before the first (story 4.13)
- * @param tail     a hash of the game log's last lines on the last screen (story 4.13): a line that is new
+ * @param tail     a hash of every line of the game log on the last screen (story 4.13): a line that is new
  *                 since then changes it, which is how a Goo pump-up the log announces is told from one
  *                 already answered
  * @param pump     Goo's cell on the screen that announced a pump-up, or -1 (story 4.13): cleared once Goo
@@ -146,9 +146,10 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
      * pending, monsters, at, streak, calm, dwelt, blocked, last, holds, near, before, flights, avoid,
      * underfoot, refused, pack, aim, drank, trial, balked, walking, tested, clouds, refuge, arrived,
      * rests, stepped, tried, fleeting and, from version 9 (story 4.11), windows; and from version 10
-     * (story 4.13) prior, bounces, hunger, hp, food, tail, pump and pumpWait.
+     * (story 4.13) prior, bounces, hunger, hp, food, tail, pump and pumpWait; version 11 (story 4.13)
+     * adds the windows' worn flag and the pump's whole-window log hash.
      */
-    static final int VERSION = 10;
+    static final int VERSION = 11;
 
     /**
      * The bounces between two cells after which a Step back to the cell of two waits ago is withheld
@@ -220,7 +221,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
      *
      * @param action  the last Action this Brain handed over, as its record prints, or empty
      * @param target  the name of the item that Action used another item on, or empty
-     * @param worn    whether that item was the worn armour (story 4.13): the chained upgrade window is
+     * @param worn    whether that item was the worn armour or weapon (story 4.13): the chained upgrade window is
      *                confirmed only then, and a name does not say it, since an upgrade that lifts a curse
      *                renames the armour (Armor.java:471-472, :578)
      * @param opener  the Action that opened the window open now, or empty: the Action handed over just

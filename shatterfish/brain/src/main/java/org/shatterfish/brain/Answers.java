@@ -216,12 +216,13 @@ final class Answers {
      * no Action answers, so there is no answer that leaves the Run where a person would leave it.
      */
     static List<RunLog.Choice> upgrade(Observation observation, Memory memory, List<Action> offered) {
-        // The chain on the worn armour is wanted (story 4.13): the test-item Policy reads every scroll of
-        // upgrade onto the worn armour, so a chained window for that armour, after this rule confirmed the
-        // last one, spends the next scroll where the Brain would have read it anyway. The armour is known
-        // by its slot when the read was handed over, not by its name, which a lifted curse changes.
-        boolean chainOnArmour = memory.last().equals(ANSWERED) && memory.windows().worn()
-                && TestItem.target(observation) != null;
+        // The chain on a worn weapon or armour is accepted (story 4.13). The test-item Policy reads a
+        // known scroll of upgrade onto the worn weapon or armour (TestItem.target) and an unknown one onto
+        // the armour, so a chained window spends the next scroll on the item the first went onto: the
+        // whole stack goes there, not shared between the two as TestItem.target would share it. It is
+        // still the better answer: "Back" reopens a selector no Action answers. The item is known by its
+        // slot when the read was handed over, not by its name, which a lifted curse changes.
+        boolean chainOnArmour = memory.last().equals(ANSWERED) && memory.windows().worn();
         if (!READ_ONTO.equals(memory.last()) && !chainOnArmour) {
             throw new BrainError("the upgrade window opened again after " + (memory.last().isEmpty()
                     ? "no Action" : memory.last()) + ", not after reading onto an item: confirming it would spend"

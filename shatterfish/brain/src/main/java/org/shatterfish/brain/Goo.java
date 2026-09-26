@@ -21,9 +21,11 @@ import java.util.List;
  * out of its reach when the pump is announced makes Goo come after it, and the pump is gone.
  *
  * <p><b>What the Brain reads.</b> The game log, which the Observation carries (ADR-0006), and Goo's
- * cell as drawn: never Goo's state. The {@link Memory} keeps a hash of the log's last lines, so an
- * announcement is acted on once, and Goo's cell when it was made: once Goo has moved, the pump is
- * dropped.
+ * cell as drawn: never Goo's state. The {@link Memory} keeps a hash of the log's lines, so an
+ * announcement is acted on when the log has changed, and Goo's cell when it was made: once Goo has
+ * moved, or after {@link #PUMP_WAITS} waits, the pump is dropped. An announcement still among the last
+ * {@link #RECENT} lines when a later line arrives renews the pump at Goo's cell; that is within the
+ * turns the pump takes to land.
  */
 final class Goo {
 
@@ -39,26 +41,38 @@ final class Goo {
     /** The waits after an announcement a pump is still expected: the charge and the attack (Goo.java:180-186). */
     static final int PUMP_WAITS = 3;
 
-    /** The log's last lines the tail hash covers. */
-    private static final int TAIL = 4;
+    /**
+     * How near the end of the log an announcement may sit and still be this screen's: the pump-up's
+     * line can be followed by others the same turn (Goo's yell, a hit, an ooze), and the charge and
+     * the attack take the next two of Goo's turns (Goo.java:180-186).
+     */
+    static final int RECENT = 3;
 
     private Goo() {
     }
 
-    /** A hash of the log's last lines: it changes when a line is added. */
+    /**
+     * A hash of every line the log section shows: it changes when a line is added, also once the
+     * section is full and the oldest line drops (LogSection.MAX_LINES; GameLogListener.java:98-101),
+     * since every line then moves up one. Only a window of identical lines would hash the same.
+     */
     static int tail(Observation observation) {
-        List<LogLine> lines = observation.log().lines();
-        int hash = lines.size();
-        for (LogLine line : lines.subList(Math.max(0, lines.size() - TAIL), lines.size())) {
+        int hash = 1;
+        for (LogLine line : observation.log().lines()) {
             hash = 31 * hash + line.text().hashCode();
         }
         return hash;
     }
 
-    /** Whether the log's last line announces a pump-up. */
+    /** Whether one of the log's last {@link #RECENT} lines announces a pump-up. */
     static boolean announced(Observation observation) {
         List<LogLine> lines = observation.log().lines();
-        return !lines.isEmpty() && lines.get(lines.size() - 1).text().equals(PUMP);
+        for (LogLine line : lines.subList(Math.max(0, lines.size() - RECENT), lines.size())) {
+            if (line.text().equals(PUMP)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Goo's cell as drawn, or -1 when it is not in view. */

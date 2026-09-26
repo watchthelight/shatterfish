@@ -264,8 +264,8 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         boolean locked = observation.hero().buffs().stream().anyMatch(buff -> buff.name().equals(Larder.LOCKED));
         int hunger = Larder.clock(memory.hunger(), memory.last(), !still, gained, eaten, restCap, locked,
                 observation.hero().hunger());
-        // A Goo pump-up the log announces (story 4.13, Goo): new when the log's tail changed and its last
-        // line is the announcement; it lapses once Goo has moved, which drops it (Goo.java:244-250), or
+        // A Goo pump-up the log announces (story 4.13, Goo): new when the log changed and one of its
+        // last Goo.RECENT lines is the announcement; it lapses once Goo has moved, which drops it (Goo.java:244-250), or
         // after PUMP_WAITS waits.
         int tail = Goo.tail(observation);
         int gooCell = Goo.cell(observation);

@@ -82,6 +82,44 @@ class GooTest {
     }
 
     @Test
+    @DisplayName("a full log: the fifth announcement in a row, the oldest line dropping, is still new")
+    void full_log() {
+        List<String> lines = new ArrayList<>();
+        for (int i = 0; i < org.shatterfish.api.LogSection.MAX_LINES - 4; i++) {
+            lines.add("line " + i);
+        }
+        for (int i = 0; i < 4; i++) {
+            lines.add(Goo.PUMP);
+        }
+        Observation first = screen(lines, NEAR);
+        Memory seen = Beliefs.fold(Memory.START, first, Screens.CODEX);
+        assertEquals(Goo.cell(first), seen.pump());
+        List<String> next = new ArrayList<>(lines.subList(1, lines.size()));
+        next.add(Goo.PUMP);
+        Observation moved = screen(next,
+                "##########",
+                "#...@..r.#",
+                "#........#",
+                "##########");
+        assertEquals(Goo.cell(moved), Beliefs.fold(seen, moved, Screens.CODEX).pump(),
+                "the same size and the same last lines, but the window moved: a new announcement at Goo's new cell");
+    }
+
+    @Test
+    @DisplayName("an announcement followed by another line the same turn is still read; one while Goo is not drawn is not")
+    void announcement_not_last() {
+        Observation followed = screen(List.of("You see Goo.", Goo.PUMP, "Goo: GLURP-GLURP!"), NEAR);
+        assertEquals(Goo.cell(followed), Beliefs.fold(Memory.START, followed, Screens.CODEX).pump());
+        Observation unseen = screen(List.of("You see Goo.", Goo.PUMP),
+                "##########",
+                "#...@....#",
+                "#........#",
+                "##########");
+        assertEquals(-1, Goo.cell(unseen), "no Goo drawn");
+        assertEquals(-1, Beliefs.fold(Memory.START, unseen, Screens.CODEX).pump(), "no pump without Goo in view");
+    }
+
+    @Test
     @DisplayName("an announcement is answered once: the same log tail again is no new pump, and Goo moving drops it")
     void once() {
         Observation pumped = screen(List.of("You see Goo.", Goo.PUMP), NEAR);

@@ -219,6 +219,13 @@ class TestItemPolicyTest {
         assertEquals(up, upgraded.choice().action(), "a known scroll of upgrade goes onto the armour, at any health");
         assertEquals("upgrade: cloth armor", upgraded.choice().why());
         assertTrue(new TestItem(Screens.CODEX).enters(known, Memory.START), "a known upgrade alone makes the Policy enter");
+        for (String buff : List.of(TestItem.BLINDED, TestItem.MAGIC_IMMUNE)) {
+            Observation refused = screen(1, row(3, -1, -1), Screens.heroAt(1, 12, 20, List.of(new BuffView(buff, false, 0))),
+                    List.of(ARMOUR, upgrade), List.of(), List.of(), List.of(), read(1, TestItem.UPGRADE, 1), up);
+            assertNull(TestItem.upgrade(refused, refused.actions().actions()),
+                    buff + ": the game refuses the read with no time spent (Scroll.java:179-182)");
+            assertFalse(new TestItem(Screens.CODEX).enters(refused, Memory.START), buff);
+        }
         Brain.Decided decided = new Brain(Screens.CODEX, Screens.WEIGHTS, 5L).decide(known, Memory.START.belief());
         assertEquals(up, decided.action(), "and the Brain reads it onto the armour: " + decided.decision());
     }
@@ -239,6 +246,23 @@ class TestItemPolicyTest {
         Observation bare = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(Screens.item(
                 ItemKind.WEAPON, "worn shortsword", 1)), List.of(), List.of(), List.of());
         assertNull(TestItem.target(bare), "no armour worn: no target");
+    }
+
+    @Test
+    @DisplayName("an unknown scroll is read onto the upgrade's target, the weapon, but never onto the Mage's staff (story 4.13)")
+    void unknown_scroll_target() {
+        ItemView kaunan = Screens.unknown(ItemKind.SCROLL, "scroll of KAUNAN", 1);
+        for (String weaponName : List.of("worn shortsword", "mage's staff of magic missile")) {
+            ItemView weapon = new ItemView(ItemKind.WEAPON, weaponName, 1, true, 0, true, false, "",
+                    org.shatterfish.api.EquipSlot.WEAPON, List.of(), "");
+            ItemRef onto = weaponName.startsWith(Fight.MAGES_STAFF) ? new ItemRef(1, "cloth armor", 1)
+                    : new ItemRef(0, weaponName, 1);
+            Action read = new Action.UseItemOn(new ItemRef(2, "scroll of KAUNAN", 1), TestItem.READ, onto);
+            Observation worn = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()),
+                    List.of(weapon, ARMOUR, kaunan), List.of(), List.of(), List.of(), read(2, "scroll of KAUNAN", 1), read);
+            TestItem.Plan plan = new TestItem(Screens.CODEX).plan(worn, Memory.START, worn.actions().actions());
+            assertEquals(read, plan.choice().action(), weaponName);
+        }
     }
 
     @Test

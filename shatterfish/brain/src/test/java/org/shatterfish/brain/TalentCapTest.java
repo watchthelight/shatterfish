@@ -40,6 +40,15 @@ class TalentCapTest {
             Brain.Decided decided = new Brain(Screens.CODEX, Screens.WEIGHTS, seed).decide(both, Memory.START.belief());
             assertEquals(open, decided.action(), "seed " + seed + ": " + decided.decision());
         }
+        // Tiers 3 and 4 hold as many points as their tier (Talent.java:438-445, the tier lists from :98).
+        Action three = new Action.Talent("hold fast");
+        Action four = new Action.Talent("body slam");
+        Observation high = screen(List.of(new TalentView(3, "hold fast", 3), new TalentView(4, "body slam", 3)),
+                three, four);
+        for (long seed = 0; seed < 20; seed++) {
+            assertEquals(four, new Brain(Screens.CODEX, Screens.WEIGHTS, seed).decide(high, Memory.START.belief()).action(),
+                    "tier 3 full at three; tier 4 open at three of four");
+        }
         Observation only = screen(List.of(new TalentView(1, "veteran's intuition", 2)), full);
         assertEquals(null, brain.decide(only, Memory.START.belief()).action(), "nothing left to choose");
     }

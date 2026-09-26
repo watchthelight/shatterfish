@@ -30,7 +30,7 @@ step, U1). Both Brains were played the same day on the same machine.
 | tuning (40) | main | 967 | 2.48 (4) | 6/10/21/2/0 | 0 | 0 | 1 stalled |
 | tuning (40) | 4.13 | 1,614 | 3.23 (5) | 7/7/6/10/10 | 10 | 7 | none |
 | `smoke` (25) | main | 1,044 | 2.52 (4) | 3/10/8/4/0 | 0 | 0 | none |
-| `smoke` (25) | 4.13 | 1,095 | 2.84 (5) | 2/8/8/6/1 | 1 | 1 | none |
+| `smoke` (25) | 4.13 | 1,094 | 2.84 (5) | 2/8/8/6/1 | 1 | 1 | none |
 
 "Killed Goo" counts a Run whose log shows the boss's death; a Run can kill Goo and die afterwards
 on depth 5 ([#163](https://github.com/watchthelight/shatterfish/issues/163)).
