@@ -157,7 +157,14 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         boolean still = here.equals(memory.at());
         List<Memory.Spot> dwelt = still && memory.calm() && memory.last().equals(SEARCH)
                 ? Memory.with(memory.dwelt(), here) : memory.dwelt();
-        int streak = still && memory.last().equals(STEP) ? memory.streak() + 1 : 0;
+        // A still hero after a Step is a refusal, unless the screen shows the hero rooted, which refuses
+        // every Step until the roots wear off, or under vertigo, which moves it at random and may
+        // spend the Step against a wall (Hero.java:1822-1825, Char.java:1296-1305): neither says the
+        // cell is out of reach. Refusals count toward a block only while they are aimed at one cell.
+        boolean refusedStep = still && memory.last().equals(STEP) && memory.stepped() >= 0 && !Explore.rooted(observation)
+                && !Explore.has(observation, Explore.VERTIGO);
+        int streak = !refusedStep ? 0 : memory.tried() == memory.stepped() ? memory.streak() + 1 : 1;
+        int tried = refusedStep ? memory.stepped() : -1;
         boolean calm = Explore.calm(observation);
         // The fight Policy's holds, and how near the nearest enemy is now and was a wait ago.
         int holds = !memory.calm() && memory.last().equals(WAIT) && !calm ? memory.holds() + 1 : 0;
@@ -226,21 +233,32 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         int rests = arriving ? 0 : memory.rests();
         List<Memory.Balk> balked = balked(memory, observation, here, still);
         int walking = walking(memory, still);
+        List<Memory.Cloud> fleeting = memory.fleeting().stream().filter(block -> block.until() >= waits).toList();
         Memory after = new Memory(waits, Math.max(memory.deepest(), depth), facts, found, held, known, labels, pending,
                 sightings(memory.monsters(), observation, waits), here, streak, calm, dwelt, memory.blocked(),
                 memory.last(), holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE,
                 memory.drank(), Memory.Trial.NONE, balked, walking, memory.tested(), clouds(memory, observation, waits),
-                memory.refuge(), arrived, rests, memory.stepped());
-        // Two Steps refused in a row: the stepping Policy yields this wait, and the cell of the Step
-        // the Brain handed over is blocked on this floor, whichever Policy chose it and whatever the
-        // screen showed (story 4.12; stories 4.8 and 4.10 recomputed it from their own plans).
-        if (streak == Explore.STUCK - 1 && memory.stepped() >= 0) {
+                memory.refuge(), arrived, rests, memory.stepped(), tried, fleeting);
+        // Two Steps in a row refused at one cell: the stepping Policy yields this wait, and that cell is
+        // blocked on this floor, whichever Policy chose it (story 4.12; stories 4.8 and 4.10 recomputed
+        // it from their own plans). Refused on a calm screen, for good; refused with an enemy in view,
+        // for FLEETING_WAITS waits, since the fight may have been the reason. The count then starts
+        // again, so a second cell refused twice is blocked in turn.
+        if (streak >= Explore.STUCK - 1) {
+            Memory.Spot cell = new Memory.Spot(depth, branch, memory.stepped());
+            List<Memory.Spot> blocked = memory.calm() ? Memory.with(after.blocked(), cell) : after.blocked();
+            List<Memory.Cloud> lapsing = new ArrayList<>(fleeting);
+            if (!memory.calm()) {
+                lapsing.add(new Memory.Cloud(depth, branch, memory.stepped(), waits + Memory.FLEETING_WAITS));
+                while (lapsing.size() > Memory.DWELT) {
+                    lapsing.remove(0);
+                }
+            }
             after = new Memory(after.waits(), after.deepest(), facts, found, held, known, labels, pending,
-                    after.monsters(), here, streak, calm, dwelt,
-                    Memory.with(after.blocked(), new Memory.Spot(depth, branch, memory.stepped())), after.last(),
+                    after.monsters(), here, streak, calm, dwelt, blocked, after.last(),
                     holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE, memory.drank(),
                     Memory.Trial.NONE, balked, walking, memory.tested(), after.clouds(),
-                    memory.refuge(), arrived, rests, memory.stepped());
+                    memory.refuge(), arrived, rests, memory.stepped(), -1, lapsing);
         }
         return after;
     }

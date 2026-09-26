@@ -284,3 +284,59 @@ branch:
   beside or on the exit (18).
 - 32 of the Runs' floor changes are still the fight Policy's flights down the stairs, now never onto
   a boss floor and never hurt while the descend Policy was taking the hero down.
+
+**Verification round** (on `67467145a`: fixes 2, 4 and 5, the codec, determinism and parity confirmed;
+the rest beside the exit works; 4 issues, all fixed):
+1. *The refused-Step fix was half done.* A cell was blocked only at `streak == STUCK - 1`, and the
+   fight Policy never yields, so a second refused Step repeated forever. Now a refusal counts toward
+   a block only while refusals are aimed at one cell (`Memory.tried`); two at one cell block it, and
+   the count starts again, so each refused cell is blocked in turn. `FightPolicyTest.two_refusals_in_a_fight`
+   drives five waits with two different Steps refused; `refusal_bookkeeping`.
+2. *Fight screens blocked good cells for the floor.*
+   - No refusal counts while the hero shows rooted or vertigo (Hero.java:1822-1825; Char.java:1296-1305):
+     neither says the cell is out of reach.
+   - A block recorded after refusals on a screen with an enemy in view lapses after 100 waits
+     (`Memory.fleeting`, `FLEETING_WAITS`); only a calm screen's block lasts the floor.
+   - A rooted hero's Steps and stairs are refused with no time spent, and the roots wear off only with
+     time (Hero.java:1442-1445, Roots.java:27-55). While rooted the Brain offers itself no Step and no
+     stairs, the explore Policy searches, and the fight Policy attacks what is adjacent.
+     `DescendPolicyTest.rooted` drives the Brain until the roots fall; `vertigo`; `FightPolicyTest.rooted`.
+3. *Pending finds never cleared.* A find counts toward a guaranteed drop only while its appearance is
+   in view, unidentified, and still has the drop among its odds (`Beliefs.identities`), so a potion
+   that turned out to be healing no longer stands for the potion of strength. `allowance`.
+4. *The comment said the exit was the fight Policy's way out while resting beside it; it is not.*
+   Corrected in `Descend` and `Fight`. On a hurt hero fleeing down elsewhere: kept, and the reason
+   stated in `Fight.retreat`. Refusing the stairs down whenever the hero is hurt measured worse:
+
+   | | this rule | refuse down whenever hurt |
+   |---|---|---|
+   | turns survived, median (mean) | 1,044 (967) | 828 (895) |
+   | turns survived, quartiles | 693 / 1044 / 1252 | 406 / 828 / 1322 |
+   | deepest floor, mean (max) | 2.52 (4) | 2.12 (3) |
+   | deaths by depth (1 / 2 / 3 / 4) | 3 / 10 / 8 / 4 | 5 / 12 / 8 / 0 |
+   | score, mean | 1,043 | 886 |
+
+- New Rule: `docs/rules/buffs.md`, "A rooted hero's Step and its stairs are refused" (Tier 1);
+  `docs/brain-rules.md` row 58.
+- **Memory v8, final:** 4.10's 31 fields, then `arrived`, `rests`, `stepped`, `tried`, `fleeting`;
+  bytes after `refuge`: `number(arrived)`, `integer(rests)`, `integer(stepped)`, `integer(tried)`,
+  then the fleeting blocks' count and each as `depth, branch, cell, number(until)`.
+- **Tests:** `:brain:test` passes (`DescendPolicyTest` 20 cases, `FightPolicyTest` 32); rig
+  `BrainRulesIndexTest`, `ShatterfishRunTest`, `StrategyLogTest`, `StarvationRegressionTest`,
+  `DocsCitationTest`; `:codex:citations` no findings.
+- **Mutation battery (verification round):** 13 of 13 killed. Three survived at first (rooted counted
+  as a refusal, the count not starting again after a block, lapsed fight blocks kept): they change
+  only the Memory's bookkeeping, which no decision in the tests reached; `refusal_bookkeeping` now
+  checks it directly.
+
+**Direction check after the verification round** (`smoke`, salts 1000+i, against main at story 4.10):
+
+| | main (4.10) | 4.12 |
+|---|---|---|
+| turns survived, median (mean) | 863 (915) | **1,044** (967) |
+| turns survived, quartiles | 391 / 862 / 1352 | **693** / 1044 / 1252 |
+| Runs alive at 500 / 750 / 1,000 / 1,500 turns | 18 / 15 / 11 / 4 | 21 / 18 / 15 / 3 |
+| deepest floor, mean (max) | 2.32 (4) | **2.52** (4) |
+| deaths by depth (1 / 2 / 3 / 4) | 4 / 11 / 8 / 2 | 3 / 10 / 8 / 4 |
+| score, mean | 917.5 | **1,043.4** |
+| endings | 25 deaths | 25 deaths |

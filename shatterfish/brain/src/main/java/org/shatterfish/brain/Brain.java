@@ -220,6 +220,12 @@ public final class Brain {
     public Decided decide(Observation observation, Belief belief) {
         Memory memory = Memory.of(belief);
         List<Action> offered = observation.actions().actions();
+        // A rooted hero's Steps and stairs are refused with no time spent, so they are no choice at all
+        // until the roots wear off (story 4.12, Explore.rooted).
+        if (Explore.rooted(observation)) {
+            offered = offered.stream().filter(action -> !(action instanceof Action.Step
+                    || action instanceof Action.Descend || action instanceof Action.Ascend)).toList();
+        }
         if (offered.isEmpty()) {
             return new Decided(null, null, List.of(), "the screen offers no Action");
         }

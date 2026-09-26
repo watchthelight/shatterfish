@@ -43,9 +43,9 @@ import java.util.List;
  * </ul>
  * A guaranteed drop -- a potion of strength, a scroll of upgrade, an arcane stylus -- is placed when a
  * floor of its set is built (Level.java:224-243; Dungeon.java:529-563), and its set is spent by the
- * last floor before the boss. The Brain counts what it has found ({@link Beliefs.Chapter}), and an
- * appearance of the drop's family picked up and not yet identified as found too, so a floor is not
- * held for a potion already in the pack; what is owed and not found lies on this floor or the ones
+ * last floor before the boss. The Brain counts what it has found ({@link Beliefs.Chapter}), and what
+ * it picked up under an appearance that is still held, unidentified, and may still be the drop, as
+ * found too, so a floor is not held for a potion already in the pack; what is owed and not found lies on this floor or the ones
  * left in the set, and the Policy expects {@code owed / floorsLeft} of it here. It cannot know what
  * earlier floors held and it missed.
  *
@@ -53,8 +53,9 @@ import java.util.List;
  * (RegularLevel.java:206-217; MobSpawner.java:71). The last Step onto the exit travels -- a click on a
  * transition cell with no enemy in view takes the stairs (Hero.java:2000-2007) -- so the Policy walks
  * to the cell beside the exit and rests there to full health first, then takes that Step. A rest
- * regenerates one hit point every ten turns (Regeneration.java:44), and the exit a Step away is the
- * fight Policy's way on if an enemy comes. A hero standing on the exit already -- come up from the
+ * regenerates one hit point every ten turns (Regeneration.java:44). If an enemy comes meanwhile the
+ * fight Policy does not flee down the exit hurt ({@link Fight#down}); it fights, steps away or takes
+ * the stairs up. A hero standing on the exit already -- come up from the
  * floor below -- rests there and then takes the {@code Descend}. It does not rest while starving, which
  * regenerates nothing, and rests at most {@link #RESTS} times on a floor, so a rest the game keeps
  * cutting short does not hold the hero.
@@ -238,7 +239,7 @@ final class Descend implements Policy {
             int floor = depth % guarantee.floorsPerSet();
             // What is owed, less what was picked up under an appearance of the drop's family and not
             // yet identified: it may be the drop.
-            int owed = Math.max(0, chapter.owed() - unidentified(memory, knowledge, guarantee, chapter.set()));
+            int owed = Math.max(0, chapter.owed() - unidentified(observation, memory, knowledge, guarantee, chapter.set()));
             if (floor == 0 || owed == 0) {
                 continue;
             }
@@ -248,17 +249,17 @@ final class Descend implements Policy {
     }
 
     /**
-     * How many items of an appearance of {@code guarantee}'s family were picked up in {@code set} and
-     * not yet claimed by an identity: {@link Memory#pending}.
+     * How many items were picked up in {@code set} under an appearance that may still be {@code guarantee}'s
+     * item: held now, still unidentified, and with the item among what the Beliefs say it may be
+     * ({@link Memory#pending}). An appearance identified as something else, or no longer held, stops
+     * counting, so a potion that turned out to be healing does not stand for the potion of strength.
      */
-    private static int unidentified(Memory memory, Codex.Knowledge knowledge, Codex.Guarantee guarantee, int set) {
+    private static int unidentified(Observation observation, Memory memory, Codex.Knowledge knowledge,
+                                    Codex.Guarantee guarantee, int set) {
         int count = 0;
-        for (Codex.Identities family : knowledge.families()) {
-            if (family.candidates().stream().noneMatch(c -> c.className().equals(guarantee.className()))) {
-                continue;
-            }
-            for (String label : family.labels()) {
-                count += Memory.count(memory.pending(), label, set);
+        for (Beliefs.Guess guess : Beliefs.identities(observation, knowledge)) {
+            if (guess.odds().stream().anyMatch(odds -> odds.name().equals(guarantee.name()) && odds.probability() > 0)) {
+                count += Memory.count(memory.pending(), guess.label(), set);
             }
         }
         return count;

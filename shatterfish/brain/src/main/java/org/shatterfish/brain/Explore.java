@@ -92,6 +92,31 @@ final class Explore implements Policy {
         return "explore: floor";
     }
 
+    /** The rooted buff's name as the HUD shows it (actors.properties:391). */
+    static final String ROOTED = "rooted";
+
+    /** The vertigo buff's name as the HUD shows it (actors.properties:435). */
+    static final String VERTIGO = "vertigo";
+
+    /** Whether the hero shows the buff named {@code name}. */
+    static boolean has(Observation observation, String name) {
+        for (org.shatterfish.api.BuffView buff : observation.hero().buffs()) {
+            if (buff.name().equals(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether the hero shows it is rooted (story 4.12). A rooted hero's Step and stairs are refused
+     * with no time spent (Hero.java:1822-1825, :1442-1445), and the roots wear off only as time passes
+     * (Roots.java:27, a flavour buff), so the Brain offers itself neither while they hold.
+     */
+    static boolean rooted(Observation observation) {
+        return has(observation, ROOTED);
+    }
+
     /** Whether a screen is one this Policy acts on: no Prompt open and no enemy in view. */
     static boolean calm(Observation observation) {
         if (observation.header().prompt() != PromptKind.NONE) {
@@ -162,6 +187,16 @@ final class Explore implements Policy {
      * leave the wait to chance.
      */
     private static RunLog.Choice plan(Observation observation, Memory memory, List<Action> offered) {
+        // Rooted (story 4.12): no Step is offered; a search spends the time the roots need to wear off,
+        // and may find something.
+        if (rooted(observation)) {
+            for (Action pass : List.of(new Action.Search(), new Action.Wait())) {
+                if (offered.contains(pass)) {
+                    return new RunLog.Choice(pass, Policies.CERTAIN, "rooted");
+                }
+            }
+        }
+
         // Inside a region the fight Policy retreated from (story 4.7): out of it first, a Step at a
         // time, before any plan takes the hero back toward what it fled.
         RunLog.Choice away = away(observation, memory, offered);
@@ -493,6 +528,13 @@ final class Explore implements Policy {
         for (Memory.Spot spot : memory.blocked()) {
             if (spot.on(depth, branch) && spot.cell() < cells) {
                 walk[spot.cell()] = false;
+            }
+        }
+        // Cells a Step was refused onto in a fight, until the block lapses (story 4.12).
+        for (Memory.Cloud block : memory.fleeting()) {
+            if (block.depth() == depth && block.branch() == branch && block.cell() < cells
+                    && block.until() >= memory.waits()) {
+                walk[block.cell()] = false;
             }
         }
         if (avoiding) {

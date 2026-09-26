@@ -76,6 +76,7 @@ behaviour to re-check.
 | 55 | A boss fight seals the floor, and while it is sealed no transition travels; so the descend Policy does not enter on a sealed floor. | `descend` | [levels: "`Level.locked` is set by"](rules/levels.md) |
 | 56 | The boss floors are depths 5, 10, 15, 20 and 25, and a boss floor places no food; so the descend Policy does not leave hungry for one, and the fight Policy never flees down the stairs onto one, whose boss seals the floor behind the hero. | `descend` (when to leave), `fight` (retreat) | [levels: "The main path (`branch == 0`) has depths 1–26"](rules/levels.md) |
 | 57 | A regular door may be hidden, and on a secrets floor a room may be reachable only through hidden doors; so the descend Policy, leaving a floor whose exit it has never seen, searches on past the explore Policy's budget. | `descend` (no exit) | [levels: "Hidden doors: on depth > 1"](rules/levels.md) |
+| 58 | A rooted hero's Step and stairs are refused with no time spent until the roots wear off, and vertigo spends a Step on a random neighbour; so while the hero shows rooted the Brain offers itself no Step and no stairs and the explore Policy searches, and a still hero under either is no refusal and blocks no cell. | `explore` (rooted), `descend`, `fight` | [buffs: "A rooted hero's Step and its stairs are refused"](rules/buffs.md) |
 
 The `fallback` Policy relies on no mechanic. It chooses uniformly among the Actions the Observation
 offers, less the item uses -- eating among them -- while anything else is offered: eating is the `eat`

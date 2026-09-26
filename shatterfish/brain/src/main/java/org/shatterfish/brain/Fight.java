@@ -297,7 +297,10 @@ final class Fight implements Policy {
      * <p>The stairs down count only when they do not lead onto a boss floor, where the boss seals the
      * floor behind the hero (Goo.java:134-136, Level.java:657-661), and not while the hero is hurt and
      * the descend Policy is taking it down (story 4.12): it would arrive on the harder floor hurt, the
-     * very thing the descend Policy rests beside the exit to avoid.
+     * very thing the descend Policy rests beside the exit to avoid. Elsewhere a hurt hero may still flee
+     * down: the stairs down are often the only way out of a fight it is losing, and refusing them
+     * whenever the hero is hurt measured worse on `smoke` (median turns survived 1,044 to 828, mean
+     * deepest floor 2.52 to 2.12, story 4.12's review).
      */
     static RunLog.Choice retreat(Observation observation, Memory memory, List<Action> offered, List<ActorView> enemies,
                                  Codex.Knowledge knowledge) {

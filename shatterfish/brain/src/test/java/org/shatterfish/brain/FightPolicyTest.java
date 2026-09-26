@@ -799,7 +799,50 @@ class FightPolicyTest {
         assertEquals(all.get(0).action(), all.get(1).action(), "the same Step, refused once");
         Action.Step refused = (Action.Step) all.get(0).action();
         Memory memory = Memory.of(Screens.drive(brain(), brute, brute, brute));
-        assertTrue(memory.blocked().contains(new Memory.Spot(1, 0, refused.cell())), memory.blocked().toString());
+        assertTrue(memory.fleeting().stream().anyMatch(block -> block.cell() == refused.cell()),
+                "blocked for a while: " + memory.fleeting());
+        assertTrue(memory.blocked().isEmpty(), "not for the floor: the fight may have been the reason");
         assertNotEquals(refused, all.get(2).action(), "the third wait goes round the refused cell");
+    }
+
+    @Test
+    @DisplayName("two different Steps refused in turn in a fight: each is blocked after its own two refusals, and the fight moves on to a third")
+    void two_refusals_in_a_fight() {
+        Observation brute = screen(20, false,
+                "##########",
+                "#....@B..#",
+                "#........#",
+                "##########");
+        List<Brain.Decided> all = each(brute, brute, brute, brute, brute);
+        Action first = all.get(0).action();
+        assertEquals(first, all.get(1).action());
+        Action second = all.get(2).action();
+        assertNotEquals(first, second);
+        assertEquals(second, all.get(3).action(), "the second cell is refused twice too");
+        assertNotEquals(first, all.get(4).action());
+        assertNotEquals(second, all.get(4).action(), "and blocked in turn: no Step repeats forever");
+        Memory memory = Memory.of(Screens.drive(brain(), brute, brute, brute, brute, brute));
+        for (Action refused : List.of(first, second)) {
+            if (refused instanceof Action.Step step) {
+                assertTrue(memory.fleeting().stream().anyMatch(block -> block.cell() == step.cell()), memory.fleeting().toString());
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("rooted beside an enemy: it attacks; rooted with the enemy out of reach: never a Step, which the roots refuse")
+    void rooted() {
+        Observation beside = DescendPolicyTest.buffed(screen(20, false,
+                "##########",
+                "#....@r..#",
+                "##########"), Explore.ROOTED);
+        assertTrue(after(beside).action() instanceof Action.Attack, after(beside).decision().toString());
+        Observation far = DescendPolicyTest.buffed(screen(20, false,
+                "##########",
+                "#.@....B.#",
+                "##########"), Explore.ROOTED);
+        for (Brain.Decided decided : each(far, far, far, far, far, far)) {
+            assertFalse(decided.action() instanceof Action.Step, decided.decision().toString());
+        }
     }
 }

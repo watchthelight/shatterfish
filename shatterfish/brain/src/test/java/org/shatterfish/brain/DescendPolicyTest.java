@@ -77,7 +77,7 @@ class DescendPolicyTest {
     static Memory at(List<Memory.Spot> dwelt, long waits, long arrived, int rests) {
         return new Memory(waits, 1, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
                 Memory.Spot.NOWHERE, 0, false, dwelt, List.of(), "", 0, -1, -1, List.of(), List.of(), "", List.of(),
-                Memory.Pack.NONE, Memory.Aim.NONE, -1, Memory.Trial.NONE, List.of(), 0, -1, List.of(), -1, arrived, rests, -1);
+                Memory.Pack.NONE, Memory.Aim.NONE, -1, Memory.Trial.NONE, List.of(), 0, -1, List.of(), -1, arrived, rests, -1, -1, List.of());
     }
 
     private static final Observation ROOM = ExplorePolicyTest.screen(2,
@@ -333,15 +333,125 @@ class DescendPolicyTest {
         Memory found = new Memory(5, 1, List.of(), List.of(new Memory.Found("STRENGTH_POTIONS", 0, 2),
                 new Memory.Found("UPGRADE_SCROLLS", 0, 1)), List.of(), List.of(), List.of(), List.of(), List.of(),
                 Memory.Spot.NOWHERE, 0, false, List.of(), List.of(), "", 0, -1, -1, List.of(), List.of(), "", List.of(),
-                Memory.Pack.NONE, Memory.Aim.NONE, -1, Memory.Trial.NONE, List.of(), 0, -1, List.of(), -1, 1, 0, -1);
+                Memory.Pack.NONE, Memory.Aim.NONE, -1, Memory.Trial.NONE, List.of(), 0, -1, List.of(), -1, 1, 0, -1, -1, List.of());
         assertEquals(2.0 / 4, Descend.expectedHere(one, found, Screens.CODEX), 1e-9);
         // A potion picked up unidentified may be a potion of strength: counted as found too, and never a
         // scroll of upgrade.
         Memory pending = new Memory(5, 1, List.of(), List.of(), List.of(), List.of(), List.of(),
                 List.of(new Memory.Found("crimson potion", 0, 1)), List.of(),
                 Memory.Spot.NOWHERE, 0, false, List.of(), List.of(), "", 0, -1, -1, List.of(), List.of());
-        assertEquals((1.0 + 3.0) / 4, Descend.expectedHere(one, pending, Screens.CODEX), 1e-9);
+        Observation holding = hero(one, 20, 20, Hunger.NONE, Screens.item(org.shatterfish.api.ItemKind.POTION, "crimson potion", 1));
+        assertEquals((1.0 + 3.0) / 4, Descend.expectedHere(holding, pending, Screens.CODEX), 1e-9);
+        // No longer held (drunk, dropped, identified as something else): it stands for nothing.
+        assertEquals(5.0 / 4, Descend.expectedHere(one, pending, Screens.CODEX), 1e-9,
+                "a find that is not held and unidentified no longer counts");
     }
+
+    /** {@code screen} with the hero showing {@code buffs}. */
+    static Observation buffed(Observation screen, String... buffs) {
+        HeroSection h = screen.hero();
+        List<org.shatterfish.api.BuffView> shown = new ArrayList<>();
+        for (String buff : buffs) {
+            shown.add(new org.shatterfish.api.BuffView(buff, false, 0));
+        }
+        HeroSection hero = new HeroSection(h.cell(), h.name(), h.subclass(), h.ability(), h.level(), h.exp(),
+                h.expToLevel(), h.hp(), h.ht(), h.shield(), h.strength(), h.strengthBonus(), h.gold(), h.energy(),
+                h.hunger(), shown, h.talents(), h.talentPointsAvailable(), h.quickslots());
+        Observation bare = new Observation(screen.header(), screen.map(), screen.actors(), hero, screen.inventory(),
+                screen.journal(), screen.log(), ActionsSection.NONE, PromptSection.NONE);
+        return bare.withActions(ValidActions.of(bare));
+    }
+
+    @Test
+    @DisplayName("rooted, over many waits through the Brain: never a Step or the stairs, a search a wait so time passes, and on again once the roots fall")
+    void rooted() {
+        Observation roots = buffed(corridor(3, 20), Explore.ROOTED);
+        Observation free = corridor(3, 20);
+        Observation[] screens = new Observation[8];
+        java.util.Arrays.fill(screens, roots);
+        screens[7] = free;
+        List<Brain.Decided> all = each(spent(2, 10, 1, 0), screens);
+        for (int i = 0; i < 7; i++) {
+            Action action = all.get(i).action();
+            assertFalse(action instanceof Action.Step || action instanceof Action.Descend, "wait " + i + ": " + action);
+            assertEquals(new Action.Search(), action, "wait " + i);
+            assertEquals("rooted", all.get(i).decision().chosen().why());
+        }
+        assertTrue(all.get(7).action() instanceof Action.Step, "the roots fell: on to the exit");
+        // Nothing was blocked: a rooted hero's still waits are not refusals.
+        Brain brain = brain();
+        Belief belief = spent(2, 10, 1, 0).belief();
+        for (Observation screen : screens) {
+            belief = brain.update(screen, belief);
+            belief = brain.handed(screen, belief, brain.decide(screen, belief));
+        }
+        assertTrue(Memory.of(belief).blocked().isEmpty() && Memory.of(belief).fleeting().isEmpty());
+        // On the exit, rooted: not the stairs either (they are refused too, Hero.java:1442-1445).
+        Brain.Decided onExit = brain().decide(buffed(hero(ON, 20, 20, Hunger.NONE), Explore.ROOTED), spent(2, 10, 1, 0).belief());
+        assertFalse(onExit.action() instanceof Action.Descend, onExit.decision().toString());
+    }
+
+    @Test
+    @DisplayName("a still hero under vertigo after a Step is no refusal: the Step may have been spent against a wall")
+    void vertigo() {
+        Observation dizzy = buffed(corridor(3, 20), Explore.VERTIGO);
+        Brain brain = brain();
+        Belief belief = spent(2, 10, 1, 0).belief();
+        for (int i = 0; i < 4; i++) {
+            belief = brain.update(dizzy, belief);
+            belief = brain.handed(dizzy, belief, brain.decide(dizzy, belief));
+        }
+        assertEquals(0, Memory.of(belief).streak());
+        assertTrue(Memory.of(belief).blocked().isEmpty());
+    }
+
+    @Test
+    @DisplayName("the refusal count: rooted is no refusal, a blocked cell starts the count again, and lapsed fight blocks are forgotten")
+    void refusal_bookkeeping() {
+        Observation room = corridor(3, 20);
+        int x = room.hero().cell() + 1;
+        // A Step handed over, then the screen shows the hero rooted where it stood: no refusal.
+        Memory stepped = Memory.of(Beliefs.fold(spent(2, 10, 1, 0), room, Screens.CODEX).belief()).handed(Beliefs.STEP, x);
+        Memory rooted = Beliefs.fold(stepped, buffed(room, Explore.ROOTED), Screens.CODEX);
+        assertEquals(0, rooted.streak());
+        assertEquals(-1, rooted.tried());
+        Memory once = Beliefs.fold(stepped, room, Screens.CODEX);
+        assertEquals(1, once.streak(), "not rooted: a refusal");
+        assertEquals(x, once.tried());
+
+        // Refused twice at x: blocked, and the count starts again at the next refusal of x.
+        Memory twice = Beliefs.fold(once.handed(Beliefs.STEP, x), room, Screens.CODEX);
+        assertTrue(twice.blocked().contains(new Memory.Spot(2, 0, x)));
+        assertEquals(-1, twice.tried());
+        Memory again = Beliefs.fold(twice.handed(Beliefs.STEP, x), room, Screens.CODEX);
+        assertEquals(1, again.streak(), "a fresh count after the block");
+
+        // A fight block past its wait is forgotten.
+        Memory stale = new Memory(10, 2, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                Memory.Spot.NOWHERE, 0, false, List.of(), List.of(), "", 0, -1, -1, List.of(), List.of(), "", List.of(),
+                Memory.Pack.NONE, Memory.Aim.NONE, -1, Memory.Trial.NONE, List.of(), 0, -1, List.of(), -1, 1, 0, -1, -1,
+                List.of(new Memory.Cloud(2, 0, x, 5)));
+        assertTrue(Beliefs.fold(stale, room, Screens.CODEX).fleeting().isEmpty());
+    }
+
+    @Test
+    @DisplayName("a block recorded in a fight lapses after FLEETING_WAITS waits; one recorded on a calm screen does not")
+    void fleeting_blocks() {
+        Observation room = corridor(3, 20);
+        int cell = room.hero().cell() + 1;
+        Memory held = new Memory(5, 2, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                Memory.Spot.NOWHERE, 0, false, List.of(), List.of(), "", 0, -1, -1, List.of(), List.of(), "", List.of(),
+                Memory.Pack.NONE, Memory.Aim.NONE, -1, Memory.Trial.NONE, List.of(), 0, -1, List.of(), -1, 1, 0, -1, -1,
+                List.of(new Memory.Cloud(2, 0, cell, 50)));
+        assertFalse(Explore.walkable(room, held)[cell], "blocked until wait 50");
+        Memory later = new Memory(51, 2, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                Memory.Spot.NOWHERE, 0, false, List.of(), List.of(), "", 0, -1, -1, List.of(), List.of(), "", List.of(),
+                Memory.Pack.NONE, Memory.Aim.NONE, -1, Memory.Trial.NONE, List.of(), 0, -1, List.of(), -1, 1, 0, -1, -1,
+                List.of(new Memory.Cloud(2, 0, cell, 50)));
+        assertTrue(Explore.walkable(room, later)[cell], "lapsed");
+        assertEquals(later, Memory.of(later.belief()), "the Belief carries the fleeting blocks");
+    }
+
 
     @Test
     @DisplayName("a sealed floor: it never goes down, nor walks to the exit")
