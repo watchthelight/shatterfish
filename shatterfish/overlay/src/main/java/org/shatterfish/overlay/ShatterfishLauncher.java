@@ -36,8 +36,9 @@ import java.util.stream.Stream;
  *
  * <p><b>The oracle.</b> {@code --oracle} is accepted here and nowhere else a Run can be started from:
  * the Rig refuses the flag by name. An oracle Run sees through the launcher's own
- * {@code OracleObserver}, its log header says so, and its window's title says so, which is the one
- * place a flag can be seen before the Panel exists (story 5.2 draws it there too).
+ * {@code OracleObserver}, its log header says so, its window's title says so, and its Mode strip
+ * carries an ORACLE label (story 5.2). An oracle Run always opens windowed, so the title bar is never
+ * hidden by fullscreen; the border around the game view is story 5.12's.
  *
  * <p><b>Not a Rig Run.</b> An Overlay Run's log says {@code driver: embedded}: it is not reproducible
  * from its tuple or its Action list until story 5.13 (ADR-0013), and the Rig refuses it.
@@ -82,7 +83,8 @@ public final class ShatterfishLauncher {
         config.setTitle(title(options));
         config.setPreferencesConfig(profile.toAbsolutePath() + "/", Files.FileType.Absolute);
         config.setWindowSizeLimits(720, 400, -1, -1);
-        Point size = SPDSettings.windowResolution();
+        Point size = options.windowWidth() > 0 ? new Point(options.windowWidth(), options.windowHeight())
+                : SPDSettings.windowResolution();
         config.setWindowedMode(size.x, size.y);
         config.setWindowIcon("icons/icon_16.png", "icons/icon_32.png", "icons/icon_48.png",
                 "icons/icon_64.png", "icons/icon_128.png", "icons/icon_256.png");
@@ -92,7 +94,7 @@ public final class ShatterfishLauncher {
                 logging(options, machine())), config);
     }
 
-    /** The window's title, which carries the oracle marker until the Panel draws it (story 5.2). */
+    /** The window's title, which carries the oracle marker, as the Mode strip does (story 5.2) and the border will (story 5.12). */
     static String title(LaunchOptions options) {
         return "Shattered Pixel Dungeon + Shatterfish Overlay" + (options.oracle() ? " [ORACLE]" : "");
     }

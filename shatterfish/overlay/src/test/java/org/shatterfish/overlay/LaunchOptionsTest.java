@@ -65,4 +65,28 @@ class LaunchOptionsTest {
         assertThrows(IllegalArgumentException.class,
                 () -> LaunchOptions.parse(new String[] {"--seed", "-1", "--class", "warrior"}));
     }
+
+    @Test
+    @DisplayName("--window sets the window's size, and without it the game's own setting is used")
+    void the_window() {
+        LaunchOptions sized = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior", "--window", "1600x900"});
+        assertEquals(1600, sized.windowWidth());
+        assertEquals(900, sized.windowHeight());
+        LaunchOptions unsized = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior"});
+        assertEquals(0, unsized.windowWidth());
+        assertEquals(0, unsized.windowHeight());
+        assertThrows(IllegalArgumentException.class,
+                () -> LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior", "--window", "1600"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior", "--window", "0x900"}));
+    }
+
+    @Test
+    @DisplayName("an oracle Run opens windowed, so fullscreen cannot hide the title bar's marker")
+    void the_oracle_is_windowed() {
+        assertTrue(OverlayGame.windowed(LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior", "--oracle"})));
+        assertTrue(OverlayGame.windowed(LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior", "--window", "800x600"})));
+        assertFalse(OverlayGame.windowed(LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior"})),
+                "a fair Run with no size asked for keeps the game's own fullscreen default");
+    }
 }

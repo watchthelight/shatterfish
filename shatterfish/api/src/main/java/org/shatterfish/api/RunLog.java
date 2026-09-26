@@ -175,10 +175,19 @@ public sealed interface RunLog
      *                     not reproducible from its tuple or its Action list until story 5.13 routes
      *                     the render thread's draws away from the Run's generator, so its log says so
      *                     and the Rig refuses it (ADR-0013's story 5.1 amendment)
+     * @param interfaceSize the game's interface size an Overlay Run played on (0, 1 or 2), or -1 when
+     *                     not stated: every headless Run, which plays on 0 (story 5.2). Chained, written
+     *                     only when stated. It changes the log text the Observation carries all Run
+     *                     long, so it is a second reason an Overlay log is not a headless one
+     *                     (ADR-0013's story 5.2 amendment)
+     * @param controller   whether a game controller was connected when the Overlay Run began (1) or not
+     *                     (0), or -1 when not stated; the desktop hint lines name a key or a button by
+     *                     it. Chained, written only when stated (story 5.2)
      */
     record Header(int v, String tag, String commit, HeroClass heroClass, int challenges, long seed,
                   String seedCode, long salt, int cap, int profile, int obsv, int codex, Brain brain,
-                  String registration, boolean oracle, String machine, String started, String driver)
+                  String registration, boolean oracle, String machine, String started, String driver,
+                  int interfaceSize, int controller)
             implements RunLog {
 
         /** The {@code driver} of a Run played inside the desktop game (story 5.1). */
@@ -190,6 +199,14 @@ public sealed interface RunLog
                       String registration, boolean oracle, String machine, String started) {
             this(v, tag, commit, heroClass, challenges, seed, seedCode, salt, cap, profile, obsv, codex, brain,
                     registration, oracle, machine, started, "");
+        }
+
+        /** A header with a driver and nothing stated about the screen it played on. */
+        public Header(int v, String tag, String commit, HeroClass heroClass, int challenges, long seed,
+                      String seedCode, long salt, int cap, int profile, int obsv, int codex, Brain brain,
+                      String registration, boolean oracle, String machine, String started, String driver) {
+            this(v, tag, commit, heroClass, challenges, seed, seedCode, salt, cap, profile, obsv, codex, brain,
+                    registration, oracle, machine, started, driver, -1, -1);
         }
 
         /** Whether the Overlay played this Run, which no Rig path may take for one of its own. */
@@ -229,6 +246,12 @@ public sealed interface RunLog
             Canon.text(started, "when a Run started");
             Canon.require(driver != null && (driver.isEmpty() || driver.equals(EMBEDDED)),
                     "a Run's driver is the headless one (empty) or \"" + EMBEDDED + "\": " + driver);
+            Canon.require(interfaceSize >= -1 && interfaceSize <= 2,
+                    "an interface size is 0, 1 or 2, or -1 when not stated: " + interfaceSize);
+            Canon.require(controller >= -1 && controller <= 1,
+                    "a controller is connected (1) or not (0), or -1 when not stated: " + controller);
+            Canon.require(!driver.isEmpty() || (interfaceSize == -1 && controller == -1),
+                    "a headless Run states no interface size or controller: it plays on interface size 0");
         }
 
         @Override

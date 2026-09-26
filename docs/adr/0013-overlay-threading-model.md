@@ -312,3 +312,70 @@ budget at sixty frames a second (about 333 seconds) ends as an unknown window. T
 in game time, the sum of `Game.elapsed`, not in frames, which the desktop draws at the monitor's
 refresh rate: a frame count would end the same Run sooner on a faster screen; the region intro on a first descent to depths 6, 11, 16 and 21 does, because the
 Overlay does not click through it (the headless game never shows it).
+
+## Amendment: story 5.2 (2026-09-26)
+
+The Panel, the first thing the Overlay draws, lives on the same render thread and adds no thread.
+
+- **Where it is placed, and when.** A frame is drawn with each camera's matrix, which only
+  `Camera.update` rebuilds (`SPD-classes/.../noosa/Camera.java:225`, `:300-313`), inside
+  `Camera.updateAll()` at the end of the game's update (`Game.java:269-283`); `Game.render` draws before
+  it steps (`:150-171`). The scene's update is where `GameScene.layoutTags` resets the world camera's
+  offset to `(0, y)` (`core/.../scenes/GameScene.java:931-958`, `:993-999`), whenever the tags change or
+  the hero becomes ready (`:1745`), and on every new scene and resize. So `OverlayGame.update()` is the
+  game's update written out in the game's order, with `PanelDock.step` doing the scene's update, then
+  the Panel (added to each new play scene, placed by `PanelLayout`, a pure function of the screen) and
+  its horizontal offset, then `Camera.updateAll()`. Placing the Panel after the whole update, the first
+  way this story tried, drew the map shifted by the offset for one frame every time the tags were laid
+  out; the matrix test in `PanelHudTest` holds the order. No upstream file is edited: a hook in
+  `layoutTags` was rejected as an edit for something our own subclass reaches, and a child gizmo's
+  `update()` as too early (the scene updates its members before `layoutTags`).
+- **What is drawn over it, and what it is drawn over.** The Panel is added in front of the HUD the scene
+  built and behind the scene's fade from black (`GameScene.java:784`, `PixelScene.java:366-376`), which
+  it puts back in front, so the Panel does not show on black while a floor fades in. Windows are added
+  in front of it later (`GameScene.java:1420-1441`). The cell-selection prompt (a `Toast` near the bottom
+  centre, `GameScene.java:1126-1149`) and the badge banners (`PixelScene.java:378-395`) are drawn over it
+  and take precedence: while either shows, the Panel dims.
+- **The interface it plays on, and a second exception to non-negotiable 5.** The Run Profile declares
+  the compact interface, the phone's, where UX-DR2 collapses the Panel for good, so the Overlay declares
+  the mixed interface (size 1) after the Profile is prepared: the desktop layout, with no inventory
+  pane, so an item selector is still a `WndBag` the executor answers (`GameScene.java:547-556`,
+  `:1673-1674`; `ItemSelectorTest`). The full interface (2), the desktop default that `DESIGN.md` draws,
+  would hand selectors to the inventory pane, which no Action names (`docs/ideas.md`). The Rig and the
+  headless driver keep interface 0. The game falls back to the compact interface itself when the window
+  is below its full-UI minimum (`SPDSettings.java:140-146`), where the Panel is the Mode strip.
+  The interface size is not only layout. It changes the log text the Observation carries, all Run long:
+  - the guidebook pickup line (`core/.../items/journal/Guidebook.java:59-63`), which every Run meets,
+    since the cleared Profile journal puts a guidebook on floor 1
+    (`core/.../levels/rooms/standard/entrance/EntranceRoom.java:119-130`);
+  - the guide-page hint on every guide page found (`GameScene.java:1317-1320`), which is reached from
+    `DocumentPage.java:55`, `Hunger.java:109`, `EquipableItem.java:59`, `Snake.java:67`,
+    `Hero.java:1751`, `TrinketCatalyst.java:77` and `GameScene.java:1833`;
+  - the movement and interface tutorial lines (`GameScene.java:760-765`, `:1353-1358`).
+
+  The Brain's `Goo` pump memory hashes the log's text into its Belief (`Memory.tail`), so an Overlay
+  Run's logged Belief hash differs from a headless Run's at the same waits, though the Decisions do not,
+  today. This is a **second, independent exception** to non-negotiable 5, beside story 5.1's (the render
+  thread's draws): story 5.13's draw routing does not close it, because the headless driver refuses any
+  interface size but 0 ([`shatterfish/harness/src/main/java/org/shatterfish/harness/driver/HeadlessDriver.java:248-252`](https://github.com/watchthelight/shatterfish/blob/main/shatterfish/harness/src/main/java/org/shatterfish/harness/driver/HeadlessDriver.java#L248-L252)), so a Replay cannot be run at
+  the size an Overlay Run was played on. Its closing plan is issue #169: the headless driver accepts
+  interface size 1 when the log it replays states it. Meanwhile the log header states it: an Overlay log
+  carries `interface` beside `driver: embedded`. The header states the size the Overlay declares: the log is opened in
+  `create()`, before the game knows its window, when the setting reads 0; on a window below the
+  game's full-UI minimum the game plays the compact interface instead, which the Panel's placement line
+  in the console records and the header does not.
+- **The controller.** The desktop strings name a key, or a controller's button when one is connected
+  (`Guidebook.java:62`, `GameScene.java:1319`, `:1356`, by `ControllerHandler.isControllerConnected()`),
+  so a gamepad plugged in changes the Observation's log text. The header states whether a controller was
+  connected when the Run began (`controller`, 0 or 1); a controller connected mid-Run is not recorded, and
+  is left with #169.
+- **The oracle.** An oracle Run always opens windowed, since the desktop game is fullscreen by default
+  (`SPDSettings.java:66-68`) and fullscreen hides the title bar, which was the oracle's only on-screen
+  marker; and the Mode strip carries an ORACLE label in the oracle colour (`DESIGN.md`, `#FF2020`), full or
+  collapsed. The border around the game view remains story 5.12's (non-negotiable 1: visibly flagged).
+- **The launcher's view of it.** `--window WxH` opens the game windowed at that size, and
+  `--screenshot <file>` writes one frame from the game's own framebuffer about ten seconds in (a window
+  OpenGL draws cannot be captured from outside the process on this platform, and a launch nobody watches
+  still leaves a picture); a screenshot that cannot be written is logged and the Run plays on. Each change
+  of the Panel's placement is logged. `-Plaunch.args` splits on whitespace and keeps a single- or
+  double-quoted value whole, so a path with a space can be passed.

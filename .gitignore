@@ -47,3 +47,6 @@ vanilla-src/
 # A Run says where it ran (story 3.3). It belongs in the Run's own working directory,
 # never in a module's: a test that plays a Run in this process leaves one here.
 where.txt
+
+# Overlay Runs launched without --out (story 5.1, :overlay:launch)
+overlay-runs/
