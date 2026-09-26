@@ -9,6 +9,7 @@ import com.shatteredpixel.shatteredpixeldungeon.items.TengusMask;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.PotionOfStrength;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfUpgrade;
 import com.shatteredpixel.shatteredpixeldungeon.items.stones.StoneOfIntuition;
+import com.shatteredpixel.shatteredpixeldungeon.items.weapon.melee.Dagger;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.watabou.utils.PathFinder;
 import org.junit.jupiter.api.DisplayName;
@@ -221,8 +222,8 @@ class BrainAtTheWindowsTest {
     }
 
     @Test
-    @DisplayName("two scrolls of upgrade read onto the weapon upgrade it once: the chained window is a Brain error")
-    void two_scrolls_upgrade_once() {
+    @DisplayName("two scrolls of upgrade read onto the worn weapon upgrade it twice: the chained window for a worn item is confirmed (story 4.13)")
+    void two_scrolls_onto_the_worn_weapon() {
         Driven brain = new Driven(planting(() -> {
             new ScrollOfUpgrade().identify();
             assertTrue(new ScrollOfUpgrade().quantity(2).collect());
@@ -233,12 +234,34 @@ class BrainAtTheWindowsTest {
         }), observation -> Dungeon.hero.belongings.weapon().level());
         RunOutcome outcome = new RunLoop().play(SEED, HeroClass.WARRIOR, SALT, brain, CAP);
 
-        assertEquals(RunOutcome.Cause.BRAIN_ERROR, outcome.cause(), outcome.toString());
-        assertTrue(outcome.detail().contains("upgrade window opened again"), outcome.detail());
+        assertTrue(outcome.cause() != RunOutcome.Cause.BRAIN_ERROR, outcome.toString());
         int opened = brain.opened(PromptKind.UPGRADE);
         assertEquals(2, opened, "the upgrade window follows the read");
         assertEquals(new Action.AnswerPrompt(0), brain.actions.get(opened), "the first is confirmed");
         assertEquals(0, brain.watched.get(opened), "the weapon at +0 when the window opened");
+        assertEquals(new Action.AnswerPrompt(0), brain.actions.get(opened + 1), "and the chained one");
+        assertEquals(2, Dungeon.hero.belongings.weapon().level(), "both scrolls went onto the worn weapon");
+    }
+
+    @Test
+    @DisplayName("two scrolls of upgrade read onto a weapon in the pack, not worn, upgrade it once: the chained window is a Brain error")
+    void two_scrolls_onto_an_unworn_weapon() {
+        Dagger dagger = new Dagger();
+        Driven brain = new Driven(planting(() -> {
+            new ScrollOfUpgrade().identify();
+            assertTrue(new ScrollOfUpgrade().quantity(2).collect());
+            assertTrue(dagger.collect());
+        }, observation -> {
+            ItemRef scroll = ref(observation, new ScrollOfUpgrade().name());
+            ItemRef target = ref(observation, dagger.name());
+            return scroll == null || target == null ? null : new Action.UseItemOn(scroll, "READ", target);
+        }), observation -> dagger.level());
+        RunOutcome outcome = new RunLoop().play(SEED, HeroClass.WARRIOR, SALT, brain, CAP);
+
+        assertEquals(RunOutcome.Cause.BRAIN_ERROR, outcome.cause(), outcome.toString());
+        assertTrue(outcome.detail().contains("upgrade window opened again"), outcome.detail());
+        int opened = brain.opened(PromptKind.UPGRADE);
+        assertEquals(new Action.AnswerPrompt(0), brain.actions.get(opened), "the first is confirmed");
         assertEquals(1, brain.watched.get(brain.watched.size() - 1), "and +1 when the chained window came: one upgrade");
     }
 
