@@ -4,7 +4,7 @@ import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
 import com.shatteredpixel.shatteredpixeldungeon.ui.ScrollPane;
 import com.watabou.noosa.ui.Component;
-import org.shatterfish.api.RunLog;
+import org.shatterfish.harness.agent.BoundedLog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +27,13 @@ import java.util.List;
  * (default {@code blockLevel} is {@code BLOCK_WHEN_ACTIVE}) then lets any tap fall through rather
  * than consuming it ({@code PointerArea.java:58-62}). {@code DecisionLogTest} holds this the same
  * way {@code PanelContentTest.explain_does_not_steal_a_synthetic_tap_while_locked} holds Explain's.
+ *
+ * <p><b>Review round.</b> Each {@link org.shatterfish.harness.agent.BoundedLog.Entry} carries the
+ * {@link org.shatterfish.harness.agent.ActionContext} {@link ActionText} needs to label its Action
+ * the way the Decision card does (a compass direction, a named target), rather than the raw cell a
+ * null context falls back to. {@link #snappedViewportHeight} floors this pane's own viewport to a
+ * whole number of rows, so no row -- top or bottom, auto-scrolled or dragged -- is ever shown half
+ * clipped.
  */
 final class DecisionLog extends Component {
 
@@ -39,6 +46,8 @@ final class DecisionLog extends Component {
     static final float ROW_GAP = 2;
     /** UX-DR2 / {@code PanelLayout.MIN_PANEL_HEIGHT}: this pane is never given less room than three lines. */
     static final int MIN_LINES = 3;
+    /** One row's own pitch: its height (the small size, the same approximation {@code PanelLayout.MIN_PANEL_HEIGHT} makes) plus the gap after it. */
+    static final float LINE_PITCH = SIZE + ROW_GAP;
 
     private ScrollPane pane;
     private Component rows;
@@ -58,7 +67,7 @@ final class DecisionLog extends Component {
      * {@code innerWidth}; active (its {@code ScrollPane} can be dragged or scrolled) only when
      * {@code inputLocked} is false.
      */
-    void content(List<RunLog> history, float innerWidth, boolean inputLocked) {
+    void content(List<BoundedLog.Entry> history, float innerWidth, boolean inputLocked) {
         pane.active = !inputLocked;
         List<DecisionLogContent.Line> lines = DecisionLogContent.of(history);
         if (lines.equals(lastLines) && innerWidth == lastInnerWidth) {
@@ -112,7 +121,22 @@ final class DecisionLog extends Component {
         if (pane == null) {
             return;
         }
-        pane.setRect(x, y, width, height);
+        pane.setRect(x, y, width, snappedViewportHeight(height));
+    }
+
+    /**
+     * {@code height}, snapped down to fit a whole number of rows with no trailing gap wasted, never
+     * fewer than one (review round: the Panel's own height is a pure function of the screen and is
+     * rarely already a whole number of row pitches, so the viewport used to clip the topmost visible
+     * row mid-glyph whenever it was not -- most visibly when auto-scrolled to the bottom, where the
+     * clipped row sat right at the top with nothing above it to say why. Flooring the viewport itself
+     * to a whole number of rows means no scroll position, auto or dragged, can ever show a partial
+     * row: a few pixels of the Panel's own translucent background show below the last whole row
+     * instead, which reads as room rather than as something cut off).
+     */
+    static float snappedViewportHeight(float height) {
+        int rows = Math.max(1, (int) Math.floor((height + ROW_GAP) / LINE_PITCH));
+        return rows * LINE_PITCH - ROW_GAP;
     }
 
     /** Whether the view was scrolled all the way down before the lines this call is about to show. */

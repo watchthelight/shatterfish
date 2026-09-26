@@ -8,6 +8,7 @@ import com.watabou.noosa.ui.Component;
 import org.shatterfish.api.BeliefSummary;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.RunLog;
+import org.shatterfish.harness.agent.BoundedLog;
 
 import java.util.List;
 
@@ -87,7 +88,7 @@ final class Panel extends Component {
      * drawn otherwise.
      */
     void content(ModeState mode, RunLog.Decision decision, Observation observation, boolean inputLocked,
-                 BeliefSummary beliefSummary, List<RunLog> history) {
+                 BeliefSummary beliefSummary, List<BoundedLog.Entry> history) {
         stripText.text(ModeStripContent.text(mode));
         stripText.hardlight(ModeStripContent.color(mode.mode()));
         boolean full = placed != null && placed.form() == PanelLayout.Form.FULL;

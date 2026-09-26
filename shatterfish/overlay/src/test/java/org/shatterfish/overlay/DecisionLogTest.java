@@ -15,6 +15,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.shatterfish.api.Action;
 import org.shatterfish.api.RunLog;
+import org.shatterfish.harness.agent.ActionContext;
+import org.shatterfish.harness.agent.BoundedLog;
 import org.shatterfish.harness.agent.EmbeddedRun;
 import org.shatterfish.harness.boot.HeadlessBoot;
 import org.shatterfish.harness.driver.HeadlessDriver;
@@ -29,9 +31,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The Panel's Decision log (story 5.4, FR-38): one line per Input wait with the turn, the actor,
- * the Action and its score, newest at the bottom, on a real Panel -- and its auto-scroll, and the
- * fairness review's synthetic-tap gate, which {@code DecisionLogContentTest} cannot hold since
- * both need a real {@code ScrollPane}.
+ * the Action and its score, newest at the bottom, on a real Panel -- and its auto-scroll, the
+ * fairness review's synthetic-tap gate, and (the review round) that a row's Action reads the same
+ * label the Decision card would and that no row is ever shown half clipped -- which
+ * {@code DecisionLogContentTest} cannot hold since all three need a real {@code ScrollPane}.
  */
 class DecisionLogTest {
 
@@ -76,8 +79,12 @@ class DecisionLogTest {
                 true, RunLog.BOT, decision, "", List.of(), 0);
     }
 
-    private static EmbeddedRun.Snapshot snapshotWith(List<RunLog> history) {
-        RunLog.Wait last = (RunLog.Wait) history.get(history.size() - 1);
+    private static BoundedLog.Entry entry(RunLog.Wait wait) {
+        return new BoundedLog.Entry(wait, null);
+    }
+
+    private static EmbeddedRun.Snapshot snapshotWith(List<BoundedLog.Entry> history) {
+        RunLog.Wait last = (RunLog.Wait) history.get(history.size() - 1).record();
         return new EmbeddedRun.Snapshot(last.decision(), 1, 1, null, EmbeddedRun.State.PLAYING, null, history);
     }
 
@@ -86,7 +93,8 @@ class DecisionLogTest {
     void one_line_per_wait_on_a_real_panel() {
         GameScene scene = fullScene();
         PanelDock dock = new PanelDock();
-        List<RunLog> history = List.of(wait(1, 1000, new Action.Search(), 1_000), wait(2, 2000, new Action.Wait(), 500));
+        List<BoundedLog.Entry> history = List.of(entry(wait(1, 1000, new Action.Search(), 1_000)),
+                entry(wait(2, 2000, new Action.Wait(), 500)));
         dock.frame(scene, snapshotWith(history), false);
         DecisionLog log = dock.panel().log();
 
@@ -103,20 +111,43 @@ class DecisionLogTest {
         }
     }
 
+    /**
+     * Story 5.4's review round: a row whose wait carries an {@link ActionContext} reads the same
+     * label the Decision card would from the equivalent Observation ({@code ActionTextTest.action_context_matches_observation}
+     * holds that {@code ActionText}'s two routes agree; this holds that a real {@code DecisionLog}
+     * actually threads a row's context there, not only that the pure content function would).
+     */
+    @Test
+    @DisplayName("a row with a captured ActionContext reads a compass direction on the real component, not a raw cell")
+    void row_reads_the_card_style_label_when_context_is_captured() {
+        GameScene scene = fullScene();
+        PanelDock dock = new PanelDock();
+        ActionContext context = new ActionContext(100, 10, List.of(), List.of());
+        Action.Step step = new Action.Step(100 - 10);
+        RunLog.Wait waitRecord = wait(1, 1000, step, 10_000);
+        List<BoundedLog.Entry> history = List.of(new BoundedLog.Entry(waitRecord, context));
+        dock.frame(scene, snapshotWith(history), false);
+        DecisionLog log = dock.panel().log();
+
+        String rowText = log.lineBlocks().get(log.lineBlocks().size() - 1).text();
+        assertTrue(rowText.contains("step N"), rowText);
+        assertFalse(rowText.contains(String.valueOf(step.cell())), "not the raw cell: " + rowText);
+    }
+
     @Test
     @DisplayName("auto-scrolls to the newest line while the view was already at the bottom")
     void auto_scrolls_while_at_the_bottom() {
         GameScene scene = fullScene();
         PanelDock dock = new PanelDock();
-        List<RunLog> many = manyWaits(50);
+        List<BoundedLog.Entry> many = manyWaits(50);
         dock.frame(scene, snapshotWith(many), false);
         DecisionLog log = dock.panel().log();
         // At the bottom already (the default, and this class's own scroll-to-bottom on the first fill).
         float maxScroll = Math.max(0, log.pane().content().height() - log.pane().height());
         assertEquals(maxScroll, log.pane().content().camera.scroll.y, 0.5f, "starts at the bottom");
 
-        List<RunLog> withOneMore = new ArrayList<>(many);
-        withOneMore.add(wait(51, 51_000, new Action.Wait(), 1));
+        List<BoundedLog.Entry> withOneMore = new ArrayList<>(many);
+        withOneMore.add(entry(wait(51, 51_000, new Action.Wait(), 1)));
         dock.frame(scene, snapshotWith(withOneMore), false);
 
         float newMaxScroll = Math.max(0, log.pane().content().height() - log.pane().height());
@@ -129,7 +160,7 @@ class DecisionLogTest {
     void does_not_yank_a_scrolled_up_view_to_the_bottom() {
         GameScene scene = fullScene();
         PanelDock dock = new PanelDock();
-        List<RunLog> many = manyWaits(50);
+        List<BoundedLog.Entry> many = manyWaits(50);
         dock.frame(scene, snapshotWith(many), false);
         DecisionLog log = dock.panel().log();
 
@@ -137,18 +168,51 @@ class DecisionLogTest {
         float scrolledUpPosition = log.pane().content().camera.scroll.y;
         assertEquals(0, scrolledUpPosition, 0.5f);
 
-        List<RunLog> withOneMore = new ArrayList<>(many);
-        withOneMore.add(wait(51, 51_000, new Action.Wait(), 1));
+        List<BoundedLog.Entry> withOneMore = new ArrayList<>(many);
+        withOneMore.add(entry(wait(51, 51_000, new Action.Wait(), 1)));
         dock.frame(scene, snapshotWith(withOneMore), false);
 
         assertEquals(scrolledUpPosition, log.pane().content().camera.scroll.y, 0.5f,
                 "the human's read position is not yanked to the bottom by the new line");
     }
 
-    private static List<RunLog> manyWaits(int count) {
-        List<RunLog> history = new ArrayList<>();
+    /**
+     * Story 5.4's review round: the top visible row used to be shown half clipped (most visibly
+     * auto-scrolled to the bottom, where it sat right at the viewport's top with nothing above it to
+     * say why -- {@code s54-1600x900.png}). {@link DecisionLog#snappedViewportHeight} floors the
+     * pane's own viewport to a whole number of rows, so the scroll position this test already holds
+     * (the bottom, from {@link #auto_scrolls_while_at_the_bottom}) never lands mid-row.
+     */
+    @Test
+    @DisplayName("the log's viewport is a whole number of row heights, so no row is ever shown half clipped")
+    void viewport_height_is_a_whole_number_of_rows() {
+        GameScene scene = fullScene();
+        PanelDock dock = new PanelDock();
+        dock.frame(scene, snapshotWith(manyWaits(50)), false);
+        DecisionLog log = dock.panel().log();
+
+        float pitch = DecisionLog.LINE_PITCH;
+        float remainder = (log.pane().height() + DecisionLog.ROW_GAP) % pitch;
+        assertTrue(remainder < 0.05f || remainder > pitch - 0.05f,
+                "the viewport height (" + log.pane().height() + ") plus one row gap is a whole multiple of the row pitch (" + pitch + ")");
+    }
+
+    @Test
+    @DisplayName("snappedViewportHeight floors to a whole number of rows, never below one")
+    void snapped_viewport_height_floors_and_has_a_floor_of_one_row() {
+        float pitch = DecisionLog.LINE_PITCH;
+        assertEquals(3 * pitch - DecisionLog.ROW_GAP, DecisionLog.snappedViewportHeight(3 * pitch - DecisionLog.ROW_GAP),
+                0.001f, "already a whole number of rows: unchanged");
+        assertEquals(3 * pitch - DecisionLog.ROW_GAP, DecisionLog.snappedViewportHeight(3 * pitch - DecisionLog.ROW_GAP + 5),
+                0.001f, "a partial fourth row's worth of extra height is discarded, not shown clipped");
+        assertEquals(pitch - DecisionLog.ROW_GAP, DecisionLog.snappedViewportHeight(1),
+                0.001f, "never below one whole row, even when given less room than that");
+    }
+
+    private static List<BoundedLog.Entry> manyWaits(int count) {
+        List<BoundedLog.Entry> history = new ArrayList<>();
         for (int i = 1; i <= count; i++) {
-            history.add(wait(i, i * 1000L, new Action.Search(), i));
+            history.add(entry(wait(i, i * 1000L, new Action.Search(), i)));
         }
         return List.copyOf(history);
     }
@@ -178,7 +242,7 @@ class DecisionLogTest {
         scene.add(underlying);
 
         PanelDock dock = new PanelDock();
-        List<RunLog> history = manyWaits(10);
+        List<BoundedLog.Entry> history = manyWaits(10);
         dock.frame(scene, snapshotWith(history), true);   // a Run is playing: input is locked
         DecisionLog log = dock.panel().log();
         assertFalse(log.pane().active, "the log's ScrollPane is not active while input is locked");

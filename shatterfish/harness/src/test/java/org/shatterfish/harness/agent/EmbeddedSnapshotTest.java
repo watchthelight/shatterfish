@@ -121,7 +121,11 @@ class EmbeddedSnapshotTest {
             // The Decision log's own source (story 5.4): the served wait's own record, in the snapshot's
             // history, its Action the Brain's Search.
             assertEquals(1, snapshot.history().size());
-            assertEquals(new Action.Search(), ((RunLog.Wait) snapshot.history().get(0)).action());
+            assertEquals(new Action.Search(), ((RunLog.Wait) snapshot.history().get(0).record()).action());
+            // Beside it, the ActionContext ActionText needs to label that Action the way the Decision
+            // card would (story 5.4's review round): captured from the same Observation, real, not null.
+            assertEquals(brain.observation.hero().cell(), snapshot.history().get(0).context().heroCell());
+            assertEquals(brain.observation.map().width(), snapshot.history().get(0).context().mapWidth());
 
             // A second wait, after the Brain's Search has spent a turn: the snapshot's turn moves with
             // the Run's own, rather than staying at whatever the first wait happened to read.
@@ -134,8 +138,8 @@ class EmbeddedSnapshotTest {
             assertEquals(RunLoop.turns(), second.turn());
             // The history grows: both waits, oldest first (story 5.4, "Decision log source").
             assertEquals(2, second.history().size());
-            assertEquals(new Action.Search(), ((RunLog.Wait) second.history().get(0)).action());
-            assertEquals(new Action.Search(), ((RunLog.Wait) second.history().get(1)).action());
+            assertEquals(new Action.Search(), ((RunLog.Wait) second.history().get(0).record()).action());
+            assertEquals(new Action.Search(), ((RunLog.Wait) second.history().get(1).record()).action());
         }
     }
 

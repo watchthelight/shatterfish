@@ -104,7 +104,7 @@ class PanelContentTest {
     }
 
     private static EmbeddedRun.Snapshot snapshot(RunLog.Decision decision, org.shatterfish.api.BeliefSummary beliefSummary,
-                                                 List<RunLog> history) {
+                                                 List<org.shatterfish.harness.agent.BoundedLog.Entry> history) {
         return new EmbeddedRun.Snapshot(decision, 14, 2, null, EmbeddedRun.State.PLAYING, beliefSummary, history);
     }
 
@@ -154,7 +154,8 @@ class PanelContentTest {
                 List.of("potion of invisibility (pool room)"), List.of("potion of strength 1/2"));
         RunLog.Wait waitRecord = new RunLog.Wait(1, 14_000, 2, 0, "a".repeat(64), Map.of("hero", "a".repeat(64)),
                 decision.chosen().action(), true, RunLog.BOT, decision, "", List.of(), 0);
-        List<RunLog> history = List.of(waitRecord);
+        List<org.shatterfish.harness.agent.BoundedLog.Entry> history =
+                List.of(new org.shatterfish.harness.agent.BoundedLog.Entry(waitRecord, null));
         dock.frame(scene, snapshot(decision, beliefSummary, history), false);
         Panel panel = dock.panel();
 

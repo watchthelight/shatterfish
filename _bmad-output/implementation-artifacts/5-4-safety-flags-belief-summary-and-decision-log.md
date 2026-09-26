@@ -465,6 +465,110 @@ log (`overlay-runs/v4.0.0-WARRIOR-0-AAA-AAA-CYY-6587783f7f748278-shatterfish.jso
 `enemy-in-view` and `hungry` were raised later in the same Run (`grep '"flags":'`), so the chip path
 was exercised by this Run even though the fixed screenshot frame happened to land before either did.
 
+## Review round (real labels for the Decision log's rows, and no row half clipped)
+
+The reviewer looked at `s54-1600x900.png` and found two things to fix before this story is done:
+
+1. **The Decision log showed raw Actions** (`"step 740"`, `"step 659"`), not the compass direction
+   `ActionText` already gives the Decision card (`"step NW"`). The log's own `waitLine` had always
+   called `ActionText.of(wait.action(), null)` -- design note 3 gives `EmbeddedRun.history()` the
+   exact `RunLog.Wait` records the file gets, and a `Wait` carries only its Observation's *hash*, not
+   the Observation itself, so there was never anything to build a real label from.
+2. **The top visible row was shown half clipped**, most visibly while auto-scrolled to the bottom
+   (`s54-1600x900.png`'s own topmost line): the Panel's own height is a pure function of the screen
+   and is essentially never already a whole multiple of one row's pitch, so whatever scroll position
+   the `ScrollPane` landed on could clip a row mid-glyph, top or bottom.
+
+### What was built
+
+**Item 1.** A new small public record, `org.shatterfish.harness.agent.ActionContext` (`heroCell`,
+`mapWidth`, `actors`, `promptOptions` -- exactly the four things `ActionText` ever reads out of an
+Observation), with `ActionContext.of(Observation)`. `BoundedLog.Entry` (`BoundedLog`'s own nested
+record, both now `public` so the Overlay, a different module, can read them) pairs a `RunLog` record
+with the `ActionContext` its Action needs; `EmbeddedRun.serve()` now calls
+`history.add(wait, ActionContext.of(observation))` instead of `history.add(wait)`, capturing the
+context once, from the same Observation already in hand, rather than keeping the whole Observation
+per history entry (200 of them) for the sake of four fields. `ActionText.of(Action, Observation)`
+(the Decision card's own route, unchanged in every caller) now builds an `ActionContext` and
+delegates to a new `ActionText.of(Action, ActionContext)` (the Decision log's route); both share one
+implementation of `direction`/`target`/`option`, so the two routes cannot silently drift apart.
+`DecisionLogContent.waitLine` threads `entry.context()` through instead of a hardcoded null.
+
+Alternatives considered for where `ActionContext` lives: an api record (rejected -- `api` is the
+Observation schema, `Action` and named helpers, per `JsonRenderingTest`'s own `HELPERS` discipline,
+not a home for an Overlay-facing presentation type); nested inside `overlay.ActionText` itself
+(rejected outright -- `harness.EmbeddedRun` is the one building it, at `serve()`, and `harness` may
+not depend on `overlay`, only the reverse); keeping the whole `Observation` per history entry
+(rejected -- `ActionText` reads four fields out of it, and 200 kept Observations (map tiles, the
+whole inventory, the whole journal) for the sake of four ints and two lists is exactly the kind of
+carrying-more-than-a-label-needs the coordinator's own phrasing ("carry what ActionText needs")
+argued against).
+
+**Item 2.** `DecisionLog.snappedViewportHeight(float height)`: floors the viewport handed to the
+`ScrollPane` (`pane.setRect(x, y, width, snappedViewportHeight(height))` in `layout()`) to a whole
+number of row pitches (`LINE_PITCH = SIZE + ROW_GAP`), never below one row. A structural fix over
+snapping the scroll position instead: the Panel's own height rarely lands on a row boundary either,
+so a viewport that is itself a whole number of rows cannot show a partial one at *either* edge,
+regardless of scroll position -- auto-scrolled to the bottom (the bug's own screenshot), scrolled to
+the top, or dragged to any point between. The unused remainder shows as a few pixels of the Panel's
+own translucent background below the last whole row, which reads as room rather than as something
+cut off. The alternative the setup itself offered (snap the *scroll position* to line boundaries
+instead) was rejected: it fixes the auto-scroll-to-bottom case directly but would need to run again
+on every manual drag too (this class's own `content()` already skips its body when nothing changed,
+specifically so a human's drag is not fought every frame), so it protects fewer of the cases a
+partial row could appear in for the same amount of code.
+
+**Optional (turn repeated on every row): deferred.** Dropping the word or adding a header row would
+touch every already-passing `DecisionLogContentTest`/`DecisionLogTest` assertion and the story's own
+worked examples above for a cosmetic saving the setup itself called optional; recorded in
+`docs/ideas.md` rather than done here.
+
+### Tests
+
+`ActionTextTest.action_context_matches_observation` (new): `ActionText.of(Action, Observation)` and
+`ActionText.of(Action, ActionContext)` read the same label from the same screen, concretely (a real
+compass direction, a real named target), not merely "the same as each other" by both falling back.
+`DecisionLogContentTest.wait_with_context_reads_a_compass_direction` (new): the content function
+itself threads a constructed `ActionContext` through to a compass direction.
+`DecisionLogTest.row_reads_the_card_style_label_when_context_is_captured` (new): the same, on a real
+`DecisionLog` component, and that the raw cell is *not* in the row's text.
+`EmbeddedSnapshotTest.a_served_wait` (extended): a real served wait's history entry carries a real,
+non-null `ActionContext` whose `heroCell`/`mapWidth` match the Brain's own Observation.
+`BoundedLogTest.context_reaches_as_list_unchanged` (new): a context added beside a record reaches
+`asList()` as the same object. `DecisionLogTest.viewport_height_is_a_whole_number_of_rows` (new): on
+a real Panel, `log.pane().height()` is a whole multiple of the row pitch.
+`DecisionLogTest.snapped_viewport_height_floors_and_has_a_floor_of_one_row` (new): the pure function
+directly -- unchanged when already exact, discards a partial row's worth of extra height, and never
+goes below one row even when given less room than that.
+
+`:overlay:test` (full module) and `:harness:test`'s touched classes
+(`BoundedLogTest`, `EmbeddedSnapshotTest`, `RunLoopRecordTest`) both green.
+
+### Mutation battery (review round)
+
+A control run of `:overlay:test` and the three touched `:harness:test` classes passed first; then 8
+more mutants (23 in total with the original battery), each planted, run, killed, and reverted.
+
+| Mutant | Killed by |
+|---|---|
+| R1: `ActionContext.of` drops its null check (NPEs instead of returning null for a null Observation) | `ActionTextTest.every_kind_without_an_observation` |
+| R2: `DecisionLogContent.waitLine` ignores its `context` parameter (hardcodes null) | `DecisionLogContentTest.wait_with_context_reads_a_compass_direction`, `DecisionLogTest.row_reads_the_card_style_label_when_context_is_captured` |
+| R3: `EmbeddedRun.serve()` calls `history.add(wait, null)` instead of capturing the real context | `EmbeddedSnapshotTest.a_served_wait` |
+| R4: `BoundedLog.add` always stores a null context, ignoring the one passed in | `BoundedLogTest.context_reaches_as_list_unchanged` |
+| R5: `DecisionLog.snappedViewportHeight` drops its `Math.max(1, ...)` floor | `DecisionLogTest.snapped_viewport_height_floors_and_has_a_floor_of_one_row` |
+| R6: `DecisionLog.snappedViewportHeight` rounds up (`Math.ceil`) instead of down | `DecisionLogTest.snapped_viewport_height_floors_and_has_a_floor_of_one_row` |
+| R7: `ActionText.direction`'s null-context fallback is dropped (NPEs instead of returning the raw cell) | `ActionTextTest.every_kind_without_an_observation` |
+| R8: `ActionContext.of` swaps `heroCell` and `mapWidth` | `ActionTextTest.action_context_matches_observation` |
+
+### Real launch (review round)
+
+`:overlay:launch --agent brain --seed 2000 --class WARRIOR --turn-cap 300 --exit-when-over --window
+1600x900 --screenshot s54-review-1600x900.png`. Same tuple as the first launch's, a fresh Run (log
+`v4.0.0-WARRIOR-0-AAA-AAA-CYY-4328d6a4bd269ed5-shatterfish.jsonl`); ended at TURN_CAP, 289 waits,
+deepest floor 1. The Decision log now reads `turn N bot step N 1.0000` / `step NW 1.0000` -- real
+compass directions, not `step 700` / `step 740` -- and the topmost visible row is a whole row, not
+one shown cut through the middle of its glyphs the way the first screenshot's was.
+
 ### Deferred
 
 To `docs/ideas.md`: a goal-then-no-decision-then-goal sequence's "leaves the remembered goal alone"
@@ -478,4 +582,5 @@ Safety flags beyond the four `Safety.java` names today (`ok: fighting in corrido
 `SafetyFlagVerdict` has an `OK` case exercised by anything real; the controls row (5.5 to 5.7) will
 need the same `pane.active = !inputLocked` discipline this story's `DecisionLog` and story 5.3's
 Explain both needed, which is exactly what `docs/ideas.md` already asked a shared base class to give
-every future control rather than each re-deriving it.
+every future control rather than each re-deriving it; the review round's own "turn" repeated on
+every Decision log row (considered, deferred as not cheap enough to fold in here).

@@ -368,3 +368,18 @@ it re-reads ADR-0006's Blobs row.
   Javadoc already documents the choice ("a Prompt rides beside the wait that answered it"). Widening
   `history()` to a small ordered structure carrying both kinds (or teaching `BoundedLog` to accept a
   `Prompt` beside its `Wait`) is a small, separable follow-up, not folded into story 5.4.
+
+## From story 5.4's review round
+
+- **The word "turn" repeats on every Decision log row.** Considered (the coordinator's own review
+  offered a header row or dropping the word, "only if it's cheap"): dropping it is a one-line change
+  to `DecisionLogContent.waitLine`, but every already-passing `DecisionLogContentTest`/`DecisionLogTest`
+  assertion and the story file's own worked examples spell out the current format, so the real cost is
+  in what it touches, not the line itself. Deferred rather than folded into the review round.
+- **`DecisionLog.snappedViewportHeight` assumes every row is the small size's own nominal height
+  (`SIZE`, 6).** The same approximation `PanelLayout.MIN_PANEL_HEIGHT` already made for the log's
+  three-line floor (story 5.2) and `DecisionLog.minHeight()` already made for its content height
+  (story 5.4); a `RenderedTextBlock`'s real measured height at that size was never checked against
+  the constant. If the font's real line height at size 6 differs from 6, both this floor's own
+  arithmetic and the snapping's would be off by the same small amount everywhere at once -- a single
+  place to fix if it ever matters, not three that would need to agree.

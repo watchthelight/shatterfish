@@ -497,3 +497,17 @@ freshly built Panel computes "at the bottom" against the pane's constructed heig
 to the wrong position (caught by `DecisionLogTest.auto_scrolls_while_at_the_bottom`). `layout()` is
 idempotent and cheap enough that calling it a second time inside `content()` (once via `Panel.place`'s
 own `setRect`, as before, and again here) costs nothing worth avoiding.
+
+**Review round: real labels for the log, no row half clipped.** Two fixes, still one same-thread
+`Snapshot`, no new synchronization. First, `EmbeddedRun.serve()` now captures a new public record,
+`ActionContext` (the hero's cell, the map's width, the actors in view, the open Prompt's option
+labels -- exactly the four things `overlay.ActionText` ever reads out of an Observation), beside each
+`RunLog.Wait` in `BoundedLog` (`BoundedLog.Entry(record, context)`, both types now `public` so the
+Overlay can read them from `EmbeddedRun.Snapshot.history()`): the Decision log's rows used to label
+every Action with a null Observation (a `Wait` only carries its Observation's hash), so they read
+`"step 700"` where the Decision card, given the real Observation, read `"step NW"`.
+`ActionText.of(Action, Observation)` (the card's route) now builds an `ActionContext` and delegates
+to a new `ActionText.of(Action, ActionContext)` (the log's route); one implementation, so the two
+cannot drift. Second, `DecisionLog.snappedViewportHeight` floors the `ScrollPane`'s own viewport to a
+whole number of row pitches: the Panel's height is rarely already one, so the viewport used to clip
+whichever row landed at an edge, most visibly the topmost row while auto-scrolled to the bottom.

@@ -1,6 +1,8 @@
 package org.shatterfish.overlay;
 
 import org.shatterfish.api.RunLog;
+import org.shatterfish.harness.agent.ActionContext;
+import org.shatterfish.harness.agent.BoundedLog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,17 +35,18 @@ final class DecisionLogContent {
     }
 
     /** {@code history}'s lines, oldest first, newest last, with a goal-change and a Mode-change line where either happens. */
-    static List<Line> of(List<RunLog> history) {
+    static List<Line> of(List<BoundedLog.Entry> history) {
         List<Line> lines = new ArrayList<>();
         String goal = null;
-        for (RunLog record : history) {
+        for (BoundedLog.Entry entry : history) {
+            RunLog record = entry.record();
             if (record instanceof RunLog.Wait wait) {
                 String thisGoal = wait.decision() == null ? null : wait.decision().goal();
                 if (thisGoal != null && !thisGoal.equals(goal)) {
                     lines.add(new Line("goal: " + thisGoal));
                     goal = thisGoal;
                 }
-                lines.add(new Line(waitLine(wait)));
+                lines.add(new Line(waitLine(wait, entry.context())));
             } else if (record instanceof RunLog.Mode mode) {
                 lines.add(new Line(modeLine(mode)));
             }
@@ -54,10 +57,16 @@ final class DecisionLogContent {
         return List.copyOf(lines);
     }
 
-    /** {@code turn <n>  <actor>  <action>  <score>}, an em dash where a Decider with no Decision leaves no score. */
-    private static String waitLine(RunLog.Wait wait) {
+    /**
+     * {@code turn <n>  <actor>  <action>  <score>}, an em dash where a Decider with no Decision
+     * leaves no score. {@code context} (story 5.4's review round) is what {@link ActionText} needs
+     * to read {@code wait}'s Action the same way the Decision card would (a compass direction, a
+     * named target, an option's text), not a raw cell; null when none was captured (a history entry
+     * constructed directly, without going through {@code EmbeddedRun}).
+     */
+    private static String waitLine(RunLog.Wait wait, ActionContext context) {
         String turn = "turn " + Columns.number(wait.turn() / 1000, ModeStripContent.TURN_WIDTH);
-        String action = ActionText.of(wait.action(), null);
+        String action = ActionText.of(wait.action(), context);
         String score = wait.decision() == null ? ModeStripContent.NO_INTERVAL_YET
                 : Columns.score(wait.decision().chosen().score());
         return turn + "  " + wait.actor() + "  " + action + "  " + score;

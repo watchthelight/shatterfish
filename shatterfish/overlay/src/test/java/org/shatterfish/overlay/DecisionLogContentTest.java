@@ -4,6 +4,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.shatterfish.api.Action;
 import org.shatterfish.api.RunLog;
+import org.shatterfish.harness.agent.ActionContext;
+import org.shatterfish.harness.agent.BoundedLog;
 
 import java.util.List;
 import java.util.Map;
@@ -27,11 +29,20 @@ class DecisionLogContentTest {
         return new RunLog.Decision(goal, new RunLog.Choice(action, score, "reason"), List.of(), List.of(), "policy");
     }
 
+    /** {@code record} with no captured context (the common case in these tests: labels that need none). */
+    private static BoundedLog.Entry entry(RunLog record) {
+        return new BoundedLog.Entry(record, null);
+    }
+
+    private static BoundedLog.Entry entry(RunLog record, ActionContext context) {
+        return new BoundedLog.Entry(record, context);
+    }
+
     @Test
     @DisplayName("one line per wait: turn, actor, Action and score")
     void one_line_per_wait() {
-        List<RunLog> history = List.of(
-                wait(1, 1000, RunLog.BOT, new Action.Search(), decision("explore: floor", new Action.Search(), 10_000)));
+        List<BoundedLog.Entry> history = List.of(
+                entry(wait(1, 1000, RunLog.BOT, new Action.Search(), decision("explore: floor", new Action.Search(), 10_000))));
 
         List<DecisionLogContent.Line> lines = DecisionLogContent.of(history);
 
@@ -44,9 +55,9 @@ class DecisionLogContentTest {
     @Test
     @DisplayName("newest at the bottom: waits appear in the history's own order")
     void newest_at_the_bottom() {
-        List<RunLog> history = List.of(
-                wait(1, 1000, RunLog.BOT, new Action.Search(), decision("explore", new Action.Search(), 1_000)),
-                wait(2, 2000, RunLog.BOT, new Action.Wait(), decision("explore", new Action.Wait(), 500)));
+        List<BoundedLog.Entry> history = List.of(
+                entry(wait(1, 1000, RunLog.BOT, new Action.Search(), decision("explore", new Action.Search(), 1_000))),
+                entry(wait(2, 2000, RunLog.BOT, new Action.Wait(), decision("explore", new Action.Wait(), 500))));
 
         List<DecisionLogContent.Line> lines = DecisionLogContent.of(history);
 
@@ -59,10 +70,10 @@ class DecisionLogContentTest {
     @Test
     @DisplayName("a goal change gets a line of its own where it happens, and only where it changes")
     void goal_change_gets_its_own_line() {
-        List<RunLog> history = List.of(
-                wait(1, 1000, RunLog.BOT, new Action.Search(), decision("explore: floor", new Action.Search(), 1_000)),
-                wait(2, 2000, RunLog.BOT, new Action.Wait(), decision("explore: floor", new Action.Wait(), 500)),
-                wait(3, 3000, RunLog.BOT, new Action.Attack(5), decision("fight: gnoll", new Action.Attack(5), 900)));
+        List<BoundedLog.Entry> history = List.of(
+                entry(wait(1, 1000, RunLog.BOT, new Action.Search(), decision("explore: floor", new Action.Search(), 1_000))),
+                entry(wait(2, 2000, RunLog.BOT, new Action.Wait(), decision("explore: floor", new Action.Wait(), 500))),
+                entry(wait(3, 3000, RunLog.BOT, new Action.Attack(5), decision("fight: gnoll", new Action.Attack(5), 900))));
 
         List<DecisionLogContent.Line> lines = DecisionLogContent.of(history);
 
@@ -75,10 +86,10 @@ class DecisionLogContentTest {
     @Test
     @DisplayName("a Mode change (ADR-0013's RunLog.Mode, unwritten by any headless caller today) gets a line of its own")
     void mode_change_gets_its_own_line() {
-        List<RunLog> history = List.of(
-                wait(1, 1000, RunLog.BOT, new Action.Search(), decision("explore", new Action.Search(), 1_000)),
-                new RunLog.Mode(2, "PAUSED", "Next Step"),
-                wait(3, 3000, RunLog.HUMAN, new Action.Wait(), null));
+        List<BoundedLog.Entry> history = List.of(
+                entry(wait(1, 1000, RunLog.BOT, new Action.Search(), decision("explore", new Action.Search(), 1_000))),
+                entry(new RunLog.Mode(2, "PAUSED", "Next Step")),
+                entry(wait(3, 3000, RunLog.HUMAN, new Action.Wait(), null)));
 
         List<DecisionLogContent.Line> lines = DecisionLogContent.of(history);
 
@@ -91,7 +102,7 @@ class DecisionLogContentTest {
     @Test
     @DisplayName("a wait with no Decision (a plain Decider) shows an em dash where the score would be, not a number")
     void no_decision_shows_an_em_dash() {
-        List<RunLog> history = List.of(wait(1, 1000, RunLog.BOT, new Action.Wait(), null));
+        List<BoundedLog.Entry> history = List.of(entry(wait(1, 1000, RunLog.BOT, new Action.Wait(), null)));
         List<DecisionLogContent.Line> lines = DecisionLogContent.of(history);
         assertEquals(1, lines.size(), "no Decision, so no goal line either");
         assertTrue(lines.get(0).text().endsWith(ModeStripContent.NO_INTERVAL_YET));
@@ -101,5 +112,26 @@ class DecisionLogContentTest {
     @DisplayName("an empty history is an empty log")
     void empty_history() {
         assertEquals(List.of(), DecisionLogContent.of(List.of()));
+    }
+
+    /**
+     * Story 5.4's review round: a wait's own {@link ActionContext} (what {@code EmbeddedRun}
+     * captured at that wait) reaches {@code ActionText} the same way the Decision card's does, so
+     * the log reads "step N", not the raw cell {@code ActionText} falls back to with no context.
+     */
+    @Test
+    @DisplayName("a wait carrying its ActionContext reads a compass direction, not a raw cell")
+    void wait_with_context_reads_a_compass_direction() {
+        ActionContext context = new ActionContext(100, 10, List.of(), List.of());
+        Action step = new Action.Step(100 - 10);
+        List<BoundedLog.Entry> history = List.of(
+                entry(wait(1, 1000, RunLog.BOT, step, decision("explore: floor", step, 10_000)), context));
+
+        List<DecisionLogContent.Line> lines = DecisionLogContent.of(history);
+
+        assertEquals(2, lines.size());
+        String waitLine = lines.get(1).text();
+        assertTrue(waitLine.contains("step N"), waitLine);
+        assertTrue(waitLine.contains(ActionText.of(step, context)), "the same label ActionText itself builds: " + waitLine);
     }
 }

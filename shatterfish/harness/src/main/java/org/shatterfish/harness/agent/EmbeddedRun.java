@@ -129,14 +129,16 @@ public final class EmbeddedRun implements AutoCloseable {
      * an Action into words (a Step's compass direction, an Attack's target, an AnswerPrompt's option
      * text) without the Brain seeing anything new.
      *
-     * @param history the wait records this Run has written, oldest first, newest last, at most
-     *                {@link #HISTORY_CAPACITY} of them (story 5.4, FR-38's "200 lines on screen; the
-     *                Run log holds the rest"): the Decision log's own source, so the Panel shows a
-     *                view over what {@code RunLoop.record} already built for the file rather than a
-     *                second list built differently
+     * @param history the wait records this Run has written, each beside the {@link ActionContext}
+     *                its Action needs to be labelled the way the Decision card labels one (review
+     *                round), oldest first, newest last, at most {@link #HISTORY_CAPACITY} of them
+     *                (story 5.4, FR-38's "200 lines on screen; the Run log holds the rest"): the
+     *                Decision log's own source, so the Panel shows a view over what
+     *                {@code RunLoop.record} already built for the file rather than a second list
+     *                built differently
      */
     public record Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state,
-                           BeliefSummary beliefSummary, List<RunLog> history) {
+                           BeliefSummary beliefSummary, List<BoundedLog.Entry> history) {
 
         /** A snapshot with no belief summary and no history (story 5.3's own shape, kept for callers built on it). */
         public Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state) {
@@ -512,8 +514,10 @@ public final class EmbeddedRun implements AutoCloseable {
                 decided.thinkMs(), oracle, brain);
         // The exact record RunLoop.record built for the file (or would have, with no log): kept here
         // too, bounded, so the Panel's Decision log is a view over it rather than a second list built
-        // differently (story 5.4, design note "Decision log source").
-        history.add(wait);
+        // differently (story 5.4, design note "Decision log source"). Beside it, the pieces of this
+        // same Observation ActionText needs to label the Action in words (review round): captured
+        // here, once, rather than keeping the whole Observation for every entry.
+        history.add(wait, ActionContext.of(observation));
         // The same read RunLoop.record makes of the Brain's own reasons, kept here too so the render
         // thread has a Decision to show without reopening the log (story 5.3): both reads happen on
         // this thread, after the worker's Future is done, which is the happens-before edge over
