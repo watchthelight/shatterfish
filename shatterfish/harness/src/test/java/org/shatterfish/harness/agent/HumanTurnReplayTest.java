@@ -83,5 +83,10 @@ class HumanTurnReplayTest {
         assertEquals(3, replayed.waits());
         assertEquals(3, replayed.verified(), "every Observation hash matched");
         assertEquals(0, replayed.unverifiableFrom());
+
+        // The Rig's own Replay still refuses an Overlay log by its driver: this check is not a Rig path.
+        IllegalArgumentException refused = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> Replay.of(log, Files.createDirectories(folder.resolve("rig")), "test"));
+        assertTrue(refused.getMessage().contains("driver"), refused.getMessage());
     }
 }

@@ -349,6 +349,67 @@ class PanelContentTest {
         assertTrue(clicked[0], "the tap reached the window's own button underneath");
     }
 
+    /** A HUMAN Run's snapshot (story 5.9): the shadow for the wait in front, or not, and a Replay notice. */
+    private static EmbeddedRun.Snapshot humanSnapshot(RunLog.Decision decision, boolean current, long unverifiableFrom) {
+        return new EmbeddedRun.Snapshot(decision, 14, 2, null, EmbeddedRun.State.PLAYING, null, List.of(),
+                new EmbeddedRun.Human(current, 3, true, unverifiableFrom, unverifiableFrom > 0 ? "a click on cell 9" : "", 0));
+    }
+
+    @Test
+    @DisplayName("HUMAN: a tap on the Panel never falls through to the dungeon under it; a Brain's Panel lets it through")
+    void a_human_tap_on_the_panel_stays_on_the_panel() {
+        PointerEvent.clearListeners();
+        GameScene scene = fullScene();
+        // The dungeon's own cell selector, as the scene registers it before the Panel: a full-screen area.
+        int[] dungeon = {0};
+        com.watabou.noosa.PointerArea underneath = new com.watabou.noosa.PointerArea(0, 0, 10_000, 10_000) {
+            @Override
+            protected void onClick(PointerEvent event) {
+                dungeon[0]++;
+            }
+        };
+        underneath.camera = PixelScene.uiCamera;
+        scene.add(underneath);
+
+        PanelDock dock = new PanelDock();
+        RunLog.Decision decision = decision(List.of());
+        dock.frame(scene, humanSnapshot(decision, true, 0), false);
+        Panel panel = dock.panel();
+        assertTrue(panel.blocker().active, "a person plays and no window is in front: the Panel takes its taps");
+        // The strip's middle: no control of the Panel's own is there.
+        Component strip = new Component();
+        strip.setRect(panel.left() + 2, panel.top() + 2, 2, 2);
+        strip.camera = PixelScene.uiCamera;
+        press(strip);
+        assertEquals(0, dungeon[0], "the tap stayed on the Panel: no hero Action can come of it");
+
+        dock.frame(scene, humanSnapshot(decision, true, 0), true);
+        assertFalse(panel.blocker().active, "with a window in front, the window's blocker holds the dungeon");
+        dock.frame(scene, snapshot(decision), false);
+        assertFalse(panel.blocker().active, "a Brain's Panel keeps no blocker, so no executor tap is taken");
+        press(strip);
+        assertEquals(1, dungeon[0], "the Brain's Panel is the story 5.3 Panel: the tap goes through");
+    }
+
+    @Test
+    @DisplayName("HUMAN: the card is the Brain's shadow, said in words, with the Replay notice over it")
+    void the_card_says_shadow() {
+        GameScene scene = fullScene();
+        PanelDock dock = new PanelDock();
+        RunLog.Decision decision = decision(List.of());
+        dock.frame(scene, humanSnapshot(decision, true, 0), false);
+        DecisionCard card = dock.panel().card();
+        assertTrue(card.headlineRow().visible);
+        assertEquals(DecisionCardContent.SHADOW_NOW, card.headlineRow().text());
+        assertFalse(card.noticeRow().visible, "every wait still replays");
+        assertTrue(dock.panel().stripText().text().startsWith("HUMAN"), dock.panel().stripText().text());
+
+        dock.frame(scene, humanSnapshot(decision, false, 7), false);
+        assertEquals(DecisionCardContent.SHADOW_LAST, card.headlineRow().text());
+        assertTrue(card.noticeRow().visible);
+        assertTrue(card.noticeRow().text().startsWith(DecisionCardContent.UNVERIFIABLE + 7), card.noticeRow().text());
+    }
+
     /** {@code ActionExecutor.press}, reproduced: a synthetic DOWN and UP queued directly as {@code PointerEvent}s, bypassing {@code InputLock}. */
     private static void press(Component button) {
         Camera camera = button.camera();

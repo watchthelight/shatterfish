@@ -29,8 +29,11 @@ import java.util.Map;
  *                      triple ({@code DeciderSeeds.agent}; an Overlay Run has no challenges)
  * @param oracle        whether this Run may see what a player could not; a debugging mode
  * @param exitWhenOver  whether the window closes when the Run ends, for an unattended check
- * @param agent         who plays: {@code random}, the Rig's Baseline, or {@code brain} (OverlayAgents)
- * @param weights       the Brain's weight set, for {@code --agent brain}
+ * @param agent         who plays: {@code random}, the Rig's Baseline, {@code brain} (OverlayAgents), or
+ *                      {@code human}: the person at the window plays the whole Run with the game's own
+ *                      input, recorded, and the Brain decides every wait as a shadow that is never
+ *                      executed (story 5.9)
+ * @param weights       the Brain's weight set, for {@code --agent brain} and the shadow of {@code human}
  * @param windowWidth   the window's width in pixels, or 0 for the game's own setting ({@code --window WxH})
  * @param windowHeight  the window's height in pixels, or 0 for the game's own setting
  * @param screenshot    a PNG of one frame to write once the Run is under way, or null ({@code --screenshot})
@@ -60,9 +63,14 @@ public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path prof
         if (windowWidth < 0 || windowHeight < 0 || (windowWidth == 0) != (windowHeight == 0)) {
             throw new IllegalArgumentException("--window is WxH, both positive: " + windowWidth + "x" + windowHeight);
         }
-        if (!agent.equals("random") && !agent.equals("brain")) {
-            throw new IllegalArgumentException("--agent is random or brain: " + agent);
+        if (!agent.equals("random") && !agent.equals("brain") && !agent.equals("human")) {
+            throw new IllegalArgumentException("--agent is random, brain or human: " + agent);
         }
+    }
+
+    /** Whether the person at the window plays this Run (story 5.9). */
+    public boolean human() {
+        return agent.equals("human");
     }
 
     /** Reads the command line; see {@link #KNOWN}. */
