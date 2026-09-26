@@ -49,3 +49,51 @@ graph TD
 
 See [Fairness](fairness.md) for how the first two are tested and [Glossary](glossary.md) for the
 terms.
+
+## Statics that outlive a Run
+
+The game keeps some of its state in static fields, and a process that plays two Runs plays the second
+on whatever the first left in them. A Rig Run and an Overlay Run each have a process of their own; the
+tests play many Runs in one process, and a leak there makes a test's outcome depend on the order of
+its Runs (issue #167). A sweep of upstream `core` at the pinned tag lists every static that is not
+`final`, leaving out the packages that only draw (`ui`, `effects`, `scenes`, `windows`, `tiles`,
+`sprites`, `messages`), the item-glow colours and the class tables: 358 fields, each classified by
+reading the code that writes and reads it. The sweep script and its output are in the pull request
+that closed #167.
+
+| Class of static | How many | Examples | What puts it back |
+|---|---|---|---|
+| Never written after its declaration: a constant in all but name | 129 | `DURATION` and bundle keys everywhere, `Talent.tierLevelThresholds`, the room and trap tables, `CursedWand`'s effect lists | nothing needed |
+| Reset by the game when a game begins | about 110 | everything under `Dungeon`, `Statistics`, `Actor` (`Actor.clear`), the potion, scroll and ring labels, `Generator`, `SpecialRoom` and `SecretRoom` (`initForRun`), `Notes`, the four quests, `LimitedDrops` | `Dungeon.init()` (`core/.../Dungeon.java:233-287`), which `NewGame.begin` runs |
+| Reset by the game when it builds a floor or scene | a dozen | the vault's room and treasure lists (`VaultLevel.java:153`, `:164`), `DimensionalSundial.sundialWarned` and `Actor.keepActorThreadAlive` (`GameScene`), `ArmoryRoom.prizeCats` | the game |
+| A player's history | about 20 | `Badges.global`, `Journal.loaded`, the catalogs and bestiary, `Bones`, `Rankings`, `GamesInProgress`, `Dungeon.customSeedText` | the Run's Profile (`Profile.emptyTheHistory`, stories 1.15 and 5.1) |
+| Written before it is read, within one action | about 60 | `Item.curUser`, the item selectors, `Combo.furyHitsLeft`, `Tengu.throwingChar`, the `identifiedByUse` and `testing` flags, `Chasm.heroPos`, `HighGrass.freezeTrample`, the quests' fields written at spawn | nothing needed: a leftover is overwritten before anything reads it |
+| Sound throttles on the wall clock | 4 | `VaultFlameTraps.SFXLastPlayed` and its kin | nothing needed: they only decide whether a sound plays |
+| Written in play, read later, reset by nothing | 11 | see below | `RunStatics.reset()`, at every Run start |
+
+The last row is what `RunStatics` (harness, `driver`) puts back to a fresh process's value when
+`NewGame.begin` starts a Run, for both drivers:
+
+| Static | Fresh value | What a leftover did |
+|---|---|---|
+| `Snake.dodges` (private) | 0 | the guidebook's hint logged at a different dodge (`Snake.java:58-70`) |
+| `GnollGeomancer.rocksInFlight`, `GnollGeomancer.knockedChars` (private) | 0, an empty list | a volley that outlived its Run kept the list from ever being cleared (`GnollGeomancer.java:697-761`) |
+| `Char.hitMissIcon` (private) | -1 | a late miss tuft drew from the game's generator (`Char.java:586-594`) |
+| `Flail.spinBoost` (private) | 0 | a spin charge added to the next Run's first flail hit (`Flail.java:57-89`) |
+| `RingOfWealth.latestDropTier` (private) | 0 | a bonus-drop flare on the next Run's drop (`RingOfWealth.java:170-190`) |
+| `Chasm.jumpConfirmed` | false | a jump nobody confirmed (`Chasm.java:54`, `:88-101`) |
+| `TippedDart.lostDarts` | 0 | darts from the last Run dropped at the next pick-up (`TippedDart.java:150-161`) |
+| `WondrousResin.forcePositive` | false | every cursed effect of the next Run positive (`Wand.java:771-777`) |
+| `Ratmogrify.useRatroicEnergy` | false | the heroic-energy talent renamed (`Talent.java:447-450`, `:477`) |
+| `Bestiary.skipCountingEncounters` | false | encounters not counted (`DwarfKing.java:507-511`) |
+
+The private ones are reached by reflection, which harness main code may do only in the classes and
+for the fields `docs/UPSTREAM.md` names; `HarnessReflectionTest` holds that. `RunStaticsTest` plants a
+leftover in each and checks it is put back, and `InProcessRunsTest` plays a tuple, then another, then
+the first again in one process and requires the third Run's every Observation to equal the first's.
+
+Two things this does not settle. A Run restored from a snapshot in the same process
+(`HeadlessDriver`'s restore) starts from these statics as the process left them, not as they were
+when the snapshot was taken; only the snapshot's saved game is restored. And the statics that read
+the wall clock, `Holiday.cached` and `DimensionalSundial`'s night check, make a Run depend on the date
+and the hour, which no reset can fix: that is issue #139.

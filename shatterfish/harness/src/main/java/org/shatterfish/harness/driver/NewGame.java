@@ -8,7 +8,6 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Journal;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
-import com.shatteredpixel.shatteredpixeldungeon.levels.features.Chasm;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.InterlevelScene;
 import com.shatteredpixel.shatteredpixeldungeon.ui.ActionIndicator;
 import com.shatteredpixel.shatteredpixeldungeon.ui.GameLog;
@@ -56,9 +55,10 @@ public final class NewGame {
             throw new IllegalArgumentException("a Run's generator stack is its own (ADR-0007)");
         }
         String seedCode = DungeonSeed.convertToCode(seed);
-        // The game clears this only when the hero falls (Chasm.java:101); a Run closed between a
-        // confirmed jump and the fall would otherwise jump unasked in this one.
-        Chasm.jumpConfirmed = false;
+        // What an earlier Run in this process left in upstream statics nothing resets, such as a
+        // confirmed jump the Run closed before the fall (Chasm.java:101) or a snake's dodge count
+        // (issue #167): back to a fresh process's values before anything reads them.
+        RunStatics.reset();
 
         // What the hero-select screen loads before any game starts (HeroSelectScene.java:106-107).
         // Both load once per process; story 1.15 owns what a Profile is and when it is reloaded.

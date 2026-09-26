@@ -494,17 +494,19 @@ class ActionExecutorTest {
         assertEquals(ceiling, hero.pointsInTalent(upgrading), "the talent is full after " + given);
 
         // Past it the pane offers no upgrade at all (…/ui/TalentButton.java:114-119), and neither
-        // does the executor: Hero.upgradeTalent would take the point, which is why this is checked
-        // here and not left to the game.
+        // does the valid set (issue #162): a talent at its most is not offered, so the executor
+        // refuses it as it refuses anything not offered, before its own check of the most, which
+        // stays behind it because Hero.upgradeTalent would take the point.
         while (hero.talentPointsAvailable(1) <= 0 && hero.lvl < 12) {
             hero.earnExp(hero.maxExp(), Hero.class);
         }
         assertTrue(hero.talentPointsAvailable(1) > 0, "another point, and nowhere for it to go in this talent");
-        Outcome outcome = executor.execute(new Observer().observe(), talent);
+        Observation full = new Observer().observe();
+        assertFalse(full.actions().actions().contains(talent), "a talent at its most is no choice: " + talent);
+        Outcome outcome = executor.execute(full, talent);
         Outcome.Rejected rejected = assertInstanceOf(Outcome.Rejected.class, outcome,
                 "a talent at its ceiling takes no more: " + outcome);
         assertEquals(Reason.NOT_OFFERED, rejected.reason());
-        assertTrue(rejected.detail().contains(String.valueOf(ceiling)), rejected.detail());
         assertEquals(ceiling, hero.pointsInTalent(upgrading), "and it is still what it was");
     }
 

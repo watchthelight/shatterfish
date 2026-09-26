@@ -103,13 +103,28 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
                 || mode == InterlevelScene.Mode.FALL;
     }
 
-    /** Plays frames until the Run ends or {@code maxFrames} have gone by; says how it stands. */
+    /**
+     * Whether the next {@link #frame()} only waits on the Brain: the Run is thinking and this host does
+     * not step the game through the thought. Such a turn is not a game frame, and a loop that counted it
+     * against a frame bound raced the worker thread, which a loaded machine may not schedule for
+     * thousands of turns (CI on PR #168). The helpers count only the frames that step the game and
+     * leave the wait to the test's timeout.
+     */
+    boolean waitingOnTheBrain() {
+        return run.state() == EmbeddedRun.State.THINKING && !stepWhileThinking;
+    }
+
+    /** Plays until the Run ends or {@code maxFrames} game frames have gone by; says how it stands. */
     EmbeddedRun.State play(long maxFrames) {
         EmbeddedRun.State state = run.state();
-        for (long frame = 0; frame < maxFrames && state != EmbeddedRun.State.ENDED; frame++) {
+        long frames = 0;
+        while (frames < maxFrames && state != EmbeddedRun.State.ENDED) {
+            boolean waiting = waitingOnTheBrain();
             state = frame();
-            if (state == EmbeddedRun.State.THINKING && !stepWhileThinking) {
+            if (waiting) {
                 Thread.onSpinWait();
+            } else {
+                frames++;
             }
         }
         return state;

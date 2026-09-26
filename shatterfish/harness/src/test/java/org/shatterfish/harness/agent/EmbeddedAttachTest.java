@@ -232,14 +232,20 @@ class EmbeddedAttachTest {
         }
     }
 
-    /** Plays frames until {@code done} holds. */
+    /** Plays frames until {@code done} holds; the bound is on game frames ({@link EmbeddedHost#waitingOnTheBrain}). */
     static void playUntil(EmbeddedHost host, java.util.function.BooleanSupplier done) {
-        for (int frame = 0; frame < 200_000; frame++) {
+        for (int frame = 0; frame < 200_000; ) {
             if (done.getAsBoolean()) {
                 return;
             }
+            boolean waiting = host.waitingOnTheBrain();
             if (host.frame() == EmbeddedRun.State.ENDED) {
                 throw new AssertionError("the Run ended: " + host.run.outcome());
+            }
+            if (waiting) {
+                Thread.onSpinWait();
+            } else {
+                frame++;
             }
         }
         throw new AssertionError("the condition never held; the Run stands at wait " + host.run.waitIndex()
@@ -248,13 +254,19 @@ class EmbeddedAttachTest {
 
     /** Plays frames until the Run has confirmed wait {@code k} and is thinking about it. */
     static void playUntilWaits(EmbeddedHost host, long k) {
-        for (int frame = 0; frame < 200_000; frame++) {
+        for (int frame = 0; frame < 200_000; ) {
             if (host.run.waitIndex() >= k && host.run.state() == EmbeddedRun.State.THINKING) {
                 return;
             }
+            boolean waiting = host.waitingOnTheBrain();
             EmbeddedRun.State state = host.frame();
             if (state == EmbeddedRun.State.ENDED) {
                 throw new AssertionError("the Run ended before wait " + k + ": " + host.run.outcome());
+            }
+            if (waiting) {
+                Thread.onSpinWait();
+            } else {
+                frame++;
             }
         }
         throw new AssertionError("no wait " + k + " within the frames; the Run stands at wait " + host.run.waitIndex());

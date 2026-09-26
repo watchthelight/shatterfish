@@ -123,7 +123,7 @@ for a check: a new file at the repository root, which cannot be an upstream file
 upstream had no such file; and anything git is configured not to report.
 
 A third thing is outside the ledger's reach because it is not an edit at all: Shatterfish code
-reaching a private upstream member by reflection. Harness main code does this for two fields,
+reaching a private upstream member by reflection. Harness main code does this in two classes. The first reaches two fields,
 both from `shatterfish/harness/src/main/java/org/shatterfish/harness/scene/SceneStepper.java`. It
 writes `GameScene.actorThread` once per scene, starting the actor thread itself before the first
 frame where the scene would start it in the middle of the first `update()`
@@ -132,10 +132,23 @@ frame and changes nothing the game computes, which is why it is recorded here ra
 row. It reads `Actor.current` and never writes it, to name the actor a stalled Run is waiting on
 in the driver's diagnostic and in the stepper's own failure messages (story 1.4); no Run outcome
 depends on it. Each fails immediately and by name if an upgrade moves its field, and row 4
-(read-only accessors) is where they move if that happens. `HarnessReflectionTest` confines
-reflection in harness main code to that one class, by dependency rather than by call so that a
-method reference or a reflective call to `getDeclaredField` itself does not slip past, and asserts
-that the fields it reaches are exactly the two named here, so a third cannot arrive unannounced.
+(read-only accessors) is where they move if that happens. A second class does it for six more
+(issue #167): `shatterfish/harness/src/main/java/org/shatterfish/harness/driver/RunStatics.java`
+puts back, at the start of every Run, the private upstream statics a Run can leave behind for the
+next one in the same process, each to the value its declaration gives a fresh process:
+`Snake.dodges`, `GnollGeomancer.rocksInFlight`, `GnollGeomancer.knockedChars`, `Char.hitMissIcon`,
+`Flail.spinBoost` and `RingOfWealth.latestDropTier`. It writes and never reads them, and it writes
+only what a fresh process already holds, so a Run in a process of its own, which every Rig Run and
+every Overlay Run is, is unchanged by it; the sweep behind the list is in `docs/architecture.md`
+("Statics that outlive a Run"). `HarnessReflectionTest` confines reflection in harness main code to
+those two classes, by dependency rather than by call so that a method reference or a reflective
+call to `getDeclaredField` itself does not slip past, and asserts that the fields each reaches are
+exactly the ones named here, so another cannot arrive unannounced; for `RunStatics` it also asserts
+no `Field` read of any kind, so the class can put state back and never carry any out. One more class
+is exempt from the rule, and reaches no member at all: `NoOpGL`, the headless GL stand-in, is a
+dynamic proxy, and building one means naming `java.lang.reflect.Proxy`, `InvocationHandler` and
+`Method`; a separate rule in the same test holds it to that, with no field, no opening and no
+invocation through `Method`.
 Tests are not confined: the ledger's own tests, the scene fixtures, the row 5 checks and the
 driver's test reach `Random.generators`, `Badges.global`, `Journal.loaded`, `GameScene.scene`,
 `GameScene.emoicons`, `GameScene.cellSelector`, `CellSelector.heldAction1`, `Actor.current` and

@@ -18,4 +18,15 @@ public record TalentView(int tier, String name, int points) {
         Canon.require(!name.isEmpty(), "a talent has a name");
         Canon.require(points >= 0, "talent points are not negative: " + points);
     }
+
+    /**
+     * The most points a talent of this tier can hold: two in tiers 1 and 2, the tier itself in tiers
+     * 3 and 4. It is general game knowledge, the rule every talent at the pinned tag follows
+     * ({@code core/.../actors/hero/Talent.java:98-110}, {@code :438-445}), which the talents pane draws
+     * as the stars under each talent; {@code TalentTiersTest} in the harness holds every talent a class,
+     * a subclass or an armour ability can put in a tier to it.
+     */
+    public int maxPoints() {
+        return Math.max(2, tier);
+    }
 }

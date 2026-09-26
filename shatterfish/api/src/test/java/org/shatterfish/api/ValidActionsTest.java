@@ -359,16 +359,48 @@ class ValidActionsTest {
     }
 
     @Test
-    @DisplayName("a talent is offered only while its tier has a point to spend")
+    @DisplayName("a talent is offered only while its tier has a point to spend and it has room for one")
     void a_talent_needs_a_point() {
-        Observation observation = Corpus.observation();
-        List<Integer> points = observation.hero().talentPointsAvailable();
-        ActionsSection valid = ValidActions.of(observation);
-        for (TalentView talent : observation.hero().talents()) {
-            boolean offered = valid.actions().contains(new Action.Talent(talent.name()));
-            assertEquals(points.get(talent.tier() - 1) > 0, offered,
-                    talent.name() + " of tier " + talent.tier() + ", with " + points + " to spend");
+        for (List<Integer> points : List.of(List.of(0, 1, 0, 0), List.of(1, 1, 1, 1))) {
+            Observation observation = withTalents(Corpus.observation(), List.of(
+                    new TalentView(1, "Hearty Meal", 2), new TalentView(1, "Iron Will", 0),
+                    new TalentView(1, "Veteran's Intuition", 1), new TalentView(2, "Iron Stomach", 2),
+                    new TalentView(2, "Liquid Willpower", 1), new TalentView(3, "Cleave", 2),
+                    new TalentView(3, "Hold Fast", 3), new TalentView(4, "Body Slam", 3),
+                    new TalentView(4, "Impact Wave", 4)), points);
+            ActionsSection valid = ValidActions.of(observation);
+            for (TalentView talent : observation.hero().talents()) {
+                boolean offered = valid.actions().contains(new Action.Talent(talent.name()));
+                assertEquals(points.get(talent.tier() - 1) > 0 && talent.points() < talent.maxPoints(), offered,
+                        talent.name() + " of tier " + talent.tier() + " at " + talent.points() + ", with " + points
+                                + " to spend");
+            }
         }
+    }
+
+    @Test
+    @DisplayName("a talent holds at most two points in tiers 1 and 2 and its tier in tiers 3 and 4 (issue #162)")
+    void the_most_a_talent_holds() {
+        assertEquals(List.of(2, 2, 3, 4), List.of(new TalentView(1, "a", 0).maxPoints(), new TalentView(2, "b", 0).maxPoints(),
+                new TalentView(3, "c", 0).maxPoints(), new TalentView(4, "d", 0).maxPoints()));
+        Observation full = withTalents(Corpus.observation(), List.of(new TalentView(1, "Hearty Meal", 2)), List.of(1, 0, 0, 0));
+        assertTrue(ValidActions.of(full).actions().stream().noneMatch(a -> a instanceof Action.Talent),
+                "a talent at its most is no choice: the executor refuses it, and the refusal ends a Run");
+    }
+
+    /**
+     * {@code observation} with the hero's talents and points to spend replaced, and no Actions yet:
+     * the corpus's own offer names the corpus's talents, which an Observation refuses once they are
+     * gone, and {@link ValidActions#of} is what is under test.
+     */
+    private static Observation withTalents(Observation observation, List<TalentView> talents, List<Integer> points) {
+        HeroSection h = observation.hero();
+        HeroSection hero = new HeroSection(h.cell(), h.name(), h.subclass(), h.ability(), h.level(), h.exp(),
+                h.expToLevel(), h.hp(), h.ht(), h.shield(), h.strength(), h.strengthBonus(), h.gold(), h.energy(),
+                h.hunger(), h.buffs(), talents, points, h.quickslots());
+        return new Observation(observation.header(), observation.map(), observation.actors(), hero,
+                observation.inventory(), observation.journal(), observation.log(), ActionsSection.NONE,
+                observation.prompt());
     }
 
     /** The corpus with a two-item pack whose first item offers exactly {@code action}. */
