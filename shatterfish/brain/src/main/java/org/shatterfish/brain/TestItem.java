@@ -171,7 +171,7 @@ final class TestItem implements Policy {
         if (escaping(observation, memory)) {
             return true;
         }
-        if (!settled(observation, memory)) {
+        if (!settled(observation, memory) && !passing(observation, memory)) {
             return false;
         }
         return upgrade(observation, observation.actions().actions()) != null
@@ -198,15 +198,17 @@ final class TestItem implements Policy {
             return step == null ? null
                     : new Plan("", 0, new RunLog.Choice(step, Policies.CERTAIN, "escape: " + what));
         }
-        if (!settled(observation, memory)) {
-            // Never a test or a rest in harm, at a cloud's edge, or holding a door open.
+        // Never a test or a rest in harm, at a cloud's edge, or holding a door open; but a walk to a testing
+        // cell goes on through a doorway (passing).
+        boolean settled = settled(observation, memory);
+        if (!settled && !passing(observation, memory)) {
             return null;
         }
         int depth = observation.header().depth();
         int branch = observation.header().branch();
         // A known scroll of upgrade goes onto the worn weapon or armour (story 4.13, target): the window it opens
         // is answered when the Brain's last Action was this read onto an item (story 4.11).
-        Action upgrade = upgrade(observation, offered);
+        Action upgrade = settled ? upgrade(observation, offered) : null;
         if (upgrade != null) {
             return new Plan("", 0, new RunLog.Choice(upgrade, Policies.CERTAIN, "upgrade: " + target(observation).name()));
         }
@@ -239,7 +241,7 @@ final class TestItem implements Policy {
                 boolean[] walk = Explore.walkable(observation, memory);
                 int[] distance = Pickup.distances(map, walk, hero);
                 int best = -1;
-                int bestDamage = hereFits ? here.worst().damage() : Integer.MAX_VALUE;
+                int bestDamage = hereFits && settled ? here.worst().damage() : Integer.MAX_VALUE;
                 int bestDistance = Integer.MAX_VALUE;
                 java.util.function.IntPredicate clean = clean(observation, memory);
                 for (int cell = 0; cell < distance.length; cell++) {
@@ -270,12 +272,12 @@ final class TestItem implements Policy {
                     }
                 }
             }
-            if (hereFits) {
+            if (hereFits && settled) {
                 return new Plan(item.guess().label(), item.quantity(),
                         new RunLog.Choice(use, Policies.CERTAIN, "test: " + item.guess().label()));
             }
         }
-        if (restOwed(observation, memory)) {
+        if (settled && restOwed(observation, memory)) {
             for (Action rest : List.of(new Action.Rest(true), new Action.Search())) {
                 if (offered.contains(rest)) {
                     return new Plan("", 0, new RunLog.Choice(rest, Policies.CERTAIN, "rest: after-test"));
@@ -337,10 +339,25 @@ final class TestItem implements Policy {
      * doorway, which a hero standing in holds open (Door.java:45-58).
      */
     static boolean settled(Observation observation, Memory memory) {
-        int hero = observation.hero().cell();
+        return clean(observation, memory, observation.hero().cell())
+                && observation.map().tiles().get(observation.hero().cell()) != Tile.OPEN_DOOR;
+    }
+
+    /** Whether the hero is out of harm and its cell and every neighbour clean. */
+    private static boolean clean(Observation observation, Memory memory, int hero) {
         java.util.function.IntPredicate clean = clean(observation, memory);
-        return !inHarm(observation) && clean.test(hero) && clear(observation.map(), hero, clean)
-                && observation.map().tiles().get(hero) != Tile.OPEN_DOOR;
+        return !inHarm(observation) && clean.test(hero) && clear(observation.map(), hero, clean);
+    }
+
+    /**
+     * Whether the hero stands in a doorway partway along a walk to a testing cell (issue #174): the last
+     * wait's Step toward one was carried out ({@link Memory#walking}), and all is clean around it. The
+     * walk goes on through the doorway; nothing is tested there. Before, the Policy stood aside in every
+     * doorway, the pick-up Policy walked the hero back out of it, and the walk stepped in again.
+     */
+    static boolean passing(Observation observation, Memory memory) {
+        return memory.walking() > 0 && observation.map().tiles().get(observation.hero().cell()) == Tile.OPEN_DOOR
+                && clean(observation, memory, observation.hero().cell());
     }
 
     /**
