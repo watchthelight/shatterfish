@@ -666,6 +666,75 @@ deepest floor 1. The Decision log's topmost visible row (`turn 3 bot step N 1.00
 whole, directly under "nothing believed yet," with no partial glyph at the panel's own inner edge --
 both review-round items confirmed together in one frame.
 
+## Review round, fourth pass (the bottom-edge clip)
+
+The coordinator's own screenshot of the third pass (`s54-review3-1600x900.png`): the top row was now
+whole, but the newest row (`turn 5 bot step NW 1.0000`) was clipped through its own lower half. Their
+diagnosis: the content height likely used a nominal pitch or a baseline rather than the last row's
+real bottom (top plus measured height, descenders included), so the bottom-scroll offset or the
+viewport itself cut it.
+
+### What was found
+
+A diagnostic test against a real, 50-wait scenario (removed before commit) printed the actual
+numbers: content height 329.5, the chosen row's own top 286.0, needed viewport height 43.5 --
+matching `contentHeight - top` exactly, as the third pass intended. `pane.height()` (the `Component`
+float field this class sets) held that 43.5 correctly. But `rows.camera.height` -- the `int` the
+upstream `ScrollPane.layout()` actually gives its content `Camera` (`cs.resize((int)width,
+(int)height)`, `ScrollPane.java:147`) -- was 43, truncated toward zero. The rendered viewport's own
+bottom (`scroll.y + camera.height` = 286.0 + 43 = 329.0) fell half a UI pixel short of the newest
+row's own real bottom (329.5): exactly the sliver the screenshot showed missing, and exactly why the
+third pass's own top-edge fix held (the scroll is a plain `float` the pane never casts) while this
+edge did not (governed by scroll plus the cast height). Neither of the third pass's own tests could
+have caught this: both read `pane.height()`, never the actual `camera.height` the render path clips
+to, so a test built the same way the coordinator's message insisted on -- "measure what the screen
+shows" -- had to read the camera's own int field, not the component's float one.
+
+### What was built
+
+`viewportHeightFor` now rounds its returned height *up* (`Math.ceil`) instead of returning the exact,
+usually fractional, `contentHeight - top`. `ScrollPane.layout`'s own `(int)` cast can then only ever
+round a whole number down to itself, never trim a fraction off the newest row. `scrollToBottom` and
+`atBottom` are unchanged (`rows.height() - pane.height()`, the same arithmetic as before): with the
+height now rounded up, `ScrollPane.scrollTo`'s own clamp (the identical subtraction, done again on
+its side) lands the scroll a fraction of a UI pixel *above* the chosen row's exact top rather than
+exactly on it -- comfortably inside `ROW_GAP` (2 UI pixels) before that row, never inside the previous
+row's own glyphs, since a rounding remainder under one UI pixel is always smaller than a two-pixel
+gap. Both edges follow from rounding the one number that was wrong, not from a second number this
+class would have to keep in step with it (a two-field design -- an unrounded scroll target alongside
+the rounded height -- was tried first and discarded: `ScrollPane.scrollTo`'s own clamp recomputes the
+effective scroll from `content.height() - height` regardless of what is asked for, so a second,
+independent "exact" target was silently overridden by the same clamp anyway, for no benefit over
+letting the existing derivation do it once).
+
+### Tests
+
+`DecisionLogTest.both_edges_are_whole_when_scrolled_to_the_bottom` (replaces
+`.top_visible_row_is_never_clipped_when_scrolled_to_the_bottom`, whose own strict "lands exactly on a
+row's own top" tolerance the rounding-up fix would itself now fail by the same sub-pixel remainder):
+still asserts the scenario's real content height is not a nominal-pitch multiple, then reads
+`camera.height` (not `pane.height()`) to check both edges the coordinator asked for directly -- the
+first visible row's own top is at or below the viewport's own top (nothing but `ROW_GAP` between
+them), and the newest row's own real bottom is at or above the viewport's own, `camera.height`-clipped
+bottom. `DecisionLogTest.viewport_height_for_rounds_a_fractional_height_up` (new): `viewportHeightFor`
+directly, against a one-row, fractional-height scenario (43.5), both the "fits" and "falls back to the
+one-row floor" branches, each rounding to 44.
+
+`:overlay:test` (full module, forced fresh with `--rerun-tasks`) green, 10 tests. Mutation-tested by
+hand: reverting `Math.ceil` back to the exact, unrounded height (reproducing the original bug exactly)
+failed both new tests (`329.5 is at or above 329.0` and `expected 44.0 but was 43.5`), confirmed, then
+reverted back via `Edit` and re-verified by direct `Read`.
+
+### Real launch (review round, fourth pass)
+
+`:overlay:launch --seed 1 --class warrior --turn-cap 5000 --agent random --window 1600x900 --out
+<scratchpad>/s54-runs --screenshot s54-review4-1600x900.png`, left running past `Screenshot.FRAME`
+(about ten seconds) and then stopped (no `--exit-when-over`, since the point was to capture a frame
+well after the fix had run rather than after the Run itself ended). At the moment captured (turn 48),
+the Decision log shows ten rows from `turn 35` to `turn 48 bot rest`, both the top row (`turn 35 bot
+DROP ration of food`) and the newest, bottom row (`turn 48 bot rest`) shown whole -- no partial glyph
+at either edge.
+
 ### Deferred
 
 To `docs/ideas.md`: a goal-then-no-decision-then-goal sequence's "leaves the remembered goal alone"

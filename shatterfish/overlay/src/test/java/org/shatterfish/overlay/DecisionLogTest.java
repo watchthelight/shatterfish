@@ -181,16 +181,22 @@ class DecisionLogTest {
      * Story 5.4's review round, third pass: the second pass (flooring the viewport to a whole number
      * of a *measured* pitch) was still not enough, because {@code PixelScene.align} snaps each row's
      * own position to a whole device pixel, and a fractional real pitch does not predict where align
-     * lands a row far down a long list -- rounding drifts row to row, not by a constant amount. This
-     * holds what the screen actually shows: first, that this scenario's real content height is not a
-     * whole multiple of the merely nominal pitch (the case neither of the first two passes' own tests
-     * exposed, since both measured only against a pitch, nominal or measured, rather than the real,
-     * already-aligned row positions {@code DecisionLog} now reads back); then that the bottom-scrolled
-     * offset lands exactly on one of those real positions, not between two of them.
+     * lands a row far down a long list -- rounding drifts row to row, not by a constant amount.
+     *
+     * <p>Fourth pass: scrolling to a real row's own top was not enough either, because
+     * {@code ScrollPane.layout} casts the viewport height to {@code int} ({@code cs.resize((int)width,
+     * (int)height)}) -- so a test that only reads {@code pane.height()} (the un-cast {@code float}
+     * field this class sets) cannot see this bug at all; it must read {@code camera.height}, the
+     * actual, truncated-or-not integer the render path uses to clip the newest row's own glyphs. This
+     * holds what the screen actually shows at both edges: the content height is still not a whole
+     * multiple of the nominal pitch (the property that exposed the third pass's own gap), the first
+     * visible row is whole at the top (nothing but the row gap between the viewport's own top and
+     * that row's own top), and the newest row's own real bottom is whole at the bottom (at or above
+     * the viewport's real, {@code camera.height}-clipped bottom, not truncated short of it).
      */
     @Test
-    @DisplayName("the topmost visible row is never shown clipped when scrolled to the bottom, even though the real content height is not a nominal-pitch multiple")
-    void top_visible_row_is_never_clipped_when_scrolled_to_the_bottom() {
+    @DisplayName("both edges are whole at the bottom-scrolled position: the first visible row is not clipped from above, and the newest row's real bottom is not clipped from below")
+    void both_edges_are_whole_when_scrolled_to_the_bottom() {
         GameScene scene = fullScene();
         PanelDock dock = new PanelDock();
         dock.frame(scene, snapshotWith(manyWaits(50)), false);
@@ -206,20 +212,33 @@ class DecisionLogTest {
                 "this scenario's real content height (" + contentHeight + ") is not a nominal-pitch (" + nominalPitch
                         + ") multiple, which is the exact case the first two passes' fixes did not cover");
 
-        // What the screen actually shows: the bottom-scrolled offset lands exactly on some row's own
-        // real, already-aligned top (within rounding), not strictly between two rows -- which is what
-        // "the topmost visible row is not shown clipped" means in real screen coordinates, independent
-        // of any formula built from a guessed or measured-but-still-predicted pitch.
-        float scrollY = log.pane().content().camera.scroll.y;
-        boolean landsExactlyOnARowTop = false;
+        // What the screen actually shows: the real, camera.height-clipped viewport, not the un-cast
+        // float field pane.height() the second pass's own tests were fooled by.
+        float viewportTop = log.pane().content().camera.scroll.y;
+        float viewportBottom = viewportTop + log.pane().content().camera.height;
+
+        // The top edge: the first row at or below the viewport's own top is shown whole, not clipped
+        // from above -- nothing but the row gap separates it from the viewport's own top.
+        float firstVisibleTop = Float.NaN;
         for (float top : log.rowTops()) {
-            if (Math.abs(top - scrollY) < 0.5f) {
-                landsExactlyOnARowTop = true;
+            if (top >= viewportTop - 0.001f) {
+                firstVisibleTop = top;
                 break;
             }
         }
-        assertTrue(landsExactlyOnARowTop, "the bottom-scrolled offset (" + scrollY
-                + ") lands exactly on a row's own real top (" + log.rowTops() + "), not part-way through one");
+        assertTrue(!Float.isNaN(firstVisibleTop), "some row is visible at all");
+        assertTrue(firstVisibleTop >= viewportTop, "the first visible row's top (" + firstVisibleTop
+                + ") is at or below the viewport's own top (" + viewportTop + "), not clipped from above");
+        assertTrue(firstVisibleTop - viewportTop < DecisionLog.ROW_GAP, "nothing but the row gap separates "
+                + "the viewport's own top (" + viewportTop + ") from the first visible row's own top ("
+                + firstVisibleTop + ")");
+
+        // The bottom edge: the newest row's own real bottom (top() + height(), never a nominal pitch
+        // or a baseline) is at or above the viewport's own, camera.height-clipped bottom.
+        RenderedTextBlock last = log.lineBlocks().get(log.lineBlocks().size() - 1);
+        float lastRowBottom = last.top() + last.height();
+        assertTrue(lastRowBottom <= viewportBottom + 0.001f, "the newest row's real bottom (" + lastRowBottom
+                + ") is at or above the viewport's own bottom (" + viewportBottom + "), not clipped from below");
     }
 
     /**
@@ -245,6 +264,22 @@ class DecisionLogTest {
         // No rows at all: whatever room is offered, floored to at least one pixel.
         assertEquals(50f, DecisionLog.viewportHeightFor(List.of(), contentHeight, 50f), 0.001f);
         assertEquals(1f, DecisionLog.viewportHeightFor(List.of(), contentHeight, 0f), 0.001f);
+    }
+
+    /**
+     * Story 5.4's review round, fourth pass: a fractional needed height is rounded <em>up</em> to a
+     * whole UI pixel, not returned exactly -- {@code ScrollPane.layout}'s own {@code (int)} cast can
+     * then only ever round a whole number down to itself, never trim a fraction off the newest row.
+     */
+    @Test
+    @DisplayName("viewportHeightFor rounds a fractional needed height up, never down")
+    void viewport_height_for_rounds_a_fractional_height_up() {
+        // One row, top 0, real content bottom 43.5 (a real run's own numbers): needed is fractional.
+        List<Float> rowTops = List.of(0f);
+        assertEquals(44f, DecisionLog.viewportHeightFor(rowTops, 43.5f, 100f), 0.001f);
+
+        // The same, but landing on the "even the last row alone doesn't fit" fallback branch.
+        assertEquals(44f, DecisionLog.viewportHeightFor(rowTops, 43.5f, 1f), 0.001f);
     }
 
     @Test

@@ -527,3 +527,20 @@ calls `layout()` (which used to be the only place the viewport was sized) *befor
 (design note "Content before layout, except for the log," this story's own first pass), `rebuild`
 now also re-sizes the viewport at its own end, so the frame's real rows -- not the previous frame's,
 or none at all on the very first fill -- are what the viewport is ever actually sized from.
+
+**No row half clipped, fourth pass: the bottom edge was truncated one layer down.** The third pass's
+own viewport height, `contentHeight - top`, is usually fractional; the upstream `ScrollPane.layout()`
+casts it to `int` (`cs.resize((int)width, (int)height)`, `ScrollPane.java:147`), truncating toward
+zero -- a cast this module's own code never makes, and so never saw. A real run's own numbers made it
+visible: content height 329.5, the chosen row's own top 286.0, needed height 43.5, cast to 43 -- the
+newest row's own lower half of one UI pixel, unshown, exactly where the coordinator's screenshot
+showed it clipped, and exactly why the third pass's fix held for the top edge (governed by the scroll,
+a plain `float` the pane never casts) and not this one (governed by scroll plus the cast height).
+`viewportHeightFor` now rounds its returned height *up* (`Math.ceil`); `scrollToBottom` is otherwise
+unchanged, and `ScrollPane.scrollTo`'s own clamp (`content.height() - height`, the identical
+subtraction, on its own side) lands the scroll a sub-pixel fraction above the chosen row's own top
+rather than exactly on it -- inside `ROW_GAP` (2 UI pixels), never inside the previous row's own
+glyphs. Neither of the third pass's own tests could have caught this, since both read `pane.height()`
+(the un-cast float field) rather than `rows.camera.height` (the actual, sometimes-truncated int the
+render path clips to); `DecisionLogTest.both_edges_are_whole_when_scrolled_to_the_bottom` reads the
+latter, "what the screen actually shows," as the coordinator's own message put it.

@@ -51,6 +51,23 @@ import java.util.List;
  * topmost within the room available, and setting the viewport to exactly the room from there to the
  * content's own bottom: a bottom scroll (content height minus viewport height) then lands on that
  * exact, already-real position by construction, not by hoping two guesses about the pitch agree.
+ *
+ * <p><b>Fourth pass: the height itself was still being truncated, one layer down.</b> The third
+ * pass's own viewport height ({@code contentHeight - top}) is usually fractional, and the upstream
+ * {@code ScrollPane.layout} casts it to {@code int} ({@code cs.resize((int)width, (int)height)}),
+ * truncating toward zero -- a cast this class's own code never made, and so never noticed. A real
+ * run's own numbers show it: content height 329.5, the chosen row's top 286.0, needed height
+ * 43.5 -- cast to 43, one half of a UI pixel short, off the <em>bottom</em> (the scroll itself is a
+ * plain {@code float} field the pane never casts, which is exactly why the third pass's fix held for
+ * the top edge and not this one). {@link #viewportHeightFor} now rounds that height <em>up</em>
+ * ({@code Math.ceil}) rather than returning it exactly: the {@code int} cast can then only ever
+ * round a whole number down to itself, never trim a fraction away. {@link #scrollToBottom} still
+ * derives its scroll from {@code contentHeight - viewportHeight}, unchanged, and {@code
+ * ScrollPane.scrollTo}'s own clamp (the same subtraction, done again on its side) lands the scroll a
+ * fraction of a UI pixel above the chosen row's exact top rather than exactly on it -- inside the
+ * {@link #ROW_GAP} before that row, never inside the previous row's own glyphs, since a rounding
+ * remainder under one UI pixel is always smaller than a two-pixel gap. Both edges follow from the
+ * one number changing, not from tracking a second one to keep in step with it.
  */
 final class DecisionLog extends Component {
 
@@ -162,6 +179,15 @@ final class DecisionLog extends Component {
      * same outer rect): the two can happen in either order within one {@code Panel.content()} call
      * (design note "Content before layout, except for the log"), and only the one that runs *after*
      * {@link #rebuild} has this frame's real rowTops rather than the previous frame's.
+     *
+     * <p>Fourth pass: {@link #viewportHeightFor} now rounds up. {@link #scrollToBottom} still
+     * derives the scroll from {@code rows.height() - pane.height()}, and {@code ScrollPane.scrollTo}
+     * clamps that same way on its own -- but with the height rounded up, the two agree, and the
+     * clamp's own arithmetic (not a second, independent number this class would have to keep in
+     * step) is what lands the scroll a whisper above the chosen row's exact top: comfortably inside
+     * the {@link #ROW_GAP} before it (never inside the previous row's own glyphs, since the rounding
+     * involved is under one UI pixel and the gap is two), while the viewport's bottom, no longer
+     * truncated short, reaches the newest row's own real bottom exactly.
      */
     private void resizeViewport() {
         if (pane == null) {
@@ -172,14 +198,19 @@ final class DecisionLog extends Component {
 
     /**
      * The viewport height to give the {@code ScrollPane}, so that a bottom scroll
-     * ({@code contentHeight - viewportHeight}) always lands on a real row's own top: among
-     * {@code rowTops} (ascending), the one whose distance to {@code contentHeight} is the largest
-     * that still fits within {@code available} -- the topmost row that can be shown whole, showing
-     * as much history as the room allows, never fewer than one row's worth
-     * ({@code contentHeight - rowTops[last]}, the whole point of {@code rowTops} being non-empty).
-     * A pure function of the real positions {@link #rebuild} already found (for
-     * {@code DecisionLogTest} to hold directly against a constructed list); {@link #resizeViewport}
-     * always calls it with this log's own {@link #rowTops}, never a formula's guess at them.
+     * ({@code contentHeight - viewportHeight}) shows the chosen row's whole content, all the way to
+     * the content's real bottom: among {@code rowTops} (ascending), the one whose distance to
+     * {@code contentHeight} is the largest that still fits within {@code available} -- the topmost
+     * row that can be shown whole, showing as much history as the room allows, never fewer than one
+     * row's worth ({@code contentHeight - rowTops[last]}, the whole point of {@code rowTops} being
+     * non-empty) -- rounded <em>up</em> to a whole UI pixel (fourth pass): the upstream
+     * {@code ScrollPane.layout} casts this height to {@code int}, which truncates a fractional
+     * height toward zero, and truncating down is exactly what left the newest row's own lower
+     * fraction unshown. Rounding up instead can only ever add a sliver of empty room below the
+     * newest row, never cut it. A pure function of the real positions {@link #rebuild} already
+     * found (for {@code DecisionLogTest} to hold directly against a constructed list);
+     * {@link #resizeViewport} always calls it with this log's own {@link #rowTops}, never a
+     * formula's guess at them.
      */
     static float viewportHeightFor(List<Float> rowTops, float contentHeight, float available) {
         if (rowTops.isEmpty()) {
@@ -188,10 +219,10 @@ final class DecisionLog extends Component {
         for (float top : rowTops) {
             float needed = contentHeight - top;
             if (needed <= available) {
-                return Math.max(1, needed);
+                return Math.max(1, (float) Math.ceil(needed));
             }
         }
-        return Math.max(1, contentHeight - rowTops.get(rowTops.size() - 1));
+        return Math.max(1, (float) Math.ceil(contentHeight - rowTops.get(rowTops.size() - 1)));
     }
 
     /** Whether the view was scrolled all the way down before the lines this call is about to show. */
