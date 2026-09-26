@@ -2,7 +2,7 @@
 title: 'Story 5.1: The launcher, the Profile and the embedded driver'
 type: 'feature'
 created: '2026-09-26'
-status: 'review'
+status: 'done'
 baseline_commit: 'd53e33b36'
 review_loop_iteration: 0
 context: []

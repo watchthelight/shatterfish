@@ -74,8 +74,15 @@ mutation battery and a direction check on the `smoke` Seed set):
   side-by-side view of two Brains.
 - Waiting on an owner decision: **4.14**, the registered 400-Warrior `goo` set
   and its 75% gate, which is several stories away at the current rate.
-- In progress in parallel: **5.1**, the first Overlay story (E5): the launcher
-  and the driver embedded in the real desktop game.
+
+E5 (the Overlay) so far:
+
+- **5.1** The launcher and the embedded driver: `./gradlew :overlay:launch`
+  starts the real desktop game with the Brain (or the random agent) playing in
+  a Profile of its own, re-attaching across every floor, with the Brain on its
+  own thread so the game never waits on it. Overlay Runs are labelled and kept
+  out of every published number until story 5.13 makes them reproducible.
+- Next: **5.2**, the Panel docked beside the dungeon.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:
@@ -99,7 +106,7 @@ Run; the Goo gate (story 4.14) is where E4 is judged.
 | **Engine** (`harness`) | SPD's code driven headlessly, fast, reproducibly, through a fair Observation/Action interface | done (E1) |
 | **Brain** (`brain`) | Belief state, scripted policies, tactical search, strategic playbooks, evaluation. No game imports, enforced by the build | in progress (E4); search and strategy later (E6, E7) |
 | **Rig** (`rig`) | Thousands of seeded runs, SPRT comparisons, published numbers | done (E3) |
-| **Overlay** (`overlay`) | The bot inside the real desktop game, in the game's own UI style | planned (E5, E8) |
+| **Overlay** (`overlay`) | The bot inside the real desktop game, in the game's own UI style | in progress (E5): the launcher and embedded driver are in; the Panel is next |
 
 Supporting modules: `api` (data types only), `codex` (every mob, item, table and
 recipe at the pinned tag, generated with citations into `codex/<tag>/`), and
@@ -136,6 +143,7 @@ Requires a JDK 21. No Android SDK, no Xcode.
 ```sh
 ./gradlew build                            # every module, JUnit 5 + ArchUnit tests
 ./gradlew :desktop:debug                   # the unmodified game
+./gradlew :overlay:launch --args="--agent brain --seed <n> --class WARRIOR"   # the game with the Brain playing (E5)
 sh tools/fetch-vanilla.sh                  # the Codex's second pinned source; `build` needs it
 ./gradlew :codex:generate                  # regenerate codex/<tag>/
 ./gradlew :rig:run --args="--brain shatterfish --seeds smoke --parallel 4 --out <dir>"   # play a Seed set
