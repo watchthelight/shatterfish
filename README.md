@@ -143,7 +143,7 @@ Requires a JDK 21. No Android SDK, no Xcode.
 ```sh
 ./gradlew build                            # every module, JUnit 5 + ArchUnit tests
 ./gradlew :desktop:debug                   # the unmodified game
-./gradlew :overlay:launch --args="--agent brain --seed <n> --class WARRIOR"   # the game with the Brain playing (E5)
+./gradlew :overlay:launch -Plaunch.args="--agent brain --seed <n> --class WARRIOR"   # the game with the Brain playing (E5)
 sh tools/fetch-vanilla.sh                  # the Codex's second pinned source; `build` needs it
 ./gradlew :codex:generate                  # regenerate codex/<tag>/
 ./gradlew :rig:run --args="--brain shatterfish --seeds smoke --parallel 4 --out <dir>"   # play a Seed set
