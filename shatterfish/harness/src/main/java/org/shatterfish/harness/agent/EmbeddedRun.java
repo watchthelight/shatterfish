@@ -1,5 +1,7 @@
 package org.shatterfish.harness.agent;
 
+import com.watabou.input.ControllerHandler;
+import com.shatteredpixel.shatteredpixeldungeon.SPDSettings;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
@@ -84,6 +86,21 @@ public final class EmbeddedRun implements AutoCloseable {
 
         /** The scene the game asked for, meaningful only while {@code Game.switchingScene()}. */
         Class<? extends Scene> requestedScene();
+
+        /**
+         * The interface size the Run plays on, stated in its log header (story 5.2). By default the
+         * game's own setting as it reads now; the Overlay states the size it declares, since the log is
+         * opened in {@code create()}, before the game knows its window, when the setting reads 0
+         * ({@code core/.../SPDSettings.java:140-146}).
+         */
+        default int interfaceSize() {
+            return SPDSettings.interfaceSize();
+        }
+
+        /** Whether a game controller is connected now, stated in the Run's log header (story 5.2). */
+        default boolean controllerConnected() {
+            return ControllerHandler.isControllerConnected();
+        }
     }
 
     /** Where the Run stands after a frame. */
@@ -210,7 +227,10 @@ public final class EmbeddedRun implements AutoCloseable {
         RunLogWriter log = null;
         try {
             if (logging != null) {
-                log = RunLoop.openLog(logging, seed, heroClass, rng.salt(), turnCap, RunLog.Header.EMBEDDED);
+                // The screen the Run plays on, stated in its header (story 5.2): the interface size and a
+                // connected controller change the hint lines the log carries (ADR-0013's story 5.2 amendment).
+                log = RunLoop.openLog(logging, seed, heroClass, rng.salt(), turnCap, RunLog.Header.EMBEDDED,
+                        host.interfaceSize(), host.controllerConnected() ? 1 : 0);
             }
             EmbeddedRun run = new EmbeddedRun(host, rng, brain, observer, log,
                     logging != null && logging.oracle(), turnCap, ui, claimed);

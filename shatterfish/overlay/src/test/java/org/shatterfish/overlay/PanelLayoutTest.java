@@ -126,8 +126,8 @@ class PanelLayoutTest {
         Rect strip = PanelLayout.of(mobile, false).rect();
         assertEquals(PanelLayout.STRIP_WIDTH, strip.width(), EPS);
         assertEquals(PanelLayout.STRIP_HEIGHT, strip.height(), EPS);
-        assertEquals(420 - PanelLayout.MENU_WIDTH - PanelLayout.GAP, strip.right(), EPS);
-        assertTrue(strip.y() >= mobile.top() + PanelLayout.STATUS_SMALL, "below the status pane that spans the top");
+        assertEquals(420 - PanelLayout.MENU_WIDTH - PanelLayout.MENU_ICONS - PanelLayout.GAP, strip.right(), EPS);
+        assertTrue(strip.y() >= mobile.top() + PanelLayout.STATUS_SMALL, "below the status pane that spans the top, busy indicator and all");
     }
 
     @Test

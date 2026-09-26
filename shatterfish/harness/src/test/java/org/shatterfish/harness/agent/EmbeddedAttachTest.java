@@ -148,6 +148,10 @@ class EmbeddedAttachTest {
             assertTrue(verified.ok(), "the chain holds across both floors: " + verified.why());
             RunLogReader.Log read = RunLogReader.of(file);
             assertTrue(read.header().embedded(), "the log says the Overlay's driver played it");
+            // The screen it played on (story 5.2): the interface size this process plays on, and no controller.
+            assertEquals(com.shatteredpixel.shatteredpixeldungeon.SPDSettings.interfaceSize(), read.header().interfaceSize(),
+                    "the log states the interface size the Run played on");
+            assertEquals(0, read.header().controller(), "and that no controller was connected");
             List<RunLog.Wait> waits = read.waits();
             // One wait per index, from 1, across both floors: the index survives the scenes.
             for (int i = 0; i < waits.size(); i++) {

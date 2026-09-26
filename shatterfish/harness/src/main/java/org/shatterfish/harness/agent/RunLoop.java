@@ -191,13 +191,23 @@ public final class RunLoop {
      */
     static RunLogWriter openLog(Logging logging, long seed, HeroClass heroClass, long salt, int turnCap,
                                 String driver) {
+        return openLog(logging, seed, heroClass, salt, turnCap, driver, -1, -1);
+    }
+
+    /**
+     * A Run's log, with the screen an Overlay Run played on stated in its header (story 5.2): the
+     * interface size and whether a controller was connected, both of which change the log text the
+     * Observation carries; -1 states nothing, which is every headless Run.
+     */
+    static RunLogWriter openLog(Logging logging, long seed, HeroClass heroClass, long salt, int turnCap,
+                                String driver, int interfaceSize, int controller) {
         return RunLogWriter.open(logging.folder(), new RunLog.Header(RunLog.VERSION,
                 Observer.upstreamTag(), logging.commit(),
                 org.shatterfish.api.HeroClass.valueOf(heroClass.name()), Dungeon.challenges, seed,
                 SeedSet.code(seed), salt, turnCap, Profile.VERSION,
                 ObservationCodec.SCHEMA_VERSION, Codex.VERSION, logging.brain(),
                 logging.registration(), logging.oracle(), logging.machine(),
-                Instant.now().toString(), driver));
+                Instant.now().toString(), driver, interfaceSize, controller));
     }
 
     /**

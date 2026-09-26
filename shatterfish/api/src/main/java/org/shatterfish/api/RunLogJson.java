@@ -160,6 +160,13 @@ public final class RunLogJson {
         if (!header.driver().isEmpty()) {
             out.key("driver").value(header.driver());
         }
+        // Written only when stated, by the Overlay's driver (story 5.2): a headless log keeps its bytes.
+        if (header.interfaceSize() >= 0) {
+            out.key("interface").value(header.interfaceSize());
+        }
+        if (header.controller() >= 0) {
+            out.key("controller").value(header.controller());
+        }
         if (!chainedOnly) {
             out.key("machine").value(header.machine());
             out.key("started").value(header.started());

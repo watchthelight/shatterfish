@@ -59,10 +59,16 @@ public final class PanelLayout {
     static final float MENU_WIDTH = MenuPane.WIDTH;
     /** The menu pane with the danger tag below it: 21, 1, then 16 ({@code MenuPane.java:210}, {@code DangerIndicator.java:46}). */
     static final float MENU_HEIGHT = 21 + 1 + DangerIndicator.HEIGHT;
+    /** The depth and challenge icons left of the menu pane's background: 7 each ({@code MenuPane.java:186}, {@code :198}). */
+    static final float MENU_ICONS = 14;
     /** The large status pane, at the bottom with interface size 1 or 2 ({@code StatusPane.java:191}, {@code GameScene.java:487}). */
     static final float STATUS_LARGE = 39;
-    /** The small status pane, at the top in the mobile layout ({@code StatusPane.java:191}). */
-    static final float STATUS_SMALL = 38;
+    /**
+     * The small status pane at the top in the mobile layout, with what it draws below itself: the pane is
+     * 38 high ({@code StatusPane.java:191}), and its busy indicator, the 8-pixel busy icon, is placed 37
+     * below its top ({@code :283-284}), so the whole reaches 45 (held against the real pane by {@code PanelHudTest}).
+     */
+    static final float STATUS_SMALL = 45;
     /** The toolbar: one button high ({@code Toolbar.java:87}; 26 per docs/rules/ui.md). */
     static final float TOOLBAR_HEIGHT = 26;
     /** The game log with interface size 1 or 2: 160 wide, left ({@code GameScene.java:1018-1024}). */
@@ -199,21 +205,31 @@ public final class PanelLayout {
         return hud;
     }
 
-    /** The menu pane with its danger tag, at the top right ({@code GameScene.java:403}, {@code :464-466}). */
+    /**
+     * The menu pane with its danger tag, at the top right ({@code GameScene.java:403}, {@code :464-466}),
+     * and the depth and challenge icons it draws left of its background, 7 each
+     * ({@code MenuPane.java:186}, {@code :198}).
+     */
     static Rect menu(Screen screen) {
-        return new Rect(screen.width() - screen.insetRight() - MENU_WIDTH, screen.top(), MENU_WIDTH, MENU_HEIGHT);
+        float width = MENU_WIDTH + MENU_ICONS;
+        return new Rect(screen.width() - screen.insetRight() - width, screen.top(), width, MENU_HEIGHT);
     }
 
     /**
-     * The boss bar, centred at the top: large with interface size 1 or 2, 7 below the top in landscape
-     * and 26 in portrait ({@code GameScene.java:500-502}, {@code BossHealthBar.java:78-80}).
+     * The boss bar and the boss's buff rows below it, centred at the top by the bar's own width: large
+     * with interface size 1 or 2, 7 below the top in landscape and 26 in portrait
+     * ({@code GameScene.java:500-502}, {@code BossHealthBar.java:78-80}). The buffs are laid out from the
+     * health bar's corner (x+30, y+2 large; x+15, y+3 small), at (+1, +12) 102 by 34 when large and at
+     * (0, +5) 47 by 16 when small ({@code BossHealthBar.java:145-146}, {@code :157-163}), so the whole
+     * reaches x+133, y+48 large and x+64, y+24 small.
      */
     static Rect boss(Screen screen) {
         boolean large = screen.interfaceSize() != 0;
         float barWidth = large ? 128 : 64;
-        float barHeight = large ? 30 : 16;
+        float width = large ? 133 : 64;
+        float height = large ? 48 : 24;
         float y = screen.top() + (screen.landscape() ? 7 : 26);
-        return new Rect((screen.width() - barWidth) / 2, y, barWidth, barHeight);
+        return new Rect((screen.width() - barWidth) / 2, y, width, height);
     }
 
     /**
@@ -251,8 +267,15 @@ public final class PanelLayout {
      * shares its columns (the boss bar; the status pane in the mobile layout).
      */
     static Layout strip(Screen screen) {
-        float right = screen.width() - screen.insetRight() - MENU_WIDTH - GAP;
-        float width = Math.min(STRIP_WIDTH, right - screen.insetLeft() - GAP);
+        float right = screen.width() - screen.insetRight() - MENU_WIDTH - MENU_ICONS - GAP;
+        // Right of the tag column when the tags are on the left, which on a short screen reaches up to
+        // the strip's row; on a narrow screen the strip is then narrower than 160 (docs/ideas.md, story 5.2).
+        float left = screen.insetLeft() + (screen.tagsOnLeft() ? Tag.SIZE : 0) + GAP;
+        if (screen.interfaceSize() > 0) {
+            // And right of the game log's column, 160 wide at the left (GameScene.java:1018-1024).
+            left = Math.max(left, LOG_WIDTH + GAP);
+        }
+        float width = Math.min(STRIP_WIDTH, right - left);
         float x = right - width;
         float top = below(screen, x, right, screen.top() + GAP);
         return new Layout(Form.STRIP, new Rect(x, top, width, STRIP_HEIGHT), 0);

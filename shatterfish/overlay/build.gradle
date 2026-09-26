@@ -38,8 +38,17 @@ tasks.register('launch', JavaExec) {
     // From the repository's root, so the default --weights (weights/shatterfish.json) and --out resolve
     // there, as they do for the Rig's tasks, rather than inside shatterfish/overlay.
     workingDir = rootProject.projectDir
+    // Split on whitespace, with a value in single or double quotes kept whole, so a path with a space in
+    // it can be passed: -Plaunch.args="--out 'C:/My Runs' --seed 1 --class warrior".
     def given = project.findProperty('launch.args')
-    args = given == null || given.toString().trim().isEmpty() ? [] : given.toString().trim().split(/\s+/).toList()
+    def words = []
+    if (given != null) {
+        def matcher = given.toString() =~ /"([^"]*)"|'([^']*)'|(\S+)/
+        while (matcher.find()) {
+            words << (matcher.group(1) ?: matcher.group(2) ?: matcher.group(3))
+        }
+    }
+    args = words
     if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('mac')) {
         jvmArgs '-XstartOnFirstThread'
     }

@@ -19,8 +19,27 @@ final class Screenshot {
     private Screenshot() {
     }
 
-    /** Writes the frame just drawn, the right way up, to {@code file}. */
-    static void write(Path file) {
+    /**
+     * Writes the frame just drawn, the right way up, to {@code file}. A screenshot is a convenience: one
+     * that cannot be written (a bad path, a full disk) is logged and the Run plays on, since an exception
+     * out of a frame would end the game without the Run's end record.
+     *
+     * @return whether it was written
+     */
+    static boolean write(Path file) {
+        try {
+            capture(file);
+            return true;
+        } catch (RuntimeException | Error failed) {
+            if (failed instanceof VirtualMachineError) {
+                throw (VirtualMachineError) failed;
+            }
+            Gdx.app.log("shatterfish", "the screenshot to " + file + " was not written: " + failed);
+            return false;
+        }
+    }
+
+    private static void capture(Path file) {
         int width = Gdx.graphics.getBackBufferWidth();
         int height = Gdx.graphics.getBackBufferHeight();
         Pixmap frame = Pixmap.createFromFrameBuffer(0, 0, width, height);

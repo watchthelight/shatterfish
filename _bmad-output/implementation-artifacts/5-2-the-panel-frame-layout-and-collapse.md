@@ -220,3 +220,112 @@ named exception), and the window size also changes the frames drawn between wait
 To `docs/ideas.md`: the inventory pane in the executor (to play on the full interface), `DESIGN.md`'s
 "below the status pane" wording for the full layout, more screenshot points, and eliding the strip's
 content on very narrow mobile windows.
+
+## Review round (fairness review and lens review of a2401424e)
+
+Main (8191d80c0) merged in first. Every finding is fixed with a test, or stated where it is not.
+
+### Fairness (no parity leak; four should-fixes)
+
+1. **Interface size 1 is a second, independent exception to non-negotiable 5.**
+   - It changes the log text all Run long:
+     - the guidebook pickup line, which every Run meets on floor 1;
+     - the guide-page hint on every page found;
+     - the tutorial lines.
+   - The Brain's `Goo` memory hashes the log's text into its Belief, so an Overlay Run's logged Belief
+     hash differs from a headless one.
+   - Story 5.13's draw routing does not close this, because the headless driver refuses any size but 0.
+   - What was done:
+     - ADR-0013's story 5.2 amendment lists the lines and names this exception, with its closing plan: #169.
+     - The log header gains `interface`, and the Overlay's host states the size it declares, since the
+       setting reads 0 before the game knows its window.
+     - `api.RunLog.Header`, `RunLogJson`, `RunLogReader`, `RunLoop.openLog` and `EmbeddedRun.Host`
+       change. Both members are chained and written only when stated, so every headless log keeps
+       its bytes.
+     - Tests: `HeaderScreenTest` and `EmbeddedAttachTest`.
+2. **A connected controller changes the key names in those lines.**
+   - The header gains `controller` (0 or 1, at the Run's start).
+   - A controller plugged in mid-Run is not recorded; ADR-0013 says so, with #169.
+3. **Item selectors at the Overlay's interface.**
+   - `ItemSelectorTest` shows that at `OverlayGame.INTERFACE_SIZE` the armour selector is a `WndBag` on
+     the scene. That is where the executor finds it, carrying the item's selector and drawing what the
+     same window at size 0 draws.
+   - At size 2 no window opens.
+   - It asserts `INTERFACE_SIZE != 2`, pointing at the `docs/ideas.md` entry.
+   - The selector is no Prompt (the executor answers it, not the Observer), so the comparison is of the
+     window, not of an Observation.
+4. **The oracle marker.**
+   - An oracle Run always opens windowed (`OverlayGame.windowed`).
+   - The Mode strip carries an ORACLE label in the oracle colour (`#FF2020`), full or collapsed.
+   - The launcher's comment now names story 5.12 for the border.
+
+### Lens review
+
+1. **HIGH: the offset was drawn a frame late.**
+   - `OverlayGame.update()` is now the game's update written out in the game's order, with
+     `PanelDock.step` placing the Panel between the scene's update and `Camera.updateAll()`.
+   - `PanelHudTest.the_offset_is_drawn_this_frame` checks that the matrix drawn next already has the
+     offset, and that the old order does not.
+2. **The boss bar's buff rows are modelled:** the large bar as (x, y, 133, 48), the small one as
+   (x, y, 64, 24).
+3. **The cell prompt and the badge banners take precedence.** They are drawn over the Panel, and the
+   Panel dims to 0.35 while either shows. `PanelHudTest.dims_under_the_prompt` covers it.
+4. **The scene's fade from black is kept in front of the Panel.** Covered by `PanelHudTest.the_fade_stays_in_front`.
+5. **`PanelHudTest` checks the real HUD in full:**
+   - each component with every child it draws;
+   - a boss assigned before the scene;
+   - all four tags laid out;
+   - the skip condition fixed.
+
+   It found three more gaps in the model, all fixed:
+   - the menu pane's depth and challenge icons, 14 left of its background;
+   - the mobile status pane's busy indicator, which reaches 45 below its top;
+   - on narrow screens, the strip crossing the left tag column or the game log's column.
+6. **`Screenshot.write` catches and logs** a frame it cannot write, so the Run plays on. Not tested:
+   it needs the desktop's framebuffer.
+7. **Launch arguments and ignored output.**
+   - `overlay-runs/` is in `.gitignore`. There is no default screenshot directory: `--screenshot`
+     takes a path.
+   - `-Plaunch.args` keeps a single- or double-quoted value whole. Not tested: it is Gradle script.
+
+### Tests
+
+| Suite | Result |
+|---|---|
+| `:overlay:test` in full | 12 classes, 49 tests, all passing |
+| `:api:test` in full | 385 tests, all passing |
+| `:harness:test`: the embedded, log, rewind and Run-loop classes | 57 tests, all passing |
+| `:rig:test`: `OverlayLogsRefusedTest` and `LogHeaderTest` | all passing |
+| `:codex:citations` and `DocsCitationTest` | no findings |
+
+`mkdocs build --strict` passes.
+
+### Mutation battery, review round
+
+Control runs of the overlay, api and harness tests passed first. Then 15 mutants, all killed:
+
+| Mutants | Killed by |
+|---|---|
+| N1: the Panel placed after the matrices | `PanelHudTest`, the matrix test |
+| N2: the fade left behind the Panel | `PanelHudTest`, the fade test |
+| N3 and N4: the prompt not seen, no dimming | `PanelHudTest`, the dimming test |
+| N5 and N6: the oracle label never shown, or not given to a new Panel | `PanelHudTest`, the oracle test |
+| N7 to N9: the boss buffs, menu icons and busy indicator left out of the model | `PanelHudTest`, against the real HUD |
+| N10: the strip over the log column | `PanelLayoutTest`, the grid |
+| N11: an oracle Run left fullscreen | `LaunchOptionsTest` |
+| N12: `INTERFACE_SIZE = 2` | `ItemSelectorTest` |
+| N13 and N14: the interface size not written, or a headless header allowed to state one | `HeaderScreenTest` |
+| N15: the reader dropping the interface size | `EmbeddedAttachTest` |
+
+### Real launches (after the fixes)
+
+Both at 1600x900, `--agent brain --seed 2000 --class WARRIOR --turn-cap 300`.
+
+| Launch | The Panel | Header | End |
+|---|---|---|---|
+| First | FULL at (200, 57), 174x127, on a 400x225 view, below the boss bar's modelled extent | stated `interface: 0`; that is the bug fixed next | `STALLED`: from wait 213 the Brain answered "Yes, I know what I'm doing" (a chasm, harmful-potion or chalice confirmation) 100 times with no turn passing; filed as #170, not a Panel matter |
+| Second, after the host states the declared size | the same placement | `interface: 1, controller: 0` | turn cap after 300 turns |
+
+The screenshot of the second launch (``' + S + 's52-1600x900-review.png``) shows:
+- the Panel docked right of the map, clear of the menu pane, the toolbar and the status pane;
+- the hero drawn at the middle of the uncovered map.
