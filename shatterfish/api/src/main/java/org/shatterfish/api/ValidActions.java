@@ -119,6 +119,24 @@ public final class ValidActions {
     private static final Set<String> ON_AN_ITEM = Set.of("READ", "USE", "AFFIX", "IMBUE", "ADD", "FEED",
             "STORE", "IDENTIFY", "APPLY", "INSCRIBE", "TIP", "TRANSFER", "OUTFIT");
 
+    /**
+     * The Prompts with buttons that the back key also closes, leaving nothing open behind them
+     * (story 4.11). Every window's back key hides it ({@code core/.../ui/Window.java:223-225}); these
+     * are the ones where that is the whole of it, so a Brain can leave instead of answering:
+     * <ul>
+     *   <li>the shop's trade window, whose buy button is its only one and which leaves the item on its
+     *       heap ({@code core/.../windows/WndTradeItem.java:147-158}, {@code :223-231});</li>
+     *   <li>the stone of intuition's guess, which consumes nothing until the guess is pressed
+     *       ({@code core/.../items/stones/StoneOfIntuition.java:113-142});</li>
+     *   <li>the holy tome's spell list, which casts nothing until a spell is pressed
+     *       ({@code core/.../windows/WndClericSpells.java:186-206}).</li>
+     * </ul>
+     * Not the resurrection window, whose back key does nothing
+     * ({@code core/.../windows/WndResurrect.java:181-182}), and not the upgrade window, whose back key
+     * reopens the item selector behind it ({@code core/.../windows/WndUpgrade.java:497-504}).
+     */
+    static final Set<PromptKind> CLOSED_BY_BACK = EnumSet.of(PromptKind.SHOP, PromptKind.GUESS, PromptKind.SPELL);
+
     private ValidActions() {
     }
 
@@ -130,9 +148,10 @@ public final class ValidActions {
             for (int option = 0; option < observation.prompt().options().size(); option++) {
                 actions.add(new Action.AnswerPrompt(option));
             }
-            if (observation.prompt().options().isEmpty()) {
+            if (observation.prompt().options().isEmpty() || CLOSED_BY_BACK.contains(observation.prompt().kind())) {
                 // A Prompt with no buttons is a message, and the one thing a person can do with it
-                // is send it away (core/.../ui/Window.java:223-225; story 1.13).
+                // is send it away (core/.../ui/Window.java:223-225; story 1.13). A few Prompts with
+                // buttons are sent away the same way and nothing follows (story 4.11).
                 actions.add(new Action.DismissPrompt());
             }
             return new ActionsSection(actions);

@@ -263,7 +263,16 @@ public final class RunLoop {
             // in the one field the chain leaves out, so a slow machine and a fast one write the
             // same chain for the same Run.
             long before = System.nanoTime();
-            Action chosen = agent.decide(observation);
+            Action chosen;
+            try {
+                chosen = agent.decide(observation);
+            } catch (RuntimeException error) {
+                // A Brain that cannot decide says so by throwing: a Prompt it has no rule for is the
+                // case story 4.11 names, and it is a result to count, not a stall and not a crash
+                // that loses the Run's log.
+                return outcome(RunOutcome.Cause.BRAIN_ERROR, salt, waits, applied, refused,
+                        "at wait " + halt.waitIndex() + ": " + error);
+            }
             long thinkMs = (System.nanoTime() - before) / 1_000_000L;
             if (chosen == null) {
                 return outcome(RunOutcome.Cause.NOTHING_OFFERED, salt, waits, applied, refused,

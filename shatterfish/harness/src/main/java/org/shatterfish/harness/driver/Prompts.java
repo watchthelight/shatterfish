@@ -4,6 +4,7 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.npcs.RatKing;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.npcs.Shopkeeper;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.Potion;
+import com.shatteredpixel.shatteredpixeldungeon.items.stones.StoneOfIntuition;
 import com.shatteredpixel.shatteredpixeldungeon.levels.CavesLevel;
 import com.shatteredpixel.shatteredpixeldungeon.levels.CityLevel;
 import com.shatteredpixel.shatteredpixeldungeon.levels.MiningLevel;
@@ -13,6 +14,7 @@ import com.shatteredpixel.shatteredpixeldungeon.ui.TalentsPane;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndBlacksmith;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndChooseSubclass;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndClericSpells;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndImpOld;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndOptions;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndMessage;
@@ -21,6 +23,7 @@ import com.shatteredpixel.shatteredpixeldungeon.windows.WndTitledMessage;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndSadGhost;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndTradeItem;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndUpgrade;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndWandmaker;
 import org.shatterfish.api.PromptKind;
 
@@ -49,6 +52,14 @@ import java.util.List;
  * never produced; the blacksmith's later windows ({@code WndBlacksmith.WndSmith},
  * {@code WndReforge}) are plain windows, protected inside their class, and stay unrecognised
  * until the story that answers them.
+ *
+ * <p>Story 4.11 adds three windows an item opens once its selector is answered or its action is
+ * pressed, each of which a Run used to end on as an unknown window: the upgrade window
+ * ({@code …/items/scrolls/ScrollOfUpgrade.java:64}; {@code …/items/spells/MagicalInfusion.java:63}),
+ * the stone of intuition's guess ({@code …/items/stones/StoneOfIntuition.java:73}) and the holy
+ * tome's spell list ({@code …/items/artifacts/HolyTome.java:93}). Each is a Prompt of its own kind,
+ * {@link PromptKind#UPGRADE}, {@link PromptKind#GUESS} and {@link PromptKind#SPELL}, since each asks
+ * something no other kind asks and a Brain answers each its own way.
  */
 public final class Prompts {
 
@@ -76,6 +87,15 @@ public final class Prompts {
         }
         if (window instanceof WndTradeItem) {
             return PromptKind.SHOP;
+        }
+        if (window instanceof WndUpgrade) {
+            return PromptKind.UPGRADE;
+        }
+        if (window instanceof StoneOfIntuition.WndGuess) {
+            return PromptKind.GUESS;
+        }
+        if (window instanceof WndClericSpells) {
+            return PromptKind.SPELL;
         }
         if (window instanceof WndQuest || window instanceof WndSadGhost || window instanceof WndWandmaker
                 || window instanceof WndImpOld || window instanceof WndBlacksmith) {

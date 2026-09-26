@@ -54,6 +54,10 @@ class ShatterfishRunTest {
             RunLogReader.Log read = RunLogReader.of(log);
             assertTrue(read.readable(), log + ": " + read.unreadable());
             assertEquals(Brains.SHATTERFISH, read.header().brain().name());
+            // Story 4.11: every Prompt has a rule, so no Run ends on a window nobody could answer or
+            // on a Prompt the Brain could not.
+            String cause = read.end().outcome().cause();
+            assertFalse(List.of("UNKNOWN_WINDOW", "BRAIN_ERROR").contains(cause), log.getFileName() + " ended " + cause);
             for (RunLog.Wait wait : read.waits()) {
                 assertNotNull(wait.decision(), "a Brain's wait says why: " + log.getFileName() + " at " + wait.k());
                 assertTrue(List.of("answer-prompt", "fight", "pick-up", "equip", "explore", "fallback")
@@ -73,6 +77,11 @@ class ShatterfishRunTest {
                     org.shatterfish.api.Action.UseItem use = (org.shatterfish.api.Action.UseItem) wait.action();
                     assertEquals("EQUIP", use.action());
                     assertEquals("wear: " + use.item().name(), wait.decision().chosen().why());
+                }
+                if ("answer-prompt".equals(wait.decision().policy())) {
+                    // Story 4.11: the prompt Policy's reason names its rule.
+                    String why = wait.decision().chosen().why();
+                    assertTrue(why.matches("(affirm|decline|answer|subclass|upgrade|guess|leave): .+|dismiss"), why);
                 }
                 if ("fight".equals(wait.decision().policy())) {
                     fought++;

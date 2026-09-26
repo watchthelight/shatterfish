@@ -1,6 +1,7 @@
 package org.shatterfish.brain;
 
 import org.shatterfish.api.Action;
+import org.shatterfish.api.Codex;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.PromptKind;
 import org.shatterfish.api.RunLog;
@@ -27,110 +28,50 @@ final class Policies {
     /** The score of a Choice a Policy is sure of, in ten-thousandths. */
     static final long CERTAIN = 10_000;
 
-    /**
-     * The answers that decline, as the Prompt labels them. A Prompt the Brain does not understand is
-     * usually a confirmation -- jump into the chasm, drink the unknown potion, leave the item behind
-     * -- and declining is what leaves the Run as it was.
-     */
-    private static final List<String> DECLINING = List.of("no", "cancel", "never mind", "not now");
-
-    /**
-     * The Prompts, by title, whose "yes" is what leaves the Run as it was (story 4.8). The Warrior
-     * putting on new armour is asked whether to move the broken seal from the armour coming off
-     * (Armor.java:261-283, titled with the seal's name, items.properties:2392); "no" leaves the seal
-     * on the armour in the pack, where it does nothing for him (items.properties:96).
-     */
-    private static final List<String> AFFIRMED = List.of("broken seal");
-
-    /** The answer that affirms such a Prompt. */
-    private static final String YES = "yes";
-
-    /** Whether a button label declines. Case-blind without a Locale, which the Brain may not read. */
-    private static boolean declines(String label) {
-        String stripped = label.strip();
-        return DECLINING.stream().anyMatch(stripped::equalsIgnoreCase);
-    }
-
-    /** The label of the button an answer presses, or empty when the Prompt draws none for it. */
-    private static String label(List<String> labels, Action.AnswerPrompt answer) {
-        return answer.option() >= 0 && answer.option() < labels.size() ? labels.get(answer.option()).strip() : "";
-    }
-
     /** The first of a ranking, or null when it is empty. */
     private static RunLog.Choice first(List<RunLog.Choice> ranked) {
         return ranked.isEmpty() ? null : ranked.get(0);
     }
 
+    /** The prompt Policy's name, which {@link Brain#policyNames()} lists without building one. */
+    static final String ANSWER_PROMPT = "answer-prompt";
+
     /**
-     * Answer a Prompt the screen holds open: decline when an offered answer says so, else the lowest
-     * answer offered, else dismiss it. It ranks every way of closing the Prompt the screen offers,
-     * best first, and scores only its pick: the others are what it would have done otherwise, not
-     * things it prefers less by some measure.
+     * Answer a Prompt the screen holds open, by the rule its kind has (story 4.11, {@link Answers}).
+     * It ranks the ways of closing the Prompt the rule accepts, best first, and scores only its pick:
+     * the others are what it would have done otherwise, not things it prefers less by some measure.
+     * A Prompt its rule cannot answer is a {@link Answers.BrainError}, never a Wait: no Wait is
+     * offered under a Prompt (ValidActions), and the Brain does not look past this Policy for one.
      */
-    static final Policy ANSWER_PROMPT = new Policy() {
-        @Override
-        public String name() {
-            return "answer-prompt";
-        }
+    static Policy answerPrompt(Codex.Knowledge knowledge) {
+        return new Policy() {
+            @Override
+            public String name() {
+                return ANSWER_PROMPT;
+            }
 
-        @Override
-        public String goal() {
-            return "prompt: close";
-        }
+            @Override
+            public String goal() {
+                return "prompt: close";
+            }
 
-        @Override
-        public boolean enters(Observation observation, Memory memory) {
-            return observation.header().prompt() != PromptKind.NONE;
-        }
+            @Override
+            public boolean enters(Observation observation, Memory memory) {
+                return observation.header().prompt() != PromptKind.NONE;
+            }
 
-        @Override
-        public RunLog.Choice choose(Observation observation, Memory memory, List<Action> offered, Stream stream) {
-            return first(ranked(observation, memory, offered, stream));
-        }
+            @Override
+            public RunLog.Choice choose(Observation observation, Memory memory, List<Action> offered, Stream stream) {
+                return ranked(observation, memory, offered, stream).get(0);
+            }
 
-        @Override
-        public List<RunLog.Choice> ranked(Observation observation, Memory memory, List<Action> offered, Stream stream) {
-            List<String> labels = observation.prompt().options();
-            String title = observation.prompt().title().strip();
-            List<RunLog.Choice> ranked = new ArrayList<>();
-            if (AFFIRMED.stream().anyMatch(title::equalsIgnoreCase)) {
-                for (Action action : offered) {
-                    if (action instanceof Action.AnswerPrompt answer && YES.equalsIgnoreCase(label(labels, answer))) {
-                        ranked.add(new RunLog.Choice(answer, CERTAIN, "affirm: " + label(labels, answer)));
-                    }
-                }
+            @Override
+            public List<RunLog.Choice> ranked(Observation observation, Memory memory, List<Action> offered,
+                                              Stream stream) {
+                return Answers.ranked(observation, offered, knowledge);
             }
-            List<Action.AnswerPrompt> declining = new ArrayList<>();
-            List<Action.AnswerPrompt> answers = new ArrayList<>();
-            Action dismiss = null;
-            for (Action action : offered) {
-                if (action instanceof Action.AnswerPrompt answer) {
-                    (declines(label(labels, answer)) ? declining : answers).add(answer);
-                } else if (action instanceof Action.DismissPrompt) {
-                    dismiss = action;
-                }
-            }
-            declining.sort(Comparator.comparingInt(Action.AnswerPrompt::option));
-            answers.sort(Comparator.comparingInt(Action.AnswerPrompt::option));
-            boolean affirmed = !ranked.isEmpty();
-            for (Action.AnswerPrompt answer : declining) {
-                ranked.add(new RunLog.Choice(answer, ranked.isEmpty() ? CERTAIN : 0,
-                        "decline: " + label(labels, answer)));
-            }
-            for (Action.AnswerPrompt answer : answers) {
-                String label = label(labels, answer);
-                if (affirmed && YES.equalsIgnoreCase(label)) {
-                    continue;
-                }
-                ranked.add(new RunLog.Choice(answer, ranked.isEmpty() ? CERTAIN : 0,
-                        "answer: " + (label.isEmpty() ? Integer.toString(answer.option()) : label)));
-            }
-            if (dismiss != null) {
-                ranked.add(new RunLog.Choice(dismiss, ranked.isEmpty() ? CERTAIN : 0, "dismiss"));
-            }
-            return ranked;
-        }
-    };
+        };
+    }
 
     /**
      * The fallback's name, which {@link Brain#policyNames()} lists without building one.

@@ -126,6 +126,24 @@ final class Screens {
                 "Do you really want to jump into the chasm?", labels), actions);
     }
 
+    /**
+     * A screen with a Prompt of {@code kind} open, titled {@code title}, drawing {@code labels}, for a
+     * hero of {@code heroClass} holding {@code items}, offering what {@link org.shatterfish.api.ValidActions}
+     * offers under it (story 4.11).
+     */
+    static Observation asked(HeroClass heroClass, PromptKind kind, String title, List<String> labels,
+                             List<ItemView> items) {
+        HeaderSection header = new HeaderSection(ObservationCodec.SCHEMA_VERSION, "v4.0.0", "", heroClass,
+                List.of(), 1, 0, false, false, kind);
+        List<Tile> tiles = List.of(Tile.EMPTY, Tile.EMPTY, Tile.EMPTY);
+        MapSection map = new MapSection(3, 1, tiles, Collections.nCopies(3, Fog.VISIBLE), List.of(), List.of(),
+                List.of(), Feeling.NONE, List.of());
+        Observation bare = new Observation(header, map, new ActorsSection(List.of()), hero(),
+                new InventorySection(items), new JournalSection(List.of(), List.of()), new LogSection(List.of()),
+                ActionsSection.NONE, new PromptSection(kind, title, "", labels));
+        return bare.withActions(org.shatterfish.api.ValidActions.of(bare));
+    }
+
     /** A hero at full health, level 1, strength 1, fed. */
     static HeroSection hero() {
         return hero(1, 1, 1, 1, Hunger.NONE);

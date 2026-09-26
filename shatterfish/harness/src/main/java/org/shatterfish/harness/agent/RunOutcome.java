@@ -50,7 +50,13 @@ public record RunOutcome(Cause cause, long salt, int depth, int turns, long wait
         REFUSED,
 
         /** A wait offered no Action at all, which the valid set is not supposed to produce. */
-        NOTHING_OFFERED
+        NOTHING_OFFERED,
+
+        /**
+         * The agent threw rather than choose (story 4.11): a Brain meeting a Prompt it has no rule
+         * for says so this way instead of stalling. {@link #detail} carries the wait and the error.
+         */
+        BRAIN_ERROR
     }
 
     /** Whether this Run ended the way a Run is meant to end, rather than by something going wrong. */

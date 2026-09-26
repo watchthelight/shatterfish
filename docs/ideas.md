@@ -154,3 +154,18 @@ it re-reads ADR-0006's Blobs row.
 - **The guaranteed identities' prior.** Strength and upgrade are weighted as the heaviest identity in their
   family's deck, an assumption. The rig can measure the real share of unidentified finds per identity from
   oracle-mode logs, which carry the true identity as a training label.
+
+## From story 4.11 (answer prompts)
+
+- **Read a known scroll of upgrade onto the worn gear.** The upgrade window's rule only confirms a target
+  another Action chose; no Policy yet reads a known scroll of upgrade (or magical infusion) onto the worn
+  weapon or armour, which is the obvious target for a Brain that fights in melee.
+- **The item selector as a Prompt.** An unknown scroll that identifies itself on reading (upgrade, remove
+  curse, identify, transmutation, enchantment) opens the bag, which the executor sends away because no Action
+  answers it, and the scroll is lost. Surfacing a selector the game opened after a plain `UseItem` as a Prompt
+  whose options are the selectable items would let the Brain choose the target instead.
+- **Cast the Cleric's spells.** The spell list is left unanswered; its spells are icons with hover text, which
+  the section could carry by name the way the guess window's icons are, once a Policy wants to cast.
+- **Buy in shops.** A shop is always left. A Brain with a model of prices and needs (food, a healing potion)
+  could buy; the sell flow opens the bag and needs the selector above first.
+
