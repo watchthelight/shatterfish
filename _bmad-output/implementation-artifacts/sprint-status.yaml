@@ -104,8 +104,8 @@ development_status:
   4-14-pass-the-goo-gate-on-the-registered-set: backlog
   epic-4-retrospective: optional
 
-  epic-5: backlog
-  5-1-the-launcher-the-profile-and-the-embedded-driver: backlog
+  epic-5: in-progress
+  5-1-the-launcher-the-profile-and-the-embedded-driver: in-progress
   5-2-the-panel-frame-layout-and-collapse: backlog
   5-3-the-mode-strip-goal-line-and-decision-card: backlog
   5-4-safety-flags-belief-summary-and-decision-log: backlog
