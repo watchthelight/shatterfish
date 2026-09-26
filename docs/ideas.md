@@ -243,6 +243,11 @@ it re-reads ADR-0006's Blobs row.
   (`rig/CodexKnowledge`), and the Overlay may not depend on the rig. Moving the reader to a module
   both can reach (the harness, or a small `codex-read` module on `api`) gives the Overlay the Rig's
   Brain; at the latest story 5.16, whose sewers Run needs it, has to do it.
+  **Done** with the bestiary's lever 0 (branch `brain/bestiary-speed`), which made the empty Codex a
+  regression (the statues became enemies): `CodexKnowledge` and `CodexManifest` moved to the harness
+  (`org.shatterfish.harness.knowledge`), and the Overlay's Brain reads `codex/<tag>/` and
+  `tactics/bestiary.json` from the repository root (`--codex` to point elsewhere), refusing to launch
+  without them.
 - **The descend and explore Policies can hold the hero between two cells.** In the desktop launch of
   story 5.1 (seed 12345, the Warrior, the Overlay's Brain), from wait 501 the hero stepped between
   two cells for about 1,100 waits until it starved: the descend Policy chose the exit (`overstayed`),
@@ -510,9 +515,6 @@ depths 3 and 4, those not starving dying in fights at strength 11 in tier-1 gear
 - **A crab fight far from the stairs.** Under the fast rule an unfavourable crab fight with the
   stairs far off is fought where it stands and sometimes lost sooner than the walk would have been;
   a thrown stone as it closes (lever 4) or the door ambush (lever 2) is what the tags suggest there.
-- **The overlay's Brain has no bestiary.** `OverlayAgents` builds its Knowledge empty, so in the
-  desktop game the statues and the gnoll exile are no longer scenery; it should read
-  `tactics/bestiary.json` (and the Codex) the way the rig does.
 - **Key the bestiary by branch as well as depth.** The rotation's depths are the main branch's, so on
   the Imp's vault (branch 1 of depths 17-19) the vault's own ghoul and elementals resolve to the city's.
   The header carries the branch.

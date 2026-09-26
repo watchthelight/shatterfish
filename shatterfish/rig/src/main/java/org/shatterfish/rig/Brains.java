@@ -1,5 +1,6 @@
 package org.shatterfish.rig;
 
+import org.shatterfish.harness.knowledge.CodexManifest;
 import org.shatterfish.api.Decider;
 import org.shatterfish.api.SeedSet;
 import org.shatterfish.harness.agent.RandomAgent;

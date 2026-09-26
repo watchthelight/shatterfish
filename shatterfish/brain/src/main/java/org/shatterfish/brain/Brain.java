@@ -96,6 +96,11 @@ public final class Brain {
         return knowledge.manifest();
     }
 
+    /** The general game knowledge this Brain was built on, as its caller read it (an immutable {@code api} value). */
+    public Codex.Knowledge knowledge() {
+        return knowledge;
+    }
+
     /** What this Brain believes at {@code observation}, holding {@code belief} (the one {@link #update} returned for it). */
     public Beliefs beliefs(Observation observation, Belief belief) {
         return Beliefs.view(Memory.of(belief), observation, knowledge);

@@ -1,5 +1,7 @@
 package org.shatterfish.rig;
 
+import org.shatterfish.harness.knowledge.CodexKnowledge;
+import org.shatterfish.harness.knowledge.CodexManifest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.shatterfish.api.Codex;

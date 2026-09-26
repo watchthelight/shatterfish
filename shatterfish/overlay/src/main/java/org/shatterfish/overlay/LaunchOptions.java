@@ -34,24 +34,27 @@ import java.util.Map;
  *                      input, recorded, and the Brain decides every wait as a shadow that is never
  *                      executed (story 5.9)
  * @param weights       the Brain's weight set, for {@code --agent brain} and the shadow of {@code human}
+ * @param codex         the Codex folder the Brain's knowledge is read from ({@code codex/<tag>} under the
+ *                      repository root by default, where {@code :overlay:launch} runs); the bestiary is read
+ *                      beside it, from {@code tactics/bestiary.json}
  * @param windowWidth   the window's width in pixels, or 0 for the game's own setting ({@code --window WxH})
  * @param windowHeight  the window's height in pixels, or 0 for the game's own setting
  * @param screenshot    a PNG of one frame to write once the Run is under way, or null ({@code --screenshot})
  */
 public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path profile, Path out, int turnCap,
                             long agentSeed, boolean oracle, boolean exitWhenOver, String agent, Path weights,
-                            int windowWidth, int windowHeight, Path screenshot) {
+                            Path codex, int windowWidth, int windowHeight, Path screenshot) {
 
     /** The flags the launcher knows. A flag it does not know is refused by name, never ignored. */
     public static final List<String> KNOWN = List.of("--seed", "--class", "--salt", "--profile", "--out",
-            "--turn-cap", "--oracle", "--exit-when-over", "--agent", "--weights", "--window",
+            "--turn-cap", "--oracle", "--exit-when-over", "--agent", "--weights", "--codex", "--window",
             "--screenshot");
 
     /** The flags that take no value. */
     private static final List<String> SWITCHES = List.of("--oracle", "--exit-when-over");
 
     public LaunchOptions {
-        if (heroClass == null || out == null) {
+        if (heroClass == null || out == null || weights == null || codex == null) {
             throw new IllegalArgumentException("a Run names its hero and where its log goes");
         }
         if (seed < 0 || seed >= DungeonSeed.TOTAL_SEEDS) {
@@ -109,6 +112,8 @@ public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path prof
                 given.containsKey("--exit-when-over"),
                 given.getOrDefault("--agent", "random"),
                 Path.of(given.getOrDefault("--weights", "weights/shatterfish.json")),
+                given.containsKey("--codex") ? Path.of(given.get("--codex"))
+                        : Path.of("codex", org.shatterfish.harness.boot.HeadlessBoot.pinnedTag()),
                 window(given.get("--window"), 0), window(given.get("--window"), 1),
                 given.containsKey("--screenshot") ? Path.of(given.get("--screenshot")) : null);
     }

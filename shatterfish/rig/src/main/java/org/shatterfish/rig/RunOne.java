@@ -1,5 +1,6 @@
 package org.shatterfish.rig;
 
+import org.shatterfish.harness.knowledge.CodexKnowledge;
 import org.shatterfish.api.HeroClass;
 import org.shatterfish.api.RunLog;
 import org.shatterfish.api.SeedSet;

@@ -1,4 +1,4 @@
-package org.shatterfish.rig;
+package org.shatterfish.harness.knowledge;
 
 import org.shatterfish.api.Codex;
 import org.shatterfish.api.ItemKind;
@@ -35,7 +35,7 @@ public final class CodexKnowledge {
      * The guaranteed drops a Brain counts (story 4.2). A drop whose item the Codex does not name --
      * the laboratory room, which is a room -- is skipped; these two may not be.
      */
-    static final List<String> REQUIRED = List.of("STRENGTH_POTIONS", "UPGRADE_SCROLLS");
+    public static final List<String> REQUIRED = List.of("STRENGTH_POTIONS", "UPGRADE_SCROLLS");
 
     private CodexKnowledge() {
     }
@@ -130,10 +130,10 @@ public final class CodexKnowledge {
     }
 
     /** The bestiary's file, beside the Codex: {@code codex/<tag>} is two folders below the repository root. */
-    static final String BESTIARY = "tactics/bestiary.json";
+    public static final String BESTIARY = "tactics/bestiary.json";
 
     /** Where the bestiary lies for the Codex in {@code folder} ({@code <root>/codex/<tag>}). */
-    static Path bestiaryFile(Path folder) {
+    public static Path bestiaryFile(Path folder) {
         Path root = folder.toAbsolutePath().normalize().getParent().getParent();
         return root.resolve(BESTIARY);
     }
@@ -148,7 +148,7 @@ public final class CodexKnowledge {
      * (docs/bestiary/index.md, "How it was made and checked"). The file is refused when it was read
      * at another tag or names a class the mob table does not have.
      */
-    static List<Codex.Tactics> bestiary(Path folder, String tag) {
+    public static List<Codex.Tactics> bestiary(Path folder, String tag) {
         Path file = bestiaryFile(folder);
         String text;
         try {
@@ -198,7 +198,7 @@ public final class CodexKnowledge {
      * entries, a family's members for a family entry, the rare mobs at their depth, and a rare
      * alternate wherever its base is placed (MobSpawner.java:62-65, :71-212, :215-240, :244-275).
      */
-    static Map<String, java.util.TreeSet<Integer>> rotationDepths(Path folder) {
+    public static Map<String, java.util.TreeSet<Integer>> rotationDepths(Path folder) {
         java.util.Set<Integer> bosses = new java.util.HashSet<>();
         for (String raw : Json.array(Json.required(Json.object(table(folder, "levels.json")), "levels", "levels"))) {
             Map<String, String> level = Json.object(raw);
@@ -392,7 +392,7 @@ public final class CodexKnowledge {
      * one entry per line, for a reader of the diff; the log reader this borrows accepts only the
      * canonical form, whose one difference is that whitespace. A string's own spaces are kept.
      */
-    static String compact(String text) {
+    public static String compact(String text) {
         StringBuilder out = new StringBuilder(text.length());
         boolean inString = false;
         boolean escaped = false;
