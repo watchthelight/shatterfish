@@ -120,23 +120,39 @@ final class Explore implements Policy {
     }
 
     /**
-     * The cell of the Step this Policy's plan takes on {@code observation} under {@code memory}, or
-     * null when the plan is not a Step: what the Memory records as blocked when the hero stays put.
-     */
-    static Integer stepCell(Observation observation, Memory memory) {
-        RunLog.Choice choice = plan(observation, memory, observation.actions().actions());
-        return choice != null && choice.action() instanceof Action.Step step ? step.cell() : null;
-    }
-
-    /**
      * Whether the floor is spent (story 4.12): no frontier is reachable and no search is worth making,
      * whether around the regions the fight Policy retreated from or through them. What is left of it
      * is then nothing this Policy can uncover.
      */
     static boolean spent(Observation observation, Memory memory) {
         List<Action> offered = observation.actions().actions();
-        return uncover(observation, memory, offered, walkable(observation, memory, true)) == null
-                && uncover(observation, memory, offered, walkable(observation, memory, false)) == null;
+        return uncover(observation, memory, offered, walkable(observation, memory, true), SEARCHES) == null
+                && uncover(observation, memory, offered, walkable(observation, memory, false), SEARCHES) == null;
+    }
+
+    /** Whether a frontier is reachable, around the regions avoided or through them (story 4.12). */
+    static boolean frontier(Observation observation, Memory memory) {
+        MapSection map = observation.map();
+        int hero = observation.hero().cell();
+        List<Action> offered = observation.actions().actions();
+        for (boolean avoiding : new boolean[]{true, false}) {
+            boolean[] walk = walkable(observation, memory, avoiding);
+            if (nearest(map, walk, hero, offered, cell -> frontier(map, walk, cell)) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * A search, or a Step toward a spot worth searching, with up to {@code limit} spots searched on this
+     * floor rather than {@link #SEARCHES} (story 4.12): the descend Policy's last resort when the floor is
+     * spent and no exit has been seen. Null when no spot within the limit reaches an uncovered wall.
+     */
+    static RunLog.Choice searchOn(Observation observation, Memory memory, List<Action> offered, int limit) {
+        RunLog.Choice around = uncover(observation, memory, offered, walkable(observation, memory, true), limit);
+        return around != null ? around
+                : uncover(observation, memory, offered, walkable(observation, memory, false), limit);
     }
 
     /**
@@ -146,16 +162,40 @@ final class Explore implements Policy {
      * leave the wait to chance.
      */
     private static RunLog.Choice plan(Observation observation, Memory memory, List<Action> offered) {
+        // Inside a region the fight Policy retreated from (story 4.7): out of it first, a Step at a
+        // time, before any plan takes the hero back toward what it fled.
+        RunLog.Choice away = away(observation, memory, offered);
+        if (away != null) {
+            return away;
+        }
+
+        // On the floor above one the hero fled by the stairs (story 4.7): rest to full health before
+        // anything else, so the plan that leads back down does not return to the fight it left at
+        // the health it left with.
+        if (restOwed(observation, memory)) {
+            for (Action rest : List.of(new Action.Rest(true), new Action.Rest(false), new Action.Search())) {
+                if (offered.contains(rest)) {
+                    return new RunLog.Choice(rest, Policies.CERTAIN, "rest: before-descent");
+                }
+            }
+        }
+
+        RunLog.Choice around = uncover(observation, memory, offered, walkable(observation, memory, true), SEARCHES);
+        return around != null ? around : uncover(observation, memory, offered, walkable(observation, memory, false), SEARCHES);
+    }
+
+    /**
+     * The offered Step that most increases the distance from the centre of a region the fight Policy
+     * retreated from, when the hero stands inside one (story 4.7); null when it stands in none, or no
+     * Step takes it farther out.
+     */
+    static RunLog.Choice away(Observation observation, Memory memory, List<Action> offered) {
         MapSection map = observation.map();
         int depth = observation.header().depth();
         int branch = observation.header().branch();
         int hero = observation.hero().cell();
         boolean[] open = walkable(observation, memory, false);
-
-        // Inside a region the fight Policy retreated from (story 4.7): out of it first, a Step at a
-        // time, before any plan takes the hero back toward what it fled.
-        List<Memory.Avoid> regions = memory.avoided(depth, branch, memory.waits());
-        for (Memory.Avoid region : regions) {
+        for (Memory.Avoid region : memory.avoided(depth, branch, memory.waits())) {
             if (region.covers(depth, branch, hero, map.width())) {
                 Action.Step away = null;
                 int farthest = distance(map, hero, region.cell());
@@ -172,20 +212,7 @@ final class Explore implements Policy {
                 }
             }
         }
-
-        // On the floor above one the hero fled by the stairs (story 4.7): rest to full health before
-        // anything else, so the plan that leads back down does not return to the fight it left at
-        // the health it left with.
-        if (restOwed(observation, memory)) {
-            for (Action rest : List.of(new Action.Rest(true), new Action.Rest(false), new Action.Search())) {
-                if (offered.contains(rest)) {
-                    return new RunLog.Choice(rest, Policies.CERTAIN, "rest: before-descent");
-                }
-            }
-        }
-
-        RunLog.Choice around = uncover(observation, memory, offered, walkable(observation, memory, true));
-        return around != null ? around : uncover(observation, memory, offered, open);
+        return null;
     }
 
     /**
@@ -210,8 +237,12 @@ final class Explore implements Policy {
     /** The most waits the hero rests before going back to a floor it fled. */
     static final int RESTS = 50;
 
-    /** Frontier, then a search, over the cells {@code walk} allows; null when neither is left. */
-    private static RunLog.Choice uncover(Observation observation, Memory memory, List<Action> offered, boolean[] walk) {
+    /**
+     * Frontier, then a search, over the cells {@code walk} allows, with up to {@code limit} spots
+     * searched on the floor; null when neither is left.
+     */
+    private static RunLog.Choice uncover(Observation observation, Memory memory, List<Action> offered, boolean[] walk,
+                                         int limit) {
         MapSection map = observation.map();
         int depth = observation.header().depth();
         int branch = observation.header().branch();
@@ -223,13 +254,13 @@ final class Explore implements Policy {
 
         int radius = radius(observation);
         List<Memory.Spot> searched = memory.dwelt().stream().filter(spot -> spot.on(depth, branch)).toList();
-        if (searched.size() < SEARCHES) {
+        if (searched.size() < limit) {
             if (worth(map, walk, hero, radius, searched, false)
                     && !searched.contains(new Memory.Spot(depth, branch, hero))) {
                 Action search = new Action.Search();
                 if (offered.contains(search)) {
                     return new RunLog.Choice(search, Policies.CERTAIN,
-                            "search " + (searched.size() + 1) + "/" + SEARCHES);
+                            "search " + (searched.size() + 1) + "/" + limit);
                 }
             }
             Path spot = nearest(map, walk, hero, offered, cell -> worth(map, walk, cell, radius, searched, true));

@@ -154,7 +154,8 @@ public final class Brain {
      */
     public Belief handed(Observation observation, Belief belief, Decided decided) {
         Memory before = Memory.of(belief);
-        Memory memory = before.handed(Beliefs.kind(decided.action()));
+        Memory memory = before.handed(Beliefs.kind(decided.action()),
+                decided.action() instanceof Action.Step step ? step.cell() : -1);
         RunLog.Decision decision = decided.decision();
         // A drink the heal Policy handed over (story 4.9): the heal lands over the next turns with no
         // buff icon, and the floating heal text the game shows is not in the Observation, so the heal

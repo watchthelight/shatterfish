@@ -208,17 +208,12 @@ it re-reads ADR-0006's Blobs row.
 
 ## From story 4.12 (the descend Policy)
 
-- **A refused Step in a fight is retried forever.** The stuck rule (story 4.7) counts a still hero only
-  after a Step on a calm screen, so a Step the game refuses while an enemy is in view is handed over
-  again at every wait, no game time passes, and the turn cap never trips. Seen once, in an experiment
-  where the fight Policy retreated only upward: 628,000 waits of the same `retreat 4` Step on depth 2,
-  cut off by the direction check's per-Run timeout. The same loop is possible on main whenever a
-  retreat or approach Step is refused. A fix records the Step's cell with its kind in the Memory, so a
-  still hero after a handed Step blocks that cell whatever the screen showed.
-- **Which way to flee.** The fight Policy's retreat takes the nearer regular stairs, up or down. On
-  `smoke`, fleeing down is most of how Runs get deeper (25 of 39 descents with story 4.12), and it
-  lands a hurt hero on a harder floor. Fleeing only up measured: median turns about the same, mean
-  deepest floor 2.52 to 2.20 (on story 4.9's Brain). Kept as it is; worth a proper SPRT once the Goo gate
-  measures depth and survival together.
+- **Which way to flee.** The fight Policy's retreat takes the nearer regular stairs, up or down, except
+  down onto a boss floor or down hurt while the descend Policy is leaving (story 4.12's review). Fleeing
+  only up measured worse on story 4.9's Brain (mean deepest floor 2.52 to 2.20). Worth a proper SPRT once
+  the Goo gate measures depth and survival together.
+- **Traps on the only way to the exit.** The descend Policy never paths through an armed trap. A floor
+  whose only way to the exit crosses a known trap in a one-wide corridor leaves the hero searching for
+  another; walking the trap as a last resort would need its worst case scored.
 - **What an allowance is worth.** The descend Policy's allowance (500 waits, 250 more per guaranteed drop
   expected) is an assumption, not a measurement. Tuning it needs the rig's SPRT, not `smoke`.

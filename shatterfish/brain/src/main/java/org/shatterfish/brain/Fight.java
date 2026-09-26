@@ -138,7 +138,7 @@ final class Fight implements Policy {
             }
         }
         boolean favourable = favourable(observation, knowledge, enemies);
-        RunLog.Choice retreat = retreat(observation, memory, offered, enemies);
+        RunLog.Choice retreat = retreat(observation, memory, offered, enemies, knowledge);
         List<RunLog.Choice> ranked = new ArrayList<>();
         if (!adjacent.isEmpty()) {
             RunLog.Choice attack = attack(observation, adjacent);
@@ -293,26 +293,35 @@ final class Fight implements Policy {
      * no enemy stands beside, never by a first Step closer to an enemy; else the offered Step that
      * most increases the distance to the nearest enemy, fewer engaging first. Null when nothing gets
      * the hero farther away.
+     *
+     * <p>The stairs down count only when they do not lead onto a boss floor, where the boss seals the
+     * floor behind the hero (Goo.java:134-136, Level.java:657-661), and not while the hero is hurt and
+     * the descend Policy is taking it down (story 4.12): it would arrive on the harder floor hurt, the
+     * very thing the descend Policy rests beside the exit to avoid.
      */
-    static RunLog.Choice retreat(Observation observation, Memory memory, List<Action> offered, List<ActorView> enemies) {
+    static RunLog.Choice retreat(Observation observation, Memory memory, List<Action> offered, List<ActorView> enemies,
+                                 Codex.Knowledge knowledge) {
         MapSection map = observation.map();
         int hero = observation.hero().cell();
         int from = nearest(map, hero, enemies);
         String floor = observation.header().depth() + ":" + observation.header().branch();
         if (!observation.header().sealed() && Memory.count(memory.flights(), floor, 0) < FLIGHTS) {
+            boolean down = down(observation, memory, knowledge);
+            java.util.function.Predicate<TransitionView> stairs = transition -> transition.kind()
+                    == TransitionKind.REGULAR_ENTRANCE || (down && transition.kind() == TransitionKind.REGULAR_EXIT);
             for (TransitionView transition : map.transitions()) {
                 if (transition.cell() != hero) {
                     continue;
                 }
-                Action leave = transition.kind() == TransitionKind.REGULAR_EXIT ? new Action.Descend()
-                        : transition.kind() == TransitionKind.REGULAR_ENTRANCE ? new Action.Ascend() : null;
+                Action leave = !stairs.test(transition) ? null
+                        : transition.kind() == TransitionKind.REGULAR_EXIT ? new Action.Descend() : new Action.Ascend();
                 if (leave != null && offered.contains(leave)) {
                     return new RunLog.Choice(leave, Policies.CERTAIN, "retreat: stairs");
                 }
             }
             boolean[] walk = Explore.walkable(observation, memory, false);
             for (TransitionView transition : map.transitions()) {
-                if (regular(transition) && map.fog().get(transition.cell()) != Fog.UNKNOWN) {
+                if (stairs.test(transition) && map.fog().get(transition.cell()) != Fog.UNKNOWN) {
                     walk[transition.cell()] = true;
                 }
             }
@@ -324,7 +333,7 @@ final class Fight implements Policy {
             List<Action> away = offered.stream().filter(action -> !(action instanceof Action.Step step)
                     || nearest(map, step.cell(), enemies) >= from).toList();
             Path path = walk(map, walk, hero, away, cell -> map.transitions().stream()
-                    .anyMatch(t -> t.cell() == cell && regular(t)));
+                    .anyMatch(t -> t.cell() == cell && stairs.test(t)));
             if (path != null) {
                 return new RunLog.Choice(path.step, Policies.CERTAIN, "retreat: stairs");
             }
@@ -350,9 +359,15 @@ final class Fight implements Policy {
         return best == null ? null : new RunLog.Choice(best, Policies.CERTAIN, "retreat " + farthest);
     }
 
-    /** The regular stairs, up or down: the ways off a floor that land on the next one. */
-    private static boolean regular(TransitionView transition) {
-        return transition.kind() == TransitionKind.REGULAR_EXIT || transition.kind() == TransitionKind.REGULAR_ENTRANCE;
+    /**
+     * Whether a retreat may take the stairs down: not onto a boss floor, and not while the hero is hurt
+     * and the descend Policy is taking it down (see {@link #retreat}).
+     */
+    static boolean down(Observation observation, Memory memory, Codex.Knowledge knowledge) {
+        if (Descend.bossNext(observation, knowledge)) {
+            return false;
+        }
+        return observation.hero().hp() >= observation.hero().ht() || Descend.leaving(observation, memory, knowledge) == null;
     }
 
     private static boolean transition(MapSection map, int cell) {

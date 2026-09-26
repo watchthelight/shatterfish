@@ -77,7 +77,7 @@ class DescendPolicyTest {
     static Memory at(List<Memory.Spot> dwelt, long waits, long arrived, int rests) {
         return new Memory(waits, 1, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
                 Memory.Spot.NOWHERE, 0, false, dwelt, List.of(), "", 0, -1, -1, List.of(), List.of(), "", List.of(),
-                Memory.Pack.NONE, Memory.Aim.NONE, -1, Memory.Trial.NONE, List.of(), 0, -1, List.of(), -1, arrived, rests);
+                Memory.Pack.NONE, Memory.Aim.NONE, -1, Memory.Trial.NONE, List.of(), 0, -1, List.of(), -1, arrived, rests, -1);
     }
 
     private static final Observation ROOM = ExplorePolicyTest.screen(2,
@@ -96,9 +96,63 @@ class DescendPolicyTest {
             "#>.@....  ",
             "##########");
 
+    /** The Decisions at each of {@code screens} in turn, driven as the Brain's driver drives them, from {@code start}. */
+    private static List<Brain.Decided> each(Memory start, Observation... screens) {
+        Brain brain = brain();
+        Belief belief = start.belief();
+        List<Brain.Decided> all = new ArrayList<>();
+        for (Observation screen : screens) {
+            belief = brain.update(screen, belief);
+            Brain.Decided decided = brain.decide(screen, belief);
+            assertTrue(screen.actions().actions().contains(decided.action()), "offered: " + decided.action());
+            all.add(decided);
+            belief = brain.handed(screen, belief, decided);
+        }
+        return all;
+    }
+
+    /** A spent floor's corridor with the hero at column {@code x} of row 1, at {@code hp} of 20. */
+    private static Observation corridor(int x, int hp) {
+        StringBuilder row = new StringBuilder("#......>#");
+        row.setCharAt(x, '@');
+        return hero(ExplorePolicyTest.screen(2, "#########", row.toString(), "#########"), hp, 20, Hunger.NONE);
+    }
+
     @Test
-    @DisplayName("on the exit of a spent floor, hurt and fed, it rests to full first; at full health it goes down")
-    void rest_before_descent() {
+    @DisplayName("walking to the exit of a spent floor hurt: it stops beside the exit and rests to full, and only then takes the Step that travels")
+    void rests_beside_the_exit() {
+        // The last Step onto the exit takes the stairs (a click on a transition cell with no enemy in
+        // view), so the rest has to come before it, on the cell beside the exit.
+        List<Brain.Decided> walk = each(spent(2, 10, 1, 0),
+                corridor(1, 8), corridor(2, 8), corridor(3, 8), corridor(4, 8), corridor(5, 8), corridor(6, 8),
+                corridor(6, 8), corridor(6, 20));
+        for (int i = 0; i < 5; i++) {
+            assertEquals(new Action.Step(corridor(i + 1, 8).hero().cell() + 1), walk.get(i).action(), "wait " + i);
+            assertTrue(walk.get(i).decision().chosen().why().startsWith("exit: spent "), walk.get(i).decision().toString());
+        }
+        assertEquals(new Action.Rest(true), walk.get(5).action(), "beside the exit, hurt: rest, not the Step");
+        assertEquals("rest: descent", walk.get(5).decision().chosen().why());
+        assertEquals(new Action.Rest(true), walk.get(6).action());
+        assertEquals(new Action.Step(corridor(6, 20).hero().cell() + 1), walk.get(7).action(), "healed: onto the exit");
+        assertEquals("exit: spent 1", walk.get(7).decision().chosen().why());
+    }
+
+    @Test
+    @DisplayName("beside the exit, its rests are bounded: after RESTS on the floor it takes the Step hurt")
+    void rests_beside_are_bounded() {
+        Observation beside = corridor(6, 8);
+        Observation[] screens = new Observation[Descend.RESTS + 1];
+        java.util.Arrays.fill(screens, beside);
+        List<Brain.Decided> all = each(spent(2, 10, 1, 0), screens);
+        for (int i = 0; i < Descend.RESTS; i++) {
+            assertEquals(new Action.Rest(true), all.get(i).action(), "wait " + i);
+        }
+        assertEquals(new Action.Step(beside.hero().cell() + 1), all.get(Descend.RESTS).action(), "the bound reached");
+    }
+
+    @Test
+    @DisplayName("come up from the floor below onto the exit of a spent floor: it rests there, then goes down")
+    void rest_on_arrival() {
         Brain.Decided hurt = brain().decide(hero(ON, 8, 20, Hunger.NONE), spent(2, 10, 1, 0).belief());
         assertEquals(Descend.NAME, hurt.decision().policy());
         assertEquals(new Action.Rest(true), hurt.action());
@@ -110,16 +164,16 @@ class DescendPolicyTest {
     }
 
     @Test
-    @DisplayName("it does not rest hungry (the next floor has food), nor starving (no health comes back)")
-    void no_rest_when_hungry() {
-        for (Hunger hunger : List.of(Hunger.HUNGRY, Hunger.STARVING)) {
-            Brain.Decided decided = brain().decide(hero(ON, 8, 20, hunger), spent(2, 10, 1, 0).belief());
-            assertEquals(new Action.Descend(), decided.action(), hunger.toString());
-        }
+    @DisplayName("it rests hungry, which regenerates, but not starving, which does not")
+    void no_rest_when_starving() {
+        assertEquals(new Action.Rest(true), brain().decide(hero(ON, 8, 20, Hunger.HUNGRY), spent(2, 10, 1, 0).belief()).action());
+        assertEquals(new Action.Descend(), brain().decide(hero(ON, 8, 20, Hunger.STARVING), spent(2, 10, 1, 0).belief()).action());
+        assertEquals(new Action.Step(corridor(6, 8).hero().cell() + 1),
+                brain().decide(hero(corridor(6, 8), 8, 20, Hunger.STARVING), spent(2, 10, 1, 0).belief()).action());
     }
 
     @Test
-    @DisplayName("its rests before going down are bounded: after RESTS on a floor, it goes down hurt")
+    @DisplayName("its rests on the exit are bounded: after RESTS on a floor, it goes down hurt")
     void rests_are_bounded() {
         Brain.Decided last = brain().decide(hero(ON, 8, 20, Hunger.NONE), spent(2, 30, 1, Descend.RESTS - 1).belief());
         assertEquals(new Action.Rest(true), last.action());
@@ -130,50 +184,123 @@ class DescendPolicyTest {
     @Test
     @DisplayName("over several waits through the Brain: a rest cut short is counted, and the hero goes down after RESTS")
     void rests_counted_through_the_brain() {
-        Brain brain = brain();
         Observation hurt = hero(ON, 8, 20, Hunger.NONE);
-        Belief belief = spent(2, 10, 1, 0).belief();
-        List<Action> actions = new ArrayList<>();
-        for (int i = 0; i < Descend.RESTS + 2; i++) {
-            belief = brain.update(hurt, belief);
-            Brain.Decided decided = brain.decide(hurt, belief);
-            actions.add(decided.action());
-            belief = brain.handed(hurt, belief, decided);
-        }
+        Observation[] screens = new Observation[Descend.RESTS + 2];
+        java.util.Arrays.fill(screens, hurt);
+        List<Brain.Decided> all = each(spent(2, 10, 1, 0), screens);
         for (int i = 0; i < Descend.RESTS; i++) {
-            assertEquals(new Action.Rest(true), actions.get(i), "wait " + i);
+            assertEquals(new Action.Rest(true), all.get(i).action(), "wait " + i);
         }
-        assertEquals(new Action.Descend(), actions.get(Descend.RESTS), "the bound reached, it goes down");
+        assertEquals(new Action.Descend(), all.get(Descend.RESTS).action(), "the bound reached, it goes down");
+        Brain brain = brain();
+        Belief belief = spent(2, 10, 1, 0).belief();
+        for (Observation screen : screens) {
+            belief = brain.update(screen, belief);
+            belief = brain.handed(screen, belief, brain.decide(screen, belief));
+        }
         assertEquals(Descend.RESTS, Memory.of(belief).rests(), "the descents are no rests");
     }
 
     @Test
-    @DisplayName("hungry with no food held, it leaves a floor with more to see; with food it eats instead")
+    @DisplayName("hungry with no food and nothing left to uncover, it leaves; with a frontier left, food held, or a boss floor below, it does not")
     void hungry_without_food() {
-        Brain.Decided hungry = brain().decide(hero(OPEN, 20, 20, Hunger.HUNGRY), at(List.of(), 5, 1, 0).belief());
-        assertEquals(Descend.NAME, hungry.decision().policy());
-        assertEquals("exit: hungry 2", hungry.decision().chosen().why());
-        assertEquals(new Action.Step(OPEN.hero().cell() - 1), hungry.action());
+        // The room is uncovered, but its walls not yet searched: not spent.
+        Brain.Decided hungry = brain().decide(hero(ROOM, 20, 20, Hunger.HUNGRY), at(List.of(), 5, 1, 0).belief());
+        assertEquals(Descend.NAME, hungry.decision().policy(), hungry.decision().toString());
+        assertEquals("exit: hungry 3", hungry.decision().chosen().why());
 
-        Brain.Decided fed = brain().decide(hero(OPEN, 20, 20, Hunger.HUNGRY, EatPolicyTest.food("ration of food", 1)),
+        Brain.Decided scroll = brain().decide(hero(ROOM, 20, 20, Hunger.HUNGRY,
+                Screens.item(org.shatterfish.api.ItemKind.SCROLL, "scroll of KAUNAN", 1)), at(List.of(), 5, 1, 0).belief());
+        assertEquals("exit: hungry 3", scroll.decision().chosen().why(), "a scroll is no food");
+        assertFalse(Descend.fed(hero(ROOM, 20, 20, Hunger.HUNGRY,
+                Screens.item(org.shatterfish.api.ItemKind.SCROLL, "scroll of KAUNAN", 1))));
+
+        Brain.Decided ration = brain().decide(hero(ROOM, 20, 20, Hunger.HUNGRY, EatPolicyTest.food("ration of food", 1)),
                 at(List.of(), 5, 1, 0).belief());
-        assertEquals(Eat.NAME, fed.decision().policy());
+        assertEquals(Eat.NAME, ration.decision().policy());
 
         // Hungry holding only a pasty: the eat Policy waits for starving (a pasty wastes at hungry), and
-        // the hero is not without food, so it does not leave a floor with more to see.
-        Brain.Decided pasty = brain().decide(hero(OPEN, 20, 20, Hunger.HUNGRY, EatPolicyTest.food("pasty", 1)),
+        // the hero is not without food, so the searches go on.
+        Brain.Decided pasty = brain().decide(hero(ROOM, 20, 20, Hunger.HUNGRY, EatPolicyTest.food("pasty", 1)),
                 at(List.of(), 5, 1, 0).belief());
         assertEquals(Explore.NAME, pasty.decision().policy(), "food held is food, eaten now or not");
-        assertFalse(Descend.fed(hero(OPEN, 20, 20, Hunger.HUNGRY)));
-        assertFalse(Descend.fed(hero(OPEN, 20, 20, Hunger.HUNGRY,
-                Screens.item(org.shatterfish.api.ItemKind.SCROLL, "scroll of KAUNAN", 1))), "a scroll is no food");
-        Brain.Decided scroll = brain().decide(hero(OPEN, 20, 20, Hunger.HUNGRY,
-                Screens.item(org.shatterfish.api.ItemKind.SCROLL, "scroll of KAUNAN", 1)), at(List.of(), 5, 1, 0).belief());
-        assertEquals("exit: hungry 2", scroll.decision().chosen().why(), "hungry with only a scroll: down for food");
-        assertTrue(Descend.fed(hero(OPEN, 20, 20, Hunger.HUNGRY, EatPolicyTest.food("pasty", 1))));
+        assertTrue(Descend.fed(hero(ROOM, 20, 20, Hunger.HUNGRY, EatPolicyTest.food("pasty", 1))));
 
-        Brain.Decided full = brain().decide(hero(OPEN, 20, 20, Hunger.NONE), at(List.of(), 5, 1, 0).belief());
-        assertEquals(Explore.NAME, full.decision().policy(), "not hungry, the frontier comes first");
+        // A frontier left: this floor's own food is likelier there than anywhere.
+        Brain.Decided open = brain().decide(hero(OPEN, 20, 20, Hunger.HUNGRY), at(List.of(), 5, 1, 0).belief());
+        assertEquals(Explore.NAME, open.decision().policy(), "explore on while a frontier is left");
+
+        // Floor 4: the floor below is Goo's, which places no food and seals behind the hero.
+        Observation four = hero(ExplorePolicyTest.screen(4, "#######", "#@..>.#", "#######"), 20, 20, Hunger.HUNGRY);
+        assertTrue(Descend.bossNext(four, Screens.CODEX));
+        assertEquals(null, Descend.leaving(four, at(List.of(), 5, 1, 0), Screens.CODEX));
+        assertEquals(Explore.NAME, brain().decide(four, at(List.of(), 5, 1, 0).belief()).decision().policy());
+    }
+
+    @Test
+    @DisplayName("spent or overstayed with no exit shown: it never steps toward the fog for one, and searches on past explore's budget")
+    void exit_never_seen() {
+        Observation closed = ExplorePolicyTest.screen(2,
+                "#######",
+                "#@....#",
+                "#.....#",
+                "#######");
+        assertTrue(closed.map().transitions().isEmpty());
+        Brain.Decided decided = brain().decide(closed, spent(2, 10, 1, 0).belief());
+        assertEquals(Descend.NAME, decided.decision().policy(), decided.decision().toString());
+        assertTrue(decided.decision().chosen().why().startsWith("no exit: search"), decided.decision().chosen().why());
+
+        // The extra searches spent too: nothing of its own to do.
+        List<Memory.Spot> all = new ArrayList<>();
+        for (int i = 0; i < Descend.SEARCHES; i++) {
+            all.add(new Memory.Spot(2, 0, 100 + i));
+        }
+        Brain.Decided done = brain().decide(closed, at(all, 10, 1, 0).belief());
+        assertFalse(Descend.NAME.equals(done.decision().policy()), done.decision().toString());
+
+        // Overstayed with a frontier left and no exit shown: it uncovers the frontier, a cell the screen
+        // shows, never a Step into the fog.
+        Observation fog = ExplorePolicyTest.screen(2,
+                "##########",
+                "#..@....  ",
+                "##########");
+        Brain.Decided late = brain().decide(fog, at(List.of(), 5000, 1, 0).belief());
+        assertEquals(Descend.NAME, late.decision().policy());
+        assertTrue(late.decision().chosen().why().startsWith("no exit: frontier"), late.decision().chosen().why());
+        Action.Step step = (Action.Step) late.action();
+        assertEquals(org.shatterfish.api.Fog.VISIBLE, fog.map().fog().get(step.cell()));
+    }
+
+    @Test
+    @DisplayName("it stands aside while the explore Policy owes a rest before going back down, or the hero is inside a region the fight Policy retreated from")
+    void yields_to_the_fight_plans() {
+        List<Memory.Spot> dwelt = new ArrayList<>();
+        for (int i = 0; i < Explore.SEARCHES; i++) {
+            dwelt.add(new Memory.Spot(2, 0, 100 + i));
+        }
+        // Fled floor 3 by the stairs, not yet rested: explore's rest comes first.
+        Memory fled = new Memory(10, 3, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                Memory.Spot.NOWHERE, 0, false, dwelt, List.of(), "", 0, -1, -1,
+                List.of(new Memory.Found("3:0", 0, 1)), List.of());
+        Observation hurt = hero(ROOM, 8, 20, Hunger.NONE);
+        assertTrue(Explore.restOwed(hurt, fled));
+        Brain.Decided rest = brain().decide(hurt, fled.belief());
+        assertEquals(Explore.NAME, rest.decision().policy());
+        assertEquals("rest: before-descent", rest.decision().chosen().why());
+
+        // Inside a region avoided with a Step farther out: explore's step away comes first.
+        Observation inside = corridor(3, 20);
+        Memory avoiding = new Memory(10, 2, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                Memory.Spot.NOWHERE, 0, false, dwelt, List.of(), "", 0, -1, -1, List.of(),
+                List.of(new Memory.Avoid(2, 0, inside.hero().cell() + 1, 2, 500)));
+        Brain.Decided away = brain().decide(inside, avoiding.belief());
+        assertEquals(Explore.NAME, away.decision().policy(), away.decision().toString());
+        assertTrue(away.decision().chosen().why().startsWith("away "), away.decision().chosen().why());
+        // With no Step farther out, it does not leave the wait to chance: it goes on to the exit.
+        Memory cornered = new Memory(10, 2, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
+                Memory.Spot.NOWHERE, 0, false, dwelt, List.of(), "", 0, -1, -1, List.of(),
+                List.of(new Memory.Avoid(2, 0, ROOM.hero().cell() + 2, 2, 500)));
+        assertEquals(Descend.NAME, brain().decide(ROOM, cornered.belief()).decision().policy());
     }
 
     @Test
@@ -206,8 +333,14 @@ class DescendPolicyTest {
         Memory found = new Memory(5, 1, List.of(), List.of(new Memory.Found("STRENGTH_POTIONS", 0, 2),
                 new Memory.Found("UPGRADE_SCROLLS", 0, 1)), List.of(), List.of(), List.of(), List.of(), List.of(),
                 Memory.Spot.NOWHERE, 0, false, List.of(), List.of(), "", 0, -1, -1, List.of(), List.of(), "", List.of(),
-                Memory.Pack.NONE, Memory.Aim.NONE, -1, Memory.Trial.NONE, List.of(), 0, -1, List.of(), -1, 1, 0);
+                Memory.Pack.NONE, Memory.Aim.NONE, -1, Memory.Trial.NONE, List.of(), 0, -1, List.of(), -1, 1, 0, -1);
         assertEquals(2.0 / 4, Descend.expectedHere(one, found, Screens.CODEX), 1e-9);
+        // A potion picked up unidentified may be a potion of strength: counted as found too, and never a
+        // scroll of upgrade.
+        Memory pending = new Memory(5, 1, List.of(), List.of(), List.of(), List.of(), List.of(),
+                List.of(new Memory.Found("crimson potion", 0, 1)), List.of(),
+                Memory.Spot.NOWHERE, 0, false, List.of(), List.of(), "", 0, -1, -1, List.of(), List.of());
+        assertEquals((1.0 + 3.0) / 4, Descend.expectedHere(one, pending, Screens.CODEX), 1e-9);
     }
 
     @Test
@@ -266,7 +399,6 @@ class DescendPolicyTest {
                 Memory.of(belief).blocked().toString());
         assertEquals(Descend.NAME, decided.get(3).decision().policy(), "and then down again");
         assertFalse(decided.get(3).action().equals(new Action.Step(corridor.hero().cell() + 1)), "round the refused cell");
-        assertNull(Descend.stepCell(ON, spent(2, 10, 1, 0), Screens.CODEX), "no Step on the exit");
     }
 
     @Test

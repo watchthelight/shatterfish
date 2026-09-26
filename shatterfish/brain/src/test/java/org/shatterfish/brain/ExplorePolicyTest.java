@@ -358,6 +358,5 @@ class ExplorePolicyTest {
         assertEquals(new Action.Step(cell(fork, 5, 1)), decided.action());
         assertEquals("frontier 4", decided.decision().chosen().why());
         assertEquals(decided.decision(), after(fork).decision());
-        assertNull(Explore.stepCell(screen(1, "###", "#@#", "###"), Memory.START), "no Step in a closed cell");
     }
 }

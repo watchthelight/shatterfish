@@ -24,42 +24,57 @@ import java.util.List;
  *   <li><b>Spent.</b> The explored fraction is whole -- no frontier the hero can reach -- and no search
  *       is worth making ({@link Explore#spent}): nothing left to find, and every wait on the floor
  *       costs food.</li>
- *   <li><b>Hungry with no food.</b> The hunger icon shows hungry or starving and no food the eat Policy
- *       knows is held. Every regular floor of the main branch places a food item when it is built
- *       (Level.java:224-226), so the next floor holds one; this one's known heaps the pick-up Policy,
- *       above this one, has already walked to. A starving hero loses health and regenerates none
- *       (Hunger.java:78-85, Regeneration.java:56).</li>
+ *   <li><b>Hungry with no food.</b> The hunger icon shows hungry or starving, no food the eat Policy
+ *       knows is held, no frontier is left to reach, and the next floor is not a boss floor. Every
+ *       regular floor of the main branch places a food item when it is built, and a boss floor places
+ *       none (Level.java:224-226; the boss depths, Dungeon.java:441-443): so the next regular floor
+ *       holds one, and this floor's own is in the part still to uncover while a frontier is left (the
+ *       pick-up Policy, above this one, has walked to every heap drawn). The searches are skipped: a
+ *       hungry hero regenerates, but only for 150 turns before it starves (Hunger.java:40-41), and a
+ *       starving one regenerates nothing and loses health (Regeneration.java:56, Hunger.java:78-85).</li>
  *   <li><b>Overstayed.</b> The waits on this floor reach its {@linkplain #allowance allowance}:
  *       {@link #ALLOWANCE} waits, and {@link #PER_DROP} more for each guaranteed drop expected still on
  *       this floor. On every floor but the first, a wandering enemy spawns every 50 turns until the
  *       floor holds its limit (Level.java:149, :764-778; MobSpawner.java:39-52;
- *       RegularLevel.java:206-217), and the hunger clock runs a turn at a time (Hunger.java:40-41). The
- *       allowance is a bound on a floor that has stopped paying, not a pace: the floors of the `smoke`
- *       set take 60 to 630 waits when nothing goes wrong.</li>
+ *       RegularLevel.java:206-217), and hunger rises a point a turn (Hunger.java:40-41). The allowance
+ *       counts waits, not turns: a wait is at least a turn, so it is a bound on a floor that has stopped
+ *       paying, not a pace. The floors of the `smoke` set take 60 to 630 waits when nothing goes
+ *       wrong.</li>
  * </ul>
  * A guaranteed drop -- a potion of strength, a scroll of upgrade, an arcane stylus -- is placed when a
  * floor of its set is built (Level.java:224-243; Dungeon.java:529-563), and its set is spent by the
- * last floor before the boss. The Brain counts what it has found ({@link Beliefs.Chapter}); what is
- * owed and not found lies on this floor or the ones left in the set, and the Policy expects
- * {@code owed / floorsLeft} of it here. It cannot know what earlier floors held and it missed.
+ * last floor before the boss. The Brain counts what it has found ({@link Beliefs.Chapter}), and an
+ * appearance of the drop's family picked up and not yet identified as found too, so a floor is not
+ * held for a potion already in the pack; what is owed and not found lies on this floor or the ones
+ * left in the set, and the Policy expects {@code owed / floorsLeft} of it here. It cannot know what
+ * earlier floors held and it missed.
  *
  * <p><b>Fit for the next floor.</b> The next floor is harder: more enemies and stronger ones
- * (RegularLevel.java:206-217; MobSpawner.java:71). The Policy walks to the regular exit and, standing
- * on it, rests to full health before it descends: a rest regenerates one hit point every ten turns
- * (Regeneration.java:44), the stairs underfoot are the fight Policy's way out if an enemy comes, and a
- * hero that went down at a third of its health met the next floor's first enemy at a third. It rests
- * only when the hunger icon shows nothing -- a hungry hero with food has eaten (the eat Policy stands
- * above), a hungry one without food is going down to find it, and a starving one regenerates nothing
- * -- and at most {@link #RESTS} times on a floor, so a rest the game keeps cutting short does not hold
- * the hero at the exit.
+ * (RegularLevel.java:206-217; MobSpawner.java:71). The last Step onto the exit travels -- a click on a
+ * transition cell with no enemy in view takes the stairs (Hero.java:2000-2007) -- so the Policy walks
+ * to the cell beside the exit and rests there to full health first, then takes that Step. A rest
+ * regenerates one hit point every ten turns (Regeneration.java:44), and the exit a Step away is the
+ * fight Policy's way on if an enemy comes. A hero standing on the exit already -- come up from the
+ * floor below -- rests there and then takes the {@code Descend}. It does not rest while starving, which
+ * regenerates nothing, and rests at most {@link #RESTS} times on a floor, so a rest the game keeps
+ * cutting short does not hold the hero.
  *
  * <p><b>Never down while sealed.</b> The Policy does not enter while the header says the floor is
- * sealed ({@code Level.locked}, Level.java:180, :657-670), which a boss fight sets; and it takes only a
+ * sealed ({@code Level.locked}, Level.java:181, :657-670), which a boss fight sets; and it takes only a
  * regular exit drawn as the open exit, never the boss floor's locked one (SewerBossExitRoom.java:63).
  *
- * <p>It acts only on a calm screen: no Prompt open, no enemy in view. It yields for one wait when the
- * hero has stood still after {@link Explore#STUCK} - 1 refused Steps, and the cell its Step pointed at
- * is then blocked ({@link Beliefs#fold}).
+ * <p><b>An exit never seen.</b> A regular floor's exit room joins the rest by regular doors, never a
+ * locked one (ExitRoom.java:60; only special rooms lock theirs); but a regular door may be hidden, and
+ * on a secrets floor a standard room may be reachable only through hidden doors
+ * (RegularPainter.java:221-263). So when the Policy would leave and the screen has never shown an
+ * exit, it searches on past the explore Policy's budget, up to {@link #SEARCHES} spots on the floor.
+ *
+ * <p><b>What it leaves to others.</b> It acts only on a calm screen: no Prompt open, no enemy in view.
+ * It stands aside while the explore Policy owes a rest before going back to a floor it fled, and while
+ * the hero stands inside a region the fight Policy retreated from with a Step farther out of it (story
+ * 4.7): those plans come first.
+ * It yields for one wait when the hero has stood still after {@link Explore#STUCK} - 1 refused Steps,
+ * and the cell of the Step is then blocked ({@link Beliefs#fold}).
  */
 final class Descend implements Policy {
 
@@ -74,6 +89,9 @@ final class Descend implements Policy {
 
     /** The most rests the Policy hands over on a floor before going down. */
     static final int RESTS = 20;
+
+    /** The most spots searched on a floor while looking for an exit never seen: three times explore's. */
+    static final int SEARCHES = 3 * Explore.SEARCHES;
 
     /** The exits a click on travels: the open exit, and the boss floor's once unlocked (Tile.java). */
     private static final java.util.Set<Tile> OPEN_EXITS = java.util.EnumSet.of(Tile.EXIT, Tile.UNLOCKED_EXIT);
@@ -101,50 +119,66 @@ final class Descend implements Policy {
 
     @Override
     public RunLog.Choice choose(Observation observation, Memory memory, List<Action> offered, Stream stream) {
-        if (memory.streak() >= Explore.STUCK - 1) {
+        if (memory.streak() == Explore.STUCK - 1) {
             return null;
         }
         return plan(observation, memory, offered, knowledge);
     }
 
-    /**
-     * The cell of the Step this Policy's plan takes on {@code observation} under {@code memory}, or
-     * null when the plan is not a Step: what the Memory records as blocked when the hero stays put.
-     */
-    static Integer stepCell(Observation observation, Memory memory, Codex.Knowledge knowledge) {
-        if (!Explore.calm(observation) || observation.header().sealed()) {
-            return null;
-        }
-        RunLog.Choice choice = plan(observation, memory, observation.actions().actions(), knowledge);
-        return choice != null && choice.action() instanceof Action.Step step ? step.cell() : null;
-    }
-
-    /** The plan before the stuck rule: nothing while the floor is worth staying on, else to the exit, rest, down. */
+    /** The plan before the stuck rule: nothing while the floor is worth staying on, else toward the exit. */
     private static RunLog.Choice plan(Observation observation, Memory memory, List<Action> offered,
                                       Codex.Knowledge knowledge) {
+        if (Explore.restOwed(observation, memory) || Explore.away(observation, memory, offered) != null) {
+            return null;
+        }
         String why = leaving(observation, memory, knowledge);
         if (why == null) {
             return null;
         }
         MapSection map = observation.map();
-        int hero = observation.hero().cell();
-        if (exit(map, hero)) {
-            if (rests(observation, memory)) {
-                for (Action rest : List.of(new Action.Rest(true), new Action.Rest(false), new Action.Search())) {
-                    if (offered.contains(rest)) {
-                        return new RunLog.Choice(rest, Policies.CERTAIN, "rest: descent");
-                    }
-                }
+        if (exit(map, observation.hero().cell())) {
+            // Come up from below onto the exit: rest here, then down.
+            RunLog.Choice rest = rest(observation, memory, offered);
+            if (rest != null) {
+                return rest;
             }
             Action descend = new Action.Descend();
             return offered.contains(descend) ? new RunLog.Choice(descend, Policies.CERTAIN, "descend: " + why) : null;
         }
-        Explore.Path path = toward(observation, memory, offered, Explore.walkable(observation, memory, true));
+        Explore.Path path = toward(observation, offered, Explore.walkable(observation, memory, true));
         if (path == null) {
-            path = toward(observation, memory, offered, Explore.walkable(observation, memory, false));
+            path = toward(observation, offered, Explore.walkable(observation, memory, false));
         }
-        return path == null ? null
-                : new RunLog.Choice(path.step(), Policies.CERTAIN, "exit: " + why + " " + path.distance());
+        if (path == null) {
+            if (known(map)) {
+                return null;
+            }
+            // No exit on the screen yet: search on for it, past explore's budget.
+            RunLog.Choice search = Explore.searchOn(observation, memory, offered, SEARCHES);
+            return search == null ? null
+                    : new RunLog.Choice(search.action(), Policies.CERTAIN, "no exit: " + search.why());
+        }
+        // Beside the exit, the next Step travels: rest to full first.
+        if (path.distance() == 1) {
+            RunLog.Choice rest = rest(observation, memory, offered);
+            if (rest != null) {
+                return rest;
+            }
+        }
+        return new RunLog.Choice(path.step(), Policies.CERTAIN, "exit: " + why + " " + path.distance());
+    }
+
+    /** A rest before going down, when {@link #rests} allows one and the screen offers it; else null. */
+    private static RunLog.Choice rest(Observation observation, Memory memory, List<Action> offered) {
+        if (!rests(observation, memory)) {
+            return null;
+        }
+        for (Action rest : List.of(new Action.Rest(true), new Action.Rest(false), new Action.Search())) {
+            if (offered.contains(rest)) {
+                return new RunLog.Choice(rest, Policies.CERTAIN, "rest: descent");
+            }
+        }
+        return null;
     }
 
     /**
@@ -155,7 +189,8 @@ final class Descend implements Policy {
         if (Explore.spent(observation, memory)) {
             return "spent";
         }
-        if (observation.hero().hunger() != Hunger.NONE && !fed(observation)) {
+        if (observation.hero().hunger() != Hunger.NONE && !fed(observation) && !bossNext(observation, knowledge)
+                && !Explore.frontier(observation, memory)) {
             return "hungry";
         }
         long stayed = memory.waits() - memory.arrived();
@@ -164,6 +199,19 @@ final class Descend implements Policy {
             return "overstayed";
         }
         return null;
+    }
+
+    /**
+     * Whether the floor below is a boss floor: the last of a set of floors, as the Codex counts them
+     * (a set ends at a boss, Dungeon.java:441-443; CodexKnowledge reads the set's length from the boss
+     * depths). With no set in the Codex, every floor below may be one.
+     */
+    static boolean bossNext(Observation observation, Codex.Knowledge knowledge) {
+        if (knowledge.guarantees().isEmpty()) {
+            return true;
+        }
+        return observation.header().branch() == 0
+                && (observation.header().depth() + 1) % knowledge.guarantees().get(0).floorsPerSet() == 0;
     }
 
     /**
@@ -185,15 +233,35 @@ final class Descend implements Policy {
         double expected = 0;
         Beliefs beliefs = Beliefs.view(memory, observation, knowledge);
         for (Beliefs.Chapter chapter : beliefs.chapters()) {
-            int floorsPerSet = knowledge.guarantees().stream().filter(g -> g.counter().equals(chapter.counter()))
-                    .findFirst().orElseThrow().floorsPerSet();
-            int floor = depth % floorsPerSet;
-            if (floor == 0 || chapter.owed() == 0) {
+            Codex.Guarantee guarantee = knowledge.guarantees().stream()
+                    .filter(g -> g.counter().equals(chapter.counter())).findFirst().orElseThrow();
+            int floor = depth % guarantee.floorsPerSet();
+            // What is owed, less what was picked up under an appearance of the drop's family and not
+            // yet identified: it may be the drop.
+            int owed = Math.max(0, chapter.owed() - unidentified(memory, knowledge, guarantee, chapter.set()));
+            if (floor == 0 || owed == 0) {
                 continue;
             }
-            expected += (double) chapter.owed() / (floorsPerSet - floor);
+            expected += (double) owed / (guarantee.floorsPerSet() - floor);
         }
         return expected;
+    }
+
+    /**
+     * How many items of an appearance of {@code guarantee}'s family were picked up in {@code set} and
+     * not yet claimed by an identity: {@link Memory#pending}.
+     */
+    private static int unidentified(Memory memory, Codex.Knowledge knowledge, Codex.Guarantee guarantee, int set) {
+        int count = 0;
+        for (Codex.Identities family : knowledge.families()) {
+            if (family.candidates().stream().noneMatch(c -> c.className().equals(guarantee.className()))) {
+                continue;
+            }
+            for (String label : family.labels()) {
+                count += Memory.count(memory.pending(), label, set);
+            }
+        }
+        return count;
     }
 
     /** Whether the hero holds a food the eat Policy knows (story 4.9). */
@@ -206,9 +274,9 @@ final class Descend implements Policy {
         return false;
     }
 
-    /** Whether to rest on the exit before going down: see the class comment. */
+    /** Whether to rest before going down: hurt, not starving, and under {@link #RESTS} on this floor. */
     static boolean rests(Observation observation, Memory memory) {
-        return observation.hero().hp() < observation.hero().ht() && observation.hero().hunger() == Hunger.NONE
+        return observation.hero().hp() < observation.hero().ht() && observation.hero().hunger() != Hunger.STARVING
                 && memory.rests() < RESTS;
     }
 
@@ -223,8 +291,13 @@ final class Descend implements Policy {
         return false;
     }
 
+    /** Whether the screen shows a regular exit at all, open or not. */
+    private static boolean known(MapSection map) {
+        return map.transitions().stream().anyMatch(t -> t.kind() == TransitionKind.REGULAR_EXIT);
+    }
+
     /** The first Step toward the nearest open regular exit over {@code walk}, the exit itself allowed. */
-    private static Explore.Path toward(Observation observation, Memory memory, List<Action> offered, boolean[] walk) {
+    private static Explore.Path toward(Observation observation, List<Action> offered, boolean[] walk) {
         MapSection map = observation.map();
         boolean any = false;
         for (TransitionView transition : map.transitions()) {

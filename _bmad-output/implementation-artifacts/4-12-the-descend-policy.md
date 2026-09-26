@@ -211,3 +211,76 @@ Brain before the merge with story 4.10; not committed):
 
 **Deferred** (docs/ideas.md): the refused-Step loop in a fight; which way to flee; tuning the
 allowance with the rig.
+
+**Review round** (fairness: no violation; lens review: 6 findings, 3 serious; all fixed with tests
+that drive real waits through the Brain):
+1. *Critical: the rest before going down was dead code.* The last Step onto the exit travels (a click
+   on a transition cell with no enemy in view, Hero.java:2000-2007), so a hero walking to the exit
+   went down at whatever health it had; the rests measured were arrivals from below. Now the Policy
+   stops on the cell beside the exit and rests there to full, then takes the Step; resting on the
+   exit is kept for a hero come up from below. `rests_beside_the_exit` walks a corridor through the
+   Brain and asserts the rests come before the final Step; `rests_beside_are_bounded`.
+2. *High: hungry could lead into a boss floor.* A boss floor places no food (Level.java:224-226,
+   Dungeon.java:441-443) and Goo seals the floor on waking (Goo.java:134-136). "Hungry" now needs no
+   food held, no frontier left (this floor's own food lies in the part still to uncover) and a
+   regular floor below (`Descend.bossNext`). A hungry hero rests, since it regenerates; only a
+   starving one does not (Regeneration.java:56). `hungry_without_food`, `no_rest_when_starving`.
+3. *Medium: fleeing down the stairs hurt.* The fight Policy's retreat never takes the stairs down
+   onto a boss floor, nor while the hero is hurt and the descend Policy is taking it down
+   (`Fight.down`); it takes the stairs up or steps away instead. `never_down_hurt_or_onto_a_boss`.
+4. *Medium: descend outranked story 4.7's safety plans.* It stands aside while the explore Policy
+   owes a rest before going back to a fled floor, and while the hero is inside an avoided region with
+   a Step farther out (`Explore.away`, pulled out of explore's plan). `yields_to_the_fight_plans`.
+5. *Low-medium: an exit never seen.* Exit rooms join by regular doors, never locked ones
+   (ExitRoom.java:60), but a regular door may be hidden, and on a secrets floor a room may be reached
+   only through hidden doors (RegularPainter.java:221-263). With a reason to leave and no exit on the
+   screen, the Policy runs explore's frontier and search plan past its budget, up to 36 spots, as
+   "no exit: ...": never a Step into the fog. `exit_never_seen`.
+6. *Low:*
+   - A refused Step is now credited to the Step the Brain handed over, whatever Policy chose it: the
+     Memory keeps `stepped`, the last handed Step's cell. The streak counts a still hero after a Step
+     on any screen, not only a calm one, so a Step the game refuses in a fight is blocked after two
+     tries instead of being handed over forever with no time passing (seen as a 628,000-wait livelock
+     in an experiment; `refused_step_in_a_fight`). Stories 4.8 and 4.10 recomputed the refused cell
+     from their own plans; that is replaced.
+   - The descend Policy yields at `streak == STUCK - 1`, as explore does.
+   - An appearance of a drop's family picked up and not yet identified (`Memory.pending`) counts as
+     found in the allowance, so depth 4 does not wait 1,750 waits for a potion already in the pack.
+   - The docs say the allowance counts waits.
+- Fairness should-fixes: `exit_never_seen` covers a spent and an overstayed floor with no exit shown;
+  the `Level.locked` citation is :181.
+
+**Memory v8, final:** story 4.10's 31 fields, then `long arrived`, `int rests`, `int stepped`. Bytes
+after `refuge`: `number(arrived)`, `integer(rests)`, `integer(stepped)`. `Memory.handed(kind, stepped)`.
+
+**Tests:** `:brain:test` passes (`DescendPolicyTest` 16 cases, `FightPolicyTest` 30); rig
+`BrainRulesIndexTest`, `ShatterfishRunTest`, `StrategyLogTest`, `StarvationRegressionTest`,
+`DocsCitationTest`; `:codex:citations` no findings. One 4.7 test changed its words: the explore
+Policy's own rest still stops for hunger; the descend Policy's rest beside the exit does not.
+
+**Mutation battery (review round):** 24 of 24 killed, covering the rest beside the exit, the hungry
+rule's three conditions, starving and hungry rests, the rest bound, both yields, the search for an
+exit never seen, pending drops, the boss floor's drops, the locked exit, both of the retreat's
+down-stairs rules, the streak on any screen, the blocked Step, the Memory's `stepped` and its codec,
+arrival and rests.
+
+**Direction check after the review round** (`smoke`, salts 1000+i), main at story 4.10 against this
+branch:
+
+| | main (4.10) | 4.12 |
+|---|---|---|
+| turns survived, median (mean) | 863 (915) | **1,044** (968) |
+| turns survived, quartiles | 391 / 862 / 1352 | **693** / 1044 / 1268 |
+| Runs alive at 500 / 750 / 1,000 / 1,500 turns | 18 / 15 / 11 / 4 | 21 / 18 / 15 / 3 |
+| deepest floor, mean (max) | 2.32 (4) | **2.52** (4) |
+| deaths by depth (1 / 2 / 3 / 4) | 4 / 11 / 8 / 2 | 3 / 10 / 8 / 4 |
+| score, mean | 917.5 | **1,041.1** |
+| endings | 25 deaths | 25 deaths |
+
+- Survival and depth rise together: the lower quartile of turns survived goes from 391 to 693, four
+  Runs die on depth 4 instead of two, and fewer die on depths 1 and 2.
+- The descend Policy takes 7.9% of waits: walking to the exit of a spent floor (765), exploring or
+  searching for an exit not yet seen (about 700 across the "no exit" plans), overstayed (46), resting
+  beside or on the exit (18).
+- 32 of the Runs' floor changes are still the fight Policy's flights down the stairs, now never onto
+  a boss floor and never hurt while the descend Policy was taking the hero down.

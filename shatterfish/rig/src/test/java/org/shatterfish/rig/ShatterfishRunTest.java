@@ -128,11 +128,14 @@ class ShatterfishRunTest {
                     }
                 }
                 if ("descend".equals(wait.decision().policy())) {
-                    // Story 4.12: a Step toward the exit, a rest on it, or the Descend, and the reason
-                    // names why the hero leaves: the floor spent, hungry with no food, or overstayed.
+                    // Story 4.12: a Step toward the exit, a rest beside or on it, or the Descend, and
+                    // the reason names why the hero leaves: the floor spent, hungry with no food, or
+                    // overstayed; or, no exit seen yet, explore's search or frontier plan past its budget.
                     org.shatterfish.api.Action action = wait.action();
                     String why = wait.decision().chosen().why();
-                    if (action instanceof org.shatterfish.api.Action.Step) {
+                    if (why.startsWith("no exit: ")) {
+                        assertTrue(why.matches("no exit: (frontier|search-spot) [1-9][0-9]*|no exit: search [0-9]+/36"), why);
+                    } else if (action instanceof org.shatterfish.api.Action.Step) {
                         assertTrue(why.matches("exit: (spent|hungry|overstayed) [1-9][0-9]*"), why);
                     } else if (action instanceof org.shatterfish.api.Action.Descend) {
                         assertTrue(why.matches("descend: (spent|hungry|overstayed)"), why);

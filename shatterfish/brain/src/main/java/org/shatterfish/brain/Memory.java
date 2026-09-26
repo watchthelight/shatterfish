@@ -95,13 +95,17 @@ import java.util.List;
  *                 how long it has stayed there is {@code waits - arrived}
  * @param rests    how many rests the descend Policy has handed over on this floor, before going down
  *                 (story 4.12); 0 on arrival
+ * @param stepped  the cell of the Step this Brain handed over at the last wait, or -1 when it handed over
+ *                 anything else (story 4.12): a hero still where it stood after it had that Step refused,
+ *                 and that cell, whatever Policy chose the Step and whatever the screen showed, is the one
+ *                 blocked
  */
 record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
               List<Held> labels, List<Found> pending, List<Seen> monsters, Spot at, int streak, boolean calm,
               List<Spot> dwelt, List<Spot> blocked, String last, int holds, int near, int before,
               List<Found> flights, List<Avoid> avoid, String underfoot, List<Refused> refused, Pack pack, Aim aim,
               long drank, Trial trial, List<Balk> balked, int walking, long tested, List<Cloud> clouds,
-              int refuge, long arrived, int rests) {
+              int refuge, long arrived, int rests, int stepped) {
 
     /**
      * The meaning of the bytes; bumped when it changes (3: where the hero stood, story 4.6; 4: the
@@ -109,12 +113,13 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
      * underfoot, the heaps refused, the pack and the pick-up Policy's aim, story 4.8; 6: the last
      * drink, story 4.9; 7: the test handed over, the appearances a floor balked at, the walk toward a
      * testing cell, the wait of the last test, the cells seen clouded and the refuge, story 4.10; 8:
-     * the wait the hero came to this floor and the rests before going down, story 4.12).
+     * the wait the hero came to this floor, the rests before going down and the Step handed over, story
+     * 4.12).
      *
      * <p>Version 8 carries, in this order: waits, deepest, facts, found, held, known, labels,
      * pending, monsters, at, streak, calm, dwelt, blocked, last, holds, near, before, flights, avoid,
-     * underfoot, refused, pack, aim, drank, trial, balked, walking, tested, clouds, refuge, arrived and
-     * rests.
+     * underfoot, refused, pack, aim, drank, trial, balked, walking, tested, clouds, refuge, arrived,
+     * rests and stepped.
      */
     static final int VERSION = 8;
 
@@ -141,9 +146,9 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
 
     static final Memory START = new Memory(0, 0, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
             List.of(), Spot.NOWHERE, 0, false, List.of(), List.of(), "", 0, -1, -1, List.of(), List.of(), "", List.of(),
-            Pack.NONE, Aim.NONE, -1, Trial.NONE, List.of(), 0, -1, List.of(), -1, 0, 0);
+            Pack.NONE, Aim.NONE, -1, Trial.NONE, List.of(), 0, -1, List.of(), -1, 0, 0, -1);
 
-    /** Story 4.10's shape: arrived at the start, no rest before going down. */
+    /** Story 4.10's shape: arrived at the start, no rest before going down, no Step handed over. */
     Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
            List<Held> labels, List<Found> pending, List<Seen> monsters, Spot at, int streak, boolean calm,
            List<Spot> dwelt, List<Spot> blocked, String last, int holds, int near, int before, List<Found> flights,
@@ -151,7 +156,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
            List<Balk> balked, int walking, long tested, List<Cloud> clouds, int refuge) {
         this(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm, dwelt, blocked,
                 last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial, balked, walking,
-                tested, clouds, refuge, 0, 0);
+                tested, clouds, refuge, 0, 0, -1);
     }
 
     /** Story 4.9's shape: no test handed over, nothing balked at, no clouds. */
@@ -242,7 +247,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         boolean test = !trial.label().isEmpty() && trial.step() < 0;
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
-                balked, walking, test ? waits : tested, clouds, test ? refuge : this.refuge, arrived, rests);
+                balked, walking, test ? waits : tested, clouds, test ? refuge : this.refuge, arrived, rests, stepped);
     }
 
     /** Story 4.7's shape: nothing underfoot, nothing refused, no pack seen, no aim. */
@@ -300,7 +305,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     Memory aiming(Aim aim) {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests);
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped);
     }
 
     /**
@@ -321,24 +326,24 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     }
 
     /** This memory with the Action handed over recorded as {@code kind} (story 4.7). */
-    Memory handed(String kind) {
+    Memory handed(String kind, int stepped) {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, kind, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests);
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped);
     }
 
     /** This memory with a drink handed over at this wait (story 4.9). */
     Memory drinking() {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, waits, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests);
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped);
     }
 
     /** This memory with one more rest handed over by the descend Policy on this floor (story 4.12). */
     Memory resting() {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests + 1);
+                balked, walking, tested, clouds, refuge, arrived, rests + 1, stepped);
     }
 
     /** This memory with {@code region} avoided as well, the oldest forgotten past {@link #AVOIDED}. */
@@ -350,7 +355,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         }
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, more, underfoot, refused, pack, aim, drank, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests);
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped);
     }
 
     /** The regions still avoided at wait {@code now} on the floor at {@code depth} and {@code branch}. */
@@ -427,7 +432,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         refused = List.copyOf(refused);
         require(drank >= -1 && drank <= waits, "last drink");
         require(trial != null && walking >= 0 && tested >= -1 && refuge >= -1, "trial, walk, test and refuge");
-        require(arrived >= 0 && arrived <= waits && rests >= 0, "arrival and rests");
+        require(arrived >= 0 && arrived <= waits && rests >= 0 && stepped >= -1, "arrival, rests and Step");
         clouds = List.copyOf(clouds);
         balked = List.copyOf(balked);
     }
@@ -495,7 +500,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
             out.integer(cloud.depth()).integer(cloud.branch()).integer(cloud.cell()).number(cloud.until());
         }
         out.integer(refuge);
-        out.number(arrived).integer(rests);
+        out.number(arrived).integer(rests).integer(stepped);
         return new Belief(VERSION, out.bytes());
     }
 
@@ -587,10 +592,11 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
             int refuge = in.integer();
             long arrived = in.number();
             int rests = in.integer();
+            int stepped = in.integer();
             in.end();
             return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak,
                     calm == 1, dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim,
-                    drank, trial, balked, walking, tested, clouds, refuge, arrived, rests);
+                    drank, trial, balked, walking, tested, clouds, refuge, arrived, rests, stepped);
         } catch (IllegalArgumentException malformed) {
             throw new IllegalArgumentException("not a Belief this Brain wrote: " + belief + ": " + malformed.getMessage());
         }
