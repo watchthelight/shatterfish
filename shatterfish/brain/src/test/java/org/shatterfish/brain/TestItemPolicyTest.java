@@ -192,6 +192,34 @@ class TestItemPolicyTest {
         assertFalse(new TestItem(RARE_HEALING).enters(rare, Memory.START), "healing one time in ten");
     }
 
+    /** The worn cloth armour, identified, in the armour slot. */
+    private static final ItemView ARMOUR = new ItemView(ItemKind.ARMOR, "cloth armor", 1, true, 0, true, false, "",
+            org.shatterfish.api.EquipSlot.ARMOR, List.of(), "");
+
+    @Test
+    @DisplayName("with armour worn, an unknown scroll is read onto it at full health, even an item-picker one; a known scroll of upgrade too (story 4.13)")
+    void scroll_onto_the_armour() {
+        ItemView kaunan = Screens.unknown(ItemKind.SCROLL, "scroll of KAUNAN", 1);
+        ItemRef armour = new ItemRef(0, "cloth armor", 1);
+        Action onto = new Action.UseItemOn(new ItemRef(1, "scroll of KAUNAN", 1), TestItem.READ, armour);
+        Observation worn = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(ARMOUR, kaunan),
+                List.of(), List.of(), List.of(), read(1, "scroll of KAUNAN", 1), onto);
+        TestItem.Plan plan = new TestItem(Screens.CODEX).plan(worn, Memory.START, worn.actions().actions());
+        assertEquals(onto, plan.choice().action(), "upgrade or identify likely, and the armour takes an upgrade");
+        Observation bare = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(kaunan),
+                List.of(), List.of(), List.of(), read(0, "scroll of KAUNAN", 1));
+        assertFalse(new TestItem(Screens.CODEX).enters(bare, Memory.START), "no armour: the item-picker rule of story 4.10");
+
+        ItemView upgrade = new ItemView(ItemKind.SCROLL, TestItem.UPGRADE, 1, true, 0, true, false, "",
+                org.shatterfish.api.EquipSlot.NONE, List.of(TestItem.READ), "");
+        Action up = new Action.UseItemOn(new ItemRef(1, TestItem.UPGRADE, 1), TestItem.READ, armour);
+        Observation known = screen(1, row(3, -1, -1), Screens.heroAt(1, 12, 20, List.of()), List.of(ARMOUR, upgrade),
+                List.of(), List.of(), List.of(), read(1, TestItem.UPGRADE, 1), up);
+        TestItem.Plan upgraded = new TestItem(Screens.CODEX).plan(known, Memory.START, known.actions().actions());
+        assertEquals(up, upgraded.choice().action(), "a known scroll of upgrade goes onto the armour, at any health");
+        assertEquals("upgrade: cloth armor", upgraded.choice().why());
+    }
+
     @Test
     @DisplayName("a potion likely enough to be strength or experience is drunk at any health, the reserve kept (story 4.13)")
     void potion_for_gains() {

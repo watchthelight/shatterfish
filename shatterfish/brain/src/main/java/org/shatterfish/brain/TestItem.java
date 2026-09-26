@@ -203,8 +203,27 @@ final class TestItem implements Policy {
         }
         int depth = observation.header().depth();
         int branch = observation.header().branch();
+        // A known scroll of upgrade goes onto the worn armour (story 4.13): the upgrade window it opens
+        // is answered when the Brain's last Action was this read onto an item (story 4.11).
+        ItemRef armour = armour(observation);
+        List<ItemView> pack = observation.inventory().items();
+        for (int index = 0; armour != null && index < pack.size(); index++) {
+            ItemView item = pack.get(index);
+            if (item.name().equals(UPGRADE)) {
+                Action upgrade = new Action.UseItemOn(new ItemRef(index, item.name(), item.quantity()), READ, armour);
+                if (offered.contains(upgrade)) {
+                    return new Plan("", 0, new RunLog.Choice(upgrade, Policies.CERTAIN, "upgrade: " + armour.name()));
+                }
+            }
+        }
         for (Testable item : testable(observation, memory)) {
-            Action use = new Action.UseItem(item.ref(), item.verb());
+            // An unknown scroll is read onto the worn armour (story 4.13): a scroll of upgrade then
+            // upgrades it, and any other scroll either ignores the target or, an item-picker scroll that
+            // does not take the armour, is sent away and identified, as a plain read is
+            // (ActionExecutor, the unselectable target; InventoryScroll.java:137-139).
+            Action use = item.verb().equals(READ) && armour != null
+                    ? new Action.UseItemOn(item.ref(), READ, armour)
+                    : new Action.UseItem(item.ref(), item.verb());
             if (!offered.contains(use)) {
                 continue;
             }
@@ -335,6 +354,21 @@ final class TestItem implements Policy {
                 action instanceof Action.Step step ? step.cell() : -1);
     }
 
+    /** The known scroll of upgrade, by the name the inventory shows (items.properties). */
+    static final String UPGRADE = "scroll of upgrade";
+
+    /** The worn armour's pack reference, or null when none is worn. */
+    static ItemRef armour(Observation observation) {
+        List<ItemView> items = observation.inventory().items();
+        for (int index = 0; index < items.size(); index++) {
+            ItemView item = items.get(index);
+            if (item.slot() == org.shatterfish.api.EquipSlot.ARMOR) {
+                return new ItemRef(index, item.name(), item.quantity());
+            }
+        }
+        return null;
+    }
+
     /** An appearance held that this Policy may test: the pack's reference, its guess and its verb. */
     record Testable(ItemRef ref, int quantity, Beliefs.Guess guess, String verb) {
     }
@@ -365,7 +399,7 @@ final class TestItem implements Policy {
                         || odds(guess, GAINS) >= GAIN_ODDS) ? DRINK
                     : item.kind() == ItemKind.SCROLL && guess.kind() == ItemKind.SCROLL && !unreadable
                     && observation.hero().hp() >= observation.hero().ht()
-                    && odds(guess, INVENTORY_SCROLLS) < INVENTORY_ODDS ? READ : null;
+                    && (odds(guess, INVENTORY_SCROLLS) < INVENTORY_ODDS || armour(observation) != null) ? READ : null;
             if (verb == null || !item.actions().contains(verb)) {
                 continue;
             }

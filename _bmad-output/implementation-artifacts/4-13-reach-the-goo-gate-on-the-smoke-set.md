@@ -144,6 +144,11 @@ Tuning set: 40 Warriors of `standard`, salts 1000+j. Each row is a full play of 
 | S4 | S3 + the bounce breaker; testing cells never a doorway | 1,063 | 2.60 (4) | 7/10/15/8 | 0 | 0 | kept: removes the loops below |
 | smoke | S4 on `smoke` against story 4.12 | 982 (was 1,044; mean 1,020, was 967) | 2.56 (4) (was 2.52) | 2/10/10/3 | 0 | 0 | no regression |
 | F2 | S4 + the hunger clock; with under 600 turns of food, search only promising spots (at most 4 a floor, not above a boss floor) and no walks to testing cells | 1,054 | 2.70 (5) | 6/8/19/6, 1 on 5 | 1 | 0 | kept: the first Run to reach depth 5; survival flat |
+| M | F2 merged with main (story 4.11) | 1,054 | 2.70 (5) | 6/8/19/6, 1 on 5 | 1 | 0 | the new baseline; story 4.11 changes none of these Runs |
+| smoke | M on `smoke` against story 4.12 | 1,061 (was 1,044; mean 960, was 967) | 2.56 (4) (was 2.52) | 2/9/12/2 | 0 | 0 | no regression: F2 kept |
+| S5 | M + a lone swarm of flies met from a chokepoint, as a group (it splits when hit) | 1,054 | 2.68 (5) | 6/8/20/5, 1 on 5 | 1 | 0 | reverted: no change |
+| S6 | M + unknown scrolls read at full health onto the worn armour (a scroll of upgrade upgrades it; any other is identified, as a plain read is); a known scroll of upgrade read onto it; the upgrade window the game chains is confirmed for the worn armour | 1,174 | 3.00 (6) | 8/8/10/5, 8 on 5, 1 on 6 | 9 | 1 | kept: the first Goo kill; one Run ended on the chained window, fixed in the executor after |
+| smoke | S6 on `smoke` | 1,182 (M: 1,061; mean 1,161, M: 960) | 2.84 (5) (M: 2.56) | 2/9/8/3, 3 on 5 | 3 | 0 | no regression |
 | F1 | S4 + the hunger clock; leave a floor whose food is found when under 450 turns of food ("lean"); frugal rests to 70% and no walks to testing cells under 600 | 946 | 2.68 (4) | 6/9/17/8 | 0 | 0 | reverted: 16 starving at death as before, median survival down |
 
 **g0 failure analysis** (comparison view and the probe of each Run's last screen):

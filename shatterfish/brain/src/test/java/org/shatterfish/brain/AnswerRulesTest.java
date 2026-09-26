@@ -107,6 +107,28 @@ class AnswerRulesTest {
     }
 
     @Test
+    @DisplayName("the chained upgrade window is confirmed when its item is the worn armour, where every upgrade goes (story 4.13)")
+    void chained_upgrade_on_the_armour() {
+        org.shatterfish.api.ItemView worn = new org.shatterfish.api.ItemView(org.shatterfish.api.ItemKind.ARMOR,
+                "cloth armor", 1, true, 0, true, false, "", org.shatterfish.api.EquipSlot.ARMOR, List.of(), "");
+        Observation first = Screens.asked(HeroClass.WARRIOR, PromptKind.UPGRADE, "Upgrade an Item",
+                List.of("Upgrade", "Back"), List.of(worn));
+        Brain brain = brain();
+        Observation before = Screens.offering(1, new Action.Wait());
+        Belief belief = brain.update(before, null);
+        Action onto = new Action.UseItemOn(new org.shatterfish.api.ItemRef(2, "scroll of upgrade", 2), "READ",
+                new org.shatterfish.api.ItemRef(0, "cloth armor", 1));
+        belief = brain.handed(before, belief, new Brain.Decided(onto, null, List.of(), ""));
+        belief = brain.update(first, belief);
+        Brain.Decided confirmed = brain.decide(first, belief);
+        assertEquals(new Action.AnswerPrompt(0), confirmed.action());
+        belief = brain.handed(first, belief, confirmed);
+        Belief chained = brain.update(first, belief);
+        assertEquals(new Action.AnswerPrompt(0), brain.decide(first, chained).action(),
+                "the second scroll goes onto the armour too");
+    }
+
+    @Test
     @DisplayName("an upgrade window no read of the Brain's opened is a Brain error")
     void upgrade_without_a_read() {
         assertThrows(Answers.BrainError.class, () -> decide(upgrading(List.of("Upgrade", "Back"))));

@@ -30,7 +30,8 @@ import java.util.Map;
  *   <li><b>shop</b>: leave. The Brain has no model of prices, the shopkeeper's first option is to
  *       sell, which opens the bag, and the buy window's only button spends gold.</li>
  *   <li><b>upgrade</b>: upgrade, when the window is the one the read onto an item opened; the window
- *       the game chains after it, while more upgrade items are held, is a Brain error.</li>
+ *       the game chains after it, while more upgrade items are held, is confirmed when its item is the
+ *       worn armour, where every upgrade goes (story 4.13), and is a Brain error otherwise.</li>
  *   <li><b>guess</b>: the identity the Beliefs rate likeliest for the item the window names, if the
  *       window offers it; else leave, which spends nothing.</li>
  *   <li><b>spell</b>: leave. The section carries no spell, since the Brain casts none.</li>
@@ -215,7 +216,13 @@ final class Answers {
      * no Action answers, so there is no answer that leaves the Run where a person would leave it.
      */
     static List<RunLog.Choice> upgrade(Observation observation, Memory memory, List<Action> offered) {
-        if (!READ_ONTO.equals(memory.last())) {
+        // The chain on the worn armour is wanted (story 4.13): the test-item Policy reads every scroll of
+        // upgrade onto the worn armour, so a chained window for that armour, after this rule confirmed the
+        // last one, spends the next scroll where the Brain would have read it anyway.
+        org.shatterfish.api.ItemRef armour = TestItem.armour(observation);
+        boolean chainOnArmour = memory.last().equals(ANSWERED) && armour != null
+                && armour.name().equals(memory.windows().target());
+        if (!READ_ONTO.equals(memory.last()) && !chainOnArmour) {
             throw new BrainError("the upgrade window opened again after " + (memory.last().isEmpty()
                     ? "no Action" : memory.last()) + ", not after reading onto an item: confirming it would spend"
                     + " another upgrade on " + (memory.windows().target().isEmpty() ? "the same item"
@@ -234,6 +241,9 @@ final class Answers {
 
     /** The kind of the Action that reads a scroll onto an item, as {@link Beliefs#kind} names it. */
     static final String READ_ONTO = "UseItemOn";
+
+    /** The kind of an answer to a Prompt, as {@link Beliefs#kind} names it. */
+    static final String ANSWERED = "AnswerPrompt";
 
     /** The start of the reason the prompt Policy gives for leaving a window. */
     static final String LEAVE = "leave: ";

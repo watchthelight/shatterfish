@@ -388,6 +388,15 @@ public final class ActionExecutor {
         }
         Component button = buttons.get(option);
         if (!button.isActive()) {
+            // A window made while the hero was busy draws its button off and turns it on in its next
+            // frame's update, once the hero is ready: the upgrade window the game chains after an upgrade
+            // is made inside the first one's click, before the read's time is spent (…/windows/
+            // WndUpgrade.java:447-455, :477, :489-494). A person sees that frame before tapping; the
+            // headless loop runs none, so the window is given its frame here, and then asked again
+            // (story 4.13).
+            window.update();
+        }
+        if (!button.isActive()) {
             // A window can draw a button it will not take: the shopkeeper's buyback with too little
             // gold, a slot a misc item cannot go in (…/actors/mobs/npcs/Shopkeeper.java:278-284;
             // …/items/KindofMisc.java:127-129). PointerArea ignores a tap on an inactive area

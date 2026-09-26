@@ -104,6 +104,38 @@ class ItemWindowsTest {
     }
 
     @Test
+    @DisplayName("two scrolls of upgrade read onto the worn armour: the window the game chains after the first takes the second (story 4.13)")
+    void the_chained_upgrade_window() {
+        atTheFirstWait(HeroClass.WARRIOR);
+        ScrollOfUpgrade scroll = new ScrollOfUpgrade();
+        scroll.identify();
+        scroll.quantity(2);
+        assertTrue(scroll.collect());
+        Item armour = hero.belongings.armor();
+        int level = armour.level();
+
+        Observation before = new Observer().observe();
+        Action read = new Action.UseItemOn(ref(before, scroll.name()), "READ", ref(before, armour.name()));
+        assertInstanceOf(Outcome.Applied.class, executor.execute(before, read));
+        driver.stepToInputWait();
+        Observation first = new Observer().observe();
+        assertEquals(PromptKind.UPGRADE, first.prompt().kind());
+        assertInstanceOf(Outcome.Applied.class, executor.execute(first, new Action.AnswerPrompt(0)));
+        driver.stepToInputWait();
+
+        // WndUpgrade.java:447-455: a scroll is still held, so the window opens again for the armour. It
+        // was made inside the first click, with the hero busy, and draws its button off (:477).
+        assertInstanceOf(WndUpgrade.class, Windows.front(), "the chained window is in front");
+        Observation second = new Observer().observe();
+        assertEquals(PromptKind.UPGRADE, second.prompt().kind());
+        assertInstanceOf(Outcome.Applied.class, executor.execute(second, new Action.AnswerPrompt(0)),
+                "the chained window takes the tap once it has had its frame");
+        driver.stepToInputWait();
+        assertNull(Windows.front(), "no scroll left, no window");
+        assertEquals(level + 2, armour.level(), "both scrolls went onto the armour");
+    }
+
+    @Test
     @DisplayName("the upgrade window is an upgrade Prompt with its two buttons, and upgrade upgrades the chosen item")
     void the_upgrade_window() {
         atTheFirstWait(HeroClass.WARRIOR);
