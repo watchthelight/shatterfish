@@ -84,18 +84,15 @@ class EmbeddedDeterminismTest {
         Path headless = Files.createDirectories(folder.resolve("headless"));
         Path embedded = Files.createDirectories(folder.resolve("embedded"));
 
-        // Two Runs in one process: each starts with the snake's dodge counter a fresh process has
-        // (Snake.java:58-70), a private upstream static no Run resets, or the second Run inherits the
-        // first's and logs a guidebook hint the first did not (story 5.1, after story 4.13's Brain
-        // first fought a snake here; docs/ideas.md, "Upstream statics that outlive a Run"). A Rig Run
-        // has a process of its own.
-        forgetTheSnake();
+        // Two Runs in one process: each begins through NewGame.begin, which puts back the upstream
+        // statics one Run can leave for the next (RunStatics, issue #167), the snake's dodge counter
+        // among them (Snake.java:58-70), which story 5.1 first found here after story 4.13's Brain
+        // fought a snake. A Rig Run has a process of its own.
         RunOutcome played = new RunLoop().play(seed, heroClass, SALT, brain.get(), TURN_CAP,
                 new RunLoop.Logging(headless, "0".repeat(40), who, "", "headless"));
         out[0] = played;
 
         RunOutcome attached;
-        forgetTheSnake();
         try (EmbeddedHost host = new EmbeddedHost(seed, heroClass, SALT)) {
             EmbeddedRun run = host.attach(brain.get(), new RunLoop.Logging(embedded, "0".repeat(40), who, "",
                     "embedded"), TURN_CAP);
@@ -172,18 +169,6 @@ class EmbeddedDeterminismTest {
         terms.putAll(Map.of("item", 2000L, "gold", 10L, "turn", -150L, "weapon", 2L, "armor", 4L, "cursed", -10000L));
         return new Weights("shatterfish", 2,
                 terms.entrySet().stream().map(term -> new Weights.Term(term.getKey(), term.getValue())).toList());
-    }
-
-    /** Resets {@code Snake.dodges} to a fresh process's value, as the scene tests' {@code FreshRun.forget} does. */
-    private static void forgetTheSnake() {
-        try {
-            java.lang.reflect.Field dodges = com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Snake.class
-                    .getDeclaredField("dodges");
-            dodges.setAccessible(true);
-            dodges.set(null, 0);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException("Snake.dodges is not where the pinned upstream had it", e);
-        }
     }
 
     /** A Brain on an empty Codex (BrainAtTheWindowsTest). */

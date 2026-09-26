@@ -41,31 +41,19 @@ for what a blob does to a cell's terrain, which is a schema change and a story o
 
 ## Upstream statics that outlive a Run
 
-The upgrade to `v4.0.0` failed the draw-parity test on a difference nobody had seen: two Runs of one
-tuple in one process logged different numbers of guidebook lines, because `Snake.dodges` is a
-private static counter of the dodges the hero has watched and nothing resets it between Runs
-(`core/.../actors/mobs/Snake.java:58-70`). The test fixture clears it now, next to the global badges
-and the journal.
+Settled by issue #167: `RunStatics` puts back, at every Run start, the eleven statics a Run can leave
+for the next, and `docs/architecture.md` ("Statics that outlive a Run") has the sweep of all 358 and
+how each is classified. The history, kept for the reasoning: the upgrade to `v4.0.0` first showed it,
+two Runs of one tuple in one process logging different numbers of guidebook lines because
+`Snake.dodges` is a private counter nothing resets (`core/.../actors/mobs/Snake.java:58-70`); the test
+fixtures cleared it by hand, and story 5.1 found `Bones` the same way. The choice this section once
+posed, a reset list the harness applies or a rule that a process hosts one Run, went to the reset
+list; its private fields are reached by reflection named in `docs/UPSTREAM.md`, as the stepper's are.
 
-It is not alone. A sweep of `actors` and `items` at the tag finds eighty-three mutable statics; most
-are tunable constants or state the game's own `Actor.clear()` and `Dungeon.init()` reset, but some
-are counters of the same shape (`Combo.furyHitsLeft`, `GnollGeomancer.rocksInFlight`,
-`Char.hitMissIcon`, `Blacksmith.type`). One process hosting one Run makes the question moot, which
-is what the rig does and what ADR-0007 assumes; it stops being moot the moment anything runs two
-Runs in a process, which the tests already do. Story 1.16 (#29) owns the answer: either a reset list
-the harness applies at every Run start, with a test that walks the statics and fails on a new one,
-or a documented rule that a process hosts one Run and the tests that break it carry their own
-resets.
-
-Two things sharpen the choice. The driver cannot simply do what the fixture does: `Snake.dodges` is
-private, and harness main code may not reflect into upstream, so a reset list either needs a hook
-row of its own or has to be limited to the public fields (`Chasm.jumpConfirmed`, which the driver
-already clears, and `TippedDart.lostDarts`). And the review of the v4.0.0 upgrade found a worse one
-than the snake: `Badges.global` and `Journal.loaded` load once per process
-(`core/.../Badges.java`, `core/.../journal/Journal.java`), so a second Run in a process keeps the
-first Run's journal, and level generation reads which guide pages are missing when it decides what
-the early floors drop (`core/.../levels/RegularLevel.java:561-575`). That changes the floor, not
-the log. The test fixture clears both; `HeadlessDriver.newGame` does not.
+What is still open here: a Run restored from a snapshot in the same process starts from the statics
+as the process left them, not as the snapshot had them, since only the saved game is restored; and
+the statics that read the wall clock (`Holiday.cached`, `DimensionalSundial`'s night check) are issue
+#139's.
 
 ## What a remembered cell still shows: the always-visible blobs
 
@@ -264,9 +252,8 @@ it re-reads ADR-0006's Blobs row.
 - **Bones is one more upstream static that outlives a Run** (see "Upstream statics that outlive a
   Run" above). The determinism test of story 5.1 found it: a hero who dies in one Run leaves remains
   on the next Run's floor in the same process (`core/.../Bones.java:50-54`, `:154-160`). The Profile
-  now clears it through `Bones.leave()`'s daily branch, a public door. The sweep that section asks
-  for is still open; `InProcessRunsTest` is a template for a test that plays one tuple twice in a
-  process and fails on any such leak, and running it over more seeds and classes would find the next.
+  now clears it through `Bones.leave()`'s daily branch, a public door. The sweep was done under issue
+  #167 (`docs/architecture.md`, "Statics that outlive a Run").
 - **The frames the desktop adds.** An Overlay Run equals the Rig's Run of its tuple only where the
   frames between two waits are the same; the render thread's draws in the frames the desktop adds
   come from the Run's generator. Story 5.13 routes them away. Until then an Overlay Run is not

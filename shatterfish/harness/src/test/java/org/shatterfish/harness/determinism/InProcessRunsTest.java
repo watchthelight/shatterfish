@@ -19,6 +19,7 @@ import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Two Runs of one tuple in one process are one Run, even when the first one dies (story 5.1).
@@ -53,9 +54,44 @@ class InProcessRunsTest {
         }
     }
 
+    /**
+     * A Run played again after a different Run in the same process is the Run it was (issue #167).
+     *
+     * <p>The first tuple is a smoke Warrior whose Run with this Brain fights a snake, leaves the first
+     * floor and dies ({@code EmbeddedDeterminismTest}'s across-floors Run): a snake's dodges are counted
+     * in a private static that nothing in the game resets ({@code core/.../actors/mobs/Snake.java:58-70}),
+     * and the guidebook's hint is logged at two of them. The Run between is another tuple, so what the
+     * third Run starts from is what two different Runs left behind, as in a test that plays a set.
+     * Every Observation of the third Run must equal the first's; before {@code RunStatics}, the snake's
+     * counter alone made them part at the first hint.
+     */
+    @Test
+    @DisplayName("a Run played after another Run in the same process is the Run it was")
+    @Timeout(value = 10, unit = TimeUnit.MINUTES)
+    void a_run_between_leaves_nothing() {
+        long a = 3_343_871_708_117L;
+        List<Observation> first = new ArrayList<>();
+        List<Observation> between = new ArrayList<>();
+        List<Observation> again = new ArrayList<>();
+        RunOutcome once = play(a, first);
+        play(SEED, between);
+        RunOutcome twice = play(a, again);
+        assertTrue(once.depth() >= 2, "the first Run must leave the first floor to test anything: " + once);
+        assertEquals(first.size(), again.size(), "as many waits: " + once + " / " + twice);
+        for (int i = 0; i < first.size(); i++) {
+            assertEquals(first.get(i).log(), again.get(i).log(), "the same game log at wait " + (i + 1));
+            assertEquals(first.get(i).hash(), again.get(i).hash(), "the same Observation at wait " + (i + 1));
+        }
+        assertEquals(once, twice);
+    }
+
     private static RunOutcome play(List<Observation> into) {
+        return play(SEED, into);
+    }
+
+    private static RunOutcome play(long seed, List<Observation> into) {
         BrainDecider brain = new BrainDecider(brain());
-        return new RunLoop().play(SEED, HeroClass.WARRIOR, SALT, observation -> {
+        return new RunLoop().play(seed, HeroClass.WARRIOR, SALT, observation -> {
             into.add(observation);
             return brain.decide(observation);
         }, 1_500);

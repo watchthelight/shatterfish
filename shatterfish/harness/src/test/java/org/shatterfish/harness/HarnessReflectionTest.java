@@ -11,6 +11,7 @@ import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.EvaluationResult;
 import org.junit.jupiter.api.Test;
+import org.shatterfish.harness.driver.RunStatics;
 import org.shatterfish.harness.scene.NoOpGL;
 import org.shatterfish.harness.scene.SceneStepper;
 
@@ -18,8 +19,10 @@ import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.RecordComponent;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -55,13 +58,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @AnalyzeClasses(packages = "org.shatterfish.harness", importOptions = ImportOption.DoNotIncludeTests.class)
 class HarnessReflectionTest {
 
-    /** The fields {@code docs/UPSTREAM.md} names, as {@code Owner.field}. */
+    /** The fields {@code docs/UPSTREAM.md} names for the stepper, as {@code Owner.field}. */
     private static final Set<String> DECLARED = Set.of("GameScene.actorThread", "Actor.current");
 
+    /**
+     * The fields {@code docs/UPSTREAM.md} names for the Run-start reset (issue #167), as
+     * {@code Owner.field}: private upstream statics a Run can leave behind, put back to a fresh
+     * process's value at every Run start.
+     */
+    private static final Set<String> RESET = Set.of("Snake.dodges", "GnollGeomancer.rocksInFlight",
+            "GnollGeomancer.knockedChars", "Char.hitMissIcon", "Flail.spinBoost", "RingOfWealth.latestDropTier");
+
     @ArchTest
-    static final ArchRule reflection_into_upstream_is_confined_to_the_stepper = noClasses()
+    static final ArchRule reflection_into_upstream_is_confined_to_the_named_classes = noClasses()
             .that().resideInAPackage("org.shatterfish.harness..")
-            .and().doNotBelongToAnyOf(SceneStepper.class, NoOpGL.class)
+            .and().doNotBelongToAnyOf(SceneStepper.class, RunStatics.class, NoOpGL.class)
             .should().dependOnClassesThat().resideInAnyPackage(
                     "java.lang.reflect..", "java.lang.invoke..", "sun..", "jdk.internal..")
             .orShould().accessTargetWhere(target(name("setAccessible")))
@@ -73,7 +84,7 @@ class HarnessReflectionTest {
             .orShould().accessTargetWhere(target(name("getDeclaredConstructor")))
             .orShould().accessTargetWhere(target(name("getDeclaredConstructors")))
             .orShould().accessTargetWhere(target(name("privateLookupIn")))
-            .because("the hook ledger cannot see reflection, so the harness keeps it in one named class that"
+            .because("the hook ledger cannot see reflection, so the harness keeps it in two named classes that"
                     + " docs/UPSTREAM.md describes");
 
     @ArchTest
@@ -100,16 +111,10 @@ class HarnessReflectionTest {
                 "SceneStepper's reflective reach and the set this test declares must agree; change both, and"
                         + " docs/UPSTREAM.md, together");
 
-        // The ledger's paragraph on harness main code, not the sentence about what tests reach.
-        Path doc = repoRoot().resolve("docs/UPSTREAM.md");
-        String text = Files.readString(doc);
-        int start = text.indexOf("A third thing is outside the ledger's reach");
-        int end = text.indexOf("A fourth thing is outside the ledger's reach", Math.max(start, 0));
-        assertTrue(start >= 0 && end > start, doc + " must carry the paragraph on reflection from harness main code");
-        String paragraph = text.substring(start, end);
+        String paragraph = reflectionParagraph();
         for (String field : DECLARED) {
             assertTrue(paragraph.contains("`" + field + "`"),
-                    doc + "'s paragraph on reflection from harness main code must name `" + field + "`");
+                    "docs/UPSTREAM.md's paragraph on reflection from harness main code must name `" + field + "`");
         }
         assertTrue(reached.contains("GameScene.actorThread") && GameScene.class != null);
     }
@@ -154,11 +159,62 @@ class HarnessReflectionTest {
                 + " the ledger says the other field is only read");
     }
 
+    /**
+     * The Run-start reset reaches exactly the fields the ledger names for it, and puts each back
+     * through one lookup, one opening and one write, the stepper's own discipline.
+     */
+    @Test
+    void the_reset_reaches_exactly_the_fields_the_ledger_names() throws Exception {
+        Field list = RunStatics.class.getDeclaredField("PRIVATE");
+        list.setAccessible(true);
+        Set<String> reached = new TreeSet<>();
+        for (Object reset : (List<?>) list.get(null)) {
+            RecordComponent component = reset.getClass().getRecordComponents()[0];
+            component.getAccessor().setAccessible(true);
+            Field reflected = (Field) component.getAccessor().invoke(reset);
+            reached.add(reflected.getDeclaringClass().getSimpleName() + "." + reflected.getName());
+            assertTrue(Modifier.isStatic(reflected.getModifiers()) && Modifier.isPrivate(reflected.getModifiers()),
+                    reflected + " must be a private static; a public one is assigned, not reflected");
+        }
+        assertEquals(new TreeSet<>(RESET), reached,
+                "RunStatics' reflective reach and the set this test declares must agree; change both, and"
+                        + " docs/UPSTREAM.md, together");
+
+        String paragraph = reflectionParagraph();
+        for (String field : RESET) {
+            assertTrue(paragraph.contains("`" + field + "`"),
+                    "docs/UPSTREAM.md's paragraph on reflection from harness main code must name `" + field + "`");
+        }
+
+        JavaClasses reset = new ClassFileImporter().importClasses(RunStatics.class);
+        long lookups = 0;
+        long openings = 0;
+        long writes = 0;
+        for (JavaClass owner : reset) {
+            for (JavaAccess<?> access : owner.getAccessesFromSelf()) {
+                String name = access.getTarget().getName();
+                if (name.startsWith("getDeclared") || name.equals("privateLookupIn")) {
+                    lookups++;
+                }
+                if (name.equals("setAccessible") || name.equals("trySetAccessible")) {
+                    openings++;
+                }
+                if (access.getTarget().getOwner().isEquivalentTo(Field.class) && name.startsWith("set")
+                        && !name.equals("setAccessible")) {
+                    writes++;
+                }
+            }
+        }
+        assertEquals(1, lookups, "one place looks a field up by name");
+        assertEquals(1, openings, "one place opens it");
+        assertEquals(1, writes, "one place writes through reflection");
+    }
+
     @Test
     void the_rule_bites() {
         for (Class<?> fixture : new Class<?>[]{ReachesAPrivateField.class, ReachesByReference.class, ReachesByMetaReflection.class}) {
             JavaClasses classes = new ClassFileImporter().importClasses(fixture);
-            EvaluationResult result = reflection_into_upstream_is_confined_to_the_stepper.evaluate(classes);
+            EvaluationResult result = reflection_into_upstream_is_confined_to_the_named_classes.evaluate(classes);
             assertTrue(result.hasViolation(), fixture.getSimpleName() + " must be rejected");
             assertTrue(result.getFailureReport().toString().contains(fixture.getSimpleName()));
         }
@@ -197,6 +253,16 @@ class HarnessReflectionTest {
             open.invoke(field, true);
             return Field.class.getMethod("get", Object.class).invoke(field, (Object) null);
         }
+    }
+
+    /** The ledger's paragraph on harness main code, not the sentence about what tests reach. */
+    private static String reflectionParagraph() throws java.io.IOException {
+        Path doc = repoRoot().resolve("docs/UPSTREAM.md");
+        String text = Files.readString(doc);
+        int start = text.indexOf("A third thing is outside the ledger's reach");
+        int end = text.indexOf("A fourth thing is outside the ledger's reach", Math.max(start, 0));
+        assertTrue(start >= 0 && end > start, doc + " must carry the paragraph on reflection from harness main code");
+        return text.substring(start, end);
     }
 
     private static Path repoRoot() {
