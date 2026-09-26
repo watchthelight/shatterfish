@@ -9,6 +9,7 @@ import com.shatteredpixel.shatteredpixeldungeon.ui.Toast;
 import com.watabou.noosa.Camera;
 import com.watabou.noosa.Gizmo;
 import com.watabou.noosa.Scene;
+import org.shatterfish.harness.agent.EmbeddedRun;
 
 /**
  * Keeps the Panel on the play scene and the camera offset the Panel needs (story 5.2).
@@ -40,15 +41,23 @@ final class PanelDock {
      * The end of the Overlay's frame update: {@code sceneUpdate}, then the Panel and its offset, then the
      * cameras' matrices, so the frame drawn next shows the offset the Panel set rather than the one the
      * scene's layout pass left.
+     *
+     * @param snapshot     the Run's Decision, turn, floor and live state (story 5.3), or null before a Run
+     *                     is attached; {@link ModeState#of} reads either.
+     * @param inputLocked  whether the game's own input is closed ({@code InputLock}): while a Run plays,
+     *                     the Decision card's Explain control must not be clickable either (the fairness
+     *                     review of story 5.3: {@code ActionExecutor.press} queues synthetic taps that
+     *                     bypass the lock, and Explain's hot area would otherwise be live to steal one
+     *                     meant for a window button drawn under it).
      */
-    void step(Scene scene, Runnable sceneUpdate) {
+    void step(Scene scene, Runnable sceneUpdate, EmbeddedRun.Snapshot snapshot, boolean inputLocked) {
         sceneUpdate.run();
-        frame(scene);
+        frame(scene, snapshot, inputLocked);
         Camera.updateAll();
     }
 
-    /** The Panel on {@code scene} if it is a play scene, placed for this frame, and the offset set. */
-    void frame(Scene scene) {
+    /** The Panel on {@code scene} if it is a play scene, placed and filled in for this frame, and the offset set. */
+    void frame(Scene scene, EmbeddedRun.Snapshot snapshot, boolean inputLocked) {
         if (!(scene instanceof GameScene)) {
             return;
         }
@@ -67,6 +76,8 @@ final class PanelDock {
                     + SPDSettings.interfaceSize() + ", camera offset " + layout.offsetUi() + " UI px)");
         }
         panel.place(layout);
+        panel.content(ModeState.of(snapshot), snapshot == null ? null : snapshot.decision(),
+                snapshot == null ? null : snapshot.observation(), inputLocked);
         panel.dim(covered(scene));
         Camera world = Camera.main;
         PanelCamera.apply(world, PanelCamera.world(layout.offsetUi(), PixelScene.uiCamera.zoom, world.zoom));

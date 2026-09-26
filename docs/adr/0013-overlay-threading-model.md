@@ -379,3 +379,73 @@ The Panel, the first thing the Overlay draws, lives on the same render thread an
   still leaves a picture); a screenshot that cannot be written is logged and the Run plays on. Each change
   of the Panel's placement is logged. `-Plaunch.args` splits on whitespace and keeps a single- or
   double-quoted value whole, so a path with a space can be passed.
+
+## Amendment: story 5.3 (2026-09-26)
+
+The Panel's content -- the Mode strip's line, the Goal line and the Decision card -- reads the Brain's
+own Decision without adding a thread or a lock.
+
+**The hand-off is same-thread, not cross-thread.** `EmbeddedRun.frame()` and `EmbeddedRun.serve()`
+already run on the render thread (the UI-role thread, story 5.1); `serve()` now also stores the last
+served wait's Decision (from `Deliberator.lastDecision()`, read the same way `RunLoop.record` already
+does, after the worker's `Future` is done, which is the happens-before edge over whatever `decide()`
+set on its own thread), its turn, its floor and the Observation it was decided from -- the same
+Observation the Observer already built and the Brain already saw, carried out unchanged and naming
+nothing new (ADR-0014), so the Panel can turn an Action into words (`ActionText`, added in this
+story's review: a Step's compass direction, an Attack's target, an AnswerPrompt's option text)
+without a second read of the game. `EmbeddedRun.snapshot()`, guarded by `UiRole.require`
+like every other port, reads those fields and the Run's live `state()` -- so `Snapshot.state()`
+can be `THINKING` while `Snapshot.decision()` still shows the *previous* wait's Decision, which is
+exactly the "Panel shows the previous Decision until the new one lands" rule (`EXPERIENCE.md`,
+Thinking indicator). Both the write (inside `serve()`) and the read (`PanelDock.frame`, from
+`OverlayGame.update()`) happen on the render thread, so this is one thread reading its own state, not
+a second cross-thread hand-off beside the worker's `Future`; no new lock, volatile field or queue was
+added. `EmbeddedSnapshotTest` holds the THINKING/previous-Decision case and that `snapshot()` refuses a
+foreign thread by name, as every other port does.
+
+**Modes and speed modes are not real yet.** `ModeState.of` reads a placeholder: Mode is always
+`RUNNING` and the speed mode always `normal` with a documented placeholder interval, since nothing
+before story 5.5 (PAUSED), 5.6 (the controls row) or 5.7 (the speed selector and its interval) changes
+either. Only the turn, the floor and whether the Brain is `THINKING` are read from the Run. This is
+short of FR-38's full state table on purpose (`docs/ideas.md`, "Real Mode, speed mode and THINKING");
+the point of doing it now is that `ModeStripContent` and `DecisionCardContent` already handle every
+real value those stories will produce, so they add a caller rather than a format change.
+
+**The Explain control and the input lock.** The Decision card's Explain is a native `RedButton`,
+which -- like every human click -- reaches the game only through `InputHandler`'s multiplexer, where
+`InputLock` sits first and swallows every touch and key while a Run plays (story 5.1's review). Three
+options were weighed: (a) carve an exemption for the Panel's own rectangle out of `InputLock`, rejected
+because it duplicates `PanelLayout`'s geometry inside the lock and reopens exactly the door the lock
+was built to close, ahead of story 5.5's own input-gate hook; (b) give Explain a key binding through
+the game's own `SPDAction`/`KeyBindings` path, rejected because that path is reached through the same
+multiplexer `InputLock` sits in front of, so it is blocked the same way; (c) **let Explain work only
+when the lock does not hold**, chosen. Concretely: Explain is unreachable while a Run plays and
+reachable once it has ended (`OverlayGame.render()` already calls `lock.unlock()` there) -- a real,
+useful case (reading the final Decision), not a stub. Story 5.5's input-gate hook is for hero-directed
+input (`CellSelector`), not Panel buttons, so closing the *human* path fully is left to whichever
+story gives PAUSED a real click (`docs/ideas.md`).
+
+**A second review found that "nothing routes around `InputLock`" was wrong for the Brain's own
+clicks.** `ActionExecutor.press` (the executor's own way of pressing a window's button) queues its
+synthetic `PointerEvent`s directly (`PointerEvent.addPointerEvent`), which is the door `InputLock`
+sits in front of on the libGDX side, not the one `PointerArea`'s dispatch reads from --
+`InputHandler`'s multiplexer feeds that same door, but the executor does not go through the
+multiplexer at all. So a Run's own taps, meant for a window's button, reach every registered
+`PointerArea` exactly as a human's would, `InputLock` or no. `PointerEvent`'s dispatch is a stack
+(`Signal`, newest listener first) and stops at the first one that consumes the event; the Panel is
+rebuilt on every new `GameScene` (this amendment, "Scene lifetime"), which can happen after a window
+has already opened and registered its own button's `PointerArea` -- exactly the order that puts
+Explain's listener in front. If Explain's hot area is visible-and-active while a Run plays, and a
+window's own button happens to be drawn where Explain sits, Explain consumes the tap and the executor
+reports it `applied`, though the game never received it: a corrupted record, not merely a missed
+click. The fix is not a second `InputLock` check (the executor's tap was never going to reach one);
+it is that Explain's own `active` flag, not only `visible`, must say "not clickable" whenever the game
+would not have acted on a real press there: `DecisionCard.content`'s `inputLocked` parameter (from
+`InputLock.locked()`, threaded through `OverlayGame` → `PanelDock` → `Panel`) sets
+`explainButton.active = content.present() && !inputLocked`. `Gizmo.isActive()` walks the parent
+chain (`active && parent.isActive()`), and `PointerArea.onSignal` returns `false` -- does not consume
+-- for any tap while inactive (`PointerArea.java:61-63`, `blockLevel` is `BLOCK_WHEN_ACTIVE` by
+default), so an inactive Explain lets the event fall through to whatever is really under it, however
+the dispatch stack is ordered. `PanelContentTest.explain_does_not_steal_a_synthetic_tap_while_locked`
+reproduces the worst case directly: a window's own button placed exactly where Explain is, registered
+before the Panel is rebuilt, and a synthetic tap at that point still reaches the button, not Explain.

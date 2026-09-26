@@ -152,7 +152,7 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         inputHandler.processAllEvents();
         Music.INSTANCE.update();
         Sample.INSTANCE.update();
-        dock.step(scene, scene::update);
+        dock.step(scene, scene::update, run == null ? null : run.snapshot(), lock.locked());
     }
 
     @Override

@@ -5,6 +5,8 @@ import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
 import com.watabou.noosa.NinePatch;
 import com.watabou.noosa.ui.Component;
+import org.shatterfish.api.Observation;
+import org.shatterfish.api.RunLog;
 
 /**
  * The Overlay's instrument, docked beside the dungeon (story 5.2, UX-DR1, non-negotiable 6).
@@ -17,8 +19,13 @@ import com.watabou.noosa.ui.Component;
  * text renderer ({@code PixelScene.renderTextBlock}) at the body size 8, while the Run can see what a
  * player could not.
  *
- * <p>The Panel is placed by {@link PanelLayout} every frame. It has no pointer area, so it takes no
- * click away from the dungeon, and it lives on {@code PixelScene.uiCamera} like the game's own HUD.
+ * <p>The Panel is placed by {@link PanelLayout} every frame, and lives on {@code PixelScene.uiCamera}
+ * like the game's own HUD. The frame, the strip, the Mode strip's text, the ORACLE label and the Goal
+ * line have no pointer area, so they take no click away from the dungeon; the Decision card's Explain
+ * control does (story 5.3), a native {@code RedButton}, and is kept from taking one meant for the game
+ * by {@link DecisionCard#content}'s own {@code inputLocked} gate (the fairness review: {@code
+ * ActionExecutor.press} queues synthetic taps that bypass {@code InputLock}, so Explain's hot area must
+ * be inactive whenever such a tap could land on it, not only invisible).
  */
 final class Panel extends Component {
 
@@ -26,10 +33,17 @@ final class Panel extends Component {
     static final int ORACLE_COLOR = 0xFF2020;
     /** How far the Panel dims while a prompt or a badge banner of the game's is over it. */
     static final float DIMMED = 0.35f;
+    /** Body size, the Mode strip's own text (story 5.3, {@code DESIGN.md} Typography). */
+    static final int STRIP_TEXT_SIZE = 8;
+    /** Sections are 6 apart, rows 2 apart ({@code DESIGN.md} Layout & Spacing spacing tokens). */
+    static final float SECTION_GAP = 6;
 
     private NinePatch frame;
     private NinePatch strip;
+    private RenderedTextBlock stripText;
     private RenderedTextBlock oracleLabel;
+    private GoalLine goal;
+    private DecisionCard card;
     private PanelLayout.Layout placed;
     private boolean dimmed;
 
@@ -39,10 +53,37 @@ final class Panel extends Component {
         add(frame);
         strip = Chrome.get(Chrome.Type.TOAST_TR);
         add(strip);
+        stripText = PixelScene.renderTextBlock(STRIP_TEXT_SIZE);
+        add(stripText);
         oracleLabel = PixelScene.renderTextBlock("ORACLE", 8);
         oracleLabel.hardlight(ORACLE_COLOR);
         oracleLabel.visible = false;
         add(oracleLabel);
+        goal = new GoalLine();
+        add(goal);
+        card = new DecisionCard();
+        add(card);
+    }
+
+    /**
+     * What the Mode strip, the Goal line and the Decision card show (story 5.3): the Mode strip is the
+     * collapsed Panel too, so it is set every frame regardless of {@link #place}'s form; the Goal line
+     * and the Decision card are laid out only when full, since the strip alone is drawn otherwise.
+     */
+    void content(ModeState mode, RunLog.Decision decision, Observation observation, boolean inputLocked) {
+        stripText.text(ModeStripContent.text(mode));
+        stripText.hardlight(ModeStripContent.color(mode.mode()));
+        boolean full = placed != null && placed.form() == PanelLayout.Form.FULL;
+        boolean nextStep = mode.speed() == ModeState.SpeedMode.NEXT_STEP;
+        float inner = innerWidth();
+        goal.content(full ? decision : null, inner);
+        card.content(full ? decision : null, full ? observation : null, nextStep, inner, inputLocked);
+        layout();
+    }
+
+    /** The Panel's own inner width, inside its padding, that the strip's text, the Goal line and the card wrap at. */
+    private float innerWidth() {
+        return Math.max(1, width - 2 * PanelLayout.PADDING);
     }
 
     /** Puts the Panel where {@code layout} says: the frame and the strip in it, or the strip alone. */
@@ -97,6 +138,20 @@ final class Panel extends Component {
         oracleLabel.setPos(strip.x + strip.width() - 2 - oracleLabel.width(),
                 strip.y + (strip.height() - oracleLabel.height()) / 2f);
         PixelScene.align(oracleLabel);
+        float stripInner = Math.max(1, strip.width() - 4 - (oracleLabel.visible ? oracleLabel.width() + 2 : 0));
+        stripText.maxWidth((int) stripInner);
+        stripText.setPos(strip.x + 2, strip.y + (strip.height() - stripText.height()) / 2f);
+        PixelScene.align(stripText);
+
+        card.visible = full;
+        if (full) {
+            float sectionX = x + PanelLayout.PADDING;
+            float sectionWidth = innerWidth();
+            float goalTop = strip.y + PanelLayout.STRIP_HEIGHT + SECTION_GAP;
+            goal.setRect(sectionX, goalTop, sectionWidth, goal.contentHeight());
+            float cardTop = (goal.visible ? goal.bottom() : goalTop) + SECTION_GAP;
+            card.setRect(sectionX, cardTop, sectionWidth, card.contentHeight());
+        }
     }
 
     /** How the Panel is placed now, or null before the first placement. */
@@ -122,5 +177,20 @@ final class Panel extends Component {
     /** Whether the Panel is dimmed under the game's prompt or a badge banner. */
     boolean dimmed() {
         return dimmed;
+    }
+
+    /** The Mode strip's own text, for tests (story 5.3). */
+    RenderedTextBlock stripText() {
+        return stripText;
+    }
+
+    /** The Goal line, for tests (story 5.3). */
+    GoalLine goal() {
+        return goal;
+    }
+
+    /** The Decision card, for tests (story 5.3). */
+    DecisionCard card() {
+        return card;
     }
 }
