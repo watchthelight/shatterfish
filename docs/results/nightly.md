@@ -8,4 +8,17 @@ Story 3.11, [#100](https://github.com/watchthelight/shatterfish/issues/100). Eve
 ./gradlew :rig:run --args="--brain random --seeds smoke --parallel 4 --out build/nightly --registration H-0001-nightly-smoke"
 ```
 
-No night has been recorded yet.
+**Latest:** PASS -- nightly smoke 2026-10-03 (a direction check under H-0001-nightly-smoke, never an acceptance): 25 of 25 Runs finished.
+
+| Night | Status | Why | Runs finished | Endings | Time | Commit | Registration | Run |
+|---|---|---|---|---|---|---|---|---|
+| 2026-10-03 | PASS | -- | 25 of 25 | DEATH=25 | 34,605 ms | `02712d81d` | `H-0001-nightly-smoke@a4d7fe89a612e89b` | [log](https://github.com/watchthelight/shatterfish/actions/runs/37097770645/attempts/1) |
+| 2026-10-02 | PASS | -- | 25 of 25 | DEATH=25 | 33,037 ms | `02712d81d` | `H-0001-nightly-smoke@a4d7fe89a612e89b` | [log](https://github.com/watchthelight/shatterfish/actions/runs/36966242364/attempts/1) |
+| 2026-10-01 | PASS | -- | 25 of 25 | DEATH=25 | 36,328 ms | `02712d81d` | `H-0001-nightly-smoke@a4d7fe89a612e89b` | [log](https://github.com/watchthelight/shatterfish/actions/runs/36816963794/attempts/1) |
+| 2026-09-30 | PASS | -- | 25 of 25 | DEATH=25 | 26,124 ms | `02712d81d` | `H-0001-nightly-smoke@a4d7fe89a612e89b` | [log](https://github.com/watchthelight/shatterfish/actions/runs/36670626826/attempts/1) |
+| 2026-09-29 | PASS | -- | 25 of 25 | DEATH=25 | 36,262 ms | `02712d81d` | `H-0001-nightly-smoke@a4d7fe89a612e89b` | [log](https://github.com/watchthelight/shatterfish/actions/runs/36523334322/attempts/1) |
+| 2026-09-28 | PASS | -- | 25 of 25 | DEATH=25 | 33,033 ms | `02712d81d` | `H-0001-nightly-smoke@a4d7fe89a612e89b` | [log](https://github.com/watchthelight/shatterfish/actions/runs/36379552022/attempts/1) |
+| 2026-09-27 | PASS | -- | 25 of 25 | DEATH=25 | 25,641 ms | `02712d81d` | `H-0001-nightly-smoke@a4d7fe89a612e89b` | [log](https://github.com/watchthelight/shatterfish/actions/runs/36295340598/attempts/1) |
+| 2026-09-26 | PASS | -- | 25 of 25 | DEATH=25 | 25,899 ms | `53de13d73` | `H-0001-nightly-smoke@a4d7fe89a612e89b` | [log](https://github.com/watchthelight/shatterfish/actions/runs/36218810850/attempts/1) |
+| 2026-09-25 | PASS | -- | 25 of 25 | DEATH=24 UNKNOWN_WINDOW=1 | 33,124 ms | `dbe5380a9` | `H-0001-nightly-smoke@a4d7fe89a612e89b` | [log](https://github.com/watchthelight/shatterfish/actions/runs/36095934123/attempts/1) |
+| 2026-09-24 | PASS | -- | 25 of 25 | DEATH=24 UNKNOWN_WINDOW=1 | 37,328 ms | `dbe5380a9` | `H-0001-nightly-smoke@a4d7fe89a612e89b` | [log](https://github.com/watchthelight/shatterfish/actions/runs/35957128518/attempts/1) |
