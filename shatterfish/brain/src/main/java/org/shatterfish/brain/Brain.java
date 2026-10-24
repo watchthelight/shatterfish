@@ -129,6 +129,17 @@ public final class Brain {
         return names;
     }
 
+    /**
+     * What the Brain asks the bestiary of an enemy named {@code name} on {@code depth} of {@code branch}
+     * ({@code Bestiary}): whether it is passive until provoked, whether it threatens from where it
+     * stands or flies, and whether it never walks, as {@code passive/atRange/immobile}. For the rig's
+     * test that the classes sharing a name answer alike.
+     */
+    public static String bestiaryAnswers(Codex.Knowledge knowledge, int depth, int branch, String name) {
+        return Bestiary.passive(knowledge, depth, branch, name) + "/" + Bestiary.atRange(knowledge, depth, branch, name)
+                + "/" + Bestiary.immobile(knowledge, depth, branch, name);
+    }
+
     /** The name under which the Codex measures the mage's staff, whatever wand it holds (story 4.7). */
     public static String magesStaff() {
         return Fight.MAGES_STAFF;

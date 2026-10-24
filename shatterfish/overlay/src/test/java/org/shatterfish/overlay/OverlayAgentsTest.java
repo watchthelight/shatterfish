@@ -121,6 +121,9 @@ class OverlayAgentsTest {
         assertEquals(hash, ShatterfishLauncher.logging(brain, "test").brain().configHash(), "and the header carries it");
         LaunchOptions random = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior"});
         assertEquals("0".repeat(64), OverlayAgents.configHash(random));
+        LaunchOptions human = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior",
+                "--agent", "human", "--weights", WEIGHTS.toString(), "--codex", CODEX.toString()});
+        assertEquals(hash, OverlayAgents.configHash(human), "a human's Run names the shadow Brain's configuration");
     }
 
     @Test

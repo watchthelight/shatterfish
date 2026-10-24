@@ -60,10 +60,12 @@ final class OverlayAgents {
     /**
      * The configuration hash the Run log's header gives the agent: for the Brain, the Rig's
      * ({@code ConfigHash}: its configuration, its seed, and the digest of the Codex and bestiary it
-     * was built on); for the random agent and a human's Run, none, as the Rig gives the random agent.
+     * was built on); for a human's Run, the same for the Brain whose shadow Decisions the log records
+     * beside the person's play (story 5.9), so they carry the knowledge they came from; for the random
+     * agent, none, as the Rig gives it.
      */
     static String configHash(LaunchOptions options) {
-        if (!options.agent().equals("brain") || options.human()) {
+        if (!options.agent().equals("brain") && !options.human()) {
             return "0".repeat(64);
         }
         return ConfigHash.of(Brain.configuration(weights(options.weights())), BRAIN_SEED,

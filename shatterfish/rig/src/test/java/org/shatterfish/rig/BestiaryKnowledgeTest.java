@@ -119,16 +119,23 @@ class BestiaryKnowledgeTest {
     @DisplayName("every class of a shared name answers the Brain's questions alike, so the resolution rule decides nothing it reads")
     void shared_names_read_alike() {
         Codex.Knowledge knowledge = read();
-        Map<String, Set<String>> answers = new TreeMap<>();
-        for (Codex.Tactics t : knowledge.bestiary()) {
-            // What Bestiary reads: passive (ai, alignment, speed), at range (attack, flying), immobile (speed).
-            boolean passive = t.ai().equals("passive") && t.alignment() == Alignment.ENEMY && !t.speed().equals("immobile");
-            boolean atRange = t.attack().equals("ranged") || t.attack().equals("bolt") || t.flying();
-            boolean immobile = t.speed().equals("immobile");
-            answers.computeIfAbsent(t.name(), k -> new TreeSet<>()).add(passive + "/" + atRange + "/" + immobile);
+        // Each class alone in a Knowledge, so the lookup cannot choose, and asked through the Brain's
+        // own predicates (Brain.bestiaryAnswers) by its name, on every depth and branch.
+        List<String> differ = new java.util.ArrayList<>();
+        for (int depth = 1; depth <= 26; depth++) {
+            for (int branch = 0; branch <= 1; branch++) {
+                Map<String, Set<String>> answers = new TreeMap<>();
+                for (Codex.Tactics t : knowledge.bestiary()) {
+                    answers.computeIfAbsent(t.name(), k -> new TreeSet<>()).add(org.shatterfish.brain.Brain
+                            .bestiaryAnswers(knowledge.withBestiary(List.of(t)), depth, branch, t.name()));
+                }
+                for (Map.Entry<String, Set<String>> e : answers.entrySet()) {
+                    if (e.getValue().size() > 1) {
+                        differ.add(e.getKey() + " on " + depth + ":" + branch + " " + e.getValue());
+                    }
+                }
+            }
         }
-        List<String> differ = answers.entrySet().stream().filter(e -> e.getValue().size() > 1)
-                .map(e -> e.getKey() + " " + e.getValue()).toList();
         // No known exception at v4.0.0. A tag that splits a shared name (the vault golem is outrunnable
         // and the King's is not, which no Brain question reads yet) has to be listed here, with the
         // depth and branch that tell the classes apart, before a Brain question reads it.

@@ -1582,8 +1582,8 @@ public final class Codex {
      * created with ({@code mobs.json}), and the depths the main branch's spawn rotation places it on
      * ({@code spawn-rotation.json}, MobSpawner.java:62-65, :71-212), without the boss floors, which
      * create no rotation mobs (SewerBossLevel.java:132-138, PrisonBossLevel.java:597-604,
-     * CavesBossLevel.java:207-219, CityBossLevel.java:263-269, HallsBossLevel.java:199-205, each
-     * with an empty {@code createMobs} and no respawner); empty for a boss, a summon, a quest or trap foe,
+     * CavesBossLevel.java:207-219, CityBossLevel.java:263-269, HallsBossLevel.java:199-205, each a
+     * {@code createMobs} that places no rotation mob, and no respawner); empty for a boss, a summon, a quest or trap foe,
      * or a special-room guardian.
      */
     public record Tactics(String className, String name, Alignment alignment, List<Integer> depths, String speed,
