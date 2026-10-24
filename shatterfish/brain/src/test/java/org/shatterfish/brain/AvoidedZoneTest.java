@@ -6,6 +6,7 @@ import org.shatterfish.api.Action;
 import org.shatterfish.api.Belief;
 import org.shatterfish.api.HeapView;
 import org.shatterfish.api.Observation;
+import org.shatterfish.api.RunLog;
 
 import java.util.List;
 import java.util.function.IntFunction;
@@ -162,5 +163,40 @@ class AvoidedZoneTest {
         Observation far = OscillationTest.screen(rows, 1 + WIDTH, 20, List.of(OscillationTest.rat(8 + WIDTH)), List.of());
         assertEquals(List.of(unseen, elsewhere), Beliefs.fold(memory, far, FightPolicyTest.KNOWLEDGE).avoid(),
                 "an enemy in view outside it does not");
+    }
+
+    /** Two doors to unexplored space: the near one inside a region, the far one clear of it. */
+    private static final String[] TWO_DOORS = {
+        "###########",
+        "#.........#",
+        "#.~~~.....#",
+        "###~#####.#",
+        "           ",
+    };
+
+    @Test
+    @DisplayName("a frontier clear of the region is taken before a nearer one through it")
+    void around_before_through() {
+        Memory memory = Memory.START.avoiding(new Memory.Avoid(1, 0, 3 + 3 * 11, 1, 500));
+        Observation screen = OscillationTest.screen(TWO_DOORS, 1 + 11, 20, List.of(), List.of());
+        assertEquals("frontier 8", Explore.uncover(screen, memory, screen.actions().actions(), Explore.SEARCHES, false).why(),
+                "the far door, eight Steps away, not the near one two Steps away");
+    }
+
+    /** A closed corridor with no unexplored space: the only wall nobody has searched lies inside the region. */
+    private static final String[] DEAD_END = {
+        "##########",
+        "#........#",
+        "##########",
+    };
+
+    @Test
+    @DisplayName("with no frontier and every search spot clear of the region used up, the search goes through the region")
+    void searches_through_when_nothing_else() {
+        Memory memory = DescendPolicyTest.at(List.of(new Memory.Spot(1, 0, 1 + 10), new Memory.Spot(1, 0, 3 + 10)),
+                0, 0, 0).avoiding(new Memory.Avoid(1, 0, 7 + 10, 3, 500));
+        Observation screen = OscillationTest.screen(DEAD_END, 1 + 10, 20, List.of(), List.of());
+        RunLog.Choice choice = Explore.uncover(screen, memory, screen.actions().actions(), Explore.SEARCHES, false);
+        assertTrue(choice != null && choice.why().startsWith("search-spot "), String.valueOf(choice));
     }
 }
