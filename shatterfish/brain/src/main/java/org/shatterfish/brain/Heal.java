@@ -54,7 +54,7 @@ import java.util.List;
  *
  * <p>Not modelled: the Vial of Blood trinket spreads a heal over more turns and caps what each turn heals
  * (Healing.java:80-82, :91-93), so with it the remaining heal is larger than {@link #remaining} says and
- * the first turn's smaller. The trinket shows in the inventory; docs/ideas.md has the gap.
+ * the first turn's smaller. The trinket shows in the inventory; docs/ideas/ has the gap.
  *
  * <p>A potion counts only when the screen shows it identified by name. An unidentified potion is
  * story 4.10's to test.

@@ -740,7 +740,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
      * name, the nearest first, because the screen gives an enemy no identity; two rats in view and
      * one remembered leave no rat remembered. An enemy killed out of the Brain's reckoning stays remembered until a
      * same-named enemy is seen or the oldest sightings are forgotten; reading kills from the log is
-     * for the fight Policy (docs/ideas.md).
+     * for the fight Policy (docs/ideas/).
      */
     static List<Memory.Seen> sightings(List<Memory.Seen> before, Observation observation, long waits) {
         int depth = observation.header().depth();

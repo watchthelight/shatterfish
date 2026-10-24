@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
  * headless Run's (interface size 0) draws; the executor answers it, not the Observer, which is why it is
  * no Prompt. Only the full
  * interface (2) hands the selector to the inventory pane, which no Action names
- * ({@code core/.../scenes/GameScene.java:547-556}, {@code :1668-1684}; {@code docs/ideas.md}, story 5.2).
+ * ({@code core/.../scenes/GameScene.java:547-556}, {@code :1668-1684}; {@code docs/ideas/}, story 5.2).
  *
  * <p>The selector is the one an item scroll opens when read ({@code InventoryScroll} and the scroll of
  * upgrade call {@code GameScene.selectItem}): pick the armour.
@@ -101,7 +101,7 @@ class ItemSelectorTest {
     @DisplayName("the Overlay's interface is not the full one, whose selector no Action can answer")
     void not_the_full_interface() {
         assertNotEquals(2, OverlayGame.INTERFACE_SIZE,
-                "interface size 2 hands item selectors to the inventory pane; see docs/ideas.md, story 5.2");
+                "interface size 2 hands item selectors to the inventory pane; see docs/ideas/, story 5.2");
     }
 
     @Test

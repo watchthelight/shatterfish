@@ -515,7 +515,7 @@ To be precise about what that proves: `Gsprt` matches the approximation `set_sta
 not what Fishtest's server stops on, which is the exact generalized LLR (`LLR_logistic`) over the
 same counts. The two agree closely in the region a test normally stops in and can disagree in the
 tails, and ADR-0012 chose eq. 2.1 for being closed-form and reproducible from the counts by hand.
-Moving to the exact form is in `docs/ideas.md`.
+Moving to the exact form is in `docs/ideas/`.
 
 **What it costs.** The `smoke` set, 24 processes, cap 400: one Brain plays its 25 Runs in 7,538 ms;
 a comparison plays 50 Runs in 9,996 ms. Twice the Runs for a third more time, because the pool is
@@ -728,7 +728,7 @@ nothing is dropped, so the counts add up to the index's.
 
 **What it cannot say.** A Run log's ending records how the Run ended and at what depth, not what
 killed the hero: the log's `Outcome` has no killer — no mob, trap or hunger. So the gallery groups by
-ending and depth, and says so on every page; recording the killer is in `docs/ideas.md`. The command above rewrites the gallery for any folder the Rig wrote (for a
+ending and depth, and says so on every page; recording the killer is in `docs/ideas/`. The command above rewrites the gallery for any folder the Rig wrote (for a
 comparison, one per side) and, with `--snapshots N`, writes the last N waits of every Run into
 `snapshots/`, linked from the gallery: what the Run was doing when it ended. The random Baseline's is in
 [`results/2026-09-23-H-0002/gallery.md`](https://github.com/watchthelight/shatterfish/blob/bdf5ea5b2d38e7911f42e23a5ba08b4237cffc5c/results/2026-09-23-H-0002/gallery.md);

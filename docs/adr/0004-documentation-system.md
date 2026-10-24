@@ -77,7 +77,7 @@ bootstrap prompt, session 3.
 - Bad: the hook is a small piece of Python to maintain against MkDocs' `File.generated` API
   (1.6+).
 - Bad: `docs/adr/index.md` and `mkdocs.yml` nav must be updated by hand when an ADR is added
-  (see `docs/ideas.md` for generating it).
+  (see `docs/ideas/` for generating it).
 
 ## Pre-mortem
 

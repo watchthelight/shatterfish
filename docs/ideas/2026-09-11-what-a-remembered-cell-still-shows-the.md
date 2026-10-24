@@ -1,0 +1,75 @@
+# What a remembered cell still shows: the always-visible blobs
+
+`v4.0.0` made the emitter's always-visible gate explicit and widened it: such a blob is drawn on any
+cell in view, mapped or visited (`core/.../effects/BlobEmitter.java:59-72`), the cell's description
+names it outside the field of view too (`core/.../windows/WndInfoCell.java:175-183`), and six blobs
+carry the flag rather than three, the alchemy pot and well water among them
+(`core/.../actors/blobs/Alchemy.java:31-33`; `core/.../actors/blobs/WellWater.java:37-39`).
+
+The Observation cannot carry them: `MapSection` takes a blob only on a cell in view, which ADR-0005
+decided when the flag belonged to two of Tengu's blobs and one wall. It now costs the bot something
+a player plainly has — which well is which, and where the alchemy pot is, on a floor already walked.
+The map already carries heaps on remembered cells, so the shape of the answer exists: a blob cell
+would carry the fog level it was seen at, or the section would take a remembered-blob list beside
+the in-view one. Both are schema changes and a version bump, so this is a story, and the story after
+it re-reads ADR-0006's Blobs row.
+
+- **A snapshot cannot carry the journal.** `Journal.loadGlobal` runs once per process behind a private
+  flag (`…/journal/Journal.java:34-36`), so a restore (story 1.20) leaves the pages found since the
+  snapshot found; the next floor generated reads them. A one-line hook row that resets the flag, or a
+  Run-start reset list upstream could be asked for, would make a cross-floor restore exact. The
+  same static outlives a Run (story 1.16's sweep).
+
+- **An item's value known and unknown, and its actions by hero.** Story 2.3's items table carries
+  one value: a constructed instance's, or -1 with the source text where the value depends on
+  being known (`return isKnown() ? 50 * quantity : super.value(); where super.value(): return 30
+  * quantity;`). A price table for the Brain (a shop, a sell) wants both numbers parsed, and the
+  actions a fresh instance offers depend on the hero (a duelist's ring ability, an equipped
+  weapon's abilities); a later table could carry the actions per hero class and per equipped
+  state, read the same way. Also: the four excluded for lacking a bare constructor (a spirit
+  arrow, a scorpio's shot, a bag's placeholder, the armor base) and the wand's two seeds could
+  be carried as facts about their owners rather than dropped.
+
+- **A room's prize odds.** Story 2.4's rooms table cites every `Generator.random*` line a room
+  makes as text; a table of the prize a room gives (a ring or an artifact from the pit, an
+  armor one set deeper from the crypt, a scroll from the library) with its odds, read from those
+  lines and the decks, would let the Brain price a key. The shop's stock (`ShopRoom`, placed by
+  `Dungeon.shopOnLevel`) is a table of its own.
+
+- **The hit table, measured where a process has booted.** Story 2.5 wrote the rig for accuracy
+  against evasion and could not run it: `Char.hit` initialises `FloatingText`, which builds a
+  texture film. The harness boots headlessly and already runs measurements (story 1.21's
+  benchmark), so a task there could sweep the grid and write `codex/<tag>/combat-hit.json` beside
+  the generated tables, with the manifest listing it and CI regenerating both; the alternative is
+  a hook that lets `Char.hit` skip the icon when no scene exists, which is an upstream edit and a
+  row in the ledger. The grid, the sampling and the rig are written already in `Combat` and
+  `Sparring`, and `CombatTableStabilityTest` exercises them.
+- **The modified combat paths.** The measured tables are the bare ones: no ring of accuracy or
+  evasion, no enchantment or glyph, no champion buff, no hero talent, no encumbrance penalty
+  below an armour's strength. Each is a multiplier or a branch the engine applies in the same
+  methods, so the same rig measures them with the modifier in place.
+
+- **The composition the Codex cannot carry.** An expected damage is a damage roll less a reduction
+  roll, and the engine does that subtraction in `Char.attack`, behind the same toolkit wall as
+  `Char.hit` (it plays a sound and writes the log). So story 2.5's three measured tables are the
+  parts, not the product. The story that measures behind the wall should measure the composition
+  too, and until it does, a consumer doing the subtraction itself should know that the engine
+  applies its multipliers between the two rolls.
+- Early stopping in the Rig: once the sequential test decides, cancel the pairs not yet dispatched (story 3.6 plays every pair and evaluates in Seed-set order; stopping dispatch must still respect that order, so pairs are dispatched in order and the test consumes only a completed prefix).
+- The exact GSPRT in the Rig (found in story 3.6's review). `Gsprt` implements Van den Bergh's eq. 2.1, which is what Fishtest's `sprt.set_state` reports, but Fishtest's server stops on the exact generalized LLR (`LLR_logistic`) over the same counts. The two agree near the bounds in ordinary tests and part in the tails. Adopting the exact form is an ADR-0012 amendment and a new reference fixture from the same pinned Fishtest checkout.
+- A lower missing cap (found in story 3.7's calibration). The random Brain ends 8.4% of its Runs at a window the Harness does not know (`UNKNOWN_WINDOW`), so 16% of pairs are missing and the calibrated missing cap is 0.25 -- room for a Brain to crash on a quarter of the seeds it would lose. Teaching the Harness those windows, re-extracting the table and re-running `./gradlew :rig:calibrate` brings the cap down.
+- Publishing the Run logs (found in story 3.10). FR-25 asks each Results page to link its Run logs; a side of `standard` is about 37 MB, too large for the repository, so every page says "not published" and carries each Run's chain instead. Candidates: a GitHub Release asset per page, Actions artifacts (which expire), or an orphan branch. It is a storage decision for the product owner; `results.json` already has a `logs` field for the answer.
+
+- The killer in the Run log (found in story 3.12). A log's ending records the cause (`DEATH`, `WIN`,
+  a stop the game did not decide) and the depth, but not what killed the hero, so the death gallery
+  groups by ending and depth and cannot say "a rat on depth 1" or "hunger". Recording the source of
+  the fatal damage in `RunLog.Outcome` -- from what the game shows the player on the death screen, so
+  it stays inside information parity -- is a Run-log schema change, and would let the gallery group
+  by killer.
+
+- Comparing two weight sets in the Rig (found in story 4.5's review). A comparison's two sides each
+  read `weights/<brain>.json` for their Brain, so the Rig cannot run an SPRT of the same Brain under
+  two weight sets: the file names one set per Brain. Tuning needs a way to name the second set --
+  a flag naming the other file, or a named variant of the Brain whose weights live beside it -- with
+  the second set's canonical text in its side's configuration hash and in the Registration. Deferred
+  to the story that first tunes a weight.

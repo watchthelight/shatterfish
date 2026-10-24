@@ -113,4 +113,4 @@ Input waits per second** in one process and **362.3 Runs per minute** of the flo
 Rig's per-Run start-up (a JVM, the game booted, a Profile, a hash-chained log); a `random_norest`
 Run is about 350 waits, and a comparison with it runs at about 540 waits per second across the pool
 against the Baseline's 190. The early stops came at 20 to 49 pairs, but the Rig plays all 500 before
-it evaluates; stopping dispatch at the verdict is in [ideas](../ideas.md).
+it evaluates; stopping dispatch at the verdict is in [ideas](../ideas/index.md).

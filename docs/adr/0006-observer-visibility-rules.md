@@ -441,7 +441,7 @@ costs the bot what the player sees of the two the Cleric's spells lay down, the 
 the hallowed ground, which draw through the terrain flags and visuals they set rather than through
 an emitter (`…/actors/hero/spells/WallOfLight.java:244`, `:290-300`;
 `…/actors/hero/spells/HallowedGround.java:166`); the wall of light even makes its cells solid,
-which the section's tiles do not show. A later schema closes that one (`docs/ideas.md`). `EnvironmentLeakTest`
+which the section's tiles do not show. A later schema closes that one (`docs/ideas/`). `EnvironmentLeakTest`
 holds the kinds on a cell in view, two kinds on one cell in name order whatever order the level's
 `HashMap` hands them over in (`…/levels/Level.java:184`), a gas on a remembered cell absent, a gas
 the scene never drew absent, and a gas at two hundred times the volume byte-identical.
@@ -523,7 +523,7 @@ cell seen, which is where the hero sees it. What changed is the size of the loss
 walked past a well remembers which well it is, and a player who found the alchemy pot sees it
 bubbling on a remembered cell; the section shows neither, because the record carries a blob only on
 a cell in view (ADR-0005). That is memory the human has and the bot does not, the same shape as the
-log pane's wipe, and it is now worth closing: `docs/ideas.md` carries it for the schema story.
+log pane's wipe, and it is now worth closing: `docs/ideas/` carries it for the schema story.
 
 Four more of the record's rows are looser at `v4.0.0` than they read, and the review of the upgrade
 found them. None of them lets the bot see more than the screen; each is the Observer showing less,

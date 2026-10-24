@@ -341,7 +341,7 @@ The Panel, the first thing the Overlay draws, lives on the same render thread an
   the mixed interface (size 1) after the Profile is prepared: the desktop layout, with no inventory
   pane, so an item selector is still a `WndBag` the executor answers (`GameScene.java:547-556`,
   `:1673-1674`; `ItemSelectorTest`). The full interface (2), the desktop default that `DESIGN.md` draws,
-  would hand selectors to the inventory pane, which no Action names (`docs/ideas.md`). The Rig and the
+  would hand selectors to the inventory pane, which no Action names (`docs/ideas/`). The Rig and the
   headless driver keep interface 0. The game falls back to the compact interface itself when the window
   is below its full-UI minimum (`SPDSettings.java:140-146`), where the Panel is the Mode strip.
   The interface size is not only layout. It changes the log text the Observation carries, all Run long:
@@ -407,7 +407,7 @@ foreign thread by name, as every other port does.
 `RUNNING` and the speed mode always `normal` with a documented placeholder interval, since nothing
 before story 5.5 (PAUSED), 5.6 (the controls row) or 5.7 (the speed selector and its interval) changes
 either. Only the turn, the floor and whether the Brain is `THINKING` are read from the Run. This is
-short of FR-38's full state table on purpose (`docs/ideas.md`, "Real Mode, speed mode and THINKING");
+short of FR-38's full state table on purpose (`docs/ideas/`, "Real Mode, speed mode and THINKING");
 the point of doing it now is that `ModeStripContent` and `DecisionCardContent` already handle every
 real value those stories will produce, so they add a caller rather than a format change.
 
@@ -423,7 +423,7 @@ when the lock does not hold**, chosen. Concretely: Explain is unreachable while 
 reachable once it has ended (`OverlayGame.render()` already calls `lock.unlock()` there) -- a real,
 useful case (reading the final Decision), not a stub. Story 5.5's input-gate hook is for hero-directed
 input (`CellSelector`), not Panel buttons, so closing the *human* path fully is left to whichever
-story gives PAUSED a real click (`docs/ideas.md`).
+story gives PAUSED a real click (`docs/ideas/`).
 
 **A second review found that "nothing routes around `InputLock`" was wrong for the Brain's own
 clicks.** `ActionExecutor.press` (the executor's own way of pressing a window's button) queues its
@@ -483,7 +483,7 @@ walk makes the pane's own child (the drag area) read inactive whenever the pane 
 `DecisionLogTest.does_not_steal_a_synthetic_tap_while_locked` reproduces
 `PanelContentTest.explain_does_not_steal_a_synthetic_tap_while_locked` exactly, at the log's own
 position -- this is the first real second instance of the general rule story 5.3's fairness review
-named for "every future Panel control" (`docs/ideas.md`), and it held without needing a new idea.
+named for "every future Panel control" (`docs/ideas/`), and it held without needing a new idea.
 
 **Content before layout, except for the log.** Every other section (`GoalLine`, `DecisionCard`,
 `SafetyFlagsRow`, `BeliefSummarySection`) keeps story 5.3's two-phase split: `Panel.content` sets a
@@ -586,7 +586,7 @@ the play scene it is open (the region intro is the person's to click). A directi
 the hero from inside the scene's update rather than from an event, so the Run looks for a wait a second
 time each frame, between the game's input and its scene update (`EmbeddedRun.beforeUpdate`). One thing
 a person could do in the unmodified game is lost: a tap no longer interrupts a walk or a rest, since
-that tap is not an input any Action can record (`docs/ideas.md`).
+that tap is not an input any Action can record (`docs/ideas/`).
 
 **The Panel's own taps.** Story 5.3's rule kept every Panel hot area inactive while input is locked,
 because the executor's synthetic taps pass the lock. A HUMAN Run has no executor taps, and its input is

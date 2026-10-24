@@ -35,7 +35,7 @@ import java.util.List;
  * counts (100, 300, 140) under p0 = 0.50, p1 = 0.55 give 2.96 here, past the bound, and 2.93 there.
  * The approximation is kept because the ADR chose it and because calibration (story 3.7) measures
  * the realized error rates of the test as run, which is what a skeptic should trust; the exact LLR
- * is recorded in {@code docs/ideas.md}.
+ * is recorded in {@code docs/ideas/}.
  *
  * <p><b>Why it is written here rather than ported.</b> Fishtest carries no licence, so its code is
  * all rights reserved and none of it is in this file. This implements the published formula; the

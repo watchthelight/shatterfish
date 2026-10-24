@@ -19,7 +19,7 @@ says whether the codex needs regenerating.
    is today. Fixes have no sprint-status key and no story file.
 3. The story spec file (E-stories only): status frontmatter and a "Review" section.
 4. `README.md` "Where it stands": one line for each merged story or fix.
-5. `docs/ideas.md` for anything that came up and was not done; `docs/roadmap.md` only if an
+5. A new `docs/ideas/<yyyy-mm-dd>-<slug>.md` for anything that came up and was not done; `docs/roadmap.md` only if an
    epic changed state.
 6. One watchthelight note (project `shatterfish`): revise the open-loop status note rather than
    adding a new one; echo the receipt.

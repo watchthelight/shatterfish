@@ -111,7 +111,7 @@ final class Fight implements Policy {
      * The most waits after an approach the Policy walks on toward where the enemy stood once it is out of
      * view (issue #174). An enemy seen from one cell and not from the next -- round a corner, across a
      * doorway -- made the Policy approach from the first and the Policy below it walk back from the
-     * second, for hundreds of turns. An assumption: a sleeping enemy stays where it lies (row 70), and an
+     * second, for hundreds of turns. An assumption: a sleeping enemy stays where it lies (docs/brain-rules.md#sleeping-mob-out-of-view), and an
      * awake one that walked off is not followed further than a room's width.
      */
     static final int CHASE_WAITS = 10;
@@ -138,7 +138,7 @@ final class Fight implements Policy {
 
     /**
      * How many waits a sighting of an enemy now out of view still counts toward whether a fight is
-     * favourable (issue #174). An assumption: a sleeping enemy stays where it lies (row 70), and an
+     * favourable (issue #174). An assumption: a sleeping enemy stays where it lies (docs/brain-rules.md#sleeping-mob-out-of-view), and an
      * awake one out of view is not assumed gone for this long.
      */
     static final int RECALL_WAITS = 20;
