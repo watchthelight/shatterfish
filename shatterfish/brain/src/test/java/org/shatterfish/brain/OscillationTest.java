@@ -303,8 +303,9 @@ class OscillationTest {
         Belief belief = brain.update(hurt, null);
         Brain.Decided retreat = brain.decide(hurt, belief);
         assertEquals("retreat: stairs", retreat.decision().chosen().why(), retreat.decision().toString());
-        assertEquals(List.of(new Memory.Avoid(1, 0, 8 + 10, 5, Memory.of(belief).waits() + Brain.AVOID_WAITS)),
-                Memory.of(brain.handed(hurt, belief, retreat)).avoid(), "one past where the rat was seen from");
+        assertEquals(List.of(new Memory.Avoid(1, 0, 8 + 10, Brain.AVOID_RADIUS, Memory.of(belief).waits() + Brain.AVOID_WAITS)),
+                Memory.of(brain.handed(hurt, belief, retreat)).avoid(),
+                "one past where the rat was seen from, capped at AVOID_RADIUS (issue #183)");
     }
 
     @Test
