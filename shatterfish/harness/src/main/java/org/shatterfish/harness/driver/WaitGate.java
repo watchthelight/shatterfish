@@ -37,7 +37,7 @@ public final class WaitGate {
     private long seenNotifications;
     private long dropped;
     private volatile boolean acted;
-    private long waitIndex;
+    private volatile long waitIndex;
     private Window lastConfirmedWindow;
     private Window lastSeenWindow;
     private int windowFramesShown;
