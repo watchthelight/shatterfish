@@ -76,7 +76,12 @@ mutation battery and a direction check on the `smoke` Seed set):
   (#174) fell from 27% of waits to about 1%; after killing Goo the Brain now
   unlocks the boss floor's exit with the key Goo drops (#163), taking 7 of 40
   heroes to depth 6 where none went before; and it no longer steps onto a
-  chasm or says yes to the jump it did not mean (#170).
+  chasm or says yes to the jump it did not mean (#170). The places it retreated
+  from no longer wall off doors and items for 100 turns: it walks round them,
+  then through them, before it searches (#183), taking 14 of 40 to depth 5 where
+  11 went before. The Brain now reads its enemy tags (passive, ranged, immobile)
+  from the bestiary, and the Overlay's Brain plays with the same game knowledge
+  as the Rig instead of none.
 - Waiting on an owner decision: **4.14**, the registered 400-Warrior `goo` set
   and its 75% gate, which is several stories away at the current rate.
 
