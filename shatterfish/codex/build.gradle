@@ -40,6 +40,16 @@ tasks.named('test') {
     // citation checker sweeps are all under it, so one input covers what three used to, and a
     // doc edit reruns the sweep instead of leaving a cached run standing over text it never read.
     inputs.dir(rootProject.file('docs')).withPropertyName('documentation').withPathSensitivity(PathSensitivity.RELATIVE)
+    // CI's pull-request shortcut (.github/workflows/build.yml): when a change touches neither the
+    // game's code, the Codex nor the harness, these three cannot change their answer and are the
+    // slowest by far. They still run on every push to main.
+    if (providers.gradleProperty('shatterfish.codexFast').isPresent()) {
+        filter {
+            excludeTestsMatching 'org.shatterfish.codex.VocabularyTest'
+            excludeTestsMatching 'org.shatterfish.codex.CodexLeakTest'
+            excludeTestsMatching 'org.shatterfish.codex.CodexSeedFreeTest'
+        }
+    }
 }
 
 // `./gradlew :codex:citations` prints the citation report and exits non-zero on a finding: the one
