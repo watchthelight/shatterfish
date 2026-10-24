@@ -1413,13 +1413,21 @@ public final class Codex {
 
     /**
      * The general game knowledge a Brain is built on: the manifest it came from, the identifiable
-     * families, the items special rooms place, and the guaranteed drops. The caller reads it from
-     * the committed Codex folder; a Brain cannot open a file. Nothing in it is about a Run.
+     * families, the items special rooms place, and the guaranteed drops; the enemies' combat figures
+     * and the measured gear (story 4.7); and the bestiary's tags per enemy class ({@link Tactics}),
+     * empty when the caller read none. The caller reads it from the committed Codex folder and
+     * {@code tactics/bestiary.json}; a Brain cannot open a file. Nothing in it is about a Run.
      */
     public record Knowledge(Manifest manifest, List<Identities> families, List<RoomSpawn> rooms, List<Guarantee> guarantees,
-                            List<Threat> threats, List<Gear> weapons, List<Gear> armours, List<String> immovable) {
+                            List<Threat> threats, List<Gear> weapons, List<Gear> armours, List<String> immovable,
+                            List<Tactics> bestiary) {
 
         public Knowledge {
+            bestiary = Canon.sorted(bestiary, Comparator.comparing(Tactics::className), "bestiary");
+            Set<String> classes = new HashSet<>();
+            for (Tactics entry : bestiary) {
+                distinct(classes, entry.className(), "a bestiary class");
+            }
             Canon.require(manifest != null, "knowledge says which Codex it came from");
             families = Canon.positional(families, "families");
             rooms = Canon.positional(rooms, "rooms");
@@ -1438,9 +1446,56 @@ public final class Codex {
             }
         }
 
+        /** Knowledge without the bestiary (story 4.7's shape). */
+        public Knowledge(Manifest manifest, List<Identities> families, List<RoomSpawn> rooms, List<Guarantee> guarantees,
+                         List<Threat> threats, List<Gear> weapons, List<Gear> armours, List<String> immovable) {
+            this(manifest, families, rooms, guarantees, threats, weapons, armours, immovable, List.of());
+        }
+
         /** Knowledge without the combat tables (story 4.2's shape). */
         public Knowledge(Manifest manifest, List<Identities> families, List<RoomSpawn> rooms, List<Guarantee> guarantees) {
             this(manifest, families, rooms, guarantees, List.of(), List.of(), List.of(), List.of());
+        }
+
+        /** This knowledge with {@code entries} as its bestiary. */
+        public Knowledge withBestiary(List<Tactics> entries) {
+            return new Knowledge(manifest, families, rooms, guarantees, threats, weapons, armours, immovable, entries);
+        }
+
+        /**
+         * The bestiary's entry for an enemy the screen names {@code name} on {@code depth} of
+         * {@code branch}, or null when the bestiary has none. Fourteen display names belong to more
+         * than one class at v4.0.0 (the three gnoll shamans; the King of Dwarves' summons and the
+         * city's own; the vault's copies; Yog-Dzewa's summons and the halls' own), and the screen shows
+         * only the name, so the entry is chosen by rule among the classes of that name: first one the
+         * spawn rotation places on this depth, which it does on the main branch only (the city golem on
+         * 18); then one the rotation places nowhere, a boss's summon, a quest or vault foe, a trap's or
+         * a room's (the King's golem on the boss floor 20, which, like every boss floor, creates no
+         * rotation mob; the vault's golem on branch 1); then one the rotation places on other depths;
+         * and among equals the first by class name. Where the rule cannot tell the classes apart,
+         * which the Brain reads from them is held by the rig's {@code BestiaryKnowledgeTest}.
+         */
+        public Tactics tactics(String name, int depth, int branch) {
+            Tactics best = null;
+            for (Tactics entry : bestiary) {
+                if (!entry.name().equals(name)) {
+                    continue;
+                }
+                if (best == null || rank(entry, depth, branch) < rank(best, depth, branch)) {
+                    best = entry;
+                }
+            }
+            return best;
+        }
+
+        /** {@link #tactics(String, int, int)} on the main branch. */
+        public Tactics tactics(String name, int depth) {
+            return tactics(name, depth, 0);
+        }
+
+        /** The rule {@link #tactics} chooses by, lower first; the list is sorted by class name, so ties keep the first. */
+        private static int rank(Tactics entry, int depth, int branch) {
+            return branch == 0 && entry.spawnsOn(depth) ? 0 : entry.depths().isEmpty() ? 1 : 2;
         }
 
         /** Knowledge with nothing in it but the manifest: a Brain that knows no mechanics. */
@@ -1514,6 +1569,67 @@ public final class Codex {
         /** A roll without the item table's tier and strength (story 4.7's shape). */
         public Gear(String name, int level, int min, int max, int meanPerMille) {
             this(name, level, min, max, meanPerMille, 0, 0);
+        }
+    }
+
+    /**
+     * One enemy's tags from the bestiary ({@code tactics/bestiary.json}): how it moves, attacks and
+     * breaks off, derived from its card and cited there at the pin, in the closed vocabulary that
+     * {@code docs/bestiary/index.md} documents. General game knowledge, the same for every Run.
+     *
+     * <p>Beside the tags it carries two Codex facts the caller joins in, so that a Brain can tell apart
+     * the classes that share a display name ({@link Knowledge#tactics}): the alignment the class is
+     * created with ({@code mobs.json}), and the depths the main branch's spawn rotation places it on
+     * ({@code spawn-rotation.json}, MobSpawner.java:62-65, :71-212), without the boss floors, which
+     * create no rotation mobs (SewerBossLevel.java:132-138, PrisonBossLevel.java:597-604,
+     * CavesBossLevel.java:207-219, CityBossLevel.java:263-269, HallsBossLevel.java:199-205, each a
+     * {@code createMobs} that places no rotation mob, and no respawner); empty for a boss, a summon, a quest or trap foe,
+     * or a special-room guardian.
+     */
+    public record Tactics(String className, String name, Alignment alignment, List<Integer> depths, String speed,
+                          String attack, int reach, boolean flying, boolean amphibious, List<String> immune,
+                          List<String> inflicts, String ai, boolean evasive, boolean splits, boolean telegraph,
+                          String approach, boolean rangedFirst, boolean outrunnable, List<String> breakContact) {
+
+        /** Movement against the hero's speed 1: slower, equal, twice as fast, or never walks. */
+        public static final List<String> SPEEDS = List.of("slow", "normal", "fast", "immobile");
+        /** How it hurts the hero: in melee, with a projectile or a reach, with a magic bolt, or not at all. */
+        public static final List<String> ATTACKS = List.of("melee", "ranged", "bolt", "none");
+        /** The state it is created in. */
+        public static final List<String> AIS = List.of("sleeping", "wandering", "hunting", "passive");
+        /** The derived default approach. */
+        public static final List<String> APPROACHES = List.of("close", "keep-away", "chokepoint", "surprise", "avoid");
+        /** What ends its pursuit. */
+        public static final List<String> BREAK_CONTACT = List.of("door", "stairs", "out-of-sight", "corridor",
+                "invisibility", "distance", "leave-water", "escape-crystal", "none");
+
+        public Tactics {
+            className = Canon.text(className, "tactics class");
+            name = Canon.text(name, "tactics name");
+            Canon.require(!className.isEmpty() && !name.isEmpty(), "an entry names its class and its display name");
+            Canon.require(alignment != null, "an entry carries the alignment its class is created with: " + className);
+            depths = Canon.sorted(depths, Comparator.naturalOrder(), "depths");
+            Canon.noRepeats(depths, "depths");
+            for (int depth : depths) {
+                Canon.require(depth > 0, "a depth is positive: " + className + " " + depth);
+            }
+            Canon.require(SPEEDS.contains(speed), "not a speed: " + speed + " (" + className + ")");
+            Canon.require(ATTACKS.contains(attack), "not an attack: " + attack + " (" + className + ")");
+            Canon.require(reach >= 0, "a reach is not negative: " + className);
+            immune = Canon.positional(immune, "immune");
+            inflicts = Canon.positional(inflicts, "inflicts");
+            Canon.require(AIS.contains(ai), "not an ai: " + ai + " (" + className + ")");
+            Canon.require(APPROACHES.contains(approach), "not an approach: " + approach + " (" + className + ")");
+            breakContact = Canon.positional(breakContact, "breakContact");
+            Canon.require(!breakContact.isEmpty(), "an entry says what breaks contact ('none' is a value): " + className);
+            for (String way : breakContact) {
+                Canon.require(BREAK_CONTACT.contains(way), "not a way to break contact: " + way + " (" + className + ")");
+            }
+        }
+
+        /** Whether the rotation places this class on {@code depth}. */
+        public boolean spawnsOn(int depth) {
+            return depths.contains(depth);
         }
     }
 

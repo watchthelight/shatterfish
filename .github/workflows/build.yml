@@ -13,12 +13,28 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: build + test (ubuntu, JDK 21)
+  # The full build, split by module so the slow parts run side by side. Together the jobs run
+  # every task `./gradlew build` runs: each one checks its modules, and the first also
+  # assembles everything. The job named "build + test" below is the one gate a merge waits on.
+  test:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api, brain, overlay, upstream + assemble
+            tasks: assemble :SPD-classes:check :core:check :desktop:check :api:check :brain:check :overlay:check
+          - name: harness
+            tasks: :harness:check
+          - name: rig
+            tasks: :rig:check
+          - name: codex
+            tasks: :codex:check
     steps:
       # Full history, so the pinned upstream tag is present: HooksLedgerTest and
-      # HooksVanillaTest compare the tree against it (docs/UPSTREAM.md).
+      # HooksVanillaTest compare the tree against it (docs/UPSTREAM.md). It also gives the
+      # codex job the merge base it needs to see what a pull request changed.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -36,18 +52,46 @@ jobs:
       - name: Fetch the vanilla Pixel Dungeon source
         run: sh tools/fetch-vanilla.sh
 
+      # On a pull request that changes neither the game's code nor the Codex, the three slowest
+      # Codex tests (vocabulary diff, leak gate, seed-free Profiles) cannot change their answer,
+      # so they are skipped there. They always run on every push to main.
+      - name: Decide whether the slow Codex tests run
+        id: codex
+        if: matrix.name == 'codex' && github.event_name == 'pull_request'
+        run: |
+          base="$(git merge-base "origin/${{ github.base_ref }}" HEAD)"
+          if git diff --name-only "$base" HEAD | grep -qE '^(core/|SPD-classes/|codex/|shatterfish/codex/|shatterfish/harness/|vanilla\.pin$|build\.gradle$|settings\.gradle$)'; then
+            echo "flag=" >> "$GITHUB_OUTPUT"
+          else
+            echo "No game, Codex or harness change: skipping the slow Codex tests."
+            echo "flag=-Pshatterfish.codexFast=true" >> "$GITHUB_OUTPUT"
+          fi
+
       # Mobile modules are excluded by default (hook #1, docs/UPSTREAM.md); the
       # ubuntu runner ships an Android SDK, so be explicit that we never want it.
-      - name: Build and test all modules
-        run: ./gradlew build -Pshatterfish.mobile=off --no-daemon --console=plain
+      - name: Build and test
+        run: ./gradlew ${{ matrix.tasks }} ${{ steps.codex.outputs.flag }} -Pshatterfish.mobile=off --build-cache --no-daemon --console=plain
 
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-reports
+          name: test-reports-${{ strategy.job-index }}
           path: |
             shatterfish/*/build/reports/tests/
             shatterfish/*/build/test-results/
           if-no-files-found: ignore
           retention-days: 14
+
+  build:
+    name: build + test (ubuntu, JDK 21)
+    runs-on: ubuntu-latest
+    needs: test
+    if: always()
+    steps:
+      - name: Every module job passed
+        run: |
+          if [ "${{ needs.test.result }}" != "success" ]; then
+            echo "A module job did not pass: ${{ needs.test.result }}"
+            exit 1
+          fi

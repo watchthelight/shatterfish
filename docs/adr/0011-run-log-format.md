@@ -263,3 +263,34 @@ Actions in its bytes; that is acceptable only because a human's log is an Overla
 reproducible and refused by the Rig, and it is stated here so nobody leans on a human log's chain as a
 reproduction. An `unsupported` record's text is written from the Observation alone: it names the cell
 and never what the game made of the click, which is read from the true level.
+
+## Amendment: issue #175 (2026-09-26): a closed Overlay Run ends as `CLOSED`
+
+The owner saw the Overlay "freeze", and the log could not say why: it stopped at a wait with no `end`
+record, which is what a killed Run leaves and also what a closed window left. `EmbeddedRun.close`,
+which the Overlay calls from `dispose` when its window is closed or the game exits, now ends a Run that
+still plays with a new cause, `CLOSED`, whose `detail` names the wait it was closed at (`closed at wait
+k`), so an Overlay log always ends with an `end` record and a log without one is a process that died
+without closing. The schema version stays 2: `cause` has always been a string the readers take as it
+comes, and `detail` has been optional since story 4.11.
+
+Three options were weighed:
+1. **A new cause in the `end` record.** Chosen. It is one record the readers already read, and it says
+   what happened.
+2. An `unsupported` record at the close and no `end` record. Rejected: the log would still read as a
+   killed Run to every reader that asks whether it ended.
+3. Leave the log without an ending and print the close to the console. Rejected: the console is not
+   kept, and the log is the record.
+
+A `CLOSED` ending is written with `verifiable` false, since a Replay has nothing to reach at the close.
+Unlike an `unsupported` mark it says nothing about the waits before it: `Replay.waitsOf` checks them
+exactly as it checks a killed Run's, and a HUMAN Run closed mid-play still has every wait checked.
+Only an embedded Run writes this cause, and the Rig refuses those logs by their header as before
+(`OverlayLogsRefusedTest`).
+
+A second, unchained file may now sit beside an Overlay Run's log: `<run-id>.watchdog.txt`. When no
+Input wait is served for 30 seconds of wall-clock time while a Brain's Run plays, a watchdog thread
+writes the state and stack of the render thread, the Brain's worker and the game's actor thread there
+and to standard error, once per stall. It is a diagnosis, not a record: nothing reads it, nothing is
+chained to it, and it never stops a thread. A HUMAN Run has no watchdog, since a person's pause is not
+a freeze.

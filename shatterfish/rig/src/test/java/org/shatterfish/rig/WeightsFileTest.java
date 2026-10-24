@@ -47,13 +47,20 @@ class WeightsFileTest {
     void configured_by_the_weights() {
         Weights weights = committed();
         String hash = Brains.configHash(SeedSetsTest.ROOT, Brains.SHATTERFISH);
-        assertEquals(hash, Brains.configHash(Brains.SHATTERFISH, weights));
+        String knowledge = org.shatterfish.harness.knowledge.CodexKnowledge.digest(SeedSetsTest.ROOT
+                .resolve(org.shatterfish.harness.knowledge.CodexManifest.FOLDER)
+                .resolve(org.shatterfish.harness.boot.HeadlessBoot.pinnedTag()));
+        assertEquals(hash, Brains.configHash(Brains.SHATTERFISH, weights, knowledge));
         List<Weights.Term> terms = new ArrayList<>(weights.terms());
         terms.set(0, new Weights.Term(terms.get(0).feature(), terms.get(0).weight() + 1));
-        assertNotEquals(hash, Brains.configHash(Brains.SHATTERFISH, new Weights(Brains.SHATTERFISH, 1, terms)),
+        assertNotEquals(hash, Brains.configHash(Brains.SHATTERFISH, new Weights(Brains.SHATTERFISH, 1, terms), knowledge),
                 "a changed weight is a changed Brain");
-        assertNotEquals(hash, Brains.configHash(Brains.SHATTERFISH, new Weights(Brains.SHATTERFISH, 3, weights.terms())),
-                "and so is a changed version");
+        assertNotEquals(hash, Brains.configHash(Brains.SHATTERFISH, new Weights(Brains.SHATTERFISH, 3, weights.terms()),
+                knowledge), "and so is a changed version");
+        assertNotEquals(hash, Brains.configHash(Brains.SHATTERFISH, weights, "0".repeat(63) + "1"),
+                "and so is other knowledge: an edited table or bestiary (the bestiary's lever 0)");
+        assertThrows(IllegalArgumentException.class, () -> Brains.configHash(Brains.SHATTERFISH, weights, null),
+                "a Brain built on the Codex is not described without it");
         assertThrows(IllegalStateException.class, () -> Brains.configHash(Brains.SHATTERFISH),
                 "a Brain configured by its weights is not described without them");
         assertEquals("0".repeat(64), Brains.configHash(SeedSetsTest.ROOT, Brains.RANDOM));

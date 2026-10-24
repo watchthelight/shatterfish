@@ -569,14 +569,16 @@ public final class RunLoop {
                 // count runs before any decision, so the same Actions stall at the same wait) and for
                 // one the Brain could not decide in (the follower says the logged message where the
                 // Brain said it; story 4.11). It cannot for one that stopped because the harness
-                // could not follow the game, which is what the other four causes say. Claiming
-                // otherwise under a valid chain is the shape of lie this format exists to prevent.
+                // could not follow the game, which is what the other four causes say, nor for one a
+                // person closed mid-Run (CLOSED, issue #175). Claiming otherwise under a valid chain
+                // is the shape of lie this format exists to prevent.
                 !unverifiable && (outcome.ordinary() || outcome.cause() == RunOutcome.Cause.BRAIN_ERROR
                         || outcome.cause() == RunOutcome.Cause.STALLED),
                 // The Brain's own message and the loop's count are what a reader of a Brain error or
-                // a stall needs, and a log is where the rig reads endings from.
+                // a stall needs, and a log is where the rig reads endings from; a closed Run says the
+                // wait it was closed at (issue #175).
                 outcome.cause() == RunOutcome.Cause.BRAIN_ERROR || outcome.cause() == RunOutcome.Cause.STALLED
-                        ? outcome.detail() : ""));
+                        || outcome.cause() == RunOutcome.Cause.CLOSED ? outcome.detail() : ""));
         return outcome;
     }
 

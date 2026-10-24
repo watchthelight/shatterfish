@@ -1,5 +1,7 @@
 package org.shatterfish.rig;
 
+import org.shatterfish.harness.knowledge.CodexKnowledge;
+import org.shatterfish.harness.knowledge.CodexManifest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -205,7 +207,8 @@ class StarvationRegressionTest {
             Watched watched = new Watched((Deliberator) Brains.of(Brains.SHATTERFISH, triple, codex, weights));
             RunOutcome outcome = new RunLoop().playTriple(triple, 1000 + i, watched, CAP,
                     new RunLoop.Logging(out, COMMIT,
-                            new RunLog.Brain(Brains.SHATTERFISH, COMMIT, Brains.configHash(Brains.SHATTERFISH, weights)),
+                            new RunLog.Brain(Brains.SHATTERFISH, COMMIT, Brains.configHash(Brains.SHATTERFISH, weights,
+                                    CodexKnowledge.digest(root.resolve(CodexManifest.FOLDER).resolve(tag)))),
                             "", "test"));
             String run = triple.seedCode() + " " + triple.heroClass() + " salt " + (1000 + i);
             for (String broken : watched.broken) {

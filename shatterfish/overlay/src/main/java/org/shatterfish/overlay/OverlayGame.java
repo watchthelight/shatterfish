@@ -46,8 +46,9 @@ import java.util.stream.Stream;
  * <li>{@link #update()}: the game's update, in the game's order, with the Panel docked beside the
  * dungeon and the camera offset that keeps the hero in the uncovered map set between the scene's
  * update and the cameras' matrices ({@link PanelDock}, story 5.2).</li>
- * <li>{@link #dispose()}: the Run is detached before the game is torn down, and a Profile the launcher
- * made for this Run alone is deleted.</li>
+ * <li>{@link #dispose()}: the Run is detached before the game is torn down, ended as {@code CLOSED} if it
+ * still played, so its log ends with an end record whether the Run ended or the window was closed (issue
+ * #175); and a Profile the launcher made for this Run alone is deleted.</li>
  * </ul>
  *
  * <p>Nothing here edits upstream: the class extends the game, and the methods call the game's own

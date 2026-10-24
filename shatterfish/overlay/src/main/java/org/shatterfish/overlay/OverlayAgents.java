@@ -6,6 +6,9 @@ import org.shatterfish.api.Weights;
 import org.shatterfish.brain.Brain;
 import org.shatterfish.brain.BrainDecider;
 import org.shatterfish.harness.agent.RandomAgent;
+import org.shatterfish.harness.boot.HeadlessBoot;
+import org.shatterfish.harness.knowledge.CodexKnowledge;
+import org.shatterfish.harness.knowledge.ConfigHash;
 import org.shatterfish.harness.log.Json;
 import org.shatterfish.harness.rng.DeciderSeeds;
 
@@ -22,9 +25,11 @@ import java.util.function.Supplier;
 /**
  * Who plays an Overlay Run (story 5.1): the random agent, the Rig's Baseline, or the Brain.
  *
- * <p>The Brain here is built on an empty Codex: the Codex reader lives in the rig, which the Overlay
- * may not depend on (docs/ideas.md), so it knows no identities, rooms, guarantees, threats or gear, and
- * plays with its pessimistic defaults. It is the Brain's own code and weights and nothing else. Its
+ * <p>The Brain here is built on the same {@code Codex.Knowledge} the Rig builds, read by the harness's
+ * {@code CodexKnowledge} from the checked-in {@code codex/<tag>/} and {@code tactics/bestiary.json}: the
+ * identities, rooms, guarantees, threats, gear and the bestiary's tags, so the watched game plays as the
+ * Rig's Runs do (a statue is scenery, a shaman shoots). The files are read once, when the launcher
+ * attaches the Brain, and a missing or mismatched one stops the launch; there is no empty fallback. Its
  * stream is seeded from its name and nothing about the Run, through the {@code DeciderSeeds} the rig's
  * {@code Brains.brainSeed} uses too, so a Brain never learns the seed through its own randomness
  * (story 4.1's fairness rule).
@@ -41,7 +46,8 @@ final class OverlayAgents {
     static Supplier<Decider> of(LaunchOptions options) {
         if (options.agent().equals("brain") || options.human()) {
             Weights weights = weights(options.weights());
-            return () -> new BrainDecider(new Brain(emptyCodex(), weights, BRAIN_SEED));
+            Codex.Knowledge knowledge = knowledge(options.codex());
+            return () -> new BrainDecider(new Brain(knowledge, weights, BRAIN_SEED));
         }
         return () -> new RandomAgent(options.agentSeed());
     }
@@ -51,9 +57,37 @@ final class OverlayAgents {
         return options.human() ? "human" : options.agent().equals("brain") ? "shatterfish" : "random";
     }
 
-    static Codex.Knowledge emptyCodex() {
-        return new Codex.Knowledge(new Codex.Manifest(Codex.VERSION, "v4.0.0", List.of("manifest.json")),
-                List.of(), List.of(), List.of());
+    /**
+     * The configuration hash the Run log's header gives the agent: for the Brain, the Rig's
+     * ({@code ConfigHash}: its configuration, its seed, and the digest of the Codex and bestiary it
+     * was built on); for a human's Run, the same for the Brain whose shadow Decisions the log records
+     * beside the person's play (story 5.9), so they carry the knowledge they came from; for the random
+     * agent, none, as the Rig gives it.
+     */
+    static String configHash(LaunchOptions options) {
+        if (!options.agent().equals("brain") && !options.human()) {
+            return "0".repeat(64);
+        }
+        return ConfigHash.of(Brain.configuration(weights(options.weights())), BRAIN_SEED,
+                CodexKnowledge.digest(options.codex()));
+    }
+
+    /**
+     * The Brain's knowledge from the Codex in {@code folder} and the bestiary beside it, read as the Rig
+     * reads it ({@code CodexKnowledge}) and checked against the tag this build is pinned to. Refuses,
+     * naming the file, when either is missing.
+     */
+    static Codex.Knowledge knowledge(Path folder) {
+        if (!Files.isDirectory(folder)) {
+            throw new IllegalArgumentException("the Brain reads the Codex from " + folder.toAbsolutePath()
+                    + ", which is not there: launch from the repository root (./gradlew :overlay:launch) or"
+                    + " state --codex");
+        }
+        Path bestiary = CodexKnowledge.bestiaryFile(folder);
+        if (!Files.isRegularFile(bestiary)) {
+            throw new IllegalArgumentException("the Brain reads the bestiary from " + bestiary + ", which is not there");
+        }
+        return CodexKnowledge.read(folder, HeadlessBoot.pinnedTag());
     }
 
     /** The committed weight set, in the rig's format ({@code WeightsFile}), read the same way. */

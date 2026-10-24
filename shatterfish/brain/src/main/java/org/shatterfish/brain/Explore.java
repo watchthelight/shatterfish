@@ -3,6 +3,7 @@ package org.shatterfish.brain;
 import org.shatterfish.api.Action;
 import org.shatterfish.api.ActorView;
 import org.shatterfish.api.Alignment;
+import org.shatterfish.api.Codex;
 import org.shatterfish.api.Fog;
 import org.shatterfish.api.HeapKind;
 import org.shatterfish.api.HeapView;
@@ -44,7 +45,8 @@ import java.util.Set;
  * once (docs/rules/visibility.md, "{@code Hero.search(intentional)} scans"): the square of cells
  * within one of the hero, two for the Rogue. So a wall is <em>covered</em> once a search has been
  * made from a cell within that radius of it, and a search spot is worth making only if it reaches a
- * wall no search has covered. When no frontier is reachable the Policy walks to the nearest such
+ * wall no search has covered. When no frontier is reachable by any path, around the regions the fight
+ * Policy retreated from or through them (issue #183), the Policy walks to the nearest such
  * spot -- one whose uncovered walls have cells the screen has never shown within two of them first,
  * which is where a hidden door leads somewhere -- and searches there. The next wait sees the hero
  * still on it, the {@link Memory} records it, and the Policy moves on. It makes at most
@@ -63,6 +65,13 @@ import java.util.Set;
  * plan goes round it.
  */
 final class Explore implements Policy {
+
+    private final Codex.Knowledge knowledge;
+
+    /** Exploring, with {@code knowledge} telling the enemies it may explore past (the passive ones) from the rest. */
+    Explore(Codex.Knowledge knowledge) {
+        this.knowledge = knowledge;
+    }
 
     /** The Policy's name, as the Decision records it and {@link Brain#policyNames()} lists it. */
     static final String NAME = "explore";
@@ -138,18 +147,18 @@ final class Explore implements Policy {
      * stands still and lets the vertigo wear off, as it does for roots. With an enemy in view the fight
      * Policy still steps, and the refusals count toward a block (Beliefs).
      */
-    static boolean dizzy(Observation observation) {
-        return has(observation, VERTIGO) && calm(observation);
+    static boolean dizzy(Observation observation, Codex.Knowledge knowledge) {
+        return has(observation, VERTIGO) && calm(observation, knowledge);
     }
 
     /** Whether a screen is one this Policy acts on: no Prompt open and no enemy in view. */
-    static boolean calm(Observation observation) {
+    static boolean calm(Observation observation, Codex.Knowledge knowledge) {
         if (observation.header().prompt() != PromptKind.NONE) {
             return false;
         }
         for (ActorView actor : observation.actors().actors()) {
-            // An enemy the game keeps passive until provoked is scenery (story 4.7, Fight.PASSIVE).
-            if (actor.alignment() == Alignment.ENEMY && !Fight.passive(actor)) {
+            // An enemy the game keeps passive until provoked is scenery (story 4.7, Fight.passive).
+            if (actor.alignment() == Alignment.ENEMY && !Fight.passive(knowledge, observation.header(), actor)) {
                 return false;
             }
         }
@@ -158,7 +167,7 @@ final class Explore implements Policy {
 
     @Override
     public boolean enters(Observation observation, Memory memory) {
-        return calm(observation);
+        return calm(observation, knowledge);
     }
 
     @Override
@@ -175,9 +184,8 @@ final class Explore implements Policy {
      * is then nothing this Policy can uncover.
      */
     static boolean spent(Observation observation, Memory memory) {
-        List<Action> offered = observation.actions().actions();
-        return uncover(observation, memory, offered, walkable(observation, memory, true), searches(observation, memory), frugal(observation, memory)) == null
-                && uncover(observation, memory, offered, walkable(observation, memory, false), searches(observation, memory), frugal(observation, memory)) == null;
+        return uncover(observation, memory, observation.actions().actions(), searches(observation, memory),
+                frugal(observation, memory)) == null;
     }
 
     /** Whether a frontier is reachable, around the regions avoided or through them (story 4.12). */
@@ -200,22 +208,18 @@ final class Explore implements Policy {
      * spent and no exit has been seen. Null when no spot within the limit reaches an uncovered wall.
      */
     static RunLog.Choice searchOn(Observation observation, Memory memory, List<Action> offered, int limit) {
-        RunLog.Choice around = uncover(observation, memory, offered, walkable(observation, memory, true), limit, false);
-        return around != null ? around
-                : uncover(observation, memory, offered, walkable(observation, memory, false), limit, false);
+        return uncover(observation, memory, offered, limit, false);
     }
 
     /**
      * The plan, before the stuck rule: out of an avoided region, a rest owed, then frontier and a
-     * search. They are planned around the regions the fight Policy retreated from; when that finds
-     * nothing -- a region over the only corridor -- they are planned again through them, rather than
-     * leave the wait to chance.
+     * search ({@link #uncover(Observation, Memory, List, int, boolean)}).
      */
-    private static RunLog.Choice plan(Observation observation, Memory memory, List<Action> offered) {
+    private RunLog.Choice plan(Observation observation, Memory memory, List<Action> offered) {
         // Rooted (story 4.12) or dizzy (story 4.13): the time the buff needs to wear off is waited out. A
         // wait, not a search: a search costs two turns and four more hunger (Hero.java:2621-2629) and
         // counts as one of the floor's search spots, spent on a place no plan chose.
-        if (rooted(observation) || dizzy(observation)) {
+        if (rooted(observation) || dizzy(observation, knowledge)) {
             for (Action pass : List.of(new Action.Wait(), new Action.Search())) {
                 if (offered.contains(pass)) {
                     return new RunLog.Choice(pass, Policies.CERTAIN, rooted(observation) ? "rooted" : "vertigo");
@@ -241,8 +245,32 @@ final class Explore implements Policy {
             }
         }
 
-        RunLog.Choice around = uncover(observation, memory, offered, walkable(observation, memory, true), searches(observation, memory), frugal(observation, memory));
-        return around != null ? around : uncover(observation, memory, offered, walkable(observation, memory, false), searches(observation, memory), frugal(observation, memory));
+        return uncover(observation, memory, offered, searches(observation, memory), frugal(observation, memory));
+    }
+
+    /**
+     * Frontier first, then a search, with up to {@code limit} spots searched on this floor (issue #183):
+     * a frontier around the regions the fight Policy retreated from, then a frontier through them, and
+     * only then a search spot, around them and then through them. A search is never made while a frontier
+     * is reachable by any walkable path: a region laid over the only door to unexplored space made the
+     * plan around it search every wall in reach, twelve spots on the owner's Run, before the plan through
+     * it was tried. Null when neither is left.
+     */
+    static RunLog.Choice uncover(Observation observation, Memory memory, List<Action> offered, int limit,
+                                 boolean promisingOnly) {
+        boolean[] around = walkable(observation, memory, true);
+        boolean[] through = walkable(observation, memory, false);
+        RunLog.Choice choice = toFrontier(observation, offered, around);
+        if (choice == null) {
+            choice = toFrontier(observation, offered, through);
+        }
+        if (choice == null) {
+            choice = search(observation, memory, offered, around, limit, promisingOnly);
+        }
+        if (choice == null) {
+            choice = search(observation, memory, offered, through, limit, promisingOnly);
+        }
+        return choice;
     }
 
     /**
@@ -298,10 +326,6 @@ final class Explore implements Policy {
     static final int RESTS = 50;
 
     /**
-     * Frontier, then a search, over the cells {@code walk} allows, with up to {@code limit} spots
-     * searched on the floor; null when neither is left.
-     */
-    /**
      * The most search spots on this floor: {@link #SEARCHES}, or {@link #FRUGAL_SEARCHES} while food is
      * tight (story 4.13, {@link Larder}): a search costs two turns and four more hunger
      * (Hero.java:211-212, :2624-2629).
@@ -328,17 +352,24 @@ final class Explore implements Policy {
     /** The most search spots per floor while food is tight: only where a secret is plausible. */
     static final int FRUGAL_SEARCHES = 4;
 
-    private static RunLog.Choice uncover(Observation observation, Memory memory, List<Action> offered, boolean[] walk,
-                                         int limit, boolean promisingOnly) {
+    /** A Step toward the nearest frontier over the cells {@code walk} allows, or null when none is reachable. */
+    private static RunLog.Choice toFrontier(Observation observation, List<Action> offered, boolean[] walk) {
+        MapSection map = observation.map();
+        Path frontier = nearest(map, walk, observation.hero().cell(), offered, cell -> frontier(map, walk, cell));
+        return frontier == null ? null
+                : new RunLog.Choice(frontier.step, Policies.CERTAIN, "frontier " + frontier.distance);
+    }
+
+    /**
+     * A search, or a Step toward a spot worth searching, over the cells {@code walk} allows, with up to
+     * {@code limit} spots searched on the floor; null when none is left.
+     */
+    private static RunLog.Choice search(Observation observation, Memory memory, List<Action> offered, boolean[] walk,
+                                        int limit, boolean promisingOnly) {
         MapSection map = observation.map();
         int depth = observation.header().depth();
         int branch = observation.header().branch();
         int hero = observation.hero().cell();
-        Path frontier = nearest(map, walk, hero, offered, cell -> frontier(map, walk, cell));
-        if (frontier != null) {
-            return new RunLog.Choice(frontier.step, Policies.CERTAIN, "frontier " + frontier.distance);
-        }
-
         int radius = radius(observation);
         List<Memory.Spot> searched = memory.dwelt().stream().filter(spot -> spot.on(depth, branch)).toList();
         if (searched.size() < limit) {
@@ -538,6 +569,15 @@ final class Explore implements Policy {
      * {@code throughClouds}: the way out of one for a hero standing in it (story 4.10).
      */
     static boolean[] walkable(Observation observation, Memory memory, boolean avoiding, boolean throughClouds) {
+        return walkable(observation, memory, avoiding ? 0 : Long.MAX_VALUE, throughClouds);
+    }
+
+    /**
+     * {@link #walkable(Observation, Memory, boolean, boolean)} with only the regions that have at least
+     * {@code keepFor} waits left to run kept out of (issue #183): 0 keeps all of them, a larger number only
+     * the young ones. The pick-up Policy crosses a region once it has half run, not before.
+     */
+    static boolean[] walkable(Observation observation, Memory memory, long keepFor, boolean throughClouds) {
         MapSection map = observation.map();
         int cells = map.tiles().size();
         boolean[] walk = new boolean[cells];
@@ -589,8 +629,11 @@ final class Explore implements Policy {
                 walk[block.cell()] = false;
             }
         }
-        if (avoiding) {
+        if (keepFor != Long.MAX_VALUE) {
             for (Memory.Avoid region : memory.avoided(depth, branch, memory.waits())) {
+                if (region.until() - memory.waits() < keepFor) {
+                    continue;
+                }
                 for (int cell = 0; cell < cells; cell++) {
                     if (region.covers(depth, branch, cell, map.width())) {
                         walk[cell] = false;
