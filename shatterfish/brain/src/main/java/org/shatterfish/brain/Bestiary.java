@@ -13,8 +13,8 @@ import java.util.Map;
  * pinned code and cited on each bestiary card, which non-negotiable 1 allows.
  *
  * <p>An enemy the bestiary has no entry for (a Knowledge the caller built without one) answers false
- * to every question here, which is the Brain's behaviour before the bestiary: nothing passive,
- * nothing at range, nothing immobile.
+ * to every question here: nothing passive, nothing at range, nothing immobile. The loaders always
+ * read the bestiary, so this only happens in a test that builds a Knowledge by hand.
  */
 final class Bestiary {
 

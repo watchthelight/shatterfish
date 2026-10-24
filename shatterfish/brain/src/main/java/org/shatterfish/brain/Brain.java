@@ -116,7 +116,9 @@ public final class Brain {
 
     /**
      * The enemies the fight Policy treats as scenery, by the name the screen shows (story 4.7), as
-     * {@code knowledge}'s bestiary tags them on any depth.
+     * {@code knowledge}'s bestiary tags them. Each entry is asked on its own first depth, so for a name
+     * shared by several classes the answer is not what {@code Knowledge.tactics} picks in play; use
+     * {@link #bestiaryAnswers} for that. Only tests call this.
      */
     public static java.util.Set<String> passiveEnemies(Codex.Knowledge knowledge) {
         java.util.Set<String> names = new java.util.TreeSet<>();
