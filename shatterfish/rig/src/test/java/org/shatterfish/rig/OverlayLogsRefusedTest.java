@@ -37,15 +37,21 @@ class OverlayLogsRefusedTest {
     private static final String ZERO = "0".repeat(64);
 
     private static Path log(Path folder, long seed, String driver) throws IOException {
+        return log(folder, seed, driver, "DEATH", "", true);
+    }
+
+    /** A log that ends by {@code cause}, saying {@code detail}. */
+    private static Path log(Path folder, long seed, String driver, String cause, String detail, boolean verifiable)
+            throws IOException {
         // The versions this build writes, so that nothing but the driver is a reason to refuse it.
         HeadlessBoot.ensure();
         RunLog.Header header = new RunLog.Header(RunLog.VERSION, HeadlessBoot.pinnedTag(), "abc1234",
                 HeroClass.WARRIOR, 0, seed, SeedSet.code(seed), 100L + seed, 150, Profile.VERSION,
                 ObservationCodec.SCHEMA_VERSION, Codex.VERSION,
                 new RunLog.Brain("random", "abc1234", ZERO), "", false, "a laptop", "2026-09-26T00:00:00Z", driver);
-        RunLog.Outcome died = new RunLog.Outcome(false, false, 0, 1, 1_000, "DEATH", 0);
+        RunLog.Outcome died = new RunLog.Outcome(false, false, 0, 1, 1_000, cause, 0);
         String text = RunLogJson.line("", header) + "\n"
-                + RunLogJson.line(RunLogJson.chain("", header), new RunLog.End(0, died, true)) + "\n";
+                + RunLogJson.line(RunLogJson.chain("", header), new RunLog.End(0, died, verifiable, detail)) + "\n";
         Path file = folder.resolve(RunLog.fileName(header.runId()));
         Files.writeString(file, text, StandardCharsets.UTF_8);
         return file;
@@ -81,6 +87,24 @@ class OverlayLogsRefusedTest {
         // "did not reproduce" when it was never claimed to.
         assertNull(Replay.refusal(RunLogReader.of(headless).header()), "the headless log is replayable");
         assertEquals("driver", Replay.refusal(RunLogReader.of(overlay).header()).field());
+    }
+
+    @Test
+    @DisplayName("an Overlay log closed mid-Run ends with a CLOSED record the readers accept, and the Rig still refuses it")
+    void a_closed_overlay_log_is_read_and_refused(@TempDir Path folder) throws IOException {
+        // Issue #175: EmbeddedRun.close ends a Run still playing as CLOSED, naming the wait.
+        Path overlay = log(folder, 5000, RunLog.Header.EMBEDDED, "CLOSED", "closed at wait 0", false);
+        RunLogReader.Log read = RunLogReader.of(overlay);
+        assertTrue(read.complete(), "the log ends with an end record");
+        assertEquals("CLOSED", read.end().outcome().cause());
+        assertEquals("closed at wait 0", read.end().detail());
+        assertFalse(read.end().verifiable(), "nothing is reproducible from a closed Run");
+        assertTrue(org.shatterfish.harness.log.RunLogVerifier.of(overlay).ok(), "the chain holds");
+
+        assertThrows(OverlayLogs.Refused.class, () -> Comparison.outcome(overlay));
+        assertThrows(OverlayLogs.Refused.class, () -> LogHeader.of(overlay));
+        assertThrows(OverlayLogs.Refused.class, () -> GalleryComparison.ending(overlay));
+        assertEquals("driver", Replay.refusal(read.header()).field());
     }
 
     @Test

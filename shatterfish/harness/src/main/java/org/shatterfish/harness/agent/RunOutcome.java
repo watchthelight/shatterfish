@@ -64,7 +64,15 @@ public record RunOutcome(Cause cause, long salt, int depth, int turns, long wait
          * (story 4.11): a loop of zero-time Actions the turn cap cannot end. {@link #detail} says how
          * many and the last Action.
          */
-        STALLED
+        STALLED,
+
+        /**
+         * The embedded Run was closed while it still played (issue #175): the Overlay's window was
+         * closed or the game exited, and {@code EmbeddedRun.close} ended the Run there, so a closed
+         * window and a freeze no longer look the same in the log. Only an embedded Run ends so, and
+         * nothing can be reproduced from it; {@link #detail} names the wait it was closed at.
+         */
+        CLOSED
     }
 
     /** Whether this Run ended the way a Run is meant to end, rather than by something going wrong. */

@@ -240,7 +240,13 @@ public final class EmbeddedRun implements AutoCloseable {
     /** The thread the last decision ran on, for a test to see it was not this one. */
     private volatile Thread decidedOn;
     private RunOutcome outcome;
-    private boolean closed;
+    private volatile boolean closed;
+    /** The Brain's worker thread once it has started, for the watchdog's report. */
+    private volatile Thread brainThread;
+    /** Says what the threads are doing when no wait is served for a while (issue #175); null for a HUMAN Run. */
+    private Watchdog watchdog;
+    /** Whether the Run still plays, as the watchdog reads it from its own thread. */
+    private volatile boolean ended;
 
     /** A shadow question in flight: the wait it was asked at, and the Decision it will answer with. */
     private record Shadowed(long k, Observation observation, Future<ShadowAnswer> decision) {
@@ -271,6 +277,7 @@ public final class EmbeddedRun implements AutoCloseable {
         this.worker = Executors.newSingleThreadExecutor(task -> {
             Thread thread = new Thread(task, "shatterfish-brain");
             thread.setDaemon(true);
+            brainThread = thread;
             return thread;
         });
     }
@@ -353,6 +360,12 @@ public final class EmbeddedRun implements AutoCloseable {
                     run.human.unsupportedFromTheStart("a game controller is connected, and its input reaches the"
                             + " game past the Overlay's input lock");
                 }
+            }
+            if (!human) {
+                // A person's Run waits on the person, and a long wait there is no freeze (issue #175).
+                run.watchdog = new Watchdog(Watchdog.sideLogOf(log == null ? null : log.file()), System.err, ui,
+                        () -> run.brainThread, run.gate::waitIndex, () -> !run.ended && !run.closed, Watchdog.SECONDS);
+                run.watchdog.start();
             }
             run.arm();
             return run;
@@ -762,6 +775,9 @@ public final class EmbeddedRun implements AutoCloseable {
             return;
         }
         pendingMark = null;
+        if (watchdog != null) {
+            watchdog.served();
+        }
         Decided decided;
         if (done.state() == Future.State.SUCCESS) {
             decided = done.resultNow();
@@ -888,6 +904,10 @@ public final class EmbeddedRun implements AutoCloseable {
             waits = applied;
         }
         outcome = RunLoop.outcome(cause, rng.salt(), waits, applied, refused, detail);
+        ended = true;
+        if (watchdog != null) {
+            watchdog.close();
+        }
         RunLoop.ending(log, gate.waitIndex(), outcome, human != null && human.unverifiableFrom() > 0);
         if (log != null) {
             log.close();
@@ -897,25 +917,40 @@ public final class EmbeddedRun implements AutoCloseable {
 
     /**
      * Detaches the Run: the worker stops, the hooks this Run set are taken back, and the UI role is
-     * released if this Run claimed it. A Run closed before it ended leaves a log with no end record,
-     * which is what a killed Run's log is and what the Rig counts it as (ADR-0012).
+     * released if this Run claimed it. A Run closed before it ended is ended here, as {@code CLOSED}, with
+     * the wait it was closed at (issue #175): the Overlay closes its Run when its window is closed or the
+     * game exits ({@code OverlayGame.dispose}), so an Overlay log always ends with an end record, and a
+     * log with none is a process that died without closing, which is what a killed Run's log is and what
+     * the Rig counts it as (ADR-0012). A decision still pending is dropped unrecorded.
      */
     @Override
     public void close() {
         if (closed) {
             return;
         }
-        closed = true;
         try {
             if (pending != null) {
                 pending.cancel(true);
                 pending = null;
             }
-            worker.shutdownNow();
-            if (outcome == null && log != null) {
-                log.close();
+            if (outcome == null) {
+                try {
+                    end(RunOutcome.Cause.CLOSED, "closed at wait " + gate.waitIndex());
+                } catch (RuntimeException unended) {
+                    // The window is closing: an end record that cannot be written must not keep it open.
+                    System.err.println("[shatterfish] the closed Run's end record was not written: " + unended);
+                    if (log != null) {
+                        log.close();
+                    }
+                }
             }
+            closed = true;
+            if (watchdog != null) {
+                watchdog.close();
+            }
+            worker.shutdownNow();
         } finally {
+            closed = true;
             if (Hooks.inputWait == inputWait) {
                 Hooks.inputWait = null;
             }
@@ -1015,6 +1050,11 @@ public final class EmbeddedRun implements AutoCloseable {
     /** The Run's log file, or null for a Run with no log. */
     public java.nio.file.Path logFile() {
         return log == null ? null : log.file();
+    }
+
+    /** The Run's watchdog (issue #175), or null for a HUMAN Run; for the tests. */
+    Watchdog watchdog() {
+        return watchdog;
     }
 
     /** The UI-role thread this Run was attached on. */
