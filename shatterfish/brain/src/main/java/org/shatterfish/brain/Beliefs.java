@@ -217,7 +217,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         // screen shows where the enemy stood with no enemy anywhere inside the region (issue #183): the enemy
         // it was set for has died, or gone somewhere the screen shows is not there.
         List<Memory.Avoid> avoid = memory.avoid().stream()
-                .filter(region -> region.until() >= waits && !seenClear(region, observation)).toList();
+                .filter(region -> region.until() >= waits && !seenClear(region, observation, knowledge)).toList();
         // The plain heap underfoot, and whether it is one the game would not let the hero take
         // (story 4.8): the pick-up Policy's target on the last screen was this heap, that screen was
         // calm, the hero stands on it still, it shows the same title, and the pack is unchanged. A
@@ -442,7 +442,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
      * anywhere inside it. What the screen draws, nothing more: an enemy out of view is not placed, only
      * shown absent where the screen shows the cells.
      */
-    static boolean seenClear(Memory.Avoid region, Observation observation) {
+    static boolean seenClear(Memory.Avoid region, Observation observation, Codex.Knowledge knowledge) {
         MapSection map = observation.map();
         int depth = observation.header().depth();
         int branch = observation.header().branch();
@@ -450,7 +450,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 || map.fog().get(region.cell()) != org.shatterfish.api.Fog.VISIBLE) {
             return false;
         }
-        return Fight.enemies(observation).stream()
+        return Fight.enemies(observation, knowledge).stream()
                 .noneMatch(enemy -> region.covers(depth, branch, enemy.cell(), map.width()));
     }
 
