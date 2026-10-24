@@ -44,6 +44,37 @@ final class Screens {
     static final Codex.Manifest MANIFEST = new Codex.Manifest(Codex.VERSION, "v4.0.0", List.of("manifest.json"));
 
     /**
+     * A bestiary entry with the tags the Brain reads (speed, attack, flying, ai, outrunnable) and
+     * neutral values for the rest, created as an enemy, placed by the rotation on {@code depths}.
+     */
+    static Codex.Tactics tactics(String className, String name, String speed, String attack, boolean flying, String ai,
+                                 boolean outrunnable, Integer... depths) {
+        return new Codex.Tactics(className, name, Alignment.ENEMY, List.of(depths), speed, attack,
+                attack.equals("melee") ? 1 : 8, flying, false, List.of(), List.of(), ai, false, false, false, "close",
+                false, outrunnable, List.of("stairs"));
+    }
+
+    /**
+     * The bestiary entries for the enemies the Brain's hand lists named before the bestiary (lever 0),
+     * tagged as tactics/bestiary.json tags them: the passive statues and exile, the enemies that shoot
+     * or fly, and a lasher that never walks. Nothing that walks at the hero's pace or faster is here, so
+     * the speed-aware retreat (lever 1) leaves every screen that does not add one alone: every entry
+     * here is outrunnable, the bat included, whatever the real file says of its speed.
+     */
+    static final List<Codex.Tactics> BESTIARY = List.of(
+            tactics("actors.mobs.Statue", "animated statue", "normal", "melee", false, "passive", true),
+            tactics("actors.mobs.ArmoredStatue", "armored statue", "normal", "melee", false, "passive", true),
+            tactics("actors.mobs.GnollExile", "gnoll exile", "normal", "melee", false, "passive", true, 2, 3, 4),
+            tactics("actors.mobs.Eye", "evil eye", "normal", "bolt", true, "sleeping", true, 21, 22, 23, 24),
+            tactics("actors.mobs.Shaman.RedShaman", "gnoll shaman", "normal", "bolt", false, "sleeping", true, 11, 12, 13, 14),
+            tactics("actors.mobs.Warlock", "dwarf warlock", "normal", "bolt", false, "sleeping", true, 16, 17, 18, 19),
+            tactics("actors.mobs.DM100", "DM-100", "normal", "bolt", false, "sleeping", true, 7, 8, 9),
+            tactics("actors.mobs.Scorpio", "scorpio", "normal", "ranged", false, "sleeping", true, 23, 24),
+            tactics("actors.mobs.Acidic", "acidic scorpio", "normal", "ranged", false, "sleeping", true, 23, 24),
+            tactics("actors.mobs.Bat", "vampire bat", "normal", "melee", true, "sleeping", true, 9, 11, 12, 13, 14),
+            tactics("actors.mobs.RotLasher", "lasher", "immobile", "melee", false, "hunting", true));
+
+    /**
      * A small Codex: three potion appearances over four identities (strength weighted zero, as the
      * decks weight it), two scroll appearances over two, the pool room's potion and the two
      * guaranteed drops, as the real tables give them.
@@ -70,7 +101,7 @@ final class Screens {
                     new Codex.Gear("mage's staff", 0, 1, 6, 3501, 1, 10)),
             List.of(new Codex.Gear("cloth armor", 0, 0, 2, 1004, 1, 10),
                     new Codex.Gear("leather armor", 0, 0, 4, 2013, 2, 12)),
-            List.of());
+            List.of()).withBestiary(BESTIARY);
 
     /** The committed weight set's values (weights/shatterfish.json), which WeightsFileTest holds to the file. */
     static final Weights WEIGHTS = weights(Map.of());

@@ -1,5 +1,6 @@
 package org.shatterfish.rig;
 
+import org.shatterfish.harness.knowledge.CodexKnowledge;
 import org.shatterfish.api.HeroClass;
 import org.shatterfish.api.RunLog;
 import org.shatterfish.api.SeedSet;
@@ -99,9 +100,11 @@ public final class RunOne {
         org.shatterfish.api.Weights weights = Brains.readsWeights(brain)
                 ? WeightsFile.read(Path.of(arguments.get(WEIGHTS)), brain)
                 : null;
+        String knowledge = arguments.containsKey(CODEX) && Brains.readsCodex(brain)
+                ? CodexKnowledge.digest(Path.of(arguments.get(CODEX))) : null;
         RunLoop.Logging logging = new RunLoop.Logging(out,
                 required(arguments, COMMIT),
-                new RunLog.Brain(brain, required(arguments, BRAIN_COMMIT), Brains.configHash(brain, weights)),
+                new RunLog.Brain(brain, required(arguments, BRAIN_COMMIT), Brains.configHash(brain, weights, knowledge)),
                 arguments.getOrDefault(REGISTRATION, ""), arguments.getOrDefault(MACHINE, ""));
         int cap = arguments.containsKey(CAP) ? (int) number(arguments, CAP) : RunLoop.TURN_CAP;
         where();

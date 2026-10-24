@@ -179,6 +179,8 @@ class JsonRenderingTest {
             "Codex$Candidate", "Codex$Identities", "Codex$RoomSpawn", "Codex$Guarantee", "Codex$Knowledge",
             // The combat tables a Brain fights by (story 4.7).
             "Codex$Threat", "Codex$Gear",
+            // The bestiary's tags per enemy class (the bestiary's lever 0, docs/ideas.md).
+            "Codex$Tactics",
             // The decks and the items (story 2.3).
             "Codex$Weighted", "Codex$CategoryEntry", "Codex$Label", "Codex$LabelPool", "Codex$ExoticPair", "Codex$ExoticSwap",
             "Codex$Decks", "Codex$Strength", "Codex$ItemEntry",

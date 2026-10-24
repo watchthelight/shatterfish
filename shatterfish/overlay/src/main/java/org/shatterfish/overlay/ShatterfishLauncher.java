@@ -102,7 +102,7 @@ public final class ShatterfishLauncher {
     /** Where the Run's log goes and who played it; the oracle flag is the launcher's, and nobody else's. */
     static RunLoop.Logging logging(LaunchOptions options, String machine) {
         return new RunLoop.Logging(options.out().toAbsolutePath(), "0".repeat(40),
-                new RunLog.Brain(OverlayAgents.name(options), "0".repeat(40), "0".repeat(64)), "", machine,
+                new RunLog.Brain(OverlayAgents.name(options), "0".repeat(40), OverlayAgents.configHash(options)), "", machine,
                 options.oracle());
     }
 

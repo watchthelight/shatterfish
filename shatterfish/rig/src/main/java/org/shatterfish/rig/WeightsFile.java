@@ -1,5 +1,6 @@
 package org.shatterfish.rig;
 
+import org.shatterfish.harness.knowledge.CodexManifest;
 import org.shatterfish.api.Weights;
 import org.shatterfish.harness.log.Json;
 

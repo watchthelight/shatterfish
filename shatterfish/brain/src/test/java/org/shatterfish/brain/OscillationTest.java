@@ -217,12 +217,12 @@ class OscillationTest {
 
         Observation corridor = pocket(POCKET, List.of()).apply(5 + 10);
         Memory fresh = Beliefs.fold(chasing, corridor, FightPolicyTest.KNOWLEDGE);
-        assertTrue(Fight.chasing(corridor, fresh), "out of view one wait later: chased");
+        assertTrue(Fight.chasing(corridor, fresh, FightPolicyTest.KNOWLEDGE), "out of view one wait later: chased");
         Memory stale = chasing;
         for (int i = 0; i <= Fight.CHASE_WAITS; i++) {
             stale = Beliefs.fold(stale, corridor, FightPolicyTest.KNOWLEDGE);
         }
-        assertFalse(Fight.chasing(corridor, stale), "past CHASE_WAITS the chase has lapsed");
+        assertFalse(Fight.chasing(corridor, stale, FightPolicyTest.KNOWLEDGE), "past CHASE_WAITS the chase has lapsed");
         assertEquals(Memory.Spot.NOWHERE, stale.chase(), "and the fold forgets it");
 
         Observation beside = pocket(POCKET, List.of()).apply(5 + 5 * 10);
@@ -362,10 +362,10 @@ class OscillationTest {
         Memory recalled = new Memory(memory.waits(), memory.deepest(), memory.facts(), memory.found(), memory.held(),
                 memory.known(), memory.labels(), memory.pending(), monsters, memory.at(), memory.streak(), memory.calm(),
                 memory.dwelt(), memory.blocked());
-        List<ActorView> threats = Fight.threats(screen, recalled, Fight.enemies(screen));
+        List<ActorView> threats = Fight.threats(screen, recalled, Fight.enemies(screen, FightPolicyTest.KNOWLEDGE), FightPolicyTest.KNOWLEDGE);
         assertEquals(List.of(4 + 10, 5 + 20), threats.stream().map(ActorView::cell).toList(),
                 "the rat in view and the brute out of view; not the brute whose cell shows empty, nor the old sighting");
-        assertTrue(Fight.favourable(screen, FightPolicyTest.KNOWLEDGE, Fight.enemies(screen)), "the rat alone");
+        assertTrue(Fight.favourable(screen, FightPolicyTest.KNOWLEDGE, Fight.enemies(screen, FightPolicyTest.KNOWLEDGE)), "the rat alone");
         assertFalse(Fight.favourable(screen, FightPolicyTest.KNOWLEDGE, threats), "with the brute nearby");
         Brain.Decided decided = brain().decide(screen, recalled.belief());
         assertFalse(decided.decision().chosen().why().startsWith("approach "),

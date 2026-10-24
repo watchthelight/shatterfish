@@ -1,4 +1,4 @@
-package org.shatterfish.rig;
+package org.shatterfish.harness.knowledge;
 
 import org.shatterfish.api.Codex;
 import org.shatterfish.harness.log.Json;
