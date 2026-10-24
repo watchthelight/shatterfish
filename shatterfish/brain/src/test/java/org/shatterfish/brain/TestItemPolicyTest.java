@@ -605,7 +605,9 @@ class TestItemPolicyTest {
         Brain.Decided other = brain(Screens.CODEX).decide(Screens.prompted(PromptKind.OTHER, "Warp beacon",
                 "Where to?", List.of("Yes, I know what I'm doing", "No, I changed my mind"),
                 new Action.AnswerPrompt(0), new Action.AnswerPrompt(1)), null);
-        assertEquals(new Action.AnswerPrompt(0), other.action(), "only item Prompts: story 4.11 owns the rest");
+        // Story 4.10 declined only item Prompts this way and left the rest to story 4.11's lowest answer;
+        // issue #170 found the chasm's "yes" pressed so, and "No, I changed my mind" now declines any kind.
+        assertEquals(new Action.AnswerPrompt(1), other.action(), "any kind is declined by the same words (issue #170)");
     }
 
     @Test
