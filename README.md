@@ -115,6 +115,9 @@ E5 (the Overlay) so far:
   it as a shadow that never runs, and N writes a note at that turn.
   `./gradlew :rig:strategy --args="overlay-runs"` prints your action against the
   Brain's, turn by turn. Taking over mid-Run is story 5.8.
+- Fix since: closing the game mid-Run now ends the log with a `CLOSED` record,
+  and a watchdog writes every thread's state beside the log when the Overlay goes
+  30 seconds without a turn, so a freeze leaves evidence (#175).
 - Next: the controls (5.5-5.8), with bestiary-driven Brain changes in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
