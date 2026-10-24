@@ -167,12 +167,14 @@ final class Pickup implements Policy {
 
     /**
      * The best heap worth its walk around the regions the fight Policy retreated from, or, when none is,
-     * through them (issue #182): a region left over the only way to a heap kept it untaken for as long as
-     * the region lasted. Null when no heap is worth its walk either way.
+     * through the ones that have run half their life (issue #182): a region left
+     * over the only way to a heap kept it untaken for as long as the region lasted. A heap can wait for
+     * the enemy to move on, and walking back into a fresh region meets the enemy it was set for, which
+     * the fight Policy retreats from again. Null when no heap is worth its walk either way.
      */
     private Plan plan(Observation observation, Memory memory) {
-        for (boolean avoiding : new boolean[]{true, false}) {
-            boolean[] walk = Explore.walkable(observation, memory, avoiding);
+        for (long keepFor : new long[]{0, Brain.AVOID_WAITS / 2}) {
+            boolean[] walk = Explore.walkable(observation, memory, keepFor, false);
             HeapView best = best(observation, memory, walk);
             if (best != null) {
                 return new Plan(best, walk);

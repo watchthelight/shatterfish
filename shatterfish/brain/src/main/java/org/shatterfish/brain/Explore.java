@@ -547,6 +547,15 @@ final class Explore implements Policy {
      * {@code throughClouds}: the way out of one for a hero standing in it (story 4.10).
      */
     static boolean[] walkable(Observation observation, Memory memory, boolean avoiding, boolean throughClouds) {
+        return walkable(observation, memory, avoiding ? 0 : Long.MAX_VALUE, throughClouds);
+    }
+
+    /**
+     * {@link #walkable(Observation, Memory, boolean, boolean)} with only the regions that have at least
+     * {@code keepFor} waits left to run kept out of (issue #183): 0 keeps all of them, a larger number only
+     * the young ones. The pick-up Policy crosses a region once it has half run, not before.
+     */
+    static boolean[] walkable(Observation observation, Memory memory, long keepFor, boolean throughClouds) {
         MapSection map = observation.map();
         int cells = map.tiles().size();
         boolean[] walk = new boolean[cells];
@@ -598,8 +607,11 @@ final class Explore implements Policy {
                 walk[block.cell()] = false;
             }
         }
-        if (avoiding) {
+        if (keepFor != Long.MAX_VALUE) {
             for (Memory.Avoid region : memory.avoided(depth, branch, memory.waits())) {
+                if (region.until() - memory.waits() < keepFor) {
+                    continue;
+                }
                 for (int cell = 0; cell < cells; cell++) {
                     if (region.covers(depth, branch, cell, map.width())) {
                         walk[cell] = false;

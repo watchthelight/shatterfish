@@ -85,7 +85,7 @@ class AvoidedZoneTest {
     @DisplayName("a heap inside a region is walked to through it and taken, and the Step into the region lifts it")
     void pick_up_through_a_region() {
         int heap = 7 + 2 * WIDTH;
-        Memory.Avoid region = new Memory.Avoid(1, 0, 8 + 3 * WIDTH, 2, 500);
+        Memory.Avoid region = new Memory.Avoid(1, 0, 8 + 3 * WIDTH, 2, Brain.AVOID_WAITS / 2 - 1);
         Belief start = Memory.START.avoiding(region).belief();
         int[] taken = {0};
         IntFunction<Observation> world = hero -> {
@@ -100,6 +100,28 @@ class AvoidedZoneTest {
                 + played.decisions());
         assertEquals(Pickup.NAME, played.decisions().get(0).policy(), played.decisions().get(0).toString());
         assertTrue(Memory.of(played.belief()).avoid().isEmpty(), "the region was crossed, and lifted");
+    }
+
+    @Test
+    @DisplayName("a heap beyond a fresh region is left to the explore Policy until the region has run half its life: "
+            + "walking back into a fresh one meets the enemy it was set for")
+    void pick_up_waits_for_a_fresh_zone() {
+        int heap = 7 + 2 * WIDTH;
+        Observation screen = OscillationTest.screen(ROOM, 2 + WIDTH, 20, List.of(), List.of(OscillationTest.ration(heap)));
+        Brain brain = brain();
+        Memory.Avoid fresh = new Memory.Avoid(1, 0, 8 + 3 * WIDTH, 2, 500);
+        Brain.Decided decided = brain.decide(screen, brain.update(screen, Memory.START.avoiding(fresh).belief()));
+        assertFalse(Pickup.NAME.equals(decided.decision().policy()), decided.decision().toString());
+        Memory.Avoid aged = new Memory.Avoid(1, 0, 8 + 3 * WIDTH, 2, Brain.AVOID_WAITS / 2 - 1);
+        Brain.Decided later = brain.decide(screen, brain.update(screen, Memory.START.avoiding(aged).belief()));
+        assertEquals(Pickup.NAME, later.decision().policy(), later.decision().toString());
+    }
+
+    @Test
+    @DisplayName("a retreat's zone lasts 40 waits and reaches at most 5 cells, the numbers the measurement chose")
+    void zone_size() {
+        assertEquals(40, Brain.AVOID_WAITS);
+        assertEquals(5, Brain.AVOID_RADIUS);
     }
 
     @Test
