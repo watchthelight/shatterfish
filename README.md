@@ -75,7 +75,8 @@ mutation battery and a direction check on the `smoke` Seed set):
 - Fixes since, each measured on the same 40 Warriors: the two-cell shimmy
   (#174) fell from 27% of waits to about 1%; after killing Goo the Brain now
   unlocks the boss floor's exit with the key Goo drops (#163), taking 7 of 40
-  heroes to depth 6 where none went before.
+  heroes to depth 6 where none went before; and it no longer steps onto a
+  chasm or says yes to the jump it did not mean (#170).
 - Waiting on an owner decision: **4.14**, the registered 400-Warrior `goo` set
   and its 75% gate, which is several stories away at the current rate.
 
