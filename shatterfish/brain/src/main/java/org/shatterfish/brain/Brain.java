@@ -169,7 +169,10 @@ public final class Brain {
     }
 
     /** How many waits a region the fight Policy retreated from stays avoided. */
-    static final int AVOID_WAITS = 100;
+    static final int AVOID_WAITS = 40;
+
+    /** The widest a region the fight Policy retreated from reaches, in cells from where the enemy stood. */
+    static final int AVOID_RADIUS = 5;
 
     /** The kinds of Action whose window, once left, is shunned on the floor (story 4.11). */
     static final java.util.Set<String> OPENERS = java.util.Set.of("Interact", "Buy", "UseItem", "UseItemOn",
@@ -265,10 +268,12 @@ public final class Brain {
                 memory = memory.chasing(Memory.Spot.NOWHERE, -1);
             }
         }
-        // A Step into a region the fight Policy retreated from, handed over by the explore or the descend
-        // Policy, which plan around the regions and through one only when no way around is left (issue
-        // #174): the region is crossed, and lifted. Explore's own way out of a region ("away") is no crossing.
-        if (decision != null && (Explore.NAME.equals(decision.policy()) || Descend.NAME.equals(decision.policy()))
+        // A Step into a region the fight Policy retreated from, handed over by the explore, the descend or
+        // (issue #182) the pick-up Policy, which plan around the regions and through one only when no way
+        // around is left (issue #174): the region is crossed, and lifted. Explore's own way out of a region
+        // ("away") is no crossing.
+        if (decision != null && (Explore.NAME.equals(decision.policy()) || Descend.NAME.equals(decision.policy())
+                || Pickup.NAME.equals(decision.policy()))
                 && decided.action() instanceof Action.Step step && !decision.chosen().why().startsWith("away ")) {
             memory = memory.lifting(depth, branch, step.cell(), observation.map().width());
         }
@@ -291,7 +296,7 @@ public final class Brain {
             }
             if (nearest != null) {
                 memory = memory.avoiding(new Memory.Avoid(observation.header().depth(), observation.header().branch(),
-                        nearest.cell(), Math.min(8, best + 1), memory.waits() + AVOID_WAITS));
+                        nearest.cell(), Math.min(AVOID_RADIUS, best + 1), memory.waits() + AVOID_WAITS));
             }
         }
         return memory.belief();

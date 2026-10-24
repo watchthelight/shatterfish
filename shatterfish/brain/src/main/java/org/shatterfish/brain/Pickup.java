@@ -42,6 +42,10 @@ import java.util.List;
  * brings the hero nearer the heap; when the hero has stood still long enough for the explore Policy
  * to yield ({@link Explore#STUCK} - 1 waits), this one yields too.
  *
+ * <p>It plans around the regions the fight Policy retreated from and, when no heap is worth its walk
+ * that way, through them (issue #182), as the explore Policy does; a Step it hands over into a region
+ * crosses and lifts it ({@link Brain#handed}).
+ *
  * <p>One title is worth crossing the whole floor for regardless of the trip: {@link #WORN_KEY}
  * (issue #163). A weighed worth would leave it behind whenever the trip back from wherever Goo died
  * cost more than an ordinary item's, and nothing else fetches it, so the descend Policy would walk to
@@ -153,13 +157,34 @@ final class Pickup implements Policy {
 
     /** The cell of the heap this Policy goes for, or -1. */
     int target(Observation observation, Memory memory) {
-        HeapView best = best(observation, memory);
-        return best == null ? -1 : best.cell();
+        Plan plan = plan(observation, memory);
+        return plan == null ? -1 : plan.heap().cell();
     }
 
-    private HeapView best(Observation observation, Memory memory) {
+    /** The heap this Policy goes for and the cells it walks over to reach it. */
+    private record Plan(HeapView heap, boolean[] walk) {
+    }
+
+    /**
+     * The best heap worth its walk around the regions the fight Policy retreated from, or, when none is,
+     * through the ones that have run half their life (issue #182): a region left
+     * over the only way to a heap kept it untaken for as long as the region lasted. A heap can wait for
+     * the enemy to move on, and walking back into a fresh region meets the enemy it was set for, which
+     * the fight Policy retreats from again. Null when no heap is worth its walk either way.
+     */
+    private Plan plan(Observation observation, Memory memory) {
+        for (long keepFor : new long[]{0, Brain.AVOID_WAITS / 2}) {
+            boolean[] walk = Explore.walkable(observation, memory, keepFor, false);
+            HeapView best = best(observation, memory, walk);
+            if (best != null) {
+                return new Plan(best, walk);
+            }
+        }
+        return null;
+    }
+
+    private HeapView best(Observation observation, Memory memory, boolean[] walk) {
         MapSection map = observation.map();
-        boolean[] walk = Explore.walkable(observation, memory);
         int[] distance = distances(map, walk, observation.hero().cell());
         HeapView best = null;
         long bestNet = 0;
@@ -182,12 +207,13 @@ final class Pickup implements Policy {
     public RunLog.Choice choose(Observation observation, Memory memory, List<Action> offered, Stream stream) {
         MapSection map = observation.map();
         int hero = observation.hero().cell();
-        boolean[] walk = Explore.walkable(observation, memory);
-        int[] distance = distances(map, walk, hero);
-        HeapView best = best(observation, memory);
-        if (best == null || (stuck(memory) && best.cell() != hero)) {
+        Plan plan = plan(observation, memory);
+        if (plan == null || (stuck(memory) && plan.heap().cell() != hero)) {
             return null;
         }
+        HeapView best = plan.heap();
+        boolean[] walk = plan.walk();
+        int[] distance = distances(map, walk, hero);
         String label = Beliefs.untitled(best.item());
         if (best.cell() == hero) {
             Action take = new Action.PickUp();

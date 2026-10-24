@@ -81,6 +81,8 @@ class OscillationTest {
                 fog.add(c == ' ' ? Fog.UNKNOWN : c == '~' ? Fog.VISITED : Fog.VISIBLE);
             }
         }
+        // The hero sees its own cell, whatever the drawing says of it.
+        fog.set(hero, Fog.VISIBLE);
         HeaderSection header = new HeaderSection(ObservationCodec.SCHEMA_VERSION, "v4.0.0", "", HeroClass.WARRIOR,
                 List.of(), 1, 0, false, false, PromptKind.NONE);
         MapSection map = new MapSection(width, rows.length, tiles, fog, List.of(), heaps, List.of(), Feeling.NONE,
@@ -235,10 +237,10 @@ class OscillationTest {
                 "an attack ends the chase");
     }
 
-    /** A corridor with a frontier at its far end, x 1 to 9 walkable, the rest never seen. */
+    /** A corridor with a frontier at its far end, x 1 to 9 walkable, the rest never seen; the cell a region is centred on is out of view, so the screen does not show the region clear. */
     private static final String[] CORRIDOR = {
         "#############",
-        "#.........   ",
+        "#....~....   ",
         "#############",
     };
 
@@ -267,11 +269,11 @@ class OscillationTest {
         assertEquals(List.of(region), Memory.of(brain.handed(inside, belief, away)).avoid());
     }
 
-    /** A room three rows high, all of it in view. */
+    /** A room three rows high, in view but for the two cells the regions below are centred on. */
     private static final String[] ROOM = {
         "############",
         "#..........#",
-        "#..........#",
+        "#...~..~...#",
         "#..........#",
         "############",
     };
@@ -298,13 +300,14 @@ class OscillationTest {
             "#<.......#",
             "##########",
         };
-        Observation hurt = screen(rows, 4 + 10, 5, List.of(rat(8 + 10)), List.of());
+        Observation hurt = screen(rows, 2 + 10, 5, List.of(rat(8 + 10)), List.of());
         Brain brain = brain();
         Belief belief = brain.update(hurt, null);
         Brain.Decided retreat = brain.decide(hurt, belief);
         assertEquals("retreat: stairs", retreat.decision().chosen().why(), retreat.decision().toString());
-        assertEquals(List.of(new Memory.Avoid(1, 0, 8 + 10, 5, Memory.of(belief).waits() + Brain.AVOID_WAITS)),
-                Memory.of(brain.handed(hurt, belief, retreat)).avoid(), "one past where the rat was seen from");
+        assertEquals(List.of(new Memory.Avoid(1, 0, 8 + 10, Brain.AVOID_RADIUS, Memory.of(belief).waits() + Brain.AVOID_WAITS)),
+                Memory.of(brain.handed(hurt, belief, retreat)).avoid(),
+                "one past where the rat was seen from, capped at AVOID_RADIUS (issue #183)");
     }
 
     @Test
