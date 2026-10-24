@@ -18,6 +18,7 @@ sh tools/fetch-vanilla.sh                  # the Codex's second pinned source (E
 ./gradlew :rig:run --args="..."            # the rig (E3); see /rig
 ./gradlew :rig:gallery --args="<folder> [--snapshots N]"   # the death gallery for a Rig folder (E3)
 ./gradlew :rig:strategy --args="<log.jsonl or folder>"     # the plain-text strategy log beside each Run log (E4)
+./gradlew :rig:direction --args="--set standard --class WARRIOR --first 40 --salt-base 1000 [--baseline <git-ref|folder>] [--jobs 2]"   # the PR table (tuning set shown); refuses goo and holdout
 uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict   # docs, as CI runs it
 ```
 

@@ -29,6 +29,22 @@ numbers where the project expects them.
 - Oracle mode cannot be enabled through this command. If any flag or config would enable it,
   the rig must refuse, and so must this skill.
 
+## Direction check (the PR table)
+
+For a Brain PR, the numbers come from the checked-in direction tool, not from ad-hoc scripts:
+
+```sh
+./gradlew :rig:direction --args="--set standard --class WARRIOR --first 40 --salt-base 1000 --baseline origin/main --jobs 2"
+```
+
+It plays the subset with the current Brain, plays the baseline (a git ref is built in a worktree; a
+folder is only read) under the same salts, and prints the table: reach of depth 5, Goo kills, median
+turns, deepest mean and max, deaths by depth, searches and search waits per floor, oscillation Steps,
+heaps taken of seen and heaps taking over 100 waits. `--set` is `standard`, `smoke` or `bosses`; `goo`
+(registered use only) and `holdout` (never for development) are refused. The tuning set is the flags
+shown, not a file. Mind the machine's Gradle limit: a git-ref baseline builds a second Gradle job.
+Details are in `docs/methodology.md`, "The direction check".
+
 ## Steps
 
 1. **Is the rig built?** If `shatterfish/rig/src/main/java/org/shatterfish/rig/` contains no
