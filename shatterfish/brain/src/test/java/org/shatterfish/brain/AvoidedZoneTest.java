@@ -199,4 +199,28 @@ class AvoidedZoneTest {
         RunLog.Choice choice = Explore.uncover(screen, memory, screen.actions().actions(), Explore.SEARCHES, false);
         assertTrue(choice != null && choice.why().startsWith("search-spot "), String.valueOf(choice));
     }
+
+    /** A tall room: the straight way to the heap runs through the region, a longer one round it. */
+    private static final String[] TALL = {
+        "##########",
+        "#....~...#",
+        "#........#",
+        "#........#",
+        "#........#",
+        "#........#",
+        "##########",
+    };
+
+    @Test
+    @DisplayName("a heap is walked to round an aged region when a way round exists, though the way through is shorter")
+    void pick_up_goes_round_an_aged_region() {
+        int heap = 8 + WIDTH;
+        Memory.Avoid aged = new Memory.Avoid(1, 0, 5 + WIDTH, 2, Brain.AVOID_WAITS / 2 - 1);
+        Observation screen = OscillationTest.screen(TALL, 1 + WIDTH, 20, List.of(), List.of(OscillationTest.ration(heap)));
+        Brain brain = brain();
+        Brain.Decided decided = brain.decide(screen, brain.update(screen, Memory.START.avoiding(aged).belief()));
+        assertEquals(Pickup.NAME, decided.decision().policy(), decided.decision().toString());
+        assertEquals(new Action.Step(1 + 2 * WIDTH), decided.decision().chosen().action(), "down and round, not along the row: "
+                + decided.decision());
+    }
 }
