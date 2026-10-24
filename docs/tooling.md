@@ -42,7 +42,7 @@
 | 3 | document-project | `bmad-project-context` | `bmad-document-project` deprecated forward. Produces the AGENTS.md block; `docs/codebase-map.md` is hand-folded from it |
 | 3 | create architecture | `bmad-architecture` | `bmad-create-architecture` deprecated forward |
 | 3 | create epics and stories | `bmad-create-epics-and-stories` (also `bmad-spec` "break into stories") | |
-| 3 | check implementation readiness | `bmad-sprint-planning` (readiness gate) | No standalone readiness skill in bmm 6.11; `gds-check-implementation-readiness` is the game-dev variant, not used |
+| 3 | check implementation readiness | `bmad-sprint-planning` (readiness gate) | No standalone readiness skill in bmm 6.11; the gds module's game-dev variant is not installed as a skill |
 | 4 | sprint planning / status | `bmad-sprint-planning` | `bmad-sprint-status` deprecated forward |
 | 4 | create story / dev story | `bmad-build` | `bmad-create-story`, `bmad-dev-story`, `bmad-quick-dev` are deprecated; `bmad-build` is the official implementation path |
 | 4 | code review | `bmad-code-review`, `bmad-review` (multi-lens) | `bmad-review-*` singles are deprecated forwards |
@@ -56,7 +56,7 @@
 
 Agent personas available: `bmad-agent-analyst` (Mary), `bmad-agent-pm` (John), `bmad-agent-architect` (Winston), `bmad-agent-dev` (Amelia), `bmad-agent-ux-designer` (Sally), `bmad-agent-builder`; CIS: brainstorming coach (Carson), creative problem solver (Dr. Quinn), design thinking (Maya), innovation strategist (Victor), presentation (Caravaggio), storyteller (Sophia); `bmad-party-mode` for roundtables.
 
-The `gds-*` skills (Game Dev Studio module) are installed but **not used**: Shatterfish is an engine/bot project, not a game, and running both tracks would produce duplicate artifacts.
+The Game Dev Studio (gds) module is installed under `_bmad/gds/` but **not used**: Shatterfish is an engine/bot project, not a game, and running both tracks would produce duplicate artifacts. Its 33 `gds-*` skills were removed from `.claude/skills/` on 2026-10-24, so they no longer fill every session's skill list; a BMAD reinstall would put them back unless gds is deselected.
 
 !!! warning "gds config collision, worked around"
     `_bmad/scripts/render_skill.py` (used by `bmad-build` and `bmad-build-auto`) refuses any config key that appears more than once in the merged config, and gds repeats bmm's `implementation_artifacts` / `planning_artifacts`. Session 4 added an override in `_bmad/custom/config.toml` that turns gds's copies into empty tables, which makes `bmad-build` render again. The proper fix is to rerun `npx bmad-method install` and deselect gds, then delete the override.
