@@ -19,6 +19,7 @@ sh tools/fetch-vanilla.sh                  # the Codex's second pinned source (E
 ./gradlew :rig:gallery --args="<folder> [--snapshots N]"   # the death gallery for a Rig folder (E3)
 ./gradlew :rig:strategy --args="<log.jsonl or folder>"     # the plain-text strategy log beside each Run log (E4)
 uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict   # docs, as CI runs it
+python tools/after-merge.py <PR> [--key K] [--close]   # bookkeeping after a merge: sprint-status, issues, README and codex checks
 ```
 
 If Gradle test workers fail with Windows error 740 ("requires elevation"), a stale daemon from
@@ -47,8 +48,8 @@ These apply to every artifact, every story, every line of code, and they are not
 
 ## Session ritual
 
-1. Read this file. Run `/bmad-help` for where the method thinks you are.
-2. Read `sprint-status.yaml` (if it exists) and `gh issue list -R watchthelight/shatterfish --milestone "<current epic>" --state open`.
+1. Read this file and the watchthelight boot block for the project (status and open loops live there).
+2. Read `sprint-status.yaml` and `gh issue list -R watchthelight/shatterfish --milestone "<current epic>" --state open`. `/bmad-help` only when unsure where the method is.
 3. Confirm the one step for this turn with the human (or take it from the last handoff).
 4. Do it. Hand off with `/handoff`.
 
