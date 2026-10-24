@@ -51,7 +51,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>Screens are drawn as text: {@code #} wall, {@code .} floor, a space a cell never seen,
  * {@code @} the hero on floor, {@code E} the hero on the exit, {@code >} the exit, {@code C} a
- * chest, {@code h} a plain heap, {@code ^} an armed trap, {@code t} a disarmed one, {@code r} an
+ * chest, {@code h} a plain heap, {@code k} a worn key's heap, {@code L} the boss floor's exit
+ * locked, {@code U} it unlocked, {@code ^} an armed trap, {@code t} a disarmed one, {@code r} an
  * enemy rat, {@code a} an ally, {@code c} a chasm, {@code W} a well, {@code w} water. The offered
  * Actions are the ones {@code ValidActions} computes for the screen, as the Observer attaches them.
  */
@@ -86,6 +87,8 @@ class ExplorePolicyTest {
                     case ' ' -> Tile.NONE;
                     case '#' -> Tile.WALL;
                     case '>', 'E' -> Tile.EXIT;
+                    case 'L' -> Tile.LOCKED_EXIT;
+                    case 'U' -> Tile.UNLOCKED_EXIT;
                     case 'c' -> Tile.CHASM;
                     case 'W' -> Tile.WELL;
                     case 'w' -> Tile.WATER;
@@ -99,9 +102,10 @@ class ExplorePolicyTest {
                         hero = cell;
                         transitions.add(new TransitionView(cell, TransitionKind.REGULAR_EXIT));
                     }
-                    case '>' -> transitions.add(new TransitionView(cell, TransitionKind.REGULAR_EXIT));
+                    case '>', 'L', 'U' -> transitions.add(new TransitionView(cell, TransitionKind.REGULAR_EXIT));
                     case 'C' -> heaps.add(new HeapView(cell, HeapKind.CHEST, false, "", 0, ""));
                     case 'h' -> heaps.add(new HeapView(cell, HeapKind.HEAP, false, "gold", 0, ""));
+                    case 'k' -> heaps.add(new HeapView(cell, HeapKind.HEAP, false, "worn key", 0, ""));
                     case '^' -> traps.add(new TrapView(cell, "worn dart trap", true));
                     case 't' -> traps.add(new TrapView(cell, "worn dart trap", false));
                     case 'r' -> actors.add(new ActorView(cell, "rat", Alignment.ENEMY, 3, false, Emote.NONE, List.of()));
