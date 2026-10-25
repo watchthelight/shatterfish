@@ -131,13 +131,13 @@ class ShatterfishRunTest {
                     // Story 4.6: one Step or one Search per wait, and the reason names which of its
                     // plans the Action serves: a Step goes to a frontier or a search spot, n Steps
                     // away; a Search is counted against the floor's bound. The way down is the
-                    // descend Policy's (story 4.12).
+                    // descend Policy's (story 4.12); or, near a shown trap, a search ahead of a Step (issue #184).
                     org.shatterfish.api.Action action = wait.action();
                     String why = wait.decision().chosen().why();
                     if (action instanceof org.shatterfish.api.Action.Step) {
                         assertTrue(why.matches("(frontier|search-spot|away) [1-9][0-9]*"), why);
                     } else if (action instanceof org.shatterfish.api.Action.Search) {
-                        assertTrue(why.matches("search ([1-9]|1[0-2])/12|rest: before-descent"), why);
+                        assertTrue(why.matches("search ([1-9]|1[0-2])/12|rest: before-descent|search ahead [0-9]+"), why);
                     } else {
                         // Story 4.7: healing on the floor above one it fled by the stairs.
                         assertTrue(action instanceof org.shatterfish.api.Action.Rest, action.toString());

@@ -417,11 +417,14 @@ public final class Brain {
         if (trapped && calm && chosen.action() instanceof Action.Step step
                 && Traps.unsearched(observation, memory, step.cell()) && offered.contains(new Action.Search())) {
             // The Step the Policy chose is kept as the first alternative, and taken after the search.
+            alternatives.removeIf(other -> other.action().equals(new Action.Search()));
             alternatives.add(0, chosen);
             while (alternatives.size() > RunLog.Decision.ALTERNATIVES) {
                 alternatives.remove(alternatives.size() - 1);
             }
             chosen = new RunLog.Choice(new Action.Search(), Policies.CERTAIN, Traps.AHEAD + " " + step.cell());
+            // A search is the explore Policy's work, whichever Policy chose the Step.
+            taken = policies.stream().filter(policy -> Explore.NAME.equals(policy.name())).findFirst().orElse(taken);
         }
         return new Decided(chosen.action(),
                 new RunLog.Decision(taken.goal(), chosen, alternatives, Safety.flags(observation), taken.name()),
