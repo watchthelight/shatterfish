@@ -31,11 +31,22 @@ final class BeliefSummarySection extends Component {
 
     private final List<RenderedTextBlock> lineBlocks = new ArrayList<>();
     private BeliefSummaryContent.Content content = BeliefSummaryContent.of(null);
+    private List<String> oracleRows = List.of();
     private float innerWidth = 1;
 
     /** Sets this section from {@code summary} (may be null), wrapped at {@code innerWidth}. */
     void content(BeliefSummary summary, float innerWidth) {
+        content(summary, List.of(), innerWidth);
+    }
+
+    /**
+     * As above for an oracle Run (story 5.12, UX-DR11): {@code oracleRows} are the lines {@link OracleMarkContent}
+     * made, each already prefixed, shown after the Brain's own lines in the same ink. They are words and not a
+     * colour: the oracle colour is the border's, the label's and the map outline's only.
+     */
+    void content(BeliefSummary summary, List<String> oracleRows, float innerWidth) {
         this.innerWidth = Math.max(1, innerWidth);
+        this.oracleRows = List.copyOf(oracleRows);
         content = BeliefSummaryContent.of(summary);
         List<String> lines = allLines();
         while (lineBlocks.size() < lines.size()) {
@@ -54,12 +65,15 @@ final class BeliefSummarySection extends Component {
 
     /** {@code content}'s lines, in the order this section shows them: items, then floor, then chapters. */
     private List<String> allLines() {
+        List<String> lines = new ArrayList<>();
         if (!content.present()) {
-            return List.of(BeliefSummaryContent.NOTHING_YET);
+            lines.add(BeliefSummaryContent.NOTHING_YET);
+        } else {
+            lines.addAll(content.items());
+            lines.addAll(content.floor());
+            lines.addAll(content.chapters());
         }
-        List<String> lines = new ArrayList<>(content.items());
-        lines.addAll(content.floor());
-        lines.addAll(content.chapters());
+        lines.addAll(oracleRows);
         return lines;
     }
 
@@ -93,6 +107,11 @@ final class BeliefSummarySection extends Component {
             PixelScene.align(block);
             rowY += block.height() + ROW_GAP;
         }
+    }
+
+    /** Every line this section shows, the Brain's and then the oracle's, for tests. */
+    List<String> lines() {
+        return allLines();
     }
 
     /** This section's own content, for tests. */
