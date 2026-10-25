@@ -121,6 +121,9 @@ E5 (the Overlay) so far:
 - Housekeeping: Brain rules are keyed by name rather than number, and each
   idea is its own file under `docs/ideas/`, so parallel branches stop
   conflicting (#192). CI runs the modules side by side (#188).
+  `./gradlew :rig:direction --args="--set standard --class WARRIOR --first 40"`
+  prints the numbers every Brain PR carries, and a Run no longer leaves its
+  profile folder in the temp directory (#191).
 - Next: the controls (5.5-5.8), with bestiary-driven Brain changes in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
