@@ -729,7 +729,7 @@ final class Fight implements Policy {
      */
     static Codex.Threat threat(Observation observation, Codex.Knowledge knowledge, ActorView enemy) {
         Codex.Threat guess = assumed(enemy.name(), observation.header().depth());
-        Codex.Threat threat = knowledge.threat(enemy.name());
+        Codex.Threat threat = stance(knowledge.threat(enemy.name()), enemy);
         if (threat == null) {
             return guess;
         }
@@ -743,6 +743,31 @@ final class Fight implements Policy {
         return new Codex.Threat(threat.name(), threat.ht(), attack ? guess.attack() : threat.attack(), defense,
                 damage ? guess.damageMin() : threat.damageMin(), damage ? guess.damageMax() : threat.damageMax(),
                 dr ? guess.drMin() : threat.drMin(), dr ? guess.drMax() : threat.drMax());
+    }
+
+    /** The name of the Codex form of an enemy at half its health or less (Goo.java:69, 83). */
+    static final String ENRAGED = "enraged";
+
+    /**
+     * The threat in the state the screen shows the enemy in: an enemy whose Codex entry has an
+     * enraged form (Goo) is taken at that form's attack and damage when its health bar is at half
+     * or less, rounded up to the bar's pip so that a bar that might be just over half is still
+     * taken as enraged (the pessimistic side). The pumped forms are not used: the pump is
+     * announced in the log and the hero steps out of its reach first (story 4.13, {@code Goo.dodge}),
+     * so a fight is never weighed as taking one; this is a known optimism for a hero that cannot step
+     * out. The pessimism above holds for an enemy in view: a remembered enemy out of view is held at
+     * a full bar ({@code Memory}), so is weighed calm. Anything else is returned as it was.
+     */
+    static Codex.Threat stance(Codex.Threat threat, ActorView enemy) {
+        if (threat == null) {
+            return null;
+        }
+        Codex.Form enraged = threat.form(ENRAGED);
+        if (enraged == null || 2 * enemy.healthPips() > ObservationCodec.MAX_HEALTH_PIPS + 1) {
+            return threat;
+        }
+        return new Codex.Threat(threat.name(), threat.ht(), enraged.attack(), threat.defense(), enraged.damageMin(),
+                enraged.damageMax(), threat.drMin(), threat.drMax(), threat.unknown(), threat.forms());
     }
 
     /** The enemy's hit points as its health bar shows them, rounded up. */

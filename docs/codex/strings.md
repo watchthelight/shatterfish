@@ -45,7 +45,7 @@ recorded 4976 citations in 9 files:
 | [`core/src/main/assets/messages/plants/plants.properties`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/assets/messages/plants/plants.properties) | 67 | 1-80 |
 | [`core/src/main/assets/messages/scenes/scenes.properties`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/assets/messages/scenes/scenes.properties) | 148 | 3-163 |
 | [`core/src/main/assets/messages/ui/ui.properties`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/assets/messages/ui/ui.properties) | 49 | 1-53 |
-| [`core/src/main/assets/messages/windows/windows.properties`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/assets/messages/windows/windows.properties) | 376 | 1-409 |
+| [`core/src/main/assets/messages/windows/windows.properties`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/assets/messages/windows/windows.properties) | 376 | 1-416 |
 
 ## Judgments
 

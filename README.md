@@ -181,7 +181,16 @@ E5 (the Overlay) so far:
   longer depends on the date (#228).
 - E5.10: the pending Decision's target (and path, once a Policy plans one) is outlined on the
   dungeon itself in the game's own blocks (#231).
-- Next: hotkeys (5.11) and oracle marking (5.12), with the Goo work (#219) in parallel.
+- E5.11: the Overlay's controls are the game's own key-bound actions on F6 to F11, rebindable in
+  the game's key settings (#230).
+- The Codex now carries Goo's real attack and damage for its calm and enraged states, and the
+  Brain uses the enraged figures once Goo's bar is at half or less (#233, part of #219).
+- E5.12: anything the Overlay shows from oracle mode is marked as oracle, in rows and outlines
+  alike (#235).
+- A 120-Run Warrior baseline for the Goo work: depth 5 reached in 27.5% of Runs, Goo killed in
+  14.2%, 53% of Goo fights won (#234).
+- Next: the speed ceiling (5.13) and save and resume (5.14), with the Goo work (#219) in
+  parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:

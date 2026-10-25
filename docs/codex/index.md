@@ -38,7 +38,7 @@ list, or the lists the object at its root holds. A number a table states that is
 | `hero-classes.json` | 6 | [Hero classes](hero-classes.md) | [1.1 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/hero-classes.json) |
 | `items.json` | 307 | [Items](items.md) | [185.4 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/items.json) |
 | `levels.json` | 44 | [Levels](levels.md) | [21.8 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/levels.json) |
-| `mobs.json` | 129 | [Mobs](mobs.md) | [172.8 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/mobs.json) |
+| `mobs.json` | 129 | [Mobs](mobs.md) | [173.2 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/mobs.json) |
 | `recipes.json` | 39 | [Recipes](recipes.md) | [29.2 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/recipes.json) |
 | `rooms.json` | 39 | [Rooms](rooms.md) | [26.2 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/rooms.json) |
 | `spawn-rotation.json` | 43 | [Spawn rotation](spawn-rotation.md) | [14.0 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/spawn-rotation.json) |

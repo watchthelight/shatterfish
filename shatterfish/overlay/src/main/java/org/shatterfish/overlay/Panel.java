@@ -3,6 +3,7 @@ package org.shatterfish.overlay;
 import com.shatteredpixel.shatteredpixeldungeon.Chrome;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
+import com.watabou.input.PointerEvent;
 import com.watabou.noosa.NinePatch;
 import com.watabou.noosa.PointerArea;
 import com.watabou.noosa.ui.Component;
@@ -73,6 +74,14 @@ final class Panel extends Component {
      */
     private PointerArea blocker;
 
+    /**
+     * A tap on the Mode strip collapses the Panel to the strip, or restores it (story 5.11, UX-DR12: every
+     * control, the Panel toggle's hotkey included, is also reachable by the mouse). Live under the same
+     * rule as every hot area of the Panel: off while a window of the game's is in front.
+     */
+    private PointerArea stripArea;
+    private Runnable stripTap = () -> { };
+
     @Override
     protected void createChildren() {
         blocker = new PointerArea(0, 0, 0, 0);
@@ -82,6 +91,14 @@ final class Panel extends Component {
         add(frame);
         strip = Chrome.get(Chrome.Type.TOAST_TR);
         add(strip);
+        stripArea = new PointerArea(0, 0, 0, 0) {
+            @Override
+            protected void onClick(PointerEvent event) {
+                stripTap.run();
+            }
+        };
+        stripArea.active = false;
+        add(stripArea);
         stripText = PixelScene.renderTextBlock(STRIP_TEXT_SIZE);
         add(stripText);
         oracleLabel = PixelScene.renderTextBlock("ORACLE", 8);
@@ -112,6 +129,11 @@ final class Panel extends Component {
         controls.bind(state, () -> card.toggleExplain());
     }
 
+    /** What a tap on the Mode strip does: the Panel toggle (story 5.11). */
+    void stripTap(Runnable stripTap) {
+        this.stripTap = stripTap;
+    }
+
     /** Whether the Decision the next {@code content} call gets is the pending one (story 5.7). */
     void awaiting(boolean awaiting) {
         this.awaiting = awaiting;
@@ -136,6 +158,7 @@ final class Panel extends Component {
      */
     void content(ModeState mode, RunLog.Decision decision, Observation observation, boolean inputLocked,
                  BeliefSummary beliefSummary, List<BoundedLog.Entry> history, DecisionCardContent.Shadow shadow) {
+        stripArea.active = !inputLocked;
         blocker.active = !inputLocked && ((shadow != null && shadow.person()) || controlState != null);
         stripText.text(ModeStripContent.text(mode));
         stripText.hardlight(ModeStripContent.color(mode.mode()));
@@ -151,7 +174,7 @@ final class Panel extends Component {
         Set<ControlEnablement.Control> enabled = controlState != null ? controlState.enabled()
                 : ControlEnablement.of(mode.mode(), mode.over(), ControlEnablement.Capabilities.NOW);
         controls.content(mode, enabled, inputLocked, full && decision != null);
-        belief.content(full ? beliefSummary : null, inner);
+        belief.content(full ? beliefSummary : null, full ? oracleRows : List.of(), inner);
         // layout() before the log's own content: it is what sizes the log's ScrollPane viewport (the
         // remaining room below every section above it), and the log's auto-scroll-to-bottom decision
         // reads that viewport's height, so the log must already know this frame's height before it
@@ -174,6 +197,14 @@ final class Panel extends Component {
         placed = layout;
         PanelLayout.Rect rect = layout.rect();
         setRect(rect.x(), rect.y(), rect.width(), rect.height());
+    }
+
+    /** The oracle rows the next {@link #content} shows in the Belief summary (story 5.12); none for a fair Run. */
+    private List<String> oracleRows = List.of();
+
+    /** Sets the oracle rows for the Belief summary; the dock calls this only for an oracle Run. */
+    void oracleRows(List<String> rows) {
+        oracleRows = List.copyOf(rows);
     }
 
     /** Shows the ORACLE label in the Mode strip, or hides it. */
@@ -219,6 +250,10 @@ final class Panel extends Component {
             strip.size(width, height);
         }
         PixelScene.align(strip);
+        stripArea.x = strip.x;
+        stripArea.y = strip.y;
+        stripArea.width = strip.width();
+        stripArea.height = strip.height();
         oracleLabel.setPos(strip.x + strip.width() - 2 - oracleLabel.width(),
                 strip.y + (strip.height() - oracleLabel.height()) / 2f);
         PixelScene.align(oracleLabel);
@@ -293,6 +328,11 @@ final class Panel extends Component {
     /** The Decision card, for tests (story 5.3). */
     DecisionCard card() {
         return card;
+    }
+
+    /** The Mode strip's tap area, for tests (story 5.11). */
+    PointerArea stripArea() {
+        return stripArea;
     }
 
     /** The HUMAN Run's tap blocker, for tests (story 5.9). */

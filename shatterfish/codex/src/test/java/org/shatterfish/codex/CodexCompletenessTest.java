@@ -278,6 +278,10 @@ class CodexCompletenessTest {
                 assertTrue(expected.add((String) key), key + " is given twice across the bundles");
             }
         }
+        // A hook marker line in a bundle ("// shatterfish-hook:10", hook row 10) is read by a properties reader as
+        // the key "//"; it is a marker, not a string of the game's.
+        expected.remove("//");
+        expected.removeIf(key -> key.startsWith(Text.SHATTERFISH_PREFIX));
         assertEquals(expected, keys, "every key the game's own bundles hold, and nothing else");
         TreeSet<String> classes = new TreeSet<>();
         for (JavaClass c : GAME) {

@@ -172,7 +172,7 @@ class JsonRenderingTest {
             // lives in codex, and a Brain's caller hands them in as data (E4).
             "Codex", "Codex$Citation", "Codex$Manifest", "Codex$HeroClassEntry", "Codex$ChallengeEntry", "CodexJson",
             // The mobs table and the spawn rotation (story 2.2): the same kind of records.
-            "Codex$RollKind", "Codex$Roll", "Codex$LootKind", "Codex$Loot", "Codex$Field", "Codex$Variant", "Codex$MobEntry",
+            "Codex$RollKind", "Codex$Roll", "Codex$LootKind", "Codex$Loot", "Codex$Field", "Codex$Variant", "Codex$Form", "Codex$MobEntry",
             "Codex$Odds", "Codex$Family", "Codex$RotationEntry", "Codex$RotationDepth", "Codex$RareMob", "Codex$RareAlt", "Codex$Exclusion",
             "Codex$ChampionRule", "Codex$SpawnRotation",
             // What a Brain is built on (story 4.2): records of Codex values the rig reads and hands over.

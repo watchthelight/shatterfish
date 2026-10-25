@@ -91,6 +91,28 @@ spelling, `--oracle`, given to either of the Rig's command lines is refused by n
 is handed the observer it sees through, and `OracleGateTest` keeps the harness's classes, the
 embedded Run among them, away from the oracle.
 
+Story 5.12 completes the Overlay's marking (FR-43, UX-DR11). An oracle Run draws a 2 UI px border in the
+oracle colour (`#FF2020`) around the whole view, above everything the scene holds, and prefixes every
+oracle row in the Belief summary with `oracle:`: the true name behind each unknown item the Brain's own
+lines show, and the enemies the screen does not show, by name and cell. It outlines those enemies on the
+map in the same colour, in front of the fog (an unseen enemy stands in it). Where the facts live:
+
+- The launcher's oracle door leaves each read's `OracleView` in an `OracleSidecar`, beside the Observation it
+  was read with; the Brain is handed the Observation alone, as before. A fair Run has no sidecar, no border
+  layer and no outline layer, and `OracleMarkingTest.a_fair_run_has_none` holds that.
+- Only the sidecar, `OracleMarkContent` and the launcher name an `OracleView` in the Overlay. The Panel and
+  the map layer get text and cell numbers, so no Snapshot, Decision, log record or Brain input can carry a
+  hidden fact (`OracleMarkingTest.the_view_stays_in_three_classes`).
+- The marks are drawn only for the screen the view was read at; a floor change or a turn on draws none rather
+  than a stale enemy.
+- Nothing can change the mode after it is said: `PanelDock.oracle` is called once, by the game's `create()`
+  from the launcher's flag, and a second call that differs is refused (`it_cannot_be_toggled`, which also
+  holds by ArchUnit that no other class calls it).
+- The oracle colour is defined once and used by the border, the outlines and the Mode strip's label only
+  (`the_colour_is_confined`). The oracle rows are marked by their prefix and not by colour.
+- The oracle rows and outlines show in every Mode of an oracle Run, HUMAN included: the mode is a debugging
+  one and the border and label are always on.
+
 ## A human's Run (story 5.9)
 
 `--agent human` hands every wait to the person at the window and the Brain only a shadow question.
