@@ -37,6 +37,8 @@ final class PanelDock {
     private boolean collapsed;
     private boolean oracle;
     private ControlState controls;
+    /** The outlines on the dungeon for the pending Decision, one layer per play scene (story 5.10). */
+    private MapHighlights highlights;
 
     /**
      * The end of the Overlay's frame update: {@code sceneUpdate}, then the Panel and its offset, then the
@@ -63,6 +65,8 @@ final class PanelDock {
             return;
         }
         if (panel == null || panel.parent != scene) {
+            highlights = new MapHighlights();
+            highlights.placeIn(scene);
             panel = new Panel();
             panel.camera = PixelScene.uiCamera;
             panel.oracle(oracle);
@@ -79,14 +83,36 @@ final class PanelDock {
         }
         panel.place(layout);
         ModeState run = ModeState.of(snapshot);
+        ModeState shownMode = controls == null ? run : controls.view(run);
+        highlights(snapshot, shownMode);
         panel.awaiting(snapshot != null && snapshot.awaiting());
-        panel.content(controls == null ? run : controls.view(run), snapshot == null ? null : snapshot.decision(),
+        panel.content(shownMode, snapshot == null ? null : snapshot.decision(),
                 snapshot == null ? null : snapshot.observation(), inputLocked,
                 snapshot == null ? null : snapshot.beliefSummary(),
                 snapshot == null ? java.util.List.of() : snapshot.history(), shadow(snapshot));
         panel.dim(covered(scene));
         Camera world = Camera.main;
         PanelCamera.apply(world, PanelCamera.world(layout.offsetUi(), PixelScene.uiCamera.zoom, world.zoom));
+    }
+
+    /**
+     * The map highlights for this frame (story 5.10): the pending Decision's cells while a Brain's Run waits
+     * on it, and none otherwise -- cleared the frame the hero acts (the Decision is then no longer pending),
+     * the frame a new Decision lands in its place, and always in HUMAN mode.
+     */
+    private void highlights(EmbeddedRun.Snapshot snapshot, ModeState mode) {
+        if (snapshot == null || snapshot.observation() == null
+                || !MapHighlightContent.shown(mode.mode(), snapshot.awaiting())) {
+            highlights.show(MapHighlightContent.Cells.NONE, 0);
+            return;
+        }
+        highlights.show(MapHighlightContent.of(snapshot.decision(), snapshot.highlights()),
+                org.shatterfish.harness.agent.ActionContext.of(snapshot.observation()).mapWidth());
+    }
+
+    /** The highlight layer on the current play scene, or null before the first one (tests). */
+    MapHighlights highlights() {
+        return highlights;
     }
 
     /** A HUMAN Run's shadow for the Decision card (story 5.9), or null for a Brain's Run. */

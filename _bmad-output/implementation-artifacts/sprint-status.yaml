@@ -114,7 +114,7 @@ development_status:
   5-7-the-speed-modes-and-the-stepping-unit: done
   5-8-take-over-and-hand-back: done
   5-9-recording-human-turns-and-the-shadow-decision: done  # PR for issue #154 (also closes #220); the slice merged in #176, the takeover half in #221
-  5-10-map-highlights: backlog
+  5-10-map-highlights: review  # PR for issue #155
   5-11-hotkeys-as-game-actions: backlog
   5-12-oracle-marking-in-the-overlay: backlog
   5-13-the-speed-ceiling-and-the-draw-routing-hook: backlog
