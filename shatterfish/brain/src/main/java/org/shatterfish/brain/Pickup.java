@@ -49,6 +49,14 @@ import java.util.List;
  * that way, through them (issue #182), as the explore Policy does; a Step it hands over into a region
  * crosses and lifts it ({@link Brain#handed}).
  *
+ * <p>On a floor the hero is about to leave (the floor is spent and {@link Descend#leaving} says so, not
+ * hungry or overstayed), an item it has seen is the last thing the floor asks, and a heap that lies
+ * on the way to the exit costs no walk: the cost of a heap becomes the detour, the Steps to it and
+ * from it to the exit less the Steps from here to the exit (issue #182). The turns are then priced as
+ * ever, so a heap that sends the hero far off its way is still left, and gold is never swept for: nothing
+ * the Brain does spends it. With no exit on the screen there is no detour to measure and the walk is
+ * priced as before.
+ *
  * <p>One title is worth crossing the whole floor for regardless of the trip: {@link #WORN_KEY}
  * (issue #163). A weighed worth would leave it behind whenever the trip back from wherever Goo died
  * cost more than an ordinary item's, and nothing else fetches it, so the descend Policy would walk to
