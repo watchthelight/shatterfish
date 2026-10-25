@@ -373,10 +373,8 @@ public final class Brain {
                 && !observation.map().traps().isEmpty() && !TestItem.inHarm(observation);
         // An enemy far off is no fight yet: withholding the Step toward it made the fight Policy's approach
         // alternate between two cells (issue #184), so the hero searches ahead as it would on a calm screen.
-        List<org.shatterfish.api.ActorView> enemies = Fight.enemies(observation, knowledge);
-        boolean calm = enemies.isEmpty()
-                || Fight.nearest(observation.map(), observation.hero().cell(), enemies) > Traps.ENGAGED;
-        if (trapped && !calm) {
+        boolean unengaged = Calm.unengaged(observation, knowledge);
+        if (trapped && !unengaged) {
             offered = Traps.withheld(observation, memory, offered);
         }
         if (offered.isEmpty()) {
@@ -417,7 +415,7 @@ public final class Brain {
             return new Decided(null, null, List.of(),
                     "no Policy offered a Choice among " + offered.size() + " Actions");
         }
-        if (trapped && calm && chosen.action() instanceof Action.Step step
+        if (trapped && unengaged && chosen.action() instanceof Action.Step step
                 && Traps.unsearched(observation, memory, step.cell()) && offered.contains(new Action.Search())) {
             // The Step the Policy chose is kept as the first alternative, and taken after the search.
             alternatives.removeIf(other -> other.action().equals(new Action.Search()));

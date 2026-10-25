@@ -69,7 +69,7 @@ final class Equip implements Policy {
 
     @Override
     public boolean enters(Observation observation, Memory memory) {
-        return Explore.calm(observation, knowledge) && observation.inventory().items().stream()
+        return Calm.quiet(observation, knowledge) && observation.inventory().items().stream()
                 .anyMatch(item -> item.slot() == EquipSlot.NONE && item.actions().contains(EQUIP));
     }
 

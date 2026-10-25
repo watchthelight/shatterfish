@@ -113,7 +113,7 @@ final class Eat implements Policy {
     @Override
     public boolean enters(Observation observation, Memory memory) {
         Hunger hunger = observation.hero().hunger();
-        return hunger == Hunger.HUNGRY ? Explore.calm(observation, knowledge)
+        return hunger == Hunger.HUNGRY ? Calm.quiet(observation, knowledge)
                 : hunger == Hunger.STARVING && observation.header().prompt() == PromptKind.NONE
                 && !pressed(observation, memory, knowledge);
     }

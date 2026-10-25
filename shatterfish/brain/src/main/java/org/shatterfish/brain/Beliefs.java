@@ -177,7 +177,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         boolean refusedStep = still && memory.last().equals(STEP) && memory.stepped() >= 0 && !Explore.rooted(observation);
         int streak = !refusedStep ? 0 : memory.tried() == memory.stepped() ? memory.streak() + 1 : 1;
         int tried = refusedStep ? memory.stepped() : -1;
-        boolean calm = Explore.calm(observation, knowledge);
+        boolean calm = Calm.quiet(observation, knowledge);
         // The fight Policy's holds, and how near the nearest enemy is now and was a wait ago.
         int holds = !memory.calm() && memory.last().equals(WAIT) && !calm ? memory.holds() + 1 : 0;
         // Both distances are measured from where the hero stands now: to the enemies in view, and to

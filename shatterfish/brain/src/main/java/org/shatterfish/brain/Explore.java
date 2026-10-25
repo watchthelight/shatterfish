@@ -148,26 +148,12 @@ final class Explore implements Policy {
      * Policy still steps, and the refusals count toward a block (Beliefs).
      */
     static boolean dizzy(Observation observation, Codex.Knowledge knowledge) {
-        return has(observation, VERTIGO) && calm(observation, knowledge);
-    }
-
-    /** Whether a screen is one this Policy acts on: no Prompt open and no enemy in view. */
-    static boolean calm(Observation observation, Codex.Knowledge knowledge) {
-        if (observation.header().prompt() != PromptKind.NONE) {
-            return false;
-        }
-        for (ActorView actor : observation.actors().actors()) {
-            // An enemy the game keeps passive until provoked is scenery (story 4.7, Fight.passive).
-            if (actor.alignment() == Alignment.ENEMY && !Fight.passive(knowledge, observation.header(), actor)) {
-                return false;
-            }
-        }
-        return true;
+        return has(observation, VERTIGO) && Calm.quiet(observation, knowledge);
     }
 
     @Override
     public boolean enters(Observation observation, Memory memory) {
-        return calm(observation, knowledge);
+        return Calm.quiet(observation, knowledge);
     }
 
     @Override

@@ -71,7 +71,7 @@ final class Chests implements Policy {
 
     @Override
     public boolean enters(Observation observation, Memory memory) {
-        return Explore.calm(observation, knowledge)
+        return Calm.quiet(observation, knowledge)
                 && !enemyAbout(observation, memory)
                 && observation.map().heaps().stream().anyMatch(heap -> openable(heap, observation, memory));
     }
