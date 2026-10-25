@@ -165,6 +165,11 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
     protected void update() {
         float frameDelta = Math.min(0.2f, Gdx.graphics.getDeltaTime());
         Game.elapsed = Game.timeScale * frameDelta;
+        if (controls != null && controls.unbounded()) {
+            // Fast as it can (story 5.13): an animation ends in the frame it starts in, so the Run's speed is
+            // the game's and the Brain's, not the animation interval's. Nothing upstream is edited.
+            Game.elapsed = ControlState.FAST_FRAME;
+        }
         Game.timeTotal += Game.elapsed;
         Game.realTime = TimeUtils.millis();
         inputHandler.processAllEvents();

@@ -86,7 +86,11 @@ public class EmoIcon extends Image {
 			maxSize = 1.2f;
 			timeScale = 0.5f;
 			
+			// shatterfish-hook:8
+			try { Random.visualBegin();
 			scale.set( Random.Float( 1, maxSize ) );
+			// shatterfish-hook:8
+			} finally { Random.visualEnd(); }
 
 			x = owner.x + owner.width - width / 2;
 			y = owner.y - height;
@@ -110,7 +114,11 @@ public class EmoIcon extends Image {
 			maxSize = 1.3f;
 			timeScale = 2;
 			
+			// shatterfish-hook:8
+			try { Random.visualBegin();
 			scale.set( Random.Float( 1, maxSize ) );
+			// shatterfish-hook:8
+			} finally { Random.visualEnd(); }
 
 			x = owner.x + owner.width - width / 2;
 			y = owner.y - height;
@@ -134,7 +142,11 @@ public class EmoIcon extends Image {
 			maxSize = 1.3f;
 			timeScale = 1.5f;
 
+			// shatterfish-hook:8
+			try { Random.visualBegin();
 			scale.set( Random.Float( 1, maxSize ) );
+			// shatterfish-hook:8
+			} finally { Random.visualEnd(); }
 
 			x = owner.x + owner.width - width / 2;
 			y = owner.y - height;
@@ -157,7 +169,11 @@ public class EmoIcon extends Image {
 			maxSize = 1.25f;
 			timeScale = 1;
 			
+			// shatterfish-hook:8
+			try { Random.visualBegin();
 			scale.set( Random.Float( 1, maxSize ) );
+			// shatterfish-hook:8
+			} finally { Random.visualEnd(); }
 			
 			x = owner.x + owner.width - width / 2;
 			y = owner.y - height;

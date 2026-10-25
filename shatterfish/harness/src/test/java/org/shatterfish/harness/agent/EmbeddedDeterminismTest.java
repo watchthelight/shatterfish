@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>The host gives the Brain its answer within the frame, as the headless loop does. What the
  * desktop game adds, frames drawn while the Brain thinks and frames paced by the wall clock, is the
  * one difference this test does not cover, and why: the render thread's draws in those frames come
- * from the Run's generator until story 5.13 routes them away (EmbeddedRun.frame).
+ * from the Run's generator before story 5.13 routed them away; OverlayReplayTest holds that case.
  */
 class EmbeddedDeterminismTest {
 

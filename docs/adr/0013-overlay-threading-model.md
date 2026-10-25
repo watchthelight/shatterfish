@@ -732,3 +732,12 @@ Found by the fairness review of story 5.8 (issue #220), settled with the rest of
 - **Every Run has a watchdog.** Its predicate already ignores a person's turns (`!humanMode`), and a hand back restarts
   its clock (`served()`), so a Run that began as a person's is guarded from the hand back on, and a long wait while
   the person plays is no freeze (issue #175).
+
+## Amendment: story 5.13 (2026-10-25)
+
+The non-reproducibility ADR-0013's story 5.1 amendment named is closed for the draws: hook row 8 sends the
+render thread's visual draws to the base generator, and `WaitGate` confirms a wait independently of frame
+length (see ADR-0007's story 5.13 amendment). The Search-then-tap loss recorded under story 5.8 is the same
+cause and is fixed with it. Fast as it can no longer waits for the animation interval: the Overlay sets
+`Game.elapsed` to one second a frame there, which needs no hook. The Rig still refuses `driver: embedded` logs
+until the headless driver plays the Overlay's interface size (issue #169).

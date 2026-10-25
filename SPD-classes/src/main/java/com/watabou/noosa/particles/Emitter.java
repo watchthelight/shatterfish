@@ -89,7 +89,11 @@ public class Emitter extends Group {
 
 	public void start( Factory factory, float interval, int quantity ) {
 		//by default the delay is random, up to the interval
+		// shatterfish-hook:8
+		try { Random.visualBegin();
 		startDelayed( factory, interval, quantity, Random.Float(interval));
+		// shatterfish-hook:8
+		} finally { Random.visualEnd(); }
 	}
 
 	public void startDelayed( Factory factory, float interval, int quantity, float delay ) {
@@ -123,7 +127,11 @@ public class Emitter extends Group {
 			time += Game.elapsed;
 			while (time > interval) {
 				time -= interval;
+				// shatterfish-hook:8
+				try { Random.visualBegin();
 				emit( count++ );
+				// shatterfish-hook:8
+				} finally { Random.visualEnd(); }
 				if (quantity > 0 && count >= quantity) {
 					on = false;
 					break;
@@ -133,7 +141,11 @@ public class Emitter extends Group {
 			kill();
 		}
 		
+		// shatterfish-hook:8
+		try { Random.visualBegin();
 		super.update();
+		// shatterfish-hook:8
+		} finally { Random.visualEnd(); }
 	}
 
 	@Override
