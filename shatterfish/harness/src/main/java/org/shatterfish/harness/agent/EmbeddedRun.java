@@ -136,10 +136,19 @@ public final class EmbeddedRun implements AutoCloseable {
      *                (story 5.4, FR-38's "200 lines on screen; the Run log holds the rest"): the
      *                Decision log's own source, so the Panel shows a view over what
      *                {@code RunLoop.record} already built for the file rather than a second list
-     *                built differently
+     *     * built differently
+     * @param awaiting true when {@code decision} is the Brain's answer for the wait in front, landed and not
+     *                 executed, waiting for a press (story 5.7); false when it is the last one executed
      */
     public record Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state,
-                           BeliefSummary beliefSummary, List<BoundedLog.Entry> history, Human human) {
+                           BeliefSummary beliefSummary, List<BoundedLog.Entry> history, Human human,
+                           boolean awaiting) {
+
+        /** A snapshot of a Run whose Decision is not waiting for a press (story 5.9's shape). */
+        public Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state,
+                        BeliefSummary beliefSummary, List<BoundedLog.Entry> history, Human human) {
+            this(decision, turn, floor, observation, state, beliefSummary, history, human, false);
+        }
 
         /** A snapshot with no belief summary and no history (story 5.3's own shape, kept for callers built on it). */
         public Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state) {
@@ -209,9 +218,17 @@ public final class EmbeddedRun implements AutoCloseable {
     static final float INPUT_GUARD_SECONDS = 0.2f;
 
     private int attachments;
-    /** Story 5.6: whether the Run waits for credit before it asks for a wait, and the credit it has. */
+    /**
+     * Stories 5.6 and 5.7: whether the Run waits for credit before it executes a Decision, and the credit it
+     * has. A held Run still confirms its wait and asks the Brain; the Decision that lands waits, unexecuted,
+     * for a credit ({@link #withheld}).
+     */
     private boolean held;
     private int credits;
+    /** A Decision has landed for the wait in front and waits for a credit (story 5.7); volatile for the watchdog. */
+    private volatile boolean withheld;
+    /** The Decision that waits, read from the Brain when it landed, for {@link #snapshot()}. */
+    private RunLog.Decision withheldDecision;
     /** Whether a window now in front was opened by a step that was paid for; see {@link #frame()}. */
     private boolean promptOwed;
     private double secondsWithoutAWait;
@@ -391,7 +408,7 @@ public final class EmbeddedRun implements AutoCloseable {
             if (!human) {
                 // A person's Run waits on the person, and a long wait there is no freeze (issue #175).
                 run.watchdog = new Watchdog(Watchdog.sideLogOf(log == null ? null : log.file()), System.err, ui,
-                        () -> run.brainThread, run.gate::waitIndex, () -> !run.ended && !run.closed, Watchdog.SECONDS);
+                        () -> run.brainThread, run.gate::waitIndex, () -> !run.ended && !run.closed && !run.withheld, Watchdog.SECONDS);
                 run.watchdog.start();
             }
             run.arm();
@@ -481,6 +498,17 @@ public final class EmbeddedRun implements AutoCloseable {
             if (!pending.isDone()) {
                 return State.THINKING;
             }
+            if (held && credits == 0 && !owed()) {
+                // The Decision has landed and nobody has paid for it: it is shown and waits (story 5.7). An idle
+                // Run is not a stuck one, so the frame budget does not run.
+                if (!withheld) {
+                    withheld = true;
+                    withheldDecision = brain instanceof Deliberator deliberator
+                            && pending.state() == Future.State.SUCCESS ? deliberator.lastDecision() : null;
+                }
+                secondsWithoutAWait = 0;
+                return State.PLAYING;
+            }
             if (tooEarlyForTheWindow()) {
                 heldFrames++;
                 return State.THINKING;
@@ -526,27 +554,13 @@ public final class EmbeddedRun implements AutoCloseable {
             return State.PLAYING;
         }
         Window window = Windows.front();
-        if (held && credits == 0) {
-            // A Prompt that a step opened is part of that step (UX: the unit is one Input wait, a Prompt
-            // included), and every control is off behind a window, so no credit could ever be given for
-            // it: it is answered without one. A window with no step behind it, or the hero's own turn, waits.
-            if (window == null) {
-                promptOwed = false;
-            }
-            if (window == null || !promptOwed) {
-                // Held (story 5.6): the hero is ready and no wait is asked for. An idle Run is not a stuck
-                // one, so the frame budget does not run; the game's frames go on, and only the next wait waits.
-                secondsWithoutAWait = 0;
-                return State.PLAYING;
-            }
+        if (window == null) {
+            // A hero's own turn is not owed by any step (a Prompt that a paid step opened is, see owed()).
+            promptOwed = false;
         }
         long k = gate.frame(hero, window, host.pendingRunnables() != 0);
         if (k == 0) {
             return State.PLAYING;
-        }
-        if (held && credits > 0) {
-            credits--;
-            promptOwed = true;
         }
         secondsWithoutAWait = 0;
         confirmedScene = front;
@@ -793,7 +807,12 @@ public final class EmbeddedRun implements AutoCloseable {
         }
     }
 
-    /** The waits a held Run may still confirm; 0 when it is not held. */
+    /** Whether a Decision has landed for the wait in front and waits for a credit (story 5.7). */
+    public boolean withheld() {
+        return withheld;
+    }
+
+    /** The waits a held Run may still execute; 0 when it is not held. */
     public int credits() {
         return held ? credits : 0;
     }
@@ -866,6 +885,11 @@ public final class EmbeddedRun implements AutoCloseable {
         }
     }
 
+    /** Whether the wait in front is a Prompt that a paid step opened, so it needs no credit of its own. */
+    private boolean owed() {
+        return promptOwed && confirmedWindow != null;
+    }
+
     /**
      * Whether the Brain's answer is a tap on the window in front, or its back key, that the window would
      * still ignore (issue #170): then it is held, and served at the first frame the window takes it. The
@@ -928,11 +952,22 @@ public final class EmbeddedRun implements AutoCloseable {
                 unrewound++;
             }
             pendingMark = null;
+            withheld = false;
+            withheldDecision = null;
             reconfirming = true;
             gate.reconfirm(k);
             return;
         }
         pendingMark = null;
+        withheld = false;
+        withheldDecision = null;
+        if (held && !owed()) {
+            // Spent here, once the answer is known to be for the screen in front: a stale answer that is
+            // dropped and asked again spent nothing (story 5.7). A Prompt that a paid step opened is part
+            // of that step and costs none (story 5.6).
+            credits = Math.max(0, credits - 1);
+            promptOwed = true;
+        }
         if (watchdog != null) {
             watchdog.served();
         }
@@ -1133,7 +1168,7 @@ public final class EmbeddedRun implements AutoCloseable {
         if (outcome != null) {
             return State.ENDED;
         }
-        return pending != null || !shadows.isEmpty() ? State.THINKING : State.PLAYING;
+        return (pending != null && !withheld) || !shadows.isEmpty() ? State.THINKING : State.PLAYING;
     }
 
     /** How the Run ended, or null while it plays. */
@@ -1154,8 +1189,14 @@ public final class EmbeddedRun implements AutoCloseable {
         Human humanPart = human == null ? null
                 : new Human(shadowWait > 0 && human.isOpen(shadowWait), shadowWait, inputOpen(),
                         human.unverifiableFrom(), human.unverifiableWhy(), notes);
+        if (withheld && withheldDecision != null && pendingObservation != null && human == null) {
+            // The Decision for the wait in front, landed and not executed (story 5.7): what the next press
+            // executes. The Observation is the one it was made on, which the Brain was given.
+            return new Snapshot(withheldDecision, pendingTurn, pendingObservation.header().depth(),
+                    pendingObservation, state(), lastBeliefSummary, history.asList(), null, true);
+        }
         return new Snapshot(lastDecision, lastDecisionTurn, lastDecisionFloor, lastDecisionObservation, state(),
-                lastBeliefSummary, history.asList(), humanPart);
+                lastBeliefSummary, history.asList(), humanPart, false);
     }
 
     /** The index of the last wait confirmed; 0 before the first. It survives every floor. */

@@ -58,6 +58,8 @@ final class Panel extends Component {
     private DecisionLog log;
     private ControlsRow controls;
     private ControlState controlState;
+    /** Whether the Decision handed to {@link #content} is the pending one, landed and not executed (story 5.7). */
+    private boolean awaiting;
     private PanelLayout.Layout placed;
     private boolean dimmed;
 
@@ -110,6 +112,11 @@ final class Panel extends Component {
         controls.bind(state, () -> card.toggleExplain());
     }
 
+    /** Whether the Decision the next {@code content} call gets is the pending one (story 5.7). */
+    void awaiting(boolean awaiting) {
+        this.awaiting = awaiting;
+    }
+
     /**
      * What every section shows (stories 5.3, 5.4): the Mode strip is the collapsed Panel too, so it is
      * set every frame regardless of {@link #place}'s form; the Goal line, the Decision card, the Safety
@@ -134,9 +141,9 @@ final class Panel extends Component {
         stripText.hardlight(ModeStripContent.color(mode.mode()));
         boolean full = placed != null && placed.form() == PanelLayout.Form.FULL;
         // The headline "next press executes" is shown only when the Decision on the card is the one the next
-        // press executes. The Run decides at the press until story 5.7 decides ahead of it, so the card
-        // shows the last Decision executed and never that headline (story 5.6's decision).
-        boolean nextStep = false;
+        // press executes: the Run is PAUSED and the Decision for its wait has landed, unexecuted (story 5.7).
+        // While the Brain thinks, or the Run plays on, the card shows the last Decision executed.
+        boolean nextStep = awaiting && mode.mode() == ModeState.Mode.PAUSED;
         float inner = innerWidth();
         goal.content(full ? decision : null, inner);
         card.content(full ? decision : null, full ? observation : null, nextStep, inner, shadow);

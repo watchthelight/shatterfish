@@ -79,6 +79,7 @@ final class PanelDock {
         }
         panel.place(layout);
         ModeState run = ModeState.of(snapshot);
+        panel.awaiting(snapshot != null && snapshot.awaiting());
         panel.content(controls == null ? run : controls.view(run), snapshot == null ? null : snapshot.decision(),
                 snapshot == null ? null : snapshot.observation(), inputLocked,
                 snapshot == null ? null : snapshot.beliefSummary(),

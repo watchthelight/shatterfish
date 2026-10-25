@@ -17,11 +17,20 @@ import java.util.Set;
  * does nothing and says so ({@code false}). What a press does to the Run goes through {@link Seam}, so
  * the matrix and the transitions are held by a test that has no game ({@code ControlStateTest}).
  *
- * <p>Pause holds the Run at its next Input wait; Resume lets it go; Next Step spends one credit, which
- * the held Run spends on one wait; Run N spends N and lands in PAUSED when they are spent. How fast the
- * credits are spent -- Human play speed's interval, a Next Step queued behind a thinking Brain, the
- * Decision shown before its press -- is story 5.7's. Until then Run N and Resume play as fast as the
- * Brain answers.
+ * <p><b>The stepping unit (story 5.7, FR-39, UX-DR6).</b> The unit is one Input wait: the Brain decides
+ * the wait in front as soon as the hero is ready, and a held Run shows that Decision and executes it only
+ * against a credit. Next Step gives one credit, so it advances exactly one wait; pressed while the Brain
+ * is still thinking it is queued (the credit waits) and fires once when the Decision lands, with the Mode
+ * strip reading THINKING meanwhile; a second press while one is queued is ignored, so a queued step fires
+ * exactly once. Run N gives its credits one at a time and lands in PAUSED when the last is spent.
+ *
+ * <p><b>The speed modes.</b> Next Step acts only on a press. Human play speed gives one credit per
+ * interval (default one second, half a second to five), the first at once, measured from the last
+ * credit given, so the interval can be changed at any moment and the next wait uses it. Fast as it can
+ * lets the Run go ({@code hold(false)}): a Decision executes as soon as the Brain returns. A speed mode
+ * switched mid-Run takes effect at the next Input wait and never discards a credit already given, so a
+ * wait is never lost: only a change of who holds the Run ({@code applyHold}) touches the Run, and
+ * unholding executes whatever waits.
  */
 final class ControlState {
 
@@ -49,6 +58,9 @@ final class ControlState {
         /** Whether the Brain has a Decision pending. */
         boolean thinking();
 
+        /** Whether a Decision has landed for the wait in front and waits for a credit (story 5.7). */
+        boolean ready();
+
         /** Whether the Run is over. */
         boolean ended();
 
@@ -64,12 +76,19 @@ final class ControlState {
     private double interval = INTERVAL_DEFAULT;
     /** Whether a Run N is under way: RUNNING until its credits are spent. */
     private boolean runN;
+    /** The credits a Run N has still to give. */
+    private int remaining;
+    /** Whether the Run is held, as this last told it. */
+    private boolean held;
+    /** Seconds since the last credit the pacer gave. */
+    private double sinceStep;
 
     /** A fresh Run's controls: the Run is held at once, PAUSED with Next Step. */
     ControlState(Seam seam, Capabilities capabilities) {
         this.seam = seam;
         this.capabilities = capabilities;
         seam.hold(true);
+        held = true;
     }
 
     Mode mode() {
@@ -112,13 +131,28 @@ final class ControlState {
     }
 
     /**
-     * Once per frame: a Run N whose credits are spent and whose last Decision has landed has landed in
-     * PAUSED. The Run's own end is read through {@link #over()}.
+     * Once per frame, {@code seconds} after the last: gives the credits the speed mode owes and lands a
+     * finished Run N in PAUSED. A credit is given only to a Run that has a Decision waiting for one and
+     * none already given, so a credit is never banked ahead of the wait it is for.
      */
-    void frame() {
-        if (runN && seam.credits() == 0 && !seam.thinking()) {
+    void frame(double seconds) {
+        sinceStep += seconds;
+        if (over()) {
+            return;
+        }
+        if (mode == Mode.RUNNING && held && seam.credits() == 0 && seam.ready() && (!runN || remaining > 0)
+                && (speed != SpeedMode.HUMAN_PLAY || sinceStep >= interval)) {
+            seam.advance(1);
+            sinceStep = 0;
+            if (runN) {
+                remaining--;
+            }
+        }
+        if (runN && remaining == 0 && seam.credits() == 0) {
+            // The last credit is spent: its Decision was executed. Held already, so nothing plays on.
             runN = false;
             mode = Mode.PAUSED;
+            applyHold();
         }
     }
 
@@ -143,6 +177,11 @@ final class ControlState {
         if (mode == Mode.RUNNING) {
             pause();
         } else {
+            if (seam.credits() > 0) {
+                // One Next Step is already queued or about to fire: it fires once, and pressing again before
+                // it has does not stack (story 5.7).
+                return false;
+            }
             seam.advance(1);
         }
         return true;
@@ -155,7 +194,9 @@ final class ControlState {
         }
         mode = Mode.RUNNING;
         runN = true;
-        seam.advance(count);
+        remaining = count;
+        sinceStep = interval;
+        applyHold();
         return true;
     }
 
@@ -193,8 +234,8 @@ final class ControlState {
 
     /**
      * The speed selector, one press: Next Step, Human, Fast, and round (EXPERIENCE.md); Human is skipped
-     * while pacing is not built. Choosing Next Step while RUNNING pauses the bot, since it then acts
-     * only on a press.
+     * only if the Run cannot pace. Choosing Next Step while RUNNING pauses the bot, since it then acts
+     * only on a press; any other choice takes effect at the next Input wait.
      */
     boolean cycleSpeed() {
         if (!enabled(Control.SPEED)) {
@@ -207,6 +248,8 @@ final class ControlState {
         };
         if (speed == SpeedMode.NEXT_STEP && mode == Mode.RUNNING) {
             pause();
+        } else {
+            applyHold();
         }
         return true;
     }
@@ -219,12 +262,12 @@ final class ControlState {
         if (mode == Mode.HUMAN) {
             // Hand back lands in PAUSED, never straight in RUNNING (UX-DR9).
             mode = Mode.PAUSED;
-            seam.hold(true);
+            holdNow();
             seam.humanInput(false);
         } else {
             runN = false;
             mode = Mode.HUMAN;
-            seam.hold(true);
+            holdNow();
             seam.humanInput(true);
         }
         return true;
@@ -233,17 +276,37 @@ final class ControlState {
     private void pause() {
         runN = false;
         mode = Mode.PAUSED;
-        seam.hold(true);
+        holdNow();
     }
 
     private void resume() {
         // A Run that resumes plays on its own; Next Step is the speed that waits for a press, so the
-        // speed becomes the readable pace when it can pace, and Fast until then.
+        // speed becomes the readable pace when it can pace.
         if (speed == SpeedMode.NEXT_STEP) {
             speed = capabilities.pacing() ? SpeedMode.HUMAN_PLAY : SpeedMode.FAST;
         }
         runN = false;
         mode = Mode.RUNNING;
-        seam.hold(false);
+        sinceStep = interval;
+        applyHold();
+    }
+
+    /** Holds the Run and withdraws any credit not yet spent: a Pause, a Take over, a Hand back. */
+    private void holdNow() {
+        held = true;
+        seam.hold(true);
+    }
+
+    /**
+     * Tells the Run whether it is held, only when that changes (telling it clears its credits, and a
+     * credit already given is a wait the human asked for). Only Fast as it can, outside a Run N, lets the
+     * Run go; every other state holds it, and Human play speed gives its credits in {@link #frame}.
+     */
+    private void applyHold() {
+        boolean wanted = !(mode == Mode.RUNNING && speed == SpeedMode.FAST && !runN);
+        if (wanted != held) {
+            held = wanted;
+            seam.hold(wanted);
+        }
     }
 }

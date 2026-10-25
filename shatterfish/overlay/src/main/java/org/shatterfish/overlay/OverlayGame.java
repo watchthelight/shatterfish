@@ -175,7 +175,7 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         Music.INSTANCE.update();
         Sample.INSTANCE.update();
         if (controls != null) {
-            controls.frame();
+            controls.frame(Game.elapsed);
         }
         dock.step(scene, scene::update, run == null ? null : run.snapshot(), panelLocked());
     }
@@ -221,6 +221,11 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         @Override
         public boolean thinking() {
             return run.state() == EmbeddedRun.State.THINKING;
+        }
+
+        @Override
+        public boolean ready() {
+            return run.withheld();
         }
 
         @Override
