@@ -363,6 +363,15 @@ public final class Brain {
             Action back = new Action.Step(memory.prior());
             offered = offered.stream().filter(action -> !action.equals(back)).toList();
         }
+        // Ground near a trap the screen shows may hold one it does not (issue #184, Traps): with an enemy in
+        // view no Step onto ground no search has covered is offered to any Policy; a calm hero is made to
+        // search before it steps (below).
+        boolean trapped = observation.header().prompt() == org.shatterfish.api.PromptKind.NONE
+                && !observation.map().traps().isEmpty() && !TestItem.inHarm(observation);
+        boolean calm = Explore.calm(observation, knowledge);
+        if (trapped && !calm) {
+            offered = Traps.withheld(observation, memory, offered);
+        }
         if (offered.isEmpty()) {
             return new Decided(null, null, List.of(), "the screen offers no Action");
         }
@@ -400,6 +409,15 @@ public final class Brain {
         if (taken == null) {
             return new Decided(null, null, List.of(),
                     "no Policy offered a Choice among " + offered.size() + " Actions");
+        }
+        if (trapped && calm && chosen.action() instanceof Action.Step step
+                && Traps.unsearched(observation, memory, step.cell()) && offered.contains(new Action.Search())) {
+            // The Step the Policy chose is kept as the first alternative, and taken after the search.
+            alternatives.add(0, chosen);
+            while (alternatives.size() > RunLog.Decision.ALTERNATIVES) {
+                alternatives.remove(alternatives.size() - 1);
+            }
+            chosen = new RunLog.Choice(new Action.Search(), Policies.CERTAIN, Traps.AHEAD + " " + step.cell());
         }
         return new Decided(chosen.action(),
                 new RunLog.Decision(taken.goal(), chosen, alternatives, Safety.flags(observation), taken.name()),
