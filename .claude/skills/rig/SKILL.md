@@ -37,7 +37,7 @@ numbers where the project expects them.
 For a Brain PR, the numbers come from the checked-in direction tool, not from ad-hoc scripts:
 
 ```sh
-./gradlew :rig:direction --args="--set standard --class WARRIOR --first 40 --salt-base 1000 --baseline origin/main --jobs 2"
+./gradlew :rig:direction --args="--set standard --class WARRIOR --first 40 --salt-base 1000 --baseline origin/main"
 ```
 
 It plays the subset with the current Brain, plays the baseline (a git ref is built in a worktree; a
