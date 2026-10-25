@@ -158,6 +158,8 @@ E5 (the Overlay) so far:
   once; the full local test suite is about four times faster (#213).
 - E5.6: the Panel has its controls row (Pause, Next Step, Run N, speed, Explain), and a Brain Run
   opens paused; which control is live in which state is one tested matrix (#214).
+- The Brain's two notions of calm (quiet, unengaged) each have one named home; play is
+  byte-identical (#216).
 - Next: the speed modes and the takeover (5.7, 5.8), with Brain changes in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
