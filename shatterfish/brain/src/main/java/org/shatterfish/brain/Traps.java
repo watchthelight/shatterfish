@@ -14,7 +14,7 @@ import java.util.List;
  * (BurnedRoom.java:86-113), so where burning traps are drawn, hidden ones are as likely as the live ones.
  * The Brain cannot see which cell they are on, and does not try to: it knows only that the cells near a
  * trap it can see may hold one it cannot, and that an intentional search finds every trap within one cell
- * of the hero, without fail (Hero.java:2522-2523, :2587-2589).
+ * of the hero, bar the kinds that cannot be searched for (Hero.java:2522-2523, :2584-2589); one search is made from a cell, found or not, so a trap that cannot be found costs one search and no loop.
  *
  * <p>So a cell within {@link #REACH} of a shown trap is <em>unsearched</em> until a search was made from
  * a cell within one of it. A calm hero searches before a Step onto an unsearched cell

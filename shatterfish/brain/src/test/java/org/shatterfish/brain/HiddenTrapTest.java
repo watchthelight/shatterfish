@@ -125,6 +125,25 @@ class HiddenTrapTest {
     }
 
     @Test
+    @DisplayName("when every Step is onto unsearched ground the offered Actions are kept whole, and the same screens give the same Decision")
+    void withheld_keeps_a_whole_list_and_is_deterministic() {
+        Observation tight = ExplorePolicyTest.screen(1,
+                "#####",
+                "#.^.#",
+                "#.@.#",
+                "#####");
+        List<Action> offered = tight.actions().actions();
+        List<Action> steps = offered.stream().filter(a -> a instanceof Action.Step).toList();
+        assertFalse(steps.isEmpty());
+        assertTrue(steps.stream().allMatch(a -> Traps.unsearched(tight, Memory.START, ((Action.Step) a).cell())));
+        List<Action> kept = Traps.withheld(tight, Memory.START, offered);
+        assertTrue(kept.stream().noneMatch(a -> a instanceof Action.Step), "every Step was withheld: " + kept);
+        assertFalse(kept.isEmpty(), "the other Actions are kept");
+        assertEquals(brain().decide(tight, Screens.drive(brain(), tight)).action(),
+                brain().decide(tight, Screens.drive(brain(), tight)).action());
+    }
+
+    @Test
     @DisplayName("with an enemy in view the Brain takes no Step onto a cell near a shown trap that no search has covered")
     void no_unsearched_step_in_a_fight() {
         Observation fight = ExplorePolicyTest.screen(1,
