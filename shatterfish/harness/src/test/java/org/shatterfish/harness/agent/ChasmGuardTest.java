@@ -8,7 +8,9 @@ import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Terrain;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.InterlevelScene;
+import com.watabou.noosa.Game;
 import com.watabou.utils.PathFinder;
+import org.shatterfish.harness.driver.Windows;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -62,12 +64,17 @@ class ChasmGuardTest {
         throw new IllegalStateException("no cell beside the hero could become a chasm");
     }
 
-    /** Plays a Run whose Brain jumps, at {@code frameTime} a frame (0: the headless fifth), until it falls. */
-    private static void jumps(float frameTime, boolean held) {
+    /**
+     * Plays a Run whose Brain jumps, at {@code frameTime} a frame (0: the headless fifth), until it falls, and
+     * returns the frames its answer was held; {@code stallMillis} is how long the worker takes to decide each
+     * question, the scheduling of a loaded machine made explicit.
+     */
+    private static long jumps(float frameTime, boolean held, long stallMillis) {
         try (EmbeddedHost host = new EmbeddedHost(SEED, HeroClass.WARRIOR, SALT)) {
             int chasm = placeAChasmBeside(Dungeon.hero);
             List<Action> decided = Collections.synchronizedList(new ArrayList<>());
             Decider brain = observation -> {
+                stall(stallMillis);
                 Action action = observation.prompt().kind() == PromptKind.CHASM_JUMP
                         ? new Action.AnswerPrompt(0) : new Action.Step(chasm);
                 decided.add(action);
@@ -75,16 +82,26 @@ class ChasmGuardTest {
             };
             host.frameTime = frameTime;
             // The desktop draws its frames on while an answer is held; the headless loop's timing is the
-            // decision within its frame. The game waits while the worker decides, so the answer is ready on
-            // the window's first frame however slowly the worker is scheduled: a worker slower than the
-            // window's fifth of a second let the guard open first and left nothing held (#193).
+            // decision within its frame. The host waits for the worker before every frame that follows a
+            // question, so the answer is ready on the window's first frame however slowly the worker is
+            // scheduled (a worker slower than the window's fifth of a second let the guard open first and
+            // left nothing held, #193), and the game takes the same single step before the Run serves or
+            // holds it (a worker finishing between the host's look and the Run's own took that step or not
+            // by chance, which moved the count of frames held).
             host.stepWhileThinking = held;
             host.waitForTheWorker = held;
+            StringBuilder trace = new StringBuilder("frames ");
             EmbeddedRun run = host.attach(brain, null, 5_000);
             // Only frames that step the game count against the bound; waiting on the worker is the timeout's.
             for (int frame = 0; frame < 20_000 && run.state() != EmbeddedRun.State.ENDED && Dungeon.depth == 1; ) {
                 boolean waiting = host.waitingOnTheBrain();
-                host.frame();
+                EmbeddedRun.State state = host.frame();
+                if (!waiting) {
+                    trace.append(frame).append(':').append(state).append(" t=").append(Game.timeTotal)
+                            .append(" held=").append(run.heldFrames()).append(" front=")
+                            .append(Windows.front() == null ? "none" : Windows.front().getClass().getSimpleName())
+                            .append("; ");
+                }
                 if (waiting) {
                     Thread.onSpinWait();
                 } else {
@@ -102,9 +119,20 @@ class ChasmGuardTest {
             assertEquals(1, seen.stream().filter(action -> action instanceof Action.AnswerPrompt).count(),
                     "one answer, taken the first time: no tap was lost to the window's guard " + seen);
             if (held) {
-                assertTrue(run.heldFrames() > 0, "the answer was held until the window took input");
+                assertTrue(run.heldFrames() > 0, "the answer was held until the window took input: " + trace);
             } else {
                 assertEquals(0, run.heldFrames(), "at the headless fifth of a second nothing is held");
+            }
+            return run.heldFrames();
+        }
+    }
+
+    private static void stall(long millis) {
+        if (millis > 0) {
+            try {
+                Thread.sleep(millis);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
         }
     }
@@ -113,13 +141,23 @@ class ChasmGuardTest {
     @DisplayName("at the desktop's frame time, the answer to the chasm is held until the window takes it, and taken once")
     @Timeout(value = 5, unit = TimeUnit.MINUTES)
     void the_answer_waits_for_the_guard() {
-        jumps(1 / 60f, true);
+        jumps(1 / 60f, true, 0);
+    }
+
+    @Test
+    @DisplayName("how long the answer is held does not depend on how slowly the worker decides")
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void the_hold_does_not_depend_on_the_worker() {
+        long quick = jumps(1 / 60f, true, 0);
+        for (long stall : new long[] {1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 40, 250}) {
+            assertEquals(quick, jumps(1 / 60f, true, stall), "frames held with a worker " + stall + " ms a question");
+        }
     }
 
     @Test
     @DisplayName("at the headless frame time nothing is held, so the embedded Run is still the headless loop's")
     @Timeout(value = 5, unit = TimeUnit.MINUTES)
     void nothing_is_held_headlessly() {
-        jumps(0f, false);
+        jumps(0f, false, 0);
     }
 }
