@@ -134,6 +134,9 @@ E5 (the Overlay) so far:
   fails on PRs that leave the Codex alone (#200), and the chasm test's host now
   waits for the Brain's worker once per frame, so it cannot see the worker
   differently from the Run (#201).
+- Fix since: the Brain no longer takes a Step out of an avoided region that
+  makes the walk out longer, which it used to undo the next turn; oscillating
+  Steps on the tuning set fell from 312 to 289 (#199, for #165).
 - Next: the controls (5.5-5.8), with bestiary-driven Brain changes in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
