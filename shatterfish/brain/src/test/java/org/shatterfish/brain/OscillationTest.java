@@ -374,4 +374,50 @@ class OscillationTest {
         assertFalse(decided.decision().chosen().why().startsWith("approach "),
                 "no approach toward a fight the brute makes unfavourable: " + decided.decision());
     }
+
+    /** A room three rows high with the exit in its far corner. */
+    private static final String[] EXIT_ROOM = {
+        "############",
+        "#..........#",
+        "#..........#",
+        "#.........>#",
+        "############",
+    };
+
+    /** {@link #EXIT_ROOM} with the hero drawn on {@code hero} and {@code centre} seen before and out of view now. */
+    private static Observation exitRoom(int hero, int centre) {
+        int width = EXIT_ROOM[0].length();
+        String[] rows = EXIT_ROOM.clone();
+        StringBuilder row = new StringBuilder(rows[hero / width]);
+        row.setCharAt(hero % width, '@');
+        rows[hero / width] = row.toString();
+        Observation drawn = DescendPolicyTest.hero(ExplorePolicyTest.screen(1, rows), 20, 20, Hunger.NONE);
+        if (hero == centre) {
+            return drawn;
+        }
+        MapSection map = drawn.map();
+        List<Fog> fog = new ArrayList<>(map.fog());
+        fog.set(centre, Fog.VISITED);
+        MapSection dim = new MapSection(map.width(), map.height(), map.tiles(), fog, map.traps(), map.heaps(),
+                map.blobs(), map.feeling(), map.transitions());
+        Observation bare = new Observation(drawn.header(), dim, drawn.actors(), drawn.hero(), drawn.inventory(),
+                drawn.journal(), drawn.log(), ActionsSection.NONE, PromptSection.NONE);
+        return bare.withActions(ValidActions.of(bare));
+    }
+
+    @Test
+    @DisplayName("issue #165: a region wider than the room is high: the Step out of it never shortens the walk out, so "
+            + "the way out is withheld and the descend Policy, which stood aside for it, walks to the exit")
+    void away_that_undoes_itself() {
+        int width = EXIT_ROOM[0].length();
+        int centre = 5 + 2 * width;
+        Memory memory = DescendPolicyTest.spent(1, 10, 1, 0).avoiding(new Memory.Avoid(1, 0, centre, 4, 500));
+        for (int start : new int[]{3 + 2 * width, 3 + width}) {
+            Played played = play(brain(), hero -> exitRoom(hero, centre), start, memory.belief(), 12);
+            assertTrue(longestBounce(played) < Memory.BOUNCES,
+                    "no loop from " + start + ": " + played.cells() + " " + played.decisions());
+            assertTrue(played.cells().contains(10 + 3 * width),
+                    "the hero reaches the exit from " + start + ": " + played.cells() + " " + played.decisions());
+        }
+    }
 }

@@ -275,7 +275,8 @@ final class Explore implements Policy {
 
     /**
      * The offered Step that starts the shortest walk out of every region the fight Policy retreated from,
-     * when the hero stands inside one (story 4.7); null when it stands in none, or no walk leads out. The
+     * when the hero stands inside one (story 4.7); null when it stands in none, no walk leads out,
+     * or the shortest walk out starts nearer the centre (issue #165). The
      * reason counts the Steps out. The first Step never goes nearer the centre of a region the hero
      * stands in, which is where the enemy was.
      *
@@ -298,9 +299,19 @@ final class Explore implements Policy {
         List<Action> outward = offered.stream().filter(action -> !(action instanceof Action.Step step)
                 || around.stream().allMatch(region -> distance(map, step.cell(), region.cell())
                         >= distance(map, hero, region.cell()))).toList();
-        Path out = nearest(map, open, hero, outward,
-                cell -> regions.stream().noneMatch(region -> region.covers(depth, branch, cell, width)));
-        return out == null ? null : new RunLog.Choice(out.step(), Policies.CERTAIN, "away " + out.distance());
+        Goal outside = cell -> regions.stream().noneMatch(region -> region.covers(depth, branch, cell, width));
+        Path out = nearest(map, open, hero, outward, outside);
+        // Issue #165: the first Step is held to the ones that never go nearer the centre, and the walk from
+        // there on is not, so where the shortest way out starts nearer the centre the Step chosen can lead
+        // the long way round. From the cell it reaches the shortest way out may start nearer the centre in
+        // turn, back where the hero stood, and the two Steps undo each other until the hero starves (a
+        // region wider than the room is high did it). Only a Step on a shortest way out is handed over; where
+        // none is, the region is crossed rather than fled, as the plans through it do (issue #174).
+        Path shortest = nearest(map, open, hero, offered, outside);
+        if (out == null || (shortest != null && out.distance() > shortest.distance())) {
+            return null;
+        }
+        return new RunLog.Choice(out.step(), Policies.CERTAIN, "away " + out.distance());
     }
 
     /**
