@@ -7,8 +7,8 @@ import org.shatterfish.harness.log.RunLogReader;
  * The Rig takes no Overlay Run for one of its own (story 5.1's fairness review, ADR-0013).
  *
  * <p>An Overlay Run is played by the embedded driver inside the desktop game, whose extra frames draw
- * from the Run's generator until story 5.13 routes them away, so it is not reproducible from its tuple
- * or its Action list: a named exception to non-negotiable 5. Its log's header says
+ * from the Run's generator before story 5.13 routed them away; it is reproducible now (OverlayReplayTest), but
+ * the headless driver does not yet play its interface size (issue #169), so the Rig refuses it. Its log's header says
  * {@code driver: embedded}. Every path by which the Rig reads a Run's log to count, score, calibrate, compare or
  * replay it asks this first, and a log that says it was played in the Overlay is refused by name
  * rather than counted, even when a later line of it is unreadable.
@@ -52,7 +52,7 @@ final class OverlayLogs {
     static void refuse(RunLog.Header header, Object where) {
         if (header != null && header.embedded()) {
             throw new Refused(where + " was played in the Overlay (driver: embedded), which is not reproducible"
-                    + " from its tuple until story 5.13; the Rig counts, scores and publishes only its own Runs");
+                    + " from its tuple by the Rig until the headless driver plays its interface size (issue #169); the Rig counts, scores and publishes only its own Runs");
         }
     }
 }

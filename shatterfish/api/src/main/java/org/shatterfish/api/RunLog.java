@@ -174,9 +174,9 @@ public sealed interface RunLog
      * @param started      when it began, ISO-8601 -- not chained, for the same reason
      * @param driver       which driver played it: empty for the headless driver the Rig uses, or
      *                     {@link #EMBEDDED} for the Overlay's (story 5.1). Chained. An Overlay Run is
-     *                     not reproducible from its tuple or its Action list until story 5.13 routes
-     *                     the render thread's draws away from the Run's generator, so its log says so
-     *                     and the Rig refuses it (ADR-0013's story 5.1 amendment)
+     *                     reproducible since story 5.13 routed
+     *                     the render thread's draws away from the Run's generator, but the Rig still refuses it (issue #169), and its log says so
+     *                     (ADR-0013's story 5.1 amendment)
      * @param interfaceSize the game's interface size an Overlay Run played on (0, 1 or 2), or -1 when
      *                     not stated: every headless Run, which plays on 0 (story 5.2). Chained, written
      *                     only when stated. It changes the log text the Observation carries all Run

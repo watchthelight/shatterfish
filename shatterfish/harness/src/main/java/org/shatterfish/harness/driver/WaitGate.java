@@ -2,6 +2,7 @@ package org.shatterfish.harness.driver;
 
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
+import com.watabou.noosa.Game;
 
 /**
  * Where an Input wait is confirmed and numbered, for both drivers (ADR-0013, ADR-0015).
@@ -41,6 +42,17 @@ public final class WaitGate {
     private Window lastConfirmedWindow;
     private Window lastSeenWindow;
     private int windowFramesShown;
+    /** The hero was ready for a wait but his sprite was still playing an animation (story 5.13). */
+    private boolean carried;
+    /** Game seconds the hero has been ready with his sprite still playing, since the last wait. */
+    private float unsettled;
+
+    /**
+     * The longest, in game seconds, a wait is held for the hero's sprite to finish the animation it is
+     * playing. No animation the hero plays lasts a tenth of this; it is a bound on a sprite that never
+     * finishes, so that a stuck animation costs a delay and never the Run.
+     */
+    static final float SETTLE_MOST = 3f;
 
     /** Makes this the gate the executor's announcement reaches. */
     public void install() {
@@ -99,8 +111,22 @@ public final class WaitGate {
         }
         boolean notified = notifications != seenNotifications;
         seenNotifications = notifications;
-        if ((notified || acted || window != lastConfirmedWindow)
+        if ((notified || acted || carried || window != lastConfirmedWindow)
                 && (window == null || windowFramesShown >= 2) && HeadlessDriver.waitState(hero, window)) {
+            if (window == null && !settled(hero)) {
+                // Story 5.13. A search, a read or a zap leaves the hero ready while his sprite still plays
+                // the animation, and the game clears the action held in his hand when that animation ends
+                // (Hero.onOperateComplete, Hero.java:2505). So whether an Action handed over in that gap
+                // survived depended on how long the frames were: a headless frame is a fifth of a second
+                // and a desktop one a sixtieth, and the same Run played two ways. The wait is confirmed
+                // once the animation is over, which is a wait the game would take no Action at before
+                // either, so no Run loses a turn it could have had.
+                carried = true;
+                unsettled += Game.elapsed;
+                return 0;
+            }
+            carried = false;
+            unsettled = 0;
             waitIndex++;
             lastConfirmedWindow = window;
             acted = false;
@@ -118,6 +144,8 @@ public final class WaitGate {
      */
     public void sceneChanged() {
         acted = false;
+        carried = false;
+        unsettled = 0;
         seenNotifications = notifications;
     }
 
@@ -139,9 +167,23 @@ public final class WaitGate {
     public void reconfirm(long k) {
         waitIndex = k - 1;
         acted = true;
+        carried = false;
+        unsettled = 0;
         lastConfirmedWindow = null;
         lastSeenWindow = null;
         windowFramesShown = 0;
+    }
+
+    /**
+     * Whether the hero's sprite has finished the animation it was playing: it is on a looping one (the
+     * idle and the run), is paused (frozen, paralysed), or has been held {@link #SETTLE_MOST} game
+     * seconds. A hero with no sprite is settled.
+     */
+    private boolean settled(Hero hero) {
+        if (hero == null || hero.sprite == null || hero.sprite.paused || hero.sprite.looping()) {
+            return true;
+        }
+        return unsettled >= SETTLE_MOST;
     }
 
     /** The index of the last wait confirmed; 0 before the first. */

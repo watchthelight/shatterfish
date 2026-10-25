@@ -791,3 +791,12 @@ Found by the fairness review of story 5.8 (issue #220), settled with the rest of
   A named Profile whose saved `keybinds.dat` binds F6 to F11 to a game action loses that binding to the Overlay's default
   (`loadBindings` merges defaults after saved keys); the fairness review of story 5.11 noted it. Rare and visible in the
   key-binding screen; left as it is, since a fix means editing `loadBindings`.
+
+## Amendment: story 5.13 (2026-10-25)
+
+The non-reproducibility ADR-0013's story 5.1 amendment named is closed for the draws: hook row 8 sends the
+render thread's visual draws to the base generator, and `WaitGate` confirms a wait independently of frame
+length (see ADR-0007's story 5.13 amendment). The Search-then-tap loss recorded under story 5.8 is the same
+cause and is fixed with it. Fast as it can no longer waits for the animation interval: the Overlay sets
+`Game.elapsed` to one second a frame there, which needs no hook. The Rig still refuses `driver: embedded` logs
+until the headless driver plays the Overlay's interface size (issue #169).

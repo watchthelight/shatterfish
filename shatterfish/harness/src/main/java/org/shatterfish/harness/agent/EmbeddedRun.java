@@ -609,7 +609,7 @@ public final class EmbeddedRun implements AutoCloseable {
      * the same generator. The desktop game adds frames the headless one does not have, the ones it
      * draws while the Brain thinks and the ones its wall clock paces, and what the render thread
      * draws in them comes from the Run's generator today. So an Overlay Run is <b>not reproducible
-     * from its tuple or its Action list</b> until story 5.13 routes those draws away: a Replay of its
+     * from its tuple or its Action list</b> before story 5.13 routed those draws away (now it is, OverlayReplayTest): a Replay of its
      * log parts from it at the first roll the extra frames moved (wait 15 of the first real launch).
      * That is a named exception to non-negotiable 5 (ADR-0013's story 5.1 amendment), and its log's
      * header says {@code driver: embedded}, which the Rig refuses. The tests hold the equality where

@@ -336,10 +336,10 @@ class ReplayRefusalTest {
 
         // Find a wait well into the Run and claim the map looked different at it. Everything before
         // it is true, so the Replay agrees for a while and then stops -- which is the answer worth
-        // having, because "wait 20" is where a person starts looking.
+        // having, because "wait 10" is where a person starts looking.
         long spoiled = -1;
         for (int i = 0; i < records.size(); i++) {
-            if (records.get(i) instanceof RunLog.Wait wait && wait.k() == 20) {
+            if (records.get(i) instanceof RunLog.Wait wait && wait.k() == 10) {
                 Map<String, String> sections = new LinkedHashMap<>(wait.sections());
                 assertTrue(sections.containsKey("map"), "a wait hashes the map: " + sections.keySet());
                 sections.put("map", ZERO);
@@ -349,7 +349,7 @@ class ReplayRefusalTest {
                 spoiled = wait.k();
             }
         }
-        assertEquals(20L, spoiled, "the Run ran past wait 20");
+        assertEquals(10L, spoiled, "the Run ran past wait 10");
         rechain(file, records);
 
         // The forgery verifies. That is not a bug in the chain; it is what the chain is for.
@@ -357,7 +357,7 @@ class ReplayRefusalTest {
 
         Replay.Diverged diverged = assertThrows(Replay.Diverged.class,
                 () -> Replay.of(file, out, "test"));
-        assertEquals(20L, diverged.at(), "the first wait this build and the log disagree at");
+        assertEquals(10L, diverged.at(), "the first wait this build and the log disagree at");
         assertTrue(diverged.sections().contains("map"),
                 "the section that differs is named: " + diverged.sections());
         assertFalse(diverged.sections().contains("hero"),

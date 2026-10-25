@@ -345,6 +345,8 @@ public class ItemSprite extends MovieClip {
 						GameScene.ripple(heap.pos);
 					}
 
+					// shatterfish-hook:8
+					try { Random.visualBegin();
 					if (Dungeon.level.water[heap.pos]) {
 						Sample.INSTANCE.play( Assets.Sounds.WATER, 0.8f, Random.Float( 1f, 1.45f ) );
 					} else if (Dungeon.level.map[heap.pos] == Terrain.EMPTY_SP) {
@@ -358,6 +360,8 @@ public class ItemSprite extends MovieClip {
 					} else {
 						Sample.INSTANCE.play( Assets.Sounds.STEP, 0.8f, Random.Float( 1.16f, 1.25f ));
 					}
+					// shatterfish-hook:8
+					} finally { Random.visualEnd(); }
 				}
 			}
 		}

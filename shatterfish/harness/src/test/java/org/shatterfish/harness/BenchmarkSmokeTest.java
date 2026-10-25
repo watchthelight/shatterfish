@@ -80,8 +80,8 @@ class BenchmarkSmokeTest {
         assertEquals(report.codecBytes(), again.codecBytes());
     }
 
-    private static final long PINNED_WAITS = 128;
-    private static final long PINNED_TURNS = 3118;
+    private static final long PINNED_WAITS = 143;
+    private static final long PINNED_TURNS = 3064;
     private static final Map<String, Integer> PINNED_CAUSES = Map.of("DEATH", 2);
     private static final Map<Integer, Integer> PINNED_DEPTHS = Map.of(1, 2);
     private static final List<String> PINNED_SAMPLES = List.of(
