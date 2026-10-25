@@ -203,7 +203,10 @@ public final class Brain {
      */
     public Belief handed(Observation observation, Belief belief, Decided decided) {
         Memory before = Memory.of(belief);
-        Memory memory = before.handed(Beliefs.kind(decided.action()),
+        // A search is judged by the screen it is issued on (issue #229), not by the one after it.
+        String kind = decided.action() instanceof Action.Search && !Explore.searchReaches(observation)
+                ? Beliefs.SEARCH_SHORT : Beliefs.kind(decided.action());
+        Memory memory = before.handed(kind,
                 decided.action() instanceof Action.Step step ? step.cell() : -1);
         RunLog.Decision decision = decided.decision();
         Memory.Windows windows = memory.windows();

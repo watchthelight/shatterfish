@@ -406,25 +406,44 @@ final class Explore implements Policy {
         return Math.max(Math.abs(a % width - b % width), Math.abs(a / width - b / width));
     }
 
+    /** The magical sight buff's name as the HUD shows it (actors.properties:296). */
+    static final String MAGICAL_SIGHT = "magical sight";
+
     /**
-     * Whether a search the hero just made reached the whole of {@link #radius} around it (issue #205).
-     * {@code Hero.search} finds secrets only on cells in the hero's field of view
+     * Whether a search made on this screen reaches the whole of {@link #radius} around the hero (issues #205,
+     * #229). The screen is the one the search is issued on, not the one after it: {@code Hero.search} runs at
+     * the start of the Action, on the field of view then, and the buffs a turn later may have worn off.
+     *
+     * <p>{@code Hero.search} finds secrets only on cells in the hero's field of view
      * ({@code core/.../actors/hero/Hero.java:2562}). A hero blinded or shadowmelded is not sighted
      * ({@code core/.../levels/Level.java:1332-1333}) and sees only the 3x3 around it, the sense radius of one
      * ({@code Level.java:1400-1421}), which a radius of one fills and the Rogue's radius of two
      * ({@code Hero.java:2522}) does not. The Darkness challenge narrows the view to two
      * ({@code Level.java:158}), which fills the radius of two, unless the floor also feels dark, which cuts it to
-     * one ({@code Level.java:274}, {@code :467}); the cells next to the hero are always in view (Chebyshev distance 1 is the smallest distance the caster takes). A search
+     * one ({@code Level.java:274}, {@code :467}); the cells next to the hero are always in view. A search
      * has no refusal to read: it is offered only with no Prompt open ({@code ValidActions}), the executor
      * hands it straight to {@code Hero.search(true)} (ActionExecutor.java:131-133), and that spends its time
-     * ({@code Hero.java:2645}) whenever the hero is alive. So the signals are the buffs on the HUD, the challenge and the floor feeling. Mind vision, magical sight and
-     * foresight widen a blind hero's sight; they are not read, so such a search is under-credited, never
-     * over-credited. Wide Search is a Rogue talent the radius does not count (see the class comment).
+     * ({@code Hero.java:2645}) whenever the hero is alive.
+     *
+     * <p>Magical sight (sense 12, {@code MagicalSight.java:34}) copies the discoverable cells within its sense
+     * into the field of view, sighted or not ({@code Level.java:1389-1421}), which fills the Rogue's two cells, so
+     * a search under it is whole. Two more widen the search but are not read. Mind vision's sense of two
+     * ({@code MindVision.java:32}) is copied by the rounded radius ({@code Level.java:1400-1419}), which leaves
+     * the four corners of the Rogue's square of two out of view ({@code ShadowCaster.java:41-43}; the corner
+     * patch at {@code :87-92} is in {@code castShadow} only). Foresight's scan of {@code Foresight.DISTANCE} = 8
+     * ignores the view ({@code Hero.java:2525-2536}, {@code :2562}), but only the potion's buff does that
+     * ({@code Hero.java:2525}), and the Talisman of Foresight's buff of the same name shows on the HUD
+     * ({@code TalismanOfForesight.java:363-367}) and does not; the screen cannot tell them apart. A search under
+     * either is under-credited, never over-credited. Wide Search is a Rogue talent the radius does not count (see
+     * {@link #radius}).
      * The Policy that would search again without coverage waits instead while the sight is short
      * ({@link #search}), rather than repeating a search that finds nothing.
      */
     static boolean searchReaches(Observation observation) {
         if (radius(observation) <= 1) {
+            return true;
+        }
+        if (has(observation, MAGICAL_SIGHT)) {
             return true;
         }
         // The Darkness challenge's view of two is cut to round(5*2/8) = 1 on a floor that feels dark
@@ -434,7 +453,11 @@ final class Explore implements Policy {
         return !(dim || has(observation, BLINDED) || has(observation, SHADOWMELDED));
     }
 
-    /** The search radius: one, two for the Rogue (Hero.java:2506). */
+    /**
+     * The search radius: one, two for the Rogue (Hero.java:2522). The Wide Search talent adds one more
+     * (Hero.java:2523) and is not counted: with one point the scan is circular (Hero.java:2521), so a square of
+     * three would credit corners it does not reach, and under-crediting only makes the Brain search again.
+     */
     static int radius(Observation observation) {
         return observation.header().heroClass() == HeroClass.ROGUE ? 2 : 1;
     }

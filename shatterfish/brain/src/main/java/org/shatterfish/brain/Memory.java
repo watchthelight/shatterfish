@@ -52,6 +52,7 @@ import java.util.List;
  *                 hero had already stood still for {@link Explore#STUCK} - 1 waits: a Step the game
  *                 refuses. A function of the screens and the memory, recomputed, not an intention
  * @param last     the kind of the last Action this Brain handed over ({@code "Step"}, {@code "Search"},
+ *                 {@code "SearchShort"} for a search issued on a screen whose sight did not cover its radius (issue #229),
  *                 ...), or empty before the first; see the note above
  * @param holds    how many waits in a row the fight Policy has held its cell with an enemy in view
  * @param near     the distance from the hero to the nearest enemy in view on this screen, or -1

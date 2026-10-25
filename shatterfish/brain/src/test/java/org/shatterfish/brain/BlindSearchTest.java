@@ -30,8 +30,13 @@ class BlindSearchTest {
         "#######",
     };
 
-    private static Observation room(HeroClass heroClass, boolean blind, String buff) {
-        Observation base = ExplorePolicyTest.screen(2, false, heroClass, ROOM);
+    static Observation room(HeroClass heroClass, boolean blind, String buff) {
+        return seen(ExplorePolicyTest.screen(2, false, heroClass, ROOM), blind,
+                buff == null ? List.of() : List.of(new BuffView(buff, true, 500)));
+    }
+
+    /** {@code base} seen by a hero who sees only the cells beside it when {@code blind}, showing {@code buffs}. */
+    static Observation seen(Observation base, boolean blind, List<BuffView> buffs) {
         MapSection map = base.map();
         List<Fog> fog = new ArrayList<>(map.fog());
         int width = map.width();
@@ -39,17 +44,18 @@ class BlindSearchTest {
         if (blind) {
             for (int cell = 0; cell < fog.size(); cell++) {
                 boolean near = Math.max(Math.abs(cell % width - hero % width), Math.abs(cell / width - hero / width)) <= 1;
-                fog.set(cell, near ? Fog.VISIBLE : Fog.VISITED);
+                if (fog.get(cell) != Fog.UNKNOWN) {
+                    fog.set(cell, near ? Fog.VISIBLE : Fog.VISITED);
+                }
             }
         }
-        MapSection seen = new MapSection(width, map.height(), map.tiles(), fog, map.traps(), map.heaps(), map.blobs(),
+        MapSection shown = new MapSection(width, map.height(), map.tiles(), fog, map.traps(), map.heaps(), map.blobs(),
                 map.feeling(), map.transitions());
         HeroSection was = base.hero();
-        List<BuffView> buffs = buff == null ? List.of() : List.of(new BuffView(buff, true, 500));
         HeroSection hero2 = new HeroSection(was.cell(), was.name(), was.subclass(), was.ability(), was.level(), was.exp(),
                 was.expToLevel(), was.hp(), was.ht(), was.shield(), was.strength(), was.strengthBonus(), was.gold(),
                 was.energy(), was.hunger(), buffs, was.talents(), was.talentPointsAvailable(), was.quickslots());
-        return new Observation(base.header(), seen, base.actors(), hero2, base.inventory(), base.journal(), base.log(),
+        return new Observation(base.header(), shown, base.actors(), hero2, base.inventory(), base.journal(), base.log(),
                 base.actions(), base.prompt());
     }
 
