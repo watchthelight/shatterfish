@@ -169,6 +169,8 @@ E5 (the Overlay) so far:
   the same baseline takes seconds (#215).
 - E5.8: take over and hand back. A person can take the Run at any Input wait and hand it back;
   the Brain resumes paused, with a fresh Decision for the screen in front of it (#221).
+- CI can run on a self-hosted runner behind a repository variable; it measured slower than
+  GitHub's runners while the machine was busy, so it is off (#222, docs/tooling.md).
 - Next: the rest of 5.9 (recording human turns and the shadow Decision), with Brain changes in
   parallel.
 
