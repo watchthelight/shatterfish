@@ -368,7 +368,11 @@ public final class Brain {
         // search before it steps (below).
         boolean trapped = observation.header().prompt() == org.shatterfish.api.PromptKind.NONE
                 && !observation.map().traps().isEmpty() && !TestItem.inHarm(observation);
-        boolean calm = Explore.calm(observation, knowledge);
+        // An enemy far off is no fight yet: withholding the Step toward it made the fight Policy's approach
+        // alternate between two cells (issue #184), so the hero searches ahead as it would on a calm screen.
+        List<org.shatterfish.api.ActorView> enemies = Fight.enemies(observation, knowledge);
+        boolean calm = enemies.isEmpty()
+                || Fight.nearest(observation.map(), observation.hero().cell(), enemies) > Traps.ENGAGED;
         if (trapped && !calm) {
             offered = Traps.withheld(observation, memory, offered);
         }

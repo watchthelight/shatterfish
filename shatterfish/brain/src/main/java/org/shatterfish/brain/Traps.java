@@ -34,6 +34,13 @@ final class Traps {
     /** How far a search finds a trap: one cell (Hero.java:2522-2523; the Rogue's two is not counted on). */
     static final int FOUND = 1;
 
+    /**
+     * How near an enemy must be, in cells, for the hero to be in a fight that has no turns to spare for a
+     * search. An assumption: farther off, two turns searching cost less than a Step the fight Policy
+     * keeps being refused (issue #184).
+     */
+    static final int ENGAGED = 4;
+
     /** What the search the Brain makes ahead of a Step is called in its record. */
     static final String AHEAD = "search ahead";
 

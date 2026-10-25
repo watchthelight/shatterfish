@@ -149,10 +149,26 @@ class HiddenTrapTest {
         Observation fight = ExplorePolicyTest.screen(1,
                 "##############",
                 "#....^.......#",
-                "#...@.....r..#",
+                "#...@...r....#",
                 "##############");
         Brain.Decided decided = brain().decide(fight, Screens.drive(brain(), fight));
         assertFalse(decided.action() instanceof Action.Step step && nearShown(step.cell()),
                 "no Step near the shown trap: " + decided.action() + " " + decided.decision());
+    }
+
+    @Test
+    @DisplayName("an enemy far off is no fight: the Brain searches ahead, and the search is remembered, so it does not "
+            + "alternate between two cells (issue #184)")
+    void a_far_enemy_is_searched_past() {
+        Observation far = ExplorePolicyTest.screen(1,
+                "##############",
+                "#....^.......#",
+                "#...@......r.#",
+                "##############");
+        Brain.Decided first = brain().decide(far, Screens.drive(brain(), far));
+        assertEquals(new Action.Search(), first.action(), first.decision().toString());
+        Belief searched = Screens.drive(brain(), far, far);
+        Brain.Decided next = brain().decide(far, searched);
+        assertFalse(next.action() instanceof Action.Search, "the spot is remembered as searched: " + next.decision());
     }
 }
