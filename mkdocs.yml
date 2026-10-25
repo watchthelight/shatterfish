@@ -133,6 +133,7 @@ nav:
       - ADR-0016 Hook ledger corrected: adr/0016-hook-ledger-corrected-by-story-1-1.md
       - ADR-0017 Codex generation and citations: adr/0017-codex-generation-and-citations.md
       - ADR-0018 Seed sets: adr/0018-seed-sets.md
+      - ADR-0019 Workflow skills A/B test: adr/0019-workflow-skills-ab-test.md
   - Rules:
       - rules/index.md
       - The Brain's Rules index: brain-rules.md

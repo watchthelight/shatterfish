@@ -57,6 +57,7 @@ These apply to every artifact, every story, every line of code, and they are not
 ## Turn discipline
 
 - **One step per turn**: one numbered bootstrap step, one BMAD workflow, or one story through its full lifecycle (spec, implement, review). Never start a second story in the same turn. Never try to finish the whole bootstrap in one turn.
+- A fix's first test reproduces the failure: it fails on `main`, and the pull request says so (ADR-0019).
 - If a step is too big, split at a clean boundary, finish the first half, hand off. Never leave the tree unbuildable at a handoff.
 - Every turn ends with a handoff: what was done (with links), what changed in the artifacts, the exact next step, any blocking question. Update `sprint-status.yaml`, the story file, and the GitHub issue first.
 - When context grows heavy, `/compact` with the instruction to preserve decisions, open questions, and the next step.
