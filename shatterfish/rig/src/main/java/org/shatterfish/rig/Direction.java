@@ -142,7 +142,13 @@ public final class Direction {
                 throw new IllegalStateException("could not make a folder for the baseline checkout", e);
             }
             String sha = revParse(root, baseline);
-            try {
+            Path cached = cacheFolder(root, sha, tag, set, heroClass, first, saltBase, picks.size());
+            if (cached != null && Files.isDirectory(cached)) {
+                System.out.println("direction: the baseline " + sha.substring(0, 9) + " is cached in " + cached);
+                org.shatterfish.harness.boot.TempDirs.deleteTree(source);
+                baselineLogs = cached;
+                baselineName = sha.startsWith(baseline) ? sha.substring(0, 9) : baseline + " " + sha.substring(0, 9);
+            } else try {
                 git(root, "worktree", "add", "--detach", source.toString(), sha);
                 gradleJar(source);
                 Path jar = brainJar(source);
@@ -150,6 +156,9 @@ public final class Direction {
                 baselineLogs = out.resolve("baseline");
                 failedBase = play(picks, baselineLogs, cp, source, tag, sha, jobs);
                 baselineName = sha.startsWith(baseline) ? sha.substring(0, 9) : baseline + " " + sha.substring(0, 9);
+                if (cached != null && failedBase == 0) {
+                    store(baselineLogs, cached);
+                }
             } finally {
                 try {
                     git(root, "worktree", "remove", "--force", source.toString());
@@ -339,6 +348,75 @@ public final class Direction {
         String wrapper = windows ? "gradlew.bat" : "./gradlew";
         System.out.println("direction: building the baseline's brain jar in " + source);
         run(source, List.of(source.resolve(wrapper).toString(), "-q", ":brain:jar"), "building the baseline's brain");
+    }
+
+    // ------------------------------------------------------------------ the baseline cache
+
+    /** The game and harness paths whose code a baseline Run uses from the current tree, not the baseline's. */
+    static final List<String> HOST_PATHS = List.of("core", "SPD-classes", "shatterfish/api", "shatterfish/harness",
+            "shatterfish/rig");
+
+    /**
+     * Where the baseline's logs for this selection are kept, shared by every worktree of the repository
+     * (under the common git folder), or null when they cannot be reused. A baseline Run takes its Brain
+     * and Codex from the baseline commit but the game, the harness and the Runner from the current tree,
+     * so the key names both: the baseline commit and the tree ids of {@link #HOST_PATHS} at the current
+     * commit. Uncommitted changes under those paths make the key a lie, so then nothing is cached.
+     */
+    static Path cacheFolder(Path root, String sha, String tag, String set, HeroClass heroClass, int first,
+                            long saltBase, int picks) {
+        try {
+            List<String> status = new ArrayList<>(List.of("status", "--porcelain", "--"));
+            status.addAll(HOST_PATHS);
+            if (!git(root, status.toArray(String[]::new)).isBlank()) {
+                System.out.println("direction: the harness or the game has uncommitted changes; the baseline is not cached");
+                return null;
+            }
+            StringBuilder key = new StringBuilder();
+            key.append(sha).append('|').append(tag).append('|').append(set).append('|')
+                    .append(heroClass == null ? "all" : heroClass.name()).append('|').append(first).append('|')
+                    .append(saltBase).append('|').append(picks);
+            for (String path : HOST_PATHS) {
+                key.append('|').append(git(root, "rev-parse", "HEAD:" + path).strip());
+            }
+            String hash = sha256(key.toString()).substring(0, 16);
+            Path common = Path.of(git(root, "rev-parse", "--git-common-dir").strip());
+            if (!common.isAbsolute()) {
+                common = root.resolve(common).normalize();
+            }
+            return common.resolve("shatterfish-direction-cache").resolve(sha.substring(0, 9) + "-" + hash);
+        } catch (RuntimeException unavailable) {
+            System.out.println("direction: the baseline is not cached: " + unavailable.getMessage());
+            return null;
+        }
+    }
+
+    /** Copies a finished baseline's logs into the cache, through a temporary folder so a reader never sees half. */
+    static void store(Path logs, Path cached) {
+        Path partial = cached.resolveSibling(cached.getFileName() + ".partial-" + ProcessHandle.current().pid());
+        try {
+            Files.createDirectories(partial);
+            try (Stream<Path> files = Files.list(logs)) {
+                for (Path file : (Iterable<Path>) files::iterator) {
+                    if (Files.isRegularFile(file)) {
+                        Files.copy(file, partial.resolve(file.getFileName()));
+                    }
+                }
+            }
+            Files.move(partial, cached, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+        } catch (IOException e) {
+            System.err.println("direction: could not cache the baseline: " + e.getMessage());
+            org.shatterfish.harness.boot.TempDirs.deleteTree(partial);
+        }
+    }
+
+    private static String sha256(String text) {
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(digest);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private static boolean gitRef(Path root, String ref) {
