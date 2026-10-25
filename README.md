@@ -124,6 +124,8 @@ E5 (the Overlay) so far:
 - Tooling: `./gradlew :rig:direction` prints the table every Brain PR carries
   (the tuning set is 40 Warriors from `standard`; see CLAUDE.md), and a Run no
   longer leaves its profile folder in the temp directory (#191).
+- Fix since: the chasm test no longer fails on a slow CI machine; it waits for
+  the Brain's worker instead of racing it (#193).
 - Next: the controls (5.5-5.8), with bestiary-driven Brain changes in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
