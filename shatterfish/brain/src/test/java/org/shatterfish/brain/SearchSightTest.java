@@ -95,29 +95,31 @@ class SearchSightTest {
     }
 
     /**
-     * Mind vision's sense of two ({@code MindVision.java:32}), magical sight's of twelve ({@code MagicalSight.java:34})
-     * are copied into the field of view of a hero who cannot see ({@code Level.java:1391-1417}), and
-     * {@code Hero.search} reads that field ({@code Hero.java:2562}): a blind Rogue with either sees the two cells its
-     * search reaches.
+     * Magical sight's sense of twelve ({@code MagicalSight.java:34}) is copied into the field of view of a hero who
+     * cannot see ({@code Level.java:1391-1417}), and {@code Hero.search} reads that field ({@code Hero.java:2562}):
+     * a blind Rogue with it sees the two cells its search reaches.
      */
     @Test
-    @DisplayName("a blind Rogue with mind vision, or magical sight, searches the two cells around it")
-    void sense_fills_the_view() {
-        for (String name : new String[] {"mind vision", "magical sight"}) {
-            Observation issued = blind(HeroClass.ROGUE, new BuffView("blinded", true, 500), new BuffView(name, true, 1000));
-            assertEquals(List.of(new Memory.Spot(2, 0, issued.hero().cell())), searchedAfter(issued, issued), name);
-        }
+    @DisplayName("a blind Rogue with magical sight searches the two cells around it")
+    void magical_sight_fills_the_view() {
+        Observation issued = blind(HeroClass.ROGUE, new BuffView("blinded", true, 500),
+                new BuffView("magical sight", true, 1000));
+        assertEquals(List.of(new Memory.Spot(2, 0, issued.hero().cell())), searchedAfter(issued, issued));
     }
 
     /**
-     * Foresight makes the search a circular scan of {@code Foresight.DISTANCE} = 8 over every cell, in view or not
-     * ({@code Hero.java:2525-2536}, {@code :2562}), so a blind hero's search with it is whole.
+     * Mind vision's sense of two leaves the corners of the Rogue's square out of view ({@code Level.java:1400-1419},
+     * {@code ShadowCaster.java:41-43}), and the Talisman of Foresight's buff is named like the potion's but does not
+     * scan ({@code Hero.java:2525}, {@code TalismanOfForesight.java:363-367}): neither makes a blind search whole,
+     * so neither is credited.
      */
     @Test
-    @DisplayName("a blind Rogue with foresight searches the two cells around it: the scan needs no sight")
-    void foresight_needs_no_sight() {
-        Observation issued = blind(HeroClass.ROGUE, new BuffView("blinded", true, 500), new BuffView("foresight", true, 4000));
-        assertEquals(List.of(new Memory.Spot(2, 0, issued.hero().cell())), searchedAfter(issued, issued));
+    @DisplayName("a blind Rogue with mind vision, or a buff named foresight, is not credited with the two cells")
+    void mind_vision_and_foresight_are_not_read() {
+        for (String name : new String[] {"mind vision", "foresight"}) {
+            Observation issued = blind(HeroClass.ROGUE, new BuffView("blinded", true, 500), new BuffView(name, true, 1000));
+            assertEquals(List.of(), searchedAfter(issued, issued), name);
+        }
     }
 
     @Test

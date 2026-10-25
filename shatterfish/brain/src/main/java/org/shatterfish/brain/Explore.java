@@ -406,14 +406,8 @@ final class Explore implements Policy {
         return Math.max(Math.abs(a % width - b % width), Math.abs(a / width - b / width));
     }
 
-    /** The mind vision buff's name as the HUD shows it (actors.properties:308). */
-    static final String MIND_VISION = "mind vision";
-
     /** The magical sight buff's name as the HUD shows it (actors.properties:296). */
     static final String MAGICAL_SIGHT = "magical sight";
-
-    /** The foresight buff's name as the HUD shows it (actors.properties:222). */
-    static final String FORESIGHT = "foresight";
 
     /**
      * Whether a search made on this screen reaches the whole of {@link #radius} around the hero (issues #205,
@@ -431,12 +425,16 @@ final class Explore implements Policy {
      * hands it straight to {@code Hero.search(true)} (ActionExecutor.java:131-133), and that spends its time
      * ({@code Hero.java:2645}) whenever the hero is alive.
      *
-     * <p>Three buffs the HUD shows widen what the search reaches. Mind vision (sense 2,
-     * {@code MindVision.java:32}) and magical sight (sense 12, {@code MagicalSight.java:34}) copy the
-     * discoverable cells within their sense into the field of view, sighted or not
-     * ({@code Level.java:1389-1421}), which fills the Rogue's two cells. Foresight turns the search into a scan of
-     * {@code Foresight.DISTANCE} = 8 over every cell, in view or not ({@code Hero.java:2525-2536}, {@code :2562}).
-     * So a search with any of the three is whole. Wide Search is a Rogue talent the radius does not count (see
+     * <p>Magical sight (sense 12, {@code MagicalSight.java:34}) copies the discoverable cells within its sense
+     * into the field of view, sighted or not ({@code Level.java:1389-1421}), which fills the Rogue's two cells, so
+     * a search under it is whole. Two more widen the search but are not read. Mind vision's sense of two
+     * ({@code MindVision.java:32}) is copied by the rounded radius ({@code Level.java:1400-1419}), which leaves
+     * the four corners of the Rogue's square of two out of view ({@code ShadowCaster.java:41-43}; the corner
+     * patch at {@code :87-92} is in {@code castShadow} only). Foresight's scan of {@code Foresight.DISTANCE} = 8
+     * ignores the view ({@code Hero.java:2525-2536}, {@code :2562}), but only the potion's buff does that
+     * ({@code Hero.java:2525}), and the Talisman of Foresight's buff of the same name shows on the HUD
+     * ({@code TalismanOfForesight.java:363-367}) and does not; the screen cannot tell them apart. A search under
+     * either is under-credited, never over-credited. Wide Search is a Rogue talent the radius does not count (see
      * {@link #radius}).
      * The Policy that would search again without coverage waits instead while the sight is short
      * ({@link #search}), rather than repeating a search that finds nothing.
@@ -445,7 +443,7 @@ final class Explore implements Policy {
         if (radius(observation) <= 1) {
             return true;
         }
-        if (has(observation, MIND_VISION) || has(observation, MAGICAL_SIGHT) || has(observation, FORESIGHT)) {
+        if (has(observation, MAGICAL_SIGHT)) {
             return true;
         }
         // The Darkness challenge's view of two is cut to round(5*2/8) = 1 on a floor that feels dark
