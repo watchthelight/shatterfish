@@ -765,7 +765,7 @@ class FightPolicyTest {
                 "#######");
         assertEquals(1, Fight.enemies(hurt, FightPolicyTest.KNOWLEDGE).size());
         assertEquals(1, Fight.enemies(alert, FightPolicyTest.KNOWLEDGE).size());
-        assertFalse(Explore.calm(hurt, FightPolicyTest.KNOWLEDGE));
+        assertFalse(Calm.quiet(hurt, FightPolicyTest.KNOWLEDGE));
         assertEquals(Fight.NAME, after(hurt).decision().policy());
         assertEquals(Fight.NAME, after(alert).decision().policy());
     }

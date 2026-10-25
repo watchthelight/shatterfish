@@ -253,7 +253,7 @@ class RunInspectTest {
             boolean[] open = Explore.walkable(obs, memory, false);
             int[] openDist = Pickup.distances(map, open, hero.cell());
             Pickup pickup = new Pickup(new Evaluation(brain.weights()), knowledge);
-            boolean calm = Explore.calm(obs, knowledge);
+            boolean calm = Calm.quiet(obs, knowledge);
             for (HeapView heap : map.heaps()) {
                 StringBuilder s = new StringBuilder("  HEAP " + xy(map, heap.cell()) + " " + heap.kind()
                         + (heap.hidden() ? " hidden" : "") + " '" + heap.item() + "'" + " fog=" + map.fog().get(heap.cell()));

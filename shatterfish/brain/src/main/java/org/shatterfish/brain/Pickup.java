@@ -28,7 +28,7 @@ import java.util.List;
  * Policy takes the rest). It takes one Step per wait toward the best heap, always one the screen
  * offers, and {@link Action.PickUp} when standing on it. A Step onto a plain heap's cell is itself a
  * pick-up once the hero arrives, unless an enemy is visible (Hero.java:1974-1977); a passive statue
- * or gnoll exile is scenery to {@link Explore#calm} but the game still counts it among the visible
+ * or gnoll exile is scenery to {@link Calm#quiet} but the game still counts it among the visible
  * enemies, so with one in view the arriving Step does not pick up, a PickUp wait follows, and the
  * cost counts that one more turn.
  *
@@ -98,7 +98,7 @@ final class Pickup implements Policy {
 
     @Override
     public boolean enters(Observation observation, Memory memory) {
-        return Explore.calm(observation, knowledge)
+        return Calm.quiet(observation, knowledge)
                 && observation.map().heaps().stream().anyMatch(heap -> takeable(heap, observation, memory));
     }
 
@@ -147,7 +147,7 @@ final class Pickup implements Policy {
     }
 
     /**
-     * Whether an enemy the game keeps passive is in view: scenery to {@link Explore#calm}, but one of
+     * Whether an enemy the game keeps passive is in view: scenery to {@link Calm#quiet}, but one of
      * the hero's visible enemies, so arriving on a heap does not pick it up (Hero.java:1974-1977).
      */
     static boolean passiveInView(Observation observation, Codex.Knowledge knowledge) {
