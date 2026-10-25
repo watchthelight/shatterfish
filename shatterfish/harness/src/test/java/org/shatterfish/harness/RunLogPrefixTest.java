@@ -44,7 +44,7 @@ class RunLogPrefixTest {
         RunLog.Brain who = new RunLog.Brain("random", "0".repeat(40), "0".repeat(64));
         new RunLoop().play(SEED, HeroClass.WARRIOR, SALT, new RandomAgent(11L), CAP,
                 new RunLoop.Logging(folder, "0".repeat(40), who, "", "test"));
-        return Files.readAllBytes(folder.resolve(RunLog.fileName(RunLog.runId("v4.0.0",
+        return Files.readAllBytes(folder.resolve(RunLog.fileName(RunLog.runId("v4.0.2",
                 org.shatterfish.api.HeroClass.WARRIOR, 0, SeedSet.code(SEED), SALT, "random"))));
     }
 

@@ -54,7 +54,7 @@ class LogReaderAgreementTest {
         new RunLoop().play(SEED, HeroClass.WARRIOR, SALT, new RandomAgent(7L), 120,
                 new RunLoop.Logging(folder, COMMIT, new RunLog.Brain("random", COMMIT, "0".repeat(64)),
                         "", "test"));
-        Path file = folder.resolve(RunLog.fileName(RunLog.runId("v4.0.0",
+        Path file = folder.resolve(RunLog.fileName(RunLog.runId("v4.0.2",
                 org.shatterfish.api.HeroClass.WARRIOR, 0, SeedSet.code(SEED), SALT, "random")));
         List<String> lines = LogText.lines(file).whole();
         assertTrue(lines.size() > 10, "a real log: " + lines.size());
