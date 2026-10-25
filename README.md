@@ -148,6 +148,8 @@ E5 (the Overlay) so far:
 - Fix since: on a sealed boss floor, where walking away cannot break contact,
   the Brain retreats at most 30 times and then fights, so it can no longer
   walk away from Goo until the turn cap; Goo kills held (#209, for #180).
+- The Brain no longer skips an item it has seen because the walk is long; Goo kills 8 to 11 on the
+  tuning set (#207, for #182).
 - Next: the controls (5.5-5.8), with bestiary-driven Brain changes in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
