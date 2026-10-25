@@ -86,7 +86,7 @@ final class Fight implements Policy {
      * the boss's seal refuses every transition (Level.java:657-662, Hero.java:1451), so a retreat there
      * cannot break contact, and one repeated without end only spends turns.
      */
-    static final int SEALED_RETREATS = 12;
+    static final int SEALED_RETREATS = 30;
 
     /**
      * Whether {@code actor} is an enemy the game keeps passive until provoked ({@link Bestiary#passive}:
