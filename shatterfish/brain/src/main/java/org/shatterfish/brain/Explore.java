@@ -275,7 +275,7 @@ final class Explore implements Policy {
 
     /**
      * The offered Step that starts the shortest walk out of every region the fight Policy retreated from,
-     * when the hero stands inside one (story 4.7); null when it stands in none, or no walk leads out. The
+     * when the hero stands inside one (story 4.7); null when it stands in none, no walk leads out, or the shortest walk out starts nearer the centre (issue #165). The
      * reason counts the Steps out. The first Step never goes nearer the centre of a region the hero
      * stands in, which is where the enemy was.
      *
