@@ -15,7 +15,6 @@ import org.shatterfish.api.ValidActions;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -119,96 +118,26 @@ class SealedGooTest {
     }
 
     @Test
-    @DisplayName("a Goo that stays where it is: the Policy does not walk away and back for ever, it goes to it and fights")
+    @DisplayName("a Goo that stays where it is: the walk away and back stops after SEALED_RETREATS, then the Policy goes to it and fights")
     void commits_to_a_standing_goo() {
         List<String> whys = play(true, false, 5, 300);
-        assertEquals(0, retreats(whys), "no retreat gains anything on the open sealed floor: " + whys.subList(0, 30));
+        assertTrue(retreats(whys) <= Fight.SEALED_RETREATS, "retreats on the sealed floor: " + retreats(whys));
+        assertTrue(retreats(whys) > 0, "the retreat itself is kept: " + whys.subList(0, 30));
         assertTrue(fights(whys), "it fights: " + whys.subList(0, 30));
     }
 
     @Test
-    @DisplayName("a Goo that follows: the same, the Policy fights from the first wait")
+    @DisplayName("a Goo that follows: the same bound")
     void commits_to_a_following_goo() {
         List<String> whys = play(true, true, 5, 300);
-        assertEquals(0, retreats(whys), whys.subList(0, 30).toString());
+        assertTrue(retreats(whys) <= Fight.SEALED_RETREATS, "retreats: " + retreats(whys));
         assertTrue(fights(whys), whys.subList(0, 30).toString());
     }
 
     @Test
-    @DisplayName("a floor that is not sealed keeps its retreat: the stairs or the walk away can still end the fight")
+    @DisplayName("a floor that is not sealed keeps its retreat without the bound")
     void unsealed_retreats() {
         List<String> whys = play(false, false, 5, 300);
         assertTrue(retreats(whys) > Fight.SEALED_RETREATS, "retreats: " + retreats(whys));
-    }
-
-    /** The arena with the cell {@code water} drawn as water and the hero showing {@code buff}, if any. */
-    private static Observation oozed(int hero, int goo, int water, String buff) {
-        Observation base = arena(hero, goo, 5, true);
-        List<org.shatterfish.api.Tile> tiles = new ArrayList<>(base.map().tiles());
-        tiles.set(water, org.shatterfish.api.Tile.WATER);
-        org.shatterfish.api.MapSection map = base.map();
-        org.shatterfish.api.MapSection watered = new org.shatterfish.api.MapSection(map.width(), map.height(), tiles,
-                map.fog(), map.traps(), map.heaps(), map.blobs(), map.feeling(), map.transitions());
-        org.shatterfish.api.HeroSection h = base.hero();
-        List<org.shatterfish.api.BuffView> buffs = buff == null ? List.of()
-                : List.of(new org.shatterfish.api.BuffView(buff, true, 1000));
-        org.shatterfish.api.HeroSection oozy = new org.shatterfish.api.HeroSection(h.cell(), h.name(), h.subclass(),
-                h.ability(), h.level(), h.exp(), h.expToLevel(), h.hp(), h.ht(), h.shield(), h.strength(),
-                h.strengthBonus(), h.gold(), h.energy(), h.hunger(), buffs, h.talents(), h.talentPointsAvailable(),
-                h.quickslots());
-        Observation bare = new Observation(base.header(), watered, base.actors(), oozy, base.inventory(), base.journal(),
-                base.log(), ActionsSection.NONE, PromptSection.NONE);
-        return bare.withActions(ValidActions.of(bare));
-    }
-
-    @Test
-    @DisplayName("an oozed hero beside Goo retreats to water, which washes the ooze off; one not oozed fights")
-    void water_for_ooze() {
-        int hero = 7 + 1 * WIDTH;
-        int goo = 8 + 1 * WIDTH;
-        int water = 6 + 1 * WIDTH;
-        Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, 7L);
-        Observation wet = oozed(hero, goo, water, Fight.OOZE);
-        Brain.Decided decided = brain.decide(wet, brain.update(wet, null));
-        assertEquals(new Action.Step(water), decided.action(), decided.decision().toString());
-        assertEquals("retreat water", decided.decision().chosen().why());
-        Observation dry = oozed(hero, goo, water, null);
-        Brain.Decided fought = brain.decide(dry, brain.update(dry, null));
-        assertTrue(fought.decision().chosen().why().startsWith("cornered"), fought.decision().toString());
-    }
-
-    @Test
-    @DisplayName("a Goo standing in water heals there: the hero steps away to pull it onto dry ground, and fights once it is dry")
-    void goo_off_its_water() {
-        int hero = 7 + 1 * WIDTH;
-        int goo = 8 + 1 * WIDTH;
-        Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, 7L);
-        Observation wet = oozed(hero, goo, goo, null);
-        Brain.Decided decided = brain.decide(wet, brain.update(wet, null));
-        assertEquals("retreat dry", decided.decision().chosen().why(), decided.decision().toString());
-        Observation dry = oozed(hero, goo, 2 + 1 * WIDTH, null);
-        Brain.Decided fought = brain.decide(dry, brain.update(dry, null));
-        assertTrue(fought.decision().chosen().why().startsWith("cornered"), fought.decision().toString());
-    }
-
-    @Test
-    @DisplayName("a gainful retreat is not repeated without end either: after SEALED_RETREATS of them the Policy fights")
-    void budget() {
-        Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, 7L);
-        Belief belief = null;
-        int retreats = 0;
-        for (int i = 0; i < 4 * Fight.SEALED_RETREATS; i++) {
-            // Each wait a fresh cell along the arena's top rows, Goo behind and water ahead, oozed again each
-            // time: a retreat to water every wait, and no two cells alike for the bounce guard to catch.
-            int hero = (2 + i % 12) + (1 + i / 12 % 2) * WIDTH;
-            Observation screen = oozed(hero, hero - 1, hero + 1, Fight.OOZE);
-            belief = brain.update(screen, belief);
-            Brain.Decided decided = brain.decide(screen, belief);
-            if (decided.decision().chosen().why().startsWith("retreat")) {
-                retreats++;
-            }
-            belief = brain.handed(screen, belief, decided);
-        }
-        assertEquals(Fight.SEALED_RETREATS, retreats);
     }
 }

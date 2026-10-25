@@ -298,9 +298,7 @@ class FightPolicyTest {
         assertEquals("retreat: stairs", why(after(screen(20, false, rows))));
         Brain.Decided sealed = after(screen(20, true, rows));
         assertNotEquals("retreat: stairs", why(sealed), sealed.decision().toString());
-        // Walking away from a lone brute gains nothing on a sealed floor (issue #180): it fights.
-        assertEquals(new Action.Attack(cell(screen(20, true, rows), 6, 1)), sealed.action(), sealed.decision().toString());
-        assertTrue(why(sealed).startsWith("cornered"), sealed.decision().toString());
+        assertTrue(why(sealed).startsWith("retreat "), sealed.decision().toString());
 
         String[] onStairs = {
                 "######",

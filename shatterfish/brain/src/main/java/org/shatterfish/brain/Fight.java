@@ -49,9 +49,8 @@ import java.util.List;
  *       surface opens a window without leaving (SewerLevel.java:146-156) and a branch can refuse.
  *       A floor already fled twice is not fled by the stairs again. Cornered, it fights. On a sealed floor
  *       a walk away cannot break contact (the boss follows at the hero's pace or stands where it is),
- *       so the Policy retreats only to a cell that {@link #gainful gains something}, at most
- *       {@link #SEALED_RETREATS} times on the floor, and otherwise goes to the enemy and fights, which
- *       is what ends the seal (issue #180).</li>
+ *       so the Policy retreats as elsewhere but at most {@link #SEALED_RETREATS} times on the floor, and
+ *       then goes to the enemy and fights, which is what ends the seal (issue #180).</li>
  * </ul>
  *
  * <p>Enemies the game keeps passive until provoked ({@link #passive}, from the bestiary's tags) are
@@ -85,12 +84,9 @@ final class Fight implements Policy {
     /**
      * The most retreats the Policy makes on one sealed floor before it commits to the fight (issue #180):
      * the boss's seal refuses every transition (Level.java:657-662, Hero.java:1451), so a retreat there
-     * cannot break contact, and a gainful one ({@link #gainful}) is not worth repeating without end.
+     * cannot break contact, and one repeated without end only spends turns.
      */
     static final int SEALED_RETREATS = 12;
-
-    /** The ooze Goo's hits leave, as the screen names the buff (actors.properties:342); water washes it off. */
-    static final String OOZE = "caustic ooze";
 
     /**
      * Whether {@code actor} is an enemy the game keeps passive until provoked ({@link Bestiary#passive}:
@@ -455,8 +451,10 @@ final class Fight implements Policy {
         // Away, onto a cell the hero may walk on: not a chasm, which jumps, a well, which drinks, an
         // armed trap, or a cell a Step was refused onto.
         boolean[] open = Explore.walkable(observation, memory, false);
-        if (observation.header().sealed()) {
-            return sealedRetreat(observation, memory, offered, enemies, open, floor, knowledge);
+        // A sealed floor's retreat cannot break contact, so it is spent a few times, not without end (issue #180).
+        if (observation.header().sealed()
+                && Memory.count(memory.flights(), floor, Memory.SEALED_RETREATS) >= SEALED_RETREATS) {
+            return null;
         }
         Action.Step best = null;
         int farthest = from;
@@ -474,78 +472,6 @@ final class Fight implements Policy {
             }
         }
         return best == null ? null : new RunLog.Choice(best, Policies.CERTAIN, "retreat " + farthest);
-    }
-
-    /**
-     * The retreat on a sealed floor (issue #180): the seal refuses every transition (Level.java:657-662,
-     * Hero.java:1451), so walking away cannot break contact -- the enemy follows at the hero's pace, or
-     * stays where it is while the hero walks back to it -- and only spends turns. So the offered Step that
-     * {@link #gainful gains something}, water first, then the fewest able to engage, and no Step once
-     * {@link #SEALED_RETREATS} have been made on this floor. Null when there is none: the Policy fights.
-     */
-    private static RunLog.Choice sealedRetreat(Observation observation, Memory memory, List<Action> offered,
-                                               List<ActorView> enemies, boolean[] open, String floor,
-                                               Codex.Knowledge knowledge) {
-        if (Memory.count(memory.flights(), floor, Memory.SEALED_RETREATS) >= SEALED_RETREATS) {
-            return null;
-        }
-        MapSection map = observation.map();
-        int from = nearest(map, observation.hero().cell(), enemies);
-        Action.Step best = null;
-        String why = null;
-        int fewest = Integer.MAX_VALUE;
-        for (Action action : offered) {
-            if (action instanceof Action.Step step && step.cell() < open.length && open[step.cell()]
-                    && !transition(map, step.cell()) && nearest(map, step.cell(), enemies) >= from) {
-                String gain = gainful(observation, enemies, step.cell(), knowledge);
-                if (gain == null) {
-                    continue;
-                }
-                int engage = engage(map, step.cell());
-                if (best == null || rank(gain) < rank(why) || (rank(gain) == rank(why) && engage < fewest)) {
-                    best = step;
-                    why = gain;
-                    fewest = engage;
-                }
-            }
-        }
-        return best == null ? null : new RunLog.Choice(best, Policies.CERTAIN, "retreat " + why);
-    }
-
-    /** How much a gain from {@link #gainful} is worth, lower first: water, then Goo off its water, then a corridor. */
-    private static int rank(String gain) {
-        return gain.equals("water") ? 0 : gain.equals("dry") ? 1 : 2;
-    }
-
-    /**
-     * What a Step to {@code cell} gains on a sealed floor, or null for nothing. Water, for a hero oozed
-     * (Ooze.java:93, :118; Level.java:1188-1198: stepping in washes the ooze off); farther from a Goo
-     * that stands in water and heals there (Goo.java:109-117), which pulls it onto dry ground when it
-     * follows; and, against two or
-     * more enemies that move, a cell fewer can engage than the hero's own, at most two, which is a
-     * corridor. Against one enemy a corridor gains nothing: it has the same one neighbour to stand on.
-     * Both read the screen's map and buffs alone, never a guess about what is out of view.
-     */
-    static String gainful(Observation observation, List<ActorView> enemies, int cell, Codex.Knowledge knowledge) {
-        MapSection map = observation.map();
-        int hero = observation.hero().cell();
-        if (observation.hero().buffs().stream().anyMatch(buff -> buff.name().equals(OOZE))
-                && map.tiles().get(cell) == org.shatterfish.api.Tile.WATER
-                && map.tiles().get(hero) != org.shatterfish.api.Tile.WATER) {
-            return "water";
-        }
-        for (ActorView enemy : enemies) {
-            if (enemy.name().equals(Goo.NAME) && map.tiles().get(enemy.cell()) == org.shatterfish.api.Tile.WATER
-                    && map.tiles().get(cell) != org.shatterfish.api.Tile.WATER
-                    && chebyshev(map, cell, enemy.cell()) > chebyshev(map, hero, enemy.cell())) {
-                return "dry";
-            }
-        }
-        int depth = observation.header().depth();
-        int branch = observation.header().branch();
-        long mobile = enemies.stream().filter(enemy -> !Bestiary.immobile(knowledge, depth, branch, enemy.name())).count();
-        int there = engage(map, cell);
-        return mobile >= 2 && there <= 2 && there < engage(map, hero) ? "corridor " + there : null;
     }
 
     /**
