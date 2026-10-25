@@ -38,38 +38,60 @@ class PickupThresholdTest {
     private static final Action[] STEPS = {new Action.Step(0), new Action.Step(2)};
 
     @Test
-    @DisplayName("a potion of strength two cells away is taken; a single gold piece across an explored room is not")
+    @DisplayName("a potion of strength two cells away goes before a single gold piece ten cells away, which still comes (issue #182)")
     void the_ordering() {
         RunLog.Choice strength = choose(room(12, 3, "potion of strength", STEPS));
         assertEquals(new Action.Step(2), strength.action());
         assertEquals("item: potion of strength 2", strength.why());
 
-        assertNull(choose(room(12, 11, "gold", STEPS)), "one gold piece ten cells away is not worth eleven turns");
+        assertEquals("item: gold 10", choose(room(12, 11, "gold", STEPS)).why(), "far, but a seen heap is not left");
 
         Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, 3L);
         Observation gold = room(12, 11, "gold", STEPS);
-        assertFalse("pick-up".equals(brain.decide(gold, brain.update(gold, null)).decision().policy()));
+        assertEquals("pick-up", brain.decide(gold, brain.update(gold, null)).decision().policy());
         Observation potion = room(12, 3, "potion of strength", STEPS);
         assertEquals("pick-up", brain.decide(potion, brain.update(potion, null)).decision().policy(),
                 "and the Brain arbitrates it above exploring");
     }
 
     @Test
-    @DisplayName("a worn key is worth fetching from anywhere on the floor, unlike an ordinary item at the same distance (issue #163)")
-    void worn_key_worth_the_whole_floor() {
-        Observation nineteenAway = room(30, 20, "worn key", STEPS);
-        assertEquals(Pickup.KEY_WORTH, PICKUP.worth("worn key", nineteenAway));
-        // Nineteen cells is the crimson-potion test's "not worth it" distance above; the key still is.
-        RunLog.Choice taken = choose(nineteenAway);
-        assertEquals(new Action.Step(2), taken.action(), "still taken, however far");
-        assertNull(choose(room(30, 20, "ration of food", STEPS)), "an ordinary item at the same distance is not");
+    @DisplayName("a plain heap seen and untaken is gone for from anywhere on a calm floor, gold and food included (issue #182)")
+    void remembered_heaps_have_no_distance_limit() {
+        for (String item : new String[]{"ration of food", "gold", "gold x57", "crimson potion"}) {
+            Observation far = room(60, 50, item, STEPS);
+            Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, 3L);
+            Brain.Decided decided = brain.decide(far, brain.update(far, null));
+            assertEquals("pick-up", decided.decision().policy(), item + " forty-nine cells away: " + decided.decision());
+        }
+        // Ordering still follows worth net of the walk: the nearer, richer heap goes first.
+        Observation two = Screens.floor(1, Screens.heroAt(1, 10), Collections.nCopies(60, Tile.EMPTY),
+                List.of(new HeapView(50, HeapKind.HEAP, false, "gold", 0, ""),
+                        new HeapView(8, HeapKind.HEAP, false, "potion of strength", 0, "")), List.of(), STEPS);
+        assertEquals("item: potion of strength 7", choose(two).why());
     }
 
     @Test
-    @DisplayName("gold is worth its pieces: a stack of a hundred two cells away is taken, forty is not")
+    @DisplayName("a worn key is worth more than any ordinary item, however far (issue #163)")
+    void worn_key_worth_the_whole_floor() {
+        Observation nineteenAway = room(30, 20, "worn key", STEPS);
+        assertEquals(Pickup.KEY_WORTH, PICKUP.worth("worn key", nineteenAway));
+        RunLog.Choice taken = choose(nineteenAway);
+        assertEquals(new Action.Step(2), taken.action(), "still taken, however far");
+        assertTrue(PICKUP.worth("ration of food", nineteenAway) < Pickup.KEY_WORTH);
+        RunLog.Choice both = choose(Screens.floor(1, Screens.heroAt(1, 10), Collections.nCopies(60, Tile.EMPTY),
+                List.of(new HeapView(3, HeapKind.HEAP, false, "ration of food", 0, ""),
+                        new HeapView(50, HeapKind.HEAP, false, "worn key", 0, "")), List.of(), STEPS));
+        assertEquals("item: worn key 49", both.why(), "the key first, though the ration is two cells away");
+    }
+
+    @Test
+    @DisplayName("gold is worth its pieces: the larger stack is gone for first")
     void gold_by_the_piece() {
         assertEquals(new Action.Step(2), choose(room(12, 3, "gold x100", STEPS)).action());
-        assertNull(choose(room(12, 3, "gold x40", STEPS)));
+        RunLog.Choice larger = choose(Screens.floor(1, Screens.heroAt(1, 10), Collections.nCopies(30, Tile.EMPTY),
+                List.of(new HeapView(3, HeapKind.HEAP, false, "gold x40", 0, ""),
+                        new HeapView(0 + 6, HeapKind.HEAP, false, "gold x100", 0, "")), List.of(), STEPS));
+        assertEquals("item: gold 5", larger.why(), "five cells for a hundred beats two for forty");
         assertEquals(100, Pickup.quantity("gold x100"));
         assertEquals(1, Pickup.quantity("gold"));
         assertEquals(1, Pickup.quantity("ring of might +2"));
@@ -86,7 +108,7 @@ class PickupThresholdTest {
         // Healing and strength weigh 6 of 19 each here; strength adds the strength weight.
         assertEquals(2000 + Math.round(2000.0 * 6 / 19), unknown);
         assertEquals(new Action.Step(2), choose(room(30, 11, "crimson potion", STEPS)).action(), "ten cells: taken");
-        assertNull(choose(room(30, 20, "crimson potion", STEPS)), "nineteen cells: not");
+        assertEquals(new Action.Step(2), choose(room(30, 20, "crimson potion", STEPS)).action(), "nineteen cells: still");
     }
 
     @Test
@@ -141,7 +163,7 @@ class PickupThresholdTest {
     }
 
     @Test
-    @DisplayName("a passive enemy in view costs one more turn: the arriving Step does not pick up")
+    @DisplayName("a passive enemy in view costs one more turn: the arriving Step does not pick up, and the heap is no longer left for it")
     void passive_in_view() {
         // Strength potion: 2000 carried + 2000 strength; 150 a turn. 25 Steps and the pick-up: taken.
         List<HeapView> heap = List.of(new HeapView(26, HeapKind.HEAP, false, "potion of strength", 0, ""));
@@ -157,7 +179,8 @@ class PickupThresholdTest {
                 List.of(), STEPS);
         withStatue = new Observation(withStatue.header(), withStatue.map(), statue.actors(), withStatue.hero(),
                 withStatue.inventory(), withStatue.journal(), withStatue.log(), withStatue.actions(), withStatue.prompt());
-        assertNull(choose(withStatue), "with the statue in view the pick-up is one more turn: not worth it");
+        assertEquals(new Action.Step(2), choose(withStatue).action(),
+                "with the statue in view the pick-up is one more turn, which orders heaps and does not leave one");
     }
 
     @Test
