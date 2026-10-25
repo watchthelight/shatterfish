@@ -852,8 +852,8 @@ class CodexLeakTest {
                 version.saveCodes().stream().map(Codex.Rule::what).toList());
         assertEquals("911", version.saveCodes().get(5).expression());
         List<Codex.ChangeEntry> changes = Changelog.entries(root, strings);
-        assertEquals(193, changes.size(), "every entry of the changelist package");
-        assertEquals(588, changes.stream().mapToInt(c -> c.headings().size()).sum(), "and every heading under them");
+        assertEquals(195, changes.size(), "every entry of the changelist package");
+        assertEquals(593, changes.stream().mapToInt(c -> c.headings().size()).sum(), "and every heading under them");
         assertEquals(List.of("v4_X_Changes", "v3_X_Changes", "v2_X_Changes", "v1_X_Changes", "v0_9_X_Changes",
                         "v0_8_X_Changes", "v0_7_X_Changes", "v0_6_X_Changes", "v0_5_X_Changes", "v0_4_X_Changes",
                         "v0_3_X_Changes", "v0_2_X_Changes", "v0_1_X_Changes", "Pixel_Dungeon_Changes"),

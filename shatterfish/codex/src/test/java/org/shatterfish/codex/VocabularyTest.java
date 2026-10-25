@@ -116,7 +116,7 @@ class VocabularyTest {
     @DisplayName("the diff names both pinned tags and says what it is for")
     void the_diff_says_what_it_is_for() {
         Codex.Vocabulary vocabulary = diff();
-        assertEquals("v4.0.0", vocabulary.tag());
+        assertEquals("v4.0.2", vocabulary.tag());
         assertEquals("archive", vocabulary.vanillaTag());
         assertTrue(vocabulary.consumer().contains("epic 7"), vocabulary.consumer());
         assertTrue(vocabulary.consumer().contains("nothing reads it yet"), vocabulary.consumer());
