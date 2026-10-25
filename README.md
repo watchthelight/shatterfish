@@ -156,7 +156,9 @@ E5 (the Overlay) so far:
   game's cell selector, open only to the bot's own Actions and to a HUMAN Run (E5.5, #212).
 - Tests run in forked JVMs side by side and `:rig:direction` plays a quarter of the cores at
   once; the full local test suite is about four times faster (#213).
-- Next: the controls (5.5-5.8), with bestiary-driven Brain changes in parallel.
+- E5.6: the Panel has its controls row (Pause, Next Step, Run N, speed, Explain), and a Brain Run
+  opens paused; which control is live in which state is one tested matrix (#214).
+- Next: the speed modes and the takeover (5.7, 5.8), with Brain changes in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:
