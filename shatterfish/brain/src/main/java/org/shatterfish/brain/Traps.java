@@ -10,8 +10,10 @@ import java.util.List;
 /**
  * The ground near a trap the screen shows (issue #184). A trap is drawn only once it is revealed, and the
  * rooms that hold traps hold hidden ones beside the shown: a burned room fills each cell of its patch
- * with one of five things alike, floor, embers, a shown trap, a hidden trap or a spent one
- * (BurnedRoom.java:86-113), so where burning traps are drawn, hidden ones are as likely as the live ones.
+ * with one of five things, floor, embers, a shown trap, a hidden trap or a spent one, a fifth each; the
+ * hidden case places a shown trap instead while the room's reveal count has reached one
+ * (BurnedRoom.java:86-115). So a hidden trap is less likely than a shown one, by the reveal chance, and
+ * where burning traps are drawn, hidden ones are still to be expected beside them.
  * The Brain cannot see which cell they are on, and does not try to: it knows only that the cells near a
  * trap it can see may hold one it cannot, and that an intentional search finds every trap within one cell
  * of the hero, bar the kinds that cannot be searched for (Hero.java:2522-2523, :2584-2589); one search is made from a cell, found or not, so a trap that cannot be found costs one search and no loop.
