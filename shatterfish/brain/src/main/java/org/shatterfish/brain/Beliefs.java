@@ -64,6 +64,9 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
     /** The kinds of Action the fold reads {@link Memory#last()} for. */
     static final String STEP = "Step";
     static final String SEARCH = "Search";
+
+    /** The kind of a search issued without the sight to cover its radius (issue #229); it spends the same time. */
+    static final String SEARCH_SHORT = "SearchShort";
     static final String WAIT = "Wait";
     static final String ASCEND = "Ascend";
     static final String DESCEND = "Descend";
@@ -165,8 +168,9 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         int branch = observation.header().branch();
         Memory.Spot here = new Memory.Spot(depth, branch, observation.hero().cell());
         boolean still = here.equals(memory.at());
-        // A search covers only what the hero sees (issue #205): see Explore.searchReaches.
-        List<Memory.Spot> dwelt = still && memory.last().equals(SEARCH) && Explore.searchReaches(observation)
+        // A search covers only what the hero saw when it was issued (issues #205, #229): Brain.handed records a
+        // search made without the sight to cover its radius as SEARCH_SHORT, see Explore.searchReaches.
+        List<Memory.Spot> dwelt = still && memory.last().equals(SEARCH)
                 ? Memory.with(memory.dwelt(), here) : memory.dwelt();
         // A still hero after a Step is a refusal, unless the screen shows the hero rooted, which refuses
         // every Step until the roots wear off (Hero.java:1822-1825): that says nothing about the cell.

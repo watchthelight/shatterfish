@@ -81,7 +81,7 @@ final class Larder {
         boolean meal = last.equals("UseItem") && eaten > 0;
         int cost = locked ? 0 : meal ? MEAL_COST : switch (last) {
             case "Step" -> moved ? 1 : 0;
-            case "Search" -> SEARCH_COST;
+            case "Search", "SearchShort" -> SEARCH_COST;
             case "Rest" -> Math.max(1, Math.min(restCap, TURNS_PER_HP * Math.max(0, gained)));
             case "", "AnswerPrompt", "DismissPrompt" -> 0;
             default -> 1;
