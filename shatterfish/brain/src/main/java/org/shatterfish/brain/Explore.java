@@ -104,6 +104,12 @@ final class Explore implements Policy {
     /** The rooted buff's name as the HUD shows it (actors.properties:391). */
     static final String ROOTED = "rooted";
 
+    /** The blindness buff's name as the HUD shows it (actors.properties:131). */
+    static final String BLINDED = "blinded";
+
+    /** The shadowmeld buff's name as the HUD shows it (actors.properties:398). */
+    static final String SHADOWMELDED = "shadowmelded";
+
     /** The vertigo buff's name as the HUD shows it (actors.properties:435). */
     static final String VERTIGO = "vertigo";
 
@@ -395,6 +401,23 @@ final class Explore implements Policy {
     private static int distance(MapSection map, int a, int b) {
         int width = map.width();
         return Math.max(Math.abs(a % width - b % width), Math.abs(a / width - b / width));
+    }
+
+    /**
+     * Whether a search the hero just made reached the whole of {@link #radius} around it (issue #205).
+     * {@code Hero.search} finds secrets only on cells in the hero's field of view
+     * ({@code core/.../actors/hero/Hero.java:2562}). A hero blinded or shadowmelded is not sighted
+     * ({@code core/.../levels/Level.java:1332-1333}) and sees only the 3x3 around it, the sense radius of one
+     * ({@code Level.java:1400-1421}), which a radius of one fills and the Rogue's radius of two
+     * ({@code Hero.java:2522}) does not. The dark of the Darkness challenge narrows the view to two
+     * ({@code Level.java:158}), which also fills the radius of two, so it costs no coverage, and the cells next
+     * to the hero are always in view (Chebyshev distance 1 is the smallest distance the caster takes). A search
+     * has no refusal to read: it is offered only with no Prompt open ({@code ValidActions}), the executor
+     * hands it straight to {@code Hero.search(true)} (ActionExecutor.java:131-133), and that spends its time
+     * ({@code Hero.java:2645}) whenever the hero is alive. So the one signal is the buff on the HUD.
+     */
+    static boolean searchReaches(Observation observation) {
+        return radius(observation) <= 1 || !(has(observation, BLINDED) || has(observation, SHADOWMELDED));
     }
 
     /** The search radius: one, two for the Rogue (Hero.java:2506). */

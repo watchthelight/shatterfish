@@ -17,8 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * A search that could not reach the cells the Brain credits it with (issue #205). A blinded or shadowmelded hero
  * sees only the cells beside it ({@code Level.java:1332} leaves the field of view empty, and
- * {@code Level.java:1388-1417} fills in a radius of one), and {@code Hero.search} finds secrets only on cells in
- * the field of view ({@code Hero.java:2563}). The Rogue's search reaches two cells ({@code Hero.java:2518}), so
+ * {@code Level.java:1400-1421} fills in a radius of one), and {@code Hero.search} finds secrets only on cells in
+ * the field of view ({@code Hero.java:2562}). The Rogue's search reaches two cells ({@code Hero.java:2522}), so
  * a blind Rogue's search covers the ring beside it and no more; a Warrior's reaches one cell and is whole.
  */
 class BlindSearchTest {
