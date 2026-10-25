@@ -93,6 +93,11 @@ class DirectionTest {
         assertEquals(Map.of("--set", "smoke", "--first", "3"),
                 Direction.arguments(new String[] {"--set", "smoke", "--first", "3"}));
         assertThrows(IllegalArgumentException.class, () -> Direction.arguments(new String[] {"--seeds", "smoke"}));
+        // The debug record flag takes no value, in any position (issue #219).
+        assertEquals("true", Direction.arguments(new String[] {"--debug-record", "--set", "smoke"}).get("--debug-record"));
+        assertEquals("smoke", Direction.arguments(new String[] {"--set", "smoke", "--debug-record"}).get("--set"));
+        assertThrows(IllegalArgumentException.class,
+                () -> Direction.arguments(new String[] {"--debug-record", "--debug-record"}));
         assertThrows(IllegalArgumentException.class, () -> Direction.arguments(new String[] {"--set"}));
         assertThrows(IllegalArgumentException.class,
                 () -> Direction.arguments(new String[] {"--set", "smoke", "--set", "bosses"}));

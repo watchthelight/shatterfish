@@ -71,13 +71,39 @@ public final class DebugRecord implements AutoCloseable {
         return runLog.resolveSibling(stem + SUFFIX);
     }
 
+    /** The system property that turns the record on. */
+    public static final String PROPERTY = "shatterfish.debugRecord";
+
+    /** The environment variable that turns it on, which a forked Rig JVM inherits. */
+    public static final String ENVIRONMENT = "SHATTERFISH_DEBUG_RECORD";
+
     /**
-     * Opens the file beside {@code runLog}, replacing one a former Run left. It is best effort: a
+     * Whether Runs write a debug record. Off unless the property is {@code true} or the environment
+     * variable is {@code 1}: a record is about 1.8 MB a Run, which the nightly, ranked and goo-set
+     * Runs have no use for.
+     */
+    public static boolean enabled() {
+        return "true".equals(System.getProperty(PROPERTY)) || "1".equals(System.getenv(ENVIRONMENT));
+    }
+
+    /** Makes a child process the Rig starts write the record when this process does. */
+    public static void inherit(ProcessBuilder child) {
+        if (enabled()) {
+            child.environment().put(ENVIRONMENT, "1");
+        }
+    }
+
+    /**
+     * Opens the file beside {@code runLog}, or returns null when the record is off ({@link #enabled}).
+     * It replaces a file a former Run left. It is best effort: a
      * record that cannot be opened or written is dropped with a note on standard error, because a Run
      * must end the way it would have ended without it (issue #219) -- unlike the log, which is the
      * evidence and refuses to overwrite.
      */
     public static DebugRecord open(Path runLog) {
+        if (!enabled()) {
+            return null;
+        }
         Path file = beside(runLog);
         try {
             return new DebugRecord(Files.newOutputStream(file, StandardOpenOption.CREATE,

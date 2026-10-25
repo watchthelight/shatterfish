@@ -32,6 +32,29 @@ class DebugRecordTest {
 
     private static final String ZERO = "0".repeat(40);
 
+    @org.junit.jupiter.api.BeforeEach
+    void on() {
+        System.setProperty(DebugRecord.PROPERTY, "true");
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void off() {
+        System.clearProperty(DebugRecord.PROPERTY);
+    }
+
+    @Test
+    @DisplayName("the record is off by default: a Run writes no sidecar")
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void off_by_default_writes_nothing(@TempDir Path folder) throws IOException {
+        System.clearProperty(DebugRecord.PROPERTY);
+        org.junit.jupiter.api.Assumptions.assumeFalse(DebugRecord.enabled(), "the environment turns it on");
+        new RunLoop().play(SEED, HeroClass.WARRIOR, SALT, new RandomAgent(SEED), 150,
+                new RunLoop.Logging(folder, ZERO, new RunLog.Brain("random", ZERO, "0".repeat(64)), "", "test"));
+        try (var listed = Files.list(folder)) {
+            assertEquals(List.of(), listed.filter(p -> p.getFileName().toString().endsWith(DebugRecord.SUFFIX)).toList());
+        }
+    }
+
     @Test
     @DisplayName("the debug file sits beside a Run log, is not a log, and says who killed the hero")
     @Timeout(value = 5, unit = TimeUnit.MINUTES)

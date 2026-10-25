@@ -36,7 +36,13 @@ class DebugRecordRigTest {
         arguments.put(Runner.PARALLEL, "4");
         arguments.put(Runner.CAP, "400");
 
-        Runner.run(arguments);
+        // Opt-in: the children inherit it from this process.
+        System.setProperty(DebugRecord.PROPERTY, "true");
+        try {
+            Runner.run(arguments);
+        } finally {
+            System.clearProperty(DebugRecord.PROPERTY);
+        }
 
         List<Path> logs = Verify.logs(out);
         assertTrue(logs.size() > 0);

@@ -315,7 +315,13 @@ JSON object per line, written by `harness/log/DebugRecord` and called from `RunL
 - **The Run log is unchanged.** Not one byte of it, nor its hash chain, depends on the record, so
   Replay, `Verify` and the determinism tests are untouched. The file is not named `*.jsonl`, so
   nothing that lists a folder of Run logs picks it up; it is not chained, not verified and not read
-  back by the harness. A Run played without a log and an Overlay Run
+  back by the harness. The record is **opt-in**, because it
+  is about 1.8 MB a Run and the nightly (which uploads its folder), ranked Runs and the goo set have no
+  use for it: it is written only when the system property `shatterfish.debugRecord` is `true` or the
+  environment variable `SHATTERFISH_DEBUG_RECORD` is `1`; otherwise `DebugRecord.open` returns null and
+  no file exists. The Rig starts its child JVMs with the variable set when it is on in the parent
+  (`DebugRecord.inherit`), and `:rig:direction --debug-record` turns it on for both sides. `:rig:run`
+  has no flag; set the variable. A Run played without a log and an Overlay Run
   write none; a Replay, which plays through the same logged loop, writes one into its own output
   folder (the scratch folder of `Replay.waitsOf` is deleted afterwards). The record is best effort: one
   that cannot be opened or written is dropped with a note on standard error and the Run goes on exactly

@@ -56,8 +56,10 @@ public final class Direction {
     public static final String JOBS = "--jobs";
     public static final String OUT = "--out";
     public static final String ROOT = "--root";
+    /** Takes no value: writes the debug record beside every Run log, on both sides (issue #219). */
+    public static final String DEBUG_RECORD = "--debug-record";
 
-    static final List<String> KNOWN = List.of(SET, CLASS, FIRST, SALT_BASE, BASELINE, JOBS, OUT, ROOT);
+    static final List<String> KNOWN = List.of(SET, CLASS, FIRST, SALT_BASE, BASELINE, JOBS, OUT, ROOT, DEBUG_RECORD);
 
     /** Default number of Runs in flight: a quarter of the cores, from 2 to 8, so several measurements can share the machine. */
     static final int DEFAULT_JOBS = Math.max(2, Math.min(8, Runtime.getRuntime().availableProcessors() / 4));
@@ -86,6 +88,13 @@ public final class Direction {
             if (!KNOWN.contains(flag)) {
                 throw new IllegalArgumentException("unknown flag " + flag + "; the flags are " + KNOWN);
             }
+            if (flag.equals(DEBUG_RECORD)) {
+                if (given.put(flag, "true") != null) {
+                    throw new IllegalArgumentException(flag + " is given twice");
+                }
+                i--;
+                continue;
+            }
             if (i + 1 >= args.length) {
                 throw new IllegalArgumentException(flag + " takes a value");
             }
@@ -99,6 +108,9 @@ public final class Direction {
     /** Plays and measures what the arguments ask for, and returns the text to print. */
     static String run(Map<String, String> a) {
         Path root = Path.of(a.getOrDefault(ROOT, ".")).toAbsolutePath().normalize();
+        if (a.containsKey(DEBUG_RECORD)) {
+            System.setProperty(org.shatterfish.harness.log.DebugRecord.PROPERTY, "true");
+        }
         String set = a.getOrDefault(SET, SeedSets.STANDARD);
         HeroClass heroClass = a.containsKey(CLASS) ? DirectionSelect.heroClass(a.get(CLASS)) : null;
         int first = a.containsKey(FIRST) ? integer(a, FIRST, 1) : -1;
@@ -252,7 +264,9 @@ public final class Direction {
                 RunOne.CHALLENGES, Integer.toString(triple.challengeFlags()),
                 RunOne.CODEX, codex.toAbsolutePath().toString(),
                 RunOne.WEIGHTS, weights.toAbsolutePath().toString()));
-        Process child = new ProcessBuilder(command).directory(working.toFile()).redirectErrorStream(true).start();
+        ProcessBuilder builder = new ProcessBuilder(command).directory(working.toFile()).redirectErrorStream(true);
+        org.shatterfish.harness.log.DebugRecord.inherit(builder);
+        Process child = builder.start();
         StringBuffer said = new StringBuffer();
         Thread reader = new Thread(() -> drain(child, said), "shatterfish-direction-" + pick.salt());
         reader.setDaemon(true);

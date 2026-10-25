@@ -91,15 +91,20 @@ class RunLogRunTest {
     @DisplayName("a Run whose debug record cannot be written ends and chains exactly as one that writes it (issue #219)")
     @Timeout(value = 10, unit = TimeUnit.MINUTES)
     void the_debug_record_changes_nothing(@TempDir Path with, @TempDir Path without) throws IOException {
-        // A directory where the debug file would go: opening it fails, and the Run must not notice.
-        Files.createDirectory(org.shatterfish.harness.log.DebugRecord.beside(file(without, "random", SEED, SALT)));
+        System.setProperty(org.shatterfish.harness.log.DebugRecord.PROPERTY, "true");
+        try {
+            // A directory where the debug file would go: opening it fails, and the Run must not notice.
+            Files.createDirectory(org.shatterfish.harness.log.DebugRecord.beside(file(without, "random", SEED, SALT)));
 
-        List<String> written = play(with, "random", new RandomAgent(7L));
-        List<String> blocked = play(without, "random", new RandomAgent(7L));
+            List<String> written = play(with, "random", new RandomAgent(7L));
+            List<String> blocked = play(without, "random", new RandomAgent(7L));
 
-        assertEquals(chain(written), chain(blocked), "the chain does not depend on the sidecar");
-        assertEquals(written.size(), blocked.size());
-        assertTrue(Files.isRegularFile(org.shatterfish.harness.log.DebugRecord.beside(file(with, "random", SEED, SALT))));
+            assertEquals(chain(written), chain(blocked), "the chain does not depend on the sidecar");
+            assertEquals(written.size(), blocked.size());
+            assertTrue(Files.isRegularFile(org.shatterfish.harness.log.DebugRecord.beside(file(with, "random", SEED, SALT))));
+        } finally {
+            System.clearProperty(org.shatterfish.harness.log.DebugRecord.PROPERTY);
+        }
     }
 
     @Test
