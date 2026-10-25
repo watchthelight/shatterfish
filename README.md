@@ -160,7 +160,9 @@ E5 (the Overlay) so far:
   opens paused; which control is live in which state is one tested matrix (#214).
 - The Brain's two notions of calm (quiet, unengaged) each have one named home; play is
   byte-identical (#216).
-- Next: the speed modes and the takeover (5.7, 5.8), with Brain changes in parallel.
+- E5.7: Next Step, Run N, Human play speed and Fast work; a paused Run shows the Decision the
+  next press executes (#218).
+- Next: take over and hand back (5.8), with Brain changes in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:
