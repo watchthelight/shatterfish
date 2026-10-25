@@ -122,17 +122,12 @@ final class Chests implements Policy {
     /**
      * The most damage one hit of a mimic does, by the depth it is on, from general knowledge of the game: a
      * chest that is a mimic bites for {@code 2 + 2 * level} with infinite accuracy when touched
-     * (Mimic.java:229-236, :251-257), level the floor's depth. Depth 1 has none (RegularLevel.java:415-421).
+     * (Mimic.java:229-236, :251-257), level the floor's depth. Depth 1's roll makes none, but a Mimic Tooth
+     * trinket lets the others make one there (RegularLevel.java:408-421), so the margin holds on every floor.
      */
-    static int mimicBite(int depth, HeapKind kind) {
-        if (depth < 2) {
-            return 0;
-        }
-        // A held golden key means the floor made a real locked chest: a golden mimic takes the place of the
-        // chest and queues no key (RegularLevel.java:430-437).
-        return kind == HeapKind.LOCKED_CHEST ? 0 : 2 + 2 * depth;
+    static int mimicBite(int depth) {
+        return 2 + 2 * depth;
     }
-
     /** The most damage a wraith's hit does on a floor of this depth (Wraith.java:75-83: up to 2 + level). */
     static int wraithHit(int depth) {
         return 2 + depth;
@@ -148,7 +143,10 @@ final class Chests implements Policy {
         int hp = observation.hero().hp();
         int depth = observation.header().depth();
         return switch (heap.kind()) {
-            case CHEST, LOCKED_CHEST, CRYSTAL_CHEST -> hp > 2 * mimicBite(depth, heap.kind());
+            // A held golden key says the floor queued one for a real locked chest (RegularLevel.java:430-437), but
+            // the key may be for another, so a locked chest needs the health to survive a bite; the others two hits.
+            case LOCKED_CHEST -> hp > mimicBite(depth);
+            case CHEST, CRYSTAL_CHEST -> hp > 2 * mimicBite(depth);
             case SKELETON, REMAINS -> hp > 2 * wraithHit(depth);
             case TOMB -> {
                 int wraiths = freeSides(observation, stand);

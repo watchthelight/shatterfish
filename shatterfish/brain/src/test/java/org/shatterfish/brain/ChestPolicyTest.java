@@ -91,7 +91,7 @@ class ChestPolicyTest {
     }
 
     @Test
-    @DisplayName("a chest may be a hidden mimic from depth 2: opened only with the hit points to take its bite and one more hit, never on depth 1's margin")
+    @DisplayName("a chest may be a hidden mimic: opened only with the hit points to take its bite and one more hit, a locked chest with one bite")
     void mimic_margin() {
         int chest = WIDTH + 6;
         // The hidden bite is 2 + 2 * depth, fixed (Mimic.java:229-236): depth 5 is 12, so more than 24 is wanted.
@@ -99,13 +99,17 @@ class ChestPolicyTest {
                 .decision().policy());
         assertNotEquals("open-chest", decide(room(5, HERO, 24, 25, HeapKind.CHEST, chest, false, List.of()))
                 .decision().policy(), "24 hit points do not take a bite and a hit at depth 5");
-        // Depth 1 has no mimics (RegularLevel.java:415-421): any health will do.
-        assertEquals("open-chest", decide(room(1, HERO, 3, 20, HeapKind.CHEST, chest, false, List.of()))
+        // Depth 1's roll makes none, but a Mimic Tooth lets the others (RegularLevel.java:408-421): the margin holds.
+        assertEquals("open-chest", decide(room(1, HERO, 9, 20, HeapKind.CHEST, chest, false, List.of()))
                 .decision().policy());
-        // A key in the journal means the floor made a real locked chest (a golden mimic gets none,
-        // RegularLevel.java:430-437), so that one is opened at any health.
-        assertEquals("open-chest", decide(room(6, HERO, 5, 40, HeapKind.LOCKED_CHEST, chest, false,
-                List.of(key(6, "golden key")))).decision().policy());
+        assertNotEquals("open-chest", decide(room(1, HERO, 8, 20, HeapKind.CHEST, chest, false, List.of()))
+                .decision().policy());
+        // A locked chest with its key needs the health to survive one bite: depth 6 is 14.
+        List<NoteView> golden = List.of(key(6, "golden key"));
+        assertEquals("open-chest", decide(room(6, HERO, 15, 40, HeapKind.LOCKED_CHEST, chest, false, golden))
+                .decision().policy());
+        assertNotEquals("open-chest", decide(room(6, HERO, 14, 40, HeapKind.LOCKED_CHEST, chest, false, golden))
+                .decision().policy());
     }
 
     @Test
