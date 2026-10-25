@@ -2,7 +2,7 @@
 
 !!! info "Generated"
 
-    From `codex/v4.0.0/traps.json` at upstream tag `v4.0.0`, Codex version 8.
+    From `codex/v4.0.2/traps.json` at upstream tag `v4.0.2`, Codex version 8.
     Never hand edited: run `./gradlew :codex:generate` and commit what it writes.
 
 Every concrete trap class with the two flags a player can act on, whether the game leaves it
@@ -10,7 +10,7 @@ active, the text of its own effect and whose effect that is, what else the placi
 the cell, and the pool each level draws from with the class that declares it, the condition that
 chooses it and how many traps the floor lays (story 2.6).
 
-[`codex/v4.0.0/traps.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/traps.json) holds 44 entries in 60.9 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+[`codex/v4.0.2/traps.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/traps.json) holds 44 entries in 60.9 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
 An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
 table states beside them is a value, and the values are below.
 
@@ -86,7 +86,7 @@ recorded 129 citations in 43 files:
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/RegularLevel.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/RegularLevel.java) | 6 | 193 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/SewerBossLevel.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/SewerBossLevel.java) | 2 | 128 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/SewerLevel.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/SewerLevel.java) | 4 | 120 |
-| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/VaultLevel.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/VaultLevel.java) | 4 | 201-680 |
+| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/VaultLevel.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/VaultLevel.java) | 4 | 201-695 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/rooms/special/ToxicGasRoom.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/rooms/special/ToxicGasRoom.java) | 6 | 60-173 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/traps/AlarmTrap.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/traps/AlarmTrap.java) | 2 | 33-41 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/traps/BlazingTrap.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/traps/BlazingTrap.java) | 2 | 38-47 |

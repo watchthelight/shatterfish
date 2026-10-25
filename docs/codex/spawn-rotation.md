@@ -2,13 +2,13 @@
 
 !!! info "Generated"
 
-    From `codex/v4.0.0/spawn-rotation.json` at upstream tag `v4.0.0`, Codex version 8.
+    From `codex/v4.0.2/spawn-rotation.json` at upstream tag `v4.0.2`, Codex version 8.
     Never hand edited: run `./gradlew :codex:generate` and commit what it writes.
 
 The standard spawn rotation per depth, the random families with their odds, the rare
 additions, the alternates and the champion rule (story 2.2).
 
-[`codex/v4.0.0/spawn-rotation.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/spawn-rotation.json) holds 43 entries in 14.0 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+[`codex/v4.0.2/spawn-rotation.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/spawn-rotation.json) holds 43 entries in 14.0 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
 An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
 table states beside them is a value, and the values are below.
 

@@ -2,7 +2,7 @@
 
 !!! info "Generated"
 
-    From `codex/v4.0.0/guarantees.json` at upstream tag `v4.0.0`, Codex version 8.
+    From `codex/v4.0.2/guarantees.json` at upstream tag `v4.0.2`, Codex version 8.
     Never hand edited: run `./gradlew :codex:generate` and commit what it writes.
 
 Every limited drop the level's creation decides -- the strength potions, the upgrade scrolls,
@@ -11,7 +11,7 @@ as a schedule: the exact chance, for every depth and counter state, that the dro
 placed, what level class each floor of the main branch is and whether it places the floor's
 spawn list at all, and the Forbidden Runes rule (story 2.4).
 
-[`codex/v4.0.0/guarantees.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/guarantees.json) holds 33 entries in 130.3 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+[`codex/v4.0.2/guarantees.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/guarantees.json) holds 33 entries in 130.3 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
 An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
 table states beside them is a value, and the values are below.
 

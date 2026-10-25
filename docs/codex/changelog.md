@@ -2,14 +2,14 @@
 
 !!! info "Generated"
 
-    From `codex/v4.0.0/changelog.json` at upstream tag `v4.0.0`, Codex version 8.
+    From `codex/v4.0.2/changelog.json` at upstream tag `v4.0.2`, Codex version 8.
     Never hand edited: run `./gradlew :codex:generate` and commit what it writes.
 
 Every entry of the game's changelist with the headings under it, the date where an entry or a
 heading states one, and the version the tree builds as beside the save codes it still reads
 (story 2.7).
 
-[`codex/v4.0.0/changelog.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/changelog.json) holds 199 entries in 196.7 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+[`codex/v4.0.2/changelog.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/changelog.json) holds 201 entries in 198.4 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
 An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
 table states beside them is a value, and the values are below.
 
@@ -20,14 +20,14 @@ The values the table carries beside its entries, by the path each is reached at.
 | Field | Type | Value |
 |---|---|---|
 | `versionCitation` | citation | `build.gradle:19` |
-| `versionCode` | number | `912` |
-| `versionName` | string | `4.0.0` |
+| `versionCode` | number | `922` |
+| `versionName` | string | `4.0.2` |
 
 ## How a row is shaped
 
 ### `entries`
 
-193 entries. Every field any entry of this list holds, by the path it is reached at
+195 entries. Every field any entry of this list holds, by the path it is reached at
 (`[]` is a list's element):
 
 | Field | Type |
@@ -73,7 +73,7 @@ The values the table carries beside its entries, by the path each is reached at.
 
 Every value above is cited to the pinned tree: the line it was read from, or, where a table
 is measured rather than transcribed, the method that was run. The reader
-recorded 788 citations in 16 files:
+recorded 795 citations in 16 files:
 
 | Source | Citations | Line span |
 |---|---:|---|
@@ -92,7 +92,7 @@ recorded 788 citations in 16 files:
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/ui/changelist/v1_X_Changes.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/ui/changelist/v1_X_Changes.java) | 106 | 42-963 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/ui/changelist/v2_X_Changes.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/ui/changelist/v2_X_Changes.java) | 103 | 45-1447 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/ui/changelist/v3_X_Changes.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/ui/changelist/v3_X_Changes.java) | 68 | 42-894 |
-| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/ui/changelist/v4_X_Changes.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/ui/changelist/v4_X_Changes.java) | 26 | 45-286 |
+| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/ui/changelist/v4_X_Changes.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/ui/changelist/v4_X_Changes.java) | 33 | 45-363 |
 
 ## Judgments
 
