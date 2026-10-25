@@ -154,6 +154,8 @@ E5 (the Overlay) so far:
   adopted; one habit is kept, a fix's first test fails on main (ADR-0019, #210).
 - While the bot is paused, clicks and direction keys do nothing to the hero: an input gate in the
   game's cell selector, open only to the bot's own Actions and to a HUMAN Run (E5.5, #212).
+- Tests run in forked JVMs side by side and `:rig:direction` plays a quarter of the cores at
+  once; the full local test suite is about four times faster (#213).
 - Next: the controls (5.5-5.8), with bestiary-driven Brain changes in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
