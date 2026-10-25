@@ -54,7 +54,13 @@ final class DecisionCardContent {
      * @param explain     the Policy and flags, null unless asked for
      */
     record Content(boolean present, String headline, Row chosen, List<Row> alternatives, Explain explain,
-                   boolean shadow, String notice) {
+                   boolean shadow, String notice, boolean troubled) {
+
+        /** A card with no Brain trouble on it. */
+        Content(boolean present, String headline, Row chosen, List<Row> alternatives, Explain explain,
+                boolean shadow, String notice) {
+            this(present, headline, chosen, alternatives, explain, shadow, notice, false);
+        }
 
         /** A Brain's card: not a shadow, and nothing to say about a Replay. */
         Content(boolean present, String headline, Row chosen, List<Row> alternatives, Explain explain) {
@@ -102,17 +108,27 @@ final class DecisionCardContent {
 
     /** As above, and for a HUMAN Run's {@code shadow} (null for a Brain's Run): its headline, greyed rows and notice. */
     static Content of(RunLog.Decision decision, boolean nextStep, boolean explain, Shadow shadow) {
+        return of(decision, nextStep, explain, shadow, null);
+    }
+
+    /**
+     * As above, for a Brain that failed to decide (story 5.15, UX-DR7): {@code trouble} is the card's words,
+     * {@code brain error: <class>} or {@code no valid action; waiting}, and they are the headline, over the
+     * wait the Overlay chose in the Brain's place. Null for a Brain that decided.
+     */
+    static Content of(RunLog.Decision decision, boolean nextStep, boolean explain, Shadow shadow, String trouble) {
         String notice = shadow == null || shadow.unverifiableFrom() <= 0 ? null
                 : UNVERIFIABLE + shadow.unverifiableFrom() + ": " + shadow.why();
         if (decision == null) {
             return new Content(false, null, null, List.of(), null, shadow != null && shadow.person(), notice);
         }
         boolean person = shadow != null && shadow.person();
-        String headline = person ? (shadow.current() ? SHADOW_NOW : SHADOW_LAST) : nextStep ? NEXT_PRESS : null;
+        String headline = trouble != null ? trouble
+                : person ? (shadow.current() ? SHADOW_NOW : SHADOW_LAST) : nextStep ? NEXT_PRESS : null;
         Row chosen = row(decision.chosen());
         List<Row> alternatives = decision.alternatives().stream().map(DecisionCardContent::row).toList();
         Explain explanation = explain ? new Explain(decision.policy(), decision.flags()) : null;
-        return new Content(true, headline, chosen, alternatives, explanation, person, notice);
+        return new Content(true, headline, chosen, alternatives, explanation, person, notice, trouble != null);
     }
 
     private static Row row(RunLog.Choice choice) {

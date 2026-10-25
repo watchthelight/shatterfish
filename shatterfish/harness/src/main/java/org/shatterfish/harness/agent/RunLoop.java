@@ -483,6 +483,15 @@ public final class RunLoop {
      */
     static RunLog.Wait record(RunLogWriter log, long k, Observation observation, Action chosen,
                                boolean applied, long thinkMs, boolean oracle, Decider agent) {
+        return record(log, k, observation, chosen, applied, thinkMs, oracle, agent, null);
+    }
+
+    /**
+     * As above, with {@code stated} the Decision the record carries in place of the agent's own, for a wait the
+     * Overlay answered itself because the Brain gave none (story 5.15): no Belief and no highlights ride on it.
+     */
+    static RunLog.Wait record(RunLogWriter log, long k, Observation observation, Action chosen,
+                               boolean applied, long thinkMs, boolean oracle, Decider agent, RunLog.Decision stated) {
         // The header said once, before the Run, whether this Run may see what a player could not.
         // Every wait says it again, from the Observation the decider was actually handed, so a Run
         // whose header claims to be fair and whose Observations are an Oracle's stops here rather
@@ -506,7 +515,9 @@ public final class RunLoop {
         RunLog.Decision decision = null;
         String belief = "";
         List<Integer> highlights = List.of();
-        if (agent instanceof org.shatterfish.api.Deliberator deliberator) {
+        if (stated != null) {
+            decision = stated;
+        } else if (agent instanceof org.shatterfish.api.Deliberator deliberator) {
             decision = deliberator.lastDecision();
             belief = deliberator.beliefHash();
             highlights = deliberator.lastHighlights();

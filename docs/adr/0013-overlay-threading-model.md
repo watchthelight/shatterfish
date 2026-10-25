@@ -792,6 +792,33 @@ Found by the fairness review of story 5.8 (issue #220), settled with the rest of
   (`loadBindings` merges defaults after saved keys); the fairness review of story 5.11 noted it. Rare and visible in the
   key-binding screen; left as it is, since a fix means editing `loadBindings`.
 
+## Amendment (story 5.15): the Brain's trouble is a wait, never a crash
+
+UX-DR7's Brain error and No valid action rows, and the two rows that were already true by construction.
+
+- **A Brain that throws, or offers nothing, is answered with a wait.** `EmbeddedRun.Host.recoversFromBrainTrouble()`
+  is true in the Overlay and false by default, so the Rig and the headless loop still end such a Run as
+  `BRAIN_ERROR` or `NOTHING_OFFERED` and count it. Where it is true the worker catches the exception (any
+  `RuntimeException` or `Error`, but not a `VirtualMachineError` and not a worker being interrupted by a close) and the Run chooses `Wait` in the Brain's
+  place. That wait goes through the same credit, executor and record as any other: a held Run shows it on the card
+  and executes it against a press. The wait record carries a Decision of its own (goal `waiting`, policy
+  `brain error: <class>` or `no valid action; waiting`, the same words as the reason; the message goes to the console only), and no Belief
+  hash and no highlights, since the Brain gave none.
+- **The pause.** A Brain error always asks for PAUSED; no valid action asks for it on the third in a row (a
+  Decision in between resets the count). The ask rides on `Snapshot.trouble()` (text, detail, count in a row, a
+  sequence number, whether it pauses), which the Overlay answers once per sequence number: `ControlState.brainTrouble`
+  lands in PAUSED with Next Step, never over a hand-over under way, a person's turn or a Run that is over. The
+  Run writes a `mode` record (`PAUSED`, speed `Next Step`) beside the wait record that says why, and the console
+  gets one line with the exception in full. A person who presses Resume plays on; the Brain is asked again.
+- **The leak surface is unchanged.** The trouble text is the exception's class name and message: it is written to
+  the Panel, the console and the Run log, and is never an Observation, a Belief or anything the Brain reads.
+  The Overlay's own wait is not a refusal by the Brain, so it does not count toward the refusals that end a Run.
+  A HUMAN Run's shadow that fails this way counts as a shadow failure and costs the person nothing.
+- **Hero busy** was built with the takeover (story 5.8): `ControlState.target` dims every control but Explain
+  until the Run has changed hands at an Input wait. **No Run** is the dock's rule: `PanelDock.attaches` is true
+  only for a play scene with a hero, so the title screen, the menus and the loading scenes draw nothing.
+  `PanelStateTest` reaches every state of UX-DR7 and asserts the strip, the card and the enablement matrix in each.
+
 ## Amendment: story 5.13 (2026-10-25)
 
 The non-reproducibility ADR-0013's story 5.1 amendment named is closed for the draws: hook row 8 sends the

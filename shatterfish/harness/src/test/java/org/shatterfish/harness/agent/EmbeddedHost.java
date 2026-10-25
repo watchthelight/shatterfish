@@ -93,6 +93,14 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
         return false;
     }
 
+    /** Whether the host answers a Brain's trouble with a wait, as the Overlay does (story 5.15). */
+    boolean recovers;
+
+    @Override
+    public boolean recoversFromBrainTrouble() {
+        return recovers;
+    }
+
     /** Whether the host says its loop serves the loading scene's resurrection (story 5.14). */
     boolean servesResurrection;
 
