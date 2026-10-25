@@ -37,10 +37,12 @@ class EmbeddedThreadingTest {
 
     /**
      * The longest a single frame of the Run may take while its Brain is held. The Run does no more
-     * than ask whether the answer is in; a frame of the game at 60 fps is 16 ms, and this bound is
-     * generous for a busy CI machine while still orders of magnitude below a held Brain.
+     * than ask whether the answer is in; a frame of the game at 60 fps is 16 ms. A frame that waited
+     * would take as long as the Brain is held, up to two minutes. The bound sits between the two: a
+     * second absorbs a GC pause or a starved thread on a loaded machine (50 ms did not, once test
+     * classes ran side by side, #213) and is still two orders of magnitude below a held Brain.
      */
-    private static final long FRAME_BOUND_MS = 50;
+    private static final long FRAME_BOUND_MS = 1_000;
 
     @Test
     @DisplayName("the Brain decides on its own worker, and the render thread's frames never wait for it")
