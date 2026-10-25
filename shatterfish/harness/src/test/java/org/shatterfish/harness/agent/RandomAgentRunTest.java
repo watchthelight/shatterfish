@@ -88,6 +88,23 @@ class RandomAgentRunTest {
     }
 
     @Test
+    @DisplayName("a refused way back from a scroll's cancel prompt does not end the Run in an unknown window")
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void going_back_from_the_cancel_prompt_is_not_a_dead_end() {
+        // Issue #236. The test above draws its salts at random, so it failed one CI run in some
+        // number and passed the rerun; the Run itself is a function of its tuple, and this is the
+        // tuple that failed: seed 11, the salt CI printed, and the agent stream the test above
+        // gives that seed. The random Warrior reads an unidentified scroll of upgrade; the
+        // executor sends the item window away; the game asks to confirm the cancel; the agent
+        // answered "No, I changed my mind", the game put the item window back, and that window is
+        // no Prompt, so no wait followed (UNKNOWN_WINDOW, WndBag).
+        RunOutcome outcome = new RunLoop().play(11L, HeroClass.WARRIOR, 0x3e817df6bd81de44L, 11 * 31L + 7L);
+
+        assertTrue(outcome.ordinary(), "the Run goes on past the cancel prompt: " + outcome);
+        assertTrue(outcome.cause() != RunOutcome.Cause.UNKNOWN_WINDOW, outcome.toString());
+    }
+
+    @Test
     @DisplayName("a thousand Runs finish unattended, and the causes are a tally")
     @Timeout(value = 90, unit = TimeUnit.MINUTES)
     void a_thousand_runs() {

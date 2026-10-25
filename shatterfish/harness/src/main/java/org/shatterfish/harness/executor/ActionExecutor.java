@@ -6,6 +6,7 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
+import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.InventoryScroll;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndBag;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndUpgrade;
 import com.watabou.input.PointerEvent;
@@ -386,6 +387,20 @@ public final class ActionExecutor {
         if (option >= buttons.size()) {
             return new Outcome.Rejected(action, Reason.NO_SUCH_OPTION,
                     "the window draws " + buttons.size() + " buttons and the answer names " + option);
+        }
+        if (window instanceof InventoryScroll.WndConfirmCancel && option == 1) {
+            // "No, I changed my mind" puts the scroll's item window back
+            // (…/items/scrolls/InventoryScroll.java:72-74), and that window is not a Prompt: no
+            // Action answers it and no wait would follow, so the Run stopped there as an unknown
+            // window (issue #236). The cancel prompt is reached only by the executor sending the
+            // window away after a half input, so the way back is not one a Brain can use. The press
+            // is refused and the confirmation stays up; the Brain answers it with "Yes". The hand-over
+            // is announced although nothing changed: the confirmation is the same window object, so
+            // without it no new wait is ever confirmed and the Run stalls on the very window it was
+            // meant to answer (a plain refusal here was tried and ended the Run as UNKNOWN_WINDOW).
+            return touchedAndRefused(action, Reason.NO_SELECTOR,
+                    "going back to the scroll's item window leaves a window no Action answers; the whole"
+                            + " input is UseItemOn, and this prompt is left with its other answer");
         }
         Component button = buttons.get(option);
         if (!button.isActive() && window instanceof WndUpgrade) {
