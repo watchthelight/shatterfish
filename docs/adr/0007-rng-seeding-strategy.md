@@ -313,3 +313,52 @@ with the first but the code and the tuple. `DeterminismTwoJvmTest` runs `RunFing
 and in two fresh ones on the pull-request gate and compares all three, thirty waits deep. The
 cross-platform comparison, the same tuple on Windows and on Linux, is story 3.4's nightly job
 (ADR-0002) and is not attempted here. Issue #70 closes with this story.
+
+## Amendment: issue #117 (2026-10-25)
+
+**The Profile is version 4, and the global badges are part of the empty history.** Version 3
+emptied the local badges only. `Badges.reset()` clears them and calls `loadGlobal`, which returns
+early once the static is set (`core/…/Badges.java:244-247`, `:315-325`), so the global badges every
+earlier Run in the process had earned survived into the next. The game reads them while it plays
+(`HeroClass.isUnlocked`, `core/…/actors/hero/HeroClass.java:330-347`, and the `validate*` family),
+and it announces a badge only when it is not yet held (`Badges.displayBadge`,
+`core/…/Badges.java:1171-1192`). So the same tuple logged "Badge unlocked: Novice Researcher" in the
+first Run of a process and not in the third, which is how it surfaced: after forked test classes
+(PR #213) put `InProcessRunsTest.a_run_between_leaves_nothing` first in its JVM, it failed
+(1306 waits against 1249).
+
+The Profile now removes every held global badge through `Badges.disown`
+(`core/…/Badges.java:1203-1207`, the only public door) before it grants the five class unlocks, so a
+Run in a process that has played Runs starts with the global set a fresh process has: empty, plus
+the grant. This matches a Rig Run, which is one Run per process.
+
+Story 3.1 tried the same sweep and reverted it because 35 harness tests broke on a badge banner
+posted to the render thread (`PixelScene.showBadge`, `core/…/scenes/PixelScene.java:378`). That no
+longer holds: the headless driver and the scene teardown now drain what a Run posted
+(`HeadlessGame.drainWhatTheLastSceneWasPosted`), and a fresh process always earned and displayed
+these badges, so earning them in every Run is the case the harness had to handle anyway. No upstream
+file is edited, so there is no `docs/UPSTREAM.md` row.
+
+Emptying the global badges was not enough to make a Run in a used process the Run a fresh one plays,
+and two more causes surfaced when the test was run first in its JVM (a draw trace of both Runs
+found them). The researcher badges are earned by counting what the Catalog and the Bestiary hold
+(`core/…/Badges.java:630-660`, `:702`), and those tallies outlive a Run too, so a later Run earned
+"Novice Researcher" at its first pickup; the Profile now restores both from a bundle that names
+every entry unseen, uncounted and unused (`Profile.emptyTheCatalogs`; only `WndJournal` reads them
+besides the badges). And `WindParticle`'s static initialiser draws the wind's direction
+(`core/…/effects/particles/WindParticle.java:41-42`), which inside the first Run of a process is one
+draw from the stack the Run owns and in every later Run is none: the sewer's wind and flow emitters
+then drew from a stream one place along, and the Runs parted at wait 259. This is the "one draw
+more" that story 1.16 recorded as left over from issue #70. `NewGame.begin` now touches
+`WindParticle.FACTORY` before the Run's generator exists, so the draw comes from the base generator
+and no Run makes it; the wind's direction is a picture that no Observation reads and no fingerprint hashes (it now differs between processes, as
+any entropy-seeded picture does).
+
+The version is raised because what a Run inherits changed, and because the stream of every Run's
+first wait moved by that one draw; recorded Runs carrying profile 3 are
+refused by replay (`Replay.refusal`, the Profile version check), which is this ADR's own rule. `ProfileTest.the_history_is_empty`
+now holds the global half.
+
+The committed reference Run (`reference/`, story 3.4) is regenerated with `:rig:reference`, because
+its log carries profile 3 and its first wait's stream moved; its chain constant in
+`ReferenceLogTest` is the new one. The nightly cross-platform replay now compares the new Run.

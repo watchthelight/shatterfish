@@ -10,6 +10,8 @@ import org.shatterfish.harness.driver.HeadlessDriver;
 import org.shatterfish.harness.executor.ActionExecutor;
 import org.shatterfish.harness.executor.Outcome;
 import org.shatterfish.harness.observer.Observer;
+import com.shatteredpixel.shatteredpixeldungeon.journal.Bestiary;
+import com.shatteredpixel.shatteredpixeldungeon.journal.Catalog;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Document;
 import org.shatterfish.harness.rng.Mix;
 import org.junit.jupiter.api.DisplayName;
@@ -91,6 +93,17 @@ class ProfileTest {
         Badges.store(bundle, earned);
         Badges.loadLocal(bundle);
         assertTrue(Badges.totalUnlocked(false) > 0, "a Run that earned something");
+        // The global half (issue #117): the badges a Run earns for good, which the game reads while
+        // it plays (core/.../actors/hero/HeroClass.java:330-347). Badges.reset leaves them standing.
+        Badges.unlock(Badges.Badge.RESEARCHER_1);
+        // What the researcher badges count: a Run that had seen items would earn them early.
+        Catalog.setSeen(com.shatteredpixel.shatteredpixeldungeon.items.weapon.melee.Sword.class);
+        Bestiary.setSeen(com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Rat.class);
+        Bestiary.countEncounter(com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Rat.class);
+        assertTrue(Catalog.isSeen(com.shatteredpixel.shatteredpixeldungeon.items.weapon.melee.Sword.class)
+                && Bestiary.isSeen(com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Rat.class), "a Run that saw things");
+        Badges.unlock(Badges.Badge.RESEARCHER_2);
+        assertTrue(Badges.isUnlocked(Badges.Badge.RESEARCHER_1), "a Run that earned something for good");
 
         // The journal is the half that actually changes the dungeon: the guide pages a floor
         // scatters are the ones the player has not found (core/.../levels/RegularLevel.java:561-589),
@@ -103,6 +116,21 @@ class ProfileTest {
         Profile.prepare(HeadlessBoot.ensure(), Files.createTempDirectory("shatterfish-profile-test"));
 
         assertEquals(0, Badges.totalUnlocked(false), "and the next Run starts with nothing");
+        assertTrue(!Catalog.isSeen(com.shatteredpixel.shatteredpixeldungeon.items.weapon.melee.Sword.class),
+                "nor with an item seen (the key names of Catalog.restore are the game's)");
+        assertTrue(!Bestiary.isSeen(com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Rat.class)
+                && Bestiary.encounterCount(com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Rat.class) == 0,
+                "nor with an enemy seen or counted (likewise Bestiary.restore)");
+        for (Catalog catalog : Catalog.values()) {
+            assertEquals(0, catalog.totalSeen(), catalog + " has no item seen");
+        }
+        for (Bestiary bestiary : Bestiary.values()) {
+            assertEquals(0, bestiary.totalSeen(), bestiary + " has no entry seen");
+        }
+        assertTrue(!Badges.isUnlocked(Badges.Badge.RESEARCHER_1), "nor with the badges the last one kept");
+        assertTrue(!Badges.isUnlocked(Badges.Badge.RESEARCHER_2), "of any kind");
+        assertEquals(UNLOCKS.size(), Badges.totalUnlocked(true),
+                "the global set is the five class unlocks the Profile grants, and nothing else");
         assertTrue(!Document.ADVENTURERS_GUIDE.isPageFound(Document.GUIDE_SEARCHING),
                 "and with none of the pages the last Run found");
     }
@@ -114,9 +142,8 @@ class ProfileTest {
         // the six classes are earned (core/.../actors/hero/HeroClass.java:330-347). The seed sets
         // name all six, so a Profile that did not grant the badges would commit hundreds of triples
         // for heroes no Run could start as -- a set that lies rather than a set that is held out.
-        // Badges.reset leaves the global badges alone (issue #117), so the five are taken away
-        // here: without this the test would pass on whatever an earlier Run in this process left
-        // behind rather than on what the Profile does.
+        // The five are taken away here so the test shows what the Profile grants, not what an
+        // earlier test in this process left behind.
         for (Badges.Badge held : UNLOCKS) {
             Badges.disown(held);
         }
@@ -150,12 +177,11 @@ class ProfileTest {
         // numbers before either has had a wait: if the Run owns the stack from init onward, both
         // are at the same place in the same stream and answer alike.
         //
-        // The first Run in a process is not one of the two: it consumes exactly one draw more than
-        // every Run after it, whatever the tuple, which is a warm-up somewhere in the game rather
-        // than anything drawn from entropy — an entropy-seeded floor would differ in every number,
-        // not by one position in the same stream. That single draw is part of what issue #70 has
-        // left, and story 1.16 named it: the guidebook was placed from an unseeded generator, and its
-        // placement loop retried a different number of times in every process.
+        // The first Run in a process used to consume one draw more than every Run after it:
+        // WindParticle's static initialiser drew from the stack the Run owned, once per process
+        // (issue #117; NewGame.begin now initialises it before the Run's generator exists). The
+        // call below stays a throwaway for the other lazily initialised classes this test cannot
+        // see, and InProcessRunsTest and DeterminismTwoJvmTest hold the first-Run case.
         streamAtTheStart(4242L, 0x5A17L);
         assertEquals(streamAtTheStart(4242L, 0x5A17L), streamAtTheStart(4242L, 0x5A17L),
                 "two Runs of one tuple, before either has been asked for an Action");

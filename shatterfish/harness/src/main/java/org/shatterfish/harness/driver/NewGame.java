@@ -59,6 +59,14 @@ public final class NewGame {
         // confirmed jump the Run closed before the fall (Chasm.java:101) or a snake's dodge count
         // (issue #167): back to a fresh process's values before anything reads them.
         RunStatics.reset();
+        // The first use of WindParticle in a process runs its static initialiser, which draws the
+        // wind's direction (core/.../effects/particles/WindParticle.java:41-42). Run inside the first
+        // Run, that is one draw from the stack the Run owns, which no later Run in the process makes:
+        // the sewer's wind and flow emitters then draw from a stream one place along, and the two
+        // Runs part ways a few hundred waits in (issue #117, found with a draw trace). Initialised
+        // here, before the Run's generator exists, the draw comes from the base generator and every
+        // Run is the same Run. The wind's direction is a picture; no Observation reads it.
+        java.util.Objects.requireNonNull(com.shatteredpixel.shatteredpixeldungeon.effects.particles.WindParticle.FACTORY);
 
         // What the hero-select screen loads before any game starts (HeroSelectScene.java:106-107).
         // Both load once per process; story 1.15 owns what a Profile is and when it is reloaded.

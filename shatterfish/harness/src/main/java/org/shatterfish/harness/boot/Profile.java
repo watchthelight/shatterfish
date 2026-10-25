@@ -6,7 +6,10 @@ import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.GamesInProgress;
 import com.shatteredpixel.shatteredpixeldungeon.SPDSettings;
 import com.shatteredpixel.shatteredpixeldungeon.Rankings;
+import com.shatteredpixel.shatteredpixeldungeon.journal.Bestiary;
+import com.shatteredpixel.shatteredpixeldungeon.journal.Catalog;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Document;
+import com.watabou.utils.Bundle;
 import com.watabou.utils.FileUtils;
 
 import java.util.List;
@@ -39,7 +42,7 @@ public final class Profile {
      * empty history changes — and say why in the ADR-0007 amendment, because a raised version
      * invalidates every recorded Run against the old one.
      */
-    public static final int VERSION = 3;
+    public static final int VERSION = 4;
 
     /** The file the version is written to, beside the game's own save files. */
     public static final String VERSION_FILE = "shatterfish-profile.txt";
@@ -213,11 +216,17 @@ public final class Profile {
         }
         // Badges.reset clears the local badges and calls loadGlobal, which returns early once the
         // static is set (core/.../Badges.java:244-247, :315-325), so the global badges an earlier
-        // Run in this process earned survive it. Emptying them here through disown -- the only
-        // public door -- was tried and put back: a Run then earns them again during play, and
-        // earning one posts a badge window to the render thread, which the next Run refuses to
-        // start on top of. That is ADR-0007's leak rather than this story's, and it is issue #117.
+        // Run in this process earned would survive it. Disown is the only public door
+        // (Badges.java:1203-1207); allUnlocked hands back a copy (:1198-1201), so the loop may
+        // remove while it walks. A Run in a process of its own starts with the empty set its fresh
+        // directory holds (issue #117), and so does this one. What the Run then earns posts a badge
+        // banner to the render thread (PixelScene.java:378-); see HeadlessDriver.newGame, which
+        // drains what a finished Run left queued.
+        for (Badges.Badge badge : Badges.allUnlocked()) {
+            Badges.disown(badge);
+        }
         Badges.reset();
+        emptyTheCatalogs();
         unlockTheClasses();
         // Every page of every document, deleted one by one, because that is the only public way to
         // put one back: restore() adds what a bundle holds and never takes anything away
@@ -231,6 +240,47 @@ public final class Profile {
         // Rankings holds its records for the life of the process once loaded; dropping them makes
         // the next load read this Run's own directory, which is empty.
         Rankings.INSTANCE.records = null;
+    }
+
+    /**
+     * Forgets every catalog entry and every bestiary entry the process has seen, so that the
+     * badges they feed are earned on the same turns in every Run (issue #117).
+     *
+     * <p>Emptying the global badges alone is not enough. {@code Catalog.setSeen} and
+     * {@code Bestiary.setSeen} call {@code Badges.validateCatalogBadges}
+     * ({@code core/.../journal/Catalog.java:308-315}, {@code Bestiary.java:305-316}), which awards
+     * the researcher badges by counting what has been seen
+     * ({@code core/.../Badges.java:630-660}, {@code :702}). A Run in a process that had already seen
+     * forty items would earn "Novice Researcher" on its first pickup, and the first Run of a
+     * process would earn it forty items in. Nothing else the game plays with reads these tallies:
+     * the other readers are in {@code WndJournal}.
+     *
+     * <p>Both classes can only be restored, never reset, and {@code restore} overwrites exactly the
+     * entries a bundle names, so the bundle names every entry with nothing seen and no uses. The
+     * bundle's keys are the private constants {@code Catalog.CATALOG_CLASSES} and kin
+     * ({@code Catalog.java:343-345}, {@code Bestiary.java:339-341}); {@code ProfileTest} holds that
+     * they are still the right ones.
+     */
+    private static void emptyTheCatalogs() {
+        java.util.List<Class<?>> items = new java.util.ArrayList<>();
+        for (Catalog catalog : Catalog.values()) {
+            items.addAll(catalog.items());
+        }
+        Bundle catalogs = new Bundle();
+        catalogs.put("catalog_classes", items.toArray(new Class<?>[0]));
+        catalogs.put("catalog_seen", new boolean[items.size()]);
+        catalogs.put("catalog_uses", new int[items.size()]);
+        Catalog.restore(catalogs);
+
+        java.util.List<Class<?>> entities = new java.util.ArrayList<>();
+        for (Bestiary bestiary : Bestiary.values()) {
+            entities.addAll(bestiary.entities());
+        }
+        Bundle bestiaries = new Bundle();
+        bestiaries.put("bestiary_classes", entities.toArray(new Class<?>[0]));
+        bestiaries.put("bestiary_seen", new boolean[entities.size()]);
+        bestiaries.put("bestiary_encounters", new int[entities.size()]);
+        Bestiary.restore(bestiaries);
     }
 
     /**
