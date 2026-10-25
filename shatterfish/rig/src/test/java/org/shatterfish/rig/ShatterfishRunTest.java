@@ -63,7 +63,7 @@ class ShatterfishRunTest {
                     log.getFileName() + " ended " + cause + ": " + read.end().detail());
             for (RunLog.Wait wait : read.waits()) {
                 assertNotNull(wait.decision(), "a Brain's wait says why: " + log.getFileName() + " at " + wait.k());
-                assertTrue(List.of("answer-prompt", "heal", "fight", "eat", "test-item", "pick-up", "equip", "explore", "fallback")
+                assertTrue(List.of("answer-prompt", "heal", "fight", "eat", "test-item", "pick-up", "open-chest", "equip", "explore", "fallback")
                         .contains(wait.decision().policy()), wait.decision().policy());
                 // Story 4.10: a test-item wait drinks or reads the appearance its reason names,
                 // plainly, or Steps toward the cell it tests on, or out of its own fire or gas, or
@@ -95,6 +95,12 @@ class ShatterfishRunTest {
                         assertEquals(new org.shatterfish.api.Action.PickUp(), wait.action(), why);
                         assertTrue(why.startsWith("take: "), why);
                     }
+                }
+                // Issue #181: an open-chest wait Steps toward a chest ("chest: N"), clicks onto it from beside it
+                // or opens the one underfoot ("open: chest N").
+                if ("open-chest".equals(wait.decision().policy())) {
+                    assertTrue(wait.decision().chosen().why().matches("chest: [0-9]+|open: chest [0-9]+"),
+                            wait.decision().chosen().why());
                 }
                 if ("equip".equals(wait.decision().policy())) {
                     org.shatterfish.api.Action.UseItem use = (org.shatterfish.api.Action.UseItem) wait.action();
@@ -131,13 +137,13 @@ class ShatterfishRunTest {
                     // Story 4.6: one Step or one Search per wait, and the reason names which of its
                     // plans the Action serves: a Step goes to a frontier or a search spot, n Steps
                     // away; a Search is counted against the floor's bound. The way down is the
-                    // descend Policy's (story 4.12).
+                    // descend Policy's (story 4.12); or, near a shown trap, a search ahead of a Step (issue #184).
                     org.shatterfish.api.Action action = wait.action();
                     String why = wait.decision().chosen().why();
                     if (action instanceof org.shatterfish.api.Action.Step) {
                         assertTrue(why.matches("(frontier|search-spot|away) [1-9][0-9]*"), why);
                     } else if (action instanceof org.shatterfish.api.Action.Search) {
-                        assertTrue(why.matches("search ([1-9]|1[0-2])/12|rest: before-descent"), why);
+                        assertTrue(why.matches("search ([1-9]|1[0-2])/12|rest: before-descent|search ahead [0-9]+"), why);
                     } else {
                         // Story 4.7: healing on the floor above one it fled by the stairs.
                         assertTrue(action instanceof org.shatterfish.api.Action.Rest, action.toString());

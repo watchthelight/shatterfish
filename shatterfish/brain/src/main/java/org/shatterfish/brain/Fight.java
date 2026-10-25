@@ -125,11 +125,13 @@ final class Fight implements Policy {
     /**
      * Whether the Policy walks on toward an enemy it approached that is out of view (issue #174): no
      * enemy in view, and the Memory's chase on this floor, handed over at most {@link #CHASE_WAITS} waits
-     * ago, and not yet reached. The chase is where the screen showed the enemy, never where it is.
+     * ago, and not yet reached, and the hero not hungry: the eat Policy ranks below this one, and a chase
+     * that goes on for waits kept a hungry hero from a meal (issue #184's rig run). The chase is where the screen showed the enemy, never where it is.
      */
     static boolean chasing(Observation observation, Memory memory, Codex.Knowledge knowledge) {
         Memory.Spot chase = memory.chase();
         return chase.cell() >= 0 && enemies(observation, knowledge).isEmpty()
+                && observation.hero().hunger() == org.shatterfish.api.Hunger.NONE
                 && chase.on(observation.header().depth(), observation.header().branch())
                 && memory.waits() - memory.chased() <= CHASE_WAITS
                 && chase.cell() < observation.map().tiles().size()
