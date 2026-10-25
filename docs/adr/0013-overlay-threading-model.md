@@ -649,8 +649,10 @@ wait to the execution of its Decision:
   press executes (headline "next press executes:" while PAUSED).
 - A credit is spent when a Decision executes, after the stale check. A stale answer that is dropped and asked
   again spends nothing, which answers story 5.6's open item (a re-asked stale wait counted a second Run N
-  credit). A Prompt a paid-for step opens is still part of that step and costs no credit; a Prompt wait spends
-  none however many credits remain, so Run N counts hero turns.
+  credit). A wait with a window in front of the hero (a Prompt) costs no credit, whoever opened the window:
+  every control is off behind a window, so a credit could never be given for it (the fairness review of 5.7
+  found a held Run stalling behind a window that no paid step opened). A credit is for the hero's own turn, so
+  Run N counts hero turns.
 - A Next Step pressed while the Brain thinks therefore needs no queue of its own: the credit waits for the
   Decision and fires once. `ControlState` ignores a second press while one credit is outstanding, so a queued
   step cannot stack.
@@ -667,4 +669,6 @@ wait to the execution of its Decision:
 Fairness: nothing the Brain is given changes. The Observation the Panel receives with a withheld Decision is the
 one the Brain was handed. The Run's waits and Decisions are the same sequence; only the time between the Brain's
 answer and its execution grows. An Overlay Run was already not reproducible from its tuple (story 5.1's named
-exception, story 5.13), and an unheld Run is unchanged.
+exception, story 5.13), and an unheld Run is unchanged. A held Run now sits between a wait's reseed and its
+execution for as long as the human takes, and the frames the render thread draws meanwhile consume the reseeded
+generator, so what the executed Action rolls depends on that time as well; story 5.13 routes those draws away.

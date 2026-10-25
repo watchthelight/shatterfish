@@ -56,7 +56,7 @@ story 5.7 amendment.
   withheld until a credit; the credit is spent at execution, after the stale check.
 - **One Next Step queues.** A press while a credit is outstanding is ignored.
 - **Human play speed's first credit is at once**, then one per interval measured from the last credit.
-- **A Prompt costs no credit** whenever a paid step opened it, even in a Run N, so Run N counts hero turns.
+- **A wait with a window in front costs no credit** (a Prompt, whoever opened it), so no control being off can stall a held Run, and Run N counts hero turns.
 - **Resume from Next Step goes to Human play speed**, the readable pace.
 - **The headline "next press executes:" shows only in PAUSED**; while RUNNING at Human pace the pending Decision
   is shown without a headline, since it executes on its own.
