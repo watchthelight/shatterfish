@@ -158,7 +158,7 @@ final class ControlState {
     ModeState view(ModeState run) {
         // A person's own pace paces a HUMAN turn: no speed mode does (story 5.8).
         return new ModeState(mode, mode == Mode.HUMAN ? SpeedMode.PLAYER : speed, interval, run.turn(), run.floor(),
-                run.thinking(), over());
+                run.thinking(), over(), run.ending());
     }
 
     /**

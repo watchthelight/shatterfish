@@ -8,6 +8,7 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.InterlevelScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.SurfaceScene;
+import com.shatteredpixel.shatteredpixeldungeon.scenes.TitleScene;
 import com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndResurrect;
@@ -21,6 +22,7 @@ import org.shatterfish.api.Observation;
 import org.shatterfish.api.Rewindable;
 import org.shatterfish.api.RunLog;
 import org.shatterfish.harness.driver.HeadlessDriver;
+import org.shatterfish.harness.driver.RunLogResume;
 import org.shatterfish.harness.driver.RunLogWriter;
 import org.shatterfish.harness.driver.UiRole;
 import org.shatterfish.harness.driver.WaitGate;
@@ -33,6 +35,7 @@ import org.shatterfish.harness.rng.RngControl;
 import org.shatterfish.harness.scene.SceneStepper;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -102,6 +105,16 @@ public final class EmbeddedRun implements AutoCloseable {
             return SPDSettings.interfaceSize();
         }
 
+        /**
+         * Whether the loop that owns the frames serves the game's own loading scene in its resurrection
+         * mode (story 5.14). The desktop game does: an Ankh's window is answered as any Prompt, and the
+         * loading scene that follows brings the hero back. The headless loop does not serve that mode, so
+         * by default a Run that reaches it ends as unserved, as the Rig's does.
+         */
+        default boolean servesResurrection() {
+            return false;
+        }
+
         /** Whether a game controller is connected now, stated in the Run's log header (story 5.2). */
         default boolean controllerConnected() {
             return ControllerHandler.isControllerConnected();
@@ -143,13 +156,23 @@ public final class EmbeddedRun implements AutoCloseable {
      *                   acted on is no longer a plan to draw (story 5.10)
      * @param awaiting true when {@code decision} is the Brain's answer for the wait in front, landed and not
      *                 executed, waiting for a press (story 5.7); false when it is the last one executed
+     * @param ending how the Run ended and where its log is, once {@code state} is {@link State#ENDED}
+     *               (story 5.14); null while it plays
      */
     public record Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state,
                            BeliefSummary beliefSummary, List<BoundedLog.Entry> history, Human human,
-                           boolean awaiting, Unverifiable unverifiable, List<Integer> highlights) {
+                           boolean awaiting, Unverifiable unverifiable, List<Integer> highlights, RunEnding ending) {
 
         public Snapshot {
             highlights = highlights == null ? List.of() : List.copyOf(highlights);
+        }
+
+        /** A snapshot of a Run that has not ended (story 5.10's shape). */
+        public Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state,
+                        BeliefSummary beliefSummary, List<BoundedLog.Entry> history, Human human,
+                        boolean awaiting, Unverifiable unverifiable, List<Integer> highlights) {
+            this(decision, turn, floor, observation, state, beliefSummary, history, human, awaiting, unverifiable,
+                    highlights, null);
         }
 
         /** A snapshot whose Decision points at no cells the Overlay draws (story 5.10 adds the cells). */
@@ -317,6 +340,14 @@ public final class EmbeddedRun implements AutoCloseable {
     /** The thread the last decision ran on, for a test to see it was not this one. */
     private volatile Thread decidedOn;
     private RunOutcome outcome;
+    /** How the Run ended, in the Panel's words (story 5.14); null while it plays. */
+    private RunEnding ending;
+    /** Where a Replay of this Run stops because it was resumed from a save (story 5.14); null for a Run never resumed. */
+    private Unverifiable resumedMark;
+    /** The boundary record a suspended Run wrote, or null (story 5.14). */
+    private RunLog.Boundary boundary;
+    /** The game's rankings when the Run attached, which tell the one this Run's death added (story 5.14). */
+    private final Set<String> rankingsBefore = RunEnding.rankingsNow();
     private volatile boolean closed;
     /** The Brain's worker thread once it has started, for the watchdog's report. */
     private volatile Thread brainThread;
@@ -400,7 +431,7 @@ public final class EmbeddedRun implements AutoCloseable {
      */
     public static EmbeddedRun attach(Host host, long seed, HeroClass heroClass, RngControl rng, Decider brain, Supplier<Observation> observer,
                                      RunLoop.Logging logging, int turnCap) {
-        return attach(host, seed, heroClass, rng, brain, observer, logging, turnCap, false);
+        return attach(host, seed, heroClass, rng, brain, observer, logging, turnCap, false, null);
     }
 
     /**
@@ -414,12 +445,33 @@ public final class EmbeddedRun implements AutoCloseable {
      */
     public static EmbeddedRun attachHuman(Host host, long seed, HeroClass heroClass, RngControl rng, Decider brain,
                                           Supplier<Observation> observer, RunLoop.Logging logging, int turnCap) {
-        return attach(host, seed, heroClass, rng, brain, observer, logging, turnCap, true);
+        return attach(host, seed, heroClass, rng, brain, observer, logging, turnCap, true, null);
+    }
+
+    /**
+     * Attaches a Run that was saved and quit and is being resumed (story 5.14, ADR-0013). The game has
+     * been loaded from its save ({@code ResumeGame.load}); {@code log} is the Run's log, ending at its
+     * boundary record. The Run continues <em>that</em> log: the wait index and the chain pick up where
+     * the boundary stood, the salt is the one the header declares, and the log gets no second header.
+     * A Brain's Run is held, PAUSED with Next Step, as a new Run is; the Brain starts with no Belief and
+     * decides from the Observation of the screen in front, as a person coming back to a save would.
+     * {@code human} resumes a HUMAN Run, which states its Mode again at the boundary's wait.
+     *
+     * @throws IllegalStateException if the log is not a suspended Run's, or is another Run's: the seed,
+     *                               hero class, salt and turn cap must be the header's
+     */
+    public static EmbeddedRun attachResumed(Host host, long seed, HeroClass heroClass, RngControl rng, Decider brain,
+                                            Supplier<Observation> observer, java.nio.file.Path log, boolean human,
+                                            int turnCap) {
+        if (log == null) {
+            throw new IllegalArgumentException("a resumed Run continues a log");
+        }
+        return attach(host, seed, heroClass, rng, brain, observer, null, turnCap, human, log);
     }
 
     private static EmbeddedRun attach(Host host, long seed, HeroClass heroClass, RngControl rng, Decider brain,
                                       Supplier<Observation> observer, RunLoop.Logging logging, int turnCap,
-                                      boolean human) {
+                                      boolean human, java.nio.file.Path resumeLog) {
         if (host == null || rng == null || brain == null || observer == null || heroClass == null) {
             throw new IllegalArgumentException("an embedded Run needs a host, a generator control, a Brain, an"
                     + " observer and a hero class");
@@ -436,18 +488,41 @@ public final class EmbeddedRun implements AutoCloseable {
         UiRole.claim(ui);
         RunLogWriter log = null;
         try {
-            if (logging != null) {
+            RunLog.Boundary resumedAt = null;
+            boolean oracleRun = logging != null && logging.oracle();
+            if (resumeLog != null) {
+                RunLogResume.Resumed reopened = RunLogResume.open(resumeLog);
+                log = reopened.writer();
+                resumedAt = reopened.was().boundary();
+                RunLog.Header header = reopened.was().header();
+                if (header.seed() != seed || !header.heroClass().name().equals(heroClass.name())
+                        || header.salt() != rng.salt() || resumedAt.salt() != rng.salt() || header.cap() != turnCap) {
+                    throw new IllegalStateException("the log " + resumeLog + " is another Run's: a resume continues the tuple"
+                            + " its header declares (seed, hero class, salt and turn cap)");
+                }
+                oracleRun = header.oracle();
+            } else if (logging != null) {
                 // The screen the Run plays on, stated in its header (story 5.2): the interface size and a
                 // connected controller change the hint lines the log carries (ADR-0013's story 5.2 amendment).
                 log = RunLoop.openLog(logging, seed, heroClass, rng.salt(), turnCap, RunLog.Header.EMBEDDED,
                         host.interfaceSize(), host.controllerConnected() ? 1 : 0);
             }
-            EmbeddedRun run = new EmbeddedRun(host, rng, brain, observer, log,
-                    logging != null && logging.oracle(), turnCap, ui, claimed);
+            EmbeddedRun run = new EmbeddedRun(host, rng, brain, observer, log, oracleRun, turnCap, ui, claimed);
             run.inputGate.humanInput(human);
+            if (resumedAt != null) {
+                // The next wait the gate confirms is the one after the last the log served, and the waits
+                // already served are this Run's (ADR-0013: continue the wait index, the salt and the chain).
+                run.gate.restoreTo(resumedAt.k() + 1);
+                run.waits = resumedAt.k();
+                // The game does not save its log pane or the sprites' emotes, so the first Observation after a
+                // resume is not the one an uninterrupted Run would have made: a Replay stops there.
+                run.resumedMark = new Unverifiable(resumedAt.k() + 1, "the Run was resumed from a save, which the game"
+                        + " makes without its log pane or its sprites' emotes");
+            }
             if (human) {
-                // The whole Run is the person's, stated once before the first wait (ADR-0011's mode record).
-                RunLog.Mode mode = new RunLog.Mode(0, "HUMAN", HUMAN_SPEED);
+                // The whole Run is the person's, stated once before the first wait (ADR-0011's mode record);
+                // a resumed one states it again where it picks up.
+                RunLog.Mode mode = new RunLog.Mode(resumedAt == null ? 0 : resumedAt.k(), "HUMAN", HUMAN_SPEED);
                 if (log != null) {
                     log.write(mode);
                 }
@@ -1354,9 +1429,15 @@ public final class EmbeddedRun implements AutoCloseable {
         }
         if (SurfaceScene.class.isAssignableFrom(scene)) {
             end(RunOutcome.Cause.WIN, "");
+        } else if (TitleScene.class.isAssignableFrom(scene) && log != null && Dungeon.hero != null
+                && Dungeon.hero.isAlive()) {
+            // The game's own save-and-quit (core/.../windows/WndGame.java:101-110) saves and leaves for the
+            // title screen: the Run is suspended there, not unserved (story 5.14).
+            suspend();
         } else if (InterlevelScene.class.isAssignableFrom(scene)) {
+            boolean resurrection = mode == InterlevelScene.Mode.RESURRECT && host.servesResurrection();
             if (mode != InterlevelScene.Mode.DESCEND && mode != InterlevelScene.Mode.ASCEND
-                    && mode != InterlevelScene.Mode.FALL) {
+                    && mode != InterlevelScene.Mode.FALL && !resurrection) {
                 end(RunOutcome.Cause.UNSERVED_SCENE, "the interlevel scene in mode " + mode);
             }
         } else {
@@ -1374,11 +1455,49 @@ public final class EmbeddedRun implements AutoCloseable {
     }
 
     private void end(RunOutcome.Cause cause, String detail) {
+        finish(cause, detail, false);
+    }
+
+    /**
+     * Saves and quits (story 5.14, ADR-0013): the log gets a {@code boundary} record where it would get an
+     * {@code end} record, carrying the wait index, the salt and the chain, and the Run is over as a
+     * {@link RunOutcome.Cause#SUSPENDED} one. The caller has made the game's save of this very moment
+     * first, which the boundary's seal is taken over ({@code SuspendedSave}); this class neither saves nor
+     * seals, since the Profile is the Overlay's.
+     *
+     * <p>The boundary's wait is the last one with a record in the log. A Decision still pending was never
+     * served, so the resumed game confirms that wait again and numbers it afresh: no wait has two records
+     * and none is skipped. (A wait a person has open and has not taken is the one case that leaves a gap:
+     * its shadow is already written, and the resumed wait is the next number.)
+     *
+     * @return the boundary written, or null for a Run with no log
+     */
+    public RunLog.Boundary suspend() {
+        UiRole.require("EmbeddedRun.suspend()");
+        if (closed || outcome != null) {
+            return boundary;
+        }
+        finish(RunOutcome.Cause.SUSPENDED, "saved and quit at wait " + gate.waitIndex(), true);
+        return boundary;
+    }
+
+    /** Whether this Run has a log to write a boundary to: a Run with none cannot be resumed. */
+    public boolean resumable() {
+        return log != null && outcome == null && !closed;
+    }
+
+    private void finish(RunOutcome.Cause cause, String detail, boolean suspending) {
         if (human != null) {
             // Each wait the person took is a wait served and an Action applied; none is refused.
             pollShadows();
             applied += human.recordedWaits();
             waits += human.recordedWaits();
+        }
+        // Read before the Run is marked over: the wait the boundary names depends on what is pending.
+        long served = pending != null ? gate.waitIndex() - 1 : gate.waitIndex();
+        if (suspending && pending != null) {
+            pending.cancel(true);
+            pending = null;
         }
         outcome = RunLoop.outcome(cause, rng.salt(), waits, applied, refused, detail);
         withheld = false;
@@ -1389,7 +1508,17 @@ public final class EmbeddedRun implements AutoCloseable {
         if (watchdog != null) {
             watchdog.close();
         }
-        RunLoop.ending(log, gate.waitIndex(), outcome, human != null && human.unverifiableFrom() > 0);
+        if (suspending) {
+            if (log != null) {
+                // The chain as it stands is the one the boundary's own line chains onto (ADR-0011).
+                boundary = new RunLog.Boundary(served, rng.salt(), log.chain());
+                log.write(boundary);
+            }
+        } else {
+            RunLoop.ending(log, gate.waitIndex(), outcome,
+                    (human != null && human.unverifiableFrom() > 0) || resumedMark != null);
+        }
+        ending = RunEnding.of(outcome, rankingsBefore, log == null ? null : log.file());
         if (log != null) {
             log.close();
         }
@@ -1478,7 +1607,7 @@ public final class EmbeddedRun implements AutoCloseable {
                 : new Human(shadowWait > 0 && human.isOpen(shadowWait), shadowWait, inputOpen(),
                         human.unverifiableFrom(), human.unverifiableWhy(), notes);
         Unverifiable lost = human != null && human.unverifiableFrom() > 0
-                ? new Unverifiable(human.unverifiableFrom(), human.unverifiableWhy()) : null;
+                ? new Unverifiable(human.unverifiableFrom(), human.unverifiableWhy()) : resumedMark;
         if (withheld && withheldDecision != null && pendingObservation != null && !humanMode) {
             // The Decision for the wait in front, landed and not executed (story 5.7): what the next press
             // executes. The Observation is the one it was made on, which the Brain was given.
@@ -1487,7 +1616,7 @@ public final class EmbeddedRun implements AutoCloseable {
                     withheldHighlights);
         }
         return new Snapshot(lastDecision, lastDecisionTurn, lastDecisionFloor, lastDecisionObservation, state(),
-                lastBeliefSummary, history.asList(), humanPart, false, lost);
+                lastBeliefSummary, history.asList(), humanPart, false, lost, List.of(), ending);
     }
 
     /** The index of the last wait confirmed; 0 before the first. It survives every floor. */

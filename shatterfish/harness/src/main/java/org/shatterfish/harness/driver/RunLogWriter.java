@@ -72,6 +72,23 @@ public final class RunLogWriter implements AutoCloseable {
         }
     }
 
+    /**
+     * Reopens a log a Run suspended at a {@code boundary} record, to append (story 5.14, ADR-0013). Only
+     * {@link RunLogResume} calls it, after reading the file and finding the chain the next record
+     * chains onto; this class still never reads.
+     */
+    static RunLogWriter continuing(Path file, String chain, long records) {
+        try {
+            OutputStream out = Files.newOutputStream(file, StandardOpenOption.APPEND);
+            RunLogWriter writer = new RunLogWriter(file, out);
+            writer.chain = chain;
+            writer.records = records;
+            return writer;
+        } catch (IOException e) {
+            throw new UncheckedIOException("the Run log " + file + " could not be reopened", e);
+        }
+    }
+
     /** Where this log is, for a Results page and for anyone reading it afterwards. */
     public Path file() {
         return file;

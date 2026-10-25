@@ -118,7 +118,7 @@ development_status:
   5-11-hotkeys-as-game-actions: backlog
   5-12-oracle-marking-in-the-overlay: backlog
   5-13-the-speed-ceiling-and-the-draw-routing-hook: backlog
-  5-14-run-over-save-and-resume: backlog
+  5-14-run-over-save-and-resume: review  # PR for issue #159
   5-15-the-remaining-panel-states: backlog
   5-16-the-full-sewers-run-with-a-takeover: backlog
   epic-5-retrospective: optional

@@ -455,6 +455,33 @@ public final class HeadlessDriver implements AutoCloseable {
         }
     }
 
+    /**
+     * Loads the game saved in {@code slot} of this Run's Profile and plays on from it, as the Overlay's
+     * resume does in the desktop game (story 5.14, {@link ResumeGame}): the actor thread ended and the
+     * scene destroyed, the game and its floor loaded with the generator for wait {@code k} in force, and a
+     * new scene. A test's way to cross a save and quit; the caller attaches the resumed Run, whose gate
+     * is set to continue after {@code k}.
+     */
+    public void resumeFromSave(int slot, long k) {
+        UiRole.require("HeadlessDriver.resumeFromSave()");
+        requireOpen();
+        scene.stepper().endActorThread();
+        boot.game().destroy();
+        if (boot.game().sceneSwitchRequested()) {
+            boot.game().clearSceneSwitchRequest();
+        }
+        Chasm.jumpConfirmed = false;
+        try {
+            ResumeGame.load(slot, rng, k);
+        } catch (RuntimeException | Error failed) {
+            close();
+            throw failed;
+        }
+        HeadlessScene next = new HeadlessScene();
+        boot.game().switchTo(next);
+        scene = next;
+    }
+
     private void restoreInto(Snapshot snapshot) {
         scene.stepper().endActorThread();
         boot.game().destroy();

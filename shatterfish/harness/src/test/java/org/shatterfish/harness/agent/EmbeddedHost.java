@@ -93,6 +93,21 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
         return false;
     }
 
+    /** Whether the host says its loop serves the loading scene's resurrection (story 5.14). */
+    boolean servesResurrection;
+
+    @Override
+    public boolean servesResurrection() {
+        return servesResurrection;
+    }
+
+    /** Attaches a Run that continues the suspended log {@code log} (story 5.14), after the driver resumed the game. */
+    EmbeddedRun attachResumed(Decider brain, java.nio.file.Path log, int turnCap) {
+        run = EmbeddedRun.attachResumed(this, seed, heroClass, driver.rngControl(), brain,
+                () -> new Observer().observe(), log, false, turnCap);
+        return run;
+    }
+
     /** Whether the host says a game controller is connected (story 5.9's test of a HUMAN Run with one). */
     boolean controller;
 

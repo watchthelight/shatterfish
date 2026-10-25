@@ -72,7 +72,15 @@ public record RunOutcome(Cause cause, long salt, int depth, int turns, long wait
          * window and a freeze no longer look the same in the log. Only an embedded Run ends so, and
          * nothing can be reproduced from it; {@link #detail} names the wait it was closed at.
          */
-        CLOSED
+        CLOSED,
+
+        /**
+         * The embedded Run was saved and quit (story 5.14, ADR-0013): the window closed, or the game's
+         * own save-and-quit left for the title screen, with a living hero and a save of this very
+         * moment on disk. The log ends at a {@code boundary} record and not an {@code end} record, and
+         * a resume through the launcher goes on from it. Not an ordinary ending and not a result.
+         */
+        SUSPENDED
     }
 
     /** Whether this Run ended the way a Run is meant to end, rather than by something going wrong. */
