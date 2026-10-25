@@ -138,12 +138,27 @@ public final class EmbeddedRun implements AutoCloseable {
      *                Decision log's own source, so the Panel shows a view over what
      *                {@code RunLoop.record} already built for the file rather than a second list
      *                built differently
+     * @param highlights the map cells {@code decision} points at, as the wait record will carry them, while it
+     *                   is the pending one ({@code awaiting}); empty otherwise, since a Decision the hero has
+     *                   acted on is no longer a plan to draw (story 5.10)
      * @param awaiting true when {@code decision} is the Brain's answer for the wait in front, landed and not
      *                 executed, waiting for a press (story 5.7); false when it is the last one executed
      */
     public record Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state,
                            BeliefSummary beliefSummary, List<BoundedLog.Entry> history, Human human,
-                           boolean awaiting, Unverifiable unverifiable) {
+                           boolean awaiting, Unverifiable unverifiable, List<Integer> highlights) {
+
+        public Snapshot {
+            highlights = highlights == null ? List.of() : List.copyOf(highlights);
+        }
+
+        /** A snapshot whose Decision points at no cells the Overlay draws (story 5.10 adds the cells). */
+        public Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state,
+                        BeliefSummary beliefSummary, List<BoundedLog.Entry> history, Human human,
+                        boolean awaiting, Unverifiable unverifiable) {
+            this(decision, turn, floor, observation, state, beliefSummary, history, human, awaiting, unverifiable,
+                    List.of());
+        }
 
         /** A snapshot whose Run has no unverifiable mark of its own to carry (issue #220 adds the mark). */
         public Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state,
@@ -247,6 +262,8 @@ public final class EmbeddedRun implements AutoCloseable {
     private RunLog.Decision withheldDecision;
     /** What the Brain believed when that Decision landed, for the same snapshot. */
     private BeliefSummary withheldBelief;
+    /** The cells that Decision points at, as the wait record will carry them (story 5.10). */
+    private List<Integer> withheldHighlights = List.of();
     /** Whether a window now in front was opened by a step that was paid for; see {@link #frame()}. */
     private double secondsWithoutAWait;
     /** The window in front at the last game frame, and the game time it has been in front, its first frame included. */
@@ -561,6 +578,8 @@ public final class EmbeddedRun implements AutoCloseable {
                             ? deliberator.lastDecision() : null;
                     withheldBelief = brain instanceof Deliberator deliberator && answered
                             ? deliberator.beliefSummary() : null;
+                    withheldHighlights = brain instanceof Deliberator deliberator && answered
+                            ? List.copyOf(deliberator.lastHighlights()) : List.of();
                 }
                 secondsWithoutAWait = 0;
                 return State.PLAYING;
@@ -829,6 +848,7 @@ public final class EmbeddedRun implements AutoCloseable {
         withheld = false;
         withheldDecision = null;
         withheldBelief = null;
+        withheldHighlights = List.of();
         reconfirming = false;
     }
 
@@ -1193,6 +1213,7 @@ public final class EmbeddedRun implements AutoCloseable {
         withheld = false;
         withheldDecision = null;
         withheldBelief = null;
+        withheldHighlights = List.of();
         if (held && !owed()) {
             // Spent here, once the answer is known to be for the screen in front: a stale answer that is
             // dropped and asked again spent nothing (story 5.7). A Prompt that a paid step opened is part
@@ -1278,6 +1299,7 @@ public final class EmbeddedRun implements AutoCloseable {
         withheld = false;
         withheldDecision = null;
         withheldBelief = null;
+        withheldHighlights = List.of();
         if (watchdog != null) {
             // The Run was idle on purpose; the re-ask starts the stall clock again.
             watchdog.served();
@@ -1362,6 +1384,7 @@ public final class EmbeddedRun implements AutoCloseable {
         withheld = false;
         withheldDecision = null;
         withheldBelief = null;
+        withheldHighlights = List.of();
         ended = true;
         if (watchdog != null) {
             watchdog.close();
@@ -1460,7 +1483,8 @@ public final class EmbeddedRun implements AutoCloseable {
             // The Decision for the wait in front, landed and not executed (story 5.7): what the next press
             // executes. The Observation is the one it was made on, which the Brain was given.
             return new Snapshot(withheldDecision, pendingTurn, pendingObservation.header().depth(),
-                    pendingObservation, state(), withheldBelief, history.asList(), null, true, lost);
+                    pendingObservation, state(), withheldBelief, history.asList(), null, true, lost,
+                    withheldHighlights);
         }
         return new Snapshot(lastDecision, lastDecisionTurn, lastDecisionFloor, lastDecisionObservation, state(),
                 lastBeliefSummary, history.asList(), humanPart, false, lost);

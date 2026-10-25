@@ -30,6 +30,10 @@ public interface Deliberator extends Decider {
      * The map cells the last Decision points at, which the Run loop writes into the wait record's
      * {@code highlights} (story 4.4, ADR-0011) so that the Overlay and the Replay scrubber read them
      * rather than re-deriving them. None by default.
+     *
+     * <p>The order is the Overlay's contract (story 5.10): the planned path's cells in walking order, then
+     * the target cell last. A Decision that plans no path lists its target alone, which is what every
+     * Policy does today.
      */
     default java.util.List<Integer> lastHighlights() {
         return java.util.List.of();
