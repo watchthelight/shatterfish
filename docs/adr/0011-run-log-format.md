@@ -294,3 +294,41 @@ writes the state and stack of the render thread, the Brain's worker and the game
 and to standard error, once per stall. It is a diagnosis, not a record: nothing reads it, nothing is
 chained to it, and it never stops a thread. A HUMAN Run has no watchdog, since a person's pause is not
 a freeze.
+
+## Amendment: issue #219 (2026-10-25): a debug record beside the Run log
+
+The Run log holds hashes only, so a Goo fight or a death could be told only by inference: hero and
+Goo health, the water under each, Ooze, the killer and the potions held were not in any file. A Run
+played through the headless loop with a log now also writes `<run-id>.debug.ndjson` beside it, one
+JSON object per line, written by `harness/log/DebugRecord` and called from `RunLoop` only.
+
+- **Wait lines** (`"t":"wait"`) are written for waits with a hostile character in view, with a new
+  log line, or on a floor whose depth is a multiple of five (the boss floors). They hold the wait
+  index and turn, depth, hero HP/HT/shield, the hunger state, the hero's buffs with turns, whether the
+  hero stands on water, each hostile character in view (name, cell, health pips as drawn, whether it
+  stands on water, distance from the hero, buffs), the log lines the wait added, the potions held by
+  the names the player sees, the Action taken, and the Decision's goal and reason when a Brain
+  played.
+- **The end line** (`"t":"end"`) holds the cause, depth, turns, the killer (the cause class of the
+  ranking record the death added, `Dungeon.fail`, `Rankings.submit`; empty when the Run did not die),
+  and the last HP, hunger and buffs the Brain saw.
+- **The Run log is unchanged.** Not one byte of it, nor its hash chain, depends on the record, so
+  Replay, `Verify` and the determinism tests are untouched. The file is not named `*.jsonl`, so
+  nothing that lists a folder of Run logs picks it up; it is not chained, not verified and not read
+  back by the harness. A Run played without a log, an Overlay Run and a Replay write none.
+- **Why this is not an information-parity leak (non-negotiable 1).** Parity is about what the Brain
+  may use to choose. The record is written after the wait was served and after the Action was chosen;
+  `RunLoop` hands it the Observation the Brain already had and takes nothing back (the write methods
+  return `void`), and nothing in the Brain, the Observer, the executor, the api or the Codex can name
+  the class: the Brain depends on `api` alone, and `DebugRecordIsolationTest` fails the build if any
+  of those packages depends on `DebugRecord`, if any class but `RunLoop` uses it, or if a write method
+  returns a value. Its wait lines are built from the Observation alone, so they say nothing a player at
+  that screen could not see (health is the pips the screen draws, water is the tile as drawn); the
+  single read of the game is the killer, taken after the Run is over. The one thing the file does is
+  let a person read, after play, what the Brain did not know (an exact health, the water under Goo).
+- **What is not here yet.** The reason Goo's pump dodge returned nothing is not recorded: the Brain
+  would have to carry it out of `Goo.dodge` in the Decision's reason, which is chained into the Run
+  log and would change every hash. The wait lines show the inputs (the pump line in `log`, the
+  distance, the Decision that was taken instead), from which the reason is read.
+- **Known limit.** The new log lines are the lines after the longest overlap with the last wait's
+  window; a line repeated verbatim at the seam of a full 64-line window can be missed.

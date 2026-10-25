@@ -26,6 +26,7 @@ import org.shatterfish.harness.boot.HeadlessBoot;
 import org.shatterfish.harness.boot.Profile;
 import org.shatterfish.harness.driver.HeadlessDriver;
 import org.shatterfish.harness.driver.RunLogWriter;
+import org.shatterfish.harness.log.DebugRecord;
 import org.shatterfish.harness.driver.Windows;
 import org.shatterfish.harness.executor.ActionExecutor;
 import org.shatterfish.harness.executor.Outcome;
@@ -36,6 +37,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.time.Instant;
 
 /**
@@ -172,14 +174,22 @@ public final class RunLoop {
             driver.close();
             throw opening;
         }
-        try (RunLogWriter log = opened) {
-            return play(driver, seed, heroClass, salt, agent, turnCap, log, logging.oracle());
+        DebugRecord debug;
+        try {
+            debug = DebugRecord.open(opened.file());
+        } catch (RuntimeException | Error failed) {
+            opened.close();
+            driver.close();
+            throw failed;
+        }
+        try (RunLogWriter log = opened; DebugRecord sidecar = debug) {
+            return play(driver, seed, heroClass, salt, agent, turnCap, log, logging.oracle(), sidecar);
         }
     }
 
     public RunOutcome play(long seed, HeroClass heroClass, long salt, Decider agent, int turnCap) {
         return play(HeadlessDriver.start(seed, heroClass, salt), seed, heroClass, salt, agent,
-                turnCap, null, false);
+                turnCap, null, false, null);
     }
 
     /**
@@ -234,7 +244,11 @@ public final class RunLoop {
     }
 
     private RunOutcome play(HeadlessDriver driver, long seed, HeroClass heroClass, long salt,
-                            Decider agent, int turnCap, RunLogWriter log, boolean oracle) {
+                            Decider agent, int turnCap, RunLogWriter log, boolean oracle,
+                            DebugRecord debug) {
+        // The games the rankings held before this Run, so the killer of this one can be told from an
+        // old one's; read only for the debug record, which nothing in the Run reads.
+        Set<String> ranked = debug == null ? Set.of() : DebugRecord.rankingsNow();
         // Every ending goes through here and nowhere else. Wrapping each of the loop's seven
         // returns was the first shape of this, and one of the seven was missed -- the Run that the
         // executor gives up on wrote no end record at all, which made its log byte-identical to a
@@ -245,14 +259,20 @@ public final class RunLoop {
             // the game's own scorer reading the hero and the statistics, and the driver's close
             // tears that down. So the close moved out here, after the ending, rather than staying
             // in the loop where it used to sit.
-            return ending(log, driver, playing(driver, seed, heroClass, salt, agent, turnCap, log, oracle));
+            RunOutcome played = playing(driver, seed, heroClass, salt, agent, turnCap, log, oracle, debug);
+            if (debug != null) {
+                debug.end(played.cause().name(), played.depth(), played.turns(),
+                        played.cause() == RunOutcome.Cause.DEATH ? DebugRecord.killerSince(ranked) : "");
+            }
+            return ending(log, driver, played);
         } finally {
             driver.close();
         }
     }
 
     private RunOutcome playing(HeadlessDriver driver, long seed, HeroClass heroClass, long salt,
-                               Decider agent, int turnCap, RunLogWriter log, boolean oracle) {
+                               Decider agent, int turnCap, RunLogWriter log, boolean oracle,
+                               DebugRecord debug) {
         long waits = 0;
         long applied = 0;
         long refused = 0;
@@ -329,8 +349,12 @@ public final class RunLoop {
             // an Action was taken at it when the executor had refused it and the game had not
             // moved, and a Replay applying that Action would have reproduced a different Run
             // with nothing in the file to explain the divergence.
-            record(log, halt.waitIndex(), observation, chosen,
+            RunLog.Wait written = record(log, halt.waitIndex(), observation, chosen,
                     !(outcome instanceof Outcome.Rejected), thinkMs, oracle, agent);
+            if (debug != null) {
+                // Write-only: the debug record takes the wait and gives nothing back (issue #219).
+                debug.wait(observation, written);
+            }
             if (outcome instanceof Outcome.Rejected rejected) {
                 refused++;
                 refusalsInARow++;
