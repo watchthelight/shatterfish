@@ -185,8 +185,12 @@ E5 (the Overlay) so far:
   the game's key settings (#230).
 - The Codex now carries Goo's real attack and damage for its calm and enraged states, and the
   Brain uses the enraged figures once Goo's bar is at half or less (#233, part of #219).
-- Next: oracle marking (5.12), the speed ceiling (5.13) and save and resume (5.14), with the Goo
-  work (#219) in parallel.
+- E5.12: anything the Overlay shows from oracle mode is marked as oracle, in rows and outlines
+  alike (#235).
+- A 120-Run Warrior baseline for the Goo work: depth 5 reached in 27.5% of Runs, Goo killed in
+  14.2%, 53% of Goo fights won (#234).
+- Next: the speed ceiling (5.13) and save and resume (5.14), with the Goo work (#219) in
+  parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:
