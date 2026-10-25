@@ -95,12 +95,14 @@ public final class ShatterfishLauncher {
         config.setWindowIcon("icons/icon_16.png", "icons/icon_32.png", "icons/icon_48.png",
                 "icons/icon_64.png", "icons/icon_128.png", "icons/icon_256.png");
 
+        // Only an oracle Run has a sidecar: the oracle door leaves what it saw there for the Panel to mark.
+        OracleSidecar sidecar = options.oracle() ? new OracleSidecar() : null;
         new OverlayApplication(new OverlayGame(new DesktopPlatformSupport(), options, preferences, profile,
-                madeForThisRun, salt, OverlayAgents.of(options), observer(options.oracle()),
+                madeForThisRun, salt, OverlayAgents.of(options), observer(options.oracle(), sidecar), sidecar,
                 logging(options, machine()), resumption), config);
     }
 
-    /** The window's title, which carries the oracle marker, as the Mode strip does (story 5.2) and the border will (story 5.12). */
+    /** The window's title, which carries the oracle marker, as the Mode strip (story 5.2) and the border (story 5.12) do. */
     static String title(LaunchOptions options) {
         return "Shattered Pixel Dungeon + Shatterfish Overlay" + (options.oracle() ? " [ORACLE]" : "");
     }
@@ -156,8 +158,26 @@ public final class ShatterfishLauncher {
      * Overlay ({@code OverlayOracleGateTest}), and only when the launcher was told {@code --oracle}.
      */
     static Supplier<Observation> observer(boolean oracle) {
+        return observer(oracle, null);
+    }
+
+    /**
+     * As above, leaving each oracle read's sidecar view in {@code sidecar} (story 5.12) for the Panel's marks.
+     * The Brain is handed the Observation alone; the view goes to the sidecar and nowhere else. A fair door
+     * has no sidecar to leave anything in.
+     */
+    static Supplier<Observation> observer(boolean oracle, OracleSidecar sidecar) {
         if (oracle) {
-            return () -> new OracleObserver().observe().observation();
+            return () -> {
+                OracleObserver.Read read = new OracleObserver().observe();
+                if (sidecar != null) {
+                    sidecar.take(read.observation(), read.view());
+                }
+                return read.observation();
+            };
+        }
+        if (sidecar != null) {
+            throw new IllegalArgumentException("a fair Run has no oracle sidecar");
         }
         return () -> new Observer().observe();
     }

@@ -882,6 +882,13 @@ class CodexJsonTest {
         Codex.MobEntry rat = new Codex.MobEntry("actors.mobs.Rat", Alignment.ENEMY, List.of(), false, List.of(), false, false, List.of(), 8, 2, 1, 5,
                 roll, roll, roll, none, List.of(), AT);
         assertThrows(IllegalArgumentException.class, () -> CodexJson.mobs(List.of(rat, rat)), "a mob twice");
+        Codex.MobEntry slime = new Codex.MobEntry("actors.mobs.Goo", Alignment.ENEMY, List.of(), false, List.of(), false, false, List.of(), 100, 8, 10, 29,
+                roll, roll, roll, none, List.of(), List.of(new Codex.Form("calm", "x", 10, 1, 8), new Codex.Form("enraged", "y", 15, 1, 12)), AT);
+        assertTrue(CodexJson.mobs(List.of(slime)).contains("\"forms\":[{\"attack\":10,\"condition\":\"x\",\"damageMax\":8,\"damageMin\":1,\"name\":\"calm\"},"
+                + "{\"attack\":15,\"condition\":\"y\",\"damageMax\":12,\"damageMin\":1,\"name\":\"enraged\"}]"), "forms render, keys sorted");
+        assertFalse(CodexJson.mobs(List.of(rat)).contains("forms"), "a mob with no forms keeps its row as it was");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.MobEntry("actors.mobs.Goo", Alignment.ENEMY, List.of(), false, List.of(), false, false, List.of(), 100, 8, 10, 29,
+                roll, roll, roll, none, List.of(), List.of(new Codex.Form("enraged", "y", 15, 1, 12)), AT), "the first form is the calm one");
         assertThrows(IllegalArgumentException.class, () -> new Codex.MobEntry("actors.mobs.Rat", Alignment.ENEMY, List.of("BOSS"), true, List.of(), false, false,
                 List.of(AT), 8, 2, 1, 5, roll, roll, roll, none, List.of(), AT), "random properties are not listed");
         assertThrows(IllegalArgumentException.class, () -> new Codex.MobEntry("actors.mobs.Rat", Alignment.ENEMY, List.of(), true, List.of(), false, false,

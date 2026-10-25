@@ -7,6 +7,7 @@ import com.shatteredpixel.shatteredpixeldungeon.ShatteredPixelDungeon;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Languages;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
+import com.watabou.input.KeyBindings;
 import com.watabou.noosa.Game;
 import com.watabou.noosa.Scene;
 import com.watabou.noosa.audio.Music;
@@ -66,6 +67,8 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
     private final long salt;
     private final Supplier<Decider> brain;
     private final Supplier<Observation> observer;
+    /** What the oracle's door left for the Panel to mark (story 5.12); null for a fair Run. */
+    private final OracleSidecar oracleSidecar;
     private final RunLoop.Logging logging;
     /** The Run being resumed from a save and quit (story 5.14), or null for a new Run. */
     private final Resumption resumption;
@@ -92,11 +95,12 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
      * @param salt      the Run's salt
      * @param brain     what decides, built when the Run begins
      * @param observer  the door the Brain sees through: fair, or the launcher's oracle
+     * @param oracleSidecar what the oracle door leaves for the Panel's marks; null unless the Run is an oracle Run
      * @param logging   where the Run's log goes and who played it
      */
     OverlayGame(PlatformSupport platform, LaunchOptions options, MemoryPreferences preferences, Path profileDirectory,
                 boolean deleteProfile, long salt, Supplier<Decider> brain, Supplier<Observation> observer,
-                RunLoop.Logging logging, Resumption resumption) {
+                OracleSidecar oracleSidecar, RunLoop.Logging logging, Resumption resumption) {
         super(platform);
         this.resumption = resumption;
         this.options = options;
@@ -106,7 +110,17 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         this.salt = salt;
         this.brain = brain;
         this.observer = observer;
+        requireSidecarMatchesFlag(options, oracleSidecar);
+        this.oracleSidecar = oracleSidecar;
         this.logging = logging;
+    }
+
+    /** An oracle Run has a sidecar and a fair Run has none (story 5.12); a launcher that says otherwise is refused. */
+    static void requireSidecarMatchesFlag(LaunchOptions options, OracleSidecar sidecar) {
+        if ((sidecar != null) != options.oracle()) {
+            throw new IllegalArgumentException("the oracle sidecar and the oracle flag go together: flag "
+                    + options.oracle() + ", sidecar " + (sidecar != null));
+        }
     }
 
     @Override
@@ -125,13 +139,23 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
             // setter also reaches for the system UI.
             preferences.putBoolean(SPDSettings.KEY_FULLSCREEN, false);
         }
+        // Said once, from the launcher's flag, and fixed: nothing in the Overlay can change it (FR-43).
         dock.oracle(options.oracle());
+        dock.oracleSidecar(oracleSidecar);
         // The strings in the language the Profile declares, as the headless boot sets them up, whatever
         // the machine's own locale would have given the game's first read of them (Messages.java:79-82).
         Messages.setup(Languages.ENGLISH);
+        // The Overlay's controls become the game's actions, with their default keys, before the game loads
+        // its key bindings in super.create() (story 5.11, hook row 10). A default the game binds already
+        // is declined and logged; KeyBindingConflictTest keeps that from happening at a pinned tag.
+        for (Hotkey declined : Hotkey.register()) {
+            Gdx.app.log("shatterfish", "the game binds " + com.badlogic.gdx.Input.Keys.toString(declined.defaultKey())
+                    + " already, so " + declined.actionName() + " starts unbound; bind it in the key-binding screen");
+        }
         super.create();
         // First in the game's input multiplexer, which super.create() has just built (Game.java:108).
         lock.lock();
+        lock.hotkeys(new Keys());
         inputHandler.addInputProcessor(lock);
         rng = new RngControl(salt);
         if (resumption != null) {
@@ -224,6 +248,28 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
      */
     private boolean panelLocked() {
         return Windows.front() != null;
+    }
+
+    /**
+     * The Overlay's hotkeys, as the input lock hears them (story 5.11). A key bound to one of the Overlay's
+     * actions in the game's own bindings is kept from the game and pressed on the Panel, in every Mode: the
+     * Panel's controls are the one thing a person may touch while a Run plays. Not while the game is waiting
+     * for a key to bind (its key-binding screen), when every key is the screen's.
+     */
+    private final class Keys implements InputLock.Hotkeys {
+
+        @Override
+        public boolean press(int keycode) {
+            if (KeyBindings.bindingKey) {
+                return false;
+            }
+            Hotkey hotkey = Hotkey.of(keycode);
+            if (hotkey == null) {
+                return false;
+            }
+            dock.press(hotkey, panelLocked());
+            return true;
+        }
     }
 
     /** What the Controls row does to the Run (story 5.6). */

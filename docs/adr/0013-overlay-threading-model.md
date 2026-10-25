@@ -372,7 +372,8 @@ The Panel, the first thing the Overlay draws, lives on the same render thread an
 - **The oracle.** An oracle Run always opens windowed, since the desktop game is fullscreen by default
   (`SPDSettings.java:66-68`) and fullscreen hides the title bar, which was the oracle's only on-screen
   marker; and the Mode strip carries an ORACLE label in the oracle colour (`DESIGN.md`, `#FF2020`), full or
-  collapsed. The border around the game view remains story 5.12's (non-negotiable 1: visibly flagged).
+  collapsed. Story 5.12 adds the rest of the marking, all of it drawn on the render thread from a value only that
+  thread holds (see `docs/fairness.md`, Oracle mode).
 - **The launcher's view of it.** `--window WxH` opens the game windowed at that size, and
   `--screenshot <file>` writes one frame from the game's own framebuffer about ten seconds in (a window
   OpenGL draws cannot be captured from outside the process on this platform, and a launch nobody watches
@@ -760,3 +761,33 @@ Found by the fairness review of story 5.8 (issue #220), settled with the rest of
   who recomputes them. The digest covers the slot's save folder; the Profile-root global files (badges, journal)
   are not sealed. The fairness review of story 5.14 raised both. A resumed Run's log says it is unverifiable only
   in its `end` record, and the Rig and Replay refuse `driver: embedded` logs regardless.
+
+## Amendment: story 5.11 (2026-10-25): hotkeys are the game's actions, heard before the game
+
+- **The controls are `GameAction`s.** `Hotkey` creates six (`shatterfish_next_step`, `_speed`, `_pause_resume`,
+  `_take_over`, `_explain`, `_panel`), which join `GameAction.allActions()`; the game's key-binding screen lists them,
+  its bindings file saves a rebinding by name, and a name the file does not know gets the default. Their defaults,
+  F6 to F11, are registered through hook row 10 (`SPDAction.addDefaultBinding`) in `OverlayGame.create()` before
+  `super.create()` loads the bindings. The hook declines a key the game binds already, so a default can never shadow
+  a game binding; `KeyBindingConflictTest` turns a decline into a build failure. The game's `Messages` need a string
+  per action for the screen: six lines in `windows.properties` under the same hook row.
+- **The input lock hears hotkeys first, in every Mode.** `InputLock.Hotkeys.press` is asked before anything else on
+  every key down. A key bound to an Overlay action is the Overlay's alone: the lock keeps it and its release from the
+  game, whether locked or open, and a HUMAN Run is not told of it (`Human.keyDown` and `input`), so a hotkey is never
+  a hero's input and never a recorded human turn. It takes the same path as the Panel's buttons: the key goes
+  through `PanelDock.press` to `ControlsRow.press`, which acts only if the button would (the matrix, no window in
+  front, a Decision for Explain) and by the same `ControlState` method. A key can do nothing a press on the button
+  could not; and the Brain, whose executor posts taps and cell selections but never keys, cannot press one.
+- **Not while the game wants a key.** `KeyBindings.bindingKey` is true while the key-binding screen waits for a
+  key; the hotkeys step aside, so F6 can be bound to anything and an Overlay action can be bound to F6 again.
+- **Not while a window is in front.** The same `panelLocked()` rule as every hot area of the Panel: an Overlay key
+  pressed under a window of the game's does nothing, and is still kept from the game.
+- **The Panel toggle** has a hotkey (F11) and a button: a tap on the Mode strip collapses the Panel to the strip or
+  restores it. The strip's pointer area is live under the Panel's own rule (off while a window is in front).
+- **Known limits.** Keys only: a controller button can be bound to an Overlay action in the game's controller
+  screen (the screen lists every action), but a gamepad writes the game's key queue past the lock and the Overlay does
+  not hear it; the button remains. A Run's Profile is deleted when it ends unless `--profile` names it, so a rebinding
+  persists across Runs only with a named Profile (the game saves bindings in its Profile's `keybinds.dat`).
+  A named Profile whose saved `keybinds.dat` binds F6 to F11 to a game action loses that binding to the Overlay's default
+  (`loadBindings` merges defaults after saved keys); the fairness review of story 5.11 noted it. Rare and visible in the
+  key-binding screen; left as it is, since a fix means editing `loadBindings`.

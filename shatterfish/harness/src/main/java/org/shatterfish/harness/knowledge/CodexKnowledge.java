@@ -315,8 +315,22 @@ public final class CodexKnowledge {
             List<String> unknown = new ArrayList<>();
             // A figure the Codex could not read is named, and the Brain supplies its own guess for it;
             // the figures it could read, the hit points first, stand (Goo: HT 100, Goo.java:54).
-            boolean attackKnown = Json.string(Json.required(attack, "kind", "attack")).equals("CONSTANT");
-            boolean damageKnown = !Json.string(Json.required(damage, "kind", "damage")).equals("OTHER");
+            // A mob whose methods branch on a state the player can see carries a form per state
+            // (#219); its calm form stands for the figure the table's roll could not state.
+            List<Codex.Form> forms = new ArrayList<>();
+            if (mob.containsKey("forms")) {
+                for (String rawForm : Json.array(mob.get("forms"))) {
+                    Map<String, String> form = Json.object(rawForm);
+                    forms.add(new Codex.Form(Json.string(Json.required(form, "name", "form")),
+                            Json.string(Json.required(form, "condition", "form")),
+                            Json.integer(Json.required(form, "attack", "form")),
+                            Json.integer(Json.required(form, "damageMin", "form")),
+                            Json.integer(Json.required(form, "damageMax", "form"))));
+                }
+            }
+            Codex.Form calm = forms.isEmpty() ? null : forms.get(0);
+            boolean attackKnown = calm != null || Json.string(Json.required(attack, "kind", "attack")).equals("CONSTANT");
+            boolean damageKnown = calm != null || !Json.string(Json.required(damage, "kind", "damage")).equals("OTHER");
             boolean drKnown = !Json.string(Json.required(dr, "kind", "dr")).equals("OTHER");
             if (!attackKnown) {
                 unknown.add("attack");
@@ -331,12 +345,12 @@ public final class CodexKnowledge {
                 unknown.add("dr");
             }
             threats.add(new Codex.Threat(name, Json.integer(Json.required(mob, "ht", "mob")),
-                    attackKnown ? Json.integer(Json.required(attack, "min", "attack")) : 0,
+                    calm != null ? calm.attack() : attackKnown ? Json.integer(Json.required(attack, "min", "attack")) : 0,
                     Json.integer(Json.required(mob, "defenseSkill", "mob")),
-                    damageKnown ? Json.integer(Json.required(damage, "min", "damage")) : 0,
-                    damageKnown ? Json.integer(Json.required(damage, "max", "damage")) : 0,
+                    calm != null ? calm.damageMin() : damageKnown ? Json.integer(Json.required(damage, "min", "damage")) : 0,
+                    calm != null ? calm.damageMax() : damageKnown ? Json.integer(Json.required(damage, "max", "damage")) : 0,
                     drKnown ? Json.integer(Json.required(dr, "min", "dr")) : 0,
-                    drKnown ? Json.integer(Json.required(dr, "max", "dr")) : 0, unknown));
+                    drKnown ? Json.integer(Json.required(dr, "max", "dr")) : 0, unknown, forms));
         }
         return threats;
     }
