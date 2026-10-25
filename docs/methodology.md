@@ -822,7 +822,7 @@ headlessly, issue #169).
 
 `InspectRigBrainTest` (in the Rig's tests) plays the log's tuple with the Rig's Brain and writes that Run's
 log under `SF_INSPECT_OUT`, with the Brain named `inspect.rig` (a Brain name allows no hyphen), so an
-Overlay Run can be set beside what the Rig would have done. It needs `SF_ROOT` (the repository root) too.
+Overlay Run can be set beside what the Rig would have done. It takes `SF_ROOT` (the repository root) too, defaulting to `../..` as the other tool does.
 Point `SF_INSPECT_OUT` at a folder of its own, never at a Rig folder.
 
 ```sh

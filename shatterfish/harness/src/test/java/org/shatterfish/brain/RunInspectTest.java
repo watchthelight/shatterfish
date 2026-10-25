@@ -68,6 +68,9 @@ import java.util.TreeSet;
  */
 class RunInspectTest {
 
+    /** The most turns a tool plays; the same in both tools, so one Run is cut at the same place in each. */
+    static final int STEP_LIMIT = 5000;
+
     private static final Set<Tile> DOORS = EnumSet.of(Tile.DOOR, Tile.OPEN_DOOR, Tile.LOCKED_DOOR, Tile.CRYSTAL_DOOR,
             Tile.BARRICADE, Tile.LOCKED_EXIT);
 
@@ -93,7 +96,7 @@ class RunInspectTest {
             Inspector inspector = new Inspector(brain, knowledge, follow.equals("yes") ? log.waits() : List.of(), w);
             SeedSet.Entry triple = new SeedSet.Entry(header.seed(), header.heroClass(), header.challenges(), header.seedCode());
             Path scratch = Files.createTempDirectory("sf-inspect-replay");
-            var outcome = new RunLoop().playTriple(triple, header.salt(), inspector, 3000,
+            var outcome = new RunLoop().playTriple(triple, header.salt(), inspector, STEP_LIMIT,
                     new RunLoop.Logging(scratch, "0".repeat(40), new RunLog.Brain("inspect", "0".repeat(40), "0".repeat(64)),
                             "", "inspect"));
             inspector.floorEnd();

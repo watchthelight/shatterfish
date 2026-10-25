@@ -21,21 +21,24 @@ import java.nio.file.Path;
  * the real Codex and the committed weights, and writes that Run's log under {@code SF_INSPECT_OUT}, so an
  * Overlay Run can be set beside the Brain the Rig measures (both read the Codex the same way now). It plays
  * the tuple of a log the person names, so it is a diagnosis aid and never a ranked Run. {@code SF_ROOT} is
- * the repository root. Skipped unless {@code SF_INSPECT_LOG} is set.
+ * the repository root (default {@code ../..}, as for RunInspectTest). Skipped unless {@code SF_INSPECT_LOG} is set.
  */
 class InspectRigBrainTest {
+
+    /** The same limit as RunInspectTest, so one Run is cut at the same place in each. */
+    private static final int STEP_LIMIT = 5000;
 
     @Test
     @EnabledIfEnvironmentVariable(named = "SF_INSPECT_LOG", matches = ".+")
     void play() throws IOException {
-        Path root = Path.of(required("SF_ROOT", "the repository root"));
+        Path root = Path.of(System.getenv().getOrDefault("SF_ROOT", "../.."));
         RunLog.Header header = RunLogReader.of(Path.of(System.getenv("SF_INSPECT_LOG"))).header();
         Path out = Files.createDirectories(Path.of(required("SF_INSPECT_OUT", "the folder the Run log goes in")));
         String tag = HeadlessBoot.pinnedTag();
         Brain brain = new Brain(CodexKnowledge.read(root.resolve("codex").resolve(tag), tag),
                 WeightsFile.read(root.resolve("weights/shatterfish.json"), "shatterfish"), DeciderSeeds.brain("shatterfish"));
         new RunLoop().playTriple(new SeedSet.Entry(header.seed(), header.heroClass(), header.challenges(), header.seedCode()),
-                header.salt(), new BrainDecider(brain), 5000,
+                header.salt(), new BrainDecider(brain), STEP_LIMIT,
                 new RunLoop.Logging(Files.createTempDirectory(out, "rig"), "0".repeat(40),
                         new RunLog.Brain("inspect.rig", "0".repeat(40), "0".repeat(64)), "", "inspect"));
     }
