@@ -32,6 +32,12 @@ final class Chests implements Policy {
     /** The most wraiths a tomb is opened for, that is free cardinal sides: most of them solid or taken. */
     static final int MAX_WRAITHS = 1;
 
+    /**
+     * The hero's hit points must exceed this share, in thousandths, of what a mimic is expected to cost
+     * ({@link #mimicCost}): a margin for the spread of the rolls. An assumption, not a Codex fact.
+     */
+    static final int MIMIC_MARGIN_PER_MILLE = 1250;
+
     /** Tiles a wraith cannot be placed on (Wraith.java:118, {@code Level.solid}); doors count as free, the safe way. */
     private static final Set<Tile> SOLID = EnumSet.of(
             Tile.WALL, Tile.WALL_DECO, Tile.LOCKED_DOOR,
@@ -66,7 +72,25 @@ final class Chests implements Policy {
     @Override
     public boolean enters(Observation observation, Memory memory) {
         return Explore.calm(observation, knowledge)
+                && !enemyAbout(observation, memory)
                 && observation.map().heaps().stream().anyMatch(heap -> openable(heap, observation, memory));
+    }
+
+    /**
+     * Whether an enemy was seen on this floor in the last {@link Fight#RECALL_WAITS} waits: a chest walked to while one
+     * hunts out of view drags the hero into its sight, where Fight steps back and the chest is walked to again (the
+     * oscillation measured on issue #181's first direction run). Any sighting counts, in or out of view now, a
+     * killed enemy's too, so that the answer does not flip with the hero's cell, which an out-of-view test would.
+     */
+    private boolean enemyAbout(Observation observation, Memory memory) {
+        int depth = observation.header().depth();
+        for (Memory.Seen seen : memory.monsters()) {
+            if (seen.depth() == depth && memory.waits() - seen.at() <= Fight.RECALL_WAITS
+                    && !Bestiary.passive(knowledge, seen.depth(), observation.header().branch(), seen.name())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -128,6 +152,26 @@ final class Chests implements Policy {
     static int mimicBite(int depth) {
         return 2 + 2 * depth;
     }
+    /**
+     * What a chest that is a mimic is expected to cost the hero: the bite that reveals it, then the fight to
+     * the death with it, which the hero cannot always leave (it walks as fast as the hero does). A revealed
+     * mimic has {@code (1 + level) * 6} health, defense {@code 2 + level / 2}, accuracy {@code 6 + level}, damage
+     * {@code 1 + level} to {@code 2 + 2 * level} and damage reduction up to {@code 1 + level / 2} (Mimic.java:230-241,
+     * :251-257, :264-266), level the floor's depth; the hero's side is {@link Fight}'s duel model.
+     */
+    static double mimicCost(Observation observation, Codex.Knowledge knowledge) {
+        int depth = observation.header().depth();
+        Codex.Threat mimic = new Codex.Threat("mimic", (1 + depth) * 6, 6 + depth, 2 + depth / 2, 1 + depth,
+                2 + 2 * depth, 0, 1 + depth / 2);
+        int[] damage = Fight.heroDamage(observation, knowledge);
+        double perTurn = Fight.hitChance(Fight.heroAccuracy(observation.hero()), mimic.defense())
+                * Fight.landed(damage[0], damage[1], mimic.drMin(), mimic.drMax());
+        if (perTurn <= 0) {
+            return Double.POSITIVE_INFINITY;
+        }
+        return mimicBite(depth) + mimic.ht() / perTurn * Fight.enemyDamage(observation, knowledge, mimic);
+    }
+
     /** The most damage a wraith's hit does on a floor of this depth (Wraith.java:75-83: up to 2 + level). */
     static int wraithHit(int depth) {
         return 2 + depth;
@@ -139,14 +183,14 @@ final class Chests implements Policy {
      * health, Heap.java:96-100) and a tomb's wraiths, two hits each. Whether a chest is a mimic or a heap
      * haunted is not on the screen, so the worst is assumed, and the hero rests or goes on until it can.
      */
-    static boolean affordable(HeapView heap, Observation observation, int stand) {
+    static boolean affordable(HeapView heap, Observation observation, Codex.Knowledge knowledge, int stand) {
         int hp = observation.hero().hp();
         int depth = observation.header().depth();
         return switch (heap.kind()) {
             // A held golden key says the floor queued one for a real locked chest (RegularLevel.java:430-437), but
-            // the key may be for another, so a locked chest needs the health to survive a bite; the others two hits.
+            // the key may be for another, so a locked chest needs the health to survive a bite; the others the bite and the fight after it.
             case LOCKED_CHEST -> hp > mimicBite(depth);
-            case CHEST, CRYSTAL_CHEST -> hp > 2 * mimicBite(depth);
+            case CHEST, CRYSTAL_CHEST -> 1000L * hp > MIMIC_MARGIN_PER_MILLE * mimicCost(observation, knowledge);
             case SKELETON, REMAINS -> hp > 2 * wraithHit(depth);
             case TOMB -> {
                 int wraiths = freeSides(observation, stand);
@@ -180,7 +224,7 @@ final class Chests implements Policy {
             if (!openable(heap, observation, memory)) {
                 continue;
             }
-            int stand = stand(observation, walk, distance, heap);
+            int stand = stand(observation, knowledge, walk, distance, heap);
             if (stand < 0) {
                 continue;
             }
@@ -211,7 +255,7 @@ final class Chests implements Policy {
      * The nearest cell the hero can open {@code heap} from and may: walkable and beside it, or the hero's own
      * cell; for a tomb the nearest where {@link #affordable} holds, since the cell decides the wraiths. -1 for none.
      */
-    private static int stand(Observation observation, boolean[] walk, int[] distance, HeapView heap) {
+    private static int stand(Observation observation, Codex.Knowledge knowledge, boolean[] walk, int[] distance, HeapView heap) {
         MapSection map = observation.map();
         int width = map.width();
         int target = heap.cell();
@@ -226,7 +270,7 @@ final class Chests implements Policy {
                 int cell = x + y * width;
                 if (distance[cell] >= 0 && (walk[cell] || distance[cell] == 0)
                         && (best < 0 || distance[cell] < distance[best])
-                        && affordable(heap, observation, cell)
+                        && affordable(heap, observation, knowledge, cell)
                         && observation.actors().actors().stream().noneMatch(actor -> actor.cell() == target)) {
                     best = cell;
                 }

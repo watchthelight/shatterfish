@@ -3,6 +3,9 @@ package org.shatterfish.brain;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.shatterfish.api.Action;
+import org.shatterfish.api.ActorsSection;
+import org.shatterfish.api.Fog;
+import org.shatterfish.api.MapSection;
 import org.shatterfish.api.HeapKind;
 import org.shatterfish.api.HeapView;
 import org.shatterfish.api.JournalSection;
@@ -60,15 +63,15 @@ class ChestPolicyTest {
     @Test
     @DisplayName("a plain chest in a calm room is walked to and opened: a Step toward it, then the Step onto it from beside it")
     void plain_chest() {
-        Brain.Decided far = decide(room(1, HERO, 20, 20, HeapKind.CHEST, WIDTH + 6, false, List.of()));
+        Brain.Decided far = decide(room(1, HERO, 200, 200, HeapKind.CHEST, WIDTH + 6, false, List.of()));
         assertEquals("open-chest", far.decision().policy(), far.decision().toString());
         assertEquals(new Action.Step(HERO + 1), far.action());
 
-        Brain.Decided beside = decide(room(1, HERO, 20, 20, HeapKind.CHEST, HERO + 1, false, List.of()));
+        Brain.Decided beside = decide(room(1, HERO, 200, 200, HeapKind.CHEST, HERO + 1, false, List.of()));
         assertEquals("open-chest", beside.decision().policy());
         assertEquals(new Action.Step(HERO + 1), beside.action(), "the click on the chest opens it from beside it");
 
-        Brain.Decided on = decide(room(1, HERO + 1, 20, 20, HeapKind.CHEST, HERO + 1, false, List.of()));
+        Brain.Decided on = decide(room(1, HERO + 1, 200, 200, HeapKind.CHEST, HERO + 1, false, List.of()));
         assertEquals(new Action.OpenChest(HERO + 1), on.action(), "standing on it, the open");
         assertNotEquals("fallback", on.decision().policy());
     }
@@ -91,19 +94,25 @@ class ChestPolicyTest {
     }
 
     @Test
-    @DisplayName("a chest may be a hidden mimic: opened only with the hit points to take its bite and one more hit, a locked chest with one bite")
+    @DisplayName("a chest may be a hidden mimic: opened only with the hit points to take its bite and the fight after, a locked chest with one bite")
     void mimic_margin() {
         int chest = WIDTH + 6;
-        // The hidden bite is 2 + 2 * depth, fixed (Mimic.java:229-236): depth 5 is 12, so more than 24 is wanted.
-        assertEquals("open-chest", decide(room(5, HERO, 25, 25, HeapKind.CHEST, chest, false, List.of()))
+        for (int depth : new int[] {1, 2, 5}) {
+            Observation probe = room(depth, HERO, 100000, 100000, HeapKind.CHEST, chest, false, List.of());
+            double cost = Chests.mimicCost(probe, Screens.CODEX);
+            // The bite alone is 2 + 2 * depth (Mimic.java:229-236); the fight after it is the hero's duel model's.
+            assertEquals(true, cost > Chests.mimicBite(depth), "the fight after the bite is counted at depth " + depth);
+            int enough = (int) Math.floor(cost * Chests.MIMIC_MARGIN_PER_MILLE / 1000.0) + 1;
+            assertEquals("open-chest", decide(room(depth, HERO, enough, 100000, HeapKind.CHEST, chest, false, List.of()))
+                    .decision().policy(), "depth " + depth + " with " + enough + " hit points");
+            assertNotEquals("open-chest", decide(room(depth, HERO, enough - 1, 100000, HeapKind.CHEST, chest, false, List.of()))
+                    .decision().policy(), "depth " + depth + " with " + (enough - 1) + " hit points");
+        }
+        // A hero with 20 hit points and no weapon does not take on a depth 2 mimic (18 health, 3 to 6 a hit) for one item.
+        assertEquals("open-chest", decide(room(1, HERO, 1000, 1000, HeapKind.CHEST, chest, false, List.of()))
                 .decision().policy());
-        assertNotEquals("open-chest", decide(room(5, HERO, 24, 25, HeapKind.CHEST, chest, false, List.of()))
-                .decision().policy(), "24 hit points do not take a bite and a hit at depth 5");
-        // Depth 1's roll makes none, but a Mimic Tooth lets the others (RegularLevel.java:408-421): the margin holds.
-        assertEquals("open-chest", decide(room(1, HERO, 9, 20, HeapKind.CHEST, chest, false, List.of()))
-                .decision().policy());
-        assertNotEquals("open-chest", decide(room(1, HERO, 8, 20, HeapKind.CHEST, chest, false, List.of()))
-                .decision().policy());
+        assertNotEquals("open-chest", decide(room(2, HERO, 20, 20, HeapKind.CHEST, chest, false, List.of()))
+                .decision().policy(), "a fresh hero does not take on a depth 2 mimic for one item");
         // A locked chest with its key needs the health to survive one bite: depth 6 is 14.
         List<NoteView> golden = List.of(key(6, "golden key"));
         assertEquals("open-chest", decide(room(6, HERO, 15, 40, HeapKind.LOCKED_CHEST, chest, false, golden))
@@ -165,7 +174,7 @@ class ChestPolicyTest {
     @Test
     @DisplayName("an open the game keeps refusing is given up after two tries, not repeated for ever")
     void refused_open_is_given_up() {
-        Observation screen = room(1, HERO, 20, 20, HeapKind.CHEST, HERO + 1, false, List.of());
+        Observation screen = room(1, HERO, 200, 200, HeapKind.CHEST, HERO + 1, false, List.of());
         Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, 3L);
         assertEquals("open-chest", brain.decide(screen, Screens.drive(brain, screen)).decision().policy());
         assertEquals("open-chest", brain.decide(screen, Screens.drive(brain, screen, screen)).decision().policy());
@@ -174,14 +183,38 @@ class ChestPolicyTest {
     }
 
     @Test
+    @DisplayName("a chest is not walked to while an enemy seen a moment ago is out of view: it would drag the hero into the enemy's sight again and again")
+    void no_chest_with_an_enemy_about() {
+        int chest = WIDTH + 6;
+        int enemyCell = 3 * WIDTH + 7;
+        Observation calm = room(1, HERO, 200, 200, HeapKind.CHEST, chest, false, List.of());
+        Observation seen = new Observation(calm.header(), calm.map(),
+                new ActorsSection(List.of(Screens.enemy("rat", enemyCell))), calm.hero(), calm.inventory(),
+                calm.journal(), calm.log(), calm.actions(), calm.prompt());
+        seen = seen.withActions(ValidActions.of(seen));
+        // The same room a wait later: the rat's cell is out of view, so it is not on the screen but was seen.
+        List<Fog> fog = new ArrayList<>(calm.map().fog());
+        fog.set(enemyCell, Fog.VISITED);
+        MapSection dim = calm.map();
+        Observation hidden = new Observation(calm.header(),
+                new MapSection(dim.width(), dim.height(), dim.tiles(), fog, dim.traps(), dim.heaps(), dim.blobs(),
+                        dim.feeling(), dim.transitions()),
+                calm.actors(), calm.hero(), calm.inventory(), calm.journal(), calm.log(), calm.actions(), calm.prompt());
+        Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, 3L);
+        assertNotEquals("open-chest", brain.decide(hidden, Screens.drive(brain, seen, hidden)).decision().policy());
+        // Without the sighting, the same screen opens it.
+        assertEquals("open-chest", brain.decide(hidden, Screens.drive(brain, calm, hidden)).decision().policy());
+    }
+
+    @Test
     @DisplayName("a crystal chest is opened with the crystal key, whatever its capital, and not with the golden one")
     void crystal_chest_needs_its_key() {
         int chest = WIDTH + 6;
-        assertEquals("open-chest", decide(room(3, HERO, 20, 20, HeapKind.CRYSTAL_CHEST, chest, false,
+        assertEquals("open-chest", decide(room(3, HERO, 5000, 5000, HeapKind.CRYSTAL_CHEST, chest, false,
                 List.of(key(3, "Crystal key")))).decision().policy());
-        assertNotEquals("open-chest", decide(room(3, HERO, 20, 20, HeapKind.CRYSTAL_CHEST, chest, false,
+        assertNotEquals("open-chest", decide(room(3, HERO, 5000, 5000, HeapKind.CRYSTAL_CHEST, chest, false,
                 List.of(key(3, "golden key")))).decision().policy());
-        assertNotEquals("open-chest", decide(room(3, HERO, 20, 20, HeapKind.CRYSTAL_CHEST, chest, false,
+        assertNotEquals("open-chest", decide(room(3, HERO, 5000, 5000, HeapKind.CRYSTAL_CHEST, chest, false,
                 List.of())).decision().policy());
     }
 }
