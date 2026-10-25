@@ -72,9 +72,10 @@ import java.util.function.Supplier;
  * log's writer with its chain (ADR-0015, "Scene lifetime"). {@link #attachments()} counts the
  * scenes it has been attached to.
  *
- * <p><b>What it does not do yet.</b> No Panel, no pause, no stepping, no takeover: those are the
- * rest of epic 5. A Run attached here plays at the speed its Brain decides and ends where the
- * headless loop would end it.
+ * <p><b>What it leaves to the Overlay.</b> The Panel and its controls are the Overlay's. A Run
+ * attached here plays at the speed its Brain decides unless it is held ({@link #hold(boolean)},
+ * {@link #advance(int)}), changes hands at an Input wait on {@link #takeOver(String)} and
+ * {@link #handBack(String)}, and ends where the headless loop would end it.
  */
 public final class EmbeddedRun implements AutoCloseable {
 
@@ -296,12 +297,35 @@ public final class EmbeddedRun implements AutoCloseable {
     private record Shadowed(long k, Observation observation, Future<ShadowAnswer> decision) {
     }
 
-    /** What the worker hands back for a shadow question: the Decision and the Belief it left, both read on the worker. */
-    private record ShadowAnswer(RunLog.Decision decision, BeliefSummary beliefSummary) {
+    /**
+     * What the worker hands back for a shadow question: the Decision and the Belief it left, both read on the
+     * worker, and the Action and the time the Brain took, which a hand back needs to execute the Decision it
+     * shadowed (story 5.8).
+     */
+    private record ShadowAnswer(RunLog.Decision decision, BeliefSummary beliefSummary, Action action, long thinkMs,
+                                Object markBefore) {
     }
 
-    /** The record of the person's turns in a HUMAN Run (story 5.9), or null for a Brain's Run. */
+    /** A shadow that landed: the wait it was for, the Observation it was made on, and its answer. */
+    private record LandedShadow(long k, Observation observation, ShadowAnswer answer) {
+    }
+
+    /**
+     * The record of the person's turns (story 5.9): made at attach for a HUMAN Run, and at the first takeover
+     * for a Brain's Run (story 5.8), and kept after a hand back, since what it could not record still ends
+     * the Run's verifiability. Null for a Run no person has played.
+     */
     private HumanTurns human;
+    /** Whether the person plays now: a HUMAN Run for its whole length, a Brain's Run between a takeover and a hand back. */
+    private volatile boolean humanMode;
+    /** A takeover asked for and not yet applied: it applies at the next Input wait (story 5.8, UX-DR9). */
+    private boolean takeOverRequested;
+    /** A hand back asked for and not yet applied: it applies at an open wait the Brain has finished shadowing. */
+    private boolean handBackRequested;
+    /** The speed mode's word the Mode records name, as the Overlay last said it. */
+    private String requestedSpeed = HUMAN_SPEED;
+    /** The last shadow to land and the wait it answered, which a hand back reuses as the Decision (story 5.8). */
+    private LandedShadow lastShadow;
     private final java.util.ArrayDeque<Shadowed> shadows = new java.util.ArrayDeque<>();
     private long shadowWait;
     private long shadowFailures;
@@ -354,7 +378,7 @@ public final class EmbeddedRun implements AutoCloseable {
      * decides, and the Decision is written as a {@code shadow} record and never executed; what the
      * person did is recorded through hook row 11 as the Action the executor would have issued
      * ({@link HumanTurns}). The executor is never called. The log opens with a {@code mode} record
-     * saying the whole Run is HUMAN; taking over and handing back mid-Run is story 5.8's.
+     * saying the whole Run is HUMAN; a Brain's Run changes hands mid-Run with {@link #takeOver(String)}.
      */
     public static EmbeddedRun attachHuman(Host host, long seed, HeroClass heroClass, RngControl rng, Decider brain,
                                           Supplier<Observation> observer, RunLoop.Logging logging, int turnCap) {
@@ -399,6 +423,7 @@ public final class EmbeddedRun implements AutoCloseable {
                 run.human = new HumanTurns(log, run.oracle, observer,
                         (record, seen) -> run.history.add(record, ActionContext.of(seen)));
                 Hooks.heroInput = run.human;
+                run.humanMode = true;
                 if (host.controllerConnected()) {
                     // A gamepad writes the game's key queue past the Overlay's input lock (InputLock's own
                     // javadoc), so what it does is heard by nothing: the Run is not verifiable from its start.
@@ -409,7 +434,7 @@ public final class EmbeddedRun implements AutoCloseable {
             if (!human) {
                 // A person's Run waits on the person, and a long wait there is no freeze (issue #175).
                 run.watchdog = new Watchdog(Watchdog.sideLogOf(log == null ? null : log.file()), System.err, ui,
-                        () -> run.brainThread, run.gate::waitIndex, () -> !run.ended && !run.closed && !run.withheld, Watchdog.SECONDS);
+                        () -> run.brainThread, run.gate::waitIndex, () -> !run.ended && !run.closed && !run.withheld && !run.humanMode, Watchdog.SECONDS);
                 run.watchdog.start();
             }
             run.arm();
@@ -491,13 +516,25 @@ public final class EmbeddedRun implements AutoCloseable {
         if (outcome != null) {
             return State.ENDED;
         }
-        if (human != null) {
+        if (humanMode) {
             return humanFrame();
         }
         timeTheWindow();
         if (pending != null) {
             if (!pending.isDone()) {
                 return State.THINKING;
+            }
+            if (takeOverRequested) {
+                // The person takes the wait the Brain was deciding (story 5.8): its Decision becomes the
+                // shadow, never executed. A screen that moved on since is dropped as any stale answer is, and
+                // the takeover applies at the wait confirmed afresh.
+                String moved = stale();
+                if (moved == null) {
+                    takeOverFromPending();
+                    return outcome != null ? State.ENDED : State.PLAYING;
+                }
+                dropStale(pendingWait, moved);
+                return State.PLAYING;
             }
             if (held && credits == 0 && !owed()) {
                 // The Decision has landed and nobody has paid for it: it is shown and waits (story 5.7). An idle
@@ -595,10 +632,24 @@ public final class EmbeddedRun implements AutoCloseable {
             throw new IllegalStateException("the Run says oracle=" + oracle + " and the Observation at wait " + k
                     + " says " + observation.header().oracle() + "; an oracle Run is stated with its log");
         }
+        if (takeOverRequested) {
+            // The person takes this wait; the Brain is not asked to decide it, only to shadow it (story 5.8).
+            beginHuman(k);
+            openHumanWait(k, observation, true);
+            return State.PLAYING;
+        }
+        askBrain(k, observation);
+        return State.THINKING;
+    }
+
+    /**
+     * Asks the Brain's worker to decide wait {@code k}, for the Run to execute. The mark is taken here, on this
+     * thread, before the worker is handed the question; the submit is the happens-before edge to the worker, and
+     * isDone the one back. Only called with the worker idle, so the mark reads a Brain nothing else is changing.
+     */
+    private void askBrain(long k, Observation observation) {
         pendingObservation = observation;
         pendingWait = k;
-        // Taken here, on this thread, before the worker is handed the question; the submit is the
-        // happens-before edge to the worker, and isDone the one back.
         pendingMark = brain instanceof Rewindable rewindable ? rewindable.mark() : null;
         pending = worker.submit(() -> {
             decidedOn = Thread.currentThread();
@@ -608,7 +659,6 @@ public final class EmbeddedRun implements AutoCloseable {
             Action chosen = brain.decide(observation);
             return new Decided(chosen, (System.nanoTime() - before) / 1_000_000L);
         });
-        return State.THINKING;
     }
 
     /**
@@ -644,6 +694,9 @@ public final class EmbeddedRun implements AutoCloseable {
         if (outcome != null) {
             return State.ENDED;
         }
+        if (handBackRequested) {
+            tryHandBack();
+        }
         return shadows.isEmpty() ? State.PLAYING : State.THINKING;
     }
 
@@ -657,7 +710,7 @@ public final class EmbeddedRun implements AutoCloseable {
      */
     public void beforeUpdate() {
         UiRole.require("EmbeddedRun.beforeUpdate()");
-        if (human == null || closed || outcome != null || human.open() || Game.switchingScene()
+        if (!humanMode || closed || outcome != null || human.open() || Game.switchingScene()
                 || !(Game.scene() instanceof GameScene)) {
             return;
         }
@@ -677,6 +730,9 @@ public final class EmbeddedRun implements AutoCloseable {
         if (k == 0) {
             return;
         }
+        // What a hand back's staleness check judges the screen against.
+        confirmedScene = Game.scene();
+        confirmedWindow = window;
         rng.reseed(k);
         int turn = RunLoop.turns();
         if (turn >= turnCap) {
@@ -698,20 +754,187 @@ public final class EmbeddedRun implements AutoCloseable {
             throw new IllegalStateException("the Run says oracle=" + oracle + " and the Observation at wait " + k
                     + " says " + observation.header().oracle() + "; an oracle Run is stated with its log");
         }
-        waits++;
+        openHumanWait(k, observation, true);
+    }
+
+    /**
+     * Wait {@code k} is the person's: confirmed, reseeded and observed. With {@code askShadow} the Brain is
+     * handed the Observation to update its Belief and decide; without, a shadow for this wait is already
+     * queued (a takeover that took the wait the Brain was deciding, story 5.8).
+     */
+    private void openHumanWait(long k, Observation observation, boolean askShadow) {
+        int turn = RunLoop.turns();
+        pendingTurn = turn;
         human.open(k, RunLoop.thousandths(), observation);
         lastDecisionTurn = turn;
         lastDecisionFloor = observation.header().depth();
         lastDecisionObservation = observation;
-        // The shadow: the Brain sees this Observation and nothing else, updates its Belief and decides.
-        // The Decision is read on the worker, right after its own decide, because questions queue here
-        // when the person is quicker than the Brain, and the next decide would overwrite it.
-        shadows.add(new Shadowed(k, observation, worker.submit(() -> {
-            decidedOn = Thread.currentThread();
-            brain.decide(observation);
-            return brain instanceof Deliberator deliberator
-                    ? new ShadowAnswer(deliberator.lastDecision(), deliberator.beliefSummary()) : null;
-        })));
+        if (askShadow) {
+            // The shadow: the Brain sees this Observation and nothing else, updates its Belief and decides.
+            // The Decision is read on the worker, right after its own decide, because questions queue here
+            // when the person is quicker than the Brain, and the next decide would overwrite it.
+            shadows.add(new Shadowed(k, observation, worker.submit(() -> {
+                decidedOn = Thread.currentThread();
+                // What the Brain carried before it saw this wait, for a hand back that keeps this answer as
+                // its Decision: a stale drop then rewinds to before the Observation, not to after it.
+                Object markBefore = brain instanceof Rewindable rewindable ? rewindable.mark() : null;
+                long before = System.nanoTime();
+                Action chosen = brain.decide(observation);
+                long thinkMs = (System.nanoTime() - before) / 1_000_000L;
+                return brain instanceof Deliberator deliberator
+                        ? new ShadowAnswer(deliberator.lastDecision(), deliberator.beliefSummary(), chosen, thinkMs, markBefore)
+                        : new ShadowAnswer(null, null, chosen, thinkMs, markBefore);
+            })));
+        }
+    }
+
+    /**
+     * Applies a takeover (story 5.8): from here the person plays. The hand's input gate opens, the hook that
+     * hears the person's inputs is set, and the Run says so in a {@code mode} record at the wait the person
+     * takes. The first takeover makes the record of the person's turns; a controller connected then marks
+     * the Run unverifiable from this wait, as it does from the start of a HUMAN Run.
+     */
+    private void beginHuman(long k) {
+        if (human == null) {
+            human = new HumanTurns(log, oracle, observer,
+                    (record, seen) -> history.add(record, ActionContext.of(seen)));
+        }
+        takeOverRequested = false;
+        humanMode = true;
+        Hooks.heroInput = human;
+        inputGate.humanInput(true);
+        writeMode("HUMAN", k);
+        if (host.controllerConnected()) {
+            human.unsupportedFrom(k, "a game controller is connected, and its input reaches the game past the"
+                    + " Overlay's input lock");
+        }
+        pending = null;
+        pendingObservation = null;
+        pendingMark = null;
+        withheld = false;
+        withheldDecision = null;
+        withheldBelief = null;
+        reconfirming = false;
+    }
+
+    private void writeMode(String mode, long k) {
+        RunLog.Mode record = new RunLog.Mode(k, mode, requestedSpeed);
+        if (log != null) {
+            log.write(record);
+        }
+        history.add(record, null);
+    }
+
+    /**
+     * The person takes the wait the Brain has decided and not executed (story 5.8): the Decision, which the
+     * worker has finished, is kept as the wait's shadow, written as the shadows of a HUMAN Run are and never
+     * executed. The Brain has already seen this wait's Observation, so it is not asked again.
+     */
+    private void takeOverFromPending() {
+        Future<Decided> done = pending;
+        long k = pendingWait;
+        Observation observation = pendingObservation;
+        Object mark = pendingMark;
+        if (done.state() == Future.State.FAILED && !(done.exceptionNow() instanceof Decider.CannotDecide)) {
+            // A Brain that cannot decide costs the person nothing, but a Brain that is broken is not hidden
+            // behind their turns: it fails the Run as it would at its own wait.
+            throw new IllegalStateException("the Brain failed at wait " + k, done.exceptionNow());
+        }
+        beginHuman(k);
+        if (done.state() == Future.State.SUCCESS) {
+            Decided decided = done.resultNow();
+            // Read here, on the render thread, after the future is done and with nothing queued behind it, so
+            // the Brain still holds the Decision it just made.
+            ShadowAnswer answer = brain instanceof Deliberator deliberator
+                    ? new ShadowAnswer(deliberator.lastDecision(), deliberator.beliefSummary(), decided.action(),
+                            decided.thinkMs(), mark)
+                    : new ShadowAnswer(null, null, decided.action(), decided.thinkMs(), mark);
+            shadows.add(new Shadowed(k, observation, java.util.concurrent.CompletableFuture.completedFuture(answer)));
+        } else {
+            shadowFailures++;
+        }
+        openHumanWait(k, observation, false);
+    }
+
+    /**
+     * Applies a hand back (story 5.8) once the person's wait is open, the Brain has answered every shadow it
+     * was asked, and the screen is the one the wait was observed as and at rest: then the Brain's Decision for
+     * the wait in front is fresh by construction, made from the Observation after the person's last turn. The
+     * shadow already made for this wait is that Decision, so it is kept and not asked for twice; if the screen
+     * is not the Observation's any more (the person changed something no Action expresses) the Brain is asked
+     * afresh from what is there. Either way the Run lands held, in PAUSED, with the Decision waiting for a press.
+     */
+    private void tryHandBack() {
+        if (!human.open() || !shadows.isEmpty() || human.windowAtWait() != Windows.front()) {
+            return;
+        }
+        long k = human.openWait();
+        if (stale() != null) {
+            // The hero is not at rest, or something the person started is under way: the wait is not ready to hand.
+            return;
+        }
+        Observation current = observer.get();
+        if (current.header().oracle() != oracle) {
+            throw new IllegalStateException("the Run says oracle=" + oracle + " and the Observation at wait " + k
+                    + " says " + current.header().oracle() + "; an oracle Run is stated with its log");
+        }
+        boolean unchanged = current.hash().equals(human.observationAtWait().hash());
+        LandedShadow shadow = lastShadow;
+        human.release();
+        handBackRequested = false;
+        humanMode = false;
+        Hooks.heroInput = null;
+        inputGate.humanInput(false);
+        writeMode("PAUSED", k);
+        secondsWithoutAWait = 0;
+        reconfirming = false;
+        if (watchdog != null) {
+            watchdog.served();
+        }
+        pendingTurn = RunLoop.turns();
+        if (unchanged && shadow != null && shadow.k() == k && shadow.answer().decision() != null) {
+            pendingObservation = current;
+            pendingWait = k;
+            ShadowAnswer answer = shadow.answer();
+            pendingMark = answer.markBefore();
+            pending = java.util.concurrent.CompletableFuture.completedFuture(new Decided(answer.action(), answer.thinkMs()));
+        } else {
+            askBrain(k, current);
+        }
+    }
+
+    /**
+     * Asks to take over (story 5.8, FR-40). It applies at the next Input wait: the one in front if the Brain is
+     * deciding it, whose Decision becomes a shadow; else the next the game reaches, so a press while the hero
+     * is mid-animation waits until the hero is ready (UX-DR9). {@code speed} is the speed mode's word, for the
+     * {@code mode} record.
+     */
+    public void takeOver(String speed) {
+        UiRole.require("EmbeddedRun.takeOver()");
+        if (humanMode || closed || outcome != null || handBackRequested) {
+            return;
+        }
+        requestedSpeed = speed == null || speed.isEmpty() ? HUMAN_SPEED : speed;
+        takeOverRequested = true;
+    }
+
+    /**
+     * Asks to hand the Run back (story 5.8). It applies at a wait open for the person, when the Brain has
+     * finished every shadow it was asked; the Run then lands held with a Decision for that wait (see
+     * {@link #tryHandBack}). A press while the hero is busy waits until the next wait opens.
+     */
+    public void handBack(String speed) {
+        UiRole.require("EmbeddedRun.handBack()");
+        if (!humanMode || closed || outcome != null || takeOverRequested) {
+            return;
+        }
+        requestedSpeed = speed == null || speed.isEmpty() ? HUMAN_SPEED : speed;
+        handBackRequested = true;
+    }
+
+    /** Whether a takeover or a hand back was asked for and has not applied yet: the Overlay shows its control dim. */
+    public boolean switching() {
+        return takeOverRequested || handBackRequested;
     }
 
     /** Writes every shadow that has landed, in the order asked, for the wait it belongs to. */
@@ -725,6 +948,9 @@ public final class EmbeddedRun implements AutoCloseable {
                 continue;
             }
             ShadowAnswer answer = done.resultNow();
+            if (answer != null) {
+                lastShadow = new LandedShadow(landed.k(), landed.observation(), answer);
+            }
             if (answer == null || answer.decision() == null) {
                 continue;
             }
@@ -766,7 +992,7 @@ public final class EmbeddedRun implements AutoCloseable {
     /**
      * Whether a person's click and held direction key reach the hero (story 5.5). A HUMAN Run opens it at
      * attach; every other Run has it shut, which is what PAUSED and RUNNING both mean to the game. The
-     * Run's own executor passes the gate whatever this says. Story 5.6's Pause and 5.8's takeover turn it.
+     * Run's own executor passes the gate whatever this says. Story 5.6's Pause turns it; a takeover and a hand back turn it themselves, at their Input wait.
      */
     public void humanInput(boolean allowed) {
         inputGate.humanInput(allowed);
@@ -819,7 +1045,7 @@ public final class EmbeddedRun implements AutoCloseable {
 
     /** Whether this Run is the person's (story 5.9). */
     public boolean human() {
-        return human != null;
+        return humanMode;
     }
 
     /**
@@ -828,13 +1054,13 @@ public final class EmbeddedRun implements AutoCloseable {
      * holds was made on the screen its wait observed.
      */
     public boolean inputOpen() {
-        return human != null && outcome == null && human.open();
+        return humanMode && outcome == null && human.open();
     }
 
     /** A tap released at a screen point, before the game has it; see {@link HumanTurns#pointerUp}. */
     public void pointerUp(float screenX, float screenY) {
         UiRole.require("EmbeddedRun.pointerUp()");
-        if (human != null) {
+        if (humanMode) {
             human.pointerUp(screenX, screenY);
         }
     }
@@ -842,7 +1068,7 @@ public final class EmbeddedRun implements AutoCloseable {
     /** A key pressed, before the game has it; see {@link HumanTurns#keyDown}. */
     public void keyDown(int keycode) {
         UiRole.require("EmbeddedRun.keyDown()");
-        if (human != null) {
+        if (humanMode) {
             human.keyDown(keycode);
         }
     }
@@ -850,7 +1076,7 @@ public final class EmbeddedRun implements AutoCloseable {
     /** Any other input the Overlay passed to the game; see {@link HumanTurns#inputEvent}. */
     public void inputEvent() {
         UiRole.require("EmbeddedRun.inputEvent()");
-        if (human != null) {
+        if (humanMode) {
             human.inputEvent();
         }
     }
@@ -941,30 +1167,7 @@ public final class EmbeddedRun implements AutoCloseable {
         }
         String stale = stale();
         if (stale != null) {
-            // The screen the Brain was shown is not the screen in front any more: a scene rebuilt by a
-            // resize destroyed the Prompt, or something the Run did not do moved the hero. The answer
-            // is dropped unrecorded and the same wait is confirmed again from what is there now, so
-            // the log's waits stay one per index (story 5.1). The decider is put back to where it
-            // stood before it was asked, so the second asking is answered from one Observation, as
-            // the headless Run's is; a decider that cannot be put back keeps what the dropped question
-            // changed, and is counted (unrewoundAnswers).
-            staleAnswers++;
-            lastStale = "wait " + k + ": " + stale;
-            if (brain instanceof Rewindable rewindable) {
-                rewindable.rewind(pendingMark);
-            } else {
-                unrewound++;
-            }
-            pendingMark = null;
-            withheld = false;
-            withheldDecision = null;
-            withheldBelief = null;
-            if (watchdog != null) {
-                // The Run was idle on purpose; the re-ask starts the stall clock again.
-                watchdog.served();
-            }
-            reconfirming = true;
-            gate.reconfirm(k);
+            dropStale(k, stale);
             return;
         }
         pendingMark = null;
@@ -1031,6 +1234,37 @@ public final class EmbeddedRun implements AutoCloseable {
             applied++;
             refusalsInARow = 0;
         }
+    }
+
+    /**
+     * The screen the Brain was shown is not the screen in front any more: a scene rebuilt by a
+     * resize destroyed the Prompt, or something the Run did not do moved the hero. The answer
+     * is dropped unrecorded and the same wait is confirmed again from what is there now, so
+     * the log's waits stay one per index (story 5.1). The decider is put back to where it
+     * stood before it was asked, so the second asking is answered from one Observation, as
+     * the headless Run's is; a decider that cannot be put back keeps what the dropped question
+     * changed, and is counted (unrewoundAnswers).
+     */
+    private void dropStale(long k, String stale) {
+        pending = null;
+        pendingObservation = null;
+        staleAnswers++;
+        lastStale = "wait " + k + ": " + stale;
+        if (brain instanceof Rewindable rewindable) {
+            rewindable.rewind(pendingMark);
+        } else {
+            unrewound++;
+        }
+        pendingMark = null;
+        withheld = false;
+        withheldDecision = null;
+        withheldBelief = null;
+        if (watchdog != null) {
+            // The Run was idle on purpose; the re-ask starts the stall clock again.
+            watchdog.served();
+        }
+        reconfirming = true;
+        gate.reconfirm(k);
     }
 
     /**
@@ -1102,8 +1336,8 @@ public final class EmbeddedRun implements AutoCloseable {
         if (human != null) {
             // Each wait the person took is a wait served and an Action applied; none is refused.
             pollShadows();
-            applied = human.recordedWaits();
-            waits = applied;
+            applied += human.recordedWaits();
+            waits += human.recordedWaits();
         }
         outcome = RunLoop.outcome(cause, rng.salt(), waits, applied, refused, detail);
         withheld = false;
@@ -1198,10 +1432,10 @@ public final class EmbeddedRun implements AutoCloseable {
      */
     public Snapshot snapshot() {
         UiRole.require("EmbeddedRun.snapshot()");
-        Human humanPart = human == null ? null
+        Human humanPart = !humanMode ? null
                 : new Human(shadowWait > 0 && human.isOpen(shadowWait), shadowWait, inputOpen(),
                         human.unverifiableFrom(), human.unverifiableWhy(), notes);
-        if (withheld && withheldDecision != null && pendingObservation != null && human == null) {
+        if (withheld && withheldDecision != null && pendingObservation != null && !humanMode) {
             // The Decision for the wait in front, landed and not executed (story 5.7): what the next press
             // executes. The Observation is the one it was made on, which the Brain was given.
             return new Snapshot(withheldDecision, pendingTurn, pendingObservation.header().depth(),

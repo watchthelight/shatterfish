@@ -160,6 +160,73 @@ class InputLockTest {
     }
 
     @Test
+    @DisplayName("a key or press the person made while they played is released into the game after a hand back, so none is left held (story 5.8)")
+    void a_hand_back_leaves_no_key_held() {
+        java.util.List<String> reached = new java.util.ArrayList<>();
+        InputAdapter game = new InputAdapter() {
+            @Override
+            public boolean keyDown(int keycode) {
+                reached.add("down " + keycode);
+                return true;
+            }
+
+            @Override
+            public boolean keyUp(int keycode) {
+                reached.add("up " + keycode);
+                return true;
+            }
+
+            @Override
+            public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+                reached.add("touch down " + pointer);
+                return true;
+            }
+
+            @Override
+            public boolean touchUp(int screenX, int screenY, int pointer, int button) {
+                reached.add("touch up " + pointer);
+                return true;
+            }
+        };
+        InputLock lock = new InputLock();
+        InputMultiplexer multiplexer = new InputMultiplexer();
+        multiplexer.addProcessor(game);
+        multiplexer.addProcessor(0, lock);
+        lock.human(new InputLock.Human() {
+            @Override
+            public void pointerUp(int screenX, int screenY) {
+            }
+
+            @Override
+            public void keyDown(int keycode) {
+            }
+
+            @Override
+            public void input() {
+            }
+
+            @Override
+            public boolean overlayKey(int keycode) {
+                return false;
+            }
+        });
+        multiplexer.keyDown(21);
+        multiplexer.touchDown(10, 10, 1, 0);
+        // The Run is handed back: the lock closes and loses its Human.
+        lock.human(null);
+        lock.lock();
+        multiplexer.keyUp(21);
+        multiplexer.touchUp(10, 10, 1, 0);
+        assertEquals(java.util.List.of("down 21", "touch down 1", "up 21", "touch up 1"), reached,
+                "the release of what the person pressed passes");
+        multiplexer.keyDown(21);
+        multiplexer.keyUp(21);
+        multiplexer.touchDown(10, 10, 1, 0);
+        multiplexer.touchUp(10, 10, 1, 0);
+        assertEquals(4, reached.size(), "and a press made now, or its release, does not");
+    }
+
+    @Test
     @DisplayName("a processor the game puts in front later (a text input's stage) is put behind the lock again")
     void kept_first() {
         // The game's own input handler over a stand-in for libGDX's Input, which hands the handler's

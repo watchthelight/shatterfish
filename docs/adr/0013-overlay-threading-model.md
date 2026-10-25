@@ -672,3 +672,49 @@ answer and its execution grows. An Overlay Run was already not reproducible from
 exception, story 5.13), and an unheld Run is unchanged. A held Run now sits between a wait's reseed and its
 execution for as long as the human takes, and the frames the render thread draws meanwhile consume the reseeded
 generator, so what the executed Action rolls depends on that time as well; story 5.13 routes those draws away.
+
+## Amendment: story 5.8 (2026-10-25): taking over and handing back mid-Run
+
+Story 5.9 pulled the whole-Run HUMAN shape forward (a person plays from the first wait and the Brain only shadows).
+Story 5.8 makes the change of hands a thing a Run does at an Input wait, using that shape instead of a second one.
+
+- **A change of hands applies at an Input wait, never between.** `EmbeddedRun.takeOver(speed)` and `handBack(speed)`
+  only record the request; `frame()` applies it on the UI-role thread at the wait in front, when the hero is ready.
+  Until then every control but Explain is dim (`ControlState.switching()`), so a press made mid-animation is queued
+  and applies when the hero is ready (UX-DR9). The Mode follows the Run: `ControlState.frame` reads
+  `Seam.humanTurn()` and moves to HUMAN or PAUSED only once the Run has changed hands.
+- **Take over takes the wait the Brain decided.** If the Brain has answered a wait that is not yet executed, its
+  Decision becomes that wait's shadow (a completed future, not executed) and the person plays the wait. If the Brain
+  is still thinking, the takeover waits for the answer, which is stale-checked as any answer is. Nothing is asked
+  twice. A held Run's unspent credit is withdrawn (`hold(true)`, `Run N` cleared).
+- **A takeover writes a `mode` record (`HUMAN`, k) and the person's turns are recorded as in story 5.9**:
+  `actor: human` waits, the Brain's `shadow` Decision per wait tagged with k, `unsupported` for what the executor
+  cannot express. A controller connected at the takeover marks the Run unverifiable from that wait only
+  (`HumanTurns.unsupportedFrom`), not from the start.
+- **Hand back lands in PAUSED with a fresh Decision.** It applies at a wait open for the person, with no shadow
+  still unanswered, no window in front, and the wait confirmed. It re-observes, releases the `HumanTurns`, shuts the
+  hero's input gate, writes a `mode` record (`PAUSED`, k) and reuses the shadow of that very wait as the Decision
+  (the Brain was shown the Observation after the person's last turn, so a new one would be the same answer). A
+  Brain that gives no Decision of its own (a plain `Decider`) is asked afresh at the hand back. The Decision is
+  withheld until a credit, as story 5.7 withholds any held Run's Decision, so the next press executes it.
+- **A Decision computed before the person played is never executed.** The shadow of wait k is tagged k; a hand
+  back reuses only the shadow of the current wait, and a stale Decision is dropped by the existing stale check.
+- **Information parity**: while the person plays, the Brain is handed exactly the Observations it would have been
+  (one per wait, from the screen the person sees) and its answers go to the log as shadows. The Brain's Belief
+  therefore updates at every wait, from the same information as in a Brain's Run. The Brain cannot see the
+  person's input; it sees the game after it.
+- **The Overlay's input lock follows the hand.** `OverlayGame` tells `InputLock` when the person plays and when
+  they stop; a key or pointer the person pressed while playing and still holds at the hand back is released into
+  the game (and no other release passes), so no key is left held.
+- **Known limit**: a tap in the first frames after a Search is cleared by the game when the search animation ends
+  (`Hero.onOperateComplete`), and how many frames pass is the driver's. Searches followed at once by a tap do not
+  replay across drivers; this is part of story 5.13's non-reproducibility of an Overlay Run's frames.
+- **A reused shadow is in the log twice, on purpose.** The shadow of wait k is written while the person plays it,
+  as every shadow is (`skipped` false). If the hand back lands on that same wait and keeps the answer as its
+  Decision, the executed `wait` record for k carries the same Decision. A reader that wants the Decisions that
+  were executed reads the `wait` records; the `shadow` records are what the Brain thought while a person played.
+  A stale drop of the reused answer rewinds the Brain to the mark taken before it saw the wait, so asking again
+  updates its Belief from that Observation once.
+- **A broken Brain is not hidden by a takeover.** A Brain that throws anything but `CannotDecide` while its
+  answer is taken as a shadow fails the Run, as at its own wait. After a hand back the watchdog guards it again
+  in a Run that began as the Brain's; a Run that began as a person's (`--agent human`) has none, as before.
