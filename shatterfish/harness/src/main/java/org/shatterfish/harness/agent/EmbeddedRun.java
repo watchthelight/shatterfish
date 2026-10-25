@@ -302,7 +302,8 @@ public final class EmbeddedRun implements AutoCloseable {
      * worker, and the Action and the time the Brain took, which a hand back needs to execute the Decision it
      * shadowed (story 5.8).
      */
-    private record ShadowAnswer(RunLog.Decision decision, BeliefSummary beliefSummary, Action action, long thinkMs) {
+    private record ShadowAnswer(RunLog.Decision decision, BeliefSummary beliefSummary, Action action, long thinkMs,
+                                Object markBefore) {
     }
 
     /** A shadow that landed: the wait it was for, the Observation it was made on, and its answer. */
@@ -729,6 +730,9 @@ public final class EmbeddedRun implements AutoCloseable {
         if (k == 0) {
             return;
         }
+        // What a hand back's staleness check judges the screen against.
+        confirmedScene = Game.scene();
+        confirmedWindow = window;
         rng.reseed(k);
         int turn = RunLoop.turns();
         if (turn >= turnCap) {
@@ -771,12 +775,15 @@ public final class EmbeddedRun implements AutoCloseable {
             // when the person is quicker than the Brain, and the next decide would overwrite it.
             shadows.add(new Shadowed(k, observation, worker.submit(() -> {
                 decidedOn = Thread.currentThread();
+                // What the Brain carried before it saw this wait, for a hand back that keeps this answer as
+                // its Decision: a stale drop then rewinds to before the Observation, not to after it.
+                Object markBefore = brain instanceof Rewindable rewindable ? rewindable.mark() : null;
                 long before = System.nanoTime();
                 Action chosen = brain.decide(observation);
                 long thinkMs = (System.nanoTime() - before) / 1_000_000L;
                 return brain instanceof Deliberator deliberator
-                        ? new ShadowAnswer(deliberator.lastDecision(), deliberator.beliefSummary(), chosen, thinkMs)
-                        : new ShadowAnswer(null, null, chosen, thinkMs);
+                        ? new ShadowAnswer(deliberator.lastDecision(), deliberator.beliefSummary(), chosen, thinkMs, markBefore)
+                        : new ShadowAnswer(null, null, chosen, thinkMs, markBefore);
             })));
         }
     }
@@ -827,6 +834,12 @@ public final class EmbeddedRun implements AutoCloseable {
         Future<Decided> done = pending;
         long k = pendingWait;
         Observation observation = pendingObservation;
+        Object mark = pendingMark;
+        if (done.state() == Future.State.FAILED && !(done.exceptionNow() instanceof Decider.CannotDecide)) {
+            // A Brain that cannot decide costs the person nothing, but a Brain that is broken is not hidden
+            // behind their turns: it fails the Run as it would at its own wait.
+            throw new IllegalStateException("the Brain failed at wait " + k, done.exceptionNow());
+        }
         beginHuman(k);
         if (done.state() == Future.State.SUCCESS) {
             Decided decided = done.resultNow();
@@ -834,8 +847,8 @@ public final class EmbeddedRun implements AutoCloseable {
             // the Brain still holds the Decision it just made.
             ShadowAnswer answer = brain instanceof Deliberator deliberator
                     ? new ShadowAnswer(deliberator.lastDecision(), deliberator.beliefSummary(), decided.action(),
-                            decided.thinkMs())
-                    : new ShadowAnswer(null, null, decided.action(), decided.thinkMs());
+                            decided.thinkMs(), mark)
+                    : new ShadowAnswer(null, null, decided.action(), decided.thinkMs(), mark);
             shadows.add(new Shadowed(k, observation, java.util.concurrent.CompletableFuture.completedFuture(answer)));
         } else {
             shadowFailures++;
@@ -856,8 +869,6 @@ public final class EmbeddedRun implements AutoCloseable {
             return;
         }
         long k = human.openWait();
-        confirmedScene = Game.scene();
-        confirmedWindow = human.windowAtWait();
         if (stale() != null) {
             // The hero is not at rest, or something the person started is under way: the wait is not ready to hand.
             return;
@@ -884,8 +895,8 @@ public final class EmbeddedRun implements AutoCloseable {
         if (unchanged && shadow != null && shadow.k() == k && shadow.answer().decision() != null) {
             pendingObservation = current;
             pendingWait = k;
-            pendingMark = brain instanceof Rewindable rewindable ? rewindable.mark() : null;
             ShadowAnswer answer = shadow.answer();
+            pendingMark = answer.markBefore();
             pending = java.util.concurrent.CompletableFuture.completedFuture(new Decided(answer.action(), answer.thinkMs()));
         } else {
             askBrain(k, current);

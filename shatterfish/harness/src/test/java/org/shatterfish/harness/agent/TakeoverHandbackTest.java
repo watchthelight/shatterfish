@@ -212,8 +212,15 @@ class TakeoverHandbackTest {
                 assertTrue(run.switching());
             }
             release.countDown();
+            // By the clock and not a frame count: the worker answers on its own thread, and under a loaded
+            // machine a few thousand frames can pass before it is scheduled.
+            long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(60);
+            while (!run.human() && System.nanoTime() < deadline) {
+                host.frame();
+                Thread.onSpinWait();
+            }
+            assertTrue(run.human(), "the answer landed and the person has the wait");
             assertTrue(host.untilOpen(FRAMES));
-            assertTrue(run.human());
             assertEquals(1, run.waitIndex());
             assertEquals(1, brain.calls.get());
         }

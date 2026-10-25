@@ -709,3 +709,12 @@ Story 5.8 makes the change of hands a thing a Run does at an Input wait, using t
 - **Known limit**: a tap in the first frames after a Search is cleared by the game when the search animation ends
   (`Hero.onOperateComplete`), and how many frames pass is the driver's. Searches followed at once by a tap do not
   replay across drivers; this is part of story 5.13's non-reproducibility of an Overlay Run's frames.
+- **A reused shadow is in the log twice, on purpose.** The shadow of wait k is written while the person plays it,
+  as every shadow is (`skipped` false). If the hand back lands on that same wait and keeps the answer as its
+  Decision, the executed `wait` record for k carries the same Decision. A reader that wants the Decisions that
+  were executed reads the `wait` records; the `shadow` records are what the Brain thought while a person played.
+  A stale drop of the reused answer rewinds the Brain to the mark taken before it saw the wait, so asking again
+  updates its Belief from that Observation once.
+- **A broken Brain is not hidden by a takeover.** A Brain that throws anything but `CannotDecide` while its
+  answer is taken as a shadow fails the Run, as at its own wait. After a hand back the watchdog guards it again
+  in a Run that began as the Brain's; a Run that began as a person's (`--agent human`) has none, as before.
