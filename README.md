@@ -126,6 +126,10 @@ E5 (the Overlay) so far:
   longer leaves its profile folder in the temp directory (#191).
 - Fix since: the chasm test no longer fails on a slow CI machine; it waits for
   the Brain's worker instead of racing it (#193).
+- Tooling: two opt-in tools replay a Run log wait by wait and dump what the
+  Brain saw beside what the game really held, for diagnosis only; an ArchUnit
+  test keeps the true game state away from the Brain (#195). See
+  `docs/methodology.md`.
 - Next: the controls (5.5-5.8), with bestiary-driven Brain changes in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
