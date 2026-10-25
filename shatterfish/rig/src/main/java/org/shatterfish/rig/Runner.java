@@ -880,12 +880,14 @@ public final class Runner {
             command.add(RunOne.REGISTRATION);
             command.add(registration);
         }
-        return new ProcessBuilder(command)
+        ProcessBuilder builder = new ProcessBuilder(command)
                 // Its own working directory, so a Run that writes beside itself writes beside
                 // itself and not beside another Run (AD-6).
                 .directory(working.toFile())
-                .redirectErrorStream(true)
-                .start();
+                .redirectErrorStream(true);
+        // The debug record is opt-in (issue #219); a child writes it when this process was asked to.
+        org.shatterfish.harness.log.DebugRecord.inherit(builder);
+        return builder.start();
     }
 
     /** The most of a child's output the parent will hold: a looping child must not fill the heap. */
