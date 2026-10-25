@@ -53,7 +53,8 @@ public final class DebugRecord implements AutoCloseable {
     /** The file's suffix, after the Run log's stem. */
     public static final String SUFFIX = ".debug.ndjson";
 
-    private final OutputStream out;
+    /** Null once the file could not be opened or written: the record is best effort, a Run is not. */
+    private OutputStream out;
 
     private List<String> previousLog = List.of();
 
@@ -70,14 +71,20 @@ public final class DebugRecord implements AutoCloseable {
         return runLog.resolveSibling(stem + SUFFIX);
     }
 
-    /** Opens the file beside {@code runLog}; like the log it refuses to overwrite one. */
+    /**
+     * Opens the file beside {@code runLog}, replacing one a former Run left. It is best effort: a
+     * record that cannot be opened or written is dropped with a note on standard error, because a Run
+     * must end the way it would have ended without it (issue #219) -- unlike the log, which is the
+     * evidence and refuses to overwrite.
+     */
     public static DebugRecord open(Path runLog) {
         Path file = beside(runLog);
         try {
-            return new DebugRecord(Files.newOutputStream(file, StandardOpenOption.CREATE_NEW,
-                    StandardOpenOption.WRITE));
-        } catch (IOException e) {
-            throw new UncheckedIOException("the debug record " + file + " could not be opened", e);
+            return new DebugRecord(Files.newOutputStream(file, StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE));
+        } catch (IOException | RuntimeException e) {
+            System.err.println("the debug record " + file + " could not be opened, and this Run goes without: " + e);
+            return new DebugRecord(null);
         }
     }
 
@@ -86,6 +93,17 @@ public final class DebugRecord implements AutoCloseable {
      * loop recorded of it; nothing is returned.
      */
     public void wait(Observation observation, RunLog.Wait wait) {
+        if (out == null) {
+            return;
+        }
+        try {
+            line(observation, wait);
+        } catch (RuntimeException failed) {
+            drop(failed);
+        }
+    }
+
+    private void line(Observation observation, RunLog.Wait wait) {
         last = observation;
         List<String> now = new ArrayList<>();
         for (LogLine line : observation.log().lines()) {
@@ -159,6 +177,27 @@ public final class DebugRecord implements AutoCloseable {
      * saw any); {@code killer} is {@link #killerSince}, or empty for an ending that is not a death.
      */
     public void end(String cause, int depth, long turns, String killer) {
+        if (out == null) {
+            return;
+        }
+        try {
+            ending(cause, depth, turns, killer);
+        } catch (RuntimeException failed) {
+            drop(failed);
+        }
+    }
+
+    private void drop(RuntimeException failed) {
+        System.err.println("the debug record stops here and this Run goes on without it: " + failed);
+        try {
+            close();
+        } catch (RuntimeException ignored) {
+            // The file is being given up on; a second failure to close it says nothing more.
+        }
+        out = null;
+    }
+
+    private void ending(String cause, int depth, long turns, String killer) {
         JsonWriter json = new JsonWriter().beginObject();
         json.key("t").value("end");
         json.key("cause").value(cause);
@@ -204,10 +243,14 @@ public final class DebugRecord implements AutoCloseable {
     /** The games recorded in the game's rankings now, so that a death can be told from an old one. */
     public static Set<String> rankingsNow() {
         Set<String> ids = new HashSet<>();
-        if (Rankings.INSTANCE.records != null) {
-            for (Rankings.Record record : Rankings.INSTANCE.records) {
-                ids.add(record.gameID);
+        try {
+            if (Rankings.INSTANCE.records != null) {
+                for (Rankings.Record record : Rankings.INSTANCE.records) {
+                    ids.add(record.gameID);
+                }
             }
+        } catch (RuntimeException unreadable) {
+            // The rankings are only read for the killer; without them the killer is "unknown".
         }
         return ids;
     }
@@ -218,12 +261,16 @@ public final class DebugRecord implements AutoCloseable {
      * "unknown" when the death left no new record.
      */
     public static String killerSince(Set<String> before) {
-        if (Rankings.INSTANCE.records != null) {
-            for (Rankings.Record record : Rankings.INSTANCE.records) {
-                if (!before.contains(record.gameID) && record.cause != null) {
-                    return record.cause.getName().substring(record.cause.getName().lastIndexOf('.') + 1);
+        try {
+            if (Rankings.INSTANCE.records != null) {
+                for (Rankings.Record record : Rankings.INSTANCE.records) {
+                    if (!before.contains(record.gameID) && record.cause != null) {
+                        return record.cause.getName().substring(record.cause.getName().lastIndexOf('.') + 1);
+                    }
                 }
             }
+        } catch (RuntimeException unreadable) {
+            // Falls through to unknown.
         }
         return "unknown";
     }
@@ -240,6 +287,9 @@ public final class DebugRecord implements AutoCloseable {
 
     @Override
     public void close() {
+        if (out == null) {
+            return;
+        }
         try {
             out.close();
         } catch (IOException e) {

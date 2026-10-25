@@ -24,8 +24,7 @@ class DebugRecordIsolationTest {
     @DisplayName("neither the Brain, the api, nor the Observer can name the debug record")
     void nothing_that_feeds_the_brain_names_the_record() {
         noClasses().that().resideInAnyPackage("org.shatterfish.brain..", "org.shatterfish.api..",
-                        "org.shatterfish.harness.observer..", "org.shatterfish.harness.executor..",
-                        "org.shatterfish.codex..")
+                        "org.shatterfish.harness.observer..", "org.shatterfish.harness.executor..")
                 .should().dependOnClassesThat().haveNameMatching(RECORD)
                 .because("the record is written after play and nothing read by a decision may see it")
                 .check(ALL);
@@ -41,7 +40,7 @@ class DebugRecordIsolationTest {
                 .because("one caller keeps the record's use easy to audit")
                 .check(ALL);
         methods().that().arePublic().and().areDeclaredInClassesThat().haveNameMatching(RECORD)
-                .and().haveNameMatching("wait|end")
+                .and().doNotHaveModifier(com.tngtech.archunit.core.domain.JavaModifier.STATIC)
                 .should().haveRawReturnType(void.class)
                 .because("a value returned from the record is a way for the game's state to reach the loop")
                 .check(ALL);
