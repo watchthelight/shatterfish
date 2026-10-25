@@ -47,8 +47,8 @@ public final class Brain {
     /** The Policies, highest priority first, fighting by {@code knowledge} and scoring by {@code evaluation}. */
     private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation) {
         return List.of(Policies.answerPrompt(knowledge), new Heal(knowledge), new Fight(knowledge), new Eat(knowledge),
-                new TestItem(knowledge), new Pickup(evaluation, knowledge), new Equip(evaluation, knowledge),
-                new Descend(knowledge),
+                new TestItem(knowledge), new Pickup(evaluation, knowledge), new Chests(evaluation, knowledge),
+                new Equip(evaluation, knowledge), new Descend(knowledge),
                 new Explore(knowledge), Policies.fallback(evaluation));
     }
 
@@ -160,7 +160,7 @@ public final class Brain {
     /** The names of the Policies every Brain arbitrates, highest priority first. */
     public static List<String> policyNames() {
         return List.of(Policies.ANSWER_PROMPT, Heal.NAME, Fight.NAME, Eat.NAME, TestItem.NAME, Pickup.NAME,
-                Equip.NAME, Descend.NAME, Explore.NAME, Policies.FALLBACK);
+                Chests.NAME, Equip.NAME, Descend.NAME, Explore.NAME, Policies.FALLBACK);
     }
 
     /** The Policies, highest priority first, by name. */
