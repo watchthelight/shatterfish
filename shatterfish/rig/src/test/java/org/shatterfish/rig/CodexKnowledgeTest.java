@@ -77,10 +77,30 @@ class CodexKnowledgeTest {
         assertEquals(25, crab.ht());
         Codex.Threat goo = knowledge.threat("Goo");
         assertEquals(100, goo.ht(), "Goo's hit points stand (Goo.java:54)");
-        assertEquals(java.util.List.of("attack", "damage", "defense"), goo.unknown(),
-                "its attack and damage are computed at run time, and its evasion is its own rule");
         assertEquals(2, goo.drMax(), "its damage reduction the Codex read, 0-2");
         assertTrue(knowledge.immovable().containsAll(java.util.List.of("rot lasher", "rot heart", "DM-201")), knowledge.immovable().toString());
+    }
+
+    @Test
+    @DisplayName("Goo's attack and damage are the Codex's, not the Brain's fallback guess (#219)")
+    void goo_figures() {
+        Codex.Threat goo = read().threat("Goo");
+        assertEquals(java.util.List.of("defense"), goo.unknown(),
+                "only its evasion is its own rule; the attack and damage are measured (Goo.java:67-89)");
+        assertEquals(10, goo.attack(), "calm accuracy (Goo.java:82)");
+        assertEquals(1, goo.damageMin(), "calm damage 1-8 (Goo.java:68-69)");
+        assertEquals(8, goo.damageMax());
+        // Enraged at half health (Goo.java:69, 83), pumped x2 accuracy and x3 damage (Goo.java:71, 86).
+        assertEquals(List.of("calm", "enraged", "pumped", "enraged pumped"), goo.forms().stream().map(Codex.Form::name).toList());
+        assertEquals(15, goo.form("enraged").attack());
+        assertEquals(1, goo.form("enraged").damageMin());
+        assertEquals(12, goo.form("enraged").damageMax());
+        assertEquals(20, goo.form("pumped").attack());
+        assertEquals(3, goo.form("pumped").damageMin());
+        assertEquals(24, goo.form("pumped").damageMax());
+        assertEquals(30, goo.form("enraged pumped").attack());
+        assertEquals(3, goo.form("enraged pumped").damageMin());
+        assertEquals(36, goo.form("enraged pumped").damageMax());
     }
 
     @Test

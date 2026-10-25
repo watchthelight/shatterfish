@@ -9,7 +9,7 @@ Every concrete mob class of the game with its hit points, defense skill, experie
 level, alignment, properties, loot and the three rolls as cited expressions, and its variants by
 depth and by challenge -- the depth-scaled mobs and the Stronger Bosses variants (story 2.2).
 
-[`codex/v4.0.2/mobs.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/mobs.json) holds 129 entries in 172.8 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+[`codex/v4.0.2/mobs.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/mobs.json) holds 129 entries in 173.2 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
 An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
 table states beside them is a value, and the values are below.
 
@@ -82,6 +82,13 @@ table states beside them is a value, and the values are below.
 | `draws[]` | object |
 | `draws[].line` | number |
 | `draws[].path` | string |
+| `forms` | list |
+| `forms[]` | object |
+| `forms[].attack` | number |
+| `forms[].condition` | string |
+| `forms[].damageMax` | number |
+| `forms[].damageMin` | number |
+| `forms[].name` | string |
 | `runDependent[]` | string |
 
 ## Citations

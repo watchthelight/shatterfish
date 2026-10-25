@@ -202,12 +202,23 @@ public final class Codex {
      * here are the placeholders), whether the class overrides {@code defenseSkill(Char)} so that
      * the field is not the whole story ({@code customDefense}), the lines where the constructor
      * draws ({@code draws}), hit points, defense skill, experience, maximum level, the three
-     * rolls, the loot, the variants, and the citation of the class's declaration.
+     * rolls, the loot, the variants, the forms (the attack and damage figures the class's own
+     * methods give in the states they branch on, empty for most mobs), and the citation of the
+     * class's declaration.
      */
     public record MobEntry(String className, Alignment alignment, List<String> properties, boolean propertiesRandom,
                            List<String> runDependent, boolean statsSetLater, boolean customDefense, List<Citation> draws,
                            int ht, int defenseSkill, int exp, int maxLvl, Roll damage, Roll attack, Roll dr, Loot loot,
-                           List<Variant> variants, Citation citation) {
+                           List<Variant> variants, List<Form> forms, Citation citation) {
+
+        /** An entry with no forms: a mob whose attack and damage do not branch on a state the table names. */
+        public MobEntry(String className, Alignment alignment, List<String> properties, boolean propertiesRandom,
+                        List<String> runDependent, boolean statsSetLater, boolean customDefense, List<Citation> draws,
+                        int ht, int defenseSkill, int exp, int maxLvl, Roll damage, Roll attack, Roll dr, Loot loot,
+                        List<Variant> variants, Citation citation) {
+            this(className, alignment, properties, propertiesRandom, runDependent, statsSetLater, customDefense, draws, ht,
+                    defenseSkill, exp, maxLvl, damage, attack, dr, loot, variants, List.of(), citation);
+        }
 
         public MobEntry {
             className = Canon.text(className, "mob class name");
@@ -228,7 +239,32 @@ public final class Codex {
             Canon.require(loot != null, "a mob has its loot");
             Canon.require(!loot.random() || !draws.isEmpty(), "random loot cites the draw");
             variants = Canon.positional(variants, "variants");
+            forms = Canon.positional(forms, "forms");
+            Set<String> formNames = new HashSet<>();
+            for (Form form : forms) {
+                distinct(formNames, form.name(), "a form's name");
+            }
+            Canon.require(forms.isEmpty() || forms.get(0).name().equals(Form.CALM), "the first form is the calm one: " + className);
             Canon.require(citation != null, "a mob carries its citation");
+        }
+    }
+
+    /**
+     * The attack skill and damage range a mob's own {@code attackSkill} and {@code damageRoll} give
+     * in one state they branch on, measured by running those methods with the state set. A mob whose
+     * methods read a state (Goo's health and its pump-up) has a form per combination; the first is
+     * the calm one, the state a fresh instance is in. {@code condition} is the source's own test, quoted.
+     */
+    public record Form(String name, String condition, int attack, int damageMin, int damageMax) {
+
+        /** The state a fresh instance is in. */
+        public static final String CALM = "calm";
+
+        public Form {
+            name = Canon.text(name, "form name");
+            condition = Canon.text(condition, "form condition");
+            Canon.require(!name.isEmpty(), "a form is named");
+            Canon.require(attack >= 0 && damageMin >= 0 && damageMin <= damageMax, "a form's figures are figures: " + name);
         }
     }
 
@@ -1518,14 +1554,32 @@ public final class Codex {
      * An enemy's combat figures, by the name the screen shows it under (story 4.7): its hit points,
      * its accuracy and evasion, the range its attack rolls, and the range of the damage it shrugs
      * off, read from the Codex's mob table, and which of those figures the table could not read
-     * ({@link #UNKNOWN_FIGURES}): a figure computed at run time (Goo's attack and damage) is
-     * {@code "attack"} or {@code "damage"} or {@code "dr"}, zero here, and an evasion that is the
+     * ({@link #UNKNOWN_FIGURES}): a figure computed at run time and not measured in forms (the
+     * brute's rage, a piranha's depth) is {@code "attack"} or {@code "damage"} or {@code "dr"}, zero
+     * here; a figure that branches on a state the player sees (Goo: {@code forms}, issue #219) is
+     * the calm form's here and each state's in {@link #forms}. An evasion that is the
      * enemy's own rule (a great crab's parry, a monk's) is {@code "defense"}, kept here as the table's
      * figure. An enemy whose hit points are set at run time is not listed. When two enemy classes share
      * a display name, the first in the Codex's order is listed; at v4.0.0 no two do.
      */
     public record Threat(String name, int ht, int attack, int defense, int damageMin, int damageMax, int drMin, int drMax,
-                         List<String> unknown) {
+                         List<String> unknown, List<Form> forms) {
+
+        /** A threat with no forms but the figures it states. */
+        public Threat(String name, int ht, int attack, int defense, int damageMin, int damageMax, int drMin, int drMax,
+                      List<String> unknown) {
+            this(name, ht, attack, defense, damageMin, damageMax, drMin, drMax, unknown, List.of());
+        }
+
+        /** The form named {@code form}, or null when the Codex has none of that name. */
+        public Form form(String form) {
+            for (Form candidate : forms) {
+                if (candidate.name().equals(form)) {
+                    return candidate;
+                }
+            }
+            return null;
+        }
 
         /** The figures a Threat can say it does not know. */
         public static final List<String> UNKNOWN_FIGURES = List.of("attack", "damage", "defense", "dr");
@@ -1537,6 +1591,7 @@ public final class Codex {
             Canon.require(damageMin >= 0 && damageMin <= damageMax && drMin >= 0 && drMin <= drMax,
                     "an enemy's ranges are ranges: " + name);
             unknown = Canon.positional(unknown, "unknown figures");
+            forms = Canon.positional(forms, "forms");
             for (String figure : unknown) {
                 Canon.require(UNKNOWN_FIGURES.contains(figure), "not a figure: " + figure);
             }

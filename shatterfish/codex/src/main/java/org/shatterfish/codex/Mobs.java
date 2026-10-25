@@ -330,7 +330,7 @@ final class Mobs {
                 runDependent.contains("ht") ? 0 : base.HT, runDependent.contains("defenseSkill") ? 0 : base.defenseSkill,
                 runDependent.contains("exp") ? 0 : base.EXP, runDependent.contains("maxLvl") ? 0 : base.maxLvl,
                 roll(root, type, DAMAGE), roll(root, type, ATTACK), dr(root, type), loot,
-                variants, body.citation(body.from() == 0 ? body.declaration(type.getSimpleName()) : body.from()));
+                variants, Forms.of(root, type, make), body.citation(body.from() == 0 ? body.declaration(type.getSimpleName()) : body.from()));
     }
 
     /** A construction under the context, its failure naming the class, the depth and the challenge. */
