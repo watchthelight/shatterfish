@@ -91,8 +91,13 @@ final class PanelDock {
 
     /** A HUMAN Run's shadow for the Decision card (story 5.9), or null for a Brain's Run. */
     static DecisionCardContent.Shadow shadow(EmbeddedRun.Snapshot snapshot) {
-        if (snapshot == null || snapshot.human() == null) {
+        if (snapshot == null) {
             return null;
+        }
+        if (snapshot.human() == null) {
+            // A Run that was a person's and is the Brain's again (issue #220): the notice outlives HUMAN mode.
+            EmbeddedRun.Unverifiable lost = snapshot.unverifiable();
+            return lost == null ? null : DecisionCardContent.Shadow.noticeOnly(lost.from(), lost.why());
         }
         EmbeddedRun.Human human = snapshot.human();
         return new DecisionCardContent.Shadow(human.shadowCurrent(), human.unverifiableFrom(), human.unverifiableWhy());

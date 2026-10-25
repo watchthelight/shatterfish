@@ -7,3 +7,5 @@ differently on a holiday and two Runs of one tuple hash differently by date, aga
 5. Predates the Observer; nothing in the harness pins the holiday. The clean fix is a pinned holiday
 in the Profile (story 1.15) or a hook that lets the harness fix the date; `Blandfruit` and the
 other holiday-dressed sprites are the same question.
+
+Resolved in issue #139: `RunStatics.reset()` pins `Holiday.cached` to `NONE` at every Run start, by the same reflection the other leftover statics use; no upstream file changes.

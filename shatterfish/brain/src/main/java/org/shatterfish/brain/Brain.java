@@ -416,7 +416,7 @@ public final class Brain {
                     "no Policy offered a Choice among " + offered.size() + " Actions");
         }
         if (trapped && unengaged && chosen.action() instanceof Action.Step step
-                && Traps.unsearched(observation, memory, step.cell()) && offered.contains(new Action.Search())) {
+                && Traps.unsearched(observation, memory, step.cell()) && offered.contains(new Action.Search()) && Explore.searchReaches(observation)) {
             // The Step the Policy chose is kept as the first alternative, and taken after the search.
             alternatives.removeIf(other -> other.action().equals(new Action.Search()));
             alternatives.add(0, chosen);

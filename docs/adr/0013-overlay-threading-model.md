@@ -716,5 +716,19 @@ Story 5.8 makes the change of hands a thing a Run does at an Input wait, using t
   A stale drop of the reused answer rewinds the Brain to the mark taken before it saw the wait, so asking again
   updates its Belief from that Observation once.
 - **A broken Brain is not hidden by a takeover.** A Brain that throws anything but `CannotDecide` while its
-  answer is taken as a shadow fails the Run, as at its own wait. After a hand back the watchdog guards it again
-  in a Run that began as the Brain's; a Run that began as a person's (`--agent human`) has none, as before.
+  answer is taken as a shadow fails the Run, as at its own wait. After a hand back the watchdog guards it again,
+  in every Run (see the story 5.9 completion below).
+
+## Amendment: story 5.9 completed (2026-10-25): the notice and the watchdog outlive HUMAN mode
+
+Found by the fairness review of story 5.8 (issue #220), settled with the rest of story 5.9.
+
+- **The unverifiable mark is not a part of HUMAN mode.** `EmbeddedRun.Snapshot` gains `unverifiable`
+  (`EmbeddedRun.Unverifiable(from, why)`), set whenever the Run's `HumanTurns` has marked the Run, in HUMAN, PAUSED
+  and RUNNING alike, and null while every wait replays. `snapshot.human() != null` still means exactly "a person
+  plays". The Panel's Decision card shows "replay unverifiable from wait k: why" from `unverifiable` after a hand back,
+  as the card of a Brain's own Run (not greyed, no headline of a shadow, no Panel blocker): the mark is a fact of the
+  log, which the `end` record also states (`verifiable` false).
+- **Every Run has a watchdog.** Its predicate already ignores a person's turns (`!humanMode`), and a hand back restarts
+  its clock (`served()`), so a Run that began as a person's is guarded from the hand back on, and a long wait while
+  the person plays is no freeze (issue #175).

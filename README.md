@@ -171,8 +171,15 @@ E5 (the Overlay) so far:
   the Brain resumes paused, with a fresh Decision for the screen in front of it (#221).
 - CI can run on a self-hosted runner behind a repository variable; it measured slower than
   GitHub's runners while the machine was busy, so it is off (#222, docs/tooling.md).
-- Next: the rest of 5.9 (recording human turns and the shadow Decision), with Brain changes in
-  parallel.
+- E5.9: a person's turns replay; the "replay unverifiable" notice outlives a hand back and every
+  Run, a person's too, has a watchdog (#224).
+- Rig Runs can write an opt-in debug record beside each Run log (`--debug-record`), for the Goo
+  investigation (#223, #219). The rules index counts are now checked by a test (#225). ADR-0020
+  proposes splitting the Brain's Memory into versioned sections (#226).
+- A search the hero could not see through (blind, shadowmelded, a dark floor) no longer counts
+  as covering the ground (#227). Every Run pins the game's holiday to none, so a seeded Run no
+  longer depends on the date (#228).
+- Next: map highlights (5.10) and hotkeys (5.11), with Brain changes in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:

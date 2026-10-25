@@ -113,7 +113,7 @@ development_status:
   5-6-the-controls-row-and-the-enablement-matrix: done
   5-7-the-speed-modes-and-the-stepping-unit: done
   5-8-take-over-and-hand-back: done
-  5-9-recording-human-turns-and-the-shadow-decision: in-progress  # slice merged in #176 (whole-Run HUMAN mode); the takeover half is built with 5.8
+  5-9-recording-human-turns-and-the-shadow-decision: done  # PR for issue #154 (also closes #220); the slice merged in #176, the takeover half in #221
   5-10-map-highlights: backlog
   5-11-hotkeys-as-game-actions: backlog
   5-12-oracle-marking-in-the-overlay: backlog

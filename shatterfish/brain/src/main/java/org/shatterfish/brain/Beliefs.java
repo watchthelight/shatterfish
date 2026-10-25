@@ -159,13 +159,14 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         // still hero means depends on what the Brain last handed over (story 4.7): after a Step, the
         // Step was refused, and the streak of refusals grows, on a calm screen or not -- a Step the
         // game refuses in a fight spends no time either, and would be handed over again forever
-        // (story 4.12); after a Search, on a calm screen or not (issue #184), the spot was searched. After anything else
+        // (story 4.12); after a Search, on a calm screen or not (issue #184), the spot was searched, so far as the hero could see it (#205). After anything else
         // -- an attack, a pick-up, a wait -- standing still is what the Action does, and it counts for
         // neither.
         int branch = observation.header().branch();
         Memory.Spot here = new Memory.Spot(depth, branch, observation.hero().cell());
         boolean still = here.equals(memory.at());
-        List<Memory.Spot> dwelt = still && memory.last().equals(SEARCH)
+        // A search covers only what the hero sees (issue #205): see Explore.searchReaches.
+        List<Memory.Spot> dwelt = still && memory.last().equals(SEARCH) && Explore.searchReaches(observation)
                 ? Memory.with(memory.dwelt(), here) : memory.dwelt();
         // A still hero after a Step is a refusal, unless the screen shows the hero rooted, which refuses
         // every Step until the roots wear off (Hero.java:1822-1825): that says nothing about the cell.
