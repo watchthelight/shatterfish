@@ -94,7 +94,14 @@ public final class ActionExecutor {
             return new Outcome.Rejected(action, Reason.NOT_OFFERED,
                     "the Observation offers " + offered.actions().size() + " Actions and this is not one of them");
         }
-        return apply(hero, action);
+        // The input gate (hook row 9) is open to this call and to nothing else: it shuts a person's input out
+        // while PAUSED, and this is the Run's own input.
+        HeroInputGate.executing();
+        try {
+            return apply(hero, action);
+        } finally {
+            HeroInputGate.executed();
+        }
     }
 
     private Outcome apply(Hero hero, Action action) {

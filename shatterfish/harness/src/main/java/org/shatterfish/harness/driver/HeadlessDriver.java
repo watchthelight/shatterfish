@@ -166,6 +166,9 @@ public final class HeadlessDriver implements AutoCloseable {
         this.scene = scene;
         this.rng = rng;
         this.uiThread = uiThread;
+        // A headless Run has no person at it: a gate left registered by an Overlay Run that was never closed
+        // must not outlive into this one (story 5.5, hook row 9).
+        Hooks.inputGate = null;
         Hooks.inputWait = gate::noticed;
         gate.install();
     }

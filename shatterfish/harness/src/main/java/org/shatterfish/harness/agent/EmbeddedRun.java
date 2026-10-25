@@ -26,6 +26,7 @@ import org.shatterfish.harness.driver.UiRole;
 import org.shatterfish.harness.driver.WaitGate;
 import org.shatterfish.harness.driver.Windows;
 import org.shatterfish.harness.executor.ActionExecutor;
+import org.shatterfish.harness.executor.HeroInputGate;
 import org.shatterfish.harness.executor.Outcome;
 import org.shatterfish.harness.observer.GameLogListener;
 import org.shatterfish.harness.rng.RngControl;
@@ -174,6 +175,8 @@ public final class EmbeddedRun implements AutoCloseable {
     private final int turnCap;
     private final WaitGate gate = new WaitGate();
     private final ActionExecutor executor = new ActionExecutor();
+    /** Shuts a person's click and held key out of the hero unless this Run is the person's (story 5.5, hook row 9). */
+    private final HeroInputGate inputGate = new HeroInputGate();
     private final ExecutorService worker;
     private final Thread uiThread;
     private final boolean claimedTheRole;
@@ -362,6 +365,7 @@ public final class EmbeddedRun implements AutoCloseable {
             }
             EmbeddedRun run = new EmbeddedRun(host, rng, brain, observer, log,
                     logging != null && logging.oracle(), turnCap, ui, claimed);
+            run.inputGate.humanInput(human);
             if (human) {
                 // The whole Run is the person's, stated once before the first wait (ADR-0011's mode record).
                 RunLog.Mode mode = new RunLog.Mode(0, "HUMAN", HUMAN_SPEED);
@@ -392,6 +396,7 @@ public final class EmbeddedRun implements AutoCloseable {
                 // A HUMAN Run that failed to attach leaves no listener behind for the next Run to be heard by.
                 Hooks.heroInput = null;
             }
+            Hooks.inputGate = null;
             if (log != null) {
                 log.close();
             }
@@ -404,6 +409,7 @@ public final class EmbeddedRun implements AutoCloseable {
 
     private void arm() {
         Hooks.inputWait = inputWait;
+        Hooks.inputGate = inputGate;
         gate.install();
         Hooks.logReplaced = seam;
         // A scene created before the attach was already attached by whoever created it (the
@@ -718,6 +724,20 @@ public final class EmbeddedRun implements AutoCloseable {
         history.add(note, null);
         notes++;
         return true;
+    }
+
+    /**
+     * Whether a person's click and held direction key reach the hero (story 5.5). A HUMAN Run opens it at
+     * attach; every other Run has it shut, which is what PAUSED and RUNNING both mean to the game. The
+     * Run's own executor passes the gate whatever this says. Story 5.6's Pause and 5.8's takeover turn it.
+     */
+    public void humanInput(boolean allowed) {
+        inputGate.humanInput(allowed);
+    }
+
+    /** Whether a person's click and held direction key reach the hero; see {@link #humanInput(boolean)}. */
+    public boolean humanInput() {
+        return inputGate.humanInput();
     }
 
     /** Whether this Run is the person's (story 5.9). */
@@ -1036,6 +1056,9 @@ public final class EmbeddedRun implements AutoCloseable {
             }
             if (Hooks.logReplaced == seam) {
                 Hooks.logReplaced = null;
+            }
+            if (Hooks.inputGate == inputGate) {
+                Hooks.inputGate = null;
             }
             if (human != null && Hooks.heroInput == human) {
                 Hooks.heroInput = null;
