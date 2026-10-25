@@ -116,7 +116,13 @@ final class Heal implements Policy {
         // what gets the hero killed (story 4.13: of 40 Warriors, heroes at 1 to 4 hit points with a
         // known potion held stepped away and died), so the drink comes first and buys the escape.
         boolean low = 1000L * hero.hp() < 334L * hero.ht();
-        if (!low && !Fight.favourable(observation, knowledge, enemies)
+        // Against Goo alone the fight Policy never retreats (Goo.engage), so a retreat is not worth more than a
+        // drink; but an announced pump the hero can still dodge is worth more than both (issue #219).
+        boolean goo = Goo.alone(enemies) != null;
+        if (goo && Goo.dodge(observation, memory, offered) != null) {
+            return null;
+        }
+        if (!goo && !low && !Fight.favourable(observation, knowledge, enemies)
                 && Fight.retreat(observation, memory, offered, enemies, knowledge) != null) {
             return null;
         }
@@ -181,6 +187,9 @@ final class Heal implements Policy {
      * and never less than their worst single turn; 0 with none. See the class comment.
      */
     static int danger(Observation observation, Codex.Knowledge knowledge, Memory memory) {
+        if (Goo.alone(Fight.enemies(observation, knowledge)) != null) {
+            return Goo.danger(observation.hero());
+        }
         List<ActorView> awake = new ArrayList<>();
         for (ActorView enemy : Fight.enemies(observation, knowledge)) {
             if (enemy.emote() != Emote.SLEEP) {

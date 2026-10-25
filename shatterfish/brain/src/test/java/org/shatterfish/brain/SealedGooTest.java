@@ -114,23 +114,23 @@ class SealedGooTest {
         return whys.stream().filter(why -> why.startsWith("retreat")).count();
     }
     private static boolean fights(List<String> whys) {
-        return whys.stream().anyMatch(why -> why.startsWith("attack") || why.startsWith("cornered"));
+        return whys.stream().anyMatch(why -> why.startsWith("attack") || why.startsWith("cornered") || why.equals("goo: attack"));
     }
 
     @Test
-    @DisplayName("a Goo that stays where it is: the walk away and back stops after SEALED_RETREATS, then the Policy goes to it and fights")
+    @DisplayName("a Goo that stays where it is: no retreat on the sealed floor (issue #219); the Policy holds, then goes to it and fights")
     void commits_to_a_standing_goo() {
         List<String> whys = play(true, false, 5, 1000);
-        assertTrue(retreats(whys) <= Fight.SEALED_RETREATS, "retreats on the sealed floor: " + retreats(whys));
-        assertTrue(retreats(whys) > 0, "the retreat itself is kept: " + whys.subList(0, 30));
+        assertTrue(retreats(whys) == 0, "retreats on the sealed floor: " + retreats(whys));
+        assertTrue(whys.get(0).equals("goo: wait"), "it holds first: " + whys.subList(0, 10));
         assertTrue(fights(whys), "it fights: " + whys.subList(0, 30));
     }
 
     @Test
-    @DisplayName("a Goo that follows: the same bound")
+    @DisplayName("a Goo that follows: the same")
     void commits_to_a_following_goo() {
         List<String> whys = play(true, true, 5, 1000);
-        assertTrue(retreats(whys) <= Fight.SEALED_RETREATS, "retreats: " + retreats(whys));
+        assertTrue(retreats(whys) == 0, "retreats: " + retreats(whys));
         assertTrue(fights(whys), whys.subList(0, 30).toString());
     }
 

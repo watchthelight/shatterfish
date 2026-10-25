@@ -152,4 +152,35 @@ class GooTest {
         Belief belief = memory.belief();
         assertEquals(memory, Memory.of(belief));
     }
+
+    @Test
+    @DisplayName("an awake Goo far off on a sealed floor: the hero holds its ground and lets it come, where it used to retreat (issue #219)")
+    void holds_for_goo() {
+        Observation far = screen(List.of("You see Goo."),
+                "##########",
+                "#.@....r.#",
+                "#........#",
+                "##########");
+        Observation sealed = far;
+        Brain.Decided decided = new Brain(Screens.CODEX, Screens.WEIGHTS, 5L).decide(sealed, Beliefs.fold(Memory.START, sealed, Screens.CODEX).belief());
+        assertEquals("goo: wait", decided.decision().chosen().why(), decided.decision().toString());
+    }
+
+    @Test
+    @DisplayName("a dodge takes the Step with a way on: of the two cells two from Goo, the one that is a pocket is not taken (issue #219)")
+    void dodge_leaves_room() {
+        Observation pumped = screen(List.of("You see Goo.", Goo.PUMP),
+                "########",
+                "#..r...#",
+                "#..@...#",
+                "#......#",
+                "####..##",
+                "########");
+        Memory memory = Beliefs.fold(Memory.START, pumped, Screens.CODEX);
+        Brain.Decided decided = new Brain(Screens.CODEX, Screens.WEIGHTS, 5L).decide(pumped, memory.belief());
+        assertEquals("dodge: pump", decided.decision().chosen().why(), decided.decision().toString());
+        int width = pumped.map().width();
+        int pocket = 2 + 3 * width;
+        assertNotEquals(pocket, ((Action.Step) decided.action()).cell(), "the pocket under the hero's left has no cell three from Goo");
+    }
 }
