@@ -137,6 +137,10 @@ E5 (the Overlay) so far:
 - Fix since: the Brain no longer takes a Step out of an avoided region that
   makes the walk out longer, which it used to undo the next turn; oscillating
   Steps on the tuning set fell from 312 to 289 (#199, for #165).
+- Fix since: the Brain opens chests and remains when it can afford a mimic
+  or a wraith, and opens a tomb only from a corridor; on the tuning set
+  15 of 40 Warriors now reach depth 5, against 10 before, and 9 kill Goo
+  (#204, for #181).
 - Next: the controls (5.5-5.8), with bestiary-driven Brain changes in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
