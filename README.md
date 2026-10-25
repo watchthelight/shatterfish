@@ -179,7 +179,9 @@ E5 (the Overlay) so far:
 - A search the hero could not see through (blind, shadowmelded, a dark floor) no longer counts
   as covering the ground (#227). Every Run pins the game's holiday to none, so a seeded Run no
   longer depends on the date (#228).
-- Next: map highlights (5.10) and hotkeys (5.11), with Brain changes in parallel.
+- E5.10: the pending Decision's target (and path, once a Policy plans one) is outlined on the
+  dungeon itself in the game's own blocks (#231).
+- Next: hotkeys (5.11) and oracle marking (5.12), with the Goo work (#219) in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:
