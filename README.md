@@ -147,6 +147,11 @@ Seed set:
 About 1% of decisions are left to chance. It still dies on nearly every `smoke`
 Run; the Goo gate (story 4.14) is where E4 is judged.
 
+Those rows were measured at v4.0.0. Since the upgrade to v4.0.2 (#196) the same
+seeds build different dungeons, so the numbers start again: on 40 Warriors from
+`standard` the current Brain reaches depth 5 in 10 Runs and kills Goo in 7
+(`docs/results/2026-10-25-feb88de55.md`).
+
 ## The four parts
 
 | Part | What it is | Status |
