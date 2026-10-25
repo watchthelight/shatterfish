@@ -115,6 +115,16 @@ public final class EmbeddedRun implements AutoCloseable {
             return false;
         }
 
+        /**
+         * Whether a Brain that throws, or offers no Action, is answered with a wait and a pause rather than
+         * the end of the Run (story 5.15, UX-DR7's Brain error and No valid action rows). The Overlay does:
+         * a person is at the window and the game must never crash because of the Brain. By default a Brain
+         * error or an empty answer ends the Run, as the headless loop ends it, so the Rig counts them.
+         */
+        default boolean recoversFromBrainTrouble() {
+            return false;
+        }
+
         /** Whether a game controller is connected now, stated in the Run's log header (story 5.2). */
         default boolean controllerConnected() {
             return ControllerHandler.isControllerConnected();
@@ -158,13 +168,23 @@ public final class EmbeddedRun implements AutoCloseable {
      *                 executed, waiting for a press (story 5.7); false when it is the last one executed
      * @param ending how the Run ended and where its log is, once {@code state} is {@link State#ENDED}
      *               (story 5.14); null while it plays
+     * @param trouble the Brain's trouble at the wait the {@code decision} is for, or null (story 5.15)
      */
     public record Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state,
                            BeliefSummary beliefSummary, List<BoundedLog.Entry> history, Human human,
-                           boolean awaiting, Unverifiable unverifiable, List<Integer> highlights, RunEnding ending) {
+                           boolean awaiting, Unverifiable unverifiable, List<Integer> highlights, RunEnding ending,
+                           Trouble trouble) {
 
         public Snapshot {
             highlights = highlights == null ? List.of() : List.copyOf(highlights);
+        }
+
+        /** A snapshot of a Run with no Brain trouble to show (story 5.14's shape). */
+        public Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state,
+                        BeliefSummary beliefSummary, List<BoundedLog.Entry> history, Human human,
+                        boolean awaiting, Unverifiable unverifiable, List<Integer> highlights, RunEnding ending) {
+            this(decision, turn, floor, observation, state, beliefSummary, history, human, awaiting, unverifiable,
+                    highlights, ending, null);
         }
 
         /** A snapshot of a Run that has not ended (story 5.10's shape). */
@@ -226,8 +246,61 @@ public final class EmbeddedRun implements AutoCloseable {
     public record Unverifiable(long from, String why) {
     }
 
-    private record Decided(Action action, long thinkMs) {
+    /** The two ways a Brain can fail to decide (UX-DR7), which the Overlay answers with a wait. */
+    public enum TroubleKind {
+        /** The Brain threw. */
+        BRAIN_ERROR,
+        /** The Brain offered no Action. */
+        NO_VALID_ACTION
     }
+
+    /** The card text of a Brain that offered nothing (EXPERIENCE.md, State Patterns). */
+    public static final String NO_VALID_ACTION_TEXT = "no valid action; waiting";
+
+    /** After this many in a row, a Brain that offers nothing pauses the Run (EXPERIENCE.md, State Patterns). */
+    public static final int NO_VALID_ACTIONS_IN_A_ROW = 3;
+
+    /**
+     * A Brain's trouble at a wait (story 5.15), for the Panel and nothing else: never an Observation.
+     *
+     * @param text    the Decision card's words: {@code brain error: <exception class>} or {@link #NO_VALID_ACTION_TEXT}
+     * @param detail  the exception with its message, for the console and the Run log
+     * @param inARow  how many waits in a row ended this way, this one included
+     * @param seq     how many troubles the Run has had; a new number is a new trouble
+     * @param pauses  whether the Run asks the Overlay to enter PAUSED for this trouble
+     */
+    public record Trouble(TroubleKind kind, String text, String detail, int inARow, long seq, boolean pauses) {
+    }
+
+    private record Decided(Action action, long thinkMs, TroubleKind trouble, String detail) {
+
+        Decided(Action action, long thinkMs) {
+            this(action, thinkMs, null, "");
+        }
+    }
+
+    /** The exception with its message bounded to one log line. */
+    private static String troubleDetail(Throwable failure) {
+        String message = String.valueOf(failure.getMessage()).replace('\n', ' ').replace('\r', ' ');
+        if (message.length() > 160) {
+            message = message.substring(0, 160) + "...";
+        }
+        return failure.getClass().getName() + ": " + message;
+    }
+
+    /** The Decision of a wait the Brain failed to decide: a wait, in the Overlay's own words (story 5.15). */
+    private static RunLog.Decision troubleDecision(Trouble trouble) {
+        String why = trouble.detail().isEmpty() ? trouble.text() : trouble.detail();
+        return new RunLog.Decision("waiting", new RunLog.Choice(new Action.Wait(), 0, why), List.of(), List.of(),
+                trouble.text());
+    }
+
+    /** Waits in a row the Brain offered nothing at, and the troubles the Run has had (story 5.15). */
+    private int noValidInARow;
+    private long troubles;
+    /** The trouble of the last served wait, and of the Decision that waits for a credit, for {@link #snapshot()}. */
+    private Trouble lastTrouble;
+    private Trouble withheldTrouble;
 
     private final Host host;
     private final RngControl rng;
@@ -655,6 +728,15 @@ public final class EmbeddedRun implements AutoCloseable {
                             ? deliberator.beliefSummary() : null;
                     withheldHighlights = brain instanceof Deliberator deliberator && answered
                             ? List.copyOf(deliberator.lastHighlights()) : List.of();
+                    withheldTrouble = null;
+                    if (answered && pending.resultNow().trouble() != null) {
+                        // The trouble is shown on the card the moment it lands (story 5.15); it is counted, and
+                        // may pause the Run, only when the wait is served.
+                        withheldTrouble = troubleOf(pending.resultNow(), false);
+                        withheldDecision = troubleDecision(withheldTrouble);
+                        withheldBelief = lastBeliefSummary;
+                        withheldHighlights = List.of();
+                    }
                 }
                 secondsWithoutAWait = 0;
                 return State.PLAYING;
@@ -765,8 +847,22 @@ public final class EmbeddedRun implements AutoCloseable {
             // The clock is read around the decision and nowhere else, and what it measures goes in
             // the one field the chain leaves out, as the headless loop has it.
             long before = System.nanoTime();
-            Action chosen = brain.decide(observation);
-            return new Decided(chosen, (System.nanoTime() - before) / 1_000_000L);
+            Action chosen;
+            try {
+                chosen = brain.decide(observation);
+            } catch (RuntimeException | Error failure) {
+                if (!host.recoversFromBrainTrouble()) {
+                    throw failure;
+                }
+                // The game never crashes because of the Brain (story 5.15): the Decision is a wait.
+                return new Decided(new Action.Wait(), (System.nanoTime() - before) / 1_000_000L,
+                        TroubleKind.BRAIN_ERROR, troubleDetail(failure));
+            }
+            long thinkMs = (System.nanoTime() - before) / 1_000_000L;
+            if (chosen == null && host.recoversFromBrainTrouble()) {
+                return new Decided(new Action.Wait(), thinkMs, TroubleKind.NO_VALID_ACTION, "");
+            }
+            return new Decided(chosen, thinkMs);
         });
     }
 
@@ -928,7 +1024,11 @@ public final class EmbeddedRun implements AutoCloseable {
     }
 
     private void writeMode(String mode, long k) {
-        RunLog.Mode record = new RunLog.Mode(k, mode, requestedSpeed);
+        writeMode(mode, k, requestedSpeed);
+    }
+
+    private void writeMode(String mode, long k, String speed) {
+        RunLog.Mode record = new RunLog.Mode(k, mode, speed);
         if (log != null) {
             log.write(record);
         }
@@ -951,7 +1051,10 @@ public final class EmbeddedRun implements AutoCloseable {
             throw new IllegalStateException("the Brain failed at wait " + k, done.exceptionNow());
         }
         beginHuman(k);
-        if (done.state() == Future.State.SUCCESS) {
+        if (done.state() == Future.State.SUCCESS && done.resultNow().trouble() != null) {
+            // A Brain in trouble has no shadow to keep; the person's turn costs nothing (story 5.15).
+            shadowFailures++;
+        } else if (done.state() == Future.State.SUCCESS) {
             Decided decided = done.resultNow();
             // Read here, on the render thread, after the future is done and with nothing queued behind it, so
             // the Brain still holds the Decision it just made.
@@ -1289,6 +1392,7 @@ public final class EmbeddedRun implements AutoCloseable {
         withheldDecision = null;
         withheldBelief = null;
         withheldHighlights = List.of();
+        withheldTrouble = null;
         if (held && !owed()) {
             // Spent here, once the answer is known to be for the screen in front: a stale answer that is
             // dropped and asked again spent nothing (story 5.7). A Prompt that a paid step opened is part
@@ -1303,7 +1407,7 @@ public final class EmbeddedRun implements AutoCloseable {
             decided = done.resultNow();
         } else {
             Throwable failure = done.state() == Future.State.FAILED ? done.exceptionNow() : null;
-            if (failure instanceof Decider.CannotDecide error) {
+            if (failure instanceof Decider.CannotDecide error && !host.recoversFromBrainTrouble()) {
                 // A Brain that cannot decide says so by throwing, and that is a result to count
                 // (story 4.11), as the headless loop counts it.
                 end(RunOutcome.Cause.BRAIN_ERROR, "at wait " + k + ": " + error.getMessage());
@@ -1316,11 +1420,16 @@ public final class EmbeddedRun implements AutoCloseable {
             end(RunOutcome.Cause.NOTHING_OFFERED, "at wait " + k);
             return;
         }
+        Trouble trouble = decided.trouble() == null ? null : troubleOf(decided, true);
+        if (trouble == null) {
+            noValidInARow = 0;
+        }
+        lastTrouble = trouble;
         waits++;
         lastAction = chosen;
         Outcome result = executor.execute(observation, chosen);
         RunLog.Wait wait = RunLoop.record(log, k, observation, chosen, !(result instanceof Outcome.Rejected),
-                decided.thinkMs(), oracle, brain);
+                decided.thinkMs(), oracle, brain, trouble == null ? null : troubleDecision(trouble));
         // The exact record RunLoop.record built for the file (or would have, with no log): kept here
         // too, bounded, so the Panel's Decision log is a view over it rather than a second list built
         // differently (story 5.4, design note "Decision log source"). Beside it, the pieces of this
@@ -1331,24 +1440,64 @@ public final class EmbeddedRun implements AutoCloseable {
         // thread has a Decision to show without reopening the log (story 5.3): both reads happen on
         // this thread, after the worker's Future is done, which is the happens-before edge over
         // whatever decide() set on its own thread (ADR-0013).
-        lastDecision = brain instanceof Deliberator deliberator ? deliberator.lastDecision() : null;
+        lastDecision = trouble != null ? troubleDecision(trouble)
+                : brain instanceof Deliberator deliberator ? deliberator.lastDecision() : null;
         lastDecisionTurn = pendingTurn;
         lastDecisionFloor = observation.header().depth();
         lastDecisionObservation = observation;
         // What the Brain believes now, for the same reason (story 5.4): read at the same point, after
         // the same Future is done.
-        lastBeliefSummary = brain instanceof Deliberator deliberator ? deliberator.beliefSummary() : null;
+        if (trouble == null) {
+            lastBeliefSummary = brain instanceof Deliberator deliberator ? deliberator.beliefSummary() : null;
+        }
         if (result instanceof Outcome.Rejected rejected) {
             refused++;
-            refusalsInARow++;
             lastRefusal = rejected.reason() + ": " + rejected.detail();
-            if (refusalsInARow >= RunLoop.REFUSALS_IN_A_ROW) {
-                end(RunOutcome.Cause.REFUSED, lastRefusal);
+            if (trouble == null) {
+                // A wait the Overlay chose itself, because the Brain gave none, is not a refusal by the Brain.
+                refusalsInARow++;
+                if (refusalsInARow >= RunLoop.REFUSALS_IN_A_ROW) {
+                    end(RunOutcome.Cause.REFUSED, lastRefusal);
+                }
             }
         } else {
             applied++;
             refusalsInARow = 0;
         }
+        if (trouble != null && trouble.pauses() && outcome == null) {
+            // The log line for a forced pause, beside the wait record that says why (story 5.15).
+            writeMode("PAUSED", k, PAUSED_SPEED);
+        }
+    }
+
+    /** The speed a forced pause names in the log: the Overlay lands in PAUSED with Next Step (EXPERIENCE.md). */
+    public static final String PAUSED_SPEED = "Next Step";
+
+    /**
+     * The trouble a Decision that failed carries. {@code serving} counts it (the in-a-row count and the Run's
+     * own trouble number move only when the wait is served); a display of a Decision still waiting for a
+     * credit counts nothing and never pauses.
+     */
+    private Trouble troubleOf(Decided decided, boolean serving) {
+        if (decided.trouble() == TroubleKind.BRAIN_ERROR) {
+            String text = "brain error: " + simpleName(decided.detail());
+            long seq = serving ? ++troubles : troubles;
+            noValidInARow = serving ? 0 : noValidInARow;
+            return new Trouble(TroubleKind.BRAIN_ERROR, text, decided.detail(), 1, seq, serving);
+        }
+        int inARow = noValidInARow + 1;
+        if (serving) {
+            noValidInARow = inARow;
+        }
+        long seq = serving ? ++troubles : troubles;
+        return new Trouble(TroubleKind.NO_VALID_ACTION, NO_VALID_ACTION_TEXT, "", inARow, seq,
+                serving && inARow >= NO_VALID_ACTIONS_IN_A_ROW);
+    }
+
+    /** The simple class name in {@code detail}'s "fully.qualified.Name: message". */
+    private static String simpleName(String detail) {
+        String name = detail.contains(":") ? detail.substring(0, detail.indexOf(':')) : detail;
+        return name.substring(name.lastIndexOf('.') + 1);
     }
 
     /**
@@ -1613,10 +1762,10 @@ public final class EmbeddedRun implements AutoCloseable {
             // executes. The Observation is the one it was made on, which the Brain was given.
             return new Snapshot(withheldDecision, pendingTurn, pendingObservation.header().depth(),
                     pendingObservation, state(), withheldBelief, history.asList(), null, true, lost,
-                    withheldHighlights);
+                    withheldHighlights, null, withheldTrouble);
         }
         return new Snapshot(lastDecision, lastDecisionTurn, lastDecisionFloor, lastDecisionObservation, state(),
-                lastBeliefSummary, history.asList(), humanPart, false, lost, List.of(), ending);
+                lastBeliefSummary, history.asList(), humanPart, false, lost, List.of(), ending, lastTrouble);
     }
 
     /** The index of the last wait confirmed; 0 before the first. It survives every floor. */

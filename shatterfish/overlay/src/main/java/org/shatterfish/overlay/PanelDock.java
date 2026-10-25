@@ -65,9 +65,19 @@ final class PanelDock {
         Camera.updateAll();
     }
 
+    /**
+     * Whether the Panel belongs on {@code scene} (UX-DR7's No Run row): a play scene with a hero in it. The
+     * title screen, the menus and the loading scenes are no Run, and the Panel is not drawn on them.
+     */
+    static boolean attaches(Scene scene, boolean heroPresent) {
+        return scene instanceof GameScene && heroPresent;
+    }
+
     /** The Panel on {@code scene} if it is a play scene, placed and filled in for this frame, and the offset set. */
     void frame(Scene scene, EmbeddedRun.Snapshot snapshot, boolean inputLocked) {
-        if (!(scene instanceof GameScene)) {
+        if (!attaches(scene, com.shatteredpixel.shatteredpixeldungeon.Dungeon.hero != null)) {
+            // No Run (UX-DR7): the title screen, the menus and the loading scenes show nothing, and the Panel
+            // attaches when a play scene appears with a hero.
             return;
         }
         if (panel == null || panel.parent != scene) {
@@ -102,6 +112,7 @@ final class PanelDock {
         ModeState shownMode = controls == null ? run : controls.view(run);
         highlights(snapshot, shownMode);
         panel.awaiting(snapshot != null && snapshot.awaiting());
+        panel.trouble(snapshot == null || snapshot.trouble() == null ? null : snapshot.trouble().text());
         oracleMarks(scene, snapshot);
         panel.content(shownMode, snapshot == null ? null : snapshot.decision(),
                 snapshot == null ? null : snapshot.observation(), inputLocked,
