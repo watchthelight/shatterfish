@@ -118,6 +118,9 @@ E5 (the Overlay) so far:
 - Fix since: closing the game mid-Run now ends the log with a `CLOSED` record,
   and a watchdog writes every thread's state beside the log when the Overlay goes
   30 seconds without a turn, so a freeze leaves evidence (#175).
+- Housekeeping: Brain rules are keyed by name rather than number, and each
+  idea is its own file under `docs/ideas/`, so parallel branches stop
+  conflicting (#192). CI runs the modules side by side (#188).
 - Next: the controls (5.5-5.8), with bestiary-driven Brain changes in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
