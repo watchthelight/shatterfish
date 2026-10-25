@@ -405,17 +405,17 @@ class RunnerTest {
                 "random", "aaaaaaa", "0".repeat(64));
         org.shatterfish.api.Registration.Brain b = new org.shatterfish.api.Registration.Brain(
                 "random_norest", "abc1234", "0".repeat(64));
-        java.util.function.IntFunction<int[]> base = ignored -> new int[] {50, 50, 20, 500, 500, 600, 250};
+        java.util.function.IntFunction<int[]> base = ignored -> new int[] {50, 50, 20, 500, 500, 600, 100};
         java.util.function.Function<int[], org.shatterfish.api.Registration> build = n ->
                 new org.shatterfish.api.Registration("H-0200-x", "x", a, b, SeedSets.STANDARD, 1, n[0],
-                        n[1], n[2], n[3], 0, "a laptop", false, n[4], n[5], n[6], "GSPRT");
+                        n[1], n[2], n[3], 0, "a laptop", false, n[4], n[5], n[6], "EPROCESS");
 
         assertTrue(Runner.calibrated(build.apply(base.apply(0))), "exactly the calibrated cell");
         // alpha, beta, burn-in, maximum, p0, p1, missing cap: each moved alone.
-        int[][] moved = {{40, 50, 20, 500, 500, 600, 250}, {50, 40, 20, 500, 500, 600, 250},
-                {50, 50, 21, 500, 500, 600, 250}, {50, 50, 20, 499, 500, 600, 250},
-                {50, 50, 20, 500, 490, 600, 250}, {50, 50, 20, 500, 500, 610, 250},
-                {50, 50, 20, 500, 500, 600, 240}};
+        int[][] moved = {{40, 50, 20, 500, 500, 600, 100}, {50, 40, 20, 500, 500, 600, 100},
+                {50, 50, 21, 500, 500, 600, 100}, {50, 50, 20, 499, 500, 600, 100},
+                {50, 50, 20, 500, 490, 600, 100}, {50, 50, 20, 500, 500, 610, 100},
+                {50, 50, 20, 500, 500, 600, 90}};
         for (int[] n : moved) {
             assertFalse(Runner.calibrated(build.apply(n)), java.util.Arrays.toString(n));
         }

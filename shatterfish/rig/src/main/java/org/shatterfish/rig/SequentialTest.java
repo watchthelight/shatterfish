@@ -26,7 +26,7 @@ public interface SequentialTest {
     }
 
     /** The statistic ranked comparisons run: the rule's outcome on the committed calibration. */
-    Statistic GATE = Statistic.GSPRT;
+    Statistic GATE = Statistic.EPROCESS;
 
     /** The test a Registration fixes, in the gate's design. */
     static SequentialTest of(Registration registration) {

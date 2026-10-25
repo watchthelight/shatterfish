@@ -123,6 +123,22 @@ class EProcessTest {
     }
 
     @Test
+    @DisplayName("the gate is the e-process since the v4.0.2 calibration, and the Rig runs the e-process for a Registration")
+    void the_gate_is_the_eprocess() {
+        assertEquals(SequentialTest.Statistic.EPROCESS, SequentialTest.GATE);
+        org.shatterfish.api.Registration.Brain random = new org.shatterfish.api.Registration.Brain(
+                "random", "aaaaaaa", "0".repeat(64));
+        org.shatterfish.api.Registration.Brain other = new org.shatterfish.api.Registration.Brain(
+                "random_norest", "abc1234", "0".repeat(64));
+        org.shatterfish.api.Registration comparison = new org.shatterfish.api.Registration("H-0300-g",
+                "a comparison", random, other, SeedSets.STANDARD, 1, 50, 50, 20, 500, 0, "a laptop",
+                false, 500, 600, 100);
+        assertEquals("EPROCESS", comparison.statistic(), "an unstated statistic is the gate's");
+        assertTrue(SequentialTest.of(comparison) instanceof EProcess);
+        assertTrue(Runner.calibrated(comparison), "the v4.0.2 cell: p1 0.600, burn-in 20, missing cap 0.100");
+    }
+
+    @Test
     @DisplayName("parameters that are not hypotheses, rates or a maximum are refused")
     void refusals() {
         assertThrows(IllegalArgumentException.class, () -> new EProcess(0.6, 0.5, 0.05, 0.05, 10));

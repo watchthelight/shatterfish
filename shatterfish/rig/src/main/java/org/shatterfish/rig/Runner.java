@@ -628,7 +628,7 @@ public final class Runner {
                         + committed.registration().id() + " may accept on " + set + " and states"
                         + " bounds other than the calibrated ones " + Calibration.CHOSEN + " with"
                         + " alpha and beta " + Calibration.ALPHA_PER_MIL + " per mil and a maximum of "
-                        + Calibration.MAXIMUM + "; see docs/results/calibration-v4.0.0.md");
+                        + Calibration.MAXIMUM + "; see docs/results/calibration-v4.0.2.md");
             } else if (baseline != null && !baseline.name().equals(against)) {
                 refusal = new Registrations.Refusal("the Registration "
                         + committed.registration().id() + " compares against the Brain "
