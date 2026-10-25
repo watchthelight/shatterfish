@@ -141,6 +141,10 @@ E5 (the Overlay) so far:
   or a wraith, and opens a tomb only from a corridor; on the tuning set
   15 of 40 Warriors now reach depth 5, against 10 before, and 9 kill Goo
   (#204, for #181).
+- Fix since: near a trap the screen shows, the Brain searches before it steps
+  on ground it has not searched, since a burned room's other traps may be
+  hidden; on top of #204, 39 of 120 Warriors reach depth 5 against 34
+  (#203, for #184).
 - Next: the controls (5.5-5.8), with bestiary-driven Brain changes in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
