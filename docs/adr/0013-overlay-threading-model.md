@@ -734,6 +734,34 @@ Found by the fairness review of story 5.8 (issue #220), settled with the rest of
   its clock (`served()`), so a Run that began as a person's is guarded from the hand back on, and a long wait while
   the person plays is no freeze (issue #175).
 
+## Amendment: story 5.14, run over, save and resume (2026-10-25)
+
+- **The end is read from the game.** `EmbeddedRun.Snapshot` gains `ending` (`RunEnding`: cause, turn, floor, log
+  path). For a death or a win the cause is the ranking record the game added (`Rankings.Record.desc()`), read once
+  after the Run is over and shown on the Panel only; it never reaches an Observation. The Mode strip reads
+  `RUN OVER: killed by Goo, turn 1,842, floor 5` in neutral ink, every control but the Panel toggle is disabled (the
+  matrix already said so), and the Run log path takes the Goal line's slot.
+- **An Ankh is a Prompt.** The window was always a Prompt kind the Brain answers. The loading scene that follows is
+  served by the desktop game itself, so `Host.servesResurrection()` is true in `OverlayGame` and the Run goes on;
+  the headless host and the Rig keep ending there as unserved.
+- **Save and quit writes the boundary.** The game's menu (title scene with a living hero) or a window closed at a
+  wait on the play scene ends the Run as `SUSPENDED`: the log gets `boundary(k, salt, chainAt)` where `k` is the
+  last served wait, and no `end` record. Only an explicit suspend writes it, never `close()`.
+- **Resume continues the log.** `--resume <profile>` reads `shatterfish-resume.txt` (log, `k`, slot, agent, a
+  SHA-256 over the save folder) and the log header, claims the marker by atomic rename, loads the save
+  (`ResumeGame`, the body of `InterlevelScene.restore`), reopens the log for appending so its chain picks up at the
+  boundary line, and sets the gate to `k + 1`. The Run starts PAUSED with Next Step. A save whose digest changed
+  was opened without the launcher: it is not an Overlay Run, and its log ends at the boundary for good.
+- **A resumed Run is unverifiable from its first wait.** The game does not save its log pane or its sprites'
+  emotes, so the first Observation differs from an uninterrupted Run's; the `end` record says `verifiable: false`.
+  Overlay logs are `driver: embedded` and the Rig and Replay refuse them regardless. Per-wait turn and floor
+  match an uninterrupted Run's across a save (`EmbeddedResumeTest`).
+- **The seal is tamper-evidence, not authentication.** The digest and the marker are unkeyed files beside the save,
+  so they detect an accidental or casual change (a save opened and played without the launcher) and not someone
+  who recomputes them. The digest covers the slot's save folder; the Profile-root global files (badges, journal)
+  are not sealed. The fairness review of story 5.14 raised both. A resumed Run's log says it is unverifiable only
+  in its `end` record, and the Rig and Replay refuse `driver: embedded` logs regardless.
+
 ## Amendment: story 5.11 (2026-10-25): hotkeys are the game's actions, heard before the game
 
 - **The controls are `GameAction`s.** `Hotkey` creates six (`shatterfish_next_step`, `_speed`, `_pause_resume`,

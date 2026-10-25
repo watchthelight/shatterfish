@@ -161,14 +161,18 @@ final class Panel extends Component {
         stripArea.active = !inputLocked;
         blocker.active = !inputLocked && ((shadow != null && shadow.person()) || controlState != null);
         stripText.text(ModeStripContent.text(mode));
-        stripText.hardlight(ModeStripContent.color(mode.mode()));
+        stripText.hardlight(ModeStripContent.color(mode));
         boolean full = placed != null && placed.form() == PanelLayout.Form.FULL;
         // The headline "next press executes" is shown only when the Decision on the card is the one the next
         // press executes: the Run is PAUSED and the Decision for its wait has landed, unexecuted (story 5.7).
         // While the Brain thinks, or the Run plays on, the card shows the last Decision executed.
         boolean nextStep = awaiting && mode.mode() == ModeState.Mode.PAUSED;
         float inner = innerWidth();
-        goal.content(full ? decision : null, inner);
+        if (mode.over() && mode.ending() != null && mode.ending().log() != null) {
+            goal.notice("Run log: " + mode.ending().log(), inner);
+        } else {
+            goal.content(full ? decision : null, inner);
+        }
         card.content(full ? decision : null, full ? observation : null, nextStep, inner, shadow);
         flags.content(full && decision != null ? decision.flags() : List.of());
         Set<ControlEnablement.Control> enabled = controlState != null ? controlState.enabled()

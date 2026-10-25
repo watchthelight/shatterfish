@@ -54,14 +54,20 @@ public final class ShatterfishLauncher {
     public static void main(String[] args) {
         LaunchOptions options = LaunchOptions.parse(args);
         long salt = options.salt() != null ? options.salt() : Salt.draw();
-        Path profile = freshProfile(options.profile());
-        boolean madeForThisRun = deletesProfile(options);
+        // A resume claims the suspended Run's marker before anything else is touched (story 5.14).
+        Resumption resumption = options.resuming() ? Resumption.claim(options) : null;
+        Path profile = resumption != null ? options.resume() : freshProfile(options.profile());
+        boolean madeForThisRun = resumption != null ? resumption.marker().temporary() : deletesProfile(options);
         if (madeForThisRun) {
             // The game deletes it at its close; this is for a game that dies without closing (an
             // exception out of a frame skips dispose). The Run's log is elsewhere and is left as a killed
             // Run's is, without an end record, which the reader reports as unfinished (ADR-0012).
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> OverlayGame.deleteQuietly(profile),
-                    "shatterfish-profile-cleanup"));
+            // A Run saved and quit keeps its Profile: the save and the marker are what a resume reads (story 5.14).
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                if (!org.shatterfish.harness.driver.SuspendedSave.present(profile)) {
+                    OverlayGame.deleteQuietly(profile);
+                }
+            }, "shatterfish-profile-cleanup"));
         }
         try {
             java.nio.file.Files.createDirectories(options.out());
@@ -93,7 +99,7 @@ public final class ShatterfishLauncher {
         OracleSidecar sidecar = options.oracle() ? new OracleSidecar() : null;
         new OverlayApplication(new OverlayGame(new DesktopPlatformSupport(), options, preferences, profile,
                 madeForThisRun, salt, OverlayAgents.of(options), observer(options.oracle(), sidecar), sidecar,
-                logging(options, machine())), config);
+                logging(options, machine()), resumption), config);
     }
 
     /** The window's title, which carries the oracle marker, as the Mode strip (story 5.2) and the border (story 5.12) do. */
