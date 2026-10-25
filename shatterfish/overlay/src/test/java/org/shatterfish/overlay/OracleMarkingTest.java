@@ -303,6 +303,14 @@ class OracleMarkingTest {
                 .orShould().callMethod(PanelDock.class, "oracleSidecar", OracleSidecar.class)
                 .because("the launcher's flag, said once in the game's create(), is the only source of oracle mode (FR-43)");
         onlyTheGame.check(mainClasses());
+        // The Panel's own entry points to the label and the rows are the dock's alone.
+        ArchRule onlyTheDock = noClasses().that().resideInAPackage("org.shatterfish.overlay..")
+                .and().doNotHaveFullyQualifiedName(PanelDock.class.getName())
+                .and().doNotHaveFullyQualifiedName(Panel.class.getName())
+                .should().callMethod(Panel.class, "oracle", boolean.class)
+                .orShould().callMethod(Panel.class, "oracleRows", List.class)
+                .because("the dock states the mode once; no other class reaches the label or the oracle rows");
+        onlyTheDock.check(mainClasses());
         // The rule bites: the game does say it.
         ArchRule theGame = noClasses().that().haveFullyQualifiedName(OverlayGame.class.getName())
                 .should().callMethod(PanelDock.class, "oracle", boolean.class);
@@ -320,6 +328,28 @@ class OracleMarkingTest {
         ArchRule bites = noClasses().that().haveFullyQualifiedName(OracleSidecar.class.getName())
                 .should().dependOnClassesThat().haveFullyQualifiedName(OracleView.class.getName());
         assertTrue(bites.evaluate(mainClasses()).hasViolation());
+    }
+
+    @Test
+    @DisplayName("the oracle's read, with its view, is the launcher's alone; the flag and the sidecar go together")
+    void the_read_is_the_launchers_and_the_flag_matches_the_sidecar() {
+        ArchRule rule = noClasses().that().resideInAPackage("org.shatterfish.overlay..")
+                .and().doNotHaveFullyQualifiedName(ShatterfishLauncher.class.getName())
+                .should().dependOnClassesThat().haveFullyQualifiedName(
+                        "org.shatterfish.harness.observer.OracleObserver$Read")
+                .because("a Read carries the view; only the launcher's door may hold one");
+        rule.check(mainClasses());
+        ArchRule bites = noClasses().that().haveFullyQualifiedName(ShatterfishLauncher.class.getName())
+                .should().dependOnClassesThat().haveFullyQualifiedName(
+                        "org.shatterfish.harness.observer.OracleObserver$Read");
+        assertTrue(bites.evaluate(mainClasses()).hasViolation(), "the launcher does hold one");
+
+        LaunchOptions fair = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior"});
+        LaunchOptions oracle = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior", "--oracle"});
+        OverlayGame.requireSidecarMatchesFlag(fair, null);
+        OverlayGame.requireSidecarMatchesFlag(oracle, new OracleSidecar());
+        assertThrows(IllegalArgumentException.class, () -> OverlayGame.requireSidecarMatchesFlag(fair, new OracleSidecar()));
+        assertThrows(IllegalArgumentException.class, () -> OverlayGame.requireSidecarMatchesFlag(oracle, null));
     }
 
     private static JavaClasses mainClasses() {

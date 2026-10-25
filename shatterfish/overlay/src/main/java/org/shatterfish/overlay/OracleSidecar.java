@@ -12,8 +12,8 @@ import org.shatterfish.harness.observer.OracleView;
  * the dock asks for marks once a frame. It is made only for an oracle Run and a fair Run has none, so no code
  * path of a fair Run can reach a hidden fact through it. The view is held beside the exact Observation it was
  * read with, and {@link #marks} answers only for the same screen, so a mark is never
- * drawn for a screen it was not read at: a floor change, a turn on, or a Panel still showing the last wait's
- * screen get nothing rather than a stale enemy. The Brain is never handed this: it takes the Observation
+ * drawn for a screen it was not read at: a floor change, or any turn that moved the hero, an actor or the map,
+ * gets nothing rather than the last screen's enemies. The Brain is never handed this: it takes the Observation
  * alone, and no type the Run log or the Snapshot carries can hold an {@link OracleView}
  * ({@code OracleGateTest}).
  */

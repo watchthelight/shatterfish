@@ -102,12 +102,17 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         this.salt = salt;
         this.brain = brain;
         this.observer = observer;
-        if ((oracleSidecar != null) != options.oracle()) {
-            throw new IllegalArgumentException("the oracle sidecar and the oracle flag go together: flag "
-                    + options.oracle() + ", sidecar " + (oracleSidecar != null));
-        }
+        requireSidecarMatchesFlag(options, oracleSidecar);
         this.oracleSidecar = oracleSidecar;
         this.logging = logging;
+    }
+
+    /** An oracle Run has a sidecar and a fair Run has none (story 5.12); a launcher that says otherwise is refused. */
+    static void requireSidecarMatchesFlag(LaunchOptions options, OracleSidecar sidecar) {
+        if ((sidecar != null) != options.oracle()) {
+            throw new IllegalArgumentException("the oracle sidecar and the oracle flag go together: flag "
+                    + options.oracle() + ", sidecar " + (sidecar != null));
+        }
     }
 
     @Override
