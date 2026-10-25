@@ -63,7 +63,7 @@ class ShatterfishRunTest {
                     log.getFileName() + " ended " + cause + ": " + read.end().detail());
             for (RunLog.Wait wait : read.waits()) {
                 assertNotNull(wait.decision(), "a Brain's wait says why: " + log.getFileName() + " at " + wait.k());
-                assertTrue(List.of("answer-prompt", "heal", "fight", "eat", "test-item", "pick-up", "equip", "explore", "fallback")
+                assertTrue(List.of("answer-prompt", "heal", "fight", "eat", "test-item", "pick-up", "open-chest", "equip", "explore", "fallback")
                         .contains(wait.decision().policy()), wait.decision().policy());
                 // Story 4.10: a test-item wait drinks or reads the appearance its reason names,
                 // plainly, or Steps toward the cell it tests on, or out of its own fire or gas, or
@@ -95,6 +95,12 @@ class ShatterfishRunTest {
                         assertEquals(new org.shatterfish.api.Action.PickUp(), wait.action(), why);
                         assertTrue(why.startsWith("take: "), why);
                     }
+                }
+                // Issue #181: an open-chest wait Steps toward a chest ("chest: N"), clicks onto it from beside it
+                // or opens the one underfoot ("open: chest N").
+                if ("open-chest".equals(wait.decision().policy())) {
+                    assertTrue(wait.decision().chosen().why().matches("chest: [0-9]+|open: chest [0-9]+"),
+                            wait.decision().chosen().why());
                 }
                 if ("equip".equals(wait.decision().policy())) {
                     org.shatterfish.api.Action.UseItem use = (org.shatterfish.api.Action.UseItem) wait.action();
