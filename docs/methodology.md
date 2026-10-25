@@ -789,6 +789,49 @@ decider wrote is printed with control characters as spaces and `|` as `/`, so on
 one line. An unreadable log in a folder is reported and skipped. The claims about the game that the Brain relies on are
 enumerated in [the Brain's Rules index](brain-rules.md).
 
+## Inspecting a Run by hand
+
+Two test-only tools diagnose a Run log. Both are skipped unless the environment variable
+`SF_INSPECT_LOG` names a log, so the ordinary build never runs them. They are oracle tools: they read
+the game's own state, so they are for a person working out why a Run went as it did, and their output
+is never ranked, never enters a Registration, and is never handed to a Brain. The architecture gates
+(`OracleGateTest`, `RigOracleGateTest`, `HarnessPackageAnchorTest`) cover production classes only, so
+these two tests are the declared exception to them, and `RunInspectIsolationTest` holds the one rule
+that matters here.
+
+`RunInspectTest` (in the harness's tests, package `org.shatterfish.brain`, because it reads the Brain's
+package-private Policies) replays the log headlessly and writes `inspect.txt` into `SF_INSPECT_OUT`: for
+every wait, what the Brain saw and why it chose (the heaps on screen with the pick-up verdict on each, the
+doors, the traps in view, the frontier counts, what the explore and pick-up Policies would do) and, on
+lines starting `ORACLE`, what the level really holds (rooms, true heap contents, hidden traps, and a map
+with the Run's path). Do not quote an `ORACLE` line as what the bot saw. The Brain reads the real Codex and
+bestiary, as the Overlay and the Rig build it. The oracle reads live in one nested class, `Oracle`, that is
+never given the Brain, a Belief or an Observation and only writes to the file, so the true state can reach
+a reader and cannot reach the Brain. The replay's own Run log goes to a temporary folder, not to
+`SF_INSPECT_OUT`.
+
+```sh
+SF_INSPECT_LOG=<run log> SF_INSPECT_OUT=<folder> \
+  ./gradlew :harness:test --tests org.shatterfish.brain.RunInspectTest --rerun
+```
+
+`SF_ROOT` is the repository root (default `../..`), `SF_WEIGHTS` a weight set other than the committed one,
+`SF_INSPECT_FOLLOW=no` plays the Brain live instead of following the logged Actions, and
+`SF_INSPECT_FORCE=force` keeps following them past the first divergence (an Overlay log diverges
+headlessly, issue #169).
+
+`InspectRigBrainTest` (in the Rig's tests) plays the log's tuple with the Rig's Brain and writes that Run's
+log under `SF_INSPECT_OUT`, with the Brain named `inspect.rig` (a Brain name allows no hyphen), so an
+Overlay Run can be set beside what the Rig would have done. It needs `SF_ROOT` (the repository root) too.
+Point `SF_INSPECT_OUT` at a folder of its own, never at a Rig folder.
+
+```sh
+SF_ROOT=<repo root> SF_INSPECT_LOG=<run log> SF_INSPECT_OUT=<folder> \
+  ./gradlew :rig:test --tests org.shatterfish.rig.InspectRigBrainTest --rerun
+```
+
+A tool that finds `SF_INSPECT_LOG` set and a required variable missing stops with a message naming it.
+
 ## The direction check
 
 `./gradlew :rig:direction --args="..."` is the table every Brain PR carries. It plays a development

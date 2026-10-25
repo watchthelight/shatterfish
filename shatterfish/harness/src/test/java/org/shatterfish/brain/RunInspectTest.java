@@ -24,6 +24,8 @@ import org.shatterfish.api.Tile;
 import org.shatterfish.api.TrapView;
 import org.shatterfish.api.Weights;
 import org.shatterfish.harness.agent.RunLoop;
+import org.shatterfish.harness.boot.HeadlessBoot;
+import org.shatterfish.harness.knowledge.CodexKnowledge;
 import org.shatterfish.harness.log.Json;
 import org.shatterfish.harness.log.RunLogReader;
 import org.shatterfish.harness.rng.DeciderSeeds;
@@ -57,9 +59,12 @@ import java.util.TreeSet;
  * ({@code inspect.txt}) goes in; {@code SF_WEIGHTS} the weight set (default the committed one);
  * {@code SF_INSPECT_FOLLOW=no} plays the Brain live instead of following the log; {@code SF_INSPECT_FORCE=force}
  * keeps following the logged Actions past the first divergence wherever the screen offers them (an Overlay
- * log diverges headlessly, #169). The Brain is built on an empty Codex, as the Overlay builds it
- * ({@code OverlayAgents}). Run it with
+ * log diverges headlessly, #169). The Brain reads the real Codex and the bestiary beside it, as the
+ * Overlay and the Rig build it ({@code OverlayAgents.knowledge}, {@code CodexKnowledge}): {@code SF_ROOT}
+ * is the repository root (default {@code ../..}, the root seen from the harness's test directory). Run it with
  * {@code ./gradlew :harness:test --tests org.shatterfish.brain.RunInspectTest --rerun}.
+ *
+ * <p>An oracle tool: the dump holds what the level really holds. It is for diagnosis only and never ranked.
  */
 class RunInspectTest {
 
@@ -70,19 +75,24 @@ class RunInspectTest {
     @EnabledIfEnvironmentVariable(named = "SF_INSPECT_LOG", matches = ".+")
     void inspect() throws IOException {
         Path logFile = Path.of(System.getenv("SF_INSPECT_LOG"));
-        Path out = Path.of(System.getenv("SF_INSPECT_OUT"));
+        String outFolder = System.getenv("SF_INSPECT_OUT");
+        if (outFolder == null || outFolder.isBlank()) {
+            throw new IllegalStateException("SF_INSPECT_OUT names the folder the dump goes in, and is not set");
+        }
+        Path out = Path.of(outFolder);
+        Path root = Path.of(System.getenv().getOrDefault("SF_ROOT", "../.."));
         String follow = System.getenv().getOrDefault("SF_INSPECT_FOLLOW", "yes");
         Files.createDirectories(out);
         RunLogReader.Log log = RunLogReader.of(logFile);
         RunLog.Header header = log.header();
-        Weights weights = weights(Path.of(System.getenv().getOrDefault("SF_WEIGHTS", "../../weights/shatterfish.json")));
-        Codex.Knowledge empty = new Codex.Knowledge(new Codex.Manifest(Codex.VERSION, "v4.0.0", List.of("manifest.json")),
-                List.of(), List.of(), List.of());
-        Brain brain = new Brain(empty, weights, DeciderSeeds.brain("shatterfish"));
+        Weights weights = weights(Path.of(System.getenv().getOrDefault("SF_WEIGHTS", root.resolve("weights/shatterfish.json").toString())));
+        Codex.Knowledge knowledge = CodexKnowledge.read(root.resolve("codex").resolve(HeadlessBoot.pinnedTag()),
+                HeadlessBoot.pinnedTag());
+        Brain brain = new Brain(knowledge, weights, DeciderSeeds.brain("shatterfish"));
         try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(out.resolve("inspect.txt"), StandardCharsets.UTF_8))) {
-            Inspector inspector = new Inspector(brain, follow.equals("yes") ? log.waits() : List.of(), w);
+            Inspector inspector = new Inspector(brain, knowledge, follow.equals("yes") ? log.waits() : List.of(), w);
             SeedSet.Entry triple = new SeedSet.Entry(header.seed(), header.heroClass(), header.challenges(), header.seedCode());
-            Path scratch = Files.createTempDirectory(out, "replay");
+            Path scratch = Files.createTempDirectory("sf-inspect-replay");
             var outcome = new RunLoop().playTriple(triple, header.salt(), inspector, 3000,
                     new RunLoop.Logging(scratch, "0".repeat(40), new RunLog.Brain("inspect", "0".repeat(40), "0".repeat(64)),
                             "", "inspect"));
@@ -103,24 +113,26 @@ class RunInspectTest {
 
     static final class Inspector implements Decider {
         final Brain brain;
+        final Codex.Knowledge knowledge;
         final List<RunLog.Wait> waits;
         final PrintWriter w;
+        final Oracle oracle;
         Belief belief;
         int at;
         boolean following;
         boolean force = "force".equals(System.getenv("SF_INSPECT_FORCE"));
         int k;
         int depth = -1;
-        com.shatteredpixel.shatteredpixeldungeon.levels.Level level;
         List<LogLine> lastLines = List.of();
-        String lastOracle = "";
         final Map<Integer, List<Integer>> path = new TreeMap<>();
         final Map<String, String> heapsSeen = new LinkedHashMap<>();
 
-        Inspector(Brain brain, List<RunLog.Wait> waits, PrintWriter w) {
+        Inspector(Brain brain, Codex.Knowledge knowledge, List<RunLog.Wait> waits, PrintWriter w) {
             this.brain = brain;
+            this.knowledge = knowledge;
             this.waits = waits;
             this.w = w;
+            this.oracle = new Oracle(w);
             this.following = !waits.isEmpty();
         }
 
@@ -237,10 +249,8 @@ class RunInspectTest {
             int[] dist = Pickup.distances(map, walk, hero.cell());
             boolean[] open = Explore.walkable(obs, memory, false);
             int[] openDist = Pickup.distances(map, open, hero.cell());
-            Pickup pickup = new Pickup(new Evaluation(brain.weights()),
-                    new Codex.Knowledge(new Codex.Manifest(Codex.VERSION, "v4.0.0", List.of("manifest.json")),
-                            List.of(), List.of(), List.of()));
-            boolean calm = Explore.calm(obs);
+            Pickup pickup = new Pickup(new Evaluation(brain.weights()), knowledge);
+            boolean calm = Explore.calm(obs, knowledge);
             for (HeapView heap : map.heaps()) {
                 StringBuilder s = new StringBuilder("  HEAP " + xy(map, heap.cell()) + " " + heap.kind()
                         + (heap.hidden() ? " hidden" : "") + " '" + heap.item() + "'" + " fog=" + map.fog().get(heap.cell()));
@@ -249,7 +259,7 @@ class RunInspectTest {
                 int dd = heap.cell() < dist.length ? dist[heap.cell()] : -1;
                 s.append(" dist=").append(dd);
                 if (takeable && dd >= 0) {
-                    int turns = dd + 1 + (dd > 0 && Pickup.passiveInView(obs) ? 1 : 0);
+                    int turns = dd + 1 + (dd > 0 && Pickup.passiveInView(obs, knowledge) ? 1 : 0);
                     long net = pickup.worth(heap.item(), obs) + new Evaluation(brain.weights()).turns(turns);
                     s.append(" worth=").append(pickup.worth(heap.item(), obs)).append(" net=").append(net);
                 }
@@ -314,7 +324,7 @@ class RunInspectTest {
                     }
                 }
             }
-            RunLog.Choice explore = new Explore().choose(obs, memory, obs.actions().actions(), null);
+            RunLog.Choice explore = new Explore(knowledge).choose(obs, memory, obs.actions().actions(), null);
             RunLog.Choice pick = pickup.enters(obs, memory) ? pickup.choose(obs, memory, obs.actions().actions(), null) : null;
             long searched = memory.dwelt().stream().filter(spot -> spot.on(obs.header().depth(), obs.header().branch())).count();
             w.println("  FRONTIER reachable=" + reach + " unreachable=" + unreach + " searched=" + searched
@@ -323,10 +333,37 @@ class RunInspectTest {
                     + "  PICKUP " + (pick == null ? "null" : pick.action() + " " + pick.why()));
             w.println("  INV " + obs.inventory().items().stream().map(item -> item.name()
                     + (item.quantity() > 1 ? " x" + item.quantity() : "")).toList());
-            oracle();
+            oracle.tick();
         }
 
-        private void oracle() {
+        void floorStart() {
+            oracle.floorStart();
+        }
+
+        void floorEnd() {
+            oracle.floorEnd(depth, path.get(depth));
+            w.println("  HEAPS SEEN on the screen so far: " + heapsSeen);
+            w.flush();
+        }
+    }
+
+    /**
+     * Every read of the game's own state, and nothing else. It is handed the writer and nothing from the
+     * Brain: no {@code Brain}, no {@code Belief}, no {@code Observation}. It returns nothing to the
+     * {@link Inspector} and only writes to the {@link PrintWriter}, so what the level really holds can
+     * reach a person reading the dump and cannot reach the Brain. The hero's cells, which the Inspector
+     * took from Observations, come in as plain integers, only to mark the path on the map.
+     */
+    static final class Oracle {
+        private final PrintWriter w;
+        private com.shatteredpixel.shatteredpixeldungeon.levels.Level level;
+        private String lastOracle = "";
+
+        Oracle(PrintWriter w) {
+            this.w = w;
+        }
+
+        void tick() {
             StringBuilder s = new StringBuilder("  ORACLE traps:");
             for (Trap trap : Dungeon.level.traps.valueList()) {
                 s.append(" ").append(trap.pos).append(":").append(trap.getClass().getSimpleName())
@@ -356,43 +393,41 @@ class RunInspectTest {
                     @SuppressWarnings("unchecked")
                     List<Room> rooms = (List<Room>) field.get(level);
                     for (Room room : rooms) {
-                        w.println("  ROOM " + room.getClass().getName().replace("com.shatteredpixel.shatteredpixeldungeon.levels.rooms.", "")
+                        w.println("  ORACLE ROOM " + room.getClass().getName().replace("com.shatteredpixel.shatteredpixeldungeon.levels.rooms.", "")
                                 + " x " + room.left + ".." + room.right + " y " + room.top + ".." + room.bottom);
                     }
                 } catch (ReflectiveOperationException e) {
-                    w.println("  rooms: " + e);
+                    w.println("  ORACLE rooms: " + e);
                 }
             }
             for (int cell = 0; cell < level.length(); cell++) {
                 int t = level.map[cell];
                 if (t == Terrain.LOCKED_DOOR || t == Terrain.SECRET_DOOR || t == Terrain.CRYSTAL_DOOR || t == Terrain.DOOR
                         || t == Terrain.BARRICADE) {
-                    w.println("  DOORTILE " + cell + " (" + cell % level.width() + "," + cell / level.width() + ") "
+                    w.println("  ORACLE DOORTILE " + cell + " (" + cell % level.width() + "," + cell / level.width() + ") "
                             + (t == Terrain.LOCKED_DOOR ? "LOCKED_DOOR" : t == Terrain.SECRET_DOOR ? "SECRET_DOOR"
                             : t == Terrain.CRYSTAL_DOOR ? "CRYSTAL_DOOR" : t == Terrain.BARRICADE ? "BARRICADE" : "DOOR"));
                 }
             }
             for (Heap heap : level.heaps.valueList()) {
-                w.println("  HEAPTRUE " + heap.pos + " (" + heap.pos % level.width() + "," + heap.pos / level.width() + ") "
+                w.println("  ORACLE HEAPTRUE " + heap.pos + " (" + heap.pos % level.width() + "," + heap.pos / level.width() + ") "
                         + heap.type + " " + heap.items.stream().map(Item::name).toList()
                         + " " + heap.items.stream().map(item -> item.getClass().getSimpleName()).toList());
             }
             for (Trap trap : level.traps.valueList()) {
-                w.println("  TRAPTRUE " + trap.pos + " (" + trap.pos % level.width() + "," + trap.pos / level.width() + ") "
+                w.println("  ORACLE TRAPTRUE " + trap.pos + " (" + trap.pos % level.width() + "," + trap.pos / level.width() + ") "
                         + trap.getClass().getSimpleName() + (trap.visible ? " visible" : " HIDDEN"));
             }
-            w.println(ascii(false));
+            w.println(ascii(null));
         }
 
-        void floorEnd() {
+        void floorEnd(int depth, List<Integer> path) {
             w.println();
             w.println("######## END OF FLOOR " + depth + " (ORACLE map, path marked *)");
-            w.println(ascii(true));
-            w.println("  HEAPS SEEN on the screen so far: " + heapsSeen);
-            w.flush();
+            w.println(ascii(path));
         }
 
-        private String ascii(boolean withPath) {
+        private String ascii(List<Integer> path) {
             int width = level.width();
             char[] c = new char[level.length()];
             for (int cell = 0; cell < c.length; cell++) {
@@ -419,8 +454,8 @@ class RunInspectTest {
                     default -> '.';
                 };
             }
-            if (withPath && path.containsKey(depth)) {
-                for (int cell : path.get(depth)) {
+            if (path != null) {
+                for (int cell : path) {
                     if (c[cell] == '.' || c[cell] == '"' || c[cell] == ',' || c[cell] == '~') {
                         c[cell] = '*';
                     } else if (c[cell] == 't' || c[cell] == '^') {
