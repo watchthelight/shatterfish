@@ -27,8 +27,8 @@ class PickupThresholdTest {
 
     /** A room {@code cells} long, the hero on cell 1, one heap. */
     private static Observation room(int cells, int heapCell, String item, Action... offered) {
-        return Screens.floor(1, Screens.heroAt(1, 10), Collections.nCopies(cells, Tile.EMPTY),
-                List.of(new HeapView(heapCell, HeapKind.HEAP, false, item, 0, "")), List.of(), offered);
+        return Screens.unexplored(Screens.floor(1, Screens.heroAt(1, 10), Collections.nCopies(cells, Tile.EMPTY),
+                List.of(new HeapView(heapCell, HeapKind.HEAP, false, item, 0, "")), List.of(), offered));
     }
 
     private static RunLog.Choice choose(Observation observation) {
@@ -145,16 +145,16 @@ class PickupThresholdTest {
     void passive_in_view() {
         // Strength potion: 2000 carried + 2000 strength; 150 a turn. 25 Steps and the pick-up: taken.
         List<HeapView> heap = List.of(new HeapView(26, HeapKind.HEAP, false, "potion of strength", 0, ""));
-        Observation clear = Screens.floor(1, Screens.heroAt(1, 10), Collections.nCopies(30, Tile.EMPTY), heap,
-                List.of(), STEPS);
+        Observation clear = Screens.unexplored(Screens.floor(1, Screens.heroAt(1, 10), Collections.nCopies(30, Tile.EMPTY),
+                heap, List.of(), STEPS));
         assertEquals(new Action.Step(2), choose(clear).action());
         Observation statue = Screens.world(1, Collections.nCopies(30, Tile.EMPTY), heap,
                 List.of(new org.shatterfish.api.ActorView(29, "animated statue", org.shatterfish.api.Alignment.ENEMY,
                         org.shatterfish.api.ObservationCodec.MAX_HEALTH_PIPS, false, org.shatterfish.api.Emote.NONE,
                         List.of())), List.of(), List.of());
         assertTrue(Pickup.passiveInView(statue, FightPolicyTest.KNOWLEDGE) && Calm.quiet(statue, FightPolicyTest.KNOWLEDGE), "scenery to calm, an enemy to the game");
-        Observation withStatue = Screens.floor(1, Screens.heroAt(1, 10), Collections.nCopies(30, Tile.EMPTY), heap,
-                List.of(), STEPS);
+        Observation withStatue = Screens.unexplored(Screens.floor(1, Screens.heroAt(1, 10),
+                Collections.nCopies(30, Tile.EMPTY), heap, List.of(), STEPS), 28);
         withStatue = new Observation(withStatue.header(), withStatue.map(), statue.actors(), withStatue.hero(),
                 withStatue.inventory(), withStatue.journal(), withStatue.log(), withStatue.actions(), withStatue.prompt());
         assertNull(choose(withStatue), "with the statue in view the pick-up is one more turn: not worth it");

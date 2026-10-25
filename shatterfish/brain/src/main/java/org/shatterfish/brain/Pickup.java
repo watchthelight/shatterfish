@@ -7,6 +7,9 @@ import org.shatterfish.api.HeapView;
 import org.shatterfish.api.MapSection;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.RunLog;
+import org.shatterfish.api.Tile;
+import org.shatterfish.api.TransitionKind;
+import org.shatterfish.api.TransitionView;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -175,7 +178,17 @@ final class Pickup implements Policy {
     private Plan plan(Observation observation, Memory memory) {
         for (long keepFor : new long[]{0, Brain.AVOID_WAITS / 2}) {
             boolean[] walk = Explore.walkable(observation, memory, keepFor, false);
-            HeapView best = best(observation, memory, walk);
+            HeapView best = best(observation, memory, walk, false);
+            if (best != null) {
+                return new Plan(best, walk);
+            }
+        }
+        if (!sweeping(observation, memory)) {
+            return null;
+        }
+        for (long keepFor : new long[]{0, Brain.AVOID_WAITS / 2}) {
+            boolean[] walk = Explore.walkable(observation, memory, keepFor, false);
+            HeapView best = best(observation, memory, walk, true);
             if (best != null) {
                 return new Plan(best, walk);
             }
@@ -183,21 +196,72 @@ final class Pickup implements Policy {
         return null;
     }
 
-    private HeapView best(Observation observation, Memory memory, boolean[] walk) {
+    /**
+     * Whether the hero is about to leave a floor that is spent while an item it has seen lies on it
+     * (issue #182): then the walk to that item is the last thing the floor asks, and no weighed worth
+     * leaves it behind. Not a floor the hero leaves hungry or overstayed, where the turns are the
+     * point ({@link Descend#leaving}), and not when the only heaps left are gold, which nothing the
+     * Brain does spends.
+     */
+    private boolean sweeping(Observation observation, Memory memory) {
+        boolean any = observation.map().heaps().stream()
+                .anyMatch(heap -> takeable(heap, observation, memory) && !isGold(heap));
+        return any && "spent".equals(Descend.leaving(observation, memory, knowledge));
+    }
+
+    private static boolean isGold(HeapView heap) {
+        return Beliefs.untitled(heap.item()).equals(Evaluation.GOLD);
+    }
+
+    /**
+     * The reachable heap with the highest worth net of the turns it costs, if that is above nothing.
+     * Ordinarily the cost is the Steps to the heap and the pick-up. When {@code sweep}, the hero is
+     * about to leave the floor for its exit, so the cost of a heap is the detour: the Steps to it and
+     * from it to the exit, less the Steps from here to the exit, which are walked anyway (issue #182).
+     * A gold heap is not swept for, and with no exit seen there is no detour to measure, so the cost is
+     * the Steps to the heap, as ever.
+     */
+    private HeapView best(Observation observation, Memory memory, boolean[] walk, boolean sweep) {
         MapSection map = observation.map();
-        int[] distance = distances(map, walk, observation.hero().cell());
+        int hero = observation.hero().cell();
+        int[] distance = distances(map, walk, hero);
+        int[] toExit = sweep ? fromExit(map, walk, hero) : null;
         HeapView best = null;
         long bestNet = 0;
         for (HeapView heap : map.heaps()) {
             if (!takeable(heap, observation, memory) || heap.cell() >= distance.length
-                    || distance[heap.cell()] < 0) {
+                    || distance[heap.cell()] < 0 || (sweep && isGold(heap))) {
                 continue;
             }
-            int turns = distance[heap.cell()] + 1 + (distance[heap.cell()] > 0 && passiveInView(observation, knowledge) ? 1 : 0);
+            int steps = distance[heap.cell()];
+            if (toExit != null && toExit[heap.cell()] >= 0) {
+                steps = Math.max(0, steps + toExit[heap.cell()] - toExit[hero]);
+            }
+            int turns = steps + 1 + (distance[heap.cell()] > 0 && passiveInView(observation, knowledge) ? 1 : 0);
             long net = Math.addExact(worth(heap.item(), observation), evaluation.turns(turns));
             if (net > bestNet) {
                 bestNet = net;
                 best = heap;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Steps from the cells to the nearest exit the hero can use (over {@code walk}, the exit itself
+     * the last Step), or null when no such exit is on the screen or the hero cannot reach it. Not an
+     * exit drawn locked ({@code LOCKED_EXIT}, issue #163).
+     */
+    private static int[] fromExit(MapSection map, boolean[] walk, int hero) {
+        int[] best = null;
+        for (TransitionView transition : map.transitions()) {
+            if (transition.kind() != TransitionKind.REGULAR_EXIT
+                    || map.tiles().get(transition.cell()) == Tile.LOCKED_EXIT) {
+                continue;
+            }
+            int[] field = distances(map, walk, transition.cell());
+            if (field[hero] >= 0 && (best == null || field[hero] < best[hero])) {
+                best = field;
             }
         }
         return best;

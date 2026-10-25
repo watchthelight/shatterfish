@@ -249,6 +249,38 @@ final class Screens {
                 List.of(), actions);
     }
 
+    /**
+     * {@code observation} with one cell more at the end of its row, never seen, so that the floor has ground
+     * left to explore (a frontier at the old last cell) and is not spent (issue #182): the pick-up tests that
+     * weigh a walk against a worth are about a floor the hero is still on, not one it is about to leave.
+     */
+    static Observation unexplored(Observation observation) {
+        org.shatterfish.api.MapSection map = observation.map();
+        java.util.List<Tile> tiles = new java.util.ArrayList<>(map.tiles());
+        java.util.List<Fog> fog = new java.util.ArrayList<>(map.fog());
+        tiles.add(Tile.NONE);
+        fog.add(Fog.UNKNOWN);
+        org.shatterfish.api.MapSection seen = new org.shatterfish.api.MapSection(map.width() + 1, map.height(), tiles,
+                fog, map.traps(), map.heaps(), map.blobs(), map.feeling(), map.transitions());
+        return new Observation(observation.header(), seen, observation.actors(), observation.hero(),
+                observation.inventory(), observation.journal(), observation.log(), observation.actions(),
+                observation.prompt());
+    }
+
+    /** {@code observation} with {@code cell} never seen: a frontier beside it, and the floor not spent (issue #182). */
+    static Observation unexplored(Observation observation, int cell) {
+        org.shatterfish.api.MapSection map = observation.map();
+        java.util.List<Tile> tiles = new java.util.ArrayList<>(map.tiles());
+        java.util.List<Fog> fog = new java.util.ArrayList<>(map.fog());
+        tiles.set(cell, Tile.NONE);
+        fog.set(cell, Fog.UNKNOWN);
+        org.shatterfish.api.MapSection seen = new org.shatterfish.api.MapSection(map.width(), map.height(), tiles,
+                fog, map.traps(), map.heaps(), map.blobs(), map.feeling(), map.transitions());
+        return new Observation(observation.header(), seen, observation.actors(), observation.hero(),
+                observation.inventory(), observation.journal(), observation.log(), observation.actions(),
+                observation.prompt());
+    }
+
     /** A hero standing on {@code cell}, at full health (20), of this strength. */
     static HeroSection heroAt(int cell, int strength) {
         return heroAt(cell, strength, 20, 20);
