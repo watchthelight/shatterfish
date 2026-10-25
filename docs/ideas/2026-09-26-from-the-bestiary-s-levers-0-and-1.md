@@ -5,6 +5,8 @@
   fight Policy's retreat away from it keeps it adjacent and harmless for ever, and the seal refuses
   the stairs; one tuning Run under lever 1's variant B did it for 18,227 waits. A rule for sealed
   floors alone (no stairs, so no retreat that is not a fight) would end it without A's early deaths.
+  Done in issue #180: on a sealed floor the fight Policy retreats only to water (oozed) or a corridor
+  (two or more enemies), at most `Fight.SEALED_RETREATS` times, and otherwise fights.
 - **Break contact instead of the stairs-only rule.** The tags say what ends each enemy's pursuit
   (`breakContact`: a door, out of sight, the stairs). A same-speed retreat that heads for the nearest
   door or corner that breaks sight, rather than only for the stairs, is the variant of lever 1 that

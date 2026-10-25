@@ -219,6 +219,9 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
             Pack.NONE, Aim.NONE, -1, Trial.NONE, List.of(), 0, -1, List.of(), -1, 0, 0, -1, -1, List.of(), Windows.NONE, -1, 0, 0, -1, -1, 0, -1, -1,
             Spot.NOWHERE, -1, List.of());
 
+    /** The set in {@link #flights} that counts the retreats made on a sealed floor (issue #180); sets 0 to 2 count stairs flights. */
+    static final int SEALED_RETREATS = 3;
+
     /** Story 4.13's shape: no chase (issue #174), no exit tried (issue #163's fairness review). */
     Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
            List<Held> labels, List<Found> pending, List<Seen> monsters, Spot at, int streak, boolean calm,
@@ -529,6 +532,20 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
                 balked, walking, tested, clouds, refuge, arrived, rests + 1, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits);
+    }
+
+    /**
+     * This memory with one more retreat the fight Policy made on the sealed floor {@code floor} (issue #180),
+     * kept in the flights under {@link #SEALED_RETREATS}, a set no stairs flight uses.
+     */
+    Memory retreatedSealed(String floor) {
+        List<Found> more = new ArrayList<>(flights);
+        int already = count(more, floor, SEALED_RETREATS);
+        more.removeIf(one -> one.key().equals(floor) && one.set() == SEALED_RETREATS);
+        more.add(new Found(floor, SEALED_RETREATS, already + 1));
+        return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
+                dwelt, blocked, last, holds, near, before, more, avoid, underfoot, refused, pack, aim, drank, trial,
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits);
     }
 
     /** This memory with {@code region} avoided as well, the oldest forgotten past {@link #AVOIDED}. */
