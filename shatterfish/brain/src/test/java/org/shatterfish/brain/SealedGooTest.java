@@ -178,6 +178,20 @@ class SealedGooTest {
     }
 
     @Test
+    @DisplayName("a Goo standing in water heals there: the hero steps away to pull it onto dry ground, and fights once it is dry")
+    void goo_off_its_water() {
+        int hero = 7 + 1 * WIDTH;
+        int goo = 8 + 1 * WIDTH;
+        Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, 7L);
+        Observation wet = oozed(hero, goo, goo, null);
+        Brain.Decided decided = brain.decide(wet, brain.update(wet, null));
+        assertEquals("retreat dry", decided.decision().chosen().why(), decided.decision().toString());
+        Observation dry = oozed(hero, goo, 2 + 1 * WIDTH, null);
+        Brain.Decided fought = brain.decide(dry, brain.update(dry, null));
+        assertTrue(fought.decision().chosen().why().startsWith("cornered"), fought.decision().toString());
+    }
+
+    @Test
     @DisplayName("a gainful retreat is not repeated without end either: after SEALED_RETREATS of them the Policy fights")
     void budget() {
         Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, 7L);

@@ -502,8 +502,7 @@ final class Fight implements Policy {
                     continue;
                 }
                 int engage = engage(map, step.cell());
-                if (best == null || (gain.equals("water") && !why.equals("water"))
-                        || (gain.equals(why) && engage < fewest)) {
+                if (best == null || rank(gain) < rank(why) || (rank(gain) == rank(why) && engage < fewest)) {
                     best = step;
                     why = gain;
                     fewest = engage;
@@ -513,9 +512,16 @@ final class Fight implements Policy {
         return best == null ? null : new RunLog.Choice(best, Policies.CERTAIN, "retreat " + why);
     }
 
+    /** How much a gain from {@link #gainful} is worth, lower first: water, then Goo off its water, then a corridor. */
+    private static int rank(String gain) {
+        return gain.equals("water") ? 0 : gain.equals("dry") ? 1 : 2;
+    }
+
     /**
      * What a Step to {@code cell} gains on a sealed floor, or null for nothing. Water, for a hero oozed
-     * (Ooze.java:93, :118; Level.java:1188-1198: stepping in washes the ooze off); and, against two or
+     * (Ooze.java:93, :118; Level.java:1188-1198: stepping in washes the ooze off); farther from a Goo
+     * that stands in water and heals there (Goo.java:109-117), which pulls it onto dry ground when it
+     * follows; and, against two or
      * more enemies that move, a cell fewer can engage than the hero's own, at most two, which is a
      * corridor. Against one enemy a corridor gains nothing: it has the same one neighbour to stand on.
      * Both read the screen's map and buffs alone, never a guess about what is out of view.
@@ -527,6 +533,13 @@ final class Fight implements Policy {
                 && map.tiles().get(cell) == org.shatterfish.api.Tile.WATER
                 && map.tiles().get(hero) != org.shatterfish.api.Tile.WATER) {
             return "water";
+        }
+        for (ActorView enemy : enemies) {
+            if (enemy.name().equals(Goo.NAME) && map.tiles().get(enemy.cell()) == org.shatterfish.api.Tile.WATER
+                    && map.tiles().get(cell) != org.shatterfish.api.Tile.WATER
+                    && chebyshev(map, cell, enemy.cell()) > chebyshev(map, hero, enemy.cell())) {
+                return "dry";
+            }
         }
         int depth = observation.header().depth();
         int branch = observation.header().branch();
