@@ -140,7 +140,7 @@ Pre-mortem: the user renames or deletes a referenced skill and a project skill s
 The `build` workflow can run on the owner's machine instead of GitHub's runners. GitHub's free
 runners have four cores, so CI splits the build into four module jobs and still takes about 17
 minutes. The owner's machine has 24 threads, and one `./gradlew build --parallel` there does the
-same work in one Gradle JVM.
+same work in one Gradle JVM, with six test JVMs per module instead of the local default of four.
 
 - **Switch:** the repository variable `SF_RUNNER`. When it is `self-hosted`, the job
   `build (self-hosted)` runs on a runner labelled `shatterfish` and the four module jobs are
