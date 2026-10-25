@@ -383,13 +383,15 @@ final class Explore implements Policy {
         int hero = observation.hero().cell();
         int radius = radius(observation);
         List<Memory.Spot> searched = memory.dwelt().stream().filter(spot -> spot.on(depth, branch)).toList();
-        if (searched.size() < limit) {
+        // The searches made ahead of a Step near a shown trap (Traps) are no spots of the floor's budget.
+        long spots = searched.stream().filter(spot -> !Traps.near(observation, spot.cell())).count();
+        if (spots < limit) {
             if (worth(map, walk, hero, radius, searched, promisingOnly)
                     && !searched.contains(new Memory.Spot(depth, branch, hero))) {
                 Action search = new Action.Search();
                 if (offered.contains(search)) {
                     return new RunLog.Choice(search, Policies.CERTAIN,
-                            "search " + (searched.size() + 1) + "/" + limit);
+                            "search " + (spots + 1) + "/" + limit);
                 }
             }
             Path spot = nearest(map, walk, hero, offered, cell -> worth(map, walk, cell, radius, searched, true));

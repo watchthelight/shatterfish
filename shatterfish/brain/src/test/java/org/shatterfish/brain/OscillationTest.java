@@ -220,6 +220,13 @@ class OscillationTest {
         Observation corridor = pocket(POCKET, List.of()).apply(5 + 10);
         Memory fresh = Beliefs.fold(chasing, corridor, FightPolicyTest.KNOWLEDGE);
         assertTrue(Fight.chasing(corridor, fresh, FightPolicyTest.KNOWLEDGE), "out of view one wait later: chased");
+        // The eat Policy ranks below the fight Policy, so a hungry hero stops chasing (issue #184).
+        for (org.shatterfish.api.Hunger hunger : List.of(org.shatterfish.api.Hunger.HUNGRY, org.shatterfish.api.Hunger.STARVING)) {
+            assertFalse(Fight.chasing(EatPolicyTest.hungry(corridor, hunger), fresh, FightPolicyTest.KNOWLEDGE),
+                    hunger + ": a hungry hero does not chase");
+        }
+        assertTrue(Fight.chasing(EatPolicyTest.hungry(corridor, org.shatterfish.api.Hunger.NONE), fresh,
+                FightPolicyTest.KNOWLEDGE), "a fed hero does");
         Memory stale = chasing;
         for (int i = 0; i <= Fight.CHASE_WAITS; i++) {
             stale = Beliefs.fold(stale, corridor, FightPolicyTest.KNOWLEDGE);
