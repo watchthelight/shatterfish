@@ -183,6 +183,8 @@ E5 (the Overlay) so far:
   dungeon itself in the game's own blocks (#231).
 - E5.11: the Overlay's controls are the game's own key-bound actions on F6 to F11, rebindable in
   the game's key settings (#230).
+- The Codex now carries Goo's real attack and damage for its calm and enraged states, and the
+  Brain uses the enraged figures once Goo's bar is at half or less (#233, part of #219).
 - Next: oracle marking (5.12), the speed ceiling (5.13) and save and resume (5.14), with the Goo
   work (#219) in parallel.
 
