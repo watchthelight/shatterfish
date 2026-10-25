@@ -897,6 +897,10 @@ public final class EmbeddedRun implements AutoCloseable {
         LandedShadow shadow = lastShadow;
         human.release();
         handBackRequested = false;
+        if (watchdog != null) {
+            // Before the watchdog's predicate turns true, so its clock never reads the person's whole stretch.
+            watchdog.served();
+        }
         humanMode = false;
         Hooks.heroInput = null;
         inputGate.humanInput(false);

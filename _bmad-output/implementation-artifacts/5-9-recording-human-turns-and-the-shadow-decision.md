@@ -331,6 +331,6 @@ Story 5.8 (PR #221) built the takeover half. Each criterion of the epic text, ag
 **Built here (issue #220):** `EmbeddedRun.Snapshot.unverifiable` outlives HUMAN mode, so the card keeps the notice in
 PAUSED and RUNNING after a hand back (`DecisionCardContent.Shadow.noticeOnly`: the Brain's own card, not greyed, no
 Panel blocker); every Run has a watchdog (its predicate already ignored a person's turns, a hand back restarts its
-clock). Tests: `TakeoverHandbackTest.the_mark_outlives_a_hand_back` and `a_human_run_is_watched_after_a_hand_back`,
+clock). Tests: `TakeoverHandbackTest.the_mark_outlives_a_hand_back` and `a_human_run_has_a_watchdog_that_waits_for_the_person`,
 `PanelContentTest.the_notice_outlives_a_hand_back`, `EmbeddedCloseTest.a_human_run_closed` (now asserts a watchdog).
 ADR-0013 carries the amendment. Rig numbers: none; the Brain is untouched.

@@ -28,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -345,14 +344,15 @@ class TakeoverHandbackTest {
             assertNull(handed.human(), "the Brain plays again");
             assertEquals(2, handed.unverifiable().from(), "and the Panel still says the Replay stops at wait 2");
             assertFalse(handed.unverifiable().why().isEmpty());
-            assertTrue(run.watchdog() != null);
+            assertFalse(run.watchdog().check(System.nanoTime() + (Watchdog.SECONDS - 5) * 1_000_000_000L),
+                    "the hand back restarted the clock: the person's stretch is not a stall");
         }
         assertFalse(RunLogReader.of(logOf(played)).end().verifiable(), "the end record agrees");
     }
 
     @Test
-    @DisplayName("a Run that began as a person's has a watchdog, which a hand back restarts (issue #220)")
-    void a_human_run_is_watched_after_a_hand_back(@TempDir Path folder) throws IOException {
+    @DisplayName("a Run that began as a person's has a watchdog, which a person's long wait does not trip (issue #220)")
+    void a_human_run_has_a_watchdog_that_waits_for_the_person(@TempDir Path folder) throws IOException {
         Path played = Files.createDirectories(folder.resolve("played"));
         try (EmbeddedHost host = new EmbeddedHost(SEED, HeroClass.WARRIOR, SALT)) {
             EmbeddedRun run = host.attachHuman(new Plain(), HumanTurnReplayTest.logging(played), 5_000);
