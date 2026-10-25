@@ -51,7 +51,7 @@ jobs:
           fi
 
       - name: Build and test
-        run: ./gradlew build --parallel -Pshatterfish.testForks=6 ${{ steps.codex.outputs.flag }} -Pshatterfish.mobile=off --build-cache --console=plain
+        run: ./gradlew build --parallel ${{ steps.codex.outputs.flag }} -Pshatterfish.mobile=off --build-cache --console=plain
 
       - name: Upload test reports
         if: failure()

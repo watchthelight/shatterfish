@@ -140,7 +140,7 @@ Pre-mortem: the user renames or deletes a referenced skill and a project skill s
 The `build` workflow can run on the owner's machine instead of GitHub's runners. GitHub's free
 runners have four cores, so CI splits the build into four module jobs and still takes about 17
 minutes. The owner's machine has 24 threads, and one `./gradlew build --parallel` there does the
-same work in one Gradle JVM, with six test JVMs per module instead of the local default of four.
+same work in one Gradle JVM.
 
 - **Switch:** the repository variable `SF_RUNNER`. When it is `self-hosted`, the job
   `build (self-hosted)` runs on a runner labelled `shatterfish` and the four module jobs are
@@ -159,4 +159,9 @@ same work in one Gradle JVM, with six test JVMs per module instead of the local 
   are warm. They run as the owner's user from `run.cmd`, not as a service, so they stop at logout
   or reboot; start them again with
   `Start-Process ~\.local\opt\actions-runner-N\run.cmd -WindowStyle Hidden`.
+- **Measured 2026-10-25, and why it is off:** with agents and Rig runs busy on the same machine,
+  the self-hosted build took 19.5 minutes (four test forks per module) and 25 minutes (six),
+  against about 17.5 on GitHub. The machine's cores are already in use, so CI there competes
+  with the work it is checking; GitHub's runners are extra capacity. The variable is unset and the
+  runners are stopped. Turn it on for a stretch when the machine is otherwise idle.
 - **Other workflows** (`docs`, `nightly`, `replay`) still run on GitHub.
