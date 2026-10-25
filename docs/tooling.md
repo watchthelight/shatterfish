@@ -134,3 +134,29 @@ Pre-mortem: the user renames or deletes a referenced skill and a project skill s
 | Commit messages | none (`caveman-commit` not used: commits are written normally and in full per the user's caveman rule) | |
 | `fairness-reviewer`, `upstream-reader` | in-repo only; both cite `path:line` at the pinned tag | |
 
+
+## 8. CI on a self-hosted runner
+
+The `build` workflow can run on the owner's machine instead of GitHub's runners. GitHub's free
+runners have four cores, so CI splits the build into four module jobs and still takes about 17
+minutes. The owner's machine has 24 threads, and one `./gradlew build --parallel` there does the
+same work in one Gradle JVM.
+
+- **Switch:** the repository variable `SF_RUNNER`. When it is `self-hosted`, the job
+  `build (self-hosted)` runs on a runner labelled `shatterfish` and the four module jobs are
+  skipped. Any other value, or no variable, sends everything back to GitHub:
+  `gh variable delete SF_RUNNER -R watchthelight/shatterfish`. Do that whenever the machine will
+  be off, or jobs wait in the queue for a runner that never comes.
+- **Forks never run there.** A pull request from a fork always takes the GitHub path, whatever the
+  variable says, and the repository requires approval before any outside contributor's workflow
+  runs. The repository is public, so this is what keeps outside code off the machine.
+- **The gate is unchanged.** `build + test (ubuntu, JDK 21)` still decides the merge; it passes
+  when exactly one of the two paths ran and passed.
+- **Runners:** two instances (`<host>-sf1`, `<host>-sf2`) of actions/runner 2.338.1 for Windows
+  x64, unpacked in `~/.local/opt/actions-runner-1` and `-2` (zip checked against the release's
+  sha256). Each has a `.env` that puts Git's `usr/bin` on `PATH` (the shell scripts need
+  `mktemp`) and shares `GRADLE_USER_HOME` with local builds, so the dependency and build caches
+  are warm. They run as the owner's user from `run.cmd`, not as a service, so they stop at logout
+  or reboot; start them again with
+  `Start-Process ~\.local\opt\actions-runner-N\run.cmd -WindowStyle Hidden`.
+- **Other workflows** (`docs`, `nightly`, `replay`) still run on GitHub.
