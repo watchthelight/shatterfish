@@ -382,12 +382,14 @@ class RunnerRegistrationTest {
     }
 
     @Test
-    @DisplayName("a ranked comparison is tested under the Registration's own bounds, and a run of ties rejects")
+    @DisplayName("a ranked comparison is tested under the Registration's own bounds, and a run of ties moves the e-process toward rejecting")
     @Timeout(value = 20, unit = TimeUnit.MINUTES)
     void a_ranked_comparison_is_tested(@TempDir Path root, @TempDir Path out) throws IOException {
         // Two Registration Brains that differ only in their commit are a legal comparison, and
         // random against random is the same Run on both sides -- so every pair that reaches an ending
-        // ties, and a run of ties is evidence for H0: the test rejects at the burn-in.
+        // ties, and a run of ties is evidence for H0. The gate is the e-process, which has no burn-in
+        // and stops for futility only past log(1/beta): twenty-five ties push its log wealth down
+        // (about -1.2) without reaching that, so the cap of twenty-five ends it undecided.
         repository(root, comparison("H-0110-self", "random"));
 
         Runner.run(arguments(root, out, Runner.REGISTRATION, "H-0110-self",
@@ -395,14 +397,18 @@ class RunnerRegistrationTest {
 
         String json = Files.readString(out.resolve(Comparison.FILE), StandardCharsets.UTF_8).strip();
         assertEquals("true", LogHeader.value(json, "tested"), json);
-        assertEquals("REJECT", LogHeader.string(json, "verdict"), json);
-        assertEquals("8", LogHeader.value(json, "stopped_at"), "at the burn-in: " + json);
-        assertEquals(String.valueOf(Math.round(Math.log(0.05 / 0.95) * 1_000_000)),
+        assertEquals("EPROCESS", LogHeader.string(json, "statistic"), json);
+        assertEquals("UNDECIDED", LogHeader.string(json, "verdict"), json);
+        assertEquals("25", LogHeader.value(json, "stopped_at"), "at the cap: " + json);
+        assertTrue(Long.parseLong(LogHeader.value(json, "llr_micros")) < 0,
+                "the log wealth is against the candidate: " + json);
+        // The e-process's futility bound is log(beta), where the GSPRT's was log(beta / (1 - alpha)).
+        assertEquals(String.valueOf(Math.round(Math.log(0.05) * 1_000_000)),
                 LogHeader.value(json, "lower_micros"), "the bounds are the Registration's: " + json);
         assertEquals("true", LogHeader.value(json, "direction_check"),
                 "the smoke set is a direction check and cannot accept: " + json);
         Ledger.Entry last = new Ledger(root.resolve(Registrations.FOLDER)).entries().get(0);
-        assertTrue(last.note().startsWith("REJECT (direction check) after 8"),
+        assertTrue(last.note().startsWith("UNDECIDED (direction check) after 25"),
                 "the ledger says what came of it, so rejected attempts are countable: " + last.note());
         assertTrue(last.note().endsWith("against random"), last.note());
     }
@@ -437,10 +443,10 @@ class RunnerRegistrationTest {
     @DisplayName("a comparison that may accept runs at the calibrated bounds, every one of them, and nothing else")
     void an_accepting_comparison_is_calibrated(@TempDir Path root, @TempDir Path out)
             throws IOException {
-        repository(root, accepting("H-0116-p1", 550, 20, 250, 500, "GSPRT"),
-                accepting("H-0117-burn", 600, 10, 250, 500, "GSPRT"),
-                accepting("H-0118-cap", 600, 20, 999, 500, "GSPRT"),
-                accepting("H-0119-max", 600, 20, 250, 400, "GSPRT"));
+        repository(root, accepting("H-0116-p1", 550, 20, 100, 500, "EPROCESS"),
+                accepting("H-0117-burn", 600, 10, 100, 500, "EPROCESS"),
+                accepting("H-0118-cap", 600, 20, 999, 500, "EPROCESS"),
+                accepting("H-0119-max", 600, 20, 100, 400, "EPROCESS"));
 
         for (String id : List.of("H-0116-p1", "H-0117-burn", "H-0118-cap", "H-0119-max")) {
             IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
@@ -457,13 +463,13 @@ class RunnerRegistrationTest {
     @Test
     @DisplayName("a comparison registered for a statistic other than the gate is refused")
     void the_statistic_is_the_registrations(@TempDir Path root, @TempDir Path out) throws IOException {
-        repository(root, accepting("H-0120-e", 600, 20, 250, 500, "EPROCESS"));
+        repository(root, accepting("H-0120-e", 600, 20, 100, 500, "GSPRT"));
 
         IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
                 () -> Runner.run(arguments(root, out, Runner.REGISTRATION, "H-0120-e",
                         Runner.AGAINST, Brains.RANDOM, Runner.SEEDS, SeedSets.STANDARD)));
 
-        assertTrue(refused.getMessage().contains("bounds for the EPROCESS and the Rig's gate is the GSPRT"),
+        assertTrue(refused.getMessage().contains("bounds for the GSPRT and the Rig's gate is the EPROCESS"),
                 refused.getMessage());
     }
 

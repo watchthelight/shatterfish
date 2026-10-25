@@ -260,8 +260,8 @@ public record Registration(String hypothesis, String claim, Brain brainA, Brain 
     }
 
     /**
-     * A comparison under the GSPRT, the test every comparison ran before a Registration had to say
-     * which. A committed file always says: the Rig's reader passes what the file holds, and a
+     * A comparison under the e-process, the gate since the calibration at upstream v4.0.2 (the GSPRT
+     * before it). A committed file always says: the Rig's reader passes what the file holds, and a
      * comparison without a {@code statistic} is refused there.
      */
     public Registration(String hypothesis, String claim, Brain brainA, Brain brainB, String seedSet,
@@ -270,7 +270,7 @@ public record Registration(String hypothesis, String claim, Brain brainA, Brain 
                         int p1PerMil, int missingPerMil) {
         this(hypothesis, claim, brainA, brainB, seedSet, seedVersion, alphaPerMil, betaPerMil, burnIn,
                 maximum, budgetMs, machineClass, releaseLevel, p0PerMil, p1PerMil, missingPerMil,
-                brainA == null ? "" : "GSPRT");
+                brainA == null ? "" : "EPROCESS");
     }
 
     /** Whether this fixes a comparison of two Brains, rather than a baseline for one. */
