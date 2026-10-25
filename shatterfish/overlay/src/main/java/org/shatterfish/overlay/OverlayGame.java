@@ -64,6 +64,8 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
     private final long salt;
     private final Supplier<Decider> brain;
     private final Supplier<Observation> observer;
+    /** What the oracle's door left for the Panel to mark (story 5.12); null for a fair Run. */
+    private final OracleSidecar oracleSidecar;
     private final RunLoop.Logging logging;
     /** The interface the Overlay plays on: the mixed one, desktop layout with no inventory pane (story 5.2). */
     static final int INTERFACE_SIZE = 1;
@@ -86,11 +88,12 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
      * @param salt      the Run's salt
      * @param brain     what decides, built when the Run begins
      * @param observer  the door the Brain sees through: fair, or the launcher's oracle
+     * @param oracleSidecar what the oracle door leaves for the Panel's marks; null unless the Run is an oracle Run
      * @param logging   where the Run's log goes and who played it
      */
     OverlayGame(PlatformSupport platform, LaunchOptions options, MemoryPreferences preferences, Path profileDirectory,
                 boolean deleteProfile, long salt, Supplier<Decider> brain, Supplier<Observation> observer,
-                RunLoop.Logging logging) {
+                OracleSidecar oracleSidecar, RunLoop.Logging logging) {
         super(platform);
         this.options = options;
         this.preferences = preferences;
@@ -99,6 +102,11 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         this.salt = salt;
         this.brain = brain;
         this.observer = observer;
+        if ((oracleSidecar != null) != options.oracle()) {
+            throw new IllegalArgumentException("the oracle sidecar and the oracle flag go together: flag "
+                    + options.oracle() + ", sidecar " + (oracleSidecar != null));
+        }
+        this.oracleSidecar = oracleSidecar;
         this.logging = logging;
     }
 
@@ -118,7 +126,9 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
             // setter also reaches for the system UI.
             preferences.putBoolean(SPDSettings.KEY_FULLSCREEN, false);
         }
+        // Said once, from the launcher's flag, and fixed: nothing in the Overlay can change it (FR-43).
         dock.oracle(options.oracle());
+        dock.oracleSidecar(oracleSidecar);
         // The strings in the language the Profile declares, as the headless boot sets them up, whatever
         // the machine's own locale would have given the game's first read of them (Messages.java:79-82).
         Messages.setup(Languages.ENGLISH);

@@ -372,7 +372,8 @@ The Panel, the first thing the Overlay draws, lives on the same render thread an
 - **The oracle.** An oracle Run always opens windowed, since the desktop game is fullscreen by default
   (`SPDSettings.java:66-68`) and fullscreen hides the title bar, which was the oracle's only on-screen
   marker; and the Mode strip carries an ORACLE label in the oracle colour (`DESIGN.md`, `#FF2020`), full or
-  collapsed. The border around the game view remains story 5.12's (non-negotiable 1: visibly flagged).
+  collapsed. Story 5.12 adds the rest of the marking, all of it drawn on the render thread from a value only that
+  thread holds (see `docs/fairness.md`, Oracle mode).
 - **The launcher's view of it.** `--window WxH` opens the game windowed at that size, and
   `--screenshot <file>` writes one frame from the game's own framebuffer about ten seconds in (a window
   OpenGL draws cannot be captured from outside the process on this platform, and a launch nobody watches

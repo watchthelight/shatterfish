@@ -151,7 +151,7 @@ final class Panel extends Component {
         Set<ControlEnablement.Control> enabled = controlState != null ? controlState.enabled()
                 : ControlEnablement.of(mode.mode(), mode.over(), ControlEnablement.Capabilities.NOW);
         controls.content(mode, enabled, inputLocked, full && decision != null);
-        belief.content(full ? beliefSummary : null, inner);
+        belief.content(full ? beliefSummary : null, full ? oracleRows : List.of(), inner);
         // layout() before the log's own content: it is what sizes the log's ScrollPane viewport (the
         // remaining room below every section above it), and the log's auto-scroll-to-bottom decision
         // reads that viewport's height, so the log must already know this frame's height before it
@@ -174,6 +174,14 @@ final class Panel extends Component {
         placed = layout;
         PanelLayout.Rect rect = layout.rect();
         setRect(rect.x(), rect.y(), rect.width(), rect.height());
+    }
+
+    /** The oracle rows the next {@link #content} shows in the Belief summary (story 5.12); none for a fair Run. */
+    private List<String> oracleRows = List.of();
+
+    /** Sets the oracle rows for the Belief summary; the dock calls this only for an oracle Run. */
+    void oracleRows(List<String> rows) {
+        oracleRows = List.copyOf(rows);
     }
 
     /** Shows the ORACLE label in the Mode strip, or hides it. */

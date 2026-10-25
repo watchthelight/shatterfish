@@ -36,6 +36,12 @@ final class PanelDock {
     private Panel panel;
     private boolean collapsed;
     private boolean oracle;
+    /** Whether the launcher has said, once, whether this is an oracle Run; the answer is then fixed (story 5.12). */
+    private boolean oracleStated;
+    private OracleSidecar sidecar;
+    /** The oracle Run's border and unseen-enemy outlines, one pair per play scene; both null for a fair Run. */
+    private OracleBorder border;
+    private OracleOutlines oracleOutlines;
     private ControlState controls;
     /** The outlines on the dungeon for the pending Decision, one layer per play scene (story 5.10). */
     private MapHighlights highlights;
@@ -74,6 +80,15 @@ final class PanelDock {
             scene.add(panel);
             keepFaderInFront(scene);
         }
+        if (oracle && (border == null || border.parent != scene)) {
+            // An oracle Run's layers, one pair for each play scene, made the frame the scene first has a Panel
+            // (or the frame the flag is first said, in a test that says it late).
+            oracleOutlines = new OracleOutlines();
+            oracleOutlines.placeIn(scene);
+            border = new OracleBorder();
+            border.camera = PixelScene.uiCamera;
+            scene.add(border);
+        }
         PanelLayout.Layout layout = PanelLayout.of(PanelLayout.current(), collapsed);
         if (!layout.equals(panel.placed()) && Gdx.app != null) {
             // Where the Panel went, once per change: the record of a launch nobody watched.
@@ -86,6 +101,7 @@ final class PanelDock {
         ModeState shownMode = controls == null ? run : controls.view(run);
         highlights(snapshot, shownMode);
         panel.awaiting(snapshot != null && snapshot.awaiting());
+        oracleMarks(scene, snapshot);
         panel.content(shownMode, snapshot == null ? null : snapshot.decision(),
                 snapshot == null ? null : snapshot.observation(), inputLocked,
                 snapshot == null ? null : snapshot.beliefSummary(),
@@ -108,6 +124,38 @@ final class PanelDock {
         }
         highlights.show(MapHighlightContent.of(snapshot.decision(), snapshot.highlights()),
                 org.shatterfish.harness.agent.ActionContext.of(snapshot.observation()).mapWidth());
+    }
+
+    /**
+     * The oracle Run's marks for this frame (story 5.12, UX-DR11): the border around the whole view, kept in
+     * front of everything the scene has added since, the oracle rows for the Belief summary, and the outlines
+     * of the unseen enemies. A fair Run has none of them: nothing here runs, no layer exists, and the Panel's
+     * oracle rows stay empty. The marks are for the screen the Panel shows; the sidecar answers none for any
+     * other.
+     */
+    private void oracleMarks(Scene scene, EmbeddedRun.Snapshot snapshot) {
+        if (!oracle || border == null) {
+            return;
+        }
+        border.place(PixelScene.uiCamera.width, PixelScene.uiCamera.height);
+        java.util.List<Gizmo> members = scene.shatterfishMembers();
+        if (members.get(members.size() - 1) != border) {
+            scene.bringToFront(border);
+        }
+        OracleMarkContent.Marks marks = sidecar == null || snapshot == null ? OracleMarkContent.Marks.NONE
+                : sidecar.marks(snapshot.observation(), snapshot.beliefSummary());
+        panel.oracleRows(marks.rows());
+        oracleOutlines.show(marks.unseen(), marks.mapWidth());
+    }
+
+    /** The oracle border on the current play scene, or null for a fair Run (tests). */
+    OracleBorder border() {
+        return border;
+    }
+
+    /** The unseen-enemy outlines on the current play scene, or null for a fair Run (tests). */
+    OracleOutlines oracleOutlines() {
+        return oracleOutlines;
     }
 
     /** The highlight layer on the current play scene, or null before the first one (tests). */
@@ -159,14 +207,37 @@ final class PanelDock {
 
     /**
      * Marks the Panel for an oracle Run: the ORACLE label in the Mode strip, in the Overlay itself and not
-     * only in the window's title, which fullscreen hides (non-negotiable 1: visibly flagged). The border
-     * around the game view is story 5.12's.
+     * only in the window's title, which fullscreen hides (non-negotiable 1: visibly flagged), and the border
+     * around the game view (story 5.12).
+     *
+     * <p>Said once, by the game's {@code create()} from the launcher's flag. Nothing in the Overlay can turn
+     * the mode on or off afterwards: a second statement that differs is refused, so no control, hotkey or
+     * later story can flip it at runtime (FR-43).
      */
     void oracle(boolean oracle) {
+        if (oracleStated && oracle != this.oracle) {
+            throw new IllegalStateException("oracle mode is the launcher's and is fixed for the Run; it was said to be "
+                    + this.oracle + " and cannot become " + oracle);
+        }
+        oracleStated = true;
         this.oracle = oracle;
         if (panel != null) {
             panel.oracle(oracle);
         }
+    }
+
+    /**
+     * The oracle Run's sidecar (story 5.12): where the launcher's oracle door leaves what it saw, for this
+     * dock to mark. Only an oracle Run has one, and it is given once.
+     */
+    void oracleSidecar(OracleSidecar sidecar) {
+        if (sidecar != null && !oracle) {
+            throw new IllegalStateException("a fair Run has no oracle sidecar");
+        }
+        if (this.sidecar != null && this.sidecar != sidecar) {
+            throw new IllegalStateException("the oracle sidecar is fixed for the Run");
+        }
+        this.sidecar = sidecar;
     }
 
     /** Binds the controls of a Brain's Run (story 5.6) to this dock's Panel, now and on every later play scene. */

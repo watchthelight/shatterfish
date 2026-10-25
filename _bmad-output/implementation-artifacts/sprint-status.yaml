@@ -116,7 +116,7 @@ development_status:
   5-9-recording-human-turns-and-the-shadow-decision: done  # PR for issue #154 (also closes #220); the slice merged in #176, the takeover half in #221
   5-10-map-highlights: review  # PR for issue #155
   5-11-hotkeys-as-game-actions: backlog
-  5-12-oracle-marking-in-the-overlay: backlog
+  5-12-oracle-marking-in-the-overlay: in-progress  # issue #157; built on 5-10's layer
   5-13-the-speed-ceiling-and-the-draw-routing-hook: backlog
   5-14-run-over-save-and-resume: backlog
   5-15-the-remaining-panel-states: backlog
