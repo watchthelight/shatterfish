@@ -102,7 +102,7 @@ class EmbeddedCloseTest {
         try (EmbeddedHost host = new EmbeddedHost(SEED, HeroClass.WARRIOR, SALT)) {
             EmbeddedRun run = host.attachHuman(SEARCHES, logging(folder), 5_000);
             assertTrue(host.untilOpen(20_000), "a wait opened for the person");
-            assertNull(run.watchdog(), "a person's pace is no freeze: a HUMAN Run has no watchdog");
+            assertNotNull(run.watchdog(), "a HUMAN Run is watched too, for after a hand back; its predicate ignores a person's pace");
             file = run.logFile();
             run.close();
             assertEquals(RunOutcome.Cause.CLOSED, run.outcome().cause());

@@ -136,7 +136,7 @@ final class Panel extends Component {
      */
     void content(ModeState mode, RunLog.Decision decision, Observation observation, boolean inputLocked,
                  BeliefSummary beliefSummary, List<BoundedLog.Entry> history, DecisionCardContent.Shadow shadow) {
-        blocker.active = !inputLocked && (shadow != null || controlState != null);
+        blocker.active = !inputLocked && ((shadow != null && shadow.person()) || controlState != null);
         stripText.text(ModeStripContent.text(mode));
         stripText.hardlight(ModeStripContent.color(mode.mode()));
         boolean full = placed != null && placed.form() == PanelLayout.Form.FULL;

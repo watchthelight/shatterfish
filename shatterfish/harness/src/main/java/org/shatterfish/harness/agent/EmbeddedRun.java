@@ -143,7 +143,14 @@ public final class EmbeddedRun implements AutoCloseable {
      */
     public record Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state,
                            BeliefSummary beliefSummary, List<BoundedLog.Entry> history, Human human,
-                           boolean awaiting) {
+                           boolean awaiting, Unverifiable unverifiable) {
+
+        /** A snapshot whose Run has no unverifiable mark of its own to carry (issue #220 adds the mark). */
+        public Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state,
+                        BeliefSummary beliefSummary, List<BoundedLog.Entry> history, Human human,
+                        boolean awaiting) {
+            this(decision, turn, floor, observation, state, beliefSummary, history, human, awaiting, null);
+        }
 
         /** A snapshot of a Run whose Decision is not waiting for a press (story 5.9's shape). */
         public Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state,
@@ -171,6 +178,14 @@ public final class EmbeddedRun implements AutoCloseable {
      */
     public record Human(boolean shadowCurrent, long shadowWait, boolean inputOpen, long unverifiableFrom,
                         String unverifiableWhy, long notes) {
+    }
+
+    /**
+     * Where a Replay stops (issue #220): the first wait the log cannot reproduce and why. Unlike {@link Human}
+     * it outlives HUMAN mode, so the Panel keeps saying so after a hand back; {@code null} while every wait of
+     * the Run is verifiable.
+     */
+    public record Unverifiable(long from, String why) {
     }
 
     private record Decided(Action action, long thinkMs) {
@@ -431,12 +446,12 @@ public final class EmbeddedRun implements AutoCloseable {
                             + " game past the Overlay's input lock");
                 }
             }
-            if (!human) {
-                // A person's Run waits on the person, and a long wait there is no freeze (issue #175).
-                run.watchdog = new Watchdog(Watchdog.sideLogOf(log == null ? null : log.file()), System.err, ui,
-                        () -> run.brainThread, run.gate::waitIndex, () -> !run.ended && !run.closed && !run.withheld && !run.humanMode, Watchdog.SECONDS);
-                run.watchdog.start();
-            }
+            // Every Run has a watchdog, a person's too: its predicate ignores a person's turns (a long wait there
+            // is no freeze, issue #175), and a hand back restarts its clock, so a Run that began as a person's
+            // is guarded once the Brain plays it (issue #220).
+            run.watchdog = new Watchdog(Watchdog.sideLogOf(log == null ? null : log.file()), System.err, ui,
+                    () -> run.brainThread, run.gate::waitIndex, () -> !run.ended && !run.closed && !run.withheld && !run.humanMode, Watchdog.SECONDS);
+            run.watchdog.start();
             run.arm();
             return run;
         } catch (RuntimeException | Error failed) {
@@ -1435,14 +1450,16 @@ public final class EmbeddedRun implements AutoCloseable {
         Human humanPart = !humanMode ? null
                 : new Human(shadowWait > 0 && human.isOpen(shadowWait), shadowWait, inputOpen(),
                         human.unverifiableFrom(), human.unverifiableWhy(), notes);
+        Unverifiable lost = human != null && human.unverifiableFrom() > 0
+                ? new Unverifiable(human.unverifiableFrom(), human.unverifiableWhy()) : null;
         if (withheld && withheldDecision != null && pendingObservation != null && !humanMode) {
             // The Decision for the wait in front, landed and not executed (story 5.7): what the next press
             // executes. The Observation is the one it was made on, which the Brain was given.
             return new Snapshot(withheldDecision, pendingTurn, pendingObservation.header().depth(),
-                    pendingObservation, state(), withheldBelief, history.asList(), null, true);
+                    pendingObservation, state(), withheldBelief, history.asList(), null, true, lost);
         }
         return new Snapshot(lastDecision, lastDecisionTurn, lastDecisionFloor, lastDecisionObservation, state(),
-                lastBeliefSummary, history.asList(), humanPart, false);
+                lastBeliefSummary, history.asList(), humanPart, false, lost);
     }
 
     /** The index of the last wait confirmed; 0 before the first. It survives every floor. */
@@ -1500,7 +1517,7 @@ public final class EmbeddedRun implements AutoCloseable {
         return log == null ? null : log.file();
     }
 
-    /** The Run's watchdog (issue #175), or null for a HUMAN Run; for the tests. */
+    /** The Run's watchdog (issue #175), for the tests. */
     Watchdog watchdog() {
         return watchdog;
     }
