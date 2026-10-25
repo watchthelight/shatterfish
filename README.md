@@ -167,7 +167,10 @@ E5 (the Overlay) so far:
   tuning-set baseline moved with it (depth 5 on 18/40, Goo 8/40).
 - `:rig:direction` caches the baseline's Runs by commit and host code, so a second run against
   the same baseline takes seconds (#215).
-- Next: take over and hand back (5.8), with Brain changes in parallel.
+- E5.8: take over and hand back. A person can take the Run at any Input wait and hand it back;
+  the Brain resumes paused, with a fresh Decision for the screen in front of it (#221).
+- Next: the rest of 5.9 (recording human turns and the shadow Decision), with Brain changes in
+  parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:
