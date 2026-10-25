@@ -181,7 +181,10 @@ E5 (the Overlay) so far:
   longer depends on the date (#228).
 - E5.10: the pending Decision's target (and path, once a Policy plans one) is outlined on the
   dungeon itself in the game's own blocks (#231).
-- Next: hotkeys (5.11) and oracle marking (5.12), with the Goo work (#219) in parallel.
+- E5.11: the Overlay's controls are the game's own key-bound actions on F6 to F11, rebindable in
+  the game's key settings (#230).
+- Next: oracle marking (5.12), the speed ceiling (5.13) and save and resume (5.14), with the Goo
+  work (#219) in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:
