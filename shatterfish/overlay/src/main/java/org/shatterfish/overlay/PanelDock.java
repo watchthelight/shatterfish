@@ -36,6 +36,7 @@ final class PanelDock {
     private Panel panel;
     private boolean collapsed;
     private boolean oracle;
+    private ControlState controls;
 
     /**
      * The end of the Overlay's frame update: {@code sceneUpdate}, then the Panel and its offset, then the
@@ -65,6 +66,7 @@ final class PanelDock {
             panel = new Panel();
             panel.camera = PixelScene.uiCamera;
             panel.oracle(oracle);
+            panel.controls(controls);
             scene.add(panel);
             keepFaderInFront(scene);
         }
@@ -76,7 +78,8 @@ final class PanelDock {
                     + SPDSettings.interfaceSize() + ", camera offset " + layout.offsetUi() + " UI px)");
         }
         panel.place(layout);
-        panel.content(ModeState.of(snapshot), snapshot == null ? null : snapshot.decision(),
+        ModeState run = ModeState.of(snapshot);
+        panel.content(controls == null ? run : controls.view(run), snapshot == null ? null : snapshot.decision(),
                 snapshot == null ? null : snapshot.observation(), inputLocked,
                 snapshot == null ? null : snapshot.beliefSummary(),
                 snapshot == null ? java.util.List.of() : snapshot.history(), shadow(snapshot));
@@ -132,6 +135,27 @@ final class PanelDock {
         if (panel != null) {
             panel.oracle(oracle);
         }
+    }
+
+    /** Binds the controls of a Brain's Run (story 5.6) to this dock's Panel, now and on every later play scene. */
+    void controls(ControlState controls) {
+        this.controls = controls;
+        if (panel != null) {
+            panel.controls(controls);
+        }
+    }
+
+    /**
+     * Whether a screen point (the pixels the input arrives in) is on the Panel as it is drawn now, which
+     * the input lock reads to let a person's press reach the Panel's controls (story 5.6).
+     */
+    boolean contains(int screenX, int screenY) {
+        if (panel == null || !panel.visible || panel.parent == null || panel.parent != com.watabou.noosa.Game.scene()
+                || panel.camera == null || panel.width() <= 0) {
+            return false;
+        }
+        com.watabou.utils.PointF at = panel.camera.screenToCamera(screenX, screenY);
+        return at.x >= panel.left() && at.x < panel.right() && at.y >= panel.top() && at.y < panel.bottom();
     }
 
     /** The Panel on the current play scene, or null before the first one. */

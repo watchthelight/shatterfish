@@ -6,9 +6,11 @@ import org.shatterfish.harness.agent.EmbeddedRun;
  * The Run's Mode and speed mode, as the Mode strip and the Decision card show them (story 5.3, FR-38,
  * UX-DR3, UX-DR6).
  *
- * <p>Pause (story 5.5), takeover (5.8) and the speed controls (5.6, 5.7) are not built yet, so nothing
- * today changes this Run's {@link Mode} or paces it: {@link #of} always reads {@link Mode#RUNNING} at
- * the placeholder {@link SpeedMode#NORMAL}. Its {@link #PLACEHOLDER_INTERVAL} is never shown as a
+ * <p>{@link #of} reads a Run with no controls bound: {@link Mode#RUNNING} at the placeholder
+ * {@link SpeedMode#NORMAL}, or {@link Mode#HUMAN} for a HUMAN Run. A Brain's Run in the Overlay takes its
+ * Mode, speed mode and interval from its {@code ControlState} instead (story 5.6, {@code ControlState#view}).
+ *
+ * <p>The placeholder's {@link #PLACEHOLDER_INTERVAL} is never shown as a
  * number -- {@code ModeStripContent} reads an em dash for it instead, so a placeholder cannot be
  * mistaken for a measurement (the review that found "normal 0.0s" reading as one) -- and stays only
  * as the field every {@link SpeedMode} carries, since {@code SpeedMode.HUMAN_PLAY}'s real interval is
@@ -17,7 +19,7 @@ import org.shatterfish.harness.agent.EmbeddedRun;
  */
 final class ModeState {
 
-    /** ADR-0013's three Modes. Only {@link #RUNNING} is reachable before story 5.5 (PAUSED) and 5.8 (HUMAN). */
+    /** ADR-0013's three Modes. */
     enum Mode {
         RUNNING, PAUSED, HUMAN
     }
@@ -53,8 +55,14 @@ final class ModeState {
     private final int turn;
     private final int floor;
     private final boolean thinking;
+    private final boolean over;
 
     ModeState(Mode mode, SpeedMode speed, double intervalSeconds, int turn, int floor, boolean thinking) {
+        this(mode, speed, intervalSeconds, turn, floor, thinking, false);
+    }
+
+    /** As above, and whether the Run is over, which the Controls row reads (story 5.6, UX-DR7's Run over row). */
+    ModeState(Mode mode, SpeedMode speed, double intervalSeconds, int turn, int floor, boolean thinking, boolean over) {
         if (mode == null || speed == null) {
             throw new IllegalArgumentException("a Mode and a speed mode");
         }
@@ -64,6 +72,7 @@ final class ModeState {
         this.turn = turn;
         this.floor = floor;
         this.thinking = thinking;
+        this.over = over;
     }
 
     /**
@@ -78,10 +87,11 @@ final class ModeState {
         if (snapshot.human() != null) {
             // A HUMAN Run (story 5.9) is HUMAN for its whole length; THINKING is the shadow still pending.
             return new ModeState(Mode.HUMAN, SpeedMode.PLAYER, PLACEHOLDER_INTERVAL, snapshot.turn(), snapshot.floor(),
-                    snapshot.state() == EmbeddedRun.State.THINKING);
+                    snapshot.state() == EmbeddedRun.State.THINKING,
+                    snapshot.state() == EmbeddedRun.State.ENDED);
         }
         return new ModeState(Mode.RUNNING, SpeedMode.NORMAL, PLACEHOLDER_INTERVAL, snapshot.turn(), snapshot.floor(),
-                snapshot.state() == EmbeddedRun.State.THINKING);
+                snapshot.state() == EmbeddedRun.State.THINKING, snapshot.state() == EmbeddedRun.State.ENDED);
     }
 
     Mode mode() {
@@ -106,5 +116,9 @@ final class ModeState {
 
     boolean thinking() {
         return thinking;
+    }
+
+    boolean over() {
+        return over;
     }
 }

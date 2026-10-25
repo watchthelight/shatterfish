@@ -209,6 +209,11 @@ public final class EmbeddedRun implements AutoCloseable {
     static final float INPUT_GUARD_SECONDS = 0.2f;
 
     private int attachments;
+    /** Story 5.6: whether the Run waits for credit before it asks for a wait, and the credit it has. */
+    private boolean held;
+    private int credits;
+    /** Whether a window now in front was opened by a step that was paid for; see {@link #frame()}. */
+    private boolean promptOwed;
     private double secondsWithoutAWait;
     /** The window in front at the last game frame, and the game time it has been in front, its first frame included. */
     private Window guardWindow;
@@ -521,9 +526,27 @@ public final class EmbeddedRun implements AutoCloseable {
             return State.PLAYING;
         }
         Window window = Windows.front();
+        if (held && credits == 0) {
+            // A Prompt that a step opened is part of that step (UX: the unit is one Input wait, a Prompt
+            // included), and every control is off behind a window, so no credit could ever be given for
+            // it: it is answered without one. A window with no step behind it, or the hero's own turn, waits.
+            if (window == null) {
+                promptOwed = false;
+            }
+            if (window == null || !promptOwed) {
+                // Held (story 5.6): the hero is ready and no wait is asked for. An idle Run is not a stuck
+                // one, so the frame budget does not run; the game's frames go on, and only the next wait waits.
+                secondsWithoutAWait = 0;
+                return State.PLAYING;
+            }
+        }
         long k = gate.frame(hero, window, host.pendingRunnables() != 0);
         if (k == 0) {
             return State.PLAYING;
+        }
+        if (held && credits > 0) {
+            credits--;
+            promptOwed = true;
         }
         secondsWithoutAWait = 0;
         confirmedScene = front;
@@ -738,6 +761,41 @@ public final class EmbeddedRun implements AutoCloseable {
     /** Whether a person's click and held direction key reach the hero; see {@link #humanInput(boolean)}. */
     public boolean humanInput() {
         return inputGate.humanInput();
+    }
+
+    /**
+     * Holds the Run, or lets it go (story 5.6): a held Run confirms a new Input wait only while it has a
+     * credit from {@link #advance}, one credit per wait; a Run that is not held asks for every wait, as the
+     * headless loop does, and is every Run until the Overlay holds it. Holding clears the credits, so a
+     * Pause also cancels a Run N still owed. A wait already confirmed is not taken back: its Decision lands
+     * and is executed, so a hold takes effect at the next Input wait (UX-DR6). The pacing of the credits
+     * (Human play speed's interval, a Next Step queued behind a thinking Brain) is story 5.7's.
+     */
+    public void hold(boolean held) {
+        UiRole.require("EmbeddedRun.hold()");
+        this.held = held;
+        this.credits = 0;
+    }
+
+    /** Whether the Run is held; see {@link #hold(boolean)}. */
+    public boolean held() {
+        return held;
+    }
+
+    /** Lets a held Run confirm {@code waits} more Input waits (story 5.6); it does nothing to a Run that is not held. */
+    public void advance(int waits) {
+        UiRole.require("EmbeddedRun.advance()");
+        if (waits < 0) {
+            throw new IllegalArgumentException("a count of waits, not " + waits);
+        }
+        if (held) {
+            credits = (int) Math.min(Integer.MAX_VALUE, (long) credits + waits);
+        }
+    }
+
+    /** The waits a held Run may still confirm; 0 when it is not held. */
+    public int credits() {
+        return held ? credits : 0;
     }
 
     /** Whether this Run is the person's (story 5.9). */
