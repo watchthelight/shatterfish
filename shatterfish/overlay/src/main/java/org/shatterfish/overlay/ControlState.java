@@ -5,6 +5,7 @@ import org.shatterfish.overlay.ControlEnablement.Control;
 import org.shatterfish.overlay.ModeState.Mode;
 import org.shatterfish.overlay.ModeState.SpeedMode;
 
+import java.util.EnumSet;
 import java.util.Set;
 
 /**
@@ -64,8 +65,21 @@ final class ControlState {
         /** Whether the Run is over. */
         boolean ended();
 
-        /** Opens or shuts the human's hand on the game (story 5.8's switch, story 5.5's gate). */
-        void humanInput(boolean allowed);
+        /**
+         * Asks the Run to hand the game to the human (story 5.8). It applies at the next Input wait, and
+         * {@link #humanTurn} turns true when it has; {@code speed} is the speed mode's word, for the log's
+         * {@code mode} record.
+         */
+        void takeOver(String speed);
+
+        /**
+         * Asks the Run to take the game back (story 5.8). It applies at a wait the human has open, and
+         * {@link #humanTurn} turns false when it has; the Run lands held, with a Decision for that wait.
+         */
+        void handBack(String speed);
+
+        /** Whether the human plays now: a takeover has applied and a hand back has not. */
+        boolean humanTurn();
     }
 
     private final Seam seam;
@@ -82,6 +96,12 @@ final class ControlState {
     private boolean held;
     /** Seconds since the last credit the pacer gave. */
     private double sinceStep;
+    /**
+     * The Mode a Take over or Hand back press asked for and the Run has not applied yet (story 5.8): HUMAN or
+     * PAUSED, or null. Until it applies the Mode is what it was and every control but Explain is dim, since a
+     * press during the switch would act on a Run that is about to change hands (UX-DR7's Hero busy row).
+     */
+    private Mode target;
 
     /** A fresh Run's controls: the Run is held at once, PAUSED with Next Step. */
     ControlState(Seam seam, Capabilities capabilities) {
@@ -118,7 +138,16 @@ final class ControlState {
 
     /** The controls that act now. */
     Set<Control> enabled() {
+        if (target != null && !over()) {
+            // The hero is busy: the press is queued, its control dim, until the hero is ready (story 5.8).
+            return EnumSet.of(Control.EXPLAIN);
+        }
         return ControlEnablement.of(mode, over(), capabilities);
+    }
+
+    /** Whether a Take over or Hand back is queued and has not applied (story 5.8). */
+    boolean switching() {
+        return target != null;
     }
 
     boolean enabled(Control control) {
@@ -127,7 +156,9 @@ final class ControlState {
 
     /** The Mode, speed and values as the Mode strip shows them, over the Run's turn, floor and thinking flag. */
     ModeState view(ModeState run) {
-        return new ModeState(mode, speed, interval, run.turn(), run.floor(), run.thinking(), over());
+        // A person's own pace paces a HUMAN turn: no speed mode does (story 5.8).
+        return new ModeState(mode, mode == Mode.HUMAN ? SpeedMode.PLAYER : speed, interval, run.turn(), run.floor(),
+                run.thinking(), over());
     }
 
     /**
@@ -137,10 +168,16 @@ final class ControlState {
      */
     void frame(double seconds) {
         sinceStep += seconds;
+        if (target != null && seam.humanTurn() == (target == Mode.HUMAN)) {
+            // The Run has changed hands at its Input wait: the Mode follows it (story 5.8).
+            mode = target;
+            target = null;
+            sinceStep = 0;
+        }
         if (over()) {
             return;
         }
-        if (mode == Mode.RUNNING && held && seam.credits() == 0 && seam.ready() && (!runN || remaining > 0)
+        if (target == null && mode == Mode.RUNNING && held && seam.credits() == 0 && seam.ready() && (!runN || remaining > 0)
                 && (speed != SpeedMode.HUMAN_PLAY || sinceStep >= interval)) {
             seam.advance(1);
             sinceStep = 0;
@@ -254,21 +291,26 @@ final class ControlState {
         return true;
     }
 
-    /** Take over while the bot plays (story 5.8's seam: dim until it is built), Hand back while the human does. */
+    /**
+     * Take over while the bot plays, Hand back while the human does (story 5.8, FR-40, UX-DR9). Neither
+     * changes the Mode at once: the Run changes hands at an Input wait, and the Mode follows it in
+     * {@link #frame}, the control dim meanwhile, so a press while the hero is mid-animation applies when the
+     * hero is ready. Take over holds the Run, which withdraws a credit not yet spent; the Decision the Brain
+     * was about to execute is kept as a shadow, never executed. Hand back lands in PAUSED, never straight in
+     * RUNNING, with the Decision for the wait in front, computed after the human's last turn.
+     */
     boolean takeOverHandBack() {
         if (!enabled(Control.TAKE_OVER)) {
             return false;
         }
+        runN = false;
+        holdNow();
         if (mode == Mode.HUMAN) {
-            // Hand back lands in PAUSED, never straight in RUNNING (UX-DR9).
-            mode = Mode.PAUSED;
-            holdNow();
-            seam.humanInput(false);
+            target = Mode.PAUSED;
+            seam.handBack(speed.word);
         } else {
-            runN = false;
-            mode = Mode.HUMAN;
-            holdNow();
-            seam.humanInput(true);
+            target = Mode.HUMAN;
+            seam.takeOver(speed.word);
         }
         return true;
     }

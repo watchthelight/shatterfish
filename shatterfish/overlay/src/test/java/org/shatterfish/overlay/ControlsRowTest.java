@@ -198,7 +198,7 @@ class ControlsRowTest {
         assertTrue(panel.controls().runN().active);
         assertEquals("10", panel.controls().countValue().text());
         assertEquals("1.0s", panel.controls().intervalValue().text());
-        assertFalse(panel.controls().takeOver().active, "story 5.8");
+        assertTrue(panel.controls().takeOver().active, "story 5.8 built Take over");
         assertTrue(panel.controls().intervalPlus().active, "story 5.7 built the pace");
         assertTrue(held.run.held);
     }
@@ -225,7 +225,21 @@ class ControlsRowTest {
         assertEquals(11, held.state.count());
 
         press(row.takeOver());
-        assertEquals(Mode.PAUSED, held.state.mode(), "dim controls take no press");
+        assertTrue(held.state.switching(), "Take over asks the Run to change hands");
+        assertEquals(Mode.PAUSED, held.state.mode(), "and the Mode follows the Run, at its Input wait");
+        dock.frame(scene, snapshot(EmbeddedRun.State.PLAYING), false);
+        assertFalse(row.takeOver().active, "the pressed control stays dim until the hero is ready");
+        assertFalse(row.speed().active);
+        held.run.person = true;
+        held.state.frame(0.016);
+        dock.frame(scene, snapshot(EmbeddedRun.State.PLAYING), false);
+        assertEquals("Hand back", row.takeOver().text());
+        assertTrue(row.takeOver().active);
+        held.run.person = false;
+        press(row.takeOver());
+        held.state.frame(0.016);
+        assertEquals(Mode.PAUSED, held.state.mode(), "Hand back lands in PAUSED");
+        dock.frame(scene, snapshot(EmbeddedRun.State.PLAYING), false);
         press(row.intervalPlus());
         assertEquals(1.5, held.state.interval());
         press(row.intervalMinus());

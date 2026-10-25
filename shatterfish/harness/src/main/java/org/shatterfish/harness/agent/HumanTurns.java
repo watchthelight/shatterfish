@@ -335,6 +335,32 @@ public final class HumanTurns implements Hooks.HeroInput {
         unsupported(0, why);
     }
 
+    /** Marks the Run unverifiable from wait {@code at}: a takeover mid-Run that the record cannot follow (story 5.8). */
+    void unsupportedFrom(long at, String why) {
+        unsupported(at, why);
+    }
+
+    /**
+     * The person hands the open wait back (story 5.8): it is closed without a mark, because nothing was
+     * meant to be heard at it, and the Brain's Action is the one recorded for it. Whatever was heard and
+     * not yet settled is dropped, since it belongs to a screen the Brain is about to be shown afresh.
+     */
+    void release() {
+        heard.clear();
+        inputThisFrame = false;
+        recorded = true;
+    }
+
+    /** The window in front when the open wait was confirmed, or null; a hand back waits until it is again. */
+    Window windowAtWait() {
+        return openWindow;
+    }
+
+    /** The Observation the open wait was confirmed with. */
+    Observation observationAtWait() {
+        return observation;
+    }
+
     private void unsupported(long at, String input) {
         RunLog.Unsupported mark = new RunLog.Unsupported(at, input);
         if (log != null) {

@@ -7,9 +7,9 @@ import com.watabou.input.InputHandler;
  * Keeps the player's hands off the game while a Run plays it (story 5.1's fairness review).
  *
  * <p>The Brain plays through the executor; a click or a key of the player's, taken by the game while
- * the Brain thinks, would change the game outside the Run's log, and nothing would say so. Until
- * take-over (story 5.8) makes a human turn a thing the log records, the game's own input is closed
- * while a Run is attached: this processor sits first in the game's input multiplexer
+ * the Brain thinks, would change the game outside the Run's log, and nothing would say so. The game's
+ * own input is closed while the Brain plays (and, until a person takes over in story 5.8, always; when
+ * they do, {@link #human} opens it and the log records their turns): this processor sits first in the game's input multiplexer
  * ({@code SPD-classes/…/input/InputHandler.java:35-44}) and takes every key, touch, drag and scroll,
  * so nothing reaches the game's pointer and key queues. Mouse movement passes, so the cursor still
  * hovers. The window's own close button is the operating system's and still works.
@@ -57,6 +57,8 @@ final class InputLock extends InputAdapter {
     private Human human;
     /** Pointers whose press was passed, so their release is passed too and no other release is. */
     private final java.util.Set<Integer> passed = new java.util.HashSet<>();
+    /** Keys passed to the game and not yet released, so a hand back leaves none stuck down (story 5.8). */
+    private final java.util.Set<Integer> heldKeys = new java.util.HashSet<>();
     /** Keys the Overlay took for itself, whose release is kept from the game too. */
     private final java.util.Set<Integer> taken = new java.util.HashSet<>();
 
@@ -119,14 +121,18 @@ final class InputLock extends InputAdapter {
         }
         human.keyDown(keycode);
         human.input();
+        heldKeys.add(keycode);
         return false;
     }
 
     @Override
     public boolean keyUp(int keycode) {
         if (human == null) {
-            return locked;
+            // A key the person pressed while they played and still holds when the Run is handed back (story
+            // 5.8) is released into the game all the same, or it would stay held and move the hero by itself.
+            return locked && !heldKeys.remove(keycode);
         }
+        heldKeys.remove(keycode);
         // A release always passes, save the Overlay's own key's: a key held across the end of a wait
         // would otherwise stay held in the game and move the hero on its own.
         return taken.remove(keycode);
@@ -157,7 +163,9 @@ final class InputLock extends InputAdapter {
             return false;
         }
         if (human == null) {
-            return locked;
+            // A press passed while the person played is released into the game, and the input gate (story 5.5)
+            // keeps the tap from the hero (story 5.8).
+            return locked && !passed.remove(pointer);
         }
         // Passed exactly when its press was: a release on its own would be read by the game as a tap.
         if (!passed.remove(pointer)) {

@@ -45,8 +45,8 @@ final class ControlEnablement {
     record Capabilities(boolean pacing, boolean takeover) {
         /** Everything UX-DR7 describes. */
         static final Capabilities ALL = new Capabilities(true, true);
-        /** What is built: the pacing of story 5.7; Take over and Hand back are story 5.8's. */
-        static final Capabilities NOW = new Capabilities(true, false);
+        /** What is built: the pacing of story 5.7 and the takeover of story 5.8, which is everything UX-DR7 describes. */
+        static final Capabilities NOW = new Capabilities(true, true);
     }
 
     private ControlEnablement() {

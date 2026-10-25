@@ -134,6 +134,7 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
             run = EmbeddedRun.attachHuman(this, options.seed(), options.heroClass(), rng, brain.get(), observer,
                     logging, options.turnCap());
             lock.human(new HumanInput());
+            lockKnowsPerson = true;
         } else {
             run = EmbeddedRun.attach(this, options.seed(), options.heroClass(), rng, brain.get(), observer, logging,
                     options.turnCap());
@@ -234,8 +235,18 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         }
 
         @Override
-        public void humanInput(boolean allowed) {
-            run.humanInput(allowed);
+        public void takeOver(String speed) {
+            run.takeOver(speed);
+        }
+
+        @Override
+        public void handBack(String speed) {
+            run.handBack(speed);
+        }
+
+        @Override
+        public boolean humanTurn() {
+            return run.human();
         }
     }
 
@@ -274,6 +285,9 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
 
     private boolean noteAsked;
 
+    /** Whether the lock was last told the person plays, so it is told again only when the Run changes hands (story 5.8). */
+    private boolean lockKnowsPerson;
+
     private static boolean noteOpen() {
         return Windows.front() instanceof NoteWindow;
     }
@@ -302,7 +316,17 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
             return;
         }
         EmbeddedRun.State state = run.frame();
-        if (run.human() && state != EmbeddedRun.State.ENDED) {
+        boolean person = run.human();
+        if (person != lockKnowsPerson) {
+            // The Run changed hands (story 5.8): the lock hears the person's presses while they play, and
+            // holds the game's input whole again when the Brain does.
+            lockKnowsPerson = person;
+            lock.human(person ? new HumanInput() : null);
+        }
+        if (!person && state != EmbeddedRun.State.ENDED) {
+            lock.lock();
+        }
+        if (person && state != EmbeddedRun.State.ENDED) {
             // A press reaches the game only while a wait is open for it, so every input the record holds
             // was made on the screen its wait observed; off the play scene (a loading scene's region
             // intro) the person clicks through as the game asks (story 5.9).

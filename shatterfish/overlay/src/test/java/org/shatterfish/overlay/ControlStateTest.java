@@ -9,6 +9,7 @@ import org.shatterfish.overlay.ModeState.SpeedMode;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -70,9 +71,22 @@ class ControlStateTest {
             return ended;
         }
 
+        /** Whether the human plays now, as the Run says: a test sets it when the switch has applied at an Input wait. */
+        boolean person;
+
         @Override
-        public void humanInput(boolean allowed) {
-            calls.add("human " + allowed);
+        public void takeOver(String speed) {
+            calls.add("takeOver " + speed);
+        }
+
+        @Override
+        public void handBack(String speed) {
+            calls.add("handBack " + speed);
+        }
+
+        @Override
+        public boolean humanTurn() {
+            return person;
         }
     }
 
@@ -230,24 +244,72 @@ class ControlStateTest {
     }
 
     @Test
-    @DisplayName("Take over is dim until story 5.8; with it built, Take over lands in HUMAN and Hand back in PAUSED, never RUNNING")
+    @DisplayName("Take over holds the Run and asks it to change hands; the Mode follows when the Run has, and Hand back lands in PAUSED, never RUNNING")
     void take_over_and_hand_back() {
         FakeRun run = new FakeRun();
-        ControlState now = new ControlState(run, Capabilities.NOW);
-        assertFalse(now.takeOverHandBack(), "dim");
-        assertEquals(Mode.PAUSED, now.mode());
+        ControlState controls = new ControlState(run, new Capabilities(true, false));
+        assertFalse(controls.takeOverHandBack(), "dim while the capability is off");
+        assertEquals(Mode.PAUSED, controls.mode());
 
         FakeRun other = new FakeRun();
-        ControlState all = new ControlState(other, Capabilities.ALL);
+        ControlState all = new ControlState(other, Capabilities.NOW);
         all.pauseResume();
+        assertEquals(Mode.RUNNING, all.mode());
         assertTrue(all.takeOverHandBack());
+        assertTrue(other.held, "a Take over withdraws the credit the Run would have spent");
+        assertEquals("takeOver Human", other.calls.get(other.calls.size() - 1));
+        assertEquals(Mode.RUNNING, all.mode(), "the Mode changes when the Run does, at its Input wait");
+        assertTrue(all.switching());
+        other.person = true;
+        all.frame(0.016);
         assertEquals(Mode.HUMAN, all.mode());
-        assertTrue(other.held);
-        assertEquals("human true", other.calls.get(other.calls.size() - 1));
+        assertFalse(all.switching());
+        assertEquals(SpeedMode.PLAYER, all.view(new ModeState(Mode.RUNNING, SpeedMode.NORMAL, 0, 1, 1, false)).speed());
+
         assertTrue(all.takeOverHandBack(), "Hand back");
-        assertEquals(Mode.PAUSED, all.mode());
-        assertEquals("human false", other.calls.get(other.calls.size() - 1));
+        assertEquals("handBack Human", other.calls.get(other.calls.size() - 1));
+        assertEquals(Mode.HUMAN, all.mode(), "still the human's until the Run has taken the game back");
+        other.person = false;
+        all.frame(0.016);
+        assertEquals(Mode.PAUSED, all.mode(), "never straight to RUNNING");
         assertTrue(other.held);
+        assertEquals(0, other.credits);
+    }
+
+    @Test
+    @DisplayName("a Take over pressed while the hero is busy is queued: every control but Explain is dim until the Run has changed hands, then it applies")
+    void take_over_queued_while_the_hero_is_busy() {
+        FakeRun run = new FakeRun();
+        ControlState controls = new ControlState(run, Capabilities.NOW);
+        assertTrue(controls.takeOverHandBack());
+        assertEquals(Set.of(Control.EXPLAIN), controls.enabled(), "the pressed control and the rest are dim");
+        assertFalse(controls.takeOverHandBack(), "a second press does not stack");
+        assertFalse(controls.nextStep());
+        assertFalse(controls.pauseResume());
+        assertFalse(controls.runN());
+        assertFalse(controls.cycleSpeed());
+        int calls = run.calls.size();
+        controls.frame(5.0);
+        assertEquals(calls, run.calls.size(), "nothing is given to the Run while the switch waits");
+        assertEquals(0, run.credits);
+        assertEquals(Mode.PAUSED, controls.mode());
+        run.person = true;
+        controls.frame(0.016);
+        assertEquals(Mode.HUMAN, controls.mode());
+        assertEquals(Set.of(Control.TAKE_OVER, Control.EXPLAIN), controls.enabled(), "HUMAN: Hand back and Explain");
+    }
+
+    @Test
+    @DisplayName("a Take over pressed in RUNNING gives the Decision that was about to execute no credit, even at Human play speed")
+    void take_over_gives_no_credit_while_it_waits() {
+        FakeRun run = new FakeRun();
+        ControlState controls = new ControlState(run, Capabilities.NOW);
+        controls.pauseResume();
+        run.ready = true;
+        controls.takeOverHandBack();
+        controls.frame(10.0);
+        assertEquals(0, run.credits, "the interval elapsed, and the withheld Decision still got no credit");
+        assertFalse(run.calls.contains("advance 1"), run.calls.toString());
     }
 
     @Test

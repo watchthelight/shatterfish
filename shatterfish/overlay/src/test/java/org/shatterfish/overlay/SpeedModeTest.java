@@ -77,7 +77,16 @@ class SpeedModeTest {
         }
 
         @Override
-        public void humanInput(boolean allowed) {
+        public void takeOver(String speed) {
+        }
+
+        @Override
+        public void handBack(String speed) {
+        }
+
+        @Override
+        public boolean humanTurn() {
+            return false;
         }
 
         /** The Run's frame: confirm and ask, wait for the Brain, then execute against a credit or hold. */
