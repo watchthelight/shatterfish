@@ -1,7 +1,6 @@
 package org.shatterfish.overlay;
 
 import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
-import com.shatteredpixel.shatteredpixeldungeon.ui.RedButton;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
 import com.watabou.noosa.ui.Component;
 import org.shatterfish.api.Observation;
@@ -12,7 +11,8 @@ import java.util.List;
 
 /**
  * The Panel's Decision card (story 5.3, FR-38, FR-39, UX-DR3, UX-DR5, UX-DR14): the chosen Action with
- * its score, up to three alternatives with scores and one-line reasons, and the Explain control, which
+ * its score, up to three alternatives with scores and one-line reasons, and the Explain expansion (the
+ * control that toggles it is the Controls row's, story 5.6), which
  * expands the card in place to the Policy that fired and the Safety flags that applied ({@code
  * DESIGN.md} Components: "the card is the Explain expansion's anchor"). This is FR-39's v1 Explain
  * control, not the v2 Explain view (UX-DR15).
@@ -44,8 +44,6 @@ final class DecisionCard extends Component {
     static final float ROW_GAP = 2;
     /** Between the action column and the score column, and between the score column and the reason column. */
     static final float COLUMN_GAP = 4;
-    static final float BUTTON_HEIGHT = 11;
-    static final float BUTTON_WIDTH = 48;
 
     /** The chosen Action's row, plus up to three alternatives ({@link RunLog.Decision#ALTERNATIVES}). */
     static final int TABLE_ROWS = 1 + RunLog.Decision.ALTERNATIVES;
@@ -59,14 +57,12 @@ final class DecisionCard extends Component {
     private RenderedTextBlock flagsLine;
     /** A HUMAN Run's word that a Replay stops at a wait (story 5.9); hidden otherwise. */
     private RenderedTextBlock noticeLine;
-    private RedButton explainButton;
     private DecisionCardContent.Shadow shadow;
 
     private RunLog.Decision decision;
     private Observation observation;
     private boolean nextStep;
     private boolean explain;
-    private boolean inputLocked;
     private float innerWidth = 1;
     /** Table rows shown by the last {@link #refresh()}: the chosen row, plus 0 to 3 alternatives'. */
     private int rows;
@@ -90,13 +86,6 @@ final class DecisionCard extends Component {
         policyLine = row(SMALL_SIZE, INK_MUTED);
         flagsLine = row(SMALL_SIZE, INK_MUTED);
         noticeLine = row(SMALL_SIZE, NOTICE_COLOR);
-        explainButton = new RedButton("Explain", SMALL_SIZE) {
-            @Override
-            protected void onClick() {
-                toggleExplain();
-            }
-        };
-        add(explainButton);
     }
 
     private RenderedTextBlock row(int size, int color) {
@@ -109,14 +98,12 @@ final class DecisionCard extends Component {
     /**
      * Sets the Decision this card shows, the Observation it was made on (for {@code ActionText}; may
      * be null), whether the Mode strip's speed mode is Next Step (the headline shows what the next
-     * press will execute), the width to wrap at, and whether the game's own input is closed right now
-     * ({@code InputLock}) -- Explain is active only when it is not, since {@code ActionExecutor.press}
-     * queues synthetic taps that bypass the lock, and a live hot area could steal one meant for a
-     * window button drawn under it (the fairness review).
+     * press will execute) and the width to wrap at. The Explain control is the Controls row's since
+     * story 5.6 ({@link ControlsRow}), which also holds the rule that a hot area of the Panel is off
+     * while a window is in front; this card has no hot area of its own.
      */
-    void content(RunLog.Decision decision, Observation observation, boolean nextStep, float innerWidth,
-                 boolean inputLocked) {
-        content(decision, observation, nextStep, innerWidth, inputLocked, null);
+    void content(RunLog.Decision decision, Observation observation, boolean nextStep, float innerWidth) {
+        content(decision, observation, nextStep, innerWidth, null);
     }
 
     /**
@@ -124,13 +111,12 @@ final class DecisionCard extends Component {
      * every row greyed and a headline saying it was not executed, with the Replay notice over it.
      */
     void content(RunLog.Decision decision, Observation observation, boolean nextStep, float innerWidth,
-                 boolean inputLocked, DecisionCardContent.Shadow shadow) {
+                 DecisionCardContent.Shadow shadow) {
         this.shadow = shadow;
         this.decision = decision;
         this.observation = observation;
         this.nextStep = nextStep;
         this.innerWidth = Math.max(1, innerWidth);
-        this.inputLocked = inputLocked;
         refresh();
     }
 
@@ -202,14 +188,6 @@ final class DecisionCard extends Component {
         policyLine.text(explaining ? content.explain().policyLine() : "", width);
         flagsLine.visible = explaining;
         flagsLine.text(explaining ? content.explain().flagsLine() : "", width);
-
-        explainButton.visible = content.present();
-        // Visible whenever there is a Decision to explain, but active -- so its hot area can take a
-        // tap at all (Gizmo.isActive() walks the parent chain) -- only when the game's own input is
-        // not locked: a Run playing means ActionExecutor.press may queue a synthetic tap that bypasses
-        // InputLock, and a live hot area sitting over a window's own button would steal it (the
-        // fairness review). Explain becomes clickable once the Run has ended and the lock releases.
-        explainButton.active = content.present() && !inputLocked;
     }
 
     /** The taller of the three blocks in table row {@code i}. */
@@ -235,9 +213,6 @@ final class DecisionCard extends Component {
         }
         if (flagsLine.visible) {
             height += flagsLine.height() + ROW_GAP;
-        }
-        if (explainButton.visible) {
-            height += BUTTON_HEIGHT + ROW_GAP;
         }
         return height > 0 ? height - ROW_GAP : 0;
     }
@@ -282,9 +257,6 @@ final class DecisionCard extends Component {
             PixelScene.align(flagsLine);
             rowY += flagsLine.height() + ROW_GAP;
         }
-        if (explainButton.visible) {
-            explainButton.setRect(x, rowY, Math.min(BUTTON_WIDTH, width), BUTTON_HEIGHT);
-        }
     }
 
     /** The "no decision yet" row, for tests. */
@@ -327,8 +299,4 @@ final class DecisionCard extends Component {
         return noticeLine;
     }
 
-    /** The Explain control, for tests. */
-    RedButton explainButton() {
-        return explainButton;
-    }
 }

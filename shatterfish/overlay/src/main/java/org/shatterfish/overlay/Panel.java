@@ -12,6 +12,7 @@ import org.shatterfish.api.RunLog;
 import org.shatterfish.harness.agent.BoundedLog;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * The Overlay's instrument, docked beside the dungeon (story 5.2, UX-DR1, non-negotiable 6).
@@ -55,6 +56,8 @@ final class Panel extends Component {
     private SafetyFlagsRow flags;
     private BeliefSummarySection belief;
     private DecisionLog log;
+    private ControlsRow controls;
+    private ControlState controlState;
     private PanelLayout.Layout placed;
     private boolean dimmed;
 
@@ -93,6 +96,18 @@ final class Panel extends Component {
         add(belief);
         log = new DecisionLog();
         add(log);
+        controls = new ControlsRow();
+        controls.bind(null, () -> card.toggleExplain());
+        add(controls);
+    }
+
+    /**
+     * Binds the controls of a Brain's Run (story 5.6): what the Controls row shows and does. A Panel with
+     * none bound draws the row by the matrix for its Mode strip and presses nothing but Explain.
+     */
+    void controls(ControlState state) {
+        this.controlState = state;
+        controls.bind(state, () -> card.toggleExplain());
     }
 
     /**
@@ -114,15 +129,21 @@ final class Panel extends Component {
      */
     void content(ModeState mode, RunLog.Decision decision, Observation observation, boolean inputLocked,
                  BeliefSummary beliefSummary, List<BoundedLog.Entry> history, DecisionCardContent.Shadow shadow) {
-        blocker.active = shadow != null && !inputLocked;
+        blocker.active = !inputLocked && (shadow != null || controlState != null);
         stripText.text(ModeStripContent.text(mode));
         stripText.hardlight(ModeStripContent.color(mode.mode()));
         boolean full = placed != null && placed.form() == PanelLayout.Form.FULL;
-        boolean nextStep = mode.speed() == ModeState.SpeedMode.NEXT_STEP;
+        // The headline "next press executes" is shown only when the Decision on the card is the one the next
+        // press executes. The Run decides at the press until story 5.7 decides ahead of it, so the card
+        // shows the last Decision executed and never that headline (story 5.6's decision).
+        boolean nextStep = false;
         float inner = innerWidth();
         goal.content(full ? decision : null, inner);
-        card.content(full ? decision : null, full ? observation : null, nextStep, inner, inputLocked, shadow);
+        card.content(full ? decision : null, full ? observation : null, nextStep, inner, shadow);
         flags.content(full && decision != null ? decision.flags() : List.of());
+        Set<ControlEnablement.Control> enabled = controlState != null ? controlState.enabled()
+                : ControlEnablement.of(mode.mode(), mode.over(), ControlEnablement.Capabilities.NOW);
+        controls.content(mode, enabled, inputLocked, full && decision != null);
         belief.content(full ? beliefSummary : null, inner);
         // layout() before the log's own content: it is what sizes the log's ScrollPane viewport (the
         // remaining room below every section above it), and the log's auto-scroll-to-bottom decision
@@ -202,6 +223,7 @@ final class Panel extends Component {
         card.visible = full;
         belief.visible = full;
         log.visible = full;
+        controls.visible = full;
         if (full) {
             float sectionX = x + PanelLayout.PADDING;
             float sectionWidth = innerWidth();
@@ -216,7 +238,12 @@ final class Panel extends Component {
             float beliefTop = (flags.visible ? flags.bottom() : flagsTop) + SECTION_GAP;
             belief.setRect(sectionX, beliefTop, sectionWidth, belief.contentHeight());
             float logTop = belief.bottom() + SECTION_GAP;
-            float logHeight = Math.max(0, y + height - PanelLayout.PADDING - logTop);
+            // The Controls row is the last section, at the Panel's foot; the log takes the room between.
+            controls.setRect(sectionX, 0, sectionWidth, 0);
+            float controlsHeight = controls.contentHeight();
+            float controlsTop = y + height - PanelLayout.PADDING - controlsHeight;
+            controls.setRect(sectionX, controlsTop, sectionWidth, controlsHeight);
+            float logHeight = Math.max(0, controlsTop - SECTION_GAP - logTop);
             log.setRect(sectionX, logTop, sectionWidth, logHeight);
         }
     }
@@ -274,6 +301,11 @@ final class Panel extends Component {
     /** The Belief summary section, for tests (story 5.4). */
     BeliefSummarySection belief() {
         return belief;
+    }
+
+    /** The Controls row, for tests (story 5.6). */
+    ControlsRow controls() {
+        return controls;
     }
 
     /** The Decision log, for tests (story 5.4). */

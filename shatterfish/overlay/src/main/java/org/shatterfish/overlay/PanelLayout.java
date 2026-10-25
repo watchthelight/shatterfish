@@ -48,6 +48,8 @@ public final class PanelLayout {
     public static final float PADDING = 4;
     /** Space kept between the Panel and any HUD element (the UI-pixel grid's 2). */
     public static final float GAP = 2;
+    /** The Controls row at its tallest the floor allows for: two rows of buttons, 11 high and 2 apart (story 5.6). */
+    public static final float CONTROLS_HEIGHT = 2 * 11 + 2;
     /**
      * The shortest full Panel (story 5.2's own deferred item, resolved in story 5.4 once the sections
      * below the Decision card existed to arbitrate room with): its padding, the Mode strip, a section
@@ -59,9 +61,12 @@ public final class PanelLayout {
      * (the Goal line hides with no goal; the flags row is absent with no flags; the Belief summary
      * shows its one-line placeholder, which this floor's own Decision-card line already stands in for
      * at the same size) -- this is the worst case those three collapsing to nothing leaves, not a
-     * promise that every section fits inside it with real content in all of them.
+     * promise that every section fits inside it with real content in all of them. Story 5.6 adds the Controls
+     * row, after the log and a section gap: {@link #CONTROLS_HEIGHT}, its two rows (the Panel's target width
+     * takes the buttons in two; the narrowest may take a third, and the log gives that room up above its floor).
      */
-    public static final float MIN_PANEL_HEIGHT = PADDING + STRIP_HEIGHT + 6 + (8 + 2) + 6 + 3 * (6 + 2) + PADDING;
+    public static final float MIN_PANEL_HEIGHT = PADDING + STRIP_HEIGHT + 6 + (8 + 2) + 6 + 3 * (6 + 2) + 6
+            + CONTROLS_HEIGHT + PADDING;
 
     // The game's HUD, in UI pixels (docs/rules/ui.md, Tier 1 rows for the full and mobile layouts).
     /** The menu pane's background, 31 by 21 ({@code MenuPane.java:72}, {@code :78}). */

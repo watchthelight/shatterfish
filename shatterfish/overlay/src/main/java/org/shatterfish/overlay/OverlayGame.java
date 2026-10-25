@@ -72,6 +72,8 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
     private final PanelDock dock = new PanelDock();
     private RngControl rng;
     private EmbeddedRun run;
+    /** A Brain's Run's controls (story 5.6); null for a HUMAN Run, whose Panel draws the row by its Mode alone. */
+    private ControlState controls;
     private boolean reported;
     private long frames;
 
@@ -135,7 +137,12 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         } else {
             run = EmbeddedRun.attach(this, options.seed(), options.heroClass(), rng, brain.get(), observer, logging,
                     options.turnCap());
+            // The Run starts held, PAUSED with Next Step (EXPERIENCE.md); the Panel's controls turn it.
+            controls = new ControlState(new RunSeam(run), ControlEnablement.Capabilities.NOW);
+            dock.controls(controls);
         }
+        // A press on the Panel reaches the Panel's controls even while the lock holds the game's input.
+        lock.panel((x, y) -> Windows.front() == null && dock.contains(x, y));
         // The play scene, created at the first frame the way the loading scene asks for it after a new
         // game (core/.../scenes/InterlevelScene.java), with the Run already listening at its seam.
         switchScene(GameScene.class);
@@ -167,22 +174,64 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         }
         Music.INSTANCE.update();
         Sample.INSTANCE.update();
+        if (controls != null) {
+            controls.frame();
+        }
         dock.step(scene, scene::update, run == null ? null : run.snapshot(), panelLocked());
     }
 
     /**
-     * Whether the Panel's own hot areas (Explain, the Decision log's scroll) and its tap blocker are off.
-     * While a Brain plays, whenever the game's input is locked, since the executor's synthetic taps pass
-     * the lock (story 5.3's fairness review). While a person plays, only while a window is in front
-     * (story 5.9): then the window's own blocker holds the dungeon, and the Panel must not take a tap
-     * meant for the window's buttons; otherwise the Panel takes every tap on itself, so a tap on the
-     * Panel never reaches the dungeon under it and is never a hero's Action.
+     * Whether the Panel's own hot areas (the Controls row, the Decision log's scroll) and its tap blocker
+     * are off: exactly while a window of the game's is in front. The executor's synthetic taps are for a
+     * window's buttons ({@code ActionExecutor.press}) and pass the input lock, so a hot area of the Panel
+     * must not be live whenever one could land on it (the fairness review of story 5.3); a window in front
+     * is that moment, for a Brain's Run and a HUMAN Run alike, and its own blocker holds the dungeon. At
+     * every other moment the Panel takes every tap on itself, so a tap on the Panel never reaches the
+     * dungeon under it and is never a hero's Action (story 5.9); before story 5.6 a Brain's Run was
+     * locked this way for its whole length, which left Explain reachable only once the Run was over.
      */
     private boolean panelLocked() {
-        if (run != null && run.human()) {
-            return Windows.front() != null;
+        return Windows.front() != null;
+    }
+
+    /** What the Controls row does to the Run (story 5.6). */
+    private static final class RunSeam implements ControlState.Seam {
+
+        private final EmbeddedRun run;
+
+        RunSeam(EmbeddedRun run) {
+            this.run = run;
         }
-        return lock.locked();
+
+        @Override
+        public void hold(boolean held) {
+            run.hold(held);
+        }
+
+        @Override
+        public void advance(int waits) {
+            run.advance(waits);
+        }
+
+        @Override
+        public int credits() {
+            return run.credits();
+        }
+
+        @Override
+        public boolean thinking() {
+            return run.state() == EmbeddedRun.State.THINKING;
+        }
+
+        @Override
+        public boolean ended() {
+            return run.state() == EmbeddedRun.State.ENDED;
+        }
+
+        @Override
+        public void humanInput(boolean allowed) {
+            run.humanInput(allowed);
+        }
     }
 
     /** What the lock tells a HUMAN Run (story 5.9), on the render thread as the input is polled. */

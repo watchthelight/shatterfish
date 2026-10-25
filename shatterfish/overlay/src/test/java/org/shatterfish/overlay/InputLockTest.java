@@ -79,6 +79,87 @@ class InputLockTest {
     }
 
     @Test
+    @DisplayName("locked, a press on the Panel passes with its drag and release and reaches no key; a press elsewhere is held (story 5.6)")
+    void the_panel_is_the_one_place_a_press_passes() {
+        AtomicInteger reached = new AtomicInteger();
+        InputAdapter game = new InputAdapter() {
+            @Override
+            public boolean keyDown(int keycode) {
+                reached.incrementAndGet();
+                return true;
+            }
+
+            @Override
+            public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+                reached.incrementAndGet();
+                return true;
+            }
+
+            @Override
+            public boolean touchDragged(int screenX, int screenY, int pointer) {
+                reached.incrementAndGet();
+                return true;
+            }
+
+            @Override
+            public boolean touchUp(int screenX, int screenY, int pointer, int button) {
+                reached.incrementAndGet();
+                return true;
+            }
+        };
+        InputLock lock = new InputLock();
+        boolean[] windowInFront = {false};
+        // The Panel is the right-hand 100 pixels; a window in front takes it away, as the Overlay's hit test does.
+        lock.panel((x, y) -> !windowInFront[0] && x >= 900);
+        InputMultiplexer multiplexer = new InputMultiplexer();
+        multiplexer.addProcessor(game);
+        multiplexer.addProcessor(0, lock);
+        lock.lock();
+
+        multiplexer.touchDown(100, 100, 0, 0);
+        multiplexer.touchUp(100, 100, 0, 0);
+        assertEquals(0, reached.get(), "a press off the Panel is held back, as before");
+
+        multiplexer.touchDown(950, 100, 0, 0);
+        multiplexer.touchDragged(950, 120, 0);
+        multiplexer.touchUp(950, 120, 0, 0);
+        assertEquals(3, reached.get(), "a press on the Panel reaches the Panel's controls, with its drag and release");
+
+        multiplexer.touchDown(950, 100, 0, 0);
+        multiplexer.touchDragged(100, 100, 0);
+        multiplexer.touchUp(100, 100, 0, 0);
+        assertEquals(6, reached.get(), "and the same pointer's moves and release pass wherever it goes, so no press is left half-made");
+
+        multiplexer.keyDown(66);
+        assertEquals(6, reached.get(), "a key still reaches nothing: the Panel's hotkeys are story 5.11's");
+
+        windowInFront[0] = true;
+        multiplexer.touchDown(950, 100, 0, 0);
+        multiplexer.touchUp(950, 100, 0, 0);
+        assertEquals(6, reached.get(), "with a window of the game's in front the Panel is not a place a press passes");
+    }
+
+    @Test
+    @DisplayName("a locked game with no Panel set holds back every press, as before story 5.6")
+    void no_panel_no_exemption() {
+        AtomicInteger reached = new AtomicInteger();
+        InputAdapter game = new InputAdapter() {
+            @Override
+            public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+                reached.incrementAndGet();
+                return true;
+            }
+        };
+        InputLock lock = new InputLock();
+        InputMultiplexer multiplexer = new InputMultiplexer();
+        multiplexer.addProcessor(game);
+        multiplexer.addProcessor(0, lock);
+        lock.lock();
+        multiplexer.touchDown(950, 100, 0, 0);
+        assertEquals(0, reached.get());
+    }
+
+    @Test
     @DisplayName("a processor the game puts in front later (a text input's stage) is put behind the lock again")
     void kept_first() {
         // The game's own input handler over a stand-in for libGDX's Input, which hands the handler's

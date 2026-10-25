@@ -137,8 +137,8 @@ class PanelContentTest {
         assertEquals(Columns.score(5_100), card.scoreBlocks()[1].text());
         assertEquals("corridor", card.reasonBlocks()[1].text());
         assertFalse(card.actionBlocks()[2].visible, "only one alternative was given");
-        assertTrue(card.explainButton().visible);
-        assertTrue(card.explainButton().active, "input is not locked in this snapshot, so Explain can be pressed");
+        assertTrue(panel.controls().explain().visible);
+        assertTrue(panel.controls().explain().active, "no window is in front in this snapshot, so Explain can be pressed");
         assertFalse(card.policyRow().visible, "not expanded yet");
     }
 
@@ -228,8 +228,7 @@ class PanelContentTest {
         assertTrue(card.emptyRow().visible);
         assertEquals(DecisionCardContent.NO_DECISION_YET, card.emptyRow().text());
         assertFalse(card.actionBlocks()[0].visible);
-        assertFalse(card.explainButton().visible, "nothing to explain yet");
-        assertFalse(card.explainButton().active, "nor active, with nothing to explain");
+        assertFalse(panel.controls().explain().active, "dim, with nothing to explain");
     }
 
     @Test
@@ -315,7 +314,7 @@ class PanelContentTest {
      * the window's button placed exactly where Explain is.
      */
     @Test
-    @DisplayName("Explain's hot area is inactive while a Run plays, so a synthetic tap meant for a window button underneath still reaches it (the fairness review)")
+    @DisplayName("Explain's hot area is inactive while a window is in front, so a synthetic tap meant for a window button underneath still reaches it (the fairness review)")
     void explain_does_not_steal_a_synthetic_tap_while_locked() {
         PointerEvent.clearListeners();
         GameScene scene = fullScene();
@@ -336,12 +335,12 @@ class PanelContentTest {
         RunLog.Decision decision = decision(List.of());
         dock.frame(scene, snapshot(decision), true);   // a Run is playing: input is locked
         DecisionCard card = dock.panel().card();
-        assertTrue(card.explainButton().visible, "Explain is shown whenever a Decision is present");
-        assertFalse(card.explainButton().active, "but not active while input is locked");
+        RedButton explain = dock.panel().controls().explain();
+        assertTrue(explain.visible, "Explain is shown whenever the Panel is full");
+        assertFalse(explain.active, "but not active while a window is in front");
 
         // The worst case: the window's button drawn exactly where Explain is.
-        underlying.setRect(card.explainButton().left(), card.explainButton().top(),
-                card.explainButton().width(), card.explainButton().height());
+        underlying.setRect(explain.left(), explain.top(), explain.width(), explain.height());
 
         press(underlying);
 

@@ -42,7 +42,17 @@ final class InputLock extends InputAdapter {
         boolean overlayKey(int keycode);
     }
 
+    /** Where the Panel is, in the screen pixels input arrives in (story 5.6). */
+    interface PanelHit {
+        /** Whether a press at this point lands on the Panel's controls; false while a window of the game's is in front. */
+        boolean at(int screenX, int screenY);
+    }
+
     private volatile boolean locked;
+    /** Set once the Panel has controls: a press on it passes while the lock holds, and reaches nothing under it. */
+    private PanelHit panel = (x, y) -> false;
+    /** Pointers whose press landed on the Panel and was passed: their moves and release pass, and are the Panel's alone. */
+    private final java.util.Set<Integer> onPanel = new java.util.HashSet<>();
     /** Set for a HUMAN Run: the lock then holds only presses, and tells the Run what it passes. */
     private Human human;
     /** Pointers whose press was passed, so their release is passed too and no other release is. */
@@ -57,6 +67,18 @@ final class InputLock extends InputAdapter {
      */
     void human(Human human) {
         this.human = human;
+    }
+
+    /**
+     * Lets a person's press on the Panel through while the lock holds (story 5.6, ADR-0013's amendment):
+     * the Panel's controls are the one thing a person may touch while a Run plays, and a press on them
+     * reaches the Panel's own hot areas, newest first, and nothing under the Panel (its blocker takes what
+     * the controls do not). Keys and every press elsewhere stay held back. The executor's synthetic taps do
+     * not come through here; they are kept from the controls by the controls' own gate
+     * ({@code ControlsRow}: off while a window is in front).
+     */
+    void panel(PanelHit panel) {
+        this.panel = panel;
     }
 
     void lock() {
@@ -117,6 +139,10 @@ final class InputLock extends InputAdapter {
 
     @Override
     public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+        if (locked && panel.at(screenX, screenY)) {
+            onPanel.add(pointer);
+            return false;
+        }
         if (human == null || locked) {
             return locked;
         }
@@ -127,6 +153,9 @@ final class InputLock extends InputAdapter {
 
     @Override
     public boolean touchUp(int screenX, int screenY, int pointer, int button) {
+        if (onPanel.remove(pointer)) {
+            return false;
+        }
         if (human == null) {
             return locked;
         }
@@ -141,6 +170,9 @@ final class InputLock extends InputAdapter {
 
     @Override
     public boolean touchCancelled(int screenX, int screenY, int pointer, int button) {
+        if (onPanel.remove(pointer)) {
+            return false;
+        }
         if (human == null) {
             return locked;
         }
@@ -149,6 +181,9 @@ final class InputLock extends InputAdapter {
 
     @Override
     public boolean touchDragged(int screenX, int screenY, int pointer) {
+        if (onPanel.contains(pointer)) {
+            return false;
+        }
         if (human == null) {
             return locked;
         }
@@ -157,6 +192,11 @@ final class InputLock extends InputAdapter {
 
     @Override
     public boolean scrolled(float amountX, float amountY) {
+        if (locked && com.badlogic.gdx.Gdx.input != null
+                && panel.at(com.badlogic.gdx.Gdx.input.getX(), com.badlogic.gdx.Gdx.input.getY())) {
+            // The Decision log's scroll under the pointer (story 5.6: the Panel's own hot areas work while a Run plays).
+            return false;
+        }
         // A HUMAN Run's scroll zooms the camera, which changes nothing the record holds.
         return human == null && locked;
     }

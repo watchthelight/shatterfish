@@ -604,3 +604,27 @@ window in front, so no wait is confirmed under it, and nothing it does is heard 
 the desktop: its log says `driver: embedded` and the Rig refuses it. Where the frames are the headless
 driver's, a human's log replays wait for wait, which `Replay.waitsOf` checks (every Observation hash,
 up to the first `unsupported` record) and `Replay.of`, the Rig's path, still refuses.
+
+**The Controls row and the input lock (story 5.6).** The amendment to story 5.3 above chose to let Explain
+work only when the lock does not hold, and left "whichever story gives PAUSED a real click" to close the
+rest. A row of controls that works only once the Run is over is not a row, so story 5.6 reverses option (a)
+for the Panel, with the fairness reasoning that rejected it answered:
+
+- `InputLock` passes a press that lands on the Panel while it holds, with that pointer's moves and
+  release, through a hit test the Overlay supplies (`PanelDock.contains`, the Panel's own rectangle on its
+  own camera, false while a window of the game's is in front). Keys, and every press elsewhere, are still
+  held back. The lock reads the Panel's rectangle from the Panel, so there is one geometry, `PanelLayout`'s.
+- The hot areas of the Panel are off exactly while a window is in front (`OverlayGame.panelLocked`), for a
+  Brain's Run as for a HUMAN Run. The executor's synthetic taps are for a window's buttons
+  (`ActionExecutor.press`) and the controls' areas were the only thing they could land on; with a window in
+  front they are off, and a window opened after the Panel is newer in the dispatch stack in any case.
+- The Panel's blocker (story 5.9) is active in a Brain's Run too, with the controls bound, so a press on
+  the Panel's body reaches nothing under it. The input gate (story 5.5) already shuts the hero to a click.
+- Explain moves from the Decision card to the row; the card keeps the expansion.
+
+A Brain's Run opens held (`EmbeddedRun.hold`): PAUSED with speed mode Next Step, as UX-DR7 says. The seam
+is a flag and a credit count, spent one per Input wait confirmed (`EmbeddedRun.advance`); a held Run asks
+for no wait without one, and the frame budget does not run while it idles. Pause and Resume, Next Step and
+Run N are presses on it. What paces the credits (Human play speed, a Next Step queued behind a thinking
+Brain) is story 5.7's, and Take over and Hand back are story 5.8's; both stay dim (`Capabilities`) until
+their story turns them on.
