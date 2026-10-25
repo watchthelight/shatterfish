@@ -52,27 +52,15 @@ public final class DirectionPlay {
     static void play(Map<String, String> a) throws IOException {
         long seed = Long.parseLong(required(a, RunOne.SEED));
         long salt = Long.parseLong(required(a, RunOne.SALT));
-        String brain = required(a, RunOne.BRAIN);
         HeroClass heroClass = SeedSets.heroClass(required(a, RunOne.CLASS));
-        int challenges = Integer.parseInt(required(a, RunOne.CHALLENGES));
-        SeedSet.Entry triple = new SeedSet.Entry(seed, heroClass, challenges, SeedSet.code(seed));
         Path out = Path.of(required(a, RunOne.OUT));
-        if (!out.isAbsolute()) {
-            throw new IllegalArgumentException(RunOne.OUT + " is an absolute path: " + out);
-        }
-        org.shatterfish.api.Weights weights = Brains.readsWeights(brain)
-                ? WeightsFile.read(Path.of(required(a, RunOne.WEIGHTS)), brain) : null;
-        RunLoop.Logging logging = new RunLoop.Logging(out, required(a, RunOne.COMMIT),
-                new RunLog.Brain(brain, required(a, RunOne.BRAIN_COMMIT), Brains.configHash(brain, weights)),
-                "", "");
-        org.shatterfish.api.Codex.Knowledge codex = Brains.readsCodex(brain)
-                ? CodexKnowledge.read(Path.of(required(a, RunOne.CODEX)),
-                        org.shatterfish.harness.boot.HeadlessBoot.pinnedTag())
-                : null;
-        Deliberator inner = (Deliberator) Brains.of(brain, triple, codex, weights);
-        Watch watch = new Watch(inner);
-        new RunLoop().playTriple(triple, salt, watch, RunLoop.TURN_CAP, logging);
-        Files.writeString(out.resolve(heapsFile(heroClass, SeedSet.code(seed), salt)), watch.table(),
+        java.util.concurrent.atomic.AtomicReference<Watch> watching = new java.util.concurrent.atomic.AtomicReference<>();
+        RunOne.play(a, decider -> {
+            Watch watch = new Watch((Deliberator) decider);
+            watching.set(watch);
+            return watch;
+        });
+        Files.writeString(out.resolve(heapsFile(heroClass, SeedSet.code(seed), salt)), watching.get().table(),
                 StandardCharsets.UTF_8);
     }
 

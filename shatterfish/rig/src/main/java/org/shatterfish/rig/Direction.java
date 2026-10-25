@@ -1,6 +1,7 @@
 package org.shatterfish.rig;
 
 import org.shatterfish.api.HeroClass;
+import org.shatterfish.harness.knowledge.CodexManifest;
 
 import java.io.BufferedReader;
 import java.io.IOException;
