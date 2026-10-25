@@ -69,7 +69,7 @@ that closed #167.
 | A player's history | about 20 | `Badges.global`, `Journal.loaded`, the catalogs and bestiary, `Bones`, `Rankings`, `GamesInProgress`, `Dungeon.customSeedText` | the Run's Profile (`Profile.emptyTheHistory`, stories 1.15 and 5.1) |
 | Written before it is read, within one action | about 60 | `Item.curUser`, the item selectors, `Combo.furyHitsLeft`, `Tengu.throwingChar`, the `identifiedByUse` and `testing` flags, `Chasm.heroPos`, `HighGrass.freezeTrample`, the quests' fields written at spawn | nothing needed: a leftover is overwritten before anything reads it |
 | Sound throttles on the wall clock | 4 | `VaultFlameTraps.SFXLastPlayed` and its kin | nothing needed: they only decide whether a sound plays |
-| Written in play, read later, reset by nothing | 11 | see below | `RunStatics.reset()`, at every Run start |
+| Written in play, read later, reset by nothing | 11 (and the holiday, pinned) | see below | `RunStatics.reset()`, at every Run start |
 
 The last row is what `RunStatics` (harness, `driver`) puts back to a fresh process's value when
 `NewGame.begin` starts a Run, for both drivers:
@@ -81,6 +81,7 @@ The last row is what `RunStatics` (harness, `driver`) puts back to a fresh proce
 | `Char.hitMissIcon` (private) | -1 | a late miss tuft drew from the game's generator (`Char.java:586-594`) |
 | `Flail.spinBoost` (private) | 0 | a spin charge added to the next Run's first flail hit (`Flail.java:57-89`) |
 | `RingOfWealth.latestDropTier` (private) | 0 | a bonus-drop flare on the next Run's drop (`RingOfWealth.java:170-190`) |
+| `Holiday.cached` (private) | `NONE`, pinned (a fresh process has the date's) | the date decided the pasty and the Rat King, so the same (tag, seed, actions) played differently by day (`Holiday.java:52-61`, `Pasty.java:105-120`; issue #139) |
 | `Chasm.jumpConfirmed` | false | a jump nobody confirmed (`Chasm.java:54`, `:88-101`) |
 | `TippedDart.lostDarts` | 0 | darts from the last Run dropped at the next pick-up (`TippedDart.java:150-161`) |
 | `WondrousResin.forcePositive` | false | every cursed effect of the next Run positive (`Wand.java:771-777`) |

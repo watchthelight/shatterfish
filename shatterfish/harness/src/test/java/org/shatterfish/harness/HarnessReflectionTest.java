@@ -67,7 +67,8 @@ class HarnessReflectionTest {
      * process's value at every Run start.
      */
     private static final Set<String> RESET = Set.of("Snake.dodges", "GnollGeomancer.rocksInFlight",
-            "GnollGeomancer.knockedChars", "Char.hitMissIcon", "Flail.spinBoost", "RingOfWealth.latestDropTier");
+            "GnollGeomancer.knockedChars", "Char.hitMissIcon", "Flail.spinBoost", "RingOfWealth.latestDropTier",
+            "Holiday.cached");
 
     @ArchTest
     static final ArchRule reflection_into_upstream_is_confined_to_the_named_classes = noClasses()

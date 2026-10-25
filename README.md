@@ -176,7 +176,12 @@ E5 (the Overlay) so far:
 - Rig Runs can write an opt-in debug record beside each Run log (`--debug-record`), for the Goo
   investigation (#223, #219). The rules index counts are now checked by a test (#225). ADR-0020
   proposes splitting the Brain's Memory into versioned sections (#226).
-- Next: map highlights (5.10) and hotkeys (5.11), with Brain changes in parallel.
+- A search the hero could not see through (blind, shadowmelded, a dark floor) no longer counts
+  as covering the ground (#227). Every Run pins the game's holiday to none, so a seeded Run no
+  longer depends on the date (#228).
+- E5.10: the pending Decision's target (and path, once a Policy plans one) is outlined on the
+  dungeon itself in the game's own blocks (#231).
+- Next: hotkeys (5.11) and oracle marking (5.12), with the Goo work (#219) in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:
