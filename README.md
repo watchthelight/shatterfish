@@ -145,6 +145,9 @@ E5 (the Overlay) so far:
   on ground it has not searched, since a burned room's other traps may be
   hidden; on top of #204, 39 of 120 Warriors reach depth 5 against 34
   (#203, for #184).
+- Fix since: on a sealed boss floor, where walking away cannot break contact,
+  the Brain retreats at most 30 times and then fights, so it can no longer
+  walk away from Goo until the turn cap; Goo kills held (#209, for #180).
 - Next: the controls (5.5-5.8), with bestiary-driven Brain changes in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
