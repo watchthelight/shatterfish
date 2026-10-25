@@ -37,9 +37,12 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
     EmbeddedRun run;
     boolean stepWhileThinking;
     /**
-     * With {@link #stepWhileThinking}: the game is not stepped while the worker is still deciding, only
-     * while a decided answer waits on the game (issue #193), so a test of what happens after the answer
-     * does not depend on how fast the worker is scheduled.
+     * With {@link #stepWhileThinking}: {@link #frame()} first waits, on the test's thread, until the worker
+     * has decided, and only then steps the game and hands the Run its frame (issue #193). The frames
+     * that go on are then the ones a decided answer is held through, and each decision is followed by
+     * the same single game step however the worker is scheduled: the Run's own look at the worker
+     * ({@code isDone}) can no longer differ from the host's, because the host looked at it first
+     * and the worker cannot undo a decision.
      */
     boolean waitForTheWorker;
     /** Frames the scene was stepped while the Run was thinking. */
@@ -112,7 +115,12 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
     EmbeddedRun.State frame() {
         HeadlessGame game = driver.headlessBoot().game();
         boolean thinking = run.state() == EmbeddedRun.State.THINKING;
-        if (!thinking || stepWhileThinking && !(waitForTheWorker && run.deciding())) {
+        if (thinking && stepWhileThinking && waitForTheWorker) {
+            // One look, then no second one: a worker that finishes between a check here and the Run's own
+            // isDone in run.frame() made the game step (or not) before the answer was served by chance.
+            awaitTheWorker();
+        }
+        if (!thinking || stepWhileThinking) {
             if (game.sceneSwitchRequested() && game.requestedSceneClass() == InterlevelScene.class
                     && servedByTheLoadingScene(InterlevelScene.mode)) {
                 InterlevelScene.Mode mode = InterlevelScene.mode;
@@ -147,6 +155,16 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
         return run.frame();
     }
 
+    /** Blocks until the worker has decided the pending question; the test's timeout is the bound. */
+    private void awaitTheWorker() {
+        while (run.deciding()) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw new IllegalStateException("interrupted while the worker was deciding");
+            }
+            Thread.yield();
+        }
+    }
+
     private static boolean servedByTheLoadingScene(InterlevelScene.Mode mode) {
         return mode == InterlevelScene.Mode.DESCEND || mode == InterlevelScene.Mode.ASCEND
                 || mode == InterlevelScene.Mode.FALL;
@@ -154,13 +172,14 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
 
     /**
      * Whether the next {@link #frame()} only waits on the Brain: the Run is thinking and this host does
-     * not step the game through the thought. Such a turn is not a game frame, and a loop that counted it
+     * not step the game through the thought. (With {@link #waitForTheWorker} the wait is inside
+     * {@link #frame()}, which then steps the game, so it is not one.) Such a turn is not a game frame, and a loop that counted it
      * against a frame bound raced the worker thread, which a loaded machine may not schedule for
      * thousands of turns (CI on PR #168). The helpers count only the frames that step the game and
      * leave the wait to the test's timeout.
      */
     boolean waitingOnTheBrain() {
-        return run.state() == EmbeddedRun.State.THINKING && (!stepWhileThinking || waitForTheWorker && run.deciding());
+        return run.state() == EmbeddedRun.State.THINKING && !stepWhileThinking;
     }
 
     /** Plays until the Run ends or {@code maxFrames} game frames have gone by; says how it stands. */
