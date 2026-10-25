@@ -86,34 +86,158 @@ final class Goo {
     }
 
     /**
-     * A Step away from a pumped Goo, when a pump is pending and Goo is within its reach: the offered
-     * Step that puts the hero farthest from Goo, if farther than it stands; else null. From beside
-     * Goo one Step is not out of reach, but the pump takes Goo two turns, a charge and the attack
-     * (Goo.java:180-186), so two Steps are: the second wait's dodge finishes it.
+     * The Step that starts a dodge of a pending pump, when one is pending and Goo is within its reach;
+     * else null. The pump takes Goo two more turns, a charge and the attack (Goo.java:178-186), and it
+     * charges only while the hero is within {@link #REACH} cells (Goo.java:141-152, :179-186); once the
+     * hero stands farther, Goo has to step and the pump is dropped (Goo.java:244-250). So the hero needs
+     * two Steps from beside Goo to the third cell away from it, and one from two cells off. A Step
+     * counts only when the walk can finish: beside Goo, the cell of the first Step is two away and a
+     * neighbour of it three away. Of the plans that finish, the one that ends in the most open ground
+     * wins ({@link #openness}), so the next dodge has room, ties to the lower cell.
      */
     static RunLog.Choice dodge(Observation observation, Memory memory, List<Action> offered) {
         int goo = cell(observation);
         if (goo < 0 || memory.pump() != goo) {
             return null;
         }
+        Action.Step step = plan(observation, memory, offered, goo);
+        return step == null ? null : new RunLog.Choice(step, Policies.CERTAIN, "dodge: pump");
+    }
+
+    private static Action.Step plan(Observation observation, Memory memory, List<Action> offered, int goo) {
         MapSection map = observation.map();
         int now = distance(map, observation.hero().cell(), goo);
         if (now > REACH) {
             return null;
         }
         boolean[] walk = Explore.walkable(observation, memory, false);
-        Action best = null;
-        int farthest = now;
+        Action.Step best = null;
+        int bestOpen = -1;
         for (Action action : offered) {
-            if (action instanceof Action.Step step && walk[step.cell()]) {
-                int away = distance(map, step.cell(), goo);
-                if (away > farthest) {
-                    best = step;
-                    farthest = away;
+            if (!(action instanceof Action.Step step) || step.cell() >= walk.length || !walk[step.cell()]) {
+                continue;
+            }
+            int away = distance(map, step.cell(), goo);
+            int open;
+            if (away > REACH) {
+                open = openness(map, walk, step.cell());
+            } else if (now == 1 && away == REACH) {
+                open = -1;
+                for (int next : neighbours(map, step.cell())) {
+                    if (walk[next] && distance(map, next, goo) > REACH) {
+                        open = Math.max(open, openness(map, walk, next));
+                    }
+                }
+                if (open < 0) {
+                    continue;
+                }
+            } else {
+                continue;
+            }
+            if (open > bestOpen || (open == bestOpen && best != null && step.cell() < best.cell())) {
+                best = step;
+                bestOpen = open;
+            }
+        }
+        return best;
+    }
+
+    /** How many cells within two of {@code cell} the hero may walk on: the room a dodge has to go on. */
+    static int openness(MapSection map, boolean[] walk, int cell) {
+        int width = map.width();
+        int open = 0;
+        for (int dy = -2; dy <= 2; dy++) {
+            for (int dx = -2; dx <= 2; dx++) {
+                int nx = cell % width + dx;
+                int ny = cell / width + dy;
+                if (nx >= 0 && ny >= 0 && nx < width && ny < map.height() && walk[nx + ny * width]) {
+                    open++;
                 }
             }
         }
-        return best == null ? null : new RunLog.Choice(best, Policies.CERTAIN, "dodge: pump");
+        return open;
+    }
+
+    private static List<Integer> neighbours(MapSection map, int cell) {
+        int width = map.width();
+        List<Integer> cells = new java.util.ArrayList<>();
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                int nx = cell % width + dx;
+                int ny = cell / width + dy;
+                if ((dx != 0 || dy != 0) && nx >= 0 && ny >= 0 && nx < width && ny < map.height()) {
+                    cells.add(nx + ny * width);
+                }
+            }
+        }
+        return cells;
+    }
+
+    /**
+     * The share of the hero's hit points, in thousandths, at or under which a potion of healing is
+     * drunk against Goo alone. An assumption, not a Codex fact. A plain hit does 1 to 8, 1 to 12 once
+     * Goo is below half its hit points, and only a pump does more (3 to 24, 3 to 36; Goo.java:67-81);
+     * the potion heals {@code 0.8 * HT + 14} over several turns (Heal), so a drink at 40% leaves
+     * little of it to waste and the hero out of the range of a plain hit.
+     */
+    static final int DRINK_PER_MILLE = 400;
+
+    /** The hit points at or under which the hero drinks against Goo alone. */
+    static int danger(org.shatterfish.api.HeroSection hero) {
+        return (int) ((long) hero.ht() * DRINK_PER_MILLE + 999) / 1000;
+    }
+
+    /** The awake Goo among {@code enemies}, when it is the only one: the fight {@link #engage} plays. Else null. */
+    static ActorView alone(List<ActorView> enemies) {
+        if (enemies.size() != 1) {
+            return null;
+        }
+        ActorView goo = enemies.get(0);
+        return goo.name().equals(NAME) && goo.emote() != org.shatterfish.api.Emote.SLEEP ? goo : null;
+    }
+
+    /**
+     * The fight with an awake Goo, the only enemy in view (issue #219). Goo's seal starts the turn it
+     * wakes (Goo.java:134-136) and refuses every transition, so a retreat cannot break contact. So the
+     * hero stays: it dodges an announced pump when it can ({@link #dodge}), strikes an adjacent Goo,
+     * and otherwise waits for Goo to come to it, which gives it the first blow, and goes to Goo only
+     * after {@link Fight#HOLDS} waits of holding. Null when this is not that fight.
+     */
+    static List<RunLog.Choice> engage(Observation observation, Memory memory, List<Action> offered,
+                                      List<ActorView> enemies) {
+        ActorView goo = alone(enemies);
+        if (goo == null) {
+            return null;
+        }
+        // Before the seal a hurt hero may still leave by the stairs; sealed, or above the low-health
+        // warning, there is nothing to leave for.
+        org.shatterfish.api.HeroSection hero = observation.hero();
+        if (!observation.header().sealed() && 1000L * hero.hp() < 334L * hero.ht()) {
+            return null;
+        }
+        List<RunLog.Choice> ranked = new java.util.ArrayList<>();
+        RunLog.Choice dodge = memory.pump() == goo.cell() ? dodge(observation, memory, offered) : null;
+        if (dodge != null) {
+            ranked.add(dodge);
+        }
+        Action attack = new Action.Attack(goo.cell());
+        if (offered.contains(attack)) {
+            ranked.add(new RunLog.Choice(attack, ranked.isEmpty() ? Policies.CERTAIN : 0, "goo: attack"));
+            return ranked;
+        }
+        if (memory.holds() < Fight.HOLDS) {
+            for (Action wait : List.of(new Action.Wait(), new Action.Search())) {
+                if (offered.contains(wait)) {
+                    ranked.add(new RunLog.Choice(wait, ranked.isEmpty() ? Policies.CERTAIN : 0, "goo: wait"));
+                    return ranked;
+                }
+            }
+        }
+        RunLog.Choice approach = Fight.approach(observation, memory, offered, enemies);
+        if (approach != null) {
+            ranked.add(new RunLog.Choice(approach.action(), ranked.isEmpty() ? Policies.CERTAIN : 0, "goo: " + approach.why()));
+        }
+        return ranked.isEmpty() ? null : ranked;
     }
 
     private static int distance(MapSection map, int a, int b) {
