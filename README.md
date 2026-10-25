@@ -189,8 +189,11 @@ E5 (the Overlay) so far:
   alike (#235).
 - A 120-Run Warrior baseline for the Goo work: depth 5 reached in 27.5% of Runs, Goo killed in
   14.2%, 53% of Goo fights won (#234).
-- Next: the speed ceiling (5.13) and save and resume (5.14), with the Goo work (#219) in
-  parallel.
+- E5.14: a death shows RUN OVER with its cause, turn and floor; saving and quitting leaves a
+  boundary in the Run log, and `--resume` continues the same Run, marked unverifiable (#237).
+- A random Warrior that backed out of a scroll's cancel prompt no longer stalls the Run (#238).
+- Next: the speed ceiling (5.13), then the remaining panel states (5.15), with the Goo work
+  (#219) in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:
