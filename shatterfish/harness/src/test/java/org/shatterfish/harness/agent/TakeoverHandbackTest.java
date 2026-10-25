@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -318,5 +319,47 @@ class TakeoverHandbackTest {
         RunLogReader.Log read = RunLogReader.of(logOf(played));
         assertEquals(List.of(2L), read.records().stream().filter(RunLog.Unsupported.class::isInstance)
                 .map(RunLog.Unsupported.class::cast).map(RunLog.Unsupported::k).toList());
+    }
+
+    @Test
+    @DisplayName("the unverifiable mark outlives a hand back: the snapshot still says where the Replay stops, and the Run has a watchdog (issue #220)")
+    void the_mark_outlives_a_hand_back(@TempDir Path folder) throws IOException {
+        Path played = Files.createDirectories(folder.resolve("played"));
+        try (EmbeddedHost host = new EmbeddedHost(SEED, HeroClass.WARRIOR, SALT)) {
+            Recorder brain = new Recorder();
+            EmbeddedRun run = host.attach(brain, HumanTurnReplayTest.logging(played), 500);
+            assertTrue(run.watchdog() != null, "a Brain's Run is guarded");
+            run.hold(true);
+            EmbeddedAttachTest.playUntil(host, run::withheld);
+            run.advance(1);
+            EmbeddedAttachTest.playUntil(host, () -> run.snapshot().history().size() == 1 && run.withheld());
+            assertNull(run.snapshot().unverifiable(), "every wait so far replays");
+            host.controller = true;
+            run.takeOver("Human");
+            assertTrue(host.untilOpen(FRAMES));
+            assertEquals(2, run.snapshot().unverifiable().from(), "while the person plays, the mark is on the snapshot too");
+            run.handBack("Human");
+            EmbeddedAttachTest.playUntil(host, () -> !run.human() && run.withheld());
+            EmbeddedRun.Snapshot handed = run.snapshot();
+            assertNull(handed.human(), "the Brain plays again");
+            assertEquals(2, handed.unverifiable().from(), "and the Panel still says the Replay stops at wait 2");
+            assertFalse(handed.unverifiable().why().isEmpty());
+            assertFalse(run.watchdog().check(System.nanoTime() + (Watchdog.SECONDS - 5) * 1_000_000_000L),
+                    "the hand back restarted the clock: the person's stretch is not a stall");
+        }
+        assertFalse(RunLogReader.of(logOf(played)).end().verifiable(), "the end record agrees");
+    }
+
+    @Test
+    @DisplayName("a Run that began as a person's has a watchdog, which a person's long wait does not trip (issue #220)")
+    void a_human_run_has_a_watchdog_that_waits_for_the_person(@TempDir Path folder) throws IOException {
+        Path played = Files.createDirectories(folder.resolve("played"));
+        try (EmbeddedHost host = new EmbeddedHost(SEED, HeroClass.WARRIOR, SALT)) {
+            EmbeddedRun run = host.attachHuman(new Plain(), HumanTurnReplayTest.logging(played), 5_000);
+            assertTrue(host.untilOpen(FRAMES));
+            assertTrue(run.watchdog() != null, "created for every Run");
+            long late = System.nanoTime() + (Watchdog.SECONDS + 5) * 1_000_000_000L;
+            assertFalse(run.watchdog().check(late), "a person's long wait is no freeze");
+        }
     }
 }

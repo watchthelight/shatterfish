@@ -67,7 +67,20 @@ final class DecisionCardContent {
      * {@code current} when it answers the wait the person is looking at; {@code unverifiableFrom} the
      * first wait a Replay cannot reproduce (0 for none), with why.
      */
-    record Shadow(boolean current, long unverifiableFrom, String why) {
+    record Shadow(boolean current, long unverifiableFrom, String why, boolean person) {
+
+        /** A HUMAN Run's shadow. */
+        Shadow(boolean current, long unverifiableFrom, String why) {
+            this(current, unverifiableFrom, why, true);
+        }
+
+        /**
+         * The notice alone, for a Brain's Run that was a person's before (a hand back, issue #220): the card is
+         * the Brain's own, not a shadow, and says where the Replay stops.
+         */
+        static Shadow noticeOnly(long unverifiableFrom, String why) {
+            return new Shadow(false, unverifiableFrom, why, false);
+        }
     }
 
     /** The headline over a shadow that answers the wait in front (UX-DR14: said in words, not only greyed). */
@@ -92,13 +105,14 @@ final class DecisionCardContent {
         String notice = shadow == null || shadow.unverifiableFrom() <= 0 ? null
                 : UNVERIFIABLE + shadow.unverifiableFrom() + ": " + shadow.why();
         if (decision == null) {
-            return new Content(false, null, null, List.of(), null, shadow != null, notice);
+            return new Content(false, null, null, List.of(), null, shadow != null && shadow.person(), notice);
         }
-        String headline = shadow != null ? (shadow.current() ? SHADOW_NOW : SHADOW_LAST) : nextStep ? NEXT_PRESS : null;
+        boolean person = shadow != null && shadow.person();
+        String headline = person ? (shadow.current() ? SHADOW_NOW : SHADOW_LAST) : nextStep ? NEXT_PRESS : null;
         Row chosen = row(decision.chosen());
         List<Row> alternatives = decision.alternatives().stream().map(DecisionCardContent::row).toList();
         Explain explanation = explain ? new Explain(decision.policy(), decision.flags()) : null;
-        return new Content(true, headline, chosen, alternatives, explanation, shadow != null, notice);
+        return new Content(true, headline, chosen, alternatives, explanation, person, notice);
     }
 
     private static Row row(RunLog.Choice choice) {

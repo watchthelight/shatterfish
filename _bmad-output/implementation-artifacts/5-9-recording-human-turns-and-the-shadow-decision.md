@@ -315,3 +315,22 @@ A tap that interrupts a walk or a rest (not recordable yet; the lock holds press
 `MoveTo` in the executor; targets and abilities the valid set leaves out; a Prompt button the Observer
 reads short; a bindable notes key (5.11); a human log replaying on the desktop (5.13, #169); takeover
 and hand back mid-Run (5.8). Not built: the staff zap is untested headlessly (a Mage fixture).
+
+## Completion (2026-10-25): auditing the acceptance criteria against main
+
+Story 5.8 (PR #221) built the takeover half. Each criterion of the epic text, against main before this change:
+
+1. Every human Action recorded with actor human, with the notification sites: present (hook row 11, `HumanTurns`;
+   `HumanActionMappingTest`).
+2. Unsupported input ends verifiability with the Panel saying so: present for a HUMAN Run (`HumanUnsupportedTest`,
+   `PanelContentTest.the_card_says_shadow`); missing after a hand back (issue #220).
+3. The Brain updates its Belief at every wait and shadows: present (`ShadowDecisionTest`, `TakeoverHandbackTest`).
+4. A Decision for a wait no longer current is logged as skipped: present (`ShadowDecisionTest.too_late`).
+5. `HumanTurnReplayTest`, three human turns, every hash matching: present.
+
+**Built here (issue #220):** `EmbeddedRun.Snapshot.unverifiable` outlives HUMAN mode, so the card keeps the notice in
+PAUSED and RUNNING after a hand back (`DecisionCardContent.Shadow.noticeOnly`: the Brain's own card, not greyed, no
+Panel blocker); every Run has a watchdog (its predicate already ignored a person's turns, a hand back restarts its
+clock). Tests: `TakeoverHandbackTest.the_mark_outlives_a_hand_back` and `a_human_run_has_a_watchdog_that_waits_for_the_person`,
+`PanelContentTest.the_notice_outlives_a_hand_back`, `EmbeddedCloseTest.a_human_run_closed` (now asserts a watchdog).
+ADR-0013 carries the amendment. Rig numbers: none; the Brain is untouched.
