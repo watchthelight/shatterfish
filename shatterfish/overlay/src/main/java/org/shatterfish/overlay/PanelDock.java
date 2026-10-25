@@ -71,6 +71,7 @@ final class PanelDock {
             panel.camera = PixelScene.uiCamera;
             panel.oracle(oracle);
             panel.controls(controls);
+            panel.stripTap(() -> collapsed = !collapsed);
             scene.add(panel);
             keepFaderInFront(scene);
         }
@@ -148,7 +149,7 @@ final class PanelDock {
         return false;
     }
 
-    /** Collapses the Panel to the Mode strip, or restores it (UX-DR2; the hotkey is story 5.11's). */
+    /** Collapses the Panel to the Mode strip, or restores it (UX-DR2; the hotkey and the tap on the Mode strip are story 5.11's). */
     void collapsed(boolean collapsed) {
         this.collapsed = collapsed;
     }
@@ -188,6 +189,25 @@ final class PanelDock {
         }
         com.watabou.utils.PointF at = panel.camera.screenToCamera(screenX, screenY);
         return at.x >= panel.left() && at.x < panel.right() && at.y >= panel.top() && at.y < panel.bottom();
+    }
+
+    /**
+     * A hotkey pressed (story 5.11): the Panel toggle collapses or restores the Panel; every other hotkey
+     * presses its control exactly as the button would ({@link ControlsRow#press}). Nothing acts while a
+     * window of the game's is in front ({@code locked}: the same rule as every hot area of the Panel), and
+     * the controls need a play scene's Panel.
+     *
+     * @return whether the hotkey did something
+     */
+    boolean press(Hotkey hotkey, boolean locked) {
+        if (locked) {
+            return false;
+        }
+        if (hotkey == Hotkey.PANEL) {
+            collapsed = !collapsed;
+            return true;
+        }
+        return panel != null && hotkey.control() != null && panel.controls().press(hotkey.control());
     }
 
     /** The Panel on the current play scene, or null before the first one. */

@@ -175,6 +175,34 @@ final class ControlsRow extends Component {
         return on(control, control != Control.EXPLAIN || explainable);
     }
 
+    /**
+     * Presses {@code control} as its button would, for a hotkey (story 5.11): only if it acts now (the
+     * matrix, no window in front, and for Explain a Decision), and by the same call the button makes, so a
+     * key can do nothing a press on the button could not. A control with no hotkey is never pressed here.
+     *
+     * @return whether the control acted
+     */
+    boolean press(Control control) {
+        if (!acts(control)) {
+            return false;
+        }
+        switch (control) {
+            case EXPLAIN:
+                explainAction.run();
+                return true;
+            case PAUSE_RESUME:
+                return state != null && state.pauseResume();
+            case NEXT_STEP:
+                return state != null && state.nextStep();
+            case SPEED:
+                return state != null && state.cycleSpeed();
+            case TAKE_OVER:
+                return state != null && state.takeOverHandBack();
+            default:
+                return false;
+        }
+    }
+
     /** The row's atoms, left to right, each the width it asks for; a stepper's number is one atom of its slot. */
     private List<Atom> atoms() {
         List<Atom> atoms = new ArrayList<>();

@@ -7,6 +7,7 @@ import com.shatteredpixel.shatteredpixeldungeon.ShatteredPixelDungeon;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Languages;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
+import com.watabou.input.KeyBindings;
 import com.watabou.noosa.Game;
 import com.watabou.noosa.Scene;
 import com.watabou.noosa.audio.Music;
@@ -122,9 +123,17 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         // The strings in the language the Profile declares, as the headless boot sets them up, whatever
         // the machine's own locale would have given the game's first read of them (Messages.java:79-82).
         Messages.setup(Languages.ENGLISH);
+        // The Overlay's controls become the game's actions, with their default keys, before the game loads
+        // its key bindings in super.create() (story 5.11, hook row 10). A default the game binds already
+        // is declined and logged; KeyBindingConflictTest keeps that from happening at a pinned tag.
+        for (Hotkey declined : Hotkey.register()) {
+            Gdx.app.log("shatterfish", "the game binds " + com.badlogic.gdx.Input.Keys.toString(declined.defaultKey())
+                    + " already, so " + declined.actionName() + " starts unbound; bind it in the key-binding screen");
+        }
         super.create();
         // First in the game's input multiplexer, which super.create() has just built (Game.java:108).
         lock.lock();
+        lock.hotkeys(new Keys());
         inputHandler.addInputProcessor(lock);
         rng = new RngControl(salt);
         NewGame.begin(options.seed(), options.heroClass(), rng);
@@ -193,6 +202,28 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
      */
     private boolean panelLocked() {
         return Windows.front() != null;
+    }
+
+    /**
+     * The Overlay's hotkeys, as the input lock hears them (story 5.11). A key bound to one of the Overlay's
+     * actions in the game's own bindings is kept from the game and pressed on the Panel, in every Mode: the
+     * Panel's controls are the one thing a person may touch while a Run plays. Not while the game is waiting
+     * for a key to bind (its key-binding screen), when every key is the screen's.
+     */
+    private final class Keys implements InputLock.Hotkeys {
+
+        @Override
+        public boolean press(int keycode) {
+            if (KeyBindings.bindingKey) {
+                return false;
+            }
+            Hotkey hotkey = Hotkey.of(keycode);
+            if (hotkey == null) {
+                return false;
+            }
+            dock.press(hotkey, panelLocked());
+            return true;
+        }
     }
 
     /** What the Controls row does to the Run (story 5.6). */

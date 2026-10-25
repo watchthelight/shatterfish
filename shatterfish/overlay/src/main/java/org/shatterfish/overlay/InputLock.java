@@ -48,7 +48,23 @@ final class InputLock extends InputAdapter {
         boolean at(int screenX, int screenY);
     }
 
+    /**
+     * The Overlay's hotkeys (story 5.11, FR-42), heard before anything else whatever the lock or the Run is
+     * doing: a key bound to one of the Overlay's actions is the Overlay's alone. It is pressed through the
+     * Panel's controls and never reaches the game, so a hotkey is never a hero's input, in any Mode, and
+     * nothing is recorded for it as a person's turn.
+     */
+    interface Hotkeys {
+        /**
+         * A key pressed. Returns whether it is bound to an Overlay action, which makes the lock keep it
+         * (and its release) from the game; whether the control then acts is the Panel's own rule.
+         */
+        boolean press(int keycode);
+    }
+
     private volatile boolean locked;
+    /** Set once the Run has hotkeys. */
+    private Hotkeys hotkeys = keycode -> false;
     /** Set once the Panel has controls: a press on it passes while the lock holds, and reaches nothing under it. */
     private PanelHit panel = (x, y) -> false;
     /** Pointers whose press landed on the Panel and was passed: their moves and release pass, and are the Panel's alone. */
@@ -83,6 +99,11 @@ final class InputLock extends InputAdapter {
         this.panel = panel;
     }
 
+    /** Gives the lock the Overlay's hotkeys (story 5.11). */
+    void hotkeys(Hotkeys hotkeys) {
+        this.hotkeys = hotkeys;
+    }
+
     void lock() {
         locked = true;
     }
@@ -109,6 +130,10 @@ final class InputLock extends InputAdapter {
 
     @Override
     public boolean keyDown(int keycode) {
+        if (hotkeys.press(keycode)) {
+            taken.add(keycode);
+            return true;
+        }
         if (human == null) {
             return locked;
         }
@@ -127,6 +152,10 @@ final class InputLock extends InputAdapter {
 
     @Override
     public boolean keyUp(int keycode) {
+        if (taken.remove(keycode)) {
+            // The release of a key the Overlay kept for itself is kept from the game too (story 5.11).
+            return true;
+        }
         if (human == null) {
             // A key the person pressed while they played and still holds when the Run is handed back (story
             // 5.8) is released into the game all the same, or it would stay held and move the hero by itself.
