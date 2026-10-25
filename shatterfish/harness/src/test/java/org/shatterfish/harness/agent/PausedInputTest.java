@@ -158,6 +158,44 @@ class PausedInputTest {
     }
 
     @Test
+    @DisplayName("a targeted item use (a throw at a cell) completes through a shut gate: the cell reaches select inside the executor's call")
+    void a_targeted_use_completes(@TempDir Path folder) throws Exception {
+        try (EmbeddedHost host = new EmbeddedHost(HumanTurnReplayTest.SEED, HeroClass.WARRIOR, HumanTurnReplayTest.SALT)) {
+            EmbeddedRun run = host.attachHuman(new BrainDecider(EmbeddedDeterminismTest.brain()),
+                    HumanTurnReplayTest.logging(folder), 12);
+            assertTrue(host.untilOpen(20_000));
+            run.humanInput(false);
+            org.shatterfish.api.Observation observation = new org.shatterfish.harness.observer.Observer().observe();
+            org.shatterfish.api.Action.UseItemAt throwing = null;
+            for (org.shatterfish.api.Action action : observation.actions().actions()) {
+                if (action instanceof org.shatterfish.api.Action.UseItemAt use && use.action().equals("THROW")) {
+                    throwing = use;
+                    break;
+                }
+            }
+            org.junit.jupiter.api.Assertions.assertNotNull(throwing, "the pack offers a throw at a cell");
+            // The item opens the cell selector and the executor answers it in the same call, on this thread.
+            org.shatterfish.harness.executor.Outcome outcome =
+                    new org.shatterfish.harness.executor.ActionExecutor().execute(observation, throwing);
+            assertTrue(outcome instanceof org.shatterfish.harness.executor.Outcome.Applied,
+                    "the executor's own selection of the cell went through: " + outcome);
+            assertFalse(Dungeon.hero.ready, "the throw took the hero's turn");
+        }
+    }
+
+    @Test
+    @DisplayName("a headless Run starts with no gate registered, whatever an earlier Run left behind")
+    void a_headless_run_clears_a_leftover_gate(@TempDir Path folder) throws Exception {
+        com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks.inputGate = () -> false;
+        try (EmbeddedHost host = new EmbeddedHost(HumanTurnReplayTest.SEED, HeroClass.WARRIOR, HumanTurnReplayTest.SALT)) {
+            assertTrue(host.driver != null);
+            assertNull(com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks.inputGate,
+                    "starting the driver cleared the leftover gate");
+        }
+        assertNull(com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks.inputGate);
+    }
+
+    @Test
     @DisplayName("a Run that is not the person's has the gate shut, and the Run's own executor still gets through")
     void the_executor_passes(@TempDir Path folder) throws Exception {
         try (EmbeddedHost host = new EmbeddedHost(HumanTurnReplayTest.SEED, HeroClass.WARRIOR, HumanTurnReplayTest.SALT)) {

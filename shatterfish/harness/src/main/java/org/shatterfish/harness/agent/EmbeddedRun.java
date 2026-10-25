@@ -396,6 +396,7 @@ public final class EmbeddedRun implements AutoCloseable {
                 // A HUMAN Run that failed to attach leaves no listener behind for the next Run to be heard by.
                 Hooks.heroInput = null;
             }
+            Hooks.inputGate = null;
             if (log != null) {
                 log.close();
             }
