@@ -32,6 +32,12 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
+    // Test classes run in forked JVMs side by side: half the cores, at most 4 (2 on a 4-core CI
+    // runner). Each fork is its own JVM, so the game's static state is never shared between two
+    // classes running at once. Override with -Pshatterfish.testForks=N, 1 for the old serial run.
+    def forks = project.findProperty('shatterfish.testForks')
+    maxParallelForks = forks != null ? (forks as int)
+            : Math.max(1, Math.min(4, Runtime.runtime.availableProcessors().intdiv(2)))
     testLogging {
         events 'failed', 'skipped'
         exceptionFormat 'full'

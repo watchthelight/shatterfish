@@ -847,7 +847,7 @@ prints is a published measurement.
 | `--first N` | Keep the first N entries after filtering, in file order. |
 | `--salt-base K` | Entry `i` of the selection plays under salt `K + i` (default 0), so a baseline and the current Brain meet the same dungeon at the same moments and a rerun is the same measurement. |
 | `--baseline <git ref or folder>` | A folder (an earlier direction folder, or a folder of Run logs) is read and nothing is played. A git ref is checked out into a worktree under the output folder, its `:brain:jar` is built there with that checkout's own wrapper, and the same picks are played with the current api, harness and rig but the ref's Brain, Codex and weights. That build is a second Gradle job while the first runs. |
-| `--jobs P` | Runs in flight at once (default 2, the machine's limit). |
+| `--jobs P` | Runs in flight at once (default: a quarter of the cores, from 2 to 8). |
 | `--out <dir>` | The output folder, which must be empty or absent (default `build/direction/<time>`). `current/` and `baseline/` hold the Run logs; `direction.md` holds the table. |
 
 The tuning set is `--set standard --class WARRIOR --first 40 --salt-base 1000`: the first 40 Warriors

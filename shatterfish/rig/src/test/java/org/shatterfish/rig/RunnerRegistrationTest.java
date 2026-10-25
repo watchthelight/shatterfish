@@ -95,7 +95,7 @@ class RunnerRegistrationTest {
         arguments.put(Runner.SEEDS, SeedSets.SMOKE);
         arguments.put(Runner.OUT, out.toString());
         arguments.put(Runner.ROOT, root.toString());
-        arguments.put(Runner.PARALLEL, "2");
+        arguments.put(Runner.PARALLEL, "4");
         arguments.put(Runner.CAP, "40");
         for (int i = 0; i < extra.length; i += 2) {
             arguments.put(extra[i], extra[i + 1]);

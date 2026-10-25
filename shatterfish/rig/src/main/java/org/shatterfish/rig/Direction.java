@@ -59,8 +59,8 @@ public final class Direction {
 
     static final List<String> KNOWN = List.of(SET, CLASS, FIRST, SALT_BASE, BASELINE, JOBS, OUT, ROOT);
 
-    /** Default number of Runs in flight: the machine's limit, not a measure of its cores. */
-    static final int DEFAULT_JOBS = 2;
+    /** Default number of Runs in flight: a quarter of the cores, from 2 to 8, so several measurements can share the machine. */
+    static final int DEFAULT_JOBS = Math.max(2, Math.min(8, Runtime.getRuntime().availableProcessors() / 4));
 
     private static final int DEADLINE_SECONDS = 1800;
 
