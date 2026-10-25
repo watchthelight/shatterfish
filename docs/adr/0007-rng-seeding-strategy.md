@@ -356,7 +356,7 @@ any entropy-seeded picture does).
 
 The version is raised because what a Run inherits changed, and because the stream of every Run's
 first wait moved by that one draw; recorded Runs carrying profile 3 are
-refused by replay (`Replay.java:197`), which is this ADR's own rule. `ProfileTest.the_history_is_empty`
+refused by replay (`Replay.refusal`, the Profile version check), which is this ADR's own rule. `ProfileTest.the_history_is_empty`
 now holds the global half.
 
 The committed reference Run (`reference/`, story 3.4) is regenerated with `:rig:reference`, because
