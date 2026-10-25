@@ -47,7 +47,10 @@ import java.util.List;
  *       boss fight's seal refuses every transition -- and not along a path beside an enemy, and
  *       otherwise away from the enemies. The surface and branch stairs are not a retreat: the
  *       surface opens a window without leaving (SewerLevel.java:146-156) and a branch can refuse.
- *       A floor already fled twice is not fled by the stairs again. Cornered, it fights.</li>
+ *       A floor already fled twice is not fled by the stairs again. Cornered, it fights. On a sealed floor
+ *       a walk away cannot break contact (the boss follows at the hero's pace or stands where it is),
+ *       so the Policy retreats as elsewhere but at most {@link #SEALED_RETREATS} times on the floor, and
+ *       then goes to the enemy and fights, which is what ends the seal (issue #180).</li>
  * </ul>
  *
  * <p>Enemies the game keeps passive until provoked ({@link #passive}, from the bestiary's tags) are
@@ -77,6 +80,13 @@ final class Fight implements Policy {
 
     /** The most times the hero leaves one floor by the stairs to get away. */
     static final int FLIGHTS = 2;
+
+    /**
+     * The most retreats the Policy makes on one sealed floor before it commits to the fight (issue #180):
+     * the boss's seal refuses every transition (Level.java:657-662, Hero.java:1451), so a retreat there
+     * cannot break contact, and one repeated without end only spends turns.
+     */
+    static final int SEALED_RETREATS = 30;
 
     /**
      * Whether {@code actor} is an enemy the game keeps passive until provoked ({@link Bestiary#passive}:
@@ -246,7 +256,9 @@ final class Fight implements Policy {
             }
             return ranked;
         }
-        if (!favourable) {
+        // On a sealed floor with no retreat worth making there is nothing else to do: the fight ends the seal
+        // (issue #180), so an unfavourable one is gone into rather than held or fled in circles.
+        if (!favourable && !(observation.header().sealed() && retreat == null)) {
             add(ranked, retreat);
             idle(ranked, offered, memory);
             return ranked;
@@ -439,6 +451,11 @@ final class Fight implements Policy {
         // Away, onto a cell the hero may walk on: not a chasm, which jumps, a well, which drinks, an
         // armed trap, or a cell a Step was refused onto.
         boolean[] open = Explore.walkable(observation, memory, false);
+        // A sealed floor's retreat cannot break contact, so it is spent a few times, not without end (issue #180).
+        if (observation.header().sealed()
+                && Memory.count(memory.flights(), floor, Memory.SEALED_RETREATS) >= SEALED_RETREATS) {
+            return null;
+        }
         Action.Step best = null;
         int farthest = from;
         int fewest = Integer.MAX_VALUE;

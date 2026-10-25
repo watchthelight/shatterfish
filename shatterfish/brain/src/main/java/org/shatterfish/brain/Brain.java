@@ -294,6 +294,9 @@ public final class Brain {
                     nearest = enemy;
                 }
             }
+            if (observation.header().sealed()) {
+                memory = memory.retreatedSealed(depth + ":" + branch);
+            }
             if (nearest != null) {
                 memory = memory.avoiding(new Memory.Avoid(observation.header().depth(), observation.header().branch(),
                         nearest.cell(), Math.min(AVOID_RADIUS, best + 1), memory.waits() + AVOID_WAITS));
