@@ -899,11 +899,11 @@ class CodexLeakTest {
                 changes.stream().flatMap(c -> c.headings().stream()).map(Codex.ChangeHeading::titleExpression)
                         .filter(e -> !e.isEmpty()).toList(),
                 "the one title the game computes rather than writing, carried as its expression");
-        assertEquals(List.of("iOS 12 end of support"),
+        assertEquals(List.of("iOS 13 & 14 end of support"),
                 changes.stream().flatMap(c -> c.headings().stream()).filter(h -> !h.conditionExpression().isEmpty())
                         .map(Codex.ChangeHeading::title).toList(),
                 "the one heading the game shows only on a platform, carried with the condition");
-        assertEquals("DeviceCompat.isiOS() && DeviceCompat.getPlatformVersion() <= 12",
+        assertEquals("DeviceCompat.isiOS() && DeviceCompat.getPlatformVersion() <= 14",
                 changes.stream().flatMap(c -> c.headings().stream()).map(Codex.ChangeHeading::conditionExpression)
                         .filter(e -> !e.isEmpty()).findFirst().orElseThrow());
         java.util.TreeSet<String> keys = new java.util.TreeSet<>();
