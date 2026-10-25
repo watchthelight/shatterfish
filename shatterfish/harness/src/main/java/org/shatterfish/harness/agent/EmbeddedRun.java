@@ -810,6 +810,14 @@ public final class EmbeddedRun implements AutoCloseable {
         return heldFrames;
     }
 
+    /**
+     * Whether the worker is still deciding the pending question, for a test host that holds the game's
+     * clock until it has (issue #193). Called on the render thread, as {@link #frame()} is.
+     */
+    boolean deciding() {
+        return pending != null && !pending.isDone();
+    }
+
     /** The Brain has answered: execute the answer and write the wait's record, as the headless loop does. */
     private void serve() {
         Future<Decided> done = pending;
