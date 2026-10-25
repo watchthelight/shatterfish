@@ -21,6 +21,8 @@ import org.shatterfish.harness.agent.RunOutcome;
 import org.shatterfish.harness.boot.MemoryPreferences;
 import org.shatterfish.harness.boot.Profile;
 import org.shatterfish.harness.driver.NewGame;
+import org.shatterfish.harness.driver.ResumeGame;
+import org.shatterfish.harness.driver.SuspendedSave;
 import org.shatterfish.harness.driver.Windows;
 import org.shatterfish.harness.rng.RngControl;
 
@@ -65,7 +67,13 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
     private final long salt;
     private final Supplier<Decider> brain;
     private final Supplier<Observation> observer;
+    /** What the oracle's door left for the Panel to mark (story 5.12); null for a fair Run. */
+    private final OracleSidecar oracleSidecar;
     private final RunLoop.Logging logging;
+    /** The Run being resumed from a save and quit (story 5.14), or null for a new Run. */
+    private final Resumption resumption;
+    /** Whether this process saved and quit its Run, so its Profile is kept for the resume. */
+    private boolean suspended;
     /** The interface the Overlay plays on: the mixed one, desktop layout with no inventory pane (story 5.2). */
     static final int INTERFACE_SIZE = 1;
 
@@ -87,12 +95,14 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
      * @param salt      the Run's salt
      * @param brain     what decides, built when the Run begins
      * @param observer  the door the Brain sees through: fair, or the launcher's oracle
+     * @param oracleSidecar what the oracle door leaves for the Panel's marks; null unless the Run is an oracle Run
      * @param logging   where the Run's log goes and who played it
      */
     OverlayGame(PlatformSupport platform, LaunchOptions options, MemoryPreferences preferences, Path profileDirectory,
                 boolean deleteProfile, long salt, Supplier<Decider> brain, Supplier<Observation> observer,
-                RunLoop.Logging logging) {
+                OracleSidecar oracleSidecar, RunLoop.Logging logging, Resumption resumption) {
         super(platform);
+        this.resumption = resumption;
         this.options = options;
         this.preferences = preferences;
         this.profileDirectory = profileDirectory;
@@ -100,7 +110,17 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         this.salt = salt;
         this.brain = brain;
         this.observer = observer;
+        requireSidecarMatchesFlag(options, oracleSidecar);
+        this.oracleSidecar = oracleSidecar;
         this.logging = logging;
+    }
+
+    /** An oracle Run has a sidecar and a fair Run has none (story 5.12); a launcher that says otherwise is refused. */
+    static void requireSidecarMatchesFlag(LaunchOptions options, OracleSidecar sidecar) {
+        if ((sidecar != null) != options.oracle()) {
+            throw new IllegalArgumentException("the oracle sidecar and the oracle flag go together: flag "
+                    + options.oracle() + ", sidecar " + (sidecar != null));
+        }
     }
 
     @Override
@@ -119,7 +139,9 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
             // setter also reaches for the system UI.
             preferences.putBoolean(SPDSettings.KEY_FULLSCREEN, false);
         }
+        // Said once, from the launcher's flag, and fixed: nothing in the Overlay can change it (FR-43).
         dock.oracle(options.oracle());
+        dock.oracleSidecar(oracleSidecar);
         // The strings in the language the Profile declares, as the headless boot sets them up, whatever
         // the machine's own locale would have given the game's first read of them (Messages.java:79-82).
         Messages.setup(Languages.ENGLISH);
@@ -136,17 +158,31 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         lock.hotkeys(new Keys());
         inputHandler.addInputProcessor(lock);
         rng = new RngControl(salt);
-        NewGame.begin(options.seed(), options.heroClass(), rng);
+        if (resumption != null) {
+            // The game loads from its save and the Run continues the suspended log (story 5.14).
+            try {
+                ResumeGame.load(resumption.marker().slot(), rng, resumption.marker().k());
+            } catch (RuntimeException | Error refused) {
+                SuspendedSave.unclaim(profileDirectory);
+                throw refused;
+            }
+        } else {
+            NewGame.begin(options.seed(), options.heroClass(), rng);
+        }
         if (options.human()) {
             // The person plays every wait; the Brain shadows them (story 5.9). The lock then holds only
             // presses between waits, and tells the Run what it passes.
-            run = EmbeddedRun.attachHuman(this, options.seed(), options.heroClass(), rng, brain.get(), observer,
-                    logging, options.turnCap());
+            run = resumption != null
+                    ? attachResumed(true)
+                    : EmbeddedRun.attachHuman(this, options.seed(), options.heroClass(), rng, brain.get(), observer,
+                            logging, options.turnCap());
             lock.human(new HumanInput());
             lockKnowsPerson = true;
         } else {
-            run = EmbeddedRun.attach(this, options.seed(), options.heroClass(), rng, brain.get(), observer, logging,
-                    options.turnCap());
+            run = resumption != null
+                    ? attachResumed(false)
+                    : EmbeddedRun.attach(this, options.seed(), options.heroClass(), rng, brain.get(), observer, logging,
+                            options.turnCap());
             // The Run starts held, PAUSED with Next Step (EXPERIENCE.md); the Panel's controls turn it.
             controls = new ControlState(new RunSeam(run), ControlEnablement.Capabilities.NOW);
             dock.controls(controls);
@@ -156,6 +192,16 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         // The play scene, created at the first frame the way the loading scene asks for it after a new
         // game (core/.../scenes/InterlevelScene.java), with the Run already listening at its seam.
         switchScene(GameScene.class);
+    }
+
+    private EmbeddedRun attachResumed(boolean human) {
+        try {
+            return EmbeddedRun.attachResumed(this, options.seed(), options.heroClass(), rng, brain.get(), observer,
+                    resumption.marker().log(), human, options.turnCap());
+        } catch (RuntimeException | Error refused) {
+            SuspendedSave.unclaim(profileDirectory);
+            throw refused;
+        }
     }
 
     /**
@@ -174,6 +220,11 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
     protected void update() {
         float frameDelta = Math.min(0.2f, Gdx.graphics.getDeltaTime());
         Game.elapsed = Game.timeScale * frameDelta;
+        if (controls != null && controls.unbounded()) {
+            // Fast as it can (story 5.13): an animation ends in the frame it starts in, so the Run's speed is
+            // the game's and the Brain's, not the animation interval's. Nothing upstream is edited.
+            Game.elapsed = ControlState.FAST_FRAME;
+        }
         Game.timeTotal += Game.elapsed;
         Game.realTime = TimeUtils.millis();
         inputHandler.processAllEvents();
@@ -382,15 +433,59 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
                     + "; " + run.attachments() + " play scenes; " + run.staleAnswers() + " stale answers ("
                     + run.unrewoundAnswers() + " not rewound); log "
                     + run.logFile());
-            if (options.exitWhenOver()) {
+            if (outcome.cause() == RunOutcome.Cause.SUSPENDED) {
+                // The game's own save and quit (story 5.14): the boundary is in the log, the save is the game's.
+                sealSuspended();
+                Gdx.app.exit();
+            } else if (options.exitWhenOver()) {
                 Gdx.app.exit();
             }
         }
     }
 
+    /**
+     * Writes the resume marker once the log holds the boundary and the game holds the save (story 5.14), in
+     * that order, and says how to resume. Without a save to seal there is nothing to resume, and the Profile
+     * is released as for a Run that ended.
+     */
+    private void sealSuspended() {
+        int slot = com.shatteredpixel.shatteredpixeldungeon.GamesInProgress.curSlot;
+        String digest = SuspendedSave.digest(profileDirectory, slot);
+        org.shatterfish.api.RunLog.Boundary boundary = run.suspend();
+        if (digest.isEmpty() || boundary == null) {
+            Gdx.app.log("shatterfish", "the Run was saved and quit but left nothing to resume (no save or no log)");
+            return;
+        }
+        new SuspendedSave(run.logFile(), boundary.k(), slot, digest, options.agent(), deleteProfile).write(profileDirectory);
+        suspended = true;
+        Gdx.app.log("shatterfish", "saved and quit at wait " + boundary.k() + "; resume with --resume " + profileDirectory);
+    }
+
+    /**
+     * Whether a window closed now leaves a game that can be saved at a wait: a living hero on the play scene
+     * who is waiting for an order (story 5.14). Anything else ends the Run as CLOSED, as before.
+     */
+    private boolean saveable() {
+        return run != null && run.resumable() && scene instanceof GameScene
+                && com.shatteredpixel.shatteredpixeldungeon.Dungeon.hero != null
+                && com.shatteredpixel.shatteredpixeldungeon.Dungeon.hero.isAlive()
+                && com.shatteredpixel.shatteredpixeldungeon.Dungeon.hero.ready
+                && Windows.front() == null;
+    }
+
     @Override
     public void dispose() {
         try {
+            if (run != null && saveable()) {
+                // Closing the window saves the game and quits (story 5.14): the same state the game's own
+                // save and quit leaves, with the boundary in the log.
+                try {
+                    com.shatteredpixel.shatteredpixeldungeon.Dungeon.saveAll();
+                    sealSuspended();
+                } catch (IOException | RuntimeException notSaved) {
+                    System.err.println("[shatterfish] the Run could not be saved on close: " + notSaved);
+                }
+            }
             if (run != null) {
                 run.close();
             }
@@ -399,7 +494,7 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
             }
         } finally {
             super.dispose();
-            releaseProfile(profileDirectory, deleteProfile);
+            releaseProfile(profileDirectory, deleteProfile && !suspended);
         }
     }
 
@@ -435,6 +530,12 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
                 System.err.println("[shatterfish] " + line);
             }
         }
+    }
+
+    /** The desktop game's loading scene brings the hero back after an Ankh's window is answered (story 5.14). */
+    @Override
+    public boolean servesResurrection() {
+        return true;
     }
 
     @Override

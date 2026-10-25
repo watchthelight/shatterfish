@@ -1,6 +1,7 @@
 package org.shatterfish.overlay;
 
 import org.shatterfish.harness.agent.EmbeddedRun;
+import org.shatterfish.harness.agent.RunEnding;
 
 /**
  * The Run's Mode and speed mode, as the Mode strip and the Decision card show them (story 5.3, FR-38,
@@ -56,6 +57,7 @@ final class ModeState {
     private final int floor;
     private final boolean thinking;
     private final boolean over;
+    private final RunEnding ending;
 
     ModeState(Mode mode, SpeedMode speed, double intervalSeconds, int turn, int floor, boolean thinking) {
         this(mode, speed, intervalSeconds, turn, floor, thinking, false);
@@ -63,6 +65,12 @@ final class ModeState {
 
     /** As above, and whether the Run is over, which the Controls row reads (story 5.6, UX-DR7's Run over row). */
     ModeState(Mode mode, SpeedMode speed, double intervalSeconds, int turn, int floor, boolean thinking, boolean over) {
+        this(mode, speed, intervalSeconds, turn, floor, thinking, over, null);
+    }
+
+    /** As above, and how the Run ended and where its log is, which the Mode strip reads once it is over (story 5.14). */
+    ModeState(Mode mode, SpeedMode speed, double intervalSeconds, int turn, int floor, boolean thinking, boolean over,
+              RunEnding ending) {
         if (mode == null || speed == null) {
             throw new IllegalArgumentException("a Mode and a speed mode");
         }
@@ -73,6 +81,7 @@ final class ModeState {
         this.floor = floor;
         this.thinking = thinking;
         this.over = over;
+        this.ending = ending;
     }
 
     /**
@@ -88,10 +97,11 @@ final class ModeState {
             // A HUMAN Run (story 5.9) is HUMAN for its whole length; THINKING is the shadow still pending.
             return new ModeState(Mode.HUMAN, SpeedMode.PLAYER, PLACEHOLDER_INTERVAL, snapshot.turn(), snapshot.floor(),
                     snapshot.state() == EmbeddedRun.State.THINKING,
-                    snapshot.state() == EmbeddedRun.State.ENDED);
+                    snapshot.state() == EmbeddedRun.State.ENDED, snapshot.ending());
         }
         return new ModeState(Mode.RUNNING, SpeedMode.NORMAL, PLACEHOLDER_INTERVAL, snapshot.turn(), snapshot.floor(),
-                snapshot.state() == EmbeddedRun.State.THINKING, snapshot.state() == EmbeddedRun.State.ENDED);
+                snapshot.state() == EmbeddedRun.State.THINKING, snapshot.state() == EmbeddedRun.State.ENDED,
+                snapshot.ending());
     }
 
     Mode mode() {
@@ -120,5 +130,10 @@ final class ModeState {
 
     boolean over() {
         return over;
+    }
+
+    /** How the Run ended, or null while it plays (story 5.14). */
+    RunEnding ending() {
+        return ending;
     }
 }

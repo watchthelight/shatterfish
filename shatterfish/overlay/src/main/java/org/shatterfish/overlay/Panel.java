@@ -161,20 +161,24 @@ final class Panel extends Component {
         stripArea.active = !inputLocked;
         blocker.active = !inputLocked && ((shadow != null && shadow.person()) || controlState != null);
         stripText.text(ModeStripContent.text(mode));
-        stripText.hardlight(ModeStripContent.color(mode.mode()));
+        stripText.hardlight(ModeStripContent.color(mode));
         boolean full = placed != null && placed.form() == PanelLayout.Form.FULL;
         // The headline "next press executes" is shown only when the Decision on the card is the one the next
         // press executes: the Run is PAUSED and the Decision for its wait has landed, unexecuted (story 5.7).
         // While the Brain thinks, or the Run plays on, the card shows the last Decision executed.
         boolean nextStep = awaiting && mode.mode() == ModeState.Mode.PAUSED;
         float inner = innerWidth();
-        goal.content(full ? decision : null, inner);
+        if (mode.over() && mode.ending() != null && mode.ending().log() != null) {
+            goal.notice("Run log: " + mode.ending().log(), inner);
+        } else {
+            goal.content(full ? decision : null, inner);
+        }
         card.content(full ? decision : null, full ? observation : null, nextStep, inner, shadow);
         flags.content(full && decision != null ? decision.flags() : List.of());
         Set<ControlEnablement.Control> enabled = controlState != null ? controlState.enabled()
                 : ControlEnablement.of(mode.mode(), mode.over(), ControlEnablement.Capabilities.NOW);
         controls.content(mode, enabled, inputLocked, full && decision != null);
-        belief.content(full ? beliefSummary : null, inner);
+        belief.content(full ? beliefSummary : null, full ? oracleRows : List.of(), inner);
         // layout() before the log's own content: it is what sizes the log's ScrollPane viewport (the
         // remaining room below every section above it), and the log's auto-scroll-to-bottom decision
         // reads that viewport's height, so the log must already know this frame's height before it
@@ -197,6 +201,14 @@ final class Panel extends Component {
         placed = layout;
         PanelLayout.Rect rect = layout.rect();
         setRect(rect.x(), rect.y(), rect.width(), rect.height());
+    }
+
+    /** The oracle rows the next {@link #content} shows in the Belief summary (story 5.12); none for a fair Run. */
+    private List<String> oracleRows = List.of();
+
+    /** Sets the oracle rows for the Belief summary; the dock calls this only for an oracle Run. */
+    void oracleRows(List<String> rows) {
+        oracleRows = List.copyOf(rows);
     }
 
     /** Shows the ORACLE label in the Mode strip, or hides it. */

@@ -172,8 +172,8 @@ public final class Replay {
      * could be asked to start a Run that may see what a player could not. A log with challenges set
      * is refused because {@code playTriple} does not apply them, so replaying it would quietly play
      * an unchallenged Run and compare it against a challenged one. A log whose header says
-     * {@code driver: embedded} is refused because an Overlay Run is not reproducible from its tuple
-     * or its Action list until story 5.13; replaying one would report a Run that "did not reproduce"
+     * {@code driver: embedded} is refused by the Rig because its interface size is not the headless driver's
+     * (issue #169; story 5.13 made the Run reproducible, {@code waitsOf} replays one); replaying one would report a Run that "did not reproduce"
      * when it was never claimed to.
      */
     public static Refusal refusal(RunLog.Header header) {
@@ -209,7 +209,7 @@ public final class Replay {
         if (header.embedded() && refuseTheOverlay) {
             return new Refusal("driver", RunLog.Header.EMBEDDED,
                     "a headless Run, because an Overlay Run is not reproducible from its tuple or"
-                            + " its Action list until story 5.13 (ADR-0013)");
+                            + " its Action list by the Rig until the headless driver plays its interface size (issue #169, ADR-0013)");
         }
         if (header.challenges() != 0) {
             return new Refusal("challenges", String.valueOf(header.challenges()),

@@ -185,8 +185,18 @@ E5 (the Overlay) so far:
   the game's key settings (#230).
 - The Codex now carries Goo's real attack and damage for its calm and enraged states, and the
   Brain uses the enraged figures once Goo's bar is at half or less (#233, part of #219).
-- Next: oracle marking (5.12), the speed ceiling (5.13) and save and resume (5.14), with the Goo
-  work (#219) in parallel.
+- E5.12: anything the Overlay shows from oracle mode is marked as oracle, in rows and outlines
+  alike (#235).
+- A 120-Run Warrior baseline for the Goo work: depth 5 reached in 27.5% of Runs, Goo killed in
+  14.2%, 53% of Goo fights won (#234).
+- E5.14: a death shows RUN OVER with its cause, turn and floor; saving and quitting leaves a
+  boundary in the Run log, and `--resume` continues the same Run, marked unverifiable (#237).
+- A random Warrior that backed out of a scroll's cancel prompt no longer stalls the Run (#238).
+- E5.13: Fast as it can has no ceiling, and drawing no longer draws from the Run's random stream
+  (hook row 8), so an Overlay Run replays under the Rig. This is Profile 5: every seed plays a
+  new game, and numbers from before it do not compare (#240).
+- Next: the remaining panel states (5.15) and the full sewers run (5.16), with the Goo work
+  (#219) in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:

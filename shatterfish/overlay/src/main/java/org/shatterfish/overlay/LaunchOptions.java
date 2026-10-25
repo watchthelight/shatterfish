@@ -40,15 +40,18 @@ import java.util.Map;
  * @param windowWidth   the window's width in pixels, or 0 for the game's own setting ({@code --window WxH})
  * @param windowHeight  the window's height in pixels, or 0 for the game's own setting
  * @param screenshot    a PNG of one frame to write once the Run is under way, or null ({@code --screenshot})
+ * @param resume        the Profile of a Run that was saved and quit, to continue, or null for a new Run
+ *                      ({@code --resume}, story 5.14); then seed, hero, salt, turn cap, oracle flag, agent and
+ *                      log folder are the suspended Run's own, read from its marker and its log's header
  */
 public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path profile, Path out, int turnCap,
                             long agentSeed, boolean oracle, boolean exitWhenOver, String agent, Path weights,
-                            Path codex, int windowWidth, int windowHeight, Path screenshot) {
+                            Path codex, int windowWidth, int windowHeight, Path screenshot, Path resume) {
 
     /** The flags the launcher knows. A flag it does not know is refused by name, never ignored. */
     public static final List<String> KNOWN = List.of("--seed", "--class", "--salt", "--profile", "--out",
             "--turn-cap", "--oracle", "--exit-when-over", "--agent", "--weights", "--codex", "--window",
-            "--screenshot");
+            "--screenshot", "--resume");
 
     /** The flags that take no value. */
     private static final List<String> SWITCHES = List.of("--oracle", "--exit-when-over");
@@ -77,6 +80,15 @@ public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path prof
         return agent.equals("human");
     }
 
+    /** The flags a resume takes from the suspended Run, and so refuses to be given (story 5.14). */
+    private static final List<String> FROM_THE_RUN = List.of("--seed", "--class", "--salt", "--profile", "--out",
+            "--turn-cap", "--oracle", "--agent");
+
+    /** Whether this launch continues a Run that was saved and quit. */
+    public boolean resuming() {
+        return resume != null;
+    }
+
     /** Reads the command line; see {@link #KNOWN}. */
     public static LaunchOptions parse(String[] args) {
         Map<String, String> given = new LinkedHashMap<>();
@@ -97,6 +109,9 @@ public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path prof
             }
             given.put(flag, args[++i]);
         }
+        if (given.containsKey("--resume")) {
+            return resumed(given);
+        }
         if (!given.containsKey("--seed") || !given.containsKey("--class")) {
             throw new IllegalArgumentException("a Run states --seed and --class");
         }
@@ -116,7 +131,40 @@ public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path prof
                 given.containsKey("--codex") ? Path.of(given.get("--codex"))
                         : Path.of("codex", org.shatterfish.harness.boot.HeadlessBoot.pinnedTag()),
                 window(given.get("--window"), 0), window(given.get("--window"), 1),
-                given.containsKey("--screenshot") ? Path.of(given.get("--screenshot")) : null);
+                given.containsKey("--screenshot") ? Path.of(given.get("--screenshot")) : null, null);
+    }
+
+    /**
+     * The options of a resume: everything about the Run comes from its marker and the header of its log, so
+     * the tuple cannot be changed on the way back in. The marker is read, not claimed; the launcher claims it.
+     */
+    private static LaunchOptions resumed(Map<String, String> given) {
+        for (String flag : FROM_THE_RUN) {
+            if (given.containsKey(flag)) {
+                throw new IllegalArgumentException(flag + " cannot be given with --resume: the Run's own " + flag.substring(2)
+                        + " is the one its log's header states");
+            }
+        }
+        Path profile = Path.of(given.get("--resume"));
+        org.shatterfish.harness.driver.SuspendedSave marker = org.shatterfish.harness.driver.SuspendedSave.read(profile);
+        org.shatterfish.api.RunLog.Header header = org.shatterfish.harness.driver.RunLogResume.read(marker.log()).header();
+        Path folder = marker.log().toAbsolutePath().getParent();
+        return new LaunchOptions(
+                header.seed(),
+                HeroClass.valueOf(header.heroClass().name()),
+                header.salt(),
+                profile,
+                folder,
+                header.cap(),
+                DeciderSeeds.agent(header.seed(), header.heroClass(), 0),
+                header.oracle(),
+                given.containsKey("--exit-when-over"),
+                marker.agent(),
+                Path.of(given.getOrDefault("--weights", "weights/shatterfish.json")),
+                given.containsKey("--codex") ? Path.of(given.get("--codex"))
+                        : Path.of("codex", org.shatterfish.harness.boot.HeadlessBoot.pinnedTag()),
+                window(given.get("--window"), 0), window(given.get("--window"), 1),
+                given.containsKey("--screenshot") ? Path.of(given.get("--screenshot")) : null, profile);
     }
 
     /**

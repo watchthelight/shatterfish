@@ -40,8 +40,8 @@ import java.util.stream.Stream;
  * carries an ORACLE label (story 5.2). An oracle Run always opens windowed, so the title bar is never
  * hidden by fullscreen; the border around the game view is story 5.12's.
  *
- * <p><b>Not a Rig Run.</b> An Overlay Run's log says {@code driver: embedded}: it is not reproducible
- * from its tuple or its Action list until story 5.13 (ADR-0013), and the Rig refuses it.
+ * <p><b>Not a Rig Run.</b> An Overlay Run's log says {@code driver: embedded}: it is reproducible since story 5.13, but
+ * the headless driver does not yet play its interface size (issue #169), and the Rig refuses it.
  */
 public final class ShatterfishLauncher {
 
@@ -54,14 +54,20 @@ public final class ShatterfishLauncher {
     public static void main(String[] args) {
         LaunchOptions options = LaunchOptions.parse(args);
         long salt = options.salt() != null ? options.salt() : Salt.draw();
-        Path profile = freshProfile(options.profile());
-        boolean madeForThisRun = deletesProfile(options);
+        // A resume claims the suspended Run's marker before anything else is touched (story 5.14).
+        Resumption resumption = options.resuming() ? Resumption.claim(options) : null;
+        Path profile = resumption != null ? options.resume() : freshProfile(options.profile());
+        boolean madeForThisRun = resumption != null ? resumption.marker().temporary() : deletesProfile(options);
         if (madeForThisRun) {
             // The game deletes it at its close; this is for a game that dies without closing (an
             // exception out of a frame skips dispose). The Run's log is elsewhere and is left as a killed
             // Run's is, without an end record, which the reader reports as unfinished (ADR-0012).
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> OverlayGame.deleteQuietly(profile),
-                    "shatterfish-profile-cleanup"));
+            // A Run saved and quit keeps its Profile: the save and the marker are what a resume reads (story 5.14).
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                if (!org.shatterfish.harness.driver.SuspendedSave.present(profile)) {
+                    OverlayGame.deleteQuietly(profile);
+                }
+            }, "shatterfish-profile-cleanup"));
         }
         try {
             java.nio.file.Files.createDirectories(options.out());
@@ -89,12 +95,14 @@ public final class ShatterfishLauncher {
         config.setWindowIcon("icons/icon_16.png", "icons/icon_32.png", "icons/icon_48.png",
                 "icons/icon_64.png", "icons/icon_128.png", "icons/icon_256.png");
 
+        // Only an oracle Run has a sidecar: the oracle door leaves what it saw there for the Panel to mark.
+        OracleSidecar sidecar = options.oracle() ? new OracleSidecar() : null;
         new OverlayApplication(new OverlayGame(new DesktopPlatformSupport(), options, preferences, profile,
-                madeForThisRun, salt, OverlayAgents.of(options), observer(options.oracle()),
-                logging(options, machine())), config);
+                madeForThisRun, salt, OverlayAgents.of(options), observer(options.oracle(), sidecar), sidecar,
+                logging(options, machine()), resumption), config);
     }
 
-    /** The window's title, which carries the oracle marker, as the Mode strip does (story 5.2) and the border will (story 5.12). */
+    /** The window's title, which carries the oracle marker, as the Mode strip (story 5.2) and the border (story 5.12) do. */
     static String title(LaunchOptions options) {
         return "Shattered Pixel Dungeon + Shatterfish Overlay" + (options.oracle() ? " [ORACLE]" : "");
     }
@@ -150,8 +158,26 @@ public final class ShatterfishLauncher {
      * Overlay ({@code OverlayOracleGateTest}), and only when the launcher was told {@code --oracle}.
      */
     static Supplier<Observation> observer(boolean oracle) {
+        return observer(oracle, null);
+    }
+
+    /**
+     * As above, leaving each oracle read's sidecar view in {@code sidecar} (story 5.12) for the Panel's marks.
+     * The Brain is handed the Observation alone; the view goes to the sidecar and nowhere else. A fair door
+     * has no sidecar to leave anything in.
+     */
+    static Supplier<Observation> observer(boolean oracle, OracleSidecar sidecar) {
         if (oracle) {
-            return () -> new OracleObserver().observe().observation();
+            return () -> {
+                OracleObserver.Read read = new OracleObserver().observe();
+                if (sidecar != null) {
+                    sidecar.take(read.observation(), read.view());
+                }
+                return read.observation();
+            };
+        }
+        if (sidecar != null) {
+            throw new IllegalArgumentException("a fair Run has no oracle sidecar");
         }
         return () -> new Observer().observe();
     }

@@ -278,7 +278,11 @@ public class SewerLevel extends RegularLevel {
 					Ripple ripple = GameScene.ripple( pos + Dungeon.level.width() );
 					if (ripple != null) {
 						ripple.y -= DungeonTilemap.SIZE / 2;
+						// shatterfish-hook:8
+						try { Random.visualBegin();
 						rippleDelay = Random.Float(0.4f, 0.6f);
+						// shatterfish-hook:8
+						} finally { Random.visualEnd(); }
 					}
 				}
 			}

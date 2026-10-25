@@ -119,6 +119,11 @@ so E4 cannot half-fill it and call it a Decision.
 two different things; spelling them the same would have made a line that says `chain` twice, and
 would have made a textual checker strip the record's own payload along with the envelope.
 
+**The `boundary` is written now (story 5.14).** An Overlay Run saved and quit ends its log at the record, with no
+`end`; a resume through the launcher reopens the file for appending, and the next record chains onto the boundary
+line's own chain, so the continued file verifies end to end as one chain. `RunLogResume` refuses a log that does not
+verify, does not end at a boundary, or whose boundary names a `chainAt` that is not the chain of the line before it.
+
 ### What the review then found, and what changed
 
 Four reviews read the branch. Six things in this ADR's own terms turned out to be wrong or missing

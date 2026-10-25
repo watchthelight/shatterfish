@@ -228,6 +228,21 @@ class ControlStateTest {
     }
 
     @Test
+    @DisplayName("only Fast as it can, outside a Run N, runs the game's frames unbounded (story 5.13)")
+    void unbounded_only_in_fast() {
+        FakeRun run = new FakeRun();
+        ControlState controls = new ControlState(run, Capabilities.NOW);
+        assertFalse(controls.unbounded(), "PAUSED with Next Step");
+        controls.pauseResume();
+        assertFalse(controls.unbounded(), "Human play speed keeps its readable pace");
+        controls.cycleSpeed();
+        assertEquals(SpeedMode.FAST, controls.speed());
+        assertTrue(controls.unbounded(), "Fast as it can");
+        controls.pauseResume();
+        assertFalse(controls.unbounded(), "PAUSED again");
+    }
+
+    @Test
     @DisplayName("choosing Next Step while RUNNING pauses the bot, since it then acts only on a press")
     void next_step_speed_pauses() {
         FakeRun run = new FakeRun();

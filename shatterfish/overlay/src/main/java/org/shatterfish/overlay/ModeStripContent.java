@@ -28,6 +28,15 @@ final class ModeStripContent {
     private ModeStripContent() {
     }
 
+    /**
+     * The colour of a Run that is over (story 5.14): the neutral ink, since the Run is in no Mode. Not red,
+     * which {@code DESIGN.md} keeps for Danger and the oracle; the words say what happened.
+     */
+    static final int OVER_COLOR = 0xF0F0F0;
+
+    /** The words that open a finished Run's line (UX-DR7's Run over row). */
+    static final String RUN_OVER = "RUN OVER";
+
     /** The colour {@code mode}'s word is shown in; the word itself is what {@link #text} writes. */
     static int color(ModeState.Mode mode) {
         return switch (mode) {
@@ -37,8 +46,21 @@ final class ModeStripContent {
         };
     }
 
-    /** The strip's whole line: mode, speed and interval, turn, floor, and THINKING when it applies. */
+    /** The colour the strip's line is shown in: the Mode's, or the neutral ink once the Run is over. */
+    static int color(ModeState state) {
+        return state.over() ? OVER_COLOR : color(state.mode());
+    }
+
+    /**
+     * The strip's whole line: mode, speed and interval, turn, floor, and THINKING when it applies; or, once
+     * the Run is over, {@code RUN OVER: killed by Goo, turn 1,842, floor 5} (EXPERIENCE.md, Flow 3), the cause
+     * as the game's own record words it (story 5.14). A Run that is over with no ending to read says only
+     * {@code RUN OVER}.
+     */
     static String text(ModeState state) {
+        if (state.over()) {
+            return over(state);
+        }
         StringBuilder line = new StringBuilder();
         line.append(state.mode().name()).append("  ").append(speed(state));
         line.append("  turn ").append(Columns.number(state.turn(), TURN_WIDTH));
@@ -47,6 +69,15 @@ final class ModeStripContent {
             line.append("  THINKING");
         }
         return line.toString();
+    }
+
+    private static String over(ModeState state) {
+        org.shatterfish.harness.agent.RunEnding ending = state.ending();
+        if (ending == null) {
+            return RUN_OVER;
+        }
+        return RUN_OVER + ": " + ending.cause() + ", turn " + String.format(java.util.Locale.ROOT, "%,d", ending.turn())
+                + ", floor " + ending.floor();
     }
 
     /** The speed mode's word, with its interval appended when that speed mode shows one (UX-DR6). */
