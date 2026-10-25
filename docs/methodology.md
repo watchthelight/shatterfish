@@ -10,7 +10,7 @@ A Run is determined by its **tuple**:
 
 | Part | What it is |
 |---|---|
-| Upstream tag | The Shattered Pixel Dungeon release the game code comes from, `v4.0.0` today |
+| Upstream tag | The Shattered Pixel Dungeon release the game code comes from, `v4.0.2` today |
 | Hero class | Warrior, Mage, Rogue, Huntress, Duelist or Cleric (`core/…/actors/hero/HeroClass.java:87-92`) |
 | Challenges | The challenge flags the game was started with |
 | Seed | The seed a player could type into the custom-seed window; it decides the dungeon |

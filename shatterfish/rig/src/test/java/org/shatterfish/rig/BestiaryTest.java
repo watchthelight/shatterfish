@@ -47,7 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BestiaryTest {
 
     private static final Path ROOT = SeedSetsTest.ROOT;
-    private static final String TAG = "v4.0.0";
+    private static final String TAG = "v4.0.2";
     private static final Path FILE = ROOT.resolve("tactics/bestiary.json");
     private static final Path MOBS = ROOT.resolve("codex").resolve(TAG).resolve("mobs.json");
     private static final Path INDEX = ROOT.resolve("docs/bestiary/index.md");

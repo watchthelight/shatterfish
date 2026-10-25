@@ -676,7 +676,7 @@ class CodexLeakTest {
     void the_vocabulary_diff_is_the_two_games() throws IOException {
         Path root = CodexSeedFreeTest.ROOT;
         Codex.Vocabulary vocabulary = Vocabulary.read(root, Text.entries(root), Mobs.entries(root), Items.entries(root));
-        assertEquals("v4.0.0", vocabulary.tag());
+        assertEquals("v4.0.2", vocabulary.tag());
         assertEquals("archive", vocabulary.vanillaTag(), "the other game's only tag");
         Map<String, Codex.VocabularyEntry> rows = new java.util.TreeMap<>();
         for (Codex.VocabularyEntry entry : vocabulary.entries()) {
@@ -846,11 +846,11 @@ class CodexLeakTest {
         assertEquals("", byPath.get("effects/fireball-tall.png").constant(), "a literal names no constant");
         assertFalse(byPath.get("effects/fireball.png").present(), "the fireball constant names a file that is not there");
         Codex.VersionRecord version = Changelog.version(root);
-        assertEquals("4.0.0", version.name());
-        assertEquals(912, version.code());
+        assertEquals("4.0.2", version.name());
+        assertEquals(922, version.code());
         assertEquals(List.of("v1_2_3", "v3_1_1", "v3_2_1", "v3_2_5", "v3_3_0", "v4_0_0"),
                 version.saveCodes().stream().map(Codex.Rule::what).toList());
-        assertEquals("909", version.saveCodes().get(5).expression());
+        assertEquals("911", version.saveCodes().get(5).expression());
         List<Codex.ChangeEntry> changes = Changelog.entries(root, strings);
         assertEquals(193, changes.size(), "every entry of the changelist package");
         assertEquals(588, changes.stream().mapToInt(c -> c.headings().size()).sum(), "and every heading under them");
