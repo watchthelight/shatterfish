@@ -818,3 +818,12 @@ UX-DR7's Brain error and No valid action rows, and the two rows that were alread
   until the Run has changed hands at an Input wait. **No Run** is the dock's rule: `PanelDock.attaches` is true
   only for a play scene with a hero, so the title screen, the menus and the loading scenes draw nothing.
   `PanelStateTest` reaches every state of UX-DR7 and asserts the strip, the card and the enablement matrix in each.
+
+## Amendment: story 5.13 (2026-10-25)
+
+The non-reproducibility ADR-0013's story 5.1 amendment named is closed for the draws: hook row 8 sends the
+render thread's visual draws to the base generator, and `WaitGate` confirms a wait independently of frame
+length (see ADR-0007's story 5.13 amendment). The Search-then-tap loss recorded under story 5.8 is the same
+cause and is fixed with it. Fast as it can no longer waits for the animation interval: the Overlay sets
+`Game.elapsed` to one second a frame there, which needs no hook. The Rig still refuses `driver: embedded` logs
+until the headless driver plays the Overlay's interface size (issue #169).

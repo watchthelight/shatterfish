@@ -362,3 +362,45 @@ now holds the global half.
 The committed reference Run (`reference/`, story 3.4) is regenerated with `:rig:reference`, because
 its log carries profile 3 and its first wait's stream moved; its chain constant in
 `ReferenceLogTest` is the new one. The nightly cross-platform replay now compares the new Run.
+
+## Amendment: story 5.13 (2026-10-25)
+
+**Option 15 lands as hook row 8, the Profile is version 5, and the speed ceiling needs no hook.**
+
+- **What was wrong.** The render thread draws for the eye from `Random.Float()` and its siblings: particle
+  emission and update (`Emitter.java`), emote icon scale (`EmoIcon.java`), the pitch of the drop sound
+  (`ItemSprite.java`), the sewer drain's ripple delay (`SewerLevel.java`) and the music's track rolls
+  (`Music.java`). Those answer from the stack the Run owns. How many frames the desktop draws between two waits
+  is the wall clock's, so an Overlay Run and a headless Run of one tuple consumed different draws and parted.
+  Tracing every draw made on the render thread found exactly these sites; a second divergence (a sleeping rat
+  that woke) was the particle update inside `Emitter.update`, reached through `super.update()`.
+- **Row 8.** `Random.visualBegin()` and `visualEnd()` keep a per-thread depth, and while it is above zero the
+  four `useGeneratorStack` draws answer from the base generator (the unseeded one nothing reads for an
+  outcome). Per thread, because the actor thread plays the Run while the render thread draws. The sites wrap
+  the drawing calls only; combat rolls the render thread makes (`onAttackComplete`) stay on the Run's stream.
+  The rows are in `docs/UPSTREAM.md`; `RandomVisualScopeTest` holds the routing.
+- **Not every difference was a draw.** A Search, a read or a zap leaves the hero ready while his sprite still
+  plays the animation, and the game clears a tap made in that window when the animation ends
+  (`Hero.onOperateComplete`). Whether a wait was confirmed in the frame the hero became ready or later then
+  depended on the frame length, in both drivers. `WaitGate` now carries the wait to a frame in which the sprite
+  has settled (or three seconds of game time have passed), so which wait is confirmed no longer depends on how
+  long a frame is. This is in the harness; no upstream file is edited for it. It also settles the Search-then-tap
+  loss 5.8 reported.
+- **The speed ceiling.** The first design was a hook that let the actor skip the sprite-movement wait
+  (`Actor.java:292-299`) in Fast as it can. It is not taken: `OverlayGame.update()` already owns `Game.elapsed`,
+  and in Fast as it can outside a Run N (`ControlState.unbounded`) it sets one second a frame, so every
+  animation ends in the frame it starts in and the animation interval no longer limits the Run. The actor still
+  waits, but for one frame. Hook id 7 stays unassigned; this keeps the ledger at ten of eleven rows.
+- **Profile version 5.** Every Run's stream moved (the routed draws no longer advance it), so recorded Runs
+  carrying profile 4 are refused by replay (`Replay`'s profile check), as this ADR's rule says. The reference Run is
+  regenerated with `:rig:reference` and `ReferenceLogTest.CHAIN` is the new chain.
+- **What replays.** `OverlayReplayTest` records Overlay-style Runs (jittered frames of 2 to 52 ms, extra
+  stepper steps between frames, the Brain's worker deciding while frames go on) and replays each under the
+  headless driver with `Replay.waitsOf`, every Observation hash matching; with the routing forced off by hand it
+  fails. The Rig's own paths (`Replay.of`, `OverlayLogs`) still refuse `driver: embedded`, because replaying a
+  real Overlay log needs the headless driver at the Overlay's interface size (issue #169).
+
+The `WaitGate` settle rule counts its three-second cap in game time (`Game.elapsed`), so the wait at which a
+sprite that never settles is given up on still depends on frame length. It applies only to a sprite that
+neither stops nor loops; a sprite that settles is confirmed in the same wait on any frame length. Every scope
+of hook row 8 is closed in a `finally`, so an exception on the render thread cannot leave that thread routed.

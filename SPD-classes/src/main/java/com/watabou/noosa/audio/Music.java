@@ -134,9 +134,13 @@ public enum Music {
 			for (int i = 0; i < trackList.length; i++) {
 				//create all the players we need pre-emptively, so they will be cached
 				createPlayer(trackList[i]);
+				// shatterfish-hook:8
+				try { Random.visualBegin();
 				if (Random.Float() < trackChances[i]) {
 					trackQueue.add(trackList[i]);
 				}
+				// shatterfish-hook:8
+				} finally { Random.visualEnd(); }
 			}
 		} catch (Exception e){
 			Game.reportException(e);
@@ -202,9 +206,13 @@ public enum Music {
 
 		if (trackQueue.isEmpty()) {
 			for (int i = 0; i < trackList.length; i++) {
+				// shatterfish-hook:8
+				try { Random.visualBegin();
 				if (Random.Float() < trackChances[i]) {
 					trackQueue.add(trackList[i]);
 				}
+				// shatterfish-hook:8
+				} finally { Random.visualEnd(); }
 			}
 			if (shuffle) Collections.shuffle(trackQueue);
 		}

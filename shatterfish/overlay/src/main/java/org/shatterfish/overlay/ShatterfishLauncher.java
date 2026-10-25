@@ -40,8 +40,8 @@ import java.util.stream.Stream;
  * carries an ORACLE label (story 5.2). An oracle Run always opens windowed, so the title bar is never
  * hidden by fullscreen; the border around the game view is story 5.12's.
  *
- * <p><b>Not a Rig Run.</b> An Overlay Run's log says {@code driver: embedded}: it is not reproducible
- * from its tuple or its Action list until story 5.13 (ADR-0013), and the Rig refuses it.
+ * <p><b>Not a Rig Run.</b> An Overlay Run's log says {@code driver: embedded}: it is reproducible since story 5.13, but
+ * the headless driver does not yet play its interface size (issue #169), and the Rig refuses it.
  */
 public final class ShatterfishLauncher {
 

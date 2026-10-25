@@ -39,6 +39,25 @@ public class Random {
 		resetGenerators();
 	}
 
+	// shatterfish-hook:8
+	//draws made while the calling thread is inside a visual scope come from the base generator, never from
+	//the stack, so what a frame draws (particles, icons, sound pitch) cannot move what a turn rolls. The
+	//scope is per thread: the actor thread's rolls go on coming from the stack while the render thread is in one.
+	private static final ThreadLocal<int[]> VISUAL = ThreadLocal.withInitial(() -> new int[1]);
+
+	public static void visualBegin(){
+		VISUAL.get()[0]++;
+	}
+
+	public static void visualEnd(){
+		int[] depth = VISUAL.get();
+		if (depth[0] > 0) depth[0]--;
+	}
+
+	private static boolean inVisualScope(){
+		return VISUAL.get()[0] > 0;
+	}
+
 	public static synchronized void resetGenerators(){
 		generators = new ArrayDeque<>();
 		generators.push(new java.util.Random());
@@ -79,6 +98,8 @@ public class Random {
 	}
 
 	public static synchronized float Float( boolean useGeneratorStack ) {
+		// shatterfish-hook:8
+		if (inVisualScope()) useGeneratorStack = false;
 		if (useGeneratorStack)  return generators.peekFirst().nextFloat();
 		else                    return generators.peekLast().nextFloat();
 	}
@@ -106,6 +127,8 @@ public class Random {
 	//returns a uniformly distributed int in the range [-2^31, 2^31)
 	//can either use the current generator in the stack, or force the first generator (pure random)
 	public static synchronized int Int( boolean useGeneratorStack ) {
+		// shatterfish-hook:8
+		if (inVisualScope()) useGeneratorStack = false;
 		if (useGeneratorStack)  return generators.peekFirst().nextInt();
 		else                    return generators.peekLast().nextInt();
 	}
@@ -118,6 +141,8 @@ public class Random {
 	//returns a uniformly distributed int in the range [0, max)
 	//can either use the current generator in the stack, or force the first generator (pure random)
 	public static synchronized int Int( int max, boolean useGeneratorStack ) {
+		// shatterfish-hook:8
+		if (inVisualScope()) useGeneratorStack = false;
 		if (max <= 0)                   return 0;
 		else if (useGeneratorStack)     return generators.peekFirst().nextInt(max);
 		else                            return generators.peekLast().nextInt(max);
@@ -158,6 +183,8 @@ public class Random {
 	//returns a uniformly distributed long in the range [-2^63, 2^63)
 	//can either use the current generator in the stack, or force the first generator (pure random)
 	public static synchronized long Long( boolean useGeneratorStack ) {
+		// shatterfish-hook:8
+		if (inVisualScope()) useGeneratorStack = false;
 		if (useGeneratorStack)  return generators.peekFirst().nextLong();
 		else                    return generators.peekLast().nextLong();
 	}

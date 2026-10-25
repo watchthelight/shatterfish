@@ -101,7 +101,7 @@ fills it deliberately; a directory prepared by a different version of this file 
 than played against, because a Run recorded under one Profile and replayed under another is not the
 same Run.
 
-**Profile version 4** (version 2 plus the class unlocks, and the global badges emptied per Run, issue #117) is: fresh preferences, and on top of them English strings, the intro off, the
+**Profile version 5** (version 2 plus the class unlocks, the global badges emptied per Run, issue #117, and the visual random draws routed off the Run's stream, story 5.13) is: fresh preferences, and on top of them English strings, the intro off, the
 support prompt already answered, the compact interface, the waterskin in a quickslot, and an empty
 history. The preferences are cleared per Run because the game writes its own during play — dragging
 the waterskin out of a quickslot turns off the setting that slots it for every game after, and the

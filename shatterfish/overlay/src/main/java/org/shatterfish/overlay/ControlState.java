@@ -362,6 +362,18 @@ final class ControlState {
     }
 
     /**
+     * Whether the Run goes as fast as it can: Fast as it can, outside a Run N (story 5.13). The game then runs
+     * its animations at {@link #FAST_FRAME} seconds a frame, so a sprite's movement ends in one frame and the
+     * animation interval no longer sets the speed of the Run.
+     */
+    boolean unbounded() {
+        return mode == Mode.RUNNING && speed == SpeedMode.FAST && !runN;
+    }
+
+    /** The game time one frame covers when {@link #unbounded}: longer than any animation of the game. */
+    static final float FAST_FRAME = 1f;
+
+    /**
      * Tells the Run whether it is held, only when that changes (telling it clears its credits, and a
      * credit already given is a wait the human asked for). Only Fast as it can, outside a Run N, lets the
      * Run go; every other state holds it, and Human play speed gives its credits in {@link #frame}.
