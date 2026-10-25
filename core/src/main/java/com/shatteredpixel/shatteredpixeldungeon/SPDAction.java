@@ -149,6 +149,18 @@ public class SPDAction extends GameAction {
 		defaultBindings.put( Input.Keys.MINUS,          SPDAction.ZOOM_OUT );
 	}
 
+	// shatterfish-hook:10
+	//Registration point for actions added by Shatterfish's Overlay. Call before create() loads the bindings.
+	//A key the game binds already (or hard-binds) is declined: the action stays unbound but rebindable.
+	public static boolean addDefaultBinding( int keyCode, GameAction action ){
+		if (defaultBindings.containsKey( keyCode ) || defaultControllerBindings.containsKey( keyCode )
+				|| KeyBindings.isKeyBound( keyCode )){
+			return false;
+		}
+		defaultBindings.put( keyCode, action );
+		return true;
+	}
+
 	public static LinkedHashMap<Integer, GameAction> getDefaults() {
 		return new LinkedHashMap<>(defaultBindings);
 	}

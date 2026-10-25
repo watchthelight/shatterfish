@@ -318,4 +318,90 @@ class InputLockTest {
         }
         assertEquals(0, reached.get(), "nothing a person presses reaches the widgets");
     }
+
+    /** A game that records the keys it is given. */
+    private static InputAdapter recording(java.util.List<String> reached) {
+        return new InputAdapter() {
+            @Override
+            public boolean keyDown(int keycode) {
+                reached.add("down " + keycode);
+                return true;
+            }
+
+            @Override
+            public boolean keyUp(int keycode) {
+                reached.add("up " + keycode);
+                return true;
+            }
+        };
+    }
+
+    @Test
+    @DisplayName("a key bound to an Overlay action is the Overlay's alone, locked or open, and its release is kept from the game too (story 5.11)")
+    void a_hotkey_never_reaches_the_game() {
+        java.util.List<String> reached = new java.util.ArrayList<>();
+        java.util.List<Integer> pressed = new java.util.ArrayList<>();
+        InputLock lock = new InputLock();
+        InputMultiplexer multiplexer = new InputMultiplexer();
+        multiplexer.addProcessor(recording(reached));
+        multiplexer.addProcessor(0, lock);
+        lock.hotkeys(keycode -> {
+            if (keycode == Input.Keys.F6) {
+                pressed.add(keycode);
+                return true;
+            }
+            return false;
+        });
+
+        lock.lock();
+        multiplexer.keyDown(Input.Keys.F6);
+        multiplexer.keyUp(Input.Keys.F6);
+        lock.unlock();
+        multiplexer.keyDown(Input.Keys.F6);
+        multiplexer.keyUp(Input.Keys.F6);
+        assertEquals(java.util.List.of(Input.Keys.F6, Input.Keys.F6), pressed, "the Overlay heard both presses");
+        assertEquals(java.util.List.of(), reached, "and the game neither the press nor the release, whatever the lock was doing");
+
+        multiplexer.keyDown(Input.Keys.W);
+        multiplexer.keyUp(Input.Keys.W);
+        assertEquals(java.util.List.of("down " + Input.Keys.W, "up " + Input.Keys.W), reached,
+                "a key that is not the Overlay's still reaches an open game");
+        lock.lock();
+        multiplexer.keyDown(Input.Keys.W);
+        assertEquals(2, reached.size(), "and none reaches a closed one");
+    }
+
+    @Test
+    @DisplayName("a person's turn is not made by a hotkey: with a HUMAN Run the Run is told of the game's keys and never of the Overlay's (story 5.11)")
+    void a_hotkey_is_no_human_input() {
+        java.util.List<String> told = new java.util.ArrayList<>();
+        InputLock lock = new InputLock();
+        lock.human(new InputLock.Human() {
+            @Override
+            public void pointerUp(int screenX, int screenY) {
+            }
+
+            @Override
+            public void keyDown(int keycode) {
+                told.add("key " + keycode);
+            }
+
+            @Override
+            public void input() {
+                told.add("input");
+            }
+
+            @Override
+            public boolean overlayKey(int keycode) {
+                return false;
+            }
+        });
+        lock.hotkeys(keycode -> keycode == Input.Keys.F9);
+        lock.unlock();
+        assertEquals(true, lock.keyDown(Input.Keys.F9), "kept from the game");
+        assertEquals(java.util.List.of(), told, "and not the Run's record of what the person did");
+        assertEquals(true, lock.keyUp(Input.Keys.F9));
+        assertFalse(lock.keyDown(Input.Keys.W), "a game key passes an open lock");
+        assertEquals(java.util.List.of("key " + Input.Keys.W, "input"), told);
+    }
 }
