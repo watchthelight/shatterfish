@@ -79,13 +79,15 @@ class ChasmGuardTest {
             // the window's first frame however slowly the worker is scheduled: a worker slower than the
             // window's fifth of a second let the guard open first and left nothing held (#193).
             host.stepWhileThinking = held;
-            host.waitForTheWorker = true;
+            host.waitForTheWorker = held;
             EmbeddedRun run = host.attach(brain, null, 5_000);
             // Only frames that step the game count against the bound; waiting on the worker is the timeout's.
             for (int frame = 0; frame < 20_000 && run.state() != EmbeddedRun.State.ENDED && Dungeon.depth == 1; ) {
                 boolean waiting = host.waitingOnTheBrain();
                 host.frame();
-                if (!waiting) {
+                if (waiting) {
+                    Thread.onSpinWait();
+                } else {
                     frame++;
                 }
             }

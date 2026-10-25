@@ -25,7 +25,9 @@ import org.shatterfish.harness.observer.Observer;
  * <p>Two ways to spend the frames the Brain thinks through. {@link #stepWhileThinking} false is the
  * headless loop's timing, the decision made within its frame, which is what the determinism test
  * compares against a Rig Run; true is the desktop's, where the frames go on while the worker thinks,
- * which is what the threading test measures.
+ * which is what the threading test measures. With {@link #waitForTheWorker} as well, the frames go on
+ * only while a decided answer waits on the game, never while the worker is still deciding, so
+ * {@link #framesWhileThinking} then counts held frames only (issue #193).
  */
 final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
 

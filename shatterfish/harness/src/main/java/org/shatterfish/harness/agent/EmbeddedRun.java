@@ -812,9 +812,11 @@ public final class EmbeddedRun implements AutoCloseable {
 
     /**
      * Whether the worker is still deciding the pending question, for a test host that holds the game's
-     * clock until it has (issue #193). Called on the render thread, as {@link #frame()} is.
+     * clock until it has (issue #193). Called on the render thread, as {@link #frame()} is. A HUMAN Run's
+     * shadow decisions are not counted.
      */
     boolean deciding() {
+        UiRole.require("EmbeddedRun.deciding()");
         return pending != null && !pending.isDone();
     }
 
