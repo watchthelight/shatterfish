@@ -304,12 +304,12 @@ final class Explore implements Policy {
     }
 
     /**
-     * Whether a rest is owed before going back down (story 4.7): the floor below was fled by the
-     * stairs since the hero was last healed there, and either its hit points are short, it is
-     * neither hungry nor starving -- a starving hero does not regenerate (Regeneration.java:56) -- and it has
-     * not already rested {@link #RESTS} waits for it, or it has been on this floor under
-     * {@link #LINGER} waits and is neither hungry nor starving (issue #165): the enemy it fled waits at the foot of the
-     * stairs, and a hero at full health that goes straight back down meets it again.
+     * Whether a rest is owed before going back down (story 4.7): the floor below was fled by the stairs
+     * since the hero was last healed there, and one of two holds. Either its hit points are short, it is
+     * neither hungry nor starving (a starving hero does not regenerate, Regeneration.java:56) and it has
+     * not already rested {@link #RESTS} waits for it; or it has been on this floor under {@link #LINGER}
+     * waits and is neither hungry nor starving (issue #165), so it does not go straight back down at full
+     * health to the enemy it fled.
      */
     static boolean restOwed(Observation observation, Memory memory) {
         String below = below(observation);
@@ -326,8 +326,8 @@ final class Explore implements Policy {
 
     /**
      * The waits the hero stays on the floor above one it fled by the stairs before going back down, hurt
-     * or not (issue #165). An assumption: long enough for a wandering enemy that followed to the stairs to
-     * lose interest or come up, short against the hunger it costs.
+     * or not (issue #165). A heuristic, not a mechanic: it is a tuning constant with no upstream
+     * citation, long enough to give the enemy time to move off, short against the hunger it costs.
      */
     static final int LINGER = 20;
 

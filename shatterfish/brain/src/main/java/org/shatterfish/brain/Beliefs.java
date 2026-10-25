@@ -206,9 +206,8 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         String below = Explore.below(observation);
         int fled = Memory.count(flights, below, 0);
         if (fled > Memory.count(flights, below, 1)) {
-            // Full health settles the flight only once the hero has lingered Explore.LINGER waits here (issue
-            // #165), or is hungry, when waiting costs more than it gains: the enemy just fled is still at the foot of the
-            // stairs for a few turns, and a hero that went straight back down met it again.
+            // Full health settles the flight only after Explore.LINGER waits here, or at once when hungry
+            // (issue #165): a heuristic, so the hero does not go straight back to the enemy it fled.
             long arrivedHere = memory.at().on(depth, branch) ? memory.arrived() : waits;
             if (observation.hero().hp() >= observation.hero().ht()
                     && (waits - arrivedHere >= Explore.LINGER || observation.hero().hunger() != org.shatterfish.api.Hunger.NONE)) {
