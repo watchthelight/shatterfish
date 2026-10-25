@@ -162,6 +162,19 @@ tasks.register('run', JavaExec) {
     outputs.upToDateWhen { false }
 }
 
+// `./gradlew :rig:direction --args="--set standard --class WARRIOR --first 40 --salt-base 1000
+// [--baseline <git ref|folder>] [--jobs 2] [--out <dir>]"` plays a development subset with the
+// current Brain (and a baseline) and prints the table every Brain PR carries. A direction check,
+// never an acceptance: it refuses the goo and holdout sets.
+tasks.register('direction', JavaExec) {
+    group = 'shatterfish'
+    description = 'Plays a seed subset with the current Brain and a baseline, and prints the PR table.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.rig.Direction'
+    workingDir = rootDir
+    outputs.upToDateWhen { false }
+}
+
 // `./gradlew :rig:results` regenerates every Results page from its committed data folder in
 // results/ (story 3.10). `--args="<root> extract <runs folder> <slug>"` writes a data folder from a
 // folder the Rig wrote; `--args="<root> page <slug> <title>"` writes its page.
