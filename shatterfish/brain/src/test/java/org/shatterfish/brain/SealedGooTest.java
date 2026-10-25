@@ -120,7 +120,7 @@ class SealedGooTest {
     @Test
     @DisplayName("a Goo that stays where it is: the walk away and back stops after SEALED_RETREATS, then the Policy goes to it and fights")
     void commits_to_a_standing_goo() {
-        List<String> whys = play(true, false, 5, 300);
+        List<String> whys = play(true, false, 5, 1000);
         assertTrue(retreats(whys) <= Fight.SEALED_RETREATS, "retreats on the sealed floor: " + retreats(whys));
         assertTrue(retreats(whys) > 0, "the retreat itself is kept: " + whys.subList(0, 30));
         assertTrue(fights(whys), "it fights: " + whys.subList(0, 30));
@@ -129,7 +129,7 @@ class SealedGooTest {
     @Test
     @DisplayName("a Goo that follows: the same bound")
     void commits_to_a_following_goo() {
-        List<String> whys = play(true, true, 5, 300);
+        List<String> whys = play(true, true, 5, 1000);
         assertTrue(retreats(whys) <= Fight.SEALED_RETREATS, "retreats: " + retreats(whys));
         assertTrue(fights(whys), whys.subList(0, 30).toString());
     }
@@ -137,7 +137,7 @@ class SealedGooTest {
     @Test
     @DisplayName("a floor that is not sealed keeps its retreat without the bound")
     void unsealed_retreats() {
-        List<String> whys = play(false, false, 5, 300);
+        List<String> whys = play(false, false, 5, 1000);
         assertTrue(retreats(whys) > Fight.SEALED_RETREATS, "retreats: " + retreats(whys));
     }
 }
