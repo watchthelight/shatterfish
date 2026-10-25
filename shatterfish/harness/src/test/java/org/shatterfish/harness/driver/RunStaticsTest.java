@@ -10,6 +10,7 @@ import com.shatteredpixel.shatteredpixeldungeon.items.weapon.melee.Flail;
 import com.shatteredpixel.shatteredpixeldungeon.items.weapon.missiles.darts.TippedDart;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Bestiary;
 import com.shatteredpixel.shatteredpixeldungeon.levels.features.Chasm;
+import com.shatteredpixel.shatteredpixeldungeon.utils.Holiday;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -61,6 +62,22 @@ class RunStaticsTest {
         assertFalse(WondrousResin.forcePositive);
         assertFalse(Ratmogrify.useRatroicEnergy);
         assertFalse(Bestiary.skipCountingEncounters);
+    }
+
+    /**
+     * The holiday is pinned to none at every Run start, whatever the date the process read (issue #139).
+     * The game caches the holiday on first use from the wall clock ({@code core/.../utils/Holiday.java:56-61}),
+     * and on a holiday the pasty is another food with other effects
+     * ({@code core/.../items/food/Pasty.java:105-120}). A cache holding a holiday is what a process
+     * started on that date has; planting one stands in for the date, and the Run must not see it.
+     */
+    @Test
+    void the_holiday_is_none_whatever_the_date() throws Exception {
+        for (Holiday onTheDay : Holiday.values()) {
+            set(Holiday.class, "cached", onTheDay);
+            RunStatics.reset();
+            assertEquals(Holiday.NONE, Holiday.getCurrentHoliday(), "a Run begun on " + onTheDay);
+        }
     }
 
     @Test

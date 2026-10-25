@@ -134,14 +134,17 @@ frame and changes nothing the game computes, which is why it is recorded here ra
 row. It reads `Actor.current` and never writes it, to name the actor a stalled Run is waiting on
 in the driver's diagnostic and in the stepper's own failure messages (story 1.4); no Run outcome
 depends on it. Each fails immediately and by name if an upgrade moves its field, and row 4
-(read-only accessors) is where they move if that happens. A second class does it for six more
+(read-only accessors) is where they move if that happens. A second class does it for seven more
 (issue #167): `shatterfish/harness/src/main/java/org/shatterfish/harness/driver/RunStatics.java`
 puts back, at the start of every Run, the private upstream statics a Run can leave behind for the
 next one in the same process, each to the value its declaration gives a fresh process:
 `Snake.dodges`, `GnollGeomancer.rocksInFlight`, `GnollGeomancer.knockedChars`, `Char.hitMissIcon`,
-`Flail.spinBoost` and `RingOfWealth.latestDropTier`. It writes and never reads them, and it writes
+`Flail.spinBoost` and `RingOfWealth.latestDropTier`, and one more that is pinned rather than put
+back (issue #139): `Holiday.cached`, which the game fills from the wall clock on first use, is set
+to `Holiday.NONE` so that a Run is determined by (tag, seed, actions) and not by the date it was
+played. It writes and never reads them, and apart from the holiday it writes
 only what a fresh process already holds, so a Run in a process of its own, which every Rig Run and
-every Overlay Run is, is unchanged by it; the sweep behind the list is in `docs/architecture.md`
+every Overlay Run is, is unchanged by it on any day that is not a holiday; the sweep behind the list is in `docs/architecture.md`
 ("Statics that outlive a Run"). `HarnessReflectionTest` confines reflection in harness main code to
 those two classes, by dependency rather than by call so that a method reference or a reflective
 call to `getDeclaredField` itself does not slip past, and asserts that the fields each reaches are

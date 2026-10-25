@@ -10,6 +10,7 @@ import com.shatteredpixel.shatteredpixeldungeon.items.weapon.melee.Flail;
 import com.shatteredpixel.shatteredpixeldungeon.items.weapon.missiles.darts.TippedDart;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Bestiary;
 import com.shatteredpixel.shatteredpixeldungeon.levels.features.Chasm;
+import com.shatteredpixel.shatteredpixeldungeon.utils.Holiday;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -60,7 +61,13 @@ public final class RunStatics {
             new Reset(privateStatic(Flail.class, "spinBoost"), 0),
             // The flare the ring of wealth shows for the next bonus drop
             // (core/.../items/rings/RingOfWealth.java:170-190).
-            new Reset(privateStatic(RingOfWealth.class, "latestDropTier"), 0));
+            new Reset(privateStatic(RingOfWealth.class, "latestDropTier"), 0),
+            // The holiday the game cached from the wall clock on first use
+            // (core/.../utils/Holiday.java:52-61). Unlike the rest this is not a fresh process's value,
+            // which is the date's: a Run is determined by (tag, seed, actions) and not by the day it
+            // was played, so it is pinned to none (issue #139). The pasty alone is another food on
+            // some days (core/.../items/food/Pasty.java:105-120).
+            new Reset(privateStatic(Holiday.class, "cached"), Holiday.NONE));
 
     private RunStatics() {
     }
