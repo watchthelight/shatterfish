@@ -86,16 +86,19 @@ class ControlEnablementTest {
     }
 
     @Test
-    @DisplayName("the controls whose action is a later story's stay dim until its capability is on, in every state")
+    @DisplayName("the controls whose action is a later story's (Take over, 5.8) stay dim until its capability is on, in every state")
     void unbuilt_controls_are_dim() {
         for (Mode mode : Mode.values()) {
             Set<Control> now = ControlEnablement.of(mode, false, Capabilities.NOW);
             assertFalse(now.contains(Control.TAKE_OVER), "story 5.8 builds Take over and Hand back: " + mode);
-            assertFalse(now.contains(Control.INTERVAL), "story 5.7 builds the pace the interval sets: " + mode);
             Set<Control> all = EnumSet.copyOf(ControlEnablement.of(mode, false, Capabilities.ALL));
             all.removeAll(now);
-            assertTrue(EnumSet.of(Control.TAKE_OVER, Control.INTERVAL).containsAll(all),
-                    "only those two differ, and nothing else is withheld: " + mode);
+            assertTrue(EnumSet.of(Control.TAKE_OVER).containsAll(all),
+                    "only Take over differs, and nothing else is withheld: " + mode);
+            Set<Control> unpaced = ControlEnablement.of(mode, false, new Capabilities(false, true));
+            assertFalse(unpaced.contains(Control.INTERVAL), "a Run that cannot pace has no interval to set: " + mode);
+            assertEquals(ControlEnablement.of(mode, false, Capabilities.ALL).contains(Control.INTERVAL),
+                    now.contains(Control.INTERVAL), "story 5.7 built the pace the interval sets: " + mode);
             assertEquals(ControlEnablement.matrix(mode, false), ControlEnablement.of(mode, false, Capabilities.ALL));
         }
     }

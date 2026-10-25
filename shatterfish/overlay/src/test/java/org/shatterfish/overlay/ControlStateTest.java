@@ -23,12 +23,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ControlStateTest {
 
+    /** A Run that cannot pace (story 5.6's capabilities): the selector skips Human, the interval stepper is dim. */
+    static final Capabilities NO_PACING = new Capabilities(false, false);
+
     /** A Run that records what it is told, with the credit it has and whether it thinks or has ended. */
     static final class FakeRun implements ControlState.Seam {
         final List<String> calls = new ArrayList<>();
         boolean held;
         int credits;
         boolean thinking;
+        boolean ready;
         boolean ended;
 
         @Override
@@ -54,6 +58,11 @@ class ControlStateTest {
         @Override
         public boolean thinking() {
             return thinking;
+        }
+
+        @Override
+        public boolean ready() {
+            return ready;
         }
 
         @Override
@@ -91,7 +100,7 @@ class ControlStateTest {
 
         assertTrue(controls.pauseResume(), "Resume");
         assertEquals(Mode.RUNNING, controls.mode());
-        assertFalse(run.held);
+        assertTrue(run.held, "Human play speed gives its credits one at a time, so the Run stays held");
         assertTrue(controls.nextStep(), "in RUNNING the press pauses");
         assertEquals(Mode.PAUSED, controls.mode());
         assertTrue(run.held);
@@ -101,24 +110,26 @@ class ControlStateTest {
     }
 
     @Test
-    @DisplayName("Resume from Next Step plays on at Fast (Human play speed is story 5.7's); Pause holds again")
+    @DisplayName("Resume from Next Step plays on at the readable pace (Fast if the Run cannot pace); Pause holds again")
     void resume_and_pause() {
         FakeRun run = new FakeRun();
         ControlState controls = new ControlState(run, Capabilities.NOW);
         controls.pauseResume();
         assertEquals(Mode.RUNNING, controls.mode());
-        assertEquals(SpeedMode.FAST, controls.speed(), "Next Step waits for a press, so a Run that plays on is not at it");
+        assertEquals(SpeedMode.HUMAN_PLAY, controls.speed(), "Next Step waits for a press, so a Run that plays on is not at it");
         controls.pauseResume();
         assertEquals(Mode.PAUSED, controls.mode());
         assertTrue(run.held);
 
-        ControlState later = new ControlState(new FakeRun(), Capabilities.ALL);
-        later.pauseResume();
-        assertEquals(SpeedMode.HUMAN_PLAY, later.speed(), "once the Run can pace, the readable pace");
+        FakeRun unpaced = new FakeRun();
+        ControlState cannot = new ControlState(unpaced, NO_PACING);
+        cannot.pauseResume();
+        assertEquals(SpeedMode.FAST, cannot.speed(), "a Run that cannot pace plays on as fast as it goes");
+        assertFalse(unpaced.held);
     }
 
     @Test
-    @DisplayName("Run N gives the Run N waits, reads RUNNING while they last, and lands in PAUSED when they are spent and decided")
+    @DisplayName("Run N gives the Run its waits one at a time, reads RUNNING while they last, and lands in PAUSED when they are spent")
     void run_n() {
         FakeRun run = new FakeRun();
         ControlState controls = new ControlState(run, Capabilities.NOW);
@@ -127,19 +138,19 @@ class ControlStateTest {
         assertEquals(8, controls.count());
         assertTrue(controls.runN());
         assertEquals(Mode.RUNNING, controls.mode());
-        assertEquals(8, run.credits);
+        assertEquals(0, run.credits, "no credit is banked ahead of a Decision to spend it on");
         assertFalse(controls.runN(), "RUNNING: Run N is dim");
 
-        run.credits = 3;
-        controls.frame();
-        assertEquals(Mode.RUNNING, controls.mode(), "waits left");
-        run.credits = 0;
-        run.thinking = true;
-        controls.frame();
-        assertEquals(Mode.RUNNING, controls.mode(), "the last wait is still being decided");
-        run.thinking = false;
-        controls.frame();
+        run.ready = true;
+        for (int i = 0; i < 8; i++) {
+            controls.frame(0.016);
+            assertEquals(1, run.credits, "a Decision waits, so one credit is given");
+            assertEquals(Mode.RUNNING, controls.mode(), "waits left");
+            run.credits = 0;
+        }
+        controls.frame(0.016);
         assertEquals(Mode.PAUSED, controls.mode());
+        assertEquals(0, run.credits, "and no ninth");
         assertTrue(run.held, "still held: nothing plays on");
     }
 
@@ -149,10 +160,13 @@ class ControlStateTest {
         FakeRun run = new FakeRun();
         ControlState controls = new ControlState(run, Capabilities.NOW);
         controls.runN();
+        run.ready = true;
+        controls.frame(0.016);
+        assertEquals(1, run.credits);
         controls.pauseResume();
         assertEquals(Mode.PAUSED, controls.mode());
         assertEquals(0, run.credits);
-        controls.frame();
+        controls.frame(0.016);
         assertEquals(Mode.PAUSED, controls.mode());
         assertEquals(0, run.credits);
     }
@@ -182,9 +196,9 @@ class ControlStateTest {
     }
 
     @Test
-    @DisplayName("the speed selector cycles Next Step, Human, Fast, and skips Human until the Run can pace")
+    @DisplayName("the speed selector cycles Next Step, Human, Fast, and skips Human if the Run cannot pace")
     void speed_cycle() {
-        ControlState now = new ControlState(new FakeRun(), Capabilities.NOW);
+        ControlState now = new ControlState(new FakeRun(), NO_PACING);
         now.cycleSpeed();
         assertEquals(SpeedMode.FAST, now.speed());
         now.cycleSpeed();
@@ -205,7 +219,10 @@ class ControlStateTest {
         FakeRun run = new FakeRun();
         ControlState controls = new ControlState(run, Capabilities.NOW);
         controls.pauseResume();
+        assertEquals(SpeedMode.HUMAN_PLAY, controls.speed());
+        controls.cycleSpeed();
         assertEquals(SpeedMode.FAST, controls.speed());
+        assertFalse(run.held, "Fast as it can lets the Run go");
         controls.cycleSpeed();
         assertEquals(SpeedMode.NEXT_STEP, controls.speed());
         assertEquals(Mode.PAUSED, controls.mode());

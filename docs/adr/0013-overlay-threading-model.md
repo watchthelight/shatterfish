@@ -635,3 +635,40 @@ nothing. And a Prompt a paid-for step opens is answered without a second credit 
 control is off behind a window and no credit could be given for it; a window with no step behind it, and the
 hero's own turn, still wait. The scroll wheel over the Panel passes with the pointer rule; the camera zoom it
 may also cause changes nothing the record holds.
+
+## Amendment: story 5.7 (2026-10-25): the stepping unit decides ahead of the press
+
+Story 5.6 made the seam a credit per Input wait, spent at confirmation, so the Brain was asked at the press and
+its Decision could not be shown before it was executed. Story 5.7 moves the spend from the confirmation of the
+wait to the execution of its Decision:
+
+- A held `EmbeddedRun` confirms the wait in front as soon as the hero is ready (reseed, Observation, the Brain
+  asked on its worker), exactly as an unheld Run does. The Decision that lands is **withheld** while the Run is
+  held and has no credit: `EmbeddedRun.withheld()` is true, `state()` reads PLAYING rather than THINKING, and
+  `snapshot()` carries that Decision with `awaiting` true, so the Decision card shows the Decision the next
+  press executes (headline "next press executes:" while PAUSED).
+- A credit is spent when a Decision executes, after the stale check. A stale answer that is dropped and asked
+  again spends nothing, which answers story 5.6's open item (a re-asked stale wait counted a second Run N
+  credit). A wait with a window in front of the hero (a Prompt) costs no credit, whoever opened the window:
+  every control is off behind a window, so a credit could never be given for it (the fairness review of 5.7
+  found a held Run stalling behind a window that no paid step opened). A credit is for the hero's own turn, so
+  Run N counts hero turns.
+- A Next Step pressed while the Brain thinks therefore needs no queue of its own: the credit waits for the
+  Decision and fires once. `ControlState` ignores a second press while one credit is outstanding, so a queued
+  step cannot stack.
+- Pause, Take over and Hand back hold the Run and withdraw an unspent credit (`hold(true)`); a Decision already
+  withheld stays shown and executes on the next press. Switching speed mode touches the hold only when who
+  holds the Run changes, so no credit already given is discarded and no turn is lost.
+- The pacing is the Overlay's, on the render thread, in `ControlState.frame(seconds)`: Human play speed gives
+  one credit to a withheld Decision per interval (the first at once), Run N gives its credits one at a time at
+  the current pace, Fast as it can lets the Run go (`hold(false)`) outside a Run N. Credits are never banked
+  ahead of a Decision, so an interval change takes effect at the next wait.
+- The watchdog (issue #175) does not report a Run that is withholding a Decision: the human is the one
+  waited on.
+
+Fairness: nothing the Brain is given changes. The Observation the Panel receives with a withheld Decision is the
+one the Brain was handed. The Run's waits and Decisions are the same sequence; only the time between the Brain's
+answer and its execution grows. An Overlay Run was already not reproducible from its tuple (story 5.1's named
+exception, story 5.13), and an unheld Run is unchanged. A held Run now sits between a wait's reseed and its
+execution for as long as the human takes, and the frames the render thread draws meanwhile consume the reseeded
+generator, so what the executed Action rolls depends on that time as well; story 5.13 routes those draws away.

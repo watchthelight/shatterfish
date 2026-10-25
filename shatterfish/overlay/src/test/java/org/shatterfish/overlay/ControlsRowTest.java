@@ -199,7 +199,7 @@ class ControlsRowTest {
         assertEquals("10", panel.controls().countValue().text());
         assertEquals("1.0s", panel.controls().intervalValue().text());
         assertFalse(panel.controls().takeOver().active, "story 5.8");
-        assertFalse(panel.controls().intervalPlus().active, "story 5.7");
+        assertTrue(panel.controls().intervalPlus().active, "story 5.7 built the pace");
         assertTrue(held.run.held);
     }
 
@@ -225,10 +225,14 @@ class ControlsRowTest {
         assertEquals(11, held.state.count());
 
         press(row.takeOver());
-        press(row.intervalPlus());
         assertEquals(Mode.PAUSED, held.state.mode(), "dim controls take no press");
+        press(row.intervalPlus());
+        assertEquals(1.5, held.state.interval());
+        press(row.intervalMinus());
         assertEquals(1.0, held.state.interval());
 
+        press(row.speed());
+        assertEquals(SpeedMode.HUMAN_PLAY, held.state.speed());
         press(row.speed());
         dock.frame(scene, snapshot(EmbeddedRun.State.PLAYING), false);
         assertEquals(SpeedMode.FAST, held.state.speed());
@@ -251,7 +255,29 @@ class ControlsRowTest {
 
         press(row.runN());
         assertEquals(Mode.RUNNING, held.state.mode());
-        assertEquals(11, held.run.credits);
+        held.run.ready = true;
+        held.state.frame(0.016);
+        assertEquals(1, held.run.credits, "a Run N gives its waits one at a time, to a Decision that waits");
+    }
+
+    @Test
+    @DisplayName("a Decision that has landed and waits for a press is headed 'next press executes' in PAUSED, and not otherwise")
+    void the_pending_decision_is_headed() {
+        GameScene scene = scene(1600, 900);
+        PanelDock dock = new PanelDock();
+        ControlsHeld held = new ControlsHeld();
+        dock.controls(held.state);
+        EmbeddedRun.Snapshot waiting = new EmbeddedRun.Snapshot(decision(), 14, 2, null, EmbeddedRun.State.PLAYING, null,
+                List.of(), null, true);
+        dock.frame(scene, waiting, false);
+        assertEquals(DecisionCardContent.NEXT_PRESS, dock.panel().card().headlineRow().text());
+        dock.frame(scene, snapshot(EmbeddedRun.State.PLAYING), false);
+        assertTrue(dock.panel().card().headlineRow() == null || dock.panel().card().headlineRow().text().isEmpty(),
+                "the last Decision executed is not headed as the next");
+        held.state.pauseResume();
+        dock.frame(scene, waiting, false);
+        assertTrue(dock.panel().card().headlineRow() == null || dock.panel().card().headlineRow().text().isEmpty(),
+                "RUNNING: the pending Decision is about to execute on its own");
     }
 
     @Test

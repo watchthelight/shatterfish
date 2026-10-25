@@ -39,14 +39,14 @@ final class ControlEnablement {
 
     /**
      * What the Overlay can do about a control yet. {@code pacing}: Human play speed paces a Run by its
-     * interval (story 5.7); until then the selector skips it and the interval stepper is dim.
+     * interval (story 5.7); a Run that cannot pace skips it in the selector and dims the interval stepper.
      * {@code takeover}: Take over and Hand back switch who plays (story 5.8).
      */
     record Capabilities(boolean pacing, boolean takeover) {
         /** Everything UX-DR7 describes. */
         static final Capabilities ALL = new Capabilities(true, true);
-        /** What story 5.6 builds. */
-        static final Capabilities NOW = new Capabilities(false, false);
+        /** What is built: the pacing of story 5.7; Take over and Hand back are story 5.8's. */
+        static final Capabilities NOW = new Capabilities(true, false);
     }
 
     private ControlEnablement() {
