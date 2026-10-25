@@ -27,6 +27,8 @@ import java.util.regex.Pattern;
 final class Text {
 
     static final String BUNDLES = "core/src/main/assets/messages/";
+    /** Keys the Overlay adds to the key-binding screen (hook row 10); they are Shatterfish's, not the game's. */
+    static final String SHATTERFISH_PREFIX = "windows.wndkeybindings.shatterfish_";
     static final String MESSAGES = Sources.SOURCE_ROOT + Sources.GAME.replace('.', '/') + "/messages/Messages.java";
     static final String ASSETS = Sources.SOURCE_ROOT + Sources.GAME.replace('.', '/') + "/Assets.java";
     /**
@@ -279,7 +281,10 @@ final class Text {
             List<String> lines = Names.lines(root, path);
             for (int i = 0; i < lines.size(); i++) {
                 String line = lines.get(i);
-                if (line.isBlank() || line.startsWith("#") || line.startsWith("!")) {
+                // A hook marker (docs/UPSTREAM.md, row 10) is the one other line a Shatterfish edit may add to a
+                // bundle: the ledger's marker is a "//" line, which the game reads as a key no one asks for.
+                if (line.isBlank() || line.startsWith("#") || line.startsWith("!")
+                        || line.startsWith("// shatterfish-hook:")) {
                     continue;
                 }
                 Matcher entry = ENTRY.matcher(line);
@@ -287,6 +292,10 @@ final class Text {
                     throw new IllegalStateException(path + ":" + (i + 1) + ": a bundle line the reader cannot read: " + line);
                 }
                 String key = entry.group(1);
+                if (key.startsWith(SHATTERFISH_PREFIX)) {
+                    // The Overlay's own labels in the key-binding screen (hook row 10) are not the game's words.
+                    continue;
+                }
                 if (!seen.add(key)) {
                     throw new IllegalStateException(path + ":" + (i + 1) + ": " + key + " is given twice");
                 }
