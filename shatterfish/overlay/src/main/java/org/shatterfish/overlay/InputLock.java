@@ -15,10 +15,11 @@ import com.watabou.input.InputHandler;
  * hovers. The window's own close button is the operating system's and still works.
  *
  * <p>What it does not cover: a gamepad. The controller handler writes the game's key queue directly
- * ({@code SPD-classes/…/input/ControllerHandler.java:122-134}), past the multiplexer. Story 5.5's
+ * ({@code SPD-classes/…/input/ControllerHandler.java:122-134}), past the multiplexer. The
  * input-gate hook (ADR-0013 option 9: {@code CellSelector.select} and {@code processKeyHold} ask
- * {@code Hooks.inputGate}) is where every path is closed; this is the cheap half until then, and the
- * gap is written down in docs/ideas/.
+ * {@code Hooks.inputGate}), story 5.5, shuts out every click and every key or stick move; the toolbar,
+ * quickslots and inventory pane are still reached only through this lock, so the gamepad gap stays
+ * (docs/ideas/2026-10-25-gate-hero-and-item-entry-points.md).
  */
 final class InputLock extends InputAdapter {
 

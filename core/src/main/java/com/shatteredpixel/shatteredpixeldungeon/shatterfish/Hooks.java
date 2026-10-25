@@ -132,6 +132,21 @@ public final class Hooks {
 	public static volatile HeroInput heroInput;
 
 	/**
+	 * Asked before a cell selection or a held direction key reaches the hero, hook row 9 (story 5.5,
+	 * ADR-0013 option 9). The Overlay's gate answers false while a person's input must not move the hero
+	 * (PAUSED, and every Mode but HUMAN); the Run's own executor passes it, since it makes the same
+	 * calls a click does. Nothing is registered outside an Overlay Run, and the sites then take the
+	 * vanilla branch. Called on the render thread; must not block.
+	 */
+	public interface InputGate {
+		/** Whether the input being handled may reach the hero. */
+		boolean open();
+	}
+
+	/** @see InputGate */
+	public static volatile InputGate inputGate;
+
+	/**
 	 * Unregisters every listener. Called when a Run ends, so that a listener belonging to a finished
 	 * Run cannot be reached by the next one. Every field declared above must be nulled here.
 	 */
@@ -139,5 +154,6 @@ public final class Hooks {
 		inputWait = null;
 		logReplaced = null;
 		heroInput = null;
+		inputGate = null;
 	}
 }

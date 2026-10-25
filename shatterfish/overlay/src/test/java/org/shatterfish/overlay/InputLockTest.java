@@ -116,4 +116,58 @@ class InputLockTest {
         entry[0].keyDown(66);
         assertEquals(1, typed.get(), "keeping it first twice leaves one lock in front");
     }
+
+    @Test
+    @DisplayName("story 5.5: a quickslot key, a toolbar tap and an inventory tap never reach the game while a Run plays it or is paused")
+    void quickslot_toolbar_and_inventory_inputs_stop_here() {
+        // The quickslots, the toolbar and the inventory pane call Hero and Item directly and never reach the
+        // cell selector's input gate, so this lock is what keeps a mouse or a key from them (PausedInputTest
+        // holds the gate's half). The lock is the same whether the Run is RUNNING or PAUSED.
+        AtomicInteger reached = new AtomicInteger();
+        InputAdapter game = new InputAdapter() {
+            @Override
+            public boolean keyDown(int keycode) {
+                reached.incrementAndGet();
+                return true;
+            }
+
+            @Override
+            public boolean keyUp(int keycode) {
+                reached.incrementAndGet();
+                return true;
+            }
+
+            @Override
+            public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+                reached.incrementAndGet();
+                return true;
+            }
+
+            @Override
+            public boolean touchUp(int screenX, int screenY, int pointer, int button) {
+                reached.incrementAndGet();
+                return true;
+            }
+        };
+        InputLock lock = new InputLock();
+        InputMultiplexer multiplexer = new InputMultiplexer();
+        multiplexer.addProcessor(game);
+        multiplexer.addProcessor(0, lock);
+        lock.lock();
+
+        // The default quickslot keys, 1 to 6 and Q, W and E among them, and the bottom-left and bottom-right
+        // of a 1280 by 720 window where the toolbar's slots and the inventory button sit.
+        int[] keys = {Input.Keys.NUM_1, Input.Keys.NUM_2, Input.Keys.NUM_3, Input.Keys.Q, Input.Keys.W,
+                Input.Keys.E, Input.Keys.I};
+        for (int key : keys) {
+            multiplexer.keyDown(key);
+            multiplexer.keyUp(key);
+        }
+        int[][] taps = {{640, 700}, {700, 700}, {1200, 700}, {80, 700}};
+        for (int[] tap : taps) {
+            multiplexer.touchDown(tap[0], tap[1], 0, 0);
+            multiplexer.touchUp(tap[0], tap[1], 0, 0);
+        }
+        assertEquals(0, reached.get(), "nothing a person presses reaches the widgets");
+    }
 }

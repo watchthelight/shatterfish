@@ -150,6 +150,11 @@ public class CellSelector extends ScrollArea {
 	}
 	
 	public void select( int cell, int button ) {
+		// shatterfish-hook:9
+		// The Overlay's input gate: a person's click does nothing while the gate is closed (story 5.5).
+		com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks.InputGate gate =
+				com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks.inputGate;
+		if (gate != null && !gate.open()) return;
 		if (enabled && Dungeon.hero.ready && !GameScene.interfaceBlockingHero()
 				&& listener != null && cell != -1) {
 
@@ -398,6 +403,12 @@ public class CellSelector extends ScrollArea {
 	private int lastCellMoved = 0;
 
 	private boolean moveFromActions(GameAction... actions){
+		// shatterfish-hook:9
+		// Every key and stick move ends here, including the ones a key or stick release makes without
+		// going through processKeyHold, so a shut gate stops them all (story 5.5).
+		com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks.InputGate gate =
+				com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks.inputGate;
+		if (gate != null && !gate.open()) return false;
 		if (Dungeon.hero == null || !Dungeon.hero.ready){
 			return false;
 		}
@@ -467,6 +478,15 @@ public class CellSelector extends ScrollArea {
 	}
 
 	public void processKeyHold() {
+		// shatterfish-hook:9
+		// The held-key path bypasses every listener and forces the hero ready itself, so it asks the gate
+		// before it does either; a key still held when the gate opens must not walk the hero (story 5.5).
+		com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks.InputGate gate =
+				com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks.inputGate;
+		if (gate != null && !gate.open()) {
+			resetKeyHold();
+			return;
+		}
 		//prioritize moving by controller stick over moving via keys
 		if (!directionFromAction(leftStickAction).isZero() && heldDelay < 0) {
 			enabled = Dungeon.hero.ready = true;
