@@ -676,7 +676,7 @@ class CodexLeakTest {
     void the_vocabulary_diff_is_the_two_games() throws IOException {
         Path root = CodexSeedFreeTest.ROOT;
         Codex.Vocabulary vocabulary = Vocabulary.read(root, Text.entries(root), Mobs.entries(root), Items.entries(root));
-        assertEquals("v4.0.0", vocabulary.tag());
+        assertEquals("v4.0.2", vocabulary.tag());
         assertEquals("archive", vocabulary.vanillaTag(), "the other game's only tag");
         Map<String, Codex.VocabularyEntry> rows = new java.util.TreeMap<>();
         for (Codex.VocabularyEntry entry : vocabulary.entries()) {
@@ -846,14 +846,14 @@ class CodexLeakTest {
         assertEquals("", byPath.get("effects/fireball-tall.png").constant(), "a literal names no constant");
         assertFalse(byPath.get("effects/fireball.png").present(), "the fireball constant names a file that is not there");
         Codex.VersionRecord version = Changelog.version(root);
-        assertEquals("4.0.0", version.name());
-        assertEquals(912, version.code());
+        assertEquals("4.0.2", version.name());
+        assertEquals(922, version.code());
         assertEquals(List.of("v1_2_3", "v3_1_1", "v3_2_1", "v3_2_5", "v3_3_0", "v4_0_0"),
                 version.saveCodes().stream().map(Codex.Rule::what).toList());
-        assertEquals("909", version.saveCodes().get(5).expression());
+        assertEquals("911", version.saveCodes().get(5).expression());
         List<Codex.ChangeEntry> changes = Changelog.entries(root, strings);
-        assertEquals(193, changes.size(), "every entry of the changelist package");
-        assertEquals(588, changes.stream().mapToInt(c -> c.headings().size()).sum(), "and every heading under them");
+        assertEquals(195, changes.size(), "every entry of the changelist package");
+        assertEquals(593, changes.stream().mapToInt(c -> c.headings().size()).sum(), "and every heading under them");
         assertEquals(List.of("v4_X_Changes", "v3_X_Changes", "v2_X_Changes", "v1_X_Changes", "v0_9_X_Changes",
                         "v0_8_X_Changes", "v0_7_X_Changes", "v0_6_X_Changes", "v0_5_X_Changes", "v0_4_X_Changes",
                         "v0_3_X_Changes", "v0_2_X_Changes", "v0_1_X_Changes", "Pixel_Dungeon_Changes"),
@@ -899,11 +899,11 @@ class CodexLeakTest {
                 changes.stream().flatMap(c -> c.headings().stream()).map(Codex.ChangeHeading::titleExpression)
                         .filter(e -> !e.isEmpty()).toList(),
                 "the one title the game computes rather than writing, carried as its expression");
-        assertEquals(List.of("iOS 12 end of support"),
+        assertEquals(List.of("iOS 13 & 14 end of support"),
                 changes.stream().flatMap(c -> c.headings().stream()).filter(h -> !h.conditionExpression().isEmpty())
                         .map(Codex.ChangeHeading::title).toList(),
                 "the one heading the game shows only on a platform, carried with the condition");
-        assertEquals("DeviceCompat.isiOS() && DeviceCompat.getPlatformVersion() <= 12",
+        assertEquals("DeviceCompat.isiOS() && DeviceCompat.getPlatformVersion() <= 14",
                 changes.stream().flatMap(c -> c.headings().stream()).map(Codex.ChangeHeading::conditionExpression)
                         .filter(e -> !e.isEmpty()).findFirst().orElseThrow());
         java.util.TreeSet<String> keys = new java.util.TreeSet<>();

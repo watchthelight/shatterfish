@@ -48,7 +48,7 @@ class ReplayRoundTripTest {
     }
 
     private static Path log(Path folder) {
-        return folder.resolve(RunLog.fileName(RunLog.runId("v4.0.0",
+        return folder.resolve(RunLog.fileName(RunLog.runId("v4.0.2",
                 org.shatterfish.api.HeroClass.WARRIOR, 0, SeedSet.code(SEED), SALT, "random")));
     }
 

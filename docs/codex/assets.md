@@ -2,14 +2,14 @@
 
 !!! info "Generated"
 
-    From `codex/v4.0.0/assets.json` at upstream tag `v4.0.0`, Codex version 8.
+    From `codex/v4.0.2/assets.json` at upstream tag `v4.0.2`, Codex version 8.
     Never hand edited: run `./gradlew :codex:generate` and commit what it writes.
 
 Every asset path the game names: the constants of its asset class and the literal strings
 loaded outside it, each with the group it belongs to, the asset root it is resolved against,
 and whether a file was there when the table was read (story 2.7).
 
-[`codex/v4.0.0/assets.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/assets.json) holds 259 entries in 58.5 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+[`codex/v4.0.2/assets.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/assets.json) holds 259 entries in 58.5 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
 An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
 table states beside them is a value, and the values are below.
 

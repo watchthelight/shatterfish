@@ -2,7 +2,7 @@
 
 !!! info "Generated"
 
-    From `codex/v4.0.0/levels.json` at upstream tag `v4.0.0`, Codex version 8.
+    From `codex/v4.0.2/levels.json` at upstream tag `v4.0.2`, Codex version 8.
     Never hand edited: run `./gradlew :codex:generate` and commit what it writes.
 
 What every depth of every branch builds and what an unnamed depth builds, which floors place a
@@ -10,7 +10,7 @@ shop and where that was decided, which are boss floors, which seal behind the he
 the level feelings with their chances, their arms and every place the game reads them
 (story 2.6).
 
-[`codex/v4.0.0/levels.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/levels.json) holds 44 entries in 21.8 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+[`codex/v4.0.2/levels.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/levels.json) holds 44 entries in 21.8 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
 An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
 table states beside them is a value, and the values are below.
 
@@ -132,9 +132,9 @@ recorded 121 citations in 18 files:
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/RegularLevel.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/RegularLevel.java) | 29 | 124-481 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/SewerBossLevel.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/SewerBossLevel.java) | 2 | 85-177 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/SewerLevel.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/SewerLevel.java) | 2 | 104-105 |
-| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/VaultLevel.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/VaultLevel.java) | 8 | 149-630 |
+| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/VaultLevel.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/VaultLevel.java) | 8 | 149-645 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/features/HighGrass.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/features/HighGrass.java) | 1 | 151 |
-| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/painters/RegularPainter.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/painters/RegularPainter.java) | 5 | 80-474 |
+| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/painters/RegularPainter.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/painters/RegularPainter.java) | 5 | 80-475 |
 
 ## Judgments
 

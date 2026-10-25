@@ -2,7 +2,7 @@
 
 !!! info "Generated"
 
-    From `codex/v4.0.0/items.json` at upstream tag `v4.0.0`, Codex version 8.
+    From `codex/v4.0.2/items.json` at upstream tag `v4.0.2`, Codex version 8.
     Never hand edited: run `./gradlew :codex:generate` and commit what it writes.
 
 Every concrete item class a player can meet with its display name from the bundle, the deck
@@ -10,7 +10,7 @@ that lists it, its value, its strength requirement at level 0 with the formula, 
 it offers a fresh instance. The identifiable potions, scrolls and rings are read from source
 instead, since their icons need the toolkit, and each says so (story 2.3).
 
-[`codex/v4.0.0/items.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/items.json) holds 307 entries in 185.4 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+[`codex/v4.0.2/items.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/items.json) holds 307 entries in 185.4 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
 An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
 table states beside them is a value, and the values are below.
 
@@ -98,7 +98,7 @@ recorded 687 citations in 300 files:
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/artifacts/SkeletonKey.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/artifacts/SkeletonKey.java) | 1 | 64 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/artifacts/TalismanOfForesight.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/artifacts/TalismanOfForesight.java) | 1 | 55 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/artifacts/TimekeepersHourglass.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/artifacts/TimekeepersHourglass.java) | 2 | 59-501 |
-| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/artifacts/UnstableSpellbook.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/artifacts/UnstableSpellbook.java) | 1 | 65 |
+| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/artifacts/UnstableSpellbook.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/artifacts/UnstableSpellbook.java) | 1 | 66 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/bags/MagicalHolster.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/bags/MagicalHolster.java) | 1 | 30 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/bags/PotionBandolier.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/bags/PotionBandolier.java) | 1 | 30 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/bags/ScrollHolder.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/bags/ScrollHolder.java) | 1 | 33 |
@@ -177,7 +177,7 @@ recorded 687 citations in 300 files:
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/quest/DarkGold.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/quest/DarkGold.java) | 1 | 27 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/quest/DwarfToken.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/quest/DwarfToken.java) | 1 | 31 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/quest/Embers.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/quest/Embers.java) | 1 | 28 |
-| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/quest/EscapeCrystal.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/quest/EscapeCrystal.java) | 1 | 59 |
+| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/quest/EscapeCrystal.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/quest/EscapeCrystal.java) | 1 | 58 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/quest/GooBlob.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/quest/GooBlob.java) | 1 | 27 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/quest/ImpStatue.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/quest/ImpStatue.java) | 1 | 27 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/quest/MetalShard.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/quest/MetalShard.java) | 1 | 27 |
@@ -319,11 +319,11 @@ recorded 687 citations in 300 files:
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/ForceCube.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/ForceCube.java) | 1 | 43 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/HeavyBoomerang.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/HeavyBoomerang.java) | 1 | 36 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/Javelin.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/Javelin.java) | 1 | 27 |
-| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/Kunai.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/Kunai.java) | 1 | 30 |
+| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/Kunai.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/Kunai.java) | 1 | 32 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/Shuriken.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/Shuriken.java) | 1 | 31 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/ThrowingClub.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/ThrowingClub.java) | 1 | 27 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/ThrowingHammer.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/ThrowingHammer.java) | 1 | 27 |
-| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/ThrowingKnife.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/ThrowingKnife.java) | 1 | 30 |
+| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/ThrowingKnife.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/ThrowingKnife.java) | 1 | 32 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/ThrowingSpear.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/ThrowingSpear.java) | 1 | 27 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/ThrowingSpike.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/ThrowingSpike.java) | 1 | 27 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/ThrowingStone.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/weapon/missiles/ThrowingStone.java) | 1 | 27 |

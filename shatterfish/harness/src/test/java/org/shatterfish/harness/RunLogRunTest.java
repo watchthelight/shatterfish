@@ -55,7 +55,7 @@ class RunLogRunTest {
     }
 
     private static Path file(Path folder, String brain, long seed, long salt) {
-        return folder.resolve(RunLog.fileName(RunLog.runId("v4.0.0", org.shatterfish.api.HeroClass.WARRIOR,
+        return folder.resolve(RunLog.fileName(RunLog.runId("v4.0.2", org.shatterfish.api.HeroClass.WARRIOR,
                 0, SeedSet.code(seed), salt, brain)));
     }
 

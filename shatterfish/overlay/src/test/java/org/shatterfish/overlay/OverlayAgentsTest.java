@@ -25,7 +25,7 @@ class OverlayAgentsTest {
     private static final Path WEIGHTS = Path.of("../../weights/shatterfish.json");
 
     /** The checked-in Codex, from this module's directory, where Gradle runs its tests. */
-    private static final Path CODEX = Path.of("../../codex/v4.0.0");
+    private static final Path CODEX = Path.of("../../codex/v4.0.2");
 
     @Test
     @DisplayName("random by default, the Brain on its committed weights when asked")
@@ -93,10 +93,10 @@ class OverlayAgentsTest {
     @DisplayName("with no Codex or no bestiary where it looks, the Brain is not attached with an empty one: the launch fails")
     void no_codex_no_launch(@TempDir Path empty) throws java.io.IOException {
         String[] missing = {"--seed", "1", "--class", "warrior", "--agent", "brain", "--weights", WEIGHTS.toString(),
-                "--codex", empty.resolve("codex/v4.0.0").toString()};
+                "--codex", empty.resolve("codex/v4.0.2").toString()};
         assertThrows(IllegalArgumentException.class, () -> OverlayAgents.of(LaunchOptions.parse(missing)), "no Codex");
         // A Codex folder with no bestiary two folders up.
-        Path codex = java.nio.file.Files.createDirectories(empty.resolve("codex/v4.0.0"));
+        Path codex = java.nio.file.Files.createDirectories(empty.resolve("codex/v4.0.2"));
         for (java.io.File table : CODEX.toFile().listFiles()) {
             java.nio.file.Files.copy(table.toPath(), codex.resolve(table.getName()));
         }

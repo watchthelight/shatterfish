@@ -50,7 +50,7 @@ class BrainErrorTest {
         assertEquals(0, outcome.waits(), "the error came at the first wait, which was never served");
         assertFalse(outcome.ordinary(), "a Brain error is not how a Run is meant to end");
 
-        Path file = folder.resolve(RunLog.fileName(RunLog.runId("v4.0.0", org.shatterfish.api.HeroClass.WARRIOR,
+        Path file = folder.resolve(RunLog.fileName(RunLog.runId("v4.0.2", org.shatterfish.api.HeroClass.WARRIOR,
                 0, SeedSet.code(SEED), SALT, "refuses")));
         assertTrue(RunLogVerifier.of(file).ok(), "the log with the detail in it chains");
         RunLog.End end = RunLogReader.of(file).end();

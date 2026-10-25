@@ -2,13 +2,13 @@
 
 !!! info "Generated"
 
-    From `codex/v4.0.0/decks.json` at upstream tag `v4.0.0`, Codex version 8.
+    From `codex/v4.0.2/decks.json` at upstream tag `v4.0.2`, Codex version 8.
     Never hand edited: run `./gradlew :codex:generate` and commit what it writes.
 
 The item generator's categories with their two deck weights and their classes' weights, the
 three appearance-label pools, and the exotic swap with its chance (story 2.3).
 
-[`codex/v4.0.0/decks.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/decks.json) holds 26 entries in 38.8 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+[`codex/v4.0.2/decks.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/decks.json) holds 26 entries in 38.8 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
 An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
 table states beside them is a value, and the values are below.
 

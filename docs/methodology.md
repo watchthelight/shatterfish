@@ -10,7 +10,7 @@ A Run is determined by its **tuple**:
 
 | Part | What it is |
 |---|---|
-| Upstream tag | The Shattered Pixel Dungeon release the game code comes from, `v4.0.0` today |
+| Upstream tag | The Shattered Pixel Dungeon release the game code comes from, `v4.0.2` today |
 | Hero class | Warrior, Mage, Rogue, Huntress, Duelist or Cleric (`core/…/actors/hero/HeroClass.java:87-92`) |
 | Challenges | The challenge flags the game was started with |
 | Seed | The seed a player could type into the custom-seed window; it decides the dungeon |
@@ -631,6 +631,17 @@ what the calibration concludes, and a later tag whose calibration goes the other
 until the gate changes with it. The e-process stays in the tree behind that constant, and every run
 of `./gradlew :rig:calibrate` measures both again; `comparison.json` names the `statistic` its
 bounds and trace belong to.
+
+**Measured again at `v4.0.2`, not adopted.** The upgrade of 2026-10-24 reran the random Brain on
+`standard` (500 Runs, 7 of them `UNKNOWN_WINDOW`, so 2.8% of pairs are missing against 16.1% at
+`v4.0.0`) and wrote `calibration/v4.0.2-random-standard.jsonl` and its
+[page](results/calibration-v4.0.2.md). The chosen cell moves to a missing cap of 0.10, and the
+GSPRT's realized false-accept rate on the fresh sequences is 6.06%, which is past 5% + 0.010, so
+by the rule above the gate would become the e-process. That is a change to every ranked comparison
+(`SequentialTest.GATE`, the Registrations' `statistic`, about 50% more pairs per verdict), and the
+tag change alone did not make it, since the Harness also handles more windows than it did on
+2026-09-23. It is the owner's call, so the committed constants still read the `v4.0.0` table and
+page, and the `v4.0.2` pair sits beside them, unread by any test, until that call is made.
 
 **Held to it.** A comparison's Registration states the `statistic` its bounds are for, and the Rig
 refuses one registered for a statistic other than the gate. A comparison on a Seed set that may

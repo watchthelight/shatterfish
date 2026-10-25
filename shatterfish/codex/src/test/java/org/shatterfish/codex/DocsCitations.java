@@ -630,9 +630,14 @@ public final class DocsCitations {
      * pull-request checkout has {@code origin/main} and no local {@code main}.
      */
     static Optional<String> revision(Path root, String ref, String pin) {
+        // `main` means the repository's own latest tree. In a pull request that is the checkout
+        // itself: the Codex pages of a new tag link `codex/<tag>/*.json` at `main`, and those
+        // files reach `main` only when the PR that adds them merges.
         List<String> candidates = ref.equals(pin)
                 ? List.of(pinnedRevision(root), "refs/tags/" + ref)
-                : List.of("refs/tags/" + ref, ref, "refs/remotes/origin/" + ref);
+                : ref.equals("main")
+                        ? List.of("HEAD", "refs/tags/" + ref, ref, "refs/remotes/origin/" + ref)
+                        : List.of("refs/tags/" + ref, ref, "refs/remotes/origin/" + ref);
         for (String candidate : candidates) {
             Run run = run(root, "rev-parse", "--verify", "--quiet", candidate + "^{commit}");
             if (run.status() == 0 && !run.out().isEmpty() && !run.out().get(0).isBlank()) {

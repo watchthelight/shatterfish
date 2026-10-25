@@ -38,7 +38,7 @@ class ReplayNewEndingsTest {
                 new RunLoop.Logging(folder, COMMIT, new RunLog.Brain(brain, COMMIT, "0".repeat(64)), "", "test"));
         assertTrue(outcome.cause() == RunOutcome.Cause.STALLED || outcome.cause() == RunOutcome.Cause.BRAIN_ERROR,
                 outcome.toString());
-        return folder.resolve(RunLog.fileName(RunLog.runId("v4.0.0", org.shatterfish.api.HeroClass.WARRIOR, 0,
+        return folder.resolve(RunLog.fileName(RunLog.runId("v4.0.2", org.shatterfish.api.HeroClass.WARRIOR, 0,
                 SeedSet.code(SEED), SALT, brain)));
     }
 

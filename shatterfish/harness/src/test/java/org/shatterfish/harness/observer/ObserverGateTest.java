@@ -54,7 +54,7 @@ class ObserverGateTest {
         driver.stepToInputWait();
         HeaderSection header = new Observer().header();
         assertEquals(ObservationCodec.SCHEMA_VERSION, header.version());
-        assertEquals("v4.0.0", header.upstreamTag(), "the release docs/UPSTREAM.md pins");
+        assertEquals("v4.0.2", header.upstreamTag(), "the release docs/UPSTREAM.md pins");
         assertEquals("", header.codexVersion(), "no Codex before E2");
         assertEquals(org.shatterfish.api.HeroClass.WARRIOR, header.heroClass());
         assertEquals(List.of(), header.challenges());

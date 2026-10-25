@@ -2,13 +2,13 @@
 
 !!! info "Generated"
 
-    From `codex/v4.0.0/documents.json` at upstream tag `v4.0.0`, Codex version 8.
+    From `codex/v4.0.2/documents.json` at upstream tag `v4.0.2`, Codex version 8.
     Never hand edited: run `./gradlew :codex:generate` and commit what it writes.
 
 The journal's guides and lore with their pages in the game's own order and the words of each
 (story 2.7).
 
-[`codex/v4.0.0/documents.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/documents.json) holds 8 entries in 44.3 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+[`codex/v4.0.2/documents.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/documents.json) holds 8 entries in 44.3 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
 An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
 table states beside them is a value, and the values are below.
 

@@ -288,7 +288,7 @@ class ReplayRefusalTest {
         new RunLoop().play(SEED, HeroClass.WARRIOR, SALT, new RandomAgent(7L), CAP,
                 new RunLoop.Logging(folder, COMMIT, new RunLog.Brain("random", COMMIT, ZERO), "",
                         "test"));
-        return folder.resolve(RunLog.fileName(RunLog.runId("v4.0.0",
+        return folder.resolve(RunLog.fileName(RunLog.runId("v4.0.2",
                 org.shatterfish.api.HeroClass.WARRIOR, 0, SeedSet.code(SEED), SALT, "random")));
     }
 

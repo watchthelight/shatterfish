@@ -2,7 +2,7 @@
 
 !!! info "Generated"
 
-    From `codex/v4.0.0/vocabulary.json` at upstream tag `v4.0.0`, Codex version 8.
+    From `codex/v4.0.2/vocabulary.json` at upstream tag `v4.0.2`, Codex version 8.
     Never hand edited: run `./gradlew :codex:generate` and commit what it writes.
 
 The one table read from two pinned games: every display name either this game or vanilla Pixel
@@ -10,7 +10,7 @@ Dungeon gives a mob or an item, which of them has it, the classes that carry it 
 with their citations, and the mechanics the two state differently. Nothing reads it; it is the
 input the variant classifier of epic 7 will use (story 2.8).
 
-[`codex/v4.0.0/vocabulary.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.0/vocabulary.json) holds 449 entries in 268.8 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+[`codex/v4.0.2/vocabulary.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/vocabulary.json) holds 449 entries in 268.8 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
 An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
 table states beside them is a value, and the values are below.
 
@@ -21,7 +21,7 @@ The values the table carries beside its entries, by the path each is reached at.
 | Field | Type | Value |
 |---|---|---|
 | `consumer` | string | [below](#consumer) |
-| `tag` | string | `v4.0.0` |
+| `tag` | string | `v4.0.2` |
 | `vanillaTag` | string | `archive` |
 
 #### `consumer`
@@ -119,7 +119,7 @@ recorded 1259 citations in 227 files:
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/Gnoll.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/Gnoll.java) | 7 | 34-55 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/GnollExile.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/GnollExile.java) | 5 | 53-70 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/GnollGeomancer.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/GnollGeomancer.java) | 4 | 69-161 |
-| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/GnollGuard.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/GnollGuard.java) | 5 | 40-106 |
+| [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/GnollGuard.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/GnollGuard.java) | 5 | 40-118 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/GnollSapper.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/GnollSapper.java) | 5 | 45-115 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/GnollTrickster.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/GnollTrickster.java) | 3 | 48-66 |
 | [`core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/Golem.java`](https://github.com/watchthelight/shatterfish/blob/main/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/Golem.java) | 5 | 45-72 |

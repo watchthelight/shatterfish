@@ -54,7 +54,7 @@ class ChainRecomputeTest {
         RunOutcome outcome = new RunLoop().play(SEED, HeroClass.WARRIOR, SALT, new RandomAgent(7L),
                 CAP, new RunLoop.Logging(folder, "0".repeat(40), who, "", "test"));
         assertTrue(outcome.ordinary(), "a Run ends in death, a Win or the cap: " + outcome);
-        return folder.resolve(RunLog.fileName(RunLog.runId("v4.0.0", org.shatterfish.api.HeroClass.WARRIOR,
+        return folder.resolve(RunLog.fileName(RunLog.runId("v4.0.2", org.shatterfish.api.HeroClass.WARRIOR,
                 0, SeedSet.code(SEED), SALT, brain)));
     }
 
@@ -97,7 +97,7 @@ class ChainRecomputeTest {
         String header = LogText.lines(play(folder, "random")).whole().get(0);
 
         assertEquals(String.valueOf(RunLog.VERSION), LogText.value(header, "v"));
-        assertEquals("v4.0.0", LogText.string(header, "tag"));
+        assertEquals("v4.0.2", LogText.string(header, "tag"));
         assertEquals("WARRIOR", LogText.string(header, "class"));
         assertEquals(String.valueOf(SEED), LogText.value(header, "seed"));
         assertEquals(SeedSet.code(SEED), LogText.string(header, "seedcode"),

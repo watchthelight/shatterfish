@@ -172,7 +172,7 @@ enforced and tested: [`docs/fairness.md`](docs/fairness.md).
 
 ## Upstream
 
-Pinned to upstream tag **v4.0.0** (commit `2bb34a4e`, released 2026-09-09).
+Pinned to upstream tag **v4.0.2** (commit `57a4e06a`, released 2026-10-06).
 Every edit to an upstream file is a documented hook; upgrades happen only by
 merging a newer upstream tag. Details, hook table, and upgrade procedure:
 [`docs/UPSTREAM.md`](docs/UPSTREAM.md).

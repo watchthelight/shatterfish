@@ -35,7 +35,7 @@ resolving turns the build red rather than waiting for an upgrade. What it does n
 sentence: that the cited lines still *mean* what the row says is what re-reading is for, and the
 paragraph below still applies.
 
-The upgrade to `v4.0.0` (2026-09-11) ran that check line by line. Every citation's text at the old
+The upgrade to `v4.0.2` (2026-10-24) re-cited every row by the same method, and the one to `v4.0.0` (2026-09-11) ran that check line by line. Every citation's text at the old
 tag was looked for at the new one: where it sits unchanged, the link now points at `v4.0.0`, at the
 line it moved to if upstream inserted above it; where it is gone, changed, or in more than one
 place, the row is flipped to needs-review and its link is left at `v3.3.8`, where it was true. A
