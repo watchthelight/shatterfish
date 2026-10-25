@@ -84,4 +84,30 @@ class BlindSearchTest {
         Observation blind = room(HeroClass.WARRIOR, true, "blinded");
         assertEquals(List.of(new Memory.Spot(2, 0, blind.hero().cell())), searched(blind));
     }
+
+    @Test
+    @DisplayName("a blind Rogue is not sent to search again and again: the explore Policy waits for its sight")
+    void no_repeat() {
+        Observation blind = room(HeroClass.ROGUE, true, "blinded");
+        Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, 5L);
+        Brain.Decided decided = brain.decide(blind, Screens.drive(brain, blind, blind));
+        String why = decided.decision().chosen().why();
+        org.junit.jupiter.api.Assertions.assertFalse(why.startsWith("search"), why);
+    }
+
+    @Test
+    @DisplayName("a Rogue under the Darkness challenge on a floor that feels dark sees one cell: no coverage")
+    void dark_floor() {
+        Observation base = room(HeroClass.ROGUE, true, null);
+        MapSection map = base.map();
+        MapSection dark = new MapSection(map.width(), map.height(), map.tiles(), map.fog(), map.traps(), map.heaps(),
+                map.blobs(), org.shatterfish.api.Feeling.DARK, map.transitions());
+        org.shatterfish.api.HeaderSection h = base.header();
+        org.shatterfish.api.HeaderSection header = new org.shatterfish.api.HeaderSection(h.version(), h.upstreamTag(),
+                h.codexVersion(), h.heroClass(), List.of(org.shatterfish.api.Challenge.DARKNESS), h.depth(), h.branch(),
+                h.sealed(), h.oracle(), h.prompt());
+        Observation screen = new Observation(header, dark, base.actors(), base.hero(), base.inventory(), base.journal(),
+                base.log(), base.actions(), base.prompt());
+        assertEquals(List.of(), searched(screen));
+    }
 }
