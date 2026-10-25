@@ -149,7 +149,7 @@ E5 (the Overlay) so far:
   the Brain retreats at most 30 times and then fights, so it can no longer
   walk away from Goo until the turn cap; Goo kills held (#209, for #180).
 - The seen-heap change of #207 was reverted after 80 fresh seeds showed depth-5 reach 22 to 18 and
-  Goo kills 13 to 11; #182 stays open.
+  Goo kills 13 to 11 (#211); #182 stays open.
 - The Matt Pocock skills were tested against the current method on four Brain issues and not
   adopted; one habit is kept, a fix's first test fails on main (ADR-0019, #210).
 - Next: the controls (5.5-5.8), with bestiary-driven Brain changes in parallel.
