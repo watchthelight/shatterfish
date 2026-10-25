@@ -59,7 +59,9 @@ import java.util.List;
  *                 the screen before, where it stood then, or -1: less {@code near} than this, and the
  *                 enemies came closer
  * @param flights  how many times the hero has left each floor by the stairs with an enemy in view,
- *                 keyed {@code "depth:branch"} (the set is unused and 0)
+ *                 keyed {@code "depth:branch"}; the set is 0 for flights, 1 for those settled by full
+ *                 health, 2 for rests on the floor above, and {@link #SEALED_RETREATS} for the retreats
+ *                 the fight Policy made on that floor while it was sealed (issue #180)
  * @param avoid    regions the fight Policy retreated from, which the explore Policy keeps out of until
  *                 they lapse
  * @param underfoot the title of the plain heap the hero stood on at the last wait, or empty (story 4.8)
