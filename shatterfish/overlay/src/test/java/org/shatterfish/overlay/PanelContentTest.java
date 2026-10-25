@@ -409,6 +409,25 @@ class PanelContentTest {
         assertTrue(card.noticeRow().text().startsWith(DecisionCardContent.UNVERIFIABLE + 7), card.noticeRow().text());
     }
 
+    @Test
+    @DisplayName("after a hand back the Brain's card is its own, and the Replay notice stays (issue #220)")
+    void the_notice_outlives_a_hand_back() {
+        GameScene scene = fullScene();
+        PanelDock dock = new PanelDock();
+        RunLog.Decision decision = decision(List.of());
+        EmbeddedRun.Snapshot handed = new EmbeddedRun.Snapshot(decision, 14, 2, null, EmbeddedRun.State.PLAYING, null,
+                List.of(), null, false, new EmbeddedRun.Unverifiable(7, "a click on cell 9"));
+        dock.frame(scene, handed, false);
+        DecisionCard card = dock.panel().card();
+        assertTrue(card.noticeRow().visible);
+        assertTrue(card.noticeRow().text().startsWith(DecisionCardContent.UNVERIFIABLE + 7), card.noticeRow().text());
+        assertFalse(card.headlineRow().visible && DecisionCardContent.SHADOW_NOW.equals(card.headlineRow().text()),
+                "it is not a shadow: the Brain plays");
+        assertFalse(dock.panel().blocker().active, "and the Panel keeps no blocker for a Brain's Run");
+        dock.frame(scene, snapshot(decision), false);
+        assertFalse(card.noticeRow().visible, "a Run with every wait verifiable says nothing");
+    }
+
     /** {@code ActionExecutor.press}, reproduced: a synthetic DOWN and UP queued directly as {@code PointerEvent}s, bypassing {@code InputLock}. */
     private static void press(Component button) {
         Camera camera = button.camera();
