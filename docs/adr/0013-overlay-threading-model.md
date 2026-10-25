@@ -799,10 +799,10 @@ UX-DR7's Brain error and No valid action rows, and the two rows that were alread
 - **A Brain that throws, or offers nothing, is answered with a wait.** `EmbeddedRun.Host.recoversFromBrainTrouble()`
   is true in the Overlay and false by default, so the Rig and the headless loop still end such a Run as
   `BRAIN_ERROR` or `NOTHING_OFFERED` and count it. Where it is true the worker catches the exception (any
-  `RuntimeException` or `Error`; the Brain's thread dies of nothing) and the Run chooses `Wait` in the Brain's
+  `RuntimeException` or `Error`, but not a `VirtualMachineError` and not a worker being interrupted by a close) and the Run chooses `Wait` in the Brain's
   place. That wait goes through the same credit, executor and record as any other: a held Run shows it on the card
   and executes it against a press. The wait record carries a Decision of its own (goal `waiting`, policy
-  `brain error: <class>` or `no valid action; waiting`, the exception and its message as the reason), and no Belief
+  `brain error: <class>` or `no valid action; waiting`, the same words as the reason; the message goes to the console only), and no Belief
   hash and no highlights, since the Brain gave none.
 - **The pause.** A Brain error always asks for PAUSED; no valid action asks for it on the third in a row (a
   Decision in between resets the count). The ask rides on `Snapshot.trouble()` (text, detail, count in a row, a

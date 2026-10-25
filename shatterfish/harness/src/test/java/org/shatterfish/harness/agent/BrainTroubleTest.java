@@ -101,7 +101,8 @@ class BrainTroubleTest {
             assertInstanceOf(Action.Wait.class, failed.action(), "the Decision is wait");
             assertNotNull(failed.decision());
             assertEquals("brain error: IllegalStateException", failed.decision().policy());
-            assertTrue(failed.decision().chosen().why().contains("the Brain is broken"));
+            assertFalse(failed.decision().chosen().why().contains("the Brain is broken"),
+                    "the message is the console's; the chained log holds the class only");
             assertInstanceOf(Action.Search.class, waits.get(2).action(), "the Brain is asked again at the next wait");
             List<RunLog> records = read.records();
             int at = records.indexOf(failed);

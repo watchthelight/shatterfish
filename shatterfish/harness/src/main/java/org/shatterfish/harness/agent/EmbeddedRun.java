@@ -290,7 +290,8 @@ public final class EmbeddedRun implements AutoCloseable {
 
     /** The Decision of a wait the Brain failed to decide: a wait, in the Overlay's own words (story 5.15). */
     private static RunLog.Decision troubleDecision(Trouble trouble) {
-        String why = trouble.detail().isEmpty() ? trouble.text() : trouble.detail();
+        // The class only: the message is the console's, so the chained log never depends on exception wording.
+        String why = trouble.text();
         return new RunLog.Decision("waiting", new RunLog.Choice(new Action.Wait(), 0, why), List.of(), List.of(),
                 trouble.text());
     }
@@ -851,7 +852,9 @@ public final class EmbeddedRun implements AutoCloseable {
             try {
                 chosen = brain.decide(observation);
             } catch (RuntimeException | Error failure) {
-                if (!host.recoversFromBrainTrouble()) {
+                if (!host.recoversFromBrainTrouble() || failure instanceof VirtualMachineError
+                        || Thread.currentThread().isInterrupted()) {
+                    // A broken VM, or a worker the Run is closing, is not a Brain that failed to decide.
                     throw failure;
                 }
                 // The game never crashes because of the Brain (story 5.15): the Decision is a wait.
@@ -1018,6 +1021,7 @@ public final class EmbeddedRun implements AutoCloseable {
         pendingMark = null;
         withheld = false;
         withheldDecision = null;
+        withheldTrouble = null;
         withheldBelief = null;
         withheldHighlights = List.of();
         reconfirming = false;
@@ -1390,6 +1394,7 @@ public final class EmbeddedRun implements AutoCloseable {
         pendingMark = null;
         withheld = false;
         withheldDecision = null;
+        withheldTrouble = null;
         withheldBelief = null;
         withheldHighlights = List.of();
         withheldTrouble = null;
@@ -1522,6 +1527,7 @@ public final class EmbeddedRun implements AutoCloseable {
         pendingMark = null;
         withheld = false;
         withheldDecision = null;
+        withheldTrouble = null;
         withheldBelief = null;
         withheldHighlights = List.of();
         if (watchdog != null) {
@@ -1651,6 +1657,7 @@ public final class EmbeddedRun implements AutoCloseable {
         outcome = RunLoop.outcome(cause, rng.salt(), waits, applied, refused, detail);
         withheld = false;
         withheldDecision = null;
+        withheldTrouble = null;
         withheldBelief = null;
         withheldHighlights = List.of();
         ended = true;
