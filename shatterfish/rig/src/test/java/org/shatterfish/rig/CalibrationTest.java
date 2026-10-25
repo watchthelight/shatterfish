@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.shatterfish.rig.SequentialTest.Statistic.EPROCESS;
 import static org.shatterfish.rig.SequentialTest.Statistic.GSPRT;
 
@@ -79,17 +80,26 @@ class CalibrationTest {
 
         // The expectation is written down, not computed: these are the numbers the methodology page
         // states, and a change that moves them has to move the page with it.
-        assertEquals(new Calibration.Cell(600, 20, 250), Calibration.CHOSEN);
+        assertEquals(new Calibration.Cell(600, 20, 100), Calibration.CHOSEN);
         assertNotNull(result.chosen(), "some cell is within margin and powerful");
         assertEquals(Calibration.CHOSEN, result.chosen().cell());
         // Chosen on one set of sequences, quoted from another.
         Calibration.Row fresh = result.validation();
         assertEquals(Calibration.CHOSEN, fresh.cell());
-        assertTrue(fresh.null0().accept() * 1000L <= 60L * fresh.null0().total(),
-                "false-accept within 0.050 + 0.010 on fresh sequences: " + fresh.null0());
+        // The GSPRT at the chosen bounds is outside the margin on false-accept (6.06% at v4.0.2),
+        // which is why the e-process is the gate; its false-reject and power are fine.
+        assertTrue(fresh.null0().accept() * 1000L > 60L * fresh.null0().total(),
+                "the GSPRT's false-accept exceeds 0.050 + 0.010 on fresh sequences: " + fresh.null0());
+        assertFalse(fresh.calibrated());
         assertTrue(fresh.alternative().reject() * 1000L <= 60L * fresh.alternative().total(),
                 "false-reject within 0.050 + 0.010 on fresh sequences: " + fresh.alternative());
         assertTrue(fresh.powerful(), fresh.alternative().toString());
+        // The e-process on the same cell and sequences is within the margin and powerful.
+        Calibration.Row gate = result.duel().stream()
+                .filter(row -> row.statistic() == EPROCESS && row.cell().equals(Calibration.CHOSEN))
+                .findFirst().orElseThrow();
+        assertTrue(gate.calibrated(), gate.null0().toString());
+        assertTrue(gate.powerful(), gate.alternative().toString());
         assertNotEquals(result.chosen().null0(), fresh.null0(), "the validation is other sequences");
         assertEquals(10, Calibration.MARGIN_PER_MIL, "the margin story 3.8 tests against");
     }
@@ -99,8 +109,10 @@ class CalibrationTest {
     void the_gate() {
         Calibration.Result result = committed();
 
-        // Written down: the GSPRT stays the gate, because its validated rates are within the margin.
-        assertEquals(GSPRT, result.gate());
+        // Written down: the e-process is the gate, because the GSPRT's validated false-accept rate
+        // (6.06% at v4.0.2) is past the nominal 5% by more than the margin and the e-process is not.
+        assertEquals(EPROCESS, result.gate());
+        assertEquals(EPROCESS, SequentialTest.GATE);
         assertEquals(SequentialTest.GATE, result.gate(),
                 "SequentialTest.GATE must follow the calibration; change it with the page");
         List<Calibration.Row> duel = result.duel();

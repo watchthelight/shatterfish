@@ -152,6 +152,10 @@ seeds build different dungeons, so the numbers start again: on 40 Warriors from
 `standard` the current Brain reaches depth 5 in 10 Runs and kills Goo in 7
 (`docs/results/2026-10-25-feb88de55.md`).
 
+The calibration was run again at v4.0.2 (#198). The old sequential test's false-accept rate
+rose to 6.06%, past its margin, so ranked comparisons now use the e-process
+(`docs/results/calibration-v4.0.2.md`). It needs about half again as many pairs per verdict.
+
 ## The four parts
 
 | Part | What it is | Status |

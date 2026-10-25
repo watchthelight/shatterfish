@@ -57,10 +57,10 @@ public final class Calibration {
     public static final String FOLDER = "calibration";
 
     /** The table this calibration reads: the random Brain on {@code standard} at the pinned tag. */
-    public static final String TABLE = "v4.0.0-random-standard.jsonl";
+    public static final String TABLE = "v4.0.2-random-standard.jsonl";
 
     /** The page it writes, under the repository root. */
-    public static final String PAGE = "docs/results/calibration-v4.0.0.md";
+    public static final String PAGE = "docs/results/calibration-v4.0.2.md";
 
     public static final String COMMAND = "./gradlew :rig:calibrate";
 
@@ -121,7 +121,7 @@ public final class Calibration {
      * CalibrationTest} holds the rule's choice to it, so a change that moves the choice has to move
      * this, the methodology page and the Registrations that cite it together.
      */
-    public static final Cell CHOSEN = new Cell(600, 20, 250);
+    public static final Cell CHOSEN = new Cell(600, 20, 100);
 
     /** The grid the calibration searches, in the order the page lists it. */
     public static final List<Cell> GRID = grid();

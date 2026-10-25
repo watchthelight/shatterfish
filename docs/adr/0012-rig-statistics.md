@@ -68,7 +68,7 @@ Non-negotiables touched: #5 (measured and reproducible), #1 indirectly (Oracle r
 ## Decision outcome
 
 *The evaluation this decision called for has run: see [Outcome of the evaluation](#outcome-of-the-evaluation-story-38-2026-09-23)
-below. The GSPRT remains the gate.*
+below, and its update of 2026-10-25: the calibration at `v4.0.2` made the e-process the gate.*
 
 - `rig` implements `PairScore` (the lexicographic Composite comparison), `Gsprt` (option 6) and,
   in E3's calibration story, `EProcess` (option 8) side by side.
@@ -119,6 +119,16 @@ against the GSPRT's 66%. The GSPRT is within its margin, so under this ADR's rul
 gate (option 6); the e-process (option 8) stays in the tree as `EProcess` behind
 `SequentialTest.GATE`, measured again by every calibration, and would take the gate only if it were
 itself within the margin and powerful. The numbers are on `docs/results/calibration-v4.0.0.md`.
+
+**Update, 2026-10-25 (upstream `v4.0.2`).** The calibration was re-run at the new tag (the table is
+tagged, and this ADR says bounds are recalibrated per Upstream tag). The random Brain's missing share
+fell from 16.1% to 2.8% of pairs, the rule chose a missing cap of 0.10, and on 10,000 fresh sequences
+the GSPRT's realized false-accept rate is **6.06%** (false-reject 4.55%), past the nominal 5% by more
+than the 0.010 margin. The e-process's are 2.38% and 2.62% with 92.5% power at `p1` = 0.60, so under
+this ADR's rule it replaces the GSPRT: `SequentialTest.GATE` is `EPROCESS`, the committed table and
+page are the `v4.0.2` ones (`docs/results/calibration-v4.0.2.md`), and Registrations for the GSPRT
+are refused. The cost is about 50% more pairs per verdict under H0 and 63% more under H1. The
+`v4.0.0` table, page and the comparisons registered under the GSPRT stay as history.
 
 ## Pre-mortem
 

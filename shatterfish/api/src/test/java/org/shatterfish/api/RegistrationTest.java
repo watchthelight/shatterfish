@@ -149,7 +149,7 @@ class RegistrationTest {
         // Absent from a baseline's text, so a baseline written before they existed keeps its hash.
         assertFalse(baseline().canonical().contains("p0_per_mil"));
         assertFalse(baseline().canonical().contains("statistic"));
-        assertTrue(comparison().canonical().contains("\"statistic\":\"GSPRT\""));
+        assertTrue(comparison().canonical().contains("\"statistic\":\"EPROCESS\""));
         assertTrue(comparison().canonical().contains("\"p0_per_mil\":500,\"p1_per_mil\":550"));
     }
 
@@ -272,7 +272,7 @@ class RegistrationTest {
                         was.seedSet(), was.seedVersion(), was.alphaPerMil(), was.betaPerMil(),
                         was.burnIn(), was.maximum(), was.budgetMs(), was.machineClass(),
                         was.releaseLevel(), was.p0PerMil(), was.p1PerMil(), was.missingPerMil(),
-                        "EPROCESS"));
+                        "GSPRT"));
 
         assertEquals(17, was.getClass().getRecordComponents().length,
                 "a field was added: give it a row above, or it is a field the hash does not cover");

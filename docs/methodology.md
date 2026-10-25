@@ -545,7 +545,7 @@ rejected before one was accepted.
 three-valued, often tied, and sometimes missing. FR-21 asks for the realized rates to be measured on
 this project's own outcomes before a bound is trusted, so story 3.7 measured them.
 
-**What it is bootstrapped from.** `calibration/v4.0.0-random-standard.jsonl` holds the Composite
+**What it is bootstrapped from.** `calibration/v4.0.2-random-standard.jsonl` holds the Composite
 outcome of each of the 500 Runs of the random Brain on `standard` (version 1, turn cap 20,000),
 with each Run's chain and, in its first line, the tag, the Brain's name, commit and configuration,
 the Seed set, the command and the SHA-256 of the run index it was read from. The 37 MB of logs are
@@ -567,13 +567,12 @@ of 10, 20 and 40, a missing cap of 0.10, 0.20 or 0.25, with `p0` = 0.50, α = β
 a fixed seed. The page it writes is a generated file, and `CalibrationTest` fails when a fresh
 render differs from the committed one.
 
-**What it found.** Under H0, 18.2% of pairs tie, and almost all of that is missing Runs: 16.1% of
-pairs have a Run the game did not end, because the random Brain meets a window the Harness does not
-know in 8.4% of its Runs (`UNKNOWN_WINDOW`), and only 2.1% of pairs tie with both Runs reached.
-The statistic resolves; what it cannot absorb is a missing cap near its own missing rate: at a cap
-of 0.10 nearly every result is void, and at 0.20 about one in six still is. `p1` = 0.55 leaves 30%
-of sequences undecided at 500 pairs. And `n0` = 10 is not enough: the normal approximation
-overshoots, and the realized false-accept rate is 6.1% at `p1` = 0.60 against a nominal 5%.
+**What it found.** The numbers below are the `v4.0.2` calibration, the one in force; the `v4.0.0`
+table and [page](results/calibration-v4.0.0.md) stay as history (the 18.2% tie and 16.1% missing
+share there came from a Harness that met a window it did not know in 8.4% of the random Brain's
+Runs). Under H0 at `v4.0.2`, 5.07% of pairs tie and 2.78% have a Run the game did not end (7 of the
+500 Runs ended `UNKNOWN_WINDOW`); only 2.29% tie with both Runs reached. `p1` = 0.55 leaves most
+sequences undecided at 500 pairs for either design (38.9% for the GSPRT, 65.5% for the e-process).
 
 **The chosen bounds**, by a rule fixed in code before the grid was first run — of the cells within
 the margin and accepting H1 at least 90% of the time, the smallest `p1`, then the smallest missing
@@ -581,16 +580,12 @@ cap, then the fewest pairs under H1:
 
 | `p0` | `p1` | α | β | `n0` | `nmax` | missing cap |
 |---|---|---|---|---|---|---|
-| 0.500 | 0.600 | 0.050 | 0.050 | 20 | 500 | 0.250 |
+| 0.500 | 0.600 | 0.050 | 0.050 | 20 | 500 | 0.100 |
 
-A cell chosen as the best of twenty-seven would flatter itself if its rates were quoted from the
-sequences it was chosen on, so they are quoted from 10,000 fresh ones: **realized false-accept
-5.73%, realized false-reject 3.99%**, H1 accepted 92.6% of the time, 108 pairs on average under H0
-and 102 under H1. The false-accept rate is above the nominal 5%, by more than the Monte-Carlo error
-and less than the margin: the test accepts a Brain that is not better slightly more often than α
-says, and this page says so rather than rounding it away. An equal-strength comparison comes out
-void about one time in thirty (3.3%), from the missing cap alone. The full grid is on the
-[calibration page](results/calibration-v4.0.0.md).
+(At `v4.0.0` the cap was 0.250, because the random Brain's own missing share was 16%.) A cell chosen
+as the best of twenty-seven would flatter itself if its rates were quoted from the sequences it was
+chosen on, so they are quoted from 10,000 fresh ones. The full grid is on the
+[calibration page](results/calibration-v4.0.2.md).
 
 **The margin.** A realized error rate is within calibration when it is at most its nominal rate
 plus **0.010**. Ten thousand sequences put the Monte-Carlo standard error of a rate near 0.05 at
@@ -599,7 +594,7 @@ about 0.0022, so the margin is four and a half standard errors. It is declared h
 result is neither error, which is why the rule also asks for power: a cell that voids most of its
 results is within the margin and useless.
 
-**Which test gates: the e-process beside it.** ADR-0012 kept an alternative in reserve, and story
+**Which test gates: the e-process.** ADR-0012 kept an alternative in reserve, and story
 3.8 measured it on the same fresh sequences. `EProcess` is a betting e-process (Ian Waudby-Smith
 and Aaditya Ramdas, *Estimating means of bounded random variables by betting*, JRSS B, 2024): a
 gambler starting at wealth 1 bets, before each pair, a fraction λ of it that the pair scores above
@@ -614,34 +609,29 @@ against its trace and its bounds, log(1/α) and −log(1/β), as a GSPRT's can �
 `comparison.json`, where it lands in `llr_micros` and `trace_micros`, it is a log wealth and not a
 likelihood ratio, which is what the `statistic` field is there to say.
 
-At the chosen bounds the two compare like this, on the same 10,000 fresh sequences:
+At the chosen bounds the two compare like this, on the same 10,000 fresh sequences of the `v4.0.2`
+calibration:
 
 | | false-accept | false-reject | power | mean pairs (H0) | mean pairs (H1) |
 |---|---|---|---|---|---|
-| GSPRT (`n0` = 20) | 5.73% | 3.99% | 92.6% | 108 | 102 |
-| e-process | 2.21% | 2.29% | 93.6% | 163 | 164 |
+| GSPRT (`n0` = 20) | 6.06% | 4.55% | 94.4% | 124 | 119 |
+| e-process | 2.38% | 2.62% | 92.5% | 187 | 194 |
 
-At the chosen `p1` the e-process keeps its promise with room to spare and loses no power, and it
-pays for both in pairs: about 50% more under H0 and 60% more under H1. It is not as strong
-everywhere: at `p1` = 0.55 its power is 37% against the GSPRT's 66%, with 59% of H1 sequences still
-undecided at 500 pairs — a recalibration toward finer differences would meet that first. The rule ADR-0012 set was that the e-process replaces the GSPRT only
-if the GSPRT's realized error exceeds its nominal rate by more than the margin; 5.73% is within 5% +
-0.010, so **the GSPRT stays the gate**. `SequentialTest.GATE` says so, `CalibrationTest` holds it to
-what the calibration concludes, and a later tag whose calibration goes the other way fails the build
-until the gate changes with it. The e-process stays in the tree behind that constant, and every run
-of `./gradlew :rig:calibrate` measures both again; `comparison.json` names the `statistic` its
-bounds and trace belong to.
+The rule ADR-0012 set is that the e-process replaces the GSPRT if the GSPRT's realized error exceeds
+its nominal rate by more than the margin. The GSPRT's false-accept rate is **6.06%**, past 5% +
+0.010, so **the e-process is the gate**, and it is itself within the margin and powerful at the
+chosen `p1`. It pays for that in pairs: about 50% more under H0 and 63% more under H1. At `p1` =
+0.55 neither design has power (the e-process 32%, the GSPRT 59%), so a difference that fine needs
+more than 500 pairs. `SequentialTest.GATE` says **EPROCESS**, `CalibrationTest` holds it to what
+the calibration concludes, and a later tag whose calibration goes the other way fails the build
+until the gate changes with it. The GSPRT stays in the tree and every run of
+`./gradlew :rig:calibrate` measures both again; `comparison.json` names the `statistic` its bounds
+and trace belong to.
 
-**Measured again at `v4.0.2`, not adopted.** The upgrade of 2026-10-24 reran the random Brain on
-`standard` (500 Runs, 7 of them `UNKNOWN_WINDOW`, so 2.8% of pairs are missing against 16.1% at
-`v4.0.0`) and wrote `calibration/v4.0.2-random-standard.jsonl` and its
-[page](results/calibration-v4.0.2.md). The chosen cell moves to a missing cap of 0.10, and the
-GSPRT's realized false-accept rate on the fresh sequences is 6.06%, which is past 5% + 0.010, so
-by the rule above the gate would become the e-process. That is a change to every ranked comparison
-(`SequentialTest.GATE`, the Registrations' `statistic`, about 50% more pairs per verdict), and the
-tag change alone did not make it, since the Harness also handles more windows than it did on
-2026-09-23. It is the owner's call, so the committed constants still read the `v4.0.0` table and
-page, and the `v4.0.2` pair sits beside them, unread by any test, until that call is made.
+**History.** Until the upgrade to `v4.0.2` (2026-10-25) the GSPRT was the gate: at `v4.0.0` its
+realized false-accept rate was 5.73%, inside the margin. The comparisons published under it
+(H-0004 to H-0007 and the worse-Brain page) were registered for the GSPRT and stay as they were; a
+Registration for the GSPRT is now refused, and new ones state `EPROCESS` and the `v4.0.2` bounds.
 
 **Held to it.** A comparison's Registration states the `statistic` its bounds are for, and the Rig
 refuses one registered for a statistic other than the gate. A comparison on a Seed set that may
@@ -650,11 +640,11 @@ accept — `standard`, `bosses`, or the held-out set for a release-level claim �
 direction check on `smoke` may state what it likes, since it cannot accept anything. The first
 comparisons run under these rules are on the [worse-Brain page](results/2026-09-23-worse-brain.md).
 
-**What the missing cap costs.** A cap of one pair in four is the price of the Harness's unknown
-windows: it is what lets a comparison of today's Brains conclude at all, and it is also room for a
-Brain to crash on a quarter of the seeds it would lose. When the Harness learns the windows the
-random Brain meets, the missing rate falls, the calibration is re-run, and the cap comes down with
-it — a new Registration, never an edit.
+**What the missing cap costs.** The cap is the price of the Harness's unknown windows: it is what
+lets a comparison conclude at all, and it is also room for a Brain to crash on some of the seeds it
+would lose. It was one pair in four at `v4.0.0`, when the random Brain met an unknown window in
+8.4% of its Runs; the Harness has since learned most of them (1.4% at `v4.0.2`), the calibration
+was re-run, and the cap came down to one in ten — a new Registration, never an edit.
 
 ## Results pages
 
