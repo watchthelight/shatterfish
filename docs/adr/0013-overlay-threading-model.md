@@ -759,3 +759,6 @@ Found by the fairness review of story 5.8 (issue #220), settled with the rest of
   screen (the screen lists every action), but a gamepad writes the game's key queue past the lock and the Overlay does
   not hear it; the button remains. A Run's Profile is deleted when it ends unless `--profile` names it, so a rebinding
   persists across Runs only with a named Profile (the game saves bindings in its Profile's `keybinds.dat`).
+  A named Profile whose saved `keybinds.dat` binds F6 to F11 to a game action loses that binding to the Overlay's default
+  (`loadBindings` merges defaults after saved keys); the fairness review of story 5.11 noted it. Rare and visible in the
+  key-binding screen; left as it is, since a fix means editing `loadBindings`.
