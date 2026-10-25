@@ -8,7 +8,7 @@ review_loop_iteration: 0
 context: []
 ---
 
-<frozen-after-approval reason="human-owned intent — do not modify unless human renegotiates">
+<frozen-after-approval reason="human-owned intent, do not modify unless human renegotiates">
 
 ## Intent
 
@@ -53,7 +53,7 @@ The owner is away and delegated; each is recorded in the PR body too.
   `EmbeddedRun.Snapshot` gained `highlights`, read from `Deliberator.lastHighlights()` at the point the
   Decision lands, beside the Decision and Belief summary it already carries for the same wait.
 - **Native and behind the sprites.** `MapHighlights` is a `Group` of the game's `ColorBlock`s on the world
-  camera, four thin edges to a cell. It is slotted into the play scene directly behind the terrain group
+  camera, four thin edges to a cell. It is slotted into the play scene directly in front of the terrain group
   (found as the first member holding a `DungeonTilemap`), so items, characters, wall tops, fog and the HUD
   all draw over it. The one-time reorder uses `Group.bringToFront` only, so no upstream file is edited and
   no hook is needed.

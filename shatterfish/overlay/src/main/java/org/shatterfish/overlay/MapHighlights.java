@@ -15,7 +15,7 @@ import java.util.List;
  *
  * <p>Native: the game's own {@code ColorBlock}s on the world camera, four thin edges to a cell and never a
  * filled quad, so a cell is outlined and its floor still shows. Never over a sprite: the layer sits in the
- * scene directly behind the terrain's group, so the items, the characters, the walls' tops, the fog and the
+ * scene directly in front of the terrain's group and behind every other member, so the items, the characters, the walls' tops, the fog and the
  * HUD are all drawn over it ({@code GameScene.java:254-399} is the draw order it is slotted into). The
  * colours are DESIGN.md's; the shapes differ as well so colour never carries the meaning alone (UX-DR14):
  * the path is a thin full outline, the target a thick one and a considered cell four corner brackets.
@@ -142,7 +142,7 @@ final class MapHighlights extends Group {
     }
 
     /**
-     * Puts the layer in {@code scene} directly behind the terrain. The terrain's group is the first of the
+     * Puts the layer in {@code scene} directly in front of the terrain and behind every other member. The terrain's group is the first of the
      * scene's members that holds a {@link DungeonTilemap}; the members after it are moved to the front in
      * their own order, which leaves them as they were with this layer slotted in after the terrain. A scene
      * with no terrain (none the game builds) gets the layer on top, as any other member.
