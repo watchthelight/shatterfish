@@ -162,6 +162,11 @@ E5 (the Overlay) so far:
   byte-identical (#216).
 - E5.7: Next Step, Run N, Human play speed and Fast work; a paused Run shows the Decision the
   next press executes (#218).
+- A Run in a process that already played Runs now starts from a fresh process's history:
+  global badges, journal tallies and a first-Run random draw no longer leak (#217). The
+  tuning-set baseline moved with it (depth 5 on 18/40, Goo 8/40).
+- `:rig:direction` caches the baseline's Runs by commit and host code, so a second run against
+  the same baseline takes seconds (#215).
 - Next: take over and hand back (5.8), with Brain changes in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
