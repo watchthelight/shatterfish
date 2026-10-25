@@ -492,11 +492,18 @@ class FightPolicyTest {
                 "######",
                 "#<.H.#",
                 "######");
-        List<Brain.Decided> all = each(fleeing, above, above, healed);
+        List<Observation> screens = new ArrayList<>(List.of(fleeing, above, above));
+        for (int i = 0; i < Explore.LINGER + 2; i++) {
+            screens.add(healed);
+        }
+        List<Brain.Decided> all = each(screens.toArray(new Observation[0]));
         assertEquals(new Action.Ascend(), all.get(0).action(), "fled up");
         assertEquals("rest: before-descent", why(all.get(1)), all.get(1).decision().toString());
         assertEquals("rest: before-descent", why(all.get(2)));
-        assertFalse(why(all.get(3)).startsWith("rest"), "healed, it goes on: " + all.get(3).decision());
+        // Healed, it lingers out the rest of Explore.LINGER waits on the floor (issue #165), then goes on.
+        assertEquals("rest: before-descent", why(all.get(3)), "healed, it lingers: " + all.get(3).decision());
+        Brain.Decided last = all.get(all.size() - 1);
+        assertFalse(why(last).startsWith("rest"), "lingered, it goes on: " + last.decision());
     }
 
     @Test
@@ -699,8 +706,13 @@ class FightPolicyTest {
                 "#<.H.#",
                 "######");
         Brain brain = brain();
-        Memory memory = Memory.of(Screens.drive(brain, fleeing, above, healed, above));
-        assertFalse(Explore.restOwed(above, memory), "healed once, the flight is settled");
+        List<Observation> settling = new ArrayList<>(List.of(fleeing, above));
+        for (int i = 0; i < Explore.LINGER; i++) {
+            settling.add(healed);
+        }
+        settling.add(above);
+        Memory memory = Memory.of(Screens.drive(brain, settling.toArray(new Observation[0])));
+        assertFalse(Explore.restOwed(above, memory), "healed and lingered, the flight is settled");
     }
 
     @Test

@@ -16,6 +16,10 @@
   and on the next wait the explore Policy's `away` step (a region the fight Policy retreated from
   covers the path) took it back. A test that plays the two against one fled region would show it;
   the fix belongs to the Brain, not the Overlay.
+  **Done** for the region case by issue #174 (a Step into an avoided region lifts it; `DescendFledTest` plays
+  the descend and explore Policies against a region across the only way to the exit and shows they
+  no longer undo each other), and for the stairs retreat of issue #165's second report by the
+  linger (`Explore.LINGER`).
 - **Bones is one more upstream static that outlives a Run** (see "Upstream statics that outlive a
   Run" above). The determinism test of story 5.1 found it: a hero who dies in one Run leaves remains
   on the next Run's floor in the same process (`core/.../Bones.java:50-54`, `:154-160`). The Profile

@@ -305,17 +305,31 @@ final class Explore implements Policy {
 
     /**
      * Whether a rest is owed before going back down (story 4.7): the floor below was fled by the
-     * stairs since the hero was last healed there, its hit points are short, it is neither hungry
-     * nor starving -- a starving hero does not regenerate (Regeneration.java:56) -- and it has not
-     * already rested {@link #RESTS} waits for it.
+     * stairs since the hero was last healed there, and either its hit points are short, it is
+     * neither hungry nor starving -- a starving hero does not regenerate (Regeneration.java:56) -- and it has
+     * not already rested {@link #RESTS} waits for it, or it has been on this floor under
+     * {@link #LINGER} waits and is neither hungry nor starving (issue #165): the enemy it fled waits at the foot of the
+     * stairs, and a hero at full health that goes straight back down meets it again.
      */
     static boolean restOwed(Observation observation, Memory memory) {
         String below = below(observation);
-        return Memory.count(memory.flights(), below, 0) > Memory.count(memory.flights(), below, 1)
-                && observation.hero().hp() < observation.hero().ht()
+        if (Memory.count(memory.flights(), below, 0) <= Memory.count(memory.flights(), below, 1)) {
+            return false;
+        }
+        boolean hurt = observation.hero().hp() < observation.hero().ht()
                 && observation.hero().hunger() == org.shatterfish.api.Hunger.NONE
                 && Memory.count(memory.flights(), below, 2) < RESTS;
+        boolean lingering = memory.waits() - memory.arrived() < LINGER
+                && observation.hero().hunger() == org.shatterfish.api.Hunger.NONE;
+        return hurt || lingering;
     }
+
+    /**
+     * The waits the hero stays on the floor above one it fled by the stairs before going back down, hurt
+     * or not (issue #165). An assumption: long enough for a wandering enemy that followed to the stairs to
+     * lose interest or come up, short against the hunger it costs.
+     */
+    static final int LINGER = 20;
 
     /** The key of the floor below this one, as the Memory counts flights. */
     static String below(Observation observation) {
