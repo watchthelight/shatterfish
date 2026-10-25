@@ -149,6 +149,20 @@ public final class CodexJson {
                 out.endObject();
             }
             out.endArray();
+            if (!entry.forms().isEmpty()) {
+                // Only a mob whose attack or damage branches on a state names forms; the rest keep their rows as they were.
+                out.key("forms").beginArray();
+                for (Codex.Form form : entry.forms()) {
+                    out.beginObject();
+                    out.key("name").value(form.name());
+                    out.key("condition").value(form.condition());
+                    out.key("attack").value(form.attack());
+                    out.key("damageMin").value(form.damageMin());
+                    out.key("damageMax").value(form.damageMax());
+                    out.endObject();
+                }
+                out.endArray();
+            }
             citation(out, entry.citation());
             out.endObject();
             row(table, out, i + 1 == entries.size());

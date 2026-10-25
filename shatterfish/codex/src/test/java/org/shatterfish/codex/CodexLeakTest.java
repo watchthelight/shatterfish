@@ -94,6 +94,7 @@ class CodexLeakTest {
     static final ArchRule NO_RUN_STATE = noClasses()
             .that().resideInAPackage("org.shatterfish.codex..")
             .and().doNotHaveFullyQualifiedName(GameContext.class.getName())
+            .and().doNotHaveFullyQualifiedName(Forms.class.getName())
             .should().dependOnClassesThat().belongToAnyOf(Dungeon.class, Statistics.class, Badges.class, Rankings.class,
                     SPDSettings.class, GamesInProgress.class, Bones.class)
             .orShould().dependOnClassesThat().resideInAnyPackage(GAME_STATE_PACKAGES, "com.watabou..", "com.badlogic..",
@@ -130,6 +131,20 @@ class CodexLeakTest {
             .orShould().callMethodWhere(target(owner(type(Random.class))).and(not(target(nameMatching("pushGenerator|popGenerator")))))
             .orShould().accessFieldWhere(com.tngtech.archunit.core.domain.JavaFieldAccess.Predicates.target(owner(type(Random.class))))
             .because("the context sets the depth and the challenges and holds no level around a construction under the Codex's own generator, and reads nothing else");
+
+    /**
+     * The forms (#219) put a mob in a state its methods branch on through the save format's own
+     * bundle round trip, because the state is private and reflection is shut. So {@link Forms} may
+     * name the bundle and nothing else of the toolkit's utilities, and none of the Run's state
+     * or the harness.
+     */
+    static final ArchRule FORMS_ARE_NARROW = noClasses()
+            .that().haveFullyQualifiedName(Forms.class.getName())
+            .should().dependOnClassesThat(resideInAPackage("com.watabou..").and(not(belongToAnyOf(com.watabou.utils.Bundle.class))))
+            .orShould().dependOnClassesThat().belongToAnyOf(Dungeon.class, Statistics.class, Badges.class, Rankings.class,
+                    SPDSettings.class, GamesInProgress.class, Bones.class, Hero.class, Level.class, GameScene.class)
+            .orShould().dependOnClassesThat().resideInAnyPackage(GAME_STATE_PACKAGES, "com.badlogic..", "org.shatterfish.harness..")
+            .because("the forms set a mob's own state through its bundle and read nothing of a Run");
 
     /** As the api's and the brain's denied list, less Class: the doors a value could come through that are not the pinned classes. */
     private static final Class<?>[] DENIED = {
@@ -193,6 +208,7 @@ class CodexLeakTest {
         ANCHOR.check(GENERATOR);
         NO_RUN_STATE.check(GENERATOR);
         THE_CONTEXT_IS_NARROW.check(GENERATOR);
+        FORMS_ARE_NARROW.check(GENERATOR);
         NO_SIDE_DOORS.check(GENERATOR);
         NO_HASH_ORDER.check(GENERATOR);
         FILES_CONFINED.check(GENERATOR);
@@ -362,6 +378,13 @@ class CodexLeakTest {
         assertEquals(Codex.RollKind.OTHER, goo.damage().kind(), "Goo's damage is a formula");
         assertTrue(goo.damage().expression().contains(" | "), "Goo's damage has several returns: " + goo.damage().expression());
         assertTrue(goo.customDefense(), "Goo overrides defenseSkill(Char)");
+        // #219: the engine's own attackSkill and damageRoll, run in each state they branch on (Goo.java:67-89).
+        assertEquals(List.of(new Codex.Form("calm", "HP*2 > HT and not pumped", 10, 1, 8),
+                new Codex.Form("enraged", "HP*2 <= HT", 15, 1, 12),
+                new Codex.Form("pumped", "pumpedUp > 0", 20, 3, 24),
+                new Codex.Form("enraged pumped", "HP*2 <= HT and pumpedUp > 0", 30, 3, 36)), goo.forms());
+        assertEquals(List.of("actors.mobs.Goo"), byName.values().stream().filter(m -> !m.forms().isEmpty())
+                .map(Codex.MobEntry::className).toList(), "Goo is the only mob with forms");
         Codex.MobEntry statue = byName.get("actors.mobs.Statue");
         assertEquals(Codex.RollKind.OTHER, statue.damage().kind());
         assertEquals("return weapon.damageRoll(this);", statue.damage().expression());

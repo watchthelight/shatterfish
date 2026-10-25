@@ -735,6 +735,36 @@ class FightPolicyTest {
     }
 
     @Test
+    @DisplayName("Goo is fought at the Codex's calm figures, and at its enraged ones when its bar is at half or less, never the guess (#219)")
+    void goo_forms() {
+        Codex.Threat figures = new Codex.Threat("Goo", 100, 10, 8, 1, 8, 0, 2, List.of("defense"),
+                List.of(new Codex.Form("calm", "c", 10, 1, 8), new Codex.Form("enraged", "e", 15, 1, 12),
+                        new Codex.Form("pumped", "p", 20, 3, 24)));
+        Codex.Knowledge goo = new Codex.Knowledge(KNOWLEDGE.manifest(), List.of(), List.of(), List.of(), List.of(figures),
+                KNOWLEDGE.weapons(), KNOWLEDGE.armours(), List.of());
+        Observation boss = screen(5, 20, true, "worn shortsword",
+                "#######",
+                "#.@G..#",
+                "#######".replace('G', '.'));
+        Codex.Threat guess = Fight.assumed("Goo", 5);
+        assertEquals(20, guess.attack(), "the fallback the Brain used: accuracy 20");
+        assertEquals(14, guess.damageMax(), "the fallback the Brain used: damage up to 14");
+        for (int pips : new int[] {ObservationCodec.MAX_HEALTH_PIPS, 8, 7}) {
+            ActorView calm = new ActorView(cell(boss, 3, 1), "Goo", Alignment.ENEMY, pips, false, Emote.NONE, List.of());
+            Codex.Threat read = Fight.threat(boss, goo, calm);
+            assertEquals(10, read.attack(), "pips " + pips);
+            assertEquals(8, read.damageMax(), "pips " + pips);
+        }
+        for (int pips : new int[] {6, 3, 1}) {
+            ActorView hurt = new ActorView(cell(boss, 3, 1), "Goo", Alignment.ENEMY, pips, false, Emote.NONE, List.of());
+            Codex.Threat read = Fight.threat(boss, goo, hurt);
+            assertEquals(15, read.attack(), "pips " + pips);
+            assertEquals(12, read.damageMax(), "pips " + pips);
+            assertEquals(Math.max(8, guess.defense()), read.defense(), "an evasion by its own rule still takes the higher");
+        }
+    }
+
+    @Test
     @DisplayName("an enemy it can neither reach, flee nor wait out is held at most four waits, then left to the Policies below")
     void unreachable_enemy() {
         Observation across = screen(20, false,
