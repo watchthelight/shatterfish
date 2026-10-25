@@ -24,7 +24,7 @@ import java.util.Map;
  * {@code CodexSeedFreeTest} holds free of any seed. The manifest is checked by
  * {@link CodexManifest#read} first, so a Codex of another version or tag is refused before any
  * table is read. The bestiary (tactics/bestiary.json) rides along, joined with the mob table and the
- * spawn rotation (the bestiary's lever 0, docs/ideas.md).
+ * spawn rotation (the bestiary's lever 0, docs/ideas/).
  */
 public final class CodexKnowledge {
 

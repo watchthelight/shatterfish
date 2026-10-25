@@ -42,7 +42,7 @@ These apply to every artifact, every story, every line of code, and they are not
 
 - **State**: GitHub Issues and milestones at `watchthelight/shatterfish` (always pass `-R watchthelight/shatterfish`; the `upstream` remote points at 00-Evan's repository and `gh` will target it if you let it). `_bmad-output/implementation-artifacts/sprint-status.yaml` once sprint planning has run.
 - **Content**: BMAD story/spec files in `_bmad-output/implementation-artifacts/`; planning artifacts in `_bmad-output/planning-artifacts/`.
-- **Knowledge**: `docs/` (MkDocs site, `docs/README.md` explains it). ADRs in `docs/adr/`, mechanics rules with `path:line` citations in `docs/rules/`, hooks in `docs/UPSTREAM.md`, ideas in `docs/ideas.md`, published numbers in `docs/results/`.
+- **Knowledge**: `docs/` (MkDocs site, `docs/README.md` explains it). ADRs in `docs/adr/`, mechanics rules with `path:line` citations in `docs/rules/`, hooks in `docs/UPSTREAM.md`, ideas in `docs/ideas/`, published numbers in `docs/results/`.
 - **How to work**: this file. Program seed: `docs/BOOTSTRAP-PROMPT.md` (approved BMAD artifacts override it). Tool inventory: `docs/tooling.md`.
 - **Shatterfish code**: `shatterfish/<module>/`, package `org.shatterfish.<module>`. Upstream code is everything else; edit it only through hooks.
 
@@ -61,7 +61,7 @@ These apply to every artifact, every story, every line of code, and they are not
 - When context grows heavy, `/compact` with the instruction to preserve decisions, open questions, and the next step.
 - Ask the human only at the bootstrap checkpoints (A-F) or before irreversible or costly actions: creating remotes, enabling services, installing software, deleting anything, merging an upstream tag.
 - Before any non-trivial step: restate goal and binding constraints, list at least three alternatives, pick one and say why, run a short pre-mortem; write the outcome into the artifact (ADR, story file, design note), not just chat. Add *ultrathink* for anything hard, especially anything touching `Observer`.
-- Micro-brainstorm before any design decision, even small ones (`/adr` carries the protocol). New ideas mid-story go to `docs/ideas.md`, not into the story.
+- Micro-brainstorm before any design decision, even small ones (`/adr` carries the protocol). New ideas mid-story go in a new file `docs/ideas/<yyyy-mm-dd>-<slug>.md` (one per idea, title as its first line; the index is built, never edited), not into the story.
 
 ## Git and GitHub
 

@@ -18,7 +18,7 @@ import com.watabou.input.InputHandler;
  * ({@code SPD-classes/…/input/ControllerHandler.java:122-134}), past the multiplexer. Story 5.5's
  * input-gate hook (ADR-0013 option 9: {@code CellSelector.select} and {@code processKeyHold} ask
  * {@code Hooks.inputGate}) is where every path is closed; this is the cheap half until then, and the
- * gap is written down in docs/ideas.md.
+ * gap is written down in docs/ideas/.
  */
 final class InputLock extends InputAdapter {
 

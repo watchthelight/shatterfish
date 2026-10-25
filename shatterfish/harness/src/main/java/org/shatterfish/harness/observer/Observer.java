@@ -370,7 +370,7 @@ public final class Observer {
      * {@code …/actors/hero/spells/WallOfLight.java:249-252}; {@code …/actors/mobs/Tengu.java:846-850},
      * {@code :1041-1045}; {@code …/items/artifacts/SkeletonKey.java:488-492}). So a player who has
      * walked past a well remembers which well it is and this section does not: a loss that grew
-     * with the tag, recorded in ADR-0006 and in {@code docs/ideas.md} for the schema story.
+     * with the tag, recorded in ADR-0006 and in {@code docs/ideas/} for the schema story.
      */
     private static List<BlobCell> blobs(Level level, List<Fog> fog) {
         Map<Integer, List<String>> kinds = new LinkedHashMap<>();

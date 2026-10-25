@@ -34,7 +34,7 @@ Pages (`.github/workflows/docs.yml`). A warning is a failure.
 2. Every statement about a game mechanic carries a `path:line` citation into the pinned upstream
    tag and, once it exists, a link to the test that checks it. See [Rules](rules/index.md).
 3. Decisions go in ADRs (`docs/adr/`, MADR format). Ideas that are not being acted on go in
-   `docs/ideas.md`, one line each with a rationale.
+   `docs/ideas/`, one new file each (`<yyyy-mm-dd>-<slug>.md`) with a rationale.
 4. Generated files are never hand-edited.
 5. `docs/UPSTREAM.md` is updated in the same PR as any hook (`touches-upstream`).
 

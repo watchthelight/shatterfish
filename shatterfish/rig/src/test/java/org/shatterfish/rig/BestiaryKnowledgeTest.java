@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The bestiary as the rig hands it to a Brain (lever 0 of the bestiary's Brain levers,
- * docs/ideas.md): {@code tactics/bestiary.json} read beside the Codex, joined with the mob table's
+ * docs/ideas/): {@code tactics/bestiary.json} read beside the Codex, joined with the mob table's
  * alignments and the spawn rotation's depths, and resolved by the name the screen shows plus the depth.
  */
 class BestiaryKnowledgeTest {

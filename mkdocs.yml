@@ -38,6 +38,12 @@ exclude_docs: |
 
 hooks:
   - docs/hooks/bmad_artifacts.py
+  - docs/hooks/ideas_index.py
+
+# Each idea is a file in docs/ideas/ that is deliberately not in the nav: the nav would be one more
+# file every idea-adding pull request edits. docs/hooks/ideas_index.py lists them on ideas/index.md.
+not_in_nav: |
+  /ideas/2*.md
 
 theme:
   name: material
@@ -98,7 +104,7 @@ nav:
   - Program:
       - Bootstrap prompt: BOOTSTRAP-PROMPT.md
       - Roadmap: roadmap.md
-      - Ideas: ideas.md
+      - Ideas: ideas/index.md
       - Tooling: tooling.md
   - System:
       - Architecture: architecture.md
