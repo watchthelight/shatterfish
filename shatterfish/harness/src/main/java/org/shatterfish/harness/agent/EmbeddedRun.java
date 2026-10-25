@@ -212,6 +212,8 @@ public final class EmbeddedRun implements AutoCloseable {
     /** Story 5.6: whether the Run waits for credit before it asks for a wait, and the credit it has. */
     private boolean held;
     private int credits;
+    /** Whether a window now in front was opened by a step that was paid for; see {@link #frame()}. */
+    private boolean promptOwed;
     private double secondsWithoutAWait;
     /** The window in front at the last game frame, and the game time it has been in front, its first frame included. */
     private Window guardWindow;
@@ -523,19 +525,28 @@ public final class EmbeddedRun implements AutoCloseable {
             // writing and posting; a wait is confirmed only once it has parked (story 5.1).
             return State.PLAYING;
         }
-        if (held && credits == 0) {
-            // Held (story 5.6): the hero is ready and no wait is asked for. An idle Run is not a stuck one,
-            // so the frame budget does not run; the game's frames go on, and only the next wait waits.
-            secondsWithoutAWait = 0;
-            return State.PLAYING;
-        }
         Window window = Windows.front();
+        if (held && credits == 0) {
+            // A Prompt that a step opened is part of that step (UX: the unit is one Input wait, a Prompt
+            // included), and every control is off behind a window, so no credit could ever be given for
+            // it: it is answered without one. A window with no step behind it, or the hero's own turn, waits.
+            if (window == null) {
+                promptOwed = false;
+            }
+            if (window == null || !promptOwed) {
+                // Held (story 5.6): the hero is ready and no wait is asked for. An idle Run is not a stuck
+                // one, so the frame budget does not run; the game's frames go on, and only the next wait waits.
+                secondsWithoutAWait = 0;
+                return State.PLAYING;
+            }
+        }
         long k = gate.frame(hero, window, host.pendingRunnables() != 0);
         if (k == 0) {
             return State.PLAYING;
         }
-        if (held) {
+        if (held && credits > 0) {
             credits--;
+            promptOwed = true;
         }
         secondsWithoutAWait = 0;
         confirmedScene = front;

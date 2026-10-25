@@ -628,3 +628,10 @@ for no wait without one, and the frame budget does not run while it idles. Pause
 Run N are presses on it. What paces the credits (Human play speed, a Next Step queued behind a thinking
 Brain) is story 5.7's, and Take over and Hand back are story 5.8's; both stay dim (`Capabilities`) until
 their story turns them on.
+
+The fairness review of story 5.6 found two things, both fixed. The Panel's hit test now also requires that
+the Panel is on the scene in front, so a press in the old Panel's rectangle during a floor change reaches
+nothing. And a Prompt a paid-for step opens is answered without a second credit (`promptOwed`), because every
+control is off behind a window and no credit could be given for it; a window with no step behind it, and the
+hero's own turn, still wait. The scroll wheel over the Panel passes with the pointer rule; the camera zoom it
+may also cause changes nothing the record holds.

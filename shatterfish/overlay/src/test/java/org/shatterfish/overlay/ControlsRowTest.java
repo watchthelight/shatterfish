@@ -273,6 +273,20 @@ class ControlsRowTest {
     }
 
     @Test
+    @DisplayName("the Panel is a place a press passes only on the scene that has it, not on the next one (the fairness review)")
+    void contains_only_on_its_own_scene() {
+        GameScene scene = scene(1600, 900);
+        PanelDock dock = new PanelDock();
+        dock.frame(scene, snapshot(EmbeddedRun.State.PLAYING), false);
+        Panel panel = dock.panel();
+        Point inside = panel.camera.cameraToScreen(panel.left() + panel.width() / 2, panel.top() + panel.height() / 2);
+        assertTrue(dock.contains(inside.x, inside.y));
+        assertFalse(dock.contains(0, 0), "off the Panel");
+        HeadlessBoot.ensure().game().switchTo(new HeadlessScene());
+        assertFalse(dock.contains(inside.x, inside.y), "the old Panel's rectangle on a scene that has no Panel");
+    }
+
+    @Test
     @DisplayName("a Run that has ended leaves every button dim, and the strip's Mode as the controls last had it")
     void run_over_is_dim() {
         GameScene scene = scene(1600, 900);

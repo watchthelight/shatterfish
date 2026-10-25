@@ -150,7 +150,8 @@ final class PanelDock {
      * the input lock reads to let a person's press reach the Panel's controls (story 5.6).
      */
     boolean contains(int screenX, int screenY) {
-        if (panel == null || !panel.visible || panel.parent == null || panel.camera == null || panel.width() <= 0) {
+        if (panel == null || !panel.visible || panel.parent == null || panel.parent != com.watabou.noosa.Game.scene()
+                || panel.camera == null || panel.width() <= 0) {
             return false;
         }
         com.watabou.utils.PointF at = panel.camera.screenToCamera(screenX, screenY);
