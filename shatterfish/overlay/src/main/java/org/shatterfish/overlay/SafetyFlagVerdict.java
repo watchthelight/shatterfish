@@ -10,7 +10,7 @@ package org.shatterfish.overlay;
  * {@code Brain.safetyFlags()}) are {@code hp-low}, {@code enemy-in-view}, {@code hungry} and
  * {@code starving}: none is "ok" today (the story's own "As the human ... spot a bad belief" line
  * is about beliefs, not flags; {@code EXPERIENCE.md}'s "ok: fighting in corridor" line is a
- * later Policy's flag, not one {@code Safety} raises yet -- {@code docs/ideas.md}). This class
+ * later Policy's flag, not one {@code Safety} raises yet -- {@code docs/ideas/}). This class
  * only decides the colour; it never invents a flag's text.
  *
  * <p>The mapping is judged from what the game itself does about each condition, cited by

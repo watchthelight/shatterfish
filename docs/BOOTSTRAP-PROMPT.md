@@ -50,7 +50,7 @@ BMAD's brainstorming workflow is not only for Phase 1. Run a timeboxed micro-bra
 3. Score against the non-negotiables and the current epic's goal.
 4. Pick one, record the decision and the rejected options in an ADR or a design note in the story file, then move on. Do not reopen it without new information.
 
-New ideas that come up mid-story do not expand the story. They go to `docs/ideas.md` with a one-line rationale, and re-enter through BMAD's correct-course workflow or the next create-story.
+New ideas that come up mid-story do not expand the story. They go to a new file `docs/ideas/<yyyy-mm-dd>-<slug>.md` with a rationale, and re-enter through BMAD's correct-course workflow or the next create-story.
 
 ### 2.3 Turn discipline
 
@@ -186,7 +186,7 @@ One session per numbered step unless the handoff says otherwise. Checkpoints (Aâ
 ### Session 3 â€” Documentation system
 
 1. MkDocs Material with `mkdocs.yml`; `mkdocs build --strict` in CI; GitHub Pages deployment via Actions (enable Pages with `gh api -X POST repos/<user>/shatterfish/pages -f build_type=workflow`, or ask the human if that fails). If Python is unavailable, plain markdown with a generated index, and an issue to add MkDocs later.
-2. Skeleton: `index.md`, `architecture.md` (placeholder until BMAD's architecture exists; then a pointer), `fairness.md`, `upstream.md`, `roadmap.md`, `codebase-map.md`, `glossary.md` (Observation, Belief, Codex, Rig, Lore, Oracle mode, Redetermination, Hook, Story, Epic), `adr/` (MADR), `rules/` (every claim carries a `path:line` citation and a test link), `codex/` (generated, never hand-edited), `results/`, `ideas.md`, `tooling.md`, `BOOTSTRAP-PROMPT.md`, and BMAD's output folder in the nav.
+2. Skeleton: `index.md`, `architecture.md` (placeholder until BMAD's architecture exists; then a pointer), `fairness.md`, `upstream.md`, `roadmap.md`, `codebase-map.md`, `glossary.md` (Observation, Belief, Codex, Rig, Lore, Oracle mode, Redetermination, Hook, Story, Epic), `adr/` (MADR), `rules/` (every claim carries a `path:line` citation and a test link), `codex/` (generated, never hand-edited), `results/`, `ideas/`, `tooling.md`, `BOOTSTRAP-PROMPT.md`, and BMAD's output folder in the nav.
 3. `docs/README.md`: how the docs system works, what is generated, what is hand-written, and the rule that docs change in the same PR as the code they describe.
 4. Handoff.
 
@@ -263,7 +263,7 @@ The first E1 story should be: boot `core` on the libGDX headless backend, stub t
 - **Generated files are never hand-edited.** Codex output and generated docs are rebuilt by Gradle tasks and checked in CI.
 - **Rig numbers are published** as `docs/results/<date>-<sha>.md` with seed set, tag, both brains, and the SPRT outcome.
 - **Lore intake format** (so the human's super-search skill can feed it): one markdown file per claim in `lore/` with frontmatter `source_url`, `source_type`, `date`, `variant` (`spd` / `pd` / `mod:<name>` / `unknown`), `version_claimed`, `claim`, `tier` (1 = code confirms, 2 = harness confirms, 3 = hypothesis for the rig, F = false or obsolete for a given tag), `implemented_in`. Body: paraphrase, with at most a short quote. Variant is decided by the PD/SPD vocabulary diff, subreddit flairs, mod names, and dates against the changelog. Evan's blog at shatteredpixel.com is the highest-value source for design intent and is unambiguous about variant.
-- **Ideas go to `docs/ideas.md`**, not into the current story.
+- **Ideas go to a new file in `docs/ideas/`** (`<yyyy-mm-dd>-<slug>.md`), not into the current story.
 
 ## 9. What not to do
 

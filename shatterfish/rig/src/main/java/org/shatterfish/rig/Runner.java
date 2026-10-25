@@ -1,5 +1,6 @@
 package org.shatterfish.rig;
 
+import org.shatterfish.harness.knowledge.CodexManifest;
 import org.shatterfish.api.RunLog;
 import org.shatterfish.api.SeedSet;
 import org.shatterfish.harness.log.Replay;
@@ -943,6 +944,26 @@ public final class Runner {
             throw new IllegalArgumentException("the commit of " + root + " could not be read (" + cannot
                     + "), so state it: " + COMMIT + " <sha>");
         }
+    }
+
+    /**
+     * What a child JVM is started with, for the direction check, which may not read system
+     * properties itself (RigOracleGateTest): the Java executable and this process's classpath.
+     */
+    static Path javaExecutable() {
+        Path java = Path.of(System.getProperty("java.home"), "bin", "java");
+        Path exe = Path.of(java + ".exe");
+        return Files.exists(exe) ? exe : java;
+    }
+
+    /** This process's classpath, which a child inherits. */
+    static String classpath() {
+        return System.getProperty("java.class.path");
+    }
+
+    /** Whether this is Windows, where Gradle's wrapper is a .bat. */
+    static boolean windows() {
+        return System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win");
     }
 
     /** What this invocation ran on. It is recorded and never chained (ADR-0011). */

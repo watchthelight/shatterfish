@@ -25,7 +25,7 @@ import java.util.Set;
  * <p><b>What it groups by.</b> A Run log's ending records how the Run ended ({@code DEATH},
  * {@code WIN}, or a stop the game did not decide) and at what depth, and nothing about what killed
  * the hero: {@link RunLog.Outcome} has no killer -- no mob, trap or hunger. So the gallery groups by
- * ending and depth, and says so on every page; the killer is an idea for later (docs/ideas.md).
+ * ending and depth, and says so on every page; the killer is an idea for later (docs/ideas/).
  *
  * <p><b>Two sections.</b> Endings the game decided ({@link PairScore#ENDINGS}) come first, largest
  * group first: those are the deaths, and the largest is the place to look. Runs the game did not

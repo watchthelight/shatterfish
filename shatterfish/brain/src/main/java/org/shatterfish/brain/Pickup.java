@@ -41,6 +41,16 @@ import java.util.List;
  * (Dewdrop.java:63-69, :120-122), and whether it has is not on the screen. Every Step it takes
  * brings the hero nearer the heap; when the hero has stood still long enough for the explore Policy
  * to yield ({@link Explore#STUCK} - 1 waits), this one yields too.
+ *
+ * <p>It plans around the regions the fight Policy retreated from and, when no heap is worth its walk
+ * that way, through them (issue #182), as the explore Policy does; a Step it hands over into a region
+ * crosses and lifts it ({@link Brain#handed}).
+ *
+ * <p>One title is worth crossing the whole floor for regardless of the trip: {@link #WORN_KEY}
+ * (issue #163). A weighed worth would leave it behind whenever the trip back from wherever Goo died
+ * cost more than an ordinary item's, and nothing else fetches it, so the descend Policy would walk to
+ * the boss floor's locked exit, hand over an {@link Action.Unlock} the game refuses, and the hero
+ * would starve on the floor it had already cleared.
  */
 final class Pickup implements Policy {
 
@@ -68,9 +78,27 @@ final class Pickup implements Policy {
     /** A dewdrop's title (items.properties): refused at full health unless a waterskin has room. */
     static final String DEWDROP = "dewdrop";
 
+    /**
+     * A worn key's title (items.properties: {@code items.keys.wornkey.name=worn key}): Goo drops one
+     * where it dies ({@code core/.../actors/mobs/Goo.java:290}), and it is the only key that unlocks
+     * the boss floor's exit, turning its {@code LOCKED_EXIT} into {@code UNLOCKED_EXIT}
+     * ({@code Hero.java:1295-1300}, {@code :2452-2457}) -- general game knowledge, not a hidden fact
+     * (issue #163). Without it the floor cannot be left, so it is worth fetching from anywhere on the
+     * floor, not weighed against the trip like an ordinary item ({@link #KEY_WORTH}).
+     */
+    static final String WORN_KEY = "worn key";
+
+    /**
+     * What a worn key is worth carried (issue #163): enough to dominate {@link #worth} net of any
+     * turn cost a sensible weight set charges for crossing a whole floor -- a floor holds at most a
+     * few hundred walkable cells, and even at ten times the committed {@code turn} weight
+     * (weights/shatterfish.json) a thousand Steps cost far less than this.
+     */
+    static final long KEY_WORTH = 50_000_000L;
+
     @Override
     public boolean enters(Observation observation, Memory memory) {
-        return Explore.calm(observation)
+        return Explore.calm(observation, knowledge)
                 && observation.map().heaps().stream().anyMatch(heap -> takeable(heap, observation, memory));
     }
 
@@ -122,20 +150,41 @@ final class Pickup implements Policy {
      * Whether an enemy the game keeps passive is in view: scenery to {@link Explore#calm}, but one of
      * the hero's visible enemies, so arriving on a heap does not pick it up (Hero.java:1974-1977).
      */
-    static boolean passiveInView(Observation observation) {
-        return observation.actors().actors().stream()
-                .anyMatch(actor -> actor.alignment() == org.shatterfish.api.Alignment.ENEMY && Fight.passive(actor));
+    static boolean passiveInView(Observation observation, Codex.Knowledge knowledge) {
+        return observation.actors().actors().stream().anyMatch(actor -> actor.alignment() == org.shatterfish.api.Alignment.ENEMY
+                && Fight.passive(knowledge, observation.header(), actor));
     }
 
     /** The cell of the heap this Policy goes for, or -1. */
     int target(Observation observation, Memory memory) {
-        HeapView best = best(observation, memory);
-        return best == null ? -1 : best.cell();
+        Plan plan = plan(observation, memory);
+        return plan == null ? -1 : plan.heap().cell();
     }
 
-    private HeapView best(Observation observation, Memory memory) {
+    /** The heap this Policy goes for and the cells it walks over to reach it. */
+    private record Plan(HeapView heap, boolean[] walk) {
+    }
+
+    /**
+     * The best heap worth its walk around the regions the fight Policy retreated from, or, when none is,
+     * through the ones that have run half their life (issue #182): a region left
+     * over the only way to a heap kept it untaken for as long as the region lasted. A heap can wait for
+     * the enemy to move on, and walking back into a fresh region meets the enemy it was set for, which
+     * the fight Policy retreats from again. Null when no heap is worth its walk either way.
+     */
+    private Plan plan(Observation observation, Memory memory) {
+        for (long keepFor : new long[]{0, Brain.AVOID_WAITS / 2}) {
+            boolean[] walk = Explore.walkable(observation, memory, keepFor, false);
+            HeapView best = best(observation, memory, walk);
+            if (best != null) {
+                return new Plan(best, walk);
+            }
+        }
+        return null;
+    }
+
+    private HeapView best(Observation observation, Memory memory, boolean[] walk) {
         MapSection map = observation.map();
-        boolean[] walk = Explore.walkable(observation, memory);
         int[] distance = distances(map, walk, observation.hero().cell());
         HeapView best = null;
         long bestNet = 0;
@@ -144,7 +193,7 @@ final class Pickup implements Policy {
                     || distance[heap.cell()] < 0) {
                 continue;
             }
-            int turns = distance[heap.cell()] + 1 + (distance[heap.cell()] > 0 && passiveInView(observation) ? 1 : 0);
+            int turns = distance[heap.cell()] + 1 + (distance[heap.cell()] > 0 && passiveInView(observation, knowledge) ? 1 : 0);
             long net = Math.addExact(worth(heap.item(), observation), evaluation.turns(turns));
             if (net > bestNet) {
                 bestNet = net;
@@ -158,12 +207,13 @@ final class Pickup implements Policy {
     public RunLog.Choice choose(Observation observation, Memory memory, List<Action> offered, Stream stream) {
         MapSection map = observation.map();
         int hero = observation.hero().cell();
-        boolean[] walk = Explore.walkable(observation, memory);
-        int[] distance = distances(map, walk, hero);
-        HeapView best = best(observation, memory);
-        if (best == null || (stuck(memory) && best.cell() != hero)) {
+        Plan plan = plan(observation, memory);
+        if (plan == null || (stuck(memory) && plan.heap().cell() != hero)) {
             return null;
         }
+        HeapView best = plan.heap();
+        boolean[] walk = plan.walk();
+        int[] distance = distances(map, walk, hero);
         String label = Beliefs.untitled(best.item());
         if (best.cell() == hero) {
             Action take = new Action.PickUp();
@@ -181,6 +231,9 @@ final class Pickup implements Policy {
     long worth(String title, Observation observation) {
         String name = Beliefs.untitled(title);
         int quantity = quantity(title);
+        if (name.equals(WORN_KEY)) {
+            return KEY_WORTH;
+        }
         if (name.equals("gold")) {
             return evaluation.gold(quantity);
         }

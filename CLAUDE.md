@@ -18,7 +18,9 @@ sh tools/fetch-vanilla.sh                  # the Codex's second pinned source (E
 ./gradlew :rig:run --args="..."            # the rig (E3); see /rig
 ./gradlew :rig:gallery --args="<folder> [--snapshots N]"   # the death gallery for a Rig folder (E3)
 ./gradlew :rig:strategy --args="<log.jsonl or folder>"     # the plain-text strategy log beside each Run log (E4)
+./gradlew :rig:direction --args="--set standard --class WARRIOR --first 40 --salt-base 1000 [--baseline <git-ref|folder>] [--jobs 2]"   # the PR table (tuning set shown); refuses goo and holdout
 uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict   # docs, as CI runs it
+python tools/after-merge.py <PR> [--key K] [--close]   # bookkeeping after a merge: sprint-status, issues, README and codex checks
 ```
 
 If Gradle test workers fail with Windows error 740 ("requires elevation"), a stale daemon from
@@ -41,14 +43,14 @@ These apply to every artifact, every story, every line of code, and they are not
 
 - **State**: GitHub Issues and milestones at `watchthelight/shatterfish` (always pass `-R watchthelight/shatterfish`; the `upstream` remote points at 00-Evan's repository and `gh` will target it if you let it). `_bmad-output/implementation-artifacts/sprint-status.yaml` once sprint planning has run.
 - **Content**: BMAD story/spec files in `_bmad-output/implementation-artifacts/`; planning artifacts in `_bmad-output/planning-artifacts/`.
-- **Knowledge**: `docs/` (MkDocs site, `docs/README.md` explains it). ADRs in `docs/adr/`, mechanics rules with `path:line` citations in `docs/rules/`, hooks in `docs/UPSTREAM.md`, ideas in `docs/ideas.md`, published numbers in `docs/results/`.
+- **Knowledge**: `docs/` (MkDocs site, `docs/README.md` explains it). ADRs in `docs/adr/`, mechanics rules with `path:line` citations in `docs/rules/`, hooks in `docs/UPSTREAM.md`, ideas in `docs/ideas/`, published numbers in `docs/results/`.
 - **How to work**: this file. Program seed: `docs/BOOTSTRAP-PROMPT.md` (approved BMAD artifacts override it). Tool inventory: `docs/tooling.md`.
 - **Shatterfish code**: `shatterfish/<module>/`, package `org.shatterfish.<module>`. Upstream code is everything else; edit it only through hooks.
 
 ## Session ritual
 
-1. Read this file. Run `/bmad-help` for where the method thinks you are.
-2. Read `sprint-status.yaml` (if it exists) and `gh issue list -R watchthelight/shatterfish --milestone "<current epic>" --state open`.
+1. Read this file and the watchthelight boot block for the project (status and open loops live there).
+2. Read `sprint-status.yaml` and `gh issue list -R watchthelight/shatterfish --milestone "<current epic>" --state open`. `/bmad-help` only when unsure where the method is.
 3. Confirm the one step for this turn with the human (or take it from the last handoff).
 4. Do it. Hand off with `/handoff`.
 
@@ -60,7 +62,7 @@ These apply to every artifact, every story, every line of code, and they are not
 - When context grows heavy, `/compact` with the instruction to preserve decisions, open questions, and the next step.
 - Ask the human only at the bootstrap checkpoints (A-F) or before irreversible or costly actions: creating remotes, enabling services, installing software, deleting anything, merging an upstream tag.
 - Before any non-trivial step: restate goal and binding constraints, list at least three alternatives, pick one and say why, run a short pre-mortem; write the outcome into the artifact (ADR, story file, design note), not just chat. Add *ultrathink* for anything hard, especially anything touching `Observer`.
-- Micro-brainstorm before any design decision, even small ones (`/adr` carries the protocol). New ideas mid-story go to `docs/ideas.md`, not into the story.
+- Micro-brainstorm before any design decision, even small ones (`/adr` carries the protocol). New ideas mid-story go in a new file `docs/ideas/<yyyy-mm-dd>-<slug>.md` (one per idea, title as its first line; the index is built, never edited), not into the story.
 
 ## Git and GitHub
 

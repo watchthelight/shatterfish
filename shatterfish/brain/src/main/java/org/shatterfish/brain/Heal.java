@@ -24,8 +24,8 @@ import java.util.List;
  * <p><b>The threshold is the visible threat, not a constant.</b> From story 4.7's threat estimate
  * ({@link Fight}), over the enemies that <em>threaten</em> the hero: awake (no sleep icon over them,
  * docs/rules/combat.md) and able to reach it, by the cells the hero may walk on, within {@code 1 + H}
- * steps -- or, whatever the steps, one that shoots or flies ({@link #AT_RANGE}), which needs no path on
- * foot. {@code H} is the turns the hero expects to need to kill the enemy it kills soonest, between 1
+ * steps -- or, whatever the steps, one that shoots or flies ({@link Bestiary#atRange}, from the bestiary's
+ * tags), which needs no path on foot. {@code H} is the turns the hero expects to need to kill the enemy it kills soonest, between 1
  * and {@link #HORIZON}. Of those, the {@code k} that can engage the hero's cell at once
  * ({@link Fight#engage}); {@code perTurn}, the damage they are expected to deal a turn; {@code worst},
  * their largest rolls less the smallest roll of the hero's armour. The danger is
@@ -54,7 +54,7 @@ import java.util.List;
  *
  * <p>Not modelled: the Vial of Blood trinket spreads a heal over more turns and caps what each turn heals
  * (Healing.java:80-82, :91-93), so with it the remaining heal is larger than {@link #remaining} says and
- * the first turn's smaller. The trinket shows in the inventory; docs/ideas.md has the gap.
+ * the first turn's smaller. The trinket shows in the inventory; docs/ideas/ has the gap.
  *
  * <p>A potion counts only when the screen shows it identified by name. An unidentified potion is
  * story 4.10's to test.
@@ -65,17 +65,6 @@ final class Heal implements Policy {
 
     /** The Policy's name, as the Decision records it and {@link Brain#policyNames()} lists it. */
     static final String NAME = "heal";
-
-    /**
-     * The enemies that attack from where they stand, by the name the screen shows, and the one that
-     * flies: the gnoll shaman, the DM-100 and the dwarf warlock cast along a magic bolt
-     * (Shaman.java:72-75, DM100.java:75-78, Warlock.java:77-80), the evil eye beams (Eye.java:90-106),
-     * the scorpio and the acidic scorpio, which is one, shoot along a projectile line (Scorpio.java:72-76,
-     * Acidic extends Scorpio), and the vampire bat flies over what the hero cannot cross (Bat.java:45).
-     * Names from actors.properties:1499, :1513, :1561, :1629, :1772, :1778, :1882.
-     */
-    static final java.util.Set<String> AT_RANGE = java.util.Set.of("gnoll shaman", "DM-100", "dwarf warlock",
-            "evil eye", "scorpio", "acidic scorpio", "vampire bat");
 
     /**
      * What is left of a heal, in thousandths of a whole potion, under which a second drink is worth
@@ -109,7 +98,7 @@ final class Heal implements Policy {
     public boolean enters(Observation observation, Memory memory) {
         HeroSection hero = observation.hero();
         return observation.header().prompt() == PromptKind.NONE && hero.hp() < hero.ht()
-                && !Fight.enemies(observation).isEmpty();
+                && !Fight.enemies(observation, knowledge).isEmpty();
     }
 
     @Override
@@ -122,7 +111,7 @@ final class Heal implements Policy {
         if (memory.drank() >= 0 && !spent(hero.ht(), memory.waits() - memory.drank())) {
             return null;
         }
-        List<ActorView> enemies = Fight.enemies(observation);
+        List<ActorView> enemies = Fight.enemies(observation, knowledge);
         // Above the low-health warning a retreat is worth more than a drink; at it, the retreat is
         // what gets the hero killed (story 4.13: of 40 Warriors, heroes at 1 to 4 hit points with a
         // known potion held stepped away and died), so the drink comes first and buys the escape.
@@ -193,7 +182,7 @@ final class Heal implements Policy {
      */
     static int danger(Observation observation, Codex.Knowledge knowledge, Memory memory) {
         List<ActorView> awake = new ArrayList<>();
-        for (ActorView enemy : Fight.enemies(observation)) {
+        for (ActorView enemy : Fight.enemies(observation, knowledge)) {
             if (enemy.emote() != Emote.SLEEP) {
                 awake.add(enemy);
             }
@@ -212,7 +201,7 @@ final class Heal implements Policy {
         List<Integer> worst = new ArrayList<>();
         for (ActorView enemy : awake) {
             int reach = steps[enemy.cell()];
-            if (!AT_RANGE.contains(enemy.name()) && (reach < 0 || reach > turns + 1)) {
+            if (!Bestiary.atRange(knowledge, observation.header().depth(), observation.header().branch(), enemy.name()) && (reach < 0 || reach > turns + 1)) {
                 continue;
             }
             Codex.Threat threat = Fight.threat(observation, knowledge, enemy);

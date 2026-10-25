@@ -25,7 +25,9 @@ import org.shatterfish.harness.observer.Observer;
  * <p>Two ways to spend the frames the Brain thinks through. {@link #stepWhileThinking} false is the
  * headless loop's timing, the decision made within its frame, which is what the determinism test
  * compares against a Rig Run; true is the desktop's, where the frames go on while the worker thinks,
- * which is what the threading test measures.
+ * which is what the threading test measures. With {@link #waitForTheWorker} as well, the frames go on
+ * only while a decided answer waits on the game, never while the worker is still deciding, so
+ * {@link #framesWhileThinking} then counts held frames only (issue #193).
  */
 final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
 
@@ -34,12 +36,23 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
     final HeroClass heroClass;
     EmbeddedRun run;
     boolean stepWhileThinking;
+    /**
+     * With {@link #stepWhileThinking}: the game is not stepped while the worker is still deciding, only
+     * while a decided answer waits on the game (issue #193), so a test of what happens after the answer
+     * does not depend on how fast the worker is scheduled.
+     */
+    boolean waitForTheWorker;
     /** Frames the scene was stepped while the Run was thinking. */
     long framesWhileThinking;
     /** Runnables the host pretends are queued, as the desktop's queue can hold some across frames. */
     int heldQueue;
     /** Loading-scene frames served: one per floor change the game asked for. */
     int loadingFrames;
+    /**
+     * The game time each frame advances by, or 0 for the headless stepper's own fifth of a second
+     * (issue #170): the desktop's frames are a sixtieth, which is what a window's input guard counts.
+     */
+    float frameTime;
 
     EmbeddedHost(long seed, HeroClass heroClass, long salt) {
         this.seed = seed;
@@ -99,7 +112,7 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
     EmbeddedRun.State frame() {
         HeadlessGame game = driver.headlessBoot().game();
         boolean thinking = run.state() == EmbeddedRun.State.THINKING;
-        if (!thinking || stepWhileThinking) {
+        if (!thinking || stepWhileThinking && !(waitForTheWorker && run.deciding())) {
             if (game.sceneSwitchRequested() && game.requestedSceneClass() == InterlevelScene.class
                     && servedByTheLoadingScene(InterlevelScene.mode)) {
                 InterlevelScene.Mode mode = InterlevelScene.mode;
@@ -121,7 +134,11 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
                 game.clearSceneSwitchRequest();
             }
             if (!game.sceneSwitchRequested()) {
-                driver.step();
+                if (frameTime > 0) {
+                    driver.stepper().step(frameTime);
+                } else {
+                    driver.step();
+                }
                 if (thinking) {
                     framesWhileThinking++;
                 }
@@ -143,7 +160,7 @@ final class EmbeddedHost implements EmbeddedRun.Host, AutoCloseable {
      * leave the wait to the test's timeout.
      */
     boolean waitingOnTheBrain() {
-        return run.state() == EmbeddedRun.State.THINKING && !stepWhileThinking;
+        return run.state() == EmbeddedRun.State.THINKING && (!stepWhileThinking || waitForTheWorker && run.deciding());
     }
 
     /** Plays until the Run ends or {@code maxFrames} game frames have gone by; says how it stands. */

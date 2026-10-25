@@ -153,7 +153,7 @@ public final class HeadlessBoot {
         game = new HeadlessGame(new HeadlessPlatformSupport());
 
         try {
-            profile(java.nio.file.Files.createTempDirectory("shatterfish-profile"));
+            profile(TempDirs.createDeletedOnExit("shatterfish-profile"));
         } catch (IOException e) {
             throw new UncheckedIOException("could not create a profile directory", e);
         }

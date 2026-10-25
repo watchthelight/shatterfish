@@ -46,10 +46,10 @@ public final class Brain {
 
     /** The Policies, highest priority first, fighting by {@code knowledge} and scoring by {@code evaluation}. */
     private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation) {
-        return List.of(Policies.answerPrompt(knowledge), new Heal(knowledge), new Fight(knowledge), new Eat(),
+        return List.of(Policies.answerPrompt(knowledge), new Heal(knowledge), new Fight(knowledge), new Eat(knowledge),
                 new TestItem(knowledge), new Pickup(evaluation, knowledge), new Equip(evaluation, knowledge),
                 new Descend(knowledge),
-                new Explore(), Policies.fallback(evaluation));
+                new Explore(knowledge), Policies.fallback(evaluation));
     }
 
     /**
@@ -96,6 +96,11 @@ public final class Brain {
         return knowledge.manifest();
     }
 
+    /** The general game knowledge this Brain was built on, as its caller read it (an immutable {@code api} value). */
+    public Codex.Knowledge knowledge() {
+        return knowledge;
+    }
+
     /** What this Brain believes at {@code observation}, holding {@code belief} (the one {@link #update} returned for it). */
     public Beliefs beliefs(Observation observation, Belief belief) {
         return Beliefs.view(Memory.of(belief), observation, knowledge);
@@ -109,9 +114,32 @@ public final class Brain {
         return Safety.ALL;
     }
 
-    /** The enemies the fight Policy treats as scenery, by the name the screen shows (story 4.7). */
-    public static java.util.Set<String> passiveEnemies() {
-        return Fight.PASSIVE;
+    /**
+     * The enemies the fight Policy treats as scenery, by the name the screen shows (story 4.7), as
+     * {@code knowledge}'s bestiary tags them. Each entry is asked on its own first depth, so for a name
+     * shared by several classes the answer is not what {@code Knowledge.tactics} picks in play; use
+     * {@link #bestiaryAnswers} for that. Only tests call this.
+     */
+    public static java.util.Set<String> passiveEnemies(Codex.Knowledge knowledge) {
+        java.util.Set<String> names = new java.util.TreeSet<>();
+        for (Codex.Tactics tactics : knowledge.bestiary()) {
+            int depth = tactics.depths().isEmpty() ? 0 : tactics.depths().get(0);
+            if (Bestiary.passive(knowledge, depth, 0, tactics.name())) {
+                names.add(tactics.name());
+            }
+        }
+        return names;
+    }
+
+    /**
+     * What the Brain asks the bestiary of an enemy named {@code name} on {@code depth} of {@code branch}
+     * ({@code Bestiary}): whether it is passive until provoked, whether it threatens from where it
+     * stands or flies, and whether it never walks, as {@code passive/atRange/immobile}. For the rig's
+     * test that the classes sharing a name answer alike.
+     */
+    public static String bestiaryAnswers(Codex.Knowledge knowledge, int depth, int branch, String name) {
+        return Bestiary.passive(knowledge, depth, branch, name) + "/" + Bestiary.atRange(knowledge, depth, branch, name)
+                + "/" + Bestiary.immobile(knowledge, depth, branch, name);
     }
 
     /** The name under which the Codex measures the mage's staff, whatever wand it holds (story 4.7). */
@@ -141,7 +169,10 @@ public final class Brain {
     }
 
     /** How many waits a region the fight Policy retreated from stays avoided. */
-    static final int AVOID_WAITS = 100;
+    static final int AVOID_WAITS = 40;
+
+    /** The widest a region the fight Policy retreated from reaches, in cells from where the enemy stood. */
+    static final int AVOID_RADIUS = 5;
 
     /** The kinds of Action whose window, once left, is shunned on the floor (story 4.11). */
     static final java.util.Set<String> OPENERS = java.util.Set.of("Interact", "Buy", "UseItem", "UseItemOn",
@@ -220,20 +251,29 @@ public final class Brain {
         }
         int depth = observation.header().depth();
         int branch = observation.header().branch();
+        // An Unlock the descend Policy handed over at a locked exit (issue #163's fairness review),
+        // recorded whether or not it succeeds: once it does the exit is no longer LOCKED_EXIT and
+        // Descend never consults this again for it, so recording every try costs nothing and a
+        // refusal is never walked back into on its own.
+        if (decision != null && Descend.NAME.equals(decision.policy()) && decided.action() instanceof Action.Unlock unlock) {
+            memory = memory.unlockRefused(new Memory.Spot(depth, branch, unlock.cell()));
+        }
         // The chase (issue #174): an approach records the enemy it goes for, where the screen shows it; a
         // chase keeps it; anything else the fight Policy hands over -- an attack, a retreat, a hold -- ends it.
         if (decision != null && Fight.NAME.equals(decision.policy())) {
             String why = decision.chosen().why();
-            if (why.startsWith("approach ") && Fight.quarry(observation) >= 0) {
-                memory = memory.chasing(new Memory.Spot(depth, branch, Fight.quarry(observation)), memory.waits());
+            if (why.startsWith("approach ") && Fight.quarry(observation, knowledge) >= 0) {
+                memory = memory.chasing(new Memory.Spot(depth, branch, Fight.quarry(observation, knowledge)), memory.waits());
             } else if (!why.startsWith("chase ")) {
                 memory = memory.chasing(Memory.Spot.NOWHERE, -1);
             }
         }
-        // A Step into a region the fight Policy retreated from, handed over by the explore or the descend
-        // Policy, which plan around the regions and through one only when no way around is left (issue
-        // #174): the region is crossed, and lifted. Explore's own way out of a region ("away") is no crossing.
-        if (decision != null && (Explore.NAME.equals(decision.policy()) || Descend.NAME.equals(decision.policy()))
+        // A Step into a region the fight Policy retreated from, handed over by the explore, the descend or
+        // (issue #182) the pick-up Policy, which plan around the regions and through one only when no way
+        // around is left (issue #174): the region is crossed, and lifted. Explore's own way out of a region
+        // ("away") is no crossing.
+        if (decision != null && (Explore.NAME.equals(decision.policy()) || Descend.NAME.equals(decision.policy())
+                || Pickup.NAME.equals(decision.policy()))
                 && decided.action() instanceof Action.Step step && !decision.chosen().why().startsWith("away ")) {
             memory = memory.lifting(depth, branch, step.cell(), observation.map().width());
         }
@@ -241,7 +281,7 @@ public final class Brain {
         // one Step toward them let the explore Policy walk straight back, with no region to keep it out).
         if (decision != null && Fight.NAME.equals(decision.policy())
                 && decision.chosen().why().startsWith("retreat")) {
-            java.util.List<org.shatterfish.api.ActorView> enemies = Fight.enemies(observation);
+            java.util.List<org.shatterfish.api.ActorView> enemies = Fight.enemies(observation, knowledge);
             int hero = observation.hero().cell();
             int width = observation.map().width();
             org.shatterfish.api.ActorView nearest = null;
@@ -256,7 +296,7 @@ public final class Brain {
             }
             if (nearest != null) {
                 memory = memory.avoiding(new Memory.Avoid(observation.header().depth(), observation.header().branch(),
-                        nearest.cell(), Math.min(8, best + 1), memory.waits() + AVOID_WAITS));
+                        nearest.cell(), Math.min(AVOID_RADIUS, best + 1), memory.waits() + AVOID_WAITS));
             }
         }
         return memory.belief();
@@ -306,10 +346,16 @@ public final class Brain {
         // until the roots wear off (story 4.12, Explore.rooted); nor, on a calm screen, a dizzy hero's,
         // which go where the vertigo sends them (story 4.13, Explore.dizzy) -- unless the hero stands in
         // fire or gas, where a Step anywhere beats staying put.
-        if (Explore.rooted(observation) || Explore.dizzy(observation) && !TestItem.inHarm(observation)) {
+        if (Explore.rooted(observation) || Explore.dizzy(observation, knowledge) && !TestItem.inHarm(observation)) {
             offered = offered.stream().filter(action -> !(action instanceof Action.Step
                     || action instanceof Action.Descend || action instanceof Action.Ascend)).toList();
         }
+        // A Step onto a chasm asks whether to jump, and a jump is a fall with its damage and the floor
+        // left unfinished; no Policy means one, so none is offered one (issue #170, Explore.chasm). The
+        // fight Policy's chokepoint and retreat pick among the offered Steps without a plan's walkable
+        // cells, and a chasm, which no enemy stands on, looked like the best chokepoint there was.
+        offered = offered.stream().filter(action -> !(action instanceof Action.Step step
+                && Explore.chasm(observation, step.cell()))).toList();
         // Back and forth between two cells for Memory.BOUNCES waits: the Step back is withheld from
         // every Policy for this wait, so two Policies that undo each other's Step stop (story 4.13); the fold
         // has blocked its cell for Memory.BOUNCE_WAITS waits too, so they do not start again (issue #174).

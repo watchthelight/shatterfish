@@ -194,8 +194,26 @@ public final class EmbeddedRun implements AutoCloseable {
     /** The speed a HUMAN Run's mode record names: the person's own pace, since no speed mode paces it. */
     public static final String HUMAN_SPEED = "player";
 
+    /**
+     * The game time a window must have been in front before the Run taps it (issue #170): the chasm's
+     * confirmation ignores every tap and the back key until its own count of {@code Game.elapsed} is
+     * past a fifth of a second ({@code core/.../levels/features/Chasm.java:69-87}), a guard against a
+     * player's misclick. Headlessly every frame is a fifth of a second and a wait is confirmed at the
+     * window's second frame, so the count is at least twice this by the tap; the desktop draws a frame
+     * every sixtieth of a second and the Brain answers within a few, and a tap that early was lost: the
+     * window stayed, the Brain answered it again, and every answer was a wait with no turn passed.
+     */
+    static final float INPUT_GUARD_SECONDS = 0.2f;
+
     private int attachments;
     private double secondsWithoutAWait;
+    /** The window in front at the last game frame, and the game time it has been in front, its first frame included. */
+    private Window guardWindow;
+    private float guardSeconds;
+    private float lastTimeTotal = Float.NaN;
+    private long lastFrameId = Long.MIN_VALUE;
+    /** Frames a Prompt's answer was held back until its window took input (issue #170). */
+    private long heldFrames;
     /** The wait being confirmed again after a stale answer, which is not a second wait on the same turn. */
     private boolean reconfirming;
     /** The decider's state before it was asked the pending question, when it can be put back. */
@@ -240,7 +258,13 @@ public final class EmbeddedRun implements AutoCloseable {
     /** The thread the last decision ran on, for a test to see it was not this one. */
     private volatile Thread decidedOn;
     private RunOutcome outcome;
-    private boolean closed;
+    private volatile boolean closed;
+    /** The Brain's worker thread once it has started, for the watchdog's report. */
+    private volatile Thread brainThread;
+    /** Says what the threads are doing when no wait is served for a while (issue #175); null for a HUMAN Run. */
+    private Watchdog watchdog;
+    /** Whether the Run still plays, as the watchdog reads it from its own thread. */
+    private volatile boolean ended;
 
     /** A shadow question in flight: the wait it was asked at, and the Decision it will answer with. */
     private record Shadowed(long k, Observation observation, Future<ShadowAnswer> decision) {
@@ -271,6 +295,7 @@ public final class EmbeddedRun implements AutoCloseable {
         this.worker = Executors.newSingleThreadExecutor(task -> {
             Thread thread = new Thread(task, "shatterfish-brain");
             thread.setDaemon(true);
+            brainThread = thread;
             return thread;
         });
     }
@@ -354,6 +379,12 @@ public final class EmbeddedRun implements AutoCloseable {
                             + " game past the Overlay's input lock");
                 }
             }
+            if (!human) {
+                // A person's Run waits on the person, and a long wait there is no freeze (issue #175).
+                run.watchdog = new Watchdog(Watchdog.sideLogOf(log == null ? null : log.file()), System.err, ui,
+                        () -> run.brainThread, run.gate::waitIndex, () -> !run.ended && !run.closed, Watchdog.SECONDS);
+                run.watchdog.start();
+            }
             run.arm();
             return run;
         } catch (RuntimeException | Error failed) {
@@ -434,8 +465,13 @@ public final class EmbeddedRun implements AutoCloseable {
         if (human != null) {
             return humanFrame();
         }
+        timeTheWindow();
         if (pending != null) {
             if (!pending.isDone()) {
+                return State.THINKING;
+            }
+            if (tooEarlyForTheWindow()) {
+                heldFrames++;
                 return State.THINKING;
             }
             serve();
@@ -727,6 +763,63 @@ public final class EmbeddedRun implements AutoCloseable {
         return shadowFailures;
     }
 
+    /**
+     * Counts the game time the window in front has been there, once per game frame: a call to
+     * {@link #frame()} with no game frame before it (a host that does not step while the Brain thinks)
+     * adds nothing. The frame that first shows a window counts whole, which is exact for a window a
+     * runnable put up, since the render thread runs those before the scene's update
+     * ({@code SceneStepper}'s frame; libGDX's loop on the desktop) -- the chasm's is one
+     * ({@code Chasm.java:59-62}).
+     */
+    private void timeTheWindow() {
+        // A game frame advanced the clock or, on the desktop, the backend's frame count: the clock alone is
+        // a float that stops moving by a sixtieth after about three days on one scene (the fairness review).
+        float now = Game.timeTotal;
+        long frame = com.badlogic.gdx.Gdx.graphics == null ? -1 : com.badlogic.gdx.Gdx.graphics.getFrameId();
+        boolean framed = !(now == lastTimeTotal) || frame != lastFrameId;
+        lastTimeTotal = now;
+        lastFrameId = frame;
+        Window window = Windows.front();
+        if (window != guardWindow) {
+            guardWindow = window;
+            guardSeconds = framed ? Game.elapsed : 0f;
+        } else if (framed) {
+            guardSeconds += Game.elapsed;
+        }
+    }
+
+    /**
+     * Whether the Brain's answer is a tap on the window in front, or its back key, that the window would
+     * still ignore (issue #170): then it is held, and served at the first frame the window takes it. The
+     * answer is not changed and nothing is recorded meanwhile; if the screen changes while it is held,
+     * {@link #serve()} drops it as stale, as it drops any other. A hold spends only frames the desktop
+     * draws anyway; headlessly timed frames are never held, so the Run a test host plays at the headless
+     * loop's timing is still that loop's Run.
+     */
+    private boolean tooEarlyForTheWindow() {
+        if (pending.state() != Future.State.SUCCESS) {
+            return false;
+        }
+        Action chosen = pending.resultNow().action();
+        boolean prompt = chosen instanceof Action.AnswerPrompt || chosen instanceof Action.DismissPrompt;
+        return prompt && guardWindow != null && guardWindow == Windows.front() && guardSeconds <= INPUT_GUARD_SECONDS;
+    }
+
+    /** Frames a Prompt's answer was held until its window took input (issue #170). */
+    public long heldFrames() {
+        return heldFrames;
+    }
+
+    /**
+     * Whether the worker is still deciding the pending question, for a test host that holds the game's
+     * clock until it has (issue #193). Called on the render thread, as {@link #frame()} is. A HUMAN Run's
+     * shadow decisions are not counted.
+     */
+    boolean deciding() {
+        UiRole.require("EmbeddedRun.deciding()");
+        return pending != null && !pending.isDone();
+    }
+
     /** The Brain has answered: execute the answer and write the wait's record, as the headless loop does. */
     private void serve() {
         Future<Decided> done = pending;
@@ -762,6 +855,9 @@ public final class EmbeddedRun implements AutoCloseable {
             return;
         }
         pendingMark = null;
+        if (watchdog != null) {
+            watchdog.served();
+        }
         Decided decided;
         if (done.state() == Future.State.SUCCESS) {
             decided = done.resultNow();
@@ -888,6 +984,10 @@ public final class EmbeddedRun implements AutoCloseable {
             waits = applied;
         }
         outcome = RunLoop.outcome(cause, rng.salt(), waits, applied, refused, detail);
+        ended = true;
+        if (watchdog != null) {
+            watchdog.close();
+        }
         RunLoop.ending(log, gate.waitIndex(), outcome, human != null && human.unverifiableFrom() > 0);
         if (log != null) {
             log.close();
@@ -897,25 +997,40 @@ public final class EmbeddedRun implements AutoCloseable {
 
     /**
      * Detaches the Run: the worker stops, the hooks this Run set are taken back, and the UI role is
-     * released if this Run claimed it. A Run closed before it ended leaves a log with no end record,
-     * which is what a killed Run's log is and what the Rig counts it as (ADR-0012).
+     * released if this Run claimed it. A Run closed before it ended is ended here, as {@code CLOSED}, with
+     * the wait it was closed at (issue #175): the Overlay closes its Run when its window is closed or the
+     * game exits ({@code OverlayGame.dispose}), so an Overlay log always ends with an end record, and a
+     * log with none is a process that died without closing, which is what a killed Run's log is and what
+     * the Rig counts it as (ADR-0012). A decision still pending is dropped unrecorded.
      */
     @Override
     public void close() {
         if (closed) {
             return;
         }
-        closed = true;
         try {
             if (pending != null) {
                 pending.cancel(true);
                 pending = null;
             }
-            worker.shutdownNow();
-            if (outcome == null && log != null) {
-                log.close();
+            if (outcome == null) {
+                try {
+                    end(RunOutcome.Cause.CLOSED, "closed at wait " + gate.waitIndex());
+                } catch (RuntimeException unended) {
+                    // The window is closing: an end record that cannot be written must not keep it open.
+                    System.err.println("[shatterfish] the closed Run's end record was not written: " + unended);
+                    if (log != null) {
+                        log.close();
+                    }
+                }
             }
+            closed = true;
+            if (watchdog != null) {
+                watchdog.close();
+            }
+            worker.shutdownNow();
         } finally {
+            closed = true;
             if (Hooks.inputWait == inputWait) {
                 Hooks.inputWait = null;
             }
@@ -1015,6 +1130,11 @@ public final class EmbeddedRun implements AutoCloseable {
     /** The Run's log file, or null for a Run with no log. */
     public java.nio.file.Path logFile() {
         return log == null ? null : log.file();
+    }
+
+    /** The Run's watchdog (issue #175), or null for a HUMAN Run; for the tests. */
+    Watchdog watchdog() {
+        return watchdog;
     }
 
     /** The UI-role thread this Run was attached on. */

@@ -35,6 +35,11 @@ tasks.named('test') {
     inputs.dir(rootProject.file('docs/results')).withPropertyName('resultsPages').withPathSensitivity(PathSensitivity.RELATIVE)
     // The Brain's Rules index and the pages it points at (story 4.4): BrainRulesIndexTest reads them.
     inputs.file(rootProject.file('docs/brain-rules.md')).withPropertyName('brainRules').withPathSensitivity(PathSensitivity.RELATIVE)
+    // It also checks every reference to a row by slug across docs/ and the source, and
+    // IdeasIndexTest reads the ideas folder, its hook and the nav.
+    inputs.files(rootProject.fileTree('docs') { include '**/*.md'; include 'hooks/*.py' }).withPropertyName('docsPages').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.files(rootProject.fileTree('shatterfish') { include '*/src/**/*.java' }).withPropertyName('sourceForRowReferences').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(rootProject.file('mkdocs.yml')).withPropertyName('mkdocsConfig').withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir(rootProject.file('docs/rules')).withPropertyName('rulePages').withPathSensitivity(PathSensitivity.RELATIVE)
     // The Brain is built on the Codex the rig reads for it (story 4.1)
     inputs.dir(rootProject.file('codex')).withPropertyName('codex').withPathSensitivity(PathSensitivity.RELATIVE)
@@ -153,6 +158,19 @@ tasks.register('run', JavaExec) {
     description = 'Runs a Brain over a Seed set, one process per Run.'
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'org.shatterfish.rig.Runner'
+    workingDir = rootDir
+    outputs.upToDateWhen { false }
+}
+
+// `./gradlew :rig:direction --args="--set standard --class WARRIOR --first 40 --salt-base 1000
+// [--baseline <git ref|folder>] [--jobs 2] [--out <dir>]"` plays a development subset with the
+// current Brain (and a baseline) and prints the table every Brain PR carries. A direction check,
+// never an acceptance: it refuses the goo and holdout sets.
+tasks.register('direction', JavaExec) {
+    group = 'shatterfish'
+    description = 'Plays a seed subset with the current Brain and a baseline, and prints the PR table.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.rig.Direction'
     workingDir = rootDir
     outputs.upToDateWhen { false }
 }

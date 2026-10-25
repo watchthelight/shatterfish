@@ -1,5 +1,6 @@
 package org.shatterfish.rig;
 
+import org.shatterfish.harness.knowledge.CodexKnowledge;
 import org.shatterfish.api.HeroClass;
 import org.shatterfish.api.RunLog;
 import org.shatterfish.api.SeedSet;
@@ -78,6 +79,16 @@ public final class RunOne {
 
     /** The outcome, for a caller in this process; the log is the record the Rig reads. */
     public static RunOutcome play(Map<String, String> arguments) {
+        return play(arguments, decider -> decider);
+    }
+
+    /**
+     * The same Run, with the Brain wrapped by {@code wrap} before it is played. The direction check
+     * wraps it to watch the Observations the Brain is handed; every other part of a Run, its
+     * arguments, its header and its log, stays this method's, so a Run cannot drift from this one.
+     */
+    static RunOutcome play(Map<String, String> arguments,
+                           java.util.function.UnaryOperator<org.shatterfish.api.Decider> wrap) {
         long seed = number(arguments, SEED);
         long salt = number(arguments, SALT);
         String brain = required(arguments, BRAIN);
@@ -99,16 +110,18 @@ public final class RunOne {
         org.shatterfish.api.Weights weights = Brains.readsWeights(brain)
                 ? WeightsFile.read(Path.of(arguments.get(WEIGHTS)), brain)
                 : null;
+        String knowledge = arguments.containsKey(CODEX) && Brains.readsCodex(brain)
+                ? CodexKnowledge.digest(Path.of(arguments.get(CODEX))) : null;
         RunLoop.Logging logging = new RunLoop.Logging(out,
                 required(arguments, COMMIT),
-                new RunLog.Brain(brain, required(arguments, BRAIN_COMMIT), Brains.configHash(brain, weights)),
+                new RunLog.Brain(brain, required(arguments, BRAIN_COMMIT), Brains.configHash(brain, weights, knowledge)),
                 arguments.getOrDefault(REGISTRATION, ""), arguments.getOrDefault(MACHINE, ""));
         int cap = arguments.containsKey(CAP) ? (int) number(arguments, CAP) : RunLoop.TURN_CAP;
         where();
         org.shatterfish.api.Codex.Knowledge codex = arguments.containsKey(CODEX) && Brains.readsCodex(brain)
                 ? CodexKnowledge.read(Path.of(arguments.get(CODEX)), org.shatterfish.harness.boot.HeadlessBoot.pinnedTag())
                 : null;
-        return new RunLoop().playTriple(triple, salt, Brains.of(brain, triple, codex, weights), cap, logging);
+        return new RunLoop().playTriple(triple, salt, wrap.apply(Brains.of(brain, triple, codex, weights)), cap, logging);
     }
 
     /** The file a Run leaves in its own working directory, naming that directory. */

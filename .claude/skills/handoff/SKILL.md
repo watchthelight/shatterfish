@@ -10,17 +10,19 @@ come first and the message last.
 
 ## Update first
 
-1. `sprint-status.yaml` (if it exists): the story's status matches reality (`in-progress`,
-   `review`, `done`); `last_updated` refreshed. `bmad-build` normally does this; verify.
-2. The story spec file: status frontmatter, a "Dev notes" or "Review" section reflecting what
-   happened, any design note with links to ADRs.
-3. The GitHub issue (`-R watchthelight/shatterfish`): for a story, a comment with the PR link
-   and status, closed by the PR's `Closes #N` on merge; for a bootstrap session, tick the
-   session's box on the E0 epic issue (#1) and any definition-of-done boxes it completed.
-4. `docs/roadmap.md` if an epic or session state changed.
-5. `docs/ideas.md` for anything that came up and was not done.
-6. The memory note (`shatterfish-program` in the memory directory): status line, next step,
-   new gotchas.
+After a merge, `python tools/after-merge.py <PR>` does items 1, 2 and the README check, and
+says whether the codex needs regenerating.
+
+1. The GitHub issue and PR (`-R watchthelight/shatterfish`): the PR carries the numbers, the
+   issue a comment with the PR link and status; `Closes #N` closes it on merge.
+2. `sprint-status.yaml` (E-stories only): the story's status matches reality and `last_updated`
+   is today. Fixes have no sprint-status key and no story file.
+3. The story spec file (E-stories only): status frontmatter and a "Review" section.
+4. `README.md` "Where it stands": one line for each merged story or fix.
+5. A new `docs/ideas/<yyyy-mm-dd>-<slug>.md` for anything that came up and was not done; `docs/roadmap.md` only if an
+   epic changed state.
+6. One watchthelight note (project `shatterfish`): revise the open-loop status note rather than
+   adding a new one; echo the receipt.
 7. Tree state: everything committed and pushed, or a clean explanation of what is not and why.
    Never hand off an unbuildable tree.
 

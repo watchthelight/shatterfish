@@ -515,7 +515,7 @@ To be precise about what that proves: `Gsprt` matches the approximation `set_sta
 not what Fishtest's server stops on, which is the exact generalized LLR (`LLR_logistic`) over the
 same counts. The two agree closely in the region a test normally stops in and can disagree in the
 tails, and ADR-0012 chose eq. 2.1 for being closed-form and reproducible from the counts by hand.
-Moving to the exact form is in `docs/ideas.md`.
+Moving to the exact form is in `docs/ideas/`.
 
 **What it costs.** The `smoke` set, 24 processes, cap 400: one Brain plays its 25 Runs in 7,538 ms;
 a comparison plays 50 Runs in 9,996 ms. Twice the Runs for a third more time, because the pool is
@@ -728,7 +728,7 @@ nothing is dropped, so the counts add up to the index's.
 
 **What it cannot say.** A Run log's ending records how the Run ended and at what depth, not what
 killed the hero: the log's `Outcome` has no killer — no mob, trap or hunger. So the gallery groups by
-ending and depth, and says so on every page; recording the killer is in `docs/ideas.md`. The command above rewrites the gallery for any folder the Rig wrote (for a
+ending and depth, and says so on every page; recording the killer is in `docs/ideas/`. The command above rewrites the gallery for any folder the Rig wrote (for a
 comparison, one per side) and, with `--snapshots N`, writes the last N waits of every Run into
 `snapshots/`, linked from the gallery: what the Run was doing when it ended. The random Baseline's is in
 [`results/2026-09-23-H-0002/gallery.md`](https://github.com/watchthelight/shatterfish/blob/bdf5ea5b2d38e7911f42e23a5ba08b4237cffc5c/results/2026-09-23-H-0002/gallery.md);
@@ -788,6 +788,34 @@ or a human's, prints its Action alone. A wait that answered a Prompt names the P
 decider wrote is printed with control characters as spaces and `|` as `/`, so one wait is always
 one line. An unreadable log in a folder is reported and skipped. The claims about the game that the Brain relies on are
 enumerated in [the Brain's Rules index](brain-rules.md).
+
+## The direction check
+
+`./gradlew :rig:direction --args="..."` is the table every Brain PR carries. It plays a development
+subset with the current Brain, optionally plays a baseline too, and prints the metrics side by side.
+It is a direction check (ADR-0012), not an acceptance: nothing it plays is ranked, and nothing it
+prints is a published measurement.
+
+| Flag | Meaning |
+|---|---|
+| `--set <name>` | `standard` (the default), `smoke` or `bosses`. `goo` is refused (registered use only) and `holdout` is refused (never for development). |
+| `--class <HERO>` | Keep only that hero class, in any case. |
+| `--first N` | Keep the first N entries after filtering, in file order. |
+| `--salt-base K` | Entry `i` of the selection plays under salt `K + i` (default 0), so a baseline and the current Brain meet the same dungeon at the same moments and a rerun is the same measurement. |
+| `--baseline <git ref or folder>` | A folder (an earlier direction folder, or a folder of Run logs) is read and nothing is played. A git ref is checked out into a worktree under the output folder, its `:brain:jar` is built there with that checkout's own wrapper, and the same picks are played with the current api, harness and rig but the ref's Brain, Codex and weights. That build is a second Gradle job while the first runs. |
+| `--jobs P` | Runs in flight at once (default 2, the machine's limit). |
+| `--out <dir>` | The output folder, which must be empty or absent (default `build/direction/<time>`). `current/` and `baseline/` hold the Run logs; `direction.md` holds the table. |
+
+The tuning set is `--set standard --class WARRIOR --first 40 --salt-base 1000`: the first 40 Warriors
+of the standard set in file order, entry `i` under salt `1000 + i`. The flags define it; no file does,
+because a seeds file is written only by `./gradlew :rig:seeds`.
+
+The rows are read from the Run logs through the harness's reader, and from a heap record that the
+direction check's own child process writes beside each log (`.heaps.tsv`): reach of depth 5, Goo kills
+(an ending with at least one boss), median turns, deepest mean and max, deaths by depth, oscillation
+Steps (runs of at least six consecutive Steps between the same two cells), searches and search waits
+per floor, heaps taken of seen, the median waits from first sight to pick-up, and heaps taking over
+100 waits from first sight. The heap record only watches the Observations the Brain is handed.
 
 ## The Run log and its chain
 

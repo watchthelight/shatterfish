@@ -1,5 +1,7 @@
 package org.shatterfish.rig;
 
+import org.shatterfish.harness.knowledge.CodexKnowledge;
+import org.shatterfish.harness.knowledge.CodexManifest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.shatterfish.api.Codex;
@@ -105,8 +107,8 @@ class CodexKnowledgeTest {
                 assertEquals(null, before, name + " names two enemy classes");
             }
         }
-        // The passive enemies the fight Policy names by hand are names the Codex gives.
-        for (String passive : org.shatterfish.brain.Brain.passiveEnemies()) {
+        // The passive enemies the fight Policy reads from the bestiary are names the Codex gives.
+        for (String passive : org.shatterfish.brain.Brain.passiveEnemies(read())) {
             assertTrue(byName.containsKey(passive), passive + " is not an enemy's display name at the pin");
         }
     }

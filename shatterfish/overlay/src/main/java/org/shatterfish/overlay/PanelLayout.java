@@ -278,7 +278,7 @@ public final class PanelLayout {
     static Layout strip(Screen screen) {
         float right = screen.width() - screen.insetRight() - MENU_WIDTH - MENU_ICONS - GAP;
         // Right of the tag column when the tags are on the left, which on a short screen reaches up to
-        // the strip's row; on a narrow screen the strip is then narrower than 160 (docs/ideas.md, story 5.2).
+        // the strip's row; on a narrow screen the strip is then narrower than 160 (docs/ideas/, story 5.2).
         float left = screen.insetLeft() + (screen.tagsOnLeft() ? Tag.SIZE : 0) + GAP;
         if (screen.interfaceSize() > 0) {
             // And right of the game log's column, 160 wide at the left (GameScene.java:1018-1024).

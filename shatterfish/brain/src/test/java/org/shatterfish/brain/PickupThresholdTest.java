@@ -55,6 +55,17 @@ class PickupThresholdTest {
     }
 
     @Test
+    @DisplayName("a worn key is worth fetching from anywhere on the floor, unlike an ordinary item at the same distance (issue #163)")
+    void worn_key_worth_the_whole_floor() {
+        Observation nineteenAway = room(30, 20, "worn key", STEPS);
+        assertEquals(Pickup.KEY_WORTH, PICKUP.worth("worn key", nineteenAway));
+        // Nineteen cells is the crimson-potion test's "not worth it" distance above; the key still is.
+        RunLog.Choice taken = choose(nineteenAway);
+        assertEquals(new Action.Step(2), taken.action(), "still taken, however far");
+        assertNull(choose(room(30, 20, "ration of food", STEPS)), "an ordinary item at the same distance is not");
+    }
+
+    @Test
     @DisplayName("gold is worth its pieces: a stack of a hundred two cells away is taken, forty is not")
     void gold_by_the_piece() {
         assertEquals(new Action.Step(2), choose(room(12, 3, "gold x100", STEPS)).action());
@@ -141,7 +152,7 @@ class PickupThresholdTest {
                 List.of(new org.shatterfish.api.ActorView(29, "animated statue", org.shatterfish.api.Alignment.ENEMY,
                         org.shatterfish.api.ObservationCodec.MAX_HEALTH_PIPS, false, org.shatterfish.api.Emote.NONE,
                         List.of())), List.of(), List.of());
-        assertTrue(Pickup.passiveInView(statue) && Explore.calm(statue), "scenery to calm, an enemy to the game");
+        assertTrue(Pickup.passiveInView(statue, FightPolicyTest.KNOWLEDGE) && Explore.calm(statue, FightPolicyTest.KNOWLEDGE), "scenery to calm, an enemy to the game");
         Observation withStatue = Screens.floor(1, Screens.heroAt(1, 10), Collections.nCopies(30, Tile.EMPTY), heap,
                 List.of(), STEPS);
         withStatue = new Observation(withStatue.header(), withStatue.map(), statue.actors(), withStatue.hero(),

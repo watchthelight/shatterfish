@@ -288,7 +288,7 @@ public final class Replay {
         // "the constructor happens not to keep it" is a weaker sentence than "it is never given
         // it". A Decider is handed Observations and the Actions it is reproducing.
         Following following = new Following(log.waits(), Following.firstGap(log),
-                log.end() != null && !log.end().verifiable(), Following.brainError(log));
+                Following.saidUnverifiable(log), Following.brainError(log));
         // `false`, in the source. The oracle flag was read out of the log here, which made this the
         // only production caller that could set it at all -- from a file. The guard that stops that
         // now is `refusal`, above, which refuses an oracle log before anything is played; the
@@ -393,7 +393,7 @@ public final class Replay {
             throw new IllegalArgumentException(refusal.toString());
         }
         Following following = new Following(log.waits(), Following.firstGap(log),
-                log.end() != null && !log.end().verifiable(), Following.brainError(log));
+                Following.saidUnverifiable(log), Following.brainError(log));
         RunLoop.Logging logging = new RunLoop.Logging(out, header.commit(), header.brain(), header.registration(),
                 machine, false);
         SeedSet.Entry triple = new SeedSet.Entry(header.seed(), header.heroClass(), header.challenges(),
@@ -444,6 +444,20 @@ public final class Replay {
          * Run loop writes the same ending.
          */
         private final String brainError;
+
+        /**
+         * Whether the log's end record says the Run cannot be reproduced. An Overlay Run a person closed
+         * mid-play ends as {@code CLOSED} (issue #175), unverifiable because its ending was nobody's to
+         * reach; the waits before it are what they were, so such an end is read as a log that stops
+         * there, the way a killed Run's log is, and its waits are still checked.
+         */
+        static boolean saidUnverifiable(RunLogReader.Log log) {
+            RunLog.End end = log.end();
+            return end != null && !end.verifiable() && !CLOSED.equals(end.outcome().cause());
+        }
+
+        /** The cause an Overlay Run closed mid-play ends with ({@code RunOutcome.Cause.CLOSED}). */
+        static final String CLOSED = "CLOSED";
 
         Following(List<RunLog.Wait> waits, long unverifiableFrom, boolean saidUnverifiable, String brainError) {
             this.brainError = brainError;

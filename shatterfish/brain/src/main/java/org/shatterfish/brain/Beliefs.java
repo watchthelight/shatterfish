@@ -177,18 +177,18 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         boolean refusedStep = still && memory.last().equals(STEP) && memory.stepped() >= 0 && !Explore.rooted(observation);
         int streak = !refusedStep ? 0 : memory.tried() == memory.stepped() ? memory.streak() + 1 : 1;
         int tried = refusedStep ? memory.stepped() : -1;
-        boolean calm = Explore.calm(observation);
+        boolean calm = Explore.calm(observation, knowledge);
         // The fight Policy's holds, and how near the nearest enemy is now and was a wait ago.
         int holds = !memory.calm() && memory.last().equals(WAIT) && !calm ? memory.holds() + 1 : 0;
         // Both distances are measured from where the hero stands now: to the enemies in view, and to
         // where the enemies seen a wait ago stood then. The hero's own steps change neither side
         // alike, so near < before says the enemies came closer.
-        int near = Fight.nearest(observation.map(), observation.hero().cell(), Fight.enemies(observation));
+        int near = Fight.nearest(observation.map(), observation.hero().cell(), Fight.enemies(observation, knowledge));
         int before = -1;
         int width = observation.map().width();
         for (Memory.Seen seen : memory.monsters()) {
             if (seen.depth() == depth && seen.at() == memory.waits() && memory.at().on(depth, branch)
-                    && seen.cell() < observation.map().tiles().size() && !Fight.PASSIVE.contains(seen.name())) {
+                    && seen.cell() < observation.map().tiles().size() && !Bestiary.passive(knowledge, seen.depth(), branch, seen.name())) {
                 int hero = observation.hero().cell();
                 int distance = Math.max(Math.abs(hero % width - seen.cell() % width),
                         Math.abs(hero / width - seen.cell() / width));
@@ -213,7 +213,11 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 add(flights, below, 2, 1);
             }
         }
-        List<Memory.Avoid> avoid = memory.avoid().stream().filter(region -> region.until() >= waits).toList();
+        // A region the fight Policy retreated from lapses after Brain.AVOID_WAITS waits, or at once when the
+        // screen shows where the enemy stood with no enemy anywhere inside the region (issue #183): the enemy
+        // it was set for has died, or gone somewhere the screen shows is not there.
+        List<Memory.Avoid> avoid = memory.avoid().stream()
+                .filter(region -> region.until() >= waits && !seenClear(region, observation, knowledge)).toList();
         // The plain heap underfoot, and whether it is one the game would not let the hero take
         // (story 4.8): the pick-up Policy's target on the last screen was this heap, that screen was
         // calm, the hero stands on it still, it shows the same title, and the pack is unchanged. A
@@ -304,7 +308,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 memory.last(), holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE,
                 memory.drank(), Memory.Trial.NONE, balked, walking, memory.tested(), clouds(memory, observation, waits),
                 memory.refuge(), arrived, rests, memory.stepped(), tried, fleeting, opened(memory, observation), prior,
-                bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased);
+                bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, memory.triedExits());
         // Two Steps in a row refused at one cell: the stepping Policy yields this wait, and that cell is
         // blocked on this floor, whichever Policy chose it (story 4.12; stories 4.8 and 4.10 recomputed
         // it from their own plans). Refused on a calm screen, for good; refused with an enemy in view,
@@ -325,7 +329,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                     holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE, memory.drank(),
                     Memory.Trial.NONE, balked, walking, memory.tested(), after.clouds(),
                     memory.refuge(), arrived, rests, memory.stepped(), -1, lapsing, after.windows(), prior, bounces,
-                    hunger, hp, food, tail, pump, pumpWait, chase, chased);
+                    hunger, hp, food, tail, pump, pumpWait, chase, chased, after.triedExits());
         }
         return after;
     }
@@ -430,6 +434,24 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
             clouds.remove(0);
         }
         return clouds;
+    }
+
+    /**
+     * Whether the screen shows a region the fight Policy retreated from clear (issue #183): it is on this
+     * floor, the cell the enemy stood on is in view, and no enemy the game does not keep passive stands
+     * anywhere inside it. What the screen draws, nothing more: an enemy out of view is not placed, only
+     * shown absent where the screen shows the cells.
+     */
+    static boolean seenClear(Memory.Avoid region, Observation observation, Codex.Knowledge knowledge) {
+        MapSection map = observation.map();
+        int depth = observation.header().depth();
+        int branch = observation.header().branch();
+        if (region.depth() != depth || region.branch() != branch || region.cell() >= map.fog().size()
+                || map.fog().get(region.cell()) != org.shatterfish.api.Fog.VISIBLE) {
+            return false;
+        }
+        return Fight.enemies(observation, knowledge).stream()
+                .noneMatch(enemy -> region.covers(depth, branch, enemy.cell(), map.width()));
     }
 
     /** The pack as far as a pick-up changes it (story 4.8). */
@@ -718,7 +740,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
      * name, the nearest first, because the screen gives an enemy no identity; two rats in view and
      * one remembered leave no rat remembered. An enemy killed out of the Brain's reckoning stays remembered until a
      * same-named enemy is seen or the oldest sightings are forgotten; reading kills from the log is
-     * for the fight Policy (docs/ideas.md).
+     * for the fight Policy (docs/ideas/).
      */
     static List<Memory.Seen> sightings(List<Memory.Seen> before, Observation observation, long waits) {
         int depth = observation.header().depth();

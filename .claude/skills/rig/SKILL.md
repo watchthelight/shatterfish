@@ -11,13 +11,16 @@ numbers where the project expects them.
 ## Contract with the `rig` module (E3 implements this; this skill is the spec)
 
 ```sh
-./gradlew :rig:run --args="--brain <name> [--baseline <name>] --seeds <set-name|N> [--seed-start K] [--parallel P] --out <dir>"
+./gradlew :rig:run --args="--brain <name> [--against <name>] --seeds <set-name> [--parallel P] [--registration <id>] --out <dir>"
 ```
 
-- `--brain` / `--baseline`: registered brain names (`random`, `baseline`, ...). With a baseline,
+- `--brain` / `--against`: registered brain names (`random`, `baseline`, ...). With `--against`,
   the rig runs an SPRT comparison; without one, a single-brain measurement.
-- `--seeds`: a named seed set from `rig/seeds/<name>.txt` (committed, reproducible) or an
-  integer count drawn from `--seed-start` (default 1).
+- `--seeds`: a named seed set from `seeds/<name>.json` (committed, written only by
+  `./gradlew :rig:seeds`): `smoke` (25, direction checks), `standard` (development comparisons),
+  `goo` (the E4 gate, registered use only), `bosses`, and `holdout` (refused during development).
+- `--registration`: the committed Registration id; without it nothing the invocation produces may
+  be published. Also `--verify <folder>`, `--replay <log>`, `--finished`, `--cap`, `--deadline`.
 - `--parallel`: how many single-Run processes run at once (one process per Run; never threads inside one game).
 - `--out`: directory receiving `runs.jsonl` (one record per run: seed, brain, depth, turns,
   cause of death, Observation hash chain), `summary.json`, and `sprt.json` when comparing.
@@ -29,12 +32,28 @@ numbers where the project expects them.
 - Oracle mode cannot be enabled through this command. If any flag or config would enable it,
   the rig must refuse, and so must this skill.
 
+## Direction check (the PR table)
+
+For a Brain PR, the numbers come from the checked-in direction tool, not from ad-hoc scripts:
+
+```sh
+./gradlew :rig:direction --args="--set standard --class WARRIOR --first 40 --salt-base 1000 --baseline origin/main --jobs 2"
+```
+
+It plays the subset with the current Brain, plays the baseline (a git ref is built in a worktree; a
+folder is only read) under the same salts, and prints the table: reach of depth 5, Goo kills, median
+turns, deepest mean and max, deaths by depth, searches and search waits per floor, oscillation Steps,
+heaps taken of seen and heaps taking over 100 waits. `--set` is `standard`, `smoke` or `bosses`; `goo`
+(registered use only) and `holdout` (never for development) are refused. The tuning set is the flags
+shown, not a file. Mind the machine's Gradle limit: a git-ref baseline builds a second Gradle job.
+Details are in `docs/methodology.md`, "The direction check".
+
 ## Steps
 
 1. **Is the rig built?** If `shatterfish/rig/src/main/java/org/shatterfish/rig/` contains no
    `RigMain.java`, report that the rig is E3 work
    (https://github.com/watchthelight/shatterfish/milestone/4) and stop.
-2. **Resolve the request.** Default: `--brain <current brain> --baseline <last published baseline> --seeds smoke`
+2. **Resolve the request.** Default: `--brain <current brain> --against <last published baseline> --seeds smoke`
    for a quick look; `--seeds standard` for numbers that will be published. Ask nothing; state
    the choice.
 3. **Run** from a clean, built tree (`./gradlew build` first). Record the Shatterfish commit SHA

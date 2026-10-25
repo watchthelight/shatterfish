@@ -247,7 +247,7 @@ game cannot load closing the Run.
 flag (`…/journal/Journal.java:34-36`), and no public call resets it; a guide page found between a
 snapshot and its restore stays found, and the next floor generated would read it
 (`…/levels/RegularLevel.java:561-575`); a public reset is the harness's to ask of a hook row or of
-`docs/ideas.md`, recorded there. The badges and the rankings are likewise the process's, and
+`docs/ideas/`, recorded there. The badges and the rankings are likewise the process's, and
 nothing the screen shows reads them. Three more, found by the fairness review and recorded rather
 than fixed. A mob's pending alert, `Mob.alerted`, set during other actors' turns and shown at the
 mob's next act (`Mob.java:138`, `:904-910`), is protected and not bundled, so a mob alerted just
