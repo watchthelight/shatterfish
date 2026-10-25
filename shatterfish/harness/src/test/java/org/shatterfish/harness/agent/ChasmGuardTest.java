@@ -74,12 +74,22 @@ class ChasmGuardTest {
                 return action;
             };
             host.frameTime = frameTime;
-            // The desktop draws its frames on while the Brain thinks and while an answer is held; the
-            // headless loop's timing is the decision within its frame.
+            // The desktop draws its frames on while an answer is held; the headless loop's timing is the
+            // decision within its frame. The game waits while the worker decides, so the answer is ready on
+            // the window's first frame however slowly the worker is scheduled: a worker slower than the
+            // window's fifth of a second let the guard open first and left nothing held (#193).
             host.stepWhileThinking = held;
+            host.waitForTheWorker = held;
             EmbeddedRun run = host.attach(brain, null, 5_000);
-            for (int frame = 0; frame < 20_000 && run.state() != EmbeddedRun.State.ENDED && Dungeon.depth == 1; frame++) {
+            // Only frames that step the game count against the bound; waiting on the worker is the timeout's.
+            for (int frame = 0; frame < 20_000 && run.state() != EmbeddedRun.State.ENDED && Dungeon.depth == 1; ) {
+                boolean waiting = host.waitingOnTheBrain();
                 host.frame();
+                if (waiting) {
+                    Thread.onSpinWait();
+                } else {
+                    frame++;
+                }
             }
             // The worker may already be deciding the first wait of the floor below: a copy, taken under the list's lock.
             List<Action> seen;
