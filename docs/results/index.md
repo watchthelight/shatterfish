@@ -35,6 +35,7 @@ standing Registration `H-0001-nightly-smoke`, with every night's status in its t
 | [The worse Brain, rejected](2026-09-23-worse-brain.md) | SM-5: every attempt, a vacuous REJECT, a VOID, the REJECT and the ACCEPT the other way round, and what pairing buys | E3, story 3.9 |
 | [Story 4.13, a direction check](2026-09-26-4-13-direction-check.md) | Toward the Goo gate, unregistered: Goo reach and kills, median turns and deaths by depth and situation for `main` and story 4.13 on 40 `standard` Warriors and on `smoke`, with the comparison view | E4, story 4.13 |
 | [Baseline at v4.0.2](2026-10-25-feb88de55.md) | The same Brain on `main` (`v4.0.0`) and on the upgrade (`v4.0.2`), unregistered: reach, Goo kills, median turns and deaths by depth on 40 `standard` Warriors and the 5 `smoke` Warriors. |
+| [Goo baseline at 5b48107f9](2026-10-25-goo-baseline-5b48107f9.md) | `main` with the debug record on, unregistered: reach, Goo kills and conversion with 95% intervals, the Goo-fight table, deaths by killer and the sample size a +5 point change needs, on 120 `standard` Warriors | Issue #219, step 2 |
 
 The rig's own result files, in the shape described above, begin with the random-agent baseline in
 E3. The audit above is a findings page rather than a rig run: it has no seed set and no sequential
