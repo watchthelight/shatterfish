@@ -5,10 +5,14 @@ import org.shatterfish.api.Codex;
 import org.shatterfish.api.HeapKind;
 import org.shatterfish.api.HeapView;
 import org.shatterfish.api.MapSection;
+import org.shatterfish.api.NoteKind;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.RunLog;
+import org.shatterfish.api.Tile;
 
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * The chest Policy (issue #181): open what is worth opening, from a calm screen, when the hero can
@@ -24,6 +28,22 @@ final class Chests implements Policy {
 
     /** The Policy's name, as the Decision records it and {@link Brain#policyNames()} lists it. */
     static final String NAME = "open-chest";
+
+    /** The most wraiths a tomb is opened for, that is free cardinal sides: most of them solid or taken. */
+    static final int MAX_WRAITHS = 1;
+
+    /** Tiles a wraith cannot be placed on (Wraith.java:118, {@code Level.solid}); doors count as free, the safe way. */
+    private static final Set<Tile> SOLID = EnumSet.of(
+            Tile.WALL, Tile.WALL_DECO, Tile.LOCKED_DOOR,
+            Tile.CRYSTAL_DOOR, Tile.LOCKED_EXIT, Tile.BARRICADE,
+            Tile.BOOKSHELF, Tile.STATUE, Tile.STATUE_SP,
+            Tile.REGION_DECO, Tile.REGION_DECO_ALT);
+
+    /** A golden key's title (items.properties:709): it opens a locked chest on its own floor (Hero.java:1218, :2484). */
+    static final String GOLDEN_KEY = "golden key";
+
+    /** A crystal key's title (items.properties:712, shown with a capital): it opens a crystal chest (Hero.java:1220, :2490). */
+    static final String CRYSTAL_KEY = "crystal key";
 
     private final Evaluation evaluation;
     private final Codex.Knowledge knowledge;
@@ -46,11 +66,23 @@ final class Chests implements Policy {
     @Override
     public boolean enters(Observation observation, Memory memory) {
         return Explore.calm(observation, knowledge)
-                && observation.map().heaps().stream().anyMatch(heap -> openable(heap, observation));
+                && observation.map().heaps().stream().anyMatch(heap -> openable(heap, observation, memory));
     }
 
-    /** Whether a heap is a kind this Policy opens. */
-    static boolean openable(HeapView heap, Observation observation) {
+    /**
+     * Whether the game refused the click on this heap twice running on this floor: the Memory then holds its cell
+     * blocked (Beliefs.fold), and a click the game keeps refusing spends no time, so it would be handed over for ever.
+     */
+    private static boolean refused(HeapView heap, Observation observation, Memory memory) {
+        return memory.blocked().stream().anyMatch(spot ->
+                spot.on(observation.header().depth(), observation.header().branch()) && spot.cell() == heap.cell());
+    }
+
+    /** Whether a heap is a kind this Policy opens, and not one the game has refused. */
+    static boolean openable(HeapView heap, Observation observation, Memory memory) {
+        if (refused(heap, observation, memory)) {
+            return false;
+        }
         return switch (heap.kind()) {
             case CHEST, SKELETON, REMAINS, TOMB -> !heap.hidden();
             case LOCKED_CHEST -> !heap.hidden() && keyHeld(observation, GOLDEN_KEY);
@@ -60,25 +92,12 @@ final class Chests implements Policy {
         };
     }
 
-    /** How many waits in a row the hero is handed the same open before this Policy yields. */
-    static final int TRIES = 2;
-
-    /** The most free cardinal sides a tomb is opened from: half or more of them solid or taken. */
-    static final int MAX_WRAITHS = 2;
-
-    /** Tiles a wraith cannot be placed on (Wraith.java:118, {@code Level.solid}); doors count as free, the safe way. */
-    private static final java.util.Set<org.shatterfish.api.Tile> SOLID = java.util.EnumSet.of(
-            org.shatterfish.api.Tile.WALL, org.shatterfish.api.Tile.WALL_DECO, org.shatterfish.api.Tile.LOCKED_DOOR,
-            org.shatterfish.api.Tile.CRYSTAL_DOOR, org.shatterfish.api.Tile.LOCKED_EXIT, org.shatterfish.api.Tile.BARRICADE,
-            org.shatterfish.api.Tile.BOOKSHELF, org.shatterfish.api.Tile.STATUE, org.shatterfish.api.Tile.STATUE_SP,
-            org.shatterfish.api.Tile.REGION_DECO, org.shatterfish.api.Tile.REGION_DECO_ALT);
-
     /**
      * How many wraiths opening a tomb from {@code stand} brings: one on each cardinal neighbour of the hero
      * that is not solid and holds nobody (Heap.java:86, Wraith.java:102-125). A neighbour off the map or
      * out of sight counts as free, since nothing says it is not.
      */
-    static int wraiths(Observation observation, int stand) {
+    static int freeSides(Observation observation, int stand) {
         MapSection map = observation.map();
         int width = map.width();
         int x = stand % width;
@@ -132,18 +151,12 @@ final class Chests implements Policy {
             case CHEST, LOCKED_CHEST, CRYSTAL_CHEST -> hp > 2 * mimicBite(depth, heap.kind());
             case SKELETON, REMAINS -> hp > 2 * wraithHit(depth);
             case TOMB -> {
-                int wraiths = wraiths(observation, stand);
+                int wraiths = freeSides(observation, stand);
                 yield wraiths <= MAX_WRAITHS && hp > wraiths * 2 * wraithHit(depth);
             }
-            default -> false;
+            case EBONY_CHEST, HEAP, FOR_SALE -> false;
         };
     }
-
-    /** A golden key's title (items.properties:709): it opens a locked chest on its own floor (Hero.java:1218, :2484). */
-    static final String GOLDEN_KEY = "golden key";
-
-    /** A crystal key's title (items.properties:712, shown with a capital): it opens a crystal chest (Hero.java:1220, :2490). */
-    static final String CRYSTAL_KEY = "crystal key";
 
     /**
      * Whether a key of this title for this floor is held: collected into the journal's Notes on pickup,
@@ -152,7 +165,7 @@ final class Chests implements Policy {
      */
     static boolean keyHeld(Observation observation, String title) {
         return observation.header().branch() == 0 && observation.journal().notes().stream()
-                .anyMatch(note -> note.kind() == org.shatterfish.api.NoteKind.KEY
+                .anyMatch(note -> note.kind() == NoteKind.KEY
                         && note.depth() == observation.header().depth() && note.title().equalsIgnoreCase(title));
     }
 
@@ -166,7 +179,7 @@ final class Chests implements Policy {
         int bestStand = -1;
         long bestNet = 0;
         for (HeapView heap : map.heaps()) {
-            if (!openable(heap, observation)) {
+            if (!openable(heap, observation, memory)) {
                 continue;
             }
             int stand = stand(observation, walk, distance, heap);
@@ -181,12 +194,6 @@ final class Chests implements Policy {
             }
         }
         if (best == null) {
-            return null;
-        }
-        // An open the game refuses spends no turn, so the hero stands on, and the screen is the same:
-        // a click tried twice and still shut is left alone until the hero has moved, as the Memory's streak of refused
-        // Steps says (Beliefs.fold). Standing on the heap, the open is not a Step and is handed over as it comes.
-        if (bestStand == hero && hero != best.cell() && memory.streak() >= TRIES) {
             return null;
         }
         String why = "chest " + distance[bestStand];

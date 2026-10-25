@@ -125,29 +125,34 @@ class ChestPolicyTest {
                 .decision().policy(), "an ebony chest is always a mimic");
     }
 
-    /** A one-cell-wide corridor along the third row of a 9 by 5 room, the hero on its second cell, a tomb or not at its end. */
-    private static Observation corridor(int depth, int hp, int tombCell) {
+    /**
+     * A one-cell-wide corridor along the third row of a 9 by 5 room, the hero on its fourth cell, and a tomb in an
+     * alcove above the corridor's second cell: from the corridor's first cell, diagonal to the tomb, three sides are walls.
+     */
+    private static Observation corridor(int depth, int hp) {
         List<Tile> tiles = new ArrayList<>(Collections.nCopies(WIDTH * 5, Tile.WALL));
         for (int x = 1; x < WIDTH - 1; x++) {
             tiles.set(2 * WIDTH + x, Tile.EMPTY);
         }
+        tiles.set(WIDTH + 2, Tile.EMPTY);
         Observation bare = Screens.grid(depth, WIDTH, tiles,
-                List.of(new HeapView(tombCell, HeapKind.TOMB, false, "", 0, "")));
-        Observation placed = new Observation(bare.header(), bare.map(), bare.actors(), Screens.heroAt(2 * WIDTH + 2, 10, hp, 20),
+                List.of(new HeapView(WIDTH + 2, HeapKind.TOMB, false, "", 0, "")));
+        Observation placed = new Observation(bare.header(), bare.map(), bare.actors(), Screens.heroAt(2 * WIDTH + 4, 10, hp, 20),
                 bare.inventory(), bare.journal(), bare.log(), bare.actions(), bare.prompt());
         return placed.withActions(ValidActions.of(placed));
     }
 
     @Test
-    @DisplayName("a tomb is opened only from a nook where at most two cardinal sides are free, and with the health for that many wraiths; in the open, never")
+    @DisplayName("a tomb is opened only from a nook with at most one free cardinal side, and with the health for that wraith; in the open, never")
     void tomb_nook() {
         // The wraiths come on every free cardinal side of the hero (Wraith.java:102-110, Heap.java:86): at the
-        // corridor's dead end, beside the tomb, two sides are free (the tomb's cell and the way back).
-        Brain.Decided nook = decide(corridor(1, 20, 2 * WIDTH + 7));
+        // corridor's dead end, diagonal to the tomb, one side is free.
+        Brain.Decided nook = decide(corridor(1, 20));
         assertEquals("open-chest", nook.decision().policy(), nook.decision().toString());
-        assertEquals(new Action.Step(2 * WIDTH + 3), nook.action(), "walks to the cell beside it first");
-        // Two wraiths at depth 1 are four hits of up to 3.
-        assertNotEquals("open-chest", decide(corridor(1, 12, 2 * WIDTH + 7)).decision().policy());
+        assertEquals(new Action.Step(2 * WIDTH + 3), nook.action(), "walks to the nook first");
+        // One wraith at depth 1 is two hits of up to 3.
+        assertEquals("open-chest", decide(corridor(1, 7)).decision().policy());
+        assertNotEquals("open-chest", decide(corridor(1, 6)).decision().policy());
         // In the open room all four sides are free.
         assertNotEquals("open-chest", decide(room(1, HERO, 20, 20, HeapKind.TOMB, 2 * WIDTH + 4, false, List.of()))
                 .decision().policy());
