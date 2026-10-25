@@ -2,6 +2,7 @@ package org.shatterfish.codex;
 
 import com.shatteredpixel.shatteredpixeldungeon.Challenges;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
+import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.items.Generator;
 import com.shatteredpixel.shatteredpixeldungeon.items.armor.Armor;
 import com.shatteredpixel.shatteredpixeldungeon.items.weapon.melee.MeleeWeapon;
@@ -190,6 +191,11 @@ class GuaranteeArithmeticTest {
         Codex.Tiers tiers = Tiers.read(ROOT);
         assertEquals(5, tiers.rows().size());
         int samples = 20_000;
+        // Since v4.0.2 an enchanted missile records its set on the hero (MissileWeapon.enchant), so
+        // the draws need one in place. Run alone, as CI does when the Codex is untouched, no earlier
+        // class has left one behind.
+        Hero heroBefore = Dungeon.hero;
+        Dungeon.hero = new Hero();
         try {
             for (Codex.TierRow row : tiers.rows()) {
                 int sum = row.weights().stream().mapToInt(Integer::intValue).sum();
@@ -236,6 +242,7 @@ class GuaranteeArithmeticTest {
                 Random.popGenerator();
             }
         } finally {
+            Dungeon.hero = heroBefore;
             for (Generator.Category category : Generator.Category.values()) {
                 Generator.reset(category);
             }
