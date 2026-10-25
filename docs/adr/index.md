@@ -25,6 +25,7 @@ skill drafts new ones; add the new file to this list and to `mkdocs.yml`.
 | [0017](0017-codex-generation-and-citations.md) | Codex generation and citations: one task with no Run, api records as canonical text, citations read from the pinned source | accepted | 2026-09-16 |
 | [0018](0018-seed-sets.md) | Seed sets are derived, committed and versioned, and `holdout` is guarded at the door | accepted | 2026-09-21 |
 | [0019](0019-workflow-skills-ab-test.md) | The Matt Pocock skills were tested against the current method and are not adopted | accepted | 2026-10-25 |
+| [0020](0020-memory-sections.md) | Split the Brain's Memory into versioned sections, one per Policy | proposed | 2026-10-25 |
 
 ## Decisions still to make
 

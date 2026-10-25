@@ -173,6 +173,9 @@ E5 (the Overlay) so far:
   GitHub's runners while the machine was busy, so it is off (#222, docs/tooling.md).
 - E5.9: a person's turns replay; the "replay unverifiable" notice outlives a hand back and every
   Run, a person's too, has a watchdog (#224).
+- Rig Runs can write an opt-in debug record beside each Run log (`--debug-record`), for the Goo
+  investigation (#223, #219). The rules index counts are now checked by a test (#225). ADR-0020
+  proposes splitting the Brain's Memory into versioned sections (#226).
 - Next: map highlights (5.10) and hotkeys (5.11), with Brain changes in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
