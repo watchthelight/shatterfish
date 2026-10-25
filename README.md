@@ -130,6 +130,10 @@ E5 (the Overlay) so far:
   Brain saw beside what the game really held, for diagnosis only; an ArchUnit
   test keeps the true game state away from the Brain (#195). See
   `docs/methodology.md`.
+- Fixes since: a Codex test that needed a hero in place since v4.0.2 no longer
+  fails on PRs that leave the Codex alone (#200), and the chasm test's host now
+  waits for the Brain's worker once per frame, so it cannot see the worker
+  differently from the Run (#201).
 - Next: the controls (5.5-5.8), with bestiary-driven Brain changes in parallel.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
