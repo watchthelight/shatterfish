@@ -397,7 +397,7 @@ final class Descend implements Policy {
     }
 
     /** Whether the screen shows a regular exit at all, open or not. */
-    private static boolean known(MapSection map) {
+    static boolean known(MapSection map) {
         return map.transitions().stream().anyMatch(t -> t.kind() == TransitionKind.REGULAR_EXIT);
     }
 
