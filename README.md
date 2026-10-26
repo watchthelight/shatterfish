@@ -201,6 +201,9 @@ E5 (the Overlay) so far:
   drinks at 40% HP; on 80 Profile 5 Runs Goo kills went from 10 to 16 (#242, part of #219).
 - E5.15: a Brain that throws or offers nothing pauses the Overlay with the reason on the card
   instead of ending the Run, and the Panel hides outside a Run (#243).
+- The hero throws its missiles at an awake enemy two to six cells away in a clear line when it
+  would take the fight anyway; on the tuning set depth 5 went from 11 to 17 of 40 and Goo kills
+  from 10 to 14 (#247, part of #219).
 - Next: the full sewers run with a takeover (5.16) and the E5 retrospective.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
