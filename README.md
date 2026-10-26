@@ -221,6 +221,9 @@ E5 (the Overlay) so far:
   to 16, reach depth 5 from 46 to 53 and Goo kills from 34 to 41, measured before #260; with
   #260 on the tuning set, reach 20 to 21 of 40 and Goo kills 15 of 40 unchanged (#261, part of
   #219).
+- The Brain no longer tries to outrun a crab or another fast enemy on foot; it fights where it
+  stands unless stairs are a step or two away. Over 120 Runs crab deaths on depths 2 to 4 went
+  from 18 to 10, reach depth 5 from 54 to 59 and Goo kills from 40 to 44 (#263, part of #219).
 - E4.14, first half: a differential test plays three seeds twice with unidentified item labels
   exchanged in the game and checks that the Brain acts the same while the screens match; the E4
   retrospective's lessons are in `CLAUDE.md` (#255). The gate Run on the registered set waits.
