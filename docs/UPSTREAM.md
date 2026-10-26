@@ -89,6 +89,7 @@ The table below is a promise; these tests are what make it true. All but the las
 | `HooksLedgerTest`: nothing tells git to stop reading upstream files as text | The one edit that disarms every check in this table at once. A `.gitattributes` line marking source binary empties every diff, so the digest, the line counts and the wrap rule all go quiet together — and the file itself is a root-level addition nothing else looks at |
 | `HooksLedgerTest`: nothing under an upstream module is hidden from git by a rule of ours | The same move through `.gitignore`: an ignored file is in neither the diff nor the untracked listing. Upstream's own ignore rules at the pinned tag are still honoured |
 | `DocsCitationTest` (in `./gradlew :codex:test`): every `path:line` citation in `docs/` resolves at the tag that citation names | A claim about the game still carrying an authority it lost: a cited file gone from the tree, a line past the end of it, a code span and the link beside it saying different things, a bare name that is now two files, a rules row at an older tag that nobody flagged and a flag that outlived its re-citation. Print the report with `./gradlew :codex:citations` |
+| `LoreCheckTest` (in `./gradlew :codex:test`): every lore claim under `lore/` is valid, its citations resolve at the tag it was graded against, and its `status` says whether the lines it cites still read the same at the pin | A verdict quietly claiming a tag it was not graded against, a Tier 1 with no citation, an `implemented_in` name that no longer exists. Print the report with `./gradlew :codex:lore --args=check`; re-flag after a re-pin with `--args=review` |
 
 `HooksLedgerTest` and `HooksVanillaTest` compare the tree against the pin, and `DocsCitationTest`
 compares each citation against the tag that citation names — which is the one thing in this table
@@ -293,6 +294,11 @@ project skill (Session 4) automates these steps.
    gone, changed, or now in more than one place, flip the row to `needs-review` and leave its link
    at the tag where it was true. Never re-cite a document to make the report empty. The same check
    runs as `DocsCitationTest` in `./gradlew build`, so the upgrade cannot merge with it red.
+   Then re-flag the lore claims (ADR-0021): `./gradlew :codex:lore --args=review` sets each claim's
+   `status` to `needs-review` where a line it cites reads differently at the new tag than at the
+   tag it was graded against, and back to `current` where it does not. It changes no verdict; a
+   verdict is re-read by a person and re-graded as a new `## Verdict against` section.
+   `LoreCheckTest` fails the build while any claim's status disagrees with its lines.
 11. PR with label `touches-upstream`; merge only when CI is green.
 
 ### What moves with the pin, and what does not

@@ -11,7 +11,8 @@ anyone reading a Run.
   hypotheses about play, not measurements; a Brain change built on one still needs rig numbers.
 - **Community notes are lore**: wiki and forum claims, each graded against the code (Tier 1
   confirmed, Tier F contradicted and struck through, Tier 3 unsettled). Their provenance lives in
-  `lore/bestiary/`, one file per region with frontmatter.
+  `lore/bestiary/`, one file per claim with frontmatter (the region is the id's prefix, as in
+  `sewers-1`), listed by Tier on the [lore page](../lore/index.md).
 - **Tags** for code live in `tactics/bestiary.json`, one entry per enemy class, in the closed
   vocabulary [below](#tag-vocabulary). `BestiaryTest` holds the file to the Codex and the vocabulary.
 

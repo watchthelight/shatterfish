@@ -38,3 +38,7 @@ results/** text eol=lf
 
 # Committed Run logs are compared byte for byte (hash chain): line feeds only (story 5.16).
 docs/results/logs/*.jsonl text eol=lf
+
+# Lore claims are read by a Java checker and compared with a generated page (story 7.7).
+lore/** text eol=lf
+docs/lore/** text eol=lf

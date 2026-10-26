@@ -139,7 +139,7 @@ development_status:
   7-4-upgrade-allocation: backlog  # issue #281
   7-5-per-boss-playbooks: backlog  # issue #282
   7-6-per-class-playbooks: backlog  # issue #283
-  7-7-the-lore-claim-format-and-intake: backlog  # issue #284
+  7-7-the-lore-claim-format-and-intake: review  # issue #284
   7-8-the-variant-classifier-from-the-vocabulary-diff: backlog  # issue #285
   7-9-date-gating-from-the-changelog: backlog  # issue #286
   7-10-the-measured-win-rate-and-the-epic-close: backlog  # issue #287
