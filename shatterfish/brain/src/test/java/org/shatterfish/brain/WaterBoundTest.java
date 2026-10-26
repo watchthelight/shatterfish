@@ -117,6 +117,39 @@ class WaterBoundTest {
         assertTrue(hero % width >= 9, "the shore was crossed: " + walked);
     }
 
+    /**
+     * Issue #219, the piranha deaths on the tuning slice: a hero that has walked out of a piranha's reach once is shown no
+     * piranha again, and the plan "through" the shore walked three piranhas' length of water for a frontier and searched in
+     * place beside them (28 of 32 health in six waits). With the exit in view the shore is left alone: nothing past it is worth it.
+     */
+    @Test
+    @DisplayName("with the exit in view, a frontier past a piranha's shore is not walked to")
+    void known_exit_leaves_a_shore_frontier() {
+        Brain brain = new Brain(FightPolicyTest.KNOWLEDGE, Screens.WEIGHTS, 9L);
+        Belief belief = null;
+        int width = 14;
+        int hero = 1 + width;
+        for (int round = 0; round < 6; round++) {
+            StringBuilder row = new StringBuilder("#...........  ");
+            row.setCharAt(hero % width, '@');
+            Observation screen = FightPolicyTest.screen(3, 20, false, "worn shortsword",
+                    "##############",
+                    row.toString(),
+                    "#>.wwwwwwwQw##",
+                    "##############");
+            boolean[] swum = Fight.swum(screen, FightPolicyTest.KNOWLEDGE);
+            belief = brain.update(screen, belief);
+            Brain.Decided decided = brain.decide(screen, belief);
+            if (decided.action() instanceof Action.Step step && round > 0) {
+                assertFalse(Fight.exposed(screen.map(), step.cell(), swum), "a Step to the shore: " + decided.decision());
+            }
+            belief = brain.handed(screen, belief, decided);
+            if (decided.action() instanceof Action.Step step) {
+                hero = step.cell();
+            }
+        }
+    }
+
     @Test
     @DisplayName("water the piranha cannot swim to is no reason to leave it")
     void separate_water() {

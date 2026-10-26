@@ -190,7 +190,7 @@ final class Explore implements Policy {
         int hero = observation.hero().cell();
         List<Action> offered = observation.actions().actions();
         for (boolean avoiding : new boolean[]{true, false}) {
-            boolean[] walk = walkable(observation, memory, avoiding);
+            boolean[] walk = avoiding ? walkable(observation, memory, true) : through(observation, memory);
             if (nearest(map, walk, hero, offered, cell -> frontier(map, walk, cell)) != null) {
                 return true;
             }
@@ -255,7 +255,7 @@ final class Explore implements Policy {
     static RunLog.Choice uncover(Observation observation, Memory memory, List<Action> offered, int limit,
                                  boolean promisingOnly) {
         boolean[] around = walkable(observation, memory, true);
-        boolean[] through = walkable(observation, memory, false);
+        boolean[] through = through(observation, memory);
         RunLog.Choice choice = toFrontier(observation, offered, around);
         if (choice == null) {
             choice = toFrontier(observation, offered, through);
@@ -267,6 +267,29 @@ final class Explore implements Policy {
             choice = search(observation, memory, offered, through, limit, promisingOnly);
         }
         return choice;
+    }
+
+    /**
+     * The cells the plans may walk when they go through the regions avoided (issue #219): every walkable cell, less, once the
+     * screen shows the way down, the cells beside the water a piranha swims in (the one-cell regions {@code Brain} sets, see
+     * {@link Fight#shore}). A frontier or a search spot past that shore is not worth three piranhas' bites when the exit is
+     * known: the hero walked it, with the water-bound enemies hidden from the Policies after its one walk out of their
+     * reach, and was bitten from 28 health to 5 in six waits. The way down is the descend Policy's own walk, which may cross.
+     */
+    static boolean[] through(Observation observation, Memory memory) {
+        boolean[] walk = walkable(observation, memory, false);
+        MapSection map = observation.map();
+        if (!Descend.known(map)) {
+            return walk;
+        }
+        int depth = observation.header().depth();
+        int branch = observation.header().branch();
+        for (Memory.Avoid region : memory.avoided(depth, branch, memory.waits())) {
+            if (region.radius() == 0 && region.cell() < walk.length) {
+                walk[region.cell()] = false;
+            }
+        }
+        return walk;
     }
 
     /**

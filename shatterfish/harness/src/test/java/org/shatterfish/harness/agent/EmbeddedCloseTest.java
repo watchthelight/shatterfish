@@ -130,6 +130,13 @@ class EmbeddedCloseTest {
             host.stepWhileThinking = true;
             EmbeddedRun run = host.attach(hangs, logging(folder), 5_000);
             EmbeddedAttachTest.playUntil(host, () -> run.state() == EmbeddedRun.State.THINKING);
+            // THINKING is set before the Brain's thread reaches the latch; the report reads the
+            // thread's state, so wait (with a deadline) until it is parked there (#297).
+            long deadline = System.nanoTime() + 10_000_000_000L;
+            while (!brainParked() && System.nanoTime() < deadline) {
+                Thread.sleep(5);
+            }
+            assertTrue(brainParked(), "the Brain is parked on the latch");
             Watchdog watchdog = run.watchdog();
             assertNotNull(watchdog);
             long now = System.nanoTime();
@@ -195,5 +202,15 @@ class EmbeddedCloseTest {
         assertFalse(fresh.check(System.nanoTime()), "the clock started again at the served wait");
         watchdog.close();
         assertFalse(watchdog.check(start + 60_000_000_000L), "a closed watchdog looks at nothing");
+    }
+
+    /** True once the Brain's thread is parked (WAITING), so the watchdog's report can name it so. */
+    private static boolean brainParked() {
+        for (Thread alive : Thread.getAllStackTraces().keySet()) {
+            if ("shatterfish-brain".equals(alive.getName()) && alive.getState() == Thread.State.WAITING) {
+                return true;
+            }
+        }
+        return false;
     }
 }
