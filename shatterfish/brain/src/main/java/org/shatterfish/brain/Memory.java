@@ -200,6 +200,13 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     static final int CLOUD_WAITS = 100;
 
     /**
+     * How many waits a cell seen showing a magical fire room's flame, or beside one, is kept out of at
+     * most, unseen (issue #219): the flames never burn out (MagicalFireRoom.java:156-260), so the memory
+     * ends when the cell is seen clear, which a flame's cell never is, or with the Run.
+     */
+    static final int ETERNAL_WAITS = 1_000_000;
+
+    /**
      * How many waits a cell blocked on a screen with an enemy in view stays blocked (story 4.12): as
      * long as a region the fight Policy retreated from stays avoided ({@link Brain#AVOID_WAITS}).
      */

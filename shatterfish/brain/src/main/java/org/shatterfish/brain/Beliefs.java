@@ -402,6 +402,30 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
     }
 
     /**
+     * Whether a cell remembered for the magical fire room's flames, seen now with none drawn on it,
+     * may still be one beside a flame the screen does not show (issue #219): it is kept for good
+     * ({@link Memory#ETERNAL_WAITS}) and a cell remembered beside it is out of view. A cell round a
+     * wall's corner from a flame is in view while the flame is not, and is not seen clear for that.
+     */
+    private static boolean flameMayStandBeside(Memory memory, org.shatterfish.api.MapSection map, Memory.Cloud cloud,
+                                               long waits, int depth, int branch) {
+        if (cloud.until() - waits <= Memory.CLOUD_WAITS) {
+            return false;
+        }
+        int width = map.width();
+        int cell = cloud.cell();
+        int[] beside = {cell - 1, cell + 1, cell - width, cell + width};
+        for (int other : beside) {
+            boolean sameRow = Math.abs(other - cell) != 1 || other / width == cell / width;
+            if (sameRow && other >= 0 && other < map.fog().size()
+                    && map.fog().get(other) != org.shatterfish.api.Fog.VISIBLE && memory.clouded(depth, branch, other, waits)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * The clouded cells after this screen (story 4.10): every cell in view that shows fire or a harmful
      * gas is kept out of for up to {@link Memory#CLOUD_WAITS} more waits, a cell in view that shows
      * none is cleared, a shut door's cell is never kept, and a lapsed one is forgotten.
@@ -416,6 +440,10 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 clouded.add(blob.cell());
             }
         }
+        // The magical fire room's flames and the cells beside them ignite whoever stands there
+        // (MagicalFireRoom.java:205-220) and never burn out: they are kept until seen clear.
+        java.util.Set<Integer> eternal = Explore.ignited(map);
+        clouded.addAll(eternal);
         List<Memory.Cloud> clouds = new ArrayList<>();
         for (Memory.Cloud cloud : memory.clouds()) {
             boolean here = cloud.depth() == depth && cloud.branch() == branch;
@@ -427,6 +455,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
             // long as the memory lasts.
             if (here && cloud.cell() < map.tiles().size()
                     && (map.fog().get(cloud.cell()) == org.shatterfish.api.Fog.VISIBLE
+                    && !flameMayStandBeside(memory, map, cloud, waits, depth, branch)
                     || map.tiles().get(cloud.cell()) == org.shatterfish.api.Tile.DOOR)) {
                 continue;
             }
@@ -434,7 +463,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         }
         // In cell order, so the list does not depend on the blobs' order.
         clouded.stream().sorted().forEach(cell -> clouds.add(new Memory.Cloud(depth, branch, cell,
-                waits + Memory.CLOUD_WAITS)));
+                waits + (eternal.contains(cell) ? Memory.ETERNAL_WAITS : Memory.CLOUD_WAITS))));
         while (clouds.size() > Memory.CLOUDS) {
             clouds.remove(0);
         }
