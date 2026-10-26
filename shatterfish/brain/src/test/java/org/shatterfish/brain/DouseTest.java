@@ -133,11 +133,11 @@ class DouseTest {
     }
 
     @Test
-    @DisplayName("a levitating hero is not put out by water: it does not walk to it, but still leaves the grass")
+    @DisplayName("a levitating hero is not put out by water: it is not sent to it as water, only off the grass (the water is bare ground to it)")
     void levitating_skips_the_water() {
         List<BuffView> buffs = List.of(new BuffView(TestItem.BURNING, true, 800), new BuffView(SafeTest.LEVITATING, true, 10));
-        List<Tile> tiles = row(Tile.EMPTY, Tile.GRASS, Tile.GRASS, Tile.GRASS, Tile.WATER);
-        Observation base = floor(tiles, 3, true, Hunger.NONE, List.of(), List.of());
+        List<Tile> tiles = row(Tile.EMPTY, Tile.GRASS, Tile.GRASS, Tile.GRASS, Tile.GRASS, Tile.GRASS, Tile.GRASS, Tile.GRASS, Tile.GRASS, Tile.GRASS, Tile.GRASS, Tile.WATER);
+        Observation base = floor(tiles, 8, true, Hunger.NONE, List.of(), List.of());
         HeroSection hero = base.hero();
         HeroSection flying = new HeroSection(hero.cell(), hero.name(), hero.subclass(), hero.ability(), hero.level(),
                 hero.exp(), hero.expToLevel(), hero.hp(), hero.ht(), hero.shield(), hero.strength(),
@@ -149,6 +149,6 @@ class DouseTest {
         Brain.Decided decided = decide(screen);
         assertEquals("douse", decided.decision().policy());
         assertEquals("douse: bare ground", decided.decision().chosen().why());
-        assertEquals(new Action.Step(2), decided.action());
+        assertEquals(new Action.Step(9), decided.action());
     }
 }
