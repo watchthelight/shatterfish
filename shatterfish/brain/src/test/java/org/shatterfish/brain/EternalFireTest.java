@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The magical fire room's flames (issue #219, step 6). Its EternalFire blob sets alight a character
- * standing on a flame or on any of the four cells beside one (MagicalFireRoom.java:211-216), is
+ * standing on a flame or on any of the four cells beside one (MagicalFireRoom.java:205-220), is
  * put out by nothing the hero carries, and guards the room's prizes, which lie behind it. The
  * screen draws the flames, so the Brain treats those cells, and the four beside each, as fire it does
  * not walk into, rest beside or test beside, however much the item behind it is worth.
@@ -101,6 +101,31 @@ class EternalFireTest {
         boolean[] walk = Explore.walkable(unseen, later);
         assertFalse(walk[FIRE - 1] || walk[FIRE] || walk[FIRE + 1]);
         assertTrue(walk[FIRE - 2]);
+    }
+
+    @Test
+    @DisplayName("a cell beside a flame that is in view while the flame is round a corner is not seen clear")
+    void a_cell_in_view_beside_a_hidden_flame_stays_remembered() {
+        int width = 5;
+        List<Tile> tiles = new ArrayList<>(Collections.nCopies(width * 3, Tile.EMPTY));
+        int flame = 7;
+        Brain brain = brain();
+        Observation seen = Screens.lab(1, width, tiles, List.of(new BlobCell(flame, List.of("EternalFire"))),
+                Screens.heroAt(10, 20, 20, List.of()), List.of(), List.of(), List.of(), new Action.Step(11));
+        Belief belief = brain.update(seen, null);
+        assertTrue(Memory.of(belief).clouded(1, 0, flame + 1, 1), "cell 8 is beside the flame");
+
+        MapSection map = seen.map();
+        List<Fog> fog = new ArrayList<>(map.fog());
+        fog.set(flame, Fog.VISITED);
+        fog.set(flame - 1, Fog.VISITED);
+        MapSection round = new MapSection(map.width(), map.height(), map.tiles(), fog, map.traps(), map.heaps(),
+                List.of(), map.feeling(), map.transitions());
+        Observation corner = new Observation(seen.header(), round, seen.actors(), seen.hero(), seen.inventory(),
+                seen.journal(), seen.log(), seen.actions(), seen.prompt());
+        Memory later = Memory.of(brain.update(corner, belief));
+        assertTrue(later.clouded(1, 0, flame + 1, later.waits() + 1), "cell 8 is in view, the flame is not");
+        assertTrue(later.clouded(1, 0, flame, later.waits() + 1));
     }
 
     @Test

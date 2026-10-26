@@ -617,13 +617,13 @@ final class Explore implements Policy {
     /**
      * The magical fire room's flames, by the class name the Observation carries (issue #219). Unlike
      * Fire they never burn out, and they set alight a character on a flame's cell or on any of the
-     * four cells beside one (MagicalFireRoom.java:211-216), so those cells are fire to stay off.
+     * four cells beside one (MagicalFireRoom.java:205-220), so those cells are fire to stay off.
      */
     static final String ETERNAL_FIRE = "EternalFire";
 
     /**
      * The cells the screen shows as a flame of the magical fire room or as one of the four cells
-     * beside a flame (MagicalFireRoom.java:211-216; a flame at the edge of a row has no neighbour
+     * beside a flame (MagicalFireRoom.java:205-220; a flame at the edge of a row has no neighbour
      * across it).
      */
     static Set<Integer> ignited(MapSection map) {
