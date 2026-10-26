@@ -35,3 +35,6 @@ tools/** text eol=lf
 mkdocs.yml text eol=lf
 calibration/** text eol=lf
 results/** text eol=lf
+
+# Committed Run logs are gzip bytes; no line-ending conversion (story 5.16).
+docs/results/logs/*.gz binary
