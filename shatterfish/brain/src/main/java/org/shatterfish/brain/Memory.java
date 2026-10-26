@@ -175,7 +175,10 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
      * assumption: long enough that a fight's step in and out of a doorway is left alone, short against
      * the hundreds of turns two Policies undoing each other cost.
      */
-    static final int BOUNCES = 6;
+    static final int BOUNCES = 12;
+
+    /** What a bounce adds to the count; a Step to a new cell takes one off (issue #219: a loop of three cells bounces every other wait). */
+    static final int BOUNCE_STEP = 2;
 
     /**
      * How many waits the cell a bounce kept returning to stays blocked, as a {@link #fleeting} block, once

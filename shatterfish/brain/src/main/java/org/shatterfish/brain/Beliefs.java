@@ -259,7 +259,8 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         // having left it. Counted only on one floor; anything else starts the count again.
         boolean sameFloor = !arriving && memory.at().on(depth, branch);
         boolean bounced = sameFloor && !still && memory.prior() == here.cell();
-        int bounces = bounced ? memory.bounces() + 1 : 0;
+        int bounces = bounced ? memory.bounces() + Memory.BOUNCE_STEP
+                : sameFloor && !still ? Math.max(0, memory.bounces() - 1) : 0;
         int prior = sameFloor ? memory.at().cell() : -1;
         // Bounced BOUNCES times: the cell the Step back would return to is blocked for BOUNCE_WAITS waits, as a
         // fleeting block (issue #174), so every Policy plans around it and the loop ends; Brain.decide still

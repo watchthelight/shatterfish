@@ -24,11 +24,11 @@ class BounceTest {
     }
 
     @Test
-    @DisplayName("the fold counts the waits in a row the hero is back on the cell of two waits ago, and starts again otherwise")
+    @DisplayName("the fold adds BOUNCE_STEP when the hero is back on the cell of two waits ago, loses one per other Step, and starts again when it stands still")
     void counted() {
         Memory memory = Memory.START;
         int[] xs = {3, 4, 3, 4, 3, 4, 5};
-        int[] expected = {0, 0, 1, 2, 3, 4, 0};
+        int[] expected = {0, 0, 2, 4, 6, 8, 7};
         for (int i = 0; i < xs.length; i++) {
             memory = Beliefs.fold(memory, at(xs[i]), Screens.CODEX);
             assertEquals(expected[i], memory.bounces(), "wait " + i);
