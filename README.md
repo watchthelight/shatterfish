@@ -211,6 +211,11 @@ E5 (the Overlay) so far:
 - The Brain keeps off the magical fire room's flames and the cells beside them, which never burn
   out; the room had killed 5 of 40 tuning Runs. Depth 5 went from 17 to 19 of 40 and Goo kills
   from 14 to 15; on 80 held-out salts, 22 to 27 and 16 to 20 (#256, part of #219).
+- A burning hero walks to nearby water or off grass instead of resting, and eats mystery meat
+  beside water. Over 120 Runs Burning deaths went from 6 to 2; reach and Goo kills did not move
+  beyond noise (#260, part of #219). Takeovers on depth 2 now replay exactly: the badge banner's
+  sparkle no longer draws from the Run's generator (#258, Profile 6). E6.1 adds the Codex hit
+  table and an opt-in one-ply model, which plays worse than the default so far (#259).
 - E4.14, first half: a differential test plays three seeds twice with unidentified item labels
   exchanged in the game and checks that the Brain acts the same while the screens match; the E4
   retrospective's lessons are in `CLAUDE.md` (#255). The gate Run on the registered set waits.
