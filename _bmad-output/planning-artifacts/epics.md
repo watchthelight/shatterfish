@@ -1671,18 +1671,305 @@ comparison confirms the Overlay's presence did not change outcomes
 
 ---
 
-## Epic 6: Tactical search (deferred)
+## Epic 6: Tactical search
+
+*Opened 2026-10-25, after E5: the Overlay is the debugger a search needs, and ADR-0010 made the
+epic conditional on measurements that only the finished Harness, Rig and Brain can take.*
 
 Better fighting, if and only if the numbers say so. ADR-0010 fixes the choice rule: the one-ply
 model over Codex tables ships first, then the simulator speed, the two transferable Long et al.
 properties and the search leak test are measured and published, and only then does the Rig decide
-between candidates at equal budget.
-
-Story titles, to be specified when the epic opens: the one-ply expectimax over Codex tables; the
-redetermination scrubber and its differential test; the search leak test; the simulator-speed
-measurement; the properties measurement; the candidate comparison under the Sequential test.
+between candidates at equal budget. If no candidate is accepted, the one-ply model stays the
+tactical layer, the measurements stay published, and the epic closes honestly.
 
 Covers FR-13, FR-34, and the E6 half of FR-6.
+
+Information parity (non-negotiable 1) binds every story here, and the two fair designs are the
+only ones allowed (bootstrap section 4): an abstract tactical model built from Observations,
+Beliefs and the Codex, or engine rollouts on a redetermined snapshot reached through the `api`
+`Simulator` and an opaque `SnapshotHandle`. There is no third design and no second implementation
+of the game's rules (non-negotiable 4). Every story that touches `brain`, the scrubber or the
+rollout host carries the `fairness` label, and the `fairness-reviewer` subagent runs before its PR
+opens. Every claim about a mechanic is cited to the pinned code at `v4.0.2`.
+
+The mechanics the abstract model reads, stated once so the stories do not repeat them. A swing
+lands when a uniform draw below the attacker's accuracy is at least a uniform draw below the
+defender's evasion, each scaled by the same list of buff factors, unless either side is at the
+infinite sentinel, where infinite evasion beats infinite accuracy (`Char.java:619-683`: the sentinels
+at `:612-613` and `:638-643`, the two draws at `:646` and `:662`, the comparison at `:678`). A landed
+swing rolls the attacker's damage, subtracts the defender's armour roll and applies the attacker's
+multipliers (`Char.java:390-416`). A mob's swing costs `attackDelay()`, one turn unless it is hasted
+(`Mob.java:790-794`, spent at `:805` and `:814`). The Codex already measures the damage side
+(`codex/v4.0.2/combat.json`: `weapons`, `armours` and `mobs` carry a spread per entry, each with a
+`path:line`), but its `hit` entry is recorded as unmeasured, because `Char.hit` initialises a
+floating-text class that a headless generator may not boot. Story 6.1 deals with that gap.
+
+### Story 6.1: The one-ply expectimax over Codex tables
+
+As the bot,
+I want to pick my fight action by scoring each of my options against the expected damage and hit
+chance of every enemy I can see,
+So that my fighting is decided by arithmetic on the game's own tables, with no engine, and the
+Rig gets a second Brain to compare.
+
+**Acceptance Criteria:**
+
+**Given** ADR-0010 option 2, FR-34 and FR-31
+**When** the fight search is implemented in `brain`
+**Then** it enumerates the Observation's valid-Action set filtered to fights (attack, step, retreat
+along a visible path, use a consumable the Belief says is known), not a hand-picked list
+**And** it scores each option for one hero turn plus the enemy replies: for each visible enemy the
+hit probability and the expected post-armour damage come from Codex tables only, by the hit rule and
+damage rule cited above, and the option with the best expected hero hit points minus expected enemy
+hit points is chosen, ties broken by the stable action order
+**And** it runs only at Input waits with a visible enemy and on boss floors; quiet turns stay with
+the Policies (FR-34)
+**And** it reads an enemy's health from the health-bar bucket the Observation shows and never from
+a true hit point value, and it never targets a character absent from the Observation.
+
+**Given** the Codex's `hit` entry is unmeasured
+**When** the model needs a hit probability
+**Then** the Codex generator is extended to emit it from the two uniform draws of `Char.hit`
+(`Char.java:646`, `:662`) as an exact table over the accuracy and evasion grid the entry already
+declares, with the citation; this is a Codex change under E2's drift rule (regenerate, CI fails on
+drift), not a second rules implementation, since it tabulates a cited formula and does not replay
+a fight
+**And** `HitTableTest` asserts the table against an independent closed form at the grid corners and
+against a seeded sampling run within a stated tolerance.
+
+**Given** the Brain boundary
+**When** the module is built
+**Then** the `brain` ArchUnit rules still pass with no new import from game packages
+**And** `OnePlyModelTest` asserts, on constructed rooms, that the model attacks a weak enemy it is
+likely to kill, retreats from one it is likely to lose to, prefers the cell the 4.7 Policy prefers
+in a corridor, and picks the same Action when the Observation is the same
+**And** `OnePlyLeakTest` runs the model on a pair of worlds that differ only in hidden state (the
+existing hidden-state differential fixtures) and asserts identical Decisions, so the first fairness
+evidence exists before the search leak test of story 6.3.
+
+**Given** the Rig
+**When** the model is registered as a Brain next to the 4.x baseline
+**Then** the pull request carries the direction table on the `smoke` set and on the first 40 seeds of
+`bosses` and `standard` (`:rig:direction`, baseline `main`), and says plainly that it is a direction
+check and not an acceptance, which is story 6.6's
+**And** the fairness-reviewer subagent has read the diff and its verdict is in the pull request.
+
+### Story 6.2: The redetermination scrubber and its differential test
+
+As the engineer,
+I want a scrubber that turns a live snapshot into one a rollout may run on, and a host that rolls
+out from it,
+So that engine rollouts are possible without a search ever seeing hidden state.
+
+**Acceptance Criteria:**
+
+**Given** ADR-0009 and FR-6
+**When** `SnapshotScrubber` is implemented in `harness` as a `Redeterminer`
+**Then** every row of the ADR-0009 scrub table is implemented and named in the code: unidentified
+potion, scroll and ring classes permuted among unknown classes; unknown item level and curse
+re-rolled in range; mobs outside the field of view removed and the sample's remembered mobs re-added
+on visited cells; a stealthy passive mimic on a visited cell kept; the AI state and exact hit points
+of every mob re-sampled within what the screen shows; unknown cells made solid with their heaps,
+traps, blobs and transitions removed; secret traps and doors on known cells turned into floor and
+wall; container contents redrawn from the Codex tables; the dungeon seed replaced; generator decks,
+limited drops, special and secret room queues, quest state, unshown notes and statistics reset to
+defaults or to the sample; and the rollout's own salt taken from the sample
+**And** before any code, the fairness reviewer audits the scrubber's bundle key list against
+`Dungeon.saveGame` line by line, as ADR-0009's pre-mortem requires, and the audit is written into
+the story file
+**And** `Redeterminer.scrub` still rejects a result that is unscrubbed, the live snapshot relabelled,
+or at another wait (`ReservedInterfacesTest`), and the store refuses a handle that claims to be
+scrubbed and is not one it made.
+
+**Given** FR-6's differential requirement
+**When** `RedeterminationDifferentialTest` runs over the `smoke` set's mid-fight snapshots
+**Then** for each scrub row separately and for all rows together, the scrubbed copy's
+`Observation.sectionHashes()` equal the live snapshot's, which is the definition of hidden
+**And** a scrubbed copy differs from the live snapshot in at least one hidden element per row the
+snapshot actually holds, so the test cannot pass by scrubbing nothing
+**And** two different samples produce two different scrubbed copies with equal Observations
+**And** a deliberately incomplete scrubber, with one row removed in a test fixture, fails the test on
+that row and names it.
+
+**Given** ADR-0009's swap-in-place host
+**When** the rollout host implementing `Simulator` is built
+**Then** it snapshots the live Run, loads the scrubbed copy into the same process, rolls the Actions
+out through the executor's own paths, returns Observations and outcomes only (`RolloutResult`), and
+restores the live Run
+**And** `RestoreReplayAfterRolloutTest` asserts that after a rollout the live Run's Observation
+hashes from the restored wait onward equal those of an undisturbed twin, which is the check ADR-0009
+deferred to this story
+**And** the host rolls out nothing for a handle it did not make, and a test that descends inside a
+rollout asserts the new floor comes from the sample's seed and differs from the floor the live seed
+would generate
+**And** the pull request is labelled `fairness`, carries `touches-upstream` and a row in
+`docs/UPSTREAM.md` only if a hook turns out to be needed (none is expected, since the game's own save
+and load paths are used), and carries no Rig numbers because no Brain uses the host yet.
+
+### Story 6.3: The search leak test
+
+As the product owner,
+I want a test that fails if a search's decision depends on anything the player cannot know,
+So that no search design ships on trust (FR-13).
+
+**Acceptance Criteria:**
+
+**Given** FR-13 and ADR-0010's choice rule 1
+**When** `SearchLeakTest` is implemented in the harness test source set
+**Then** for each mid-fight snapshot of the `smoke` set (a wait with at least one visible enemy) it
+builds N alternate worlds, N at least 8, by scrubbing the live snapshot with N different samples that
+differ in every row of the ADR-0009 table, and first asserts that every alternate's Observation hash
+equals the original's, so the worlds are identical to the player
+**And** it runs the search Brain on the original and on each alternate, with the same Run salt and
+wait index, and asserts the Decisions are identical: the same chosen Action, the same alternatives in
+the same order, the same scores and the same one-line reasons, compared as the canonical bytes of the
+Decision record and not as a hash alone
+**And** it names each of the true seed, unseen mob positions, unidentified item classes, hidden traps
+and secret doors as its own case, which fails with its own message when that element leaks
+**And** it covers every search the program has at that point: the one-ply model of story 6.1, and a
+probe search that spends its budget on rollouts through the `Simulator`, a test fixture that exists so
+the rollout path is exercised before any real candidate exists.
+
+**Given** that a test which cannot fail proves nothing
+**When** the negative controls run
+**Then** a planted leak in each of four forms is caught: a search handed the live snapshot's handle
+with the scrubbed flag forged, a search that reads the true seed through a test back door, a probe
+whose scrubber leaves one row out, and a search that reads an unseen mob's position
+**And** the rollout host's refusal of an unscrubbed or foreign handle is asserted separately
+(`Simulator.simulate`, `RolloutHostRefusalTest`).
+
+**Given** what the test does not claim
+**When** the story file and the test's Javadoc are written
+**Then** they state that the test proves independence from the hidden state it can vary, which is the
+rows of the ADR-0009 table and nothing beyond; that a hidden element outside the table is outside the
+proof until the table grows; and that it is a necessary condition for fairness and not a sufficient
+one, which is why the fairness reviewer still reads every search diff
+**And** the test runs in CI on every pull request, is added to the guarantees table in
+`docs/fairness.md` with its test name, and its result on the `smoke` set is published as a Results
+page.
+
+### Story 6.4: The simulator-speed measurement
+
+As the engineer,
+I want to know how many redetermined rollouts a second the host can run,
+So that ADR-0010 can say whether sampled search fits any budget at all.
+
+**Acceptance Criteria:**
+
+**Given** ADR-0010's measurement table and the E1 throughput page (about 399.5 Input waits per second
+per process for the random agent)
+**When** the measurement is run on the `smoke` set's mid-fight snapshots under the swap-in-place host
+of story 6.2
+**Then** it reports, separately, the cost of taking a snapshot, of scrubbing it, of loading the
+scrubbed copy, of rolling out a stated horizon (2, 3 and 4 hero turns, the FR-34 range) and of
+restoring the live Run, each as a median and a 95th percentile, and the redetermined rollouts per
+second per process they imply
+**And** the report states the machine, the JDK, the commit, the command and the number of snapshots,
+the way `docs/results/e1-throughput.md` does, and the command is run three times
+**And** if the E1 classloader-isolation spike can be completed in this story, the same table is
+reported for isolated engine instances; if it cannot, the page says why in a sentence and cites
+ADR-0009's JNI note rather than leaving the row out silently.
+
+**Given** ADR-0010's pre-mortem (snapshot cost may hide a viable design)
+**When** the results are read
+**Then** the page says which of the five costs dominates and what the rate would be if that cost were
+zero
+**And** it states, for the per-Decision budgets the Overlay and the Rig use (the Registration's
+`budgetMs` field), how many determinizations times rollouts fit, and whether the answer is none,
+which is a valid result
+**And** the numbers are not compared to a target chosen in advance (NFR-3: no number is promised
+before it is measured).
+
+**Given** reproducibility
+**When** a stranger runs the command
+**Then** `SimulatorSpeedSmokeTest` runs a tiny configuration and pins its structure (the five cost
+rows are present, the counts add up) and not its timings
+**And** the page lands in `docs/results/` with the report attached and indexed, and the docs build
+passes; the pull request carries no Rig comparison because no Brain changes.
+
+### Story 6.5: The properties measurement
+
+As the engineer,
+I want the leaf correlation and the disambiguation factor of SPD's tactics, measured properly,
+So that the choice between sampled search and the one-ply model has an explanation beside its
+verdict.
+
+**Acceptance Criteria:**
+
+**Given** ADR-0010 and its story 1.21 amendment, which fixed two changes this story must make
+**When** the properties are recomputed
+**Then** the method is the amendment's, random playouts from snapshots, with its two changes: the
+disambiguation denominator is the facts reachable on the floor of the sample and not the Run's whole
+set of unknown appearances, and the count is taken at a death as well as at the horizon
+**And** the playouts are driven by the baseline Brain and by the one-ply model of story 6.1 as well as
+by the random agent, so that survival is uncertain and the agreement of siblings means something,
+which is why the E1 reading (kappa 0.010, disambiguation 0.000) could not be placed on the scale
+**And** the snapshots are the `smoke` set's mid-fight snapshots, drawn the way the amendment
+describes and the way story 6.4 uses them.
+
+**Given** that bias is a two-player quantity
+**When** the page is written
+**Then** bias is not measured and the page says why in one sentence, citing ADR-0010
+**And** the hidden facts are counted through the oracle sidecar from the launcher under `--oracle`, the
+one place that may construct it and the one switch that marks it; the page shows the flag, and no
+oracle code runs in any ranked Rig run or in any search
+**And** `PropertiesDefinitionTest` pins the two definitions on hand-built cases with known answers (a
+toy snapshot where every sibling agrees, and one where the revealed share is known), so a later reader
+can check the arithmetic.
+
+**Given** ADR-0010's rule 4 (the properties are explanatory, never a gate)
+**When** the results are published
+**Then** the page reports the two numbers with confidence intervals for each driving Brain, says what
+each would predict for sampled search in the sense of Long et al., labels the prediction as
+explanatory, and links the speed page from story 6.4
+**And** the ADR-0010 amendment records what was measured and that no choice was made from it.
+
+### Story 6.6: The candidate comparison under the Sequential test
+
+As the product owner,
+I want every search candidate registered against the one-ply model at equal budget and decided by the
+Sequential test,
+So that a search ships only if the numbers accept it, and the question is closed with published
+measurements if none does.
+
+**Acceptance Criteria:**
+
+**Given** ADR-0010's choice rule and ADR-0012
+**When** the candidates are chosen
+**Then** rule 1 is checked first: if the search leak test of story 6.3 does not pass for a design,
+that design is not registered, and the story file says which and why
+**And** among the designs that fit the budget (a design fits when its median Decision time at the
+registered budget completes the search it was configured for on the described machine, measured with
+story 6.4's harness), at most ADR-0010's options 3 (depth-limited sampled search over redetermined
+rollouts), 4 (information-set search) and 5 (hybrid: abstract tree, one rollout per leaf) are
+implemented, each in its own pull request with the `fairness` label and a fairness review, and the
+rest are recorded as not attempted with the reason (budget, properties, or time)
+**And** if none fits the budget, the story goes straight to its closing criterion with no candidate
+built.
+
+**Given** Rig discipline (non-negotiable 5)
+**When** a candidate is registered
+**Then** the Registration names the baseline (the one-ply model of story 6.1 at its merged commit),
+the `standard` set at its version, the `budgetMs` and `machineClass` fields, and the Per-pair GSPRT
+parameters, with the equal wall-clock budget per Decision enforced by the runner rather than by
+convention, and the burn-in and maximum pairs as ADR-0012 and ADR-0018 give them
+**And** the `bosses` set is run as well, since it targets fights, and reported beside `standard` and
+never instead of it
+**And** the `holdout` set is touched exactly once, at the end, on the accepted candidate or on the
+one-ply model if none is accepted, and the page records that it was
+**And** a candidate ships only on acceptance; undecided and rejected outcomes are published with the
+same weight as an acceptance, with the properties from story 6.5 reported beside each result as
+explanation and not as a gate.
+
+**Given** the outcomes
+**When** the epic closes
+**Then** either the accepted candidate becomes the tactical layer, with its Results page, its
+Registration, the fairness review, ADR-0010 amended with the decision, and `SearchLeakTest` green on
+it, or the one-ply model remains the tactical layer, the measurements stay published, and the
+amendment says what would reopen the question (a faster simulator, a new upstream tag, a new
+candidate)
+**And** `docs/roadmap.md`, `sprint-status.yaml` and the epic issue are updated in the same pull
+request, the E6 retrospective runs, and its lessons land in `CLAUDE.md`.
 
 ## Epic 7: Strategy and lore (deferred)
 
