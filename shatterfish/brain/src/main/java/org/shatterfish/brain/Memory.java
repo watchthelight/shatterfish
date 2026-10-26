@@ -135,6 +135,9 @@ import java.util.List;
  *                   (issue #163's fairness review): the descend Policy's own signal to stop walking
  *                   back to one, since a refusal spends no turn and the game offers Unlock beside a
  *                   locked tile whether or not a key is held
+ * @param sentries the cells, per floor, of the red sentries seen (issue #219, step 6): the special floor
+ *                 around each is kept out of for the rest of the floor, in sight of the sentry or not
+ *                 ({@link Sentry})
  */
 record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List<Held> held, List<String> known,
               List<Held> labels, List<Found> pending, List<Seen> monsters, Spot at, int streak, boolean calm,
@@ -143,7 +146,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
               long drank, Trial trial, List<Balk> balked, int walking, long tested, List<Cloud> clouds,
               int refuge, long arrived, int rests, int stepped, int tried, List<Cloud> fleeting,
               Windows windows, int prior, int bounces, int hunger, int hp, int food, int tail, int pump,
-              long pumpWait, Spot chase, long chased, List<Spot> triedExits) {
+              long pumpWait, Spot chase, long chased, List<Spot> triedExits, List<Spot> sentries) {
 
     /**
      * The meaning of the bytes; bumped when it changes (3: where the hero stood, story 4.6; 4: the
@@ -165,9 +168,11 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
      * review); version 13 unions them, chase and chased before triedExits, so a locked exit tried once
      * and refused is never walked back to every wait it moved away -- Explore gets between refusals to
      * go looking for a key it has not seen -- and the fight Policy walks on to where an enemy that
-     * dropped out of view was last seen, rather than hand the wait to a Policy that walks straight back.
+     * dropped out of view was last seen, rather than hand the wait to a Policy that walks straight back;
+     * version 14 adds sentries (issue #219, step 6), so the floor a red sentry guards is kept out of after
+     * the hero has stepped out of the sentry's sight.
      */
-    static final int VERSION = 13;
+    static final int VERSION = 14;
 
     /**
      * The bounces between two cells after which a Step back to the cell of two waits ago is withheld
@@ -230,7 +235,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     static final Memory START = new Memory(0, 0, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
             List.of(), Spot.NOWHERE, 0, false, List.of(), List.of(), "", 0, -1, -1, List.of(), List.of(), "", List.of(),
             Pack.NONE, Aim.NONE, -1, Trial.NONE, List.of(), 0, -1, List.of(), -1, 0, 0, -1, -1, List.of(), Windows.NONE, -1, 0, 0, -1, -1, 0, -1, -1,
-            Spot.NOWHERE, -1, List.of());
+            Spot.NOWHERE, -1, List.of(), List.of());
 
     /** The set in {@link #flights} that counts the retreats made on a sealed floor (issue #180); sets 0 to 2 count stairs flights. */
     static final int SEALED_RETREATS = 3;
@@ -246,7 +251,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         this(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm, dwelt, blocked,
                 last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial, balked, walking,
                 tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp,
-                food, tail, pump, pumpWait, Spot.NOWHERE, -1, List.of());
+                food, tail, pump, pumpWait, Spot.NOWHERE, -1, List.of(), List.of());
     }
 
     /** Story 4.11's shape: no cell two waits ago, no bounces, the hunger clock at its start. */
@@ -259,7 +264,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         this(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm, dwelt, blocked,
                 last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial, balked, walking,
                 tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, -1, 0, 0, -1, -1, 0, -1, -1,
-                Spot.NOWHERE, -1, List.of());
+                Spot.NOWHERE, -1, List.of(), List.of());
     }
 
     /** Story 4.12's shape: no window opened or left. */
@@ -272,7 +277,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         this(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm, dwelt, blocked,
                 last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial, balked, walking,
                 tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, Windows.NONE, -1, 0, 0, -1, -1, 0, -1, -1,
-                Spot.NOWHERE, -1, List.of());
+                Spot.NOWHERE, -1, List.of(), List.of());
     }
 
     /**
@@ -319,7 +324,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     Memory windowing(Windows windows) {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits);
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits, sentries);
     }
 
     /** Story 4.10's shape: arrived at the start, no rest before going down, no Step handed over. */
@@ -422,7 +427,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
                 balked, walking, test ? waits : tested, clouds, test ? refuge : this.refuge, arrived, rests, stepped, tried,
-                fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits);
+                fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits, sentries);
     }
 
     /** Story 4.7's shape: nothing underfoot, nothing refused, no pack seen, no aim. */
@@ -478,7 +483,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
                 balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior,
-                bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, with(triedExits, spot));
+                bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, with(triedExits, spot), sentries);
     }
 
     /** The pack as far as a pick-up changes it: the items listed, their total quantity, the gold. */
@@ -506,7 +511,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     Memory aiming(Aim aim) {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits);
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits, sentries);
     }
 
     /**
@@ -530,21 +535,21 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     Memory handed(String kind, int stepped) {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, kind, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits);
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits, sentries);
     }
 
     /** This memory with a drink handed over at this wait (story 4.9). */
     Memory drinking() {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, waits, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits);
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits, sentries);
     }
 
     /** This memory with one more rest handed over by the descend Policy on this floor (story 4.12). */
     Memory resting() {
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests + 1, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits);
+                balked, walking, tested, clouds, refuge, arrived, rests + 1, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits, sentries);
     }
 
     /**
@@ -558,7 +563,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         more.add(new Found(floor, SEALED_RETREATS, already + 1));
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, more, avoid, underfoot, refused, pack, aim, drank, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits);
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits, sentries);
     }
 
     /** This memory with {@code region} avoided as well, the oldest forgotten past {@link #AVOIDED}. */
@@ -570,7 +575,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         }
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, more, underfoot, refused, pack, aim, drank, trial,
-                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits);
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits, sentries);
     }
 
     /** The regions still avoided at wait {@code now} on the floor at {@code depth} and {@code branch}. */
@@ -595,7 +600,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, kept, underfoot, refused, pack, aim, drank, trial,
                 balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces,
-                hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits);
+                hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits, sentries);
     }
 
     /** This memory with {@code chase} as where the enemy last approached stood, at wait {@code chased} (issue #174). */
@@ -603,7 +608,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial,
                 balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces,
-                hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits);
+                hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits, sentries);
     }
 
     /** A cell on a floor: its depth, its branch and the cell. */
@@ -689,6 +694,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         require(pump >= -1 && pumpWait >= -1 && pumpWait <= waits, "a pump seen");
         require(chase != null && chased >= -1 && chased <= waits && (chased < 0) == (chase.cell() < 0), "a chase");
         triedExits = List.copyOf(triedExits);
+        sentries = List.copyOf(sentries);
     }
 
     private static void require(boolean held, String what) {
@@ -768,6 +774,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         out.integer(tail).integer(pump).number(pumpWait);
         out.integer(chase.depth()).integer(chase.branch()).integer(chase.cell()).number(chased);
         spots(out, triedExits);
+        spots(out, sentries);
         return new Belief(VERSION, out.bytes());
     }
 
@@ -886,10 +893,11 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
             Spot chase = new Spot(in.integer(), in.integer(), in.integer());
             long chased = in.number();
             List<Spot> triedExits = spots(in);
+            List<Spot> sentries = spots(in);
             in.end();
             return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak,
                     calm == 1, dwelt, blocked, last, holds, near, before, flights, avoid, underfoot, refused, pack, aim,
-                    drank, trial, balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits);
+                    drank, trial, balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits, sentries);
         } catch (IllegalArgumentException malformed) {
             throw new IllegalArgumentException("not a Belief this Brain wrote: " + belief + ": " + malformed.getMessage());
         }
