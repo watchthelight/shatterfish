@@ -170,6 +170,7 @@ final class Fight implements Policy {
         for (Memory.Seen seen : memory.monsters()) {
             if (seen.depth() == observation.header().depth() && seen.at() < memory.waits()
                     && memory.waits() - seen.at() <= RECALL_WAITS && !Bestiary.passive(knowledge, seen.depth(), observation.header().branch(), seen.name())
+                    && !Bestiary.waterBound(knowledge, seen.depth(), observation.header().branch(), seen.name())
                     && seen.cell() < map.tiles().size() && map.fog().get(seen.cell()) != Fog.VISIBLE) {
                 threats.add(new ActorView(seen.cell(), seen.name(), Alignment.ENEMY, ObservationCodec.MAX_HEALTH_PIPS,
                         false, org.shatterfish.api.Emote.NONE, List.of()));
@@ -232,6 +233,10 @@ final class Fight implements Policy {
             if (offered.contains(new Action.Attack(enemy.cell()))) {
                 adjacent.add(enemy);
             }
+        }
+        RunLog.Choice leave = leaveWater(observation, memory, offered, knowledge);
+        if (leave != null) {
+            return List.of(leave);
         }
         boolean favourable = favourable(observation, knowledge, threats(observation, memory, enemies, knowledge));
         RunLog.Choice retreat = retreat(observation, memory, offered, enemies, knowledge);
@@ -312,12 +317,154 @@ final class Fight implements Policy {
     /** The enemies the screen shows, less those the game keeps passive until provoked. */
     static List<ActorView> enemies(Observation observation, Codex.Knowledge knowledge) {
         List<ActorView> enemies = new ArrayList<>();
+        boolean[] swum = swum(observation, knowledge);
+        boolean exposed = swum != null && exposed(observation.map(), observation.hero().cell(), swum);
         for (ActorView actor : observation.actors().actors()) {
-            if (actor.alignment() == Alignment.ENEMY && !passive(knowledge, observation.header(), actor)) {
+            if (actor.alignment() == Alignment.ENEMY && !passive(knowledge, observation.header(), actor)
+                    && (exposed || !Bestiary.waterBound(knowledge, observation.header().depth(), observation.header().branch(),
+                            actor.name()))) {
                 enemies.add(actor);
             }
         }
         return enemies;
+    }
+
+    /**
+     * The water cells the water-bound enemies in view can swim to (issue #219, step 6): the known water tiles joined to
+     * the cell of any one of them, by the eight neighbours a character moves between (Piranha.java:139, :150 step
+     * only through water, and it dies on land, :72-77). Null when none is in view.
+     */
+    static boolean[] swum(Observation observation, Codex.Knowledge knowledge) {
+        return swum(observation, null, knowledge);
+    }
+
+    /**
+     * {@link #swum(Observation, Codex.Knowledge)}, joined with the water of the water-bound enemies the Memory saw on this
+     * floor and the screen does not show now (a piranha stays in its water, so where it was seen is where its water is).
+     * A {@code null} memory leaves them out.
+     */
+    static boolean[] swum(Observation observation, Memory memory, Codex.Knowledge knowledge) {
+        MapSection map = observation.map();
+        int cells = map.tiles().size();
+        int depth = observation.header().depth();
+        int branch = observation.header().branch();
+        boolean[] swum = null;
+        ArrayDeque<Integer> queue = new ArrayDeque<>();
+        List<int[]> seeds = new ArrayList<>();
+        for (ActorView actor : observation.actors().actors()) {
+            if (actor.alignment() == Alignment.ENEMY && Bestiary.waterBound(knowledge, depth, branch, actor.name())) {
+                seeds.add(new int[]{actor.cell()});
+            }
+        }
+        if (memory != null && memory.at().on(depth, branch)) {
+            for (Memory.Seen seen : memory.monsters()) {
+                if (seen.depth() == depth && seen.cell() < cells && map.tiles().get(seen.cell()) == org.shatterfish.api.Tile.WATER
+                        && Bestiary.waterBound(knowledge, depth, branch, seen.name())) {
+                    seeds.add(new int[]{seen.cell()});
+                }
+            }
+        }
+        for (int[] seed : seeds) {
+            if (seed[0] >= cells) {
+                continue;
+            }
+            if (swum == null) {
+                swum = new boolean[cells];
+            }
+            if (!swum[seed[0]]) {
+                swum[seed[0]] = true;
+                queue.add(seed[0]);
+            }
+        }
+        int width = map.width();
+        while (!queue.isEmpty()) {
+            int cell = queue.poll();
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    int nx = cell % width + dx;
+                    int ny = cell / width + dy;
+                    if ((dx == 0 && dy == 0) || nx < 0 || ny < 0 || nx >= width || ny >= map.height()) {
+                        continue;
+                    }
+                    int next = nx + ny * width;
+                    if (!swum[next] && map.tiles().get(next) == org.shatterfish.api.Tile.WATER
+                            && map.fog().get(next) != Fog.UNKNOWN) {
+                        swum[next] = true;
+                        queue.add(next);
+                    }
+                }
+            }
+        }
+        return swum;
+    }
+
+    /** Whether a water-bound enemy could bite a hero on {@code cell}: the cell, or one beside it, is water it swims to. */
+    static boolean exposed(MapSection map, int cell, boolean[] swum) {
+        int width = map.width();
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                int nx = cell % width + dx;
+                int ny = cell / width + dy;
+                if (nx >= 0 && ny >= 0 && nx < width && ny < map.height() && swum[nx + ny * width]) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** The Choice's reason for a walk out of a piranha's reach, which the Brain counts and avoids the water after. */
+    static final String LEAVE_WATER = "retreat: leave water";
+
+    /**
+     * The most walks out of a piranha's reach the Policy makes on one floor: past that the Brain shows the Policies no piranha, and the hero has to pass the water (it is
+     * the way to the rest of the floor), and a walk back out each time it is bitten only hands the piranhas more bites. An
+     * assumption.
+     */
+    static final int LEAVES = 1;
+
+    /**
+     * The cells beside the water {@code swum} reaches, and the water itself, that the Memory does not already avoid for
+     * {@code lasting} waits, as regions of one cell each (issue #219, step 6): walkable, shown, and not the hero's own cell.
+     */
+    static List<Memory.Avoid> shore(Observation observation, Memory memory, boolean[] swum, int lasting) {
+        MapSection map = observation.map();
+        int depth = observation.header().depth();
+        int branch = observation.header().branch();
+        long until = memory.waits() + lasting;
+        java.util.Set<Integer> held = new java.util.HashSet<>();
+        for (Memory.Avoid region : memory.avoided(depth, branch, memory.waits())) {
+            if (region.radius() == 0 && region.until() - memory.waits() >= lasting / 2) {
+                held.add(region.cell());
+            }
+        }
+        List<Memory.Avoid> regions = new ArrayList<>();
+        for (int cell = 0; cell < swum.length; cell++) {
+            if (cell != observation.hero().cell() && !held.contains(cell) && map.fog().get(cell) != Fog.UNKNOWN
+                    && Explore.WALK.contains(map.tiles().get(cell)) && exposed(map, cell, swum)) {
+                regions.add(new Memory.Avoid(depth, branch, cell, 0, until));
+            }
+        }
+        return regions;
+    }
+
+    /**
+     * Out of the reach of the water-bound enemies in view, when the hero stands where one could bite it: the offered Step
+     * that starts the shortest walk to a cell that is neither water they swim to nor beside it. A piranha cannot follow onto
+     * land and loses a hero it has no water beside (Piranha.java:171-200), so a walk away breaks contact where a fight
+     * against three of them, at 20 to 25 hit points apiece, did not (issue #219, step 6). Null when the hero is out of
+     * reach already or no such cell is known.
+     */
+    static RunLog.Choice leaveWater(Observation observation, Memory memory, List<Action> offered, Codex.Knowledge knowledge) {
+        boolean[] swum = swum(observation, knowledge);
+        MapSection map = observation.map();
+        if (swum == null || !exposed(map, observation.hero().cell(), swum) || Memory.count(memory.flights(),
+                observation.header().depth() + ":" + observation.header().branch(), Memory.WATER_LEAVES) >= LEAVES) {
+            return null;
+        }
+        Path path = walk(map, Explore.walkable(observation, memory, false), observation.hero().cell(), offered,
+                cell -> !exposed(map, cell, swum));
+        return path == null ? null : new RunLog.Choice(path.step, Policies.CERTAIN, LEAVE_WATER + " " + path.distance);
     }
 
     /** The adjacent enemy the hero expects to kill soonest; ties to the lower cell. */

@@ -1,7 +1,6 @@
 package org.shatterfish.brain;
 
 import org.shatterfish.api.ActorView;
-import org.shatterfish.api.Alignment;
 import org.shatterfish.api.Codex;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.PromptKind;
@@ -28,12 +27,7 @@ final class Calm {
         if (observation.header().prompt() != PromptKind.NONE) {
             return false;
         }
-        for (ActorView actor : observation.actors().actors()) {
-            if (actor.alignment() == Alignment.ENEMY && !Fight.passive(knowledge, observation.header(), actor)) {
-                return false;
-            }
-        }
-        return true;
+        return Fight.enemies(observation, knowledge).isEmpty();
     }
 
     /**
