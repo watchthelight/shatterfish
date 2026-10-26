@@ -37,6 +37,7 @@ standing Registration `H-0001-nightly-smoke`, with every night's status in its t
 | [Baseline at v4.0.2](2026-10-25-feb88de55.md) | The same Brain on `main` (`v4.0.0`) and on the upgrade (`v4.0.2`), unregistered: reach, Goo kills, median turns and deaths by depth on 40 `standard` Warriors and the 5 `smoke` Warriors. |
 | [Goo baseline at 5b48107f9](2026-10-25-goo-baseline-5b48107f9.md) | `main` with the debug record on, unregistered: reach, Goo kills and conversion with 95% intervals, the Goo-fight table, deaths by killer and the sample size a +5 point change needs, on 120 `standard` Warriors | Issue #219, step 2 |
 | [No walking away from a faster enemy](2026-10-26-219-no-outrunning-fast-enemies.md) | Unregistered direction check: the baseline's deaths on depths 2 to 4 by killer, and reach, Goo kills and deaths by depth for `main` and the change on 120 `standard` Warriors (two slices) | Issue #219, step 6 |
+| [Keep out of a red sentry's floor](2026-10-26-219-sentry-floor.md) | Unregistered direction check: sentry deaths on depths 2 to 4, and reach, Goo kills and deaths by depth for `main` and the change on 120 `standard` Warriors (two slices) | Issue #219, step 6 |
 | [Story 5.16, the sewers run](2026-10-25-5-16-the-sewers-run.md) | The headless session: a seeded Warrior to the Goo fight, a three-turn takeover and hand back, a log that replays, and 16 standard Runs played in the Overlay's driver against the Rig, with the log attached | E5, story 5.16 |
 
 The rig's own result files, in the shape described above, begin with the random-agent baseline in
