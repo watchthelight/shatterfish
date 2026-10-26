@@ -243,6 +243,9 @@ E5 (the Overlay) so far:
 - In the Goo fight the Brain moves, before contact, to ground where it can dodge the pumped blow,
   and walks to water to wash off caustic ooze. On 68 fights at depth 5 Goo kills went from 49 to
   58 (72% to 85%), with reach unchanged (#268, part of #219).
+- E6.4: one redetermined rollout costs about 47 ms under the swap-in-place host, so a process runs
+  about 21 a second on a quiet machine; snapshot, load and restore are 87% of it, restore the
+  largest single cost (#269, closes #251).
 - E4.14, first half: a differential test plays three seeds twice with unidentified item labels
   exchanged in the game and checks that the Brain acts the same while the screens match; the E4
   retrospective's lessons are in `CLAUDE.md` (#255). The gate Run on the registered set waits.
