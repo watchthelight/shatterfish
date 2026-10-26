@@ -85,6 +85,13 @@ Project skills (`.claude/skills/`): `/next-story`, `/rig`, `/codex`, `/upstream-
 - Verify interactive behaviour headless first (`ScriptedHuman` on `EmbeddedHost`, as `SewersRunSmokeTest` does). Never open a game window or any GUI from an agent session; the live session is the product owner's acceptance.
 - Run `fairness-reviewer` before opening the PR for Overlay, executor and takeover diffs. A test seed comes from the `standard` set and its page names the set; never `goo` or `holdout`.
 
+## Lessons from E4 (`_bmad-output/implementation-artifacts/epic-4-retrospective.md`)
+
+- A Policy story ends with a real-Run check, not only hand-built screens: read the strategy log of a `smoke` or `standard` subset for repeated cells and wasted waits (#174, #163 and #183 showed only there).
+- One tuning table is one measurement. Keep or revert a step on recorded numbers, confirm a kept step on a second slice before merging, and say in the PR what the table cannot show.
+- For a rate gate, split the target into reach times conditional success and report how far each factor is, so a gate that needs another epic's work is a correct-course item when found.
+- A differential test compares Decisions only while the Observations are equal; give it a control where the permuted state does come to show, or it holds for any Brain.
+
 ## Style
 
 Chat replies follow the user's global caveman preference (terse, fragments fine). Code, commits, docs, PR bodies, ADRs, and anything committed are written normally and in full.
