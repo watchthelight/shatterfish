@@ -237,6 +237,9 @@ E5 (the Overlay) so far:
 - E6.3: the search leak test scrubs mid-fight snapshots into worlds that show the same screen and
   requires every search to decide alike in all of them; seven planted leaks must each fail it
   (#267, closes #250).
+- The Brain treats a piranha it cannot reach as scenery and steps once off a shore it can be bitten
+  from. Over 120 Runs Goo kills went from 49 to 56 and reach depth 5 from 68 to 72 (#266, part of
+  #219).
 - E4.14, first half: a differential test plays three seeds twice with unidentified item labels
   exchanged in the game and checks that the Brain acts the same while the screens match; the E4
   retrospective's lessons are in `CLAUDE.md` (#255). The gate Run on the registered set waits.
