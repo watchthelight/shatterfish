@@ -97,6 +97,10 @@ Two things this does not settle. A Run restored from a snapshot in the same proc
 (`HeadlessDriver`'s restore) starts from these statics as the process left them, not as they were
 when the snapshot was taken; only the snapshot's saved game is restored. A rollout (`RolloutHost`,
 story 6.2) is the exception it owns: it captures these statics (`RunStatics.capture`) and the profile
-(`ProfileGuard`) before it loads the scrubbed copy and puts both back once the live Run is restored. And the statics that read
+(`ProfileGuard`) before it loads the scrubbed copy, puts the profile back before the live Run is loaded (the game reads
+the journal as it loads a floor: a guide page found in it is dropped from the floor, `Heap.java:439-449`, issue #271) and
+the statics after, then saves the live Run again and compares the save and the screen with the snapshot's
+(`SnapshotStore.verifyRestored`), failing the rollout if anything differs. Any other caller that plays on after a
+snapshot and restores it does the same: hold a `ProfileGuard`, put it back before `SnapshotStore.restore`. And the statics that read
 the wall clock, `Holiday.cached` and `DimensionalSundial`'s night check, make a Run depend on the date
 and the hour, which no reset can fix: that is issue #139.

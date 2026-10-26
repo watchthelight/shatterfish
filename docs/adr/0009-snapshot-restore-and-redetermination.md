@@ -295,7 +295,8 @@ Written when the scrubber and the host were built; the table above is the decisi
   and puts back what a restore does not carry: the game's statics (`RunStatics.capture`, an opaque holder) and the
   profile (`ProfileGuard`: the rankings, badges, journal and bones files, the journal's catalogs, bestiary and pages,
   the badges, and the rankings' fields). This closes the "what a snapshot does not hold" gap for rollouts; a restore that
-  is not a rollout still leaves the journal as the process has it.
+  is not a rollout still leaves the journal as the process has it. (Issue #271 corrected the order: see the amendment
+  below.)
 - **Residuals.** A re-created buff may draw an icon that differs from the true buff's; the ids of kept mobs and buffs are
   the true ones; `limited_drops` are zeroed, which biases strength and upgrade drops on a descent inside a rollout;
   `heroFOV` is an input to the scrub for unknown wall cells in view; the container and unseen rows are covered only by the
@@ -320,3 +321,31 @@ The fairness re-review of story 6.2 found two blockers and six lesser gaps; all 
 - A refusal is never evidence about the world. Some refusals (an unsolvable fog, an item no roll fits) depend on the true
   state by a fraction of a bit; the Simulator's caller must treat a refused scrub as "no sample", not as a signal.
 - Residual: the scrubbed copy is written to the real save slot for the length of a rollout.
+
+## Amendment: the live restore reads the profile (issue #271, 2026-10-26)
+
+Story 6.5 found one Run, the `standard` seed 648322377831 at its Input wait 164, whose live Run did not come back from a
+rollout's restore to the screen it left: a torn guidebook page lying in view was gone from the map.
+
+- **Cause.** The game drops a guide page the journal has found from a floor as it loads the floor
+  (`core/.../items/Heap.java:439-449`). A rollout that picks the page up finds it in the journal, which is the process's
+  and not the snapshot's. `RolloutHost` loaded the live Run first and put the profile back after, so the live floor was
+  read in with the page already found and came back without it, and the next snapshot of the live Run saved it that way:
+  the live Run played on a different game than the one shown. The 6.5 measurement's own restores (`SnapshotStore.restore`
+  after a playout) had the same gap, and the seed's playouts were dropped as "restore differs".
+- **Fix.** `RolloutHost` puts the profile back before it loads the live Run; the statics go back with it, since the load and the step to the wait read them too. The measurement holds a
+  `ProfileGuard` and the statics and puts both back before every playout.
+- **A check that does not depend on knowing the gap.** After the live Run is restored and stepped to its wait, the host saves
+  it again and compares every file of that save with the snapshot's, and the screen with the screen
+  (`SnapshotStore.verifyRestored`); a difference fails the rollout, naming the files and never their bytes. The saves are
+  compared as `SaveForm` writes them. Three things in a save are not the Run's and are left out or put in order, each found
+  by running the check over 24 Runs of `smoke` and `standard` (402 rollouts) and reading what it reported: the save's
+  wall-clock time; the actor-id counter, which a load moves on by the number of item-owned buffs it makes again (a wand's
+  charger, `Wand.java:195-197`, `Actor.java:354-360`) and which orders nothing; and the order of the level's heaps, plants,
+  traps and targeted cells and of the statistics' discovered-item set, which the game writes in hash-map order.
+  The check covers the save and the screen. The statics go back with the profile, before the load, and the check does not
+  see them; it accepts the actor-id counter's drift as above. The game log is part of the screen it compares.
+  The check costs one more save per rollout, about 10 ms of a rollout that takes about 50 (story 6.4 measured the other
+  four phases and not this one; `RolloutHost.Phases.verify` reports it).
+- **Residual.** A caller of `SnapshotStore.restore` that is not the rollout host must hold the profile itself; the method
+  says so. `RolloutRestoresTheFloorTest` holds the case: it fails on the previous order and on the previous measurement.

@@ -36,7 +36,11 @@ import java.util.Objects;
  *       served the way {@link RunLoop} serves them. The new floor of a descent comes from the sample's seed.</li>
  *   <li>The Observation at each wait the rollout reaches is collected, with the same {@link Observer} the live Run is
  *       observed with.</li>
- *   <li>Whatever happened, the live snapshot is restored and stepped to its wait, then the statics and the profile are put back.</li>
+ *   <li>Whatever happened, the profile is put back first, because the game reads it as it loads a floor (a guide page the
+ *       rollout found would otherwise be dropped from the live floor, issue #271); then the live snapshot is restored and
+ *       stepped to its wait; then the Run is saved again and the save and the screen are compared with the snapshot's
+ *       ({@link SnapshotStore#verifyRestored}), which fails the rollout loudly if anything a restore carries was missed;
+ *       then the statics are put back.</li>
  * </ol>
  *
  * <p>The host must be called at an Input wait of the driver it holds, from the thread that plays that driver.
@@ -66,8 +70,15 @@ public final class RolloutHost extends Simulator {
         /** The Actions played and each wait observed. */
         void rollout(long nanos);
 
-        /** The live Run restored and stepped to its wait, the snapshot dropped, the statics and the profile put back. */
+        /** The profile put back, then the live Run restored and stepped to its wait. */
         void restore(long nanos);
+
+        /**
+         * The live Run saved again and compared with the snapshot it was restored from (issue #271). Not part of the four
+         * costs story 6.4 measured; a listener that does not care need not override it.
+         */
+        default void verify(long nanos) {
+        }
     }
 
     /** Reports the host's phase costs to {@code listener} from now on; null stops reporting. */
@@ -120,6 +131,24 @@ public final class RolloutHost extends Simulator {
             if (timer != null && t3 == 0) {
                 t3 = System.nanoTime();
             }
+            // The profile goes back FIRST. The game reads it while it loads a floor: a heap holding a guide page the journal
+            // has found is dropped from the floor as it is read in (core/.../items/Heap.java:439-449), so a floor loaded
+            // while the rollout's pickup of that page still stands in the journal comes back without the page, and the next
+            // snapshot of the live Run saves it that way (issue #271). Putting the profile back after the load returned the
+            // journal and left the floor changed.
+            try {
+                profile.restore();
+            } catch (RuntimeException e) {
+                failure = add(failure, e);
+            }
+            // The statics go back with it, for the same reason: the live Run loads and steps to its wait reading them, and
+            // the check below cannot see them.
+            try {
+                statics.restore();
+            } catch (RuntimeException e) {
+                failure = add(failure, e);
+            }
+            long restored = 0;
             try {
                 if (!driver.closed()) {
                     store.restore(live, driver);
@@ -129,16 +158,19 @@ public final class RolloutHost extends Simulator {
                     if (halt.reason() != HeadlessDriver.Reason.INPUT_WAIT || halt.waitIndex() != live.k()) {
                         throw new IllegalStateException("the live Run was put back and does not stand at its wait " + live.k() + ": " + halt);
                     }
+                    restored = timer == null ? 0 : System.nanoTime();
+                    // The check that does not depend on knowing which state a restore can miss: the Run as it stands is saved
+                    // again and compared with the save it was restored from, file by file, and its screen with the screen.
+                    store.verifyRestored(live, driver);
                 }
             } catch (RuntimeException e) {
                 failure = add(failure, e);
             }
+            long verified = timer == null ? 0 : System.nanoTime();
             store.drop(live);
-            try {
-                statics.restore();
-            } catch (RuntimeException e) {
-                failure = add(failure, e);
-            }
+            // Loading the live Run ends the scene the rollout left, and the scene writes the journal and the badges into the
+            // profile directory as it ends (core/.../scenes/GameScene.java:818-819), a file the profile may not have held:
+            // the profile goes back once more, so its files are as the rollout found them.
             try {
                 profile.restore();
             } catch (RuntimeException e) {
@@ -146,7 +178,11 @@ public final class RolloutHost extends Simulator {
             }
             if (timer != null) {
                 try {
-                    timer.restore(System.nanoTime() - t3);
+                    if (restored == 0) {
+                        restored = verified;
+                    }
+                    timer.restore(restored - t3);
+                    timer.verify(verified - restored);
                 } catch (RuntimeException e) {
                     failure = add(failure, e);
                 }

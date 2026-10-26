@@ -136,7 +136,7 @@ Brain. The slice is an independent check of direction, not a pooled estimate: it
 half the `smoke` one, outside that interval, which says the factor depends on which Runs are drawn. One `standard` seed
 (648322377831) came back from its first snapshot's playouts to a different map Observation than it left; its Brain playouts
 at that snapshot (8) were dropped and the Run ended there with its recorded snapshots kept (the log's note and the "restore
-differs=4" in its table). The cause is not known; it did not happen on `smoke`, and the measurement checks the restore against the snapshot's Observation hash so that it can never pass unseen.
+differs=4" in its table). The cause was found afterwards (issue #271): a playout of the random agent picked up the torn guidebook page lying in view at that wait, which sets the page found in the journal, and the game drops a guide page the journal has found from a floor as it loads the floor (`core/.../items/Heap.java:439-449`). The journal is the process's and not the snapshot's, so the restore that followed the playout loaded the floor without the page, and the map Observation differed by that one heap (cell 1332). The measurement now holds the profile and puts it back before every restore, so that seed plays all its snapshots. The figures above are from before that change and were not re-measured: the loss was the eight Brain playouts at that snapshot and the seed's later snapshots (3 of its 6 were taken), out of 131 snapshots, so they stand as recorded, and a re-run would add a few snapshots of that seed. The measurement still checks every restore against the snapshot's Observation hash, so a restore that differs can never pass unseen.
 
 ## What it says for sampled search (explanatory)
 
