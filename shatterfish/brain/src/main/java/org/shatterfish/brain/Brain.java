@@ -132,8 +132,39 @@ public final class Brain {
         return knowledge;
     }
 
+    /**
+     * The screen the Policies are shown (issue #219, step 6): the one handed in, less the water-bound enemies when the hero
+     * has already walked out of a piranha's reach {@link Fight#LEAVES} times on this floor and stands where one could bite it.
+     * The way on leads past the water, so the hero goes on past it as a hero does who has seen there is no other way: it
+     * neither fights nor flees what it cannot outfight or avoid, and a walk back out at each bite only hands the piranhas
+     * more of them. Only ever fewer things are shown, never more.
+     */
+    Observation seen(Observation observation, Belief belief) {
+        if (belief == null) {
+            return observation;
+        }
+        Memory memory = Memory.of(belief);
+        if (Memory.count(memory.flights(), observation.header().depth() + ":" + observation.header().branch(),
+                Memory.WATER_LEAVES) < Fight.LEAVES) {
+            return observation;
+        }
+        boolean[] swum = Fight.swum(observation, knowledge);
+        if (swum == null || !Fight.exposed(observation.map(), observation.hero().cell(), swum)) {
+            return observation;
+        }
+        int depth = observation.header().depth();
+        int branch = observation.header().branch();
+        List<org.shatterfish.api.ActorView> kept = observation.actors().actors().stream()
+                .filter(actor -> actor.alignment() != org.shatterfish.api.Alignment.ENEMY
+                        || !Bestiary.waterBound(knowledge, depth, branch, actor.name())).toList();
+        return new Observation(observation.header(), observation.map(), new org.shatterfish.api.ActorsSection(kept),
+                observation.hero(), observation.inventory(), observation.journal(), observation.log(),
+                observation.actions(), observation.prompt());
+    }
+
     /** What this Brain believes at {@code observation}, holding {@code belief} (the one {@link #update} returned for it). */
-    public Beliefs beliefs(Observation observation, Belief belief) {
+    public Beliefs beliefs(Observation raw, Belief belief) {
+        Observation observation = seen(raw, belief);
         return Beliefs.view(Memory.of(belief), observation, knowledge);
     }
 
@@ -252,7 +283,8 @@ public final class Brain {
      * descend Policy hands over into a region lifts it, since they plan through one only when there is
      * no way around; and an approach records where its enemy stands, the fight Policy's chase.
      */
-    public Belief handed(Observation observation, Belief belief, Decided decided) {
+    public Belief handed(Observation raw, Belief belief, Decided decided) {
+        Observation observation = seen(raw, belief);
         Memory before = Memory.of(belief);
         // A search is judged by the screen it is issued on (issue #229), not by the one after it.
         String kind = decided.action() instanceof Action.Search && !Explore.searchReaches(observation)
@@ -331,6 +363,16 @@ public final class Brain {
                 && decided.action() instanceof Action.Step step && !decision.chosen().why().startsWith("away ")) {
             memory = memory.lifting(depth, branch, step.cell(), observation.map().width());
         }
+        // Water a piranha swims in (issue #219, step 6): the cells beside it, and the water itself, are avoided as a
+        // region of one cell each, which the plans walk around and through only when no way around is left; a walk
+        // away from the water is counted, so that it is made twice on a floor and no more.
+        if (fighting(decision) && decision.chosen().why().startsWith(Fight.LEAVE_WATER)) {
+            memory = memory.leftWater(depth + ":" + branch);
+        }
+        boolean[] swum = Fight.swum(observation, memory, knowledge);
+        if (swum != null) {
+            memory = memory.avoidingAll(Fight.shore(observation, memory, swum, AVOID_WAITS));
+        }
         // A retreat, by the stairs or away (issue #174 added the stairs: an enemy that drops out of view
         // one Step toward them let the explore Policy walk straight back, with no region to keep it out).
         if (fighting(decision) && decision.chosen().why().startsWith("retreat")) {
@@ -359,7 +401,8 @@ public final class Brain {
     }
 
     /** The Belief after seeing {@code observation}, given the Belief before it (null at the start). */
-    public Belief update(Observation observation, Belief belief) {
+    public Belief update(Observation raw, Belief belief) {
+        Observation observation = seen(raw, belief);
         // Where the pick-up Policy's plan goes on this screen (story 4.8): computed from the screen
         // and the memory, so the next screen can tell a refused pick-up or Step from a wait spent
         // otherwise.
@@ -395,7 +438,8 @@ public final class Brain {
      * Policies would have done (story 4.4). The Decision carries the screen's Safety flags, and
      * the Decided the cells the chosen Action points at.
      */
-    public Decided decide(Observation observation, Belief belief) {
+    public Decided decide(Observation raw, Belief belief) {
+        Observation observation = seen(raw, belief);
         Memory memory = Memory.of(belief);
         List<Action> offered = unshunned(observation, memory);
         // A rooted hero's Steps and stairs are refused with no time spent, so they are no choice at all
