@@ -312,7 +312,8 @@ JSON object per line, written by `harness/log/DebugRecord` and called from `RunL
   index and turn, depth, hero HP/HT/shield, the hunger state, the hero's buffs with turns, whether the
   hero stands on water, each hostile character in view (name, cell, health pips as drawn, whether it
   stands on water, distance from the hero, buffs), the log lines the wait added, the potions held by
-  the names the player sees, the Action taken, and the Decision's goal and reason when a Brain
+  the names the player sees, the rest of the pack (`pack`: kind, shown name, quantity, whether worn and the
+  shown level; added for issue #219 step 7), the Action taken, and the Decision's goal and reason when a Brain
   played.
 - **The end line** (`"t":"end"`) holds the cause, depth, turns, the killer (the cause class of the
   ranking record the death added, `Dungeon.fail`, `Rankings.submit`; empty when the Run did not die),

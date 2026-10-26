@@ -80,7 +80,7 @@ class DebugRecordTest {
         String waits = String.join("\n", lines.subList(0, lines.size() - 1));
         assertTrue(waits.contains("\"t\":\"wait\""), "wait lines");
         for (String key : List.of("\"hp\":", "\"ht\":", "\"hero_water\":", "\"hero_buffs\":", "\"enemies\":",
-                "\"log\":", "\"potions\":", "\"hunger\":", "\"depth\":")) {
+                "\"log\":", "\"potions\":", "\"pack\":", "\"hunger\":", "\"depth\":")) {
             assertTrue(waits.contains(key), "a wait line holds " + key);
         }
         String end = lines.get(lines.size() - 1);
