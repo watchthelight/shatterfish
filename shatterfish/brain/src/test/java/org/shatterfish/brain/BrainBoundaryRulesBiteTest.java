@@ -153,6 +153,17 @@ class BrainBoundaryRulesBiteTest {
 		}
 	}
 
+	@Test
+	@DisplayName("an @Heuristic constant passes every rule, and reading the annotation back by reflection is rejected")
+	void the_heuristic_annotation_opens_no_channel() {
+		JavaClasses annotated = new ClassFileImporter().importClasses(AnnotatedChoice.class);
+		for (ArchRule rule : ALL_RULES) {
+			assertDoesNotThrow(() -> rule.check(annotated),
+					"a boundary rule rejects a plain @Heuristic constant: " + rule.getDescription());
+		}
+		assertRejected(ReadsItsOwnAnnotation.class);
+	}
+
 	/**
 	 * Asserts that some rule rejects the fixture, and that it does so <em>because of this class</em>.
 	 * Checking only that an {@code AssertionError} was thrown would also pass when ArchUnit failed
@@ -178,6 +189,19 @@ class BrainBoundaryRulesBiteTest {
 	}
 
 	// --- fixtures. Each names one channel the brain must not have. ---
+
+	@SuppressWarnings("unused")
+	static final class AnnotatedChoice {
+		@Heuristic(Heuristic.UNLINKED)
+		static final int BUDGET = 3;
+	}
+
+	@SuppressWarnings("unused")
+	static final class ReadsItsOwnAnnotation {
+		static Object peek() throws Exception {
+			return ReadsItsOwnAnnotation.class.getDeclaredField("none").getAnnotation(Heuristic.class);
+		}
+	}
 
 	@SuppressWarnings("unused")
 	static final class ReachesByMethodHandle {
