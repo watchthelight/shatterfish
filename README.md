@@ -234,6 +234,9 @@ E5 (the Overlay) so far:
 - Profile 6 baselines at 7b1212eea, before #264: the tuning 40 reaches depth 5 in 24 and kills
   Goo in 17, and 120 standard Warriors kill Goo in 44 (36.7%). With the Brain attached a Rig
   process plays about 95 Input waits a second on a shared machine (#265, E4.14).
+- E6.3: the search leak test scrubs mid-fight snapshots into worlds that show the same screen and
+  requires every search to decide alike in all of them; seven planted leaks must each fail it
+  (#267, closes #250).
 - E4.14, first half: a differential test plays three seeds twice with unidentified item labels
   exchanged in the game and checks that the Brain acts the same while the screens match; the E4
   retrospective's lessons are in `CLAUDE.md` (#255). The gate Run on the registered set waits.

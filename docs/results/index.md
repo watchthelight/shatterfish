@@ -43,6 +43,7 @@ standing Registration `H-0001-nightly-smoke`, with every night's status in its t
 | [Throughput with the Brain attached at 7b1212eea](2026-10-26-throughput-7b1212eea.md) | Input waits per second per process and across a pool of six, Runs per minute and turns per second for the Brain in the Rig, on a shared machine, beside E1's random-agent figures | E4, story 4.14 |
 | [Simulator speed](2026-10-26-simulator-speed.md) | Redetermined rollouts per second per process under the swap-in-place host: the cost of a snapshot, a scrub, a load, a rollout of 2, 3 and 4 Actions and a restore (median and 95th percentile), the dominant cost, and what fits a per-Decision budget, three runs on a shared machine | E6, story 6.4 |
 | [Story 5.16, the sewers run](2026-10-25-5-16-the-sewers-run.md) | The headless session: a seeded Warrior to the Goo fight, a three-turn takeover and hand back, a log that replays, and 16 standard Runs played in the Overlay's driver against the Rig, with the log attached | E5, story 5.16 |
+| [Story 6.3, the search leak test](2026-10-26-6-3-the-search-leak-test.md) | Whether a search's Decision depends on the hidden state: the one-ply model and a rollout probe over alternate worlds of the `smoke` set's mid-fight snapshots, and the planted leaks the test catches | E6, story 6.3 |
 
 The rig's own result files, in the shape described above, begin with the random-agent baseline in
 E3. The audit above is a findings page rather than a rig run: it has no seed set and no sequential

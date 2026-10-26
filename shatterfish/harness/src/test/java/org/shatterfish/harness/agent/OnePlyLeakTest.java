@@ -4,9 +4,15 @@ import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff;
 import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Haste;
+import com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Invisibility;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mimic;
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.GoldenMimic;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
+import com.shatteredpixel.shatteredpixeldungeon.items.Heap;
+import com.shatteredpixel.shatteredpixeldungeon.items.Torch;
+import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Terrain;
 import com.shatteredpixel.shatteredpixeldungeon.levels.traps.FrostTrap;
@@ -46,6 +52,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * stack's position and the seed changed. The Observation bytes must be equal (the precondition, held
  * by that suite too) and the Decision, the Policy, the Action, the reason and the ranked alternatives
  * must be equal. The control changes what the screen does show, and the bytes move.
+ *
+ * <p>Story 6.3 adds the enemies that are not what they seem, which the first version of this test did not cover: an
+ * invisible enemy in view (drawn faint (CharSprite.java:405, the 0.4 alpha tween) and flagged, so its flag is the player's, and nothing else of it is), the
+ * stealthy and passive states a mob can be in on an unchanged screen, and a mimic hiding as a chest, which is a heap on
+ * the screen and an enemy only in the game. {@code SearchLeakTest} holds every search, this model included, to the
+ * same standard over the scrubber's alternate worlds.
  */
 @Timeout(value = 5, unit = TimeUnit.MINUTES)
 class OnePlyLeakTest {
@@ -204,5 +216,95 @@ class OnePlyLeakTest {
         foe.HP = Math.max(1, foe.HP / 3);
         assertFalse(Arrays.equals(before, ObservationCodec.encode(observe())),
                 "a drawn enemy's health bar is on the screen, so it is the model's to read");
+    }
+
+    @Test
+    @DisplayName("an invisible enemy in view: only its faint flag is the player's, and the model decides the same whatever else it is")
+    void an_invisible_enemy_shows_only_its_flag() {
+        Mob foe = atAFight();
+        Buff.affect(foe, Invisibility.class, 50f);
+        assertTrue(foe.invisible > 0);
+        Observation before = observe();
+        assertTrue(before.actors().actors().stream().anyMatch(a -> a.cell() == foe.pos && a.invisible()),
+                "the invisible enemy is drawn, faint and flagged");
+        Brain.Decided baseline = decide(before);
+        assertTrue(baseline.decision() != null, "the model decides with an invisible enemy beside the hero: " + baseline.why());
+
+        // Its state, which the screen shows only as an emote, and which none of these changes.
+        for (Object state : new Object[] {foe.WANDERING, foe.FLEEING, foe.PASSIVE, foe.HUNTING}) {
+            foe.state = (Mob.AiState) state;
+            assertOneDecision(before, observe(), "the invisible enemy's AI state " + state.getClass().getSimpleName());
+        }
+        // Its exact hit points, within the bar the screen draws: a thousand-point foe, one point down, draws the same bar
+        // (the branch must run, so a bar that moved fails here and is not skipped).
+        int hp = foe.HP;
+        int ht = foe.HT;
+        foe.HT = 1000;
+        foe.HP = 1000;
+        Observation full = observe();
+        foe.HP = 999;
+        Observation nearly = observe();
+        assertEquals(full.actors().actors(), nearly.actors().actors(), "one point of a thousand does not move the bar the screen draws");
+        assertOneDecision(full, nearly, "the invisible enemy's hit points within one bar");
+        foe.HT = ht;
+        foe.HP = hp;
+
+        // The control: the faint flag is on the screen, and when it goes the bytes and the model's input go with it.
+        byte[] flagged = ObservationCodec.encode(before);
+        Buff.detach(foe, Invisibility.class);
+        assertEquals(0, foe.invisible);
+        assertFalse(Arrays.equals(flagged, ObservationCodec.encode(observe())), "the invisibility flag is the player's to see");
+    }
+
+    @Test
+    @DisplayName("an invisible enemy out of view moves nothing: it is not drawn, so it is not decided on")
+    void an_invisible_enemy_out_of_view_is_not_drawn() {
+        Mob foe = atAFight();
+        Observation before = observe();
+        Mob far = otherUnseen(foe);
+        Buff.affect(far, Invisibility.class, 50f);
+        move(far, floorOutOfView());
+        far.state = far.HUNTING;
+        assertOneDecision(before, observe(), "an invisible unseen enemy, hunting");
+    }
+
+    @Test
+    @DisplayName("a mimic hiding as a chest is the chest on the screen: the same Decision with the real chest or the mimic")
+    void a_hidden_mimic_is_decided_on_as_the_chest() throws Exception {
+        Mob foe = atAFight();
+        int cell = -1;
+        for (int offset : com.watabou.utils.PathFinder.NEIGHBOURS8) {
+            for (int step = 2; step <= 3 && cell < 0; step++) {
+                int candidate = hero.pos + offset * step;
+                if (candidate > 0 && candidate < level.length() && level.heroFOV[candidate] && level.map[candidate] == Terrain.EMPTY
+                        && level.traps.get(candidate, null) == null && level.heaps.get(candidate, null) == null
+                        && Actor.findChar(candidate) == null) {
+                    cell = candidate;
+                }
+            }
+        }
+        assertTrue(cell >= 0, "free floor in view for a chest");
+        for (Heap.Type type : new Heap.Type[] {Heap.Type.CHEST, Heap.Type.LOCKED_CHEST}) {
+            Heap chest = level.drop(new Torch(), cell);
+            chest.type = type;
+            Observation real = observe();
+            chest.destroy();
+            Mimic mimic = Mimic.spawnAt(cell, type == Heap.Type.CHEST ? Mimic.class : GoldenMimic.class, new Torch());
+            java.lang.reflect.Field stealthy = Mimic.class.getDeclaredField("stealthy");
+            stealthy.setAccessible(true);
+            stealthy.setBoolean(mimic, true);
+            GameScene.add(mimic);
+            assertTrue(level.mobs.contains(mimic));
+            Observation hidden = observe();
+            assertOneDecision(real, hidden, "a real " + type + " and the mimic that wears it");
+            // The control: once it stops hiding it is an enemy on the screen, and the bytes move.
+            mimic.stopHiding();
+            mimic.alignment = com.shatteredpixel.shatteredpixeldungeon.actors.Char.Alignment.ENEMY;
+            assertFalse(Arrays.equals(ObservationCodec.encode(hidden), ObservationCodec.encode(observe())),
+                    "a mimic that has shown itself is on the screen as an enemy");
+            mimic.destroy();
+            level.mobs.remove(mimic);
+        }
+        assertTrue(foe.isAlive());
     }
 }
