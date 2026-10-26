@@ -36,5 +36,5 @@ mkdocs.yml text eol=lf
 calibration/** text eol=lf
 results/** text eol=lf
 
-# Committed Run logs are gzip bytes; no line-ending conversion (story 5.16).
-docs/results/logs/*.gz binary
+# Committed Run logs are compared byte for byte (hash chain): line feeds only (story 5.16).
+docs/results/logs/*.jsonl text eol=lf

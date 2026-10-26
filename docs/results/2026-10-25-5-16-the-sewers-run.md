@@ -35,8 +35,8 @@ Command: `./gradlew :harness:test --tests '*SewersRunSmokeTest*' -Pshatterfish.t
 | Decision on the Panel before each Brain turn | every one (a window's answer costs no credit and is not held) |
 | Replay (`Replay.waitsOf`) | every wait's Observation hash matches, the person's turns included |
 
-The log is attached: [`logs/2026-10-25-5-16-MZX-IGB-NNM-1014.jsonl.gz`](logs/2026-10-25-5-16-MZX-IGB-NNM-1014.jsonl.gz)
-(gzip of the Run log, 2.3 MB uncompressed).
+The log is attached: [`logs/2026-10-25-5-16-MZX-IGB-NNM-1014.jsonl`](logs/2026-10-25-5-16-MZX-IGB-NNM-1014.jsonl)
+(the Run log, 2.3 MB).
 
 ### Takeover depth
 
