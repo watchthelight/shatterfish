@@ -96,7 +96,9 @@ and indexes.
   (`BrainBoundaryRulesBiteTest.the_heuristic_annotation_opens_no_channel`: a plain `@Heuristic` constant passes every rule,
   reading the annotation back through `Class` and `Field` is rejected), and the note that `ApiBoundaryTest` stays stricter
   than the Brain's allowlist on purpose, so the two lists are not to be synced upward.
-- **Lore claims.** Story 7.7 (PR #293) was not on `main` when this story finished, so `@Heuristic` does not yet accept a Lore
-  claim id and there is no heuristic-to-claim reverse check. Whichever of the two merges second adds both: accept the ids of
-  `LoreLinkTest.claim_ids()` in `HeuristicLinkTest.problems` and `HeuristicIndex.render`, and check that each claim's
-  `implemented_in` target is a heuristic slug.
+- **Lore claims.** Story 7.7 (PR #293) landed on `main` while this PR was open, so it was merged in and a slug may now be a
+  Lore claim id (the file stem under `lore/<topic>/`, read by `HeuristicIndex.loreClaims`). The reverse check is in
+  `HeuristicLinkTest.problems`: a heuristic linked to a claim fails unless the claim's `implemented_in` names `policy:<the
+  heuristic's Policy>` (any target when the heuristic's class is not a Policy), and `a_dangling_slug_is_refused` covers both
+  directions. No committed claim lists an `implemented_in` yet (all 144 are empty), so no heuristic links to a claim today and
+  the table's Lore count is 0.

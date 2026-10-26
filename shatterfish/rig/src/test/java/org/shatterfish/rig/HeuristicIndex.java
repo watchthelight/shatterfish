@@ -55,6 +55,13 @@ final class HeuristicIndex {
     record Measured(String slug, String evidence, String tier, String test) {
     }
 
+    /**
+     * A Lore claim (story 7.7): its id is the file stem of {@code lore/<topic>/<id>.md}, its Tier and
+     * the {@code policy:}, {@code rule:} and {@code playbook:} targets of its {@code implemented_in}.
+     */
+    record LoreClaim(String id, String tier, List<String> implementedIn) {
+    }
+
     private static final Pattern RULE_KEY = Pattern.compile("^\\| <a id=\"([^\"]+)\"></a>`([^`]+)` \\|.*");
     private static final Pattern RULE_LINK = Pattern.compile("\\[([a-z-]+): \"([^\"]+)\"\\]\\(rules/([a-z-]+)\\.md\\)");
     private static final Pattern MEASURED_ROW = Pattern.compile("^\\| `([a-z0-9-]+)` \\| \\[[^\\]]+\\]\\(([^)]+)\\) \\| ([23]) \\| ([^|]+) \\|$");
@@ -191,6 +198,43 @@ final class HeuristicIndex {
         return tiers;
     }
 
+    /** Every Lore claim under {@code lore/<topic>/}, by id (the file stem). */
+    static Map<String, LoreClaim> loreClaims() throws IOException {
+        Map<String, LoreClaim> claims = new TreeMap<>();
+        Path lore = SeedSetsTest.ROOT.resolve("lore");
+        if (!Files.isDirectory(lore)) {
+            return claims;
+        }
+        List<Path> files;
+        try (Stream<Path> walk = Files.walk(lore, 2)) {
+            files = walk.filter(f -> f.getNameCount() - lore.getNameCount() == 2 && f.toString().endsWith(".md")).sorted().toList();
+        }
+        for (Path file : files) {
+            String id = file.getFileName().toString().replaceFirst("\\.md$", "");
+            String tier = "?";
+            List<String> implemented = new ArrayList<>();
+            boolean inList = false;
+            List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+            for (int i = 1; i < lines.size() && !lines.get(i).equals("---"); i++) {
+                String line = lines.get(i);
+                if (line.startsWith("tier:")) {
+                    tier = line.substring(5).strip();
+                }
+                if (line.startsWith("implemented_in:")) {
+                    inList = true;
+                    continue;
+                }
+                if (inList && line.startsWith("  - ")) {
+                    implemented.add(line.substring(4).strip());
+                } else if (!line.startsWith(" ")) {
+                    inList = false;
+                }
+            }
+            claims.put(id, new LoreClaim(id, tier, implemented));
+        }
+        return claims;
+    }
+
     /** The measured-heuristic rows of the index, by slug. */
     static Map<String, Measured> measured() throws IOException {
         Map<String, Measured> rows = new TreeMap<>();
@@ -207,9 +251,11 @@ final class HeuristicIndex {
     }
 
     /** The block the page should carry between its markers, for these heuristics. */
-    static String render(List<Found> found, Map<String, String> rules, Map<String, Measured> measured) {
+    static String render(List<Found> found, Map<String, String> rules, Map<String, Measured> measured,
+                         Map<String, LoreClaim> lore) {
         int ruleLinked = 0;
         int measuredLinked = 0;
+        int loreLinked = 0;
         int unlinked = 0;
         StringBuilder table = new StringBuilder();
         table.append("| Constant | Slug | Linked to | Tier | Policies |\n|---|---|---|---|---|\n");
@@ -224,6 +270,10 @@ final class HeuristicIndex {
                 linked = "Rule [`" + heuristic.slug() + "`](#" + heuristic.slug() + ")";
                 tier = rules.get(heuristic.slug());
                 ruleLinked++;
+            } else if (lore.containsKey(heuristic.slug())) {
+                linked = "Lore `" + heuristic.slug() + "`";
+                tier = lore.get(heuristic.slug()).tier();
+                loreLinked++;
             } else {
                 Measured row = measured.get(heuristic.slug());
                 linked = "[`" + heuristic.slug() + "`](" + (row == null ? "" : row.evidence()) + ")";
@@ -233,7 +283,7 @@ final class HeuristicIndex {
             table.append("| `").append(heuristic.constant()).append("` | `").append(heuristic.slug()).append("` | ")
                     .append(linked).append(" | ").append(tier).append(" | `").append(heuristic.policy()).append("` |\n");
         }
-        return "Heuristics found: " + found.size() + ". Linked to a Rule: " + ruleLinked + ". Linked to a measurement (Tier 3 unless the row says 2): "
+        return "Heuristics found: " + found.size() + ". Linked to a Rule: " + ruleLinked + ". Linked to a Lore claim: " + loreLinked + ". Linked to a measurement (Tier 3 unless the row says 2): "
                 + measuredLinked + ". Unlinked: " + unlinked + ".\n\n" + table;
     }
 

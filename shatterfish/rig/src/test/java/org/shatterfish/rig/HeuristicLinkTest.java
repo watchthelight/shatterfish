@@ -92,7 +92,8 @@ class HeuristicLinkTest {
     /** Constants of nested classes are listed by their nested name; the capacity of the shunned set is one. */
     static final Map<String, String> EXEMPT_NESTED = Map.of("Memory.Windows.SHUNNED", "a capacity of the Memory");
 
-    private static List<String> problems(List<HeuristicIndex.Found> found, Set<String> ruleSlugs, Map<String, HeuristicIndex.Measured> measured) {
+    static List<String> problems(List<HeuristicIndex.Found> found, Set<String> ruleSlugs, Map<String, HeuristicIndex.Measured> measured,
+                                 Map<String, HeuristicIndex.LoreClaim> lore) {
         List<String> problems = new ArrayList<>();
         for (HeuristicIndex.Found heuristic : found) {
             String slug = heuristic.slug();
@@ -100,8 +101,12 @@ class HeuristicLinkTest {
                 if (!UNLINKED.contains(heuristic.constant())) {
                     problems.add(heuristic.constant() + " is annotated unlinked but is not on the unlinked allowlist; link it to a Rule or a measurement, or add it knowingly");
                 }
-            } else if (!ruleSlugs.contains(slug) && !measured.containsKey(slug)) {
-                problems.add(heuristic.constant() + " carries slug '" + slug + "', which is neither a Rule row nor a measured-heuristic row of docs/brain-rules.md");
+            } else if (!ruleSlugs.contains(slug) && !measured.containsKey(slug) && !lore.containsKey(slug)) {
+                problems.add(heuristic.constant() + " carries slug '" + slug + "', which is neither a Rule row, a measured-heuristic row of docs/brain-rules.md nor a Lore claim id");
+            } else if (lore.containsKey(slug) && !ruleSlugs.contains(slug) && !measured.containsKey(slug)
+                    && !names(lore.get(slug), heuristic)) {
+                problems.add(heuristic.constant() + " is linked to Lore claim '" + slug + "', whose implemented_in does not name "
+                        + "policy:" + heuristic.policy() + " (the claim and the heuristic have to agree)");
             } else if (UNLINKED.contains(heuristic.constant())) {
                 problems.add(heuristic.constant() + " is linked to '" + slug + "' but is still on the unlinked allowlist; delete it there");
             }
@@ -109,12 +114,20 @@ class HeuristicLinkTest {
         return problems;
     }
 
+    /** Whether the claim names the heuristic's Policy, or any target when the heuristic's class is not a Policy. */
+    private static boolean names(HeuristicIndex.LoreClaim claim, HeuristicIndex.Found heuristic) {
+        if (claim.implementedIn().contains("policy:" + heuristic.policy())) {
+            return true;
+        }
+        return !org.shatterfish.brain.Brain.policyNames().contains(heuristic.policy()) && !claim.implementedIn().isEmpty();
+    }
+
     @Test
     @DisplayName("every heuristic's slug names a Rule row or a measured-heuristic row, or the constant is on the unlinked allowlist")
     void every_heuristic_is_linked_or_listed() throws IOException {
         List<HeuristicIndex.Found> found = HeuristicIndex.annotated();
         assertFalse(found.isEmpty(), "the brain declares heuristics");
-        List<String> problems = problems(found, HeuristicIndex.ruleTiers().keySet(), HeuristicIndex.measured());
+        List<String> problems = problems(found, HeuristicIndex.ruleTiers().keySet(), HeuristicIndex.measured(), HeuristicIndex.loreClaims());
         assertTrue(problems.isEmpty(), String.join("\n", problems));
     }
 
@@ -125,8 +138,20 @@ class HeuristicLinkTest {
                 new HeuristicIndex.Found("Descend", "RESTS", "no-such-row", "descend"),
                 new HeuristicIndex.Found("Eat", "HUNGRY", "hunger-thresholds-food", "eat"),
                 new HeuristicIndex.Found("Fight", "NEW_BUDGET", Heuristic.UNLINKED, "fight"));
-        List<String> problems = problems(dangling, HeuristicIndex.ruleTiers().keySet(), HeuristicIndex.measured());
+        Map<String, HeuristicIndex.LoreClaim> lore = Map.of(
+                "bosses-1", new HeuristicIndex.LoreClaim("bosses-1", "1", List.of("policy:fight")),
+                "bosses-2", new HeuristicIndex.LoreClaim("bosses-2", "1", List.of()));
+        List<String> problems = problems(dangling, HeuristicIndex.ruleTiers().keySet(), HeuristicIndex.measured(), lore);
         assertEquals(2, problems.size(), String.join("\n", problems));
+        // The Lore half: a claim id is a slug, and the claim has to name the heuristic's Policy back.
+        List<HeuristicIndex.Found> viaLore = List.of(
+                new HeuristicIndex.Found("Goo", "REACH", "bosses-1", "fight"),
+                new HeuristicIndex.Found("Goo", "RECENT", "bosses-2", "fight"),
+                new HeuristicIndex.Found("Goo", "PUMP_WAITS", "bosses-9", "fight"));
+        List<String> loreProblems = problems(viaLore, HeuristicIndex.ruleTiers().keySet(), HeuristicIndex.measured(), lore);
+        assertEquals(2, loreProblems.size(), String.join("\n", loreProblems));
+        assertTrue(loreProblems.stream().anyMatch(p -> p.startsWith("Goo.RECENT") && p.contains("policy:fight")), loreProblems.toString());
+        assertTrue(loreProblems.stream().anyMatch(p -> p.startsWith("Goo.PUMP_WAITS")), loreProblems.toString());
         assertTrue(problems.get(0).startsWith("Descend.RESTS"), problems.get(0));
         assertTrue(problems.get(1).startsWith("Fight.NEW_BUDGET"), problems.get(1));
     }
@@ -206,7 +231,7 @@ class HeuristicLinkTest {
     @Test
     @DisplayName("the heuristics table on the index page is the one rendered from the code (no drift)")
     void the_table_has_not_drifted() throws IOException {
-        String rendered = HeuristicIndex.render(HeuristicIndex.annotated(), HeuristicIndex.ruleTiers(), HeuristicIndex.measured());
+        String rendered = HeuristicIndex.render(HeuristicIndex.annotated(), HeuristicIndex.ruleTiers(), HeuristicIndex.measured(), HeuristicIndex.loreClaims());
         if ("1".equals(System.getenv(HeuristicIndex.WRITE))) {
             HeuristicIndex.write(rendered);
         }

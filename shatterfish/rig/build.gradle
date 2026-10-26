@@ -40,6 +40,8 @@ tasks.named('test') {
     inputs.files(rootProject.fileTree('docs') { include '**/*.md'; include 'hooks/*.py' }).withPropertyName('docsPages').withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.files(rootProject.fileTree('shatterfish') { include '*/src/**/*.java' }).withPropertyName('sourceForRowReferences').withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.file(rootProject.file('mkdocs.yml')).withPropertyName('mkdocsConfig').withPathSensitivity(PathSensitivity.RELATIVE)
+    // The Lore claims a heuristic's slug may name (story 7.1, HeuristicLinkTest).
+    inputs.dir(rootProject.file('lore')).withPropertyName('loreClaims').withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir(rootProject.file('docs/rules')).withPropertyName('rulePages').withPathSensitivity(PathSensitivity.RELATIVE)
     // The Brain is built on the Codex the rig reads for it (story 4.1)
     inputs.dir(rootProject.file('codex')).withPropertyName('codex').withPathSensitivity(PathSensitivity.RELATIVE)
