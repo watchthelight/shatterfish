@@ -170,9 +170,15 @@ final class PropertiesMeasurement {
                 Observation observation = new Observer().observe();
                 if (halt.window() == null && SimulatorSpeed.fightable(observation) && halt.waitIndex() - lastWait >= config.gap()) {
                     Object mark = brain.mark();
-                    if (playFrom(driver, observation, halt.waitIndex(), triple.seed(), mark)) {
-                        taken++;
-                        lastWait = halt.waitIndex();
+                    try {
+                        if (playFrom(driver, observation, halt.waitIndex(), triple.seed(), mark)) {
+                            taken++;
+                            lastWait = halt.waitIndex();
+                        }
+                    } catch (Unrestored lost) {
+                        // The live Run no longer equals the snapshot's wait: nothing further from it is a fair continuation.
+                        skipped.add(triple.seed() + " ended (the restore differs: " + lost.getMessage() + ") after " + taken + " snapshots");
+                        return;
                     }
                 }
                 try {
@@ -206,6 +212,7 @@ final class PropertiesMeasurement {
         SnapshotHandle snapshot = store.take(driver);
         Set<String> hidden = Launcher.hiddenFacts(launch);
         snapshots++;
+        RuntimeException first = null;
         try {
             for (String name : DRIVERS) {
                 List<Properties.Leaf> leaves = new ArrayList<>();
@@ -227,6 +234,7 @@ final class PropertiesMeasurement {
                         why = "stalled";
                     }
                     if (leaf == null) {
+                        progress.println("Properties: dropped " + name + " sibling " + s + " at seed " + seed + " wait " + wait + ": " + why);
                         dropped.merge(name, 1, Integer::sum);
                         droppedWhy.get(name).merge(why, 1, Integer::sum);
                     } else {
@@ -235,6 +243,9 @@ final class PropertiesMeasurement {
                 }
                 samples.get(name).add(new Properties.Sample(seed, wait, name, count(hidden, true), hidden.size(), kinds(hidden), leaves));
             }
+        } catch (RuntimeException failed) {
+            first = failed;
+            throw failed;
         } finally {
             // The live Run goes back to the snapshot's wait, where the caller decides for it as if nothing had been played.
             store.restore(snapshot, driver);
@@ -242,10 +253,50 @@ final class PropertiesMeasurement {
             Observation restored = back.reason() == HeadlessDriver.Reason.INPUT_WAIT ? new Observer().observe() : null;
             store.drop(snapshot);
             if (restored == null || !restored.hash().equals(at.hash())) {
-                throw new IllegalStateException("the live Run did not replay its wait after the playouts, seed " + seed + " wait " + wait);
+                Unrestored unrestored = new Unrestored("the live Run did not replay its wait after the playouts, seed "
+                        + seed + " wait " + wait + " (" + back.reason() + ", window " + back.window() + ", wait index " + back.waitIndex()
+                        + differs(at, restored) + ")");
+                if (first == null) {
+                    throw unrestored;
+                }
+                // The playout's own failure is the news; the restore that followed it is only a symptom.
+                first.addSuppressed(unrestored);
             }
         }
         return true;
+    }
+
+    /** Which sections of the Observation differ, for the message of a restore that did not replay. */
+    private static String differs(Observation was, Observation now) {
+        if (now == null) {
+            return ", no Observation";
+        }
+        List<String> sections = new ArrayList<>();
+        if (!was.header().equals(now.header())) {
+            sections.add("header");
+        }
+        if (!was.map().equals(now.map())) {
+            sections.add("map");
+        }
+        if (!was.actors().equals(now.actors())) {
+            sections.add("actors");
+        }
+        if (!was.hero().equals(now.hero())) {
+            sections.add("hero");
+        }
+        if (!was.inventory().equals(now.inventory())) {
+            sections.add("inventory");
+        }
+        if (!was.journal().equals(now.journal())) {
+            sections.add("journal");
+        }
+        if (!was.log().equals(now.log())) {
+            sections.add("log");
+        }
+        if (!was.actions().equals(now.actions())) {
+            sections.add("actions");
+        }
+        return ", differs in " + sections;
     }
 
     private Decider decider(String name, Object brainMark, long seed) {
@@ -255,6 +306,15 @@ final class PropertiesMeasurement {
         BrainDecider d = name.equals(DRIVERS.get(1)) ? baseline() : onePly();
         d.rewind(brainMark);
         return d;
+    }
+
+    /** The live Run did not come back to the snapshot's wait; the seed ends there. */
+    private static final class Unrestored extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        Unrestored(String why) {
+            super(why, null, false, false);
+        }
     }
 
     /** A playout that cannot be read to an end; the message is the reason the page counts it under. */
@@ -272,7 +332,8 @@ final class PropertiesMeasurement {
         HeadlessDriver.Halt back = driver.stepToInputWait();
         Observation restored = back.reason() == HeadlessDriver.Reason.INPUT_WAIT ? new Observer().observe() : null;
         if (restored == null || !restored.hash().equals(at.hash())) {
-            throw new IllegalStateException("the restore did not replay the wait");
+            // A restore that comes back with a different map (seen on some standard seeds, #252) leaves nothing to read.
+            throw new Dropped("restore differs");
         }
         ActionExecutor executor = new ActionExecutor();
         if (!(executor.execute(restored, sibling) instanceof Outcome.Applied)) {
