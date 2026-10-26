@@ -358,10 +358,12 @@ public final class Brain {
         // (issue #182) the pick-up Policy, which plan around the regions and through one only when no way
         // around is left (issue #174): the region is crossed, and lifted. Explore's own way out of a region
         // ("away") is no crossing.
+        int crossed = -1;
         if (decision != null && (Explore.NAME.equals(decision.policy()) || Descend.NAME.equals(decision.policy())
                 || Pickup.NAME.equals(decision.policy()))
                 && decided.action() instanceof Action.Step step && !decision.chosen().why().startsWith("away ")) {
             memory = memory.lifting(depth, branch, step.cell(), observation.map().width());
+            crossed = step.cell();
         }
         // Water a piranha swims in (issue #219, step 6): the cells beside it, and the water itself, are avoided as a
         // region of one cell each, which the plans walk around and through only when no way around is left; a walk
@@ -371,7 +373,7 @@ public final class Brain {
         }
         boolean[] swum = Fight.swum(observation, memory, knowledge);
         if (swum != null) {
-            memory = memory.avoidingAll(Fight.shore(observation, memory, swum, AVOID_WAITS));
+            memory = memory.avoidingAll(Fight.shore(observation, memory, swum, AVOID_WAITS, crossed));
         }
         // A retreat, by the stairs or away (issue #174 added the stairs: an enemy that drops out of view
         // one Step toward them let the explore Policy walk straight back, with no region to keep it out).
