@@ -38,6 +38,7 @@ standing Registration `H-0001-nightly-smoke`, with every night's status in its t
 | [Goo baseline at 5b48107f9](2026-10-25-goo-baseline-5b48107f9.md) | `main` with the debug record on, unregistered: reach, Goo kills and conversion with 95% intervals, the Goo-fight table, deaths by killer and the sample size a +5 point change needs, on 120 `standard` Warriors | Issue #219, step 2 |
 | [No walking away from a faster enemy](2026-10-26-219-no-outrunning-fast-enemies.md) | Unregistered direction check: the baseline's deaths on depths 2 to 4 by killer, and reach, Goo kills and deaths by depth for `main` and the change on 120 `standard` Warriors (two slices) | Issue #219, step 6 |
 | [Story 5.16, the sewers run](2026-10-25-5-16-the-sewers-run.md) | The headless session: a seeded Warrior to the Goo fight, a three-turn takeover and hand back, a log that replays, and 16 standard Runs played in the Overlay's driver against the Rig, with the log attached | E5, story 5.16 |
+| [Story 6.3, the search leak test](2026-10-26-6-3-the-search-leak-test.md) | Whether a search's Decision depends on the hidden state: the one-ply model and a rollout probe over alternate worlds of the `smoke` set's mid-fight snapshots, and the planted leaks the test catches | E6, story 6.3 |
 
 The rig's own result files, in the shape described above, begin with the random-agent baseline in
 E3. The audit above is a findings page rather than a rig run: it has no seed set and no sequential

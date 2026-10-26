@@ -55,6 +55,10 @@ All live in `harness` and run in CI on every pull request.
 | ArchUnit test | `brain` imports nothing from `com.shatteredpixel.*` or `com.watabou.*` | done |
 | Determinism test | The same (tag, seed, action list) twice gives identical Observation hashes at every turn | done: `DeterminismTwoJvmTest` (E1 story 1.16), in one process and across two; the cross-platform comparison is story 3.4 |
 | Thread-confinement test | The Observer and the executor fail loudly on any thread but the UI-role thread, naming it; no Shatterfish code declares a monitor on a game type | done: `ThreadConfinementTest`, `MonitorConfinementTest` (E1 story 1.19), with the stepper's fence and the headless scene as the two named exemptions; the rule sees monitors Shatterfish declares, not those a synchronized game method takes inside one call |
+| Scrubber differential test | A scrubbed copy of a mid-fight snapshot shows the Observation of the live Run, section by section, and differs from it in the hidden state of every row of the ADR-0009 table the snapshot holds; a scrubber missing a row fails naming it | done: `RedeterminationDifferentialTest` (E6 story 6.2) |
+| Search leak test | Replacing the hidden state with N alternates that show the player the same Observation moves no search's Decision, byte for byte: the one-ply model and a rollout probe, over the `smoke` set; the true seed, unseen mob positions, unidentified item classes, hidden traps and secret doors are each their own case; planted leaks in four forms are caught | done: `SearchLeakTest` (E6 story 6.3), result on [the Results page](results/2026-10-26-6-3-the-search-leak-test.md) |
+| Rollout host refusals | A handle that does not say scrubbed, one that says so over the live snapshot, an unknown id, another store's copy, a copy made with a row missing, and a copy at the wrong wait each roll out nothing | done: `RolloutHostRefusalTest` (E6 story 6.3) |
+| Enemies that are not what they seem | An invisible enemy in view shows only its faint flag, one out of view shows nothing, and a mimic hiding as a chest is the chest: the one-ply model decides identically across their hidden state | done: `OnePlyLeakTest` (E6 stories 6.1 and 6.3) |
 
 ## Search
 
@@ -67,6 +71,13 @@ cheating and forbidden. The choice is an E6 decision with its own ADR. What E1 a
 `SnapshotBoundaryTest`; `api` carries an id, a wait and a `scrubbed` flag; and `Simulator.simulate`
 is final and refuses a handle whose flag is false before any rollout can run. The flag is a claim,
 so the rollout host that holds the bytes verifies it by id when it arrives.
+
+Since E6 story 6.2 the scrubber and the host exist, and since story 6.3 `SearchLeakTest` holds any search to
+FR-13: the Decision is the same bytes in the live Run's world and in each alternate world the scrubber builds, which
+shows the player the same screen. What it proves is independence from the hidden state it can vary, the rows of
+ADR-0009's table; a hidden element outside the table is outside the proof until the table grows, and the test is a
+necessary condition for fairness, not a sufficient one, so every search diff is still read by the fairness reviewer. A
+search treats a refused scrub as no sample and never as evidence.
 
 ## Oracle mode
 

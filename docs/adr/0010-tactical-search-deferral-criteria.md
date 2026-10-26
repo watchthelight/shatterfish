@@ -131,3 +131,19 @@ method is rerun from the `smoke` set's mid-fight snapshots with a Brain, where s
 uncertain and the agreement of siblings means something. The harness's own rate, about 399.5
 Input waits per second per process on the described machine over three invocations, is the
 number the Rig's seed-set sizes (E3) rest on.
+
+## Amendment: story 6.3 (2026-10-26)
+
+Choice rule 1 now has its instrument. `SearchLeakTest` (harness test source set) scrubs each mid-fight snapshot of the
+`smoke` set into alternate worlds that show the player the same Observation, runs every search the program has in the
+original and in each alternate, and requires the Decisions to be the same canonical bytes. The searches are the one-ply
+model and a probe search that rolls out through the `Simulator`; the probe is a test fixture, and a real candidate joins
+the test by implementing the same small `Search` seam. A planted leak in each of four forms is caught (a forged handle, a
+read of the true seed, a scrubber missing a row, a read of an unseen mob), so a pass is not the test's inability to fail.
+
+What a pass means, and does not: the Decisions do not depend on the hidden state the scrub table lets the test vary, over
+the snapshots and the rollout length it uses. A hidden element outside ADR-0009's table is outside the proof, and so are
+snapshots the scrub refuses. It is a necessary condition for a design to ship under rule 1 and not a sufficient one; the
+fairness reviewer reads every search diff. A refusal of the scrub is never evidence: a search treats it as "no sample",
+and the probe records the count of refusals in its Decision so that a refusal which tracks the truth is a failure here.
+The result on the `smoke` set is at `docs/results/2026-10-26-6-3-the-search-leak-test.md`.
