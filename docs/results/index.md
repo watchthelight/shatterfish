@@ -42,6 +42,7 @@ standing Registration `H-0001-nightly-smoke`, with every night's status in its t
 | [Goo baseline on Profile 6 at 7b1212eea](2026-10-26-goo-baseline-7b1212eea.md) | `main` with the debug record on, unregistered: reach, Goo kills and conversion with 95% intervals, deaths by killer and the sample size a +5 point change needs, on 120 `standard` Warriors; replaces the voided Profile 5 baseline | Issues #219, #234 |
 | [Throughput with the Brain attached at 7b1212eea](2026-10-26-throughput-7b1212eea.md) | Input waits per second per process and across a pool of six, Runs per minute and turns per second for the Brain in the Rig, on a shared machine, beside E1's random-agent figures | E4, story 4.14 |
 | [Story 5.16, the sewers run](2026-10-25-5-16-the-sewers-run.md) | The headless session: a seeded Warrior to the Goo fight, a three-turn takeover and hand back, a log that replays, and 16 standard Runs played in the Overlay's driver against the Rig, with the log attached | E5, story 5.16 |
+| [Story 6.3, the search leak test](2026-10-26-6-3-the-search-leak-test.md) | Whether a search's Decision depends on the hidden state: the one-ply model and a rollout probe over alternate worlds of the `smoke` set's mid-fight snapshots, and the planted leaks the test catches | E6, story 6.3 |
 
 The rig's own result files, in the shape described above, begin with the random-agent baseline in
 E3. The audit above is a findings page rather than a rig run: it has no seed set and no sequential
