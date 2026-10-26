@@ -4,6 +4,7 @@ import com.shatteredpixel.shatteredpixeldungeon.Rankings;
 import org.shatterfish.api.ActorView;
 import org.shatterfish.api.Alignment;
 import org.shatterfish.api.BuffView;
+import org.shatterfish.api.EquipSlot;
 import org.shatterfish.api.ItemKind;
 import org.shatterfish.api.ItemView;
 import org.shatterfish.api.JsonWriter;
@@ -185,6 +186,15 @@ public final class DebugRecord implements AutoCloseable {
         for (ItemView item : observation.inventory().items()) {
             if (item.kind() == ItemKind.POTION) {
                 json.beginObject().key("name").value(item.name()).key("q").value(item.quantity()).endObject();
+            }
+        }
+        json.endArray();
+        json.key("pack").beginArray();
+        for (ItemView item : observation.inventory().items()) {
+            if (item.kind() != ItemKind.POTION) {
+                json.beginObject().key("kind").value(item.kind().name()).key("name").value(item.name())
+                        .key("q").value(item.quantity()).key("worn").value(item.slot() != EquipSlot.NONE)
+                        .key("lvl").value(item.levelKnown() ? item.visiblyUpgraded() : 0).endObject();
             }
         }
         json.endArray();

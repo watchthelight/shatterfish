@@ -63,7 +63,7 @@ class ShatterfishRunTest {
                     log.getFileName() + " ended " + cause + ": " + read.end().detail());
             for (RunLog.Wait wait : read.waits()) {
                 assertNotNull(wait.decision(), "a Brain's wait says why: " + log.getFileName() + " at " + wait.k());
-                assertTrue(List.of("answer-prompt", "heal", "fight", "eat", "test-item", "pick-up", "open-chest", "equip", "explore", "fallback")
+                assertTrue(List.of("answer-prompt", "heal", "ranged", "fight", "eat", "test-item", "pick-up", "open-chest", "equip", "descend", "explore", "fallback")
                         .contains(wait.decision().policy()), wait.decision().policy());
                 // Story 4.10: a test-item wait drinks or reads the appearance its reason names,
                 // plainly, or Steps toward the cell it tests on, or out of its own fire or gas, or
