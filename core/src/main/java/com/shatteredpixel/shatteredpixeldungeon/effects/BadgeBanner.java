@@ -192,7 +192,11 @@ public class BadgeBanner extends Image {
 		p.offset( image.point() );
 		
 		Speck star = new Speck();
+		// shatterfish-hook:8
+		try { com.watabou.utils.Random.visualBegin();
 		star.reset( 0, p.x, p.y, Speck.DISCOVER );
+		// shatterfish-hook:8
+		} finally { com.watabou.utils.Random.visualEnd(); }
 		star.camera = image.camera();
 		image.parent.add( star );
 	}

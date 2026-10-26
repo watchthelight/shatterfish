@@ -42,7 +42,7 @@ public final class Profile {
      * empty history changes — and say why in the ADR-0007 amendment, because a raised version
      * invalidates every recorded Run against the old one.
      */
-    public static final int VERSION = 5;
+    public static final int VERSION = 6;
 
     /** The file the version is written to, beside the game's own save files. */
     public static final String VERSION_FILE = "shatterfish-profile.txt";
