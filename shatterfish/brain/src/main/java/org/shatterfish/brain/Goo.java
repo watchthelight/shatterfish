@@ -35,6 +35,13 @@ final class Goo {
     /** The announcement (actors.properties:1699). */
     static final String PUMP = "Goo is pumping itself up!";
 
+    /**
+     * The buff a Goo hit leaves on one in three hits, by the name its icon carries (Goo.java:157-160,
+     * Ooze.java; the name is the Ooze buff's "caustic ooze"): a point of damage a turn for its turns,
+     * ended by standing in water (Ooze.java, act).
+     */
+    static final String OOZE = "caustic ooze";
+
     /** How far a pumped Goo reaches (Goo.java:146). */
     static final int REACH = 2;
 
@@ -142,6 +149,181 @@ final class Goo {
         return best;
     }
 
+    /**
+     * Whether a pump announced with the hero on {@code hero} and Goo on {@code goo} could be dodged on
+     * {@code walk}: some Step starts a plan {@link #plan} would finish. Goo farther than its reach
+     * cannot pump at all.
+     */
+    static boolean dodgeable(MapSection map, boolean[] walk, int hero, int goo) {
+        int now = distance(map, hero, goo);
+        if (now > REACH) {
+            return true;
+        }
+        for (int step : neighbours(map, hero)) {
+            if (!walk[step] || step == goo) {
+                continue;
+            }
+            int away = distance(map, step, goo);
+            if (away > REACH) {
+                return true;
+            }
+            if (now == 1 && away == REACH) {
+                for (int next : neighbours(map, step)) {
+                    if (walk[next] && next != goo && distance(map, next, goo) > REACH) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Where Goo will stand when it has come to the hero on {@code hero}: it steps toward the hero a cell a
+     * turn, so this is the cell beside the hero a walk of nearest-to-the-hero neighbours ends on, ties to the
+     * lower cell. A guess that holds on open ground; Goo's own walk is the game's path-finding (Mob.java,
+     * getCloser).
+     */
+    static int arrival(MapSection map, boolean[] walk, int hero, int goo) {
+        int width = map.width();
+        int at = goo;
+        for (int turn = 0; turn < 24 && distance(map, at, hero) > 1; turn++) {
+            int best = -1;
+            long bestScore = Long.MAX_VALUE;
+            for (int next : neighbours(map, at)) {
+                if (!walk[next] || next == hero) {
+                    continue;
+                }
+                long dx = next % width - hero % width;
+                long dy = next / width - hero / width;
+                long score = distance(map, next, hero) * 1000L + dx * dx + dy * dy;
+                if (score < bestScore) {
+                    bestScore = score;
+                    best = next;
+                }
+            }
+            if (best < 0 || bestScore >= distance(map, at, hero) * 1000L + 1000L) {
+                break;
+            }
+            at = best;
+        }
+        return at;
+    }
+
+    /** The most Steps the walk to ground to dodge on may take ({@link #position}). */
+    static final int POSITION_RANGE = 6;
+
+    /**
+     * The Step toward nearer ground to meet Goo on, when the ground the hero stands on is ground a pump
+     * could not be dodged on where Goo will stand ({@link #arrival}, {@link #dodgeable}); else null. A
+     * pump is dodged by walking straight away from Goo, two cells, so a hero with its back to a wall or in
+     * a pocket can only take it (issue #219). Goo's walk toward the hero costs it its turns, so walking to
+     * better ground before it arrives, or out of its reach, costs the hero no blow of Goo's: the walk never
+     * ends beside Goo and never passes beside it. It goes to the nearest such ground within
+     * {@link #POSITION_RANGE} Steps, the roomiest of those, ties to the lower cell. None in reach: null,
+     * and the fight goes on where it is.
+     */
+    static RunLog.Choice position(Observation observation, Memory memory, List<Action> offered, int goo) {
+        MapSection map = observation.map();
+        boolean[] walk = Explore.walkable(observation, memory, false);
+        if (dodgeable(map, walk, observation.hero().cell(), arrival(map, walk, observation.hero().cell(), goo))) {
+            return null;
+        }
+        return walkTo(map, walk, observation.hero().cell(), offered, goo, POSITION_RANGE,
+                cell -> dodgeable(map, walk, cell, arrival(map, walk, cell, goo)), "goo: position");
+    }
+
+    /**
+     * Whether caustic ooze is on the hero, by its buff icon. The icon's turns are not read: the Observation
+     * does not show them for this buff, and a Goo hit sets them back to 20 (Ooze.java:32, :79-83; Goo.java:157-160).
+     */
+    static boolean oozed(Observation observation) {
+        for (org.shatterfish.api.BuffView buff : observation.hero().buffs()) {
+            if (buff.name().equals(OOZE)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The most Steps to the water {@link #wash} walks: ooze costs a point a turn for up to
+     * 20 turns, and the walk is made while Goo is following, so it costs a point a Step and no blow.
+     * An assumption, not measured: one value was played (issue #219).
+     */
+    static final int WASH_RANGE = 4;
+
+    /**
+     * The Step toward the nearest water to stand in, when caustic ooze is on the hero and the hero is not in
+     * water, within {@link #WASH_RANGE} Steps. Ooze costs a point a turn and is washed off in water
+     * (Ooze.java, act), and in water an ooze put on again costs one point and is washed off in turn. The
+     * walk is as {@link #position}'s: it never ends or passes beside Goo, so it costs no blow of Goo's, and
+     * it ends where a pump could be dodged (issue #219).
+     */
+    static RunLog.Choice wash(Observation observation, Memory memory, List<Action> offered, int goo) {
+        MapSection map = observation.map();
+        int hero = observation.hero().cell();
+        if (!oozed(observation) || map.tiles().get(hero) == org.shatterfish.api.Tile.WATER) {
+            return null;
+        }
+        boolean[] walk = Explore.walkable(observation, memory, false);
+        return walkTo(map, walk, hero, offered, goo, WASH_RANGE,
+                cell -> map.tiles().get(cell) == org.shatterfish.api.Tile.WATER
+                        && dodgeable(map, walk, cell, arrival(map, walk, cell, goo)), "goo: wash");
+    }
+
+    /**
+     * The first Step of the shortest walk of at most {@code range} Steps to a cell {@code goal} accepts, by
+     * cells that are not beside Goo; of the goals at the shortest length the roomiest, ties to the lower
+     * cell. Null when there is none.
+     */
+    private static RunLog.Choice walkTo(MapSection map, boolean[] walk, int hero, List<Action> offered, int goo, int range,
+                                        java.util.function.IntPredicate goal, String why) {
+        int cells = walk.length;
+        int[] first = new int[cells];
+        int[] steps = new int[cells];
+        java.util.Arrays.fill(steps, -1);
+        steps[hero] = 0;
+        java.util.ArrayDeque<Integer> queue = new java.util.ArrayDeque<>();
+        for (Action action : offered) {
+            if (action instanceof Action.Step step && step.cell() < cells && walk[step.cell()] && steps[step.cell()] < 0
+                    && distance(map, step.cell(), goo) >= 2) {
+                steps[step.cell()] = 1;
+                first[step.cell()] = step.cell();
+                queue.add(step.cell());
+            }
+        }
+        int bestOpen = -1;
+        int bestCell = -1;
+        int depth = -1;
+        while (!queue.isEmpty()) {
+            int cell = queue.poll();
+            if (depth >= 0 && steps[cell] > depth) {
+                break;
+            }
+            if (steps[cell] <= range && goal.test(cell)) {
+                depth = steps[cell];
+                int open = openness(map, walk, cell);
+                if (open > bestOpen || (open == bestOpen && cell < bestCell)) {
+                    bestOpen = open;
+                    bestCell = cell;
+                }
+                continue;
+            }
+            if (steps[cell] >= range) {
+                continue;
+            }
+            for (int next : neighbours(map, cell)) {
+                if (walk[next] && steps[next] < 0 && distance(map, next, goo) >= 2) {
+                    steps[next] = steps[cell] + 1;
+                    first[next] = first[cell];
+                    queue.add(next);
+                }
+            }
+        }
+        return bestCell < 0 ? null : new RunLog.Choice(new Action.Step(first[bestCell]), Policies.CERTAIN, why);
+    }
+
     /** How many cells within two of {@code cell} the hero may walk on: the room a dodge has to go on. */
     static int openness(MapSection map, boolean[] walk, int cell) {
         int width = map.width();
@@ -199,9 +381,11 @@ final class Goo {
     /**
      * The fight with an awake Goo, the only enemy in view (issue #219). Goo's seal starts the turn it
      * wakes (Goo.java:134-136) and refuses every transition, so a retreat cannot break contact. So the
-     * hero stays: it dodges an announced pump when it can ({@link #dodge}), strikes an adjacent Goo,
-     * and otherwise waits for Goo to come to it, which gives it the first blow, and goes to Goo only
-     * after {@link Fight#HOLDS} waits of holding. Null when this is not that fight.
+     * hero stays: it dodges an announced pump when it can ({@link #dodge}); with no pump pending it
+     * walks to water when caustic ooze is on it ({@link #wash}) and to ground a pump could be dodged on
+     * when it stands where one could not ({@link #position}); it strikes an adjacent Goo, and otherwise
+     * waits for Goo to come to it, which gives it the first blow, and goes to Goo only after
+     * {@link Fight#HOLDS} waits of holding. Null when this is not that fight.
      */
     static List<RunLog.Choice> engage(Observation observation, Memory memory, List<Action> offered,
                                       List<ActorView> enemies) {
@@ -219,6 +403,16 @@ final class Goo {
         RunLog.Choice dodge = memory.pump() == goo.cell() ? dodge(observation, memory, offered) : null;
         if (dodge != null) {
             ranked.add(dodge);
+        }
+        if (dodge == null && memory.pump() != goo.cell()) {
+            RunLog.Choice position = wash(observation, memory, offered, goo.cell());
+            if (position == null) {
+                position = position(observation, memory, offered, goo.cell());
+            }
+            if (position != null) {
+                ranked.add(position);
+                return ranked;
+            }
         }
         Action attack = new Action.Attack(goo.cell());
         if (offered.contains(attack)) {
