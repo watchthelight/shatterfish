@@ -77,9 +77,11 @@ final class Explore implements Policy {
     static final String NAME = "explore";
 
     /** The most search spots per floor. */
+    @Heuristic(Heuristic.UNLINKED)
     static final int SEARCHES = 12;
 
     /** Waits on one cell after which the Policy yields once, and the cell its Step pointed at is blocked. */
+    @Heuristic(Heuristic.UNLINKED)
     static final int STUCK = 3;
 
     /** The tiles a click steps onto, as {@code ValidActions} offers them, less the chasm and the well. */
@@ -326,6 +328,7 @@ final class Explore implements Policy {
     }
 
     /** The most waits the hero rests before going back to a floor it fled. */
+    @Heuristic("regen-rest-explore")
     static final int RESTS = 50;
 
     /**
@@ -353,6 +356,7 @@ final class Explore implements Policy {
     }
 
     /** The most search spots per floor while food is tight: only where a secret is plausible. */
+    @Heuristic(Heuristic.UNLINKED)
     static final int FRUGAL_SEARCHES = 4;
 
     /** A Step toward the nearest frontier over the cells {@code walk} allows, or null when none is reachable. */

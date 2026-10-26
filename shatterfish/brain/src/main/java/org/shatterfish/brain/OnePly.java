@@ -78,12 +78,15 @@ final class OnePly implements Policy {
     static final String NAME = "one-ply";
 
     /** How near, in cells, an awake enemy that walks must be for the Policy to take the wait. */
+    @Heuristic(Heuristic.UNLINKED)
     static final int ENGAGE = 3;
 
     /** The most repliers whose hits and misses are enumerated; the rest are taken at their expectation. */
+    @Heuristic(Heuristic.UNLINKED)
     static final int ENUMERATED = 4;
 
     /** The cost of dying, in the unit of hit points, as a share of the hero's maximum, in thousandths. An assumption. */
+    @Heuristic(Heuristic.UNLINKED)
     static final int DEATH_PER_MILLE = 1000;
 
     private final Codex.Knowledge knowledge;

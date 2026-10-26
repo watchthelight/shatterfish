@@ -38,12 +38,15 @@ final class Plunge implements Policy {
     static final String NAME = "plunge";
 
     /** The hit points below which the fall's bleeding may kill (Chasm.java:131-152). */
+    @Heuristic("chasm-plunge")
     static final int SAFE_HP = 15;
 
     /** The share of its hit points, in percent, a hero that can still regenerate has before it jumps. */
+    @Heuristic(Heuristic.UNLINKED)
     static final int FIT_PERCENT = 80;
 
     /** The share of its hit points, in percent, a starving hero needs to jump: it will not regenerate. */
+    @Heuristic(Heuristic.UNLINKED)
     static final int STARVING_PERCENT = 50;
 
     private final Codex.Knowledge knowledge;

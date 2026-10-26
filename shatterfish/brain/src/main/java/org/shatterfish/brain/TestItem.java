@@ -75,9 +75,11 @@ final class TestItem implements Policy {
     static final String READ = "READ";
 
     /** The least odds of healing an unknown potion is drunk at (story 4.10's review). */
+    @Heuristic("unknown-potion-heal-half")
     static final double HEALING_ODDS = 0.2;
 
     /** The most odds the inventory scrolls may hold of an unknown scroll that is read. */
+    @Heuristic(Heuristic.UNLINKED)
     static final double INVENTORY_ODDS = 0.25;
 
     /**
@@ -104,18 +106,22 @@ final class TestItem implements Policy {
      * health (story 4.13). An assumption, tuned against the rig: the worst case must still leave the
      * reserve ({@link #reserved}), and a healing potion drunk at full health is spent, but identified.
      */
+    @Heuristic("strength-experience-potions")
     static final double GAIN_ODDS = 0.2;
 
     /** The most waits after a test it rests toward full health (as the explore Policy's RESTS). */
+    @Heuristic("regen-rest-test")
     static final int REST_WAITS = Explore.RESTS;
 
     /** The most Steps it walks to a better testing cell. */
+    @Heuristic("test-spot-door-water")
     static final int REACH = 8;
 
     /**
      * The most Steps in a row it walks toward testing cells before it balks at the appearance: twice
      * {@link #REACH}, which a walk to a cell that stays put never needs.
      */
+    @Heuristic("test-spot-door-water")
     static final int WALKS = 2 * REACH;
 
     /** The buffs a read is refused under, as the screen names them (actors.properties:131, :305). */
@@ -138,6 +144,7 @@ final class TestItem implements Policy {
      * is behind it unseen), so a Policy that stepped out of every cloud would step out of the doorway,
      * see none, and let explore walk back in, for as long as the gas lasts.
      */
+    @Heuristic("test-spot-door-water")
     static final int ESCAPE_WAITS = SafeTest.GAS_TURNS + 2;
 
     private final Codex.Knowledge knowledge;

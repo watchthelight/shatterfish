@@ -79,6 +79,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
      * there happen about one time in six (0.75^6, 0.18), against a Step at a held cell, which is refused
      * every time. An assumption, chosen so a fleeting block (a fight screen's) is rarely set by chance.
      */
+    @Heuristic("root-vertigo-refusal")
     static final int VERTIGO_REFUSALS = 6;
 
     /** The kind of an Action as the Memory keeps it: its record's name. */

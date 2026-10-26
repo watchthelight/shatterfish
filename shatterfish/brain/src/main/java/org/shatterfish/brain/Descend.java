@@ -102,15 +102,19 @@ final class Descend implements Policy {
     static final String NAME = "descend";
 
     /** The waits a floor is worth staying on with no guaranteed drop expected on it. An assumption. */
+    @Heuristic(Heuristic.UNLINKED)
     static final int ALLOWANCE = 500;
 
     /** The waits more a floor is worth for each guaranteed drop expected on it. An assumption. */
+    @Heuristic(Heuristic.UNLINKED)
     static final int PER_DROP = 250;
 
     /** The most rests the Policy hands over on a floor before going down. */
+    @Heuristic("rest-before-descend")
     static final int RESTS = 20;
 
     /** The most spots searched on a floor while looking for an exit never seen: three times explore's. */
+    @Heuristic("hidden-exit-search")
     static final int SEARCHES = 3 * Explore.SEARCHES;
 
     /** The exits a click on travels: the open exit, and the boss floor's once unlocked (Tile.java). */

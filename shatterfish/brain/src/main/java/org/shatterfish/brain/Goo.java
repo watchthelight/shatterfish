@@ -43,9 +43,11 @@ final class Goo {
     static final String OOZE = "caustic ooze";
 
     /** How far a pumped Goo reaches (Goo.java:146). */
+    @Heuristic("goo-pump")
     static final int REACH = 2;
 
     /** The waits after an announcement a pump is still expected: the charge and the attack (Goo.java:180-186). */
+    @Heuristic("goo-pump")
     static final int PUMP_WAITS = 3;
 
     /**
@@ -53,6 +55,7 @@ final class Goo {
      * line can be followed by others the same turn (Goo's yell, a hit, an ooze), and the charge and
      * the attack take the next two of Goo's turns (Goo.java:180-186).
      */
+    @Heuristic("goo-pump")
     static final int RECENT = 3;
 
     private Goo() {
@@ -211,6 +214,7 @@ final class Goo {
     }
 
     /** The most Steps the walk to ground to dodge on may take ({@link #position}). */
+    @Heuristic("goo-position-and-wash")
     static final int POSITION_RANGE = 6;
 
     /**
@@ -251,6 +255,7 @@ final class Goo {
      * 20 turns, and the walk is made while Goo is following, so it costs a point a Step and no blow.
      * An assumption, not measured: one value was played (issue #219).
      */
+    @Heuristic("goo-position-and-wash")
     static final int WASH_RANGE = 4;
 
     /**
@@ -362,6 +367,7 @@ final class Goo {
      * the potion heals {@code 0.8 * HT + 14} over several turns (Heal), so a drink at 40% leaves
      * little of it to waste and the hero out of the range of a plain hit.
      */
+    @Heuristic(Heuristic.UNLINKED)
     static final int DRINK_PER_MILLE = 400;
 
     /** The hit points at or under which the hero drinks against Goo alone. */
