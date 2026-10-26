@@ -56,9 +56,11 @@ final class Eat implements Policy {
     static final String NAME = "eat";
 
     /** The hunger at which the icon turns hungry, and the energy a hungry hero always takes whole (Hunger.java:40). */
+    @Heuristic("hunger-thresholds-food")
     static final int HUNGRY = 300;
 
     /** The hunger at which the icon turns starving, where it stops rising (Hunger.java:41, :96-102). */
+    @Heuristic("hunger-thresholds-food")
     static final int STARVING = 450;
 
     /** The name of the food with side effects, eaten last and only while starving. */
@@ -119,6 +121,7 @@ final class Eat implements Policy {
     }
 
     /** The steps within which an awake enemy could arrive during a meal's three turns (Food.java:47). */
+    @Heuristic("food-energy-eat-turns")
     static final int MEAL_REACH = 3;
 
     /**
@@ -165,6 +168,7 @@ final class Eat implements Policy {
     }
 
     /** The steps to water worth walking, starving (Hunger.java:78-85 costs HT/1000 a turn) before a meal of mystery meat. */
+    @Heuristic(Heuristic.UNLINKED)
     static final int WATER_REACH = 30;
 
     /**

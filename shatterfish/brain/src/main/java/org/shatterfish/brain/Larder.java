@@ -37,21 +37,26 @@ import org.shatterfish.api.Observation;
 final class Larder {
 
     /** Turns of play per hit point regenerated (Regeneration.java:44, REGENERATION_DELAY). */
+    @Heuristic("time-and-hunger-costs")
     static final int TURNS_PER_HP = 10;
 
     /** A search: two turns, and four more hunger (Hero.java:211-212, :2624-2629). */
+    @Heuristic("time-and-hunger-costs")
     static final int SEARCH_COST = 6;
 
     /** A meal: three turns (Food.java:47). */
+    @Heuristic("food-energy-eat-turns")
     static final int MEAL_COST = 3;
 
     /** The buff a sealed floor gives the hero, as the screen names it (actors.properties:290). */
     static final String LOCKED = "floor is locked";
 
     /** Hunger at which the icon shows hungry (Hunger.java:40). */
+    @Heuristic("hunger-thresholds-food")
     static final int HUNGRY = 300;
 
     /** The budget below which the hero searches only where a secret is plausible and walks no further to test (turns). */
+    @Heuristic(Heuristic.UNLINKED)
     static final int FRUGAL = 600;
 
     private Larder() {

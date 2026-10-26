@@ -70,12 +70,14 @@ final class Heal implements Policy {
      * What is left of a heal, in thousandths of a whole potion, under which a second drink is worth
      * it: a quarter. An assumption, not a Codex fact.
      */
+    @Heuristic(Heuristic.UNLINKED)
     static final int REDRINK_SHARE_PER_MILLE = 250;
 
     /** The potion's name once identified (items.properties:759). */
     static final String POTION = "potion of healing";
 
     /** The most turns of fighting the danger counts: the estimate is a mean, and it drifts beyond. */
+    @Heuristic(Heuristic.UNLINKED)
     static final int HORIZON = 10;
 
     private final Codex.Knowledge knowledge;

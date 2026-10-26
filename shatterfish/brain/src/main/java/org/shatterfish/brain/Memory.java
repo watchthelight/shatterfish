@@ -180,9 +180,11 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
      * assumption: long enough that a fight's step in and out of a doorway is left alone, short against
      * the hundreds of turns two Policies undoing each other cost.
      */
+    @Heuristic(Heuristic.UNLINKED)
     static final int BOUNCES = 12;
 
     /** What a bounce adds to the count; a Step to a new cell takes one off (issue #219: a loop of three cells bounces every other wait). */
+    @Heuristic("hunger-clock")
     static final int BOUNCE_STEP = 2;
 
     /**
@@ -193,9 +195,11 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
      * the plan somewhere else -- another frontier, the exit -- and short of the whole floor. An
      * assumption, a backstop for loops no Policy's own rule ends.
      */
+    @Heuristic(Heuristic.UNLINKED)
     static final int BOUNCE_WAITS = 30;
 
     /** The hunger value at which the hero starves, and where it stops (Hunger.java:41, :96-102). */
+    @Heuristic("hunger-thresholds-food")
     static final int HUNGER_STARVING = 450;
 
     /**
@@ -205,6 +209,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
      * (Blob.java:186), so a cloud spread over ten cells or more is gone within a hundred turns. A
      * cell seen clear before then is cleared at once.
      */
+    @Heuristic("gas-fire-avoid")
     static final int CLOUD_WAITS = 100;
 
     /**
@@ -212,12 +217,14 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
      * most, unseen (issue #219): the flames never burn out (MagicalFireRoom.java:156-260), so the memory
      * ends when the cell is seen clear, which a flame's cell never is, or with the Run.
      */
+    @Heuristic("eternal-fire")
     static final int ETERNAL_WAITS = 1_000_000;
 
     /**
      * How many waits a cell blocked on a screen with an enemy in view stays blocked (story 4.12): as
      * long as a region the fight Policy retreated from stays avoided ({@link Brain#AVOID_WAITS}).
      */
+    @Heuristic(Heuristic.UNLINKED)
     static final int FLEETING_WAITS = 100;
 
     /** The most cells remembered clouded; the oldest is forgotten first. */

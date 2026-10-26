@@ -73,12 +73,15 @@ final class Fight implements Policy {
      * The share of the hero's hit points, in thousandths, that the damage expected while killing
      * the target must stay under for the fight to be favourable. An assumption, not a Codex fact.
      */
+    @Heuristic(Heuristic.UNLINKED)
     static final int MARGIN_PER_MILLE = 500;
 
     /** The most waits in a row the Policy holds a chokepoint before it goes to meet the enemy. */
+    @Heuristic(Heuristic.UNLINKED)
     static final int HOLDS = 4;
 
     /** The most times the hero leaves one floor by the stairs to get away. */
+    @Heuristic(Heuristic.UNLINKED)
     static final int FLIGHTS = 2;
 
     /**
@@ -86,6 +89,7 @@ final class Fight implements Policy {
      * the boss's seal refuses every transition (Level.java:657-662, Hero.java:1451), so a retreat there
      * cannot break contact, and one repeated without end only spends turns.
      */
+    @Heuristic("sealed-floor-retreat-gain")
     static final int SEALED_RETREATS = 30;
 
     /**
@@ -124,6 +128,7 @@ final class Fight implements Policy {
      * second, for hundreds of turns. An assumption: a sleeping enemy stays where it lies (docs/brain-rules.md#sleeping-mob-out-of-view), and an
      * awake one that walked off is not followed further than a room's width.
      */
+    @Heuristic(Heuristic.UNLINKED)
     static final int CHASE_WAITS = 10;
 
     @Override
@@ -153,6 +158,7 @@ final class Fight implements Policy {
      * favourable (issue #174). An assumption: a sleeping enemy stays where it lies (docs/brain-rules.md#sleeping-mob-out-of-view), and an
      * awake one out of view is not assumed gone for this long.
      */
+    @Heuristic(Heuristic.UNLINKED)
     static final int RECALL_WAITS = 20;
 
     /**
@@ -421,6 +427,7 @@ final class Fight implements Policy {
      * the way to the rest of the floor), and a walk back out each time it is bitten only hands the piranhas more bites. An
      * assumption.
      */
+    @Heuristic("piranha-leave-budget")
     static final int LEAVES = 1;
 
     /**
@@ -629,6 +636,7 @@ final class Fight implements Policy {
      * How near, in cells, an awake faster enemy has to be for the hero to count as outpaced: it closes two cells
      * for each the hero walks, so one this near is on the hero within a few steps. An assumption.
      */
+    @Heuristic("outpaced-by-a-fast-enemy")
     static final int OUTPACED_RANGE = 6;
 
     /**
@@ -637,6 +645,7 @@ final class Fight implements Policy {
      * the stairs are a clean break from a hostile (docs/brain-rules.md#hostiles-stay-on-their-floor), so
      * the stairs next door pay and the stairs across the floor do not. An assumption.
      */
+    @Heuristic("outpaced-by-a-fast-enemy")
     static final int OUTPACED_STAIRS = 2;
 
     /**

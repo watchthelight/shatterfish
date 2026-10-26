@@ -94,6 +94,7 @@ final class Pickup implements Policy {
      * few hundred walkable cells, and even at ten times the committed {@code turn} weight
      * (weights/shatterfish.json) a thousand Steps cost far less than this.
      */
+    @Heuristic("goo-worn-key")
     static final long KEY_WORTH = 50_000_000L;
 
     @Override

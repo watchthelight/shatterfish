@@ -31,9 +31,11 @@ final class Traps {
      * the patch of a burned room is clustered (BurnedRoom.java:53-55), so a hidden trap is seldom more than
      * two cells from a shown one, and wider would search whole rooms for one trap in a corridor.
      */
+    @Heuristic(Heuristic.UNLINKED)
     static final int REACH = 2;
 
     /** How far a search finds a trap: one cell (Hero.java:2522-2523; the Rogue's two is not counted on). */
+    @Heuristic("search-radius-cost")
     static final int FOUND = 1;
 
     /**
@@ -41,6 +43,7 @@ final class Traps {
      * search. An assumption: farther off, two turns searching cost less than a Step the fight Policy
      * keeps being refused (issue #184).
      */
+    @Heuristic(Heuristic.UNLINKED)
     static final int ENGAGED = 4;
 
     /** What the search the Brain makes ahead of a Step is called in its record. */

@@ -58,6 +58,7 @@ final class Ranged implements Policy {
     static final String THROW = "THROW";
 
     /** The farthest an enemy is thrown at: far enough for several free throws, near enough to see well. */
+    @Heuristic(Heuristic.UNLINKED)
     static final int REACH = 6;
 
     /**
