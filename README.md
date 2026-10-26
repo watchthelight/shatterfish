@@ -224,6 +224,10 @@ E5 (the Overlay) so far:
 - The Brain no longer tries to outrun a crab or another fast enemy on foot; it fights where it
   stands unless stairs are a step or two away. Over 120 Runs crab deaths on depths 2 to 4 went
   from 18 to 10, reach depth 5 from 54 to 59 and Goo kills from 40 to 44 (#263, part of #219).
+- E6.2: the redetermination scrubber turns a snapshot into a copy that matches what the screen
+  shows, with every hidden fact (identities, curses, charges, unseen monsters, traps, secret doors,
+  the seed) drawn afresh, and the rollout host plays Actions in that copy and restores the live
+  Run exactly. A differential test checks that two worlds with one screen scrub alike (#262).
 - E4.14, first half: a differential test plays three seeds twice with unidentified item labels
   exchanged in the game and checks that the Brain acts the same while the screens match; the E4
   retrospective's lessons are in `CLAUDE.md` (#255). The gate Run on the registered set waits.
