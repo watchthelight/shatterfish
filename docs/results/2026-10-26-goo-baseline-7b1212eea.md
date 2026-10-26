@@ -10,6 +10,8 @@ and has no per-fight table.
 Shatterfish `main` at `7b1212eea`, upstream `v4.0.2`, Profile 6, the `shatterfish` Brain on `weights/shatterfish.json`,
 Oracle off, turn cap 20,000. Both batches were played on 2026-10-26 on one machine, one checkout, no baseline side.
 
+**Which main.** Taken on `7b1212eea`, before PR #264 (keep off a sentry's floor once seen; Memory version 14) merged. #264 changes the Brain's play (tuning 40: reach 24 to 28, Goo kills 17 to 20 as reported when it merged), so these tables are the baseline for `7b1212eea` and not for a later `main`.
+
 ## Commands
 
 ```sh

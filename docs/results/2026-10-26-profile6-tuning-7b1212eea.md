@@ -10,6 +10,8 @@ Oracle off, turn cap 20,000, `--debug-record` on (the record does not change pla
 `RunLogRunTest.the_debug_record_changes_nothing`). Both slices were played on 2026-10-26 on one machine, one checkout,
 6 Runs at a time, no baseline side. Seeds are from the `standard` set only; `goo` and `holdout` were not touched.
 
+**Which main.** Taken on `7b1212eea`, before PR #264 (keep off a sentry's floor once seen; Memory version 14) merged. #264 changes the Brain's play (tuning 40: reach 24 to 28, Goo kills 17 to 20 as reported when it merged), so these tables are the baseline for `7b1212eea` and not for a later `main`.
+
 ```sh
 ./gradlew :rig:direction --args="--set standard --class WARRIOR --first 40 --salt-base 1000 --debug-record --jobs 6 --out build/direction/p6-ga"
 ./gradlew :rig:direction --args="--set standard --class WARRIOR --first 80 --salt-base 3000 --debug-record --jobs 6 --out build/direction/p6-gb"

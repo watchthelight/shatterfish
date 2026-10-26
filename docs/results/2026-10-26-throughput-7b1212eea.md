@@ -13,6 +13,8 @@ Gradle; the processor load read 64% when it started). The figures below are ther
 isolated machine should be at least as fast. The rig plays each Run in its own JVM, so every figure includes the
 start-up and shutdown of that JVM, the Brain's decisions, the Observer and the log.
 
+**Which main.** Taken on `7b1212eea`, before PR #264 (keep off a sentry's floor once seen; Memory version 14) merged. #264 changes the Brain's play (tuning 40: reach 24 to 28, Goo kills 17 to 20 as reported when it merged), so these tables are the baseline for `7b1212eea` and not for a later `main`.
+
 ## Command
 
 The E1 benchmark's launcher (`:harness:benchmark`) plays only the random agent, so the Brain's rate was taken from the
