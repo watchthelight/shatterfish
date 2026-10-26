@@ -164,6 +164,39 @@ final class Eat implements Policy {
         return ranked.isEmpty() ? null : ranked.get(0);
     }
 
+    /** The steps to water worth walking, starving (Hunger.java:78-85 costs HT/1000 a turn) before a meal of mystery meat. */
+    static final int WATER_REACH = 30;
+
+    /**
+     * The offered Step toward the nearest seen water, when the only food is mystery meat and the hero is
+     * not on water: one meal in five sets the hero alight (MysteryMeat.java:54-59), eight turns of burning
+     * (Burning.java:54) that the first act on water ends (Burning.java:99-100). Starving only wears the hero
+     * down slowly, so the walk is nearly free, and a hero on water pays for one turn of fire, not eight.
+     * Null on water, with no water within {@link #WATER_REACH} steps, or when no Step is offered: the meal
+     * is eaten where it stands then, as before.
+     */
+    private static RunLog.Choice toWater(Observation observation, Memory memory, List<Action> offered) {
+        org.shatterfish.api.MapSection map = observation.map();
+        int hero = observation.hero().cell();
+        if (map.tiles().get(hero) == org.shatterfish.api.Tile.WATER) {
+            return null;
+        }
+        boolean[] walk = Explore.walkable(observation, memory);
+        int[] distance = Pickup.distances(map, walk, hero);
+        int target = -1;
+        for (int cell = 0; cell < distance.length; cell++) {
+            if (distance[cell] >= 1 && distance[cell] <= WATER_REACH && map.tiles().get(cell) == org.shatterfish.api.Tile.WATER
+                    && (target < 0 || distance[cell] < distance[target])) {
+                target = cell;
+            }
+        }
+        if (target < 0) {
+            return null;
+        }
+        Action step = Pickup.firstStep(map, walk, hero, target, offered);
+        return step == null ? null : new RunLog.Choice(step, Policies.CERTAIN, "eat: water");
+    }
+
     /** A food held, the Action that eats it, and its energy. */
     private record Meal(Action eat, String name, int energy) {
     }
@@ -201,6 +234,12 @@ final class Eat implements Policy {
                 .thenComparingInt(meal -> Math.max(0, meal.energy() - STARVING))
                 .thenComparing(Comparator.comparingInt(Meal::energy).reversed()));
         List<RunLog.Choice> ranked = new ArrayList<>();
+        if (!meals.isEmpty() && meals.stream().allMatch(meal -> meal.name().equals(MYSTERY_MEAT))) {
+            RunLog.Choice toWater = toWater(observation, memory, offered);
+            if (toWater != null) {
+                ranked.add(toWater);
+            }
+        }
         for (Meal meal : meals) {
             ranked.add(new RunLog.Choice(meal.eat(), ranked.isEmpty() ? Policies.CERTAIN : 0, "eat: " + meal.name()));
         }
