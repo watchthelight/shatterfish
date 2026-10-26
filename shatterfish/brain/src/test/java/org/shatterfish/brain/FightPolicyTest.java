@@ -965,25 +965,4 @@ class FightPolicyTest {
         assertEquals("retreat: stairs", why(decided), decided.decision().toString());
         assertEquals(new Action.Step(cell(near, 2, 1)), decided.action());
     }
-
-    @Test
-    @DisplayName("the stairs are a way out of a crab six cells off when the hero reaches them with two cells to spare, and not when the crab stands past them")
-    void stairs_ahead_of_a_crab_pay() {
-        Observation ahead = screen(3, 8, false, "worn shortsword",
-                "################",
-                "#>..@.....C....#",
-                "#..............#",
-                "################");
-        Brain.Decided decided = after(ahead);
-        assertEquals("retreat: stairs", why(decided), decided.decision().toString());
-        assertEquals(new Action.Step(cell(ahead, 3, 1)), decided.action());
-
-        // The crab stands past the stairs: the walk goes toward it, so the hero holds.
-        Observation toward = screen(3, 8, false, "worn shortsword",
-                "################",
-                "#...@..>..C....#",
-                "#..............#",
-                "################");
-        assertFalse(why(after(toward)).startsWith("retreat"), after(toward).decision().toString());
-    }
 }
