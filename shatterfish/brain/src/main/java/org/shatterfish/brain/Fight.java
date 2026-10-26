@@ -432,9 +432,11 @@ final class Fight implements Policy {
 
     /**
      * The cells beside the water {@code swum} reaches, and the water itself, that the Memory does not already avoid for
-     * {@code lasting} waits, as regions of one cell each (issue #219, step 6): walkable, shown, and not the hero's own cell.
+     * {@code lasting} waits, as regions of one cell each (issue #219, step 6): walkable, shown, and neither the hero's own cell
+     * nor {@code crossed}, the cell a plan has just chosen to Step into through the shore (issue #288; -1 for none). A region
+     * set again there would put the hero inside it at the next wait, and the explore Policy's way out would walk it back.
      */
-    static List<Memory.Avoid> shore(Observation observation, Memory memory, boolean[] swum, int lasting) {
+    static List<Memory.Avoid> shore(Observation observation, Memory memory, boolean[] swum, int lasting, int crossed) {
         MapSection map = observation.map();
         int depth = observation.header().depth();
         int branch = observation.header().branch();
@@ -447,7 +449,7 @@ final class Fight implements Policy {
         }
         List<Memory.Avoid> regions = new ArrayList<>();
         for (int cell = 0; cell < swum.length; cell++) {
-            if (cell != observation.hero().cell() && !held.contains(cell) && map.fog().get(cell) != Fog.UNKNOWN
+            if (cell != observation.hero().cell() && cell != crossed && !held.contains(cell) && map.fog().get(cell) != Fog.UNKNOWN
                     && Explore.WALK.contains(map.tiles().get(cell)) && exposed(map, cell, swum)) {
                 regions.add(new Memory.Avoid(depth, branch, cell, 0, until));
             }

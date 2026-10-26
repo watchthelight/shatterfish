@@ -560,7 +560,7 @@ public final class DocsCitations {
     // ------------------------------------------------------------------- resolving them at git
 
     /** Resolves every citation against the tree of the ref it names, adding what does not resolve. */
-    private static void resolve(Path root, List<Citation> citations, List<Finding> findings) {
+    static void resolve(Path root, List<Citation> citations, List<Finding> findings) {
         String pin = Upstream.tag(root);
         if (revision(root, pin, pin).isEmpty()) {
             throw new IllegalStateException("the pinned commit is not in this checkout, so no citation can be"
@@ -675,7 +675,7 @@ public final class DocsCitations {
     }
 
     /** One pinned tree, listed once, with a name index for the citations that carry no path. */
-    private static final class Tree {
+    static final class Tree {
 
         private final List<String> paths;
         private final Set<String> all;

@@ -81,6 +81,42 @@ class WaterBoundTest {
         assertFalse(Memory.of(belief).avoided(3, 0, Memory.of(belief).waits()).isEmpty(), "the shore is remembered as avoided");
     }
 
+    /**
+     * The only way on is along the shore (issue #288, Refs #219). The plan crosses the shore because no way around is
+     * left; the Step into it lifts the cell's region, and the shore the Brain sets every wait must not set it again, or the
+     * explore Policy's "away" walks the hero straight back out and the plan walks it in again, beside piranhas that close
+     * in at every wait.
+     */
+    @Test
+    @DisplayName("a shore that is the only way on is crossed, not stepped into and out of again")
+    void forced_crossing_does_not_oscillate() {
+        Brain brain = new Brain(FightPolicyTest.KNOWLEDGE, Screens.WEIGHTS, 9L);
+        Belief belief = null;
+        int width = 14;
+        int hero = 1 + width;
+        java.util.List<Integer> walked = new java.util.ArrayList<>();
+        for (int round = 0; round < 14; round++) {
+            StringBuilder row = new StringBuilder("#...........  ");
+            row.setCharAt(hero % width, '@');
+            Observation screen = FightPolicyTest.screen(3, 20, false, "worn shortsword",
+                    "##############",
+                    row.toString(),
+                    "#..wwwwwwwQw##",
+                    "##############");
+            belief = brain.update(screen, belief);
+            Brain.Decided decided = brain.decide(screen, belief);
+            assertFalse(decided.decision().chosen().why().startsWith("away"),
+                    "walked out of the shore the plan just crossed into at round " + round + " " + walked + ": "
+                            + decided.decision());
+            belief = brain.handed(screen, belief, decided);
+            if (decided.action() instanceof Action.Step step) {
+                hero = step.cell();
+            }
+            walked.add(hero % width);
+        }
+        assertTrue(hero % width >= 9, "the shore was crossed: " + walked);
+    }
+
     @Test
     @DisplayName("water the piranha cannot swim to is no reason to leave it")
     void separate_water() {
