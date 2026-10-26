@@ -335,10 +335,6 @@ public final class Brain {
         if (decision != null && Descend.NAME.equals(decision.policy()) && decided.action() instanceof Action.Rest) {
             memory = memory.resting();
         }
-        // So is a rest by need the explore Policy handed over (issue #219), against its own, smaller bound.
-        if (decision != null && Explore.NAME.equals(decision.policy()) && decided.action() instanceof Action.Rest) {
-            memory = memory.resting();
-        }
         int depth = observation.header().depth();
         int branch = observation.header().branch();
         // An Unlock the descend Policy handed over at a locked exit (issue #163's fairness review),

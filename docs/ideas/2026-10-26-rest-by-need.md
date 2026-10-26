@@ -86,4 +86,30 @@ the turns from rests that the data shows buy little.
 
 ## Numbers
 
-Filled in below after the runs.
+Against origin/main (`--baseline origin/main --jobs 2`, standard WARRIOR):
+
+| slice | reach depth 5 | Goo kills | median turns | deaths by depth 1..8 |
+|---|---|---|---|---|
+| tuning 40, salt 1000 | 28 to 29 | 25 to 26 | 2130.5 to 2155.5 | 0/1/7/4/3/17/6/2 to 0/0/6/5/3/11/13/2 |
+| 80, salt 3000 | 44 to 44 | 41 to 38 | 1974.0 to 1864.5 | 5/9/10/12/7/19/14/4 to 5/10/10/11/7/20/12/5 |
+
+Combined 120 Runs: reach depth 5 72 to 73, Goo kills 66 to 64. Inside the noise (about 3 on 40 Runs, 4 on 80), and
+the larger slice went the wrong way, so the change is not kept and the code is reverted. No fairness review was
+needed for a reverted diff. The unit tests (a hurt, fed hero rests; a hero at four fifths does not rest after a
+test) failed on main and passed with the change, in commit `55927e028` on branch `fix/219-rest-by-need`, which is
+not merged.
+
+Median turns on the 80 slice fell by 110, so the second change did give back more turns than the first spent, as
+designed; the turns bought no extra survival.
+
+## What the table cannot show
+
+- Depth 5 deaths moved from 17 to 11 on depth 6 and 13 on the tuning slice: the hero that reaches Goo and wins goes
+  on further, so deaths by depth shift without changing the Goo count. The gate counts Goo kills only.
+- Each lever so far (this one, rest when hurt, stairs ahead of a crab, kiting) moves reach by one or two Runs in 40.
+  The 12 non-reaching Runs have five different killers and a shared food clock; one rule of either kind has so far
+  been swamped. What the data above does support is that the clock is the binding constraint: a Run holds
+  450 + 300 x food turns, floors 3 and 4 take 620 to 650 turns each, and 13 of 28 surviving Runs are starving at the
+  depth 4 exit. A lever that lowers the turns per floor on depths 3 and 4 without losing the experience the
+  wandering spawns give (the exit walk at 204 turns a Run, heap walks at 228) is the untried direction; resting
+  more or less moves the same turns around.
