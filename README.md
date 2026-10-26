@@ -204,7 +204,11 @@ E5 (the Overlay) so far:
 - The hero throws its missiles at an awake enemy two to six cells away in a clear line when it
   would take the fight anyway; on the tuning set depth 5 went from 11 to 17 of 40 and Goo kills
   from 10 to 14 (#247, part of #219).
-- Next: the full sewers run with a takeover (5.16) and the E5 retrospective.
+- E5.16, headless half: a seeded Warrior plays from depth one past Goo with a scripted takeover
+  of three turns and replays exactly; 16 of 16 Overlay Runs end as the Rig's do, 15 of 16
+  Observation for Observation. The E5 retrospective's lessons are in `CLAUDE.md` (#246). A
+  takeover on depth 2 still breaks replay (#245).
+- Next: the replay fix (#245), the live watched sewers run, and more of the Goo work (#219).
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:
