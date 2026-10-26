@@ -612,7 +612,45 @@ final class Explore implements Policy {
      * The blobs no Policy walks into, by the class names the Observation carries (story 4.10): fire
      * and the harmful gases.
      */
-    static final Set<String> HARMFUL = Set.of("Fire", "ToxicGas", "CorrosiveGas", "ParalyticGas");
+    static final Set<String> HARMFUL = Set.of("Fire", "ToxicGas", "CorrosiveGas", "ParalyticGas", "EternalFire");
+
+    /**
+     * The magical fire room's flames, by the class name the Observation carries (issue #219). Unlike
+     * Fire they never burn out, and they set alight a character on a flame's cell or on any of the
+     * four cells beside one (MagicalFireRoom.java:211-216), so those cells are fire to stay off.
+     */
+    static final String ETERNAL_FIRE = "EternalFire";
+
+    /**
+     * The cells the screen shows as a flame of the magical fire room or as one of the four cells
+     * beside a flame (MagicalFireRoom.java:211-216; a flame at the edge of a row has no neighbour
+     * across it).
+     */
+    static Set<Integer> ignited(MapSection map) {
+        Set<Integer> cells = new java.util.TreeSet<>();
+        int width = map.width();
+        int size = map.tiles().size();
+        for (org.shatterfish.api.BlobCell blob : map.blobs()) {
+            if (!blob.kinds().contains(ETERNAL_FIRE)) {
+                continue;
+            }
+            int cell = blob.cell();
+            cells.add(cell);
+            if (cell % width > 0) {
+                cells.add(cell - 1);
+            }
+            if (cell % width < width - 1) {
+                cells.add(cell + 1);
+            }
+            if (cell >= width) {
+                cells.add(cell - width);
+            }
+            if (cell + width < size) {
+                cells.add(cell + width);
+            }
+        }
+        return cells;
+    }
 
     /**
      * The cells the Policy may walk on, less, when {@code avoiding}, the regions the fight Policy
@@ -661,6 +699,9 @@ final class Explore implements Policy {
                 if (blob.cell() < cells && blob.kinds().stream().anyMatch(HARMFUL::contains)) {
                     walk[blob.cell()] = false;
                 }
+            }
+            for (int cell : ignited(map)) {
+                walk[cell] = false;
             }
             for (Memory.Cloud cloud : memory.clouds()) {
                 if (cloud.cell() < cells && memory.clouded(observation.header().depth(), observation.header().branch(),

@@ -547,6 +547,10 @@ final class TestItem implements Policy {
     }
 
     private static String harmfulOn(MapSection map, int cell) {
+        // Beside a flame of the magical fire room is as bad as on one (MagicalFireRoom.java:211-216).
+        if (Explore.ignited(map).contains(cell)) {
+            return Explore.ETERNAL_FIRE;
+        }
         for (BlobCell blob : map.blobs()) {
             if (blob.cell() == cell) {
                 for (String kind : blob.kinds()) {

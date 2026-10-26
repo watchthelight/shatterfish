@@ -416,6 +416,10 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 clouded.add(blob.cell());
             }
         }
+        // The magical fire room's flames and the cells beside them ignite whoever stands there
+        // (MagicalFireRoom.java:211-216) and never burn out: they are kept until seen clear.
+        java.util.Set<Integer> eternal = Explore.ignited(map);
+        clouded.addAll(eternal);
         List<Memory.Cloud> clouds = new ArrayList<>();
         for (Memory.Cloud cloud : memory.clouds()) {
             boolean here = cloud.depth() == depth && cloud.branch() == branch;
@@ -434,7 +438,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         }
         // In cell order, so the list does not depend on the blobs' order.
         clouded.stream().sorted().forEach(cell -> clouds.add(new Memory.Cloud(depth, branch, cell,
-                waits + Memory.CLOUD_WAITS)));
+                waits + (eternal.contains(cell) ? Memory.ETERNAL_WAITS : Memory.CLOUD_WAITS))));
         while (clouds.size() > Memory.CLOUDS) {
             clouds.remove(0);
         }
