@@ -5,7 +5,7 @@ REPO = "watchthelight/shatterfish"
 EP = "_bmad-output/planning-artifacts/epics.md"
 STATUS = "_bmad-output/implementation-artifacts/sprint-status.yaml"
 BLOB = "https://github.com/watchthelight/shatterfish/blob/main/_bmad-output/planning-artifacts/epics.md"
-STORY_EPICS = {2, 3, 4}  # sync-issues scope: the current epic and the next one
+STORY_EPICS = {7}  # sync-issues scope: the current epic and the next one
 
 
 def gh(*args, data=None):
@@ -108,6 +108,11 @@ for n in sorted(epics):
     mk = f"epic {n}"
     plan.append(("update" if mk in by_marker else "create", "epic", n, None, None, mk))
 
+if "--only" in sys.argv:
+    # --only N limits the plan to epic N and its stories, so opening one epic never rewrites the others.
+    only = int(sys.argv[sys.argv.index("--only") + 1])
+    plan = [p for p in plan if p[2] == only]
+
 if "--apply" not in sys.argv:
     for act, kind, n, st, key, mk in plan:
         name = f"E{n}.{st['m']} {st['title']}" if kind == "story" else f"E{n} {epics[n]['title']}"
@@ -164,6 +169,8 @@ for act, kind, n, st, key, mk in plan:
 
 # ---- milestone descriptions follow the epics file, which supersedes the bootstrap ----
 for n in sorted(epics):
+    if "--only" in sys.argv and n != only:
+        continue
     goal, dw = donewhen.get(n, ("", ""))
     if not dw:
         continue
