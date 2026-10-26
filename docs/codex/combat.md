@@ -11,7 +11,7 @@ own damage reduction, each naming the method that was run, citing it, and carryi
 behind it. The table that decides whether an attack lands names its method and says plainly
 that a generator which may not boot cannot run it.
 
-[`codex/v4.0.2/combat.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/combat.json) holds 548 entries in 150.1 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
+[`codex/v4.0.2/combat.json`](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/combat.json) holds 989 entries in 176.4 KB. The entries are not repeated here: they are committed, diffable and cited in that file.
 An [entry](index.md#the-tables) is an object in one of the table's own lists; a number the
 table states beside them is a value, and the values are below.
 
@@ -30,17 +30,10 @@ The values the table carries beside its entries, by the path each is reached at.
 | `hit.evasion.step` | number | `2` |
 | `hit.evasion.to` | number | `40` |
 | `hit.evasion.what` | string | `evasion` |
-| `hit.measured` | boolean | `false` |
+| `hit.measured` | boolean | `true` |
 | `hit.method` | string | `Char.hit` |
-| `hit.reason` | string | [below](#hitreason) |
-| `hitCells` | empty list | *(empty)* |
+| `hit.reason` | string | *(empty)* |
 | `seed` | number | `12648430` |
-
-#### `hit.reason`
-
-```
-Char.hit writes the icon of the reason an attack landed, which initialises FloatingText, whose initialiser builds a texture film; a generator that may not boot cannot run it
-```
 
 ## How a row is shaped
 
@@ -63,6 +56,18 @@ Char.hit writes the icon of the reason an attack landed, which initialises Float
 | `spread.min` | number |
 | `spread.samples` | number |
 | `tier` | number |
+
+### `hitCells`
+
+441 entries. Every field any entry of this list holds, by the path it is reached at
+(`[]` is a list's element):
+
+| Field | Type |
+|---|---|
+| `accuracy` | number |
+| `evasion` | number |
+| `hitPerMille` | number |
+| `samples` | number |
 
 ### `mobs`
 
@@ -179,11 +184,5 @@ recorded 549 citations in 64 files:
 
 ## Judgments
 
-Where the reader could not simply read a value it recorded why, and every such reason is
-here in full -- these are the judgments a human audits, and the list is short on purpose.
-
-1 value the table states of itself, which the count above does not include, names a reason:
-
-| Value | Where | Reason |
-|---|---|---|
-| `Char.hit` | `hit` | Char.hit writes the icon of the reason an attack landed, which initialises FloatingText, whose initialiser builds a texture film; a generator that may not boot cannot run it |
+The reader named no reason in this table: every entry is a fact the pinned tree states, and
+nothing was left out or decided.

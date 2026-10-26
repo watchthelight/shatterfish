@@ -58,14 +58,21 @@ public final class Direction {
     public static final String ROOT = "--root";
     /** Takes no value: writes the debug record beside every Run log, on both sides (issue #219). */
     public static final String DEBUG_RECORD = "--debug-record";
+    /**
+     * Which Brain the current build plays (default {@code shatterfish}); the baseline ref always plays
+     * {@code shatterfish}, so {@code --brain oneply --baseline origin/main} is the one-ply model against
+     * the 4.x Brain at main (story 6.1).
+     */
+    public static final String BRAIN_FLAG = "--brain";
 
-    static final List<String> KNOWN = List.of(SET, CLASS, FIRST, SALT_BASE, BASELINE, JOBS, OUT, ROOT, DEBUG_RECORD);
+    static final List<String> KNOWN = List.of(SET, CLASS, FIRST, SALT_BASE, BASELINE, JOBS, OUT, ROOT, DEBUG_RECORD, BRAIN_FLAG);
 
     /** Default number of Runs in flight: a quarter of the cores, from 2 to 8, so several measurements can share the machine. */
     static final int DEFAULT_JOBS = Math.max(2, Math.min(8, Runtime.getRuntime().availableProcessors() / 4));
 
     private static final int DEADLINE_SECONDS = 1800;
 
+    /** The Brain a baseline checkout plays: the 4.x one, the only Brain every ref has. */
     private static final String BRAIN = Brains.SHATTERFISH;
 
     private Direction() {
@@ -139,7 +146,11 @@ public final class Direction {
         String commit = Runner.commitOf(root);
         String tag = org.shatterfish.harness.boot.HeadlessBoot.pinnedTag();
         Path currentFolder = out.resolve("current");
-        int failedNow = play(picks, currentFolder, Runner.classpath(), root, tag, commit, jobs);
+        String brain = a.containsKey(BRAIN_FLAG) ? Brains.named(a.get(BRAIN_FLAG)) : BRAIN;
+        if (!Brains.readsWeights(brain)) {
+            throw new IllegalArgumentException(BRAIN_FLAG + " names a Brain built on the Codex and weights; " + brain + " is not");
+        }
+        int failedNow = play(picks, currentFolder, Runner.classpath(), root, tag, commit, jobs, brain);
 
         Path baselineLogs = baselineFolder;
         String baselineName = baseline;
@@ -166,7 +177,7 @@ public final class Direction {
                 Path jar = brainJar(source);
                 String cp = swapBrain(Runner.classpath(), jar);
                 baselineLogs = out.resolve("baseline");
-                failedBase = play(picks, baselineLogs, cp, source, tag, sha, jobs);
+                failedBase = play(picks, baselineLogs, cp, source, tag, sha, jobs, BRAIN);
                 baselineName = sha.startsWith(baseline) ? sha.substring(0, 9) : baseline + " " + sha.substring(0, 9);
                 if (cached != null && failedBase == 0) {
                     store(baselineLogs, cached);
@@ -211,21 +222,21 @@ public final class Direction {
      * Codex and weights come from {@code source}'s checkout. Returns how many Runs did not finish.
      */
     private static int play(List<DirectionSelect.Pick> picks, Path folder, String classpath, Path source,
-                            String tag, String commit, int jobs) {
+                            String tag, String commit, int jobs, String brain) {
         try {
             Files.createDirectories(folder);
         } catch (IOException e) {
             throw new IllegalStateException("could not create " + folder, e);
         }
         Path codex = source.resolve(CodexManifest.FOLDER).resolve(tag);
-        Path weights = source.resolve(WeightsFile.FOLDER).resolve(BRAIN + ".json");
+        Path weights = source.resolve(WeightsFile.FOLDER).resolve(brain + ".json");
         ExecutorService pool = Executors.newFixedThreadPool(jobs);
         try {
             List<Future<Boolean>> started = new ArrayList<>();
             for (int i = 0; i < picks.size(); i++) {
                 DirectionSelect.Pick pick = picks.get(i);
                 Path working = folder.resolve("work").resolve(String.valueOf(i));
-                started.add(pool.submit(() -> one(pick, folder, working, classpath, codex, weights, commit)));
+                started.add(pool.submit(() -> one(pick, folder, working, classpath, codex, weights, commit, brain)));
             }
             int failed = 0;
             for (Future<Boolean> f : started) {
@@ -248,7 +259,7 @@ public final class Direction {
     }
 
     private static boolean one(DirectionSelect.Pick pick, Path folder, Path working, String classpath,
-                               Path codex, Path weights, String commit) throws IOException, InterruptedException {
+                               Path codex, Path weights, String commit, String brain) throws IOException, InterruptedException {
         Files.createDirectories(working);
         var triple = pick.entry();
         List<String> command = new ArrayList<>(List.of(
@@ -259,7 +270,7 @@ public final class Direction {
                 RunOne.SALT, Long.toString(pick.salt()),
                 RunOne.OUT, folder.toAbsolutePath().toString(),
                 RunOne.COMMIT, commit,
-                RunOne.BRAIN, BRAIN,
+                RunOne.BRAIN, brain,
                 RunOne.BRAIN_COMMIT, commit,
                 RunOne.CHALLENGES, Integer.toString(triple.challengeFlags()),
                 RunOne.CODEX, codex.toAbsolutePath().toString(),

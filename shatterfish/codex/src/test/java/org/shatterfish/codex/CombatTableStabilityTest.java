@@ -201,9 +201,11 @@ class CombatTableStabilityTest {
     @DisplayName("the hit table names the method it could not run and why, and the rig measures it here, where the process has booted")
     void the_hit_rig_measures_the_engine() {
         Codex.Combat combat = Combat.read(ROOT);
-        assertFalse(combat.hit().measured(), "a generator that may not boot cannot run Char.hit");
-        assertTrue(combat.hit().cells().isEmpty());
-        assertTrue(combat.hit().reason().contains("FloatingText"), combat.hit().reason());
+        assertTrue(combat.hit().measured(), "story 6.1 tabulates the hit table from the rule's two draws");
+        assertEquals(21 * 21, combat.hit().cells().size());
+        assertTrue(combat.hit().cells().stream().allMatch(cell -> cell.samples() == Codex.HitCell.EXACT),
+                "a generator that may not boot cannot run Char.hit, so no cell was sampled");
+        assertTrue(Combat.NEEDS_THE_TOOLKIT.contains("FloatingText"), Combat.NEEDS_THE_TOOLKIT);
         assertEquals("Char.hit", combat.hit().method());
         assertEquals(0, combat.hit().accuracy().from());
         assertEquals(40, combat.hit().accuracy().to());
