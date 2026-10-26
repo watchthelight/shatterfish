@@ -29,10 +29,11 @@ import java.util.zip.GZIPInputStream;
  *       ({@code Actor.java:354-360}), so a load moves the counter on by the number of such buffs. An id orders nothing in
  *       the game ({@code Actor.process} walks the insertion-ordered set, shatterfish-hook 6) and no saved reference
  *       names one of those buffs;</li>
- *   <li>the order of a set the game writes in the order of a hash set of classes, which follows the order the entries were
- *       put in and not the entries ({@code core/.../Statistics.java:154}, key {@code item_types_discovered});</li>
+ *   <li>the order of a hash set of classes the game writes as it iterates ({@code core/.../Statistics.java:42}, written at
+ *       {@code :179}, key {@code item_types_discovered}): the order follows the classes' identity hash codes, which differ
+ *       from one JVM process to the next, and not the entries;</li>
  *   <li>the order of the level's heaps, plants, traps and targeted cells, which the level keeps in maps by cell and writes in
- *       the map's order ({@code core/.../levels/Level.java:504-507}, {@code :513-514}); the order follows the map's
+ *       the map's order ({@code core/.../levels/Level.java:506-508}, {@code :517}); the order follows the map's
  *       capacity, which follows how many entries it once held, and a level read back holds only the ones it has.</li>
  * </ul>
  * Everything else is compared as the game wrote it, with an object's keys in sorted order. The form is a string held only
@@ -44,6 +45,9 @@ final class SaveForm {
     private static final Set<String> CLOCK = Set.of("last_played", "nextid");
     /** Keys whose array is a set written in an order that does not matter. */
     private static final Set<String> SETS = Set.of("item_types_discovered", "heaps", "plants", "traps", "targeted_cells");
+
+    /** The deepest an array named in {@link #SETS} sits: the level's bundle under the depth file's top object. */
+    private static final int SET_DEPTH = 2;
 
     private SaveForm() {
     }
@@ -62,14 +66,14 @@ final class SaveForm {
             }
             Object parsed = new JSONTokener(new String(raw, StandardCharsets.UTF_8)).nextValue();
             StringBuilder out = new StringBuilder(raw.length);
-            write(parsed, null, out);
+            write(parsed, null, 0, out);
             return out.toString();
         } catch (JSONException | IOException notABundle) {
             return "bytes:" + HexFormat.of().formatHex(file);
         }
     }
 
-    private static void write(Object value, String key, StringBuilder out) {
+    private static void write(Object value, String key, int depth, StringBuilder out) {
         if (value instanceof JSONObject object) {
             TreeMap<String, Object> sorted = new TreeMap<>();
             for (String name : object.keySet()) {
@@ -80,7 +84,7 @@ final class SaveForm {
             out.append('{');
             for (var entry : sorted.entrySet()) {
                 out.append(JSONObject.quote(entry.getKey())).append(':');
-                write(entry.getValue(), entry.getKey(), out);
+                write(entry.getValue(), entry.getKey(), depth + 1, out);
                 out.append(',');
             }
             out.append('}');
@@ -88,10 +92,12 @@ final class SaveForm {
             List<String> items = new ArrayList<>();
             for (int i = 0; i < array.length(); i++) {
                 StringBuilder item = new StringBuilder();
-                write(array.get(i), null, item);
+                write(array.get(i), null, depth + 1, item);
                 items.add(item.toString());
             }
-            if (key != null && SETS.contains(key)) {
+            // Only where the game writes these sets: the save's top object (the statistics) and the level one below it. A key of the
+            // same name deeper down is compared in its order.
+            if (key != null && depth <= SET_DEPTH && SETS.contains(key)) {
                 Collections.sort(items);
             }
             out.append('[').append(String.join(",", items)).append(']');

@@ -7,6 +7,7 @@ import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.items.journal.DocumentPage;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Document;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.InterlevelScene;
+import com.shatteredpixel.shatteredpixeldungeon.utils.GLog;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -222,6 +223,34 @@ class RolloutRestoresTheFloorTest {
         assertTrue(refusal.getMessage().contains("game.dat"), refusal.getMessage());
         Dungeon.gold -= 7;
         store.verifyRestored(live, driver);
+    }
+
+    @Test
+    @DisplayName("verifyRestored names the floor's file when the page heap is gone: the set-order normalisation does not hide it")
+    void a_floor_without_the_page_fails_the_check() {
+        SnapshotStore store = new SnapshotStore();
+        SnapshotHandle live = atThePage(store);
+        Heap page = unfoundPage();
+        assertNotNull(page, "the live floor holds the page");
+        // Issue #271's symptom, made by hand: the floor as the old restore left it.
+        Dungeon.level.heaps.remove(page.pos);
+        IllegalStateException refusal = assertThrows(IllegalStateException.class, () -> store.verifyRestored(live, driver));
+        assertTrue(refusal.getMessage().contains("depth"), refusal.getMessage());
+        assertFalse(refusal.getMessage().contains("game.dat"), refusal.getMessage());
+        Dungeon.level.heaps.put(page.pos, page);
+        store.verifyRestored(live, driver);
+    }
+
+    @Test
+    @DisplayName("verifyRestored names the screen when only the screen differs")
+    void a_screen_that_differs_fails_the_check() {
+        SnapshotStore store = new SnapshotStore();
+        SnapshotHandle live = atThePage(store);
+        store.verifyRestored(live, driver);
+        // A log line is drawn and never saved.
+        GLog.i("a line the snapshot did not see");
+        IllegalStateException refusal = assertThrows(IllegalStateException.class, () -> store.verifyRestored(live, driver));
+        assertTrue(refusal.getMessage().contains("[(the screen)]"), refusal.getMessage());
     }
 
     @Test

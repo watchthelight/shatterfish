@@ -141,6 +141,13 @@ public final class RolloutHost extends Simulator {
             } catch (RuntimeException e) {
                 failure = add(failure, e);
             }
+            // The statics go back with it, for the same reason: the live Run loads and steps to its wait reading them, and
+            // the check below cannot see them.
+            try {
+                statics.restore();
+            } catch (RuntimeException e) {
+                failure = add(failure, e);
+            }
             long restored = 0;
             try {
                 if (!driver.closed()) {
@@ -161,8 +168,11 @@ public final class RolloutHost extends Simulator {
             }
             long verified = timer == null ? 0 : System.nanoTime();
             store.drop(live);
+            // Loading the live Run ends the scene the rollout left, and the scene writes the journal and the badges into the
+            // profile directory as it ends (core/.../scenes/GameScene.java:818-819), a file the profile may not have held:
+            // the profile goes back once more, so its files are as the rollout found them.
             try {
-                statics.restore();
+                profile.restore();
             } catch (RuntimeException e) {
                 failure = add(failure, e);
             }

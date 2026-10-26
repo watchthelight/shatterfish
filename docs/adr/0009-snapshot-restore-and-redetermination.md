@@ -333,8 +333,8 @@ rollout's restore to the screen it left: a torn guidebook page lying in view was
   read in with the page already found and came back without it, and the next snapshot of the live Run saved it that way:
   the live Run played on a different game than the one shown. The 6.5 measurement's own restores (`SnapshotStore.restore`
   after a playout) had the same gap, and the seed's playouts were dropped as "restore differs".
-- **Fix.** `RolloutHost` puts the profile back before it loads the live Run; the statics go back after it, as they did. The measurement holds a
-  `ProfileGuard` and does the same.
+- **Fix.** `RolloutHost` puts the profile back before it loads the live Run; the statics go back with it, since the load and the step to the wait read them too. The measurement holds a
+  `ProfileGuard` and the statics and puts both back before every playout.
 - **A check that does not depend on knowing the gap.** After the live Run is restored and stepped to its wait, the host saves
   it again and compares every file of that save with the snapshot's, and the screen with the screen
   (`SnapshotStore.verifyRestored`); a difference fails the rollout, naming the files and never their bytes. The saves are
@@ -343,8 +343,8 @@ rollout's restore to the screen it left: a torn guidebook page lying in view was
   wall-clock time; the actor-id counter, which a load moves on by the number of item-owned buffs it makes again (a wand's
   charger, `Wand.java:195-197`, `Actor.java:354-360`) and which orders nothing; and the order of the level's heaps, plants,
   traps and targeted cells and of the statistics' discovered-item set, which the game writes in hash-map order.
-  The check covers the save and the screen; it does not cover the statics, which go back after it, and it accepts the
-  actor-id counter's drift as above. The game log is part of the screen it compares.
+  The check covers the save and the screen. The statics go back with the profile, before the load, and the check does not
+  see them; it accepts the actor-id counter's drift as above. The game log is part of the screen it compares.
   The check costs one more save per rollout, about 10 ms of a rollout that takes about 50 (story 6.4 measured the other
   four phases and not this one; `RolloutHost.Phases.verify` reports it).
 - **Residual.** A caller of `SnapshotStore.restore` that is not the rollout host must hold the profile itself; the method

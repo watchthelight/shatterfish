@@ -230,7 +230,7 @@ final class PropertiesMeasurement {
                     String why = null;
                     Properties.Leaf leaf = null;
                     try {
-                        leaf = playout(driver, store, snapshot, profile, at, siblings.get(s), decider, hidden);
+                        leaf = playout(driver, store, snapshot, profile, statics, at, siblings.get(s), decider, hidden);
                     } catch (Dropped d) {
                         why = d.getMessage();
                     } catch (Decider.CannotDecide stuck) {
@@ -336,9 +336,12 @@ final class PropertiesMeasurement {
         }
     }
 
-    private Properties.Leaf playout(HeadlessDriver driver, SnapshotStore store, SnapshotHandle snapshot, ProfileGuard profile, Observation at,
+    private Properties.Leaf playout(HeadlessDriver driver, SnapshotStore store, SnapshotHandle snapshot, ProfileGuard profile, RunStatics.Held statics,
+                                    Observation at,
                                     Action sibling, Decider decider, Set<String> hidden) {
         profile.restore();
+        // A sibling playout must not start from the statics an earlier one left (a snake's dodge count writes a log line).
+        statics.restore();
         store.restore(snapshot, driver);
         HeadlessDriver.Halt back = driver.stepToInputWait();
         Observation restored = back.reason() == HeadlessDriver.Reason.INPUT_WAIT ? new Observer().observe() : null;
