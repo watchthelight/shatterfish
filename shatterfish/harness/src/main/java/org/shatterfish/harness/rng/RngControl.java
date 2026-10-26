@@ -26,6 +26,12 @@ public final class RngControl {
 
     private final long salt;
 
+    /**
+     * The salt the waits draw from. It is the declared one, except inside a rollout, where the scrubbed copy's waits
+     * draw from the sample's ({@link #swap}); the declared one is still what the Run records.
+     */
+    private long active;
+
     /** Whether this Run has a generator of its own on the stack, to be replaced at the next wait. */
     private boolean pushed;
 
@@ -34,6 +40,22 @@ public final class RngControl {
 
     public RngControl(long salt) {
         this.salt = salt;
+        this.active = salt;
+    }
+
+    /** Makes the waits draw from {@code rolloutSalt} until {@link #unswap}; the declared salt is unchanged. */
+    public void swap(long rolloutSalt) {
+        active = rolloutSalt;
+    }
+
+    /** Makes the waits draw from the Run's declared salt again. */
+    public void unswap() {
+        active = salt;
+    }
+
+    /** Whether the waits draw from a salt other than the declared one. */
+    public boolean swapped() {
+        return active != salt;
     }
 
     /** The salt this Run declares. It is written down with the Run and never observed. */
@@ -48,7 +70,7 @@ public final class RngControl {
 
     /** The seed wait {@code k} of this Run draws from, which anyone can recompute (see {@link Mix}). */
     public long seedFor(long k) {
-        return Mix.mix(salt, k);
+        return Mix.mix(active, k);
     }
 
     /**

@@ -2,6 +2,7 @@ package org.shatterfish.harness.driver;
 
 import org.shatterfish.api.Emote;
 import org.shatterfish.api.LogLine;
+import org.shatterfish.api.Observation;
 
 import java.util.List;
 import java.util.Map;
@@ -26,9 +27,32 @@ final class Snapshot {
     private final Map<String, byte[]> files;
     private final List<LogLine> log;
     private final Map<Integer, Emote> emotes;
+    private final Observation observation;
+    private final boolean[] fov;
+    private final boolean scrubbed;
+    private final long activeSalt;
+    private final boolean complete;
 
+    /** A snapshot of a Run's own, taken without the screen it showed (the tests that build one by hand). */
     Snapshot(String id, long k, long seed, String heroClass, long salt, int slot, Map<String, byte[]> files, List<LogLine> log,
              Map<Integer, Emote> emotes) {
+        this(id, k, seed, heroClass, salt, slot, files, log, emotes, null, null, false, salt, false);
+    }
+
+    /**
+     * The full form. {@code observation} and {@code fov} are what the screen showed at the wait and the cells the hero
+     * saw, which the scrubber needs to rebuild a copy the screen cannot tell from the Run; {@code scrubbed} marks a
+     * copy the scrubber made, whose {@code activeSalt} is the sample's, while {@code salt} stays the Run's declared
+     * one so a restore into another Run is still refused.
+     */
+    Snapshot(String id, long k, long seed, String heroClass, long salt, int slot, Map<String, byte[]> files, List<LogLine> log,
+             Map<Integer, Emote> emotes, Observation observation, boolean[] fov, boolean scrubbed, long activeSalt,
+             boolean complete) {
+        this.complete = complete;
+        this.observation = observation;
+        this.fov = fov == null ? null : fov.clone();
+        this.scrubbed = scrubbed;
+        this.activeSalt = activeSalt;
         this.id = id;
         this.k = k;
         this.seed = seed;
@@ -46,6 +70,31 @@ final class Snapshot {
      */
     Map<Integer, Emote> emotes() {
         return emotes;
+    }
+
+    /** The Observation the Run showed at the wait, or null for a snapshot built without one. */
+    Observation observation() {
+        return observation;
+    }
+
+    /** The cells in the hero's field of view at the wait, or null for a snapshot built without them. */
+    boolean[] fov() {
+        return fov == null ? null : fov.clone();
+    }
+
+    /** Whether the scrubber made this snapshot: a copy to roll out in, never the Run's own. */
+    boolean scrubbed() {
+        return scrubbed;
+    }
+
+    /** The salt the waits after a restore draw from: the Run's own, or a scrubbed copy's, the sample's. */
+    /** Whether the scrub that made this copy applied every row; a search rolls out only from such copies. */
+    boolean complete() {
+        return complete;
+    }
+
+    long activeSalt() {
+        return activeSalt;
     }
 
     String id() {

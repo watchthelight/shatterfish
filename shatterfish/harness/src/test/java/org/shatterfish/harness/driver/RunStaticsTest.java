@@ -64,6 +64,44 @@ class RunStaticsTest {
         assertFalse(Bestiary.skipCountingEncounters);
     }
 
+    @Test
+    void a_capture_puts_back_what_it_found_after_a_reset() throws Exception {
+        List<Object> planted = new ArrayList<>();
+        planted.add("a character knocked back by a rock");
+        set(Snake.class, "dodges", 1);
+        set(GnollGeomancer.class, "rocksInFlight", 3);
+        set(GnollGeomancer.class, "knockedChars", planted);
+        set(Char.class, "hitMissIcon", 7);
+        set(Flail.class, "spinBoost", 12);
+        set(RingOfWealth.class, "latestDropTier", 4);
+        Chasm.jumpConfirmed = true;
+        TippedDart.lostDarts = 5;
+        WondrousResin.forcePositive = true;
+        Ratmogrify.useRatroicEnergy = true;
+        Bestiary.skipCountingEncounters = true;
+
+        RunStatics.Held held = RunStatics.capture();
+        RunStatics.reset();
+        assertEquals(0, get(Snake.class, "dodges"));
+        planted.add("changed after the capture");
+        held.restore();
+
+        assertEquals(1, get(Snake.class, "dodges"));
+        assertEquals(3, get(GnollGeomancer.class, "rocksInFlight"));
+        Object knocked = get(GnollGeomancer.class, "knockedChars");
+        assertEquals(List.of("a character knocked back by a rock"), knocked, "the list as it was, not as it became");
+        assertNotSame(planted, knocked);
+        assertEquals(7, get(Char.class, "hitMissIcon"));
+        assertEquals(12, get(Flail.class, "spinBoost"));
+        assertEquals(4, get(RingOfWealth.class, "latestDropTier"));
+        assertTrue(Chasm.jumpConfirmed);
+        assertEquals(5, TippedDart.lostDarts);
+        assertTrue(WondrousResin.forcePositive);
+        assertTrue(Ratmogrify.useRatroicEnergy);
+        assertTrue(Bestiary.skipCountingEncounters);
+        RunStatics.reset();
+    }
+
     /**
      * The holiday is pinned to none at every Run start, whatever the date the process read (issue #139).
      * The game caches the holiday on first use from the wall clock ({@code core/.../utils/Holiday.java:56-61}),

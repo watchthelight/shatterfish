@@ -144,14 +144,17 @@ next one in the same process, each to the value its declaration gives a fresh pr
 `Flail.spinBoost` and `RingOfWealth.latestDropTier`, and one more that is pinned rather than put
 back (issue #139): `Holiday.cached`, which the game fills from the wall clock on first use, is set
 to `Holiday.NONE` so that a Run is determined by (tag, seed, actions) and not by the date it was
-played. It writes and never reads them, and apart from the holiday it writes
+played. At the start of a Run it writes and never reads them, and apart from the holiday it writes
 only what a fresh process already holds, so a Run in a process of its own, which every Rig Run and
 every Overlay Run is, is unchanged by it on any day that is not a holiday; the sweep behind the list is in `docs/architecture.md`
 ("Statics that outlive a Run"). `HarnessReflectionTest` confines reflection in harness main code to
 those two classes, by dependency rather than by call so that a method reference or a reflective
 call to `getDeclaredField` itself does not slip past, and asserts that the fields each reaches are
 exactly the ones named here, so another cannot arrive unannounced; for `RunStatics` it also asserts
-no `Field` read of any kind, so the class can put state back and never carry any out. One more class
+exactly one `Field` read (story 6.2), made by the private `read` that fills `RunStatics.Held`: a rollout
+captures the statics before it runs and puts them back after, because a restore does not carry them. `Held`
+is opaque (private fields, one public method, `restore`), so the class can put state back and still carry
+none out to a caller; a Brain, which cannot import the harness, could not read it anyway. One more class
 is exempt from the rule, and reaches no member at all: `NoOpGL`, the headless GL stand-in, is a
 dynamic proxy, and building one means naming `java.lang.reflect.Proxy`, `InvocationHandler` and
 `Method`; a separate rule in the same test holds it to that, with no field, no opening and no

@@ -95,6 +95,58 @@ public final class RunStatics {
         }
     }
 
+    /**
+     * The values these statics hold now, kept so that a rollout (story 6.2) can leave them as it found them. A rollout
+     * runs in the live Run's process and plays on statics no snapshot saves ({@code Snake.dodges} is a count a log line
+     * waits on), so the host takes this before it starts and puts it back after, and the live Run goes on as the twin
+     * that was never rolled out from does.
+     *
+     * <p>The one place in this class that reads a field, and the values go into the holder and nowhere else: the holder
+     * has no accessor, and {@code HarnessReflectionTest} holds it to that. What it carries cannot be carried out.
+     */
+    public static Held capture() {
+        return new Held();
+    }
+
+    /** An opaque copy of what {@link #capture} found, with one use: {@link #restore}. */
+    public static final class Held {
+        private final boolean chasmJump = Chasm.jumpConfirmed;
+        private final int lostDarts = TippedDart.lostDarts;
+        private final boolean forcePositive = WondrousResin.forcePositive;
+        private final boolean ratroic = Ratmogrify.useRatroicEnergy;
+        private final boolean skipCounting = Bestiary.skipCountingEncounters;
+        private final Object[] privates = new Object[PRIVATE.size()];
+
+        private Held() {
+            for (int i = 0; i < privates.length; i++) {
+                Object value = read(PRIVATE.get(i).field());
+                // A list is copied, so that a rollout's changes to it are not the ones put back.
+                privates[i] = value instanceof List<?> list ? new ArrayList<>(list) : value;
+            }
+        }
+
+        /** Puts every static back to the value it held when this was taken. */
+        public void restore() {
+            Chasm.jumpConfirmed = chasmJump;
+            TippedDart.lostDarts = lostDarts;
+            WondrousResin.forcePositive = forcePositive;
+            Ratmogrify.useRatroicEnergy = ratroic;
+            Bestiary.skipCountingEncounters = skipCounting;
+            for (int i = 0; i < privates.length; i++) {
+                Object value = privates[i];
+                put(PRIVATE.get(i).field(), value instanceof List<?> list ? new ArrayList<>(list) : value);
+            }
+        }
+    }
+
+    private static Object read(Field field) {
+        try {
+            return field.get(null);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     private static void put(Field field, Object value) {
         try {
             field.set(null, value);
