@@ -77,12 +77,11 @@ class OverlayOutcomeComparisonTest {
             Files.writeString(Path.of(out), table);
         }
         System.out.println(table);
-        // One Run of the sixteen (HJO-WWK-PJG/1002) is not the same Run every time it is played in this driver: its
-        // Observations differ from wait 543, and in some plays so does the rest of the Run. That is issue #245 (a
-        // render-timing dependency in the game state), so the guard names that one Run as the only exception and the table says so.
+        // Every Run plays the same and ends the same in this driver, however long its frames are (issue #245 was the
+        // badge banner's shine drawing from the Run's stream on a frame the wall clock picks; hook row 8 covers it now).
         List<String> unlike = rows.stream().filter(row -> !(row.contains("| yes | yes |") || row.contains("| yes | NO"))).toList();
-        assertTrue(unlike.stream().allMatch(row -> row.startsWith("| HJO-WWK-PJG/1002 |")),
-                "every Run but the known one played the same and ended the same in the Overlay's driver:\n" + table);
+        assertTrue(unlike.isEmpty(),
+                "every Run played the same and ended the same in the Overlay's driver:\n" + table);
     }
 
     private static String compare(Path rigLog) throws IOException {

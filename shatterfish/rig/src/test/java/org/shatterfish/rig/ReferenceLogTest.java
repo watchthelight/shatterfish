@@ -51,7 +51,7 @@ class ReferenceLogTest {
      * platforms reach it.
      */
     private static final String CHAIN =
-            "75d0d8a2736a48f0d3c87c337f909ad01b046350a5b94b827cbd3ba942972957";
+            "726050fd98c53b853ff0c41da5c7152e6558225683d816ba5b2b8915dc1ab133";
 
     /**
      * What {@code ls reference/*.jsonl | grep -v '/runs\.jsonl$' | head -1} selects.

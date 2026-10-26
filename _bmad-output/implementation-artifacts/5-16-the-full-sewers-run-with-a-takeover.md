@@ -55,6 +55,7 @@ needs it is **not** marked done.
 - **The takeover is from depth 4**, at the first fight there (an Attack offered). A takeover at the first fight on
   depth 2 leaves a log that diverges on replay later, on depth 3: issue #245 holds the finding. The smoke test keeps
   `TAKEOVER_DEPTH = 4` until that is fixed; the finding does not change what a person at the keyboard sees.
+  Fixed 2026-10-26 (issue #245, Profile 6): the badge banner's shine drew from the Run's stream; `TAKEOVER_DEPTH` is 2 again.
 - **A window's answer is not withheld.** The Brain's answer to a window (`AnswerPrompt`) costs no credit
   (`EmbeddedRun.owed`), so the Panel's Decision is checked for every other turn the Brain played, and the count of
   window answers is part of the test's accounting.
