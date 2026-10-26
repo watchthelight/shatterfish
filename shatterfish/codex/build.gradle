@@ -102,7 +102,7 @@ tasks.register('generate', JavaExec) {
 // generator a process.
 tasks.register('lore', JavaExec) {
     group = 'shatterfish'
-    description = 'Checks the lore claims, writes docs/lore/index.md, or enters drafts (--args="check|docs|intake <folder>").'
+    description = 'Checks the lore claims, writes docs/lore/index.md, enters drafts, or writes the variant classifier page (--args="check|review|docs|variants|intake <folder>").'
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'org.shatterfish.codex.LoreTool'

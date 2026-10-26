@@ -2,7 +2,7 @@
 title: 'Story 7.8: The variant classifier from the vocabulary diff'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: 'e70381b9e'
 review_loop_iteration: 0
 context: []
@@ -36,7 +36,7 @@ first run, and the 144 existing claims are classified and compared with the vari
 5. `VariantClassifierTest` runs a labelled fixture of at least 40 claims and fails below the thresholds. The fixture
    is `shatterfish/codex/src/test/resources/variant-fixture.txt`.
 6. The 144 claims are classified and compared with the variant each carries; a disagreement is listed on the Results page
-   and in the PR and nothing is applied. `VariantReportTest.no_claim_file_is_changed`-style check: the report reads and
+   and in the PR and nothing is applied. `VariantReportTest.every_claim_is_classified_and_none_is_changed`: the report reads and
    never writes.
 7. The classifier reads Codex files and the claim text only, makes no network call and names no game class.
    `VariantClassifierTest.no_network_and_no_game_code`.
@@ -89,3 +89,19 @@ wild. The comparison with the 144 carried variants is the second check, and it i
 - `./gradlew :codex:lore --args=variants` rewrites the Results page.
 - `mkdocs build --strict` (as CI runs it).
 - Fairness: no `brain` file, nothing the Brain reads.
+
+## Results (first run, after the thresholds above were committed)
+
+- Fixture: 48 claims (spd 18, pd 15, mod 5, unknown 10). Precision and recall 1.00 for every class on the first run,
+  which says the rules do what they say on cases built to exercise them, not that they are accurate on forum text.
+- The 144 claims: the classifier decides 38 (all `spd`) and leaves 106 `unknown`. Against the carried variants (66 `spd`,
+  78 `unknown`): 21 agree on `spd`, 17 carry `unknown` where the table names a SPD-only subject, 45 carry `spd` that the
+  classifier cannot confirm (a shared mob with no differing figure, or a variant taken from the page the source URL
+  names), and no claim is a contradiction (`spd` against `pd`). Nothing was applied; the page lists all of them.
+
+## Review
+
+Self-review against the acceptance criteria: each criterion has a named test. Risks found and kept, not fixed: the text
+scan (no subjects given) can match a common word that is also a mob name, which the evidence shows as "found in the
+text"; the mod pattern reads a capitalised word before "Pixel Dungeon" as a mod name; `vocabulary.json`'s `consumer` line
+is half stale (ADR-0022, Consequences).
