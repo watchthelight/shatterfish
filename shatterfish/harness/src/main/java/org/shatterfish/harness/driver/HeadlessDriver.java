@@ -25,6 +25,7 @@ import org.shatterfish.harness.observer.GameLogListener;
 import org.shatterfish.harness.boot.Profile;
 import org.shatterfish.harness.rng.RngControl;
 import org.shatterfish.api.LogLine;
+import org.shatterfish.api.Observation;
 import org.shatterfish.harness.observer.Observer;
 import org.shatterfish.api.Emote;
 import java.nio.file.Path;
@@ -146,6 +147,8 @@ public final class HeadlessDriver implements AutoCloseable {
 
     /** The Run's own generator control, which reseeds from the salt at every wait (ADR-0007). */
     private final RngControl rng;
+    /** The seed of the Run's tuple, which a scrubbed copy's load replaces in {@code Dungeon.seed} and a restore must not read. */
+    private final long runSeed;
     private long frames;
     private boolean closed;
     /**
@@ -165,6 +168,7 @@ public final class HeadlessDriver implements AutoCloseable {
         this.boot = boot;
         this.scene = scene;
         this.rng = rng;
+        this.runSeed = Dungeon.seed;
         this.uiThread = uiThread;
         // A headless Run has no person at it: a gate left registered by an Overlay Run that was never closed
         // must not outlive into this one (story 5.5, hook row 9).
@@ -413,8 +417,12 @@ public final class HeadlessDriver implements AutoCloseable {
                 emotes.put(mob.id(), emote);
             }
         }
-        return new Snapshot(id, gate.waitIndex(), Dungeon.seed, hero.heroClass.name(), rng.salt(), GamesInProgress.curSlot, files,
-                GameLogListener.INSTANCE.lines(), emotes);
+        // The screen at the wait and the cells the hero sees: what a scrubbed copy must reproduce. The Observer only
+        // reads, and takes no draw from the generator.
+        Observation shown = new Observer().observe();
+        boolean[] fov = Dungeon.level.heroFOV.clone();
+        return new Snapshot(id, gate.waitIndex(), runSeed, hero.heroClass.name(), rng.salt(), GamesInProgress.curSlot, files,
+                GameLogListener.INSTANCE.lines(), emotes, shown, fov, false, rng.salt(), false);
     }
 
     /**
@@ -434,11 +442,10 @@ public final class HeadlessDriver implements AutoCloseable {
         // Refused by the tuple before the Run is touched: a snapshot's waits draw from its Run's
         // stream, and its floors are its seed's and its hero's.
         if (snapshot.salt() != rng.salt()) {
-            throw new IllegalArgumentException("snapshot " + snapshot.id() + " belongs to a Run with salt "
-                    + Long.toHexString(snapshot.salt()) + ", and this Run's is " + Long.toHexString(rng.salt()));
+            throw new IllegalArgumentException("snapshot " + snapshot.id() + " belongs to a Run with another salt, and cannot be restored into this one");
         }
         Hero hero = Dungeon.hero;
-        if (snapshot.seed() != Dungeon.seed || hero == null || !snapshot.heroClass().equals(hero.heroClass.name())) {
+        if (snapshot.seed() != runSeed || hero == null || !snapshot.heroClass().equals(hero.heroClass.name())) {
             // The seeds themselves stay out of the message: the tuple is the runner's to log, not
             // a refusal's to print (the Stalled rule).
             throw new IllegalArgumentException("snapshot " + snapshot.id() + " belongs to a Run of another seed or hero class ("
@@ -492,6 +499,11 @@ public final class HeadlessDriver implements AutoCloseable {
         // Generator.java:625-636); reseeded for the snapshot's wait first, those draws are a
         // function of the tuple and not of the history the Run had before the restore, and the
         // wait's own reseed follows.
+        if (snapshot.scrubbed()) {
+            rng.swap(snapshot.activeSalt());
+        } else {
+            rng.unswap();
+        }
         rng.reseed(snapshot.k());
         Chasm.jumpConfirmed = false;
         ActionIndicator.clearAction();
@@ -738,6 +750,11 @@ public final class HeadlessDriver implements AutoCloseable {
 
     public HeadlessBoot headlessBoot() {
         return boot;
+    }
+
+    /** The folder the game writes its profile files into (rankings, badges, journal, bones); {@link ProfileGuard} reads it. */
+    Path profileDirectory() {
+        return boot.profile();
     }
 
     public boolean closed() {

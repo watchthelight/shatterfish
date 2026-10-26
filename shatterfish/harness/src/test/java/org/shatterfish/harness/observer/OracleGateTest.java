@@ -113,6 +113,17 @@ class OracleGateTest {
             .should().accessTargetWhere(target(name("forName")))
             .because("a class reached by its name is a constructor call the dependency rules cannot see");
 
+    /**
+     * {@code ClassLoader.loadClass} answers to a name as well. The scrubber must know which class a saved bundle names,
+     * so {@code ItemRows.classOf} is the one door, and it resolves only the game's own package (never a Shatterfish
+     * class). {@code forName} has no such exemption.
+     */
+    static final ArchRule NO_LOAD_CLASS = noClasses()
+            .that().resideInAPackage("org.shatterfish.harness..")
+            .and().doNotHaveFullyQualifiedName("org.shatterfish.harness.redetermine.ItemRows")
+            .should().accessTargetWhere(target(name("loadClass")))
+            .because("a class loaded by its name is a constructor call the dependency rules cannot see");
+
     private HeadlessDriver driver;
     private Level level;
     private Hero hero;
@@ -256,6 +267,7 @@ class OracleGateTest {
         NO_ONE_ELSE_HOLDS_THE_SIDECAR.check(harness);
         ONLY_THE_LAUNCHER_MAKES_AN_ORACLE.check(harness);
         NO_CLASS_BY_NAME.check(harness);
+        NO_LOAD_CLASS.check(harness);
 
         // The Brain-facing type has no path to the sidecar: every type an Observation is made of,
         // through its records, lists and sealed interfaces, lives in api or the JDK, and a Decider
@@ -303,6 +315,8 @@ class OracleGateTest {
                 "a class other than the launcher constructing an oracle passes the constructor rule");
         assertTrue(NO_CLASS_BY_NAME.evaluate(new ClassFileImporter().importClasses(ReachesByName.class)).hasViolation(),
                 "a harness class calling forName passes the name rule");
+        assertTrue(NO_LOAD_CLASS.evaluate(new ClassFileImporter().importClasses(LoadsByName.class)).hasViolation(),
+                "a harness class calling loadClass passes the load rule");
     }
 
     @Test
@@ -348,6 +362,12 @@ class OracleGateTest {
 
     static final class MakesAnOracle {
         Object oracle = new OracleObserver();
+    }
+
+    static final class LoadsByName {
+        Object loaded() throws ClassNotFoundException {
+            return LoadsByName.class.getClassLoader().loadClass("org.shatterfish.harness.observer.OracleObserver");
+        }
     }
 
     static final class ReachesByName {

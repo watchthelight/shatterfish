@@ -9,6 +9,9 @@ dependencies {
     testImplementation 'org.ow2.asm:asm-analysis:9.9'
     api project(':api')
     implementation project(':core')
+    // The scrubber (story 6.2) edits the game's own bundles as JSON, which is what Bundle writes. SPD-classes keeps
+    // the library to itself, so the harness names the same version.
+    implementation "org.json:json:20170516"
     // Story 4.11: a few harness tests play the real Brain through the Run loop from states they
     // plant in the game, which only a harness test can do. The Brain depends on api alone, so this
     // is no cycle, and main code still cannot see it.
