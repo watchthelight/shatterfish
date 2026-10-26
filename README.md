@@ -246,6 +246,10 @@ E5 (the Overlay) so far:
 - E6.4: one redetermined rollout costs about 47 ms under the swap-in-place host, so a process runs
   about 21 a second on a quiet machine; snapshot, load and restore are 87% of it, restore the
   largest single cost (#269, closes #251).
+- E6.5: from 143 `smoke` snapshots, siblings rolled out by the Brain end alike (leaf correlation
+  about 0.95 to 0.98) and few hidden facts come to light within a tactical horizon
+  (disambiguation about 0.07); explanatory only, no choice made from it (#270, closes #252). It
+  also found a restore mismatch in the rollout host on one standard seed (#271).
 - E4.14, first half: a differential test plays three seeds twice with unidentified item labels
   exchanged in the game and checks that the Brain acts the same while the screens match; the E4
   retrospective's lessons are in `CLAUDE.md` (#255). The gate Run on the registered set waits.
