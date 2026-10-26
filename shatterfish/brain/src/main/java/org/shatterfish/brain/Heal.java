@@ -5,7 +5,6 @@ import org.shatterfish.api.ActorView;
 import org.shatterfish.api.Codex;
 import org.shatterfish.api.Emote;
 import org.shatterfish.api.HeroSection;
-import org.shatterfish.api.ItemKind;
 import org.shatterfish.api.ItemRef;
 import org.shatterfish.api.ItemView;
 import org.shatterfish.api.MapSection;
@@ -73,9 +72,6 @@ final class Heal implements Policy {
      */
     static final int REDRINK_SHARE_PER_MILLE = 250;
 
-    /** The least odds of healing an unidentified potion is drunk at when the hero is about to die (issue #219). An assumption. */
-    static final double DESPERATE_ODDS = 0.1;
-
     /** The potion's name once identified (items.properties:759). */
     static final String POTION = "potion of healing";
 
@@ -141,47 +137,7 @@ final class Heal implements Policy {
                 return new RunLog.Choice(drink, Policies.CERTAIN, "heal " + hero.hp() + "/" + danger);
             }
         }
-        if (low && Fight.retreat(observation, memory, offered, enemies, knowledge) == null) {
-            return desperate(observation, offered, hero.hp(), danger);
-        }
         return null;
-    }
-
-    /**
-     * The last resort (issue #219): the hero is at the low-health warning, the enemies are expected to
-     * take more than it has, no retreat is open and no potion of healing is held, so it drinks the
-     * unidentified potion most likely to be healing. Only the odds the screen's Beliefs give are used,
-     * never the potion's true identity. Healing is the only identity counted (a potion of healing is
-     * 3 of 17 in the potion table, Generator.java:341, with strength not dropped by chance): a bad draw
-     * costs nothing the fight was not about to cost, which is the difference from story 4.10's test at
-     * half health on a calm screen.
-     */
-    private RunLog.Choice desperate(Observation observation, List<Action> offered, int hp, int danger) {
-        java.util.Map<String, Beliefs.Guess> guesses = new java.util.LinkedHashMap<>();
-        for (Beliefs.Guess guess : Beliefs.identities(observation, knowledge)) {
-            guesses.put(guess.label(), guess);
-        }
-        TestItem odds = new TestItem(knowledge);
-        List<ItemView> items = observation.inventory().items();
-        Action best = null;
-        String name = null;
-        double most = DESPERATE_ODDS;
-        for (int index = 0; index < items.size(); index++) {
-            ItemView item = items.get(index);
-            Beliefs.Guess guess = guesses.get(item.name());
-            if (item.kind() != ItemKind.POTION || guess == null || guess.kind() != ItemKind.POTION) {
-                continue;
-            }
-            Action drink = new Action.UseItem(new ItemRef(index, item.name(), item.quantity()), "DRINK");
-            double chance = odds.odds(guess, java.util.Set.of(TestItem.HEALING));
-            if (offered.contains(drink) && chance >= most) {
-                best = drink;
-                name = item.name();
-                most = chance;
-            }
-        }
-        return best == null ? null
-                : new RunLog.Choice(best, Policies.CERTAIN, "desperate " + hp + "/" + danger + ": " + name);
     }
 
     /** What the potion heals in all: {@code (int)(0.8 * HT + 14)} (PotionOfHealing.java:64). */

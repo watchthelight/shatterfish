@@ -160,27 +160,10 @@ class HealPolicyTest {
     }
 
     @Test
-    @DisplayName("an unidentified potion is not drunk to heal while the hero is not about to die")
+    @DisplayName("an unidentified potion is never drunk to heal")
     void unknown_potion() {
-        ItemView crimson = Screens.unknown(ItemKind.POTION, "crimson potion", 1);
-        // Above the low-health warning, in danger, cornered: the fight goes on, the potion is kept.
-        assertEquals("fight", decide(fight(12, "#@B...#", crimson)).decision().policy());
-        // At the warning with room behind and a rat to fight: the retreat is open, so no gamble.
-        assertEquals("fight", decide(fight(3, "#..@r.#", crimson)).decision().policy());
-    }
-
-    @Test
-    @DisplayName("at the low-health warning, cornered, in danger and with no known potion, the hero drinks the unidentified one most likely to heal (issue #219)")
-    void desperate_drink() {
-        ItemView crimson = Screens.unknown(ItemKind.POTION, "crimson potion", 1);
-        Brain.Decided decided = decide(fight(3, "#@r...#", crimson));
-        assertEquals("heal", decided.decision().policy());
-        assertTrue(drinks(decided), decided.action().toString());
-        assertEquals("desperate 3/" + danger(fight(3, "#@r...#")) + ": crimson potion", decided.decision().chosen().why());
-        // A known potion of healing comes first, and a potion already known to be something else is never the gamble.
-        Brain.Decided known = decide(fight(3, "#@r...#", crimson, potion("potion of healing", 1)));
-        assertEquals("potion of healing", ((Action.UseItem) known.action()).item().name());
-        assertEquals("fight", decide(fight(3, "#@r...#", potion("potion of mind vision", 1))).decision().policy());
+        Brain.Decided decided = decide(fight(3, "#@r...#", potion("crimson potion", 1)));
+        assertEquals("fight", decided.decision().policy());
     }
 
     @Test
