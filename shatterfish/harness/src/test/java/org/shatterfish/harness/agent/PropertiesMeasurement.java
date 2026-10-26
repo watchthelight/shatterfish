@@ -4,7 +4,6 @@ import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.InterlevelScene;
 import org.shatterfish.api.Action;
-import org.shatterfish.api.Alignment;
 import org.shatterfish.api.Codex;
 import org.shatterfish.api.Decider;
 import org.shatterfish.api.Observation;
@@ -25,7 +24,6 @@ import org.shatterfish.harness.rng.DeciderSeeds;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -36,8 +34,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * The properties measurement (story 6.5, ADR-0010's second measurement): Long et al.'s leaf correlation and disambiguation
@@ -46,8 +42,10 @@ import java.util.regex.Pattern;
  *
  * <p><b>The snapshots</b> are story 6.4's: the real Brain plays each seed of the {@code smoke} set from its start (salt
  * 7000 plus the seed's index there, the same here), and at every wait with an enemy drawn and at least {@code gap} waits
- * after the last snapshot, up to {@code perSeed} of them, the Run is stored. 6.4 takes two per seed; this takes more, since
- * an interval wants snapshots, and the first two of a seed are 6.4's.
+ * after the last snapshot, up to {@code perSeed} of them, the Run is stored. The seeds, salts, "enemy drawn" rule
+ * ({@link SimulatorSpeed#fightable}) and gap are 6.4's, and its code draws them. 6.4 takes two per seed and this takes more,
+ * since an interval wants snapshots. One difference: 6.4 skips a wait the scrub refuses (a boss floor, a chest in view), and
+ * a perfect-information playout is not scrubbed, so this takes such a wait too; only a wait with a window in front is skipped.
  *
  * <p><b>The playouts.</b> From each snapshot, up to {@code siblings} distinct Actions of the valid set (never a descent) are
  * each played, and then the driver plays on, for {@code 20} waits. The same siblings are played for each driver, so the
@@ -93,9 +91,6 @@ final class PropertiesMeasurement {
     record Report(Config config, List<Properties.Row> rows, int snapshots, List<String> skipped) {
     }
 
-    private record Triple(long seed, HeroClass heroClass) {
-    }
-
     private final Config config;
     private final Launcher.Launch launch;
     private final PrintStream progress;
@@ -133,25 +128,8 @@ final class PropertiesMeasurement {
 
     // --- the snapshots, drawn as story 6.4 draws them
 
-    private static List<Triple> triples(String set, int count) throws IOException {
-        String text = Files.readString(RealBrain.root().resolve("seeds").resolve(set + ".json"), StandardCharsets.UTF_8);
-        Matcher entry = Pattern.compile("\"heroClass\":\"([A-Z]+)\",\"seed\":(\\d+)").matcher(text);
-        List<Triple> out = new ArrayList<>();
-        while (out.size() < count && entry.find()) {
-            out.add(new Triple(Long.parseLong(entry.group(2)), HeroClass.valueOf(entry.group(1))));
-        }
-        if (out.size() < count) {
-            throw new IllegalArgumentException("the " + set + " set holds " + out.size() + " seeds, not " + count);
-        }
-        return out;
-    }
-
-    private static boolean fightable(Observation observation) {
-        return observation.actors().actors().stream().anyMatch(a -> a.alignment() == Alignment.ENEMY);
-    }
-
     private Report measure() throws IOException {
-        List<Triple> seeds = triples(config.set(), config.seeds());
+        List<SimulatorSpeed.Triple> seeds = SimulatorSpeed.triples(config.set(), config.seeds());
         for (int index = 0; index < seeds.size(); index++) {
             progress.println("Properties: seed " + (index + 1) + " of " + seeds.size() + ", " + snapshots + " snapshots so far");
             playSeed(seeds.get(index), 7_000L + index);
@@ -171,7 +149,7 @@ final class PropertiesMeasurement {
         return new BrainDecider(new Brain(codex, weights, DeciderSeeds.brain(RealBrain.NAME), Brain.Model.ONE_PLY));
     }
 
-    private void playSeed(Triple triple, long salt) {
+    private void playSeed(SimulatorSpeed.Triple triple, long salt) {
         HeadlessDriver driver = HeadlessDriver.start(triple.seed(), triple.heroClass(), salt);
         try {
             BrainDecider brain = baseline();
@@ -190,7 +168,7 @@ final class PropertiesMeasurement {
                     return;
                 }
                 Observation observation = new Observer().observe();
-                if (halt.window() == null && fightable(observation) && halt.waitIndex() - lastWait >= config.gap()) {
+                if (halt.window() == null && SimulatorSpeed.fightable(observation) && halt.waitIndex() - lastWait >= config.gap()) {
                     Object mark = brain.mark();
                     if (playFrom(driver, observation, halt.waitIndex(), triple.seed(), mark)) {
                         taken++;

@@ -111,10 +111,11 @@ final class SimulatorSpeed {
         return new SimulatorSpeed(config).measure();
     }
 
-    private record Triple(long seed, HeroClass heroClass) {
+    /** One entry of a seed set; story 6.5 draws its snapshots from the same entries and by the same rule. */
+    record Triple(long seed, HeroClass heroClass) {
     }
 
-    private static List<Triple> triples(String set, int count) throws IOException {
+    static List<Triple> triples(String set, int count) throws IOException {
         String text = Files.readString(RealBrain.root().resolve("seeds").resolve(set + ".json"), StandardCharsets.UTF_8);
         Matcher entry = Pattern.compile("\"heroClass\":\"([A-Z]+)\",\"seed\":(\\d+)").matcher(text);
         List<Triple> out = new ArrayList<>();
@@ -131,7 +132,8 @@ final class SimulatorSpeed {
         return ScrubSample.of(0x1234_5678_9ABCL * n + 17, 0xABCDEF01L * n + 3, 0x9E37_79B9L * n + 5).toBelief();
     }
 
-    private static boolean fightable(Observation observation) {
+    /** A wait with an enemy drawn: the rule that makes a snapshot mid-fight. */
+    static boolean fightable(Observation observation) {
         return observation.actors().actors().stream().anyMatch(a -> a.alignment() == Alignment.ENEMY);
     }
 
