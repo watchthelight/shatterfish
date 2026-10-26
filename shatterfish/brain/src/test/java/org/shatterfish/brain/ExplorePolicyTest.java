@@ -153,6 +153,29 @@ class ExplorePolicyTest {
     }
 
     @Test
+    @DisplayName("rest by need (issue #219): under half health with food to pay for it, rest before the frontier")
+    void rests_when_badly_hurt_and_fed() {
+        Observation corridor = screen(1,
+                "#########",
+                "#@....  #",
+                "#########");
+        org.shatterfish.api.ItemView ration = Screens.item(org.shatterfish.api.ItemKind.FOOD, "ration of food", 1);
+        Observation hurt = DescendPolicyTest.hero(corridor, 8, 40, Hunger.NONE, ration);
+        Brain.Decided rest = brain().decide(hurt, seen(hurt));
+        assertEquals(new Action.Rest(true), rest.action());
+        assertEquals("rest: hurt", rest.decision().chosen().why());
+        Observation scratched = DescendPolicyTest.hero(corridor, 21, 40, Hunger.NONE, ration);
+        assertEquals(new Action.Step(cell(corridor, 2, 1)), brain().decide(scratched, seen(scratched)).action(),
+                "half health or more: on to the frontier");
+        Observation poor = DescendPolicyTest.hero(corridor, 8, 40, Hunger.NONE);
+        assertEquals(new Action.Step(cell(corridor, 2, 1)), brain().decide(poor, seen(poor)).action(),
+                "no spare food: the rest would eat the next floor's");
+        Observation hungry = DescendPolicyTest.hero(corridor, 8, 40, Hunger.HUNGRY, ration);
+        assertEquals(new Action.Step(cell(corridor, 2, 1)), brain().decide(hungry, seen(hungry)).action(),
+                "hungry: no rest by need");
+    }
+
+    @Test
     @DisplayName("it steps toward the nearest frontier through cells it may walk on, one Step at a time")
     void nearest_frontier() {
         Observation corridor = screen(1,

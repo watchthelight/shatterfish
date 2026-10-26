@@ -312,7 +312,9 @@ final class TestItem implements Policy {
         int hero = observation.hero().cell();
         int width = observation.map().width();
         return memory.tested() >= 0 && memory.waits() - memory.tested() <= REST_WAITS
-                && observation.hero().hp() < observation.hero().ht()
+                // Rest by need (issue #219): a hero at three quarters or more walks on and heals as it goes; the
+                // rest is for the hurt (Explore.hurtRestOwed), as the turns are food (Larder).
+                && 4L * observation.hero().hp() < 3L * observation.hero().ht()
                 && observation.hero().hunger() == org.shatterfish.api.Hunger.NONE
                 // A locked boss floor stops regeneration and hunger (LockedFloor.java:62-64,
                 // Regeneration.java:112-117): nothing would end the rest, and the Run would stall.

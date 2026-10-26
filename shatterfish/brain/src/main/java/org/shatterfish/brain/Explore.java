@@ -237,8 +237,55 @@ final class Explore implements Policy {
             }
         }
 
-        return uncover(observation, memory, offered, searches(observation, memory), frugal(observation, memory));
+        // Rest by need (issue #219): badly hurt on a calm floor, with the food to pay for it.
+        RunLog.Choice onward = uncover(observation, memory, offered, searches(observation, memory),
+                frugal(observation, memory));
+        // A spent floor is left by the descend and plunge Policies, which rest before they go.
+        if (onward != null && hurtRestOwed(observation, memory)) {
+            for (Action rest : List.of(new Action.Rest(true), new Action.Rest(false), new Action.Search())) {
+                if (offered.contains(rest)) {
+                    return new RunLog.Choice(rest, Policies.CERTAIN, "rest: hurt");
+                }
+            }
+        }
+        return onward;
     }
+
+    /**
+     * Whether to rest before exploring on (issue #219): under half the hit points, no hunger icon (a
+     * hungry hero's rest is the descend Policy's, and a starving one does not regenerate,
+     * Regeneration.java:56), the floor not locked (regeneration stops, Regeneration.java:112-117), and
+     * food to pay for the rest: the {@link Larder} budget less the turns a rest to full takes
+     * ({@link Larder#TURNS_PER_HP} a hit point, Regeneration.java:44) must still leave
+     * {@link #HURT_RESERVE}, a ration. Resting is billed in food (a turn is a hunger point), so a hero
+     * with no spare food walks on and heals as it goes, as before. Reads the hit points, the hunger
+     * icon, the buffs and the pack, all of them on the screen.
+     */
+    static boolean hurtRestOwed(Observation observation, Memory memory) {
+        int hp = observation.hero().hp();
+        int ht = observation.hero().ht();
+        int depth = observation.header().depth();
+        int branch = observation.header().branch();
+        int hero = observation.hero().cell();
+        int width = observation.map().width();
+        return 2 * hp < ht
+                && memory.rests() < HURT_RESTS
+                && observation.hero().hunger() == org.shatterfish.api.Hunger.NONE
+                && !has(observation, Larder.LOCKED)
+                && Larder.budget(observation, memory) - (long) Larder.TURNS_PER_HP * (ht - hp) >= HURT_RESERVE
+                && memory.avoided(depth, branch, memory.waits()).stream()
+                        .noneMatch(region -> region.covers(depth, branch, hero, width));
+    }
+
+    /**
+     * The most rests by need on one floor (the count the descend Policy's rests share, {@link Descend#RESTS}):
+     * a rest is one Action that runs until the hero is healed or disturbed, so a floor needs few, and a rest
+     * the game keeps cutting short must not hold the hero for good.
+     */
+    static final int HURT_RESTS = 8;
+
+    /** The turns of food a rest by need must leave: a ration (Food.java:51). */
+    static final int HURT_RESERVE = 300;
 
     /**
      * Frontier first, then a search, with up to {@code limit} spots searched on this floor (issue #183):

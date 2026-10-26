@@ -821,6 +821,9 @@ class TestItemPolicyTest {
         Observation whole = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(), List.of(),
                 List.of(), List.of(), new Action.Rest(true));
         assertFalse(policy.enters(whole, justTested), "at full health");
+        Observation scratched = screen(1, row(3, -1, -1), Screens.heroAt(1, 16, 20, List.of()), List.of(), List.of(),
+                List.of(), List.of(), new Action.Rest(true));
+        assertFalse(policy.enters(scratched, justTested), "at four fifths: walks on and heals as it goes (issue #219)");
         Observation hungry = screen(1, row(3, -1, -1), hungry(1, 12, 20), List.of(), List.of(), List.of(), List.of(),
                 new Action.Rest(true));
         assertFalse(policy.enters(hungry, justTested), "a hungry hero does not rest for it");
