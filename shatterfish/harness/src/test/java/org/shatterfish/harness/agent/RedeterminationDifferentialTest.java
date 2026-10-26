@@ -606,6 +606,78 @@ class RedeterminationDifferentialTest {
     }
 
     @Test
+    @DisplayName("what the scrub cannot redraw is refused, and an unidentified artifact's curse is rolled afresh (fairness review)")
+    void hidden_contents_are_refused_or_rolled() throws IOException {
+        long seed = smokeWarriors().get(0);
+        driver = HeadlessDriver.start(seed, HeroClass.WARRIOR, SALT);
+        driver.stepToInputWait();
+        com.shatteredpixel.shatteredpixeldungeon.levels.Level level = Dungeon.level;
+        List<Integer> near = new ArrayList<>();
+        for (int step : new int[] {-1, 1, -level.width(), level.width()}) {
+            int cell = Dungeon.hero.pos + step;
+            if (level.passable[cell] && level.heaps.get(cell) == null && level.heroFOV[cell]
+                    && com.shatteredpixel.shatteredpixeldungeon.actors.Actor.findChar(cell) == null) {
+                near.add(cell);
+            }
+        }
+        assertTrue(near.size() >= 2, "two free cells beside the hero");
+
+        // A grave in view holds an item the screen never names: refused.
+        Heap tomb = new Heap();
+        tomb.pos = near.get(0);
+        tomb.type = Heap.Type.TOMB;
+        tomb.seen = true;
+        tomb.items.add(new com.shatteredpixel.shatteredpixeldungeon.items.weapon.melee.Dagger());
+        level.heaps.put(tomb.pos, tomb);
+        SnapshotStore store = new SnapshotStore();
+        SnapshotHandle graved = store.take(driver);
+        Scrub.Refused refusedGrave = assertThrows(Scrub.Refused.class, () -> new SnapshotScrubber(store).scrub(graved, sample(1)));
+        assertTrue(refusedGrave.getMessage().contains("TOMB"), refusedGrave.getMessage());
+        level.heaps.remove(tomb.pos);
+
+        // An awake mimic in view carries its chest's loot: refused.
+        com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mimic mimic = new com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mimic();
+        mimic.pos = near.get(1);
+        mimic.state = mimic.HUNTING;
+        mimic.HT = 20;
+        mimic.HP = 20;
+        mimic.items = new ArrayList<>();
+        mimic.items.add(new com.shatteredpixel.shatteredpixeldungeon.items.potions.PotionOfStrength());
+        level.mobs.add(mimic);
+        com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene.add(mimic);
+        SnapshotHandle bitten = store.take(driver);
+        Scrub.Refused refusedMimic = assertThrows(Scrub.Refused.class, () -> new SnapshotScrubber(store).scrub(bitten, sample(1)));
+        assertTrue(refusedMimic.getMessage().contains("mimic"), refusedMimic.getMessage());
+        level.mobs.remove(mimic);
+        mimic.destroy();
+        mimic.sprite.killAndErase();
+
+        // An artifact nobody has put on keeps its curse to itself: the copy rolls it again, so a search that equips it
+        // learns nothing of the true one.
+        com.shatteredpixel.shatteredpixeldungeon.items.artifacts.Artifact artifact =
+                new com.shatteredpixel.shatteredpixeldungeon.items.artifacts.HornOfPlenty();
+        artifact.cursed = true;
+        artifact.cursedKnown = false;
+        Dungeon.hero.belongings.backpack.items.add(artifact);
+        Observation shown = new Observer().observe();
+        SnapshotHandle live = store.take(driver);
+        Fixture f = new Fixture(seed, store, live, shown);
+        // The live Run as its own restore reads it: a load puts the pack's items in the game's order, not the order of the add.
+        Observation restored = liveAgain(f);
+        Set<Boolean> curses = new java.util.HashSet<>();
+        for (long n = 1; n <= 16 && curses.size() < 2; n++) {
+            SnapshotHandle copy = new SnapshotScrubber(store, EnumSet.of(ScrubRow.ITEM_LEVEL_AND_CURSE)).scrub(live, sample(n));
+            assertSameScreen("sample " + n, restored, copyOf(f, copy));
+            for (var item : Dungeon.hero.belongings.backpack.items) {
+                if (item instanceof com.shatteredpixel.shatteredpixeldungeon.items.artifacts.HornOfPlenty horn) {
+                    curses.add(horn.cursed);
+                }
+            }
+        }
+        assertEquals(Set.of(true, false), curses, "across samples the hidden curse of the unidentified artifact varies");
+    }
+
+    @Test
     @DisplayName("the store refuses a handle that claims to be scrubbed and is not one it made")
     void the_store_refuses_a_claimed_handle() throws IOException {
         Fixture f = fixture(smokeWarriors().get(0));

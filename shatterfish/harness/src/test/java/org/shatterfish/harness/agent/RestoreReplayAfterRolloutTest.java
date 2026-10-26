@@ -265,6 +265,36 @@ class RestoreReplayAfterRolloutTest {
     }
 
     @Test
+    @DisplayName("a rollout to the hero's death leaves the rankings, the profile's files and the live Run as they were")
+    void a_death_inside_a_rollout_is_contained() throws IOException {
+        driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, SALT);
+        driver.stepToInputWait();
+        // One hit point and a poison that outlasts it: the first turn of any Action kills the hero in the copy.
+        Dungeon.hero.HP = 1;
+        com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Buff.affect(Dungeon.hero,
+                com.shatteredpixel.shatteredpixeldungeon.actors.buffs.Poison.class).set(30f);
+        SnapshotStore store = new SnapshotStore();
+        SnapshotHandle live = store.take(driver);
+        SnapshotHandle copy = new SnapshotScrubber(store).scrub(live, sample(1));
+        String hash = new Observer().observe().hash();
+        Map<String, String> files = profileFiles();
+        int total = Rankings.INSTANCE.totalNumber;
+        var records = Rankings.INSTANCE.records;
+
+        RolloutResult result = new RolloutHost(store, driver).simulate(copy,
+                List.of(new Action.Wait(), new Action.Wait(), new Action.Wait()));
+        assertEquals(RolloutEnd.DEATH, result.end(), "the copy's hero died: " + result);
+        assertEquals(files, profileFiles(), "the death wrote nothing to the profile");
+        assertEquals(total, Rankings.INSTANCE.totalNumber);
+        assertEquals(records, Rankings.INSTANCE.records);
+        assertEquals(hash, new Observer().observe().hash(), "the live Run stands at its wait, alive");
+        assertTrue(Dungeon.hero.isAlive());
+        // And it goes on: the same Action the rollout took is served by the live Run, which has the same poison.
+        assertTrue(new ActionExecutor().execute(new Observer().observe(), new Action.Wait())
+                instanceof org.shatterfish.harness.executor.Outcome.Applied);
+    }
+
+    @Test
     @DisplayName("the profile guard puts back the journal, the rankings and the files a rollout wrote")
     void the_profile_guard_puts_the_profile_back() throws IOException {
         driver = HeadlessDriver.start(SEED, HeroClass.WARRIOR, SALT);

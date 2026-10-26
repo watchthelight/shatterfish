@@ -283,7 +283,12 @@ Written when the scrubber and the host were built; the table above is the decisi
   (`daily: true`), so the game keeps bones out of it, and it keeps no other floors' files: ascending generates a new floor
   from the sample.
 - **Refusals.** Depth a multiple of five or past 25, a branch, a locked level, a spawned quest, a held Trinket, a Statue
-  in view and a quest NPC in view are refused by name, not scrubbed.
+  in view and a quest NPC in view are refused by name, not scrubbed. The fairness review of the finished diff added a
+  mimic in view (an awake one carries its chest's loot, `Mimic.items`), a grave or remains heap in view (`TOMB`,
+  `REMAINS`: their contents are not named by the screen), and any item whose curse or enchantment cannot be rolled
+  afresh to fit what the screen shows (the scrub used to keep the true value; it now refuses), as are the hit points of
+  a mob that fit no health bar. Unidentified artifacts and wands with unknown charges are rolled afresh like the rest of
+  the item-level row.
 - **The fog is one function.** `FogModel` is the fog that `Observer` and the scrubber both use, so what is unknown cannot
   drift between them (`FogParityTest`).
 - **A rollout borrows the process.** `RolloutHost` restores the live Run after the rollout, steps it back to its wait,
@@ -294,5 +299,5 @@ Written when the scrubber and the host were built; the table above is the decisi
 - **Residuals.** A re-created buff may draw an icon that differs from the true buff's; the ids of kept mobs and buffs are
   the true ones; `limited_drops` are zeroed, which biases strength and upgrade drops on a descent inside a rollout;
   `heroFOV` is an input to the scrub for unknown wall cells in view; the container and unseen rows are covered only by the
-  differential test's synthetic heaps, since the smoke fixtures skip chest-in-view snapshots; a rollout that ends in a
-  death or a win is contained by the guard, which the unit test holds, but no test plays a rollout to a death.
+  differential test's synthetic heaps, since the smoke fixtures skip chest-in-view snapshots; a rollout that ends in
+  a death is held by `a_death_inside_a_rollout_is_contained`, and one that ends in a win only by the guard's unit test.

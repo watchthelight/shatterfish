@@ -257,7 +257,8 @@ final class MobRows {
             }
         }
         if (valid.isEmpty()) {
-            return;
+            // Keeping the true hit points of a mob whose bar fits none would leak them (fairness review, 6.2).
+            throw new Scrub.Refused("no hit points of " + Ctx.className(mob) + " fit the health bar the screen draws");
         }
         mob.put("HP", valid.get(random.nextInt(valid.size())));
     }

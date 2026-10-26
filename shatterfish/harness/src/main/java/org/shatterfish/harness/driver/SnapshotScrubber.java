@@ -75,7 +75,7 @@ public final class SnapshotScrubber extends Redeterminer {
         for (ScrubRow row : rows) {
             mask |= 1 << row.ordinal();
         }
-        String name = "scrubbed-" + from.id() + "-" + Long.toHexString(sample.hash().hashCode() & 0xFFFFFFFFL) + "-r"
+        String name = "scrubbed-" + from.id() + "-" + sample.hash() + "-r"
                 + Integer.toHexString(mask);
         Snapshot copy = new Snapshot(name, from.k(),
                 from.seed(), from.heroClass(), from.salt(), from.slot(), out.files(), from.log(), from.emotes(), shown, fov, true,

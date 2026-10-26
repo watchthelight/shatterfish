@@ -110,8 +110,10 @@ class OracleGateTest {
      */
     static final ArchRule NO_CLASS_BY_NAME = noClasses()
             .that().resideInAPackage("org.shatterfish.harness..")
-            .should().accessTargetWhere(target(name("forName")))
-            .because("a class reached by its name is a constructor call the dependency rules cannot see");
+            .and().doNotHaveFullyQualifiedName("org.shatterfish.harness.redetermine.ItemRows")
+            .should().accessTargetWhere(target(name("forName")).or(target(name("loadClass"))))
+            .because("a class reached by its name is a constructor call the dependency rules cannot see; the scrubber's one"
+                    + " door, ItemRows.classOf, resolves only the game's own package");
 
     private HeadlessDriver driver;
     private Level level;

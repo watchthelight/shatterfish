@@ -5,6 +5,7 @@ import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.items.armor.Armor;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.Potion;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.exotic.ExoticPotion;
+import com.shatteredpixel.shatteredpixeldungeon.items.artifacts.Artifact;
 import com.shatteredpixel.shatteredpixeldungeon.items.rings.Ring;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.Scroll;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.exotic.ExoticScroll;
@@ -37,15 +38,23 @@ final class ItemRows {
     private ItemRows() {
     }
 
+    private static final String GAME = "com.shatteredpixel.shatteredpixeldungeon.";
+
     private static final Map<String, Class<?>> CLASSES = new HashMap<>();
 
     static Class<?> classOf(String name) {
         if (name == null || name.isEmpty()) {
             return null;
         }
+        // A saved bundle names its classes, and the scrub must know which are potions, mobs or trinkets. Only the game's own
+        // package is resolved, so no name in a bundle can reach a Shatterfish class (the oracle gate, OracleGateTest, allows
+        // this one door and no other); loadClass rather than forName so the rule that bars forName stays absolute.
+        if (!name.startsWith(GAME)) {
+            return null;
+        }
         return CLASSES.computeIfAbsent(name, n -> {
             try {
-                return Class.forName(n, false, ItemRows.class.getClassLoader());
+                return ItemRows.class.getClassLoader().loadClass(n);
             } catch (ClassNotFoundException | LinkageError e) {
                 return null;
             }
@@ -226,8 +235,12 @@ final class ItemRows {
         if (!isA(name, Item.class)) {
             return false;
         }
-        boolean family = isA(name, Weapon.class) || isA(name, Armor.class) || isA(name, Ring.class) || isA(name, Wand.class);
-        return family && (!item.optBoolean("levelKnown") || !item.optBoolean("cursedKnown"));
+        // An artifact rolls a curse of its own (core/.../items/artifacts/Artifact.java:221-223) that shows only once
+        // cursedKnown is set, so it is in the family; a wand also hides its charges until they are known.
+        boolean family = isA(name, Weapon.class) || isA(name, Armor.class) || isA(name, Ring.class) || isA(name, Wand.class)
+                || isA(name, Artifact.class);
+        return family && (!item.optBoolean("levelKnown") || !item.optBoolean("cursedKnown")
+                || isA(name, Wand.class) && !item.optBoolean("curChargeKnown"));
     }
 
     private static boolean reroll(JSONObject item, String path, Ctx c) {
@@ -244,7 +257,7 @@ final class ItemRows {
         for (int attempt = 0; attempt < 400; attempt++) {
             JSONObject fresh = fresh(cls, Mix.mix(base, attempt));
             if (fresh == null) {
-                return false;
+                throw new Scrub.Refused("an item of unknown level or curse (" + name + ") cannot be rolled afresh");
             }
             JSONObject freshEnchant = enchantKey == null ? null : fresh.optJSONObject(enchantKey);
             boolean freshShown = freshEnchant != null && !isCurse(freshEnchant);
@@ -278,7 +291,9 @@ final class ItemRows {
             }
             return !before.toString().equals(item.toString());
         }
-        return false;
+        // Failing open would keep the true curse or enchantment in a copy that shows none of it (fairness review, 6.2).
+        throw new Scrub.Refused("no fresh roll of " + name + " fits what the screen shows of it (level known " + levelKnown
+                + ", curse known " + cursedKnown + ")");
     }
 
     private static boolean isCurse(JSONObject enchant) {

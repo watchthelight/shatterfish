@@ -1,5 +1,6 @@
 package org.shatterfish.harness.redetermine;
 
+import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mimic;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Statue;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.npcs.Blacksmith;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.npcs.Ghost;
@@ -8,6 +9,7 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.npcs.Wandmaker;
 import com.shatteredpixel.shatteredpixeldungeon.items.trinkets.Trinket;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.shatterfish.api.HeapKind;
 import org.shatterfish.api.HeapView;
 import org.shatterfish.api.Observation;
 
@@ -87,6 +89,12 @@ public final class Scrub {
         Ctx c = new Ctx(game, level, in.observation(), in.fov(), in.depth(), sample, rows);
         refuse(c, in);
 
+        for (HeapView heap : c.observation.map().heaps()) {
+            if (heap.kind() == HeapKind.TOMB || heap.kind() == HeapKind.REMAINS) {
+                throw new Refused("a " + heap.kind() + " is drawn at cell " + heap.cell()
+                        + ", and what it holds is hidden state the scrub does not redraw");
+            }
+        }
         if (c.on(ScrubRow.STEALTHY_MIMIC_KEPT)) {
             c.held(ScrubRow.STEALTHY_MIMIC_KEPT, 1);
         }
@@ -167,6 +175,9 @@ public final class Scrub {
                 continue;
             }
             String name = Ctx.className(mob);
+            if (ItemRows.isA(name, Mimic.class)) {
+                throw new Refused("a mimic is in view, and the loot it carries is hidden state the scrub does not redraw");
+            }
             if (ItemRows.isA(name, Statue.class)) {
                 throw new Refused("a statue is in view, and the weapon it holds is hidden state the scrub does not redraw");
             }

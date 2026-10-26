@@ -247,6 +247,15 @@ Import edges, ArchUnit, leak tests per row, the toggle test and the determinism 
   `RedeterminationBuffsTest`, and `RestoreReplayAfterRolloutTest` (4 tests: the twin's hashes from the restored wait
   onward, with the profile files equal; a foreign, claimed or other-store handle rolls out nothing; a descent inside a
   rollout builds the sample's floor, repeatable per sample, different per sample and from the live seed's; the profile
-  guard). No rollout is played to a death.
+  guard; a rollout to the hero's death leaves the files, rankings and live Run as found).
+- **Fairness review of the final diff** (verdict BLOCK before the fixes): unidentified artifacts kept their true curse,
+  grave heaps kept their contents, an awake mimic in view kept its loot, and two rolls failed open. Fixed in the same
+  PR: artifacts and wands with unknown charges are rolled afresh; a mimic in view, a TOMB or REMAINS heap, an item with no
+  fitting roll, and a health bar no hit points fit are refused. `hidden_contents_are_refused_or_rolled` holds the
+  grave, the mimic and the artifact; `a_death_inside_a_rollout_is_contained` plays a rollout to the hero's death. The
+  snapshot id carries the sample's whole hash. `ItemRows.classOf` resolves names inside the game's package only, by
+  `loadClass`, and `OracleGateTest`'s name rule now bars `loadClass` too, with that one door excepted. Left open from the
+  review: the kept visible mob's iconless buffs and non-sampled states (allowlisting as for the hero), and a
+  two-worlds-one-screen leak test per row.
 - **Residuals added.** See ADR-0009's amendment: re-created buff icons, true ids kept, `limited_drops` zeroed, `heroFOV`
   as an input, container and unseen rows covered by synthetic heaps only.
