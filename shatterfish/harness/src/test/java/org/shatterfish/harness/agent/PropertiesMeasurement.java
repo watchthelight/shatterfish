@@ -14,6 +14,8 @@ import org.shatterfish.brain.BrainDecider;
 import org.shatterfish.harness.Launcher;
 import org.shatterfish.harness.boot.HeadlessBoot;
 import org.shatterfish.harness.driver.HeadlessDriver;
+import org.shatterfish.harness.driver.ProfileGuard;
+import org.shatterfish.harness.driver.RunStatics;
 import org.shatterfish.harness.driver.SnapshotStore;
 import org.shatterfish.harness.executor.ActionExecutor;
 import org.shatterfish.harness.executor.Outcome;
@@ -210,6 +212,12 @@ final class PropertiesMeasurement {
         }
         SnapshotStore store = new SnapshotStore();
         SnapshotHandle snapshot = store.take(driver);
+        // A playout plays the game in the live Run's process, and the game writes the profile as it goes. A guide page
+        // a playout picks up is found in the journal, and the next load of the floor drops the page's heap from it
+        // (core/.../items/Heap.java:439-449): a restore that left the journal where the playout put it came back to a
+        // different map (issue #271). The profile and the statics are held here and put back before every restore.
+        ProfileGuard profile = ProfileGuard.hold(driver);
+        RunStatics.Held statics = RunStatics.capture();
         Set<String> hidden = Launcher.hiddenFacts(launch);
         snapshots++;
         RuntimeException first = null;
@@ -222,7 +230,7 @@ final class PropertiesMeasurement {
                     String why = null;
                     Properties.Leaf leaf = null;
                     try {
-                        leaf = playout(driver, store, snapshot, at, siblings.get(s), decider, hidden);
+                        leaf = playout(driver, store, snapshot, profile, at, siblings.get(s), decider, hidden);
                     } catch (Dropped d) {
                         why = d.getMessage();
                     } catch (Decider.CannotDecide stuck) {
@@ -248,10 +256,12 @@ final class PropertiesMeasurement {
             throw failed;
         } finally {
             // The live Run goes back to the snapshot's wait, where the caller decides for it as if nothing had been played.
+            profile.restore();
             store.restore(snapshot, driver);
             HeadlessDriver.Halt back = driver.stepToInputWait();
             Observation restored = back.reason() == HeadlessDriver.Reason.INPUT_WAIT ? new Observer().observe() : null;
             store.drop(snapshot);
+            statics.restore();
             if (restored == null || !restored.hash().equals(at.hash())) {
                 Unrestored unrestored = new Unrestored("the live Run did not replay its wait after the playouts, seed "
                         + seed + " wait " + wait + " (" + back.reason() + ", window " + back.window() + ", wait index " + back.waitIndex()
@@ -326,13 +336,15 @@ final class PropertiesMeasurement {
         }
     }
 
-    private Properties.Leaf playout(HeadlessDriver driver, SnapshotStore store, SnapshotHandle snapshot, Observation at,
+    private Properties.Leaf playout(HeadlessDriver driver, SnapshotStore store, SnapshotHandle snapshot, ProfileGuard profile, Observation at,
                                     Action sibling, Decider decider, Set<String> hidden) {
+        profile.restore();
         store.restore(snapshot, driver);
         HeadlessDriver.Halt back = driver.stepToInputWait();
         Observation restored = back.reason() == HeadlessDriver.Reason.INPUT_WAIT ? new Observer().observe() : null;
         if (restored == null || !restored.hash().equals(at.hash())) {
-            // A restore that comes back with a different map (seen on some standard seeds, #252) leaves nothing to read.
+            // A restore that comes back to another screen leaves nothing to read. It was a map without a guide page on a
+            // standard seed until the profile was put back before the load (#271); it is a bug in the restore if it comes again.
             throw new Dropped("restore differs");
         }
         ActionExecutor executor = new ActionExecutor();
