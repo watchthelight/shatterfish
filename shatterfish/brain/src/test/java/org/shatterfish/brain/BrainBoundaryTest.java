@@ -73,6 +73,9 @@ class BrainBoundaryTest {
 			"org.shatterfish.api..",
 			"java.lang",
 			"java.lang.runtime",
+			// Only the meta-annotations and their enums (Retention, Target, ElementType): the package
+			// reads nothing, it lets @Heuristic (story 7.1) be seen by reflection from the rig's test.
+			"java.lang.annotation",
 			"java.util",
 			"java.util.function",
 			"java.util.stream",

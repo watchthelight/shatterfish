@@ -30,12 +30,14 @@ final class Chests implements Policy {
     static final String NAME = "open-chest";
 
     /** The most wraiths a tomb is opened for, that is free cardinal sides: most of them solid or taken. */
+    @Heuristic("tomb-wraiths-cardinal")
     static final int MAX_WRAITHS = 1;
 
     /**
      * The hero's hit points must exceed this share, in thousandths, of what a mimic is expected to cost
      * ({@link #mimicCost}): a margin for the spread of the rolls. An assumption, not a Codex fact.
      */
+    @Heuristic("chest-mimic-bite")
     static final int MIMIC_MARGIN_PER_MILLE = 1250;
 
     /** Tiles a wraith cannot be placed on (Wraith.java:118, {@code Level.solid}); doors count as free, the safe way. */
