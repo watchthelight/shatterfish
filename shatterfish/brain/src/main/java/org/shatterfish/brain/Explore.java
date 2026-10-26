@@ -715,6 +715,7 @@ final class Explore implements Policy {
                 walk[actor.cell()] = false;
             }
         }
+        Sentry.block(walk, observation, memory);
         int depth = observation.header().depth();
         int branch = observation.header().branch();
         for (Memory.Spot spot : memory.blocked()) {

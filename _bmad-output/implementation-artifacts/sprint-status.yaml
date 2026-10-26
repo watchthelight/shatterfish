@@ -101,7 +101,7 @@ development_status:
   4-11-the-answer-prompts-policy: done
   4-12-the-descend-policy: done
   4-13-reach-the-goo-gate-on-the-smoke-set: done
-  4-14-pass-the-goo-gate-on-the-registered-set: in-progress  # done: differential test (PermutedIdentitiesDifferentialTest), E4 retrospective. Remaining: gate Run on goo with a committed Registration, its Results page, throughput benchmark with the Brain (idle machine); the 75% gate itself is open (#115, #219)
+  4-14-pass-the-goo-gate-on-the-registered-set: in-progress  # done: differential test (PermutedIdentitiesDifferentialTest), E4 retrospective. throughput benchmark with the Brain (shared machine, 95 waits/s/process) and Profile 6 baselines (tuning 17/40 Goo kills, 120-Run 44/120 = 36.7%) published 2026-10-26. Remaining: gate Run on goo with a committed Registration and its Results page; the 75% gate itself is open (#115, #219)
   epic-4-retrospective: done  # written at the first half of 4.14
 
   epic-5: in-progress

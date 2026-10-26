@@ -228,6 +228,12 @@ E5 (the Overlay) so far:
   shows, with every hidden fact (identities, curses, charges, unseen monsters, traps, secret doors,
   the seed) drawn afresh, and the rollout host plays Actions in that copy and restores the live
   Run exactly. A differential test checks that two worlds with one screen scrub alike (#262).
+- The Brain remembers a red sentry once seen and keeps off its special floor unless it already
+  stands on it. Over 120 Runs sentry deaths on depths 2 to 4 went from 6 to 0, reach depth 5 from
+  59 to 68 and Goo kills from 44 to 50 (#264, part of #219).
+- Profile 6 baselines at 7b1212eea, before #264: the tuning 40 reaches depth 5 in 24 and kills
+  Goo in 17, and 120 standard Warriors kill Goo in 44 (36.7%). With the Brain attached a Rig
+  process plays about 95 Input waits a second on a shared machine (#265, E4.14).
 - E4.14, first half: a differential test plays three seeds twice with unidentified item labels
   exchanged in the game and checks that the Brain acts the same while the screens match; the E4
   retrospective's lessons are in `CLAUDE.md` (#255). The gate Run on the registered set waits.

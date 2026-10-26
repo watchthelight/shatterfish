@@ -196,6 +196,10 @@ nav:
       - "Baseline at v4.0.2": results/2026-10-25-feb88de55.md
       - "Goo baseline at 5b48107f9": results/2026-10-25-goo-baseline-5b48107f9.md
       - "No walking away from a faster enemy": results/2026-10-26-219-no-outrunning-fast-enemies.md
+      - "Keep out of a red sentry's floor": results/2026-10-26-219-sentry-floor.md
+      - "Profile 6 tuning tables at 7b1212eea": results/2026-10-26-profile6-tuning-7b1212eea.md
+      - "Goo baseline on Profile 6 at 7b1212eea": results/2026-10-26-goo-baseline-7b1212eea.md
+      - "Throughput with the Brain attached": results/2026-10-26-throughput-7b1212eea.md
       - "Story 5.16, the sewers run": results/2026-10-25-5-16-the-sewers-run.md
       - "Story 6.3, the search leak test": results/2026-10-26-6-3-the-search-leak-test.md
       - "Generated: H-0002": results/2026-09-23-H-0002.md
