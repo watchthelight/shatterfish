@@ -51,7 +51,7 @@ identical Run for Run. The rule fires rarely at best.
   die on depths 2 to 4 to crabs, piranhas, hunger, a bomb, slime and gas. The ones that matter are killed
   in two or three turns from a health that is not yet under a third, so the low-health condition is met on the
   last turn only, when a 1 in 6 gamble has nothing left to buy.
-- Four of the five Goo deaths in the baseline died holding only unknown potions, but Goo is met with the
+- Of the three Goo deaths in the baseline, two held unidentified potions, but Goo is met with the
   dodge and the pump rules first; the hero is rarely both under a third and cornered.
 - What would raise the odds is earlier: the unknown potions are not tested before death because Story 4.10
   tests only at half health on a calm screen. That is the lever the earlier "drinking an unknown potion" note
