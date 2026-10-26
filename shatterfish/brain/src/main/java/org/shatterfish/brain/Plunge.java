@@ -99,7 +99,7 @@ final class Plunge implements Policy {
     static boolean fit(Observation observation) {
         int hp = observation.hero().hp();
         int ht = observation.hero().ht();
-        if (hp < SAFE_HP) {
+        if (hp < Math.min(SAFE_HP, ht)) {
             return false;
         }
         int percent = observation.hero().hunger() == Hunger.STARVING ? STARVING_PERCENT : FIT_PERCENT;
