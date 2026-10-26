@@ -10,6 +10,10 @@ dependencies {
     // Profiles: both come from the harness, on the test classpath only. The generator itself
     // reaches neither the harness nor a Run (CodexLeakTest's gate).
     testImplementation project(':harness')
+    // The lore checker (story 7.7) validates an implemented_in name against the Brain's Policies.
+    // A test-only edge: brain depends on api and nothing else, so it adds no cycle, and the
+    // generator's own classpath is unchanged.
+    testImplementation project(':brain')
 }
 
 // The tests that boot the game need its assets on the classpath, as the harness's do.
@@ -40,6 +44,11 @@ tasks.named('test') {
     // citation checker sweeps are all under it, so one input covers what three used to, and a
     // doc edit reruns the sweep instead of leaving a cached run standing over text it never read.
     inputs.dir(rootProject.file('docs')).withPropertyName('documentation').withPathSensitivity(PathSensitivity.RELATIVE)
+    // The lore claims, and the files an implemented_in name is checked against (story 7.7). The
+    // citations in a claim are resolved from the repository history, which Gradle cannot see
+    // either; a re-pin edits docs/UPSTREAM.md, which is an input above.
+    inputs.dir(rootProject.file('lore')).withPropertyName('loreClaims').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(rootProject.file('weights')).withPropertyName('weightsFiles').withPathSensitivity(PathSensitivity.RELATIVE)
     // CI's pull-request shortcut (.github/workflows/build.yml): when a change touches neither the
     // game's code, the Codex nor the harness, these three cannot change their answer and are the
     // slowest by far. They still run on every push to main.
@@ -83,5 +92,22 @@ tasks.register('generate', JavaExec) {
     mainClass = 'org.shatterfish.codex.Generate'
     workingDir = rootDir
     args = [rootDir.absolutePath]
+    outputs.upToDateWhen { false }
+}
+
+// `./gradlew :codex:lore --args="check|docs|intake <folder>"` is the lore pipeline's command line
+// (story 7.7, ADR-0021): the checker's report, the docs page written from the claims, and the
+// intake the research skill calls. It runs from the test classes beside the citation checker, for
+// the same reason: it resolves citations from history, and the generator's leak gate denies the
+// generator a process.
+tasks.register('lore', JavaExec) {
+    group = 'shatterfish'
+    description = 'Checks the lore claims, writes docs/lore/index.md, or enters drafts (--args="check|docs|intake <folder>").'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'org.shatterfish.codex.LoreTool'
+    workingDir = rootDir
+    systemProperty 'stdout.encoding', 'UTF-8'
+    systemProperty 'stderr.encoding', 'UTF-8'
     outputs.upToDateWhen { false }
 }

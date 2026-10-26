@@ -79,7 +79,7 @@ The Game Dev Studio (gds) module is installed under `_bmad/gds/` but **not used*
 | decompile | Binary reverse engineering | none (upstream is source-available) | — |
 | updateextrausage | Statusline credit balance | none | — |
 
-Invocation of the super-search skill: `/supersearch <question>` or, in prose, "use supersearch on …". Its outputs go into `_bmad-output/planning-artifacts/research/` when produced for BMAD, or one file per claim in `lore/` per the lore intake format.
+Invocation of the super-search skill: `/supersearch <question>` or, in prose, "use supersearch on …". Its outputs go into `_bmad-output/planning-artifacts/research/` when produced for BMAD, or one draft claim file per claim, which `./gradlew :codex:lore --args="intake <folder>"` validates and enters under `lore/` (ADR-0021).
 
 ## 4. Bundled / plugin skills and subagents
 
