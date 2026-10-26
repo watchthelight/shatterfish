@@ -481,7 +481,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         MapSection map = observation.map();
         int depth = observation.header().depth();
         int branch = observation.header().branch();
-        if (region.depth() != depth || region.branch() != branch || region.cell() >= map.fog().size()
+        if (region.radius() == 0 || region.depth() != depth || region.branch() != branch || region.cell() >= map.fog().size()
                 || map.fog().get(region.cell()) != org.shatterfish.api.Fog.VISIBLE) {
             return false;
         }

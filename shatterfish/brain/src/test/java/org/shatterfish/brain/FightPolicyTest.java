@@ -110,6 +110,7 @@ class FightPolicyTest {
                     case '>', 'H' -> Tile.EXIT;
                     case '<', 'U', 'S' -> Tile.ENTRANCE;
                     case 'c' -> Tile.CHASM;
+                    case 'w', 'Q' -> Tile.WATER;
                     default -> Tile.EMPTY;
                 });
                 fog.add(c == ' ' ? Fog.UNKNOWN : Fog.VISIBLE);
@@ -136,6 +137,7 @@ class FightPolicyTest {
                     case 'L' -> actors.add(enemy(cell, "lasher", false));
                     case 'C' -> actors.add(enemy(cell, "sewer crab", false));
                     case 'P' -> actors.add(enemy(cell, "piranha", false));
+                    case 'Q' -> actors.add(enemy(cell, "piranha", false));
                     case 'Z' -> actors.add(new ActorView(cell, "sewer crab", Alignment.ENEMY,
                             ObservationCodec.MAX_HEALTH_PIPS, false, Emote.SLEEP, List.of()));
                     case 'T' -> actors.add(enemy(cell, "animated statue", false));

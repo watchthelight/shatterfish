@@ -224,7 +224,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     static final int CLOUDS = 256;
 
     /** The most regions avoided at once; the oldest is forgotten first. */
-    static final int AVOIDED = 16;
+    static final int AVOIDED = 400;
 
     /** The most cells remembered as dwelt on, or as blocked; the oldest is forgotten first. */
     static final int DWELT = 256;
@@ -563,6 +563,35 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         more.add(new Found(floor, SEALED_RETREATS, already + 1));
         return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
                 dwelt, blocked, last, holds, near, before, more, avoid, underfoot, refused, pack, aim, drank, trial,
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits, sentries);
+    }
+
+    /** The set in {@link #flights} that counts the walks away from a piranha's water made on a floor (issue #219, step 6). */
+    static final int WATER_LEAVES = 4;
+
+    /** This memory with one more walk away from a piranha's water counted for {@code floor}. */
+    Memory leftWater(String floor) {
+        List<Found> more = new ArrayList<>(flights);
+        int already = count(more, floor, WATER_LEAVES);
+        more.removeIf(one -> one.key().equals(floor) && one.set() == WATER_LEAVES);
+        more.add(new Found(floor, WATER_LEAVES, already + 1));
+        return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
+                dwelt, blocked, last, holds, near, before, more, avoid, underfoot, refused, pack, aim, drank, trial,
+                balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits, sentries);
+    }
+
+    /** This memory with each of {@code regions} avoided as well, the oldest forgotten past {@link #AVOIDED}. */
+    Memory avoidingAll(List<Avoid> regions) {
+        if (regions.isEmpty()) {
+            return this;
+        }
+        List<Avoid> more = new ArrayList<>(avoid);
+        more.addAll(regions);
+        while (more.size() > AVOIDED) {
+            more.remove(0);
+        }
+        return new Memory(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm,
+                dwelt, blocked, last, holds, near, before, flights, more, underfoot, refused, pack, aim, drank, trial,
                 balked, walking, tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, triedExits, sentries);
     }
 

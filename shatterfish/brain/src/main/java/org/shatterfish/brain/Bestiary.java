@@ -84,4 +84,13 @@ final class Bestiary {
         Codex.Tactics tactics = of(knowledge, depth, branch, name);
         return tactics != null && tactics.speed().equals(FAST) && !tactics.breakContact().contains(LEAVE_WATER);
     }
+
+    /**
+     * Whether this enemy never leaves the water: tagged {@code breakContact} {@code leave-water} (the piranha,
+     * Piranha.java:72-77, :139, :150). It bites only a hero beside the water it can swim to.
+     */
+    static boolean waterBound(Codex.Knowledge knowledge, int depth, int branch, String name) {
+        Codex.Tactics tactics = of(knowledge, depth, branch, name);
+        return tactics != null && tactics.breakContact().contains(LEAVE_WATER);
+    }
 }
