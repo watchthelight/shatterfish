@@ -358,6 +358,8 @@ public final class Brain {
         // (issue #182) the pick-up Policy, which plan around the regions and through one only when no way
         // around is left (issue #174): the region is crossed, and lifted. Explore's own way out of a region
         // ("away") is no crossing.
+        // The cell such a Step enters (issue #288), whether or not a region covered it: the shore set below does not cover it again
+        // this wait, or the hero would stand inside a region it just chose to cross and "away" would walk it back out.
         int crossed = -1;
         if (decision != null && (Explore.NAME.equals(decision.policy()) || Descend.NAME.equals(decision.policy())
                 || Pickup.NAME.equals(decision.policy()))
