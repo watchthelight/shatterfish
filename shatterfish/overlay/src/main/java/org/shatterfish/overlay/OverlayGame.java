@@ -235,10 +235,15 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         }
         Music.INSTANCE.update();
         Sample.INSTANCE.update();
+        EmbeddedRun.Snapshot snapshot = run == null ? null : run.snapshot();
         if (controls != null) {
+            if (snapshot != null && snapshot.trouble() != null) {
+                controls.brainTrouble(snapshot.trouble().seq(), snapshot.trouble().pauses());
+            }
             controls.frame(Game.elapsed);
         }
-        dock.step(scene, scene::update, run == null ? null : run.snapshot(), panelLocked());
+        reportTrouble(snapshot);
+        dock.step(scene, scene::update, snapshot, panelLocked());
     }
 
     /**
@@ -530,6 +535,27 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
                 System.err.println("[shatterfish] " + line);
             }
         }
+    }
+
+    /** The last Brain trouble written to the console, by the Run's number for it (story 5.15). */
+    private long troubleReported;
+
+    /** The console's line for a Brain that failed to decide: the exception in full, once. */
+    private void reportTrouble(EmbeddedRun.Snapshot snapshot) {
+        if (snapshot == null || snapshot.trouble() == null || snapshot.trouble().seq() <= troubleReported) {
+            return;
+        }
+        EmbeddedRun.Trouble trouble = snapshot.trouble();
+        troubleReported = trouble.seq();
+        Gdx.app.log("shatterfish", trouble.text() + (trouble.detail().isEmpty() ? "" : " (" + trouble.detail() + ")")
+                + " at wait " + run.waitIndex() + ", " + trouble.inARow() + " in a row; the Run waits"
+                + (trouble.pauses() ? " and pauses" : ""));
+    }
+
+    /** A Brain that throws or offers nothing is answered with a wait, never the end of the Run (story 5.15). */
+    @Override
+    public boolean recoversFromBrainTrouble() {
+        return true;
     }
 
     /** The desktop game's loading scene brings the hero back after an Ankh's window is answered (story 5.14). */

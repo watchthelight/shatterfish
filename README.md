@@ -195,8 +195,13 @@ E5 (the Overlay) so far:
 - E5.13: Fast as it can has no ceiling, and drawing no longer draws from the Run's random stream
   (hook row 8), so an Overlay Run replays under the Rig. This is Profile 5: every seed plays a
   new game, and numbers from before it do not compare (#240).
-- Next: the remaining panel states (5.15) and the full sewers run (5.16), with the Goo work
-  (#219) in parallel.
+- A search is judged by the screen it was issued on: blindness that wore off during the search
+  no longer counts it as whole (#244).
+- Against Goo the hero stops retreating on the sealed floor, steps out of reach of a pump, and
+  drinks at 40% HP; on 80 Profile 5 Runs Goo kills went from 10 to 16 (#242, part of #219).
+- E5.15: a Brain that throws or offers nothing pauses the Overlay with the reason on the card
+  instead of ending the Run, and the Panel hides outside a Run (#243).
+- Next: the full sewers run with a takeover (5.16) and the E5 retrospective.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:

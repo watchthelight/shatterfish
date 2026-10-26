@@ -14,8 +14,8 @@ import java.util.Set;
  * is what {@code UX-DR7} says; {@link #of} is that, less the controls whose action is a later story's,
  * which stay dim until that story turns its capability on.
  *
- * <p>The states of UX-DR7 that are not yet reachable (Brain error, no valid action, hero busy, no Run;
- * story 5.15) are not rows here. Panel collapsed hides the whole row and changes no enablement: the
+ * <p>The states of UX-DR7 that add no row here (Brain error, no valid action, hero busy, no Run;
+ * story 5.15) are held by {@code PanelStateTest}. Panel collapsed hides the whole row and changes no enablement: the
  * hotkeys (story 5.11) still act through the same matrix.
  */
 final class ControlEnablement {

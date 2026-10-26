@@ -235,13 +235,11 @@ final class Fight implements Policy {
         }
         boolean favourable = favourable(observation, knowledge, threats(observation, memory, enemies, knowledge));
         RunLog.Choice retreat = retreat(observation, memory, offered, enemies, knowledge);
-        List<RunLog.Choice> ranked = new ArrayList<>();
-        // Goo's pump-up, announced in the log: out of its reach first, which makes it step and drop the
-        // pump (story 4.13, Goo).
-        RunLog.Choice dodge = Goo.dodge(observation, memory, offered);
-        if (dodge != null) {
-            ranked.add(dodge);
+        List<RunLog.Choice> goo = Goo.engage(observation, memory, offered, enemies);
+        if (goo != null) {
+            return goo;
         }
+        List<RunLog.Choice> ranked = new ArrayList<>();
         if (!adjacent.isEmpty()) {
             RunLog.Choice attack = attack(observation, adjacent);
             if (favourable || retreat == null) {
@@ -386,7 +384,7 @@ final class Fight implements Policy {
     }
 
     /** The offered Step that starts the shortest walk to a cell beside the nearest enemy. */
-    private static RunLog.Choice approach(Observation observation, Memory memory, List<Action> offered,
+    static RunLog.Choice approach(Observation observation, Memory memory, List<Action> offered,
                                           List<ActorView> enemies) {
         MapSection map = observation.map();
         boolean[] walk = Explore.walkable(observation, memory, false);

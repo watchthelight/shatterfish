@@ -134,6 +134,11 @@ final class Panel extends Component {
         this.stripTap = stripTap;
     }
 
+    /** The Brain's trouble at the wait the next {@code content} call shows, in the card's words, or null (story 5.15). */
+    void trouble(String trouble) {
+        card.trouble(trouble);
+    }
+
     /** Whether the Decision the next {@code content} call gets is the pending one (story 5.7). */
     void awaiting(boolean awaiting) {
         this.awaiting = awaiting;

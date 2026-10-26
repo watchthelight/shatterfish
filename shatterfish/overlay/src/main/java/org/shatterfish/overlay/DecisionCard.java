@@ -39,6 +39,8 @@ final class DecisionCard extends Component {
     static final int CHOSEN_COLOR = 0xFFB347;
     static final int ALTERNATIVE_COLOR = 0x7FB8FF;
     static final int INK_MUTED = 0x9C9C9C;
+    /** {@code DESIGN.md} colors.danger: the Brain error and no-valid-action words (EXPERIENCE.md, State Patterns). */
+    static final int DANGER = 0xFF5555;
     /** The notice that a Replay stops at a wait (story 5.9): the paused amber, a caution, never the only signal. */
     static final int NOTICE_COLOR = ModeStripContent.PAUSED_COLOR;
     static final float ROW_GAP = 2;
@@ -58,6 +60,8 @@ final class DecisionCard extends Component {
     /** A HUMAN Run's word that a Replay stops at a wait (story 5.9); hidden otherwise. */
     private RenderedTextBlock noticeLine;
     private DecisionCardContent.Shadow shadow;
+    /** The Brain's trouble at this wait, in the card's words, or null (story 5.15). */
+    private String trouble;
 
     private RunLog.Decision decision;
     private Observation observation;
@@ -120,6 +124,11 @@ final class DecisionCard extends Component {
         refresh();
     }
 
+    /** The Brain's trouble at the wait the next {@link #content} shows, or null (story 5.15). */
+    void trouble(String trouble) {
+        this.trouble = trouble;
+    }
+
     /** Expands the card to the Explain view, or collapses it back; a second press of the same control does the other. */
     void toggleExplain() {
         explain = !explain;
@@ -134,7 +143,7 @@ final class DecisionCard extends Component {
     }
 
     private void refresh() {
-        DecisionCardContent.Content content = DecisionCardContent.of(decision, nextStep, explain, shadow);
+        DecisionCardContent.Content content = DecisionCardContent.of(decision, nextStep, explain, shadow, trouble);
         int width = (int) innerWidth;
         noticeLine.visible = content.notice() != null;
         noticeLine.text(content.notice() == null ? "" : content.notice(), width);
@@ -142,6 +151,7 @@ final class DecisionCard extends Component {
         empty.text(content.present() ? "" : DecisionCardContent.NO_DECISION_YET, width);
 
         headline.visible = content.present() && content.headline() != null;
+        headline.hardlight(content.troubled() ? DANGER : INK_MUTED);
         headline.text(headline.visible ? content.headline() : "", width);
 
         List<DecisionCardContent.Row> tableRows = new ArrayList<>();

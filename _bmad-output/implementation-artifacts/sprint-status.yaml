@@ -119,9 +119,9 @@ development_status:
   5-12-oracle-marking-in-the-overlay: done  # PR for issue #157; built on 5-10 (PR #231)
   5-13-the-speed-ceiling-and-the-draw-routing-hook: done  # PR for issue #158
   5-14-run-over-save-and-resume: done  # PR for issue #159
-  5-15-the-remaining-panel-states: backlog
+  5-15-the-remaining-panel-states: done  # PR for issue #160
   5-16-the-full-sewers-run-with-a-takeover: review  # PR for issue #161; headless half done, the live session is the product owner's
-  epic-5-retrospective: done  # written at 5.16; 5.15 (#160) and the live session still open
+  epic-5-retrospective: done  # written at 5.16; the live session is still open
 
   epic-6: backlog
   epic-6-retrospective: optional

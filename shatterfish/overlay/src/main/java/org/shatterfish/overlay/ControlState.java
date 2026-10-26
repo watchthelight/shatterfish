@@ -145,6 +145,28 @@ final class ControlState {
         return ControlEnablement.of(mode, over(), capabilities);
     }
 
+    /** The last Brain trouble this has answered, by the Run's own number for it (story 5.15). */
+    private long troubleSeen;
+
+    /**
+     * The Run asks for PAUSED because the Brain failed (story 5.15, UX-DR7): a Brain error, or a third no
+     * valid action in a row. Answered once per trouble ({@code seq} is the Run's count of them), landing in
+     * PAUSED with Next Step -- the Run does not play on over a Brain that cannot decide -- and never over a
+     * hand-over under way or a Run that is over. A person who presses Resume plays on; the Brain is asked again.
+     */
+    void brainTrouble(long seq, boolean pauses) {
+        if (seq <= troubleSeen) {
+            return;
+        }
+        troubleSeen = seq;
+        if (!pauses || over() || target != null || mode == Mode.HUMAN) {
+            return;
+        }
+        runN = false;
+        speed = SpeedMode.NEXT_STEP;
+        pause();
+    }
+
     /** Whether a Take over or Hand back is queued and has not applied (story 5.8). */
     boolean switching() {
         return target != null;
