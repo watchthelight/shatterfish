@@ -131,3 +131,15 @@ method is rerun from the `smoke` set's mid-fight snapshots with a Brain, where s
 uncertain and the agreement of siblings means something. The harness's own rate, about 399.5
 Input waits per second per process on the described machine over three invocations, is the
 number the Rig's seed-set sizes (E3) rest on.
+
+## Amendment: story 6.4 (2026-10-26)
+
+The simulator-speed measurement now has its first reading, on the swap-in-place host of ADR-0009, from the `smoke` set's
+mid-fight snapshots: [docs/results/2026-10-26-simulator-speed.md](../results/2026-10-26-simulator-speed.md). About 21
+redetermined rollouts a second per process on a lightly loaded machine (about 15 on a busy one) for lines of two to four Actions.
+The pre-mortem above happened in the direction it feared: rolling the engine forward costs 1.9 to 3.3 ms and the swap (snapshot,
+load, restore) 40.9 ms, 87% of a rollout, so the measurement is dominated by snapshot cost and the page reports the two apart.
+No budget is chosen here and none was set before the measurement: no Registration constrains `budgetMs` yet, the page gives the
+rollouts and determinizations that fit from 10 ms to 5 s, and the answer is none below about 47 ms. The classloader-isolation
+row is not reported (the E1 spike was not completed; the JNI note in ADR-0009 explains what it needs first). Whether a design
+at that rate beats the one-ply expectimax is for the properties measurement (6.5) and the candidate comparison (6.6) to say.

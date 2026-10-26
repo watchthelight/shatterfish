@@ -46,6 +46,33 @@ public final class RolloutHost extends Simulator {
     private final SnapshotStore store;
     private final HeadlessDriver driver;
     private final ActionExecutor executor = new ActionExecutor();
+    private Phases phases;
+
+    /**
+     * Where a rollout's four costs are reported when somebody is measuring (story 6.4): the nanoseconds the host spent
+     * taking the live snapshot, loading the scrubbed copy, playing the Actions, and putting the live Run back. The
+     * scrub is made before the host is called and is timed by whoever calls the scrubber. A listener only hears
+     * durations; it is handed nothing from the game.
+     */
+    public interface Phases {
+        /** The live Run's snapshot, the statics held and the profile's files held. */
+        void snapshot(long nanos);
+
+        /** The scrubbed copy restored and stepped to its wait. */
+        void load(long nanos);
+
+        /** The Actions played and each wait observed. */
+        void rollout(long nanos);
+
+        /** The live Run restored and stepped to its wait, the snapshot dropped, the statics and the profile put back. */
+        void restore(long nanos);
+    }
+
+    /** Reports the host's phase costs to {@code listener} from now on; null stops reporting. */
+    public RolloutHost timedBy(Phases listener) {
+        this.phases = listener;
+        return this;
+    }
 
     public RolloutHost(SnapshotStore store, HeadlessDriver driver) {
         this.store = Objects.requireNonNull(store, "the store that made the scrubbed copies");
@@ -59,17 +86,38 @@ public final class RolloutHost extends Simulator {
             throw new IllegalArgumentException("snapshot " + handle.id() + " was not made as a scrubbed copy by this host's store:"
                     + " nothing is rolled out from it (ADR-0009)");
         }
+        Phases timer = phases;
+        long t0 = timer == null ? 0 : System.nanoTime();
         SnapshotHandle live = store.take(driver);
         RunStatics.Held statics = RunStatics.capture();
         ProfileGuard profile = ProfileGuard.hold(driver);
         RuntimeException failure = null;
         RolloutResult result = null;
+        long t1 = 0;
+        long t2 = 0;
+        long t3 = 0;
         try {
+            if (timer != null) {
+                t1 = System.nanoTime();
+                timer.snapshot(t1 - t0);
+            }
             store.restoreScrubbed(handle, driver);
-            result = play(actions);
+            HeadlessDriver.Halt first = driver.stepToInputWait(RunLoop.FRAME_BUDGET);
+            if (timer != null) {
+                t2 = System.nanoTime();
+                timer.load(t2 - t1);
+            }
+            result = play(actions, first);
+            if (timer != null) {
+                t3 = System.nanoTime();
+                timer.rollout(t3 - t2);
+            }
         } catch (RuntimeException e) {
             failure = e;
         } finally {
+            if (timer != null && t3 == 0) {
+                t3 = System.nanoTime();
+            }
             try {
                 if (!driver.closed()) {
                     store.restore(live, driver);
@@ -94,6 +142,9 @@ public final class RolloutHost extends Simulator {
             } catch (RuntimeException e) {
                 failure = add(failure, e);
             }
+            if (timer != null) {
+                timer.restore(System.nanoTime() - t3);
+            }
         }
         if (failure != null) {
             throw failure;
@@ -110,11 +161,13 @@ public final class RolloutHost extends Simulator {
     }
 
     /** Plays {@code actions} on the Run the driver now holds, which is the scrubbed copy at its wait. */
-    private RolloutResult play(List<Action> actions) {
+    private RolloutResult play(List<Action> actions, HeadlessDriver.Halt first) {
         List<Observation> observations = new ArrayList<>();
         int applied = 0;
+        HeadlessDriver.Halt next = first;
         while (true) {
-            HeadlessDriver.Halt halt = driver.stepToInputWait(RunLoop.FRAME_BUDGET);
+            HeadlessDriver.Halt halt = next != null ? next : driver.stepToInputWait(RunLoop.FRAME_BUDGET);
+            next = null;
             switch (halt.reason()) {
                 case HERO_DEAD -> {
                     return new RolloutResult(observations, applied, RolloutEnd.DEATH);

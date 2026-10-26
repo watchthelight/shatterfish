@@ -200,6 +200,7 @@ nav:
       - "Profile 6 tuning tables at 7b1212eea": results/2026-10-26-profile6-tuning-7b1212eea.md
       - "Goo baseline on Profile 6 at 7b1212eea": results/2026-10-26-goo-baseline-7b1212eea.md
       - "Throughput with the Brain attached": results/2026-10-26-throughput-7b1212eea.md
+      - "Simulator speed": results/2026-10-26-simulator-speed.md
       - "Story 5.16, the sewers run": results/2026-10-25-5-16-the-sewers-run.md
       - "Generated: H-0002": results/2026-09-23-H-0002.md
       - "Generated: H-0004": results/2026-09-23-H-0004.md
