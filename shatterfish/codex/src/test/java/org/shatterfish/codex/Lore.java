@@ -208,13 +208,23 @@ final class Lore {
         return out.append("---\n").append(doc.body()).toString();
     }
 
+    /**
+     * The data files that live directly under {@code lore/} beside the claim folders (story 7.9,
+     * the ADR-0021 amendment): the release table. They are checked by their own test, not by the
+     * claim checker, and {@link #files} does not list them, so every walk over the claims stays a
+     * walk over claims. Any other file directly under {@code lore/} is still a stray.
+     */
+    static final List<String> DATA = List.of("release-dates.json");
+
     /** Every claim file under {@code loreDir}, as {@code <topic>/<file>} in path order. */
     static List<Path> files(Path loreDir) {
         if (!Files.isDirectory(loreDir)) {
             return List.of();
         }
         try (Stream<Path> tree = Files.walk(loreDir)) {
-            return tree.filter(Files::isRegularFile).sorted().toList();
+            return tree.filter(Files::isRegularFile)
+                    .filter(f -> !(f.getParent().equals(loreDir) && DATA.contains(f.getFileName().toString())))
+                    .sorted().toList();
         } catch (IOException e) {
             throw new UncheckedIOException(loreDir + " could not be walked", e);
         }
