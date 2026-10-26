@@ -190,6 +190,49 @@ public final class Launcher {
         return observation;
     }
 
+    /**
+     * The hidden facts of the floor the Run stands on, as plain keys, for the properties measurement of story 6.5. This is
+     * the one door by which that measurement reaches the oracle: it builds the observer here, it refuses unless the launch
+     * carries {@code --oracle}, and what it returns is strings, so the caller holds no sidecar type. Nothing in the Rig,
+     * the Overlay or a search may call it ({@code PropertiesOracleGateTest}).
+     *
+     * @throws IllegalStateException when {@code launch} was not given {@code --oracle}
+     */
+    public static Set<String> hiddenFacts(Launch launch) {
+        if (!launch.oracle()) {
+            throw new IllegalStateException("the hidden facts are read through the oracle, which only --oracle switches on");
+        }
+        return facts(new OracleObserver().view());
+    }
+
+    /**
+     * A sidecar's facts, one key each, the kind being the word before the first space: {@code identity} for an unknown
+     * appearance an item of this floor shows (the pack or a heap), {@code elsewhere} for an unknown appearance of the
+     * Run that no item of this floor shows (the denominator of story 1.21 counted these; ADR-0010's amendment of story
+     * 6.5 does not), and {@code door}, {@code trap} and {@code mimic} for the floor's secrets.
+     */
+    public static Set<String> facts(OracleView view) {
+        Set<String> onFloor = new HashSet<>();
+        for (OracleView.Identity identity : view.floorIdentities()) {
+            onFloor.add(identity.family() + " " + identity.appearance());
+        }
+        Set<String> facts = new HashSet<>();
+        for (OracleView.Identity identity : view.identities()) {
+            String key = identity.family() + " " + identity.appearance();
+            facts.add((onFloor.contains(key) ? "identity " : "elsewhere ") + key);
+        }
+        for (int cell : view.secretDoors()) {
+            facts.add("door " + cell);
+        }
+        for (OracleView.Secret trap : view.hiddenTraps()) {
+            facts.add("trap " + trap.cell());
+        }
+        for (int cell : view.hiddenMimics()) {
+            facts.add("mimic " + cell);
+        }
+        return facts;
+    }
+
     /** The sidecar, one line per thing, for a person and for nobody else. */
     private static void describe(OracleView view, PrintStream out) {
         out.println("Launcher: ORACLE seed " + view.seed());

@@ -113,3 +113,19 @@ tasks.named('test') {
         exclude '**/build/**'
     }).withPropertyName('upstreamTree').withPathSensitivity(PathSensitivity.RELATIVE)
 }
+
+// The properties measurement (story 6.5): Long et al.'s leaf correlation and disambiguation factor from mid-fight
+// snapshots, driven by the random agent, the baseline Brain and the one-ply model, as Markdown on standard output. It
+// counts hidden facts through the oracle, so the task passes --oracle and the page carries it; the measurement refuses to
+// run without the flag. It plays the real Brain, a test dependency of this module, so it runs from the test classpath.
+// `-Pproperties.args="--seeds 25 --per-seed 6"` overrides the defaults; the set is `smoke`, and `goo` and `holdout` are refused.
+tasks.register('propertiesMeasurement', JavaExec) {
+    group = 'shatterfish'
+    description = 'Measures the leaf correlation and the disambiguation factor and prints the Markdown the Results page carries.'
+    dependsOn 'testClasses'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'org.shatterfish.harness.agent.PropertiesMeasurement'
+    def extra = project.findProperty('properties.args')
+    args = ['--oracle'] + (extra == null || extra.toString().trim().isEmpty() ? [] : extra.toString().trim().split(/\s+/).toList())
+    outputs.upToDateWhen { false }
+}

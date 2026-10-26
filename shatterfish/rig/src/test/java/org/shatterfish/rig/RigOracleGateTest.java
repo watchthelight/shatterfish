@@ -46,6 +46,16 @@ class RigOracleGateTest {
                     + " ranked Run");
 
     /**
+     * Nothing in the Rig depends on the harness launcher, whose {@code hiddenFacts} is the door the properties measurement
+     * (story 6.5) reads the oracle through. It refuses without {@code --oracle}, and the Rig has no such flag; this holds
+     * that the Rig does not name the door either.
+     */
+    static final ArchRule THE_RIG_DOES_NOT_ASK_THE_LAUNCHER = noClasses()
+            .that().resideInAPackage("org.shatterfish.rig..")
+            .should().dependOnClassesThat().haveFullyQualifiedName(org.shatterfish.harness.Launcher.class.getName())
+            .because("the launcher's oracle door is for a measurement under --oracle, never for a ranked Run");
+
+    /**
      * Nothing in the Rig reaches a class by its name. {@code Class.forName} and the reflective
      * lookups the game ships are the one way to build an oracle that the dependency rule above
      * cannot see.
@@ -88,6 +98,7 @@ class RigOracleGateTest {
                 .importPackages("org.shatterfish.rig");
 
         THE_RIG_MAKES_NO_ORACLE.check(rig);
+        THE_RIG_DOES_NOT_ASK_THE_LAUNCHER.check(rig);
         NO_CLASS_BY_NAME.check(rig);
         NO_SECOND_COMMAND_LINE.check(rig);
         THE_RIG_READS_NO_ENVIRONMENT.check(rig);
