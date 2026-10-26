@@ -68,7 +68,7 @@ records where the code contradicted the bootstrap prompt.
 | [Visibility](visibility.md) | 32 | What `Dungeon.observe` computes, field of view, fog, secret doors and traps, heaps, mob sprites, and every leak of unseen mobs found. |
 | [Items and identification](identification.md) | 34 | What an unidentified item shows the player, how appearances are shuffled from the seed, what identifies on use or equip, and what the Observer must never read. |
 | [Mobs, AI and combat](combat.md) | 50 | AI states, noticing, `Char.hit`, damage and armor rolls, spawn tables, boss floors and the stair lock. |
-| [Level generation and floors](levels.md) | 33 | Depths and branches, per-floor seeding, room lists, special and secret rooms, guaranteed solution items, traps, hidden doors, stairs. |
+| [Level generation and floors](levels.md) | 34 | Depths and branches, per-floor seeding, room lists, special and secret rooms, guaranteed solution items, traps, hidden doors, stairs. |
 | [Item generation and guarantees](generation.md) | 22 | `Generator` decks and weights, the strength potion and upgrade scroll schedules, `LimitedDrops`, bones, heap types. |
 | [Random numbers and seeding](rng.md) | 24 | The generator stack, what the seed fixes, what runs on the unseeded base generator, and every other source of nondeterminism found. |
 | [Buffs, status effects and blobs](buffs.md) | 29 | How buffs reach the HUD, what each vision buff does, hunger, food and regeneration, the potion of healing, dangerous effects with their numbers, gas and fire visibility. |

@@ -94,7 +94,7 @@ class HumanTurnReplayTest {
     @DisplayName("a longer session, the person following the Brain's shadow, replays with every Observation hash matching")
     @Timeout(value = 10, unit = TimeUnit.MINUTES)
     void a_longer_session_replays(@TempDir Path folder) throws IOException {
-        // Long enough that the dungeon's own dice decide what the screen shows (mobs moving and fighting),
+        // Played until the Run ends (or 3000 inputs), long enough that the dungeon's own dice decide what the screen shows (mobs moving and fighting),
         // so a wait not reseeded as the Rig reseeds it would show here.
         Path played = Files.createDirectories(folder.resolve("played"));
         int taken = 0;
@@ -104,7 +104,7 @@ class HumanTurnReplayTest {
             // The frames stand still while the Brain thinks, as the headless loop's do, so the person acts
             // on the frame the wait opened, where the executor would.
             host.stepWhileThinking = false;
-            while (taken < 400 && host.untilOpen(200_000)) {
+            while (taken < 3_000 && host.untilOpen(200_000)) {
                 while (run.state() == EmbeddedRun.State.THINKING) {
                     host.frame();
                     Thread.onSpinWait();
