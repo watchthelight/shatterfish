@@ -5,11 +5,11 @@ which of the designs that search by engine rollouts completes the search it was 
 that a Registration can carry, and registers those that do against the one-ply model under the Per-pair GSPRT. The answer on
 the measurements in hand is **none at the budget registered here**, so no candidate was built, no Rig comparison was run,
 and the one-ply model remains the tactical layer. That is an outcome of the rule and not a failure to run it. This page says
-what would change it.
+what would change it, and the outcome is provisional on the budget being the product owner's to set.
 
-No Rig number is quoted because no Rig run was made: ADR-0010 and the story's closing criterion send a story with no fitting
-design straight to the amendment. The numbers below are arithmetic on the committed reports of stories 6.4 and 6.5 and on the
-Rig's published rates, recomputed by `CandidateFitTest` from the report file and not typed.
+No Rig number is quoted for a comparison because no comparison was run: ADR-0010 and the story's closing criterion send a story
+with no fitting design straight to the amendment. The numbers below are arithmetic on the committed reports of story 6.4 and on
+one count of Run logs (below), recomputed by `CandidateFitTest` from the committed files and not typed.
 
 ## Rule 1 first: the leak test
 
@@ -25,37 +25,45 @@ A Registration carries `budget_ms`; all six committed ones carry 0, and the Over
 value to the Registration and names two constraints: the Overlay's budget is wall-clock and the Rig's is throughput. The
 Registration this story would have made sets it by the second:
 
-- A Brain Run takes about 14.7 s (1,400 waits at 95 waits a second per process; [throughput](2026-10-26-throughput-7b1212eea.md)).
-- The one-ply model ran at about 18.04 waits per floor ([Profile 6 tuning](2026-10-26-profile6-tuning-7b1212eea.md)); a Run
-  reaches five or six floors, so about **99 Decisions a Run** are ones a search would take.
-- If a search may at most double a Run's wall time, its budget is 14.7 s over 99 Decisions, **149 ms**. The registered value
-  rounds down to **140 ms**.
+- A Brain Run is about 1,446 decision records, 15.2 s at 95 waits a second per process
+  ([throughput](2026-10-26-throughput-7b1212eea.md)).
+- The fight policy, where the one-ply model runs and where a search would, made **394.8 Decisions a Run** (27%) in 20 Warrior
+  Runs of the `standard` set at commit `95f9a12b2`, counted from their Run logs
+  ([the count](logs/2026-10-26-6-6-fight-decisions.txt)). The Run mix is read from that file by the test.
+  A first draft of this page took the Rig table's "search waits per floor" for a Decision count. That column counts the hero's
+  Search action (the secret-door search; `docs/methodology.md`), not Decisions, and was low by a factor of four. The fairness
+  review caught it.
+- If a search may at most double a Run's wall time, its budget is 15.2 s over 394.8 Decisions, **39 ms**. The registered value
+  rounds down to **30 ms**.
 
-That is the engineer's reading of "throughput", written down so that it can be argued with. Every number in it is a published
-rate, and the next section shows the budget at which each design would fit, so the argument can be had with the table open.
+That is the engineer's reading of "throughput", written down so that it can be argued with. The next section shows the budget
+at which each design would fit, so the argument can be had with the table open. Note that one rollout cycle alone (43.5 ms)
+is above the ceiling: at a ceiling set by doubling a Run, no design with a rollout in it can fit.
 
 ## Fit
 
 The costs are story 6.4's run 1 medians at three Actions: a rollout cycle (snapshot 7.516, load 15.236, rules 2.633, restore
 18.101) is **43.486 ms**, and a scrub is 3.232 ms per sampled world. The configuration of each design is the least search that
 is still a search: at least two sampled worlds, a line of three Actions, and the rollouts the shape needs. Smaller is not a
-search; larger only costs more. Reproduce with `./gradlew :harness:candidateFit`.
+search; larger only costs more. Reproduce with `./gradlew :harness:candidateFit`. The Decision time is a sum of component
+medians, not a timing of a built search; options 4 and 5 are shapes, not code.
 
-| Option | Least configured search | Rollouts | Decision time (ms) | Fits 140 ms | Budget that would fit (ms) | Run seconds with that budget |
+| Option | Least configured search | Rollouts | Decision time (ms) | Fits 30 ms | Budget that would fit (ms) | Run seconds with that budget |
 |---|---|---|---|---|---|---|
-| 3 | 3 candidate Actions, one rollout each, in 2 worlds (the probe's own shape) | 6 | 267 | no | 268 | 41 |
-| 5 | a tree of 3 Actions to depth 2 is 9 leaves, one rollout each, in 2 worlds | 18 | 789 | no | 790 | 93 |
-| 4 | 100 iterations, each a fresh world and one rollout (a floor stated for a tree search, not measured) | 100 | 4,672 | no | 4,672 | 478 |
+| 3 | 3 candidate Actions, one rollout each, in 2 worlds (the probe's own shape) | 6 | 267 | no | 268 | 121 |
+| 5 | a tree of 3 Actions to depth 2 is 9 leaves, one rollout each, in 2 worlds | 18 | 789 | no | 790 | 327 |
+| 4 | 100 iterations, each a fresh world and one rollout (a floor stated for a tree search, not measured) | 100 | 4,672 | no | 4,672 | 1,860 |
 
-A Run without a search is 14.7 s. Option 3 at its least is a budget 1.9 times the ceiling and makes a Run 2.8 times as long;
-option 5 is 5.6 times the ceiling; option 4's floor of 100 iterations is a number nobody has shown to be enough and is 33 times
-the ceiling. On a busy machine every Decision time is about 40% higher (run 3 of story 6.4).
+A Run without a search is 15.2 s. Option 3 at its least is 6.9 times the ceiling and makes a Run 8 times as long; option 5 is
+20 times the ceiling; option 4's floor of 100 iterations is a number nobody has shown to be enough and is 120 times the
+ceiling. The 40% and a quarter below are from story 6.4's table: run 3 (busy) against run 1 for the rollout cycle (60.8 ms
+against 43.5 ms by medians), and the 95th percentiles against the medians of run 1 (54.5 ms against 43.5 ms).
 
 ## Recorded as not attempted
 
 | Option | Reason |
 |---|---|
-| 3 depth-limited sampled search | budget: its least search needs about 270 ms at the median against 140 ms |
+| 3 depth-limited sampled search | budget: its least search needs about 270 ms at the median against 30 ms |
 | 5 hybrid, abstract tree with one rollout per leaf | budget: about 790 ms |
 | 4 information-set search | budget: about 4.7 s at a stated floor of iterations; time besides, since it also needs a tree over information sets that nothing in the program builds |
 
@@ -66,11 +74,13 @@ disambiguation factor is 0.02 to 0.07, so a short line learns little about the h
 
 ## The sets
 
-- **`standard`**: not run. There is no candidate to compare with the one-ply model.
+- **`standard`**: not run for a comparison. There is no candidate to compare with the one-ply model. (The 20 Runs counted above
+  are the tuning slice, played by the Brain alone to count Decisions.)
 - **`bosses`**: not run, for the same reason.
 - **`holdout`**: **not touched.** The story's holdout criterion is stated for the accepted candidate or for the one-ply model
   when none is accepted, as the end of a comparison. With no comparison there is no number to confirm, and the held-out set's
-  budget is spent once and cannot be given back, so it is kept for a comparison that exists.
+  budget is spent once and cannot be given back, so it is kept for a comparison that exists. This is a reading of the criterion
+  and the product owner may read it the other way; the set is still unspent.
 - **`goo`**: not used.
 
 ## What would reopen the question
@@ -81,16 +91,18 @@ Any of these, each a new Registration with its machine and budget named (ADR-001
    (story 6.4's arithmetic, a different host and not a design) option 3's least search would be about 22 ms and fit; a second
    engine instance in one process needs the classloader-isolation spike that ADR-0009's JNI note describes, a story of its own.
 2. **A larger budget, chosen by the product owner.** The table gives the budget at which each design fits. 270 ms makes
-   option 3 fit and costs about 2.8 times the Rig time per Run; whether the Overlay and the Rig should pay that is the
-   product owner's call, and the ceiling of 149 ms above is the engineer's reading and not a requirement.
+   option 3 fit and costs about 8 times the Rig time per Run; whether the Overlay and the Rig should pay that is the product
+   owner's call, and the ceiling of 39 ms above is the engineer's reading and not a requirement.
 3. **A new upstream tag** that changes the cost of a save and load.
 4. **A new candidate**: a design that needs fewer rollouts than the least search above, for instance one that scores most
    Decisions on the Codex tables and rolls out only when the one-ply model's top two Actions are close.
 
 ## Limits
 
-- The fit uses medians from one machine on a shared day; the report names the load. The 95th percentiles are about a quarter higher.
+- The fit uses medians from one machine on a shared day; the report names the load.
 - The least configurations are the engineer's, stated above, and the fit is only as good as "at least two worlds" and "a line of
   three Actions". The probe's shape is real code; the shapes for options 4 and 5 are not.
-- The count of 99 search Decisions a Run is the Profile 6 baseline's, from before later Brain changes.
-- Nothing here says that a search would help. It says that none can be tried inside 140 ms with the simulator that exists.
+- The fight Decision count is one count of 20 Runs at one commit, and the fight policy also makes Decisions a search might not
+  take (a Step toward a door while an enemy is far). A narrower definition lowers the count and raises the ceiling, but not
+  above the 43.5 ms cycle until fewer than 350 Decisions a Run are searched, and option 3 would still need about 270 ms.
+- Nothing here says that a search would help. It says that none can be tried inside 30 ms with the simulator that exists.

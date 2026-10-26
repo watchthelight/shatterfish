@@ -52,7 +52,7 @@ epic on the outcome, published whichever it is.
 
 - **Micro-brainstorm of the question "what is the budget".** (1) 0 as the other Registrations carry it, which makes "fits"
   meaningless. (2) The Overlay's patience, which nobody has written down. (3) A Run-time ceiling from the Rig's throughput
-  (ADR-0010's second driver), from published rates: a search may at most double a Run, 149 ms, registered as 140 ms. (4) The
+  (ADR-0010's second driver), from a count of 20 Run logs: a search may at most double a Run, 39 ms, registered as 30 ms. (4) The
   least budget at which each design fits, which makes every design fit by construction. (5) Ask the product owner before
   anything, which blocks a story whose answer the table gives for any budget. Chosen: (3), with the table that gives (4) beside
   it so the product owner can overrule the ceiling by reading one column.
@@ -60,10 +60,10 @@ epic on the outcome, published whichever it is.
   option 5 (nine leaves of a depth-two tree of three Actions), and a stated floor of 100 iterations for option 4. They are the
   engineer's and are labelled so; the probe's is code.
 - **No candidate is built.** Building one without a budget it fits would produce a Rig table at a budget nobody registered. A
-  larger budget is the product owner's decision (cost: about 2.8 times the Rig time per Run for option 3).
+  larger budget is the product owner's decision (cost: about 8 times the Rig time per Run for option 3).
 - **`holdout` untouched**, because there is no comparison to confirm and its budget is spent once. `bosses` unrun for the same
   reason.
-- **Alternatives rejected.** Build option 3 at 270 ms anyway (a 12-hour Rig batch on a budget the product owner has not
+- **Alternatives rejected.** Build option 3 at 270 ms anyway (a very long Rig batch on a budget the product owner has not
   chosen, against a quota that is tight); a search that falls back to the one-ply model when its time runs out (a different
   design, recorded as a possible new candidate).
 

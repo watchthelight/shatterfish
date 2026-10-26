@@ -192,14 +192,15 @@ remains the tactical layer.** The record is at
 
 Rule 1 was checked first: the only rollout search the program has, the probe, passes `SearchLeakTest`; options 3, 4 and 5 have
 no code and none was registered. Rule 2 needs a registered budget. The Registration that would have been made sets
-`budgetMs` by the Rig's throughput: a Run is about 14.7 s and a search would run in about 99 of its Decisions, so a search that
-at most doubles a Run has about 149 ms, registered as 140 ms. The least search each design is configured for, costed from story
+`budgetMs` by the Rig's throughput: a Run is about 15.2 s and the fight policy makes 394.8 of its Decisions (counted from 20 Run logs), so a search that
+at most doubles a Run has about 39 ms, registered as 30 ms. The least search each design is configured for, costed from story
 6.4's medians (a 43.5 ms rollout cycle, a 3.2 ms scrub per world, arithmetic held by `CandidateFitTest` and `./gradlew
 :harness:candidateFit`), needs about 270 ms for option 3 (the probe's shape, three Actions in two worlds), 790 ms for option 5
 and 4.7 s for option 4 at a stated floor of 100 iterations. None fits, so none was built, no comparison was run on `standard`
 or `bosses`, and `holdout` was not touched: it is for a comparison that exists, and its budget cannot be given back.
 
-The budget is the engineer's reading of rule 2 and is open to the product owner. What would reopen the question: a simulator
+The decision is provisional on the budget: it is the engineer's reading of rule 2 and is open to the product owner, and a
+cost is a sum of component medians, not a timing of a built search. What would reopen the question: a simulator
 that does not pay the swap (a classloader-isolated second instance, ADR-0009's JNI note; with no swap the least option 3 search
 is about 22 ms), a budget the product owner sets above about 270 ms (the table gives the budget each design needs), a new
 upstream tag that changes the cost of a save and load, or a new candidate that needs fewer rollouts. Each is a new Registration

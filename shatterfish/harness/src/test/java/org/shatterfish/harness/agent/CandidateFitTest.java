@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Story 6.6: the fit arithmetic that the Results page quotes is recomputed from the committed report, not typed. */
 class CandidateFitTest {
 
-    private static final int REGISTERED_BUDGET_MS = 140;
+    private static final int REGISTERED_BUDGET_MS = 30;
 
     @Test
     void the_costs_are_read_from_the_committed_report() throws IOException {
@@ -25,9 +25,18 @@ class CandidateFitTest {
     }
 
     @Test
+    void the_run_mix_is_counted_from_the_committed_fight_decisions() {
+        double[] mix = CandidateFit.mix();
+        assertEquals(1446.15, mix[0], 1e-2);
+        assertEquals(394.8, mix[1], 1e-2);
+        double share = mix[1] / mix[0];
+        assertTrue(share > 0.2 && share < 0.35, "fight share " + share);
+    }
+
+    @Test
     void the_ceiling_is_the_budget_at_which_search_doubles_a_run() {
         double ceiling = CandidateFit.ceilingMs();
-        assertTrue(ceiling > 140 && ceiling < 160, "ceiling " + ceiling);
+        assertTrue(ceiling > 35 && ceiling < 45, "ceiling " + ceiling);
         assertEquals(2 * CandidateFit.runSeconds(), CandidateFit.runSecondsWith(ceiling), 1e-9);
         assertTrue(REGISTERED_BUDGET_MS <= ceiling, "the registered budget stays under the ceiling");
     }

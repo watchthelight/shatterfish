@@ -80,7 +80,7 @@ Project skills (`.claude/skills/`): `/next-story`, `/rig`, `/codex`, `/upstream-
 
 - A rule that needs a number the product owner has not set (a budget, a ceiling) is asked for when the epic opens. If a story must set it, the story writes the reasoning down and prints the table that lets the owner overrule it.
 - A decision that rests on a measurement page gets its arithmetic as a test that reads the page's committed log (`CandidateFitTest`), not figures typed into prose.
-- The tactical search question is closed for the current host (swap cost, 87% of a rollout); a faster host or a budget above about 270 ms reopens it (ADR-0010, story 6.6 amendment).
+- The tactical search question is not reopened on the current host at a 30 ms budget (the swap is 87% of a rollout with its scrub); a faster host or a budget above about 270 ms reopens it (ADR-0010, story 6.6 amendment).
 
 ## Lessons from E5 (`_bmad-output/implementation-artifacts/epic-5-retrospective.md`)
 

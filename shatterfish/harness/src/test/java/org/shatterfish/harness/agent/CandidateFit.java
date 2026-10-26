@@ -38,10 +38,7 @@ final class CandidateFit {
         }
     }
 
-    /** From the Rig's published figures (the throughput page and the Profile 6 tuning table). */
-    static final double SEARCH_WAITS_PER_FLOOR = 18.04;
-    static final double FLOORS_PER_RUN = 5.5;
-    static final double WAITS_PER_RUN = 1400;
+    /** The Brain's rate per process, from the throughput page; the Run mix below is counted from a committed log. */
     static final double WAITS_PER_SECOND = 95.0;
 
     static final List<Design> DESIGNS = List.of(
@@ -55,14 +52,38 @@ final class CandidateFit {
     private CandidateFit() {
     }
 
+    /**
+     * Mean decision records and mean decisions by the fight policy per Run, from the committed count of 20 Warrior Runs of
+     * the {@code standard} set (columns: run, decision records, of them by the fight policy). The fight policy is where
+     * the one-ply model runs and where a search would.
+     */
+    static double[] mix() {
+        try {
+            double decisions = 0, fight = 0;
+            int runs = 0;
+            for (String line : Files.readAllLines(repoRoot().resolve("docs/results/logs/2026-10-26-6-6-fight-decisions.txt"))) {
+                if (line.startsWith("#") || line.isBlank()) {
+                    continue;
+                }
+                String[] c = line.trim().split("\\s+");
+                decisions += Double.parseDouble(c[1]);
+                fight += Double.parseDouble(c[2]);
+                runs++;
+            }
+            return new double[] {decisions / runs, fight / runs};
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     /** What a Run costs without a search, in seconds. */
     static double runSeconds() {
-        return WAITS_PER_RUN / WAITS_PER_SECOND;
+        return mix()[0] / WAITS_PER_SECOND;
     }
 
     /** Decisions in a Run where the search would run. */
     static double searchDecisionsPerRun() {
-        return SEARCH_WAITS_PER_FLOOR * FLOORS_PER_RUN;
+        return mix()[1];
     }
 
     /** The per-Decision budget, in ms, at which searching doubles a Run's wall time. */
@@ -133,10 +154,11 @@ final class CandidateFit {
         return sb.toString();
     }
 
+    /** A test-source tool: it prints the table for the Results page and plays nothing. */
     public static void main(String[] args) throws IOException {
         Costs costs = read(report());
         System.out.printf(Locale.ROOT, "Run without a search: %.1f s; search Decisions per Run: %.1f; ceiling: %.0f ms%n%n",
                 runSeconds(), searchDecisionsPerRun(), ceilingMs());
-        System.out.println(markdown(costs, 140));
+        System.out.println(markdown(costs, 30));
     }
 }
