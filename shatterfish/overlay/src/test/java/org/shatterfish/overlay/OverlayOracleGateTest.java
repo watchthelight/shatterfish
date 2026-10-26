@@ -35,6 +35,12 @@ class OverlayOracleGateTest {
             .orShould().dependOnClassesThat().haveFullyQualifiedName(OracleObserver.class.getName())
             .because("the launcher's --oracle is the one door to an oracle Run in the Overlay (FR-11)");
 
+    /** The harness launcher's {@code hiddenFacts} is the properties measurement's door (story 6.5); the Overlay has its own launcher. */
+    static final ArchRule THE_OVERLAY_DOES_NOT_ASK_THE_HARNESS_LAUNCHER = noClasses()
+            .that().resideInAPackage("org.shatterfish.overlay..")
+            .should().dependOnClassesThat().haveFullyQualifiedName(org.shatterfish.harness.Launcher.class.getName())
+            .because("the oracle door of a measurement is not the Overlay's, whose --oracle is its own launcher's");
+
     static final ArchRule THE_OVERLAY_IS_NOT_THE_RIG = noClasses()
             .that().resideInAPackage("org.shatterfish.overlay..")
             .should().dependOnClassesThat().resideInAPackage("org.shatterfish.rig..")
@@ -55,6 +61,12 @@ class OverlayOracleGateTest {
     @DisplayName("nothing in the Overlay depends on the Rig")
     void not_the_rig() {
         THE_OVERLAY_IS_NOT_THE_RIG.check(overlay());
+    }
+
+    @Test
+    @DisplayName("nothing in the Overlay asks the harness launcher for the hidden facts")
+    void not_the_harness_launcher() {
+        THE_OVERLAY_DOES_NOT_ASK_THE_HARNESS_LAUNCHER.check(overlay());
     }
 
     @Test

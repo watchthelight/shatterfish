@@ -2,6 +2,7 @@ package org.shatterfish.harness.observer;
 
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Mob;
+import com.shatteredpixel.shatteredpixeldungeon.items.Heap;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.items.potions.Potion;
 import com.shatteredpixel.shatteredpixeldungeon.items.rings.Ring;
@@ -70,6 +71,16 @@ public final class OracleObserver {
         return new Read(observation, view(Dungeon.level));
     }
 
+    /**
+     * The sidecar alone, without the fair read: what story 6.5's measurement needs at a wait it must read after a death,
+     * where the fair Observer has nothing to observe. Like {@link #observe()} it is the launcher's to ask for, and it
+     * writes nothing.
+     */
+    public OracleView view() {
+        UiRole.require("OracleObserver.view()");
+        return view(Dungeon.level);
+    }
+
     /** What the screen hides on {@code level}, from public game state only. */
     private static OracleView view(Level level) {
         List<OracleView.Identity> identities = new ArrayList<>();
@@ -109,7 +120,46 @@ public final class OracleObserver {
             }
         }
         hiddenTraps.sort(Comparator.comparingInt(OracleView.Secret::cell).thenComparing(OracleView.Secret::type));
-        return new OracleView(Dungeon.seed, identities, mobs, hiddenMimics, secretDoors, hiddenTraps);
+        return new OracleView(Dungeon.seed, identities, mobs, hiddenMimics, secretDoors, hiddenTraps,
+                floorIdentities(level, identities));
+    }
+
+    /**
+     * The unknown appearances an item on this floor shows: an unidentified potion, scroll or ring in the pack
+     * ({@code …/actors/hero/Belongings.java:73}, {@code :85}), or in a heap of the floor ({@code Level.java:184},
+     * {@code …/items/Heap.java:52}). A fact the hero could reveal in a few turns is one of these, or a secret of the
+     * floor; an appearance no item of the floor shows cannot be revealed on it.
+     */
+    private static List<OracleView.Identity> floorIdentities(Level level, List<OracleView.Identity> identities) {
+        List<Item> items = new ArrayList<>();
+        if (Dungeon.hero != null) {
+            for (Item item : Dungeon.hero.belongings.backpack) {
+                items.add(item);
+            }
+            if (Dungeon.hero.belongings.misc != null) {
+                items.add(Dungeon.hero.belongings.misc);
+            }
+        }
+        for (Heap heap : level.heaps.valueList()) {
+            items.addAll(heap.items);
+        }
+        Set<String> shown = new java.util.HashSet<>();
+        for (Item item : items) {
+            if (item instanceof Potion potion && !potion.isKnown()) {
+                shown.add("potion " + item.name());
+            } else if (item instanceof Scroll scroll && !scroll.isKnown()) {
+                shown.add("scroll " + item.name());
+            } else if (item instanceof Ring ring && !ring.isKnown()) {
+                shown.add("ring " + item.name());
+            }
+        }
+        List<OracleView.Identity> floor = new ArrayList<>();
+        for (OracleView.Identity identity : identities) {
+            if (shown.contains(identity.family() + " " + identity.appearance())) {
+                floor.add(identity);
+            }
+        }
+        return floor;
     }
 
     /**

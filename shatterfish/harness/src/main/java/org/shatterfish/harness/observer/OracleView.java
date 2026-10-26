@@ -12,7 +12,8 @@ import java.util.List;
  * Observation can reach lives here. Only {@link OracleObserver} builds one, and inside the harness
  * only the launcher asks it to, in its {@code --oracle} branch and in the benchmark's tactics half
  * that runs under the same flag (story 1.21); a module built on the harness (the rig, the overlay)
- * carries its own rule when it arrives.
+ * carries its own rule when it arrives. Since story 6.5 the launcher's
+ * {@code hiddenFacts} door also asks, for the properties measurement (a test-source tool), under the same flag.
  *
  * <p>Every name here is the game's display string, which the game localises; the class names ride
  * beside them so a label written from this view does not depend on the language setting.
@@ -23,9 +24,17 @@ import java.util.List;
  * @param hiddenMimics the cells of the mimics the map draws as chests ({@code …/actors/mobs/Mimic.java:62-64}, {@code :112-118})
  * @param secretDoors the cells the map draws as walls that are doors ({@code …/levels/Terrain.java:47}, {@code :106})
  * @param hiddenTraps the traps hidden by {@code Trap.hide()} ({@code …/levels/traps/Trap.java:63}, {@code :83-91}), which the map draws as floor
+ * @param floorIdentities the members of {@code identities} that an item of this floor shows: an unidentified item in the
+ *                        pack or in a heap on the floor (story 6.5's denominator, the facts reachable on the floor)
  */
 public record OracleView(long seed, List<Identity> identities, List<Presence> mobs, List<Integer> hiddenMimics,
-                         List<Integer> secretDoors, List<Secret> hiddenTraps) {
+                         List<Integer> secretDoors, List<Secret> hiddenTraps, List<Identity> floorIdentities) {
+
+    /** A view that names no floor identities, as every view was before story 6.5. */
+    public OracleView(long seed, List<Identity> identities, List<Presence> mobs, List<Integer> hiddenMimics,
+                      List<Integer> secretDoors, List<Secret> hiddenTraps) {
+        this(seed, identities, mobs, hiddenMimics, secretDoors, hiddenTraps, List.of());
+    }
 
     public OracleView {
         identities = List.copyOf(identities);
@@ -33,6 +42,7 @@ public record OracleView(long seed, List<Identity> identities, List<Presence> mo
         hiddenMimics = List.copyOf(hiddenMimics);
         secretDoors = List.copyOf(secretDoors);
         hiddenTraps = List.copyOf(hiddenTraps);
+        floorIdentities = List.copyOf(floorIdentities);
     }
 
     /**

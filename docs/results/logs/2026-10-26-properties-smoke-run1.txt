@@ -1,0 +1,75 @@
+### Environment
+
+- Machine: amd64, 8 logical processors, Windows 11 10.0
+- JDK: Azul Systems, Inc. 21.0.11 (OpenJDK 64-Bit Server VM)
+- Commit: 0ab5321bc6e0137960298dc3e488bd74e10a5662
+- Command: `./gradlew :harness:propertiesMeasurement -Pproperties.args="--oracle --set smoke --seeds 25 --per-seed 6 --siblings 4 --gap 40 --wait-limit 3000 --resamples 2000"`
+- ORACLE: the hidden facts below were counted through the oracle sidecar from the launcher's `--oracle` door (`Launcher.hiddenFacts`); no driver was handed one.
+- Configuration: set `smoke`, 25 seeds, up to 6 mid-fight snapshots each at least 40 waits apart, up to 4 sibling Actions per snapshot, horizons 4 and 20 waits, 2000 bootstrap resamples
+- Measured: 143 snapshots, each played by 3 drivers
+- Note: seed 2557491060791 ended (HERO_DEAD) after 4 snapshots
+- Note: seed 5072090822566 ended (HERO_DEAD) after 2 snapshots
+- Note: seed 3280280656732 ended (HERO_DEAD) after 5 snapshots
+
+### The two properties, per driving Brain
+
+Each cell is the point estimate and its 95% interval (cluster bootstrap over seeds, 2000 resamples).
+
+**Horizon 20 waits.**
+
+| Driver | Snapshots | Leaves | Survival | Leaf correlation | Chance agreement | Kappa | Disambiguation factor |
+|---|---|---|---|---|---|---|---|
+| random agent | 143 | 526 | 0.327 [0.269, 0.384] | 0.670 [0.606, 0.723] | 0.560 | 0.251 [0.146, 0.352] | 0.250 [0.190, 0.312] |
+| baseline Brain | 143 | 526 | 0.973 [0.950, 0.993] | 0.976 [0.953, 0.993] | 0.948 | 0.528 [-0.150, 0.838] | 0.065 [0.043, 0.087] |
+| one-ply model | 143 | 526 | 0.949 [0.912, 0.979] | 0.951 [0.925, 0.973] | 0.903 | 0.497 [0.114, 0.684] | 0.069 [0.043, 0.095] |
+
+The same leaves on the second payoff, alive with at least half the hero's health left:
+
+| Driver | Sound | Leaf correlation | Chance agreement | Kappa |
+|---|---|---|---|---|
+| random agent | 0.177 [0.130, 0.223] | 0.744 [0.679, 0.804] | 0.709 | 0.119 [0.005, 0.221] |
+| baseline Brain | 0.791 [0.703, 0.870] | 0.872 [0.831, 0.911] | 0.669 | 0.612 [0.448, 0.729] |
+| one-ply model | 0.789 [0.720, 0.852] | 0.888 [0.853, 0.924] | 0.667 | 0.664 [0.511, 0.791] |
+
+**Horizon 4 waits.**
+
+| Driver | Snapshots | Leaves | Survival | Leaf correlation | Chance agreement | Kappa | Disambiguation factor |
+|---|---|---|---|---|---|---|---|
+| random agent | 143 | 526 | 0.960 [0.926, 0.987] | 0.959 [0.930, 0.985] | 0.923 | 0.468 [0.167, 0.610] | 0.060 [0.034, 0.088] |
+| baseline Brain | 143 | 526 | 0.985 [0.965, 1.000] | 0.988 [0.975, 1.000] | 0.970 | 0.611 [0.382, 0.697] | 0.020 [0.010, 0.032] |
+| one-ply model | 143 | 526 | 0.985 [0.965, 1.000] | 0.988 [0.975, 1.000] | 0.970 | 0.611 [0.382, 0.697] | 0.020 [0.010, 0.032] |
+
+The same leaves on the second payoff, alive with at least half the hero's health left:
+
+| Driver | Sound | Leaf correlation | Chance agreement | Kappa |
+|---|---|---|---|---|
+| random agent | 0.835 [0.760, 0.897] | 0.924 [0.877, 0.963] | 0.724 | 0.726 [0.507, 0.873] |
+| baseline Brain | 0.863 [0.793, 0.922] | 0.960 [0.933, 0.983] | 0.764 | 0.832 [0.690, 0.929] |
+| one-ply model | 0.867 [0.797, 0.925] | 0.964 [0.944, 0.983] | 0.769 | 0.843 [0.698, 0.930] |
+
+### Story 1.21's reading and the two changes, one at a time
+
+The disambiguation factor at the horizon of 20 waits, counted as story 1.21 counted it (the Run's whole set of unknown appearances, surviving leaves only), then with the floor's facts as the denominator, then with deaths counted as well.
+
+| Driver | Run-wide denominator, survivors | Floor denominator, survivors | Floor denominator, every leaf (story 6.5) |
+|---|---|---|---|
+| random agent | 0.015 [0.009, 0.022] | 0.125 [0.062, 0.201] | 0.250 [0.190, 0.312] |
+| baseline Brain | 0.008 [0.005, 0.011] | 0.055 [0.036, 0.077] | 0.065 [0.043, 0.087] |
+| one-ply model | 0.007 [0.005, 0.010] | 0.051 [0.034, 0.070] | 0.069 [0.043, 0.095] |
+
+### What the leaves did
+
+| Driver | Leaves | Horizon | Death | Left the floor | Dropped | Hidden facts per snapshot (floor / Run) |
+|---|---|---|---|---|---|---|
+| random agent | 526 | 142 | 354 | 30 | 46 {sibling refused=45, stalled=1} | 5.7 / 34.3 |
+| baseline Brain | 526 | 477 | 14 | 35 | 46 {driver cannot decide=1, sibling refused=45} | 5.7 / 34.3 |
+| one-ply model | 526 | 497 | 27 | 2 | 46 {driver cannot decide=1, sibling refused=45} | 5.7 / 34.3 |
+
+### Hidden facts held at a snapshot, by kind (mean per snapshot)
+
+| Driver | identity held | door held | trap held | mimic held |
+|---|---|---|---|---|
+| random agent | 3.44 | 0.82 | 1.41 | 0.06 |
+| baseline Brain | 3.44 | 0.82 | 1.41 | 0.06 |
+| one-ply model | 3.44 | 0.82 | 1.41 | 0.06 |
+
