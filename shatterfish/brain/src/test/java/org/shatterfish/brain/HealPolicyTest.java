@@ -250,4 +250,44 @@ class HealPolicyTest {
         belief = brain.update(fight(3, "#@r...#"), belief);
         assertEquals(1, Memory.of(belief).drank(), "the fold keeps it");
     }
+
+    /** {@code screen} with the hero showing a timed buff {@code name} of {@code turns} turns. */
+    private static Observation poisoned(Observation screen, int turns) {
+        org.shatterfish.api.HeroSection h = screen.hero();
+        org.shatterfish.api.HeroSection hero = new org.shatterfish.api.HeroSection(h.cell(), h.name(), h.subclass(),
+                h.ability(), h.level(), h.exp(), h.expToLevel(), h.hp(), h.ht(), h.shield(), h.strength(),
+                h.strengthBonus(), h.gold(), h.energy(), h.hunger(),
+                List.of(new org.shatterfish.api.BuffView("poisoned", true, turns * 100)), h.talents(),
+                h.talentPointsAvailable(), h.quickslots());
+        Observation bare = new Observation(screen.header(), screen.map(), screen.actors(), hero, screen.inventory(),
+                screen.journal(), screen.log(), ActionsSection.NONE, screen.prompt());
+        return bare.withActions(ValidActions.of(bare));
+    }
+
+    @Test
+    @DisplayName("poison that will outlast the hit points is a danger with no enemy in view, and the potion cures it (issue #219)")
+    void poison_is_damage_over_time() {
+        // Poison.java:109-117: each turn (int)(left / 3) + 1, left falling by 1; 10 turns left deal 25.
+        assertEquals(25, Heal.poisonDamage(10.0));
+        assertEquals(0, Heal.poisonDamage(0.0));
+        Observation five = poisoned(fight(5, "#..@..#", potion("potion of healing", 1)), 10);
+        assertEquals(25, danger(five));
+        Brain.Decided decided = decide(five);
+        assertEquals("heal", decided.decision().policy());
+        assertTrue(drinks(decided), decided.action().toString());
+        Observation safe = poisoned(fight(19, "#..@..#", potion("potion of healing", 1)), 4);
+        assertTrue(!drinks(decide(safe)), "poison of 4 turns takes 4 + 3... less than 19 hit points; it is kept");
+        Observation plain = fight(5, "#..@..#", potion("potion of healing", 1));
+        assertTrue(!drinks(decide(plain)), "not poisoned, nobody in view");
+    }
+
+    @Test
+    @DisplayName("a piranha is counted at two of its worst bites, not the average, because it bites before the hero is out of reach (issue #219)")
+    void piranha_burst() {
+        Observation screen = fight(12, "#@P..#");
+        ActorView piranha = screen.actors().actors().get(0);
+        org.shatterfish.api.Codex.Threat threat = Fight.threat(screen, FightPolicyTest.KNOWLEDGE, piranha);
+        int armour = Fight.heroArmour(screen, FightPolicyTest.KNOWLEDGE)[0];
+        assertTrue(danger(screen) >= 2 * Math.max(0, threat.damageMax() - armour), "danger " + danger(screen));
+    }
 }

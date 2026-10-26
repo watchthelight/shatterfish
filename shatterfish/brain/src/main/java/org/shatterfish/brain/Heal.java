@@ -98,7 +98,7 @@ final class Heal implements Policy {
     public boolean enters(Observation observation, Memory memory) {
         HeroSection hero = observation.hero();
         return observation.header().prompt() == PromptKind.NONE && hero.hp() < hero.ht()
-                && !Fight.enemies(observation, knowledge).isEmpty();
+                && (!Fight.enemies(observation, knowledge).isEmpty() || poison(observation) > 0);
     }
 
     @Override
@@ -119,10 +119,11 @@ final class Heal implements Policy {
         // Against Goo alone the fight Policy never retreats (Goo.engage), so a retreat is not worth more than a
         // drink; but an announced pump the hero can still dodge is worth more than both (issue #219).
         boolean goo = Goo.alone(enemies) != null;
+        boolean fighting = !enemies.isEmpty();
         if (goo && Goo.dodge(observation, memory, offered) != null) {
             return null;
         }
-        if (!goo && !low && !Fight.favourable(observation, knowledge, enemies)
+        if (fighting && !goo && !low && !Fight.favourable(observation, knowledge, enemies)
                 && Fight.retreat(observation, memory, offered, enemies, knowledge) != null) {
             return null;
         }
@@ -138,6 +139,40 @@ final class Heal implements Policy {
             }
         }
         return null;
+    }
+
+    /** The buff the screen shows while the hero is poisoned (actors.properties:359). */
+    static final String POISONED = "poisoned";
+
+    /**
+     * Turns of the worst single bite counted when a water-bound enemy (a piranha) is among the threats: a
+     * bite lands before the hero is out of the water's reach, and the average hid it until the last turn
+     * (issue #219).
+     */
+    static final int BURST_TURNS = 2;
+
+    /**
+     * What poison with {@code left} turns on it still deals: each turn {@code (int)(left / 3) + 1}, then
+     * {@code left} falls by 1, until it is spent (Poison.java:109-117). The potion of healing ends it
+     * (PotionOfHealing.java:77).
+     */
+    static int poisonDamage(double left) {
+        int total = 0;
+        while (left > 0) {
+            total += (int) (left / 3) + 1;
+            left -= 1;
+        }
+        return total;
+    }
+
+    /** What the poison the screen shows on the hero will still deal; 0 when the hero is not poisoned. */
+    static int poison(Observation observation) {
+        for (var buff : observation.hero().buffs()) {
+            if (buff.name().equals(POISONED) && buff.timed()) {
+                return poisonDamage(buff.turnsHundredths() / 100.0);
+            }
+        }
+        return 0;
     }
 
     /** What the potion heals in all: {@code (int)(0.8 * HT + 14)} (PotionOfHealing.java:64). */
@@ -190,6 +225,10 @@ final class Heal implements Policy {
         if (Goo.alone(Fight.enemies(observation, knowledge)) != null) {
             return Goo.danger(observation.hero());
         }
+        return enemyDanger(observation, knowledge, memory) + poison(observation);
+    }
+
+    private static int enemyDanger(Observation observation, Codex.Knowledge knowledge, Memory memory) {
         List<ActorView> awake = new ArrayList<>();
         for (ActorView enemy : Fight.enemies(observation, knowledge)) {
             if (enemy.emote() != Emote.SLEEP) {
@@ -208,12 +247,14 @@ final class Heal implements Policy {
         int[] armour = Fight.heroArmour(observation, knowledge);
         List<Double> expected = new ArrayList<>();
         List<Integer> worst = new ArrayList<>();
+        boolean burst = false;
         for (ActorView enemy : awake) {
             int reach = steps[enemy.cell()];
             if (!Bestiary.atRange(knowledge, observation.header().depth(), observation.header().branch(), enemy.name()) && (reach < 0 || reach > turns + 1)) {
                 continue;
             }
             Codex.Threat threat = Fight.threat(observation, knowledge, enemy);
+            burst |= Bestiary.waterBound(knowledge, observation.header().depth(), observation.header().branch(), enemy.name());
             expected.add(Fight.enemyDamage(observation, knowledge, threat));
             worst.add(Math.max(0, threat.damageMax() - armour[0]));
         }
@@ -229,7 +270,7 @@ final class Heal implements Policy {
             perTurn += expected.get(i);
             worstTurn += worst.get(i);
         }
-        return Math.max(worstTurn, (int) Math.ceil(perTurn * turns));
+        return Math.max(burst ? BURST_TURNS * worstTurn : worstTurn, (int) Math.ceil(perTurn * turns));
     }
 
     /**
