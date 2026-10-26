@@ -63,7 +63,7 @@ holds that row). A search with a longer line adds its own control for each row i
 
 It proves independence from the hidden state the test can vary, the rows of the ADR-0009 table and nothing beyond. A hidden
 element outside the table is outside the proof until the table grows. A snapshot the scrub refuses (a chest in view, a boss
-floor, a quest NPC in view, a held trinket; `Scrub.java:155-204`) is not searched from, so it is not in the proof. The probe's rollouts are three
+floor, a quest NPC in view, a held trinket; the gates in `Scrub` (Shatterfish code, `harness/redetermine`, lines 155 to 204)) is not searched from, so it is not in the proof. The probe's rollouts are three
 turns. It is a necessary condition for fairness and not a sufficient one, which is why the fairness reviewer still reads
 every search diff. A refusal of the scrub is never evidence: the probe skips a refused sample and records the count, and
 control 6 shows a refusal that tracks the truth is caught.

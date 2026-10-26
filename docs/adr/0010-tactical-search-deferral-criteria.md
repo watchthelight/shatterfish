@@ -146,7 +146,7 @@ two more on some, so a search with a longer line adds a control for each row it 
 
 What a pass means, and does not: the Decisions do not depend on the hidden state the scrub table lets the test vary, over
 the snapshots and the rollout length it uses. A hidden element outside ADR-0009's table is outside the proof, and so are
-snapshots the scrub refuses (`Scrub.java:155-204`: a boss floor, a taken quest, a held trinket, a mimic, a quest giver or a
+snapshots the scrub refuses (the gates in `Scrub` (Shatterfish code, `harness/redetermine`, lines 155 to 204): a boss floor, a taken quest, a held trinket, a mimic, a quest giver or a
 chest in view). The Run's salt and the generator are one value across the worlds of one driver, so this test cannot see a
 search read them; `RedeterminationDifferentialTest` holds those rows. The one-ply half is a regression guard (its input is
 the Observation, whose hash the test asserts equal), and the probe half is the search proof. It is a necessary condition for a design to ship under rule 1 and not a sufficient one; the
