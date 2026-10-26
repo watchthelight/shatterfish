@@ -91,6 +91,38 @@ public final class Brains {
      */
     public static final String SHATTERFISH = "shatterfish";
 
+    /**
+     * The same Brain with the one-ply expectimax over the Codex's tables ahead of the fight Policy
+     * (story 6.1, ADR-0010 option 2). It is registered next to {@link #SHATTERFISH}, the 4.x Brain it
+     * is measured against, with its own weight file (a copy of the 4.x weights, so the only difference
+     * between the two is the model) and its own configuration hash.
+     */
+    public static final String ONE_PLY = "oneply";
+
+    /** Whether {@code name} is built from the {@code brain} module's Policies: the 4.x Brain or the one-ply one. */
+    static boolean isPolicyBrain(String name) {
+        return SHATTERFISH.equals(name) || ONE_PLY.equals(name);
+    }
+
+    /*
+     * The two helpers below are the only code that names the one-ply model of the brain module. The
+     * direction check plays a baseline ref's own brain jar under this build's rig, and a ref older than
+     * story 6.1 has neither the model nor the constructor that takes it, so the 4.x Brain is built and
+     * configured through the calls every ref has, and the model is touched only for the Brain named
+     * oneply.
+     */
+
+    private static org.shatterfish.brain.Brain onePlyBrain(org.shatterfish.api.Codex.Knowledge codex,
+                                                           org.shatterfish.api.Weights weights, long seed) {
+        return new org.shatterfish.brain.Brain(codex, weights, seed, org.shatterfish.brain.Brain.Model.ONE_PLY);
+    }
+
+    private static String configuration(String name, org.shatterfish.api.Weights weights) {
+        return ONE_PLY.equals(name)
+                ? org.shatterfish.brain.Brain.configuration(weights, org.shatterfish.brain.Brain.Model.ONE_PLY)
+                : org.shatterfish.brain.Brain.configuration(weights);
+    }
+
     /** Mixed into a Brain's name to give its stream a seed; see {@link #brainSeed}. */
     static final long BRAIN_STREAM = DeciderSeeds.BRAIN_STREAM;
 
@@ -122,7 +154,7 @@ public final class Brains {
             return List.of("shatterfish/harness/src/main/java/org/shatterfish/harness/agent/RandomAgent.java",
                     "shatterfish/rig/src/main/java/org/shatterfish/rig/Brains.java");
         }
-        if (SHATTERFISH.equals(name)) {
+        if (isPolicyBrain(name)) {
             // The Deliberator contract and the Codex it is built on decide what it does as much as
             // its own sources do.
             return List.of("shatterfish/brain/src/main/java",
@@ -172,7 +204,7 @@ public final class Brains {
 
     /** Every name the Rig answers to, in the order it lists them. */
     public static List<String> names() {
-        return List.of(RANDOM, NO_DESCEND, NO_REST, NO_ATTACK, TWIN, SHATTERFISH);
+        return List.of(RANDOM, NO_DESCEND, NO_REST, NO_ATTACK, TWIN, SHATTERFISH, ONE_PLY);
     }
 
     /** Whether the Rig has a Brain of this name. Asking does not build one. */
@@ -220,12 +252,12 @@ public final class Brains {
 
     /** Whether the Brain named {@code name} scores by a weight set, which its caller then reads (story 4.5). */
     public static boolean readsWeights(String name) {
-        return SHATTERFISH.equals(named(name));
+        return isPolicyBrain(named(name));
     }
 
     /** Whether the Brain named {@code name} is built on a Codex, which its caller then reads. */
     public static boolean readsCodex(String name) {
-        return SHATTERFISH.equals(named(name));
+        return isPolicyBrain(named(name));
     }
 
     /**
@@ -252,7 +284,7 @@ public final class Brains {
     public static Decider of(String name, SeedSet.Entry triple, org.shatterfish.api.Codex.Knowledge codex,
                              org.shatterfish.api.Weights weights) {
         named(name);
-        if (SHATTERFISH.equals(name)) {
+        if (isPolicyBrain(name)) {
             if (codex == null) {
                 throw new IllegalArgumentException("the Brain " + name + " is built on a Codex, and none was"
                         + " read for it; a Run of it states " + RunOne.CODEX);
@@ -261,8 +293,8 @@ public final class Brains {
                 throw new IllegalArgumentException("the Brain " + name + " scores by a weight set, and none was"
                         + " read for it; a Run of it states " + RunOne.WEIGHTS);
             }
-            return new org.shatterfish.brain.BrainDecider(
-                    new org.shatterfish.brain.Brain(codex, weights, brainSeed(name)));
+            return new org.shatterfish.brain.BrainDecider(ONE_PLY.equals(name) ? onePlyBrain(codex, weights, brainSeed(name))
+                    : new org.shatterfish.brain.Brain(codex, weights, brainSeed(name)));
         }
         if (RANDOM.equals(name)) {
             return new RandomAgent(agentSeed(triple));
@@ -307,7 +339,7 @@ public final class Brains {
      * ({@code CodexKnowledge.digest}; null for a Brain that reads no Codex).
      */
     public static String configHash(String name, org.shatterfish.api.Weights weights, String knowledge) {
-        if (SHATTERFISH.equals(named(name))) {
+        if (isPolicyBrain(named(name))) {
             if (weights == null) {
                 throw new IllegalArgumentException("the Brain " + name + " is configured by its weights");
             }
@@ -319,7 +351,7 @@ public final class Brains {
             // carries, its weights, the seed of its stream (story 4.5), and the knowledge it was
             // built on, so that an edited table or an uncommitted bestiary is a different Brain
             // (the bestiary's lever 0). The Overlay computes it the same way (ConfigHash).
-            return ConfigHash.of(org.shatterfish.brain.Brain.configuration(weights), brainSeed(name), knowledge);
+            return ConfigHash.of(configuration(name, weights), brainSeed(name), knowledge);
         }
         if (!RANDOM.equals(name) && !WITHHELD.containsKey(name) && !TWIN.equals(name)) {
             // A real Brain states its own configuration. Returning zeros for it would put an

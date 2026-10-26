@@ -27,15 +27,13 @@ import java.util.function.Supplier;
  * method it ran and cites its declaration, and each spread carries the count of samples behind
  * it, so a consumer can weigh it.
  *
- * <p>The hit table is the one this generator cannot fill. {@code Char.hit} writes the icon of the
+ * <p>The hit table is the one this generator cannot run. {@code Char.hit} writes the icon of the
  * reason an attack landed or missed, and reaching that code initialises {@code FloatingText},
  * whose own initialiser builds a texture film ({@code effects/FloatingText.java:75}) and so needs
- * the toolkit a generator may not have (ADR-0017). It is the same wall story 2.3 met at
- * {@code ItemSpriteSheet.Icons}, and the answer is the same: the table names the method, cites
- * it, states the grid a measurement would sweep and says plainly that it was not measured and
- * why, rather than carrying a number nobody ran or a formula written out by hand. {@link Sparring}
- * is the rig that measurement needs, kept here and exercised by the tests, so that the story
- * which runs it inside the harness (where booting is ordinary) has nothing left to invent.
+ * the toolkit a generator may not have (ADR-0017). Story 2.5 recorded it as unmeasured; story 6.1
+ * tabulates it from the rule's two uniform draws ({@link #exactPerMille}), each cell marked exact,
+ * and {@link Sparring} is the rig that runs the engine's own method in a process that has booted,
+ * which {@code HitTableTest} holds the table to.
  *
  * <p>Every measurement runs under {@link GameContext}: a generator seeded from the measurement
  * seed and the cell's own coordinates, a bare hero for the rolls the engine makes through a
@@ -65,26 +63,66 @@ final class Combat {
     private Combat() {
     }
 
-    /** Why the hit table holds no cell: the same wall story 2.3 met, one class further down. */
+    /** Why the generator tabulates the hit table and does not run it: the same wall story 2.3 met, one class further down. */
     static final String NEEDS_THE_TOOLKIT = "Char.hit writes the icon of the reason an attack landed, which initialises FloatingText, "
             + "whose initialiser builds a texture film; a generator that may not boot cannot run it";
 
-    /** The whole table: the rolls measured, the hit table named and cited. */
+    /**
+     * The share of attacks that land, in thousandths, tabulated from the rule's own two draws (story 6.1).
+     * {@code Char.hit} draws the attacker's roll uniformly below its accuracy (Char.java:646) and the
+     * defender's uniformly below its evasion (Char.java:662) and lands the attack when the first is at
+     * least the second (Char.java:678). With accuracy {@code a} and evasion {@code d} that is
+     * {@code 1 - d/2a} when {@code a >= d} and {@code a/2d} below it: the area of a rectangle cut by its
+     * diagonal, exact in integer arithmetic, rounded half up. An attacker with no accuracy lands only
+     * against a defender with none, and a defender with none is always hit. It tabulates two cited
+     * draws and one cited comparison; it does not replay a fight, so it is not a second copy of the
+     * combat rules (non-negotiable 4). The generator cannot run {@code Char.hit} itself
+     * ({@link #NEEDS_THE_TOOLKIT}), so {@link #cell} keeps the sampling rig that runs the engine's own
+     * method in a process that has booted, and {@code HitTableTest} holds this table to it.
+     */
+    static int exactPerMille(int accuracy, int evasion) {
+        if (accuracy <= 0) {
+            return evasion <= 0 ? 1000 : 0;
+        }
+        long numerator = accuracy >= evasion ? 2L * accuracy - evasion : accuracy;
+        long denominator = accuracy >= evasion ? 2L * accuracy : 2L * evasion;
+        return (int) ((2000L * numerator + denominator) / (2L * denominator));
+    }
+
+    /** The whole table: the rolls measured, the hit table tabulated and cited. */
     static Codex.Combat read(Path root) {
+        return new Codex.Combat(GameContext.MEASUREMENT_SEED, hitTable(root), weapons(root), armours(root), mobs(root));
+    }
+
+    /** The hit table alone: tabulated from the rule's draws and cited, running no engine. */
+    static Codex.HitTable hitTable(Path root) {
         Sources.Body chars = Sources.file(root, CHAR);
         int hit = chars.find("public static boolean hit\\( Char attacker, Char defender, float accMulti, boolean magic \\)");
         if (hit < 0) {
             throw new IllegalStateException("Char declares no hit(attacker, defender, accMulti, magic); the table no longer names what it means");
         }
-        Codex.HitTable table = new Codex.HitTable("Char.hit", chars.citation(hit), ACCURACY, EVASION, false, NEEDS_THE_TOOLKIT, List.of());
-        return new Codex.Combat(GameContext.MEASUREMENT_SEED, table, weapons(root), armours(root), mobs(root));
+        // The two draws and the comparison the table tabulates: if upstream moves or changes one the
+        // generator stops here, as it does when the method itself goes.
+        for (String rule : List.of("float acuRoll = Random\\.Float\\( acuStat \\);", "float defRoll = Random\\.Float\\( defStat \\);",
+                "if \\(acuRoll >= defRoll\\)")) {
+            if (chars.find(rule) < 0) {
+                throw new IllegalStateException("Char.hit no longer reads `" + rule + "`; the hit table tabulates that rule");
+            }
+        }
+        List<Codex.HitCell> cells = new ArrayList<>();
+        for (int accuracy = ACCURACY.from(); accuracy <= ACCURACY.to(); accuracy += ACCURACY.step()) {
+            for (int evasion = EVASION.from(); evasion <= EVASION.to(); evasion += EVASION.step()) {
+                cells.add(new Codex.HitCell(accuracy, evasion, Codex.HitCell.EXACT, exactPerMille(accuracy, evasion)));
+            }
+        }
+        return new Codex.HitTable("Char.hit", chars.citation(hit), ACCURACY, EVASION, true, "", cells);
     }
 
     /**
-     * One cell of the hit table, measured by running the engine's own {@code Char.hit} over a
-     * grid cell. The generator cannot call it ({@link #NEEDS_THE_TOOLKIT}); the rig is kept and
-     * exercised by {@code CombatTableStabilityTest}, which runs in a process that has booted, so
-     * that the story which fills the table has the measurement written already.
+     * One cell of the hit table, sampled by running the engine's own {@code Char.hit} over a grid
+     * cell. The generator cannot call it ({@link #NEEDS_THE_TOOLKIT}); the rig is exercised by
+     * {@code HitTableTest} and {@code CombatTableStabilityTest}, which run in a process that has
+     * booted, and holds the tabulated cells ({@link #exactPerMille}) to the engine.
      */
     static Codex.HitCell cell(int accuracy, int evasion) {
         Sparring.Fighter attacker = Sparring.attacker(accuracy);

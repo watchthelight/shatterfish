@@ -126,7 +126,40 @@ public final class CodexKnowledge {
             }
         }
         return new Codex.Knowledge(manifest, families, spawns, drops, threats(folder), gear(folder, names, "weapons"),
-                gear(folder, names, "armours"), immovable(folder), bestiary(folder, tag));
+                gear(folder, names, "armours"), immovable(folder), bestiary(folder, tag), hitTable(folder));
+    }
+
+    /**
+     * The hit table of {@code combat.json} (story 6.1): the share of attacks that land by accuracy and
+     * evasion, tabulated by the Codex generator from the two draws of {@code Char.hit} and cited.
+     * Null when the table was recorded as unmeasured (a Codex older than story 6.1), so that a Brain
+     * which needs it refuses to be built and the others are unaffected.
+     */
+    static Codex.HitTable hitTable(Path folder) {
+        Map<String, String> combat = Json.object(table(folder, "combat.json"));
+        Map<String, String> head = Json.object(Json.required(combat, "hit", "combat"));
+        if (!Json.bool(Json.required(head, "measured", "hit"))) {
+            return null;
+        }
+        Map<String, String> citation = Json.object(Json.required(head, "citation", "hit"));
+        List<Codex.HitCell> cells = new ArrayList<>();
+        for (String raw : Json.array(Json.required(combat, "hitCells", "combat"))) {
+            Map<String, String> cell = Json.object(raw);
+            cells.add(new Codex.HitCell(Json.integer(Json.required(cell, "accuracy", "hit cell")),
+                    Json.integer(Json.required(cell, "evasion", "hit cell")),
+                    Json.integer(Json.required(cell, "samples", "hit cell")),
+                    Json.integer(Json.required(cell, "hitPerMille", "hit cell"))));
+        }
+        return new Codex.HitTable(Json.string(Json.required(head, "method", "hit")),
+                new Codex.Citation(Json.string(Json.required(citation, "path", "citation")),
+                        Json.integer(Json.required(citation, "line", "citation"))),
+                grid(Json.object(Json.required(head, "accuracy", "hit"))), grid(Json.object(Json.required(head, "evasion", "hit"))),
+                true, "", cells);
+    }
+
+    private static Codex.Grid grid(Map<String, String> axis) {
+        return new Codex.Grid(Json.string(Json.required(axis, "what", "axis")), Json.integer(Json.required(axis, "from", "axis")),
+                Json.integer(Json.required(axis, "to", "axis")), Json.integer(Json.required(axis, "step", "axis")));
     }
 
     /** Every file {@link #read} reads in the Codex folder, in the order {@link #digest} takes them. */
