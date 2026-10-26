@@ -42,7 +42,7 @@ final class RealBrain {
         throw new IllegalStateException("no repository root above " + here);
     }
 
-    static Decider decider() {
+    static BrainDecider decider() {
         Path root = root();
         String tag = HeadlessBoot.pinnedTag();
         Codex.Knowledge codex = CodexKnowledge.read(root.resolve("codex").resolve(tag), tag);
