@@ -1993,8 +1993,8 @@ Warrior reaches depth 5 in 49% of 120 Runs, kills Goo in 37%, and has never won 
 (`docs/ideas/2026-10-26-rest-when-hurt-and-fed.md`). So the done-when, "a measured win rate", will
 measure a rate near zero unless the strategy stories move reach and depth a long way. The closing
 story publishes whatever the number is, with its interval, beside the depth distribution, and says
-plainly that a win rate of zero is a result. The epic does not set a win rate to hit; it asks the
-product owner for one (see "Questions for the product owner" at the end of this epic).
+plainly that a win rate of zero is a result. the product
+owner settled that no win rate is set to beat (see "Settled with the product owner" at the end of this epic).
 
 **What exists, and what the stories build on.**
 
@@ -2316,8 +2316,8 @@ claims already in `lore/bestiary/` in eight grouped files
 claim under `lore/<topic>/<id>.md`; the frontmatter fields and their allowed values (`variant` in
 `spd`, `pd`, `mod:<name>`, `unknown`; `tier` in `1`, `2`, `3`, `F`; `implemented_in` a list of Policy
 names, Playbook fields or Rule slugs, possibly empty); the body rule (a paraphrase and at most a short
-quote); the tag the verdict was graded against; and where the checker lives (an existing module, or a
-new `lore` module with no game code and no network call, NFR-8)
+quote); the tag the verdict was graded against; and that the checker lives in the Codex tooling (no new module, no
+layout change), with no game code and no network call (NFR-8)
 **And** a checker, `LoreCheck`, runs in `./gradlew build` and validates every file: required fields
 present, enums valid, `source_url` a URL, `retrieved` a date, a Tier 1 or 2 claim carrying at least one
 `path:line` citation that resolves at the pinned tag (the citation checker of FR-17 is reused, not
@@ -2433,9 +2433,11 @@ deaths by depth, reach depth 5, Goo kills over reach, and the same table for the
 beside the Profile 6 baseline at `7b1212eea`, so the movement of the epic is visible
 **And** a win rate of zero is reported as zero with its upper bound (under 1% at 500 Runs) and the page
 says what the number can and cannot show; the epic does not close by changing the measure
-**And** the `holdout` set is used at most once, only with the product owner's explicit go-ahead in the
-PR thread, and the use is recorded in the Results (FR-20, issue #116); without that go-ahead the page
-says the release-level number was not taken.
+**And** the `holdout` set is used exactly once, as the final confirmation run after all tuning is
+finished and never for tuning, as the product owner allowed, and the use is recorded in the Results
+(FR-20, issue #116)
+**And** no win rate is set to beat; the Results page reports the rate with its Wilson interval, Warrior
+first and then each class that was measured.
 
 **Given** the done-when's second clause
 **When** the link check closes
@@ -2453,21 +2455,15 @@ and the page lists them.
 `docs/fairness.md` describe the Playbook and the Lore intake as they stand; and `/upstream-sync`'s
 re-verification list gains the lore citation check.
 
-### Questions for the product owner
+### Settled with the product owner
 
-Asked now, as the E6 retrospective asked ("a number that decides a story should be asked for when the
-epic opens"). None blocks 7.1 and 7.2.
+Asked when the epic opened, as the E6 retrospective asked, and answered on pull request #289.
 
-1. **What win rate is the target, if any?** The done-when says "a measured win rate", not a threshold.
-   With reach at about half and no Run ever won, the honest expectation for the end of E7 is a rate
-   near zero with a reported upper bound. Say whether a number to beat should be fixed before 7.10,
-   and whether it is per class or Warrior only.
-2. **May 7.10 use `holdout` once?** FR-20 allows one use per Brain version, recorded, only to publish
-   a release-level number.
-3. **Does E7 wait for the Goo gate?** The plan assumes not: 7.1 to 7.4 can proceed while 4.14 is open
-   and each re-takes its baseline. If 4.14 passes first, the baselines move and the tables are re-taken.
-4. **Where does the lore checker live?** Story 7.7's ADR decides between a new module and the Codex
-   tooling. A new module is a layout change (ADR-0003); say if one is unwelcome.
+1. **No win rate is set to beat.** Story 7.10 publishes the measured rate with its interval, Warrior
+   first and per class where a class was measured.
+2. **`holdout` may be used once**, by story 7.10, as the final confirmation run and never for tuning.
+3. **E7 does not wait for the Goo gate.** Each story re-takes its baseline at its start.
+4. **The lore checker lives in the Codex tooling.** There is no new module and no layout change.
 
 ## Epic 8: Overlay v2 (deferred)
 
