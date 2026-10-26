@@ -129,8 +129,8 @@ development_status:
   6-3-the-search-leak-test: done  # issue #250
   6-4-the-simulator-speed-measurement: done  # issue #251
   6-5-the-properties-measurement: done  # issue #252
-  6-6-the-candidate-comparison-under-the-sequential-test: backlog  # issue #253
-  epic-6-retrospective: optional
+  6-6-the-candidate-comparison-under-the-sequential-test: review  # issue #253
+  epic-6-retrospective: done
 
   epic-7: backlog
   epic-7-retrospective: optional
