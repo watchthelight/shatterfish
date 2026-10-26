@@ -46,7 +46,7 @@ differs at wait 525). A takeover from depth 4 replays exactly, and so does a Run
 [#245](https://github.com/watchthelight/shatterfish/issues/245); the smoke test keeps `TAKEOVER_DEPTH = 4` until it
 is fixed.
 
-Fixed on 2026-10-26 (issue #245, Profile 6): the cause was the badge banner's shine, drawn from the Run's stream on a frame
+Fixed on 2026-10-25 (issue #245, Profile 6): the cause was the badge banner's shine, drawn from the Run's stream on a frame
 the wall clock picks. The smoke test takes over at depth 2 again (`TAKEOVER_DEPTH = 2`) and also from wait 500.
 
 ## The Overlay does not change outcomes
@@ -90,5 +90,6 @@ the sixteenth varies with timing", not the unqualified claim. The comparison is 
 (`SHATTERFISH_COMPARE_RIG`) because the Runs take minutes and the Rig numbers are made outside the test, and its
 guard allows the one known exception.
 
-Update, 2026-10-26: the cause of the variation was the same badge-banner draw, fixed in Profile 6 (issue #245). The
+Update, 2026-10-25: the cause of the variation was the same badge-banner draw, fixed in Profile 6 (issue #245). The
 figures above are Profile 5, measured before the fix; the guard now allows no exception.
+The attached Run log carries profile 5, so replay refuses it under Profile 6; it stays as the record of that Run.

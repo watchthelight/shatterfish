@@ -410,7 +410,7 @@ of hook row 8 is closed in a `finally`, so an exception on the render thread can
 A takeover on depth 2 left an Overlay log whose replay parted on depth 3, and one Run of the Overlay comparison
 (HJO-WWK-PJG, salt 1002) varied with thread timing. Both came from one draw. When a badge banner reaches its static
 state the render thread adds a shine to the badge (`BadgeBanner.highlight`), and the `Speck` it resets draws from
-`Random.Float()` and its siblings. The frame on which the banner arrives is the wall clock's, so the draw landed
+`Random.Float()` and its siblings (`Speck.java:237`). The frame on which the banner arrives is the wall clock's, so the draw landed
 inside whichever turn the Run was in and moved every roll after it. The same Run played with the desktop's frames and
 with the headless driver's therefore parted at the first fight after a badge. This is a drawing call like the
 others in row 8, so the shine is now inside a `visualBegin()` and `visualEnd()` pair (`BadgeBanner.java`, 4 added
