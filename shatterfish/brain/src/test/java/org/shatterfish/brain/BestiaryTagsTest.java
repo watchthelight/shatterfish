@@ -19,7 +19,7 @@ class BestiaryTagsTest {
     @DisplayName("every tag value the Brain compares against is in the api's closed vocabulary")
     void reads_only_the_vocabulary() {
         Map<String, List<String>> vocabulary = Map.of("speed", Codex.Tactics.SPEEDS, "ai", Codex.Tactics.AIS,
-                "attack", Codex.Tactics.ATTACKS);
+                "attack", Codex.Tactics.ATTACKS, "breakContact", Codex.Tactics.BREAK_CONTACT);
         assertEquals(vocabulary.keySet(), Bestiary.READS.keySet(), "the tags the Brain compares");
         for (Map.Entry<String, List<String>> tag : Bestiary.READS.entrySet()) {
             assertTrue(vocabulary.get(tag.getKey()).containsAll(tag.getValue()), tag.getKey() + ": " + tag.getValue());

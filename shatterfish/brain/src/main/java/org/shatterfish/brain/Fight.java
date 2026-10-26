@@ -413,6 +413,7 @@ final class Fight implements Policy {
         int hero = observation.hero().cell();
         int from = nearest(map, hero, enemies);
         String floor = observation.header().depth() + ":" + observation.header().branch();
+        boolean outpaced = outpaced(observation, knowledge, enemies);
         if (!observation.header().sealed() && Memory.count(memory.flights(), floor, 0) < FLIGHTS) {
             boolean down = down(observation, memory, knowledge);
             java.util.function.Predicate<TransitionView> stairs = transition -> transition.kind()
@@ -442,9 +443,14 @@ final class Fight implements Policy {
                     || nearest(map, step.cell(), enemies) >= from).toList();
             Path path = walk(map, walk, hero, away, cell -> map.transitions().stream()
                     .anyMatch(t -> t.cell() == cell && stairs.test(t)));
-            if (path != null) {
+            if (path != null && (!outpaced || path.distance <= OUTPACED_STAIRS)) {
                 return new RunLog.Choice(path.step, Policies.CERTAIN, "retreat: stairs");
             }
+        }
+        // A walk away from a faster enemy only hands it attacks (docs/brain-rules.md#faster-enemy-no-outrunning):
+        // past the stairs next door there is nowhere to go, and the hero fights where it stands.
+        if (outpaced) {
+            return null;
         }
         // Away, onto a cell the hero may walk on: not a chasm, which jumps, a well, which drinks, an
         // armed trap, or a cell a Step was refused onto.
@@ -470,6 +476,41 @@ final class Fight implements Policy {
             }
         }
         return best == null ? null : new RunLog.Choice(best, Policies.CERTAIN, "retreat " + farthest);
+    }
+
+    /**
+     * How near, in cells, an awake faster enemy has to be for the hero to count as outpaced: it closes two cells
+     * for each the hero walks, so one this near is on the hero within a few steps. An assumption.
+     */
+    static final int OUTPACED_RANGE = 6;
+
+    /**
+     * The longest walk to the stairs, in steps, a retreat may make with an awake faster enemy near: a
+     * crab gets one attack for two steps of the hero's (docs/brain-rules.md#faster-enemy-no-outrunning), and
+     * the stairs are a clean break from a hostile (docs/brain-rules.md#hostiles-stay-on-their-floor), so
+     * the stairs next door pay and the stairs across the floor do not. An assumption.
+     */
+    static final int OUTPACED_STAIRS = 2;
+
+    /**
+     * Whether an enemy in view that is awake (no sleep icon over it) and faster than the hero ({@link Bestiary#fast})
+     * is within {@link #OUTPACED_RANGE} of the hero's cell, so that no walk away breaks contact.
+     *
+     * <p>Two proxies, both assumptions: "awake" is the absence of the drawn sleep icon, so a wanderer that has not
+     * noticed the hero counts as a chaser (it can lose the hero by sight, Mob.java:1379-1387, which a walk away
+     * would also use, but the Policy does not bet on it); and "faster" is the tag's base speed, so a crippled or
+     * hasted enemy, or a hasted hero, is not told apart (the buffs change the speed, Char.java:770-783).
+     */
+    static boolean outpaced(Observation observation, Codex.Knowledge knowledge, List<ActorView> enemies) {
+        MapSection map = observation.map();
+        for (ActorView enemy : enemies) {
+            if (enemy.emote() != org.shatterfish.api.Emote.SLEEP
+                    && Bestiary.fast(knowledge, observation.header().depth(), observation.header().branch(), enemy.name())
+                    && chebyshev(map, observation.hero().cell(), enemy.cell()) <= OUTPACED_RANGE) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
