@@ -267,3 +267,32 @@ target (`…/Dungeon.java:738`; `…/ui/QuickSlotButton.java:72-75`), which the 
 carry today and a later schema story should not inherit unknowing. So: a restore within one floor
 is exact for what the Observation carries, for a hero with none of those buffs, and the test says
 which; E5's take-over and E6's short rollouts need that, and E6 owns the rest.
+
+## Amendments from story 6.2 (the scrubber, the rollout host)
+
+Written when the scrubber and the host were built; the table above is the decision, and this is what building it changed.
+
+- **The stealthy mimic row is a gate, not a keep.** The table keeps a hidden mimic that the game still draws. Keeping it
+  keeps its true state, and the audit against `Dungeon.saveGame` found no way to hold a mimic's bundle to what the screen
+  shows, so `Scrub` refuses a snapshot with a chest-family heap in view or a hidden mimic drawn (`Scrub.Refused`), and the
+  row (`STEALTHY_MIMIC_KEPT`) names that gate. A refused snapshot is not searched from; the Brain plays it as it does
+  without a search. This deviates from the story's text and is recorded in the story file's audit (B2).
+- **Rows the audit added.** `UNSEEN_ITEMS` (heaps on known cells the hero has not seen are redrawn) and
+  `HERO_HIDDEN_BUFFS` (the hero's buffs without an icon are dropped unless `GameRows.NO_ICON_KEPT` lists them;
+  `RedeterminationBuffsTest` fails when the game gains one nobody has decided). The scrubbed copy is a daily Run
+  (`daily: true`), so the game keeps bones out of it, and it keeps no other floors' files: ascending generates a new floor
+  from the sample.
+- **Refusals.** Depth a multiple of five or past 25, a branch, a locked level, a spawned quest, a held Trinket, a Statue
+  in view and a quest NPC in view are refused by name, not scrubbed.
+- **The fog is one function.** `FogModel` is the fog that `Observer` and the scrubber both use, so what is unknown cannot
+  drift between them (`FogParityTest`).
+- **A rollout borrows the process.** `RolloutHost` restores the live Run after the rollout, steps it back to its wait,
+  and puts back what a restore does not carry: the game's statics (`RunStatics.capture`, an opaque holder) and the
+  profile (`ProfileGuard`: the rankings, badges, journal and bones files, the journal's catalogs, bestiary and pages,
+  the badges, and the rankings' fields). This closes the "what a snapshot does not hold" gap for rollouts; a restore that
+  is not a rollout still leaves the journal as the process has it.
+- **Residuals.** A re-created buff may draw an icon that differs from the true buff's; the ids of kept mobs and buffs are
+  the true ones; `limited_drops` are zeroed, which biases strength and upgrade drops on a descent inside a rollout;
+  `heroFOV` is an input to the scrub for unknown wall cells in view; the container and unseen rows are covered only by the
+  differential test's synthetic heaps, since the smoke fixtures skip chest-in-view snapshots; a rollout that ends in a
+  death or a win is contained by the guard, which the unit test holds, but no test plays a rollout to a death.

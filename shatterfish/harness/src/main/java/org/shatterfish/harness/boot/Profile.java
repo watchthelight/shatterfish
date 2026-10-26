@@ -261,7 +261,7 @@ public final class Profile {
      * ({@code Catalog.java:343-345}, {@code Bestiary.java:339-341}); {@code ProfileTest} holds that
      * they are still the right ones.
      */
-    private static void emptyTheCatalogs() {
+    public static void emptyTheCatalogs() {
         java.util.List<Class<?>> items = new java.util.ArrayList<>();
         for (Catalog catalog : Catalog.values()) {
             items.addAll(catalog.items());

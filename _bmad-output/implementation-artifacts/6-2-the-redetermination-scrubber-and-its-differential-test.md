@@ -2,7 +2,7 @@
 title: 'Story 6.2: The redetermination scrubber and its differential test'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'review'
 baseline_commit: '770642583'
 review_loop_iteration: 0
 context: []
@@ -219,3 +219,34 @@ Hidden item counts re-sampled from priors; gas volume in view; upgrades on unkno
 ### Not reviewable until code exists
 
 Import edges, ArchUnit, leak tests per row, the toggle test and the determinism test. The final diff goes back to the reviewer.
+
+## As built (amendments to the design above)
+
+- **Stealthy mimic.** The row is a gate: a chest-family heap in view, or a hidden mimic drawn, makes `Scrub` refuse
+  the snapshot (audit B2). The AC text says "keep"; the audit found keeping unsafe. ADR-0009's amendment records it.
+- **Added rows.** `UNSEEN_ITEMS` and `HERO_HIDDEN_BUFFS` (blocker B1: buffs without an icon are dropped unless
+  `GameRows.NO_ICON_KEPT` keeps them; `RedeterminationBuffsTest` holds the allowlist file
+  `iconless-buffs-dropped.txt`). The copy sets `daily: true`, which keeps bones out of it and drops the other floors.
+- **`FogModel`.** The fog function was lifted out of `Observer` so the scrubber and the Observer share it. `Observer`
+  delegates; `FogParityTest` holds the equality. This is why the diff touches `Observer` and carries the `fairness` label.
+- **Rollout salt.** `RngControl` gained an active-salt swap; the live restore unswaps; `Snapshot` carries the
+  observation and field of view it was taken with, and the activation salt.
+- **Rollout host.** `RolloutHost extends Simulator` in the agent package: checks `SnapshotStore.madeScrubbed`, takes the
+  live snapshot, captures `RunStatics.Held` and a `ProfileGuard`, plays the Actions through `ActionExecutor` serving floor
+  changes with `RunLoop.crossFloor`, and in a `finally` restores the live Run, steps it to its wait and puts the statics
+  and the profile back. A refused Action ends the rollout `REFUSED`; death `DEATH`; the surface `WIN`; the end of the
+  Actions, or a scene it cannot serve, `HORIZON`.
+- **Profile containment.** A rollout in the live process would otherwise write the rankings (a death submits a daily
+  record), the badges, the journal and its guide pages (which steer floor generation), and the statics. `ProfileGuard`
+  and `RunStatics.Held` put them back. `Profile.emptyTheCatalogs` became public for the guard. One `Field` read was
+  added to `RunStatics` (the private `read` behind `Held`); `HarnessReflectionTest` and `docs/UPSTREAM.md` say so. No new
+  hook row: `RunStatics` is already listed.
+- **Tests.** `RedeterminationDifferentialTest` (8 tests: all rows and each row alone show the same screen; the copy
+  differs in each row held; two samples give two copies with one screen; an incomplete scrubber names its row; scrubbing
+  leaves the live Run alone; container and unseen rows on synthetic heaps; the store refuses a claimed handle),
+  `RedeterminationBuffsTest`, and `RestoreReplayAfterRolloutTest` (4 tests: the twin's hashes from the restored wait
+  onward, with the profile files equal; a foreign, claimed or other-store handle rolls out nothing; a descent inside a
+  rollout builds the sample's floor, repeatable per sample, different per sample and from the live seed's; the profile
+  guard). No rollout is played to a death.
+- **Residuals added.** See ADR-0009's amendment: re-created buff icons, true ids kept, `limited_drops` zeroed, `heroFOV`
+  as an input, container and unseen rows covered by synthetic heaps only.

@@ -95,6 +95,8 @@ the first again in one process and requires the third Run's every Observation to
 
 Two things this does not settle. A Run restored from a snapshot in the same process
 (`HeadlessDriver`'s restore) starts from these statics as the process left them, not as they were
-when the snapshot was taken; only the snapshot's saved game is restored. And the statics that read
+when the snapshot was taken; only the snapshot's saved game is restored. A rollout (`RolloutHost`,
+story 6.2) is the exception it owns: it captures these statics (`RunStatics.capture`) and the profile
+(`ProfileGuard`) before it loads the scrubbed copy and puts both back once the live Run is restored. And the statics that read
 the wall clock, `Holiday.cached` and `DimensionalSundial`'s night check, make a Run depend on the date
 and the hour, which no reset can fix: that is issue #139.

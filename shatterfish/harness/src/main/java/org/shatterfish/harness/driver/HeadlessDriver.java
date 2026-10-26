@@ -753,6 +753,11 @@ public final class HeadlessDriver implements AutoCloseable {
         return boot;
     }
 
+    /** The folder the game writes its profile files into (rankings, badges, journal, bones); {@link ProfileGuard} reads it. */
+    Path profileDirectory() {
+        return boot.profile();
+    }
+
     public boolean closed() {
         return closed;
     }

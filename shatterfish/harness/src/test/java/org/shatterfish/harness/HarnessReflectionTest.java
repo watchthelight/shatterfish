@@ -205,8 +205,9 @@ class HarnessReflectionTest {
                         && !name.equals("setAccessible")) {
                     writes++;
                 }
-                // Any get* on a Field: a value read (get, getInt, ...) would carry private upstream
-                // state out of a public harness class the ArchUnit rule exempts, so none at all.
+                // Any get* on a Field: a value read (get, getInt, ...) could carry private upstream
+                // state out of a public harness class the ArchUnit rule exempts, so there is exactly one,
+                // which fills the opaque holder a rollout restores from.
                 if (access.getTarget().getOwner().isEquivalentTo(Field.class) && name.startsWith("get")) {
                     reads++;
                 }
@@ -215,7 +216,14 @@ class HarnessReflectionTest {
         assertEquals(1, lookups, "one place looks a field up by name");
         assertEquals(1, openings, "one place opens it");
         assertEquals(1, writes, "one place writes through reflection");
-        assertEquals(0, reads, "RunStatics writes the fields it reaches and never reads one");
+        assertEquals(1, reads, "RunStatics reads in one place only: capture(), into a holder that carries nothing out");
+        for (java.lang.reflect.Method method : RunStatics.Held.class.getDeclaredMethods()) {
+            assertTrue(Modifier.isPrivate(method.getModifiers()) || method.getName().equals("restore"),
+                    "the holder has no accessor, only restore(): " + method);
+        }
+        for (Field held : RunStatics.Held.class.getDeclaredFields()) {
+            assertTrue(Modifier.isPrivate(held.getModifiers()), "the holder's fields are private: " + held);
+        }
     }
 
     @Test
