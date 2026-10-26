@@ -52,7 +52,9 @@ public final class RolloutHost extends Simulator {
      * Where a rollout's four costs are reported when somebody is measuring (story 6.4): the nanoseconds the host spent
      * taking the live snapshot, loading the scrubbed copy, playing the Actions, and putting the live Run back. The
      * scrub is made before the host is called and is timed by whoever calls the scrubber. A listener only hears
-     * durations; it is handed nothing from the game.
+     * durations; it is handed nothing from the game. A duration depends on the size of the hidden state (a snapshot of a
+     * floor with more unseen mobs takes longer), so a listener is for measurement only: no search may be handed one or
+     * its output (story 6.4's fairness review). A listener that throws fails the rollout after the live Run is back.
      */
     public interface Phases {
         /** The live Run's snapshot, the statics held and the profile's files held. */
@@ -143,7 +145,11 @@ public final class RolloutHost extends Simulator {
                 failure = add(failure, e);
             }
             if (timer != null) {
-                timer.restore(System.nanoTime() - t3);
+                try {
+                    timer.restore(System.nanoTime() - t3);
+                } catch (RuntimeException e) {
+                    failure = add(failure, e);
+                }
             }
         }
         if (failure != null) {

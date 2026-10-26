@@ -58,6 +58,10 @@ final class SimulatorSpeed {
 
     record Config(String set, int seeds, int perSeed, int samples, int gap, int waitLimit, int warmup) {
         Config {
+            // An allowlist at the door, as the Rig's: goo and holdout are never reachable, whatever the spelling.
+            if (!set.equals("smoke") && !set.equals("standard")) {
+                throw new IllegalArgumentException("the measurement runs on the smoke or standard set, not \"" + set + "\"");
+            }
             if (seeds < 1 || perSeed < 1 || samples < 1 || gap < 0 || waitLimit < 1 || warmup < 0) {
                 throw new IllegalArgumentException("a measurement needs at least one seed, snapshot and sample: " + this);
             }
@@ -441,9 +445,6 @@ final class SimulatorSpeed {
                 case "--warmup" -> new Config(config.set(), config.seeds(), config.perSeed(), config.samples(), config.gap(), config.waitLimit(), Integer.parseInt(value));
                 default -> throw new IllegalArgumentException("unknown option " + args[i]);
             };
-        }
-        if (config.set().equals("goo") || config.set().equals("holdout")) {
-            throw new IllegalArgumentException("the " + config.set() + " set is not for measurements of this kind");
         }
         Report report = run(config);
         System.out.println(markdown(report, commit(), "./gradlew :harness:simulatorSpeed -Psimulator.args=\"" + config.command() + "\""));

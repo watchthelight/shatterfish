@@ -72,7 +72,9 @@ class SimulatorSpeedSmokeTest {
     @Test
     @DisplayName("the measurement refuses the sets that are not for measuring")
     void goo_and_holdout_are_refused() {
-        assertThrows(IllegalArgumentException.class, () -> SimulatorSpeed.main(new String[] {"--set", "goo"}));
-        assertThrows(IllegalArgumentException.class, () -> SimulatorSpeed.main(new String[] {"--set", "holdout"}));
+        for (String set : List.of("goo", "holdout", "GOO", "Holdout", "../seeds/holdout", "bosses", "")) {
+            assertThrows(IllegalArgumentException.class, () -> SimulatorSpeed.main(new String[] {"--set", set}), set);
+            assertThrows(IllegalArgumentException.class, () -> SimulatorSpeed.run(new SimulatorSpeed.Config(set, 1, 1, 1, 0, 10, 0)), set);
+        }
     }
 }
