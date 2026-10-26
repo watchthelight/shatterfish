@@ -829,7 +829,8 @@ class CodexJsonTest {
         assertThrows(IllegalArgumentException.class, () -> new Codex.Grid("a", 3, 2, 1), "an axis runs forwards");
         assertEquals(2, one.size());
         assertThrows(IllegalArgumentException.class, () -> new Codex.HitCell(-1, 0, 10, 0));
-        assertThrows(IllegalArgumentException.class, () -> new Codex.HitCell(0, 0, 0, 0), "a cell was sampled");
+        assertThrows(IllegalArgumentException.class, () -> new Codex.HitCell(0, 0, -1, 0), "a cell was sampled or tabulated");
+        assertEquals(0, new Codex.HitCell(0, 0, Codex.HitCell.EXACT, 1000).samples(), "an exact cell makes no attack");
         assertThrows(IllegalArgumentException.class, () -> new Codex.HitCell(0, 0, 10, 1001));
         Codex.HitCell cell = new Codex.HitCell(0, 0, 10, 1000);
         assertThrows(IllegalArgumentException.class, () -> new Codex.HitTable("m", AT, one, one, true, "", List.of(cell)), "a measured table covers its grid");

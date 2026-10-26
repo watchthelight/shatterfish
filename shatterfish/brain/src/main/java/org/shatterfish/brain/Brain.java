@@ -37,19 +37,37 @@ public final class Brain {
         }
     }
 
+    /**
+     * How the Brain fights (story 6.1): the 4.x fight Policy alone, or the one-ply expectimax over the
+     * Codex's tables above it, which takes the wait when an enemy is engaged and leaves the rest
+     * (approach, chase, the Goo fight) to the fight Policy beneath it.
+     */
+    public enum Model {
+        /** The 4.x Policies, as every Brain has been until story 6.1. */
+        BASELINE,
+        /** The one-ply expectimax (ADR-0010 option 2) ahead of the fight Policy. */
+        ONE_PLY
+    }
+
     private final Codex.Knowledge knowledge;
     private final Evaluation evaluation;
     private final long seed;
+    private final Model model;
     private final List<Policy> policies;
     private final Pickup pickup;
     private final TestItem testItem;
 
     /** The Policies, highest priority first, fighting by {@code knowledge} and scoring by {@code evaluation}. */
-    private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation) {
-        return List.of(Policies.answerPrompt(knowledge), new Heal(knowledge), new Douse(knowledge), new Ranged(knowledge), new Fight(knowledge), new Eat(knowledge),
+    private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation, Model model) {
+        List<Policy> policies = new ArrayList<>(List.of(Policies.answerPrompt(knowledge), new Heal(knowledge), new Douse(knowledge), new Ranged(knowledge)));
+        if (model == Model.ONE_PLY) {
+            policies.add(new OnePly(knowledge));
+        }
+        policies.addAll(List.of(new Fight(knowledge), new Eat(knowledge),
                 new TestItem(knowledge), new Pickup(evaluation, knowledge), new Chests(evaluation, knowledge),
                 new Equip(evaluation, knowledge), new Descend(knowledge),
-                new Explore(knowledge), Policies.fallback(evaluation));
+                new Explore(knowledge), Policies.fallback(evaluation)));
+        return List.copyOf(policies);
     }
 
     /**
@@ -58,25 +76,38 @@ public final class Brain {
      * rig hashes it into the log header, so two weight sets are two configurations.
      */
     public static String configuration(Weights weights) {
+        return configuration(weights, Model.BASELINE);
+    }
+
+    /** {@link #configuration(Weights)} of the Brain that fights by {@code model} (story 6.1). */
+    public static String configuration(Weights weights, Model model) {
         // A weight set the Evaluation would refuse is no configuration at all.
         new Evaluation(weights);
-        return "policies=" + String.join(",", policyNames())
+        return "policies=" + String.join(",", policyNames(model))
                 + ";memory=" + Memory.VERSION + ";weights=" + weights.canonical();
     }
 
+    /** The 4.x Brain: {@link #Brain(Codex.Knowledge, Weights, long, Model)} with {@link Model#BASELINE}. */
+    public Brain(Codex.Knowledge knowledge, Weights weights, long seed) {
+        this(knowledge, weights, seed, Model.BASELINE);
+    }
+
     /**
-     * @param knowledge the Codex's general game knowledge, read by the caller (story 4.2)
+     * @param knowledge the Codex's general game knowledge, read by the caller (story 4.2); for
+     *                  {@link Model#ONE_PLY} it must carry the hit table
      * @param weights   the Evaluation's weights, read by the caller (story 4.5)
      * @param seed      the seed of the Brain's stream, from the caller
+     * @param model     how the Brain fights (story 6.1)
      */
-    public Brain(Codex.Knowledge knowledge, Weights weights, long seed) {
+    public Brain(Codex.Knowledge knowledge, Weights weights, long seed, Model model) {
         if (knowledge == null) {
             throw new IllegalArgumentException("a Brain is built on a Codex its caller read");
         }
         this.knowledge = knowledge;
         this.evaluation = new Evaluation(weights);
         this.seed = seed;
-        this.policies = policies(knowledge, evaluation);
+        this.model = model;
+        this.policies = policies(knowledge, evaluation, model);
         this.pickup = new Pickup(evaluation, knowledge);
         this.testItem = new TestItem(knowledge);
     }
@@ -159,8 +190,28 @@ public final class Brain {
 
     /** The names of the Policies every Brain arbitrates, highest priority first. */
     public static List<String> policyNames() {
-        return List.of(Policies.ANSWER_PROMPT, Heal.NAME, Douse.NAME, Ranged.NAME, Fight.NAME, Eat.NAME, TestItem.NAME, Pickup.NAME,
-                Chests.NAME, Equip.NAME, Descend.NAME, Explore.NAME, Policies.FALLBACK);
+        return policyNames(Model.BASELINE);
+    }
+
+    /** The names of the Policies a Brain that fights by {@code model} arbitrates, highest priority first. */
+    public static List<String> policyNames(Model model) {
+        List<String> names = new ArrayList<>(List.of(Policies.ANSWER_PROMPT, Heal.NAME, Douse.NAME, Ranged.NAME));
+        if (model == Model.ONE_PLY) {
+            names.add(OnePly.NAME);
+        }
+        names.addAll(List.of(Fight.NAME, Eat.NAME, TestItem.NAME, Pickup.NAME,
+                Chests.NAME, Equip.NAME, Descend.NAME, Explore.NAME, Policies.FALLBACK));
+        return List.copyOf(names);
+    }
+
+    /** How this Brain fights. */
+    public Model model() {
+        return model;
+    }
+
+    /** Whether {@code decision} is a fight Policy's: the 4.x one or the one-ply model's. */
+    private static boolean fighting(RunLog.Decision decision) {
+        return decision != null && (Fight.NAME.equals(decision.policy()) || OnePly.NAME.equals(decision.policy()));
     }
 
     /** The Policies, highest priority first, by name. */
@@ -263,7 +314,7 @@ public final class Brain {
         }
         // The chase (issue #174): an approach records the enemy it goes for, where the screen shows it; a
         // chase keeps it; anything else the fight Policy hands over -- an attack, a retreat, a hold -- ends it.
-        if (decision != null && Fight.NAME.equals(decision.policy())) {
+        if (fighting(decision)) {
             String why = decision.chosen().why();
             if (why.startsWith("approach ") && Fight.quarry(observation, knowledge) >= 0) {
                 memory = memory.chasing(new Memory.Spot(depth, branch, Fight.quarry(observation, knowledge)), memory.waits());
@@ -282,8 +333,7 @@ public final class Brain {
         }
         // A retreat, by the stairs or away (issue #174 added the stairs: an enemy that drops out of view
         // one Step toward them let the explore Policy walk straight back, with no region to keep it out).
-        if (decision != null && Fight.NAME.equals(decision.policy())
-                && decision.chosen().why().startsWith("retreat")) {
+        if (fighting(decision) && decision.chosen().why().startsWith("retreat")) {
             java.util.List<org.shatterfish.api.ActorView> enemies = Fight.enemies(observation, knowledge);
             int hero = observation.hero().cell();
             int width = observation.map().width();

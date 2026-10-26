@@ -865,12 +865,20 @@ public final class Codex {
         }
     }
 
-    /** One measured cell of the hit table: the two stats, how many attacks were made, and how many landed, in thousandths. */
+    /**
+     * One cell of the hit table: the two stats, the share of attacks that land, in thousandths, and how
+     * many attacks were sampled to find it. {@code samples} is {@link #EXACT} (zero) for a cell tabulated
+     * from the two uniform draws of the hit rule rather than sampled (story 6.1): it is the closed-form
+     * share rounded half up, and no attack was made.
+     */
     public record HitCell(int accuracy, int evasion, int samples, int hitPerMille) {
+
+        /** The {@code samples} of a cell that was tabulated from the rule's draws, not sampled. */
+        public static final int EXACT = 0;
 
         public HitCell {
             Canon.require(accuracy >= 0 && evasion >= 0, "a stat is not negative");
-            Canon.require(samples >= 1, "a cell was sampled: " + samples);
+            Canon.require(samples >= 0, "a cell was sampled or tabulated: " + samples);
             Canon.require(hitPerMille >= 0 && hitPerMille <= 1000, "a share is thousandths: " + hitPerMille);
         }
     }
@@ -899,6 +907,50 @@ public final class Codex {
                 Canon.require(seen.add(((long) cell.accuracy() << 32) | cell.evasion()),
                         "a cell once: accuracy " + cell.accuracy() + " evasion " + cell.evasion());
             }
+            if (measured) {
+                // The order the class comment states, which chance() indexes by.
+                for (int i = 0; i < cells.size(); i++) {
+                    HitCell cell = cells.get(i);
+                    Canon.require(cell.accuracy() == accuracy.from() + (i / evasion.size()) * accuracy.step()
+                                    && cell.evasion() == evasion.from() + (i % evasion.size()) * evasion.step(),
+                            "the cells run accuracy outer, evasion inner: cell " + i);
+                }
+            }
+        }
+
+        /**
+         * The chance an attack of {@code accuracy} lands on a defender of {@code evasion}, from the table
+         * alone (story 6.1): the four cells around the point, interpolated linearly. When either stat lies
+         * past its axis both are scaled by the same factor to fit, which is exact for the rule the cells
+         * tabulate: the hit rule draws uniformly below each stat (Char.java:646, :662), so a cell depends
+         * only on the ratio of the two. Empty when the table was not measured.
+         */
+        public java.util.OptionalDouble chance(double accuracy, double evasion) {
+            if (!measured) {
+                return java.util.OptionalDouble.empty();
+            }
+            double a = Math.max(0, accuracy);
+            double d = Math.max(0, evasion);
+            double over = Math.max(a / this.accuracy.to(), d / this.evasion.to());
+            if (over > 1) {
+                a /= over;
+                d /= over;
+            }
+            double x = (a - this.accuracy.from()) / this.accuracy.step();
+            double y = (d - this.evasion.from()) / this.evasion.step();
+            int x0 = (int) Math.min(Math.floor(x), this.accuracy.size() - 1);
+            int y0 = (int) Math.min(Math.floor(y), this.evasion.size() - 1);
+            int x1 = Math.min(x0 + 1, this.accuracy.size() - 1);
+            int y1 = Math.min(y0 + 1, this.evasion.size() - 1);
+            double fx = x - x0;
+            double fy = y - y0;
+            double low = at(x0, y0) * (1 - fx) + at(x1, y0) * fx;
+            double high = at(x0, y1) * (1 - fx) + at(x1, y1) * fx;
+            return java.util.OptionalDouble.of((low * (1 - fy) + high * fy) / 1000.0);
+        }
+
+        private int at(int accuracyIndex, int evasionIndex) {
+            return cells.get(accuracyIndex * evasion.size() + evasionIndex).hitPerMille();
         }
     }
 
@@ -1456,7 +1508,14 @@ public final class Codex {
      */
     public record Knowledge(Manifest manifest, List<Identities> families, List<RoomSpawn> rooms, List<Guarantee> guarantees,
                             List<Threat> threats, List<Gear> weapons, List<Gear> armours, List<String> immovable,
-                            List<Tactics> bestiary) {
+                            List<Tactics> bestiary, HitTable hit) {
+
+        /** Knowledge without the hit table (stories 4.7 to 5.x's shape); a model that needs it refuses to be built. */
+        public Knowledge(Manifest manifest, List<Identities> families, List<RoomSpawn> rooms, List<Guarantee> guarantees,
+                         List<Threat> threats, List<Gear> weapons, List<Gear> armours, List<String> immovable,
+                         List<Tactics> bestiary) {
+            this(manifest, families, rooms, guarantees, threats, weapons, armours, immovable, bestiary, null);
+        }
 
         public Knowledge {
             bestiary = Canon.sorted(bestiary, Comparator.comparing(Tactics::className), "bestiary");
@@ -1495,7 +1554,13 @@ public final class Codex {
 
         /** This knowledge with {@code entries} as its bestiary. */
         public Knowledge withBestiary(List<Tactics> entries) {
-            return new Knowledge(manifest, families, rooms, guarantees, threats, weapons, armours, immovable, entries);
+            return new Knowledge(manifest, families, rooms, guarantees, threats, weapons, armours, immovable, entries, hit);
+        }
+
+        /** This knowledge with {@code table} as its hit table (story 6.1); it must be a measured one. */
+        public Knowledge withHit(HitTable table) {
+            Canon.require(table != null && table.measured(), "the hit table a Brain reads is a measured one");
+            return new Knowledge(manifest, families, rooms, guarantees, threats, weapons, armours, immovable, bestiary, table);
         }
 
         /**

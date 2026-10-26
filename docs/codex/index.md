@@ -31,7 +31,7 @@ list, or the lists the object at its root holds. A number a table states that is
 | `assets.json` | 259 | [Assets](assets.md) | [58.5 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/assets.json) |
 | `challenges.json` | 9 | [Challenges](challenges.md) | [1.3 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/challenges.json) |
 | `changelog.json` | 201 | [Changelog](changelog.md) | [198.4 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/changelog.json) |
-| `combat.json` | 548 | [Combat](combat.md) | [150.1 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/combat.json) |
+| `combat.json` | 989 | [Combat](combat.md) | [176.4 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/combat.json) |
 | `decks.json` | 26 | [Decks](decks.md) | [38.8 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/decks.json) |
 | `documents.json` | 8 | [Documents](documents.md) | [44.3 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/documents.json) |
 | `guarantees.json` | 33 | [Guarantees](guarantees.md) | [130.3 KB](https://github.com/watchthelight/shatterfish/blob/main/codex/v4.0.2/guarantees.json) |

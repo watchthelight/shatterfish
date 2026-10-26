@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: '2026-09-04'
-last_updated: 2026-10-25
+last_updated: 2026-10-26
 project: shatterfish
 project_key: NOKEY
 tracking_system: file-system
@@ -124,7 +124,7 @@ development_status:
   epic-5-retrospective: done  # written at 5.16; the live session is still open
 
   epic-6: in-progress  # opened 2026-10-25, after E5; E5.16's live session is still the product owner's
-  6-1-the-one-ply-expectimax-over-codex-tables: backlog  # issue #248
+  6-1-the-one-ply-expectimax-over-codex-tables: done  # issue #248
   6-2-the-redetermination-scrubber-and-its-differential-test: backlog  # issue #249
   6-3-the-search-leak-test: backlog  # issue #250
   6-4-the-simulator-speed-measurement: backlog  # issue #251
