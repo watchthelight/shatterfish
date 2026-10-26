@@ -36,42 +36,44 @@ low-hitpoint cause, not touched here.
 
 ## The tables
 
+The baseline is `origin/main` after #264 (the sentry floor): `b1bed0e8d` for the tuning slice, `a8aa3589d` for the
+second. An earlier measurement against `d48e2d628` (before #264) read reach +7 and Goo +10 on 120 Runs; the sentry fix
+took part of that gain, so the numbers below are the ones that count.
+
 Tuning set, 40 Runs, salts 1000 to 1039:
 
 | | origin/main | this change | delta |
 |---|---|---|---|
-| reach depth 5 | 24/40 | 26/40 | +2 |
-| Goo kills | 17/40 | 19/40 | +2 |
-| median turns | 1940.5 | 2000.0 | +59.5 |
-| deepest mean / max | 5.025 / 8 | 5.075 / 7 | +0.05 |
-| deaths by depth 1..8 | 0/2/8/6/7/8/6/3 | 0/2/6/6/7/11/8/0 | |
-| oscillation Steps | 650 | 566 | -84 |
+| reach depth 5 | 28/40 | 28/40 | 0 |
+| Goo kills | 20/40 | 21/40 | +1 |
+| median turns | 2066.5 | 1971.0 | -95.5 |
+| deepest mean / max | 5.300 / 8 | 5.225 / 7 | -0.08 |
+| deaths by depth 1..8 | 0/1/7/4/8/10/7/3 | 0/1/7/4/7/12/9/0 | |
 
 Second slice, 80 Runs, salts 3000 to 3079:
 
 | | origin/main | this change | delta |
 |---|---|---|---|
-| reach depth 5 | 35/80 | 40/80 | +5 |
-| Goo kills | 27/80 | 35/80 | +8 |
-| median turns | 1807.0 | 1776.5 | -30.5 |
-| deepest mean / max | 4.250 / 8 | 4.575 / 8 | +0.33 |
-| deaths by depth 1..8 | 5/10/14/16/11/15/8/1 | 6/10/10/14/6/16/16/2 | |
-| oscillation Steps | 1049 | 1020 | -29 |
+| reach depth 5 | 40/80 | 44/80 | +4 |
+| Goo kills | 29/80 | 35/80 | +6 |
+| median turns | 1873.5 | 1818.0 | -55.5 |
+| deepest mean / max | 4.425 / 8 | 4.688 / 8 | +0.26 |
+| deaths by depth 1..8 | 4/9/14/13/14/15/10/1 | 5/9/10/12/10/16/16/2 | |
 
 Combined, 120 Runs:
 
 | | origin/main | this change | delta (paired SE) |
 |---|---|---|---|
-| reach depth 5 | 59/120 | 66/120 | +7 (+5.8 points, SE 3.6) |
-| Goo kills | 44/120 | 54/120 | +10 (+8.3 points, SE 3.5) |
+| reach depth 5 | 68/120 | 72/120 | +4 (+3.3 points, SE 3.5) |
+| Goo kills | 49/120 | 56/120 | +7 (+5.8 points, SE 3.4) |
+| Piranha deaths on depths 2 to 4 | not recorded | 6 (3 and 3 by slice) | |
+| Swarm deaths on depths 2 to 4 | 6 (earlier baseline) | 7 | |
 
-The Runs are paired by seed, and the standard error is that of the paired per-Run difference. The Goo gain is 2.4
-standard errors, reach 1.6. The second slice was the confirmation: the first lever set was tuned on the 40-Run slice
-and the 80-Run slice, drawn from other salts, moved the same way and further. Piranha killed 5 of the 120 Runs on depths
-2 to 4 with this change as well (2 and 3 by slice), so the gain is not a count of fewer piranha deaths alone: the
-heroes that stopped fighting at the shore spent their turns elsewhere and reached Goo. Swarm deaths on those depths
-were 6, unchanged. An earlier version that only refused to fight raised piranha deaths from 2 to 5 on the tuning set,
-because explore and pickup walked back to the shore; the avoided shore regions are what fixed that.
+The Runs are paired by seed, and the standard error is that of the paired per-Run difference. Neither gain is
+significant: Goo is 1.7 standard errors and reach 0.9. Both slices move the same way for Goo kills, and the tuning slice
+shows no reach gain. The change does not cut piranha deaths to zero; the heroes it saves go on to die of other things
+(swarm, hunger), which is the next cause. An earlier version that only refused to fight raised piranha deaths from 2
+to 5 on the tuning set, because explore and pickup walked back to the shore; the avoided shore regions are what fixed that.
 
 `:rig:direction` plays the baseline on the current host code; this change touches the Brain only, so the host-code
 caveat of the Goo baseline page does not apply to these columns.
