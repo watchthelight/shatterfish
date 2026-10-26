@@ -74,6 +74,21 @@ tasks.register('benchmark', JavaExec) {
     outputs.upToDateWhen { false }
 }
 
+// The simulator-speed measurement (story 6.4): what one redetermined rollout costs under the swap-in-place host, as
+// Markdown on standard output. It plays the real Brain to find mid-fight snapshots, and the Brain is a test dependency of
+// this module (no cycle), so it runs from the test classpath. `-Psimulator.args="--seeds 25 --per-seed 2 --samples 3"`
+// overrides the defaults; the set is `smoke`, and `goo` and `holdout` are refused.
+tasks.register('simulatorSpeed', JavaExec) {
+    group = 'shatterfish'
+    description = 'Times the five costs of a redetermined rollout and prints the Markdown the Results page carries.'
+    dependsOn 'testClasses'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'org.shatterfish.harness.agent.SimulatorSpeed'
+    def extra = project.findProperty('simulator.args')
+    args = extra == null || extra.toString().trim().isEmpty() ? [] : extra.toString().trim().split(/\s+/).toList()
+    outputs.upToDateWhen { false }
+}
+
 // The hook-ledger checks read docs/UPSTREAM.md and the upstream tree directly, and Gradle has no
 // way to know that from the task graph. Without these declarations an unmarked edit to an upstream
 // file, or a row deleted from the ledger, leaves :harness:test UP-TO-DATE and the check simply does

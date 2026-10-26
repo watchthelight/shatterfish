@@ -1,0 +1,64 @@
+### Environment
+
+- Machine: amd64, 24 logical processors, Windows 11 10.0
+- JDK: Azul Systems, Inc. 21.0.11 (OpenJDK 64-Bit Server VM)
+- Commit: a8aa3589d8ac3a9b857ead0360e955c2e686b832
+- Command: `./gradlew :harness:simulatorSpeed -Psimulator.args="--set smoke --seeds 25 --per-seed 3 --samples 4 --gap 40 --wait-limit 3000 --warmup 4"`
+- Configuration: set `smoke`, 25 seeds, up to 3 mid-fight snapshots each, 4 samples per snapshot, horizons 2, 3 and 4 Actions, snapshots at least 40 waits apart, 4 warm-up samples discarded
+- Measured: 73 snapshots, 289 scrubbed samples, 867 rollouts
+- System CPU load at the snapshots: min 0%, mean 24%, max 60%
+- Note: seed 2557491060791 ended (HERO_DEAD) after 2 snapshots
+- Note: seed 5072090822566 ended (HERO_DEAD) after 2 snapshots
+
+### The five costs
+
+| Cost | Horizon | n | median (ms) | 95th percentile (ms) |
+|---|---|---|---|---|
+| snapshot | - | 867 | 7.516 | 9.584 |
+| scrub | - | 289 | 3.232 | 4.242 |
+| load | - | 867 | 15.236 | 18.149 |
+| rollout | 2 Actions | 289 | 1.905 | 3.400 |
+| rollout | 3 Actions | 289 | 2.633 | 4.323 |
+| rollout | 4 Actions | 289 | 3.287 | 5.598 |
+| restore | - | 867 | 18.101 | 22.489 |
+
+### Redetermined rollouts per second per process
+
+| Horizon | one scrub per rollout (median) | one scrub per 8 rollouts (median) | one scrub per rollout (95th percentile) | measured end to end |
+|---|---|---|---|---|
+| 2 Actions | 21.74 | 23.17 | 17.28 | 21.35 |
+| 3 Actions | 21.41 | 22.78 | 17.01 | 20.88 |
+| 4 Actions | 21.11 | 22.45 | 16.65 | 20.44 |
+
+### How the lines ended
+
+| Horizon | rollouts | played every Action | ended by death | ended by refusal | ended by horizon with Actions left | win |
+|---|---|---|---|---|---|---|
+| 2 | 289 | 289 | 0 | 0 | 0 | 0 |
+| 3 | 289 | 289 | 0 | 0 | 0 | 0 |
+| 4 | 289 | 289 | 0 | 0 | 0 | 0 |
+
+### Which cost dominates
+
+| Horizon | dominant cost (median, one scrub per rollout) | its share | rate as measured | rate if it were zero |
+|---|---|---|---|---|
+| 2 | restore (18.101 ms) | 39% | 21.74/s | 35.86/s |
+| 3 | restore (18.101 ms) | 39% | 21.41/s | 34.94/s |
+| 4 | restore (18.101 ms) | 38% | 21.11/s | 34.16/s |
+
+### What fits a per-Decision budget (median costs, one process, one thread)
+
+Rollouts that fit, one scrub each, by horizon; and determinizations times rollouts at horizon 3, as D x R = total.
+
+| budgetMs | 2 Actions | 3 Actions | 4 Actions | R=1 | R=4 | R=16 |
+|---|---|---|---|---|---|---|
+| 10 | none | none | none | none | none | none |
+| 25 | none | none | none | none | none | none |
+| 50 | 1 | 1 | 1 | 1 x 1 = 1 | none | none |
+| 100 | 2 | 2 | 2 | 2 x 1 = 2 | none | none |
+| 250 | 5 | 5 | 5 | 5 x 1 = 5 | 1 x 4 = 4 | none |
+| 500 | 10 | 10 | 10 | 10 x 1 = 10 | 2 x 4 = 8 | none |
+| 1000 | 21 | 21 | 21 | 21 x 1 = 21 | 5 x 4 = 20 | 1 x 16 = 16 |
+| 2000 | 43 | 42 | 42 | 42 x 1 = 42 | 11 x 4 = 44 | 2 x 16 = 32 |
+| 5000 | 108 | 107 | 105 | 107 x 1 = 107 | 28 x 4 = 112 | 7 x 16 = 112 |
+
