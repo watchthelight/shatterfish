@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class PropertiesOracleGateTest {
 
-    private static final String THE_MEASUREMENT = "org[.]shatterfish[.]harness[.]agent[.]Properties.*";
+    private static final String THE_MEASUREMENT = "org[.]shatterfish[.]harness[.]agent[.](PropertiesMeasurement|PropertiesOracleGateTest).*";
 
     /**
      * Nothing in the harness, its main classes or its test classes (which hold every search the program has: the one-ply

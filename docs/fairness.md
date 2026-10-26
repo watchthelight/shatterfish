@@ -102,6 +102,13 @@ spelling, `--oracle`, given to either of the Rig's command lines is refused by n
 is handed the observer it sees through, and `OracleGateTest` keeps the harness's classes, the
 embedded Run among them, away from the oracle.
 
+Since E6 story 6.5 the launcher has one more door, `Launcher.hiddenFacts(Launch)`, which returns the hidden facts of the
+current floor as plain strings and refuses unless the launch carries `--oracle` (a convention the ArchUnit rules back, not a barrier: `Launch` has a public constructor). Only the properties measurement (a test-source
+tool, `:harness:propertiesMeasurement`, which passes the flag and prints it on its page) asks it, between the steps of the playouts it
+measures, into the record of a leaf and nowhere else; no driver, Brain or search is handed a fact. `PropertiesOracleGateTest` holds the door and the
+list of callers, `RigOracleGateTest.the_rig_cannot_reach_an_oracle` and `OverlayOracleGateTest.not_the_harness_launcher` hold
+that neither module asks the launcher, and `OracleGateTest` still holds the construction.
+
 Story 5.12 completes the Overlay's marking (FR-43, UX-DR11). An oracle Run draws a 2 UI px border in the
 oracle colour (`#FF2020`) around the whole view, above everything the scene holds, and prefixes every
 oracle row in the Belief summary with `oracle:`: the true name behind each unknown item the Brain's own

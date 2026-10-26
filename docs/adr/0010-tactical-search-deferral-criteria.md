@@ -165,3 +165,21 @@ No budget is chosen here and none was set before the measurement: no Registratio
 rollouts and determinizations that fit from 10 ms to 5 s, and the answer is none below about 47 ms. The classloader-isolation
 row is not reported (the E1 spike was not completed; the JNI note in ADR-0009 explains what it needs first). Whether a design
 at that rate beats the one-ply expectimax is for the properties measurement (6.5) and the candidate comparison (6.6) to say.
+
+## Amendment: story 6.5 (2026-10-26)
+
+The properties measurement now has its second reading, by the method of the story 1.21 amendment with its two changes
+(the floor's facts as the disambiguation denominator, the count at a death as well as at the horizon), from the `smoke` set's
+mid-fight snapshots, with the random agent, the baseline Brain and the one-ply model driving:
+[docs/results/2026-10-26-6-5-the-properties-measurement.md](../results/2026-10-26-6-5-the-properties-measurement.md). With a Brain
+driving, survival at 20 waits is 0.95 to 0.97, the leaf correlation 0.95 to 0.98 against a chance agreement of 0.90 to 0.95, and
+the disambiguation factor 0.07 (0.02 at the 4-wait tactical horizon); the random agent's 0.67 and 0.25 are not the numbers a
+search would meet. A Brain's kappa on alive or dead has an interval that includes zero, so the page adds a second payoff (alive
+with at least half the hero's health) on which the kappa is 0.6 to 0.8. A second slice (the first 25 `standard` Runs) reads the
+same in shape. The page explains what each predicts for sampled search in the terms of Long et al. and labels that explanatory.
+Bias is still not measured (a two-player quantity). No choice was made from these readings, and none follows from them:
+rule 4 puts the two properties beside a candidate, and story 6.6 owns the candidate.
+
+The hidden facts were counted through the oracle sidecar behind `Launcher.hiddenFacts`, which refuses without `--oracle` (a convention the ArchUnit rules back); the
+measurement is a test-source tool, no driver or search is handed a fact, and `RigOracleGateTest` and `OverlayOracleGateTest`
+keep the Rig and the Overlay from asking.
