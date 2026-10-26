@@ -1,5 +1,7 @@
 package org.shatterfish.rig;
 
+import org.shatterfish.harness.knowledge.PlaybookFile;
+
 import org.shatterfish.harness.knowledge.CodexKnowledge;
 import org.shatterfish.harness.knowledge.CodexManifest;
 import org.shatterfish.harness.knowledge.ConfigHash;
@@ -117,7 +119,26 @@ public final class Brains {
         return new org.shatterfish.brain.Brain(codex, weights, seed, org.shatterfish.brain.Brain.Model.ONE_PLY);
     }
 
-    private static String configuration(String name, org.shatterfish.api.Weights weights) {
+    /*
+     * The Playbook (story 7.2) is handed over only when the caller has one. A baseline ref older than
+     * the story has neither the Playbook constructor nor the configuration that includes it, so the
+     * calls that name them sit behind a non-null Playbook, which the direction check passes only for
+     * a checkout that has playbooks/.
+     */
+
+    private static org.shatterfish.brain.Brain playbookBrain(String name, org.shatterfish.api.Codex.Knowledge codex,
+                                                             org.shatterfish.api.Weights weights,
+                                                             org.shatterfish.api.Playbook playbook, long seed) {
+        return new org.shatterfish.brain.Brain(codex, weights, playbook, seed, ONE_PLY.equals(name)
+                ? org.shatterfish.brain.Brain.Model.ONE_PLY : org.shatterfish.brain.Brain.Model.BASELINE);
+    }
+
+    private static String configuration(String name, org.shatterfish.api.Weights weights,
+                                        org.shatterfish.api.Playbook playbook) {
+        if (playbook != null) {
+            return org.shatterfish.brain.Brain.configuration(weights, playbook, ONE_PLY.equals(name)
+                    ? org.shatterfish.brain.Brain.Model.ONE_PLY : org.shatterfish.brain.Brain.Model.BASELINE);
+        }
         return ONE_PLY.equals(name)
                 ? org.shatterfish.brain.Brain.configuration(weights, org.shatterfish.brain.Brain.Model.ONE_PLY)
                 : org.shatterfish.brain.Brain.configuration(weights);
@@ -162,7 +183,9 @@ public final class Brains {
                     "shatterfish/rig/src/main/java/org/shatterfish/rig/Brains.java",
                     CodexManifest.FOLDER,
                     // Its weights are data (story 4.5): a changed weight is a changed Brain.
-                    WeightsFile.FOLDER + "/" + name + ".json");
+                    WeightsFile.FOLDER + "/" + name + ".json",
+                    // And so are its Playbook's (story 7.2).
+                    PlaybookFile.FOLDER + "/" + name + ".json");
         }
         if (TWIN.equals(name)) {
             return List.of("shatterfish/harness/src/main/java/org/shatterfish/harness/agent/RandomAgent.java",
@@ -255,6 +278,11 @@ public final class Brains {
         return isPolicyBrain(named(name));
     }
 
+    /** Whether the Brain named {@code name} plays by a Playbook, which its caller then reads (story 7.2). */
+    public static boolean readsPlaybook(String name) {
+        return isPolicyBrain(named(name));
+    }
+
     /** Whether the Brain named {@code name} is built on a Codex, which its caller then reads. */
     public static boolean readsCodex(String name) {
         return isPolicyBrain(named(name));
@@ -283,6 +311,15 @@ public final class Brains {
      */
     public static Decider of(String name, SeedSet.Entry triple, org.shatterfish.api.Codex.Knowledge codex,
                              org.shatterfish.api.Weights weights) {
+        return of(name, triple, codex, weights, null);
+    }
+
+    /**
+     * {@link #of(String, SeedSet.Entry, org.shatterfish.api.Codex.Knowledge, org.shatterfish.api.Weights)}
+     * playing by {@code playbook}, which the caller read (story 7.2); null for a checkout that has none.
+     */
+    public static Decider of(String name, SeedSet.Entry triple, org.shatterfish.api.Codex.Knowledge codex,
+                             org.shatterfish.api.Weights weights, org.shatterfish.api.Playbook playbook) {
         named(name);
         if (isPolicyBrain(name)) {
             if (codex == null) {
@@ -292,6 +329,9 @@ public final class Brains {
             if (weights == null) {
                 throw new IllegalArgumentException("the Brain " + name + " scores by a weight set, and none was"
                         + " read for it; a Run of it states " + RunOne.WEIGHTS);
+            }
+            if (playbook != null) {
+                return new org.shatterfish.brain.BrainDecider(playbookBrain(name, codex, weights, playbook, brainSeed(name)));
             }
             return new org.shatterfish.brain.BrainDecider(ONE_PLY.equals(name) ? onePlyBrain(codex, weights, brainSeed(name))
                     : new org.shatterfish.brain.Brain(codex, weights, brainSeed(name)));
@@ -328,9 +368,10 @@ public final class Brains {
      * and, for a Brain built on the Codex, the digest of the Codex and bestiary under it.
      */
     public static String configHash(Path root, String name) {
+        Path codex = root.resolve(CodexManifest.FOLDER).resolve(org.shatterfish.harness.boot.HeadlessBoot.pinnedTag());
         return configHash(name, readsWeights(name) ? WeightsFile.read(WeightsFile.of(root, name), name) : null,
-                readsCodex(name) ? CodexKnowledge.digest(root.resolve(CodexManifest.FOLDER)
-                        .resolve(org.shatterfish.harness.boot.HeadlessBoot.pinnedTag())) : null);
+                readsPlaybook(name) ? PlaybookFile.read(PlaybookFile.of(root, name), name, codex) : null,
+                readsCodex(name) ? CodexKnowledge.digest(codex) : null);
     }
 
     /**
@@ -339,6 +380,16 @@ public final class Brains {
      * ({@code CodexKnowledge.digest}; null for a Brain that reads no Codex).
      */
     public static String configHash(String name, org.shatterfish.api.Weights weights, String knowledge) {
+        return configHash(name, weights, null, knowledge);
+    }
+
+    /**
+     * {@link #configHash(String, org.shatterfish.api.Weights, String)} for a Brain that plays by
+     * {@code playbook} (story 7.2), whose canonical text is part of what it is; null for a checkout
+     * that has none.
+     */
+    public static String configHash(String name, org.shatterfish.api.Weights weights,
+                                    org.shatterfish.api.Playbook playbook, String knowledge) {
         if (isPolicyBrain(named(name))) {
             if (weights == null) {
                 throw new IllegalArgumentException("the Brain " + name + " is configured by its weights");
@@ -351,7 +402,7 @@ public final class Brains {
             // carries, its weights, the seed of its stream (story 4.5), and the knowledge it was
             // built on, so that an edited table or an uncommitted bestiary is a different Brain
             // (the bestiary's lever 0). The Overlay computes it the same way (ConfigHash).
-            return ConfigHash.of(configuration(name, weights), brainSeed(name), knowledge);
+            return ConfigHash.of(configuration(name, weights, playbook), brainSeed(name), knowledge);
         }
         if (!RANDOM.equals(name) && !WITHHELD.containsKey(name) && !TWIN.equals(name)) {
             // A real Brain states its own configuration. Returning zeros for it would put an

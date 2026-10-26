@@ -52,6 +52,8 @@ class ApiBoundaryTest {
 			"org.shatterfish.api..",
 			"java.lang",
 			"java.lang.runtime",
+			// Only the meta-annotations of Heuristic (story 7.2): the annotation reads nothing.
+			"java.lang.annotation",
 			"java.util",
 			"java.util.function",
 			"java.util.stream",

@@ -1,5 +1,7 @@
 package org.shatterfish.brain;
 
+import org.shatterfish.api.Heuristic;
+
 import org.shatterfish.api.Hunger;
 import org.shatterfish.api.ItemKind;
 import org.shatterfish.api.ItemView;

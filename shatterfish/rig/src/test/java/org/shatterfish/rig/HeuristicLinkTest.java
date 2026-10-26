@@ -2,7 +2,7 @@ package org.shatterfish.rig;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.shatterfish.brain.Heuristic;
+import org.shatterfish.api.Heuristic;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -60,11 +60,11 @@ class HeuristicLinkTest {
             "OnePly.DEATH_PER_MILLE",
             "OnePly.ENGAGE",
             "OnePly.ENUMERATED",
+            "Playbook.Identify.inventoryOddsPerMille",
             "Plunge.FIT_PERCENT",
             "Plunge.STARVING_PERCENT",
             "Ranged.REACH",
             "SafeTest.GAS_TURNS",
-            "TestItem.INVENTORY_ODDS",
             "Traps.ENGAGED",
             "Traps.REACH");
 

@@ -1,5 +1,7 @@
 package org.shatterfish.brain;
 
+import org.shatterfish.api.Playbook;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.shatterfish.api.Action;
@@ -53,7 +55,7 @@ class TestItemPolicyTest {
                             new Codex.Candidate("items.potions.PotionOfHealing", "potion of healing", 6)))),
             List.of(), List.of());
 
-    /** A potion that is healing one time in ten: under {@link TestItem#HEALING_ODDS}. */
+    /** A potion that is healing one time in ten: under the reference healing odds. */
     private static final Codex.Knowledge RARE_HEALING = new Codex.Knowledge(Screens.MANIFEST,
             List.of(new Codex.Identities(ItemKind.POTION, List.of("jade potion"),
                     List.of(new Codex.Candidate("items.potions.PotionOfHealing", "potion of healing", 1),
@@ -78,7 +80,7 @@ class TestItemPolicyTest {
             List.of(), List.of());
 
     /**
-     * Scrolls mostly without an item picker: identify one in seven (under {@link TestItem#INVENTORY_ODDS}),
+     * Scrolls mostly without an item picker: identify one in seven (under the reference inventory odds),
      * magic mapping and teleportation the rest. {@link Screens#CODEX}'s scrolls are all item-picker
      * scrolls (upgrade and identify).
      */
@@ -222,7 +224,7 @@ class TestItemPolicyTest {
         for (String buff : List.of(TestItem.BLINDED, TestItem.MAGIC_IMMUNE)) {
             Observation refused = screen(1, row(3, -1, -1), Screens.heroAt(1, 12, 20, List.of(new BuffView(buff, false, 0))),
                     List.of(ARMOUR, upgrade), List.of(), List.of(), List.of(), read(1, TestItem.UPGRADE, 1), up);
-            assertNull(TestItem.upgrade(refused, refused.actions().actions()),
+            assertNull(TestItem.upgrade(refused, refused.actions().actions(), Playbook.Upgrade.REFERENCE),
                     buff + ": the game refuses the read with no time spent (Scroll.java:179-182)");
             assertFalse(new TestItem(Screens.CODEX).enters(refused, Memory.START), buff);
         }
@@ -241,11 +243,54 @@ class TestItemPolicyTest {
             Observation screen = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(weapon, armour),
                     List.of(), List.of(), List.of());
             ItemRef expected = levels[2] == 1 ? new ItemRef(0, "worn shortsword", 1) : new ItemRef(1, "cloth armor", 1);
-            assertEquals(expected, TestItem.target(screen), "weapon +" + levels[0] + ", armour +" + levels[1]);
+            assertEquals(expected, TestItem.target(screen, Playbook.Upgrade.REFERENCE), "weapon +" + levels[0] + ", armour +" + levels[1]);
         }
         Observation bare = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(Screens.item(
                 ItemKind.WEAPON, "worn shortsword", 1)), List.of(), List.of(), List.of());
-        assertNull(TestItem.target(bare), "no armour worn: no target");
+        assertNull(TestItem.target(bare, Playbook.Upgrade.REFERENCE), "no armour worn: no target");
+    }
+
+    @Test
+    @DisplayName("the Playbook moves the upgrade line and the tie slot: the same screen, other targets (story 7.2)")
+    void upgrade_target_follows_the_playbook() {
+        ItemView weapon = new ItemView(ItemKind.WEAPON, "worn shortsword", 1, true, 1, true, false, "",
+                org.shatterfish.api.EquipSlot.WEAPON, List.of(), "");
+        ItemView armour = new ItemView(ItemKind.ARMOR, "cloth armor", 1, true, 1, true, false, "",
+                org.shatterfish.api.EquipSlot.ARMOR, List.of(), "");
+        Observation tied = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(weapon, armour),
+                List.of(), List.of(), List.of());
+        ItemRef sword = new ItemRef(0, "worn shortsword", 1);
+        ItemRef cloth = new ItemRef(1, "cloth armor", 1);
+        assertEquals(sword, TestItem.target(tied, Playbook.Upgrade.REFERENCE), "levels tied, the weapon first");
+        assertEquals(cloth, TestItem.target(tied, Playbook.Upgrade.REFERENCE.with(java.util.Map.of("tie", "ARMOR"))),
+                "levels tied, the Playbook says the armour");
+        assertEquals(sword, TestItem.target(tied, Playbook.Upgrade.REFERENCE.with(java.util.Map.of("weapon_lead", 1L, "tie", "ARMOR"))),
+                "a lead of one: the weapon may be one level ahead before the armour is upgraded");
+        assertEquals(cloth, TestItem.target(tied, Playbook.Upgrade.REFERENCE.with(java.util.Map.of("weapon_lead", -1L))),
+                "a lead of minus one: the armour first until it is one level behind");
+    }
+
+    @Test
+    @DisplayName("the Playbook's healing odds and class entries are what the Policy decides by (story 7.2)")
+    void identify_follows_the_playbook() {
+        ItemView crimson = Screens.unknown(ItemKind.POTION, "crimson potion", 1);
+        Observation half = screen(1, row(3, -1, -1), Screens.heroAt(1, 10, 20, List.of()), List.of(crimson),
+                List.of(), List.of(), List.of(), drink(0, "crimson potion", 1));
+        TestItem reference = new TestItem(Screens.CODEX);
+        assertTrue(reference.enters(half, Memory.START), "the reference odds drink it: a crimson potion at half health");
+        Playbook strict = new Playbook("shatterfish", 1, Playbook.Identify.REFERENCE.with(java.util.Map.of(
+                "healing_odds_per_mille", 1000L, "gain_odds_per_mille", 1000L)), Playbook.Upgrade.REFERENCE, List.of());
+        assertFalse(new TestItem(Screens.CODEX, strict).enters(half, Memory.START), "odds of one in one: never a gamble");
+        // A class entry for another class changes nothing here; one for the hero's own class does.
+        org.shatterfish.api.HeroClass heroClass = half.header().heroClass();
+        org.shatterfish.api.HeroClass elsewhere = heroClass == org.shatterfish.api.HeroClass.MAGE
+                ? org.shatterfish.api.HeroClass.ROGUE : org.shatterfish.api.HeroClass.MAGE;
+        Playbook other = new Playbook("shatterfish", 1, Playbook.Identify.REFERENCE, Playbook.Upgrade.REFERENCE, List.of(
+                new Playbook.ClassEntry(elsewhere, strict.identify(), Playbook.Upgrade.REFERENCE)));
+        assertTrue(new TestItem(Screens.CODEX, other).enters(half, Memory.START), "another class's entry leaves the hero alone");
+        Playbook own = new Playbook("shatterfish", 1, Playbook.Identify.REFERENCE, Playbook.Upgrade.REFERENCE, List.of(
+                new Playbook.ClassEntry(heroClass, strict.identify(), Playbook.Upgrade.REFERENCE)));
+        assertFalse(new TestItem(Screens.CODEX, own).enters(half, Memory.START), "the hero's own entry decides");
     }
 
     @Test
@@ -333,7 +378,7 @@ class TestItemPolicyTest {
         TestItem policy = new TestItem(Screens.CODEX);
         assertFalse(policy.enters(inGas, Memory.START), "another's cloud: no escape, and no test");
         assertNull(policy.plan(inGas, Memory.START, inGas.actions().actions()));
-        Memory spent = after(TestItem.ESCAPE_WAITS + 5, 0, -1, List.of(), List.of());
+        Memory spent = after(Playbook.Identify.REFERENCE.escapeWaits() + 5, 0, -1, List.of(), List.of());
         assertNull(policy.plan(inGas, spent, inGas.actions().actions()), "the escape's waits over: still no test");
     }
 
@@ -695,14 +740,14 @@ class TestItemPolicyTest {
         Memory tested = Memory.START.trying(new Memory.Trial("jade potion", 1, -1), 6);
         Observation onTheWay = screen(1, tiles, Screens.heroAt(4, 20, 20, List.of()), List.of(), List.of(),
                 List.of(new BlobCell(0, List.of("ToxicGas"))), List.of());
-        assertTrue(TestItem.escaping(onTheWay, tested), "clear here, but not yet through the door");
-        assertEquals(new Action.Step(5), TestItem.escape(onTheWay, tested, onTheWay.actions().actions()));
+        assertTrue(TestItem.escaping(onTheWay, tested, Playbook.Identify.REFERENCE), "clear here, but not yet through the door");
+        assertEquals(new Action.Step(5), TestItem.escape(onTheWay, tested, onTheWay.actions().actions(), Playbook.Identify.REFERENCE));
         Observation there = screen(1, tiles, Screens.heroAt(6, 20, 20, List.of()), List.of(), List.of(),
                 List.of(new BlobCell(0, List.of("ToxicGas"))), List.of());
-        assertFalse(TestItem.escaping(there, tested), "on the refuge");
+        assertFalse(TestItem.escaping(there, tested, Playbook.Identify.REFERENCE), "on the refuge");
         Observation noCloud = screen(1, tiles, Screens.heroAt(4, 20, 20, List.of()), List.of(), List.of(), List.of(),
                 List.of());
-        assertFalse(TestItem.escaping(noCloud, tested), "no cloud anywhere: a harmless potion, nothing to flee");
+        assertFalse(TestItem.escaping(noCloud, tested, Playbook.Identify.REFERENCE), "no cloud anywhere: a harmless potion, nothing to flee");
     }
 
     @Test
@@ -755,10 +800,10 @@ class TestItemPolicyTest {
         Observation inGas = screen(1, row(7, -1, -1), Screens.heroAt(3, 20, 20, List.of()), List.of(), List.of(),
                 List.of(new BlobCell(3, List.of("ToxicGas"))), List.of());
         Memory without = Memory.START.trying(new Memory.Trial("jade potion", 1, -1), -1);
-        assertEquals(new Action.Step(2), TestItem.escape(inGas, without, inGas.actions().actions()));
+        assertEquals(new Action.Step(2), TestItem.escape(inGas, without, inGas.actions().actions(), Playbook.Identify.REFERENCE));
         Memory with = Memory.START.trying(new Memory.Trial("jade potion", 1, -1), 6);
         assertEquals(6, with.refuge());
-        assertEquals(new Action.Step(4), TestItem.escape(inGas, with, inGas.actions().actions()));
+        assertEquals(new Action.Step(4), TestItem.escape(inGas, with, inGas.actions().actions(), Playbook.Identify.REFERENCE));
     }
 
     @Test
@@ -770,7 +815,7 @@ class TestItemPolicyTest {
                 List.of(new BlobCell(1, List.of("ToxicGas")), new BlobCell(2, List.of("ToxicGas")),
                         new BlobCell(3, List.of("ToxicGas")), new BlobCell(4, List.of("ToxicGas"))), List.of());
         Memory justTested = Memory.START.trying(new Memory.Trial("jade potion", 1, -1));
-        assertEquals(new Action.Step(3), TestItem.escape(inGas, justTested, inGas.actions().actions()));
+        assertEquals(new Action.Step(3), TestItem.escape(inGas, justTested, inGas.actions().actions(), Playbook.Identify.REFERENCE));
     }
 
     @Test
@@ -783,7 +828,7 @@ class TestItemPolicyTest {
         Memory justTested = Memory.START.trying(new Memory.Trial("crimson potion", 1, -1));
         assertEquals(0, justTested.tested());
         assertTrue(policy.enters(inGas, justTested));
-        assertFalse(policy.enters(inGas, after(TestItem.ESCAPE_WAITS + 1, 0, -1, List.of(), List.of())),
+        assertFalse(policy.enters(inGas, after(Playbook.Identify.REFERENCE.escapeWaits() + 1, 0, -1, List.of(), List.of())),
                 "the escape's waits are over");
         assertEquals(-1, Memory.START.trying(new Memory.Trial("crimson potion", 1, 3)).tested(),
                 "a Step toward a testing cell is not a test");
@@ -817,7 +862,7 @@ class TestItemPolicyTest {
         assertEquals("rest: after-test", plan.choice().why());
         assertTrue(policy.enters(hurt, justTested));
         assertFalse(policy.enters(hurt, Memory.START), "no test handed over: nothing owed");
-        assertFalse(policy.enters(hurt, after(TestItem.REST_WAITS + 1, 0, -1, List.of(), List.of())), "bounded");
+        assertFalse(policy.enters(hurt, after(Playbook.Identify.REFERENCE.restWaits() + 1, 0, -1, List.of(), List.of())), "bounded");
         Observation whole = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(), List.of(),
                 List.of(), List.of(), new Action.Rest(true));
         assertFalse(policy.enters(whole, justTested), "at full health");
@@ -885,7 +930,7 @@ class TestItemPolicyTest {
         Memory walked = new Memory(4, 1, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
                 new Memory.Spot(1, 0, 4), 0, true, List.of(), List.of(), "Step", 0, -1, -1, List.of(), List.of(), "",
                 List.of(), Memory.Pack.NONE, Memory.Aim.NONE, -1, new Memory.Trial("jade potion", 1, 5), List.of(),
-                TestItem.WALKS, -1, List.of(), -1);
+                Playbook.Identify.REFERENCE.walks(), -1, List.of(), -1);
         Memory after = Beliefs.fold(walked, screen, FLAME);
         assertTrue(after.balksWalking(1, 0, "jade potion"), "one more Step than the bound");
         assertFalse(after.balks(1, 0, "jade potion"), "the test itself is not balked");

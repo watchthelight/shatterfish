@@ -2,7 +2,9 @@ package org.shatterfish.overlay;
 
 import org.shatterfish.api.Codex;
 import org.shatterfish.api.Decider;
+import org.shatterfish.api.Playbook;
 import org.shatterfish.api.Weights;
+import org.shatterfish.harness.knowledge.PlaybookFile;
 import org.shatterfish.brain.Brain;
 import org.shatterfish.brain.BrainDecider;
 import org.shatterfish.harness.agent.RandomAgent;
@@ -47,7 +49,8 @@ final class OverlayAgents {
         if (options.agent().equals("brain") || options.human()) {
             Weights weights = weights(options.weights());
             Codex.Knowledge knowledge = knowledge(options.codex());
-            return () -> new BrainDecider(new Brain(knowledge, weights, BRAIN_SEED));
+            Playbook playbook = playbook(options);
+            return () -> new BrainDecider(new Brain(knowledge, weights, playbook, BRAIN_SEED, Brain.Model.BASELINE));
         }
         return () -> new RandomAgent(options.agentSeed());
     }
@@ -68,8 +71,8 @@ final class OverlayAgents {
         if (!options.agent().equals("brain") && !options.human()) {
             return "0".repeat(64);
         }
-        return ConfigHash.of(Brain.configuration(weights(options.weights())), BRAIN_SEED,
-                CodexKnowledge.digest(options.codex()));
+        return ConfigHash.of(Brain.configuration(weights(options.weights()), playbook(options), Brain.Model.BASELINE),
+                BRAIN_SEED, CodexKnowledge.digest(options.codex()));
     }
 
     /**
@@ -88,6 +91,11 @@ final class OverlayAgents {
             throw new IllegalArgumentException("the Brain reads the bestiary from " + bestiary + ", which is not there");
         }
         return CodexKnowledge.read(folder, HeadlessBoot.pinnedTag());
+    }
+
+    /** The Playbook, read and validated as the Rig reads it ({@code PlaybookFile}), for the Brain named shatterfish. */
+    static Playbook playbook(LaunchOptions options) {
+        return PlaybookFile.read(options.playbook(), "shatterfish", options.codex());
     }
 
     /** The committed weight set, in the rig's format ({@code WeightsFile}), read the same way. */

@@ -1,5 +1,8 @@
 package org.shatterfish.brain;
 
+import org.shatterfish.api.Heuristic;
+import org.shatterfish.api.Playbook;
+
 import org.shatterfish.api.Action;
 import org.shatterfish.api.Belief;
 import org.shatterfish.api.Codex;
@@ -56,15 +59,16 @@ public final class Brain {
     private final List<Policy> policies;
     private final Pickup pickup;
     private final TestItem testItem;
+    private final Playbook playbook;
 
     /** The Policies, highest priority first, fighting by {@code knowledge} and scoring by {@code evaluation}. */
-    private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation, Model model) {
+    private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation, Model model, Playbook playbook) {
         List<Policy> policies = new ArrayList<>(List.of(Policies.answerPrompt(knowledge), new Heal(knowledge), new Douse(knowledge), new Ranged(knowledge)));
         if (model == Model.ONE_PLY) {
             policies.add(new OnePly(knowledge));
         }
         policies.addAll(List.of(new Fight(knowledge), new Eat(knowledge),
-                new TestItem(knowledge), new Pickup(evaluation, knowledge), new Chests(evaluation, knowledge),
+                new TestItem(knowledge, playbook), new Pickup(evaluation, knowledge), new Chests(evaluation, knowledge),
                 new Equip(evaluation, knowledge), new Descend(knowledge),
                 new Explore(knowledge), new Plunge(knowledge), Policies.fallback(evaluation)));
         return List.copyOf(policies);
@@ -81,11 +85,23 @@ public final class Brain {
 
     /** {@link #configuration(Weights)} of the Brain that fights by {@code model} (story 6.1). */
     public static String configuration(Weights weights, Model model) {
+        return configuration(weights, Playbook.reference(PLAYBOOK_NAME), model);
+    }
+
+    /**
+     * {@link #configuration(Weights, Model)} of the Brain that plays by {@code playbook} (story 7.2):
+     * the Playbook's canonical text, name and version included, joins the weights in what the rig
+     * hashes, so two Playbooks are two configurations and a log header says which one was played.
+     */
+    public static String configuration(Weights weights, Playbook playbook, Model model) {
         // A weight set the Evaluation would refuse is no configuration at all.
         new Evaluation(weights);
         return "policies=" + String.join(",", policyNames(model))
-                + ";memory=" + Memory.VERSION + ";weights=" + weights.canonical();
+                + ";memory=" + Memory.VERSION + ";weights=" + weights.canonical() + ";playbook=" + playbook.canonical();
     }
+
+    /** The name the reference Playbook carries when its caller gave none: the 4.x Brain's. */
+    private static final String PLAYBOOK_NAME = "shatterfish";
 
     /** The 4.x Brain: {@link #Brain(Codex.Knowledge, Weights, long, Model)} with {@link Model#BASELINE}. */
     public Brain(Codex.Knowledge knowledge, Weights weights, long seed) {
@@ -100,6 +116,13 @@ public final class Brain {
      * @param model     how the Brain fights (story 6.1)
      */
     public Brain(Codex.Knowledge knowledge, Weights weights, long seed, Model model) {
+        this(knowledge, weights, Playbook.reference(PLAYBOOK_NAME), seed, model);
+    }
+
+    /**
+     * @param playbook  the strategy thresholds and choices, read by the caller (story 7.2)
+     */
+    public Brain(Codex.Knowledge knowledge, Weights weights, Playbook playbook, long seed, Model model) {
         if (knowledge == null) {
             throw new IllegalArgumentException("a Brain is built on a Codex its caller read");
         }
@@ -107,9 +130,15 @@ public final class Brain {
         this.evaluation = new Evaluation(weights);
         this.seed = seed;
         this.model = model;
-        this.policies = policies(knowledge, evaluation, model);
+        this.playbook = java.util.Objects.requireNonNull(playbook, "a Brain is built on a Playbook its caller read");
+        this.policies = policies(knowledge, evaluation, model, playbook);
         this.pickup = new Pickup(evaluation, knowledge);
-        this.testItem = new TestItem(knowledge);
+        this.testItem = new TestItem(knowledge, playbook);
+    }
+
+    /** The Playbook this Brain plays by. */
+    public Playbook playbook() {
+        return playbook;
     }
 
     /** The weights this Brain scores by. */
@@ -412,7 +441,7 @@ public final class Brain {
         // Where the pick-up Policy's plan goes on this screen (story 4.8): computed from the screen
         // and the memory, so the next screen can tell a refused pick-up or Step from a wait spent
         // otherwise.
-        Memory memory = Beliefs.fold(Memory.of(belief), observation, knowledge);
+        Memory memory = Beliefs.fold(Memory.of(belief), observation, knowledge, playbook);
         // The test-item Policy ranks above pick-up (story 4.10): when it plans on this screen, pick-up
         // does not take the wait, and its plan is no plan.
         Memory.Aim aim = testItem.plan(observation, memory, observation.actions().actions()) != null

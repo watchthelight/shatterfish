@@ -1,5 +1,7 @@
 package org.shatterfish.brain;
 
+import org.shatterfish.api.Heuristic;
+
 import org.shatterfish.api.Action;
 import org.shatterfish.api.Codex;
 import org.shatterfish.api.HeapKind;

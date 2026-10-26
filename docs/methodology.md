@@ -494,6 +494,15 @@ ten-thousandths, as every Decision's score is: a weight of 10000 on a feature th
 point, and hit points count in thousandths of the maximum, so the committed weight of 10 makes a full
 bar one point. Every weight is at most 10^9 either way, and the sum is exact.
 
+**A Brain's Playbook is part of its configuration too.** The strategy numbers a person decides (the odds at
+which an unknown potion is tried, the waits after a test, where a scroll of upgrade goes) are data at
+`playbooks/<brain>.json`, typed in `api` as `Playbook`, canonical like the weights, with a `format` and a
+`version`. The Rig reads the file, `PlaybookValidator` refuses a seed, a cell, a layout, an unknown key, an
+out-of-range number or a hero class the Codex does not know, naming the field, and the Brain is handed the
+value at construction. The canonical text is part of the configuration hash, so a changed value is a different
+Brain to a Registration and the header of every log says which. It sits beside the weights and not inside them
+because the two change for different reasons and carry separate versions (ADR-0023).
+
 **`smoke` is a direction check.** ADR-0012 lets only `standard` and `bosses` accept. A comparison on
 any other set still runs the test and prints its trace, but `comparison.json` says
 `"direction_check":true` and the ledger note says "(direction check)": its ACCEPT is a direction to
@@ -589,7 +598,7 @@ chosen on, so they are quoted from 10,000 fresh ones. The full grid is on the
 
 **The margin.** A realized error rate is within calibration when it is at most its nominal rate
 plus **0.010**. Ten thousand sequences put the Monte-Carlo standard error of a rate near 0.05 at
-about 0.0022, so the margin is four and a half standard errors. It is declared here, before story
+about 0.0023, so the margin is four and a half standard errors. It is declared here, before story
 3.8's e-process exists, so that the e-process is judged by a number it did not choose. A void
 result is neither error, which is why the rule also asks for power: a cell that voids most of its
 results is within the margin and useless.

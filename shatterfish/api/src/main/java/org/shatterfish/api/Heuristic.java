@@ -1,4 +1,4 @@
-package org.shatterfish.brain;
+package org.shatterfish.api;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;

@@ -1,5 +1,7 @@
 package org.shatterfish.rig;
 
+import org.shatterfish.harness.knowledge.PlaybookFile;
+
 import org.shatterfish.harness.knowledge.CodexKnowledge;
 import org.shatterfish.api.HeroClass;
 import org.shatterfish.api.RunLog;
@@ -61,6 +63,12 @@ public final class RunOne {
     /** The weight set a Brain that scores by one is built on (story 4.5); read here, never by the Brain. */
     public static final String WEIGHTS = "--weights";
 
+    /**
+     * The Playbook a Brain that plays by one is built on (story 7.2); read here, never by the Brain.
+     * Absent only for a baseline checkout that predates Playbooks, which the direction check plays.
+     */
+    public static final String PLAYBOOK = "--playbook";
+
     private RunOne() {
     }
 
@@ -110,18 +118,21 @@ public final class RunOne {
         org.shatterfish.api.Weights weights = Brains.readsWeights(brain)
                 ? WeightsFile.read(Path.of(arguments.get(WEIGHTS)), brain)
                 : null;
+        org.shatterfish.api.Playbook playbook = Brains.readsPlaybook(brain) && arguments.containsKey(PLAYBOOK)
+                ? PlaybookFile.read(Path.of(arguments.get(PLAYBOOK)), brain, Path.of(required(arguments, CODEX)))
+                : null;
         String knowledge = arguments.containsKey(CODEX) && Brains.readsCodex(brain)
                 ? CodexKnowledge.digest(Path.of(arguments.get(CODEX))) : null;
         RunLoop.Logging logging = new RunLoop.Logging(out,
                 required(arguments, COMMIT),
-                new RunLog.Brain(brain, required(arguments, BRAIN_COMMIT), Brains.configHash(brain, weights, knowledge)),
+                new RunLog.Brain(brain, required(arguments, BRAIN_COMMIT), Brains.configHash(brain, weights, playbook, knowledge)),
                 arguments.getOrDefault(REGISTRATION, ""), arguments.getOrDefault(MACHINE, ""));
         int cap = arguments.containsKey(CAP) ? (int) number(arguments, CAP) : RunLoop.TURN_CAP;
         where();
         org.shatterfish.api.Codex.Knowledge codex = arguments.containsKey(CODEX) && Brains.readsCodex(brain)
                 ? CodexKnowledge.read(Path.of(arguments.get(CODEX)), org.shatterfish.harness.boot.HeadlessBoot.pinnedTag())
                 : null;
-        return new RunLoop().playTriple(triple, salt, wrap.apply(Brains.of(brain, triple, codex, weights)), cap, logging);
+        return new RunLoop().playTriple(triple, salt, wrap.apply(Brains.of(brain, triple, codex, weights, playbook)), cap, logging);
     }
 
     /** The file a Run leaves in its own working directory, naming that directory. */
@@ -171,7 +182,7 @@ public final class RunOne {
 
     /** Every flag a Run knows. Held by name, like the parent's (RigOracleGateTest). */
     static final java.util.List<String> KNOWN = java.util.List.of(SEED, CLASS, SALT, OUT,
-            COMMIT, BRAIN, BRAIN_COMMIT, REGISTRATION, MACHINE, CAP, CHALLENGES, CODEX, WEIGHTS);
+            COMMIT, BRAIN, BRAIN_COMMIT, REGISTRATION, MACHINE, CAP, CHALLENGES, CODEX, WEIGHTS, PLAYBOOK);
 
     private static String required(Map<String, String> arguments, String flag) {
         String value = arguments.get(flag);

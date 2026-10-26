@@ -151,6 +151,11 @@ class JsonRenderingTest {
             // The weights of a Brain's Evaluation (story 4.5): a record of numbers the Rig reads
             // from a committed file and hands to the Brain, plus its own canonical text.
             "Weights", "Weights$Term",
+            // The Playbook (story 7.2, FR-35): the strategy thresholds and choices as typed numbers and enum
+            // values, read from a committed file by the Rig (harness PlaybookFile) and handed to the Brain, plus
+            // its own canonical text. Its sections state the range of each field; none builds one from text.
+            // Heuristic is the annotation that links a Playbook field to its Rule, moved here from the brain.
+            "Playbook", "Playbook$Identify", "Playbook$Upgrade", "Playbook$ClassEntry", "Playbook$Spec", "Heuristic",
             // Decider is the seam a Brain arrives at: Observation in, Action out, and no second
             // argument to ask for anything else (story 1.14's review moved it here from the module
             // that imports the game). It is an interface with no state and no I/O, which is what

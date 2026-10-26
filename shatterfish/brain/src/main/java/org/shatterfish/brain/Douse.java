@@ -1,5 +1,7 @@
 package org.shatterfish.brain;
 
+import org.shatterfish.api.Heuristic;
+
 import org.shatterfish.api.Action;
 import org.shatterfish.api.BlobCell;
 import org.shatterfish.api.BuffView;

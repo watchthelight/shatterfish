@@ -1,5 +1,7 @@
 package org.shatterfish.brain;
 
+import org.shatterfish.api.Playbook;
+
 import org.shatterfish.api.Action;
 import org.shatterfish.api.BlobCell;
 import org.shatterfish.api.BuffView;
@@ -34,19 +36,19 @@ import java.util.Set;
  * <p>A test must pay for itself in play (story 4.10's review). A potion is drunk only when the
  * knowledge has a use now, and its worst case leaves at least a quarter of the hero's hit points
  * ({@link #reserved}): the hero is at half its hit points or below on a calm screen and the odds that
- * it is healing are at least {@link #HEALING_ODDS}; or, at any health, the odds that it is strength or
- * experience ({@link #GAINS}) are at least {@link #GAIN_ODDS}, whose use is the drink (story 4.13). Drunk then, a healing potion heals at once, and once
+ * it is healing are at least the Playbook's {@code healing_odds_per_mille}; or, at any health, the odds that it is strength or
+ * experience ({@link #GAINS}) are at least the Playbook's {@code gain_odds_per_mille}, whose use is the drink (story 4.13). Drunk then, a healing potion heals at once, and once
  * known the heal Policy (story 4.9) drinks the rest when a fight turns. A scroll is read only at full
  * health -- Lullaby's sleep is then harmless (MagicalSleep.java:37-50) and Rage's draw is met whole --
  * and only while the four identities that spend a read on their item picker (identify, remove curse,
- * transmutation, upgrade: InventoryScroll's subclasses) hold under {@link #INVENTORY_ODDS} of its
+ * transmutation, upgrade: InventoryScroll's subclasses) hold under the Playbook's {@code inventory_odds_per_mille} of its
  * odds: read plainly, such a scroll is identified and consumed with no effect
  * (InventoryScroll.java:39-50, :137-139). After a test, while the hero is short of full health,
- * it rests (up to {@link #REST_WAITS} waits) before anything else on a calm screen acts.
+ * it rests (up to the Playbook's {@code rest_waits}) before anything else on a calm screen acts.
  *
  * <p>Every test is one {@link SafeTest} calls safe at the cell it happens on. A potion's worst case
  * depends on the cell -- water shortens liquid flame's burn, a closed door beside it toxic gas's
- * cloud -- so when a cell within {@link #REACH} Steps scores a strictly smaller worst case than the
+ * cloud -- so when a cell within the Playbook's {@code reach} Steps scores a strictly smaller worst case than the
  * hero's own, it walks there first, one offered Step a wait, and drinks there. A scroll's worst case
  * does not depend on the cell and is read where the hero stands.
  *
@@ -61,7 +63,7 @@ import java.util.Set;
  * again on that floor.
  *
  * <p>After a test, it carries out the escape {@code SafeTest}'s smaller figures assume: for
- * {@link #ESCAPE_WAITS} waits, while the hero's own cell shows a harmful blob, or the hero shows
+ * the Playbook's {@code escape_waits} waits, while the hero's own cell shows a harmful blob, or the hero shows
  * "burning", it Steps toward the nearest cell with none -- the nearest water while burning. No
  * calm-screen Policy ranks above it, so nothing walks the hero deeper into the cloud first.
  */
@@ -73,14 +75,6 @@ final class TestItem implements Policy {
     /** The item actions that test: a potion's drink (Potion.java:84), a scroll's read (Scroll.java). */
     static final String DRINK = "DRINK";
     static final String READ = "READ";
-
-    /** The least odds of healing an unknown potion is drunk at (story 4.10's review). */
-    @Heuristic("unknown-potion-heal-half")
-    static final double HEALING_ODDS = 0.2;
-
-    /** The most odds the inventory scrolls may hold of an unknown scroll that is read. */
-    @Heuristic(Heuristic.UNLINKED)
-    static final double INVENTORY_ODDS = 0.25;
 
     /**
      * The scrolls whose read opens an item picker (InventoryScroll's subclasses among the regular
@@ -101,29 +95,6 @@ final class TestItem implements Policy {
      */
     static final Set<String> GAINS = Set.of("items.potions.PotionOfStrength", "items.potions.PotionOfExperience");
 
-    /**
-     * The least odds of strength or experience an unknown potion is drunk at, whatever the hero's
-     * health (story 4.13). An assumption, tuned against the rig: the worst case must still leave the
-     * reserve ({@link #reserved}), and a healing potion drunk at full health is spent, but identified.
-     */
-    @Heuristic("strength-experience-potions")
-    static final double GAIN_ODDS = 0.2;
-
-    /** The most waits after a test it rests toward full health (as the explore Policy's RESTS). */
-    @Heuristic("regen-rest-test")
-    static final int REST_WAITS = Explore.RESTS;
-
-    /** The most Steps it walks to a better testing cell. */
-    @Heuristic("test-spot-door-water")
-    static final int REACH = 8;
-
-    /**
-     * The most Steps in a row it walks toward testing cells before it balks at the appearance: twice
-     * {@link #REACH}, which a walk to a cell that stays put never needs.
-     */
-    @Heuristic("test-spot-door-water")
-    static final int WALKS = 2 * REACH;
-
     /** The buffs a read is refused under, as the screen names them (actors.properties:131, :305). */
     static final String BLINDED = "blinded";
     static final String MAGIC_IMMUNE = "immune to magic";
@@ -137,20 +108,17 @@ final class TestItem implements Policy {
      */
     static final Set<String> HARMFUL = Explore.HARMFUL;
 
-    /**
-     * How many waits after a test it steps out of fire or gas: the toxic cloud's modelled
-     * {@link SafeTest#GAS_TURNS} and two. A cloud it did not make is not its to leave: seen from
-     * outside a shut door a gassed room shows no gas at all (a closed door is solid and draws what
-     * is behind it unseen), so a Policy that stepped out of every cloud would step out of the doorway,
-     * see none, and let explore walk back in, for as long as the gas lasts.
-     */
-    @Heuristic("test-spot-door-water")
-    static final int ESCAPE_WAITS = SafeTest.GAS_TURNS + 2;
-
     private final Codex.Knowledge knowledge;
+    private final Playbook playbook;
 
+    /** The Policy under the {@linkplain Playbook#reference reference Playbook}: what the tests build. */
     TestItem(Codex.Knowledge knowledge) {
+        this(knowledge, Playbook.reference("shatterfish"));
+    }
+
+    TestItem(Codex.Knowledge knowledge, Playbook playbook) {
         this.knowledge = knowledge;
+        this.playbook = playbook;
     }
 
     /**
@@ -175,14 +143,16 @@ final class TestItem implements Policy {
         if (!Calm.quiet(observation, knowledge)) {
             return false;
         }
-        if (escaping(observation, memory)) {
+        Playbook.Identify identify = playbook.identify(observation.header().heroClass());
+        Playbook.Upgrade upgrader = playbook.upgrade(observation.header().heroClass());
+        if (escaping(observation, memory, identify)) {
             return true;
         }
         if (!settled(observation, memory) && !passing(observation, memory)) {
             return false;
         }
-        return upgrade(observation, observation.actions().actions()) != null
-                || !testable(observation, memory).isEmpty() || restOwed(observation, memory);
+        return upgrade(observation, observation.actions().actions(), upgrader) != null
+                || !testable(observation, memory).isEmpty() || restOwed(observation, memory, identify);
     }
 
     @Override
@@ -198,9 +168,11 @@ final class TestItem implements Policy {
         }
         MapSection map = observation.map();
         int hero = observation.hero().cell();
-        if (escaping(observation, memory)) {
+        Playbook.Identify identify = playbook.identify(observation.header().heroClass());
+        Playbook.Upgrade upgrader = playbook.upgrade(observation.header().heroClass());
+        if (escaping(observation, memory, identify)) {
             // Out of harm first, and clear of the cloud's edge, which spreads (Blob.java:158-186).
-            Action step = escape(observation, memory, offered);
+            Action step = escape(observation, memory, offered, identify);
             String what = inHarm(observation) ? harm(observation) : "edge";
             return step == null ? null
                     : new Plan("", 0, new RunLog.Choice(step, Policies.CERTAIN, "escape: " + what));
@@ -215,15 +187,15 @@ final class TestItem implements Policy {
         int branch = observation.header().branch();
         // A known scroll of upgrade goes onto the worn weapon or armour (story 4.13, target): the window it opens
         // is answered when the Brain's last Action was this read onto an item (story 4.11).
-        Action upgrade = settled ? upgrade(observation, offered) : null;
+        Action upgrade = settled ? upgrade(observation, offered, upgrader) : null;
         if (upgrade != null) {
-            return new Plan("", 0, new RunLog.Choice(upgrade, Policies.CERTAIN, "upgrade: " + target(observation).name()));
+            return new Plan("", 0, new RunLog.Choice(upgrade, Policies.CERTAIN, "upgrade: " + target(observation, upgrader).name()));
         }
         // An unknown scroll goes where a known upgrade would, but never onto the Mage's staff: an
         // unknown scroll of transmutation changes the item it is read onto (ScrollOfTransmutation.java:
         // 71-75): for a melee weapon, another of its tier with its level, enchantment and curse (:231-253),
         // no loss; but it takes the staff's wand (:158-159).
-        ItemRef armour = target(observation);
+        ItemRef armour = target(observation, upgrader);
         if (armour != null && armour.name().startsWith(Fight.MAGES_STAFF)) {
             armour = armour(observation);
         }
@@ -252,7 +224,7 @@ final class TestItem implements Policy {
                 int bestDistance = Integer.MAX_VALUE;
                 java.util.function.IntPredicate clean = clean(observation, memory);
                 for (int cell = 0; cell < distance.length; cell++) {
-                    if (distance[cell] < 1 || distance[cell] > REACH || !harmfulOn(map, cell).isEmpty()) {
+                    if (distance[cell] < 1 || distance[cell] > identify.reach() || !harmfulOn(map, cell).isEmpty()) {
                         continue;
                     }
                     // Only a cell a test may happen on once the hero is there (settled): never a
@@ -284,7 +256,7 @@ final class TestItem implements Policy {
                         new RunLog.Choice(use, Policies.CERTAIN, "test: " + item.guess().label()));
             }
         }
-        if (settled && restOwed(observation, memory)) {
+        if (settled && restOwed(observation, memory, identify)) {
             for (Action rest : List.of(new Action.Rest(true), new Action.Search())) {
                 if (offered.contains(rest)) {
                     return new Plan("", 0, new RunLog.Choice(rest, Policies.CERTAIN, "rest: after-test"));
@@ -309,16 +281,16 @@ final class TestItem implements Policy {
     }
 
     /**
-     * Whether a rest is owed after a test (story 4.10's review): within {@link #REST_WAITS} waits of a
+     * Whether a rest is owed after a test (story 4.10's review): within the Playbook's {@code rest_waits} waits of a
      * drink or read this Policy handed over, the hero short of full health and neither hungry nor
      * starving -- a starving hero does not regenerate (Regeneration.java:56).
      */
-    static boolean restOwed(Observation observation, Memory memory) {
+    static boolean restOwed(Observation observation, Memory memory, Playbook.Identify identify) {
         int depth = observation.header().depth();
         int branch = observation.header().branch();
         int hero = observation.hero().cell();
         int width = observation.map().width();
-        return memory.tested() >= 0 && memory.waits() - memory.tested() <= REST_WAITS
+        return memory.tested() >= 0 && memory.waits() - memory.tested() <= identify.restWaits()
                 && observation.hero().hp() < observation.hero().ht()
                 && observation.hero().hunger() == org.shatterfish.api.Hunger.NONE
                 // A locked boss floor stops regeneration and hunger (LockedFloor.java:62-64,
@@ -387,13 +359,13 @@ final class TestItem implements Policy {
      * The offered read of a known scroll of upgrade onto the {@link #target}, or null (story 4.13). It
      * makes this Policy enter, as a testable item does: a known upgrade is not one.
      */
-    static Action upgrade(Observation observation, List<Action> offered) {
+    static Action upgrade(Observation observation, List<Action> offered, Playbook.Upgrade upgrader) {
         // Blinded or immune to magic, the game refuses the read with no time spent (Scroll.java:179-182),
         // and the refusal would be handed over forever.
         if (has(observation, BLINDED) || has(observation, MAGIC_IMMUNE)) {
             return null;
         }
-        ItemRef armour = target(observation);
+        ItemRef armour = target(observation, upgrader);
         List<ItemView> pack = observation.inventory().items();
         for (int index = 0; armour != null && index < pack.size(); index++) {
             ItemView item = pack.get(index);
@@ -420,7 +392,7 @@ final class TestItem implements Policy {
      * absorbed (Armor.java:379-384): for the tier-1 pieces a Run starts in, a weapon level is worth
      * about three armour levels a hit.
      */
-    static ItemRef target(Observation observation) {
+    static ItemRef target(Observation observation, Playbook.Upgrade upgrader) {
         ItemRef armour = armour(observation);
         ItemRef weapon = worn(observation, org.shatterfish.api.EquipSlot.WEAPON);
         if (armour == null || weapon == null) {
@@ -429,7 +401,13 @@ final class TestItem implements Policy {
         ItemView a = observation.inventory().items().get(armour.index());
         ItemView w = observation.inventory().items().get(weapon.index());
         boolean upgradable = w.kind() == ItemKind.WEAPON && w.levelKnown();
-        return upgradable && w.visiblyUpgraded() <= a.visiblyUpgraded() ? weapon : armour;
+        if (!upgradable) {
+            return armour;
+        }
+        // The weapon while its level sits below the armour's plus the lead, and the tie slot on the line.
+        int gap = w.visiblyUpgraded() - a.visiblyUpgraded();
+        return gap < upgrader.weaponLead() || gap == upgrader.weaponLead() && upgrader.tie() == org.shatterfish.api.EquipSlot.WEAPON
+                ? weapon : armour;
     }
 
     /** Whether {@code ref} is the worn armour or the worn weapon: an item a read may go onto (story 4.13). */
@@ -463,6 +441,7 @@ final class TestItem implements Policy {
         for (Beliefs.Guess guess : Beliefs.identities(observation, knowledge)) {
             guesses.put(guess.label(), guess);
         }
+        Playbook.Identify identify = playbook.identify(observation.header().heroClass());
         boolean unreadable = has(observation, BLINDED) || has(observation, MAGIC_IMMUNE);
         int depth = observation.header().depth();
         int branch = observation.header().branch();
@@ -475,11 +454,11 @@ final class TestItem implements Policy {
                 continue;
             }
             String verb = item.kind() == ItemKind.POTION && guess.kind() == ItemKind.POTION
-                    && (low(observation) && odds(guess, Set.of(HEALING)) >= HEALING_ODDS
-                        || odds(guess, GAINS) >= GAIN_ODDS) ? DRINK
+                    && (low(observation) && odds(guess, Set.of(HEALING)) >= identify.healingOdds()
+                        || odds(guess, GAINS) >= identify.gainOdds()) ? DRINK
                     : item.kind() == ItemKind.SCROLL && guess.kind() == ItemKind.SCROLL && !unreadable
                     && observation.hero().hp() >= observation.hero().ht()
-                    && (odds(guess, INVENTORY_SCROLLS) < INVENTORY_ODDS || armour(observation) != null) ? READ : null;
+                    && (odds(guess, INVENTORY_SCROLLS) < identify.inventoryOdds() || armour(observation) != null) ? READ : null;
             if (verb == null || !item.actions().contains(verb)) {
                 continue;
             }
@@ -517,13 +496,13 @@ final class TestItem implements Policy {
     }
 
     /**
-     * Whether, within {@link #ESCAPE_WAITS} waits of a test this Policy handed over, the hero still has
+     * Whether, within the Playbook's {@code escape_waits} waits of a test this Policy handed over, the hero still has
      * to leave its own fire or gas: it is in harm, or at the cloud's edge ({@link #settled} fails for a
      * cloud), or a cloud is in sight or remembered on the floor and the hero is not yet on the refuge
      * beyond the door the test was credited with.
      */
-    static boolean escaping(Observation observation, Memory memory) {
-        if (memory.tested() < 0 || memory.waits() - memory.tested() > ESCAPE_WAITS) {
+    static boolean escaping(Observation observation, Memory memory, Playbook.Identify identify) {
+        if (memory.tested() < 0 || memory.waits() - memory.tested() > identify.escapeWaits()) {
             return false;
         }
         if (inHarm(observation)) {
@@ -572,10 +551,10 @@ final class TestItem implements Policy {
 
     /**
      * The offered Step out of harm: toward the nearest walkable cell with no harmful blob, or, while
-     * burning, toward the nearest water within {@link #REACH}, which puts the burning out
+     * burning, toward the nearest water within the Playbook's {@code reach}, which puts the burning out
      * (Burning.java:98-99). Every Step brings the hero strictly nearer, so it cannot stand still.
      */
-    static Action escape(Observation observation, Memory memory, List<Action> offered) {
+    static Action escape(Observation observation, Memory memory, List<Action> offered, Playbook.Identify identify) {
         MapSection map = observation.map();
         int hero = observation.hero().cell();
         // Through the cloud: a hero in the middle of one has no clean neighbour to start from.
@@ -590,7 +569,7 @@ final class TestItem implements Policy {
             target = refuge;
         }
         if (target < 0 && burning) {
-            target = nearest(map, distance, cell -> map.tiles().get(cell) == Tile.WATER && clean.test(cell), REACH);
+            target = nearest(map, distance, cell -> map.tiles().get(cell) == Tile.WATER && clean.test(cell), identify.reach());
         }
         if (target < 0) {
             // Clear of the cloud's edge, which spreads: a clean cell with no cloud beside it, which

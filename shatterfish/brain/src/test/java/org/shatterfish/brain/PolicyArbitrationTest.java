@@ -79,7 +79,8 @@ class PolicyArbitrationTest {
     @Test
     @DisplayName("the configuration names the Policies and the memory's version")
     void the_configuration() {
-        assertEquals("policies=answer-prompt,heal,douse,ranged,fight,eat,test-item,pick-up,open-chest,equip,descend,explore,plunge,fallback;memory=" + Memory.VERSION + ";weights=" + Screens.WEIGHTS.canonical(),
+        assertEquals("policies=answer-prompt,heal,douse,ranged,fight,eat,test-item,pick-up,open-chest,equip,descend,explore,plunge,fallback;memory=" + Memory.VERSION + ";weights=" + Screens.WEIGHTS.canonical()
+                + ";playbook=" + org.shatterfish.api.Playbook.reference("shatterfish").canonical(),
                 Brain.configuration(Screens.WEIGHTS));
     }
 

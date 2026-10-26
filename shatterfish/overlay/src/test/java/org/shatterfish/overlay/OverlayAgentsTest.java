@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class OverlayAgentsTest {
 
     private static final Path WEIGHTS = Path.of("../../weights/shatterfish.json");
+    private static final Path PLAYBOOK = Path.of("../../playbooks/shatterfish.json");
 
     /** The checked-in Codex, from this module's directory, where Gradle runs its tests. */
     private static final Path CODEX = Path.of("../../codex/v4.0.2");
@@ -35,7 +36,7 @@ class OverlayAgentsTest {
         assertEquals("random", OverlayAgents.name(random));
 
         LaunchOptions brain = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior",
-                "--agent", "brain", "--weights", WEIGHTS.toString(), "--codex", CODEX.toString()});
+                "--agent", "brain", "--weights", WEIGHTS.toString(), "--playbook", PLAYBOOK.toString(), "--codex", CODEX.toString()});
         assertInstanceOf(BrainDecider.class, OverlayAgents.of(brain).get());
         assertEquals("shatterfish", OverlayAgents.name(brain));
         Weights weights = OverlayAgents.weights(WEIGHTS);
@@ -49,9 +50,9 @@ class OverlayAgentsTest {
     @DisplayName("the Brain's stream is seeded as the rig seeds it, from its name and nothing about the Run")
     void the_brain_seed() {
         LaunchOptions brain = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior",
-                "--agent", "brain", "--weights", WEIGHTS.toString(), "--codex", CODEX.toString()});
+                "--agent", "brain", "--weights", WEIGHTS.toString(), "--playbook", PLAYBOOK.toString(), "--codex", CODEX.toString()});
         LaunchOptions other = LaunchOptions.parse(new String[] {"--seed", "987654321", "--class", "mage",
-                "--salt", "1234", "--agent", "brain", "--weights", WEIGHTS.toString(), "--codex", CODEX.toString()});
+                "--salt", "1234", "--agent", "brain", "--weights", WEIGHTS.toString(), "--playbook", PLAYBOOK.toString(), "--codex", CODEX.toString()});
         long seeded = ((BrainDecider) OverlayAgents.of(brain).get()).brain().seed();
         // The seed the rig's Brains.brainSeed gives the Brain of this name, through the one DeciderSeeds
         // both use; and nothing about the Run moves it.
@@ -78,7 +79,7 @@ class OverlayAgentsTest {
     @DisplayName("the embedded Brain is built on the Rig's knowledge: the Codex tables and the bestiary, not an empty Codex")
     void the_brain_knows_the_codex_and_the_bestiary() {
         LaunchOptions brain = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior",
-                "--agent", "brain", "--weights", WEIGHTS.toString(), "--codex", CODEX.toString()});
+                "--agent", "brain", "--weights", WEIGHTS.toString(), "--playbook", PLAYBOOK.toString(), "--codex", CODEX.toString()});
         Codex.Knowledge knowledge = ((BrainDecider) OverlayAgents.of(brain).get()).brain().knowledge();
         assertFalse(knowledge.families().isEmpty(), "the identifiable families");
         assertFalse(knowledge.threats().isEmpty(), "the enemies' figures");
@@ -92,7 +93,7 @@ class OverlayAgentsTest {
     @Test
     @DisplayName("with no Codex or no bestiary where it looks, the Brain is not attached with an empty one: the launch fails")
     void no_codex_no_launch(@TempDir Path empty) throws java.io.IOException {
-        String[] missing = {"--seed", "1", "--class", "warrior", "--agent", "brain", "--weights", WEIGHTS.toString(),
+        String[] missing = {"--seed", "1", "--class", "warrior", "--agent", "brain", "--weights", WEIGHTS.toString(), "--playbook", PLAYBOOK.toString(),
                 "--codex", empty.resolve("codex/v4.0.2").toString()};
         assertThrows(IllegalArgumentException.class, () -> OverlayAgents.of(LaunchOptions.parse(missing)), "no Codex");
         // A Codex folder with no bestiary two folders up.
@@ -112,17 +113,18 @@ class OverlayAgentsTest {
     @DisplayName("the log header names the Brain's configuration and the knowledge it was built on; the others state none")
     void the_config_hash() {
         LaunchOptions brain = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior",
-                "--agent", "brain", "--weights", WEIGHTS.toString(), "--codex", CODEX.toString()});
+                "--agent", "brain", "--weights", WEIGHTS.toString(), "--playbook", PLAYBOOK.toString(), "--codex", CODEX.toString()});
         String hash = OverlayAgents.configHash(brain);
         assertEquals(org.shatterfish.harness.knowledge.ConfigHash.of(org.shatterfish.brain.Brain.configuration(
-                OverlayAgents.weights(WEIGHTS)), OverlayAgents.BRAIN_SEED, CodexKnowledge.digest(CODEX)), hash,
+                OverlayAgents.weights(WEIGHTS), OverlayAgents.playbook(brain), org.shatterfish.brain.Brain.Model.BASELINE),
+                OverlayAgents.BRAIN_SEED, CodexKnowledge.digest(CODEX)), hash,
                 "the Rig's formula, on the same weights, seed and knowledge");
         assertNotEquals("0".repeat(64), hash);
         assertEquals(hash, ShatterfishLauncher.logging(brain, "test").brain().configHash(), "and the header carries it");
         LaunchOptions random = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior"});
         assertEquals("0".repeat(64), OverlayAgents.configHash(random));
         LaunchOptions human = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior",
-                "--agent", "human", "--weights", WEIGHTS.toString(), "--codex", CODEX.toString()});
+                "--agent", "human", "--weights", WEIGHTS.toString(), "--playbook", PLAYBOOK.toString(), "--codex", CODEX.toString()});
         assertEquals(hash, OverlayAgents.configHash(human), "a human's Run names the shadow Brain's configuration");
     }
 

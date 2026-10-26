@@ -136,6 +136,7 @@ nav:
       - ADR-0019 Workflow skills A/B test: adr/0019-workflow-skills-ab-test.md
       - ADR-0020 Memory sections: adr/0020-memory-sections.md
       - ADR-0021 Lore claim format and intake: adr/0021-lore-claim-format.md
+      - ADR-0023 Playbooks as data: adr/0023-playbooks-as-data.md
   - Rules:
       - rules/index.md
       - The Brain's Rules index: brain-rules.md
