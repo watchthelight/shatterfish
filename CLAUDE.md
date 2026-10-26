@@ -76,6 +76,15 @@ These apply to every artifact, every story, every line of code, and they are not
 
 Project skills (`.claude/skills/`): `/next-story`, `/rig`, `/codex`, `/upstream-sync`, `/adr`, `/sync-issues`, `/handoff`. Subagents (`.claude/agents/`): `fairness-reviewer`, `upstream-reader`. Never answer a mechanics question from memory: ask `upstream-reader` or read the pinned code and cite `path:line`. BMAD skills are `bmad-*`; the implementation path is `bmad-build` (spec, implement, adversarial review, sprint-status sync in one workflow). BMAD Method 6.11 with bmm, cis, tea; the `gds` module is installed but unused (see `_bmad/custom/config.toml`).
 
+## Lessons from E5 (`_bmad-output/implementation-artifacts/epic-5-retrospective.md`)
+
+- A test that waits on the Brain's worker waits on a condition with a deadline, never on a frame or iteration count (#193, #201, #238).
+- `:rig:direction` plays the baseline on the current host code: a harness or core change shows identical columns. Compare against the last published table or the Overlay-versus-Rig comparison, and say so in the PR.
+- Merge dependent PRs one at a time and build after each; four clean merges once broke compilation together.
+- Nothing the render thread draws may touch the Run's generator. A new sprite, emitter, sound or music call is a hook-row question first (row 8).
+- Verify interactive behaviour headless first (`ScriptedHuman` on `EmbeddedHost`, as `SewersRunSmokeTest` does). Never open a game window or any GUI from an agent session; the live session is the product owner's acceptance.
+- Run `fairness-reviewer` before opening the PR for Overlay, executor and takeover diffs. A test seed comes from the `standard` set and its page names the set; never `goo` or `holdout`.
+
 ## Style
 
 Chat replies follow the user's global caveman preference (terse, fragments fine). Code, commits, docs, PR bodies, ADRs, and anything committed are written normally and in full.
