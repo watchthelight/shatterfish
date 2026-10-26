@@ -104,8 +104,10 @@ designed; the turns bought no extra survival.
 
 ## What the table cannot show
 
-- Depth 5 deaths moved from 17 to 11 on depth 6 and 13 on the tuning slice: the hero that reaches Goo and wins goes
-  on further, so deaths by depth shift without changing the Goo count. The gate counts Goo kills only.
+- On the tuning slice deaths moved from depth 6 (17 to 11) to depth 7 (6 to 13): a hero that reaches Goo goes on a
+  floor or two further, so the death-depth row shifts without changing the Goo count. The gate counts Goo kills only.
+- The 80 slice baseline was origin/main `d2ece7cf4` (main had moved on by documentation merges); the tuning slice was
+  `efbccd998`.
 - Each lever so far (this one, rest when hurt, stairs ahead of a crab, kiting) moves reach by one or two Runs in 40.
   The 12 non-reaching Runs have five different killers and a shared food clock; one rule of either kind has so far
   been swamped. What the data above does support is that the clock is the binding constraint: a Run holds
