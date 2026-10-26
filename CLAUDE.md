@@ -76,6 +76,12 @@ These apply to every artifact, every story, every line of code, and they are not
 
 Project skills (`.claude/skills/`): `/next-story`, `/rig`, `/codex`, `/upstream-sync`, `/adr`, `/sync-issues`, `/handoff`. Subagents (`.claude/agents/`): `fairness-reviewer`, `upstream-reader`. Never answer a mechanics question from memory: ask `upstream-reader` or read the pinned code and cite `path:line`. BMAD skills are `bmad-*`; the implementation path is `bmad-build` (spec, implement, adversarial review, sprint-status sync in one workflow). BMAD Method 6.11 with bmm, cis, tea; the `gds` module is installed but unused (see `_bmad/custom/config.toml`).
 
+## Lessons from E6 (`_bmad-output/implementation-artifacts/epic-6-retrospective.md`)
+
+- A rule that needs a number the product owner has not set (a budget, a ceiling) is asked for when the epic opens. If a story must set it, the story writes the reasoning down and prints the table that lets the owner overrule it.
+- A decision that rests on a measurement page gets its arithmetic as a test that reads the page's committed log (`CandidateFitTest`), not figures typed into prose.
+- The tactical search question is closed for the current host (swap cost, 87% of a rollout); a faster host or a budget above about 270 ms reopens it (ADR-0010, story 6.6 amendment).
+
 ## Lessons from E5 (`_bmad-output/implementation-artifacts/epic-5-retrospective.md`)
 
 - A test that waits on the Brain's worker waits on a condition with a deadline, never on a frame or iteration count (#193, #201, #238).

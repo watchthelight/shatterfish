@@ -144,3 +144,14 @@ tasks.register('propertiesMeasurement', JavaExec) {
     args = ['--oracle'] + (extra == null || extra.toString().trim().isEmpty() ? [] : extra.toString().trim().split(/\s+/).toList())
     outputs.upToDateWhen { false }
 }
+
+// The fit arithmetic of story 6.6: which rollout designs complete the search they are configured for at the registered
+// budget, from the committed report of story 6.4. It times nothing and plays no Run.
+tasks.register('candidateFit', JavaExec) {
+    group = 'shatterfish'
+    description = 'Prints the Markdown table of the candidate fit arithmetic for the story 6.6 Results page.'
+    dependsOn 'testClasses'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'org.shatterfish.harness.agent.CandidateFit'
+    outputs.upToDateWhen { false }
+}
