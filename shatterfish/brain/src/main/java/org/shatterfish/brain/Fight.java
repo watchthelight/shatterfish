@@ -590,7 +590,7 @@ final class Fight implements Policy {
                     || nearest(map, step.cell(), enemies) >= from).toList();
             Path path = walk(map, walk, hero, away, cell -> map.transitions().stream()
                     .anyMatch(t -> t.cell() == cell && stairs.test(t)));
-            if (path != null && (!outpaced || path.distance <= OUTPACED_STAIRS)) {
+            if (path != null && (!outpaced || path.distance <= OUTPACED_STAIRS || leads(map, hero, path, enemies, observation, knowledge))) {
                 return new RunLog.Choice(path.step, Policies.CERTAIN, "retreat: stairs");
             }
         }
@@ -661,6 +661,30 @@ final class Fight implements Policy {
     }
 
     /**
+     * Whether the hero reaches the stairs at the end of {@code path} before the awake faster enemy nearest it is on it
+     * (issue #219, the crab deaths): the enemy closes one cell for each step the hero walks (two cells for its one,
+     * docs/brain-rules.md#faster-enemy-no-outrunning), so a walk of {@code steps} that starts {@code lead} cells ahead
+     * of it ends with the enemy still two cells off when {@code steps <= lead - 2}, and the stairs are a clean break
+     * (docs/brain-rules.md#hostiles-stay-on-their-floor). Only when the stairs are no nearer the enemy than the hero is,
+     * so the walk is not toward it. An assumption: the enemy comes straight on and the walk is as long as shown.
+     */
+    private static boolean leads(MapSection map, int hero, Path path, List<ActorView> enemies, Observation observation,
+                         Codex.Knowledge knowledge) {
+        ActorView chaser = null;
+        int lead = Integer.MAX_VALUE;
+        for (ActorView enemy : enemies) {
+            int distance = chebyshev(map, hero, enemy.cell());
+            if (enemy.emote() != org.shatterfish.api.Emote.SLEEP
+                    && Bestiary.fast(knowledge, observation.header().depth(), observation.header().branch(), enemy.name())
+                    && distance < lead) {
+                lead = distance;
+                chaser = enemy;
+            }
+        }
+        return chaser != null && path.distance <= lead - 2 && chebyshev(map, path.cell, chaser.cell()) > lead;
+    }
+
+    /**
      * Whether a retreat may take the stairs down: not onto a boss floor, and not while the hero is hurt
      * and the descend Policy is taking it down (see {@link #retreat}).
      */
@@ -686,7 +710,7 @@ final class Fight implements Policy {
         return best == Integer.MAX_VALUE ? -1 : best;
     }
 
-    private record Path(Action step, int distance) {
+    private record Path(Action step, int distance, int cell) {
     }
 
     private interface Goal {
@@ -713,7 +737,7 @@ final class Fight implements Policy {
         while (!queue.isEmpty()) {
             int cell = queue.poll();
             if (goal.at(cell)) {
-                return new Path(new Action.Step(first[cell]), distance[cell]);
+                return new Path(new Action.Step(first[cell]), distance[cell], cell);
             }
             for (int dy = -1; dy <= 1; dy++) {
                 for (int dx = -1; dx <= 1; dx++) {
