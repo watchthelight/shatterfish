@@ -404,3 +404,20 @@ The `WaitGate` settle rule counts its three-second cap in game time (`Game.elaps
 sprite that never settles is given up on still depends on frame length. It applies only to a sprite that
 neither stops nor loops; a sprite that settles is confirmed in the same wait on any frame length. Every scope
 of hook row 8 is closed in a `finally`, so an exception on the render thread cannot leave that thread routed.
+
+## Amendment (issue #245): the badge banner's shine, Profile version 6
+
+A takeover on depth 2 left an Overlay log whose replay parted on depth 3, and one Run of the Overlay comparison
+(HJO-WWK-PJG, salt 1002) varied with thread timing. Both came from one draw. When a badge banner reaches its static
+state the render thread adds a shine to the badge (`BadgeBanner.highlight`), and the `Speck` it resets draws from
+`Random.Float()` and its siblings (`Speck.java:237`). The frame on which the banner arrives is the wall clock's, so the draw landed
+inside whichever turn the Run was in and moved every roll after it. The same Run played with the desktop's frames and
+with the headless driver's therefore parted at the first fight after a badge. This is a drawing call like the
+others in row 8, so the shine is now inside a `visualBegin()` and `visualEnd()` pair (`BadgeBanner.java`, 4 added
+lines, one more site of row 8; the ledger stays at ten of eleven rows).
+
+The first test, `BadgeBannerStreamTest`, failed on main (the roll after the shine was 0.62892306, the stream's first
+roll 0.73134995) and passes with the scope. `SewersRunSmokeTest` takes over at depth 2 again, and also from wait 500
+(the first fight after a badge, which diverged at wait 691 on main). The Overlay comparison no longer has an
+exception. The Profile is version 6 because the stream of every Run that earns a badge moved; recorded Runs carrying
+profile 5 are refused by replay, and the reference Run is regenerated with `:rig:reference`.

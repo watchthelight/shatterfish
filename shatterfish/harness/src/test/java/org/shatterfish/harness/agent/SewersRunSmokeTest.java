@@ -49,12 +49,15 @@ class SewersRunSmokeTest {
     private static final int TURN_CAP = 20_000;
     private static final long FRAMES = 200_000;
     static final int HUMAN_TURNS = 3;
+    /** The floor from which the first fight is the person's; the Goo floor is the fifth. */
+    static final int TAKEOVER_DEPTH = 2;
     /**
-     * The floor from which the first fight is the person's; the Goo floor is the fifth. A takeover at the first fight
-     * on depth 2 with this seed leaves a log whose replay diverges on depth 3 (issue #245), so the scenario takes
-     * over from depth 4 until that is fixed.
+     * The wait from which the second scenario's takeover may come. With this seed and Brain the first fight on the
+     * second floor or deeper is at wait 257 and the first one after wait 500 is at wait 519; a Run taken over there
+     * parted from its replay at wait 691 (issue #245: the badge banner's shine drew from the Run's stream on the
+     * render thread, at a frame the replay's frames did not share).
      */
-    static final int TAKEOVER_DEPTH = 4;
+    static final long LATER_TAKEOVER_FROM = 500;
 
     /** What a run of the scenario found, for the assertions and for the Results page. */
     record Found(long waits, long botWaits, long windowAnswers, long humanWaits, int deepest, int gooWaits, long takeoverWait,
@@ -72,8 +75,21 @@ class SewersRunSmokeTest {
         assertTrue(found.humanWaits >= HUMAN_TURNS, "the person played their turns: " + found);
     }
 
+    @Test
+    @DisplayName("the same Run taken over at a later fight, 500 waits in, replays too (issue #245)")
+    void a_later_takeover_replays(@TempDir Path folder) throws IOException {
+        Found found = play(folder, LATER_TAKEOVER_FROM);
+        assertTrue(found.takeoverWait >= LATER_TAKEOVER_FROM, "the person took a fight after wait " + LATER_TAKEOVER_FROM + ": " + found);
+        assertTrue(found.humanWaits >= HUMAN_TURNS, "the person played their turns: " + found);
+    }
+
     /** Plays the scenario into {@code folder} and checks everything about the log; returns what it found. */
     static Found play(Path folder) throws IOException {
+        return play(folder, 0);
+    }
+
+    /** As {@link #play(Path)}, with the person taking the first fight at wait {@code takeoverFrom} or later. */
+    static Found play(Path folder, long takeoverFrom) throws IOException {
         Path played = Files.createDirectories(folder.resolve("played"));
         long takeoverWait;
         long handBackWait;
@@ -122,7 +138,7 @@ class SewersRunSmokeTest {
                     if (goo(obs)) {
                         gooWaits++;
                     }
-                    if (obs.header().depth() >= TAKEOVER_DEPTH && ScriptedHuman.offered(obs, Action.Attack.class) != null) {
+                    if (obs.header().depth() >= TAKEOVER_DEPTH && seen >= takeoverFrom && ScriptedHuman.offered(obs, Action.Attack.class) != null) {
                         takeoverHash = obs.hash();
                         takeoverWait = seen;
                         run.takeOver("Human");
