@@ -66,7 +66,7 @@ public final class Brain {
         policies.addAll(List.of(new Fight(knowledge), new Eat(knowledge),
                 new TestItem(knowledge), new Pickup(evaluation, knowledge), new Chests(evaluation, knowledge),
                 new Equip(evaluation, knowledge), new Descend(knowledge),
-                new Explore(knowledge), Policies.fallback(evaluation)));
+                new Explore(knowledge), new Plunge(knowledge), Policies.fallback(evaluation)));
         return List.copyOf(policies);
     }
 
@@ -200,7 +200,7 @@ public final class Brain {
             names.add(OnePly.NAME);
         }
         names.addAll(List.of(Fight.NAME, Eat.NAME, TestItem.NAME, Pickup.NAME,
-                Chests.NAME, Equip.NAME, Descend.NAME, Explore.NAME, Policies.FALLBACK));
+                Chests.NAME, Equip.NAME, Descend.NAME, Explore.NAME, Plunge.NAME, Policies.FALLBACK));
         return List.copyOf(names);
     }
 
@@ -410,6 +410,8 @@ public final class Brain {
         // left unfinished; no Policy means one, so none is offered one (issue #170, Explore.chasm). The
         // fight Policy's chokepoint and retreat pick among the offered Steps without a plan's walkable
         // cells, and a chasm, which no enemy stands on, looked like the best chokepoint there was.
+        List<Action> chasmSteps = offered.stream().filter(action -> action instanceof Action.Step step
+                && Explore.chasm(observation, step.cell())).toList();
         offered = offered.stream().filter(action -> !(action instanceof Action.Step step
                 && Explore.chasm(observation, step.cell()))).toList();
         // Back and forth between two cells for Memory.BOUNCES waits: the Step back is withheld from
@@ -445,10 +447,13 @@ public final class Brain {
             // both draw do not draw the same numbers, and a Policy added to the list later leaves
             // every other Policy's draws as they were (story 4.6; the key was the list position
             // before, which a new Policy would have shifted).
-            List<RunLog.Choice> ranked = policy.ranked(observation, memory, offered,
+            // The plunge Policy alone is offered the Steps onto a chasm: its jump is meant (issue #219).
+            List<Action> pool = policy.name().equals(Plunge.NAME)
+                    ? java.util.stream.Stream.concat(offered.stream(), chasmSteps.stream()).toList() : offered;
+            List<RunLog.Choice> ranked = policy.ranked(observation, memory, pool,
                     Stream.at(Stream.mix(seed ^ Stream.mix(policy.name().hashCode())), memory.waits()));
             for (RunLog.Choice choice : ranked) {
-                if (!offered.contains(choice.action())) {
+                if (!pool.contains(choice.action())) {
                     throw new IllegalStateException("the Policy " + policy.name() + " chose " + choice.action()
                             + ", which the screen does not offer");
                 }

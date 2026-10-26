@@ -139,7 +139,7 @@ final class Explore implements Policy {
      * health or more ({@code Chasm.java:99-121}, {@code :131-152}), with the floor he left unfinished.
      * {@link #WALK} already leaves the chasm out of every plan; the Brain leaves the offered Steps onto
      * one out too ({@code Brain.decide}), so no Policy's own pick among them, a fight's chokepoint or the
-     * fallback's, can take one either. No Policy means to jump today.
+     * fallback's, can take one either. Only {@link Plunge} means to jump, and it is handed them back.
      */
     static boolean chasm(Observation observation, int cell) {
         MapSection map = observation.map();

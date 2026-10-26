@@ -54,7 +54,7 @@ class ChasmTest {
     }
 
     @Test
-    @DisplayName("no Policy steps onto a chasm in view: not the fallback, not a fight's chokepoint, not a retreat")
+    @DisplayName("no Policy but plunge steps onto a chasm in view: not the fallback, not a fight's chokepoint, not a retreat")
     void never_steps_onto_a_chasm() {
         List<Observation> screens = List.of(
                 // Nothing to explore and nowhere to go but the two chasms: the fallback's menu.
@@ -82,7 +82,8 @@ class ChasmTest {
             assertTrue(screen.actions().actions().stream().anyMatch(action -> ontoAChasm(screen, action)),
                     "the screen offers a Step onto a chasm, as ValidActions offers one");
             for (Brain.Decided decided : played(screen, 12)) {
-                assertFalse(ontoAChasm(screen, decided.action()), "stepped onto a chasm: "
+                boolean meant = decided.decision() != null && Plunge.NAME.equals(decided.decision().policy());
+                assertFalse(ontoAChasm(screen, decided.action()) && !meant, "stepped onto a chasm: "
                         + (decided.decision() == null ? decided.action() : decided.decision()));
             }
         }

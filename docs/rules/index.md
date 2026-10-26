@@ -64,7 +64,7 @@ records where the code contradicted the bootstrap prompt.
 
 | Page | Rows | Covers |
 |---|---|---|
-| [Game loop and hero input](game-loop.md) | 44 | Actor scheduling, the actor thread, how a hero turn starts and ends, sprite-gated turn resolution, windows and scene switches. |
+| [Game loop and hero input](game-loop.md) | 45 | Actor scheduling, the actor thread, how a hero turn starts and ends, sprite-gated turn resolution, windows and scene switches. |
 | [Visibility](visibility.md) | 32 | What `Dungeon.observe` computes, field of view, fog, secret doors and traps, heaps, mob sprites, and every leak of unseen mobs found. |
 | [Items and identification](identification.md) | 34 | What an unidentified item shows the player, how appearances are shuffled from the seed, what identifies on use or equip, and what the Observer must never read. |
 | [Mobs, AI and combat](combat.md) | 50 | AI states, noticing, `Char.hit`, damage and armor rolls, spawn tables, boss floors and the stair lock. |
