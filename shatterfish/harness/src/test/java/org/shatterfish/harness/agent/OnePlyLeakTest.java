@@ -54,7 +54,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * must be equal. The control changes what the screen does show, and the bytes move.
  *
  * <p>Story 6.3 adds the enemies that are not what they seem, which the first version of this test did not cover: an
- * invisible enemy in view (drawn faint and flagged, so its flag is the player's, and nothing else of it is), the
+ * invisible enemy in view (drawn faint (CharSprite.java:405, the 0.4 alpha tween) and flagged, so its flag is the player's, and nothing else of it is), the
  * stealthy and passive states a mob can be in on an unchanged screen, and a mimic hiding as a chest, which is a heap on
  * the screen and an enemy only in the game. {@code SearchLeakTest} holds every search, this model included, to the
  * same standard over the scrubber's alternate worlds.
@@ -235,13 +235,18 @@ class OnePlyLeakTest {
             foe.state = (Mob.AiState) state;
             assertOneDecision(before, observe(), "the invisible enemy's AI state " + state.getClass().getSimpleName());
         }
-        // Its exact hit points, within the bar the screen draws.
+        // Its exact hit points, within the bar the screen draws: a thousand-point foe, one point down, draws the same bar
+        // (the branch must run, so a bar that moved fails here and is not skipped).
         int hp = foe.HP;
-        foe.HP = Math.max(1, hp - 1);
+        int ht = foe.HT;
+        foe.HT = 1000;
+        foe.HP = 1000;
+        Observation full = observe();
+        foe.HP = 999;
         Observation nearly = observe();
-        if (nearly.actors().actors().equals(before.actors().actors())) {
-            assertOneDecision(before, nearly, "the invisible enemy's hit points within one bar");
-        }
+        assertEquals(full.actors().actors(), nearly.actors().actors(), "one point of a thousand does not move the bar the screen draws");
+        assertOneDecision(full, nearly, "the invisible enemy's hit points within one bar");
+        foe.HT = ht;
         foe.HP = hp;
 
         // The control: the faint flag is on the screen, and when it goes the bytes and the model's input go with it.

@@ -138,12 +138,18 @@ Choice rule 1 now has its instrument. `SearchLeakTest` (harness test source set)
 `smoke` set into alternate worlds that show the player the same Observation, runs every search the program has in the
 original and in each alternate, and requires the Decisions to be the same canonical bytes. The searches are the one-ply
 model and a probe search that rolls out through the `Simulator`; the probe is a test fixture, and a real candidate joins
-the test by implementing the same small `Search` seam. A planted leak in each of four forms is caught (a forged handle, a
-read of the true seed, a scrubber missing a row, a read of an unseen mob), so a pass is not the test's inability to fail.
+the test by implementing the same small `Search` seam. A planted leak in each of several forms is caught (a forged handle, a
+read of the true seed, a read of an unseen mob, of unidentified classes, of hidden traps and doors, a refusal that tracks the
+truth, and a scrubber missing a row), so a pass is not the test's inability to fail. The missing-row control is narrow: a
+three-turn rollout from a fight reads two rows of the thirteen on every layout (`MOB_AI_AND_HP`, `MOBS_OUT_OF_VIEW`) and
+two more on some, so a search with a longer line adds a control for each row it reads.
 
 What a pass means, and does not: the Decisions do not depend on the hidden state the scrub table lets the test vary, over
 the snapshots and the rollout length it uses. A hidden element outside ADR-0009's table is outside the proof, and so are
-snapshots the scrub refuses. It is a necessary condition for a design to ship under rule 1 and not a sufficient one; the
+snapshots the scrub refuses (`Scrub.java:155-204`: a boss floor, a taken quest, a held trinket, a mimic, a quest giver or a
+chest in view). The Run's salt and the generator are one value across the worlds of one driver, so this test cannot see a
+search read them; `RedeterminationDifferentialTest` holds those rows. The one-ply half is a regression guard (its input is
+the Observation, whose hash the test asserts equal), and the probe half is the search proof. It is a necessary condition for a design to ship under rule 1 and not a sufficient one; the
 fairness reviewer reads every search diff. A refusal of the scrub is never evidence: a search treats it as "no sample",
 and the probe records the count of refusals in its Decision so that a refusal which tracks the truth is a failure here.
 The result on the `smoke` set is at `docs/results/2026-10-26-6-3-the-search-leak-test.md`.

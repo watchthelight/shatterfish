@@ -53,8 +53,9 @@ import static org.junit.jupiter.api.Assertions.fail;
 /**
  * The search leak test (story 6.3, FR-13, ADR-0010's choice rule 1): a search's Decision does not depend on anything the
  * player cannot know. For each mid-fight snapshot of the {@code smoke} set the test builds alternate worlds by scrubbing
- * the live snapshot with N different samples, which differ from the live Run and from each other in every row of the
- * ADR-0009 table; first checks that every alternate shows the player the Observation the live Run does, hash for
+ * the live snapshot with N different samples, which differ from the live Run and from each other in the hidden state the
+ * test can read back (the five elements of {@link HiddenPeek}; the Run's salt and the generator are one value across the
+ * worlds of one driver and are held by {@code RedeterminationDifferentialTest} and not by this test); first checks that every alternate shows the player the Observation the live Run does, hash for
  * hash, and then runs each search in the original and in every alternate and requires the Decisions to be the same
  * bytes: the chosen Action, the alternatives in order, the scores and the reasons, compared as the canonical JSON of
  * the Decision record and not as a hash.
@@ -449,9 +450,19 @@ class SearchLeakTest {
     void no_hidden_element_moves_a_decision() throws IOException {
         Map<HiddenPeek, String> failures = new LinkedHashMap<>();
         Stats stats = new Stats();
+        Set<HiddenPeek> varied = EnumSet.noneOf(HiddenPeek.class);
         forEachFixture(f -> {
             for (HiddenPeek element : HiddenPeek.values()) {
                 List<SnapshotHandle> alternates = alternates(f, element.rows(), N_ELEMENT);
+                // The element must really move in the alternates of its own rows, or "no leak" would be a pass over nothing.
+                enterOriginal(f);
+                long truth = element.peek();
+                for (SnapshotHandle alternate : alternates) {
+                    enter(f, alternate);
+                    if (truth != 1L && element.peek() != truth) {
+                        varied.add(element);
+                    }
+                }
                 for (Search search : List.of(onePly(), honestProbe())) {
                     try {
                         assertNoLeak(element.what(), f, alternates, search, stats);
@@ -463,6 +474,7 @@ class SearchLeakTest {
             return false;
         });
         System.out.println("SEARCHLEAK elements decisions " + stats.decisions + " rollouts " + stats.rollouts);
+        assertEquals(EnumSet.allOf(HiddenPeek.class), varied, "each element was held by a snapshot and moved by the alternates of its own rows");
         assertTrue(failures.isEmpty(), "hidden elements that reached a Decision: " + failures);
     }
 
