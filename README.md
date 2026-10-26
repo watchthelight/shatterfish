@@ -216,6 +216,11 @@ E5 (the Overlay) so far:
   beyond noise (#260, part of #219). Takeovers on depth 2 now replay exactly: the badge banner's
   sparkle no longer draws from the Run's generator (#258, Profile 6). E6.1 adds the Codex hit
   table and an opt-in one-ply model, which plays worse than the default so far (#259).
+- The Brain leaves a floor it has finished by its chasm when the stairs are out of reach, and
+  catches three-cell loops as well as two-cell bounces. Hunger deaths over 120 Runs went from 25
+  to 16, reach depth 5 from 46 to 53 and Goo kills from 34 to 41, measured before #260; with
+  #260 on the tuning set, reach 20 to 21 of 40 and Goo kills 15 of 40 unchanged (#261, part of
+  #219).
 - E4.14, first half: a differential test plays three seeds twice with unidentified item labels
   exchanged in the game and checks that the Brain acts the same while the screens match; the E4
   retrospective's lessons are in `CLAUDE.md` (#255). The gate Run on the registered set waits.
