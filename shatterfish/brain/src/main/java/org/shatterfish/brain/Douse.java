@@ -49,9 +49,11 @@ final class Douse implements Policy {
     static final String BURNING = TestItem.BURNING;
 
     /** The steps to water worth taking: a walk of w leaves 8 - w turns of burning to save (Burning.java:54). */
+    @Heuristic("burning-douse")
     static final int REACH = 5;
 
     /** The steps to bare ground worth taking, from flammable ground. */
+    @Heuristic(Heuristic.UNLINKED)
     static final int FLEE = 6;
 
     /** The ground that burns, by the tile the screen draws (Terrain.java:86-103). */

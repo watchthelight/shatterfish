@@ -251,9 +251,11 @@ public final class Brain {
     }
 
     /** How many waits a region the fight Policy retreated from stays avoided. */
+    @Heuristic(Heuristic.UNLINKED)
     static final int AVOID_WAITS = 40;
 
     /** The widest a region the fight Policy retreated from reaches, in cells from where the enemy stood. */
+    @Heuristic(Heuristic.UNLINKED)
     static final int AVOID_RADIUS = 5;
 
     /** The kinds of Action whose window, once left, is shunned on the floor (story 4.11). */

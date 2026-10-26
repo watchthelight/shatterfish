@@ -85,6 +85,7 @@ public final class SafeTest {
      * (Weapon.java:411-419), so a piece whose name shows none is one of the other 90%, cursed 0.3/0.9.
      * The Parchment Scrap trinket scales the 30% (Weapon.java:441); it is not scaled here (issue #136).
      */
+    @Heuristic("pickup-equip-weights")
     static final double WEAPON_CURSE_CHANCE = 0.3 / 0.9;
 
     /**
@@ -92,6 +93,7 @@ public final class SafeTest {
      * (Armor.java:671-679), a glyph shown in the name (Armor.java:578), so 0.3/0.85. The Parchment
      * Scrap trinket scales the 30% (Armor.java:673); not scaled here (issue #136).
      */
+    @Heuristic("pickup-equip-weights")
     static final double ARMOR_CURSE_CHANCE = 0.3 / 0.85;
 
     /** A hidden curse's chance on a piece of this kind that shows no enchantment or glyph. */
@@ -109,6 +111,7 @@ public final class SafeTest {
      * 1000 units of gas on the hero's cell (PotionOfToxicGas.java:49), which spreads over the room
      * and lasts well past the turns a hero needs to walk out of it; ten is the walk out of a room.
      */
+    @Heuristic(Heuristic.UNLINKED)
     static final int GAS_TURNS = 10;
 
     /**
@@ -118,9 +121,11 @@ public final class SafeTest {
      * door opens when entered and shuts behind the last one out (Level.java:1270, Door.java:45-58,
      * Char.java:1312), so the cloud stays in the room once the hero is through.
      */
+    @Heuristic("test-spot-door-water")
     static final int GAS_TURNS_BY_A_DOOR = 3;
 
     /** A wand's chance to be cursed when generated (Wand.java:562-563), for the mean only. */
+    @Heuristic("safe-test-worst-cases")
     static final double WAND_CURSE_CHANCE = 0.3;
 
     /** The buff the Ascension challenge shows while the Amulet is carried up (actors.properties:85). */
