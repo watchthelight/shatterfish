@@ -196,10 +196,11 @@ final class ItemRows {
      */
     static void levels(Ctx c) {
         int[] counts = new int[2];
-        visit(c.game.optJSONObject("hero"), "hero", c, counts);
-        for (JSONObject heap : Ctx.objects(c.level.optJSONArray("heaps"))) {
-            visit(heap.optJSONArray("items"), "heap@" + heap.optInt("pos"), c, counts);
-        }
+        // Every item in either bundle, wherever it lies: the pack, the heaps, the items the floor above dropped down a
+        // chasm (dropped<N>), a thief's loot, the missiles stuck in a mob in view, a shopkeeper's buy-back. The first
+        // version walked the hero and the heaps only (fairness re-review, 6.2).
+        visit(c.game, "game", c, counts);
+        visit(c.level, "level", c, counts);
         c.held(ScrubRow.ITEM_LEVEL_AND_CURSE, counts[0]);
         c.changed(ScrubRow.ITEM_LEVEL_AND_CURSE, counts[1]);
     }
@@ -257,7 +258,7 @@ final class ItemRows {
         for (int attempt = 0; attempt < 400; attempt++) {
             JSONObject fresh = fresh(cls, Mix.mix(base, attempt));
             if (fresh == null) {
-                throw new Scrub.Refused("an item of unknown level or curse (" + name + ") cannot be rolled afresh");
+                throw new Scrub.Refused("an item of unknown level or curse cannot be rolled afresh");
             }
             JSONObject freshEnchant = enchantKey == null ? null : fresh.optJSONObject(enchantKey);
             boolean freshShown = freshEnchant != null && !isCurse(freshEnchant);
@@ -292,8 +293,7 @@ final class ItemRows {
             return !before.toString().equals(item.toString());
         }
         // Failing open would keep the true curse or enchantment in a copy that shows none of it (fairness review, 6.2).
-        throw new Scrub.Refused("no fresh roll of " + name + " fits what the screen shows of it (level known " + levelKnown
-                + ", curse known " + cursedKnown + ")");
+        throw new Scrub.Refused("no fresh roll of an item fits what the screen shows of it");
     }
 
     private static boolean isCurse(JSONObject enchant) {

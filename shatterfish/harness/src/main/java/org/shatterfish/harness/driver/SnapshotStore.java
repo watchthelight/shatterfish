@@ -26,11 +26,9 @@ public final class SnapshotStore {
     /** A snapshot of {@code driver}'s Run at the Input wait it is at; the Run goes on unchanged. */
     public SnapshotHandle take(HeadlessDriver driver) {
         Objects.requireNonNull(driver, "a driver");
-        // The id is the Run's and the store's, never the process's: the salt, the wait and this
-        // store's count, so two processes of one tuple with one snapshot schedule name their
-        // snapshots alike, and a snapshot of another Run cannot share a name.
-        Snapshot snapshot = driver.snapshot("snapshot-" + Long.toHexString(driver.salt()) + "-k" + driver.waitIndex() + "-"
-                + (++taken));
+        // The id is a count and nothing else. The handle reaches the Brain, and so do the messages that name it; the
+        // Run's salt predicts every roll of the Run (ADR-0007), so no id, handle or message carries it.
+        Snapshot snapshot = driver.snapshot("snapshot-" + (++taken));
         SnapshotHandle handle = new SnapshotHandle(snapshot.id(), snapshot.k(), false);
         snapshots.put(snapshot.id(), snapshot);
         return handle;
@@ -84,11 +82,14 @@ public final class SnapshotStore {
         driver.restore(snapshot);
     }
 
-    /** Whether this store made {@code handle} as a scrubbed copy: the check a Simulator makes before it rolls out. */
+    /**
+     * Whether this store made {@code handle} as a scrubbed copy with every row of the table applied: the check a Simulator
+     * makes before it rolls out. A copy made with fewer rows (the differential test's) restores, and is never rolled out.
+     */
     public boolean madeScrubbed(SnapshotHandle handle) {
         Objects.requireNonNull(handle, "a snapshot handle");
         Snapshot snapshot = snapshots.get(handle.id());
-        return handle.scrubbed() && snapshot != null && snapshot.scrubbed() && snapshot.k() == handle.k();
+        return handle.scrubbed() && snapshot != null && snapshot.scrubbed() && snapshot.complete() && snapshot.k() == handle.k();
     }
 
     /** The snapshot named {@code id}, or null. */

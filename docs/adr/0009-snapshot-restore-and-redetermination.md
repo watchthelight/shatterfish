@@ -301,3 +301,17 @@ Written when the scrubber and the host were built; the table above is the decisi
   `heroFOV` is an input to the scrub for unknown wall cells in view; the container and unseen rows are covered only by the
   differential test's synthetic heaps, since the smoke fixtures skip chest-in-view snapshots; a rollout that ends in
   a death is held by `a_death_inside_a_rollout_is_contained`, and one that ends in a win only by the guard's unit test.
+
+### Re-review of the scrubber (PR #262)
+
+The fairness re-review of story 6.2 found two blockers and six lesser gaps; all are closed in the same PR.
+
+- Items are re-rolled wherever they lie in the saved bundles (the pack, heaps, dropped lists, a thief's loot, stuck
+  missiles, a shop's buy-back), not only in the pack and the heaps. `dropped%d` are re-rolled, not trimmed.
+- Snapshot ids are opaque: a counter for a live snapshot, and the source id, the sample's hash and the row mask for a
+  scrubbed copy. The salt predicts every roll of a Run (ADR-0007), so it appears in no id, handle or message.
+- Every known cell drawn as a wall is a variable between wall and secret door.
+- Unseen heaps and out-of-view mobs are removed before any re-roll that can refuse; refusals name no class.
+- A mob in view loses its iconless buffs and its rolled cooldowns (reset to ready).
+- A scrubbed copy counts as one only if every row ran: the rollout host refuses a copy made with a subset of rows.
+- Residual: the scrubbed copy is written to the real save slot for the length of a rollout.

@@ -399,6 +399,9 @@ class RedeterminationDifferentialTest {
                 if (!holds.contains(row)) {
                     continue;
                 }
+                if (row == ScrubRow.UNSEEN_ITEMS && liveWorld.get(row).isEmpty()) {
+                    continue; // the heaps it removed lie on cells never visited, and world() reads only known cells
+                }
                 boolean differs = false;
                 for (long n = 1; n <= 3 && !differs; n++) {
                     SnapshotHandle copy = new SnapshotScrubber(f.store, EnumSet.of(row)).scrub(f.live, sample(n));

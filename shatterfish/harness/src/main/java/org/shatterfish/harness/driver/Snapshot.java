@@ -31,11 +31,12 @@ final class Snapshot {
     private final boolean[] fov;
     private final boolean scrubbed;
     private final long activeSalt;
+    private final boolean complete;
 
     /** A snapshot of a Run's own, taken without the screen it showed (the tests that build one by hand). */
     Snapshot(String id, long k, long seed, String heroClass, long salt, int slot, Map<String, byte[]> files, List<LogLine> log,
              Map<Integer, Emote> emotes) {
-        this(id, k, seed, heroClass, salt, slot, files, log, emotes, null, null, false, salt);
+        this(id, k, seed, heroClass, salt, slot, files, log, emotes, null, null, false, salt, false);
     }
 
     /**
@@ -45,7 +46,9 @@ final class Snapshot {
      * one so a restore into another Run is still refused.
      */
     Snapshot(String id, long k, long seed, String heroClass, long salt, int slot, Map<String, byte[]> files, List<LogLine> log,
-             Map<Integer, Emote> emotes, Observation observation, boolean[] fov, boolean scrubbed, long activeSalt) {
+             Map<Integer, Emote> emotes, Observation observation, boolean[] fov, boolean scrubbed, long activeSalt,
+             boolean complete) {
+        this.complete = complete;
         this.observation = observation;
         this.fov = fov == null ? null : fov.clone();
         this.scrubbed = scrubbed;
@@ -85,6 +88,11 @@ final class Snapshot {
     }
 
     /** The salt the waits after a restore draw from: the Run's own, or a scrubbed copy's, the sample's. */
+    /** Whether the scrub that made this copy applied every row; a search rolls out only from such copies. */
+    boolean complete() {
+        return complete;
+    }
+
     long activeSalt() {
         return activeSalt;
     }

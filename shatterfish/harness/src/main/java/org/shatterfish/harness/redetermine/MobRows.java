@@ -199,6 +199,7 @@ final class MobRows {
                 state(mob, actor, random, heroPos, heroId);
             }
             health(mob, actor, random);
+            hidden(mob);
             if (!before.toString().equals(mob.toString())) {
                 changed++;
             }
@@ -237,7 +238,34 @@ final class MobRows {
         }
     }
 
-    private static void health(JSONObject mob, ActorView actor, SplittableRandom random) {
+    /**
+     * What a mob in view keeps beyond what the screen shows. Its buffs without an icon are dropped, as the hero's are
+     * ({@link GameRows#iconed}); the cooldowns its abilities hold (a beam, a vent, a leap, a web) were rolled from the
+     * game's generator and are reset to ready, which is a value that depends on nothing hidden. A copy's mobs are
+     * therefore ready to use their abilities, which is the careful way to be wrong.
+     */
+    static void hidden(JSONObject mob) {
+        JSONArray buffs = mob.optJSONArray("buffs");
+        if (buffs != null) {
+            JSONArray kept = new JSONArray();
+            for (JSONObject buff : Ctx.objects(buffs)) {
+                String name = Ctx.className(buff);
+                if (GameRows.NO_ICON_KEPT.contains(name) || GameRows.iconed(name)
+                        || ItemRows.isA(name, ShieldBuff.class)) {
+                    kept.put(buff);
+                }
+            }
+            mob.put("buffs", kept);
+        }
+        for (String key : new ArrayList<>(mob.keySet())) {
+            String lower = key.toLowerCase();
+            if ((lower.contains("cooldown") || lower.endsWith("_cd")) && mob.get(key) instanceof Number) {
+                mob.put(key, 0);
+            }
+        }
+    }
+
+    static void health(JSONObject mob, ActorView actor, SplittableRandom random) {
         int ht = mob.optInt("HT");
         if (ht <= 0) {
             return;
@@ -258,7 +286,7 @@ final class MobRows {
         }
         if (valid.isEmpty()) {
             // Keeping the true hit points of a mob whose bar fits none would leak them (fairness review, 6.2).
-            throw new Scrub.Refused("no hit points of " + Ctx.className(mob) + " fit the health bar the screen draws");
+            throw new Scrub.Refused("no hit points of a mob fit the health bar the screen draws");
         }
         mob.put("HP", valid.get(random.nextInt(valid.size())));
     }

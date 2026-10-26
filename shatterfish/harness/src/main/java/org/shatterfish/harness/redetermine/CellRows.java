@@ -52,8 +52,13 @@ final class CellRows {
         }
         for (int cell = 0; cell < c.length; cell++) {
             if (c.known(cell)) {
-                if (secretOn && original[cell] == Terrain.SECRET_DOOR) {
-                    secrets++;
+                if (secretOn && (original[cell] == Terrain.SECRET_DOOR || original[cell] == Terrain.WALL)) {
+                    // Every known cell the screen draws as a wall is a variable that starts as a wall, whatever it truly
+                    // is: whether a cell is a variable must not tell a secret door from a wall (fairness re-review, 6.2).
+                    if (original[cell] == Terrain.SECRET_DOOR) {
+                        secrets++;
+                    }
+                    terrain[cell] = Terrain.WALL;
                     vars.add(cell);
                     domains.add(new int[] {Terrain.WALL, Terrain.SECRET_DOOR});
                 } else if (secretOn && original[cell] == Terrain.SECRET_TRAP) {

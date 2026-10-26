@@ -259,3 +259,30 @@ Import edges, ArchUnit, leak tests per row, the toggle test and the determinism 
   two-worlds-one-screen leak test per row.
 - **Residuals added.** See ADR-0009's amendment: re-created buff icons, true ids kept, `limited_drops` zeroed, `heroFOV`
   as an input, container and unseen rows covered by synthetic heaps only.
+- **Fairness re-review of PR #262 (verdict BLOCK, fixed on the same branch).** Held by
+  `RedeterminationReReviewTest` and `MobRowsTest`; all but the wand-charge, REMAINS and secret-door-equivalence tests fail
+  on the code before the fix (those fill the gap the review named; the equivalence test passes before the fix too,
+  because the solver resets an unneeded door to a wall either way, so it guards the property rather than proving the
+  change).
+  1. *Items outside the pack and the heaps.* `ItemRows.levels` now walks the whole `game` and `level` bundles, so the
+     chasm-dropped `dropped%d` lists, a Thief's stolen item, a pin cushion's stuck missiles and a shopkeeper's buy-back are
+     rolled afresh like the pack's. They are re-rolled rather than trimmed (the audit table said "trim or scrub"); a trim
+     would change what a descent inside a rollout finds.
+  2. *Salt in ids.* A live snapshot's id is `snapshot-<counter>`; a scrubbed copy's id is the source id, the sample's hash
+     and the row mask. No id, handle or refusal message prints a salt (the driver's salt-mismatch message too).
+  3. *Walls and secret doors.* Every known cell the screen draws as a wall is a variable in `CellRows` with the domain
+     {WALL, SECRET_DOOR}, so a true secret door is no longer the only cell the solver may turn.
+  4. *Order and wording.* Unseen heaps and out-of-view mobs are removed before any re-roll that can refuse, and
+     refusal messages name no class.
+  5. *Mobs in view.* `MobRows.hidden` drops their iconless buffs and resets cooldowns rolled from `Random` (any numeric
+     key containing `cooldown` or ending `_cd`) to ready.
+  6. *Partial copies.* `Snapshot` carries `complete`, true only when the scrubber ran with every row; `madeScrubbed`
+     requires it, so `RolloutHost` refuses a copy made with a subset. The subset constructor stays public for the
+     differential test, which restores such copies through the store.
+  7. `OracleGateTest` excepts `ItemRows` from the `loadClass` rule only; `forName` stays barred everywhere.
+  8. Tests added for wand charges, REMAINS, the health bar and a no-fitting-roll refusal.
+
+  Residuals from the re-review: the scrubbed copy is written to the real save slot while a rollout runs (the live Run is
+  restored from memory afterwards, but a crash mid-rollout leaves the copy in the slot); mob cooldowns reset to ready
+  rather than sampled; `dropped%d` are re-rolled, not trimmed. The differential test's world reader sees only unseen
+  heaps on known cells, so heaps on never-visited cells are removed but not read back.

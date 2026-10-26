@@ -98,14 +98,19 @@ public final class Scrub {
         if (c.on(ScrubRow.STEALTHY_MIMIC_KEPT)) {
             c.held(ScrubRow.STEALTHY_MIMIC_KEPT, 1);
         }
+        // What the screen never shows goes first: the re-rolls below can refuse, and a refusal must never be decided by an
+        // item the copy is about to lose (an unseen heap, a thief out of view).
+        if (c.on(ScrubRow.UNSEEN_ITEMS)) {
+            ItemRows.unseen(c);
+        }
+        if (c.on(ScrubRow.MOBS_OUT_OF_VIEW)) {
+            MobRows.outOfView(c);
+        }
         if (c.on(ScrubRow.POTION_SCROLL_RING_CLASSES)) {
             ItemRows.classes(c);
         }
         if (c.on(ScrubRow.ITEM_LEVEL_AND_CURSE)) {
             ItemRows.levels(c);
-        }
-        if (c.on(ScrubRow.MOBS_OUT_OF_VIEW)) {
-            MobRows.outOfView(c);
         }
         if (c.on(ScrubRow.MOB_AI_AND_HP)) {
             MobRows.aiAndHealth(c);
@@ -113,9 +118,6 @@ public final class Scrub {
         CellRows.apply(c);
         if (c.on(ScrubRow.CONTAINER_CONTENTS)) {
             ItemRows.containers(c);
-        }
-        if (c.on(ScrubRow.UNSEEN_ITEMS)) {
-            ItemRows.unseen(c);
         }
         if (c.on(ScrubRow.HERO_HIDDEN_BUFFS)) {
             GameRows.heroBuffs(c);

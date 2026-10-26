@@ -422,7 +422,7 @@ public final class HeadlessDriver implements AutoCloseable {
         Observation shown = new Observer().observe();
         boolean[] fov = Dungeon.level.heroFOV.clone();
         return new Snapshot(id, gate.waitIndex(), runSeed, hero.heroClass.name(), rng.salt(), GamesInProgress.curSlot, files,
-                GameLogListener.INSTANCE.lines(), emotes, shown, fov, false, rng.salt());
+                GameLogListener.INSTANCE.lines(), emotes, shown, fov, false, rng.salt(), false);
     }
 
     /**
@@ -442,8 +442,7 @@ public final class HeadlessDriver implements AutoCloseable {
         // Refused by the tuple before the Run is touched: a snapshot's waits draw from its Run's
         // stream, and its floors are its seed's and its hero's.
         if (snapshot.salt() != rng.salt()) {
-            throw new IllegalArgumentException("snapshot " + snapshot.id() + " belongs to a Run with salt "
-                    + Long.toHexString(snapshot.salt()) + ", and this Run's is " + Long.toHexString(rng.salt()));
+            throw new IllegalArgumentException("snapshot " + snapshot.id() + " belongs to a Run with another salt, and cannot be restored into this one");
         }
         Hero hero = Dungeon.hero;
         if (snapshot.seed() != runSeed || hero == null || !snapshot.heroClass().equals(hero.heroClass.name())) {

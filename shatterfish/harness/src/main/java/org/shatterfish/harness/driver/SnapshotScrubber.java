@@ -79,7 +79,7 @@ public final class SnapshotScrubber extends Redeterminer {
                 + Integer.toHexString(mask);
         Snapshot copy = new Snapshot(name, from.k(),
                 from.seed(), from.heroClass(), from.salt(), from.slot(), out.files(), from.log(), from.emotes(), shown, fov, true,
-                active);
+                active, rows.equals(EnumSet.allOf(ScrubRow.class)));
         return store.adopt(copy);
     }
 }
