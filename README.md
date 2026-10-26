@@ -208,7 +208,10 @@ E5 (the Overlay) so far:
   of three turns and replays exactly; 16 of 16 Overlay Runs end as the Rig's do, 15 of 16
   Observation for Observation. The E5 retrospective's lessons are in `CLAUDE.md` (#246). A
   takeover on depth 2 still breaks replay (#245).
-- Next: the replay fix (#245), the live watched sewers run, and more of the Goo work (#219).
+- Epic 6, tactical search, is open: six stories from a one-ply model over Codex tables to search
+  on the real engine with hidden state re-sampled (#254, issues #248 to #253).
+- Next: the replay fix (#245), the live watched sewers run, more of the Goo work (#219), and
+  E6.1, the one-ply model (#248).
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:
