@@ -6,9 +6,9 @@ the mirror exact and is safe to re-run. The epics and their stories come from
 [the epic breakdown](bmad/planning-artifacts/epics.md); the goals and done-when below are its
 words, which supersede the starting position in the [bootstrap prompt](BOOTSTRAP-PROMPT.md).
 
-Story issues exist for E1 through E6 today (E1, E2 and E3 are closed; E4 waits on its last story, the registered `goo` gate; E5 is done except a live human session; E6 is current,
-with its six stories at [#248](https://github.com/watchthelight/shatterfish/issues/248) through
-[#253](https://github.com/watchthelight/shatterfish/issues/253)).
+Story issues exist for E1 through E7 today (E1, E2 and E3 are closed; E4 waits on its last story, the registered `goo` gate; E5 is done except a live human session; E6 is closed; E7 is current,
+with its ten stories at [#278](https://github.com/watchthelight/shatterfish/issues/278) through
+[#287](https://github.com/watchthelight/shatterfish/issues/287)).
 The rest are created when their epic becomes current or next, so that a story is mirrored close to
 when it is worked and not months before.
 
@@ -21,7 +21,7 @@ when it is worked and not months before.
 | **E4 Baseline brain** | [E4](https://github.com/watchthelight/shatterfish/milestone/5) | [#48](https://github.com/watchthelight/shatterfish/issues/48) | 14 stories | A hand-built bot that plays the sewers competently | The Warrior kills Goo on at least 75% of the `goo` Seed set with a lower bound of at least 70% | in progress (4.14 open) |
 | **E5 Overlay v1** | [E5](https://github.com/watchthelight/shatterfish/milestone/6) | [#49](https://github.com/watchthelight/shatterfish/issues/49) | 16 stories | A person can watch the bot think, step it, and take the controls mid-fight | A full sewers Run watched end to end with a mid-fight takeover and no desync | in review (headless half merged; the live session is the product owner's) |
 | **E6 Tactical search** | [E6](https://github.com/watchthelight/shatterfish/milestone/7) | [#50](https://github.com/watchthelight/shatterfish/issues/50) | 6 stories | Better fighting, if and only if the numbers say so | A candidate design is accepted against the one-ply model under the Sequential test, or the measurements are published and the question is closed | done at story 6.6: the measurements are published and measurements published, the one-ply model stays, provisional on the budget (opened 2026-10-25) |
-| **E7 Strategy and lore** | [E7](https://github.com/watchthelight/shatterfish/milestone/8) | [#51](https://github.com/watchthelight/shatterfish/issues/51) | titles only | Whole-Run planning and a cited knowledge base | A measured win rate, and every heuristic linked to a Rule or a Lore entry with a Tier | deferred |
+| **E7 Strategy and lore** | [E7](https://github.com/watchthelight/shatterfish/milestone/8) | [#51](https://github.com/watchthelight/shatterfish/issues/51) | 10 stories | Whole-Run planning and a cited knowledge base | A measured win rate, and every heuristic linked to a Rule or a Lore entry with a Tier | current (opened 2026-10-26) |
 | **E8 Overlay v2** | [E8](https://github.com/watchthelight/shatterfish/milestone/9) | [#52](https://github.com/watchthelight/shatterfish/issues/52) | titles only | The instrument becomes a teacher | Feature-complete per bootstrap §5 | deferred |
 | **E9 Learned evaluation (optional)** | [E9](https://github.com/watchthelight/shatterfish/milestone/10) | [#53](https://github.com/watchthelight/shatterfish/issues/53) | titles only | A learned value function that plays fair | Beats the hand-tuned Evaluation under the Sequential test | optional |
 

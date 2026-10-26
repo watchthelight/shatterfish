@@ -182,7 +182,7 @@ acceptance criteria.
 | FR-15 | E2 | 2.9 |
 | FR-16 | E2 | 2.8 |
 | FR-17 | E2, E4 | 2.10, 4.4 |
-| FR-18 | E7 | deferred |
+| FR-18 | E7 | 7.1, 7.7, 7.8, 7.9, 7.10 |
 | FR-19 | E3 | 3.3 |
 | FR-20 | E3 | 3.1 |
 | FR-21 | E3 | 3.6, 3.7, 3.8 |
@@ -199,7 +199,7 @@ acceptance criteria.
 | FR-32 | E4 | 4.4 |
 | FR-33 | E4 | 4.5 |
 | FR-34 | E6 | deferred |
-| FR-35 | E7 | deferred; weights as data land in 4.5 |
+| FR-35 | E7 | 7.2 to 7.6 (weights as data landed in 4.5) |
 | FR-36 | E4, E5 | 4.4, 5.4 |
 | FR-37 | E5 | 5.1 |
 | FR-38 | E5 | 5.2, 5.3, 5.4, 5.15 |
@@ -1971,15 +1971,503 @@ candidate)
 **And** `docs/roadmap.md`, `sprint-status.yaml` and the epic issue are updated in the same pull
 request, the E6 retrospective runs, and its lessons land in `CLAUDE.md`.
 
-## Epic 7: Strategy and lore (deferred)
+## Epic 7: Strategy and lore
+
+*Opened 2026-10-26, after E6 closed (6.6: no rollout design fits the budget, the one-ply model stays).
+E4's last story (4.14, the Goo gate) is still open and E5.16's live session is the product owner's;
+the program allows stories for the current and the next epic (bootstrap prompt, section 9), and E7
+is the next one.*
 
 Whole-run planning and a knowledge base that admits community claims only with provenance and a
-verification tier. Story titles: item-identification strategy; upgrade allocation; per-boss
-playbooks; per-class playbooks; playbooks as data; the lore claim format and intake; the variant
-classifier from the vocabulary diff; date gating from the changelog; the heuristic-to-Rule link
-check.
+verification tier. The Brain already plays the sewers by Policies (E4) with a one-ply fight model
+(E6). What it lacks is a place for whole-run decisions to live as data the Rig can test, and a
+record of why each of its heuristics is believed. This epic adds both: Playbooks (FR-35), then the
+lore pipeline (FR-18), then the check that ties every heuristic to a Rule or a Lore entry with a Tier.
 
-Covers FR-18 and FR-35.
+Covers FR-18 and FR-35, and the Lore half of FR-17's "every claim the Brain relies on".
+
+**Where the Brain stands when the epic opens.** On the Profile 6 baseline at `7b1212eea` the
+Warrior reaches depth 5 in 49% of 120 Runs, kills Goo in 37%, and has never won a Run
+(`docs/results/2026-10-26-goo-baseline-7b1212eea.md`). Deaths by depth 1 to 8 were 5 / 12 / 22 / 22 /
+18 / 23 / 14 / 4, and hunger kills about one Run in six on depths 2 to 4
+(`docs/ideas/2026-10-26-rest-when-hurt-and-fed.md`). So the done-when, "a measured win rate", will
+measure a rate near zero unless the strategy stories move reach and depth a long way. The closing
+story publishes whatever the number is, with its interval, beside the depth distribution, and says
+plainly that a win rate of zero is a result. The epic does not set a win rate to hit; it asks the
+product owner for one (see "Questions for the product owner" at the end of this epic).
+
+**What exists, and what the stories build on.**
+
+- `weights/shatterfish.json` and `weights/oneply.json` are the only strategy data today (FR-33,
+  story 4.5). Every other threshold is a Java constant, for example `TestItem.HEALING_ODDS`,
+  `TestItem.INVENTORY_ODDS`, the descend allowance of 500 waits, the rest rules in `Explore` and
+  `Descend`. Those constants are the first Playbook entries.
+- `docs/brain-rules.md` is the Brain's Rules index (story 4.4): one row per claim, a slug, the
+  Policies that use it, and a link to a Rule page that carries the Tier. `BrainRulesIndexTest` holds
+  it in both directions. It covers claims about mechanics. It does not yet cover thresholds, which
+  are choices and not claims, and it has no Lore side.
+- `lore/bestiary/*.md` holds 144 graded community claims in eight grouped files (bosses 31, caves 12,
+  city 15, halls 8, prison 5, quest-branch 39, sewers 10, specials 24). Each has a source, variant,
+  date, retrieved date, tier, a verdict against `v4.0.0` and citations. That is nearly the FR-18 shape,
+  but grouped instead of one file per claim, with no checker, no `implemented_in`, and graded at
+  `v4.0.0` where the pin is `v4.0.2`. Story 7.7 converts it; it does not start from nothing.
+- `codex/v4.0.2/vocabulary.json` (FR-16) pairs 449 names, items and mobs only (no mechanics kind),
+  from SPD and the vanilla Pixel Dungeon source, with `shared`, `differences` and citations on both
+  sides, and says "nothing reads it yet". 114 are shared by name and 335 are not.
+- `codex/v4.0.2/changelog.json` has 195 changelog entries across 14 changelist classes and **no
+  calendar date on any of them** (`dates` is empty on all 195; the bootstrap prompt already records
+  that the v3.3.8 entry carries no date and that no 4.0 entry exists at the tag). Story 7.9 is written
+  around that: gating by version series first, and calendar dates only from a committed, cited table.
+
+Information parity (non-negotiable 1) binds every story. A Playbook is data the Brain reads at
+construction, like the Evaluation weights, and may use only what an Observation, a Belief or the
+Codex gives it. Lore never reaches the Brain as text: a claim becomes behaviour only through a
+heuristic that cites it (non-negotiable 8), and a claim about a seed or a layout is rejected at
+intake. Every story that changes `brain` carries the `fairness` label, and the `fairness-reviewer`
+subagent runs before its PR opens. Every claim about a mechanic is cited to `v4.0.2` as `path:line`.
+
+**How the stories are measured.** The lessons of E4 to E6 are acceptance rules here, not advice:
+
+- Tuning uses the `standard` set only, Warrior first (`--set standard --class WARRIOR --first 40
+  --salt-base 1000`), and a kept change is confirmed on the second slice (`--first 80 --salt-base
+  3000`) before it merges. `goo` and `holdout` are never used for tuning, and `:rig:direction`
+  refuses them.
+- One table is one measurement. The noise on 40 Runs is about 3 Goo kills and on 80 about 4, so a
+  difference inside that is "no change". A lever that does not separate from noise on both slices is
+  reverted and recorded as an idea (`docs/ideas/`), which is a finished story and not a failed one
+  (the rest-when-hurt and crab-stairs levers of #219 are the pattern).
+- Every table reports reach depth 5, Goo kills, kills over reach, median turns and deaths by depth,
+  so a gain in one factor is not read as a gain in the other. A rate target is split into reach times
+  conversion and each factor is stated.
+- `:rig:direction` plays the baseline on the current host code. A data-only refactor shows no
+  difference in a table, so it is proved by equal Run logs (story 7.2), not by a table.
+- A Playbook change that ships is also registered and decided by the Sequential test on `standard`
+  against `main` at the story's start (ADR-0012, ADR-0018), with its Results page. Stories 7.3, 7.4,
+  7.5 and 7.6 say which. Each story re-takes its baseline at the start, since the Goo gate work (4.14,
+  issue #219) is still moving `main`.
+- The Goo gate itself belongs to 4.14. Stories here may raise reach, which 4.14 needs, but none runs
+  the `goo` set and none claims the gate.
+
+Story order follows the lever, not the FR order. The first story is small, changes no play and
+leaves a count that goes down. The data format comes next, because the strategy stories are Playbook
+changes (FR-35: strategy lives in data files the Rig tests). Then the strategy that can raise reach:
+item identification and resource use (7.3, 7.4), the bosses (7.5) and the classes (7.6). The lore
+pipeline (7.7 to 7.9) follows, so that the link check of 7.1 can accept Lore entries, and the closing
+story (7.10) measures the win rate and checks that every heuristic is linked.
+
+### Story 7.1: The heuristic-to-Rule link check
+
+As the product owner,
+I want a test that fails when a Brain heuristic has no Rule behind it,
+So that "every heuristic is cited" is a count that goes to zero and stays there (FR-18, FR-17).
+
+**Acceptance Criteria:**
+
+**Given** `docs/brain-rules.md`, `BrainRulesIndexTest` and the constants the Policies decide by
+**When** the check is extended
+**Then** a heuristic, meaning a named threshold, odds, budget or ordering choice a Policy decides by
+(for example `TestItem.HEALING_ODDS`, `TestItem.INVENTORY_ODDS`, `TestItem.REACH`, the descend
+allowance, the rest thresholds), is declared in code with a small `@Heuristic` annotation in `brain`
+that carries a slug and nothing else, so the declaration is machine-readable and adds no behaviour
+**And** the slug must be a row of `docs/brain-rules.md` (a Rule) or, once story 7.7 lands, a Lore
+claim id; a slug that names neither fails `HeuristicLinkTest`, naming the constant
+**And** the test finds the annotated constants by reflection over the `brain` classes and not by
+grepping source, so a renamed constant cannot slip past
+**And** a table on the index page, written by a helper the test also uses and checked for drift the
+way the Codex is, lists each heuristic with its slug, its linked Rule, that Rule's Tier, and the
+Policies that use it.
+
+**Given** that the Brain has thresholds today that no Rule backs
+**When** the first run of the check finds them
+**Then** the story does not invent a Rule for each. A threshold that was tuned on the Rig links to the
+Results page or idea record that measured it, at Tier 2 only if a test in the repository reproduces the
+figure and Tier 3 (a hypothesis for the Rig) otherwise; a threshold nobody can account for goes on a
+visible `unlinked` allowlist in the test, with its count at the head of the index page, and the test
+fails if that count rises
+**And** the PR states the count before and after (heuristics found, linked to a Rule, linked at
+Tier 3, unlinked), which is the story's measurement and the baseline story 7.10 closes against.
+
+**Given** the Brain's determinism
+**When** the annotation is added
+**Then** `BrainDeterminismTest` and the existing differential tests stay green, and the `smoke` set
+played on `main` and on the branch produces byte-identical Run logs (the PR gives both hashes),
+because this story changes no play
+**And** the PR carries the `fairness` label because it touches `brain`, with the fairness-reviewer
+verdict in the PR; no Rig table is required and the PR says why.
+
+### Story 7.2: Playbooks as data
+
+As the Rig,
+I want strategy thresholds and choices read from a versioned data file,
+So that a Playbook change is a pull request with Results and a bad Playbook fails validation (FR-35).
+
+**Acceptance Criteria:**
+
+**Given** FR-35, the architecture spine's line that committed data files are Seed sets,
+Registrations, Playbooks and Evaluation weights, and the precedent of `weights/shatterfish.json`
+**When** the Playbook format is defined
+**Then** an `api`-typed `Playbook` value exists, versioned like `Weights`, read from
+`playbooks/<brain>.json` by the Rig and handed to the Brain at construction, with a `format` and a
+`version` field and a section per concern (`identify`, `upgrade`, `bosses`, `classes`, each optional),
+holding typed numbers and enums only, never free text the Brain would interpret
+**And** an ADR (written with `/adr`, five options scored against the non-negotiables, one of them
+"keep the constants in Java") records the format, why the Playbook sits beside the weights and not
+inside them, and how a Registration pins a Playbook (the Brain's name and the file's hash)
+**And** the Run log header records the Playbook's name and hash, as it does for the weights, so a
+Replay uses the same one.
+
+**Given** FR-35's validation rule
+**When** `PlaybookValidator` is implemented
+**Then** it rejects, with a message that names the field: a seed or seed string; a dungeon coordinate,
+cell index or floor layout; a hero class not in `hero-classes.json`; an unknown key; a number outside
+the range its field declares; and an enum value the Codex does not know
+**And** `PlaybookValidatorTest` has one rejecting case per rule and an accepting case, so the
+validator cannot pass by rejecting nothing
+**And** the validator runs in `./gradlew build` over every committed Playbook and in the Rig before a
+Registration is accepted.
+
+**Given** that moving constants into data must change no play
+**When** the first Playbook, `playbooks/shatterfish.json`, is written
+**Then** it holds exactly the values the Java constants hold today for the `identify` and `upgrade`
+sections (the tested-item odds, the inventory-scroll cap, the walk reach, the escape waits), and the
+Policies read them through the Playbook
+**And** `PlaybookEquivalenceTest` plays the `smoke` set on the constants (the commit before the story)
+and on the Playbook and asserts byte-identical Run logs, with a control that edits one value and
+asserts the logs differ, so the test cannot hold for any Brain
+**And** the heuristics that moved keep their `@Heuristic` slug from story 7.1, now declared on the
+Playbook field, and `HeuristicLinkTest` is green
+**And** the PR is labelled `fairness`, carries the reviewer's verdict, and says that no Rig table is
+shown because the Run logs are equal, which is the stronger statement.
+
+### Story 7.3: Item-identification strategy
+
+As the bot,
+I want a Playbook that decides which unknown potions and scrolls to try, when, and where,
+So that I find healing, strength and the useful scrolls early without dying to a bad drink, and reach
+depth 5 more often.
+
+**Acceptance Criteria:**
+
+**Given** the lever and its evidence
+**When** the story starts
+**Then** the story file records a micro-brainstorm of at least three alternatives (for example: test
+sooner and at full health; stop testing an appearance the deck weights already narrow to one
+candidate; throw rather than drink a potion the Beliefs say is mostly harmful; hold unknowns for an
+emergency drink when the healing odds are highest), the pre-mortem, and the baseline table for `main`
+at the story's start from the `standard` set (reach depth 5, kills over reach, median turns, deaths by
+depth, and how many deaths follow a test, counted from the Run logs' test-item Decisions)
+**And** the claims about identification it relies on are Rules with `path:line` citations at
+`v4.0.2` (`docs/rules/identification.md`, the deck weights in `codex/v4.0.2/decks.json`), each with a
+row in `docs/brain-rules.md`, and `upstream-reader` is asked for any mechanic not yet cited.
+
+**Given** the Playbook of story 7.2
+**When** the `identify` section is tuned
+**Then** the change is a Playbook change plus only the Policy code needed to read a new field, and
+the Observer is not touched; the Brain uses the Beliefs' candidate identities and never a true
+identity, and `PermutedIdentitiesDifferentialTest` stays green
+**And** `IdentifyPlaybookTest` asserts on constructed screens that each new field changes the Decision
+it is meant to, and that a Playbook equal to the old values reproduces the old Decision
+**And** the strategy log (FR-36) names the Playbook field that fired, so a Run's identification
+choices can be read with `:rig:strategy` and no debugger.
+
+**Given** Rig discipline
+**When** the step is measured
+**Then** the PR carries the tuning-slice direction table and the second-slice table, both against
+`main`, with reach and conversion split, and the repeated-cell and wasted-wait check of a real-Run
+strategy log that E4 requires
+**And** a step that wins on both slices is registered and run under the Sequential test on `standard`
+against `main` (ADR-0012), and ships only on acceptance; an undecided or rejected result is published
+with the same weight and the Playbook values are reverted
+**And** deaths within 100 waits of a test are counted before and after, because the lever can pay in
+reach and cost in early deaths and the table must show both
+**And** the Results page says what the table cannot show, states that `goo` and `holdout` were not
+run, and the PR is labelled `fairness` with the reviewer's verdict.
+
+### Story 7.4: Upgrade allocation
+
+As the bot,
+I want a Playbook that decides which item receives each scroll of upgrade,
+So that the upgrades the bot finds make it harder to kill instead of sitting in the pack or going to
+the item that matters least.
+
+**Acceptance Criteria:**
+
+**Given** that the Brain already reads a known scroll of upgrade onto worn armour (`TestItem`'s
+`UseItemOn`, `Answers.upgrade`)
+**When** the story starts
+**Then** the story file states the allocation as it stands, from the code, and counts from the
+`standard` Run logs how many upgrade scrolls a Run finds by depth 5, how many are read and onto what,
+so the lever's size is known before any change
+**And** the mechanics it relies on (what an upgrade adds to armour, a weapon and a ring at `v4.0.2`,
+the cursed-item and strength-penalty interactions, the cost of reading onto an unidentified item) are
+Rules with `path:line` citations and rows in the Brain's Rules index.
+
+**Given** the Playbook's `upgrade` section
+**When** allocation options are implemented
+**Then** the section chooses among the targets the Observation shows (worn armour, worn weapon, the
+heaviest armour the hero can wear after the strength it would take, hold for a better item) by
+fields, and `UpgradePlaybookTest` asserts each choice on a constructed pack, including that an item the
+Beliefs cannot rule out as cursed is never the target of a read unless a field allows it and the worst
+case passes `SafeTest`
+**And** the story uses the upgrade window through the existing `Answers` path and adds no Action kind;
+if a target cannot be reached by the Actions that exist, the story stops and files an issue, since a
+new Action is an `ActionExecutor` change and a fairness-reviewed story of its own.
+
+**Given** Rig discipline
+**When** the step is measured
+**Then** the tables, the second slice, the Sequential-test Registration and the revert-if-not-kept
+rule of story 7.3 apply, with one added column, "upgrades read by depth 5"
+**And** if the finding is that the upgrades found by depth 5 are too few for any allocation to
+separate from noise, the Playbook keeps its default, the count is published, and the story closes as
+measured and not kept
+**And** the PR is labelled `fairness` with the reviewer's verdict.
+
+### Story 7.5: Per-boss playbooks
+
+As the bot,
+I want a Playbook entry per boss that says how to approach the fight, from what the screen shows,
+So that Goo and the bosses after it are fought on purpose.
+
+**Acceptance Criteria:**
+
+**Given** `lore/bestiary/bosses.md` (31 graded claims on Goo, Tengu, DM-300 and their parts),
+`docs/bestiary/bosses.md`, the `bosses` set and the current `Goo` Policy
+**When** the story starts
+**Then** the story file lists each boss claim that is Tier 1 or 2 and not yet used by a Policy, and
+each Policy decision that rests on a boss claim with the Rule or claim id it cites, so the work is the
+gap between the two lists and not a fresh reading of the wiki
+**And** the Playbook's `bosses` section holds, per boss, typed fields for the approach (stand off a
+pumping Goo by the cited distance, fight from water or off water, rest to what fraction of health
+before the stairs down to the boss floor, use a known consumable before the fight) and no layout or
+coordinate (the validator of 7.2 enforces it).
+
+**Given** that 4.14 owns the Goo gate
+**When** Goo's entry is tuned
+**Then** the tuning set is `standard`, not `goo`: the table counts Goo fights and Goo kills inside the
+Warrior Runs of `standard` (the Goo-fight definition of the Profile 6 baseline page), and the `bosses`
+set is run beside it, reported but not used for a tuning decision that `standard` disagrees with
+**And** the story does not claim the gate; its Results page says that the gate Run on `goo` is story
+4.14's and that this story's numbers are an input to it
+**And** the 12 Goo deaths and 3 Ooze deaths among the 59 baseline fights are the cases the entry is
+written for, and the PR reports kills over fights before and after with the Wilson interval.
+
+**Given** the later bosses
+**When** Tengu's and DM-300's entries are written
+**Then** they are written only as far as the `bosses` set reaches them: the Results page reports how
+many of its 100 Runs meet each, and an entry for a boss that fewer than 10 Runs reach is a Playbook
+entry with its lore citations and no tuning, marked untested in the file, so no effort goes into a boss
+the bot cannot yet reach
+**And** every field that changes play is linked from `docs/brain-rules.md` or a Lore claim, and
+`HeuristicLinkTest` stays green
+**And** the PR is labelled `fairness`, carries the reviewer's verdict, and carries a Registration under
+the Sequential test against `main` on `standard` for the Goo entry.
+
+### Story 7.6: Per-class playbooks
+
+As the bot,
+I want a Playbook section per hero class,
+So that the Mage, Rogue, Huntress and the other classes play to their strengths and the Warrior's
+rules are not applied blind to them.
+
+**Acceptance Criteria:**
+
+**Given** `codex/v4.0.2/hero-classes.json`, the `standard` set's class mix, and the Warrior-only
+history of every tuning table so far
+**When** the story starts
+**Then** the story file counts the Brain's Runs by class on the `smoke` set and a 40-Run `standard`
+slice (depth reached, deaths by depth, the Policies that fire) and names the classes for which the
+Warrior Playbook is plainly wrong (a ranged class held to a melee fight rule, a class whose starting
+kit holds items the Brain never uses), from the Run logs and not from the wiki
+**And** the claims about class kits are Rules cited to `v4.0.2` with rows in the Brain's Rules index.
+
+**Given** the Playbook's `classes` section
+**When** class entries are implemented
+**Then** each entry overrides named fields of the base Playbook for one class and nothing else, a
+class without an entry plays the base, and `ClassPlaybookTest` asserts the override rule, that an
+unknown class is rejected by the validator, and that the Warrior's entry is empty so the Warrior's
+Runs are unchanged (equal Run logs on the Warrior slice of `smoke`)
+**And** a class's subclass choice, talents and starting-kit use go through the Actions that exist
+(`Talent`, `Ability`, `AbilityAt`, `Answers`); a class feature that needs a new Action is filed as its
+own issue and left out
+**And** the Rig runs `standard` per class (`--class <C> --first 40 --salt-base 1000`, then the second
+slice) and the table reports the class's own depth distribution next to reach depth 5, since depth 5
+is calibrated on the Warrior.
+
+**Given** Rig discipline
+**When** an entry is kept
+**Then** it is registered and decided by the Sequential test on the class's slice of `standard`, in
+ADR-0012's Per-pair unit
+**And** entries that do not separate from noise are reverted and recorded as ideas
+**And** the PR is labelled `fairness` with the reviewer's verdict.
+
+### Story 7.7: The lore claim format and intake
+
+As the product owner,
+I want community knowledge to enter as one validated file per claim with its provenance,
+So that nothing from a forum reaches the Brain without a source, a variant and a Tier (FR-18).
+
+**Acceptance Criteria:**
+
+**Given** the intake format in the bootstrap prompt and the PRD addendum (`source_url`,
+`source_type`, `date`, `variant`, `version_claimed`, `claim`, `tier`, `implemented_in`) and the 144
+claims already in `lore/bestiary/` in eight grouped files
+**When** the format is fixed
+**Then** an ADR (with `/adr`, five options including "leave the grouped files") records one file per
+claim under `lore/<topic>/<id>.md`; the frontmatter fields and their allowed values (`variant` in
+`spd`, `pd`, `mod:<name>`, `unknown`; `tier` in `1`, `2`, `3`, `F`; `implemented_in` a list of Policy
+names, Playbook fields or Rule slugs, possibly empty); the body rule (a paraphrase and at most a short
+quote); the tag the verdict was graded against; and where the checker lives (an existing module, or a
+new `lore` module with no game code and no network call, NFR-8)
+**And** a checker, `LoreCheck`, runs in `./gradlew build` and validates every file: required fields
+present, enums valid, `source_url` a URL, `retrieved` a date, a Tier 1 or 2 claim carrying at least one
+`path:line` citation that resolves at the pinned tag (the citation checker of FR-17 is reused, not
+rewritten), and every `implemented_in` name existing.
+
+**Given** FR-18's rejection rule
+**When** intake runs on a candidate claim
+**Then** a claim that references a seed, a seed string, a specific dungeon layout, a map coordinate or
+a level feeling tied to one Run is rejected with a message saying which it found, and `LoreIntakeTest`
+has one rejecting case per kind and an accepting case
+**And** the intake command is the entry for the product owner's research skill: it reads a draft claim
+file from a folder, validates it, assigns the next id, and either writes it under `lore/` or writes a
+rejection note beside it, and never reaches the network
+**And** intake never promotes a claim: a new claim enters at Tier 3 unless the file supplies the
+citation that makes it Tier 1, which the checker verifies.
+
+**Given** the existing claims
+**When** they are converted
+**Then** the 144 claims are split into one file each by a script that is committed and run once; the
+count per topic before and after is equal (31, 12, 15, 8, 5, 39, 10, 24); every claim's tier and
+verdict carry over verbatim; the grouped files are removed in the same PR; the `docs/bestiary/` links
+are updated; and `LoreMigrationTest` asserts the counts and that no field was dropped
+**And** the old `v4.0.0` verdicts are kept as written and marked `needs-review` against `v4.0.2` where
+a cited line moved, using the citation checker, so no verdict silently claims a tag it was not graded
+against
+**And** the `@Heuristic` check of story 7.1 now accepts a Lore claim id, and a claim's
+`implemented_in` and the heuristic's link agree in both directions (`LoreLinkTest`)
+**And** the docs site lists the claims by topic and Tier, built from the files and checked for drift,
+and `mkdocs build --strict` passes.
+
+### Story 7.8: The variant classifier from the vocabulary diff
+
+As the lore pipeline,
+I want a classifier that says whether a claim describes Shattered Pixel Dungeon, vanilla Pixel
+Dungeon, a mod, or cannot be told,
+So that a forum claim about vanilla is not applied to this game by mistake (FR-18, FR-16).
+
+**Acceptance Criteria:**
+
+**Given** `codex/v4.0.2/vocabulary.json` (449 entries, 114 shared by name and 335 not, items and mobs
+only) and the intake format of 7.7
+**When** `VariantClassifier` is implemented
+**Then** it takes a claim's text, its named subjects and its source type, and returns a variant from
+`spd`, `pd`, `mod:<name>` or `unknown` with the evidence that decided it (the names matched, which
+side of the diff they sit on, whether they are shared), never a bare label
+**And** a name found only on the SPD side points to `spd`; a name found only on the vanilla side
+points to `pd`; a shared name whose `differences` include a comparable figure that the claim's figure
+matches points to the side it matches; and a shared name with no differing figure points to
+`unknown`. The classifier returns `unknown` rather than guess, and the Results page for the story
+counts how many of the 144 existing claims it classifies and how many it leaves `unknown`
+**And** the vocabulary has no mechanics kind, though FR-16 says "items, mobs, and mechanics"; the story
+either extends the Codex generator to emit mechanics names from the cited properties, as a Codex change
+under E2's drift rule, or states in an ADR amendment that mechanics claims classify by source type and
+date only, and says which it chose and why.
+
+**Given** that a classifier which agrees with itself proves nothing
+**When** it is tested
+**Then** `VariantClassifierTest` runs a labelled fixture of at least 40 claims whose variant is fixed
+by the source (a post by the game's developer about this game is `spd` by construction, a wiki page on
+a vanilla-only mob is `pd`), reports precision and recall per variant, and fails below thresholds the
+story file states before the first run
+**And** the 144 existing claims are classified and compared with the variant each already carries; a
+disagreement is listed in the PR and not auto-applied, since a variant a person set stays unless the
+file says otherwise
+**And** the classifier reads Codex files only, makes no network call, and carries no game code.
+
+### Story 7.9: Date gating from the changelog
+
+As the lore pipeline,
+I want a claim's date and the version it names checked against when the thing it describes changed,
+So that a claim true for an old release is not carried into this one as if it were current (FR-18).
+
+**Acceptance Criteria:**
+
+**Given** that `codex/v4.0.2/changelog.json` carries 195 entries in 14 changelist classes and no
+calendar date on any of them
+**When** the gating is designed
+**Then** the story's first deliverable is a finding, with counts: how many entries carry a date, how
+many sit under a version the class name gives (`v0_1_X` to `v4_X`, `Pixel_Dungeon_Changes`), and how
+many name an item, mob or mechanic a claim can be tied to through the vocabulary
+**And** gating works by version series first: a claim whose subject a changelist entry of a version
+later than the claim's `version_claimed` changed is flagged `changed-since`, with the entry's class and
+citation, and does not become Tier 1 on its date alone
+**And** calendar dates come from a committed table, `lore/release-dates.json`, one row per release
+with a cited source (release notes or the developer's blog page, kept in the repository or cited by
+URL with a retrieved date), and a row with no source is not accepted; the table is data whose
+provenance is the point, not a date remembered from memory.
+
+**Given** the gate
+**When** `DateGateTest` runs
+**Then** it asserts that a claim dated before a change to its subject is flagged, that one dated after
+is not, that a claim with no date and no version is flagged `undated` and cannot rise above Tier 3
+without a code citation, and that a claim whose subject has no changelog entry passes unflagged and is
+counted, so the gate cannot pass by flagging nothing or everything
+**And** the 144 migrated claims are run through it and the PR reports how many are `changed-since`,
+`undated` and clean, and lists the five most consequential flagged claims for the product owner to read
+**And** the gate only flags and never changes a Tier; a Tier changes by a person or a citation.
+
+### Story 7.10: The measured win rate and the epic close
+
+As the product owner,
+I want the Brain's win rate measured and published, and a check that every heuristic is linked,
+So that the epic closes on a number and a count and not on a claim.
+
+**Acceptance Criteria:**
+
+**Given** the epic's done-when
+**When** the win rate is measured
+**Then** the final `shatterfish` Brain with its committed Playbook is registered and run on the
+`standard` set (500 triples, all classes) in one pass with the turn cap the Rig already uses, and the
+Results page reports wins out of Runs with the Wilson interval, the Score distribution of any wins,
+deaths by depth, reach depth 5, Goo kills over reach, and the same table for the Warrior slice, each
+beside the Profile 6 baseline at `7b1212eea`, so the movement of the epic is visible
+**And** a win rate of zero is reported as zero with its upper bound (under 1% at 500 Runs) and the page
+says what the number can and cannot show; the epic does not close by changing the measure
+**And** the `holdout` set is used at most once, only with the product owner's explicit go-ahead in the
+PR thread, and the use is recorded in the Results (FR-20, issue #116); without that go-ahead the page
+says the release-level number was not taken.
+
+**Given** the done-when's second clause
+**When** the link check closes
+**Then** `HeuristicLinkTest` has an empty `unlinked` allowlist, or the PR lists each remaining entry
+with its reason and the issue that owns it, and the count at the head of `docs/brain-rules.md` says so
+**And** the Results page reports the final count against story 7.1's baseline: heuristics found,
+linked to a Rule, linked to a Lore claim, linked at each Tier, unlinked
+**And** a Tier 3 link on a heuristic that shipped is allowed only when a Results page is its evidence,
+and the page lists them.
+
+**Given** the epic's close
+**When** it ends
+**Then** the E7 retrospective runs and its lessons land in `CLAUDE.md`; `docs/roadmap.md`,
+`sprint-status.yaml` and the epic issue are updated in the same PR; `docs/architecture.md` and
+`docs/fairness.md` describe the Playbook and the Lore intake as they stand; and `/upstream-sync`'s
+re-verification list gains the lore citation check.
+
+### Questions for the product owner
+
+Asked now, as the E6 retrospective asked ("a number that decides a story should be asked for when the
+epic opens"). None blocks 7.1 and 7.2.
+
+1. **What win rate is the target, if any?** The done-when says "a measured win rate", not a threshold.
+   With reach at about half and no Run ever won, the honest expectation for the end of E7 is a rate
+   near zero with a reported upper bound. Say whether a number to beat should be fixed before 7.10,
+   and whether it is per class or Warrior only.
+2. **May 7.10 use `holdout` once?** FR-20 allows one use per Brain version, recorded, only to publish
+   a release-level number.
+3. **Does E7 wait for the Goo gate?** The plan assumes not: 7.1 to 7.4 can proceed while 4.14 is open
+   and each re-takes its baseline. If 4.14 passes first, the baselines move and the tables are re-taken.
+4. **Where does the lore checker live?** Story 7.7's ADR decides between a new module and the Codex
+   tooling. A new module is a layout change (ADR-0003); say if one is unwelcome.
 
 ## Epic 8: Overlay v2 (deferred)
 
