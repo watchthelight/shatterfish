@@ -69,11 +69,19 @@ class FightPolicyTest {
             Screens.CODEX.rooms(), Screens.CODEX.guarantees(),
             List.of(new Codex.Threat("marsupial rat", 8, 8, 2, 1, 4, 0, 1),
                     new Codex.Threat("brute", 80, 30, 20, 10, 20, 0, 8),
-                    new Codex.Threat("lasher", 40, 25, 0, 8, 12, 0, 8)),
+                    new Codex.Threat("lasher", 40, 25, 0, 8, 12, 0, 8),
+                    new Codex.Threat("sewer crab", 15, 12, 5, 1, 7, 0, 4),
+                    new Codex.Threat("piranha", 15, 9, 12, 2, 6, 0, 2)),
             List.of(new Codex.Gear("worn shortsword", 0, 1, 10, 5485), new Codex.Gear("worn shortsword", 1, 2, 12, 7009),
                     new Codex.Gear("dagger", 0, 1, 8, 4500), new Codex.Gear(Fight.MAGES_STAFF, 0, 1, 6, 3500)),
             List.of(new Codex.Gear("cloth armor", 0, 0, 2, 1004)),
-            List.of("lasher")).withBestiary(Screens.BESTIARY);
+            List.of("lasher")).withBestiary(java.util.stream.Stream.concat(Screens.BESTIARY.stream(), java.util.stream.Stream.of(
+                    new Codex.Tactics("actors.mobs.Crab", "sewer crab", Alignment.ENEMY, List.of(3, 4, 5), "fast", "melee", 1,
+                            false, false, List.of(), List.of(), "sleeping", false, false, false, "chokepoint", false, false,
+                            List.of("stairs", "door")),
+                    new Codex.Tactics("actors.mobs.Piranha", "piranha", Alignment.ENEMY, List.of(3, 4, 5), "fast", "melee", 1,
+                            false, false, List.of(), List.of(), "sleeping", false, false, false, "keep-away", false, false,
+                            List.of("leave-water", "out-of-sight")))).toList());
 
     static Observation screen(int hp, boolean sealed, String... rows) {
         return screen(1, hp, sealed, "worn shortsword", rows);
@@ -126,6 +134,10 @@ class FightPolicyTest {
                     case 'B' -> actors.add(enemy(cell, "brute", false));
                     case '?' -> actors.add(enemy(cell, "stranger", false));
                     case 'L' -> actors.add(enemy(cell, "lasher", false));
+                    case 'C' -> actors.add(enemy(cell, "sewer crab", false));
+                    case 'P' -> actors.add(enemy(cell, "piranha", false));
+                    case 'Z' -> actors.add(new ActorView(cell, "sewer crab", Alignment.ENEMY,
+                            ObservationCodec.MAX_HEALTH_PIPS, false, Emote.SLEEP, List.of()));
                     case 'T' -> actors.add(enemy(cell, "animated statue", false));
                     case 'X' -> actors.add(new ActorView(cell, "animated statue", Alignment.ENEMY, 5, false, Emote.NONE,
                             List.of()));
@@ -901,5 +913,54 @@ class FightPolicyTest {
         for (Brain.Decided decided : each(far, far, far, far, far, far)) {
             assertFalse(decided.action() instanceof Action.Step, decided.decision().toString());
         }
+    }
+
+    // ------------------------------------------------------------------------------- issue #219, step 6
+
+    @Test
+    @DisplayName("a hurt hero does not walk away from a crab: it closes two cells a step, so the walk only hands it attacks, and the hero fights where it stands")
+    void no_outrunning_a_crab() {
+        String[] rows = {
+                "##############",
+                "#>...........#",
+                "#........@C..#",
+                "##############"};
+        Observation crab = screen(3, 8, false, "worn shortsword", rows);
+        assertFalse(Fight.favourable(crab, KNOWLEDGE, Fight.enemies(crab, KNOWLEDGE)), "the hero is too hurt to take it on");
+        Brain.Decided decided = after(crab);
+        assertEquals(new Action.Attack(cell(crab, 10, 2)), decided.action(), decided.decision().toString());
+        assertEquals("cornered: sewer crab", why(decided));
+
+        // The same hero and floor against a brute, which walks at the hero's pace: it still walks away.
+        Observation brute = screen(3, 8, false, "worn shortsword",
+                "##############",
+                "#>...........#",
+                "#........@B..#",
+                "##############");
+        assertTrue(why(after(brute)).startsWith("retreat"), after(brute).decision().toString());
+    }
+
+    @Test
+    @DisplayName("a crab still across the room is not fled either: the hero holds and lets it come")
+    void no_fleeing_a_crab_in_view() {
+        Observation far = screen(3, 8, false, "worn shortsword",
+                "################",
+                "#>.............#",
+                "#.....@....C...#",
+                "################");
+        assertFalse(why(after(far)).startsWith("retreat"), after(far).decision().toString());
+    }
+
+    @Test
+    @DisplayName("the stairs next door are still a way out of a crab")
+    void near_stairs_still_pay() {
+        Observation near = screen(3, 8, false, "worn shortsword",
+                "##############",
+                "#>.@C........#",
+                "#............#",
+                "##############");
+        Brain.Decided decided = after(near);
+        assertEquals("retreat: stairs", why(decided), decided.decision().toString());
+        assertEquals(new Action.Step(cell(near, 2, 1)), decided.action());
     }
 }

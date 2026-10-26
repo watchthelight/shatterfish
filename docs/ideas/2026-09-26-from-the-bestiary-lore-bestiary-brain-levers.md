@@ -58,6 +58,10 @@ depths 3 and 4, those not starving dying in fights at strength 11 in tier-1 gear
    Run (`NPM-FBY-JLE`) that walked away from Goo on its sealed floor for 18,227 waits to the turn cap,
    a loop the fight Policy's step-away already had (Goo at the hero's pace never catches it) that the
    divergence happened onto. Neither variant is an improvement without a survival regression.
+   **Revisited in issue #219, step 6** (2026-10-26): variant B's fast rule, with the stairs kept as a way out
+   when they are two steps away, on Profile 6 and the 120-Run paired baseline: depth-5 reach 54 to 59 of 120 and
+   Goo kills 40 to 44, crab deaths on depths 2 to 4 from 18 to 10
+   ([results](../results/2026-10-26-219-no-outrunning-fast-enemies.md)). Kept.
 2. **Surprise attacks.** Never walk up to a sleeping enemy to open in melee: a sleeper always wakes
    on its first turn with the hero adjacent, and the hit that follows is not a surprise. Throw from 2
    or more cells instead, which always hits a sleeper, then close. Against a same-speed hunter,

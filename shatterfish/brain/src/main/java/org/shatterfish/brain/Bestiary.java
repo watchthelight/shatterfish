@@ -19,6 +19,8 @@ import java.util.Map;
 final class Bestiary {
 
     static final String IMMOBILE = "immobile";
+    static final String FAST = "fast";
+    static final String LEAVE_WATER = "leave-water";
     static final String PASSIVE = "passive";
     static final String RANGED = "ranged";
     static final String BOLT = "bolt";
@@ -29,7 +31,8 @@ final class Bestiary {
      * value renamed there cannot leave a comparison here silently false.
      */
     static final Map<String, List<String>> READS = Map.of(
-            "speed", List.of(IMMOBILE),
+            "speed", List.of(IMMOBILE, FAST),
+            "breakContact", List.of(LEAVE_WATER),
             "ai", List.of(PASSIVE),
             "attack", List.of(RANGED, BOLT));
 
@@ -70,5 +73,15 @@ final class Bestiary {
     static boolean immobile(Codex.Knowledge knowledge, int depth, int branch, String name) {
         Codex.Tactics tactics = of(knowledge, depth, branch, name);
         return tactics != null && tactics.speed().equals(IMMOBILE);
+    }
+
+    /**
+     * Whether this enemy walks faster than the hero and a walk away does not end its pursuit: tagged
+     * {@code speed: fast}, and not one that stays in the water (a piranha), where the hero leaves it by leaving
+     * the water (tagged {@code breakContact} {@code leave-water}).
+     */
+    static boolean fast(Codex.Knowledge knowledge, int depth, int branch, String name) {
+        Codex.Tactics tactics = of(knowledge, depth, branch, name);
+        return tactics != null && tactics.speed().equals(FAST) && !tactics.breakContact().contains(LEAVE_WATER);
     }
 }
