@@ -260,6 +260,34 @@ class RedeterminationReReviewTest {
     }
 
     @Test
+    @DisplayName("a quest that has spawned on a floor the player has not seen does not decide whether the scrub is refused")
+    void a_spawned_quest_is_no_signal() {
+        start();
+        SnapshotStore store = new SnapshotStore();
+        SnapshotHandle plain = store.take(driver);
+        new SnapshotScrubber(store).scrub(plain, sample(1));
+
+        com.watabou.utils.Bundle node = new com.watabou.utils.Bundle();
+        node.put("spawned", true);
+        node.put("type", 1);
+        node.put("given", false);
+        node.put("depth", Dungeon.depth + 1);
+        node.put("processed", false);
+        node.put("weapon", new Dagger());
+        node.put("armor", new com.shatteredpixel.shatteredpixeldungeon.items.armor.LeatherArmor());
+        com.watabou.utils.Bundle outer = new com.watabou.utils.Bundle();
+        outer.put("sadGhost", node);
+        com.shatteredpixel.shatteredpixeldungeon.actors.mobs.npcs.Ghost.Quest.restoreFromBundle(outer);
+        SnapshotHandle spawned = store.take(driver);
+        try {
+            SnapshotHandle copy = new SnapshotScrubber(store).scrub(spawned, sample(1));
+            assertNotNull(copy, "a spawned, unmet quest is scrubbed as one that has not spawned");
+        } finally {
+            com.shatteredpixel.shatteredpixeldungeon.actors.mobs.npcs.Ghost.Quest.reset();
+        }
+    }
+
+    @Test
     @DisplayName("a copy made with only some rows is not rolled out by the host")
     void a_partial_copy_is_not_rolled_out() {
         start();

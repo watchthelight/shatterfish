@@ -90,6 +90,12 @@ final class MobRows {
                 mob.remove("enemy_id");
                 mob.put("target", -1);
             }
+            // Other mob-to-mob references (a ghoul's partner, a necromancer's skeleton, a bee's pot holder) likewise.
+            for (String key : new String[] {"partnerID", "partner_id", "my_skeleton", "potholder"}) {
+                if (mob.has(key) && mob.optInt(key) != hero && !keptIds.contains(mob.optInt(key))) {
+                    mob.remove(key);
+                }
+            }
             mob.remove("wander_positions");
             mob.remove("wander_pos_idx");
         }

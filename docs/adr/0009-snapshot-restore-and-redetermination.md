@@ -314,4 +314,9 @@ The fairness re-review of story 6.2 found two blockers and six lesser gaps; all 
 - Unseen heaps and out-of-view mobs are removed before any re-roll that can refuse; refusals name no class.
 - A mob in view loses its iconless buffs and its rolled cooldowns (reset to ready).
 - A scrubbed copy counts as one only if every row ran: the rollout host refuses a copy made with a subset of rows.
+- A quest refuses the scrub only once the player has taken it up (given, started, completed or processed). That a quest
+  has merely spawned on a floor is hidden state, so it is reset silently and decides nothing.
+- A mob in view loses references to mobs the copy removed (a ghoul's partner, a necromancer's skeleton, a bee's holder).
+- A refusal is never evidence about the world. Some refusals (an unsolvable fog, an item no roll fits) depend on the true
+  state by a fraction of a bit; the Simulator's caller must treat a refused scrub as "no sample", not as a signal.
 - Residual: the scrubbed copy is written to the real save slot for the length of a rollout.

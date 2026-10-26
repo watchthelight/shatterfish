@@ -164,8 +164,12 @@ public final class Scrub {
         if (quests != null) {
             for (String key : quests.keySet()) {
                 JSONObject quest = quests.optJSONObject(key);
-                if (quest != null && quest.optBoolean("spawned")) {
-                    throw new Refused("the " + key + " quest has begun, and its rewards are hidden state the scrub does not redraw");
+                // Only a quest the player has taken up is known to them. That one has been offered, and its rewards are
+                // hidden state the scrub does not redraw. That a quest merely spawned on a floor is hidden state, and a
+                // refusal on it would be a signal a search could read; GameRows resets it silently (fairness re-review).
+                if (quest != null && (quest.optBoolean("given") || quest.optBoolean("started")
+                        || quest.optBoolean("completed") || quest.optBoolean("processed"))) {
+                    throw new Refused("a quest has been taken up, and its rewards are hidden state the scrub does not redraw");
                 }
             }
         }
