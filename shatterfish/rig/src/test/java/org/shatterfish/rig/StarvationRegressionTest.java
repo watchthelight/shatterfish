@@ -149,9 +149,13 @@ class StarvationRegressionTest {
             last = observation;
             lastChosen = chosen;
             boolean eats = chosen instanceof Action.UseItem use && use.action().equals("EAT");
+            // The one walk the eat Policy takes before a meal: to seen water, for mystery meat alone (#219).
+            // Every Step is strictly nearer the water, so it ends within Eat.WATER_REACH steps.
+            RunLog.Decision decision = brain.lastDecision();
+            boolean toWater = !eats && decision != null && "eat: water".equals(decision.chosen().why());
             if (mustEat(observation)) {
                 mustEat++;
-                if (!eats) {
+                if (!eats && !toWater) {
                     broken.add(observation.hero().hunger() + " with food, calm, and the Brain chose " + chosen);
                 }
             }
@@ -163,7 +167,7 @@ class StarvationRegressionTest {
             }
             if (starvingWithFood(observation)) {
                 starvingSeen++;
-                starvingStreak = eats ? 0 : starvingStreak + 1;
+                starvingStreak = eats ? 0 : toWater ? starvingStreak : starvingStreak + 1;
                 if (starvingStreak == STARVING_WAITS) {
                     broken.add("starving with food held for " + STARVING_WAITS + " waits without eating, the last with "
                             + observation.actors().actors().size() + " actors in view");

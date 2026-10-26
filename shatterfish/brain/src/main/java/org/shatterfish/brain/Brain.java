@@ -59,7 +59,7 @@ public final class Brain {
 
     /** The Policies, highest priority first, fighting by {@code knowledge} and scoring by {@code evaluation}. */
     private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation, Model model) {
-        List<Policy> policies = new ArrayList<>(List.of(Policies.answerPrompt(knowledge), new Heal(knowledge), new Ranged(knowledge)));
+        List<Policy> policies = new ArrayList<>(List.of(Policies.answerPrompt(knowledge), new Heal(knowledge), new Douse(knowledge), new Ranged(knowledge)));
         if (model == Model.ONE_PLY) {
             policies.add(new OnePly(knowledge));
         }
@@ -195,7 +195,7 @@ public final class Brain {
 
     /** The names of the Policies a Brain that fights by {@code model} arbitrates, highest priority first. */
     public static List<String> policyNames(Model model) {
-        List<String> names = new ArrayList<>(List.of(Policies.ANSWER_PROMPT, Heal.NAME, Ranged.NAME));
+        List<String> names = new ArrayList<>(List.of(Policies.ANSWER_PROMPT, Heal.NAME, Douse.NAME, Ranged.NAME));
         if (model == Model.ONE_PLY) {
             names.add(OnePly.NAME);
         }
