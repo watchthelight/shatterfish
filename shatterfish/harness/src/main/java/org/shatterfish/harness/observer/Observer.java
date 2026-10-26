@@ -842,74 +842,8 @@ public final class Observer {
      * {@code FogParityTest} holds every cell to the painted texture.
      */
     static Fog fog(Level level, int cell) {
-        Fog painted = painted(level, cell);
-        if (painted == Fog.UNKNOWN && level.discoverable[cell] && wall(level, cell)
-                && (level.visited[cell] || level.mapped[cell])) {
-            return level.visited[cell] ? Fog.VISITED : Fog.MAPPED;
-        }
-        return painted;
-    }
-
-    /** The level the fog of war paints, as {@code FogOfWar.updateTexture} decides it ({@code FogOfWar.java:200-267}). */
-    private static Fog painted(Level level, int cell) {
-        if (!level.discoverable[cell] || (!level.heroFOV[cell] && !level.visited[cell] && !level.mapped[cell])) {
-            return Fog.UNKNOWN;
-        }
-        if (!wall(level, cell)) {
-            return own(level, cell);
-        }
-        int width = level.width();
-        if (cell + width >= level.length()) {
-            return Fog.UNKNOWN;
-        }
-        if (!wall(level, cell + width)) {
-            return darker(own(level, cell), own(level, cell + width));
-        }
-        Fog left = Fog.UNKNOWN;
-        if (cell % width != 0) {
-            if (wall(level, cell - 1)) {
-                left = wall(level, cell + width - 1) ? Fog.UNKNOWN
-                        : darker(own(level, cell), darker(own(level, cell + width - 1), own(level, cell - 1)));
-            } else {
-                left = darker(own(level, cell), own(level, cell - 1));
-            }
-        }
-        Fog right = Fog.UNKNOWN;
-        if ((cell + 1) % width != 0) {
-            if (wall(level, cell + 1)) {
-                right = wall(level, cell + width + 1) ? Fog.UNKNOWN
-                        : darker(own(level, cell), darker(own(level, cell + width + 1), own(level, cell + 1)));
-            } else {
-                right = darker(own(level, cell), own(level, cell + 1));
-            }
-        }
-        return lighter(left, right);
-    }
-
-    /** A cell's own level: in view, visited, mapped, or nothing ({@code FogOfWar.java:288-299}). */
-    private static Fog own(Level level, int cell) {
-        if (level.heroFOV[cell]) {
-            return Fog.VISIBLE;
-        } else if (level.visited[cell]) {
-            return Fog.VISITED;
-        } else if (level.mapped[cell]) {
-            return Fog.MAPPED;
-        } else {
-            return Fog.UNKNOWN;
-        }
-    }
-
-    /** Whether the fog treats the cell as a wall: the sheet's stitching set ({@code FogOfWar.java:284-286}). */
-    private static boolean wall(Level level, int cell) {
-        return DungeonTileSheet.wallStitcheable(level.map[cell]);
-    }
-
-    private static Fog darker(Fog a, Fog b) {
-        return a.ordinal() >= b.ordinal() ? a : b;
-    }
-
-    private static Fog lighter(Fog a, Fog b) {
-        return a.ordinal() <= b.ordinal() ? a : b;
+        return FogModel.fog(level.width(), level.length(), level.map, level.discoverable, level.heroFOV, level.visited,
+                level.mapped, cell);
     }
 
     /**
