@@ -841,7 +841,7 @@ the Brain's Decision for the wait in front has landed and before any credit lets
   fires nothing, and a Resume does not fire the condition it resumed from.
 - **Held at Fast.** Fast as it can lets the Run go, which would execute a Decision as it lands. With any condition
   enabled the Run stays held at Fast and `ControlState` gives the credit in the same frame when no condition holds,
-  so a Decision is always looked at first. With none enabled (the default) nothing about Fast changes.
+  so a Decision is always looked at first. A Run whose agent gives no Decision to show (the random agent) has no pending wait to look at, so no condition stops it; only the Brain's Runs are stopped. With none enabled (the default) nothing about Fast changes.
 - **The log.** The pause is a `mode` record, `PAUSED`, with the speed mode's word, at the pending wait's index and
   before that wait's record, as a hand back's is (`EmbeddedRun.pausedOn`). No record kind and no chained field is
   added. A Run nobody paused is byte for byte what it was.

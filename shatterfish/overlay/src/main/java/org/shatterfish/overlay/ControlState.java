@@ -133,6 +133,8 @@ final class ControlState {
     private PauseOn.Previous previous;
     /** The last wait the Pause-on conditions were looked at: each wait is looked at once (story 8.3). */
     private long looked = -1;
+    /** The Decision looked at for {@link #looked}: a wait re-asked after a stale answer has a new one, looked at afresh. */
+    private RunLog.Decision lookedDecision;
     /** The condition the Run is paused for, in words, or null (story 8.3). */
     private String pausedFor;
 
@@ -288,10 +290,11 @@ final class ControlState {
             return;
         }
         Pending pending = seam.pending();
-        if (pending == null || pending.index() == looked) {
+        if (pending == null || (pending.index() == looked && pending.decision() == lookedDecision)) {
             return;
         }
         looked = pending.index();
+        lookedDecision = pending.decision();
         pausedFor = null;
         java.util.Optional<PauseOn.Condition> hit = mode == Mode.RUNNING && target == null
                 ? PauseOn.first(settings, pending.observation(), pending.decision(), previous, bossDepths)
