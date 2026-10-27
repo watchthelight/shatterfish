@@ -4,6 +4,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
+import org.shatterfish.api.HeroClass;
+import org.shatterfish.api.Playbook;
 import org.shatterfish.api.RunLog;
 import org.shatterfish.harness.knowledge.CodexKnowledge;
 import org.shatterfish.harness.knowledge.CodexManifest;
@@ -41,9 +43,9 @@ class PlaybookEquivalenceTest {
     private static final int CAP = 700;
 
     /** What the Java constants held before the story: the odds, the cap, the reach and the waits, as the Playbook states them. */
-    private static final String THE_CONSTANTS = "{\"bosses\":{},\"classes\":{},\"format\":1,"
+    static final String THE_CONSTANTS = "{\"bosses\":{},\"classes\":{},\"format\":1,"
             + "\"identify\":{\"escape_waits\":12,\"gain_odds_per_mille\":200,\"healing_odds_per_mille\":200,"
-            + "\"inventory_odds_per_mille\":250,\"reach\":8,\"rest_waits\":50},"
+            + "\"inventory_odds_per_mille\":250,\"reach\":8,\"rest_waits\":50},\"kit\":{\"zap_reach\":0},"
             + "\"name\":\"shatterfish\",\"upgrade\":{\"tie\":\"WEAPON\",\"weapon_lead\":0},\"version\":1}\n";
 
     /**
@@ -52,11 +54,11 @@ class PlaybookEquivalenceTest {
      */
     private static final String CHANGED = "{\"bosses\":{},\"classes\":{},\"format\":1,"
             + "\"identify\":{\"escape_waits\":12,\"gain_odds_per_mille\":1000,\"healing_odds_per_mille\":1000,"
-            + "\"inventory_odds_per_mille\":1,\"reach\":0,\"rest_waits\":0},"
+            + "\"inventory_odds_per_mille\":1,\"reach\":0,\"rest_waits\":0},\"kit\":{\"zap_reach\":0},"
             + "\"name\":\"shatterfish\",\"upgrade\":{\"tie\":\"ARMOR\",\"weapon_lead\":-5},\"version\":1}\n";
 
     /** A root holding what a Run reads, with {@code playbook} as the Brain's Playbook. */
-    private static Path root(Path into, String playbook) throws IOException {
+    static Path root(Path into, String playbook) throws IOException {
         Path root = Files.createDirectories(into);
         String tag = org.shatterfish.harness.boot.HeadlessBoot.pinnedTag();
         copy(SeedSetsTest.ROOT.resolve(CodexManifest.FOLDER).resolve(tag), root.resolve(CodexManifest.FOLDER).resolve(tag));
@@ -89,7 +91,7 @@ class PlaybookEquivalenceTest {
      * draws a fresh salt per invocation (FR-22), so two of its invocations are not the same game; the
      * children are started here instead, each entry under a salt this test fixes, as the Runner's own do.
      */
-    private static Map<String, Path> play(Path root, Path out) throws IOException {
+    static Map<String, Path> play(Path root, Path out, java.util.Set<org.shatterfish.api.HeroClass> only) throws IOException {
         Files.createDirectories(out);
         String tag = org.shatterfish.harness.boot.HeadlessBoot.pinnedTag();
         Path java = Path.of(System.getProperty("java.home"), "bin", "java");
@@ -98,6 +100,9 @@ class PlaybookEquivalenceTest {
         List<Process> running = new ArrayList<>();
         for (int i = 0; i < entries.size(); i++) {
             org.shatterfish.api.SeedSet.Entry entry = entries.get(i);
+            if (!only.contains(entry.heroClass())) {
+                continue;
+            }
             Path working = Files.createDirectories(out.resolve("work").resolve(Integer.toString(i)));
             running.add(new ProcessBuilder(Files.exists(exe) ? exe.toString() : java.toString(),
                     "-cp", System.getProperty("java.class.path"), RunOne.class.getName(),
@@ -142,7 +147,7 @@ class PlaybookEquivalenceTest {
     }
 
     /** Every wait of a log: the Action chosen and the Decision behind it, which is what the Brain did. */
-    private static List<RunLog.Wait> waits(Path log) {
+    static List<RunLog.Wait> waits(Path log) {
         RunLogReader.Log read = RunLogReader.of(log);
         assertTrue(read.readable(), log + ": " + read.unreadable());
         List<RunLog.Wait> waits = new ArrayList<>();
@@ -155,27 +160,44 @@ class PlaybookEquivalenceTest {
     }
 
     @Test
-    @DisplayName("the committed Playbook plays the smoke set to the same Decisions as the values the constants held, and an edited one does not")
+    @DisplayName("the committed Playbook plays the smoke set to the same Decisions as the values the constants held for every class it has no entry for, and an edited one does not")
     @Timeout(value = 40, unit = TimeUnit.MINUTES)
     void the_playbook_changes_no_play(@TempDir Path scratch) throws IOException {
-        assertEquals(THE_CONSTANTS, Files.readString(PlaybookFile.of(SeedSetsTest.ROOT, Brains.SHATTERFISH), StandardCharsets.UTF_8),
-                "the committed Playbook states exactly the values the constants held");
-
-        Map<String, Path> constants = play(root(scratch.resolve("constants"), THE_CONSTANTS), scratch.resolve("constants-out"));
-        Map<String, Path> playbook = play(root(scratch.resolve("playbook"),
-                Files.readString(PlaybookFile.of(SeedSetsTest.ROOT, Brains.SHATTERFISH), StandardCharsets.UTF_8)),
-                scratch.resolve("playbook-out"));
-        assertEquals(SeedSets.load(SeedSetsTest.ROOT, SeedSets.SMOKE).set().entries().size(), constants.size());
-        assertEquals(constants.keySet(), playbook.keySet());
-        for (Map.Entry<String, Path> log : constants.entrySet()) {
-            // The Runs are told apart by their header's out folder and nothing else of the header; the
-            // body, every wait, is what the Brain did.
-            assertEquals(waits(log.getValue()), waits(playbook.get(log.getKey())), log.getKey() + ": the same waits");
-            assertEquals(RunLogReader.of(log.getValue()).header().brain(), RunLogReader.of(playbook.get(log.getKey())).header().brain(),
-                    log.getKey() + ": the same header Brain, configuration hash included, because the Playbook is the same");
+        Path codex = SeedSetsTest.ROOT.resolve(CodexManifest.FOLDER).resolve(org.shatterfish.harness.boot.HeadlessBoot.pinnedTag());
+        Playbook held = PlaybookFile.read(PlaybookFile.of(SeedSetsTest.ROOT, Brains.SHATTERFISH), Brains.SHATTERFISH, codex);
+        assertEquals(Playbook.reference(Brains.SHATTERFISH).identify(), held.identify(), "the base states exactly the values the constants held");
+        assertEquals(Playbook.reference(Brains.SHATTERFISH).upgrade(), held.upgrade());
+        assertEquals(Playbook.reference(Brains.SHATTERFISH).kit(), held.kit());
+        assertEquals(Playbook.reference(Brains.SHATTERFISH).canonical(), THE_CONSTANTS.strip(), "and THE_CONSTANTS is that Playbook's text");
+        java.util.Set<HeroClass> unchanged = java.util.EnumSet.allOf(HeroClass.class);
+        for (Playbook.ClassEntry entry : held.classes()) {
+            if (!entry.equals(new Playbook.ClassEntry(entry.heroClass(), held.identify(), held.kit(), held.upgrade()))) {
+                unchanged.remove(entry.heroClass());
+            }
         }
 
-        Map<String, Path> changed = play(root(scratch.resolve("changed"), CHANGED), scratch.resolve("changed-out"));
+        Map<String, Path> constants = play(root(scratch.resolve("constants"), THE_CONSTANTS), scratch.resolve("constants-out"),
+                java.util.EnumSet.allOf(HeroClass.class));
+        Map<String, Path> playbook = play(root(scratch.resolve("playbook"),
+                Files.readString(PlaybookFile.of(SeedSetsTest.ROOT, Brains.SHATTERFISH), StandardCharsets.UTF_8)),
+                scratch.resolve("playbook-out"), java.util.EnumSet.allOf(HeroClass.class));
+        assertEquals(SeedSets.load(SeedSetsTest.ROOT, SeedSets.SMOKE).set().entries().size(), constants.size());
+        assertEquals(constants.keySet(), playbook.keySet());
+        int compared = 0;
+        for (Map.Entry<String, Path> log : constants.entrySet()) {
+            if (!unchanged.contains(RunLogReader.of(log.getValue()).header().heroClass())) {
+                continue;
+            }
+            // The Runs are told apart by their header's out folder and nothing else of the header; the
+            // body, every wait, is what the Brain did. (The configuration hash differs, since the committed
+            // Playbook states class entries the constants do not.)
+            assertEquals(waits(log.getValue()), waits(playbook.get(log.getKey())), log.getKey() + ": the same waits");
+            compared++;
+        }
+        assertTrue(compared > 0, "the smoke set holds a class the Playbook has no entry for");
+
+        Map<String, Path> changed = play(root(scratch.resolve("changed"), CHANGED), scratch.resolve("changed-out"),
+                java.util.EnumSet.allOf(HeroClass.class));
         assertEquals(constants.keySet(), changed.keySet());
         int differing = 0;
         for (Map.Entry<String, Path> log : constants.entrySet()) {

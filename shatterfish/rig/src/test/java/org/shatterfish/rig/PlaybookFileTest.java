@@ -39,7 +39,9 @@ class PlaybookFileTest {
             assertTrue(Brains.readsPlaybook(brain));
             Playbook playbook = committed(brain);
             assertEquals(brain, playbook.name());
-            assertEquals(Playbook.reference(brain), playbook, brain + ": the first Playbook holds the values the constants held");
+            assertEquals(Playbook.reference(brain), new Playbook(playbook.name(), 1, playbook.identify(),
+                    playbook.upgrade(), playbook.kit(), java.util.List.of()),
+                    brain + ": the base holds the values the constants held (class entries are ClassPlaybookTest's)");
             assertEquals(playbook.canonical(), Files.readString(PlaybookFile.of(SeedSetsTest.ROOT, brain), StandardCharsets.UTF_8).strip(),
                     "the committed file is its own canonical text, so a reader sees every value");
         }

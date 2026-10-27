@@ -1,1 +1,1 @@
-{"bosses":{},"classes":{},"format":1,"identify":{"escape_waits":12,"gain_odds_per_mille":200,"healing_odds_per_mille":200,"inventory_odds_per_mille":250,"reach":8,"rest_waits":50},"name":"oneply","upgrade":{"tie":"WEAPON","weapon_lead":0},"version":1}
+{"bosses":{},"classes":{},"format":1,"identify":{"escape_waits":12,"gain_odds_per_mille":200,"healing_odds_per_mille":200,"inventory_odds_per_mille":250,"reach":8,"rest_waits":50},"kit":{"zap_reach":0},"name":"oneply","upgrade":{"tie":"WEAPON","weapon_lead":0},"version":1}
