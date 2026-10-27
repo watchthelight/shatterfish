@@ -109,6 +109,8 @@ a string shaped like a seed code; a key that names a place (cell, coordinate, la
 class not in `hero-classes.json`; an unknown key; an out-of-range number; an enum value outside its
 set; a wrong `format`, `name` or a missing `version`. It runs in `./gradlew build` over every committed
 Playbook (`PlaybookFileTest`), and in the Rig before a Registration is accepted or a Run starts.
+The seed, place and seed-code checks are defence in depth: the guarantee is the closed key set and the small
+range on every number, so no field is wide enough to hold a seed or a cell and the only string is an enum.
 
 ### Why the Playbook sits beside the weights
 

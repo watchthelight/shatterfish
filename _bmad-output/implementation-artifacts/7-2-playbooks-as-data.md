@@ -89,4 +89,17 @@ seed, a cell or a layout. The first file holds exactly the values the constants 
 
 ## Results
 
-(Filled in below after the runs.)
+- **No play changed.** `:rig:direction --set standard --class WARRIOR --first 40 --salt-base 1000 --baseline origin/main --jobs 2`
+  (baseline `b8034706d`, current `d8cf8ce2e`): reach depth 5 30/40 both, Goo kills 27/40 both, median turns 2187.5 both,
+  deaths by depth 0/0/7/3/3/18/6/3 both. Compared record for record with the header, `chain`, `prev` and `think_ms` set aside,
+  39 of the 40 Run logs are equal. One (`...3e9`) agrees on every Decision up to wait 1660, then shows another Observation after
+  the same Action (map section differs, 1997 waits against 1984); the Decisions, not the game, are what the Playbook touches, so
+  this is read as game-side noise, not shown to be. It accounts for the small differences in oscillation Steps (+15) and heaps
+  (+3) in the table.
+- **Equivalence on the smoke set** is held by `PlaybookEquivalenceTest` (all waits equal at a 700-turn cap, with a control).
+- **Tests.** `:api`, `:brain`, `:overlay`, `:codex`, `:harness`, `:rig` green on the merge result; `mkdocs build --strict` green.
+- **Heuristics.** 72 found, 36 linked, 31 unlinked (ceiling unchanged).
+- **Fairness review.** Verdict: no violation found, nothing blocking. Three notes: the `RunOne` fallback to the reference Playbook
+  when `--playbook` is absent exists only so `:rig:direction` can play a baseline that predates the file (the Runner always passes
+  it); `version` has no upper bound and is never read by the Brain; the seed, place and seed-code checks are defence in depth and
+  the guarantee is the closed key set with small ranges (now said in ADR-0023).
