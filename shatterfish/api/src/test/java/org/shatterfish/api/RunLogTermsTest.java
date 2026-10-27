@@ -65,6 +65,15 @@ class RunLogTermsTest {
     }
 
     @Test
+    @DisplayName("a Term holds a feature name and a number and nothing else, since the Brain may name it")
+    void a_term_cannot_widen() {
+        var components = RunLog.Term.class.getRecordComponents();
+        assertEquals(2, components.length);
+        assertEquals(String.class, components[0].getType());
+        assertEquals(long.class, components[1].getType());
+    }
+
+    @Test
     @DisplayName("Search outcomes are written only when a Search ran, and an outcome rests on a sample")
     void search_outcomes() {
         RunLog.Choice chosen = new RunLog.Choice(new Action.Step(3), 10_000, "frontier");
