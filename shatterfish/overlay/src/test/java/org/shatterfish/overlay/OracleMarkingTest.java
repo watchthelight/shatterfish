@@ -119,6 +119,21 @@ class OracleMarkingTest {
     }
 
     @Test
+    @DisplayName("an appearance that is a substring of another's label does not take its identity: the match is exact")
+    void a_substring_appearance_does_not_match() {
+        Observation observation = observation();
+        OracleView view = new OracleView(SEED,
+                List.of(new OracleView.Identity("potion", "red potion", "potion of frost", "PotionOfFrost"),
+                        new OracleView.Identity("potion", "dark red potion", "potion of healing", "PotionOfHealing")),
+                List.of(), List.of(), List.of(), List.of());
+        BeliefSummary summary = new BeliefSummary(List.of(new BeliefSummary.Item("dark red potion", "healing", 0.4)),
+                List.of(), List.of());
+
+        assertEquals(List.of("oracle: dark red potion = potion of healing"),
+                OracleMarkContent.of(view, observation, summary).rows());
+    }
+
+    @Test
     @DisplayName("the marks: the true identity behind each Belief item, then the unseen enemies, every row prefixed, the seen ones left out")
     void marks_are_prefixed_rows_and_unseen_cells() {
         Observation observation = observation();

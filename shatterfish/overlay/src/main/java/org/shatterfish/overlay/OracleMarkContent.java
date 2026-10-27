@@ -63,7 +63,7 @@ final class OracleMarkContent {
         for (BeliefView.Appearance appearance : beliefs.appearances()) {
             for (OracleView.Identity identity : view.identities()) {
                 if (!identity.appearance().isEmpty()
-                        && appearance.label().toLowerCase().contains(identity.appearance().toLowerCase())) {
+                        && appearance.label().equalsIgnoreCase(identity.appearance())) {
                     rows.put(appearance.label(), PREFIX + appearance.label() + " = " + identity.trueName());
                     break;
                 }
@@ -83,7 +83,7 @@ final class OracleMarkContent {
             for (BeliefSummary.Item item : summary.items()) {
                 for (OracleView.Identity identity : view.identities()) {
                     if (!identity.appearance().isEmpty()
-                            && item.label().toLowerCase().contains(identity.appearance().toLowerCase())) {
+                            && item.label().equalsIgnoreCase(identity.appearance())) {
                         rows.add(PREFIX + item.label() + " = " + identity.trueName());
                         break;
                     }
