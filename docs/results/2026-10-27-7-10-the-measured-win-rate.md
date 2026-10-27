@@ -160,11 +160,15 @@ data folders ([final](https://github.com/watchthelight/shatterfish/tree/main/res
 
 ## The `holdout` set
 
-The `holdout` set was not run. The acceptance criteria allow one confirmation run after tuning, and only with the product owner's
-explicit go-ahead in the pull request thread; none had been given when this page was written, so the release-level number was not
-taken. `holdout` was not opened by any invocation of this story (the Registration says `release_level: false`, and the ledger has
-no `holdout` line for it). The Brain's one allowance on `holdout` is unspent. Nothing was run on `goo` either; E7 does not wait
-for the Goo gate (4.14).
+This story did not run `holdout`. The acceptance criteria allow one confirmation run after tuning, and only with the product
+owner's explicit go-ahead in the pull request thread; none had been given when this page was first written, so no release-level
+number was taken here. `holdout` was not opened by any invocation of this story (the Registration says `release_level: false`, and
+the ledger had no `holdout` line for it). Nothing was run on `goo` either; E7 does not wait for the Goo gate (4.14).
+
+The product owner then gave the go-ahead on [pull request #329](https://github.com/watchthelight/shatterfish/pull/329#issuecomment-6440993127)
+("You can go-ahead on all.", 2026-10-27), and the Brain's one allowance was spent: the `holdout` set was run once, afterwards, on
+the same Brain, under Registration H-0009 with `release_level: true`. Its numbers, beside the `standard` numbers of this page, are on
+[the holdout page](2026-10-27-e7-holdout.md).
 
 ## The heuristic link count
 

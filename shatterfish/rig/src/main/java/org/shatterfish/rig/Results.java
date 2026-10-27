@@ -202,7 +202,10 @@ public final class Results {
         List<String> declared = new ArrayList<>();
         int prior = 0;
         int siblings = 0;
-        int seedVersion = SeedSets.load(root, set).set().version();
+        // Only the set's version is wanted here, so no triple is played. The held-out set is read through
+        // the published door and only for Runs that carry a Registration: the Runs being written up were
+        // already played under a release-level claim, and this read spends nothing (the ledger is untouched).
+        int seedVersion = SeedSets.versionForResults(root, set, id.isEmpty() ? "" : "writing up the Runs of " + id);
         int alpha = 0;
         int beta = 0;
         String candidate = comparison ? LogHeader.string(cmp, "candidate") : first.brain().name();
