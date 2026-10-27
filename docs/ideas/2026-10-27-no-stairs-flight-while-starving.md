@@ -53,13 +53,13 @@ table is better, so the change is not kept (the issue's rule: keep or revert on 
 The flight up lands the hero on the stairs with the enemy adjacent or close, and the hero can leave again at
 once; without it the hero fights on the open floor or walks away from a faster enemy. That is a conjecture the
 logs were not read for. What is measured is that the earlier attempts on the issue (lingering upstairs,
-fleeing up only when hurt) and this one all lost Goo kills or left them level, and none cut the table's
-oscillation count by a margin that mattered.
+fleeing up only when hurt) and this one all lost Goo kills or left them level, and the change here cut the
+table's oscillation Steps only from 595 to 565.
 
 ## If this is reopened
 
 - The remaining lever is the one the issue lists: fight better on arrival at the foot of the stairs, where the
   enemy stands adjacent to or near the arrival cell. A fight there starts on the hero's turn.
 - A hungry hero that is not yet starving can rest above (`Descend.rests`), so only the starving case was
-  changed; a rest that is cut short by the hunger icon turning to starving is the common shape in the logs.
+  changed. Why the first rest above ends so soon (the logs show one `Rest` and then the `Descend`) was not traced.
 - Compare a change by Goo kills on a second slice (salt base 2000) as well, as the Lessons from E4 ask.
