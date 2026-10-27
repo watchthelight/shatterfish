@@ -92,7 +92,7 @@ class ControlsRowTest {
     }
 
     @Test
-    @DisplayName("the row holds all eight controls, as the game's own RedButtons, in two rows at the Panel's width")
+    @DisplayName("the row holds all nine controls, as the game's own RedButtons, in two rows at the Panel's width")
     void the_row_wraps_to_two_rows() {
         GameScene scene = scene(1600, 900);
         PanelDock dock = new PanelDock();

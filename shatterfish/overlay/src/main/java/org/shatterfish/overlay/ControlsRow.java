@@ -13,7 +13,7 @@ import java.util.Set;
 /**
  * The Panel's Controls row (story 5.6, FR-39, UX-DR7, {@code DESIGN.md} Components): Pause and Resume,
  * Next Step, Run N with its count stepper, the speed selector with its interval stepper, Take over and
- * Hand back, and Explain, in one row that wraps to a second when the Panel is too narrow for one.
+ * Hand back, Autoexplore (story 8.10), and Explain, in one row that wraps to a second when the Panel is too narrow for one.
  *
  * <p>Only the game's own toolkit: {@code RedButton} for every button (a stepper is two small ones
  * flanking a number), the pixel font through {@code PixelScene.renderTextBlock}, and no custom shape.
@@ -47,6 +47,7 @@ final class ControlsRow extends Component {
     private RedButton intervalMinus;
     private RedButton intervalPlus;
     private RedButton takeOver;
+    private RedButton autoexplore;
     private RedButton explain;
     private RenderedTextBlock countValue;
     private RenderedTextBlock intervalValue;
@@ -71,6 +72,7 @@ final class ControlsRow extends Component {
         intervalMinus = button("-", () -> state.intervalDown());
         intervalPlus = button("+", () -> state.intervalUp());
         takeOver = button("Take over", () -> state.takeOverHandBack());
+        autoexplore = button("Autoexplore", () -> state.autoexplore());
         explain = new RedButton("Explain", TEXT_SIZE) {
             @Override
             protected void onClick() {
@@ -142,6 +144,7 @@ final class ControlsRow extends Component {
         set(intervalMinus, Control.INTERVAL);
         set(intervalPlus, Control.INTERVAL);
         set(takeOver, Control.TAKE_OVER);
+        set(autoexplore, Control.AUTOEXPLORE);
         set(explain, Control.EXPLAIN, explainable);
         countValue.hardlight(on(Control.RUN_N_COUNT, true) ? INK : INK_DIM);
         intervalValue.hardlight(on(Control.INTERVAL, true) ? INK : INK_DIM);
@@ -198,6 +201,8 @@ final class ControlsRow extends Component {
                 return state != null && state.cycleSpeed();
             case TAKE_OVER:
                 return state != null && state.takeOverHandBack();
+            case AUTOEXPLORE:
+                return state != null && state.autoexplore();
             default:
                 return false;
         }
@@ -213,6 +218,7 @@ final class ControlsRow extends Component {
         atoms.add(new Atom(width(speed, "Next Step"), speed));
         atoms.add(stepper(intervalMinus, intervalValue, intervalPlus, intervalSlot));
         atoms.add(new Atom(width(takeOver, "Hand back"), takeOver));
+        atoms.add(new Atom(width(autoexplore), autoexplore));
         atoms.add(new Atom(width(explain), explain));
         return atoms;
     }
@@ -324,6 +330,10 @@ final class ControlsRow extends Component {
         return takeOver;
     }
 
+    RedButton autoexplore() {
+        return autoexplore;
+    }
+
     RedButton explain() {
         return explain;
     }
@@ -346,6 +356,7 @@ final class ControlsRow extends Component {
             case SPEED -> speed;
             case INTERVAL -> intervalPlus;
             case TAKE_OVER -> takeOver;
+            case AUTOEXPLORE -> autoexplore;
             case EXPLAIN -> explain;
         };
     }

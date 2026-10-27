@@ -67,6 +67,10 @@ final class ModeStripContent {
             // The condition that stopped the Run, in words (story 8.3, FR-45): "PAUSED: before stairs".
             line.append(": ").append(state.pausedFor());
         }
+        if (state.note() != null) {
+            // Autoexplore (story 8.10, FR-47): "RUNNING: autoexplore", "HUMAN: autoexplore stopped, enemy in view".
+            line.append(": ").append(state.note());
+        }
         line.append("  ").append(speed(state));
         line.append("  turn ").append(Columns.number(state.turn(), TURN_WIDTH));
         line.append("  floor ").append(Columns.number(state.floor(), FLOOR_WIDTH));

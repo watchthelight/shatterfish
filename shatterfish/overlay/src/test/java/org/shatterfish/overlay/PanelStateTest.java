@@ -29,10 +29,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class PanelStateTest {
 
-    private static final Set<Control> EVERY = EnumSet.allOf(Control.class);
+    /** PAUSED: every control but Autoexplore, which starts from HUMAN (story 8.10). */
+    private static final Set<Control> EVERY = EnumSet.complementOf(EnumSet.of(Control.AUTOEXPLORE));
     private static final Set<Control> RUNNING = EnumSet.of(Control.PAUSE_RESUME, Control.NEXT_STEP, Control.SPEED,
             Control.INTERVAL, Control.TAKE_OVER, Control.EXPLAIN);
-    private static final Set<Control> HUMAN = EnumSet.of(Control.TAKE_OVER, Control.EXPLAIN);
+    private static final Set<Control> HUMAN = EnumSet.of(Control.TAKE_OVER, Control.AUTOEXPLORE, Control.EXPLAIN);
 
     private static ControlState running(ControlStateTest.FakeRun run) {
         ControlState controls = new ControlState(run, Capabilities.NOW);
