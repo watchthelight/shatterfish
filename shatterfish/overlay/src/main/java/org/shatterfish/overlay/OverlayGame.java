@@ -160,6 +160,13 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         lock.hotkeys(new Keys());
         inputHandler.addInputProcessor(lock);
         rng = new RngControl(salt);
+        if (options.replaying()) {
+            if (createReplay()) {
+                switchScene(GameScene.class);
+            }
+            lock.panel((x, y) -> Windows.front() == null && dock.contains(x, y));
+            return;
+        }
         if (resumption != null) {
             // The game loads from its save and the Run continues the suspended log (story 5.14).
             try {
@@ -195,6 +202,34 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         // The play scene, created at the first frame the way the loading scene asks for it after a new
         // game (core/.../scenes/InterlevelScene.java), with the Run already listening at its seam.
         switchScene(GameScene.class);
+    }
+
+    /**
+     * Starts a replay (story 8.5): the log is opened again here, so what plays is what verifies now, and its tuple
+     * starts the game. A log that cannot be played starts no game and no Run: the reason is the Panel's to say.
+     *
+     * @return whether a Run was attached and the play scene is wanted
+     */
+    private boolean createReplay() {
+        ReplaySession session;
+        try {
+            if (options.refused() != null) {
+                throw new IllegalArgumentException(options.refused());
+            }
+            session = ReplaySession.load(options.replay());
+        } catch (IllegalArgumentException | java.io.UncheckedIOException cannot) {
+            Gdx.app.log("shatterfish", "the log " + options.replay() + " is not played: " + cannot.getMessage());
+            dock.refusal("REPLAY REFUSED: " + cannot.getMessage());
+            return false;
+        }
+        NewGame.begin(session.header().seed(), options.heroClass(), rng);
+        // The log's own interface size, so a Rig log is played on the screen it was recorded on (it is the headless
+        // driver's, size 0, and an Overlay log's is the Overlay's) if the size changes what the game shows.
+        run = EmbeddedRun.attach(this, session.header().seed(), options.heroClass(), rng, session.follower(), observer,
+                null, session.header().cap());
+        controls = ControlState.replaying(new RunSeam(run), ControlEnablement.Capabilities.NOW, session.waits());
+        dock.controls(controls);
+        return true;
     }
 
     private EmbeddedRun attachResumed(boolean human) {
@@ -339,6 +374,11 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         @Override
         public void pausedOn(String speed) {
             run.pausedOn(speed);
+        }
+
+        @Override
+        public long waitIndex() {
+            return run.waitIndex();
         }
 
         @Override

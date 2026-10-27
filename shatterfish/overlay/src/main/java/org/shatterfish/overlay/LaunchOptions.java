@@ -44,15 +44,20 @@ import java.util.Map;
  * @param resume        the Profile of a Run that was saved and quit, to continue, or null for a new Run
  *                      ({@code --resume}, story 5.14); then seed, hero, salt, turn cap, oracle flag, agent and
  *                      log folder are the suspended Run's own, read from its marker and its log's header
+ * @param replay        a Run log to play back in the game, or null ({@code --replay}, story 8.5); then seed, hero,
+ *                      salt and turn cap are the log header's, nobody plays, and no log is written
+ * @param refused       why a log named by {@code --replay} cannot be played, or null; the Panel says it and no Run
+ *                      starts (story 8.5)
  */
 public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path profile, Path out, int turnCap,
                             long agentSeed, boolean oracle, boolean exitWhenOver, String agent, Path weights,
-                            Path playbook, Path codex, int windowWidth, int windowHeight, Path screenshot, Path resume) {
+                            Path playbook, Path codex, int windowWidth, int windowHeight, Path screenshot, Path resume,
+                            Path replay, String refused) {
 
     /** The flags the launcher knows. A flag it does not know is refused by name, never ignored. */
     public static final List<String> KNOWN = List.of("--seed", "--class", "--salt", "--profile", "--out",
             "--turn-cap", "--oracle", "--exit-when-over", "--agent", "--weights", "--playbook", "--codex", "--window",
-            "--screenshot", "--resume");
+            "--screenshot", "--resume", "--replay");
 
     /** The flags that take no value. */
     private static final List<String> SWITCHES = List.of("--oracle", "--exit-when-over");
@@ -71,9 +76,20 @@ public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path prof
         if (windowWidth < 0 || windowHeight < 0 || (windowWidth == 0) != (windowHeight == 0)) {
             throw new IllegalArgumentException("--window is WxH, both positive: " + windowWidth + "x" + windowHeight);
         }
-        if (!agent.equals("random") && !agent.equals("brain") && !agent.equals("human")) {
+        if (!agent.equals("random") && !agent.equals("brain") && !agent.equals("human") && !agent.equals(REPLAY_AGENT)) {
             throw new IllegalArgumentException("--agent is random, brain or human: " + agent);
         }
+        if (refused != null && replay == null) {
+            throw new IllegalArgumentException("only a replay is refused");
+        }
+    }
+
+    /** The name a replay's options give to who plays: the log, which nobody chose from the command line. */
+    static final String REPLAY_AGENT = "replay";
+
+    /** Whether this launch plays a Run log back (story 8.5). */
+    public boolean replaying() {
+        return replay != null;
     }
 
     /** Whether the person at the window plays this Run (story 5.9). */
@@ -110,6 +126,12 @@ public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path prof
             }
             given.put(flag, args[++i]);
         }
+        if (given.containsKey("--resume") && given.containsKey("--replay")) {
+            throw new IllegalArgumentException("--resume and --replay are two ways to start from a log; give one");
+        }
+        if (given.containsKey("--replay")) {
+            return replayed(given);
+        }
         if (given.containsKey("--resume")) {
             return resumed(given);
         }
@@ -133,7 +155,54 @@ public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path prof
                 given.containsKey("--codex") ? Path.of(given.get("--codex"))
                         : Path.of("codex", org.shatterfish.harness.boot.HeadlessBoot.pinnedTag()),
                 window(given.get("--window"), 0), window(given.get("--window"), 1),
-                given.containsKey("--screenshot") ? Path.of(given.get("--screenshot")) : null, null);
+                given.containsKey("--screenshot") ? Path.of(given.get("--screenshot")) : null, null, null, null);
+    }
+
+    /** The flags a replay takes from the log, and so refuses to be given (story 8.5). */
+    private static final List<String> FROM_THE_LOG = List.of("--seed", "--class", "--salt", "--out", "--turn-cap",
+            "--oracle", "--agent");
+
+    /**
+     * The options of a replay (story 8.5): the tuple and the cap are the log header's, so they cannot be changed on
+     * the way in, and nothing is written. A log that cannot be played still starts the game, with the reason for the
+     * Panel to say and no Run: the tuple is a placeholder nobody plays.
+     */
+    private static LaunchOptions replayed(Map<String, String> given) {
+        for (String flag : FROM_THE_LOG) {
+            if (given.containsKey(flag)) {
+                throw new IllegalArgumentException(flag + " cannot be given with --replay: the log's own "
+                        + flag.substring(2) + " is the one its header states");
+            }
+        }
+        if (given.containsKey("--resume")) {
+            throw new IllegalArgumentException("--resume and --replay are two ways to start from a log; give one");
+        }
+        Path log = Path.of(given.get("--replay"));
+        Path profile = given.containsKey("--profile") ? Path.of(given.get("--profile")) : null;
+        org.shatterfish.api.RunLog.Header header = null;
+        String refused = null;
+        try {
+            header = org.shatterfish.harness.log.Replay.open(log).header();
+        } catch (IllegalArgumentException | java.io.UncheckedIOException cannot) {
+            refused = cannot.getMessage();
+        }
+        return new LaunchOptions(
+                header == null ? 0 : header.seed(),
+                header == null ? HeroClass.WARRIOR : HeroClass.valueOf(header.heroClass().name()),
+                header == null ? null : header.salt(),
+                profile,
+                Path.of("overlay-runs"),
+                header == null ? 20000 : header.cap(),
+                0L,
+                false,
+                given.containsKey("--exit-when-over"),
+                REPLAY_AGENT,
+                Path.of(given.getOrDefault("--weights", "weights/shatterfish.json")),
+                Path.of(given.getOrDefault("--playbook", "playbooks/shatterfish.json")),
+                given.containsKey("--codex") ? Path.of(given.get("--codex"))
+                        : Path.of("codex", org.shatterfish.harness.boot.HeadlessBoot.pinnedTag()),
+                window(given.get("--window"), 0), window(given.get("--window"), 1),
+                given.containsKey("--screenshot") ? Path.of(given.get("--screenshot")) : null, null, log, refused);
     }
 
     /**
@@ -167,7 +236,7 @@ public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path prof
                 given.containsKey("--codex") ? Path.of(given.get("--codex"))
                         : Path.of("codex", org.shatterfish.harness.boot.HeadlessBoot.pinnedTag()),
                 window(given.get("--window"), 0), window(given.get("--window"), 1),
-                given.containsKey("--screenshot") ? Path.of(given.get("--screenshot")) : null, profile);
+                given.containsKey("--screenshot") ? Path.of(given.get("--screenshot")) : null, profile, null, null);
     }
 
     /**

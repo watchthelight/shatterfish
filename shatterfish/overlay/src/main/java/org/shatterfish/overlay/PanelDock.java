@@ -45,6 +45,9 @@ final class PanelDock {
     private ControlState controls;
     /** The outlines on the dungeon for the pending Decision, one layer per play scene (story 5.10). */
     private MapHighlights highlights;
+    /** Why a Run log was not played, drawn over whatever scene is in front, or null (story 8.5). */
+    private String refusal;
+    private RefusalNotice notice;
 
     /**
      * The end of the Overlay's frame update: {@code sceneUpdate}, then the Panel and its offset, then the
@@ -74,7 +77,26 @@ final class PanelDock {
     }
 
     /** The Panel on {@code scene} if it is a play scene, placed and filled in for this frame, and the offset set. */
+    /** Says why a Run log was refused (story 8.5); there is no Run, so the notice is drawn on the scene in front. */
+    void refusal(String reason) {
+        this.refusal = reason;
+    }
+
+    /** The refusal's notice on the scene in front, or null. */
+    RefusalNotice notice() {
+        return notice;
+    }
+
     void frame(Scene scene, EmbeddedRun.Snapshot snapshot, boolean inputLocked) {
+        if (refusal != null && scene != null) {
+            if (notice == null || notice.parent != scene) {
+                notice = new RefusalNotice();
+                notice.camera = PixelScene.uiCamera;
+                scene.add(notice);
+            }
+            notice.show(refusal, PixelScene.uiCamera.width);
+            return;
+        }
         if (!attaches(scene, com.shatteredpixel.shatteredpixeldungeon.Dungeon.hero != null)) {
             // No Run (UX-DR7): the title screen, the menus and the loading scenes show nothing, and the Panel
             // attaches when a play scene appears with a hero.

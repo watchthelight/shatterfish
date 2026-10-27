@@ -69,6 +69,9 @@ final class ControlEnablement {
                     Control.INTERVAL, Control.TAKE_OVER, Control.EXPLAIN));
             case PAUSED -> enabled.addAll(EnumSet.allOf(Control.class));
             case HUMAN -> enabled.addAll(EnumSet.of(Control.TAKE_OVER, Control.EXPLAIN));
+            // A loaded log stopped at a wait: everything a PAUSED Run has but a hand-over, since nobody plays a
+            // replay (story 8.5). The playing half of REPLAY is the RUNNING row less the same control.
+            case REPLAY -> enabled.addAll(EnumSet.complementOf(EnumSet.of(Control.TAKE_OVER)));
         }
         if (!capabilities.pacing()) {
             enabled.remove(Control.INTERVAL);
