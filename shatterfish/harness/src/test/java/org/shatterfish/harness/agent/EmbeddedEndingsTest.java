@@ -95,6 +95,25 @@ class EmbeddedEndingsTest {
     }
 
     @Test
+    @DisplayName("a loading scene of a return (a teleport to a named floor) is a floor being served (#328)")
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void a_return_plays_on() {
+        try (EmbeddedHost host = new EmbeddedHost(SEED, HeroClass.WARRIOR, SALT)) {
+            EmbeddedRun run = host.attach(SEARCHES, null, 5_000);
+            EmbeddedAttachTest.playUntilWaits(host, 1);
+            EmbeddedAttachTest.playUntil(host, () -> run.state() == EmbeddedRun.State.PLAYING);
+            InterlevelScene.mode = InterlevelScene.Mode.RETURN;
+            inFront(host, new InterlevelScene() {
+                @Override
+                public void create() {
+                }
+            });
+            assertEquals(EmbeddedRun.State.PLAYING, run.frame(), "the loading scene of a return");
+            assertEquals(null, run.outcome());
+        }
+    }
+
+    @Test
     @DisplayName("a loading scene of a descent is a floor being served; any other scene is unserved")
     @Timeout(value = 5, unit = TimeUnit.MINUTES)
     void a_descent_plays_on_and_a_stranger_does_not() {

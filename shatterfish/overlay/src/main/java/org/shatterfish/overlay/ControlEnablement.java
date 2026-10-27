@@ -87,6 +87,31 @@ final class ControlEnablement {
         return enabled;
     }
 
+    /** Said in the Mode strip when Explain is pressed with the Panel collapsed (story 8.2). */
+    static final String EXPLAIN_PANEL_COLLAPSED = "Explain is off: the Panel is collapsed, restore it first";
+    /** Said when Explain is pressed in a Run that is over. */
+    static final String EXPLAIN_RUN_OVER = "Explain is off: the Run is over";
+    /** Said when Explain is pressed before any Decision has landed. */
+    static final String EXPLAIN_NO_DECISION = "Explain is off: no decision yet";
+
+    /**
+     * Why Explain cannot act, or null when it can (story 8.2). The expansion opens inside the Panel, so with
+     * the Panel collapsed to the Mode strip there is nowhere to open it: the control is disabled and the
+     * reason is shown, where the matrix of {@link #of} alone said only "enabled". A Run that is over and a
+     * Run with no Decision yet are the matrix's own and the card's own, said in words here too.
+     *
+     * @param panelFull whether the Panel is drawn in full, not collapsed to the Mode strip
+     */
+    static String explainReason(ModeState.Mode mode, boolean over, boolean panelFull, boolean hasDecision) {
+        if (!of(mode, over, Capabilities.NOW).contains(Control.EXPLAIN)) {
+            return EXPLAIN_RUN_OVER;
+        }
+        if (!panelFull) {
+            return EXPLAIN_PANEL_COLLAPSED;
+        }
+        return hasDecision ? null : EXPLAIN_NO_DECISION;
+    }
+
     /** The first button's label: Pause while the bot is running, Resume when it is not. */
     static String pauseLabel(ModeState.Mode mode) {
         return mode == ModeState.Mode.RUNNING ? "Pause" : "Resume";

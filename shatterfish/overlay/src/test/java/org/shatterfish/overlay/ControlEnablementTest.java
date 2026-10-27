@@ -101,6 +101,40 @@ class ControlEnablementTest {
         }
     }
 
+    /**
+     * The expansion's rows (story 8.2), written out here and not computed: Explain acts in RUNNING, PAUSED and
+     * HUMAN with the Panel in full and a Decision to explain, and is disabled, with its reason, when the Panel
+     * is collapsed to the Mode strip (nowhere to open it), when the Run is over, and before any Decision.
+     */
+    @Test
+    @DisplayName("Explain is enabled in RUNNING, PAUSED and HUMAN with the Panel in full; collapsed, over or with no Decision it is disabled and says why")
+    void explain_rows() {
+        for (Mode mode : Mode.values()) {
+            org.junit.jupiter.api.Assertions.assertNull(ControlEnablement.explainReason(mode, false, true, true), mode + " full");
+            assertEquals(ControlEnablement.EXPLAIN_PANEL_COLLAPSED,
+                    ControlEnablement.explainReason(mode, false, false, true), mode + " collapsed");
+            assertEquals(ControlEnablement.EXPLAIN_NO_DECISION,
+                    ControlEnablement.explainReason(mode, false, true, false), mode + " no Decision");
+            assertEquals(ControlEnablement.EXPLAIN_RUN_OVER,
+                    ControlEnablement.explainReason(mode, true, true, true), mode + " over");
+            assertEquals(ControlEnablement.EXPLAIN_RUN_OVER,
+                    ControlEnablement.explainReason(mode, true, false, false), mode + " over beats the rest");
+        }
+        assertEquals("Explain is off: the Panel is collapsed, restore it first", ControlEnablement.EXPLAIN_PANEL_COLLAPSED);
+        assertEquals("Explain is off: the Run is over", ControlEnablement.EXPLAIN_RUN_OVER);
+        assertEquals("Explain is off: no decision yet", ControlEnablement.EXPLAIN_NO_DECISION);
+    }
+
+    @Test
+    @DisplayName("every reason Explain is disabled for is a reason the matrix also gives, or one the Panel adds; none is blank")
+    void explain_reasons_are_words() {
+        for (Mode mode : Mode.values()) {
+            boolean inMatrix = ControlEnablement.matrix(mode, false).contains(Control.EXPLAIN);
+            assertTrue(inMatrix, "the matrix leaves Explain on in " + mode + ", so a reason there is the Panel's");
+            assertFalse(ControlEnablement.matrix(mode, true).contains(Control.EXPLAIN));
+        }
+    }
+
     @Test
     @DisplayName("the buttons that change their label do: Pause or Resume, Take over or Hand back")
     void labels_follow_the_mode() {
