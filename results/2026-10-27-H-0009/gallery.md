@@ -1,0 +1,575 @@
+<!-- Written by the Rig (and by ./gradlew :rig:gallery). Each ending is read from the Run's own log. -->
+
+# How the Runs ended: shatterfish on holdout
+
+500 Runs: 500 ended by the game, 0 not. A Run log's ending records how the Run ended and at what depth, not what killed the hero: the log's Outcome has no killer (a mob, a trap, hunger), so this gallery groups by ending and depth. Turns are whole turns survived, from the log's ending.
+
+Each Run links its log by file name, in the folder this page sits in. A copy of this page published without its logs -- as `results/` publishes them -- links logs that are not committed.
+
+## Endings the game decided
+
+Largest group first: the largest is the place to look.
+
+| Ending | Depth | Runs | Share |
+|---|---|---|---|
+| DEATH | 3 | 132 | 26.4% |
+| DEATH | 5 | 96 | 19.2% |
+| DEATH | 4 | 90 | 18.0% |
+| DEATH | 6 | 72 | 14.4% |
+| DEATH | 2 | 40 | 8.0% |
+| DEATH | 7 | 39 | 7.8% |
+| DEATH | 1 | 25 | 5.0% |
+| DEATH | 8 | 5 | 1.0% |
+| DEATH | 9 | 1 | 0.2% |
+
+### DEATH at depth 3 — 132 Runs
+
+| Seed | Class | Turns | Log |
+|---|---|---|---|
+| ACU-ALE-UBP | MAGE | 914 | [v4.0.2-MAGE-0-ACU-ALE-UBP-709156925b98048b-shatterfish](v4.0.2-MAGE-0-ACU-ALE-UBP-709156925b98048b-shatterfish.jsonl) |
+| AMA-HSR-QOT | HUNTRESS | 1018 | [v4.0.2-HUNTRESS-0-AMA-HSR-QOT-7733a33b812f16be-shatterfish](v4.0.2-HUNTRESS-0-AMA-HSR-QOT-7733a33b812f16be-shatterfish.jsonl) |
+| AQG-FWB-XCN | CLERIC | 427 | [v4.0.2-CLERIC-0-AQG-FWB-XCN-cce6e99d09a50974-shatterfish](v4.0.2-CLERIC-0-AQG-FWB-XCN-cce6e99d09a50974-shatterfish.jsonl) |
+| AWB-BWE-BST | WARRIOR | 1256 | [v4.0.2-WARRIOR-0-AWB-BWE-BST-25774742de80c938-shatterfish](v4.0.2-WARRIOR-0-AWB-BWE-BST-25774742de80c938-shatterfish.jsonl) |
+| BAO-KUG-SYF | ROGUE | 513 | [v4.0.2-ROGUE-0-BAO-KUG-SYF-b62666ccf90b9e7b-shatterfish](v4.0.2-ROGUE-0-BAO-KUG-SYF-b62666ccf90b9e7b-shatterfish.jsonl) |
+| BEM-WAT-GIJ | HUNTRESS | 1048 | [v4.0.2-HUNTRESS-0-BEM-WAT-GIJ-198e6e42bbe8851f-shatterfish](v4.0.2-HUNTRESS-0-BEM-WAT-GIJ-198e6e42bbe8851f-shatterfish.jsonl) |
+| BNH-YWL-PLC | DUELIST | 743 | [v4.0.2-DUELIST-0-BNH-YWL-PLC-23b6e7ead9e24a1f-shatterfish](v4.0.2-DUELIST-0-BNH-YWL-PLC-23b6e7ead9e24a1f-shatterfish.jsonl) |
+| BQP-NUL-SXP | DUELIST | 907 | [v4.0.2-DUELIST-0-BQP-NUL-SXP-c1cdd6da5dbc1782-shatterfish](v4.0.2-DUELIST-0-BQP-NUL-SXP-c1cdd6da5dbc1782-shatterfish.jsonl) |
+| BRF-CMF-DJV | DUELIST | 1217 | [v4.0.2-DUELIST-0-BRF-CMF-DJV-f1df9efe84cb1909-shatterfish](v4.0.2-DUELIST-0-BRF-CMF-DJV-f1df9efe84cb1909-shatterfish.jsonl) |
+| BWA-CUI-QCW | WARRIOR | 1312 | [v4.0.2-WARRIOR-0-BWA-CUI-QCW-00f0886d62c50685-shatterfish](v4.0.2-WARRIOR-0-BWA-CUI-QCW-00f0886d62c50685-shatterfish.jsonl) |
+| BXV-GHG-JII | HUNTRESS | 1183 | [v4.0.2-HUNTRESS-0-BXV-GHG-JII-902de2dac562f534-shatterfish](v4.0.2-HUNTRESS-0-BXV-GHG-JII-902de2dac562f534-shatterfish.jsonl) |
+| BYE-NHZ-MYA | CLERIC | 675 | [v4.0.2-CLERIC-0-BYE-NHZ-MYA-983d36855c5e2dc8-shatterfish](v4.0.2-CLERIC-0-BYE-NHZ-MYA-983d36855c5e2dc8-shatterfish.jsonl) |
+| CQT-IUE-DLH | ROGUE | 1128 | [v4.0.2-ROGUE-0-CQT-IUE-DLH-4f5198ed7cf927f4-shatterfish](v4.0.2-ROGUE-0-CQT-IUE-DLH-4f5198ed7cf927f4-shatterfish.jsonl) |
+| CST-UXN-DVQ | ROGUE | 739 | [v4.0.2-ROGUE-0-CST-UXN-DVQ-c4a3ee3d61f5c0bc-shatterfish](v4.0.2-ROGUE-0-CST-UXN-DVQ-c4a3ee3d61f5c0bc-shatterfish.jsonl) |
+| CWP-RNS-CTC | CLERIC | 1265 | [v4.0.2-CLERIC-0-CWP-RNS-CTC-b86e9a3628529111-shatterfish](v4.0.2-CLERIC-0-CWP-RNS-CTC-b86e9a3628529111-shatterfish.jsonl) |
+| DCM-SDX-DLQ | DUELIST | 646 | [v4.0.2-DUELIST-0-DCM-SDX-DLQ-d5815a8c0d3192b6-shatterfish](v4.0.2-DUELIST-0-DCM-SDX-DLQ-d5815a8c0d3192b6-shatterfish.jsonl) |
+| DHI-XKT-RWH | MAGE | 793 | [v4.0.2-MAGE-0-DHI-XKT-RWH-1fbc1514f5250a09-shatterfish](v4.0.2-MAGE-0-DHI-XKT-RWH-1fbc1514f5250a09-shatterfish.jsonl) |
+| DUO-XYX-SJD | MAGE | 517 | [v4.0.2-MAGE-0-DUO-XYX-SJD-80e61ff6f2c5051f-shatterfish](v4.0.2-MAGE-0-DUO-XYX-SJD-80e61ff6f2c5051f-shatterfish.jsonl) |
+| DZZ-LUD-NFJ | HUNTRESS | 1226 | [v4.0.2-HUNTRESS-0-DZZ-LUD-NFJ-78ebcf4aa81904b2-shatterfish](v4.0.2-HUNTRESS-0-DZZ-LUD-NFJ-78ebcf4aa81904b2-shatterfish.jsonl) |
+| EAZ-SKK-NTC | MAGE | 537 | [v4.0.2-MAGE-0-EAZ-SKK-NTC-a3ab68edc44ee3fd-shatterfish](v4.0.2-MAGE-0-EAZ-SKK-NTC-a3ab68edc44ee3fd-shatterfish.jsonl) |
+| EDS-JKL-GFB | DUELIST | 647 | [v4.0.2-DUELIST-0-EDS-JKL-GFB-a04fa324390063c7-shatterfish](v4.0.2-DUELIST-0-EDS-JKL-GFB-a04fa324390063c7-shatterfish.jsonl) |
+| EEZ-TVX-TTS | DUELIST | 963 | [v4.0.2-DUELIST-0-EEZ-TVX-TTS-eca3b23604f75609-shatterfish](v4.0.2-DUELIST-0-EEZ-TVX-TTS-eca3b23604f75609-shatterfish.jsonl) |
+| EHS-MLS-IFD | MAGE | 612 | [v4.0.2-MAGE-0-EHS-MLS-IFD-61dfd9b331081e09-shatterfish](v4.0.2-MAGE-0-EHS-MLS-IFD-61dfd9b331081e09-shatterfish.jsonl) |
+| EIM-SLW-IPC | DUELIST | 578 | [v4.0.2-DUELIST-0-EIM-SLW-IPC-4b35e05281050be6-shatterfish](v4.0.2-DUELIST-0-EIM-SLW-IPC-4b35e05281050be6-shatterfish.jsonl) |
+| ELD-QTR-GGK | HUNTRESS | 1313 | [v4.0.2-HUNTRESS-0-ELD-QTR-GGK-b479c331bda50e20-shatterfish](v4.0.2-HUNTRESS-0-ELD-QTR-GGK-b479c331bda50e20-shatterfish.jsonl) |
+| EVG-OGP-QOC | ROGUE | 352 | [v4.0.2-ROGUE-0-EVG-OGP-QOC-313b0d441e632024-shatterfish](v4.0.2-ROGUE-0-EVG-OGP-QOC-313b0d441e632024-shatterfish.jsonl) |
+| EXG-JTM-VDH | ROGUE | 967 | [v4.0.2-ROGUE-0-EXG-JTM-VDH-d435c40f247ea816-shatterfish](v4.0.2-ROGUE-0-EXG-JTM-VDH-d435c40f247ea816-shatterfish.jsonl) |
+| EYD-RSD-XNL | WARRIOR | 823 | [v4.0.2-WARRIOR-0-EYD-RSD-XNL-c62e9b0335e1ed33-shatterfish](v4.0.2-WARRIOR-0-EYD-RSD-XNL-c62e9b0335e1ed33-shatterfish.jsonl) |
+| FKD-UBO-ZFL | HUNTRESS | 985 | [v4.0.2-HUNTRESS-0-FKD-UBO-ZFL-ec817fa8534ea94d-shatterfish](v4.0.2-HUNTRESS-0-FKD-UBO-ZFL-ec817fa8534ea94d-shatterfish.jsonl) |
+| FMF-DCN-ESE | DUELIST | 877 | [v4.0.2-DUELIST-0-FMF-DCN-ESE-0cbfb585cb01e6b2-shatterfish](v4.0.2-DUELIST-0-FMF-DCN-ESE-0cbfb585cb01e6b2-shatterfish.jsonl) |
+| FTU-DQB-GAD | HUNTRESS | 783 | [v4.0.2-HUNTRESS-0-FTU-DQB-GAD-59e727f86f6066bf-shatterfish](v4.0.2-HUNTRESS-0-FTU-DQB-GAD-59e727f86f6066bf-shatterfish.jsonl) |
+| GCR-PMK-QVB | DUELIST | 972 | [v4.0.2-DUELIST-0-GCR-PMK-QVB-229ced2d32a59eb0-shatterfish](v4.0.2-DUELIST-0-GCR-PMK-QVB-229ced2d32a59eb0-shatterfish.jsonl) |
+| GEA-NWR-GDW | WARRIOR | 582 | [v4.0.2-WARRIOR-0-GEA-NWR-GDW-334bf24fe9ea370f-shatterfish](v4.0.2-WARRIOR-0-GEA-NWR-GDW-334bf24fe9ea370f-shatterfish.jsonl) |
+| GKU-XSS-YJN | CLERIC | 251 | [v4.0.2-CLERIC-0-GKU-XSS-YJN-46db0e1a9a50cb1a-shatterfish](v4.0.2-CLERIC-0-GKU-XSS-YJN-46db0e1a9a50cb1a-shatterfish.jsonl) |
+| GMO-CFE-TIR | MAGE | 374 | [v4.0.2-MAGE-0-GMO-CFE-TIR-516985ea43e0e860-shatterfish](v4.0.2-MAGE-0-GMO-CFE-TIR-516985ea43e0e860-shatterfish.jsonl) |
+| GVW-ERX-KJZ | CLERIC | 1022 | [v4.0.2-CLERIC-0-GVW-ERX-KJZ-82ca364fe563baad-shatterfish](v4.0.2-CLERIC-0-GVW-ERX-KJZ-82ca364fe563baad-shatterfish.jsonl) |
+| GXG-WWO-KSI | CLERIC | 1301 | [v4.0.2-CLERIC-0-GXG-WWO-KSI-6b93574d65eb7f7f-shatterfish](v4.0.2-CLERIC-0-GXG-WWO-KSI-6b93574d65eb7f7f-shatterfish.jsonl) |
+| HAH-WFN-IJL | CLERIC | 1298 | [v4.0.2-CLERIC-0-HAH-WFN-IJL-16917ade4ce176fe-shatterfish](v4.0.2-CLERIC-0-HAH-WFN-IJL-16917ade4ce176fe-shatterfish.jsonl) |
+| HFF-AQZ-RBC | HUNTRESS | 1374 | [v4.0.2-HUNTRESS-0-HFF-AQZ-RBC-c7d2a5970a98b753-shatterfish](v4.0.2-HUNTRESS-0-HFF-AQZ-RBC-c7d2a5970a98b753-shatterfish.jsonl) |
+| HMO-LBV-UNT | ROGUE | 1270 | [v4.0.2-ROGUE-0-HMO-LBV-UNT-c9d7060fc95ca788-shatterfish](v4.0.2-ROGUE-0-HMO-LBV-UNT-c9d7060fc95ca788-shatterfish.jsonl) |
+| HQK-VML-DXX | ROGUE | 2050 | [v4.0.2-ROGUE-0-HQK-VML-DXX-f93fd04d6ba29e7d-shatterfish](v4.0.2-ROGUE-0-HQK-VML-DXX-f93fd04d6ba29e7d-shatterfish.jsonl) |
+| IAY-ZYJ-ONX | WARRIOR | 2089 | [v4.0.2-WARRIOR-0-IAY-ZYJ-ONX-bdd496464b44e45b-shatterfish](v4.0.2-WARRIOR-0-IAY-ZYJ-ONX-bdd496464b44e45b-shatterfish.jsonl) |
+| IDR-ZXL-ZIY | CLERIC | 662 | [v4.0.2-CLERIC-0-IDR-ZXL-ZIY-91f4f5026ac0a8fd-shatterfish](v4.0.2-CLERIC-0-IDR-ZXL-ZIY-91f4f5026ac0a8fd-shatterfish.jsonl) |
+| IGF-GIZ-AFS | CLERIC | 1391 | [v4.0.2-CLERIC-0-IGF-GIZ-AFS-1f070bea158c89c2-shatterfish](v4.0.2-CLERIC-0-IGF-GIZ-AFS-1f070bea158c89c2-shatterfish.jsonl) |
+| IKC-GXD-ILB | CLERIC | 692 | [v4.0.2-CLERIC-0-IKC-GXD-ILB-8ce0c2068b58ad42-shatterfish](v4.0.2-CLERIC-0-IKC-GXD-ILB-8ce0c2068b58ad42-shatterfish.jsonl) |
+| ITX-OGU-XVQ | ROGUE | 1032 | [v4.0.2-ROGUE-0-ITX-OGU-XVQ-f4f9510f57347bb7-shatterfish](v4.0.2-ROGUE-0-ITX-OGU-XVQ-f4f9510f57347bb7-shatterfish.jsonl) |
+| IUZ-COY-LDL | CLERIC | 1138 | [v4.0.2-CLERIC-0-IUZ-COY-LDL-32704d60eab0d459-shatterfish](v4.0.2-CLERIC-0-IUZ-COY-LDL-32704d60eab0d459-shatterfish.jsonl) |
+| JGU-AXL-JYU | WARRIOR | 1611 | [v4.0.2-WARRIOR-0-JGU-AXL-JYU-21256c8c18f1aded-shatterfish](v4.0.2-WARRIOR-0-JGU-AXL-JYU-21256c8c18f1aded-shatterfish.jsonl) |
+| JII-OAC-WQF | HUNTRESS | 1017 | [v4.0.2-HUNTRESS-0-JII-OAC-WQF-b8b1a1dccdfccbdf-shatterfish](v4.0.2-HUNTRESS-0-JII-OAC-WQF-b8b1a1dccdfccbdf-shatterfish.jsonl) |
+| JVB-QPD-IVE | CLERIC | 431 | [v4.0.2-CLERIC-0-JVB-QPD-IVE-b2dea7f46c95b356-shatterfish](v4.0.2-CLERIC-0-JVB-QPD-IVE-b2dea7f46c95b356-shatterfish.jsonl) |
+| JZT-SMM-KYN | WARRIOR | 985 | [v4.0.2-WARRIOR-0-JZT-SMM-KYN-213a0e36939cc6d3-shatterfish](v4.0.2-WARRIOR-0-JZT-SMM-KYN-213a0e36939cc6d3-shatterfish.jsonl) |
+| KCB-GKK-XPT | HUNTRESS | 1472 | [v4.0.2-HUNTRESS-0-KCB-GKK-XPT-54263232a31e58e2-shatterfish](v4.0.2-HUNTRESS-0-KCB-GKK-XPT-54263232a31e58e2-shatterfish.jsonl) |
+| KMJ-CWV-THX | MAGE | 839 | [v4.0.2-MAGE-0-KMJ-CWV-THX-5455ec22465792e1-shatterfish](v4.0.2-MAGE-0-KMJ-CWV-THX-5455ec22465792e1-shatterfish.jsonl) |
+| LBQ-MES-QYP | HUNTRESS | 652 | [v4.0.2-HUNTRESS-0-LBQ-MES-QYP-691583192598f8c0-shatterfish](v4.0.2-HUNTRESS-0-LBQ-MES-QYP-691583192598f8c0-shatterfish.jsonl) |
+| LJQ-NGD-STN | ROGUE | 1361 | [v4.0.2-ROGUE-0-LJQ-NGD-STN-ecea33a513a46853-shatterfish](v4.0.2-ROGUE-0-LJQ-NGD-STN-ecea33a513a46853-shatterfish.jsonl) |
+| LKN-CRN-GKM | DUELIST | 348 | [v4.0.2-DUELIST-0-LKN-CRN-GKM-9bc944b4a4740615-shatterfish](v4.0.2-DUELIST-0-LKN-CRN-GKM-9bc944b4a4740615-shatterfish.jsonl) |
+| LLI-WZI-HZV | WARRIOR | 1005 | [v4.0.2-WARRIOR-0-LLI-WZI-HZV-1926496954dcb1bb-shatterfish](v4.0.2-WARRIOR-0-LLI-WZI-HZV-1926496954dcb1bb-shatterfish.jsonl) |
+| LVL-ODJ-ZSZ | ROGUE | 724 | [v4.0.2-ROGUE-0-LVL-ODJ-ZSZ-ebddb015848fd34b-shatterfish](v4.0.2-ROGUE-0-LVL-ODJ-ZSZ-ebddb015848fd34b-shatterfish.jsonl) |
+| MBI-PYK-SAP | MAGE | 638 | [v4.0.2-MAGE-0-MBI-PYK-SAP-6f5f1aa3ec3feb5b-shatterfish](v4.0.2-MAGE-0-MBI-PYK-SAP-6f5f1aa3ec3feb5b-shatterfish.jsonl) |
+| MCW-CUC-PXM | DUELIST | 700 | [v4.0.2-DUELIST-0-MCW-CUC-PXM-aef51cb5d35f39ae-shatterfish](v4.0.2-DUELIST-0-MCW-CUC-PXM-aef51cb5d35f39ae-shatterfish.jsonl) |
+| MHG-QXU-XQH | ROGUE | 657 | [v4.0.2-ROGUE-0-MHG-QXU-XQH-e53bcdd2890d686e-shatterfish](v4.0.2-ROGUE-0-MHG-QXU-XQH-e53bcdd2890d686e-shatterfish.jsonl) |
+| MHW-NPB-CQL | WARRIOR | 1051 | [v4.0.2-WARRIOR-0-MHW-NPB-CQL-60bfeaae91d21f5a-shatterfish](v4.0.2-WARRIOR-0-MHW-NPB-CQL-60bfeaae91d21f5a-shatterfish.jsonl) |
+| MKH-LKX-LOJ | HUNTRESS | 712 | [v4.0.2-HUNTRESS-0-MKH-LKX-LOJ-ac02973fe27146cf-shatterfish](v4.0.2-HUNTRESS-0-MKH-LKX-LOJ-ac02973fe27146cf-shatterfish.jsonl) |
+| MRX-JHO-QYO | DUELIST | 1127 | [v4.0.2-DUELIST-0-MRX-JHO-QYO-970f615c3e6adb6e-shatterfish](v4.0.2-DUELIST-0-MRX-JHO-QYO-970f615c3e6adb6e-shatterfish.jsonl) |
+| NFG-ROM-LTF | CLERIC | 1138 | [v4.0.2-CLERIC-0-NFG-ROM-LTF-d4a842879dcaaf9e-shatterfish](v4.0.2-CLERIC-0-NFG-ROM-LTF-d4a842879dcaaf9e-shatterfish.jsonl) |
+| NNG-GBG-ISU | HUNTRESS | 1692 | [v4.0.2-HUNTRESS-0-NNG-GBG-ISU-16b373f61f43bd93-shatterfish](v4.0.2-HUNTRESS-0-NNG-GBG-ISU-16b373f61f43bd93-shatterfish.jsonl) |
+| OCC-SZU-WNN | MAGE | 487 | [v4.0.2-MAGE-0-OCC-SZU-WNN-becd30b22a6f21a8-shatterfish](v4.0.2-MAGE-0-OCC-SZU-WNN-becd30b22a6f21a8-shatterfish.jsonl) |
+| OVG-PVM-WMP | HUNTRESS | 2134 | [v4.0.2-HUNTRESS-0-OVG-PVM-WMP-9dd2499441f1b317-shatterfish](v4.0.2-HUNTRESS-0-OVG-PVM-WMP-9dd2499441f1b317-shatterfish.jsonl) |
+| OZN-PRE-PCK | DUELIST | 1237 | [v4.0.2-DUELIST-0-OZN-PRE-PCK-cf75ad86ff017387-shatterfish](v4.0.2-DUELIST-0-OZN-PRE-PCK-cf75ad86ff017387-shatterfish.jsonl) |
+| PKH-WTW-XUP | ROGUE | 733 | [v4.0.2-ROGUE-0-PKH-WTW-XUP-b1db10908a39660e-shatterfish](v4.0.2-ROGUE-0-PKH-WTW-XUP-b1db10908a39660e-shatterfish.jsonl) |
+| PTL-WZK-KSK | DUELIST | 903 | [v4.0.2-DUELIST-0-PTL-WZK-KSK-41bacbc991ed0573-shatterfish](v4.0.2-DUELIST-0-PTL-WZK-KSK-41bacbc991ed0573-shatterfish.jsonl) |
+| PVX-WRR-GUV | ROGUE | 1149 | [v4.0.2-ROGUE-0-PVX-WRR-GUV-eae5337c218e79a3-shatterfish](v4.0.2-ROGUE-0-PVX-WRR-GUV-eae5337c218e79a3-shatterfish.jsonl) |
+| QDZ-CVZ-KYJ | CLERIC | 534 | [v4.0.2-CLERIC-0-QDZ-CVZ-KYJ-77b4a271e6603f44-shatterfish](v4.0.2-CLERIC-0-QDZ-CVZ-KYJ-77b4a271e6603f44-shatterfish.jsonl) |
+| QEQ-PYS-IPD | ROGUE | 1048 | [v4.0.2-ROGUE-0-QEQ-PYS-IPD-235a02f374e382f1-shatterfish](v4.0.2-ROGUE-0-QEQ-PYS-IPD-235a02f374e382f1-shatterfish.jsonl) |
+| QHS-QVX-JQE | CLERIC | 1459 | [v4.0.2-CLERIC-0-QHS-QVX-JQE-9949fed00ed4a6f1-shatterfish](v4.0.2-CLERIC-0-QHS-QVX-JQE-9949fed00ed4a6f1-shatterfish.jsonl) |
+| QJJ-SVH-ILC | CLERIC | 1258 | [v4.0.2-CLERIC-0-QJJ-SVH-ILC-ac7c3db5ff92278a-shatterfish](v4.0.2-CLERIC-0-QJJ-SVH-ILC-ac7c3db5ff92278a-shatterfish.jsonl) |
+| QQP-GAK-SVG | CLERIC | 795 | [v4.0.2-CLERIC-0-QQP-GAK-SVG-602d0fed4ba19bf6-shatterfish](v4.0.2-CLERIC-0-QQP-GAK-SVG-602d0fed4ba19bf6-shatterfish.jsonl) |
+| RBX-CGO-OLV | HUNTRESS | 1178 | [v4.0.2-HUNTRESS-0-RBX-CGO-OLV-5f3f70c4eedb1f7b-shatterfish](v4.0.2-HUNTRESS-0-RBX-CGO-OLV-5f3f70c4eedb1f7b-shatterfish.jsonl) |
+| RDE-JJQ-KOM | HUNTRESS | 1579 | [v4.0.2-HUNTRESS-0-RDE-JJQ-KOM-f3a0a8da6ba92fd2-shatterfish](v4.0.2-HUNTRESS-0-RDE-JJQ-KOM-f3a0a8da6ba92fd2-shatterfish.jsonl) |
+| RGA-IJM-YUQ | ROGUE | 389 | [v4.0.2-ROGUE-0-RGA-IJM-YUQ-672e3d012c17f9d3-shatterfish](v4.0.2-ROGUE-0-RGA-IJM-YUQ-672e3d012c17f9d3-shatterfish.jsonl) |
+| RHZ-BZW-DBR | HUNTRESS | 977 | [v4.0.2-HUNTRESS-0-RHZ-BZW-DBR-09d45f6954e7bca5-shatterfish](v4.0.2-HUNTRESS-0-RHZ-BZW-DBR-09d45f6954e7bca5-shatterfish.jsonl) |
+| RXP-HSB-FXK | HUNTRESS | 1080 | [v4.0.2-HUNTRESS-0-RXP-HSB-FXK-0e8f281b43c28d6a-shatterfish](v4.0.2-HUNTRESS-0-RXP-HSB-FXK-0e8f281b43c28d6a-shatterfish.jsonl) |
+| SAA-FVL-RBE | MAGE | 798 | [v4.0.2-MAGE-0-SAA-FVL-RBE-3ae3110618c89c6d-shatterfish](v4.0.2-MAGE-0-SAA-FVL-RBE-3ae3110618c89c6d-shatterfish.jsonl) |
+| SGE-LHR-JQV | ROGUE | 399 | [v4.0.2-ROGUE-0-SGE-LHR-JQV-84200d9eb5ec76b5-shatterfish](v4.0.2-ROGUE-0-SGE-LHR-JQV-84200d9eb5ec76b5-shatterfish.jsonl) |
+| SHS-ZMB-SUP | ROGUE | 1228 | [v4.0.2-ROGUE-0-SHS-ZMB-SUP-cc20f552f979d181-shatterfish](v4.0.2-ROGUE-0-SHS-ZMB-SUP-cc20f552f979d181-shatterfish.jsonl) |
+| SHY-GIA-CFW | MAGE | 607 | [v4.0.2-MAGE-0-SHY-GIA-CFW-a6863ca2b34347e7-shatterfish](v4.0.2-MAGE-0-SHY-GIA-CFW-a6863ca2b34347e7-shatterfish.jsonl) |
+| SPR-IDA-FWJ | CLERIC | 647 | [v4.0.2-CLERIC-0-SPR-IDA-FWJ-6daa04efa204ce0e-shatterfish](v4.0.2-CLERIC-0-SPR-IDA-FWJ-6daa04efa204ce0e-shatterfish.jsonl) |
+| SSX-DYI-JMR | MAGE | 992 | [v4.0.2-MAGE-0-SSX-DYI-JMR-117d448312088724-shatterfish](v4.0.2-MAGE-0-SSX-DYI-JMR-117d448312088724-shatterfish.jsonl) |
+| TAC-ZBI-YIE | HUNTRESS | 1364 | [v4.0.2-HUNTRESS-0-TAC-ZBI-YIE-c843742d0e8eb980-shatterfish](v4.0.2-HUNTRESS-0-TAC-ZBI-YIE-c843742d0e8eb980-shatterfish.jsonl) |
+| TCK-ZUC-RMB | DUELIST | 823 | [v4.0.2-DUELIST-0-TCK-ZUC-RMB-2a08ab1ad64c9505-shatterfish](v4.0.2-DUELIST-0-TCK-ZUC-RMB-2a08ab1ad64c9505-shatterfish.jsonl) |
+| TGL-CHH-QVJ | ROGUE | 1034 | [v4.0.2-ROGUE-0-TGL-CHH-QVJ-b697aecbbbf84cd6-shatterfish](v4.0.2-ROGUE-0-TGL-CHH-QVJ-b697aecbbbf84cd6-shatterfish.jsonl) |
+| TIC-OLW-MBQ | CLERIC | 1231 | [v4.0.2-CLERIC-0-TIC-OLW-MBQ-e1fc7cb24bb85d9b-shatterfish](v4.0.2-CLERIC-0-TIC-OLW-MBQ-e1fc7cb24bb85d9b-shatterfish.jsonl) |
+| TLR-TSM-BRP | CLERIC | 753 | [v4.0.2-CLERIC-0-TLR-TSM-BRP-1a91983ba894e4cf-shatterfish](v4.0.2-CLERIC-0-TLR-TSM-BRP-1a91983ba894e4cf-shatterfish.jsonl) |
+| TPS-IYT-APF | HUNTRESS | 872 | [v4.0.2-HUNTRESS-0-TPS-IYT-APF-979bfec0c2d770f6-shatterfish](v4.0.2-HUNTRESS-0-TPS-IYT-APF-979bfec0c2d770f6-shatterfish.jsonl) |
+| TQC-DKJ-FQL | ROGUE | 1674 | [v4.0.2-ROGUE-0-TQC-DKJ-FQL-7c0b247a8854a4ec-shatterfish](v4.0.2-ROGUE-0-TQC-DKJ-FQL-7c0b247a8854a4ec-shatterfish.jsonl) |
+| TTG-JSK-PEW | HUNTRESS | 1612 | [v4.0.2-HUNTRESS-0-TTG-JSK-PEW-f266df5e4eeec996-shatterfish](v4.0.2-HUNTRESS-0-TTG-JSK-PEW-f266df5e4eeec996-shatterfish.jsonl) |
+| TUQ-QPK-JHE | HUNTRESS | 989 | [v4.0.2-HUNTRESS-0-TUQ-QPK-JHE-7d7db7ad9040066b-shatterfish](v4.0.2-HUNTRESS-0-TUQ-QPK-JHE-7d7db7ad9040066b-shatterfish.jsonl) |
+| TUT-FDL-TOD | MAGE | 1125 | [v4.0.2-MAGE-0-TUT-FDL-TOD-17ecc6da9fedf51b-shatterfish](v4.0.2-MAGE-0-TUT-FDL-TOD-17ecc6da9fedf51b-shatterfish.jsonl) |
+| ULQ-OTH-JOX | HUNTRESS | 1303 | [v4.0.2-HUNTRESS-0-ULQ-OTH-JOX-b37f19dc2b498365-shatterfish](v4.0.2-HUNTRESS-0-ULQ-OTH-JOX-b37f19dc2b498365-shatterfish.jsonl) |
+| UNW-YKD-NOF | MAGE | 1027 | [v4.0.2-MAGE-0-UNW-YKD-NOF-818b0c2f27e364ba-shatterfish](v4.0.2-MAGE-0-UNW-YKD-NOF-818b0c2f27e364ba-shatterfish.jsonl) |
+| UOJ-BMW-WTU | CLERIC | 584 | [v4.0.2-CLERIC-0-UOJ-BMW-WTU-85c00f3430927370-shatterfish](v4.0.2-CLERIC-0-UOJ-BMW-WTU-85c00f3430927370-shatterfish.jsonl) |
+| UQJ-RPT-UXV | WARRIOR | 570 | [v4.0.2-WARRIOR-0-UQJ-RPT-UXV-58ac13fa8239abfa-shatterfish](v4.0.2-WARRIOR-0-UQJ-RPT-UXV-58ac13fa8239abfa-shatterfish.jsonl) |
+| UTY-XJR-HFA | HUNTRESS | 2172 | [v4.0.2-HUNTRESS-0-UTY-XJR-HFA-3fd653884e1cc6c1-shatterfish](v4.0.2-HUNTRESS-0-UTY-XJR-HFA-3fd653884e1cc6c1-shatterfish.jsonl) |
+| UYJ-FVQ-WMX | DUELIST | 1158 | [v4.0.2-DUELIST-0-UYJ-FVQ-WMX-2d82bdee644f1513-shatterfish](v4.0.2-DUELIST-0-UYJ-FVQ-WMX-2d82bdee644f1513-shatterfish.jsonl) |
+| VBI-HKD-PYG | CLERIC | 981 | [v4.0.2-CLERIC-0-VBI-HKD-PYG-a8676b23123c0a4f-shatterfish](v4.0.2-CLERIC-0-VBI-HKD-PYG-a8676b23123c0a4f-shatterfish.jsonl) |
+| VVD-EDB-EZW | HUNTRESS | 1084 | [v4.0.2-HUNTRESS-0-VVD-EDB-EZW-4481d1210b8174e9-shatterfish](v4.0.2-HUNTRESS-0-VVD-EDB-EZW-4481d1210b8174e9-shatterfish.jsonl) |
+| VVO-EIN-LSL | CLERIC | 940 | [v4.0.2-CLERIC-0-VVO-EIN-LSL-2831fa3275ee49d3-shatterfish](v4.0.2-CLERIC-0-VVO-EIN-LSL-2831fa3275ee49d3-shatterfish.jsonl) |
+| WBH-SVA-TLT | DUELIST | 610 | [v4.0.2-DUELIST-0-WBH-SVA-TLT-5522cbd875f26c36-shatterfish](v4.0.2-DUELIST-0-WBH-SVA-TLT-5522cbd875f26c36-shatterfish.jsonl) |
+| WFS-UEB-BQS | WARRIOR | 1129 | [v4.0.2-WARRIOR-0-WFS-UEB-BQS-7e20e8dddf65f585-shatterfish](v4.0.2-WARRIOR-0-WFS-UEB-BQS-7e20e8dddf65f585-shatterfish.jsonl) |
+| WIC-OOV-WOA | CLERIC | 675 | [v4.0.2-CLERIC-0-WIC-OOV-WOA-07f8878beabafcbb-shatterfish](v4.0.2-CLERIC-0-WIC-OOV-WOA-07f8878beabafcbb-shatterfish.jsonl) |
+| WLG-WPD-RRT | CLERIC | 970 | [v4.0.2-CLERIC-0-WLG-WPD-RRT-a9e7cdd2ebc682de-shatterfish](v4.0.2-CLERIC-0-WLG-WPD-RRT-a9e7cdd2ebc682de-shatterfish.jsonl) |
+| WMJ-XDN-TQM | CLERIC | 2192 | [v4.0.2-CLERIC-0-WMJ-XDN-TQM-3f258ac1ef87a820-shatterfish](v4.0.2-CLERIC-0-WMJ-XDN-TQM-3f258ac1ef87a820-shatterfish.jsonl) |
+| WOH-ABM-TSO | CLERIC | 1050 | [v4.0.2-CLERIC-0-WOH-ABM-TSO-8ac33157dd0e7bd1-shatterfish](v4.0.2-CLERIC-0-WOH-ABM-TSO-8ac33157dd0e7bd1-shatterfish.jsonl) |
+| WVF-ZBR-VEW | DUELIST | 1497 | [v4.0.2-DUELIST-0-WVF-ZBR-VEW-043ce053fe644c88-shatterfish](v4.0.2-DUELIST-0-WVF-ZBR-VEW-043ce053fe644c88-shatterfish.jsonl) |
+| WVH-XNT-UFU | HUNTRESS | 938 | [v4.0.2-HUNTRESS-0-WVH-XNT-UFU-f9e12d02ba400f73-shatterfish](v4.0.2-HUNTRESS-0-WVH-XNT-UFU-f9e12d02ba400f73-shatterfish.jsonl) |
+| XKE-JOA-ZWY | CLERIC | 1280 | [v4.0.2-CLERIC-0-XKE-JOA-ZWY-903592a75ddff793-shatterfish](v4.0.2-CLERIC-0-XKE-JOA-ZWY-903592a75ddff793-shatterfish.jsonl) |
+| XNK-GVA-BDA | HUNTRESS | 823 | [v4.0.2-HUNTRESS-0-XNK-GVA-BDA-e22026a619e22975-shatterfish](v4.0.2-HUNTRESS-0-XNK-GVA-BDA-e22026a619e22975-shatterfish.jsonl) |
+| XNU-XTS-XXM | MAGE | 838 | [v4.0.2-MAGE-0-XNU-XTS-XXM-ee8e571aed255794-shatterfish](v4.0.2-MAGE-0-XNU-XTS-XXM-ee8e571aed255794-shatterfish.jsonl) |
+| XQG-FUW-JPG | DUELIST | 981 | [v4.0.2-DUELIST-0-XQG-FUW-JPG-215e3fa7643c0088-shatterfish](v4.0.2-DUELIST-0-XQG-FUW-JPG-215e3fa7643c0088-shatterfish.jsonl) |
+| XUK-YSB-OWU | ROGUE | 1219 | [v4.0.2-ROGUE-0-XUK-YSB-OWU-dde72f6a41d5ed6d-shatterfish](v4.0.2-ROGUE-0-XUK-YSB-OWU-dde72f6a41d5ed6d-shatterfish.jsonl) |
+| XYL-JHC-CQK | ROGUE | 1313 | [v4.0.2-ROGUE-0-XYL-JHC-CQK-cbde325f315aec45-shatterfish](v4.0.2-ROGUE-0-XYL-JHC-CQK-cbde325f315aec45-shatterfish.jsonl) |
+| XZY-GPT-OWP | DUELIST | 1241 | [v4.0.2-DUELIST-0-XZY-GPT-OWP-83a22cf325bd35dc-shatterfish](v4.0.2-DUELIST-0-XZY-GPT-OWP-83a22cf325bd35dc-shatterfish.jsonl) |
+| YHX-NES-COT | HUNTRESS | 676 | [v4.0.2-HUNTRESS-0-YHX-NES-COT-44d0f46affecde84-shatterfish](v4.0.2-HUNTRESS-0-YHX-NES-COT-44d0f46affecde84-shatterfish.jsonl) |
+| YOI-EFO-XDK | ROGUE | 686 | [v4.0.2-ROGUE-0-YOI-EFO-XDK-92b1c871aa5a4e2a-shatterfish](v4.0.2-ROGUE-0-YOI-EFO-XDK-92b1c871aa5a4e2a-shatterfish.jsonl) |
+| YQH-IML-RGS | ROGUE | 1165 | [v4.0.2-ROGUE-0-YQH-IML-RGS-89da78d1cdf9e29e-shatterfish](v4.0.2-ROGUE-0-YQH-IML-RGS-89da78d1cdf9e29e-shatterfish.jsonl) |
+| YXT-GJL-YUV | ROGUE | 924 | [v4.0.2-ROGUE-0-YXT-GJL-YUV-e1029df75cd3d489-shatterfish](v4.0.2-ROGUE-0-YXT-GJL-YUV-e1029df75cd3d489-shatterfish.jsonl) |
+| ZFI-GDL-SAF | CLERIC | 1278 | [v4.0.2-CLERIC-0-ZFI-GDL-SAF-46a6fe1563ff3c57-shatterfish](v4.0.2-CLERIC-0-ZFI-GDL-SAF-46a6fe1563ff3c57-shatterfish.jsonl) |
+| ZFN-QST-THS | ROGUE | 885 | [v4.0.2-ROGUE-0-ZFN-QST-THS-f2cfaaed67826be4-shatterfish](v4.0.2-ROGUE-0-ZFN-QST-THS-f2cfaaed67826be4-shatterfish.jsonl) |
+| ZHF-ZJI-SPD | ROGUE | 1392 | [v4.0.2-ROGUE-0-ZHF-ZJI-SPD-a2311de3dace7a65-shatterfish](v4.0.2-ROGUE-0-ZHF-ZJI-SPD-a2311de3dace7a65-shatterfish.jsonl) |
+| ZLC-IZD-VME | CLERIC | 1082 | [v4.0.2-CLERIC-0-ZLC-IZD-VME-80ec09a4b7d5df1e-shatterfish](v4.0.2-CLERIC-0-ZLC-IZD-VME-80ec09a4b7d5df1e-shatterfish.jsonl) |
+| ZRC-KPW-BBK | WARRIOR | 1113 | [v4.0.2-WARRIOR-0-ZRC-KPW-BBK-63b7dfe7248b6a74-shatterfish](v4.0.2-WARRIOR-0-ZRC-KPW-BBK-63b7dfe7248b6a74-shatterfish.jsonl) |
+| ZUU-KCP-FQT | WARRIOR | 834 | [v4.0.2-WARRIOR-0-ZUU-KCP-FQT-3299fab1db8f9fa5-shatterfish](v4.0.2-WARRIOR-0-ZUU-KCP-FQT-3299fab1db8f9fa5-shatterfish.jsonl) |
+
+### DEATH at depth 5 — 96 Runs
+
+| Seed | Class | Turns | Log |
+|---|---|---|---|
+| AFA-QBJ-HNI | DUELIST | 2230 | [v4.0.2-DUELIST-0-AFA-QBJ-HNI-6e619d2823858185-shatterfish](v4.0.2-DUELIST-0-AFA-QBJ-HNI-6e619d2823858185-shatterfish.jsonl) |
+| APO-STY-KQF | DUELIST | 1714 | [v4.0.2-DUELIST-0-APO-STY-KQF-a11078d77bd017f1-shatterfish](v4.0.2-DUELIST-0-APO-STY-KQF-a11078d77bd017f1-shatterfish.jsonl) |
+| ATO-AKW-FIZ | WARRIOR | 1774 | [v4.0.2-WARRIOR-0-ATO-AKW-FIZ-93193f36df3ed137-shatterfish](v4.0.2-WARRIOR-0-ATO-AKW-FIZ-93193f36df3ed137-shatterfish.jsonl) |
+| AUZ-WJU-AMM | MAGE | 1616 | [v4.0.2-MAGE-0-AUZ-WJU-AMM-6a1eba738c7c95ae-shatterfish](v4.0.2-MAGE-0-AUZ-WJU-AMM-6a1eba738c7c95ae-shatterfish.jsonl) |
+| BBN-WKF-WRL | ROGUE | 2120 | [v4.0.2-ROGUE-0-BBN-WKF-WRL-4d2596cb4c520f00-shatterfish](v4.0.2-ROGUE-0-BBN-WKF-WRL-4d2596cb4c520f00-shatterfish.jsonl) |
+| BED-XTK-TJN | MAGE | 2004 | [v4.0.2-MAGE-0-BED-XTK-TJN-80a934126121c0ad-shatterfish](v4.0.2-MAGE-0-BED-XTK-TJN-80a934126121c0ad-shatterfish.jsonl) |
+| BGI-UZW-VCR | MAGE | 2242 | [v4.0.2-MAGE-0-BGI-UZW-VCR-a5fd5737f04a9a8c-shatterfish](v4.0.2-MAGE-0-BGI-UZW-VCR-a5fd5737f04a9a8c-shatterfish.jsonl) |
+| BHA-UHI-RHA | HUNTRESS | 1683 | [v4.0.2-HUNTRESS-0-BHA-UHI-RHA-db417236c673bf32-shatterfish](v4.0.2-HUNTRESS-0-BHA-UHI-RHA-db417236c673bf32-shatterfish.jsonl) |
+| BOM-EZR-THI | DUELIST | 2024 | [v4.0.2-DUELIST-0-BOM-EZR-THI-0a7bf33a1bb3ee44-shatterfish](v4.0.2-DUELIST-0-BOM-EZR-THI-0a7bf33a1bb3ee44-shatterfish.jsonl) |
+| BZC-TIR-NWI | WARRIOR | 2952 | [v4.0.2-WARRIOR-0-BZC-TIR-NWI-37b461fe3a799775-shatterfish](v4.0.2-WARRIOR-0-BZC-TIR-NWI-37b461fe3a799775-shatterfish.jsonl) |
+| CDH-MBT-WTL | MAGE | 1896 | [v4.0.2-MAGE-0-CDH-MBT-WTL-545ffc2791f22b84-shatterfish](v4.0.2-MAGE-0-CDH-MBT-WTL-545ffc2791f22b84-shatterfish.jsonl) |
+| CZU-OCR-SIU | HUNTRESS | 1410 | [v4.0.2-HUNTRESS-0-CZU-OCR-SIU-f4be2511aa9c0f4c-shatterfish](v4.0.2-HUNTRESS-0-CZU-OCR-SIU-f4be2511aa9c0f4c-shatterfish.jsonl) |
+| DGA-PPE-QXV | DUELIST | 1685 | [v4.0.2-DUELIST-0-DGA-PPE-QXV-7d40c616d0099b6f-shatterfish](v4.0.2-DUELIST-0-DGA-PPE-QXV-7d40c616d0099b6f-shatterfish.jsonl) |
+| DHX-BGY-JWT | CLERIC | 2487 | [v4.0.2-CLERIC-0-DHX-BGY-JWT-f9b7fb29c144e3dc-shatterfish](v4.0.2-CLERIC-0-DHX-BGY-JWT-f9b7fb29c144e3dc-shatterfish.jsonl) |
+| DSF-LQU-IGS | CLERIC | 1610 | [v4.0.2-CLERIC-0-DSF-LQU-IGS-d925db6cab356ea5-shatterfish](v4.0.2-CLERIC-0-DSF-LQU-IGS-d925db6cab356ea5-shatterfish.jsonl) |
+| DST-HHM-IJV | MAGE | 1534 | [v4.0.2-MAGE-0-DST-HHM-IJV-1e415b6fcca9de62-shatterfish](v4.0.2-MAGE-0-DST-HHM-IJV-1e415b6fcca9de62-shatterfish.jsonl) |
+| DXV-BDL-FHU | ROGUE | 1851 | [v4.0.2-ROGUE-0-DXV-BDL-FHU-d66d6fd280920c11-shatterfish](v4.0.2-ROGUE-0-DXV-BDL-FHU-d66d6fd280920c11-shatterfish.jsonl) |
+| DZY-GDV-YRQ | CLERIC | 2107 | [v4.0.2-CLERIC-0-DZY-GDV-YRQ-ff0871b506abad78-shatterfish](v4.0.2-CLERIC-0-DZY-GDV-YRQ-ff0871b506abad78-shatterfish.jsonl) |
+| EAN-UWB-YZT | DUELIST | 1452 | [v4.0.2-DUELIST-0-EAN-UWB-YZT-eb7d1f6863fd95de-shatterfish](v4.0.2-DUELIST-0-EAN-UWB-YZT-eb7d1f6863fd95de-shatterfish.jsonl) |
+| EBT-VQY-UZR | WARRIOR | 1975 | [v4.0.2-WARRIOR-0-EBT-VQY-UZR-3ff5ef4d7a129a68-shatterfish](v4.0.2-WARRIOR-0-EBT-VQY-UZR-3ff5ef4d7a129a68-shatterfish.jsonl) |
+| EOL-KSP-LLN | ROGUE | 1704 | [v4.0.2-ROGUE-0-EOL-KSP-LLN-4a28e46f656e33dd-shatterfish](v4.0.2-ROGUE-0-EOL-KSP-LLN-4a28e46f656e33dd-shatterfish.jsonl) |
+| FGK-VYU-MYF | ROGUE | 1327 | [v4.0.2-ROGUE-0-FGK-VYU-MYF-a3f4a925e8b035de-shatterfish](v4.0.2-ROGUE-0-FGK-VYU-MYF-a3f4a925e8b035de-shatterfish.jsonl) |
+| FJI-QQJ-NOU | HUNTRESS | 1431 | [v4.0.2-HUNTRESS-0-FJI-QQJ-NOU-b748c564638ae460-shatterfish](v4.0.2-HUNTRESS-0-FJI-QQJ-NOU-b748c564638ae460-shatterfish.jsonl) |
+| FPU-GWH-YLF | DUELIST | 1535 | [v4.0.2-DUELIST-0-FPU-GWH-YLF-30fca903ab3cee13-shatterfish](v4.0.2-DUELIST-0-FPU-GWH-YLF-30fca903ab3cee13-shatterfish.jsonl) |
+| FXL-HUM-YDF | ROGUE | 2192 | [v4.0.2-ROGUE-0-FXL-HUM-YDF-2ceade75489eccff-shatterfish](v4.0.2-ROGUE-0-FXL-HUM-YDF-2ceade75489eccff-shatterfish.jsonl) |
+| GET-WBQ-NGE | WARRIOR | 1854 | [v4.0.2-WARRIOR-0-GET-WBQ-NGE-f3c8e0b45423be07-shatterfish](v4.0.2-WARRIOR-0-GET-WBQ-NGE-f3c8e0b45423be07-shatterfish.jsonl) |
+| GYC-CBK-GYE | HUNTRESS | 1516 | [v4.0.2-HUNTRESS-0-GYC-CBK-GYE-68cf458a3c96cc72-shatterfish](v4.0.2-HUNTRESS-0-GYC-CBK-GYE-68cf458a3c96cc72-shatterfish.jsonl) |
+| GZE-NNN-LCQ | MAGE | 1361 | [v4.0.2-MAGE-0-GZE-NNN-LCQ-7a44c61715273218-shatterfish](v4.0.2-MAGE-0-GZE-NNN-LCQ-7a44c61715273218-shatterfish.jsonl) |
+| HNT-REV-UJD | MAGE | 1937 | [v4.0.2-MAGE-0-HNT-REV-UJD-d944bb49ff17fd06-shatterfish](v4.0.2-MAGE-0-HNT-REV-UJD-d944bb49ff17fd06-shatterfish.jsonl) |
+| HQJ-FSQ-XAK | WARRIOR | 1411 | [v4.0.2-WARRIOR-0-HQJ-FSQ-XAK-79f97dd83b5bf9d7-shatterfish](v4.0.2-WARRIOR-0-HQJ-FSQ-XAK-79f97dd83b5bf9d7-shatterfish.jsonl) |
+| IGK-POH-CEQ | DUELIST | 1614 | [v4.0.2-DUELIST-0-IGK-POH-CEQ-25e4ff6580595fa0-shatterfish](v4.0.2-DUELIST-0-IGK-POH-CEQ-25e4ff6580595fa0-shatterfish.jsonl) |
+| IYF-CWF-WXO | ROGUE | 1647 | [v4.0.2-ROGUE-0-IYF-CWF-WXO-f3a674e854906950-shatterfish](v4.0.2-ROGUE-0-IYF-CWF-WXO-f3a674e854906950-shatterfish.jsonl) |
+| JRA-TFN-BDP | ROGUE | 2260 | [v4.0.2-ROGUE-0-JRA-TFN-BDP-f4519ba6bf8b0daa-shatterfish](v4.0.2-ROGUE-0-JRA-TFN-BDP-f4519ba6bf8b0daa-shatterfish.jsonl) |
+| KBC-DCI-BKT | MAGE | 1959 | [v4.0.2-MAGE-0-KBC-DCI-BKT-b87a17c64cfcad5d-shatterfish](v4.0.2-MAGE-0-KBC-DCI-BKT-b87a17c64cfcad5d-shatterfish.jsonl) |
+| KIG-PAT-RWX | MAGE | 1959 | [v4.0.2-MAGE-0-KIG-PAT-RWX-7f5f3e922aae983a-shatterfish](v4.0.2-MAGE-0-KIG-PAT-RWX-7f5f3e922aae983a-shatterfish.jsonl) |
+| KII-VLH-BZE | WARRIOR | 1840 | [v4.0.2-WARRIOR-0-KII-VLH-BZE-338a7fefcac74c30-shatterfish](v4.0.2-WARRIOR-0-KII-VLH-BZE-338a7fefcac74c30-shatterfish.jsonl) |
+| KLU-RNB-IJD | DUELIST | 1849 | [v4.0.2-DUELIST-0-KLU-RNB-IJD-982ebd8d6b999e7e-shatterfish](v4.0.2-DUELIST-0-KLU-RNB-IJD-982ebd8d6b999e7e-shatterfish.jsonl) |
+| KWI-IYX-SOO | DUELIST | 1954 | [v4.0.2-DUELIST-0-KWI-IYX-SOO-943e99ca260ae2af-shatterfish](v4.0.2-DUELIST-0-KWI-IYX-SOO-943e99ca260ae2af-shatterfish.jsonl) |
+| LEH-LHR-NFU | ROGUE | 1903 | [v4.0.2-ROGUE-0-LEH-LHR-NFU-1bf9617ab2c398ec-shatterfish](v4.0.2-ROGUE-0-LEH-LHR-NFU-1bf9617ab2c398ec-shatterfish.jsonl) |
+| LGC-PLF-YUW | DUELIST | 1937 | [v4.0.2-DUELIST-0-LGC-PLF-YUW-bf87b6e618889d7f-shatterfish](v4.0.2-DUELIST-0-LGC-PLF-YUW-bf87b6e618889d7f-shatterfish.jsonl) |
+| LIY-RMJ-JVM | MAGE | 2121 | [v4.0.2-MAGE-0-LIY-RMJ-JVM-9940251dafad1847-shatterfish](v4.0.2-MAGE-0-LIY-RMJ-JVM-9940251dafad1847-shatterfish.jsonl) |
+| LNW-XKO-AWI | DUELIST | 1498 | [v4.0.2-DUELIST-0-LNW-XKO-AWI-afe1f80ea8fa90a7-shatterfish](v4.0.2-DUELIST-0-LNW-XKO-AWI-afe1f80ea8fa90a7-shatterfish.jsonl) |
+| LZR-NHT-YIB | DUELIST | 2410 | [v4.0.2-DUELIST-0-LZR-NHT-YIB-d81d439a09f221bd-shatterfish](v4.0.2-DUELIST-0-LZR-NHT-YIB-d81d439a09f221bd-shatterfish.jsonl) |
+| MAH-QID-ZCP | MAGE | 1568 | [v4.0.2-MAGE-0-MAH-QID-ZCP-19f9e8b375b6dee7-shatterfish](v4.0.2-MAGE-0-MAH-QID-ZCP-19f9e8b375b6dee7-shatterfish.jsonl) |
+| MDB-ZSV-YVE | DUELIST | 2475 | [v4.0.2-DUELIST-0-MDB-ZSV-YVE-9af7b1344f067cc7-shatterfish](v4.0.2-DUELIST-0-MDB-ZSV-YVE-9af7b1344f067cc7-shatterfish.jsonl) |
+| MFH-KPQ-QXZ | CLERIC | 1459 | [v4.0.2-CLERIC-0-MFH-KPQ-QXZ-2b5a78007c4ee9d4-shatterfish](v4.0.2-CLERIC-0-MFH-KPQ-QXZ-2b5a78007c4ee9d4-shatterfish.jsonl) |
+| MLS-HHA-KFQ | DUELIST | 1889 | [v4.0.2-DUELIST-0-MLS-HHA-KFQ-150492c09bb40f07-shatterfish](v4.0.2-DUELIST-0-MLS-HHA-KFQ-150492c09bb40f07-shatterfish.jsonl) |
+| MWG-DLO-XPG | HUNTRESS | 1982 | [v4.0.2-HUNTRESS-0-MWG-DLO-XPG-8c2331959e4eb802-shatterfish](v4.0.2-HUNTRESS-0-MWG-DLO-XPG-8c2331959e4eb802-shatterfish.jsonl) |
+| MYV-DUJ-FQN | ROGUE | 1886 | [v4.0.2-ROGUE-0-MYV-DUJ-FQN-b78ae2cd392327b0-shatterfish](v4.0.2-ROGUE-0-MYV-DUJ-FQN-b78ae2cd392327b0-shatterfish.jsonl) |
+| NSX-SXF-ZWW | ROGUE | 1541 | [v4.0.2-ROGUE-0-NSX-SXF-ZWW-c208d0f47668366e-shatterfish](v4.0.2-ROGUE-0-NSX-SXF-ZWW-c208d0f47668366e-shatterfish.jsonl) |
+| NTH-JTV-ECC | MAGE | 1378 | [v4.0.2-MAGE-0-NTH-JTV-ECC-3c286cf7e96620d1-shatterfish](v4.0.2-MAGE-0-NTH-JTV-ECC-3c286cf7e96620d1-shatterfish.jsonl) |
+| OHA-GGR-RBZ | ROGUE | 2052 | [v4.0.2-ROGUE-0-OHA-GGR-RBZ-376e2b428ae5ac85-shatterfish](v4.0.2-ROGUE-0-OHA-GGR-RBZ-376e2b428ae5ac85-shatterfish.jsonl) |
+| OJG-XPM-YRR | DUELIST | 1587 | [v4.0.2-DUELIST-0-OJG-XPM-YRR-8014e13eb8f0a047-shatterfish](v4.0.2-DUELIST-0-OJG-XPM-YRR-8014e13eb8f0a047-shatterfish.jsonl) |
+| OME-KUV-IEH | MAGE | 1309 | [v4.0.2-MAGE-0-OME-KUV-IEH-66374c8bc47f9380-shatterfish](v4.0.2-MAGE-0-OME-KUV-IEH-66374c8bc47f9380-shatterfish.jsonl) |
+| OSX-TMZ-ZPT | CLERIC | 1593 | [v4.0.2-CLERIC-0-OSX-TMZ-ZPT-f3e1bde3b0bb1ec9-shatterfish](v4.0.2-CLERIC-0-OSX-TMZ-ZPT-f3e1bde3b0bb1ec9-shatterfish.jsonl) |
+| OWB-BMZ-RDJ | MAGE | 2244 | [v4.0.2-MAGE-0-OWB-BMZ-RDJ-555915c0c4c5b177-shatterfish](v4.0.2-MAGE-0-OWB-BMZ-RDJ-555915c0c4c5b177-shatterfish.jsonl) |
+| PFU-MAK-BQK | WARRIOR | 1761 | [v4.0.2-WARRIOR-0-PFU-MAK-BQK-3601db044b5086fa-shatterfish](v4.0.2-WARRIOR-0-PFU-MAK-BQK-3601db044b5086fa-shatterfish.jsonl) |
+| PZN-RXD-YOD | MAGE | 1806 | [v4.0.2-MAGE-0-PZN-RXD-YOD-961a1688425367ff-shatterfish](v4.0.2-MAGE-0-PZN-RXD-YOD-961a1688425367ff-shatterfish.jsonl) |
+| QCG-FSQ-JDJ | DUELIST | 2021 | [v4.0.2-DUELIST-0-QCG-FSQ-JDJ-ba77d3f976a0bc9a-shatterfish](v4.0.2-DUELIST-0-QCG-FSQ-JDJ-ba77d3f976a0bc9a-shatterfish.jsonl) |
+| QCM-FAX-HTL | MAGE | 2050 | [v4.0.2-MAGE-0-QCM-FAX-HTL-d1316769f1e710a3-shatterfish](v4.0.2-MAGE-0-QCM-FAX-HTL-d1316769f1e710a3-shatterfish.jsonl) |
+| QDP-CGD-LIB | WARRIOR | 1663 | [v4.0.2-WARRIOR-0-QDP-CGD-LIB-4cf8720d793622a0-shatterfish](v4.0.2-WARRIOR-0-QDP-CGD-LIB-4cf8720d793622a0-shatterfish.jsonl) |
+| QQG-UMY-UAJ | MAGE | 1523 | [v4.0.2-MAGE-0-QQG-UMY-UAJ-1cd2866d5f38eae4-shatterfish](v4.0.2-MAGE-0-QQG-UMY-UAJ-1cd2866d5f38eae4-shatterfish.jsonl) |
+| QVH-TVC-IXS | CLERIC | 2524 | [v4.0.2-CLERIC-0-QVH-TVC-IXS-31447118c4c821cc-shatterfish](v4.0.2-CLERIC-0-QVH-TVC-IXS-31447118c4c821cc-shatterfish.jsonl) |
+| RFU-TPO-IHV | HUNTRESS | 2109 | [v4.0.2-HUNTRESS-0-RFU-TPO-IHV-fab92b2c16250af3-shatterfish](v4.0.2-HUNTRESS-0-RFU-TPO-IHV-fab92b2c16250af3-shatterfish.jsonl) |
+| RIN-QWU-SKZ | DUELIST | 1647 | [v4.0.2-DUELIST-0-RIN-QWU-SKZ-7b2d4428fffd906a-shatterfish](v4.0.2-DUELIST-0-RIN-QWU-SKZ-7b2d4428fffd906a-shatterfish.jsonl) |
+| RMG-NRY-SRL | MAGE | 1969 | [v4.0.2-MAGE-0-RMG-NRY-SRL-1648c6c70e021ed2-shatterfish](v4.0.2-MAGE-0-RMG-NRY-SRL-1648c6c70e021ed2-shatterfish.jsonl) |
+| SEU-DCJ-YHR | MAGE | 1647 | [v4.0.2-MAGE-0-SEU-DCJ-YHR-98b9a653a6d13370-shatterfish](v4.0.2-MAGE-0-SEU-DCJ-YHR-98b9a653a6d13370-shatterfish.jsonl) |
+| STN-FNT-DYK | DUELIST | 1630 | [v4.0.2-DUELIST-0-STN-FNT-DYK-2fb8da18f00e2bf5-shatterfish](v4.0.2-DUELIST-0-STN-FNT-DYK-2fb8da18f00e2bf5-shatterfish.jsonl) |
+| STQ-MRD-YMI | MAGE | 1813 | [v4.0.2-MAGE-0-STQ-MRD-YMI-13daa77d327edac5-shatterfish](v4.0.2-MAGE-0-STQ-MRD-YMI-13daa77d327edac5-shatterfish.jsonl) |
+| STU-HOG-KTX | ROGUE | 1596 | [v4.0.2-ROGUE-0-STU-HOG-KTX-0a788ad78b2a0eeb-shatterfish](v4.0.2-ROGUE-0-STU-HOG-KTX-0a788ad78b2a0eeb-shatterfish.jsonl) |
+| STZ-YFD-SEG | MAGE | 2412 | [v4.0.2-MAGE-0-STZ-YFD-SEG-833a87bdd5224a4f-shatterfish](v4.0.2-MAGE-0-STZ-YFD-SEG-833a87bdd5224a4f-shatterfish.jsonl) |
+| TKG-BER-RNU | HUNTRESS | 2080 | [v4.0.2-HUNTRESS-0-TKG-BER-RNU-c5cc9e6df35ec06e-shatterfish](v4.0.2-HUNTRESS-0-TKG-BER-RNU-c5cc9e6df35ec06e-shatterfish.jsonl) |
+| TQX-TRD-ORX | DUELIST | 2041 | [v4.0.2-DUELIST-0-TQX-TRD-ORX-dce88d9df7103afa-shatterfish](v4.0.2-DUELIST-0-TQX-TRD-ORX-dce88d9df7103afa-shatterfish.jsonl) |
+| TUR-ZAA-FNE | CLERIC | 1856 | [v4.0.2-CLERIC-0-TUR-ZAA-FNE-c44a1402d88cc988-shatterfish](v4.0.2-CLERIC-0-TUR-ZAA-FNE-c44a1402d88cc988-shatterfish.jsonl) |
+| UAD-FZO-SIQ | ROGUE | 2221 | [v4.0.2-ROGUE-0-UAD-FZO-SIQ-52357c72618c2643-shatterfish](v4.0.2-ROGUE-0-UAD-FZO-SIQ-52357c72618c2643-shatterfish.jsonl) |
+| UFY-UDB-AEQ | DUELIST | 1581 | [v4.0.2-DUELIST-0-UFY-UDB-AEQ-e199419282570550-shatterfish](v4.0.2-DUELIST-0-UFY-UDB-AEQ-e199419282570550-shatterfish.jsonl) |
+| UHS-WLD-GYZ | MAGE | 1987 | [v4.0.2-MAGE-0-UHS-WLD-GYZ-b3a448faf395ea41-shatterfish](v4.0.2-MAGE-0-UHS-WLD-GYZ-b3a448faf395ea41-shatterfish.jsonl) |
+| UPY-WSV-GFU | MAGE | 1590 | [v4.0.2-MAGE-0-UPY-WSV-GFU-2814d2e130ecf77e-shatterfish](v4.0.2-MAGE-0-UPY-WSV-GFU-2814d2e130ecf77e-shatterfish.jsonl) |
+| URZ-WJW-YCV | WARRIOR | 1634 | [v4.0.2-WARRIOR-0-URZ-WJW-YCV-7cfc6f3a5e8c31c8-shatterfish](v4.0.2-WARRIOR-0-URZ-WJW-YCV-7cfc6f3a5e8c31c8-shatterfish.jsonl) |
+| UTF-XSD-MKN | MAGE | 2046 | [v4.0.2-MAGE-0-UTF-XSD-MKN-22ed7d49efc79230-shatterfish](v4.0.2-MAGE-0-UTF-XSD-MKN-22ed7d49efc79230-shatterfish.jsonl) |
+| UZY-ELL-KQI | DUELIST | 2398 | [v4.0.2-DUELIST-0-UZY-ELL-KQI-5ed71b620d0b818e-shatterfish](v4.0.2-DUELIST-0-UZY-ELL-KQI-5ed71b620d0b818e-shatterfish.jsonl) |
+| WAO-HBT-OBQ | MAGE | 1555 | [v4.0.2-MAGE-0-WAO-HBT-OBQ-c5a4e847147b9d74-shatterfish](v4.0.2-MAGE-0-WAO-HBT-OBQ-c5a4e847147b9d74-shatterfish.jsonl) |
+| WHN-OZE-DDL | HUNTRESS | 1768 | [v4.0.2-HUNTRESS-0-WHN-OZE-DDL-aa539fa11bb9c067-shatterfish](v4.0.2-HUNTRESS-0-WHN-OZE-DDL-aa539fa11bb9c067-shatterfish.jsonl) |
+| XRF-RRJ-XOX | HUNTRESS | 2146 | [v4.0.2-HUNTRESS-0-XRF-RRJ-XOX-da9e1fd01ee5072d-shatterfish](v4.0.2-HUNTRESS-0-XRF-RRJ-XOX-da9e1fd01ee5072d-shatterfish.jsonl) |
+| XVD-WOW-HMS | DUELIST | 2706 | [v4.0.2-DUELIST-0-XVD-WOW-HMS-c49f30d31deb1bba-shatterfish](v4.0.2-DUELIST-0-XVD-WOW-HMS-c49f30d31deb1bba-shatterfish.jsonl) |
+| XVH-FYG-NFS | DUELIST | 2283 | [v4.0.2-DUELIST-0-XVH-FYG-NFS-af9f5e3f6ab7ad77-shatterfish](v4.0.2-DUELIST-0-XVH-FYG-NFS-af9f5e3f6ab7ad77-shatterfish.jsonl) |
+| YGI-LAF-DGH | DUELIST | 2050 | [v4.0.2-DUELIST-0-YGI-LAF-DGH-1f62746ff964c013-shatterfish](v4.0.2-DUELIST-0-YGI-LAF-DGH-1f62746ff964c013-shatterfish.jsonl) |
+| YHH-KSX-FWA | ROGUE | 1922 | [v4.0.2-ROGUE-0-YHH-KSX-FWA-85dca8b1d955633e-shatterfish](v4.0.2-ROGUE-0-YHH-KSX-FWA-85dca8b1d955633e-shatterfish.jsonl) |
+| YQL-EPC-XQB | DUELIST | 1492 | [v4.0.2-DUELIST-0-YQL-EPC-XQB-833a620645fa67e1-shatterfish](v4.0.2-DUELIST-0-YQL-EPC-XQB-833a620645fa67e1-shatterfish.jsonl) |
+| YSL-WVF-MYS | MAGE | 1945 | [v4.0.2-MAGE-0-YSL-WVF-MYS-4a0dae36f6c184b1-shatterfish](v4.0.2-MAGE-0-YSL-WVF-MYS-4a0dae36f6c184b1-shatterfish.jsonl) |
+| YWE-QAW-SJD | CLERIC | 1813 | [v4.0.2-CLERIC-0-YWE-QAW-SJD-376fe33f97c65e36-shatterfish](v4.0.2-CLERIC-0-YWE-QAW-SJD-376fe33f97c65e36-shatterfish.jsonl) |
+| ZAM-MLW-HRD | DUELIST | 2069 | [v4.0.2-DUELIST-0-ZAM-MLW-HRD-fe5cb8514ccc25b5-shatterfish](v4.0.2-DUELIST-0-ZAM-MLW-HRD-fe5cb8514ccc25b5-shatterfish.jsonl) |
+| ZFR-KRH-CPH | DUELIST | 1767 | [v4.0.2-DUELIST-0-ZFR-KRH-CPH-c22ec135d4523909-shatterfish](v4.0.2-DUELIST-0-ZFR-KRH-CPH-c22ec135d4523909-shatterfish.jsonl) |
+| ZLL-QJX-PYI | DUELIST | 1670 | [v4.0.2-DUELIST-0-ZLL-QJX-PYI-eb2de7c75b7afefb-shatterfish](v4.0.2-DUELIST-0-ZLL-QJX-PYI-eb2de7c75b7afefb-shatterfish.jsonl) |
+| ZUX-XEH-VDM | DUELIST | 2165 | [v4.0.2-DUELIST-0-ZUX-XEH-VDM-586dcb37ad27a5cc-shatterfish](v4.0.2-DUELIST-0-ZUX-XEH-VDM-586dcb37ad27a5cc-shatterfish.jsonl) |
+| ZXU-TQK-VSM | CLERIC | 1767 | [v4.0.2-CLERIC-0-ZXU-TQK-VSM-784e0ba1a725e0c3-shatterfish](v4.0.2-CLERIC-0-ZXU-TQK-VSM-784e0ba1a725e0c3-shatterfish.jsonl) |
+
+### DEATH at depth 4 — 90 Runs
+
+| Seed | Class | Turns | Log |
+|---|---|---|---|
+| AEZ-LAM-ZJA | ROGUE | 1124 | [v4.0.2-ROGUE-0-AEZ-LAM-ZJA-2d4dc95d0f0fe248-shatterfish](v4.0.2-ROGUE-0-AEZ-LAM-ZJA-2d4dc95d0f0fe248-shatterfish.jsonl) |
+| AHE-WEO-LRE | MAGE | 1446 | [v4.0.2-MAGE-0-AHE-WEO-LRE-f668a5c184f88c06-shatterfish](v4.0.2-MAGE-0-AHE-WEO-LRE-f668a5c184f88c06-shatterfish.jsonl) |
+| AMU-LUQ-FMG | CLERIC | 1468 | [v4.0.2-CLERIC-0-AMU-LUQ-FMG-9f182b9b463bf7f3-shatterfish](v4.0.2-CLERIC-0-AMU-LUQ-FMG-9f182b9b463bf7f3-shatterfish.jsonl) |
+| ARP-QAI-HXT | ROGUE | 1579 | [v4.0.2-ROGUE-0-ARP-QAI-HXT-439bb005f98e1975-shatterfish](v4.0.2-ROGUE-0-ARP-QAI-HXT-439bb005f98e1975-shatterfish.jsonl) |
+| BDE-LWE-PLD | DUELIST | 1875 | [v4.0.2-DUELIST-0-BDE-LWE-PLD-bb15418128a64cb2-shatterfish](v4.0.2-DUELIST-0-BDE-LWE-PLD-bb15418128a64cb2-shatterfish.jsonl) |
+| BJH-NWH-CJK | CLERIC | 1426 | [v4.0.2-CLERIC-0-BJH-NWH-CJK-5f885b329fb36af1-shatterfish](v4.0.2-CLERIC-0-BJH-NWH-CJK-5f885b329fb36af1-shatterfish.jsonl) |
+| CCD-CAS-HVA | DUELIST | 871 | [v4.0.2-DUELIST-0-CCD-CAS-HVA-ecabd60314f88469-shatterfish](v4.0.2-DUELIST-0-CCD-CAS-HVA-ecabd60314f88469-shatterfish.jsonl) |
+| CDK-JRQ-DVJ | CLERIC | 1501 | [v4.0.2-CLERIC-0-CDK-JRQ-DVJ-4632f3e6b9bbf886-shatterfish](v4.0.2-CLERIC-0-CDK-JRQ-DVJ-4632f3e6b9bbf886-shatterfish.jsonl) |
+| CMB-RBO-QAD | WARRIOR | 787 | [v4.0.2-WARRIOR-0-CMB-RBO-QAD-e93bc6fe22956938-shatterfish](v4.0.2-WARRIOR-0-CMB-RBO-QAD-e93bc6fe22956938-shatterfish.jsonl) |
+| CTU-WET-KSK | CLERIC | 1376 | [v4.0.2-CLERIC-0-CTU-WET-KSK-49a27c5f5b519448-shatterfish](v4.0.2-CLERIC-0-CTU-WET-KSK-49a27c5f5b519448-shatterfish.jsonl) |
+| CXO-EZI-BZI | CLERIC | 2077 | [v4.0.2-CLERIC-0-CXO-EZI-BZI-e92b8e8011f3a56c-shatterfish](v4.0.2-CLERIC-0-CXO-EZI-BZI-e92b8e8011f3a56c-shatterfish.jsonl) |
+| DPB-KPC-DDD | CLERIC | 1499 | [v4.0.2-CLERIC-0-DPB-KPC-DDD-0c35dbf5f1f314ea-shatterfish](v4.0.2-CLERIC-0-DPB-KPC-DDD-0c35dbf5f1f314ea-shatterfish.jsonl) |
+| DZH-OBQ-SDX | MAGE | 1259 | [v4.0.2-MAGE-0-DZH-OBQ-SDX-1931e57e2a8edeb2-shatterfish](v4.0.2-MAGE-0-DZH-OBQ-SDX-1931e57e2a8edeb2-shatterfish.jsonl) |
+| DZP-VPE-VRC | WARRIOR | 1686 | [v4.0.2-WARRIOR-0-DZP-VPE-VRC-a332bfa9317f7edd-shatterfish](v4.0.2-WARRIOR-0-DZP-VPE-VRC-a332bfa9317f7edd-shatterfish.jsonl) |
+| ECH-VUX-TKP | MAGE | 1335 | [v4.0.2-MAGE-0-ECH-VUX-TKP-d8938a1f5508f6c4-shatterfish](v4.0.2-MAGE-0-ECH-VUX-TKP-d8938a1f5508f6c4-shatterfish.jsonl) |
+| EHJ-SYN-RME | HUNTRESS | 2158 | [v4.0.2-HUNTRESS-0-EHJ-SYN-RME-e8770f984aaefaa1-shatterfish](v4.0.2-HUNTRESS-0-EHJ-SYN-RME-e8770f984aaefaa1-shatterfish.jsonl) |
+| EPN-TDM-MNK | MAGE | 1280 | [v4.0.2-MAGE-0-EPN-TDM-MNK-970648ca93c56cfc-shatterfish](v4.0.2-MAGE-0-EPN-TDM-MNK-970648ca93c56cfc-shatterfish.jsonl) |
+| FJQ-EDC-JBB | ROGUE | 1680 | [v4.0.2-ROGUE-0-FJQ-EDC-JBB-2901718424a03284-shatterfish](v4.0.2-ROGUE-0-FJQ-EDC-JBB-2901718424a03284-shatterfish.jsonl) |
+| FWT-EMY-SDS | HUNTRESS | 1213 | [v4.0.2-HUNTRESS-0-FWT-EMY-SDS-c942a91c206ae8ba-shatterfish](v4.0.2-HUNTRESS-0-FWT-EMY-SDS-c942a91c206ae8ba-shatterfish.jsonl) |
+| GHZ-QWF-ZZJ | HUNTRESS | 1523 | [v4.0.2-HUNTRESS-0-GHZ-QWF-ZZJ-0152b356742fe995-shatterfish](v4.0.2-HUNTRESS-0-GHZ-QWF-ZZJ-0152b356742fe995-shatterfish.jsonl) |
+| GUF-UAP-XHJ | MAGE | 876 | [v4.0.2-MAGE-0-GUF-UAP-XHJ-b7379bdf40254d05-shatterfish](v4.0.2-MAGE-0-GUF-UAP-XHJ-b7379bdf40254d05-shatterfish.jsonl) |
+| HAZ-QQB-FYL | ROGUE | 1337 | [v4.0.2-ROGUE-0-HAZ-QQB-FYL-5c4672fbc967634b-shatterfish](v4.0.2-ROGUE-0-HAZ-QQB-FYL-5c4672fbc967634b-shatterfish.jsonl) |
+| HGM-TKR-PFY | MAGE | 1295 | [v4.0.2-MAGE-0-HGM-TKR-PFY-2a7bfc70609ab9de-shatterfish](v4.0.2-MAGE-0-HGM-TKR-PFY-2a7bfc70609ab9de-shatterfish.jsonl) |
+| HGP-DNN-ERS | HUNTRESS | 1435 | [v4.0.2-HUNTRESS-0-HGP-DNN-ERS-ccaa58220292ca69-shatterfish](v4.0.2-HUNTRESS-0-HGP-DNN-ERS-ccaa58220292ca69-shatterfish.jsonl) |
+| HIQ-FDB-PDH | DUELIST | 1458 | [v4.0.2-DUELIST-0-HIQ-FDB-PDH-f5197249de05fbb4-shatterfish](v4.0.2-DUELIST-0-HIQ-FDB-PDH-f5197249de05fbb4-shatterfish.jsonl) |
+| HKJ-IRK-ZJZ | MAGE | 1219 | [v4.0.2-MAGE-0-HKJ-IRK-ZJZ-319e7d326bb02181-shatterfish](v4.0.2-MAGE-0-HKJ-IRK-ZJZ-319e7d326bb02181-shatterfish.jsonl) |
+| HPR-GAR-UYS | WARRIOR | 1361 | [v4.0.2-WARRIOR-0-HPR-GAR-UYS-27628358cf44b187-shatterfish](v4.0.2-WARRIOR-0-HPR-GAR-UYS-27628358cf44b187-shatterfish.jsonl) |
+| IIH-GGV-GCO | CLERIC | 1862 | [v4.0.2-CLERIC-0-IIH-GGV-GCO-8f5579d58a0660ea-shatterfish](v4.0.2-CLERIC-0-IIH-GGV-GCO-8f5579d58a0660ea-shatterfish.jsonl) |
+| IJE-OVG-PXN | CLERIC | 1286 | [v4.0.2-CLERIC-0-IJE-OVG-PXN-f96513daa4c8f9b1-shatterfish](v4.0.2-CLERIC-0-IJE-OVG-PXN-f96513daa4c8f9b1-shatterfish.jsonl) |
+| JAD-UWD-GXM | HUNTRESS | 2022 | [v4.0.2-HUNTRESS-0-JAD-UWD-GXM-5edc0d36b9e8c33f-shatterfish](v4.0.2-HUNTRESS-0-JAD-UWD-GXM-5edc0d36b9e8c33f-shatterfish.jsonl) |
+| JBG-GRJ-HGN | DUELIST | 1355 | [v4.0.2-DUELIST-0-JBG-GRJ-HGN-c04b58f233b20285-shatterfish](v4.0.2-DUELIST-0-JBG-GRJ-HGN-c04b58f233b20285-shatterfish.jsonl) |
+| JDY-GFE-IYB | DUELIST | 1446 | [v4.0.2-DUELIST-0-JDY-GFE-IYB-210a4e96df8d1e39-shatterfish](v4.0.2-DUELIST-0-JDY-GFE-IYB-210a4e96df8d1e39-shatterfish.jsonl) |
+| JHE-IIR-GDE | DUELIST | 1851 | [v4.0.2-DUELIST-0-JHE-IIR-GDE-d3e9cedc05078ada-shatterfish](v4.0.2-DUELIST-0-JHE-IIR-GDE-d3e9cedc05078ada-shatterfish.jsonl) |
+| JMJ-WGF-GIY | CLERIC | 877 | [v4.0.2-CLERIC-0-JMJ-WGF-GIY-a9e2ce802473b359-shatterfish](v4.0.2-CLERIC-0-JMJ-WGF-GIY-a9e2ce802473b359-shatterfish.jsonl) |
+| JNF-RCQ-OYC | DUELIST | 1381 | [v4.0.2-DUELIST-0-JNF-RCQ-OYC-b227f15aa398fc77-shatterfish](v4.0.2-DUELIST-0-JNF-RCQ-OYC-b227f15aa398fc77-shatterfish.jsonl) |
+| JPY-TOU-LJG | ROGUE | 1314 | [v4.0.2-ROGUE-0-JPY-TOU-LJG-b3c432250b03c067-shatterfish](v4.0.2-ROGUE-0-JPY-TOU-LJG-b3c432250b03c067-shatterfish.jsonl) |
+| JTP-QSW-XRP | DUELIST | 1551 | [v4.0.2-DUELIST-0-JTP-QSW-XRP-ffe68b92ca69e436-shatterfish](v4.0.2-DUELIST-0-JTP-QSW-XRP-ffe68b92ca69e436-shatterfish.jsonl) |
+| KIG-AXD-EQU | CLERIC | 1684 | [v4.0.2-CLERIC-0-KIG-AXD-EQU-80a2e33f9874e8e1-shatterfish](v4.0.2-CLERIC-0-KIG-AXD-EQU-80a2e33f9874e8e1-shatterfish.jsonl) |
+| KOZ-MYB-MET | DUELIST | 962 | [v4.0.2-DUELIST-0-KOZ-MYB-MET-5098af961dbd19dc-shatterfish](v4.0.2-DUELIST-0-KOZ-MYB-MET-5098af961dbd19dc-shatterfish.jsonl) |
+| LJL-EIK-QYA | CLERIC | 1128 | [v4.0.2-CLERIC-0-LJL-EIK-QYA-ec6b7d376b2aab57-shatterfish](v4.0.2-CLERIC-0-LJL-EIK-QYA-ec6b7d376b2aab57-shatterfish.jsonl) |
+| LPR-NZR-HVM | HUNTRESS | 1297 | [v4.0.2-HUNTRESS-0-LPR-NZR-HVM-4637cfee59a9ba41-shatterfish](v4.0.2-HUNTRESS-0-LPR-NZR-HVM-4637cfee59a9ba41-shatterfish.jsonl) |
+| LQW-BZF-BAL | ROGUE | 2100 | [v4.0.2-ROGUE-0-LQW-BZF-BAL-6de0326b33d2be02-shatterfish](v4.0.2-ROGUE-0-LQW-BZF-BAL-6de0326b33d2be02-shatterfish.jsonl) |
+| LRL-KJU-KCG | WARRIOR | 1670 | [v4.0.2-WARRIOR-0-LRL-KJU-KCG-d41cfbd799bcba88-shatterfish](v4.0.2-WARRIOR-0-LRL-KJU-KCG-d41cfbd799bcba88-shatterfish.jsonl) |
+| LZB-TAY-LLG | WARRIOR | 1872 | [v4.0.2-WARRIOR-0-LZB-TAY-LLG-701022fd7837cd44-shatterfish](v4.0.2-WARRIOR-0-LZB-TAY-LLG-701022fd7837cd44-shatterfish.jsonl) |
+| MDE-ZHW-MYB | ROGUE | 1342 | [v4.0.2-ROGUE-0-MDE-ZHW-MYB-3888f7f850286d1a-shatterfish](v4.0.2-ROGUE-0-MDE-ZHW-MYB-3888f7f850286d1a-shatterfish.jsonl) |
+| MFL-VOY-GAY | DUELIST | 1667 | [v4.0.2-DUELIST-0-MFL-VOY-GAY-03d398bd9d8d252d-shatterfish](v4.0.2-DUELIST-0-MFL-VOY-GAY-03d398bd9d8d252d-shatterfish.jsonl) |
+| MIZ-LEZ-JQY | DUELIST | 1535 | [v4.0.2-DUELIST-0-MIZ-LEZ-JQY-464ff99983ff2745-shatterfish](v4.0.2-DUELIST-0-MIZ-LEZ-JQY-464ff99983ff2745-shatterfish.jsonl) |
+| NCG-TZX-GCW | ROGUE | 1143 | [v4.0.2-ROGUE-0-NCG-TZX-GCW-1ebed593e63ddb7d-shatterfish](v4.0.2-ROGUE-0-NCG-TZX-GCW-1ebed593e63ddb7d-shatterfish.jsonl) |
+| NOR-GWC-UMC | ROGUE | 1186 | [v4.0.2-ROGUE-0-NOR-GWC-UMC-bcca8ea0ec1d4b24-shatterfish](v4.0.2-ROGUE-0-NOR-GWC-UMC-bcca8ea0ec1d4b24-shatterfish.jsonl) |
+| NOY-JNO-BIE | ROGUE | 1637 | [v4.0.2-ROGUE-0-NOY-JNO-BIE-5751d00a5a3391bc-shatterfish](v4.0.2-ROGUE-0-NOY-JNO-BIE-5751d00a5a3391bc-shatterfish.jsonl) |
+| NPX-EEH-VTS | MAGE | 1258 | [v4.0.2-MAGE-0-NPX-EEH-VTS-bbcb44a3c3914232-shatterfish](v4.0.2-MAGE-0-NPX-EEH-VTS-bbcb44a3c3914232-shatterfish.jsonl) |
+| NUG-GMM-IJI | MAGE | 936 | [v4.0.2-MAGE-0-NUG-GMM-IJI-04168bc0ed8baea9-shatterfish](v4.0.2-MAGE-0-NUG-GMM-IJI-04168bc0ed8baea9-shatterfish.jsonl) |
+| NUG-LZD-XWA | DUELIST | 2214 | [v4.0.2-DUELIST-0-NUG-LZD-XWA-6258ae26a9baf9f2-shatterfish](v4.0.2-DUELIST-0-NUG-LZD-XWA-6258ae26a9baf9f2-shatterfish.jsonl) |
+| NWD-XID-HWQ | DUELIST | 1147 | [v4.0.2-DUELIST-0-NWD-XID-HWQ-9c10f8763450e2be-shatterfish](v4.0.2-DUELIST-0-NWD-XID-HWQ-9c10f8763450e2be-shatterfish.jsonl) |
+| OCS-UNI-XUV | WARRIOR | 1694 | [v4.0.2-WARRIOR-0-OCS-UNI-XUV-c1ec883f1269989c-shatterfish](v4.0.2-WARRIOR-0-OCS-UNI-XUV-c1ec883f1269989c-shatterfish.jsonl) |
+| OJB-CAE-RYC | ROGUE | 1330 | [v4.0.2-ROGUE-0-OJB-CAE-RYC-283f2775f01ce77e-shatterfish](v4.0.2-ROGUE-0-OJB-CAE-RYC-283f2775f01ce77e-shatterfish.jsonl) |
+| OKA-LXZ-GIS | CLERIC | 1689 | [v4.0.2-CLERIC-0-OKA-LXZ-GIS-59ca5496f27b1a1f-shatterfish](v4.0.2-CLERIC-0-OKA-LXZ-GIS-59ca5496f27b1a1f-shatterfish.jsonl) |
+| OZH-ZTE-RDL | ROGUE | 1462 | [v4.0.2-ROGUE-0-OZH-ZTE-RDL-f7c39ac113b2be17-shatterfish](v4.0.2-ROGUE-0-OZH-ZTE-RDL-f7c39ac113b2be17-shatterfish.jsonl) |
+| OZU-PHO-IHW | ROGUE | 1175 | [v4.0.2-ROGUE-0-OZU-PHO-IHW-c4f9b46f5c99d748-shatterfish](v4.0.2-ROGUE-0-OZU-PHO-IHW-c4f9b46f5c99d748-shatterfish.jsonl) |
+| PHQ-FZW-QMA | DUELIST | 1569 | [v4.0.2-DUELIST-0-PHQ-FZW-QMA-7726821bf154c390-shatterfish](v4.0.2-DUELIST-0-PHQ-FZW-QMA-7726821bf154c390-shatterfish.jsonl) |
+| PTB-XWL-TYN | DUELIST | 1450 | [v4.0.2-DUELIST-0-PTB-XWL-TYN-27ed8e25068509d0-shatterfish](v4.0.2-DUELIST-0-PTB-XWL-TYN-27ed8e25068509d0-shatterfish.jsonl) |
+| QIF-ODH-ASD | MAGE | 2020 | [v4.0.2-MAGE-0-QIF-ODH-ASD-c3c8df8f5ac415c1-shatterfish](v4.0.2-MAGE-0-QIF-ODH-ASD-c3c8df8f5ac415c1-shatterfish.jsonl) |
+| QTX-XSA-QVC | WARRIOR | 1566 | [v4.0.2-WARRIOR-0-QTX-XSA-QVC-506d06a7c2d8b051-shatterfish](v4.0.2-WARRIOR-0-QTX-XSA-QVC-506d06a7c2d8b051-shatterfish.jsonl) |
+| REO-SEY-XHL | MAGE | 1545 | [v4.0.2-MAGE-0-REO-SEY-XHL-9d10d3931836782f-shatterfish](v4.0.2-MAGE-0-REO-SEY-XHL-9d10d3931836782f-shatterfish.jsonl) |
+| RRH-RDP-UUV | ROGUE | 1173 | [v4.0.2-ROGUE-0-RRH-RDP-UUV-c092eb048cad3a16-shatterfish](v4.0.2-ROGUE-0-RRH-RDP-UUV-c092eb048cad3a16-shatterfish.jsonl) |
+| RUK-GBU-JSV | ROGUE | 893 | [v4.0.2-ROGUE-0-RUK-GBU-JSV-619c76bde2bfd8a4-shatterfish](v4.0.2-ROGUE-0-RUK-GBU-JSV-619c76bde2bfd8a4-shatterfish.jsonl) |
+| RUL-VWE-OWD | WARRIOR | 1455 | [v4.0.2-WARRIOR-0-RUL-VWE-OWD-5763735601655713-shatterfish](v4.0.2-WARRIOR-0-RUL-VWE-OWD-5763735601655713-shatterfish.jsonl) |
+| RYF-YUL-DJL | ROGUE | 1656 | [v4.0.2-ROGUE-0-RYF-YUL-DJL-bb010d57c33bac23-shatterfish](v4.0.2-ROGUE-0-RYF-YUL-DJL-bb010d57c33bac23-shatterfish.jsonl) |
+| RZW-VQY-LWJ | MAGE | 1727 | [v4.0.2-MAGE-0-RZW-VQY-LWJ-ad414095fe9ea4b3-shatterfish](v4.0.2-MAGE-0-RZW-VQY-LWJ-ad414095fe9ea4b3-shatterfish.jsonl) |
+| SKS-PGF-VXI | MAGE | 1048 | [v4.0.2-MAGE-0-SKS-PGF-VXI-88d3ba6df747adbf-shatterfish](v4.0.2-MAGE-0-SKS-PGF-VXI-88d3ba6df747adbf-shatterfish.jsonl) |
+| SZA-MFV-EHR | WARRIOR | 1153 | [v4.0.2-WARRIOR-0-SZA-MFV-EHR-05099417362212ac-shatterfish](v4.0.2-WARRIOR-0-SZA-MFV-EHR-05099417362212ac-shatterfish.jsonl) |
+| TAM-XAV-OEY | HUNTRESS | 2306 | [v4.0.2-HUNTRESS-0-TAM-XAV-OEY-ccf505ad86f85166-shatterfish](v4.0.2-HUNTRESS-0-TAM-XAV-OEY-ccf505ad86f85166-shatterfish.jsonl) |
+| TFZ-FFJ-GLD | ROGUE | 1744 | [v4.0.2-ROGUE-0-TFZ-FFJ-GLD-8e51581c645611cc-shatterfish](v4.0.2-ROGUE-0-TFZ-FFJ-GLD-8e51581c645611cc-shatterfish.jsonl) |
+| TJJ-WKJ-ZPB | DUELIST | 966 | [v4.0.2-DUELIST-0-TJJ-WKJ-ZPB-d99a47e01a9dc9e3-shatterfish](v4.0.2-DUELIST-0-TJJ-WKJ-ZPB-d99a47e01a9dc9e3-shatterfish.jsonl) |
+| ULX-GRK-PWX | MAGE | 927 | [v4.0.2-MAGE-0-ULX-GRK-PWX-c614e18e0c4a0118-shatterfish](v4.0.2-MAGE-0-ULX-GRK-PWX-c614e18e0c4a0118-shatterfish.jsonl) |
+| VME-RDY-DVJ | MAGE | 1317 | [v4.0.2-MAGE-0-VME-RDY-DVJ-24dabdd7002f60c5-shatterfish](v4.0.2-MAGE-0-VME-RDY-DVJ-24dabdd7002f60c5-shatterfish.jsonl) |
+| VZD-GIN-ZYI | HUNTRESS | 1297 | [v4.0.2-HUNTRESS-0-VZD-GIN-ZYI-21ab59679cbde43e-shatterfish](v4.0.2-HUNTRESS-0-VZD-GIN-ZYI-21ab59679cbde43e-shatterfish.jsonl) |
+| WEL-VPU-NLP | CLERIC | 1677 | [v4.0.2-CLERIC-0-WEL-VPU-NLP-03f994fcfe2db31e-shatterfish](v4.0.2-CLERIC-0-WEL-VPU-NLP-03f994fcfe2db31e-shatterfish.jsonl) |
+| WYI-UOH-LHR | CLERIC | 1566 | [v4.0.2-CLERIC-0-WYI-UOH-LHR-2b8ab4ebc07e24d3-shatterfish](v4.0.2-CLERIC-0-WYI-UOH-LHR-2b8ab4ebc07e24d3-shatterfish.jsonl) |
+| XAI-WCG-MQT | WARRIOR | 1356 | [v4.0.2-WARRIOR-0-XAI-WCG-MQT-7c98431d90f877ea-shatterfish](v4.0.2-WARRIOR-0-XAI-WCG-MQT-7c98431d90f877ea-shatterfish.jsonl) |
+| XPQ-SXH-WSV | DUELIST | 1881 | [v4.0.2-DUELIST-0-XPQ-SXH-WSV-a521267d8eb92d9b-shatterfish](v4.0.2-DUELIST-0-XPQ-SXH-WSV-a521267d8eb92d9b-shatterfish.jsonl) |
+| XRF-MRW-IIA | CLERIC | 1179 | [v4.0.2-CLERIC-0-XRF-MRW-IIA-a02a7a7b95d06386-shatterfish](v4.0.2-CLERIC-0-XRF-MRW-IIA-a02a7a7b95d06386-shatterfish.jsonl) |
+| XUU-MXI-KXQ | CLERIC | 1887 | [v4.0.2-CLERIC-0-XUU-MXI-KXQ-6d722f45d51de852-shatterfish](v4.0.2-CLERIC-0-XUU-MXI-KXQ-6d722f45d51de852-shatterfish.jsonl) |
+| YJJ-WXM-KQI | HUNTRESS | 1889 | [v4.0.2-HUNTRESS-0-YJJ-WXM-KQI-a0af0a40db58782a-shatterfish](v4.0.2-HUNTRESS-0-YJJ-WXM-KQI-a0af0a40db58782a-shatterfish.jsonl) |
+| YRJ-MJU-VSY | CLERIC | 1293 | [v4.0.2-CLERIC-0-YRJ-MJU-VSY-bffb2f78937ab8c6-shatterfish](v4.0.2-CLERIC-0-YRJ-MJU-VSY-bffb2f78937ab8c6-shatterfish.jsonl) |
+| ZEQ-BFA-GCJ | HUNTRESS | 1618 | [v4.0.2-HUNTRESS-0-ZEQ-BFA-GCJ-f578fdfdcb1c1fad-shatterfish](v4.0.2-HUNTRESS-0-ZEQ-BFA-GCJ-f578fdfdcb1c1fad-shatterfish.jsonl) |
+| ZEW-XPE-FED | MAGE | 1361 | [v4.0.2-MAGE-0-ZEW-XPE-FED-f2021b494929fb58-shatterfish](v4.0.2-MAGE-0-ZEW-XPE-FED-f2021b494929fb58-shatterfish.jsonl) |
+| ZJT-IMV-BAU | DUELIST | 1988 | [v4.0.2-DUELIST-0-ZJT-IMV-BAU-ac1a63c23e9b41ad-shatterfish](v4.0.2-DUELIST-0-ZJT-IMV-BAU-ac1a63c23e9b41ad-shatterfish.jsonl) |
+| ZUQ-NFA-DBQ | DUELIST | 1419 | [v4.0.2-DUELIST-0-ZUQ-NFA-DBQ-2650054570c962d9-shatterfish](v4.0.2-DUELIST-0-ZUQ-NFA-DBQ-2650054570c962d9-shatterfish.jsonl) |
+| ZVN-CKP-GQK | WARRIOR | 2884 | [v4.0.2-WARRIOR-0-ZVN-CKP-GQK-9a3bd7a0be0262b8-shatterfish](v4.0.2-WARRIOR-0-ZVN-CKP-GQK-9a3bd7a0be0262b8-shatterfish.jsonl) |
+
+### DEATH at depth 6 — 72 Runs
+
+| Seed | Class | Turns | Log |
+|---|---|---|---|
+| AEO-WFI-EVI | HUNTRESS | 2084 | [v4.0.2-HUNTRESS-0-AEO-WFI-EVI-a08db64d867a80a3-shatterfish](v4.0.2-HUNTRESS-0-AEO-WFI-EVI-a08db64d867a80a3-shatterfish.jsonl) |
+| AES-ZLR-SRS | CLERIC | 1915 | [v4.0.2-CLERIC-0-AES-ZLR-SRS-cc478f930d661b0e-shatterfish](v4.0.2-CLERIC-0-AES-ZLR-SRS-cc478f930d661b0e-shatterfish.jsonl) |
+| AFH-FIE-RRB | MAGE | 2092 | [v4.0.2-MAGE-0-AFH-FIE-RRB-63b35f980eddd8eb-shatterfish](v4.0.2-MAGE-0-AFH-FIE-RRB-63b35f980eddd8eb-shatterfish.jsonl) |
+| AZN-OZI-EPV | WARRIOR | 1969 | [v4.0.2-WARRIOR-0-AZN-OZI-EPV-b83a98d646cc6a23-shatterfish](v4.0.2-WARRIOR-0-AZN-OZI-EPV-b83a98d646cc6a23-shatterfish.jsonl) |
+| AZQ-NGD-MRC | DUELIST | 2070 | [v4.0.2-DUELIST-0-AZQ-NGD-MRC-f28ab6f3c275aa81-shatterfish](v4.0.2-DUELIST-0-AZQ-NGD-MRC-f28ab6f3c275aa81-shatterfish.jsonl) |
+| BAM-DWT-LGF | HUNTRESS | 2112 | [v4.0.2-HUNTRESS-0-BAM-DWT-LGF-954edbb1c605bffc-shatterfish](v4.0.2-HUNTRESS-0-BAM-DWT-LGF-954edbb1c605bffc-shatterfish.jsonl) |
+| BGD-INJ-JHV | DUELIST | 2215 | [v4.0.2-DUELIST-0-BGD-INJ-JHV-2732ba09af40b351-shatterfish](v4.0.2-DUELIST-0-BGD-INJ-JHV-2732ba09af40b351-shatterfish.jsonl) |
+| BHU-DNA-FCR | DUELIST | 1924 | [v4.0.2-DUELIST-0-BHU-DNA-FCR-adacc828e4f0f518-shatterfish](v4.0.2-DUELIST-0-BHU-DNA-FCR-adacc828e4f0f518-shatterfish.jsonl) |
+| BJM-OYQ-QQS | WARRIOR | 3174 | [v4.0.2-WARRIOR-0-BJM-OYQ-QQS-8eeb7da6db740c53-shatterfish](v4.0.2-WARRIOR-0-BJM-OYQ-QQS-8eeb7da6db740c53-shatterfish.jsonl) |
+| BNY-OEQ-OFG | DUELIST | 2123 | [v4.0.2-DUELIST-0-BNY-OEQ-OFG-bc162778b0604ada-shatterfish](v4.0.2-DUELIST-0-BNY-OEQ-OFG-bc162778b0604ada-shatterfish.jsonl) |
+| BRK-ODS-FTN | WARRIOR | 2290 | [v4.0.2-WARRIOR-0-BRK-ODS-FTN-a708fdce1ab20f48-shatterfish](v4.0.2-WARRIOR-0-BRK-ODS-FTN-a708fdce1ab20f48-shatterfish.jsonl) |
+| CXJ-CDF-GZR | ROGUE | 2065 | [v4.0.2-ROGUE-0-CXJ-CDF-GZR-8b44fe65b260aa6e-shatterfish](v4.0.2-ROGUE-0-CXJ-CDF-GZR-8b44fe65b260aa6e-shatterfish.jsonl) |
+| CYC-BQE-JLM | ROGUE | 2981 | [v4.0.2-ROGUE-0-CYC-BQE-JLM-675bfc1317b549bf-shatterfish](v4.0.2-ROGUE-0-CYC-BQE-JLM-675bfc1317b549bf-shatterfish.jsonl) |
+| DTF-VUF-BCS | CLERIC | 2324 | [v4.0.2-CLERIC-0-DTF-VUF-BCS-91aecd2ddb657676-shatterfish](v4.0.2-CLERIC-0-DTF-VUF-BCS-91aecd2ddb657676-shatterfish.jsonl) |
+| EOX-SGV-FDI | HUNTRESS | 2062 | [v4.0.2-HUNTRESS-0-EOX-SGV-FDI-00c9604afc080418-shatterfish](v4.0.2-HUNTRESS-0-EOX-SGV-FDI-00c9604afc080418-shatterfish.jsonl) |
+| EPY-IPB-UGL | HUNTRESS | 2259 | [v4.0.2-HUNTRESS-0-EPY-IPB-UGL-3ba43fc1cdfbf2be-shatterfish](v4.0.2-HUNTRESS-0-EPY-IPB-UGL-3ba43fc1cdfbf2be-shatterfish.jsonl) |
+| ERA-WGJ-FUR | HUNTRESS | 1970 | [v4.0.2-HUNTRESS-0-ERA-WGJ-FUR-3b76a3fc76a30278-shatterfish](v4.0.2-HUNTRESS-0-ERA-WGJ-FUR-3b76a3fc76a30278-shatterfish.jsonl) |
+| EZC-IXK-ODT | HUNTRESS | 2015 | [v4.0.2-HUNTRESS-0-EZC-IXK-ODT-d621e84776d7722c-shatterfish](v4.0.2-HUNTRESS-0-EZC-IXK-ODT-d621e84776d7722c-shatterfish.jsonl) |
+| EZG-YIU-QUC | DUELIST | 2002 | [v4.0.2-DUELIST-0-EZG-YIU-QUC-32fc7435abc914fe-shatterfish](v4.0.2-DUELIST-0-EZG-YIU-QUC-32fc7435abc914fe-shatterfish.jsonl) |
+| FAM-CMX-PPT | HUNTRESS | 2950 | [v4.0.2-HUNTRESS-0-FAM-CMX-PPT-93ce68020f106017-shatterfish](v4.0.2-HUNTRESS-0-FAM-CMX-PPT-93ce68020f106017-shatterfish.jsonl) |
+| FLC-ZQV-SIS | DUELIST | 2620 | [v4.0.2-DUELIST-0-FLC-ZQV-SIS-efe418a42bdd512a-shatterfish](v4.0.2-DUELIST-0-FLC-ZQV-SIS-efe418a42bdd512a-shatterfish.jsonl) |
+| FNK-VRU-BDU | MAGE | 1611 | [v4.0.2-MAGE-0-FNK-VRU-BDU-f1c3e6853fff853d-shatterfish](v4.0.2-MAGE-0-FNK-VRU-BDU-f1c3e6853fff853d-shatterfish.jsonl) |
+| GAX-HSQ-FNJ | DUELIST | 2729 | [v4.0.2-DUELIST-0-GAX-HSQ-FNJ-ba5f1e1418c33ebe-shatterfish](v4.0.2-DUELIST-0-GAX-HSQ-FNJ-ba5f1e1418c33ebe-shatterfish.jsonl) |
+| GBX-IFM-MFM | MAGE | 2298 | [v4.0.2-MAGE-0-GBX-IFM-MFM-4a10f8fe98c73f7e-shatterfish](v4.0.2-MAGE-0-GBX-IFM-MFM-4a10f8fe98c73f7e-shatterfish.jsonl) |
+| GSY-CKQ-VBU | HUNTRESS | 2689 | [v4.0.2-HUNTRESS-0-GSY-CKQ-VBU-7c648c8b7a90b5ec-shatterfish](v4.0.2-HUNTRESS-0-GSY-CKQ-VBU-7c648c8b7a90b5ec-shatterfish.jsonl) |
+| HJA-WKL-WXJ | MAGE | 2645 | [v4.0.2-MAGE-0-HJA-WKL-WXJ-9389731903ecab42-shatterfish](v4.0.2-MAGE-0-HJA-WKL-WXJ-9389731903ecab42-shatterfish.jsonl) |
+| HRP-QDN-HCA | WARRIOR | 2203 | [v4.0.2-WARRIOR-0-HRP-QDN-HCA-ff158edee7a76cda-shatterfish](v4.0.2-WARRIOR-0-HRP-QDN-HCA-ff158edee7a76cda-shatterfish.jsonl) |
+| HUN-CSG-IBR | WARRIOR | 2126 | [v4.0.2-WARRIOR-0-HUN-CSG-IBR-e866f7b4012101d0-shatterfish](v4.0.2-WARRIOR-0-HUN-CSG-IBR-e866f7b4012101d0-shatterfish.jsonl) |
+| INR-UUZ-BKL | DUELIST | 2196 | [v4.0.2-DUELIST-0-INR-UUZ-BKL-444f61ba01ba00a5-shatterfish](v4.0.2-DUELIST-0-INR-UUZ-BKL-444f61ba01ba00a5-shatterfish.jsonl) |
+| IPX-FAE-QWP | WARRIOR | 3138 | [v4.0.2-WARRIOR-0-IPX-FAE-QWP-223dfb4db074b3da-shatterfish](v4.0.2-WARRIOR-0-IPX-FAE-QWP-223dfb4db074b3da-shatterfish.jsonl) |
+| JAY-SJH-WLY | DUELIST | 1764 | [v4.0.2-DUELIST-0-JAY-SJH-WLY-2031041790284c85-shatterfish](v4.0.2-DUELIST-0-JAY-SJH-WLY-2031041790284c85-shatterfish.jsonl) |
+| JCV-GMD-UFJ | ROGUE | 2623 | [v4.0.2-ROGUE-0-JCV-GMD-UFJ-a8576364417b03b1-shatterfish](v4.0.2-ROGUE-0-JCV-GMD-UFJ-a8576364417b03b1-shatterfish.jsonl) |
+| JRO-DOG-KDH | DUELIST | 2045 | [v4.0.2-DUELIST-0-JRO-DOG-KDH-9583525516cf42da-shatterfish](v4.0.2-DUELIST-0-JRO-DOG-KDH-9583525516cf42da-shatterfish.jsonl) |
+| JSK-CXG-SIL | HUNTRESS | 1744 | [v4.0.2-HUNTRESS-0-JSK-CXG-SIL-0eab1ec98f03b4ea-shatterfish](v4.0.2-HUNTRESS-0-JSK-CXG-SIL-0eab1ec98f03b4ea-shatterfish.jsonl) |
+| JYW-PCJ-GYA | WARRIOR | 2346 | [v4.0.2-WARRIOR-0-JYW-PCJ-GYA-c924fc8bd6a61c45-shatterfish](v4.0.2-WARRIOR-0-JYW-PCJ-GYA-c924fc8bd6a61c45-shatterfish.jsonl) |
+| KFD-NUP-WRC | ROGUE | 3496 | [v4.0.2-ROGUE-0-KFD-NUP-WRC-43c3fef994ddde2b-shatterfish](v4.0.2-ROGUE-0-KFD-NUP-WRC-43c3fef994ddde2b-shatterfish.jsonl) |
+| KTQ-MAM-PGC | CLERIC | 1932 | [v4.0.2-CLERIC-0-KTQ-MAM-PGC-39fc2adac0225ae6-shatterfish](v4.0.2-CLERIC-0-KTQ-MAM-PGC-39fc2adac0225ae6-shatterfish.jsonl) |
+| KZC-PRN-LKC | CLERIC | 2800 | [v4.0.2-CLERIC-0-KZC-PRN-LKC-c08b8d80c9a0eaed-shatterfish](v4.0.2-CLERIC-0-KZC-PRN-LKC-c08b8d80c9a0eaed-shatterfish.jsonl) |
+| LHL-MFW-MAH | ROGUE | 1960 | [v4.0.2-ROGUE-0-LHL-MFW-MAH-cbce9ea3fdb1b491-shatterfish](v4.0.2-ROGUE-0-LHL-MFW-MAH-cbce9ea3fdb1b491-shatterfish.jsonl) |
+| LPN-UFL-QYH | HUNTRESS | 1886 | [v4.0.2-HUNTRESS-0-LPN-UFL-QYH-2327cde491df7d17-shatterfish](v4.0.2-HUNTRESS-0-LPN-UFL-QYH-2327cde491df7d17-shatterfish.jsonl) |
+| LUF-GVY-SLB | MAGE | 1799 | [v4.0.2-MAGE-0-LUF-GVY-SLB-2cab242c0568e6e8-shatterfish](v4.0.2-MAGE-0-LUF-GVY-SLB-2cab242c0568e6e8-shatterfish.jsonl) |
+| MRY-QUK-TGK | WARRIOR | 2638 | [v4.0.2-WARRIOR-0-MRY-QUK-TGK-54347379f7a9f5cc-shatterfish](v4.0.2-WARRIOR-0-MRY-QUK-TGK-54347379f7a9f5cc-shatterfish.jsonl) |
+| MWW-KST-ELU | DUELIST | 2414 | [v4.0.2-DUELIST-0-MWW-KST-ELU-7685997ae13bc607-shatterfish](v4.0.2-DUELIST-0-MWW-KST-ELU-7685997ae13bc607-shatterfish.jsonl) |
+| NFY-UBM-DHZ | MAGE | 2286 | [v4.0.2-MAGE-0-NFY-UBM-DHZ-457dc7cf03e789d4-shatterfish](v4.0.2-MAGE-0-NFY-UBM-DHZ-457dc7cf03e789d4-shatterfish.jsonl) |
+| OBR-EAR-ONP | WARRIOR | 1696 | [v4.0.2-WARRIOR-0-OBR-EAR-ONP-1bb9e3eece83fa27-shatterfish](v4.0.2-WARRIOR-0-OBR-EAR-ONP-1bb9e3eece83fa27-shatterfish.jsonl) |
+| OGP-NOM-MOY | WARRIOR | 2470 | [v4.0.2-WARRIOR-0-OGP-NOM-MOY-71aa5a979f139546-shatterfish](v4.0.2-WARRIOR-0-OGP-NOM-MOY-71aa5a979f139546-shatterfish.jsonl) |
+| ONP-GVV-UOU | WARRIOR | 2761 | [v4.0.2-WARRIOR-0-ONP-GVV-UOU-5f5f00c4b34cefdf-shatterfish](v4.0.2-WARRIOR-0-ONP-GVV-UOU-5f5f00c4b34cefdf-shatterfish.jsonl) |
+| OXV-VFQ-YMV | WARRIOR | 2231 | [v4.0.2-WARRIOR-0-OXV-VFQ-YMV-cfbc345b86b53fb1-shatterfish](v4.0.2-WARRIOR-0-OXV-VFQ-YMV-cfbc345b86b53fb1-shatterfish.jsonl) |
+| PPL-VDX-IUO | HUNTRESS | 2001 | [v4.0.2-HUNTRESS-0-PPL-VDX-IUO-fee658d9d2002e1a-shatterfish](v4.0.2-HUNTRESS-0-PPL-VDX-IUO-fee658d9d2002e1a-shatterfish.jsonl) |
+| QRS-DCA-FDB | MAGE | 2780 | [v4.0.2-MAGE-0-QRS-DCA-FDB-eee3703c02363948-shatterfish](v4.0.2-MAGE-0-QRS-DCA-FDB-eee3703c02363948-shatterfish.jsonl) |
+| QXN-DLM-EHS | MAGE | 2102 | [v4.0.2-MAGE-0-QXN-DLM-EHS-aa83b0c7b564450f-shatterfish](v4.0.2-MAGE-0-QXN-DLM-EHS-aa83b0c7b564450f-shatterfish.jsonl) |
+| RJX-GAE-AKL | WARRIOR | 1898 | [v4.0.2-WARRIOR-0-RJX-GAE-AKL-cc197e1c428fcb9a-shatterfish](v4.0.2-WARRIOR-0-RJX-GAE-AKL-cc197e1c428fcb9a-shatterfish.jsonl) |
+| RPF-QRU-WIP | MAGE | 2033 | [v4.0.2-MAGE-0-RPF-QRU-WIP-6b19681b20dccff9-shatterfish](v4.0.2-MAGE-0-RPF-QRU-WIP-6b19681b20dccff9-shatterfish.jsonl) |
+| RRB-EOX-OGZ | MAGE | 2584 | [v4.0.2-MAGE-0-RRB-EOX-OGZ-e78e70a7754534be-shatterfish](v4.0.2-MAGE-0-RRB-EOX-OGZ-e78e70a7754534be-shatterfish.jsonl) |
+| RYY-KRI-TPJ | ROGUE | 3277 | [v4.0.2-ROGUE-0-RYY-KRI-TPJ-8335c26700ee1757-shatterfish](v4.0.2-ROGUE-0-RYY-KRI-TPJ-8335c26700ee1757-shatterfish.jsonl) |
+| SFN-ZJK-ZNL | MAGE | 2317 | [v4.0.2-MAGE-0-SFN-ZJK-ZNL-8214415137f63ee8-shatterfish](v4.0.2-MAGE-0-SFN-ZJK-ZNL-8214415137f63ee8-shatterfish.jsonl) |
+| TEG-YFV-DRT | HUNTRESS | 2232 | [v4.0.2-HUNTRESS-0-TEG-YFV-DRT-ad7bea5b97b6ed52-shatterfish](v4.0.2-HUNTRESS-0-TEG-YFV-DRT-ad7bea5b97b6ed52-shatterfish.jsonl) |
+| TWP-YXB-ZBS | DUELIST | 1872 | [v4.0.2-DUELIST-0-TWP-YXB-ZBS-a3676d94f21b1a36-shatterfish](v4.0.2-DUELIST-0-TWP-YXB-ZBS-a3676d94f21b1a36-shatterfish.jsonl) |
+| UDO-DPC-MQA | CLERIC | 2285 | [v4.0.2-CLERIC-0-UDO-DPC-MQA-17374d6b1b7e46e1-shatterfish](v4.0.2-CLERIC-0-UDO-DPC-MQA-17374d6b1b7e46e1-shatterfish.jsonl) |
+| VYV-GBX-NYD | WARRIOR | 2436 | [v4.0.2-WARRIOR-0-VYV-GBX-NYD-4dedbaa369bf02ee-shatterfish](v4.0.2-WARRIOR-0-VYV-GBX-NYD-4dedbaa369bf02ee-shatterfish.jsonl) |
+| WHB-PAV-FSW | HUNTRESS | 2687 | [v4.0.2-HUNTRESS-0-WHB-PAV-FSW-8c841afee559871e-shatterfish](v4.0.2-HUNTRESS-0-WHB-PAV-FSW-8c841afee559871e-shatterfish.jsonl) |
+| WHY-SEW-WEE | WARRIOR | 2348 | [v4.0.2-WARRIOR-0-WHY-SEW-WEE-a69540574962ef11-shatterfish](v4.0.2-WARRIOR-0-WHY-SEW-WEE-a69540574962ef11-shatterfish.jsonl) |
+| WNX-ENP-BVA | CLERIC | 2242 | [v4.0.2-CLERIC-0-WNX-ENP-BVA-aacbe885c8e1415f-shatterfish](v4.0.2-CLERIC-0-WNX-ENP-BVA-aacbe885c8e1415f-shatterfish.jsonl) |
+| XCN-XAL-ZXR | WARRIOR | 1854 | [v4.0.2-WARRIOR-0-XCN-XAL-ZXR-cc2188e60fb4944e-shatterfish](v4.0.2-WARRIOR-0-XCN-XAL-ZXR-cc2188e60fb4944e-shatterfish.jsonl) |
+| XFU-OUH-CWV | DUELIST | 2127 | [v4.0.2-DUELIST-0-XFU-OUH-CWV-35f2dc5f84ef7538-shatterfish](v4.0.2-DUELIST-0-XFU-OUH-CWV-35f2dc5f84ef7538-shatterfish.jsonl) |
+| XUF-GLP-FBB | HUNTRESS | 1884 | [v4.0.2-HUNTRESS-0-XUF-GLP-FBB-c5c0b24de1ff357b-shatterfish](v4.0.2-HUNTRESS-0-XUF-GLP-FBB-c5c0b24de1ff357b-shatterfish.jsonl) |
+| YKZ-GZA-LLG | ROGUE | 1920 | [v4.0.2-ROGUE-0-YKZ-GZA-LLG-8db19feed917579d-shatterfish](v4.0.2-ROGUE-0-YKZ-GZA-LLG-8db19feed917579d-shatterfish.jsonl) |
+| YUL-ZDD-CCG | WARRIOR | 2427 | [v4.0.2-WARRIOR-0-YUL-ZDD-CCG-779ddb0052a1d9a2-shatterfish](v4.0.2-WARRIOR-0-YUL-ZDD-CCG-779ddb0052a1d9a2-shatterfish.jsonl) |
+| YYY-IXH-ARE | WARRIOR | 2495 | [v4.0.2-WARRIOR-0-YYY-IXH-ARE-9907b00433b08478-shatterfish](v4.0.2-WARRIOR-0-YYY-IXH-ARE-9907b00433b08478-shatterfish.jsonl) |
+| YYZ-DXN-NXP | HUNTRESS | 2457 | [v4.0.2-HUNTRESS-0-YYZ-DXN-NXP-c8591d7cd4962141-shatterfish](v4.0.2-HUNTRESS-0-YYZ-DXN-NXP-c8591d7cd4962141-shatterfish.jsonl) |
+| ZHY-IYF-HKO | WARRIOR | 2461 | [v4.0.2-WARRIOR-0-ZHY-IYF-HKO-dcfe50bc4a4b417d-shatterfish](v4.0.2-WARRIOR-0-ZHY-IYF-HKO-dcfe50bc4a4b417d-shatterfish.jsonl) |
+| ZQM-MCR-MLR | DUELIST | 2602 | [v4.0.2-DUELIST-0-ZQM-MCR-MLR-60d995e1e3dd8cc3-shatterfish](v4.0.2-DUELIST-0-ZQM-MCR-MLR-60d995e1e3dd8cc3-shatterfish.jsonl) |
+
+### DEATH at depth 2 — 40 Runs
+
+| Seed | Class | Turns | Log |
+|---|---|---|---|
+| AOC-VBG-TJV | ROGUE | 209 | [v4.0.2-ROGUE-0-AOC-VBG-TJV-126c7a405f155780-shatterfish](v4.0.2-ROGUE-0-AOC-VBG-TJV-126c7a405f155780-shatterfish.jsonl) |
+| CIM-EEJ-WMZ | WARRIOR | 649 | [v4.0.2-WARRIOR-0-CIM-EEJ-WMZ-6c3c3eeb7cf5330c-shatterfish](v4.0.2-WARRIOR-0-CIM-EEJ-WMZ-6c3c3eeb7cf5330c-shatterfish.jsonl) |
+| CPQ-ECT-PXS | CLERIC | 502 | [v4.0.2-CLERIC-0-CPQ-ECT-PXS-552b2c896f3a716f-shatterfish](v4.0.2-CLERIC-0-CPQ-ECT-PXS-552b2c896f3a716f-shatterfish.jsonl) |
+| DHC-OGJ-BZV | CLERIC | 460 | [v4.0.2-CLERIC-0-DHC-OGJ-BZV-1926fd945975bb5c-shatterfish](v4.0.2-CLERIC-0-DHC-OGJ-BZV-1926fd945975bb5c-shatterfish.jsonl) |
+| ECJ-HXB-BPW | HUNTRESS | 1151 | [v4.0.2-HUNTRESS-0-ECJ-HXB-BPW-84c429fc6dba4607-shatterfish](v4.0.2-HUNTRESS-0-ECJ-HXB-BPW-84c429fc6dba4607-shatterfish.jsonl) |
+| HOI-ZXQ-LSJ | WARRIOR | 1906 | [v4.0.2-WARRIOR-0-HOI-ZXQ-LSJ-2ee89fe4b7ee660b-shatterfish](v4.0.2-WARRIOR-0-HOI-ZXQ-LSJ-2ee89fe4b7ee660b-shatterfish.jsonl) |
+| IAW-LHT-ACZ | WARRIOR | 105 | [v4.0.2-WARRIOR-0-IAW-LHT-ACZ-ae147bc839f31728-shatterfish](v4.0.2-WARRIOR-0-IAW-LHT-ACZ-ae147bc839f31728-shatterfish.jsonl) |
+| IZT-YSB-AXP | MAGE | 1740 | [v4.0.2-MAGE-0-IZT-YSB-AXP-c4b68d66814361a3-shatterfish](v4.0.2-MAGE-0-IZT-YSB-AXP-c4b68d66814361a3-shatterfish.jsonl) |
+| JAL-FGG-TLH | HUNTRESS | 564 | [v4.0.2-HUNTRESS-0-JAL-FGG-TLH-86145d8033d0e75f-shatterfish](v4.0.2-HUNTRESS-0-JAL-FGG-TLH-86145d8033d0e75f-shatterfish.jsonl) |
+| KGI-CWP-WJL | HUNTRESS | 839 | [v4.0.2-HUNTRESS-0-KGI-CWP-WJL-c3e41460cfcff672-shatterfish](v4.0.2-HUNTRESS-0-KGI-CWP-WJL-c3e41460cfcff672-shatterfish.jsonl) |
+| KUJ-DRE-OTP | WARRIOR | 654 | [v4.0.2-WARRIOR-0-KUJ-DRE-OTP-7140cb0a45b7c209-shatterfish](v4.0.2-WARRIOR-0-KUJ-DRE-OTP-7140cb0a45b7c209-shatterfish.jsonl) |
+| LGQ-KDT-SDJ | HUNTRESS | 1757 | [v4.0.2-HUNTRESS-0-LGQ-KDT-SDJ-627359cdc0c0cf1c-shatterfish](v4.0.2-HUNTRESS-0-LGQ-KDT-SDJ-627359cdc0c0cf1c-shatterfish.jsonl) |
+| LSZ-JZA-EQJ | WARRIOR | 826 | [v4.0.2-WARRIOR-0-LSZ-JZA-EQJ-882b56e116b92033-shatterfish](v4.0.2-WARRIOR-0-LSZ-JZA-EQJ-882b56e116b92033-shatterfish.jsonl) |
+| LXY-FTJ-MSD | ROGUE | 442 | [v4.0.2-ROGUE-0-LXY-FTJ-MSD-1c14b5c07d74087c-shatterfish](v4.0.2-ROGUE-0-LXY-FTJ-MSD-1c14b5c07d74087c-shatterfish.jsonl) |
+| MBK-WGK-ISX | CLERIC | 946 | [v4.0.2-CLERIC-0-MBK-WGK-ISX-6cbd7063fd417f62-shatterfish](v4.0.2-CLERIC-0-MBK-WGK-ISX-6cbd7063fd417f62-shatterfish.jsonl) |
+| MCJ-ELA-HCL | CLERIC | 615 | [v4.0.2-CLERIC-0-MCJ-ELA-HCL-acc012cf95687637-shatterfish](v4.0.2-CLERIC-0-MCJ-ELA-HCL-acc012cf95687637-shatterfish.jsonl) |
+| MEI-HRI-LHJ | WARRIOR | 969 | [v4.0.2-WARRIOR-0-MEI-HRI-LHJ-a56951c792401787-shatterfish](v4.0.2-WARRIOR-0-MEI-HRI-LHJ-a56951c792401787-shatterfish.jsonl) |
+| NFH-IKJ-ANV | HUNTRESS | 1892 | [v4.0.2-HUNTRESS-0-NFH-IKJ-ANV-4d90d37ae33f82b1-shatterfish](v4.0.2-HUNTRESS-0-NFH-IKJ-ANV-4d90d37ae33f82b1-shatterfish.jsonl) |
+| NKF-BZK-ZOE | HUNTRESS | 175 | [v4.0.2-HUNTRESS-0-NKF-BZK-ZOE-9c15e949d9d98d33-shatterfish](v4.0.2-HUNTRESS-0-NKF-BZK-ZOE-9c15e949d9d98d33-shatterfish.jsonl) |
+| NYT-ROW-VMV | ROGUE | 844 | [v4.0.2-ROGUE-0-NYT-ROW-VMV-d043f57dd53ddfb1-shatterfish](v4.0.2-ROGUE-0-NYT-ROW-VMV-d043f57dd53ddfb1-shatterfish.jsonl) |
+| PCM-JOQ-DCE | WARRIOR | 443 | [v4.0.2-WARRIOR-0-PCM-JOQ-DCE-e66677dd55d93a7b-shatterfish](v4.0.2-WARRIOR-0-PCM-JOQ-DCE-e66677dd55d93a7b-shatterfish.jsonl) |
+| PNS-URA-TDO | ROGUE | 705 | [v4.0.2-ROGUE-0-PNS-URA-TDO-427951480cf623bf-shatterfish](v4.0.2-ROGUE-0-PNS-URA-TDO-427951480cf623bf-shatterfish.jsonl) |
+| PPH-YQP-TND | CLERIC | 269 | [v4.0.2-CLERIC-0-PPH-YQP-TND-1ebdac7d4d074fb2-shatterfish](v4.0.2-CLERIC-0-PPH-YQP-TND-1ebdac7d4d074fb2-shatterfish.jsonl) |
+| QMP-KAH-CAN | HUNTRESS | 711 | [v4.0.2-HUNTRESS-0-QMP-KAH-CAN-639a1f2bd9b34b9e-shatterfish](v4.0.2-HUNTRESS-0-QMP-KAH-CAN-639a1f2bd9b34b9e-shatterfish.jsonl) |
+| RGG-BCP-EZM | WARRIOR | 582 | [v4.0.2-WARRIOR-0-RGG-BCP-EZM-fb26145440a37ca6-shatterfish](v4.0.2-WARRIOR-0-RGG-BCP-EZM-fb26145440a37ca6-shatterfish.jsonl) |
+| RVH-CEA-DBZ | MAGE | 916 | [v4.0.2-MAGE-0-RVH-CEA-DBZ-70b27e16993e0b44-shatterfish](v4.0.2-MAGE-0-RVH-CEA-DBZ-70b27e16993e0b44-shatterfish.jsonl) |
+| SHA-VYX-RIN | HUNTRESS | 697 | [v4.0.2-HUNTRESS-0-SHA-VYX-RIN-a895937188520abf-shatterfish](v4.0.2-HUNTRESS-0-SHA-VYX-RIN-a895937188520abf-shatterfish.jsonl) |
+| SYF-LDM-QKW | HUNTRESS | 719 | [v4.0.2-HUNTRESS-0-SYF-LDM-QKW-06cc1a0c4a84f175-shatterfish](v4.0.2-HUNTRESS-0-SYF-LDM-QKW-06cc1a0c4a84f175-shatterfish.jsonl) |
+| UDO-ICZ-NLU | MAGE | 492 | [v4.0.2-MAGE-0-UDO-ICZ-NLU-be4da6f5af72c05a-shatterfish](v4.0.2-MAGE-0-UDO-ICZ-NLU-be4da6f5af72c05a-shatterfish.jsonl) |
+| VPH-WOV-RXQ | CLERIC | 455 | [v4.0.2-CLERIC-0-VPH-WOV-RXQ-a4e8b8664685cf8d-shatterfish](v4.0.2-CLERIC-0-VPH-WOV-RXQ-a4e8b8664685cf8d-shatterfish.jsonl) |
+| VUR-VQY-LJZ | HUNTRESS | 630 | [v4.0.2-HUNTRESS-0-VUR-VQY-LJZ-60ff9b5012a4bcc3-shatterfish](v4.0.2-HUNTRESS-0-VUR-VQY-LJZ-60ff9b5012a4bcc3-shatterfish.jsonl) |
+| WNT-AMY-HML | ROGUE | 838 | [v4.0.2-ROGUE-0-WNT-AMY-HML-a1f6a159b2e8a1e3-shatterfish](v4.0.2-ROGUE-0-WNT-AMY-HML-a1f6a159b2e8a1e3-shatterfish.jsonl) |
+| XAN-NEG-ZDS | CLERIC | 785 | [v4.0.2-CLERIC-0-XAN-NEG-ZDS-22d478ad6f2be9e6-shatterfish](v4.0.2-CLERIC-0-XAN-NEG-ZDS-22d478ad6f2be9e6-shatterfish.jsonl) |
+| XAX-KAG-YCM | ROGUE | 766 | [v4.0.2-ROGUE-0-XAX-KAG-YCM-511ddba77620438a-shatterfish](v4.0.2-ROGUE-0-XAX-KAG-YCM-511ddba77620438a-shatterfish.jsonl) |
+| XBB-GVV-IBE | WARRIOR | 450 | [v4.0.2-WARRIOR-0-XBB-GVV-IBE-ccad8409fd14ac81-shatterfish](v4.0.2-WARRIOR-0-XBB-GVV-IBE-ccad8409fd14ac81-shatterfish.jsonl) |
+| ZBI-RDN-YMC | WARRIOR | 144 | [v4.0.2-WARRIOR-0-ZBI-RDN-YMC-f0c7c4dbb195a7c1-shatterfish](v4.0.2-WARRIOR-0-ZBI-RDN-YMC-f0c7c4dbb195a7c1-shatterfish.jsonl) |
+| ZBR-VSF-PXY | HUNTRESS | 571 | [v4.0.2-HUNTRESS-0-ZBR-VSF-PXY-96134a86bb36e07b-shatterfish](v4.0.2-HUNTRESS-0-ZBR-VSF-PXY-96134a86bb36e07b-shatterfish.jsonl) |
+| ZGF-GVF-ONN | MAGE | 820 | [v4.0.2-MAGE-0-ZGF-GVF-ONN-398c83ea65b47f5d-shatterfish](v4.0.2-MAGE-0-ZGF-GVF-ONN-398c83ea65b47f5d-shatterfish.jsonl) |
+| ZJS-VSM-EWJ | HUNTRESS | 437 | [v4.0.2-HUNTRESS-0-ZJS-VSM-EWJ-63520a64c25a7df1-shatterfish](v4.0.2-HUNTRESS-0-ZJS-VSM-EWJ-63520a64c25a7df1-shatterfish.jsonl) |
+| ZXR-CQM-YCA | CLERIC | 1556 | [v4.0.2-CLERIC-0-ZXR-CQM-YCA-197efb1e422c85fe-shatterfish](v4.0.2-CLERIC-0-ZXR-CQM-YCA-197efb1e422c85fe-shatterfish.jsonl) |
+
+### DEATH at depth 7 — 39 Runs
+
+| Seed | Class | Turns | Log |
+|---|---|---|---|
+| AVQ-OGJ-MGJ | MAGE | 2402 | [v4.0.2-MAGE-0-AVQ-OGJ-MGJ-704d0da21c8476c3-shatterfish](v4.0.2-MAGE-0-AVQ-OGJ-MGJ-704d0da21c8476c3-shatterfish.jsonl) |
+| BCW-AMZ-FOR | WARRIOR | 2857 | [v4.0.2-WARRIOR-0-BCW-AMZ-FOR-eae0c156d3747d9b-shatterfish](v4.0.2-WARRIOR-0-BCW-AMZ-FOR-eae0c156d3747d9b-shatterfish.jsonl) |
+| BVC-BLY-FMN | ROGUE | 2360 | [v4.0.2-ROGUE-0-BVC-BLY-FMN-00c784b98977142f-shatterfish](v4.0.2-ROGUE-0-BVC-BLY-FMN-00c784b98977142f-shatterfish.jsonl) |
+| BZG-THF-MSM | CLERIC | 2754 | [v4.0.2-CLERIC-0-BZG-THF-MSM-12067956ff692864-shatterfish](v4.0.2-CLERIC-0-BZG-THF-MSM-12067956ff692864-shatterfish.jsonl) |
+| CHX-ICY-HEY | WARRIOR | 2539 | [v4.0.2-WARRIOR-0-CHX-ICY-HEY-62f1e965c701e588-shatterfish](v4.0.2-WARRIOR-0-CHX-ICY-HEY-62f1e965c701e588-shatterfish.jsonl) |
+| DBZ-PKK-KCK | WARRIOR | 2829 | [v4.0.2-WARRIOR-0-DBZ-PKK-KCK-905b66c774f473bd-shatterfish](v4.0.2-WARRIOR-0-DBZ-PKK-KCK-905b66c774f473bd-shatterfish.jsonl) |
+| EHK-LJW-TKG | WARRIOR | 2723 | [v4.0.2-WARRIOR-0-EHK-LJW-TKG-b55e60909af2cda4-shatterfish](v4.0.2-WARRIOR-0-EHK-LJW-TKG-b55e60909af2cda4-shatterfish.jsonl) |
+| FDC-ZHW-JQN | MAGE | 3066 | [v4.0.2-MAGE-0-FDC-ZHW-JQN-f5daae88b09f48a6-shatterfish](v4.0.2-MAGE-0-FDC-ZHW-JQN-f5daae88b09f48a6-shatterfish.jsonl) |
+| FPO-QWI-QOU | WARRIOR | 3604 | [v4.0.2-WARRIOR-0-FPO-QWI-QOU-13ded2fe726f3f26-shatterfish](v4.0.2-WARRIOR-0-FPO-QWI-QOU-13ded2fe726f3f26-shatterfish.jsonl) |
+| FQB-VZT-NVX | MAGE | 1812 | [v4.0.2-MAGE-0-FQB-VZT-NVX-aeab0fdd2451b626-shatterfish](v4.0.2-MAGE-0-FQB-VZT-NVX-aeab0fdd2451b626-shatterfish.jsonl) |
+| HMZ-SRB-XBN | MAGE | 2430 | [v4.0.2-MAGE-0-HMZ-SRB-XBN-34cd31d115a92214-shatterfish](v4.0.2-MAGE-0-HMZ-SRB-XBN-34cd31d115a92214-shatterfish.jsonl) |
+| HSI-KXB-QEQ | WARRIOR | 2923 | [v4.0.2-WARRIOR-0-HSI-KXB-QEQ-e44f0075a3dca47c-shatterfish](v4.0.2-WARRIOR-0-HSI-KXB-QEQ-e44f0075a3dca47c-shatterfish.jsonl) |
+| HSV-VMA-UDT | HUNTRESS | 2743 | [v4.0.2-HUNTRESS-0-HSV-VMA-UDT-8fdab48827f6018d-shatterfish](v4.0.2-HUNTRESS-0-HSV-VMA-UDT-8fdab48827f6018d-shatterfish.jsonl) |
+| IJW-AFU-GRS | CLERIC | 2578 | [v4.0.2-CLERIC-0-IJW-AFU-GRS-43439070b335f2b1-shatterfish](v4.0.2-CLERIC-0-IJW-AFU-GRS-43439070b335f2b1-shatterfish.jsonl) |
+| JGP-ZHK-RWL | ROGUE | 3430 | [v4.0.2-ROGUE-0-JGP-ZHK-RWL-b0f02e0ffde37fa4-shatterfish](v4.0.2-ROGUE-0-JGP-ZHK-RWL-b0f02e0ffde37fa4-shatterfish.jsonl) |
+| JLW-ESL-ZPF | ROGUE | 2497 | [v4.0.2-ROGUE-0-JLW-ESL-ZPF-c2247a2a8f249e02-shatterfish](v4.0.2-ROGUE-0-JLW-ESL-ZPF-c2247a2a8f249e02-shatterfish.jsonl) |
+| KCQ-ZIF-CMT | WARRIOR | 3020 | [v4.0.2-WARRIOR-0-KCQ-ZIF-CMT-002140c982303413-shatterfish](v4.0.2-WARRIOR-0-KCQ-ZIF-CMT-002140c982303413-shatterfish.jsonl) |
+| LIY-RPB-WSY | ROGUE | 1935 | [v4.0.2-ROGUE-0-LIY-RPB-WSY-4f92f42acda56c5d-shatterfish](v4.0.2-ROGUE-0-LIY-RPB-WSY-4f92f42acda56c5d-shatterfish.jsonl) |
+| MIC-MXR-KBQ | MAGE | 2986 | [v4.0.2-MAGE-0-MIC-MXR-KBQ-46799d0ad5578ba7-shatterfish](v4.0.2-MAGE-0-MIC-MXR-KBQ-46799d0ad5578ba7-shatterfish.jsonl) |
+| NCI-LWJ-TWE | WARRIOR | 2548 | [v4.0.2-WARRIOR-0-NCI-LWJ-TWE-8e94ce88e1d2010b-shatterfish](v4.0.2-WARRIOR-0-NCI-LWJ-TWE-8e94ce88e1d2010b-shatterfish.jsonl) |
+| NQL-AMO-SIK | HUNTRESS | 2034 | [v4.0.2-HUNTRESS-0-NQL-AMO-SIK-ad8b86242429a83c-shatterfish](v4.0.2-HUNTRESS-0-NQL-AMO-SIK-ad8b86242429a83c-shatterfish.jsonl) |
+| OBN-HQJ-YLB | WARRIOR | 2808 | [v4.0.2-WARRIOR-0-OBN-HQJ-YLB-8c4c91bfb9b74615-shatterfish](v4.0.2-WARRIOR-0-OBN-HQJ-YLB-8c4c91bfb9b74615-shatterfish.jsonl) |
+| OLW-GMZ-EZM | CLERIC | 2005 | [v4.0.2-CLERIC-0-OLW-GMZ-EZM-3d91cd50c44f6117-shatterfish](v4.0.2-CLERIC-0-OLW-GMZ-EZM-3d91cd50c44f6117-shatterfish.jsonl) |
+| OSD-WAT-VEM | CLERIC | 1783 | [v4.0.2-CLERIC-0-OSD-WAT-VEM-596843386e49f787-shatterfish](v4.0.2-CLERIC-0-OSD-WAT-VEM-596843386e49f787-shatterfish.jsonl) |
+| PID-QUF-GNL | WARRIOR | 2872 | [v4.0.2-WARRIOR-0-PID-QUF-GNL-8c709b63b0fa58dd-shatterfish](v4.0.2-WARRIOR-0-PID-QUF-GNL-8c709b63b0fa58dd-shatterfish.jsonl) |
+| RBB-NHW-KDV | WARRIOR | 3613 | [v4.0.2-WARRIOR-0-RBB-NHW-KDV-e519ab2809a3f458-shatterfish](v4.0.2-WARRIOR-0-RBB-NHW-KDV-e519ab2809a3f458-shatterfish.jsonl) |
+| RGN-DSG-IYA | WARRIOR | 3166 | [v4.0.2-WARRIOR-0-RGN-DSG-IYA-3077a5a88c71e92f-shatterfish](v4.0.2-WARRIOR-0-RGN-DSG-IYA-3077a5a88c71e92f-shatterfish.jsonl) |
+| RSG-QRD-JND | ROGUE | 3110 | [v4.0.2-ROGUE-0-RSG-QRD-JND-37bcb1b89bc78fd0-shatterfish](v4.0.2-ROGUE-0-RSG-QRD-JND-37bcb1b89bc78fd0-shatterfish.jsonl) |
+| SIG-EBX-CVV | ROGUE | 2151 | [v4.0.2-ROGUE-0-SIG-EBX-CVV-e0c9515cf6ba3d7b-shatterfish](v4.0.2-ROGUE-0-SIG-EBX-CVV-e0c9515cf6ba3d7b-shatterfish.jsonl) |
+| STV-BZJ-YTL | CLERIC | 2019 | [v4.0.2-CLERIC-0-STV-BZJ-YTL-f1c3e760a044483e-shatterfish](v4.0.2-CLERIC-0-STV-BZJ-YTL-f1c3e760a044483e-shatterfish.jsonl) |
+| SZI-FEI-LJI | CLERIC | 3743 | [v4.0.2-CLERIC-0-SZI-FEI-LJI-a372929fb881783d-shatterfish](v4.0.2-CLERIC-0-SZI-FEI-LJI-a372929fb881783d-shatterfish.jsonl) |
+| TMT-ERC-ZIT | MAGE | 2587 | [v4.0.2-MAGE-0-TMT-ERC-ZIT-a1591fe94f4da0a9-shatterfish](v4.0.2-MAGE-0-TMT-ERC-ZIT-a1591fe94f4da0a9-shatterfish.jsonl) |
+| TQE-EJY-WPT | WARRIOR | 2149 | [v4.0.2-WARRIOR-0-TQE-EJY-WPT-fb36ef60eed8a5a1-shatterfish](v4.0.2-WARRIOR-0-TQE-EJY-WPT-fb36ef60eed8a5a1-shatterfish.jsonl) |
+| TVK-FCR-UMW | WARRIOR | 2655 | [v4.0.2-WARRIOR-0-TVK-FCR-UMW-62ba0bf9ba70ac80-shatterfish](v4.0.2-WARRIOR-0-TVK-FCR-UMW-62ba0bf9ba70ac80-shatterfish.jsonl) |
+| XDI-ACX-ETD | WARRIOR | 4137 | [v4.0.2-WARRIOR-0-XDI-ACX-ETD-597ee13c43189a94-shatterfish](v4.0.2-WARRIOR-0-XDI-ACX-ETD-597ee13c43189a94-shatterfish.jsonl) |
+| YMT-XRQ-JSK | MAGE | 3038 | [v4.0.2-MAGE-0-YMT-XRQ-JSK-13cf1b4b5baa6d3b-shatterfish](v4.0.2-MAGE-0-YMT-XRQ-JSK-13cf1b4b5baa6d3b-shatterfish.jsonl) |
+| YRJ-UUL-NLB | ROGUE | 2560 | [v4.0.2-ROGUE-0-YRJ-UUL-NLB-5ebf1d68723c6d6f-shatterfish](v4.0.2-ROGUE-0-YRJ-UUL-NLB-5ebf1d68723c6d6f-shatterfish.jsonl) |
+| ZEO-ODJ-KHO | WARRIOR | 2840 | [v4.0.2-WARRIOR-0-ZEO-ODJ-KHO-4bf240482027c9dd-shatterfish](v4.0.2-WARRIOR-0-ZEO-ODJ-KHO-4bf240482027c9dd-shatterfish.jsonl) |
+| ZQN-GJK-CPK | WARRIOR | 4075 | [v4.0.2-WARRIOR-0-ZQN-GJK-CPK-2e0b4703167d313b-shatterfish](v4.0.2-WARRIOR-0-ZQN-GJK-CPK-2e0b4703167d313b-shatterfish.jsonl) |
+
+### DEATH at depth 1 — 25 Runs
+
+| Seed | Class | Turns | Log |
+|---|---|---|---|
+| BAP-ZAB-VRT | ROGUE | 25 | [v4.0.2-ROGUE-0-BAP-ZAB-VRT-26514f683e44a227-shatterfish](v4.0.2-ROGUE-0-BAP-ZAB-VRT-26514f683e44a227-shatterfish.jsonl) |
+| BTW-DGG-JLA | HUNTRESS | 69 | [v4.0.2-HUNTRESS-0-BTW-DGG-JLA-5f18a76d9c6a234e-shatterfish](v4.0.2-HUNTRESS-0-BTW-DGG-JLA-5f18a76d9c6a234e-shatterfish.jsonl) |
+| CBB-CRN-AYQ | WARRIOR | 144 | [v4.0.2-WARRIOR-0-CBB-CRN-AYQ-d924c67dcf10dde3-shatterfish](v4.0.2-WARRIOR-0-CBB-CRN-AYQ-d924c67dcf10dde3-shatterfish.jsonl) |
+| DAB-RTJ-DVL | HUNTRESS | 200 | [v4.0.2-HUNTRESS-0-DAB-RTJ-DVL-447cea36106b0e36-shatterfish](v4.0.2-HUNTRESS-0-DAB-RTJ-DVL-447cea36106b0e36-shatterfish.jsonl) |
+| DPX-GDF-JKE | ROGUE | 91 | [v4.0.2-ROGUE-0-DPX-GDF-JKE-356e82e88adb69ec-shatterfish](v4.0.2-ROGUE-0-DPX-GDF-JKE-356e82e88adb69ec-shatterfish.jsonl) |
+| EKU-DDO-DOX | HUNTRESS | 82 | [v4.0.2-HUNTRESS-0-EKU-DDO-DOX-8d186360c2a7572b-shatterfish](v4.0.2-HUNTRESS-0-EKU-DDO-DOX-8d186360c2a7572b-shatterfish.jsonl) |
+| FHT-XYY-YAW | CLERIC | 41 | [v4.0.2-CLERIC-0-FHT-XYY-YAW-8152e4c4039fe919-shatterfish](v4.0.2-CLERIC-0-FHT-XYY-YAW-8152e4c4039fe919-shatterfish.jsonl) |
+| HAS-PAD-PAB | CLERIC | 25 | [v4.0.2-CLERIC-0-HAS-PAD-PAB-828a2b42ecfe3dcb-shatterfish](v4.0.2-CLERIC-0-HAS-PAD-PAB-828a2b42ecfe3dcb-shatterfish.jsonl) |
+| HKT-PPS-HVA | ROGUE | 51 | [v4.0.2-ROGUE-0-HKT-PPS-HVA-fe69781e3540c7b9-shatterfish](v4.0.2-ROGUE-0-HKT-PPS-HVA-fe69781e3540c7b9-shatterfish.jsonl) |
+| HLV-EDD-DZY | CLERIC | 202 | [v4.0.2-CLERIC-0-HLV-EDD-DZY-b829d15ebd6ef1e1-shatterfish](v4.0.2-CLERIC-0-HLV-EDD-DZY-b829d15ebd6ef1e1-shatterfish.jsonl) |
+| HQE-BNZ-VCK | CLERIC | 143 | [v4.0.2-CLERIC-0-HQE-BNZ-VCK-bc0cb64db407b432-shatterfish](v4.0.2-CLERIC-0-HQE-BNZ-VCK-bc0cb64db407b432-shatterfish.jsonl) |
+| ICL-YEX-WHV | CLERIC | 47 | [v4.0.2-CLERIC-0-ICL-YEX-WHV-ad5939f778b9b068-shatterfish](v4.0.2-CLERIC-0-ICL-YEX-WHV-ad5939f778b9b068-shatterfish.jsonl) |
+| IVB-HYO-GYM | MAGE | 51 | [v4.0.2-MAGE-0-IVB-HYO-GYM-87081b6e7a0e4edb-shatterfish](v4.0.2-MAGE-0-IVB-HYO-GYM-87081b6e7a0e4edb-shatterfish.jsonl) |
+| JHR-SEW-AMZ | MAGE | 63 | [v4.0.2-MAGE-0-JHR-SEW-AMZ-4e13f370c701902e-shatterfish](v4.0.2-MAGE-0-JHR-SEW-AMZ-4e13f370c701902e-shatterfish.jsonl) |
+| MWT-YRP-BBJ | HUNTRESS | 150 | [v4.0.2-HUNTRESS-0-MWT-YRP-BBJ-77b79efea5eb98b9-shatterfish](v4.0.2-HUNTRESS-0-MWT-YRP-BBJ-77b79efea5eb98b9-shatterfish.jsonl) |
+| NVT-XFE-VJC | DUELIST | 80 | [v4.0.2-DUELIST-0-NVT-XFE-VJC-bda4b7b9961a79e5-shatterfish](v4.0.2-DUELIST-0-NVT-XFE-VJC-bda4b7b9961a79e5-shatterfish.jsonl) |
+| PMK-BQX-FGH | WARRIOR | 59 | [v4.0.2-WARRIOR-0-PMK-BQX-FGH-03fc3aa59300e0c1-shatterfish](v4.0.2-WARRIOR-0-PMK-BQX-FGH-03fc3aa59300e0c1-shatterfish.jsonl) |
+| PMU-ZVA-HWD | CLERIC | 47 | [v4.0.2-CLERIC-0-PMU-ZVA-HWD-5b6a10b28c600c42-shatterfish](v4.0.2-CLERIC-0-PMU-ZVA-HWD-5b6a10b28c600c42-shatterfish.jsonl) |
+| QAI-WQG-ZYH | ROGUE | 53 | [v4.0.2-ROGUE-0-QAI-WQG-ZYH-fcd5a82d3a0903e3-shatterfish](v4.0.2-ROGUE-0-QAI-WQG-ZYH-fcd5a82d3a0903e3-shatterfish.jsonl) |
+| RBO-HBE-SXO | ROGUE | 174 | [v4.0.2-ROGUE-0-RBO-HBE-SXO-853850ad2ab5127c-shatterfish](v4.0.2-ROGUE-0-RBO-HBE-SXO-853850ad2ab5127c-shatterfish.jsonl) |
+| TJC-CNA-OSK | MAGE | 142 | [v4.0.2-MAGE-0-TJC-CNA-OSK-2861a75c458d7fc5-shatterfish](v4.0.2-MAGE-0-TJC-CNA-OSK-2861a75c458d7fc5-shatterfish.jsonl) |
+| UID-EHP-GZD | ROGUE | 24 | [v4.0.2-ROGUE-0-UID-EHP-GZD-e404dff079d0377c-shatterfish](v4.0.2-ROGUE-0-UID-EHP-GZD-e404dff079d0377c-shatterfish.jsonl) |
+| UJR-CYV-BGA | CLERIC | 129 | [v4.0.2-CLERIC-0-UJR-CYV-BGA-6908360ba3f623b0-shatterfish](v4.0.2-CLERIC-0-UJR-CYV-BGA-6908360ba3f623b0-shatterfish.jsonl) |
+| ZHB-SRC-OUM | HUNTRESS | 17 | [v4.0.2-HUNTRESS-0-ZHB-SRC-OUM-324de5a58ebd1ffa-shatterfish](v4.0.2-HUNTRESS-0-ZHB-SRC-OUM-324de5a58ebd1ffa-shatterfish.jsonl) |
+| ZUW-YGI-PNN | MAGE | 36 | [v4.0.2-MAGE-0-ZUW-YGI-PNN-5b3eac45909257d7-shatterfish](v4.0.2-MAGE-0-ZUW-YGI-PNN-5b3eac45909257d7-shatterfish.jsonl) |
+
+### DEATH at depth 8 — 5 Runs
+
+| Seed | Class | Turns | Log |
+|---|---|---|---|
+| ENL-JLT-OSS | WARRIOR | 2858 | [v4.0.2-WARRIOR-0-ENL-JLT-OSS-892c4f4c2de7f388-shatterfish](v4.0.2-WARRIOR-0-ENL-JLT-OSS-892c4f4c2de7f388-shatterfish.jsonl) |
+| INZ-IKC-BWE | HUNTRESS | 2632 | [v4.0.2-HUNTRESS-0-INZ-IKC-BWE-9b68630acf150241-shatterfish](v4.0.2-HUNTRESS-0-INZ-IKC-BWE-9b68630acf150241-shatterfish.jsonl) |
+| RIU-LJU-UUL | WARRIOR | 2627 | [v4.0.2-WARRIOR-0-RIU-LJU-UUL-0fd58476939bdacc-shatterfish](v4.0.2-WARRIOR-0-RIU-LJU-UUL-0fd58476939bdacc-shatterfish.jsonl) |
+| RMO-QVD-JKL | HUNTRESS | 2276 | [v4.0.2-HUNTRESS-0-RMO-QVD-JKL-15d74d295dc3ee7c-shatterfish](v4.0.2-HUNTRESS-0-RMO-QVD-JKL-15d74d295dc3ee7c-shatterfish.jsonl) |
+| SZV-WZB-MEE | MAGE | 2095 | [v4.0.2-MAGE-0-SZV-WZB-MEE-e20f09bfd5f0ee1e-shatterfish](v4.0.2-MAGE-0-SZV-WZB-MEE-e20f09bfd5f0ee1e-shatterfish.jsonl) |
+
+### DEATH at depth 9 — 1 Run
+
+| Seed | Class | Turns | Log |
+|---|---|---|---|
+| CFU-TZK-DFP | WARRIOR | 2640 | [v4.0.2-WARRIOR-0-CFU-TZK-DFP-28e5a6cb5b28ed3f-shatterfish](v4.0.2-WARRIOR-0-CFU-TZK-DFP-28e5a6cb5b28ed3f-shatterfish.jsonl) |
+
+## Runs the game did not end
+
+None.
+
+
+For two Brains side by side -- endings, deaths by the situation that ended them, and every triple both played -- see the comparison view (`gallery-comparison.md`, written beside a comparison's two sides).
