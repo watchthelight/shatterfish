@@ -155,7 +155,7 @@ development_status:
   8-7-the-replay-scrubber: backlog  # issue #322
   8-8-the-coachs-sentence: backlog  # issue #323
   8-9-coach-mode: backlog  # issue #324
-  8-10-autoexplore-with-the-bots-brains: backlog  # issue #325
+  8-10-autoexplore-with-the-bots-brains: review  # issue #325
   8-11-the-v2-session-and-the-epic-close: backlog  # issue #326
   epic-8-retrospective: optional
 
