@@ -569,7 +569,8 @@ final class Fight implements Policy {
      * very thing the descend Policy rests beside the exit to avoid. Elsewhere a hurt hero may still flee
      * down: the stairs down are often the only way out of a fight it is losing, and refusing them
      * whenever the hero is hurt measured worse on `smoke` (median turns survived 1,044 to 828, mean
-     * deepest floor 2.52 to 2.12, story 4.12's review).
+     * deepest floor 2.52 to 2.12, story 4.12's review). The stairs up are not taken while the hero is starving:
+     * it regenerates nothing above and the descend Policy sends it straight back down (issue #202).
      */
     static RunLog.Choice retreat(Observation observation, Memory memory, List<Action> offered, List<ActorView> enemies,
                                  Codex.Knowledge knowledge) {
@@ -580,8 +581,12 @@ final class Fight implements Policy {
         boolean outpaced = outpaced(observation, knowledge, enemies);
         if (!observation.header().sealed() && Memory.count(memory.flights(), floor, 0) < FLIGHTS) {
             boolean down = down(observation, memory, knowledge);
-            java.util.function.Predicate<TransitionView> stairs = transition -> transition.kind()
-                    == TransitionKind.REGULAR_ENTRANCE || (down && transition.kind() == TransitionKind.REGULAR_EXIT);
+            // A starving hero regenerates nothing upstairs (Regeneration.java:56) and the descend Policy takes it
+            // straight back down for food (Descend.leaving, "hungry"), to the enemy it left standing there: a
+            // flight up only spends turns (issue #202).
+            boolean up = observation.hero().hunger() != org.shatterfish.api.Hunger.STARVING;
+            java.util.function.Predicate<TransitionView> stairs = transition -> (up && transition.kind()
+                    == TransitionKind.REGULAR_ENTRANCE) || (down && transition.kind() == TransitionKind.REGULAR_EXIT);
             for (TransitionView transition : map.transitions()) {
                 if (transition.cell() != hero) {
                     continue;
