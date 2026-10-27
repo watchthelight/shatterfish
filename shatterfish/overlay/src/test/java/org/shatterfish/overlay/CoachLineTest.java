@@ -51,6 +51,7 @@ class CoachLineTest {
             Map.entry("douse/douse/water", "douse: water"),
             Map.entry("douse/douse/ground", "douse: bare ground"),
             Map.entry("zap/zap", "zap: staff of magic missile"),
+            Map.entry("shoot/shoot", "shoot: Spirit Bow"),
             Map.entry("ranged/throw", "throw: dart"),
             Map.entry("one-ply/heal", "heal 12/30"),
             Map.entry("one-ply/retreat", "retreat 5"),
