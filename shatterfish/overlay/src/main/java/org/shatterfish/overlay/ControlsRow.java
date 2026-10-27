@@ -48,6 +48,9 @@ final class ControlsRow extends Component {
     private RedButton intervalPlus;
     private RedButton takeOver;
     private RedButton explain;
+    /** The coach's switch (story 8.9): not in the enablement matrix, since it is a setting of HUMAN and not a Mode. */
+    private RedButton coachButton;
+    private CoachState coach = CoachState.detached();
     private RenderedTextBlock countValue;
     private RenderedTextBlock intervalValue;
     private float countSlot;
@@ -78,11 +81,42 @@ final class ControlsRow extends Component {
             }
         };
         add(explain);
+        coachButton = new RedButton(COACH_OFF, TEXT_SIZE) {
+            @Override
+            protected void onClick() {
+                pressCoach();
+            }
+        };
+        add(coachButton);
         countValue = value();
         intervalValue = value();
         // The widest each number gets, so the row does not shift as a value changes.
         countSlot = widest("888");
         intervalSlot = widest("8.8s");
+    }
+
+    /** The coach button's labels (story 8.9): the switch says what it is now, and keeps its width. */
+    static final String COACH_OFF = "Coach";
+    static final String COACH_ON = "Coach on";
+
+    /** Binds the coach's state, which outlives each play scene's Panel (story 8.9). */
+    void bindCoach(CoachState coach) {
+        this.coach = coach;
+    }
+
+    /** Whether the coach button acts now: the person plays, no window is in front, the Run is not over (story 8.9). */
+    boolean coachActs() {
+        return !locked && mode != null && ControlEnablement.coachReason(mode.mode(), mode.over()) == null;
+    }
+
+    /** Why the coach button does nothing, or null when it acts (story 8.9); a window in front is not a reason to say. */
+    String coachReason() {
+        return mode == null ? null : ControlEnablement.coachReason(mode.mode(), mode.over());
+    }
+
+    /** Presses the coach button, as a tap or its hotkey does. */
+    boolean pressCoach() {
+        return coachActs() && coach.toggle(mode.mode(), mode.over());
     }
 
     private RedButton button(String label, java.util.function.BooleanSupplier press) {
@@ -143,6 +177,11 @@ final class ControlsRow extends Component {
         set(intervalPlus, Control.INTERVAL);
         set(takeOver, Control.TAKE_OVER);
         set(explain, Control.EXPLAIN, explainable);
+        coach.sync(mode.mode(), mode.over());
+        coachButton.text(coach.on() ? COACH_ON : COACH_OFF);
+        boolean coaching = coachActs();
+        coachButton.active = coaching;
+        coachButton.textColor(coaching ? INK : INK_DIM);
         countValue.hardlight(on(Control.RUN_N_COUNT, true) ? INK : INK_DIM);
         intervalValue.hardlight(on(Control.INTERVAL, true) ? INK : INK_DIM);
         if (width > 0) {
@@ -214,6 +253,7 @@ final class ControlsRow extends Component {
         atoms.add(stepper(intervalMinus, intervalValue, intervalPlus, intervalSlot));
         atoms.add(new Atom(width(takeOver, "Hand back"), takeOver));
         atoms.add(new Atom(width(explain), explain));
+        atoms.add(new Atom(width(coachButton, COACH_ON), coachButton));
         return atoms;
     }
 
@@ -326,6 +366,16 @@ final class ControlsRow extends Component {
 
     RedButton explain() {
         return explain;
+    }
+
+    /** The coach's button, for tests (story 8.9). */
+    RedButton coachButton() {
+        return coachButton;
+    }
+
+    /** The coach's state, for tests (story 8.9). */
+    CoachState coach() {
+        return coach;
     }
 
     RenderedTextBlock countValue() {

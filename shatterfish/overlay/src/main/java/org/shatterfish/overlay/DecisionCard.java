@@ -61,6 +61,7 @@ final class DecisionCard extends Component {
     private DecisionCardContent.Shadow shadow;
     /** The Brain's trouble at this wait, in the card's words, or null (story 5.15). */
     private String trouble;
+    private boolean coach;
 
     private RunLog.Decision decision;
     private Observation observation;
@@ -122,6 +123,11 @@ final class DecisionCard extends Component {
         refresh();
     }
 
+    /** Whether the coach is on for the next {@link #content} (story 8.9): a person's card shows the sentence only then. */
+    void coach(boolean coach) {
+        this.coach = coach;
+    }
+
     /** The Brain's trouble at the wait the next {@link #content} shows, or null (story 5.15). */
     void trouble(String trouble) {
         this.trouble = trouble;
@@ -161,8 +167,11 @@ final class DecisionCard extends Component {
 
         // The coach's sentence is a view of the Decision and the Observation it was made on and of nothing else
         // (story 8.8); it is not shown over a Brain's trouble, whose Decision is the Overlay's stand-in.
-        coachLine.visible = content.present() && !content.troubled();
-        coachLine.hardlight(content.shadow() ? INK_MUTED : CHOSEN_COLOR);
+        // In a person's Run it is advice, shown only with the coach on and only against the wait the person is looking
+        // at: a shadow that is for a wait already taken is never put beside the one in front (story 8.9).
+        boolean advice = !content.shadow() || (coach && shadow != null && shadow.current());
+        coachLine.visible = content.present() && !content.troubled() && advice;
+        coachLine.hardlight(CHOSEN_COLOR);
         coachLine.text(coachLine.visible ? CoachLine.of(decision, observation) : "", width);
 
         List<DecisionCardContent.Row> tableRows = new ArrayList<>();

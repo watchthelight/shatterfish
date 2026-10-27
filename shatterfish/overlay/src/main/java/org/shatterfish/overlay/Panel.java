@@ -61,6 +61,8 @@ final class Panel extends Component {
     private ExplainView explainView;
     private ControlsRow controls;
     private ControlState controlState;
+    /** Whether the coach is on and what it records (story 8.9); detached until the dock binds the Run's. */
+    private CoachState coach = CoachState.detached();
     /** Whether the Decision handed to {@link #content} is the pending one, landed and not executed (story 5.7). */
     private boolean awaiting;
     private PanelLayout.Layout placed;
@@ -140,6 +142,17 @@ final class Panel extends Component {
         controls.bind(state, () -> card.toggleExplain());
     }
 
+    /** Binds the coach's state (story 8.9): the Controls row's switch, and what the Decision card shows for it. */
+    void coach(CoachState coach) {
+        this.coach = coach;
+        controls.bindCoach(coach);
+    }
+
+    /** The coach's state, for the dock's hotkey and for tests (story 8.9). */
+    CoachState coach() {
+        return coach;
+    }
+
     /** What a tap on the Mode strip does: the Panel toggle (story 5.11). */
     void stripTap(Runnable stripTap) {
         this.stripTap = stripTap;
@@ -202,6 +215,8 @@ final class Panel extends Component {
         } else {
             goal.content(full ? decision : null, inner);
         }
+        coach.sync(mode.mode(), mode.over());
+        card.coach(coach.on());
         card.content(full ? decision : null, full ? observation : null, nextStep, inner, shadow);
         flags.content(full && !explaining && decision != null ? decision.flags() : List.of());
         Set<ControlEnablement.Control> enabled = controlState != null ? controlState.enabled()
