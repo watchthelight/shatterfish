@@ -70,6 +70,13 @@ unchanged and passes.
 `CoachLineLeakTest` over two `standard` Warrior seeds: 49 distinct sentences, no reason the real Brain wrote left
 without a template, equal sentences wherever the Observation was equal.
 
+What that differential test shows is Brain determinism plus `CoachLine` purity over the Runs it plays; it cannot see a
+game read inside `CoachLine` that happens not to differ between the two worlds. The guard against that is structural:
+`CoachLineLeakTest.the_composer_cannot_reach_the_game` is an ArchUnit rule (modelled on the `OracleView` rule of
+`OracleMarkingTest`) that limits `CoachLine` and its nested classes to `org.shatterfish.api..`, `ActionText`,
+`ActionContext` and `java..`. It was shown to bite by temporarily adding a `com.shatteredpixel` class reference to
+`CoachLine` (the rule failed on it), then removing it. This answers the fairness-reviewer's should-fix on PR #338.
+
 ## Live-session checklist (the product owner's acceptance; no agent has opened a window)
 
 - [ ] The Decision card shows one line over its table in the Brain's Run, for example "descend: the floor is done".

@@ -4,6 +4,12 @@ import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.properties.HasName;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.lang.ArchRule;
 import org.shatterfish.api.Action;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.RunLog;
@@ -24,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -97,6 +104,22 @@ class CoachLineLeakTest {
         assertEquals(List.of(RunLog.Decision.class, Observation.class), Arrays.asList(composers.get(0).getParameterTypes()));
         assertTrue(Arrays.stream(CoachLine.class.getDeclaredFields()).noneMatch(f -> !java.lang.reflect.Modifier.isStatic(f.getModifiers())),
                 "no state beside the arguments");
+    }
+
+    @Test
+    @DisplayName("CoachLine and its nested classes depend only on the API, ActionText and java.*: no game class can be read inside it")
+    void the_composer_cannot_reach_the_game() {
+        String own = "org\\.shatterfish\\.overlay\\.CoachLine(\\$.*)?";
+        String allowed = own + "|org\\.shatterfish\\.overlay\\.(ActionText|ActionContext)(\\$.*)?";
+        ArchRule rule = classes().that().haveNameMatching(own)
+                .should().onlyDependOnClassesThat(
+                        JavaClass.Predicates.resideInAnyPackage("org.shatterfish.api..", "java..")
+                                .or(HasName.Predicates.nameMatching(allowed)))
+                .because("the sentence is a function of the Decision and the Observation, and the game is not read in it (non-negotiable 1)");
+        JavaClasses main = new ClassFileImporter().withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                .importPackages("org.shatterfish.overlay");
+        assertTrue(main.contain(CoachLine.class), "the rule has a subject");
+        rule.check(main);
     }
 
     private static List<Long> warriorSeeds() throws IOException {
