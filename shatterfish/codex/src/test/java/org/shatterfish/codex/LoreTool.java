@@ -122,6 +122,7 @@ public final class LoreTool {
                     throw new UncheckedIOException(page + " could not be written", e);
                 }
                 System.out.println("wrote " + VariantReport.PAGE);
+            }
             case "dates" -> {
                 Path table = root.resolve(DateGate.TABLE);
                 String tag = Upstream.tag(root);
