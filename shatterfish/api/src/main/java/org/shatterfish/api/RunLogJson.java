@@ -224,6 +224,19 @@ public final class RunLogJson {
         }
         out.endArray();
         out.key("policy").value(decision.policy());
+        // Written only when a Search ran, so every Decision written before story 8.1 keeps its bytes.
+        if (!decision.search().isEmpty()) {
+            out.key("search").beginArray();
+            for (RunLog.SearchOutcome outcome : decision.search()) {
+                out.beginObject();
+                out.key("action");
+                ObservationJson.write(out, outcome.action());
+                out.key("outcome").value(outcome.outcome());
+                out.key("samples").value(outcome.samples());
+                out.endObject();
+            }
+            out.endArray();
+        }
         out.endObject();
     }
 
@@ -233,6 +246,17 @@ public final class RunLogJson {
         ObservationJson.write(out, choice.action());
         out.key("score").value(choice.score());
         out.key("why").value(choice.why());
+        // Written only when the Evaluation scored the Choice, so every earlier log keeps its bytes (story 8.1).
+        if (!choice.terms().isEmpty()) {
+            out.key("terms").beginArray();
+            for (RunLog.Term term : choice.terms()) {
+                out.beginObject();
+                out.key("feature").value(term.feature());
+                out.key("value").value(term.contribution());
+                out.endObject();
+            }
+            out.endArray();
+        }
         out.endObject();
     }
 

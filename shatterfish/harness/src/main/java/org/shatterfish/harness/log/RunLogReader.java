@@ -222,16 +222,34 @@ public final class RunLogReader {
         for (String flag : Json.array(Json.required(held, "flags", "decision"))) {
             flags.add(Json.string(flag));
         }
+        List<RunLog.SearchOutcome> search = new ArrayList<>();
+        if (held.containsKey("search")) {
+            for (String each : Json.array(held.get("search"))) {
+                Map<String, String> outcome = Json.object(each);
+                search.add(new RunLog.SearchOutcome(action(Json.required(outcome, "action", "search")),
+                        Json.number(Json.required(outcome, "outcome", "search")),
+                        Json.integer(Json.required(outcome, "samples", "search"))));
+            }
+        }
         return new RunLog.Decision(Json.string(Json.required(held, "goal", "decision")),
                 choice(Json.required(held, "chosen", "decision")), List.copyOf(alternatives),
-                List.copyOf(flags), Json.string(Json.required(held, "policy", "decision")));
+                List.copyOf(flags), Json.string(Json.required(held, "policy", "decision")),
+                List.copyOf(search));
     }
 
     private static RunLog.Choice choice(String raw) {
         Map<String, String> held = Json.object(raw);
+        List<RunLog.Term> terms = new ArrayList<>();
+        if (held.containsKey("terms")) {
+            for (String each : Json.array(held.get("terms"))) {
+                Map<String, String> term = Json.object(each);
+                terms.add(new RunLog.Term(Json.string(Json.required(term, "feature", "term")),
+                        Json.number(Json.required(term, "value", "term"))));
+            }
+        }
         return new RunLog.Choice(action(Json.required(held, "action", "choice")),
                 Json.number(Json.required(held, "score", "choice")),
-                Json.string(Json.required(held, "why", "choice")));
+                Json.string(Json.required(held, "why", "choice")), List.copyOf(terms));
     }
 
     /** A salt, written as the sixteen lower-case hex digits the file name also carries. */
