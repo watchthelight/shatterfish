@@ -76,7 +76,8 @@ public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path prof
         if (windowWidth < 0 || windowHeight < 0 || (windowWidth == 0) != (windowHeight == 0)) {
             throw new IllegalArgumentException("--window is WxH, both positive: " + windowWidth + "x" + windowHeight);
         }
-        if (!agent.equals("random") && !agent.equals("brain") && !agent.equals("human") && !agent.equals(REPLAY_AGENT)) {
+        if (!agent.equals("random") && !agent.equals("brain") && !agent.equals("human")
+                && !(agent.equals(REPLAY_AGENT) && replay != null)) {
             throw new IllegalArgumentException("--agent is random, brain or human: " + agent);
         }
         if (refused != null && replay == null) {

@@ -128,6 +128,9 @@ class LaunchOptionsTest {
             assertTrue(refused.getMessage().contains(extra[0]), refused.getMessage());
         }
         assertThrows(IllegalArgumentException.class,
+                () -> LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior", "--agent", "replay"}),
+                "replay is not an agent a launch can name without a log");
+        assertThrows(IllegalArgumentException.class,
                 () -> LaunchOptions.parse(new String[] {"--replay", log, "--oracle"}));
         assertThrows(IllegalArgumentException.class,
                 () -> LaunchOptions.parse(new String[] {"--replay", log, "--resume", "x"}));
