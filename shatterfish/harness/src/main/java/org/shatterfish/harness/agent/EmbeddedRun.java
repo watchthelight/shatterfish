@@ -1254,6 +1254,19 @@ public final class EmbeddedRun implements AutoCloseable {
         }
     }
 
+    /**
+     * Writes the Mode record for a pause the Overlay chose at the wait in front (story 8.3, FR-45): PAUSED at
+     * that wait's index, before the wait's own record, as a hand back's is. It does nothing unless a Decision
+     * is waiting for a credit, so a pause never names a wait that is not in front. {@code speed} is the speed
+     * mode's word.
+     */
+    public void pausedOn(String speed) {
+        UiRole.require("EmbeddedRun.pausedOn()");
+        if (withheld && !humanMode) {
+            writeMode("PAUSED", pendingWait, speed);
+        }
+    }
+
     /** Whether a Decision has landed for the wait in front and waits for a credit (story 5.7). */
     public boolean withheld() {
         return withheld;

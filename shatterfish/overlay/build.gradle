@@ -16,7 +16,13 @@ apply from: "$rootDir/shatterfish/java-module.gradle"
 evaluationDependsOn(':desktop')
 def desktopMain = project(':desktop').sourceSets.main
 
+// Story 8.3: a test plays a real Run on the harness's own test host (EmbeddedHost, RealBrain) with the Overlay's
+// ControlState at the controls, so the harness's test classes are on the Overlay's test classpath.
+evaluationDependsOn(':harness')
+def harnessTest = project(':harness').sourceSets.test
+
 dependencies {
+    testImplementation harnessTest.output
     implementation project(':core')
     implementation project(':harness')
     implementation project(':brain')

@@ -62,7 +62,12 @@ final class ModeStripContent {
             return over(state);
         }
         StringBuilder line = new StringBuilder();
-        line.append(state.mode().name()).append("  ").append(speed(state));
+        line.append(state.mode().name());
+        if (state.pausedFor() != null) {
+            // The condition that stopped the Run, in words (story 8.3, FR-45): "PAUSED: before stairs".
+            line.append(": ").append(state.pausedFor());
+        }
+        line.append("  ").append(speed(state));
         line.append("  turn ").append(Columns.number(state.turn(), TURN_WIDTH));
         line.append("  floor ").append(Columns.number(state.floor(), FLOOR_WIDTH));
         if (state.thinking()) {
