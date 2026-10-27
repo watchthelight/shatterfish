@@ -150,7 +150,7 @@ development_status:
   8-2-the-explain-expansion: backlog  # issue #317
   8-3-pause-on-conditions: done  # issue #318
   8-4-the-pause-on-section-in-the-games-settings-screen: backlog  # issue #319
-  8-5-the-replay-session: backlog  # issue #320
+  8-5-the-replay-session: in-progress  # issue #320
   8-6-the-beliefs-view: backlog  # issue #321
   8-7-the-replay-scrubber: backlog  # issue #322
   8-8-the-coachs-sentence: backlog  # issue #323
