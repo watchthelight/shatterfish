@@ -335,6 +335,12 @@ public final class EmbeddedRun implements AutoCloseable {
     public static final String HUMAN_SPEED = "player";
 
     /**
+     * The speed a HUMAN Run's mode record names while the coach is on (story 8.9): still the person's own pace,
+     * and the coach beside it. The record keeps its existing kind and shape; nothing reads the speed word.
+     */
+    public static final String COACH_SPEED = "player, coach";
+
+    /**
      * The game time a window must have been in front before the Run taps it (issue #170): the chasm's
      * confirmation ignores every tap and the back key until its own count of {@code Game.elapsed} is
      * past a fifth of a second ({@code core/.../levels/features/Chasm.java:69-87}), a guard against a
@@ -1151,6 +1157,24 @@ public final class EmbeddedRun implements AutoCloseable {
         }
         requestedSpeed = speed == null || speed.isEmpty() ? HUMAN_SPEED : speed;
         handBackRequested = true;
+    }
+
+    /**
+     * Writes the coach's switch (story 8.9, FR-47): the Mode record of a HUMAN Run, at the wait in front, naming
+     * {@link #COACH_SPEED} when the coach is on and {@link #HUMAN_SPEED} when it is off. It changes nothing about
+     * the game or the Brain: the shadow is asked at every wait of a HUMAN Run whether the coach is on or not, and
+     * the Overlay decides whether to show it. Does nothing, and says so, for a Run the person does not play, so a
+     * record never claims a coach for a Brain's Run.
+     *
+     * @return whether a record was written
+     */
+    public boolean coach(boolean on) {
+        UiRole.require("EmbeddedRun.coach()");
+        if (!humanMode || closed || outcome != null) {
+            return false;
+        }
+        writeMode("HUMAN", waitIndex(), on ? COACH_SPEED : HUMAN_SPEED);
+        return true;
     }
 
     /** Whether a takeover or a hand back was asked for and has not applied yet: the Overlay shows its control dim. */
