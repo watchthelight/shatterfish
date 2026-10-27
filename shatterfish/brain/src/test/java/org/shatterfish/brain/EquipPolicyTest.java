@@ -154,6 +154,41 @@ class EquipPolicyTest {
                 "cloth over leather is a loss");
     }
 
+    private static ItemView armourAt(String name, EquipSlot slot, int level) {
+        return new ItemView(ItemKind.ARMOR, name, 1, true, level, true, false, "", slot,
+                List.of(slot == EquipSlot.NONE ? "EQUIP" : "UNEQUIP"), "");
+    }
+
+    @Test
+    @DisplayName("an upgraded armour is rated at its level: a +3 cloth spare beats a plain leather worn (#305)")
+    void upgraded_spare_armour_is_worn() {
+        // One level adds the tier plus one to the mean (Armor.java:379-406): cloth +3 absorbs 4004 per
+        // mille against leather +0's 2013.
+        RunLog.Choice choice = choose(pack(1, 12, List.of(armourAt("cloth armor", EquipSlot.NONE, 3)),
+                armourAt("leather armor", EquipSlot.ARMOR, 0)));
+        assertEquals("wear: cloth armor", choice.why());
+        assertNull(choose(pack(1, 12, List.of(armourAt("cloth armor", EquipSlot.NONE, 1)),
+                armourAt("leather armor", EquipSlot.ARMOR, 0))), "cloth +1 is 2004, under leather's 2013");
+    }
+
+    @Test
+    @DisplayName("a worn upgraded armour is replaced only by a spare worth more at its own level (#305)")
+    void upgraded_worn_armour() {
+        assertNull(choose(pack(1, 12, List.of(armourAt("leather armor", EquipSlot.NONE, 0)),
+                armourAt("cloth armor", EquipSlot.ARMOR, 2))), "cloth +2 (3004) stays over leather +0 (2013)");
+        assertEquals("wear: leather armor", choose(pack(1, 12, List.of(armourAt("leather armor", EquipSlot.NONE, 2)),
+                armourAt("cloth armor", EquipSlot.ARMOR, 2))).why(), "leather +2 (5013) over cloth +2 (3004)");
+    }
+
+    @Test
+    @DisplayName("an upgraded armour asks less strength: leather +3 fits a hero of 10 (Armor.java:698-703) (#305)")
+    void upgrade_lowers_the_strength_asked() {
+        assertNull(choose(pack(1, 10, List.of(armourAt("leather armor", EquipSlot.NONE, 0)),
+                armourAt("cloth armor", EquipSlot.ARMOR, 0))), "two short at level 0: no");
+        assertEquals("wear: leather armor", choose(pack(1, 10, List.of(armourAt("leather armor", EquipSlot.NONE, 3)),
+                armourAt("cloth armor", EquipSlot.ARMOR, 0))).why(), "the +3 asks 10, and has the higher mean");
+    }
+
     @Test
     @DisplayName("it does not enter with an enemy in view, and ignores what the Codex does not know as gear")
     void entering() {
