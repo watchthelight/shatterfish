@@ -145,6 +145,19 @@ public final class ValidActions {
      */
     static final Set<PromptKind> CLOSED_BY_BACK = EnumSet.of(PromptKind.SHOP, PromptKind.GUESS, PromptKind.SPELL);
 
+    /**
+     * What the scroll's cancel confirmation says (issue #239; {@code core/.../items/scrolls/InventoryScroll.java:56-62},
+     * {@code core/.../messages/items/items.properties:1155-1156}). An unknown inventory scroll asks it when the
+     * item window it opened is sent away, with "Yes, I'm positive" at option 0 and "No, I changed my mind" at
+     * option 1. The Prompt carries no marker of its own beyond its kind and these words, which is how the Brain's
+     * answer rules recognise it too.
+     */
+    public static final String SCROLL_CANCEL_TEXT = "Do you really want to cancel this scroll usage? The scroll"
+            + " wasn't previously identified, so it will be consumed anyway.";
+
+    /** The option of that confirmation that goes back ({@code InventoryScroll.java:72-74}). */
+    private static final int SCROLL_CANCEL_BACK = 1;
+
     private ValidActions() {
     }
 
@@ -153,7 +166,17 @@ public final class ValidActions {
         List<Action> actions = new ArrayList<>();
         if (observation.prompt().kind() != PromptKind.NONE) {
             // A Prompt in front takes the whole wait: its buttons are the only inputs (ADR-0014).
+            boolean scrollCancel = observation.prompt().kind() == PromptKind.ITEM
+                    && SCROLL_CANCEL_TEXT.equals(observation.prompt().text().strip());
             for (int option = 0; option < observation.prompt().options().size(); option++) {
+                if (scrollCancel && option == SCROLL_CANCEL_BACK) {
+                    // "No, I changed my mind" selects the scroll's item again, which opens a WndBag: a
+                    // window that is no Prompt, that no Action answers and that no wait follows, so the
+                    // executor always refuses it (issue #236, #239). The screen draws the button and the
+                    // Prompt section still lists it; it is only not an input a Run can make. The yes
+                    // consumes the scroll, which is what the half-sent input amounted to.
+                    continue;
+                }
                 actions.add(new Action.AnswerPrompt(option));
             }
             if (observation.prompt().options().isEmpty() || CLOSED_BY_BACK.contains(observation.prompt().kind())) {

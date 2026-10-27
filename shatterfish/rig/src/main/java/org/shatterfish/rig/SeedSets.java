@@ -276,6 +276,17 @@ public final class SeedSets {
     }
 
     /**
+     * The version of set {@code name}, for writing up Runs that were already played. A development set is read as
+     * {@link #load} reads it; the held-out set only through {@link #publish}, with {@code reason} (the Registration the
+     * Runs carry), so an unranked write-up of it is still refused. Nothing is played and no ledger line is written.
+     */
+    public static int versionForResults(Path root, String name, String reason) {
+        return HOLDOUT.equals(name)
+                ? publish(root, name, reason).set().version()
+                : load(root, name).set().version();
+    }
+
+    /**
      * The committed set {@code name} for a published read, carrying the reason it was opened. This
      * is the only way to read {@link #HOLDOUT}, and the reason it takes is what FR-20 requires the
      * Results to record.

@@ -147,13 +147,13 @@ development_status:
 
   epic-8: in-progress  # issue #52; stories planned 2026-10-27
   8-1-evaluation-terms-and-search-outcomes-in-the-decision-record: done  # issue #316
-  8-2-the-explain-expansion: backlog  # issue #317
+  8-2-the-explain-expansion: done  # issue #317
   8-3-pause-on-conditions: done  # issue #318
-  8-4-the-pause-on-section-in-the-games-settings-screen: backlog  # issue #319
+  8-4-the-pause-on-section-in-the-games-settings-screen: done  # issue #319
   8-5-the-replay-session: backlog  # issue #320
   8-6-the-beliefs-view: backlog  # issue #321
   8-7-the-replay-scrubber: backlog  # issue #322
-  8-8-the-coachs-sentence: backlog  # issue #323
+  8-8-the-coachs-sentence: done  # issue #323
   8-9-coach-mode: backlog  # issue #324
   8-10-autoexplore-with-the-bots-brains: backlog  # issue #325
   8-11-the-v2-session-and-the-epic-close: backlog  # issue #326

@@ -154,15 +154,21 @@ data folders ([final](https://github.com/watchthelight/shatterfish/tree/main/res
   include the triples story 7.6 tuned the Mage on. It is not a held-out number, and it is the reason the held-out run exists.
 - **Endings.** One final-Brain Run (a Mage, seed code `XMK-SUI-KRX`, depth 2) ended `UNSERVED_SCENE` and not by death, after a
   ranged throw. It is counted in the Runs and as no death, and is filed as
-  [#328](https://github.com/watchthelight/shatterfish/issues/328). No Run of either side hit the turn cap.
+  [#328](https://github.com/watchthelight/shatterfish/issues/328). Cause, found afterwards: the loading scene was in mode `RETURN`, a teleport to a named floor
+  (a cursed wand's inter-floor effect, `core/.../items/wands/CursedWand.java:757-767`), which the harness did not serve.
+  The harness now serves it like the game does (`core/.../scenes/InterlevelScene.java:717-731`); the figures above are as measured. No Run of either side hit the turn cap.
 
 ## The `holdout` set
 
-The `holdout` set was not run. The acceptance criteria allow one confirmation run after tuning, and only with the product owner's
-explicit go-ahead in the pull request thread; none had been given when this page was written, so the release-level number was not
-taken. `holdout` was not opened by any invocation of this story (the Registration says `release_level: false`, and the ledger has
-no `holdout` line for it). The Brain's one allowance on `holdout` is unspent. Nothing was run on `goo` either; E7 does not wait
-for the Goo gate (4.14).
+This story did not run `holdout`. The acceptance criteria allow one confirmation run after tuning, and only with the product
+owner's explicit go-ahead in the pull request thread; none had been given when this page was first written, so no release-level
+number was taken here. `holdout` was not opened by any invocation of this story (the Registration says `release_level: false`, and
+the ledger had no `holdout` line for it). Nothing was run on `goo` either; E7 does not wait for the Goo gate (4.14).
+
+The product owner then gave the go-ahead on [pull request #329](https://github.com/watchthelight/shatterfish/pull/329#issuecomment-6440993127)
+("You can go-ahead on all.", 2026-10-27), and the Brain's one allowance was spent: the `holdout` set was run once, afterwards, on
+the same Brain, under Registration H-0009 with `release_level: true`. Its numbers, beside the `standard` numbers of this page, are on
+[the holdout page](2026-10-27-e7-holdout.md).
 
 ## The heuristic link count
 

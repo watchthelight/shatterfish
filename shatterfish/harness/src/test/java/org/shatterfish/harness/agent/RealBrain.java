@@ -24,7 +24,7 @@ import java.util.Map;
  * tag, the committed weights, and the Brain's constant stream. The other agent tests use a Brain on an empty
  * Codex; the sewers run and the outcome comparison need the real one, since it is the one that reaches Goo.
  */
-final class RealBrain {
+public final class RealBrain {
 
     static final String NAME = "shatterfish";
 
@@ -32,7 +32,7 @@ final class RealBrain {
     }
 
     /** The repository root: the nearest folder above the test's working directory that holds {@code vanilla.pin}. */
-    static Path root() {
+    public static Path root() {
         Path here = Path.of("").toAbsolutePath();
         for (Path at = here; at != null; at = at.getParent()) {
             if (Files.exists(at.resolve("vanilla.pin"))) {
@@ -42,7 +42,7 @@ final class RealBrain {
         throw new IllegalStateException("no repository root above " + here);
     }
 
-    static BrainDecider decider() {
+    public static BrainDecider decider() {
         Path root = root();
         String tag = HeadlessBoot.pinnedTag();
         Codex.Knowledge codex = CodexKnowledge.read(root.resolve("codex").resolve(tag), tag);
