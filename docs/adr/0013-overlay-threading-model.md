@@ -828,6 +828,23 @@ cause and is fixed with it. Fast as it can no longer waits for the animation int
 `Game.elapsed` to one second a frame there, which needs no hook. The Rig still refuses `driver: embedded` logs
 until the headless driver plays the Overlay's interface size (issue #169).
 
+## Amendment: story 8.2 (2026-10-27)
+
+The Explain expansion is a region of the Panel, not a window. While it is open it takes the room the flags row,
+the Belief summary and the Decision log had, between the Decision card and the Controls row, and shows what
+`ExplainContent` makes of the pending Decision: the Policy, the chosen Action's Evaluation terms, each alternative
+with score, reason and terms, the flags, and the Search block only when the Decision has one. `ExplainView` is the
+game's `ScrollPane` over `RenderedTextBlock`s, gated like the log: its `active` flag is false while a window is in
+front or the view is closed, so a synthetic tap from `ActionExecutor.press` cannot land on it.
+
+Explain's enablement is unchanged in the matrix (`ControlEnablement.matrix`). The Panel adds its own reason,
+`ControlEnablement.explainReason`: the Panel is collapsed, the Run is over, or there is no Decision yet. A key that
+finds a reason shows it on the Mode strip for three seconds. The expansion closes on Explain again, on the Panel's
+collapse, on Take over and when the Run ends; it follows each new Decision and returns to the top.
+
+The expansion only displays fields of the Decision record, which the Brain wrote through the same call that scored
+(story 8.1). It reads nothing from the game.
+
 ## Amendment: story 8.3 (2026-10-27): Pause-on conditions
 
 A Pause-on condition (FR-45) is looked at in the per-wait sequence at one place: the render thread's frame, after
