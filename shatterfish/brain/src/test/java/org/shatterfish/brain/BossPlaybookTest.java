@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BossPlaybookTest {
 
     private static Brain playing(Playbook.Goo goo) {
-        Playbook playbook = new Playbook("shatterfish", 1, Playbook.Identify.REFERENCE, Playbook.Upgrade.REFERENCE, List.of(),
+        Playbook playbook = new Playbook("shatterfish", 1, Playbook.Identify.REFERENCE, Playbook.Upgrade.REFERENCE, Playbook.Kit.REFERENCE, List.of(),
                 new Playbook.Bosses(goo, Playbook.Later.REFERENCE, Playbook.Later.REFERENCE));
         return new Brain(Screens.CODEX, Screens.WEIGHTS, playbook, 5L, Brain.Model.BASELINE);
     }
@@ -84,7 +84,7 @@ class BossPlaybookTest {
     }
 
     private static Playbook resting(int goo, Playbook.Later tengu) {
-        return new Playbook("shatterfish", 1, Playbook.Identify.REFERENCE, Playbook.Upgrade.REFERENCE, List.of(),
+        return new Playbook("shatterfish", 1, Playbook.Identify.REFERENCE, Playbook.Upgrade.REFERENCE, Playbook.Kit.REFERENCE, List.of(),
                 new Playbook.Bosses(Playbook.Goo.REFERENCE.with(Map.of("descent_rest_per_mille", (long) goo)), tengu,
                         Playbook.Later.REFERENCE));
     }

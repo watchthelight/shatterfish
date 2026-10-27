@@ -66,7 +66,7 @@ class PlaybookTest {
     @DisplayName("a boss entry is whole in the canonical text, refuses a value outside its range, and names the rest per boss floor")
     void bosses() {
         Playbook.Goo drinking = Playbook.Goo.REFERENCE.with(Map.of("drink_per_mille", 600L, "meet_range", 3L));
-        Playbook playbook = new Playbook("shatterfish", 1, Playbook.Identify.REFERENCE, Playbook.Upgrade.REFERENCE, List.of(),
+        Playbook playbook = new Playbook("shatterfish", 1, Playbook.Identify.REFERENCE, Playbook.Upgrade.REFERENCE, Playbook.Kit.REFERENCE, List.of(),
                 new Playbook.Bosses(drinking, new Playbook.Later(800, "TESTED"), Playbook.Later.REFERENCE));
         assertEquals(600, playbook.bosses().goo().drinkPerMille());
         assertEquals(3, playbook.bosses().goo().meetRange());
