@@ -20,7 +20,7 @@ class PlaybookTest {
         Playbook playbook = Playbook.reference("shatterfish");
         assertEquals("{\"bosses\":{},\"classes\":{},\"format\":1,"
                 + "\"identify\":{\"escape_waits\":12,\"gain_odds_per_mille\":200,\"healing_odds_per_mille\":200,"
-                + "\"inventory_odds_per_mille\":250,\"reach\":8,\"rest_waits\":50},\"kit\":{\"zap_reach\":0},"
+                + "\"inventory_odds_per_mille\":250,\"known_gains\":0,\"potion_hp_per_mille\":500,\"reach\":8,\"rest_waits\":50,\"scroll_hp_per_mille\":1000},\"kit\":{\"zap_reach\":0},"
                 + "\"name\":\"shatterfish\",\"upgrade\":{\"hold_until_depth\":0,\"tie\":\"WEAPON\",\"unknown_weapon\":\"NO\",\"weapon_lead\":0},\"version\":1}",
                 playbook.canonical());
         assertEquals(0.2, playbook.identify().healingOdds(), 0.0, "200 per mille is the double 0.2, bit for bit");

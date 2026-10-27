@@ -72,17 +72,17 @@ class ShatterfishRunTest {
                     String why = wait.decision().chosen().why();
                     if (wait.action() instanceof org.shatterfish.api.Action.UseItem use) {
                         assertTrue(List.of("DRINK", "READ").contains(use.action()), why);
-                        assertEquals("test: " + use.item().name(), why);
+                        assertTrue(why.matches(java.util.regex.Pattern.quote("test: " + use.item().name()) + " \\([a-z_]+\\)"), why);
                     } else if (wait.action() instanceof org.shatterfish.api.Action.UseItemOn onto) {
                         // Story 4.13: a scroll read onto the worn armour, a test or a known upgrade.
                         assertEquals("READ", onto.action(), why);
-                        assertTrue(why.equals("test: " + onto.item().name()) || why.equals("upgrade: " + onto.target().name()),
+                        assertTrue(why.matches(java.util.regex.Pattern.quote("test: " + onto.item().name()) + " \\([a-z_]+\\)") || why.equals("upgrade: " + onto.target().name()),
                                 why);
                     } else if (wait.action() instanceof org.shatterfish.api.Action.Step) {
-                        assertTrue(why.matches("cell: .+|escape: .+"), why);
+                        assertTrue(why.matches("cell: .+ \\(reach\\)|escape: .+ \\(escape_waits\\)"), why);
                     } else {
                         // After a test, short of full health: a rest.
-                        assertEquals("rest: after-test", why);
+                        assertEquals("rest: after-test (rest_waits)", why);
                     }
                 }
                 // Story 4.8: a pick-up wait Steps toward an item, naming it and its distance, or
