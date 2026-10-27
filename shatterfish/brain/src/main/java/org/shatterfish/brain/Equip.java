@@ -32,8 +32,10 @@ import java.util.List;
  *
  * <p>Nothing replaces a worn piece the Codex does not name: the Mage's staff, a piece whose name
  * shows an enchantment or a glyph (Weapon.java:411-419, Armor.java:578), a renamed holy weapon.
- * Its worth is not known, and zero would make anything look better. Nor a worn piece whose level
+ * Its worth is not known, and zero would make anything look better. Nor a worn weapon whose level
  * shows an upgrade: the Codex's means are level 0's, and a +2 worn sword is worth more than that.
+ * An armour is rated at the level the screen shows (#305, {@link Piece#atLevel}), worn or not, so
+ * an upgraded spare is put on when it is worth more and an upgraded worn one is kept.
  *
  * <p>Never a piece whose worst case under {@link SafeTest} is unsurvivable: a cursed weapon's or
  * armour's worst proc is scored there, and the verdict must be safe.
@@ -81,15 +83,15 @@ final class Equip implements Policy {
         long bestGain = 0;
         for (int index = 0; index < items.size(); index++) {
             ItemView item = items.get(index);
-            Piece gear = gear(item.name());
+            Piece gear = piece(item);
             // A shown negative level is worth less than the level-0 figures say: not put on.
             if (item.slot() != EquipSlot.NONE || gear == null || (item.cursedKnown() && item.visiblyCursed())
                     || (item.levelKnown() && item.visiblyUpgraded() < 0)) {
                 continue;
             }
             ItemView worn = worn(items, gear.kind());
-            if (worn != null && ((worn.cursedKnown() && worn.visiblyCursed()) || gear(worn.name()) == null
-                    || worn.visiblyUpgraded() > 0)) {
+            if (worn != null && ((worn.cursedKnown() && worn.visiblyCursed()) || piece(worn) == null
+                    || (worn.visiblyUpgraded() > 0 && gear.kind() != ItemKind.ARMOR))) {
                 continue;
             }
             long gain = gain(observation, item, gear, worn);
@@ -117,7 +119,7 @@ final class Equip implements Policy {
      */
     long gain(Observation observation, ItemView item, Piece gear, ItemView worn) {
         int strength = observation.hero().strength() + observation.hero().strengthBonus();
-        long now = worn == null || gear(worn.name()) == null ? 0 : worth(gear(worn.name()), strength);
+        long now = worn == null || piece(worn) == null ? 0 : worth(piece(worn), strength);
         long gain = Math.subtractExact(worth(gear, strength), now);
         if (!item.cursedKnown()) {
             gain = Math.addExact(gain, Math.round(SafeTest.curseChance(gear.kind()) * evaluation.cursed()));
@@ -139,6 +141,30 @@ final class Equip implements Policy {
      * is a weapon or armour, by the list the Codex measured it in.
      */
     record Piece(String name, ItemKind kind, int tier, int strength, int meanPerMille) {
+
+        /**
+         * This armour at a shown upgrade {@code level} (#305). One level adds the tier plus one to the mean
+         * roll, thousandths of a point: the least absorbed rises by one and the most by the tier
+         * (Armor.java:379-406), and it lowers the strength asked by {@code floor((sqrt(8*level+1)-1)/2)}
+         * (Armor.java:698-703). A weapon, or level 0, is the piece itself: a weapon's worn upgrade is not
+         * rated, and no unworn weapon is told from level 0.
+         */
+        Piece atLevel(int level) {
+            if (kind != ItemKind.ARMOR || level <= 0) {
+                return this;
+            }
+            return new Piece(name, kind, tier, strength - (int) ((Math.sqrt(8 * level + 1) - 1) / 2),
+                    meanPerMille + 500 * level * (tier + 1));
+        }
+    }
+
+    /**
+     * The piece an inventory item is, at the level the screen shows when it is an armour whose level is
+     * shown (#305), or null. A level that is not shown counts as 0, as it always has.
+     */
+    Piece piece(ItemView item) {
+        Piece gear = gear(item.name());
+        return gear == null || !item.levelKnown() ? gear : gear.atLevel(item.visiblyUpgraded());
     }
 
     /**
