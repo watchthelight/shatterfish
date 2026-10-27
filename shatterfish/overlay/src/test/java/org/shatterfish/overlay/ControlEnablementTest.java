@@ -69,7 +69,7 @@ class ControlEnablementTest {
     @DisplayName("Run N and its count are enabled only in PAUSED, so a Run N is never started over a Run N or a human's turn")
     void run_n_only_when_paused() {
         for (Mode mode : Mode.values()) {
-            boolean paused = mode == Mode.PAUSED;
+            boolean paused = mode == Mode.PAUSED || mode == Mode.REPLAY; // a replay lands where Run N says
             assertEquals(paused, ControlEnablement.matrix(mode, false).contains(Control.RUN_N), mode.name());
             assertEquals(paused, ControlEnablement.matrix(mode, false).contains(Control.RUN_N_COUNT), mode.name());
         }
@@ -145,5 +145,17 @@ class ControlEnablementTest {
         assertEquals("Take over", ControlEnablement.takeOverLabel(Mode.RUNNING));
         assertEquals("Take over", ControlEnablement.takeOverLabel(Mode.PAUSED));
         assertEquals("Hand back", ControlEnablement.takeOverLabel(Mode.HUMAN));
+    }
+
+    @Test
+    @DisplayName("REPLAY is its own row (story 8.5): every control of PAUSED but Take over, and Run over disables all")
+    void replay_row() {
+        Set<Control> expected = EnumSet.copyOf(ControlEnablement.matrix(Mode.PAUSED, false));
+        expected.remove(Control.TAKE_OVER);
+        assertEquals(expected, ControlEnablement.matrix(Mode.REPLAY, false));
+        assertFalse(ControlEnablement.matrix(Mode.REPLAY, false).contains(Control.TAKE_OVER),
+                "nobody plays a replay");
+        assertTrue(ControlEnablement.matrix(Mode.REPLAY, false).contains(Control.RUN_N), "Run N lands the replay");
+        assertEquals(OVER, ControlEnablement.matrix(Mode.REPLAY, true));
     }
 }
