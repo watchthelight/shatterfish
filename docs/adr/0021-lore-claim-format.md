@@ -200,3 +200,32 @@ It is a year on and the lore pipeline is not trusted. Why?
   differently, the registry changes in that story and the `playbook:` entries (none exist yet) with it.
 - **The checker rots because it is in test sources.** It runs in the build, so it cannot rot silently, and
   it is no more hidden than `DocsCitations`.
+
+## Amendment (story 7.9): the release table and the date gate
+
+**One data file is allowed beside the claim folders.** This ADR said nothing but claim files lives under
+`lore/`. Story 7.9's epic names `lore/release-dates.json`, a table of release dates whose provenance is the
+point. The file is named in `Lore.DATA`, is not a claim, is skipped by every walk over the claims, and is held
+by its own test (`ReleaseDatesTest`). Any other file directly under `lore/` is still a finding
+(`LoreCheckTest.strays_and_unreadable_files`, `the_release_table_is_not_a_stray`).
+
+**Where the dates come from.** A calendar date is not typed in. The game's own changelog states "Released
+<date>" in a heading of the first entry of every release from v0.1.0 to v4.0 (53 releases; v4.0.1 and v4.0.2
+are labelled and undated, so they have no row). The table is derived from `codex/<tag>/changelog.json` and the
+changelist file each heading cites, one row per release with the version, the ISO date, the date as the game
+words it and the `path:line` that holds it. A row with no source is not accepted, the file is compared with a
+fresh derivation (`./gradlew :codex:lore --args=dates` rewrites it), and every source is resolved at the tag.
+
+**What the gate does.** `DateGate` (Codex test sources, beside `LoreCheck`) puts a claim at a release (a
+version it names, a bound such as `pre-v4`, or its date turned into a release through the table), ties its
+subject to changelog headings by word through the vocabulary, and returns `changed-since` (a heading of a later
+release names the subject, with the entry class and `path:line`), `undated` (no usable version or date),
+`clean`, or `no-entry` (anchored, and no heading names the subject: unflagged, counted). It flags and writes
+nothing. A flagged claim with no `*.java:line` citation has a ceiling of Tier 3; a date alone never lifts a
+Tier. The Results page (`./gradlew :codex:lore --args=gate`) leads with the finding and is drift-checked.
+
+Options weighed for the table: (1) type the dates from memory, rejected by non-negotiable 8; (2) fetch the
+developer's blog, rejected under the no-network rule and because a fetched page is a second thing to go stale;
+(3) derive from the changelog, chosen; (4) add a `date` field to the Codex's `ChangeEntry`, rejected as a
+change to `api` and the generated pages for a value one table carries; (5) no table, gate on version alone,
+rejected because the epic asks for dates and 61 of them are in the repository.

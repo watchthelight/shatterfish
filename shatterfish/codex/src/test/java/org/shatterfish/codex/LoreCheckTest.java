@@ -178,6 +178,18 @@ class LoreCheckTest {
         assertTrue(findings.stream().anyMatch(f -> f.contains("sewers-3.md") && f.contains("written twice")), findings.toString());
     }
 
+    @Test
+    @DisplayName("the release table is the one data file allowed beside the claim folders (story 7.9)")
+    void the_release_table_is_not_a_stray() throws IOException {
+        Files.createDirectories(temp.resolve("lore/bestiary"));
+        Files.writeString(temp.resolve("lore/release-dates.json"), "{}\n");
+        assertEquals(List.of(), check(), "release-dates.json is not a stray");
+        Files.writeString(temp.resolve("lore/other.json"), "{}\n");
+        List<String> findings = check();
+        assertTrue(findings.stream().anyMatch(f -> f.contains("other.json") && f.contains("not a claim file")), findings.toString());
+        assertEquals(1, findings.size(), findings.toString());
+    }
+
     // --------------------------------------------------------------------- tiers and citations
 
     @Test
