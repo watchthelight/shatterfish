@@ -67,7 +67,7 @@ class PlaybookValidatorTest {
                 + "\"meet_range\":8,\"wash_range\":0},\"tengu\":{\"status\":\"TESTED\"}}"), "a boss entry states what it changes"
                 + " and the ends of its ranges");
         assertEquals(List.of(), problems("identify", "{\"escape_waits\":0,\"gain_odds_per_mille\":1000,\"healing_odds_per_mille\":1,"
-                + "\"inventory_odds_per_mille\":250,\"reach\":40,\"rest_waits\":500}"), "the ends of every range");
+                + "\"inventory_odds_per_mille\":250,\"known_gains\":0,\"potion_hp_per_mille\":1000,\"reach\":40,\"rest_waits\":500,\"scroll_hp_per_mille\":1}"), "the ends of every range");
     }
 
     @Test
@@ -145,6 +145,9 @@ class PlaybookValidatorTest {
     void ranges() {
         rejects("identify", "{\"reach\":41}", "identify.reach", "from 0 to 40");
         rejects("identify", "{\"healing_odds_per_mille\":0}", "identify.healing_odds_per_mille", "from 1 to 1000");
+        rejects("identify", "{\"known_gains\":2}", "identify.known_gains", "from 0 to 1");
+        rejects("identify", "{\"potion_hp_per_mille\":0}", "identify.potion_hp_per_mille", "from 1 to 1000");
+        rejects("identify", "{\"scroll_hp_per_mille\":1001}", "identify.scroll_hp_per_mille", "from 1 to 1000");
         rejects("upgrade", "{\"weapon_lead\":-6}", "upgrade.weapon_lead", "from -5 to 5");
         rejects("upgrade", "{\"hold_until_depth\":27}", "upgrade.hold_until_depth", "from 0 to 26");
         rejects("identify", "{\"reach\":8.5}", "identify.reach", "whole number");

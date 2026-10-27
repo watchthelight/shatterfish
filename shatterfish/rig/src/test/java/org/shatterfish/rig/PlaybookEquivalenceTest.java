@@ -45,7 +45,7 @@ class PlaybookEquivalenceTest {
             + "\"goo\":{\"descent_rest_per_mille\":1000,\"drink_per_mille\":400,\"meet_range\":6,\"wash_range\":4},"
             + "\"tengu\":{\"descent_rest_per_mille\":1000,\"status\":\"UNTESTED\"}},\"classes\":{},\"format\":1,"
             + "\"identify\":{\"escape_waits\":12,\"gain_odds_per_mille\":200,\"healing_odds_per_mille\":200,"
-            + "\"inventory_odds_per_mille\":250,\"reach\":8,\"rest_waits\":50},"
+            + "\"inventory_odds_per_mille\":250,\"known_gains\":0,\"potion_hp_per_mille\":500,\"reach\":8,\"rest_waits\":50,\"scroll_hp_per_mille\":1000},"
             + "\"name\":\"shatterfish\",\"upgrade\":{\"hold_until_depth\":0,\"tie\":\"WEAPON\",\"unknown_weapon\":\"NO\",\"weapon_lead\":0},\"version\":1}\n";
 
     /** The upgrade section the constants held, and the one story 7.4 measured and kept. */
@@ -58,7 +58,7 @@ class PlaybookEquivalenceTest {
      */
     private static final String CHANGED = "{\"bosses\":{},\"classes\":{},\"format\":1,"
             + "\"identify\":{\"escape_waits\":12,\"gain_odds_per_mille\":1000,\"healing_odds_per_mille\":1000,"
-            + "\"inventory_odds_per_mille\":1,\"reach\":0,\"rest_waits\":0},"
+            + "\"inventory_odds_per_mille\":1,\"known_gains\":1,\"potion_hp_per_mille\":1000,\"reach\":0,\"rest_waits\":0,\"scroll_hp_per_mille\":500},"
             + "\"name\":\"shatterfish\",\"upgrade\":{\"hold_until_depth\":0,\"tie\":\"ARMOR\",\"unknown_weapon\":\"NO\",\"weapon_lead\":-5},\"version\":1}\n";
 
     /** A root holding what a Run reads, with {@code playbook} as the Brain's Playbook. */

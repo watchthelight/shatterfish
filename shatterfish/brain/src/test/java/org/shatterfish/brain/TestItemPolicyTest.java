@@ -172,7 +172,7 @@ class TestItemPolicyTest {
         Brain.Decided decided = decide(brain(Screens.CODEX), here);
         assertEquals("test-item", decided.decision().policy());
         assertEquals(drink(0, "crimson potion", 1), decided.action());
-        assertEquals("test: crimson potion", decided.decision().chosen().why());
+        assertEquals("test: crimson potion (healing_odds_per_mille)", decided.decision().chosen().why());
     }
 
     @Test
@@ -456,7 +456,7 @@ class TestItemPolicyTest {
         assertEquals(3, SafeTest.refuge(screen, 1), "the refuge is the cell beyond the door");
         Brain.Decided decided = decide(brain(GAS), screen);
         assertEquals(new Action.Step(1), decided.action());
-        assertEquals("cell: jade potion", decided.decision().chosen().why());
+        assertEquals("cell: jade potion (reach)", decided.decision().chosen().why());
         Observation beside = screen(1, tiles, Screens.heroAt(1, 14, 40, List.of()), List.of(jade), List.of(),
                 List.of(), List.of(), drink(0, "jade potion", 1));
         Brain brain = brain(GAS);
@@ -483,7 +483,7 @@ class TestItemPolicyTest {
         assertTrue(policy.enters(inDoor, walking), "mid-walk, the doorway does not stop the walk");
         TestItem.Plan plan = policy.plan(inDoor, walking, inDoor.actions().actions());
         assertTrue(plan != null && plan.choice().action() instanceof Action.Step, String.valueOf(plan));
-        assertEquals("cell: jade potion", plan.choice().why());
+        assertEquals("cell: jade potion (reach)", plan.choice().why());
         assertFalse(TestItem.passing(inDoor, Memory.START), "not walking: the doorway stops it, as before");
         assertFalse(policy.enters(inDoor, Memory.START));
     }
@@ -686,7 +686,7 @@ class TestItemPolicyTest {
             belief = brain.handed(screen, belief, decided);
         }
         assertEquals(List.of(new Action.Step(2), new Action.Step(3), new Action.Step(4)), taken.subList(0, 3));
-        assertEquals(List.of("escape: ToxicGas", "escape: ToxicGas", "escape: edge"), why);
+        assertEquals(List.of("escape: ToxicGas (escape_waits)", "escape: ToxicGas (escape_waits)", "escape: edge (escape_waits)"), why);
 
         // Dizzy in the gas (story 4.13): the Brain withholds a dizzy hero's Steps on a calm screen, but
         // not in harm, where a Step the vertigo may turn still beats staying in the cloud.
@@ -728,8 +728,8 @@ class TestItemPolicyTest {
             why.add(decided.decision().policy() + " " + decided.decision().chosen().why());
             belief = brain.handed(screen, belief, decided);
         }
-        assertEquals(List.of("test-item escape: ToxicGas", "test-item escape: ToxicGas", "test-item escape: ToxicGas",
-                "test-item escape: edge", "test-item test: amber potion"), why,
+        assertEquals(List.of("test-item escape: ToxicGas (escape_waits)", "test-item escape: ToxicGas (escape_waits)", "test-item escape: ToxicGas (escape_waits)",
+                "test-item escape: edge (escape_waits)", "test-item test: amber potion (healing_odds_per_mille)"), why,
                 "no drink and no rest until the cell and its neighbours are clear");
     }
 
@@ -844,7 +844,7 @@ class TestItemPolicyTest {
         Memory justTested = Memory.START.trying(new Memory.Trial("jade potion", 1, -1));
         TestItem.Plan plan = new TestItem(Screens.CODEX).plan(dry, justTested, dry.actions().actions());
         assertEquals(new Action.Step(2), plan.choice().action());
-        assertEquals("escape: burning", plan.choice().why());
+        assertEquals("escape: burning (escape_waits)", plan.choice().why());
         Observation wet = screen(1, tiles, Screens.heroAt(4, 20, 20, burning), List.of(), List.of(), List.of(),
                 List.of());
         assertFalse(TestItem.inHarm(wet));
@@ -859,7 +859,7 @@ class TestItemPolicyTest {
         Memory justTested = after(3, 0, -1, List.of(), List.of());
         TestItem.Plan plan = policy.plan(hurt, justTested, hurt.actions().actions());
         assertEquals(new Action.Rest(true), plan.choice().action());
-        assertEquals("rest: after-test", plan.choice().why());
+        assertEquals("rest: after-test (rest_waits)", plan.choice().why());
         assertTrue(policy.enters(hurt, justTested));
         assertFalse(policy.enters(hurt, Memory.START), "no test handed over: nothing owed");
         assertFalse(policy.enters(hurt, after(Playbook.Identify.REFERENCE.restWaits() + 1, 0, -1, List.of(), List.of())), "bounded");
