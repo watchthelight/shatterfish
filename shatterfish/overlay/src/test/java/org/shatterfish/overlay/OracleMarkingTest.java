@@ -119,6 +119,21 @@ class OracleMarkingTest {
     }
 
     @Test
+    @DisplayName("an appearance that is a substring of another's label does not take its identity: the match is exact")
+    void a_substring_appearance_does_not_match() {
+        Observation observation = observation();
+        OracleView view = new OracleView(SEED,
+                List.of(new OracleView.Identity("potion", "red potion", "potion of frost", "PotionOfFrost"),
+                        new OracleView.Identity("potion", "dark red potion", "potion of healing", "PotionOfHealing")),
+                List.of(), List.of(), List.of(), List.of());
+        BeliefSummary summary = new BeliefSummary(List.of(new BeliefSummary.Item("dark red potion", "healing", 0.4)),
+                List.of(), List.of());
+
+        assertEquals(List.of("oracle: dark red potion = potion of healing"),
+                OracleMarkContent.of(view, observation, summary).rows());
+    }
+
+    @Test
     @DisplayName("the marks: the true identity behind each Belief item, then the unseen enemies, every row prefixed, the seen ones left out")
     void marks_are_prefixed_rows_and_unseen_cells() {
         Observation observation = observation();
@@ -246,6 +261,46 @@ class OracleMarkingTest {
         List<String> none = dock.panel().belief().lines();
         assertEquals(BeliefSummaryContent.NOTHING_YET, none.get(0));
         assertTrue(none.get(1).startsWith("oracle: gnoll scout"), none.toString());
+    }
+
+    @Test
+    @DisplayName("the Beliefs view (story 8.6): an oracle Run's view has the prefixed true identity under each appearance, a fair Run's view has no such line")
+    void the_beliefs_view_rows() {
+        Observation observation = observation();
+        int hero = observation.hero().cell();
+        org.shatterfish.api.BeliefView beliefs = new org.shatterfish.api.BeliefView("h",
+                List.of(new org.shatterfish.api.BeliefView.Appearance("turquoise potion",
+                        List.of(new org.shatterfish.api.BeliefView.Candidate("potion of healing", 0.6),
+                                new org.shatterfish.api.BeliefView.Candidate("potion of frost", 0.4)))),
+                List.of(), List.of(), List.of());
+        EmbeddedRun.Snapshot snapshot = new EmbeddedRun.Snapshot(null, 14, 1, observation, EmbeddedRun.State.PLAYING,
+                summary(), List.of(), new EmbeddedRun.Human(true, 2, true, 0, "", 0), false, null, List.of(), null, null,
+                beliefs);
+
+        GameScene scene = scene();
+        OracleSidecar sidecar = new OracleSidecar();
+        sidecar.take(observation, view(hero, hero + 9));
+        PanelDock oracle = oracleDock(sidecar);
+        oracle.frame(scene, snapshot, false);
+        assertTrue(oracle.press(Hotkey.BELIEFS, false));
+        oracle.frame(scene, snapshot, false);
+        List<String> lines = oracle.panel().beliefs().shown().texts();
+        int at = lines.indexOf("oracle: turquoise potion = potion of healing");
+        assertTrue(at > 0, "the oracle's row: " + lines);
+        assertEquals("turquoise potion: potion of healing 0.60, potion of frost 0.40", lines.get(at - 1),
+                "under the Brain's own line, which it does not replace");
+
+        GameScene fairScene = scene();
+        PanelDock fair = new PanelDock();
+        fair.oracle(false);
+        fair.frame(fairScene, snapshot, false);
+        assertTrue(fair.press(Hotkey.BELIEFS, false));
+        fair.frame(fairScene, snapshot, false);
+        assertTrue(fair.panel().beliefsShown());
+        assertTrue(fair.panel().beliefs().shown().texts().stream().noneMatch(line -> line.startsWith(OracleMarkContent.PREFIX)),
+                "the same view without the flag carries no oracle line: " + fair.panel().beliefs().shown().texts());
+        assertEquals(1, oracle.panel().beliefs().shown().texts().stream()
+                .filter(line -> line.startsWith(OracleMarkContent.PREFIX)).count());
     }
 
     @Test
