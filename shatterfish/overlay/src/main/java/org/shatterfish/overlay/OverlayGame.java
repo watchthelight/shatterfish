@@ -83,6 +83,8 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
     private EmbeddedRun run;
     /** A Brain's Run's controls (story 5.6); null for a HUMAN Run, whose Panel draws the row by its Mode alone. */
     private ControlState controls;
+    /** What the person has set (story 8.3): every Pause-on condition off until story 8.4's screen sets one. */
+    private final OverlaySettings settings = OverlaySettings.DEFAULTS;
     private boolean reported;
     private long frames;
 
@@ -184,7 +186,8 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
                     : EmbeddedRun.attach(this, options.seed(), options.heroClass(), rng, brain.get(), observer, logging,
                             options.turnCap());
             // The Run starts held, PAUSED with Next Step (EXPERIENCE.md); the Panel's controls turn it.
-            controls = new ControlState(new RunSeam(run), ControlEnablement.Capabilities.NOW);
+            controls = new ControlState(new RunSeam(run), ControlEnablement.Capabilities.NOW, settings,
+                    BossFloors.read(options.codex()));
             dock.controls(controls);
         }
         // A press on the Panel reaches the Panel's controls even while the lock holds the game's input.
@@ -283,7 +286,7 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
     }
 
     /** What the Controls row does to the Run (story 5.6). */
-    private static final class RunSeam implements ControlState.Seam {
+    static final class RunSeam implements ControlState.Seam {
 
         private final EmbeddedRun run;
 
@@ -319,6 +322,23 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         @Override
         public boolean ended() {
             return run.state() == EmbeddedRun.State.ENDED;
+        }
+
+        @Override
+        public ControlState.Pending pending() {
+            if (!run.withheld()) {
+                return null;
+            }
+            EmbeddedRun.Snapshot shown = run.snapshot();
+            if (!shown.awaiting() || shown.decision() == null || shown.observation() == null) {
+                return null;
+            }
+            return new ControlState.Pending(run.waitIndex(), shown.observation(), shown.decision());
+        }
+
+        @Override
+        public void pausedOn(String speed) {
+            run.pausedOn(speed);
         }
 
         @Override
