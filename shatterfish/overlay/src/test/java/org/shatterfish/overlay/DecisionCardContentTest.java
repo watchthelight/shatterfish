@@ -15,8 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The Decision card's content (story 5.3, FR-38, FR-39, UX-DR3, UX-DR5, UX-DR13), against a
  * constructed {@link RunLog.Decision} rather than a live Run: the chosen Action with its score, up to
- * three alternatives with scores and one-line reasons, the Next Step headline, and the Explain
- * expansion's Policy and Safety flags.
+ * three alternatives with scores and one-line reasons, the Next Step headline, and whether the Explain
+ * expansion is open (its words are ExplainContentTest's).
  */
 class DecisionCardContentTest {
 
@@ -35,7 +35,7 @@ class DecisionCardContentTest {
         assertNull(content.headline());
         assertNull(content.chosen());
         assertEquals(List.of(), content.alternatives());
-        assertNull(content.explain());
+        assertFalse(content.explaining());
         assertEquals(DecisionCardContent.NO_DECISION_YET, DecisionCardContent.NO_DECISION_YET);
     }
 
@@ -46,7 +46,7 @@ class DecisionCardContentTest {
         DecisionCardContent.Content content = DecisionCardContent.of(decision, false, false);
         assertTrue(content.present());
         assertNull(content.headline(), "not Next Step mode: no headline");
-        assertNull(content.explain(), "Explain not asked for");
+        assertFalse(content.explaining(), "Explain not asked for");
 
         // The Action itself, not a rendered label: DecisionCardContent is the Decision's shape, and
         // ActionText (ActionTextTest) is what turns an Action into words for the screen.
@@ -78,28 +78,15 @@ class DecisionCardContentTest {
     }
 
     @Test
-    @DisplayName("Explain adds the Policy that fired and the Safety flags that applied; a second press collapses it")
+    @DisplayName("the card only knows whether the expansion is open; its rows do not change, and what the expansion says is ExplainContent's")
     void explain_expansion() {
         RunLog.Decision decision = decision(List.of("hp-low", "enemy-in-view"));
         DecisionCardContent.Content collapsed = DecisionCardContent.of(decision, false, false);
         DecisionCardContent.Content expanded = DecisionCardContent.of(decision, false, true);
-        assertNull(collapsed.explain());
-        assertEquals("fight-in-corridors", expanded.explain().policy());
-        assertEquals("policy: fight-in-corridors", expanded.explain().policyLine());
-        assertEquals(List.of("hp-low", "enemy-in-view"), expanded.explain().flags());
-        assertEquals("flags: hp-low, enemy-in-view", expanded.explain().flagsLine());
-        // The alternatives' reasons "in full": Explain does not truncate them, because the collapsed
-        // card already shows the whole (only) reason a Choice carries.
+        assertFalse(collapsed.explaining());
+        assertTrue(expanded.explaining());
         assertEquals(collapsed.alternatives(), expanded.alternatives());
         assertEquals(collapsed.chosen(), expanded.chosen());
-    }
-
-    @Test
-    @DisplayName("no Safety flags is stated as \"none\", never a blank flags line (UX-DR14)")
-    void no_flags_says_so() {
-        DecisionCardContent.Content expanded = DecisionCardContent.of(decision(List.of()), false, true);
-        assertEquals(List.of(), expanded.explain().flags());
-        assertEquals("flags: none", expanded.explain().flagsLine());
     }
 
     @Test
