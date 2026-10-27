@@ -147,6 +147,25 @@ public final class Hooks {
 	public static volatile InputGate inputGate;
 
 	/**
+	 * Asked when the game's settings screen builds its Interface tab, hook row 12 (story 8.4, FR-45): when
+	 * one is registered the tab shows a button with {@link #title()}, and pressing it calls {@link #open()}.
+	 * The Overlay registers it when its game is created, for the life of its process (an Overlay Run's end does not call {@link #clear()}; only the headless driver does, and it registers nothing here), and opens its own window from it, so the Pause-on
+	 * section is found where a player looks for settings and the window is the Overlay's, not core's. Nothing
+	 * is registered outside the Overlay, and the tab is then upstream's. Both methods are called on the render
+	 * thread; neither may block.
+	 */
+	public interface SettingsSection {
+		/** The button's label. */
+		String title();
+
+		/** The button was pressed; open the section's window. */
+		void open();
+	}
+
+	/** @see SettingsSection */
+	public static volatile SettingsSection settingsSection;
+
+	/**
 	 * Unregisters every listener. Called when a Run ends, so that a listener belonging to a finished
 	 * Run cannot be reached by the next one. Every field declared above must be nulled here.
 	 */
@@ -155,5 +174,6 @@ public final class Hooks {
 		logReplaced = null;
 		heroInput = null;
 		inputGate = null;
+		settingsSection = null;
 	}
 }
