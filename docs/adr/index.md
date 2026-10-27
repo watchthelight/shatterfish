@@ -27,6 +27,7 @@ skill drafts new ones; add the new file to this list and to `mkdocs.yml`.
 | [0019](0019-workflow-skills-ab-test.md) | The Matt Pocock skills were tested against the current method and are not adopted | accepted | 2026-10-25 |
 | [0020](0020-memory-sections.md) | Split the Brain's Memory into versioned sections, one per Policy | proposed | 2026-10-25 |
 | [0021](0021-lore-claim-format.md) | Lore claims are one file each under `lore/<topic>/`, checked and entered by Codex tooling | accepted | 2026-10-26 |
+| [0022](0022-variant-classifier.md) | The variant classifier reads the vocabulary diff for items and mobs and classifies mechanics by source and declaration | accepted | 2026-10-26 |
 
 ## Decisions still to make
 

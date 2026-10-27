@@ -1,0 +1,296 @@
+# The labelled fixture of story 7.8. Each block is one claim; the label is fixed by the source, not by the classifier.
+# A blank line ends a block. Keys: label, source, subjects (separated by comma), text, why.
+
+label: spd
+source: developer
+subjects: Goo
+text: Goo's pump-up attack is now telegraphed one turn earlier so a player who is watching can step out of range.
+why: developer post about this game
+
+label: spd
+source: developer
+subjects: 
+text: Searching a room now reveals secret doors in a wider radius than it did two releases ago.
+why: developer post, a mechanic with no name
+
+label: spd
+source: developer
+subjects: Tengu
+text: Tengu teleports away after a set number of hits and the arena was reshaped to give the hero more room.
+why: developer post about this game
+
+label: spd
+source: wiki
+subjects: Crystal guardian
+text: Crystal guardians move only while the hero is out of their sight and stop the moment they are seen.
+why: a mob only this game has
+
+label: spd
+source: wiki
+subjects: Gnoll trickster
+text: The Gnoll Trickster throws darts from a distance and applies a stacking combo of poison.
+why: a mob only this game has
+
+label: spd
+source: forum
+subjects: Sewer snake
+text: Sewer snakes are hard to hit and dodge a lot of attacks, so bring accurate weapons.
+why: a mob only this game has
+
+label: spd
+source: guide
+subjects: Rot lasher
+text: A Rot Lasher cannot move and regrows from the rot garden, so attack it from a tile it cannot reach.
+why: a mob only this game has
+
+label: spd
+source: wiki
+subjects: Necromancer
+text: The Necromancer summons a skeleton next to the hero and keeps its distance while it casts.
+why: a mob only this game has
+
+label: spd
+source: video
+subjects: Ripper demon
+text: Ripper demons leap at the hero from far away and hit hard on arrival.
+why: a mob only this game has
+
+label: spd
+source: wiki
+subjects: Fungal sentry
+text: The Fungal Sentry never moves and fires a ray every few turns at anything in its view.
+why: a mob only this game has
+
+label: spd
+source: forum
+subjects: Hermit crab
+text: A Hermit crab on the first floors is slow but has a lot of armor.
+why: a mob only this game has
+
+label: spd
+source: wiki
+subjects: Golem
+text: The Golem has 120 HP and hits for a lot, so fight it at a door.
+why: shared mob, figure is this game's
+
+label: spd
+source: wiki
+subjects: Scorpio
+text: Scorpio has 110 HP and keeps shooting from range, so close the distance quickly.
+why: shared mob, figure is this game's
+
+label: spd
+source: wiki
+subjects: Swarm of flies
+text: A swarm of flies has 50 HP and splits when it is hit.
+why: shared mob, figure is this game's
+
+label: spd
+source: wiki
+subjects: Yog-Dzewa
+text: Yog-Dzewa has 1000 HP and spawns larvae while it is awake.
+why: shared mob, figure is this game's
+
+label: spd
+source: guide
+subjects: 
+text: In Shattered Pixel Dungeon the Huntress can throw her spirit bow arrows at flying enemies without a penalty.
+why: the text declares this game
+
+label: spd
+source: forum
+subjects: Cloak of shadows
+text: The Cloak of Shadows is the Rogue's starting artifact and recharges as the hero moves.
+why: an item only this game has
+
+label: spd
+source: wiki
+subjects: Gnoll geomancer
+text: A Gnoll Geomancer throws rocks that block the corridor behind the hero.
+why: a mob only this game has
+
+label: pd
+source: wiki
+subjects: Shielded brute
+text: The Shielded Brute holds up a shield and takes reduced damage from the front.
+why: a mob only vanilla has
+
+label: pd
+source: wiki
+subjects: Undead dwarf
+text: The Undead dwarf comes back from the dead once and is the king's guard in the last boss fight.
+why: a mob only vanilla has
+
+label: pd
+source: forum
+subjects: Spawn of Goo
+text: A Spawn of Goo appears in the water near the boss and splits off small slimes.
+why: a mob only vanilla has
+
+label: pd
+source: wiki
+subjects: DM-350
+text: DM-350 fires its gas cloud when the hero stands in the doorway.
+why: a mob only vanilla has
+
+label: pd
+source: forum
+subjects: Wand of firebolt
+text: A Wand of Firebolt sets the grass on fire, so zap from a tile with no grass around.
+why: an item only vanilla has
+
+label: pd
+source: wiki
+subjects: Ring of shadows
+text: The Ring of Shadows lets the hero sneak past sleeping monsters more often.
+why: an item only vanilla has
+
+label: pd
+source: guide
+subjects: Tome of mastery
+text: Reading the Tome of Mastery on floor five lets the hero choose a subclass.
+why: an item only vanilla has
+
+label: pd
+source: video
+subjects: Curare dart
+text: Curare darts paralyse a monster for several turns, enough to win most fights.
+why: an item only vanilla has
+
+label: pd
+source: wiki
+subjects: Scroll of wipe out
+text: The Scroll of Wipe Out kills every monster on the level without giving experience.
+why: an item only vanilla has
+
+label: pd
+source: wiki
+subjects: Golem
+text: The Golem has 85 HP and moves slowly, so it is easy to kite.
+why: shared mob, figure is vanilla's
+
+label: pd
+source: wiki
+subjects: Scorpio
+text: Scorpio has 95 HP and its sting poisons the hero.
+why: shared mob, figure is vanilla's
+
+label: pd
+source: wiki
+subjects: Swarm of flies
+text: A swarm of flies has 80 HP and keeps splitting when hit.
+why: shared mob, figure is vanilla's
+
+label: pd
+source: wiki
+subjects: Yog-Dzewa
+text: Yog-Dzewa has 300 HP and is killed by wearing down its fists.
+why: shared mob, figure is vanilla's
+
+label: pd
+source: forum
+subjects: 
+text: In the original Pixel Dungeon you could throw a potion at a door to burn it without losing the potion's effect.
+why: the text declares vanilla
+
+label: pd
+source: wiki
+subjects: Wand of blink
+text: The Wand of Blink moves the hero several tiles in a straight line and is the best escape tool.
+why: an item only vanilla has
+
+label: mod:remixed
+source: forum
+subjects: Goo
+text: In Remixed Pixel Dungeon the Goo has a second phase where it summons slimes around the hero.
+why: names a mod
+
+label: mod:experienced
+source: forum
+subjects: Rat
+text: Experienced Pixel Dungeon adds a level cap to the rat so the early floors can be farmed.
+why: names a mod
+
+label: mod:summoning
+source: forum
+subjects: Tengu
+text: Summoning Pixel Dungeon lets the Mage call a Tengu ally after the third level.
+why: names a mod
+
+label: mod:unleashed
+source: wiki
+subjects: 
+text: The Unleashed Pixel Dungeon variant gives every class a new talent at level two.
+why: names a mod
+
+label: mod:sprouted
+source: guide
+subjects: Sewer snake
+text: Sprouted PD changes the sewer snake so it can no longer be dodged by the hero.
+why: names a mod
+
+label: unknown
+source: wiki
+subjects: Goo
+text: Goo pumps up before it attacks, so keep moving away from it.
+why: shared mob, no figure in the claim
+
+label: unknown
+source: wiki
+subjects: Amulet of Yendor
+text: Picking up the Amulet of Yendor is what ends the run on the last floor.
+why: shared item with no differing figure
+
+label: unknown
+source: forum
+subjects: Potion of healing
+text: A Potion of Healing also cures poison and bleeding, so keep one for the fight.
+why: shared item with no differing figure
+
+label: unknown
+source: wiki
+subjects: Scorpio
+text: Scorpio has 200 HP and shoots from range, which makes it the hardest enemy of the early floors.
+why: figure matches neither game
+
+label: unknown
+source: forum
+subjects: 
+text: Searching takes one turn and finds secrets that are adjacent to the hero.
+why: a mechanic with no name, a forum source
+
+label: unknown
+source: video
+subjects: Dagger
+text: The dagger sneak attack is a guaranteed hit on a sleeping monster.
+why: shared item with no differing figure
+
+label: unknown
+source: guide
+subjects: Torch
+text: A torch lights the area for a long time but cannot be recharged.
+why: shared item with no differing figure
+
+label: unknown
+source: wiki
+subjects: Golem
+text: The Golem has 120 HP in one version of the game and 85 HP in an older one.
+why: states both games' figures
+
+label: unknown
+source: forum
+subjects: Crystal guardian, Wand of firebolt
+text: The Crystal guardian and the Wand of Firebolt appear in the same long thread about the wands and the vault.
+why: one name from each side
+
+label: unknown
+source: wiki
+subjects: Marsupial rat
+text: The Marsupial rat has 5 defence and a bite that causes bleeding.
+why: figure matches neither game
+
+label: unknown
+source: other
+subjects: Goo
+text: Goo can be killed with a few thrown darts if you stay out of its reach.
+why: shared mob, no figure; source type other
