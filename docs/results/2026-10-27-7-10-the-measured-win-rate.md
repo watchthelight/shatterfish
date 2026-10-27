@@ -154,7 +154,9 @@ data folders ([final](https://github.com/watchthelight/shatterfish/tree/main/res
   include the triples story 7.6 tuned the Mage on. It is not a held-out number, and it is the reason the held-out run exists.
 - **Endings.** One final-Brain Run (a Mage, seed code `XMK-SUI-KRX`, depth 2) ended `UNSERVED_SCENE` and not by death, after a
   ranged throw. It is counted in the Runs and as no death, and is filed as
-  [#328](https://github.com/watchthelight/shatterfish/issues/328). No Run of either side hit the turn cap.
+  [#328](https://github.com/watchthelight/shatterfish/issues/328). Cause, found afterwards: the loading scene was in mode `RETURN`, a teleport to a named floor
+  (a cursed wand's inter-floor effect, `core/.../items/wands/CursedWand.java:757-767`), which the harness did not serve.
+  The harness now serves it like the game does (`core/.../scenes/InterlevelScene.java:717-731`); the figures above are as measured. No Run of either side hit the turn cap.
 
 ## The `holdout` set
 
