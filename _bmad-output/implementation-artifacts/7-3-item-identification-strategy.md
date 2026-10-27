@@ -191,4 +191,4 @@ here (the slices are Warrior).
 
 - `./gradlew :api:test :brain:test :rig:test -Pshatterfish.testForks=1`, `mkdocs build --strict`.
 - `:rig:direction` tables above; `tests73.py`-style counts of `test-item` Decisions per Run log (not committed).
-- Fairness review: see the PR.
+- Fairness review (fairness-reviewer, full non-test diff): no violation found, high confidence. Observer, ActionExecutor and the Observation schema are unchanged; the known-gains rule matches only the display name of an identified item; the three new Playbook fields are bounded scalars.
