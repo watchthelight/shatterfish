@@ -414,6 +414,8 @@ public abstract class Mob extends Char {
 		if ( newEnemy ) {
 
 			HashSet<Char> enemies = new HashSet<>();
+			// shatterfish-hook:6
+			enemies = new java.util.LinkedHashSet<>();
 
 			//if we are amoked...
 			if ( buff(Amok.class) != null) {
