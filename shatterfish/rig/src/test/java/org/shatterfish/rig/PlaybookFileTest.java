@@ -75,6 +75,28 @@ class PlaybookFileTest {
     }
 
     @Test
+    @DisplayName("a boss entry states only what it changes, the others keep their reference values, and the committed later bosses are untested")
+    void boss_entries(@TempDir Path root) throws IOException {
+        Path file = root.resolve("shatterfish.json");
+        Files.writeString(file, "{\"bosses\":{\"goo\":{\"drink_per_mille\":600,\"wash_range\":5},\"tengu\":{\"status\":\"TESTED\"}},"
+                + "\"format\":1,\"name\":\"shatterfish\",\"version\":2}", StandardCharsets.UTF_8);
+        Playbook playbook = PlaybookFile.read(file, Brains.SHATTERFISH, CODEX);
+        assertEquals(600, playbook.bosses().goo().drinkPerMille());
+        assertEquals(5, playbook.bosses().goo().washRange());
+        assertEquals(6, playbook.bosses().goo().meetRange(), "a field not stated is the reference's");
+        assertEquals("TESTED", playbook.bosses().tengu().status());
+        assertEquals("UNTESTED", playbook.bosses().dm300().status());
+        assertNotEquals(committed(Brains.SHATTERFISH).canonical(), playbook.canonical(), "a boss field is part of the hash");
+        assertEquals("UNTESTED", committed(Brains.SHATTERFISH).bosses().tengu().status());
+        assertEquals("UNTESTED", committed(Brains.SHATTERFISH).bosses().dm300().status());
+        Files.writeString(file, "{\"bosses\":{\"goo\":{\"meet_range\":99}},\"format\":1,\"name\":\"shatterfish\",\"version\":2}",
+                StandardCharsets.UTF_8);
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> PlaybookFile.read(file, Brains.SHATTERFISH, CODEX));
+        assertTrue(refused.getMessage().contains("bosses.goo.meet_range"), refused.getMessage());
+    }
+
+    @Test
     @DisplayName("a class entry states only what it changes, and the Playbook it makes plays that class differently")
     void class_entries(@TempDir Path root) throws IOException {
         Path file = root.resolve("shatterfish.json");

@@ -123,9 +123,16 @@ final class Descend implements Policy {
     private static final java.util.Set<Tile> OPEN_EXITS = java.util.EnumSet.of(Tile.EXIT, Tile.UNLOCKED_EXIT);
 
     private final Codex.Knowledge knowledge;
+    private final org.shatterfish.api.Playbook.Bosses bosses;
 
     Descend(Codex.Knowledge knowledge) {
+        this(knowledge, org.shatterfish.api.Playbook.Bosses.REFERENCE);
+    }
+
+    /** The Policy that rests, before the stairs down to a boss floor, to the share of health the Playbook's boss entry says (story 7.5). */
+    Descend(Codex.Knowledge knowledge, org.shatterfish.api.Playbook.Bosses bosses) {
         this.knowledge = knowledge;
+        this.bosses = bosses;
     }
 
     @Override
@@ -148,12 +155,12 @@ final class Descend implements Policy {
         if (memory.streak() == Explore.STUCK - 1) {
             return null;
         }
-        return plan(observation, memory, offered, knowledge);
+        return plan(observation, memory, offered, knowledge, bosses);
     }
 
     /** The plan before the stuck rule: nothing while the floor is worth staying on, else toward the exit. */
     private static RunLog.Choice plan(Observation observation, Memory memory, List<Action> offered,
-                                      Codex.Knowledge knowledge) {
+                                      Codex.Knowledge knowledge, org.shatterfish.api.Playbook.Bosses bosses) {
         if (Explore.restOwed(observation, memory) || Explore.away(observation, memory, offered) != null) {
             return null;
         }
@@ -168,7 +175,7 @@ final class Descend implements Policy {
         MapSection map = observation.map();
         if (exit(map, observation.hero().cell())) {
             // Come up from below onto the exit: rest here, then down.
-            RunLog.Choice rest = rest(observation, memory, offered);
+            RunLog.Choice rest = rest(observation, memory, offered, bosses);
             if (rest != null) {
                 return rest;
             }
@@ -190,7 +197,7 @@ final class Descend implements Policy {
         }
         // Beside the exit, the next Step travels: rest to full first.
         if (path.distance() == 1) {
-            RunLog.Choice rest = rest(observation, memory, offered);
+            RunLog.Choice rest = rest(observation, memory, offered, bosses);
             if (rest != null) {
                 return rest;
             }
@@ -199,8 +206,9 @@ final class Descend implements Policy {
     }
 
     /** A rest before going down, when {@link #rests} allows one and the screen offers it; else null. */
-    private static RunLog.Choice rest(Observation observation, Memory memory, List<Action> offered) {
-        if (!rests(observation, memory)) {
+    private static RunLog.Choice rest(Observation observation, Memory memory, List<Action> offered,
+                                      org.shatterfish.api.Playbook.Bosses bosses) {
+        if (!rests(observation, memory, bosses)) {
             return null;
         }
         for (Action rest : List.of(new Action.Rest(true), new Action.Rest(false), new Action.Search())) {
@@ -306,10 +314,15 @@ final class Descend implements Policy {
         return false;
     }
 
-    /** Whether to rest before going down: hurt, not starving, and under {@link #RESTS} on this floor. */
-    static boolean rests(Observation observation, Memory memory) {
-        return observation.hero().hp() < observation.hero().ht() && observation.hero().hunger() != Hunger.STARVING
-                && memory.rests() < RESTS;
+    /**
+     * Whether to rest before going down: hurt, not starving, and under {@link #RESTS} on this floor. Hurt
+     * means below the share of the hit points the Playbook's boss entry for the floor below names, which
+     * is the whole of them (a full rest) for every floor but a boss floor the Playbook tunes (story 7.5).
+     */
+    static boolean rests(Observation observation, Memory memory, org.shatterfish.api.Playbook.Bosses bosses) {
+        int below = observation.header().branch() == 0 ? bosses.descentRest(observation.header().depth() + 1) : 1000;
+        return 1000L * observation.hero().hp() < (long) below * observation.hero().ht()
+                && observation.hero().hunger() != Hunger.STARVING && memory.rests() < RESTS;
     }
 
     /**

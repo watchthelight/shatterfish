@@ -26,8 +26,8 @@ import java.util.Map;
  * Playbook's. The class entries are stored resolved, so reading a value never needs the base.
  *
  * <p>The sections are {@code identify} (which unknown potions and scrolls are tried, and where),
- * {@code upgrade} (where a scroll of upgrade goes), {@code kit} (what the hero does with the items its class starts with), {@code bosses} (reserved: the format has the
- * section and no field in it yet, so a file may state it empty) and {@code classes}.
+ * {@code upgrade} (where a scroll of upgrade goes), {@code kit} (what the hero does with the items its class starts with), {@code bosses} (one entry per boss: how its
+ * fight is approached and how fit the hero is sent down to it, story 7.5) and {@code classes}.
  *
  * @param name     the Playbook's name, which is the Brain's name
  * @param version  the Playbook's version, bumped when a value changes meaning or value
@@ -35,8 +35,9 @@ import java.util.Map;
  * @param upgrade  the base {@code upgrade} section
  * @param kit      the base {@code kit} section
  * @param classes  per hero class, the sections as that class plays them, sorted by class name (the order the file reader requires), each once
+ * @param bosses   the {@code bosses} section, one entry per boss (story 7.5)
  */
-public record Playbook(String name, int version, Identify identify, Upgrade upgrade, Kit kit, List<ClassEntry> classes) {
+public record Playbook(String name, int version, Identify identify, Upgrade upgrade, Kit kit, List<ClassEntry> classes, Bosses bosses) {
 
     /** The version of the file's shape, which the reader checks. */
     public static final int FORMAT = 1;
@@ -48,6 +49,7 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
         java.util.Objects.requireNonNull(identify, "identify");
         java.util.Objects.requireNonNull(upgrade, "upgrade");
         java.util.Objects.requireNonNull(kit, "kit");
+        java.util.Objects.requireNonNull(bosses, "bosses");
         classes = Canon.sorted(classes, Comparator.comparing((ClassEntry entry) -> entry.heroClass().name()), "classes");
         for (int i = 1; i < classes.size(); i++) {
             Canon.require(classes.get(i).heroClass() != classes.get(i - 1).heroClass(),
@@ -55,14 +57,19 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
         }
     }
 
-    /** A Playbook with the reference {@code kit}, the shape the stories before 7.6 built. */
+    /** A Playbook with the reference {@code bosses}, the shape story 7.6 built. */
+    public Playbook(String name, int version, Identify identify, Upgrade upgrade, Kit kit, List<ClassEntry> classes) {
+        this(name, version, identify, upgrade, kit, classes, Bosses.REFERENCE);
+    }
+
+    /** A Playbook with the reference {@code kit} and {@code bosses}, the shape the stories before 7.6 built. */
     public Playbook(String name, int version, Identify identify, Upgrade upgrade, List<ClassEntry> classes) {
-        this(name, version, identify, upgrade, Kit.REFERENCE, classes);
+        this(name, version, identify, upgrade, Kit.REFERENCE, classes, Bosses.REFERENCE);
     }
 
     /** The Playbook of the values the Policies decided by before they were data: the file's defaults. */
     public static Playbook reference(String name) {
-        return new Playbook(name, 1, Identify.REFERENCE, Upgrade.REFERENCE, Kit.REFERENCE, List.of());
+        return new Playbook(name, 1, Identify.REFERENCE, Upgrade.REFERENCE, Kit.REFERENCE, List.of(), Bosses.REFERENCE);
     }
 
     /** The {@code identify} section as {@code heroClass} plays it. */
@@ -99,7 +106,11 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
     public String canonical() {
         JsonWriter out = new JsonWriter();
         out.beginObject();
-        out.key("bosses").beginObject().endObject();
+        out.key("bosses").beginObject();
+        section(out, "dm300", bosses.dm300().values());
+        section(out, "goo", bosses.goo().values());
+        section(out, "tengu", bosses.tengu().values());
+        out.endObject();
         out.key("classes").beginObject();
         for (ClassEntry entry : classes) {
             out.key(entry.heroClass().name()).beginObject();
@@ -163,6 +174,9 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
         }
     }
 
+    /** The boss entries, by name, sorted as the file states them. */
+    public static final List<String> BOSSES = List.of("dm300", "goo", "tengu");
+
     /** The two section kinds a class may override, by section name. */
     public static final List<String> SECTIONS = List.of("identify", "kit", "upgrade");
 
@@ -172,6 +186,8 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
             case "identify" -> Identify.SPECS;
             case "upgrade" -> Upgrade.SPECS;
             case "kit" -> Kit.SPECS;
+            case "bosses.goo" -> Goo.SPECS;
+            case "bosses.tengu", "bosses.dm300" -> Later.SPECS;
             default -> throw new IllegalArgumentException("the Playbook has no section " + section);
         };
     }
@@ -343,6 +359,139 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
                     "upgrade.unknown_weapon is one of " + SPECS.get(2).allowed() + ": " + unknown);
             return new Upgrade(num(values, "weapon_lead"), EquipSlot.valueOf((String) values.get("tie")),
                     num(values, "hold_until_depth"), unknown.equals("YES"));
+        }
+    }
+
+    /**
+     * How each boss is approached (story 7.5, FR-35). A boss entry holds typed fields and no layout, no
+     * cell and no coordinate: the Brain reads the boss from the screen. {@code goo} is the one entry
+     * whose fields change a fight; the later bosses carry the descent rest and are marked
+     * {@code UNTESTED} until the {@code bosses} set reaches them in numbers worth tuning on.
+     *
+     * @param goo   the first boss, depth 5
+     * @param tengu the second boss, depth 10
+     * @param dm300 the third boss, depth 15
+     */
+    public record Bosses(Goo goo, Later tengu, Later dm300) {
+
+        /** The values the Policies decided by before the entries existed. */
+        public static final Bosses REFERENCE = new Bosses(Goo.REFERENCE, Later.REFERENCE, Later.REFERENCE);
+
+        public Bosses {
+            java.util.Objects.requireNonNull(goo, "goo");
+            java.util.Objects.requireNonNull(tengu, "tengu");
+            java.util.Objects.requireNonNull(dm300, "dm300");
+        }
+
+        /**
+         * The share of the hero's hit points, in thousandths, the descent rest reaches before the stairs
+         * down to the floor at {@code depth}; a floor with no boss entry is rested to full. The boss floors are depths 5
+         * (Goo), 10 (Tengu) and 15 (DM-300), from {@code Dungeon.bossLevel} at
+         * {@code core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/Dungeon.java:441-443} (Rule in docs/rules/combat.md).
+         */
+        public int descentRest(int depth) {
+            return switch (depth) {
+                case 5 -> goo.descentRestPerMille();
+                case 10 -> tengu.descentRestPerMille();
+                case 15 -> dm300.descentRestPerMille();
+                default -> 1000;
+            };
+        }
+    }
+
+    /**
+     * The Goo entry: the boss of depth 5, the one the Brain fights on purpose.
+     *
+     * @param descentRestPerMille the share of the hit points, in thousandths, the hero rests up to beside the stairs down to Goo's floor
+     * @param drinkPerMille       the share of the hit points, in thousandths, at or under which a healing potion is drunk against Goo alone
+     * @param meetRange           the most Steps walked to ground where a pump could be dodged, before Goo arrives
+     * @param washRange           the most Steps walked to water to wash off caustic ooze
+     */
+    public record Goo(
+            @Heuristic("rest-before-descend") int descentRestPerMille,
+            @Heuristic(Heuristic.UNLINKED) int drinkPerMille,
+            @Heuristic("goo-position-and-wash") int meetRange,
+            @Heuristic("goo-position-and-wash") int washRange) {
+
+        /** The fields, sorted as the file states them. */
+        public static final List<Spec> SPECS = List.of(
+                Spec.number("descent_rest_per_mille", 1, 1000),
+                Spec.number("drink_per_mille", 1, 1000),
+                Spec.number("meet_range", 0, 12),
+                Spec.number("wash_range", 0, 12));
+
+        /** The values the Policies held before they were data (issue #219; story 4.12). */
+        public static final Goo REFERENCE = new Goo(1000, 400, 6, 4);
+
+        public Goo {
+            check(SPECS.get(0), descentRestPerMille);
+            check(SPECS.get(1), drinkPerMille);
+            check(SPECS.get(2), meetRange);
+            check(SPECS.get(3), washRange);
+        }
+
+        /** The fields by name, in {@link #SPECS} order. */
+        public Map<String, Object> values() {
+            Map<String, Object> values = new LinkedHashMap<>();
+            values.put("descent_rest_per_mille", (long) descentRestPerMille);
+            values.put("drink_per_mille", (long) drinkPerMille);
+            values.put("meet_range", (long) meetRange);
+            values.put("wash_range", (long) washRange);
+            return values;
+        }
+
+        /** This entry with the fields {@code given} states replaced; every key of {@code given} is a field. */
+        public Goo with(Map<String, Object> given) {
+            Map<String, Object> values = values();
+            values.putAll(given);
+            return new Goo(num(values, "descent_rest_per_mille"), num(values, "drink_per_mille"),
+                    num(values, "meet_range"), num(values, "wash_range"));
+        }
+
+        /** The hit points at or under which the hero drinks against Goo alone, for a hero of {@code ht} hit points. */
+        public int danger(int ht) {
+            return (int) (((long) ht * drinkPerMille + 999) / 1000);
+        }
+    }
+
+    /**
+     * A later boss's entry (Tengu, DM-300): the descent rest, and whether the entry was ever tuned.
+     * An {@code UNTESTED} entry holds the reference values and the claims behind it in the Lore: fewer
+     * than ten Runs of the {@code bosses} set reach these bosses, so nothing here has been measured.
+     *
+     * @param descentRestPerMille the share of the hit points, in thousandths, the hero rests up to beside the stairs down to the boss floor
+     * @param status              {@code UNTESTED} or {@code TESTED}
+     */
+    public record Later(@Heuristic("rest-before-descend") int descentRestPerMille, String status) {
+
+        /** The fields, sorted as the file states them. */
+        public static final List<Spec> SPECS = List.of(
+                Spec.number("descent_rest_per_mille", 1, 1000),
+                Spec.choice("status", List.of("TESTED", "UNTESTED")));
+
+        /** Rest to full, as the descend Policy did, and untested. */
+        public static final Later REFERENCE = new Later(1000, "UNTESTED");
+
+        public Later {
+            check(SPECS.get(0), descentRestPerMille);
+            java.util.Objects.requireNonNull(status, "status");
+            Canon.require(SPECS.get(1).allowed().contains(status),
+                    "status is one of " + SPECS.get(1).allowed() + ": " + status);
+        }
+
+        /** The fields by name, in {@link #SPECS} order. */
+        public Map<String, Object> values() {
+            Map<String, Object> values = new LinkedHashMap<>();
+            values.put("descent_rest_per_mille", (long) descentRestPerMille);
+            values.put("status", status);
+            return values;
+        }
+
+        /** This entry with the fields {@code given} states replaced; every key of {@code given} is a field. */
+        public Later with(Map<String, Object> given) {
+            Map<String, Object> values = values();
+            values.putAll(given);
+            return new Later(num(values, "descent_rest_per_mille"), (String) values.get("status"));
         }
     }
 

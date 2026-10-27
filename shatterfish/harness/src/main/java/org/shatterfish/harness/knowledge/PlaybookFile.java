@@ -95,6 +95,17 @@ public final class PlaybookFile {
         if (held.containsKey("upgrade")) {
             upgrade = upgrade.with(fields(held.get("upgrade"), "upgrade"));
         }
+        Playbook.Bosses bosses = Playbook.Bosses.REFERENCE;
+        if (held.containsKey("bosses")) {
+            Map<String, String> entries = Json.object(held.get("bosses"));
+            Playbook.Goo goo = entries.containsKey("goo")
+                    ? bosses.goo().with(fields(entries.get("goo"), Playbook.Goo.SPECS)) : bosses.goo();
+            Playbook.Later tengu = entries.containsKey("tengu")
+                    ? bosses.tengu().with(fields(entries.get("tengu"), Playbook.Later.SPECS)) : bosses.tengu();
+            Playbook.Later dm300 = entries.containsKey("dm300")
+                    ? bosses.dm300().with(fields(entries.get("dm300"), Playbook.Later.SPECS)) : bosses.dm300();
+            bosses = new Playbook.Bosses(goo, tengu, dm300);
+        }
         List<Playbook.ClassEntry> classes = new ArrayList<>();
         if (held.containsKey("classes")) {
             for (Map.Entry<String, String> entry : Json.object(held.get("classes")).entrySet()) {
@@ -109,7 +120,7 @@ public final class PlaybookFile {
             }
         }
         Playbook playbook = new Playbook(Json.string(Json.required(held, "name", "Playbook")),
-                Json.integer(Json.required(held, "version", "Playbook")), identify, upgrade, kit, classes);
+                Json.integer(Json.required(held, "version", "Playbook")), identify, upgrade, kit, classes, bosses);
         if (!playbook.name().equals(brain)) {
             throw new IllegalArgumentException("the Playbook in " + file + " is for " + playbook.name()
                     + ", not for " + brain);
@@ -119,9 +130,13 @@ public final class PlaybookFile {
 
     /** One section's stated fields, typed by the format's declarations. */
     private static Map<String, Object> fields(String raw, String section) {
+        return fields(raw, Playbook.specs(section));
+    }
+
+    private static Map<String, Object> fields(String raw, List<Playbook.Spec> specs) {
         Map<String, Object> given = new LinkedHashMap<>();
         for (Map.Entry<String, String> field : Json.object(raw).entrySet()) {
-            boolean choice = Playbook.specs(section).stream()
+            boolean choice = specs.stream()
                     .anyMatch(spec -> spec.key().equals(field.getKey()) && spec.isChoice());
             given.put(field.getKey(), choice ? (Object) Json.string(field.getValue()) : (Object) Json.number(field.getValue()));
         }

@@ -63,6 +63,9 @@ class PlaybookValidatorTest {
         assertEquals(List.of(), problems("bosses", "{}", "identify", "{\"reach\":8}",
                 "upgrade", "{\"tie\":\"ARMOR\",\"weapon_lead\":-1}"));
         assertEquals(List.of(), problems("classes", "{\"MAGE\":{\"identify\":{\"reach\":3}},\"ROGUE\":{}}"));
+        assertEquals(List.of(), problems("bosses", "{\"dm300\":{},\"goo\":{\"descent_rest_per_mille\":900,\"drink_per_mille\":500,"
+                + "\"meet_range\":8,\"wash_range\":0},\"tengu\":{\"status\":\"TESTED\"}}"), "a boss entry states what it changes"
+                + " and the ends of its ranges");
         assertEquals(List.of(), problems("kit", "{\"zap_reach\":0}"), "the kit section's lowest reach");
         assertEquals(List.of(), problems("classes", "{\"MAGE\":{\"kit\":{\"zap_reach\":10}}}"), "and its highest, as a class states it");
         assertEquals(List.of(), problems("identify", "{\"escape_waits\":0,\"gain_odds_per_mille\":1000,\"healing_odds_per_mille\":1,"
@@ -120,9 +123,25 @@ class PlaybookValidatorTest {
     void no_unknown_key() {
         rejects("tactics", "{}", "tactics", "not a key the Playbook format defines");
         rejects("identify", "{\"patience\":3}", "identify.patience", "not a key the identify section defines");
-        rejects("bosses", "{\"goo\":1}", "bosses.goo", "no field yet");
+        rejects("bosses", "{\"goo\":1}", "bosses.goo", "is an object");
+        rejects("bosses", "{\"kraken\":{}}", "bosses.kraken", "not a boss the format names");
+        rejects("bosses", "{\"goo\":{\"patience\":3}}", "bosses.goo.patience", "not a key the bosses.goo section defines");
+        rejects("bosses", "{\"tengu\":{\"drink_per_mille\":3}}", "bosses.tengu.drink_per_mille", "not a key");
         rejects("classes", "{\"MAGE\":{\"bosses\":{}}}", "classes.MAGE.bosses", "not a key a class entry defines");
         rejects("classes", "{\"MAGE\":{\"upgrade\":{\"tying\":1}}}", "classes.MAGE.upgrade.tying", "not a key");
+    }
+
+    @Test
+    @DisplayName("a boss entry's number outside its range, or a status the field does not allow, is rejected naming the field")
+    void boss_ranges() {
+        rejects("bosses", "{\"goo\":{\"descent_rest_per_mille\":0}}", "bosses.goo.descent_rest_per_mille", "from 1 to 1000");
+        rejects("bosses", "{\"goo\":{\"drink_per_mille\":1001}}", "bosses.goo.drink_per_mille", "from 1 to 1000");
+        rejects("bosses", "{\"goo\":{\"meet_range\":13}}", "bosses.goo.meet_range", "from 0 to 12");
+        rejects("bosses", "{\"goo\":{\"wash_range\":2.5}}", "bosses.goo.wash_range", "whole number");
+        rejects("bosses", "{\"dm300\":{\"status\":\"DONE\"}}", "bosses.dm300.status", "TESTED");
+        rejects("bosses", "{\"goo\":{\"meet_cell\":3}}", "bosses.goo.meet_cell", "place in one dungeon");
+        rejects("bosses", "{\"goo\":{\"seed\":3}}", "bosses.goo.seed", "names a seed");
+        rejects("bosses", "{\"dm300\":{\"status\":\"ABC-DEF-GHI\"}}", "bosses.dm300.status", "seed string");
     }
 
     @Test

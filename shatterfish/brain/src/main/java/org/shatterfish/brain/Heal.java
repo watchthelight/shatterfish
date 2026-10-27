@@ -83,9 +83,15 @@ final class Heal implements Policy {
     static final int HORIZON = 10;
 
     private final Codex.Knowledge knowledge;
+    private final org.shatterfish.api.Playbook.Goo goo;
 
     Heal(Codex.Knowledge knowledge) {
+        this(knowledge, org.shatterfish.api.Playbook.Goo.REFERENCE);
+    }
+
+    Heal(Codex.Knowledge knowledge, org.shatterfish.api.Playbook.Goo goo) {
         this.knowledge = knowledge;
+        this.goo = goo;
     }
 
     @Override
@@ -108,7 +114,7 @@ final class Heal implements Policy {
     @Override
     public RunLog.Choice choose(Observation observation, Memory memory, List<Action> offered, Stream stream) {
         HeroSection hero = observation.hero();
-        int danger = danger(observation, knowledge, memory);
+        int danger = danger(observation, knowledge, memory, goo);
         if (hero.hp() > danger || hero.ht() - hero.hp() < firstTurn(hero.ht())) {
             return null;
         }
@@ -122,11 +128,11 @@ final class Heal implements Policy {
         boolean low = 1000L * hero.hp() < 334L * hero.ht();
         // Against Goo alone the fight Policy never retreats (Goo.engage), so a retreat is not worth more than a
         // drink; but an announced pump the hero can still dodge is worth more than both (issue #219).
-        boolean goo = Goo.alone(enemies) != null;
-        if (goo && Goo.dodge(observation, memory, offered) != null) {
+        boolean gooAlone = Goo.alone(enemies) != null;
+        if (gooAlone && Goo.dodge(observation, memory, offered) != null) {
             return null;
         }
-        if (!goo && !low && !Fight.favourable(observation, knowledge, enemies)
+        if (!gooAlone && !low && !Fight.favourable(observation, knowledge, enemies)
                 && Fight.retreat(observation, memory, offered, enemies, knowledge) != null) {
             return null;
         }
@@ -191,8 +197,13 @@ final class Heal implements Policy {
      * and never less than their worst single turn; 0 with none. See the class comment.
      */
     static int danger(Observation observation, Codex.Knowledge knowledge, Memory memory) {
+        return danger(observation, knowledge, memory, org.shatterfish.api.Playbook.Goo.REFERENCE);
+    }
+
+    /** {@link #danger(Observation, Codex.Knowledge, Memory)} with the Playbook's Goo entry deciding the drink against Goo alone. */
+    static int danger(Observation observation, Codex.Knowledge knowledge, Memory memory, org.shatterfish.api.Playbook.Goo goo) {
         if (Goo.alone(Fight.enemies(observation, knowledge)) != null) {
-            return Goo.danger(observation.hero());
+            return Goo.danger(observation.hero(), goo);
         }
         List<ActorView> awake = new ArrayList<>();
         for (ActorView enemy : Fight.enemies(observation, knowledge)) {

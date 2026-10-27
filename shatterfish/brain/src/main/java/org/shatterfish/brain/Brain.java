@@ -63,13 +63,13 @@ public final class Brain {
 
     /** The Policies, highest priority first, fighting by {@code knowledge} and scoring by {@code evaluation}. */
     private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation, Model model, Playbook playbook) {
-        List<Policy> policies = new ArrayList<>(List.of(Policies.answerPrompt(knowledge), new Heal(knowledge), new Douse(knowledge), new Zap(knowledge, playbook), new Ranged(knowledge)));
+        List<Policy> policies = new ArrayList<>(List.of(Policies.answerPrompt(knowledge), new Heal(knowledge, playbook.bosses().goo()), new Douse(knowledge), new Zap(knowledge, playbook), new Ranged(knowledge)));
         if (model == Model.ONE_PLY) {
-            policies.add(new OnePly(knowledge));
+            policies.add(new OnePly(knowledge, playbook.bosses().goo()));
         }
-        policies.addAll(List.of(new Fight(knowledge), new Eat(knowledge),
+        policies.addAll(List.of(new Fight(knowledge, playbook.bosses().goo()), new Eat(knowledge),
                 new TestItem(knowledge, playbook), new Pickup(evaluation, knowledge), new Chests(evaluation, knowledge),
-                new Equip(evaluation, knowledge), new Descend(knowledge),
+                new Equip(evaluation, knowledge), new Descend(knowledge, playbook.bosses()),
                 new Explore(knowledge), new Plunge(knowledge), Policies.fallback(evaluation)));
         return List.copyOf(policies);
     }

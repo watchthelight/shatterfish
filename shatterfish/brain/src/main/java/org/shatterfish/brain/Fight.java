@@ -108,9 +108,15 @@ final class Fight implements Policy {
     }
 
     private final Codex.Knowledge knowledge;
+    private final org.shatterfish.api.Playbook.Goo goo;
 
     Fight(Codex.Knowledge knowledge) {
+        this(knowledge, org.shatterfish.api.Playbook.Goo.REFERENCE);
+    }
+
+    Fight(Codex.Knowledge knowledge, org.shatterfish.api.Playbook.Goo goo) {
         this.knowledge = knowledge;
+        this.goo = goo;
     }
 
     @Override
@@ -248,9 +254,9 @@ final class Fight implements Policy {
         }
         boolean favourable = favourable(observation, knowledge, threats(observation, memory, enemies, knowledge));
         RunLog.Choice retreat = retreat(observation, memory, offered, enemies, knowledge);
-        List<RunLog.Choice> goo = Goo.engage(observation, memory, offered, enemies);
-        if (goo != null) {
-            return goo;
+        List<RunLog.Choice> fight = Goo.engage(observation, memory, offered, enemies, goo);
+        if (fight != null) {
+            return fight;
         }
         List<RunLog.Choice> ranked = new ArrayList<>();
         if (!adjacent.isEmpty()) {
