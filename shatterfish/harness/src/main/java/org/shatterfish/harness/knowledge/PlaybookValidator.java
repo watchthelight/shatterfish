@@ -45,7 +45,7 @@ public final class PlaybookValidator {
     private static final Pattern SEED_CODE = Pattern.compile("[A-Z]{3}-?[A-Z]{3}-?[A-Z]{3}");
 
     /** The top-level keys, besides the sections. */
-    private static final Set<String> TOP = Set.of("format", "name", "version", "identify", "upgrade", "bosses", "classes");
+    private static final Set<String> TOP = Set.of("format", "name", "version", "identify", "kit", "upgrade", "bosses", "classes");
 
     private PlaybookValidator() {
     }
@@ -87,7 +87,7 @@ public final class PlaybookValidator {
                         problems.add("version is a whole number from 1: " + member.getValue());
                     }
                 }
-                case "identify", "upgrade" -> section(key, member.getValue(), problems);
+                case "identify", "kit", "upgrade" -> section(key, member.getValue(), problems);
                 case "bosses" -> bosses(member.getValue(), problems);
                 default -> classes(member.getValue(), heroClasses, problems);
             }

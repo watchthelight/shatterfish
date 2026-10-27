@@ -29,8 +29,8 @@ class PlaybookFileTest {
             .resolve(org.shatterfish.harness.boot.HeadlessBoot.pinnedTag());
 
     /** The 4.x Brain's Playbook as story 7.4 left it: the reference with the armour taking the scroll on a tie. */
-    private static final Playbook STORY_7_4 = new Playbook("shatterfish", 2, Playbook.Identify.REFERENCE,
-            Playbook.Upgrade.REFERENCE.with(java.util.Map.of("tie", "ARMOR")), java.util.List.of());
+    private static final Playbook STORY_7_4 = new Playbook("shatterfish", 3, Playbook.Identify.REFERENCE,
+            Playbook.Upgrade.REFERENCE.with(java.util.Map.of("tie", "ARMOR")), Playbook.Kit.REFERENCE, java.util.List.of());
 
     private static Playbook committed(String brain) {
         return PlaybookFile.read(PlaybookFile.of(SeedSetsTest.ROOT, brain), brain, CODEX);
@@ -43,9 +43,11 @@ class PlaybookFileTest {
             assertTrue(Brains.readsPlaybook(brain));
             Playbook playbook = committed(brain);
             assertEquals(brain, playbook.name());
-            // The oneply Playbook is still the first one; the 4.x Brain's has moved only by the allocation story 7.4 measured.
-            assertEquals(brain.equals(Brains.SHATTERFISH) ? STORY_7_4 : Playbook.reference(brain), playbook,
-                    brain + ": the first Playbook holds the values the constants held, and shatterfish's the ones stories since have kept");
+            // The oneply Playbook is still the first one; the 4.x Brain's base has moved only by the allocation story 7.4
+            // measured (class entries are ClassPlaybookTest's).
+            assertEquals(brain.equals(Brains.SHATTERFISH) ? STORY_7_4 : Playbook.reference(brain),
+                    new Playbook(playbook.name(), playbook.version(), playbook.identify(), playbook.upgrade(), playbook.kit(), java.util.List.of()),
+                    brain + ": the base holds the values the constants held, and shatterfish's the ones stories since have kept");
             assertEquals(playbook.canonical(), Files.readString(PlaybookFile.of(SeedSetsTest.ROOT, brain), StandardCharsets.UTF_8).strip(),
                     "the committed file is its own canonical text, so a reader sees every value");
         }

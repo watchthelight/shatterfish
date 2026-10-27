@@ -26,17 +26,18 @@ import java.util.Map;
  * Playbook's. The class entries are stored resolved, so reading a value never needs the base.
  *
  * <p>The sections are {@code identify} (which unknown potions and scrolls are tried, and where),
- * {@code upgrade} (where a scroll of upgrade goes), {@code bosses} (one entry per boss: how its
+ * {@code upgrade} (where a scroll of upgrade goes), {@code kit} (what the hero does with the items its class starts with), {@code bosses} (one entry per boss: how its
  * fight is approached and how fit the hero is sent down to it, story 7.5) and {@code classes}.
  *
  * @param name     the Playbook's name, which is the Brain's name
  * @param version  the Playbook's version, bumped when a value changes meaning or value
  * @param identify the base {@code identify} section
  * @param upgrade  the base {@code upgrade} section
- * @param classes  per hero class, the sections as that class plays them, sorted by class, each once
+ * @param kit      the base {@code kit} section
+ * @param classes  per hero class, the sections as that class plays them, sorted by class name (the order the file reader requires), each once
  * @param bosses   the {@code bosses} section, one entry per boss (story 7.5)
  */
-public record Playbook(String name, int version, Identify identify, Upgrade upgrade, List<ClassEntry> classes, Bosses bosses) {
+public record Playbook(String name, int version, Identify identify, Upgrade upgrade, Kit kit, List<ClassEntry> classes, Bosses bosses) {
 
     /** The version of the file's shape, which the reader checks. */
     public static final int FORMAT = 1;
@@ -47,22 +48,28 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
         Canon.require(version >= 1, "a Playbook's version starts at 1: " + version);
         java.util.Objects.requireNonNull(identify, "identify");
         java.util.Objects.requireNonNull(upgrade, "upgrade");
+        java.util.Objects.requireNonNull(kit, "kit");
         java.util.Objects.requireNonNull(bosses, "bosses");
-        classes = Canon.sorted(classes, Comparator.comparing(ClassEntry::heroClass), "classes");
+        classes = Canon.sorted(classes, Comparator.comparing((ClassEntry entry) -> entry.heroClass().name()), "classes");
         for (int i = 1; i < classes.size(); i++) {
             Canon.require(classes.get(i).heroClass() != classes.get(i - 1).heroClass(),
                     "a hero class is stated once: " + classes.get(i).heroClass());
         }
     }
 
-    /** A Playbook whose {@code bosses} section is the reference one: the shape the file had before story 7.5. */
+    /** A Playbook with the reference {@code bosses}, the shape story 7.6 built. */
+    public Playbook(String name, int version, Identify identify, Upgrade upgrade, Kit kit, List<ClassEntry> classes) {
+        this(name, version, identify, upgrade, kit, classes, Bosses.REFERENCE);
+    }
+
+    /** A Playbook with the reference {@code kit} and {@code bosses}, the shape the stories before 7.6 built. */
     public Playbook(String name, int version, Identify identify, Upgrade upgrade, List<ClassEntry> classes) {
-        this(name, version, identify, upgrade, classes, Bosses.REFERENCE);
+        this(name, version, identify, upgrade, Kit.REFERENCE, classes, Bosses.REFERENCE);
     }
 
     /** The Playbook of the values the Policies decided by before they were data: the file's defaults. */
     public static Playbook reference(String name) {
-        return new Playbook(name, 1, Identify.REFERENCE, Upgrade.REFERENCE, List.of(), Bosses.REFERENCE);
+        return new Playbook(name, 1, Identify.REFERENCE, Upgrade.REFERENCE, Kit.REFERENCE, List.of(), Bosses.REFERENCE);
     }
 
     /** The {@code identify} section as {@code heroClass} plays it. */
@@ -73,6 +80,16 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
             }
         }
         return identify;
+    }
+
+    /** The {@code kit} section as {@code heroClass} plays it. */
+    public Kit kit(HeroClass heroClass) {
+        for (ClassEntry entry : classes) {
+            if (entry.heroClass() == heroClass) {
+                return entry.kit();
+            }
+        }
+        return kit;
     }
 
     /** The {@code upgrade} section as {@code heroClass} plays it. */
@@ -98,12 +115,14 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
         for (ClassEntry entry : classes) {
             out.key(entry.heroClass().name()).beginObject();
             section(out, "identify", entry.identify().values());
+            section(out, "kit", entry.kit().values());
             section(out, "upgrade", entry.upgrade().values());
             out.endObject();
         }
         out.endObject();
         out.key("format").value(FORMAT);
         section(out, "identify", identify.values());
+        section(out, "kit", kit.values());
         out.key("name").value(name);
         section(out, "upgrade", upgrade.values());
         out.key("version").value(version);
@@ -159,13 +178,14 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
     public static final List<String> BOSSES = List.of("dm300", "goo", "tengu");
 
     /** The two section kinds a class may override, by section name. */
-    public static final List<String> SECTIONS = List.of("identify", "upgrade");
+    public static final List<String> SECTIONS = List.of("identify", "kit", "upgrade");
 
     /** The fields of the section named {@code section}, in file order; refuses a section the format lacks. */
     public static List<Spec> specs(String section) {
         return switch (section) {
             case "identify" -> Identify.SPECS;
             case "upgrade" -> Upgrade.SPECS;
+            case "kit" -> Kit.SPECS;
             case "bosses.goo" -> Goo.SPECS;
             case "bosses.tengu", "bosses.dm300" -> Later.SPECS;
             default -> throw new IllegalArgumentException("the Playbook has no section " + section);
@@ -476,18 +496,60 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
     }
 
     /**
+     * What the hero does with the items it starts with that only some classes hold (story 7.6): the
+     * Mage's staff, whose wand the hero zaps at an enemy in view. The base states the reference, which
+     * uses none of them, so a class without an entry plays as it did before the section existed.
+     *
+     * @param zapReach the farthest an enemy in view is zapped at with the worn staff of magic missile, in
+     *                 cells; 0 never zaps
+     */
+    public record Kit(@Heuristic("staff-zap") int zapReach) {
+
+        /** The fields, in the file's order. */
+        public static final List<Spec> SPECS = List.of(Spec.number("zap_reach", 0, 10));
+
+        /** No kit item is used: the Brain before story 7.6. */
+        public static final Kit REFERENCE = new Kit(0);
+
+        public Kit {
+            check(SPECS.get(0), zapReach);
+        }
+
+        /** The fields by name, in {@link #SPECS} order. */
+        public Map<String, Object> values() {
+            Map<String, Object> values = new LinkedHashMap<>();
+            values.put("zap_reach", (long) zapReach);
+            return values;
+        }
+
+        /** This section with the fields {@code given} states replaced; every key of {@code given} is a field. */
+        public Kit with(Map<String, Object> given) {
+            Map<String, Object> values = values();
+            values.putAll(given);
+            return new Kit(num(values, "zap_reach"));
+        }
+    }
+
+    /**
      * One hero class's sections, resolved over the base.
      *
      * @param heroClass the class
      * @param identify  the {@code identify} section as that class plays it
+     * @param kit       the {@code kit} section as that class plays it
      * @param upgrade   the {@code upgrade} section as that class plays it
      */
-    public record ClassEntry(HeroClass heroClass, Identify identify, Upgrade upgrade) {
+    public record ClassEntry(HeroClass heroClass, Identify identify, Kit kit, Upgrade upgrade) {
 
         public ClassEntry {
             java.util.Objects.requireNonNull(heroClass, "heroClass");
             java.util.Objects.requireNonNull(identify, "identify");
+            java.util.Objects.requireNonNull(kit, "kit");
             java.util.Objects.requireNonNull(upgrade, "upgrade");
+        }
+
+        /** An entry that leaves the {@code kit} at the reference, the shape before story 7.6. */
+        public ClassEntry(HeroClass heroClass, Identify identify, Upgrade upgrade) {
+            this(heroClass, identify, Kit.REFERENCE, upgrade);
         }
     }
 
