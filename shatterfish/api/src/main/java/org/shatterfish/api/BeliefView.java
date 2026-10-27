@@ -12,7 +12,8 @@ import java.util.List;
  * with the Brain's own marginal for it, never the hidden one.
  *
  * @param hash        the hash of the Belief the Wait record stores for this wait ({@link Belief#hash()}), so the
- *                    view over a log checks itself against the log
+ *                    view over a log checks itself against the log; the contents are the Beliefs of that same Belief,
+ *                    taken after the wait (the hash does not by itself prove the contents, the shared source does)
  * @param appearances every unidentified appearance the Brain tracks, with its candidates in the Brain's own
  *                    order (most likely first); the order of the appearances is the Brain's own and the Panel
  *                    sorts for display

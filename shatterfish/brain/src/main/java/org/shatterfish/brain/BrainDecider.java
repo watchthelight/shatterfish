@@ -46,13 +46,13 @@ public final class BrainDecider implements Deliberator, Rewindable {
         // Panel's "As the human ... spot a bad belief" line is about, read at the same point
         // Brain.beliefs()'s own doc names -- "holding belief (the one update returned for it)" --
         // before decide()/handed() below touch belief again.
-        Beliefs beliefs = brain.beliefs(observation, belief);
-        beliefSummary = BeliefSummaries.of(beliefs);
+        beliefSummary = BeliefSummaries.of(brain.beliefs(observation, belief));
         Brain.Decided decided = brain.decide(observation, belief);
         belief = brain.handed(observation, belief, decided);
-        // The whole view (story 8.6), tagged with the hash of the Belief the Wait record will store: the
-        // Run loop reads beliefHash() after this returns, so the view over a log checks itself against it.
-        beliefView = BeliefViews.of(beliefs, belief.hash());
+        // The whole view (story 8.6), built from the Beliefs of the Belief held now and tagged with that same
+        // Belief's hash, the one the Wait record will store (the Run loop reads beliefHash() after this
+        // returns): contents and hash come from one Belief, so the hash proves which Belief the view shows.
+        beliefView = BeliefViews.of(brain.beliefs(observation, belief), belief.hash());
         last = decided.decision();
         why = decided.why();
         highlights = decided.highlights();

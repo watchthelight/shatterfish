@@ -134,4 +134,24 @@ class BeliefViewTest {
         assertEquals(first, decider.beliefView());
         assertEquals(decider.belief().hash(), decider.beliefView().hash());
     }
+
+    /**
+     * The contents and the hash of the view come from one object (fairness review of PR 340): the view is the
+     * Beliefs of the Belief the decider holds after the wait, the one whose hash it carries, not the Beliefs
+     * taken before decide and handed.
+     */
+    @Test
+    @DisplayName("the view's contents are the Beliefs of the Belief whose hash it carries")
+    void contents_and_hash_from_one_belief() {
+        Brain brain = new Brain(Screens.CODEX, Screens.WEIGHTS, 7L);
+        BrainDecider decider = new BrainDecider(brain);
+        Observation screen = Screens.world(1, List.of(org.shatterfish.api.Tile.EMPTY, org.shatterfish.api.Tile.EMPTY,
+                        org.shatterfish.api.Tile.EMPTY), List.of(), List.of(),
+                List.of(Screens.item(ItemKind.POTION, "crimson potion", 1)), List.of());
+        for (int wait = 0; wait < 3; wait++) {
+            decider.decide(screen);
+            BeliefView view = decider.beliefView();
+            assertEquals(BeliefViews.of(brain.beliefs(screen, decider.belief()), decider.belief().hash()), view);
+        }
+    }
 }

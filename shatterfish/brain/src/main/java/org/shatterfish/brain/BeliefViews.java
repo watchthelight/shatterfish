@@ -19,7 +19,7 @@ final class BeliefViews {
     private BeliefViews() {
     }
 
-    /** {@code beliefs}, whole, tagged with {@code hash}, the hash of the Belief held at the same wait. */
+    /** {@code beliefs}, whole, tagged with {@code hash}; both come from the one Belief the decider holds after the wait. */
     static BeliefView of(Beliefs beliefs, String hash) {
         List<BeliefView.Appearance> appearances = new ArrayList<>();
         for (Beliefs.Guess guess : beliefs.identities()) {
