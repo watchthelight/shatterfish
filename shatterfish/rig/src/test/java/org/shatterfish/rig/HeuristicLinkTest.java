@@ -50,7 +50,7 @@ class HeuristicLinkTest {
             "Fight.HOLDS",
             "Fight.MARGIN_PER_MILLE",
             "Fight.RECALL_WAITS",
-            "Goo.DRINK_PER_MILLE",
+            "Playbook.Goo.drinkPerMille",
             "Heal.HORIZON",
             "Heal.REDRINK_SHARE_PER_MILLE",
             "Larder.FRUGAL",

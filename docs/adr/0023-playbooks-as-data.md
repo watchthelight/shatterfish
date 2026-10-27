@@ -81,7 +81,7 @@ and enum names only, one trailing newline.
 | `version` | the Playbook's own version, moved by hand with any value |
 | `identify` | when and how the Brain tests an unknown potion or scroll |
 | `upgrade` | where a scroll of upgrade goes, and when |
-| `bosses` | reserved, always `{}` until story 7.5; present so the shape is fixed |
+| `bosses` | one entry per boss (`dm300`, `goo`, `tengu`), story 7.5: how the fight is approached and how fit the hero is sent down to it |
 | `classes` | per hero class, only the values that class changes |
 
 `identify` holds `healing_odds_per_mille`, `gain_odds_per_mille`, `inventory_odds_per_mille`
@@ -90,6 +90,13 @@ holds `weapon_lead` (-5 to 5), `tie` (`ARMOR` or `WEAPON`), `hold_until_depth` (
 `unknown_weapon` (`NO` or `YES`; story 7.4, which also moved the committed `tie` to `ARMOR`). Odds are per-mille integers, so the file
 has no floats; `permille / 1000.0` gives the same double the old literals gave (0.2, 0.25).
 The Brain's `walks` value is `2 * reach`, derived, so there is one number to edit.
+
+`bosses.goo` holds `descent_rest_per_mille` (1 to 1000: the share of the hit points the hero rests up to beside the stairs down to depth 5),
+`drink_per_mille` (1 to 1000: the share at or under which a healing potion is drunk against Goo alone), `meet_range` and `wash_range` (0 to 12 Steps:
+the walk to ground a pump can be dodged on, and to water for caustic ooze). `bosses.tengu` and `bosses.dm300` hold `descent_rest_per_mille` and `status`
+(`UNTESTED` or `TESTED`); an `UNTESTED` entry holds the reference values and nothing has been measured on it. No boss entry holds a layout,
+a cell or a coordinate: the validator refuses the words, and the Brain reads the boss from the screen. The key names avoid `position` and `room`, which
+the validator reads as places.
 
 The Java type is the schema. `Playbook.Identify.SPECS` and `Playbook.Upgrade.SPECS` declare each key,
 its range or its allowed names, and both the record constructors and `PlaybookValidator` read them,
