@@ -24,11 +24,6 @@ import java.nio.file.Path;
 record ReplaySession(RunLog.Header header, LogFollower follower, int waits) {
 
     /**
-     * Opens {@code file} to play it.
-     *
-     * @throws IllegalArgumentException with the reason in words, when the log cannot be played
-     */
-    /**
      * The interface size the log was played on, which the replay plays on too: the Observation carries log text that
      * changes with it, so a Rig log (headless driver, states nothing, size 0) replayed on the Overlay's size 1 would
      * differ at its first wait that mentions it. An Overlay log states its own.
@@ -37,8 +32,21 @@ record ReplaySession(RunLog.Header header, LogFollower follower, int waits) {
         return header.interfaceSize() >= 0 ? header.interfaceSize() : 0;
     }
 
+    /**
+     * Opens {@code file} to play it.
+     *
+     * <p>A log played with a game controller connected is refused: the Observation's log text changes with the
+     * controller, and a replay has no controller to give it, so the first wait that mentions one would be a false
+     * mismatch.
+     *
+     * @throws IllegalArgumentException with the reason in words, when the log cannot be played
+     */
     static ReplaySession load(Path file) {
         Replay.Opened opened = Replay.open(file);
+        if (opened.header().controller() > 0) {
+            throw new IllegalArgumentException("this log was played with a game controller connected, which a replay"
+                    + " cannot reproduce: the game words its messages differently");
+        }
         LogFollower follower = LogFollower.stopping(opened.log());
         return new ReplaySession(opened.header(), follower, follower.total());
     }

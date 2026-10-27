@@ -237,6 +237,46 @@ class ReplaySessionTest {
     }
 
     @Test
+    @DisplayName("a game that ends some other way than the log says is a mismatch, not a clean replay")
+    void a_different_ending_is_a_mismatch(@TempDir Path folder) throws IOException {
+        // The log is the short Rig Run, which ends at its turn cap; here its end record says the hero died. Every
+        // wait still matches, so only the ending differs. Before the ending was compared this replay ended clean
+        // (zero mismatches) and the test's halt assertions failed.
+        Path forged = forgeEnding(shortLog, folder.resolve("ending.jsonl"), "DEATH");
+        try (Session session = new Session(forged, SALT)) {
+            assertTrue(session.controls.pauseResume(), "Resume");
+            assertTrue(session.controls.cycleSpeed(), "Fast as it can");
+            session.until(() -> false);
+            assertEquals(EmbeddedRun.State.ENDED, session.run.state());
+            Halting.Halt halt = session.loaded.follower().halted();
+            assertNotNull(halt, "the endings differ and the replay says so");
+            assertEquals(Halting.Kind.MISMATCH, halt.kind());
+            assertTrue(halt.why().contains("the game ended TURN_CAP and the log ended DEATH"), halt.why());
+            String over = ModeStripContent.text(session.controls.view(new ModeState(Mode.RUNNING,
+                    ModeState.SpeedMode.NORMAL, 0, 0, 1, false, true, session.run.snapshot().ending())));
+            assertTrue(over.startsWith("RUN OVER: replay stopped: the ending differs"), over);
+        }
+    }
+
+    @Test
+    @DisplayName("a log the Overlay wrote (driver embedded, interface size stated) plays to its end with zero mismatches")
+    void an_overlay_log_plays_to_its_end(@TempDir Path folder) {
+        Path log = HostBridge.overlayLog(folder.resolve("overlay"), SEED, HeroClass.WARRIOR, SALT, 150);
+        try (Session session = new Session(log, SALT)) {
+            assertEquals(RunLog.Header.EMBEDDED, session.loaded.header().driver());
+            assertTrue(session.loaded.header().interfaceSize() >= 0, "an Overlay log states its screen");
+            assertEquals(session.loaded.header().interfaceSize(), session.loaded.interfaceSize());
+            assertTrue(session.controls.pauseResume(), "Resume");
+            assertTrue(session.controls.cycleSpeed(), "Fast as it can");
+            session.until(() -> false);
+            assertEquals(EmbeddedRun.State.ENDED, session.run.state());
+            assertNull(session.loaded.follower().halted(), "zero mismatches");
+            assertEquals(session.loaded.waits(), session.loaded.follower().verified());
+            assertEquals(endOf(log).outcome().cause(), session.run.outcome().cause().name());
+        }
+    }
+
+    @Test
     @DisplayName("a log with one byte flipped does not verify and is refused, with no game started")
     void a_flipped_byte_is_refused(@TempDir Path folder) throws IOException {
         String text = Files.readString(rigLog, StandardCharsets.UTF_8);
@@ -284,6 +324,23 @@ class ReplaySessionTest {
             }
         }
         return files;
+    }
+
+    /** The log with its end record's cause changed and the chain written again. */
+    static Path forgeEnding(Path from, Path to, String cause) throws IOException {
+        StringBuilder out = new StringBuilder();
+        String previous = "";
+        for (RunLog record : RunLogReader.of(from).records()) {
+            if (record instanceof RunLog.End end) {
+                RunLog.Outcome o = end.outcome();
+                record = new RunLog.End(end.k(), new RunLog.Outcome(false, false, o.score(), o.depth(), o.turns(),
+                        cause, o.bosses()), end.verifiable(), end.detail());
+            }
+            out.append(RunLogJson.line(previous, record)).append('\n');
+            previous = RunLogJson.chain(previous, record);
+        }
+        Files.writeString(to, out.toString(), StandardCharsets.UTF_8);
+        return to;
     }
 
     /** The log with the Observation of wait {@code k} changed in one section and the chain written again: a forged, valid log. */

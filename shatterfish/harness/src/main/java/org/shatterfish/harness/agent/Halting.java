@@ -34,4 +34,18 @@ public interface Halting {
 
     /** The halt, or null while the decider plays on. */
     Halt halted();
+
+    /**
+     * Compares how the Run ended on its own (it died, won or reached the cap) with how the log says it ended.
+     * A difference is a mismatch like any other: it becomes the halt, and the phrase for the Run-over line is
+     * returned. The Run asks only when nothing has halted it, and never for a Run a person closed.
+     *
+     * @param cause       the Run's ending cause, as the log's end record names it
+     * @param depth       the floor it ended on
+     * @param thousandths the turns it took, in the unit the log's end record counts them
+     * @return what differs, or null when the endings agree or the decider has no ending to compare
+     */
+    default String checkEnding(String cause, int depth, long thousandths) {
+        return null;
+    }
 }

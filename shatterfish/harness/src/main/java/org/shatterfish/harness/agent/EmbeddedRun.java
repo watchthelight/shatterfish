@@ -1685,6 +1685,13 @@ public final class EmbeddedRun implements AutoCloseable {
             pending = null;
         }
         outcome = RunLoop.outcome(cause, rng.salt(), waits, applied, refused, detail);
+        if (!suspending && endingWord == null && outcome.ordinary() && brain instanceof Halting replay) {
+            // A replay whose game ended some other way than the log says is a mismatch too (story 8.5).
+            String differs = replay.checkEnding(cause.name(), outcome.depth(), RunLoop.thousandths());
+            if (differs != null) {
+                endingWord = "replay stopped: " + differs;
+            }
+        }
         withheld = false;
         withheldDecision = null;
         withheldTrouble = null;

@@ -120,4 +120,15 @@ class ReplayLoadTest {
         ReplaySession session = ReplaySession.load(overlay);
         assertEquals(1, session.interfaceSize());
     }
+
+    @Test
+    @DisplayName("a log played with a game controller connected is refused: a replay cannot give the game one")
+    void a_controller_log_is_refused(@TempDir Path folder) throws IOException {
+        Path controller = spoiled(folder, h -> new RunLog.Header(h.v(), h.tag(), h.commit(), h.heroClass(),
+                h.challenges(), h.seed(), h.seedCode(), h.salt(), h.cap(), h.profile(), h.obsv(), h.codex(),
+                h.brain(), h.registration(), h.oracle(), h.machine(), h.started(), "embedded", 1, 1));
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> ReplaySession.load(controller));
+        assertTrue(refused.getMessage().contains("game controller"), refused.getMessage());
+    }
 }

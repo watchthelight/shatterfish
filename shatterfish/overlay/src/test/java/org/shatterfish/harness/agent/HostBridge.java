@@ -17,6 +17,8 @@ import java.util.stream.Stream;
 public final class HostBridge implements AutoCloseable {
 
     private final EmbeddedHost host;
+    /** The interface size to put back at close, or -1 when this bridge never changed it. */
+    private int sizeBefore = -1;
 
     /** A host for a seeded Run at the desktop's sixtieth of a second a frame, the frames going on while the Brain thinks. */
     public HostBridge(long seed, HeroClass heroClass, long salt) {
@@ -43,6 +45,9 @@ public final class HostBridge implements AutoCloseable {
 
     /** Sets the game's interface size, as the Overlay does (it plays size 1, the Rig's headless driver size 0). */
     public HostBridge interfaceSize(int size) {
+        if (sizeBefore < 0) {
+            sizeBefore = SPDSettings.interfaceSize();
+        }
         SPDSettings.interfaceSize(size);
         return this;
     }
@@ -77,6 +82,30 @@ public final class HostBridge implements AutoCloseable {
         host.frameTime = seconds;
     }
 
+    /** Plays frames until the Run ends (or {@code maxFrames} pass), as the Overlay's loop would. */
+    public EmbeddedRun.State play(long maxFrames) {
+        return host.play(maxFrames);
+    }
+
+    /**
+     * A Run played by the Overlay's own kind of host (the embedded driver, interface size 1, a Brain that is
+     * answered with a wait when it fails), its log written into {@code folder}: the log an Overlay Run leaves
+     * behind, for story 8.5's tests of replaying one.
+     *
+     * @return the log file
+     */
+    public static Path overlayLog(Path folder, long seed, HeroClass heroClass, long salt, int turnCap) {
+        try (HostBridge host = new HostBridge(seed, heroClass, salt).likeTheOverlay().interfaceSize(1)) {
+            host.attachBrain(folder, turnCap);
+            host.play(5_000_000L);
+        }
+        try (Stream<Path> files = Files.list(folder)) {
+            return files.filter(file -> file.toString().endsWith(".jsonl")).findFirst().orElseThrow();
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+    }
+
     /** Whether the frame about to run would only wait on the Brain's worker, as the desktop's frames do. */
     public boolean waitingOnTheBrain() {
         return host.waitingOnTheBrain();
@@ -90,5 +119,9 @@ public final class HostBridge implements AutoCloseable {
     @Override
     public void close() {
         host.close();
+        if (sizeBefore >= 0) {
+            // The headless driver plays only the compact interface, so the size is not left changed for the next test.
+            SPDSettings.interfaceSize(sizeBefore);
+        }
     }
 }

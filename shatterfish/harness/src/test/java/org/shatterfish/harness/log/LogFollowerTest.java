@@ -68,6 +68,22 @@ class LogFollowerTest {
     }
 
     @Test
+    @DisplayName("checkEnding: the same ending is no difference; another cause, floor or turn count is a mismatch halt")
+    void the_ending_is_compared(@TempDir Path folder) throws IOException {
+        RunLogReader.Log log = endedAtOnce(folder);
+        assertNull(LogFollower.stopping(log).checkEnding("TURN_CAP", 1, 0), "the log ended TURN_CAP on floor 1 at 0");
+
+        LogFollower cause = LogFollower.stopping(log);
+        String why = cause.checkEnding("DEATH", 1, 0);
+        assertTrue(why.contains("the game ended DEATH and the log ended TURN_CAP"), why);
+        assertEquals(Halting.Kind.MISMATCH, cause.halted().kind());
+
+        assertTrue(LogFollower.stopping(log).checkEnding("TURN_CAP", 2, 0).contains("floor 2"));
+        assertTrue(LogFollower.stopping(log).checkEnding("TURN_CAP", 1, 5000).contains("5000"));
+        assertNull(LogFollower.strict(log).checkEnding("DEATH", 1, 0), "the Rig's follower throws instead; it keeps its own rule");
+    }
+
+    @Test
     @DisplayName("a halt is kept until it is rewound, and a halted follower applies nothing more")
     void rewinding(@TempDir Path folder) throws IOException {
         LogFollower follower = LogFollower.stopping(endedAtOnce(folder));

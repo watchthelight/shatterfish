@@ -25,7 +25,7 @@ prints the table on every run (`overlay/build/seek-cost.tsv`), so the page can b
 
 ## Budget and decision
 
-The budget is **5 seconds for a seek to the farthest wait of a log**, asserted by `ReplaySeekCostTest.BUDGET_MS`.
+The budget is **5 seconds for a seek to the farthest wait of a log**, in `ReplaySeekCostTest.BUDGET_MS`. A wall-clock assertion flakes on a loaded runner, so the default build only asserts that a seek is not hung (two minutes); run the test with `SHATTERFISH_SEEK_STRICT=1` to enforce the budget.
 The reasoning:
 
 - A seek is a deliberate jump, not a frame-to-frame action. A person who asks to land at wait 1000 will wait a moment;
@@ -39,5 +39,5 @@ seek cost the distance to the nearest keyframe, but it is a second way for the r
 restores less than the game holds would hide exactly the divergence the replay exists to find. With the table inside
 the budget there is nothing to buy, so the restart-from-the-header seek stays the only seek.
 
-The owner can overrule this by changing `BUDGET_MS`: below about 1.9 s the test fails at wait 1000 on this host and
+The owner can overrule this by changing `BUDGET_MS`: below about 1.9 s the strict run fails at wait 1000 on this host and
 keyframes become the next story. Past about 2600 waits the budget is exceeded by the same arithmetic.

@@ -214,27 +214,21 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
     }
 
     /**
-     * Starts a replay (story 8.5): the log is opened again here, so what plays is what verifies now, and its tuple
-     * starts the game. A log that cannot be played starts no game and no Run: the reason is the Panel's to say.
+     * Starts a replay (story 8.5): {@link ReplayStart} opens the log again and decides whether it is played (the log
+     * must be the one the launcher read, and the window must allow the interface size it was played on). A log that
+     * cannot be played starts no game and no Run: the reason is the Panel's to say.
      *
      * @return whether a Run was attached and the play scene is wanted
      */
     private boolean createReplay() {
-        ReplaySession session;
-        try {
-            if (options.refused() != null) {
-                throw new IllegalArgumentException(options.refused());
-            }
-            session = ReplaySession.load(options.replay());
-        } catch (IllegalArgumentException | java.io.UncheckedIOException cannot) {
-            Gdx.app.log("shatterfish", "the log " + options.replay() + " is not played: " + cannot.getMessage());
-            dock.refusal("REPLAY REFUSED: " + cannot.getMessage());
+        ReplayStart start = ReplayStart.prepare(options);
+        if (start.refusal() != null) {
+            Gdx.app.log("shatterfish", "the log " + options.replay() + " is not played: " + start.refusal());
+            dock.refusal("REPLAY REFUSED: " + start.refusal());
             return false;
         }
-        // The log's own interface size, so a Rig log is played on the screen it was recorded on (the headless
-        // driver's, size 0; an Overlay log states its own): the size changes the log text an Observation carries.
+        ReplaySession session = start.session();
         interfaceSize = session.interfaceSize();
-        SPDSettings.interfaceSize(interfaceSize);
         NewGame.begin(session.header().seed(), options.heroClass(), rng);
         run = EmbeddedRun.attach(this, session.header().seed(), options.heroClass(), rng, session.follower(), observer,
                 null, session.header().cap());

@@ -68,8 +68,12 @@ public final class LogFollower implements Deliberator, Rewindable, Halting {
     /** Where a stopping follower halted; written on the Brain's worker, read on the render thread after its Future. */
     private volatile Halting.Halt halt;
 
+    /** The ending the log records, or null for a log that did not reach one. */
+    private final RunLog.End recordedEnd;
+
     private LogFollower(RunLogReader.Log log, boolean stopping) {
         this.waits = List.copyOf(log.waits());
+        this.recordedEnd = log.end();
         this.brainError = brainError(log);
         // The log's own end record is believed when it says the Run was not verifiable, even if
         // no surviving `unsupported` mark says which wait: a writer that marked its Run
@@ -155,6 +159,31 @@ public final class LogFollower implements Deliberator, Rewindable, Halting {
         verified++;
         followed = wait;
         return wait.action();
+    }
+
+    @Override
+    public String checkEnding(String cause, int depth, long thousandths) {
+        if (!stopping || halt != null || recordedEnd == null) {
+            return null;
+        }
+        RunLog.Outcome recorded = recordedEnd.outcome();
+        String difference = null;
+        if (verified < waits.size()) {
+            difference = "the game ended " + cause + " after " + verified + " of the log's " + waits.size() + " waits";
+        } else if (!recorded.cause().equals(cause)) {
+            difference = "the game ended " + cause + " and the log ended " + recorded.cause();
+        } else if (recorded.depth() != depth) {
+            difference = "the game ended on floor " + depth + " and the log on floor " + recorded.depth();
+        } else if (recorded.turns() != thousandths) {
+            difference = "the game ended after " + thousandths + " thousandths of turns and the log after "
+                    + recorded.turns();
+        }
+        if (difference == null) {
+            return null;
+        }
+        String why = "the ending differs: " + difference;
+        halt = new Halting.Halt(recordedEnd.k(), Halting.Kind.MISMATCH, why, why);
+        return why;
     }
 
     private Action stop(long wait, Halting.Kind kind, String why, String detail) {
