@@ -52,7 +52,7 @@ class PlaybookEquivalenceTest {
 
     /** The upgrade section the constants held, and the one story 7.4 measured and kept. */
     private static final String UPGRADE_7_2 = "\"upgrade\":{\"hold_until_depth\":0,\"tie\":\"WEAPON\",\"unknown_weapon\":\"NO\",\"weapon_lead\":0}";
-    private static final String UPGRADE_7_4 = "\"upgrade\":{\"hold_until_depth\":0,\"tie\":\"ARMOR\",\"unknown_weapon\":\"NO\",\"weapon_lead\":0}";
+    private static final String UPGRADE_7_4 = "\"upgrade\":{\"armour_pick\":\"WORN\",\"hold_until_depth\":0,\"tie\":\"ARMOR\",\"unknown_weapon\":\"NO\",\"weapon_lead\":0}";
 
     /**
      * Values that change what the Brain does on a screen with an unknown potion or scroll: it drinks only
