@@ -27,7 +27,10 @@ Documentation: **<https://watchthelight.github.io/shatterfish/>**. The
 | E3 Rig | Parallel seeded Runs, hash-chained Run logs, replay, SPRT with calibrated bounds, results pages, a nightly job, a death gallery | done |
 | E4 Baseline brain | A hand-built bot that plays the sewers competently; done when the Warrior kills Goo on at least 75% of the `goo` Seed set | **in progress** |
 | E5 Overlay v1 | The bot inside the desktop game: watch it think, step it, take the controls mid-fight | **in progress** |
-| E6–E9 | Tactical search, strategy and lore, overlay v2, learned evaluation | planned |
+| E6 Tactical search | Search candidates measured against the one-ply model; the measurements are published and the one-ply model stays | done |
+| E7 Strategy and lore | Playbooks as data (identification, upgrades, bosses, classes), the Lore intake, and a measured win rate: 0/500 on `standard`, reach depth 5 up from 95 to 206 of 500 ([results](docs/results/2026-10-27-7-10-the-measured-win-rate.md)) | done |
+| E8 Overlay v2 | Explain with its terms, Pause-on conditions, a replay scrubber with the Beliefs view, coach mode and autoexplore | **in progress** |
+| E9 | Learned evaluation (optional) | planned |
 
 E4 so far, story by story (each merged with a fairness review, a code review, a
 mutation battery and a direction check on the `smoke` Seed set):
