@@ -4,9 +4,12 @@ import org.shatterfish.api.Action;
 import org.shatterfish.api.ActorView;
 import org.shatterfish.api.Alignment;
 import org.shatterfish.api.Observation;
+import org.shatterfish.api.RunLog;
 import org.shatterfish.api.Weights;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The one scoring function (story 4.5, FR-33): a weighted sum of features read from the
@@ -90,20 +93,7 @@ final class Evaluation {
 
     /** The score of the screen as it stands. */
     long position(Observation observation) {
-        var hero = observation.hero();
-        long hp = hero.ht() <= 0 ? 0 : 1000L * Math.max(0, hero.hp()) / hero.ht();
-        long enemies = 0;
-        for (ActorView actor : observation.actors().actors()) {
-            if (actor.alignment() == Alignment.ENEMY) {
-                enemies++;
-            }
-        }
-        long score = term(HP, hp);
-        score = Math.addExact(score, term(DEPTH, observation.header().depth()));
-        score = Math.addExact(score, term(LEVEL, hero.level()));
-        score = Math.addExact(score, term(STRENGTH, hero.strength() + hero.strengthBonus()));
-        score = Math.addExact(score, term(HUNGER, hunger(hero.hunger())));
-        return Math.addExact(score, term(ENEMIES, enemies));
+        return sum(parts(observation, null));
     }
 
     /** How hungry the screen says the hero is. A switch, so a new state must be given a value here. */
@@ -161,20 +151,76 @@ final class Evaluation {
 
     /** The score of taking {@code action} from this screen: the position's, plus the Action's own. */
     long of(Observation observation, Action action) {
-        long score = position(observation);
-        var hero = observation.hero();
-        if (action instanceof Action.Rest) {
-            long hp = hero.ht() <= 0 ? 1000 : 1000L * Math.max(0, hero.hp()) / hero.ht();
-            score = Math.addExact(score, term(REST_HURT, 1000 - Math.min(1000, hp)));
-        } else if (action instanceof Action.Attack) {
-            score = Math.addExact(score, term(ATTACK, 1));
-        } else if (action instanceof Action.Descend) {
-            score = Math.addExact(score, term(DESCEND, 1));
-        } else if (action instanceof Action.Search) {
-            score = Math.addExact(score, term(SEARCH, 1));
-        } else if (action instanceof Action.Wait) {
-            score = Math.addExact(score, term(WAIT, 1));
+        return sum(parts(observation, action));
+    }
+
+    /**
+     * The same score, as the terms it is the sum of (story 8.1): each non-zero feature's weighted
+     * contribution, in the order {@link #FEATURES} lists them, from one computation with the score.
+     * A feature that contributes nothing is left out, so a record never carries zeros.
+     */
+    Scored scored(Observation observation, Action action) {
+        Map<String, Long> parts = parts(observation, action);
+        List<RunLog.Term> terms = new ArrayList<>();
+        for (Map.Entry<String, Long> part : parts.entrySet()) {
+            if (part.getValue() != 0) {
+                terms.add(new RunLog.Term(part.getKey(), part.getValue()));
+            }
+        }
+        return new Scored(sum(parts), List.copyOf(terms));
+    }
+
+    /** A score and the terms that add up to it. */
+    record Scored(long score, List<RunLog.Term> terms) {
+    }
+
+    private static long sum(Map<String, Long> parts) {
+        long score = 0;
+        for (long part : parts.values()) {
+            score = Math.addExact(score, part);
         }
         return score;
+    }
+
+    /**
+     * Every feature's weighted contribution, in {@link #FEATURES} order, for the screen and, when
+     * {@code action} is not null, the Action taken from it. The one place the features are read, so
+     * a score and its terms cannot disagree.
+     */
+    private Map<String, Long> parts(Observation observation, Action action) {
+        var hero = observation.hero();
+        long hp = hero.ht() <= 0 ? 0 : 1000L * Math.max(0, hero.hp()) / hero.ht();
+        long enemies = 0;
+        for (ActorView actor : observation.actors().actors()) {
+            if (actor.alignment() == Alignment.ENEMY) {
+                enemies++;
+            }
+        }
+        Map<String, Long> unordered = new java.util.HashMap<>();
+        unordered.put(HP, term(HP, hp));
+        unordered.put(DEPTH, term(DEPTH, observation.header().depth()));
+        unordered.put(LEVEL, term(LEVEL, hero.level()));
+        unordered.put(STRENGTH, term(STRENGTH, hero.strength() + hero.strengthBonus()));
+        unordered.put(HUNGER, term(HUNGER, hunger(hero.hunger())));
+        unordered.put(ENEMIES, term(ENEMIES, enemies));
+        if (action instanceof Action.Rest) {
+            long hpAll = hero.ht() <= 0 ? 1000 : 1000L * Math.max(0, hero.hp()) / hero.ht();
+            unordered.put(REST_HURT, term(REST_HURT, 1000 - Math.min(1000, hpAll)));
+        } else if (action instanceof Action.Attack) {
+            unordered.put(ATTACK, term(ATTACK, 1));
+        } else if (action instanceof Action.Descend) {
+            unordered.put(DESCEND, term(DESCEND, 1));
+        } else if (action instanceof Action.Search) {
+            unordered.put(SEARCH, term(SEARCH, 1));
+        } else if (action instanceof Action.Wait) {
+            unordered.put(WAIT, term(WAIT, 1));
+        }
+        Map<String, Long> ordered = new java.util.LinkedHashMap<>();
+        for (String feature : FEATURES) {
+            if (unordered.containsKey(feature)) {
+                ordered.put(feature, unordered.get(feature));
+            }
+        }
+        return ordered;
     }
 }

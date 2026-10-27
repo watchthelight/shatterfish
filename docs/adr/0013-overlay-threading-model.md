@@ -827,3 +827,27 @@ length (see ADR-0007's story 5.13 amendment). The Search-then-tap loss recorded 
 cause and is fixed with it. Fast as it can no longer waits for the animation interval: the Overlay sets
 `Game.elapsed` to one second a frame there, which needs no hook. The Rig still refuses `driver: embedded` logs
 until the headless driver plays the Overlay's interface size (issue #169).
+
+## Amendment: story 8.3 (2026-10-27): Pause-on conditions
+
+A Pause-on condition (FR-45) is looked at in the per-wait sequence at one place: the render thread's frame, after
+the Brain's Decision for the wait in front has landed and before any credit lets it execute.
+
+- **Where.** `ControlState.frame` asks the Run, through `Seam.pending()`, for the wait in front (its index, the
+  Observation the Decision was made on, the Decision). Each wait is looked at once. In RUNNING, `PauseOn.first`
+  returns the first enabled condition that holds, and the Overlay moves to PAUSED at that wait with the Decision
+  still pending. The Decision card already shows a pending Decision, so it shows the one about to run; Resume or
+  Next Step then pays for it. The pause costs no wait and changes no Action. A wait looked at in PAUSED or HUMAN
+  fires nothing, and a Resume does not fire the condition it resumed from.
+- **Held at Fast.** Fast as it can lets the Run go, which would execute a Decision as it lands. With any condition
+  enabled the Run stays held at Fast and `ControlState` gives the credit in the same frame when no condition holds,
+  so a Decision is always looked at first. A Run whose agent gives no Decision to show (the random agent) has no pending wait to look at, so no condition stops it; only the Brain's Runs are stopped. With none enabled (the default) nothing about Fast changes.
+- **The log.** The pause is a `mode` record, `PAUSED`, with the speed mode's word, at the pending wait's index and
+  before that wait's record, as a hand back's is (`EmbeddedRun.pausedOn`). No record kind and no chained field is
+  added. A Run nobody paused is byte for byte what it was.
+- **Edges.** A boss floor and a low HP are states, so they fire when entered (the first wait on the floor, the first
+  wait under the threshold after one above it), not at every wait of the stretch. Nothing is a new enemy at the
+  first wait looked at, and `ControlState.settings(...)` forgets the wait before so a change of settings starts
+  afresh.
+- **Parity.** `PauseOn` reads the Observation, the Decision and a record drawn from the previous wait's
+  Observation, and the Codex's boss depths. It reads no hidden state.

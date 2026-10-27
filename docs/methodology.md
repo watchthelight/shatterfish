@@ -932,6 +932,7 @@ wrong about this format in both directions, so here is the per-field truth:
 | `prev` (on the header) | the key is absent -- nothing comes before it |
 | `registration` (on the header) | written as `""` |
 | `alternatives`, `flags` (inside a decision) | written as `[]` |
+| `terms` (inside a choice), `search` (inside a decision) | the key is absent (story 8.1) |
 | `machine`, `started` | always written, and never chained |
 | `cap` (on the header) | always written; a Run has no unbounded form |
 

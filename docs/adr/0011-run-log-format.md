@@ -351,3 +351,37 @@ JSON object per line, written by `harness/log/DebugRecord` and called from `RunL
   distance, the Decision that was taken instead), from which the reason is read.
 - **Known limit.** The new log lines are the lines after the longest overlap with the last wait's
   window; a line repeated verbatim at the seam of a full 64-line window can be missed.
+
+## Amendment: story 8.1 (2026-10-27): Evaluation terms and Search outcomes in the Decision
+
+The Explain expansion (story 8.2, FR-44) needs two things a Decision did not carry: the Evaluation terms
+behind a score, and, when a Search ran, what it expected of each Action. They enter the format as two
+members inside the existing `decision`, written only when they have something to say.
+
+| Where | Member | Holds | Written |
+|---|---|---|---|
+| each `chosen` and `alternatives` entry | `terms` | a list of `{feature, value}`: the feature's name and its weighted contribution in ten-thousandths, in the order the Evaluation lists its features | only when the Evaluation scored the Choice |
+| `decision` | `search` | a list of `{action, outcome, samples}`: an Action, its expected outcome in ten-thousandths, and the sample count behind it | only when a Search ran |
+
+**Which of two ways.** (1) Absent-when-empty members inside the existing record, the schema version
+staying 2, as `detail`, `driver` and `skipped` entered. (2) Version 3: the header's `v` rises and every
+Decision writes the members. Version 3 would make every log written so far unreadable to a build that
+refuses a different `v`, would change the chained text of every wait ever written if the members were
+always present, and buys nothing the first form lacks, since a reader that does not know the members
+sees a Decision it already understood. (1) is chosen. A third way, a new record kind beside the wait,
+was ruled out by the planning of Epic 8 and would need its own ADR; none is written.
+
+**What does and does not change.** A log written before this amendment has no `terms` and no `search`,
+so it reads and writes back to the same bytes and keeps its chain (`DecisionRecordCompatibilityTest`
+holds every committed Run log to that). A log the Brain writes now differs from one it wrote before in
+exactly the fallback Policy's Choices, which gain `terms`: the members are chained, as the rest of
+the Decision is, so the chain of a freshly written Run differs from the same Run's before this change
+while its waits' `obs`, `action` and `applied` are identical. The Brain's Actions are unchanged;
+that is shown per story by comparing the Action list of each Run of a `smoke` pass before and after.
+
+**The sum rule.** A `Choice` whose terms do not sum to its `score` is refused at construction. The
+fallback Policy records the chance of drawing the Action from its tier as its score, not the
+Evaluation's worth (Policies, `fallback`), so its list ends with one extra term named `tier` that
+carries the difference. The terms before it are the Evaluation's own, from the call that produced the
+tier. A Policy that scores nothing through the Evaluation records no `terms`, not zeros. Search never
+shipped (ADR-0010), so no Brain writes `search` yet.

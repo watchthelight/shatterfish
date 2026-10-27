@@ -151,11 +151,15 @@ final class Policies {
                                               Stream stream) {
                 // The tiers, highest score first, each in the order the screen offers its Actions.
                 java.util.TreeMap<Long, List<Action>> tiers = new java.util.TreeMap<>(Comparator.reverseOrder());
+                // Each Action's terms, from the same call that scored it (story 8.1), never a second one.
+                java.util.Map<Action, List<RunLog.Term>> termsOf = new java.util.HashMap<>();
                 // Never an item use -- eating among them, which is the eat Policy's (story 4.9) --
                 // unless item uses are all the screen offers: a Run is not ended for want of one.
                 List<Action> drawn = offered.stream().filter(action -> !usesItem(action)).toList();
                 for (Action action : drawn.isEmpty() ? offered : drawn) {
-                    tiers.computeIfAbsent(evaluation.of(observation, action), score -> new ArrayList<>()).add(action);
+                    Evaluation.Scored scored = evaluation.scored(observation, action);
+                    termsOf.put(action, scored.terms());
+                    tiers.computeIfAbsent(scored.score(), score -> new ArrayList<>()).add(action);
                 }
                 boolean alike = tiers.size() <= 1;
                 List<RunLog.Choice> ranked = new ArrayList<>();
@@ -168,12 +172,38 @@ final class Policies {
                     // The pick and at most as many alternatives as a Decision records: drawing more
                     // would record nothing, and the stream is this wait's alone.
                     while (!left.isEmpty() && ranked.size() <= RunLog.Decision.ALTERNATIVES) {
-                        ranked.add(new RunLog.Choice(left.remove(stream.below(left.size())), score, why));
+                        Action drew = left.remove(stream.below(left.size()));
+                        ranked.add(new RunLog.Choice(drew, score, why, explained(termsOf.get(drew), score)));
                     }
                     top = false;
                 }
                 return ranked;
             }
         };
+    }
+
+    /** The name of the closing term that carries a worth over into a chance of being drawn. */
+    static final String TIER = "tier";
+
+    /**
+     * The terms behind a fallback Choice's recorded score (story 8.1). The Evaluation's terms sum to
+     * the Action's worth, and the score recorded is the chance of its draw from its tier, so the two
+     * differ; a closing {@code tier} term carries the difference, which keeps the one rule that a
+     * list of terms sums to the score it explains. Nothing scored, nothing recorded.
+     */
+    private static List<RunLog.Term> explained(List<RunLog.Term> worth, long score) {
+        if (worth.isEmpty()) {
+            return List.of();
+        }
+        long sum = 0;
+        for (RunLog.Term term : worth) {
+            sum = Math.addExact(sum, term.contribution());
+        }
+        if (sum == score) {
+            return worth;
+        }
+        List<RunLog.Term> all = new ArrayList<>(worth);
+        all.add(new RunLog.Term(TIER, Math.subtractExact(score, sum)));
+        return List.copyOf(all);
     }
 }
