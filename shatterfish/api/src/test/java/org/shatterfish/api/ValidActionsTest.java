@@ -331,7 +331,7 @@ class ValidActionsTest {
         // can open the bag. An entry dropped from either table is an Action in the wrong shape or
         // an Action never offered, which is what this holds.
         List<String> atACell = List.of("THROW", "ZAP", "LIGHTTHROW", "CAST", "ABILITY", "SCRY", "STEAL",
-                "INSERT", "ROOT");
+                "INSERT", "ROOT", "SHOOT");
         List<String> onAnItem = List.of("READ", "USE", "AFFIX", "IMBUE", "ADD", "FEED", "STORE", "IDENTIFY",
                 "APPLY", "INSCRIBE", "TIP", "TRANSFER", "OUTFIT");
 
