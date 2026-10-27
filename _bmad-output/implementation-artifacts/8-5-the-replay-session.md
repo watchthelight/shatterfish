@@ -2,7 +2,7 @@
 title: 'Story 8.5: The Replay session'
 type: 'feature'
 created: '2026-10-27'
-status: 'ready-for-dev'
+status: 'review'
 baseline_commit: 'ef7b427bb'
 review_loop_iteration: 0
 context: []
