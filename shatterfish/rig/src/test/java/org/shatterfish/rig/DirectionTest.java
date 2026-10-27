@@ -249,6 +249,34 @@ class DirectionTest {
     }
 
     @Test
+    @DisplayName("upgrades by depth 5 (story 7.4): scrolls picked up from the heap record, windows answered from the Decisions")
+    void upgrades(@TempDir Path root) throws IOException {
+        Path folder = Files.createDirectories(root.resolve("current"));
+        List<RunLog.Wait> waits = new ArrayList<>();
+        // Two upgrade windows answered on depth 2 and 4, one on depth 6 (not counted), and a plain Answer that is no upgrade.
+        waits.add(wait(0, 2, new Action.AnswerPrompt(0), "upgrade: cloth armor", "answer-prompt"));
+        waits.add(wait(1, 4, new Action.AnswerPrompt(0), "upgrade: worn shortsword", "answer-prompt"));
+        waits.add(wait(2, 4, new Action.AnswerPrompt(0), "close", "answer-prompt"));
+        waits.add(wait(3, 6, new Action.AnswerPrompt(0), "upgrade: cloth armor", "answer-prompt"));
+        // The read onto the item is a Decision with the same reason and is not a window answered.
+        waits.add(wait(4, 3, new Action.Step(5), "upgrade: cloth armor", "test-item"));
+        log(folder, 1000, 1, waits, new RunLog.Outcome(false, false, 0, 6, 900_000, "DEATH", 0));
+        Files.writeString(folder.resolve("WARRIOR-X-0000000000000001.heaps.tsv"),
+                "depth\tbranch\tcell\titem\tseen\ttaken\n"
+                        + "2\t0\t5\tscroll of upgrade\t1\t3\n"
+                        + "5\t0\t6\tscroll of upgrade\t2\t9\n"
+                        + "5\t0\t7\tscroll of upgrade\t2\t-1\n"
+                        + "6\t0\t8\tscroll of upgrade\t4\t8\n"
+                        + "1\t0\t9\tscroll of KAUNAN\t4\t8\n", StandardCharsets.UTF_8);
+        DirectionMetrics.Side side = DirectionMetrics.read(folder);
+        assertEquals(2, side.upgradesRead(), "windows answered on depths 1 to 5");
+        assertEquals(2, side.upgradesTaken(), "scrolls of upgrade taken on depths 1 to 5, not left and not unknown");
+        String table = DirectionMetrics.table("this", side, null, null);
+        assertTrue(table.contains("| upgrade scrolls picked up by depth 5 | 2 |"), table);
+        assertTrue(table.contains("| upgrades read by depth 5 | 2 |"), table);
+    }
+
+    @Test
     @DisplayName("the table: two columns without a baseline, four with one and the deltas signed")
     void table(@TempDir Path root) throws IOException {
         DirectionMetrics.Side side = DirectionMetrics.read(fixture(root));

@@ -28,6 +28,10 @@ class PlaybookFileTest {
     private static final Path CODEX = SeedSetsTest.ROOT.resolve(CodexManifest.FOLDER)
             .resolve(org.shatterfish.harness.boot.HeadlessBoot.pinnedTag());
 
+    /** The 4.x Brain's Playbook as story 7.4 left it: the reference with the armour taking the scroll on a tie. */
+    private static final Playbook STORY_7_4 = new Playbook("shatterfish", 2, Playbook.Identify.REFERENCE,
+            Playbook.Upgrade.REFERENCE.with(java.util.Map.of("tie", "ARMOR")), java.util.List.of());
+
     private static Playbook committed(String brain) {
         return PlaybookFile.read(PlaybookFile.of(SeedSetsTest.ROOT, brain), brain, CODEX);
     }
@@ -39,7 +43,9 @@ class PlaybookFileTest {
             assertTrue(Brains.readsPlaybook(brain));
             Playbook playbook = committed(brain);
             assertEquals(brain, playbook.name());
-            assertEquals(Playbook.reference(brain), playbook, brain + ": the first Playbook holds the values the constants held");
+            // The oneply Playbook is still the first one; the 4.x Brain's has moved only by the allocation story 7.4 measured.
+            assertEquals(brain.equals(Brains.SHATTERFISH) ? STORY_7_4 : Playbook.reference(brain), playbook,
+                    brain + ": the first Playbook holds the values the constants held, and shatterfish's the ones stories since have kept");
             assertEquals(playbook.canonical(), Files.readString(PlaybookFile.of(SeedSetsTest.ROOT, brain), StandardCharsets.UTF_8).strip(),
                     "the committed file is its own canonical text, so a reader sees every value");
         }
@@ -57,12 +63,13 @@ class PlaybookFileTest {
         Playbook edited = new Playbook(Brains.SHATTERFISH, 1, playbook.identify().with(java.util.Map.of("reach", 9L)),
                 playbook.upgrade(), java.util.List.of());
         assertNotEquals(hash, Brains.configHash(Brains.SHATTERFISH, weights, edited, knowledge), "a changed value is a changed Brain");
-        assertNotEquals(hash, Brains.configHash(Brains.SHATTERFISH, weights, new Playbook(Brains.SHATTERFISH, 2,
+        assertNotEquals(hash, Brains.configHash(Brains.SHATTERFISH, weights, new Playbook(Brains.SHATTERFISH, playbook.version() + 1,
                 playbook.identify(), playbook.upgrade(), java.util.List.of()), knowledge), "and so is a changed version");
         // The same values with the sections left out are the same Playbook and the same hash.
         Path loose = root.resolve("shatterfish.json");
         Files.writeString(loose, "{\"format\":1,\"name\":\"shatterfish\",\"version\":1}\n", StandardCharsets.UTF_8);
-        assertEquals(playbook, PlaybookFile.read(loose, Brains.SHATTERFISH, CODEX), "a section left out is its reference values");
+        assertEquals(Playbook.reference(Brains.SHATTERFISH), PlaybookFile.read(loose, Brains.SHATTERFISH, CODEX),
+                "a section left out is its reference values");
     }
 
     @Test
