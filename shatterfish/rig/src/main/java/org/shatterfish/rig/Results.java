@@ -205,9 +205,7 @@ public final class Results {
         // Only the set's version is wanted here, so no triple is played. The held-out set is read through
         // the published door and only for Runs that carry a Registration: the Runs being written up were
         // already played under a release-level claim, and this read spends nothing (the ledger is untouched).
-        int seedVersion = SeedSets.HOLDOUT.equals(set) && !id.isEmpty()
-                ? SeedSets.publish(root, set, "writing up the Runs of " + id).set().version()
-                : SeedSets.load(root, set).set().version();
+        int seedVersion = SeedSets.versionForResults(root, set, id.isEmpty() ? "" : "writing up the Runs of " + id);
         int alpha = 0;
         int beta = 0;
         String candidate = comparison ? LogHeader.string(cmp, "candidate") : first.brain().name();
