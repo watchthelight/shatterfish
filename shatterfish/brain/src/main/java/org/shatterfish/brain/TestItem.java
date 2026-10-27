@@ -152,6 +152,7 @@ final class TestItem implements Policy {
             return false;
         }
         return upgrade(observation, observation.actions().actions(), upgrader) != null
+                || gain(observation, observation.actions().actions(), identify) != null
                 || !testable(observation, memory).isEmpty() || restOwed(observation, memory, identify);
     }
 
@@ -175,7 +176,7 @@ final class TestItem implements Policy {
             Action step = escape(observation, memory, offered, identify);
             String what = inHarm(observation) ? harm(observation) : "edge";
             return step == null ? null
-                    : new Plan("", 0, new RunLog.Choice(step, Policies.CERTAIN, "escape: " + what));
+                    : new Plan("", 0, new RunLog.Choice(step, Policies.CERTAIN, "escape: " + what + " (escape_waits)"));
         }
         // Never a test or a rest in harm, at a cloud's edge, or holding a door open; but a walk to a testing
         // cell goes on through a doorway (passing).
@@ -190,6 +191,13 @@ final class TestItem implements Policy {
         Action upgrade = settled ? upgrade(observation, offered, upgrader) : null;
         if (upgrade != null) {
             return new Plan("", 0, new RunLog.Choice(upgrade, Policies.CERTAIN, "upgrade: " + target(observation, upgrader).name()));
+        }
+        // A known potion of strength or experience is drunk at once when the Playbook says so (story 7.3): it
+        // does the same at any health and nothing else in the pack drinks it.
+        Action gain = settled ? gain(observation, offered, identify) : null;
+        if (gain != null) {
+            return new Plan("", 0, new RunLog.Choice(gain, Policies.CERTAIN,
+                    "drink: " + ((Action.UseItem) gain).item().name() + " (known_gains)"));
         }
         // An unknown scroll goes where a known upgrade would, but never onto the Mage's staff: an
         // unknown scroll of transmutation changes the item it is read onto (ScrollOfTransmutation.java:
@@ -247,19 +255,20 @@ final class TestItem implements Policy {
                     Action step = Pickup.firstStep(map, walk, hero, best, offered);
                     if (step != null) {
                         return new Plan(item.guess().label(), item.quantity(),
-                                new RunLog.Choice(step, Policies.CERTAIN, "cell: " + item.guess().label()));
+                                new RunLog.Choice(step, Policies.CERTAIN, "cell: " + item.guess().label() + " (reach)"));
                     }
                 }
             }
             if (hereFits && settled) {
                 return new Plan(item.guess().label(), item.quantity(),
-                        new RunLog.Choice(use, Policies.CERTAIN, "test: " + item.guess().label()));
+                        new RunLog.Choice(use, Policies.CERTAIN,
+                                "test: " + item.guess().label() + " (" + item.field() + ")"));
             }
         }
         if (settled && restOwed(observation, memory, identify)) {
             for (Action rest : List.of(new Action.Rest(true), new Action.Search())) {
                 if (offered.contains(rest)) {
-                    return new Plan("", 0, new RunLog.Choice(rest, Policies.CERTAIN, "rest: after-test"));
+                    return new Plan("", 0, new RunLog.Choice(rest, Policies.CERTAIN, "rest: after-test (rest_waits)"));
                 }
             }
         }
@@ -352,6 +361,32 @@ final class TestItem implements Policy {
                 action instanceof Action.Step step ? step.cell() : -1);
     }
 
+    /**
+     * The offered drink of a known potion of strength or experience, or null: only when the Playbook's
+     * {@code known_gains} is on (story 7.3). Strength adds a point and experience a level whatever the
+     * hero's health (PotionOfStrength.java:43-47), so nothing is gained by holding one.
+     */
+    static Action gain(Observation observation, List<Action> offered, Playbook.Identify identify) {
+        if (identify.knownGains() == 0) {
+            return null;
+        }
+        List<ItemView> pack = observation.inventory().items();
+        for (int index = 0; index < pack.size(); index++) {
+            ItemView item = pack.get(index);
+            if (item.name().equals(KNOWN_STRENGTH) || item.name().equals(KNOWN_EXPERIENCE)) {
+                Action drink = new Action.UseItem(new ItemRef(index, item.name(), item.quantity()), DRINK);
+                if (offered.contains(drink)) {
+                    return drink;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** The known potions of strength and experience, by the name the inventory shows (items.properties). */
+    static final String KNOWN_STRENGTH = "potion of strength";
+    static final String KNOWN_EXPERIENCE = "potion of experience";
+
     /** The known scroll of upgrade, by the name the inventory shows (items.properties). */
     static final String UPGRADE = "scroll of upgrade";
 
@@ -434,7 +469,7 @@ final class TestItem implements Policy {
     }
 
     /** An appearance held that this Policy may test: the pack's reference, its guess and its verb. */
-    record Testable(ItemRef ref, int quantity, Beliefs.Guess guess, String verb) {
+    record Testable(ItemRef ref, int quantity, Beliefs.Guess guess, String verb, String field) {
     }
 
     /**
@@ -459,25 +494,38 @@ final class TestItem implements Policy {
             if (guess == null || guess.odds().size() < 2 || memory.balks(depth, branch, item.name())) {
                 continue;
             }
-            String verb = item.kind() == ItemKind.POTION && guess.kind() == ItemKind.POTION
-                    && (low(observation) && odds(guess, Set.of(HEALING)) >= identify.healingOdds()
-                        || odds(guess, GAINS) >= identify.gainOdds()) ? DRINK
-                    : item.kind() == ItemKind.SCROLL && guess.kind() == ItemKind.SCROLL && !unreadable
-                    && observation.hero().hp() >= observation.hero().ht()
-                    && (odds(guess, INVENTORY_SCROLLS) < identify.inventoryOdds() || armour(observation) != null) ? READ : null;
+            // The Playbook field that lets the item be tried, which the strategy log names (story 7.3): the
+            // healing odds when the hero is hurt enough, else the gain odds; for a scroll, the odds of the
+            // item-picker scrolls, or the worn armour a read may go onto.
+            String verb = null;
+            String field = "";
+            if (item.kind() == ItemKind.POTION && guess.kind() == ItemKind.POTION) {
+                if (identify.potionHp(observation.hero().hp(), observation.hero().ht())
+                        && odds(guess, Set.of(HEALING)) >= identify.healingOdds()) {
+                    verb = DRINK;
+                    field = "healing_odds_per_mille";
+                } else if (odds(guess, GAINS) >= identify.gainOdds()) {
+                    verb = DRINK;
+                    field = "gain_odds_per_mille";
+                }
+            } else if (item.kind() == ItemKind.SCROLL && guess.kind() == ItemKind.SCROLL && !unreadable
+                    && identify.scrollHp(observation.hero().hp(), observation.hero().ht())) {
+                if (odds(guess, INVENTORY_SCROLLS) < identify.inventoryOdds()) {
+                    verb = READ;
+                    field = "inventory_odds_per_mille";
+                } else if (armour(observation) != null) {
+                    verb = READ;
+                    field = "scroll_hp_per_mille";
+                }
+            }
             if (verb == null || !item.actions().contains(verb)) {
                 continue;
             }
-            testable.add(new Testable(new ItemRef(index, item.name(), item.quantity()), item.quantity(), guess, verb));
+            testable.add(new Testable(new ItemRef(index, item.name(), item.quantity()), item.quantity(), guess, verb, field));
         }
         // Worth most first; the sort is stable, so equal worths keep the pack's order.
         testable.sort(Comparator.comparingLong(TestItem::worth).reversed());
         return testable;
-    }
-
-    /** Whether the hero is at half its hit points or below, when an unknown potion is drunk. */
-    static boolean low(Observation observation) {
-        return 2L * observation.hero().hp() <= observation.hero().ht();
     }
 
     /** The odds {@code guess} gives the identities of {@code classes}, by the Codex's class names. */

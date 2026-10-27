@@ -135,7 +135,7 @@ development_status:
   epic-7: in-progress  # opened 2026-10-26, after E6; E4.14 (Goo gate) still open and E5.16's live session is the product owner's
   7-1-the-heuristic-to-rule-link-check: done  # issue #278
   7-2-playbooks-as-data: done  # issue #279
-  7-3-item-identification-strategy: backlog  # issue #280
+  7-3-item-identification-strategy: review  # issue #280
   7-4-upgrade-allocation: done  # issue #281
   7-5-per-boss-playbooks: backlog  # issue #282
   7-6-per-class-playbooks: backlog  # issue #283
