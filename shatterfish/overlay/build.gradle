@@ -14,7 +14,9 @@ apply from: "$rootDir/shatterfish/java-module.gradle"
 // and processResources tasks; the libraries desktop's platform class and the game's controller support
 // need are declared here, on the same version properties, instead of arriving through desktop.
 evaluationDependsOn(':desktop')
+evaluationDependsOn(':harness')
 def desktopMain = project(':desktop').sourceSets.main
+def harnessTest = project(':harness').sourceSets.test
 
 dependencies {
     implementation project(':core')
@@ -26,6 +28,10 @@ dependencies {
     implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
     runtimeOnly "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
     runtimeOnly "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-desktop"
+    // Story 8.2: one overlay test plays a real Run on the harness tests' EmbeddedHost, with ScriptedHuman, as the
+    // harness's own tests do. Those classes are package-private test helpers, so the test side reaches them through
+    // a bridge class in their package (overlay/src/test/.../harness/agent); main code sees none of it.
+    testImplementation harnessTest.output
 }
 
 // The Overlay: the desktop game with a Run attached. `-Plaunch.args="--seed AAA-BBB-CCC --class warrior"`
