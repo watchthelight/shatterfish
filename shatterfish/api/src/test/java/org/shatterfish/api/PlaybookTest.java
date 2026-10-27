@@ -20,7 +20,7 @@ class PlaybookTest {
         assertEquals("{\"bosses\":{},\"classes\":{},\"format\":1,"
                 + "\"identify\":{\"escape_waits\":12,\"gain_odds_per_mille\":200,\"healing_odds_per_mille\":200,"
                 + "\"inventory_odds_per_mille\":250,\"known_gains\":0,\"potion_hp_per_mille\":500,\"reach\":8,\"rest_waits\":50,\"scroll_hp_per_mille\":1000},"
-                + "\"name\":\"shatterfish\",\"upgrade\":{\"tie\":\"WEAPON\",\"weapon_lead\":0},\"version\":1}",
+                + "\"name\":\"shatterfish\",\"upgrade\":{\"hold_until_depth\":0,\"tie\":\"WEAPON\",\"unknown_weapon\":\"NO\",\"weapon_lead\":0},\"version\":1}",
                 playbook.canonical());
         assertEquals(0.2, playbook.identify().healingOdds(), 0.0, "200 per mille is the double 0.2, bit for bit");
         assertEquals(0.25, playbook.identify().inventoryOdds(), 0.0);
@@ -52,6 +52,9 @@ class PlaybookTest {
         assertThrows(IllegalArgumentException.class, () -> Playbook.Upgrade.REFERENCE.with(Map.of("tie", "RING")),
                 "RING is a slot of the Observation, but not one the scroll of upgrade is read onto");
         assertThrows(IllegalArgumentException.class, () -> Playbook.Upgrade.REFERENCE.with(Map.of("weapon_lead", 6L)));
+        assertThrows(IllegalArgumentException.class, () -> Playbook.Upgrade.REFERENCE.with(Map.of("hold_until_depth", 27L)));
+        assertThrows(IllegalArgumentException.class, () -> Playbook.Upgrade.REFERENCE.with(Map.of("hold_until_depth", -1L)));
+        assertThrows(IllegalArgumentException.class, () -> Playbook.Upgrade.REFERENCE.with(Map.of("unknown_weapon", "MAYBE")));
         assertThrows(IllegalArgumentException.class, () -> new Playbook("Shatter Fish", 1, Playbook.Identify.REFERENCE,
                 Playbook.Upgrade.REFERENCE, List.of()));
         assertThrows(IllegalArgumentException.class, () -> new Playbook("shatterfish", 0, Playbook.Identify.REFERENCE,

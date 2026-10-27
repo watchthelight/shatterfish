@@ -50,7 +50,12 @@ class WeightsFileTest {
         String knowledge = org.shatterfish.harness.knowledge.CodexKnowledge.digest(SeedSetsTest.ROOT
                 .resolve(org.shatterfish.harness.knowledge.CodexManifest.FOLDER)
                 .resolve(org.shatterfish.harness.boot.HeadlessBoot.pinnedTag()));
-        assertEquals(hash, Brains.configHash(Brains.SHATTERFISH, weights, knowledge));
+        // Without a Playbook the hash is the one of the reference values; the committed Playbook has moved since (story 7.4).
+        org.shatterfish.api.Playbook playbook = org.shatterfish.harness.knowledge.PlaybookFile.read(
+                org.shatterfish.harness.knowledge.PlaybookFile.of(SeedSetsTest.ROOT, Brains.SHATTERFISH), Brains.SHATTERFISH,
+                SeedSetsTest.ROOT.resolve(org.shatterfish.harness.knowledge.CodexManifest.FOLDER)
+                        .resolve(org.shatterfish.harness.boot.HeadlessBoot.pinnedTag()));
+        assertEquals(hash, Brains.configHash(Brains.SHATTERFISH, weights, playbook, knowledge));
         List<Weights.Term> terms = new ArrayList<>(weights.terms());
         terms.set(0, new Weights.Term(terms.get(0).feature(), terms.get(0).weight() + 1));
         assertNotEquals(hash, Brains.configHash(Brains.SHATTERFISH, new Weights(Brains.SHATTERFISH, 1, terms), knowledge),

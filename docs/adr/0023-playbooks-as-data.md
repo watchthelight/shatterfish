@@ -80,13 +80,14 @@ and enum names only, one trailing newline.
 | `name` | the Brain it belongs to; a file for another Brain is refused |
 | `version` | the Playbook's own version, moved by hand with any value |
 | `identify` | when and how the Brain tests an unknown potion or scroll |
-| `upgrade` | where a scroll of upgrade goes |
+| `upgrade` | where a scroll of upgrade goes, and when |
 | `bosses` | reserved, always `{}` until story 7.5; present so the shape is fixed |
 | `classes` | per hero class, only the values that class changes |
 
 `identify` holds `healing_odds_per_mille`, `gain_odds_per_mille`, `inventory_odds_per_mille`
 (1 to 1000 each), `rest_waits` (0 to 500), `reach` (0 to 40) and `escape_waits` (0 to 100). `upgrade`
-holds `weapon_lead` (-5 to 5) and `tie` (`ARMOR` or `WEAPON`). Odds are per-mille integers, so the file
+holds `weapon_lead` (-5 to 5), `tie` (`ARMOR` or `WEAPON`), `hold_until_depth` (0 to 26) and
+`unknown_weapon` (`NO` or `YES`; story 7.4, which also moved the committed `tie` to `ARMOR`). Odds are per-mille integers, so the file
 has no floats; `permille / 1000.0` gives the same double the old literals gave (0.2, 0.25).
 The Brain's `walks` value is `2 * reach`, derived, so there is one number to edit.
 
