@@ -129,6 +129,7 @@ class PlaybookValidatorTest {
         rejects("identify", "{\"reach\":41}", "identify.reach", "from 0 to 40");
         rejects("identify", "{\"healing_odds_per_mille\":0}", "identify.healing_odds_per_mille", "from 1 to 1000");
         rejects("upgrade", "{\"weapon_lead\":-6}", "upgrade.weapon_lead", "from -5 to 5");
+        rejects("upgrade", "{\"hold_until_depth\":27}", "upgrade.hold_until_depth", "from 0 to 26");
         rejects("identify", "{\"reach\":8.5}", "identify.reach", "whole number");
         rejects("identify", "{\"reach\":\"8\"}", "identify.reach", "whole number");
         rejects("classes", "{\"MAGE\":{\"identify\":{\"rest_waits\":501}}}", "classes.MAGE.identify.rest_waits", "from 0 to 500");
@@ -140,6 +141,8 @@ class PlaybookValidatorTest {
         rejects("upgrade", "{\"tie\":\"SWORD\"}", "upgrade.tie", "[ARMOR, WEAPON]");
         rejects("upgrade", "{\"tie\":\"RING\"}", "upgrade.tie", "[ARMOR, WEAPON]");
         rejects("upgrade", "{\"tie\":3}", "upgrade.tie", "[ARMOR, WEAPON]");
+        rejects("upgrade", "{\"unknown_weapon\":\"MAYBE\"}", "upgrade.unknown_weapon", "[NO, YES]");
+        rejects("upgrade", "{\"unknown_weapon\":true}", "upgrade.unknown_weapon", "[NO, YES]");
     }
 
     @Test
