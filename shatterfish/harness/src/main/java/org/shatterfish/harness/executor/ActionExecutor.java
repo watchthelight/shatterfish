@@ -394,7 +394,9 @@ public final class ActionExecutor {
             // Action answers it and no wait would follow, so the Run stopped there as an unknown
             // window (issue #236). The cancel prompt is reached only by the executor sending the
             // window away after a half input, so the way back is not one a Brain can use. The press
-            // is refused and the confirmation stays up; the Brain answers it with "Yes". The hand-over
+            // is refused and the confirmation stays up; the Brain answers it with "Yes". Since issue #239
+            // the valid-action table no longer offers this option, so this is reached only by an Observation
+            // whose own action set was built by hand with it; it stays as the last guard. The hand-over
             // is announced although nothing changed: the confirmation is the same window object, so
             // without it no new wait is ever confirmed and the Run stalls on the very window it was
             // meant to answer (a plain refusal here was tried and ended the Run as UNKNOWN_WINDOW).

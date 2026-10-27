@@ -368,6 +368,8 @@ public class WndSettings extends WndTabbed {
 		ColorBlock sep2;
 		CheckBox chkFont;
 		CheckBox chkVibrate;
+		// shatterfish-hook:12
+		RedButton btnShatterfish;
 
 		@Override
 		protected void createChildren() {
@@ -601,6 +603,21 @@ public class WndSettings extends WndTabbed {
 				chkVibrate.checked(SPDSettings.vibration());
 			}
 			add(chkVibrate);
+
+			// shatterfish-hook:12
+			// The Overlay's own section of this screen, a button that opens its window (story 8.4).
+			com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks.SettingsSection section =
+					com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks.settingsSection;
+			if (section != null) {
+				btnShatterfish = new RedButton(section.title()) {
+					@Override
+					protected void onClick() {
+						super.onClick();
+						section.open();
+					}
+				};
+				add(btnShatterfish);
+			}
 		}
 
 		@Override
@@ -647,6 +664,12 @@ public class WndSettings extends WndTabbed {
 				chkFont.setRect(0, sep2.y + 1 + GAP, width, BTN_HEIGHT);
 				chkVibrate.setRect(0, chkFont.bottom() + GAP, width, BTN_HEIGHT);
 				height = chkVibrate.bottom();
+			}
+
+			// shatterfish-hook:12
+			if (btnShatterfish != null) {
+				btnShatterfish.setRect(0, height + GAP, width, BTN_HEIGHT);
+				height = btnShatterfish.bottom();
 			}
 		}
 

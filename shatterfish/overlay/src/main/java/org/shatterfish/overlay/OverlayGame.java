@@ -7,6 +7,7 @@ import com.shatteredpixel.shatteredpixeldungeon.ShatteredPixelDungeon;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Languages;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
+import com.shatteredpixel.shatteredpixeldungeon.shatterfish.Hooks;
 import com.watabou.input.KeyBindings;
 import com.watabou.noosa.Game;
 import com.watabou.noosa.Scene;
@@ -85,8 +86,10 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
     private EmbeddedRun run;
     /** A Brain's Run's controls (story 5.6); null for a HUMAN Run, whose Panel draws the row by its Mode alone. */
     private ControlState controls;
-    /** What the person has set (story 8.3): every Pause-on condition off until story 8.4's screen sets one. */
-    private final OverlaySettings settings = OverlaySettings.DEFAULTS;
+    /** What the person has set (stories 8.3 and 8.4): read from the Overlay's store at the start, changed by the settings screen's section. */
+    private volatile OverlaySettings settings = OverlaySettings.DEFAULTS;
+    /** Where the settings are kept between games (story 8.4); the player's file unless a test says another. */
+    private final OverlayStore store = OverlayStore.ofPlayer();
     private boolean reported;
     private long frames;
 
@@ -157,6 +160,10 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
                     + " already, so " + declined.actionName() + " starts unbound; bind it in the key-binding screen");
         }
         super.create();
+        // The Overlay's section of the game's settings screen (story 8.4, hook row 12): the person's stored
+        // choices are read now, for the Run's controls below, and the button is registered for the process.
+        settings = store.load();
+        Hooks.settingsSection = new PauseOnSection(() -> settings, this::settingsChanged);
         // First in the game's input multiplexer, which super.create() has just built (Game.java:108).
         lock.lock();
         lock.hotkeys(new Keys());
@@ -234,6 +241,19 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         controls = ControlState.replaying(new RunSeam(run), ControlEnablement.Capabilities.NOW, session.waits());
         dock.controls(controls);
         return true;
+    }
+
+    /**
+     * The person changed a Pause-on setting in the game's settings screen (story 8.4): kept for next time, and
+     * given to the Run's controls, which look at it at the next Input wait. Called on the render thread, where
+     * the controls live. A HUMAN Run has no controls, so the value is only kept.
+     */
+    private void settingsChanged(OverlaySettings changed) {
+        settings = changed;
+        store.save(changed);
+        if (controls != null) {
+            controls.settings(changed);
+        }
     }
 
     private EmbeddedRun attachResumed(boolean human) {
@@ -562,6 +582,7 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
                 rng.release();
             }
         } finally {
+            Hooks.settingsSection = null;
             super.dispose();
             releaseProfile(profileDirectory, deleteProfile && !suspended);
         }
