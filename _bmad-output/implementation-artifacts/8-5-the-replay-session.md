@@ -61,9 +61,36 @@ never played past.
 Where REPLAY lives: `ControlState` keeps RUNNING/PAUSED underneath as playing/stopped and reports `Mode.REPLAY`, so
 credits, speeds and Run N are shared and only Take over, Pause-on and the words differ.
 
-Interface size: a Rig log was played at size 0, the Overlay plays size 1. If the size changes any Observation hash the
-replay uses the log's own size; the test says which. A game with a changed Observation is a mismatch, not a crash.
+Interface size: a Rig log was played at size 0, the Overlay plays size 1. Measured: a Rig log replayed at size 1
+stops with a mismatch at wait 6, so the size does change the hash. The replay plays on the size the log states (an
+Overlay log states its own, a Rig log states none and is size 0): `ReplaySession.interfaceSize()`. A game with a
+changed Observation is a mismatch, not a crash.
 
 Pre-mortem: a stale answer asks the follower twice (it is `Rewindable`); the follower runs out of waits before the
 game ends (the Run ends as closed at that wait, named); a log with an `unsupported` mark ends the replay at the mark
 with the reason, as `Replay` does.
+
+## Results
+
+- `ReplaySessionTest` (Rig-written `standard` seed 2713922911738, Warrior, salt 1014): a 500-turn log of 304 waits
+  plays every wait with zero mismatches and ends `TURN_CAP` on floor 2 after 539 turns, the recorded outcome. One
+  changed wait (300) halts the replay at 300 with the differing section named, 299 waits applied.
+- Seek cost at waits 100/500/1000: 307, 935, 1930 ms (median of 3, machine loaded by other jobs). Budget 5 s;
+  no keyframes. The table and the reasoning are `docs/results/2026-10-27-replay-seek-cost.md`.
+- No upstream file is edited: the launcher flag lives in `shatterfish/overlay`, so there is no `docs/UPSTREAM.md` row.
+- Not built: the Panel "Load" action. It needs a file chooser, which the game's toolkit
+  does not have, so the flag alone ships, as the story allows.
+
+## Live-session checklist (product owner)
+
+1. `./gradlew :desktop:debug` with the Overlay launcher and `--replay <a Rig or Overlay log>`: the Panel opens in
+   REPLAY, stopped at wait 0, with the Mode strip in violet.
+2. Next Step applies one wait; Run N applies N and stops; Resume plays at the speed mode; Pause stops on a wait.
+3. Click the dungeon and press movement keys: the hero does not move. Take over is dim.
+4. `--replay` a log with one byte changed: the notice reads `REPLAY REFUSED: ... does not verify`, no Run starts.
+5. Accept or change the violet `#C9A0FF` of REPLAY and the wording of the divergence line on the strip.
+
+## Change log
+
+- 2026-10-27: spec; `LogFollower` and `Halting`; the REPLAY state, `--replay` and the refusal notice; tests; seek
+  measurement and results page.
