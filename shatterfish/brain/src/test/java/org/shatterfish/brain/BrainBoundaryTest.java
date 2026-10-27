@@ -175,7 +175,10 @@ class BrainBoundaryTest {
 					.and(com.tngtech.archunit.base.DescribedPredicate.not(com.tngtech.archunit.core.domain.JavaClass
 							.Predicates.equivalentTo(org.shatterfish.api.RunLog.Decision.class)))
 					.and(com.tngtech.archunit.base.DescribedPredicate.not(com.tngtech.archunit.core.domain.JavaClass
-							.Predicates.equivalentTo(org.shatterfish.api.RunLog.Choice.class))))
+							.Predicates.equivalentTo(org.shatterfish.api.RunLog.Choice.class)))
+					// ... and the Evaluation terms a Choice carries (story 8.1): a feature's name and a number.
+					.and(com.tngtech.archunit.base.DescribedPredicate.not(com.tngtech.archunit.core.domain.JavaClass
+							.Predicates.equivalentTo(org.shatterfish.api.RunLog.Term.class))))
 			.because("java.lang and java.util have to be allowed whole for the brain to be writable at"
 					+ " all, and they are where the JDK keeps class loading, the process environment,"
 					+ " service loading, locales and unseeded generators");

@@ -151,6 +151,11 @@ class JsonRenderingTest {
             // The weights of a Brain's Evaluation (story 4.5): a record of numbers the Rig reads
             // from a committed file and hands to the Brain, plus its own canonical text.
             "Weights", "Weights$Term",
+            // What a Decision says about a score (story 8.1): an Evaluation term, a feature's name and
+            // a number, and a Search's expected outcome, an Action and two numbers. Both are records
+            // the Brain builds and the Rig's reader rebuilds from the log's own fields; neither
+            // reads text or bytes into the schema.
+            "RunLog$Term", "RunLog$SearchOutcome",
             // The Playbook (story 7.2, FR-35): the strategy thresholds and choices as typed numbers and enum
             // values, read from a committed file by the Rig (harness PlaybookFile) and handed to the Brain, plus
             // its own canonical text. Its sections state the range of each field; none builds one from text.

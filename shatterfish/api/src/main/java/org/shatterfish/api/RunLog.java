@@ -269,12 +269,60 @@ public sealed interface RunLog
 
     // -------------------------------------------------------------------------- what a Brain did
 
-    /** One Action a decider weighed, and what it thought of it. Scores are ten-thousandths. */
-    record Choice(Action action, long score, String why) {
+    /**
+     * One Evaluation term behind a score (story 8.1): a feature's name and what it contributed, its
+     * weight times its value, in ten-thousandths like the score it is part of.
+     */
+    record Term(String feature, long contribution) {
+
+        public Term {
+            Canon.text(feature, "an evaluation term's feature");
+            Canon.require(feature.matches("[a-z][a-z_]*"),
+                    "a feature is named in lower case and underscores: " + feature);
+        }
+    }
+
+    /**
+     * What a Search expected of one Action (story 8.1): the mean outcome of the samples that tried
+     * it, in ten-thousandths, and how many samples that was. Search never shipped (ADR-0010), so no
+     * Brain writes one yet; the field exists so the Explain expansion has a place to read one from.
+     */
+    record SearchOutcome(Action action, long outcome, int samples) {
+
+        public SearchOutcome {
+            Canon.require(action != null, "a search outcome names an Action");
+            Canon.require(samples >= 1, "an expected outcome rests on at least one sample: " + samples);
+        }
+    }
+
+    /**
+     * One Action a decider weighed, and what it thought of it. Scores are ten-thousandths.
+     *
+     * <p>{@code terms} (story 8.1) are the Evaluation terms behind the score, in the order the
+     * Evaluation lists its features, and they are empty for a Policy that scores nothing through the
+     * Evaluation: not zeros, nothing. A non-empty list must sum to the score, since a list that
+     * disagrees with the score it explains is a lie the Panel would print. An empty list is not
+     * written, so every log written before the field existed keeps its bytes and its chain.
+     */
+    record Choice(Action action, long score, String why, List<Term> terms) {
 
         public Choice {
             Canon.require(action != null, "a choice names an Action");
             Canon.text(why, "why a choice was weighed as it was");
+            terms = Canon.positional(terms, "a choice's terms");
+            if (!terms.isEmpty()) {
+                long sum = 0;
+                for (Term term : terms) {
+                    sum = Math.addExact(sum, term.contribution());
+                }
+                Canon.require(sum == score,
+                        "a choice's terms sum to its score: " + sum + " against " + score);
+            }
+        }
+
+        /** A choice that scores nothing through the Evaluation, which is nearly every one. */
+        public Choice(Action action, long score, String why) {
+            this(action, score, why, List.of());
         }
     }
 
@@ -282,9 +330,12 @@ public sealed interface RunLog
      * Why a Brain took the Action it took (ADR-0011). A decider that states none carries none: the
      * random agent has no goal and no alternatives, and a decision half filled in would read as a
      * Brain that had thought about it.
+     *
+     * <p>{@code search} (story 8.1) is what a Search expected of each Action it tried, and is empty
+     * when none ran, which is every Decision a Brain has written; an empty list is not written.
      */
     record Decision(String goal, Choice chosen, List<Choice> alternatives, List<String> flags,
-                    String policy) {
+                    String policy, List<SearchOutcome> search) {
 
         /** At most three alternatives are recorded, so the log stays a log (ADR-0011). */
         public static final int ALTERNATIVES = 3;
@@ -299,6 +350,13 @@ public sealed interface RunLog
             flags = Canon.positional(flags, "a decision's flags");
             Canon.text(policy, "a decision's policy");
             Canon.require(!policy.isEmpty(), "a decision names the policy that took it");
+            search = Canon.positional(search, "a decision's search outcomes");
+        }
+
+        /** A Decision of a Brain that ran no Search, which is every one there is. */
+        public Decision(String goal, Choice chosen, List<Choice> alternatives, List<String> flags,
+                        String policy) {
+            this(goal, chosen, alternatives, flags, policy, List.of());
         }
     }
 
