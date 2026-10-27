@@ -21,7 +21,7 @@ import java.util.List;
  * <p><b>Why it pays.</b> A shot is a missile hit from where the hero stands: it takes one turn, rolls the
  * bow's own damage ({@code SpiritBow.java:189-203}, 1 to 6 at the first level), and from a cell that is
  * not adjacent it hits one and a half times as often as it would beside the enemy
- * ({@code MissileWeapon.java:215-232}). The arrow is not a pack item that runs out: the bow knocks a
+ * ({@code MissileWeapon.java:215-233}). The arrow is not a pack item that runs out: the bow knocks a
  * fresh {@code SpiritArrow} for each shot ({@code SpiritBow.java:289-291}). An enemy walking up to the
  * hero takes a shot for each cell of the way.
  *
