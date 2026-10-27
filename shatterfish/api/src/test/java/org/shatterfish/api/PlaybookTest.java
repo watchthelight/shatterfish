@@ -9,6 +9,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** The Playbook as an {@code api} value (story 7.2, FR-35). */
 class PlaybookTest {
@@ -17,7 +18,7 @@ class PlaybookTest {
     @DisplayName("the reference Playbook holds the values the Policies decided by before they were data, and writes them canonically")
     void the_reference() {
         Playbook playbook = Playbook.reference("shatterfish");
-        assertEquals("{\"bosses\":{},\"classes\":{},\"format\":1,"
+        assertEquals("{\"bosses\":{\"dm300\":{\"descent_rest_per_mille\":1000,\"status\":\"UNTESTED\"},\"goo\":{\"descent_rest_per_mille\":1000,\"drink_per_mille\":400,\"meet_range\":6,\"wash_range\":4},\"tengu\":{\"descent_rest_per_mille\":1000,\"status\":\"UNTESTED\"}},\"classes\":{},\"format\":1,"
                 + "\"identify\":{\"escape_waits\":12,\"gain_odds_per_mille\":200,\"healing_odds_per_mille\":200,"
                 + "\"inventory_odds_per_mille\":250,\"reach\":8,\"rest_waits\":50},"
                 + "\"name\":\"shatterfish\",\"upgrade\":{\"tie\":\"WEAPON\",\"weapon_lead\":0},\"version\":1}",
@@ -56,6 +57,37 @@ class PlaybookTest {
                 Playbook.Upgrade.REFERENCE, List.of()));
         assertThrows(IllegalArgumentException.class, () -> new Playbook("shatterfish", 0, Playbook.Identify.REFERENCE,
                 Playbook.Upgrade.REFERENCE, List.of()));
+    }
+
+    @Test
+    @DisplayName("a boss entry is whole in the canonical text, refuses a value outside its range, and names the rest per boss floor")
+    void bosses() {
+        Playbook.Goo drinking = Playbook.Goo.REFERENCE.with(Map.of("drink_per_mille", 600L, "meet_range", 3L));
+        Playbook playbook = new Playbook("shatterfish", 1, Playbook.Identify.REFERENCE, Playbook.Upgrade.REFERENCE, List.of(),
+                new Playbook.Bosses(drinking, new Playbook.Later(800, "TESTED"), Playbook.Later.REFERENCE));
+        assertEquals(600, playbook.bosses().goo().drinkPerMille());
+        assertEquals(3, playbook.bosses().goo().meetRange());
+        assertEquals(4, playbook.bosses().goo().washRange(), "a field not stated is the reference's");
+        assertTrue(playbook.canonical().startsWith("{\"bosses\":{\"dm300\":{\"descent_rest_per_mille\":1000,\"status\":\"UNTESTED\"},"
+                + "\"goo\":{\"descent_rest_per_mille\":1000,\"drink_per_mille\":600,\"meet_range\":3,\"wash_range\":4},"
+                + "\"tengu\":{\"descent_rest_per_mille\":800,\"status\":\"TESTED\"}}"), playbook.canonical());
+        assertNotEquals(Playbook.reference("shatterfish").canonical(), playbook.canonical(), "a boss entry is part of the Brain's hash");
+        assertEquals(Playbook.reference("shatterfish"), new Playbook("shatterfish", 1, Playbook.Identify.REFERENCE,
+                Playbook.Upgrade.REFERENCE, List.of()), "the five-argument form is the reference bosses");
+        assertEquals(1000, playbook.bosses().descentRest(5));
+        assertEquals(800, playbook.bosses().descentRest(10));
+        assertEquals(1000, playbook.bosses().descentRest(4), "a floor that is no boss floor is rested to full");
+        assertEquals(40, Playbook.Goo.REFERENCE.danger(100), "40% of 100 hit points");
+        assertEquals(17, Playbook.Goo.REFERENCE.danger(42), "rounded up to a hit point");
+        assertThrows(IllegalArgumentException.class, () -> Playbook.Goo.REFERENCE.with(Map.of("meet_range", 13L)));
+        assertThrows(IllegalArgumentException.class, () -> Playbook.Goo.REFERENCE.with(Map.of("descent_rest_per_mille", 0L)));
+        assertThrows(IllegalArgumentException.class, () -> Playbook.Later.REFERENCE.with(Map.of("status", "DONE")));
+        assertEquals(Playbook.Goo.SPECS.stream().map(Playbook.Spec::key).toList(),
+                List.copyOf(Playbook.Goo.REFERENCE.values().keySet()));
+        assertEquals(Playbook.Later.SPECS.stream().map(Playbook.Spec::key).toList(),
+                List.copyOf(Playbook.Later.REFERENCE.values().keySet()));
+        assertEquals(Playbook.Goo.SPECS, Playbook.specs("bosses.goo"));
+        assertEquals(Playbook.Later.SPECS, Playbook.specs("bosses.dm300"));
     }
 
     @Test

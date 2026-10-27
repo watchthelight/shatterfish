@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GooTest {
 
     /** {@code rows} with the rat drawn as Goo, and the log ending in {@code lines}. */
-    private static Observation screen(List<String> lines, String... rows) {
+    static Observation screen(List<String> lines, String... rows) {
         Observation base = FightPolicyTest.screen(4, 20, true, "worn shortsword", rows);
         List<ActorView> actors = new ArrayList<>();
         for (ActorView actor : base.actors().actors()) {
@@ -170,7 +170,7 @@ class GooTest {
         assertEquals("goo: wait", decided.decision().chosen().why(), decided.decision().toString());
     }
 
-    private static final String[] BY_THE_WALL = {
+    static final String[] BY_THE_WALL = {
             "##############",
             "#............#",
             "#.....@......#",
@@ -200,7 +200,7 @@ class GooTest {
      * {@code rows} as {@link #screen} with the cells drawn {@code ~} water, and the hero soaked in caustic
      * ooze when {@code oozed} (its turns are not shown), standing in water when {@code inWater}.
      */
-    private static Observation oozed(boolean oozed, boolean inWater, String... rows) {
+    static Observation oozed(boolean oozed, boolean inWater, String... rows) {
         String[] plain = java.util.Arrays.stream(rows).map(row -> row.replace('~', '.')).toArray(String[]::new);
         Observation base = screen(List.of("You see Goo."), plain);
         MapSection map = base.map();
@@ -227,7 +227,7 @@ class GooTest {
         return bare.withActions(ValidActions.of(bare));
     }
 
-    private static final String[] WATER_WEST = {
+    static final String[] WATER_WEST = {
             "##############",
             "#............#",
             "#............#",
@@ -238,7 +238,7 @@ class GooTest {
             "#............#",
             "##############"};
 
-    private static final String[] WATER_FAR = {
+    static final String[] WATER_FAR = {
             "##############",
             "#............#",
             "#............#",

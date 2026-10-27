@@ -88,7 +88,7 @@ public final class PlaybookValidator {
                     }
                 }
                 case "identify", "upgrade" -> section(key, member.getValue(), problems);
-                case "bosses" -> section("bosses", member.getValue(), problems);
+                case "bosses" -> bosses(member.getValue(), problems);
                 default -> classes(member.getValue(), heroClasses, problems);
             }
         }
@@ -128,7 +128,7 @@ public final class PlaybookValidator {
             return;
         }
         keys(name + ".", members, problems);
-        List<Playbook.Spec> specs = name.equals("bosses") ? List.of() : Playbook.specs(name);
+        List<Playbook.Spec> specs = Playbook.specs(name);
         for (Map.Entry<String, String> member : members.entrySet()) {
             String path = name + "." + member.getKey();
             if (seedy(member.getKey()) || place(member.getKey())) {
@@ -141,6 +141,25 @@ public final class PlaybookValidator {
                 continue;
             }
             value(path, spec, member.getValue(), problems);
+        }
+    }
+
+    /** The {@code bosses} section: one object per boss the format names, each of its own fields. */
+    private static void bosses(String raw, List<String> problems) {
+        Map<String, String> members = object("bosses", raw, problems);
+        if (members == null) {
+            return;
+        }
+        keys("bosses.", members, problems);
+        for (Map.Entry<String, String> member : members.entrySet()) {
+            if (seedy(member.getKey()) || place(member.getKey())) {
+                continue;
+            }
+            if (!Playbook.BOSSES.contains(member.getKey())) {
+                problems.add("bosses." + member.getKey() + " is not a boss the format names; it names " + Playbook.BOSSES);
+                continue;
+            }
+            section("bosses." + member.getKey(), member.getValue(), problems);
         }
     }
 

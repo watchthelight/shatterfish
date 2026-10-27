@@ -7,6 +7,7 @@ import org.shatterfish.api.ActorView;
 import org.shatterfish.api.LogLine;
 import org.shatterfish.api.MapSection;
 import org.shatterfish.api.Observation;
+import org.shatterfish.api.Playbook;
 import org.shatterfish.api.RunLog;
 
 import java.util.List;
@@ -215,10 +216,6 @@ final class Goo {
         return at;
     }
 
-    /** The most Steps the walk to ground to dodge on may take ({@link #position}). */
-    @Heuristic("goo-position-and-wash")
-    static final int POSITION_RANGE = 6;
-
     /**
      * The Step toward nearer ground to meet Goo on, when the ground the hero stands on is ground a pump
      * could not be dodged on where Goo will stand ({@link #arrival}, {@link #dodgeable}); else null. A
@@ -226,16 +223,17 @@ final class Goo {
      * a pocket can only take it (issue #219). Goo's walk toward the hero costs it its turns, so walking to
      * better ground before it arrives, or out of its reach, costs the hero no blow of Goo's: the walk never
      * ends beside Goo and never passes beside it. It goes to the nearest such ground within
-     * {@link #POSITION_RANGE} Steps, the roomiest of those, ties to the lower cell. None in reach: null,
-     * and the fight goes on where it is.
+     * the Playbook's {@code meet_range} Steps, the roomiest of those, ties to the lower cell. None in reach:
+     * null, and the fight goes on where it is.
      */
-    static RunLog.Choice position(Observation observation, Memory memory, List<Action> offered, int goo) {
+    static RunLog.Choice position(Observation observation, Memory memory, List<Action> offered, int goo,
+                                  Playbook.Goo entry) {
         MapSection map = observation.map();
         boolean[] walk = Explore.walkable(observation, memory, false);
         if (dodgeable(map, walk, observation.hero().cell(), arrival(map, walk, observation.hero().cell(), goo))) {
             return null;
         }
-        return walkTo(map, walk, observation.hero().cell(), offered, goo, POSITION_RANGE,
+        return walkTo(map, walk, observation.hero().cell(), offered, goo, entry.meetRange(),
                 cell -> dodgeable(map, walk, cell, arrival(map, walk, cell, goo)), "goo: position");
     }
 
@@ -253,28 +251,22 @@ final class Goo {
     }
 
     /**
-     * The most Steps to the water {@link #wash} walks: ooze costs a point a turn for up to
-     * 20 turns, and the walk is made while Goo is following, so it costs a point a Step and no blow.
-     * An assumption, not measured: one value was played (issue #219).
-     */
-    @Heuristic("goo-position-and-wash")
-    static final int WASH_RANGE = 4;
-
-    /**
      * The Step toward the nearest water to stand in, when caustic ooze is on the hero and the hero is not in
-     * water, within {@link #WASH_RANGE} Steps. Ooze costs a point a turn and is washed off in water
+     * water, within the Playbook's {@code wash_range} Steps (ooze costs a point a turn for up to 20 turns, and
+     * the walk is made while Goo is following, so it costs a point a Step and no blow). Ooze costs a point a turn and is washed off in water
      * (Ooze.java, act), and in water an ooze put on again costs one point and is washed off in turn. The
      * walk is as {@link #position}'s: it never ends or passes beside Goo, so it costs no blow of Goo's, and
      * it ends where a pump could be dodged (issue #219).
      */
-    static RunLog.Choice wash(Observation observation, Memory memory, List<Action> offered, int goo) {
+    static RunLog.Choice wash(Observation observation, Memory memory, List<Action> offered, int goo,
+                              Playbook.Goo entry) {
         MapSection map = observation.map();
         int hero = observation.hero().cell();
         if (!oozed(observation) || map.tiles().get(hero) == org.shatterfish.api.Tile.WATER) {
             return null;
         }
         boolean[] walk = Explore.walkable(observation, memory, false);
-        return walkTo(map, walk, hero, offered, goo, WASH_RANGE,
+        return walkTo(map, walk, hero, offered, goo, entry.washRange(),
                 cell -> map.tiles().get(cell) == org.shatterfish.api.Tile.WATER
                         && dodgeable(map, walk, cell, arrival(map, walk, cell, goo)), "goo: wash");
     }
@@ -363,18 +355,14 @@ final class Goo {
     }
 
     /**
-     * The share of the hero's hit points, in thousandths, at or under which a potion of healing is
-     * drunk against Goo alone. An assumption, not a Codex fact. A plain hit does 1 to 8, 1 to 12 once
-     * Goo is below half its hit points, and only a pump does more (3 to 24, 3 to 36; Goo.java:67-81);
-     * the potion heals {@code 0.8 * HT + 14} over several turns (Heal), so a drink at 40% leaves
-     * little of it to waste and the hero out of the range of a plain hit.
+     * The hit points at or under which the hero drinks against Goo alone: the Playbook's
+     * {@code drink_per_mille} of the maximum. An assumption, not a Codex fact. A plain hit does 1 to 8,
+     * 1 to 12 once Goo is below half its hit points, and only a pump does more (3 to 24, 3 to 36;
+     * Goo.java:67-81); the potion heals {@code 0.8 * HT + 14} over several turns (Heal), so a drink at 40%
+     * leaves little of it to waste and the hero out of the range of a plain hit.
      */
-    @Heuristic(Heuristic.UNLINKED)
-    static final int DRINK_PER_MILLE = 400;
-
-    /** The hit points at or under which the hero drinks against Goo alone. */
-    static int danger(org.shatterfish.api.HeroSection hero) {
-        return (int) ((long) hero.ht() * DRINK_PER_MILLE + 999) / 1000;
+    static int danger(org.shatterfish.api.HeroSection hero, Playbook.Goo entry) {
+        return entry.danger(hero.ht());
     }
 
     /** The awake Goo among {@code enemies}, when it is the only one: the fight {@link #engage} plays. Else null. */
@@ -396,7 +384,7 @@ final class Goo {
      * {@link Fight#HOLDS} waits of holding. Null when this is not that fight.
      */
     static List<RunLog.Choice> engage(Observation observation, Memory memory, List<Action> offered,
-                                      List<ActorView> enemies) {
+                                      List<ActorView> enemies, Playbook.Goo entry) {
         ActorView goo = alone(enemies);
         if (goo == null) {
             return null;
@@ -413,9 +401,9 @@ final class Goo {
             ranked.add(dodge);
         }
         if (dodge == null && memory.pump() != goo.cell()) {
-            RunLog.Choice position = wash(observation, memory, offered, goo.cell());
+            RunLog.Choice position = wash(observation, memory, offered, goo.cell(), entry);
             if (position == null) {
-                position = position(observation, memory, offered, goo.cell());
+                position = position(observation, memory, offered, goo.cell(), entry);
             }
             if (position != null) {
                 ranked.add(position);

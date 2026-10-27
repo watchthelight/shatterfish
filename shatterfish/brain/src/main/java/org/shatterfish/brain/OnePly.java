@@ -92,9 +92,15 @@ final class OnePly implements Policy {
     static final int DEATH_PER_MILLE = 1000;
 
     private final Codex.Knowledge knowledge;
+    private final org.shatterfish.api.Playbook.Goo goo;
     private final Codex.HitTable hits;
 
     OnePly(Codex.Knowledge knowledge) {
+        this(knowledge, org.shatterfish.api.Playbook.Goo.REFERENCE);
+    }
+
+    OnePly(Codex.Knowledge knowledge, org.shatterfish.api.Playbook.Goo goo) {
+        this.goo = goo;
         if (knowledge.hit() == null) {
             throw new IllegalArgumentException("the one-ply model reads the Codex's hit table (combat.json), and the Codex it was"
                     + " given recorded none; regenerate it with ./gradlew :codex:generate");
@@ -167,7 +173,7 @@ final class OnePly implements Policy {
         }
         // The Goo fight is the fight Policy's own (story 4.13, issue #219): its dodge is not a thing hit
         // points can score.
-        if (Goo.engage(observation, memory, offered, enemies) != null) {
+        if (Goo.engage(observation, memory, offered, enemies, goo) != null) {
             return List.of();
         }
         HeroSection hero = observation.hero();
