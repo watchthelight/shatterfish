@@ -85,6 +85,10 @@ public final class PlaybookFile {
         Map<String, String> held = Json.object(text);
         Playbook.Identify identify = Playbook.Identify.REFERENCE;
         Playbook.Upgrade upgrade = Playbook.Upgrade.REFERENCE;
+        Playbook.Kit kit = Playbook.Kit.REFERENCE;
+        if (held.containsKey("kit")) {
+            kit = kit.with(fields(held.get("kit"), "kit"));
+        }
         if (held.containsKey("identify")) {
             identify = identify.with(fields(held.get("identify"), "identify"));
         }
@@ -99,11 +103,13 @@ public final class PlaybookFile {
                         ? identify.with(fields(sections.get("identify"), "identify")) : identify;
                 Playbook.Upgrade classUpgrade = sections.containsKey("upgrade")
                         ? upgrade.with(fields(sections.get("upgrade"), "upgrade")) : upgrade;
-                classes.add(new Playbook.ClassEntry(HeroClass.valueOf(entry.getKey()), classIdentify, classUpgrade));
+                Playbook.Kit classKit = sections.containsKey("kit")
+                        ? kit.with(fields(sections.get("kit"), "kit")) : kit;
+                classes.add(new Playbook.ClassEntry(HeroClass.valueOf(entry.getKey()), classIdentify, classKit, classUpgrade));
             }
         }
         Playbook playbook = new Playbook(Json.string(Json.required(held, "name", "Playbook")),
-                Json.integer(Json.required(held, "version", "Playbook")), identify, upgrade, classes);
+                Json.integer(Json.required(held, "version", "Playbook")), identify, upgrade, kit, classes);
         if (!playbook.name().equals(brain)) {
             throw new IllegalArgumentException("the Playbook in " + file + " is for " + playbook.name()
                     + ", not for " + brain);

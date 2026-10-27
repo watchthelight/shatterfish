@@ -63,6 +63,8 @@ class PlaybookValidatorTest {
         assertEquals(List.of(), problems("bosses", "{}", "identify", "{\"reach\":8}",
                 "upgrade", "{\"tie\":\"ARMOR\",\"weapon_lead\":-1}"));
         assertEquals(List.of(), problems("classes", "{\"MAGE\":{\"identify\":{\"reach\":3}},\"ROGUE\":{}}"));
+        assertEquals(List.of(), problems("kit", "{\"zap_reach\":0}"), "the kit section's lowest reach");
+        assertEquals(List.of(), problems("classes", "{\"MAGE\":{\"kit\":{\"zap_reach\":10}}}"), "and its highest, as a class states it");
         assertEquals(List.of(), problems("identify", "{\"escape_waits\":0,\"gain_odds_per_mille\":1000,\"healing_odds_per_mille\":1,"
                 + "\"inventory_odds_per_mille\":250,\"known_gains\":0,\"potion_hp_per_mille\":1000,\"reach\":40,\"rest_waits\":500,\"scroll_hp_per_mille\":1}"), "the ends of every range");
     }
