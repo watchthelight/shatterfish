@@ -154,7 +154,7 @@ class UpgradePlaybookTest {
     }
 
     @Test
-    @DisplayName("an armour in the pack is never a target: only the worn weapon and the worn armour take a scroll")
+    @DisplayName("with armour_pick WORN an armour in the pack is never a target: only the worn weapon and the worn armour take a scroll")
     void only_worn_pieces() {
         Observation screen = screen(1, List.of(weapon(true, 0), armour(0), SPARE, UPGRADE));
         for (Playbook.Upgrade upgrade : List.of(Playbook.Upgrade.REFERENCE, with("weapon_lead", -5L),
@@ -165,5 +165,40 @@ class UpgradePlaybookTest {
             assertTrue(read instanceof Action.UseItemOn on && TestItem.worn(screen, on.target()),
                     "the read goes onto a worn piece: " + read);
         }
+    }
+
+    private static ItemView leather(int level, boolean levelKnown, boolean cursedKnown, boolean cursed) {
+        return new ItemView(ItemKind.ARMOR, "leather armor", 1, levelKnown, levelKnown ? level : 0, cursedKnown, cursed,
+                "", EquipSlot.NONE, List.of("EQUIP"), "");
+    }
+
+    private static final ItemRef LEATHER = new ItemRef(2, "leather armor", 1);
+
+    @Test
+    @DisplayName("armour_pick HEAVIEST sends the scroll to the pack's best armour once the equip Policy would wear it (#305)")
+    void heaviest_armour() {
+        Observation screen = screen(1, List.of(weapon(true, 0), armour(0), leather(0, true, true, false), UPGRADE));
+        Playbook.Upgrade heaviest = with("armour_pick", "HEAVIEST", "tie", "ARMOR");
+        assertEquals(CLOTH, TestItem.target(screen, with("tie", "ARMOR"), Screens.CODEX), "WORN keeps the worn armour");
+        assertEquals(LEATHER, TestItem.target(screen, heaviest, Screens.CODEX), "leather +1 absorbs 3513 against cloth +1's 2004");
+        assertEquals(CLOTH, TestItem.target(screen, heaviest), "no Codex, no pick");
+        Action read = TestItem.upgrade(screen, screen.actions().actions(), heaviest, Screens.CODEX);
+        assertEquals(new Action.UseItemOn(new ItemRef(3, TestItem.UPGRADE, 1), TestItem.READ, LEATHER), read);
+        assertTrue(TestItem.worn(screen, LEATHER, heaviest) && !TestItem.worn(screen, LEATHER), "the window the read opens is answered as an armour's");
+    }
+
+    @Test
+    @DisplayName("armour_pick HEAVIEST passes over a spare whose level is hidden, shown cursed, or too close to the worn one (#305)")
+    void heaviest_armour_candidates() {
+        Playbook.Upgrade heaviest = with("armour_pick", "HEAVIEST", "tie", "ARMOR");
+        // The equip Policy rates a hidden level as 0, so the scroll would never show and the piece never go on.
+        assertEquals(CLOTH, TestItem.target(screen(1, List.of(weapon(true, 0), armour(0), leather(0, false, true, false))),
+                heaviest, Screens.CODEX), "level hidden");
+        assertEquals(CLOTH, TestItem.target(screen(1, List.of(weapon(true, 0), armour(0), leather(0, true, true, true))),
+                heaviest, Screens.CODEX), "shown cursed");
+        assertEquals(CLOTH, TestItem.target(screen(1, List.of(weapon(true, 5), armour(2), leather(0, true, true, false))),
+                heaviest, Screens.CODEX), "cloth +3 (4004) beats leather +1 (3513)");
+        assertEquals(LEATHER, TestItem.target(screen(1, List.of(weapon(true, 0), armour(0), leather(0, true, false, false))),
+                heaviest, Screens.CODEX), "a hidden curse still clears the margin here: 3513 against 1004");
     }
 }

@@ -129,11 +129,37 @@ final class Equip implements Policy {
 
     /** What {@code gear} is worth worn by a hero of {@code strength}. */
     long worth(Piece gear, int strength) {
+        return evaluation.gear(gear.kind(), effective(gear, strength));
+    }
+
+    /**
+     * The mean roll of {@code gear} in thousandths after the strength it asks beyond {@code strength}: cut
+     * by a third for each point short.
+     */
+    static long effective(Piece gear, int strength) {
         long mean = gear.meanPerMille();
         for (int short_ = gear.strength() - strength; short_ > 0; short_--) {
             mean = mean * 2 / 3;
         }
-        return evaluation.gear(gear.kind(), mean);
+        return mean;
+    }
+
+    /**
+     * An instance that only names pieces, for the upgrade allocation (#305), which needs {@link #piece} and
+     * {@link #effective} and no Evaluation.
+     */
+    static Equip namer(Codex.Knowledge knowledge) {
+        return new Equip(null, knowledge);
+    }
+
+    /**
+     * The least a spare armour must outdo the worn one by, in thousandths of a point absorbed, for this
+     * Policy to swap to it: the swap's two turns and the curse a hidden state may hold, over the armour
+     * weight, rounded up (2 x 150 / 4 plus 0.255 x 10000 / 4 with the shipped weights is 712), so a scroll
+     * is not spent on a piece that would stay in the pack. A spare shown not cursed asks the turns only.
+     */
+    static long swapMargin(boolean cursedKnown) {
+        return cursedKnown ? 75 : 750;
     }
 
     /**
