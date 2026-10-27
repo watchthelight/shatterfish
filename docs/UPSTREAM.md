@@ -252,7 +252,6 @@ c3104d767d97c3a8   5  0  core/src/main/java/com/shatteredpixel/shatteredpixeldun
 b5c38c7c41565c37  10  0  core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/sprites/CharSprite.java
 76cc92a3ce10f1c6   9  0  SPD-classes/src/main/java/com/watabou/noosa/Group.java
 fcd86efe6a8b4610  12  0  core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/SPDAction.java
-a33335c781021eac   7  0  core/src/main/assets/messages/windows/windows.properties
 d71fa3674b2f7676  40  0  SPD-classes/src/main/java/com/watabou/utils/Random.java
 adf259a5ae3ec5c8  12  0  SPD-classes/src/main/java/com/watabou/noosa/particles/Emitter.java
 cac4b2402448c2ca   8  0  SPD-classes/src/main/java/com/watabou/noosa/audio/Music.java
@@ -261,6 +260,7 @@ cac4b2402448c2ca   8  0  SPD-classes/src/main/java/com/watabou/noosa/audio/Music
 8944078b9998438a   4  0  core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/sprites/ItemSprite.java
 0d206322f4893ee9   4  0  core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/SewerLevel.java
 02a9a5d3158a7ab2   5  2  settings.gradle
+093311942390c65f   8  0  core/src/main/assets/messages/windows/windows.properties
 ```
 
 ## Upgrade procedure

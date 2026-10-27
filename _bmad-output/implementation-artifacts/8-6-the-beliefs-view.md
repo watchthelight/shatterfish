@@ -2,7 +2,7 @@
 title: 'Story 8.6: The Beliefs view'
 type: 'feature'
 created: '2026-10-27'
-status: 'in-progress'
+status: 'review'
 baseline_commit: 'ef7b427bb'
 review_loop_iteration: 0
 context: []
@@ -60,3 +60,22 @@ leaking into the Snapshot (it is made in the dock, from the sidecar, as the summ
 - [ ] Scroll with the mouse wheel or drag; the list keeps its place across a Next Step unless the Belief changed.
 - [ ] Resume: the section closes; Take over: it can be opened in HUMAN.
 - [ ] With `--oracle`, `oracle:` lines appear under their appearance, and not without it.
+
+## Results
+
+`BeliefViewRunTest` over the `standard` Warrior seed of `SewersRunSmokeTest` to a 600-turn cap: 313 views taken, one
+per wait, each with the Belief hash the Run log wrote at that wait (zero mismatches), and the Action list equal to the
+same Run with no view taken. Rig numbers: this story changes nothing the Brain decides (`BrainDecider` builds one more
+value after `handed()`); `:rig:direction` was not run, since the columns cannot move, and `BeliefViewRunTest` is the
+equal-Action-list check.
+
+## Decisions and caveats
+
+- The Beliefs view is a Controls-row button (`Control.BELIEFS`) with the hotkey F12 (`Hotkey.BELIEFS`, hook row 10, one
+  string added to the existing windows.properties site, ledger digest updated). It is enabled in PAUSED and HUMAN.
+  REPLAY is a Mode story 8.5 adds; it joins the matrix there (one line in `ControlEnablement.of`). EXPERIENCE.md's
+  state-patterns table is the UX spine's and is not edited here.
+- It replaces the Belief summary and the Decision log in the Panel while open, and closes when the Run goes RUNNING.
+- Only monsters out of view are listed as the unseen-monster memory; monsters in view are on the screen.
+- F12 is the last free default key (F6 to F11 are taken). Stories 8.4, 8.5, 8.7 and 8.9 that want a hotkey register
+  one without a default (the registration declines a taken key and the control stays rebindable in the game's screen).
