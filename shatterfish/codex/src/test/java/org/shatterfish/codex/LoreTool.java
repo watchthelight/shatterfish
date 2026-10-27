@@ -18,6 +18,7 @@ import java.util.List;
  *   <li>{@code check} prints the checker's report and exits 1 on a finding.
  *   <li>{@code review} sets each claim's {@code status} to what its citations say, after a re-pin.
  *   <li>{@code docs} writes {@code docs/lore/index.md} from the files under {@code lore/}.
+ *   <li>{@code variants} writes the Results page of the variant classifier (story 7.8, ADR-0022).
  *   <li>{@code dates} writes {@code lore/release-dates.json} from the changelog (story 7.9).
  *   <li>{@code gate} writes the Results page of the date gate (story 7.9, ADR-0021 amendment).
  *   <li>{@code intake <folder>} enters each draft in the folder or writes a rejection note beside
@@ -85,7 +86,7 @@ public final class LoreTool {
     }
 
     public static void main(String[] args) {
-        String usage = "usage: LoreTool check | review | docs | dates | gate | intake <folder>";
+        String usage = "usage: LoreTool check | review | docs | variants | dates | gate | intake <folder>";
         if (args.length == 0) {
             throw new IllegalArgumentException(usage);
         }
@@ -112,6 +113,15 @@ public final class LoreTool {
                 }
                 System.out.println("wrote " + LoreDocs.PAGE);
             }
+            case "variants" -> {
+                Path page = root.resolve(VariantReport.PAGE);
+                try {
+                    Files.createDirectories(page.getParent());
+                    Files.writeString(page, VariantReport.render(root), StandardCharsets.UTF_8);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(page + " could not be written", e);
+                }
+                System.out.println("wrote " + VariantReport.PAGE);
             case "dates" -> {
                 Path table = root.resolve(DateGate.TABLE);
                 String tag = Upstream.tag(root);

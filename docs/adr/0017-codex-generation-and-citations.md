@@ -803,3 +803,12 @@ the page, the line and the way it failed, then reverted it.
 
 No Codex version bump: no table's bytes changed, and nothing under `codex/` or `docs/codex/` is
 written by this story.
+
+## Amendment: story 7.8 (2026-10-26)
+
+**The vocabulary has no mechanics kind, and does not get one.** FR-16 says the diff covers "items, mobs,
+and mechanics"; the table has items and mobs. A mechanics name from this game's properties would have no second
+side in the vanilla tree to point away from, so it could not tell a claim about this game from one about vanilla.
+Mechanics claims are classified by source type and by what the text declares, not by the table
+([ADR-0022](0022-variant-classifier.md)). No Codex change: `vocabulary.json` and `docs/codex/` are as story 2.8
+left them.

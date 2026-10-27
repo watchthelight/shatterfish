@@ -127,10 +127,11 @@ class ShatterfishRunTest {
                 if ("fight".equals(wait.decision().policy())) {
                     fought++;
                     // Story 4.7: the fight Policy attacks, steps, holds, or takes the stairs, and
-                    // its reason names which; issue #174 adds the chase of an enemy that dropped out of view.
+                    // its reason names which; issue #174 adds the chase of an enemy that dropped out of view,
+                    // and #219 the step out of water a seen piranha can reach.
                     String why = wait.decision().chosen().why();
                     assertTrue(why.matches("(attack|cornered): .+|(approach|chase) [1-9][0-9]*|chokepoint [0-2]|hold: chokepoint"
-                            + "|hold: no-way|retreat: stairs|retreat [0-9]+"), why);
+                            + "|hold: no-way|retreat: stairs|retreat [0-9]+|retreat: leave water [0-9]+"), why);
                 }
                 if ("explore".equals(wait.decision().policy())) {
                     explored++;
