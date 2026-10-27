@@ -18,6 +18,7 @@ def desktopMain = project(':desktop').sourceSets.main
 
 // Story 8.3: a test plays a real Run on the harness's own test host (EmbeddedHost, RealBrain) with the Overlay's
 // ControlState at the controls, so the harness's test classes are on the Overlay's test classpath.
+// Story 8.2 reaches the same package-private helpers (ScriptedHuman) through a bridge class in their package.
 evaluationDependsOn(':harness')
 def harnessTest = project(':harness').sourceSets.test
 

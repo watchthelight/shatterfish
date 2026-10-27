@@ -139,7 +139,7 @@ class PanelContentTest {
         assertFalse(card.actionBlocks()[2].visible, "only one alternative was given");
         assertTrue(panel.controls().explain().visible);
         assertTrue(panel.controls().explain().active, "no window is in front in this snapshot, so Explain can be pressed");
-        assertFalse(card.policyRow().visible, "not expanded yet");
+        assertFalse(card.explaining(), "not expanded yet");
     }
 
     /** Story 5.4: Safety flags as chips, the Belief summary's lines, and the Decision log's lines. */
@@ -232,27 +232,34 @@ class PanelContentTest {
     }
 
     @Test
-    @DisplayName("Explain expands the card in place to the Policy and the Safety flags; a second press collapses it")
+    @DisplayName("Explain opens the expansion below the card, inside the Panel, with the Policy and the flags; a second press closes it")
     void explain_toggles_in_place() {
         GameScene scene = fullScene();
         PanelDock dock = new PanelDock();
         RunLog.Decision decision = decision(List.of("hp-low"));
         dock.frame(scene, snapshot(decision), false);
         DecisionCard card = dock.panel().card();
-        assertFalse(card.policyRow().visible);
-        assertFalse(card.flagsRow().visible);
+        ExplainView view = dock.panel().explain();
+        assertFalse(view.shown());
+        assertFalse(view.visible);
 
         card.toggleExplain();
+        dock.frame(scene, snapshot(decision), false);
         assertTrue(card.explaining());
-        assertTrue(card.policyRow().visible);
-        assertEquals("policy: fight-in-corridors", card.policyRow().text());
-        assertTrue(card.flagsRow().visible);
-        assertEquals("flags: hp-low", card.flagsRow().text());
+        assertTrue(view.shown());
+        assertEquals("policy: fight-in-corridors", view.lines().get(0).left());
+        assertEquals("flags: hp-low", view.lines().stream()
+                .filter(line -> line.kind() == ExplainContent.Kind.FLAGS).findFirst().orElseThrow().left());
+        assertTrue(view.height() > 0 && view.bottom() <= dock.panel().controls().top(),
+                "inside the Panel, above the controls");
+        assertTrue(view.top() >= card.bottom(), "below the card");
+        assertFalse(dock.panel().log().visible, "the log gives its room to the expansion while it is open");
 
         card.toggleExplain();
+        dock.frame(scene, snapshot(decision), false);
         assertFalse(card.explaining());
-        assertFalse(card.policyRow().visible);
-        assertFalse(card.flagsRow().visible);
+        assertFalse(view.shown());
+        assertTrue(dock.panel().log().visible, "and takes it back");
     }
 
     @Test

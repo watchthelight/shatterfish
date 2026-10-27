@@ -57,12 +57,21 @@ final class Panel extends Component {
     private SafetyFlagsRow flags;
     private BeliefSummarySection belief;
     private DecisionLog log;
+    /** The Explain expansion (story 8.2): the room below the card, in place of the sections it hides while open. */
+    private ExplainView explainView;
     private ControlsRow controls;
     private ControlState controlState;
     /** Whether the Decision handed to {@link #content} is the pending one, landed and not executed (story 5.7). */
     private boolean awaiting;
     private PanelLayout.Layout placed;
     private boolean dimmed;
+    /** Whether the Run was in a person's hands, or on its way there, at the last {@link #content} (story 8.2). */
+    private boolean handedOver;
+    /** Why Explain cannot act now, or null (story 8.2); what a pressed key says when it cannot. */
+    private String explainReason;
+    /** A word the Mode strip says in place of its line for a moment, and when it stops (nanoTime), or null (story 8.2). */
+    private String notice;
+    private long noticeUntil;
 
     /**
      * A HUMAN Run's tap blocker (story 5.9): the game's own {@code PointerArea} over the whole Panel, added
@@ -115,6 +124,8 @@ final class Panel extends Component {
         add(belief);
         log = new DecisionLog();
         add(log);
+        explainView = new ExplainView();
+        add(explainView);
         controls = new ControlsRow();
         controls.bind(null, () -> card.toggleExplain());
         add(controls);
@@ -165,9 +176,22 @@ final class Panel extends Component {
                  BeliefSummary beliefSummary, List<BoundedLog.Entry> history, DecisionCardContent.Shadow shadow) {
         stripArea.active = !inputLocked;
         blocker.active = !inputLocked && ((shadow != null && shadow.person()) || controlState != null);
-        stripText.text(ModeStripContent.text(mode));
-        stripText.hardlight(ModeStripContent.color(mode));
+        if (notice != null && System.nanoTime() - noticeUntil >= 0) {
+            notice = null;
+        }
+        stripText.text(notice != null ? notice : ModeStripContent.text(mode));
+        stripText.hardlight(notice != null ? ModeStripContent.PAUSED_COLOR : ModeStripContent.color(mode));
         boolean full = placed != null && placed.form() == PanelLayout.Form.FULL;
+        // The expansion follows the Decision at each wait and stays open; it closes when Explain goes dim
+        // (collapsed Panel, Run over, no Decision) and when the Run is taken over (story 8.2).
+        explainReason = ControlEnablement.explainReason(mode.mode(), mode.over(), full, decision != null);
+        boolean handing = mode.mode() == ModeState.Mode.HUMAN
+                || (controlState != null && controlState.switching());
+        if (explainReason != null || (handing && !handedOver)) {
+            card.collapseExplain();
+        }
+        handedOver = handing;
+        boolean explaining = full && card.explaining();
         // The headline "next press executes" is shown only when the Decision on the card is the one the next
         // press executes: the Run is PAUSED and the Decision for its wait has landed, unexecuted (story 5.7).
         // While the Brain thinks, or the Run plays on, the card shows the last Decision executed.
@@ -180,18 +204,34 @@ final class Panel extends Component {
             goal.content(full ? decision : null, inner);
         }
         card.content(full ? decision : null, full ? observation : null, nextStep, inner, shadow);
-        flags.content(full && decision != null ? decision.flags() : List.of());
+        flags.content(full && !explaining && decision != null ? decision.flags() : List.of());
         Set<ControlEnablement.Control> enabled = controlState != null ? controlState.enabled()
                 : ControlEnablement.of(mode.mode(), mode.over(), ControlEnablement.Capabilities.NOW);
         controls.content(mode, enabled, inputLocked, full && decision != null);
-        belief.content(full ? beliefSummary : null, full ? oracleRows : List.of(), inner);
+        belief.content(full && !explaining ? beliefSummary : null, full && !explaining ? oracleRows : List.of(), inner);
+        explainView.show(explaining);
         // layout() before the log's own content: it is what sizes the log's ScrollPane viewport (the
         // remaining room below every section above it), and the log's auto-scroll-to-bottom decision
         // reads that viewport's height, so the log must already know this frame's height before it
         // scrolls -- otherwise its first-ever fill (the viewport still at its constructed height, 0)
         // computes the wrong bottom (caught by DecisionLogTest.auto_scrolls_while_at_the_bottom).
         layout();
-        log.content(full ? history : List.of(), inner, inputLocked);
+        log.content(full && !explaining ? history : List.of(), inner, inputLocked || explaining);
+        explainView.content(explaining ? ExplainContent.of(decision, observation) : List.of(), inner, inputLocked);
+    }
+
+    /**
+     * Says {@code text} in the Mode strip in place of its line until {@code untilNanos} ({@code System.nanoTime}
+     * time), or at once for a null (story 8.2): why a pressed control did nothing.
+     */
+    void notice(String text, long untilNanos) {
+        notice = text;
+        noticeUntil = untilNanos;
+    }
+
+    /** Why Explain cannot act as of the last {@link #content}, or null when it can (story 8.2). */
+    String explainReason() {
+        return explainReason;
     }
 
     /** The Panel's own inner width, inside its padding, that the strip's text, the Goal line and the card wrap at. */
@@ -272,9 +312,11 @@ final class Panel extends Component {
         stripText.setPos(strip.x + 2, strip.y + (strip.height() - stripText.height()) / 2f);
         PixelScene.align(stripText);
 
+        boolean explaining = full && card.explaining();
         card.visible = full;
-        belief.visible = full;
-        log.visible = full;
+        belief.visible = full && !explaining;
+        log.visible = full && !explaining;
+        explainView.visible = explaining;
         controls.visible = full;
         if (full) {
             float sectionX = x + PanelLayout.PADDING;
@@ -285,16 +327,25 @@ final class Panel extends Component {
             card.setRect(sectionX, cardTop, sectionWidth, card.contentHeight());
             // The Decision card always shows something (its own "no decision yet"), so unlike the
             // Goal line above it there is no "skip the gap" case here.
+            // The Controls row is the last section, at the Panel's foot.
+            controls.setRect(sectionX, 0, sectionWidth, 0);
+            float controlsHeight = controls.contentHeight();
+            float controlsTop = y + height - PanelLayout.PADDING - controlsHeight;
+            controls.setRect(sectionX, controlsTop, sectionWidth, controlsHeight);
+            if (explaining) {
+                // The expansion takes every section between the card and the controls: the flags are in it,
+                // and the Belief summary and the log come back when it closes (story 8.2).
+                float explainTop = card.bottom() + SECTION_GAP;
+                explainView.setRect(sectionX, explainTop, sectionWidth,
+                        Math.max(1, controlsTop - SECTION_GAP - explainTop));
+                return;
+            }
             float flagsTop = card.bottom() + SECTION_GAP;
             flags.setRect(sectionX, flagsTop, sectionWidth, flags.contentHeight());
             float beliefTop = (flags.visible ? flags.bottom() : flagsTop) + SECTION_GAP;
             belief.setRect(sectionX, beliefTop, sectionWidth, belief.contentHeight());
             float logTop = belief.bottom() + SECTION_GAP;
-            // The Controls row is the last section, at the Panel's foot; the log takes the room between.
-            controls.setRect(sectionX, 0, sectionWidth, 0);
-            float controlsHeight = controls.contentHeight();
-            float controlsTop = y + height - PanelLayout.PADDING - controlsHeight;
-            controls.setRect(sectionX, controlsTop, sectionWidth, controlsHeight);
+            // The log takes the room between the Belief summary and the controls.
             float logHeight = Math.max(0, controlsTop - SECTION_GAP - logTop);
             log.setRect(sectionX, logTop, sectionWidth, logHeight);
         }
@@ -363,6 +414,11 @@ final class Panel extends Component {
     /** The Controls row, for tests (story 5.6). */
     ControlsRow controls() {
         return controls;
+    }
+
+    /** The Explain expansion, for tests (story 8.2). */
+    ExplainView explain() {
+        return explainView;
     }
 
     /** The Decision log, for tests (story 5.4). */

@@ -1601,9 +1601,8 @@ public final class EmbeddedRun implements AutoCloseable {
     /**
      * Decides what a scene that is not a play scene means for the Run, by its class, as the headless
      * loop decides by the scene it is asked for ({@code RunLoop.serve}): the surface is the win; the
-     * loading scene of a descent, an ascent or a fall is a floor change the game is serving, and the
-     * play scene it asks for when done is one being built; any other loading mode (a resurrection, a
-     * return) and any other scene end the Run as unserved, because the headless loop ends it there and
+     * loading scene of a descent, an ascent, a fall or a return (a teleport to a named floor, #328) is a floor change the game is serving, and the
+     * play scene it asks for when done is one being built; any other loading mode (a resurrection) and any other scene end the Run as unserved, because the headless loop ends it there and
      * a Run that went on here would part from the Rig's without a word. No scene at all is the
      * moment between two, in the test host.
      *
@@ -1623,7 +1622,7 @@ public final class EmbeddedRun implements AutoCloseable {
         } else if (InterlevelScene.class.isAssignableFrom(scene)) {
             boolean resurrection = mode == InterlevelScene.Mode.RESURRECT && host.servesResurrection();
             if (mode != InterlevelScene.Mode.DESCEND && mode != InterlevelScene.Mode.ASCEND
-                    && mode != InterlevelScene.Mode.FALL && !resurrection) {
+                    && mode != InterlevelScene.Mode.FALL && mode != InterlevelScene.Mode.RETURN && !resurrection) {
                 end(RunOutcome.Cause.UNSERVED_SCENE, "the interlevel scene in mode " + mode);
             }
         } else {

@@ -309,10 +309,22 @@ final class PanelDock {
         }
         if (hotkey == Hotkey.PANEL) {
             collapsed = !collapsed;
+            if (panel != null) {
+                panel.notice(null, 0);
+            }
             return true;
+        }
+        if (hotkey == Hotkey.EXPLAIN && panel != null && panel.explainReason() != null) {
+            // Explain is disabled, and a key that did nothing says why (story 8.2): the Panel collapsed has
+            // no room to open the expansion in, and the Mode strip is all of it that shows.
+            panel.notice(panel.explainReason(), System.nanoTime() + NOTICE_NANOS);
+            return false;
         }
         return panel != null && hotkey.control() != null && panel.controls().press(hotkey.control());
     }
+
+    /** How long the Mode strip says why a key did nothing: three seconds. */
+    static final long NOTICE_NANOS = 3_000_000_000L;
 
     /** The Panel on the current play scene, or null before the first one. */
     Panel panel() {
