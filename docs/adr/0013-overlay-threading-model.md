@@ -767,7 +767,7 @@ Found by the fairness review of story 5.8 (issue #220), settled with the rest of
 - **The controls are `GameAction`s.** `Hotkey` creates six (`shatterfish_next_step`, `_speed`, `_pause_resume`,
   `_take_over`, `_explain`, `_panel`), which join `GameAction.allActions()`; the game's key-binding screen lists them,
   its bindings file saves a rebinding by name, and a name the file does not know gets the default. Their defaults,
-  F6 to F11, are registered through hook row 10 (`SPDAction.addDefaultBinding`) in `OverlayGame.create()` before
+  F6 to F12 (F12 is the Beliefs view, story 8.6), are registered through hook row 10 (`SPDAction.addDefaultBinding`) in `OverlayGame.create()` before
   `super.create()` loads the bindings. The hook declines a key the game binds already, so a default can never shadow
   a game binding; `KeyBindingConflictTest` turns a decline into a build failure. The game's `Messages` need a string
   per action for the screen: six lines in `windows.properties` under the same hook row.
