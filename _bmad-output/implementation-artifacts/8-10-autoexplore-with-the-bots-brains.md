@@ -101,6 +101,18 @@ wait it is drawn at. The oracle header bit is not read.
 **Coach mode.** Control returns to HUMAN, where coach mode lives (story 8.9, not built yet); when it is on it stays
 on, since Autoexplore touches no setting of it. Nothing here needs 8.9.
 
+**Found by the fairness review.** The Run keeps a credit through a stale drop: a Decision that is paid for and then
+found stale is asked again, and the new answer executes on the credit left over without ever being withheld, so a
+stop rule would not see it. `ControlState` withdraws a credit that is out while the Brain is deciding again
+(`AutoexploreTest.a_stale_re_ask_is_looked_at`). The same gap exists for 8.3's Pause-on at Fast; it is out of this story's
+diff and is recorded here for it. The backstop under the list also refuses Unlock, OpenChest, Buy and a Prompt answer.
+
+**Known limits.** (1) A Prompt opened by a paid step is answered by the Brain's own Prompt rule as part of that step,
+without a credit of its own (`EmbeddedRun.owed`, story 5.6), so no stop rule looks at it; the step that opened it was
+a listed one, and the rule declines what it cannot answer. (2) The first wait of a stretch has no wait before it, so a
+fall in HP between the person's last turn and that wait is not compared; the other rules look at it. (3) There is no
+Autoexplore in a pure HUMAN Run, which has no Brain's controls (5.9), and no hotkey.
+
 **Hotkey.** None. F6 to F11 are taken and `HotkeyTest` probes F12 as an unbound key; a key for Autoexplore is a story
 that changes that test, not this one.
 

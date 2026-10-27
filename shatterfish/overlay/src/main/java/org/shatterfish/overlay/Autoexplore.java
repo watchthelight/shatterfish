@@ -97,15 +97,18 @@ final class Autoexplore {
     }
 
     /**
-     * Actions that fight, change floors, use or throw items, or answer for the person, whichever Policy chose
-     * them. A backstop under the list, so a Policy that is on it cannot slip one of these through.
+     * Actions that fight, change floors, use or throw items, spend a key or gold, open a chest, or answer for the
+     * person, whichever Policy chose them. A backstop under the list, so a Policy that is on it cannot slip one of
+     * these through. Not here: moving, picking up, resting, searching, waiting, and interacting (a door, a lever),
+     * which are what the two listed Policies are for.
      */
     private static boolean refused(Action action) {
         return action instanceof Action.Attack || action instanceof Action.Descend || action instanceof Action.Ascend
                 || action instanceof Action.UseItem || action instanceof Action.UseItemAt
                 || action instanceof Action.UseItemOn || action instanceof Action.Ability
                 || action instanceof Action.AbilityAt || action instanceof Action.Talent
-                || action instanceof Action.Buy;
+                || action instanceof Action.Buy || action instanceof Action.Unlock || action instanceof Action.OpenChest
+                || action instanceof Action.AnswerPrompt || action instanceof Action.DismissPrompt;
     }
 
     /** Whether the hit-point fraction is lower than at the wait before: {@code hp / ht < hp' / ht'}. */

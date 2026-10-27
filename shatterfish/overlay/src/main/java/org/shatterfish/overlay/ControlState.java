@@ -389,6 +389,13 @@ final class ControlState {
      * nobody can name cannot be on the list.
      */
     private void autoexploreStops() {
+        if (seam.credits() > 0 && seam.thinking()) {
+            // A credit is out and the Brain is deciding again: the Run dropped the answer the credit was for as stale
+            // and asked afresh, and keeps the credit for the new answer, which would then execute unlooked. Withdraw it;
+            // the new Decision lands, is withheld, and is looked at like any other (the fairness review of story 8.10).
+            holdNow();
+            return;
+        }
         Pending pending = seam.pending();
         if (pending == null) {
             if (seam.ready()) {

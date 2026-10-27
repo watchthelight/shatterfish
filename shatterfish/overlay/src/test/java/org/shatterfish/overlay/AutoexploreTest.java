@@ -112,7 +112,9 @@ class AutoexploreTest {
     void the_backstop_under_the_list() {
         for (Action refused : List.of(new Action.Attack(5), new Action.Descend(), new Action.Ascend(),
                 new Action.UseItem(new org.shatterfish.api.ItemRef(0, "potion", 1), "DRINK"),
-                new Action.UseItemAt(new org.shatterfish.api.ItemRef(0, "dart", 1), "THROW", 4))) {
+                new Action.UseItemAt(new org.shatterfish.api.ItemRef(0, "dart", 1), "THROW", 4),
+                new Action.Unlock(7), new Action.OpenChest(8), new Action.Buy(9), new Action.AnswerPrompt(0),
+                new Action.DismissPrompt())) {
             assertEquals(Autoexplore.Kind.OFF_LIST, stop(OverlaySettings.DEFAULTS, base, by("explore", refused), null)
                     .orElseThrow().kind(), refused.toString());
         }
@@ -214,6 +216,7 @@ class AutoexploreTest {
         int credits;
         boolean person = true;
         boolean ended;
+        boolean thinking;
         ControlState.Pending pending;
         int handBacks;
         int takeOvers;
@@ -252,7 +255,7 @@ class AutoexploreTest {
 
         @Override
         public boolean thinking() {
-            return false;
+            return thinking;
         }
 
         @Override
@@ -486,6 +489,29 @@ class AutoexploreTest {
         frame(run, controls);
         frame(run, controls);
         assertEquals(List.of(80L), run.executed, "unknown-item is not about a step");
+    }
+
+    @Test
+    @DisplayName("a wait the Run dropped as stale and asked again is looked at before it executes, not run on the credit left over")
+    void a_stale_re_ask_is_looked_at() {
+        Run run = new Run();
+        ControlState controls = inHuman(run, OverlaySettings.DEFAULTS);
+        start(run, controls);
+        run.land(120, base, exploring());
+        controls.frame(1.0);
+        assertEquals(1, run.credits, "the quiet wait was paid for");
+        // Before the Run serves it, the screen goes stale: the answer is dropped and the Brain asked afresh, with the
+        // credit still out. The new answer is for a screen with a rat on it and is the Brain's walk on.
+        run.pending = null;
+        run.thinking = true;
+        controls.frame(1.0);
+        assertEquals(0, run.credits, "the credit is withdrawn while the Brain is deciding again");
+        run.thinking = false;
+        run.land(120, PauseOnTest.withEnemies(base, "rat"), exploring());
+        controls.frame(1.0);
+        run.serve();
+        assertEquals(List.of(), run.executed, "the re-asked Decision was not run unlooked");
+        assertEquals("enemy in view", controls.stoppedFor());
     }
 
     @Test
