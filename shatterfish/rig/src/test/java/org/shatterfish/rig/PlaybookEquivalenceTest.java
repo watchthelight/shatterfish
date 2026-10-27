@@ -44,7 +44,11 @@ class PlaybookEquivalenceTest {
     private static final String THE_CONSTANTS = "{\"bosses\":{},\"classes\":{},\"format\":1,"
             + "\"identify\":{\"escape_waits\":12,\"gain_odds_per_mille\":200,\"healing_odds_per_mille\":200,"
             + "\"inventory_odds_per_mille\":250,\"reach\":8,\"rest_waits\":50},"
-            + "\"name\":\"shatterfish\",\"upgrade\":{\"tie\":\"WEAPON\",\"weapon_lead\":0},\"version\":1}\n";
+            + "\"name\":\"shatterfish\",\"upgrade\":{\"hold_until_depth\":0,\"tie\":\"WEAPON\",\"unknown_weapon\":\"NO\",\"weapon_lead\":0},\"version\":1}\n";
+
+    /** The upgrade section the constants held, and the one story 7.4 measured and kept. */
+    private static final String UPGRADE_7_2 = "\"upgrade\":{\"hold_until_depth\":0,\"tie\":\"WEAPON\",\"unknown_weapon\":\"NO\",\"weapon_lead\":0}";
+    private static final String UPGRADE_7_4 = "\"upgrade\":{\"hold_until_depth\":0,\"tie\":\"ARMOR\",\"unknown_weapon\":\"NO\",\"weapon_lead\":0}";
 
     /**
      * Values that change what the Brain does on a screen with an unknown potion or scroll: it drinks only
@@ -53,7 +57,7 @@ class PlaybookEquivalenceTest {
     private static final String CHANGED = "{\"bosses\":{},\"classes\":{},\"format\":1,"
             + "\"identify\":{\"escape_waits\":12,\"gain_odds_per_mille\":1000,\"healing_odds_per_mille\":1000,"
             + "\"inventory_odds_per_mille\":1,\"reach\":0,\"rest_waits\":0},"
-            + "\"name\":\"shatterfish\",\"upgrade\":{\"tie\":\"ARMOR\",\"weapon_lead\":-5},\"version\":1}\n";
+            + "\"name\":\"shatterfish\",\"upgrade\":{\"hold_until_depth\":0,\"tie\":\"ARMOR\",\"unknown_weapon\":\"NO\",\"weapon_lead\":-5},\"version\":1}\n";
 
     /** A root holding what a Run reads, with {@code playbook} as the Brain's Playbook. */
     private static Path root(Path into, String playbook) throws IOException {
@@ -158,13 +162,15 @@ class PlaybookEquivalenceTest {
     @DisplayName("the committed Playbook plays the smoke set to the same Decisions as the values the constants held, and an edited one does not")
     @Timeout(value = 40, unit = TimeUnit.MINUTES)
     void the_playbook_changes_no_play(@TempDir Path scratch) throws IOException {
-        assertEquals(THE_CONSTANTS, Files.readString(PlaybookFile.of(SeedSetsTest.ROOT, Brains.SHATTERFISH), StandardCharsets.UTF_8),
-                "the committed Playbook states exactly the values the constants held");
+        // The committed Playbook has moved the allocation since (story 7.4, tie ARMOR, version 2); what it states
+        // apart from that is exactly what the constants held, and that move is measured, not asserted here.
+        String committed = Files.readString(PlaybookFile.of(SeedSetsTest.ROOT, Brains.SHATTERFISH), StandardCharsets.UTF_8);
+        assertEquals(THE_CONSTANTS.replace(UPGRADE_7_2, UPGRADE_7_4).replace("\"version\":1", "\"version\":2"), committed,
+                "the committed Playbook states the values the constants held, except the allocation of story 7.4");
+        String atReference = committed.replace(UPGRADE_7_4, UPGRADE_7_2).replace("\"version\":2", "\"version\":1");
 
         Map<String, Path> constants = play(root(scratch.resolve("constants"), THE_CONSTANTS), scratch.resolve("constants-out"));
-        Map<String, Path> playbook = play(root(scratch.resolve("playbook"),
-                Files.readString(PlaybookFile.of(SeedSetsTest.ROOT, Brains.SHATTERFISH), StandardCharsets.UTF_8)),
-                scratch.resolve("playbook-out"));
+        Map<String, Path> playbook = play(root(scratch.resolve("playbook"), atReference), scratch.resolve("playbook-out"));
         assertEquals(SeedSets.load(SeedSetsTest.ROOT, SeedSets.SMOKE).set().entries().size(), constants.size());
         assertEquals(constants.keySet(), playbook.keySet());
         for (Map.Entry<String, Path> log : constants.entrySet()) {

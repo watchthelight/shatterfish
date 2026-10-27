@@ -365,6 +365,10 @@ final class TestItem implements Policy {
         if (has(observation, BLINDED) || has(observation, MAGIC_IMMUNE)) {
             return null;
         }
+        // Held for a better piece to be worn first, when the Playbook says so (story 7.4, upgrade-allocation).
+        if (observation.header().depth() < upgrader.holdUntilDepth()) {
+            return null;
+        }
         ItemRef armour = target(observation, upgrader);
         List<ItemView> pack = observation.inventory().items();
         for (int index = 0; armour != null && index < pack.size(); index++) {
@@ -390,7 +394,9 @@ final class TestItem implements Policy {
      * first; null when no armour is worn. A level adds one to a melee weapon's least damage and its
      * tier plus one to its most (MeleeWeapon.java:250-259), and its tier to an armour's most damage
      * absorbed (Armor.java:379-384): for the tier-1 pieces a Run starts in, a weapon level is worth
-     * about three armour levels a hit.
+     * about three armour levels a hit. The weapon whose level the screen does not show is a target only
+     * when the Playbook's {@code unknown_weapon} says so, because its level is then not known to sit
+     * below the armour's (story 7.4); every target is a worn piece (docs/rules/upgrades.md).
      */
     static ItemRef target(Observation observation, Playbook.Upgrade upgrader) {
         ItemRef armour = armour(observation);
@@ -400,7 +406,7 @@ final class TestItem implements Policy {
         }
         ItemView a = observation.inventory().items().get(armour.index());
         ItemView w = observation.inventory().items().get(weapon.index());
-        boolean upgradable = w.kind() == ItemKind.WEAPON && w.levelKnown();
+        boolean upgradable = w.kind() == ItemKind.WEAPON && (w.levelKnown() || upgrader.unknownWeapon());
         if (!upgradable) {
             return armour;
         }
