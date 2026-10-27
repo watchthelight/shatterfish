@@ -88,13 +88,13 @@ class WinRateTest {
     }
 
     @Test
-    @DisplayName("both sides played the 500 standard triples, none of them holdout or goo, and the page says no release-level number was taken")
+    @DisplayName("both sides played the 500 standard triples, none of them holdout or goo, and the page says the holdout run came afterwards and links its page")
     void the_measurement_covers_the_set_and_the_page_says_what_it_did_not_take() throws IOException {
         assertEquals(500, WinRate.read(CURRENT).size());
         assertEquals(500, WinRate.read(BASELINE).size());
         String page = Files.readString(PAGE, StandardCharsets.UTF_8).replaceAll("\\s+", " ");
-        assertTrue(page.contains("The `holdout` set was not run"), "the page says holdout was not run");
-        assertTrue(page.contains("release-level number was not taken"), "the page says no release-level number was taken");
+        assertTrue(page.contains("was run once, afterwards"), "the page says holdout was run once, afterwards");
+        assertTrue(page.contains("2026-10-27-e7-holdout.md"), "the page links the holdout page");
     }
 
     private static String block(String name) throws IOException {
