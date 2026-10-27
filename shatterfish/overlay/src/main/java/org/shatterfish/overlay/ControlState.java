@@ -5,6 +5,9 @@ import org.shatterfish.overlay.ControlEnablement.Control;
 import org.shatterfish.overlay.ModeState.Mode;
 import org.shatterfish.overlay.ModeState.SpeedMode;
 
+import org.shatterfish.api.Observation;
+import org.shatterfish.api.RunLog;
+
 import java.util.EnumSet;
 import java.util.Set;
 
@@ -80,6 +83,26 @@ final class ControlState {
 
         /** Whether the human plays now: a takeover has applied and a hand back has not. */
         boolean humanTurn();
+
+        /**
+         * The wait in front when a Decision has landed for it and is not executed: its index, the Observation
+         * the Decision was made on and the Decision (story 8.3). Null otherwise, and for a Run whose agent gives
+         * no Decision to show.
+         */
+        default Pending pending() {
+            return null;
+        }
+
+        /**
+         * The Overlay paused the Run because a Pause-on condition holds at the pending wait (story 8.3):
+         * the Run writes the Mode record for it, with {@code speed} the speed mode's word.
+         */
+        default void pausedOn(String speed) {
+        }
+    }
+
+    /** The wait a Decision is shown for and not yet executed (story 8.3). */
+    record Pending(long index, Observation observation, RunLog.Decision decision) {
     }
 
     private final Seam seam;
@@ -102,11 +125,30 @@ final class ControlState {
      * press during the switch would act on a Run that is about to change hands (UX-DR7's Hero busy row).
      */
     private Mode target;
+    /** What the person has set (story 8.3): the Pause-on conditions and the HP threshold. */
+    private OverlaySettings settings;
+    /** The Codex's boss depths, which the boss floor condition reads. */
+    private final Set<Integer> bossDepths;
+    /** What the last wait showed, to compare the next with; null when there is none (story 8.3). */
+    private PauseOn.Previous previous;
+    /** The last wait the Pause-on conditions were looked at: each wait is looked at once (story 8.3). */
+    private long looked = -1;
+    /** The Decision looked at for {@link #looked}: a wait re-asked after a stale answer has a new one, looked at afresh. */
+    private RunLog.Decision lookedDecision;
+    /** The condition the Run is paused for, in words, or null (story 8.3). */
+    private String pausedFor;
 
     /** A fresh Run's controls: the Run is held at once, PAUSED with Next Step. */
     ControlState(Seam seam, Capabilities capabilities) {
+        this(seam, capabilities, OverlaySettings.DEFAULTS, Set.of());
+    }
+
+    /** As above, with the person's settings and the Codex's boss depths (story 8.3). */
+    ControlState(Seam seam, Capabilities capabilities, OverlaySettings settings, Set<Integer> bossDepths) {
         this.seam = seam;
         this.capabilities = capabilities;
+        this.settings = settings;
+        this.bossDepths = Set.copyOf(bossDepths);
         seam.hold(true);
         held = true;
     }
@@ -129,6 +171,26 @@ final class ControlState {
 
     Capabilities capabilities() {
         return capabilities;
+    }
+
+    OverlaySettings settings() {
+        return settings;
+    }
+
+    /**
+     * Replaces the settings (story 8.3; story 8.4's screen calls this). The wait before is forgotten, so a
+     * condition that compares with it starts afresh instead of against a wait from before it was on, and the
+     * Run is held or let go as the new settings need.
+     */
+    void settings(OverlaySettings changed) {
+        settings = changed;
+        previous = null;
+        applyHold();
+    }
+
+    /** The condition the Run is paused for, as the Mode strip says it ("before stairs"), or null (story 8.3). */
+    String pausedFor() {
+        return mode == Mode.PAUSED ? pausedFor : null;
     }
 
     /** Whether the Run is over, as the Run says. */
@@ -180,7 +242,7 @@ final class ControlState {
     ModeState view(ModeState run) {
         // A person's own pace paces a HUMAN turn: no speed mode does (story 5.8).
         return new ModeState(mode, mode == Mode.HUMAN ? SpeedMode.PLAYER : speed, interval, run.turn(), run.floor(),
-                run.thinking(), over(), run.ending());
+                run.thinking(), over(), run.ending()).withPausedFor(pausedFor());
     }
 
     /**
@@ -199,6 +261,7 @@ final class ControlState {
         if (over()) {
             return;
         }
+        pauseOnConditions();
         if (target == null && mode == Mode.RUNNING && held && seam.credits() == 0 && seam.ready() && (!runN || remaining > 0)
                 && (speed != SpeedMode.HUMAN_PLAY || sinceStep >= interval)) {
             seam.advance(1);
@@ -212,6 +275,35 @@ final class ControlState {
             runN = false;
             mode = Mode.PAUSED;
             applyHold();
+        }
+    }
+
+    /**
+     * Looks at the wait in front once, when its Decision has landed and before anything executes it (story 8.3,
+     * FR-45): in RUNNING, a Pause-on condition that holds moves the Run to PAUSED with its Decision still
+     * pending, so Resume or Next Step then executes that Decision and the pause costs no wait. In PAUSED or
+     * HUMAN a condition does nothing, but the wait is still remembered for the next to compare with. A wait
+     * looked at is not looked at again, so Resume does not fire the condition it resumed from.
+     */
+    private void pauseOnConditions() {
+        if (!settings.anyPauseOn()) {
+            return;
+        }
+        Pending pending = seam.pending();
+        if (pending == null || (pending.index() == looked && pending.decision() == lookedDecision)) {
+            return;
+        }
+        looked = pending.index();
+        lookedDecision = pending.decision();
+        pausedFor = null;
+        java.util.Optional<PauseOn.Condition> hit = mode == Mode.RUNNING && target == null
+                ? PauseOn.first(settings, pending.observation(), pending.decision(), previous, bossDepths)
+                : java.util.Optional.empty();
+        previous = PauseOn.Previous.of(pending.observation());
+        if (hit.isPresent()) {
+            pausedFor = PauseOn.label(hit.get(), settings);
+            pause();
+            seam.pausedOn(speed.word);
         }
     }
 
@@ -252,6 +344,7 @@ final class ControlState {
             return false;
         }
         mode = Mode.RUNNING;
+        pausedFor = null;
         runN = true;
         remaining = count;
         sinceStep = interval;
@@ -326,6 +419,7 @@ final class ControlState {
             return false;
         }
         runN = false;
+        pausedFor = null;
         holdNow();
         if (mode == Mode.HUMAN) {
             target = Mode.PAUSED;
@@ -350,6 +444,7 @@ final class ControlState {
             speed = capabilities.pacing() ? SpeedMode.HUMAN_PLAY : SpeedMode.FAST;
         }
         runN = false;
+        pausedFor = null;
         mode = Mode.RUNNING;
         sinceStep = interval;
         applyHold();
@@ -379,7 +474,9 @@ final class ControlState {
      * Run go; every other state holds it, and Human play speed gives its credits in {@link #frame}.
      */
     private void applyHold() {
-        boolean wanted = !(mode == Mode.RUNNING && speed == SpeedMode.FAST && !runN);
+        // With a Pause-on condition enabled the Run stays held even at Fast: a Decision must land and wait for a
+        // credit for the condition to be looked at before it executes (story 8.3).
+        boolean wanted = !(mode == Mode.RUNNING && speed == SpeedMode.FAST && !runN && !settings.anyPauseOn());
         if (wanted != held) {
             held = wanted;
             seam.hold(wanted);

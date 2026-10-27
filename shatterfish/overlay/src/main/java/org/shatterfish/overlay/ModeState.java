@@ -58,6 +58,7 @@ final class ModeState {
     private final boolean thinking;
     private final boolean over;
     private final RunEnding ending;
+    private final String pausedFor;
 
     ModeState(Mode mode, SpeedMode speed, double intervalSeconds, int turn, int floor, boolean thinking) {
         this(mode, speed, intervalSeconds, turn, floor, thinking, false);
@@ -68,9 +69,19 @@ final class ModeState {
         this(mode, speed, intervalSeconds, turn, floor, thinking, over, null);
     }
 
+    /** This state with the Pause-on condition the Run is paused for, in words, or null (story 8.3). */
+    ModeState withPausedFor(String condition) {
+        return new ModeState(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, condition);
+    }
+
     /** As above, and how the Run ended and where its log is, which the Mode strip reads once it is over (story 5.14). */
     ModeState(Mode mode, SpeedMode speed, double intervalSeconds, int turn, int floor, boolean thinking, boolean over,
               RunEnding ending) {
+        this(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, null);
+    }
+
+    private ModeState(Mode mode, SpeedMode speed, double intervalSeconds, int turn, int floor, boolean thinking,
+                      boolean over, RunEnding ending, String pausedFor) {
         if (mode == null || speed == null) {
             throw new IllegalArgumentException("a Mode and a speed mode");
         }
@@ -82,6 +93,7 @@ final class ModeState {
         this.thinking = thinking;
         this.over = over;
         this.ending = ending;
+        this.pausedFor = pausedFor;
     }
 
     /**
@@ -135,5 +147,10 @@ final class ModeState {
     /** How the Run ended, or null while it plays (story 5.14). */
     RunEnding ending() {
         return ending;
+    }
+
+    /** The Pause-on condition the Run is paused for, in words ("before stairs"), or null (story 8.3). */
+    String pausedFor() {
+        return pausedFor;
     }
 }
