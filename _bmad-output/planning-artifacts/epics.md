@@ -2465,15 +2465,519 @@ Asked when the epic opened, as the E6 retrospective asked, and answered on pull 
 3. **E7 does not wait for the Goo gate.** Each story re-takes its baseline at its start.
 4. **The lore checker lives in the Codex tooling.** There is no new module and no layout change.
 
-## Epic 8: Overlay v2 (deferred)
+## Epic 8: Overlay v2
 
-The instrument becomes a teacher. Story titles: the Explain expansion; the Pause-on conditions
-section in the game's settings screen; the Replay scrubber over a Run log; the Beliefs view; coach
-mode; autoexplore with the bot's brains.
+The instrument becomes a teacher. The v1 Overlay is the debugger: it shows what the bot decided and
+lets a person take the controls. v2 adds the surfaces that explain a decision in full, stop the bot
+where a person wants it stopped, replay a finished Run with everything the bot believed, and let a
+person play with the bot advising or hand it the quiet stretches.
 
-Covers FR-44 to FR-47. The v1 architecture must not preclude any of these (UX-DR15), which the E5
-stories assert by keeping the Decision log a view over the Run log and the highlights part of the
-Decision record.
+Covers FR-44 to FR-47 and UX-DR15, and realizes UJ-4. The v1 architecture was built not to preclude
+any of this, which the E5 stories asserted by keeping the Decision log a view over the Run log and the
+highlights part of the Decision record. This epic spends that.
+
+**Done when**, for the product owner: every v2 surface works in a scripted headless session
+(`ScriptedHuman` on `EmbeddedHost`) with a test per acceptance line; the product owner's live session
+accepts what is visible (the Explain expansion, the Pause-on section of the settings screen, the
+scrubber, the Beliefs view, a coached move and an autoexplored corridor), and no agent has opened a
+window; every upstream edit has a row in `docs/UPSTREAM.md`; and no Run the Rig plays differs, which
+story 8.11 shows with equal Action lists on the `smoke` set before and after the epic.
+
+**What this epic builds on, from the code as it stands.**
+
+- `RunLog.Decision` carries the goal, the chosen `Choice`, up to three alternatives (each an Action,
+  a score in ten-thousandths and a one-line `why`), the Safety flags and the Policy name. It carries
+  no Evaluation terms and no Search outcome, so the Explain expansion of FR-44 needs a record change
+  before it needs a view (8.1). Search has not shipped (E6 closed on the measurements, ADR-0010), so
+  its part of the expansion is a field that is absent in every Run today and is exercised by
+  constructed records until a Search ships.
+- A `Wait` record holds the Observation hash, the section hashes, the Action, the actor, the Decision,
+  the Belief hash and the map highlights. It does not hold the Observation or the Beliefs. The full
+  Beliefs view of FR-46 over a log is therefore recomputed by playing the log through the Brain, and
+  the Belief hash in each wait is the check that the recomputation is the Brain's own (8.5, 8.6, 8.7).
+- `Replay` (harness, story 3.4) already plays a log back against the game and compares hashes. Stepping
+  forward through a replay in the embedded game is that, paced by the Panel. Stepping backward is a
+  seek: restart from the header and play to the wait. Keyframes are a measurement-gated option (8.5),
+  not a promise.
+- `Mode`, `Shadow` and `Note` records exist, and 5.9 already records the shadow Decision for a human's
+  wait. Coach mode and autoexplore are written with those and the existing speed field; a new record
+  kind or a new chained field would change the chained text of every log ever written and needs an ADR
+  first (the lesson of ADR-0011).
+- Hook rows 9 to 11 are the Overlay's input seams. The Pause-on section is a new row (8.4). Nothing
+  else in this epic edits an upstream file, and no story adds a sprite, emitter, sound or music call
+  (row 8 is the question before any draw).
+
+**Rules that bind every story.** Native UI only (non-negotiable 6): Chrome nine-patch frames,
+`PixelScene.renderTextBlock`, `RedButton`, `Icons`, sizes consistent with `StatusPane` and `Toolbar`.
+Every Panel write is on the render thread and nothing the render thread draws touches the Run's
+generator. Every transition happens at an Input wait and every control is disabled whenever its
+transition is impossible. Verify headless first; the live session is the product owner's acceptance of
+anything visible, and a story that is visible ends with a checklist for it in the story file and the
+PR. A story that changes what the Brain computes or what the Overlay is shown of it is labelled
+`fairness` and gets the `fairness-reviewer` run before the PR opens. Oracle mode stays off and flagged
+in every new view: nothing new shows a true identity unless the Oracle flag is on, and then only with
+the `oracle` prefix (FR-43). A test seed comes from the `standard` set and the page names it.
+
+**How the stories are ordered.** Data first (8.1), then the view that reads it (8.2), then the
+Pause-on conditions as logic and as the settings section (8.3, 8.4), because autoexplore needs them.
+Then the replay path: the session (8.5), the Beliefs view (8.6) and the scrubber that uses both (8.7).
+Coach mode and autoexplore come last (8.8 to 8.10), since they are the two that change how a person
+plays, and 8.11 closes the epic.
+
+### Story 8.1: Evaluation terms and Search outcomes in the Decision record
+
+As the Overlay,
+I want the Decision record to carry the Evaluation terms behind each score and, when a Search ran,
+each alternative's expected outcome,
+So that the Explain expansion has something truthful to show (FR-44) and a replayed log shows it too.
+
+**Acceptance Criteria:**
+
+**Given** `RunLog.Choice` (an Action, a score and a `why`) and `Evaluation`'s feature list
+**When** the record is extended
+**Then** a `Choice` may carry `terms`, a list of (feature name, weighted contribution in
+ten-thousandths) in the order `Evaluation` lists its features, and a `Decision` may carry `search`,
+a list of (Action, expected outcome in ten-thousandths, sample count) that is empty when no Search ran
+**And** a field that is empty is not written, so the canonical JSON and the chain of every existing
+log are byte-for-byte what they were, and `RunLogTest` reads the committed logs in `docs/results/` and
+the Rig fixtures and verifies their chains unchanged
+**And** a `Choice` whose terms do not sum to its score is refused at construction, since a term list
+that disagrees with the score it explains is a lie the Panel would then print.
+
+**Given** the lesson that a field added to a chained record changes every wait ever written
+**When** the story is designed
+**Then** its first deliverable is a short note in the story file stating which of the two ways the
+fields enter the format (absent-when-empty inside the existing `Decision`, or a version bump of the
+header's `v`), with the alternatives weighed, and the choice is the absent-when-empty form unless the
+reading shows it cannot hold
+**And** a new record kind is not used, and if one is judged necessary the story stops and writes an
+ADR instead.
+
+**Given** the Brain's Policies that score offered Actions through `Evaluation`
+**When** a Decision is built
+**Then** the Brain fills `terms` for the chosen Choice and each alternative from the same `Evaluation`
+call that produced the score, never a second computation
+**And** the Brain's Actions over the `smoke` set are equal before and after, shown by comparing the
+Action list of each Run, so the change is proved to be recording only (the `:rig:direction` table
+would show identical columns for any record change and is not the evidence, per the E5 lesson)
+**And** a Policy that scores nothing records no terms, not zeros.
+
+**Given** `docs/fairness.md` and the Observation-only rule
+**When** the diff is reviewed
+**Then** the terms are features read from the Observation and weights from data, so they carry no
+hidden state, and the Observer's leak tests and the brain's import ban stay green
+**And** the PR is labelled `fairness` and carries the `fairness-reviewer` verdict.
+
+### Story 8.2: The Explain expansion
+
+As the human,
+I want Explain to open the Decision card into its Policy, every alternative's reasons, the flags that
+applied, the Evaluation terms and, when a Search ran, the alternatives' expected outcomes,
+So that I can see why the bot chose what it chose and what it nearly chose.
+
+**Acceptance Criteria:**
+
+**Given** FR-44, UX-DR15, the Explain control and its F10 hotkey from 5.6 and 5.11, and the data of 8.1
+**When** Explain is pressed in PAUSED
+**Then** the card expands inside the Panel to show, in this order, the Policy that fired, the chosen
+Action's term table (feature, contribution), each alternative with its score, its `why` in full and its
+term table, the Safety flags that applied, and the Search block only when the Decision has one
+**And** the text is composed by a pure `ExplainContent` function over the Decision, testable without a
+game, and is laid out with `PixelScene.renderTextBlock` inside a scrollable region of the Panel, with
+no new window and no new asset
+**And** a Decision with no terms (the random agent, a Policy that scores nothing) shows the Policy and
+reasons it has and says nothing about terms, never an empty table.
+
+**Given** the Panel's states
+**When** the expansion is open and the Run advances
+**Then** it follows the new Decision at the next Input wait and stays expanded, and it collapses on
+Explain again, on the Panel's collapse and on Take over
+**And** in the collapsed Mode strip state Explain is disabled with the reason shown, as the
+enablement matrix of 5.6 requires
+**And** `ExplainContentTest` asserts the order and the text for a constructed Decision with terms, one
+without, and one with a Search block, and `ControlEnablementTest` gains the expansion's rows.
+
+**Given** the E5 lessons
+**When** the story is verified
+**Then** a `ScriptedHuman` test on `EmbeddedHost` presses Explain at a real Decision from the
+`standard` set, reads the Panel's content model and asserts the terms sum to the displayed score
+**And** the story file carries a checklist for the product owner's live session, which is the
+acceptance of how the expansion looks at 1280 by 720 and at a wider window
+**And** the PR is labelled `fairness` because it changes what the Overlay shows of the Brain, and
+carries the reviewer's verdict.
+
+### Story 8.3: Pause-on conditions
+
+As the human,
+I want the Overlay to switch to PAUSED when a condition I set holds,
+So that I can let the bot run and still stop it at the moments I care about (FR-45).
+
+**Acceptance Criteria:**
+
+**Given** FR-45's six conditions: before any item use, before testing an unknown item, before stairs,
+on boss floors, when HP drops below a threshold, when a new enemy appears
+**When** the evaluator is written
+**Then** a pure `PauseOn` function takes the set of enabled conditions with the HP threshold, the
+current Observation and the Decision about to be executed, and returns the first condition that holds
+or none, using only the Observation and the Decision (an unknown item is one the screen shows as
+unidentified; a boss floor is read from the Floor as the Codex names it; a new enemy is a visible actor
+not seen at the previous wait)
+**And** `PauseOnTest` has a case that fires and a case that does not for each of the six, and one for
+two conditions holding at once, which reports the first in a fixed documented order.
+
+**Given** the controls and the per-wait sequence of ADR-0013
+**When** a condition holds in RUNNING
+**Then** the Overlay moves to PAUSED at that Input wait before the Action executes, the Mode strip
+names the condition ("paused: before stairs"), the Decision card shows the Decision that was about to
+run, and Resume or Next Step then executes it, so the pause never loses an Input wait or changes which
+Action is taken
+**And** a condition that holds in PAUSED, in HUMAN or in replay does nothing, and a condition does not
+fire again for the same wait after Resume
+**And** the Mode record is written with the existing record kind and the pause is a Mode change like
+any other, so no log format changes.
+
+**Given** the Brain's behaviour
+**When** a Run plays with every condition enabled and is resumed each time it stops
+**Then** its Action list equals the same Run with none enabled, in a `ScriptedHuman` test on
+`EmbeddedHost` over a `standard`-set seed, so the feature is shown to change when the person is asked,
+not what the bot does
+**And** the settings the evaluator reads come from an `OverlaySettings` value with defaults (all off,
+HP threshold 30%), so the settings screen of 8.4 is only its editor
+**And** the PR is labelled `fairness`, since the conditions read the Observation and the Decision,
+with the reviewer's verdict.
+
+### Story 8.4: The Pause-on section in the game's settings screen
+
+As the human,
+I want the Pause-on conditions in the game's own settings screen,
+So that I set them where I set everything else and they are still set next time (FR-45, UX-DR15).
+
+**Acceptance Criteria:**
+
+**Given** FR-45's wording ("an Overlay section of the game's own settings screen (one Hook)") and the
+hook ledger in `docs/UPSTREAM.md`
+**When** the story starts
+**Then** the story file reads the pinned settings window and its tab structure with `path:line`,
+lists at least three ways to add a section (an extra tab, a button on an existing tab that opens an
+Overlay window, a listener the Overlay registers through `Hooks`), picks the smallest edit to upstream
+and says why, in the way ADR-0016's rows did
+**And** the edit is one hook row with a marker, a `Hooks` listener field so `core` never imports the
+Overlay, and a row in `docs/UPSTREAM.md`; the PR is labelled `touches-upstream`, and `HooksLedgerTest`
+passes with the diff budget it enforces, or the story amends the budget by the documented ADR route.
+
+**Given** the settings the evaluator of 8.3 reads
+**When** the section is built
+**Then** it holds a toggle per condition and a stepper for the HP threshold, drawn with the game's own
+`RedButton`, check-box and window components, with the strings in the Overlay's own message file
+(or the six-string precedent of row 10) and none hard-coded
+**And** the values persist in the game's own settings store under Overlay-prefixed keys and survive a
+restart, and a missing or corrupt key falls back to the default of `OverlaySettings` instead of
+failing the screen
+**And** the section is reachable while a Run is in progress and in the title scene, and changing a value
+during a Run takes effect at the next Input wait.
+
+**Given** the headless-first rule
+**When** the story is verified
+**Then** a test builds the settings window against the toolkit fixture (`OverlayToolkitTest`'s
+pattern), flips each toggle through the component's own handler and asserts `OverlaySettings`
+changed and was stored, and a test restarts the store and reads the values back
+**And** the story file carries the checklist for the product owner's live session: the section is
+found where a player would look, each toggle pauses a real Run as 8.3 specifies, and a value survives
+closing the game
+**And** no agent opens the settings screen or any window.
+
+### Story 8.5: The Replay session
+
+As the human,
+I want to load a Run log into the Overlay and have the game play it back one Input wait at a time,
+So that I can look at a finished Run, mine or the Rig's, in the real game (FR-46).
+
+**Acceptance Criteria:**
+
+**Given** FR-46, `Replay` in the harness and the Run log's hash chain
+**When** a log is loaded
+**Then** the launcher takes `--replay <log.jsonl>` (and the Panel a Load action, if the story finds one
+small enough in the native toolkit; otherwise the launcher flag alone ships and the story says so),
+the chain is verified first, and a log whose chain, header tag or codex version does not match the
+running build is refused with the reason in the Panel and not played
+**And** a loaded Run is its own Panel state, REPLAY, in the state table, with its own enablement row:
+the hero's game input is ignored as in PAUSED, Take over is disabled, and the Brain does not decide
+(the log's actions are applied by the executor, as `Replay` does).
+
+**Given** the Panel's controls
+**When** a replay is stepped
+**Then** Next Step applies exactly one recorded wait, Run N applies N, and Resume plays at the speed
+mode, all at Input waits, landing on the wait where the person stopped
+**And** at each wait the game state's Observation hash is compared with the log's, and a mismatch stops
+the replay at that wait, names the section that differs from the section hashes, and does not continue
+**And** `ReplaySessionTest`, a `ScriptedHuman`-style test on `EmbeddedHost` over a log written by the
+Rig on a `standard` seed, plays the whole log, ends in the recorded outcome and reports zero mismatches,
+and a second test flips one byte of the log and shows the refusal.
+
+**Given** that stepping back is not free
+**When** the scrubber asks for an earlier wait
+**Then** a seek restarts the Run from the header and plays to the wait, and the story measures the
+cost of a seek at waits 100, 500 and 1000 of a sewers log on the current host and writes the table to
+`docs/results/`
+**And** keyframes (a `Rewindable` snapshot every N waits, which `SnapshotHandle` and the Redeterminer
+already give the harness) are added only if that table shows a seek over the budget the story writes
+down with its reasoning and prints the table that lets the owner overrule it, per the E6 lesson on
+numbers the owner has not set
+**And** nothing the replay draws touches the Run's generator, and the session leaves no file in the
+profile's save slot, so a replay never overwrites a person's saved Run.
+
+### Story 8.6: The Beliefs view
+
+As the human,
+I want to see everything the bot believes at an Input wait, live or in a replay, not only the three
+most ambiguous items,
+So that I can check a belief against what I know and see a bad one before it costs a Run (FR-46).
+
+**Acceptance Criteria:**
+
+**Given** the Belief summary of 5.4 (`BeliefSummary`, at most three items) and the Brain's `Beliefs`
+**When** the full view's data is defined
+**Then** an `api`-typed `BeliefView` carries, for every unidentified appearance the Brain tracks, its
+candidates with probabilities in the Brain's own order, the facts the floor is known to imply with
+the reason each holds, the unseen-monster memory (FR-29) with the wait each entry was last seen, and
+every guaranteed drop's counter, each already formatted as the summary's lines are
+**And** it is built by the brain from its own `Beliefs` and `Memory`, from nothing the Observation did
+not carry, and its hash is the Belief hash the `Wait` record already stores, so the view over a log
+checks itself against the log
+**And** `BeliefViewTest` asserts the contents for a constructed `Beliefs`, and the view contains no
+true identity: an appearance's candidates are its own possible identities, never the hidden one.
+
+**Given** the Panel
+**When** the Beliefs view is opened
+**Then** it is a section of the Panel the person opens from a control with its own hotkey (registered
+the way the others are, through row 10 and not a new hook), sorted most ambiguous first, scrollable,
+and available in PAUSED, HUMAN and REPLAY
+**And** with the Oracle flag on, and only then, a true identity may appear beside the Brain's belief
+with the `oracle` prefix and the Oracle border, and `OverlayOracleGateTest` gains the case that
+without the flag the same view carries no such line
+**And** `BeliefViewContentTest` asserts the order, the scrolling and the oracle gating on constructed
+views.
+
+**Given** the E5 threading rule
+**When** the view is produced
+**Then** the Brain builds it on its worker and hands it to the render thread as an immutable value, as
+the summary is, and the Panel never reads the Brain's objects
+**And** a test on `EmbeddedHost` takes a view at three waits of a real `standard`-set Run and asserts
+each view's hash equals the Belief hash the Run log wrote at that wait
+**And** the PR is labelled `fairness`, since it widens what the Overlay is shown of the Brain's state,
+with the reviewer's verdict, and the story file carries the checklist for the product owner's live
+session.
+
+### Story 8.7: The Replay scrubber
+
+As the human,
+I want a scrubber over a loaded Run log that moves to any Decision and shows it with the Beliefs that
+went with it,
+So that I can go to the wait where a Run went wrong and read why (FR-46, UX-DR15).
+
+**Acceptance Criteria:**
+
+**Given** the Replay session of 8.5 and the Beliefs view of 8.6
+**When** a log is loaded
+**Then** the Panel shows a scrubber made of a position (wait k of n, turn, Floor), step back and step
+forward buttons, jump to the previous and next wait whose actor is human, whose Decision names a
+different Policy, or that is a Mode, Note or Boundary record, and a jump to the end, drawn with the
+native components and enabled by the same matrix rules as the other controls
+**And** the Decision card, the Safety flags, the map highlights and the Explain expansion show the
+recorded Decision of the wait under the scrubber, and the Decision log is the log's own records up to
+that wait, still a view over the Run log and not a second source
+**And** the Beliefs view shows the Beliefs at that wait, recomputed by playing the Brain over the
+Observations of the replay, and when the recomputed Belief hash differs from the log's the Panel says
+so in place of showing a view it cannot vouch for.
+
+**Given** the cost measured in 8.5
+**When** the person jumps backward or forward by more than one wait
+**Then** the session seeks as 8.5 specifies and the Panel shows a busy state for the duration, never a
+half-seeked position, and a second jump during a seek is ignored until it lands
+**And** the recomputed Beliefs are cached per wait for the session so scrubbing back over a wait
+already visited is free
+**And** `ScrubberTest` drives the scrubber on a real log through a seek forward, a seek back, a jump to
+a human wait and a jump to the end, and asserts the shown wait index, Decision and Belief hash each time.
+
+**Given** that a log from the Overlay holds human waits and shadow Decisions
+**When** the scrubber reaches one
+**Then** a human wait shows the human's Action and the shadow Decision beside it, labelled as the
+decision the bot would have taken and did not, and the Notes of the log appear at their wait
+**And** a log written by the Rig (no human waits, no Mode records) scrubs the same way with those
+parts absent
+**And** the story ends with the full demonstration a live session accepts: the checklist for a replay
+of the 5.16 sewers run with its takeover is in the story file and the PR, and the product owner runs
+it; the agent verifies the same sequence headless and opens no window.
+
+### Story 8.8: The coach's sentence
+
+As a learner,
+I want the Brain's choice put as one plain sentence in the game's own words,
+So that I understand a decision I would not have made (FR-47, UJ-4).
+
+**Acceptance Criteria:**
+
+**Given** FR-47's rule (Codex vocabulary, at most one plain sentence) and UJ-4's example, `read scroll
+(KHIT): by a door and water, worst case survivable`
+**When** the composer is written
+**Then** a pure `CoachLine` function takes a `RunLog.Decision` and the Observation's visible context
+and returns one line that fits the Panel's text width in two wraps, naming the Action in the words
+`ActionText` already uses, the reason as one clause chosen from the Policy's own `why` and the Safety
+flags, and no number the person has to decode
+**And** every name in the sentence is a Codex name for something the screen shows, so an unidentified
+item is called by its appearance and never its identity, and a test fails on any word that is not
+in the Action vocabulary, the Codex's names or a small closed list of connecting words committed with
+the test
+**And** a Decision with no usable reason yields the Action alone and not an invented reason.
+
+**Given** the fairness rule that the coach may say only what the bot knows
+**When** the composer's inputs are reviewed
+**Then** its inputs are the Decision and the Observation and nothing else, the brain does not gain an
+import, and a leak test in the style of the Observer's builds two games that differ in hidden state
+only and asserts equal sentences
+**And** with the Oracle flag on, the sentence is unchanged and an oracle line, if shown at all, is a
+separate `oracle`-prefixed line that the flag gates
+**And** `CoachLineTest` covers each Policy the Brain has (one case per Policy name in `Policies`) so a
+new Policy that has no sentence fails the build instead of silently printing the Action alone.
+
+**Given** the lesson that a rule needs a documented source
+**When** the story ends
+**Then** the sentence templates are listed in a docs page with the Rule or Lore claim each reason
+rests on, and `HeuristicLinkTest` stays green
+**And** the PR is labelled `fairness`, with the reviewer's verdict.
+
+### Story 8.9: Coach mode
+
+As a learner,
+I want a coach mode where I play and the bot tells me what it would do before each of my moves,
+So that I learn from it without it playing for me (FR-47, UJ-4).
+
+**Acceptance Criteria:**
+
+**Given** the HUMAN Mode of 5.8, the shadow Decision of 5.9 and the sentence of 8.8
+**When** coach mode is on in HUMAN
+**Then** at each Input wait where the human is to move, the Brain decides as it does for the shadow
+Decision, the Panel shows the coach's sentence on its own line above the Decision card, and the bot
+executes nothing; the hero's input is the person's, as it was in HUMAN
+**And** coach mode is a toggle in the Controls with its own hotkey, off by default, and is a setting of
+HUMAN and not a fourth Mode: it is disabled in PAUSED, RUNNING and REPLAY with the reason shown
+**And** turning it on or off is a Mode record using the existing kind, so no log format changes, and a
+log with coach advice replays as an ordinary log.
+
+**Given** that the advice must not slow the person down or change the game
+**When** the advice is computed
+**Then** it is computed on the Brain's worker while the person thinks, a human move made before it
+arrives is taken at once and the late advice is dropped and never shown against the wrong wait, and a
+test waits for the sentence on a condition with a deadline, not on a frame count (the E5 lesson)
+**And** a coached Run's game state after the same human Actions equals an uncoached Run's: a
+`ScriptedHuman` test plays the same scripted moves with and without coach and compares the Observation
+hash at every wait, since coach mode must change nothing about the Run
+**And** the Brain's updates of its Beliefs and Memory happen exactly as in HUMAN, so a hand back after
+a coached stretch re-plans from the same state.
+
+**Given** UJ-4
+**When** the story is verified
+**Then** a headless session reproduces the journey: the scripted learner takes a move the coach
+disagreed with, the log holds the human Action, the shadow Decision and the coach toggle, and the
+Decision log and the scrubber show it
+**And** the story file carries the checklist for the product owner's live session, whose acceptance is
+the feel of it: the advice arrives in time, reads as one sentence, and never covers the map
+**And** the PR is labelled `fairness`, with the reviewer's verdict.
+
+### Story 8.10: Autoexplore with the bot's brains
+
+As a learner,
+I want to hand a quiet stretch to the bot and get control back when something happens,
+So that I skip the dull corridors and keep the fights (FR-47, UJ-4).
+
+**Acceptance Criteria:**
+
+**Given** FR-47's rule that autoexplore returns control when an enemy appears or a Pause-on condition
+fires, and the Pause-on evaluator of 8.3
+**When** autoexplore is started from HUMAN
+**Then** the Brain decides and the executor applies each Action as in RUNNING, restricted to Actions
+whose Policy is on a closed list the story commits and documents (exploring, picking up, opening
+doors, resting to heal; never fighting, descending, using an unknown item or throwing), and each wait
+is recorded with actor `bot` and the Mode record's existing kinds, so no log format changes
+**And** control returns to the person, in HUMAN and in coach mode if it was on, at the first Input wait
+where a hostile actor is in view, where any enabled Pause-on condition holds, where the Decision's
+Policy is not on the list, where the HP fraction fell during the stretch, or where the person presses
+Pause, whichever comes first, and the Mode strip names which one.
+
+**Given** that autoexplore must not take a step a person would not
+**When** the stop rules are tested
+**Then** `AutoexploreTest` on `EmbeddedHost` covers each stop on a constructed state (an enemy walking
+into view, a boss floor, a low HP stretch, a Policy off the list) and a stretch that runs to the end
+of the level and stops there, and asserts control returned at the wait before the Action that the
+person would have refused
+**And** a stop caused by an enemy at the edge of vision is the same wait on the same Observation with
+and without the Oracle flag, since stopping on an unseen enemy would be a leak
+**And** the story reports, from a set of `standard` Runs played by a scripted learner who autoexplores
+whenever it can, the share of turns autoexplore covered and the number of times it returned control
+with an enemy already adjacent, which the story states is the failure to be near zero.
+
+**Given** the epic's rule on the generator
+**When** autoexplore runs at Human play speed
+**Then** it uses the speed modes of 5.7 and the draw routing of 5.13 unchanged, no new draw or sound
+call is added, and `RenderQueueTest` stays green
+**And** the PR is labelled `fairness` for the stop rules and the Policy list, with the reviewer's
+verdict, and the story file carries the checklist for the product owner's live session: hand a
+corridor to autoexplore, see it stop at the next enemy, take control.
+
+### Story 8.11: The v2 session and the epic close
+
+As the product owner,
+I want one scripted demonstration of every v2 surface and a check that the Rig did not move,
+So that the epic closes on a session and a number and not on a claim.
+
+**Acceptance Criteria:**
+
+**Given** the epic's done-when
+**When** the demonstration is written
+**Then** one `ScriptedHuman` test on `EmbeddedHost` over a `standard`-set seed (named on the page)
+walks the whole of UJ-4 and the v2 surfaces in order: Pause-on stops a RUNNING bot before stairs, Explain
+shows the terms of that Decision, the person takes over with coach mode on and plays a coached move,
+autoexplores a corridor and is handed control at an enemy, the Run is saved and its log loaded in a
+replay, and the scrubber returns to the Pause-on wait and shows the same Decision and Beliefs
+**And** the test asserts the Run log verifies, that each wait's Belief hash equals the recomputed one,
+and that no assertion needed a frame count
+**And** the product owner's live session is the story file's and the PR's checklist, with one line per
+visible surface from 8.2, 8.4, 8.6, 8.7, 8.9 and 8.10, and the story does not claim the live session.
+
+**Given** that v2 must not move the bot
+**When** the Rig is run before and after the epic
+**Then** the `smoke` set is played at the commit that opened the epic and at the head, and the Action
+list of every Run is equal, the logs differ only by the fields 8.1 added (absent when empty, so they do
+not differ at all unless a Policy scored), and the Results page says so with the commit hashes
+**And** any difference is a defect in the epic, found and fixed or recorded as an issue before the
+close, never explained away.
+
+**Given** the epic's close
+**When** it ends
+**Then** the E8 retrospective runs and its lessons land in `CLAUDE.md`; `docs/roadmap.md`,
+`sprint-status.yaml` and the epic issue are updated in the same PR; `docs/architecture.md`,
+`docs/fairness.md` and the Overlay's docs describe the new surfaces and the REPLAY state; the state
+table in the UX `EXPERIENCE.md` gains REPLAY and coach mode; and `docs/UPSTREAM.md` lists the settings
+hook row
+**And** the `touches-upstream` rows from this epic are re-verified by `HooksLedgerTest`.
+
+### Settled while planning
+
+Decided by the planner and open to the product owner's override on the pull request that carries these
+stories.
+
+1. **Search outcomes are a field, not a feature.** Search has not shipped, so 8.1 adds the field and 8.2
+   shows it when present; no story builds a Search to fill it.
+2. **Replay recomputes Beliefs instead of storing them.** The log keeps the Belief hash only. Storing
+   Beliefs in the log would change every chained wait and make logs large; recomputation costs a seek
+   and is checked by the hash that is already there.
+3. **Coach mode and autoexplore add no Mode and no record kind.** Coach is a setting of HUMAN and
+   autoexplore is a restricted RUNNING; both are logged with the existing kinds. If that cannot hold,
+   the story stops for an ADR.
+4. **The Pause-on settings edit is the smallest hook that works,** chosen in 8.4 with alternatives, and
+   it is the only upstream edit of the epic.
+5. **The epic is eleven stories,** with coach mode in two (the sentence, then the mode) and the replay in
+   three (session, Beliefs, scrubber), because each of those is more than one turn.
 
 ## Epic 9: Learned evaluation (optional, deferred)
 
