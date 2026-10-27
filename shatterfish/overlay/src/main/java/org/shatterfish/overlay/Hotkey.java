@@ -33,7 +33,9 @@ enum Hotkey {
     TAKE_OVER("shatterfish_take_over", Input.Keys.F9, Control.TAKE_OVER),
     EXPLAIN("shatterfish_explain", Input.Keys.F10, Control.EXPLAIN),
     /** Collapses the Panel to the Mode strip, or restores it. */
-    PANEL("shatterfish_panel", Input.Keys.F11, null);
+    PANEL("shatterfish_panel", Input.Keys.F11, null),
+    /** Switches the coach on or off while the person plays (story 8.9). */
+    COACH("shatterfish_coach", Input.Keys.F12, null);
 
     /** The game's action, created with the enum so the game's list of actions holds it as soon as this loads. */
     private final GameAction action;

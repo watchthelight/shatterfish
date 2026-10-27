@@ -43,6 +43,8 @@ final class PanelDock {
     private OracleBorder border;
     private OracleOutlines oracleOutlines;
     private ControlState controls;
+    /** The coach's switch, which outlives each play scene's Panel (story 8.9). */
+    private CoachState coach = CoachState.detached();
     /** The outlines on the dungeon for the pending Decision, one layer per play scene (story 5.10). */
     private MapHighlights highlights;
 
@@ -87,6 +89,7 @@ final class PanelDock {
             panel.camera = PixelScene.uiCamera;
             panel.oracle(oracle);
             panel.controls(controls);
+            panel.coach(coach);
             panel.stripTap(() -> collapsed = !collapsed);
             scene.add(panel);
             keepFaderInFront(scene);
@@ -260,6 +263,14 @@ final class PanelDock {
         }
     }
 
+    /** Binds the coach's state (story 8.9) to this dock's Panel, now and on every later play scene. */
+    void coach(CoachState coach) {
+        this.coach = coach;
+        if (panel != null) {
+            panel.coach(coach);
+        }
+    }
+
     /**
      * Whether a screen point (the pixels the input arrives in) is on the Panel as it is drawn now, which
      * the input lock reads to let a person's press reach the Panel's controls (story 5.6).
@@ -297,6 +308,17 @@ final class PanelDock {
             // no room to open the expansion in, and the Mode strip is all of it that shows.
             panel.notice(panel.explainReason(), System.nanoTime() + NOTICE_NANOS);
             return false;
+        }
+        if (hotkey == Hotkey.COACH) {
+            if (panel == null) {
+                return false;
+            }
+            if (panel.controls().coachReason() != null) {
+                // Coach is disabled, and a key that did nothing says why (story 8.9).
+                panel.notice(panel.controls().coachReason(), System.nanoTime() + NOTICE_NANOS);
+                return false;
+            }
+            return panel.controls().pressCoach();
         }
         return panel != null && hotkey.control() != null && panel.controls().press(hotkey.control());
     }

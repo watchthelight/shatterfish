@@ -61,7 +61,7 @@ Everything else in section 3 was confirmed as written: no data files, text keyed
 | The `Chrome` nine-patch types the spine names | Confirmed: `TOAST_TR`, `TOAST_TR_HEAVY`, `TAG`, `TAB_SET`, `TAB_SELECTED`, `TAB_UNSELECTED` all exist; the enum has 16 constants. | [ui](rules/ui.md) |
 | Combat rolls use the general-purpose generator (FR-2) | Confirmed. | [rng](rules/rng.md) |
 | 1280 by 720 at scale 3 is 427 by 240 UI pixels (FR-38) | Confirmed by a different route: `defaultZoom` is 3 there. | [ui](rules/ui.md) |
-| F6 to F11 are free for Overlay hotkeys (UX spine) | Confirmed: F6 to F12 have no default binding, and `KeyBindings.isKeyBound` accepts their codes. | [ui](rules/ui.md) |
+| F6 to F12 are free for Overlay hotkeys (UX spine) | Confirmed: F6 to F12 have no default binding, and `KeyBindings.isKeyBound` accepts their codes. | [ui](rules/ui.md) |
 
 ## What the architecture must absorb
 
