@@ -1,6 +1,7 @@
 package org.shatterfish.overlay;
 
 import org.shatterfish.api.BeliefSummary;
+import org.shatterfish.api.BeliefView;
 import org.shatterfish.api.Observation;
 import org.shatterfish.harness.observer.OracleView;
 
@@ -37,6 +38,15 @@ final class OracleSidecar {
     private static boolean sameScreen(Observation read, Observation shown) {
         return read == shown || (read.header().equals(shown.header()) && read.hero().equals(shown.hero())
                 && read.actors().equals(shown.actors()) && read.map().equals(shown.map()));
+    }
+
+    /** The Beliefs view's oracle rows for the screen the Panel shows now (story 8.6); none unless it is the screen the view was read at. */
+    java.util.Map<String, String> beliefRows(Observation shown, BeliefView beliefs) {
+        Held now = held;
+        if (now == null || shown == null || !sameScreen(now.observation(), shown)) {
+            return java.util.Map.of();
+        }
+        return OracleMarkContent.beliefRows(now.view(), beliefs);
     }
 
     /** The marks for the screen the Panel shows now; none unless it is the screen the view was read at. */

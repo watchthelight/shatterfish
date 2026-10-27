@@ -8,11 +8,13 @@ import com.watabou.noosa.NinePatch;
 import com.watabou.noosa.PointerArea;
 import com.watabou.noosa.ui.Component;
 import org.shatterfish.api.BeliefSummary;
+import org.shatterfish.api.BeliefView;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.RunLog;
 import org.shatterfish.harness.agent.BoundedLog;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -57,6 +59,12 @@ final class Panel extends Component {
     private SafetyFlagsRow flags;
     private BeliefSummarySection belief;
     private DecisionLog log;
+    private BeliefViewSection beliefs;
+    /** Whether the person has opened the Beliefs view (story 8.6); it is shown only while the Controls matrix allows it. */
+    private boolean beliefsOpen;
+    private boolean beliefsShown;
+    /** The oracle rows for the Beliefs view, by appearance (story 8.6); empty for a fair Run. */
+    private Map<String, String> oracleBeliefRows = Map.of();
     private ControlsRow controls;
     private ControlState controlState;
     /** Whether the Decision handed to {@link #content} is the pending one, landed and not executed (story 5.7). */
@@ -115,8 +123,10 @@ final class Panel extends Component {
         add(belief);
         log = new DecisionLog();
         add(log);
+        beliefs = new BeliefViewSection();
+        add(beliefs);
         controls = new ControlsRow();
-        controls.bind(null, () -> card.toggleExplain());
+        controls.bind(null, () -> card.toggleExplain(), this::toggleBeliefs);
         add(controls);
     }
 
@@ -126,7 +136,17 @@ final class Panel extends Component {
      */
     void controls(ControlState state) {
         this.controlState = state;
-        controls.bind(state, () -> card.toggleExplain());
+        controls.bind(state, () -> card.toggleExplain(), this::toggleBeliefs);
+    }
+
+    /** Opens the Beliefs view, or closes it (story 8.6): the Beliefs button and its hotkey. */
+    void toggleBeliefs() {
+        beliefsOpen = !beliefsOpen;
+    }
+
+    /** Whether the Beliefs view is on screen now, for tests. */
+    boolean beliefsShown() {
+        return beliefsShown;
     }
 
     /** What a tap on the Mode strip does: the Panel toggle (story 5.11). */
@@ -163,6 +183,17 @@ final class Panel extends Component {
      */
     void content(ModeState mode, RunLog.Decision decision, Observation observation, boolean inputLocked,
                  BeliefSummary beliefSummary, List<BoundedLog.Entry> history, DecisionCardContent.Shadow shadow) {
+        content(mode, decision, observation, inputLocked, beliefSummary, history, shadow, null);
+    }
+
+    /**
+     * As above with the Brain's whole belief (story 8.6): {@code beliefView} is what the Beliefs view shows
+     * while it is open, which is PAUSED and HUMAN only (the Controls matrix), and it replaces the Belief
+     * summary and the Decision log in the Panel for as long as it is.
+     */
+    void content(ModeState mode, RunLog.Decision decision, Observation observation, boolean inputLocked,
+                 BeliefSummary beliefSummary, List<BoundedLog.Entry> history, DecisionCardContent.Shadow shadow,
+                 BeliefView beliefView) {
         stripArea.active = !inputLocked;
         blocker.active = !inputLocked && ((shadow != null && shadow.person()) || controlState != null);
         stripText.text(ModeStripContent.text(mode));
@@ -183,7 +214,17 @@ final class Panel extends Component {
         Set<ControlEnablement.Control> enabled = controlState != null ? controlState.enabled()
                 : ControlEnablement.of(mode.mode(), mode.over(), ControlEnablement.Capabilities.NOW);
         controls.content(mode, enabled, inputLocked, full && decision != null);
+        if (!enabled.contains(ControlEnablement.Control.BELIEFS)) {
+            // RUNNING (or a Run that is over): the view closes, and does not come back at the next pause.
+            beliefsOpen = false;
+        }
+        beliefsShown = full && BeliefViewContent.shown(beliefsOpen, enabled);
         belief.content(full ? beliefSummary : null, full ? oracleRows : List.of(), inner);
+        if (beliefsShown) {
+            beliefs.content(BeliefViewContent.of(beliefView, oracleBeliefRows), inner, !inputLocked);
+        } else {
+            beliefs.idle();
+        }
         // layout() before the log's own content: it is what sizes the log's ScrollPane viewport (the
         // remaining room below every section above it), and the log's auto-scroll-to-bottom decision
         // reads that viewport's height, so the log must already know this frame's height before it
@@ -214,6 +255,11 @@ final class Panel extends Component {
     /** Sets the oracle rows for the Belief summary; the dock calls this only for an oracle Run. */
     void oracleRows(List<String> rows) {
         oracleRows = List.copyOf(rows);
+    }
+
+    /** Sets the oracle rows for the Beliefs view, by the label of the appearance each is for (story 8.6); the dock calls this only for an oracle Run. */
+    void oracleBeliefRows(Map<String, String> rows) {
+        oracleBeliefRows = Map.copyOf(rows);
     }
 
     /** Shows the ORACLE label in the Mode strip, or hides it. */
@@ -272,8 +318,9 @@ final class Panel extends Component {
         PixelScene.align(stripText);
 
         card.visible = full;
-        belief.visible = full;
-        log.visible = full;
+        belief.visible = full && !beliefsShown;
+        log.visible = full && !beliefsShown;
+        beliefs.visible = full && beliefsShown;
         controls.visible = full;
         if (full) {
             float sectionX = x + PanelLayout.PADDING;
@@ -288,7 +335,8 @@ final class Panel extends Component {
             flags.setRect(sectionX, flagsTop, sectionWidth, flags.contentHeight());
             float beliefTop = (flags.visible ? flags.bottom() : flagsTop) + SECTION_GAP;
             belief.setRect(sectionX, beliefTop, sectionWidth, belief.contentHeight());
-            float logTop = belief.bottom() + SECTION_GAP;
+            // The Beliefs view (story 8.6) stands where the summary and the log do while it is open.
+            float logTop = beliefsShown ? beliefTop : belief.bottom() + SECTION_GAP;
             // The Controls row is the last section, at the Panel's foot; the log takes the room between.
             controls.setRect(sectionX, 0, sectionWidth, 0);
             float controlsHeight = controls.contentHeight();
@@ -296,6 +344,7 @@ final class Panel extends Component {
             controls.setRect(sectionX, controlsTop, sectionWidth, controlsHeight);
             float logHeight = Math.max(0, controlsTop - SECTION_GAP - logTop);
             log.setRect(sectionX, logTop, sectionWidth, logHeight);
+            beliefs.setRect(sectionX, logTop, sectionWidth, logHeight);
         }
     }
 
@@ -362,6 +411,11 @@ final class Panel extends Component {
     /** The Controls row, for tests (story 5.6). */
     ControlsRow controls() {
         return controls;
+    }
+
+    /** The Beliefs view, for tests (story 8.6). */
+    BeliefViewSection beliefs() {
+        return beliefs;
     }
 
     /** The Decision log, for tests (story 5.4). */

@@ -1,11 +1,14 @@
 package org.shatterfish.overlay;
 
 import org.shatterfish.api.BeliefSummary;
+import org.shatterfish.api.BeliefView;
 import org.shatterfish.api.Observation;
 import org.shatterfish.harness.observer.OracleView;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeSet;
 
 /**
@@ -45,6 +48,28 @@ final class OracleMarkContent {
             rows = List.copyOf(rows);
             unseen = List.copyOf(unseen);
         }
+    }
+
+    /**
+     * The oracle row for each appearance of the Beliefs view (story 8.6, FR-46) whose true identity the oracle
+     * knows, by the appearance's label: {@link #PREFIX}, the label, and the true name. Empty without a view of
+     * the oracle or without a belief view; a fair Run never gets here, because it has no {@link OracleView}.
+     */
+    static Map<String, String> beliefRows(OracleView view, BeliefView beliefs) {
+        Map<String, String> rows = new LinkedHashMap<>();
+        if (view == null || beliefs == null) {
+            return rows;
+        }
+        for (BeliefView.Appearance appearance : beliefs.appearances()) {
+            for (OracleView.Identity identity : view.identities()) {
+                if (!identity.appearance().isEmpty()
+                        && appearance.label().toLowerCase().contains(identity.appearance().toLowerCase())) {
+                    rows.put(appearance.label(), PREFIX + appearance.label() + " = " + identity.trueName());
+                    break;
+                }
+            }
+        }
+        return rows;
     }
 
     /** The marks for {@code view} as {@code shown} and {@code summary} are on the Panel; {@link Marks#NONE} without a map. */
