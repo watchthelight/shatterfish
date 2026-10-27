@@ -41,7 +41,9 @@ class PlaybookEquivalenceTest {
     private static final int CAP = 700;
 
     /** What the Java constants held before the story: the odds, the cap, the reach and the waits, as the Playbook states them. */
-    private static final String THE_CONSTANTS = "{\"bosses\":{},\"classes\":{},\"format\":1,"
+    private static final String THE_CONSTANTS = "{\"bosses\":{\"dm300\":{\"descent_rest_per_mille\":1000,\"status\":\"UNTESTED\"},"
+            + "\"goo\":{\"descent_rest_per_mille\":1000,\"drink_per_mille\":400,\"meet_range\":6,\"wash_range\":4},"
+            + "\"tengu\":{\"descent_rest_per_mille\":1000,\"status\":\"UNTESTED\"}},\"classes\":{},\"format\":1,"
             + "\"identify\":{\"escape_waits\":12,\"gain_odds_per_mille\":200,\"healing_odds_per_mille\":200,"
             + "\"inventory_odds_per_mille\":250,\"reach\":8,\"rest_waits\":50},"
             + "\"name\":\"shatterfish\",\"upgrade\":{\"tie\":\"WEAPON\",\"weapon_lead\":0},\"version\":1}\n";
