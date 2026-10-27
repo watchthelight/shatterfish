@@ -143,7 +143,9 @@ behaviour. `HeuristicLinkTest` finds the annotated constants by reflection over 
   claim (the file stem under `lore/<topic>/`; the claim's `implemented_in` has to name the
   heuristic's Policy back), or the sentinel `unlinked`;
 - a constant annotated `unlinked` is on the test's visible allowlist, the allowlist holds exactly
-  those constants, and its count may fall and may not rise;
+  those constants, and its count may fall and may not rise. At the close of epic 7 (story 7.10) the allowlist did not
+  empty: every entry carries its reason and the issue that owns it, which the table below prints beside it, and
+  `HeuristicLinkTest` fails on an entry without both;
 - every numeric constant of a `brain` class is either annotated or exempt with a reason (capacities,
   schema versions and indexes are not choices), so a new threshold cannot escape by being left bare;
 - the table below is rendered from the annotations and compared with this page, the way the Codex is
@@ -226,37 +228,37 @@ Heuristics found: 80. Linked to a Rule: 44. Linked to a Lore claim: 0. Linked to
 | `Playbook.Identify.healingOddsPerMille` | `unknown-potion-heal-half` | Rule [`unknown-potion-heal-half`](#unknown-potion-heal-half) | 1 | `Playbook` |
 | `Playbook.Identify.potionHpPerMille` | `unknown-potion-heal-half` | Rule [`unknown-potion-heal-half`](#unknown-potion-heal-half) | 1 | `Playbook` |
 | `Playbook.Identify.scrollHpPerMille` | `unknown-scroll-full-health` | Rule [`unknown-scroll-full-health`](#unknown-scroll-full-health) | 1 | `Playbook` |
-| `Brain.AVOID_RADIUS` | `unlinked` | unlinked | - | `Brain` |
-| `Brain.AVOID_WAITS` | `unlinked` | unlinked | - | `Brain` |
-| `Descend.ALLOWANCE` | `unlinked` | unlinked | - | `descend` |
-| `Descend.PER_DROP` | `unlinked` | unlinked | - | `descend` |
-| `Douse.FLEE` | `unlinked` | unlinked | - | `douse` |
-| `Eat.WATER_REACH` | `unlinked` | unlinked | - | `eat` |
-| `Explore.FRUGAL_SEARCHES` | `unlinked` | unlinked | - | `explore` |
-| `Explore.SEARCHES` | `unlinked` | unlinked | - | `explore` |
-| `Explore.STUCK` | `unlinked` | unlinked | - | `explore` |
-| `Fight.CHASE_WAITS` | `unlinked` | unlinked | - | `fight` |
-| `Fight.FLIGHTS` | `unlinked` | unlinked | - | `fight` |
-| `Fight.HOLDS` | `unlinked` | unlinked | - | `fight` |
-| `Fight.MARGIN_PER_MILLE` | `unlinked` | unlinked | - | `fight` |
-| `Fight.RECALL_WAITS` | `unlinked` | unlinked | - | `fight` |
-| `Heal.HORIZON` | `unlinked` | unlinked | - | `heal` |
-| `Heal.REDRINK_SHARE_PER_MILLE` | `unlinked` | unlinked | - | `heal` |
-| `Larder.FRUGAL` | `unlinked` | unlinked | - | `Larder` |
-| `Memory.BOUNCES` | `unlinked` | unlinked | - | `Memory` |
-| `Memory.BOUNCE_WAITS` | `unlinked` | unlinked | - | `Memory` |
-| `Memory.FLEETING_WAITS` | `unlinked` | unlinked | - | `Memory` |
-| `OnePly.DEATH_PER_MILLE` | `unlinked` | unlinked | - | `OnePly` |
-| `OnePly.ENGAGE` | `unlinked` | unlinked | - | `OnePly` |
-| `OnePly.ENUMERATED` | `unlinked` | unlinked | - | `OnePly` |
-| `Playbook.Goo.drinkPerMille` | `unlinked` | unlinked | - | `Playbook` |
-| `Playbook.Identify.inventoryOddsPerMille` | `unlinked` | unlinked | - | `Playbook` |
-| `Plunge.FIT_PERCENT` | `unlinked` | unlinked | - | `plunge` |
-| `Plunge.STARVING_PERCENT` | `unlinked` | unlinked | - | `plunge` |
-| `Ranged.REACH` | `unlinked` | unlinked | - | `ranged` |
-| `SafeTest.GAS_TURNS` | `unlinked` | unlinked | - | `SafeTest` |
-| `Traps.ENGAGED` | `unlinked` | unlinked | - | `Traps` |
-| `Traps.REACH` | `unlinked` | unlinked | - | `Traps` |
+| `Brain.AVOID_RADIUS` | `unlinked` | unlinked: a backstop radius for a region the fight Policy retreated from; no Codex fact sets it (#314) | - | `Brain` |
+| `Brain.AVOID_WAITS` | `unlinked` | unlinked: a backstop duration for a region the fight Policy retreated from; no Codex fact sets it (#314) | - | `Brain` |
+| `Descend.ALLOWANCE` | `unlinked` | unlinked: the waits a floor is worth staying on is an assumption; the food Rules state costs, not this value (#313) | - | `descend` |
+| `Descend.PER_DROP` | `unlinked` | unlinked: the waits a guaranteed drop is worth is an assumption beside floor-food-guarantees, which states the drops and not the value (#313) | - | `descend` |
+| `Douse.FLEE` | `unlinked` | unlinked: the steps to bare ground are a tuned reach; burning-douse states the burn and the water, not six (#315) | - | `douse` |
+| `Eat.WATER_REACH` | `unlinked` | unlinked: the walk to water before mystery meat is a tuned reach; the hunger Rules state the cost per turn, not thirty (#315) | - | `eat` |
+| `Explore.FRUGAL_SEARCHES` | `unlinked` | unlinked: the frugal search count is a tuned budget; time-and-hunger-costs states the costs and quotes the figure without setting it (#313) | - | `explore` |
+| `Explore.SEARCHES` | `unlinked` | unlinked: the searches per floor are a tuned budget; search-radius-cost states what a search costs, not how many to make (#313) | - | `explore` |
+| `Explore.STUCK` | `unlinked` | unlinked: the waits on a cell before the Policy yields are a loop guard; no Codex fact sets them (#313) | - | `explore` |
+| `Fight.CHASE_WAITS` | `unlinked` | unlinked: an assumption about how far an awake enemy that walked off is followed; sleeping-mob-out-of-view states the sleeper, not this value (#312) | - | `fight` |
+| `Fight.FLIGHTS` | `unlinked` | unlinked: the flights per floor are a tuned cap; no Codex fact sets them (#312) | - | `fight` |
+| `Fight.HOLDS` | `unlinked` | unlinked: the chokepoint holds are a tuned cap; no Codex fact sets them (#312) | - | `fight` |
+| `Fight.MARGIN_PER_MILLE` | `unlinked` | unlinked: the share of hit points a fight may cost is a stated assumption, not a Codex fact (#312) | - | `fight` |
+| `Fight.RECALL_WAITS` | `unlinked` | unlinked: an assumption about how long a sighting counts; sleeping-mob-out-of-view states the sleeper, not this value (#312) | - | `fight` |
+| `Heal.HORIZON` | `unlinked` | unlinked: the turns of fighting the danger counts is a tuned horizon; the estimate is a mean and no Codex fact sets the cut (#312) | - | `heal` |
+| `Heal.REDRINK_SHARE_PER_MILLE` | `unlinked` | unlinked: the share of a heal under which a second drink is worth it is a stated assumption (#312) | - | `heal` |
+| `Larder.FRUGAL` | `unlinked` | unlinked: the food budget below which the Brain turns frugal is a tuned value; time-and-hunger-costs quotes it without setting it (#313) | - | `Larder` |
+| `Memory.BOUNCES` | `unlinked` | unlinked: a backstop count for two Policies undoing each other (issue #174); no Codex fact sets it (#314) | - | `Memory` |
+| `Memory.BOUNCE_WAITS` | `unlinked` | unlinked: a backstop duration for a blocked cell (issue #174); no Codex fact sets it (#314) | - | `Memory` |
+| `Memory.FLEETING_WAITS` | `unlinked` | unlinked: tied to Brain.AVOID_WAITS, itself a backstop (story 4.12); no Codex fact sets it (#314) | - | `Memory` |
+| `OnePly.DEATH_PER_MILLE` | `unlinked` | unlinked: the cost of dying in the one-ply evaluation is a stated assumption (#312) | - | `OnePly` |
+| `OnePly.ENGAGE` | `unlinked` | unlinked: how near an awake walker must be for the one-ply Policy to take the wait is a tuned value (#312) | - | `OnePly` |
+| `OnePly.ENUMERATED` | `unlinked` | unlinked: the repliers enumerated before the expectation is used is a compute cap, not a game fact (#312) | - | `OnePly` |
+| `Playbook.Goo.drinkPerMille` | `unlinked` | unlinked: the health at which the hero drinks against Goo is a tuned value; goo-engage states the fight, and the measuring page covers other Goo figures (#315) | - | `Playbook` |
+| `Playbook.Identify.inventoryOddsPerMille` | `unlinked` | unlinked: the odds an item-picker scroll may hold are a tuned value; scroll-picker states the picker, not the odds (#315) | - | `Playbook` |
+| `Plunge.FIT_PERCENT` | `unlinked` | unlinked: the health share before a jump is a tuned value; chasm-plunge states the fall's cost and quotes the share without setting it (#315) | - | `plunge` |
+| `Plunge.STARVING_PERCENT` | `unlinked` | unlinked: the health share before a starving jump is a tuned value; chasm-plunge states the fall's cost and quotes the share without setting it (#315) | - | `plunge` |
+| `Ranged.REACH` | `unlinked` | unlinked: the farthest throw is a tuned reach; missile-throw states the odds from a distance, not six (#315) | - | `ranged` |
+| `SafeTest.GAS_TURNS` | `unlinked` | unlinked: the turns a hero stays in its own cloud are an assumption beside PotionOfToxicGas.java:49, which seeds the gas and sets no duration (#315) | - | `SafeTest` |
+| `Traps.ENGAGED` | `unlinked` | unlinked: how near an enemy must be to skip a search is a tuned value (issue #184) (#315) | - | `Traps` |
+| `Traps.REACH` | `unlinked` | unlinked: how far a hidden trap lies from a shown one is an assumption; the burned room's clustering is a fill rule that sets no distance (#315) | - | `Traps` |
 | `Playbook.Upgrade.holdUntilDepth` | `upgrade-allocation` | Rule [`upgrade-allocation`](#upgrade-allocation) | 1 | `Playbook` |
 | `Playbook.Upgrade.unknownWeapon` | `upgrade-allocation` | Rule [`upgrade-allocation`](#upgrade-allocation) | 1 | `Playbook` |
 
