@@ -128,6 +128,7 @@ class PlaybookValidatorTest {
     void ranges() {
         rejects("identify", "{\"reach\":41}", "identify.reach", "from 0 to 40");
         rejects("identify", "{\"healing_odds_per_mille\":0}", "identify.healing_odds_per_mille", "from 1 to 1000");
+        rejects("identify", "{\"known_gains\":2}", "identify.known_gains", "from 0 to 1");
         rejects("identify", "{\"potion_hp_per_mille\":0}", "identify.potion_hp_per_mille", "from 1 to 1000");
         rejects("identify", "{\"scroll_hp_per_mille\":1001}", "identify.scroll_hp_per_mille", "from 1 to 1000");
         rejects("upgrade", "{\"weapon_lead\":-6}", "upgrade.weapon_lead", "from -5 to 5");

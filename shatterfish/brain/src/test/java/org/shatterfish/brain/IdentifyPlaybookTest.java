@@ -151,6 +151,27 @@ class IdentifyPlaybookTest {
     }
 
     @Test
+    @DisplayName("known_gains drinks a known potion of strength or experience at any health, and the reference holds it")
+    void known_gains() {
+        ItemView strength = new ItemView(ItemKind.POTION, "potion of strength", 2, true, 0, true, true, "",
+                org.shatterfish.api.EquipSlot.NONE, List.of(TestItem.DRINK), "");
+        Action drink = new Action.UseItem(new ItemRef(0, "potion of strength", 2), TestItem.DRINK);
+        Observation whole = screen(strength, 20, drink);
+        TestItem reference = policy(HALF_HEALING, Playbook.Identify.REFERENCE);
+        assertFalse(reference.enters(whole, Memory.START), "the reference holds a known potion of strength");
+        assertNull(why(reference, whole));
+        TestItem drinking = policy(HALF_HEALING, with("known_gains", 1L));
+        assertTrue(drinking.enters(whole, Memory.START));
+        assertEquals("drink: potion of strength (known_gains)", why(drinking, whole));
+        assertEquals(drink, drinking.plan(whole, Memory.START, whole.actions().actions()).choice().action());
+        assertEquals("drink: potion of strength (known_gains)", why(drinking, screen(strength, 3, drink)), "at 3 of 20 as well");
+        ItemView mind = new ItemView(ItemKind.POTION, "potion of mind vision", 1, true, 0, true, true, "",
+                org.shatterfish.api.EquipSlot.NONE, List.of(TestItem.DRINK), "");
+        assertNull(why(drinking, screen(mind, 20, new Action.UseItem(new ItemRef(0, "potion of mind vision", 1), TestItem.DRINK))),
+                "no other known potion is drunk");
+    }
+
+    @Test
     @DisplayName("a potion_hp_per_mille of 1000 lets the hero drink an unknown potion for its healing odds at full health")
     void potion_hp_at_full_health() {
         Playbook.Identify eager = with("potion_hp_per_mille", 1000L);
