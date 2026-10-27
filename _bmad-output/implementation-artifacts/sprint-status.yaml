@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: '2026-09-04'
-last_updated: 2026-10-26
+last_updated: 2026-10-27
 project: shatterfish
 project_key: NOKEY
 tracking_system: file-system
@@ -135,7 +135,7 @@ development_status:
   epic-7: in-progress  # opened 2026-10-26, after E6; E4.14 (Goo gate) still open and E5.16's live session is the product owner's
   7-1-the-heuristic-to-rule-link-check: done  # issue #278
   7-2-playbooks-as-data: done  # issue #279
-  7-3-item-identification-strategy: review  # issue #280
+  7-3-item-identification-strategy: done  # issue #280
   7-4-upgrade-allocation: done  # issue #281
   7-5-per-boss-playbooks: backlog  # issue #282
   7-6-per-class-playbooks: backlog  # issue #283
