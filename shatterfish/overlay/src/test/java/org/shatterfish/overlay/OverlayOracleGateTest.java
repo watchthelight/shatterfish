@@ -84,4 +84,24 @@ class OverlayOracleGateTest {
         org.junit.jupiter.api.Assertions.assertTrue(theLauncher.evaluate(overlay()).hasViolation(),
                 "the launcher's --oracle branch is seen by the rule");
     }
+
+    @Test
+    @DisplayName("the Beliefs view (story 8.6): without the flag the same view carries no oracle line, and no sidecar or view of the oracle makes one")
+    void the_beliefs_view_has_no_oracle_line_without_the_flag() {
+        org.shatterfish.api.BeliefView view = new org.shatterfish.api.BeliefView("h",
+                java.util.List.of(new org.shatterfish.api.BeliefView.Appearance("crimson potion",
+                        java.util.List.of(new org.shatterfish.api.BeliefView.Candidate("potion of frost", 1.0)))),
+                java.util.List.of(), java.util.List.of(), java.util.List.of());
+
+        // A fair Run's Panel is given no rows, so its content is the Brain's lines alone.
+        org.junit.jupiter.api.Assertions.assertTrue(BeliefViewContent.of(view).texts().stream()
+                .noneMatch(line -> line.startsWith(OracleMarkContent.PREFIX)));
+        // Nothing read by the oracle, no rows; and a sidecar that holds no read answers none.
+        org.junit.jupiter.api.Assertions.assertTrue(OracleMarkContent.beliefRows(null, view).isEmpty());
+        org.junit.jupiter.api.Assertions.assertTrue(new OracleSidecar().beliefRows(null, view).isEmpty());
+        // And a fair Run cannot be given a sidecar to make any.
+        PanelDock fair = new PanelDock();
+        fair.oracle(false);
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> fair.oracleSidecar(new OracleSidecar()));
+    }
 }

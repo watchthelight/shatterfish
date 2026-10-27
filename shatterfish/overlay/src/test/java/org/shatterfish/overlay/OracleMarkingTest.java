@@ -249,6 +249,46 @@ class OracleMarkingTest {
     }
 
     @Test
+    @DisplayName("the Beliefs view (story 8.6): an oracle Run's view has the prefixed true identity under each appearance, a fair Run's view has no such line")
+    void the_beliefs_view_rows() {
+        Observation observation = observation();
+        int hero = observation.hero().cell();
+        org.shatterfish.api.BeliefView beliefs = new org.shatterfish.api.BeliefView("h",
+                List.of(new org.shatterfish.api.BeliefView.Appearance("turquoise potion",
+                        List.of(new org.shatterfish.api.BeliefView.Candidate("potion of healing", 0.6),
+                                new org.shatterfish.api.BeliefView.Candidate("potion of frost", 0.4)))),
+                List.of(), List.of(), List.of());
+        EmbeddedRun.Snapshot snapshot = new EmbeddedRun.Snapshot(null, 14, 1, observation, EmbeddedRun.State.PLAYING,
+                summary(), List.of(), new EmbeddedRun.Human(true, 2, true, 0, "", 0), false, null, List.of(), null, null,
+                beliefs);
+
+        GameScene scene = scene();
+        OracleSidecar sidecar = new OracleSidecar();
+        sidecar.take(observation, view(hero, hero + 9));
+        PanelDock oracle = oracleDock(sidecar);
+        oracle.frame(scene, snapshot, false);
+        assertTrue(oracle.press(Hotkey.BELIEFS, false));
+        oracle.frame(scene, snapshot, false);
+        List<String> lines = oracle.panel().beliefs().shown().texts();
+        int at = lines.indexOf("oracle: turquoise potion = potion of healing");
+        assertTrue(at > 0, "the oracle's row: " + lines);
+        assertEquals("turquoise potion: potion of healing 0.60, potion of frost 0.40", lines.get(at - 1),
+                "under the Brain's own line, which it does not replace");
+
+        GameScene fairScene = scene();
+        PanelDock fair = new PanelDock();
+        fair.oracle(false);
+        fair.frame(fairScene, snapshot, false);
+        assertTrue(fair.press(Hotkey.BELIEFS, false));
+        fair.frame(fairScene, snapshot, false);
+        assertTrue(fair.panel().beliefsShown());
+        assertTrue(fair.panel().beliefs().shown().texts().stream().noneMatch(line -> line.startsWith(OracleMarkContent.PREFIX)),
+                "the same view without the flag carries no oracle line: " + fair.panel().beliefs().shown().texts());
+        assertEquals(1, oracle.panel().beliefs().shown().texts().stream()
+                .filter(line -> line.startsWith(OracleMarkContent.PREFIX)).count());
+    }
+
+    @Test
     @DisplayName("unseen enemies are outlined in the oracle colour, in front of the fog and behind the Panel, edges only")
     void the_unseen_enemies_are_outlined() {
         Observation observation = observation();
