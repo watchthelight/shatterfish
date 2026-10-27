@@ -84,7 +84,7 @@ the build. A clause adds no threshold, so there is nothing for `HeuristicLinkTes
 ## Coach mode
 
 Story 8.9 (FR-47, UJ-4). Coach mode puts this sentence in front of a person who is playing. It is a setting of the
-HUMAN Mode and not a fourth Mode: the Controls row has a Coach button (hotkey F12, rebindable in the game's
+HUMAN Mode and not a fourth Mode: the Controls row has a Coach button (a hotkey with no default key, bound in the game's
 key-binding screen), off by default, dim in RUNNING, PAUSED and once the Run is over, with the reason in the Mode
 strip when it is pressed anyway ("Coach is off: the bot is playing; take over to play with the coach").
 

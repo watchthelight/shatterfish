@@ -26,7 +26,7 @@ record of the existing kind.
    Decision, the card shows the sentence on its own line over the table, and the bot executes nothing.
    `CoachPanelTest.the_sentence_follows_the_switch`, `CoachRunTest.the_learner_disagrees`; the shadow and its
    non-execution are story 5.9's `ShadowDecisionTest`.
-2. The coach is a toggle in the Controls with its own hotkey (F12), off by default, and a setting of HUMAN and not a
+2. The coach is a toggle in the Controls with its own hotkey (no default key, because 8.6 takes F12; bind it in the key-binding screen), off by default, and a setting of HUMAN and not a
    fourth Mode: dim in RUNNING and PAUSED, and once the Run is over, with the reason shown. (REPLAY is not a Mode of
    the Overlay; the Replay session is story 8.5, unbuilt, and a log read in the Rig has no Panel.)
    `CoachStateTest.refused_outside_human`, `CoachPanelTest.disabled_with_the_reason`, `HotkeyTest`.
@@ -83,10 +83,10 @@ sentences is in the log and on the Decision log.
 
 ## Live-session checklist (the product owner's acceptance; no agent has opened a window)
 
-- [ ] F12 (or the Coach button) in a HUMAN Run puts one line over the Decision card's table, and F12 again removes it.
+- [ ] The Coach button (or the hotkey, once bound) in a HUMAN Run puts one line over the Decision card's table, and pressing it again removes it.
 - [ ] The advice arrives before you have decided, reads as one sentence, and never covers the map.
 - [ ] Moving before the advice arrives is not slowed and the old advice does not flash against the new screen.
-- [ ] In a Run the bot plays, the button is dim and F12 says in the Mode strip why; Take over makes it live.
+- [ ] In a Run the bot plays, the button is dim and the hotkey says in the Mode strip why; Take over makes it live.
 - [ ] After Hand back and a second Take over the coach starts off.
 - [ ] The Controls row still fits at the narrowest Panel width.
 - [ ] The log of the session verifies, and the Decision log shows `mode: HUMAN player, coach`.

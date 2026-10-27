@@ -22,22 +22,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Overlay key that shadows a game binding"). The registration declines a key the game binds already, so a
  * conflict would not shadow anything at run time; it would silently leave an Overlay control without its
  * default. This test is what turns that into a failure at the pinned tag and after any upstream merge that
- * binds F6 to F12.
+ * binds F6 to F11.
  */
 class KeyBindingConflictTest {
 
-    private static final Set<Integer> F6_TO_F12 = Set.of(Input.Keys.F6, Input.Keys.F7, Input.Keys.F8,
-            Input.Keys.F9, Input.Keys.F10, Input.Keys.F11, Input.Keys.F12);
+    private static final Set<Integer> F6_TO_F11 = Set.of(Input.Keys.F6, Input.Keys.F7, Input.Keys.F8,
+            Input.Keys.F9, Input.Keys.F10, Input.Keys.F11);
 
     @Test
-    @DisplayName("the Overlay's defaults are F6 to F12, one control each")
-    void the_defaults_are_f6_to_f12() {
+    @DisplayName("the Overlay's defaults are F6 to F11, one control each")
+    void the_defaults_are_f6_to_f11() {
         Set<Integer> keys = new HashSet<>();
         for (Hotkey hotkey : Hotkey.values()) {
-            keys.add(hotkey.defaultKey());
+            if (hotkey != Hotkey.COACH) {
+                keys.add(hotkey.defaultKey());
+            }
         }
-        assertEquals(F6_TO_F12, keys);
-        assertEquals(7, Hotkey.values().length, "seven controls, seven distinct keys");
+        assertEquals(F6_TO_F11, keys);
+        assertEquals(7, Hotkey.values().length, "six controls with one key each, and the coach switch with none");
+        assertEquals(Hotkey.NO_KEY, Hotkey.COACH.defaultKey(), "the coach switch is bound in the key-binding screen");
     }
 
     @Test
@@ -52,17 +55,21 @@ class KeyBindingConflictTest {
         }
         LinkedHashMap<Integer, GameAction> defaults = SPDAction.getDefaults();
         for (Hotkey hotkey : Hotkey.values()) {
+            if (hotkey == Hotkey.COACH) {
+                assertFalse(defaults.containsValue(hotkey.action()), "the coach switch starts unbound");
+                continue;
+            }
             assertEquals(hotkey.action(), defaults.get(hotkey.defaultKey()),
                     hotkey + " is registered at " + Input.Keys.toString(hotkey.defaultKey()));
         }
         for (var entry : defaults.entrySet()) {
             if (!ours.contains(entry.getValue())) {
-                assertFalse(F6_TO_F12.contains(entry.getKey()), "the game binds " + Input.Keys.toString(entry.getKey())
+                assertFalse(F6_TO_F11.contains(entry.getKey()), "the game binds " + Input.Keys.toString(entry.getKey())
                         + " to " + entry.getValue().name());
             }
         }
         for (var entry : SPDAction.getControllerDefaults().entrySet()) {
-            assertFalse(F6_TO_F12.contains(entry.getKey()),
+            assertFalse(F6_TO_F11.contains(entry.getKey()),
                     "the game binds controller code " + entry.getKey() + " to " + entry.getValue().name());
         }
 
@@ -73,7 +80,7 @@ class KeyBindingConflictTest {
         try {
             KeyBindings.setAllBindings(new LinkedHashMap<>());
             KeyBindings.setAllControllerBindings(new LinkedHashMap<>());
-            for (int key : F6_TO_F12) {
+            for (int key : F6_TO_F11) {
                 assertFalse(KeyBindings.isKeyBound(key), Input.Keys.toString(key) + " is a hard binding");
             }
             assertTrue(KeyBindings.isKeyBound(Input.Keys.ENTER), "the probe sees a hard binding when there is one");

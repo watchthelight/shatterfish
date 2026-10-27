@@ -47,7 +47,7 @@ class HotkeyTest {
     }
 
     @Test
-    @DisplayName("F6 to F12 are the controls' keys by default, and any other key is nothing of the Overlay's")
+    @DisplayName("F6 to F11 are the controls' keys by default, and any other key is nothing of the Overlay's")
     void the_defaults_answer() {
         assertEquals(Hotkey.NEXT_STEP, Hotkey.of(Input.Keys.F6));
         assertEquals(Hotkey.SPEED, Hotkey.of(Input.Keys.F7));
@@ -55,10 +55,9 @@ class HotkeyTest {
         assertEquals(Hotkey.TAKE_OVER, Hotkey.of(Input.Keys.F9));
         assertEquals(Hotkey.EXPLAIN, Hotkey.of(Input.Keys.F10));
         assertEquals(Hotkey.PANEL, Hotkey.of(Input.Keys.F11));
-        assertEquals(Hotkey.COACH, Hotkey.of(Input.Keys.F12));
         // The game's own keys, and keys bound to nothing, are not the Overlay's.
         for (int key : new int[] {Input.Keys.W, Input.Keys.SPACE, Input.Keys.F1, Input.Keys.F5, Input.Keys.ESCAPE,
-                Input.Keys.N, Input.Keys.F13, Input.Keys.P}) {
+                Input.Keys.N, Input.Keys.F12, Input.Keys.P}) {
             assertNull(Hotkey.of(key), Input.Keys.toString(key));
         }
     }
@@ -72,8 +71,9 @@ class HotkeyTest {
             // The screen leaves out code 0 (NONE) and, outside controller mode, the mouse clicks only.
             assertTrue(hotkey.action().code() > 0);
             assertNotEquals(GameAction.LEFT_CLICK, hotkey.action());
-            assertEquals(List.of(hotkey.defaultKey()), KeyBindings.getKeyboardKeysForAction(hotkey.action()),
-                    "bound by default to its one key, as the screen shows it");
+            List<Integer> expected = hotkey.defaultKey() == Hotkey.NO_KEY ? List.of() : List.of(hotkey.defaultKey());
+            assertEquals(expected, KeyBindings.getKeyboardKeysForAction(hotkey.action()),
+                    "bound by default to its one key, or to none for the coach switch, as the screen shows it");
         }
         long names = java.util.Arrays.stream(Hotkey.values()).map(Hotkey::actionName).distinct().count();
         assertEquals(Hotkey.values().length, names, "the bindings file keeps an action by its name, so names are distinct");

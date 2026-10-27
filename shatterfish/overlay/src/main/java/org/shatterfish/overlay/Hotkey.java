@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * The Overlay's controls as the game's own actions (story 5.11, FR-42, UX-DR12). Each is a
  * {@code GameAction}, so the game's key-binding screen lists it, lets the player rebind it, and saves the
- * binding with the game's own ({@code SPDAction.saveBindings}); the defaults are F6 to F11, which the pinned
+ * binding with the game's own ({@code SPDAction.saveBindings}); the defaults are F6 to F11 (the coach switch has none), which the pinned
  * tag leaves unbound ({@code docs/rules/ui.md}).
  *
  * <p>Registration is {@link #register}: it hands each default to {@code SPDAction.addDefaultBinding} (hook
@@ -34,8 +34,11 @@ enum Hotkey {
     EXPLAIN("shatterfish_explain", Input.Keys.F10, Control.EXPLAIN),
     /** Collapses the Panel to the Mode strip, or restores it. */
     PANEL("shatterfish_panel", Input.Keys.F11, null),
-    /** Switches the coach on or off while the person plays (story 8.9). */
-    COACH("shatterfish_coach", Input.Keys.F12, null);
+    /** Switches the coach on or off while the person plays (story 8.9). No default key: F6 to F11 are taken or promised, so it is bound in the key-binding screen. */
+    COACH("shatterfish_coach", -1, null);
+
+    /** The default key of an action that starts unbound. */
+    static final int NO_KEY = -1;
 
     /** The game's action, created with the enum so the game's list of actions holds it as soon as this loads. */
     private final GameAction action;
@@ -58,7 +61,7 @@ enum Hotkey {
         return action;
     }
 
-    /** The key the action is bound to until the player rebinds it. */
+    /** The key the action is bound to until the player rebinds it, or {@link #NO_KEY}. */
     int defaultKey() {
         return defaultKey;
     }
@@ -85,7 +88,7 @@ enum Hotkey {
      */
     static synchronized List<Hotkey> register() {
         if (declined == null) {
-            declined = Arrays.stream(values()).filter(h -> !SPDAction.addDefaultBinding(h.defaultKey, h.action)).toList();
+            declined = Arrays.stream(values()).filter(h -> h.defaultKey != NO_KEY).filter(h -> !SPDAction.addDefaultBinding(h.defaultKey, h.action)).toList();
         }
         return declined;
     }
