@@ -50,6 +50,32 @@ graph TD
 See [Fairness](fairness.md) for how the first two are tested and [Glossary](glossary.md) for the
 terms.
 
+## Strategy as data, and the Lore intake (E7)
+
+**The Playbook.** The numbers a person decides about whole-Run strategy (the odds at which an unknown potion is tried, the
+waits after a test, where a scroll of upgrade goes, the Goo entry's rest and drink shares, each class's kit) are data at
+`playbooks/<brain>.json`, typed in `api` as `Playbook` and read by the Rig, which hands the Brain the value at construction
+(ADR-0023). The Brain cannot open a file, so it cannot read anything the Rig did not pass; `PlaybookValidator` refuses a seed, a
+cell, a layout, an unknown key, an out-of-range number or a hero class the Codex does not know, naming the field. The canonical
+text is part of the Brain's configuration hash, so a changed value is a different Brain to a Registration and to the held-out
+budget. The Policies read the Playbook through their constructors; the reference Playbook plays exactly as the code did before it
+was data (`PlaybookEquivalenceTest`).
+
+**The heuristic index.** A threshold, odds, budget or ordering choice is declared in the `brain` classes with
+`@Heuristic("slug")`, an annotation that carries a slug and adds no behaviour. `HeuristicLinkTest` finds them by reflection and
+requires each slug to be a Rule row of [the Brain's Rules index](brain-rules.md), a measured-heuristic row whose Results page is
+its evidence, or a Lore claim id that names the heuristic's Policy back; the rest are on a visible allowlist whose entries each
+carry a reason and an owning issue.
+
+**The Lore intake.** Community knowledge is one file per claim under `lore/<topic>/<id>.md` with a source, a date, a variant and a
+Tier (ADR-0021). The intake and the checker are in the Codex module's test sources and run in `./gradlew build`: intake refuses a
+claim that names a seed, a seed code, a layout, a coordinate or a level feeling, refuses a Tier 1 or 2 with no code citation,
+resolves each cited `path:line` at the pinned tag through the same resolver as the Rules, and flags a claim whose cited lines moved
+(`needs-review`). A variant classifier (ADR-0022) reads the vocabulary diff between the game and the mods, and a date gate
+(`DateGate`, `lore/release-dates.json`) flags a claim that the game's own changelog shows was changed after the release it names.
+The gates flag and never change a Tier. **Nothing under `lore/` is read at run time:** the Brain never opens a claim, and a claim
+reaches play only by a person writing a Rule row, a Playbook value or a measured row that cites it.
+
 ## Statics that outlive a Run
 
 The game keeps some of its state in static fields, and a process that plays two Runs plays the second

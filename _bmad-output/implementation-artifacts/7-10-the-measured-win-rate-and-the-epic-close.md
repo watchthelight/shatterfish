@@ -2,7 +2,7 @@
 title: 'Story 7.10: The measured win rate and the epic close'
 type: 'feature'
 created: '2026-10-27'
-status: 'in-progress'
+status: 'review'
 baseline_commit: '583ebac892a50a1103d33dd0a22ba40dbabf8574'
 review_loop_iteration: 0
 context: []
@@ -63,3 +63,25 @@ run the E7 retrospective; update the docs the epic changed.
 - `./gradlew :api:test :brain:test :rig:test -Pshatterfish.testForks=1`, `:codex:test` if docs/rules change.
 - `mkdocs build --strict`.
 - Fairness: the diff changes `@Heuristic` annotations in `brain` only (no logic); `fairness-reviewer` runs on it.
+
+## Results
+
+See `docs/results/2026-10-27-7-10-the-measured-win-rate.md` (tables generated from the committed outcomes, held by `WinRateTest`).
+
+- **Win rate.** 0 of 500 for the final Brain and 0 of 500 for the Profile 6 baseline played again; Wilson 95% upper bound 0.76% for
+  each; the Warrior slice (84 triples) is 0 of 84, upper bound 4.37%. The expectation written above (0 of 500) held.
+- **Movement.** Reach of depth 5: 95/500 to 206/500 (Warrior 40/84 to 57/84). Goo kills over reach: 54/95 to 133/206 (Warrior 29/40 to
+  49/57). Not a paired test; one machine, one pass each.
+- **Ending.** One final-Brain Mage Run ended `UNSERVED_SCENE` after a ranged throw (#328). No Run hit the turn cap.
+- **Link count.** 80 heuristics found, 44 linked to a Rule, 0 to a Lore claim, 5 to a measured row (Tier 3), 31 unlinked, against 71,
+  35, 0, 5 and 31 at story 7.1. No heuristic could be honestly linked; each unlinked entry carries its reason and an owning issue
+  (#312 to #315), held by `every_unlinked_entry_names_a_reason_and_an_owning_issue`.
+- **Holdout.** Not run: no go-ahead from the product owner exists in the thread. The PR asks for it.
+- **Epic close.** `epic-7-retrospective.md` written; lessons in `CLAUDE.md`; `docs/roadmap.md`, `docs/architecture.md`,
+  `docs/fairness.md` and the `/upstream-sync` re-verification list updated; epic 7 stays `in-progress` until this PR merges.
+
+## Review
+
+No `brain`, `harness`, `Observer` or `ActionExecutor` file changed (the diff is test sources, Results data, docs and the
+Registration), so `fairness-reviewer` was not run; the PR says why. Risks kept, not fixed: the baseline is an unranked re-run;
+the Warrior and Mage slices include triples the Brain was tuned on; a Goo kill is "killed at least one boss".

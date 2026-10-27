@@ -32,41 +32,43 @@ class HeuristicLinkTest {
 
     /**
      * The heuristics nobody can yet account for: no Rule states the value or the mechanic that sets
-     * it, and no Results page or idea record played it. Linking one means annotating it with a slug
-     * and deleting it here; the test fails on a stale name and on a missing one.
+     * it, and no Results page or idea record played it. Each entry carries its reason and the issue that
+     * owns it (story 7.10 closed the check with these left over: the Results page lists them). Linking one
+     * means annotating it with a slug and deleting it here; the test fails on a stale name, on a missing
+     * one, and on a reason that does not end in an issue number.
      */
-    static final Set<String> UNLINKED = Set.of(
-            "Brain.AVOID_RADIUS",
-            "Brain.AVOID_WAITS",
-            "Descend.ALLOWANCE",
-            "Descend.PER_DROP",
-            "Douse.FLEE",
-            "Eat.WATER_REACH",
-            "Explore.FRUGAL_SEARCHES",
-            "Explore.SEARCHES",
-            "Explore.STUCK",
-            "Fight.CHASE_WAITS",
-            "Fight.FLIGHTS",
-            "Fight.HOLDS",
-            "Fight.MARGIN_PER_MILLE",
-            "Fight.RECALL_WAITS",
-            "Playbook.Goo.drinkPerMille",
-            "Heal.HORIZON",
-            "Heal.REDRINK_SHARE_PER_MILLE",
-            "Larder.FRUGAL",
-            "Memory.BOUNCES",
-            "Memory.BOUNCE_WAITS",
-            "Memory.FLEETING_WAITS",
-            "OnePly.DEATH_PER_MILLE",
-            "OnePly.ENGAGE",
-            "OnePly.ENUMERATED",
-            "Playbook.Identify.inventoryOddsPerMille",
-            "Plunge.FIT_PERCENT",
-            "Plunge.STARVING_PERCENT",
-            "Ranged.REACH",
-            "SafeTest.GAS_TURNS",
-            "Traps.ENGAGED",
-            "Traps.REACH");
+    static final Map<String, String> UNLINKED = Map.ofEntries(
+            Map.entry("Brain.AVOID_RADIUS", "a backstop radius for a region the fight Policy retreated from; no Codex fact sets it (#314)"),
+            Map.entry("Brain.AVOID_WAITS", "a backstop duration for a region the fight Policy retreated from; no Codex fact sets it (#314)"),
+            Map.entry("Descend.ALLOWANCE", "the waits a floor is worth staying on is an assumption; the food Rules state costs, not this value (#313)"),
+            Map.entry("Descend.PER_DROP", "the waits a guaranteed drop is worth is an assumption beside floor-food-guarantees, which states the drops and not the value (#313)"),
+            Map.entry("Douse.FLEE", "the steps to bare ground are a tuned reach; burning-douse states the burn and the water, not six (#315)"),
+            Map.entry("Eat.WATER_REACH", "the walk to water before mystery meat is a tuned reach; the hunger Rules state the cost per turn, not thirty (#315)"),
+            Map.entry("Explore.FRUGAL_SEARCHES", "the frugal search count is a tuned budget; time-and-hunger-costs states the costs and quotes the figure without setting it (#313)"),
+            Map.entry("Explore.SEARCHES", "the searches per floor are a tuned budget; search-radius-cost states what a search costs, not how many to make (#313)"),
+            Map.entry("Explore.STUCK", "the waits on a cell before the Policy yields are a loop guard; no Codex fact sets them (#313)"),
+            Map.entry("Fight.CHASE_WAITS", "an assumption about how far an awake enemy that walked off is followed; sleeping-mob-out-of-view states the sleeper, not this value (#312)"),
+            Map.entry("Fight.FLIGHTS", "the flights per floor are a tuned cap; no Codex fact sets them (#312)"),
+            Map.entry("Fight.HOLDS", "the chokepoint holds are a tuned cap; no Codex fact sets them (#312)"),
+            Map.entry("Fight.MARGIN_PER_MILLE", "the share of hit points a fight may cost is a stated assumption, not a Codex fact (#312)"),
+            Map.entry("Fight.RECALL_WAITS", "an assumption about how long a sighting counts; sleeping-mob-out-of-view states the sleeper, not this value (#312)"),
+            Map.entry("Playbook.Goo.drinkPerMille", "the health at which the hero drinks against Goo is a tuned value; goo-engage states the fight, and the measuring page covers other Goo figures (#315)"),
+            Map.entry("Heal.HORIZON", "the turns of fighting the danger counts is a tuned horizon; the estimate is a mean and no Codex fact sets the cut (#312)"),
+            Map.entry("Heal.REDRINK_SHARE_PER_MILLE", "the share of a heal under which a second drink is worth it is a stated assumption (#312)"),
+            Map.entry("Larder.FRUGAL", "the food budget below which the Brain turns frugal is a tuned value; time-and-hunger-costs quotes it without setting it (#313)"),
+            Map.entry("Memory.BOUNCES", "a backstop count for two Policies undoing each other (issue #174); no Codex fact sets it (#314)"),
+            Map.entry("Memory.BOUNCE_WAITS", "a backstop duration for a blocked cell (issue #174); no Codex fact sets it (#314)"),
+            Map.entry("Memory.FLEETING_WAITS", "tied to Brain.AVOID_WAITS, itself a backstop (story 4.12); no Codex fact sets it (#314)"),
+            Map.entry("OnePly.DEATH_PER_MILLE", "the cost of dying in the one-ply evaluation is a stated assumption (#312)"),
+            Map.entry("OnePly.ENGAGE", "how near an awake walker must be for the one-ply Policy to take the wait is a tuned value (#312)"),
+            Map.entry("OnePly.ENUMERATED", "the repliers enumerated before the expectation is used is a compute cap, not a game fact (#312)"),
+            Map.entry("Playbook.Identify.inventoryOddsPerMille", "the odds an item-picker scroll may hold are a tuned value; scroll-picker states the picker, not the odds (#315)"),
+            Map.entry("Plunge.FIT_PERCENT", "the health share before a jump is a tuned value; chasm-plunge states the fall's cost and quotes the share without setting it (#315)"),
+            Map.entry("Plunge.STARVING_PERCENT", "the health share before a starving jump is a tuned value; chasm-plunge states the fall's cost and quotes the share without setting it (#315)"),
+            Map.entry("Ranged.REACH", "the farthest throw is a tuned reach; missile-throw states the odds from a distance, not six (#315)"),
+            Map.entry("SafeTest.GAS_TURNS", "the turns a hero stays in its own cloud are an assumption beside PotionOfToxicGas.java:49, which seeds the gas and sets no duration (#315)"),
+            Map.entry("Traps.ENGAGED", "how near an enemy must be to skip a search is a tuned value (issue #184) (#315)"),
+            Map.entry("Traps.REACH", "how far a hidden trap lies from a shown one is an assumption; the burned room's clustering is a fill rule that sets no distance (#315)"));
 
     /** The most heuristics that may be unlinked. Lower it when one is linked; raising it is a decision for the product owner. */
     static final int UNLINKED_CEILING = 31;
@@ -98,7 +100,7 @@ class HeuristicLinkTest {
         for (HeuristicIndex.Found heuristic : found) {
             String slug = heuristic.slug();
             if (slug.equals(Heuristic.UNLINKED)) {
-                if (!UNLINKED.contains(heuristic.constant())) {
+                if (!UNLINKED.containsKey(heuristic.constant())) {
                     problems.add(heuristic.constant() + " is annotated unlinked but is not on the unlinked allowlist; link it to a Rule or a measurement, or add it knowingly");
                 }
             } else if (!ruleSlugs.contains(slug) && !measured.containsKey(slug) && !lore.containsKey(slug)) {
@@ -107,7 +109,7 @@ class HeuristicLinkTest {
                     && !names(lore.get(slug), heuristic)) {
                 problems.add(heuristic.constant() + " is linked to Lore claim '" + slug + "', whose implemented_in does not name "
                         + "policy:" + heuristic.policy() + " (the claim and the heuristic have to agree)");
-            } else if (UNLINKED.contains(heuristic.constant())) {
+            } else if (UNLINKED.containsKey(heuristic.constant())) {
                 problems.add(heuristic.constant() + " is linked to '" + slug + "' but is still on the unlinked allowlist; delete it there");
             }
         }
@@ -161,9 +163,25 @@ class HeuristicLinkTest {
     void unlinked_count_does_not_rise() {
         Set<String> unlinked = HeuristicIndex.annotated().stream().filter(found -> found.slug().equals(Heuristic.UNLINKED))
                 .map(HeuristicIndex.Found::constant).collect(Collectors.toCollection(TreeSet::new));
-        assertEquals(new TreeSet<>(UNLINKED), unlinked, "the unlinked allowlist and the unlinked annotations agree");
+        assertEquals(new TreeSet<>(UNLINKED.keySet()), unlinked, "the unlinked allowlist and the unlinked annotations agree");
         assertTrue(unlinked.size() <= UNLINKED_CEILING, "the unlinked count rose to " + unlinked.size() + " from " + UNLINKED_CEILING);
         assertEquals(UNLINKED_CEILING, unlinked.size(), "lower UNLINKED_CEILING when a heuristic is linked");
+    }
+
+    @Test
+    @DisplayName("every unlinked entry names its reason and an owning issue that is open work, so the allowlist cannot be a silent list")
+    void every_unlinked_entry_names_a_reason_and_an_owning_issue() {
+        List<String> bad = new ArrayList<>();
+        for (Map.Entry<String, String> entry : UNLINKED.entrySet()) {
+            String reason = entry.getValue();
+            if (!reason.matches("(?s).{20,}\\(#\\d+\\)")) {
+                bad.add(entry.getKey() + ": '" + reason + "' needs a reason of some length ending in the owning issue, like (#312)");
+            }
+        }
+        assertTrue(bad.isEmpty(), String.join("\n", bad));
+        // The check bites: an entry with no issue, and one with no reason, are both refused.
+        assertFalse("a tuned value, no more to say about it".matches("(?s).{20,}\\(#\\d+\\)"));
+        assertFalse("(#312)".matches("(?s).{20,}\\(#\\d+\\)"));
     }
 
     @Test

@@ -47,6 +47,13 @@ is the one in `docs/UPSTREAM.md`; this skill executes it with the required check
     `docs/codebase-map.md` for anything the new tag contradicts, every `docs/rules/` page whose
     citations touched changed files (re-read the code, update `path:line`, re-tier), and
     `docs/glossary.md` if upstream renamed something.
+10a. **Re-verify the lore citations** (ADR-0021, `docs/UPSTREAM.md` step 10). `./gradlew :codex:lore --args=review`
+    re-flags every claim under `lore/` as `needs-review` where a line it cites reads differently at the new tag, and
+    `./gradlew :codex:lore --args=check` must then report no findings (`LoreCheckTest` fails the build otherwise). Then
+    rewrite the two Results pages the pin can move, `--args=variants` (the variant classifier reads the new vocabulary)
+    and `--args=dates` followed by `--args=gate` (the release-date table and the date gate read the new changelog), and
+    list in the PR how many claims flipped to `needs-review`. The tools change no verdict and no Tier: a flagged claim is
+    re-read by a person and re-graded as a new `## Verdict against <tag>` section.
 11. PR titled `Upgrade upstream to <tag>`, label `touches-upstream`, body listing every hook
     re-verified and every rule re-cited. Merge only when CI is green and the rig numbers are in.
 12. After merge: delete `codex/<oldtag>/`, update the memory note, `/handoff`.

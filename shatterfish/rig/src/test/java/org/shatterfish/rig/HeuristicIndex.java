@@ -277,7 +277,8 @@ final class HeuristicIndex {
             String linked;
             String tier;
             if (heuristic.slug().equals(Heuristic.UNLINKED)) {
-                linked = "unlinked";
+                String reason = HeuristicLinkTest.UNLINKED.get(heuristic.constant());
+                linked = "unlinked" + (reason == null ? "" : ": " + reason);
                 tier = "-";
                 unlinked++;
             } else if (rules.containsKey(heuristic.slug())) {
