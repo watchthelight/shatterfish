@@ -64,7 +64,7 @@ class PlaybookValidatorTest {
                 "upgrade", "{\"tie\":\"ARMOR\",\"weapon_lead\":-1}"));
         assertEquals(List.of(), problems("classes", "{\"MAGE\":{\"identify\":{\"reach\":3}},\"ROGUE\":{}}"));
         assertEquals(List.of(), problems("identify", "{\"escape_waits\":0,\"gain_odds_per_mille\":1000,\"healing_odds_per_mille\":1,"
-                + "\"inventory_odds_per_mille\":250,\"reach\":40,\"rest_waits\":500}"), "the ends of every range");
+                + "\"inventory_odds_per_mille\":250,\"potion_hp_per_mille\":1000,\"reach\":40,\"rest_waits\":500,\"scroll_hp_per_mille\":1}"), "the ends of every range");
     }
 
     @Test
@@ -128,6 +128,8 @@ class PlaybookValidatorTest {
     void ranges() {
         rejects("identify", "{\"reach\":41}", "identify.reach", "from 0 to 40");
         rejects("identify", "{\"healing_odds_per_mille\":0}", "identify.healing_odds_per_mille", "from 1 to 1000");
+        rejects("identify", "{\"potion_hp_per_mille\":0}", "identify.potion_hp_per_mille", "from 1 to 1000");
+        rejects("identify", "{\"scroll_hp_per_mille\":1001}", "identify.scroll_hp_per_mille", "from 1 to 1000");
         rejects("upgrade", "{\"weapon_lead\":-6}", "upgrade.weapon_lead", "from -5 to 5");
         rejects("identify", "{\"reach\":8.5}", "identify.reach", "whole number");
         rejects("identify", "{\"reach\":\"8\"}", "identify.reach", "whole number");

@@ -175,7 +175,7 @@ final class TestItem implements Policy {
             Action step = escape(observation, memory, offered, identify);
             String what = inHarm(observation) ? harm(observation) : "edge";
             return step == null ? null
-                    : new Plan("", 0, new RunLog.Choice(step, Policies.CERTAIN, "escape: " + what));
+                    : new Plan("", 0, new RunLog.Choice(step, Policies.CERTAIN, "escape: " + what + " (escape_waits)"));
         }
         // Never a test or a rest in harm, at a cloud's edge, or holding a door open; but a walk to a testing
         // cell goes on through a doorway (passing).
@@ -247,19 +247,20 @@ final class TestItem implements Policy {
                     Action step = Pickup.firstStep(map, walk, hero, best, offered);
                     if (step != null) {
                         return new Plan(item.guess().label(), item.quantity(),
-                                new RunLog.Choice(step, Policies.CERTAIN, "cell: " + item.guess().label()));
+                                new RunLog.Choice(step, Policies.CERTAIN, "cell: " + item.guess().label() + " (reach)"));
                     }
                 }
             }
             if (hereFits && settled) {
                 return new Plan(item.guess().label(), item.quantity(),
-                        new RunLog.Choice(use, Policies.CERTAIN, "test: " + item.guess().label()));
+                        new RunLog.Choice(use, Policies.CERTAIN,
+                                "test: " + item.guess().label() + " (" + item.field() + ")"));
             }
         }
         if (settled && restOwed(observation, memory, identify)) {
             for (Action rest : List.of(new Action.Rest(true), new Action.Search())) {
                 if (offered.contains(rest)) {
-                    return new Plan("", 0, new RunLog.Choice(rest, Policies.CERTAIN, "rest: after-test"));
+                    return new Plan("", 0, new RunLog.Choice(rest, Policies.CERTAIN, "rest: after-test (rest_waits)"));
                 }
             }
         }
@@ -428,7 +429,7 @@ final class TestItem implements Policy {
     }
 
     /** An appearance held that this Policy may test: the pack's reference, its guess and its verb. */
-    record Testable(ItemRef ref, int quantity, Beliefs.Guess guess, String verb) {
+    record Testable(ItemRef ref, int quantity, Beliefs.Guess guess, String verb, String field) {
     }
 
     /**
@@ -453,25 +454,38 @@ final class TestItem implements Policy {
             if (guess == null || guess.odds().size() < 2 || memory.balks(depth, branch, item.name())) {
                 continue;
             }
-            String verb = item.kind() == ItemKind.POTION && guess.kind() == ItemKind.POTION
-                    && (low(observation) && odds(guess, Set.of(HEALING)) >= identify.healingOdds()
-                        || odds(guess, GAINS) >= identify.gainOdds()) ? DRINK
-                    : item.kind() == ItemKind.SCROLL && guess.kind() == ItemKind.SCROLL && !unreadable
-                    && observation.hero().hp() >= observation.hero().ht()
-                    && (odds(guess, INVENTORY_SCROLLS) < identify.inventoryOdds() || armour(observation) != null) ? READ : null;
+            // The Playbook field that lets the item be tried, which the strategy log names (story 7.3): the
+            // healing odds when the hero is hurt enough, else the gain odds; for a scroll, the odds of the
+            // item-picker scrolls, or the worn armour a read may go onto.
+            String verb = null;
+            String field = "";
+            if (item.kind() == ItemKind.POTION && guess.kind() == ItemKind.POTION) {
+                if (identify.potionHp(observation.hero().hp(), observation.hero().ht())
+                        && odds(guess, Set.of(HEALING)) >= identify.healingOdds()) {
+                    verb = DRINK;
+                    field = "healing_odds_per_mille";
+                } else if (odds(guess, GAINS) >= identify.gainOdds()) {
+                    verb = DRINK;
+                    field = "gain_odds_per_mille";
+                }
+            } else if (item.kind() == ItemKind.SCROLL && guess.kind() == ItemKind.SCROLL && !unreadable
+                    && identify.scrollHp(observation.hero().hp(), observation.hero().ht())) {
+                if (odds(guess, INVENTORY_SCROLLS) < identify.inventoryOdds()) {
+                    verb = READ;
+                    field = "inventory_odds_per_mille";
+                } else if (armour(observation) != null) {
+                    verb = READ;
+                    field = "scroll_hp_per_mille";
+                }
+            }
             if (verb == null || !item.actions().contains(verb)) {
                 continue;
             }
-            testable.add(new Testable(new ItemRef(index, item.name(), item.quantity()), item.quantity(), guess, verb));
+            testable.add(new Testable(new ItemRef(index, item.name(), item.quantity()), item.quantity(), guess, verb, field));
         }
         // Worth most first; the sort is stable, so equal worths keep the pack's order.
         testable.sort(Comparator.comparingLong(TestItem::worth).reversed());
         return testable;
-    }
-
-    /** Whether the hero is at half its hit points or below, when an unknown potion is drunk. */
-    static boolean low(Observation observation) {
-        return 2L * observation.hero().hp() <= observation.hero().ht();
     }
 
     /** The odds {@code guess} gives the identities of {@code classes}, by the Codex's class names. */
