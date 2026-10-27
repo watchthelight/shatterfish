@@ -858,6 +858,32 @@ class FightPolicyTest {
     }
 
     @Test
+    @DisplayName("a starving hero does not flee up the stairs: it regenerates nothing there and the descend Policy sends it straight back (issue #202)")
+    void no_stairs_flight_up_while_starving() {
+        String[] rows = {
+                "##########",
+                "#U.B.....#",
+                "#........#",
+                "##########"};
+        Observation fed = screen(4, 8, false, "worn shortsword", rows);
+        assertEquals(new Action.Ascend(), after(fed).action(), "hurt and fed, the stairs up pay: the hero rests there");
+        Observation starving = screen(4, 8, false, "worn shortsword", Hunger.STARVING, rows);
+        Brain.Decided decided = after(starving);
+        assertNotEquals(new Action.Ascend(), decided.action(), decided.decision().toString());
+        assertNotEquals("retreat: stairs", why(decided), decided.decision().toString());
+
+        String[] far = {
+                "##########",
+                "#<...@B..#",
+                "#........#",
+                "##########"};
+        Observation walk = screen(4, 8, false, "worn shortsword", Hunger.STARVING, far);
+        assertNotEquals("retreat: stairs", why(after(walk)), "no walk to the stairs up either");
+        Observation walkFed = screen(4, 8, false, "worn shortsword", far);
+        assertEquals("retreat: stairs", why(after(walkFed)));
+    }
+
+    @Test
     @DisplayName("a Step the game refuses in a fight is not retried forever: after two, its cell is blocked and the next plan goes round it")
     void refused_step_in_a_fight() {
         Observation brute = screen(20, false,
