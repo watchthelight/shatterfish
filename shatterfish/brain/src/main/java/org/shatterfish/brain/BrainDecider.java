@@ -3,6 +3,7 @@ package org.shatterfish.brain;
 import org.shatterfish.api.Action;
 import org.shatterfish.api.Belief;
 import org.shatterfish.api.BeliefSummary;
+import org.shatterfish.api.BeliefView;
 import org.shatterfish.api.Deliberator;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.Rewindable;
@@ -24,6 +25,7 @@ public final class BrainDecider implements Deliberator, Rewindable {
     private String why = "";
     private java.util.List<Integer> highlights = java.util.List.of();
     private BeliefSummary beliefSummary;
+    private BeliefView beliefView;
 
     public BrainDecider(Brain brain) {
         if (brain == null) {
@@ -44,9 +46,13 @@ public final class BrainDecider implements Deliberator, Rewindable {
         // Panel's "As the human ... spot a bad belief" line is about, read at the same point
         // Brain.beliefs()'s own doc names -- "holding belief (the one update returned for it)" --
         // before decide()/handed() below touch belief again.
-        beliefSummary = BeliefSummaries.of(brain.beliefs(observation, belief));
+        Beliefs beliefs = brain.beliefs(observation, belief);
+        beliefSummary = BeliefSummaries.of(beliefs);
         Brain.Decided decided = brain.decide(observation, belief);
         belief = brain.handed(observation, belief, decided);
+        // The whole view (story 8.6), tagged with the hash of the Belief the Wait record will store: the
+        // Run loop reads beliefHash() after this returns, so the view over a log checks itself against it.
+        beliefView = BeliefViews.of(beliefs, belief.hash());
         last = decided.decision();
         why = decided.why();
         highlights = decided.highlights();
@@ -61,6 +67,11 @@ public final class BrainDecider implements Deliberator, Rewindable {
     @Override
     public BeliefSummary beliefSummary() {
         return beliefSummary;
+    }
+
+    @Override
+    public BeliefView beliefView() {
+        return beliefView;
     }
 
     /** Why the last {@link #decide} returned no Action, or the empty string when it returned one. */
@@ -85,7 +96,7 @@ public final class BrainDecider implements Deliberator, Rewindable {
      */
     @Override
     public Object mark() {
-        return new Mark(belief, last, why, highlights, beliefSummary);
+        return new Mark(belief, last, why, highlights, beliefSummary, beliefView);
     }
 
     @Override
@@ -98,9 +109,10 @@ public final class BrainDecider implements Deliberator, Rewindable {
         why = held.why();
         highlights = held.highlights();
         beliefSummary = held.beliefSummary();
+        beliefView = held.beliefView();
     }
 
     private record Mark(Belief belief, RunLog.Decision last, String why, java.util.List<Integer> highlights,
-                        BeliefSummary beliefSummary) {
+                        BeliefSummary beliefSummary, BeliefView beliefView) {
     }
 }
