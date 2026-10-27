@@ -28,6 +28,15 @@ record ReplaySession(RunLog.Header header, LogFollower follower, int waits) {
      *
      * @throws IllegalArgumentException with the reason in words, when the log cannot be played
      */
+    /**
+     * The interface size the log was played on, which the replay plays on too: the Observation carries log text that
+     * changes with it, so a Rig log (headless driver, states nothing, size 0) replayed on the Overlay's size 1 would
+     * differ at its first wait that mentions it. An Overlay log states its own.
+     */
+    int interfaceSize() {
+        return header.interfaceSize() >= 0 ? header.interfaceSize() : 0;
+    }
+
     static ReplaySession load(Path file) {
         Replay.Opened opened = Replay.open(file);
         LogFollower follower = LogFollower.stopping(opened.log());

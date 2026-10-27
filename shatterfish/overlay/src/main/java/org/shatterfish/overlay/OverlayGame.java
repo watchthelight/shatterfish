@@ -76,6 +76,8 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
     private boolean suspended;
     /** The interface the Overlay plays on: the mixed one, desktop layout with no inventory pane (story 5.2). */
     static final int INTERFACE_SIZE = 1;
+    /** The size this game plays on: the Overlay's, or the one a replayed log was played on. */
+    private int interfaceSize = INTERFACE_SIZE;
 
     private final InputLock lock = new InputLock();
     private final PanelDock dock = new PanelDock();
@@ -222,9 +224,11 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
             dock.refusal("REPLAY REFUSED: " + cannot.getMessage());
             return false;
         }
+        // The log's own interface size, so a Rig log is played on the screen it was recorded on (the headless
+        // driver's, size 0; an Overlay log states its own): the size changes the log text an Observation carries.
+        interfaceSize = session.interfaceSize();
+        SPDSettings.interfaceSize(interfaceSize);
         NewGame.begin(session.header().seed(), options.heroClass(), rng);
-        // The log's own interface size, so a Rig log is played on the screen it was recorded on (it is the headless
-        // driver's, size 0, and an Overlay log's is the Overlay's) if the size changes what the game shows.
         run = EmbeddedRun.attach(this, session.header().seed(), options.heroClass(), rng, session.follower(), observer,
                 null, session.header().cap());
         controls = ControlState.replaying(new RunSeam(run), ControlEnablement.Capabilities.NOW, session.waits());
@@ -642,7 +646,7 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
      */
     @Override
     public int interfaceSize() {
-        return INTERFACE_SIZE;
+        return interfaceSize;
     }
 
     /** Whether the game opens windowed: a size was asked for, or the Run is an oracle Run. */

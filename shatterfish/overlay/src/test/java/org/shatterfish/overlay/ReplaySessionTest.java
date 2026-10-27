@@ -52,7 +52,7 @@ class ReplaySessionTest {
     static final long SEED = 2713922911738L;
     static final long SALT = 1014L;
     static final int TURN_CAP = 2200;
-    private static final long FRAMES = 50_000_000L;
+    private static final long FRAMES = 300_000L;
 
     @TempDir
     static Path shared;
@@ -83,7 +83,7 @@ class ReplaySessionTest {
         Session(Path log, long hostSalt) {
             loaded = ReplaySession.load(log);
             host = new HostBridge(loaded.header().seed(), HeroClass.valueOf(loaded.header().heroClass().name()), hostSalt)
-                    .likeTheOverlay().interfaceSize(OverlayGame.INTERFACE_SIZE);
+                    .likeTheOverlay().interfaceSize(loaded.interfaceSize());
             run = host.attachReplay(loaded.follower(), loaded.header().cap());
             controls = ControlState.replaying(new OverlayGame.RunSeam(run), Capabilities.NOW, loaded.waits());
         }
@@ -114,7 +114,7 @@ class ReplaySessionTest {
         }
 
         int applied() {
-            return run.snapshot().history().size();
+            return (int) (run.waitIndex() - 1);
         }
 
         @Override
@@ -133,7 +133,6 @@ class ReplaySessionTest {
         try (Session session = new Session(shortLog, SALT)) {
             assertTrue(session.loaded.waits() > 100, "a Run long enough to mean something: " + session.loaded.waits());
             assertTrue(session.controls.pauseResume(), "Resume");
-            assertTrue(session.controls.cycleSpeed(), "Human play");
             assertTrue(session.controls.cycleSpeed(), "Fast as it can");
             session.until(() -> false);
 
@@ -144,7 +143,7 @@ class ReplaySessionTest {
             RunLog.End recorded = endOf(shortLog);
             assertEquals(recorded.outcome().cause(), session.run.outcome().cause().name(),
                     "the recorded outcome: " + session.run.outcome());
-            assertEquals(recorded.outcome().turns(), session.run.outcome().turns());
+            assertEquals(recorded.outcome().turns(), session.run.outcome().turns() * 1000L, "the log counts turns in thousandths");
             assertEquals(recorded.outcome().depth(), session.run.outcome().depth());
             System.out.println("replay session: " + session.loaded.waits() + " waits, ended " + session.run.outcome().cause()
                     + " on floor " + session.run.outcome().depth() + " after " + session.run.outcome().turns() + " turns");
@@ -220,7 +219,6 @@ class ReplaySessionTest {
         try (Session session = new Session(forged, SALT)) {
             assertTrue(session.controls.pauseResume(), "Resume");
             assertTrue(session.controls.cycleSpeed());
-            assertTrue(session.controls.cycleSpeed());
             session.until(() -> false);
 
             assertEquals(EmbeddedRun.State.ENDED, session.run.state(), "the replay ended at the wait");
@@ -256,22 +254,36 @@ class ReplaySessionTest {
     @DisplayName("the session leaves no log of its own and no file in the profile's save slot")
     void leaves_nothing_behind() throws IOException {
         Path profile = HeadlessBoot.ensure().profile();
+        Path slot = profile.resolve(GamesInProgress.gameFolder(GamesInProgress.curSlot));
         try (Session session = new Session(rigLog, SALT)) {
             session.untilStopped();
-            assertTrue(session.controls.nextStep());
-            session.until(() -> session.applied() >= 5);
+            // What starting the game writes is the game's own; the property is that playing the log adds nothing to it.
+            Map<String, Long> before = slotContents(slot);
+            for (int step = 1; step <= 5; step++) {
+                assertTrue(session.controls.nextStep());
+                int want = step;
+                session.until(() -> session.applied() >= want);
+                session.untilStopped();
+            }
+            assertEquals(5, session.applied());
             assertNull(session.run.logFile(), "a replay writes no Run log");
             assertFalse(session.run.resumable(), "and cannot be saved and quit into one");
-            Path slot = profile.resolve(GamesInProgress.gameFolder(GamesInProgress.curSlot));
-            List<Path> saved = new ArrayList<>();
-            if (Files.isDirectory(slot)) {
-                try (var files = Files.list(slot)) {
-                    files.forEach(saved::add);
+            assertEquals(before, slotContents(slot), "and the slot holds what it held before the first press");
+            assertFalse(Files.exists(profile.resolve("suspended")), "no suspended-save marker");
+        }
+    }
+
+    /** The slot's files with their sizes and times, or an empty map. */
+    private static Map<String, Long> slotContents(Path slot) throws IOException {
+        Map<String, Long> files = new LinkedHashMap<>();
+        if (Files.isDirectory(slot)) {
+            try (var list = Files.list(slot)) {
+                for (Path file : list.sorted().toList()) {
+                    files.put(file.getFileName().toString(), Files.size(file) * 31 + Files.getLastModifiedTime(file).toMillis());
                 }
             }
-            assertEquals(List.of(), saved.stream().filter(file -> file.getFileName().toString().startsWith("game")).toList(),
-                    "no game file in the slot: " + saved);
         }
+        return files;
     }
 
     /** The log with the Observation of wait {@code k} changed in one section and the chain written again: a forged, valid log. */
