@@ -46,7 +46,11 @@ class PlaybookEquivalenceTest {
     static final String THE_CONSTANTS = "{\"bosses\":{},\"classes\":{},\"format\":1,"
             + "\"identify\":{\"escape_waits\":12,\"gain_odds_per_mille\":200,\"healing_odds_per_mille\":200,"
             + "\"inventory_odds_per_mille\":250,\"reach\":8,\"rest_waits\":50},\"kit\":{\"zap_reach\":0},"
-            + "\"name\":\"shatterfish\",\"upgrade\":{\"tie\":\"WEAPON\",\"weapon_lead\":0},\"version\":1}\n";
+            + "\"name\":\"shatterfish\",\"upgrade\":{\"hold_until_depth\":0,\"tie\":\"WEAPON\",\"unknown_weapon\":\"NO\",\"weapon_lead\":0},\"version\":1}\n";
+
+    /** The upgrade section the constants held, and the one story 7.4 measured and kept. */
+    private static final String UPGRADE_7_2 = "\"upgrade\":{\"hold_until_depth\":0,\"tie\":\"WEAPON\",\"unknown_weapon\":\"NO\",\"weapon_lead\":0}";
+    private static final String UPGRADE_7_4 = "\"upgrade\":{\"hold_until_depth\":0,\"tie\":\"ARMOR\",\"unknown_weapon\":\"NO\",\"weapon_lead\":0}";
 
     /**
      * Values that change what the Brain does on a screen with an unknown potion or scroll: it drinks only
@@ -55,7 +59,7 @@ class PlaybookEquivalenceTest {
     private static final String CHANGED = "{\"bosses\":{},\"classes\":{},\"format\":1,"
             + "\"identify\":{\"escape_waits\":12,\"gain_odds_per_mille\":1000,\"healing_odds_per_mille\":1000,"
             + "\"inventory_odds_per_mille\":1,\"reach\":0,\"rest_waits\":0},\"kit\":{\"zap_reach\":0},"
-            + "\"name\":\"shatterfish\",\"upgrade\":{\"tie\":\"ARMOR\",\"weapon_lead\":-5},\"version\":1}\n";
+            + "\"name\":\"shatterfish\",\"upgrade\":{\"hold_until_depth\":0,\"tie\":\"ARMOR\",\"unknown_weapon\":\"NO\",\"weapon_lead\":-5},\"version\":1}\n";
 
     /** A root holding what a Run reads, with {@code playbook} as the Brain's Playbook. */
     static Path root(Path into, String playbook) throws IOException {
@@ -163,12 +167,15 @@ class PlaybookEquivalenceTest {
     @DisplayName("the committed Playbook plays the smoke set to the same Decisions as the values the constants held for every class it has no entry for, and an edited one does not")
     @Timeout(value = 40, unit = TimeUnit.MINUTES)
     void the_playbook_changes_no_play(@TempDir Path scratch) throws IOException {
+        // The committed Playbook has moved the allocation (story 7.4, tie ARMOR) and states class entries (story 7.6);
+        // put the allocation back to what the constants held and the classes without a changed entry must play alike.
         Path codex = SeedSetsTest.ROOT.resolve(CodexManifest.FOLDER).resolve(org.shatterfish.harness.boot.HeadlessBoot.pinnedTag());
+        String committed = Files.readString(PlaybookFile.of(SeedSetsTest.ROOT, Brains.SHATTERFISH), StandardCharsets.UTF_8);
         Playbook held = PlaybookFile.read(PlaybookFile.of(SeedSetsTest.ROOT, Brains.SHATTERFISH), Brains.SHATTERFISH, codex);
         assertEquals(Playbook.reference(Brains.SHATTERFISH).identify(), held.identify(), "the base states exactly the values the constants held");
-        assertEquals(Playbook.reference(Brains.SHATTERFISH).upgrade(), held.upgrade());
         assertEquals(Playbook.reference(Brains.SHATTERFISH).kit(), held.kit());
-        assertEquals(Playbook.reference(Brains.SHATTERFISH).canonical(), THE_CONSTANTS.strip(), "and THE_CONSTANTS is that Playbook's text");
+        assertTrue(committed.contains(UPGRADE_7_4), "the committed Playbook states the allocation of story 7.4");
+        String atReference = committed.replace(UPGRADE_7_4, UPGRADE_7_2).replace("\"version\":3", "\"version\":1");
         java.util.Set<HeroClass> unchanged = java.util.EnumSet.allOf(HeroClass.class);
         for (Playbook.ClassEntry entry : held.classes()) {
             if (!entry.equals(new Playbook.ClassEntry(entry.heroClass(), held.identify(), held.kit(), held.upgrade()))) {
@@ -179,7 +186,7 @@ class PlaybookEquivalenceTest {
         Map<String, Path> constants = play(root(scratch.resolve("constants"), THE_CONSTANTS), scratch.resolve("constants-out"),
                 java.util.EnumSet.allOf(HeroClass.class));
         Map<String, Path> playbook = play(root(scratch.resolve("playbook"),
-                Files.readString(PlaybookFile.of(SeedSetsTest.ROOT, Brains.SHATTERFISH), StandardCharsets.UTF_8)),
+                atReference),
                 scratch.resolve("playbook-out"), java.util.EnumSet.allOf(HeroClass.class));
         assertEquals(SeedSets.load(SeedSetsTest.ROOT, SeedSets.SMOKE).set().entries().size(), constants.size());
         assertEquals(constants.keySet(), playbook.keySet());

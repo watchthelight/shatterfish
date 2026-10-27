@@ -261,33 +261,46 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
     }
 
     /**
-     * Where a scroll of upgrade goes: the worn weapon while its level is below the worn armour's plus
-     * {@code weaponLead}, the armour above it, and on the line itself the {@code tie} slot.
+     * Where a scroll of upgrade goes, and when: the worn weapon while its level is below the worn armour's
+     * plus {@code weaponLead}, the armour above it, on the line itself the {@code tie} slot, and nothing
+     * before the hero reaches depth {@code holdUntilDepth}. Every target is a piece the hero wears
+     * (story 7.4): the heaviest armour in the pack is not a target, because nothing the Brain does would
+     * put the upgraded piece on (docs/rules/upgrades.md).
      *
-     * @param weaponLead how many levels the weapon may be ahead of the armour and still be upgraded first
-     * @param tie        the worn slot that takes the scroll when the levels sit on the line, WEAPON or ARMOR
+     * @param weaponLead     how many levels the weapon may be ahead of the armour and still be upgraded first
+     * @param tie            the worn slot that takes the scroll when the levels sit on the line, WEAPON or ARMOR
+     * @param holdUntilDepth the depth from which a known scroll of upgrade is read; 0 reads at once, and a
+     *                       deeper number keeps the scrolls in the pack until the hero is that deep
+     * @param unknownWeapon  whether the worn weapon may take a scroll while its level is not shown
      */
-    public record Upgrade(@Heuristic("scroll-picker") int weaponLead, @Heuristic("scroll-picker") EquipSlot tie) {
+    public record Upgrade(@Heuristic("scroll-picker") int weaponLead, @Heuristic("scroll-picker") EquipSlot tie,
+                          @Heuristic("upgrade-allocation") int holdUntilDepth,
+                          @Heuristic("upgrade-allocation") boolean unknownWeapon) {
 
         /** The fields, in the file's order. */
         public static final List<Spec> SPECS = List.of(
+                Spec.number("hold_until_depth", 0, 26),
                 Spec.choice("tie", List.of("ARMOR", "WEAPON")),
+                Spec.choice("unknown_weapon", List.of("NO", "YES")),
                 Spec.number("weapon_lead", -5, 5));
 
-        /** The values story 4.13 chose: the weapon first, so the two climb together. */
-        public static final Upgrade REFERENCE = new Upgrade(0, EquipSlot.WEAPON);
+        /** The values stories 4.13 and 7.4 settled on: the weapon first so the two climb together, no hold. */
+        public static final Upgrade REFERENCE = new Upgrade(0, EquipSlot.WEAPON, 0, false);
 
         public Upgrade {
             java.util.Objects.requireNonNull(tie, "tie");
-            Canon.require(SPECS.get(0).allowed().contains(tie.name()),
-                    "upgrade.tie is one of " + SPECS.get(0).allowed() + ": " + tie);
-            check(SPECS.get(1), weaponLead);
+            check(SPECS.get(0), holdUntilDepth);
+            Canon.require(SPECS.get(1).allowed().contains(tie.name()),
+                    "upgrade.tie is one of " + SPECS.get(1).allowed() + ": " + tie);
+            check(SPECS.get(3), weaponLead);
         }
 
         /** The fields by name, in {@link #SPECS} order. */
         public Map<String, Object> values() {
             Map<String, Object> values = new LinkedHashMap<>();
+            values.put("hold_until_depth", (long) holdUntilDepth);
             values.put("tie", tie.name());
+            values.put("unknown_weapon", unknownWeapon ? "YES" : "NO");
             values.put("weapon_lead", (long) weaponLead);
             return values;
         }
@@ -296,7 +309,11 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
         public Upgrade with(Map<String, Object> given) {
             Map<String, Object> values = values();
             values.putAll(given);
-            return new Upgrade(num(values, "weapon_lead"), EquipSlot.valueOf((String) values.get("tie")));
+            String unknown = String.valueOf(values.get("unknown_weapon"));
+            Canon.require(SPECS.get(2).allowed().contains(unknown),
+                    "upgrade.unknown_weapon is one of " + SPECS.get(2).allowed() + ": " + unknown);
+            return new Upgrade(num(values, "weapon_lead"), EquipSlot.valueOf((String) values.get("tie")),
+                    num(values, "hold_until_depth"), unknown.equals("YES"));
         }
     }
 

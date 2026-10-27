@@ -35,13 +35,23 @@ final class DirectionMetrics {
     /** A Run alternating between two cells for at least this many consecutive Steps oscillates. */
     static final int OSCILLATION_LEAST = 6;
 
+    /** The name a scroll of upgrade shows in a heap record (items.properties), which it does from the first Run. */
+    static final String UPGRADE_SCROLL = "scroll of upgrade";
+
+    /** The reason a Decision gives for confirming the upgrade window; one such answer is one upgrade spent. */
+    static final String UPGRADE_WHY = "upgrade:";
+
+    /** The last depth the upgrade columns count: what a Run has found and read by the Goo's floor. */
+    static final int UPGRADE_DEPTH = 5;
+
     /** A heap taking more waits than this from first sight to pick-up is slow. */
     static final int SLOW_HEAP = 100;
 
     /** One side's numbers. */
     record Side(int runs, int reached5, int gooKills, List<Double> turns, List<Integer> deepest,
                 java.util.Map<Integer, Integer> deaths, int floors, int searches, int searchSpots,
-                int oscillation, int heapsSeen, int heapsTaken, List<Integer> seenToTaken) {
+                int oscillation, int heapsSeen, int heapsTaken, List<Integer> seenToTaken,
+                int upgradesTaken, int upgradesRead) {
 
         double medianTurns() {
             return median(turns.stream().map(Double::doubleValue).toList());
@@ -105,6 +115,7 @@ final class DirectionMetrics {
         int searches = 0;
         int spots = 0;
         int osc = 0;
+        int upgradesRead = 0;
         for (Path log : list(folder, ".jsonl")) {
             RunLogReader.Log read = RunLogReader.of(log);
             if (read.readable() && !read.records().isEmpty() && read.records().get(0) instanceof RunLog.Header header
@@ -131,6 +142,10 @@ final class DirectionMetrics {
                     if (why.startsWith(SEARCH_SPOT)) {
                         spots++;
                     }
+                    if (why.startsWith(UPGRADE_WHY) && wait.action() instanceof Action.AnswerPrompt
+                            && wait.depth() <= UPGRADE_DEPTH) {
+                        upgradesRead++;
+                    }
                 }
             }
             if (maxDepth >= 5) {
@@ -154,6 +169,7 @@ final class DirectionMetrics {
         int heaps = 0;
         int taken = 0;
         List<Integer> seenToTaken = new ArrayList<>();
+        int upgradesTaken = 0;
         for (Path tsv : list(folder, DirectionPlay.HEAPS)) {
             List<String> lines = lines(tsv);
             for (String line : lines.subList(Math.min(1, lines.size()), lines.size())) {
@@ -164,6 +180,9 @@ final class DirectionMetrics {
                 heaps++;
                 int seen = Integer.parseInt(cells[4]);
                 int took = Integer.parseInt(cells[5]);
+                if (took >= 0 && cells[3].equals(UPGRADE_SCROLL) && Integer.parseInt(cells[0]) <= UPGRADE_DEPTH) {
+                    upgradesTaken++;
+                }
                 if (took >= 0) {
                     taken++;
                     seenToTaken.add(took - seen);
@@ -171,7 +190,7 @@ final class DirectionMetrics {
             }
         }
         return new Side(runs, reached5, goo, turns, deepest, deaths, floors, searches, spots, osc, heaps,
-                taken, seenToTaken);
+                taken, seenToTaken, upgradesTaken, upgradesRead);
     }
 
     /**
@@ -243,6 +262,10 @@ final class DirectionMetrics {
                 s -> s.seenToTakenMedian()));
         rows.add(row("heaps taking over " + SLOW_HEAP + " waits", baseline, current,
                 s -> s.slowHeaps() + " of " + s.heapsSeen(), s -> s.slowHeaps()));
+        rows.add(row("upgrade scrolls picked up by depth " + UPGRADE_DEPTH, baseline, current,
+                s -> String.valueOf(s.upgradesTaken()), s -> s.upgradesTaken()));
+        rows.add(row("upgrades read by depth " + UPGRADE_DEPTH, baseline, current,
+                s -> String.valueOf(s.upgradesRead()), s -> s.upgradesRead()));
         StringBuilder out = new StringBuilder();
         if (baseline == null) {
             out.append("| | ").append(currentName).append(" |\n|---|---|\n");
