@@ -61,6 +61,23 @@ All live in `harness` and run in CI on every pull request.
 | Live restore exactness | A rollout that finds the guide page lying on the live floor leaves the page there and the screen as it was; a snapshot taken after the rollout keeps the page; the live Run is saved again after every rollout and the save and the screen must equal the snapshot's, failing the rollout otherwise; the 6.5 playouts at wait 164 of `standard` seed 648322377831 restore exactly; the check leaves out the save's clock, the actor-id counter and hash-map order, and each is argued in `SaveForm`; a floor missing the page heap fails naming the depth file, a log line only the screen holds fails naming the screen, and a gold change fails naming `game.dat` | done: `RolloutRestoresTheFloorTest` (issue #271) |
 | Enemies that are not what they seem | An invisible enemy in view shows only its faint flag, one out of view shows nothing, and a mimic hiding as a chest is the chest: the one-ply model decides identically across their hidden state | done: `OnePlyLeakTest` (E6 stories 6.1 and 6.3) |
 
+## The Playbook and the Lore (E7)
+
+Two things entered the repository in E7 that could have been a way round the rule, and neither is.
+
+- **The Playbook is data the Brain is handed, not data it reads.** The Brain's module has no file access (the boundary is an
+  ArchUnit rule), so a Playbook reaches it only as an `api` value built by the Rig at construction. `PlaybookValidator` refuses
+  any field that could carry a Run's identity (a seed, a seed code, a cell, a layout) and any key it does not know, so the file
+  cannot name one dungeon. Its fields are whole numbers, ratios in thousandths, class names and depths from the header. A
+  per-class entry is chosen by the hero class the header shows, which a human at the same screen knows.
+- **The Lore is knowledge about the game, never about a Run.** Intake refuses a claim that names a seed, a seed string, a layout,
+  a map coordinate or a level feeling tied to one Run, and the refusal is at storage, not at use (ADR-0021). The Brain never
+  opens `lore/`. A claim reaches play only through a Rule row, a Playbook value or a measured row a person wrote and cited, and
+  each of those is held to the `path:line` rule of Non-negotiable 8; a forum claim with no code citation cannot rise above Tier 3.
+- **What does not change:** `Observer` is still the only door, `HeuristicLinkTest` reads annotations and never reads values into
+  the Brain, and a change to the Playbook's schema or to a Lore refusal pattern is a diff near the Brain and is reviewed with
+  `fairness-reviewer`.
+
 ## Search
 
 Search must not see hidden state either. Two fair designs exist: an abstract tactical model built

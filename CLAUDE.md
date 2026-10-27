@@ -76,6 +76,14 @@ These apply to every artifact, every story, every line of code, and they are not
 
 Project skills (`.claude/skills/`): `/next-story`, `/rig`, `/codex`, `/upstream-sync`, `/adr`, `/sync-issues`, `/handoff`. Subagents (`.claude/agents/`): `fairness-reviewer`, `upstream-reader`. Never answer a mechanics question from memory: ask `upstream-reader` or read the pinned code and cite `path:line`. BMAD skills are `bmad-*`; the implementation path is `bmad-build` (spec, implement, adversarial review, sprint-status sync in one workflow). BMAD Method 6.11 with bmm, cis, tea; the `gds` module is installed but unused (see `_bmad/custom/config.toml`).
 
+## Lessons from E7 (`_bmad-output/implementation-artifacts/epic-7-retrospective.md`)
+
+- An allowlist whose count "may fall and may not rise" only holds still. Give every entry its reason and an owning issue when it is added, not at the close (`HeuristicLinkTest`).
+- A story that must not change play proves it on the normalised Run logs (header, `chain`, `prev` and `think_ms` set aside), not on a table of columns alone.
+- A gate over data that is mostly missing needs a control that shows it discriminates (a synthetic anchor, a planted case); a threshold changed after the first run is written into the story with its reason.
+- Registers that every story adds to (the Rules index, a Playbook constructor, a count in a header) collide between independent stories: merge one at a time, build after each, and put a count where it is computed, not typed.
+- A number that needs the product owner's word (a win rate to beat, the `holdout` go-ahead) is asked for when the epic opens and again when the story that needs it opens. When the answer is missing the story reports the measured rate, does not run `holdout`, and does not change the measure.
+
 ## Lessons from E6 (`_bmad-output/implementation-artifacts/epic-6-retrospective.md`)
 
 - A rule that needs a number the product owner has not set (a budget, a ceiling) is asked for when the epic opens. If a story must set it, the story writes the reasoning down and prints the table that lets the owner overrule it.
