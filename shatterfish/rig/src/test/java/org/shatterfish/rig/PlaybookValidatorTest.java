@@ -138,6 +138,8 @@ class PlaybookValidatorTest {
         rejects("bosses", "{\"goo\":{\"wash_range\":2.5}}", "bosses.goo.wash_range", "whole number");
         rejects("bosses", "{\"dm300\":{\"status\":\"DONE\"}}", "bosses.dm300.status", "TESTED");
         rejects("bosses", "{\"goo\":{\"meet_cell\":3}}", "bosses.goo.meet_cell", "place in one dungeon");
+        rejects("bosses", "{\"goo\":{\"seed\":3}}", "bosses.goo.seed", "names a seed");
+        rejects("bosses", "{\"dm300\":{\"status\":\"ABC-DEF-GHI\"}}", "bosses.dm300.status", "seed string");
     }
 
     @Test

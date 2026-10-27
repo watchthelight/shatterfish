@@ -123,3 +123,16 @@ share against Goo (`goo-engage`, with the measured `goo-position-and-wash` page)
 See `docs/results/2026-10-27-7-5-per-boss-playbooks.md`. The reference Playbook plays exactly as `main` (40 of 40, and 80 of
 80 equal columns). No variant of the Goo entry won on both slices, so no value changed. Goo kills over fights on
 `standard`: 79 of 87 (90.8%, 82.9 to 95.3) on both slices before and after.
+
+## Fairness review
+
+`fairness-reviewer` on `origin/main...HEAD`: pass with findings, none blocking, no information-parity violation. The diff
+touches neither `Observer` nor `ActionExecutor`; the Goo fields are whole numbers, and the descent rest reads the depth from
+the header. Findings and what was done:
+
+1. The one-argument constructors that default to the reference Goo entry (`Fight`, `Heal`, `OnePly`, `Descend`) are used by
+   tests and nothing else; `Brain.policies` is the only construction site. Kept for the existing tests; noted here.
+2. The boss floors in `Playbook.Bosses.descentRest` now cite `Dungeon.java:441-443` in the Javadoc. Done.
+3. `Descend.rests` reads `depth + 1` from the header only on the main branch. No change.
+4. Two more refusals pinned in `PlaybookValidatorTest.boss_ranges`: a seed word as a key under `bosses.goo`, and a seed
+   string as a `status` value. Done.

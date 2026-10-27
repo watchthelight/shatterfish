@@ -365,7 +365,9 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
 
         /**
          * The share of the hero's hit points, in thousandths, the descent rest reaches before the stairs
-         * down to the floor at {@code depth}; a floor with no boss entry is rested to full.
+         * down to the floor at {@code depth}; a floor with no boss entry is rested to full. The boss floors are depths 5
+         * (Goo), 10 (Tengu) and 15 (DM-300), from {@code Dungeon.bossLevel} at
+         * {@code core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/Dungeon.java:441-443} (Rule in docs/rules/combat.md).
          */
         public int descentRest(int depth) {
             return switch (depth) {
