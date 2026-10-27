@@ -19,6 +19,7 @@ import org.shatterfish.api.Observation;
 import org.shatterfish.harness.driver.HeadlessDriver;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroAction;
 import com.shatteredpixel.shatteredpixeldungeon.items.Gold;
+import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfIdentify;
 import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.ScrollOfMagicMapping;
 import com.shatteredpixel.shatteredpixeldungeon.levels.features.LevelTransition;
 import com.shatteredpixel.shatteredpixeldungeon.levels.features.Chasm;
@@ -461,6 +462,41 @@ class ActionExecutorTest {
         // without that the Run stops here, which is how story 1.14 found this.
         driver.stepToInputWait();
         assertTrue(Dungeon.hero.isAlive(), "and the Run goes on");
+    }
+
+    @Test
+    @DisplayName("the scroll's cancel confirmation draws two buttons, offers one, and the Observation shows what is drawn (#239)")
+    void the_scroll_cancel_offers_only_its_yes() throws ReflectiveOperationException {
+        atTheFirstWait();
+        // The window the game asks after an unknown inventory scroll's picker is sent away
+        // (InventoryScroll.java:56-80, :130-132).
+        // The scroll's yes spends the turn of Item.curUser, which the item's own execute sets.
+        java.lang.reflect.Field curUser = Item.class.getDeclaredField("curUser");
+        curUser.setAccessible(true);
+        curUser.set(null, Dungeon.hero);
+        GameScene.show(new ScrollOfIdentify().new WndConfirmCancel());
+        Observation observation = new Observer().observe();
+
+        // Parity: the screen draws both buttons and the Prompt section lists both.
+        assertEquals(PromptKind.ITEM, observation.prompt().kind());
+        assertEquals(List.of("Yes, I'm positive", "No, I changed my mind"), observation.prompt().options());
+        // Only the yes is an input the Run can take: the no reopens a WndBag that nothing answers.
+        assertEquals(List.of(new Action.AnswerPrompt(0)), observation.actions().actions());
+
+        // The function of the Observation alone: the same screen from a bare section set gives the same offer.
+        assertEquals(observation.actions(), org.shatterfish.api.ValidActions.of(observation));
+
+        // A caller that names the no anyway is told it was never offered, and the window stays up.
+        Outcome.Rejected rejected = assertInstanceOf(Outcome.Rejected.class,
+                executor.execute(observation, new Action.AnswerPrompt(1)));
+        assertEquals(Reason.NOT_OFFERED, rejected.reason(), rejected.toString());
+        assertNotNull(Windows.front(), "the confirmation is still in front");
+
+        // The yes goes through: the scroll is spent and the Run goes on.
+        assertInstanceOf(Outcome.Applied.class, executor.execute(observation, new Action.AnswerPrompt(0)));
+        driver.stepToInputWait();
+        assertEquals(null, Windows.front());
+        assertTrue(Dungeon.hero.isAlive());
     }
 
     @Test
