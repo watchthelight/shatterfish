@@ -152,6 +152,7 @@ final class TestItem implements Policy {
             return false;
         }
         return upgrade(observation, observation.actions().actions(), upgrader) != null
+                || gain(observation, observation.actions().actions(), identify) != null
                 || !testable(observation, memory).isEmpty() || restOwed(observation, memory, identify);
     }
 
@@ -190,6 +191,13 @@ final class TestItem implements Policy {
         Action upgrade = settled ? upgrade(observation, offered, upgrader) : null;
         if (upgrade != null) {
             return new Plan("", 0, new RunLog.Choice(upgrade, Policies.CERTAIN, "upgrade: " + target(observation, upgrader).name()));
+        }
+        // A known potion of strength or experience is drunk at once when the Playbook says so (story 7.3): it
+        // does the same at any health and nothing else in the pack drinks it.
+        Action gain = settled ? gain(observation, offered, identify) : null;
+        if (gain != null) {
+            return new Plan("", 0, new RunLog.Choice(gain, Policies.CERTAIN,
+                    "drink: " + ((Action.UseItem) gain).item().name() + " (known_gains)"));
         }
         // An unknown scroll goes where a known upgrade would, but never onto the Mage's staff: an
         // unknown scroll of transmutation changes the item it is read onto (ScrollOfTransmutation.java:
@@ -352,6 +360,32 @@ final class TestItem implements Policy {
         return new Memory.Trial(plan.label(), plan.quantity(),
                 action instanceof Action.Step step ? step.cell() : -1);
     }
+
+    /**
+     * The offered drink of a known potion of strength or experience, or null: only when the Playbook's
+     * {@code known_gains} is on (story 7.3). Strength adds a point and experience a level whatever the
+     * hero's health (PotionOfStrength.java:43-47), so nothing is gained by holding one.
+     */
+    static Action gain(Observation observation, List<Action> offered, Playbook.Identify identify) {
+        if (identify.knownGains() == 0) {
+            return null;
+        }
+        List<ItemView> pack = observation.inventory().items();
+        for (int index = 0; index < pack.size(); index++) {
+            ItemView item = pack.get(index);
+            if (item.name().equals(KNOWN_STRENGTH) || item.name().equals(KNOWN_EXPERIENCE)) {
+                Action drink = new Action.UseItem(new ItemRef(index, item.name(), item.quantity()), DRINK);
+                if (offered.contains(drink)) {
+                    return drink;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** The known potions of strength and experience, by the name the inventory shows (items.properties). */
+    static final String KNOWN_STRENGTH = "potion of strength";
+    static final String KNOWN_EXPERIENCE = "potion of experience";
 
     /** The known scroll of upgrade, by the name the inventory shows (items.properties). */
     static final String UPGRADE = "scroll of upgrade";
