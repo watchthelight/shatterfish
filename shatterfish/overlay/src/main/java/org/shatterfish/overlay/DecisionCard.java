@@ -11,11 +11,10 @@ import java.util.List;
 
 /**
  * The Panel's Decision card (story 5.3, FR-38, FR-39, UX-DR3, UX-DR5, UX-DR14): the chosen Action with
- * its score, up to three alternatives with scores and one-line reasons, and the Explain expansion (the
- * control that toggles it is the Controls row's, story 5.6), which
- * expands the card in place to the Policy that fired and the Safety flags that applied ({@code
- * DESIGN.md} Components: "the card is the Explain expansion's anchor"). This is FR-39's v1 Explain
- * control, not the v2 Explain view (UX-DR15).
+ * its score, up to three alternatives with scores and one-line reasons, and whether the Explain expansion
+ * (the control that toggles it is the Controls row's, story 5.6) is open. What the expansion says is
+ * {@link ExplainContent}'s and the Panel draws it ({@link ExplainView}, story 8.2) in the room below this
+ * card, which stays its anchor ({@code DESIGN.md} Components: "the card is the Explain expansion's anchor").
  *
  * <p>Content ({@link DecisionCardContent}) is kept apart from drawing on purpose: the content tests
  * hold what the card says against a constructed Decision without booting the game, and this class only
@@ -33,7 +32,7 @@ import java.util.List;
  */
 final class DecisionCard extends Component {
 
-    /** Body size ({@code DESIGN.md} Typography); the Explain expansion's Policy and flags use small size. */
+    /** Body size ({@code DESIGN.md} Typography); the Replay notice uses the small size. */
     static final int BODY_SIZE = 8;
     static final int SMALL_SIZE = 6;
     static final int CHOSEN_COLOR = 0xFFB347;
@@ -52,13 +51,11 @@ final class DecisionCard extends Component {
 
     private RenderedTextBlock empty;
     private RenderedTextBlock headline;
+    /** The coach's sentence (story 8.8): the choice in one plain line, over the table; hidden with no Decision. */
+    private RenderedTextBlock coachLine;
     private RenderedTextBlock[] actionBlocks;
     private RenderedTextBlock[] scoreBlocks;
     private RenderedTextBlock[] reasonBlocks;
-    /** The coach's sentence (story 8.8): the choice in one plain line, over the table; hidden with no Decision. */
-    private RenderedTextBlock coachLine;
-    private RenderedTextBlock policyLine;
-    private RenderedTextBlock flagsLine;
     /** A HUMAN Run's word that a Replay stops at a wait (story 5.9); hidden otherwise. */
     private RenderedTextBlock noticeLine;
     private DecisionCardContent.Shadow shadow;
@@ -90,8 +87,6 @@ final class DecisionCard extends Component {
             reasonBlocks[i] = row(BODY_SIZE, INK_MUTED);
         }
         coachLine = row(BODY_SIZE, CHOSEN_COLOR);
-        policyLine = row(SMALL_SIZE, INK_MUTED);
-        flagsLine = row(SMALL_SIZE, INK_MUTED);
         noticeLine = row(SMALL_SIZE, NOTICE_COLOR);
     }
 
@@ -132,12 +127,19 @@ final class DecisionCard extends Component {
         this.trouble = trouble;
     }
 
-    /** Expands the card to the Explain view, or collapses it back; a second press of the same control does the other. */
+    /** Opens the Explain expansion below the card, or closes it; a second press of the same control does the other. */
     void toggleExplain() {
         explain = !explain;
         refresh();
         if (width > 0) {
             layout();
+        }
+    }
+
+    /** Closes the expansion if it is open (the Run changed hands, the Panel collapsed, Explain went dim). */
+    void collapseExplain() {
+        if (explain) {
+            toggleExplain();
         }
     }
 
@@ -201,12 +203,6 @@ final class DecisionCard extends Component {
         for (int i = 0; i < rows; i++) {
             reasonBlocks[i].text(tableRows.get(i).reason(), reasonWidth);
         }
-
-        boolean explaining = content.present() && content.explain() != null;
-        policyLine.visible = explaining;
-        policyLine.text(explaining ? content.explain().policyLine() : "", width);
-        flagsLine.visible = explaining;
-        flagsLine.text(explaining ? content.explain().flagsLine() : "", width);
     }
 
     /** The taller of the three blocks in table row {@code i}. */
@@ -229,12 +225,6 @@ final class DecisionCard extends Component {
         }
         for (int i = 0; i < rows; i++) {
             height += tableRowHeight(i) + ROW_GAP;
-        }
-        if (policyLine.visible) {
-            height += policyLine.height() + ROW_GAP;
-        }
-        if (flagsLine.visible) {
-            height += flagsLine.height() + ROW_GAP;
         }
         return height > 0 ? height - ROW_GAP : 0;
     }
@@ -274,16 +264,6 @@ final class DecisionCard extends Component {
             PixelScene.align(reasonBlocks[i]);
             rowY += tableRowHeight(i) + ROW_GAP;
         }
-        if (policyLine.visible) {
-            policyLine.setPos(x, rowY);
-            PixelScene.align(policyLine);
-            rowY += policyLine.height() + ROW_GAP;
-        }
-        if (flagsLine.visible) {
-            flagsLine.setPos(x, rowY);
-            PixelScene.align(flagsLine);
-            rowY += flagsLine.height() + ROW_GAP;
-        }
     }
 
     /** The "no decision yet" row, for tests. */
@@ -314,16 +294,6 @@ final class DecisionCard extends Component {
     /** The coach's sentence row, for tests (story 8.8). */
     RenderedTextBlock coachRow() {
         return coachLine;
-    }
-
-    /** The Explain expansion's Policy row, for tests. */
-    RenderedTextBlock policyRow() {
-        return policyLine;
-    }
-
-    /** The Explain expansion's Safety flags row, for tests. */
-    RenderedTextBlock flagsRow() {
-        return flagsLine;
     }
 
     /** The Replay notice row, for tests (story 5.9). */
