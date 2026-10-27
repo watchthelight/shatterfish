@@ -1,5 +1,7 @@
 package org.shatterfish.rig;
 
+import org.shatterfish.harness.knowledge.PlaybookFile;
+
 import org.shatterfish.harness.knowledge.CodexManifest;
 import org.shatterfish.api.RunLog;
 import org.shatterfish.api.SeedSet;
@@ -363,6 +365,8 @@ public final class Runner {
         Path codex = root.resolve(CodexManifest.FOLDER).resolve(tag);
         // And where the weight sets are: a Brain that scores by one is built on its own (story 4.5).
         Path weights = root.resolve(WeightsFile.FOLDER);
+        // And the Playbooks (story 7.2), the same way.
+        Path playbooks = root.resolve(PlaybookFile.FOLDER);
 
         long began = System.nanoTime();
         // Every child this invocation has alive, so that a failure anywhere can stop them all. A
@@ -389,7 +393,7 @@ public final class Runner {
                             RunIndex.State.STARTED, "", triple.seed(), triple.heroClass().name(),
                             triple.challengeFlags(), salt, "", 0, ""));
                     started.add(pool.submit(() -> one(side.index(), side.out(), alive, triple, salt,
-                            runId, side.brain(), commit, machine, cap, deadline, side.waits(), stamp, codex, weights)));
+                            runId, side.brain(), commit, machine, cap, deadline, side.waits(), stamp, codex, weights, playbooks)));
                 }
             }
             // Awaited as they finish rather than in the order they were sent. A refusal on the
@@ -541,6 +545,11 @@ public final class Runner {
         for (String brain : brains) {
             if (Brains.readsWeights(brain)) {
                 WeightsFile.read(WeightsFile.of(root, brain), brain);
+            }
+            if (Brains.readsPlaybook(brain)) {
+                // Validated before a Registration is accepted or a Run starts (story 7.2, FR-35).
+                PlaybookFile.read(PlaybookFile.of(root, brain), brain, root.resolve(CodexManifest.FOLDER)
+                        .resolve(org.shatterfish.harness.boot.HeadlessBoot.pinnedTag()));
             }
         }
     }
@@ -726,7 +735,7 @@ public final class Runner {
     private static void one(RunIndex index, Path out, Map<String, Process> alive, SeedSet.Entry triple,
                             long salt, String runId, String brain, String commit, String machine,
                             int cap, int deadline, AtomicLong waits, String registration, Path codex,
-                            Path weights) {
+                            Path weights, Path playbooks) {
         Path working = out.resolve("work").resolve(runId);
         long began = System.nanoTime();
         String why = "";
@@ -736,7 +745,7 @@ public final class Runner {
         Process child = null;
         try {
             Files.createDirectories(working);
-            child = child(out, working, triple, salt, brain, commit, machine, cap, registration, codex, weights);
+            child = child(out, working, triple, salt, brain, commit, machine, cap, registration, codex, weights, playbooks);
             alive.put(out + "/" + runId, child);
             Process reading = child;
             // A platform thread, not a virtual one: reading a process pipe is a blocking native
@@ -852,7 +861,7 @@ public final class Runner {
 
     private static Process child(Path out, Path working, SeedSet.Entry triple, long salt,
                                  String brain, String commit, String machine, int cap,
-                                 String registration, Path codex, Path weights) throws IOException {
+                                 String registration, Path codex, Path weights, Path playbooks) throws IOException {
         Path java = Path.of(System.getProperty("java.home"), "bin", "java");
         Path exe = Path.of(java + ".exe");
         List<String> command = new ArrayList<>(List.of(
@@ -873,6 +882,10 @@ public final class Runner {
         if (Brains.readsWeights(brain)) {
             command.add(RunOne.WEIGHTS);
             command.add(weights.resolve(brain + ".json").toAbsolutePath().toString());
+        }
+        if (Brains.readsPlaybook(brain)) {
+            command.add(RunOne.PLAYBOOK);
+            command.add(playbooks.resolve(brain + ".json").toAbsolutePath().toString());
         }
         if (!registration.isEmpty()) {
             // Only when there is one. The child's own parser refuses an empty value -- a flag is

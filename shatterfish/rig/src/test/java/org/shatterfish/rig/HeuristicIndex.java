@@ -1,7 +1,8 @@
 package org.shatterfish.rig;
 
 import org.shatterfish.brain.Brain;
-import org.shatterfish.brain.Heuristic;
+import org.shatterfish.api.Heuristic;
+import org.shatterfish.api.Playbook;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -115,13 +116,26 @@ final class HeuristicIndex {
 
     /** A class's name as the table gives it: the nested classes joined with dots, without the package. */
     static String shortName(Class<?> type) {
-        return type.getName().substring(PACKAGE.length() + 1).replace('$', '.');
+        String name = type.getName();
+        String api = Playbook.class.getPackageName() + ".";
+        return name.substring(name.startsWith(PACKAGE + ".") ? PACKAGE.length() + 1 : api.length()).replace('$', '.');
+    }
+
+    /**
+     * The classes that declare heuristics: the {@code brain} classes, and the Playbook with its
+     * sections (story 7.2), whose fields are the thresholds and choices that moved into data.
+     */
+    static List<Class<?>> declaring() {
+        List<Class<?>> classes = new ArrayList<>(brainClasses());
+        classes.add(Playbook.class);
+        classes.addAll(List.of(Playbook.class.getDeclaredClasses()));
+        return classes;
     }
 
     /** The heuristics declared in code, sorted by slug and then by constant. */
     static List<Found> annotated() {
         List<Found> found = new ArrayList<>();
-        for (Class<?> type : brainClasses()) {
+        for (Class<?> type : declaring()) {
             for (Field field : type.getDeclaredFields()) {
                 Heuristic heuristic = field.getAnnotation(Heuristic.class);
                 if (heuristic != null) {

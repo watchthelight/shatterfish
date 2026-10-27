@@ -34,6 +34,7 @@ import java.util.Map;
  *                      input, recorded, and the Brain decides every wait as a shadow that is never
  *                      executed (story 5.9)
  * @param weights       the Brain's weight set, for {@code --agent brain} and the shadow of {@code human}
+ * @param playbook      the Brain's Playbook (story 7.2), read as the Rig reads it, for the same agents as the weights
  * @param codex         the Codex folder the Brain's knowledge is read from ({@code codex/<tag>} under the
  *                      repository root by default, where {@code :overlay:launch} runs); the bestiary is read
  *                      beside it, from {@code tactics/bestiary.json}
@@ -46,18 +47,18 @@ import java.util.Map;
  */
 public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path profile, Path out, int turnCap,
                             long agentSeed, boolean oracle, boolean exitWhenOver, String agent, Path weights,
-                            Path codex, int windowWidth, int windowHeight, Path screenshot, Path resume) {
+                            Path playbook, Path codex, int windowWidth, int windowHeight, Path screenshot, Path resume) {
 
     /** The flags the launcher knows. A flag it does not know is refused by name, never ignored. */
     public static final List<String> KNOWN = List.of("--seed", "--class", "--salt", "--profile", "--out",
-            "--turn-cap", "--oracle", "--exit-when-over", "--agent", "--weights", "--codex", "--window",
+            "--turn-cap", "--oracle", "--exit-when-over", "--agent", "--weights", "--playbook", "--codex", "--window",
             "--screenshot", "--resume");
 
     /** The flags that take no value. */
     private static final List<String> SWITCHES = List.of("--oracle", "--exit-when-over");
 
     public LaunchOptions {
-        if (heroClass == null || out == null || weights == null || codex == null) {
+        if (heroClass == null || out == null || weights == null || playbook == null || codex == null) {
             throw new IllegalArgumentException("a Run names its hero, where its log goes, and the weights and"
                     + " Codex a Brain would be built on");
         }
@@ -128,6 +129,7 @@ public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path prof
                 given.containsKey("--exit-when-over"),
                 given.getOrDefault("--agent", "random"),
                 Path.of(given.getOrDefault("--weights", "weights/shatterfish.json")),
+                Path.of(given.getOrDefault("--playbook", "playbooks/shatterfish.json")),
                 given.containsKey("--codex") ? Path.of(given.get("--codex"))
                         : Path.of("codex", org.shatterfish.harness.boot.HeadlessBoot.pinnedTag()),
                 window(given.get("--window"), 0), window(given.get("--window"), 1),
@@ -161,6 +163,7 @@ public record LaunchOptions(long seed, HeroClass heroClass, Long salt, Path prof
                 given.containsKey("--exit-when-over"),
                 marker.agent(),
                 Path.of(given.getOrDefault("--weights", "weights/shatterfish.json")),
+                Path.of(given.getOrDefault("--playbook", "playbooks/shatterfish.json")),
                 given.containsKey("--codex") ? Path.of(given.get("--codex"))
                         : Path.of("codex", org.shatterfish.harness.boot.HeadlessBoot.pinnedTag()),
                 window(given.get("--window"), 0), window(given.get("--window"), 1),

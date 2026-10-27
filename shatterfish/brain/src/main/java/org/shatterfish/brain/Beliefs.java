@@ -1,5 +1,8 @@
 package org.shatterfish.brain;
 
+import org.shatterfish.api.Heuristic;
+import org.shatterfish.api.Playbook;
+
 import org.shatterfish.api.ActorView;
 import org.shatterfish.api.Alignment;
 import org.shatterfish.api.Codex;
@@ -94,6 +97,11 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
 
     /** The memory after seeing {@code observation}, given the memory before. */
     static Memory fold(Memory memory, Observation observation, Codex.Knowledge knowledge) {
+        return fold(memory, observation, knowledge, Playbook.reference("shatterfish"));
+    }
+
+    /** {@link #fold(Memory, Observation, Codex.Knowledge)} under {@code playbook}, whose reach says how long a walk to a testing cell may go on. */
+    static Memory fold(Memory memory, Observation observation, Codex.Knowledge knowledge, Playbook playbook) {
         long waits = memory.waits() + 1;
         int depth = observation.header().depth();
 
@@ -253,7 +261,8 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         boolean arriving = !memory.at().on(depth, branch);
         long arrived = arriving ? waits : memory.arrived();
         int rests = arriving ? 0 : memory.rests();
-        List<Memory.Balk> balked = balked(memory, observation, here, still);
+        List<Memory.Balk> balked = balked(memory, observation, here, still,
+                playbook.identify(observation.header().heroClass()).walks());
         int walking = walking(memory, still);
         List<Memory.Cloud> fleeting = memory.fleeting().stream().filter(block -> block.until() >= waits).toList();
         // Back and forth between two cells (story 4.13): the hero is back on the cell of two waits ago,
@@ -374,12 +383,12 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
      * inventory scroll detaches itself before its picker opens (InventoryScroll.java:41-44), and
      * every other read spends it; identified, the rest go by their identity's name.
      */
-    static List<Memory.Balk> balked(Memory memory, Observation observation, Memory.Spot here, boolean still) {
+    static List<Memory.Balk> balked(Memory memory, Observation observation, Memory.Spot here, boolean still, int walks) {
         Memory.Trial trial = memory.trial();
         if (trial.label().isEmpty() || !memory.at().on(here.depth(), here.branch())) {
             return memory.balked();
         }
-        boolean untried = trial.step() >= 0 ? still || walking(memory, still) > TestItem.WALKS
+        boolean untried = trial.step() >= 0 ? still || walking(memory, still) > walks
                 : heldQuantity(observation, trial.label()) >= trial.quantity();
         // A walk balked at stops only the walking: the test where the hero stands may still be safe.
         Memory.Balk balk = new Memory.Balk(here.depth(), here.branch(), trial.label(), trial.step() >= 0);

@@ -1,5 +1,7 @@
 package org.shatterfish.rig;
 
+import org.shatterfish.harness.knowledge.PlaybookFile;
+
 import org.shatterfish.api.HeroClass;
 import org.shatterfish.harness.knowledge.CodexManifest;
 
@@ -230,13 +232,15 @@ public final class Direction {
         }
         Path codex = source.resolve(CodexManifest.FOLDER).resolve(tag);
         Path weights = source.resolve(WeightsFile.FOLDER).resolve(brain + ".json");
+        // A baseline ref older than story 7.2 has no Playbook, and plays by the values its Brain held in code.
+        Path playbook = Files.exists(PlaybookFile.of(source, brain)) ? PlaybookFile.of(source, brain) : null;
         ExecutorService pool = Executors.newFixedThreadPool(jobs);
         try {
             List<Future<Boolean>> started = new ArrayList<>();
             for (int i = 0; i < picks.size(); i++) {
                 DirectionSelect.Pick pick = picks.get(i);
                 Path working = folder.resolve("work").resolve(String.valueOf(i));
-                started.add(pool.submit(() -> one(pick, folder, working, classpath, codex, weights, commit, brain)));
+                started.add(pool.submit(() -> one(pick, folder, working, classpath, codex, weights, playbook, commit, brain)));
             }
             int failed = 0;
             for (Future<Boolean> f : started) {
@@ -259,7 +263,7 @@ public final class Direction {
     }
 
     private static boolean one(DirectionSelect.Pick pick, Path folder, Path working, String classpath,
-                               Path codex, Path weights, String commit, String brain) throws IOException, InterruptedException {
+                               Path codex, Path weights, Path playbook, String commit, String brain) throws IOException, InterruptedException {
         Files.createDirectories(working);
         var triple = pick.entry();
         List<String> command = new ArrayList<>(List.of(
@@ -275,6 +279,10 @@ public final class Direction {
                 RunOne.CHALLENGES, Integer.toString(triple.challengeFlags()),
                 RunOne.CODEX, codex.toAbsolutePath().toString(),
                 RunOne.WEIGHTS, weights.toAbsolutePath().toString()));
+        if (playbook != null && Brains.readsPlaybook(brain)) {
+            command.add(RunOne.PLAYBOOK);
+            command.add(playbook.toAbsolutePath().toString());
+        }
         ProcessBuilder builder = new ProcessBuilder(command).directory(working.toFile()).redirectErrorStream(true);
         org.shatterfish.harness.log.DebugRecord.inherit(builder);
         Process child = builder.start();
