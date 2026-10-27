@@ -2,7 +2,7 @@
 title: 'Story 7.6: Per-class playbooks'
 type: 'feature'
 created: '2026-10-26'
-status: 'in-progress'
+status: 'review'
 baseline_commit: '44d1e31f2e4b5fb9be48d1170e7bc2b183a809da'
 review_loop_iteration: 0
 context: []
@@ -72,4 +72,32 @@ Warrior's is empty. A class feature that needs a new Action is filed as its own 
 
 ## Results
 
-(filled in as the tables land)
+Measured on the `standard` set against `origin/main` (3d0a4f663, which holds story 7.4), `:rig:direction --class <C> --first 40 --salt-base 1000 --jobs 2`.
+The Brain's Runs by class on the `smoke` set: Warrior 5, Mage 4, Rogue 4, Huntress 4, Duelist 4, Cleric 4 (25 Runs).
+
+| Class (40 Runs, salts 1000..1039) | reach depth 5 | Goo kills | mean / max depth | deaths by depth |
+|---|---|---|---|---|
+| Warrior (entry empty) | 33/40 | 32/40 | 5.875 / 7 | 0/1/3/3/2/15/16 |
+| Mage, before | 6/40 | 1/40 | 2.750 / 6 | 10/8/11/5/5/1/0 |
+| Mage, with the zap entry | 18/40 | 6/40 | 4.375 / 7 | 0/1/9/12/13/2/3 |
+| Rogue | 10/40 | 5/40 | 3.575 / 6 | 3/5/13/9/5/5 |
+| Huntress | 13/40 | 9/40 | 3.900 / 7 | 1/7/10/9/4/8/1 |
+| Duelist | 13/40 | 7/40 | 3.975 / 8 | 4/1/8/14/7/5/0/1 |
+| Cleric | 7/40 | 6/40 | 3.700 / 7 | 1/5/14/13/1/4/2 |
+
+The Warrior, Rogue, Huntress, Duelist and Cleric columns are identical to the baseline's: no entry, so the same Runs.
+
+Second slice for the kept Mage entry (`--first 80 --salt-base 3000`): reach depth 5 8/80 to 38/80, Goo kills 2/80 to 12/80, mean depth 2.600 to 4.275,
+deaths by depth 1..8 20/19/24/9/6/2/0/0 to 3/4/16/19/27/6/4/1.
+
+**Where the Warrior Playbook is plainly wrong.** The Mage: it swings a staff as a club (1 to 6) while a wand of magic missile
+with three charges sits in it unused; 28 of 40 Runs died on depth 1 to 3. The other four classes show no plain failure of the
+Warrior's rules that the Run logs name and a number in the Playbook can fix; the Huntress's bow needs a new Action (#309).
+
+**Kept:** Mage `kit.zap_reach` 6, on both slices. Stall found on the way: a zap at distance 5 whose line the game refuses passes
+no turn, so the Policy skips a zap straight after a zap when the nearest enemy has not moved (`Zap.zappedWithoutEffect`);
+the zero-STALLED check is in the tables above (Runs that did not finish: none). `zap_reach` 4 and 8 were not measured: the
+reach is a number the owner can overrule in `playbooks/shatterfish.json`.
+
+**Sequential test.** Not run. The Rig has no second registered Brain that plays the old Playbook, so ADR-0012's Per-pair
+unit cannot be formed; the entry is kept on the two direction tables, which both separate by a wide margin.

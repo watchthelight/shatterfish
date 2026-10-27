@@ -138,7 +138,7 @@ development_status:
   7-3-item-identification-strategy: backlog  # issue #280
   7-4-upgrade-allocation: done  # issue #281
   7-5-per-boss-playbooks: backlog  # issue #282
-  7-6-per-class-playbooks: backlog  # issue #283
+  7-6-per-class-playbooks: review  # issue #283
   7-7-the-lore-claim-format-and-intake: done  # issue #284
   7-8-the-variant-classifier-from-the-vocabulary-diff: done  # issue #285
   7-9-date-gating-from-the-changelog: done  # issue #286

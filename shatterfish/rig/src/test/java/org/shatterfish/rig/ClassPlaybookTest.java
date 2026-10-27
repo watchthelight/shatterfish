@@ -115,8 +115,11 @@ class ClassPlaybookTest {
     @Timeout(value = 20, unit = TimeUnit.MINUTES)
     void the_warrior_is_unchanged(@TempDir Path scratch) throws IOException {
         Set<HeroClass> warriors = EnumSet.of(HeroClass.WARRIOR);
+        Playbook committed = PlaybookFile.read(PlaybookFile.of(SeedSetsTest.ROOT, Brains.SHATTERFISH), Brains.SHATTERFISH, CODEX);
+        Playbook empty = new Playbook(committed.name(), committed.version(), committed.identify(), committed.upgrade(),
+                committed.kit(), List.of());
         Map<String, Path> without = PlaybookEquivalenceTest.play(
-                PlaybookEquivalenceTest.root(scratch.resolve("without"), PlaybookEquivalenceTest.THE_CONSTANTS),
+                PlaybookEquivalenceTest.root(scratch.resolve("without"), empty.canonical() + "\n"),
                 scratch.resolve("without-out"), warriors);
         Map<String, Path> with = PlaybookEquivalenceTest.play(
                 PlaybookEquivalenceTest.root(scratch.resolve("with"),
