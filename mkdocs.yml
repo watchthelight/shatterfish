@@ -141,6 +141,7 @@ nav:
   - Rules:
       - rules/index.md
       - The Brain's Rules index: brain-rules.md
+      - The coach's sentence: coach-line.md
       - Game loop: rules/game-loop.md
       - Visibility: rules/visibility.md
       - Identification: rules/identification.md
