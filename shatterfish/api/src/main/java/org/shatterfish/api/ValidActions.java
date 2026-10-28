@@ -77,11 +77,12 @@ public final class ValidActions {
      * ({@code core/.../items/artifacts/TalismanOfForesight.java:70}), the armband's steal
      * ({@code core/.../items/artifacts/MasterThievesArmband.java:69}), the key inserted
      * ({@code core/.../items/artifacts/SkeletonKey.java:78}) and the sandals' root
-     * ({@code core/.../items/artifacts/SandalsOfNature.java:84}). The identifiers are the ones the
+     * ({@code core/.../items/artifacts/SandalsOfNature.java:84}) and the Spirit Bow's shot
+     * ({@code core/.../items/weapon/SpiritBow.java:88-93}, issue #309). The identifiers are the ones the
      * item window executes, which is what the inventory section carries (ADR-0006, the Items row).
      */
     private static final Set<String> AT_A_CELL = Set.of("THROW", "ZAP", "LIGHTTHROW", "CAST", "ABILITY",
-            "SCRY", "STEAL", "INSERT", "ROOT");
+            "SCRY", "STEAL", "INSERT", "ROOT", "SHOOT");
 
     /**
      * Item actions that can open the bag, so the input may carry another item. Every one of them is
