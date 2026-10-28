@@ -225,19 +225,26 @@ public final class HeadlessDriver implements AutoCloseable {
      * one from {@link Salt#draw()} and records what it drew.
      */
     public static HeadlessDriver start(long seed, HeroClass heroClass, long salt) {
+        return start(seed, heroClass, salt, null);
+    }
+
+    /** {@link #start(long, HeroClass, long)} from a practice start, or the ordinary one when it is null (ADR-0024). */
+    public static HeadlessDriver start(long seed, HeroClass heroClass, long salt,
+                                       org.shatterfish.harness.practice.Practice practice) {
         // The thread that starts the Run is the UI-role thread (ADR-0013): claimed before anything
         // is built, so a refusal leaves nothing behind, and released again if the start fails.
         Thread uiThread = Thread.currentThread();
         UiRole.claim(uiThread);
         try {
-            return startClaimed(seed, heroClass, salt, uiThread);
+            return startClaimed(seed, heroClass, salt, uiThread, practice);
         } catch (RuntimeException | Error failed) {
             UiRole.release(uiThread);
             throw failed;
         }
     }
 
-    private static HeadlessDriver startClaimed(long seed, HeroClass heroClass, long salt, Thread uiThread) {
+    private static HeadlessDriver startClaimed(long seed, HeroClass heroClass, long salt, Thread uiThread,
+                                               org.shatterfish.harness.practice.Practice practice) {
         HeadlessBoot boot = HeadlessBoot.ensure();
         // A scene left by a Run that was never closed, whose actor thread ended on its own, goes
         // now and in its own profile: destroying a scene writes the badges and the journal
@@ -258,7 +265,7 @@ public final class HeadlessDriver implements AutoCloseable {
                     + " action opens no window and every one of them is refused");
         }
         RngControl rng = new RngControl(salt);
-        newGame(seed, heroClass, rng);
+        newGame(seed, heroClass, rng, practice);
         // The Observer's log listener (ADR-0006, Log) is re-added by hook row 3 as the scene is
         // created, so the seam is armed before the scene exists and hears the first floor's lines.
         GameLogListener.install();
@@ -289,6 +296,11 @@ public final class HeadlessDriver implements AutoCloseable {
      * different cell in every Run — which is what story 1.15's own determinism test found.
      */
     public static void newGame(long seed, HeroClass heroClass, RngControl rng) {
+        newGame(seed, heroClass, rng, null);
+    }
+
+    private static void newGame(long seed, HeroClass heroClass, RngControl rng,
+                                org.shatterfish.harness.practice.Practice practice) {
         if (heroClass == null) {
             throw new IllegalArgumentException("a Run needs a hero class");
         }
@@ -319,7 +331,7 @@ public final class HeadlessDriver implements AutoCloseable {
         }
 
         // The game itself begins the way the Overlay's begins, through one body (story 5.1).
-        NewGame.begin(seed, heroClass, rng);
+        NewGame.begin(seed, heroClass, rng, practice);
     }
 
     /**

@@ -50,6 +50,7 @@ public record RunEnding(String cause, int turn, int floor, Path log) {
             case UNKNOWN_WINDOW -> "stopped: a window the Overlay does not know";
             case CLOSED -> "window closed";
             case SUSPENDED -> "saved and quit";
+            case BOSS_DOWN -> "the practice boss was killed";
         };
     }
 
