@@ -463,6 +463,20 @@ public final class HeadlessDriver implements AutoCloseable {
     }
 
     /**
+     * Loads a scrubbed copy into this driver, which is an isolated rollout world's (E10 spike, ADR-0024): the same load
+     * as {@link #restore} gives a scrubbed snapshot, with the start taken as the world's own Run. A world is started on a
+     * placeholder tuple of its own and its Run is whatever the copy says; the copy carries no seed or declared salt, so the
+     * tuple check {@code restore} makes is made against the world's own, and the hero class is still checked. The start can
+     * only be a complete scrubbed copy ({@link ScrubbedStart#from}).
+     */
+    public void loadScrubbed(ScrubbedStart start) {
+        java.util.Objects.requireNonNull(start, "a scrubbed start");
+        Snapshot copy = new Snapshot("isolated-" + start.id(), start.k(), runSeed, start.heroClass(), rng.salt(), start.slot(),
+                start.files(), start.log(), start.emotes(), null, null, true, start.activeSalt(), true);
+        restore(copy);
+    }
+
+    /**
      * Loads the game saved in {@code slot} of this Run's Profile and plays on from it, as the Overlay's
      * resume does in the desktop game (story 5.14, {@link ResumeGame}): the actor thread ended and the
      * scene destroyed, the game and its floor loaded with the generator for wait {@code k} in force, and a
@@ -489,7 +503,16 @@ public final class HeadlessDriver implements AutoCloseable {
         scene = next;
     }
 
+    /** Where the last restore spent its time, for the isolation spike's measurement: end the old scene, write the files, load the game and floor, build the new scene. */
+    private final long[] restoreCosts = new long[4];
+
+    /** Durations of the last {@link #restore}'s four parts in nanoseconds; durations only. */
+    public long[] lastRestoreCostsNanos() {
+        return restoreCosts.clone();
+    }
+
     private void restoreInto(Snapshot snapshot) {
+        long r0 = System.nanoTime();
         scene.stepper().endActorThread();
         boot.game().destroy();
         if (boot.game().sceneSwitchRequested()) {
@@ -508,6 +531,8 @@ public final class HeadlessDriver implements AutoCloseable {
         Chasm.jumpConfirmed = false;
         ActionIndicator.clearAction();
         Path folder = boot.profile().resolve(GamesInProgress.gameFolder(snapshot.slot()));
+        long r1 = System.nanoTime();
+        long r2;
         try {
             Files.createDirectories(folder);
             try (Stream<Path> paths = Files.list(folder)) {
@@ -520,6 +545,7 @@ public final class HeadlessDriver implements AutoCloseable {
             for (Map.Entry<String, byte[]> file : snapshot.files().entrySet()) {
                 Files.write(folder.resolve(file.getKey()), file.getValue());
             }
+            r2 = System.nanoTime();
             GamesInProgress.curSlot = snapshot.slot();
             InterlevelScene.mode = InterlevelScene.Mode.CONTINUE;
             Mob.clearHeldAllies();
@@ -533,12 +559,18 @@ public final class HeadlessDriver implements AutoCloseable {
         } catch (IOException e) {
             throw new UncheckedIOException("the game could not be restored from " + snapshot, e);
         }
+        long r3 = System.nanoTime();
         HeadlessScene next = new HeadlessScene();
         boot.game().switchTo(next);
         scene = next;
         gate.restoreTo(snapshot.k());
         logToRestore = snapshot.log();
         emotesToRestore = snapshot.emotes();
+        long r4 = System.nanoTime();
+        restoreCosts[0] = r1 - r0;
+        restoreCosts[1] = r2 - r1;
+        restoreCosts[2] = r3 - r2;
+        restoreCosts[3] = r4 - r3;
     }
 
     /**
