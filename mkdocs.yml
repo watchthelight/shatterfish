@@ -138,6 +138,7 @@ nav:
       - ADR-0021 Lore claim format and intake: adr/0021-lore-claim-format.md
       - ADR-0022 The variant classifier: adr/0022-variant-classifier.md
       - ADR-0023 Playbooks as data: adr/0023-playbooks-as-data.md
+      - ADR-0024 Boss practice Runs: adr/0024-boss-practice-runs.md
   - Rules:
       - rules/index.md
       - The Brain's Rules index: brain-rules.md
@@ -222,6 +223,7 @@ nav:
       - "Per-boss playbooks": results/2026-10-27-7-5-per-boss-playbooks.md
       - "Evaluation terms in the Decision": results/2026-10-27-8-1-decision-terms.md
       - "The measured win rate": results/2026-10-27-7-10-the-measured-win-rate.md
+      - "Boss practice kit": results/e10-practice-kit.md
       - "The E7 Brain on holdout": results/2026-10-27-e7-holdout.md
       - "Generated: H-0002": results/2026-09-23-H-0002.md
       - "Generated: H-0008": results/2026-10-27-H-0008.md
