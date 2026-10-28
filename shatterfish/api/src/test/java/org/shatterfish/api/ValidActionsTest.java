@@ -71,6 +71,39 @@ class ValidActionsTest {
                 new PromptSection(kind, "A title", "", options));
     }
 
+    /** What the scroll's cancel confirmation says (items.properties:1155-1156), as the game draws it. */
+    private static final String SCROLL_CANCEL = "Do you really want to cancel this scroll usage? The scroll wasn't"
+            + " previously identified, so it will be consumed anyway.";
+
+    /** The corpus's screen with a Prompt of {@code kind} open that says {@code text} and draws {@code options}. */
+    private static Observation confirmation(PromptKind kind, String text, List<String> options) {
+        Observation observation = under(kind, options);
+        return new Observation(observation.header(), observation.map(), observation.actors(), observation.hero(),
+                observation.inventory(), observation.journal(), observation.log(), ActionsSection.NONE,
+                new PromptSection(kind, "Scroll Of Upgrade", text, options));
+    }
+
+    @Test
+    @DisplayName("the scroll's cancel confirmation offers only its yes: its no puts back a window no Action answers")
+    void the_scroll_cancel_offers_only_yes() {
+        // InventoryScroll.WndConfirmCancel (InventoryScroll.java:56-74): button 1 selects the item again,
+        // which opens a WndBag, and the executor refuses it (issue #236). Issue #239: so it is not offered.
+        List<String> drawn = List.of("Yes, I'm positive", "No, I changed my mind");
+        assertEquals(List.of(new Action.AnswerPrompt(0)),
+                ValidActions.of(confirmation(PromptKind.ITEM, SCROLL_CANCEL, drawn)).actions());
+    }
+
+    @Test
+    @DisplayName("every other confirmation with the same two buttons still offers both")
+    void other_confirmations_keep_their_no() {
+        List<String> drawn = List.of("Yes, I'm positive", "No, I changed my mind");
+        assertEquals(List.of(new Action.AnswerPrompt(0), new Action.AnswerPrompt(1)),
+                ValidActions.of(confirmation(PromptKind.ITEM, "Are you sure you want to throw this?", drawn)).actions());
+        // The words alone are not enough: only an item's Prompt is the scroll's.
+        assertEquals(2, ValidActions.of(confirmation(PromptKind.CHASM_JUMP, SCROLL_CANCEL, drawn)).actions().size());
+        assertEquals(2, ValidActions.of(confirmation(PromptKind.OTHER, SCROLL_CANCEL, drawn)).actions().size());
+    }
+
     @Test
     @DisplayName("a shop, a guess and a spell list can be left as well as answered; other Prompts with buttons cannot")
     void some_prompts_close_by_the_back_key() {

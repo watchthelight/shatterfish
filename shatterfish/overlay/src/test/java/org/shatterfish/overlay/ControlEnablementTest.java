@@ -35,8 +35,8 @@ class ControlEnablementTest {
     /** PAUSED: Resume, Next Step, Run N, speed selector, Take over, Explain. */
     private static final Set<Control> PAUSED = EVERY;
 
-    /** HUMAN: Hand back and Explain; everything else disabled. */
-    private static final Set<Control> HUMAN = EnumSet.of(Control.TAKE_OVER, Control.EXPLAIN);
+    /** HUMAN: Hand back, Explain and Beliefs (story 8.6); everything else disabled. */
+    private static final Set<Control> HUMAN = EnumSet.of(Control.TAKE_OVER, Control.EXPLAIN, Control.BELIEFS);
 
     /** Run over: every control disabled (the Panel toggle, which is not in this row, stays). */
     private static final Set<Control> OVER = EnumSet.noneOf(Control.class);
@@ -80,7 +80,7 @@ class ControlEnablementTest {
     void human_disables_everything_but_hand_back_and_explain() {
         Set<Control> human = ControlEnablement.matrix(Mode.HUMAN, false);
         for (Control control : Control.values()) {
-            boolean expected = control == Control.TAKE_OVER || control == Control.EXPLAIN;
+            boolean expected = control == Control.TAKE_OVER || control == Control.EXPLAIN || control == Control.BELIEFS;
             assertEquals(expected, human.contains(control), control.name());
         }
     }

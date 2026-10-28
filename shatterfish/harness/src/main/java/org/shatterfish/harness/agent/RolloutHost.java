@@ -221,7 +221,8 @@ public final class RolloutHost extends Simulator {
                     }
                     InterlevelScene.Mode mode = InterlevelScene.mode;
                     if (asked != InterlevelScene.class || !(mode == InterlevelScene.Mode.DESCEND
-                            || mode == InterlevelScene.Mode.ASCEND || mode == InterlevelScene.Mode.FALL)) {
+                            || mode == InterlevelScene.Mode.ASCEND || mode == InterlevelScene.Mode.FALL
+                            || mode == InterlevelScene.Mode.RETURN)) {
                         // A scene the host cannot serve is the end of what it can say about this line.
                         return new RolloutResult(observations, applied, RolloutEnd.HORIZON);
                     }

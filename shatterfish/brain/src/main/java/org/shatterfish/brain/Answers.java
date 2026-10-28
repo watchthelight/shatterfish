@@ -6,6 +6,7 @@ import org.shatterfish.api.HeroClass;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.PromptKind;
 import org.shatterfish.api.RunLog;
+import org.shatterfish.api.ValidActions;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -341,8 +342,7 @@ final class Answers {
      * where "No, I changed my mind" reopens a picker no Action answers (InventoryScroll.java:52-80,
      * :137-139; items.properties:1155-1157).
      */
-    static final String SCROLL_CANCEL = "Do you really want to cancel this scroll usage? The scroll wasn't previously"
-            + " identified, so it will be consumed anyway.";
+    static final String SCROLL_CANCEL = ValidActions.SCROLL_CANCEL_TEXT;
 
     /**
      * The answer that declines every other item confirmation (story 4.10): a known harmful potion's

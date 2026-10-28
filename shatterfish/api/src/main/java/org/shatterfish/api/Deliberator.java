@@ -49,4 +49,13 @@ public interface Deliberator extends Decider {
     default BeliefSummary beliefSummary() {
         return null;
     }
+
+    /**
+     * Everything this Deliberator currently believes, whole (story 8.6, FR-46): the full view behind
+     * {@link #beliefSummary()}, carrying the hash of {@link #belief()}. Null before the first {@link #decide},
+     * and by default for a Decider with no beliefs to show.
+     */
+    default BeliefView beliefView() {
+        return null;
+    }
 }

@@ -3,6 +3,7 @@ package org.shatterfish.rig;
 import org.shatterfish.api.Action;
 import org.shatterfish.api.Belief;
 import org.shatterfish.api.BeliefSummary;
+import org.shatterfish.api.BeliefView;
 import org.shatterfish.api.Deliberator;
 import org.shatterfish.api.Fog;
 import org.shatterfish.api.HeapKind;
@@ -164,6 +165,11 @@ public final class DirectionPlay {
         @Override
         public BeliefSummary beliefSummary() {
             return inner.beliefSummary();
+        }
+
+        @Override
+        public BeliefView beliefView() {
+            return inner.beliefView();
         }
     }
 }

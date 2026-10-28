@@ -120,7 +120,8 @@ final class PanelDock {
         panel.content(shownMode, snapshot == null ? null : snapshot.decision(),
                 snapshot == null ? null : snapshot.observation(), inputLocked,
                 snapshot == null ? null : snapshot.beliefSummary(),
-                snapshot == null ? java.util.List.of() : snapshot.history(), shadow(snapshot));
+                snapshot == null ? java.util.List.of() : snapshot.history(), shadow(snapshot),
+                snapshot == null ? null : snapshot.beliefView());
         panel.dim(covered(scene));
         Camera world = Camera.main;
         PanelCamera.apply(world, PanelCamera.world(layout.offsetUi(), PixelScene.uiCamera.zoom, world.zoom));
@@ -160,6 +161,10 @@ final class PanelDock {
         OracleMarkContent.Marks marks = sidecar == null || snapshot == null ? OracleMarkContent.Marks.NONE
                 : sidecar.marks(snapshot.observation(), snapshot.beliefSummary());
         panel.oracleRows(marks.rows());
+        // The Beliefs view's oracle rows (story 8.6): made here, in the frame, from the sidecar, and handed to
+        // the Panel's view alone. A fair Run returned above and never sets any.
+        panel.oracleBeliefRows(sidecar == null || snapshot == null ? java.util.Map.of()
+                : sidecar.beliefRows(snapshot.observation(), snapshot.beliefView()));
         oracleOutlines.show(marks.unseen(), marks.mapWidth());
     }
 

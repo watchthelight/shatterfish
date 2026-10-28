@@ -151,7 +151,7 @@ final class TestItem implements Policy {
         if (!settled(observation, memory) && !passing(observation, memory)) {
             return false;
         }
-        return upgrade(observation, observation.actions().actions(), upgrader) != null
+        return upgrade(observation, observation.actions().actions(), upgrader, knowledge) != null
                 || gain(observation, observation.actions().actions(), identify) != null
                 || !testable(observation, memory).isEmpty() || restOwed(observation, memory, identify);
     }
@@ -188,9 +188,9 @@ final class TestItem implements Policy {
         int branch = observation.header().branch();
         // A known scroll of upgrade goes onto the worn weapon or armour (story 4.13, target): the window it opens
         // is answered when the Brain's last Action was this read onto an item (story 4.11).
-        Action upgrade = settled ? upgrade(observation, offered, upgrader) : null;
+        Action upgrade = settled ? upgrade(observation, offered, upgrader, knowledge) : null;
         if (upgrade != null) {
-            return new Plan("", 0, new RunLog.Choice(upgrade, Policies.CERTAIN, "upgrade: " + target(observation, upgrader).name()));
+            return new Plan("", 0, new RunLog.Choice(upgrade, Policies.CERTAIN, "upgrade: " + target(observation, upgrader, knowledge).name()));
         }
         // A known potion of strength or experience is drunk at once when the Playbook says so (story 7.3): it
         // does the same at any health and nothing else in the pack drinks it.
@@ -203,7 +203,7 @@ final class TestItem implements Policy {
         // unknown scroll of transmutation changes the item it is read onto (ScrollOfTransmutation.java:
         // 71-75): for a melee weapon, another of its tier with its level, enchantment and curse (:231-253),
         // no loss; but it takes the staff's wand (:158-159).
-        ItemRef armour = target(observation, upgrader);
+        ItemRef armour = target(observation, upgrader, knowledge);
         if (armour != null && armour.name().startsWith(Fight.MAGES_STAFF)) {
             armour = armour(observation);
         }
@@ -395,6 +395,12 @@ final class TestItem implements Policy {
      * makes this Policy enter, as a testable item does: a known upgrade is not one.
      */
     static Action upgrade(Observation observation, List<Action> offered, Playbook.Upgrade upgrader) {
+        return upgrade(observation, offered, upgrader, null);
+    }
+
+    /** As above, with the Codex the {@code HEAVIEST} armour is told by (#305); null reads onto the worn armour only. */
+    static Action upgrade(Observation observation, List<Action> offered, Playbook.Upgrade upgrader,
+                          Codex.Knowledge knowledge) {
         // Blinded or immune to magic, the game refuses the read with no time spent (Scroll.java:179-182),
         // and the refusal would be handed over forever.
         if (has(observation, BLINDED) || has(observation, MAGIC_IMMUNE)) {
@@ -404,7 +410,7 @@ final class TestItem implements Policy {
         if (observation.header().depth() < upgrader.holdUntilDepth()) {
             return null;
         }
-        ItemRef armour = target(observation, upgrader);
+        ItemRef armour = target(observation, upgrader, knowledge);
         List<ItemView> pack = observation.inventory().items();
         for (int index = 0; armour != null && index < pack.size(); index++) {
             ItemView item = pack.get(index);
@@ -434,7 +440,18 @@ final class TestItem implements Policy {
      * below the armour's (story 7.4); every target is a worn piece (docs/rules/upgrades.md).
      */
     static ItemRef target(Observation observation, Playbook.Upgrade upgrader) {
+        return target(observation, upgrader, null);
+    }
+
+    /**
+     * As above, the armour being the piece {@link #heaviest} names when the Playbook's {@code armour_pick}
+     * is {@code HEAVIEST} and {@code knowledge} is given (#305).
+     */
+    static ItemRef target(Observation observation, Playbook.Upgrade upgrader, Codex.Knowledge knowledge) {
         ItemRef armour = armour(observation);
+        if (armour != null && upgrader.heaviestArmour() && knowledge != null) {
+            armour = heaviest(observation, armour, knowledge);
+        }
         ItemRef weapon = worn(observation, org.shatterfish.api.EquipSlot.WEAPON);
         if (armour == null || weapon == null) {
             return armour;
@@ -451,9 +468,60 @@ final class TestItem implements Policy {
                 ? weapon : armour;
     }
 
+    /**
+     * The armour in the pack a scroll of upgrade does the most for (#305), the worn one {@code worn} unless
+     * a spare is worth more worn one level higher, by the mean roll the equip Policy rates it at, after the
+     * strength it asks. A spare is a candidate only when its level is shown and not negative: a level the
+     * screen does not show is rated 0 by the equip Policy, which would never see the scroll and so never
+     * put the piece on, and one shown cursed is never put on. It must also outdo the worn piece as it is now
+     * by {@link Equip#swapMargin}, which is what the equip Policy asks before it swaps, or the scroll would
+     * be spent on a piece that stays in the pack. On equal worth the worn piece, then the earlier one.
+     */
+    static ItemRef heaviest(Observation observation, ItemRef worn, Codex.Knowledge knowledge) {
+        Equip equip = Equip.namer(knowledge);
+        List<ItemView> pack = observation.inventory().items();
+        int strength = observation.hero().strength() + observation.hero().strengthBonus();
+        ItemView now = pack.get(worn.index());
+        Equip.Piece wornNow = equip.piece(now);
+        if (wornNow == null) {
+            return worn;
+        }
+        long wornEffective = Equip.effective(wornNow, strength);
+        long bestWorth = Equip.effective(wornNow.atLevel(level(now) + 1), strength);
+        ItemRef best = worn;
+        for (int index = 0; index < pack.size(); index++) {
+            ItemView item = pack.get(index);
+            Equip.Piece piece = equip.piece(item);
+            if (index == worn.index() || item.kind() != ItemKind.ARMOR || piece == null || !item.levelKnown()
+                    || item.visiblyUpgraded() < 0 || (item.cursedKnown() && item.visiblyCursed())) {
+                continue;
+            }
+            long after = Equip.effective(piece.atLevel(item.visiblyUpgraded() + 1), strength);
+            if (after > bestWorth && after - wornEffective > Equip.swapMargin(item.cursedKnown())) {
+                best = new ItemRef(index, item.name(), item.quantity());
+                bestWorth = after;
+            }
+        }
+        return best;
+    }
+
+    private static int level(ItemView item) {
+        return item.levelKnown() ? item.visiblyUpgraded() : 0;
+    }
+
     /** Whether {@code ref} is the worn armour or the worn weapon: an item a read may go onto (story 4.13). */
     static boolean worn(Observation observation, ItemRef ref) {
         return ref.equals(armour(observation)) || ref.equals(worn(observation, org.shatterfish.api.EquipSlot.WEAPON));
+    }
+
+    /**
+     * As above, and under a Playbook whose {@code armour_pick} is {@code HEAVIEST} an armour in the pack too:
+     * the read may have gone onto a spare (#305), and the window it opens is the same chained one.
+     */
+    static boolean worn(Observation observation, ItemRef ref, Playbook.Upgrade upgrader) {
+        List<ItemView> pack = observation.inventory().items();
+        return worn(observation, ref) || upgrader.heaviestArmour() && ref.index() >= 0 && ref.index() < pack.size()
+                && pack.get(ref.index()).kind() == ItemKind.ARMOR && pack.get(ref.index()).name().equals(ref.name());
     }
 
     /** The pack reference of the item worn in {@code slot}, or null. */

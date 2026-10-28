@@ -16,6 +16,7 @@ import com.watabou.noosa.Game;
 import com.watabou.noosa.Scene;
 import org.shatterfish.api.Action;
 import org.shatterfish.api.BeliefSummary;
+import org.shatterfish.api.BeliefView;
 import org.shatterfish.api.Decider;
 import org.shatterfish.api.Deliberator;
 import org.shatterfish.api.Observation;
@@ -169,14 +170,25 @@ public final class EmbeddedRun implements AutoCloseable {
      * @param ending how the Run ended and where its log is, once {@code state} is {@link State#ENDED}
      *               (story 5.14); null while it plays
      * @param trouble the Brain's trouble at the wait the {@code decision} is for, or null (story 5.15)
+     * @param beliefView everything the Brain believes at that wait, whole, built on the Brain's worker and
+     *                   immutable, or null (story 8.6, FR-46); its hash is the Belief hash the wait's record stores
      */
     public record Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state,
                            BeliefSummary beliefSummary, List<BoundedLog.Entry> history, Human human,
                            boolean awaiting, Unverifiable unverifiable, List<Integer> highlights, RunEnding ending,
-                           Trouble trouble) {
+                           Trouble trouble, BeliefView beliefView) {
 
         public Snapshot {
             highlights = highlights == null ? List.of() : List.copyOf(highlights);
+        }
+
+        /** A snapshot with no full belief view to show (story 5.15's shape). */
+        public Snapshot(RunLog.Decision decision, int turn, int floor, Observation observation, State state,
+                        BeliefSummary beliefSummary, List<BoundedLog.Entry> history, Human human,
+                        boolean awaiting, Unverifiable unverifiable, List<Integer> highlights, RunEnding ending,
+                        Trouble trouble) {
+            this(decision, turn, floor, observation, state, beliefSummary, history, human, awaiting, unverifiable,
+                    highlights, ending, trouble, null);
         }
 
         /** A snapshot of a Run with no Brain trouble to show (story 5.14's shape). */
@@ -365,6 +377,8 @@ public final class EmbeddedRun implements AutoCloseable {
     private RunLog.Decision withheldDecision;
     /** What the Brain believed when that Decision landed, for the same snapshot. */
     private BeliefSummary withheldBelief;
+    /** The whole view of that Belief, the same moment, for the same snapshot (story 8.6). */
+    private BeliefView withheldView;
     /** The cells that Decision points at, as the wait record will carry them (story 5.10). */
     private List<Integer> withheldHighlights = List.of();
     /** Whether a window now in front was opened by a step that was paid for; see {@link #frame()}. */
@@ -407,6 +421,8 @@ public final class EmbeddedRun implements AutoCloseable {
     private Observation lastDecisionObservation;
     /** What the Brain currently believes, for {@link #snapshot()} (story 5.4). */
     private BeliefSummary lastBeliefSummary;
+    /** Everything the Brain currently believes, whole, for {@link #snapshot()} (story 8.6). */
+    private BeliefView lastBeliefView;
     /** {@link #history}'s capacity (FR-38: "the Decision log shows ... 200 lines on screen"). */
     public static final int HISTORY_CAPACITY = 200;
     /**
@@ -445,8 +461,8 @@ public final class EmbeddedRun implements AutoCloseable {
      * worker, and the Action and the time the Brain took, which a hand back needs to execute the Decision it
      * shadowed (story 5.8).
      */
-    private record ShadowAnswer(RunLog.Decision decision, BeliefSummary beliefSummary, Action action, long thinkMs,
-                                Object markBefore) {
+    private record ShadowAnswer(RunLog.Decision decision, BeliefSummary beliefSummary, BeliefView beliefView,
+                                Action action, long thinkMs, Object markBefore) {
     }
 
     /** A shadow that landed: the wait it was for, the Observation it was made on, and its answer. */
@@ -733,6 +749,8 @@ public final class EmbeddedRun implements AutoCloseable {
                             ? deliberator.lastDecision() : null;
                     withheldBelief = brain instanceof Deliberator deliberator && answered
                             ? deliberator.beliefSummary() : null;
+                    withheldView = brain instanceof Deliberator deliberator && answered
+                            ? deliberator.beliefView() : null;
                     withheldHighlights = brain instanceof Deliberator deliberator && answered
                             ? List.copyOf(deliberator.lastHighlights()) : List.of();
                     withheldTrouble = null;
@@ -742,6 +760,7 @@ public final class EmbeddedRun implements AutoCloseable {
                         withheldTrouble = troubleOf(pending.resultNow(), false);
                         withheldDecision = troubleDecision(withheldTrouble);
                         withheldBelief = lastBeliefSummary;
+                        withheldView = lastBeliefView;
                         withheldHighlights = List.of();
                     }
                 }
@@ -996,8 +1015,9 @@ public final class EmbeddedRun implements AutoCloseable {
                 Action chosen = brain.decide(observation);
                 long thinkMs = (System.nanoTime() - before) / 1_000_000L;
                 return brain instanceof Deliberator deliberator
-                        ? new ShadowAnswer(deliberator.lastDecision(), deliberator.beliefSummary(), chosen, thinkMs, markBefore)
-                        : new ShadowAnswer(null, null, chosen, thinkMs, markBefore);
+                        ? new ShadowAnswer(deliberator.lastDecision(), deliberator.beliefSummary(), deliberator.beliefView(), chosen,
+                                thinkMs, markBefore)
+                        : new ShadowAnswer(null, null, null, chosen, thinkMs, markBefore);
             })));
         }
     }
@@ -1069,9 +1089,9 @@ public final class EmbeddedRun implements AutoCloseable {
             // Read here, on the render thread, after the future is done and with nothing queued behind it, so
             // the Brain still holds the Decision it just made.
             ShadowAnswer answer = brain instanceof Deliberator deliberator
-                    ? new ShadowAnswer(deliberator.lastDecision(), deliberator.beliefSummary(), decided.action(),
-                            decided.thinkMs(), mark)
-                    : new ShadowAnswer(null, null, decided.action(), decided.thinkMs(), mark);
+                    ? new ShadowAnswer(deliberator.lastDecision(), deliberator.beliefSummary(), deliberator.beliefView(),
+                            decided.action(), decided.thinkMs(), mark)
+                    : new ShadowAnswer(null, null, null, decided.action(), decided.thinkMs(), mark);
             shadows.add(new Shadowed(k, observation, java.util.concurrent.CompletableFuture.completedFuture(answer)));
         } else {
             shadowFailures++;
@@ -1201,6 +1221,7 @@ public final class EmbeddedRun implements AutoCloseable {
             }
             RunLog.Decision decision = answer.decision();
             lastBeliefSummary = answer.beliefSummary();
+            lastBeliefView = answer.beliefView();
             boolean current = human.isOpen(landed.k());
             RunLog.Shadow shadow = new RunLog.Shadow(landed.k(), decision, !current);
             if (log != null) {
@@ -1491,6 +1512,7 @@ public final class EmbeddedRun implements AutoCloseable {
         // the same Future is done.
         if (trouble == null) {
             lastBeliefSummary = brain instanceof Deliberator deliberator ? deliberator.beliefSummary() : null;
+            lastBeliefView = brain instanceof Deliberator deliberator ? deliberator.beliefView() : null;
         }
         if (result instanceof Outcome.Rejected rejected) {
             refused++;
@@ -1607,9 +1629,8 @@ public final class EmbeddedRun implements AutoCloseable {
     /**
      * Decides what a scene that is not a play scene means for the Run, by its class, as the headless
      * loop decides by the scene it is asked for ({@code RunLoop.serve}): the surface is the win; the
-     * loading scene of a descent, an ascent or a fall is a floor change the game is serving, and the
-     * play scene it asks for when done is one being built; any other loading mode (a resurrection, a
-     * return) and any other scene end the Run as unserved, because the headless loop ends it there and
+     * loading scene of a descent, an ascent, a fall or a return (a teleport to a named floor, #328) is a floor change the game is serving, and the
+     * play scene it asks for when done is one being built; any other loading mode (a resurrection) and any other scene end the Run as unserved, because the headless loop ends it there and
      * a Run that went on here would part from the Rig's without a word. No scene at all is the
      * moment between two, in the test host.
      *
@@ -1629,7 +1650,7 @@ public final class EmbeddedRun implements AutoCloseable {
         } else if (InterlevelScene.class.isAssignableFrom(scene)) {
             boolean resurrection = mode == InterlevelScene.Mode.RESURRECT && host.servesResurrection();
             if (mode != InterlevelScene.Mode.DESCEND && mode != InterlevelScene.Mode.ASCEND
-                    && mode != InterlevelScene.Mode.FALL && !resurrection) {
+                    && mode != InterlevelScene.Mode.FALL && mode != InterlevelScene.Mode.RETURN && !resurrection) {
                 end(RunOutcome.Cause.UNSERVED_SCENE, "the interlevel scene in mode " + mode);
             }
         } else {
@@ -1806,10 +1827,11 @@ public final class EmbeddedRun implements AutoCloseable {
             // executes. The Observation is the one it was made on, which the Brain was given.
             return new Snapshot(withheldDecision, pendingTurn, pendingObservation.header().depth(),
                     pendingObservation, state(), withheldBelief, history.asList(), null, true, lost,
-                    withheldHighlights, null, withheldTrouble);
+                    withheldHighlights, null, withheldTrouble, withheldView);
         }
         return new Snapshot(lastDecision, lastDecisionTurn, lastDecisionFloor, lastDecisionObservation, state(),
-                lastBeliefSummary, history.asList(), humanPart, false, lost, List.of(), ending, lastTrouble);
+                lastBeliefSummary, history.asList(), humanPart, false, lost, List.of(), ending, lastTrouble,
+                lastBeliefView);
     }
 
     /** The index of the last wait confirmed; 0 before the first. It survives every floor. */

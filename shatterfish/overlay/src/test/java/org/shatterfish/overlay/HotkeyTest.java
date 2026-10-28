@@ -47,7 +47,7 @@ class HotkeyTest {
     }
 
     @Test
-    @DisplayName("F6 to F11 are the controls' keys by default, and any other key is nothing of the Overlay's")
+    @DisplayName("F6 to F12 are the controls' keys by default, and any other key is nothing of the Overlay's")
     void the_defaults_answer() {
         assertEquals(Hotkey.NEXT_STEP, Hotkey.of(Input.Keys.F6));
         assertEquals(Hotkey.SPEED, Hotkey.of(Input.Keys.F7));
@@ -55,9 +55,10 @@ class HotkeyTest {
         assertEquals(Hotkey.TAKE_OVER, Hotkey.of(Input.Keys.F9));
         assertEquals(Hotkey.EXPLAIN, Hotkey.of(Input.Keys.F10));
         assertEquals(Hotkey.PANEL, Hotkey.of(Input.Keys.F11));
+        assertEquals(Hotkey.BELIEFS, Hotkey.of(Input.Keys.F12));
         // The game's own keys, and keys bound to nothing, are not the Overlay's.
         for (int key : new int[] {Input.Keys.W, Input.Keys.SPACE, Input.Keys.F1, Input.Keys.F5, Input.Keys.ESCAPE,
-                Input.Keys.N, Input.Keys.F12, Input.Keys.P}) {
+                Input.Keys.N, Input.Keys.G, Input.Keys.P}) {
             assertNull(Hotkey.of(key), Input.Keys.toString(key));
         }
     }

@@ -389,7 +389,7 @@ public final class RunLoop {
         }
         InterlevelScene.Mode mode = InterlevelScene.mode;
         switch (mode) {
-            case DESCEND, ASCEND, FALL -> driver.serveSceneSwitch(() -> crossFloor(mode));
+            case DESCEND, ASCEND, FALL, RETURN -> driver.serveSceneSwitch(() -> crossFloor(mode));
             default -> {
                 return outcome(RunOutcome.Cause.UNSERVED_SCENE, salt, waits, applied, refused,
                         "the interlevel scene in mode " + mode);
@@ -411,6 +411,21 @@ public final class RunLoop {
     static void crossFloor(InterlevelScene.Mode mode) {
         try {
             LevelTransition transition = InterlevelScene.curTransition;
+            if (mode == InterlevelScene.Mode.RETURN) {
+                // A teleport to a named floor and cell: a cursed wand's inter-floor effect
+                // (core/.../items/wands/CursedWand.java:757-767), a Fadeleaf under a Warden, a beacon
+                // or a scroll of passage. The scene's body is returnTo()
+                // (core/.../scenes/InterlevelScene.java:717-731): no transition is taken, the floor
+                // and cell were set by whoever asked, and the arrival cell may be -1 or -2, which
+                // switchLevel resolves.
+                Mob.holdAllies(Dungeon.level);
+                Dungeon.saveAll();
+                Dungeon.depth = InterlevelScene.returnDepth;
+                Dungeon.branch = InterlevelScene.returnBranch;
+                Level level = generated() ? Dungeon.loadLevel(GamesInProgress.curSlot) : Dungeon.newLevel();
+                Dungeon.switchLevel(level, InterlevelScene.returnPos);
+                return;
+            }
             if (mode == InterlevelScene.Mode.FALL) {
                 Mob.holdAllies(Dungeon.level);
                 Buff.affect(Dungeon.hero, Chasm.Falling.class);

@@ -34,7 +34,9 @@ final class ControlEnablement {
         INTERVAL,
         /** Take over while the bot plays, Hand back while the human does. */
         TAKE_OVER,
-        EXPLAIN
+        EXPLAIN,
+        /** Opens the Beliefs view, or closes it: everything the Brain believes, at a wait (story 8.6, FR-46). */
+        BELIEFS
     }
 
     /**
@@ -67,8 +69,9 @@ final class ControlEnablement {
         switch (mode) {
             case RUNNING -> enabled.addAll(EnumSet.of(Control.PAUSE_RESUME, Control.NEXT_STEP, Control.SPEED,
                     Control.INTERVAL, Control.TAKE_OVER, Control.EXPLAIN));
+            // (RUNNING is the Brain moving on: the Beliefs view is for a wait that holds, so it is not here.)
             case PAUSED -> enabled.addAll(EnumSet.allOf(Control.class));
-            case HUMAN -> enabled.addAll(EnumSet.of(Control.TAKE_OVER, Control.EXPLAIN));
+            case HUMAN -> enabled.addAll(EnumSet.of(Control.TAKE_OVER, Control.EXPLAIN, Control.BELIEFS));
         }
         if (!capabilities.pacing()) {
             enabled.remove(Control.INTERVAL);

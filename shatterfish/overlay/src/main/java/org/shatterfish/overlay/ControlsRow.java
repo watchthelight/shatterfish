@@ -51,6 +51,7 @@ final class ControlsRow extends Component {
     /** The coach's switch (story 8.9): not in the enablement matrix, since it is a setting of HUMAN and not a Mode. */
     private RedButton coachButton;
     private CoachState coach = CoachState.detached();
+    private RedButton beliefs;
     private RenderedTextBlock countValue;
     private RenderedTextBlock intervalValue;
     private float countSlot;
@@ -58,6 +59,7 @@ final class ControlsRow extends Component {
 
     private ControlState state;
     private Runnable explainAction = () -> { };
+    private Runnable beliefsAction = () -> { };
     private ModeState mode;
     private Set<Control> enabled = Set.of();
     private boolean locked;
@@ -88,6 +90,13 @@ final class ControlsRow extends Component {
             }
         };
         add(coachButton);
+        beliefs = new RedButton("Beliefs", TEXT_SIZE) {
+            @Override
+            protected void onClick() {
+                beliefsAction.run();
+            }
+        };
+        add(beliefs);
         countValue = value();
         intervalValue = value();
         // The widest each number gets, so the row does not shift as a value changes.
@@ -148,8 +157,14 @@ final class ControlsRow extends Component {
      * test) the buttons draw by the matrix and a press does nothing: only Explain acts.
      */
     void bind(ControlState state, Runnable explainAction) {
+        bind(state, explainAction, () -> { });
+    }
+
+    /** As above, with what the Beliefs button does (story 8.6): the Panel opens or closes its Beliefs view. */
+    void bind(ControlState state, Runnable explainAction, Runnable beliefsAction) {
         this.state = state;
         this.explainAction = explainAction;
+        this.beliefsAction = beliefsAction;
     }
 
     /**
@@ -182,6 +197,7 @@ final class ControlsRow extends Component {
         boolean coaching = coachActs();
         coachButton.active = coaching;
         coachButton.textColor(coaching ? INK : INK_DIM);
+        set(beliefs, Control.BELIEFS);
         countValue.hardlight(on(Control.RUN_N_COUNT, true) ? INK : INK_DIM);
         intervalValue.hardlight(on(Control.INTERVAL, true) ? INK : INK_DIM);
         if (width > 0) {
@@ -229,6 +245,9 @@ final class ControlsRow extends Component {
             case EXPLAIN:
                 explainAction.run();
                 return true;
+            case BELIEFS:
+                beliefsAction.run();
+                return true;
             case PAUSE_RESUME:
                 return state != null && state.pauseResume();
             case NEXT_STEP:
@@ -254,6 +273,7 @@ final class ControlsRow extends Component {
         atoms.add(new Atom(width(takeOver, "Hand back"), takeOver));
         atoms.add(new Atom(width(explain), explain));
         atoms.add(new Atom(width(coachButton, COACH_ON), coachButton));
+        atoms.add(new Atom(width(beliefs), beliefs));
         return atoms;
     }
 
@@ -300,7 +320,7 @@ final class ControlsRow extends Component {
 
     @Override
     protected void layout() {
-        if (explain == null || mode == null) {
+        if (explain == null || beliefs == null || mode == null) {
             return;
         }
         float rowX = 0;
@@ -376,6 +396,8 @@ final class ControlsRow extends Component {
     /** The coach's state, for tests (story 8.9). */
     CoachState coach() {
         return coach;
+    RedButton beliefs() {
+        return beliefs;
     }
 
     RenderedTextBlock countValue() {
@@ -397,6 +419,7 @@ final class ControlsRow extends Component {
             case INTERVAL -> intervalPlus;
             case TAKE_OVER -> takeOver;
             case EXPLAIN -> explain;
+            case BELIEFS -> beliefs;
         };
     }
 }
