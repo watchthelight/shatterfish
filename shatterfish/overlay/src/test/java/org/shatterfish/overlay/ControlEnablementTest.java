@@ -34,8 +34,8 @@ class ControlEnablementTest {
     /** PAUSED: Resume, Next Step, Run N, speed selector, Take over, Explain; Autoexplore starts from HUMAN only. */
     private static final Set<Control> PAUSED = EnumSet.complementOf(EnumSet.of(Control.AUTOEXPLORE));
 
-    /** HUMAN: Hand back, Autoexplore (story 8.10) and Explain; everything else disabled. */
-    private static final Set<Control> HUMAN = EnumSet.of(Control.TAKE_OVER, Control.AUTOEXPLORE, Control.EXPLAIN);
+    /** HUMAN: Hand back, Autoexplore (story 8.10), Explain and Beliefs (story 8.6); everything else disabled. */
+    private static final Set<Control> HUMAN = EnumSet.of(Control.TAKE_OVER, Control.AUTOEXPLORE, Control.EXPLAIN, Control.BELIEFS);
 
     /** Run over: every control disabled (the Panel toggle, which is not in this row, stays). */
     private static final Set<Control> OVER = EnumSet.noneOf(Control.class);
@@ -79,7 +79,8 @@ class ControlEnablementTest {
     void human_disables_everything_but_hand_back_autoexplore_and_explain() {
         Set<Control> human = ControlEnablement.matrix(Mode.HUMAN, false);
         for (Control control : Control.values()) {
-            boolean expected = control == Control.TAKE_OVER || control == Control.AUTOEXPLORE || control == Control.EXPLAIN;
+            boolean expected = control == Control.TAKE_OVER || control == Control.AUTOEXPLORE || control == Control.EXPLAIN
+                    || control == Control.BELIEFS;
             assertEquals(expected, human.contains(control), control.name());
         }
     }

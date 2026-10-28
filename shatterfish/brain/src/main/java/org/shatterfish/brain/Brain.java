@@ -63,7 +63,7 @@ public final class Brain {
 
     /** The Policies, highest priority first, fighting by {@code knowledge} and scoring by {@code evaluation}. */
     private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation, Model model, Playbook playbook) {
-        List<Policy> policies = new ArrayList<>(List.of(Policies.answerPrompt(knowledge), new Heal(knowledge, playbook.bosses().goo()), new Douse(knowledge), new Zap(knowledge, playbook), new Ranged(knowledge)));
+        List<Policy> policies = new ArrayList<>(List.of(Policies.answerPrompt(knowledge), new Heal(knowledge, playbook.bosses().goo()), new Douse(knowledge), new Zap(knowledge, playbook), new Shoot(knowledge), new Ranged(knowledge)));
         if (model == Model.ONE_PLY) {
             policies.add(new OnePly(knowledge, playbook.bosses().goo()));
         }
@@ -255,7 +255,7 @@ public final class Brain {
 
     /** The names of the Policies a Brain that fights by {@code model} arbitrates, highest priority first. */
     public static List<String> policyNames(Model model) {
-        List<String> names = new ArrayList<>(List.of(Policies.ANSWER_PROMPT, Heal.NAME, Douse.NAME, Zap.NAME, Ranged.NAME));
+        List<String> names = new ArrayList<>(List.of(Policies.ANSWER_PROMPT, Heal.NAME, Douse.NAME, Zap.NAME, Shoot.NAME, Ranged.NAME));
         if (model == Model.ONE_PLY) {
             names.add(OnePly.NAME);
         }
@@ -344,7 +344,7 @@ public final class Brain {
                 : decided.action() instanceof Action.AnswerPrompt || decided.action() instanceof Action.DismissPrompt
                 ? windows.target() : "";
         // So is whether it was the worn armour, by its slot on this screen (story 4.13).
-        boolean worn = decided.action() instanceof Action.UseItemOn on ? TestItem.worn(observation, on.target())
+        boolean worn = decided.action() instanceof Action.UseItemOn on ? TestItem.worn(observation, on.target(), playbook.upgrade(observation.header().heroClass()))
                 : (decided.action() instanceof Action.AnswerPrompt || decided.action() instanceof Action.DismissPrompt)
                 && windows.worn();
         memory = memory.windowing(new Memory.Windows(decided.action() == null ? "" : decided.action().toString(),

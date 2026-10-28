@@ -73,7 +73,7 @@ class AutoexploreTest {
             assertTrue(brain.contains(name), name + " is a Policy of the Brain");
         }
         assertEquals(Set.of("explore", "pick-up"), Autoexplore.POLICIES);
-        for (String never : List.of("fight", "one-ply", "ranged", "zap", "descend", "plunge", "test-item", "equip", "heal",
+        for (String never : List.of("fight", "one-ply", "ranged", "shoot", "zap", "descend", "plunge", "test-item", "equip", "heal",
                 "eat", "douse", "open-chest", "answer-prompt", "fallback")) {
             assertFalse(Autoexplore.POLICIES.contains(never), never + " is never autoexplore's");
         }
@@ -100,7 +100,7 @@ class AutoexploreTest {
     @Test
     @DisplayName("a Policy off the list stops it, whatever the screen shows, and names the Policy")
     void a_policy_off_the_list_stops() {
-        for (String policy : List.of("fight", "descend", "test-item", "ranged", "zap", "plunge", "equip", "eat", "heal")) {
+        for (String policy : List.of("fight", "descend", "test-item", "ranged", "shoot", "zap", "plunge", "equip", "eat", "heal")) {
             Autoexplore.Stop found = stop(OverlaySettings.DEFAULTS, base, by(policy, new Action.Wait()), null).orElseThrow();
             assertEquals(Autoexplore.Kind.OFF_LIST, found.kind(), policy);
             assertTrue(found.why().startsWith(policy), found.why());
@@ -432,7 +432,7 @@ class AutoexploreTest {
     @Test
     @DisplayName("a Policy off the list stops it at the wait before its Action")
     void a_policy_off_the_list() {
-        for (String policy : List.of("fight", "test-item", "ranged")) {
+        for (String policy : List.of("fight", "test-item", "ranged", "shoot")) {
             Run run = new Run();
             ControlState controls = inHuman(run, OverlaySettings.DEFAULTS);
             start(run, controls);

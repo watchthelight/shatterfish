@@ -76,7 +76,7 @@ See `docs/results/2026-10-27-7-10-the-measured-win-rate.md` (tables generated fr
 - **Link count.** 80 heuristics found, 44 linked to a Rule, 0 to a Lore claim, 5 to a measured row (Tier 3), 31 unlinked, against 71,
   35, 0, 5 and 31 at story 7.1. No heuristic could be honestly linked; each unlinked entry carries its reason and an owning issue
   (#312 to #315), held by `every_unlinked_entry_names_a_reason_and_an_owning_issue`.
-- **Holdout.** Not run: no go-ahead from the product owner exists in the thread. The PR asks for it.
+- **Holdout.** Not run in this story (no go-ahead existed). Run once afterwards, with the go-ahead on #329, as `docs/results/2026-10-27-e7-holdout.md`.
 - **Epic close.** `epic-7-retrospective.md` written; lessons in `CLAUDE.md`; `docs/roadmap.md`, `docs/architecture.md`,
   `docs/fairness.md` and the `/upstream-sync` re-verification list updated; epic 7 stays `in-progress` until this PR merges.
 

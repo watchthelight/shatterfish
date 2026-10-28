@@ -92,8 +92,8 @@ class ControlsRowTest {
     }
 
     @Test
-    @DisplayName("the row holds all nine controls, as the game's own RedButtons, in two rows at the Panel's width")
-    void the_row_wraps_to_two_rows() {
+    @DisplayName("the row holds every control, as the game's own RedButtons, in three rows at the Panel's width")
+    void the_row_wraps_to_three_rows() {
         GameScene scene = scene(1600, 900);
         PanelDock dock = new PanelDock();
         dock.frame(scene, snapshot(EmbeddedRun.State.PLAYING), false);
@@ -104,16 +104,16 @@ class ControlsRowTest {
         for (Control control : Control.values()) {
             assertTrue(row.button(control).visible, control.name());
         }
-        assertEquals(2, row.rows(), "at the Panel's width " + row.width() + " the buttons take two rows");
-        assertEquals(2 * ControlsRow.BUTTON_HEIGHT + ControlsRow.GAP, row.contentHeight(), 0.01f);
-        // Nothing runs off the row's right edge, and the two rows do not overlap.
+        assertEquals(3, row.rows(), "at the Panel's width " + row.width() + " the buttons take three rows");
+        assertEquals(3 * ControlsRow.BUTTON_HEIGHT + 2 * ControlsRow.GAP, row.contentHeight(), 0.01f);
+        // Nothing runs off the row's right edge, and the rows do not overlap.
         for (Control control : Control.values()) {
             RedButton button = row.button(control);
             assertTrue(button.left() >= row.left() - 0.01f, control + " starts inside the row");
         }
         assertTrue(row.intervalPlus().right() <= row.right() + 0.01f);
         assertTrue(row.explain().right() <= row.right() + 0.01f);
-        assertTrue(row.explain().top() > row.pause().top(), "Explain is on the second row");
+        assertTrue(row.explain().top() > row.pause().top(), "Explain is below the first row");
         // The row is the Panel's last section: below the Decision log, inside the Panel.
         assertTrue(row.top() >= panel.log().bottom());
         assertTrue(row.bottom() <= panel.bottom() - PanelLayout.PADDING + 0.01f);

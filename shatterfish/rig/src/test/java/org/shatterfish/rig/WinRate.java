@@ -47,6 +47,41 @@ final class WinRate {
         return new double[] {Math.max(0, centre - half), Math.min(1, centre + half)};
     }
 
+    /**
+     * The exact (Clopper-Pearson) upper limit of the two-sided 95% binomial interval for {@code k} wins of {@code n}:
+     * the largest rate p for which seeing {@code k} or fewer wins still has probability at least 2.5%. Found by
+     * bisection on the binomial tail; 1 when every Run won.
+     */
+    static double exactUpper(int k, int n) {
+        if (k >= n) {
+            return 1.0;
+        }
+        double low = (double) k / n;
+        double high = 1.0;
+        for (int i = 0; i < 80; i++) {
+            double mid = (low + high) / 2;
+            if (binomialTail(k, n, mid) > 0.025) {
+                low = mid;
+            } else {
+                high = mid;
+            }
+        }
+        return (low + high) / 2;
+    }
+
+    /** P(X <= k) for X binomial(n, p), summed in log space. */
+    private static double binomialTail(int k, int n, double p) {
+        double sum = 0;
+        double logChoose = 0;
+        for (int i = 0; i <= k; i++) {
+            if (i > 0) {
+                logChoose += Math.log(n - i + 1) - Math.log(i);
+            }
+            sum += Math.exp(logChoose + i * Math.log(p) + (n - i) * Math.log1p(-p));
+        }
+        return sum;
+    }
+
     static List<Outcome> read(Path file) throws IOException {
         List<Outcome> outcomes = new ArrayList<>();
         for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
@@ -176,6 +211,47 @@ final class WinRate {
         out.append("Tier 3 links on heuristics that shipped, each with the Results page that is its evidence:\n\n");
         shippedTier3.forEach((page, constants) -> out.append("- ").append(page).append(": ").append(String.join(", ", constants)).append('\n'));
         return out.toString();
+    }
+
+    /**
+     * The holdout page's block: for the whole set and each class, the Brain on {@code standard} (story 7.10) beside the same
+     * Brain on {@code holdout}, with the exact binomial upper limit as an extra row after the Wilson interval.
+     */
+    static String renderHoldout(List<Outcome> standard, List<Outcome> holdout) {
+        StringBuilder out = new StringBuilder();
+        out.append(holdoutTable("All classes", standard, holdout)).append('\n');
+        out.append(holdoutTable("Warrior slice", only(standard, "WARRIOR"), only(holdout, "WARRIOR")));
+        TreeMap<String, Integer> classes = new TreeMap<>();
+        for (Outcome o : holdout) {
+            classes.merge(o.heroClass(), 1, Integer::sum);
+        }
+        for (String heroClass : classes.keySet()) {
+            if (!heroClass.equals("WARRIOR")) {
+                out.append('\n').append(holdoutTable(heroClass.charAt(0) + heroClass.substring(1).toLowerCase(Locale.ROOT) + " slice",
+                        only(standard, heroClass), only(holdout, heroClass)));
+            }
+        }
+        return out.toString();
+    }
+
+    private static String holdoutTable(String heading, List<Outcome> standard, List<Outcome> holdout) {
+        List<String> before = column(standard);
+        List<String> after = column(holdout);
+        StringBuilder out = new StringBuilder("### ").append(heading)
+                .append("\n\n| | E7 final Brain on `standard` (story 7.10) | E7 final Brain on `holdout` |\n|---|---|---|\n");
+        for (int i = 0; i < ROWS.size(); i++) {
+            out.append("| ").append(ROWS.get(i)).append(" | ").append(before.get(i)).append(" | ").append(after.get(i)).append(" |\n");
+            if (i == 2) {
+                out.append("| win rate, exact binomial 95% upper limit | ").append(exactCell(standard)).append(" | ")
+                        .append(exactCell(holdout)).append(" |\n");
+            }
+        }
+        return out.toString();
+    }
+
+    private static String exactCell(List<Outcome> runs) {
+        int wins = (int) runs.stream().filter(Outcome::win).count();
+        return runs.isEmpty() ? "-" : percent(exactUpper(wins, runs.size()));
     }
 
     /** The whole generated block: all classes, the Warrior slice, then every other class that was measured. */
