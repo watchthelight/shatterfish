@@ -155,3 +155,18 @@ tasks.register('candidateFit', JavaExec) {
     mainClass = 'org.shatterfish.harness.agent.CandidateFit'
     outputs.upToDateWhen { false }
 }
+
+// The isolation spike's measurement (E10 W4, ADR-0024): what a rollout costs in an isolated copy of the game beside what
+// the swap-in-place host costs, on the same snapshots, with the results of the two hosts compared. It plays the real Brain
+// (a test dependency), so it runs from the test classpath. `-Pisolation.args="--seeds 8 --per-seed 2 --samples 3"`
+// overrides the defaults; the set is `smoke` or `standard`, and `goo`, `holdout` and `tengu` are refused.
+tasks.register('isolationSpeed', JavaExec) {
+    group = 'shatterfish'
+    description = 'Times a rollout in an isolated world against the swap host and prints the Markdown the Results page carries.'
+    dependsOn 'testClasses'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'org.shatterfish.harness.agent.IsolationSpeed'
+    def extra = project.findProperty('isolation.args')
+    args = extra == null || extra.toString().trim().isEmpty() ? [] : extra.toString().trim().split(/\s+/).toList()
+    outputs.upToDateWhen { false }
+}
