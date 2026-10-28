@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 import org.shatterfish.api.RunLog;
+import org.shatterfish.harness.driver.RunLogWriter;
 import org.shatterfish.api.RunLogJson;
 import org.shatterfish.harness.agent.EmbeddedRun;
 import org.shatterfish.harness.agent.HostBridge;
@@ -125,6 +126,37 @@ class ReplaySessionTest {
 
     private static RunLog.End endOf(Path log) {
         return RunLogReader.of(log).end();
+    }
+
+    @Test
+    @DisplayName("a log with Mode records in it (the Coach toggle writes one) replays with zero mismatches")
+    void mode_records_are_not_a_mismatch() {
+        RunLogReader.Log source = RunLogReader.of(shortLog);
+        Path folder = shared.resolve("with-modes");
+        long modes = 0;
+        try (RunLogWriter writer = RunLogWriter.open(folder, source.header())) {
+            long seen = 0;
+            for (RunLog record : source.records()) {
+                if (record instanceof RunLog.Header) {
+                    continue;
+                }
+                writer.write(record);
+                if (record instanceof RunLog.Wait wait && ++seen % 20 == 0) {
+                    writer.write(new RunLog.Mode(wait.k(), seen % 40 == 0 ? "RUNNING" : "PAUSED", "NORMAL"));
+                    modes++;
+                }
+            }
+        }
+        assertTrue(modes > 0, "the log has Mode records between its waits");
+        Path withModes = folder.resolve(RunLog.fileName(source.header().runId()));
+        try (Session session = new Session(withModes, SALT)) {
+            assertTrue(session.controls.pauseResume(), "Resume");
+            assertTrue(session.controls.cycleSpeed(), "Fast as it can");
+            session.until(() -> false);
+            assertEquals(EmbeddedRun.State.ENDED, session.run.state());
+            assertNull(session.loaded.follower().halted(), "a Mode record is not a mismatch");
+            assertEquals(session.loaded.waits(), session.loaded.follower().verified());
+        }
     }
 
     @Test
