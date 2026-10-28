@@ -157,7 +157,7 @@ class ControlEnablementTest {
                 "nobody plays a replay");
         assertTrue(ControlEnablement.matrix(Mode.REPLAY, false).contains(Control.RUN_N), "Run N lands the replay");
         assertTrue(ControlEnablement.matrix(Mode.REPLAY, false).contains(Control.BELIEFS),
-                "the Beliefs view reads the Observation only, so a replay stopped at a wait has it (story 8.6)");
+                "the Beliefs view is a pure function of the Brain's BeliefView; a replay has none, so it opens on its empty state (story 8.6)");
         assertEquals(OVER, ControlEnablement.matrix(Mode.REPLAY, true));
     }
 }
