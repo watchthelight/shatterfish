@@ -174,9 +174,10 @@ class WaterBoundTest {
                 "#############");
         boolean[] swum = Fight.swum(screen, FightPolicyTest.KNOWLEDGE);
         Brain.Decided decided = decide(screen);
-        if (decided.action() instanceof Action.Step step) {
-            assertFalse(Fight.exposed(screen.map(), step.cell(), swum), "a Step to the shore: " + decided.decision());
-        }
+        assertTrue(swum != null, "the screen shows the piranha's water");
+        assertFalse(decided.action() instanceof Action.Step step && Fight.exposed(screen.map(), step.cell(), swum),
+                "a Step to the shore: " + decided.decision());
+        assertFalse(decided.decision().chosen().why().startsWith("approach"), decided.decision().toString());
     }
 
     @Test
