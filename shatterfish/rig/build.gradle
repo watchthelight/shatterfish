@@ -177,6 +177,19 @@ tasks.register('direction', JavaExec) {
     outputs.upToDateWhen { false }
 }
 
+// `./gradlew :rig:practice --args="--boss tengu|goo --class <C|ALL> --kit standard --n 40
+// --salt-base 1000 [--jobs N] [--out <dir>]"` plays the Brain from the boss's floor with a kit a
+// profile gives the hero (E10, ADR-0024). A practice Run is never ranked: its header says so and
+// every counting, comparing or publishing path refuses it.
+tasks.register('practice', JavaExec) {
+    group = 'shatterfish'
+    description = 'Plays the Brain from a boss floor with a profile kit (never ranked).'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.rig.PracticeRuns'
+    workingDir = rootDir
+    outputs.upToDateWhen { false }
+}
+
 // `./gradlew :rig:results` regenerates every Results page from its committed data folder in
 // results/ (story 3.10). `--args="<root> extract <runs folder> <slug>"` writes a data folder from a
 // folder the Rig wrote; `--args="<root> page <slug> <title>"` writes its page.
