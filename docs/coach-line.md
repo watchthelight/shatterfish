@@ -81,3 +81,22 @@ the build. A clause adds no threshold, so there is nothing for `HeuristicLinkTes
 | `fight/goo/wait` | to wait for Goo's move | [`goo-pump`](brain-rules.md#goo-pump) |
 | `fight/goo/approach` | to close in on Goo | [`goo-engage`](brain-rules.md#goo-engage) |
 | `fallback/fallback` | nothing better to do | none: it says only that nothing above fired |
+
+## Coach mode
+
+Story 8.9 (FR-47, UJ-4). Coach mode puts this sentence in front of a person who is playing. It is a setting of the
+HUMAN Mode and not a fourth Mode: the Controls row has a Coach button (a hotkey with no default key, bound in the game's
+key-binding screen), off by default, dim in RUNNING, PAUSED and once the Run is over, with the reason in the Mode
+strip when it is pressed anyway ("Coach is off: the bot is playing; take over to play with the coach").
+
+Nothing new is decided for it. A HUMAN Run already asks the Brain, at every wait, what it would do (the shadow
+Decision of story 5.9), updates its Beliefs and Memory from the Observation, and never executes the answer. With the
+coach on, the Decision card shows the sentence of the shadow Decision, only when that shadow is for the wait the
+person is looking at; the Brain's worker computes it while the person thinks, a move made first is taken at once, and
+a shadow that lands after it is dropped from the card (the log keeps it as skipped, as for any shadow). With the coach
+off the card shows the shadow's table and no sentence.
+
+Switching the coach on or off writes one `mode` record of the existing kind (`HUMAN`, speed `player, coach` or
+`player`), at the wait in front. No log format changes, nothing reads the speed word back, and a log with coach advice
+verifies and replays as an ordinary log. `CoachRunTest` holds that a coached Run and an uncoached one, played with
+the same moves, have the same Observation hash at every wait and the same shadow Decisions.
