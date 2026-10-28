@@ -396,6 +396,8 @@ final class ControlsRow extends Component {
     /** The coach's state, for tests (story 8.9). */
     CoachState coach() {
         return coach;
+    }
+
     RedButton beliefs() {
         return beliefs;
     }
