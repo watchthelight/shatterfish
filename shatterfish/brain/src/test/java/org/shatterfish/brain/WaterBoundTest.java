@@ -164,6 +164,22 @@ class WaterBoundTest {
     }
 
     @Test
+    @DisplayName("an enemy across a piranha's pool is let come: the approach never steps onto the shore (issue #219, groups)")
+    void approach_keeps_off_the_shore() {
+        Observation screen = FightPolicyTest.screen(3, 20, false, "worn shortsword",
+                "#############",
+                "#...........#",
+                "#..@.wQw...r#",
+                "#...........#",
+                "#############");
+        boolean[] swum = Fight.swum(screen, FightPolicyTest.KNOWLEDGE);
+        Brain.Decided decided = decide(screen);
+        if (decided.action() instanceof Action.Step step) {
+            assertFalse(Fight.exposed(screen.map(), step.cell(), swum), "a Step to the shore: " + decided.decision());
+        }
+    }
+
+    @Test
     @DisplayName("a rat beside the shore is still fought, and the piranha that cannot reach the hero does not count against it")
     void other_enemies_unaffected() {
         Observation screen = FightPolicyTest.screen(3, 20, false, "worn shortsword",
