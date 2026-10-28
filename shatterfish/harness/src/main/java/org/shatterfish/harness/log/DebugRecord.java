@@ -223,6 +223,84 @@ public final class DebugRecord implements AutoCloseable {
         }
     }
 
+    /** The appearances of the last belief line written, so a line is written only when they change. */
+    private List<org.shatterfish.api.BeliefView.Appearance> lastBeliefs = List.of();
+
+    /**
+     * What the Brain believed about the unidentified potions and scrolls at a wait, written when it
+     * changed (issue #219, potion inference). The view is the Brain's own output, the same one the
+     * Overlay shows; the record takes it and returns nothing. Together with the {@code truth} line at
+     * the Run's end it measures calibration offline, and nothing in a Run reads either.
+     */
+    public void beliefs(int depth, long k, org.shatterfish.api.BeliefView view) {
+        if (out == null || view == null || view.appearances().equals(lastBeliefs)) {
+            return;
+        }
+        try {
+            lastBeliefs = view.appearances();
+            JsonWriter json = new JsonWriter().beginObject();
+            json.key("t").value("bel");
+            json.key("k").value(k);
+            json.key("depth").value(depth);
+            json.key("floor");
+            json.beginArray();
+            for (String fact : view.floor()) {
+                json.value(fact);
+            }
+            json.endArray();
+            json.key("ap");
+            json.beginArray();
+            for (org.shatterfish.api.BeliefView.Appearance appearance : view.appearances()) {
+                json.beginObject().key("l").value(appearance.label());
+                json.key("c");
+                json.beginArray();
+                for (org.shatterfish.api.BeliefView.Candidate candidate : appearance.candidates()) {
+                    json.beginObject().key("n").value(candidate.name()).key("p").value(Math.round(candidate.probability() * 100000)).endObject();
+                }
+                json.endArray().endObject();
+            }
+            json.endArray().endObject();
+            write(json.toJson());
+        } catch (RuntimeException failed) {
+            drop(failed);
+        }
+    }
+
+    /**
+     * The true appearance of every potion and scroll class, read from the game after the Run is over
+     * (diagnosis only: it is the one place the record reads hidden identities, and no Run reads it back).
+     */
+    private void truth() {
+        JsonWriter json = new JsonWriter().beginObject();
+        json.key("t").value("truth");
+        for (String family : List.of("potion", "scroll")) {
+            json.key(family);
+            json.beginArray();
+            try {
+                Class<?> owner = family.equals("potion") ? com.shatteredpixel.shatteredpixeldungeon.items.potions.Potion.class
+                        : com.shatteredpixel.shatteredpixeldungeon.items.scrolls.Scroll.class;
+                java.lang.reflect.Field field = owner.getDeclaredField("handler");
+                field.setAccessible(true);
+                @SuppressWarnings({"unchecked", "rawtypes"})
+                com.shatteredpixel.shatteredpixeldungeon.items.ItemStatusHandler<?> handler =
+                        (com.shatteredpixel.shatteredpixeldungeon.items.ItemStatusHandler<?>) field.get(null);
+                Class<?>[] classes = family.equals("potion")
+                        ? com.shatteredpixel.shatteredpixeldungeon.items.Generator.Category.POTION.classes
+                        : com.shatteredpixel.shatteredpixeldungeon.items.Generator.Category.SCROLL.classes;
+                for (Class<?> one : classes) {
+                    @SuppressWarnings({"unchecked", "rawtypes"})
+                    String label = ((com.shatteredpixel.shatteredpixeldungeon.items.ItemStatusHandler) handler).label(one);
+                    json.beginObject().key("class").value(one.getSimpleName()).key("label").value(label).endObject();
+                }
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                // A Run with no handler (never started) has no truth to write.
+            }
+            json.endArray();
+        }
+        json.endObject();
+        write(json.toJson());
+    }
+
     private void drop(RuntimeException failed) {
         System.err.println("the debug record stops here and this Run goes on without it: " + failed);
         try {
@@ -249,6 +327,7 @@ public final class DebugRecord implements AutoCloseable {
         }
         json.endObject();
         write(json.toJson());
+        truth();
     }
 
     private static void buffs(JsonWriter json, List<BuffView> buffs) {
