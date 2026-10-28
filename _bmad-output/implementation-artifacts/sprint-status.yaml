@@ -154,14 +154,13 @@ development_status:
   8-6-the-beliefs-view: done  # issue #321
   8-7-the-replay-scrubber: backlog  # issue #322
   8-8-the-coachs-sentence: done  # issue #323
-  8-9-coach-mode: backlog  # issue #324
+  8-9-coach-mode: done  # issue #324
   8-10-autoexplore-with-the-bots-brains: backlog  # issue #325
   8-11-the-v2-session-and-the-epic-close: backlog  # issue #326
   epic-8-retrospective: optional
 
   epic-9: backlog
   epic-9-retrospective: optional
-
   epic-10: backlog  # issue #381; milestone E10; stories planned 2026-10-28 (correct-course, plan resilient-herding-moonbeam)
   10-1-the-boss-staircase-in-the-direction-table: backlog  # issue #347
   10-2-the-killer-on-every-death: backlog  # issue #348
