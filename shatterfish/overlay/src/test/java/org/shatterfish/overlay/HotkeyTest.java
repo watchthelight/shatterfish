@@ -72,8 +72,9 @@ class HotkeyTest {
             // The screen leaves out code 0 (NONE) and, outside controller mode, the mouse clicks only.
             assertTrue(hotkey.action().code() > 0);
             assertNotEquals(GameAction.LEFT_CLICK, hotkey.action());
-            assertEquals(List.of(hotkey.defaultKey()), KeyBindings.getKeyboardKeysForAction(hotkey.action()),
-                    "bound by default to its one key, as the screen shows it");
+            List<Integer> expected = hotkey.defaultKey() == Hotkey.NO_KEY ? List.of() : List.of(hotkey.defaultKey());
+            assertEquals(expected, KeyBindings.getKeyboardKeysForAction(hotkey.action()),
+                    "bound by default to its one key, or to none for the coach switch, as the screen shows it");
         }
         long names = java.util.Arrays.stream(Hotkey.values()).map(Hotkey::actionName).distinct().count();
         assertEquals(Hotkey.values().length, names, "the bindings file keeps an action by its name, so names are distinct");
