@@ -311,7 +311,8 @@ class ControlStateTest {
         run.person = true;
         controls.frame(0.016);
         assertEquals(Mode.HUMAN, controls.mode());
-        assertEquals(Set.of(Control.TAKE_OVER, Control.EXPLAIN), controls.enabled(), "HUMAN: Hand back and Explain");
+        assertEquals(Set.of(Control.TAKE_OVER, Control.EXPLAIN, Control.BELIEFS), controls.enabled(),
+                "HUMAN: Hand back, Explain and Beliefs");
     }
 
     @Test
@@ -393,8 +394,8 @@ class ControlStateTest {
                 });
         for (Function<FakeRun, ControlState> make : states) {
             for (Control control : Control.values()) {
-                if (control == Control.EXPLAIN) {
-                    continue; // the Panel's: the card toggles; ControlsRowTest presses it.
+                if (control == Control.EXPLAIN || control == Control.BELIEFS) {
+                    continue; // the Panel's: the card toggles Explain and the Panel its Beliefs view; ControlsRowTest presses them.
                 }
                 for (boolean second : new boolean[]{false, true}) {
                     if (second && control != Control.RUN_N_COUNT && control != Control.INTERVAL) {
@@ -432,7 +433,7 @@ class ControlStateTest {
             case SPEED -> controls.cycleSpeed();
             case INTERVAL -> second ? controls.intervalDown() : controls.intervalUp();
             case TAKE_OVER -> controls.takeOverHandBack();
-            case EXPLAIN -> throw new AssertionError("not a ControlState press");
+            case EXPLAIN, BELIEFS -> throw new AssertionError("not a ControlState press");
         };
     }
 }

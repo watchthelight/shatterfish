@@ -34,7 +34,9 @@ final class ControlEnablement {
         INTERVAL,
         /** Take over while the bot plays, Hand back while the human does. */
         TAKE_OVER,
-        EXPLAIN
+        EXPLAIN,
+        /** Opens the Beliefs view, or closes it: everything the Brain believes, at a wait (story 8.6, FR-46). */
+        BELIEFS
     }
 
     /**
@@ -67,8 +69,9 @@ final class ControlEnablement {
         switch (mode) {
             case RUNNING -> enabled.addAll(EnumSet.of(Control.PAUSE_RESUME, Control.NEXT_STEP, Control.SPEED,
                     Control.INTERVAL, Control.TAKE_OVER, Control.EXPLAIN));
+            // (RUNNING is the Brain moving on: the Beliefs view is for a wait that holds, so it is not here.)
             case PAUSED -> enabled.addAll(EnumSet.allOf(Control.class));
-            case HUMAN -> enabled.addAll(EnumSet.of(Control.TAKE_OVER, Control.EXPLAIN));
+            case HUMAN -> enabled.addAll(EnumSet.of(Control.TAKE_OVER, Control.EXPLAIN, Control.BELIEFS));
             // A loaded log stopped at a wait: everything a PAUSED Run has but a hand-over, since nobody plays a
             // replay (story 8.5). The playing half of REPLAY is the RUNNING row less the same control.
             case REPLAY -> enabled.addAll(EnumSet.complementOf(EnumSet.of(Control.TAKE_OVER)));

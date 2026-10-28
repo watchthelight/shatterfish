@@ -51,6 +51,8 @@ final class DecisionCard extends Component {
 
     private RenderedTextBlock empty;
     private RenderedTextBlock headline;
+    /** The coach's sentence (story 8.8): the choice in one plain line, over the table; hidden with no Decision. */
+    private RenderedTextBlock coachLine;
     private RenderedTextBlock[] actionBlocks;
     private RenderedTextBlock[] scoreBlocks;
     private RenderedTextBlock[] reasonBlocks;
@@ -84,6 +86,7 @@ final class DecisionCard extends Component {
             scoreBlocks[i] = row(BODY_SIZE, color);
             reasonBlocks[i] = row(BODY_SIZE, INK_MUTED);
         }
+        coachLine = row(BODY_SIZE, CHOSEN_COLOR);
         noticeLine = row(SMALL_SIZE, NOTICE_COLOR);
     }
 
@@ -156,6 +159,12 @@ final class DecisionCard extends Component {
         headline.hardlight(content.troubled() ? DANGER : INK_MUTED);
         headline.text(headline.visible ? content.headline() : "", width);
 
+        // The coach's sentence is a view of the Decision and the Observation it was made on and of nothing else
+        // (story 8.8); it is not shown over a Brain's trouble, whose Decision is the Overlay's stand-in.
+        coachLine.visible = content.present() && !content.troubled();
+        coachLine.hardlight(content.shadow() ? INK_MUTED : CHOSEN_COLOR);
+        coachLine.text(coachLine.visible ? CoachLine.of(decision, observation) : "", width);
+
         List<DecisionCardContent.Row> tableRows = new ArrayList<>();
         if (content.present()) {
             tableRows.add(content.chosen());
@@ -211,6 +220,9 @@ final class DecisionCard extends Component {
         if (headline.visible) {
             height += headline.height() + ROW_GAP;
         }
+        if (coachLine.visible) {
+            height += coachLine.height() + ROW_GAP;
+        }
         for (int i = 0; i < rows; i++) {
             height += tableRowHeight(i) + ROW_GAP;
         }
@@ -237,6 +249,11 @@ final class DecisionCard extends Component {
             headline.setPos(x, rowY);
             PixelScene.align(headline);
             rowY += headline.height() + ROW_GAP;
+        }
+        if (coachLine.visible) {
+            coachLine.setPos(x, rowY);
+            PixelScene.align(coachLine);
+            rowY += coachLine.height() + ROW_GAP;
         }
         for (int i = 0; i < rows; i++) {
             actionBlocks[i].setPos(x, rowY);
@@ -273,6 +290,12 @@ final class DecisionCard extends Component {
     RenderedTextBlock[] reasonBlocks() {
         return reasonBlocks;
     }
+
+    /** The coach's sentence row, for tests (story 8.8). */
+    RenderedTextBlock coachRow() {
+        return coachLine;
+    }
+
     /** The Replay notice row, for tests (story 5.9). */
     RenderedTextBlock noticeRow() {
         return noticeLine;

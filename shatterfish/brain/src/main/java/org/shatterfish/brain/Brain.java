@@ -344,7 +344,7 @@ public final class Brain {
                 : decided.action() instanceof Action.AnswerPrompt || decided.action() instanceof Action.DismissPrompt
                 ? windows.target() : "";
         // So is whether it was the worn armour, by its slot on this screen (story 4.13).
-        boolean worn = decided.action() instanceof Action.UseItemOn on ? TestItem.worn(observation, on.target())
+        boolean worn = decided.action() instanceof Action.UseItemOn on ? TestItem.worn(observation, on.target(), playbook.upgrade(observation.header().heroClass()))
                 : (decided.action() instanceof Action.AnswerPrompt || decided.action() instanceof Action.DismissPrompt)
                 && windows.worn();
         memory = memory.windowing(new Memory.Windows(decided.action() == null ? "" : decided.action().toString(),

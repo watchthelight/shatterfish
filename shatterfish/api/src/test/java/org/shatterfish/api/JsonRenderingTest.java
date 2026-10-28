@@ -223,7 +223,9 @@ class JsonRenderingTest {
             // Not reachable from Observation -- it is Deliberator's own output, not the screen's --
             // so Variants.records() never finds it; nothing here reads one back either, the same
             // reason RunLog's kinds are listed rather than reachable.
-            "BeliefSummary", "BeliefSummary$Item");
+            "BeliefSummary", "BeliefSummary$Item",
+            // The full view behind it (story 8.6): Deliberator's own output too.
+            "BeliefView", "BeliefView$Appearance", "BeliefView$Candidate");
 
     @Test
     @DisplayName("api is the schema, Action and the named helpers, and nothing in it reads text or bytes into a record")
