@@ -19,7 +19,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * The five Seed sets (FR-20, story 3.1): the committed, versioned files of (seed, hero class,
+ * The six Seed sets (FR-20, story 3.1): the committed, versioned files of (seed, hero class,
  * challenge flags) triples every published number is measured on, and the one door a Run reads
  * them through.
  *
@@ -73,6 +73,12 @@ public final class SeedSets {
 
     /** The E4 gate's set: Warrior only, no challenge flags, sized by the PRD's bound. */
     public static final String GOO = "goo";
+
+    /**
+     * The E10 gate's set: all six classes, 100 of each, no challenge flags. Played only under a
+     * Registration and never for tuning, like {@link #GOO} (ADR-0018, the amendment of 2026-10-28).
+     */
+    public static final String TENGU = "tengu";
 
     /** The six classes in the game's own declaration order ({@code HeroClass.java:87-92}). */
     private static final List<HeroClass> SIX = List.of(HeroClass.values());
@@ -163,6 +169,9 @@ public final class SeedSets {
         put(sets, new Definition(HOLDOUT, 500, SIX, 0));
         put(sets, new Definition(BOSSES, 100, SIX, 0));
         put(sets, new Definition(GOO, 400, List.of(HeroClass.WARRIOR), 0));
+        // 600 is 100 of each of the six, which the class cycle gives exactly; the size is sized in
+        // ADR-0018's E10 amendment by the same Wilson arithmetic as `goo`'s.
+        put(sets, new Definition(TENGU, 600, SIX, 0));
         return Map.copyOf(sets);
     }
 
@@ -192,7 +201,7 @@ public final class SeedSets {
 
     /** Every set's name, in the order the task writes them. */
     public static List<String> names() {
-        return List.of(SMOKE, STANDARD, HOLDOUT, BOSSES, GOO);
+        return List.of(SMOKE, STANDARD, HOLDOUT, BOSSES, GOO, TENGU);
     }
 
     /** What the set {@code name} is, refusing a name no set has. */
