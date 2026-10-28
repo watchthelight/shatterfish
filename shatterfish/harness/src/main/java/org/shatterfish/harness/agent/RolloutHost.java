@@ -120,7 +120,7 @@ public final class RolloutHost extends Simulator {
                 t2 = System.nanoTime();
                 timer.load(t2 - t1);
             }
-            result = play(actions, first);
+            result = play(driver, executor, actions, first);
             if (timer != null) {
                 t3 = System.nanoTime();
                 timer.rollout(t3 - t2);
@@ -202,8 +202,11 @@ public final class RolloutHost extends Simulator {
         return first;
     }
 
-    /** Plays {@code actions} on the Run the driver now holds, which is the scrubbed copy at its wait. */
-    private RolloutResult play(List<Action> actions, HeadlessDriver.Halt first) {
+    /**
+     * Plays {@code actions} on the Run the driver now holds, which is the scrubbed copy at its wait. Static so that the
+     * isolated world (E10 spike, ADR-0024) plays the very same loop on the driver of its own loader.
+     */
+    static RolloutResult play(HeadlessDriver driver, ActionExecutor executor, List<Action> actions, HeadlessDriver.Halt first) {
         List<Observation> observations = new ArrayList<>();
         int applied = 0;
         HeadlessDriver.Halt next = first;
