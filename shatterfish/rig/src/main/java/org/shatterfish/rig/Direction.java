@@ -31,6 +31,11 @@ import java.util.stream.Stream;
  * ./gradlew :rig:direction --args="--set standard --class WARRIOR --first 40 --salt-base 1000 --baseline origin/main"
  * </pre>
  *
+ * <p>{@code --class ALL} plays the same slice for each of the six classes (the first {@code --first} of
+ * each, entry {@code i} of a class under {@code saltBase + i}, so each class is exactly the slice
+ * {@code --class <that class>} would play) and prints one table with a column per class and a pooled
+ * one (a block per class when there is a baseline).
+ *
  * <p>The tuning set is {@code --set standard --class WARRIOR --first 40 --salt-base 1000}: the
  * first 40 Warriors of the standard set in file order, entry {@code i} under salt {@code 1000 + i}.
  * It is defined by those flags and by nothing committed, because a seeds file is written only by
@@ -121,11 +126,13 @@ public final class Direction {
             System.setProperty(org.shatterfish.harness.log.DebugRecord.PROPERTY, "true");
         }
         String set = a.getOrDefault(SET, SeedSets.STANDARD);
-        HeroClass heroClass = a.containsKey(CLASS) ? DirectionSelect.heroClass(a.get(CLASS)) : null;
+        boolean every = a.containsKey(CLASS) && DirectionSelect.ALL.equalsIgnoreCase(a.get(CLASS));
+        HeroClass heroClass = a.containsKey(CLASS) && !every ? DirectionSelect.heroClass(a.get(CLASS)) : null;
         int first = a.containsKey(FIRST) ? integer(a, FIRST, 1) : -1;
         long saltBase = a.containsKey(SALT_BASE) ? Long.parseLong(a.get(SALT_BASE)) : 0L;
         int jobs = a.containsKey(JOBS) ? integer(a, JOBS, 1) : DEFAULT_JOBS;
-        List<DirectionSelect.Pick> picks = DirectionSelect.select(root, set, heroClass, first, saltBase);
+        List<DirectionSelect.Pick> picks = every ? DirectionSelect.selectAll(root, set, first, saltBase)
+                : DirectionSelect.select(root, set, heroClass, first, saltBase);
         if (picks.isEmpty()) {
             throw new IllegalArgumentException("no triple of " + set + " is left after the filter");
         }
@@ -141,8 +148,12 @@ public final class Direction {
             throw new IllegalArgumentException(baseline + " is neither a folder nor a git ref of " + root);
         }
 
-        String describe = set + (heroClass == null ? "" : " " + heroClass) + ", " + picks.size()
-                + " entries, salts " + saltBase + ".." + (saltBase + picks.size() - 1);
+        String describe = every
+                ? set + " " + DirectionSelect.ALL + " (the first " + first + " of each class, salts " + saltBase
+                        + ".." + (saltBase + Math.max(0, picks.size() / HeroClass.values().length - 1))
+                        + " within each), " + picks.size() + " entries"
+                : set + (heroClass == null ? "" : " " + heroClass) + ", " + picks.size()
+                        + " entries, salts " + saltBase + ".." + (saltBase + picks.size() - 1);
         System.out.println("direction: " + describe + ", " + jobs + " at a time, into " + out);
 
         String commit = Runner.commitOf(root);
@@ -167,7 +178,7 @@ public final class Direction {
                 throw new IllegalStateException("could not make a folder for the baseline checkout", e);
             }
             String sha = revParse(root, baseline);
-            Path cached = cacheFolder(root, sha, tag, set, heroClass, first, saltBase, picks.size());
+            Path cached = cacheFolder(root, sha, tag, set, heroClass, every, first, saltBase, picks.size());
             if (cached != null && Files.isDirectory(cached)) {
                 System.out.println("direction: the baseline " + sha.substring(0, 9) + " is cached in " + cached);
                 org.shatterfish.harness.boot.TempDirs.deleteTree(source);
@@ -199,11 +210,13 @@ public final class Direction {
             }
         }
 
-        DirectionMetrics.Side now = DirectionMetrics.read(currentFolder);
-        DirectionMetrics.Side then = baselineLogs == null ? null : DirectionMetrics.read(baselineLogs);
-        String table = DirectionMetrics.table("current " + commit.substring(0, 9), now, baselineName, then);
+        String table = every
+                ? DirectionMetrics.tableAll("current " + commit.substring(0, 9), DirectionMetrics.classes(currentFolder),
+                        baselineName, baselineLogs == null ? null : DirectionMetrics.classes(baselineLogs))
+                : DirectionMetrics.table("current " + commit.substring(0, 9), DirectionMetrics.read(currentFolder),
+                        baselineName, baselineLogs == null ? null : DirectionMetrics.read(baselineLogs));
         StringBuilder text = new StringBuilder();
-        text.append(describe).append("\n\n").append(table);
+        text.append(describe).append("\n\n").append(table).append("\n").append(killerSection(currentFolder, every));
         if (failedNow + failedBase > 0) {
             text.append("\nRuns that did not finish: ").append(failedNow).append(" current, ")
                     .append(failedBase).append(" baseline; see the .err files beside the logs.\n");
@@ -215,6 +228,25 @@ public final class Direction {
             throw new IllegalStateException("could not write the table into " + out, e);
         }
         return text.toString();
+    }
+
+    /**
+     * The deaths-by-depth killer table of the current side: one table, or with {@code every} a table for
+     * each class and for all together. Read from the ending records beside the logs (E10 W1).
+     */
+    private static String killerSection(Path folder, boolean every) {
+        StringBuilder out = new StringBuilder("Deaths by depth, top killers (the game's own cause of death, read"
+                + " after the Run; a death with no ending record is \"" + DirectionMetrics.UNKNOWN_KILLER + "\"):\n\n");
+        if (!every) {
+            return out.append(DirectionMetrics.killers(DirectionMetrics.read(folder).killers())).toString();
+        }
+        for (var entry : DirectionMetrics.classes(folder).entrySet()) {
+            out.append("#### ").append(entry.getKey()).append("\n\n")
+                    .append(DirectionMetrics.killers(entry.getValue().killers())).append('\n');
+        }
+        out.append("#### ").append(DirectionMetrics.POOLED).append("\n\n")
+                .append(DirectionMetrics.killers(DirectionMetrics.read(folder).killers()));
+        return out.toString();
     }
 
     // ------------------------------------------------------------------ playing
@@ -398,6 +430,12 @@ public final class Direction {
      */
     static Path cacheFolder(Path root, String sha, String tag, String set, HeroClass heroClass, int first,
                             long saltBase, int picks) {
+        return cacheFolder(root, sha, tag, set, heroClass, false, first, saltBase, picks);
+    }
+
+    /** As above, and {@code every} says the selection is {@code --class ALL}, which is not "no class" (its picks differ). */
+    static Path cacheFolder(Path root, String sha, String tag, String set, HeroClass heroClass, boolean every,
+                            int first, long saltBase, int picks) {
         try {
             List<String> status = new ArrayList<>(List.of("status", "--porcelain", "--"));
             status.addAll(HOST_PATHS);
@@ -407,7 +445,7 @@ public final class Direction {
             }
             StringBuilder key = new StringBuilder();
             key.append(sha).append('|').append(tag).append('|').append(set).append('|')
-                    .append(heroClass == null ? "all" : heroClass.name()).append('|').append(first).append('|')
+                    .append(every ? "each" : heroClass == null ? "all" : heroClass.name()).append('|').append(first).append('|')
                     .append(saltBase).append('|').append(picks);
             for (String path : HOST_PATHS) {
                 key.append('|').append(git(root, "rev-parse", "HEAD:" + path).strip());

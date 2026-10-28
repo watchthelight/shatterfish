@@ -18,7 +18,7 @@ numbers where the project expects them.
   the rig runs an SPRT comparison; without one, a single-brain measurement.
 - `--seeds`: a named seed set from `seeds/<name>.json` (committed, written only by
   `./gradlew :rig:seeds`): `smoke` (25, direction checks), `standard` (development comparisons),
-  `goo` (the E4 gate, registered use only), `bosses`, and `holdout` (refused during development).
+  `goo` (the E4 gate, registered use only), `tengu` (the E10 gate: 600, 100 per class, registered use only), `bosses`, and `holdout` (refused during development).
 - `--registration`: the committed Registration id; without it nothing the invocation produces may
   be published. Also `--verify <folder>`, `--replay <log>`, `--finished`, `--cap`, `--deadline`.
 - `--parallel`: how many single-Run processes run at once (one process per Run; never threads inside one game).
@@ -38,6 +38,8 @@ For a Brain PR, the numbers come from the checked-in direction tool, not from ad
 
 ```sh
 ./gradlew :rig:direction --args="--set standard --class WARRIOR --first 40 --salt-base 1000 --baseline origin/main"
+# every class at once (a column per class and a pooled one; killers by depth under the table):
+./gradlew :rig:direction --args="--set standard --class ALL --first 20 --salt-base 1000"
 ```
 
 It plays the subset with the current Brain, plays the baseline (a git ref is built in a worktree; a
