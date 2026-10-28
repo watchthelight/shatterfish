@@ -206,6 +206,8 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
                     BossFloors.read(options.codex()));
             dock.controls(controls);
         }
+        // The coach is a setting of the person's turns, a Brain's Run's after a Take over included (story 8.9).
+        dock.coach(new CoachState(on -> run.coach(on)));
         // A press on the Panel reaches the Panel's controls even while the lock holds the game's input.
         lock.panel((x, y) -> Windows.front() == null && dock.contains(x, y));
         // The play scene, created at the first frame the way the loading scene asks for it after a new
