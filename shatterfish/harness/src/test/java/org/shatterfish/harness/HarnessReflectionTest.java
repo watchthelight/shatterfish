@@ -59,7 +59,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class HarnessReflectionTest {
 
     /** The fields {@code docs/UPSTREAM.md} names for the stepper, as {@code Owner.field}. */
-    private static final Set<String> DECLARED = Set.of("GameScene.actorThread", "Actor.current");
+    private static final Set<String> DECLARED = Set.of("GameScene.actorThread", "Actor.current", "Random.generators");
 
     /**
      * The fields {@code docs/UPSTREAM.md} names for the Run-start reset (issue #167), as

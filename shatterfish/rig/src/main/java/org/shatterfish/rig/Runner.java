@@ -787,6 +787,7 @@ public final class Runner {
         }
         long millis = (System.nanoTime() - began) / 1_000_000L;
         finish(index, out, runId, why, millis, waits);
+        index.strayWakes(runId, Math.max(0, RunOne.strayWakesIn(working)));
     }
 
     /** Ends a child and everything it started, which `destroyForcibly` alone does not. */
