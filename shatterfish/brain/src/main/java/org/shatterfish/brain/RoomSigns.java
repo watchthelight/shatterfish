@@ -2,6 +2,7 @@ package org.shatterfish.brain;
 
 import org.shatterfish.api.ActorView;
 import org.shatterfish.api.BlobCell;
+import org.shatterfish.api.Heuristic;
 import org.shatterfish.api.MapSection;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.Tile;
@@ -29,16 +30,20 @@ final class RoomSigns {
     static final String ETERNAL_FIRE = "EternalFire";
 
     /** The fewest vents that are the toxic gas room's: it places min(width - 2, height - 2) of them, at least five. */
+    @Heuristic("potion-room-inference")
     static final int VENTS = 2;
 
     /** The fewest flame cells that are the magical fire room's wall: it spans the room's inside. */
+    @Heuristic("potion-room-inference")
     static final int FLAMES = 3;
 
     /**
      * The fewest revealed traps of one kind within {@link #TRAP_SPREAD} cells of each other that are the traps room's
      * field (TrapsRoom.java:104-109 reveals every one): a revealed trap or two is a search's find.
      */
+    @Heuristic("potion-room-inference")
     static final int FIELD = 6;
+    @Heuristic("potion-room-inference")
     static final int TRAP_SPREAD = 4;
 
     private RoomSigns() {

@@ -1,6 +1,7 @@
 package org.shatterfish.brain;
 
 import org.shatterfish.api.Codex;
+import org.shatterfish.api.Heuristic;
 import org.shatterfish.api.HeapView;
 import org.shatterfish.api.ItemView;
 import org.shatterfish.api.Observation;
@@ -39,6 +40,7 @@ final class Evidence {
     private static final int LIMIT = 16;
 
     /** The most floors' rooms read at once: each doubles the states. */
+    @Heuristic("potion-room-inference")
     private static final int ROOMS = 3;
 
     /** The largest stack the weights tell apart. */

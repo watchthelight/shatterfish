@@ -276,24 +276,21 @@ public final class DebugRecord implements AutoCloseable {
         for (String family : List.of("potion", "scroll")) {
             json.key(family);
             json.beginArray();
-            try {
-                Class<?> owner = family.equals("potion") ? com.shatteredpixel.shatteredpixeldungeon.items.potions.Potion.class
-                        : com.shatteredpixel.shatteredpixeldungeon.items.scrolls.Scroll.class;
-                java.lang.reflect.Field field = owner.getDeclaredField("handler");
-                field.setAccessible(true);
-                @SuppressWarnings({"unchecked", "rawtypes"})
-                com.shatteredpixel.shatteredpixeldungeon.items.ItemStatusHandler<?> handler =
-                        (com.shatteredpixel.shatteredpixeldungeon.items.ItemStatusHandler<?>) field.get(null);
-                Class<?>[] classes = family.equals("potion")
-                        ? com.shatteredpixel.shatteredpixeldungeon.items.Generator.Category.POTION.classes
-                        : com.shatteredpixel.shatteredpixeldungeon.items.Generator.Category.SCROLL.classes;
-                for (Class<?> one : classes) {
-                    @SuppressWarnings({"unchecked", "rawtypes"})
-                    String label = ((com.shatteredpixel.shatteredpixeldungeon.items.ItemStatusHandler) handler).label(one);
-                    json.beginObject().key("class").value(one.getSimpleName()).key("label").value(label).endObject();
+            Class<?>[] classes = family.equals("potion")
+                    ? com.shatteredpixel.shatteredpixeldungeon.items.Generator.Category.POTION.classes
+                    : com.shatteredpixel.shatteredpixeldungeon.items.Generator.Category.SCROLL.classes;
+            for (Class<?> one : classes) {
+                try {
+                    // A fresh item wears its Run's appearance: its name while unknown, its sprite always.
+                    com.shatteredpixel.shatteredpixeldungeon.items.Item item =
+                            (com.shatteredpixel.shatteredpixeldungeon.items.Item) com.watabou.utils.Reflection.newInstance(one);
+                    boolean known = item instanceof com.shatteredpixel.shatteredpixeldungeon.items.potions.Potion potion
+                            ? potion.isKnown() : ((com.shatteredpixel.shatteredpixeldungeon.items.scrolls.Scroll) item).isKnown();
+                    json.beginObject().key("class").value(one.getSimpleName()).key("name").value(item.name())
+                            .key("image").value((long) item.image).key("known").value(known).endObject();
+                } catch (RuntimeException e) {
+                    // A Run with no handler (never started) has no truth to write.
                 }
-            } catch (ReflectiveOperationException | RuntimeException e) {
-                // A Run with no handler (never started) has no truth to write.
             }
             json.endArray();
         }
@@ -312,6 +309,7 @@ public final class DebugRecord implements AutoCloseable {
     }
 
     private void ending(String cause, int depth, long turns, String killer) {
+        truth();
         JsonWriter json = new JsonWriter().beginObject();
         json.key("t").value("end");
         json.key("cause").value(cause);
@@ -327,7 +325,6 @@ public final class DebugRecord implements AutoCloseable {
         }
         json.endObject();
         write(json.toJson());
-        truth();
     }
 
     private static void buffs(JsonWriter json, List<BuffView> buffs) {
