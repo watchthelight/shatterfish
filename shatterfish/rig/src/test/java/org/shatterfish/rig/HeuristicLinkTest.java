@@ -89,7 +89,8 @@ class HeuristicLinkTest {
             Map.entry("Memory.MONSTERS", "a capacity of the Memory"),
             Map.entry("Memory.SEALED_RETREATS", "an index into the Memory's flight counters"),
             Map.entry("Memory.WATER_LEAVES", "an index into the Memory's flight counters"),
-            Map.entry("Sentry.MAX_ZONE", "a capacity guard on a flood fill"));
+            Map.entry("Sentry.MAX_ZONE", "a capacity guard on a flood fill"),
+            Map.entry("Tengu.DEPTH", "the floor of the dungeon where the prison boss lives (Dungeon.java:441-443), a fact of the map and not a choice"));
 
     /** Constants of nested classes are listed by their nested name; the capacity of the shunned set is one. */
     static final Map<String, String> EXEMPT_NESTED = Map.of("Memory.Windows.SHUNNED", "a capacity of the Memory");

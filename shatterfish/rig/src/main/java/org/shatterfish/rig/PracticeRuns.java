@@ -371,7 +371,7 @@ public final class PracticeRuns {
      * 10.18): the two steps between arriving and the fight. A Run with no debug record reached neither as far as
      * the table can tell.
      */
-    private static boolean[] reachOf(Path log) {
+    static boolean[] reachOf(Path log) {
         Path debug = DebugRecord.beside(log);
         boolean key = false;
         boolean seal = false;

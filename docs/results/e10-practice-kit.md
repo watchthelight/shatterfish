@@ -78,3 +78,35 @@ about 1800 turns on `act: nothing better applies` in the hallway until it starve
 So in none of the 480 Runs did the Brain reach Tengu. The first lever for W3 is getting to the fight: the key lies in one of
 the four side cells off the hallway, and the door at the hallway's end needs it (`PrisonBossLevel.java:621-648`). The
 `.debug.ndjson` records beside each log hold the waits.
+
+## Tengu practice after story 10.18 (entry, key and seal)
+
+Story 10.18 (#364). The Brain now gets to the fight: a `tengu` Policy opens the cell door once the iron key is held,
+and the stairs up are withheld on the unsealed boss floor ([Rule `tengu-entry`](../brain-rules.md#tengu-entry)). Same
+slice as the baseline above: 40 Runs per class, `standard` set, salts 1000..1039, kit `standard`, cap 5000 turns,
+`--jobs 12`. The table has two new columns, read from the Run's debug record: a key for depth 10 in the journal at any
+wait, and the floor sealed at any wait.
+
+| class | Runs | key held | seal reached | Tengu killed | died | left floor / other |
+|---|---:|---:|---:|---:|---:|---:|
+| WARRIOR | 40 | 40 | 40 | 0 | 40 | 0 |
+| MAGE | 40 | 40 | 40 | 0 | 40 | 0 |
+| ROGUE | 40 | 40 | 40 | 0 | 40 | 0 |
+| HUNTRESS | 40 | 40 | 40 | 0 | 40 | 0 |
+| DUELIST | 40 | 40 | 40 | 0 | 40 | 0 |
+| CLERIC | 40 | 40 | 40 | 0 | 40 | 0 |
+| all | 240 | 240 | 240 | 0 | 240 | 0 |
+
+Before the story the same slice reached the seal in 0 of 240 Runs: 189 left the floor by its stairs and 51 starved on it.
+Now every Run holds the key and seals the floor (median about 85 turns of play to the death, `turns` as the table
+prints them). What is left is the fight: Tengu killed every hero (Tengu 224, Poison 15, a dart trap 1), and the fight
+Policy is generic until stories 10.19 and 10.20. This page reports reach, not conversion; the kills column is not a
+claim about the Brain's strength, since the generic fight Policy was never built for this boss.
+
+What the table cannot show: practice heroes arrive at full health with a fixed kit (ADR-0024), so the rest before the
+door was never needed here; `TenguEntryTest` covers it on a constructed floor. Real Runs reach depth 10 so rarely that
+the entry is untested on them.
+
+The first test of the story, `TenguEntryRunTest`, plays one practice Tengu Run per class and asserts the key, the seal
+within 600 waits and no use of the stairs up. It fails on the practice branch before this change (see the pull request
+for the run).

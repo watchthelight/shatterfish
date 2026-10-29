@@ -29,7 +29,7 @@ class PlaybookFileTest {
             .resolve(org.shatterfish.harness.boot.HeadlessBoot.pinnedTag());
 
     /** The 4.x Brain's Playbook as story 7.4 left it: the reference with the armour taking the scroll on a tie. */
-    private static final Playbook STORY_7_4 = new Playbook("shatterfish", 3, Playbook.Identify.REFERENCE,
+    private static final Playbook STORY_7_4 = new Playbook("shatterfish", 4, Playbook.Identify.REFERENCE,
             Playbook.Upgrade.REFERENCE.with(java.util.Map.of("tie", "ARMOR")), Playbook.Kit.REFERENCE, java.util.List.of());
 
     private static Playbook committed(String brain) {
