@@ -34,10 +34,13 @@ class KeyBindingConflictTest {
     void the_defaults_are_f6_to_f12() {
         Set<Integer> keys = new HashSet<>();
         for (Hotkey hotkey : Hotkey.values()) {
-            keys.add(hotkey.defaultKey());
+            if (hotkey != Hotkey.COACH) {
+                keys.add(hotkey.defaultKey());
+            }
         }
         assertEquals(F6_TO_F12, keys);
-        assertEquals(7, Hotkey.values().length, "seven controls, seven distinct keys");
+        assertEquals(8, Hotkey.values().length, "seven controls with one key each, and the coach switch with none");
+        assertEquals(Hotkey.NO_KEY, Hotkey.COACH.defaultKey(), "the coach switch is bound in the key-binding screen");
     }
 
     @Test
@@ -52,6 +55,10 @@ class KeyBindingConflictTest {
         }
         LinkedHashMap<Integer, GameAction> defaults = SPDAction.getDefaults();
         for (Hotkey hotkey : Hotkey.values()) {
+            if (hotkey == Hotkey.COACH) {
+                assertFalse(defaults.containsValue(hotkey.action()), "the coach switch starts unbound");
+                continue;
+            }
             assertEquals(hotkey.action(), defaults.get(hotkey.defaultKey()),
                     hotkey + " is registered at " + Input.Keys.toString(hotkey.defaultKey()));
         }
