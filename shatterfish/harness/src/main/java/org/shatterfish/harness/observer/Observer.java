@@ -28,11 +28,14 @@ import com.shatteredpixel.shatteredpixeldungeon.items.scrolls.Scroll;
 import com.shatteredpixel.shatteredpixeldungeon.items.wands.Wand;
 import com.shatteredpixel.shatteredpixeldungeon.journal.Notes;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Level;
+import com.shatteredpixel.shatteredpixeldungeon.levels.PrisonBossLevel;
 import com.shatteredpixel.shatteredpixeldungeon.levels.Terrain;
 import com.shatteredpixel.shatteredpixeldungeon.levels.features.LevelTransition;
+import com.shatteredpixel.shatteredpixeldungeon.levels.traps.TenguDartTrap;
 import com.shatteredpixel.shatteredpixeldungeon.levels.traps.Trap;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
+import com.shatteredpixel.shatteredpixeldungeon.tiles.CustomTilemap;
 import com.shatteredpixel.shatteredpixeldungeon.tiles.DungeonTileSheet;
 import com.shatteredpixel.shatteredpixeldungeon.ui.BuffIndicator;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
@@ -289,6 +292,7 @@ public final class Observer {
                 traps.add(new TrapView(trap.pos, trap.name(), trap.active));
             }
         }
+        fadingTraps(level, fog, traps);
         Map<Integer, HeapView> heaps = new LinkedHashMap<>();
         for (Heap heap : level.heaps.valueList()) {
             // The sprite is visible once the heap has been seen and stays so (…/sprites/ItemSprite.java:323-326;
@@ -339,6 +343,41 @@ public final class Observer {
         }
         return new MapSection(level.width(), level.height(), tiles, fog, traps, new ArrayList<>(heaps.values()),
                 blobs(level, fog), Feeling.valueOf(level.feeling.name()), transitions);
+    }
+
+    /**
+     * The traps Tengu's floor draws faded for a moment as he lays them (story 10.19). The prison boss
+     * level sets a {@code TenguDartTrap} hidden, so {@code Trap.visible} is false and the feature layer
+     * draws nothing for it ({@code …/levels/PrisonBossLevel.java:716}); on the same call it adds a
+     * {@code FadingTraps} custom tilemap over the cell, whose tile for each trapped cell is the trap's
+     * colour and shape at alpha 0.4 ({@code :724-727}, {@code :791-813}, {@code :849}), and a delayed
+     * actor takes the tilemap out of the level's {@code customTiles} two turns later ({@code :850-874}).
+     * The trap's own description says so: "the trap is visible for a moment when it is being set"
+     * ({@code core/src/main/assets/messages/levels/levels.properties:158}). So while the tilemap stands in
+     * {@code customTiles} the screen shows the trap on every cell of its area that holds one, on a cell
+     * the fog does not paint opaque, and the section carries it as it carries a revealed trap, its name
+     * and active. When the actor has taken the tilemap out the trap is hidden again and the section
+     * carries nothing for it: this method reads only the tilemap's presence and the cells it covers, and
+     * never a trap that is not under a tilemap that is standing ({@code MapLeakTest}-style held by
+     * {@code TenguTrapMemoryLeakTest}). The tilemap's data was cut when it was made and this reads the
+     * level's traps while it stands, which differ only for a trap sprung in those two turns, and one
+     * sprung is revealed (so already drawn).
+     */
+    private static void fadingTraps(Level level, List<Fog> fog, List<TrapView> traps) {
+        for (CustomTilemap tiles : level.customTiles) {
+            if (!(tiles instanceof PrisonBossLevel.FadingTraps)) {
+                continue;
+            }
+            for (int y = tiles.tileY; y < tiles.tileY + tiles.tileH; y++) {
+                for (int x = tiles.tileX; x < tiles.tileX + tiles.tileW; x++) {
+                    int cell = x + y * level.width();
+                    Trap trap = level.traps.get(cell);
+                    if (trap instanceof TenguDartTrap && !trap.visible && fog.get(cell) != Fog.UNKNOWN) {
+                        traps.add(new TrapView(cell, trap.name(), trap.active));
+                    }
+                }
+            }
+        }
     }
 
     /**

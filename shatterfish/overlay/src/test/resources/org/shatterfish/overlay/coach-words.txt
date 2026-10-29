@@ -17,6 +17,7 @@ before
 below
 best
 better
+boss
 bow
 burning
 but
@@ -30,6 +31,7 @@ clear
 close
 confirm
 cornered
+cross
 distance
 do
 dodge
@@ -127,6 +129,7 @@ test
 the
 then
 to
+traps
 uncover
 upgrade
 wait

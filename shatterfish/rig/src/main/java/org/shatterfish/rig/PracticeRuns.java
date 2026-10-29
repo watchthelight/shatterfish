@@ -120,7 +120,7 @@ public final class PracticeRuns {
     /** One class's practice Runs, read back. */
     record Side(HeroClass heroClass, int runs, int killed, int died, int capped, int other, int unfinished,
                 List<Double> killTurns, List<Double> deathTurns, Map<String, Integer> killers, List<Integer> lastHp,
-                int keyHeld, int sealed) {
+                int keyHeld, int sealed, int phaseTwo, List<Integer> bossPips, int draws) {
 
         int finished() {
             return killed + died + capped + other;
@@ -322,6 +322,9 @@ public final class PracticeRuns {
         List<Integer> lastHp = new ArrayList<>();
         int keyHeld = 0;
         int sealed = 0;
+        int phaseTwo = 0;
+        int draws = 0;
+        List<Integer> bossPips = new ArrayList<>();
         for (Path log : list(folder, ".jsonl")) {
             RunLogReader.Log read = RunLogReader.of(log);
             if (!read.readable() || read.records().isEmpty() || !(read.records().get(0) instanceof RunLog.Header header)) {
@@ -337,6 +340,9 @@ public final class PracticeRuns {
             boolean[] reached = reachOf(log);
             keyHeld += reached[0] ? 1 : 0;
             sealed += reached[1] ? 1 : 0;
+            Fought fought = foughtOf(log);
+            phaseTwo += fought.phaseTwo() ? 1 : 0;
+            draws += fought.draws();
             RunLog.End end = read.end();
             if (end == null) {
                 unfinished++;
@@ -354,6 +360,9 @@ public final class PracticeRuns {
                     deathTurns.add(turns);
                     String[] killer = killerOf(log);
                     killers.merge(killer[0], 1, Integer::sum);
+                    if (fought.lastPips() >= 0) {
+                        bossPips.add(fought.lastPips());
+                    }
                     if (!killer[1].isEmpty()) {
                         lastHp.add(Integer.parseInt(killer[1]));
                     }
@@ -363,7 +372,56 @@ public final class PracticeRuns {
             }
         }
         return new Side(heroClass, runs, killed, died, capped, other, unfinished, killTurns, deathTurns, killers, lastHp,
-                keyHeld, sealed);
+                keyHeld, sealed, phaseTwo, bossPips, draws);
+    }
+
+    /** What the Run's debug record shows of the fight (story 10.19). */
+    record Fought(boolean phaseTwo, int lastPips, int draws) {
+    }
+
+    /** The line of Tengu's yell when the first half of the fight ends (actors.properties:1821). */
+    static final String PHASE_TWO_YELL = "Let's make this interesting...";
+
+    private static final java.util.regex.Pattern BOSS_PIPS =
+            java.util.regex.Pattern.compile("\"name\":\"Tengu\",\"pips\":(\\d+)");
+
+    /** The dart traps drawn in the Run's debug record count: the waits that draw some after a wait that drew none. */
+    private static final java.util.regex.Pattern DARTS = java.util.regex.Pattern.compile("\"darts\":(\\d+)");
+
+    /**
+     * Whether the Run's debug record shows the second half of the fight begin (the yell in the log), the
+     * health pips of Tengu at the last wait he was drawn, or -1, and how many times a patch of dart traps was
+     * drawn (waits that draw some after a wait that drew none). A Run with no record shows none of it.
+     */
+    static Fought foughtOf(Path log) {
+        Path debug = DebugRecord.beside(log);
+        boolean phaseTwo = false;
+        int pips = -1;
+        int draws = 0;
+        boolean drawing = false;
+        if (Files.isRegularFile(debug)) {
+            try (Stream<String> lines = Files.lines(debug, StandardCharsets.UTF_8)) {
+                for (String line : (Iterable<String>) lines::iterator) {
+                    if (!line.contains("\"t\":\"wait\"")) {
+                        continue;
+                    }
+                    phaseTwo |= line.contains(PHASE_TWO_YELL);
+                    java.util.regex.Matcher boss = BOSS_PIPS.matcher(line);
+                    if (boss.find()) {
+                        pips = Integer.parseInt(boss.group(1));
+                    }
+                    java.util.regex.Matcher darts = DARTS.matcher(line);
+                    boolean now = darts.find() && Integer.parseInt(darts.group(1)) > 0;
+                    if (now && !drawing) {
+                        draws++;
+                    }
+                    drawing = now;
+                }
+            } catch (IOException | RuntimeException unreadable) {
+                // A record that cannot be read shows nothing of the fight.
+            }
+        }
+        return new Fought(phaseTwo, pips, draws);
     }
 
     /**
@@ -416,13 +474,16 @@ public final class PracticeRuns {
     static String table(PracticeBoss boss, List<Side> sides) {
         StringBuilder out = new StringBuilder();
         out.append("| class | Runs | key held | seal reached | ").append(boss.id()).append(" killed | rate | 95% (Wilson) | died | cap | left floor / other | not finished |"
-                + " median turns (kills) | median turns (deaths) |\n");
-        out.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
+                + " median turns (kills) | median turns (deaths) |"
+                + " phase 2 reached | dart patches drawn | boss pips at death (median of 11) |\n");
+        out.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
         int runs = 0;
         int keys = 0;
         int seals = 0;
         int killed = 0;
         int finishedRuns = 0;
+        int phaseTwos = 0;
+        int patches = 0;
         for (Side s : sides) {
             int base = s.finished();
             double[] w = wilson(s.killed(), base);
@@ -431,7 +492,10 @@ public final class PracticeRuns {
                     .append(" | ").append(percent(s.killed(), base)).append(" | ").append(interval(w)).append(" | ")
                     .append(s.died()).append(" | ").append(s.capped()).append(" | ").append(s.other()).append(" | ")
                     .append(s.unfinished()).append(" | ").append(median(s.killTurns())).append(" | ")
-                    .append(median(s.deathTurns())).append(" |\n");
+                    .append(median(s.deathTurns())).append(" | ").append(s.phaseTwo()).append(" | ").append(s.draws())
+                    .append(" | ").append(medianPips(s.bossPips())).append(" |\n");
+            phaseTwos += s.phaseTwo();
+            patches += s.draws();
             runs += s.runs();
             keys += s.keyHeld();
             seals += s.sealed();
@@ -442,7 +506,8 @@ public final class PracticeRuns {
             double[] w = wilson(killed, finishedRuns);
             out.append("| all | ").append(runs).append(" | ").append(keys).append(" | ").append(seals).append(" | ")
                     .append(killed).append(" | ")
-                    .append(percent(killed, finishedRuns)).append(" | ").append(interval(w)).append(" | | | | | | |\n");
+                    .append(percent(killed, finishedRuns)).append(" | ").append(interval(w)).append(" | | | | | | | ")
+                    .append(phaseTwos).append(" | ").append(patches).append(" | |\n");
         }
         out.append("\nThe rate is kills over Runs that finished. Killers of the Runs that died:\n\n");
         for (Side s : sides) {
@@ -472,6 +537,10 @@ public final class PracticeRuns {
 
     private static String interval(double[] w) {
         return Double.isNaN(w[0]) ? "n/a" : String.format(Locale.ROOT, "%.0f-%.0f%%", 100 * w[0], 100 * w[1]);
+    }
+
+    private static String medianPips(List<Integer> values) {
+        return values.isEmpty() ? "n/a" : median(values.stream().map(Integer::doubleValue).toList());
     }
 
     private static String median(List<Double> values) {

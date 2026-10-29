@@ -14,8 +14,7 @@ import java.util.List;
 
 /**
  * Tengu's floor before the fight (story 10.18, issue #364): get the key, open the cell, and go in
- * rested. The fight itself is the fight Policy's until stories 10.19 and 10.20 give it a Policy of
- * its own.
+ * rested; and, from story 10.19 (issue #365), the first half of the fight itself ({@link #engage}).
  *
  * <p><b>The floor.</b> Depth 10 is the prison boss level ({@code Dungeon.java:320-322}); the boss
  * floors are 5, 10, 15, 20 and 25 ({@code Dungeon.java:441-443}). It opens in state START with the
@@ -57,6 +56,9 @@ final class Tengu implements Policy {
 
     /** The depth of the prison boss level (Dungeon.java:320-322). */
     static final int DEPTH = 10;
+
+    /** The boss's name as the screen shows it (actors.properties: {@code actors.mobs.tengu.name=Tengu}). */
+    static final String BOSS = "Tengu";
 
     /** An iron key's title (items.properties: {@code items.keys.ironkey.name=iron key}). */
     static final String IRON_KEY = "iron key";
@@ -156,5 +158,67 @@ final class Tengu implements Policy {
         int dx = Math.abs(cell % width - target % width);
         int dy = Math.abs(cell / width - target / width);
         return cell != target && dx <= 1 && dy <= 1;
+    }
+
+    /**
+     * The fight with Tengu on the sealed floor, the first half of it (story 10.19): he is in view, awake,
+     * and the hero is to strike him and nothing else. Null when this is not that fight.
+     *
+     * <p><b>Why melee, and why not a retreat.</b> Tengu never moves: his hunting turn attacks when a
+     * clear line of fire reaches the hero and otherwise only spends the turn ({@code Tengu.java:385-429}),
+     * and his chance to hit is a skill of 20 from range and 10 beside the hero ({@code Tengu.java:106-113}),
+     * against a hero's defence, so the cells between are the dearest and the cell beside him the cheapest.
+     * His blow is 6 to 12 ({@code Tengu.java:101-104}). The seal refuses every transition
+     * ({@code Level.java:657-662}), a hero out of his sight regains nothing the lock lets it keep
+     * (regeneration stops fifty turns after the last blow dealt, {@code LockedFloor.java:36-58}, and each
+     * point dealt to him gives a turn back, {@code Tengu.java:154-158}), and he is not the one who has
+     * to come. So the fight Policy's dither between an approach and a retreat at two cells and three, which
+     * cost the hero a shot at each pass in every Run before this story (docs/results/e10-practice-kit.md),
+     * is replaced by a walk that does not turn back: strike when beside him, else step toward the nearest
+     * cell beside him. The hit points' answer is the heal Policy's, which ranks above this one.
+     *
+     * <p><b>The traps.</b> Past 25 hit points of damage he jumps and lays a patch of dart traps drawn for
+     * two turns ({@link Darts}). The walk is over the cells {@link Explore#walkable} allows, which leaves out
+     * the cells the Memory holds from that drawing, and a walk with no way round is made over them: a dart is
+     * 17 damage in all, and a hero that waits for a clear way is shot at by Tengu every turn it waits. His 200 hit points and the
+     * eight brackets are phase one down to 100 ({@code Tengu.java:139-203}); the bar's eleven pips cannot
+     * tell 101 from 100, so the Policy plays the same in the second half, whose bombs, fire and shocker
+     * are story 10.20's.
+     */
+    static List<RunLog.Choice> engage(Observation observation, Memory memory, List<Action> offered,
+                                      List<org.shatterfish.api.ActorView> enemies) {
+        if (!Darts.here(observation)) {
+            return null;
+        }
+        org.shatterfish.api.ActorView boss = enemies.stream().filter(enemy -> enemy.name().equals(BOSS)).findFirst().orElse(null);
+        if (boss == null || boss.emote() == org.shatterfish.api.Emote.SLEEP) {
+            return null;
+        }
+        Action attack = new Action.Attack(boss.cell());
+        if (offered.contains(attack)) {
+            return List.of(new RunLog.Choice(attack, Policies.CERTAIN, "tengu: attack"));
+        }
+        MapSection map = observation.map();
+        int hero = observation.hero().cell();
+        Explore.Path path = Explore.nearest(map, Explore.walkable(observation, memory, false), hero, offered,
+                cell -> adjacent(map, cell, boss.cell()));
+        String why = "tengu: approach ";
+        if (path == null) {
+            // No way round the remembered traps: the walk is made over them.
+            boolean[] walk = Explore.walkable(observation, memory, false);
+            for (Memory.Spot spot : memory.darts()) {
+                if (spot.on(observation.header().depth(), observation.header().branch()) && spot.cell() < walk.length
+                        && spot.cell() != boss.cell()) {
+                    walk[spot.cell()] = map.fog().get(spot.cell()) != org.shatterfish.api.Fog.UNKNOWN
+                            && Explore.WALK.contains(map.tiles().get(spot.cell()));
+                }
+            }
+            path = Explore.nearest(map, walk, hero, offered, cell -> adjacent(map, cell, boss.cell()));
+            why = "tengu: across ";
+        }
+        if (path == null) {
+            return null;
+        }
+        return List.of(new RunLog.Choice(path.step(), Policies.CERTAIN, why + path.distance()));
     }
 }

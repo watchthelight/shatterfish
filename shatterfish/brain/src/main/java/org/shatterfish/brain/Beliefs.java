@@ -324,7 +324,8 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 memory.last(), holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE,
                 memory.drank(), Memory.Trial.NONE, balked, walking, memory.tested(), clouds(memory, observation, waits),
                 memory.refuge(), arrived, rests, memory.stepped(), tried, fleeting, opened(memory, observation), prior,
-                bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, memory.triedExits(), Sentry.remember(memory, observation));
+                bounces, hunger, hp, food, tail, pump, pumpWait, chase, chased, memory.triedExits(), Sentry.remember(memory, observation),
+                Darts.remember(memory, observation));
         // Two Steps in a row refused at one cell: the stepping Policy yields this wait, and that cell is
         // blocked on this floor, whichever Policy chose it (story 4.12; stories 4.8 and 4.10 recomputed
         // it from their own plans). Refused on a calm screen, for good; refused with an enemy in view,
@@ -345,7 +346,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                     holds, near, before, flights, avoid, underfoot, refused, pack, Memory.Aim.NONE, memory.drank(),
                     Memory.Trial.NONE, balked, walking, memory.tested(), after.clouds(),
                     memory.refuge(), arrived, rests, memory.stepped(), -1, lapsing, after.windows(), prior, bounces,
-                    hunger, hp, food, tail, pump, pumpWait, chase, chased, after.triedExits(), after.sentries());
+                    hunger, hp, food, tail, pump, pumpWait, chase, chased, after.triedExits(), after.sentries(), after.darts());
         }
         return after;
     }
