@@ -34,6 +34,8 @@ final class ControlEnablement {
         INTERVAL,
         /** Take over while the bot plays, Hand back while the human does. */
         TAKE_OVER,
+        /** Hands a quiet stretch to the bot from HUMAN (story 8.10, FR-47). */
+        AUTOEXPLORE,
         EXPLAIN,
         /** Opens the Beliefs view, or closes it: everything the Brain believes, at a wait (story 8.6, FR-46). */
         BELIEFS
@@ -70,17 +72,24 @@ final class ControlEnablement {
             case RUNNING -> enabled.addAll(EnumSet.of(Control.PAUSE_RESUME, Control.NEXT_STEP, Control.SPEED,
                     Control.INTERVAL, Control.TAKE_OVER, Control.EXPLAIN));
             // (RUNNING is the Brain moving on: the Beliefs view is for a wait that holds, so it is not here.)
-            case PAUSED -> enabled.addAll(EnumSet.allOf(Control.class));
-            case HUMAN -> enabled.addAll(EnumSet.of(Control.TAKE_OVER, Control.EXPLAIN, Control.BELIEFS));
+            case PAUSED -> {
+                enabled.addAll(EnumSet.allOf(Control.class));
+                // Autoexplore starts from HUMAN: the person is the one who hands a stretch over (story 8.10).
+                enabled.remove(Control.AUTOEXPLORE);
+            }
+            case HUMAN -> enabled.addAll(EnumSet.of(Control.TAKE_OVER, Control.AUTOEXPLORE, Control.EXPLAIN, Control.BELIEFS));
             // A loaded log stopped at a wait: everything a PAUSED Run has but a hand-over, since nobody plays a
-            // replay (story 8.5). The playing half of REPLAY is the RUNNING row less the same control.
-            case REPLAY -> enabled.addAll(EnumSet.complementOf(EnumSet.of(Control.TAKE_OVER)));
+            // replay (story 8.5), and so nobody hands a stretch to autoexplore either (story 8.10). The playing
+            // half of REPLAY is the RUNNING row less the same control.
+            case REPLAY -> enabled.addAll(EnumSet.complementOf(EnumSet.of(Control.TAKE_OVER, Control.AUTOEXPLORE)));
         }
         if (!capabilities.pacing()) {
             enabled.remove(Control.INTERVAL);
         }
         if (!capabilities.takeover()) {
             enabled.remove(Control.TAKE_OVER);
+            // Autoexplore changes hands twice, so a Run that cannot change hands cannot do it.
+            enabled.remove(Control.AUTOEXPLORE);
         }
         return enabled;
     }
