@@ -80,9 +80,16 @@ final class Ranged implements Policy {
             Tile.EXIT, Tile.CHASM, Tile.PEDESTAL, Tile.EMPTY_WELL, Tile.REGION_DECO, Tile.REGION_DECO_ALT);
 
     private final Codex.Knowledge knowledge;
+    private final org.shatterfish.api.Tunables.Vector tunables;
 
     Ranged(Codex.Knowledge knowledge) {
+        this(knowledge, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #Ranged(Codex.Knowledge)} judging a fight by the vector's {@code fight.margin_per_mille} (story 10.35). */
+    Ranged(Codex.Knowledge knowledge, org.shatterfish.api.Tunables.Vector tunables) {
         this.knowledge = knowledge;
+        this.tunables = tunables;
     }
 
     @Override
@@ -125,7 +132,7 @@ final class Ranged implements Policy {
                 target = enemy;
             }
         }
-        if (target == null || best > REACH || !Fight.favourable(observation, knowledge, enemies)
+        if (target == null || best > REACH || !Fight.favourable(observation, knowledge, enemies, tunables)
                 || !clear(observation, hero, target.cell())) {
             return null;
         }

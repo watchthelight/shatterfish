@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: '2026-09-04'
-last_updated: 2026-10-28
+last_updated: 2026-10-29
 project: shatterfish
 project_key: NOKEY
 tracking_system: file-system
@@ -150,14 +150,53 @@ development_status:
   8-2-the-explain-expansion: done  # issue #317
   8-3-pause-on-conditions: done  # issue #318
   8-4-the-pause-on-section-in-the-games-settings-screen: done  # issue #319
-  8-5-the-replay-session: backlog  # issue #320
+  8-5-the-replay-session: done  # issue #320
   8-6-the-beliefs-view: done  # issue #321
   8-7-the-replay-scrubber: backlog  # issue #322
   8-8-the-coachs-sentence: done  # issue #323
   8-9-coach-mode: done  # issue #324
-  8-10-autoexplore-with-the-bots-brains: backlog  # issue #325
+  8-10-autoexplore-with-the-bots-brains: done  # issue #325
   8-11-the-v2-session-and-the-epic-close: backlog  # issue #326
   epic-8-retrospective: optional
 
   epic-9: backlog
   epic-9-retrospective: optional
+  epic-10: backlog  # issue #381; milestone E10; stories planned 2026-10-28 (correct-course, plan resilient-herding-moonbeam)
+  10-1-the-boss-staircase-in-the-direction-table: backlog  # issue #347
+  10-2-the-killer-on-every-death: backlog  # issue #348
+  10-3-the-all-class-direction-table-and-the-think-time-column: backlog  # issue #349
+  10-4-the-tengu-seed-set: backlog  # issue #350
+  10-5-the-practice-harness: backlog  # issue #351
+  10-6-practice-kits-from-real-arrivals: backlog  # issue #352
+  10-7-the-prison-diagnosis: backlog  # issue #353
+  10-8-skeleton-bone-burst: backlog  # issue #354
+  10-9-dm-100-lightning: backlog  # issue #355
+  10-10-guard-chain-pull: backlog  # issue #356
+  10-11-thief-and-bandit-steal: backlog  # issue #357
+  10-12-necromancer-target-priority: backlog  # issue #358
+  10-13-swarm-split-and-the-corridor: backlog  # issue #359
+  10-14-doors-chokepoints-and-the-retreat-upstairs: backlog  # issue #360
+  10-15-prison-food-budgeting: backlog  # issue #361
+  10-16-the-wandmaker-quest: backlog  # issue #362
+  10-17-the-power-curve-by-depth: backlog  # issue #363
+  10-18-tengu-entry-key-and-seal: backlog  # issue #364
+  10-19-tengu-phase-one-the-dart-trap-memory: backlog  # issue #365
+  10-20-tengu-phase-two-the-threat-map: backlog  # issue #366
+  10-21-tengu-conversion-on-the-practice-floor: backlog  # issue #367
+  10-22-the-think-budget-amendment-to-adr-0010: backlog  # issue #368
+  10-23-the-classloader-isolation-spike: backlog  # issue #369
+  10-24-determinized-fight-rollouts: backlog  # issue #370
+  10-25-the-warrior-plays-its-kit: backlog  # issue #371
+  10-26-the-mage-plays-its-kit: backlog  # issue #372
+  10-27-the-rogue-plays-its-kit: backlog  # issue #373
+  10-28-the-huntress-plays-its-kit: backlog  # issue #374
+  10-29-the-duelist-plays-its-kit: backlog  # issue #375
+  10-30-the-cleric-plays-its-kit: backlog  # issue #376
+  10-31-the-subclass-choice-at-tengu-s-mask: backlog  # issue #377
+  10-32-the-r1-check-depth-10-on-every-class: backlog  # issue #378
+  10-33-the-r2-check-tengu-conversion: backlog  # issue #379
+  10-34-the-registered-tengu-run-and-the-epic-close: backlog  # issue #380
+  10-35-the-registry-of-tunable-parameters: done  # issue #382
+  10-36-the-tune-runner: backlog  # issue #383
+  10-37-the-first-tuning-run: backlog  # issue #384
+  epic-10-retrospective: optional

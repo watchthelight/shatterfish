@@ -78,6 +78,40 @@ public final class RunOne {
     /** The kit profile a practice Run's hero arrives with; stated with {@link #PRACTICE} and not without it. */
     public static final String KIT = "--kit";
 
+    /**
+     * A parameter vector played over the Playbook (story 10.35): {@code name=value} pairs joined by commas,
+     * each name a registered tunable ({@link org.shatterfish.api.Tunables}) and each value inside its bounds.
+     * For the Rig's tuner and its checks only. The vector becomes part of the Playbook the Brain is built on,
+     * so its canonical text, and the configuration hash in the Run log's header, name every number that moved:
+     * a Run is still (tag, seed, actions) and the Playbook, and a Replay plays the same vector.
+     */
+    public static final String TUNABLES = "--tunables";
+
+    /** The vector {@code text} states, as {@code name=value,name=value}; refuses a name or a value it cannot read. */
+    static Map<String, Long> tunables(String text) {
+        Map<String, Long> given = new java.util.TreeMap<>();
+        if (text.isBlank()) {
+            return given;
+        }
+        for (String pair : text.split(",", -1)) {
+            int cut = pair.indexOf('=');
+            if (cut <= 0) {
+                throw new IllegalArgumentException(TUNABLES + " is name=value pairs joined by commas: " + pair);
+            }
+            String name = pair.substring(0, cut).strip();
+            long value;
+            try {
+                value = Long.parseLong(pair.substring(cut + 1).strip());
+            } catch (NumberFormatException notANumber) {
+                throw new IllegalArgumentException(TUNABLES + " " + name + " is a whole number: " + pair, notANumber);
+            }
+            if (given.put(name, value) != null) {
+                throw new IllegalArgumentException(TUNABLES + " names " + name + " twice");
+            }
+        }
+        return given;
+    }
+
     private RunOne() {
     }
 
@@ -130,6 +164,12 @@ public final class RunOne {
         org.shatterfish.api.Playbook playbook = Brains.readsPlaybook(brain) && arguments.containsKey(PLAYBOOK)
                 ? PlaybookFile.read(Path.of(arguments.get(PLAYBOOK)), brain, Path.of(required(arguments, CODEX)))
                 : null;
+        if (arguments.containsKey(TUNABLES)) {
+            if (playbook == null) {
+                throw new IllegalArgumentException(TUNABLES + " moves the numbers of a Playbook, and this Run has none");
+            }
+            playbook = org.shatterfish.api.Tunables.with(playbook, tunables(arguments.get(TUNABLES)));
+        }
         String knowledge = arguments.containsKey(CODEX) && Brains.readsCodex(brain)
                 ? CodexKnowledge.digest(Path.of(arguments.get(CODEX))) : null;
         RunLoop.Logging logging = new RunLoop.Logging(out,
@@ -204,7 +244,7 @@ public final class RunOne {
     /** Every flag a Run knows. Held by name, like the parent's (RigOracleGateTest). */
     static final java.util.List<String> KNOWN = java.util.List.of(SEED, CLASS, SALT, OUT,
             COMMIT, BRAIN, BRAIN_COMMIT, REGISTRATION, MACHINE, CAP, CHALLENGES, CODEX, WEIGHTS, PLAYBOOK,
-            PRACTICE, KIT);
+            PRACTICE, KIT, TUNABLES);
 
     private static String required(Map<String, String> arguments, String flag) {
         String value = arguments.get(flag);

@@ -61,10 +61,17 @@ final class Pickup implements Policy {
 
     private final Evaluation evaluation;
     private final Codex.Knowledge knowledge;
+    private final org.shatterfish.api.Tunables.Vector tunables;
 
     Pickup(Evaluation evaluation, Codex.Knowledge knowledge) {
+        this(evaluation, knowledge, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #Pickup(Evaluation, Codex.Knowledge)} keeping off a retreated-from region for the vector's {@code brain.avoid_waits} (story 10.35). */
+    Pickup(Evaluation evaluation, Codex.Knowledge knowledge, org.shatterfish.api.Tunables.Vector tunables) {
         this.evaluation = evaluation;
         this.knowledge = knowledge;
+        this.tunables = tunables;
     }
 
     @Override
@@ -176,7 +183,7 @@ final class Pickup implements Policy {
      * the fight Policy retreats from again. Null when no heap is worth its walk either way.
      */
     private Plan plan(Observation observation, Memory memory) {
-        for (long keepFor : new long[]{0, Brain.AVOID_WAITS / 2}) {
+        for (long keepFor : new long[]{0, tunables.getInt(org.shatterfish.api.Tunables.BRAIN_AVOID_WAITS) / 2}) {
             boolean[] walk = Explore.walkable(observation, memory, keepFor, false);
             HeapView best = best(observation, memory, walk);
             if (best != null) {

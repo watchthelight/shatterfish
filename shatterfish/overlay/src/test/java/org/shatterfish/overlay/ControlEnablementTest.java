@@ -26,17 +26,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ControlEnablementTest {
 
-    private static final Set<Control> EVERY = EnumSet.allOf(Control.class);
 
     /** EXPERIENCE.md, RUNNING: Pause, speed selector, Take over, Explain; Next Step acts as Pause; Run N disabled. */
     private static final Set<Control> RUNNING = EnumSet.of(Control.PAUSE_RESUME, Control.NEXT_STEP, Control.SPEED,
             Control.INTERVAL, Control.TAKE_OVER, Control.EXPLAIN);
 
-    /** PAUSED: Resume, Next Step, Run N, speed selector, Take over, Explain. */
-    private static final Set<Control> PAUSED = EVERY;
+    /** PAUSED: Resume, Next Step, Run N, speed selector, Take over, Explain; Autoexplore starts from HUMAN only. */
+    private static final Set<Control> PAUSED = EnumSet.complementOf(EnumSet.of(Control.AUTOEXPLORE));
 
-    /** HUMAN: Hand back, Explain and Beliefs (story 8.6); everything else disabled. */
-    private static final Set<Control> HUMAN = EnumSet.of(Control.TAKE_OVER, Control.EXPLAIN, Control.BELIEFS);
+    /** HUMAN: Hand back, Autoexplore (story 8.10), Explain and Beliefs (story 8.6); everything else disabled. */
+    private static final Set<Control> HUMAN = EnumSet.of(Control.TAKE_OVER, Control.AUTOEXPLORE, Control.EXPLAIN, Control.BELIEFS);
 
     /** Run over: every control disabled (the Panel toggle, which is not in this row, stays). */
     private static final Set<Control> OVER = EnumSet.noneOf(Control.class);
@@ -69,7 +68,7 @@ class ControlEnablementTest {
     @DisplayName("Run N and its count are enabled only in PAUSED, so a Run N is never started over a Run N or a human's turn")
     void run_n_only_when_paused() {
         for (Mode mode : Mode.values()) {
-            boolean paused = mode == Mode.PAUSED;
+            boolean paused = mode == Mode.PAUSED || mode == Mode.REPLAY; // a replay lands where Run N says
             assertEquals(paused, ControlEnablement.matrix(mode, false).contains(Control.RUN_N), mode.name());
             assertEquals(paused, ControlEnablement.matrix(mode, false).contains(Control.RUN_N_COUNT), mode.name());
         }
@@ -77,10 +76,11 @@ class ControlEnablementTest {
 
     @Test
     @DisplayName("HUMAN leaves Pause, Next Step, Run N, the speed selector and both steppers dim; the human plays")
-    void human_disables_everything_but_hand_back_and_explain() {
+    void human_disables_everything_but_hand_back_autoexplore_and_explain() {
         Set<Control> human = ControlEnablement.matrix(Mode.HUMAN, false);
         for (Control control : Control.values()) {
-            boolean expected = control == Control.TAKE_OVER || control == Control.EXPLAIN || control == Control.BELIEFS;
+            boolean expected = control == Control.TAKE_OVER || control == Control.AUTOEXPLORE || control == Control.EXPLAIN
+                    || control == Control.BELIEFS;
             assertEquals(expected, human.contains(control), control.name());
         }
     }
@@ -98,7 +98,7 @@ class ControlEnablementTest {
             assertFalse(untaken.contains(Control.TAKE_OVER), "a Run that cannot change hands has no Take over: " + mode);
             Set<Control> withheld = EnumSet.copyOf(now);
             withheld.removeAll(untaken);
-            assertTrue(EnumSet.of(Control.TAKE_OVER).containsAll(withheld), "nothing else is withheld: " + mode);
+            assertTrue(EnumSet.of(Control.TAKE_OVER, Control.AUTOEXPLORE).containsAll(withheld), "nothing else is withheld: " + mode);
         }
     }
 
@@ -145,5 +145,19 @@ class ControlEnablementTest {
         assertEquals("Take over", ControlEnablement.takeOverLabel(Mode.RUNNING));
         assertEquals("Take over", ControlEnablement.takeOverLabel(Mode.PAUSED));
         assertEquals("Hand back", ControlEnablement.takeOverLabel(Mode.HUMAN));
+    }
+
+    @Test
+    @DisplayName("REPLAY is its own row (story 8.5): every control of PAUSED but Take over, and Run over disables all")
+    void replay_row() {
+        Set<Control> expected = EnumSet.copyOf(ControlEnablement.matrix(Mode.PAUSED, false));
+        expected.remove(Control.TAKE_OVER);
+        assertEquals(expected, ControlEnablement.matrix(Mode.REPLAY, false));
+        assertFalse(ControlEnablement.matrix(Mode.REPLAY, false).contains(Control.TAKE_OVER),
+                "nobody plays a replay");
+        assertTrue(ControlEnablement.matrix(Mode.REPLAY, false).contains(Control.RUN_N), "Run N lands the replay");
+        assertTrue(ControlEnablement.matrix(Mode.REPLAY, false).contains(Control.BELIEFS),
+                "the Beliefs view is a pure function of the Brain's BeliefView; a replay has none, so it opens on its empty state (story 8.6)");
+        assertEquals(OVER, ControlEnablement.matrix(Mode.REPLAY, true));
     }
 }
