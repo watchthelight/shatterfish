@@ -117,6 +117,14 @@ public final class Runner {
      */
     public static final String AGAINST = "--against";
 
+    /**
+     * A parameter vector the {@code --brain} side plays over its Playbook (story 10.36): the child's own
+     * {@code --tunables}, {@code name=value} pairs of registered tunables. Never the {@code --against} side,
+     * so a comparison of a candidate vector against the current numbers is one command. Refused with a
+     * Registration, whose Brain is the committed one.
+     */
+    public static final String TUNABLES = "--tunables";
+
     /** Whether a comparison's bounds are the calibrated ones, every number of them. */
     static boolean calibrated(org.shatterfish.api.Registration registration) {
         Calibration.Cell chosen = Calibration.CHOSEN;
@@ -151,7 +159,7 @@ public final class Runner {
 
     /** Every flag the Rig knows. The list is asserted by name, so a new one is a decision. */
     static final List<String> KNOWN = List.of(BRAIN, SEEDS, PARALLEL, OUT, ROOT, COMMIT, CAP,
-            DEADLINE, VERIFY, REPLAY, FINISHED, REGISTRATION, AGAINST);
+            DEADLINE, VERIFY, REPLAY, FINISHED, REGISTRATION, AGAINST, TUNABLES);
 
     /** The two things this command can be asked to do, of which it does exactly one. */
     static final List<String> MODES = List.of(VERIFY, REPLAY);
@@ -298,6 +306,17 @@ public final class Runner {
         String commit = arguments.containsKey(COMMIT) ? required(arguments, COMMIT) : commitOf(root);
         // The Registration first, before a folder is made or a Run is dispatched. A refusal that
         // arrives after five hundred Runs is a refusal that cost what it was preventing.
+        String tunables = arguments.getOrDefault(TUNABLES, "");
+        if (!tunables.isEmpty()) {
+            RunOne.checkTunables(tunables);
+            if (!Brains.readsPlaybook(brain)) {
+                throw new IllegalArgumentException(TUNABLES + " moves the numbers of a Playbook, and " + brain + " has none");
+            }
+            if (arguments.containsKey(REGISTRATION)) {
+                throw new IllegalArgumentException(TUNABLES + " is for the tuner and its checks: a Registration fixes the committed"
+                        + " Brain, so a Run under one plays the Playbook as committed");
+            }
+        }
         long checking = System.nanoTime();
         Registered registered = registration(arguments, root, set, brain, against, commit);
         Registrations.Committed registration = registered.committed();
@@ -393,7 +412,8 @@ public final class Runner {
                             RunIndex.State.STARTED, "", triple.seed(), triple.heroClass().name(),
                             triple.challengeFlags(), salt, "", 0, ""));
                     started.add(pool.submit(() -> one(side.index(), side.out(), alive, triple, salt,
-                            runId, side.brain(), commit, machine, cap, deadline, side.waits(), stamp, codex, weights, playbooks)));
+                            runId, side.brain(), commit, machine, cap, deadline, side.waits(), stamp, codex, weights, playbooks,
+                            side == sides.get(0) ? tunables : "")));
                 }
             }
             // Awaited as they finish rather than in the order they were sent. A refusal on the
@@ -735,7 +755,7 @@ public final class Runner {
     private static void one(RunIndex index, Path out, Map<String, Process> alive, SeedSet.Entry triple,
                             long salt, String runId, String brain, String commit, String machine,
                             int cap, int deadline, AtomicLong waits, String registration, Path codex,
-                            Path weights, Path playbooks) {
+                            Path weights, Path playbooks, String tunables) {
         Path working = out.resolve("work").resolve(runId);
         long began = System.nanoTime();
         String why = "";
@@ -745,7 +765,7 @@ public final class Runner {
         Process child = null;
         try {
             Files.createDirectories(working);
-            child = child(out, working, triple, salt, brain, commit, machine, cap, registration, codex, weights, playbooks);
+            child = child(out, working, triple, salt, brain, commit, machine, cap, registration, codex, weights, playbooks, tunables);
             alive.put(out + "/" + runId, child);
             Process reading = child;
             // A platform thread, not a virtual one: reading a process pipe is a blocking native
@@ -861,7 +881,7 @@ public final class Runner {
 
     private static Process child(Path out, Path working, SeedSet.Entry triple, long salt,
                                  String brain, String commit, String machine, int cap,
-                                 String registration, Path codex, Path weights, Path playbooks) throws IOException {
+                                 String registration, Path codex, Path weights, Path playbooks, String tunables) throws IOException {
         Path java = Path.of(System.getProperty("java.home"), "bin", "java");
         Path exe = Path.of(java + ".exe");
         List<String> command = new ArrayList<>(List.of(
@@ -886,6 +906,10 @@ public final class Runner {
         if (Brains.readsPlaybook(brain)) {
             command.add(RunOne.PLAYBOOK);
             command.add(playbooks.resolve(brain + ".json").toAbsolutePath().toString());
+            if (!tunables.isEmpty()) {
+                command.add(RunOne.TUNABLES);
+                command.add(tunables);
+            }
         }
         if (!registration.isEmpty()) {
             // Only when there is one. The child's own parser refuses an empty value -- a flag is

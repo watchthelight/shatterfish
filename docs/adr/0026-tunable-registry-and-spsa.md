@@ -94,3 +94,40 @@ If this is wrong in six months:
   canonical text, tested in `TunablePlaybookTest`.
 - **Merge conflict with other Policy stories.** The overloads keep old signatures, so a later story's
   call into a helper keeps compiling and plays the default until it passes the vector.
+
+## Amendment (story 10.36): the objective, the variance choices and the salt reservation
+
+Decided when the tune runner was built (`:rig:tune`, `Tune`, `Spsa`; usage in `docs/methodology.md`).
+
+**The objective.** The score of one Run is 5 per boss killed plus the deepest depth reached, read from
+the Run log's ending; a Run with no ending is not scored. A Goo kill is worth the five floors that lead
+to it, and every floor deeper counts where nothing was killed, so the tuner has a slope on a Brain that
+dies before Goo. The metric is fixed before a run and not tunable by flag. Options weighed: win rate
+(near zero, no slope), depth alone (ignores kills, which are the epic's target), kills alone (too
+sparse at 20 Runs per class), a learned value (epic 9). A different objective is a new ADR amendment.
+
+**Variance.** The plus and the minus vector play the same triples under the same salts, so the paired
+difference cancels a seed's difficulty; a triple with a Run missing on a side is dropped from both; each
+class is one voice (the mean of the class means); the move of one iteration is capped at two steps; and
+every iteration plays a fresh window of triples under fresh salts so no slice is fitted. The standard
+error of the paired difference is written to the trajectory. SPSA credits every number with the whole
+score change, so a large difference moves numbers that did not cause it; the cap, the decaying gain and
+tuning a subset at a time are the controls, and the second slice is the judge.
+
+**Salt map.** The tuner plays salts 5000 to 6999 and no others, and refuses a run whose base is under
+5000 or whose last salt (base + iterations x classes x triples per class - 1) is 7000 or more.
+
+| Salts | Use |
+|---|---|
+| 1000 up | The tuning slice for lever PRs (`:rig:direction`, first 40 Warriors). Also a confirmation slice for a kept candidate. |
+| 3000 up | The confirmation slice. |
+| 5000 to 6999 | SPSA only (`:rig:tune`). |
+| 7000 and up | Pre-registered confirmation tiebreaks (PR #393 ran Warrior, first 120, salt base 7000). |
+
+This replaces the "tune on the salt-1000 slice" wording of story 10.37's acceptance text: that story tunes on
+5000 to 6999 and confirms on the 1000 and 3000 slices. Triples still come from `standard` for all of them, and
+the salt (and, in the tuner, the moving window) is what keeps a fitted run from being replayed as its own
+confirmation.
+
+**Defaults.** `--params` defaults to `all` (the epic's wording), but the first runs should name a subset:
+with 31 numbers the noise of 20 Runs per class swamps most single slopes.

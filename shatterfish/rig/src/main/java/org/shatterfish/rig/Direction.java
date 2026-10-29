@@ -66,8 +66,14 @@ public final class Direction {
      * the 4.x Brain at main (story 6.1).
      */
     public static final String BRAIN_FLAG = "--brain";
+    /**
+     * A parameter vector the current build plays over its Playbook (story 10.36), as the child's
+     * {@code --tunables}; the baseline plays the Playbook as committed. A candidate against the current numbers
+     * is {@code --tunables ... --baseline <folder of the current numbers>}.
+     */
+    public static final String TUNABLES = "--tunables";
 
-    static final List<String> KNOWN = List.of(SET, CLASS, FIRST, SALT_BASE, BASELINE, JOBS, OUT, ROOT, DEBUG_RECORD, BRAIN_FLAG);
+    static final List<String> KNOWN = List.of(SET, CLASS, FIRST, SALT_BASE, BASELINE, JOBS, OUT, ROOT, DEBUG_RECORD, BRAIN_FLAG, TUNABLES);
 
     /** Default number of Runs in flight: a quarter of the cores, from 2 to 8, so several measurements can share the machine. */
     static final int DEFAULT_JOBS = Math.max(2, Math.min(8, Runtime.getRuntime().availableProcessors() / 4));
@@ -152,7 +158,14 @@ public final class Direction {
         if (!Brains.readsWeights(brain)) {
             throw new IllegalArgumentException(BRAIN_FLAG + " names a Brain built on the Codex and weights; " + brain + " is not");
         }
-        int failedNow = play(picks, currentFolder, Runner.classpath(), root, tag, commit, jobs, brain);
+        String tunables = a.getOrDefault(TUNABLES, "");
+        if (!tunables.isEmpty()) {
+            RunOne.checkTunables(tunables);
+            if (!Brains.readsPlaybook(brain)) {
+                throw new IllegalArgumentException(TUNABLES + " moves the numbers of a Playbook, and " + brain + " has none");
+            }
+        }
+        int failedNow = play(picks, currentFolder, Runner.classpath(), root, tag, commit, jobs, brain, tunables);
 
         Path baselineLogs = baselineFolder;
         String baselineName = baseline;
@@ -179,7 +192,7 @@ public final class Direction {
                 Path jar = brainJar(source);
                 String cp = swapBrain(Runner.classpath(), jar);
                 baselineLogs = out.resolve("baseline");
-                failedBase = play(picks, baselineLogs, cp, source, tag, sha, jobs, BRAIN);
+                failedBase = play(picks, baselineLogs, cp, source, tag, sha, jobs, BRAIN, "");
                 baselineName = sha.startsWith(baseline) ? sha.substring(0, 9) : baseline + " " + sha.substring(0, 9);
                 if (cached != null && failedBase == 0) {
                     store(baselineLogs, cached);
@@ -201,7 +214,7 @@ public final class Direction {
 
         DirectionMetrics.Side now = DirectionMetrics.read(currentFolder);
         DirectionMetrics.Side then = baselineLogs == null ? null : DirectionMetrics.read(baselineLogs);
-        String table = DirectionMetrics.table("current " + commit.substring(0, 9), now, baselineName, then);
+        String table = DirectionMetrics.table("current " + commit.substring(0, 9) + (tunables.isEmpty() ? "" : " + tunables"), now, baselineName, then);
         StringBuilder text = new StringBuilder();
         text.append(describe).append("\n\n").append(table);
         if (failedNow + failedBase > 0) {
@@ -223,8 +236,8 @@ public final class Direction {
      * Plays every pick, {@code jobs} at a time, one child JVM per Run (AD-6), into {@code folder}.
      * Codex and weights come from {@code source}'s checkout. Returns how many Runs did not finish.
      */
-    private static int play(List<DirectionSelect.Pick> picks, Path folder, String classpath, Path source,
-                            String tag, String commit, int jobs, String brain) {
+    static int play(List<DirectionSelect.Pick> picks, Path folder, String classpath, Path source,
+                    String tag, String commit, int jobs, String brain, String tunables) {
         try {
             Files.createDirectories(folder);
         } catch (IOException e) {
@@ -240,7 +253,7 @@ public final class Direction {
             for (int i = 0; i < picks.size(); i++) {
                 DirectionSelect.Pick pick = picks.get(i);
                 Path working = folder.resolve("work").resolve(String.valueOf(i));
-                started.add(pool.submit(() -> one(pick, folder, working, classpath, codex, weights, playbook, commit, brain)));
+                started.add(pool.submit(() -> one(pick, folder, working, classpath, codex, weights, playbook, commit, brain, tunables)));
             }
             int failed = 0;
             for (Future<Boolean> f : started) {
@@ -263,7 +276,8 @@ public final class Direction {
     }
 
     private static boolean one(DirectionSelect.Pick pick, Path folder, Path working, String classpath,
-                               Path codex, Path weights, Path playbook, String commit, String brain) throws IOException, InterruptedException {
+                               Path codex, Path weights, Path playbook, String commit, String brain,
+                               String tunables) throws IOException, InterruptedException {
         Files.createDirectories(working);
         var triple = pick.entry();
         List<String> command = new ArrayList<>(List.of(
@@ -282,6 +296,10 @@ public final class Direction {
         if (playbook != null && Brains.readsPlaybook(brain)) {
             command.add(RunOne.PLAYBOOK);
             command.add(playbook.toAbsolutePath().toString());
+            if (!tunables.isEmpty()) {
+                command.add(RunOne.TUNABLES);
+                command.add(tunables);
+            }
         }
         ProcessBuilder builder = new ProcessBuilder(command).directory(working.toFile()).redirectErrorStream(true);
         org.shatterfish.harness.log.DebugRecord.inherit(builder);

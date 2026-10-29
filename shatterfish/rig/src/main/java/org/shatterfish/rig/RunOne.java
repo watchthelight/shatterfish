@@ -103,6 +103,23 @@ public final class RunOne {
         return given;
     }
 
+    /**
+     * Refuses a vector that names a number nobody registered or one outside its bounds, in the parent, before a
+     * child is started: a bad vector would otherwise fail every Run of an invocation with the same message.
+     */
+    static void checkTunables(String text) {
+        for (Map.Entry<String, Long> entry : tunables(text).entrySet()) {
+            org.shatterfish.api.Tunables.Tunable tunable = org.shatterfish.api.Tunables.named(entry.getKey());
+            if (tunable == null) {
+                throw new IllegalArgumentException(TUNABLES + " names " + entry.getKey() + ", which is not registered");
+            }
+            if (entry.getValue() < tunable.min() || entry.getValue() > tunable.max()) {
+                throw new IllegalArgumentException(TUNABLES + " " + entry.getKey() + " is from " + tunable.min()
+                        + " to " + tunable.max() + ": " + entry.getValue());
+            }
+        }
+    }
+
     private RunOne() {
     }
 
