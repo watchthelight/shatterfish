@@ -135,3 +135,7 @@ If this is wrong in six months:
   boss floor reads earlier state.
 - **Unspent talent points at a high start level strand the hero.** Mitigation: the first Run of each
   class is checked for the Brain spending them, and the profile's level is the one a real arrival has.
+
+## Review notes
+
+The fairness review (2026-10-28) found no violation. Two facts it asked to state: `arrive` identifies the pack items it builds, which marks the potion of healing kind as known for the Run, as holding one would for a player and revealing no other item; and it sets the `LimitedDrops` counts, so floors below the boss differ from a real descent, which `BOSS_DOWN` ends before it matters. The gallery shows practice Runs (a debug view that counts nothing).
