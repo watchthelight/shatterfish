@@ -18,7 +18,7 @@ class PlaybookTest {
     @DisplayName("the reference Playbook holds the values the Policies decided by before they were data, and writes them canonically")
     void the_reference() {
         Playbook playbook = Playbook.reference("shatterfish");
-        assertEquals("{\"bosses\":{\"dm300\":{\"descent_rest_per_mille\":1000,\"status\":\"UNTESTED\"},\"goo\":{\"descent_rest_per_mille\":1000,\"drink_per_mille\":400,\"meet_range\":6,\"wash_range\":4},\"tengu\":{\"descent_rest_per_mille\":1000,\"status\":\"UNTESTED\"}},\"classes\":{},\"format\":1,"
+        assertEquals("{\"bosses\":{\"dm300\":{\"descent_rest_per_mille\":1000,\"status\":\"UNTESTED\"},\"goo\":{\"descent_rest_per_mille\":1000,\"drink_per_mille\":400,\"meet_range\":6,\"wash_range\":4},\"tengu\":{\"descent_rest_per_mille\":1000,\"enter_per_mille\":1000,\"rest_limit\":20,\"status\":\"UNTESTED\"}},\"classes\":{},\"format\":1,"
                 + "\"identify\":{\"escape_waits\":12,\"gain_odds_per_mille\":200,\"healing_odds_per_mille\":200,"
                 + "\"inventory_odds_per_mille\":250,\"known_gains\":0,\"potion_hp_per_mille\":500,\"reach\":8,\"rest_waits\":50,\"scroll_hp_per_mille\":1000},\"kit\":{\"zap_reach\":0},"
                 + "\"name\":\"shatterfish\",\"upgrade\":{\"armour_pick\":\"WORN\",\"hold_until_depth\":0,\"tie\":\"WEAPON\",\"unknown_weapon\":\"NO\",\"weapon_lead\":0},\"version\":1}",
@@ -67,13 +67,19 @@ class PlaybookTest {
     void bosses() {
         Playbook.Goo drinking = Playbook.Goo.REFERENCE.with(Map.of("drink_per_mille", 600L, "meet_range", 3L));
         Playbook playbook = new Playbook("shatterfish", 1, Playbook.Identify.REFERENCE, Playbook.Upgrade.REFERENCE, Playbook.Kit.REFERENCE, List.of(),
-                new Playbook.Bosses(drinking, new Playbook.Later(800, "TESTED"), Playbook.Later.REFERENCE));
+                new Playbook.Bosses(drinking, new Playbook.Tengu(800, 700, 5, "TESTED"), Playbook.Later.REFERENCE));
         assertEquals(600, playbook.bosses().goo().drinkPerMille());
         assertEquals(3, playbook.bosses().goo().meetRange());
         assertEquals(4, playbook.bosses().goo().washRange(), "a field not stated is the reference's");
         assertTrue(playbook.canonical().startsWith("{\"bosses\":{\"dm300\":{\"descent_rest_per_mille\":1000,\"status\":\"UNTESTED\"},"
                 + "\"goo\":{\"descent_rest_per_mille\":1000,\"drink_per_mille\":600,\"meet_range\":3,\"wash_range\":4},"
-                + "\"tengu\":{\"descent_rest_per_mille\":800,\"status\":\"TESTED\"}}"), playbook.canonical());
+                + "\"tengu\":{\"descent_rest_per_mille\":800,\"enter_per_mille\":700,\"rest_limit\":5,\"status\":\"TESTED\"}}"), playbook.canonical());
+        assertEquals(700, playbook.bosses().tengu().enterPerMille());
+        assertThrows(IllegalArgumentException.class, () -> Playbook.Tengu.REFERENCE.with(Map.of("enter_per_mille", 0L)));
+        assertThrows(IllegalArgumentException.class, () -> Playbook.Tengu.REFERENCE.with(Map.of("rest_limit", 101L)));
+        assertEquals(Playbook.Tengu.SPECS.stream().map(Playbook.Spec::key).toList(),
+                List.copyOf(Playbook.Tengu.REFERENCE.values().keySet()));
+        assertEquals(Playbook.Tengu.SPECS, Playbook.specs("bosses.tengu"));
         assertNotEquals(Playbook.reference("shatterfish").canonical(), playbook.canonical(), "a boss entry is part of the Brain's hash");
         assertEquals(Playbook.reference("shatterfish"), new Playbook("shatterfish", 1, Playbook.Identify.REFERENCE,
                 Playbook.Upgrade.REFERENCE, List.of()), "the five-argument form is the reference bosses");

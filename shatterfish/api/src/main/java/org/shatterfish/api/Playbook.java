@@ -187,7 +187,8 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
             case "upgrade" -> Upgrade.SPECS;
             case "kit" -> Kit.SPECS;
             case "bosses.goo" -> Goo.SPECS;
-            case "bosses.tengu", "bosses.dm300" -> Later.SPECS;
+            case "bosses.tengu" -> Tengu.SPECS;
+            case "bosses.dm300" -> Later.SPECS;
             default -> throw new IllegalArgumentException("the Playbook has no section " + section);
         };
     }
@@ -373,17 +374,27 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
     /**
      * How each boss is approached (story 7.5, FR-35). A boss entry holds typed fields and no layout, no
      * cell and no coordinate: the Brain reads the boss from the screen. {@code goo} is the one entry
-     * whose fields change a fight; the later bosses carry the descent rest and are marked
-     * {@code UNTESTED} until the {@code bosses} set reaches them in numbers worth tuning on.
+     * whose fields change a fight and {@code tengu} the one whose fields change the walk to it (story
+     * 10.18); the last boss carries the descent rest and is marked {@code UNTESTED} until the
+     * {@code bosses} set reaches it in numbers worth tuning on.
      *
      * @param goo   the first boss, depth 5
      * @param tengu the second boss, depth 10
      * @param dm300 the third boss, depth 15
      */
-    public record Bosses(Goo goo, Later tengu, Later dm300) {
+    public record Bosses(Goo goo, Tengu tengu, Later dm300) {
 
         /** The values the Policies decided by before the entries existed. */
-        public static final Bosses REFERENCE = new Bosses(Goo.REFERENCE, Later.REFERENCE, Later.REFERENCE);
+        public static final Bosses REFERENCE = new Bosses(Goo.REFERENCE, Tengu.REFERENCE, Later.REFERENCE);
+
+        /**
+         * Bosses whose Tengu entry is the reference entry with the descent rest and status of {@code tengu}: the
+         * shape before story 10.18, which held Tengu's entry as a later boss's.
+         */
+        public Bosses(Goo goo, Later tengu, Later dm300) {
+            this(goo, Tengu.REFERENCE.with(Map.of("descent_rest_per_mille", (long) tengu.descentRestPerMille(),
+                    "status", tengu.status())), dm300);
+        }
 
         public Bosses {
             java.util.Objects.requireNonNull(goo, "goo");
@@ -463,7 +474,60 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
     }
 
     /**
-     * A later boss's entry (Tengu, DM-300): the descent rest, and whether the entry was ever tuned.
+     * The Tengu entry: the boss of depth 10, and the floor the Brain walks through to reach him (story
+     * 10.18). The fight has no field yet.
+     *
+     * @param descentRestPerMille the share of the hit points, in thousandths, the hero rests up to beside the stairs down to Tengu's floor
+     * @param enterPerMille       the share of the hit points, in thousandths, the hero rests up to before it opens the cell door, which seals the floor
+     * @param restLimit           the most rests handed over on Tengu's floor before the door is opened regardless
+     * @param status              {@code UNTESTED} or {@code TESTED}
+     */
+    public record Tengu(
+            @Heuristic("rest-before-descend") int descentRestPerMille,
+            @Heuristic("tengu-entry") int enterPerMille,
+            @Heuristic("tengu-entry") int restLimit,
+            String status) {
+
+        /** The fields, sorted as the file states them. */
+        public static final List<Spec> SPECS = List.of(
+                Spec.number("descent_rest_per_mille", 1, 1000),
+                Spec.number("enter_per_mille", 1, 1000),
+                Spec.number("rest_limit", 0, 100),
+                Spec.choice("status", List.of("TESTED", "UNTESTED")));
+
+        /** Rest to full on both sides of the stairs, a rest limit as the descend Policy's, and untested. */
+        public static final Tengu REFERENCE = new Tengu(1000, 1000, 20, "UNTESTED");
+
+        public Tengu {
+            check(SPECS.get(0), descentRestPerMille);
+            check(SPECS.get(1), enterPerMille);
+            check(SPECS.get(2), restLimit);
+            java.util.Objects.requireNonNull(status, "status");
+            Canon.require(SPECS.get(3).allowed().contains(status),
+                    "status is one of " + SPECS.get(3).allowed() + ": " + status);
+        }
+
+        /** The fields by name, in {@link #SPECS} order. */
+        public Map<String, Object> values() {
+            Map<String, Object> values = new LinkedHashMap<>();
+            values.put("descent_rest_per_mille", (long) descentRestPerMille);
+            values.put("enter_per_mille", (long) enterPerMille);
+            values.put("rest_limit", (long) restLimit);
+            values.put("status", status);
+            return values;
+        }
+
+        /** This entry with the fields {@code given} states replaced; every key of {@code given} is a field. */
+        public Tengu with(Map<String, Object> given) {
+            Map<String, Object> values = values();
+            values.putAll(given);
+            return new Tengu(num(values, "descent_rest_per_mille"), num(values, "enter_per_mille"),
+                    num(values, "rest_limit"), (String) values.get("status"));
+        }
+    }
+
+    /**
+     * A later boss's entry (DM-300): the descent rest, and whether the entry was ever tuned.
      * An {@code UNTESTED} entry holds the reference values and the claims behind it in the Lore: fewer
      * than ten Runs of the {@code bosses} set reach these bosses, so nothing here has been measured.
      *

@@ -100,8 +100,8 @@ public final class PlaybookFile {
             Map<String, String> entries = Json.object(held.get("bosses"));
             Playbook.Goo goo = entries.containsKey("goo")
                     ? bosses.goo().with(fields(entries.get("goo"), Playbook.Goo.SPECS)) : bosses.goo();
-            Playbook.Later tengu = entries.containsKey("tengu")
-                    ? bosses.tengu().with(fields(entries.get("tengu"), Playbook.Later.SPECS)) : bosses.tengu();
+            Playbook.Tengu tengu = entries.containsKey("tengu")
+                    ? bosses.tengu().with(fields(entries.get("tengu"), Playbook.Tengu.SPECS)) : bosses.tengu();
             Playbook.Later dm300 = entries.containsKey("dm300")
                     ? bosses.dm300().with(fields(entries.get("dm300"), Playbook.Later.SPECS)) : bosses.dm300();
             bosses = new Playbook.Bosses(goo, tengu, dm300);
