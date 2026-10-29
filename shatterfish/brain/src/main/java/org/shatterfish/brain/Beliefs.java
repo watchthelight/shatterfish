@@ -66,13 +66,14 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
      * the scroll of upgrade are queued by the floors, not drawn (Dungeon.java:529-554, Generator.java:342-343,
      * :376-377), two and three per five floors. Against about one deck-drawn potion or scroll a floor, whose
      * weights sum to 30, that is a weight near 12 and near 16-18. Not a Codex fact but the rate of finding them;
-     * the first value of each was checked against 40 Warrior Runs (the page of this change), where the old
-     * assumption (the heaviest weight, 6) gave strength 21 of 37 and upgrade 15 of 40 sightings.
+     * the values were fitted on the 40 Warrior Runs of the standard set at salts 1000..1039, where the old
+     * assumption (the heaviest weight, 6) predicted strength about 21 times and upgrade about 15 where 37 and 40
+     * of the sightings were of them; the true identities came from the debug sidecar, never from the Brain.
      */
     @Heuristic("guaranteed-drop-weight")
-    static final int STRENGTH_WEIGHT = 6;
+    static final int STRENGTH_WEIGHT = 12;
     @Heuristic("guaranteed-drop-weight")
-    static final int UPGRADE_WEIGHT = 6;
+    static final int UPGRADE_WEIGHT = 16;
 
     /**
      * The chance that the potion a special room queued has not been seen on its floor when appearances from that floor
