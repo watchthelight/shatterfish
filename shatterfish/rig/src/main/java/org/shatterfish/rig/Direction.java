@@ -67,7 +67,10 @@ public final class Direction {
      */
     public static final String BRAIN_FLAG = "--brain";
 
-    static final List<String> KNOWN = List.of(SET, CLASS, FIRST, SALT_BASE, BASELINE, JOBS, OUT, ROOT, DEBUG_RECORD, BRAIN_FLAG);
+    /** The search plan of the current build's Brain (story 10.24), as {@code RunOne.SEARCH} reads it; the baseline never searches. */
+    public static final String SEARCH_FLAG = "--search";
+
+    static final List<String> KNOWN = List.of(SET, CLASS, FIRST, SALT_BASE, BASELINE, JOBS, OUT, ROOT, DEBUG_RECORD, BRAIN_FLAG, SEARCH_FLAG);
 
     /** Default number of Runs in flight: a quarter of the cores, from 2 to 8, so several measurements can share the machine. */
     static final int DEFAULT_JOBS = Math.max(2, Math.min(8, Runtime.getRuntime().availableProcessors() / 4));
@@ -152,7 +155,9 @@ public final class Direction {
         if (!Brains.readsWeights(brain)) {
             throw new IllegalArgumentException(BRAIN_FLAG + " names a Brain built on the Codex and weights; " + brain + " is not");
         }
-        int failedNow = play(picks, currentFolder, Runner.classpath(), root, tag, commit, jobs, brain);
+        String search = a.getOrDefault(SEARCH_FLAG, "");
+        org.shatterfish.api.SearchPlan.parse(search);
+        int failedNow = play(picks, currentFolder, Runner.classpath(), root, tag, commit, jobs, brain, search);
 
         Path baselineLogs = baselineFolder;
         String baselineName = baseline;
@@ -179,7 +184,7 @@ public final class Direction {
                 Path jar = brainJar(source);
                 String cp = swapBrain(Runner.classpath(), jar);
                 baselineLogs = out.resolve("baseline");
-                failedBase = play(picks, baselineLogs, cp, source, tag, sha, jobs, BRAIN);
+                failedBase = play(picks, baselineLogs, cp, source, tag, sha, jobs, BRAIN, "");
                 baselineName = sha.startsWith(baseline) ? sha.substring(0, 9) : baseline + " " + sha.substring(0, 9);
                 if (cached != null && failedBase == 0) {
                     store(baselineLogs, cached);
@@ -224,7 +229,7 @@ public final class Direction {
      * Codex and weights come from {@code source}'s checkout. Returns how many Runs did not finish.
      */
     private static int play(List<DirectionSelect.Pick> picks, Path folder, String classpath, Path source,
-                            String tag, String commit, int jobs, String brain) {
+                            String tag, String commit, int jobs, String brain, String search) {
         try {
             Files.createDirectories(folder);
         } catch (IOException e) {
@@ -240,7 +245,7 @@ public final class Direction {
             for (int i = 0; i < picks.size(); i++) {
                 DirectionSelect.Pick pick = picks.get(i);
                 Path working = folder.resolve("work").resolve(String.valueOf(i));
-                started.add(pool.submit(() -> one(pick, folder, working, classpath, codex, weights, playbook, commit, brain)));
+                started.add(pool.submit(() -> one(pick, folder, working, classpath, codex, weights, playbook, commit, brain, search)));
             }
             int failed = 0;
             for (Future<Boolean> f : started) {
@@ -263,7 +268,7 @@ public final class Direction {
     }
 
     private static boolean one(DirectionSelect.Pick pick, Path folder, Path working, String classpath,
-                               Path codex, Path weights, Path playbook, String commit, String brain) throws IOException, InterruptedException {
+                               Path codex, Path weights, Path playbook, String commit, String brain, String search) throws IOException, InterruptedException {
         Files.createDirectories(working);
         var triple = pick.entry();
         List<String> command = new ArrayList<>(List.of(
@@ -279,6 +284,10 @@ public final class Direction {
                 RunOne.CHALLENGES, Integer.toString(triple.challengeFlags()),
                 RunOne.CODEX, codex.toAbsolutePath().toString(),
                 RunOne.WEIGHTS, weights.toAbsolutePath().toString()));
+        if (!search.isEmpty()) {
+            command.add(RunOne.SEARCH);
+            command.add(search);
+        }
         if (playbook != null && Brains.readsPlaybook(brain)) {
             command.add(RunOne.PLAYBOOK);
             command.add(playbook.toAbsolutePath().toString());

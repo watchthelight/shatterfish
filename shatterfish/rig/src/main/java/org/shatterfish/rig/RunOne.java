@@ -69,6 +69,13 @@ public final class RunOne {
      */
     public static final String PLAYBOOK = "--playbook";
 
+    /**
+     * The numbers a searching Brain plays by (story 10.24), as {@code SearchPlan.parse} reads them, e.g. {@code k=8,h=12};
+     * absent for the reference plan. They are an argument of the Run and part of its configuration hash, not a property of
+     * the environment, so two Runs of one command line are the same Run.
+     */
+    public static final String SEARCH = "--search";
+
     private RunOne() {
     }
 
@@ -123,16 +130,17 @@ public final class RunOne {
                 : null;
         String knowledge = arguments.containsKey(CODEX) && Brains.readsCodex(brain)
                 ? CodexKnowledge.digest(Path.of(arguments.get(CODEX))) : null;
+        org.shatterfish.api.SearchPlan plan = org.shatterfish.api.SearchPlan.parse(arguments.get(SEARCH));
         RunLoop.Logging logging = new RunLoop.Logging(out,
                 required(arguments, COMMIT),
-                new RunLog.Brain(brain, required(arguments, BRAIN_COMMIT), Brains.configHash(brain, weights, playbook, knowledge)),
+                new RunLog.Brain(brain, required(arguments, BRAIN_COMMIT), Brains.configHash(brain, weights, playbook, knowledge, plan)),
                 arguments.getOrDefault(REGISTRATION, ""), arguments.getOrDefault(MACHINE, ""));
         int cap = arguments.containsKey(CAP) ? (int) number(arguments, CAP) : RunLoop.TURN_CAP;
         where();
         org.shatterfish.api.Codex.Knowledge codex = arguments.containsKey(CODEX) && Brains.readsCodex(brain)
                 ? CodexKnowledge.read(Path.of(arguments.get(CODEX)), org.shatterfish.harness.boot.HeadlessBoot.pinnedTag())
                 : null;
-        return new RunLoop().playTriple(triple, salt, wrap.apply(Brains.of(brain, triple, codex, weights, playbook)), cap, logging);
+        return new RunLoop().playTriple(triple, salt, wrap.apply(Brains.of(brain, triple, codex, weights, playbook, plan)), cap, logging);
     }
 
     /** The file a Run leaves in its own working directory, naming that directory. */
