@@ -47,7 +47,7 @@ class PlaybookEquivalenceTest {
             + "\"goo\":{\"descent_rest_per_mille\":1000,\"drink_per_mille\":400,\"meet_range\":6,\"wash_range\":4},"
             + "\"tengu\":{\"descent_rest_per_mille\":1000,\"status\":\"UNTESTED\"}},\"classes\":{},\"format\":1,"
             + "\"identify\":{\"escape_waits\":12,\"gain_odds_per_mille\":200,\"healing_odds_per_mille\":200,"
-            + "\"inventory_odds_per_mille\":250,\"known_gains\":0,\"potion_hp_per_mille\":500,\"reach\":8,\"rest_waits\":50,\"scroll_hp_per_mille\":1000},\"kit\":{\"zap_reach\":0},"
+            + "\"inventory_odds_per_mille\":250,\"known_gains\":0,\"potion_hp_per_mille\":500,\"reach\":8,\"rest_hp_per_mille\":1000,\"rest_waits\":50,\"scroll_hp_per_mille\":1000},\"kit\":{\"zap_reach\":0},"
             + "\"name\":\"shatterfish\",\"upgrade\":{\"hold_until_depth\":0,\"tie\":\"WEAPON\",\"unknown_weapon\":\"NO\",\"weapon_lead\":0},\"version\":1}\n";
 
     /** The upgrade section the constants held, and the one story 7.4 measured and kept. */
@@ -60,7 +60,7 @@ class PlaybookEquivalenceTest {
      */
     private static final String CHANGED = "{\"bosses\":{},\"classes\":{},\"format\":1,"
             + "\"identify\":{\"escape_waits\":12,\"gain_odds_per_mille\":1000,\"healing_odds_per_mille\":1000,"
-            + "\"inventory_odds_per_mille\":1,\"known_gains\":1,\"potion_hp_per_mille\":1000,\"reach\":0,\"rest_waits\":0,\"scroll_hp_per_mille\":500},\"kit\":{\"zap_reach\":0},"
+            + "\"inventory_odds_per_mille\":1,\"known_gains\":1,\"potion_hp_per_mille\":1000,\"reach\":0,\"rest_hp_per_mille\":1,\"rest_waits\":0,\"scroll_hp_per_mille\":500},\"kit\":{\"zap_reach\":0},"
             + "\"name\":\"shatterfish\",\"upgrade\":{\"hold_until_depth\":0,\"tie\":\"ARMOR\",\"unknown_weapon\":\"NO\",\"weapon_lead\":-5},\"version\":1}\n";
 
     /** A root holding what a Run reads, with {@code playbook} as the Brain's Playbook. */
@@ -174,10 +174,12 @@ class PlaybookEquivalenceTest {
         Path codex = SeedSetsTest.ROOT.resolve(CodexManifest.FOLDER).resolve(org.shatterfish.harness.boot.HeadlessBoot.pinnedTag());
         String committed = Files.readString(PlaybookFile.of(SeedSetsTest.ROOT, Brains.SHATTERFISH), StandardCharsets.UTF_8);
         Playbook held = PlaybookFile.read(PlaybookFile.of(SeedSetsTest.ROOT, Brains.SHATTERFISH), Brains.SHATTERFISH, codex);
-        assertEquals(Playbook.reference(Brains.SHATTERFISH).identify(), held.identify(), "the base states exactly the values the constants held");
+        assertEquals(Playbook.reference(Brains.SHATTERFISH).identify().with(java.util.Map.of("rest_hp_per_mille", 300L)), held.identify(),
+                "the base states the values the constants held, but for the rest after a test (story 10.15)");
         assertEquals(Playbook.reference(Brains.SHATTERFISH).kit(), held.kit());
         assertTrue(committed.contains(UPGRADE_7_4), "the committed Playbook states the allocation of story 7.4");
-        String atReference = committed.replace(UPGRADE_7_4, UPGRADE_7_2).replace("\"version\":3", "\"version\":1");
+        String atReference = committed.replace(UPGRADE_7_4, UPGRADE_7_2).replace("\"version\":3", "\"version\":1")
+                .replace("\"rest_hp_per_mille\":300", "\"rest_hp_per_mille\":1000");
         java.util.Set<HeroClass> unchanged = java.util.EnumSet.allOf(HeroClass.class);
         for (Playbook.ClassEntry entry : held.classes()) {
             if (!entry.equals(new Playbook.ClassEntry(entry.heroClass(), held.identify(), held.kit(), held.upgrade()))) {
