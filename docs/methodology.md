@@ -885,6 +885,14 @@ cause class the game's rankings name; ADR-0011's E10 W1 amendment). A death with
 the same heading, and a Rig `outcomes.jsonl` row gains `killer`, `death_depth`, `last_hp` and
 `boss_kills` when the record is there.
 
+### Stray actor-thread wakes
+
+A Run is fenced frame by frame: the actor thread runs only after a frame, never during one (`SceneStepper`, ADR-0015). `Object.wait` may return with no notify, and on a starved machine the JVM did so once between two frames of a Rig Run (issue #399), which the stepper used to report as an unfenced run and fail a correct Run for.
+
+The stepper now accepts such a wake and counts it (`SceneStepper.strayWakes()`) when it cannot have hurt a reader of game state. The caller reads state only where the last frame left the hero at an Input wait, and input is delivered inside frames, so a stray pass after a frame that did not end at an Input wait is just the next turn run a frame early. After a frame that did end at one, the pass is accepted only if it left the clock, every actor's time, the hero and the random generators' state as they were, and only if the driver did not reseed in the gap. Anything else still fails the step as unfenced. The Run's actions, its hashes at Input waits and its log are unchanged by an accepted wake; the number of frames to reach a given turn can differ.
+
+Each child Run leaves its count in `stray-wakes.txt` in its working directory. The Rig puts it in the Run's line of `runs.jsonl` (`strayWakes`) and the total in `summary.json`, and `:rig:direction` prints it under the table for the current and baseline sides (`not recorded` for a baseline from before this existed). It is zero on a quiet machine; a nonzero count in a ranked Run is worth a look.
+
 ## The Run log and its chain
 
 Every Run writes `<run-id>.jsonl`: one record per line, plain text, no compression, readable with

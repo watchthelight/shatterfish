@@ -131,7 +131,7 @@ for a check: a new file at the repository root, which cannot be an upstream file
 upstream had no such file; and anything git is configured not to report.
 
 A third thing is outside the ledger's reach because it is not an edit at all: Shatterfish code
-reaching a private upstream member by reflection. Harness main code does this in two classes. The first reaches two fields,
+reaching a private upstream member by reflection. Harness main code does this in two classes. The first reaches three fields,
 both from `shatterfish/harness/src/main/java/org/shatterfish/harness/scene/SceneStepper.java`. It
 writes `GameScene.actorThread` once per scene, starting the actor thread itself before the first
 frame where the scene would start it in the middle of the first `update()`
@@ -139,7 +139,7 @@ frame where the scene would start it in the middle of the first `update()`
 frame and changes nothing the game computes, which is why it is recorded here rather than as a
 row. It reads `Actor.current` and never writes it, to name the actor a stalled Run is waiting on
 in the driver's diagnostic and in the stepper's own failure messages (story 1.4); no Run outcome
-depends on it. Each fails immediately and by name if an upgrade moves its field, and row 4
+depends on it. It also reads `Random.generators` and never writes it (issue #399): the stepper serialises the stack, under the lock every draw takes, to tell whether a stray wake of the actor thread between two frames drew a random number, which is part of whether that wake can have changed a Run. Each fails immediately and by name if an upgrade moves its field, and row 4
 (read-only accessors) is where they move if that happens. A second class does it for seven more
 (issue #167): `shatterfish/harness/src/main/java/org/shatterfish/harness/driver/RunStatics.java`
 puts back, at the start of every Run, the private upstream statics a Run can leave behind for the

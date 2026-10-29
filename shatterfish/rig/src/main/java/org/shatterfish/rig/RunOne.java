@@ -172,7 +172,36 @@ public final class RunOne {
         org.shatterfish.api.Codex.Knowledge codex = arguments.containsKey(CODEX) && Brains.readsCodex(brain)
                 ? CodexKnowledge.read(Path.of(arguments.get(CODEX)), org.shatterfish.harness.boot.HeadlessBoot.pinnedTag())
                 : null;
-        return new RunLoop().playTriple(triple, salt, wrap.apply(Brains.of(brain, triple, codex, weights, playbook)), cap, logging);
+        RunOutcome outcome = new RunLoop().playTriple(triple, salt, wrap.apply(Brains.of(brain, triple, codex, weights, playbook)), cap, logging);
+        saySteadyWakes();
+        return outcome;
+    }
+
+    /** The file a Run leaves in its own working directory, with the stray wakes of its actor thread. */
+    public static final String STRAY_WAKES = "stray-wakes.txt";
+
+    /**
+     * Writes down how often this Run's actor thread woke between frames with no notify of the stepper's
+     * (issue #399). Zero on a quiet machine. The parent reads it into the index and the direction table,
+     * so that a nonzero count in a ranked Run is seen and not silent.
+     */
+    private static void saySteadyWakes() {
+        try {
+            java.nio.file.Files.writeString(java.nio.file.Path.of("").toAbsolutePath().resolve(STRAY_WAKES),
+                    org.shatterfish.harness.scene.SceneStepper.strayWakesInProcess() + System.lineSeparator(),
+                    java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException("a Run could not say how often its actor thread woke", e);
+        }
+    }
+
+    /** The count a child left in {@code working}, or -1 when it left none (an older child, or a Run that failed). */
+    static long strayWakesIn(java.nio.file.Path working) {
+        try {
+            return Long.parseLong(java.nio.file.Files.readString(working.resolve(STRAY_WAKES)).strip());
+        } catch (java.io.IOException | NumberFormatException none) {
+            return -1;
+        }
     }
 
     /** The file a Run leaves in its own working directory, naming that directory. */
