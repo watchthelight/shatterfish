@@ -42,7 +42,19 @@ Cutting searches and rests across the board cut starvation but not reach: health
 | deepest mean | 4.342 | 4.558 | +0.22 |
 | deaths by depth 1..8 | 9/17/52/58/36/45/23/0 | 8/19/38/57/43/40/29/6 | |
 
-By class, reach of depth 5 and Goo kills of 40: Warrior 35 and 33 against 35 and 27; Mage 18 and 7 against 24 and 11; Rogue 10 and 5 against 14 and 8; Huntress 21 and 16 against 23 and 16; Duelist 13 and 7 against 13 and 8; Cleric 7 and 6 against 9 and 6. Cleric and Mage did not use food differently enough to read apart.
+By class (40 Runs each; reach of depth 6 is the Runs that died on depth 6 or deeper, since no Run survived):
+
+| class | reach d5 main / change | reach d6 | Goo kills | deepest mean |
+|---|---|---|---|---|
+| Warrior | 35 / 35 | 32 / 27 | 33 / 27 | 5.975 / 6.000 |
+| Mage | 18 / 24 | 6 / 11 | 7 / 11 | 4.425 / 4.700 |
+| Rogue | 10 / 14 | 5 / 8 | 5 / 8 | 3.600 / 3.950 |
+| Huntress | 21 / 23 | 14 / 15 | 16 / 16 | 4.400 / 4.750 |
+| Duelist | 13 / 13 | 5 / 8 | 7 / 8 | 3.925 / 4.125 |
+| Cleric | 7 / 9 | 6 / 6 | 6 / 6 | 3.725 / 3.825 |
+| pooled | 104 / 118 | 68 / 75 | 74 / 76 | 4.342 / 4.558 |
+
+Warrior reach of depth 6 fell 32 to 27 on this slice (more Warriors died on the Goo floor); the 80-Warrior slice below is level on reach of depth 5 and Goo kills. Mage gains most; Cleric barely moves. Neither used food differently enough to read apart.
 
 Warrior confirmation, `--class WARRIOR --first 80 --salt-base 3000`: reach of depth 5 55 against 55, Goo kills 48 against 49, deepest mean 5.188 against 5.175. Neutral. On the 40-Warrior slice Goo kills fell by 6 while reach of depth 5 and deepest mean held; the 80-Warrior slice does not repeat it, so it is read as noise, and said here because the instruction was not to be worse on both slices.
 
