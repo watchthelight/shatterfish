@@ -89,6 +89,27 @@ final class Explore implements Policy {
     @Heuristic(Heuristic.UNLINKED)
     static final int SEARCHES = 12;
 
+    /**
+     * What a found secret room is worth, in turns of play (issue #409). A secret room holds two or three
+     * things (SecretLibraryRoom.java:88, SecretChestChasmRoom.java:67-113, SecretMazeRoom.java:101-120), and
+     * {@link Descend#PER_DROP} prices a drop at 250 waits; the sum is discounted, as the gold and the
+     * herbs of some rooms are worth little to the Brain.
+     */
+    @Heuristic("secret-room-odds")
+    static final int SECRET_VALUE = 400;
+
+    /** How many walls facing unseen space one dead end counts for when the odds of a hidden door are shared out. */
+    @Heuristic("secret-room-connection")
+    static final int DEAD_END_WEIGHT = 12;
+
+    /** The side of the square of unseen cells a wall must face to hide a secret room: its floor is at least 3 by 3. */
+    @Heuristic("secret-room-size")
+    static final int ROOM_INTERIOR = 3;
+
+    /** How many times as dear a search is while food is tight (Larder). */
+    @Heuristic("time-and-hunger-costs")
+    static final int FRUGAL_PRICE = 3;
+
     /** Waits on one cell after which the Policy yields once, and the cell its Step pointed at is blocked. */
     @Heuristic(Heuristic.UNLINKED)
     static final int STUCK = 3;
@@ -187,8 +208,13 @@ final class Explore implements Policy {
      * is then nothing this Policy can uncover.
      */
     static boolean spent(Observation observation, Memory memory) {
-        return uncover(observation, memory, observation.actions().actions(), searches(observation, memory),
-                frugal(observation, memory)) == null;
+        return spent(observation, memory, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #spent(Observation, Memory)} by the vector's search numbers (issue #409). */
+    static boolean spent(Observation observation, Memory memory, org.shatterfish.api.Tunables.Vector tunables) {
+        return uncover(observation, memory, observation.actions().actions(), searches(observation, memory, tunables),
+                frugal(observation, memory), tunables) == null;
     }
 
     /** Whether a frontier is reachable, around the regions avoided or through them (story 4.12). */
@@ -211,7 +237,7 @@ final class Explore implements Policy {
      * spent and no exit has been seen. Null when no spot within the limit reaches an uncovered wall.
      */
     static RunLog.Choice searchOn(Observation observation, Memory memory, List<Action> offered, int limit) {
-        return uncover(observation, memory, offered, limit, false);
+        return uncover(observation, memory, offered, limit, false, org.shatterfish.api.Tunables.Vector.REFERENCE, false);
     }
 
     /**
@@ -248,7 +274,8 @@ final class Explore implements Policy {
             }
         }
 
-        return uncover(observation, memory, offered, searches(observation, memory), frugal(observation, memory));
+        return uncover(observation, memory, offered, searches(observation, memory, tunables),
+                frugal(observation, memory), tunables);
     }
 
     /**
@@ -261,6 +288,20 @@ final class Explore implements Policy {
      */
     static RunLog.Choice uncover(Observation observation, Memory memory, List<Action> offered, int limit,
                                  boolean promisingOnly) {
+        return uncover(observation, memory, offered, limit, promisingOnly, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /**
+     * {@link #uncover(Observation, Memory, List, int, boolean)} by the vector's search numbers: a floor with its
+     * way down seen is searched by the expected-value model (issue #409), one without by the plain rule.
+     */
+    static RunLog.Choice uncover(Observation observation, Memory memory, List<Action> offered, int limit,
+                                 boolean promisingOnly, org.shatterfish.api.Tunables.Vector tunables) {
+        return uncover(observation, memory, offered, limit, promisingOnly, tunables, Descend.known(observation.map()));
+    }
+
+    private static RunLog.Choice uncover(Observation observation, Memory memory, List<Action> offered, int limit,
+                                         boolean promisingOnly, org.shatterfish.api.Tunables.Vector tunables, boolean modelled) {
         boolean[] around = walkable(observation, memory, true);
         boolean[] through = through(observation, memory);
         RunLog.Choice choice = toFrontier(observation, offered, around);
@@ -268,10 +309,10 @@ final class Explore implements Policy {
             choice = toFrontier(observation, offered, through);
         }
         if (choice == null) {
-            choice = search(observation, memory, offered, around, limit, promisingOnly);
+            choice = search(observation, memory, offered, around, limit, promisingOnly, tunables, modelled, promisingOnly);
         }
         if (choice == null) {
-            choice = search(observation, memory, offered, through, limit, promisingOnly);
+            choice = search(observation, memory, offered, through, limit, promisingOnly, tunables, modelled, promisingOnly);
         }
         return choice;
     }
@@ -374,7 +415,13 @@ final class Explore implements Policy {
      * (Hero.java:211-212, :2624-2629).
      */
     static int searches(Observation observation, Memory memory) {
-        return frugal(observation, memory) ? FRUGAL_SEARCHES : SEARCHES;
+        return searches(observation, memory, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #searches(Observation, Memory)} by the vector's {@code explore.searches} and {@code explore.frugal_searches}. */
+    static int searches(Observation observation, Memory memory, org.shatterfish.api.Tunables.Vector tunables) {
+        return frugal(observation, memory) ? tunables.getInt(org.shatterfish.api.Tunables.EXPLORE_FRUGAL_SEARCHES)
+                : tunables.getInt(org.shatterfish.api.Tunables.EXPLORE_SEARCHES);
     }
 
     /**
@@ -407,9 +454,15 @@ final class Explore implements Policy {
     /**
      * A search, or a Step toward a spot worth searching, over the cells {@code walk} allows, with up to
      * {@code limit} spots searched on the floor; null when none is left.
+     *
+     * <p>With the way down seen ({@code modelled}), a spot is worth searching only if the secret room it may
+     * find, at the odds of {@link Hidden}, is worth more than the search and the Steps to it ({@link #model}).
+     * With none seen, the floor may be sealed (the painter hides the entrance room's doors on depth 2, and
+     * any door on a SECRETS floor) and any uncovered wall is worth a search: the descend Policy's rule.
      */
     private static RunLog.Choice search(Observation observation, Memory memory, List<Action> offered, boolean[] walk,
-                                        int limit, boolean promisingOnly) {
+                                        int limit, boolean promisingOnly, org.shatterfish.api.Tunables.Vector tunables,
+                                        boolean modelled, boolean frugal) {
         MapSection map = observation.map();
         int depth = observation.header().depth();
         int branch = observation.header().branch();
@@ -421,24 +474,111 @@ final class Explore implements Policy {
         List<Memory.Spot> searched = memory.dwelt().stream().filter(spot -> spot.on(depth, branch)).toList();
         // The searches made ahead of a Step near a shown trap (Traps) are no spots of the floor's budget.
         long spots = searched.stream().filter(spot -> !Traps.near(observation, spot.cell())).count();
-        if (spots < limit) {
-            if (worth(map, walk, hero, radius, searched, promisingOnly)
-                    && !searched.contains(new Memory.Spot(depth, branch, hero))) {
-                Action search = new Action.Search();
-                if (offered.contains(search)) {
-                    return new RunLog.Choice(search, Policies.CERTAIN,
-                            "search " + (spots + 1) + "/" + limit);
-                }
-            }
-            Path spot = nearest(map, walk, hero, offered, cell -> worth(map, walk, cell, radius, searched, true));
-            if (spot == null && !promisingOnly) {
-                spot = nearest(map, walk, hero, offered, cell -> worth(map, walk, cell, radius, searched, false));
-            }
-            if (spot != null) {
-                return new RunLog.Choice(spot.step, Policies.CERTAIN, "search-spot " + spot.distance);
+        if (spots >= limit) {
+            return null;
+        }
+        if (modelled) {
+            return model(observation, offered, walk, radius, searched, spots, limit, tunables, frugal);
+        }
+        if (worth(map, walk, hero, radius, searched, promisingOnly)
+                && !searched.contains(new Memory.Spot(depth, branch, hero))) {
+            Action search = new Action.Search();
+            if (offered.contains(search)) {
+                return new RunLog.Choice(search, Policies.CERTAIN,
+                        "search " + (spots + 1) + "/" + limit);
             }
         }
+        Path spot = nearest(map, walk, hero, offered, cell -> worth(map, walk, cell, radius, searched, true));
+        if (spot == null && !promisingOnly) {
+            spot = nearest(map, walk, hero, offered, cell -> worth(map, walk, cell, radius, searched, false));
+        }
+        if (spot != null) {
+            return new RunLog.Choice(spot.step, Policies.CERTAIN, "search-spot " + spot.distance);
+        }
         return null;
+    }
+
+    /**
+     * The expected-value search (issue #409): of the cells the hero may walk to, the one where the gain of a
+     * search ({@link Hidden#gain}) most exceeds its price, and a search if that is the cell the hero stands
+     * on. The price is {@link Larder#SEARCH_COST} and a turn for each Step there, times
+     * {@link #FRUGAL_PRICE} while food is tight. Null when no cell pays.
+     */
+    private static RunLog.Choice model(Observation observation, List<Action> offered, boolean[] walk, int radius,
+                                       List<Memory.Spot> searched, long spots, int limit,
+                                       org.shatterfish.api.Tunables.Vector tunables, boolean frugal) {
+        MapSection map = observation.map();
+        int rooms = Hidden.secretRooms(observation.header().depth(), map.feeling());
+        if (rooms <= 0) {
+            return null;
+        }
+        int weight = tunables.getInt(org.shatterfish.api.Tunables.EXPLORE_DEAD_END_WEIGHT);
+        Hidden.Evidence evidence = Hidden.evidence(map,
+                tunables.getInt(org.shatterfish.api.Tunables.EXPLORE_ROOM_INTERIOR), weight);
+        if (evidence.total() <= 0) {
+            return null;
+        }
+        int worth = tunables.getInt(org.shatterfish.api.Tunables.EXPLORE_SECRET_VALUE);
+        int price = frugal ? tunables.getInt(org.shatterfish.api.Tunables.EXPLORE_FRUGAL_PRICE) : 1;
+        int hero = observation.hero().cell();
+        int cells = walk.length;
+        int[] first = new int[cells];
+        int[] distance = new int[cells];
+        java.util.Arrays.fill(distance, -1);
+        distance[hero] = 0;
+        ArrayDeque<Integer> queue = new ArrayDeque<>();
+        for (Action action : offered) {
+            if (action instanceof Action.Step step && step.cell() < cells && walk[step.cell()]
+                    && distance[step.cell()] < 0) {
+                distance[step.cell()] = 1;
+                first[step.cell()] = step.cell();
+                queue.add(step.cell());
+            }
+        }
+        int width = map.width();
+        while (!queue.isEmpty()) {
+            int cell = queue.poll();
+            int x = cell % width;
+            int y = cell / width;
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    int nx = x + dx;
+                    int ny = y + dy;
+                    if ((dx == 0 && dy == 0) || nx < 0 || ny < 0 || nx >= width || ny >= map.height()) {
+                        continue;
+                    }
+                    int next = nx + ny * width;
+                    if (walk[next] && distance[next] < 0) {
+                        distance[next] = distance[cell] + 1;
+                        first[next] = first[cell];
+                        queue.add(next);
+                    }
+                }
+            }
+        }
+        long bestNet = 0;
+        int best = -1;
+        for (int cell = 0; cell < cells; cell++) {
+            if (distance[cell] < 0 || !walk[cell]) {
+                continue;
+            }
+            int reach = Hidden.reach(map, evidence, cell, radius, searched, weight);
+            long net = Hidden.gain(rooms, reach, evidence.total(), worth)
+                    - (long) price * (Larder.SEARCH_COST + distance[cell]);
+            if (net > bestNet || (net == bestNet && net > 0 && best >= 0 && distance[cell] < distance[best])) {
+                bestNet = net;
+                best = cell;
+            }
+        }
+        if (best < 0) {
+            return null;
+        }
+        if (best == hero) {
+            Action search = new Action.Search();
+            return offered.contains(search)
+                    ? new RunLog.Choice(search, Policies.CERTAIN, "search " + (spots + 1) + "/" + limit) : null;
+        }
+        return new RunLog.Choice(new Action.Step(first[best]), Policies.CERTAIN, "search-spot " + distance[best]);
     }
 
     /** The Chebyshev distance between two cells. */
@@ -537,7 +677,7 @@ final class Explore implements Policy {
         return false;
     }
 
-    private static boolean covered(int width, int wall, int radius, List<Memory.Spot> searched) {
+    static boolean covered(int width, int wall, int radius, List<Memory.Spot> searched) {
         for (Memory.Spot spot : searched) {
             if (Math.abs(spot.cell() % width - wall % width) <= radius
                     && Math.abs(spot.cell() / width - wall / width) <= radius) {

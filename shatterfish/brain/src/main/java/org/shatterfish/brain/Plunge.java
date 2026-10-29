@@ -78,7 +78,7 @@ final class Plunge implements Policy {
     public boolean enters(Observation observation, Memory memory) {
         return Calm.quiet(observation, knowledge) && !observation.header().sealed()
                 && observation.header().branch() == 0 && chasm(observation.map())
-                && Explore.spent(observation, memory);
+                && Explore.spent(observation, memory, tunables);
     }
 
     @Override

@@ -131,6 +131,20 @@ public final class Tunables {
             "most rests handed over on a floor before going down");
     public static final Tunable EXPLORE_RESTS = policy("explore.rests", "Explore.RESTS", 50, 1, 200, 10,
             "most waits rested for a floor fled from before going back down to it");
+    public static final Tunable DESCEND_SEARCHES = policy("descend.searches", "Descend.SEARCHES", 36, 0, 120, 6,
+            "most spots searched on a floor whose exit was never seen: more finds a hidden way down, fewer starves");
+    public static final Tunable EXPLORE_SEARCHES = policy("explore.searches", "Explore.SEARCHES", 12, 0, 40, 2,
+            "most spots searched on a floor with its exit seen, whatever the model thinks each is worth");
+    public static final Tunable EXPLORE_FRUGAL_SEARCHES = policy("explore.frugal_searches", "Explore.FRUGAL_SEARCHES", 4, 0, 20, 1,
+            "most spots searched on a floor with its exit seen while food is tight");
+    public static final Tunable EXPLORE_SECRET_VALUE = policy("explore.secret_value", "Explore.SECRET_VALUE", 400, 0, 2000, 100,
+            "turns of play a found secret room is worth: higher searches more places, lower only the likeliest");
+    public static final Tunable EXPLORE_DEAD_END_WEIGHT = policy("explore.dead_end_weight", "Explore.DEAD_END_WEIGHT", 12, 0, 60, 4,
+            "walls facing unseen space that one dead end counts for when sharing the odds of a hidden door out");
+    public static final Tunable EXPLORE_ROOM_INTERIOR = policy("explore.room_interior", "Explore.ROOM_INTERIOR", 3, 2, 6, 1,
+            "side of the unseen square a wall must face to be a place a secret room could be: bigger rules out more walls");
+    public static final Tunable EXPLORE_FRUGAL_PRICE = policy("explore.frugal_price", "Explore.FRUGAL_PRICE", 3, 1, 10, 1,
+            "times a search costs while food is tight: higher searches only the surest places");
     public static final Tunable HEAL_REDRINK_SHARE = policy("heal.redrink_share_per_mille", "Heal.REDRINK_SHARE_PER_MILLE", 250, 50, 900, 50,
             "share of a potion's heal that must be left before the last drink counts as spent");
     public static final Tunable HEAL_HORIZON = policy("heal.horizon", "Heal.HORIZON", 10, 2, 30, 2,
@@ -174,6 +188,13 @@ public final class Tunables {
                 DESCEND_ALLOWANCE,
                 DESCEND_PER_DROP,
                 DESCEND_RESTS,
+                DESCEND_SEARCHES,
+                EXPLORE_SEARCHES,
+                EXPLORE_FRUGAL_SEARCHES,
+                EXPLORE_SECRET_VALUE,
+                EXPLORE_DEAD_END_WEIGHT,
+                EXPLORE_ROOM_INTERIOR,
+                EXPLORE_FRUGAL_PRICE,
                 EXPLORE_RESTS,
                 HEAL_REDRINK_SHARE,
                 HEAL_HORIZON,

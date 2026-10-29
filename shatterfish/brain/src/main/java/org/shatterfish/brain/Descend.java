@@ -199,7 +199,7 @@ final class Descend implements Policy {
                 return null;
             }
             // No exit on the screen yet: search on for it, past explore's budget.
-            RunLog.Choice search = Explore.searchOn(observation, memory, offered, SEARCHES);
+            RunLog.Choice search = Explore.searchOn(observation, memory, offered, tunables.getInt(org.shatterfish.api.Tunables.DESCEND_SEARCHES));
             return search == null ? null
                     : new RunLog.Choice(search.action(), Policies.CERTAIN, "no exit: " + search.why());
         }
@@ -244,7 +244,7 @@ final class Descend implements Policy {
                 && !Explore.frontier(observation, memory)) {
             return "hungry";
         }
-        if (Explore.spent(observation, memory)) {
+        if (Explore.spent(observation, memory, tunables)) {
             return "spent";
         }
         long stayed = memory.waits() - memory.arrived();

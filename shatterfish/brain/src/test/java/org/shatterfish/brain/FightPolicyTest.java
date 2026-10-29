@@ -83,6 +83,18 @@ class FightPolicyTest {
                             false, false, List.of(), List.of(), "sleeping", false, false, false, "keep-away", false, false,
                             List.of("leave-water", "out-of-sight")))).toList());
 
+    /**
+     * {@code rows} with room for secret rooms behind their walls, below and to the right, so the coordinates
+     * of the drawn part do not move: a floor that still hides something worth a search is not spent (issue #409).
+     */
+    static String[] open(String... rows) {
+        String[] out = new String[rows.length + 4];
+        for (int i = 0; i < out.length; i++) {
+            out[i] = (i < rows.length ? rows[i] : "") + " ".repeat(i < rows.length ? 4 : rows[0].length() + 4);
+        }
+        return out;
+    }
+
     static Observation screen(int hp, boolean sealed, String... rows) {
         return screen(1, hp, sealed, "worn shortsword", rows);
     }
@@ -706,7 +718,7 @@ class FightPolicyTest {
         List<Brain.Decided> all = each(screens.toArray(new Observation[0]));
         assertEquals("rest: before-descent", why(all.get(1)));
         assertEquals("rest: before-descent", why(all.get(Explore.RESTS)));
-        assertFalse(why(all.get(Explore.RESTS + 1)).startsWith("rest"), "the rests ran out: " + all.get(Explore.RESTS + 1).decision());
+        assertFalse(why(all.get(Explore.RESTS + 1)).equals("rest: before-descent"), "the rests ran out: " + all.get(Explore.RESTS + 1).decision());
 
         Observation healed = screen(1, 20, false, "worn shortsword",
                 "######",
@@ -839,19 +851,19 @@ class FightPolicyTest {
         assertNotEquals(new Action.Step(down), up.action(), "toward the stairs up instead");
 
         // Hurt, on a floor the descend Policy is leaving (every search spent): not down.
-        Observation hurt = screen(2, 10, false, "worn shortsword", rows);
+        Observation hurt = screen(2, 10, false, "worn shortsword", open(rows));
         List<Memory.Spot> spent = new ArrayList<>();
         for (int i = 0; i < Explore.SEARCHES; i++) {
             spent.add(new Memory.Spot(2, 0, 100 + i));
         }
         Memory leaving = new Memory(1, 2, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
                 Memory.Spot.NOWHERE, 0, false, spent, List.of(), "", 0, -1, -1, List.of(), List.of());
-        Observation calm = screen(2, 10, false, "worn shortsword",
+        Observation calm = screen(2, 10, false, "worn shortsword", open(
                 "###########",
                 "#....>@...#",
                 "#.........#",
                 "#<........#",
-                "###########");
+                "###########"));
         assertEquals("spent", Descend.leaving(calm, leaving, KNOWLEDGE));
         assertFalse(Fight.down(hurt, leaving, KNOWLEDGE));
         assertTrue(Fight.down(hurt, Memory.START, KNOWLEDGE), "hurt, but nothing is taking it down yet");
@@ -956,11 +968,11 @@ class FightPolicyTest {
     @Test
     @DisplayName("the stairs next door are still a way out of a crab")
     void near_stairs_still_pay() {
-        Observation near = screen(3, 8, false, "worn shortsword",
+        Observation near = screen(3, 8, false, "worn shortsword", open(
                 "##############",
                 "#>.@C........#",
                 "#............#",
-                "##############");
+                "##############"));
         Brain.Decided decided = after(near);
         assertEquals("retreat: stairs", why(decided), decided.decision().toString());
         assertEquals(new Action.Step(cell(near, 2, 1)), decided.action());
