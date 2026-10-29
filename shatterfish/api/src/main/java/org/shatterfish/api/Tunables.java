@@ -143,6 +143,14 @@ public final class Tunables {
             "waits a region the fight Policy retreated from stays avoided");
     public static final Tunable BRAIN_AVOID_RADIUS = policy("brain.avoid_radius", "Brain.AVOID_RADIUS", 5, 1, 12, 1,
             "widest a region the fight Policy retreated from reaches, in cells");
+    public static final Tunable BELIEFS_NOTICE = policy("beliefs.notice_per_mille", "Beliefs.NOTICE_PER_MILLE", 700, 100, 1000, 100,
+            "chance a scroll or potion generated on a floor is picked up: low reads absence as weak evidence");
+    public static final Tunable BELIEFS_DRAWS = policy("beliefs.draws_per_mille", "Beliefs.DRAWS_PER_MILLE", 800, 200, 2000, 100,
+            "random scrolls (or potions) generated a floor: high makes a deck identity's repeats less telling");
+    public static final Tunable BELIEFS_LEAK = policy("beliefs.leak_per_mille", "Beliefs.LEAK_PER_MILLE", 30, 0, 300, 10,
+            "strays a floor of an identity only a guarantee places: high lets a repeat be anything");
+    public static final Tunable TEST_UPGRADE_FIRST = policy("test_item.upgrade_first_per_mille", "TestItem.UPGRADE_FIRST_PER_MILLE", 500, 100, 1000, 100,
+            "odds of upgrade at which an unknown scroll is read before the rest");
     public static final Tunable CHESTS_MIMIC_MARGIN = policy("chests.mimic_margin_per_mille", "Chests.MIMIC_MARGIN_PER_MILLE", 1250, 500, 3000, 150,
             "how far over the worst opening's cost the hero's health must stand before a chest is opened");
 
@@ -181,7 +189,11 @@ public final class Tunables {
                 PLUNGE_FIT_PERCENT,
                 BRAIN_AVOID_WAITS,
                 BRAIN_AVOID_RADIUS,
-                CHESTS_MIMIC_MARGIN));
+                CHESTS_MIMIC_MARGIN,
+                BELIEFS_NOTICE,
+                BELIEFS_DRAWS,
+                BELIEFS_LEAK,
+                TEST_UPGRADE_FIRST));
         found.sort(java.util.Comparator.comparing(Tunable::name));
         for (int i = 1; i < found.size(); i++) {
             Canon.require(!found.get(i).name().equals(found.get(i - 1).name()), "a tunable is registered once: " + found.get(i).name());

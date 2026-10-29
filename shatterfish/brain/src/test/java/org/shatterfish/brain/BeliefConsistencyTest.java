@@ -55,12 +55,13 @@ class BeliefConsistencyTest {
         Beliefs.Guess crimson = guess(beliefs, "crimson potion");
         assertEquals(1.0, sum(crimson), 1e-12);
         assertEquals(4, crimson.odds().size(), "strength is a candidate though the decks weight it zero");
-        // Healing 6, strength weighted as the heaviest (6), mind vision 4, frost 3: of 19.
-        assertEquals("potion of healing", crimson.odds().get(0).name());
-        assertEquals(6.0 / 19, crimson.odds().get(0).probability(), 1e-12);
-        assertEquals(6.0 / 19, crimson.odds().get(1).probability(), 1e-12);
-        assertEquals("potion of frost", crimson.odds().get(3).name());
-        assertEquals(3.0 / 19, crimson.odds().get(3).probability(), 1e-12);
+        // Strength is on a schedule (issue #410), at most one a floor, so two of one appearance on the first floor
+        // are not strength; the deck potions follow in the order of their weights, 6, 4 and 3.
+        assertEquals(List.of("potion of healing", "potion of mind vision", "potion of frost", "potion of strength"),
+                crimson.odds().stream().map(Beliefs.Odds::name).toList());
+        assertTrue(crimson.odds().get(0).probability() > crimson.odds().get(1).probability());
+        assertTrue(crimson.odds().get(1).probability() > crimson.odds().get(2).probability());
+        assertTrue(crimson.odds().get(2).probability() > crimson.odds().get(3).probability());
         assertEquals(1, beliefs.identities().size(), "an appearance not in view is not guessed at");
     }
 
@@ -72,12 +73,12 @@ class BeliefConsistencyTest {
 
         assertEquals(List.of("crimson potion", "amber potion"),
                 beliefs.identities().stream().map(Beliefs.Guess::label).toList(), "a heap's stack count is not its name");
-        // P(x) is w_x times the other's total, 19 - w_x: healing and strength 6*13, mind vision
-        // 4*15, frost 3*16, of 264.
+        // Each appearance is a different identity, so each one's odds are a marginal of the assignments, not the
+        // family's weights alone; both sum to one and neither is certain.
         for (Beliefs.Guess guess : beliefs.identities()) {
             assertEquals(1.0, sum(guess), 1e-12);
-            assertEquals(78.0 / 264, guess.odds().get(0).probability(), 1e-12, guess.toString());
-            assertEquals(48.0 / 264, guess.odds().get(3).probability(), 1e-12, guess.toString());
+            assertEquals(4, guess.odds().size(), guess.toString());
+            assertTrue(guess.odds().get(0).probability() < 0.9, guess.toString());
         }
     }
 
@@ -110,8 +111,9 @@ class BeliefConsistencyTest {
             assertEquals(3, guess.odds().size(), guess.toString());
         }
         assertEquals(2, beliefs.identities().size(), "an identified item wears its own name and is not guessed at");
-        // Strength 6*7, mind vision 4*9, frost 3*10, of 108.
-        assertEquals(42.0 / 108, guess(beliefs, "amber potion").odds().get(0).probability(), 1e-12);
+        // Strength, found on the first floor, is still the likeliest of the three left, and not certain.
+        assertEquals("potion of strength", guess(beliefs, "amber potion").odds().get(0).name());
+        assertTrue(guess(beliefs, "amber potion").odds().get(0).probability() < 0.9);
     }
 
     @Test

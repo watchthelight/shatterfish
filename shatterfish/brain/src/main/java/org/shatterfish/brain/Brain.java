@@ -197,7 +197,7 @@ public final class Brain {
     /** What this Brain believes at {@code observation}, holding {@code belief} (the one {@link #update} returned for it). */
     public Beliefs beliefs(Observation raw, Belief belief) {
         Observation observation = seen(raw, belief);
-        return Beliefs.view(Memory.of(belief), observation, knowledge);
+        return Beliefs.view(Memory.of(belief), observation, knowledge, playbook.tunables());
     }
 
     /**

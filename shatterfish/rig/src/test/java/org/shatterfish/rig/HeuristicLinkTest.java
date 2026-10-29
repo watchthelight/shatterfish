@@ -82,7 +82,7 @@ class HeuristicLinkTest {
             Map.entry("BrainModule.API_SCHEMA_VERSION", "a schema version"),
             Map.entry("Memory.VERSION", "a schema version of the Memory"),
             Map.entry("Policies.CERTAIN", "the fixed-point scale of a probability, not a choice"),
-            Map.entry("Beliefs.EXACT", "a cap on the enumeration, past which the answer is the same"),
+            Map.entry("IdentityOdds.EXACT", "a cap on the enumeration, past which the answer falls back to independent rows"),
             Map.entry("Memory.CLOUDS", "a capacity of the Memory"),
             Map.entry("Memory.AVOIDED", "a capacity of the Memory"),
             Map.entry("Memory.DWELT", "a capacity of the Memory"),
