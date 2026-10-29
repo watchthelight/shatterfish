@@ -72,6 +72,9 @@ the build. A clause adds no threshold, so there is nothing for `HeuristicLinkTes
 | `tengu/rest` | to rest before the cell door | [`tengu-entry`](brain-rules.md#tengu-entry) |
 | `tengu/unlock` | to open the cell door | [`tengu-entry`](brain-rules.md#tengu-entry) |
 | `tengu/door` | to walk to the cell door | [`tengu-entry`](brain-rules.md#tengu-entry) |
+| `tengu/attack` | to hit the boss | [`tengu-fight`](brain-rules.md#tengu-fight) |
+| `tengu/approach` | to walk to the boss | [`tengu-fight`](brain-rules.md#tengu-fight) |
+| `tengu/across` | to cross the traps | [`tengu-fight`](brain-rules.md#tengu-fight) |
 | `explore/frontier` | to uncover more of the floor | [`step-cells`](brain-rules.md#step-cells) |
 | `explore/search` | to look for a hidden way | [`search-radius-cost`](brain-rules.md#search-radius-cost) |
 | `explore/away` | to keep clear of fire or gas | [`gas-fire-avoid`](brain-rules.md#gas-fire-avoid) |

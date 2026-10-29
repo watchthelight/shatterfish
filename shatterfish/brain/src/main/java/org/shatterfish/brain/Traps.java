@@ -58,7 +58,8 @@ final class Traps {
     static boolean near(Observation observation, int cell) {
         MapSection map = observation.map();
         for (TrapView trap : map.traps()) {
-            if (distance(map, trap.cell(), cell) <= REACH) {
+            // Tengu's patch is drawn whole as it is laid and holds no hidden trap beside it (Darts).
+            if (!Darts.laid(observation, trap) && distance(map, trap.cell(), cell) <= REACH) {
                 return true;
             }
         }

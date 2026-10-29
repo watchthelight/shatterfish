@@ -110,3 +110,59 @@ the entry is untested on them.
 The first test of the story, `TenguEntryRunTest`, plays one practice Tengu Run per class and asserts the key, the seal
 within 600 waits and no use of the stairs up. It fails on the practice branch before this change (see the pull request
 for the run).
+
+## Tengu practice after story 10.19 (phase one, the dart-trap memory)
+
+Story 10.19 (#365). A `tengu` fight Policy now plays the first half of the fight: it strikes when beside Tengu, else
+steps to the nearest cell beside him, and does not turn back ([Rule `tengu-fight`](../brain-rules.md#tengu-fight)).
+The dart traps the screen draws as he lays a patch are walked round from a Memory that holds only drawn cells
+([Rule in levels](../rules/levels.md)). Same slice as above: 40 Runs per class, `standard` set, salts 1000..1039, kit
+`standard`, cap 5000 turns, `--jobs 12`. Three columns are new, read from the Run's debug record: Runs whose log shows
+Tengu's yell at the start of the second half, patches of dart traps drawn, and the median health pips of Tengu (of 11) at
+the last wait he was in view before the hero died.
+
+Before (the Tengu policy switched off in a scratch build, everything else as in this story):
+
+| class | Runs | Tengu killed | died | phase 2 reached | Tengu pips at death (median of 11) | median turns (deaths) | hero died to |
+|---|---:|---:|---:|---:|---:|---:|---|
+| WARRIOR | 40 | 0 | 40 | 0 | 11 | 88.0 | Tengu 40 |
+| MAGE | 40 | 0 | 40 | 0 | 8 | 84.5 | Tengu 33, Poison 7 |
+| ROGUE | 40 | 0 | 40 | 0 | 11 | 85.0 | Tengu 39, Poison 1 |
+| HUNTRESS | 40 | 0 | 40 | 0 | 11 | 85.0 | Tengu 39, Poison 1 |
+| DUELIST | 40 | 0 | 40 | 0 | 11 | 92.5 | Tengu 39, Poison 1 |
+| CLERIC | 40 | 0 | 40 | 0 | 11 | 86.0 | Tengu 40 |
+| all | 240 | 0 | 240 | 0 | | | |
+
+After:
+
+| class | Runs | Tengu killed | died | phase 2 reached | Tengu pips at death (median of 11) | median turns (deaths) | hero died to |
+|---|---:|---:|---:|---:|---:|---:|---|
+| WARRIOR | 40 | 0 | 40 | 40 | 4 | 117.5 | Tengu 31, Burning 9 |
+| MAGE | 40 | 0 | 40 | 40 | 3 | 113.0 | Tengu 35, Burning 5 |
+| ROGUE | 40 | 0 | 40 | 40 | 4 | 121.5 | Tengu 37, Burning 3 |
+| HUNTRESS | 40 | 0 | 40 | 40 | 5 | 128.0 | Tengu 36, Burning 4 |
+| DUELIST | 40 | 0 | 40 | 40 | 4 | 119.5 | Tengu 30, Burning 10 |
+| CLERIC | 40 | 0 | 40 | 40 | 4 | 114.5 | Tengu 35, Burning 5 |
+| all | 240 | 0 | 240 | 240 | | | |
+
+Every hero now brings Tengu through the first half (0 of 240 before, 240 of 240 after) and dies in the second, with him
+at about a third of his health. Four patches of traps are drawn in each Run, which is what the eight brackets of his
+hit points give for the first half. The kills column does not move, because the second half (bombs, fire, the shocker)
+is story 10.20's; the Burning deaths are the first sign of it.
+
+What the table cannot show: it is one slice of one kit, and the pips are the bar's eleven steps, which cannot tell 101
+hit points from 100, so the second half is detected by his yell and not by the bar. The first test of the story,
+`TenguFightTest`, builds the arena and fails on the Brain without the new Policy (its reasons, `tengu: attack` and `tengu: approach`,
+do not exist there); `TenguTrapMemoryLeakTest` holds the fairness claims on constructed screens and
+`FadingTrapsTest` holds what the Observer shows of a hidden trap.
+
+### Off the boss floor
+
+`:rig:direction --set standard --class <C> --first 40 --salt-base 1000 --baseline 3f446413a` (the commit this story
+branched from, so that only this story's change shows), one class at a time, six classes. Every column of every class
+is identical to the baseline: reach depth 5 33, 18, 10, 21, 13, 7 of 40 (Warrior, Mage, Rogue, Huntress, Duelist,
+Cleric), Goo kills 32, 6, 5, 16, 7, 6, medians and oscillation Steps equal. The Tengu Policy needs depth 10 and a sealed
+floor, and the Observer change shows a hidden trap only under Tengu's own tilemap, so no Run in that slice can differ.
+Against `origin/main` itself the columns do differ for Warrior, Mage and Duelist, because `main` has moved since this
+branch was cut (the Goo work of #344 and others); that is not this story's change and the table above is the one that
+isolates it.

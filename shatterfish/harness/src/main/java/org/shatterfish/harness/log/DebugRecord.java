@@ -163,6 +163,11 @@ public final class DebugRecord implements AutoCloseable {
         json.key("hero_water").value(tiles.get(hero) == Tile.WATER);
         // What the practice table reads (story 10.18): whether the floor is sealed, and the keys the journal shows held here.
         json.key("sealed").value(observation.header().sealed());
+        // And the dart traps Tengu's floor draws as it lays them (story 10.19), from the same screen.
+        long darts = observation.map().traps().stream().filter(trap -> trap.kind().equals("poison dart trap")).count();
+        if (observation.header().sealed() && darts > 0) {
+            json.key("darts").value((int) darts);
+        }
         json.key("keys").beginArray();
         for (var note : observation.journal().notes()) {
             if (note.kind() == org.shatterfish.api.NoteKind.KEY && note.depth() == observation.header().depth()) {
