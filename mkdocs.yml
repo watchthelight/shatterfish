@@ -138,6 +138,7 @@ nav:
       - ADR-0021 Lore claim format and intake: adr/0021-lore-claim-format.md
       - ADR-0022 The variant classifier: adr/0022-variant-classifier.md
       - ADR-0023 Playbooks as data: adr/0023-playbooks-as-data.md
+      - ADR-0026 Tunable registry and SPSA: adr/0026-tunable-registry-and-spsa.md
   - Rules:
       - rules/index.md
       - The Brain's Rules index: brain-rules.md

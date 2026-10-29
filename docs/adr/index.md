@@ -29,6 +29,7 @@ skill drafts new ones; add the new file to this list and to `mkdocs.yml`.
 | [0021](0021-lore-claim-format.md) | Lore claims are one file each under `lore/<topic>/`, checked and entered by Codex tooling | accepted | 2026-10-26 |
 | [0022](0022-variant-classifier.md) | The variant classifier reads the vocabulary diff for items and mobs and classifies mechanics by source and declaration | accepted | 2026-10-26 |
 | [0023](0023-playbooks-as-data.md) | The Playbook is a typed, versioned data file beside the weights, pinned by the configuration hash | accepted | 2026-10-26 |
+| [0026](0026-tunable-registry-and-spsa.md) | The Brain's numbers are tuned by SPSA through a registry; the rules stay code | accepted | 2026-10-28 |
 
 ## Decisions still to make
 
