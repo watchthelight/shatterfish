@@ -154,7 +154,7 @@ public final class Gallery {
         }
         try {
             RunLogReader.Log read = RunLogReader.of(file);
-            OverlayLogs.refuse(read, file);
+            OverlayLogs.refuseOverlay(read, file);
             if (!read.readable() || read.records().isEmpty()
                     || !(read.records().get(0) instanceof RunLog.Header header)) {
                 return new Run(runId, log, "", heroClass, UNREADABLE, -1, -1);
