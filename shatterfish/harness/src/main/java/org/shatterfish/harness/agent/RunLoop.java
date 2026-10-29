@@ -270,9 +270,24 @@ public final class RunLoop {
         }
     }
 
+    /**
+     * The Run's loop, with the look-ahead a searching decider is lent (story 10.24): built here, for a decider that says it
+     * searches, and closed with the Run. A decider that does not search costs nothing.
+     */
     private RunOutcome playing(HeadlessDriver driver, long seed, HeroClass heroClass, long salt,
                                Decider agent, int turnCap, RunLogWriter log, boolean oracle,
                                DebugRecord debug) {
+        if (agent instanceof org.shatterfish.api.Searching searching && searching.searches()) {
+            try (HostLookahead lookahead = new HostLookahead(driver)) {
+                return playing(driver, seed, heroClass, salt, agent, turnCap, log, oracle, debug, searching, lookahead);
+            }
+        }
+        return playing(driver, seed, heroClass, salt, agent, turnCap, log, oracle, debug, null, null);
+    }
+
+    private RunOutcome playing(HeadlessDriver driver, long seed, HeroClass heroClass, long salt,
+                               Decider agent, int turnCap, RunLogWriter log, boolean oracle,
+                               DebugRecord debug, org.shatterfish.api.Searching searching, HostLookahead lookahead) {
         long waits = 0;
         long applied = 0;
         long refused = 0;
@@ -329,6 +344,9 @@ public final class RunLoop {
             long before = System.nanoTime();
             Action chosen;
             try {
+                if (searching != null) {
+                    searching.lookahead(lookahead.lend());
+                }
                 chosen = agent.decide(observation);
             } catch (Decider.CannotDecide error) {
                 // A Brain that cannot decide says so by throwing: a Prompt it has no rule for is the
@@ -336,6 +354,10 @@ public final class RunLoop {
                 // that loses the Run's log.
                 return outcome(RunOutcome.Cause.BRAIN_ERROR, salt, waits, applied, refused,
                         "at wait " + halt.waitIndex() + ": " + error.getMessage());
+            }
+            if (searching != null) {
+                searching.lookahead(null);
+                lookahead.release();
             }
             long thinkMs = (System.nanoTime() - before) / 1_000_000L;
             if (chosen == null) {

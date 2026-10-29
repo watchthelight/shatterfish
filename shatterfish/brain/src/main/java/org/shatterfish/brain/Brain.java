@@ -49,7 +49,13 @@ public final class Brain {
         /** The 4.x Policies, as every Brain has been until story 6.1. */
         BASELINE,
         /** The one-ply expectimax (ADR-0010 option 2) ahead of the fight Policy. */
-        ONE_PLY
+        ONE_PLY,
+        /**
+         * The 4.x Policies with a determinized look-ahead ahead of the fight Policy (story 10.24, ADR-0025): in an engaged
+         * fight it rolls its candidates out through the {@link org.shatterfish.api.Lookahead} it is lent, and leaves the
+         * wait to the fight Policy when it is lent none.
+         */
+        SEARCH
     }
 
     private final Codex.Knowledge knowledge;
@@ -60,12 +66,19 @@ public final class Brain {
     private final Pickup pickup;
     private final TestItem testItem;
     private final Playbook playbook;
+    private final org.shatterfish.api.SearchPlan plan;
+    /** The look-ahead lent for the wait being decided, or null (story 10.24); the search Policy reads it, nothing else does. */
+    private org.shatterfish.api.Lookahead lent;
 
     /** The Policies, highest priority first, fighting by {@code knowledge} and scoring by {@code evaluation}. */
-    private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation, Model model, Playbook playbook) {
+    private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation, Model model, Playbook playbook,
+                                         org.shatterfish.api.SearchPlan plan, long seed, java.util.function.Supplier<org.shatterfish.api.Lookahead> lent) {
         List<Policy> policies = new ArrayList<>(List.of(Policies.answerPrompt(knowledge), new Heal(knowledge, playbook.bosses().goo()), new Douse(knowledge), new Zap(knowledge, playbook), new Shoot(knowledge), new Ranged(knowledge)));
         if (model == Model.ONE_PLY) {
             policies.add(new OnePly(knowledge, playbook.bosses().goo()));
+        }
+        if (model == Model.SEARCH) {
+            policies.add(new FightSearch(knowledge, evaluation.weights(), playbook, plan, seed, lent));
         }
         policies.addAll(List.of(new Fight(knowledge, playbook.bosses().goo()), new Eat(knowledge),
                 new TestItem(knowledge, playbook), new Pickup(evaluation, knowledge), new Chests(evaluation, knowledge),
@@ -94,10 +107,20 @@ public final class Brain {
      * hashes, so two Playbooks are two configurations and a log header says which one was played.
      */
     public static String configuration(Weights weights, Playbook playbook, Model model) {
+        return configuration(weights, playbook, model, org.shatterfish.api.SearchPlan.REFERENCE);
+    }
+
+    /**
+     * {@link #configuration(Weights, Playbook, Model)} of a Brain that searches by {@code plan} (story 10.24): the plan's
+     * canonical text joins what is hashed for the Model that searches, and for no other, so every other configuration is
+     * the string it was.
+     */
+    public static String configuration(Weights weights, Playbook playbook, Model model, org.shatterfish.api.SearchPlan plan) {
         // A weight set the Evaluation would refuse is no configuration at all.
         new Evaluation(weights);
         return "policies=" + String.join(",", policyNames(model))
-                + ";memory=" + Memory.VERSION + ";weights=" + weights.canonical() + ";playbook=" + playbook.canonical();
+                + ";memory=" + Memory.VERSION + ";weights=" + weights.canonical() + ";playbook=" + playbook.canonical()
+                + (model == Model.SEARCH ? ";search=" + plan.canonical() : "");
     }
 
     /** The name the reference Playbook carries when its caller gave none: the 4.x Brain's. */
@@ -123,6 +146,14 @@ public final class Brain {
      * @param playbook  the strategy thresholds and choices, read by the caller (story 7.2)
      */
     public Brain(Codex.Knowledge knowledge, Weights weights, Playbook playbook, long seed, Model model) {
+        this(knowledge, weights, playbook, seed, model, org.shatterfish.api.SearchPlan.REFERENCE);
+    }
+
+    /**
+     * @param plan      the numbers a {@link Model#SEARCH} Brain searches by (story 10.24); no other Model reads it
+     */
+    public Brain(Codex.Knowledge knowledge, Weights weights, Playbook playbook, long seed, Model model,
+                 org.shatterfish.api.SearchPlan plan) {
         if (knowledge == null) {
             throw new IllegalArgumentException("a Brain is built on a Codex its caller read");
         }
@@ -131,7 +162,8 @@ public final class Brain {
         this.seed = seed;
         this.model = model;
         this.playbook = java.util.Objects.requireNonNull(playbook, "a Brain is built on a Playbook its caller read");
-        this.policies = policies(knowledge, evaluation, model, playbook);
+        this.plan = java.util.Objects.requireNonNull(plan, "a Brain is built on a search plan (the reference one if it does not search)");
+        this.policies = policies(knowledge, evaluation, model, playbook, plan, seed, () -> lent);
         this.pickup = new Pickup(evaluation, knowledge);
         this.testItem = new TestItem(knowledge, playbook);
     }
@@ -259,6 +291,9 @@ public final class Brain {
         if (model == Model.ONE_PLY) {
             names.add(OnePly.NAME);
         }
+        if (model == Model.SEARCH) {
+            names.add(FightSearch.NAME);
+        }
         names.addAll(List.of(Fight.NAME, Eat.NAME, TestItem.NAME, Pickup.NAME,
                 Chests.NAME, Equip.NAME, Descend.NAME, Explore.NAME, Plunge.NAME, Policies.FALLBACK));
         return List.copyOf(names);
@@ -269,9 +304,24 @@ public final class Brain {
         return model;
     }
 
+    /** The numbers this Brain searches by; read by a {@link Model#SEARCH} Brain only. */
+    public org.shatterfish.api.SearchPlan searchPlan() {
+        return plan;
+    }
+
+    /**
+     * Lends this Brain a look-ahead for the wait it decides next, or takes it back with null (story 10.24). A Brain that is
+     * lent none decides by its rules, so what a search Brain does is a function of the Observation, its Belief, its seed and
+     * what the look-ahead returns, which is Observations.
+     */
+    public void lend(org.shatterfish.api.Lookahead lookahead) {
+        this.lent = lookahead;
+    }
+
     /** Whether {@code decision} is a fight Policy's: the 4.x one or the one-ply model's. */
     private static boolean fighting(RunLog.Decision decision) {
-        return decision != null && (Fight.NAME.equals(decision.policy()) || OnePly.NAME.equals(decision.policy()));
+        return decision != null && (Fight.NAME.equals(decision.policy()) || OnePly.NAME.equals(decision.policy())
+                || FightSearch.NAME.equals(decision.policy()));
     }
 
     /** The Policies, highest priority first, by name. */
