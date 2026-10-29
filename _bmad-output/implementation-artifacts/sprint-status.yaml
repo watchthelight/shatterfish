@@ -180,7 +180,7 @@ development_status:
   10-16-the-wandmaker-quest: backlog  # issue #362
   10-17-the-power-curve-by-depth: backlog  # issue #363
   10-18-tengu-entry-key-and-seal: done  # issue #364; PR #397
-  10-19-tengu-phase-one-the-dart-trap-memory: backlog  # issue #365
+  10-19-tengu-phase-one-the-dart-trap-memory: done  # issue #365
   10-20-tengu-phase-two-the-threat-map: backlog  # issue #366
   10-21-tengu-conversion-on-the-practice-floor: backlog  # issue #367
   10-22-the-think-budget-amendment-to-adr-0010: done  # issue #368
