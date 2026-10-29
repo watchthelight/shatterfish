@@ -34,6 +34,7 @@ distance
 do
 dodge
 done
+door
 down
 drink
 drunk
@@ -129,6 +130,7 @@ to
 uncover
 upgrade
 wait
+walk
 water
 way
 wear

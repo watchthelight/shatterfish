@@ -119,7 +119,8 @@ public final class PracticeRuns {
 
     /** One class's practice Runs, read back. */
     record Side(HeroClass heroClass, int runs, int killed, int died, int capped, int other, int unfinished,
-                List<Double> killTurns, List<Double> deathTurns, Map<String, Integer> killers, List<Integer> lastHp) {
+                List<Double> killTurns, List<Double> deathTurns, Map<String, Integer> killers, List<Integer> lastHp,
+                int keyHeld, int sealed) {
 
         int finished() {
             return killed + died + capped + other;
@@ -319,6 +320,8 @@ public final class PracticeRuns {
         List<Double> deathTurns = new ArrayList<>();
         Map<String, Integer> killers = new TreeMap<>();
         List<Integer> lastHp = new ArrayList<>();
+        int keyHeld = 0;
+        int sealed = 0;
         for (Path log : list(folder, ".jsonl")) {
             RunLogReader.Log read = RunLogReader.of(log);
             if (!read.readable() || read.records().isEmpty() || !(read.records().get(0) instanceof RunLog.Header header)) {
@@ -331,6 +334,9 @@ public final class PracticeRuns {
                         + practice.profile() + ": " + (header.practiceRun() ? header.practice() : "no practice stamp"));
             }
             runs++;
+            boolean[] reached = reachOf(log);
+            keyHeld += reached[0] ? 1 : 0;
+            sealed += reached[1] ? 1 : 0;
             RunLog.End end = read.end();
             if (end == null) {
                 unfinished++;
@@ -356,7 +362,30 @@ public final class PracticeRuns {
                 default -> other++;
             }
         }
-        return new Side(heroClass, runs, killed, died, capped, other, unfinished, killTurns, deathTurns, killers, lastHp);
+        return new Side(heroClass, runs, killed, died, capped, other, unfinished, killTurns, deathTurns, killers, lastHp,
+                keyHeld, sealed);
+    }
+
+    /**
+     * Whether the Run's debug record shows a key held on the boss floor, and the floor sealed, at any wait (story
+     * 10.18): the two steps between arriving and the fight. A Run with no debug record reached neither as far as
+     * the table can tell.
+     */
+    static boolean[] reachOf(Path log) {
+        Path debug = DebugRecord.beside(log);
+        boolean key = false;
+        boolean seal = false;
+        if (Files.isRegularFile(debug)) {
+            try (Stream<String> lines = Files.lines(debug, StandardCharsets.UTF_8)) {
+                for (String line : (Iterable<String>) lines::iterator) {
+                    key |= line.contains("\"keys\":[\"");
+                    seal |= line.contains("\"sealed\":true");
+                }
+            } catch (IOException | RuntimeException unreadable) {
+                // A record that cannot be read shows neither.
+            }
+        }
+        return new boolean[] {key, seal};
     }
 
     /** The killer and the last health the Run's debug record names for its end, or "unknown" and "". */
@@ -386,27 +415,33 @@ public final class PracticeRuns {
 
     static String table(PracticeBoss boss, List<Side> sides) {
         StringBuilder out = new StringBuilder();
-        out.append("| class | Runs | ").append(boss.id()).append(" killed | rate | 95% (Wilson) | died | cap | left floor / other | not finished |"
+        out.append("| class | Runs | key held | seal reached | ").append(boss.id()).append(" killed | rate | 95% (Wilson) | died | cap | left floor / other | not finished |"
                 + " median turns (kills) | median turns (deaths) |\n");
-        out.append("|---|---|---|---|---|---|---|---|---|---|---|\n");
+        out.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
         int runs = 0;
+        int keys = 0;
+        int seals = 0;
         int killed = 0;
         int finishedRuns = 0;
         for (Side s : sides) {
             int base = s.finished();
             double[] w = wilson(s.killed(), base);
-            out.append("| ").append(s.heroClass()).append(" | ").append(s.runs()).append(" | ").append(s.killed())
+            out.append("| ").append(s.heroClass()).append(" | ").append(s.runs()).append(" | ").append(s.keyHeld())
+                    .append(" | ").append(s.sealed()).append(" | ").append(s.killed())
                     .append(" | ").append(percent(s.killed(), base)).append(" | ").append(interval(w)).append(" | ")
                     .append(s.died()).append(" | ").append(s.capped()).append(" | ").append(s.other()).append(" | ")
                     .append(s.unfinished()).append(" | ").append(median(s.killTurns())).append(" | ")
                     .append(median(s.deathTurns())).append(" |\n");
             runs += s.runs();
+            keys += s.keyHeld();
+            seals += s.sealed();
             killed += s.killed();
             finishedRuns += base;
         }
         if (sides.size() > 1) {
             double[] w = wilson(killed, finishedRuns);
-            out.append("| all | ").append(runs).append(" | ").append(killed).append(" | ")
+            out.append("| all | ").append(runs).append(" | ").append(keys).append(" | ").append(seals).append(" | ")
+                    .append(killed).append(" | ")
                     .append(percent(killed, finishedRuns)).append(" | ").append(interval(w)).append(" | | | | | | |\n");
         }
         out.append("\nThe rate is kills over Runs that finished. Killers of the Runs that died:\n\n");

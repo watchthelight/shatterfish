@@ -100,6 +100,9 @@ final class CoachLine {
             new Template("descend", "unlock", "to open the locked exit", "goo-worn-key"),
             new Template("descend", "no exit", "to search for a hidden exit", "hidden-exit-search"),
             new Template("descend", "rest", "to rest before going down", "rest-before-descend"),
+            new Template("tengu", "rest", "to rest before the cell door", "tengu-entry"),
+            new Template("tengu", "unlock", "to open the cell door", "tengu-entry"),
+            new Template("tengu", "door", "to walk to the cell door", "tengu-entry"),
             new Template("explore", "frontier", "to uncover more of the floor", "step-cells"),
             new Template("explore", "search", "to look for a hidden way", "search-radius-cost"),
             new Template("explore", "away", "to keep clear of fire or gas", "gas-fire-avoid"),
@@ -177,6 +180,7 @@ final class CoachLine {
             case "pick-up", "open-chest", "equip" -> head;
             case "descend" -> descendKey(head, detail);
             case "explore" -> exploreKey(head);
+            case "tengu" -> detail.split("\\s+", 2)[0];
             case "plunge" -> head.equals("rest") ? "rest" : "jump";
             case "fallback" -> "fallback";
             default -> null;
