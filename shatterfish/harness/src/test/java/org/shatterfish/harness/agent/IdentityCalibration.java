@@ -148,7 +148,7 @@ public final class IdentityCalibration {
             out.append("| Family | Samples | Brier | Top call right | Mean P(truth) |\n|---|---:|---:|---:|---:|\n");
             Map<String, List<Sample>> byFamily = new TreeMap<>();
             for (Sample sample : samples) {
-                byFamily.computeIfAbsent(sample.label().startsWith("scroll") ? "scroll" : "potion", k -> new ArrayList<>()).add(sample);
+                byFamily.computeIfAbsent(sample.label().startsWith("scroll") ? "scroll" : "potion or ring", k -> new ArrayList<>()).add(sample);
             }
             byFamily.forEach((family, list) -> row(out, family, list));
             row(out, "**all**", samples);
