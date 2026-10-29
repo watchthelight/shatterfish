@@ -129,5 +129,22 @@ This replaces the "tune on the salt-1000 slice" wording of story 10.37's accepta
 the salt (and, in the tuner, the moving window) is what keeps a fitted run from being replayed as its own
 confirmation.
 
+**Gain calibration (c_end and r_end).** The first demo run (3 iterations, Warrior, 20 seeds, differences of
+-0.55, -0.35 and +0.45 against a standard error of about 0.8) moved `fight.flights` 2 to 3, `identify.reach`
+8 to 12 and `fight.margin_per_mille` by 19% on noise alone: a gain of 4 per score point has no relation to how
+noisy a score is. The tuner now calibrates as Fishtest does. The score difference of a pair is made a result
+`r = clamp(diff / 2, -1, 1)` (two floors of mean paired difference is full scale). The perturbation is
+`c_k = c_end * N^0.101 / (k+1)^0.101` steps, so `c_end` (default 1 step) at the last planned iteration `N`,
+and the gain is `a_k = r_end * c_end^2 * (A + N)^0.602 / (A + k + 1)^0.602` with `A = 0.1 N`, so a number
+moves `a_k / c_k`, about `r_end * c_end` steps at the end and about three times that at the start, for a
+full-scale result (`r_end` default 0.2). A move is also capped at one step per iteration (`--max-move`). The
+drift a number can have over a run is therefore bounded by the schedule and not by the noise: for N = 10 at
+most 2.9 steps even if every iteration pushed one way at full scale (`SpsaTest.the_worst_case_is_bounded`), and
+`SpsaTest.noise_alone_cannot_move_a_number_far` plays 300 seeds of pure noise at full scale and holds the
+largest drift to 3 steps. The cost is that a real signal needs iterations: 0.2 steps at the end means a number
+8 steps from its optimum needs tens of iterations, which is what the first real run (story 10.37) is for; raise
+`--r-end` only with the standard error of the trajectory in view. The horizon `N` is fixed when the folder is
+made, so a resume that asks for more iterations continues the same decay.
+
 **Defaults.** `--params` defaults to `all` (the epic's wording), but the first runs should name a subset:
 with 31 numbers the noise of 20 Runs per class swamps most single slopes.

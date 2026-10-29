@@ -27,11 +27,23 @@ final class Spsa {
     private Spsa() {
     }
 
-    /** The default gain: a pair that differs by 0.5 over a perturbation of two steps moves a parameter one step. */
-    static final double GAIN = 4.0;
+    /**
+     * The default {@code r_end}: the learning rate at the last planned iteration. A full-scale result (the
+     * normalised difference at plus or minus 1) moves a number about {@code r_end * c_end} steps there, and about
+     * three times that at the first iteration, so a run of 10 iterations can drift a number at most about 3 steps
+     * whatever the noise says (the worst case, every iteration at full scale in one direction, is a test).
+     */
+    static final double R_END = 0.2;
 
-    /** The default perturbation, in steps, at the first iteration. */
-    static final double PERTURBATION = 1.0;
+    /** The default {@code c_end}: the perturbation, in steps, at the last planned iteration. */
+    static final double C_END = 1.0;
+
+    /**
+     * The score difference that counts as a full-scale result, in score points (a Run is worth a floor per
+     * depth and 5 per boss, so this is two floors of mean paired difference). The difference is divided by it
+     * and clamped to plus or minus 1 before it moves anything, as Fishtest's SPSA takes a game result in [-1, 1].
+     */
+    static final double SCALE = 2.0;
 
     /** Spall's recommended exponent of the gain's decay. */
     static final double ALPHA = 0.602;
@@ -40,34 +52,45 @@ final class Spsa {
     static final double GAMMA = 0.101;
 
     /** The most one iteration moves a parameter, in steps: one noisy pair must not throw a parameter across its range. */
-    static final double MAX_MOVE = 2.0;
+    static final double MAX_MOVE = 1.0;
 
     /** The fixed seed of the signs, so that a rerun of the same configuration perturbs identically. */
     static final long SEED = 0x5F15F15F5EEDL;
 
     /**
-     * The constants of a tuning run.
+     * The constants of a tuning run, calibrated as Fishtest's SPSA is: by what a number may do at the end of the
+     * planned run, not by a gain whose effect depends on the scale of the score.
      *
-     * @param gain         {@code a}: the numerator of the gain {@code a_k = a / (stability + k + 1)^alpha}
-     * @param perturbation {@code c}: the perturbation in steps at iteration 0, {@code c_k = c / (k + 1)^gamma}
-     * @param stability    {@code A}: the offset that keeps the first gains from being huge; about a tenth of the iterations
-     * @param alpha        the gain's exponent
-     * @param gamma        the perturbation's exponent
-     * @param maxMove      the most a parameter moves in one iteration, in steps
-     * @param seed         the seed of the signs
+     * <p>{@code c_k = c_end * horizon^gamma / (k+1)^gamma} is the perturbation in steps, so it is {@code c_end} at
+     * the last planned iteration. {@code a_k = r_end * c_end^2 * (stability + horizon)^alpha / (stability + k + 1)^alpha}
+     * is the gain, and a move is {@code a_k / c_k} steps for a normalised result of 1, which is {@code r_end * c_end}
+     * at the last planned iteration. The drift of a number over a run is bounded by the sum of those, whatever the
+     * scores are.
+     *
+     * @param rEnd      the learning rate at the last planned iteration
+     * @param cEnd      the perturbation, in steps, at the last planned iteration
+     * @param horizon   the iterations the schedule is calibrated for; fixed when the folder is made, so a resume that
+     *                  asks for more iterations continues the same decay
+     * @param scale     the score difference that is a full-scale result
+     * @param stability {@code A}: the offset that keeps the first gains from being huge; about a tenth of the horizon
+     * @param alpha     the gain's exponent
+     * @param gamma     the perturbation's exponent
+     * @param maxMove   the most a parameter moves in one iteration, in steps
+     * @param seed      the seed of the signs
      */
-    record Config(double gain, double perturbation, double stability, double alpha, double gamma, double maxMove,
-                  long seed) {
+    record Config(double rEnd, double cEnd, int horizon, double scale, double stability, double alpha, double gamma,
+                  double maxMove, long seed) {
 
         Config {
-            if (!(gain > 0) || !(perturbation > 0) || stability < 0 || !(alpha > 0) || !(gamma >= 0) || !(maxMove > 0)) {
+            if (!(rEnd > 0) || !(cEnd > 0) || horizon < 1 || !(scale > 0) || stability < 0 || !(alpha > 0) || !(gamma >= 0)
+                    || !(maxMove > 0)) {
                 throw new IllegalArgumentException("SPSA constants are positive (stability and gamma may be 0): " + this);
             }
         }
 
         /** The defaults for a run of {@code iterations} iterations. */
         static Config of(int iterations) {
-            return new Config(GAIN, PERTURBATION, 0.1 * iterations, ALPHA, GAMMA, MAX_MOVE, SEED);
+            return new Config(R_END, C_END, iterations, SCALE, 0.1 * iterations, ALPHA, GAMMA, MAX_MOVE, SEED);
         }
     }
 
@@ -113,11 +136,12 @@ final class Spsa {
     }
 
     static double perturbation(Config config, int k) {
-        return config.perturbation() / Math.pow(k + 1, config.gamma());
+        return config.cEnd() * Math.pow(config.horizon(), config.gamma()) / Math.pow(k + 1, config.gamma());
     }
 
     static double gain(Config config, int k) {
-        return config.gain() / Math.pow(config.stability() + k + 1, config.alpha());
+        return config.rEnd() * config.cEnd() * config.cEnd() * Math.pow(config.stability() + config.horizon(), config.alpha())
+                / Math.pow(config.stability() + k + 1, config.alpha());
     }
 
     /** The finaliser of splitmix64, written out so that no JDK release changes a sign. */
@@ -172,20 +196,22 @@ final class Spsa {
     /**
      * The state after an iteration whose plus vector scored {@code yPlus} and minus vector {@code yMinus}.
      *
-     * <p>The gradient of a parameter is the score difference over the gap that was <em>played</em>, in steps
-     * (the gap is {@code 2 c_k} unless rounding or a bound changed it), so a parameter pressed against its
-     * bound is estimated from the pair it actually had. A move is capped at {@link Config#maxMove} steps and
-     * the state is clamped to the bounds.
+     * <p>The score difference is first made a result {@code r} in [-1, 1] (over {@link Config#scale}, clamped), so
+     * one lucky pair cannot be worth more than a decisive one. The gradient of a parameter is {@code r} over the
+     * half-gap that was <em>played</em>, in steps (the half-gap is {@code c_k} unless rounding or a bound changed
+     * it), so a parameter pressed against its bound is estimated from the pair it actually had. A move is
+     * {@code a_k} times that, capped at {@link Config#maxMove} steps, and the state is clamped to the bounds.
      */
     static Update update(Config config, List<Param> params, double[] theta, Probe probe, double yPlus, double yMinus) {
         int n = params.size();
         double[] next = new double[n];
         double[] gradient = new double[n];
         double[] move = new double[n];
+        double result = Math.max(-1.0, Math.min(1.0, (yPlus - yMinus) / config.scale()));
         for (int i = 0; i < n; i++) {
             Param p = params.get(i);
-            double gap = (probe.plus()[i] - probe.minus()[i]) / (double) p.step();
-            gradient[i] = (yPlus - yMinus) / gap;
+            double half = (probe.plus()[i] - probe.minus()[i]) / (2.0 * p.step());
+            gradient[i] = result / half;
             double steps = Math.max(-config.maxMove(), Math.min(config.maxMove(), probe.ak() * gradient[i]));
             next[i] = p.clamp(theta[i] + steps * p.step());
             move[i] = next[i] - theta[i];

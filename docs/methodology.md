@@ -896,19 +896,23 @@ plays is ranked, and a candidate it writes is a hypothesis, kept only if it wins
 | `--iterations K` | Iterations to run (default 10). With `--resume`, the total to reach. |
 | `--params a,b,c` | Registry names to tune, or `all` (the default). A subset is the way to start: each number added is another direction the noise can push in. |
 | `--jobs P` | Runs in flight at once (default as the direction check). |
-| `--gain a`, `--perturbation c`, `--max-move m` | The constants of the method (defaults 4.0, 1.0 step, 2.0 steps). |
+| `--r-end r`, `--c-end c`, `--max-move m` | The constants of the method: the learning rate and the perturbation (in steps) at the last planned iteration, and the most one iteration may move a number, in steps (defaults 0.2, 1.0, 1.0). |
 | `--out <dir>` | The folder, empty or absent (default `build/tune/<time>`). |
 | `--resume <dir>` | Continue a folder. The folder holds the configuration, so only `--iterations`, `--jobs`, `--root` and `--keep-logs` may be given with it. |
 | `--keep-logs` | Keep every Run log of every iteration; by default they are deleted once scored, and the per-pair scores stay. |
 
 **The method.** Each number has a step (its SPSA scale, from the registry). Iteration `k` draws a sign
 for every tuned number from a fixed generator (a function of the seed, `k` and the number's place, so a
-rerun perturbs identically), and builds two vectors: the state plus and minus `c_k` steps, with
-`c_k = c / (k+1)^0.101`, rounded to whole numbers and clamped to the bounds. Both vectors play the same
-triples under the same salts. The score difference over the gap that was played, per step, is the
-gradient estimate of each number; the state moves up it by `a_k` times that, at most `--max-move` steps,
-with `a_k = a / (A + k + 1)^0.602` and `A` a tenth of the iterations. The state is kept as real numbers
-and clamped to the bounds; it is rounded only when played and in the candidate.
+rerun perturbs identically), and builds two vectors: the state plus and minus `c_k` steps, rounded to whole
+numbers and clamped to the bounds. Both vectors play the same triples under the same salts. The score
+difference is made a result `r` in [-1, 1] (over 2 score points, clamped); `r` over the half-gap that was
+played, per step, is the gradient estimate of each number; the state moves up it by `a_k` times that, at
+most `--max-move` steps. The schedule is Fishtest's: `c_k = c_end * N^0.101 / (k+1)^0.101` and
+`a_k = r_end * c_end^2 * (A + N)^0.602 / (A + k + 1)^0.602`, with `N` the iterations planned when the folder
+is made and `A = 0.1 N`, so a full-scale result moves a number about `r_end * c_end` steps at the end of the
+run, and noise alone cannot drift a number more than about 3 steps in 10 iterations (ADR-0026, "Gain
+calibration"). The state is kept as real numbers and clamped to the bounds; it is rounded only when played
+and in the candidate.
 
 **The objective.** The score of a Run is 5 per boss killed plus the deepest depth reached, read from its
 log's ending (a Run with no ending is not scored). A Goo kill is therefore worth the five floors that

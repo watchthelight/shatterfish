@@ -90,8 +90,8 @@ class TuneRunnerTest {
         // Pinned: the signs, the rounding and the perturbation schedule are what a recorded trajectory means. The
         // numbers are those of iteration 0 from the defaults of the three, so they hold on any JVM.
         Map<String, String> first = lines.get(0);
-        assertEquals("{descend.rests=15, fight.margin_per_mille=550, identify.reach=4}", Json.object(first.get("plus")).toString());
-        assertEquals("{descend.rests=25, fight.margin_per_mille=450, identify.reach=12}", Json.object(first.get("minus")).toString());
+        assertEquals("{descend.rests=14, fight.margin_per_mille=556, identify.reach=4}", Json.object(first.get("plus")).toString());
+        assertEquals("{descend.rests=26, fight.margin_per_mille=444, identify.reach=12}", Json.object(first.get("minus")).toString());
     }
 
     @Test

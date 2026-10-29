@@ -19,6 +19,14 @@ class SpsaTest {
             new Spsa.Param("b.narrow", 0, 12, 1),
             new Spsa.Param("c.signed", -5, 5, 1));
 
+    /**
+     * Constants for the quadratics: their differences are in the hundreds, so the scale is large enough to stay
+     * out of the clamp near the start, and the rate is raised so that 200 iterations cover the distance.
+     */
+    private static Spsa.Config fast(int iterations) {
+        return new Spsa.Config(8.0, 1.0, iterations, 200.0, 0.1 * iterations, Spsa.ALPHA, Spsa.GAMMA, 2.0, Spsa.SEED);
+    }
+
     /** Runs the loop on {@code objective}, which sees the played (rounded) vector. */
     private static double[] run(Spsa.Config config, double[] start, int iterations, ToDoubleFunction<long[]> objective) {
         double[] theta = start.clone();
@@ -55,7 +63,7 @@ class SpsaTest {
     void converges_on_a_quadratic() {
         long[] best = {650, 9, -2};
         double[] start = {50, 1, 4};
-        double[] theta = run(Spsa.Config.of(200), start, 200, quadratic(best));
+        double[] theta = run(fast(200), start, 200, quadratic(best));
         long[] found = Spsa.rounded(PARAMS, theta);
         for (int i = 0; i < best.length; i++) {
             assertTrue(Math.abs(found[i] - best[i]) <= PARAMS.get(i).step(),
@@ -71,7 +79,7 @@ class SpsaTest {
         // Noise that depends on the vector played, as luck depends on the Run: deterministic, so the test is.
         ToDoubleFunction<long[]> noisy = v -> clean.applyAsDouble(v)
                 + 0.4 * ((Spsa.mix(v[0] * 31 + v[1] * 17 + v[2]) >>> 11) / (double) (1L << 53) - 0.5);
-        double[] theta = run(Spsa.Config.of(400), new double[] {50, 1, 4}, 400, noisy);
+        double[] theta = run(fast(400), new double[] {50, 1, 4}, 400, noisy);
         long[] found = Spsa.rounded(PARAMS, theta);
         for (int i = 0; i < best.length; i++) {
             assertTrue(Math.abs(found[i] - best[i]) <= 2L * PARAMS.get(i).step(),
@@ -84,9 +92,9 @@ class SpsaTest {
     void a_peak_beyond_a_bound_stops_at_the_bound() {
         // One number at a time. The others take a random walk on the same difference (that is SPSA: every number
         // is credited with the whole score change), so only the number whose peak is out of range is held to it.
-        assertEquals(1000, Spsa.rounded(PARAMS, run(Spsa.Config.of(100), new double[] {500, 6, 0}, 100, only(0, 5000)))[0]);
-        assertEquals(0, Spsa.rounded(PARAMS, run(Spsa.Config.of(100), new double[] {500, 6, 0}, 100, only(1, -40)))[1]);
-        assertEquals(5, Spsa.rounded(PARAMS, run(Spsa.Config.of(100), new double[] {500, 6, 0}, 100, only(2, 30)))[2]);
+        assertEquals(1000, Spsa.rounded(PARAMS, run(fast(100), new double[] {500, 6, 0}, 100, only(0, 5000)))[0]);
+        assertEquals(0, Spsa.rounded(PARAMS, run(fast(100), new double[] {500, 6, 0}, 100, only(1, -40)))[1]);
+        assertEquals(5, Spsa.rounded(PARAMS, run(fast(100), new double[] {500, 6, 0}, 100, only(2, 30)))[2]);
     }
 
     @Test
@@ -109,7 +117,7 @@ class SpsaTest {
     @Test
     @DisplayName("a perturbation under one unit is widened to one, so a whole-number parameter still gets a slope")
     void integers_get_a_gap() {
-        Spsa.Config tiny = new Spsa.Config(4, 0.1, 0, Spsa.ALPHA, Spsa.GAMMA, 2, 1);
+        Spsa.Config tiny = new Spsa.Config(1, 0.1, 1, 2, 0, Spsa.ALPHA, Spsa.GAMMA, 2, 1);
         Spsa.Probe probe = Spsa.probe(tiny, PARAMS, new double[] {500, 6, 0}, 0);
         assertEquals(1, Math.abs(probe.plus()[1] - probe.minus()[1]), "narrow: a tenth of a step rounds to nothing, so the gap is one");
         assertEquals(1, Math.abs(probe.plus()[2] - probe.minus()[2]));
@@ -164,6 +172,47 @@ class SpsaTest {
         assertTrue(Spsa.gain(config, 0) > Spsa.gain(config, 50));
         assertTrue(Spsa.gain(config, 50) > Spsa.gain(config, 99));
         assertTrue(Spsa.perturbation(config, 0) > Spsa.perturbation(config, 99));
-        assertEquals(config.perturbation(), Spsa.perturbation(config, 0), 1e-12);
+        assertEquals(config.cEnd(), Spsa.perturbation(config, 99), 1e-12, "c_end is the perturbation at the last planned iteration");
+        assertEquals(config.rEnd() * config.cEnd(), Spsa.gain(config, 99) / Spsa.perturbation(config, 99), 1e-12,
+                "r_end * c_end is the move of a full-scale result at the last planned iteration");
+    }
+
+    /** Pure noise: the score difference of every pair is a draw in [-2, 2] (full scale and beyond), and says nothing. */
+    private static double noise(int k, int salt) {
+        return 4.0 * ((Spsa.mix(Spsa.mix(k * 977L + salt) ^ 0xABCDEFL) >>> 11) / (double) (1L << 53) - 0.5);
+    }
+
+    @Test
+    @DisplayName("on an objective with no signal the drift over 10 iterations stays within 3 steps, for every seed tried")
+    void noise_alone_cannot_move_a_number_far() {
+        double worst = 0;
+        for (long seed = 1; seed <= 300; seed++) {
+            Spsa.Config base = Spsa.Config.of(10);
+            Spsa.Config config = new Spsa.Config(base.rEnd(), base.cEnd(), base.horizon(), base.scale(), base.stability(),
+                    base.alpha(), base.gamma(), base.maxMove(), seed);
+            double[] theta = {500, 6, 0};
+            double[] start = theta.clone();
+            for (int k = 0; k < 10; k++) {
+                Spsa.Probe probe = Spsa.probe(config, PARAMS, theta, k);
+                theta = Spsa.update(config, PARAMS, theta, probe, noise(k, (int) seed), 0).next();
+            }
+            for (int i = 0; i < theta.length; i++) {
+                worst = Math.max(worst, Math.abs(theta[i] - start[i]) / PARAMS.get(i).step());
+            }
+        }
+        assertTrue(worst <= 3.0, "the largest drift was " + worst + " steps");
+    }
+
+    @Test
+    @DisplayName("even a full-scale result in the same direction at every one of 10 iterations moves a number under 3 steps")
+    void the_worst_case_is_bounded() {
+        Spsa.Config config = Spsa.Config.of(10);
+        double total = 0;
+        for (int k = 0; k < 10; k++) {
+            // a_k / c_k is the move, in steps, of a result of 1 at a perturbation of c_k steps.
+            total += Math.min(config.maxMove(), Spsa.gain(config, k) / Spsa.perturbation(config, k));
+        }
+        assertTrue(total < 3.0, "the worst-case drift is " + total + " steps");
+        assertTrue(total > 1.0, "and the bound is not vacuous: " + total);
     }
 }

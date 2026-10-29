@@ -82,17 +82,17 @@ public final class Tune {
     public static final String RESUME = "--resume";
     public static final String OUT = "--out";
     public static final String ROOT = "--root";
-    /** The gain {@code a} of {@link Spsa.Config}. */
-    public static final String GAIN = "--gain";
-    /** The perturbation {@code c}, in steps, of {@link Spsa.Config}. */
-    public static final String PERTURBATION = "--perturbation";
+    /** The learning rate {@code r_end} at the last planned iteration ({@link Spsa.Config}). */
+    public static final String R_END = "--r-end";
+    /** The perturbation {@code c_end}, in steps, at the last planned iteration. */
+    public static final String C_END = "--c-end";
     /** The most one iteration moves a number, in steps. */
     public static final String MAX_MOVE = "--max-move";
     /** Takes no value: keep every Run log of every iteration (they are large; the scores are kept either way). */
     public static final String KEEP_LOGS = "--keep-logs";
 
     static final List<String> KNOWN = List.of(SET, CLASS, FIRST, SALT_BASE, ITERATIONS, JOBS, PARAMS, RESUME, OUT, ROOT,
-            GAIN, PERTURBATION, MAX_MOVE, KEEP_LOGS);
+            R_END, C_END, MAX_MOVE, KEEP_LOGS);
 
     /** What a resumed run may be told again; everything else is in {@code tune.json}. */
     private static final List<String> RESUMABLE = List.of(RESUME, ITERATIONS, JOBS, ROOT, KEEP_LOGS);
@@ -112,7 +112,6 @@ public final class Tune {
     /** The sets that are refused by name, with the reason each is refused for. */
     private static final Map<String, String> REFUSED = Map.of(
             SeedSets.GOO, "the goo set is the E4 gate's and is played only under a Registration",
-            SeedSets.HOLDOUT, "the holdout set is never run during development",
             "tengu", "the tengu set is the E10 gate's and is played only under a Registration");
 
     /** Schema of {@code tune.json} and {@code trajectory.jsonl}. */
@@ -148,7 +147,8 @@ public final class Tune {
             throw new IllegalArgumentException("the tuner does not play " + set + ": " + why);
         }
         if (!SETS.contains(set)) {
-            throw new IllegalArgumentException("the tuner plays " + SETS + ", and " + set + " is not one of them");
+            throw new IllegalArgumentException("the tuner plays " + SETS + ", and " + set + " is not one of them;"
+                    + " a reserved set is never run during development");
         }
     }
 
@@ -222,10 +222,12 @@ public final class Tune {
             m.put("set", quote(set));
             TreeMap<String, String> s = new TreeMap<>();
             s.put("alpha", num(spsa.alpha()));
-            s.put("gain", num(spsa.gain()));
+            s.put("cEnd", num(spsa.cEnd()));
             s.put("gamma", num(spsa.gamma()));
+            s.put("horizon", String.valueOf(spsa.horizon()));
             s.put("maxMove", num(spsa.maxMove()));
-            s.put("perturbation", num(spsa.perturbation()));
+            s.put("rEnd", num(spsa.rEnd()));
+            s.put("scale", num(spsa.scale()));
             s.put("seed", String.valueOf(spsa.seed()));
             s.put("stability", num(spsa.stability()));
             m.put("spsa", object(s));
@@ -257,8 +259,9 @@ public final class Tune {
                 start[i] = Double.parseDouble(Json.required(st, params.get(i), "start"));
             }
             Map<String, String> s = Json.object(Json.required(m, "spsa", "tune.json"));
-            Spsa.Config spsa = new Spsa.Config(d(s, "gain"), d(s, "perturbation"), d(s, "stability"), d(s, "alpha"),
-                    d(s, "gamma"), d(s, "maxMove"), Json.number(Json.required(s, "seed", "spsa")));
+            Spsa.Config spsa = new Spsa.Config(d(s, "rEnd"), d(s, "cEnd"), Json.integer(Json.required(s, "horizon", "spsa")),
+                    d(s, "scale"), d(s, "stability"), d(s, "alpha"), d(s, "gamma"), d(s, "maxMove"),
+                    Json.number(Json.required(s, "seed", "spsa")));
             return new Config(Json.string(Json.required(m, "set", "tune.json")), classes,
                     Json.integer(Json.required(m, "first", "tune.json")), Json.number(Json.required(m, "saltBase", "tune.json")),
                     Json.integer(Json.required(m, "iterations", "tune.json")), params, start, spsa);
@@ -684,8 +687,8 @@ public final class Tune {
                 start[i] = Tunables.value(base, Tunables.named(params.get(i)));
             }
             Spsa.Config defaults = Spsa.Config.of(iterations);
-            Spsa.Config spsa = new Spsa.Config(a.containsKey(GAIN) ? Double.parseDouble(a.get(GAIN)) : defaults.gain(),
-                    a.containsKey(PERTURBATION) ? Double.parseDouble(a.get(PERTURBATION)) : defaults.perturbation(),
+            Spsa.Config spsa = new Spsa.Config(a.containsKey(R_END) ? Double.parseDouble(a.get(R_END)) : defaults.rEnd(),
+                    a.containsKey(C_END) ? Double.parseDouble(a.get(C_END)) : defaults.cEnd(), defaults.horizon(), defaults.scale(),
                     defaults.stability(), defaults.alpha(), defaults.gamma(),
                     a.containsKey(MAX_MOVE) ? Double.parseDouble(a.get(MAX_MOVE)) : defaults.maxMove(), defaults.seed());
             config = new Config(set, classes, first, saltBase, iterations, params, start, spsa);
