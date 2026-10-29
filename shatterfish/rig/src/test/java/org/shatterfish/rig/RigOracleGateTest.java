@@ -123,8 +123,8 @@ class RigOracleGateTest {
         // one, so the size is what makes a new flag a decision somebody made here rather than a
         // line that slipped past a substring check. Story 3.4 added `--verify` and `--replay`;
         // story 4.1 `--codex` and story 4.5 `--weights` and story 7.2 `--playbook` to the child's, each a file the child
-        // reads for the Brain.
-        assertTrue(Runner.KNOWN.size() == 13 && RunOne.KNOWN.size() == 14,
+        // reads for the Brain; story 10.5 added `--practice` and `--kit`, a boss and a profile, never a file or an oracle.
+        assertTrue(Runner.KNOWN.size() == 13 && RunOne.KNOWN.size() == 16,
                 "the two lists are " + Runner.KNOWN + " and " + RunOne.KNOWN);
     }
 
