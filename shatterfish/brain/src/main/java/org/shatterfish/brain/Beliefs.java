@@ -61,6 +61,29 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
     /** The room whose sight implies its floor's spawns: the pool room (PoolRoom.java:91). */
     static final String POOL_ROOM = "PoolRoom";
 
+    /**
+     * How an appearance that is not in a deck weighs against the decks' (issue #219): the potion of strength and
+     * the scroll of upgrade are queued by the floors, not drawn (Dungeon.java:529-554, Generator.java:342-343,
+     * :376-377), two and three per five floors. Against about one deck-drawn potion or scroll a floor, whose
+     * weights sum to 30, that is a weight near 12 and near 16-18. Not a Codex fact but the rate of finding them;
+     * the values were fitted on the 40 Warrior Runs of the standard set at salts 1000..1039, where the old
+     * assumption (the heaviest weight, 6) predicted strength about 21 times and upgrade about 15 where 37 and 40
+     * of the sightings were of them; the true identities came from the debug sidecar, never from the Brain.
+     */
+    @Heuristic("guaranteed-drop-weight")
+    static final int STRENGTH_WEIGHT = 12;
+    @Heuristic("guaranteed-drop-weight")
+    static final int UPGRADE_WEIGHT = 16;
+
+    /**
+     * The chance that the potion a special room queued has not been seen on its floor when appearances from that floor
+     * are in view: it lies in the room's own chest or vault (the prize is taken from the queue one time in three to
+     * two in three, PoolRoom.java:107-110 and the like) or on ground not yet seen. A guess, kept where the
+     * calibration page can move it.
+     */
+    @Heuristic("potion-room-inference")
+    static final double ROOM_MISS = 0.4;
+
     /** The most identities the exact computation enumerates by subsets: more than any family has. */
     private static final int EXACT = 16;
 
@@ -111,6 +134,8 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 facts.add(fact);
             }
         }
+        // The floor each unidentified appearance was first drawn on, kept for the floor's evidence (issue #219).
+        facts.addAll(firstSeen(observation, knowledge, facts));
 
         // The unidentified appearances of the families a guarantee places into, as held now, and
         // every rise in them, set aside until an identity claims it.
@@ -511,7 +536,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
     /** What the Brain believes, given the memory after {@link #fold} and the same observation. */
     static Beliefs view(Memory memory, Observation observation, Codex.Knowledge knowledge) {
         int depth = observation.header().depth();
-        List<FloorItem> floor = memory.facts().stream().filter(fact -> fact.depth() == depth)
+        List<FloorItem> floor = memory.facts().stream().filter(fact -> fact.depth() == depth && !fact.because().equals(SEEN))
                 .map(fact -> new FloorItem(fact.item(), fact.because())).toList();
         List<Chapter> chapters = new ArrayList<>();
         for (Codex.Guarantee guarantee : knowledge.guarantees()) {
@@ -522,7 +547,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         }
         List<Monster> monsters = memory.monsters().stream().filter(seen -> seen.depth() == depth)
                 .map(seen -> new Monster(seen.name(), seen.cell(), seen.at(), seen.at() < memory.waits())).toList();
-        return new Beliefs(identities(observation, knowledge), floor, chapters, monsters);
+        return new Beliefs(identities(observation, knowledge, memory.facts()), floor, chapters, monsters);
     }
 
     /**
@@ -544,6 +569,15 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
      * not a Codex fact, and the one number here a later story should measure.
      */
     static List<Guess> identities(Observation observation, Codex.Knowledge knowledge) {
+        return identities(observation, knowledge, List.of());
+    }
+
+    /**
+     * As above, given the Memory's facts: the floor each appearance was first drawn on and the rooms
+     * whose sight implies a potion on their floor (issue #219; docs/rules/generation.md, the
+     * potion-room-inference row). With no room fact and no stack held it is the plain computation.
+     */
+    static List<Guess> identities(Observation observation, Codex.Knowledge knowledge, List<Memory.Fact> facts) {
         Set<String> inView = new LinkedHashSet<>();
         for (ItemView item : observation.inventory().items()) {
             inView.add(item.name());
@@ -562,7 +596,8 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 int weight = candidate.weight();
                 if (weight == 0 && knowledge.guarantees().stream()
                         .anyMatch(guarantee -> guarantee.className().equals(candidate.className()))) {
-                    weight = heaviest;
+                    weight = family.kind() == ItemKind.POTION ? STRENGTH_WEIGHT
+                            : family.kind() == ItemKind.SCROLL ? UPGRADE_WEIGHT : heaviest;
                 }
                 if (weight > 0 && !identified(observation, family.kind(), candidate.name())) {
                     names.add(candidate.name());
@@ -573,12 +608,15 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
             if (labels.isEmpty() || names.isEmpty()) {
                 continue;
             }
-            double[] marginal = marginal(weights, labels.size());
-            for (String label : labels) {
+            double[][] evidence = Evidence.marginals(observation, family, names, weights, labels, facts);
+            double[] marginal = evidence == null ? marginal(weights, labels.size()) : null;
+            for (int at = 0; at < labels.size(); at++) {
+                String label = labels.get(at);
+                double[] row = evidence == null ? marginal : evidence[at];
                 List<Odds> odds = new ArrayList<>();
                 for (int x = 0; x < names.size(); x++) {
-                    if (marginal[x] > 0) {
-                        odds.add(new Odds(names.get(x), marginal[x]));
+                    if (row[x] > 0) {
+                        odds.add(new Odds(names.get(x), row[x]));
                     }
                 }
                 odds.sort((a, b) -> a.probability() != b.probability()
@@ -738,15 +776,34 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
      */
     static List<Memory.Fact> implied(Observation observation, Codex.Knowledge knowledge) {
         MapSection map = observation.map();
-        List<Memory.Fact> facts = new ArrayList<>();
+        // The special rooms the screen shows, by the Codex's room class and the name the fact gives them.
+        java.util.Map<String, String> rooms = new java.util.LinkedHashMap<>();
         for (HeapView heap : map.heaps()) {
-            if (heap.kind() != HeapKind.CHEST || map.tiles().get(heap.cell()) != Tile.PEDESTAL
-                    || !inAPool(map, heap.cell())) {
-                continue;
+            if (heap.kind() == HeapKind.CHEST && map.tiles().get(heap.cell()) == Tile.PEDESTAL
+                    && inAPool(map, heap.cell())) {
+                rooms.put(POOL_ROOM, "pool room");
             }
+        }
+        if (RoomSigns.toxicGas(map)) {
+            rooms.put("ToxicGasRoom", "toxic gas room");
+        }
+        if (RoomSigns.magicalFire(map)) {
+            rooms.put("MagicalFireRoom", "magical fire room");
+        }
+        if (RoomSigns.sentry(observation)) {
+            rooms.put("SentryRoom", "sentry room");
+        }
+        if (RoomSigns.storage(map)) {
+            rooms.put("StorageRoom", "storage room");
+        }
+        if (RoomSigns.traps(map)) {
+            rooms.put("TrapsRoom", "traps room");
+        }
+        List<Memory.Fact> facts = new ArrayList<>();
+        for (java.util.Map.Entry<String, String> room : rooms.entrySet()) {
             for (Codex.RoomSpawn spawn : knowledge.rooms()) {
-                if (spawn.room().endsWith("." + POOL_ROOM)) {
-                    Memory.Fact fact = new Memory.Fact(observation.header().depth(), spawn.name(), "pool room");
+                if (spawn.room().endsWith("." + room.getKey())) {
+                    Memory.Fact fact = new Memory.Fact(observation.header().depth(), spawn.name(), room.getValue());
                     if (!facts.contains(fact)) {
                         facts.add(fact);
                     }
@@ -754,6 +811,40 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
             }
         }
         return facts;
+    }
+
+    /** The reason of a fact that records the floor an appearance was first drawn on, not a room. */
+    static final String SEEN = "first seen";
+
+    /**
+     * The appearances of the Codex's families drawn at this wait (held, or lying in a heap in view) that no
+     * earlier fact has put on a floor: each is put on this one. The floor an unidentified potion was found on
+     * is what the room evidence reads (the potion a special room queues lies somewhere on that floor).
+     */
+    static List<Memory.Fact> firstSeen(Observation observation, Codex.Knowledge knowledge, List<Memory.Fact> facts) {
+        Set<String> inView = new LinkedHashSet<>();
+        for (ItemView item : observation.inventory().items()) {
+            inView.add(item.name());
+        }
+        for (HeapView heap : observation.map().heaps()) {
+            if (!heap.item().isEmpty()) {
+                inView.add(untitled(heap.item()));
+            }
+        }
+        int depth = observation.header().depth();
+        List<Memory.Fact> seen = new ArrayList<>();
+        for (Codex.Identities family : knowledge.families()) {
+            for (String label : family.labels()) {
+                if (!inView.contains(label)) {
+                    continue;
+                }
+                boolean known = facts.stream().anyMatch(fact -> fact.because().equals(SEEN) && fact.item().equals(label));
+                if (!known) {
+                    seen.add(new Memory.Fact(depth, label, SEEN));
+                }
+            }
+        }
+        return seen;
     }
 
     /** Water on three of the four sides and a wall on the fourth. */

@@ -162,15 +162,15 @@ development_status:
   epic-9: backlog
   epic-9-retrospective: optional
   epic-10: backlog  # issue #381; milestone E10; stories planned 2026-10-28 (correct-course, plan resilient-herding-moonbeam)
-  10-1-the-boss-staircase-in-the-direction-table: backlog  # issue #347
-  10-2-the-killer-on-every-death: backlog  # issue #348
-  10-3-the-all-class-direction-table-and-the-think-time-column: backlog  # issue #349
-  10-4-the-tengu-seed-set: backlog  # issue #350
+  10-1-the-boss-staircase-in-the-direction-table: done  # issue #347
+  10-2-the-killer-on-every-death: done  # issue #348
+  10-3-the-all-class-direction-table-and-the-think-time-column: done  # issue #349
+  10-4-the-tengu-seed-set: done  # issue #350
   10-5-the-practice-harness: backlog  # issue #351
   10-6-practice-kits-from-real-arrivals: backlog  # issue #352
   10-7-the-prison-diagnosis: backlog  # issue #353
   10-8-skeleton-bone-burst: backlog  # issue #354
-  10-9-dm-100-lightning: backlog  # issue #355
+  10-9-dm-100-lightning: done  # issue #355
   10-10-guard-chain-pull: backlog  # issue #356
   10-11-thief-and-bandit-steal: backlog  # issue #357
   10-12-necromancer-target-priority: backlog  # issue #358
@@ -183,8 +183,8 @@ development_status:
   10-19-tengu-phase-one-the-dart-trap-memory: backlog  # issue #365
   10-20-tengu-phase-two-the-threat-map: backlog  # issue #366
   10-21-tengu-conversion-on-the-practice-floor: backlog  # issue #367
-  10-22-the-think-budget-amendment-to-adr-0010: backlog  # issue #368
-  10-23-the-classloader-isolation-spike: backlog  # issue #369
+  10-22-the-think-budget-amendment-to-adr-0010: done  # issue #368
+  10-23-the-classloader-isolation-spike: done  # issue #369
   10-24-determinized-fight-rollouts: backlog  # issue #370
   10-25-the-warrior-plays-its-kit: backlog  # issue #371
   10-26-the-mage-plays-its-kit: backlog  # issue #372
@@ -197,6 +197,6 @@ development_status:
   10-33-the-r2-check-tengu-conversion: backlog  # issue #379
   10-34-the-registered-tengu-run-and-the-epic-close: backlog  # issue #380
   10-35-the-registry-of-tunable-parameters: done  # issue #382
-  10-36-the-tune-runner: backlog  # issue #383
+  10-36-the-tune-runner: done  # issue #383; PR #405
   10-37-the-first-tuning-run: backlog  # issue #384
   epic-10-retrospective: optional

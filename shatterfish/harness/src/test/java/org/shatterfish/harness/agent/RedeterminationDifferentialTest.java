@@ -532,12 +532,21 @@ class RedeterminationDifferentialTest {
     @Test
     @DisplayName("scrubbing a snapshot leaves the live Run's statics alone: it plays on as its unscrubbed twin does")
     void scrubbing_leaves_the_live_run_alone() throws IOException {
-        long seed = smokeWarriors().get(1);
-        Fixture f = fixture(seed, 0);
-        long k = f.live.k();
-        List<String> scrubbed = after(seed, k, true, 120);
-        List<String> twin = after(seed, k, false, 120);
-        assertEquals(twin, scrubbed, "the Run after a scrub reads wait for wait as the twin that was never scrubbed");
+        // The first fight of a seed can come late in a Run that then ends within a few waits (a different Brain
+        // dies earlier on the same seed), so take the first smoke Warrior whose twin plays on long enough.
+        List<Long> seeds = new ArrayList<>(smokeWarriors());
+        seeds.add(0, seeds.remove(1));
+        List<String> scrubbed = List.of();
+        for (long seed : seeds) {
+            long k = fixture(seed, 0).live.k();
+            List<String> twin = after(seed, k, false, 120);
+            if (twin.size() < 60) {
+                continue;
+            }
+            scrubbed = after(seed, k, true, 120);
+            assertEquals(twin, scrubbed, "the Run after a scrub reads wait for wait as the twin that was never scrubbed");
+            break;
+        }
         assertTrue(scrubbed.size() >= 60, "the comparison covers a stretch of play: " + scrubbed.size());
     }
 

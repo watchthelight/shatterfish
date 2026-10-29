@@ -94,3 +94,57 @@ If this is wrong in six months:
   canonical text, tested in `TunablePlaybookTest`.
 - **Merge conflict with other Policy stories.** The overloads keep old signatures, so a later story's
   call into a helper keeps compiling and plays the default until it passes the vector.
+
+## Amendment (story 10.36): the objective, the variance choices and the salt reservation
+
+Decided when the tune runner was built (`:rig:tune`, `Tune`, `Spsa`; usage in `docs/methodology.md`).
+
+**The objective.** The score of one Run is 5 per boss killed plus the deepest depth reached, read from
+the Run log's ending; a Run with no ending is not scored. A Goo kill is worth the five floors that lead
+to it, and every floor deeper counts where nothing was killed, so the tuner has a slope on a Brain that
+dies before Goo. The metric is fixed before a run and not tunable by flag. Options weighed: win rate
+(near zero, no slope), depth alone (ignores kills, which are the epic's target), kills alone (too
+sparse at 20 Runs per class), a learned value (epic 9). A different objective is a new ADR amendment.
+
+**Variance.** The plus and the minus vector play the same triples under the same salts, so the paired
+difference cancels a seed's difficulty; a triple with a Run missing on a side is dropped from both; each
+class is one voice (the mean of the class means); the move of one iteration is capped at two steps; and
+every iteration plays a fresh window of triples under fresh salts so no slice is fitted. The standard
+error of the paired difference is written to the trajectory. SPSA credits every number with the whole
+score change, so a large difference moves numbers that did not cause it; the cap, the decaying gain and
+tuning a subset at a time are the controls, and the second slice is the judge.
+
+**Salt map.** The tuner plays salts 5000 to 6999 and no others, and refuses a run whose base is under
+5000 or whose last salt (base + iterations x classes x triples per class - 1) is 7000 or more.
+
+| Salts | Use |
+|---|---|
+| 1000 up | The tuning slice for lever PRs (`:rig:direction`, first 40 Warriors). Also a confirmation slice for a kept candidate. |
+| 3000 up | The confirmation slice. |
+| 5000 to 6999 | SPSA only (`:rig:tune`). |
+| 7000 and up | Pre-registered confirmation tiebreaks (PR #393 ran Warrior, first 120, salt base 7000). |
+
+This replaces the "tune on the salt-1000 slice" wording of story 10.37's acceptance text: that story tunes on
+5000 to 6999 and confirms on the 1000 and 3000 slices. Triples still come from `standard` for all of them, and
+the salt (and, in the tuner, the moving window) is what keeps a fitted run from being replayed as its own
+confirmation.
+
+**Gain calibration (c_end and r_end).** The first demo run (3 iterations, Warrior, 20 seeds, differences of
+-0.55, -0.35 and +0.45 against a standard error of about 0.8) moved `fight.flights` 2 to 3, `identify.reach`
+8 to 12 and `fight.margin_per_mille` by 19% on noise alone: a gain of 4 per score point has no relation to how
+noisy a score is. The tuner now calibrates as Fishtest does. The score difference of a pair is made a result
+`r = clamp(diff / 2, -1, 1)` (two floors of mean paired difference is full scale). The perturbation is
+`c_k = c_end * N^0.101 / (k+1)^0.101` steps, so `c_end` (default 1 step) at the last planned iteration `N`,
+and the gain is `a_k = r_end * c_end^2 * (A + N)^0.602 / (A + k + 1)^0.602` with `A = 0.1 N`, so a number
+moves `a_k / c_k`, about `r_end * c_end` steps at the end and about three times that at the start, for a
+full-scale result (`r_end` default 0.2). A move is also capped at one step per iteration (`--max-move`). The
+drift a number can have over a run is therefore bounded by the schedule and not by the noise: for N = 10 at
+most 2.9 steps even if every iteration pushed one way at full scale (`SpsaTest.the_worst_case_is_bounded`), and
+`SpsaTest.noise_alone_cannot_move_a_number_far` plays 300 seeds of pure noise at full scale and holds the
+largest drift to 3 steps. The cost is that a real signal needs iterations: 0.2 steps at the end means a number
+8 steps from its optimum needs tens of iterations, which is what the first real run (story 10.37) is for; raise
+`--r-end` only with the standard error of the trajectory in view. The horizon `N` is fixed when the folder is
+made, so a resume that asks for more iterations continues the same decay.
+
+**Defaults.** `--params` defaults to `all` (the epic's wording), but the first runs should name a subset:
+with 31 numbers the noise of 20 Runs per class swamps most single slopes.

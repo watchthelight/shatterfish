@@ -134,12 +134,31 @@ public final class Results {
             } else {
                 unreadable[0]++;
             }
+            // The ending record (killer, floor of death, health last seen, bosses by name) is written
+            // beside a log from E10 W1 on. A Run without one writes the row it always did, so a row
+            // from before it stays byte-for-byte what it was (ADR-0011, the amendment of 2026-10-28).
+            org.shatterfish.harness.log.EndingRecord.Ending ending =
+                    org.shatterfish.harness.log.EndingRecord.read(file);
             JsonWriter row = new JsonWriter().beginObject();
+            if (ending != null) {
+                row.key("boss_kills").beginArray();
+                for (String boss : ending.bossKills()) {
+                    row.value(boss);
+                }
+                row.endArray();
+            }
             row.key("bosses").value(outcome == null ? 0 : outcome.bosses());
             row.key("cause").value(outcome == null ? "INCOMPLETE" : outcome.cause());
             row.key("chain").value(named(line, "chain", folder));
             row.key("class").value(named(line, "class", folder));
+            if (ending != null) {
+                row.key("death_depth").value(ending.depth());
+            }
             row.key("depth").value(outcome == null ? 0 : outcome.depth());
+            if (ending != null) {
+                row.key("killer").value(ending.killer());
+                row.key("last_hp").value(ending.lastHp());
+            }
             row.key("run").value(named(line, "runId", folder));
             row.key("score").value(outcome == null ? 0 : outcome.score());
             row.key("seed").value(Long.parseLong(seed));
