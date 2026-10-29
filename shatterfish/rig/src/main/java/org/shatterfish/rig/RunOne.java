@@ -70,6 +70,15 @@ public final class RunOne {
     public static final String PLAYBOOK = "--playbook";
 
     /**
+     * The boss a practice Run starts in front of (E10, ADR-0024): {@code goo} or {@code tengu}. With
+     * {@link #KIT} it makes the Run a practice Run, whose header says so and which is never ranked.
+     */
+    public static final String PRACTICE = "--practice";
+
+    /** The kit profile a practice Run's hero arrives with; stated with {@link #PRACTICE} and not without it. */
+    public static final String KIT = "--kit";
+
+    /**
      * A parameter vector played over the Playbook (story 10.35): {@code name=value} pairs joined by commas,
      * each name a registered tunable ({@link org.shatterfish.api.Tunables}) and each value inside its bounds.
      * For the Rig's tuner and its checks only. The vector becomes part of the Playbook the Brain is built on,
@@ -184,6 +193,18 @@ public final class RunOne {
                 required(arguments, COMMIT),
                 new RunLog.Brain(brain, required(arguments, BRAIN_COMMIT), Brains.configHash(brain, weights, playbook, knowledge)),
                 arguments.getOrDefault(REGISTRATION, ""), arguments.getOrDefault(MACHINE, ""));
+        if (arguments.containsKey(PRACTICE) != arguments.containsKey(KIT)) {
+            throw new IllegalArgumentException(PRACTICE + " and " + KIT + " are stated together: a practice Run names"
+                    + " the boss it starts in front of and the kit profile its hero arrives with");
+        }
+        if (arguments.containsKey(PRACTICE)) {
+            if (arguments.containsKey(REGISTRATION)) {
+                throw new IllegalArgumentException("a practice Run is never played under a Registration: it began on a"
+                        + " boss floor with a kit a profile made up, so no hypothesis about the Brain can rest on it (ADR-0024)");
+            }
+            logging = logging.practising(new org.shatterfish.harness.practice.Practice(
+                    org.shatterfish.harness.practice.PracticeBoss.of(arguments.get(PRACTICE)), arguments.get(KIT)));
+        }
         int cap = arguments.containsKey(CAP) ? (int) number(arguments, CAP) : RunLoop.TURN_CAP;
         where();
         org.shatterfish.api.Codex.Knowledge codex = arguments.containsKey(CODEX) && Brains.readsCodex(brain)
@@ -268,7 +289,8 @@ public final class RunOne {
 
     /** Every flag a Run knows. Held by name, like the parent's (RigOracleGateTest). */
     static final java.util.List<String> KNOWN = java.util.List.of(SEED, CLASS, SALT, OUT,
-            COMMIT, BRAIN, BRAIN_COMMIT, REGISTRATION, MACHINE, CAP, CHALLENGES, CODEX, WEIGHTS, PLAYBOOK, TUNABLES);
+            COMMIT, BRAIN, BRAIN_COMMIT, REGISTRATION, MACHINE, CAP, CHALLENGES, CODEX, WEIGHTS, PLAYBOOK,
+            PRACTICE, KIT, TUNABLES);
 
     private static String required(Map<String, String> arguments, String flag) {
         String value = arguments.get(flag);

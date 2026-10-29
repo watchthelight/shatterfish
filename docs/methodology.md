@@ -975,6 +975,39 @@ The committed Playbook is never edited. The state of a run is the folder: a run 
 an iteration replays that iteration and no other, and ends where an uninterrupted run would have
 (`TuneRunnerTest`). `SpsaTest` holds the arithmetic to quadratics with known peaks, noiseless and noisy.
 
+## The boss practice check
+
+`./gradlew :rig:practice --args="--boss tengu|goo --class <HERO|ALL> --kit standard --n 40 --salt-base 1000"`
+starts every Run on the boss's floor (depth 5 for Goo, depth 10 for Tengu) with a hero whose level,
+strength, equipment upgrades and pack follow a kit profile, and lets the Brain play from there. It
+measures the fight and nothing else ([ADR-0024](adr/0024-boss-practice-runs.md)). The hero is built
+through the harness with the game's own classes (`Hero.earnExp`, `Item.upgrade`, the strength
+field) between `Dungeon.init` and the building of the floor; no upstream file is edited. The Brain
+is handed its Observation as it is anywhere else and nothing of the setup.
+
+| Flag | Meaning |
+|---|---|
+| `--boss <goo\|tengu>` | The floor the Run starts on. |
+| `--class <HERO\|ALL>` | One class, or all six (default `ALL`). |
+| `--kit <profile>` | `standard` (what a hero that found everything the floors above guarantee arrives with) or `arrived` (what the Brain's own Runs arrive with). Default `standard`. |
+| `--n N` | The first N triples of the class in the `standard` set (default 40); `--set smoke` is the other set allowed. |
+| `--salt-base K` | Entry `i` plays under salt `K + i`, as in the direction check. |
+| `--jobs P`, `--out <dir>`, `--cap T` | Runs in flight, output folder (default `build/practice/<time>`), turn cap (default 5000). |
+
+A Run ends when the boss is killed (`BOSS_DOWN`), the hero dies, or the cap is reached. The table
+prints, per class, kills over Runs that finished with the Wilson interval, deaths, cap endings, the
+median turns of kills and of deaths, and the killers of the Runs that died (from the debug record),
+and the kit each class was given.
+
+**A practice Run is never ranked.** Its header carries a chained `practice` field,
+`<boss>/<profile>@<kit hash>`, written only when set, so every other log keeps its bytes. A Replay
+re-resolves the stamp and refuses a log whose profile has changed since. The readers that count,
+compare or publish (`Comparison.outcome`, `LogHeader`, the Results extract, the direction table and
+so its baselines) refuse a practice log by name through `OverlayLogs`; a header with a stamp and a
+Registration is invalid; the practice runner takes no Registration and reads only the `standard`
+and `smoke` sets. A practice number is a direction for the Tengu fight, never an acceptance: the
+rungs of epic E10 are measured on real Runs and the registered `tengu` set.
+
 ## The Run log and its chain
 
 Every Run writes `<run-id>.jsonl`: one record per line, plain text, no compression, readable with

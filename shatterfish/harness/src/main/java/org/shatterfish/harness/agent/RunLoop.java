@@ -136,17 +136,35 @@ public final class RunLoop {
      *                     fair and is not stops at its first wait.
      */
     public record Logging(Path folder, String commit, RunLog.Brain brain, String registration,
-                          String machine, boolean oracle) {
+                          String machine, boolean oracle, org.shatterfish.harness.practice.Practice practice) {
 
         public Logging {
             if (folder == null || commit == null || brain == null || registration == null || machine == null) {
                 throw new IllegalArgumentException("a logged Run states where it is written and who played it");
             }
+            if (practice != null && !registration.isEmpty()) {
+                throw new IllegalArgumentException("a practice Run is never played under a Registration: it is not"
+                        + " ranked (ADR-0024)");
+            }
+            if (practice != null && oracle) {
+                throw new IllegalArgumentException("a practice Run is a fair Run that began on a boss floor, not an oracle Run");
+            }
+        }
+
+        /** An ordinary Run, which began on depth 1 like a player's. */
+        public Logging(Path folder, String commit, RunLog.Brain brain, String registration, String machine,
+                       boolean oracle) {
+            this(folder, commit, brain, registration, machine, oracle, null);
         }
 
         /** A fair Run, which is every Run the Rig ranks. */
         public Logging(Path folder, String commit, RunLog.Brain brain, String registration, String machine) {
-            this(folder, commit, brain, registration, machine, false);
+            this(folder, commit, brain, registration, machine, false, null);
+        }
+
+        /** The same logging for a Run that begins in front of a boss with a kit (E10, ADR-0024). */
+        public Logging practising(org.shatterfish.harness.practice.Practice start) {
+            return new Logging(folder, commit, brain, registration, machine, oracle, start);
         }
     }
 
@@ -170,7 +188,7 @@ public final class RunLoop {
         // (core/.../Dungeon.java:236), which runs inside the start below, so a header built first
         // recorded whatever the previous Run in this process had left in the static -- and the
         // challenges are part of the run id, so it named the file after a Run nobody played.
-        HeadlessDriver driver = HeadlessDriver.start(seed, heroClass, salt);
+        HeadlessDriver driver = HeadlessDriver.start(seed, heroClass, salt, logging.practice());
         RunLogWriter opened;
         try {
             opened = openLog(logging, seed, heroClass, salt, turnCap, "");
@@ -189,13 +207,14 @@ public final class RunLoop {
             throw failed;
         }
         try (RunLogWriter log = opened; DebugRecord sidecar = debug) {
-            return play(driver, seed, heroClass, salt, agent, turnCap, log, logging.oracle(), sidecar);
+            return play(driver, seed, heroClass, salt, agent, turnCap, log, logging.oracle(), sidecar,
+                    logging.practice());
         }
     }
 
     public RunOutcome play(long seed, HeroClass heroClass, long salt, Decider agent, int turnCap) {
         return play(HeadlessDriver.start(seed, heroClass, salt), seed, heroClass, salt, agent,
-                turnCap, null, false, null);
+                turnCap, null, false, null, null);
     }
 
     /**
@@ -223,7 +242,9 @@ public final class RunLoop {
                 SeedSet.code(seed), salt, turnCap, Profile.VERSION,
                 ObservationCodec.SCHEMA_VERSION, Codex.VERSION, logging.brain(),
                 logging.registration(), logging.oracle(), logging.machine(),
-                Instant.now().toString(), driver, interfaceSize, controller));
+                Instant.now().toString(), driver, interfaceSize, controller,
+                logging.practice() == null ? ""
+                        : logging.practice().stamp(org.shatterfish.api.HeroClass.valueOf(heroClass.name()))));
     }
 
     /**
@@ -251,7 +272,7 @@ public final class RunLoop {
 
     private RunOutcome play(HeadlessDriver driver, long seed, HeroClass heroClass, long salt,
                             Decider agent, int turnCap, RunLogWriter log, boolean oracle,
-                            DebugRecord debug) {
+                            DebugRecord debug, org.shatterfish.harness.practice.Practice practice) {
         // The games the rankings held before this Run, so the killer of this one can be told from an
         // old one's; read only for the debug record, which nothing in the Run reads.
         Set<String> ranked = debug == null && log == null ? Set.of() : DebugRecord.rankingsNow();
@@ -267,7 +288,7 @@ public final class RunLoop {
             // the game's own scorer reading the hero and the statistics, and the driver's close
             // tears that down. So the close moved out here, after the ending, rather than staying
             // in the loop where it used to sit.
-            RunOutcome played = playing(driver, seed, heroClass, salt, agent, turnCap, log, oracle, debug);
+            RunOutcome played = playing(driver, seed, heroClass, salt, agent, turnCap, log, oracle, debug, practice);
             if (debug != null) {
                 debug.end(played.cause().name(), played.depth(), played.turns(),
                         played.cause() == RunOutcome.Cause.DEATH ? DebugRecord.killerSince(ranked) : "");
@@ -287,7 +308,7 @@ public final class RunLoop {
 
     private RunOutcome playing(HeadlessDriver driver, long seed, HeroClass heroClass, long salt,
                                Decider agent, int turnCap, RunLogWriter log, boolean oracle,
-                               DebugRecord debug) {
+                               DebugRecord debug, org.shatterfish.harness.practice.Practice practice) {
         long waits = 0;
         long applied = 0;
         long refused = 0;
@@ -321,6 +342,18 @@ public final class RunLoop {
                 default -> {
                     // An Input wait: the only case with an Action in it.
                 }
+            }
+            if (practice != null && bossDown(practice)) {
+                // A practice Run is about one fight: once the boss is dead there is nothing left to
+                // measure, and playing on would be playing the rest of the game from a made-up start.
+                return outcome(RunOutcome.Cause.BOSS_DOWN, salt, waits, applied, refused, "");
+            }
+            if (practice != null && com.shatteredpixel.shatteredpixeldungeon.Dungeon.depth != practice.boss().depth()) {
+                // The Run was started for one floor's fight; a hero that has taken the stairs off it is
+                // playing a floor the practice start never built up to (the entrance's stairs lead to a
+                // fresh, uncleared floor above), so it is a loss of the fight and not a measurement of it.
+                return outcome(RunOutcome.Cause.LEFT_BOSS_FLOOR, salt, waits, applied, refused,
+                        "left floor " + practice.boss().depth() + " for " + com.shatteredpixel.shatteredpixeldungeon.Dungeon.depth);
             }
             if (turns() >= turnCap) {
                 return outcome(RunOutcome.Cause.TURN_CAP, salt, waits, applied, refused, "");
@@ -708,6 +741,19 @@ public final class RunLoop {
      */
     static long thousandths() {
         return Math.round((double) (Statistics.duration + Actor.now()) * 1000.0);
+    }
+
+    /**
+     * Whether the boss a practice Run started in front of has been killed, read the way the game's own
+     * score reads it: its entry of {@code Statistics.bossScores} above zero
+     * ({@code core/.../Rankings.java:221-224}; Goo {@code Goo.java:306}, Tengu {@code Tengu.java:225}).
+     */
+    private static boolean bossDown(org.shatterfish.harness.practice.Practice practice) {
+        int index = switch (practice.boss()) {
+            case GOO -> 0;
+            case TENGU -> 1;
+        };
+        return Statistics.bossScores[index] > 0;
     }
 
     private static String describeWindow() {
