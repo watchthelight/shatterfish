@@ -19,9 +19,13 @@ import java.util.List;
  * the two hosts differ in the log (issue #390: 11 of 207 results on the standard set).
  *
  * <p>Everything here is something a player at the same screen has: the journal and the badges are windows of the game
- * (the journal button, the badges page), the dodges are the snake's misses the hero watched, and the rest are the hero's
- * own last-attack leftovers. None of it is read from the unseen part of the world, and the swap host has always played
- * on exactly these values. The rankings are not carried: a Run in progress has none (they change when a hero dies or
+ * (the journal button, the badges page; the badge set also holds the hidden bookkeeping badges the page leaves out, which
+ * are profile data and gate only hints and awards), the dodges are the snake's misses counted only while it is in the
+ * hero's view ({@code Snake.java:62-64}), the flail's charge and the ring's flare are set by the hero's own acts, and the
+ * pending hit or miss icon is the last roll's, cleared when a sprite shows it ({@code Char.java:594}); that one is set for
+ * any pair of fighters, in sight or not, so it is the least plain of the values, and it is carried because the swap host
+ * plays on it and a rollout's draws differ without it. None of it is read from the unseen part of the world's
+ * layout, items or monsters, and the swap host has always played on exactly these values. The rankings are not carried: a Run in progress has none (they change when a hero dies or
  * wins, which ends the Run), so the world's empty rankings are the live Run's.
  */
 public final class RunHistory {

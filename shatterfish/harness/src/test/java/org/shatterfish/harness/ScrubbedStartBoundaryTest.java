@@ -55,6 +55,14 @@ class ScrubbedStartBoundaryTest {
             .because("the Brain reaches a rollout through api's Simulator and a SnapshotHandle; the history a world is handed"
                     + " is taken by the isolated host and by nothing else (issue #390)");
 
+    @ArchTest
+    static final ArchRule only_the_codec_moves_statics_in_and_out_of_a_history = noClasses()
+            .that().doNotHaveFullyQualifiedName("org.shatterfish.harness.driver.RunHistoryCodec")
+            .should().callMethod(org.shatterfish.harness.driver.RunStatics.class, "exportTo", boolean[].class, int[].class)
+            .orShould().callMethod(org.shatterfish.harness.driver.RunStatics.class, "importFrom", boolean[].class, int[].class)
+            .because("RunStatics' private upstream values leave it as counts in exactly one place, for exactly one caller"
+                    + " (issue #390; HarnessReflectionTest holds the single reflective read)");
+
     @Test
     @DisplayName("the history is plain values: no field is a game type, so the loader may share the class")
     void the_history_is_plain_values() {

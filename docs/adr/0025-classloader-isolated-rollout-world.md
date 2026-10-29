@@ -176,7 +176,11 @@ pooled world and requires equal results, the repeat-the-same-rollout check this 
 
 **Still open.** The permutation half of leak test 3 (equal results from two worlds over live Runs that differ only in hidden
 state, with a canary seed) is not built; it remains a precondition of the first Brain that reads a rollout through
-`IsolatedHost`. A position where the live Run has earned a researcher badge or read more pages than 8 seeds at 3 snapshots
+`IsolatedHost`, and it gains a case from the fairness review of this fix: `RunHistoryCodec.capture()` over two live Runs that
+differ only in hidden state (unidentified item identities, unseen monsters, undiscovered traps) must be byte-equal, with a
+visible difference (a page read) as the control that it can differ. The hit-or-miss icon is the least plain value carried
+(`Char.java:594` clears it when a sprite shows it; it is set for any pair of fighters); it stays because the swap host plays
+on it, and the case above is where it would show. A position where the live Run has earned a researcher badge or read more pages than 8 seeds at 3 snapshots
 reach is not exercised by a comparison yet; the carried badges and catalogs are covered by the same code path, not by a case.
 
 `HeadlessDriver.loadScrubbed` is public because the agent package calls it; on a live driver it would replace the live Run with
