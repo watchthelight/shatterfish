@@ -43,7 +43,7 @@ forward `--tunables`, which 10.35 left for this story.
 - **Objective:** 5 per boss killed plus the deepest depth reached, from the log's ending. Variance: paired seeds
   (common random numbers), the mean of class means, a capped move, fresh triples and salts every iteration. All in the
   ADR amendment.
-- **Salt reservation:** tuning salts start at 5000 and a smaller base is refused; 1000 (direction) and 3000
+- **Salt map:** the tuner plays 5000 to 6999 only and refuses a run whose salts reach outside (7000 and up are the pre-registered tiebreaks); 1000 (direction) and 3000
   (confirmation) are not the tuner's. This overrides the "salt-1000 slice" wording of story 10.37 on the product
   owner's instruction for this story.
 - **Determinism without two JVMs in the test:** the signs come from a written-out splitmix64 finaliser, the state is
