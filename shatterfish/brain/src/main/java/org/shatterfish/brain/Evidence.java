@@ -46,6 +46,9 @@ final class Evidence {
     /** The largest stack the weights tell apart. */
     private static final int STACK = 6;
 
+    /** The most appearances read at once: the states grow as the subsets of the identities, and a decision has a budget. */
+    private static final int VIEW = 6;
+
     private Evidence() {
     }
 
@@ -57,7 +60,7 @@ final class Evidence {
                                 List<Integer> weights, List<String> labels, List<Memory.Fact> facts) {
         int n = names.size();
         int k = labels.size();
-        if (n > LIMIT || k > n || k == 0) {
+        if (n > LIMIT || k > n || k == 0 || k > VIEW) {
             return null;
         }
         int[] stack = new int[k];
