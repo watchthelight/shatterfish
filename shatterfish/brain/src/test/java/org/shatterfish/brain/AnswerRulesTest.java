@@ -210,16 +210,16 @@ class AnswerRulesTest {
     @Test
     @DisplayName("the guess: the likeliest identity by the Beliefs, its icon and then the guess button, over two waits")
     void guess() {
-        // Screens.CODEX: strength is weighted as the heaviest (a guarantee) and ties healing at 6;
-        // the tie goes by name, so healing is the likeliest identity of the one potion held.
+        // Screens.CODEX: strength is weighted as the floors queue it (12 of 25), so it is the likeliest
+        // identity of the one potion held.
         Brain brain = brain();
         Observation icons = guessing(ICONS);
         Belief belief = brain.update(icons, null);
         Brain.Decided tapped = brain.decide(icons, belief);
-        assertEquals(new Action.AnswerPrompt(1), tapped.action(), "the healing icon");
+        assertEquals(new Action.AnswerPrompt(3), tapped.action(), "the strength icon");
         belief = brain.handed(icons, belief, tapped);
 
-        List<String> shown = new java.util.ArrayList<>(List.of("Potion of Healing"));
+        List<String> shown = new java.util.ArrayList<>(List.of("Potion of Strength"));
         shown.addAll(ICONS);
         Observation button = guessing(shown);
         belief = brain.update(button, belief);
@@ -233,8 +233,8 @@ class AnswerRulesTest {
         assertEquals(new Action.DismissPrompt(), decide(Screens.asked(HeroClass.WARRIOR, PromptKind.GUESS,
                 "Mystery Potion", ICONS, List.of(Screens.item(ItemKind.POTION, "mystery potion", 1)))),
                 "no family knows the appearance");
-        assertEquals(new Action.DismissPrompt(), decide(guessing(List.of("Potion of Frost", "Potion of Strength"))),
-                "healing, the likeliest, is not among the icons");
+        assertEquals(new Action.DismissPrompt(), decide(guessing(List.of("Potion of Frost", "Potion of Healing"))),
+                "strength, the likeliest, is not among the icons");
     }
 
     @Test

@@ -210,6 +210,8 @@ public final class Direction {
             }
         }
 
+        long strayNow = strayOf(currentFolder);
+        long strayBase = baselineLogs == null ? 0 : strayOf(baselineLogs);
         String table = every
                 ? DirectionMetrics.tableAll("current " + commit.substring(0, 9), DirectionMetrics.classes(currentFolder),
                         baselineName, baselineLogs == null ? null : DirectionMetrics.classes(baselineLogs))
@@ -217,6 +219,11 @@ public final class Direction {
                         baselineName, baselineLogs == null ? null : DirectionMetrics.read(baselineLogs));
         StringBuilder text = new StringBuilder();
         text.append(describe).append("\n\n").append(table).append("\n").append(killerSection(currentFolder, every));
+        text.append("\nStray actor-thread wakes (issue #399): ").append(strayText(strayNow)).append(" current");
+        if (baselineLogs != null) {
+            text.append(", ").append(strayText(strayBase)).append(" baseline");
+        }
+        text.append(". A wake the JVM made between two frames; any count above zero is worth a look.\n");
         if (failedNow + failedBase > 0) {
             text.append("\nRuns that did not finish: ").append(failedNow).append(" current, ")
                     .append(failedBase).append(" baseline; see the .err files beside the logs.\n");
@@ -287,6 +294,18 @@ public final class Direction {
                     throw new IllegalStateException("a Run could not be started: " + e.getCause(), e.getCause());
                 }
             }
+            long stray = 0;
+            boolean known = true;
+            for (int i = 0; i < picks.size(); i++) {
+                long count = RunOne.strayWakesIn(folder.resolve("work").resolve(String.valueOf(i)));
+                known &= count >= 0;
+                stray += Math.max(0, count);
+            }
+            try {
+                Files.writeString(folder.resolve(STRAY), (known ? stray : -1) + "\n", StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                throw new IllegalStateException("could not record the stray wakes in " + folder, e);
+            }
             return failed;
         } finally {
             pool.shutdownNow();
@@ -337,6 +356,21 @@ public final class Direction {
                     + ".err"), said.toString(), StandardCharsets.UTF_8);
         }
         return ok;
+    }
+
+    /** The file a folder of Runs keeps its total stray wakes in; -1 when a child did not say. */
+    private static final String STRAY = "stray-wakes.txt";
+
+    private static long strayOf(Path folder) {
+        try {
+            return Long.parseLong(Files.readString(folder.resolve(STRAY)).strip());
+        } catch (IOException | NumberFormatException none) {
+            return -1;
+        }
+    }
+
+    private static String strayText(long count) {
+        return count < 0 ? "not recorded" : String.valueOf(count);
     }
 
     private static void drain(Process child, StringBuffer said) {

@@ -95,6 +95,49 @@ public final class RunStatics {
         }
     }
 
+    /** How many flags {@link #exportTo} fills. */
+    static final int FLAGS = 4;
+
+    /** How many counters {@link #exportTo} fills: the lost darts, then one for each private static (0 where it is not a count). */
+    static int counters() {
+        return PRIVATE.size() + 1;
+    }
+
+    /**
+     * Writes the values these statics hold now into plain arrays, for {@link RunHistoryCodec} to hand to an isolated copy
+     * of the game (issue #390: a world that plays a rollout from the dodge count of a fresh Run answers it differently
+     * from the Run it stands for). Only flags and counts leave: a static that holds objects (the geomancer's list of
+     * knocked-back characters) is not a number and the copy starts it empty, and the holiday is pinned in every copy.
+     * The one read is {@code read}, the one {@link Held} uses, and the package-private door keeps the arrays from anyone
+     * but the codec ({@code ScrubbedStartBoundaryTest}).
+     */
+    static void exportTo(boolean[] flags, int[] counters) {
+        flags[0] = Chasm.jumpConfirmed;
+        flags[1] = WondrousResin.forcePositive;
+        flags[2] = Ratmogrify.useRatroicEnergy;
+        flags[3] = Bestiary.skipCountingEncounters;
+        counters[0] = TippedDart.lostDarts;
+        for (int i = 0; i < PRIVATE.size(); i++) {
+            Object value = PRIVATE.get(i).fresh() instanceof Integer ? read(PRIVATE.get(i).field()) : null;
+            counters[i + 1] = value instanceof Integer n ? n : 0;
+        }
+    }
+
+    /** The other direction of {@link #exportTo}: writes what an export found into the statics of this copy of the game. */
+    static void importFrom(boolean[] flags, int[] counters) {
+        Chasm.jumpConfirmed = flags[0];
+        WondrousResin.forcePositive = flags[1];
+        Ratmogrify.useRatroicEnergy = flags[2];
+        Bestiary.skipCountingEncounters = flags[3];
+        TippedDart.lostDarts = counters[0];
+        for (int i = 0; i < PRIVATE.size(); i++) {
+            Reset reset = PRIVATE.get(i);
+            Object value = reset.fresh() instanceof Integer ? (Object) counters[i + 1]
+                    : reset.fresh() == null ? new ArrayList<>() : reset.fresh();
+            put(reset.field(), value);
+        }
+    }
+
     /**
      * The values these statics hold now, kept so that a rollout (story 6.2) can leave them as it found them. A rollout
      * runs in the live Run's process and plays on statics no snapshot saves ({@code Snake.dodges} is a count a log line
