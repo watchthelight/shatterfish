@@ -124,6 +124,7 @@ final class Descend implements Policy {
 
     private final Codex.Knowledge knowledge;
     private final org.shatterfish.api.Playbook.Bosses bosses;
+    private final org.shatterfish.api.Tunables.Vector tunables;
 
     Descend(Codex.Knowledge knowledge) {
         this(knowledge, org.shatterfish.api.Playbook.Bosses.REFERENCE);
@@ -131,8 +132,14 @@ final class Descend implements Policy {
 
     /** The Policy that rests, before the stairs down to a boss floor, to the share of health the Playbook's boss entry says (story 7.5). */
     Descend(Codex.Knowledge knowledge, org.shatterfish.api.Playbook.Bosses bosses) {
+        this(knowledge, bosses, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #Descend(Codex.Knowledge, org.shatterfish.api.Playbook.Bosses)} deciding by the vector's {@code descend.*} and {@code explore.rests} numbers (story 10.35). */
+    Descend(Codex.Knowledge knowledge, org.shatterfish.api.Playbook.Bosses bosses, org.shatterfish.api.Tunables.Vector tunables) {
         this.knowledge = knowledge;
         this.bosses = bosses;
+        this.tunables = tunables;
     }
 
     @Override
@@ -155,16 +162,17 @@ final class Descend implements Policy {
         if (memory.streak() == Explore.STUCK - 1) {
             return null;
         }
-        return plan(observation, memory, offered, knowledge, bosses);
+        return plan(observation, memory, offered, knowledge, bosses, tunables);
     }
 
     /** The plan before the stuck rule: nothing while the floor is worth staying on, else toward the exit. */
     private static RunLog.Choice plan(Observation observation, Memory memory, List<Action> offered,
-                                      Codex.Knowledge knowledge, org.shatterfish.api.Playbook.Bosses bosses) {
-        if (Explore.restOwed(observation, memory) || Explore.away(observation, memory, offered) != null) {
+                                      Codex.Knowledge knowledge, org.shatterfish.api.Playbook.Bosses bosses,
+                                      org.shatterfish.api.Tunables.Vector tunables) {
+        if (Explore.restOwed(observation, memory, tunables) || Explore.away(observation, memory, offered) != null) {
             return null;
         }
-        String why = leaving(observation, memory, knowledge);
+        String why = leaving(observation, memory, knowledge, tunables);
         if (why == null) {
             return null;
         }
@@ -175,7 +183,7 @@ final class Descend implements Policy {
         MapSection map = observation.map();
         if (exit(map, observation.hero().cell())) {
             // Come up from below onto the exit: rest here, then down.
-            RunLog.Choice rest = rest(observation, memory, offered, bosses);
+            RunLog.Choice rest = rest(observation, memory, offered, bosses, tunables);
             if (rest != null) {
                 return rest;
             }
@@ -197,7 +205,7 @@ final class Descend implements Policy {
         }
         // Beside the exit, the next Step travels: rest to full first.
         if (path.distance() == 1) {
-            RunLog.Choice rest = rest(observation, memory, offered, bosses);
+            RunLog.Choice rest = rest(observation, memory, offered, bosses, tunables);
             if (rest != null) {
                 return rest;
             }
@@ -207,8 +215,8 @@ final class Descend implements Policy {
 
     /** A rest before going down, when {@link #rests} allows one and the screen offers it; else null. */
     private static RunLog.Choice rest(Observation observation, Memory memory, List<Action> offered,
-                                      org.shatterfish.api.Playbook.Bosses bosses) {
-        if (!rests(observation, memory, bosses)) {
+                                      org.shatterfish.api.Playbook.Bosses bosses, org.shatterfish.api.Tunables.Vector tunables) {
+        if (!rests(observation, memory, bosses, tunables)) {
             return null;
         }
         for (Action rest : List.of(new Action.Rest(true), new Action.Rest(false), new Action.Search())) {
@@ -224,6 +232,12 @@ final class Descend implements Policy {
      * {@code "hungry"} or {@code "overstayed"}. See the class comment.
      */
     static String leaving(Observation observation, Memory memory, Codex.Knowledge knowledge) {
+        return leaving(observation, memory, knowledge, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #leaving(Observation, Memory, Codex.Knowledge)} by the vector's {@code descend.allowance} and {@code descend.per_drop}. */
+    static String leaving(Observation observation, Memory memory, Codex.Knowledge knowledge,
+                          org.shatterfish.api.Tunables.Vector tunables) {
         // Hunger first: a hungry hero with no food leaves for the next floor's, and says so, whether or
         // not the floor is also spent (with food tight, fewer searches spend it sooner; story 4.13).
         if (observation.hero().hunger() != Hunger.NONE && !fed(observation) && !bossNext(observation, knowledge)
@@ -235,7 +249,8 @@ final class Descend implements Policy {
         }
         long stayed = memory.waits() - memory.arrived();
         // The allowance is never under ALLOWANCE, so the drops expected are read only past it.
-        if (stayed >= ALLOWANCE && stayed >= allowance(observation, memory, knowledge)) {
+        if (stayed >= tunables.getInt(org.shatterfish.api.Tunables.DESCEND_ALLOWANCE)
+                && stayed >= allowance(observation, memory, knowledge, tunables)) {
             return "overstayed";
         }
         return null;
@@ -261,7 +276,14 @@ final class Descend implements Policy {
      * closing each set places none (Level.java:224), and neither does the surface.
      */
     static long allowance(Observation observation, Memory memory, Codex.Knowledge knowledge) {
-        return ALLOWANCE + Math.round(PER_DROP * expectedHere(observation, memory, knowledge));
+        return allowance(observation, memory, knowledge, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #allowance(Observation, Memory, Codex.Knowledge)} by the vector's numbers. */
+    static long allowance(Observation observation, Memory memory, Codex.Knowledge knowledge,
+                          org.shatterfish.api.Tunables.Vector tunables) {
+        return tunables.getInt(org.shatterfish.api.Tunables.DESCEND_ALLOWANCE)
+                + Math.round(tunables.getInt(org.shatterfish.api.Tunables.DESCEND_PER_DROP) * expectedHere(observation, memory, knowledge));
     }
 
     /** The guaranteed drops expected still on this floor: see {@link #allowance}. */
@@ -320,9 +342,16 @@ final class Descend implements Policy {
      * is the whole of them (a full rest) for every floor but a boss floor the Playbook tunes (story 7.5).
      */
     static boolean rests(Observation observation, Memory memory, org.shatterfish.api.Playbook.Bosses bosses) {
+        return rests(observation, memory, bosses, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #rests(Observation, Memory, org.shatterfish.api.Playbook.Bosses)} by the vector's {@code descend.rests}. */
+    static boolean rests(Observation observation, Memory memory, org.shatterfish.api.Playbook.Bosses bosses,
+                         org.shatterfish.api.Tunables.Vector tunables) {
         int below = observation.header().branch() == 0 ? bosses.descentRest(observation.header().depth() + 1) : 1000;
         return 1000L * observation.hero().hp() < (long) below * observation.hero().ht()
-                && observation.hero().hunger() != Hunger.STARVING && memory.rests() < RESTS;
+                && observation.hero().hunger() != Hunger.STARVING
+                && memory.rests() < tunables.getInt(org.shatterfish.api.Tunables.DESCEND_RESTS);
     }
 
     /**

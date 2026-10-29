@@ -42,9 +42,16 @@ final class Shoot implements Policy {
     static final String SHOOT = "SHOOT";
 
     private final Codex.Knowledge knowledge;
+    private final org.shatterfish.api.Tunables.Vector tunables;
 
     Shoot(Codex.Knowledge knowledge) {
+        this(knowledge, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #Shoot(Codex.Knowledge)} judging a fight by the vector's {@code fight.margin_per_mille} (story 10.35). */
+    Shoot(Codex.Knowledge knowledge, org.shatterfish.api.Tunables.Vector tunables) {
         this.knowledge = knowledge;
+        this.tunables = tunables;
     }
 
     @Override
@@ -87,7 +94,7 @@ final class Shoot implements Policy {
                 target = enemy;
             }
         }
-        if (target == null || !Fight.favourable(observation, knowledge, enemies)
+        if (target == null || !Fight.favourable(observation, knowledge, enemies, tunables)
                 || !Ranged.clear(observation, hero, target.cell())) {
             return null;
         }

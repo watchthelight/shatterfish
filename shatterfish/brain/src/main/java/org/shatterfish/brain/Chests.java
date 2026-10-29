@@ -57,10 +57,17 @@ final class Chests implements Policy {
 
     private final Evaluation evaluation;
     private final Codex.Knowledge knowledge;
+    private final org.shatterfish.api.Tunables.Vector tunables;
 
     Chests(Evaluation evaluation, Codex.Knowledge knowledge) {
+        this(evaluation, knowledge, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #Chests(Evaluation, Codex.Knowledge)} by the vector's {@code fight.recall_waits} and {@code chests.mimic_margin_per_mille} (story 10.35). */
+    Chests(Evaluation evaluation, Codex.Knowledge knowledge, org.shatterfish.api.Tunables.Vector tunables) {
         this.evaluation = evaluation;
         this.knowledge = knowledge;
+        this.tunables = tunables;
     }
 
     @Override
@@ -89,7 +96,7 @@ final class Chests implements Policy {
     private boolean enemyAbout(Observation observation, Memory memory) {
         int depth = observation.header().depth();
         for (Memory.Seen seen : memory.monsters()) {
-            if (seen.depth() == depth && memory.waits() - seen.at() <= Fight.RECALL_WAITS
+            if (seen.depth() == depth && memory.waits() - seen.at() <= tunables.getInt(org.shatterfish.api.Tunables.FIGHT_RECALL_WAITS)
                     && !Bestiary.passive(knowledge, seen.depth(), observation.header().branch(), seen.name())) {
                 return true;
             }
@@ -188,13 +195,18 @@ final class Chests implements Policy {
      * haunted is not on the screen, so the worst is assumed, and the hero rests or goes on until it can.
      */
     static boolean affordable(HeapView heap, Observation observation, Codex.Knowledge knowledge, int stand) {
+        return affordable(heap, observation, knowledge, stand, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #affordable(HeapView, Observation, Codex.Knowledge, int)} by the vector's {@code chests.mimic_margin_per_mille}. */
+    static boolean affordable(HeapView heap, Observation observation, Codex.Knowledge knowledge, int stand, org.shatterfish.api.Tunables.Vector tunables) {
         int hp = observation.hero().hp();
         int depth = observation.header().depth();
         return switch (heap.kind()) {
             // A held golden key says the floor queued one for a real locked chest (RegularLevel.java:430-437), but
             // the key may be for another, so a locked chest needs the health to survive a bite; the others the bite and the fight after it.
             case LOCKED_CHEST -> hp > mimicBite(depth);
-            case CHEST, CRYSTAL_CHEST -> 1000L * hp > MIMIC_MARGIN_PER_MILLE * mimicCost(observation, knowledge);
+            case CHEST, CRYSTAL_CHEST -> 1000L * hp > tunables.getInt(org.shatterfish.api.Tunables.CHESTS_MIMIC_MARGIN) * mimicCost(observation, knowledge);
             case SKELETON, REMAINS -> hp > 2 * wraithHit(depth);
             case TOMB -> {
                 int wraiths = freeSides(observation, stand);
@@ -228,7 +240,7 @@ final class Chests implements Policy {
             if (!openable(heap, observation, memory)) {
                 continue;
             }
-            int stand = stand(observation, knowledge, walk, distance, heap);
+            int stand = stand(observation, knowledge, walk, distance, heap, tunables);
             if (stand < 0) {
                 continue;
             }
@@ -259,7 +271,8 @@ final class Chests implements Policy {
      * The nearest cell the hero can open {@code heap} from and may: walkable and beside it, or the hero's own
      * cell; for a tomb the nearest where {@link #affordable} holds, since the cell decides the wraiths. -1 for none.
      */
-    private static int stand(Observation observation, Codex.Knowledge knowledge, boolean[] walk, int[] distance, HeapView heap) {
+    private static int stand(Observation observation, Codex.Knowledge knowledge, boolean[] walk, int[] distance, HeapView heap,
+                              org.shatterfish.api.Tunables.Vector tunables) {
         MapSection map = observation.map();
         int width = map.width();
         int target = heap.cell();
@@ -274,7 +287,7 @@ final class Chests implements Policy {
                 int cell = x + y * width;
                 if (distance[cell] >= 0 && (walk[cell] || distance[cell] == 0)
                         && (best < 0 || distance[cell] < distance[best])
-                        && affordable(heap, observation, knowledge, cell)
+                        && affordable(heap, observation, knowledge, cell, tunables)
                         && observation.actors().actors().stream().noneMatch(actor -> actor.cell() == target)) {
                     best = cell;
                 }
