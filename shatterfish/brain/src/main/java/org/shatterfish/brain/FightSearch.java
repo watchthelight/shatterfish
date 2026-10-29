@@ -65,7 +65,7 @@ final class FightSearch implements Policy {
     private final long seed;
     private final Supplier<Lookahead> lent;
     private final Fight fight;
-    private Brain rules;
+    private final Brain rules;
 
     FightSearch(Codex.Knowledge knowledge, Weights weights, Playbook playbook, SearchPlan plan, long seed,
                 Supplier<Lookahead> lent) {
@@ -76,6 +76,8 @@ final class FightSearch implements Policy {
         this.seed = seed;
         this.lent = lent;
         this.fight = new Fight(knowledge, playbook.bosses().goo());
+        // The rules that play the turns after the first: this configuration without the search, built once.
+        this.rules = new Brain(knowledge, weights, playbook, seed, Brain.Model.BASELINE);
     }
 
     @Override
@@ -147,7 +149,7 @@ final class FightSearch implements Policy {
         }
         int n = candidates.size();
         long[] totals = new long[n];
-        Brain inner = rules();
+        Brain inner = rules;
         for (int k = 0; k < plan.samples(); k++) {
             Hypothesis hypothesis = hypothesis(observation, memory, stream);
             for (int i = 0; i < n; i++) {
@@ -240,14 +242,6 @@ final class FightSearch implements Policy {
         return new Hypothesis(dungeonSeed, salt, draws, remembered);
     }
 
-    /** The rules Brain that plays the turns after the first: this Brain's own configuration without the search. */
-    private Brain rules() {
-        if (rules == null) {
-            rules = new Brain(knowledge, weights, playbook, seed, Brain.Model.BASELINE);
-        }
-        return rules;
-    }
-
     /**
      * The playout of one candidate: the candidate first, then whatever the rules Brain does, carrying the Belief forward
      * from the one this wait has as the rollout's own Observations arrive.
@@ -304,7 +298,7 @@ final class FightSearch implements Policy {
     private static int defeats(Observation observation) {
         int n = 0;
         for (var line : observation.log().lines()) {
-            if (line.text().toLowerCase(java.util.Locale.ROOT).startsWith("you defeated")) {
+            if (line.text().startsWith("You defeated")) {
                 n++;
             }
         }

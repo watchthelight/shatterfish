@@ -54,6 +54,6 @@ public abstract class Simulator {
 
     /** The closed-loop rollout, reached only through {@link #simulate}; a host that plays Actions only does not have one. */
     protected RolloutResult rollout(SnapshotHandle handle, Playout playout, int horizon) {
-        throw new UnsupportedOperationException(getClass().getSimpleName() + " plays a list of Actions and has no closed-loop rollout");
+        throw new UnsupportedOperationException("this Simulator plays a list of Actions and has no closed-loop rollout");
     }
 }

@@ -68,7 +68,7 @@ public final class Brain {
     private final Playbook playbook;
     private final org.shatterfish.api.SearchPlan plan;
     /** The look-ahead lent for the wait being decided, or null (story 10.24); the search Policy reads it, nothing else does. */
-    private org.shatterfish.api.Lookahead lent;
+    private final org.shatterfish.api.Lookahead[] lent = new org.shatterfish.api.Lookahead[1];
 
     /** The Policies, highest priority first, fighting by {@code knowledge} and scoring by {@code evaluation}. */
     private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation, Model model, Playbook playbook,
@@ -163,7 +163,7 @@ public final class Brain {
         this.model = model;
         this.playbook = java.util.Objects.requireNonNull(playbook, "a Brain is built on a Playbook its caller read");
         this.plan = java.util.Objects.requireNonNull(plan, "a Brain is built on a search plan (the reference one if it does not search)");
-        this.policies = policies(knowledge, evaluation, model, playbook, plan, seed, () -> lent);
+        this.policies = policies(knowledge, evaluation, model, playbook, plan, seed, () -> lent[0]);
         this.pickup = new Pickup(evaluation, knowledge);
         this.testItem = new TestItem(knowledge, playbook);
     }
@@ -315,7 +315,7 @@ public final class Brain {
      * what the look-ahead returns, which is Observations.
      */
     public void lend(org.shatterfish.api.Lookahead lookahead) {
-        this.lent = lookahead;
+        this.lent[0] = lookahead;
     }
 
     /** Whether {@code decision} is a fight Policy's: the 4.x one or the one-ply model's. */

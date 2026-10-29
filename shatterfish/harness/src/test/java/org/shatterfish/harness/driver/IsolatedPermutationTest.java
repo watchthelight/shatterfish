@@ -254,4 +254,30 @@ class IsolatedPermutationTest {
     void cleric() {
         permutationHolds(SPOTS.get(1));
     }
+
+    @Test
+    @DisplayName("the look-ahead a search is lent gives the same Observations before and after the hidden state is permuted")
+    void lookahead_closed_loop() {
+        Spot spot = SPOTS.get(0);
+        Observation shown = playTo(spot);
+        List<Action> script = plan(shown);
+        org.shatterfish.api.Playout playout = (observation, applied) -> applied < script.size() ? script.get(applied) : null;
+        org.shatterfish.api.Hypothesis hypothesis = new org.shatterfish.api.Hypothesis(11L, 22L, 33L, List.of());
+        try (org.shatterfish.harness.agent.HostLookahead lookahead = new org.shatterfish.harness.agent.HostLookahead(driver)) {
+            RolloutResult before = lookahead.roll(hypothesis, playout, 8);
+            assertTrue(before != null && before.applied() > 0, "the rollout played: " + before);
+            lookahead.release();
+            hideSomething(Dungeon.level);
+            assertEquals(shown.hash(), new Observer().observe().hash(), "the hidden changes do not change the screen");
+            RolloutResult after = lookahead.roll(hypothesis, playout, 8);
+            assertEquals(before, after, "the look-ahead says the same in both Runs");
+            // The same sample drawn again in one wait is one scrub: nothing carried over between rollouts.
+            assertEquals(after, lookahead.roll(hypothesis, playout, 8), "a repeat");
+            // Control: the horizon is the Brain's, and a shorter one gives a shorter line.
+            lookahead.release();
+            RolloutResult shorter = lookahead.roll(hypothesis, playout, 1);
+            assertEquals(1, shorter.applied());
+            assertEquals(0, lookahead.refused());
+        }
+    }
 }

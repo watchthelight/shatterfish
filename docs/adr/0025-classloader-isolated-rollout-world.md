@@ -214,3 +214,22 @@ before they depend on `IsolatedHost`), and narrowing it to a driver-side isolate
   test runs in the build and fails on drift.
 - The Overlay requirement is bigger than a routing Application (the posted-runnables queue is only one of several process-wide
   statics). Mitigation: the Overlay stays out until a spike of its own.
+
+## Amendment: the permutation test is built, and the first caller (story 10.24, #370)
+
+- `IsolatedPermutationTest` is the permutation leak test this ADR names. At a mid-fight wait of a DUELIST and a CLERIC Run
+  it permutes everything the Observation does not show (an unseen mob hurt, enraged and hasted, a hidden trap, a secret door,
+  `HiddenPermutation.permute()`, the dungeon seed) and shows that the Observation hash, the scrubbed start (after one
+  normalisation, below), `RunHistoryCodec.capture()` and the isolated rollout's result are all equal across the two worlds,
+  for two samples and on a repeat. Three controls: the unscrubbed saves of the two Runs differ; halving the hero's health
+  moves the result; reading a guide page moves the captured history. A second test does the same through `HostLookahead`,
+  the object a search is lent.
+- One finding. The `POTION_SCROLL_RING_CLASSES` row draws a non-identity permutation from the sample and applies it to the
+  Run's own label-to-class assignment, so a fixed sample yields different assignments in different hidden worlds. The row is
+  distributional, not pointwise, and the assignment it writes is never the truth, so it carries a negligible amount of
+  information (about 0.01 bit for five unknown classes), and only about unidentified items. The test masks the labels and the
+  unidentified families' class names. Consequence for callers: a rollout must not depend on an unidentified item's class. The
+  fight search offers no use of an unidentified item as a first Action; its playout is the rules Brain, which may test an item
+  later in a line, and that is the one place the row can matter.
+- The Rig is the first non-test caller (`HostLookahead`, lent by `RunLoop` to a decider that says it `searches()`); the
+  Overlay still has none. The measurement is in `docs/results/2026-10-29-fight-search.md`: no win, not the default.
