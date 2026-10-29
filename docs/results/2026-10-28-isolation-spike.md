@@ -107,10 +107,11 @@ The shapes are story 6.6's: option 3 is 3 candidate Actions, one rollout each, i
   line pays for its turns and not for the load.
 - **Correctness:** 196 of 207 compared results are identical in every Observation section, in both runs. The 11 that differ are
   all in the `log` section only: same end, same length, every other section equal. They come from two snapshots (a DUELIST at
-  turn 252 and a CLERIC at turn 140) and the same ones both times, so it is deterministic. The cause is not found; the likely
-  suspects are the static log buffer and the journal's guidebook state, which a pooled world does not reset the way a fresh
-  boot does. The fully observed equivalence test (`IsolatedWorldTest`, 53 Actions, every Observation equal including the log)
-  passes, so the divergence needs a position with the log already scrolled. It is recorded as an open defect.
+  turn 252 and a CLERIC at turn 140) and the same ones both times, so it is deterministic. **Found and fixed in #390**
+  (ADR-0025): the isolated world began every rollout with the empty journal of a fresh Run, while the swap host played on the
+  live Run's, and a guidebook hint (a log line) depends on it. The world is now handed the live Run's history; the same
+  command on the fixed code compares 207 pairs and **0 differ** (that run was on a busy machine, so its milliseconds are not
+  this page's; the ratio was 2.0 at horizon 3). The numbers on this page are those of the earlier commit.
 
 ## The throttled run
 

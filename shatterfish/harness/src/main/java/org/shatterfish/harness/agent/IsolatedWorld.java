@@ -8,6 +8,8 @@ import org.shatterfish.harness.boot.HeadlessBoot;
 import org.shatterfish.harness.boot.SharedBackend;
 import org.shatterfish.harness.driver.HeadlessDriver;
 import org.shatterfish.harness.driver.ProfileGuard;
+import org.shatterfish.harness.driver.RunHistory;
+import org.shatterfish.harness.driver.RunHistoryCodec;
 import org.shatterfish.harness.driver.RunStatics;
 import org.shatterfish.harness.driver.ScrubbedStart;
 import org.shatterfish.harness.executor.ActionExecutor;
@@ -27,7 +29,9 @@ import java.util.Objects;
  * executor and the Observer of this copy, and the game's statics and the profile are put back to their baseline, the
  * values the world had when it was opened, so that a rollout is a function of its copy and its Actions and not of the
  * rollouts the world played before it. The world's tuple is a placeholder of its own; nothing of the live Run's tuple
- * reaches it ({@link ScrubbedStart}).
+ * reaches it ({@link ScrubbedStart}). What the live Run has played, which the game reads from its profile and a few
+ * statics while it plays (a guide hint is a log line), is handed in as a {@link RunHistory} and written in before the load
+ * (issue #390).
  *
  * <p>The libGDX queue of posted runnables is the one thing both loaders share. A rollout puts the live Run's queued
  * runnables aside, runs on an empty queue and drains what the world posted, and puts the live Run's back at the head, so
@@ -58,8 +62,9 @@ final class IsolatedWorld implements RolloutWorld {
     }
 
     @Override
-    public RolloutResult rollout(ScrubbedStart start, List<Action> actions) {
+    public RolloutResult rollout(ScrubbedStart start, RunHistory history, List<Action> actions) {
         Objects.requireNonNull(start, "a scrubbed start");
+        Objects.requireNonNull(history, "the history of the Run (RunHistory.NONE for a Run that has played nothing)");
         Objects.requireNonNull(actions, "the Actions to roll out");
         HeadlessBoot boot = HeadlessBoot.ensure();
         // What the live Run has queued is put aside for the rollout and back after it (see the class comment).
@@ -73,6 +78,8 @@ final class IsolatedWorld implements RolloutWorld {
         long t3 = 0;
         long firstStep = 0;
         try {
+            // After the profile is held and before the copy is loaded: the game reads the journal as it loads a floor.
+            RunHistoryCodec.apply(history);
             t1 = System.nanoTime();
             driver.loadScrubbed(start);
             long s0 = System.nanoTime();
