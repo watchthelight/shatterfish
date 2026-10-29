@@ -70,6 +70,10 @@ final class ModeStripContent {
             // The condition that stopped the Run, in words (story 8.3, FR-45): "PAUSED: before stairs".
             line.append(": ").append(state.pausedFor());
         }
+        if (state.note() != null) {
+            // Autoexplore (story 8.10, FR-47): "RUNNING: autoexplore", "HUMAN: autoexplore stopped, enemy in view".
+            line.append(": ").append(state.note());
+        }
         if (state.replayNote() != null) {
             // Where the replay stands in its log, and whether it plays or waits (story 8.5): "REPLAY  wait 12 of 340, stopped".
             line.append("  ").append(state.replayNote());

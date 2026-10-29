@@ -60,6 +60,7 @@ standing Registration `H-0001-nightly-smoke`, with every night's status in its t
 | [E10 W1, the new instruments](2026-10-28-e10-w1-instruments.md) | Boss staircase, Goo and Tengu kills by name, think time, deaths by depth with killers, on 40 Warriors and 20 of each class (`--class ALL`) | E10, W1 |
 | [E10 W2, prison food budgeting](2026-10-29-e10-w2-prison-food.md) | Why the hero starves by depth 6, ten variants, and the after-test rest budget kept | E10, story 10.15 |
 | [E10, early food economy](2026-10-29-e10-early-food-economy.md) | Walk-back, floor budget and food audit: none beat the baseline, none kept | E10, story 407 |
+| [Story 10.9, the DM-100 deaths](2026-10-29-10-9-dm100-lightning.md) | Eight DM-100 deaths in 240 Runs read one by one, five starving; a cover rule measured with no effect and not kept. |
 
 The rig's own result files, in the shape described above, begin with the random-agent baseline in
 E3. The audit above is a findings page rather than a rig run: it has no seed set and no sequential

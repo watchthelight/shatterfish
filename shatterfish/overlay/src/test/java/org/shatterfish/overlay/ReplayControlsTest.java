@@ -64,12 +64,13 @@ class ReplayControlsTest {
     }
 
     @Test
-    @DisplayName("the enablement row of REPLAY: every control of PAUSED but Take over, and Run over disables all")
+    @DisplayName("the enablement row of REPLAY: every control of PAUSED but Take over (nobody plays a replay, so nobody hands it to autoexplore), and Run over disables all")
     void the_row() {
         PauseOnControlsTest.Run run = new PauseOnControlsTest.Run();
         ControlState controls = replaying(run);
         Set<Control> stopped = EnumSet.allOf(Control.class);
         stopped.remove(Control.TAKE_OVER);
+        stopped.remove(Control.AUTOEXPLORE);
         assertEquals(stopped, controls.enabled());
         assertEquals(stopped, ControlEnablement.of(Mode.REPLAY, false, Capabilities.NOW));
         assertEquals(Set.of(), ControlEnablement.of(Mode.REPLAY, true, Capabilities.NOW));

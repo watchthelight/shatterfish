@@ -61,6 +61,7 @@ final class ModeState {
     private final boolean over;
     private final RunEnding ending;
     private final String pausedFor;
+    private final String note;
     private final String replayNote;
     private final boolean replayPlaying;
 
@@ -75,22 +76,33 @@ final class ModeState {
 
     /** This state with the Pause-on condition the Run is paused for, in words, or null (story 8.3). */
     ModeState withPausedFor(String condition) {
-        return new ModeState(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, condition, replayNote, replayPlaying);
+        return new ModeState(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, condition, note,
+                replayNote, replayPlaying);
+    }
+
+    /**
+     * This state with the words autoexplore adds to the strip (story 8.10): "autoexplore" while a stretch runs, and
+     * "autoexplore stopped, enemy in view" once control is back with the person. Null for none.
+     */
+    ModeState withNote(String words) {
+        return new ModeState(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, pausedFor, words,
+                replayNote, replayPlaying);
     }
 
     /** This state with where a replay stands in its log, in words ("wait 12 of 340, stopped"), or null (story 8.5). */
-    ModeState withReplay(String note, boolean playing) {
-        return new ModeState(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, pausedFor, note, playing);
+    ModeState withReplay(String text, boolean playing) {
+        return new ModeState(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, pausedFor, note,
+                text, playing);
     }
 
     /** As above, and how the Run ended and where its log is, which the Mode strip reads once it is over (story 5.14). */
     ModeState(Mode mode, SpeedMode speed, double intervalSeconds, int turn, int floor, boolean thinking, boolean over,
               RunEnding ending) {
-        this(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, null, null, false);
+        this(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, null, null, null, false);
     }
 
     private ModeState(Mode mode, SpeedMode speed, double intervalSeconds, int turn, int floor, boolean thinking,
-                      boolean over, RunEnding ending, String pausedFor, String replayNote,
+                      boolean over, RunEnding ending, String pausedFor, String note, String replayNote,
                       boolean replayPlaying) {
         if (mode == null || speed == null) {
             throw new IllegalArgumentException("a Mode and a speed mode");
@@ -104,6 +116,7 @@ final class ModeState {
         this.over = over;
         this.ending = ending;
         this.pausedFor = pausedFor;
+        this.note = note;
         this.replayNote = replayNote;
         this.replayPlaying = replayPlaying;
     }
@@ -164,6 +177,11 @@ final class ModeState {
     /** The Pause-on condition the Run is paused for, in words ("before stairs"), or null (story 8.3). */
     String pausedFor() {
         return pausedFor;
+    }
+
+    /** What autoexplore adds to the strip (story 8.10): the stretch under way, or why it stopped; null for none. */
+    String note() {
+        return note;
     }
 
     /** Where a replay stands in its log, in words, or null for any other Run (story 8.5). */

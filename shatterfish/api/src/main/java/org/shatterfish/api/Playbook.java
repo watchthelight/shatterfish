@@ -36,8 +36,10 @@ import java.util.Map;
  * @param kit      the base {@code kit} section
  * @param classes  per hero class, the sections as that class plays them, sorted by class name (the order the file reader requires), each once
  * @param bosses   the {@code bosses} section, one entry per boss (story 7.5)
+ * @param tunables the values of the Policy constants the registry {@link Tunables} lists, as far as they differ from the defaults (story 10.35)
  */
-public record Playbook(String name, int version, Identify identify, Upgrade upgrade, Kit kit, List<ClassEntry> classes, Bosses bosses) {
+public record Playbook(String name, int version, Identify identify, Upgrade upgrade, Kit kit, List<ClassEntry> classes, Bosses bosses,
+                       Tunables.Vector tunables) {
 
     /** The version of the file's shape, which the reader checks. */
     public static final int FORMAT = 1;
@@ -50,11 +52,17 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
         java.util.Objects.requireNonNull(upgrade, "upgrade");
         java.util.Objects.requireNonNull(kit, "kit");
         java.util.Objects.requireNonNull(bosses, "bosses");
+        java.util.Objects.requireNonNull(tunables, "tunables");
         classes = Canon.sorted(classes, Comparator.comparing((ClassEntry entry) -> entry.heroClass().name()), "classes");
         for (int i = 1; i < classes.size(); i++) {
             Canon.require(classes.get(i).heroClass() != classes.get(i - 1).heroClass(),
                     "a hero class is stated once: " + classes.get(i).heroClass());
         }
+    }
+
+    /** A Playbook that states no Policy tunables, the shape before story 10.35. */
+    public Playbook(String name, int version, Identify identify, Upgrade upgrade, Kit kit, List<ClassEntry> classes, Bosses bosses) {
+        this(name, version, identify, upgrade, kit, classes, bosses, Tunables.Vector.REFERENCE);
     }
 
     /** A Playbook with the reference {@code bosses}, the shape story 7.6 built. */
@@ -124,6 +132,11 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
         section(out, "identify", identify.values());
         section(out, "kit", kit.values());
         out.key("name").value(name);
+        // Only a Playbook that moves a Policy constant has the section, so every earlier hash holds (story 10.35).
+        if (!tunables.isReference()) {
+            Map<String, Object> stated = new LinkedHashMap<>(tunables.values());
+            section(out, "tunables", stated);
+        }
         section(out, "upgrade", upgrade.values());
         out.key("version").value(version);
         out.endObject();

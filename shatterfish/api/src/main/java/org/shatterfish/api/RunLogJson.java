@@ -168,6 +168,10 @@ public final class RunLogJson {
         if (header.controller() >= 0) {
             out.key("controller").value(header.controller());
         }
+        // Written only for a practice start (E10, ADR-0024): every ordinary log keeps its bytes.
+        if (!header.practice().isEmpty()) {
+            out.key("practice").value(header.practice());
+        }
         if (!chainedOnly) {
             out.key("machine").value(header.machine());
             out.key("started").value(header.started());

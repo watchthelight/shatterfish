@@ -548,7 +548,7 @@ final class TestItem implements Policy {
      */
     List<Testable> testable(Observation observation, Memory memory) {
         Map<String, Beliefs.Guess> guesses = new LinkedHashMap<>();
-        for (Beliefs.Guess guess : Beliefs.identities(observation, knowledge)) {
+        for (Beliefs.Guess guess : Beliefs.identities(observation, knowledge, memory.facts())) {
             guesses.put(guess.label(), guess);
         }
         Playbook.Identify identify = playbook.identify(observation.header().heroClass());

@@ -206,6 +206,14 @@ public final class Replay {
             return new Refusal("oracle", "a Run that saw what a player could not",
                     "a build that plays fair Runs and replays fair Runs (FR-11)");
         }
+        if (header.practiceRun()) {
+            try {
+                org.shatterfish.harness.practice.Practice.parse(header.practice(), header.heroClass());
+            } catch (IllegalArgumentException unresolved) {
+                return new Refusal("practice start", header.practice(),
+                        "a start this build resolves to the same kit (" + unresolved.getMessage() + ")");
+            }
+        }
         if (header.embedded() && refuseTheOverlay) {
             return new Refusal("driver", RunLog.Header.EMBEDDED,
                     "a headless Run, because an Overlay Run is not reproducible from its tuple or"
@@ -329,6 +337,12 @@ public final class Replay {
         // because a fairness-critical flag should not be one refusal away from being data.
         RunLoop.Logging logging = new RunLoop.Logging(out, header.commit(), header.brain(),
                 header.registration(), machine, false);
+        if (header.practiceRun()) {
+            // A practice Run is reproduced from the same start: the stamp names the boss and the profile,
+            // and parse refuses one whose kit this build resolves differently (ADR-0024).
+            logging = logging.practising(org.shatterfish.harness.practice.Practice.parse(header.practice(),
+                    header.heroClass()));
+        }
         SeedSet.Entry triple = new SeedSet.Entry(header.seed(), header.heroClass(),
                 header.challenges(), header.seedCode());
 
@@ -428,6 +442,10 @@ public final class Replay {
         LogFollower following = LogFollower.strict(log);
         RunLoop.Logging logging = new RunLoop.Logging(out, header.commit(), header.brain(), header.registration(),
                 machine, false);
+        if (header.practiceRun()) {
+            logging = logging.practising(org.shatterfish.harness.practice.Practice.parse(header.practice(),
+                    header.heroClass()));
+        }
         SeedSet.Entry triple = new SeedSet.Entry(header.seed(), header.heroClass(), header.challenges(),
                 header.seedCode());
         try {

@@ -3861,9 +3861,10 @@ So that a tuned number is kept because it wins and not because it was fitted.
 **Acceptance Criteria:**
 
 **Given** `:rig:tune` exists and the Prison stories have landed enough rules for numbers to matter
-**When** a run tunes the registry on the salt-1000 slice for all six classes
-**Then** the candidate is played against the current values on the second slice (salt base 3000) with the
-Sequential test of E3, pooled and per class, and is kept only if the test accepts it and no class's bosses
+**When** a run tunes the registry under the tuning salts 5000 to 6999 (`:rig:tune` refuses any other) for all
+six classes
+**Then** the candidate is played against the current values on the confirmation slices (salt bases 1000 and
+3000; salts 7000 and up are kept for pre-registered tiebreaks) with the Sequential test of E3, pooled and per class, and is kept only if the test accepts it and no class's bosses
 killed falls
 **And** `docs/results/` gets a page with the trajectory, the candidate against the current values on both
 slices, the PR table for all six classes, the think-time column, and the verdict; `TuneRunPageTest` reads
