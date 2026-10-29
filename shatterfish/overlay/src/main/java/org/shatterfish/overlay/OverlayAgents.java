@@ -46,6 +46,12 @@ final class OverlayAgents {
 
     /** The agent the launcher was told to attach; for a human's Run, the Brain that shadows them (story 5.9). */
     static Supplier<Decider> of(LaunchOptions options) {
+        if (options.replaying()) {
+            // The log is who plays a replay, and the game builds it from the log (story 8.5); nothing decides here.
+            return () -> {
+                throw new IllegalStateException("a replay is played by its log, not by an agent");
+            };
+        }
         if (options.agent().equals("brain") || options.human()) {
             Weights weights = weights(options.weights());
             Codex.Knowledge knowledge = knowledge(options.codex());
@@ -57,7 +63,7 @@ final class OverlayAgents {
 
     /** The name the Run log's header gives the agent. */
     static String name(LaunchOptions options) {
-        return options.human() ? "human" : options.agent().equals("brain") ? "shatterfish" : "random";
+        return options.replaying() ? "replay" : options.human() ? "human" : options.agent().equals("brain") ? "shatterfish" : "random";
     }
 
     /**

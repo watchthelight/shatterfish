@@ -243,7 +243,8 @@ final class Panel extends Component {
         // The headline "next press executes" is shown only when the Decision on the card is the one the next
         // press executes: the Run is PAUSED and the Decision for its wait has landed, unexecuted (story 5.7).
         // While the Brain thinks, or the Run plays on, the card shows the last Decision executed.
-        boolean nextStep = awaiting && mode.mode() == ModeState.Mode.PAUSED;
+        boolean nextStep = awaiting && (mode.mode() == ModeState.Mode.PAUSED
+                || mode.mode() == ModeState.Mode.REPLAY && !mode.replayPlaying());
         float inner = innerWidth();
         if (mode.over() && mode.ending() != null && mode.ending().log() != null) {
             goal.notice("Run log: " + mode.ending().log(), inner);

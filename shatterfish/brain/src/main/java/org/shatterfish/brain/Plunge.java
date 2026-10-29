@@ -52,9 +52,16 @@ final class Plunge implements Policy {
     static final int STARVING_PERCENT = 50;
 
     private final Codex.Knowledge knowledge;
+    private final org.shatterfish.api.Tunables.Vector tunables;
 
     Plunge(Codex.Knowledge knowledge) {
+        this(knowledge, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #Plunge(Codex.Knowledge)} jumping at the health the vector's {@code plunge.*} numbers say (story 10.35). */
+    Plunge(Codex.Knowledge knowledge, org.shatterfish.api.Tunables.Vector tunables) {
         this.knowledge = knowledge;
+        this.tunables = tunables;
     }
 
     @Override
@@ -83,7 +90,7 @@ final class Plunge implements Policy {
         int hero = observation.hero().cell();
         // A way down on foot comes first; the descend Policy has already had its turn, so this is the
         // screen where it found none (an exit it cannot reach counts as none).
-        if (!fit(observation)) {
+        if (!fit(observation, tunables)) {
             return restFirst(observation, offered);
         }
         for (Action action : offered) {
@@ -102,12 +109,18 @@ final class Plunge implements Policy {
 
     /** Whether the hero's hit points can bear the fall: see the class comment. */
     static boolean fit(Observation observation) {
+        return fit(observation, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #fit(Observation)} by the vector's {@code plunge.safe_hp} and {@code plunge.fit_percent}. */
+    static boolean fit(Observation observation, org.shatterfish.api.Tunables.Vector tunables) {
         int hp = observation.hero().hp();
         int ht = observation.hero().ht();
-        if (hp < Math.min(SAFE_HP, ht)) {
+        if (hp < Math.min(tunables.getInt(org.shatterfish.api.Tunables.PLUNGE_SAFE_HP), ht)) {
             return false;
         }
-        int percent = observation.hero().hunger() == Hunger.STARVING ? STARVING_PERCENT : FIT_PERCENT;
+        int percent = observation.hero().hunger() == Hunger.STARVING ? STARVING_PERCENT
+                : tunables.getInt(org.shatterfish.api.Tunables.PLUNGE_FIT_PERCENT);
         return hp * 100 >= ht * percent;
     }
 
