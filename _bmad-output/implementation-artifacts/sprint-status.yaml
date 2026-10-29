@@ -184,7 +184,7 @@ development_status:
   10-20-tengu-phase-two-the-threat-map: backlog  # issue #366
   10-21-tengu-conversion-on-the-practice-floor: backlog  # issue #367
   10-22-the-think-budget-amendment-to-adr-0010: backlog  # issue #368
-  10-23-the-classloader-isolation-spike: backlog  # issue #369
+  10-23-the-classloader-isolation-spike: done  # issue #369
   10-24-determinized-fight-rollouts: backlog  # issue #370
   10-25-the-warrior-plays-its-kit: backlog  # issue #371
   10-26-the-mage-plays-its-kit: backlog  # issue #372
