@@ -354,6 +354,9 @@ public final class RunLoop {
             if (debug != null) {
                 // Write-only: the debug record takes the wait and gives nothing back (issue #219).
                 debug.wait(observation, written);
+                if (agent instanceof org.shatterfish.api.Deliberator deliberator) {
+                    debug.beliefs(observation.header().depth(), written.k(), deliberator.beliefView());
+                }
             }
             if (outcome instanceof Outcome.Rejected rejected) {
                 refused++;

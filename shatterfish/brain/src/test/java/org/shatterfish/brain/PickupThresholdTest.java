@@ -83,8 +83,8 @@ class PickupThresholdTest {
         long strength = PICKUP.worth("potion of strength", screen);
         long plain = PICKUP.worth("ration of food", screen);
         assertTrue(plain < unknown && unknown < strength, plain + " < " + unknown + " < " + strength);
-        // Healing and strength weigh 6 of 19 each here; strength adds the strength weight.
-        assertEquals(2000 + Math.round(2000.0 * 6 / 19), unknown);
+        // Strength weighs 12 of 25 here (Beliefs.STRENGTH_WEIGHT); strength adds the strength weight.
+        assertEquals(2000 + Math.round(2000.0 * 12 / 25), unknown);
         assertEquals(new Action.Step(2), choose(room(30, 11, "crimson potion", STEPS)).action(), "ten cells: taken");
         assertNull(choose(room(30, 20, "crimson potion", STEPS)), "nineteen cells: not");
     }

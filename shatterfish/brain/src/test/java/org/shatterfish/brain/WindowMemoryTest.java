@@ -68,7 +68,7 @@ class WindowMemoryTest {
     @DisplayName("a window answered rather than left shuns nothing, nor does a window a Step or a search opened")
     void only_a_left_window_by_an_opener_is_shunned() {
         Observation guess = Screens.asked(HeroClass.WARRIOR, PromptKind.GUESS, "Crimson Potion",
-                List.of("Potion of Healing"), List.of(Screens.item(org.shatterfish.api.ItemKind.POTION, "crimson potion", 1)));
+                List.of("Potion of Strength"), List.of(Screens.item(org.shatterfish.api.ItemKind.POTION, "crimson potion", 1)));
         Action stone = new Action.UseItemOn(new org.shatterfish.api.ItemRef(1, "stone of intuition", 1), "USE",
                 new org.shatterfish.api.ItemRef(2, "crimson potion", 1));
         Brain brain = brain();
