@@ -137,14 +137,47 @@ Leak tests (1, 2b and 4 are in the build; 2 and 3 are preconditions named below)
 4. **Fully observed equivalence.** In a position with no hidden state to scrub, the isolated step equals the live step
    (`IsolatedWorldTest`, 53 Actions, every Observation equal). Passing.
 
-### Known defect
+### Defect found and fixed: the world did not have the Run's history (#390)
 
-Tracked in [#390](https://github.com/watchthelight/shatterfish/issues/390), a blocker on story 10.24 (#370).
+Tracked in [#390](https://github.com/watchthelight/shatterfish/issues/390), which blocked story 10.24 (#370). On two of 22
+snapshots in the final run, 11 of 207 compared results differed in the `log` section only (same end and length, every other
+section equal): one guidebook hint line more in one host than the other, which slid the 64-line window by one.
 
-On two of 22 snapshots in the final run, 11 of 207 compared results differ in the `log` section only (same end and length,
-every other section equal). The suspects are the static log buffer and the journal's guidebook state in a pooled world. Until
-it is diagnosed, a Brain that reads the log window of a rollout's Observation can see a difference between hosts; the fight
-search should read only the non-log sections, which is also the stricter parity position.
+**Cause.** The suspects the issue named (the static log buffer, the guidebook state a pooled world does not reset) were not
+it. A trace of the journal at the start of every rollout showed the isolated world holding an empty journal (no guide page
+found, none read) while the live Run, which the swap host borrows, held `Intro` through `Searching` found and `Examining`
+read. The profile is not in the save: every Run's profile begins empty (ADR-0007) and grows as the Run plays, and the game
+reads it while it plays. Whether a hint is shown is a function of it (`Hero.java:1758`, `Snake.java:65`, `Hunger.java:109`,
+`EquipableItem.java:59`, and `flashForDocument` writes the "Your guidebook has advice" log line, `GameScene.java:1321-1335`).
+The swap host plays in the live Run's process and so reads the live profile; a world is a Run that has played nothing, and the
+profile guard puts it back to that after each rollout. The same holds for the catalogs behind the researcher badges
+(`Badges.java:632-660`) and for the statics no save carries (`Snake.dodges` and the others of `RunStatics`). The hint was the
+only one of these the sample showed because a rollout is two to four Actions long; the rest were latent.
+
+**Fix, in the harness, no upstream edit.** `RunHistory` is a plain-values holder (journal bundle bytes, badge names, flags and
+counters; no game type, so the loader shares it by name like `ScrubbedStart`). `IsolatedHost` takes one from the live Run at
+the rollout (`RunHistoryCodec.capture`, the live loader's own copy of the codec), and the world applies it with
+`RunHistoryCodec.apply` after it has held its profile and before it loads the copy (the game reads the journal as it loads a
+floor). The profile guard and the statics baseline then put the world back to empty, as before. The rankings are not carried:
+a Run in progress has none. `RolloutWorld.rollout(start, actions)` stays and means "a Run that has played nothing"
+(`RunHistory.NONE`).
+
+**Fairness.** The history is what the swap host already plays on, and each part is something the player's own screen has: the
+journal and badges pages, the snake's dodges the hero watched, the last attack's leftovers. It is read from the live Run's
+process-wide profile and statics, not from the unseen world, and the scrubbed copy's files are unchanged. The boundary test
+holds `RunHistory` to plain-valued fields and to the isolation classes, and `RunStatics.exportTo` is package-private to the
+codec. The `fairness` label stays on the change.
+
+**Evidence.** `IsolatedHostLogTest` reproduces both snapshots (the same seed, class and salt the tool used, the real Brain, the
+tool's three samples and horizons 2 to 4) and fails without the fix (CLERIC at wait 140: "Observation 4 differs, log lines 15
+against 14"; DUELIST at wait 252: "Observation 1 differs, log lines 40 against 41"); it also plays each rollout twice in the
+pooled world and requires equal results, the repeat-the-same-rollout check this ADR named. With the fix the standard-set run
+(`isolationSpeed --set standard --seeds 8 --per-seed 3 --samples 3`) compares 207 pairs and **0 differ**.
+
+**Still open.** The permutation half of leak test 3 (equal results from two worlds over live Runs that differ only in hidden
+state, with a canary seed) is not built; it remains a precondition of the first Brain that reads a rollout through
+`IsolatedHost`. A position where the live Run has earned a researcher badge or read more pages than 8 seeds at 3 snapshots
+reach is not exercised by a comparison yet; the carried badges and catalogs are covered by the same code path, not by a case.
 
 `HeadlessDriver.loadScrubbed` is public because the agent package calls it; on a live driver it would replace the live Run with
 a sampled one. Nothing outside the harness reaches it today (the rig, overlay and desktop modules must repeat the ArchUnit rule
@@ -167,10 +200,10 @@ before they depend on `IsolatedHost`), and narrowing it to a driver-side isolate
 
 - The load floor makes any rollout search too slow to pay: at 40 ms a rollout, width three and depth three is a quarter of a
   second a Decision and the Rig has about 400 fight Decisions per Run. Mitigation: it is registered at a stated think time and the Rig decides; option 5 stays the shipped layer.
-- The `log` divergence is a symptom of a larger static leak between worlds that a position-by-position comparison does not
-  find (a pooled world carrying state from a previous rollout). Mitigation: `RunStatics.Held` and `ProfileGuard` reset the
-  known statics each rollout; the permutation test and a repeated-rollout determinism test (same start twice, equal results)
-  are the next tests, and the defect blocks any Rig use of the host until it is diagnosed, and the fight search reads no log section.
+- The `log` divergence was a symptom of a larger leak between worlds that a position-by-position comparison does not find
+  (a pooled world carrying state from a previous rollout, or lacking the live Run's). It was the second: the world lacked
+  the Run's history (#390). The repeat-the-same-rollout check now runs in the build and shows the world carries nothing from
+  one rollout to the next; the permutation test is still to build, and the Brain reads no rollout log section until it is.
 - The timings were taken on a shared machine, so the ratio is wrong in a way the absolutes hide. Mitigation: the two hosts
   alternate within one run on the same copies, and the tool was run twice, throttled and not, with the same ratio.
 - A new upstream tag changes the save format or a static and the second world silently diverges. Mitigation: the equivalence

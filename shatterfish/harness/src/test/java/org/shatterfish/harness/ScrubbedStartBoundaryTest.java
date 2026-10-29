@@ -46,6 +46,31 @@ class ScrubbedStartBoundaryTest {
             .should().dependOnClassesThat().resideInAPackage("org.shatterfish.harness..")
             .because("the brain module cannot import game or harness code (non-negotiable 1)");
 
+    @ArchTest
+    static final ArchRule only_the_driver_and_the_isolation_classes_know_the_history = noClasses()
+            .that().resideOutsideOfPackages("org.shatterfish.harness.driver", "org.shatterfish.harness.isolate")
+            .and().doNotHaveFullyQualifiedName("org.shatterfish.harness.agent.IsolatedWorld")
+            .should().dependOnClassesThat().haveFullyQualifiedName("org.shatterfish.harness.driver.RunHistory")
+            .orShould().dependOnClassesThat().haveFullyQualifiedName("org.shatterfish.harness.driver.RunHistoryCodec")
+            .because("the Brain reaches a rollout through api's Simulator and a SnapshotHandle; the history a world is handed"
+                    + " is taken by the isolated host and by nothing else (issue #390)");
+
+    @Test
+    @DisplayName("the history is plain values: no field is a game type, so the loader may share the class")
+    void the_history_is_plain_values() {
+        java.util.Map<String, Class<?>> allowed = java.util.Map.of("journal", byte[].class, "badges", java.util.List.class,
+                "flags", boolean[].class, "counters", int[].class, "NONE", org.shatterfish.harness.driver.RunHistory.class);
+        java.util.Map<String, Class<?>> actual = new java.util.HashMap<>();
+        for (Field field : org.shatterfish.harness.driver.RunHistory.class.getDeclaredFields()) {
+            actual.put(field.getName(), field.getType());
+        }
+        assertEquals(allowed, actual, "a new field on the history is a new thing an isolated world can be handed: review it");
+        assertTrue(org.shatterfish.harness.isolate.IsolationLoader.isOwn("org.shatterfish.harness.driver.RunHistoryCodec"),
+                "the code that touches the game is each copy's own");
+        assertFalse(org.shatterfish.harness.isolate.IsolationLoader.isOwn("org.shatterfish.harness.driver.RunHistory"),
+                "the holder is one class for both sides");
+    }
+
     @Test
     @DisplayName("the start has a private constructor and one public factory, and no way to take a live snapshot")
     void one_door_in() {

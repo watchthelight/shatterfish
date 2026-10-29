@@ -4,6 +4,8 @@ import org.shatterfish.api.Action;
 import org.shatterfish.api.RolloutResult;
 import org.shatterfish.api.Simulator;
 import org.shatterfish.api.SnapshotHandle;
+import org.shatterfish.harness.driver.RunHistory;
+import org.shatterfish.harness.driver.RunHistoryCodec;
 import org.shatterfish.harness.driver.ScrubbedStart;
 import org.shatterfish.harness.driver.SnapshotStore;
 
@@ -72,6 +74,9 @@ public final class IsolatedHost extends Simulator implements AutoCloseable {
                     + " nothing is rolled out from it (ADR-0009, ADR-0025)");
         }
         ScrubbedStart start = ScrubbedStart.from(store, handle);
+        // What the live Run has played, which the swap host's rollout reads from the process and a world does not have
+        // (issue #390): taken here, on the thread and at the wait the copy belongs to, as plain values.
+        RunHistory history = RunHistoryCodec.capture();
         Opened opened = mode == Mode.POOLED ? pool.get(start.heroClass()) : null;
         if (opened == null) {
             opened = open(start.heroClass());
@@ -81,7 +86,7 @@ public final class IsolatedHost extends Simulator implements AutoCloseable {
         }
         boolean keep = mode == Mode.POOLED;
         try {
-            RolloutResult result = opened.world().rollout(start, actions);
+            RolloutResult result = opened.world().rollout(start, history, actions);
             Phases timer = phases;
             if (timer != null) {
                 long[] c = opened.world().lastCostsNanos();

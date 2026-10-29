@@ -20,7 +20,7 @@ import java.util.Set;
  * native library into two loaders (ADR-0009 option 12), which also makes {@code Gdx.app}, {@code Gdx.files} and
  * {@code Gdx.gl} one set of statics for every world (the consequence is recorded in ADR-0025); {@code org.json};
  * {@code org.shatterfish.api}; and the classes in {@link #SHARED}, which must be one class for both sides: the interfaces
- * between the loaders, the backend and the no-op GL binding that live in libGDX's statics, and {@code ScrubbedStart}.
+ * between the loaders, the backend and the no-op GL binding that live in libGDX's statics, {@code ScrubbedStart} and {@code RunHistory}.
  *
  * <p>The loader reads class bytes as resources of its parent, so it needs no class path of its own. It defines nothing it
  * has not been asked for, so a world pays for the classes a Run touches.
@@ -35,6 +35,7 @@ public final class IsolationLoader extends ClassLoader {
             "org.shatterfish.harness.isolate.RolloutWorld",
             "org.shatterfish.harness.isolate.WorldFactory",
             "org.shatterfish.harness.driver.ScrubbedStart",
+            "org.shatterfish.harness.driver.RunHistory",
             "org.shatterfish.harness.boot.SharedBackend",
             "org.shatterfish.harness.scene.NoOpGL");
 
