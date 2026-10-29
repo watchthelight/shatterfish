@@ -197,6 +197,6 @@ development_status:
   10-33-the-r2-check-tengu-conversion: backlog  # issue #379
   10-34-the-registered-tengu-run-and-the-epic-close: backlog  # issue #380
   10-35-the-registry-of-tunable-parameters: done  # issue #382
-  10-36-the-tune-runner: review  # issue #383; PR #405
+  10-36-the-tune-runner: done  # issue #383; PR #405
   10-37-the-first-tuning-run: backlog  # issue #384
   epic-10-retrospective: optional
