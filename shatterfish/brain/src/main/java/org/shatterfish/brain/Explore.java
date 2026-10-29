@@ -69,10 +69,17 @@ import java.util.Set;
 final class Explore implements Policy {
 
     private final Codex.Knowledge knowledge;
+    private final org.shatterfish.api.Tunables.Vector tunables;
 
     /** Exploring, with {@code knowledge} telling the enemies it may explore past (the passive ones) from the rest. */
     Explore(Codex.Knowledge knowledge) {
+        this(knowledge, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #Explore(Codex.Knowledge)} resting by the vector's {@code explore.rests} (story 10.35). */
+    Explore(Codex.Knowledge knowledge, org.shatterfish.api.Tunables.Vector tunables) {
         this.knowledge = knowledge;
+        this.tunables = tunables;
     }
 
     /** The Policy's name, as the Decision records it and {@link Brain#policyNames()} lists it. */
@@ -233,7 +240,7 @@ final class Explore implements Policy {
         // On the floor above one the hero fled by the stairs (story 4.7): rest to full health before
         // anything else, so the plan that leads back down does not return to the fight it left at
         // the health it left with.
-        if (restOwed(observation, memory)) {
+        if (restOwed(observation, memory, tunables)) {
             for (Action rest : List.of(new Action.Rest(true), new Action.Rest(false), new Action.Search())) {
                 if (offered.contains(rest)) {
                     return new RunLog.Choice(rest, Policies.CERTAIN, "rest: before-descent");
@@ -340,11 +347,16 @@ final class Explore implements Policy {
      * already rested {@link #RESTS} waits for it.
      */
     static boolean restOwed(Observation observation, Memory memory) {
+        return restOwed(observation, memory, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #restOwed(Observation, Memory)} by the vector's {@code explore.rests}. */
+    static boolean restOwed(Observation observation, Memory memory, org.shatterfish.api.Tunables.Vector tunables) {
         String below = below(observation);
         return Memory.count(memory.flights(), below, 0) > Memory.count(memory.flights(), below, 1)
                 && observation.hero().hp() < observation.hero().ht()
                 && observation.hero().hunger() == org.shatterfish.api.Hunger.NONE
-                && Memory.count(memory.flights(), below, 2) < RESTS;
+                && Memory.count(memory.flights(), below, 2) < tunables.getInt(org.shatterfish.api.Tunables.EXPLORE_RESTS);
     }
 
     /** The key of the floor below this one, as the Memory counts flights. */

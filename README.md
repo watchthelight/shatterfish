@@ -31,6 +31,7 @@ Documentation: **<https://watchthelight.github.io/shatterfish/>**. The
 | E7 Strategy and lore | Playbooks as data (identification, upgrades, bosses, classes), the Lore intake, and a measured win rate: 0/500 on `standard`, reach depth 5 up from 95 to 206 of 500 ([results](docs/results/2026-10-27-7-10-the-measured-win-rate.md)) | done |
 | E8 Overlay v2 | Explain with its terms, Pause-on conditions, a replay scrubber with the Beliefs view, coach mode and autoexplore | **in progress** |
 | E9 | Learned evaluation (optional) | planned |
+| E10 Through the Prison: Tengu | Tengu, the boss on depth 10, dies in 95% or more of Runs for all six classes: instruments, Prison survival, the Tengu fight, search and one story per class kit; done on the registered `tengu` set | planned |
 
 E4 so far, story by story (each merged with a fairness review, a code review, a
 mutation battery and a direction check on the `smoke` Seed set):

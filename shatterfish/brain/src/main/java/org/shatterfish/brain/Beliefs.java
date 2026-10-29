@@ -287,7 +287,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         // after the approach, until the hero stands beside the cell it was seen on.
         Memory.Spot chase = memory.chase();
         long chased = memory.chased();
-        if (chase.cell() >= 0 && (!chase.on(depth, branch) || waits - chased > Fight.CHASE_WAITS
+        if (chase.cell() >= 0 && (!chase.on(depth, branch) || waits - chased > playbook.tunables().getInt(org.shatterfish.api.Tunables.FIGHT_CHASE_WAITS)
                 || chase.cell() >= observation.map().tiles().size()
                 || Fight.chebyshev(observation.map(), here.cell(), chase.cell()) <= 1)) {
             chase = Memory.Spot.NOWHERE;

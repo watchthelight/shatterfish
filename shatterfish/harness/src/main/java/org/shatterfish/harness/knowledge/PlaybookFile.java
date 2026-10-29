@@ -2,6 +2,7 @@ package org.shatterfish.harness.knowledge;
 
 import org.shatterfish.api.HeroClass;
 import org.shatterfish.api.Playbook;
+import org.shatterfish.api.Tunables;
 import org.shatterfish.harness.log.Json;
 
 import java.io.IOException;
@@ -119,8 +120,15 @@ public final class PlaybookFile {
                 classes.add(new Playbook.ClassEntry(HeroClass.valueOf(entry.getKey()), classIdentify, classKit, classUpgrade));
             }
         }
+        Map<String, Long> stated = new LinkedHashMap<>();
+        if (held.containsKey("tunables")) {
+            for (Map.Entry<String, String> entry : Json.object(held.get("tunables")).entrySet()) {
+                stated.put(entry.getKey(), Json.number(entry.getValue()));
+            }
+        }
         Playbook playbook = new Playbook(Json.string(Json.required(held, "name", "Playbook")),
-                Json.integer(Json.required(held, "version", "Playbook")), identify, upgrade, kit, classes, bosses);
+                Json.integer(Json.required(held, "version", "Playbook")), identify, upgrade, kit, classes, bosses,
+                new Tunables.Vector(stated));
         if (!playbook.name().equals(brain)) {
             throw new IllegalArgumentException("the Playbook in " + file + " is for " + playbook.name()
                     + ", not for " + brain);
