@@ -99,6 +99,11 @@ final class ControlState {
          */
         default void pausedOn(String speed) {
         }
+
+        /** The index of the wait in front, which a replay's Mode strip reads as its place in the log (story 8.5). */
+        default long waitIndex() {
+            return 0;
+        }
     }
 
     /** The wait a Decision is shown for and not yet executed (story 8.3). */
@@ -138,6 +143,9 @@ final class ControlState {
     /** The condition the Run is paused for, in words, or null (story 8.3). */
     private String pausedFor;
 
+    /** The waits the loaded log holds when this is a replay's controls (story 8.5), else -1. */
+    private final int replayWaits;
+
     /** A fresh Run's controls: the Run is held at once, PAUSED with Next Step. */
     ControlState(Seam seam, Capabilities capabilities) {
         this(seam, capabilities, OverlaySettings.DEFAULTS, Set.of());
@@ -145,6 +153,20 @@ final class ControlState {
 
     /** As above, with the person's settings and the Codex's boss depths (story 8.3). */
     ControlState(Seam seam, Capabilities capabilities, OverlaySettings settings, Set<Integer> bossDepths) {
+        this(seam, capabilities, settings, bossDepths, -1);
+    }
+
+    /**
+     * The controls of a loaded log (story 8.5): REPLAY, where the Run is the log's and nobody's, so there is no
+     * Take over and no Pause-on. It starts stopped at its first wait, as a Run starts PAUSED with Next Step.
+     */
+    static ControlState replaying(Seam seam, Capabilities capabilities, int waits) {
+        return new ControlState(seam, capabilities, OverlaySettings.DEFAULTS, Set.of(), waits);
+    }
+
+    private ControlState(Seam seam, Capabilities capabilities, OverlaySettings settings, Set<Integer> bossDepths,
+                         int replayWaits) {
+        this.replayWaits = replayWaits;
         this.seam = seam;
         this.capabilities = capabilities;
         this.settings = settings;
@@ -183,6 +205,10 @@ final class ControlState {
      * Run is held or let go as the new settings need.
      */
     void settings(OverlaySettings changed) {
+        if (replay()) {
+            // A replay ignores Pause-on whatever the settings say (story 8.5).
+            return;
+        }
         settings = changed;
         previous = null;
         applyHold();
@@ -198,13 +224,23 @@ final class ControlState {
         return seam.ended();
     }
 
+    /** Whether these are a loaded log's controls (story 8.5). */
+    boolean replay() {
+        return replayWaits >= 0;
+    }
+
     /** The controls that act now. */
     Set<Control> enabled() {
         if (target != null && !over()) {
             // The hero is busy: the press is queued, its control dim, until the hero is ready (story 5.8).
             return EnumSet.of(Control.EXPLAIN);
         }
-        return ControlEnablement.of(mode, over(), capabilities);
+        Set<Control> enabled = ControlEnablement.of(replay() ? (mode == Mode.RUNNING ? Mode.RUNNING : Mode.REPLAY) : mode,
+                over(), capabilities);
+        if (replay()) {
+            enabled.remove(Control.TAKE_OVER);
+        }
+        return enabled;
     }
 
     /** The last Brain trouble this has answered, by the Run's own number for it (story 5.15). */
@@ -241,6 +277,13 @@ final class ControlState {
     /** The Mode, speed and values as the Mode strip shows them, over the Run's turn, floor and thinking flag. */
     ModeState view(ModeState run) {
         // A person's own pace paces a HUMAN turn: no speed mode does (story 5.8).
+        if (replay()) {
+            // A loaded log is its own state whether it plays or waits (story 8.5): REPLAY, and where it stands.
+            boolean playing = mode == Mode.RUNNING;
+            return new ModeState(Mode.REPLAY, speed, interval, run.turn(), run.floor(), run.thinking(), over(),
+                    run.ending()).withReplay("wait " + seam.waitIndex() + " of " + replayWaits + ", "
+                    + (playing ? "playing" : "stopped"), playing);
+        }
         return new ModeState(mode, mode == Mode.HUMAN ? SpeedMode.PLAYER : speed, interval, run.turn(), run.floor(),
                 run.thinking(), over(), run.ending()).withPausedFor(pausedFor());
     }
@@ -286,7 +329,8 @@ final class ControlState {
      * looked at is not looked at again, so Resume does not fire the condition it resumed from.
      */
     private void pauseOnConditions() {
-        if (!settings.anyPauseOn()) {
+        if (replay() || !settings.anyPauseOn()) {
+            // A replay is the log's Run, and a person who steps it chose every stop (story 8.5).
             return;
         }
         Pending pending = seam.pending();

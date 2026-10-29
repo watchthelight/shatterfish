@@ -89,4 +89,50 @@ class LaunchOptionsTest {
         assertFalse(OverlayGame.windowed(LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior"})),
                 "a fair Run with no size asked for keeps the game's own fullscreen default");
     }
+
+    @Test
+    @DisplayName("replay_ a log names the whole Run: seed, class and cap come from its header, nobody else plays")
+    void replay_takes_the_tuple_from_the_log() {
+        Path log = ReplayLoadTest.smallLog();
+        LaunchOptions options = LaunchOptions.parse(new String[] {"--replay", log.toString()});
+        assertTrue(options.replaying());
+        assertEquals(log, options.replay());
+        assertNull(options.refused(), "this build can play it");
+        assertEquals(ReplaySessionTest.SEED, options.seed());
+        assertEquals(HeroClass.WARRIOR, options.heroClass());
+        assertEquals(60, options.turnCap());
+        assertEquals("replay", options.agent());
+        assertFalse(options.oracle());
+    }
+
+    @Test
+    @DisplayName("replay_ a log that is missing or does not verify is not an error of the command line: it is refused for the Panel to say")
+    void replay_refusal_is_kept_for_the_panel() {
+        LaunchOptions options = LaunchOptions.parse(new String[] {"--replay", "no-such-log.jsonl"});
+        assertTrue(options.replaying());
+        assertTrue(options.refused() != null && !options.refused().isEmpty(), "the reason: " + options.refused());
+    }
+
+    @Test
+    @DisplayName("replay_ flags that would change the Run, or start from another log, are refused with --replay")
+    void replay_refuses_what_the_log_decides() {
+        String log = ReplayLoadTest.smallLog().toString();
+        for (String[] extra : new String[][] {{"--seed", "1"}, {"--class", "mage"}, {"--salt", "0x5"},
+                {"--turn-cap", "10"}, {"--out", "x"}, {"--agent", "brain"}}) {
+            String[] args = new String[extra.length + 2];
+            args[0] = "--replay";
+            args[1] = log;
+            System.arraycopy(extra, 0, args, 2, extra.length);
+            IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                    () -> LaunchOptions.parse(args), extra[0]);
+            assertTrue(refused.getMessage().contains(extra[0]), refused.getMessage());
+        }
+        assertThrows(IllegalArgumentException.class,
+                () -> LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior", "--agent", "replay"}),
+                "replay is not an agent a launch can name without a log");
+        assertThrows(IllegalArgumentException.class,
+                () -> LaunchOptions.parse(new String[] {"--replay", log, "--oracle"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> LaunchOptions.parse(new String[] {"--replay", log, "--resume", "x"}));
+    }
 }
