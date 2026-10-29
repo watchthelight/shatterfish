@@ -87,7 +87,10 @@ import java.util.Set;
  * state quiescent. Three checks keep the promise honest on a JVM that does not report states the
  * way HotSpot does, each with the thread's wait count: it may not change during a frame, it may
  * change by exactly one across a frame that woke the thread, and it may not change between two
- * frames. A thread that is anything but parked or blocked at the end of a frame fails too.
+ * frames, except for a wake the JVM makes with no notify (see {@link #strayWakes()}): a pass that
+ * leaves the game as the last frame left it, or one made after a frame that did not end at an
+ * Input wait, is counted and accepted. A thread that is anything but parked or blocked at the end
+ * of a frame fails too.
  * {@code FenceInvariantTest} observes the same things from the scene's side, with and without the
  * gravity-chaos curse. That is the shape story 1.4's loop and story 1.5's wait detection build
  * on.
@@ -121,6 +124,9 @@ public final class SceneStepper {
     private Thread actorThread;
     private volatile Throwable actorThreadFailure;
     private long parkedAfterLastStep;
+    private long signatureAfterLastStep;
+    private boolean heroWasAtInputWait;
+    private int strayWakes;
     private long parkTimeoutNanos = Duration.ofSeconds(10).toNanos();
 
     public SceneStepper(GameScene scene) {
@@ -165,10 +171,24 @@ public final class SceneStepper {
 
         long waitedBefore = waitedCount(thread);
         if (waitedBefore != parkedAfterLastStep) {
-            throw new IllegalStateException("the actor thread parked " + (waitedBefore - parkedAfterLastStep)
-                    + " time(s) since the last frame ended without the stepper waiting for it, so it ran"
-                    + " between frames unfenced; the JVM did not report it blocked at the end of that frame: "
-                    + describe(thread));
+            // The thread woke between frames with no notify of the stepper's. Object.wait may
+            // return with no notify, and a starved machine is where the harness sees it. What
+            // such a pass can hurt is a reader of game state between frames, and the caller
+            // reads only where the last frame left the hero at an Input wait (the class comment
+            // above). So the pass is accepted when the hero was not at an Input wait then (the
+            // pass is the next turn, run a frame early, before any input that could change it: input
+            // is delivered inside frames, to a ready hero), or when it changed nothing a Run is
+            // made of (the clock, every actor's time, the hero). Anything else is a real unfenced
+            // run, and fails as it always did.
+            if (heroWasAtInputWait && signature() != signatureAfterLastStep) {
+                throw new IllegalStateException("the actor thread parked " + (waitedBefore - parkedAfterLastStep)
+                        + " time(s) since the last frame ended without the stepper waiting for it, so it ran"
+                        + " between frames unfenced and changed the game's clock or the hero while the last"
+                        + " frame had left it at an Input wait; the JVM did not report it blocked at the end"
+                        + " of that frame: " + describe(thread));
+            }
+            strayWakes++;
+            parkedAfterLastStep = waitedBefore;
         }
         List<CharSprite> moving = movingSprites();
         checkTheWaitSite(thread, moving);
@@ -201,6 +221,33 @@ public final class SceneStepper {
                     + frames + ", so it ran during it: " + describe(thread));
         }
         publish(thread);
+        signatureAfterLastStep = signature();
+        heroWasAtInputWait = Dungeon.hero != null && Dungeon.hero.ready && Dungeon.hero.curAction == null;
+    }
+
+    /**
+     * How many times the actor thread woke between frames with nothing changed by its pass (see
+     * {@link #step(float)}). Zero on an unloaded machine; a Run's log is unaffected by it.
+     */
+    public int strayWakes() {
+        return strayWakes;
+    }
+
+    /**
+     * What a pass of the actor thread would change: the clock, every actor's time, the hero's
+     * flags and position. Order-independent over the actors.
+     */
+    private static long signature() {
+        long sum = Float.floatToIntBits(Actor.now());
+        for (Actor actor : Actor.all()) {
+            sum += 31L * Float.floatToIntBits(actor.cooldown()) + actor.getClass().getName().hashCode();
+        }
+        Hero hero = Dungeon.hero;
+        if (hero != null) {
+            sum = sum * 1_000_003L + (hero.ready ? 1 : 0) + (hero.resting ? 2 : 0) + (hero.curAction != null ? 4 : 0)
+                    + 8L * hero.paralysed + 64L * hero.HP + 4096L * hero.pos;
+        }
+        return sum;
     }
 
     /**
@@ -428,6 +475,8 @@ public final class SceneStepper {
         thread.start();
         parkedAfterLastStep = awaitPark(thread, 0);
         publish(thread);
+        signatureAfterLastStep = signature();
+        heroWasAtInputWait = Dungeon.hero != null && Dungeon.hero.ready && Dungeon.hero.curAction == null;
     }
 
     /**
