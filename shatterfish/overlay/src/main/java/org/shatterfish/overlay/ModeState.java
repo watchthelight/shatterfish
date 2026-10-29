@@ -22,7 +22,9 @@ final class ModeState {
 
     /** ADR-0013's three Modes. */
     enum Mode {
-        RUNNING, PAUSED, HUMAN
+        RUNNING, PAUSED, HUMAN,
+        /** A loaded Run log is played back one Input wait at a time (story 8.5, FR-46). */
+        REPLAY
     }
 
     /** UX-DR6's four speed modes, plus {@link #NORMAL}, today's placeholder. */
@@ -59,6 +61,8 @@ final class ModeState {
     private final boolean over;
     private final RunEnding ending;
     private final String pausedFor;
+    private final String replayNote;
+    private final boolean replayPlaying;
 
     ModeState(Mode mode, SpeedMode speed, double intervalSeconds, int turn, int floor, boolean thinking) {
         this(mode, speed, intervalSeconds, turn, floor, thinking, false);
@@ -71,17 +75,23 @@ final class ModeState {
 
     /** This state with the Pause-on condition the Run is paused for, in words, or null (story 8.3). */
     ModeState withPausedFor(String condition) {
-        return new ModeState(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, condition);
+        return new ModeState(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, condition, replayNote, replayPlaying);
+    }
+
+    /** This state with where a replay stands in its log, in words ("wait 12 of 340, stopped"), or null (story 8.5). */
+    ModeState withReplay(String note, boolean playing) {
+        return new ModeState(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, pausedFor, note, playing);
     }
 
     /** As above, and how the Run ended and where its log is, which the Mode strip reads once it is over (story 5.14). */
     ModeState(Mode mode, SpeedMode speed, double intervalSeconds, int turn, int floor, boolean thinking, boolean over,
               RunEnding ending) {
-        this(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, null);
+        this(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, null, null, false);
     }
 
     private ModeState(Mode mode, SpeedMode speed, double intervalSeconds, int turn, int floor, boolean thinking,
-                      boolean over, RunEnding ending, String pausedFor) {
+                      boolean over, RunEnding ending, String pausedFor, String replayNote,
+                      boolean replayPlaying) {
         if (mode == null || speed == null) {
             throw new IllegalArgumentException("a Mode and a speed mode");
         }
@@ -94,6 +104,8 @@ final class ModeState {
         this.over = over;
         this.ending = ending;
         this.pausedFor = pausedFor;
+        this.replayNote = replayNote;
+        this.replayPlaying = replayPlaying;
     }
 
     /**
@@ -152,5 +164,15 @@ final class ModeState {
     /** The Pause-on condition the Run is paused for, in words ("before stairs"), or null (story 8.3). */
     String pausedFor() {
         return pausedFor;
+    }
+
+    /** Where a replay stands in its log, in words, or null for any other Run (story 8.5). */
+    String replayNote() {
+        return replayNote;
+    }
+
+    /** Whether a replay plays on its own now, which the Pause and Resume label reads (story 8.5). */
+    boolean replayPlaying() {
+        return replayPlaying;
     }
 }

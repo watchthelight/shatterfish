@@ -77,6 +77,8 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
     private boolean suspended;
     /** The interface the Overlay plays on: the mixed one, desktop layout with no inventory pane (story 5.2). */
     static final int INTERFACE_SIZE = 1;
+    /** The size this game plays on: the Overlay's, or the one a replayed log was played on. */
+    private int interfaceSize = INTERFACE_SIZE;
 
     private final InputLock lock = new InputLock();
     private final PanelDock dock = new PanelDock();
@@ -167,6 +169,13 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         lock.hotkeys(new Keys());
         inputHandler.addInputProcessor(lock);
         rng = new RngControl(salt);
+        if (options.replaying()) {
+            if (createReplay()) {
+                switchScene(GameScene.class);
+            }
+            lock.panel((x, y) -> Windows.front() == null && dock.contains(x, y));
+            return;
+        }
         if (resumption != null) {
             // The game loads from its save and the Run continues the suspended log (story 5.14).
             try {
@@ -204,6 +213,30 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         // The play scene, created at the first frame the way the loading scene asks for it after a new
         // game (core/.../scenes/InterlevelScene.java), with the Run already listening at its seam.
         switchScene(GameScene.class);
+    }
+
+    /**
+     * Starts a replay (story 8.5): {@link ReplayStart} opens the log again and decides whether it is played (the log
+     * must be the one the launcher read, and the window must allow the interface size it was played on). A log that
+     * cannot be played starts no game and no Run: the reason is the Panel's to say.
+     *
+     * @return whether a Run was attached and the play scene is wanted
+     */
+    private boolean createReplay() {
+        ReplayStart start = ReplayStart.prepare(options);
+        if (start.refusal() != null) {
+            Gdx.app.log("shatterfish", "the log " + options.replay() + " is not played: " + start.refusal());
+            dock.refusal("REPLAY REFUSED: " + start.refusal());
+            return false;
+        }
+        ReplaySession session = start.session();
+        interfaceSize = session.interfaceSize();
+        NewGame.begin(session.header().seed(), options.heroClass(), rng);
+        run = EmbeddedRun.attach(this, session.header().seed(), options.heroClass(), rng, session.follower(), observer,
+                null, session.header().cap());
+        controls = ControlState.replaying(new RunSeam(run), ControlEnablement.Capabilities.NOW, session.waits());
+        dock.controls(controls);
+        return true;
     }
 
     /**
@@ -361,6 +394,11 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
         @Override
         public void pausedOn(String speed) {
             run.pausedOn(speed);
+        }
+
+        @Override
+        public long waitIndex() {
+            return run.waitIndex();
         }
 
         @Override
@@ -625,7 +663,7 @@ public final class OverlayGame extends ShatteredPixelDungeon implements Embedded
      */
     @Override
     public int interfaceSize() {
-        return INTERFACE_SIZE;
+        return interfaceSize;
     }
 
     /** Whether the game opens windowed: a size was asked for, or the Run is an oracle Run. */

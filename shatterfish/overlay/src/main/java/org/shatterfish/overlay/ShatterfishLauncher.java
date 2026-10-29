@@ -69,10 +69,13 @@ public final class ShatterfishLauncher {
                 }
             }, "shatterfish-profile-cleanup"));
         }
-        try {
-            java.nio.file.Files.createDirectories(options.out());
-        } catch (IOException e) {
-            throw new UncheckedIOException("could not create " + options.out() + " for the Run's log", e);
+        if (!options.replaying()) {
+            // A replay writes no log (story 8.5), so it makes no folder for one.
+            try {
+                java.nio.file.Files.createDirectories(options.out());
+            } catch (IOException e) {
+                throw new UncheckedIOException("could not create " + options.out() + " for the Run's log", e);
+            }
         }
 
         // What the desktop launcher reads from its jar manifest, read from the harness's own stamp of
@@ -104,7 +107,8 @@ public final class ShatterfishLauncher {
 
     /** The window's title, which carries the oracle marker, as the Mode strip (story 5.2) and the border (story 5.12) do. */
     static String title(LaunchOptions options) {
-        return "Shattered Pixel Dungeon + Shatterfish Overlay" + (options.oracle() ? " [ORACLE]" : "");
+        return "Shattered Pixel Dungeon + Shatterfish Overlay" + (options.oracle() ? " [ORACLE]" : "")
+                + (options.replaying() ? " [REPLAY]" : "");
     }
 
     /** Where the Run's log goes and who played it; the oracle flag is the launcher's, and nobody else's. */
