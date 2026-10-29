@@ -386,7 +386,7 @@ public final class PracticeRuns {
 
     static String table(PracticeBoss boss, List<Side> sides) {
         StringBuilder out = new StringBuilder();
-        out.append("| class | Runs | ").append(boss.id()).append(" killed | rate | 95% (Wilson) | died | cap | other | not finished |"
+        out.append("| class | Runs | ").append(boss.id()).append(" killed | rate | 95% (Wilson) | died | cap | left floor / other | not finished |"
                 + " median turns (kills) | median turns (deaths) |\n");
         out.append("|---|---|---|---|---|---|---|---|---|---|---|\n");
         int runs = 0;

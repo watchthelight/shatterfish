@@ -51,6 +51,7 @@ public record RunEnding(String cause, int turn, int floor, Path log) {
             case CLOSED -> "window closed";
             case SUSPENDED -> "saved and quit";
             case BOSS_DOWN -> "the practice boss was killed";
+            case LEFT_BOSS_FLOOR -> "the hero left the practice boss floor";
         };
     }
 

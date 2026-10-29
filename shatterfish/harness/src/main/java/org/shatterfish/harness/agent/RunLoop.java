@@ -333,6 +333,13 @@ public final class RunLoop {
                 // measure, and playing on would be playing the rest of the game from a made-up start.
                 return outcome(RunOutcome.Cause.BOSS_DOWN, salt, waits, applied, refused, "");
             }
+            if (practice != null && com.shatteredpixel.shatteredpixeldungeon.Dungeon.depth != practice.boss().depth()) {
+                // The Run was started for one floor's fight; a hero that has taken the stairs off it is
+                // playing a floor the practice start never built up to (the entrance's stairs lead to a
+                // fresh, uncleared floor above), so it is a loss of the fight and not a measurement of it.
+                return outcome(RunOutcome.Cause.LEFT_BOSS_FLOOR, salt, waits, applied, refused,
+                        "left floor " + practice.boss().depth() + " for " + com.shatteredpixel.shatteredpixeldungeon.Dungeon.depth);
+            }
             if (turns() >= turnCap) {
                 return outcome(RunOutcome.Cause.TURN_CAP, salt, waits, applied, refused, "");
             }

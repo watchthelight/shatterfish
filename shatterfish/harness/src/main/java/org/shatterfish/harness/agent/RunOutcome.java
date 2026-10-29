@@ -86,12 +86,16 @@ public record RunOutcome(Cause cause, long salt, int depth, int turns, long wait
          * A practice Run's boss was killed (E10, ADR-0024). A practice Run is about one fight, so it ends
          * when the fight is won; only a Run with a practice start ends so, and it is never ranked.
          */
-        BOSS_DOWN
+        BOSS_DOWN,
+
+        /** A practice Run whose hero left the boss floor by its stairs; the fight was not played. */
+        LEFT_BOSS_FLOOR
     }
 
     /** Whether this Run ended the way a Run is meant to end, rather than by something going wrong. */
     public boolean ordinary() {
-        return cause == Cause.DEATH || cause == Cause.WIN || cause == Cause.TURN_CAP || cause == Cause.BOSS_DOWN;
+        return cause == Cause.DEATH || cause == Cause.WIN || cause == Cause.TURN_CAP || cause == Cause.BOSS_DOWN
+                || cause == Cause.LEFT_BOSS_FLOOR;
     }
 
     @Override

@@ -49,19 +49,32 @@ at salts 3000 for a paired row; the real rows are the 24-Run slice and the state
 
 ## Tengu practice, all six classes (the W3 baseline)
 
-40 Runs per class, `standard` set, salts 1000..1039, cap 5000 turns, Brain at main `0d087c17e`.
+40 Runs per class, `standard` set, salts 1000..1039, cap 5000 turns, Brain at main `0d087c17e`, `--jobs 12`.
+Endings: killed Tengu / died / left the boss floor by its stairs (`LEFT_BOSS_FLOOR`, new, see below).
 
-| class | `standard` kit killed | `arrived` kit killed | killers of the dead (`standard`) |
-|---|---|---|---|
-| WARRIOR | 0/40 | 0/40 | DM100 20, Hunger 8, NecroSkeleton 8, Guard 3, Piranha 1 |
-| MAGE | 0/40 | 0/40 | NecroSkeleton 19, DM100 9, Guard 7, Hunger 3, Bleeding 2 |
-| ROGUE | 0/40 | 0/40 | Hunger 40 |
-| HUNTRESS | 0/40 | 0/40 | NecroSkeleton 24, DM100 6, Hunger 4, Guard 3, Skeleton 2, Bat 1 |
-| DUELIST | 0/40 | 0/40 | DM100 14, NecroSkeleton 14, Hunger 5, Guard 4, Piranha 1, Thief 1, Wraith 1 |
-| CLERIC | 0/40 | 0/40 | NecroSkeleton 17, DM100 15, Guard 5, Hunger 2, ToxicGas 1 |
-| all | 0/240 (0-2%) | 0/240 (0-2%) | |
+| class | `standard` kit | `arrived` kit |
+|---|---|---|
+| WARRIOR | 0 / 7 starved / 33 left | 0 / 6 starved / 34 left |
+| MAGE | 0 / 0 / 40 left | 0 / 0 / 40 left |
+| ROGUE | 0 / 40 starved / 0 | 0 / 39 starved / 1 other |
+| HUNTRESS | 0 / 3 starved / 37 left | 0 / 3 starved / 37 left |
+| DUELIST | 0 / 1 starved / 39 left | 0 / 1 starved / 39 left |
+| CLERIC | 0 / 0 / 40 left | 0 / 0 / 40 left |
+| all | 0/240 (0-2%) | 0/240 (0-2%) |
 
-Zero kills. Every Run sampled ends on depth 10, and the killers named by the debug record (DM100, Guard, Necromancer
-skeleton, Hunger) are not Tengu: the Rogue starves in all 40 Runs. Whether these are the prison floor's own wandering mobs, the
-Brain failing to find the key and the door at the end of the hallway, or a wrong killer attribution on this floor is not
-established here; that is the first thing W3 reads in the `.debug.ndjson` records beside each log.
+**Diagnosis of the first table.** The first table (killers DM100, Guard, Necromancer skeleton) was a Brain behaviour and
+not a wrong floor. The start is the right one: depth 10 builds `PrisonBossLevel` (`Dungeon.java:320-322`) in state `START`
+(`PrisonBossLevel.java:160`), the hero stands on the entrance, cell `10 + 4*32 = 138` (`PrisonBossLevel.java:166`), and the
+level has no regular mob (`PrisonBossLevel.java:598`); `PracticeRunTest.tengu_start_is_the_boss_level` holds all of it. What the
+debug records show is the Brain, with nothing to explore but the entrance room and the hallway, choosing "descend: floor"
+from the entrance, whose stairs lead up: it climbed to depth 9, a fresh uncleared prison floor, and died to that floor's
+DM100, Guards and Necromancer skeletons. The killer labels were right and the floor was not the Tengu floor. A practice Run
+that leaves its floor is now ended as `LEFT_BOSS_FLOOR` and counted as the loss it is.
+
+**The Rogue starves in every Run** because it stays on depth 10: it eats both rations (`eat: hunger` twice) and then spends
+about 1800 turns on `act: nothing better applies` in the hallway until it starves. The hero arrives with no hunger
+(`hunger: NONE` at turn 0) and the kit holds two rations, so neither the kit nor a carried hunger state explains it.
+
+So in none of the 480 Runs did the Brain reach Tengu. The first lever for W3 is getting to the fight: the key lies in one of
+the four side cells off the hallway, and the door at the hallway's end needs it (`PrisonBossLevel.java:621-648`). The
+`.debug.ndjson` records beside each log hold the waits.

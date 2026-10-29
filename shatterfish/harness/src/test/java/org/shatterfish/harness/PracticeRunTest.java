@@ -60,6 +60,14 @@ class PracticeRunTest {
         }
     }
 
+    /** Takes the stairs up at every wait. */
+    private static final class Leaver implements Decider {
+        @Override
+        public Action decide(Observation observation) {
+            return new Action.Ascend();
+        }
+    }
+
     private static RunLoop.Logging logging(Path folder, Practice practice) {
         return new RunLoop.Logging(folder, ZERO, new RunLog.Brain("random", ZERO, "0".repeat(64)), "", "test")
                 .practising(practice);
@@ -99,6 +107,40 @@ class PracticeRunTest {
                 assertTrue(carried >= wanted, who + ": the pack holds the kit's " + wanted + " items, it holds " + carried);
             }
         }
+    }
+
+    @Test
+    @DisplayName("a Tengu start is the prison boss level in its START state, the hero on the entrance, the floor at depth 10")
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void tengu_start_is_the_boss_level() {
+        Practice practice = new Practice(PracticeBoss.TENGU, KitProfiles.STANDARD);
+        try (var driver = org.shatterfish.harness.driver.HeadlessDriver.start(SEED, game(HeroClass.CLERIC), SALT, practice)) {
+            driver.stepToInputWait();
+            var level = com.shatteredpixel.shatteredpixeldungeon.Dungeon.level;
+            assertEquals(10, com.shatteredpixel.shatteredpixeldungeon.Dungeon.depth);
+            assertTrue(level instanceof com.shatteredpixel.shatteredpixeldungeon.levels.PrisonBossLevel,
+                    "depth 10 builds the boss level, not a regular prison floor: " + level.getClass());
+            assertEquals(com.shatteredpixel.shatteredpixeldungeon.levels.PrisonBossLevel.State.START,
+                    ((com.shatteredpixel.shatteredpixeldungeon.levels.PrisonBossLevel) level).state());
+            // PrisonBossLevel.java:166, ENTRANCE_POS = 10 + 4*32.
+            assertEquals(10 + 4 * 32, com.shatteredpixel.shatteredpixeldungeon.Dungeon.hero.pos);
+            for (var mob : level.mobs) {
+                assertTrue(mob instanceof com.shatteredpixel.shatteredpixeldungeon.actors.mobs.Tengu
+                        || !(mob instanceof com.shatteredpixel.shatteredpixeldungeon.actors.mobs.DM100),
+                        "no regular prison mobs on the boss floor: " + mob);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("a practice hero that takes the stairs off the boss floor ends the Run as LEFT_BOSS_FLOOR")
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
+    void leaving_the_floor_ends_the_run(@TempDir Path folder) {
+        Practice practice = new Practice(PracticeBoss.TENGU, KitProfiles.STANDARD);
+        // Walks to the entrance's stairs: the hero starts on them, so the first move off and back on is enough
+        // for the check; the decider steps to the stairs cell by the Action the random agent cannot be trusted to pick.
+        var outcome = new RunLoop().play(SEED, game(HeroClass.WARRIOR), SALT, new Leaver(), 400, logging(folder, practice));
+        assertEquals(org.shatterfish.harness.agent.RunOutcome.Cause.LEFT_BOSS_FLOOR, outcome.cause());
     }
 
     @Test
