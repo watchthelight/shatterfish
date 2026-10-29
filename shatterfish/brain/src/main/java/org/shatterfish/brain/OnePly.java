@@ -94,13 +94,20 @@ final class OnePly implements Policy {
     private final Codex.Knowledge knowledge;
     private final org.shatterfish.api.Playbook.Goo goo;
     private final Codex.HitTable hits;
+    private final org.shatterfish.api.Tunables.Vector tunables;
 
     OnePly(Codex.Knowledge knowledge) {
         this(knowledge, org.shatterfish.api.Playbook.Goo.REFERENCE);
     }
 
     OnePly(Codex.Knowledge knowledge, org.shatterfish.api.Playbook.Goo goo) {
+        this(knowledge, goo, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #OnePly(Codex.Knowledge, org.shatterfish.api.Playbook.Goo)} retreating by the vector's {@code fight.*} numbers (story 10.35). */
+    OnePly(Codex.Knowledge knowledge, org.shatterfish.api.Playbook.Goo goo, org.shatterfish.api.Tunables.Vector tunables) {
         this.goo = goo;
+        this.tunables = tunables;
         if (knowledge.hit() == null) {
             throw new IllegalArgumentException("the one-ply model reads the Codex's hit table (combat.json), and the Codex it was"
                     + " given recorded none; regenerate it with ./gradlew :codex:generate");
@@ -189,7 +196,7 @@ final class OnePly implements Policy {
         if (!beside && memory.holds() >= Fight.HOLDS) {
             return List.of();
         }
-        RunLog.Choice flee = Fight.retreat(observation, memory, offered, enemies, knowledge);
+        RunLog.Choice flee = Fight.retreat(observation, memory, offered, enemies, knowledge, tunables);
         List<Option> options = options(observation, memory, offered, foes, flee);
         if (options.isEmpty()) {
             return List.of();
