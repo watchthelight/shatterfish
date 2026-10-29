@@ -26,9 +26,7 @@ graded at an older tag and a line it cites reads differently at the pin.
 | bestiary | sewers | 8 | 0 | 0 | 2 | 10 | 6 |
 | bestiary | specials | 16 | 0 | 0 | 8 | 24 | 4 |
 | **bestiary** | **all** | 87 | 0 | 7 | 50 | 144 | 41 |
-| items | potions | 12 | 0 | 0 | 0 | 12 | 0 |
-| **items** | **all** | 12 | 0 | 0 | 0 | 12 | 0 |
-| **all** |  | 99 | 0 | 7 | 50 | 156 | 41 |
+| **all** |  | 87 | 0 | 7 | 50 | 144 | 41 |
 
 ## bestiary
 
@@ -190,22 +188,3 @@ graded at an older tag and a line it cites reads differently at the pin.
 | `specials-14` | Phantom piranha | spd | current | “The Flooded Vault special room is guarded by 3 Giant Piranhas. Piranhas die instantly if kept out of water for a single turn, so luring… | [wiki](https://pixeldungeon.fandom.com/wiki/Shattered_Pixel_Dungeon/Special_Rooms) |
 | `specials-17` | Golden bee | unknown | current | “Crazy Bandits can steal and shatter a Honeypot from your inventory, which releases a hostile Golden Bee, so don't assume a Bandit encounter… | [forum](https://steamcommunity.com/sharedfiles/filedetails/?id=2786737188) |
 | `specials-24` | Ebony mimic | unknown | current | “Examining a suspicious chest will explicitly tell you if something is off — the safest ID method. If you'd rather not examine, hit the… | [forum](https://steamcommunity.com/sharedfiles/filedetails/?id=3225596609) |
-
-## items
-
-### Tier 1: the code confirms it (12)
-
-| Claim | Subject | Variant | Status | What it says | Source |
-|---|---|---|---|---|---|
-| `potions-1` | Potion colours | spd | current | Which colour is which potion is a uniform random shuffle made once per run; nothing on a level, such as the traps or the terrain, changes… | [developer](https://github.com/00-Evan/shattered-pixel-dungeon/blob/master/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/ItemStatusHandler.java) |
-| `potions-2` | Potion deck weights | spd | current | Potions are drawn from two alternating decks of cards, not independent draws: healing 3 and 3, mind vision 2 and 2, frost 1 and 2, liquid… | [developer](https://github.com/00-Evan/shattered-pixel-dungeon/blob/master/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/Generator.java) |
-| `potions-3` | Queued potions are dropped away from their room | spd | current | The potion a special room queues is not placed beside the room: it is dropped on a random cell of an ordinary room, or taken as the room's… | [developer](https://github.com/00-Evan/shattered-pixel-dungeon/blob/master/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/RegularLevel.java) |
-| `potions-4` | Potion price | spd | current | A potion's price does not tell what it is: every regular potion is worth 30 gold a unit. | [developer](https://github.com/00-Evan/shattered-pixel-dungeon/blob/master/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/items/potions/Potion.java) |
-| `potions-5` | Pool room | spd | current | A floor with a pool room (a chest on a pedestal ringed by water, piranhas in it) also holds a Potion of Invisibility: the room adds one to… | [developer](https://github.com/00-Evan/shattered-pixel-dungeon/blob/master/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/rooms/special/PoolRoom.java) |
-| `potions-6` | Sentry room | spd | current | A floor with a sentry room (a red sentry on a pedestal) also holds a Potion of Haste: the room adds one to the floor's item list whatever… | [developer](https://github.com/00-Evan/shattered-pixel-dungeon/blob/master/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/rooms/special/SentryRoom.java) |
-| `potions-7` | Storage room | spd | current | A floor with a storage room (a wooden barricade for a door) also holds a Potion of Liquid Flame: the room adds one to the floor's item list… | [developer](https://github.com/00-Evan/shattered-pixel-dungeon/blob/master/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/rooms/special/StorageRoom.java) |
-| `potions-8` | Toxic gas room | spd | current | A floor with a toxic gas room (gas-filled, with a row of toxic vents) also holds a Potion of Purity: the room adds one to the floor's item… | [developer](https://github.com/00-Evan/shattered-pixel-dungeon/blob/master/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/rooms/special/ToxicGasRoom.java) |
-| `potions-9` | Magical fire room | spd | current | A floor with a magical fire room (a wall of eternal green fire across it) also holds a Potion of Frost: the room adds one to the floor's… | [developer](https://github.com/00-Evan/shattered-pixel-dungeon/blob/master/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/rooms/special/MagicalFireRoom.java) |
-| `potions-10` | Traps room | spd | current | A floor with a traps room (a field of revealed traps of one kind, or a chasm) also holds a Potion of Levitation: the room adds one to the… | [developer](https://github.com/00-Evan/shattered-pixel-dungeon/blob/master/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/levels/rooms/special/TrapsRoom.java) |
-| `potions-11` | Potion of Strength schedule | spd | current | Two potions of strength drop per five floors, never as a random draw: the first is certain by depth 2 and half likely on depth 1, the second… | [developer](https://github.com/00-Evan/shattered-pixel-dungeon/blob/master/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/Dungeon.java) |
-| `potions-12` | Scroll of Upgrade schedule | spd | current | Three scrolls of upgrade drop per five floors, with a rising chance on each floor as the set runs out, and never as a random draw. | [developer](https://github.com/00-Evan/shattered-pixel-dungeon/blob/master/core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/Dungeon.java) |
