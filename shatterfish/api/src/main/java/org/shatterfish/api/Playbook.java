@@ -202,6 +202,9 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
      * @param gainOddsPerMille      the least odds of strength or experience an unknown potion is drunk at, at any health
      * @param inventoryOddsPerMille the most odds the item-picker scrolls may hold of an unknown scroll that is read
      * @param restWaits             the most waits after a test the hero rests toward full health
+     * @param restHpPerMille        the most hit points, in thousandths of the hero's most, at which a rest after a
+     *                              test is owed (it ends above that); food is one a floor and a rest costs ten turns of it a hit point, so a
+     *                              hero scratched but not hurt goes on (story 10.15)
      * @param reach                 the most Steps walked to a better testing cell
      * @param escapeWaits           the waits after a test the hero steps out of fire or gas
      * @param potionHpPerMille      the most hit points, in thousandths of the hero's most, at which an unknown potion is
@@ -216,6 +219,7 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
             @Heuristic("strength-experience-potions") int gainOddsPerMille,
             @Heuristic(Heuristic.UNLINKED) int inventoryOddsPerMille,
             @Heuristic("regen-rest-test") int restWaits,
+            @Heuristic("regen-rest-test") int restHpPerMille,
             @Heuristic("test-spot-door-water") int reach,
             @Heuristic("test-spot-door-water") int escapeWaits,
             @Heuristic("unknown-potion-heal-half") int potionHpPerMille,
@@ -231,11 +235,12 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
                 Spec.number("known_gains", 0, 1),
                 Spec.number("potion_hp_per_mille", 1, 1000),
                 Spec.number("reach", 0, 40),
+                Spec.number("rest_hp_per_mille", 1, 1000),
                 Spec.number("rest_waits", 0, 500),
                 Spec.number("scroll_hp_per_mille", 1, 1000));
 
         /** The values the Policies decided by before they were data (stories 4.10, 4.13); the first Playbook states them. */
-        public static final Identify REFERENCE = new Identify(200, 200, 250, 50, 8, 12, 500, 1000, 0);
+        public static final Identify REFERENCE = new Identify(200, 200, 250, 50, 1000, 8, 12, 500, 1000, 0);
 
         public Identify {
             check(SPECS.get(0), escapeWaits);
@@ -245,8 +250,9 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
             check(SPECS.get(4), knownGains);
             check(SPECS.get(5), potionHpPerMille);
             check(SPECS.get(6), reach);
-            check(SPECS.get(7), restWaits);
-            check(SPECS.get(8), scrollHpPerMille);
+            check(SPECS.get(7), restHpPerMille);
+            check(SPECS.get(8), restWaits);
+            check(SPECS.get(9), scrollHpPerMille);
         }
 
         /** The least odds of healing an unknown potion is drunk at when hurt. */
@@ -279,6 +285,7 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
             values.put("known_gains", (long) knownGains);
             values.put("potion_hp_per_mille", (long) potionHpPerMille);
             values.put("reach", (long) reach);
+            values.put("rest_hp_per_mille", (long) restHpPerMille);
             values.put("rest_waits", (long) restWaits);
             values.put("scroll_hp_per_mille", (long) scrollHpPerMille);
             return values;
@@ -289,9 +296,15 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
             Map<String, Object> values = values();
             values.putAll(given);
             return new Identify(num(values, "healing_odds_per_mille"), num(values, "gain_odds_per_mille"),
-                    num(values, "inventory_odds_per_mille"), num(values, "rest_waits"), num(values, "reach"),
+                    num(values, "inventory_odds_per_mille"), num(values, "rest_waits"), num(values, "rest_hp_per_mille"),
+                    num(values, "reach"),
                     num(values, "escape_waits"), num(values, "potion_hp_per_mille"), num(values, "scroll_hp_per_mille"),
                     num(values, "known_gains"));
+        }
+
+        /** Whether {@code hp} of {@code ht} is low enough for a rest after a test to begin. */
+        public boolean restHp(int hp, int ht) {
+            return 1000L * hp <= (long) restHpPerMille * ht;
         }
 
         /** Whether {@code hp} of {@code ht} is low enough for an unknown potion to be drunk for its odds of healing. */

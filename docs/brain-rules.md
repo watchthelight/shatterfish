@@ -208,6 +208,7 @@ Heuristics found: 81. Linked to a Rule: 45. Linked to a Lore claim: 0. Linked to
 | `Fight.LEAVES` | `piranha-leave-budget` | [`piranha-leave-budget`](results/2026-10-26-219-piranha-water.md) | 3 | `fight` |
 | `Explore.RESTS` | `regen-rest-explore` | Rule [`regen-rest-explore`](#regen-rest-explore) | 1 | `explore` |
 | `Playbook.Identify.restWaits` | `regen-rest-test` | Rule [`regen-rest-test`](#regen-rest-test) | 1 | `Playbook` |
+| `Playbook.Identify.restHpPerMille` | `regen-rest-test` | Rule [`regen-rest-test`](#regen-rest-test) | 1 | `Playbook` |
 | `Descend.RESTS` | `rest-before-descend` | Rule [`rest-before-descend`](#rest-before-descend) | 1 | `descend` |
 | `Playbook.Goo.descentRestPerMille` | `rest-before-descend` | Rule [`rest-before-descend`](#rest-before-descend) | 1 | `Playbook` |
 | `Playbook.Later.descentRestPerMille` | `rest-before-descend` | Rule [`rest-before-descend`](#rest-before-descend) | 1 | `Playbook` |
