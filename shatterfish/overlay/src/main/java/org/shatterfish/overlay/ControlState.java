@@ -142,6 +142,14 @@ final class ControlState {
     private RunLog.Decision lookedDecision;
     /** The condition the Run is paused for, in words, or null (story 8.3). */
     private String pausedFor;
+    /** A hand-back for autoexplore was asked and has not applied: the stretch starts when it does (story 8.10). */
+    private boolean starting;
+    /** Whether an autoexplore stretch is under way: RUNNING, the Brain's Decisions restricted to {@link Autoexplore#POLICIES}. */
+    private boolean autoexploring;
+    /** Why the last stretch stopped, in words, until the person's next turn (story 8.10), or null. */
+    private String stoppedFor;
+    /** The Run's turn when the person got control back, or -1 before the Mode strip has seen it. */
+    private int stoppedTurn = -1;
 
     /** The waits the loaded log holds when this is a replay's controls (story 8.5), else -1. */
     private final int replayWaits;
@@ -214,6 +222,16 @@ final class ControlState {
         applyHold();
     }
 
+    /** Whether an autoexplore stretch is under way (story 8.10). */
+    boolean autoexploring() {
+        return autoexploring;
+    }
+
+    /** Why the last autoexplore stretch gave control back, as the Mode strip says it, or null (story 8.10). */
+    String stoppedFor() {
+        return stoppedFor;
+    }
+
     /** The condition the Run is paused for, as the Mode strip says it ("before stairs"), or null (story 8.3). */
     String pausedFor() {
         return mode == Mode.PAUSED ? pausedFor : null;
@@ -260,6 +278,10 @@ final class ControlState {
         if (!pauses || over() || target != null || mode == Mode.HUMAN) {
             return;
         }
+        if (autoexploring) {
+            returnControl("the bot could not decide");
+            return;
+        }
         runN = false;
         speed = SpeedMode.NEXT_STEP;
         pause();
@@ -277,6 +299,16 @@ final class ControlState {
     /** The Mode, speed and values as the Mode strip shows them, over the Run's turn, floor and thinking flag. */
     ModeState view(ModeState run) {
         // A person's own pace paces a HUMAN turn: no speed mode does (story 5.8).
+        if (stoppedFor != null && target == null && mode == Mode.HUMAN) {
+            // The reason shows until the person's first turn: the Run's turn moving is the sign of it.
+            if (stoppedTurn < 0) {
+                stoppedTurn = run.turn();
+            } else if (run.turn() != stoppedTurn) {
+                stoppedFor = null;
+            }
+        }
+        String note = autoexploring || starting ? "autoexplore"
+                : stoppedFor == null ? null : "autoexplore stopped, " + stoppedFor;
         if (replay()) {
             // A loaded log is its own state whether it plays or waits (story 8.5): REPLAY, and where it stands.
             boolean playing = mode == Mode.RUNNING;
@@ -285,7 +317,7 @@ final class ControlState {
                     + (playing ? "playing" : "stopped"), playing);
         }
         return new ModeState(mode, mode == Mode.HUMAN ? SpeedMode.PLAYER : speed, interval, run.turn(), run.floor(),
-                run.thinking(), over(), run.ending()).withPausedFor(pausedFor());
+                run.thinking(), over(), run.ending()).withPausedFor(pausedFor()).withNote(note);
     }
 
     /**
@@ -300,6 +332,9 @@ final class ControlState {
             mode = target;
             target = null;
             sinceStep = 0;
+            if (starting && mode == Mode.PAUSED) {
+                beginStretch();
+            }
         }
         if (over()) {
             return;
@@ -329,6 +364,10 @@ final class ControlState {
      * looked at is not looked at again, so Resume does not fire the condition it resumed from.
      */
     private void pauseOnConditions() {
+        if (autoexploring) {
+            autoexploreStops();
+            return;
+        }
         if (replay() || !settings.anyPauseOn()) {
             // A replay is the log's Run, and a person who steps it chose every stop (story 8.5).
             return;
@@ -349,6 +388,90 @@ final class ControlState {
             pause();
             seam.pausedOn(speed.word);
         }
+    }
+
+    /**
+     * Autoexplore (story 8.10, FR-47): from HUMAN, hand the Run to the Brain for a quiet stretch. The hand back is
+     * the one Hand back makes (it lands at the person's open wait with a Decision, in PAUSED, as the log records),
+     * and when it has applied the stretch begins: RUNNING, at the speed mode in force, every Decision looked at
+     * by {@link Autoexplore#stop} before it executes. Control returns by {@link #returnControl}.
+     */
+    boolean autoexplore() {
+        if (!enabled(Control.AUTOEXPLORE)) {
+            return false;
+        }
+        runN = false;
+        pausedFor = null;
+        stoppedFor = null;
+        starting = true;
+        holdNow();
+        target = Mode.PAUSED;
+        seam.handBack(speed.word);
+        return true;
+    }
+
+    /** The hand back has applied: the Run is PAUSED with the wait in front decided, and the stretch begins. */
+    private void beginStretch() {
+        starting = false;
+        autoexploring = true;
+        if (speed == SpeedMode.NEXT_STEP) {
+            // A stretch plays on its own, so the speed that waits for a press becomes the readable pace.
+            speed = capabilities.pacing() ? SpeedMode.HUMAN_PLAY : SpeedMode.FAST;
+        }
+        previous = null;
+        looked = -1;
+        lookedDecision = null;
+        mode = Mode.RUNNING;
+        sinceStep = interval;
+        applyHold();
+    }
+
+    /**
+     * Looks at the wait in front once, when its Decision has landed and before a credit executes it, with the
+     * stop rules of autoexplore. A rule that holds gives control back to the person with the Decision kept as a
+     * shadow, never executed. A Run with a wait ready and no Decision to look at is stopped as well, since a step
+     * nobody can name cannot be on the list.
+     */
+    private void autoexploreStops() {
+        if (seam.credits() > 0 && seam.thinking()) {
+            // A credit is out and the Brain is deciding again: the Run dropped the answer the credit was for as stale
+            // and asked afresh, and keeps the credit for the new answer, which would then execute unlooked. Withdraw it;
+            // the new Decision lands, is withheld, and is looked at like any other (the fairness review of story 8.10).
+            holdNow();
+            return;
+        }
+        Pending pending = seam.pending();
+        if (pending == null) {
+            if (seam.ready()) {
+                returnControl("no decision to look at");
+            }
+            return;
+        }
+        if (pending.index() == looked && pending.decision() == lookedDecision) {
+            return;
+        }
+        looked = pending.index();
+        lookedDecision = pending.decision();
+        java.util.Optional<Autoexplore.Stop> stop = Autoexplore.stop(settings, pending.observation(), pending.decision(),
+                previous, bossDepths);
+        previous = PauseOn.Previous.of(pending.observation());
+        stop.ifPresent(found -> returnControl(found.why()));
+    }
+
+    /**
+     * Gives the Run back to the person: the stretch ends, the Run is held, and a takeover is asked for, which
+     * applies at the wait in front (its Decision kept as the shadow). {@code why} is what the Mode strip says.
+     */
+    private void returnControl(String why) {
+        autoexploring = false;
+        starting = false;
+        runN = false;
+        pausedFor = null;
+        stoppedFor = why;
+        stoppedTurn = -1;
+        holdNow();
+        target = Mode.HUMAN;
+        seam.takeOver(speed.word);
     }
 
     /** Pause while RUNNING, Resume while PAUSED. */
@@ -464,6 +587,10 @@ final class ControlState {
         }
         runN = false;
         pausedFor = null;
+        if (autoexploring) {
+            returnControl("you took over");
+            return true;
+        }
         holdNow();
         if (mode == Mode.HUMAN) {
             target = Mode.PAUSED;
@@ -476,6 +603,11 @@ final class ControlState {
     }
 
     private void pause() {
+        if (autoexploring) {
+            // The person pressing Pause during a stretch is control coming back to them, not a PAUSED Run.
+            returnControl("you paused");
+            return;
+        }
         runN = false;
         mode = Mode.PAUSED;
         holdNow();
@@ -520,7 +652,8 @@ final class ControlState {
     private void applyHold() {
         // With a Pause-on condition enabled the Run stays held even at Fast: a Decision must land and wait for a
         // credit for the condition to be looked at before it executes (story 8.3).
-        boolean wanted = !(mode == Mode.RUNNING && speed == SpeedMode.FAST && !runN && !settings.anyPauseOn());
+        boolean wanted = !(mode == Mode.RUNNING && speed == SpeedMode.FAST && !runN && !settings.anyPauseOn()
+                && !autoexploring);
         if (wanted != held) {
             held = wanted;
             seam.hold(wanted);

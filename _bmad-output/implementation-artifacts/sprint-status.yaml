@@ -155,7 +155,7 @@ development_status:
   8-7-the-replay-scrubber: backlog  # issue #322
   8-8-the-coachs-sentence: done  # issue #323
   8-9-coach-mode: done  # issue #324
-  8-10-autoexplore-with-the-bots-brains: backlog  # issue #325
+  8-10-autoexplore-with-the-bots-brains: review  # issue #325
   8-11-the-v2-session-and-the-epic-close: backlog  # issue #326
   epic-8-retrospective: optional
 
@@ -196,7 +196,7 @@ development_status:
   10-32-the-r1-check-depth-10-on-every-class: backlog  # issue #378
   10-33-the-r2-check-tengu-conversion: backlog  # issue #379
   10-34-the-registered-tengu-run-and-the-epic-close: backlog  # issue #380
-  10-35-the-registry-of-tunable-parameters: review  # issue #382; PR #392
-  10-36-the-tune-runner: review  # issue #383
+  10-35-the-registry-of-tunable-parameters: done  # issue #382
+  10-36-the-tune-runner: review  # issue #383; PR #405
   10-37-the-first-tuning-run: backlog  # issue #384
   epic-10-retrospective: optional
