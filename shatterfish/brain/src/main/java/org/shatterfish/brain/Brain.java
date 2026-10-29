@@ -371,6 +371,12 @@ public final class Brain {
         }
         int depth = observation.header().depth();
         int branch = observation.header().branch();
+        // A throw the ranged Policy handed over (issue #412): the cell it was aimed at is where the missile
+        // lands, hit or miss (MissileWeapon.java:424, :428-431), so the next screen can tell it from other heaps.
+        if (decision != null && Ranged.NAME.equals(decision.policy()) && decided.action() instanceof Action.UseItemAt at
+                && Ranged.THROW.equals(at.action())) {
+            memory = memory.thrown(new Memory.Spot(depth, branch, at.cell()));
+        }
         // An Unlock the descend Policy handed over at a locked exit (issue #163's fairness review),
         // recorded whether or not it succeeds: once it does the exit is no longer LOCKED_EXIT and
         // Descend never consults this again for it, so recording every try costs nothing and a

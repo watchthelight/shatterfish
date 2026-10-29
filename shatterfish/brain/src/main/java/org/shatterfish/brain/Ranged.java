@@ -7,6 +7,7 @@ import org.shatterfish.api.ActorView;
 import org.shatterfish.api.Codex;
 import org.shatterfish.api.Emote;
 import org.shatterfish.api.EquipSlot;
+import org.shatterfish.api.HeapView;
 import org.shatterfish.api.ItemKind;
 import org.shatterfish.api.ItemRef;
 import org.shatterfish.api.ItemView;
@@ -64,6 +65,25 @@ final class Ranged implements Policy {
     static final int REACH = 6;
 
     /**
+     * The most steps walked in a fight to a missile the hero threw (issue #412), with no enemy beside the hero and
+     * none near enough to reach it before the pick-up is done. With an enemy in view arriving on a heap does not take
+     * it (Hero.java:1982-1990), so the walk is these steps and a PickUp.
+     */
+    @Heuristic("missile-recover")
+    static final int FETCH_STEPS = 2;
+
+    /**
+     * The least damage a throw is expected to do, in thousandths of a hit point, for it to be thrown (issue #412).
+     * A throw is free while the enemy walks up, but the missile is not: a throwing stone is spent after five hits
+     * (ThrowingStone.java:37) and every other one has to be picked up again. The chance to hit is the melee
+     * formula's (Char.java:646-678) on the hero's accuracy times one and a half from a cell that is not adjacent
+     * (MissileWeapon.java:223-233), cut by 1.5 for each point of strength short (Weapon.java:289-304), against the
+     * enemy's defense skill; a stone at a snake (defense 25) from a first-level hero lands three times in ten.
+     */
+    @Heuristic("missile-throw")
+    static final int MIN_DAMAGE_PER_MILLE = 1500;
+
+    /**
      * The plain missiles by the name the screen shows and their tier (the {@code tier} field of each class in
      * {@code items/weapon/missiles/}: ThrowingStone.java:36, ThrowingKnife.java:41, ThrowingSpike.java:37,
      * Dart.java:57, ThrowingClub.java:34, Shuriken.java:38, FishingSpear.java:36, Bolas.java:37, Kunai.java:39,
@@ -105,7 +125,8 @@ final class Ranged implements Policy {
     @Override
     public boolean enters(Observation observation, Memory memory) {
         return observation.header().prompt() == PromptKind.NONE && !Fight.enemies(observation, knowledge).isEmpty()
-                && observation.inventory().items().stream().anyMatch(item -> item.kind() == ItemKind.MISSILE);
+                && (observation.inventory().items().stream().anyMatch(item -> item.kind() == ItemKind.MISSILE)
+                || !memory.missiles().isEmpty());
     }
 
     @Override
@@ -132,10 +153,16 @@ final class Ranged implements Policy {
                 target = enemy;
             }
         }
-        if (target == null || best > REACH || !Fight.favourable(observation, knowledge, enemies, tunables)
-                || !clear(observation, hero, target.cell())) {
+        if (!Fight.favourable(observation, knowledge, enemies, tunables)) {
             return null;
         }
+        RunLog.Choice thrown = target == null || best > REACH || !clear(observation, hero, target.cell()) ? null
+                : throwAt(observation, offered, target);
+        return thrown != null ? thrown : fetch(observation, memory, offered, enemies);
+    }
+
+    /** The throw at {@code target} that is worth its missile, or null. */
+    private RunLog.Choice throwAt(Observation observation, List<Action> offered, ActorView target) {
         int strength = observation.hero().strength() + observation.hero().strengthBonus();
         List<ItemView> items = observation.inventory().items();
         Action throwing = null;
@@ -146,7 +173,9 @@ final class Ranged implements Policy {
             ItemView item = items.get(index);
             Integer tier = item.kind() == ItemKind.MISSILE ? TIERS.get(item.name()) : null;
             if (tier == null || item.slot() != EquipSlot.NONE || (item.cursedKnown() && item.visiblyCursed())
-                    || (item.levelKnown() && item.visiblyUpgraded() != 0) || 2 * tier + 7 > strength + 1) {
+                    || (item.levelKnown() && item.visiblyUpgraded() != 0) || 2 * tier + 7 > strength + 1
+                    || 1000 * expected(observation, target, item.name(), tier, strength)
+                    < tunables.getInt(org.shatterfish.api.Tunables.RANGED_MIN_DAMAGE)) {
                 continue;
             }
             Action throwIt = new Action.UseItemAt(new ItemRef(index, item.name(), item.quantity()), THROW, target.cell());
@@ -158,6 +187,70 @@ final class Ranged implements Policy {
             }
         }
         return throwing == null ? null : new RunLog.Choice(throwing, Policies.CERTAIN, "throw: " + thrown);
+    }
+
+    /**
+     * The damage a throw of {@code name}, of {@code tier}, is expected to do to {@code target} from a cell that is not
+     * adjacent: the chance to hit times the damage that gets through its armour. A dart rolls 1 to 2
+     * (Dart.java:95-97), any other plain missile {@code 2 * tier} to {@code 5 * tier} (MissileWeapon.java:110-128).
+     */
+    double expected(Observation observation, ActorView target, String name, int tier, int strength) {
+        Codex.Threat threat = Fight.threat(observation, knowledge, target);
+        int encumbrance = Math.max(0, 2 * tier + 7 - strength);
+        long accuracy = Math.round(Fight.heroAccuracy(observation.hero()) * 1.5 / Math.pow(1.5, encumbrance));
+        int min = name.equals("dart") ? 1 : 2 * tier;
+        int max = name.equals("dart") ? 2 : 5 * tier;
+        return Fight.hitChance((int) accuracy, threat.defense()) * Fight.landed(min, max, threat.drMin(), threat.drMax());
+    }
+
+    /**
+     * The Step toward, or the PickUp of, the nearest missile the hero threw that lies within {@link #FETCH_STEPS} and that
+     * no awake enemy can reach before the pick-up is done, or null (issue #412).
+     */
+    private RunLog.Choice fetch(Observation observation, Memory memory, List<Action> offered, List<ActorView> enemies) {
+        int steps = tunables.getInt(org.shatterfish.api.Tunables.RANGED_FETCH_STEPS);
+        if (steps <= 0 || memory.missiles().isEmpty()) {
+            return null;
+        }
+        MapSection map = observation.map();
+        int hero = observation.hero().cell();
+        boolean[] walk = Explore.walkable(observation, memory, 0, false);
+        int[] distance = Pickup.distances(map, walk, hero);
+        int depth = observation.header().depth();
+        int branch = observation.header().branch();
+        HeapView best = null;
+        for (HeapView heap : map.heaps()) {
+            int d = heap.cell() < distance.length ? distance[heap.cell()] : -1;
+            if (d < 0 || d > steps || !Missiles.own(memory, observation, heap)
+                    || !Pickup.takeable(heap, observation, memory, tunables)
+                    || (best != null && (d > distance[best.cell()] || (d == distance[best.cell()] && heap.cell() > best.cell())))) {
+                continue;
+            }
+            boolean safe = true;
+            for (ActorView enemy : enemies) {
+                if (enemy.emote() == Emote.SLEEP || Bestiary.immobile(knowledge, depth, branch, enemy.name())) {
+                    continue;
+                }
+                int away = Fight.chebyshev(map, hero, enemy.cell());
+                int turns = d + 1;
+                if (away < (Bestiary.fast(knowledge, depth, branch, enemy.name()) ? 2 * turns + 1 : turns + 2)) {
+                    safe = false;
+                }
+            }
+            if (safe) {
+                best = heap;
+            }
+        }
+        if (best == null) {
+            return null;
+        }
+        String label = Beliefs.untitled(best.item());
+        if (best.cell() == hero) {
+            Action take = new Action.PickUp();
+            return offered.contains(take) ? new RunLog.Choice(take, Policies.CERTAIN, "fetch: " + label) : null;
+        }
+        Action step = Pickup.firstStep(map, walk, hero, best.cell(), offered);
+        return step == null ? null : new RunLog.Choice(step, Policies.CERTAIN, "fetch: " + label + " " + distance[best.cell()]);
     }
 
     /**

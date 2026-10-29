@@ -156,6 +156,7 @@ nav:
       - UI: rules/ui.md
       - Save, score, win: rules/save-score-win.md
       - Text and assets: rules/text-assets.md
+      - Pick-up, missiles, dew: rules/pickup.md
   - Bestiary:
       - bestiary/index.md
       - Sewers: bestiary/sewers.md

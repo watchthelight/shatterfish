@@ -76,17 +76,20 @@ class PickupThresholdTest {
     }
 
     @Test
-    @DisplayName("an unidentified potion is worth what the Beliefs say it may be: more than a plain item, less than known strength")
+    @DisplayName("an unidentified potion is worth what the Beliefs say it may be: more than a plain item, less than known healing (issue #412)")
     void believed_worth() {
-        Observation screen = room(30, 20, "crimson potion", STEPS);
+        Observation screen = room(60, 50, "crimson potion", STEPS);
         long unknown = PICKUP.worth("crimson potion", screen);
+        long healing = PICKUP.worth("potion of healing", screen);
         long strength = PICKUP.worth("potion of strength", screen);
         long plain = PICKUP.worth("ration of food", screen);
-        assertTrue(plain < unknown && unknown < strength, plain + " < " + unknown + " < " + strength);
-        // Strength weighs 12 of 25 here (Beliefs.STRENGTH_WEIGHT); strength adds the strength weight.
-        assertEquals(2000 + Math.round(2000.0 * 12 / 25), unknown);
-        assertEquals(new Action.Step(2), choose(room(30, 11, "crimson potion", STEPS)).action(), "ten cells: taken");
-        assertNull(choose(room(30, 20, "crimson potion", STEPS)), "nineteen cells: not");
+        assertTrue(plain < strength && plain < unknown && unknown < healing, plain + " < " + unknown + " < " + healing);
+        // Strength weighs 12 of 25 here (Beliefs.STRENGTH_WEIGHT) and adds the strength weight, healing 6 of 25 and adds the
+        // heal weight: the odds of each times what it adds, over the item's own worth.
+        assertEquals(2000 + Math.round(2000.0 * 12 / 25 + 12000.0 * 6 / 25), unknown);
+        assertEquals(new Action.Step(2), choose(room(60, 11, "crimson potion", STEPS)).action(), "ten cells: taken");
+        assertEquals(new Action.Step(2), choose(room(60, 38, "crimson potion", STEPS)).action(), "thirty-seven cells: still taken");
+        assertNull(choose(room(60, 50, "crimson potion", STEPS)), "forty-nine cells: not");
     }
 
     @Test

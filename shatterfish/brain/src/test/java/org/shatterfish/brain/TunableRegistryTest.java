@@ -70,6 +70,13 @@ class TunableRegistryTest {
         BEFORE.put("brain.avoid_waits", 40L);
         BEFORE.put("brain.avoid_radius", 5L);
         BEFORE.put("chests.mimic_margin_per_mille", 1250L);
+        // Issue #412: the reaches and floors of the missile, dew and tall-grass levers; each new, so its default is its first value.
+        BEFORE.put("pickup.missile_reach", 20L);
+        BEFORE.put("pickup.dew_skin_below", 20L);
+        BEFORE.put("ranged.fetch_steps", 2L);
+        BEFORE.put("ranged.min_damage_per_mille", 1500L);
+        BEFORE.put("descend.trample_reach", 10L);
+        BEFORE.put("explore.grass_skin_below", 20L);
     }
 
     @Test
@@ -109,7 +116,7 @@ class TunableRegistryTest {
             assertEquals(tunable.def(), ((Number) constant.get(null)).longValue(), tunable.origin() + " against " + tunable.name());
             checked++;
         }
-        assertTrue(checked >= 17, "the Policy entries were reached: " + checked);
+        assertTrue(checked >= 23, "the Policy entries were reached: " + checked);
     }
 
     @Test
