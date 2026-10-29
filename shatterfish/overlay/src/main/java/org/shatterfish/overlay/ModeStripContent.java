@@ -17,6 +17,8 @@ final class ModeStripContent {
     static final int RUNNING_COLOR = 0x66DD66;
     static final int PAUSED_COLOR = 0xFFD34D;
     static final int HUMAN_COLOR = 0x7FB8FF;
+    /** The replay's violet (DESIGN.md colors.replay, story 8.5): a Run being read back, which nobody is playing. */
+    static final int REPLAY_COLOR = 0xC9A0FF;
 
     /**
      * What {@link ModeState.SpeedMode#NORMAL} shows instead of an interval, since it never had one: an
@@ -43,6 +45,7 @@ final class ModeStripContent {
             case RUNNING -> RUNNING_COLOR;
             case PAUSED -> PAUSED_COLOR;
             case HUMAN -> HUMAN_COLOR;
+            case REPLAY -> REPLAY_COLOR;
         };
     }
 
@@ -70,6 +73,10 @@ final class ModeStripContent {
         if (state.note() != null) {
             // Autoexplore (story 8.10, FR-47): "RUNNING: autoexplore", "HUMAN: autoexplore stopped, enemy in view".
             line.append(": ").append(state.note());
+        }
+        if (state.replayNote() != null) {
+            // Where the replay stands in its log, and whether it plays or waits (story 8.5): "REPLAY  wait 12 of 340, stopped".
+            line.append("  ").append(state.replayNote());
         }
         line.append("  ").append(speed(state));
         line.append("  turn ").append(Columns.number(state.turn(), TURN_WIDTH));

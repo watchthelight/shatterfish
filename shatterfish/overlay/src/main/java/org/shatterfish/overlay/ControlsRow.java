@@ -179,7 +179,8 @@ final class ControlsRow extends Component {
         this.enabled = enabled;
         this.locked = locked;
         this.explainable = explainable;
-        pause.text(ControlEnablement.pauseLabel(mode.mode()));
+        pause.text(ControlEnablement.pauseLabel(mode.mode() == ModeState.Mode.REPLAY && mode.replayPlaying()
+                ? ModeState.Mode.RUNNING : mode.mode()));
         takeOver.text(ControlEnablement.takeOverLabel(mode.mode()));
         speed.text(speedLabel(mode));
         countValue.text(String.valueOf(state == null ? ControlState.COUNT_DEFAULT : state.count()));

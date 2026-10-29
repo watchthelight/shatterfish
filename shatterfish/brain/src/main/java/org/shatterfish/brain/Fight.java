@@ -297,7 +297,7 @@ final class Fight implements Policy {
                 ranked.add(new RunLog.Choice(new Action.Wait(), Policies.CERTAIN, "hold: chokepoint"));
             }
         }
-        add(ranked, approach(observation, memory, offered, enemies));
+        add(ranked, approach(observation, memory, offered, enemies, knowledge));
         add(ranked, retreat);
         idle(ranked, offered, memory);
         return ranked;
@@ -550,10 +550,40 @@ final class Fight implements Policy {
     /** The offered Step that starts the shortest walk to a cell beside the nearest enemy. */
     static RunLog.Choice approach(Observation observation, Memory memory, List<Action> offered,
                                           List<ActorView> enemies) {
+        return approach(observation, memory, offered, enemies, null);
+    }
+
+    /** {@link #approach(Observation, Memory, List, List)}, keeping the walk off a piranha's shore when {@code knowledge} is given. */
+    static RunLog.Choice approach(Observation observation, Memory memory, List<Action> offered,
+                                          List<ActorView> enemies, Codex.Knowledge knowledge) {
         MapSection map = observation.map();
         boolean[] walk = Explore.walkable(observation, memory, false);
+        if (knowledge != null) {
+            dryShore(observation, memory, walk, knowledge);
+        }
         Path path = walk(map, walk, observation.hero().cell(), offered, cell -> nearest(map, cell, enemies) == 1);
         return path == null ? null : new RunLog.Choice(path.step, Policies.CERTAIN, "approach " + path.distance);
+    }
+
+    /**
+     * Takes the water a piranha swims in, and the cells beside it, out of {@code walk} when the hero stands out of its reach
+     * (issue #219, groups): an enemy on the far side of a pool is let come to the hero on land, not fetched through the
+     * shore, where the piranhas the Policy no longer sees (the Brain shows none after a first walk out of their reach) bite
+     * while the others fight (Piranha.java:171-200: a piranha bites only a hero beside the water it swims in). A hero already
+     * in reach keeps its walk, which leads out or on. The water is the screen's and the Memory's sightings of water-bound
+     * enemies on this floor, never a cell not shown.
+     */
+    static void dryShore(Observation observation, Memory memory, boolean[] walk, Codex.Knowledge knowledge) {
+        boolean[] swum = swum(observation, memory, knowledge);
+        MapSection map = observation.map();
+        if (swum == null || exposed(map, observation.hero().cell(), swum)) {
+            return;
+        }
+        for (int cell = 0; cell < walk.length; cell++) {
+            if (walk[cell] && exposed(map, cell, swum)) {
+                walk[cell] = false;
+            }
+        }
     }
 
     /**

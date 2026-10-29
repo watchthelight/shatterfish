@@ -20,6 +20,7 @@ colors:
   human: '#7FB8FF'
   running: '#66DD66'
   paused: '#FFD34D'
+  replay: '#C9A0FF'
   oracle: '#FF2020'
   panel-scrim: '#000000'
 typography:
@@ -60,6 +61,7 @@ components:
     frame: 'Chrome.Type.TOAST_TR'
     running: '{colors.running}'
     paused: '{colors.paused}'
+    replay: '{colors.replay}'
     human: '{colors.human}'
   decision-card:
     chosen-ink: '{colors.chosen}'

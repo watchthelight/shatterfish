@@ -22,7 +22,9 @@ final class ModeState {
 
     /** ADR-0013's three Modes. */
     enum Mode {
-        RUNNING, PAUSED, HUMAN
+        RUNNING, PAUSED, HUMAN,
+        /** A loaded Run log is played back one Input wait at a time (story 8.5, FR-46). */
+        REPLAY
     }
 
     /** UX-DR6's four speed modes, plus {@link #NORMAL}, today's placeholder. */
@@ -60,6 +62,8 @@ final class ModeState {
     private final RunEnding ending;
     private final String pausedFor;
     private final String note;
+    private final String replayNote;
+    private final boolean replayPlaying;
 
     ModeState(Mode mode, SpeedMode speed, double intervalSeconds, int turn, int floor, boolean thinking) {
         this(mode, speed, intervalSeconds, turn, floor, thinking, false);
@@ -72,7 +76,8 @@ final class ModeState {
 
     /** This state with the Pause-on condition the Run is paused for, in words, or null (story 8.3). */
     ModeState withPausedFor(String condition) {
-        return new ModeState(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, condition, note);
+        return new ModeState(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, condition, note,
+                replayNote, replayPlaying);
     }
 
     /**
@@ -80,17 +85,25 @@ final class ModeState {
      * "autoexplore stopped, enemy in view" once control is back with the person. Null for none.
      */
     ModeState withNote(String words) {
-        return new ModeState(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, pausedFor, words);
+        return new ModeState(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, pausedFor, words,
+                replayNote, replayPlaying);
+    }
+
+    /** This state with where a replay stands in its log, in words ("wait 12 of 340, stopped"), or null (story 8.5). */
+    ModeState withReplay(String text, boolean playing) {
+        return new ModeState(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, pausedFor, note,
+                text, playing);
     }
 
     /** As above, and how the Run ended and where its log is, which the Mode strip reads once it is over (story 5.14). */
     ModeState(Mode mode, SpeedMode speed, double intervalSeconds, int turn, int floor, boolean thinking, boolean over,
               RunEnding ending) {
-        this(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, null, null);
+        this(mode, speed, intervalSeconds, turn, floor, thinking, over, ending, null, null, null, false);
     }
 
     private ModeState(Mode mode, SpeedMode speed, double intervalSeconds, int turn, int floor, boolean thinking,
-                      boolean over, RunEnding ending, String pausedFor, String note) {
+                      boolean over, RunEnding ending, String pausedFor, String note, String replayNote,
+                      boolean replayPlaying) {
         if (mode == null || speed == null) {
             throw new IllegalArgumentException("a Mode and a speed mode");
         }
@@ -104,6 +117,8 @@ final class ModeState {
         this.ending = ending;
         this.pausedFor = pausedFor;
         this.note = note;
+        this.replayNote = replayNote;
+        this.replayPlaying = replayPlaying;
     }
 
     /**
@@ -167,5 +182,15 @@ final class ModeState {
     /** What autoexplore adds to the strip (story 8.10): the stretch under way, or why it stopped; null for none. */
     String note() {
         return note;
+    }
+
+    /** Where a replay stands in its log, in words, or null for any other Run (story 8.5). */
+    String replayNote() {
+        return replayNote;
+    }
+
+    /** Whether a replay plays on its own now, which the Pause and Resume label reads (story 8.5). */
+    boolean replayPlaying() {
+        return replayPlaying;
     }
 }

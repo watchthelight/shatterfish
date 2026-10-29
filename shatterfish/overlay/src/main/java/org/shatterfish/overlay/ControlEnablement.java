@@ -78,6 +78,10 @@ final class ControlEnablement {
                 enabled.remove(Control.AUTOEXPLORE);
             }
             case HUMAN -> enabled.addAll(EnumSet.of(Control.TAKE_OVER, Control.AUTOEXPLORE, Control.EXPLAIN, Control.BELIEFS));
+            // A loaded log stopped at a wait: everything a PAUSED Run has but a hand-over, since nobody plays a
+            // replay (story 8.5), and so nobody hands a stretch to autoexplore either (story 8.10). The playing
+            // half of REPLAY is the RUNNING row less the same control.
+            case REPLAY -> enabled.addAll(EnumSet.complementOf(EnumSet.of(Control.TAKE_OVER, Control.AUTOEXPLORE)));
         }
         if (!capabilities.pacing()) {
             enabled.remove(Control.INTERVAL);
@@ -119,14 +123,15 @@ final class ControlEnablement {
     static final String COACH_BOT_PLAYS = "Coach is off: the bot is playing; take over to play with the coach";
     /** Said when Coach is pressed while the Run is paused. */
     static final String COACH_PAUSED = "Coach is off: the Run is paused; take over to play with the coach";
+    /** Said when Coach is pressed in a replay: nobody plays a log, so there is no turn to coach. */
+    static final String COACH_REPLAY = "Coach is off: a replay is a recorded Run, nobody plays it";
     /** Said when Coach is pressed in a Run that is over. */
     static final String COACH_RUN_OVER = "Coach is off: the Run is over";
 
     /**
      * Why Coach cannot be switched, or null when it can (story 8.9, FR-47). Coach mode is a setting of HUMAN and
      * not a fourth Mode: it acts only while the person plays, and is disabled in RUNNING and PAUSED with the
-     * reason in words. (A Replay is a reading of a log in the Rig and not a Mode of the Overlay, so it has no row
-     * here: nothing in the Overlay plays one.)
+     * reason in words. (A REPLAY, story 8.5, is a loaded log that nobody plays, so Coach is disabled there too.)
      */
     static String coachReason(ModeState.Mode mode, boolean over) {
         if (over) {
@@ -136,6 +141,7 @@ final class ControlEnablement {
             case HUMAN -> null;
             case PAUSED -> COACH_PAUSED;
             case RUNNING -> COACH_BOT_PLAYS;
+            case REPLAY -> COACH_REPLAY;
         };
     }
 
