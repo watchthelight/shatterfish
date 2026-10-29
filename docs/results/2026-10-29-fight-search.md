@@ -29,6 +29,10 @@ tool's heap-watch wrapper, which did not pass the look-ahead on, so the search n
 log). Its sums were within noise of the baseline, which is what a no-op gives. The wrapper now forwards the look-ahead and
 the table above is the second run; the count of `fight-search` Decisions in its logs is the check that the search ran.
 
+**After the table.** The fairness review found that a rollout could depend on an unidentified item's class through the
+scrubber's permuted assignment (ADR-0025 amendment). Playouts now stop at the first item use. The table above was measured
+before that change and was not repeated, since the verdict is no win either way.
+
 **What the table cannot show.** Think time per Decision (the Run logs carry `think_ms`); the effect on Tengu, where the
 fights that matter are; any plan other than the reference one (`SHATTERFISH_SEARCH=k=8,h=12` changes it and is part of the
 configuration hash).

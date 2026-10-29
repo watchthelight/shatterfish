@@ -93,7 +93,7 @@ public final class HostLookahead implements Lookahead, AutoCloseable {
                 .withRemembered(mobs).toBelief();
         try {
             return scrubber.scrub(live, sample);
-        } catch (Scrub.Refused | IllegalStateException declined) {
+        } catch (Scrub.Refused declined) {
             // No sample: a refusal is never evidence about the hidden state (ADR-0009's amendment), and the Brain is told
             // only that there is none.
             refused++;

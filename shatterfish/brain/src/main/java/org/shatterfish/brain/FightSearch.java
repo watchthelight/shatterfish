@@ -255,7 +255,10 @@ final class FightSearch implements Policy {
             }
             belief[0] = rules.update(observation, belief[0]);
             Brain.Decided decided = rules.decide(observation, belief[0]);
-            if (decided.action() == null) {
+            // A line that uses an item stops here: what an unidentified item does in a rollout is the scrubber's permuted
+            // assignment, not the Run's (ADR-0025 amendment), so no rollout is allowed to depend on it.
+            if (decided.action() == null || decided.action() instanceof Action.UseItem || decided.action() instanceof Action.UseItemAt
+                    || decided.action() instanceof Action.UseItemOn) {
                 return null;
             }
             belief[0] = rules.handed(observation, belief[0], decided);
