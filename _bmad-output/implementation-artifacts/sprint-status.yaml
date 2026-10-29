@@ -176,7 +176,7 @@ development_status:
   10-12-necromancer-target-priority: backlog  # issue #358
   10-13-swarm-split-and-the-corridor: backlog  # issue #359
   10-14-doors-chokepoints-and-the-retreat-upstairs: backlog  # issue #360
-  10-15-prison-food-budgeting: backlog  # issue #361
+  10-15-prison-food-budgeting: done  # issue #361
   10-16-the-wandmaker-quest: backlog  # issue #362
   10-17-the-power-curve-by-depth: backlog  # issue #363
   10-18-tengu-entry-key-and-seal: review  # issue #364; PR #397
