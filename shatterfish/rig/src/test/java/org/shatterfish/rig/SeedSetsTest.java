@@ -408,7 +408,7 @@ class SeedSetsTest {
             assertEquals(first.get(file), second.get(file), file + " differs between two derivations");
         }
         assertEquals(new TreeSet<>(List.of("bosses.json", "goo.json", "holdout.json", "smoke.json",
-                "standard.json")), new TreeSet<>(first.keySet()));
+                "standard.json", "tengu.json")), new TreeSet<>(first.keySet()));
         assertCommitted(ROOT.resolve(SeedSets.FOLDER), first);
     }
 
