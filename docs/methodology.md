@@ -893,6 +893,88 @@ The stepper now accepts such a wake and counts it (`SceneStepper.strayWakes()`) 
 
 Each child Run leaves its count in `stray-wakes.txt` in its working directory. The Rig puts it in the Run's line of `runs.jsonl` (`strayWakes`) and the total in `summary.json`, and `:rig:direction` prints it under the table for the current and baseline sides (`not recorded` for a baseline from before this existed). It is zero on a quiet machine; a nonzero count in a ranked Run is worth a look.
 
+`--tunables name=value,...` plays a parameter vector over the Playbook on the current side (the
+baseline plays the Playbook as committed). The same flag on `:rig:run` goes to the `--brain` side of a
+comparison only, so a candidate vector against the current numbers is one command; it is refused with a
+`--registration`, whose Brain is the committed one. Every name must be a registered tunable
+(`Tunables`, ADR-0026) and every value inside its bounds.
+
+## The tune runner
+
+`./gradlew :rig:tune --args="..."` moves the Brain's registered numbers by SPSA, Fishtest style
+(story 10.36, ADR-0026). It is a development tool of the same kind as the direction check: nothing it
+plays is ranked, and a candidate it writes is a hypothesis, kept only if it wins on a second slice
+(story 10.37).
+
+```sh
+./gradlew :rig:tune --args="--set standard --class ALL --first 20 --salt-base 5000 --iterations 10 --jobs 4 [--params a,b,c] [--resume <dir>]"
+```
+
+| Flag | Meaning |
+|---|---|
+| `--set <name>` | `standard` (the default) or `smoke` (for checking the tuner). `goo`, `holdout` and `tengu` are refused by name, and any other set is refused. |
+| `--class <HERO\|ALL>` | One class, or all six (the default). |
+| `--first N` | Triples of each class played in one iteration (default 20). The window of triples moves N along at every iteration and wraps, so an iteration plays fresh dungeons. |
+| `--salt-base K` | The first salt (default and floor 5000). A run plays iterations x classes x `--first` salts from the base, and one that reaches 7000 is refused too: see below. |
+| `--iterations K` | Iterations to run (default 10). With `--resume`, the total to reach. |
+| `--params a,b,c` | Registry names to tune, or `all` (the default). A subset is the way to start: each number added is another direction the noise can push in. |
+| `--jobs P` | Runs in flight at once (default as the direction check). |
+| `--r-end r`, `--c-end c`, `--max-move m` | The constants of the method: the learning rate and the perturbation (in steps) at the last planned iteration, and the most one iteration may move a number, in steps (defaults 0.2, 1.0, 1.0). |
+| `--out <dir>` | The folder, empty or absent (default `build/tune/<time>`). |
+| `--resume <dir>` | Continue a folder. The folder holds the configuration, so only `--iterations`, `--jobs`, `--root` and `--keep-logs` may be given with it. |
+| `--keep-logs` | Keep every Run log of every iteration; by default they are deleted once scored, and the per-pair scores stay. |
+
+**The method.** Each number has a step (its SPSA scale, from the registry). Iteration `k` draws a sign
+for every tuned number from a fixed generator (a function of the seed, `k` and the number's place, so a
+rerun perturbs identically), and builds two vectors: the state plus and minus `c_k` steps, rounded to whole
+numbers and clamped to the bounds. Both vectors play the same triples under the same salts. The score
+difference is made a result `r` in [-1, 1] (over 2 score points, clamped); `r` over the half-gap that was
+played, per step, is the gradient estimate of each number; the state moves up it by `a_k` times that, at
+most `--max-move` steps. The schedule is Fishtest's: `c_k = c_end * N^0.101 / (k+1)^0.101` and
+`a_k = r_end * c_end^2 * (A + N)^0.602 / (A + k + 1)^0.602`, with `N` the iterations planned when the folder
+is made and `A = 0.1 N`, so a full-scale result moves a number about `r_end * c_end` steps at the end of the
+run, and noise alone cannot drift a number more than about 3 steps in 10 iterations (ADR-0026, "Gain
+calibration"). The state is kept as real numbers and clamped to the bounds; it is rounded only when played
+and in the candidate.
+
+**The objective.** The score of a Run is 5 per boss killed plus the deepest depth reached, read from its
+log's ending (a Run with no ending is not scored). A Goo kill is therefore worth the five floors that
+lead to it, and every floor deeper counts where nothing was killed. To keep the noise down:
+
+- the plus and minus vector play the same triples under the same salts, so the dungeon and the dice are
+  common and the paired difference cancels a seed's difficulty;
+- a triple with a Run missing on either side is dropped from both;
+- each class is one voice: the score is the mean of the class means, so a class that is easier to play
+  does not outvote the rest;
+- the move of one iteration is capped;
+- every iteration plays fresh triples and fresh salts.
+
+The standard error of the paired difference is in the trajectory, so a step taken on a difference inside
+its noise can be seen as such.
+
+**Seeds and salts.** Salt `saltBase + (k * classes + c) * N + j` is played for triple `j` of class `c` in
+iteration `k`, so no salt is played twice in a run. The tuner plays salts 5000 to 6999 and no others, and
+refuses a run whose base is lower or whose last salt is 7000 or more. The salt map is: 1000 the lever PRs'
+tuning slice, 3000 the confirmation slice, 5000 to 6999 SPSA only, 7000 and up the pre-registered
+confirmation tiebreaks. A tuned number is therefore judged under salts it was not fitted on. Six classes
+of 20 triples fit 16 iterations; one class of 20 fits 100. Triples still come from the
+`standard` set, which the confirmation also uses; what separates them is the salt, and the window that
+moves.
+
+**The folder.**
+
+| File | Holds |
+|---|---|
+| `tune.json` | The configuration, with the starting value of each number. |
+| `trajectory.jsonl` | One line per finished iteration: `theta` (the state before), `delta` (the signs), `plus` and `minus` (the vectors played), `plusScore`, `minusScore`, `diff`, `se`, `pairs`, `dropped`, `gradient`, `move` and `next`. A line is the commit marker of its iteration. |
+| `pairs/iter-NNNN.jsonl` | The two scores of every pair, by class and seed code. |
+| `candidate.json` | The Playbook the final state makes, in the canonical spelling the committed Playbooks use. |
+| `candidate.diff.txt` | The numbers, start to candidate, with their bounds, and the `--tunables` text that plays them against the committed Playbook. |
+
+The committed Playbook is never edited. The state of a run is the folder: a run killed in the middle of
+an iteration replays that iteration and no other, and ends where an uninterrupted run would have
+(`TuneRunnerTest`). `SpsaTest` holds the arithmetic to quadratics with known peaks, noiseless and noisy.
+
 ## The Run log and its chain
 
 Every Run writes `<run-id>.jsonl`: one record per line, plain text, no compression, readable with
