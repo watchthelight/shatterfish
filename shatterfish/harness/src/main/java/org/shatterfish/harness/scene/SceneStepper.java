@@ -17,7 +17,12 @@ import com.watabou.noosa.Camera;
 import com.watabou.noosa.Game;
 import com.watabou.noosa.audio.Music;
 import com.watabou.noosa.audio.Sample;
+import com.watabou.utils.Random;
+import org.shatterfish.harness.rng.RngControl;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.lang.management.LockInfo;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
@@ -25,7 +30,9 @@ import java.lang.management.ThreadMXBean;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.Set;
 
 /**
@@ -112,6 +119,7 @@ public final class SceneStepper {
 
     private static final Field ACTOR_THREAD = privateStatic(GameScene.class, "actorThread");
     private static final Field CURRENT = privateStatic(Actor.class, "current");
+    private static final Field GENERATORS = privateStatic(Random.class, "generators");
     private static final ThreadMXBean THREADS = ManagementFactory.getThreadMXBean();
 
     /** The code that may call {@code wait} on the actor thread at the pinned tag; see the class comment. */
@@ -125,6 +133,8 @@ public final class SceneStepper {
     private volatile Throwable actorThreadFailure;
     private long parkedAfterLastStep;
     private long signatureAfterLastStep;
+    private long rngMovesAfterLastStep;
+    private static final AtomicLong STRAY_WAKES_IN_PROCESS = new AtomicLong();
     private boolean heroWasAtInputWait;
     private int strayWakes;
     private long parkTimeoutNanos = Duration.ofSeconds(10).toNanos();
@@ -180,14 +190,16 @@ public final class SceneStepper {
             // is delivered inside frames, to a ready hero), or when it changed nothing a Run is
             // made of (the clock, every actor's time, the hero). Anything else is a real unfenced
             // run, and fails as it always did.
-            if (heroWasAtInputWait && signature() != signatureAfterLastStep) {
+            if (heroWasAtInputWait
+                    && (RngControl.moves() != rngMovesAfterLastStep || signature() != signatureAfterLastStep)) {
                 throw new IllegalStateException("the actor thread parked " + (waitedBefore - parkedAfterLastStep)
                         + " time(s) since the last frame ended without the stepper waiting for it, so it ran"
-                        + " between frames unfenced and changed the game's clock or the hero while the last"
+                        + " between frames unfenced and changed the game's clock, the hero or the random generator while the last"
                         + " frame had left it at an Input wait; the JVM did not report it blocked at the end"
                         + " of that frame: " + describe(thread));
             }
             strayWakes++;
+            STRAY_WAKES_IN_PROCESS.incrementAndGet();
             parkedAfterLastStep = waitedBefore;
         }
         List<CharSprite> moving = movingSprites();
@@ -222,6 +234,7 @@ public final class SceneStepper {
         }
         publish(thread);
         signatureAfterLastStep = signature();
+        rngMovesAfterLastStep = RngControl.moves();
         heroWasAtInputWait = Dungeon.hero != null && Dungeon.hero.ready && Dungeon.hero.curAction == null;
     }
 
@@ -233,12 +246,17 @@ public final class SceneStepper {
         return strayWakes;
     }
 
+    /** Stray wakes of every stepper in this process; a Rig child is one Run, so this is that Run's count. */
+    public static long strayWakesInProcess() {
+        return STRAY_WAKES_IN_PROCESS.get();
+    }
+
     /**
      * What a pass of the actor thread would change: the clock, every actor's time, the hero's
-     * flags and position. Order-independent over the actors.
+     * flags and position, and the random generators' state. Order-independent over the actors.
      */
     private static long signature() {
-        long sum = Float.floatToIntBits(Actor.now());
+        long sum = Float.floatToIntBits(Actor.now()) + 17L * generatorDigest();
         for (Actor actor : Actor.all()) {
             sum += 31L * Float.floatToIntBits(actor.cooldown()) + actor.getClass().getName().hashCode();
         }
@@ -248,6 +266,25 @@ public final class SceneStepper {
                     + 8L * hero.paralysed + 64L * hero.HP + 4096L * hero.pos;
         }
         return sum;
+    }
+
+    /**
+     * A digest of the game's generator stack, read without drawing: the stack is serialised (it holds
+     * {@code java.util.Random}s, which keep their seed in the stream) under the lock every draw takes.
+     * The field is private upstream, so this is a third field the stepper reads and never writes.
+     */
+    private static long generatorDigest() {
+        try {
+            synchronized (Random.class) {
+                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                try (ObjectOutputStream out = new ObjectOutputStream(bytes)) {
+                    out.writeObject(GENERATORS.get(null));
+                }
+                return Arrays.hashCode(bytes.toByteArray());
+            }
+        } catch (IOException | IllegalAccessException e) {
+            throw new IllegalStateException("the generator stack could not be digested", e);
+        }
     }
 
     /**
@@ -476,6 +513,7 @@ public final class SceneStepper {
         parkedAfterLastStep = awaitPark(thread, 0);
         publish(thread);
         signatureAfterLastStep = signature();
+        rngMovesAfterLastStep = RngControl.moves();
         heroWasAtInputWait = Dungeon.hero != null && Dungeon.hero.ready && Dungeon.hero.curAction == null;
     }
 

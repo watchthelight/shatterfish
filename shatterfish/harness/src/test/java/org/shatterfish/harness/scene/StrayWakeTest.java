@@ -3,6 +3,7 @@ package org.shatterfish.harness.scene;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.Actor;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
+import com.watabou.utils.Random;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -68,6 +69,32 @@ class StrayWakeTest {
         strayWake();
         IllegalStateException failure = assertThrows(IllegalStateException.class, stepper::step);
         assertTrue(failure.getMessage().contains("unfenced"), failure.getMessage());
+        assertEquals(0, stepper.strayWakes());
+    }
+
+    @Test
+    @DisplayName("a wake with no notify that drew a random number and spent no time still fails the next frame")
+    void a_stray_wake_that_drew_from_the_generator_still_fails() throws Exception {
+        startAtAnInputWait();
+        // An actor that goes before everyone, rolls, spends nothing and asks to wait: its pass moves
+        // the generator and nothing else. It is added and played once inside a frame first, so the
+        // actor set, the clock and the hero are the same before and after the stray pass.
+        Actor roller = new Actor() {
+            {
+                actPriority = Integer.MAX_VALUE;
+            }
+
+            @Override
+            protected boolean act() {
+                Random.Int(1_000_000);
+                return false;
+            }
+        };
+        Actor.add(roller);
+        stepper.step();
+        strayWake();
+        IllegalStateException failure = assertThrows(IllegalStateException.class, stepper::step);
+        assertTrue(failure.getMessage().contains("random generator"), failure.getMessage());
         assertEquals(0, stepper.strayWakes());
     }
 
