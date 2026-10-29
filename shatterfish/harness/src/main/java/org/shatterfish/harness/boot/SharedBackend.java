@@ -12,7 +12,7 @@ import java.util.List;
  * must know before it declares an Input wait, and whether the loop thread is alive, which it must not be.
  *
  * <p>It is a top-level class, and not the private nested class it was, for the isolated worlds of the E10 spike
- * (ADR-0024): libGDX and its natives live once in the parent class loader, so {@code Gdx.app} is one object for every
+ * (ADR-0025): libGDX and its natives live once in the parent class loader, so {@code Gdx.app} is one object for every
  * world in the process, and a world booted in an isolated loader adopts the backend the process already has. For that the
  * class must be one class for all of them, and {@code IsolationLoader} lists it among the few it always delegates to the
  * parent. In a process with no isolated world nothing changes: the one boot makes the one backend, as before.
@@ -33,7 +33,7 @@ public final class SharedBackend extends HeadlessApplication {
     /**
      * Takes the queued runnables out, leaving the queue empty, so that a world entered from the live Run runs none of the
      * live Run's and the live Run is put back with them ({@link #putBack}). The queue is the one libGDX static the two
-     * sides cannot each have a copy of; this is how they take turns at it (ADR-0024).
+     * sides cannot each have a copy of; this is how they take turns at it (ADR-0025).
      */
     public List<Runnable> takeQueued() {
         synchronized (runnables) {

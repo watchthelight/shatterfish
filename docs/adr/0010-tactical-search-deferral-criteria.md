@@ -218,6 +218,6 @@ the Rig, and rule 2 of the choice rule no longer filters candidates by a registe
 - The Overlay may use a **capped profile** (a budget that keeps the game playable in front of a person); the cap is the
   Overlay's, is set in its profile, and does not enter the Rig's numbers.
 - The 6.6 outcome (option 2 stays) was provisional on a budget, and the budget is gone. The question is reopened for
-  option 3 as a column. ADR-0024 records the simulator measurement that decides how cheap a column can be and gives a go for
+  option 3 as a column. ADR-0025 records the simulator measurement that decides how cheap a column can be and gives a go for
   determinized fight rollouts in the Rig.
 - Rules 1, 3 and 4 and the fairness rule stand; `holdout` is still reserved for a comparison that exists.

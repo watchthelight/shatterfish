@@ -463,7 +463,7 @@ public final class HeadlessDriver implements AutoCloseable {
     }
 
     /**
-     * Loads a scrubbed copy into this driver, which is an isolated rollout world's (E10 spike, ADR-0024): the same load
+     * Loads a scrubbed copy into this driver, which is an isolated rollout world's (E10 spike, ADR-0025): the same load
      * as {@link #restore} gives a scrubbed snapshot, with the start taken as the world's own Run. A world is started on a
      * placeholder tuple of its own and its Run is whatever the copy says; the copy carries no seed or declared salt, so the
      * tuple check {@code restore} makes is made against the world's own, and the hero class is still checked. The start can

@@ -14,7 +14,7 @@ import java.util.Objects;
 import java.util.ServiceLoader;
 
 /**
- * The rollout host that does not swap (E10 spike, ADR-0024): a {@link Simulator} that plays a scrubbed copy out in an
+ * The rollout host that does not swap (E10 spike, ADR-0025): a {@link Simulator} that plays a scrubbed copy out in an
  * isolated copy of the game, in the live Run's own process, and leaves the live Run exactly where it stood. It is the
  * swap-in-place {@code RolloutHost}'s sibling and obeys the same contract: the handle is checked against the store's own
  * record ({@link SnapshotStore#madeScrubbed}), so a handle the store did not make as a complete scrubbed copy rolls out
@@ -69,7 +69,7 @@ public final class IsolatedHost extends Simulator implements AutoCloseable {
         // The flag is a claim; the store holds the bytes and knows which copies it made (the Simulator's contract).
         if (!store.madeScrubbed(handle)) {
             throw new IllegalArgumentException("snapshot " + handle.id() + " was not made as a scrubbed copy by this host's store:"
-                    + " nothing is rolled out from it (ADR-0009, ADR-0024)");
+                    + " nothing is rolled out from it (ADR-0009, ADR-0025)");
         }
         ScrubbedStart start = ScrubbedStart.from(store, handle);
         Opened opened = mode == Mode.POOLED ? pool.get(start.heroClass()) : null;

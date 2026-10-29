@@ -21,11 +21,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The parity door of the isolated rollout world (ADR-0024): a world is built from a {@link ScrubbedStart} and from nothing
+ * The parity door of the isolated rollout world (ADR-0025): a world is built from a {@link ScrubbedStart} and from nothing
  * else, and a {@code ScrubbedStart} can be made only from a handle the store made as a complete scrubbed copy and holds no
  * Run seed or declared salt. These are the structural halves; the permutation half (hidden state changed under a fixed
  * sample) is covered below the door by {@code SearchLeakTest} and is a gate for the first Brain to use the isolated host
- * (ADR-0024).
+ * (ADR-0025).
  */
 @AnalyzeClasses(packages = "org.shatterfish", importOptions = ImportOption.DoNotIncludeTests.class)
 class ScrubbedStartBoundaryTest {

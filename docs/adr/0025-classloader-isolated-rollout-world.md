@@ -4,7 +4,7 @@ date: 2026-10-28
 deciders: watchthelight (product owner), Claude (engineer)
 ---
 
-# ADR-0024: A rollout world in its own class loader, built only from a scrubbed start
+# ADR-0025: A rollout world in its own class loader, built only from a scrubbed start
 
 ## Context and problem statement
 
@@ -138,6 +138,8 @@ Leak tests (1, 2b and 4 are in the build; 2 and 3 are preconditions named below)
    (`IsolatedWorldTest`, 53 Actions, every Observation equal). Passing.
 
 ### Known defect
+
+Tracked in [#390](https://github.com/watchthelight/shatterfish/issues/390), a blocker on story 10.24 (#370).
 
 On two of 22 snapshots in the final run, 11 of 207 compared results differ in the `log` section only (same end and length,
 every other section equal). The suspects are the static log buffer and the journal's guidebook state in a pooled world. Until

@@ -1,7 +1,7 @@
 # Isolation spike: what a rollout costs in a second copy of the game
 
 Story 10.23 (#369), epic E10, workstream W4. Measured by `./gradlew :harness:isolationSpeed` (the tool is
-`IsolationSpeed` in the harness tests). The decision this feeds is [ADR-0024](../adr/0024-classloader-isolated-rollout-world.md).
+`IsolationSpeed` in the harness tests). The decision this feeds is [ADR-0025](../adr/0025-classloader-isolated-rollout-world.md).
 
 Two runs of the same command at the same commit, one after the other. The **first (below) is unthrottled**: 24 logical
 processors, normal priority, though other builds were running (mean system CPU 78%). The second, at the end, was made while

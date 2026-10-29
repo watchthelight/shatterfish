@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * One isolated copy of the game playing scrubbed rollouts (E10 spike, ADR-0024). It runs inside an
+ * One isolated copy of the game playing scrubbed rollouts (E10 spike, ADR-0025). It runs inside an
  * {@code IsolationLoader}, so the driver, the game's statics and the profile are this copy's, and the live Run, which
  * stands at its Input wait in another loader, is neither saved nor loaded nor touched: that is what the swap host spends
  * 87% of a rollout on.
@@ -33,7 +33,7 @@ import java.util.Objects;
  * runnables aside, runs on an empty queue and drains what the world posted, and puts the live Run's back at the head, so
  * the live Run's next frame runs none of the world's and all of its own. That makes a world safe for one thread at a time,
  * taking turns with the live Run on the thread that plays it (the Rig's shape), and not for a render thread that keeps
- * drawing the live Run while a search thinks (the Overlay's); ADR-0024 records what the Overlay would need.
+ * drawing the live Run while a search thinks (the Overlay's); ADR-0025 records what the Overlay would need.
  */
 final class IsolatedWorld implements RolloutWorld {
 

@@ -204,7 +204,7 @@ public final class RolloutHost extends Simulator {
 
     /**
      * Plays {@code actions} on the Run the driver now holds, which is the scrubbed copy at its wait. Static so that the
-     * isolated world (E10 spike, ADR-0024) plays the very same loop on the driver of its own loader.
+     * isolated world (E10 spike, ADR-0025) plays the very same loop on the driver of its own loader.
      */
     static RolloutResult play(HeadlessDriver driver, ActionExecutor executor, List<Action> actions, HeadlessDriver.Halt first) {
         List<Observation> observations = new ArrayList<>();

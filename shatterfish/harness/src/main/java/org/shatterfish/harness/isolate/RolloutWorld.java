@@ -7,7 +7,7 @@ import org.shatterfish.harness.driver.ScrubbedStart;
 import java.util.List;
 
 /**
- * One isolated copy of the game, as the live Run's class loader sees it (E10 spike, ADR-0024): the interface is the whole
+ * One isolated copy of the game, as the live Run's class loader sees it (E10 spike, ADR-0025): the interface is the whole
  * surface between the two loaders, and every type in its signatures is either the JDK's, {@code api}'s, or
  * {@link ScrubbedStart}, which is delegated by name and can be made only from a complete scrubbed copy. A caller can hand
  * it nothing from the live game and gets back Observations already made.

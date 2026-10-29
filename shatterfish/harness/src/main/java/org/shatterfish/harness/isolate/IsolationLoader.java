@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * A second copy of the game in the same JVM (E10 spike, ADR-0024): a class loader that defines the game's classes, and the
+ * A second copy of the game in the same JVM (E10 spike, ADR-0025): a class loader that defines the game's classes, and the
  * harness's own, itself, from the same class files the parent loads, so that every static the game keeps is the copy's
  * and a rollout can run without swapping the live Run's state out of the process.
  *
@@ -18,7 +18,7 @@ import java.util.Set;
  *
  * <p><b>What stays the parent's.</b> The JDK; libGDX and its natives, because the JNI specification forbids loading one
  * native library into two loaders (ADR-0009 option 12), which also makes {@code Gdx.app}, {@code Gdx.files} and
- * {@code Gdx.gl} one set of statics for every world (the consequence is recorded in ADR-0024); {@code org.json};
+ * {@code Gdx.gl} one set of statics for every world (the consequence is recorded in ADR-0025); {@code org.json};
  * {@code org.shatterfish.api}; and the classes in {@link #SHARED}, which must be one class for both sides: the interfaces
  * between the loaders, the backend and the no-op GL binding that live in libGDX's statics, and {@code ScrubbedStart}.
  *

@@ -33,7 +33,7 @@ import java.util.Map;
 import java.util.ServiceLoader;
 
 /**
- * The isolation spike's measurement (E10 W4, ADR-0024): what a rollout costs when the game is a second copy in its own class
+ * The isolation spike's measurement (E10 W4, ADR-0025): what a rollout costs when the game is a second copy in its own class
  * loader and nothing is swapped, beside what the same rollout costs under the swap-in-place host, on the same snapshots,
  * the same scrubbed samples and the same lines of play, in one process.
  *

@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * What an isolated rollout world is built from (E10 spike, ADR-0024): the files of a scrubbed copy and the few things a
+ * What an isolated rollout world is built from (E10 spike, ADR-0025): the files of a scrubbed copy and the few things a
  * load needs beside them, and nothing else. It is the one thing that crosses from the live Run's class loader into an
  * isolated one, so what it can hold is the whole answer to "can the rollout world be built from the live world's hidden
  * fields".
@@ -57,7 +57,7 @@ public final class ScrubbedStart {
         Objects.requireNonNull(handle, "a snapshot handle");
         if (!store.madeScrubbed(handle)) {
             throw new IllegalArgumentException("snapshot " + handle.id() + " was not made as a complete scrubbed copy by this store:"
-                    + " an isolated world is built from nothing else (ADR-0024)");
+                    + " an isolated world is built from nothing else (ADR-0025)");
         }
         return new ScrubbedStart(store.find(handle.id()));
     }

@@ -82,7 +82,7 @@ public final class HeadlessBoot {
 
     private HeadlessBoot() {
         if (Gdx.app instanceof SharedBackend adopted) {
-            // A second world in one process (the isolated worlds of ADR-0024): libGDX is one set of statics for all of
+            // A second world in one process (the isolated worlds of ADR-0025): libGDX is one set of statics for all of
             // them, so the backend, the no-op GL binding and the graphics are the first boot's, installed once and
             // equal by construction. What is a world's own is everything below.
             application = adopted;

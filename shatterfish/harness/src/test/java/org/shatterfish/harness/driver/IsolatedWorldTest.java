@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The isolated world is a second copy of the game that plays the same game (E10 spike, ADR-0024).
+ * The isolated world is a second copy of the game that plays the same game (E10 spike, ADR-0025).
  *
  * <p>The class loader gives the copy its own statics and shares what must be shared. The equivalence case is the
  * "fully observed" one: the world is built from the live Run's own unscrubbed snapshot, which a test may do by reaching

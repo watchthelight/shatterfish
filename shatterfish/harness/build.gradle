@@ -156,7 +156,7 @@ tasks.register('candidateFit', JavaExec) {
     outputs.upToDateWhen { false }
 }
 
-// The isolation spike's measurement (E10 W4, ADR-0024): what a rollout costs in an isolated copy of the game beside what
+// The isolation spike's measurement (E10 W4, ADR-0025): what a rollout costs in an isolated copy of the game beside what
 // the swap-in-place host costs, on the same snapshots, with the results of the two hosts compared. It plays the real Brain
 // (a test dependency), so it runs from the test classpath. `-Pisolation.args="--seeds 8 --per-seed 2 --samples 3"`
 // overrides the defaults; the set is `smoke` or `standard`, and `goo`, `holdout` and `tengu` are refused.
