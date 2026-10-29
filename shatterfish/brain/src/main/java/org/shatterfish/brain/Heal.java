@@ -84,14 +84,21 @@ final class Heal implements Policy {
 
     private final Codex.Knowledge knowledge;
     private final org.shatterfish.api.Playbook.Goo goo;
+    private final org.shatterfish.api.Tunables.Vector tunables;
 
     Heal(Codex.Knowledge knowledge) {
         this(knowledge, org.shatterfish.api.Playbook.Goo.REFERENCE);
     }
 
     Heal(Codex.Knowledge knowledge, org.shatterfish.api.Playbook.Goo goo) {
+        this(knowledge, goo, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #Heal(Codex.Knowledge, org.shatterfish.api.Playbook.Goo)} drinking by the vector's {@code heal.*} and {@code fight.*} numbers (story 10.35). */
+    Heal(Codex.Knowledge knowledge, org.shatterfish.api.Playbook.Goo goo, org.shatterfish.api.Tunables.Vector tunables) {
         this.knowledge = knowledge;
         this.goo = goo;
+        this.tunables = tunables;
     }
 
     @Override
@@ -114,11 +121,11 @@ final class Heal implements Policy {
     @Override
     public RunLog.Choice choose(Observation observation, Memory memory, List<Action> offered, Stream stream) {
         HeroSection hero = observation.hero();
-        int danger = danger(observation, knowledge, memory, goo);
+        int danger = danger(observation, knowledge, memory, goo, tunables);
         if (hero.hp() > danger || hero.ht() - hero.hp() < firstTurn(hero.ht())) {
             return null;
         }
-        if (memory.drank() >= 0 && !spent(hero.ht(), memory.waits() - memory.drank())) {
+        if (memory.drank() >= 0 && !spent(hero.ht(), memory.waits() - memory.drank(), tunables)) {
             return null;
         }
         List<ActorView> enemies = Fight.enemies(observation, knowledge);
@@ -132,8 +139,8 @@ final class Heal implements Policy {
         if (gooAlone && Goo.dodge(observation, memory, offered) != null) {
             return null;
         }
-        if (!gooAlone && !low && !Fight.favourable(observation, knowledge, enemies)
-                && Fight.retreat(observation, memory, offered, enemies, knowledge) != null) {
+        if (!gooAlone && !low && !Fight.favourable(observation, knowledge, enemies, tunables)
+                && Fight.retreat(observation, memory, offered, enemies, knowledge, tunables) != null) {
             return null;
         }
         List<ItemView> items = observation.inventory().items();
@@ -175,7 +182,12 @@ final class Heal implements Policy {
 
     /** Whether a drink {@code since} waits ago has little enough left that another is worth it. */
     static boolean spent(int ht, long since) {
-        return 1000L * remaining(ht, since) < (long) REDRINK_SHARE_PER_MILLE * heals(ht);
+        return spent(ht, since, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #spent(int, long)} by the vector's {@code heal.redrink_share_per_mille}. */
+    static boolean spent(int ht, long since, org.shatterfish.api.Tunables.Vector tunables) {
+        return 1000L * remaining(ht, since) < (long) tunables.getInt(org.shatterfish.api.Tunables.HEAL_REDRINK_SHARE) * heals(ht);
     }
 
     /**
@@ -202,6 +214,12 @@ final class Heal implements Policy {
 
     /** {@link #danger(Observation, Codex.Knowledge, Memory)} with the Playbook's Goo entry deciding the drink against Goo alone. */
     static int danger(Observation observation, Codex.Knowledge knowledge, Memory memory, org.shatterfish.api.Playbook.Goo goo) {
+        return danger(observation, knowledge, memory, goo, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #danger(Observation, Codex.Knowledge, Memory, org.shatterfish.api.Playbook.Goo)} adding up over the vector's {@code heal.horizon} turns. */
+    static int danger(Observation observation, Codex.Knowledge knowledge, Memory memory, org.shatterfish.api.Playbook.Goo goo,
+                      org.shatterfish.api.Tunables.Vector tunables) {
         if (Goo.alone(Fight.enemies(observation, knowledge)) != null) {
             return Goo.danger(observation.hero(), goo);
         }
@@ -218,7 +236,8 @@ final class Heal implements Policy {
         for (ActorView enemy : awake) {
             soonest = Math.min(soonest, Fight.turnsToKill(observation, knowledge, enemy));
         }
-        int turns = Double.isInfinite(soonest) ? HORIZON : (int) Math.max(1, Math.min(HORIZON, Math.ceil(soonest)));
+        int horizon = tunables.getInt(org.shatterfish.api.Tunables.HEAL_HORIZON);
+        int turns = Double.isInfinite(soonest) ? horizon : (int) Math.max(1, Math.min(horizon, Math.ceil(soonest)));
         int[] steps = steps(observation, memory);
         int[] armour = Fight.heroArmour(observation, knowledge);
         List<Double> expected = new ArrayList<>();

@@ -311,8 +311,8 @@ class ControlStateTest {
         run.person = true;
         controls.frame(0.016);
         assertEquals(Mode.HUMAN, controls.mode());
-        assertEquals(Set.of(Control.TAKE_OVER, Control.EXPLAIN, Control.BELIEFS), controls.enabled(),
-                "HUMAN: Hand back, Explain and Beliefs");
+        assertEquals(Set.of(Control.TAKE_OVER, Control.AUTOEXPLORE, Control.EXPLAIN, Control.BELIEFS), controls.enabled(),
+                "HUMAN: Hand back, Autoexplore, Explain and Beliefs");
     }
 
     @Test
@@ -433,6 +433,7 @@ class ControlStateTest {
             case SPEED -> controls.cycleSpeed();
             case INTERVAL -> second ? controls.intervalDown() : controls.intervalUp();
             case TAKE_OVER -> controls.takeOverHandBack();
+            case AUTOEXPLORE -> controls.autoexplore();
             case EXPLAIN, BELIEFS -> throw new AssertionError("not a ControlState press");
         };
     }

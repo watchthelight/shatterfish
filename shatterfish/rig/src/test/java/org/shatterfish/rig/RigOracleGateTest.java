@@ -123,8 +123,9 @@ class RigOracleGateTest {
         // one, so the size is what makes a new flag a decision somebody made here rather than a
         // line that slipped past a substring check. Story 3.4 added `--verify` and `--replay`;
         // story 4.1 `--codex` and story 4.5 `--weights` and story 7.2 `--playbook` to the child's, each a file the child
-        // reads for the Brain.
-        assertTrue(Runner.KNOWN.size() == 13 && RunOne.KNOWN.size() == 14,
+        // reads for the Brain. Story 10.35 added `--tunables`, a registered-number vector for the Rig's tuner: whole numbers
+        // inside bounds, hashed into the configuration, nothing the game state or the seed reaches.
+        assertTrue(Runner.KNOWN.size() == 13 && RunOne.KNOWN.size() == 15,
                 "the two lists are " + Runner.KNOWN + " and " + RunOne.KNOWN);
     }
 

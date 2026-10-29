@@ -1,6 +1,7 @@
 package org.shatterfish.harness.knowledge;
 
 import org.shatterfish.api.Playbook;
+import org.shatterfish.api.Tunables;
 import org.shatterfish.harness.log.Json;
 
 import java.util.ArrayList;
@@ -45,7 +46,7 @@ public final class PlaybookValidator {
     private static final Pattern SEED_CODE = Pattern.compile("[A-Z]{3}-?[A-Z]{3}-?[A-Z]{3}");
 
     /** The top-level keys, besides the sections. */
-    private static final Set<String> TOP = Set.of("format", "name", "version", "identify", "kit", "upgrade", "bosses", "classes");
+    private static final Set<String> TOP = Set.of("format", "name", "version", "identify", "kit", "upgrade", "bosses", "classes", "tunables");
 
     private PlaybookValidator() {
     }
@@ -89,6 +90,7 @@ public final class PlaybookValidator {
                 }
                 case "identify", "kit", "upgrade" -> section(key, member.getValue(), problems);
                 case "bosses" -> bosses(member.getValue(), problems);
+                case "tunables" -> tunables(member.getValue(), problems);
                 default -> classes(member.getValue(), heroClasses, problems);
             }
         }
@@ -160,6 +162,32 @@ public final class PlaybookValidator {
                 continue;
             }
             section("bosses." + member.getKey(), member.getValue(), problems);
+        }
+    }
+
+    /**
+     * The {@code tunables} section (story 10.35): the Policy constants the registry lists, each by its
+     * registered name, a whole number inside the bounds the registry declares. A Playbook-owned field
+     * is stated in its own section, so naming one here is a second spelling and is refused.
+     */
+    private static void tunables(String raw, List<String> problems) {
+        Map<String, String> members = object("tunables", raw, problems);
+        if (members == null) {
+            return;
+        }
+        for (Map.Entry<String, String> member : members.entrySet()) {
+            String path = "tunables." + member.getKey();
+            Tunables.Tunable tunable = Tunables.named(member.getKey());
+            if (tunable == null) {
+                problems.add(path + " is not a registered tunable; Tunables lists "
+                        + Tunables.ALL.stream().filter(one -> one.owner() == Tunables.Owner.POLICY).map(Tunables.Tunable::name).toList());
+            } else if (tunable.owner() != Tunables.Owner.POLICY) {
+                problems.add(path + " is a field of the Playbook's own section; state it there, not in tunables");
+            } else if (!whole(member.getValue())) {
+                problems.add(path + " is a whole number from " + tunable.min() + " to " + tunable.max() + ": " + member.getValue());
+            } else if (Json.number(member.getValue()) < tunable.min() || Json.number(member.getValue()) > tunable.max()) {
+                problems.add(path + " is from " + tunable.min() + " to " + tunable.max() + ": " + member.getValue());
+            }
         }
     }
 
