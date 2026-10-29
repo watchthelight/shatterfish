@@ -44,7 +44,9 @@ public final class ScrubbedStart {
         this.k = copy.k();
         this.slot = copy.slot();
         this.activeSalt = copy.activeSalt();
-        this.files = copy.files();
+        Map<String, byte[]> own = new java.util.LinkedHashMap<>();
+        copy.files().forEach((name, bytes) -> own.put(name, bytes.clone()));
+        this.files = java.util.Collections.unmodifiableMap(own);
         this.log = copy.log();
         this.emotes = copy.emotes();
     }
@@ -86,7 +88,9 @@ public final class ScrubbedStart {
 
     /** The scrubbed files of the save folder, by name. */
     public Map<String, byte[]> files() {
-        return files;
+        Map<String, byte[]> out = new java.util.LinkedHashMap<>();
+        files.forEach((name, bytes) -> out.put(name, bytes.clone()));
+        return out;
     }
 
     public List<LogLine> log() {

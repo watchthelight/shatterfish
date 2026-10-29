@@ -374,7 +374,7 @@ final class IsolationSpeed {
                         onlySwap.removeAll(y1);
                         List<String> onlyIso = new ArrayList<>(y1);
                         onlyIso.removeAll(x1);
-                        how += " (swap: " + x1 + "; isolated: " + y1 + ")";
+                        how += " (only in swap: " + onlySwap + "; only in isolated: " + onlyIso + "; lines " + x1.size() + " against " + y1.size() + ")";
                     }
                     break;
                 }

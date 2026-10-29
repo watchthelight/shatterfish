@@ -138,6 +138,7 @@ nav:
       - ADR-0021 Lore claim format and intake: adr/0021-lore-claim-format.md
       - ADR-0022 The variant classifier: adr/0022-variant-classifier.md
       - ADR-0023 Playbooks as data: adr/0023-playbooks-as-data.md
+      - ADR-0024 Classloader-isolated rollout world: adr/0024-classloader-isolated-rollout-world.md
   - Rules:
       - rules/index.md
       - The Brain's Rules index: brain-rules.md
@@ -211,6 +212,7 @@ nav:
       - "Fight Goo on ground a pump can be dodged on": results/2026-10-26-219-goo-fight-position-and-wash.md
       - "Throughput with the Brain attached": results/2026-10-26-throughput-7b1212eea.md
       - "Simulator speed": results/2026-10-26-simulator-speed.md
+      - "Isolation spike": results/2026-10-28-isolation-spike.md
       - "The properties measurement": results/2026-10-26-6-5-the-properties-measurement.md
       - "The candidate comparison": results/2026-10-26-6-6-the-candidate-comparison.md
       - "The variant classifier": results/2026-10-26-7-8-the-variant-classifier.md
