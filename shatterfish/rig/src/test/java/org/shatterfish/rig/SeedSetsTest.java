@@ -175,9 +175,9 @@ class SeedSetsTest {
     // -------------------------------------------------------------------------------- the sets
 
     @Test
-    @DisplayName("the five sets hold their stated sizes, classes and flags, and every triple is in the game's domains")
+    @DisplayName("the six sets hold their stated sizes, classes and flags, and every triple is in the game's domains")
     void the_five_sets_are_what_fr_20_says() {
-        assertEquals(List.of("smoke", "standard", "holdout", "bosses", "goo"), SeedSets.names());
+        assertEquals(List.of("smoke", "standard", "holdout", "bosses", "goo", "tengu"), SeedSets.names());
         for (String name : SeedSets.names()) {
             SeedSets.Definition definition = SeedSets.definition(name);
             SeedSet set = SeedSets.set(name);
@@ -201,6 +201,11 @@ class SeedSetsTest {
         assertEquals(500, SeedSets.definition("standard").size());
         assertEquals(500, SeedSets.definition("holdout").size());
         assertEquals(100, SeedSets.definition("bosses").size());
+        SeedSets.Definition tengu = SeedSets.definition("tengu");
+        assertEquals(600, tengu.size());
+        assertEquals(List.of(HeroClass.WARRIOR, HeroClass.MAGE, HeroClass.ROGUE, HeroClass.HUNTRESS,
+                HeroClass.DUELIST, HeroClass.CLERIC), tengu.classes(), "the tengu set cycles the game's six");
+        assertEquals(0, tengu.challengeFlags());
         SeedSets.Definition goo = SeedSets.definition("goo");
         assertEquals(400, goo.size());
         assertEquals(List.of(HeroClass.WARRIOR), goo.classes(), "the goo set is Warrior only (FR-20)");
@@ -287,7 +292,7 @@ class SeedSetsTest {
         // definition.classes() is the shape that shipped three wrong tables in epic 2.
         List<HeroClass> six = List.of(HeroClass.WARRIOR, HeroClass.MAGE, HeroClass.ROGUE,
                 HeroClass.HUNTRESS, HeroClass.DUELIST, HeroClass.CLERIC);
-        for (String name : List.of("smoke", "standard", "holdout", "bosses")) {
+        for (String name : List.of("smoke", "standard", "holdout", "bosses", "tengu")) {
             assertEquals(six, SeedSets.definition(name).classes(), name + " cycles the game's six");
         }
         assertEquals(List.of(HeroClass.WARRIOR), SeedSets.definition("goo").classes(),
@@ -324,6 +329,27 @@ class SeedSetsTest {
                 () -> new SeedSets.Definition("ok", 6, List.of(HeroClass.WARRIOR, HeroClass.MAGE,
                         HeroClass.WARRIOR), 0),
                 "a class named twice: the cycle covers two classes and the definition claims three");
+    }
+
+    // ------------------------------------------------------------------ the tengu set
+
+    @Test
+    @DisplayName("the tengu set holds 100 triples of each class and is sized by Wilson: a 95% observed rate over 600 Runs bounds near 93%")
+    void the_tengu_set_is_a_hundred_of_each_class_and_sized_by_wilson() {
+        SeedSet set = SeedSets.set("tengu");
+        for (HeroClass heroClass : HeroClass.values()) {
+            assertEquals(100, set.entries().stream().filter(e -> e.heroClass() == heroClass).count(),
+                    heroClass + " has a hundred triples in the tengu set");
+        }
+        // Pooled: an observed 100% over 600 Runs. The lower bound is the number the gate can claim.
+        double lowerAll = wilsonLowerBound(1.0, 600);
+        assertTrue(lowerAll > 0.99, "an observed 100% over 600 Runs bounds above 0.99: " + lowerAll);
+        // The planning figure the ADR states: an observed 97% over 600 has a lower bound near 0.95,
+        // and a 95% observed rate bounds near 0.93; the ADR's table is computed here, not typed.
+        assertEquals(0.9531, wilsonLowerBound(0.97, 600), 0.0005);
+        assertEquals(0.9295, wilsonLowerBound(0.95, 600), 0.0005);
+        // Per class (n = 100) the bound is much wider, which is why the gate is the pooled number.
+        assertTrue(wilsonLowerBound(0.95, 100) < 0.89, "one class's 100 Runs cannot carry a 95% claim alone");
     }
 
     // ------------------------------------------------------------------ the goo set's size
@@ -382,7 +408,7 @@ class SeedSetsTest {
             assertEquals(first.get(file), second.get(file), file + " differs between two derivations");
         }
         assertEquals(new TreeSet<>(List.of("bosses.json", "goo.json", "holdout.json", "smoke.json",
-                "standard.json")), new TreeSet<>(first.keySet()));
+                "standard.json", "tengu.json")), new TreeSet<>(first.keySet()));
         assertCommitted(ROOT.resolve(SeedSets.FOLDER), first);
     }
 

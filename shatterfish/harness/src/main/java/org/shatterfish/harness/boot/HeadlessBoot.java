@@ -65,7 +65,7 @@ public final class HeadlessBoot {
 
     private static HeadlessBoot instance;
 
-    private final Backend application;
+    private final SharedBackend application;
     private final MemoryPreferences preferences;
     private final HeadlessGame game;
     private final String upstreamVersionName;
@@ -81,48 +81,54 @@ public final class HeadlessBoot {
     }
 
     private HeadlessBoot() {
-        if (Gdx.app != null) {
+        if (Gdx.app instanceof SharedBackend adopted) {
+            // A second world in one process (the isolated worlds of ADR-0025): libGDX is one set of statics for all of
+            // them, so the backend, the no-op GL binding and the graphics are the first boot's, installed once and
+            // equal by construction. What is a world's own is everything below.
+            application = adopted;
+        } else if (Gdx.app != null) {
             throw new IllegalStateException("a libGDX application is already installed in this process;"
                     + " the harness must be the one to boot it");
-        }
-
-        HeadlessNativesLoader.load();
-        HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
-        config.updatesPerSecond = -1;
-        CountDownLatch created = new CountDownLatch(1);
-        application = new Backend(new ApplicationAdapter() {
-            @Override
-            public void create() {
-                created.countDown();
+        } else {
+            HeadlessNativesLoader.load();
+            HeadlessApplicationConfiguration config = new HeadlessApplicationConfiguration();
+            config.updatesPerSecond = -1;
+            CountDownLatch created = new CountDownLatch(1);
+            SharedBackend backend = new SharedBackend(new ApplicationAdapter() {
+                @Override
+                public void create() {
+                    created.countDown();
+                }
+            }, config);
+            try {
+                if (!created.await(10, TimeUnit.SECONDS)) {
+                    throw new IllegalStateException("the headless backend did not start within 10s");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("interrupted while the headless backend started", e);
             }
-        }, config);
-        try {
-            if (!created.await(10, TimeUnit.SECONDS)) {
-                throw new IllegalStateException("the headless backend did not start within 10s");
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("interrupted while the headless backend started", e);
+
+            // With updatesPerSecond at -1 the backend's loop is skipped and its thread ends right after
+            // create() (HeadlessApplication.mainLoop, libGDX 1.14.0). The boot waits for that, so that
+            // "no library-owned loop drives the scene" is checked here rather than assumed.
+            backend.joinLoopThread();
+
+            // Errors only. The game echoes every log line to the console through Gdx.app.log, from the
+            // actor thread; the harness reads the game log through GLog's own listener instead, and a
+            // console write is a lock the actor thread can block on halfway to its park, which the
+            // stepper would then have to wait out (SceneStepper's class comment).
+            backend.setLogLevel(Application.LOG_ERROR);
+
+            Gdx.gl20 = NoOpGL.gl20();
+            Gdx.gl30 = NoOpGL.gl30();
+            Gdx.gl = Gdx.gl20;
+            // The backend's own graphics report no display at all, and the game sizes its text by the
+            // back buffer (HeadlessGraphics's class comment); the display the constants above declare
+            // is the one the game is told about.
+            Gdx.graphics = new HeadlessGraphics();
+            application = backend;
         }
-
-        // With updatesPerSecond at -1 the backend's loop is skipped and its thread ends right after
-        // create() (HeadlessApplication.mainLoop, libGDX 1.14.0). The boot waits for that, so that
-        // "no library-owned loop drives the scene" is checked here rather than assumed.
-        application.joinLoopThread();
-
-        // Errors only. The game echoes every log line to the console through Gdx.app.log, from the
-        // actor thread; the harness reads the game log through GLog's own listener instead, and a
-        // console write is a lock the actor thread can block on halfway to its park, which the
-        // stepper would then have to wait out (SceneStepper's class comment).
-        application.setLogLevel(Application.LOG_ERROR);
-
-        Gdx.gl20 = NoOpGL.gl20();
-        Gdx.gl30 = NoOpGL.gl30();
-        Gdx.gl = Gdx.gl20;
-        // The backend's own graphics report no display at all, and the game sizes its text by the
-        // back buffer (HeadlessGraphics's class comment); the display the constants above declare
-        // is the one the game is told about.
-        Gdx.graphics = new HeadlessGraphics();
 
         preferences = new MemoryPreferences();
         GameSettings.set(preferences);
@@ -218,41 +224,6 @@ public final class HeadlessBoot {
     /** Whether the backend's own loop thread is alive; it ends during the boot and stays ended. */
     public boolean backendLoopThreadAlive() {
         return application.loopThreadAlive();
-    }
-
-    /**
-     * The backend, subclassed for two things libGDX keeps protected: how many runnables are
-     * queued, which a driver must know before it declares an Input wait, and whether the loop
-     * thread is alive, which it must not be.
-     */
-    private static final class Backend extends HeadlessApplication {
-
-        Backend(ApplicationListener listener, HeadlessApplicationConfiguration config) {
-            super(listener, config);
-        }
-
-        int pendingRunnables() {
-            synchronized (runnables) {
-                return runnables.size;
-            }
-        }
-
-        boolean loopThreadAlive() {
-            return mainLoopThread != null && mainLoopThread.isAlive();
-        }
-
-        void joinLoopThread() {
-            try {
-                mainLoopThread.join(10_000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException("interrupted while the backend's loop thread ended", e);
-            }
-            if (mainLoopThread.isAlive()) {
-                throw new IllegalStateException("the backend's loop thread is still running 10 s after create();"
-                        + " with updatesPerSecond = -1 it must end, or the driver is not the only loop");
-            }
-        }
     }
 
     /**

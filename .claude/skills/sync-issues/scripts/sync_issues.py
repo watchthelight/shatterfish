@@ -5,7 +5,7 @@ REPO = "watchthelight/shatterfish"
 EP = "_bmad-output/planning-artifacts/epics.md"
 STATUS = "_bmad-output/implementation-artifacts/sprint-status.yaml"
 BLOB = "https://github.com/watchthelight/shatterfish/blob/main/_bmad-output/planning-artifacts/epics.md"
-STORY_EPICS = {7, 8}  # sync-issues scope: the current epic and the next one
+STORY_EPICS = {7, 8, 10}  # sync-issues scope: the current epic and the next one
 
 
 def gh(*args, data=None):
@@ -26,7 +26,7 @@ text = open(EP, encoding="utf-8").read()
 
 # ---- epic list table: number -> (title, goal, done-when) ----
 donewhen, epictitle = {}, {}
-for row in re.findall(r"^\| E(\d) \| ([^|]+) \| ([^|]+) \| ([^|]+) \|$", text, re.M):
+for row in re.findall(r"^\| E(\d+) \| ([^|]+) \| ([^|]+) \| ([^|]+) \|$", text, re.M):
     n, title, goal, dw = int(row[0]), row[1].strip(), row[2].strip(), row[3].strip()
     epictitle[n], donewhen[n] = title, (goal, dw)
 

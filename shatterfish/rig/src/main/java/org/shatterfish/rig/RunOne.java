@@ -78,6 +78,57 @@ public final class RunOne {
     /** The kit profile a practice Run's hero arrives with; stated with {@link #PRACTICE} and not without it. */
     public static final String KIT = "--kit";
 
+    /**
+     * A parameter vector played over the Playbook (story 10.35): {@code name=value} pairs joined by commas,
+     * each name a registered tunable ({@link org.shatterfish.api.Tunables}) and each value inside its bounds.
+     * For the Rig's tuner and its checks only. The vector becomes part of the Playbook the Brain is built on,
+     * so its canonical text, and the configuration hash in the Run log's header, name every number that moved:
+     * a Run is still (tag, seed, actions) and the Playbook, and a Replay plays the same vector.
+     */
+    public static final String TUNABLES = "--tunables";
+
+    /** The vector {@code text} states, as {@code name=value,name=value}; refuses a name or a value it cannot read. */
+    static Map<String, Long> tunables(String text) {
+        Map<String, Long> given = new java.util.TreeMap<>();
+        if (text.isBlank()) {
+            return given;
+        }
+        for (String pair : text.split(",", -1)) {
+            int cut = pair.indexOf('=');
+            if (cut <= 0) {
+                throw new IllegalArgumentException(TUNABLES + " is name=value pairs joined by commas: " + pair);
+            }
+            String name = pair.substring(0, cut).strip();
+            long value;
+            try {
+                value = Long.parseLong(pair.substring(cut + 1).strip());
+            } catch (NumberFormatException notANumber) {
+                throw new IllegalArgumentException(TUNABLES + " " + name + " is a whole number: " + pair, notANumber);
+            }
+            if (given.put(name, value) != null) {
+                throw new IllegalArgumentException(TUNABLES + " names " + name + " twice");
+            }
+        }
+        return given;
+    }
+
+    /**
+     * Refuses a vector that names a number nobody registered or one outside its bounds, in the parent, before a
+     * child is started: a bad vector would otherwise fail every Run of an invocation with the same message.
+     */
+    static void checkTunables(String text) {
+        for (Map.Entry<String, Long> entry : tunables(text).entrySet()) {
+            org.shatterfish.api.Tunables.Tunable tunable = org.shatterfish.api.Tunables.named(entry.getKey());
+            if (tunable == null) {
+                throw new IllegalArgumentException(TUNABLES + " names " + entry.getKey() + ", which is not registered");
+            }
+            if (entry.getValue() < tunable.min() || entry.getValue() > tunable.max()) {
+                throw new IllegalArgumentException(TUNABLES + " " + entry.getKey() + " is from " + tunable.min()
+                        + " to " + tunable.max() + ": " + entry.getValue());
+            }
+        }
+    }
+
     private RunOne() {
     }
 
@@ -130,6 +181,12 @@ public final class RunOne {
         org.shatterfish.api.Playbook playbook = Brains.readsPlaybook(brain) && arguments.containsKey(PLAYBOOK)
                 ? PlaybookFile.read(Path.of(arguments.get(PLAYBOOK)), brain, Path.of(required(arguments, CODEX)))
                 : null;
+        if (arguments.containsKey(TUNABLES)) {
+            if (playbook == null) {
+                throw new IllegalArgumentException(TUNABLES + " moves the numbers of a Playbook, and this Run has none");
+            }
+            playbook = org.shatterfish.api.Tunables.with(playbook, tunables(arguments.get(TUNABLES)));
+        }
         String knowledge = arguments.containsKey(CODEX) && Brains.readsCodex(brain)
                 ? CodexKnowledge.digest(Path.of(arguments.get(CODEX))) : null;
         RunLoop.Logging logging = new RunLoop.Logging(out,
@@ -153,7 +210,36 @@ public final class RunOne {
         org.shatterfish.api.Codex.Knowledge codex = arguments.containsKey(CODEX) && Brains.readsCodex(brain)
                 ? CodexKnowledge.read(Path.of(arguments.get(CODEX)), org.shatterfish.harness.boot.HeadlessBoot.pinnedTag())
                 : null;
-        return new RunLoop().playTriple(triple, salt, wrap.apply(Brains.of(brain, triple, codex, weights, playbook)), cap, logging);
+        RunOutcome outcome = new RunLoop().playTriple(triple, salt, wrap.apply(Brains.of(brain, triple, codex, weights, playbook)), cap, logging);
+        saySteadyWakes();
+        return outcome;
+    }
+
+    /** The file a Run leaves in its own working directory, with the stray wakes of its actor thread. */
+    public static final String STRAY_WAKES = "stray-wakes.txt";
+
+    /**
+     * Writes down how often this Run's actor thread woke between frames with no notify of the stepper's
+     * (issue #399). Zero on a quiet machine. The parent reads it into the index and the direction table,
+     * so that a nonzero count in a ranked Run is seen and not silent.
+     */
+    private static void saySteadyWakes() {
+        try {
+            java.nio.file.Files.writeString(java.nio.file.Path.of("").toAbsolutePath().resolve(STRAY_WAKES),
+                    org.shatterfish.harness.scene.SceneStepper.strayWakesInProcess() + System.lineSeparator(),
+                    java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException("a Run could not say how often its actor thread woke", e);
+        }
+    }
+
+    /** The count a child left in {@code working}, or -1 when it left none (an older child, or a Run that failed). */
+    static long strayWakesIn(java.nio.file.Path working) {
+        try {
+            return Long.parseLong(java.nio.file.Files.readString(working.resolve(STRAY_WAKES)).strip());
+        } catch (java.io.IOException | NumberFormatException none) {
+            return -1;
+        }
     }
 
     /** The file a Run leaves in its own working directory, naming that directory. */
@@ -204,7 +290,7 @@ public final class RunOne {
     /** Every flag a Run knows. Held by name, like the parent's (RigOracleGateTest). */
     static final java.util.List<String> KNOWN = java.util.List.of(SEED, CLASS, SALT, OUT,
             COMMIT, BRAIN, BRAIN_COMMIT, REGISTRATION, MACHINE, CAP, CHALLENGES, CODEX, WEIGHTS, PLAYBOOK,
-            PRACTICE, KIT);
+            PRACTICE, KIT, TUNABLES);
 
     private static String required(Map<String, String> arguments, String flag) {
         String value = arguments.get(flag);

@@ -152,7 +152,10 @@ class StarvationRegressionTest {
             // The one walk the eat Policy takes before a meal: to seen water, for mystery meat alone (#219).
             // Every Step is strictly nearer the water, so it ends within Eat.WATER_REACH steps.
             RunLog.Decision decision = brain.lastDecision();
-            boolean toWater = !eats && decision != null && "eat: water".equals(decision.chosen().why());
+            // A search ahead of that Step, near a trap shown, keeps the Step as its first alternative (Brain.java:559-565).
+            boolean toWater = !eats && decision != null && ("eat: water".equals(decision.chosen().why())
+                    || decision.chosen().why().startsWith("search ahead")
+                    && !decision.alternatives().isEmpty() && "eat: water".equals(decision.alternatives().get(0).why()));
             if (mustEat(observation)) {
                 mustEat++;
                 if (!eats && !toWater) {

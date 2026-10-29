@@ -68,6 +68,35 @@ class LarderTest {
     }
 
     @Test
+    @DisplayName("the audit (story 407): every food stack in the pack is counted in full, and the eat Policy wastes nothing it can avoid")
+    void every_food_counted_and_eaten_without_waste() {
+        // Every food the table knows, counted by its energy times its stack, however many stacks the pack holds.
+        int expected = 0;
+        java.util.ArrayList<org.shatterfish.api.ItemView> pack = new java.util.ArrayList<>();
+        int quantity = 1;
+        for (var food : Eat.ENERGY.entrySet()) {
+            pack.add(EatPolicyTest.food(food.getKey(), quantity));
+            expected += food.getValue() * quantity;
+            quantity++;
+        }
+        Observation held = at(8, Hunger.NONE, pack.toArray(new org.shatterfish.api.ItemView[0]));
+        assertEquals(expected, Larder.food(held), "all of it");
+        assertEquals(0, Larder.food(at(8, Hunger.NONE, Screens.item(ItemKind.OTHER, "ration of food", 3))),
+                "a ration's name on something that is not food buys nothing");
+        // At the hungry icon the hunger is 300 to 449, so a food over 300 loses part of itself: none is eaten
+        // while a smaller one is held, and a lone big one waits for the starving icon.
+        for (var food : Eat.ENERGY.entrySet()) {
+            Hunger icon = Hunger.HUNGRY;
+            Observation screen = at(8, icon, EatPolicyTest.food(food.getKey(), 1));
+            Brain brain = new Brain(FightPolicyTest.KNOWLEDGE, Screens.WEIGHTS, 9L);
+            Brain.Decided decided = brain.decide(screen, brain.update(screen, null));
+            boolean ate = decided.action() instanceof Action.UseItem use && use.action().equals("EAT");
+            assertEquals(food.getValue() <= Eat.HUNGRY && !food.getKey().equals("mystery meat"), ate,
+                    food.getKey() + " at the hungry icon");
+        }
+    }
+
+    @Test
     @DisplayName("frugal under 600 turns: the food held plus what is left of the clock")
     void frugal() {
         Observation fed = at(8, Hunger.NONE, Screens.item(ItemKind.FOOD, "ration of food", 1));

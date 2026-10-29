@@ -63,15 +63,18 @@ public final class Brain {
 
     /** The Policies, highest priority first, fighting by {@code knowledge} and scoring by {@code evaluation}. */
     private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation, Model model, Playbook playbook) {
-        List<Policy> policies = new ArrayList<>(List.of(Policies.answerPrompt(knowledge), new Heal(knowledge, playbook.bosses().goo()), new Douse(knowledge), new Zap(knowledge, playbook), new Shoot(knowledge), new Ranged(knowledge)));
+        List<Policy> policies = new ArrayList<>(List.of(Policies.answerPrompt(knowledge), new Heal(knowledge, playbook.bosses().goo(), playbook.tunables()), new Douse(knowledge), new Zap(knowledge, playbook),
+                new Shoot(knowledge, playbook.tunables()), new Ranged(knowledge, playbook.tunables())));
         if (model == Model.ONE_PLY) {
-            policies.add(new OnePly(knowledge, playbook.bosses().goo()));
+            policies.add(new OnePly(knowledge, playbook.bosses().goo(), playbook.tunables()));
         }
-        policies.addAll(List.of(new Fight(knowledge, playbook.bosses().goo()), new Eat(knowledge),
-                new TestItem(knowledge, playbook), new Pickup(evaluation, knowledge), new Chests(evaluation, knowledge),
+        policies.addAll(List.of(new Fight(knowledge, playbook.bosses().goo(), playbook.tunables()), new Eat(knowledge),
+                new TestItem(knowledge, playbook), new Pickup(evaluation, knowledge, playbook.tunables()),
+                new Chests(evaluation, knowledge, playbook.tunables()),
                 new Equip(evaluation, knowledge), new Tengu(knowledge, playbook.bosses().tengu()),
-                new Descend(knowledge, playbook.bosses()),
-                new Explore(knowledge), new Plunge(knowledge), Policies.fallback(evaluation)));
+                new Descend(knowledge, playbook.bosses(), playbook.tunables()),
+                new Explore(knowledge, playbook.tunables()), new Plunge(knowledge, playbook.tunables()),
+                Policies.fallback(evaluation)));
         return List.copyOf(policies);
     }
 
@@ -133,7 +136,7 @@ public final class Brain {
         this.model = model;
         this.playbook = java.util.Objects.requireNonNull(playbook, "a Brain is built on a Playbook its caller read");
         this.policies = policies(knowledge, evaluation, model, playbook);
-        this.pickup = new Pickup(evaluation, knowledge);
+        this.pickup = new Pickup(evaluation, knowledge, playbook.tunables());
         this.testItem = new TestItem(knowledge, playbook);
     }
 
@@ -408,7 +411,7 @@ public final class Brain {
         }
         boolean[] swum = Fight.swum(observation, memory, knowledge);
         if (swum != null) {
-            memory = memory.avoidingAll(Fight.shore(observation, memory, swum, AVOID_WAITS, crossed));
+            memory = memory.avoidingAll(Fight.shore(observation, memory, swum, playbook.tunables().getInt(org.shatterfish.api.Tunables.BRAIN_AVOID_WAITS), crossed));
         }
         // A retreat, by the stairs or away (issue #174 added the stairs: an enemy that drops out of view
         // one Step toward them let the explore Policy walk straight back, with no region to keep it out).
@@ -431,7 +434,8 @@ public final class Brain {
             }
             if (nearest != null) {
                 memory = memory.avoiding(new Memory.Avoid(observation.header().depth(), observation.header().branch(),
-                        nearest.cell(), Math.min(AVOID_RADIUS, best + 1), memory.waits() + AVOID_WAITS));
+                        nearest.cell(), Math.min(playbook.tunables().getInt(org.shatterfish.api.Tunables.BRAIN_AVOID_RADIUS), best + 1),
+                        memory.waits() + playbook.tunables().getInt(org.shatterfish.api.Tunables.BRAIN_AVOID_WAITS)));
             }
         }
         return memory.belief();

@@ -88,6 +88,34 @@ class DirectionTest {
     }
 
     @Test
+    @DisplayName("tengu is refused for tuning as registered-use only, by selection, by the command and by --class ALL")
+    void tengu_is_refused() {
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> DirectionSelect.select(ROOT, "tengu", HeroClass.WARRIOR, 5, 0));
+        assertTrue(refused.getMessage().contains("tengu") && refused.getMessage().contains("Registration"),
+                refused.getMessage());
+        assertThrows(IllegalArgumentException.class, () -> DirectionSelect.selectAll(ROOT, "tengu", 5, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> Direction.run(Map.of("--set", "tengu", "--class", "ALL", "--root", ROOT.toString())));
+        // The set itself exists and is committed, so the refusal is a rule and not a missing file.
+        assertEquals(600, SeedSets.load(ROOT, "tengu").set().size());
+    }
+
+    @Test
+    @DisplayName("--class ALL is the first N of each of the six classes, each exactly the slice --class <it> gives")
+    void every_class() {
+        List<DirectionSelect.Pick> all = DirectionSelect.selectAll(ROOT, "standard", 3, 1000);
+        assertEquals(18, all.size());
+        int at = 0;
+        for (HeroClass heroClass : HeroClass.values()) {
+            List<DirectionSelect.Pick> alone = DirectionSelect.select(ROOT, "standard", heroClass, 3, 1000);
+            assertEquals(alone, all.subList(at, at + 3), heroClass + " plays what it plays alone, salts included");
+            at += 3;
+        }
+        assertEquals("ALL", DirectionSelect.ALL);
+    }
+
+    @Test
     @DisplayName("the command line refuses a flag it does not know, a flag without a value, and a flag given twice")
     void command_line() {
         assertEquals(Map.of("--set", "smoke", "--first", "3"),
@@ -196,7 +224,11 @@ class DirectionTest {
 
         assertEquals(2, side.runs());
         assertEquals(1, side.reached5());
-        assertEquals(1, side.gooKills());
+        assertEquals(1, side.bossesKilled());
+        assertEquals(0, side.withEnding(), "these logs predate the ending record");
+        assertEquals(0, side.killed("Goo"), "and the count alone does not say which boss");
+        assertEquals(List.of(new DirectionMetrics.Death(5, "not recorded"), new DirectionMetrics.Death(3, "not recorded")),
+                side.killers());
         assertEquals(1000.0, side.medianTurns(), 1e-9, "turns are thousandths in the log");
         assertEquals(4.0, side.deepestMean(), 1e-9);
         assertEquals(5, side.deepestMax());
@@ -214,6 +246,115 @@ class DirectionTest {
         assertEquals(2, side.heapsTaken());
         assertEquals(1, side.slowHeaps(), "198 waits from first sight is slow, 2 is not, untaken is not counted");
         assertEquals(100.0, side.seenToTakenMedian(), 1e-9);
+    }
+
+    private static void ending(Path folder, long seed, long salt, String killer, int depth, int hp, String... bosses)
+            throws IOException {
+        Path log = folder.resolve(RunLog.fileName(RunLog.runId("v4.0.0", HeroClass.WARRIOR, 0, SeedSet.code(seed),
+                salt, "shatterfish")));
+        org.shatterfish.harness.log.EndingRecord.write(log,
+                new org.shatterfish.harness.log.EndingRecord.Ending(killer, depth, hp, 40, List.of(bosses)));
+    }
+
+    @Test
+    @DisplayName("the boss staircase, kills by name, the killers by depth and the think time, from logs with ending records")
+    void staircase_and_killers(@TempDir Path root) throws IOException {
+        Path folder = Files.createDirectories(root.resolve("current"));
+        // Run 1: reaches 10, kills Goo and Tengu, dies on 11 to a Brute.
+        log(folder, 1000, 1, List.of(wait(0, 1, new Action.Step(5), "walk", "explore"),
+                wait(1, 10, new Action.Wait(), "rest", "rest"), wait(2, 11, new Action.Wait(), "rest", "rest")),
+                new RunLog.Outcome(false, false, 0, 11, 900_000, "DEATH", 2));
+        ending(folder, 1000, 1, "Brute", 11, 9, "Goo", "Tengu");
+        // Run 2: kills Goo, dies on 6 to a Skeleton.
+        log(folder, 2000, 2, List.of(wait(0, 1, new Action.Step(5), "walk", "explore"),
+                wait(1, 6, new Action.Wait(), "rest", "rest")),
+                new RunLog.Outcome(false, false, 0, 6, 700_000, "DEATH", 1));
+        ending(folder, 2000, 2, "Skeleton", 6, 4, "Goo");
+        // Run 3: dies on 6 to a Skeleton, no boss.
+        log(folder, 3000, 3, List.of(wait(0, 6, new Action.Step(5), "walk", "explore")),
+                new RunLog.Outcome(false, false, 0, 6, 300_000, "DEATH", 0));
+        ending(folder, 3000, 3, "Skeleton", 6, 12);
+        // Run 4: starves on 6; Run 5: an old log with no ending record at all.
+        log(folder, 4000, 4, List.of(wait(0, 6, new Action.Step(5), "walk", "explore")),
+                new RunLog.Outcome(false, false, 0, 6, 300_000, "DEATH", 0));
+        ending(folder, 4000, 4, "Hunger", 6, 3);
+        log(folder, 5000, 5, List.of(wait(0, 2, new Action.Step(5), "walk", "explore")),
+                new RunLog.Outcome(false, false, 0, 2, 100_000, "DEATH", 0));
+
+        DirectionMetrics.Side side = DirectionMetrics.read(folder);
+        assertEquals(5, side.runs());
+        assertEquals(1, side.reached10());
+        assertEquals(0, side.reached15());
+        assertEquals(2, side.bossesKilled());
+        assertEquals(4, side.withEnding());
+        assertEquals(2, side.killed("Goo"));
+        assertEquals(1, side.killed("Tengu"));
+        assertEquals(0, side.killed("DM-300"));
+
+        String table = DirectionMetrics.table("this", side, null, null);
+        assertTrue(table.contains("| reach depth 10 | 1/5 |"), table);
+        assertTrue(table.contains("| bosses killed | 2/5 |"), table);
+        assertTrue(table.contains("| Goo kills | 2/5 (4 recorded) |"), table);
+        assertTrue(table.contains("| Tengu kills | 1/5 (4 recorded) |"), table);
+
+        String killers = DirectionMetrics.killers(side.killers());
+        assertEquals("| depth | deaths | top killers |\n|---|---|---|\n"
+                + "| 2 | 1 | not recorded 1 |\n"
+                + "| 6 | 3 | Skeleton 2, Hunger 1 |\n"
+                + "| 11 | 1 | Brute 1 |\n", killers);
+        assertTrue(DirectionMetrics.killers(List.of()).contains("No Run died"));
+    }
+
+    @Test
+    @DisplayName("think time is the mean and the nearest-rank 95th percentile over the waits that carry a Decision")
+    void think_time() {
+        List<Long> times = new ArrayList<>();
+        for (long i = 1; i <= 20; i++) {
+            times.add(i);
+        }
+        DirectionMetrics.Side side = DirectionMetrics.Side.pool(List.of(new DirectionMetrics.Side(0, 0, 0, List.of(),
+                List.of(), Map.of(), 0, 0, 0, 0, 0, 0, List.of(), 0, 0, 0, 0, 0, Map.of(), times, List.of())));
+        assertEquals(10.5, side.thinkMean(), 1e-9);
+        assertEquals(19.0, side.thinkP95(), 1e-9, "ceil(0.95 * 20) = 19th of 20 sorted");
+    }
+
+    @Test
+    @DisplayName("--class ALL: a column per class that has Runs and a pooled one, a block per class with a baseline")
+    void all_classes_table(@TempDir Path root) throws IOException {
+        Path folder = Files.createDirectories(root.resolve("current"));
+        log(folder, 1000, 1, List.of(wait(0, 1, new Action.Step(5), "walk", "explore")),
+                new RunLog.Outcome(false, false, 0, 4, 300_000, "DEATH", 0));
+        RunLog.Header mage = new RunLog.Header(RunLog.VERSION, "v4.0.0", "abc1234", HeroClass.MAGE, 0, 77,
+                SeedSet.code(77), 2, 20_000, 3, 2, 8, new RunLog.Brain("shatterfish", "abc1234", ZERO), "", false,
+                "a laptop", "2026-09-25T00:00:00Z");
+        List<RunLog> records = List.of(mage, wait(0, 7, new Action.Step(5), "walk", "explore"),
+                new RunLog.End(1, new RunLog.Outcome(false, false, 0, 7, 600_000, "DEATH", 0), true));
+        StringBuilder text = new StringBuilder();
+        String chain = "";
+        for (RunLog record : records) {
+            text.append(RunLogJson.line(chain, record)).append('\n');
+            chain = RunLogJson.chain(chain, record);
+        }
+        Files.writeString(folder.resolve(RunLog.fileName(mage.runId())), text.toString(), StandardCharsets.UTF_8);
+
+        var classes = DirectionMetrics.classes(folder);
+        assertEquals(List.of(HeroClass.WARRIOR, HeroClass.MAGE), List.copyOf(classes.keySet()));
+        assertEquals(1, classes.get(HeroClass.WARRIOR).runs());
+        assertEquals(1, classes.get(HeroClass.MAGE).reached5());
+
+        String wide = DirectionMetrics.tableAll("now", classes, null, null);
+        assertTrue(wide.startsWith("| | WARRIOR | MAGE | pooled |\n|---|---|---|---|\n"), wide);
+        assertTrue(wide.contains("| Runs | 1 | 1 | 2 |"), wide);
+        assertTrue(wide.contains("| reach depth 5 | 0/1 | 1/1 | 1/2 |"), wide);
+        assertTrue(wide.contains("| deaths by depth 1..7 | 0/0/0/1/0/0/0 | 0/0/0/0/0/0/1 | 0/0/0/1/0/0/1 |"), wide);
+        for (String line : wide.strip().split("\n")) {
+            assertEquals(5, line.split("\\|", -1).length - 1, "every row has the same four cells: " + line);
+        }
+
+        String blocks = DirectionMetrics.tableAll("now", classes, "then", classes);
+        assertTrue(blocks.contains("#### WARRIOR\n\n| | then | now | delta |"), blocks);
+        assertTrue(blocks.contains("#### MAGE\n"), blocks);
+        assertTrue(blocks.contains("#### pooled\n\n| | then | now | delta |"), blocks);
     }
 
     @Test
@@ -284,7 +425,12 @@ class DirectionTest {
         String alone = DirectionMetrics.table("this", side, null, null);
         assertTrue(alone.startsWith("| | this |\n|---|---|\n"), alone);
         assertTrue(alone.contains("| reach depth 5 | 1/2 |"), alone);
-        assertTrue(alone.contains("| Goo kills | 1/2 |"), alone);
+        assertTrue(alone.contains("| reach depth 10 | 0/2 |"), alone);
+        assertTrue(alone.contains("| reach depth 15 | 0/2 |"), alone);
+        assertTrue(alone.contains("| bosses killed | 1/2 |"), alone);
+        assertTrue(alone.contains("| Goo kills | not recorded |"), alone);
+        assertTrue(alone.contains("| Tengu kills | not recorded |"), alone);
+        assertTrue(alone.contains("| think ms per Decision, mean / p95 | 1.0 / 1 |"), alone);
         assertTrue(alone.contains("| median turns | 1000.0 |"), alone);
         assertTrue(alone.contains("| deepest mean / max | 4.000 / 5 |"), alone);
         assertTrue(alone.contains("| deaths by depth 1..5 | 0/0/1/0/1 |"), alone);
