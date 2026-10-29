@@ -50,17 +50,18 @@ class BeliefConsistencyTest {
     @DisplayName("an unidentified appearance in view carries its family's identities, by deck weight")
     void a_distribution() {
         Beliefs beliefs = after(Screens.world(1, FLOOR, List.of(), List.of(),
-                List.of(Screens.item(ItemKind.POTION, "crimson potion", 2)), List.of()));
+                List.of(Screens.item(ItemKind.POTION, "crimson potion", 1)), List.of()));
 
         Beliefs.Guess crimson = guess(beliefs, "crimson potion");
         assertEquals(1.0, sum(crimson), 1e-12);
         assertEquals(4, crimson.odds().size(), "strength is a candidate though the decks weight it zero");
-        // Healing 6, strength weighted as the heaviest (6), mind vision 4, frost 3: of 19.
-        assertEquals("potion of healing", crimson.odds().get(0).name());
-        assertEquals(6.0 / 19, crimson.odds().get(0).probability(), 1e-12);
-        assertEquals(6.0 / 19, crimson.odds().get(1).probability(), 1e-12);
+        // Strength weighted as the floors queue it (Beliefs.STRENGTH_WEIGHT, 12), healing 6, mind vision 4, frost 3: of 25.
+        assertEquals("potion of strength", crimson.odds().get(0).name());
+        assertEquals(12.0 / 25, crimson.odds().get(0).probability(), 1e-12);
+        assertEquals("potion of healing", crimson.odds().get(1).name());
+        assertEquals(6.0 / 25, crimson.odds().get(1).probability(), 1e-12);
         assertEquals("potion of frost", crimson.odds().get(3).name());
-        assertEquals(3.0 / 19, crimson.odds().get(3).probability(), 1e-12);
+        assertEquals(3.0 / 25, crimson.odds().get(3).probability(), 1e-12);
         assertEquals(1, beliefs.identities().size(), "an appearance not in view is not guessed at");
     }
 
@@ -72,12 +73,15 @@ class BeliefConsistencyTest {
 
         assertEquals(List.of("crimson potion", "amber potion"),
                 beliefs.identities().stream().map(Beliefs.Guess::label).toList(), "a heap's stack count is not its name");
-        // P(x) is w_x times the other's total, 19 - w_x: healing and strength 6*13, mind vision
-        // 4*15, frost 3*16, of 264.
-        for (Beliefs.Guess guess : beliefs.identities()) {
+        // A stack of two is a stack: the heap's title says so, and the odds below are for singles.
+        Beliefs singles = after(Screens.world(1, FLOOR, List.of(new HeapView(2, HeapKind.HEAP, false, "amber potion", 0, "")),
+                List.of(), List.of(Screens.item(ItemKind.POTION, "crimson potion", 1)), List.of()));
+        // P(x) is w_x times the other's total, 25 - w_x: strength 12*13, healing 6*19, mind vision
+        // 4*21, frost 3*22, of 420.
+        for (Beliefs.Guess guess : singles.identities()) {
             assertEquals(1.0, sum(guess), 1e-12);
-            assertEquals(78.0 / 264, guess.odds().get(0).probability(), 1e-12, guess.toString());
-            assertEquals(48.0 / 264, guess.odds().get(3).probability(), 1e-12, guess.toString());
+            assertEquals(156.0 / 420, guess.odds().get(0).probability(), 1e-12, guess.toString());
+            assertEquals(66.0 / 420, guess.odds().get(3).probability(), 1e-12, guess.toString());
         }
     }
 
@@ -110,8 +114,8 @@ class BeliefConsistencyTest {
             assertEquals(3, guess.odds().size(), guess.toString());
         }
         assertEquals(2, beliefs.identities().size(), "an identified item wears its own name and is not guessed at");
-        // Strength 6*7, mind vision 4*9, frost 3*10, of 108.
-        assertEquals(42.0 / 108, guess(beliefs, "amber potion").odds().get(0).probability(), 1e-12);
+        // Strength 12*7, mind vision 4*15, frost 3*16, of 192.
+        assertEquals(84.0 / 192, guess(beliefs, "amber potion").odds().get(0).probability(), 1e-12);
     }
 
     @Test

@@ -27,6 +27,7 @@ import org.shatterfish.harness.boot.Profile;
 import org.shatterfish.harness.driver.HeadlessDriver;
 import org.shatterfish.harness.driver.RunLogWriter;
 import org.shatterfish.harness.log.DebugRecord;
+import org.shatterfish.harness.log.EndingRecord;
 import org.shatterfish.harness.driver.Windows;
 import org.shatterfish.harness.executor.ActionExecutor;
 import org.shatterfish.harness.executor.Outcome;
@@ -78,6 +79,11 @@ public final class RunLoop {
     static final int FRAME_BUDGET = 20_000;
 
     private final ActionExecutor executor = new ActionExecutor();
+
+    /** The hero's health at the last wait served, for the ending record; written by the loop, read only after the Run. */
+    private int lastHp = -1;
+
+    private int lastHt = -1;
 
     /**
      * Plays a Run of {@code heroClass} on {@code seed}, choosing at random from {@code agentSeed},
@@ -248,7 +254,9 @@ public final class RunLoop {
                             DebugRecord debug) {
         // The games the rankings held before this Run, so the killer of this one can be told from an
         // old one's; read only for the debug record, which nothing in the Run reads.
-        Set<String> ranked = debug == null ? Set.of() : DebugRecord.rankingsNow();
+        Set<String> ranked = debug == null && log == null ? Set.of() : DebugRecord.rankingsNow();
+        lastHp = -1;
+        lastHt = -1;
         // Every ending goes through here and nowhere else. Wrapping each of the loop's seven
         // returns was the first shape of this, and one of the seven was missed -- the Run that the
         // executor gives up on wrote no end record at all, which made its log byte-identical to a
@@ -263,6 +271,13 @@ public final class RunLoop {
             if (debug != null) {
                 debug.end(played.cause().name(), played.depth(), played.turns(),
                         played.cause() == RunOutcome.Cause.DEATH ? DebugRecord.killerSince(ranked) : "");
+            }
+            if (log != null) {
+                // The Rig's own diagnosis of how this Run ended (E10 W1): written after the Run, read
+                // by nothing that plays, and outside the chain (EndingRecord).
+                EndingRecord.write(log.file(), new EndingRecord.Ending(
+                        played.cause() == RunOutcome.Cause.DEATH ? DebugRecord.killerSince(ranked) : "",
+                        Dungeon.depth, lastHp, lastHt, EndingRecord.bossKillsNow()));
             }
             return ending(log, driver, played);
         } finally {
@@ -323,6 +338,9 @@ public final class RunLoop {
             }
 
             Observation observation = new Observer().observe();
+            // Write-only, for the ending record: nothing here reads it back while the Run plays.
+            lastHp = observation.hero().hp();
+            lastHt = observation.hero().ht();
             // The clock is read around the decision and nowhere else, and what it measures goes
             // in the one field the chain leaves out, so a slow machine and a fast one write the
             // same chain for the same Run.
@@ -354,6 +372,9 @@ public final class RunLoop {
             if (debug != null) {
                 // Write-only: the debug record takes the wait and gives nothing back (issue #219).
                 debug.wait(observation, written);
+                if (agent instanceof org.shatterfish.api.Deliberator deliberator) {
+                    debug.beliefs(observation.header().depth(), written.k(), deliberator.beliefView());
+                }
             }
             if (outcome instanceof Outcome.Rejected rejected) {
                 refused++;

@@ -144,6 +144,7 @@ for the triple at index `i`. Five of them are badge-locked for a profile that ha
 and every Run a set names can be started. That is the menu a player reaches by having played, and
 it changes nothing the bot may read.
 | `goo` | 400 | `6778735` (`0x676F6F`) | Warrior only | none |
+| `tengu` | 600 | `499917940597` (`0x74656E6775`) | the game's six, cycled (100 each) | none |
 
 **The sets are derived, not drawn**, and this is the part that does not ask you to trust anything.
 A set drawn from an unseeded source and committed is a set whose only evidence is the file, and
@@ -738,7 +739,9 @@ nothing is dropped, so the counts add up to the index's.
 
 **What it cannot say.** A Run log's ending records how the Run ended and at what depth, not what
 killed the hero: the log's `Outcome` has no killer — no mob, trap or hunger. So the gallery groups by
-ending and depth, and says so on every page; recording the killer is in `docs/ideas/`. The command above rewrites the gallery for any folder the Rig wrote (for a
+ending and depth, and says so on every page. The killer is recorded beside the log instead (ADR-0011's
+E10 W1 amendment): the gallery ends with a **Deaths by depth, top killers** table read from each dead
+Run's `.ending.json`, and a Run without one is counted as `not recorded`. The command above rewrites the gallery for any folder the Rig wrote (for a
 comparison, one per side) and, with `--snapshots N`, writes the last N waits of every Run into
 `snapshots/`, linked from the gallery: what the Run was doing when it ended. The random Baseline's is in
 [`results/2026-09-23-H-0002/gallery.md`](https://github.com/watchthelight/shatterfish/blob/bdf5ea5b2d38e7911f42e23a5ba08b4237cffc5c/results/2026-09-23-H-0002/gallery.md);
@@ -851,8 +854,8 @@ prints is a published measurement.
 
 | Flag | Meaning |
 |---|---|
-| `--set <name>` | `standard` (the default), `smoke` or `bosses`. `goo` is refused (registered use only) and `holdout` is refused (never for development). |
-| `--class <HERO>` | Keep only that hero class, in any case. |
+| `--set <name>` | `standard` (the default), `smoke` or `bosses`. `goo` and `tengu` are refused (registered use only) and `holdout` is refused (never for development). |
+| `--class <HERO>` | Keep only that hero class, in any case. `ALL` plays the first `--first` of each of the six classes, entry `i` of a class under `--salt-base + i` (so each class is exactly the slice `--class <it>` would play), and prints one table with a column per class and a pooled column; with a baseline it prints a block per class and a pooled block instead. |
 | `--first N` | Keep the first N entries after filtering, in file order. |
 | `--salt-base K` | Entry `i` of the selection plays under salt `K + i` (default 0), so a baseline and the current Brain meet the same dungeon at the same moments and a rerun is the same measurement. |
 | `--baseline <git ref or folder>` | A folder (an earlier direction folder, or a folder of Run logs) is read and nothing is played. A git ref is checked out into a worktree under the output folder, its `:brain:jar` is built there with that checkout's own wrapper, and the same picks are played with the current api, harness and rig but the ref's Brain, Codex and weights. That build is a second Gradle job while the first runs. The baseline's logs are then cached under the repository's common git folder (`shatterfish-direction-cache/`), keyed by the ref's commit, the selection and the current tree's game, api, harness and rig trees, so the next check against the same main in any worktree plays only the current side; nothing is cached while those paths have uncommitted changes. |
@@ -864,11 +867,31 @@ of the standard set in file order, entry `i` under salt `1000 + i`. The flags de
 because a seeds file is written only by `./gradlew :rig:seeds`.
 
 The rows are read from the Run logs through the harness's reader, and from a heap record that the
-direction check's own child process writes beside each log (`.heaps.tsv`): reach of depth 5, Goo kills
-(an ending with at least one boss), median turns, deepest mean and max, deaths by depth, oscillation
+direction check's own child process writes beside each log (`.heaps.tsv`): reach of depth 5, 10 and 15
+(the deepest floor a wait was served on), the boss staircase (`bosses killed` is Runs whose ending
+counts at least one boss; `Goo kills` and `Tengu kills` are Runs whose ending record names that boss,
+from `Statistics.bossScores` index 0 and 1, `Goo.java:306`, `Tengu.java:225`; a Run without an ending
+record, such as one from a baseline cached before E10 W1, is `not recorded`, never guessed), median turns, deepest mean and max, deaths by depth, oscillation
 Steps (runs of at least six consecutive Steps between the same two cells), searches and search waits
 per floor, heaps taken of seen, the median waits from first sight to pick-up, and heaps taking over
-100 waits from first sight. The heap record only watches the Observations the Brain is handed.
+100 waits from first sight, and the think time (mean and nearest-rank 95th percentile milliseconds a
+Decision took, from the log's `think_ms`, which the chain leaves out). The heap record only watches the
+Observations the Brain is handed.
+
+Under the table the direction check prints **deaths by depth, top killers**: one row a depth with the
+deaths there and the four most common killers, read from the `.ending.json` file beside each log (the
+cause class the game's rankings name; ADR-0011's E10 W1 amendment). A death with no such file is
+`not recorded`. It is diagnosis only: nothing a Brain reads. `:rig:gallery` prints the same table under
+the same heading, and a Rig `outcomes.jsonl` row gains `killer`, `death_depth`, `last_hp` and
+`boss_kills` when the record is there.
+
+### Stray actor-thread wakes
+
+A Run is fenced frame by frame: the actor thread runs only after a frame, never during one (`SceneStepper`, ADR-0015). `Object.wait` may return with no notify, and on a starved machine the JVM did so once between two frames of a Rig Run (issue #399), which the stepper used to report as an unfenced run and fail a correct Run for.
+
+The stepper now accepts such a wake and counts it (`SceneStepper.strayWakes()`) when it cannot have hurt a reader of game state. The caller reads state only where the last frame left the hero at an Input wait, and input is delivered inside frames, so a stray pass after a frame that did not end at an Input wait is just the next turn run a frame early. After a frame that did end at one, the pass is accepted only if it left the clock, every actor's time, the hero and the random generators' state as they were, and only if the driver did not reseed in the gap. Anything else still fails the step as unfenced. The Run's actions, its hashes at Input waits and its log are unchanged by an accepted wake; the number of frames to reach a given turn can differ.
+
+Each child Run leaves its count in `stray-wakes.txt` in its working directory. The Rig puts it in the Run's line of `runs.jsonl` (`strayWakes`) and the total in `summary.json`, and `:rig:direction` prints it under the table for the current and baseline sides (`not recorded` for a baseline from before this existed). It is zero on a quiet machine; a nonzero count in a ranked Run is worth a look.
 
 `--tunables name=value,...` plays a parameter vector over the Playbook on the current side (the
 baseline plays the Playbook as committed). The same flag on `:rig:run` goes to the `--brain` side of a

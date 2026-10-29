@@ -89,7 +89,11 @@ class HeuristicLinkTest {
             Map.entry("Memory.MONSTERS", "a capacity of the Memory"),
             Map.entry("Memory.SEALED_RETREATS", "an index into the Memory's flight counters"),
             Map.entry("Memory.WATER_LEAVES", "an index into the Memory's flight counters"),
-            Map.entry("Sentry.MAX_ZONE", "a capacity guard on a flood fill"));
+            Map.entry("Sentry.MAX_ZONE", "a capacity guard on a flood fill"),
+            Map.entry("Evidence.LIMIT", "a cap on the subset states, past which the plain weights answer"),
+            Map.entry("Evidence.SHIFT", "the bit offset of the identity set inside a state key"),
+            Map.entry("Evidence.VIEW", "a cap on the appearances read at once, for the decision's time budget"),
+            Map.entry("Evidence.STACK","the largest stack the falling factorial tells apart"));
 
     /** Constants of nested classes are listed by their nested name; the capacity of the shunned set is one. */
     static final Map<String, String> EXEMPT_NESTED = Map.of("Memory.Windows.SHUNNED", "a capacity of the Memory");
