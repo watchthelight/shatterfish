@@ -162,7 +162,7 @@ development_status:
   epic-9: backlog
   epic-9-retrospective: optional
   epic-10: backlog  # issue #381; milestone E10; stories planned 2026-10-28 (correct-course, plan resilient-herding-moonbeam)
-  10-1-the-boss-staircase-in-the-direction-table: backlog  # issue #347
+  10-1-the-boss-staircase-in-the-direction-table: done  # issue #347
   10-2-the-killer-on-every-death: backlog  # issue #348
   10-3-the-all-class-direction-table-and-the-think-time-column: backlog  # issue #349
   10-4-the-tengu-seed-set: backlog  # issue #350
