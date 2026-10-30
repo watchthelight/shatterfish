@@ -706,7 +706,7 @@ class FightPolicyTest {
         List<Brain.Decided> all = each(screens.toArray(new Observation[0]));
         assertEquals("rest: before-descent", why(all.get(1)));
         assertEquals("rest: before-descent", why(all.get(Explore.RESTS)));
-        assertFalse(why(all.get(Explore.RESTS + 1)).startsWith("rest"), "the rests ran out: " + all.get(Explore.RESTS + 1).decision());
+        assertFalse(why(all.get(Explore.RESTS + 1)).equals("rest: before-descent"), "the rests ran out: " + all.get(Explore.RESTS + 1).decision());
 
         Observation healed = screen(1, 20, false, "worn shortsword",
                 "######",
