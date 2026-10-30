@@ -50,6 +50,10 @@ heaps taken of seen and heaps taking over 100 waits. `--set` is `standard`, `smo
 shown, not a file. Mind the machine's Gradle limit: a git-ref baseline builds a second Gradle job.
 Details are in `docs/methodology.md`, "The direction check".
 
+## Tune runner
+
+`./gradlew :rig:tune --args="--set standard --class ALL --first 20 --salt-base 5000 --iterations 10 --jobs 4 [--params a,b,c] [--resume <dir>]"` runs SPSA over the registry of tunable numbers (ADR-0026) on paired seeds and writes a trajectory and a candidate Playbook into a folder; it never edits a committed Playbook. It refuses `goo`, `holdout` and `tengu`, and any salt outside 5000-6999 (1000 is the lever PRs' slice, 3000 the confirmation, 7000 and up the tiebreaks). Start with a subset of `--params`. Details are in `docs/methodology.md`, "The tune runner".
+
 ## Steps
 
 1. **Is the rig built?** If `shatterfish/rig/src/main/java/org/shatterfish/rig/` contains no

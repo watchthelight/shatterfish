@@ -31,6 +31,7 @@ Documentation: **<https://watchthelight.github.io/shatterfish/>**. The
 | E7 Strategy and lore | Playbooks as data (identification, upgrades, bosses, classes), the Lore intake, and a measured win rate: 0/500 on `standard`, reach depth 5 up from 95 to 206 of 500 ([results](docs/results/2026-10-27-7-10-the-measured-win-rate.md)) | done |
 | E8 Overlay v2 | Explain with its terms, Pause-on conditions, a replay scrubber with the Beliefs view, coach mode and autoexplore | **in progress** |
 | E9 | Learned evaluation (optional) | planned |
+| E10 Through the Prison: Tengu | Tengu, the boss on depth 10, dies in 95% or more of Runs for all six classes: instruments, Prison survival, the Tengu fight, search and one story per class kit; done on the registered `tengu` set | **in progress** |
 
 E4 so far, story by story (each merged with a fairness review, a code review, a
 mutation battery and a direction check on the `smoke` Seed set):
@@ -258,8 +259,23 @@ E5 (the Overlay) so far:
   retrospective's lessons are in `CLAUDE.md` (#255). The gate Run on the registered set waits.
 - Epic 6, tactical search, is open: six stories from a one-ply model over Codex tables to search
   on the real engine with hidden state re-sampled (#254, issues #248 to #253).
-- Next: the replay fix (#245), the live watched sewers run, more of the Goo work (#219), and
-  E6.1, the one-ply model (#248).
+- E10, merged on 2026-10-29:
+  - Instruments: the registry of tunable parameters (#392), the SPSA tune runner `:rig:tune`
+    (#405), the practice harness `:rig:practice`, which starts fights at a boss's door (#387),
+    and the W1 instruments in the direction table (#388).
+  - Search on the real engine: the isolation spike and the ADR-0010 amendment (#389), and the
+    isolated host given the live Run's history so its log matches the swap host (#398).
+  - Prison food: rest after an item test only when hurt. Reach depth 5 went from 104 to 118 of
+    240 (#406). Three early-food levers were measured and none kept (#415).
+  - Deaths read one by one with no rule kept: the DM-100's lightning (#413).
+  - Potion identities read from special rooms (#393). Autoexplore with the bot's brains in the
+    Overlay (#345). A stray actor-thread wake that cannot hurt a reader is accepted (#400).
+  - Tengu: the Brain reaches the seal with the key and through the cell door (#397). Phase one
+    gets a melee fight Policy and memory of the dart traps; in practice fights phase two is now
+    reached in 240 of 240, up from 0, though Tengu is not yet killed (#416).
+- Next: Tengu phase two (#366), and the eight faults seen in a watched Run (#408 to #412): leaving
+  harmful clouds, searching only where the game can hide something, scroll identities from how
+  often each turns up, scroll timing, and pick-up, thrown weapons and dew.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:

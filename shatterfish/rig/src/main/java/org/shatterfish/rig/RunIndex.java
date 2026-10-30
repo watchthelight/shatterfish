@@ -69,10 +69,18 @@ public final class RunIndex {
      * @param log   the log's path, relative to the invocation's folder
      * @param chain the final chain, or empty while the Run is unfinished
      * @param why   what went wrong, for an incomplete Run; empty otherwise
+     * @param strayWakes how many times the Run's actor thread woke between two frames with no notify of
+     *              the stepper's and was accepted ({@code SceneStepper.strayWakes}, issue #399); zero
+     *              for a Run that was not played or whose child did not say
      */
     public record Entry(String runId, String log, State state, String chain, long seed,
                         String heroClass, int challenges, long salt, String cause, long millis,
-                        String why) {
+                        String why, long strayWakes) {
+
+        public Entry(String runId, String log, State state, String chain, long seed, String heroClass,
+                     int challenges, long salt, String cause, long millis, String why) {
+            this(runId, log, state, chain, seed, heroClass, challenges, salt, cause, millis, why, 0);
+        }
 
         public Entry {
             if (runId == null || log == null || state == null || chain == null || cause == null
@@ -83,7 +91,12 @@ public final class RunIndex {
 
         /** The same Run, now that it has ended. */
         public Entry ended(State ended, String chain, String cause, long millis, String why) {
-            return new Entry(runId, log, ended, chain, seed, heroClass, challenges, salt, cause, millis, why);
+            return new Entry(runId, log, ended, chain, seed, heroClass, challenges, salt, cause, millis, why,
+                    strayWakes);
+        }
+
+        Entry withStrayWakes(long count) {
+            return new Entry(runId, log, state, chain, seed, heroClass, challenges, salt, cause, millis, why, count);
         }
 
         String line() {
@@ -100,6 +113,7 @@ public final class RunIndex {
             out.key("cause").value(cause);
             out.key("ms").value(millis);
             out.key("why").value(why);
+            out.key("strayWakes").value(strayWakes);
             out.endObject();
             return out.toJson();
         }
@@ -158,6 +172,23 @@ public final class RunIndex {
                 + " it can have ended; the index is written before a Run is dispatched");
     }
 
+    /** Records how often a finished Run's actor thread woke between frames; see {@link Entry#strayWakes()}. */
+    public synchronized void strayWakes(String runId, long count) {
+        for (int i = 0; i < entries.size(); i++) {
+            if (entries.get(i).runId().equals(runId)) {
+                entries.set(i, entries.get(i).withStrayWakes(count));
+                write();
+                return;
+            }
+        }
+        throw new IllegalStateException("no Run named " + runId + " was ever started");
+    }
+
+    /** Stray wakes summed over every Run of this invocation. */
+    public synchronized long strayWakesTotal() {
+        return entries.stream().mapToLong(Entry::strayWakes).sum();
+    }
+
     /** Every Run this invocation started, in the order it started them. */
     public synchronized List<Entry> entries() {
         return List.copyOf(entries);
@@ -205,6 +236,7 @@ public final class RunIndex {
         // Without this the three counts silently fail to add up to the fourth.
         out.key("runsUnaccounted").value(count(State.STARTED));
         out.key("waits").value(waits);
+        out.key("strayWakes").value(strayWakesTotal());
         out.key("ms").value(millis);
         // Thousandths of a Run per second and of a wait per second: a rate is a fraction, and
         // nothing published by this project writes a float (ADR-0011).

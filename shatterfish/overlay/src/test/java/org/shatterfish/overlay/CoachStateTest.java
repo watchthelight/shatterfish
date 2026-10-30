@@ -53,6 +53,7 @@ class CoachStateTest {
         CoachState coach = new CoachState(run);
         assertEquals(ControlEnablement.COACH_BOT_PLAYS, ControlEnablement.coachReason(Mode.RUNNING, false));
         assertEquals(ControlEnablement.COACH_PAUSED, ControlEnablement.coachReason(Mode.PAUSED, false));
+        assertEquals(ControlEnablement.COACH_REPLAY, ControlEnablement.coachReason(Mode.REPLAY, false));
         for (Mode mode : Mode.values()) {
             assertEquals(ControlEnablement.COACH_RUN_OVER, ControlEnablement.coachReason(mode, true), mode.name());
             assertFalse(coach.toggle(mode, true), mode.name() + " over");

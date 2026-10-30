@@ -177,6 +177,19 @@ tasks.register('direction', JavaExec) {
     outputs.upToDateWhen { false }
 }
 
+// `./gradlew :rig:practice --args="--boss tengu|goo --class <C|ALL> --kit standard --n 40
+// --salt-base 1000 [--jobs N] [--out <dir>]"` plays the Brain from the boss's floor with a kit a
+// profile gives the hero (E10, ADR-0024). A practice Run is never ranked: its header says so and
+// every counting, comparing or publishing path refuses it.
+tasks.register('practice', JavaExec) {
+    group = 'shatterfish'
+    description = 'Plays the Brain from a boss floor with a profile kit (never ranked).'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.rig.PracticeRuns'
+    workingDir = rootDir
+    outputs.upToDateWhen { false }
+}
+
 // `./gradlew :rig:results` regenerates every Results page from its committed data folder in
 // results/ (story 3.10). `--args="<root> extract <runs folder> <slug>"` writes a data folder from a
 // folder the Rig wrote; `--args="<root> page <slug> <title>"` writes its page.
@@ -187,5 +200,19 @@ tasks.register('results', JavaExec) {
     mainClass = 'org.shatterfish.rig.Results'
     workingDir = rootDir
     args = [rootDir.absolutePath]
+    outputs.upToDateWhen { false }
+}
+
+// `./gradlew :rig:tune --args="--set standard --class ALL --first 20 --salt-base 5000 --iterations 10 --jobs 4
+// [--params a,b,c] [--resume <dir>]"` runs SPSA over the registry of tunable numbers (story 10.36,
+// ADR-0026): each iteration plays a plus and a minus vector on the same seeds, and the folder it writes
+// holds the trajectory and a candidate Playbook. It never edits a committed Playbook, and it refuses the
+// goo, holdout and tengu sets and any salt outside 5000-6999.
+tasks.register('tune', JavaExec) {
+    group = 'shatterfish'
+    description = 'Tunes the registered numbers by SPSA on paired seeds and writes a candidate Playbook.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.rig.Tune'
+    workingDir = rootDir
     outputs.upToDateWhen { false }
 }

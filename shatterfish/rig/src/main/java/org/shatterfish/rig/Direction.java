@@ -71,8 +71,14 @@ public final class Direction {
      * the 4.x Brain at main (story 6.1).
      */
     public static final String BRAIN_FLAG = "--brain";
+    /**
+     * A parameter vector the current build plays over its Playbook (story 10.36), as the child's
+     * {@code --tunables}; the baseline plays the Playbook as committed. A candidate against the current numbers
+     * is {@code --tunables ... --baseline <folder of the current numbers>}.
+     */
+    public static final String TUNABLES = "--tunables";
 
-    static final List<String> KNOWN = List.of(SET, CLASS, FIRST, SALT_BASE, BASELINE, JOBS, OUT, ROOT, DEBUG_RECORD, BRAIN_FLAG);
+    static final List<String> KNOWN = List.of(SET, CLASS, FIRST, SALT_BASE, BASELINE, JOBS, OUT, ROOT, DEBUG_RECORD, BRAIN_FLAG, TUNABLES);
 
     /** Default number of Runs in flight: a quarter of the cores, from 2 to 8, so several measurements can share the machine. */
     static final int DEFAULT_JOBS = Math.max(2, Math.min(8, Runtime.getRuntime().availableProcessors() / 4));
@@ -163,7 +169,14 @@ public final class Direction {
         if (!Brains.readsWeights(brain)) {
             throw new IllegalArgumentException(BRAIN_FLAG + " names a Brain built on the Codex and weights; " + brain + " is not");
         }
-        int failedNow = play(picks, currentFolder, Runner.classpath(), root, tag, commit, jobs, brain);
+        String tunables = a.getOrDefault(TUNABLES, "");
+        if (!tunables.isEmpty()) {
+            RunOne.checkTunables(tunables);
+            if (!Brains.readsPlaybook(brain)) {
+                throw new IllegalArgumentException(TUNABLES + " moves the numbers of a Playbook, and " + brain + " has none");
+            }
+        }
+        int failedNow = play(picks, currentFolder, Runner.classpath(), root, tag, commit, jobs, brain, tunables);
 
         Path baselineLogs = baselineFolder;
         String baselineName = baseline;
@@ -190,7 +203,7 @@ public final class Direction {
                 Path jar = brainJar(source);
                 String cp = swapBrain(Runner.classpath(), jar);
                 baselineLogs = out.resolve("baseline");
-                failedBase = play(picks, baselineLogs, cp, source, tag, sha, jobs, BRAIN);
+                failedBase = play(picks, baselineLogs, cp, source, tag, sha, jobs, BRAIN, "");
                 baselineName = sha.startsWith(baseline) ? sha.substring(0, 9) : baseline + " " + sha.substring(0, 9);
                 if (cached != null && failedBase == 0) {
                     store(baselineLogs, cached);
@@ -210,13 +223,20 @@ public final class Direction {
             }
         }
 
+        long strayNow = strayOf(currentFolder);
+        long strayBase = baselineLogs == null ? 0 : strayOf(baselineLogs);
         String table = every
-                ? DirectionMetrics.tableAll("current " + commit.substring(0, 9), DirectionMetrics.classes(currentFolder),
+                ? DirectionMetrics.tableAll("current " + commit.substring(0, 9) + (tunables.isEmpty() ? "" : " + tunables"), DirectionMetrics.classes(currentFolder),
                         baselineName, baselineLogs == null ? null : DirectionMetrics.classes(baselineLogs))
-                : DirectionMetrics.table("current " + commit.substring(0, 9), DirectionMetrics.read(currentFolder),
+                : DirectionMetrics.table("current " + commit.substring(0, 9) + (tunables.isEmpty() ? "" : " + tunables"), DirectionMetrics.read(currentFolder),
                         baselineName, baselineLogs == null ? null : DirectionMetrics.read(baselineLogs));
         StringBuilder text = new StringBuilder();
         text.append(describe).append("\n\n").append(table).append("\n").append(killerSection(currentFolder, every));
+        text.append("\nStray actor-thread wakes (issue #399): ").append(strayText(strayNow)).append(" current");
+        if (baselineLogs != null) {
+            text.append(", ").append(strayText(strayBase)).append(" baseline");
+        }
+        text.append(". A wake the JVM made between two frames; any count above zero is worth a look.\n");
         if (failedNow + failedBase > 0) {
             text.append("\nRuns that did not finish: ").append(failedNow).append(" current, ")
                     .append(failedBase).append(" baseline; see the .err files beside the logs.\n");
@@ -255,8 +275,8 @@ public final class Direction {
      * Plays every pick, {@code jobs} at a time, one child JVM per Run (AD-6), into {@code folder}.
      * Codex and weights come from {@code source}'s checkout. Returns how many Runs did not finish.
      */
-    private static int play(List<DirectionSelect.Pick> picks, Path folder, String classpath, Path source,
-                            String tag, String commit, int jobs, String brain) {
+    static int play(List<DirectionSelect.Pick> picks, Path folder, String classpath, Path source,
+                    String tag, String commit, int jobs, String brain, String tunables) {
         try {
             Files.createDirectories(folder);
         } catch (IOException e) {
@@ -272,7 +292,7 @@ public final class Direction {
             for (int i = 0; i < picks.size(); i++) {
                 DirectionSelect.Pick pick = picks.get(i);
                 Path working = folder.resolve("work").resolve(String.valueOf(i));
-                started.add(pool.submit(() -> one(pick, folder, working, classpath, codex, weights, playbook, commit, brain)));
+                started.add(pool.submit(() -> one(pick, folder, working, classpath, codex, weights, playbook, commit, brain, tunables)));
             }
             int failed = 0;
             for (Future<Boolean> f : started) {
@@ -287,6 +307,18 @@ public final class Direction {
                     throw new IllegalStateException("a Run could not be started: " + e.getCause(), e.getCause());
                 }
             }
+            long stray = 0;
+            boolean known = true;
+            for (int i = 0; i < picks.size(); i++) {
+                long count = RunOne.strayWakesIn(folder.resolve("work").resolve(String.valueOf(i)));
+                known &= count >= 0;
+                stray += Math.max(0, count);
+            }
+            try {
+                Files.writeString(folder.resolve(STRAY), (known ? stray : -1) + "\n", StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                throw new IllegalStateException("could not record the stray wakes in " + folder, e);
+            }
             return failed;
         } finally {
             pool.shutdownNow();
@@ -295,7 +327,8 @@ public final class Direction {
     }
 
     private static boolean one(DirectionSelect.Pick pick, Path folder, Path working, String classpath,
-                               Path codex, Path weights, Path playbook, String commit, String brain) throws IOException, InterruptedException {
+                               Path codex, Path weights, Path playbook, String commit, String brain,
+                               String tunables) throws IOException, InterruptedException {
         Files.createDirectories(working);
         var triple = pick.entry();
         List<String> command = new ArrayList<>(List.of(
@@ -314,6 +347,10 @@ public final class Direction {
         if (playbook != null && Brains.readsPlaybook(brain)) {
             command.add(RunOne.PLAYBOOK);
             command.add(playbook.toAbsolutePath().toString());
+            if (!tunables.isEmpty()) {
+                command.add(RunOne.TUNABLES);
+                command.add(tunables);
+            }
         }
         ProcessBuilder builder = new ProcessBuilder(command).directory(working.toFile()).redirectErrorStream(true);
         org.shatterfish.harness.log.DebugRecord.inherit(builder);
@@ -337,6 +374,21 @@ public final class Direction {
                     + ".err"), said.toString(), StandardCharsets.UTF_8);
         }
         return ok;
+    }
+
+    /** The file a folder of Runs keeps its total stray wakes in; -1 when a child did not say. */
+    private static final String STRAY = "stray-wakes.txt";
+
+    private static long strayOf(Path folder) {
+        try {
+            return Long.parseLong(Files.readString(folder.resolve(STRAY)).strip());
+        } catch (IOException | NumberFormatException none) {
+            return -1;
+        }
+    }
+
+    private static String strayText(long count) {
+        return count < 0 ? "not recorded" : String.valueOf(count);
     }
 
     private static void drain(Process child, StringBuffer said) {

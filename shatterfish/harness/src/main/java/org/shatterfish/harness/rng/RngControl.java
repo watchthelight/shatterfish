@@ -24,6 +24,18 @@ import com.watabou.utils.Random;
  */
 public final class RngControl {
 
+    private static final java.util.concurrent.atomic.AtomicLong MOVES = new java.util.concurrent.atomic.AtomicLong();
+
+    /**
+     * How many times any control has put a generator on or taken one off the stack, in this process.
+     * The stepper compares it across a gap between frames: a reseed there is the driver's, and the
+     * generator state it left is not evidence of a stray pass.
+     */
+    public static long moves() {
+        return MOVES.get();
+    }
+
+
     private final long salt;
 
     /**
@@ -82,6 +94,7 @@ public final class RngControl {
      * at the Run's start: {@code Dungeon.init} would throw away anything pushed before it.
      */
     public void reseed(long k) {
+        MOVES.incrementAndGet();
         if (k < 0) {
             throw new IllegalArgumentException("a wait index counts from zero: " + k);
         }
@@ -98,6 +111,7 @@ public final class RngControl {
      * this when a Run ends; a Run that has never reseeded does nothing here.
      */
     public void release() {
+        MOVES.incrementAndGet();
         if (pushed) {
             Random.popGenerator();
             pushed = false;

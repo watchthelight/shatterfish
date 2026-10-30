@@ -228,6 +228,9 @@ final class DirectionMetrics {
                 throw new IllegalStateException(log + " is an oracle or a ranked Run; a direction check reads"
                         + " only unranked development Runs");
             }
+            // A practice Run began on a boss floor with a made-up kit; no direction table, and so no
+            // baseline, may rest on one (ADR-0024).
+            OverlayLogs.refuse(read, log);
             String heroClass = read.readable() && !read.records().isEmpty()
                     && read.records().get(0) instanceof RunLog.Header first ? first.heroClass().name() : "";
             Acc acc = accs.computeIfAbsent(heroClass, k -> new Acc());

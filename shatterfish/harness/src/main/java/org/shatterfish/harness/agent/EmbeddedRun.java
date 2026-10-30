@@ -739,7 +739,7 @@ public final class EmbeddedRun implements AutoCloseable {
                 dropStale(pendingWait, moved);
                 return State.PLAYING;
             }
-            if (held && credits == 0 && !owed()) {
+            if (held && credits == 0 && !owed() && !halted()) {
                 // The Decision has landed and nobody has paid for it: it is shown and waits (story 5.7). An idle
                 // Run is not a stuck one, so the frame budget does not run.
                 if (!withheld) {
@@ -1312,6 +1312,15 @@ public final class EmbeddedRun implements AutoCloseable {
         }
     }
 
+    /** The words a replay that stopped gives for the Run's ending, or null (story 8.5). */
+    private String endingWord;
+
+    /** Whether the answer in hand is a replay's halt, which ends the Run rather than waiting for a credit (story 8.5). */
+    private boolean halted() {
+        return pending != null && pending.state() == Future.State.SUCCESS && brain instanceof Halting halting
+                && halting.halted() != null;
+    }
+
     /** Whether a Decision has landed for the wait in front and waits for a credit (story 5.7). */
     public boolean withheld() {
         return withheld;
@@ -1456,6 +1465,15 @@ public final class EmbeddedRun implements AutoCloseable {
         withheldBelief = null;
         withheldHighlights = List.of();
         withheldTrouble = null;
+        if (brain instanceof Halting halting && halting.halted() != null) {
+            // A replay that has stopped agreeing with its log, or has run out of it, executes nothing more
+            // (story 8.5): the Run ends here, at the wait it stopped at, in the replay's own words.
+            Halting.Halt halt = halting.halted();
+            endingWord = "replay stopped: " + halt.why();
+            end(halt.kind() == Halting.Kind.MISMATCH ? RunOutcome.Cause.BRAIN_ERROR : RunOutcome.Cause.CLOSED,
+                    "at wait " + k + ": " + halt.detail());
+            return;
+        }
         if (held && !owed()) {
             // Spent here, once the answer is known to be for the screen in front: a stale answer that is
             // dropped and asked again spent nothing (story 5.7). A Prompt that a paid step opened is part
@@ -1713,6 +1731,13 @@ public final class EmbeddedRun implements AutoCloseable {
             pending = null;
         }
         outcome = RunLoop.outcome(cause, rng.salt(), waits, applied, refused, detail);
+        if (!suspending && endingWord == null && outcome.ordinary() && brain instanceof Halting replay) {
+            // A replay whose game ended some other way than the log says is a mismatch too (story 8.5).
+            String differs = replay.checkEnding(cause.name(), outcome.depth(), RunLoop.thousandths());
+            if (differs != null) {
+                endingWord = "replay stopped: " + differs;
+            }
+        }
         withheld = false;
         withheldDecision = null;
         withheldTrouble = null;
@@ -1733,6 +1758,9 @@ public final class EmbeddedRun implements AutoCloseable {
                     (human != null && human.unverifiableFrom() > 0) || resumedMark != null);
         }
         ending = RunEnding.of(outcome, rankingsBefore, log == null ? null : log.file());
+        if (endingWord != null) {
+            ending = new RunEnding(endingWord, ending.turn(), ending.floor(), ending.log());
+        }
         if (log != null) {
             log.close();
         }

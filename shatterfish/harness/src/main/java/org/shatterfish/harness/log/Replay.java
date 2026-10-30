@@ -206,6 +206,14 @@ public final class Replay {
             return new Refusal("oracle", "a Run that saw what a player could not",
                     "a build that plays fair Runs and replays fair Runs (FR-11)");
         }
+        if (header.practiceRun()) {
+            try {
+                org.shatterfish.harness.practice.Practice.parse(header.practice(), header.heroClass());
+            } catch (IllegalArgumentException unresolved) {
+                return new Refusal("practice start", header.practice(),
+                        "a start this build resolves to the same kit (" + unresolved.getMessage() + ")");
+            }
+        }
         if (header.embedded() && refuseTheOverlay) {
             return new Refusal("driver", RunLog.Header.EMBEDDED,
                     "a headless Run, because an Overlay Run is not reproducible from its tuple or"
@@ -222,6 +230,40 @@ public final class Replay {
                             + " file can say anything");
         }
         return null;
+    }
+
+    /** A log that verifies and that this build can play: the header, the records and the chain. */
+    public record Opened(RunLog.Header header, RunLogReader.Log log, String chain) {
+    }
+
+    /**
+     * Opens a log to play it in the Overlay (story 8.5): the chain is verified first, the file is read once, it
+     * must hold one header, and this build must be one that can play it. Unlike {@link #of} it accepts an Overlay
+     * log (a person's or the Brain's), since the Overlay is the driver that played it; an oracle log, a challenge
+     * set, a turn cap past {@link #CAP_MOST} and every build mismatch are refused as {@link #refusal} refuses them.
+     *
+     * @throws IllegalArgumentException with the reason, in words the Panel shows, when the log cannot be played
+     */
+    public static Opened open(Path file) {
+        String text = read(file);
+        RunLogVerifier.Verified verified = RunLogVerifier.of(text);
+        if (!verified.ok()) {
+            throw new IllegalArgumentException("the log does not verify, so it is not played: " + verified.why());
+        }
+        RunLogReader.Log log = RunLogReader.of(text);
+        if (!log.readable()) {
+            throw new IllegalArgumentException("the log could not be read: " + log.unreadable());
+        }
+        long headers = log.records().stream().filter(RunLog.Header.class::isInstance).count();
+        if (headers != 1) {
+            throw new IllegalArgumentException("a Run log holds one header and this one holds " + headers
+                    + "; two Runs in one file are not one Run");
+        }
+        Refusal refusal = refusal(log.header(), false);
+        if (refusal != null) {
+            throw new IllegalArgumentException(refusal.toString());
+        }
+        return new Opened(log.header(), log, verified.chain());
     }
 
     /**
@@ -282,13 +324,12 @@ public final class Replay {
             throw new IllegalArgumentException(refusal.toString());
         }
 
-        // The waits and the unsupported marks, and nothing else. `Following` is a Decider, and the
+        // The waits and the unsupported marks, and nothing else. `LogFollower` is a Decider, and the
         // Log it used to be handed holds the header, which holds the salt and the seed. Nothing
         // read them -- but story 3.3's blocking finding was a Decider seeded from the salt, and
         // "the constructor happens not to keep it" is a weaker sentence than "it is never given
         // it". A Decider is handed Observations and the Actions it is reproducing.
-        Following following = new Following(log.waits(), Following.firstGap(log),
-                Following.saidUnverifiable(log), Following.brainError(log));
+        LogFollower following = LogFollower.strict(log);
         // `false`, in the source. The oracle flag was read out of the log here, which made this the
         // only production caller that could set it at all -- from a file. The guard that stops that
         // now is `refusal`, above, which refuses an oracle log before anything is played; the
@@ -296,6 +337,12 @@ public final class Replay {
         // because a fairness-critical flag should not be one refusal away from being data.
         RunLoop.Logging logging = new RunLoop.Logging(out, header.commit(), header.brain(),
                 header.registration(), machine, false);
+        if (header.practiceRun()) {
+            // A practice Run is reproduced from the same start: the stamp names the boss and the profile,
+            // and parse refuses one whose kit this build resolves differently (ADR-0024).
+            logging = logging.practising(org.shatterfish.harness.practice.Practice.parse(header.practice(),
+                    header.heroClass()));
+        }
         SeedSet.Entry triple = new SeedSet.Entry(header.seed(), header.heroClass(),
                 header.challenges(), header.seedCode());
 
@@ -309,8 +356,8 @@ public final class Replay {
         // reached by `decide`: the Run ends at its cap, or the hero dies, before anything asks for
         // another Action -- so the Replay would finish, compare two chains that cannot match, and
         // report a failed reproduction of a Run that is simply not reproducible.
-        if (following.unverifiableFrom != Long.MAX_VALUE) {
-            throw new Unverifiable(following.unverifiableFrom, following.verified);
+        if (following.unverifiableFrom() != Long.MAX_VALUE) {
+            throw new Unverifiable(following.unverifiableFrom(), following.verified());
         }
         String ours = RunLogVerifier.of(out.resolve(RunLog.fileName(header.runId()))).chain();
         String theirs = verified.chain();
@@ -321,7 +368,7 @@ public final class Replay {
             // but it records no ending, so there is no ending to reach and the chains cannot agree
             // however faithful the reproduction was. Saying "did not reproduce" of that would be
             // reporting an incomplete measurement as a failed one.
-            why = "the log records no ending, so there is no chain to reach: the " + following.verified
+            why = "the log records no ending, so there is no chain to reach: the " + following.verified()
                     + " waits it does record were reproduced, and the Run it describes was killed"
                     + " before it finished";
         } else if (!reproduced) {
@@ -329,7 +376,7 @@ public final class Replay {
                     + ", so this build did not reproduce the Run the log describes ("
                     + outcome.cause() + ")";
         }
-        return new Result(header.runId(), log.waits().size(), following.verified,
+        return new Result(header.runId(), log.waits().size(), following.verified(),
                 reproduced && log.end() != null, ours, theirs, header.commit(), why);
     }
 
@@ -392,10 +439,13 @@ public final class Replay {
         if (refusal != null) {
             throw new IllegalArgumentException(refusal.toString());
         }
-        Following following = new Following(log.waits(), Following.firstGap(log),
-                Following.saidUnverifiable(log), Following.brainError(log));
+        LogFollower following = LogFollower.strict(log);
         RunLoop.Logging logging = new RunLoop.Logging(out, header.commit(), header.brain(), header.registration(),
                 machine, false);
+        if (header.practiceRun()) {
+            logging = logging.practising(org.shatterfish.harness.practice.Practice.parse(header.practice(),
+                    header.heroClass()));
+        }
         SeedSet.Entry triple = new SeedSet.Entry(header.seed(), header.heroClass(), header.challenges(),
                 header.seedCode());
         try {
@@ -403,165 +453,7 @@ public final class Replay {
         } catch (Unverifiable gap) {
             return new Waits(header.runId(), log.waits().size(), gap.verified(), gap.at());
         }
-        return new Waits(header.runId(), log.waits().size(), following.verified,
-                following.unverifiableFrom == Long.MAX_VALUE ? 0 : following.unverifiableFrom);
-    }
-
-    /**
-     * The decider that is the log: at each wait it checks that this build is seeing what the log
-     * recorded, and hands back the Action that was taken.
-     */
-    private static final class Following implements org.shatterfish.api.Deliberator {
-
-        private final List<RunLog.Wait> waits;
-
-        /**
-         * The first wait from which nothing can be reproduced, or {@code Long.MAX_VALUE}.
-         *
-         * <p>One number rather than a list, because an {@code unsupported} record makes everything
-         * <em>from</em> the wait it names unverifiable -- which is what {@code End.verifiable}'s own
-         * javadoc says -- and the first draft only fired when the mark named a wait the log also
-         * recorded. The realistic overlay case is the other one: the input the executor could not
-         * express is the reason there is no wait record there, and a mark after the last recorded
-         * wait was ignored entirely.
-         */
-        private final long unverifiableFrom;
-
-        private int at;
-        private int verified;
-
-        /**
-         * The wait last followed. A Brain's log says why at every wait (story 4.1); the replay
-         * reproduces the Action and states the same Decision and Belief hash the log recorded, so
-         * the record it writes is the recorded one and the chains compare.
-         */
-        private RunLog.Wait followed;
-
-        /**
-         * The Brain's own message, when the log says the Run ended because the Brain could not decide
-         * (story 4.11), or null. The original threw at the wait after its last recorded one and wrote
-         * no record for it; the follower, out of waits there, says the same thing the same way, so the
-         * Run loop writes the same ending.
-         */
-        private final String brainError;
-
-        /**
-         * Whether the log's end record says the Run cannot be reproduced. An Overlay Run a person closed
-         * mid-play ends as {@code CLOSED} (issue #175), unverifiable because its ending was nobody's to
-         * reach; the waits before it are what they were, so such an end is read as a log that stops
-         * there, the way a killed Run's log is, and its waits are still checked.
-         */
-        static boolean saidUnverifiable(RunLogReader.Log log) {
-            RunLog.End end = log.end();
-            return end != null && !end.verifiable() && !CLOSED.equals(end.outcome().cause());
-        }
-
-        /** The cause an Overlay Run closed mid-play ends with ({@code RunOutcome.Cause.CLOSED}). */
-        static final String CLOSED = "CLOSED";
-
-        Following(List<RunLog.Wait> waits, long unverifiableFrom, boolean saidUnverifiable, String brainError) {
-            this.brainError = brainError;
-            this.waits = List.copyOf(waits);
-            // The log's own end record is believed when it says the Run was not verifiable, even if
-            // no surviving `unsupported` mark says which wait: a writer that marked its Run
-            // unverifiable knows something this reader does not.
-            this.unverifiableFrom = saidUnverifiable && unverifiableFrom == Long.MAX_VALUE
-                    ? 0 : unverifiableFrom;
-        }
-
-        @Override
-        public Action decide(Observation observation) {
-            if (at >= waits.size()) {
-                if (unverifiableFrom != Long.MAX_VALUE) {
-                    // The waits ran out and the log says something past them could not be
-                    // expressed. That is not a Run that ended; it is a Run nothing can check.
-                    throw new Unverifiable(unverifiableFrom, verified);
-                }
-                if (brainError != null) {
-                    throw new org.shatterfish.api.Decider.CannotDecide(brainError);
-                }
-                // The log has nothing more to say, so the Run is over as far as a reproduction
-                // goes. Returning null ends the loop by its own rule rather than inventing an
-                // Action nobody recorded.
-                return null;
-            }
-            RunLog.Wait wait = waits.get(at++);
-            if (wait.k() >= unverifiableFrom) {
-                throw new Unverifiable(unverifiableFrom, verified);
-            }
-            if (!observation.hash().equals(wait.obs())) {
-                throw new Diverged(wait.k(), moved(observation, wait),
-                        "at wait " + wait.k() + " this build sees " + observation.hash()
-                                + " and the log recorded " + wait.obs() + "; the sections that differ are "
-                                + moved(observation, wait));
-            }
-            verified++;
-            followed = wait;
-            return wait.action();
-        }
-
-        @Override
-        public RunLog.Decision lastDecision() {
-            return followed == null ? null : followed.decision();
-        }
-
-        /** The replay holds no Belief, only the hash the log recorded; see {@link #beliefHash}. */
-        @Override
-        public org.shatterfish.api.Belief belief() {
-            return null;
-        }
-
-        @Override
-        public String beliefHash() {
-            return followed == null ? "" : followed.belief();
-        }
-
-        /** The cells the log recorded for the wait followed (story 4.4), so the replayed record is the recorded one. */
-        @Override
-        public List<Integer> lastHighlights() {
-            return followed == null ? List.of() : followed.highlights();
-        }
-
-        /**
-         * The message a Run that ended as a Brain error ended with, as the loop wrote it after its
-         * "at wait k: " prefix, or null for any other ending.
-         */
-        static String brainError(RunLogReader.Log log) {
-            RunLog.End end = log.end();
-            if (end == null || !"BRAIN_ERROR".equals(end.outcome().cause())) {
-                return null;
-            }
-            String detail = end.detail();
-            int colon = detail.indexOf(": ");
-            return colon < 0 ? detail : detail.substring(colon + 2);
-        }
-
-        /** The first wait an {@code unsupported} record makes unreproducible, if there is one. */
-        static long firstGap(RunLogReader.Log log) {
-            long first = Long.MAX_VALUE;
-            for (RunLog record : log.records()) {
-                if (record instanceof RunLog.Unsupported gap) {
-                    first = Math.min(first, gap.k());
-                }
-            }
-            return first;
-        }
-
-        /** Which sections differ, because "wait 412 differs" is not something anyone can act on. */
-        private static List<String> moved(Observation observation, RunLog.Wait wait) {
-            Map<String, String> fresh = observation.sectionHashes();
-            TreeSet<String> differing = new TreeSet<>();
-            for (Map.Entry<String, String> section : wait.sections().entrySet()) {
-                if (!section.getValue().equals(fresh.get(section.getKey()))) {
-                    differing.add(section.getKey());
-                }
-            }
-            for (String section : fresh.keySet()) {
-                if (!wait.sections().containsKey(section)) {
-                    differing.add(section);
-                }
-            }
-            return List.copyOf(differing);
-        }
+        return new Waits(header.runId(), log.waits().size(), following.verified(),
+                following.unverifiableFrom() == Long.MAX_VALUE ? 0 : following.unverifiableFrom());
     }
 }

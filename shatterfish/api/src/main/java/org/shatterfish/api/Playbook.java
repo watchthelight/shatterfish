@@ -36,8 +36,10 @@ import java.util.Map;
  * @param kit      the base {@code kit} section
  * @param classes  per hero class, the sections as that class plays them, sorted by class name (the order the file reader requires), each once
  * @param bosses   the {@code bosses} section, one entry per boss (story 7.5)
+ * @param tunables the values of the Policy constants the registry {@link Tunables} lists, as far as they differ from the defaults (story 10.35)
  */
-public record Playbook(String name, int version, Identify identify, Upgrade upgrade, Kit kit, List<ClassEntry> classes, Bosses bosses) {
+public record Playbook(String name, int version, Identify identify, Upgrade upgrade, Kit kit, List<ClassEntry> classes, Bosses bosses,
+                       Tunables.Vector tunables) {
 
     /** The version of the file's shape, which the reader checks. */
     public static final int FORMAT = 1;
@@ -50,11 +52,17 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
         java.util.Objects.requireNonNull(upgrade, "upgrade");
         java.util.Objects.requireNonNull(kit, "kit");
         java.util.Objects.requireNonNull(bosses, "bosses");
+        java.util.Objects.requireNonNull(tunables, "tunables");
         classes = Canon.sorted(classes, Comparator.comparing((ClassEntry entry) -> entry.heroClass().name()), "classes");
         for (int i = 1; i < classes.size(); i++) {
             Canon.require(classes.get(i).heroClass() != classes.get(i - 1).heroClass(),
                     "a hero class is stated once: " + classes.get(i).heroClass());
         }
+    }
+
+    /** A Playbook that states no Policy tunables, the shape before story 10.35. */
+    public Playbook(String name, int version, Identify identify, Upgrade upgrade, Kit kit, List<ClassEntry> classes, Bosses bosses) {
+        this(name, version, identify, upgrade, kit, classes, bosses, Tunables.Vector.REFERENCE);
     }
 
     /** A Playbook with the reference {@code bosses}, the shape story 7.6 built. */
@@ -124,6 +132,11 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
         section(out, "identify", identify.values());
         section(out, "kit", kit.values());
         out.key("name").value(name);
+        // Only a Playbook that moves a Policy constant has the section, so every earlier hash holds (story 10.35).
+        if (!tunables.isReference()) {
+            Map<String, Object> stated = new LinkedHashMap<>(tunables.values());
+            section(out, "tunables", stated);
+        }
         section(out, "upgrade", upgrade.values());
         out.key("version").value(version);
         out.endObject();
@@ -187,7 +200,8 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
             case "upgrade" -> Upgrade.SPECS;
             case "kit" -> Kit.SPECS;
             case "bosses.goo" -> Goo.SPECS;
-            case "bosses.tengu", "bosses.dm300" -> Later.SPECS;
+            case "bosses.tengu" -> Tengu.SPECS;
+            case "bosses.dm300" -> Later.SPECS;
             default -> throw new IllegalArgumentException("the Playbook has no section " + section);
         };
     }
@@ -202,6 +216,9 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
      * @param gainOddsPerMille      the least odds of strength or experience an unknown potion is drunk at, at any health
      * @param inventoryOddsPerMille the most odds the item-picker scrolls may hold of an unknown scroll that is read
      * @param restWaits             the most waits after a test the hero rests toward full health
+     * @param restHpPerMille        the most hit points, in thousandths of the hero's most, at which a rest after a
+     *                              test is owed (it ends above that); food is one a floor and a rest costs ten turns of it a hit point, so a
+     *                              hero scratched but not hurt goes on (story 10.15)
      * @param reach                 the most Steps walked to a better testing cell
      * @param escapeWaits           the waits after a test the hero steps out of fire or gas
      * @param potionHpPerMille      the most hit points, in thousandths of the hero's most, at which an unknown potion is
@@ -216,6 +233,7 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
             @Heuristic("strength-experience-potions") int gainOddsPerMille,
             @Heuristic(Heuristic.UNLINKED) int inventoryOddsPerMille,
             @Heuristic("regen-rest-test") int restWaits,
+            @Heuristic("regen-rest-test") int restHpPerMille,
             @Heuristic("test-spot-door-water") int reach,
             @Heuristic("test-spot-door-water") int escapeWaits,
             @Heuristic("unknown-potion-heal-half") int potionHpPerMille,
@@ -231,11 +249,12 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
                 Spec.number("known_gains", 0, 1),
                 Spec.number("potion_hp_per_mille", 1, 1000),
                 Spec.number("reach", 0, 40),
+                Spec.number("rest_hp_per_mille", 1, 1000),
                 Spec.number("rest_waits", 0, 500),
                 Spec.number("scroll_hp_per_mille", 1, 1000));
 
         /** The values the Policies decided by before they were data (stories 4.10, 4.13); the first Playbook states them. */
-        public static final Identify REFERENCE = new Identify(200, 200, 250, 50, 8, 12, 500, 1000, 0);
+        public static final Identify REFERENCE = new Identify(200, 200, 250, 50, 1000, 8, 12, 500, 1000, 0);
 
         public Identify {
             check(SPECS.get(0), escapeWaits);
@@ -245,8 +264,9 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
             check(SPECS.get(4), knownGains);
             check(SPECS.get(5), potionHpPerMille);
             check(SPECS.get(6), reach);
-            check(SPECS.get(7), restWaits);
-            check(SPECS.get(8), scrollHpPerMille);
+            check(SPECS.get(7), restHpPerMille);
+            check(SPECS.get(8), restWaits);
+            check(SPECS.get(9), scrollHpPerMille);
         }
 
         /** The least odds of healing an unknown potion is drunk at when hurt. */
@@ -279,6 +299,7 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
             values.put("known_gains", (long) knownGains);
             values.put("potion_hp_per_mille", (long) potionHpPerMille);
             values.put("reach", (long) reach);
+            values.put("rest_hp_per_mille", (long) restHpPerMille);
             values.put("rest_waits", (long) restWaits);
             values.put("scroll_hp_per_mille", (long) scrollHpPerMille);
             return values;
@@ -289,9 +310,15 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
             Map<String, Object> values = values();
             values.putAll(given);
             return new Identify(num(values, "healing_odds_per_mille"), num(values, "gain_odds_per_mille"),
-                    num(values, "inventory_odds_per_mille"), num(values, "rest_waits"), num(values, "reach"),
+                    num(values, "inventory_odds_per_mille"), num(values, "rest_waits"), num(values, "rest_hp_per_mille"),
+                    num(values, "reach"),
                     num(values, "escape_waits"), num(values, "potion_hp_per_mille"), num(values, "scroll_hp_per_mille"),
                     num(values, "known_gains"));
+        }
+
+        /** Whether {@code hp} of {@code ht} is low enough for a rest after a test to begin. */
+        public boolean restHp(int hp, int ht) {
+            return 1000L * hp <= (long) restHpPerMille * ht;
         }
 
         /** Whether {@code hp} of {@code ht} is low enough for an unknown potion to be drunk for its odds of healing. */
@@ -373,17 +400,27 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
     /**
      * How each boss is approached (story 7.5, FR-35). A boss entry holds typed fields and no layout, no
      * cell and no coordinate: the Brain reads the boss from the screen. {@code goo} is the one entry
-     * whose fields change a fight; the later bosses carry the descent rest and are marked
-     * {@code UNTESTED} until the {@code bosses} set reaches them in numbers worth tuning on.
+     * whose fields change a fight and {@code tengu} the one whose fields change the walk to it (story
+     * 10.18); the last boss carries the descent rest and is marked {@code UNTESTED} until the
+     * {@code bosses} set reaches it in numbers worth tuning on.
      *
      * @param goo   the first boss, depth 5
      * @param tengu the second boss, depth 10
      * @param dm300 the third boss, depth 15
      */
-    public record Bosses(Goo goo, Later tengu, Later dm300) {
+    public record Bosses(Goo goo, Tengu tengu, Later dm300) {
 
         /** The values the Policies decided by before the entries existed. */
-        public static final Bosses REFERENCE = new Bosses(Goo.REFERENCE, Later.REFERENCE, Later.REFERENCE);
+        public static final Bosses REFERENCE = new Bosses(Goo.REFERENCE, Tengu.REFERENCE, Later.REFERENCE);
+
+        /**
+         * Bosses whose Tengu entry is the reference entry with the descent rest and status of {@code tengu}: the
+         * shape before story 10.18, which held Tengu's entry as a later boss's.
+         */
+        public Bosses(Goo goo, Later tengu, Later dm300) {
+            this(goo, Tengu.REFERENCE.with(Map.of("descent_rest_per_mille", (long) tengu.descentRestPerMille(),
+                    "status", tengu.status())), dm300);
+        }
 
         public Bosses {
             java.util.Objects.requireNonNull(goo, "goo");
@@ -463,7 +500,60 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
     }
 
     /**
-     * A later boss's entry (Tengu, DM-300): the descent rest, and whether the entry was ever tuned.
+     * The Tengu entry: the boss of depth 10, and the floor the Brain walks through to reach him (story
+     * 10.18). The fight has no field yet.
+     *
+     * @param descentRestPerMille the share of the hit points, in thousandths, the hero rests up to beside the stairs down to Tengu's floor
+     * @param enterPerMille       the share of the hit points, in thousandths, the hero rests up to before it opens the cell door, which seals the floor
+     * @param restLimit           the most rests handed over on Tengu's floor before the door is opened regardless
+     * @param status              {@code UNTESTED} or {@code TESTED}
+     */
+    public record Tengu(
+            @Heuristic("rest-before-descend") int descentRestPerMille,
+            @Heuristic("tengu-entry") int enterPerMille,
+            @Heuristic("tengu-entry") int restLimit,
+            String status) {
+
+        /** The fields, sorted as the file states them. */
+        public static final List<Spec> SPECS = List.of(
+                Spec.number("descent_rest_per_mille", 1, 1000),
+                Spec.number("enter_per_mille", 1, 1000),
+                Spec.number("rest_limit", 0, 100),
+                Spec.choice("status", List.of("TESTED", "UNTESTED")));
+
+        /** Rest to full on both sides of the stairs, a rest limit as the descend Policy's, and untested. */
+        public static final Tengu REFERENCE = new Tengu(1000, 1000, 20, "UNTESTED");
+
+        public Tengu {
+            check(SPECS.get(0), descentRestPerMille);
+            check(SPECS.get(1), enterPerMille);
+            check(SPECS.get(2), restLimit);
+            java.util.Objects.requireNonNull(status, "status");
+            Canon.require(SPECS.get(3).allowed().contains(status),
+                    "status is one of " + SPECS.get(3).allowed() + ": " + status);
+        }
+
+        /** The fields by name, in {@link #SPECS} order. */
+        public Map<String, Object> values() {
+            Map<String, Object> values = new LinkedHashMap<>();
+            values.put("descent_rest_per_mille", (long) descentRestPerMille);
+            values.put("enter_per_mille", (long) enterPerMille);
+            values.put("rest_limit", (long) restLimit);
+            values.put("status", status);
+            return values;
+        }
+
+        /** This entry with the fields {@code given} states replaced; every key of {@code given} is a field. */
+        public Tengu with(Map<String, Object> given) {
+            Map<String, Object> values = values();
+            values.putAll(given);
+            return new Tengu(num(values, "descent_rest_per_mille"), num(values, "enter_per_mille"),
+                    num(values, "rest_limit"), (String) values.get("status"));
+        }
+    }
+
+    /**
+     * A later boss's entry (DM-300): the descent rest, and whether the entry was ever tuned.
      * An {@code UNTESTED} entry holds the reference values and the claims behind it in the Lore: fewer
      * than ten Runs of the {@code bosses} set reach these bosses, so nothing here has been measured.
      *
