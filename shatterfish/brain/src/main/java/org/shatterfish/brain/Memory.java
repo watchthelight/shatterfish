@@ -253,7 +253,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
     static final Memory START = new Memory(0, 0, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
             List.of(), Spot.NOWHERE, 0, false, List.of(), List.of(), "", 0, -1, -1, List.of(), List.of(), "", List.of(),
             Pack.NONE, Aim.NONE, -1, Trial.NONE, List.of(), 0, -1, List.of(), -1, 0, 0, -1, -1, List.of(), Windows.NONE, -1, 0, 0, -1, -1, 0, -1, -1,
-            Spot.NOWHERE, -1, List.of(), List.of(), List.of());
+            Spot.NOWHERE, -1, List.of(), List.of(), List.of(), List.of());
 
     /** The set in {@link #flights} that counts the retreats made on a sealed floor (issue #180); sets 0 to 2 count stairs flights. */
     static final int SEALED_RETREATS = 3;
@@ -269,7 +269,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         this(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm, dwelt, blocked,
                 last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial, balked, walking,
                 tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, prior, bounces, hunger, hp,
-                food, tail, pump, pumpWait, Spot.NOWHERE, -1, List.of(), List.of(), List.of());
+                food, tail, pump, pumpWait, Spot.NOWHERE, -1, List.of(), List.of(), List.of(), List.of());
     }
 
     /** Story 4.11's shape: no cell two waits ago, no bounces, the hunger clock at its start. */
@@ -282,7 +282,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         this(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm, dwelt, blocked,
                 last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial, balked, walking,
                 tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, windows, -1, 0, 0, -1, -1, 0, -1, -1,
-                Spot.NOWHERE, -1, List.of(), List.of(), List.of());
+                Spot.NOWHERE, -1, List.of(), List.of(), List.of(), List.of());
     }
 
     /** Story 4.12's shape: no window opened or left. */
@@ -295,7 +295,7 @@ record Memory(long waits, int deepest, List<Fact> facts, List<Found> found, List
         this(waits, deepest, facts, found, held, known, labels, pending, monsters, at, streak, calm, dwelt, blocked,
                 last, holds, near, before, flights, avoid, underfoot, refused, pack, aim, drank, trial, balked, walking,
                 tested, clouds, refuge, arrived, rests, stepped, tried, fleeting, Windows.NONE, -1, 0, 0, -1, -1, 0, -1, -1,
-                Spot.NOWHERE, -1, List.of(), List.of(), List.of());
+                Spot.NOWHERE, -1, List.of(), List.of(), List.of(), List.of());
     }
 
     /**

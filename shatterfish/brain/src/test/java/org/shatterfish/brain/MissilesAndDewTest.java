@@ -62,6 +62,13 @@ class MissilesAndDewTest {
         return decided;
     }
 
+    /** A Brain with the #412 pick-up and fetch levers switched off, the control that shows each test below discriminates. */
+    private static Brain off() {
+        org.shatterfish.api.Playbook off = org.shatterfish.api.Tunables.with(org.shatterfish.api.Playbook.reference("off"),
+                Map.of("pickup.missile_reach", 0L, "pickup.dew_skin_below", 0L, "ranged.fetch_steps", 0L));
+        return new Brain(FightPolicyTest.KNOWLEDGE, Screens.WEIGHTS, off, 9L, Brain.Model.BASELINE);
+    }
+
     private static Brain brain() {
         return new Brain(FightPolicyTest.KNOWLEDGE, Screens.WEIGHTS, 9L);
     }
@@ -105,6 +112,13 @@ class MissilesAndDewTest {
         assertEquals("pick-up", fetch.decision().policy(), fetch.decision().toString());
         assertEquals(new Action.Step(at(40, 21)), fetch.action(), "toward the stone, sixteen steps off");
         assertEquals("item: throwing stone 16", fetch.decision().chosen().why());
+
+        // Control: with the levers off the same walk is not made.
+        Brain control = off();
+        Belief seen = control.update(fight, null);
+        seen = control.handed(fight, seen, decide(control, seen, fight));
+        seen = control.update(after, seen);
+        assertNotEquals("pick-up", decide(control, seen, after).decision().policy());
 
         // Control: a stone lying there that this Brain did not throw is an ordinary item, and sixteen steps is too far for it.
         Brain fresh = brain();
@@ -173,6 +187,9 @@ class MissilesAndDewTest {
         Brain.Decided taken = decide(brain, brain.update(half, null), half);
         assertEquals("pick-up", taken.decision().policy(), taken.decision().toString());
         assertEquals(new Action.Step(at(8, 2)), taken.action());
+
+        Brain control = off();
+        assertNotEquals("pick-up", decide(control, control.update(half, null), half).decision().policy(), "lever off");
 
         Observation full = withHeaps(corridor(8, 1, -1, waterskin("20/20")), heap(at(8, 4), "dewdrop"));
         Brain again = brain();
