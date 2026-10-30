@@ -37,6 +37,12 @@ public final class DirectionPlay {
     /** The suffix of the heap record written beside a Run's log. */
     public static final String HEAPS = ".heaps.tsv";
 
+    /**
+     * The suffix of the arrival record: one line per depth, from the hero's first wait on it. It is the
+     * raw material a kit profile is read from (ADR-0024): what a real hero held on the stairs.
+     */
+    public static final String ARRIVALS = ".arrivals.tsv";
+
     private DirectionPlay() {
     }
 
@@ -63,6 +69,8 @@ public final class DirectionPlay {
         });
         Files.writeString(out.resolve(heapsFile(heroClass, SeedSet.code(seed), salt)), watching.get().table(),
                 StandardCharsets.UTF_8);
+        Files.writeString(out.resolve(heapsFile(heroClass, SeedSet.code(seed), salt)
+                .replace(HEAPS, ARRIVALS)), watching.get().arrivals(), StandardCharsets.UTF_8);
     }
 
     /** The name of the heap record of the Run of this triple under this salt. */
@@ -94,6 +102,9 @@ public final class DirectionPlay {
         private final List<Seen> all = new ArrayList<>();
         private int k;
         private int lastHero = -1;
+        private final StringBuilder arrived = new StringBuilder(
+                "depth\twait\tlevel\texp\thp\tht\tstr\titems\n");
+        private final java.util.Set<Integer> arrivedAt = new java.util.HashSet<>();
 
         Watch(Deliberator inner) {
             this.inner = inner;
@@ -111,6 +122,32 @@ public final class DirectionPlay {
             }
         }
 
+        String arrivals() {
+            return arrived.toString();
+        }
+
+        /** The first wait on a depth (branch 0): the hero as a player at the screen sees it. */
+        private void arrive(Observation o) {
+            if (o.header().branch() != 0 || !arrivedAt.add(o.header().depth())) {
+                return;
+            }
+            var hero = o.hero();
+            StringBuilder items = new StringBuilder();
+            for (var item : o.inventory().items()) {
+                if (items.length() > 0) {
+                    items.append('|');
+                }
+                items.append(item.slot()).append(':').append(item.name());
+                if (item.levelKnown() || item.visiblyUpgraded() != 0) {
+                    items.append('+').append(item.visiblyUpgraded());
+                }
+                items.append('x').append(item.quantity());
+            }
+            arrived.append(o.header().depth()).append('\t').append(k).append('\t').append(hero.level()).append('\t')
+                    .append(hero.exp()).append('\t').append(hero.hp()).append('\t').append(hero.ht()).append('\t')
+                    .append(hero.strength()).append('\t').append(items).append('\n');
+        }
+
         String table() {
             StringBuilder sb = new StringBuilder("depth\tbranch\tcell\titem\tseen\ttaken\n");
             for (Seen s : all) {
@@ -126,6 +163,7 @@ public final class DirectionPlay {
             int d = o.header().depth();
             int b = o.header().branch();
             int hero = o.hero().cell();
+            arrive(o);
             for (HeapView h : o.map().heaps()) {
                 if (h.kind() == HeapKind.HEAP && !h.item().isEmpty()) {
                     String key = d + ":" + b + ":" + h.cell();

@@ -37,8 +37,8 @@ final class OverlayLogs {
     }
 
     /**
-     * Refuses {@code log} if any header it holds says the Overlay's driver played it, reading every
-     * record up to the first line that could not be read.
+     * Refuses {@code log} if any header it holds says the Overlay's driver played it or that the Run began
+     * from a practice start, reading every record up to the first line that could not be read.
      */
     static void refuse(RunLogReader.Log log, Object where) {
         for (RunLog record : log.records()) {
@@ -48,8 +48,34 @@ final class OverlayLogs {
         }
     }
 
-    /** Refuses {@code header} if the Overlay's driver played it; {@code where} names the log. */
+    /**
+     * Refuses {@code header} if the Overlay's driver played it or it began from a practice start;
+     * {@code where} names the log.
+     *
+     * <p>A practice Run (E10, ADR-0024) begins on a boss floor with a made-up kit, so it is not a Run a
+     * player could have had and no number the Rig counts, scores, compares or publishes may rest on it.
+     * Its header says so in a chained field, and every path that reads a log for a number asks here.
+     */
     static void refuse(RunLog.Header header, Object where) {
+        refuseOverlay(header, where);
+        if (header != null && header.practiceRun()) {
+            throw new Refused(where + " is a practice Run (" + header.practice() + "): it began on a boss floor with"
+                    + " a kit a profile made up, so it is never ranked, compared or published as a measurement"
+                    + " of the Brain (ADR-0024)");
+        }
+    }
+
+    /** Refuses {@code log} if it was played in the Overlay, and lets a practice Run through (the debug views). */
+    static void refuseOverlay(RunLogReader.Log log, Object where) {
+        for (RunLog record : log.records()) {
+            if (record instanceof RunLog.Header header) {
+                refuseOverlay(header, where);
+            }
+        }
+    }
+
+    /** Refuses {@code header} if the Overlay's driver played it. */
+    static void refuseOverlay(RunLog.Header header, Object where) {
         if (header != null && header.embedded()) {
             throw new Refused(where + " was played in the Overlay (driver: embedded), which is not reproducible"
                     + " from its tuple by the Rig until the headless driver plays its interface size (issue #169); the Rig counts, scores and publishes only its own Runs");

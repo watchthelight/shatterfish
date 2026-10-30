@@ -34,6 +34,8 @@ final class ControlEnablement {
         INTERVAL,
         /** Take over while the bot plays, Hand back while the human does. */
         TAKE_OVER,
+        /** Hands a quiet stretch to the bot from HUMAN (story 8.10, FR-47). */
+        AUTOEXPLORE,
         EXPLAIN,
         /** Opens the Beliefs view, or closes it: everything the Brain believes, at a wait (story 8.6, FR-46). */
         BELIEFS
@@ -70,14 +72,24 @@ final class ControlEnablement {
             case RUNNING -> enabled.addAll(EnumSet.of(Control.PAUSE_RESUME, Control.NEXT_STEP, Control.SPEED,
                     Control.INTERVAL, Control.TAKE_OVER, Control.EXPLAIN));
             // (RUNNING is the Brain moving on: the Beliefs view is for a wait that holds, so it is not here.)
-            case PAUSED -> enabled.addAll(EnumSet.allOf(Control.class));
-            case HUMAN -> enabled.addAll(EnumSet.of(Control.TAKE_OVER, Control.EXPLAIN, Control.BELIEFS));
+            case PAUSED -> {
+                enabled.addAll(EnumSet.allOf(Control.class));
+                // Autoexplore starts from HUMAN: the person is the one who hands a stretch over (story 8.10).
+                enabled.remove(Control.AUTOEXPLORE);
+            }
+            case HUMAN -> enabled.addAll(EnumSet.of(Control.TAKE_OVER, Control.AUTOEXPLORE, Control.EXPLAIN, Control.BELIEFS));
+            // A loaded log stopped at a wait: everything a PAUSED Run has but a hand-over, since nobody plays a
+            // replay (story 8.5), and so nobody hands a stretch to autoexplore either (story 8.10). The playing
+            // half of REPLAY is the RUNNING row less the same control.
+            case REPLAY -> enabled.addAll(EnumSet.complementOf(EnumSet.of(Control.TAKE_OVER, Control.AUTOEXPLORE)));
         }
         if (!capabilities.pacing()) {
             enabled.remove(Control.INTERVAL);
         }
         if (!capabilities.takeover()) {
             enabled.remove(Control.TAKE_OVER);
+            // Autoexplore changes hands twice, so a Run that cannot change hands cannot do it.
+            enabled.remove(Control.AUTOEXPLORE);
         }
         return enabled;
     }
@@ -111,14 +123,15 @@ final class ControlEnablement {
     static final String COACH_BOT_PLAYS = "Coach is off: the bot is playing; take over to play with the coach";
     /** Said when Coach is pressed while the Run is paused. */
     static final String COACH_PAUSED = "Coach is off: the Run is paused; take over to play with the coach";
+    /** Said when Coach is pressed in a replay: nobody plays a log, so there is no turn to coach. */
+    static final String COACH_REPLAY = "Coach is off: a replay is a recorded Run, nobody plays it";
     /** Said when Coach is pressed in a Run that is over. */
     static final String COACH_RUN_OVER = "Coach is off: the Run is over";
 
     /**
      * Why Coach cannot be switched, or null when it can (story 8.9, FR-47). Coach mode is a setting of HUMAN and
      * not a fourth Mode: it acts only while the person plays, and is disabled in RUNNING and PAUSED with the
-     * reason in words. (A Replay is a reading of a log in the Rig and not a Mode of the Overlay, so it has no row
-     * here: nothing in the Overlay plays one.)
+     * reason in words. (A REPLAY, story 8.5, is a loaded log that nobody plays, so Coach is disabled there too.)
      */
     static String coachReason(ModeState.Mode mode, boolean over) {
         if (over) {
@@ -128,6 +141,7 @@ final class ControlEnablement {
             case HUMAN -> null;
             case PAUSED -> COACH_PAUSED;
             case RUNNING -> COACH_BOT_PLAYS;
+            case REPLAY -> COACH_REPLAY;
         };
     }
 

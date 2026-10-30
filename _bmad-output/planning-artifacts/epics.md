@@ -23,7 +23,7 @@ inputDocuments:
   - docs/BOOTSTRAP-PROMPT.md
 status: draft
 created: '2026-09-04'
-updated: '2026-09-04'
+updated: '2026-10-28'
 ---
 
 # Shatterfish - Epic Breakdown
@@ -233,6 +233,8 @@ start before them.
 | E7 | Strategy and lore | Whole-Run planning and a cited knowledge base | A measured win rate, and every heuristic linked to a Rule or a Lore entry with a Tier |
 | E8 | Overlay v2 | The instrument becomes a teacher | Feature-complete per bootstrap §5 |
 | E9 | Learned evaluation (optional) | A learned value function that plays fair | Beats the hand-tuned Evaluation under the Sequential test |
+| E10 | Through the Prison: Tengu | Tengu, the boss on depth 10, dies in 95% or more of Runs for all six classes, and Goo kills rise on the way | The registered `tengu` set (600 triples, 100 per class) is played once: pooled Tengu kills at least 95% with a Wilson lower bound of at least 92%, and every class at least 90%; R1 (depth 10 at least 50% per class) and R2 (Tengu conversion at least 90%) are published first |
+| E10 | Through the Prison: Tengu | Tengu, the boss on depth 10, dies in 95% or more of Runs for all six classes, and Goo kills rise on the way | The registered `tengu` set (600 triples, 100 per class) is played once: pooled Tengu kills at least 95% with a Wilson lower bound of at least 92%, and every class at least 90%; R1 (depth 10 at least 50% per class) and R2 (Tengu conversion at least 90%) are published first |
 
 ---
 
@@ -2987,3 +2989,918 @@ seeds disjoint from every committed Seed set, with the seed-permutation differen
 precondition.
 
 Covers no PRD requirement; it is the optional far horizon.
+
+## Epic 10: Through the Prison: Tengu
+
+The next rung toward a Win. Tengu, the boss on depth 10, dies in 95% or more of Runs, for all six
+classes, and Goo kills rise on the way because every lever below also helps the sewers.
+
+The product owner set the rung on 2026-10-28 (plan `resilient-herding-moonbeam`, approved the same
+day). It is the first epic to measure past Goo, so it starts by building the instruments that can see
+past Goo, then spends them on the two things between the bot and Tengu: surviving depths 6 to 9 (reach)
+and winning the fight (conversion).
+
+**Where things stand, from `main` at `0d087c17e` and the E7 pages.**
+
+- Goo: the Warrior reaches depth 5 in 87 of 120 tuning Runs and converts about 91% of those fights.
+- Past Goo there is nothing yet. 0 of 1,000 `standard` and `holdout` Runs reached depth 10. The deepest
+  is one depth-9 death, and deaths pile up on depths 6 and 7. The older Profile 6 killer table had
+  Skeleton, DM-100 and hunger on top.
+- The Brain has no Prison or Tengu code. Prison mobs get the generic `Fight.threat`, and
+  `Playbook.Bosses.tengu` is `Later`, a descent rest only (`Playbook.java:466-481`).
+- The Rig has no instrument for any of it. `:rig:direction` has no reach-depth-10 or Tengu column, and
+  its "Goo kills" is really `bosses() >= 1` (`DirectionMetrics.java:161`). Killers exist only in
+  `--debug-record` output.
+- Small levers have run dry. Six of the seven #219 levers measured on 2026-10-28 gave nothing and the
+  seventh, the piranha shore, is +1/+1. A jump from 0% to 95% will not come from one-rule tweaks.
+
+**The product owner's answers, 2026-10-28.**
+
+1. **All classes.** "The entire engine should be built around all the classes." Every lever is measured
+   for each of Warrior, Mage, Rogue, Huntress, Duelist and Cleric (`--class` per class, 40-Run slices),
+   never for the Warrior alone. A story whose table shows one class is not done.
+2. **Think budget.** "Whatever makes the bot as smart as possible." There is no fixed cap on Brain think
+   time. Search spends what raises strength, and strength per think-millisecond is published so the
+   trade is visible. Compute, not a budget, is the limit. The Overlay may run a capped profile so the
+   game stays playable; that cap is a UI setting and not a Brain limit. Story 10.22 writes this into
+   ADR-0010.
+3. **Rungs.** Approved, and the registered run of R3 is pre-approved: it runs as soon as tuning slices
+   meet R1 and R2, with no further go-ahead (this replaces the `holdout`-style ask for this one set).
+4. **Automatic tuning.** Asked on 2026-10-28 whether to add Fishtest-style parameter tuning, the answer was
+   yes: the Playbook's numeric thresholds are tuned by SPSA on standard tuning slices, for all six classes
+   (stories 10.35 to 10.37). End-to-end reinforcement learning is out of scope, because it mislearns with no
+   reward signal yet; a learned evaluation stays E9, after search.
+
+**Target arithmetic.** 95% Tengu kills is reach depth 10 times conversion. That needs roughly 97% reach
+and 98% conversion, so the epic climbs a staircase.
+
+| Rung | Measure | Bar |
+|---|---|---|
+| R1 | Reach depth 10, every class, on `standard` | at least 50% for each of the six |
+| R2 | Tengu conversion, on the practice floor and on real arrivals | at least 90% |
+| R3 | Tengu kills on the registered `tengu` set (600 triples, 100 per class) | pooled at least 95% with a Wilson lower bound of at least 92%, and every class at least 90% observed |
+
+At n = 600, 570 kills is 95.0% with a 95% Wilson lower bound of 92.95%, and 565 kills is the least that
+clears 92.0%, so the 95% observed clause binds and the lower-bound clause is the guard against a later
+change to the set's size. At n = 100 per class, a class with a true 95% rate clears the 90% bar 98.9% of
+the time, and all six clear it together 93.3% of the time; at a true 97% it is 99.9% per class and 99.9%
+jointly. The per-class bar is therefore a real discriminator with a small risk of a lucky miss; it is the
+product owner's rule and it stands.
+
+**Done when**, for the product owner: the registered `tengu` run is played once on the committed set with
+the pooled and per-class bars above met, its Results page is published under `docs/results/` with every
+Run, the R1 and R2 checks are published before it, and every Brain change in the epic carries the
+all-class PR table. The next rung, DM-300 on depth 15, then follows the same staircase toward the Win.
+
+Covers FR-20, FR-25 and FR-27 to FR-33, and adds success metric SM-9 (the Tengu rung) to the PRD.
+
+**The PR table.** "The PR table" in every acceptance criterion below means
+`:rig:direction --class ALL --set standard --first 40 --salt-base <1000|3000> --baseline <git-ref>`:
+one table with a column per class, on the two tuning slices (salt bases 1000 and 3000), with reach depth
+5, 10 and 15, Goo kills, Tengu kills, bosses killed, deaths and killers by depth, and think time
+(stories 10.1 to 10.3 build it; until they land a story quotes the columns that exist). A change is kept
+only if it holds on both slices, with Wilson intervals, per the keep rule of the E4 lessons. The table
+says what it cannot show.
+
+**Rules that bind every story.**
+
+- Information parity: no hidden traps, no true identities, no seed or RNG. A story that changes what
+  `Observer` exposes ships leak tests, and a story that touches `Observer`, `ActionExecutor` or the
+  Brain is labelled `fairness` and gets the `fairness-reviewer` run before its PR opens.
+- Every claim about a mechanic cites pinned code at `path:line`, found by `upstream-reader` or read
+  directly, and lands in `docs/rules/`; nothing is written from memory (non-negotiable 8).
+- ADR-0019: a fix's first test fails on `main`, and the PR says so.
+- Tuning uses `standard` slices only. Never `goo`, `holdout` or `tengu`; `SeedSets.load` refuses all
+  three, and `publish` is the only way in.
+- Every new Policy ships its CoachLine template, sample, vocabulary word and docs row (the 8.8 pattern).
+- Any edit to an upstream file is a hook row first. The practice harness (10.5) and the rollout work
+  (10.24) are designed not to need one; if either finds it does, the story stops for an ADR.
+- Merge one PR at a time and build after each (E5 and E7 lessons). Up to five Gradle jobs run at once.
+- A number that needs the product owner's word is asked for when the story opens. The one pre-approved
+  go-ahead is R3's registered run.
+
+**Work already in flight, not stories here.** Potion inference from special rooms
+(`feature/219-potion-inference`; PoolRoom gives Invisibility, ToxicGasRoom gives Purity, TrapsRoom gives
+Levitation, MagicalFireRoom gives Frost, StorageRoom gives Liquid Flame, SentryRoom gives Haste) and the
+piranha shore PR (`fix/219-groups`) merge under issue #219 and feed both Goo and Prison survival. E8's
+remaining merges and the 4.14 Goo gate run continue on their own issues. The stories below read their
+effect from the tables and do not wait for them.
+
+### Story 10.1: The boss staircase in the direction table
+
+As the product owner,
+I want `:rig:direction` to show how far each Run got and which boss it killed,
+So that the Tengu rung is a number I can read and not an inference from "Goo kills".
+
+**Acceptance Criteria:**
+
+**Given** `DirectionMetrics` counts `bosses() >= 1` and labels it "Goo kills" (`DirectionMetrics.java:161`)
+**When** the metric is rebuilt from the Run log's `Outcome`
+**Then** the table prints "Reach d5", "Reach d10" and "Reach d15" (a Run counts at its deepest depth
+reached), "Bosses killed", "Goo kills" and "Tengu kills", where the per-boss counts read the
+`Statistics.bossScores` index the way `RunLoop.java:667-675` does, and the rename is noted in the table
+header so old and new tables are not confused
+**And** `DirectionMetricsStaircaseTest` builds log fixtures (a Run that died on depth 4, one that killed
+Goo and died on depth 7, one constructed to have killed Tengu) and asserts every column, with a case that
+fails on `main` because the old label counted any boss as Goo (ADR-0019)
+**And** a Run log written before this story reads unchanged (the `Outcome` is not touched here), proved by
+`DirectionMetricsStaircaseTest.old_logs_read` on a committed fixture from `docs/results/`.
+
+**Given** the Goo and Tengu rungs are different questions
+**When** the table is printed for the `standard` set at 40 Runs per class on salt base 1000
+**Then** the PR carries it for all six classes (until 10.3, the six `--class` runs side by side) and states
+which of the new columns are zero today, which is the expected finding
+**And** `docs/rig.md` and the methodology page name the new columns and their definitions.
+
+### Story 10.2: The killer on every death
+
+As the product owner,
+I want every death in a Run log to name what killed the hero, where, and with how much HP left,
+So that a death table needs no debug record and the Prison can be diagnosed from ordinary Runs.
+
+**Acceptance Criteria:**
+
+**Given** `RunLog.Outcome` carries cause, depth, turns and bosses but not the killer
+**When** a rig-only outcome field is added for killer class, depth and last HP
+**Then** an ADR-0011 amendment (with `/adr`, five options including "leave it in `--debug-record`" and
+"a new record kind") records the choice, that the field is read by the Rig and never by the Brain, and
+how it enters the chain without changing the chained text of any existing log (the ADR-0011 lesson); the
+boundary stays as it is, held by `BrainBoundaryTest`
+**And** `OutcomeKillerTest` plays a scripted death to a named mob on `EmbeddedHost`, asserts the field,
+and asserts that a log with no killer field (every log written before this story) still verifies in
+`ReplayTest`, with the new field absent and not zeroed
+**And** a death by hunger, by falling, by a trap and by a burning or poisoned state each carry a named
+killer class (the game's own `Hero.die` source), with one test case each citing `Hero.java` at `path:line`.
+
+**Given** the field exists
+**When** `:rig:direction` and `:rig:gallery` print a deaths-by-depth killer table
+**Then** a depth row lists killer classes with counts per hero class, `DirectionKillerTableTest` asserts
+the table on a constructed folder, and logs already on disk are not reread (they have no field); the PR
+says the table starts with Runs played after this story
+**And** the field is labelled diagnosis only in the docs, and no Policy reads it.
+
+### Story 10.3: The all-class direction table and the think-time column
+
+As the product owner,
+I want one table with a column per class,
+So that every PR shows all six classes and strength per think-millisecond is visible.
+
+**Acceptance Criteria:**
+
+**Given** `:rig:direction` takes one `--class` at a time
+**When** `--class ALL` is accepted
+**Then** it plays the same `--first N` triples per class from the set's own per-class triples with the
+same salt base, runs the classes in the game's declaration order, and prints one table whose columns are
+the six classes plus a pooled column, with the 10.1 and 10.2 rows
+**And** `DirectionAllClassTest` runs a two-Run-per-class slice on `smoke` and asserts the column order, the
+pooled sums, and that `--class ALL` equals six single-class runs with equal Action lists (a paired case
+with a control where one class is permuted and the pooled column changes)
+**And** a set with fewer than N triples for a class says so and prints the smaller n, not zeros
+**And** `--set goo`, `--set holdout` and `--set tengu` are refused as before, one test case each.
+
+**Given** the think-budget decision of 2026-10-28
+**When** the table is printed
+**Then** each column carries mean and 95th-percentile think time per Run and per move, and a "strength
+per think-second" row that is the baseline-relative change in bosses killed per added think-second, with
+n shown
+**And** the PR table for every later story is this table, and `docs/rig.md` shows one example with all
+six classes.
+
+### Story 10.4: The tengu seed set
+
+As the product owner,
+I want a registered set of 600 triples, 100 per class, kept out of tuning,
+So that the epic's goal is measured on seeds nobody tuned against.
+
+**Acceptance Criteria:**
+
+**Given** ADR-0018 defines `smoke`, `standard`, `holdout`, `bosses` and `goo`
+**When** `tengu` is added
+**Then** an ADR-0018 amendment (with `/adr`, five options including "reuse `holdout`" and "fewer triples
+per class") records the set: 600 triples, 100 per class in the game's declaration order, no challenge
+flags, constant `0x74656E6775` (`"tengu"`), derived by the same formula as the others and disjoint from
+every other set's triples
+**And** the amendment computes the sizing from the formula as `SeedSetsTest` does for `goo`: 570 of 600
+has a Wilson lower bound of 92.95%, 565 is the least that clears 92.0%, 90 of 100 has 82.6%, and the
+per-class probabilities in this epic's arithmetic; the test computes them and does not assert typed
+figures
+**And** `seeds/tengu.json` is written by `./gradlew :rig:seeds`, and `SeedSetsTest` compares the committed
+bytes with a fresh derivation, names the first differing file, and holds the disjointness.
+
+**Given** the set is registered but not for tuning
+**When** development reads it
+**Then** `SeedSets.load(root, "tengu")` refuses with a message naming the set and what it is for, exactly
+as for `goo` and `holdout`, and `SeedSets.publish(root, "tengu", reason)` is the only way in
+(`SeedSetsTenguTest` holds both, and a case that reads `tengu` through `:rig:direction --set tengu` fails
+with the refusal)
+**And** the amendment states the one-use rule: the registered run is played once per version of the bot,
+every Run is published whether won or lost, and a failed R3 does not reuse the set for a second claim;
+a fresh claim on a changed bot needs a new set by ADR (`tengu-2`, a new constant), because a set that
+has been run is no longer held out
+**And** `docs/methodology.md` adds the row to the seed-set table.
+
+### Story 10.5: The practice harness
+
+As the product owner,
+I want to start a game on the boss floor with a realistic kit,
+So that the Tengu fight can be built and measured before Runs can reach depth 10.
+
+**Acceptance Criteria:**
+
+**Given** no Run reaches depth 10 today
+**When** `:rig:practice --boss tengu|goo --kit <profile> --class <C>` is added
+**Then** it starts an `EmbeddedHost` game on the boss floor (Tengu on depth 10, Goo on depth 5) with a
+hero of the given class and a kit drawn from a named profile, built by the game's own Generator through
+the harness API and with no upstream edit (an upstream edit would be a design failure and stops the
+story for an ADR)
+**And** the first kit profiles are hand-built from the Codex: the class's starting kit plus what the
+guarantees give by depth 9 (the strength potions and upgrade scrolls the Codex lists for the depths) with
+the 7.4 allocation Policy applied, one profile per class, and a "thin" and a "fat" variant around it
+**And** `PracticeStartTest` asserts, per class, that the Run starts on the right depth with the right
+kit, that its log header says "practice" with the profile name, and that the same (profile, class,
+seed, salt) twice is identical across two JVMs.
+
+**Given** a practice Run must never be mistaken for a ranked one
+**When** it is played or published
+**Then** its outcome and logs are flagged in the header, `SeedSets.publish` refuses a practice log as a
+result, the strategy log and the gallery mark it, and `:rig:direction` has no way to include it in a
+set table (`PracticeNeverRankedTest`, one case per refusal)
+**And** the Observer is unchanged: the bot sees only what a human at that screen could, and a leak test
+shows the starting depth, kit identities and the seed are not read except through what the hero has
+(`PracticeObserverTest`)
+**And** `:rig:practice` prints a table with a column per class and the staircase columns, for 40 Runs per
+class on the `standard` set's seeds, and `docs/rig.md` documents the command.
+
+### Story 10.6: Practice kits from real arrivals
+
+As the product owner,
+I want the practice kit to follow what real Runs bring to depth 9,
+So that Tengu is practiced with the gear the bot will actually have.
+
+**Acceptance Criteria:**
+
+**Given** the hand-built profiles of 10.5 and Runs that, after the Prison stories, start to arrive at
+depth 9
+**When** arrival snapshots are taken
+**Then** the Rig records, per Run that reaches depth 9 on a `standard` slice, a compact kit snapshot (class,
+level, strength, armour and weapon with upgrades, consumables by name when known to the hero) in a file
+beside the Run log, and `:rig:practice --kit arrivals --class <C>` draws kits from the recorded
+distribution by a fixed rule (a seeded draw over the recorded set, not a mean)
+**And** `KitSnapshotTest` asserts a snapshot round-trips and holds no true identity of an item the hero
+has not identified (a leak test using a seed-permutation case with a control)
+**And** a class with fewer than ten recorded arrivals falls back to the hand-built profile and the table
+says so.
+
+**Given** the real distribution is thin early
+**When** the distribution page is published
+**Then** `docs/results/` gets a page with the kit distribution per class, n per class, how it differs from
+the hand-built profile, and the practice conversion table on both, so the gap is visible
+**And** if the real kits are worse than the profile, the page says so and R2 (10.33) uses the real ones.
+
+### Story 10.7: The Prison diagnosis
+
+As the product owner,
+I want the killers of depths 6 to 9, for every class, written down,
+So that the mob stories are ordered by evidence and not by folklore.
+
+**Acceptance Criteria:**
+
+**Given** 10.1 and 10.2 have landed
+**When** 160 Runs per class are played on `standard` with the current bot, 80 at salt base 1000 and 80 at
+salt base 3000
+**Then** `docs/results/` gets a diagnosis page with, per class, reach d5/d10, the deaths-by-depth killer
+table, the mean level and strength by depth (as the Rig reads them from the log), the hunger share, and
+the 20 most expensive moments per class from the strategy log (HP lost per decision) with the Policy
+that chose each
+**And** `PrisonDiagnosisPageTest` checks the page's figures against the committed logs it names (the E6
+lesson: arithmetic as a test that reads the page's logs)
+**And** the page ends with an ordered list of the mob stories (10.8 to 10.16) with the reach each would
+buy if it removed its killer entirely, per class, and the order is the PR's recommendation; the product
+owner may overrule it on the PR
+**And** a killer family that the table shows outside the stories below gets a new story added to this
+epic by the same PR (correct-course), with its issue.
+
+### Story 10.8: Skeleton bone burst
+
+As the product owner,
+I want the bot to stop dying to the Skeleton's death burst,
+So that depths 6 and 7 stop ending at a mob that kills on the way out.
+
+**Acceptance Criteria:**
+
+**Given** the Codex and `upstream-reader` confirm the Skeleton's stats and its bone burst (damage, radius,
+what triggers it, adjacent cells) at `path:line`
+**When** a rule is written to avoid taking the killing blow adjacent at low HP, preferring a ranged
+finish, a step back, or a heal first
+**Then** a Rule row in `docs/rules/` carries the citations and `SkeletonBurstTest` has a case on a
+hand-built screen where the old Policy kills adjacent at HP below the burst's maximum and fails on `main`
+(ADR-0019), plus the cases where the burst cannot reach the hero and the old behaviour is kept
+**And** the PR table for all six classes shows deaths to Skeletons in the killer table, reach d5/d10, and
+Goo kills; the change is kept only if deaths to the Skeleton fall on both slices for the classes that
+meet it and no class's reach falls, and the PR states what the table cannot show
+**And** the Policy has its CoachLine template and a labelled `fairness` review.
+
+### Story 10.9: DM-100 lightning
+
+As the product owner,
+I want the bot to handle the DM-100's lightning,
+So that a ranged zap stops costing a Run that was otherwise safe.
+
+**Acceptance Criteria:**
+
+**Given** the Codex and `upstream-reader` confirm the DM-100's stats, its lightning attack, its range and
+its line-of-sight rule at `path:line`
+**When** a rule breaks line of sight and closes in around corners rather than standing in the open
+**Then** a Rule row cites the lines and `Dm100LightningTest` has a screen where the old Policy stands in a
+line of fire and loses HP it did not need to (it fails on `main`), plus a screen where closing in is worse
+and the old behaviour holds
+**And** the PR table for all six classes shows deaths to DM-100s, reach d5/d10 and Goo kills on both
+slices, with the Mage and the Huntress rows read apart because their ranged kit changes the answer
+**And** the Policy has its CoachLine template and the `fairness` review.
+
+### Story 10.10: Guard chain pull
+
+As the product owner,
+I want the bot to deal with the Prison Guard's chain,
+So that being dragged into melee range stops being a coin flip.
+
+**Acceptance Criteria:**
+
+**Given** `upstream-reader` confirms the Guard's stats, the chain pull (trigger, range, what it does to
+position) and the Guard's drops at `path:line`
+**When** a rule is written for the pull (stay out of the pull line, break it with a corner or a door, and
+fight the Guard from a place where being pulled is not worse)
+**Then** a Rule row cites the lines and `GuardChainTest` has a screen where the old Policy is pulled into
+a worse cell and fails on `main`, plus one where the pull cannot happen
+**And** the PR table for all six classes shows deaths to Guards, reach d5/d10 and Goo kills on both slices
+**And** the Policy has its CoachLine template and the `fairness` review.
+
+### Story 10.11: Thief and Bandit steal
+
+As the product owner,
+I want the bot to decide between killing, chasing and letting a Thief or Bandit go,
+So that a stolen item costs a decision and not a Run.
+
+**Acceptance Criteria:**
+
+**Given** `upstream-reader` confirms how a Thief and a Bandit steal, what they take, how they flee, and
+what a kill returns at `path:line`
+**When** a rule sets the priority between killing the thief first, chasing, and ignoring a low-value
+steal, using only what the hero has seen of the item
+**Then** a Rule row cites the lines and `ThiefPriorityTest` has a screen where the old Policy loses a
+valuable item it could have saved (it fails on `main`) and one where chasing is wrong and the old
+behaviour holds
+**And** the PR table for all six classes shows items stolen if the log carries it (else deaths to thieves
+and Bandits), reach d5/d10 and Goo kills on both slices; if the table cannot show the effect the PR says
+so and names the column a later story must add
+**And** the Policy has its CoachLine template and the `fairness` review.
+
+### Story 10.12: Necromancer target priority
+
+As the product owner,
+I want the bot to kill the Necromancer, or what it summons, in the right order,
+So that a summoner stops grinding a Run down from behind a wall of skeletons.
+
+**Acceptance Criteria:**
+
+**Given** `upstream-reader` confirms the Necromancer's stats, its summon rule (cooldown, count, where), and
+what happens to the summons when it dies at `path:line`
+**When** a rule sets target priority (the Necromancer first when it is reachable, the summons first when it
+is not) and a position that denies the summon cells
+**Then** a Rule row cites the lines and `NecromancerPriorityTest` has a screen where the old Policy fights
+the summons while the Necromancer stands and fails on `main`, plus one where the summons must be killed
+first
+**And** the PR table for all six classes shows deaths to Necromancers and their summons, reach d5/d10 and
+Goo kills on both slices
+**And** the Policy has its CoachLine template and the `fairness` review.
+
+### Story 10.13: Swarm split and the corridor
+
+As the product owner,
+I want the bot to fight a splitting Swarm in a corridor,
+So that each split stops multiplying the cells that can hit the hero.
+
+**Acceptance Criteria:**
+
+**Given** `upstream-reader` confirms the Swarm's stats, its split rule (HP threshold, free-cell placement)
+and its drops at `path:line`
+**When** a rule picks a corridor or door cell to fight from, so the number of adjacent free cells caps the
+number of attackers
+**Then** a Rule row cites the lines and `SwarmCorridorTest` has a screen where the old Policy fights in the
+open and is surrounded (it fails on `main`) and one where no corridor is reachable and the old behaviour
+holds
+**And** the PR table for all six classes shows deaths to Swarms, reach d5/d10 and Goo kills on both slices,
+and says whether the rule helps the sewers' Swarms too
+**And** the Policy has its CoachLine template and the `fairness` review.
+
+### Story 10.14: Doors, chokepoints and the retreat upstairs
+
+As the product owner,
+I want the bot to choose where it fights and to leave when a fight is lost,
+So that losing a round of a fight stops being the same as losing the Run.
+
+**Acceptance Criteria:**
+
+**Given** the tactics layer already knows doors and walls and the Descend Policy knows stairs
+**When** a general rule fights at a door or a corridor mouth when the enemy count exceeds one, and retreats
+to the upstairs (and then rests on the floor above) when HP and the visible threat say the next exchange
+is a loss
+**Then** a Rule row cites the pinned code for what an enemy does when the hero leaves the level (who
+follows through stairs, who does not) and `ChokepointRetreatTest` has a constructed fight that the old
+Policy loses by staying and the new one survives by leaving, failing on `main`, with a control where
+leaving is worse (the enemy follows and the hero is cornered) and the old behaviour holds
+**And** the retreat uses only visible information (the Observer is unchanged; `fairness-reviewer` reads it
+for leaks around "known stairs")
+**And** the PR table for all six classes shows reach d5/d10, Goo kills and deaths by depth on both slices;
+the story is kept only if it helps the classes whose deaths are in fights, and says which class it
+hurts, if any, and why.
+
+### Story 10.15: Prison food budgeting
+
+As the product owner,
+I want the bot to plan food over the Prison,
+So that hunger stops being a killer on depth 6.
+
+**Acceptance Criteria:**
+
+**Given** the diagnosis (10.7) names hunger deaths on the Prison depths and the Codex lists the food
+guarantees by depth
+**When** a food budget is added (how many turns of food the hero holds against the depths left to the next
+guaranteed ration, when to eat, when to stop exploring a floor and go down)
+**Then** `PrisonFoodBudgetTest` has a screen where the old Policy eats late or explores too long and starves
+(it fails on `main`) and one where the budget says to keep exploring
+**And** the budget's numbers are read from the Codex's tables, not typed (the E6 lesson), and a test reads
+the Codex file the number comes from
+**And** the PR table for all six classes shows deaths by hunger by depth, reach d5/d10 and Goo kills on both
+slices, and the Cleric and the Mage rows are read apart if their food use differs
+**And** the Policy has its CoachLine template and the `fairness` review.
+
+### Story 10.16: The Wandmaker quest
+
+As the product owner,
+I want the bot to take the Wandmaker's quest and a free wand,
+So that every class gets a ranged option and a charge economy on the way down.
+
+**Acceptance Criteria:**
+
+**Given** `upstream-reader` confirms the Wandmaker quest: where he appears, what he asks for, the reward
+choice of two wands at +1, and how the quest items are found, at `path:line`
+**When** a Quest Policy handles meeting him, finding the item, returning it, and choosing a wand
+**Then** a Rule row cites the lines, and `WandmakerQuestTest` plays the quest on `EmbeddedHost` from a
+constructed floor to the reward, with a case where the item is out of reach or the room is unsafe and the
+bot skips the quest
+**And** the choice of wand per class is data in a Playbook field (the 7.6 pattern) with a reason for each
+class, and the wand's use is wired to the Zap Policy, so a wand the bot cannot use is not chosen
+**And** the PR table for all six classes shows reach d5/d10 and Goo kills on both slices, with the quest
+taken in how many Runs; the story is kept only if the table agrees on both slices.
+
+### Story 10.17: The power curve by depth
+
+As the product owner,
+I want to know whether the hero is under-geared at each Prison depth,
+So that survival levers are not blamed for a power problem.
+
+**Acceptance Criteria:**
+
+**Given** the upgrade and armour allocation exists (7.4, #342)
+**When** level, strength, armour tier and upgrades, weapon tier and upgrades, and unspent upgrade scrolls
+are tracked by depth from the Run logs
+**Then** a results page shows, per class, the median and the 10th percentile of each by depth 1 to 9, next
+to the Codex's guaranteed supply by that depth (4 strength potions and 6 upgrade scrolls by depth 9, as
+the Codex lists them), with `PowerCurvePageTest` reading the logs it cites
+**And** the page names the classes whose hero is below the supply on depth 6 (unspent scrolls, unequipped
+armour, an unused strength potion), and each gap is a follow-up story added by this PR or a fix inside this
+one if it is small
+**And** the PR table for all six classes before and after any allocation fix shows reach d5/d10 on both
+slices.
+
+### Story 10.18: Tengu: entry, key and seal
+
+As the product owner,
+I want the bot to enter Tengu's floor correctly,
+So that the fight starts with the key in hand and the bot facing what the floor is.
+
+**Acceptance Criteria:**
+
+**Given** `upstream-reader` confirms the PrisonBossLevel entry: the IronKey in a side cell
+(`PrisonBossLevel.java:621-625`), the seal when the hero passes y > 23, and what the exit needs
+**When** `Playbook.Bosses.tengu` is promoted from `Later` to a real entry and a `Tengu` Policy is added in
+the pattern of `Goo`
+**Then** the Playbook entry and the Policy are data and code with a test each: `TenguEntryTest` on a
+constructed floor shows the bot fetching the key, entering after, and not triggering the seal before it
+is ready (HP full, no stray mob); `PlaybookTest` and the Playbook validator accept the entry; and a case
+that fails on `main` shows the old behaviour descending as a generic floor
+**And** the Policy is practiced only on `:rig:practice --boss tengu`; the PR table is the practice table
+for all six classes, reporting arrival, key held, seal reached, and the staircase columns on 40 Runs per
+class
+**And** the Policy has its CoachLine template and the `fairness` review.
+
+### Story 10.19: Tengu phase one: the dart-trap memory
+
+As the product owner,
+I want the bot to remember where Tengu's dart traps were drawn,
+So that phase one stops being a walk through traps it was shown a moment ago.
+
+**Acceptance Criteria:**
+
+**Given** `upstream-reader` confirms phase one: HP 200 to 100 (`Tengu.java:452`), no abilities, the jump at
+each 25-HP bracket and the re-laid TenguDartTraps (`PrisonBossLevel.java:681-728`), traps drawn faded for
+about two seconds and then hidden, that melee is the right stance because his accuracy halves when
+adjacent (`Tengu.java:107-113`), and that the LockedFloor timer stops regen (`LockedFloor.java:42-58`)
+**When** Memory snapshots the trap cells during the turns they are drawn and the Policy avoids them
+**Then** the snapshot is taken only while the cells are visible on the screen (the Observer's own
+visibility rule); a leak test `TenguTrapMemoryLeakTest` shows that after the draw ends no field reads the
+cells again, that a trap the hero never saw drawn is not avoided, and that a seed-permutation control
+changes the trap cells without changing the decision before they are drawn (the E4 lesson on paired
+tests)
+**And** the Policy stays in melee, does not stall (a test shows it keeps pressure inside the timer), and
+retreats from a jump only when HP says so
+**And** the practice table for all six classes shows phase-one survival (HP at the 100 mark) on 40 Runs per
+class, and `fairness-reviewer` is run with the memory as the specific question, because this is the
+epic's one place a hidden thing is remembered from a brief view.
+
+### Story 10.20: Tengu phase two: the threat map
+
+As the product owner,
+I want the bot to see next-tick danger in the arena and keep to melee,
+So that bombs, fire and the shocker stop costing the fight.
+
+**Acceptance Criteria:**
+
+**Given** `upstream-reader` confirms phase two: the three ground effects (bomb with a "3..2..1" countdown,
+radius 2, 15 to 30 damage; the fire fan with steam a tick ahead; the permanent shocker, alternating
+cardinal and diagonal cells, 12 damage) and the cast cadence (`Tengu.java:458-553`)
+**When** a threat map of next-tick damage cells is built from what is drawn and logged (the countdown
+numbers, the steam, the blob cells, the log lines), combined with a preference for staying adjacent
+**Then** `TenguThreatMapTest` has one screen per effect where the old Policy stands on a damage cell and
+fails on `main`, and a screen where every adjacent cell is a threat and the Policy accepts the least bad
+**And** the map is built from the Observation only; `TenguThreatLeakTest` shows a permuted seed does not
+change the map and that an effect not yet drawn is not on it
+**And** the practice table for all six classes shows phase-two damage taken per kind and conversion on 40
+Runs per class; the Mage and the Huntress rows are read apart because their ranged options trade against
+the adjacency preference
+**And** the Policy has its CoachLine template and the `fairness` review.
+
+### Story 10.21: Tengu conversion on the practice floor
+
+As the product owner,
+I want the fight tuned until each class wins it on practice,
+So that R2 is met by a bot that has been shown where it still loses.
+
+**Acceptance Criteria:**
+
+**Given** 10.18 to 10.20 have landed
+**When** 200 practice Runs per class are played on the profile kits (thin, middle and fat) and the losses
+are read one by one in the gallery
+**Then** `docs/results/` gets a practice page with conversion per class and per kit, the loss causes
+grouped, and the changes made from them, each kept on two slices
+**And** every change that the losses justify is its own commit with its own `TenguConversion*Test` case
+failing on `main`
+**And** the page reports conversion per class and pooled with Wilson intervals; the story is done when the
+page is published and its numbers are honest, not when 90% is reached (R2 is story 10.33's bar), and a
+class that cannot reach 90% on practice gets a follow-up story by correct-course.
+
+### Story 10.22: The think-budget amendment to ADR-0010
+
+As the product owner,
+I want the think-budget decision of 2026-10-28 written into ADR-0010,
+So that search is allowed to spend what raises strength and the trade is measured.
+
+**Acceptance Criteria:**
+
+**Given** ADR-0010 closed search at a 30 ms budget and named a budget above about 270 ms, or a faster host,
+as the case that reopens it (story 6.6 amendment)
+**When** an amendment (with `/adr`, five options including "keep 30 ms" and "a higher fixed cap") records
+that the Brain has no fixed think cap, that compute and the turn cap are the limits, that the Overlay
+profile may cap think time as a UI setting, and that a wall-clock watchdog in the Rig is a safety against
+a hang and not a budget
+**Then** the amendment states how strength per think-time is published (10.3's column) and that the E6
+no-go is reopened (the first spike measurement of 10.23 supplies the number), and names the pre-mortem
+(a Rig that takes ten times longer to play the same slice, mitigated by the Overlay profile and the
+parallel runner)
+**And** `ThinkBudgetPolicyTest` asserts the Brain reads no hard cap from its settings and that the Overlay
+profile reads a cap from its own settings and not from the Brain's, so the two cannot be mistaken
+**And** the PR is labelled `fairness` because the Brain boundary is touched, with the reviewer's verdict.
+
+### Story 10.23: The classloader isolation spike
+
+As the product owner,
+I want to know what a rollout costs if the game's state is isolated by classloader,
+So that the search decision rests on a number and not on 87% of an old measurement.
+
+**Acceptance Criteria:**
+
+**Given** E6 measured the state swap as 87% of a rollout at a 30 ms budget and named classloader isolation
+as the lever
+**When** a spike builds the isolation (one classloader per rollout lane, the game's static state loaded
+once per lane) and measures rollout cost on the `standard` seeds with the method of the story 1.21 and 6.4
+amendments
+**Then** an ADR (with `/adr`, five options including "copy the static state" and "a forked process, which
+non-negotiable 4 forbids") records the design, the measured rollout cost against the 30 ms-era figures,
+memory per lane, warm-up, and a go or no-go for 10.24 with the threshold written before the measurement
+(the E7 lesson on gates that discriminate)
+**And** `IsolationDeterminismTest` shows two lanes stepping the same Action list reach equal hashes and
+that a mutation in lane A is not visible in lane B (a planted case)
+**And** the spike adds no upstream edit, no new module and no change to `Observer`; if it needs one the
+story stops for an ADR, and the PR says which.
+
+### Story 10.24: Determinized fight rollouts
+
+As the product owner,
+I want fights to look ahead by playing the real engine with the hidden state re-sampled,
+So that the Prison fights and Tengu are chosen by look-ahead where it pays most.
+
+**Acceptance Criteria:**
+
+**Given** 10.23 returns a go (otherwise this story is closed with the number and the reason, and the
+epic goes on without it)
+**When** fight decisions use determinized rollouts of the real engine, with hidden state re-sampled from
+Beliefs (non-negotiable 4, option b), only when an enemy is in view and within a set distance
+**Then** the scrubber and the search leak test of 6.2 and 6.3 are extended: `RolloutLeakTest` shows the
+rollout's re-sampled state contains nothing the Observation does not, a seed-permutation control changes
+the rollout's outcome and not the information it was given, and `BrainBoundaryTest` still passes
+**And** the Sequential test of E3 accepts the search Brain against the best rules Brain on `standard`, for
+the pooled six classes and with each class's row shown, with the think-time column; a class that gets
+worse is named, and the story is kept only if the pooled test accepts and no class's bosses killed falls
+on both slices
+**And** the PR is labelled `fairness` and `fairness-reviewer` runs before it opens, with the determinization
+as the question.
+
+### Story 10.25: The Warrior plays its kit
+
+As the product owner,
+I want the Warrior to use all of its kit,
+So that the class furthest in already does not leave its armour ability and its throwing tools unused.
+
+**Acceptance Criteria:**
+
+**Given** `HeroClass.java` and the Codex describe the Warrior's starting kit and armour ability, and the
+Warrior's per-class killer table from 10.7 shows where its Runs end
+**When** gaps are found by reading its killer table and its strategy log (the ability never used, a
+throwing weapon never thrown, a seal or a broken armour never read) and fixed
+**Then** each fix has a Rule row, a test failing on `main`, and a CoachLine template
+**And** the PR table for all six classes shows the Warrior's rows move and the other five do not get worse
+(reach d5/d10, Goo kills, deaths by depth, on both slices), and the story says which other class a fix
+could also help.
+
+### Story 10.26: The Mage plays its kit
+
+As the product owner,
+I want the Mage to use its staff, wand charges and armour ability,
+So that the class with the weakest melee fights with what it has.
+
+**Acceptance Criteria:**
+
+**Given** `HeroClass.java` and the Codex describe the Mage's starting staff, charge recovery and ability,
+and the Mage's killer table from 10.7
+**When** the gaps found there (staff charges not spent before melee, charge recovery not waited for, the
+ability not used) are fixed
+**Then** each fix has a Rule row, a test failing on `main`, and a CoachLine template
+**And** the PR table for all six classes shows the Mage's rows move and the others do not get worse, on both
+slices, and Tengu practice conversion for the Mage is reported.
+
+### Story 10.27: The Rogue plays its kit
+
+As the product owner,
+I want the Rogue to use its cloak, surprise attacks and armour ability,
+So that the class built on striking first strikes first.
+
+**Acceptance Criteria:**
+
+**Given** `HeroClass.java` and the Codex describe the Rogue's starting kit, its cloak and its surprise
+attack bonus (read from `path:line`), and the Rogue's killer table from 10.7
+**When** the gaps found there (surprise attacks not set up, the cloak not used to avoid a lost fight, the
+ability not used) are fixed
+**Then** each fix has a Rule row, a test failing on `main`, and a CoachLine template
+**And** the PR table for all six classes shows the Rogue's rows move and the others do not get worse, on
+both slices, and Tengu practice conversion for the Rogue is reported.
+
+### Story 10.28: The Huntress plays its kit
+
+As the product owner,
+I want the Huntress to use the Spirit Bow well,
+So that the class whose first answer is range fights at range.
+
+**Acceptance Criteria:**
+
+**Given** the Spirit Bow's SHOOT is offered and used since #337 and the Huntress's killer table from 10.7
+**When** the gaps found there (standing in melee with the bow charged, not kiting, ammunition and
+knockback habits, the ability not used) are fixed
+**Then** each fix has a Rule row, a test failing on `main`, and a CoachLine template
+**And** the PR table for all six classes shows the Huntress's rows move and the others do not get worse,
+on both slices, and Tengu practice conversion for the Huntress is reported alongside the adjacency
+preference of 10.20.
+
+### Story 10.29: The Duelist plays its kit
+
+As the product owner,
+I want the Duelist to use its weapon abilities,
+So that the class whose weapons each do something does not play them as plain swords.
+
+**Acceptance Criteria:**
+
+**Given** `HeroClass.java` and the Codex describe the Duelist's starting weapons, their special abilities,
+the charge that pays for them and the armour ability, and the Duelist's killer table from 10.7
+**When** the gaps found there (ability charges unused, the wrong weapon equipped for the target, the
+armour ability unused) are fixed
+**Then** each fix has a Rule row, a test failing on `main`, and a CoachLine template, with the action
+offered through the existing executor path and no new Action kind unless an ADR says so
+**And** the PR table for all six classes shows the Duelist's rows move and the others do not get worse, on
+both slices, and Tengu practice conversion for the Duelist is reported.
+
+### Story 10.30: The Cleric plays its kit
+
+As the product owner,
+I want the Cleric to cast its spells,
+So that the class built on spells is not played as a fighter with a holy symbol.
+
+**Acceptance Criteria:**
+
+**Given** `HeroClass.java` and the Codex describe the Cleric's starting kit, its spells, how they are
+charged and what they cost, and the Cleric's killer table from 10.7
+**When** the gaps found there (spells never cast, healing not used before a lost round, the armour
+ability unused) are fixed
+**Then** each fix has a Rule row, a test failing on `main`, and a CoachLine template, with spell casts
+offered through the existing executor path and no new Action kind unless an ADR says so
+**And** the PR table for all six classes shows the Cleric's rows move and the others do not get worse, on
+both slices, and Tengu practice conversion for the Cleric is reported.
+
+### Story 10.31: The subclass choice at Tengu's mask
+
+As the product owner,
+I want the bot to choose a subclass when Tengu's mask offers it,
+So that a Run that kills Tengu goes on to depth 11 with a build and not with a default.
+
+**Acceptance Criteria:**
+
+**Given** `Tengu.java:214-216` offers the subclass choice at the mask and the Codex lists each subclass's
+effects per class
+**When** a Playbook field per class names the choice and the reason, and a Policy answers the prompt with
+it using only what the screen shows
+**Then** a Rule row cites the lines, `SubclassChoiceTest` plays the prompt on `EmbeddedHost` for each of
+the six classes and asserts the answer, and a case where the prompt shows an unexpected option falls back
+to a safe default and logs it
+**And** the practice table for all six classes shows that the choice does not change Tengu conversion
+(the kill precedes the choice), and a note carries the measurement the next epic needs (DM-300) so the
+choice can be revisited by evidence.
+
+### Story 10.32: The R1 check: depth 10 on every class
+
+As the product owner,
+I want to know whether every class reaches depth 10 in at least half its Runs,
+So that the reach rung is a published number and the Tengu work has real arrivals.
+
+**Acceptance Criteria:**
+
+**Given** the Prison and class stories that the diagnosis (10.7) and the tables selected have landed
+**When** `:rig:direction --class ALL --set standard` is played over the whole of each class's `standard`
+triples at two salts
+**Then** `docs/results/` gets a page with reach d5/d10/d15 per class, the Wilson intervals, the
+deaths-by-depth killer table, think time, and the commit it was played on
+**And** `ReachRungPageTest` reads the logs the page names and checks every figure
+**And** R1 is met when every one of the six classes has reach d10 at least 50% observed; if one is not,
+the page says which, the next lever is chosen from its killer table, and this story stays open (no new
+set is used; this is a tuning-set reading, not a claim)
+**And** the page is the gate for 10.33's real half.
+
+### Story 10.33: The R2 check: Tengu conversion
+
+As the product owner,
+I want Tengu to die at least 90% of the time he is fought,
+So that the conversion rung is met before the registered run is spent.
+
+**Acceptance Criteria:**
+
+**Given** 10.21 is done and 10.32 has produced real arrivals
+**When** conversion is measured on the practice floor (the real-arrival kits of 10.6 where the class has at
+least ten, else the profile kits) with 200 Runs per class, and on real `standard` arrivals (Runs that reach
+Tengu's floor), pooled and per class
+**Then** `docs/results/` gets a page with both, Wilson intervals, n per class, and the loss causes, and
+`TenguRungPageTest` reads the logs it names and checks every figure
+**And** R2 is met when practice conversion is at least 90% for every class and the pooled real conversion is
+at least 90%; real conversion is gated per class only for a class with at least 30 real arrivals and is
+reported without a gate for the others, a rule written here so it is not invented after the numbers
+**And** if R2 is not met the page names the classes and the loss causes, the story stays open and the fix
+is a story by correct-course.
+
+### Story 10.34: The registered Tengu run and the epic close
+
+As the product owner,
+I want the `tengu` set played once and published,
+So that the epic ends with a number nobody tuned against.
+
+**Acceptance Criteria:**
+
+**Given** 10.32 and 10.33 are met and published, and the product owner has pre-approved this run
+(2026-10-28)
+**When** the run is registered (commit, flags, the set's identity and the pass number recorded in the
+registration before the first Run, per 3.5) and then played once with `SeedSets.publish(root, "tengu",
+reason)`
+**Then** `docs/results/` gets a page with every Run (won or lost), the pooled Tengu kill rate with its
+Wilson interval, the rate per class, the staircase columns, the killer table for the Runs that missed, and
+think time; `TenguRunPageTest` reads the logs and checks every figure
+**And** R3 is met when pooled Tengu kills are at least 95% with a Wilson lower bound of at least 92%, and
+every class is at least 90% observed; the page says met or not met in its first line, and a miss is
+published as a negative result (FR-25) with the classes that missed, never replayed on the same set
+**And** the epic retrospective is written (`bmad-retrospective`), `sprint-status.yaml` and the roadmap
+close the epic, SM-9 in the PRD is updated with the result, and the next rung (DM-300 on depth 15) is
+written as an idea file under `docs/ideas/` with the staircase it would follow.
+
+### Story 10.35: The registry of tunable parameters
+
+As the product owner,
+I want every numeric threshold in the Playbook and the Policies in one registry with bounds and step sizes,
+So that a tuner can move numbers without anyone editing rules.
+
+**Acceptance Criteria:**
+
+**Given** thresholds (rest amounts, threat weights, retreat and heal lines) live in Playbook data and in
+Policy constants
+**When** a registry lists each tunable parameter once with its owner (Playbook field or Policy), default,
+lower and upper bound, step size and a reason, and the Brain reads the value through it
+**Then** an ADR (with `/adr`, five options including "tune by hand" and "a learned evaluation, which is E9")
+records the method for stories 10.35 to 10.37: SPSA with paired seeds, only numbers move and readable rules
+stay, tuning only on `standard` slices and never `goo`, `holdout` or `tengu`, and a candidate kept only
+on a second slice under the Sequential test
+**And** `TunableRegistryTest` asserts every registered default equals the value the code used before the
+story, every bound contains its default, no parameter appears twice, and a Playbook file naming an
+unregistered tunable is refused by the validator
+**And** `TunableNoChangeTest` proves the Brain behaves identically at defaults: the same `standard` slice
+(`smoke` for the test, 40 per class for the PR) played before and after has equal normalised Run logs
+(header, `chain`, `prev` and `think_ms` set aside), per the E7 lesson, for all six classes
+**And** the PR is labelled `fairness` and the table shows no column changes. This story depends on the W1
+instruments (10.1 to 10.3) and starts after they merge.
+
+### Story 10.36: The tune runner
+
+As the product owner,
+I want `:rig:tune` to run SPSA over the registry,
+So that parameters improve by measurement and the path they took is on record.
+
+**Acceptance Criteria:**
+
+**Given** the registry of 10.35 and the all-class table of 10.3
+**When** `:rig:tune --params <names|all> --classes ALL --iterations N --salt-base 1000` runs SPSA
+iterations with a perturbation per iteration, each pair of perturbed values played on the same paired
+seeds from `standard`, scored by bosses killed and reach on all six classes
+**Then** it writes the parameter trajectory (one line per iteration: values, both scores, the step) as a
+file beside the logs, writes the candidate as a Playbook diff and never edits the committed Playbook
+itself, and refuses `goo`, `holdout` and `tengu` as `--set`
+**And** `TuneRunnerTest` runs three iterations on `smoke` with a fixed salt and asserts the trajectory is
+identical across two JVMs, that the candidate stays inside every bound, and that a planted objective with a
+known optimum moves the parameters toward it (a control showing the tuner discriminates)
+**And** `TuneRefusalTest` has one case per refused set
+**And** `docs/rig.md` documents the command. This story depends on 10.35 and 10.3.
+
+### Story 10.37: The first tuning run
+
+As the product owner,
+I want the first SPSA run's candidate judged on seeds it was not tuned on,
+So that a tuned number is kept because it wins and not because it was fitted.
+
+**Acceptance Criteria:**
+
+**Given** `:rig:tune` exists and the Prison stories have landed enough rules for numbers to matter
+**When** a run tunes the registry under the tuning salts 5000 to 6999 (`:rig:tune` refuses any other) for all
+six classes
+**Then** the candidate is played against the current values on the confirmation slices (salt bases 1000 and
+3000; salts 7000 and up are kept for pre-registered tiebreaks) with the Sequential test of E3, pooled and per class, and is kept only if the test accepts it and no class's bosses
+killed falls
+**And** `docs/results/` gets a page with the trajectory, the candidate against the current values on both
+slices, the PR table for all six classes, the think-time column, and the verdict; `TuneRunPageTest` reads
+the logs it names and checks the figures
+**And** a rejected candidate is published as a negative result (FR-25) and the story is still done; a kept
+one changes only Playbook numbers, with `PlaybookValidator` green.
+This story depends on 10.36.
+
+### Settled while planning
+
+Decided by the planner from the plan where it was silent, and open to the product owner's override on the
+pull request that carries these stories.
+
+1. **Thirty-seven stories, in seven groups.** Instruments (10.1 to 10.6), Prison survival (10.7 to 10.17),
+   the Tengu fight (10.18 to 10.21), search (10.22 to 10.24), classes (10.25 to 10.31), the three
+   rung checks (10.32 to 10.34), and automatic tuning (10.35 to 10.37, numbered last because they were
+   added after the rest; they start after 10.1 to 10.3 merge and do not wait for the close). Each class is its own story so the order "furthest below the median
+   first" is a choice made when the stories open and not baked into the keys.
+2. **The Prison stories wait on the diagnosis only for their order.** 10.8 to 10.16 are planned now so
+   they are ready; 10.7 orders them and may add stories.
+3. **One use of `tengu`.** The registered run is played once per version of the bot. A failure is
+   published and a fresh claim needs a new set (`tengu-2`) by ADR, since a set that has been run is no
+   longer held out.
+4. **R1 is read from the whole `standard` set per class** (about 83 triples per class at two salts) and
+   is a tuning-set milestone, not a claim; the claim is R3.
+5. **R2 has a practice half and a real half,** and the real half is gated per class only above 30 real
+   arrivals per class; below that it is reported. The rule is written before any real number exists.
+6. **Practice kits start hand-built from the Codex and move to real arrivals** (10.5, 10.6) so the fight
+   can be built before reach exists. A practice result never counts toward R3 and is refused by
+   `SeedSets.publish`.
+7. **No fixed think cap.** A Rig wall-clock watchdog is a safety against a hang, not a budget (10.22).
+   The Overlay may cap think time for playability as a UI setting.
+8. **Search is conditional.** 10.24 is built only if the spike (10.23) says the rollout cost is
+   affordable; otherwise it closes with the number and the epic continues without it.
+9. **W5 is not a story.** The in-flight potion-inference and piranha-shore PRs merge under #219; the E8
+   merges and 4.14 continue on their own issues.
+10. **The PRD gains SM-9** for the Tengu rung, beside SM-3 for the Goo rung.
+11. **Tuning moves numbers only.** Rules stay readable; SPSA moves registered Playbook numbers, on
+    standard slices, with paired seeds, and a candidate is kept on a second-slice Sequential win (10.35 to 10.37).

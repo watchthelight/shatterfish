@@ -17,6 +17,7 @@ import org.shatterfish.api.PromptKind;
 import org.shatterfish.api.RunLog;
 import org.shatterfish.api.TransitionKind;
 import org.shatterfish.api.TransitionView;
+import org.shatterfish.api.Tunables;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -109,14 +110,20 @@ final class Fight implements Policy {
 
     private final Codex.Knowledge knowledge;
     private final org.shatterfish.api.Playbook.Goo goo;
+    private final Tunables.Vector tunables;
 
     Fight(Codex.Knowledge knowledge) {
         this(knowledge, org.shatterfish.api.Playbook.Goo.REFERENCE);
     }
 
     Fight(Codex.Knowledge knowledge, org.shatterfish.api.Playbook.Goo goo) {
+        this(knowledge, goo, Tunables.Vector.REFERENCE);
+    }
+
+    Fight(Codex.Knowledge knowledge, org.shatterfish.api.Playbook.Goo goo, Tunables.Vector tunables) {
         this.knowledge = knowledge;
         this.goo = goo;
+        this.tunables = tunables;
     }
 
     @Override
@@ -142,7 +149,7 @@ final class Fight implements Policy {
     @Override
     public boolean enters(Observation observation, Memory memory) {
         return observation.header().prompt() == PromptKind.NONE
-                && (!enemies(observation, knowledge).isEmpty() || chasing(observation, memory, knowledge));
+                && (!enemies(observation, knowledge).isEmpty() || chasing(observation, memory, knowledge, tunables));
     }
 
     /**
@@ -152,11 +159,16 @@ final class Fight implements Policy {
      * that goes on for waits kept a hungry hero from a meal (issue #184's rig run). The chase is where the screen showed the enemy, never where it is.
      */
     static boolean chasing(Observation observation, Memory memory, Codex.Knowledge knowledge) {
+        return chasing(observation, memory, knowledge, Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #chasing(Observation, Memory, Codex.Knowledge)} with the chase lasting the vector's {@code fight.chase_waits}. */
+    static boolean chasing(Observation observation, Memory memory, Codex.Knowledge knowledge, Tunables.Vector tunables) {
         Memory.Spot chase = memory.chase();
         return chase.cell() >= 0 && enemies(observation, knowledge).isEmpty()
                 && observation.hero().hunger() == org.shatterfish.api.Hunger.NONE
                 && chase.on(observation.header().depth(), observation.header().branch())
-                && memory.waits() - memory.chased() <= CHASE_WAITS
+                && memory.waits() - memory.chased() <= tunables.getInt(Tunables.FIGHT_CHASE_WAITS)
                 && chase.cell() < observation.map().tiles().size()
                 && chebyshev(observation.map(), observation.hero().cell(), chase.cell()) > 1;
     }
@@ -179,11 +191,17 @@ final class Fight implements Policy {
      */
     static List<ActorView> threats(Observation observation, Memory memory, List<ActorView> enemies,
                                    Codex.Knowledge knowledge) {
+        return threats(observation, memory, enemies, knowledge, Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #threats(Observation, Memory, List, Codex.Knowledge)} recalling for the vector's {@code fight.recall_waits}. */
+    static List<ActorView> threats(Observation observation, Memory memory, List<ActorView> enemies,
+                                   Codex.Knowledge knowledge, Tunables.Vector tunables) {
         List<ActorView> threats = new ArrayList<>(enemies);
         MapSection map = observation.map();
         for (Memory.Seen seen : memory.monsters()) {
             if (seen.depth() == observation.header().depth() && seen.at() < memory.waits()
-                    && memory.waits() - seen.at() <= RECALL_WAITS && !Bestiary.passive(knowledge, seen.depth(), observation.header().branch(), seen.name())
+                    && memory.waits() - seen.at() <= tunables.getInt(Tunables.FIGHT_RECALL_WAITS) && !Bestiary.passive(knowledge, seen.depth(), observation.header().branch(), seen.name())
                     && !Bestiary.waterBound(knowledge, seen.depth(), observation.header().branch(), seen.name())
                     && seen.cell() < map.tiles().size() && map.fog().get(seen.cell()) != Fog.VISIBLE) {
                 threats.add(new ActorView(seen.cell(), seen.name(), Alignment.ENEMY, ObservationCodec.MAX_HEALTH_PIPS,
@@ -237,7 +255,7 @@ final class Fight implements Policy {
     public List<RunLog.Choice> ranked(Observation observation, Memory memory, List<Action> offered, Stream stream) {
         List<ActorView> enemies = enemies(observation, knowledge);
         if (enemies.isEmpty()) {
-            RunLog.Choice chase = chasing(observation, memory, knowledge) ? chase(observation, memory, offered) : null;
+            RunLog.Choice chase = chasing(observation, memory, knowledge, tunables) ? chase(observation, memory, offered) : null;
             return chase == null ? List.of() : List.of(chase);
         }
         MapSection map = observation.map();
@@ -252,9 +270,12 @@ final class Fight implements Policy {
         if (leave != null) {
             return List.of(leave);
         }
-        boolean favourable = favourable(observation, knowledge, threats(observation, memory, enemies, knowledge));
-        RunLog.Choice retreat = retreat(observation, memory, offered, enemies, knowledge);
+        boolean favourable = favourable(observation, knowledge, threats(observation, memory, enemies, knowledge, tunables), tunables);
+        RunLog.Choice retreat = retreat(observation, memory, offered, enemies, knowledge, tunables);
         List<RunLog.Choice> fight = Goo.engage(observation, memory, offered, enemies, goo);
+        if (fight == null) {
+            fight = Tengu.engage(observation, memory, offered, enemies);
+        }
         if (fight != null) {
             return fight;
         }
@@ -603,13 +624,19 @@ final class Fight implements Policy {
      */
     static RunLog.Choice retreat(Observation observation, Memory memory, List<Action> offered, List<ActorView> enemies,
                                  Codex.Knowledge knowledge) {
+        return retreat(observation, memory, offered, enemies, knowledge, Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #retreat(Observation, Memory, List, List, Codex.Knowledge)} deciding by the vector's {@code fight.*} and {@code descend.*} numbers. */
+    static RunLog.Choice retreat(Observation observation, Memory memory, List<Action> offered, List<ActorView> enemies,
+                                 Codex.Knowledge knowledge, Tunables.Vector tunables) {
         MapSection map = observation.map();
         int hero = observation.hero().cell();
         int from = nearest(map, hero, enemies);
         String floor = observation.header().depth() + ":" + observation.header().branch();
-        boolean outpaced = outpaced(observation, knowledge, enemies);
-        if (!observation.header().sealed() && Memory.count(memory.flights(), floor, 0) < FLIGHTS) {
-            boolean down = down(observation, memory, knowledge);
+        boolean outpaced = outpaced(observation, knowledge, enemies, tunables);
+        if (!observation.header().sealed() && Memory.count(memory.flights(), floor, 0) < tunables.getInt(Tunables.FIGHT_FLIGHTS)) {
+            boolean down = down(observation, memory, knowledge, tunables);
             java.util.function.Predicate<TransitionView> stairs = transition -> transition.kind()
                     == TransitionKind.REGULAR_ENTRANCE || (down && transition.kind() == TransitionKind.REGULAR_EXIT);
             for (TransitionView transition : map.transitions()) {
@@ -637,7 +664,7 @@ final class Fight implements Policy {
                     || nearest(map, step.cell(), enemies) >= from).toList();
             Path path = walk(map, walk, hero, away, cell -> map.transitions().stream()
                     .anyMatch(t -> t.cell() == cell && stairs.test(t)));
-            if (path != null && (!outpaced || path.distance <= OUTPACED_STAIRS)) {
+            if (path != null && (!outpaced || path.distance <= tunables.getInt(Tunables.FIGHT_OUTPACED_STAIRS))) {
                 return new RunLog.Choice(path.step, Policies.CERTAIN, "retreat: stairs");
             }
         }
@@ -698,11 +725,16 @@ final class Fight implements Policy {
      * hasted enemy, or a hasted hero, is not told apart (the buffs change the speed, Char.java:770-783).
      */
     static boolean outpaced(Observation observation, Codex.Knowledge knowledge, List<ActorView> enemies) {
+        return outpaced(observation, knowledge, enemies, Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #outpaced(Observation, Codex.Knowledge, List)} with the vector's {@code fight.outpaced_range}. */
+    static boolean outpaced(Observation observation, Codex.Knowledge knowledge, List<ActorView> enemies, Tunables.Vector tunables) {
         MapSection map = observation.map();
         for (ActorView enemy : enemies) {
             if (enemy.emote() != org.shatterfish.api.Emote.SLEEP
                     && Bestiary.fast(knowledge, observation.header().depth(), observation.header().branch(), enemy.name())
-                    && chebyshev(map, observation.hero().cell(), enemy.cell()) <= OUTPACED_RANGE) {
+                    && chebyshev(map, observation.hero().cell(), enemy.cell()) <= tunables.getInt(Tunables.FIGHT_OUTPACED_RANGE)) {
                 return true;
             }
         }
@@ -714,10 +746,15 @@ final class Fight implements Policy {
      * and the descend Policy is taking it down (see {@link #retreat}).
      */
     static boolean down(Observation observation, Memory memory, Codex.Knowledge knowledge) {
+        return down(observation, memory, knowledge, Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #down(Observation, Memory, Codex.Knowledge)} with the vector's {@code descend.*} numbers deciding when the floor is left. */
+    static boolean down(Observation observation, Memory memory, Codex.Knowledge knowledge, Tunables.Vector tunables) {
         if (Descend.bossNext(observation, knowledge)) {
             return false;
         }
-        return observation.hero().hp() >= observation.hero().ht() || Descend.leaving(observation, memory, knowledge) == null;
+        return observation.hero().hp() >= observation.hero().ht() || Descend.leaving(observation, memory, knowledge, tunables) == null;
     }
 
     private static boolean transition(MapSection map, int cell) {
@@ -1038,6 +1075,11 @@ final class Fight implements Policy {
      * the hero's roll; special attacks, ranged attacks and speed are not modelled.
      */
     static boolean favourable(Observation observation, Codex.Knowledge knowledge, List<ActorView> enemies) {
+        return favourable(observation, knowledge, enemies, Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #favourable(Observation, Codex.Knowledge, List)} with the margin the vector's {@code fight.margin_per_mille} says. */
+    static boolean favourable(Observation observation, Codex.Knowledge knowledge, List<ActorView> enemies, Tunables.Vector tunables) {
         HeroSection hero = observation.hero();
         if (1000L * hero.hp() < 334L * hero.ht()) {
             return false;
@@ -1058,6 +1100,6 @@ final class Fight implements Policy {
         for (int i = 0; i < engaging; i++) {
             perTurn += incoming.get(i);
         }
-        return soonest * perTurn * 1000 < (double) hero.hp() * MARGIN_PER_MILLE;
+        return soonest * perTurn * 1000 < (double) hero.hp() * tunables.getInt(Tunables.FIGHT_MARGIN);
     }
 }

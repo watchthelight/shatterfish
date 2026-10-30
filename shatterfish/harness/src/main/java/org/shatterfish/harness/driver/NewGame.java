@@ -48,6 +48,17 @@ public final class NewGame {
      * story 1.15's own determinism test found.
      */
     public static void begin(long seed, HeroClass heroClass, RngControl rng) {
+        begin(seed, heroClass, rng, null);
+    }
+
+    /**
+     * {@link #begin(long, HeroClass, RngControl)} for a practice Run (E10, ADR-0024): the same statements,
+     * and between the game's own init and the building of the first floor the hero is raised to the
+     * kit and the depth set to the boss's, so the floor built is the boss floor and the hero is
+     * placed at its entrance as a descent would place them. {@code practice} null is the ordinary start.
+     */
+    public static void begin(long seed, HeroClass heroClass, RngControl rng,
+                             org.shatterfish.harness.practice.Practice practice) {
         if (heroClass == null) {
             throw new IllegalArgumentException("a Run needs a hero class");
         }
@@ -90,6 +101,10 @@ public final class NewGame {
         // InterlevelScene.java:622-649, descend() with no hero: a new game and its first floor.
         Mob.clearHeldAllies();
         Dungeon.init();
+        if (practice != null) {
+            org.shatterfish.api.HeroClass api = org.shatterfish.api.HeroClass.valueOf(heroClass.name());
+            org.shatterfish.harness.practice.PracticeStart.arrive(practice.boss(), practice.kit(api));
+        }
         // The stack is the harness's from here: init has just thrown away every generator, base
         // included, and replaced the base with one seeded from the system (Dungeon.java:254). Wait
         // zero's generator goes on top before the first floor is built, so the floor is the tuple's

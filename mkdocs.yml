@@ -138,7 +138,9 @@ nav:
       - ADR-0021 Lore claim format and intake: adr/0021-lore-claim-format.md
       - ADR-0022 The variant classifier: adr/0022-variant-classifier.md
       - ADR-0023 Playbooks as data: adr/0023-playbooks-as-data.md
+      - ADR-0024 Boss practice Runs: adr/0024-boss-practice-runs.md
       - ADR-0025 Classloader-isolated rollout world: adr/0025-classloader-isolated-rollout-world.md
+      - ADR-0026 Tunable registry and SPSA: adr/0026-tunable-registry-and-spsa.md
   - Rules:
       - rules/index.md
       - The Brain's Rules index: brain-rules.md
@@ -202,6 +204,7 @@ nav:
       - The worse Brain, rejected: results/2026-09-23-worse-brain.md
       - "Direction check: story 4.13": results/2026-09-26-4-13-direction-check.md
       - "Baseline at v4.0.2": results/2026-10-25-feb88de55.md
+      - "Replay seek cost: story 8.5": results/2026-10-27-replay-seek-cost.md
       - "Goo baseline at 5b48107f9": results/2026-10-25-goo-baseline-5b48107f9.md
       - "No walking away from a faster enemy": results/2026-10-26-219-no-outrunning-fast-enemies.md
       - "A piranha is a thing of the water": results/2026-10-26-219-piranha-water.md
@@ -224,6 +227,11 @@ nav:
       - "Per-boss playbooks": results/2026-10-27-7-5-per-boss-playbooks.md
       - "Evaluation terms in the Decision": results/2026-10-27-8-1-decision-terms.md
       - "The measured win rate": results/2026-10-27-7-10-the-measured-win-rate.md
+      - "Boss practice kit": results/e10-practice-kit.md
+      - "E10 W1, the new instruments": results/2026-10-28-e10-w1-instruments.md
+      - "E10 W2, prison food budgeting": results/2026-10-29-e10-w2-prison-food.md
+      - "E10, early food economy": results/2026-10-29-e10-early-food-economy.md
+      - "Story 10.9, the DM-100 deaths": results/2026-10-29-10-9-dm100-lightning.md
       - "The E7 Brain on holdout": results/2026-10-27-e7-holdout.md
       - "Generated: H-0002": results/2026-09-23-H-0002.md
       - "Generated: H-0008": results/2026-10-27-H-0008.md
