@@ -18,7 +18,7 @@ while the hero stood in a cloud (`Explore.walkable` refused clouded cells).
 | A gas acts at the end of the turn, after the hero has moved | `Blob.java:123-126` |
 | A blob spreads to its four orthogonal neighbours only; a closed door is solid | `Blob.java:166-186`, `Terrain.java:90` |
 | Paralytic gas paralyses for 10 turns, and a paralysed hero gets no input | `ParalyticGas.java:52`, `Paralysis.java:34`, `Hero.java:873-878` |
-| Corrosive gas corrodes armour and weapon | `CorrosiveGas.java:58`, `Corrosion.java:73`, `Corrosion.java:106-115` |
+| Corrosive gas corrodes armour and weapon | `CorrosiveGas.java:58`, `buffs/Corrosion.java:73`, `buffs/Corrosion.java:106-115` |
 | Fire ignites a non-immune character on its cell, burning 8 turns for 1 to `3 + depth/4` | `Fire.java:100-102`, `Burning.java:54`, `Burning.java:105-108` |
 | Water ends burning | `Burning.java:99` |
 
