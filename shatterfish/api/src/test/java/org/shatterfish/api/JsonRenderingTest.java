@@ -139,6 +139,9 @@ class JsonRenderingTest {
     private static final Set<String> HELPERS = Set.of("Canon", "Encoder", "Sha256", "Utf8", "JsonWriter",
             "JsonWriter$Frame", "JsonWriter$ObjectFrame", "JsonWriter$ArrayFrame", "ObservationCodec", "ObservationJson",
             "Belief", "ShatterfishApi", "ValidActions",
+            // The look-ahead a search Brain is lent (story 10.24): interfaces and records of numbers and Observations, no text read
+            // into a record of the schema (SearchPlan.parse reads a plan of its own numbers, not an Observation).
+            "Lookahead", "Searching", "Playout", "Hypothesis", "Hypothesis$Remembered", "SearchPlan",
             // A decider's way of saying it has no rule for a screen (story 4.11): an exception type,
             // no field, no text read, so the Run loop can end on it without catching anything else.
             "Decider$CannotDecide",
@@ -160,7 +163,7 @@ class JsonRenderingTest {
             // values, read from a committed file by the Rig (harness PlaybookFile) and handed to the Brain, plus
             // its own canonical text. Its sections state the range of each field; none builds one from text.
             // Heuristic is the annotation that links a Playbook field to its Rule, moved here from the brain.
-            "Tunables", "Tunables$Tunable", "Tunables$Vector", "Tunables$Owner", "Playbook", "Playbook$Identify", "Playbook$Upgrade", "Playbook$Kit", "Playbook$Bosses", "Playbook$Goo", "Playbook$Later", "Playbook$ClassEntry", "Playbook$Spec", "Heuristic",
+            "Tunables", "Tunables$Tunable", "Tunables$Vector", "Tunables$Owner", "Playbook", "Playbook$Identify", "Playbook$Upgrade", "Playbook$Kit", "Playbook$Bosses", "Playbook$Goo", "Playbook$Tengu", "Playbook$Later", "Playbook$ClassEntry", "Playbook$Spec", "Heuristic",
             // Decider is the seam a Brain arrives at: Observation in, Action out, and no second
             // argument to ask for anything else (story 1.14's review moved it here from the module
             // that imports the game). It is an interface with no state and no I/O, which is what

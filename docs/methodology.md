@@ -144,6 +144,7 @@ for the triple at index `i`. Five of them are badge-locked for a profile that ha
 and every Run a set names can be started. That is the menu a player reaches by having played, and
 it changes nothing the bot may read.
 | `goo` | 400 | `6778735` (`0x676F6F`) | Warrior only | none |
+| `tengu` | 600 | `499917940597` (`0x74656E6775`) | the game's six, cycled (100 each) | none |
 
 **The sets are derived, not drawn**, and this is the part that does not ask you to trust anything.
 A set drawn from an unseeded source and committed is a set whose only evidence is the file, and
@@ -738,7 +739,9 @@ nothing is dropped, so the counts add up to the index's.
 
 **What it cannot say.** A Run log's ending records how the Run ended and at what depth, not what
 killed the hero: the log's `Outcome` has no killer — no mob, trap or hunger. So the gallery groups by
-ending and depth, and says so on every page; recording the killer is in `docs/ideas/`. The command above rewrites the gallery for any folder the Rig wrote (for a
+ending and depth, and says so on every page. The killer is recorded beside the log instead (ADR-0011's
+E10 W1 amendment): the gallery ends with a **Deaths by depth, top killers** table read from each dead
+Run's `.ending.json`, and a Run without one is counted as `not recorded`. The command above rewrites the gallery for any folder the Rig wrote (for a
 comparison, one per side) and, with `--snapshots N`, writes the last N waits of every Run into
 `snapshots/`, linked from the gallery: what the Run was doing when it ended. The random Baseline's is in
 [`results/2026-09-23-H-0002/gallery.md`](https://github.com/watchthelight/shatterfish/blob/bdf5ea5b2d38e7911f42e23a5ba08b4237cffc5c/results/2026-09-23-H-0002/gallery.md);
@@ -851,8 +854,8 @@ prints is a published measurement.
 
 | Flag | Meaning |
 |---|---|
-| `--set <name>` | `standard` (the default), `smoke` or `bosses`. `goo` is refused (registered use only) and `holdout` is refused (never for development). |
-| `--class <HERO>` | Keep only that hero class, in any case. |
+| `--set <name>` | `standard` (the default), `smoke` or `bosses`. `goo` and `tengu` are refused (registered use only) and `holdout` is refused (never for development). |
+| `--class <HERO>` | Keep only that hero class, in any case. `ALL` plays the first `--first` of each of the six classes, entry `i` of a class under `--salt-base + i` (so each class is exactly the slice `--class <it>` would play), and prints one table with a column per class and a pooled column; with a baseline it prints a block per class and a pooled block instead. |
 | `--first N` | Keep the first N entries after filtering, in file order. |
 | `--salt-base K` | Entry `i` of the selection plays under salt `K + i` (default 0), so a baseline and the current Brain meet the same dungeon at the same moments and a rerun is the same measurement. |
 | `--baseline <git ref or folder>` | A folder (an earlier direction folder, or a folder of Run logs) is read and nothing is played. A git ref is checked out into a worktree under the output folder, its `:brain:jar` is built there with that checkout's own wrapper, and the same picks are played with the current api, harness and rig but the ref's Brain, Codex and weights. That build is a second Gradle job while the first runs. The baseline's logs are then cached under the repository's common git folder (`shatterfish-direction-cache/`), keyed by the ref's commit, the selection and the current tree's game, api, harness and rig trees, so the next check against the same main in any worktree plays only the current side; nothing is cached while those paths have uncommitted changes. |
@@ -864,11 +867,146 @@ of the standard set in file order, entry `i` under salt `1000 + i`. The flags de
 because a seeds file is written only by `./gradlew :rig:seeds`.
 
 The rows are read from the Run logs through the harness's reader, and from a heap record that the
-direction check's own child process writes beside each log (`.heaps.tsv`): reach of depth 5, Goo kills
-(an ending with at least one boss), median turns, deepest mean and max, deaths by depth, oscillation
+direction check's own child process writes beside each log (`.heaps.tsv`): reach of depth 5, 10 and 15
+(the deepest floor a wait was served on), the boss staircase (`bosses killed` is Runs whose ending
+counts at least one boss; `Goo kills` and `Tengu kills` are Runs whose ending record names that boss,
+from `Statistics.bossScores` index 0 and 1, `Goo.java:306`, `Tengu.java:225`; a Run without an ending
+record, such as one from a baseline cached before E10 W1, is `not recorded`, never guessed), median turns, deepest mean and max, deaths by depth, oscillation
 Steps (runs of at least six consecutive Steps between the same two cells), searches and search waits
 per floor, heaps taken of seen, the median waits from first sight to pick-up, and heaps taking over
-100 waits from first sight. The heap record only watches the Observations the Brain is handed.
+100 waits from first sight, and the think time (mean and nearest-rank 95th percentile milliseconds a
+Decision took, from the log's `think_ms`, which the chain leaves out). The heap record only watches the
+Observations the Brain is handed.
+
+Under the table the direction check prints **deaths by depth, top killers**: one row a depth with the
+deaths there and the four most common killers, read from the `.ending.json` file beside each log (the
+cause class the game's rankings name; ADR-0011's E10 W1 amendment). A death with no such file is
+`not recorded`. It is diagnosis only: nothing a Brain reads. `:rig:gallery` prints the same table under
+the same heading, and a Rig `outcomes.jsonl` row gains `killer`, `death_depth`, `last_hp` and
+`boss_kills` when the record is there.
+
+### Stray actor-thread wakes
+
+A Run is fenced frame by frame: the actor thread runs only after a frame, never during one (`SceneStepper`, ADR-0015). `Object.wait` may return with no notify, and on a starved machine the JVM did so once between two frames of a Rig Run (issue #399), which the stepper used to report as an unfenced run and fail a correct Run for.
+
+The stepper now accepts such a wake and counts it (`SceneStepper.strayWakes()`) when it cannot have hurt a reader of game state. The caller reads state only where the last frame left the hero at an Input wait, and input is delivered inside frames, so a stray pass after a frame that did not end at an Input wait is just the next turn run a frame early. After a frame that did end at one, the pass is accepted only if it left the clock, every actor's time, the hero and the random generators' state as they were, and only if the driver did not reseed in the gap. Anything else still fails the step as unfenced. The Run's actions, its hashes at Input waits and its log are unchanged by an accepted wake; the number of frames to reach a given turn can differ.
+
+Each child Run leaves its count in `stray-wakes.txt` in its working directory. The Rig puts it in the Run's line of `runs.jsonl` (`strayWakes`) and the total in `summary.json`, and `:rig:direction` prints it under the table for the current and baseline sides (`not recorded` for a baseline from before this existed). It is zero on a quiet machine; a nonzero count in a ranked Run is worth a look.
+
+`--tunables name=value,...` plays a parameter vector over the Playbook on the current side (the
+baseline plays the Playbook as committed). The same flag on `:rig:run` goes to the `--brain` side of a
+comparison only, so a candidate vector against the current numbers is one command; it is refused with a
+`--registration`, whose Brain is the committed one. Every name must be a registered tunable
+(`Tunables`, ADR-0026) and every value inside its bounds.
+
+## The tune runner
+
+`./gradlew :rig:tune --args="..."` moves the Brain's registered numbers by SPSA, Fishtest style
+(story 10.36, ADR-0026). It is a development tool of the same kind as the direction check: nothing it
+plays is ranked, and a candidate it writes is a hypothesis, kept only if it wins on a second slice
+(story 10.37).
+
+```sh
+./gradlew :rig:tune --args="--set standard --class ALL --first 20 --salt-base 5000 --iterations 10 --jobs 4 [--params a,b,c] [--resume <dir>]"
+```
+
+| Flag | Meaning |
+|---|---|
+| `--set <name>` | `standard` (the default) or `smoke` (for checking the tuner). `goo`, `holdout` and `tengu` are refused by name, and any other set is refused. |
+| `--class <HERO\|ALL>` | One class, or all six (the default). |
+| `--first N` | Triples of each class played in one iteration (default 20). The window of triples moves N along at every iteration and wraps, so an iteration plays fresh dungeons. |
+| `--salt-base K` | The first salt (default and floor 5000). A run plays iterations x classes x `--first` salts from the base, and one that reaches 7000 is refused too: see below. |
+| `--iterations K` | Iterations to run (default 10). With `--resume`, the total to reach. |
+| `--params a,b,c` | Registry names to tune, or `all` (the default). A subset is the way to start: each number added is another direction the noise can push in. |
+| `--jobs P` | Runs in flight at once (default as the direction check). |
+| `--r-end r`, `--c-end c`, `--max-move m` | The constants of the method: the learning rate and the perturbation (in steps) at the last planned iteration, and the most one iteration may move a number, in steps (defaults 0.2, 1.0, 1.0). |
+| `--out <dir>` | The folder, empty or absent (default `build/tune/<time>`). |
+| `--resume <dir>` | Continue a folder. The folder holds the configuration, so only `--iterations`, `--jobs`, `--root` and `--keep-logs` may be given with it. |
+| `--keep-logs` | Keep every Run log of every iteration; by default they are deleted once scored, and the per-pair scores stay. |
+
+**The method.** Each number has a step (its SPSA scale, from the registry). Iteration `k` draws a sign
+for every tuned number from a fixed generator (a function of the seed, `k` and the number's place, so a
+rerun perturbs identically), and builds two vectors: the state plus and minus `c_k` steps, rounded to whole
+numbers and clamped to the bounds. Both vectors play the same triples under the same salts. The score
+difference is made a result `r` in [-1, 1] (over 2 score points, clamped); `r` over the half-gap that was
+played, per step, is the gradient estimate of each number; the state moves up it by `a_k` times that, at
+most `--max-move` steps. The schedule is Fishtest's: `c_k = c_end * N^0.101 / (k+1)^0.101` and
+`a_k = r_end * c_end^2 * (A + N)^0.602 / (A + k + 1)^0.602`, with `N` the iterations planned when the folder
+is made and `A = 0.1 N`, so a full-scale result moves a number about `r_end * c_end` steps at the end of the
+run, and noise alone cannot drift a number more than about 3 steps in 10 iterations (ADR-0026, "Gain
+calibration"). The state is kept as real numbers and clamped to the bounds; it is rounded only when played
+and in the candidate.
+
+**The objective.** The score of a Run is 5 per boss killed plus the deepest depth reached, read from its
+log's ending (a Run with no ending is not scored). A Goo kill is therefore worth the five floors that
+lead to it, and every floor deeper counts where nothing was killed. To keep the noise down:
+
+- the plus and minus vector play the same triples under the same salts, so the dungeon and the dice are
+  common and the paired difference cancels a seed's difficulty;
+- a triple with a Run missing on either side is dropped from both;
+- each class is one voice: the score is the mean of the class means, so a class that is easier to play
+  does not outvote the rest;
+- the move of one iteration is capped;
+- every iteration plays fresh triples and fresh salts.
+
+The standard error of the paired difference is in the trajectory, so a step taken on a difference inside
+its noise can be seen as such.
+
+**Seeds and salts.** Salt `saltBase + (k * classes + c) * N + j` is played for triple `j` of class `c` in
+iteration `k`, so no salt is played twice in a run. The tuner plays salts 5000 to 6999 and no others, and
+refuses a run whose base is lower or whose last salt is 7000 or more. The salt map is: 1000 the lever PRs'
+tuning slice, 3000 the confirmation slice, 5000 to 6999 SPSA only, 7000 and up the pre-registered
+confirmation tiebreaks. A tuned number is therefore judged under salts it was not fitted on. Six classes
+of 20 triples fit 16 iterations; one class of 20 fits 100. Triples still come from the
+`standard` set, which the confirmation also uses; what separates them is the salt, and the window that
+moves.
+
+**The folder.**
+
+| File | Holds |
+|---|---|
+| `tune.json` | The configuration, with the starting value of each number. |
+| `trajectory.jsonl` | One line per finished iteration: `theta` (the state before), `delta` (the signs), `plus` and `minus` (the vectors played), `plusScore`, `minusScore`, `diff`, `se`, `pairs`, `dropped`, `gradient`, `move` and `next`. A line is the commit marker of its iteration. |
+| `pairs/iter-NNNN.jsonl` | The two scores of every pair, by class and seed code. |
+| `candidate.json` | The Playbook the final state makes, in the canonical spelling the committed Playbooks use. |
+| `candidate.diff.txt` | The numbers, start to candidate, with their bounds, and the `--tunables` text that plays them against the committed Playbook. |
+
+The committed Playbook is never edited. The state of a run is the folder: a run killed in the middle of
+an iteration replays that iteration and no other, and ends where an uninterrupted run would have
+(`TuneRunnerTest`). `SpsaTest` holds the arithmetic to quadratics with known peaks, noiseless and noisy.
+
+## The boss practice check
+
+`./gradlew :rig:practice --args="--boss tengu|goo --class <HERO|ALL> --kit standard --n 40 --salt-base 1000"`
+starts every Run on the boss's floor (depth 5 for Goo, depth 10 for Tengu) with a hero whose level,
+strength, equipment upgrades and pack follow a kit profile, and lets the Brain play from there. It
+measures the fight and nothing else ([ADR-0024](adr/0024-boss-practice-runs.md)). The hero is built
+through the harness with the game's own classes (`Hero.earnExp`, `Item.upgrade`, the strength
+field) between `Dungeon.init` and the building of the floor; no upstream file is edited. The Brain
+is handed its Observation as it is anywhere else and nothing of the setup.
+
+| Flag | Meaning |
+|---|---|
+| `--boss <goo\|tengu>` | The floor the Run starts on. |
+| `--class <HERO\|ALL>` | One class, or all six (default `ALL`). |
+| `--kit <profile>` | `standard` (what a hero that found everything the floors above guarantee arrives with) or `arrived` (what the Brain's own Runs arrive with). Default `standard`. |
+| `--n N` | The first N triples of the class in the `standard` set (default 40); `--set smoke` is the other set allowed. |
+| `--salt-base K` | Entry `i` plays under salt `K + i`, as in the direction check. |
+| `--jobs P`, `--out <dir>`, `--cap T` | Runs in flight, output folder (default `build/practice/<time>`), turn cap (default 5000). |
+
+A Run ends when the boss is killed (`BOSS_DOWN`), the hero dies, or the cap is reached. The table
+prints, per class, kills over Runs that finished with the Wilson interval, deaths, cap endings, the
+median turns of kills and of deaths, and the killers of the Runs that died (from the debug record),
+and the kit each class was given.
+
+**A practice Run is never ranked.** Its header carries a chained `practice` field,
+`<boss>/<profile>@<kit hash>`, written only when set, so every other log keeps its bytes. A Replay
+re-resolves the stamp and refuses a log whose profile has changed since. The readers that count,
+compare or publish (`Comparison.outcome`, `LogHeader`, the Results extract, the direction table and
+so its baselines) refuse a practice log by name through `OverlayLogs`; a header with a stamp and a
+Registration is invalid; the practice runner takes no Registration and reads only the `standard`
+and `smoke` sets. A practice number is a direction for the Tengu fight, never an acceptance: the
+rungs of epic E10 are measured on real Runs and the registered `tengu` set.
 
 ## The Run log and its chain
 

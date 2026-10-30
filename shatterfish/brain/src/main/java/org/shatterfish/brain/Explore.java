@@ -248,7 +248,7 @@ final class Explore implements Policy {
             }
         }
 
-        return uncover(observation, memory, offered, searches(observation, memory), frugal(observation, memory));
+        return uncover(observation, memory, offered, searches(observation, memory), frugal(observation, memory), tunables);
     }
 
     /**
@@ -261,11 +261,17 @@ final class Explore implements Policy {
      */
     static RunLog.Choice uncover(Observation observation, Memory memory, List<Action> offered, int limit,
                                  boolean promisingOnly) {
+        return uncover(observation, memory, offered, limit, promisingOnly, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** As above under {@code tunables}, which say whether equally short ways break toward tall grass (issue #412). */
+    static RunLog.Choice uncover(Observation observation, Memory memory, List<Action> offered, int limit,
+                                 boolean promisingOnly, org.shatterfish.api.Tunables.Vector tunables) {
         boolean[] around = walkable(observation, memory, true);
         boolean[] through = through(observation, memory);
-        RunLog.Choice choice = toFrontier(observation, offered, around);
+        RunLog.Choice choice = toFrontier(observation, offered, around, tunables);
         if (choice == null) {
-            choice = toFrontier(observation, offered, through);
+            choice = toFrontier(observation, offered, through, tunables);
         }
         if (choice == null) {
             choice = search(observation, memory, offered, around, limit, promisingOnly);
@@ -397,9 +403,11 @@ final class Explore implements Policy {
     static final int FRUGAL_SEARCHES = 4;
 
     /** A Step toward the nearest frontier over the cells {@code walk} allows, or null when none is reachable. */
-    private static RunLog.Choice toFrontier(Observation observation, List<Action> offered, boolean[] walk) {
+    private static RunLog.Choice toFrontier(Observation observation, List<Action> offered, boolean[] walk,
+                                            org.shatterfish.api.Tunables.Vector tunables) {
         MapSection map = observation.map();
-        Path frontier = nearest(map, walk, observation.hero().cell(), offered, cell -> frontier(map, walk, cell));
+        Path frontier = nearest(map, walk, observation.hero().cell(), offered, cell -> frontier(map, walk, cell),
+                grassWanted(observation, tunables));
         return frontier == null ? null
                 : new RunLog.Choice(frontier.step, Policies.CERTAIN, "frontier " + frontier.distance);
     }
@@ -579,18 +587,30 @@ final class Explore implements Policy {
      * offers the Steps and then cell order, so the answer is a function of the screen.
      */
     static Path nearest(MapSection map, boolean[] walk, int hero, List<Action> offered, Goal goal) {
+        return nearest(map, walk, hero, offered, goal, false);
+    }
+
+    /**
+     * {@link #nearest(MapSection, boolean[], int, List, Goal)} that, among equally short ways, takes the one through tall
+     * grass when {@code grass} (issue #412): a Step onto tall grass tramples it, and a trampled cell drops a dewdrop one
+     * time in six (HighGrass.java:148-157). The distance is the same; only the cells the first found way crosses differ,
+     * because the cells of tall grass are queued before the others at each distance.
+     */
+    static Path nearest(MapSection map, boolean[] walk, int hero, List<Action> offered, Goal goal, boolean grass) {
         int cells = walk.length;
         int[] first = new int[cells];
         int[] distance = new int[cells];
         java.util.Arrays.fill(distance, -1);
         distance[hero] = 0;
         ArrayDeque<Integer> queue = new ArrayDeque<>();
-        for (Action action : offered) {
-            if (action instanceof Action.Step step && step.cell() < cells && walk[step.cell()]
-                    && distance[step.cell()] < 0) {
-                distance[step.cell()] = 1;
-                first[step.cell()] = step.cell();
-                queue.add(step.cell());
+        for (int pass = 0; pass < (grass ? 2 : 1); pass++) {
+            for (Action action : offered) {
+                if (action instanceof Action.Step step && step.cell() < cells && walk[step.cell()]
+                        && distance[step.cell()] < 0 && (!grass || Dew.tall(map.tiles().get(step.cell())) == (pass == 0))) {
+                    distance[step.cell()] = 1;
+                    first[step.cell()] = step.cell();
+                    queue.add(step.cell());
+                }
             }
         }
         int width = map.width();
@@ -601,23 +621,38 @@ final class Explore implements Policy {
             }
             int x = cell % width;
             int y = cell / width;
-            for (int dy = -1; dy <= 1; dy++) {
-                for (int dx = -1; dx <= 1; dx++) {
-                    int nx = x + dx;
-                    int ny = y + dy;
-                    if ((dx == 0 && dy == 0) || nx < 0 || ny < 0 || nx >= width || ny >= map.height()) {
-                        continue;
-                    }
-                    int next = nx + ny * width;
-                    if (walk[next] && distance[next] < 0) {
-                        distance[next] = distance[cell] + 1;
-                        first[next] = first[cell];
-                        queue.add(next);
+            for (int pass = 0; pass < (grass ? 2 : 1); pass++) {
+                for (int dy = -1; dy <= 1; dy++) {
+                    for (int dx = -1; dx <= 1; dx++) {
+                        int nx = x + dx;
+                        int ny = y + dy;
+                        if ((dx == 0 && dy == 0) || nx < 0 || ny < 0 || nx >= width || ny >= map.height()) {
+                            continue;
+                        }
+                        int next = nx + ny * width;
+                        if (walk[next] && distance[next] < 0 && (!grass || Dew.tall(map.tiles().get(next)) == (pass == 0))) {
+                            distance[next] = distance[cell] + 1;
+                            first[next] = first[cell];
+                            queue.add(next);
+                        }
                     }
                 }
             }
         }
         return null;
+    }
+
+    /**
+     * The grass-tie-break switch (issue #412): equally short ways are taken through tall grass while the waterskin
+     * shows less than this of its twenty. 0 never.
+     * Off (0) as committed: the rig table of the #412 pull request played worse with it on (on value 20), so it waits for the owner's word and a tuning run.
+     */
+    @Heuristic("tall-grass-dew")
+    static final int GRASS_SKIN_BELOW = 0;
+
+    /** Whether equally short ways break toward tall grass on this screen. */
+    static boolean grassWanted(Observation observation, org.shatterfish.api.Tunables.Vector tunables) {
+        return Dew.wants(observation, tunables.getInt(org.shatterfish.api.Tunables.EXPLORE_GRASS_SKIN_BELOW));
     }
 
     /** Whether {@code cell} is walkable and has a never-shown cell among its eight neighbours. */
@@ -768,6 +803,7 @@ final class Explore implements Policy {
             }
         }
         Sentry.block(walk, observation, memory);
+        Darts.block(walk, observation, memory);
         int depth = observation.header().depth();
         int branch = observation.header().branch();
         for (Memory.Spot spot : memory.blocked()) {

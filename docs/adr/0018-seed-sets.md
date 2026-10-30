@@ -218,3 +218,31 @@ derivation above if they do not trust the file. Nothing else about a set may be 
   test that would have caught it has to be extended to the new pair, which is the kind of thing a
   reviewer forgets. Mitigation: noted here, and the overlap test is written over
   `SeedSets.names()` rather than a hard-coded list.
+
+## Amendment: E10 W1 (2026-10-28): the `tengu` set
+
+E10 ends in a gate on the Tengu fight, which needs a set of its own: the `goo` set is Warrior only and
+`standard` has been tuned on. A seventh set, `tengu`, is added under the same derivation (constant
+`0x74656E6775`, 499917940597).
+
+- **Content.** 600 triples, the game's six classes cycled, so exactly 100 of each; no challenge flags.
+  The first of the classes in the cycle is Warrior, as in every general set. The file is
+  `seeds/tengu.json`, written by `./gradlew :rig:seeds`; `SeedSetsTest` holds that it shares no seed
+  with any other set and is the derivation.
+- **Size, by Wilson.** The bound a gate claims is on the pooled rate, so the size is chosen on the
+  pooled Wilson interval at 95% (z = 1.96). Over n = 600, an observed rate of 100% has a lower bound of
+  0.9936, 97% has 0.9531 and 95% has 0.9295: **a 95% observed rate over 600 Runs bounds the true rate
+  above about 93%**. One class's 100 Runs are far wider (95% observed gives 0.8882), which is why the
+  gate is the pooled number and a per-class rate is reported as a diagnosis, never as a claim.
+  `SeedSetsTest.the_tengu_set_is_a_hundred_of_each_class_and_sized_by_wilson` computes these from the
+  formula, so a later ADR that shrinks the set has to face the arithmetic, as for `goo`.
+- **Guard.** Like `goo`, it is played only under a Registration and never as a direction check or for
+  tuning: `DirectionSelect.allow` refuses it, for `--set tengu` and for `--class ALL`, naming the rule.
+  `SeedSets.load` still reads it, because a registered `:rig:run` reads sets through the same door as
+  `goo`'s. A dungeon that has been tuned on is no longer a test of the fight, so no tuning read of it
+  is made; the Registration for its first use is the product owner's go-ahead, as for `holdout`.
+- **Pre-mortem addition.** If development reads it anyway (a test fixture, a hand-run `:rig:run`
+  without `--registration`), the set is spent as a gate. Mitigation: the refusal is at the one door a
+  development command goes through and the test holds it for both flags; an unregistered `:rig:run`
+  on it is not refused (as `goo`'s is not), and a reviewer should look for one in any PR that touches
+  the Rig.

@@ -4,6 +4,7 @@ import com.shatteredpixel.shatteredpixeldungeon.scenes.InterlevelScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.SurfaceScene;
 import org.shatterfish.api.Action;
 import org.shatterfish.api.Observation;
+import org.shatterfish.api.Playout;
 import org.shatterfish.api.RolloutEnd;
 import org.shatterfish.api.RolloutResult;
 import org.shatterfish.api.Simulator;
@@ -94,6 +95,15 @@ public final class RolloutHost extends Simulator {
 
     @Override
     protected RolloutResult rollout(SnapshotHandle handle, List<Action> actions) {
+        return run(handle, first -> play(driver, executor, actions, first));
+    }
+
+    @Override
+    protected RolloutResult rollout(SnapshotHandle handle, Playout playout, int horizon) {
+        return run(handle, first -> play(driver, executor, playout, horizon, first));
+    }
+
+    private RolloutResult run(SnapshotHandle handle, java.util.function.Function<HeadlessDriver.Halt, RolloutResult> player) {
         // The flag is a claim; the store holds the bytes and knows which copies it made (the Simulator's contract).
         if (!store.madeScrubbed(handle)) {
             throw new IllegalArgumentException("snapshot " + handle.id() + " was not made as a scrubbed copy by this host's store:"
@@ -120,7 +130,7 @@ public final class RolloutHost extends Simulator {
                 t2 = System.nanoTime();
                 timer.load(t2 - t1);
             }
-            result = play(actions, first);
+            result = player.apply(first);
             if (timer != null) {
                 t3 = System.nanoTime();
                 timer.rollout(t3 - t2);
@@ -202,8 +212,21 @@ public final class RolloutHost extends Simulator {
         return first;
     }
 
-    /** Plays {@code actions} on the Run the driver now holds, which is the scrubbed copy at its wait. */
-    private RolloutResult play(List<Action> actions, HeadlessDriver.Halt first) {
+    /**
+     * Plays {@code actions} on the Run the driver now holds, which is the scrubbed copy at its wait. Static so that the
+     * isolated world (E10 spike, ADR-0025) plays the very same loop on the driver of its own loader.
+     */
+    static RolloutResult play(HeadlessDriver driver, ActionExecutor executor, List<Action> actions, HeadlessDriver.Halt first) {
+        List<Action> own = List.copyOf(actions);
+        return play(driver, executor, (observation, applied) -> own.get(applied), own.size(), first);
+    }
+
+    /**
+     * The closed-loop form (story 10.24): the Action at each wait comes from {@code playout}, which is handed the
+     * Observation the Observer made and the count applied so far, and the rollout stops at {@code horizon} Actions or when
+     * the playout returns null. The list form above is this with a playout that reads the list.
+     */
+    static RolloutResult play(HeadlessDriver driver, ActionExecutor executor, Playout playout, int horizon, HeadlessDriver.Halt first) {
         List<Observation> observations = new ArrayList<>();
         int applied = 0;
         HeadlessDriver.Halt next = first;
@@ -235,10 +258,11 @@ public final class RolloutHost extends Simulator {
             }
             Observation observation = new Observer().observe();
             observations.add(observation);
-            if (applied == actions.size()) {
+            Action chosen = applied >= horizon ? null : playout.next(observation, applied);
+            if (chosen == null) {
                 return new RolloutResult(observations, applied, RolloutEnd.HORIZON);
             }
-            Outcome outcome = executor.execute(observation, actions.get(applied));
+            Outcome outcome = executor.execute(observation, chosen);
             if (outcome instanceof Outcome.Rejected) {
                 return new RolloutResult(observations, applied, RolloutEnd.REFUSED);
             }

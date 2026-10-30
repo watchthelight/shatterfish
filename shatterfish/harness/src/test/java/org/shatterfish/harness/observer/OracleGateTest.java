@@ -116,11 +116,14 @@ class OracleGateTest {
     /**
      * {@code ClassLoader.loadClass} answers to a name as well. The scrubber must know which class a saved bundle names,
      * so {@code ItemRows.classOf} is the one door, and it resolves only the game's own package (never a Shatterfish
-     * class). {@code forName} has no such exemption.
+     * class). {@code forName} has no such exemption. {@code IsolationLoader} (ADR-0025) is the other exemption: it is a class loader, so
+     * its {@code loadClass} override delegates the loader contract to its parent for names the JVM hands it, and it holds no
+     * class name of its own to load.
      */
     static final ArchRule NO_LOAD_CLASS = noClasses()
             .that().resideInAPackage("org.shatterfish.harness..")
             .and().doNotHaveFullyQualifiedName("org.shatterfish.harness.redetermine.ItemRows")
+            .and().doNotHaveFullyQualifiedName("org.shatterfish.harness.isolate.IsolationLoader")
             .should().accessTargetWhere(target(name("loadClass")))
             .because("a class loaded by its name is a constructor call the dependency rules cannot see");
 

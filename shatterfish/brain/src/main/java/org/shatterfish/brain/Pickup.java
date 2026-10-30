@@ -40,7 +40,9 @@ import java.util.List;
  * refuses spends no turn (Hero.java:1162-1188), so the Memory records a heap as refused when the
  * hero stood on it at two waits in a row, the first calm, under the same title (story 4.8's review);
  * nor a dewdrop while the hero is at full health, which is refused unless a waterskin has room
- * (Dewdrop.java:63-69, :120-122), and whether it has is not on the screen. Every Step it takes
+ * (Dewdrop.java:63-69, :120-122); the waterskin's shown fill says whether it has (issue #412, {@link Dew}).
+ * With an enemy in view that is not engaged, the hero's own thrown missiles are still fetched
+ * ({@link Missiles}). Every Step it takes
  * brings the hero nearer the heap; when the hero has stood still long enough for the explore Policy
  * to yield ({@link Explore#STUCK} - 1 waits), this one yields too.
  *
@@ -106,10 +108,37 @@ final class Pickup implements Policy {
     @Heuristic("goo-worn-key")
     static final long KEY_WORTH = 50_000_000L;
 
+    /**
+     * The most steps walked, on a calm screen, to a missile the hero threw (issue #412). A thrown stone is
+     * worth little carried, so an ordinary weighing would leave one past a dozen steps, and the hero threw
+     * 22 in one watched Run and took back none; one that landed on a cell the hero can reach is worth the walk
+     * to it up to this, because the next fight's free throws come from the pack (Ranged).
+     * Off (0) as committed: the rig table of the #412 pull request played worse with it on (on value 20), so it waits for the owner's word and a tuning run.
+     */
+    @Heuristic("missile-recover")
+    static final int MISSILE_REACH = 0;
+
+    /**
+     * A dewdrop is taken at full health while the waterskin shows less than this of its twenty (issue #412): the
+     * skin takes it whatever the hero's health (Dewdrop.java:59-62), and twenty drops make a full heal later
+     * (Dewdrop.java:83-84), so an empty skin is a heal carried. 0 refuses the drop at full health, as before.
+     * Off (0) as committed: the rig table of the #412 pull request played worse with it on (on value 20), so it waits for the owner's word and a tuning run.
+     */
+    @Heuristic("dew-skin")
+    static final int DEW_SKIN_BELOW = 0;
+
     @Override
     public boolean enters(Observation observation, Memory memory) {
-        return Calm.quiet(observation, knowledge)
-                && observation.map().heaps().stream().anyMatch(heap -> takeable(heap, observation, memory));
+        if (Calm.quiet(observation, knowledge)) {
+            return observation.map().heaps().stream().anyMatch(heap -> takeable(heap, observation, memory, tunables));
+        }
+        // An enemy in view but not engaged (Calm.unengaged), a sleeper or one far off: the hero's own missiles are
+        // fetched all the same (issue #412); nothing else is.
+        return observation.header().prompt() == org.shatterfish.api.PromptKind.NONE
+                && tunables.getInt(org.shatterfish.api.Tunables.PICKUP_MISSILE_REACH) > 0
+                && Calm.unengaged(observation, knowledge)
+                && observation.map().heaps().stream().anyMatch(heap -> Missiles.own(memory, observation, heap)
+                && takeable(heap, observation, memory, tunables));
     }
 
     /**
@@ -142,6 +171,11 @@ final class Pickup implements Policy {
 
     /** Whether a heap is one this Policy may go for: a plain heap it has not seen refused, nobody on it. */
     static boolean takeable(HeapView heap, Observation observation, Memory memory) {
+        return takeable(heap, observation, memory, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #takeable(HeapView, Observation, Memory)} with a dewdrop taken while the skin shows less than the vector's {@code pickup.dew_skin_below}. */
+    static boolean takeable(HeapView heap, Observation observation, Memory memory, org.shatterfish.api.Tunables.Vector tunables) {
         if (heap.kind() != HeapKind.HEAP || heap.item().isEmpty()) {
             return false;
         }
@@ -150,7 +184,8 @@ final class Pickup implements Policy {
             return false;
         }
         var hero = observation.hero();
-        if (Beliefs.untitled(heap.item()).equals(DEWDROP) && hero.hp() >= hero.ht()) {
+        if (Beliefs.untitled(heap.item()).equals(DEWDROP) && hero.hp() >= hero.ht()
+                && !Dew.wants(observation, tunables.getInt(org.shatterfish.api.Tunables.PICKUP_DEW_SKIN_BELOW))) {
             return false;
         }
         return observation.actors().actors().stream().noneMatch(actor -> actor.cell() == heap.cell());
@@ -198,13 +233,23 @@ final class Pickup implements Policy {
         int[] distance = distances(map, walk, observation.hero().cell());
         HeapView best = null;
         long bestNet = 0;
+        boolean quiet = Calm.quiet(observation, knowledge);
+        int reach = tunables.getInt(org.shatterfish.api.Tunables.PICKUP_MISSILE_REACH);
         for (HeapView heap : map.heaps()) {
-            if (!takeable(heap, observation, memory) || heap.cell() >= distance.length
+            if (!takeable(heap, observation, memory, tunables) || heap.cell() >= distance.length
                     || distance[heap.cell()] < 0) {
                 continue;
             }
-            int turns = distance[heap.cell()] + 1 + (distance[heap.cell()] > 0 && passiveInView(observation, knowledge) ? 1 : 0);
+            boolean own = reach > 0 && Missiles.own(memory, observation, heap);
+            if (!quiet && !own) {
+                continue;
+            }
+            int turns = distance[heap.cell()] + 1 + (distance[heap.cell()] > 0 && (!quiet || passiveInView(observation, knowledge)) ? 1 : 0);
             long net = Math.addExact(worth(heap.item(), observation), evaluation.turns(turns));
+            if (own && distance[heap.cell()] <= reach) {
+                // Their walk is not weighed against the item's worth, only against the others: the nearer first.
+                net = Math.subtractExact(net, evaluation.turns(reach + 1));
+            }
             if (net > bestNet) {
                 bestNet = net;
                 best = heap;

@@ -108,6 +108,14 @@ public final class Tunables {
             "most steps walked to ground where a pump could be dodged, before Goo arrives");
     public static final Tunable GOO_WASH_RANGE = playbook("bosses.goo.wash_range", 4, 0, 12, 1,
             "most steps walked to water to wash off caustic ooze");
+    public static final Tunable TENGU_BOMB_COST = playbook("bosses.tengu.bomb_cost", 22, 0, 60, 4,
+            "hit points a cell within two steps of a smoke bomb counts for: higher leaves the blast sooner");
+    public static final Tunable TENGU_FIRE_COST = playbook("bosses.tengu.fire_cost", 18, 0, 60, 4,
+            "hit points a cell the fire is shown on counts for: higher keeps further from the fan");
+    public static final Tunable TENGU_SHOCK_COST = playbook("bosses.tengu.shock_cost", 12, 0, 60, 4,
+            "hit points a cell beside a shocker counts for: higher gives the machine a wider berth");
+    public static final Tunable TENGU_ADJACENT_COST = playbook("bosses.tengu.adjacent_cost", 6, 0, 40, 2,
+            "hit points a turn off the cells beside Tengu is worth: higher stays beside him through more danger");
 
     // ---- Policy constants --------------------------------------------------------------------------------
 
@@ -146,6 +154,19 @@ public final class Tunables {
     public static final Tunable CHESTS_MIMIC_MARGIN = policy("chests.mimic_margin_per_mille", "Chests.MIMIC_MARGIN_PER_MILLE", 1250, 500, 3000, 150,
             "how far over the worst opening's cost the hero's health must stand before a chest is opened");
 
+    public static final Tunable PICKUP_MISSILE_REACH = policy("pickup.missile_reach", "Pickup.MISSILE_REACH", 0, 0, 40, 4,
+            "most steps walked, on a calm screen, to a missile the hero threw: 0 leaves them where they fell");
+    public static final Tunable PICKUP_DEW_SKIN_BELOW = policy("pickup.dew_skin_below", "Pickup.DEW_SKIN_BELOW", 0, 0, 20, 4,
+            "a dewdrop is taken at full health while the waterskin shows less than this of its 20: 0 refuses it as before");
+    public static final Tunable RANGED_FETCH_STEPS = policy("ranged.fetch_steps", "Ranged.FETCH_STEPS", 0, 0, 4, 1,
+            "most steps walked in a fight, no enemy beside the hero, to a missile it threw: 0 never leaves a fight for one");
+    public static final Tunable RANGED_MIN_DAMAGE = policy("ranged.min_damage_per_mille", "Ranged.MIN_DAMAGE_PER_MILLE", 0, 0, 6000, 250,
+            "least damage a throw is expected to do, in thousandths of a hit point, for it to be worth the missile: 0 throws as before");
+    public static final Tunable DESCEND_TRAMPLE_REACH = policy("descend.trample_reach", "Descend.TRAMPLE_REACH", 0, 0, 30, 2,
+            "most steps walked on a spent floor to tall grass that may drop dew while the waterskin is not full: 0 never");
+    public static final Tunable EXPLORE_GRASS_SKIN_BELOW = policy("explore.grass_skin_below", "Explore.GRASS_SKIN_BELOW", 0, 0, 20, 4,
+            "equally short ways break toward tall grass while the waterskin shows less than this of its 20: 0 never");
+
     /** Every registered tunable, once, sorted by name (the order a tuner and a Playbook file list them). */
     public static final List<Tunable> ALL = all();
 
@@ -165,6 +186,10 @@ public final class Tunables {
                 GOO_DRINK,
                 GOO_MEET_RANGE,
                 GOO_WASH_RANGE,
+                TENGU_ADJACENT_COST,
+                TENGU_BOMB_COST,
+                TENGU_FIRE_COST,
+                TENGU_SHOCK_COST,
                 FIGHT_MARGIN,
                 FIGHT_FLIGHTS,
                 FIGHT_OUTPACED_RANGE,
@@ -181,7 +206,13 @@ public final class Tunables {
                 PLUNGE_FIT_PERCENT,
                 BRAIN_AVOID_WAITS,
                 BRAIN_AVOID_RADIUS,
-                CHESTS_MIMIC_MARGIN));
+                CHESTS_MIMIC_MARGIN,
+                PICKUP_MISSILE_REACH,
+                PICKUP_DEW_SKIN_BELOW,
+                RANGED_FETCH_STEPS,
+                RANGED_MIN_DAMAGE,
+                DESCEND_TRAMPLE_REACH,
+                EXPLORE_GRASS_SKIN_BELOW));
         found.sort(java.util.Comparator.comparing(Tunable::name));
         for (int i = 1; i < found.size(); i++) {
             Canon.require(!found.get(i).name().equals(found.get(i - 1).name()), "a tunable is registered once: " + found.get(i).name());
@@ -272,6 +303,7 @@ public final class Tunables {
             case "identify" -> playbook.identify().values().get(key);
             case "upgrade" -> playbook.upgrade().values().get(key);
             case "bosses.goo" -> playbook.bosses().goo().values().get(key);
+            case "bosses.tengu" -> playbook.bosses().tengu().values().get(key);
             default -> throw new IllegalArgumentException("no section holds " + name);
         };
     }
@@ -288,6 +320,7 @@ public final class Tunables {
         Map<String, Object> identifyGiven = new TreeMap<>();
         Map<String, Object> upgradeGiven = new TreeMap<>();
         Map<String, Object> gooGiven = new TreeMap<>();
+        Map<String, Object> tenguGiven = new TreeMap<>();
         for (Map.Entry<String, Long> entry : given.entrySet()) {
             Tunable tunable = named(entry.getKey());
             Canon.require(tunable != null, "the tunable " + entry.getKey() + " is not registered");
@@ -303,6 +336,7 @@ public final class Tunables {
             Map<String, Object> into = switch (name.substring(0, cut)) {
                 case "identify" -> identifyGiven;
                 case "upgrade" -> upgradeGiven;
+                case "bosses.tengu" -> tenguGiven;
                 default -> gooGiven;
             };
             into.put(name.substring(cut + 1), value);
@@ -312,7 +346,7 @@ public final class Tunables {
             classes.add(new Playbook.ClassEntry(entry.heroClass(), entry.identify().with(identifyGiven), entry.kit(),
                     entry.upgrade().with(upgradeGiven)));
         }
-        Playbook.Bosses bosses = new Playbook.Bosses(playbook.bosses().goo().with(gooGiven), playbook.bosses().tengu(),
+        Playbook.Bosses bosses = new Playbook.Bosses(playbook.bosses().goo().with(gooGiven), playbook.bosses().tengu().with(tenguGiven),
                 playbook.bosses().dm300());
         return new Playbook(playbook.name(), playbook.version(), playbook.identify().with(identifyGiven),
                 playbook.upgrade().with(upgradeGiven), playbook.kit(), classes, bosses, playbook.tunables().with(policies));

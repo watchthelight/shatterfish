@@ -291,7 +291,7 @@ final class TestItem implements Policy {
 
     /**
      * Whether a rest is owed after a test (story 4.10's review): within the Playbook's {@code rest_waits} waits of a
-     * drink or read this Policy handed over, the hero short of full health and neither hungry nor
+     * drink or read this Policy handed over, the hero hurt to the Playbook's {@code rest_hp_per_mille} or below and neither hungry nor
      * starving -- a starving hero does not regenerate (Regeneration.java:56).
      */
     static boolean restOwed(Observation observation, Memory memory, Playbook.Identify identify) {
@@ -301,6 +301,7 @@ final class TestItem implements Policy {
         int width = observation.map().width();
         return memory.tested() >= 0 && memory.waits() - memory.tested() <= identify.restWaits()
                 && observation.hero().hp() < observation.hero().ht()
+                && identify.restHp(observation.hero().hp(), observation.hero().ht())
                 && observation.hero().hunger() == org.shatterfish.api.Hunger.NONE
                 // A locked boss floor stops regeneration and hunger (LockedFloor.java:62-64,
                 // Regeneration.java:112-117): nothing would end the rest, and the Run would stall.
@@ -547,7 +548,7 @@ final class TestItem implements Policy {
      */
     List<Testable> testable(Observation observation, Memory memory) {
         Map<String, Beliefs.Guess> guesses = new LinkedHashMap<>();
-        for (Beliefs.Guess guess : Beliefs.identities(observation, knowledge)) {
+        for (Beliefs.Guess guess : Beliefs.identities(observation, knowledge, memory.facts())) {
             guesses.put(guess.label(), guess);
         }
         Playbook.Identify identify = playbook.identify(observation.header().heroClass());

@@ -68,7 +68,7 @@ class RunnerTest {
         // would have let a ninth flag in unnoticed.
         assertEquals(List.of("--brain", "--seeds", "--parallel", "--out", "--root", "--commit",
                         "--cap", "--deadline", "--verify", "--replay", "--finished",
-                        "--registration", "--against"), Runner.KNOWN,
+                        "--registration", "--against", "--tunables"), Runner.KNOWN,
                 "a flag added to the Rig is a decision, and this is where it is made");
     }
 
@@ -389,7 +389,7 @@ class RunnerTest {
         // The worse Brain of story 3.9 is the Baseline with one Action withheld, and has no more
         // configuration than the Baseline does.
         assertEquals("0".repeat(64), Brains.configHash(Brains.NO_DESCEND));
-        assertEquals(List.of(Brains.RANDOM, Brains.NO_DESCEND, Brains.NO_REST, Brains.NO_ATTACK, Brains.TWIN, Brains.SHATTERFISH, Brains.ONE_PLY), Brains.names(),
+        assertEquals(List.of(Brains.RANDOM, Brains.NO_DESCEND, Brains.NO_REST, Brains.NO_ATTACK, Brains.TWIN, Brains.SHATTERFISH, Brains.ONE_PLY, Brains.FIGHT_SEARCH), Brains.names(),
                 "when a real Brain is added here, `configHash` refuses until it states its own");
         // Every name is one a Run log and a Registration will take. "random-nodescend" was not: the
         // run id is hyphen-separated, and nothing refused it until the first ranked invocation.

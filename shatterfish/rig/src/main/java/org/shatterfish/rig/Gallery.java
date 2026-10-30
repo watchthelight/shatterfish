@@ -154,7 +154,7 @@ public final class Gallery {
         }
         try {
             RunLogReader.Log read = RunLogReader.of(file);
-            OverlayLogs.refuse(read, file);
+            OverlayLogs.refuseOverlay(read, file);
             if (!read.readable() || read.records().isEmpty()
                     || !(read.records().get(0) instanceof RunLog.Header header)) {
                 return new Run(runId, log, "", heroClass, UNREADABLE, -1, -1);
@@ -206,10 +206,41 @@ public final class Gallery {
                 "A window the Harness does not know, the turn cap, a missing or unreadable log: what"
                         + " the Rig or the Harness did not finish, not how the hero died.",
                 groups.stream().filter(g -> !g.decided()).toList(), total, snapshots);
+        out.append(killerSection(folder, groups));
         out.append("\nFor two Brains side by side -- endings, deaths by the situation that ended them,"
                 + " and every triple both played -- see the comparison view (`")
                 .append(GalleryComparison.FILE).append("`, written beside a comparison's two sides).\n");
         return out.toString();
+    }
+
+    /**
+     * Deaths by depth with the top killers, read from the ending record beside each dead Run's log
+     * (E10 W1; {@code EndingRecord}). The Run log's own ending still has no killer, so this is the
+     * one place the gallery says who the game named, and a Run with no ending record is counted as
+     * "not recorded" rather than left out.
+     */
+    static String killerSection(Path folder, List<Group> groups) {
+        List<DirectionMetrics.Death> deaths = new ArrayList<>();
+        for (Group group : groups) {
+            if (!"DEATH".equals(group.cause())) {
+                continue;
+            }
+            for (Run run : group.runs()) {
+                org.shatterfish.harness.log.EndingRecord.Ending ending = null;
+                try {
+                    ending = run.log().isEmpty() ? null
+                            : org.shatterfish.harness.log.EndingRecord.read(folder.resolve(run.log()));
+                } catch (RuntimeException unreadable) {
+                    // A name that is no path, or a file that cannot be read, is a killer not recorded.
+                }
+                deaths.add(new DirectionMetrics.Death(group.depth(),
+                        ending == null || ending.killer().isEmpty() ? DirectionMetrics.UNKNOWN_KILLER : ending.killer()));
+            }
+        }
+        return "\n## Deaths by depth, top killers\n\nWho the game names as the cause of death, from the"
+                + " `.ending.json` file the Rig writes beside each Run's log (diagnosis only; a Brain never"
+                + " reads it). A death with no such file is \"" + DirectionMetrics.UNKNOWN_KILLER + "\".\n\n"
+                + DirectionMetrics.killers(deaths);
     }
 
     private static void section(StringBuilder out, String title, String note, List<Group> groups,

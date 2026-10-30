@@ -110,6 +110,7 @@ final class Fight implements Policy {
 
     private final Codex.Knowledge knowledge;
     private final org.shatterfish.api.Playbook.Goo goo;
+    private final org.shatterfish.api.Playbook.Tengu tengu;
     private final Tunables.Vector tunables;
 
     Fight(Codex.Knowledge knowledge) {
@@ -121,8 +122,14 @@ final class Fight implements Policy {
     }
 
     Fight(Codex.Knowledge knowledge, org.shatterfish.api.Playbook.Goo goo, Tunables.Vector tunables) {
+        this(knowledge, goo, org.shatterfish.api.Playbook.Tengu.REFERENCE, tunables);
+    }
+
+    Fight(Codex.Knowledge knowledge, org.shatterfish.api.Playbook.Goo goo, org.shatterfish.api.Playbook.Tengu tengu,
+          Tunables.Vector tunables) {
         this.knowledge = knowledge;
         this.goo = goo;
+        this.tengu = tengu;
         this.tunables = tunables;
     }
 
@@ -273,6 +280,9 @@ final class Fight implements Policy {
         boolean favourable = favourable(observation, knowledge, threats(observation, memory, enemies, knowledge, tunables), tunables);
         RunLog.Choice retreat = retreat(observation, memory, offered, enemies, knowledge, tunables);
         List<RunLog.Choice> fight = Goo.engage(observation, memory, offered, enemies, goo);
+        if (fight == null) {
+            fight = Tengu.engage(observation, memory, offered, enemies, tengu);
+        }
         if (fight != null) {
             return fight;
         }
