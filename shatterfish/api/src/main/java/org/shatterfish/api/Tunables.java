@@ -137,9 +137,9 @@ public final class Tunables {
             "most spots searched on a floor with its exit seen, whatever the model thinks each is worth");
     public static final Tunable EXPLORE_FRUGAL_SEARCHES = policy("explore.frugal_searches", "Explore.FRUGAL_SEARCHES", 4, 0, 20, 1,
             "most spots searched on a floor with its exit seen while food is tight");
-    public static final Tunable EXPLORE_SECRET_VALUE = policy("explore.secret_value", "Explore.SECRET_VALUE", 400, 0, 2000, 100,
+    public static final Tunable EXPLORE_SECRET_VALUE = policy("explore.secret_value", "Explore.SECRET_VALUE", 150, 0, 2000, 100,
             "turns of play a found secret room is worth: higher searches more places, lower only the likeliest");
-    public static final Tunable EXPLORE_DEAD_END_WEIGHT = policy("explore.dead_end_weight", "Explore.DEAD_END_WEIGHT", 12, 0, 60, 4,
+    public static final Tunable EXPLORE_DEAD_END_WEIGHT = policy("explore.dead_end_weight", "Explore.DEAD_END_WEIGHT", 24, 0, 60, 4,
             "walls facing unseen space that one dead end counts for when sharing the odds of a hidden door out");
     public static final Tunable EXPLORE_ROOM_INTERIOR = policy("explore.room_interior", "Explore.ROOM_INTERIOR", 3, 2, 6, 1,
             "side of the unseen square a wall must face to be a place a secret room could be: bigger rules out more walls");

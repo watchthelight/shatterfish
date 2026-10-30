@@ -67,8 +67,8 @@ class TunableRegistryTest {
         BEFORE.put("descend.searches", 36L);
         BEFORE.put("explore.searches", 12L);
         BEFORE.put("explore.frugal_searches", 4L);
-        BEFORE.put("explore.secret_value", 400L);
-        BEFORE.put("explore.dead_end_weight", 12L);
+        BEFORE.put("explore.secret_value", 150L);
+        BEFORE.put("explore.dead_end_weight", 24L);
         BEFORE.put("explore.room_interior", 3L);
         BEFORE.put("explore.frugal_price", 3L);
         BEFORE.put("heal.redrink_share_per_mille", 250L);

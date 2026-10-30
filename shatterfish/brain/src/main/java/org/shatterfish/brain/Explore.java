@@ -96,11 +96,11 @@ final class Explore implements Policy {
      * herbs of some rooms are worth little to the Brain.
      */
     @Heuristic("secret-room-odds")
-    static final int SECRET_VALUE = 400;
+    static final int SECRET_VALUE = 150;
 
     /** How many walls facing unseen space one dead end counts for when the odds of a hidden door are shared out. */
     @Heuristic("secret-room-connection")
-    static final int DEAD_END_WEIGHT = 12;
+    static final int DEAD_END_WEIGHT = 24;
 
     /** The side of the square of unseen cells a wall must face to hide a secret room: its floor is at least 3 by 3. */
     @Heuristic("secret-room-size")
