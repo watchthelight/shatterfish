@@ -18,7 +18,7 @@ public final class FightFixture {
     private FightFixture() {
     }
 
-    /** Plays {@code seed} to wait {@code at}, which must show an enemy; the driver is the caller's to close. */
+    /** Plays {@code seed} to the first wait from {@code at} on that shows an enemy; the driver is the caller's to close. */
     public static HeadlessDriver playTo(long seed, HeroClass heroClass, long salt, long at) {
         HeadlessDriver driver = HeadlessDriver.start(seed, heroClass, salt);
         BrainDecider brain = RealBrain.decider();
@@ -35,10 +35,10 @@ public final class FightFixture {
                     throw new AssertionError("the Run ended (" + halt.reason() + ") before wait " + at);
                 }
                 Observation observation = new Observer().observe();
-                if (halt.waitIndex() >= at) {
-                    if (observation.actors().actors().stream().noneMatch(a -> a.alignment() == Alignment.ENEMY)) {
-                        throw new AssertionError("wait " + at + " is not mid-fight");
-                    }
+                // The first wait from {@code at} on that shows an enemy: a change to the Brain moves where on
+                // the Run a given wait index falls, and the cases need a fight, not that exact wait (#409).
+                if (halt.waitIndex() >= at
+                        && observation.actors().actors().stream().anyMatch(a -> a.alignment() == Alignment.ENEMY)) {
                     return driver;
                 }
                 executor.execute(observation, brain.decide(observation));

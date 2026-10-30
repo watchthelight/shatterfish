@@ -377,9 +377,15 @@ final class Explore implements Policy {
     /**
      * The most search spots on this floor: {@link #SEARCHES}, or {@link #FRUGAL_SEARCHES} while food is
      * tight (story 4.13, {@link Larder}): a search costs two turns and four more hunger
-     * (Hero.java:211-212, :2624-2629).
+     * (Hero.java:211-212, :2624-2629). None on depth 1 (issue #409): the hidden-door chance is 0 there
+     * (RegularPainter.java:186-196) and there is no secret room (SecretRoom.java:66-88); the entrance doors
+     * hidden by the tutorial and the guidebook page (RegularPainter.java:266-273) are the descend Policy's
+     * no-exit search, which does not use this count.
      */
     static int searches(Observation observation, Memory memory) {
+        if (observation.header().depth() == 1) {
+            return 0;
+        }
         return frugal(observation, memory) ? FRUGAL_SEARCHES : SEARCHES;
     }
 
