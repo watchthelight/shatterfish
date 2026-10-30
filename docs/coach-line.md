@@ -51,6 +51,7 @@ the build. A clause adds no threshold, so there is nothing for `HeuristicLinkTes
 | `test-item/escape` | to get clear of the effect | [`test-spot-door-water`](brain-rules.md#test-spot-door-water) |
 | `test-item/upgrade` | to upgrade the best gear | [`upgrade-allocation`](brain-rules.md#upgrade-allocation) |
 | `test-item/drink` | a known gain, drunk at once | [`strength-experience-potions`](brain-rules.md#strength-experience-potions) |
+| `test-item/identify` | a known identify scroll is on hand | [`identity-from-counts`](brain-rules.md#identity-from-counts) |
 | `test-item/cell` | to reach a safe place to test | [`test-spot-door-water`](brain-rules.md#test-spot-door-water) |
 | `test-item/rest` | to rest after a test | [`regen-rest-test`](brain-rules.md#regen-rest-test) |
 | `test-item/test/healing` | it may heal, and it is hurt | [`unknown-potion-heal-half`](brain-rules.md#unknown-potion-heal-half) |

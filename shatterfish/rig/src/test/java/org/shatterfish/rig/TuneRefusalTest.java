@@ -128,7 +128,7 @@ class TuneRefusalTest {
         String why = assertThrows(IllegalArgumentException.class, () -> Tune.params("fight.margin_per_mille,fight.aggression")).getMessage();
         assertTrue(why.contains("fight.aggression") && why.contains("not registered"), why);
         assertThrows(IllegalArgumentException.class, () -> Tune.params("identify.reach,identify.reach"));
-        assertEquals(31, Tune.params("all").size());
+        assertEquals(35, Tune.params("all").size());
         assertEquals(List.of("identify.reach", "descend.rests"), Tune.params("identify.reach,descend.rests"));
     }
 
