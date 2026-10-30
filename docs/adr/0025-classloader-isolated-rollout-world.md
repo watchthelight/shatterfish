@@ -230,8 +230,9 @@ before they depend on `IsolatedHost`), and narrowing it to a driver-side isolate
   in three. It is not the "about 0.01 bit" first written here, which holds only near five unknown classes. A rollout whose
   result depends on an unidentified item's class therefore carries a little information about it. Mitigation in this story: a
   playout line stops at the first item use (`Use`, `UseAt`, `UseOn`), so no rollout result depends on one, and the test masks
-  the assignment it cannot make equal. The fix belongs to the row (draw uniformly over all permutations, identity included,
-  so the assignment is uniform whatever the truth is) and to a test that varies the truth and compares distributions;
-  both are follow-up work, filed with this PR, and no search may use an item in a rollout until they land.
+  the assignment it cannot make equal. The fix has landed (#402): the row draws a uniform permutation over all
+  permutations, identity included, so the assignment is uniform whatever the truth is, and
+  `ItemRowsDistributionTest` compares counts with a chi-square over many draws (it fails on the old draw). The
+  playout stop at an item use stays as a second guard.
 - The Rig is the first non-test caller (`HostLookahead`, lent by `RunLoop` to a decider that says it `searches()`); the
-  Overlay still has none. The measurement is in `docs/results/2026-10-29-fight-search.md`: no win, not the default.
+  Overlay still has none. The measurement is in `docs/results/2026-10-29-fight-search.md`: no win, kept as a Rig-only Brain that is off by default. The search plan is passed explicitly (#404) and the Overlay never lends a look-ahead (#403, `OverlayAgentsTest`).

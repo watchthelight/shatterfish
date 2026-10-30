@@ -26,7 +26,12 @@ first table showed nothing. The check is the count of `fight-search` Decisions i
 - `IsolatedPermutationTest` (two classes, three controls) and the same through `HostLookahead`.
 - `Hypothesis`, `Lookahead`, `Playout`, `Searching`, `SearchPlan`; `Simulator.simulate(handle, Playout, horizon)`;
   `HostLookahead`; `RunLoop` lends it to a decider that `searches()`; Brain `Model.SEARCH`, Policy `fight-search`; Rig Brain `fightsearch`.
-- Measurement: `docs/results/2026-10-29-fight-search.md`. No win (101 of 235 against 100 of 240 reaching depth 5). Not the default.
+- Measurement: `docs/results/2026-10-29-fight-search.md`. No win: six classes at 40 Runs each, 115 of 240 against 130 of 240
+  reaching depth 5 for the baseline, only MAGE up. Kept as a Rig-only Brain, off by default. An earlier 101-vs-100 table predates
+  the fixes below and the merge of main.
+- Fixes made on the way: a uniform unidentified-item permutation with a distribution test (#402), the Overlay never searches (#403),
+  the plan is passed explicitly (#404), playouts stop at an item use, and remembered mobs with no health when built bare (mimics,
+  bees) are not put back (they crashed the rollout Observer; `MobRowsTest` fails without the guard).
 - Think time: in the Run logs as `think_ms`.
 - Decision: the plumbing and the leak test stay (they are the precondition for any later search, including Tengu practice);
   the Policy stays registered as a Rig-only Brain; nothing ships using it.
