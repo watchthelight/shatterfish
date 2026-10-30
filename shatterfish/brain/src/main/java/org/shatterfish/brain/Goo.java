@@ -458,7 +458,7 @@ final class Goo {
             shot = Shoot.shotAt(observation, offered, goo, why + "shoot: ");
         }
         if (shot == null) {
-            shot = Ranged.throwAt(observation, offered, goo, why + "throw: ");
+            shot = Ranged.throwAt(observation, offered, goo, why + "throw: ", (item, tier) -> true);
         }
         return shot;
     }
