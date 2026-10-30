@@ -58,9 +58,11 @@ standing Registration `H-0001-nightly-smoke`, with every night's status in its t
 | [The measured win rate](2026-10-27-7-10-the-measured-win-rate.md) | Wins out of Runs with the Wilson interval on the 500 `standard` triples, Warrior first and each class, beside the Profile 6 baseline played again; the heuristic link count against story 7.1's; `holdout` not run (generated figures: `WinRateTest`) | E7, story 7.10 |
 | [The E7 Brain on holdout](2026-10-27-e7-holdout.md) | The one release-level `holdout` run of the final E7 Brain (Registration H-0009): wins out of Runs with the Wilson and exact binomial upper limits, reach of depth 5, Goo kills and deaths by depth, per class, beside the `standard` numbers (generated figures: `HoldoutRateTest`) | E7, after story 7.10 |
 | [E10 W1, the new instruments](2026-10-28-e10-w1-instruments.md) | Boss staircase, Goo and Tengu kills by name, think time, deaths by depth with killers, on 40 Warriors and 20 of each class (`--class ALL`) | E10, W1 |
+| [Story 10.8, the Skeleton deaths](2026-10-28-10-8-skeleton-deaths.md) | The 30 Skeleton deaths of a six-class direction check read one by one: 26 of 30 starving, all cornered; no bone burst rule built | E10, 10.8 |
 | [E10 W2, prison food budgeting](2026-10-29-e10-w2-prison-food.md) | Why the hero starves by depth 6, ten variants, and the after-test rest budget kept | E10, story 10.15 |
 | [E10, early food economy](2026-10-29-e10-early-food-economy.md) | Walk-back, floor budget and food audit: none beat the baseline, none kept | E10, story 407 |
 | [Story 10.9, the DM-100 deaths](2026-10-29-10-9-dm100-lightning.md) | Eight DM-100 deaths in 240 Runs read one by one, five starving; a cover rule measured with no effect and not kept. |
+| [Story 10.7, the Prison diagnosis](2026-10-30-10-7-the-prison-diagnosis.md) | 960 Runs, 160 per class on two slices: reach, killers by depth, hunger (45.8% starving at death, 72.8% on depths 6 to 9), the Goo (126 of 157 depth-5 deaths), level and strength by depth, the dearest Decisions, and the order of the mob stories | E10, 10.7 |
 
 The rig's own result files, in the shape described above, begin with the random-agent baseline in
 E3. The audit above is a findings page rather than a rig run: it has no seed set and no sequential

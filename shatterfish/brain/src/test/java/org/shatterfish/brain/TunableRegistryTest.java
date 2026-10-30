@@ -52,6 +52,10 @@ class TunableRegistryTest {
         BEFORE.put("bosses.goo.drink_per_mille", 400L);
         BEFORE.put("bosses.goo.meet_range", 6L);
         BEFORE.put("bosses.goo.wash_range", 4L);
+        BEFORE.put("bosses.tengu.adjacent_cost", 6L);
+        BEFORE.put("bosses.tengu.bomb_cost", 22L);
+        BEFORE.put("bosses.tengu.fire_cost", 18L);
+        BEFORE.put("bosses.tengu.shock_cost", 12L);
         // Policy constants, as they stood on main before this story.
         BEFORE.put("fight.margin_per_mille", 500L);
         BEFORE.put("fight.flights", 2L);

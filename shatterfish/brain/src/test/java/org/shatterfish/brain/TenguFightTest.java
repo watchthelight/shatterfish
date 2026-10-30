@@ -208,7 +208,7 @@ class TenguFightTest {
         assertFalse(Traps.near(drawn, cell(4, 1)), "Tengu's patch is drawn whole (Darts)");
         Observation burned = withTrap(withHero(arena(false, boss), cell(3, 2)), new TrapView(cell(5, 2), Darts.KIND, true));
         assertTrue(Traps.near(burned, cell(4, 1)), "off the boss floor a shown trap still hides others beside it (Traps)");
-        assertNull(Tengu.engage(burned, Memory.START, burned.actions().actions(), List.of(tengu(boss))), "unsealed: no Tengu fight");
+        assertNull(Tengu.engage(burned, Memory.START, burned.actions().actions(), List.of(tengu(boss)), org.shatterfish.api.Playbook.Tengu.REFERENCE), "unsealed: no Tengu fight");
     }
 
     static Observation withHero(Observation screen, int cell) {

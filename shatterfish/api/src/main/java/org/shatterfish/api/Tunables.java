@@ -108,6 +108,14 @@ public final class Tunables {
             "most steps walked to ground where a pump could be dodged, before Goo arrives");
     public static final Tunable GOO_WASH_RANGE = playbook("bosses.goo.wash_range", 4, 0, 12, 1,
             "most steps walked to water to wash off caustic ooze");
+    public static final Tunable TENGU_BOMB_COST = playbook("bosses.tengu.bomb_cost", 22, 0, 60, 4,
+            "hit points a cell within two steps of a smoke bomb counts for: higher leaves the blast sooner");
+    public static final Tunable TENGU_FIRE_COST = playbook("bosses.tengu.fire_cost", 18, 0, 60, 4,
+            "hit points a cell the fire is shown on counts for: higher keeps further from the fan");
+    public static final Tunable TENGU_SHOCK_COST = playbook("bosses.tengu.shock_cost", 12, 0, 60, 4,
+            "hit points a cell beside a shocker counts for: higher gives the machine a wider berth");
+    public static final Tunable TENGU_ADJACENT_COST = playbook("bosses.tengu.adjacent_cost", 6, 0, 40, 2,
+            "hit points a turn off the cells beside Tengu is worth: higher stays beside him through more danger");
 
     // ---- Policy constants --------------------------------------------------------------------------------
 
@@ -178,6 +186,10 @@ public final class Tunables {
                 GOO_DRINK,
                 GOO_MEET_RANGE,
                 GOO_WASH_RANGE,
+                TENGU_ADJACENT_COST,
+                TENGU_BOMB_COST,
+                TENGU_FIRE_COST,
+                TENGU_SHOCK_COST,
                 FIGHT_MARGIN,
                 FIGHT_FLIGHTS,
                 FIGHT_OUTPACED_RANGE,
@@ -291,6 +303,7 @@ public final class Tunables {
             case "identify" -> playbook.identify().values().get(key);
             case "upgrade" -> playbook.upgrade().values().get(key);
             case "bosses.goo" -> playbook.bosses().goo().values().get(key);
+            case "bosses.tengu" -> playbook.bosses().tengu().values().get(key);
             default -> throw new IllegalArgumentException("no section holds " + name);
         };
     }
@@ -307,6 +320,7 @@ public final class Tunables {
         Map<String, Object> identifyGiven = new TreeMap<>();
         Map<String, Object> upgradeGiven = new TreeMap<>();
         Map<String, Object> gooGiven = new TreeMap<>();
+        Map<String, Object> tenguGiven = new TreeMap<>();
         for (Map.Entry<String, Long> entry : given.entrySet()) {
             Tunable tunable = named(entry.getKey());
             Canon.require(tunable != null, "the tunable " + entry.getKey() + " is not registered");
@@ -322,6 +336,7 @@ public final class Tunables {
             Map<String, Object> into = switch (name.substring(0, cut)) {
                 case "identify" -> identifyGiven;
                 case "upgrade" -> upgradeGiven;
+                case "bosses.tengu" -> tenguGiven;
                 default -> gooGiven;
             };
             into.put(name.substring(cut + 1), value);
@@ -331,7 +346,7 @@ public final class Tunables {
             classes.add(new Playbook.ClassEntry(entry.heroClass(), entry.identify().with(identifyGiven), entry.kit(),
                     entry.upgrade().with(upgradeGiven)));
         }
-        Playbook.Bosses bosses = new Playbook.Bosses(playbook.bosses().goo().with(gooGiven), playbook.bosses().tengu(),
+        Playbook.Bosses bosses = new Playbook.Bosses(playbook.bosses().goo().with(gooGiven), playbook.bosses().tengu().with(tenguGiven),
                 playbook.bosses().dm300());
         return new Playbook(playbook.name(), playbook.version(), playbook.identify().with(identifyGiven),
                 playbook.upgrade().with(upgradeGiven), playbook.kit(), classes, bosses, playbook.tunables().with(policies));

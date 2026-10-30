@@ -17,7 +17,7 @@ import org.shatterfish.api.RunLog;
  * that Action was not the one applied -- a human's turn, a refused input -- nothing here assumes
  * otherwise: the next wait's Observation is the only account of what happened.
  */
-public final class BrainDecider implements Deliberator, Rewindable {
+public final class BrainDecider implements Deliberator, Rewindable, org.shatterfish.api.Searching {
 
     private final Brain brain;
     private Belief belief;
@@ -32,6 +32,16 @@ public final class BrainDecider implements Deliberator, Rewindable {
             throw new IllegalArgumentException("a Brain to drive");
         }
         this.brain = brain;
+    }
+
+    @Override
+    public boolean searches() {
+        return brain.model() == Brain.Model.SEARCH;
+    }
+
+    @Override
+    public void lookahead(org.shatterfish.api.Lookahead lookahead) {
+        brain.lend(lookahead);
     }
 
     /** The Brain this drives. */

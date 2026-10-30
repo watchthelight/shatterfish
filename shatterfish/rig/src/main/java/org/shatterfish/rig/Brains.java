@@ -101,9 +101,22 @@ public final class Brains {
      */
     public static final String ONE_PLY = "oneply";
 
-    /** Whether {@code name} is built from the {@code brain} module's Policies: the 4.x Brain or the one-ply one. */
+    /**
+     * The 4.x Brain with the determinized fight search ahead of its fight Policy (story 10.24, ADR-0025). Rig only: it
+     * needs a look-ahead, which only the Rig's Run loop lends. Its weights and Playbook are copies of the 4.x ones, so the
+     * only difference between it and {@link #SHATTERFISH} is the search, whose numbers are the plan the caller hands
+     * in (the {@code --search} argument of a Run, key=value pairs, see {@code SearchPlan#parse}) or the reference plan.
+     */
+    public static final String FIGHT_SEARCH = "fightsearch";
+
+    /** Whether {@code name} is built from the {@code brain} module's Policies: the 4.x Brain, the one-ply one or the searching one. */
     static boolean isPolicyBrain(String name) {
-        return SHATTERFISH.equals(name) || ONE_PLY.equals(name);
+        return SHATTERFISH.equals(name) || ONE_PLY.equals(name) || FIGHT_SEARCH.equals(name);
+    }
+
+    private static org.shatterfish.brain.Brain.Model model(String name) {
+        return ONE_PLY.equals(name) ? org.shatterfish.brain.Brain.Model.ONE_PLY
+                : FIGHT_SEARCH.equals(name) ? org.shatterfish.brain.Brain.Model.SEARCH : org.shatterfish.brain.Brain.Model.BASELINE;
     }
 
     /*
@@ -128,16 +141,20 @@ public final class Brains {
 
     private static org.shatterfish.brain.Brain playbookBrain(String name, org.shatterfish.api.Codex.Knowledge codex,
                                                              org.shatterfish.api.Weights weights,
-                                                             org.shatterfish.api.Playbook playbook, long seed) {
-        return new org.shatterfish.brain.Brain(codex, weights, playbook, seed, ONE_PLY.equals(name)
-                ? org.shatterfish.brain.Brain.Model.ONE_PLY : org.shatterfish.brain.Brain.Model.BASELINE);
+                                                             org.shatterfish.api.Playbook playbook, long seed,
+                                                             org.shatterfish.api.SearchPlan plan) {
+        if (FIGHT_SEARCH.equals(name)) {
+            return new org.shatterfish.brain.Brain(codex, weights, playbook, seed, model(name), plan);
+        }
+        return new org.shatterfish.brain.Brain(codex, weights, playbook, seed, model(name));
     }
 
     private static String configuration(String name, org.shatterfish.api.Weights weights,
-                                        org.shatterfish.api.Playbook playbook) {
+                                        org.shatterfish.api.Playbook playbook, org.shatterfish.api.SearchPlan plan) {
         if (playbook != null) {
-            return org.shatterfish.brain.Brain.configuration(weights, playbook, ONE_PLY.equals(name)
-                    ? org.shatterfish.brain.Brain.Model.ONE_PLY : org.shatterfish.brain.Brain.Model.BASELINE);
+            return FIGHT_SEARCH.equals(name)
+                    ? org.shatterfish.brain.Brain.configuration(weights, playbook, model(name), plan)
+                    : org.shatterfish.brain.Brain.configuration(weights, playbook, model(name));
         }
         return ONE_PLY.equals(name)
                 ? org.shatterfish.brain.Brain.configuration(weights, org.shatterfish.brain.Brain.Model.ONE_PLY)
@@ -227,7 +244,7 @@ public final class Brains {
 
     /** Every name the Rig answers to, in the order it lists them. */
     public static List<String> names() {
-        return List.of(RANDOM, NO_DESCEND, NO_REST, NO_ATTACK, TWIN, SHATTERFISH, ONE_PLY);
+        return List.of(RANDOM, NO_DESCEND, NO_REST, NO_ATTACK, TWIN, SHATTERFISH, ONE_PLY, FIGHT_SEARCH);
     }
 
     /** Whether the Rig has a Brain of this name. Asking does not build one. */
@@ -320,6 +337,13 @@ public final class Brains {
      */
     public static Decider of(String name, SeedSet.Entry triple, org.shatterfish.api.Codex.Knowledge codex,
                              org.shatterfish.api.Weights weights, org.shatterfish.api.Playbook playbook) {
+        return of(name, triple, codex, weights, playbook, org.shatterfish.api.SearchPlan.REFERENCE);
+    }
+
+    /** As above, a searching Brain playing by {@code plan} (story 10.24); every other Brain ignores it. */
+    public static Decider of(String name, SeedSet.Entry triple, org.shatterfish.api.Codex.Knowledge codex,
+                             org.shatterfish.api.Weights weights, org.shatterfish.api.Playbook playbook,
+                             org.shatterfish.api.SearchPlan plan) {
         named(name);
         if (isPolicyBrain(name)) {
             if (codex == null) {
@@ -331,7 +355,7 @@ public final class Brains {
                         + " read for it; a Run of it states " + RunOne.WEIGHTS);
             }
             if (playbook != null) {
-                return new org.shatterfish.brain.BrainDecider(playbookBrain(name, codex, weights, playbook, brainSeed(name)));
+                return new org.shatterfish.brain.BrainDecider(playbookBrain(name, codex, weights, playbook, brainSeed(name), plan));
             }
             return new org.shatterfish.brain.BrainDecider(ONE_PLY.equals(name) ? onePlyBrain(codex, weights, brainSeed(name))
                     : new org.shatterfish.brain.Brain(codex, weights, brainSeed(name)));
@@ -390,6 +414,13 @@ public final class Brains {
      */
     public static String configHash(String name, org.shatterfish.api.Weights weights,
                                     org.shatterfish.api.Playbook playbook, String knowledge) {
+        return configHash(name, weights, playbook, knowledge, org.shatterfish.api.SearchPlan.REFERENCE);
+    }
+
+    /** As above, for a Brain that searches by {@code plan} (story 10.24); every other Brain ignores it. */
+    public static String configHash(String name, org.shatterfish.api.Weights weights,
+                                    org.shatterfish.api.Playbook playbook, String knowledge,
+                                    org.shatterfish.api.SearchPlan plan) {
         if (isPolicyBrain(named(name))) {
             if (weights == null) {
                 throw new IllegalArgumentException("the Brain " + name + " is configured by its weights");
@@ -402,7 +433,7 @@ public final class Brains {
             // carries, its weights, the seed of its stream (story 4.5), and the knowledge it was
             // built on, so that an edited table or an uncommitted bestiary is a different Brain
             // (the bestiary's lever 0). The Overlay computes it the same way (ConfigHash).
-            return ConfigHash.of(configuration(name, weights, playbook), brainSeed(name), knowledge);
+            return ConfigHash.of(configuration(name, weights, playbook, plan), brainSeed(name), knowledge);
         }
         if (!RANDOM.equals(name) && !WITHHELD.containsKey(name) && !TWIN.equals(name)) {
             // A real Brain states its own configuration. Returning zeros for it would put an

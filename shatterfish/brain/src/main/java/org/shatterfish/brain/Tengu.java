@@ -153,7 +153,7 @@ final class Tengu implements Policy {
     }
 
     /** Whether {@code cell} is one of {@code target}'s eight neighbours. */
-    private static boolean adjacent(MapSection map, int cell, int target) {
+    static boolean adjacent(MapSection map, int cell, int target) {
         int width = map.width();
         int dx = Math.abs(cell % width - target % width);
         int dy = Math.abs(cell / width - target / width);
@@ -175,7 +175,9 @@ final class Tengu implements Policy {
      * to come. So the fight Policy's dither between an approach and a retreat at two cells and three, which
      * cost the hero a shot at each pass in every Run before this story (docs/results/e10-practice-kit.md),
      * is replaced by a walk that does not turn back: strike when beside him, else step toward the nearest
-     * cell beside him. The hit points' answer is the heal Policy's, which ranks above this one.
+     * cell beside him. The hit points' answer is the heal Policy's, which ranks above this one. From story 10.20
+     * the walk is priced by the threat map ({@link Threats}) whenever the screen draws a bomb, the fire or a
+     * shocker, and is this plain walk when it draws none.
      *
      * <p><b>The traps.</b> Past 25 hit points of damage he jumps and lays a patch of dart traps drawn for
      * two turns ({@link Darts}). The walk is over the cells {@link Explore#walkable} allows, which leaves out
@@ -186,13 +188,20 @@ final class Tengu implements Policy {
      * are story 10.20's.
      */
     static List<RunLog.Choice> engage(Observation observation, Memory memory, List<Action> offered,
-                                      List<org.shatterfish.api.ActorView> enemies) {
+                                      List<org.shatterfish.api.ActorView> enemies, Playbook.Tengu costs) {
         if (!Darts.here(observation)) {
             return null;
         }
         org.shatterfish.api.ActorView boss = enemies.stream().filter(enemy -> enemy.name().equals(BOSS)).findFirst().orElse(null);
         if (boss == null || boss.emote() == org.shatterfish.api.Emote.SLEEP) {
             return null;
+        }
+        Threats.Map threats = Threats.map(observation, costs);
+        if (threats.any()) {
+            RunLog.Choice planned = Threats.choose(observation, memory, offered, boss, threats, costs);
+            if (planned != null) {
+                return List.of(planned);
+            }
         }
         Action attack = new Action.Attack(boss.cell());
         if (offered.contains(attack)) {

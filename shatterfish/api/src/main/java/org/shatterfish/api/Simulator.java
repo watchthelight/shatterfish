@@ -31,6 +31,29 @@ public abstract class Simulator {
         return rollout(handle, Canon.positional(actions, "the Actions to roll out"));
     }
 
+    /**
+     * Rolls out from {@code handle}, which must be scrubbed, taking the Action at each wait from {@code playout}, for at
+     * most {@code horizon} Actions (story 10.24). The same refusals as the list form, before anything runs.
+     */
+    public final RolloutResult simulate(SnapshotHandle handle, Playout playout, int horizon) {
+        if (handle == null) {
+            throw new IllegalArgumentException("a snapshot handle");
+        }
+        if (!handle.scrubbed()) {
+            throw new IllegalArgumentException("snapshot " + handle.id() + " at wait " + handle.k() + " is not scrubbed:"
+                    + " no search may roll out from the live Run's hidden state (ADR-0009; FR-6, FR-13)");
+        }
+        if (playout == null || horizon < 0) {
+            throw new IllegalArgumentException("a playout and a horizon of zero or more Actions");
+        }
+        return rollout(handle, playout, horizon);
+    }
+
     /** The rollout itself, reached only through {@link #simulate}. */
     protected abstract RolloutResult rollout(SnapshotHandle handle, List<Action> actions);
+
+    /** The closed-loop rollout, reached only through {@link #simulate}; a host that plays Actions only does not have one. */
+    protected RolloutResult rollout(SnapshotHandle handle, Playout playout, int horizon) {
+        throw new UnsupportedOperationException("this Simulator plays a list of Actions and has no closed-loop rollout");
+    }
 }
