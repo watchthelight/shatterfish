@@ -2,6 +2,7 @@
 # Connecting words and the Codex's names for things the screen shows (stairs, water, door, chasm, staff, Goo ...).
 # One per line. CoachLineTest fails on a reason word that is not here, and on an entry no reason uses.
 a
+about
 after
 an
 and
@@ -32,6 +33,7 @@ close
 confirm
 cornered
 cross
+danger
 distance
 do
 dodge
@@ -104,6 +106,7 @@ once
 open
 or
 out
+pass
 pick
 place
 planned

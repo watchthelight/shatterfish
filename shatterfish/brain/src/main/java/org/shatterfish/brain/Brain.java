@@ -68,7 +68,7 @@ public final class Brain {
         if (model == Model.ONE_PLY) {
             policies.add(new OnePly(knowledge, playbook.bosses().goo(), playbook.tunables()));
         }
-        policies.addAll(List.of(new Fight(knowledge, playbook.bosses().goo(), playbook.tunables()), new Eat(knowledge),
+        policies.addAll(List.of(new Fight(knowledge, playbook.bosses().goo(), playbook.bosses().tengu(), playbook.tunables()), new Eat(knowledge),
                 new TestItem(knowledge, playbook), new Pickup(evaluation, knowledge, playbook.tunables()),
                 new Chests(evaluation, knowledge, playbook.tunables()),
                 new Equip(evaluation, knowledge), new Tengu(knowledge, playbook.bosses().tengu()),
