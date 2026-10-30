@@ -69,10 +69,16 @@ final class Evaluation {
     static final String ARMOR = "armor";
     /** A cursed piece of gear worn, which the hero cannot take off (EquipableItem.java:126-129). */
     static final String CURSED = "cursed";
+    /** What a potion of healing is worth to have: a life saved at the next near-death (issue #412). */
+    static final String HEAL = "heal";
+    /** What a scroll of upgrade is worth to have (issue #412). */
+    static final String UPGRADE = "upgrade";
+    /** What the other consumables that turn a lost fight or a lost floor are worth to have (issue #412). */
+    static final String USEFUL = "useful";
 
     /** Every feature, sorted, as a weight set must state them. */
     static final List<String> FEATURES = List.of(REST_HURT, ATTACK, DESCEND, SEARCH, WAIT, DEPTH, ENEMIES,
-            HP, HUNGER, LEVEL, STRENGTH, ITEM, GOLD, TURN, WEAPON, ARMOR, CURSED).stream().sorted().toList();
+            HP, HUNGER, LEVEL, STRENGTH, ITEM, GOLD, TURN, WEAPON, ARMOR, CURSED, HEAL, UPGRADE, USEFUL).stream().sorted().toList();
 
     private final Weights weights;
 
@@ -138,13 +144,23 @@ final class Evaluation {
      * What an identity adds to the position when used, for the identities whose effect is one of
      * the position's own features: a potion of strength raises strength by one
      * (PotionOfStrength.java:46), a potion of experience gives a level's worth of experience
-     * (PotionOfExperience.java:44). Every other identity adds nothing here; what it is worth carried
-     * is {@link #carried}'s.
+     * (PotionOfExperience.java:44).
+     *
+     * <p>Issue #412 adds the consumables whose worth is what they do when used, not a feature of the
+     * position: healing ({@link #HEAL}), upgrade ({@link #UPGRADE}) and the {@link #USEFUL} few that get the
+     * hero out of a lost fight or find the way down (docs/rules/pickup.md). An unidentified item is worth the
+     * odds of each, so an unknown potion is worth a longer walk. Every other identity adds nothing here; what
+     * it is worth carried is {@link #carried}'s.
      */
     long identity(String className) {
         return switch (className) {
             case "items.potions.PotionOfStrength" -> term(STRENGTH, 1);
             case "items.potions.PotionOfExperience" -> term(LEVEL, 1);
+            case "items.potions.PotionOfHealing" -> term(HEAL, 1);
+            case "items.scrolls.ScrollOfUpgrade" -> term(UPGRADE, 1);
+            case "items.scrolls.ScrollOfTeleportation", "items.scrolls.ScrollOfMagicMapping",
+                 "items.scrolls.ScrollOfMirrorImage", "items.scrolls.ScrollOfTerror",
+                 "items.scrolls.ScrollOfLullaby" -> term(USEFUL, 1);
             default -> 0;
         };
     }
