@@ -214,3 +214,25 @@ before they depend on `IsolatedHost`), and narrowing it to a driver-side isolate
   test runs in the build and fails on drift.
 - The Overlay requirement is bigger than a routing Application (the posted-runnables queue is only one of several process-wide
   statics). Mitigation: the Overlay stays out until a spike of its own.
+
+## Amendment: the permutation test is built, and the first caller (story 10.24, #370)
+
+- `IsolatedPermutationTest` is the permutation leak test this ADR names. At a mid-fight wait of a DUELIST and a CLERIC Run
+  it permutes everything the Observation does not show (an unseen mob hurt, enraged and hasted, a hidden trap, a secret door,
+  `HiddenPermutation.permute()`, the dungeon seed) and shows that the Observation hash, the scrubbed start (after one
+  normalisation, below), `RunHistoryCodec.capture()` and the isolated rollout's result are all equal across the two worlds,
+  for two samples and on a repeat. Three controls: the unscrubbed saves of the two Runs differ; halving the hero's health
+  moves the result; reading a guide page moves the captured history. A second test does the same through `HostLookahead`,
+  the object a search is lent.
+- One finding, from the fairness review. The `POTION_SCROLL_RING_CLASSES` row draws a non-identity permutation from the
+  sample and applies it to the Run's own label-to-class assignment, so the assignment a rollout sees is biased away from the
+  truth: with two unknown classes in a family it is always wrong, with three it equals the truth one time in five and not one
+  in three. It is not the "about 0.01 bit" first written here, which holds only near five unknown classes. A rollout whose
+  result depends on an unidentified item's class therefore carries a little information about it. Mitigation in this story: a
+  playout line stops at the first item use (`Use`, `UseAt`, `UseOn`), so no rollout result depends on one, and the test masks
+  the assignment it cannot make equal. The fix has landed (#402): the row draws a uniform permutation over all
+  permutations, identity included, so the assignment is uniform whatever the truth is, and
+  `ItemRowsDistributionTest` compares counts with a chi-square over many draws (it fails on the old draw). The
+  playout stop at an item use stays as a second guard.
+- The Rig is the first non-test caller (`HostLookahead`, lent by `RunLoop` to a decider that says it `searches()`); the
+  Overlay still has none. The measurement is in `docs/results/2026-10-29-fight-search.md`: no win, kept as a Rig-only Brain that is off by default. The search plan is passed explicitly (#404) and the Overlay never lends a look-ahead (#403, `OverlayAgentsTest`).

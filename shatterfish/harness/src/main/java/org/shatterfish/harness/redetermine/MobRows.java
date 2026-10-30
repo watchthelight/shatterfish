@@ -141,13 +141,17 @@ final class MobRows {
         return added;
     }
 
-    private static JSONObject freshMob(String className, int cell) {
+    static JSONObject freshMob(String className, int cell) {
         Class<?> cls = ItemRows.classOf(className);
         if (cls == null || !Mob.class.isAssignableFrom(cls) || NPC.class.isAssignableFrom(cls)) {
             return null;
         }
         Object made = Reflection.newInstance(cls);
         if (!(made instanceof Mob mob) || mob.properties().contains(Char.Property.BOSS)) {
+            return null;
+        }
+        if (mob.HT <= 0 || mob.HP <= 0) {
+            // Mimic, Bee and the like are set up by their spawner and have no health when built bare.
             return null;
         }
         mob.pos = cell;

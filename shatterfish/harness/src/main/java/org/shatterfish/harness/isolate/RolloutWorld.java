@@ -1,6 +1,7 @@
 package org.shatterfish.harness.isolate;
 
 import org.shatterfish.api.Action;
+import org.shatterfish.api.Playout;
 import org.shatterfish.api.RolloutResult;
 import org.shatterfish.harness.driver.RunHistory;
 import org.shatterfish.harness.driver.ScrubbedStart;
@@ -35,7 +36,16 @@ public interface RolloutWorld extends AutoCloseable {
      * the game reads while it plays are the live Run's and not a fresh one's (issue #390). {@link RunHistory#NONE} is a
      * Run that has played nothing, the world's own baseline.
      */
-    RolloutResult rollout(ScrubbedStart start, RunHistory history, List<Action> actions);
+    default RolloutResult rollout(ScrubbedStart start, RunHistory history, List<Action> actions) {
+        List<Action> own = List.copyOf(actions);
+        return rollout(start, history, (observation, applied) -> own.get(applied), own.size());
+    }
+
+    /**
+     * As the list form, the Action at each wait taken from {@code playout} for at most {@code horizon} Actions (story
+     * 10.24). The playout is a function of the Observations the world makes and holds nothing of the world.
+     */
+    RolloutResult rollout(ScrubbedStart start, RunHistory history, Playout playout, int horizon);
 
     /**
      * The nanoseconds the last {@link #rollout} spent, in this order: holding the profile, loading the copy and stepping

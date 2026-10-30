@@ -69,4 +69,15 @@ class MobRowsTest {
         assertTrue(refused.getMessage().contains("health bar"), refused.getMessage());
         assertEquals(7, mob.getInt("HP"), "the refusal changed nothing");
     }
+
+    @Test
+    @DisplayName("a remembered mob that has no health when built bare (a mimic, a bee) is not put back")
+    void a_mob_without_health_is_not_remembered() {
+        driver = HeadlessDriver.start(3343871708117L, HeroClass.WARRIOR, 1L);
+        driver.stepToInputWait();
+        String mobs = "com.shatteredpixel.shatteredpixeldungeon.actors.mobs.";
+        assertEquals(null, MobRows.freshMob(mobs + "Mimic", 40), "a mimic is set up by its chest");
+        assertEquals(null, MobRows.freshMob(mobs + "Bee", 40), "a bee is set up by its hive");
+        assertTrue(MobRows.freshMob(mobs + "Rat", 40).getInt("HP") > 0, "a rat comes back with health");
+    }
 }
