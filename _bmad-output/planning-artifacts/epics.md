@@ -3873,6 +3873,76 @@ the logs it names and checks the figures
 one changes only Playbook numbers, with `PlaybookValidator` green.
 This story depends on 10.36.
 
+### Story 10.38: The Goo fight on depth 5
+
+Added by story 10.7 (correct-course): the diagnosis page `docs/results/2026-10-30-10-7-the-prison-diagnosis.md` shows
+the Goo as the killer of 126 of the 157 deaths on depth 5 (80.3%) in 960 Runs, 13.1% of all deaths, and a family
+outside 10.8 to 10.16. It gates every Prison number: 126 Runs, 42.9% of the 294 that reach depth 6, die on it.
+
+As the product owner,
+I want the bot to kill the Goo more often,
+So that the Runs the Sewers let through are not lost at the first boss.
+
+**Acceptance Criteria:**
+
+**Given** `upstream-reader` confirms the Goo's stats, its pump (the turn it announces, the range of the pumped
+attack, the damage multiple) and its split-at-half-HP rule at `path:line`, and the diagnosis page's 20 dearest
+Decisions per class, 105 of 120 on depth 5, among them `fallback` Decisions for the Huntress and the Rogue
+**When** the Goo fight is read from the strategy logs of the Goo deaths on both slices and a rule is written for
+the worst Decisions (the `fallback` Decision on the fight floor, the response to the pump, the position when the
+Goo is at half HP), tested first on `:rig:practice --boss goo`
+**Then** a Rule row cites the lines and a test has a screen where the old Policy loses the HP the diagnosis shows
+and fails on `main` (ADR-0019), plus one where the old behaviour holds
+**And** the PR table for all six classes shows Goo kills, deaths on depth 5 to the Goo, reach d5/d10, and the
+hunger state of the Goo's victims on both slices; it is kept only if Goo kills rise on both slices for the
+classes that meet it and no class's reach falls, and the registered `goo` set is not used
+**And** the Policy has its CoachLine template and the `fairness` review.
+
+### Story 10.39: Prison food, the second pass
+
+Added by story 10.7 (correct-course): 440 of 960 heroes (45.8%) were STARVING on their last Decision, 214 of the
+294 that died on depths 6 to 9 (72.8%), and the killer table credits most of them to whoever lands the last blow
+(Skeleton: 102 of 141 STARVING). Story 10.15 kept one rest rule and left two levers.
+
+As the product owner,
+I want the hero to stop arriving on depth 6 already starving,
+So that the Prison is fought at the HP the hero would otherwise have.
+
+**Acceptance Criteria:**
+
+**Given** the diagnosis page's hunger table and story 10.15's page, which names the two levers left (food seen
+and left behind, and diving when the larder is empty), and the Codex's food guarantees by depth
+**When** a rule is added for each lever that the evidence supports (a pick-up that is not skipped, a descent that
+is chosen before the larder is empty), with its numbers read from the Codex tables and not typed
+**Then** `PrisonLarderTest` has a screen where the old Policy leaves food or lingers on an empty larder (it fails
+on `main`) and one where the old behaviour holds
+**And** the PR table for all six classes shows the share STARVING on the last Decision (all deaths and depths 6
+to 9), deaths by hunger by depth, reach d5/d10 and Goo kills on both slices; it is kept only if the share falls on
+both slices and no class's reach falls
+**And** the Policy has its CoachLine template and the `fairness` review.
+
+### Story 10.40: The Sewers killers
+
+Added by story 10.7 (correct-course): Crab (127), Gnoll (67) and Snake (65) are 259 of the 960 deaths (27.0%), all on
+depths 1 to 4, and no story owns them; the Swarm's 69 deaths on depths 1 to 4 belong with them (10.13 reads the
+Swarm).
+
+As the product owner,
+I want the bot to lose fewer Runs to Crabs, Gnolls and Snakes,
+So that more Runs reach depth 5 (451 of 960, 47.0%, today), the base of every later number.
+
+**Acceptance Criteria:**
+
+**Given** `upstream-reader` confirms the stats and special rules of the Crab, the Gnoll (scout, brute and shaman,
+as the Codex lists them) and the Snake at `path:line`
+**When** the deaths to each are read one by one from a direction check with `--debug-record` (the method of the
+10.8 and 10.9 pages) and a rule is written only where a rule fires differently from `main` and wins
+**Then** each rule has a Rule row and a test that fails on `main`; a family with no such rule is written up as the
+10.8 page did, with the reason, and the story is still done
+**And** the PR table for all six classes shows deaths to each family, deaths by depth, reach d5/d10 and Goo kills
+on both slices
+**And** every Policy has its CoachLine template and the `fairness` review.
+
 ### Settled while planning
 
 Decided by the planner from the plan where it was silent, and open to the product owner's override on the
@@ -3884,7 +3954,8 @@ pull request that carries these stories.
    added after the rest; they start after 10.1 to 10.3 merge and do not wait for the close). Each class is its own story so the order "furthest below the median
    first" is a choice made when the stories open and not baked into the keys.
 2. **The Prison stories wait on the diagnosis only for their order.** 10.8 to 10.16 are planned now so
-   they are ready; 10.7 orders them and may add stories.
+   they are ready; 10.7 orders them and may add stories. It added 10.38 (the Goo fight), 10.39 (food, the
+   second pass) and 10.40 (the Sewers killers), which are 40 stories in all.
 3. **One use of `tengu`.** The registered run is played once per version of the bot. A failure is
    published and a fresh claim needs a new set (`tengu-2`) by ADR, since a set that has been run is no
    longer held out.

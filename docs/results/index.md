@@ -62,6 +62,7 @@ standing Registration `H-0001-nightly-smoke`, with every night's status in its t
 | [E10 W2, prison food budgeting](2026-10-29-e10-w2-prison-food.md) | Why the hero starves by depth 6, ten variants, and the after-test rest budget kept | E10, story 10.15 |
 | [E10, early food economy](2026-10-29-e10-early-food-economy.md) | Walk-back, floor budget and food audit: none beat the baseline, none kept | E10, story 407 |
 | [Story 10.9, the DM-100 deaths](2026-10-29-10-9-dm100-lightning.md) | Eight DM-100 deaths in 240 Runs read one by one, five starving; a cover rule measured with no effect and not kept. |
+| [Story 10.7, the Prison diagnosis](2026-10-30-10-7-the-prison-diagnosis.md) | 960 Runs, 160 per class on two slices: reach, killers by depth, hunger (45.8% starving at death, 72.8% on depths 6 to 9), the Goo (126 of 157 depth-5 deaths), level and strength by depth, the dearest Decisions, and the order of the mob stories | E10, 10.7 |
 
 The rig's own result files, in the shape described above, begin with the random-agent baseline in
 E3. The audit above is a findings page rather than a rig run: it has no seed set and no sequential
