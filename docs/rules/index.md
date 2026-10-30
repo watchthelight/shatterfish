@@ -76,6 +76,7 @@ records where the code contradicted the bootstrap prompt.
 | [UI toolkit and layout](ui.md) | 48 | UI pixels and `defaultZoom`, the full desktop layout with its sizes, `Chrome` types, text sizes, default key bindings, the camera offset, what an overlay can reach. |
 | [Save, score, win and profiles](save-score-win.md) | 26 | `Bundle` saves, slots and save paths, the score formula, what a Win is, ascension, the class list, challenges, cross-run state. |
 | [Text, assets, changelog and build](text-assets.md) | 24 | `Messages` key derivation, the journal documents, the changelog, version constants, the Gradle modules and toolchain. |
+| [Pick-up, missiles and dew](pickup.md) | 15 | What taking a heap costs, where a thrown weapon lands and breaks, how the waterskin takes dew, tall grass and its dew, and what the valued consumables do. |
 
 Eleven of the combat rows (missile accuracy by range, wands and armour, invisibility, a paralysed
 mob's evasion, the door ambush, turn order, mob speed, losing a pursuer, the stairs, surprise damage
