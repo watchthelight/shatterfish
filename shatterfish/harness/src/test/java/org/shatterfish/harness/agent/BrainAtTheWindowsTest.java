@@ -64,7 +64,8 @@ class BrainAtTheWindowsTest {
                 "act_attack", 0L, "act_descend", 0L, "act_rest_hurt", 0L, "act_search", 0L, "act_wait", 0L,
                 "depth", 10000L, "enemies", -3000L, "hp", 10L, "hunger", -5000L, "level", 5000L));
         terms.put("strength", 2000L);
-        terms.putAll(Map.of("item", 2000L, "gold", 10L, "turn", -150L, "weapon", 2L, "armor", 4L, "cursed", -10000L));
+        terms.putAll(Map.of("item", 2000L, "gold", 10L, "turn", -150L, "weapon", 2L, "armor", 4L, "cursed", -10000L, "heal", 0L));
+        terms.putAll(Map.of("upgrade", 0L, "useful", 0L));
         return new Weights("shatterfish", 2,
                 terms.entrySet().stream().map(term -> new Weights.Term(term.getKey(), term.getValue())).toList());
     }

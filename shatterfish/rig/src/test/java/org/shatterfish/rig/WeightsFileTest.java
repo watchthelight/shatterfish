@@ -36,7 +36,8 @@ class WeightsFileTest {
         assertEquals(2, weights.version(), "story 4.8 added the item, gold, turn, gear and curse weights");
         assertEquals(10, weights.weight("hp"));
         assertEquals(List.of("act_attack", "act_descend", "act_rest_hurt", "act_search", "act_wait", "armor",
-                "cursed", "depth", "enemies", "gold", "hp", "hunger", "item", "level", "strength", "turn", "weapon"),
+                "cursed", "depth", "enemies", "gold", "heal", "hp", "hunger", "item", "level", "strength", "turn", "upgrade", "useful",
+                "weapon"),
                 weights.features());
         assertTrue(Brains.readsWeights(Brains.SHATTERFISH));
         assertTrue(!Brains.readsWeights(Brains.RANDOM));
