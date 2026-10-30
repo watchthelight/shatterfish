@@ -62,15 +62,19 @@ class MissilesAndDewTest {
         return decided;
     }
 
-    /** A Brain with the #412 pick-up and fetch levers switched off, the control that shows each test below discriminates. */
+    /** The values the levers were measured at; they are committed at 0, so the tests turn them on. */
+    private static final org.shatterfish.api.Playbook ON = org.shatterfish.api.Tunables.with(
+            org.shatterfish.api.Playbook.reference("on"),
+            Map.of("pickup.missile_reach", 20L, "pickup.dew_skin_below", 20L, "ranged.fetch_steps", 2L,
+                    "ranged.min_damage_per_mille", 1500L, "descend.trample_reach", 10L, "explore.grass_skin_below", 20L));
+
+    /** A Brain with the levers as committed (off), the control that shows each test below discriminates. */
     private static Brain off() {
-        org.shatterfish.api.Playbook off = org.shatterfish.api.Tunables.with(org.shatterfish.api.Playbook.reference("off"),
-                Map.of("pickup.missile_reach", 0L, "pickup.dew_skin_below", 0L, "ranged.fetch_steps", 0L));
-        return new Brain(FightPolicyTest.KNOWLEDGE, Screens.WEIGHTS, off, 9L, Brain.Model.BASELINE);
+        return new Brain(FightPolicyTest.KNOWLEDGE, Screens.WEIGHTS, 9L);
     }
 
     private static Brain brain() {
-        return new Brain(FightPolicyTest.KNOWLEDGE, Screens.WEIGHTS, 9L);
+        return new Brain(FightPolicyTest.KNOWLEDGE, Screens.WEIGHTS, ON, 9L, Brain.Model.BASELINE);
     }
 
     /** A corridor of {@code floor} cells, the hero at {@code hero}, a rat at {@code rat} (-1 for none). */
@@ -171,11 +175,11 @@ class MissilesAndDewTest {
                 List.of(new Codex.Threat("marsupial rat", 4, 8, 25, 1, 4, 0, 0)), FightPolicyTest.KNOWLEDGE.weapons(),
                 FightPolicyTest.KNOWLEDGE.armours(), List.of()).withBestiary(Screens.BESTIARY);
         Observation snake = corridor(8, 1, 3, stones(3));
-        Brain brain = new Brain(dodging, Screens.WEIGHTS, 9L);
+        Brain brain = new Brain(dodging, Screens.WEIGHTS, ON, 9L, Brain.Model.BASELINE);
         Brain.Decided decided = brain.decide(snake, brain.update(snake, null));
         assertNotEquals("ranged", decided.decision().policy(), decided.decision().toString());
 
-        Brain plain = new Brain(FightPolicyTest.KNOWLEDGE, Screens.WEIGHTS, 9L);
+        Brain plain = brain();
         assertEquals("ranged", plain.decide(snake, plain.update(snake, null)).decision().policy());
     }
 
@@ -202,7 +206,7 @@ class MissilesAndDewTest {
     @DisplayName("an unknown potion fifteen steps away is fetched for the healing it may be, once strength is not what it is worth")
     void an_unknown_potion_is_worth_a_longer_walk() {
         // Strength weighted nothing, so the potion is worth its place in the pack and its odds of healing and no more.
-        Brain brain = new Brain(Screens.CODEX, Screens.weights(Map.of("strength", 0L)), 3L);
+        Brain brain = new Brain(Screens.CODEX, Screens.weights(Map.of("strength", 0L, "heal", 12000L)), 3L);
         List<org.shatterfish.api.Tile> tiles = new ArrayList<>(java.util.Collections.nCopies(30, Tile.EMPTY));
         Observation far = Screens.floor(1, Screens.heroAt(1, 10), tiles, List.of(heap(16, "crimson potion")), List.of(),
                 new Action.Step(0), new Action.Step(2));
@@ -236,7 +240,7 @@ class MissilesAndDewTest {
             Observation screen = bare.withActions(ValidActions.of(bare));
             Explore.Path path = Explore.nearest(screen.map(), Explore.walkable(screen, Memory.START, true),
                     screen.hero().cell(), screen.actions().actions(), cell -> cell == 8 + width,
-                    Explore.grassWanted(screen, org.shatterfish.api.Tunables.Vector.REFERENCE));
+                    Explore.grassWanted(screen, ON.tunables()));
             assertEquals(7, path.distance(), "the way is as short either way");
             boolean throughGrass = path.step() instanceof Action.Step step && Dew.tall(screen.map().tiles().get(step.cell()));
             assertEquals(status.startsWith("10"), throughGrass, status);

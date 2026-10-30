@@ -68,9 +68,10 @@ final class Ranged implements Policy {
      * The most steps walked in a fight to a missile the hero threw (issue #412), with no enemy beside the hero and
      * none near enough to reach it before the pick-up is done. With an enemy in view arriving on a heap does not take
      * it (Hero.java:1982-1990), so the walk is these steps and a PickUp.
+     * Off (0) as committed: the rig table of the #412 pull request played worse with it on (on value 2), so it waits for the owner's word and a tuning run.
      */
     @Heuristic("missile-recover")
-    static final int FETCH_STEPS = 2;
+    static final int FETCH_STEPS = 0;
 
     /**
      * The least damage a throw is expected to do, in thousandths of a hit point, for it to be thrown (issue #412).
@@ -79,9 +80,10 @@ final class Ranged implements Policy {
      * formula's (Char.java:646-678) on the hero's accuracy times one and a half from a cell that is not adjacent
      * (MissileWeapon.java:223-233), cut by 1.5 for each point of strength short (Weapon.java:289-304), against the
      * enemy's defense skill; a stone at a snake (defense 25) from a first-level hero lands three times in ten.
+     * Off (0) as committed: the rig table of the #412 pull request played worse with it on (on value 1500), so it waits for the owner's word and a tuning run.
      */
     @Heuristic("missile-throw")
-    static final int MIN_DAMAGE_PER_MILLE = 1500;
+    static final int MIN_DAMAGE_PER_MILLE = 0;
 
     /**
      * The plain missiles by the name the screen shows and their tier (the {@code tier} field of each class in

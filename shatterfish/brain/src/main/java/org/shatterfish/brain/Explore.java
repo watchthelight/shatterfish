@@ -645,9 +645,10 @@ final class Explore implements Policy {
     /**
      * The grass-tie-break switch (issue #412): equally short ways are taken through tall grass while the waterskin
      * shows less than this of its twenty. 0 never.
+     * Off (0) as committed: the rig table of the #412 pull request played worse with it on (on value 20), so it waits for the owner's word and a tuning run.
      */
     @Heuristic("tall-grass-dew")
-    static final int GRASS_SKIN_BELOW = 20;
+    static final int GRASS_SKIN_BELOW = 0;
 
     /** Whether equally short ways break toward tall grass on this screen. */
     static boolean grassWanted(Observation observation, org.shatterfish.api.Tunables.Vector tunables) {

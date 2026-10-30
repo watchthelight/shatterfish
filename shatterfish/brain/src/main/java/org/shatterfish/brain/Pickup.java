@@ -113,17 +113,19 @@ final class Pickup implements Policy {
      * worth little carried, so an ordinary weighing would leave one past a dozen steps, and the hero threw
      * 22 in one watched Run and took back none; one that landed on a cell the hero can reach is worth the walk
      * to it up to this, because the next fight's free throws come from the pack (Ranged).
+     * Off (0) as committed: the rig table of the #412 pull request played worse with it on (on value 20), so it waits for the owner's word and a tuning run.
      */
     @Heuristic("missile-recover")
-    static final int MISSILE_REACH = 20;
+    static final int MISSILE_REACH = 0;
 
     /**
      * A dewdrop is taken at full health while the waterskin shows less than this of its twenty (issue #412): the
      * skin takes it whatever the hero's health (Dewdrop.java:59-62), and twenty drops make a full heal later
      * (Dewdrop.java:83-84), so an empty skin is a heal carried. 0 refuses the drop at full health, as before.
+     * Off (0) as committed: the rig table of the #412 pull request played worse with it on (on value 20), so it waits for the owner's word and a tuning run.
      */
     @Heuristic("dew-skin")
-    static final int DEW_SKIN_BELOW = 20;
+    static final int DEW_SKIN_BELOW = 0;
 
     @Override
     public boolean enters(Observation observation, Memory memory) {

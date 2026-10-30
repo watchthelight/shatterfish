@@ -224,9 +224,10 @@ final class Descend implements Policy {
      * steps buys about a sixth of a drop at best and the walk is paid in food: it is made only while the pack's food and the
      * hunger clock leave {@link Larder#FRUGAL} turns and twice the hop besides, and only until the floor has been stayed on
      * as long as an overstay allows.
+     * Off (0) as committed: the rig table of the #412 pull request played worse with it on (on value 10), so it waits for the owner's word and a tuning run.
      */
     @Heuristic("tall-grass-dew")
-    static final int TRAMPLE_REACH = 10;
+    static final int TRAMPLE_REACH = 0;
 
     /**
      * A Step toward the nearest tall grass within the vector's {@code descend.trample_reach} steps, on a spent floor with
