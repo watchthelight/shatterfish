@@ -139,6 +139,9 @@ class JsonRenderingTest {
     private static final Set<String> HELPERS = Set.of("Canon", "Encoder", "Sha256", "Utf8", "JsonWriter",
             "JsonWriter$Frame", "JsonWriter$ObjectFrame", "JsonWriter$ArrayFrame", "ObservationCodec", "ObservationJson",
             "Belief", "ShatterfishApi", "ValidActions",
+            // The look-ahead a search Brain is lent (story 10.24): interfaces and records of numbers and Observations, no text read
+            // into a record of the schema (SearchPlan.parse reads a plan of its own numbers, not an Observation).
+            "Lookahead", "Searching", "Playout", "Hypothesis", "Hypothesis$Remembered", "SearchPlan",
             // A decider's way of saying it has no rule for a screen (story 4.11): an exception type,
             // no field, no text read, so the Run loop can end on it without catching anything else.
             "Decider$CannotDecide",

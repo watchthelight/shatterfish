@@ -14,6 +14,7 @@ import org.shatterfish.harness.rng.DeciderSeeds;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -133,5 +134,21 @@ class OverlayAgentsTest {
     void the_default_codex() {
         LaunchOptions options = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior"});
         assertEquals(Path.of("codex", HeadlessBoot.pinnedTag()), options.codex());
+    }
+
+    @Test
+    @DisplayName("the Overlay never builds a decider that searches: no look-ahead is lent to it (ADR-0025, story 10.24)")
+    void the_overlay_never_searches() {
+        LaunchOptions random = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior"});
+        LaunchOptions brain = LaunchOptions.parse(new String[] {"--seed", "1", "--class", "warrior",
+                "--agent", "brain", "--weights", WEIGHTS.toString(), "--playbook", PLAYBOOK.toString(), "--codex", CODEX.toString()});
+        for (LaunchOptions options : new LaunchOptions[] {random, brain}) {
+            org.shatterfish.api.Decider decider = OverlayAgents.of(options).get();
+            assertTrue(!(decider instanceof org.shatterfish.api.Searching searching) || !searching.searches(),
+                    options + " builds a decider that would use a look-ahead");
+            if (decider instanceof BrainDecider brainDecider) {
+                assertEquals(org.shatterfish.brain.Brain.Model.BASELINE, brainDecider.brain().model());
+            }
+        }
     }
 }

@@ -3,6 +3,7 @@ package org.shatterfish.harness.agent;
 import com.badlogic.gdx.Gdx;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.HeroClass;
 import org.shatterfish.api.Action;
+import org.shatterfish.api.Playout;
 import org.shatterfish.api.RolloutResult;
 import org.shatterfish.harness.boot.HeadlessBoot;
 import org.shatterfish.harness.boot.SharedBackend;
@@ -62,10 +63,10 @@ final class IsolatedWorld implements RolloutWorld {
     }
 
     @Override
-    public RolloutResult rollout(ScrubbedStart start, RunHistory history, List<Action> actions) {
+    public RolloutResult rollout(ScrubbedStart start, RunHistory history, Playout playout, int horizon) {
         Objects.requireNonNull(start, "a scrubbed start");
         Objects.requireNonNull(history, "the history of the Run (RunHistory.NONE for a Run that has played nothing)");
-        Objects.requireNonNull(actions, "the Actions to roll out");
+        Objects.requireNonNull(playout, "the playout to roll out");
         HeadlessBoot boot = HeadlessBoot.ensure();
         // What the live Run has queued is put aside for the rollout and back after it (see the class comment).
         List<Runnable> held = stash();
@@ -86,7 +87,7 @@ final class IsolatedWorld implements RolloutWorld {
             HeadlessDriver.Halt first = driver.stepToInputWait(RunLoop.FRAME_BUDGET);
             t2 = System.nanoTime();
             firstStep = t2 - s0;
-            result = RolloutHost.play(driver, executor, actions, first);
+            result = RolloutHost.play(driver, executor, playout, horizon, first);
             t3 = System.nanoTime();
         } catch (RuntimeException e) {
             failure = e;

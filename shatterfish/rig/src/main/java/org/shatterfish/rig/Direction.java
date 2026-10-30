@@ -78,7 +78,10 @@ public final class Direction {
      */
     public static final String TUNABLES = "--tunables";
 
-    static final List<String> KNOWN = List.of(SET, CLASS, FIRST, SALT_BASE, BASELINE, JOBS, OUT, ROOT, DEBUG_RECORD, BRAIN_FLAG, TUNABLES);
+    /** The search plan of the current build's Brain (story 10.24), as {@code RunOne.SEARCH} reads it; the baseline never searches. */
+    public static final String SEARCH_FLAG = "--search";
+
+    static final List<String> KNOWN = List.of(SET, CLASS, FIRST, SALT_BASE, BASELINE, JOBS, OUT, ROOT, DEBUG_RECORD, BRAIN_FLAG, TUNABLES, SEARCH_FLAG);
 
     /** Default number of Runs in flight: a quarter of the cores, from 2 to 8, so several measurements can share the machine. */
     static final int DEFAULT_JOBS = Math.max(2, Math.min(8, Runtime.getRuntime().availableProcessors() / 4));
@@ -169,6 +172,8 @@ public final class Direction {
         if (!Brains.readsWeights(brain)) {
             throw new IllegalArgumentException(BRAIN_FLAG + " names a Brain built on the Codex and weights; " + brain + " is not");
         }
+        String search = a.getOrDefault(SEARCH_FLAG, "");
+        org.shatterfish.api.SearchPlan.parse(search);
         String tunables = a.getOrDefault(TUNABLES, "");
         if (!tunables.isEmpty()) {
             RunOne.checkTunables(tunables);
@@ -176,7 +181,7 @@ public final class Direction {
                 throw new IllegalArgumentException(TUNABLES + " moves the numbers of a Playbook, and " + brain + " has none");
             }
         }
-        int failedNow = play(picks, currentFolder, Runner.classpath(), root, tag, commit, jobs, brain, tunables);
+        int failedNow = play(picks, currentFolder, Runner.classpath(), root, tag, commit, jobs, brain, tunables, search);
 
         Path baselineLogs = baselineFolder;
         String baselineName = baseline;
@@ -277,6 +282,11 @@ public final class Direction {
      */
     static int play(List<DirectionSelect.Pick> picks, Path folder, String classpath, Path source,
                     String tag, String commit, int jobs, String brain, String tunables) {
+        return play(picks, folder, classpath, source, tag, commit, jobs, brain, tunables, "");
+    }
+
+    static int play(List<DirectionSelect.Pick> picks, Path folder, String classpath, Path source,
+                    String tag, String commit, int jobs, String brain, String tunables, String search) {
         try {
             Files.createDirectories(folder);
         } catch (IOException e) {
@@ -292,7 +302,7 @@ public final class Direction {
             for (int i = 0; i < picks.size(); i++) {
                 DirectionSelect.Pick pick = picks.get(i);
                 Path working = folder.resolve("work").resolve(String.valueOf(i));
-                started.add(pool.submit(() -> one(pick, folder, working, classpath, codex, weights, playbook, commit, brain, tunables)));
+                started.add(pool.submit(() -> one(pick, folder, working, classpath, codex, weights, playbook, commit, brain, tunables, search)));
             }
             int failed = 0;
             for (Future<Boolean> f : started) {
@@ -328,7 +338,7 @@ public final class Direction {
 
     private static boolean one(DirectionSelect.Pick pick, Path folder, Path working, String classpath,
                                Path codex, Path weights, Path playbook, String commit, String brain,
-                               String tunables) throws IOException, InterruptedException {
+                               String tunables, String search) throws IOException, InterruptedException {
         Files.createDirectories(working);
         var triple = pick.entry();
         List<String> command = new ArrayList<>(List.of(
@@ -344,6 +354,10 @@ public final class Direction {
                 RunOne.CHALLENGES, Integer.toString(triple.challengeFlags()),
                 RunOne.CODEX, codex.toAbsolutePath().toString(),
                 RunOne.WEIGHTS, weights.toAbsolutePath().toString()));
+        if (!search.isEmpty()) {
+            command.add(RunOne.SEARCH);
+            command.add(search);
+        }
         if (playbook != null && Brains.readsPlaybook(brain)) {
             command.add(RunOne.PLAYBOOK);
             command.add(playbook.toAbsolutePath().toString());

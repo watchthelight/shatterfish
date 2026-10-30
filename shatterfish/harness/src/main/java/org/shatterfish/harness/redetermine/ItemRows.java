@@ -133,26 +133,26 @@ final class ItemRows {
         return families;
     }
 
-    /** A permutation of {@code 0..n-1} that is not the identity, drawn from the family's own stream. */
-    private static int[] permutation(int n, Streams streams, String family) {
-        for (int attempt = 0; ; attempt++) {
-            SplittableRandom random = streams.of("class-permutation", family + "#" + attempt);
-            int[] perm = new int[n];
-            for (int i = 0; i < n; i++) {
-                perm[i] = i;
-            }
-            for (int i = n - 1; i > 0; i--) {
-                int j = random.nextInt(i + 1);
-                int t = perm[i];
-                perm[i] = perm[j];
-                perm[j] = t;
-            }
-            for (int i = 0; i < n; i++) {
-                if (perm[i] != i) {
-                    return perm;
-                }
-            }
+    /**
+     * A permutation of {@code 0..n-1}, uniform over all {@code n!} of them, identity included, from the family's own
+     * stream. The game gives the labels to the classes uniformly at random, so, given which classes the hero has not yet
+     * identified, every assignment among them is equally likely: the posterior is uniform, and a sample drawn from it says
+     * nothing about the truth. Excluding the identity (as this once did) biases the assignment away from the truth, which is
+     * information a rollout could use (fairness review of story 10.24).
+     */
+    static int[] permutation(int n, Streams streams, String family) {
+        SplittableRandom random = streams.of("class-permutation", family);
+        int[] perm = new int[n];
+        for (int i = 0; i < n; i++) {
+            perm[i] = i;
         }
+        for (int i = n - 1; i > 0; i--) {
+            int j = random.nextInt(i + 1);
+            int t = perm[i];
+            perm[i] = perm[j];
+            perm[j] = t;
+        }
+        return perm;
     }
 
     /** Renames every string in the tree that is a renamed class's name, in values and in arrays. */

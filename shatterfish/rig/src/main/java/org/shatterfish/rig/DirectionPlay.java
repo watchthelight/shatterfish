@@ -95,7 +95,7 @@ public final class DirectionPlay {
         int taken = -1;
     }
 
-    private static final class Watch implements Deliberator {
+    private static final class Watch implements Deliberator, org.shatterfish.api.Searching {
 
         private final Deliberator inner;
         private final Map<String, Seen> open = new HashMap<>();
@@ -108,6 +108,18 @@ public final class DirectionPlay {
 
         Watch(Deliberator inner) {
             this.inner = inner;
+        }
+
+        @Override
+        public boolean searches() {
+            return inner instanceof org.shatterfish.api.Searching searching && searching.searches();
+        }
+
+        @Override
+        public void lookahead(org.shatterfish.api.Lookahead lookahead) {
+            if (inner instanceof org.shatterfish.api.Searching searching) {
+                searching.lookahead(lookahead);
+            }
         }
 
         String arrivals() {

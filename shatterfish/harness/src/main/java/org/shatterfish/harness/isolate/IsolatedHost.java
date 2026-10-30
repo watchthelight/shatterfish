@@ -1,6 +1,7 @@
 package org.shatterfish.harness.isolate;
 
 import org.shatterfish.api.Action;
+import org.shatterfish.api.Playout;
 import org.shatterfish.api.RolloutResult;
 import org.shatterfish.api.Simulator;
 import org.shatterfish.api.SnapshotHandle;
@@ -68,6 +69,12 @@ public final class IsolatedHost extends Simulator implements AutoCloseable {
 
     @Override
     protected RolloutResult rollout(SnapshotHandle handle, List<Action> actions) {
+        List<Action> own = List.copyOf(actions);
+        return rollout(handle, (observation, applied) -> own.get(applied), own.size());
+    }
+
+    @Override
+    protected RolloutResult rollout(SnapshotHandle handle, Playout playout, int horizon) {
         // The flag is a claim; the store holds the bytes and knows which copies it made (the Simulator's contract).
         if (!store.madeScrubbed(handle)) {
             throw new IllegalArgumentException("snapshot " + handle.id() + " was not made as a scrubbed copy by this host's store:"
@@ -86,7 +93,7 @@ public final class IsolatedHost extends Simulator implements AutoCloseable {
         }
         boolean keep = mode == Mode.POOLED;
         try {
-            RolloutResult result = opened.world().rollout(start, history, actions);
+            RolloutResult result = opened.world().rollout(start, history, playout, horizon);
             Phases timer = phases;
             if (timer != null) {
                 long[] c = opened.world().lastCostsNanos();
