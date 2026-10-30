@@ -770,7 +770,7 @@ A Brain's wait record carries its Decision (story 4.4, FR-32):
 - the goal, in plain words;
 - the chosen Action with its score, in ten-thousandths;
 - up to three alternatives, each a distinct Action with a score and a one-line reason;
-- the Safety flags read off the screen (`hp-low`, `enemy-in-view`, `hungry`, `starving`);
+- the Safety flags read off the screen (`hp-low`, `enemy-in-view`, `hungry`, `starving`, `in-harm`);
 - the Policy that fired.
 
 `hp-low` starts where the status pane's own low-health warning starts, at `HP/HT < 0.334` (see the

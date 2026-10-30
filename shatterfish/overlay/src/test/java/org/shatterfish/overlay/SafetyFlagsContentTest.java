@@ -54,8 +54,9 @@ class SafetyFlagsContentTest {
             assertTrue(verdict == SafetyFlagVerdict.OK || verdict == SafetyFlagVerdict.WARN
                     || verdict == SafetyFlagVerdict.DANGER, flag);
         }
-        assertEquals(4, org.shatterfish.brain.Brain.safetyFlags().size(),
-                "if this grows, the four assertions above should grow with it, not silently fall back");
+        assertEquals(SafetyFlagVerdict.DANGER, SafetyFlagVerdict.of("in-harm"), "fire or gas on the hero's cell hurts every turn (ToxicGas.java:40)");
+        assertEquals(5, org.shatterfish.brain.Brain.safetyFlags().size(),
+                "if this grows, the assertions above should grow with it, not silently fall back");
     }
 
     @Test

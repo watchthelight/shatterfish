@@ -204,6 +204,9 @@ public final class Direction {
         String table = DirectionMetrics.table("current " + commit.substring(0, 9), now, baselineName, then);
         StringBuilder text = new StringBuilder();
         text.append(describe).append("\n\n").append(table);
+        if (then != null) {
+            text.append(DirectionHarm.rows(DirectionHarm.read(baselineLogs), DirectionHarm.read(currentFolder)));
+        }
         if (failedNow + failedBase > 0) {
             text.append("\nRuns that did not finish: ").append(failedNow).append(" current, ")
                     .append(failedBase).append(" baseline; see the .err files beside the logs.\n");

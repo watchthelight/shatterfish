@@ -63,6 +63,8 @@ public final class DirectionPlay {
         });
         Files.writeString(out.resolve(heapsFile(heroClass, SeedSet.code(seed), salt)), watching.get().table(),
                 StandardCharsets.UTF_8);
+        Files.writeString(out.resolve(heapsFile(heroClass, SeedSet.code(seed), salt)
+                .replace(HEAPS, DirectionHarm.HARM)), watching.get().harm(), StandardCharsets.UTF_8);
     }
 
     /** The name of the heap record of the Run of this triple under this salt. */
@@ -94,6 +96,8 @@ public final class DirectionPlay {
         private final List<Seen> all = new ArrayList<>();
         private int k;
         private int lastHero = -1;
+        private int harmWaits;
+        private Observation last;
 
         Watch(Deliberator inner) {
             this.inner = inner;
@@ -108,9 +112,19 @@ public final class DirectionPlay {
             return sb.toString();
         }
 
+        /** The harm record (issue #408): waits spent in fire or gas, whether the last screen was one, and its ending. */
+        String harm() {
+            return harmWaits + "\t" + (last != null && DirectionHarm.inHarm(last) ? 1 : 0) + "\t"
+                    + (last == null ? "unseen" : DirectionHarm.ending(last)) + "\n";
+        }
+
         @Override
         public Action decide(Observation o) {
             k++;
+            last = o;
+            if (DirectionHarm.inHarm(o)) {
+                harmWaits++;
+            }
             int d = o.header().depth();
             int b = o.header().branch();
             int hero = o.hero().cell();

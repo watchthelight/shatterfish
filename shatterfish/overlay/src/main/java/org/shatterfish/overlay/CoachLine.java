@@ -58,6 +58,8 @@ final class CoachLine {
             new Template("answer-prompt", "upgrade", "to upgrade the best gear", "upgrade-window"),
             new Template("answer-prompt", "guess", "the likeliest kind", "guess-window"),
             new Template("answer-prompt", "leave", "to leave the window", "shun-no-time-windows"),
+            new Template("escape", "escape", "to get out of the fire or gas", "leave-cloud"),
+            new Template("escape", "finish", "to finish an enemy first", "leave-cloud"),
             new Template("heal", "heal", "hurt, with enemies near", "heal-threshold"),
             new Template("douse", "douse/water", "burning, water is near", "burning-douse"),
             new Template("douse", "douse/ground", "burning, bare ground is near", "burning-douse"),
@@ -169,6 +171,7 @@ final class CoachLine {
         String detail = detail(why);
         String key = switch (policy) {
             case "answer-prompt" -> head;
+            case "escape" -> head;
             case "heal", "zap", "shoot", "ranged" -> policy.equals("ranged") ? "throw" : policy;
             case "douse" -> detail.contains("bare") ? "douse/ground" : "douse/water";
             case "one-ply", "fight" -> fightKey(policy, head, detail);

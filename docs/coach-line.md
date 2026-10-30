@@ -27,6 +27,8 @@ the build. A clause adds no threshold, so there is nothing for `HeuristicLinkTes
 | `answer-prompt/upgrade` | to upgrade the best gear | [`upgrade-window`](brain-rules.md#upgrade-window) |
 | `answer-prompt/guess` | the likeliest kind | [`guess-window`](brain-rules.md#guess-window) |
 | `answer-prompt/leave` | to leave the window | [`shun-no-time-windows`](brain-rules.md#shun-no-time-windows) |
+| `escape/escape` | to get out of the fire or gas | [`leave-cloud`](brain-rules.md#leave-cloud) |
+| `escape/finish` | to finish an enemy first | [`leave-cloud`](brain-rules.md#leave-cloud) |
 | `heal/heal` | hurt, with enemies near | [`heal-threshold`](brain-rules.md#heal-threshold) |
 | `douse/douse/water` | burning, water is near | [`burning-douse`](brain-rules.md#burning-douse) |
 | `douse/douse/ground` | burning, bare ground is near | [`burning-douse`](brain-rules.md#burning-douse) |

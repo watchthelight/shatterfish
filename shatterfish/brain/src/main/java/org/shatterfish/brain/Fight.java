@@ -1053,6 +1053,18 @@ final class Fight implements Policy {
         return perTurn <= 0 ? Double.POSITIVE_INFINITY : health(threat, enemy) / perTurn;
     }
 
+    /**
+     * Whether the hero's next blow kills {@code enemy} this turn (issue #408): even the weakest landed
+     * hit, after the most the enemy's armour can take off it, is as much as the hit points its health
+     * bar shows, and the blow lands at least as often as not.
+     */
+    static boolean dies(Observation observation, Codex.Knowledge knowledge, ActorView enemy) {
+        Codex.Threat threat = threat(observation, knowledge, enemy);
+        int[] damage = heroDamage(observation, knowledge);
+        return hitChance(heroAccuracy(observation.hero()), threat.defense()) >= 0.5
+                && damage[0] - threat.drMax() >= health(threat, enemy);
+    }
+
     /** What {@code threat} is expected to take from the hero per turn. */
     static double enemyDamage(Observation observation, Codex.Knowledge knowledge, Codex.Threat threat) {
         int[] armour = heroArmour(observation, knowledge);
