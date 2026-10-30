@@ -77,3 +77,19 @@ different salt base is 2 of 80 better, and the two baselines themselves differ b
 same Brain, so a difference of 3 is inside the spread of the measure. Pooled over both Warrior slices (160 Runs) reach is
 105 to 104 and the deepest mean 5.150 to 5.149. The all-class slice is better by 2 and by 0.2 floors. This page does not
 claim a win rate gain; it claims calibrated odds, with play that is not measurably different.
+
+## After the merge with #219's Evidence
+
+Main's `Evidence` (potion rooms and stacks, issue #219) now multiplies the count odds as a factor (`Beliefs.withRooms`). Standard set, all classes, 40 Runs, salts 1000..1039. The baseline is the merged main commit 7a753e616 played into a folder; the current code is the merged branch.
+
+| | main 7a753e616 | merged branch | delta |
+|---|---|---|---|
+| reach depth 5 | 20/40 | 18/40 | -2 |
+| reach depth 10 | 0/40 | 0/40 | 0 |
+| Goo kills | 15/40 | 14/40 | -1 |
+| bosses killed | 15/40 | 14/40 | -1 |
+| deepest mean / max | 4.350 / 8 | 4.350 / 8 | 0 |
+| upgrades read by depth 5 | 68 | 66 | -2 |
+| think ms per Decision, mean / p95 | 3.5 / 12 | 9.2 / 25 | +5.7 |
+
+The differences are inside the spread of the measure (two baselines of one Brain differed by 5 of 80 above), and the stop rule was a drop of more than 3 in reach or Goo kills. The cost per Decision rose from 3.5 to 9.2 ms mean, still far under the Decision budget.
