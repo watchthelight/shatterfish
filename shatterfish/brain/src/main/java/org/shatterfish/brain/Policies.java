@@ -125,6 +125,16 @@ final class Policies {
      * Policies' to do deliberately: equip wears gear, test-item drinks and reads.
      */
     static Policy fallback(Evaluation evaluation) {
+        return fallback(evaluation, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /**
+     * {@link #fallback(Evaluation)} that, under the vector's {@code larder.fallback_rests} of 0, draws no rest while the
+     * hero is hungry with no food held (story 10.39): a rest runs until the hit points are full or something
+     * interrupts it, hundreds of turns on food that is not there, and a starving hero regenerates none
+     * (Regeneration.java:57).
+     */
+    static Policy fallback(Evaluation evaluation, org.shatterfish.api.Tunables.Vector tunables) {
         return new Policy() {
             @Override
             public String name() {
@@ -156,6 +166,11 @@ final class Policies {
                 // Never an item use -- eating among them, which is the eat Policy's (story 4.9) --
                 // unless item uses are all the screen offers: a Run is not ended for want of one.
                 List<Action> drawn = offered.stream().filter(action -> !usesItem(action)).toList();
+                if (tunables.getInt(org.shatterfish.api.Tunables.LARDER_FALLBACK_RESTS) == 0
+                        && observation.hero().hunger() != org.shatterfish.api.Hunger.NONE && Larder.food(observation) == 0) {
+                    List<Action> still = drawn.stream().filter(action -> !(action instanceof Action.Rest)).toList();
+                    drawn = still.isEmpty() ? drawn : still;
+                }
                 for (Action action : drawn.isEmpty() ? offered : drawn) {
                     Evaluation.Scored scored = evaluation.scored(observation, action);
                     termsOf.put(action, scored.terms());

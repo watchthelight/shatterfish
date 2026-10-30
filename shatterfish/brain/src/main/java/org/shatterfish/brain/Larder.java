@@ -61,6 +61,10 @@ final class Larder {
     @Heuristic(Heuristic.UNLINKED)
     static final int FRUGAL = 600;
 
+    /** Whether the fallback may draw a rest while the hero is hungry with no food held: 1 yes, as before; 0 since story 10.39 (kept on both slices). */
+    @Heuristic("time-and-hunger-costs")
+    static final int FALLBACK_RESTS = 0;
+
     private Larder() {
     }
 
@@ -111,6 +115,11 @@ final class Larder {
 
     /** Whether food is tight: the budget under {@link #FRUGAL}. */
     static boolean frugal(Observation observation, Memory memory) {
-        return budget(observation, memory) < FRUGAL;
+        return frugal(observation, memory, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #frugal(Observation, Memory)} under the vector's {@code larder.frugal}. */
+    static boolean frugal(Observation observation, Memory memory, org.shatterfish.api.Tunables.Vector tunables) {
+        return budget(observation, memory) < tunables.getInt(org.shatterfish.api.Tunables.LARDER_FRUGAL);
     }
 }
