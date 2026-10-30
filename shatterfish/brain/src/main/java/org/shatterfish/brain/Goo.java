@@ -411,6 +411,13 @@ final class Goo {
             }
         }
         Action attack = new Action.Attack(goo.cell());
+        if (!offered.contains(attack)) {
+            RunLog.Choice volley = volley(observation, memory, offered, goo);
+            if (volley != null) {
+                ranked.add(new RunLog.Choice(volley.action(), ranked.isEmpty() ? Policies.CERTAIN : 0, volley.why()));
+                return ranked;
+            }
+        }
         if (offered.contains(attack)) {
             ranked.add(new RunLog.Choice(attack, ranked.isEmpty() ? Policies.CERTAIN : 0, "goo: attack"));
             return ranked;
@@ -428,6 +435,32 @@ final class Goo {
             ranked.add(new RunLog.Choice(approach.action(), ranked.isEmpty() ? Policies.CERTAIN : 0, "goo: " + approach.why()));
         }
         return ranked.isEmpty() ? null : ranked;
+    }
+
+    /**
+     * A shot at Goo while it comes (story 10.38). Goo walks to the hero a cell a turn and attacks only from
+     * beside it, or two cells off once pumped, and a pump starts only from beside the hero (Goo.java:141-152,
+     * :178-226, Mob.java:1383-1392), so every turn it spends on the way is a turn the hero strikes for nothing:
+     * the staff's bolt, the bow's arrow, or the best plain missile in the pack, in that order, at the first
+     * cell the line is clear, from two cells off or more. Beside Goo nothing changes: the blow is the melee
+     * one. The fight Policy used to wait for Goo instead, and the staff, the bow and the missiles were kept
+     * out of the fight with Goo in view; each is the same Choice the policy of its name makes, with the reason
+     * {@code goo: volley}. Null when there is no ammunition, no clear line, or Goo is beside the hero.
+     */
+    static RunLog.Choice volley(Observation observation, Memory memory, List<Action> offered, ActorView goo) {
+        int hero = observation.hero().cell();
+        if (distance(observation.map(), hero, goo.cell()) < 2 || !Ranged.clear(observation, hero, goo.cell())) {
+            return null;
+        }
+        String why = "goo: volley ";
+        RunLog.Choice shot = Zap.zapAt(observation, memory, offered, goo, why + "zap: ");
+        if (shot == null) {
+            shot = Shoot.shotAt(observation, offered, goo, why + "shoot: ");
+        }
+        if (shot == null) {
+            shot = Ranged.throwAt(observation, offered, goo, why + "throw: ");
+        }
+        return shot;
     }
 
     private static int distance(MapSection map, int a, int b) {

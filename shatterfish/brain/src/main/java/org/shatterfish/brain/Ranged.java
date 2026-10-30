@@ -136,6 +136,14 @@ final class Ranged implements Policy {
                 || !clear(observation, hero, target.cell())) {
             return null;
         }
+        return throwAt(observation, offered, target, "throw: ");
+    }
+
+    /**
+     * The throw of the best plain missile in the pack at {@code target}, or null when there is none to throw; the
+     * reason is {@code why} and the missile's name. Shared with the Goo fight ({@link Goo#volley}, story 10.38).
+     */
+    static RunLog.Choice throwAt(Observation observation, List<Action> offered, ActorView target, String why) {
         int strength = observation.hero().strength() + observation.hero().strengthBonus();
         List<ItemView> items = observation.inventory().items();
         Action throwing = null;
@@ -157,7 +165,7 @@ final class Ranged implements Policy {
                 bestQuantity = item.quantity();
             }
         }
-        return throwing == null ? null : new RunLog.Choice(throwing, Policies.CERTAIN, "throw: " + thrown);
+        return throwing == null ? null : new RunLog.Choice(throwing, Policies.CERTAIN, why + thrown);
     }
 
     /**
