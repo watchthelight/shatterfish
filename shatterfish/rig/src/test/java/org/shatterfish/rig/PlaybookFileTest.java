@@ -28,8 +28,8 @@ class PlaybookFileTest {
     private static final Path CODEX = SeedSetsTest.ROOT.resolve(CodexManifest.FOLDER)
             .resolve(org.shatterfish.harness.boot.HeadlessBoot.pinnedTag());
 
-    /** The 4.x Brain's Playbook as story 7.4 left it: the reference with the armour taking the scroll on a tie. */
-    private static final Playbook STORY_7_4 = new Playbook("shatterfish", 3, Playbook.Identify.REFERENCE,
+    /** The 4.x Brain's Playbook as story 7.4 left it: the reference with the armour taking the scroll on a tie, and (story 10.15) the rest after a test only under 30 percent health. */
+    private static final Playbook STORY_7_4 = new Playbook("shatterfish", 4, Playbook.Identify.REFERENCE.with(java.util.Map.of("rest_hp_per_mille", 300L)),
             Playbook.Upgrade.REFERENCE.with(java.util.Map.of("tie", "ARMOR")), Playbook.Kit.REFERENCE, java.util.List.of());
 
     private static Playbook committed(String brain) {

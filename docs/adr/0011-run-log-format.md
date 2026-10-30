@@ -385,3 +385,37 @@ Evaluation's worth (Policies, `fallback`), so its list ends with one extra term 
 carries the difference. The terms before it are the Evaluation's own, from the call that produced the
 tier. A Policy that scores nothing through the Evaluation records no `terms`, not zeros. Search never
 shipped (ADR-0010), so no Brain writes `search` yet.
+
+## Amendment: E10 W1 (2026-10-28): an ending record beside the Run log
+
+The direction table and the gallery could say how a Run ended and on what floor, but not who killed
+the hero, nor which boss it had killed: the `end` record's `bosses` is a count, and the debug record
+that names the killer is opt-in and 1.8 MB a Run. E10 needs deaths by depth with their killers on
+every PR, so a Run played through the headless loop with a log now always writes
+`<run-id>.ending.json` beside it (`harness/log/EndingRecord`, called from `RunLoop` only), a few
+dozen bytes:
+
+| Member | Holds |
+|---|---|
+| `killer` | the cause class of the ranking record the death added (as `DebugRecord.killerSince`); empty when the Run did not die |
+| `depth` | the floor the hero was on at the end (`Dungeon.depth`), which differs from the `end` record's `depth`, the deepest floor reached, when the hero died after climbing back |
+| `last_hp`, `ht` | the hero's health and maximum at the last wait the Brain saw, or -1; the hit that killed is not isolated, so this is the health before the last turns, not before the last blow |
+| `boss_kills` | the bosses killed, by name, in `Statistics.bossScores` order: Goo (index 0, `Goo.java:306`), Tengu (1, `Tengu.java:225`), DM-300 (2, `DM300.java:594`), Dwarf King (3, `DwarfKing.java:572`), Yog-Dzewa (4, `YogDzewa.java:542`); an entry above zero counts, as the game's score counts it (`Rankings.java:221-224`) |
+
+**Which of two ways.** (1) A sidecar file, as the debug record is. (2) New members in the `end`
+record's `outcome`. (2) would change the chained text of every `end` record written afterwards, and so
+the chain of every Run, which would break the comparison of a new chain with an old one that the
+determinism tests and the published tables rely on, for fields no Replay needs. (1) is chosen: the Run
+log is unchanged, byte for byte, and so is its chain.
+
+**Readers.** A log with no ending record (every log written before this amendment, and a baseline
+cached before it) reads as "not recorded": `EndingRecord.read` returns null for an absent or torn
+file, `:rig:direction` shows `not recorded` for the boss kills it cannot name and counts such a death
+under `not recorded`, and `Results` writes an `outcomes.jsonl` row without the new keys, byte for byte
+as before. When the record is there, a row gains `boss_kills`, `death_depth`, `killer` and `last_hp`.
+
+**Not a parity leak (non-negotiable 1).** The record is written once, after the Run has ended, and
+read by nothing while a Run is played. The one value taken during play, the hero's health, comes from
+the Observation the Brain was already handed and goes into a field of `RunLoop` the loop never reads
+back during the Run. `EndingRecordIsolationTest` fails the build if the Brain, the api, the Observer or
+the executor can name the class, or if anything but `RunLoop` and the Rig uses it.

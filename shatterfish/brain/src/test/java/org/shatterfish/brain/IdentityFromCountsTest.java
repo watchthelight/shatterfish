@@ -122,9 +122,9 @@ class IdentityFromCountsTest {
             belief = brain.update(screen, belief);
         }
         Memory memory = Memory.of(belief);
-        assertEquals(1, Memory.count(memory.found(), Beliefs.SEEN + "scroll of AAA", 1));
-        assertEquals(2, Memory.count(memory.found(), Beliefs.SEEN + "scroll of AAA", 2), "two picked up, one read: still two found");
-        assertEquals(0, Memory.count(memory.found(), Beliefs.SEEN + "scroll of AAA", 3));
+        assertEquals(1, Memory.count(memory.found(), Beliefs.SIGHTING + "scroll of AAA", 1));
+        assertEquals(2, Memory.count(memory.found(), Beliefs.SIGHTING + "scroll of AAA", 2), "two picked up, one read: still two found");
+        assertEquals(0, Memory.count(memory.found(), Beliefs.SIGHTING + "scroll of AAA", 3));
     }
 
     // ---- what the Policy does with a known identify scroll

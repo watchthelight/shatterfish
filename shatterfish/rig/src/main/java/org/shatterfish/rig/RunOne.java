@@ -70,6 +70,15 @@ public final class RunOne {
     public static final String PLAYBOOK = "--playbook";
 
     /**
+     * The boss a practice Run starts in front of (E10, ADR-0024): {@code goo} or {@code tengu}. With
+     * {@link #KIT} it makes the Run a practice Run, whose header says so and which is never ranked.
+     */
+    public static final String PRACTICE = "--practice";
+
+    /** The kit profile a practice Run's hero arrives with; stated with {@link #PRACTICE} and not without it. */
+    public static final String KIT = "--kit";
+
+    /**
      * A parameter vector played over the Playbook (story 10.35): {@code name=value} pairs joined by commas,
      * each name a registered tunable ({@link org.shatterfish.api.Tunables}) and each value inside its bounds.
      * For the Rig's tuner and its checks only. The vector becomes part of the Playbook the Brain is built on,
@@ -101,6 +110,23 @@ public final class RunOne {
             }
         }
         return given;
+    }
+
+    /**
+     * Refuses a vector that names a number nobody registered or one outside its bounds, in the parent, before a
+     * child is started: a bad vector would otherwise fail every Run of an invocation with the same message.
+     */
+    static void checkTunables(String text) {
+        for (Map.Entry<String, Long> entry : tunables(text).entrySet()) {
+            org.shatterfish.api.Tunables.Tunable tunable = org.shatterfish.api.Tunables.named(entry.getKey());
+            if (tunable == null) {
+                throw new IllegalArgumentException(TUNABLES + " names " + entry.getKey() + ", which is not registered");
+            }
+            if (entry.getValue() < tunable.min() || entry.getValue() > tunable.max()) {
+                throw new IllegalArgumentException(TUNABLES + " " + entry.getKey() + " is from " + tunable.min()
+                        + " to " + tunable.max() + ": " + entry.getValue());
+            }
+        }
     }
 
     private RunOne() {
@@ -167,12 +193,53 @@ public final class RunOne {
                 required(arguments, COMMIT),
                 new RunLog.Brain(brain, required(arguments, BRAIN_COMMIT), Brains.configHash(brain, weights, playbook, knowledge)),
                 arguments.getOrDefault(REGISTRATION, ""), arguments.getOrDefault(MACHINE, ""));
+        if (arguments.containsKey(PRACTICE) != arguments.containsKey(KIT)) {
+            throw new IllegalArgumentException(PRACTICE + " and " + KIT + " are stated together: a practice Run names"
+                    + " the boss it starts in front of and the kit profile its hero arrives with");
+        }
+        if (arguments.containsKey(PRACTICE)) {
+            if (arguments.containsKey(REGISTRATION)) {
+                throw new IllegalArgumentException("a practice Run is never played under a Registration: it began on a"
+                        + " boss floor with a kit a profile made up, so no hypothesis about the Brain can rest on it (ADR-0024)");
+            }
+            logging = logging.practising(new org.shatterfish.harness.practice.Practice(
+                    org.shatterfish.harness.practice.PracticeBoss.of(arguments.get(PRACTICE)), arguments.get(KIT)));
+        }
         int cap = arguments.containsKey(CAP) ? (int) number(arguments, CAP) : RunLoop.TURN_CAP;
         where();
         org.shatterfish.api.Codex.Knowledge codex = arguments.containsKey(CODEX) && Brains.readsCodex(brain)
                 ? CodexKnowledge.read(Path.of(arguments.get(CODEX)), org.shatterfish.harness.boot.HeadlessBoot.pinnedTag())
                 : null;
-        return new RunLoop().playTriple(triple, salt, wrap.apply(Brains.of(brain, triple, codex, weights, playbook)), cap, logging);
+        RunOutcome outcome = new RunLoop().playTriple(triple, salt, wrap.apply(Brains.of(brain, triple, codex, weights, playbook)), cap, logging);
+        saySteadyWakes();
+        return outcome;
+    }
+
+    /** The file a Run leaves in its own working directory, with the stray wakes of its actor thread. */
+    public static final String STRAY_WAKES = "stray-wakes.txt";
+
+    /**
+     * Writes down how often this Run's actor thread woke between frames with no notify of the stepper's
+     * (issue #399). Zero on a quiet machine. The parent reads it into the index and the direction table,
+     * so that a nonzero count in a ranked Run is seen and not silent.
+     */
+    private static void saySteadyWakes() {
+        try {
+            java.nio.file.Files.writeString(java.nio.file.Path.of("").toAbsolutePath().resolve(STRAY_WAKES),
+                    org.shatterfish.harness.scene.SceneStepper.strayWakesInProcess() + System.lineSeparator(),
+                    java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException("a Run could not say how often its actor thread woke", e);
+        }
+    }
+
+    /** The count a child left in {@code working}, or -1 when it left none (an older child, or a Run that failed). */
+    static long strayWakesIn(java.nio.file.Path working) {
+        try {
+            return Long.parseLong(java.nio.file.Files.readString(working.resolve(STRAY_WAKES)).strip());
+        } catch (java.io.IOException | NumberFormatException none) {
+            return -1;
+        }
     }
 
     /** The file a Run leaves in its own working directory, naming that directory. */
@@ -222,7 +289,8 @@ public final class RunOne {
 
     /** Every flag a Run knows. Held by name, like the parent's (RigOracleGateTest). */
     static final java.util.List<String> KNOWN = java.util.List.of(SEED, CLASS, SALT, OUT,
-            COMMIT, BRAIN, BRAIN_COMMIT, REGISTRATION, MACHINE, CAP, CHALLENGES, CODEX, WEIGHTS, PLAYBOOK, TUNABLES);
+            COMMIT, BRAIN, BRAIN_COMMIT, REGISTRATION, MACHINE, CAP, CHALLENGES, CODEX, WEIGHTS, PLAYBOOK,
+            PRACTICE, KIT, TUNABLES);
 
     private static String required(Map<String, String> arguments, String flag) {
         String value = arguments.get(flag);

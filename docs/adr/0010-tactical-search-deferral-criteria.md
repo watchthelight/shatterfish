@@ -205,3 +205,19 @@ that does not pay the swap (a classloader-isolated second instance, ADR-0009's J
 is about 22 ms), a budget the product owner sets above about 270 ms (the table gives the budget each design needs), a new
 upstream tag that changes the cost of a save and load, or a new candidate that needs fewer rollouts. Each is a new Registration
 that names its machine and budget. The properties stay beside any future result (rule 4) and were not used as a reason here.
+
+## Amendment: story 10.22 (2026-10-28)
+
+The product owner answered the budget question that story 6.6 left open. On 2026-10-28, asked whether the think time per
+Decision should be capped, he said: "Whatever makes the bot as smart as possible." So there is **no fixed think budget** for
+the Rig, and rule 2 of the choice rule no longer filters candidates by a registered `budgetMs`. What replaces it:
+
+- A candidate is registered at a stated think time per Decision, and its strength is **published per think-time column** (for
+  example 30 ms, 100 ms, 300 ms, 1 s), each column a Registration against option 2 at the same wall-clock budget, ADR-0012
+  unchanged. A design that wins only at a long think time is a result, not a rejection.
+- The Overlay may use a **capped profile** (a budget that keeps the game playable in front of a person); the cap is the
+  Overlay's, is set in its profile, and does not enter the Rig's numbers.
+- The 6.6 outcome (option 2 stays) was provisional on a budget, and the budget is gone. The question is reopened for
+  option 3 as a column. ADR-0025 records the simulator measurement that decides how cheap a column can be and gives a go for
+  determinized fight rollouts in the Rig.
+- Rules 1, 3 and 4 and the fairness rule stand; `holdout` is still reserved for a comparison that exists.

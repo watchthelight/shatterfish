@@ -17,6 +17,7 @@ before
 below
 best
 better
+boss
 bow
 burning
 but
@@ -30,10 +31,12 @@ clear
 close
 confirm
 cornered
+cross
 distance
 do
 dodge
 done
+door
 down
 drink
 drunk
@@ -126,9 +129,11 @@ test
 the
 then
 to
+traps
 uncover
 upgrade
 wait
+walk
 water
 way
 wear

@@ -50,18 +50,18 @@ class BeliefConsistencyTest {
     @DisplayName("an unidentified appearance in view carries its family's identities, by deck weight")
     void a_distribution() {
         Beliefs beliefs = after(Screens.world(1, FLOOR, List.of(), List.of(),
-                List.of(Screens.item(ItemKind.POTION, "crimson potion", 2)), List.of()));
+                List.of(Screens.item(ItemKind.POTION, "crimson potion", 1)), List.of()));
 
         Beliefs.Guess crimson = guess(beliefs, "crimson potion");
         assertEquals(1.0, sum(crimson), 1e-12);
         assertEquals(4, crimson.odds().size(), "strength is a candidate though the decks weight it zero");
-        // Strength is on a schedule (issue #410), at most one a floor, so two of one appearance on the first floor
-        // are not strength; the deck potions follow in the order of their weights, 6, 4 and 3.
-        assertEquals(List.of("potion of healing", "potion of mind vision", "potion of frost", "potion of strength"),
+        // Strength is on a schedule (issue #410) and one potion found on the first floor is likeliest it (a floor
+        // queues one, the decks hold none); the deck potions follow in the order of their weights, 6, 4 and 3.
+        assertEquals(List.of("potion of strength", "potion of healing", "potion of mind vision", "potion of frost"),
                 crimson.odds().stream().map(Beliefs.Odds::name).toList());
-        assertTrue(crimson.odds().get(0).probability() > crimson.odds().get(1).probability());
-        assertTrue(crimson.odds().get(1).probability() > crimson.odds().get(2).probability());
-        assertTrue(crimson.odds().get(2).probability() > crimson.odds().get(3).probability());
+        for (int i = 0; i + 1 < crimson.odds().size(); i++) {
+            assertTrue(crimson.odds().get(i).probability() > crimson.odds().get(i + 1).probability());
+        }
         assertEquals(1, beliefs.identities().size(), "an appearance not in view is not guessed at");
     }
 

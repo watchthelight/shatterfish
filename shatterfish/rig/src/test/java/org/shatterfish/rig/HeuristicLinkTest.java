@@ -82,14 +82,20 @@ class HeuristicLinkTest {
             Map.entry("BrainModule.API_SCHEMA_VERSION", "a schema version"),
             Map.entry("Memory.VERSION", "a schema version of the Memory"),
             Map.entry("Policies.CERTAIN", "the fixed-point scale of a probability, not a choice"),
-            Map.entry("IdentityOdds.EXACT", "a cap on the enumeration, past which the answer falls back to independent rows"),
+            Map.entry("Beliefs.EXACT", "a cap on the enumeration, past which the answer is the plain weight over the total, not a measured value; the enumeration is exact below it, so it moves no play and needs no tuning (#410, with IdentityOdds.EXACT)"),
+            Map.entry("IdentityOdds.EXACT", "a cap on the enumeration, past which the answer falls back to independent rows, exact below it, so not a tuned value (#410)"),
             Map.entry("Memory.CLOUDS", "a capacity of the Memory"),
             Map.entry("Memory.AVOIDED", "a capacity of the Memory"),
             Map.entry("Memory.DWELT", "a capacity of the Memory"),
             Map.entry("Memory.MONSTERS", "a capacity of the Memory"),
             Map.entry("Memory.SEALED_RETREATS", "an index into the Memory's flight counters"),
             Map.entry("Memory.WATER_LEAVES", "an index into the Memory's flight counters"),
-            Map.entry("Sentry.MAX_ZONE", "a capacity guard on a flood fill"));
+            Map.entry("Sentry.MAX_ZONE", "a capacity guard on a flood fill"),
+            Map.entry("Evidence.LIMIT", "a cap on the subset states, past which the plain weights answer"),
+            Map.entry("Evidence.SHIFT", "the bit offset of the identity set inside a state key"),
+            Map.entry("Evidence.VIEW", "a cap on the appearances read at once, for the decision's time budget"),
+            Map.entry("Evidence.STACK","the largest stack the falling factorial tells apart"),
+Map.entry("Tengu.DEPTH", "the floor of the dungeon where the prison boss lives (Dungeon.java:441-443), a fact of the map and not a choice"));
 
     /** Constants of nested classes are listed by their nested name; the capacity of the shunned set is one. */
     static final Map<String, String> EXEMPT_NESTED = Map.of("Memory.Windows.SHUNNED", "a capacity of the Memory");

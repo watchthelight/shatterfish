@@ -59,7 +59,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class HarnessReflectionTest {
 
     /** The fields {@code docs/UPSTREAM.md} names for the stepper, as {@code Owner.field}. */
-    private static final Set<String> DECLARED = Set.of("GameScene.actorThread", "Actor.current");
+    private static final Set<String> DECLARED = Set.of("GameScene.actorThread", "Actor.current", "Random.generators");
 
     /**
      * The fields {@code docs/UPSTREAM.md} names for the Run-start reset (issue #167), as
@@ -216,7 +216,8 @@ class HarnessReflectionTest {
         assertEquals(1, lookups, "one place looks a field up by name");
         assertEquals(1, openings, "one place opens it");
         assertEquals(1, writes, "one place writes through reflection");
-        assertEquals(1, reads, "RunStatics reads in one place only: capture(), into a holder that carries nothing out");
+        assertEquals(1, reads, "RunStatics reads in one place only (read()), for capture()'s opaque holder and for exportTo(), whose only caller"
+                + " is RunHistoryCodec (ScrubbedStartBoundaryTest) and whose counts are what a rollout already plays on (#390)");
         for (java.lang.reflect.Method method : RunStatics.Held.class.getDeclaredMethods()) {
             assertTrue(Modifier.isPrivate(method.getModifiers()) || method.getName().equals("restore"),
                     "the holder has no accessor, only restore(): " + method);
