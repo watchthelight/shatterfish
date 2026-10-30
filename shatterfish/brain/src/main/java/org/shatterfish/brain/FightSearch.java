@@ -75,7 +75,8 @@ final class FightSearch implements Policy {
         this.plan = plan;
         this.seed = seed;
         this.lent = lent;
-        this.fight = new Fight(knowledge, playbook.bosses().goo());
+        this.fight = new Fight(knowledge, playbook.bosses().goo(), playbook.bosses().tengu(),
+                org.shatterfish.api.Tunables.Vector.REFERENCE);
         // The rules that play the turns after the first: this configuration without the search, built once.
         this.rules = new Brain(knowledge, weights, playbook, seed, Brain.Model.BASELINE);
     }

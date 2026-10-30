@@ -99,6 +99,8 @@ class CoachLineTest {
             Map.entry("tengu/attack", "tengu: attack"),
             Map.entry("tengu/approach", "tengu: approach 4"),
             Map.entry("tengu/across", "tengu: across 3"),
+            Map.entry("tengu/dodge", "tengu: dodge 2"),
+            Map.entry("tengu/hold", "tengu: hold"),
             Map.entry("explore/frontier", "frontier 7"),
             Map.entry("explore/search", "search 2/5"),
             Map.entry("explore/away", "away 3"),
