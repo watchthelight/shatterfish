@@ -185,12 +185,34 @@ public sealed interface RunLog
      * @param controller   whether a game controller was connected when the Overlay Run began (1) or not
      *                     (0), or -1 when not stated; the desktop hint lines name a key or a button by
      *                     it. Chained, written only when stated (story 5.2)
+     * @param practice     the practice start this Run was played from, or empty for a Run that began on
+     *                     depth 1 like a player's: {@code <boss>/<kit profile>@<first sixteen digits of the
+     *                     hash over the resolved kit>} (E10, ADR-0024). Chained, written only when stated, so
+     *                     every ordinary log keeps its bytes. A practice Run is never ranked: the Rig reads
+     *                     this field back and refuses the log wherever a number is published
      */
     record Header(int v, String tag, String commit, HeroClass heroClass, int challenges, long seed,
                   String seedCode, long salt, int cap, int profile, int obsv, int codex, Brain brain,
                   String registration, boolean oracle, String machine, String started, String driver,
-                  int interfaceSize, int controller)
+                  int interfaceSize, int controller, String practice)
             implements RunLog {
+
+        /** The shape of a practice stamp: a boss, a kit profile and the hash of the kit it resolved to. */
+        public static final String PRACTICE_PATTERN = "[a-z]+/[a-z0-9._]+@[0-9a-f]{16}";
+
+        /** A header with a screen stated and no practice start, which is every Overlay Run. */
+        public Header(int v, String tag, String commit, HeroClass heroClass, int challenges, long seed,
+                      String seedCode, long salt, int cap, int profile, int obsv, int codex, Brain brain,
+                      String registration, boolean oracle, String machine, String started, String driver,
+                      int interfaceSize, int controller) {
+            this(v, tag, commit, heroClass, challenges, seed, seedCode, salt, cap, profile, obsv, codex, brain,
+                    registration, oracle, machine, started, driver, interfaceSize, controller, "");
+        }
+
+        /** Whether this Run began from a practice start; no ranked path may take such a Run for its own. */
+        public boolean practiceRun() {
+            return !practice.isEmpty();
+        }
 
         /** The {@code driver} of a Run played inside the desktop game (story 5.1). */
         public static final String EMBEDDED = "embedded";
@@ -254,6 +276,13 @@ public sealed interface RunLog
                     "a controller is connected (1) or not (0), or -1 when not stated: " + controller);
             Canon.require(!driver.isEmpty() || (interfaceSize == -1 && controller == -1),
                     "a headless Run states no interface size or controller: it plays on interface size 0");
+            Canon.text(practice, "a Run's practice start");
+            Canon.require(practice.isEmpty() || practice.matches(PRACTICE_PATTERN),
+                    "a Run began on depth 1 (empty) or from a practice start named by boss, kit profile and"
+                            + " kit hash: " + practice);
+            Canon.require(practice.isEmpty() || registration.isEmpty(),
+                    "a practice Run is never played under a Registration: it is not ranked, and a hypothesis"
+                            + " names Runs a player could have had");
         }
 
         @Override

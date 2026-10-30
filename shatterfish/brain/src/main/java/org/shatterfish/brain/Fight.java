@@ -273,6 +273,9 @@ final class Fight implements Policy {
         boolean favourable = favourable(observation, knowledge, threats(observation, memory, enemies, knowledge, tunables), tunables);
         RunLog.Choice retreat = retreat(observation, memory, offered, enemies, knowledge, tunables);
         List<RunLog.Choice> fight = Goo.engage(observation, memory, offered, enemies, goo);
+        if (fight == null) {
+            fight = Tengu.engage(observation, memory, offered, enemies);
+        }
         if (fight != null) {
             return fight;
         }

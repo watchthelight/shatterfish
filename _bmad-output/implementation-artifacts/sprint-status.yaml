@@ -166,7 +166,7 @@ development_status:
   10-2-the-killer-on-every-death: done  # issue #348
   10-3-the-all-class-direction-table-and-the-think-time-column: done  # issue #349
   10-4-the-tengu-seed-set: done  # issue #350
-  10-5-the-practice-harness: backlog  # issue #351
+  10-5-the-practice-harness: done  # issue #351
   10-6-practice-kits-from-real-arrivals: backlog  # issue #352
   10-7-the-prison-diagnosis: backlog  # issue #353
   10-8-skeleton-bone-burst: backlog  # issue #354
@@ -176,11 +176,11 @@ development_status:
   10-12-necromancer-target-priority: backlog  # issue #358
   10-13-swarm-split-and-the-corridor: backlog  # issue #359
   10-14-doors-chokepoints-and-the-retreat-upstairs: backlog  # issue #360
-  10-15-prison-food-budgeting: backlog  # issue #361
+  10-15-prison-food-budgeting: done  # issue #361
   10-16-the-wandmaker-quest: backlog  # issue #362
   10-17-the-power-curve-by-depth: backlog  # issue #363
-  10-18-tengu-entry-key-and-seal: backlog  # issue #364
-  10-19-tengu-phase-one-the-dart-trap-memory: backlog  # issue #365
+  10-18-tengu-entry-key-and-seal: done  # issue #364; PR #397
+  10-19-tengu-phase-one-the-dart-trap-memory: done  # issue #365
   10-20-tengu-phase-two-the-threat-map: backlog  # issue #366
   10-21-tengu-conversion-on-the-practice-floor: backlog  # issue #367
   10-22-the-think-budget-amendment-to-adr-0010: done  # issue #368

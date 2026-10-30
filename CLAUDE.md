@@ -20,6 +20,7 @@ sh tools/fetch-vanilla.sh                  # the Codex's second pinned source (E
 ./gradlew :rig:strategy --args="<log.jsonl or folder>"     # the plain-text strategy log beside each Run log (E4)
 ./gradlew :rig:direction --args="--set standard --class WARRIOR --first 40 --salt-base 1000 [--baseline <git-ref|folder>] [--jobs N]"   # the PR table (tuning set shown; `--class ALL` for all six classes); refuses goo, tengu and holdout
 ./gradlew :rig:tune --args="--set standard --class ALL --first 20 --salt-base 5000 --iterations 10 --jobs 4 [--params a,b,c] [--resume <dir>]"   # SPSA over the tunable registry (E10 W7); refuses goo, holdout, tengu and any salt outside 5000-6999; writes a candidate Playbook, never edits one
+./gradlew :rig:practice --args="--boss tengu|goo --class <HERO|ALL> --kit standard --n 40 --salt-base 1000 [--jobs N]"   # boss-floor practice (E10, ADR-0024); never ranked, no Registration
 uv run --no-project --with-requirements docs/requirements.txt mkdocs build --strict   # docs, as CI runs it
 python tools/after-merge.py <PR> [--key K] [--close]   # bookkeeping after a merge: sprint-status, issues, README and codex checks
 ```

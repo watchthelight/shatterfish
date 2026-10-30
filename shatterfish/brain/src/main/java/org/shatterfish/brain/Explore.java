@@ -791,6 +791,7 @@ final class Explore implements Policy {
             }
         }
         Sentry.block(walk, observation, memory);
+        Darts.block(walk, observation, memory);
         int depth = observation.header().depth();
         int branch = observation.header().branch();
         for (Memory.Spot spot : memory.blocked()) {
