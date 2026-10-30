@@ -26,6 +26,7 @@ final class Missiles {
     }
 
     /** The most throws remembered at once; the oldest is forgotten first. */
+    @org.shatterfish.api.Heuristic("missile-recover")
     static final int KEPT = 16;
 
     /** Whether {@code title} names a missile the Ranged Policy throws, quantity suffix and all. */

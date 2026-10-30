@@ -23,6 +23,7 @@ final class Dew {
     static final String WATERSKIN = "waterskin";
 
     /** The skin's capacity (Waterskin.java:41). */
+    @org.shatterfish.api.Heuristic("dew-skin")
     static final int CAPACITY = 20;
 
     /** The volume the waterskin shows, or -1 when the pack holds none or its status shows no volume. */
