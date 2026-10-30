@@ -168,7 +168,7 @@ development_status:
   10-4-the-tengu-seed-set: done  # issue #350
   10-5-the-practice-harness: done  # issue #351
   10-6-practice-kits-from-real-arrivals: backlog  # issue #352
-  10-7-the-prison-diagnosis: backlog  # issue #353
+  10-7-the-prison-diagnosis: review  # issue #353
   10-8-skeleton-bone-burst: done  # issue #354
   10-9-dm-100-lightning: done  # issue #355
   10-10-guard-chain-pull: backlog  # issue #356
@@ -199,4 +199,7 @@ development_status:
   10-35-the-registry-of-tunable-parameters: done  # issue #382
   10-36-the-tune-runner: done  # issue #383; PR #405
   10-37-the-first-tuning-run: backlog  # issue #384
+  10-38-the-goo-fight-on-depth-5: backlog  # issue #422; added by 10.7
+  10-39-prison-food-the-second-pass: backlog  # issue #423; added by 10.7
+  10-40-the-sewers-killers: backlog  # issue #424; added by 10.7
   epic-10-retrospective: optional
