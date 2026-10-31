@@ -1,0 +1,121 @@
+class	rank	salt	seedcode	k	depth	hp	ht	loss	policy	why	enemies
+CLERIC	1	1027	GUJ-KMS-KIS	1499	5	37	45	31	fight	goo: attack	Goo
+CLERIC	2	1010	SQZ-FNO-KUX	1128	5	28	45	28	fight	goo: attack	Goo
+CLERIC	3	1002	DGW-BYX-VPX	1392	5	37	45	24	fight	goo: attack	Goo
+CLERIC	4	3008	ZIR-RZA-XCM	1289	5	36	45	24	fight	goo: attack	Goo
+CLERIC	5	3056	HIK-XQN-ERV	940	4	40	40	24	fight	attack: swarm of flies	slime;swarm of flies
+CLERIC	6	3023	RIE-CZA-UHJ	1596	5	26	50	23	fight	goo: attack	Goo
+CLERIC	7	3035	YBD-TVS-LLI	1171	5	23	40	23	fight	goo: attack	Goo
+CLERIC	8	1002	DGW-BYX-VPX	1518	5	27	50	22	fallback	uniform 1/8	
+CLERIC	9	3054	CJQ-RCY-MQH	1191	5	22	45	22	fight	goo: attack	Goo
+CLERIC	10	3054	CJQ-RCY-MQH	1181	5	23	45	21	fight	goo: attack	Goo
+CLERIC	11	1056	HIK-XQN-ERV	696	3	30	30	20	fight	attack: gnoll scout	gnoll scout
+CLERIC	12	1077	DQC-LYZ-RLN	1177	5	19	45	19	fight	goo: attack	Goo
+CLERIC	13	1021	ICD-WHC-GXS	802	3	34	35	17	answer-prompt	jump: Yes, I know what I'm doing	gnoll exile
+CLERIC	14	3023	RIE-CZA-UHJ	1592	5	42	50	16	fight	goo: attack	Goo
+CLERIC	15	3079	RKO-ZSO-YFQ	1095	5	35	45	16	fight	goo: attack	Goo
+CLERIC	16	3062	ILI-TZO-BXS	1685	7	29	50	15	fight	cornered: prison guard	DM-100;prison guard;skeleton
+CLERIC	17	1041	JCS-SNL-SHA	650	4	15	30	14	fight	retreat 5	slime
+CLERIC	18	3011	HVE-BNQ-VPM	2265	8	27	60	14	fight	attack: prison guard	DM-100;prison guard
+CLERIC	19	3012	ARG-XQV-KNS	323	2	22	25	14	fight	approach 6	gnoll scout
+CLERIC	20	3024	EEC-RMW-HVL	598	2	28	30	14	answer-prompt	jump: Yes, I know what I'm doing	gnoll exile
+DUELIST	1	3035	CRD-NOU-BDG	1236	5	23	45	23	fight	goo: attack	Goo
+DUELIST	2	3015	NFI-NJO-AEQ	1466	5	31	45	22	fight	goo: attack	Goo
+DUELIST	3	1010	WYI-MWD-KVE	1459	5	25	45	20	fight	goo: attack	Goo
+DUELIST	4	1045	XCY-CFO-PHY	1062	5	24	45	19	fight	goo: attack	Goo
+DUELIST	5	3057	VXD-QBD-JSU	1148	5	25	45	19	fight	goo: attack	Goo
+DUELIST	6	1010	WYI-MWD-KVE	1456	5	41	45	18	fight	goo: attack	Goo
+DUELIST	7	1062	TPM-GRC-FYP	1249	5	26	45	18	fight	goo: attack	Goo
+DUELIST	8	3029	BAV-TNP-CCE	1121	5	18	45	18	fight	goo: attack	Goo
+DUELIST	9	3071	NTL-EZA-VJZ	1281	5	29	45	18	fight	goo: attack	Goo
+DUELIST	10	3001	MUU-MIE-OUQ	1380	5	38	50	17	fight	goo: attack	Goo
+DUELIST	11	3071	NTL-EZA-VJZ	1274	5	34	45	17	fight	goo: attack	Goo
+DUELIST	12	3071	NTL-EZA-VJZ	1277	5	37	45	17	fight	goo: attack	Goo
+DUELIST	13	3073	KAI-JXO-EAA	2021	6	35	55	17	fight	approach 2	crazy thief
+DUELIST	14	3045	XCY-CFO-PHY	1122	5	25	45	16	fight	goo: attack	Goo
+DUELIST	15	1062	TPM-GRC-FYP	1245	5	40	45	15	fight	goo: attack	Goo
+DUELIST	16	1045	XCY-CFO-PHY	1058	5	45	45	14	fight	goo: attack	Goo
+DUELIST	17	1070	BDO-MZP-HPI	1515	5	33	50	14	fight	goo: attack	Goo
+DUELIST	18	1070	BDO-MZP-HPI	1527	5	49	50	14	fight	goo: attack	Goo
+DUELIST	19	3029	BAV-TNP-CCE	1110	5	43	45	14	fight	goo: attack	Goo
+DUELIST	20	3044	CWY-XIN-WIS	1026	5	14	40	14	fight	goo: attack	Goo
+HUNTRESS	1	3059	WXC-BLV-ZJW	1493	5	44	45	39	fallback	uniform 1/9	
+HUNTRESS	2	1049	AGT-TUB-RBZ	1591	5	35	45	27	fight	goo: attack	Goo
+HUNTRESS	3	3049	AGT-TUB-RBZ	1081	5	27	40	27	fight	goo: attack	Goo
+HUNTRESS	4	1036	CDC-GBY-WZL	1437	5	50	50	26	fight	dodge: pump	Goo
+HUNTRESS	5	1065	JQL-UUV-EXG	1093	5	24	45	23	fight	dodge: pump	Goo
+HUNTRESS	6	3033	GFH-YYC-DBH	1062	5	39	45	23	fight	goo: attack	Goo
+HUNTRESS	7	1051	ARM-YWD-PBC	1195	5	40	40	22	fight	goo: attack	Goo
+HUNTRESS	8	3036	CDC-GBY-WZL	1470	5	27	45	22	fight	goo: attack	Goo
+HUNTRESS	9	1049	AGT-TUB-RBZ	1580	5	32	45	20	fight	goo: attack	Goo
+HUNTRESS	10	3011	GHF-BBY-OMQ	1180	5	33	45	20	fight	goo: attack	Goo
+HUNTRESS	11	1066	ZFI-BCP-YRL	1441	5	36	45	19	fight	goo: attack	Goo
+HUNTRESS	12	1049	AGT-TUB-RBZ	1585	5	41	45	18	fight	goo: attack	Goo
+HUNTRESS	13	1033	GFH-YYC-DBH	1162	5	27	45	17	fight	goo: attack	Goo
+HUNTRESS	14	1055	LLF-NNJ-TCN	1170	5	17	45	17	fight	dodge: pump	Goo
+HUNTRESS	15	1066	ZFI-BCP-YRL	1444	5	17	45	17	fight	goo: attack	Goo
+HUNTRESS	16	1076	KVY-ZKV-PUZ	1074	5	23	40	17	fight	goo: attack	Goo
+HUNTRESS	17	1078	XCX-ZHV-NKM	1623	5	32	45	17	fight	goo: attack	Goo
+HUNTRESS	18	3011	GHF-BBY-OMQ	1201	5	38	45	17	fight	goo: attack	Goo
+HUNTRESS	19	1036	CDC-GBY-WZL	1460	5	41	50	16	fight	dodge: pump	Goo
+HUNTRESS	20	1051	ARM-YWD-PBC	1201	5	18	40	16	fight	goo: attack	Goo
+MAGE	1	1002	DLG-RPU-AXM	1321	5	41	45	28	fight	goo: attack	Goo
+MAGE	2	1059	DHX-OSY-AQY	937	5	28	40	28	fight	goo: attack	Goo
+MAGE	3	1019	IMM-IFY-LVO	1333	5	30	45	27	fight	goo: attack	Goo
+MAGE	4	3047	GHQ-AMX-CXS	1261	5	45	45	26	fight	goo: attack	Goo
+MAGE	5	1005	TTH-ZIW-EYP	1235	5	25	50	25	fight	goo: attack	Goo
+MAGE	6	1019	IMM-IFY-LVO	1338	5	34	45	25	fight	goo: attack	Goo
+MAGE	7	3026	DMI-XZZ-OAY	1426	5	25	45	25	fight	goo: attack	Goo
+MAGE	8	1051	LGW-GOS-QSG	1246	5	28	45	23	fight	goo: attack	Goo
+MAGE	9	1060	OJY-RSM-XQU	1080	5	36	40	22	fight	goo: attack	Goo
+MAGE	10	1002	DLG-RPU-AXM	1338	5	22	45	21	fight	goo: attack	Goo
+MAGE	11	1019	IMM-IFY-LVO	1330	5	43	45	20	fight	goo: attack	Goo
+MAGE	12	1066	BAM-QZW-WDL	1123	5	20	45	20	fight	goo: attack	Goo
+MAGE	13	3035	RGP-OOJ-NSS	1144	5	20	40	20	fight	goo: attack	Goo
+MAGE	14	1002	DLG-RPU-AXM	1332	5	45	45	18	fight	goo: attack	Goo
+MAGE	15	1026	DMI-XZZ-OAY	1432	5	44	50	18	fight	goo: attack	Goo
+MAGE	16	1036	WRR-YQT-EVQ	1058	5	35	40	18	fight	goo: attack	Goo
+MAGE	17	1019	IMM-IFY-LVO	1326	5	34	45	17	fight	goo: attack	Goo
+MAGE	18	1008	CSX-MOL-BIN	1288	5	37	50	16	fight	goo: attack	Goo
+MAGE	19	1005	TTH-ZIW-EYP	1232	5	40	50	15	fight	goo: attack	Goo
+MAGE	20	1023	KLF-BYB-RCZ	1445	5	35	45	15	fight	goo: attack	Goo
+ROGUE	1	1024	TFB-WHU-CJY	836	5	34	35	30	fallback	uniform 1/9	
+ROGUE	2	3024	TFB-WHU-CJY	884	5	34	35	30	fallback	uniform 1/9	
+ROGUE	3	1020	SVN-TMV-HUF	1443	5	45	45	24	fight	goo: attack	Goo
+ROGUE	4	1022	OBX-KJK-OHI	1419	5	32	45	24	fight	goo: attack	Goo
+ROGUE	5	3065	AOW-WTU-NTE	1478	5	40	50	24	fight	goo: attack	Goo
+ROGUE	6	3011	EHD-JKF-AIN	1321	5	31	45	23	fight	goo: attack	Goo
+ROGUE	7	3078	RPP-BRV-TEO	1216	5	41	45	23	fight	goo: attack	Goo
+ROGUE	8	3039	WWR-YJK-ISA	1354	5	36	50	22	fight	goo: attack	Goo
+ROGUE	9	3039	WWR-YJK-ISA	1367	5	27	50	22	fight	goo: attack	Goo
+ROGUE	10	3078	RPP-BRV-TEO	1222	5	33	45	22	fight	goo: attack	Goo
+ROGUE	11	1060	WTT-QQM-EGF	1142	5	17	40	17	fight	goo: attack	Goo
+ROGUE	12	3051	XLC-WCY-QNR	1349	5	37	45	17	fight	goo: attack	Goo
+ROGUE	13	1071	PMQ-ALX-FBE	1789	5	41	50	15	fight	goo: attack	Goo
+ROGUE	14	3039	WWR-YJK-ISA	1357	5	36	50	15	fight	goo: attack	Goo
+ROGUE	15	3039	WWR-YJK-ISA	1360	5	29	50	15	fight	goo: attack	Goo
+ROGUE	16	3014	ZYR-ZSJ-GVX	1811	6	25	55	14	fight	retreat 2	giant piranha;skeleton
+ROGUE	17	3046	ZTQ-SPQ-KXD	1882	6	55	55	14	fight	attack: crazy thief	crazy thief;skeleton
+ROGUE	18	1057	XYN-STX-ECM	2130	7	18	55	13	fight	cornered: prison guard	DM-100;prison guard
+ROGUE	19	3000	CSE-XBJ-BCM	854	3	13	35	13	explore	frontier 1	giant piranha
+ROGUE	20	3033	PKZ-XPH-KHE	1541	6	17	45	13	fight	cornered: crazy thief	crazy thief;skeleton
+WARRIOR	1	3039	LXO-FXV-JQT	1398	5	29	45	26	fight	goo: attack	Goo
+WARRIOR	2	3046	NKH-RZF-ALI	1156	5	32	40	25	fight	goo: attack	Goo
+WARRIOR	3	3027	GIT-LPU-LWW	1200	5	41	45	24	fight	goo: attack	Goo
+WARRIOR	4	3069	SRE-IOA-ZJR	1370	5	24	45	24	fight	goo: attack	Goo
+WARRIOR	5	1033	KKO-SIP-SSO	1315	5	45	45	22	fight	goo: attack	Goo
+WARRIOR	6	3046	NKH-RZF-ALI	1162	5	40	40	22	fight	goo: attack	Goo
+WARRIOR	7	1002	HJO-WWK-PJG	1354	5	37	45	21	fight	goo: attack	Goo
+WARRIOR	8	1059	XKN-VIM-HTK	1540	5	45	45	21	fight	goo: attack	Goo
+WARRIOR	9	3018	EPS-SUK-IGG	1540	5	37	50	21	fight	goo: attack	Goo
+WARRIOR	10	3039	LXO-FXV-JQT	1377	5	34	45	21	fight	dodge: pump	Goo
+WARRIOR	11	1015	XVX-XDX-IKI	1645	5	20	50	20	fight	dodge: pump	Goo
+WARRIOR	12	1029	CIT-ECF-WRK	1113	5	20	45	20	fight	goo: attack	Goo
+WARRIOR	13	1033	KKO-SIP-SSO	1318	5	26	45	20	fight	goo: attack	Goo
+WARRIOR	14	3047	NCZ-GJC-BLF	1253	5	23	45	20	fight	goo: attack	Goo
+WARRIOR	15	3039	LXO-FXV-JQT	1295	5	42	45	19	fight	dodge: pump	Goo
+WARRIOR	16	3048	LVU-RXJ-BQU	1177	5	19	40	19	fight	dodge: pump	Goo
+WARRIOR	17	3066	QUY-SZB-KCN	1531	5	20	45	18	fight	goo: attack	Goo
+WARRIOR	18	1007	DLR-YWZ-ABC	1436	5	37	50	17	fight	dodge: pump	Goo
+WARRIOR	19	1054	WCA-KFY-YTG	1049	5	35	40	17	fight	goo: attack	Goo
+WARRIOR	20	1019	PMA-UHB-YQN	1057	4	20	40	16	fight	approach 3	swarm of flies

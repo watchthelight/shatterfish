@@ -68,7 +68,7 @@ records where the code contradicted the bootstrap prompt.
 | [Visibility](visibility.md) | 32 | What `Dungeon.observe` computes, field of view, fog, secret doors and traps, heaps, mob sprites, and every leak of unseen mobs found. |
 | [Items and identification](identification.md) | 44 | What an unidentified item shows the player, how appearances are shuffled from the seed, what identifies on use or equip, and what the Observer must never read. |
 | [Mobs, AI and combat](combat.md) | 56 | AI states, noticing, `Char.hit`, damage and armor rolls, spawn tables, boss floors and the stair lock. |
-| [Level generation and floors](levels.md) | 38 | Depths and branches, per-floor seeding, room lists, special and secret rooms, guaranteed solution items, traps, hidden doors, stairs. |
+| [Level generation and floors](levels.md) | 39 | Depths and branches, per-floor seeding, room lists, special and secret rooms, guaranteed solution items, traps, hidden doors, stairs. |
 | [Item generation and guarantees](generation.md) | 27 | `Generator` decks and weights, the strength potion and upgrade scroll schedules, `LimitedDrops`, bones, heap types. |
 | [Upgrades](upgrades.md) | 10 | What a scroll of upgrade adds to a weapon, an armour, a wand and a ring, the strength it asks, and what reading it onto an item whose level or curse is not shown costs. |
 | [Random numbers and seeding](rng.md) | 24 | The generator stack, what the seed fixes, what runs on the unseeded base generator, and every other source of nondeterminism found. |
@@ -76,6 +76,7 @@ records where the code contradicted the bootstrap prompt.
 | [UI toolkit and layout](ui.md) | 48 | UI pixels and `defaultZoom`, the full desktop layout with its sizes, `Chrome` types, text sizes, default key bindings, the camera offset, what an overlay can reach. |
 | [Save, score, win and profiles](save-score-win.md) | 26 | `Bundle` saves, slots and save paths, the score formula, what a Win is, ascension, the class list, challenges, cross-run state. |
 | [Text, assets, changelog and build](text-assets.md) | 24 | `Messages` key derivation, the journal documents, the changelog, version constants, the Gradle modules and toolchain. |
+| [Pick-up, missiles and dew](pickup.md) | 15 | What taking a heap costs, where a thrown weapon lands and breaks, how the waterskin takes dew, tall grass and its dew, and what the valued consumables do. |
 
 Eleven of the combat rows (missile accuracy by range, wands and armour, invisibility, a paralysed
 mob's evasion, the door ambush, turn order, mob speed, losing a pursuer, the stairs, surprise damage

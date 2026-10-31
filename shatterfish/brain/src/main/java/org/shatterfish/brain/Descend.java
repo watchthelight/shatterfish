@@ -176,6 +176,10 @@ final class Descend implements Policy {
         if (why == null) {
             return null;
         }
+        RunLog.Choice trample = trample(observation, memory, offered, why, tunables);
+        if (trample != null) {
+            return trample;
+        }
         RunLog.Choice unlock = unlock(observation, memory, offered, why);
         if (unlock != null) {
             return unlock;
@@ -190,9 +194,10 @@ final class Descend implements Policy {
             Action descend = new Action.Descend();
             return offered.contains(descend) ? new RunLog.Choice(descend, Policies.CERTAIN, "descend: " + why) : null;
         }
-        Explore.Path path = toward(observation, offered, Explore.walkable(observation, memory, true));
+        boolean grass = Explore.grassWanted(observation, tunables);
+        Explore.Path path = toward(observation, offered, Explore.walkable(observation, memory, true), grass);
         if (path == null) {
-            path = toward(observation, offered, Explore.walkable(observation, memory, false));
+            path = toward(observation, offered, Explore.walkable(observation, memory, false), grass);
         }
         if (path == null) {
             if (known(map)) {
@@ -211,6 +216,37 @@ final class Descend implements Policy {
             }
         }
         return new RunLog.Choice(path.step(), Policies.CERTAIN, "exit: " + why + " " + path.distance());
+    }
+
+    /**
+     * The most steps walked on a spent floor to tall grass while the waterskin is not full (issue #412). Each cell trampled
+     * drops a dewdrop one time in six (HighGrass.java:148-157), halved on a grass-feeling floor, so a hop of ten
+     * steps buys about a sixth of a drop at best and the walk is paid in food: it is made only while the pack's food and the
+     * hunger clock leave {@link Larder#FRUGAL} turns and twice the hop besides, and only until the floor has been stayed on
+     * as long as an overstay allows.
+     * Off (0) as committed: the rig table of the #412 pull request played worse with it on (on value 10), so it waits for the owner's word and a tuning run.
+     */
+    @Heuristic("tall-grass-dew")
+    static final int TRAMPLE_REACH = 0;
+
+    /**
+     * A Step toward the nearest tall grass within the vector's {@code descend.trample_reach} steps, on a spent floor with
+     * a waterskin that is not full and food enough (issue #412), or null. The cell a Step onto tall grass reaches is trampled
+     * and no longer tall grass (HighGrass.java:59-77), so the nearest one differs at each wait and the walk ends with the grass.
+     */
+    private static RunLog.Choice trample(Observation observation, Memory memory, List<Action> offered, String why,
+                                         org.shatterfish.api.Tunables.Vector tunables) {
+        int reach = tunables.getInt(org.shatterfish.api.Tunables.DESCEND_TRAMPLE_REACH);
+        if (reach <= 0 || !why.equals("spent") || !Dew.wants(observation, Dew.CAPACITY)
+                || Larder.budget(observation, memory) < Larder.FRUGAL + 2 * reach
+                || memory.waits() - memory.arrived() >= tunables.getInt(org.shatterfish.api.Tunables.DESCEND_ALLOWANCE)) {
+            return null;
+        }
+        MapSection map = observation.map();
+        Explore.Path path = Explore.nearest(map, Explore.walkable(observation, memory, true), observation.hero().cell(),
+                offered, cell -> Dew.tall(map.tiles().get(cell)));
+        return path == null || path.distance() > reach ? null
+                : new RunLog.Choice(path.step(), Policies.CERTAIN, "trample: dew " + path.distance());
     }
 
     /** A rest before going down, when {@link #rests} allows one and the screen offers it; else null. */
@@ -446,7 +482,7 @@ final class Descend implements Policy {
     }
 
     /** The first Step toward the nearest open regular exit over {@code walk}, the exit itself allowed. */
-    private static Explore.Path toward(Observation observation, List<Action> offered, boolean[] walk) {
+    private static Explore.Path toward(Observation observation, List<Action> offered, boolean[] walk, boolean grass) {
         MapSection map = observation.map();
         boolean any = false;
         for (TransitionView transition : map.transitions()) {
@@ -455,6 +491,6 @@ final class Descend implements Policy {
                 any = true;
             }
         }
-        return any ? Explore.nearest(map, walk, observation.hero().cell(), offered, cell -> exit(map, cell)) : null;
+        return any ? Explore.nearest(map, walk, observation.hero().cell(), offered, cell -> exit(map, cell), grass) : null;
     }
 }

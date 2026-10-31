@@ -25,6 +25,10 @@ class PickupThresholdTest {
 
     private static final Pickup PICKUP = new Pickup(new Evaluation(Screens.WEIGHTS), Screens.CODEX);
 
+    /** The weights the #412 identity terms were measured at; the committed file holds them at 0. */
+    private static final Pickup VALUING = new Pickup(new Evaluation(Screens.weights(
+            java.util.Map.of("heal", 12000L, "upgrade", 20000L, "useful", 3000L))), Screens.CODEX);
+
     /** A room {@code cells} long, the hero on cell 1, one heap. */
     private static Observation room(int cells, int heapCell, String item, Action... offered) {
         return Screens.floor(1, Screens.heroAt(1, 10), Collections.nCopies(cells, Tile.EMPTY),
@@ -33,6 +37,10 @@ class PickupThresholdTest {
 
     private static RunLog.Choice choose(Observation observation) {
         return PICKUP.choose(observation, Memory.START, observation.actions().actions(), Stream.at(1, 1));
+    }
+
+    private static RunLog.Choice chooseValuing(Observation observation) {
+        return VALUING.choose(observation, Memory.START, observation.actions().actions(), Stream.at(1, 1));
     }
 
     private static final Action[] STEPS = {new Action.Step(0), new Action.Step(2)};
@@ -76,18 +84,25 @@ class PickupThresholdTest {
     }
 
     @Test
-    @DisplayName("an unidentified potion is worth what the Beliefs say it may be: more than a plain item, less than known strength")
+    @DisplayName("an unidentified potion is worth what the Beliefs say it may be: more than a plain item, less than known healing (issue #412)")
     void believed_worth() {
-        Observation screen = room(30, 20, "crimson potion", STEPS);
-        long unknown = PICKUP.worth("crimson potion", screen);
-        long strength = PICKUP.worth("potion of strength", screen);
-        long plain = PICKUP.worth("ration of food", screen);
-        assertTrue(plain < unknown && unknown < strength, plain + " < " + unknown + " < " + strength);
-        // Strength is likelier than a deck weight alone made it (it is on a schedule, issue #410), so the potion is
-        // worth more than the old one-third of a strength potion's bonus, and still less than a known one.
-        assertTrue(unknown > 2000 + Math.round(2000.0 * 6 / 19), "worth " + unknown);
-        assertEquals(new Action.Step(2), choose(room(30, 11, "crimson potion", STEPS)).action(), "ten cells: taken");
-        assertNull(choose(room(30, 20, "crimson potion", STEPS)), "nineteen cells: not");
+        Observation screen = room(60, 50, "crimson potion", STEPS);
+        long unknown = VALUING.worth("crimson potion", screen);
+        long healing = VALUING.worth("potion of healing", screen);
+        long strength = VALUING.worth("potion of strength", screen);
+        long plain = VALUING.worth("ration of food", screen);
+        assertTrue(plain < strength && plain < unknown && unknown < healing, plain + " < " + unknown + " < " + healing);
+        // The odds of each identity times what it adds (strength the strength weight, healing the heal weight), over
+        // the item's own worth: read from the Beliefs, which weigh strength by the floors' schedule (issue #410).
+        Beliefs.Guess guess = Beliefs.identities(screen, Screens.CODEX).stream()
+                .filter(one -> one.label().equals("crimson potion")).findFirst().orElseThrow();
+        double strengthOdds = guess.odds().stream().filter(o -> o.name().equals("potion of strength")).mapToDouble(Beliefs.Odds::probability).sum();
+        double healingOdds = guess.odds().stream().filter(o -> o.name().equals("potion of healing")).mapToDouble(Beliefs.Odds::probability).sum();
+        assertTrue(strengthOdds > 0 && healingOdds > 0, guess.toString());
+        assertEquals(2000 + Math.round(2000.0 * strengthOdds + 12000.0 * healingOdds), unknown);
+        assertEquals(new Action.Step(2), chooseValuing(room(60, 11, "crimson potion", STEPS)).action(), "ten cells: taken");
+        assertEquals(new Action.Step(2), chooseValuing(room(60, 38, "crimson potion", STEPS)).action(), "thirty-seven cells: still taken");
+        assertNull(chooseValuing(room(60, 50, "crimson potion", STEPS)), "forty-nine cells: not");
     }
 
     @Test

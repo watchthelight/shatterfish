@@ -162,6 +162,19 @@ public final class Tunables {
     public static final Tunable CHESTS_MIMIC_MARGIN = policy("chests.mimic_margin_per_mille", "Chests.MIMIC_MARGIN_PER_MILLE", 1250, 500, 3000, 150,
             "how far over the worst opening's cost the hero's health must stand before a chest is opened");
 
+    public static final Tunable PICKUP_MISSILE_REACH = policy("pickup.missile_reach", "Pickup.MISSILE_REACH", 0, 0, 40, 4,
+            "most steps walked, on a calm screen, to a missile the hero threw: 0 leaves them where they fell");
+    public static final Tunable PICKUP_DEW_SKIN_BELOW = policy("pickup.dew_skin_below", "Pickup.DEW_SKIN_BELOW", 0, 0, 20, 4,
+            "a dewdrop is taken at full health while the waterskin shows less than this of its 20: 0 refuses it as before");
+    public static final Tunable RANGED_FETCH_STEPS = policy("ranged.fetch_steps", "Ranged.FETCH_STEPS", 0, 0, 4, 1,
+            "most steps walked in a fight, no enemy beside the hero, to a missile it threw: 0 never leaves a fight for one");
+    public static final Tunable RANGED_MIN_DAMAGE = policy("ranged.min_damage_per_mille", "Ranged.MIN_DAMAGE_PER_MILLE", 0, 0, 6000, 250,
+            "least damage a throw is expected to do, in thousandths of a hit point, for it to be worth the missile: 0 throws as before");
+    public static final Tunable DESCEND_TRAMPLE_REACH = policy("descend.trample_reach", "Descend.TRAMPLE_REACH", 0, 0, 30, 2,
+            "most steps walked on a spent floor to tall grass that may drop dew while the waterskin is not full: 0 never");
+    public static final Tunable EXPLORE_GRASS_SKIN_BELOW = policy("explore.grass_skin_below", "Explore.GRASS_SKIN_BELOW", 0, 0, 20, 4,
+            "equally short ways break toward tall grass while the waterskin shows less than this of its 20: 0 never");
+
     /** Every registered tunable, once, sorted by name (the order a tuner and a Playbook file list them). */
     public static final List<Tunable> ALL = all();
 
@@ -205,7 +218,13 @@ public final class Tunables {
                 BELIEFS_NOTICE,
                 BELIEFS_DRAWS,
                 BELIEFS_LEAK,
-                TEST_UPGRADE_FIRST));
+                TEST_UPGRADE_FIRST,
+                PICKUP_MISSILE_REACH,
+                PICKUP_DEW_SKIN_BELOW,
+                RANGED_FETCH_STEPS,
+                RANGED_MIN_DAMAGE,
+                DESCEND_TRAMPLE_REACH,
+                EXPLORE_GRASS_SKIN_BELOW));
         found.sort(java.util.Comparator.comparing(Tunable::name));
         for (int i = 1; i < found.size(); i++) {
             Canon.require(!found.get(i).name().equals(found.get(i - 1).name()), "a tunable is registered once: " + found.get(i).name());

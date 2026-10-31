@@ -157,6 +157,7 @@ nav:
       - UI: rules/ui.md
       - Save, score, win: rules/save-score-win.md
       - Text and assets: rules/text-assets.md
+      - Pick-up, missiles, dew: rules/pickup.md
   - Bestiary:
       - bestiary/index.md
       - Sewers: bestiary/sewers.md
@@ -234,6 +235,7 @@ nav:
       - "E10 W2, prison food budgeting": results/2026-10-29-e10-w2-prison-food.md
       - "E10, early food economy": results/2026-10-29-e10-early-food-economy.md
       - "Story 10.9, the DM-100 deaths": results/2026-10-29-10-9-dm100-lightning.md
+      - "Story 10.7, the Prison diagnosis": results/2026-10-30-10-7-the-prison-diagnosis.md
       - "The E7 Brain on holdout": results/2026-10-27-e7-holdout.md
       - "Generated: H-0002": results/2026-09-23-H-0002.md
       - "Generated: H-0008": results/2026-10-27-H-0008.md

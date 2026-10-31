@@ -213,6 +213,22 @@ class ExplorePolicyTest {
     }
 
     @Test
+    @DisplayName("a depth-1 floor is spent without a search sweep: no hidden doors and no secret rooms there (#409)")
+    void depth_one_is_not_searched() {
+        String[] rows = {
+                "#####",
+                "#@..#",
+                "#...#",
+                "#####"};
+        Observation room = screen(1, rows);
+        assertTrue(Explore.spent(room, Memory.of(seen(room))), "RegularPainter.java:186-196, SecretRoom.java:66-88");
+        assertEquals(0, Explore.searches(room, Memory.of(seen(room))));
+        // The same room one floor down is searched.
+        Observation below = screen(2, rows);
+        assertEquals(Explore.SEARCHES, Explore.searches(below, Memory.of(seen(below))));
+    }
+
+    @Test
     @DisplayName("an exhausted floor is searched where a search reaches uncovered walls, a spot at a time")
     void search() {
         Observation room = screen(2,

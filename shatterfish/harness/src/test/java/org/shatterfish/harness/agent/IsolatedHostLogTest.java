@@ -82,9 +82,9 @@ class IsolatedHostLogTest {
                 throw new AssertionError("the Run ended (" + halt.reason() + ") before wait " + at);
             }
             Observation observation = new Observer().observe();
-            if (halt.waitIndex() >= at) {
-                assertEquals(at, halt.waitIndex(), "the Run has a wait at " + at);
-                assertTrue(SimulatorSpeed.fightable(observation), "wait " + at + " is mid-fight, as the measurement had it");
+            // The first fightable wait from {@code at} on: a change to the Brain moves where on the Run a given
+            // wait index falls, and the case needs a fight to roll out, not that exact wait (#409).
+            if (halt.waitIndex() >= at && SimulatorSpeed.fightable(observation)) {
                 return observation;
             }
             executor.execute(observation, brain.decide(observation));
