@@ -69,15 +69,6 @@ final class Bestiary {
         return tactics != null && (tactics.attack().equals(RANGED) || tactics.attack().equals(BOLT) || tactics.flying());
     }
 
-    /**
-     * Whether a hit makes more of this enemy: tagged {@code splits} (the swarm of flies, which a hit that leaves it
-     * two or more health splits into a clone on a free cell beside it, Swarm.java:88-116).
-     */
-    static boolean splits(Codex.Knowledge knowledge, int depth, int branch, String name) {
-        Codex.Tactics tactics = of(knowledge, depth, branch, name);
-        return tactics != null && tactics.splits();
-    }
-
     /** Whether this enemy never walks: tagged {@code speed: immobile}. */
     static boolean immobile(Codex.Knowledge knowledge, int depth, int branch, String name) {
         Codex.Tactics tactics = of(knowledge, depth, branch, name);
