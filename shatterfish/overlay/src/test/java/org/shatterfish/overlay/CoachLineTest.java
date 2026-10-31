@@ -83,6 +83,7 @@ class CoachLineTest {
             Map.entry("test-item/identify", "identify: potion (identify-held)"),
             Map.entry("test-item/cell", "cell: scroll (reach)"),
             Map.entry("test-item/rest", "rest: after-test (rest_waits)"),
+            Map.entry("test-item/test/arrival", "test: scroll of magic mapping (arrival)"),
             Map.entry("test-item/test/healing", "test: potion (healing_odds_per_mille)"),
             Map.entry("test-item/test/gain", "test: potion (gain_odds_per_mille)"),
             Map.entry("test-item/test/inventory", "test: scroll (inventory_odds_per_mille)"),

@@ -56,6 +56,7 @@ the build. A clause adds no threshold, so there is nothing for `HeuristicLinkTes
 | `test-item/identify` | a known identify scroll is on hand | [`identity-from-counts`](brain-rules.md#identity-from-counts) |
 | `test-item/cell` | to reach a safe place to test | [`test-spot-door-water`](brain-rules.md#test-spot-door-water) |
 | `test-item/rest` | to rest after a test | [`regen-rest-test`](brain-rules.md#regen-rest-test) |
+| `test-item/test/arrival` | a new floor, so a map shows all of it | [`scroll-on-arrival`](brain-rules.md#scroll-on-arrival) |
 | `test-item/test/healing` | it may heal, and it is hurt | [`unknown-potion-heal-half`](brain-rules.md#unknown-potion-heal-half) |
 | `test-item/test/gain` | it may be a gain | [`strength-experience-potions`](brain-rules.md#strength-experience-potions) |
 | `test-item/test/inventory` | gear to pick, so worth a read | [`scroll-picker`](brain-rules.md#scroll-picker) |

@@ -5,6 +5,7 @@ import org.shatterfish.api.Heuristic;
 import org.shatterfish.api.Action;
 import org.shatterfish.api.ActorView;
 import org.shatterfish.api.Codex;
+import org.shatterfish.api.BuffView;
 import org.shatterfish.api.Emote;
 import org.shatterfish.api.HeroSection;
 import org.shatterfish.api.ItemRef;
@@ -152,6 +153,49 @@ final class Heal implements Policy {
             Action drink = new Action.UseItem(new ItemRef(index, item.name(), item.quantity()), "DRINK");
             if (offered.contains(drink)) {
                 return new RunLog.Choice(drink, Policies.CERTAIN, "heal " + hero.hp() + "/" + danger);
+            }
+        }
+        return Fight.favourable(observation, knowledge, enemies, tunables) ? null : emergency(observation, offered, danger);
+    }
+
+    /**
+     * The scrolls a hero reads when the fight is lost and no healing is on hand, best first (issue #411): the
+     * teleport leaves the fight (ScrollOfTeleportation.java:65, it works on a locked level too, :101, :145);
+     * terror sends every enemy in view fleeing for 20 turns (ScrollOfTerror.java:51-53, Terror.java:33);
+     * mirror image puts two allies beside the hero (ScrollOfMirrorImage.java:45, :71-76); lullaby sleeps
+     * every enemy in view but the reader as well (ScrollOfLullaby.java:48-55), so it comes last.
+     */
+    @Heuristic("emergency-scrolls")
+    static final List<String> EMERGENCY = List.of("scroll of teleportation", "scroll of terror",
+            "scroll of mirror image", "scroll of lullaby");
+
+    /**
+     * The read of the best of {@link #EMERGENCY} the pack holds, or null. Not on a sealed floor for terror
+     * and lullaby, whose boss immunities are not all read (Tengu is immune to terror, Tengu.java:353); not
+     * while blinded or immune to magic, which the game refuses (Scroll.java:179-182).
+     */
+    static RunLog.Choice emergency(Observation observation, List<Action> offered, int danger) {
+        for (BuffView buff : observation.hero().buffs()) {
+            if (buff.name().equals(TestItem.BLINDED) || buff.name().equals(TestItem.MAGIC_IMMUNE)) {
+                return null;
+            }
+        }
+        List<ItemView> items = observation.inventory().items();
+        for (String scroll : EMERGENCY) {
+            boolean boss = scroll.endsWith("terror") || scroll.endsWith("lullaby");
+            if (boss && observation.header().sealed()) {
+                continue;
+            }
+            for (int index = 0; index < items.size(); index++) {
+                ItemView item = items.get(index);
+                if (!item.name().equals(scroll)) {
+                    continue;
+                }
+                Action read = new Action.UseItem(new ItemRef(index, item.name(), item.quantity()), TestItem.READ);
+                if (offered.contains(read)) {
+                    return new RunLog.Choice(read, Policies.CERTAIN, "heal " + observation.hero().hp() + "/"
+                            + danger + " (" + scroll + ")");
+                }
             }
         }
         return null;
