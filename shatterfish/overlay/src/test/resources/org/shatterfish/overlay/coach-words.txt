@@ -26,6 +26,7 @@ by
 cannot
 case
 cell
+chain
 chasm
 chest
 clear
@@ -68,6 +69,7 @@ goo
 goo's
 good
 ground
+guard's
 has
 heal
 health
