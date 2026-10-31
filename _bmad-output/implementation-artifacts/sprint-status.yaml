@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: '2026-09-04'
-last_updated: 2026-10-29
+last_updated: 2026-10-30
 project: shatterfish
 project_key: NOKEY
 tracking_system: file-system
@@ -169,7 +169,7 @@ development_status:
   10-5-the-practice-harness: done  # issue #351
   10-6-practice-kits-from-real-arrivals: backlog  # issue #352
   10-7-the-prison-diagnosis: backlog  # issue #353
-  10-8-skeleton-bone-burst: backlog  # issue #354
+  10-8-skeleton-bone-burst: done  # issue #354
   10-9-dm-100-lightning: done  # issue #355
   10-10-guard-chain-pull: backlog  # issue #356
   10-11-thief-and-bandit-steal: backlog  # issue #357
@@ -181,11 +181,11 @@ development_status:
   10-17-the-power-curve-by-depth: backlog  # issue #363
   10-18-tengu-entry-key-and-seal: done  # issue #364; PR #397
   10-19-tengu-phase-one-the-dart-trap-memory: done  # issue #365
-  10-20-tengu-phase-two-the-threat-map: backlog  # issue #366
+  10-20-tengu-phase-two-the-threat-map: done  # issue #366
   10-21-tengu-conversion-on-the-practice-floor: backlog  # issue #367
   10-22-the-think-budget-amendment-to-adr-0010: done  # issue #368
   10-23-the-classloader-isolation-spike: done  # issue #369
-  10-24-determinized-fight-rollouts: backlog  # issue #370
+  10-24-determinized-fight-rollouts: done  # issue #370
   10-25-the-warrior-plays-its-kit: backlog  # issue #371
   10-26-the-mage-plays-its-kit: backlog  # issue #372
   10-27-the-rogue-plays-its-kit: backlog  # issue #373

@@ -500,45 +500,73 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
     }
 
     /**
-     * The Tengu entry: the boss of depth 10, and the floor the Brain walks through to reach him (story
-     * 10.18). The fight has no field yet.
+     * The Tengu entry: the boss of depth 10, the floor the Brain walks through to reach him (story 10.18) and
+     * the costs the second half of the fight is weighed by (story 10.20). The costs are in hit points, the
+     * currency the threat map adds up in: what standing on a cell that the screen shows about to be struck
+     * is expected to take, and what a step off the cells beside Tengu is worth.
      *
      * @param descentRestPerMille the share of the hit points, in thousandths, the hero rests up to beside the stairs down to Tengu's floor
      * @param enterPerMille       the share of the hit points, in thousandths, the hero rests up to before it opens the cell door, which seals the floor
      * @param restLimit           the most rests handed over on Tengu's floor before the door is opened regardless
      * @param status              {@code UNTESTED} or {@code TESTED}
+     * @param bombCost            the hit points a cell within two steps of a smoke bomb is expected to cost (15 to 30 before armour)
+     * @param fireCost            the hit points a cell the fire is shown on is expected to cost (it sets the hero burning)
+     * @param shockCost           the hit points a cell beside a shocker is expected to cost (12 at depth 10, every other turn)
+     * @param adjacentCost        the hit points a turn away from the cells beside Tengu is worth: the strike not made
      */
     public record Tengu(
             @Heuristic("rest-before-descend") int descentRestPerMille,
             @Heuristic("tengu-entry") int enterPerMille,
             @Heuristic("tengu-entry") int restLimit,
-            String status) {
+            String status,
+            @Heuristic("tengu-threat") int bombCost,
+            @Heuristic("tengu-threat") int fireCost,
+            @Heuristic("tengu-threat") int shockCost,
+            @Heuristic("tengu-threat") int adjacentCost) {
 
         /** The fields, sorted as the file states them. */
         public static final List<Spec> SPECS = List.of(
+                Spec.number("adjacent_cost", 0, 100),
+                Spec.number("bomb_cost", 0, 100),
                 Spec.number("descent_rest_per_mille", 1, 1000),
                 Spec.number("enter_per_mille", 1, 1000),
+                Spec.number("fire_cost", 0, 100),
                 Spec.number("rest_limit", 0, 100),
+                Spec.number("shock_cost", 0, 100),
                 Spec.choice("status", List.of("TESTED", "UNTESTED")));
 
-        /** Rest to full on both sides of the stairs, a rest limit as the descend Policy's, and untested. */
-        public static final Tengu REFERENCE = new Tengu(1000, 1000, 20, "UNTESTED");
+        /** Rest to full on both sides of the stairs, a rest limit as the descend Policy's, untested; the costs of {@code docs/rules/levels.md}. */
+        public static final Tengu REFERENCE = new Tengu(1000, 1000, 20, "UNTESTED", 22, 18, 12, 6);
 
         public Tengu {
-            check(SPECS.get(0), descentRestPerMille);
-            check(SPECS.get(1), enterPerMille);
-            check(SPECS.get(2), restLimit);
+            check(SPECS.get(0), adjacentCost);
+            check(SPECS.get(1), bombCost);
+            check(SPECS.get(2), descentRestPerMille);
+            check(SPECS.get(3), enterPerMille);
+            check(SPECS.get(4), fireCost);
+            check(SPECS.get(5), restLimit);
+            check(SPECS.get(6), shockCost);
             java.util.Objects.requireNonNull(status, "status");
-            Canon.require(SPECS.get(3).allowed().contains(status),
-                    "status is one of " + SPECS.get(3).allowed() + ": " + status);
+            Canon.require(SPECS.get(7).allowed().contains(status),
+                    "status is one of " + SPECS.get(7).allowed() + ": " + status);
+        }
+
+        /** The entry before story 10.20 gave it costs: the fields of story 10.18 and the reference costs. */
+        public Tengu(int descentRestPerMille, int enterPerMille, int restLimit, String status) {
+            this(descentRestPerMille, enterPerMille, restLimit, status, REFERENCE.bombCost, REFERENCE.fireCost,
+                    REFERENCE.shockCost, REFERENCE.adjacentCost);
         }
 
         /** The fields by name, in {@link #SPECS} order. */
         public Map<String, Object> values() {
             Map<String, Object> values = new LinkedHashMap<>();
+            values.put("adjacent_cost", (long) adjacentCost);
+            values.put("bomb_cost", (long) bombCost);
             values.put("descent_rest_per_mille", (long) descentRestPerMille);
             values.put("enter_per_mille", (long) enterPerMille);
+            values.put("fire_cost", (long) fireCost);
             values.put("rest_limit", (long) restLimit);
+            values.put("shock_cost", (long) shockCost);
             values.put("status", status);
             return values;
         }
@@ -548,7 +576,8 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
             Map<String, Object> values = values();
             values.putAll(given);
             return new Tengu(num(values, "descent_rest_per_mille"), num(values, "enter_per_mille"),
-                    num(values, "rest_limit"), (String) values.get("status"));
+                    num(values, "rest_limit"), (String) values.get("status"), num(values, "bomb_cost"),
+                    num(values, "fire_cost"), num(values, "shock_cost"), num(values, "adjacent_cost"));
         }
     }
 

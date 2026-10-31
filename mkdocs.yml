@@ -230,6 +230,7 @@ nav:
       - "The measured win rate": results/2026-10-27-7-10-the-measured-win-rate.md
       - "Boss practice kit": results/e10-practice-kit.md
       - "E10 W1, the new instruments": results/2026-10-28-e10-w1-instruments.md
+      - "Story 10.8, the Skeleton deaths": results/2026-10-28-10-8-skeleton-deaths.md
       - "E10 W2, prison food budgeting": results/2026-10-29-e10-w2-prison-food.md
       - "E10, early food economy": results/2026-10-29-e10-early-food-economy.md
       - "Story 10.9, the DM-100 deaths": results/2026-10-29-10-9-dm100-lightning.md
@@ -243,6 +244,7 @@ nav:
       - "Generated: H-0005, second": results/2026-09-23-H-0005-2.md
       - "Generated: H-0006": results/2026-09-23-H-0006.md
       - "Generated: H-0007, undecided": results/2026-09-23-H-0007.md
+      - "Determinized fight search": results/2026-10-29-fight-search.md
   - BMAD artifacts: bmad/index.md
   - Upstream guides (on GitHub):
       - Compiling for desktop: https://github.com/watchthelight/shatterfish/blob/main/docs/getting-started-desktop.md

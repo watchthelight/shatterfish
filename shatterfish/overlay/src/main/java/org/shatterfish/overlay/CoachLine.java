@@ -107,6 +107,8 @@ final class CoachLine {
             new Template("tengu", "attack", "to hit the boss", "tengu-fight"),
             new Template("tengu", "approach", "to walk to the boss", "tengu-fight"),
             new Template("tengu", "across", "to cross the traps", "tengu-fight"),
+            new Template("tengu", "dodge", "to get clear of what is about to hit", "tengu-threat"),
+            new Template("tengu", "hold", "to wait for the danger to pass", "tengu-threat"),
             new Template("explore", "frontier", "to uncover more of the floor", "step-cells"),
             new Template("explore", "search", "to look for a hidden way", "search-radius-cost"),
             new Template("explore", "away", "to keep clear of fire or gas", "gas-fire-avoid"),

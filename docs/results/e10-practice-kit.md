@@ -166,3 +166,47 @@ floor, and the Observer change shows a hidden trap only under Tengu's own tilema
 Against `origin/main` itself the columns do differ for Warrior, Mage and Duelist, because `main` has moved since this
 branch was cut (the Goo work of #344 and others); that is not this story's change and the table above is the one that
 isolates it.
+
+## Tengu practice after story 10.20 (phase two, the threat map)
+
+Story 10.20 (#366). The `tengu` fight Policy now keeps a threat map of the cells the screen draws as about to be struck
+(a smoke bomb heap and its blast, fire blobs, the shocker heap and its blobs), priced in hit points by the Playbook
+(`bomb_cost` 22, `fire_cost` 18, `shock_cost` 12, `adjacent_cost` 6), and keeps beside Tengu through it
+([Rule `tengu-threat`](../brain-rules.md#tengu-threat)). Same slice as above: 40 Runs per class, `standard` set, salts
+1000..1039, kit `standard`, cap 5000 turns, `--jobs 3`. The "before" columns are the "after" table of story 10.19
+above (the same Runs on the merge base `a0ce37919`; a practice Run depends only on the Brain on the boss floor, and
+10.19 is the last change to it).
+
+| class | Tengu killed (before / after) | median turns of deaths (before / after) | boss pips at death (before / after) | hero died to, before | hero died to, after |
+|---|---|---|---|---|---|
+| WARRIOR | 0 / 0 | 117.5 / 136.0 | 4 / 4.0 | Tengu 31, Burning 9 | Tengu 40 |
+| MAGE | 0 / 0 | 113.0 / 128.0 | 3 / 2.5 | Tengu 35, Burning 5 | Tengu 37, Burning 3 |
+| ROGUE | 0 / 0 | 121.5 / 131.5 | 4 / 5.0 | Tengu 37, Burning 3 | Tengu 39, Burning 1 |
+| HUNTRESS | 0 / 0 | 128.0 / 136.5 | 5 / 5.0 | Tengu 36, Burning 4 | Tengu 40 |
+| DUELIST | 0 / 0 | 119.5 / 138.5 | 4 / 4.0 | Tengu 30, Burning 10 | Tengu 40 |
+| CLERIC | 0 / 0 | 114.5 / 131.0 | 4 / 4.0 | Tengu 35, Burning 5 | Tengu 40 |
+| all | 0 / 0 | | | Burning 36 of 240 | Burning 4 of 240 |
+
+Phase 2 reached stays 240 of 240 and dart patches 160 per class. What moved: Burning deaths fall from 36 to 4 of 240,
+and the hero lives 10 to 19 turns longer. What did not move: no Tengu kill, and the pips at death are within half a step
+of before (the bar's eleven steps cannot tell a few hit points apart). The fire and the bomb are now left, and the
+killer is Tengu's own hand (the column names the killer, and the bomb and the shocker are not separate killers in the
+debug record, so their damage is not split out here; that needs a damage-by-source column in the Run log, a follow-up).
+
+The Mage and Huntress rows read apart, as the issue asked. The Huntress (spirit bow) died to Burning 4 times before and
+0 after, with pips at death 5 and 5: she keeps beside Tengu like the melee classes, because the ranged option has no
+branch in this Policy, and the map does not trade her range against adjacency. The Mage (staff) is the one class that
+still dies to Burning (5 to 3) and the only one whose pips at death fall (3 to 2.5); her staff attack from range is
+the one place the adjacency preference costs the most, and no number in this story tests that trade. It is left open.
+
+What the table cannot show: one slice of one kit; the bomb's countdown is not on the screen, so the whole life of a drawn
+bomb is priced as landing now and the hero stands clear for turns it need not; the shocker is priced for its whole
+field so the hero accepts the least bad cell beside him. A kill needs more than leaving the damage cells, and the
+next step is measured damage per source before another number is tuned.
+
+### Off the boss floor
+
+`:rig:direction --set standard --class <C> --first 10 --salt-base 1000 --baseline a0ce37919 --jobs 3`, one class at a
+time. Every column of every class is identical to the baseline: reach depth 5 9, 7, 2, 7, 5, 4 of 10 (Warrior, Mage,
+Rogue, Huntress, Duelist, Cleric), Goo kills 8, 2, 2, 5, 4, 4, reach depth 10 and 15 zero. The map needs depth 10 and
+a sealed floor, so no Run in that slice can differ.
