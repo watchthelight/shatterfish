@@ -239,22 +239,30 @@ class RedeterminationDifferentialTest {
         }
         out.put(ScrubRow.UNKNOWN_CELLS, unknown.toString());
         // CONTAINER_CONTENTS: what lies in the heaps the player has seen. UNSEEN_ITEMS: the heaps on known cells it has not.
-        StringBuilder heaps = new StringBuilder();
-        StringBuilder unseen = new StringBuilder();
+        // The heaps in cell order: the order Dungeon.level.heaps lists them in is not part of the state (a scrub
+        // that rebuilds the map lists the same heaps in another order, as seen at seed 4458542768457 wait 300).
+        java.util.TreeMap<Integer, String> heapStrings = new java.util.TreeMap<>();
+        java.util.TreeSet<Integer> unseenCells = new java.util.TreeSet<>();
         for (Heap heap : Dungeon.level.heaps.valueList()) {
-            boolean known = Dungeon.level.visited[heap.pos] || Dungeon.level.mapped[heap.pos];
+            // The screen's own fog: the same cells the scrub treats as known (Ctx.known).
+            boolean known = fog.get(heap.pos) != org.shatterfish.api.Fog.UNKNOWN;
             if (heap.seen) {
-                heaps.append(heap.pos).append(':').append(heap.type).append(':').append(heap.items.size());
+                StringBuilder one = new StringBuilder();
+                one.append(heap.pos).append(':').append(heap.type).append(':').append(heap.items.size());
                 if (heap.type != Heap.Type.HEAP) {
                     for (Item item : heap.items) {
-                        heaps.append(',').append(item.getClass().getSimpleName());
+                        one.append(',').append(item.getClass().getSimpleName());
                     }
                 }
-                heaps.append(';');
+                heapStrings.put(heap.pos, one.append(';').toString());
             } else if (known) {
-                unseen.append(heap.pos).append(';');
+                unseenCells.add(heap.pos);
             }
         }
+        StringBuilder heaps = new StringBuilder();
+        heapStrings.values().forEach(heaps::append);
+        StringBuilder unseen = new StringBuilder();
+        unseenCells.forEach(cell -> unseen.append(cell).append(';'));
         out.put(ScrubRow.CONTAINER_CONTENTS, heaps.toString());
         out.put(ScrubRow.UNSEEN_ITEMS, unseen.toString());
         int secrets = 0;

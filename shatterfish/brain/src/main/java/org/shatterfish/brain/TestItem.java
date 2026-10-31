@@ -655,7 +655,7 @@ final class TestItem implements Policy {
         return harmfulOn(observation.map(), observation.hero().cell());
     }
 
-    private static String harmfulOn(MapSection map, int cell) {
+    static String harmfulOn(MapSection map, int cell) {
         // Beside a flame of the magical fire room is as bad as on one (MagicalFireRoom.java:205-220).
         if (Explore.ignited(map).contains(cell)) {
             return Explore.ETERNAL_FIRE;
@@ -673,43 +673,15 @@ final class TestItem implements Policy {
     }
 
     /**
-     * The offered Step out of harm: toward the nearest walkable cell with no harmful blob, or, while
-     * burning, toward the nearest water within the Playbook's {@code reach}, which puts the burning out
-     * (Burning.java:98-99). Every Step brings the hero strictly nearer, so it cannot stand still.
+     * The offered Step out of harm (issue #408 moved the route to {@link Escape#step}, which this Policy
+     * and the escape Policy share).
      */
     static Action escape(Observation observation, Memory memory, List<Action> offered, Playbook.Identify identify) {
-        MapSection map = observation.map();
-        int hero = observation.hero().cell();
-        // Through the cloud: a hero in the middle of one has no clean neighbour to start from.
-        boolean[] walk = Explore.walkable(observation, memory, true, true);
-        int[] distance = Pickup.distances(map, walk, hero);
-        boolean burning = has(observation, BURNING);
-        java.util.function.IntPredicate clean = clean(observation, memory);
-        int target = -1;
-        // Through the door the test was credited with, when there was one and it can be reached.
-        int refuge = memory.refuge();
-        if (!burning && refuge >= 0 && refuge < distance.length && distance[refuge] >= 1 && clean.test(refuge)) {
-            target = refuge;
-        }
-        if (target < 0 && burning) {
-            target = nearest(map, distance, cell -> map.tiles().get(cell) == Tile.WATER && clean.test(cell), identify.reach());
-        }
-        if (target < 0) {
-            // Clear of the cloud's edge, which spreads: a clean cell with no cloud beside it, which
-            // through a door is the far side of it.
-            target = nearest(map, distance, cell -> clean.test(cell) && clear(map, cell, clean), Integer.MAX_VALUE);
-        }
-        if (target < 0) {
-            target = nearest(map, distance, clean, Integer.MAX_VALUE);
-        }
-        if (target < 0 || target == hero) {
-            return null;
-        }
-        return Pickup.firstStep(map, walk, hero, target, offered);
+        return Escape.step(observation, memory, offered, identify);
     }
 
     /** Whether every neighbour of {@code cell} on the map is {@code clean}. */
-    private static boolean clear(MapSection map, int cell, java.util.function.IntPredicate clean) {
+    static boolean clear(MapSection map, int cell, java.util.function.IntPredicate clean) {
         int width = map.width();
         int x = cell % width;
         int y = cell / width;
@@ -726,18 +698,7 @@ final class TestItem implements Policy {
         return true;
     }
 
-    private static int nearest(MapSection map, int[] distance, java.util.function.IntPredicate fits, int reach) {
-        int best = -1;
-        for (int cell = 0; cell < distance.length; cell++) {
-            if (distance[cell] >= 1 && distance[cell] <= reach && fits.test(cell)
-                    && (best < 0 || distance[cell] < distance[best])) {
-                best = cell;
-            }
-        }
-        return best;
-    }
-
-    private static boolean has(Observation observation, String buff) {
+    static boolean has(Observation observation, String buff) {
         for (BuffView view : observation.hero().buffs()) {
             if (view.name().equals(buff)) {
                 return true;

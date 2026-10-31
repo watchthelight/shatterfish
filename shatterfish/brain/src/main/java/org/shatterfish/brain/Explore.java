@@ -759,6 +759,10 @@ final class Explore implements Policy {
     static boolean[] walkable(Observation observation, Memory memory, long keepFor, boolean throughClouds) {
         MapSection map = observation.map();
         int cells = map.tiles().size();
+        // A hero standing in a cloud has no way out of it over cells that are not clouded (issue #408): its own
+        // neighbours are clouded too, so every plan would be pathless and the wait would fall to the random
+        // fallback, which can Rest. The cloud is crossed, the way a hero in the middle of one must cross it.
+        throughClouds = throughClouds || !TestItem.harmfulOn(map, observation.hero().cell()).isEmpty();
         boolean[] walk = new boolean[cells];
         for (int cell = 0; cell < cells; cell++) {
             walk[cell] = map.fog().get(cell) != Fog.UNKNOWN && WALK.contains(map.tiles().get(cell));
@@ -777,6 +781,13 @@ final class Explore implements Policy {
             }
         }
         if (!throughClouds) {
+            // A paralytic gas spreads onto its orthogonal neighbours in a turn, and the hero it lands on is helpless for ten (issue #408).
+            boolean[] paralytic = Escape.paralyticZone(map);
+            for (int cell = 0; cell < cells; cell++) {
+                if (paralytic[cell]) {
+                    walk[cell] = false;
+                }
+            }
             for (org.shatterfish.api.BlobCell blob : map.blobs()) {
                 if (blob.cell() < cells && blob.kinds().stream().anyMatch(HARMFUL::contains)) {
                     walk[blob.cell()] = false;
