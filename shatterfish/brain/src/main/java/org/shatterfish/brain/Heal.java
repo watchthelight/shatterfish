@@ -84,6 +84,7 @@ final class Heal implements Policy {
 
     private final Codex.Knowledge knowledge;
     private final org.shatterfish.api.Playbook.Goo goo;
+    private final org.shatterfish.api.Playbook.Tengu tengu;
     private final org.shatterfish.api.Tunables.Vector tunables;
 
     Heal(Codex.Knowledge knowledge) {
@@ -96,8 +97,15 @@ final class Heal implements Policy {
 
     /** {@link #Heal(Codex.Knowledge, org.shatterfish.api.Playbook.Goo)} drinking by the vector's {@code heal.*} and {@code fight.*} numbers (story 10.35). */
     Heal(Codex.Knowledge knowledge, org.shatterfish.api.Playbook.Goo goo, org.shatterfish.api.Tunables.Vector tunables) {
+        this(knowledge, goo, org.shatterfish.api.Playbook.Tengu.REFERENCE, tunables);
+    }
+
+    /** {@link #Heal(Codex.Knowledge, org.shatterfish.api.Playbook.Goo, org.shatterfish.api.Tunables.Vector)} drinking against Tengu alone by the Playbook's {@code drink_per_mille} (story 10.21). */
+    Heal(Codex.Knowledge knowledge, org.shatterfish.api.Playbook.Goo goo, org.shatterfish.api.Playbook.Tengu tengu,
+         org.shatterfish.api.Tunables.Vector tunables) {
         this.knowledge = knowledge;
         this.goo = goo;
+        this.tengu = tengu;
         this.tunables = tunables;
     }
 
@@ -121,7 +129,7 @@ final class Heal implements Policy {
     @Override
     public RunLog.Choice choose(Observation observation, Memory memory, List<Action> offered, Stream stream) {
         HeroSection hero = observation.hero();
-        int danger = danger(observation, knowledge, memory, goo, tunables);
+        int danger = danger(observation, knowledge, memory, goo, tengu, tunables);
         if (hero.hp() > danger || hero.ht() - hero.hp() < firstTurn(hero.ht())) {
             return null;
         }
@@ -136,10 +144,13 @@ final class Heal implements Policy {
         // Against Goo alone the fight Policy never retreats (Goo.engage), so a retreat is not worth more than a
         // drink; but an announced pump the hero can still dodge is worth more than both (issue #219).
         boolean gooAlone = Goo.alone(enemies) != null;
+        // Nor against Tengu on the sealed floor: he never moves, the floor has no way out (Level.java:657-662), and
+        // the fight Policy never retreats from him (Tengu.engage).
+        boolean tenguAlone = Tengu.alone(observation, enemies) != null;
         if (gooAlone && Goo.dodge(observation, memory, offered) != null) {
             return null;
         }
-        if (!gooAlone && !low && !Fight.favourable(observation, knowledge, enemies, tunables)
+        if (!gooAlone && !tenguAlone && !low && !Fight.favourable(observation, knowledge, enemies, tunables)
                 && Fight.retreat(observation, memory, offered, enemies, knowledge, tunables) != null) {
             return null;
         }
@@ -220,8 +231,17 @@ final class Heal implements Policy {
     /** {@link #danger(Observation, Codex.Knowledge, Memory, org.shatterfish.api.Playbook.Goo)} adding up over the vector's {@code heal.horizon} turns. */
     static int danger(Observation observation, Codex.Knowledge knowledge, Memory memory, org.shatterfish.api.Playbook.Goo goo,
                       org.shatterfish.api.Tunables.Vector tunables) {
+        return danger(observation, knowledge, memory, goo, org.shatterfish.api.Playbook.Tengu.REFERENCE, tunables);
+    }
+
+    /** {@link #danger(Observation, Codex.Knowledge, Memory, org.shatterfish.api.Playbook.Goo, org.shatterfish.api.Tunables.Vector)} with the Playbook's Tengu entry deciding the drink against Tengu alone. */
+    static int danger(Observation observation, Codex.Knowledge knowledge, Memory memory, org.shatterfish.api.Playbook.Goo goo,
+                      org.shatterfish.api.Playbook.Tengu tengu, org.shatterfish.api.Tunables.Vector tunables) {
         if (Goo.alone(Fight.enemies(observation, knowledge)) != null) {
             return Goo.danger(observation.hero(), goo);
+        }
+        if (Tengu.alone(observation, Fight.enemies(observation, knowledge)) != null) {
+            return tengu.danger(observation.hero().ht());
         }
         List<ActorView> awake = new ArrayList<>();
         for (ActorView enemy : Fight.enemies(observation, knowledge)) {

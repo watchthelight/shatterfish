@@ -182,7 +182,7 @@ development_status:
   10-18-tengu-entry-key-and-seal: done  # issue #364; PR #397
   10-19-tengu-phase-one-the-dart-trap-memory: done  # issue #365
   10-20-tengu-phase-two-the-threat-map: done  # issue #366
-  10-21-tengu-conversion-on-the-practice-floor: backlog  # issue #367
+  10-21-tengu-conversion-on-the-practice-floor: review  # issue #367
   10-22-the-think-budget-amendment-to-adr-0010: done  # issue #368
   10-23-the-classloader-isolation-spike: done  # issue #369
   10-24-determinized-fight-rollouts: done  # issue #370

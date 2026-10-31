@@ -130,6 +130,33 @@ public final class DebugRecord implements AutoCloseable {
         }
     }
 
+    /** The cells of the smoke bombs, the shockers, the fire and the shock the screen draws, under keys of their own. */
+    private static void effects(JsonWriter json, Observation observation) {
+        java.util.Map<String, List<Integer>> cells = new java.util.TreeMap<>();
+        for (var heap : observation.map().heaps()) {
+            if (heap.item().equals("Smoke Bomb")) {
+                cells.computeIfAbsent("bombs", k -> new ArrayList<>()).add(heap.cell());
+            } else if (heap.item().equals("Shocker")) {
+                cells.computeIfAbsent("shockers", k -> new ArrayList<>()).add(heap.cell());
+            }
+        }
+        for (var blob : observation.map().blobs()) {
+            if (blob.kinds().contains("FireBlob")) {
+                cells.computeIfAbsent("fire", k -> new ArrayList<>()).add(blob.cell());
+            }
+            if (blob.kinds().contains("ShockerBlob")) {
+                cells.computeIfAbsent("shock", k -> new ArrayList<>()).add(blob.cell());
+            }
+        }
+        for (var entry : cells.entrySet()) {
+            json.key(entry.getKey()).beginArray();
+            for (int cell : entry.getValue()) {
+                json.value(cell);
+            }
+            json.endArray();
+        }
+    }
+
     private void line(Observation observation, RunLog.Wait wait) {
         last = observation;
         List<String> now = new ArrayList<>();
@@ -167,6 +194,11 @@ public final class DebugRecord implements AutoCloseable {
         long darts = observation.map().traps().stream().filter(trap -> trap.kind().equals("poison dart trap")).count();
         if (observation.header().sealed() && darts > 0) {
             json.key("darts").value((int) darts);
+        }
+        // And the ground effects the same floor draws (story 10.21), the cells only: what the practice table splits the
+        // hit points lost by. A bomb or a shocker is a heap and the fire and the shock are blobs, all drawn on the screen.
+        if (observation.header().sealed() && observation.header().depth() == 10) {
+            effects(json, observation);
         }
         json.key("keys").beginArray();
         for (var note : observation.journal().notes()) {

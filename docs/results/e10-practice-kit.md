@@ -210,3 +210,62 @@ next step is measured damage per source before another number is tuned.
 time. Every column of every class is identical to the baseline: reach depth 5 9, 7, 2, 7, 5, 4 of 10 (Warrior, Mage,
 Rogue, Huntress, Duelist, Cleric), Goo kills 8, 2, 2, 5, 4, 4, reach depth 10 and 15 zero. The map needs depth 10 and
 a sealed floor, so no Run in that slice can differ.
+
+## Tengu conversion after story 10.21 (where the hit points go, and the drink)
+
+Story 10.21 (#367). Same slice as above (40 Runs per class, `standard` set, salts 1000..1039, kit `standard`, cap 5000
+turns, `--jobs 3`), plus a second slice at salts 3000..3039 for the kept change. The practice table now carries a
+damage-by-source table (`PracticeDamage`): each fall in the hero's hit points between two waits is given to a source
+from what the screen showed at that wait (the buff icons, the bomb heaps and the fire and shock blobs drawn, Tengu in
+view and how far, a dart trap shown under the hero) and the game log, which shows no hit lines. Melee and thrown are
+told apart only by whether Tengu stood beside the hero, so a turn with a bomb and a blow in it cannot be split: the
+last column is the share of the loss in such turns (20 to 32 percent). The debug record of a depth-10 wait now carries
+the ground effects (`bombs`, `shockers`, `fire`, `shock`) so the split has what the renderer drew.
+
+### Where a lost Run's hit points went (before the change, 240 Runs, all died)
+
+| class | melee | thrown | bomb | fire | shock | total lost | healed back | in ambiguous turns |
+|---|---|---|---|---|---|---|---|---|
+| WARRIOR | 39.2 | 73.9 | 27.8 | 2.6 | 0.7 | 144.1 | 84.1 | 21.7% |
+| MAGE | 23.9 | 77.5 | 31.3 | 7.2 | 3.8 | 143.5 | 83.5 | 30.7% |
+| ROGUE | 40.9 | 70.3 | 26.3 | 1.8 | 0.6 | 139.9 | 79.9 | 20.9% |
+| HUNTRESS | 60.4 | 57.1 | 24.8 | 1.1 | 4.4 | 147.8 | 87.8 | 20.5% |
+| DUELIST | 39.4 | 67.5 | 28.2 | 2.5 | 4.4 | 141.9 | 81.9 | 24.9% |
+| CLERIC | 37.4 | 71.5 | 31.6 | 2.4 | 2.2 | 145.1 | 85.1 | 25.1% |
+| all | 40.2 | 69.6 | 28.3 | 2.9 | 2.7 | 143.7 | 83.7 | 24.0% |
+
+Loss causes, grouped:
+
+1. **Thrown attacks, about 48 percent of the loss.** Tengu's ranged attack (skill 20 against 10 adjacent) lands while
+   the hero walks back to him after each jump; in phase 2 a jump lands five to seven cells away. The Huntress, who
+   shoots, loses least here and most to melee.
+2. **Melee, about 28 percent.** The fight itself; this is the cost of dealing the damage, and the only part that buys
+   anything.
+3. **Bombs, about 20 percent.** Still 28 hit points a Run after the dodge of story 10.20: the blast is dodged by
+   reading the heap, but the countdown is not in the Observation, so the dodge starts when the heap is drawn.
+4. **Fire and shocker, about 4 percent.** Settled by story 10.20.
+5. **Wasted healing.** The two potions heal 62 each over several turns and stop at the cap, and the Runs drank at 15 to
+   40 of 60 hit points, so a good part of each potion went to the cap.
+
+The reading was of the debug records of the 240 losses (hit points, Tengu's distance, buffs and the ground effects at
+every wait) and not of 20 hand-picked gallery pictures; the table above is that reading in numbers. At the hero's death
+Tengu has a median of 4 of the bar's steps left (2.5 for the Mage), so the gap to a kill is about 70 more hit points of
+damage dealt, or as many fewer taken: more than any one lever here is worth.
+
+### Changes
+
+| step | what | salt 1000 kills of 240 | salt 3000 kills of 240 | kept |
+|---|---|---|---|---|
+| baseline (`0fc078241`) | none | 0 | 0 | |
+| E1 | drink at or under 400 per mille of the hit points against Tengu alone (Rule `tengu-heal`) | 3 (Mage 2, Duelist 1) | 0 | yes: never worse, and the only one that moved a count |
+| E2 | `adjacent_cost` 6 to 14 | 0 | not run | no: worse than E1 on the first slice |
+| E3 | `bomb_cost` 22 to 40 | 0 | not run | no: worse than E1 on the first slice |
+
+E1 moves the hit points healed back from 83.7 to 89.1 a lost Run. It is not a conversion: the win rate stays at 1.3
+percent at best (95 percent Wilson 0 to 4 on the 240 Runs of salts 1000..1039), which is not a rate worth a claim.
+What the story merges is the instrument (the damage split), the diagnosis and E1. The `--first 10` off-floor check with
+`:rig:direction` (Warrior only, `standard` set, salts 1000..1009, baseline `0fc078241`) shows identical columns: the
+Policy reads the entry only on the sealed depth-10 floor with Tengu the only enemy in view. The five other classes were
+not run for that check.
+
+What conversion would take is in `docs/ideas/2026-10-30-tengu-thrown-attack-tax.md`.
