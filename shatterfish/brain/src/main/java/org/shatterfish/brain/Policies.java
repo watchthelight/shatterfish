@@ -132,7 +132,7 @@ final class Policies {
      * {@link #fallback(Evaluation)} that, under the vector's {@code larder.fallback_rests} of 0, draws no rest while the
      * hero is hungry with no food held (story 10.39): a rest runs until the hit points are full or something
      * interrupts it, hundreds of turns on food that is not there, and a starving hero regenerates none
-     * (Regeneration.java:57).
+     * (Regeneration.java:56).
      */
     static Policy fallback(Evaluation evaluation, org.shatterfish.api.Tunables.Vector tunables) {
         return new Policy() {

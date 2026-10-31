@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * The Prison's second food pass (story 10.39, issue #423). The 960-Run diagnosis found 45.8% of heroes
  * STARVING on their last Decision. On a floor whose exit was never found, the fallback drew uniformly
  * from every Action offered, and a Rest(full) is a draw: it runs until the hit points are full, hundreds
- * of turns, on a larder that is empty, while a starving hero regenerates nothing (Regeneration.java:57)
+ * of turns, on a larder that is empty, while a starving hero regenerates nothing (Regeneration.java:56)
  * and loses hit points each turn.
  */
 class PrisonLarderTest {
