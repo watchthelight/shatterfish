@@ -73,7 +73,7 @@ public final class Brain {
     /** The Policies, highest priority first, fighting by {@code knowledge} and scoring by {@code evaluation}. */
     private static List<Policy> policies(Codex.Knowledge knowledge, Evaluation evaluation, Model model, Playbook playbook,
                                          org.shatterfish.api.SearchPlan plan, long seed, java.util.function.Supplier<org.shatterfish.api.Lookahead> lent) {
-        List<Policy> policies = new ArrayList<>(List.of(Policies.answerPrompt(knowledge), new Escape(knowledge, playbook), new Heal(knowledge, playbook.bosses().goo(), playbook.tunables()), new Douse(knowledge), new Zap(knowledge, playbook),
+        List<Policy> policies = new ArrayList<>(List.of(Policies.answerPrompt(knowledge), new Escape(knowledge, playbook), new Heal(knowledge, playbook.bosses().goo(), playbook.bosses().tengu(), playbook.tunables()), new Douse(knowledge), new Zap(knowledge, playbook),
                 new Shoot(knowledge, playbook.tunables()), new Ranged(knowledge, playbook.tunables())));
         if (model == Model.ONE_PLY) {
             policies.add(new OnePly(knowledge, playbook.bosses().goo(), playbook.tunables()));
