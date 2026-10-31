@@ -366,7 +366,7 @@ final class Descend implements Policy {
     private static int unidentified(Observation observation, Memory memory, Codex.Knowledge knowledge,
                                     Codex.Guarantee guarantee, int set) {
         int count = 0;
-        for (Beliefs.Guess guess : Beliefs.identities(observation, knowledge, memory.facts())) {
+        for (Beliefs.Guess guess : Beliefs.identities(observation, knowledge, memory)) {
             if (guess.odds().stream().anyMatch(odds -> odds.name().equals(guarantee.name()) && odds.probability() > 0)) {
                 count += Memory.count(memory.pending(), guess.label(), set);
             }

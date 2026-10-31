@@ -179,13 +179,13 @@ It is rendered from the code, and the same test compares it with this block.
 
 | | story 7.1 (the baseline) | at the close |
 |---|---|---|
-| heuristics found | 71 | 109 |
-| linked to a Rule | 35 | 73 |
+| heuristics found | 71 | 113 |
+| linked to a Rule | 35 | 77 |
 | linked to a Lore claim | 0 | 0 |
 | linked to a measured row | 5 | 5 |
 | unlinked | 31 | 31 |
 
-Linked at each Tier: Rule Tier 1: 72, Rule Tier none yet: 1, measured Tier 3: 5.
+Linked at each Tier: Rule Tier 1: 76, Rule Tier none yet: 1, measured Tier 3: 5.
 
 Tier 3 links on heuristics that shipped, each with the Results page that is its evidence:
 
