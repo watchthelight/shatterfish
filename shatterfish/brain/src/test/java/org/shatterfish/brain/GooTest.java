@@ -443,8 +443,8 @@ class GooTest {
     }
 
     @Test
-    @DisplayName("a hurt Goo beside the hero standing in water: the hero steps back to dry ground so Goo follows off the water; a Goo at full health is struck (issue #429)")
-    void lures_a_hurt_goo_off_the_water() {
+    @DisplayName("Goo beside the hero standing in water, hurt or not: the hero strikes, a step back would cost it a blow for one of Goo's (issue #429)")
+    void strikes_a_goo_in_water() {
         String[] rows = {
                 "##############",
                 "#............#",
@@ -455,10 +455,7 @@ class GooTest {
                 "#............#",
                 "##############"};
         Observation hurt = gooInWater(screen(List.of("You see Goo."), rows), 4);
-        Brain.Decided decided = new Brain(Screens.CODEX, Screens.WEIGHTS, 5L).decide(hurt, Beliefs.fold(Memory.START, hurt, Screens.CODEX).belief());
-        assertEquals("goo: dry", decided.decision().chosen().why(), decided.decision().toString());
-        int width = hurt.map().width();
-        assertTrue(((Action.Step) decided.action()).cell() % width < hurt.hero().cell() % width, "a Step away from Goo");
+        assertEquals("goo: attack", chosen(hurt));
         Observation fresh = gooInWater(screen(List.of("You see Goo."), rows), org.shatterfish.api.ObservationCodec.MAX_HEALTH_PIPS);
         assertEquals("goo: attack", chosen(fresh));
     }
