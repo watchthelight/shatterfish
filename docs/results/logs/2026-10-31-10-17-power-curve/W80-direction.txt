@@ -1,0 +1,38 @@
+standard WARRIOR, 80 entries, salts 3000..3079
+
+| | fdebf751b | current 69d7a8c70 | delta |
+|---|---|---|---|
+| Runs | 80 | 80 | 0 |
+| reach depth 5 | 54/80 | 56/80 | +2 |
+| reach depth 10 | 0/80 | 0/80 | 0 |
+| reach depth 15 | 0/80 | 0/80 | 0 |
+| bosses killed | 47/80 | 48/80 | +1 |
+| Goo kills | 47/80 | 48/80 | +1 |
+| Tengu kills | 0/80 | 0/80 | 0 |
+| median turns | 2013.0 | 2102.0 | +89 |
+| deepest mean / max | 5.150 / 8 | 5.288 / 8 | +0.14 |
+| deaths by depth 1..8 | 4/5/12/5/7/27/15/5 | 4/5/11/4/8/22/20/6 |  |
+| searches per floor | 10.70 | 10.86 | +0.16 |
+| search waits per floor | 15.77 | 16.05 | +0.28 |
+| oscillation Steps | 1161 | 1187 | +26 |
+| heaps taken / seen | 5775/6356 | 5983/6615 | +208 |
+| seen to taken, median waits | 7 | 7 | 0 |
+| heaps taking over 100 waits | 213 of 6356 | 200 of 6615 | -13 |
+| upgrade scrolls picked up by depth 5 | 81 | 82 | +1 |
+| upgrades read by depth 5 | 150 | 151 | +1 |
+| think ms per Decision, mean / p95 | 2.3 / 7 | 2.2 / 7 | -0.05 |
+
+Deaths by depth, top killers (the game's own cause of death, read after the Run; a death with no ending record is "not recorded"):
+
+| depth | deaths | top killers |
+|---|---|---|
+| 1 | 4 | Snake 3, Hunger 1 |
+| 2 | 5 | Hunger 2, Bomb 1, Burning 1, Snake 1 |
+| 3 | 11 | Swarm 4, Poison 2, Crab 1, Gnoll 1, +3 more |
+| 4 | 4 | Swarm 2, Hunger 1, ToxicGas 1 |
+| 5 | 8 | Goo 8 |
+| 6 | 22 | Skeleton 15, Hunger 2, Thief 2, Explosive$ExplosiveCurseBomb 1, +2 more |
+| 7 | 20 | Guard 7, Skeleton 7, DM100 4, Poison 1, +1 more |
+| 8 | 6 | DM100 2, Guard 1, Necromancer$NecroSkeleton 1, Skeleton 1, +1 more |
+
+Stray actor-thread wakes (issue #399): 0 current, 0 baseline. A wake the JVM made between two frames; any count above zero is worth a look.
