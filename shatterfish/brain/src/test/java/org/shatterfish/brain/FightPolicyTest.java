@@ -65,19 +65,25 @@ class FightPolicyTest {
      * 0-1), a brute no level-one hero should stand next to, a lasher that cannot move, and the
      * shortsword and cloth armour as the Codex measured them.
      */
+    // The swarm of flies here is a piece of one (12 health): the real swarm starts at 50 (Swarm.java:45), which a level-one
+    // hero with this fixture shortsword does not call favourable, so the fixture asks only the corridor question.
     static final Codex.Knowledge KNOWLEDGE = new Codex.Knowledge(Screens.CODEX.manifest(), Screens.CODEX.families(),
             Screens.CODEX.rooms(), Screens.CODEX.guarantees(),
             List.of(new Codex.Threat("marsupial rat", 8, 8, 2, 1, 4, 0, 1),
                     new Codex.Threat("brute", 80, 30, 20, 10, 20, 0, 8),
                     new Codex.Threat("lasher", 40, 25, 0, 8, 12, 0, 8),
                     new Codex.Threat("sewer crab", 15, 12, 5, 1, 7, 0, 4),
-                    new Codex.Threat("piranha", 15, 9, 12, 2, 6, 0, 2)),
+                    new Codex.Threat("piranha", 15, 9, 12, 2, 6, 0, 2),
+                    new Codex.Threat("swarm of flies", 12, 10, 5, 1, 4, 0, 0)),
             List.of(new Codex.Gear("worn shortsword", 0, 1, 10, 5485), new Codex.Gear("worn shortsword", 1, 2, 12, 7009),
                     new Codex.Gear("dagger", 0, 1, 8, 4500), new Codex.Gear(Fight.MAGES_STAFF, 0, 1, 6, 3500)),
             List.of(new Codex.Gear("cloth armor", 0, 0, 2, 1004)),
             List.of("lasher")).withBestiary(java.util.stream.Stream.concat(Screens.BESTIARY.stream(), java.util.stream.Stream.of(
                     new Codex.Tactics("actors.mobs.Crab", "sewer crab", Alignment.ENEMY, List.of(3, 4, 5), "fast", "melee", 1,
                             false, false, List.of(), List.of(), "sleeping", false, false, false, "chokepoint", false, false,
+                            List.of("stairs", "door")),
+                    new Codex.Tactics("actors.mobs.Swarm", "swarm of flies", Alignment.ENEMY, List.of(3, 4, 6), "normal", "melee", 1,
+                            true, false, List.of(), List.of(), "sleeping", false, true, false, "chokepoint", false, false,
                             List.of("stairs", "door")),
                     new Codex.Tactics("actors.mobs.Piranha", "piranha", Alignment.ENEMY, List.of(3, 4, 5), "fast", "melee", 1,
                             false, false, List.of(), List.of(), "sleeping", false, false, false, "keep-away", false, false,
@@ -133,6 +139,7 @@ class FightPolicyTest {
                     case 'r' -> actors.add(enemy(cell, "marsupial rat", false));
                     case 'i' -> actors.add(enemy(cell, "marsupial rat", true));
                     case 'B' -> actors.add(enemy(cell, "brute", false));
+                    case 'W' -> actors.add(enemy(cell, "swarm of flies", false));
                     case '?' -> actors.add(enemy(cell, "stranger", false));
                     case 'L' -> actors.add(enemy(cell, "lasher", false));
                     case 'C' -> actors.add(enemy(cell, "sewer crab", false));

@@ -317,7 +317,11 @@ final class Fight implements Policy {
         // Closing: the enemies stand nearer the hero's cell than they stood a wait ago (Memory.before
         // is measured from where the hero stands now, so the hero's own steps do not count).
         boolean closing = memory.before() < 0 || (memory.near() >= 0 && memory.near() < memory.before());
-        if (mobile.size() >= 2 && !held && closing) {
+        // A splitter is a crowd by itself: each hit it takes puts a clone on a free cell beside it, so one swarm
+        // becomes a ring around a hero in the open (Swarm.java:88-116), and a hero in a corridor is reached by two.
+        boolean crowd = mobile.size() >= 2
+                || mobile.stream().anyMatch(enemy -> Bestiary.splits(knowledge, depth, branch, enemy.name()));
+        if (crowd && !held && closing) {
             if (here > 2) {
                 add(ranked, chokepoint(observation, offered, enemies, here));
             }
