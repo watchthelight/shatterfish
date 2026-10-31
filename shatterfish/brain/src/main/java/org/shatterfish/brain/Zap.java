@@ -93,12 +93,22 @@ final class Zap implements Policy {
         if (target == null || best > reach || !Ranged.clear(observation, hero, target.cell())) {
             return null;
         }
-        if (zappedWithoutEffect(memory)) {
+        return zapAt(observation, memory, offered, target, "zap: ");
+    }
+
+    /**
+     * The zap at {@code target} from the worn staff of magic missile, or null when it shows no charge, the last
+     * zap had no effect, or the screen does not offer it; the reason is {@code why} and the staff's name. Shared
+     * with the Goo fight ({@link Goo#volley}, story 10.38).
+     */
+    static RunLog.Choice zapAt(Observation observation, Memory memory, List<Action> offered, ActorView target, String why) {
+        int index = staff(observation);
+        if (index < 0 || zappedWithoutEffect(memory)) {
             return null;
         }
         ItemView staff = observation.inventory().items().get(index);
         Action zap = new Action.UseItemAt(new ItemRef(index, staff.name(), staff.quantity()), ZAP, target.cell());
-        return offered.contains(zap) ? new RunLog.Choice(zap, Policies.CERTAIN, "zap: " + staff.name()) : null;
+        return offered.contains(zap) ? new RunLog.Choice(zap, Policies.CERTAIN, why + staff.name()) : null;
     }
 
     /**

@@ -26,7 +26,9 @@ graded at an older tag and a line it cites reads differently at the pin.
 | bestiary | sewers | 8 | 0 | 0 | 2 | 10 | 6 |
 | bestiary | specials | 16 | 0 | 0 | 8 | 24 | 4 |
 | **bestiary** | **all** | 87 | 0 | 7 | 50 | 144 | 41 |
-| **all** |  | 87 | 0 | 7 | 50 | 144 | 41 |
+| identification | identify | 1 | 0 | 1 | 0 | 2 | 0 |
+| **identification** | **all** | 1 | 0 | 1 | 0 | 2 | 0 |
+| **all** |  | 88 | 0 | 8 | 50 | 146 | 41 |
 
 ## bestiary
 
@@ -188,3 +190,17 @@ graded at an older tag and a line it cites reads differently at the pin.
 | `specials-14` | Phantom piranha | spd | current | “The Flooded Vault special room is guarded by 3 Giant Piranhas. Piranhas die instantly if kept out of water for a single turn, so luring… | [wiki](https://pixeldungeon.fandom.com/wiki/Shattered_Pixel_Dungeon/Special_Rooms) |
 | `specials-17` | Golden bee | unknown | current | “Crazy Bandits can steal and shatter a Honeypot from your inventory, which releases a hostile Golden Bee, so don't assume a Bandit encounter… | [forum](https://steamcommunity.com/sharedfiles/filedetails/?id=2786737188) |
 | `specials-24` | Ebony mimic | unknown | current | “Examining a suspicious chest will explicitly tell you if something is off — the safest ID method. If you'd rather not examine, hit the… | [forum](https://steamcommunity.com/sharedfiles/filedetails/?id=3225596609) |
+
+## identification
+
+### Tier 1: the code confirms it (1)
+
+| Claim | Subject | Variant | Status | What it says | Source |
+|---|---|---|---|---|---|
+| `identify-2` | Potion of Strength | pd | current | There will always be exactly two Potions of Strength in every region of the dungeon. | [wiki](https://pixeldungeon.fandom.com/wiki/Potion_of_Strength) |
+
+### Tier 3: not settled by the code (1)
+
+| Claim | Subject | Variant | Status | What it says | Source |
+|---|---|---|---|---|---|
+| `identify-1` | Scroll of Identify | unknown | current | Shops, drops and spawns give enough scrolls of identify to have almost every potion, scroll and ring identified before the third region. | [other](https://www.cyberly.org/game-cheats/pc/shattered-pixel-dungeon.html) |

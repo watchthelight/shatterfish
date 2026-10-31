@@ -98,9 +98,22 @@ final class Shoot implements Policy {
                 || !Ranged.clear(observation, hero, target.cell())) {
             return null;
         }
+        return shotAt(observation, offered, target, "shoot: ");
+    }
+
+    /**
+     * The shot at {@code target} from the pack's bow, or null when there is no bow or the screen does not offer
+     * the shot; the reason is {@code why} and the bow's name. Shared with the Goo fight ({@link Goo#volley}), which
+     * shoots an awake Goo that is coming and not yet beside the hero (story 10.38).
+     */
+    static RunLog.Choice shotAt(Observation observation, List<Action> offered, ActorView target, String why) {
+        int index = bow(observation);
+        if (index < 0) {
+            return null;
+        }
         ItemView bow = observation.inventory().items().get(index);
         Action shot = new Action.UseItemAt(new ItemRef(index, bow.name(), bow.quantity()), SHOOT, target.cell());
-        return offered.contains(shot) ? new RunLog.Choice(shot, Policies.CERTAIN, "shoot: " + bow.name()) : null;
+        return offered.contains(shot) ? new RunLog.Choice(shot, Policies.CERTAIN, why + bow.name()) : null;
     }
 
     /** The index in the pack of the item that offers {@code SHOOT}, or -1. */

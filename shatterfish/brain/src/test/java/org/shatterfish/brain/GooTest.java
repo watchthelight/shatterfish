@@ -313,4 +313,94 @@ class GooTest {
         int pocket = 2 + 3 * width;
         assertNotEquals(pocket, ((Action.Step) decided.action()).cell(), "the pocket under the hero's left has no cell three from Goo");
     }
+
+    private static final String[] OPEN_ROOM = {
+            "##############",
+            "#............#",
+            "#............#",
+            "#............#",
+            "#.....@......#",
+            "#............#",
+            "#............#",
+            "#.......r....#",
+            "##############"};
+
+    private static org.shatterfish.api.ItemView stones() {
+        return new org.shatterfish.api.ItemView(org.shatterfish.api.ItemKind.MISSILE, "throwing stone", 3, false, 0, false, false, "",
+                org.shatterfish.api.EquipSlot.NONE, List.of("DROP", "THROW"), "THROW");
+    }
+
+    private static org.shatterfish.api.ItemView bow() {
+        return new org.shatterfish.api.ItemView(org.shatterfish.api.ItemKind.WEAPON, "spirit bow", 1, true, 0, true, false, "",
+                org.shatterfish.api.EquipSlot.NONE, List.of("DROP", "THROW", "SHOOT"), "SHOOT");
+    }
+
+    private static org.shatterfish.api.ItemView staff(String status) {
+        return new org.shatterfish.api.ItemView(org.shatterfish.api.ItemKind.WEAPON, "staff of magic missile", 1, true, 0, true,
+                false, status, org.shatterfish.api.EquipSlot.WEAPON, List.of("IMBUE", "ZAP"), "ZAP");
+    }
+
+    /** {@code screen} with exactly {@code items} in the pack (the backpack first, the worn ones after), its Actions worked out again. */
+    private static Observation kitted(Observation screen, org.shatterfish.api.ItemView... items) {
+        Observation bare = new Observation(screen.header(), screen.map(), screen.actors(), screen.hero(),
+                new org.shatterfish.api.InventorySection(List.of(items)), screen.journal(), screen.log(), ActionsSection.NONE, screen.prompt());
+        return bare.withActions(ValidActions.of(bare));
+    }
+
+    private static String chosen(Observation screen) {
+        return new Brain(Screens.CODEX, Screens.WEIGHTS, 5L).decide(screen, Beliefs.fold(Memory.START, screen, Screens.CODEX).belief())
+                .decision().chosen().why();
+    }
+
+    @Test
+    @DisplayName("Goo coming across open ground and a stack of missiles in the pack: the hero throws for each cell Goo spends walking, where it used to wait (story 10.38)")
+    void volley_throws() {
+        Observation far = kitted(screen(List.of("You see Goo."), OPEN_ROOM), stones());
+        assertEquals("goo: volley throw: throwing stone", chosen(far));
+    }
+
+    @Test
+    @DisplayName("the staff first, then the bow, then the missiles; the bolt, the arrow and the throw are the same Choices the Policies of their names make (story 10.38)")
+    void volley_order() {
+        Observation all = kitted(screen(List.of("You see Goo."), OPEN_ROOM), staff("3/3"), stones(), bow());
+        assertEquals("goo: volley zap: staff of magic missile", chosen(all));
+        Observation spent = kitted(screen(List.of("You see Goo."), OPEN_ROOM), staff("0/3"), stones(), bow());
+        assertEquals("goo: volley shoot: spirit bow", chosen(spent));
+        Observation arrow = kitted(screen(List.of("You see Goo."), OPEN_ROOM), bow());
+        Brain.Decided decided = new Brain(Screens.CODEX, Screens.WEIGHTS, 5L).decide(arrow, Beliefs.fold(Memory.START, arrow, Screens.CODEX).belief());
+        Action.UseItemAt shot = (Action.UseItemAt) decided.action();
+        assertEquals("SHOOT", shot.action());
+        assertEquals(Goo.cell(arrow), shot.cell());
+    }
+
+    @Test
+    @DisplayName("beside Goo the blow is the melee one, with nothing to throw the hero waits as before, and a wall on the line holds the volley (story 10.38)")
+    void volley_holds_its_fire() {
+        Observation beside = kitted(screen(List.of("You see Goo."),
+                "##########",
+                "#...@r...#",
+                "#........#",
+                "##########"), staff("3/3"), stones(), bow());
+        assertEquals("goo: attack", chosen(beside));
+        assertEquals("goo: wait", chosen(screen(List.of("You see Goo."), OPEN_ROOM)));
+        Observation blocked = kitted(screen(List.of("You see Goo."),
+                "##############",
+                "#............#",
+                "#............#",
+                "#............#",
+                "#.....@......#",
+                "#......#.....#",
+                "#......#.....#",
+                "#.......r....#",
+                "##############"), stones());
+        assertNotEquals("goo: volley throw: throwing stone", chosen(blocked));
+    }
+
+    @Test
+    @DisplayName("an announced pump in reach is still dodged before anything is thrown (story 10.38)")
+    void volley_yields_to_the_dodge() {
+        Observation pumped = kitted(screen(List.of("You see Goo.", Goo.PUMP), NEAR), stones());
+        Memory memory = Beliefs.fold(Memory.START, pumped, Screens.CODEX);
+        assertEquals("dodge: pump", new Brain(Screens.CODEX, Screens.WEIGHTS, 5L).decide(pumped, memory.belief()).decision().chosen().why());
+    }
 }

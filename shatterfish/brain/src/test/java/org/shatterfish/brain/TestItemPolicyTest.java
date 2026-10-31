@@ -677,7 +677,8 @@ class TestItemPolicyTest {
             belief = brain.update(screen, belief);
             Brain.Decided decided = brain.decide(screen, belief);
             if (hero < 4) {
-                assertEquals("test-item", decided.decision().policy(), "in the gas or at its edge at " + hero);
+                // In the cloud the escape Policy steps out (issue #408); at its edge the test-item Policy goes on.
+                assertEquals(hero < 3 ? "escape" : "test-item", decided.decision().policy(), "in the gas or at its edge at " + hero);
                 why.add(decided.decision().chosen().why());
             } else {
                 assertNotEquals("test-item", decided.decision().policy(), "clear of it");
@@ -686,7 +687,7 @@ class TestItemPolicyTest {
             belief = brain.handed(screen, belief, decided);
         }
         assertEquals(List.of(new Action.Step(2), new Action.Step(3), new Action.Step(4)), taken.subList(0, 3));
-        assertEquals(List.of("escape: ToxicGas (escape_waits)", "escape: ToxicGas (escape_waits)", "escape: edge (escape_waits)"), why);
+        assertEquals(List.of("escape: ToxicGas", "escape: ToxicGas", "escape: edge (escape_waits)"), why);
 
         // Dizzy in the gas (story 4.13): the Brain withholds a dizzy hero's Steps on a calm screen, but
         // not in harm, where a Step the vertigo may turn still beats staying in the cloud.
@@ -728,7 +729,7 @@ class TestItemPolicyTest {
             why.add(decided.decision().policy() + " " + decided.decision().chosen().why());
             belief = brain.handed(screen, belief, decided);
         }
-        assertEquals(List.of("test-item escape: ToxicGas (escape_waits)", "test-item escape: ToxicGas (escape_waits)", "test-item escape: ToxicGas (escape_waits)",
+        assertEquals(List.of("escape escape: ToxicGas", "escape escape: ToxicGas", "escape escape: ToxicGas",
                 "test-item escape: edge (escape_waits)", "test-item test: amber potion (healing_odds_per_mille)"), why,
                 "no drink and no rest until the cell and its neighbours are clear");
     }

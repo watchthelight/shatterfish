@@ -27,6 +27,8 @@ the build. A clause adds no threshold, so there is nothing for `HeuristicLinkTes
 | `answer-prompt/upgrade` | to upgrade the best gear | [`upgrade-window`](brain-rules.md#upgrade-window) |
 | `answer-prompt/guess` | the likeliest kind | [`guess-window`](brain-rules.md#guess-window) |
 | `answer-prompt/leave` | to leave the window | [`shun-no-time-windows`](brain-rules.md#shun-no-time-windows) |
+| `escape/escape` | to get out of the fire or gas | [`leave-cloud`](brain-rules.md#leave-cloud) |
+| `escape/finish` | to finish an enemy first | [`leave-cloud`](brain-rules.md#leave-cloud) |
 | `heal/heal` | hurt, with enemies near | [`heal-threshold`](brain-rules.md#heal-threshold) |
 | `douse/douse/water` | burning, water is near | [`burning-douse`](brain-rules.md#burning-douse) |
 | `douse/douse/ground` | burning, bare ground is near | [`burning-douse`](brain-rules.md#burning-douse) |
@@ -51,6 +53,7 @@ the build. A clause adds no threshold, so there is nothing for `HeuristicLinkTes
 | `test-item/escape` | to get clear of the effect | [`test-spot-door-water`](brain-rules.md#test-spot-door-water) |
 | `test-item/upgrade` | to upgrade the best gear | [`upgrade-allocation`](brain-rules.md#upgrade-allocation) |
 | `test-item/drink` | a known gain, drunk at once | [`strength-experience-potions`](brain-rules.md#strength-experience-potions) |
+| `test-item/identify` | a known identify scroll is on hand | [`identity-from-counts`](brain-rules.md#identity-from-counts) |
 | `test-item/cell` | to reach a safe place to test | [`test-spot-door-water`](brain-rules.md#test-spot-door-water) |
 | `test-item/rest` | to rest after a test | [`regen-rest-test`](brain-rules.md#regen-rest-test) |
 | `test-item/test/healing` | it may heal, and it is hurt | [`unknown-potion-heal-half`](brain-rules.md#unknown-potion-heal-half) |
@@ -88,6 +91,9 @@ the build. A clause adds no threshold, so there is nothing for `HeuristicLinkTes
 | `fight/goo/attack` | to fight Goo | [`goo-engage`](brain-rules.md#goo-engage) |
 | `fight/goo/wait` | to wait for Goo's move | [`goo-pump`](brain-rules.md#goo-pump) |
 | `fight/goo/approach` | to close in on Goo | [`goo-engage`](brain-rules.md#goo-engage) |
+| `fight/goo/volley` | to hit Goo from a distance | [`goo-volley`](brain-rules.md#goo-volley) |
+| `fight/goo/position` | to get clear ground to dodge on | [`goo-position`](brain-rules.md#goo-position) |
+| `fight/goo/wash` | to walk to water | [`goo-wash`](brain-rules.md#goo-wash) |
 | `fallback/fallback` | nothing better to do | none: it says only that nothing above fired |
 
 ## Coach mode

@@ -239,22 +239,30 @@ class RedeterminationDifferentialTest {
         }
         out.put(ScrubRow.UNKNOWN_CELLS, unknown.toString());
         // CONTAINER_CONTENTS: what lies in the heaps the player has seen. UNSEEN_ITEMS: the heaps on known cells it has not.
-        StringBuilder heaps = new StringBuilder();
-        StringBuilder unseen = new StringBuilder();
+        // The heaps in cell order: the order Dungeon.level.heaps lists them in is not part of the state (a scrub
+        // that rebuilds the map lists the same heaps in another order, as seen at seed 4458542768457 wait 300).
+        java.util.TreeMap<Integer, String> heapStrings = new java.util.TreeMap<>();
+        java.util.TreeSet<Integer> unseenCells = new java.util.TreeSet<>();
         for (Heap heap : Dungeon.level.heaps.valueList()) {
-            boolean known = Dungeon.level.visited[heap.pos] || Dungeon.level.mapped[heap.pos];
+            // The screen's own fog: the same cells the scrub treats as known (Ctx.known).
+            boolean known = fog.get(heap.pos) != org.shatterfish.api.Fog.UNKNOWN;
             if (heap.seen) {
-                heaps.append(heap.pos).append(':').append(heap.type).append(':').append(heap.items.size());
+                StringBuilder one = new StringBuilder();
+                one.append(heap.pos).append(':').append(heap.type).append(':').append(heap.items.size());
                 if (heap.type != Heap.Type.HEAP) {
                     for (Item item : heap.items) {
-                        heaps.append(',').append(item.getClass().getSimpleName());
+                        one.append(',').append(item.getClass().getSimpleName());
                     }
                 }
-                heaps.append(';');
+                heapStrings.put(heap.pos, one.append(';').toString());
             } else if (known) {
-                unseen.append(heap.pos).append(';');
+                unseenCells.add(heap.pos);
             }
         }
+        StringBuilder heaps = new StringBuilder();
+        heapStrings.values().forEach(heaps::append);
+        StringBuilder unseen = new StringBuilder();
+        unseenCells.forEach(cell -> unseen.append(cell).append(';'));
         out.put(ScrubRow.CONTAINER_CONTENTS, heaps.toString());
         out.put(ScrubRow.UNSEEN_ITEMS, unseen.toString());
         int secrets = 0;
@@ -478,12 +486,15 @@ class RedeterminationDifferentialTest {
                             fail("row " + row + " is held by the snapshot and the scrubbed copy equals the live Run in it");
                         }
                     }
-                }, "a scrubber without " + missing + " must fail");
+                }, "a scrubber without " + missing + " must fail (seed " + f.seed + " wait " + f.live.k() + ", rows shown " + shown + ")");
                 assertTrue(caught.getMessage().contains("row " + missing + " "), "the failure names " + missing + ": " + caught.getMessage());
                 everChecked.add(missing);
             }
         });
         System.out.println("REDETERMINE incomplete scrubbers named " + everChecked);
+        // CONTAINER_CONTENTS and UNSEEN_ITEMS are named by no fixture of the smoke Runs (their heaps rarely hold a shown
+        // skeleton or stack the scrub changes); the planted fixture of container_and_unseen_rows_differ
+        // exercises both, with a control that a scrubber without the row leaves the state as it was.
         assertTrue(everChecked.size() >= 6, "the fixtures showed " + everChecked + "; a missing row must be named for several rows");
     }
 
@@ -611,6 +622,15 @@ class RedeterminationDifferentialTest {
             Observation shownCopy = copyOf(f, copy);
             assertSameScreen("row " + row, again, shownCopy);
             assertTrue(differs(row, liveWorld, world(driver, live.k(), f)), "row " + row + " changes what lies there");
+            liveAgain(f);
+            // The control for the skip in an_incomplete_scrubber_names_the_missing_row: here only this row's scrub
+            // moves the state, so a scrubber without it leaves the copy equal to the live Run in it, and the check
+            // that names a missing row would fail.
+            EnumSet<ScrubRow> without = EnumSet.allOf(ScrubRow.class);
+            without.remove(row);
+            copyOf(f, new SnapshotScrubber(f.store, without).scrub(live, sample(1)));
+            assertTrue(!differs(row, liveWorld, world(driver, live.k(), f)),
+                    "a scrubber without " + row + " leaves what lies there as it was");
             liveAgain(f);
         }
         SnapshotHandle all = new SnapshotScrubber(store).scrub(live, sample(2));

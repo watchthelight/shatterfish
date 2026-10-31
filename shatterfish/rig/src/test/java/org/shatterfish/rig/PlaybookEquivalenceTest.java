@@ -103,14 +103,14 @@ class PlaybookEquivalenceTest {
         Path java = Path.of(System.getProperty("java.home"), "bin", "java");
         Path exe = Path.of(java + ".exe");
         List<org.shatterfish.api.SeedSet.Entry> entries = SeedSets.load(root, SeedSets.SMOKE).set().entries();
-        List<Process> running = new ArrayList<>();
+        List<Started> running = new ArrayList<>();
         for (int i = 0; i < entries.size(); i++) {
             org.shatterfish.api.SeedSet.Entry entry = entries.get(i);
             if (!only.contains(entry.heroClass())) {
                 continue;
             }
             Path working = Files.createDirectories(out.resolve("work").resolve(Integer.toString(i)));
-            running.add(new ProcessBuilder(Files.exists(exe) ? exe.toString() : java.toString(),
+            running.add(new Started(working, new ProcessBuilder(Files.exists(exe) ? exe.toString() : java.toString(),
                     "-cp", System.getProperty("java.class.path"), RunOne.class.getName(),
                     RunOne.SEED, Long.toString(entry.seed()),
                     RunOne.CLASS, entry.heroClass().name(),
@@ -126,7 +126,7 @@ class PlaybookEquivalenceTest {
                     RunOne.WEIGHTS, WeightsFile.of(root, Brains.SHATTERFISH).toAbsolutePath().toString(),
                     RunOne.PLAYBOOK, PlaybookFile.of(root, Brains.SHATTERFISH).toAbsolutePath().toString())
                     .directory(working.toFile()).redirectErrorStream(true).redirectOutput(working.resolve("out.txt").toFile())
-                    .start());
+                    .start()));
             if (running.size() == 2) {
                 finish(running);
             }
@@ -140,16 +140,45 @@ class PlaybookEquivalenceTest {
         return logs;
     }
 
-    private static void finish(List<Process> running) {
-        for (Process process : running) {
+    /** A child Run and the folder it works in, where its output and any JVM crash report land. */
+    private record Started(Path working, Process process) {}
+
+    private static void finish(List<Started> running) {
+        for (Started started : running) {
             try {
-                assertEquals(0, process.waitFor(), "a Run ended cleanly");
+                int code = started.process().waitFor();
+                assertEquals(0, code, "a Run ended cleanly" + (code == 0 ? "" : diagnosis(started.working())));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new IllegalStateException(e);
             }
         }
         running.clear();
+    }
+
+    /**
+     * What a child that did not end cleanly left behind: the tail of its output and the head of any JVM crash report
+     * (the temp folder is deleted with the test, so a CI log is the only place this survives).
+     */
+    static String diagnosis(Path working) {
+        StringBuilder out = new StringBuilder("\n--- child output (last 60 lines) from ").append(working).append(" ---\n");
+        try {
+            Path text = working.resolve("out.txt");
+            if (Files.exists(text)) {
+                List<String> lines = Files.readAllLines(text, StandardCharsets.UTF_8);
+                lines.subList(Math.max(0, lines.size() - 60), lines.size()).forEach(l -> out.append(l).append('\n'));
+            }
+            try (java.util.stream.Stream<Path> files = Files.list(working)) {
+                for (Path crash : files.filter(f -> f.getFileName().toString().startsWith("hs_err")).toList()) {
+                    out.append("--- ").append(crash.getFileName()).append(" (first 80 lines) ---\n");
+                    List<String> lines = Files.readAllLines(crash, StandardCharsets.UTF_8);
+                    lines.subList(0, Math.min(80, lines.size())).forEach(l -> out.append(l).append('\n'));
+                }
+            }
+        } catch (IOException | RuntimeException e) {
+            out.append("(could not read it: ").append(e).append(")\n");
+        }
+        return out.toString();
     }
 
     /** Every wait of a log: the Action chosen and the Decision behind it, which is what the Brain did. */
