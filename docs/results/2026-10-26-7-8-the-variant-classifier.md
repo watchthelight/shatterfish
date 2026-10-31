@@ -24,16 +24,17 @@ written in the story file before the first run: precision at least 0.95 and reca
 What the fixture cannot show: its cases either carry a signal or were written to carry none, so it
 guards the rules against regression and says nothing about forum text in the wild.
 
-## The 144 claims under `lore/`
+## The 146 claims under `lore/`
 
-The classifier decides 38 of 144 and leaves 106 `unknown`. Result: spd 38, unknown 106. Variants the claims carry (set by a person): spd 66, unknown 78.
+The classifier decides 38 of 146 and leaves 108 `unknown`. Result: spd 38, unknown 108. Variants the claims carry (set by a person): pd 1, spd 66, unknown 79.
 
 | Carried -> classified | Claims |
 |---|---:|
+| pd -> unknown | 1 |
 | spd -> spd | 21 |
 | spd -> unknown | 45 |
 | unknown -> spd | 17 |
-| unknown -> unknown | 61 |
+| unknown -> unknown | 62 |
 
 ### Disagreements
 
@@ -68,6 +69,6 @@ person set stays unless the file says otherwise, and these are listed for that p
 
 ### Carried a variant, classifier says unknown
 
-45 claims carry `spd` or `pd` that the classifier cannot confirm from the text, the subjects
+46 claims carry `spd` or `pd` that the classifier cannot confirm from the text, the subjects
 and the source type: a shared name with no differing figure, or a variant the person took from the page the
 source URL names, which is not an input. They are not disagreements; the carried variant stands.

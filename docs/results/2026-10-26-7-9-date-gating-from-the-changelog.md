@@ -53,24 +53,24 @@ claim given the same anchor, can. The expectations were written in the story fil
 
 | Every claim anchored at | changed-since | clean | no-entry |
 |---|---:|---:|---:|
-| v0.1.0 | 126 | 0 | 18 |
-| v3.3 | 15 | 111 | 18 |
-| v4.0.2 | 0 | 126 | 18 |
+| v0.1.0 | 127 | 0 | 19 |
+| v3.3 | 15 | 112 | 19 |
+| v4.0.2 | 0 | 127 | 19 |
 
-## The 144 claims under `lore/`
+## The 146 claims under `lore/`
 
 | Verdict | Claims |
 |---|---:|
-| `undated` | 142 |
+| `undated` | 144 |
 | `changed-since` | 1 |
 | `clean` | 1 |
 | `no-entry` | 0 |
 
-Flagged: 143 (`undated` 142, `changed-since` 1). Unflagged: 1 (`clean` 1, `no-entry` 0).
+Flagged: 145 (`undated` 144, `changed-since` 1). Unflagged: 1 (`clean` 1, `no-entry` 0).
 
-2 claims carry a version or a date the gate can use; every other claim names no version, or only an unusable one ("not stated", "old wiki page", "unspecified"), and has no date. 126 of 144 have at least one heading that names their subject, so the changelog could say something about them if they were dated.
+2 claims carry a version or a date the gate can use; every other claim names no version, or only an unusable one ("not stated", "old wiki page", "unspecified"), and has no date. 127 of 146 have at least one heading that names their subject, so the changelog could say something about them if they were dated.
 
-A flagged claim with no code citation is capped at Tier 3 until a person or a citation says otherwise: 4 claims here are in that case, and 0 of them carry a Tier above 3 (that is the number the gate exists to hold at zero, and what holds it is that LoreCheck already refuses a Tier 1 or 2 with no code citation).
+A flagged claim with no code citation is capped at Tier 3 until a person or a citation says otherwise: 5 claims here are in that case, and 0 of them carry a Tier above 3 (that is the number the gate exists to hold at zero, and what holds it is that LoreCheck already refuses a Tier 1 or 2 with no code citation).
 
 ### The five to read first
 

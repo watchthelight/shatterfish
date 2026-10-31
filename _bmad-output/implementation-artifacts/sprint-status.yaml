@@ -175,7 +175,7 @@ development_status:
   10-11-thief-and-bandit-steal: backlog  # issue #357
   10-12-necromancer-target-priority: backlog  # issue #358
   10-13-swarm-split-and-the-corridor: backlog  # issue #359
-  10-14-doors-chokepoints-and-the-retreat-upstairs: backlog  # issue #360
+  10-14-doors-chokepoints-and-the-retreat-upstairs: done  # issue #360; already built (chokepoint hold, stairs retreat, rest above); the remaining non-starving Ascends are too few to measure, see docs/ideas/2026-10-30-starving-stairs-bounce.md
   10-15-prison-food-budgeting: done  # issue #361
   10-16-the-wandmaker-quest: backlog  # issue #362
   10-17-the-power-curve-by-depth: review  # issue #363
@@ -201,5 +201,5 @@ development_status:
   10-37-the-first-tuning-run: backlog  # issue #384
   10-38-the-goo-fight-on-depth-5: done  # issue #422; added by 10.7
   10-39-prison-food-the-second-pass: backlog  # issue #423; added by 10.7
-  10-40-the-sewers-killers: backlog  # issue #424; added by 10.7
+  10-40-the-sewers-killers: done  # issue #424; added by 10.7; no family rule built, see docs/results/2026-10-31-10-40-sewers-killers.md; 45 of 76 die holding unknown potions (docs/ideas/2026-10-31-dying-with-unknown-potions.md)
   epic-10-retrospective: optional
