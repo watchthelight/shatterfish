@@ -161,28 +161,22 @@ class PlaybookEquivalenceTest {
      * (the temp folder is deleted with the test, so a CI log is the only place this survives).
      */
     static String diagnosis(Path working) {
-        StringBuilder out = new StringBuilder("
---- child output (last 60 lines) from ").append(working).append(" ---
-");
+        StringBuilder out = new StringBuilder("\n--- child output (last 60 lines) from ").append(working).append(" ---\n");
         try {
             Path text = working.resolve("out.txt");
             if (Files.exists(text)) {
                 List<String> lines = Files.readAllLines(text, StandardCharsets.UTF_8);
-                lines.subList(Math.max(0, lines.size() - 60), lines.size()).forEach(l -> out.append(l).append('
-'));
+                lines.subList(Math.max(0, lines.size() - 60), lines.size()).forEach(l -> out.append(l).append('\n'));
             }
             try (java.util.stream.Stream<Path> files = Files.list(working)) {
                 for (Path crash : files.filter(f -> f.getFileName().toString().startsWith("hs_err")).toList()) {
-                    out.append("--- ").append(crash.getFileName()).append(" (first 80 lines) ---
-");
+                    out.append("--- ").append(crash.getFileName()).append(" (first 80 lines) ---\n");
                     List<String> lines = Files.readAllLines(crash, StandardCharsets.UTF_8);
-                    lines.subList(0, Math.min(80, lines.size())).forEach(l -> out.append(l).append('
-'));
+                    lines.subList(0, Math.min(80, lines.size())).forEach(l -> out.append(l).append('\n'));
                 }
             }
         } catch (IOException | RuntimeException e) {
-            out.append("(could not read it: ").append(e).append(")
-");
+            out.append("(could not read it: ").append(e).append(")\n");
         }
         return out.toString();
     }
