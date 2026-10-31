@@ -165,7 +165,100 @@ final class Heal implements Policy {
                 return new RunLog.Choice(drink, Policies.CERTAIN, "heal " + hero.hp() + "/" + danger);
             }
         }
-        return null;
+        return gamble(observation, memory, offered, enemies);
+    }
+
+    /** The potion of healing, by the Codex's class name. */
+    private static final String HEALING_CLASS = "items.potions.PotionOfHealing";
+
+    /**
+     * What drinking a potion with these {@code candidates} is worth in hit points on the screen in {@code observation},
+     * with {@code turn} the damage the close enemies deal in one turn (the cost of a drink that does nothing); see
+     * {@link #gamble}.
+     */
+    static double gambleValue(List<SafeTest.Candidate> candidates, Observation observation, double turn) {
+        HeroSection hero = observation.hero();
+        double value = 0;
+        for (SafeTest.Candidate candidate : candidates) {
+            if (candidate.className().equals(HEALING_CLASS)) {
+                value += candidate.probability() * Math.min(heals(hero.ht()), hero.ht());
+                continue;
+            }
+            SafeTest.Harm harm = SafeTest.harm(candidate, observation);
+            if (harm.damage() >= hero.hp() || harm.disables()) {
+                value -= candidate.probability() * hero.ht();
+            } else {
+                value -= candidate.probability() * (harm.damage() > 0 ? harm.damage() : turn);
+            }
+        }
+        return value;
+    }
+
+    /**
+     * The drink of an unidentified potion when the hero is dying with no known healing on hand (issue #435): of the
+     * appearances held, the one with the highest odds of being healing, if drinking it is worth more than the turn.
+     * Heroes died holding unknown potions in 45 of 76 Sewers deaths and in 42 of 50 lost Goo fights, none of them
+     * drinking; the odds are the Beliefs' (the finds counted against the decks' weights), never the true identity.
+     *
+     * <p>The price is in hit points, over the identities the appearance may still have, each at its probability: a
+     * healing potion gains what it heals ({@link #heals}); an identity whose worst case on the hero's cell
+     * ({@link SafeTest#harm}, every figure cited there and in docs/rules/identification.md) takes the hit points the
+     * hero has left, or disables it beside an enemy, costs the hero's whole maximum; any other harmful identity
+     * costs its damage; and an identity that does nothing costs the turn, which is what the enemies close enough to
+     * strike deal in one. The hero drinks when that is above zero. An enemy must be within two cells: a drink
+     * with none close is a calm test, which {@link TestItem} decides.
+     */
+    private RunLog.Choice gamble(Observation observation, Memory memory, List<Action> offered, List<ActorView> enemies) {
+        HeroSection hero = observation.hero();
+        MapSection map = observation.map();
+        double turn = 0;
+        boolean close = false;
+        for (ActorView enemy : enemies) {
+            if (enemy.emote() != Emote.SLEEP && Fight.chebyshev(map, hero.cell(), enemy.cell()) <= 2) {
+                close = true;
+                turn += Fight.enemyDamage(observation, knowledge, Fight.threat(observation, knowledge, enemy));
+            }
+        }
+        if (!close) {
+            return null;
+        }
+        List<ItemView> items = observation.inventory().items();
+        java.util.Map<String, Beliefs.Guess> guesses = new java.util.HashMap<>();
+        for (Beliefs.Guess guess : Beliefs.identities(observation, knowledge, memory, tunables)) {
+            guesses.put(guess.label(), guess);
+        }
+        Action best = null;
+        String bestName = "";
+        double bestOdds = 0;
+        double bestValue = 0;
+        for (int index = 0; index < items.size(); index++) {
+            ItemView item = items.get(index);
+            Beliefs.Guess guess = guesses.get(item.name());
+            if (item.kind() != org.shatterfish.api.ItemKind.POTION || guess == null
+                    || guess.kind() != org.shatterfish.api.ItemKind.POTION) {
+                continue;
+            }
+            Action drink = new Action.UseItem(new ItemRef(index, item.name(), item.quantity()), "DRINK");
+            if (!offered.contains(drink)) {
+                continue;
+            }
+            List<SafeTest.Candidate> candidates = SafeTest.candidates(guess, knowledge);
+            double healing = 0;
+            for (SafeTest.Candidate candidate : candidates) {
+                if (candidate.className().equals(HEALING_CLASS)) {
+                    healing += candidate.probability();
+                }
+            }
+            double value = gambleValue(candidates, observation, turn);
+            if (value > 0 && (healing > bestOdds || (healing == bestOdds && value > bestValue))) {
+                best = drink;
+                bestName = item.name();
+                bestOdds = healing;
+                bestValue = value;
+            }
+        }
+        return best == null ? null : new RunLog.Choice(best, Policies.CERTAIN,
+                "gamble " + bestName + " " + Math.round(1000 * bestOdds) + "/1000");
     }
 
     /** What the potion heals in all: {@code (int)(0.8 * HT + 14)} (PotionOfHealing.java:64). */

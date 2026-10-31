@@ -50,6 +50,7 @@ class CoachLineTest {
             Map.entry("escape/escape", "escape: ToxicGas"),
             Map.entry("escape/finish", "finish: rat"),
             Map.entry("heal/heal", "heal 12/30"),
+            Map.entry("heal/gamble", "gamble indigo potion 170/1000"),
             Map.entry("douse/douse/water", "douse: water"),
             Map.entry("douse/douse/ground", "douse: bare ground"),
             Map.entry("zap/zap", "zap: staff of magic missile"),
