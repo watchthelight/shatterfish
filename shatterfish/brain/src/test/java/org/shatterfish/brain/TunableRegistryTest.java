@@ -81,7 +81,6 @@ class TunableRegistryTest {
         BEFORE.put("ranged.min_damage_per_mille", 0L);
         BEFORE.put("descend.trample_reach", 0L);
         BEFORE.put("explore.grass_skin_below", 0L);
-        BEFORE.put("equip.armour_short_cost_per_mille", 0L);
     }
 
     @Test

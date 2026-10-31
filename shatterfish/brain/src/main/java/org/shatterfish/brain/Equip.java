@@ -3,7 +3,6 @@ package org.shatterfish.brain;
 import org.shatterfish.api.Action;
 import org.shatterfish.api.Codex;
 import org.shatterfish.api.EquipSlot;
-import org.shatterfish.api.Heuristic;
 import org.shatterfish.api.ItemKind;
 import org.shatterfish.api.ItemRef;
 import org.shatterfish.api.ItemView;
@@ -54,21 +53,11 @@ final class Equip implements Policy {
 
     private final Evaluation evaluation;
     private final Codex.Knowledge knowledge;
-    private final int shortCost;
 
     Equip(Evaluation evaluation, Codex.Knowledge knowledge) {
-        this(evaluation, knowledge, org.shatterfish.api.Tunables.Vector.REFERENCE);
-    }
-
-    Equip(Evaluation evaluation, Codex.Knowledge knowledge, org.shatterfish.api.Tunables.Vector tunables) {
         this.evaluation = evaluation;
         this.knowledge = knowledge;
-        this.shortCost = tunables.getInt(org.shatterfish.api.Tunables.EQUIP_ARMOUR_SHORT_COST);
     }
-
-    /** The default of {@code equip.armour_short_cost_per_mille}: an armour short of strength is cut by a third a point. */
-    @Heuristic("time-and-hunger-costs")
-    static final int ARMOUR_SHORT_COST_PER_MILLE = 0;
 
     @Override
     public String name() {
@@ -140,18 +129,7 @@ final class Equip implements Policy {
 
     /** What {@code gear} is worth worn by a hero of {@code strength}. */
     long worth(Piece gear, int strength) {
-        return evaluation.gear(gear.kind(), shortCost > 0 && gear.kind() == ItemKind.ARMOR
-                ? effective(gear, strength, shortCost) : effective(gear, strength));
-    }
-
-    /**
-     * An armour's mean roll after the strength it asks beyond {@code strength}, priced as the game does: each
-     * missing point takes {@code costPerMille} thousandths of a point of armour off (2000 is the game's
-     * two, Hero.java:652-656), never below nothing. The evasion cut (Armor.java:421-422) and the speed cut
-     * (Armor.java:436-437) of a missing point are not priced.
-     */
-    static long effective(Piece gear, int strength, int costPerMille) {
-        return Math.max(0, gear.meanPerMille() - (long) costPerMille * Math.max(0, gear.strength() - strength));
+        return evaluation.gear(gear.kind(), effective(gear, strength));
     }
 
     /**
