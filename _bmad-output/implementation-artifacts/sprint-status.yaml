@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: '2026-09-04'
-last_updated: 2026-10-30
+last_updated: 2026-10-31
 project: shatterfish
 project_key: NOKEY
 tracking_system: file-system
@@ -182,7 +182,7 @@ development_status:
   10-18-tengu-entry-key-and-seal: done  # issue #364; PR #397
   10-19-tengu-phase-one-the-dart-trap-memory: done  # issue #365
   10-20-tengu-phase-two-the-threat-map: done  # issue #366
-  10-21-tengu-conversion-on-the-practice-floor: backlog  # issue #367
+  10-21-tengu-conversion-on-the-practice-floor: done  # issue #367
   10-22-the-think-budget-amendment-to-adr-0010: done  # issue #368
   10-23-the-classloader-isolation-spike: done  # issue #369
   10-24-determinized-fight-rollouts: done  # issue #370
@@ -200,6 +200,6 @@ development_status:
   10-36-the-tune-runner: done  # issue #383; PR #405
   10-37-the-first-tuning-run: backlog  # issue #384
   10-38-the-goo-fight-on-depth-5: done  # issue #422; added by 10.7
-  10-39-prison-food-the-second-pass: backlog  # issue #423; added by 10.7
+  10-39-prison-food-the-second-pass: done  # issue #423; added by 10.7
   10-40-the-sewers-killers: done  # issue #424; added by 10.7; no family rule built, see docs/results/2026-10-31-10-40-sewers-killers.md; 45 of 76 die holding unknown potions (docs/ideas/2026-10-31-dying-with-unknown-potions.md)
   epic-10-retrospective: optional
