@@ -1,0 +1,258 @@
+standard ALL (the first 40 of each class, salts 1000..1039 within each), 240 entries
+
+#### WARRIOR
+
+| | 4a9ad6721 | current 4a9ad6721 + tunables | delta |
+|---|---|---|---|
+| Runs | 40 | 40 | 0 |
+| reach depth 5 | 33/40 | 33/40 | 0 |
+| reach depth 10 | 0/40 | 0/40 | 0 |
+| reach depth 15 | 0/40 | 0/40 | 0 |
+| bosses killed | 25/40 | 32/40 | +7 |
+| Goo kills | 25/40 | 32/40 | +7 |
+| Tengu kills | 0/40 | 0/40 | 0 |
+| median turns | 2086.5 | 2244.5 | +158 |
+| deepest mean / max | 5.925 / 8 | 5.950 / 7 | +0.03 |
+| deaths by depth 1..8 | 0/1/1/5/9/8/9/7 | 0/1/3/3/1/14/18/0 |  |
+| searches per floor | 11.08 | 8.81 | -2.28 |
+| search waits per floor | 16.25 | 11.02 | -5.24 |
+| oscillation Steps | 892 | 807 | -85 |
+| heaps taken / seen | 3391/3739 | 3412/3771 | +21 |
+| seen to taken, median waits | 8 | 8 | 0 |
+| heaps taking over 100 waits | 72 of 3739 | 104 of 3771 | +32 |
+| upgrade scrolls picked up by depth 5 | 56 | 54 | -2 |
+| upgrades read by depth 5 | 95 | 92 | -3 |
+| think ms per Decision, mean / p95 | 2.5 / 8 | 1.9 / 6 | -0.57 |
+
+#### MAGE
+
+| | 4a9ad6721 | current 4a9ad6721 + tunables | delta |
+|---|---|---|---|
+| Runs | 40 | 40 | 0 |
+| reach depth 5 | 23/40 | 21/40 | -2 |
+| reach depth 10 | 0/40 | 0/40 | 0 |
+| reach depth 15 | 0/40 | 0/40 | 0 |
+| bosses killed | 15/40 | 15/40 | 0 |
+| Goo kills | 15/40 | 15/40 | 0 |
+| Tengu kills | 0/40 | 0/40 | 0 |
+| median turns | 1746.0 | 1587.5 | -158.50 |
+| deepest mean / max | 4.775 / 7 | 4.825 / 8 | +0.05 |
+| deaths by depth 1..8 | 0/2/8/7/9/8/6/0 | 0/3/8/8/8/2/9/2 |  |
+| searches per floor | 11.25 | 7.97 | -3.28 |
+| search waits per floor | 17.46 | 10.44 | -7.02 |
+| oscillation Steps | 735 | 533 | -202 |
+| heaps taken / seen | 2307/2577 | 2106/2417 | -201 |
+| seen to taken, median waits | 7 | 7 | 0 |
+| heaps taking over 100 waits | 111 of 2577 | 93 of 2417 | -18 |
+| upgrade scrolls picked up by depth 5 | 79 | 74 | -5 |
+| upgrades read by depth 5 | 79 | 73 | -6 |
+| think ms per Decision, mean / p95 | 2.3 / 8 | 2.3 / 7 | -0.04 |
+
+#### ROGUE
+
+| | 4a9ad6721 | current 4a9ad6721 + tunables | delta |
+|---|---|---|---|
+| Runs | 40 | 40 | 0 |
+| reach depth 5 | 16/40 | 17/40 | +1 |
+| reach depth 10 | 0/40 | 0/40 | 0 |
+| reach depth 15 | 0/40 | 0/40 | 0 |
+| bosses killed | 9/40 | 5/40 | -4 |
+| Goo kills | 9/40 | 5/40 | -4 |
+| Tengu kills | 0/40 | 0/40 | 0 |
+| median turns | 1463.3 | 1429.0 | -34.25 |
+| deepest mean / max | 4.125 / 7 | 4.050 / 7 | -0.08 |
+| deaths by depth 1..7 | 2/5/5/12/7/8/1 | 2/5/6/10/12/3/2 |  |
+| searches per floor | 11.47 | 9.38 | -2.10 |
+| search waits per floor | 15.88 | 11.23 | -4.64 |
+| oscillation Steps | 387 | 293 | -94 |
+| heaps taken / seen | 2342/2643 | 2258/2526 | -84 |
+| seen to taken, median waits | 7 | 7 | 0 |
+| heaps taking over 100 waits | 83 of 2643 | 87 of 2526 | +4 |
+| upgrade scrolls picked up by depth 5 | 33 | 32 | -1 |
+| upgrades read by depth 5 | 66 | 64 | -2 |
+| think ms per Decision, mean / p95 | 2.5 / 7 | 2.5 / 7 | +0.00 |
+
+#### HUNTRESS
+
+| | 4a9ad6721 | current 4a9ad6721 + tunables | delta |
+|---|---|---|---|
+| Runs | 40 | 40 | 0 |
+| reach depth 5 | 28/40 | 28/40 | 0 |
+| reach depth 10 | 0/40 | 0/40 | 0 |
+| reach depth 15 | 0/40 | 0/40 | 0 |
+| bosses killed | 24/40 | 22/40 | -2 |
+| Goo kills | 24/40 | 22/40 | -2 |
+| Tengu kills | 0/40 | 0/40 | 0 |
+| median turns | 1848.0 | 1662.3 | -185.75 |
+| deepest mean / max | 5.225 / 8 | 5.125 / 8 | -0.10 |
+| deaths by depth 1..8 | 1/3/1/7/5/16/6/1 | 1/3/4/4/6/15/6/1 |  |
+| searches per floor | 11.47 | 8.69 | -2.78 |
+| search waits per floor | 17.43 | 11.07 | -6.35 |
+| oscillation Steps | 598 | 697 | +99 |
+| heaps taken / seen | 2308/2656 | 2174/2497 | -134 |
+| seen to taken, median waits | 7 | 7 | 0 |
+| heaps taking over 100 waits | 166 of 2656 | 143 of 2497 | -23 |
+| upgrade scrolls picked up by depth 5 | 48 | 46 | -2 |
+| upgrades read by depth 5 | 81 | 78 | -3 |
+| think ms per Decision, mean / p95 | 2.4 / 7 | 2.4 / 8 | +0.00 |
+
+#### DUELIST
+
+| | 4a9ad6721 | current 4a9ad6721 + tunables | delta |
+|---|---|---|---|
+| Runs | 40 | 40 | 0 |
+| reach depth 5 | 14/40 | 16/40 | +2 |
+| reach depth 10 | 0/40 | 0/40 | 0 |
+| reach depth 15 | 0/40 | 0/40 | 0 |
+| bosses killed | 9/40 | 3/40 | -6 |
+| Goo kills | 9/40 | 3/40 | -6 |
+| Tengu kills | 0/40 | 0/40 | 0 |
+| median turns | 1155.8 | 1335.3 | +179.50 |
+| deepest mean / max | 4.050 / 8 | 3.975 / 7 | -0.07 |
+| deaths by depth 1..8 | 3/4/6/13/7/4/2/1 | 3/4/5/12/13/1/2/0 |  |
+| searches per floor | 11.37 | 9.30 | -2.07 |
+| search waits per floor | 16.37 | 11.63 | -4.74 |
+| oscillation Steps | 347 | 357 | +10 |
+| heaps taken / seen | 2221/2519 | 2271/2535 | +50 |
+| seen to taken, median waits | 6 | 7 | +1 |
+| heaps taking over 100 waits | 44 of 2519 | 67 of 2535 | +23 |
+| upgrade scrolls picked up by depth 5 | 31 | 33 | +2 |
+| upgrades read by depth 5 | 63 | 65 | +2 |
+| think ms per Decision, mean / p95 | 3.5 / 11 | 3.8 / 11 | +0.23 |
+
+#### CLERIC
+
+| | 4a9ad6721 | current 4a9ad6721 + tunables | delta |
+|---|---|---|---|
+| Runs | 40 | 40 | 0 |
+| reach depth 5 | 15/40 | 17/40 | +2 |
+| reach depth 10 | 0/40 | 0/40 | 0 |
+| reach depth 15 | 0/40 | 0/40 | 0 |
+| bosses killed | 11/40 | 11/40 | 0 |
+| Goo kills | 11/40 | 11/40 | 0 |
+| Tengu kills | 0/40 | 0/40 | 0 |
+| median turns | 1537.0 | 1542.8 | +5.75 |
+| deepest mean / max | 4.150 / 7 | 4.250 / 7 | +0.10 |
+| deaths by depth 1..7 | 1/6/7/11/5/7/3 | 1/6/6/10/6/8/3 |  |
+| searches per floor | 10.56 | 8.13 | -2.43 |
+| search waits per floor | 15.55 | 10.50 | -5.05 |
+| oscillation Steps | 537 | 624 | +87 |
+| heaps taken / seen | 1887/2218 | 1976/2222 | +89 |
+| seen to taken, median waits | 7 | 7 | 0 |
+| heaps taking over 100 waits | 80 of 2218 | 87 of 2222 | +7 |
+| upgrade scrolls picked up by depth 5 | 30 | 36 | +6 |
+| upgrades read by depth 5 | 60 | 67 | +7 |
+| think ms per Decision, mean / p95 | 2.2 / 7 | 2.2 / 7 | +0.03 |
+
+#### pooled
+
+| | 4a9ad6721 | current 4a9ad6721 + tunables | delta |
+|---|---|---|---|
+| Runs | 240 | 240 | 0 |
+| reach depth 5 | 129/240 | 132/240 | +3 |
+| reach depth 10 | 0/240 | 0/240 | 0 |
+| reach depth 15 | 0/240 | 0/240 | 0 |
+| bosses killed | 93/240 | 88/240 | -5 |
+| Goo kills | 93/240 | 88/240 | -5 |
+| Tengu kills | 0/240 | 0/240 | 0 |
+| median turns | 1718.5 | 1605.5 | -113 |
+| deepest mean / max | 4.708 / 8 | 4.696 / 8 | -0.01 |
+| deaths by depth 1..8 | 7/21/28/55/42/51/27/9 | 7/22/32/47/46/43/40/3 |  |
+| searches per floor | 11.20 | 8.69 | -2.51 |
+| search waits per floor | 16.53 | 10.97 | -5.56 |
+| oscillation Steps | 3496 | 3311 | -185 |
+| heaps taken / seen | 14456/16352 | 14197/15968 | -259 |
+| seen to taken, median waits | 7 | 7 | 0 |
+| heaps taking over 100 waits | 556 of 16352 | 581 of 15968 | +25 |
+| upgrade scrolls picked up by depth 5 | 277 | 275 | -2 |
+| upgrades read by depth 5 | 444 | 439 | -5 |
+| think ms per Decision, mean / p95 | 2.5 / 8 | 2.4 / 8 | -0.09 |
+
+Deaths by depth, top killers (the game's own cause of death, read after the Run; a death with no ending record is "not recorded"):
+
+#### WARRIOR
+
+| depth | deaths | top killers |
+|---|---|---|
+| 2 | 1 | Piranha 1 |
+| 3 | 3 | Crab 1, Poison 1, Swarm 1 |
+| 4 | 3 | Crab 1, Mimic 1, Swarm 1 |
+| 5 | 1 | Goo 1 |
+| 6 | 14 | Skeleton 9, Hunger 3, Poison 1, Thief 1 |
+| 7 | 18 | DM100 6, Skeleton 5, Guard 4, Hunger 2, +1 more |
+
+#### MAGE
+
+| depth | deaths | top killers |
+|---|---|---|
+| 2 | 3 | ArmoredStatue 1, Gnoll 1, ToxicGas 1 |
+| 3 | 8 | Crab 4, Bomb 1, Gnoll 1, Piranha 1, +1 more |
+| 4 | 8 | Crab 2, Swarm 2, GnollExile 1, Mimic 1, +2 more |
+| 5 | 8 | Goo 5, Ooze 2, Poison 1 |
+| 6 | 2 | Ooze 1, Poison 1 |
+| 7 | 9 | DM100 3, Skeleton 3, Guard 2, Bomb 1 |
+| 8 | 2 | Guard 2 |
+
+#### ROGUE
+
+| depth | deaths | top killers |
+|---|---|---|
+| 1 | 2 | Rat 1, Snake 1 |
+| 2 | 5 | Gnoll 4, ToxicGas 1 |
+| 3 | 6 | Gnoll 2, HermitCrab 2, Crab 1, Mimic 1 |
+| 4 | 10 | Swarm 5, Crab 3, Hunger 1, Slime 1 |
+| 5 | 12 | Goo 11, Ooze 1 |
+| 6 | 3 | Skeleton 2, Thief 1 |
+| 7 | 2 | Hunger 1, Skeleton 1 |
+
+#### HUNTRESS
+
+| depth | deaths | top killers |
+|---|---|---|
+| 1 | 1 | Snake 1 |
+| 2 | 3 | GnollExile 1, Hunger 1, Rat 1 |
+| 3 | 4 | Crab 4 |
+| 4 | 4 | Crab 3, Slime 1 |
+| 5 | 6 | Goo 4, Ooze 2 |
+| 6 | 15 | Skeleton 10, Ooze 1, Piranha 1, Poison 1, +2 more |
+| 7 | 6 | DM100 2, Skeleton 2, Guard 1, Hunger 1 |
+| 8 | 1 | DM100 1 |
+
+#### DUELIST
+
+| depth | deaths | top killers |
+|---|---|---|
+| 1 | 3 | Snake 2, Rat 1 |
+| 2 | 4 | Gnoll 4 |
+| 3 | 5 | Crab 3, Swarm 1, ToxicGas 1 |
+| 4 | 12 | Crab 4, Slime 3, Swarm 2, Hunger 1, +2 more |
+| 5 | 13 | Goo 10, Ooze 3 |
+| 6 | 1 | Skeleton 1 |
+| 7 | 2 | Bee 1, Guard 1 |
+
+#### CLERIC
+
+| depth | deaths | top killers |
+|---|---|---|
+| 1 | 1 | Snake 1 |
+| 2 | 6 | Gnoll 4, Hunger 1, ToxicGas 1 |
+| 3 | 6 | Gnoll 2, Crab 1, Electricity 1, Hunger 1, +1 more |
+| 4 | 10 | Crab 3, Swarm 3, Poison 2, Gnoll 1, +1 more |
+| 5 | 6 | Goo 3, Ooze 3 |
+| 6 | 8 | Skeleton 5, Hunger 1, Ooze 1, Poison 1 |
+| 7 | 3 | DM100 1, Guard 1, Thief 1 |
+
+#### pooled
+
+| depth | deaths | top killers |
+|---|---|---|
+| 1 | 7 | Snake 5, Rat 2 |
+| 2 | 22 | Gnoll 13, ToxicGas 3, Hunger 2, ArmoredStatue 1, +3 more |
+| 3 | 32 | Crab 14, Gnoll 5, Swarm 4, HermitCrab 2, +7 more |
+| 4 | 47 | Crab 16, Swarm 13, Slime 6, Hunger 3, +6 more |
+| 5 | 46 | Goo 34, Ooze 11, Poison 1 |
+| 6 | 43 | Skeleton 27, Hunger 4, Poison 4, Ooze 3, +3 more |
+| 7 | 40 | DM100 12, Skeleton 11, Guard 9, Hunger 4, +4 more |
+| 8 | 3 | Guard 2, DM100 1 |
+
+Stray actor-thread wakes (issue #399): 0 current, 0 baseline. A wake the JVM made between two frames; any count above zero is worth a look.

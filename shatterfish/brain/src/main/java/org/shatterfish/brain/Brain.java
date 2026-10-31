@@ -87,7 +87,7 @@ public final class Brain {
                 new Equip(evaluation, knowledge), new Tengu(knowledge, playbook.bosses().tengu()),
                 new Descend(knowledge, playbook.bosses(), playbook.tunables()),
                 new Explore(knowledge, playbook.tunables()), new Plunge(knowledge, playbook.tunables()),
-                Policies.fallback(evaluation)));
+                Policies.fallback(evaluation, playbook.tunables())));
         return List.copyOf(policies);
     }
 

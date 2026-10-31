@@ -200,6 +200,6 @@ development_status:
   10-36-the-tune-runner: done  # issue #383; PR #405
   10-37-the-first-tuning-run: backlog  # issue #384
   10-38-the-goo-fight-on-depth-5: done  # issue #422; added by 10.7
-  10-39-prison-food-the-second-pass: backlog  # issue #423; added by 10.7
+  10-39-prison-food-the-second-pass: review  # issue #423; added by 10.7
   10-40-the-sewers-killers: done  # issue #424; added by 10.7; no family rule built, see docs/results/2026-10-31-10-40-sewers-killers.md; 45 of 76 die holding unknown potions (docs/ideas/2026-10-31-dying-with-unknown-potions.md)
   epic-10-retrospective: optional
