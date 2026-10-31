@@ -319,11 +319,14 @@ final class Fight implements Policy {
         boolean closing = memory.before() < 0 || (memory.near() >= 0 && memory.near() < memory.before());
         // A splitter is a crowd by itself: each hit it takes puts a clone on a free cell beside it, so one swarm
         // becomes a ring around a hero in the open (Swarm.java:88-116), and a hero in a corridor is reached by two.
-        boolean crowd = mobile.size() >= 2
-                || mobile.stream().anyMatch(enemy -> Bestiary.splits(knowledge, depth, branch, enemy.name()));
+        boolean splitter = mobile.stream().anyMatch(enemy -> Bestiary.splits(knowledge, depth, branch, enemy.name()));
+        boolean crowd = mobile.size() >= 2 || splitter;
         if (crowd && !held && closing) {
             if (here > 2) {
                 add(ranked, chokepoint(observation, offered, enemies, here));
+                if (ranked.isEmpty() && splitter) {
+                    add(ranked, chokepointWalk(observation, memory, offered, enemies));
+                }
             }
             if (ranked.isEmpty() && here <= 2 && offered.contains(new Action.Wait())) {
                 ranked.add(new RunLog.Choice(new Action.Wait(), Policies.CERTAIN, "hold: chokepoint"));
@@ -577,6 +580,30 @@ final class Fight implements Policy {
             }
         }
         return best == null ? null : new RunLog.Choice(best, Policies.CERTAIN, "chokepoint " + fewest);
+    }
+
+    /** The farthest walk to a chokepoint the Policy makes while a splitter closes in, in steps. */
+    static final int CHOKE_WALK = 8;
+
+    /**
+     * The offered Step that starts the shortest walk to a cell at most two enemies can engage, when the hero gets there
+     * before the nearest enemy gets to the hero (the walk is no longer than the enemy's distance) and no enemy is beside
+     * the hero yet, so the walk gives no free blow. Null when there is none.
+     */
+    private static RunLog.Choice chokepointWalk(Observation observation, Memory memory, List<Action> offered,
+                                                List<ActorView> enemies) {
+        MapSection map = observation.map();
+        int near = nearest(map, observation.hero().cell(), enemies);
+        if (near < 2) {
+            return null;
+        }
+        boolean[] walk = Explore.walkable(observation, memory, false);
+        Path path = walk(map, walk, observation.hero().cell(), offered,
+                cell -> !transition(map, cell) && engage(map, cell) <= 2);
+        if (path == null || path.distance > Math.min(CHOKE_WALK, near)) {
+            return null;
+        }
+        return new RunLog.Choice(path.step, Policies.CERTAIN, "chokepoint 2");
     }
 
     /** The offered Step that starts the shortest walk to a cell beside the nearest enemy. */

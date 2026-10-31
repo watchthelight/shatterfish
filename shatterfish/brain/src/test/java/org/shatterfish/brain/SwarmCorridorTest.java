@@ -83,4 +83,18 @@ class SwarmCorridorTest {
                 "############");
         assertTrue(after(doorway).decision().chosen().why().startsWith("approach "));
     }
+
+    @Test
+    @DisplayName("a corridor mouth some steps off: the hero walks to it before the swarm arrives, not into the open")
+    void walks_to_a_corridor_mouth() {
+        Observation room = FightPolicyTest.screen(3, 20, false, "worn shortsword",
+                "################",
+                "#####..........#",
+                ".......@.......W",
+                "#####..........#",
+                "#####..........#",
+                "################");
+        Brain.Decided decided = after(room);
+        assertTrue(decided.decision().chosen().why().startsWith("chokepoint"), decided.decision().toString());
+    }
 }
