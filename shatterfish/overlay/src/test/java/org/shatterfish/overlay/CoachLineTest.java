@@ -71,6 +71,7 @@ class CoachLineTest {
             Map.entry("fight/goo/wait", "goo: wait"),
             Map.entry("fight/goo/approach", "goo: approach 3"),
             Map.entry("fight/goo/volley", "goo: volley throw: dart"),
+            Map.entry("fight/goo/dry", "goo: dry"),
             Map.entry("fight/goo/position", "goo: position"),
             Map.entry("fight/goo/wash", "goo: wash"),
             Map.entry("eat/eat", "eat: ration"),

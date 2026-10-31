@@ -89,6 +89,7 @@ the build. A clause adds no threshold, so there is nothing for `HeuristicLinkTes
 | `fight/goo/wait` | to wait for Goo's move | [`goo-pump`](brain-rules.md#goo-pump) |
 | `fight/goo/approach` | to close in on Goo | [`goo-engage`](brain-rules.md#goo-engage) |
 | `fight/goo/volley` | to hit Goo from a distance | [`goo-volley`](brain-rules.md#goo-volley) |
+| `fight/goo/dry` | to fight Goo on dry ground | [`goo-dry`](brain-rules.md#goo-dry) |
 | `fight/goo/position` | to get clear ground to dodge on | [`goo-position`](brain-rules.md#goo-position) |
 | `fight/goo/wash` | to walk to water | [`goo-wash`](brain-rules.md#goo-wash) |
 | `fallback/fallback` | nothing better to do | none: it says only that nothing above fired |

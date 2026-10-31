@@ -238,6 +238,35 @@ final class Goo {
     }
 
     /**
+     * The Step toward dry ground to meet Goo on (story, issue #429). Goo regains hit points on every act it ends
+     * standing in water (Goo.java:109-111), so a blow struck at a Goo in water is partly given back. Where Goo
+     * will stand to fight the hero ({@link #arrival}, or its own cell once it is beside the hero) is read from the
+     * shown terrain; when that is water the hero walks to the nearest ground, within the Playbook's
+     * {@code meet_range} Steps, whose arrival cell is dry and where a pump could be dodged. Beside a Goo that is
+     * hurt the walk is at most two Steps: Goo spends its turns following, so the walk costs the hero no blow and
+     * Goo no heal, and it ends with Goo beside it on dry ground and the first blow the hero's. The walk never ends
+     * or passes beside Goo, as {@link #position}'s, and it is made only with no pump pending. Null when Goo will
+     * fight on dry ground, when a full-health Goo is already beside the hero, or when there is no such ground.
+     */
+    static RunLog.Choice dry(Observation observation, Memory memory, List<Action> offered, ActorView goo,
+                             Playbook.Goo entry) {
+        MapSection map = observation.map();
+        boolean[] walk = Explore.walkable(observation, memory, false);
+        int hero = observation.hero().cell();
+        boolean beside = distance(map, hero, goo.cell()) <= 1;
+        int at = beside ? goo.cell() : arrival(map, walk, hero, goo.cell());
+        if (map.tiles().get(at) != org.shatterfish.api.Tile.WATER
+                || (beside && goo.healthPips() >= org.shatterfish.api.ObservationCodec.MAX_HEALTH_PIPS)) {
+            return null;
+        }
+        return walkTo(map, walk, hero, offered, goo.cell(), beside ? Math.min(2, entry.meetRange()) : entry.meetRange(),
+                cell -> {
+                    int there = arrival(map, walk, cell, goo.cell());
+                    return map.tiles().get(there) != org.shatterfish.api.Tile.WATER && dodgeable(map, walk, cell, there);
+                }, "goo: dry");
+    }
+
+    /**
      * Whether caustic ooze is on the hero, by its buff icon. The icon's turns are not read: the Observation
      * does not show them for this buff, and a Goo hit sets them back to 20 (Ooze.java:32, :79-83; Goo.java:157-160).
      */
@@ -404,6 +433,9 @@ final class Goo {
             RunLog.Choice position = wash(observation, memory, offered, goo.cell(), entry);
             if (position == null) {
                 position = position(observation, memory, offered, goo.cell(), entry);
+            }
+            if (position == null) {
+                position = dry(observation, memory, offered, goo, entry);
             }
             if (position != null) {
                 ranked.add(position);

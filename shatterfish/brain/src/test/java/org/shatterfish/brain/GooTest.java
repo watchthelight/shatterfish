@@ -403,4 +403,71 @@ class GooTest {
         Memory memory = Beliefs.fold(Memory.START, pumped, Screens.CODEX);
         assertEquals("dodge: pump", new Brain(Screens.CODEX, Screens.WEIGHTS, 5L).decide(pumped, memory.belief()).decision().chosen().why());
     }
+
+    /** {@code screen} with Goo's cell water, and Goo at {@code pips} health pips. */
+    private static Observation gooInWater(Observation screen, int pips) {
+        MapSection map = screen.map();
+        List<Tile> tiles = new ArrayList<>(map.tiles());
+        tiles.set(Goo.cell(screen), Tile.WATER);
+        MapSection wet = new MapSection(map.width(), map.height(), tiles, map.fog(), map.traps(), map.heaps(), map.blobs(),
+                map.feeling(), map.transitions());
+        List<ActorView> actors = new ArrayList<>();
+        for (ActorView actor : screen.actors().actors()) {
+            actors.add(new ActorView(actor.cell(), actor.name(), actor.alignment(), pips, actor.invisible(), actor.emote(),
+                    actor.buffs()));
+        }
+        Observation bare = new Observation(screen.header(), wet, new ActorsSection(actors), screen.hero(), screen.inventory(),
+                screen.journal(), screen.log(), ActionsSection.NONE, PromptSection.NONE);
+        return bare.withActions(ValidActions.of(bare));
+    }
+
+    private static final String[] WET_EAST = {
+            "##############",
+            "#............#",
+            "#............#",
+            "#......~~~...#",
+            "#.....@~~~..r#",
+            "#......~~~...#",
+            "#............#",
+            "#............#",
+            "##############"};
+
+    @Test
+    @DisplayName("Goo coming across water to the hero's side: the hero walks to ground where Goo will stand on dry land, and not toward the water (issue #429)")
+    void keeps_dry_ground_before_contact() {
+        Observation wet = oozed(false, false, WET_EAST);
+        Brain.Decided decided = new Brain(Screens.CODEX, Screens.WEIGHTS, 5L).decide(wet, Beliefs.fold(Memory.START, wet, Screens.CODEX).belief());
+        assertEquals("goo: dry", decided.decision().chosen().why(), decided.decision().toString());
+        int width = wet.map().width();
+        assertTrue(((Action.Step) decided.action()).cell() % width < wet.hero().cell() % width, "a Step west, away from the water");
+    }
+
+    @Test
+    @DisplayName("a hurt Goo beside the hero standing in water: the hero steps back to dry ground so Goo follows off the water; a Goo at full health is struck (issue #429)")
+    void lures_a_hurt_goo_off_the_water() {
+        String[] rows = {
+                "##############",
+                "#............#",
+                "#............#",
+                "#............#",
+                "#.....@r.....#",
+                "#............#",
+                "#............#",
+                "##############"};
+        Observation hurt = gooInWater(screen(List.of("You see Goo."), rows), 4);
+        Brain.Decided decided = new Brain(Screens.CODEX, Screens.WEIGHTS, 5L).decide(hurt, Beliefs.fold(Memory.START, hurt, Screens.CODEX).belief());
+        assertEquals("goo: dry", decided.decision().chosen().why(), decided.decision().toString());
+        int width = hurt.map().width();
+        assertTrue(((Action.Step) decided.action()).cell() % width < hurt.hero().cell() % width, "a Step away from Goo");
+        Observation fresh = gooInWater(screen(List.of("You see Goo."), rows), org.shatterfish.api.ObservationCodec.MAX_HEALTH_PIPS);
+        assertEquals("goo: attack", chosen(fresh));
+    }
+
+    @Test
+    @DisplayName("a pump pending is dodged, never walked away from for dry ground (issue #429)")
+    void dry_yields_to_the_dodge() {
+        Observation pumped = gooInWater(screen(List.of("You see Goo.", Goo.PUMP), NEAR), 4);
+        Memory memory = Beliefs.fold(Memory.START, pumped, Screens.CODEX);
+        assertEquals("dodge: pump", new Brain(Screens.CODEX, Screens.WEIGHTS, 5L).decide(pumped, memory.belief()).decision().chosen().why());
+    }
 }
