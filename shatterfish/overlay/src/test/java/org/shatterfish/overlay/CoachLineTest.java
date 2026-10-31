@@ -47,6 +47,8 @@ class CoachLineTest {
             Map.entry("answer-prompt/upgrade", "upgrade: dagger"),
             Map.entry("answer-prompt/guess", "guess: potion"),
             Map.entry("answer-prompt/leave", "leave: Back"),
+            Map.entry("escape/escape", "escape: ToxicGas"),
+            Map.entry("escape/finish", "finish: rat"),
             Map.entry("heal/heal", "heal 12/30"),
             Map.entry("douse/douse/water", "douse: water"),
             Map.entry("douse/douse/ground", "douse: bare ground"),

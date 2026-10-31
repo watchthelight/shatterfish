@@ -49,6 +49,7 @@ enemy
 enough
 exit
 few
+finish
 fight
 fights
 fire

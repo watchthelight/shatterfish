@@ -371,7 +371,7 @@ final class Pickup implements Policy {
         return best;
     }
 
-    private static List<Integer> neighbours(MapSection map, int cell) {
+    static List<Integer> neighbours(MapSection map, int cell) {
         int width = map.width();
         int x = cell % width;
         int y = cell / width;
