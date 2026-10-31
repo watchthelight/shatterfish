@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: '2026-09-04'
-last_updated: 2026-10-30
+last_updated: 2026-10-31
 project: shatterfish
 project_key: NOKEY
 tracking_system: file-system
@@ -182,7 +182,7 @@ development_status:
   10-18-tengu-entry-key-and-seal: done  # issue #364; PR #397
   10-19-tengu-phase-one-the-dart-trap-memory: done  # issue #365
   10-20-tengu-phase-two-the-threat-map: done  # issue #366
-  10-21-tengu-conversion-on-the-practice-floor: review  # issue #367
+  10-21-tengu-conversion-on-the-practice-floor: done  # issue #367
   10-22-the-think-budget-amendment-to-adr-0010: done  # issue #368
   10-23-the-classloader-isolation-spike: done  # issue #369
   10-24-determinized-fight-rollouts: done  # issue #370
