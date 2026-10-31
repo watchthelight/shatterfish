@@ -126,7 +126,7 @@ class PlaybookValidatorTest {
         rejects("bosses", "{\"goo\":1}", "bosses.goo", "is an object");
         rejects("bosses", "{\"kraken\":{}}", "bosses.kraken", "not a boss the format names");
         rejects("bosses", "{\"goo\":{\"patience\":3}}", "bosses.goo.patience", "not a key the bosses.goo section defines");
-        rejects("bosses", "{\"tengu\":{\"drink_per_mille\":3}}", "bosses.tengu.drink_per_mille", "not a key");
+        rejects("bosses", "{\"tengu\":{\"rest_hp_per_mille\":3}}", "bosses.tengu.rest_hp_per_mille", "not a key");
         rejects("classes", "{\"MAGE\":{\"bosses\":{}}}", "classes.MAGE.bosses", "not a key a class entry defines");
         rejects("classes", "{\"MAGE\":{\"upgrade\":{\"tying\":1}}}", "classes.MAGE.upgrade.tying", "not a key");
     }
