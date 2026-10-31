@@ -92,9 +92,14 @@ class PickupThresholdTest {
         long strength = VALUING.worth("potion of strength", screen);
         long plain = VALUING.worth("ration of food", screen);
         assertTrue(plain < strength && plain < unknown && unknown < healing, plain + " < " + unknown + " < " + healing);
-        // Strength weighs 12 of 25 here (Beliefs.STRENGTH_WEIGHT) and adds the strength weight, healing 6 of 25 and adds the
-        // heal weight: the odds of each times what it adds, over the item's own worth.
-        assertEquals(2000 + Math.round(2000.0 * 12 / 25 + 12000.0 * 6 / 25), unknown);
+        // The odds of each identity times what it adds (strength the strength weight, healing the heal weight), over
+        // the item's own worth: read from the Beliefs, which weigh strength by the floors' schedule (issue #410).
+        Beliefs.Guess guess = Beliefs.identities(screen, Screens.CODEX).stream()
+                .filter(one -> one.label().equals("crimson potion")).findFirst().orElseThrow();
+        double strengthOdds = guess.odds().stream().filter(o -> o.name().equals("potion of strength")).mapToDouble(Beliefs.Odds::probability).sum();
+        double healingOdds = guess.odds().stream().filter(o -> o.name().equals("potion of healing")).mapToDouble(Beliefs.Odds::probability).sum();
+        assertTrue(strengthOdds > 0 && healingOdds > 0, guess.toString());
+        assertEquals(2000 + Math.round(2000.0 * strengthOdds + 12000.0 * healingOdds), unknown);
         assertEquals(new Action.Step(2), chooseValuing(room(60, 11, "crimson potion", STEPS)).action(), "ten cells: taken");
         assertEquals(new Action.Step(2), chooseValuing(room(60, 38, "crimson potion", STEPS)).action(), "thirty-seven cells: still taken");
         assertNull(chooseValuing(room(60, 50, "crimson potion", STEPS)), "forty-nine cells: not");

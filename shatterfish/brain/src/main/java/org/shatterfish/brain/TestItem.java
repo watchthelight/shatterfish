@@ -84,6 +84,20 @@ final class TestItem implements Policy {
     static final Set<String> INVENTORY_SCROLLS = Set.of("items.scrolls.ScrollOfIdentify",
             "items.scrolls.ScrollOfRemoveCurse", "items.scrolls.ScrollOfTransmutation", "items.scrolls.ScrollOfUpgrade");
 
+    /** The scroll of upgrade, by the Codex's class name. */
+    static final String UPGRADE_CLASS = "items.scrolls.ScrollOfUpgrade";
+
+    /**
+     * The odds of upgrade, in thousandths, at which an unknown scroll is read before the rest (issue #410): the
+     * read does what a known upgrade does, onto the worn armour, so it is not worth putting behind a scroll
+     * that is likelier something else. An assumption; the Rig measures it.
+     */
+    @org.shatterfish.api.Heuristic("identity-from-counts")
+    static final int UPGRADE_FIRST_PER_MILLE = 500;
+
+    /** The known scroll of identify, by the name the inventory shows (every class starts knowing it: HeroClass.java:117). */
+    static final String IDENTIFY = "scroll of identify";
+
     /** The potion of healing, by the Codex's class name. */
     static final String HEALING = "items.potions.PotionOfHealing";
 
@@ -153,6 +167,7 @@ final class TestItem implements Policy {
         }
         return upgrade(observation, observation.actions().actions(), upgrader, knowledge) != null
                 || gain(observation, observation.actions().actions(), identify) != null
+                || identifying(observation, memory, observation.actions().actions()) != null
                 || !testable(observation, memory).isEmpty() || restOwed(observation, memory, identify);
     }
 
@@ -198,6 +213,13 @@ final class TestItem implements Policy {
         if (gain != null) {
             return new Plan("", 0, new RunLog.Choice(gain, Policies.CERTAIN,
                     "drink: " + ((Action.UseItem) gain).item().name() + " (known_gains)"));
+        }
+        // A known scroll of identify goes onto an unknown potion before any is drunk to learn it (issue #410): the
+        // read costs a turn and nothing else, a drink may cost health, and a potion drunk was spent.
+        Action.UseItemOn identifying = settled ? identifying(observation, memory, offered) : null;
+        if (identifying != null) {
+            return new Plan("", 0, new RunLog.Choice(identifying, Policies.CERTAIN,
+                    "identify: " + identifying.target().name() + " (identify-held)"));
         }
         // An unknown scroll goes where a known upgrade would, but never onto the Mage's staff: an
         // unknown scroll of transmutation changes the item it is read onto (ScrollOfTransmutation.java:
@@ -548,7 +570,7 @@ final class TestItem implements Policy {
      */
     List<Testable> testable(Observation observation, Memory memory) {
         Map<String, Beliefs.Guess> guesses = new LinkedHashMap<>();
-        for (Beliefs.Guess guess : Beliefs.identities(observation, knowledge, memory.facts())) {
+        for (Beliefs.Guess guess : Beliefs.identities(observation, knowledge, memory, playbook.tunables())) {
             guesses.put(guess.label(), guess);
         }
         Playbook.Identify identify = playbook.identify(observation.header().heroClass());
@@ -592,9 +614,61 @@ final class TestItem implements Policy {
             }
             testable.add(new Testable(new ItemRef(index, item.name(), item.quantity()), item.quantity(), guess, verb, field));
         }
-        // Worth most first; the sort is stable, so equal worths keep the pack's order.
-        testable.sort(Comparator.comparingLong(TestItem::worth).reversed());
+        // A scroll likelier upgrade than not first (issue #410), then worth most first; the sort is stable, so
+        // equal worths keep the pack's order.
+        int upgradeFirst = playbook.tunables().getInt(org.shatterfish.api.Tunables.TEST_UPGRADE_FIRST);
+        testable.sort(Comparator.<Testable>comparingInt(item -> 1000 * odds(item.guess(), Set.of(UPGRADE_CLASS)) >= upgradeFirst ? 0 : 1)
+                .thenComparing(Comparator.comparingLong(TestItem::worth).reversed()));
         return testable;
+    }
+
+    /**
+     * The read of a known scroll of identify onto the unknown potion worth knowing most, or null (issue #410).
+     * Every class starts knowing the scroll (HeroClass.java:117), so one in the pack is a certain way to learn a
+     * potion with no test: held, the potion is neither drunk to learn it nor left unknown. The target is the
+     * potion likeliest to be strength or experience (a drink with a use), then the one with the most copies and
+     * candidates (the same worth the tests rank by). A scroll is not a target: it is read, and a read scroll of
+     * upgrade lands on the armour. A scroll not yet in the pack is not waited for: one random scroll in about six
+     * is identify (Generator.java:362-377, six cards of thirty), a floor holds fewer than one scroll, so the wait
+     * is about six floors, longer than a potion's use lasts; the tests therefore go on when none is held.
+     */
+    Action.UseItemOn identifying(Observation observation, Memory memory, List<Action> offered) {
+        if (has(observation, BLINDED) || has(observation, MAGIC_IMMUNE)) {
+            return null;
+        }
+        List<ItemView> items = observation.inventory().items();
+        ItemRef scroll = null;
+        for (int index = 0; index < items.size(); index++) {
+            ItemView item = items.get(index);
+            if (item.name().equals(IDENTIFY) && item.actions().contains(READ)) {
+                scroll = new ItemRef(index, item.name(), item.quantity());
+                break;
+            }
+        }
+        if (scroll == null) {
+            return null;
+        }
+        Map<String, Beliefs.Guess> guesses = new LinkedHashMap<>();
+        for (Beliefs.Guess guess : Beliefs.identities(observation, knowledge, memory, playbook.tunables())) {
+            guesses.put(guess.label(), guess);
+        }
+        List<Testable> targets = new ArrayList<>();
+        for (int index = 0; index < items.size(); index++) {
+            ItemView item = items.get(index);
+            Beliefs.Guess guess = guesses.get(item.name());
+            if (item.kind() == ItemKind.POTION && guess != null && guess.kind() == ItemKind.POTION && guess.odds().size() >= 2) {
+                targets.add(new Testable(new ItemRef(index, item.name(), item.quantity()), item.quantity(), guess, READ, "identify"));
+            }
+        }
+        targets.sort(Comparator.<Testable>comparingDouble(item -> -odds(item.guess(), GAINS))
+                .thenComparing(Comparator.comparingLong(TestItem::worth).reversed()));
+        for (Testable target : targets) {
+            Action.UseItemOn read = new Action.UseItemOn(scroll, READ, target.ref());
+            if (offered.contains(read)) {
+                return read;
+            }
+        }
+        return null;
     }
 
     /** The odds {@code guess} gives the identities of {@code classes}, by the Codex's class names. */
