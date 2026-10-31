@@ -178,7 +178,7 @@ development_status:
   10-14-doors-chokepoints-and-the-retreat-upstairs: done  # issue #360; already built (chokepoint hold, stairs retreat, rest above); the remaining non-starving Ascends are too few to measure, see docs/ideas/2026-10-30-starving-stairs-bounce.md
   10-15-prison-food-budgeting: done  # issue #361
   10-16-the-wandmaker-quest: backlog  # issue #362
-  10-17-the-power-curve-by-depth: backlog  # issue #363
+  10-17-the-power-curve-by-depth: review  # issue #363
   10-18-tengu-entry-key-and-seal: done  # issue #364; PR #397
   10-19-tengu-phase-one-the-dart-trap-memory: done  # issue #365
   10-20-tengu-phase-two-the-threat-map: done  # issue #366
