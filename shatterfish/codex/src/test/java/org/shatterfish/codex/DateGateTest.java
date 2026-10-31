@@ -205,7 +205,7 @@ class DateGateTest {
     void the_144_claims_are_gated() {
         DateGate.Gate gate = DateGate.Gate.of(ROOT, TAG);
         List<DateGate.Claim> claims = DateGate.claims(ROOT.resolve(Lore.DIR));
-        assertEquals(144, claims.size());
+        assertTrue(claims.size() >= 144, "the 144 converted claims and every claim entered since: " + claims.size());
         List<DateGate.Verdict> verdicts = new ArrayList<>();
         for (DateGate.Claim c : claims) {
             DateGate.Verdict v = gate.check(c);
@@ -214,7 +214,7 @@ class DateGateTest {
             assertNotNull(v.status());
         }
         Map<String, Integer> counts = DateGateReport.counts(verdicts);
-        assertEquals(144, counts.values().stream().mapToInt(Integer::intValue).sum());
+        assertEquals(claims.size(), counts.values().stream().mapToInt(Integer::intValue).sum());
         assertTrue(counts.get(DateGate.UNDATED) > 0, "the 144 were collected without dates, and the gate says so");
     }
 

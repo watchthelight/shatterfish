@@ -74,6 +74,11 @@ class TunableRegistryTest {
         BEFORE.put("brain.avoid_waits", 40L);
         BEFORE.put("brain.avoid_radius", 5L);
         BEFORE.put("chests.mimic_margin_per_mille", 1250L);
+        // Issue #410: the identity odds from counts, and the read order.
+        BEFORE.put("beliefs.notice_per_mille", 700L);
+        BEFORE.put("beliefs.draws_per_mille", 800L);
+        BEFORE.put("beliefs.leak_per_mille", 30L);
+        BEFORE.put("test_item.upgrade_first_per_mille", 500L);
         // Issue #412: the reaches and floors of the missile, dew and tall-grass levers; each new, so its default is its first value.
         BEFORE.put("pickup.missile_reach", 0L);
         BEFORE.put("pickup.dew_skin_below", 0L);

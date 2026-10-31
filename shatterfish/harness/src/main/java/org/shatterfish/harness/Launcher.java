@@ -206,6 +206,26 @@ public final class Launcher {
     }
 
     /**
+     * The true name behind every appearance of the Run, keyed {@code "<family> <appearance>"}, for the identity calibration
+     * of issue #410, which scores the Brain's odds against the truth and gives the truth to nothing. A second door beside
+     * {@link #hiddenFacts}, under the same flag and the same rule: it refuses unless the launch carries {@code --oracle},
+     * returns plain strings, and nothing in the Rig, the Overlay, a search or a Brain may call it
+     * ({@code IdentityOracleGateTest}).
+     *
+     * @throws IllegalStateException when {@code launch} was not given {@code --oracle}
+     */
+    public static java.util.Map<String, String> identityTruth(Launch launch) {
+        if (!launch.oracle()) {
+            throw new IllegalStateException("the true identities are read through the oracle, which only --oracle switches on");
+        }
+        java.util.Map<String, String> truth = new java.util.TreeMap<>();
+        for (OracleView.Identity identity : new OracleObserver().view().identities()) {
+            truth.put(identity.family() + " " + identity.appearance(), identity.trueName());
+        }
+        return truth;
+    }
+
+    /**
      * A sidecar's facts, one key each, the kind being the word before the first space: {@code identity} for an unknown
      * appearance an item of this floor shows (the pack or a heap), {@code elsewhere} for an unknown appearance of the
      * Run that no item of this floor shows (the denominator of story 1.21 counted these; ADR-0010's amendment of story

@@ -80,6 +80,7 @@ class CoachLineTest {
             Map.entry("test-item/escape", "escape: fire (escape_waits)"),
             Map.entry("test-item/upgrade", "upgrade: dagger"),
             Map.entry("test-item/drink", "drink: potion (known_gains)"),
+            Map.entry("test-item/identify", "identify: potion (identify-held)"),
             Map.entry("test-item/cell", "cell: scroll (reach)"),
             Map.entry("test-item/rest", "rest: after-test (rest_waits)"),
             Map.entry("test-item/test/healing", "test: potion (healing_odds_per_mille)"),

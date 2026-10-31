@@ -40,7 +40,7 @@ class VariantReportTest {
         List<Path> files = Lore.files(loreDir);
         List<String> before = files.stream().map(Lore::read).toList();
         List<VariantReport.Classified> claims = VariantReport.claims(VariantClassifier.of(ROOT, Upstream.tag(ROOT)), loreDir);
-        assertEquals(144, claims.size());
+        assertTrue(claims.size() >= 144, "the 144 converted claims and every claim entered since: " + claims.size());
         assertEquals(before, files.stream().map(Lore::read).toList(), "the report writes nothing");
         for (VariantReport.Classified c : claims) {
             assertFalse(c.result().evidence().isEmpty(), c.id());

@@ -486,12 +486,15 @@ class RedeterminationDifferentialTest {
                             fail("row " + row + " is held by the snapshot and the scrubbed copy equals the live Run in it");
                         }
                     }
-                }, "a scrubber without " + missing + " must fail");
+                }, "a scrubber without " + missing + " must fail (seed " + f.seed + " wait " + f.live.k() + ", rows shown " + shown + ")");
                 assertTrue(caught.getMessage().contains("row " + missing + " "), "the failure names " + missing + ": " + caught.getMessage());
                 everChecked.add(missing);
             }
         });
         System.out.println("REDETERMINE incomplete scrubbers named " + everChecked);
+        // CONTAINER_CONTENTS and UNSEEN_ITEMS are named by no fixture of the smoke Runs (their heaps rarely hold a shown
+        // skeleton or stack the scrub changes); the planted fixture of container_and_unseen_rows_differ
+        // exercises both, with a control that a scrubber without the row leaves the state as it was.
         assertTrue(everChecked.size() >= 6, "the fixtures showed " + everChecked + "; a missing row must be named for several rows");
     }
 
@@ -619,6 +622,15 @@ class RedeterminationDifferentialTest {
             Observation shownCopy = copyOf(f, copy);
             assertSameScreen("row " + row, again, shownCopy);
             assertTrue(differs(row, liveWorld, world(driver, live.k(), f)), "row " + row + " changes what lies there");
+            liveAgain(f);
+            // The control for the skip in an_incomplete_scrubber_names_the_missing_row: here only this row's scrub
+            // moves the state, so a scrubber without it leaves the copy equal to the live Run in it, and the check
+            // that names a missing row would fail.
+            EnumSet<ScrubRow> without = EnumSet.allOf(ScrubRow.class);
+            without.remove(row);
+            copyOf(f, new SnapshotScrubber(f.store, without).scrub(live, sample(1)));
+            assertTrue(!differs(row, liveWorld, world(driver, live.k(), f)),
+                    "a scrubber without " + row + " leaves what lies there as it was");
             liveAgain(f);
         }
         SnapshotHandle all = new SnapshotScrubber(store).scrub(live, sample(2));
