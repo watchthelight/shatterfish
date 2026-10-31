@@ -166,6 +166,19 @@ final class Ranged implements Policy {
     /** The throw at {@code target} that is worth its missile, or null. */
     private RunLog.Choice throwAt(Observation observation, List<Action> offered, ActorView target) {
         int strength = observation.hero().strength() + observation.hero().strengthBonus();
+        return throwAt(observation, offered, target, "throw: ", (item, tier) ->
+                1000 * expected(observation, target, item.name(), tier, strength)
+                        >= tunables.getInt(org.shatterfish.api.Tunables.RANGED_MIN_DAMAGE));
+    }
+
+    /**
+     * The throw of the best plain missile in the pack at {@code target} that {@code worth} accepts, or null when there
+     * is none to throw; the reason is {@code why} and the missile's name. Shared with the Goo fight
+     * ({@link Goo#volley}, story 10.38), which accepts every missile.
+     */
+    static RunLog.Choice throwAt(Observation observation, List<Action> offered, ActorView target, String why,
+                                 java.util.function.BiPredicate<ItemView, Integer> worth) {
+        int strength = observation.hero().strength() + observation.hero().strengthBonus();
         List<ItemView> items = observation.inventory().items();
         Action throwing = null;
         String thrown = "";
@@ -176,8 +189,7 @@ final class Ranged implements Policy {
             Integer tier = item.kind() == ItemKind.MISSILE ? TIERS.get(item.name()) : null;
             if (tier == null || item.slot() != EquipSlot.NONE || (item.cursedKnown() && item.visiblyCursed())
                     || (item.levelKnown() && item.visiblyUpgraded() != 0) || 2 * tier + 7 > strength + 1
-                    || 1000 * expected(observation, target, item.name(), tier, strength)
-                    < tunables.getInt(org.shatterfish.api.Tunables.RANGED_MIN_DAMAGE)) {
+                    || !worth.test(item, tier)) {
                 continue;
             }
             Action throwIt = new Action.UseItemAt(new ItemRef(index, item.name(), item.quantity()), THROW, target.cell());
@@ -188,7 +200,7 @@ final class Ranged implements Policy {
                 bestQuantity = item.quantity();
             }
         }
-        return throwing == null ? null : new RunLog.Choice(throwing, Policies.CERTAIN, "throw: " + thrown);
+        return throwing == null ? null : new RunLog.Choice(throwing, Policies.CERTAIN, why + thrown);
     }
 
     /**
