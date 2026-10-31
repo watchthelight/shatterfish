@@ -84,7 +84,7 @@ public final class Brain {
         policies.addAll(List.of(new Fight(knowledge, playbook.bosses().goo(), playbook.bosses().tengu(), playbook.tunables()), new Eat(knowledge),
                 new TestItem(knowledge, playbook), new Pickup(evaluation, knowledge, playbook.tunables()),
                 new Chests(evaluation, knowledge, playbook.tunables()),
-                new Equip(evaluation, knowledge), new Tengu(knowledge, playbook.bosses().tengu()),
+                new Equip(evaluation, knowledge, playbook.tunables()), new Tengu(knowledge, playbook.bosses().tengu()),
                 new Descend(knowledge, playbook.bosses(), playbook.tunables()),
                 new Explore(knowledge, playbook.tunables()), new Plunge(knowledge, playbook.tunables()),
                 Policies.fallback(evaluation)));

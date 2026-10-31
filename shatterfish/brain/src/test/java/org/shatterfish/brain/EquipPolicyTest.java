@@ -210,4 +210,20 @@ class EquipPolicyTest {
         final Equip.Piece sword = EQUIP.gear("shortsword");
         final Equip.Piece leather = EQUIP.gear("leather armor");
     }
+
+    @Test
+    @DisplayName("equip.armour_short_cost_per_mille prices a missing strength point as the game does (2 armour a point, Hero.java:652-656), and 0 keeps the cut by a third")
+    void short_cost() {
+        Equip.Piece leather = EQUIP.gear("leather armor");
+        assertEquals(Equip.effective(leather, 12), Equip.effective(leather, 12, 2000), "at the strength it asks, the cost is not charged");
+        int asks = leather.strength();
+        assertEquals(Math.max(0, leather.meanPerMille() - 4000), Equip.effective(leather, asks - 2, 2000), "two points short cost four armour");
+        assertTrue(Equip.effective(leather, asks - 3, 2000) <= Equip.effective(leather, asks - 2, 2000), "each point short costs more");
+        Equip priced = new Equip(new Evaluation(Screens.WEIGHTS), Screens.CODEX,
+                org.shatterfish.api.Tunables.Vector.REFERENCE.with(java.util.Map.of("equip.armour_short_cost_per_mille", 2000L)));
+        ItemView cloth = Screens.gear(ItemKind.ARMOR, "cloth armor", EquipSlot.ARMOR, true, false);
+        Observation shortOfIt = pack(1, asks - 2, List.of(unknown(ItemKind.ARMOR, "leather armor")), cloth);
+        assertNull(priced.choose(shortOfIt, Memory.START, shortOfIt.actions().actions(), Stream.at(1, 1)),
+                "two points short of leather, priced as the game does, the cloth stays on");
+    }
 }

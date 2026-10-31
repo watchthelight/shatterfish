@@ -164,6 +164,8 @@ public final class Tunables {
             "least damage a throw is expected to do, in thousandths of a hit point, for it to be worth the missile: 0 throws as before");
     public static final Tunable DESCEND_TRAMPLE_REACH = policy("descend.trample_reach", "Descend.TRAMPLE_REACH", 0, 0, 30, 2,
             "most steps walked on a spent floor to tall grass that may drop dew while the waterskin is not full: 0 never");
+    public static final Tunable EQUIP_ARMOUR_SHORT_COST = policy("equip.armour_short_cost_per_mille", "Equip.ARMOUR_SHORT_COST_PER_MILLE", 0, 0, 4000, 500,
+            "thousandths of a point of armour lost per strength point an armour asks beyond the hero (Hero.java:652-656 is 2000): 0 cuts a third each, as before");
     public static final Tunable EXPLORE_GRASS_SKIN_BELOW = policy("explore.grass_skin_below", "Explore.GRASS_SKIN_BELOW", 0, 0, 20, 4,
             "equally short ways break toward tall grass while the waterskin shows less than this of its 20: 0 never");
 
@@ -172,6 +174,7 @@ public final class Tunables {
 
     private static List<Tunable> all() {
         List<Tunable> found = new ArrayList<>(List.of(
+                EQUIP_ARMOUR_SHORT_COST,
                 IDENTIFY_ESCAPE_WAITS,
                 IDENTIFY_GAIN_ODDS,
                 IDENTIFY_HEALING_ODDS,
