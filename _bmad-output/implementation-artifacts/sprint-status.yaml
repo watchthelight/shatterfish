@@ -199,7 +199,7 @@ development_status:
   10-35-the-registry-of-tunable-parameters: done  # issue #382
   10-36-the-tune-runner: done  # issue #383; PR #405
   10-37-the-first-tuning-run: backlog  # issue #384
-  10-38-the-goo-fight-on-depth-5: backlog  # issue #422; added by 10.7
+  10-38-the-goo-fight-on-depth-5: done  # issue #422; added by 10.7
   10-39-prison-food-the-second-pass: backlog  # issue #423; added by 10.7
   10-40-the-sewers-killers: backlog  # issue #424; added by 10.7
   epic-10-retrospective: optional

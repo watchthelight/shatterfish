@@ -120,6 +120,9 @@ final class CoachLine {
             new Template("fight", "goo/attack", "to fight Goo", "goo-engage"),
             new Template("fight", "goo/wait", "to wait for Goo's move", "goo-pump"),
             new Template("fight", "goo/approach", "to close in on Goo", "goo-engage"),
+            new Template("fight", "goo/volley", "to hit Goo from a distance", "goo-volley"),
+            new Template("fight", "goo/position", "to get clear ground to dodge on", "goo-position"),
+            new Template("fight", "goo/wash", "to walk to water", "goo-wash"),
             new Template("fallback", "fallback", "nothing better to do", NO_CLAIM));
 
     /** The flag phrases, in the order a Decision's flags are tried: the first one the clause does not already say is added. */
@@ -207,7 +210,9 @@ final class CoachLine {
             return detail.contains("stairs") ? "retreat/stairs" : detail.startsWith("leave water") ? "retreat/water" : "retreat";
         }
         if (policy.equals("fight") && head.equals("goo")) {
-            return detail.startsWith("attack") ? "goo/attack" : detail.startsWith("wait") ? "goo/wait" : "goo/approach";
+            return detail.startsWith("attack") ? "goo/attack" : detail.startsWith("wait") ? "goo/wait"
+                    : detail.startsWith("volley") ? "goo/volley" : detail.startsWith("position") ? "goo/position"
+                    : detail.startsWith("wash") ? "goo/wash" : "goo/approach";
         }
         return head;
     }
