@@ -236,7 +236,11 @@ public final class Direction {
                 : DirectionMetrics.table("current " + commit.substring(0, 9) + (tunables.isEmpty() ? "" : " + tunables"), DirectionMetrics.read(currentFolder),
                         baselineName, baselineLogs == null ? null : DirectionMetrics.read(baselineLogs));
         StringBuilder text = new StringBuilder();
-        text.append(describe).append("\n\n").append(table).append("\n").append(killerSection(currentFolder, every));
+        text.append(describe).append("\n\n").append(table);
+        if (baselineLogs != null && !every) {
+            text.append(DirectionHarm.rows(DirectionHarm.read(baselineLogs), DirectionHarm.read(currentFolder)));
+        }
+        text.append("\n").append(killerSection(currentFolder, every));
         text.append("\nStray actor-thread wakes (issue #399): ").append(strayText(strayNow)).append(" current");
         if (baselineLogs != null) {
             text.append(", ").append(strayText(strayBase)).append(" baseline");

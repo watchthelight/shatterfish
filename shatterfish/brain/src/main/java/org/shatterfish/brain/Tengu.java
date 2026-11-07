@@ -82,6 +82,18 @@ final class Tengu implements Policy {
     }
 
     /**
+     * The awake Tengu among {@code enemies} on the sealed floor, when he is the only one: the fight {@link #engage}
+     * plays and the heal Policy drinks against by the Playbook's {@code drink_per_mille} (story 10.21). Else null.
+     */
+    static org.shatterfish.api.ActorView alone(Observation observation, List<org.shatterfish.api.ActorView> enemies) {
+        if (enemies.size() != 1 || !Darts.here(observation)) {
+            return null;
+        }
+        org.shatterfish.api.ActorView boss = enemies.get(0);
+        return boss.name().equals(BOSS) && boss.emote() != org.shatterfish.api.Emote.SLEEP ? boss : null;
+    }
+
+    /**
      * Whether the hero stands on the prison boss floor before its seal with nothing in view: the screen on
      * which the stairs up are no choice at all (no mob lives on this floor before the seal,
      * PrisonBossLevel.java:598-604, so an enemy in view came down the stairs behind the hero).

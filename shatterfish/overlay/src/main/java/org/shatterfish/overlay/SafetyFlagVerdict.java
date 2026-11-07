@@ -7,8 +7,8 @@ package org.shatterfish.overlay;
  *
  * <p>{@code org.shatterfish.brain.Safety} (package-private to {@code brain}) is the one place a
  * flag's own text is decided, and today's four ({@code Safety.ALL}, mirrored by the public
- * {@code Brain.safetyFlags()}) are {@code hp-low}, {@code enemy-in-view}, {@code hungry} and
- * {@code starving}: none is "ok" today (the story's own "As the human ... spot a bad belief" line
+ * {@code Brain.safetyFlags()}) are {@code hp-low}, {@code enemy-in-view}, {@code hungry},
+ * {@code starving} and {@code in-harm}: none is "ok" today (the story's own "As the human ... spot a bad belief" line
  * is about beliefs, not flags; {@code EXPERIENCE.md}'s "ok: fighting in corridor" line is a
  * later Policy's flag, not one {@code Safety} raises yet -- {@code docs/ideas/}). This class
  * only decides the colour; it never invents a flag's text.
@@ -20,6 +20,9 @@ package org.shatterfish.overlay;
  *   tint, at zero health "the worst danger there is."</li>
  *   <li>{@code starving} -- danger. {@code Hunger.java:161-164}: starving deals the hero damage
  *   every hunger tick, and more the longer it is not fed, unlike hungry alone.</li>
+ *   <li>{@code in-harm} -- danger. Fire or a harmful gas is drawn on the hero's own cell
+ *   (issue #408): it hurts or disables the hero at the end of every turn it stays
+ *   ({@code ToxicGas.java:40}, {@code Fire.java:100-102}, {@code ParalyticGas.java:52}).</li>
  *   <li>{@code hungry} -- warn. {@code Hunger.java:159-160}: only a warning message; no damage
  *   yet.</li>
  *   <li>{@code enemy-in-view} -- warn. Conditional on the fight, exactly {@code DESIGN.md}'s own
@@ -50,7 +53,7 @@ enum SafetyFlagVerdict {
     /** {@code flag}'s verdict, by the mapping this class's own Javadoc cites; {@link #WARN} for an unrecognised one. */
     static SafetyFlagVerdict of(String flag) {
         return switch (flag) {
-            case "hp-low", "starving" -> DANGER;
+            case "hp-low", "starving", "in-harm" -> DANGER;
             case "hungry", "enemy-in-view" -> WARN;
             default -> WARN;
         };

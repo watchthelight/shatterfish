@@ -29,6 +29,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class RoomEvidenceTest {
 
+    /** Liquid flame's odds with no room in sight: the count model's share (issue #410) of one new potion, where the deck weights alone gave 3/26. */
+    private static final double PRIOR = 0.1094905962365259;
+
     private static final Codex.Knowledge CODEX = new Codex.Knowledge(Screens.CODEX.manifest(),
             List.of(new Codex.Identities(ItemKind.POTION, List.of("crimson potion", "amber potion", "golden potion", "ivory potion"),
                     List.of(new Codex.Candidate("items.potions.PotionOfStrength", "potion of strength", 0),
@@ -87,7 +90,7 @@ class RoomEvidenceTest {
         Beliefs with = after(screen(2, STORAGE, List.of(), List.of(), List.of(), List.of(potion(0, "crimson potion")), List.of()));
         Beliefs without = after(screen(2, PLAIN, List.of(), List.of(), List.of(), List.of(potion(0, "crimson potion")), List.of()));
         double prior = p(without, "crimson potion", "potion of liquid flame");
-        assertEquals(3.0 / 26, prior, 1e-9, "no room: the deck share");
+        assertEquals(PRIOR, prior, 1e-9, "no room: the deck share");
         assertTrue(p(with, "crimson potion", "potion of liquid flame") > 0.5, with.identities().toString());
     }
 
@@ -96,7 +99,7 @@ class RoomEvidenceTest {
     void other_floor() {
         Beliefs beliefs = after(screen(1, PLAIN, List.of(), List.of(), List.of(), List.of(potion(0, "crimson potion")), List.of()),
                 screen(2, STORAGE, List.of(), List.of(), List.of(), List.of(potion(0, "crimson potion")), List.of()));
-        assertEquals(3.0 / 26, p(beliefs, "crimson potion", "potion of liquid flame"), 1e-9);
+        assertEquals(PRIOR, p(beliefs, "crimson potion", "potion of liquid flame"), 1e-9);
     }
 
     @Test
@@ -107,7 +110,7 @@ class RoomEvidenceTest {
         double a = p(beliefs, "crimson potion", "potion of liquid flame");
         double b = p(beliefs, "amber potion", "potion of liquid flame");
         assertEquals(a, b, 1e-9);
-        assertTrue(a > 3.0 / 26 && a < 0.5, "" + a);
+        assertTrue(a > PRIOR && a < 0.5, "" + a);
     }
 
     @Test
@@ -118,11 +121,11 @@ class RoomEvidenceTest {
             traps.add(new TrapView(cell, "fire trap", false));
         }
         Beliefs scattered = after(screen(2, PLAIN, traps, List.of(), List.of(), List.of(potion(0, "crimson potion")), List.of()));
-        assertEquals(3.0 / 26, p(scattered, "crimson potion", "potion of liquid flame"), 1e-9);
+        assertEquals(PRIOR, p(scattered, "crimson potion", "potion of liquid flame"), 1e-9);
         List<Tile> open = new ArrayList<>(PLAIN);
         open.set(8, Tile.BARRICADE);
         Beliefs lone = after(screen(2, open, List.of(), List.of(), List.of(), List.of(potion(0, "crimson potion")), List.of()));
-        assertEquals(3.0 / 26, p(lone, "crimson potion", "potion of liquid flame"), 1e-9, "no wall, no special floor");
+        assertEquals(PRIOR, p(lone, "crimson potion", "potion of liquid flame"), 1e-9, "no wall, no special floor");
     }
 
     @Test

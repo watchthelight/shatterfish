@@ -45,7 +45,7 @@ class PlaybookEquivalenceTest {
     /** What the Java constants held before the story: the odds, the cap, the reach and the waits, as the Playbook states them. */
     static final String THE_CONSTANTS = "{\"bosses\":{\"dm300\":{\"descent_rest_per_mille\":1000,\"status\":\"UNTESTED\"},"
             + "\"goo\":{\"descent_rest_per_mille\":1000,\"drink_per_mille\":400,\"meet_range\":6,\"wash_range\":4},"
-            + "\"tengu\":{\"adjacent_cost\":6,\"bomb_cost\":22,\"descent_rest_per_mille\":1000,\"enter_per_mille\":1000,\"fire_cost\":18,\"rest_limit\":20,\"shock_cost\":12,\"status\":\"UNTESTED\"}},\"classes\":{},\"format\":1,"
+            + "\"tengu\":{\"adjacent_cost\":6,\"bomb_cost\":22,\"descent_rest_per_mille\":1000,\"drink_per_mille\":400,\"enter_per_mille\":1000,\"fire_cost\":18,\"rest_limit\":20,\"shock_cost\":12,\"status\":\"UNTESTED\"}},\"classes\":{},\"format\":1,"
             + "\"identify\":{\"escape_waits\":12,\"gain_odds_per_mille\":200,\"healing_odds_per_mille\":200,"
             + "\"inventory_odds_per_mille\":250,\"known_gains\":0,\"potion_hp_per_mille\":500,\"reach\":8,\"rest_hp_per_mille\":1000,\"rest_waits\":50,\"scroll_hp_per_mille\":1000},\"kit\":{\"zap_reach\":0},"
             + "\"name\":\"shatterfish\",\"upgrade\":{\"hold_until_depth\":0,\"tie\":\"WEAPON\",\"unknown_weapon\":\"NO\",\"weapon_lead\":0},\"version\":1}\n";
@@ -103,14 +103,14 @@ class PlaybookEquivalenceTest {
         Path java = Path.of(System.getProperty("java.home"), "bin", "java");
         Path exe = Path.of(java + ".exe");
         List<org.shatterfish.api.SeedSet.Entry> entries = SeedSets.load(root, SeedSets.SMOKE).set().entries();
-        List<Process> running = new ArrayList<>();
+        List<Started> running = new ArrayList<>();
         for (int i = 0; i < entries.size(); i++) {
             org.shatterfish.api.SeedSet.Entry entry = entries.get(i);
             if (!only.contains(entry.heroClass())) {
                 continue;
             }
             Path working = Files.createDirectories(out.resolve("work").resolve(Integer.toString(i)));
-            running.add(new ProcessBuilder(Files.exists(exe) ? exe.toString() : java.toString(),
+            running.add(new Started(working, new ProcessBuilder(Files.exists(exe) ? exe.toString() : java.toString(),
                     "-cp", System.getProperty("java.class.path"), RunOne.class.getName(),
                     RunOne.SEED, Long.toString(entry.seed()),
                     RunOne.CLASS, entry.heroClass().name(),
@@ -126,7 +126,7 @@ class PlaybookEquivalenceTest {
                     RunOne.WEIGHTS, WeightsFile.of(root, Brains.SHATTERFISH).toAbsolutePath().toString(),
                     RunOne.PLAYBOOK, PlaybookFile.of(root, Brains.SHATTERFISH).toAbsolutePath().toString())
                     .directory(working.toFile()).redirectErrorStream(true).redirectOutput(working.resolve("out.txt").toFile())
-                    .start());
+                    .start()));
             if (running.size() == 2) {
                 finish(running);
             }
@@ -140,16 +140,45 @@ class PlaybookEquivalenceTest {
         return logs;
     }
 
-    private static void finish(List<Process> running) {
-        for (Process process : running) {
+    /** A child Run and the folder it works in, where its output and any JVM crash report land. */
+    private record Started(Path working, Process process) {}
+
+    private static void finish(List<Started> running) {
+        for (Started started : running) {
             try {
-                assertEquals(0, process.waitFor(), "a Run ended cleanly");
+                int code = started.process().waitFor();
+                assertEquals(0, code, "a Run ended cleanly" + (code == 0 ? "" : diagnosis(started.working())));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new IllegalStateException(e);
             }
         }
         running.clear();
+    }
+
+    /**
+     * What a child that did not end cleanly left behind: the tail of its output and the head of any JVM crash report
+     * (the temp folder is deleted with the test, so a CI log is the only place this survives).
+     */
+    static String diagnosis(Path working) {
+        StringBuilder out = new StringBuilder("\n--- child output (last 60 lines) from ").append(working).append(" ---\n");
+        try {
+            Path text = working.resolve("out.txt");
+            if (Files.exists(text)) {
+                List<String> lines = Files.readAllLines(text, StandardCharsets.UTF_8);
+                lines.subList(Math.max(0, lines.size() - 60), lines.size()).forEach(l -> out.append(l).append('\n'));
+            }
+            try (java.util.stream.Stream<Path> files = Files.list(working)) {
+                for (Path crash : files.filter(f -> f.getFileName().toString().startsWith("hs_err")).toList()) {
+                    out.append("--- ").append(crash.getFileName()).append(" (first 80 lines) ---\n");
+                    List<String> lines = Files.readAllLines(crash, StandardCharsets.UTF_8);
+                    lines.subList(0, Math.min(80, lines.size())).forEach(l -> out.append(l).append('\n'));
+                }
+            }
+        } catch (IOException | RuntimeException e) {
+            out.append("(could not read it: ").append(e).append(")\n");
+        }
+        return out.toString();
     }
 
     /** Every wait of a log: the Action chosen and the Decision behind it, which is what the Brain did. */

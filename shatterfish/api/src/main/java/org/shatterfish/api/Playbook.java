@@ -513,6 +513,7 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
      * @param fireCost            the hit points a cell the fire is shown on is expected to cost (it sets the hero burning)
      * @param shockCost           the hit points a cell beside a shocker is expected to cost (12 at depth 10, every other turn)
      * @param adjacentCost        the hit points a turn away from the cells beside Tengu is worth: the strike not made
+     * @param drinkPerMille       the share of the hit points, in thousandths, at or under which a healing potion is drunk against Tengu alone (story 10.21)
      */
     public record Tengu(
             @Heuristic("rest-before-descend") int descentRestPerMille,
@@ -522,13 +523,15 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
             @Heuristic("tengu-threat") int bombCost,
             @Heuristic("tengu-threat") int fireCost,
             @Heuristic("tengu-threat") int shockCost,
-            @Heuristic("tengu-threat") int adjacentCost) {
+            @Heuristic("tengu-threat") int adjacentCost,
+            @Heuristic("tengu-heal") int drinkPerMille) {
 
         /** The fields, sorted as the file states them. */
         public static final List<Spec> SPECS = List.of(
                 Spec.number("adjacent_cost", 0, 100),
                 Spec.number("bomb_cost", 0, 100),
                 Spec.number("descent_rest_per_mille", 1, 1000),
+                Spec.number("drink_per_mille", 1, 1000),
                 Spec.number("enter_per_mille", 1, 1000),
                 Spec.number("fire_cost", 0, 100),
                 Spec.number("rest_limit", 0, 100),
@@ -536,25 +539,33 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
                 Spec.choice("status", List.of("TESTED", "UNTESTED")));
 
         /** Rest to full on both sides of the stairs, a rest limit as the descend Policy's, untested; the costs of {@code docs/rules/levels.md}. */
-        public static final Tengu REFERENCE = new Tengu(1000, 1000, 20, "UNTESTED", 22, 18, 12, 6);
+        public static final Tengu REFERENCE = new Tengu(1000, 1000, 20, "UNTESTED", 22, 18, 12, 6, 400);
 
         public Tengu {
             check(SPECS.get(0), adjacentCost);
             check(SPECS.get(1), bombCost);
             check(SPECS.get(2), descentRestPerMille);
-            check(SPECS.get(3), enterPerMille);
-            check(SPECS.get(4), fireCost);
-            check(SPECS.get(5), restLimit);
-            check(SPECS.get(6), shockCost);
+            check(SPECS.get(3), drinkPerMille);
+            check(SPECS.get(4), enterPerMille);
+            check(SPECS.get(5), fireCost);
+            check(SPECS.get(6), restLimit);
+            check(SPECS.get(7), shockCost);
             java.util.Objects.requireNonNull(status, "status");
-            Canon.require(SPECS.get(7).allowed().contains(status),
-                    "status is one of " + SPECS.get(7).allowed() + ": " + status);
+            Canon.require(SPECS.get(8).allowed().contains(status),
+                    "status is one of " + SPECS.get(8).allowed() + ": " + status);
         }
 
         /** The entry before story 10.20 gave it costs: the fields of story 10.18 and the reference costs. */
         public Tengu(int descentRestPerMille, int enterPerMille, int restLimit, String status) {
             this(descentRestPerMille, enterPerMille, restLimit, status, REFERENCE.bombCost, REFERENCE.fireCost,
-                    REFERENCE.shockCost, REFERENCE.adjacentCost);
+                    REFERENCE.shockCost, REFERENCE.adjacentCost, REFERENCE.drinkPerMille);
+        }
+
+        /** The entry before story 10.21 gave it a drink: the fields of story 10.20 and the reference drink. */
+        public Tengu(int descentRestPerMille, int enterPerMille, int restLimit, String status, int bombCost, int fireCost,
+                     int shockCost, int adjacentCost) {
+            this(descentRestPerMille, enterPerMille, restLimit, status, bombCost, fireCost, shockCost, adjacentCost,
+                    REFERENCE.drinkPerMille);
         }
 
         /** The fields by name, in {@link #SPECS} order. */
@@ -563,6 +574,7 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
             values.put("adjacent_cost", (long) adjacentCost);
             values.put("bomb_cost", (long) bombCost);
             values.put("descent_rest_per_mille", (long) descentRestPerMille);
+            values.put("drink_per_mille", (long) drinkPerMille);
             values.put("enter_per_mille", (long) enterPerMille);
             values.put("fire_cost", (long) fireCost);
             values.put("rest_limit", (long) restLimit);
@@ -577,7 +589,12 @@ public record Playbook(String name, int version, Identify identify, Upgrade upgr
             values.putAll(given);
             return new Tengu(num(values, "descent_rest_per_mille"), num(values, "enter_per_mille"),
                     num(values, "rest_limit"), (String) values.get("status"), num(values, "bomb_cost"),
-                    num(values, "fire_cost"), num(values, "shock_cost"), num(values, "adjacent_cost"));
+                    num(values, "fire_cost"), num(values, "shock_cost"), num(values, "adjacent_cost"), num(values, "drink_per_mille"));
+        }
+
+        /** The hit points at or under which the hero drinks against Tengu alone, for a hero of {@code ht} hit points. */
+        public int danger(int ht) {
+            return (int) (((long) ht * drinkPerMille + 999) / 1000);
         }
     }
 

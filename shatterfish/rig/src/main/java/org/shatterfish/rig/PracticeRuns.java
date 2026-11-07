@@ -120,7 +120,8 @@ public final class PracticeRuns {
     /** One class's practice Runs, read back. */
     record Side(HeroClass heroClass, int runs, int killed, int died, int capped, int other, int unfinished,
                 List<Double> killTurns, List<Double> deathTurns, Map<String, Integer> killers, List<Integer> lastHp,
-                int keyHeld, int sealed, int phaseTwo, List<Integer> bossPips, int draws) {
+                int keyHeld, int sealed, int phaseTwo, List<Integer> bossPips, int draws,
+                List<PracticeDamage.Loss> losses) {
 
         int finished() {
             return killed + died + capped + other;
@@ -325,6 +326,7 @@ public final class PracticeRuns {
         int phaseTwo = 0;
         int draws = 0;
         List<Integer> bossPips = new ArrayList<>();
+        List<PracticeDamage.Loss> losses = new ArrayList<>();
         for (Path log : list(folder, ".jsonl")) {
             RunLogReader.Log read = RunLogReader.of(log);
             if (!read.readable() || read.records().isEmpty() || !(read.records().get(0) instanceof RunLog.Header header)) {
@@ -358,6 +360,7 @@ public final class PracticeRuns {
                 case "DEATH" -> {
                     died++;
                     deathTurns.add(turns);
+                    losses.add(PracticeDamage.of(log));
                     String[] killer = killerOf(log);
                     killers.merge(killer[0], 1, Integer::sum);
                     if (fought.lastPips() >= 0) {
@@ -372,7 +375,7 @@ public final class PracticeRuns {
             }
         }
         return new Side(heroClass, runs, killed, died, capped, other, unfinished, killTurns, deathTurns, killers, lastHp,
-                keyHeld, sealed, phaseTwo, bossPips, draws);
+                keyHeld, sealed, phaseTwo, bossPips, draws, losses);
     }
 
     /** What the Run's debug record shows of the fight (story 10.19). */
@@ -528,7 +531,48 @@ public final class PracticeRuns {
             }
             out.append("\n");
         }
+        out.append(damage(sides));
         return out.toString();
+    }
+
+    /**
+     * Hit points lost per died Run by source (story 10.21, {@link PracticeDamage}): the mean over the Runs that
+     * died, and the share of the loss that fell in a turn with more than one source on the screen.
+     */
+    static String damage(List<Side> sides) {
+        StringBuilder out = new StringBuilder();
+        out.append("\nHit points lost per Run that died, by source (mean; the split is the screen's, see PracticeDamage):\n\n");
+        out.append("| class | Runs died | melee | thrown | bomb | fire | shock | poison | dart trap | unknown | total lost | healed back"
+                + " | of the loss, in ambiguous turns |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
+        List<PracticeDamage.Loss> all = new ArrayList<>();
+        for (Side s : sides) {
+            damageRow(out, s.heroClass().name(), s.losses());
+            all.addAll(s.losses());
+        }
+        if (sides.size() > 1) {
+            damageRow(out, "all", all);
+        }
+        return out.toString();
+    }
+
+    private static void damageRow(StringBuilder out, String label, List<PracticeDamage.Loss> losses) {
+        int n = losses.size();
+        out.append("| ").append(label).append(" | ").append(n);
+        int total = 0;
+        int ambiguous = 0;
+        int healed = 0;
+        for (PracticeDamage.Source source : PracticeDamage.Source.values()) {
+            int sum = losses.stream().mapToInt(l -> l.bySource().get(source)).sum();
+            total += sum;
+            out.append(" | ").append(n == 0 ? "n/a" : String.format(Locale.ROOT, "%.1f", (double) sum / n));
+        }
+        for (PracticeDamage.Loss l : losses) {
+            ambiguous += l.ambiguous();
+            healed += l.healed();
+        }
+        out.append(" | ").append(n == 0 ? "n/a" : String.format(Locale.ROOT, "%.1f", (double) total / n))
+                .append(" | ").append(n == 0 ? "n/a" : String.format(Locale.ROOT, "%.1f", (double) healed / n))
+                .append(" | ").append(percent(ambiguous, total)).append(" |\n");
     }
 
     private static String percent(int part, int whole) {

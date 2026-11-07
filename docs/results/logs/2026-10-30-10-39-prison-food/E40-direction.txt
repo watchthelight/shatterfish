@@ -1,0 +1,258 @@
+standard ALL (the first 40 of each class, salts 1000..1039 within each), 240 entries
+
+#### WARRIOR
+
+| | C:/Users/bash/AppData/Local/Temp/claude/C--Users-Claude-Code-shatterfish/0ddde1b0-4ed0-4079-9483-ae9773c37776/scratchpad/s1039/base40/current | current 8c783944e + tunables | delta |
+|---|---|---|---|
+| Runs | 40 | 40 | 0 |
+| reach depth 5 | 31/40 | 32/40 | +1 |
+| reach depth 10 | 0/40 | 0/40 | 0 |
+| reach depth 15 | 0/40 | 0/40 | 0 |
+| bosses killed | 27/40 | 29/40 | +2 |
+| Goo kills | 27/40 | 29/40 | +2 |
+| Tengu kills | 0/40 | 0/40 | 0 |
+| median turns | 2063.5 | 2193.0 | +129.50 |
+| deepest mean / max | 5.650 / 8 | 5.850 / 8 | +0.20 |
+| deaths by depth 1..8 | 1/1/3/4/4/13/12/2 | 1/0/3/4/4/10/16/2 |  |
+| searches per floor | 12.31 | 12.45 | +0.14 |
+| search waits per floor | 18.73 | 18.85 | +0.12 |
+| oscillation Steps | 528 | 542 | +14 |
+| heaps taken / seen | 3340/3613 | 3472/3814 | +132 |
+| seen to taken, median waits | 7 | 8 | +1 |
+| heaps taking over 100 waits | 98 of 3613 | 102 of 3814 | +4 |
+| upgrade scrolls picked up by depth 5 | 50 | 52 | +2 |
+| upgrades read by depth 5 | 88 | 91 | +3 |
+| think ms per Decision, mean / p95 | 1.5 / 5 | 3.2 / 10 | +1.62 |
+
+#### MAGE
+
+| | C:/Users/bash/AppData/Local/Temp/claude/C--Users-Claude-Code-shatterfish/0ddde1b0-4ed0-4079-9483-ae9773c37776/scratchpad/s1039/base40/current | current 8c783944e + tunables | delta |
+|---|---|---|---|
+| Runs | 40 | 40 | 0 |
+| reach depth 5 | 20/40 | 17/40 | -3 |
+| reach depth 10 | 0/40 | 0/40 | 0 |
+| reach depth 15 | 0/40 | 0/40 | 0 |
+| bosses killed | 11/40 | 9/40 | -2 |
+| Goo kills | 11/40 | 9/40 | -2 |
+| Tengu kills | 0/40 | 0/40 | 0 |
+| median turns | 1564.0 | 1479.0 | -85 |
+| deepest mean / max | 4.550 / 8 | 4.500 / 8 | -0.05 |
+| deaths by depth 1..8 | 0/4/8/8/9/5/5/1 | 0/2/8/13/8/4/4/1 |  |
+| searches per floor | 12.96 | 12.23 | -0.72 |
+| search waits per floor | 21.22 | 20.21 | -1.01 |
+| oscillation Steps | 507 | 684 | +177 |
+| heaps taken / seen | 2061/2356 | 2045/2335 | -16 |
+| seen to taken, median waits | 7 | 7 | 0 |
+| heaps taking over 100 waits | 81 of 2356 | 92 of 2335 | +11 |
+| upgrade scrolls picked up by depth 5 | 76 | 77 | +1 |
+| upgrades read by depth 5 | 75 | 77 | +2 |
+| think ms per Decision, mean / p95 | 1.1 / 3 | 2.6 / 9 | +1.56 |
+
+#### ROGUE
+
+| | C:/Users/bash/AppData/Local/Temp/claude/C--Users-Claude-Code-shatterfish/0ddde1b0-4ed0-4079-9483-ae9773c37776/scratchpad/s1039/base40/current | current 8c783944e + tunables | delta |
+|---|---|---|---|
+| Runs | 40 | 40 | 0 |
+| reach depth 5 | 15/40 | 13/40 | -2 |
+| reach depth 10 | 0/40 | 0/40 | 0 |
+| reach depth 15 | 0/40 | 0/40 | 0 |
+| bosses killed | 10/40 | 8/40 | -2 |
+| Goo kills | 10/40 | 8/40 | -2 |
+| Tengu kills | 0/40 | 0/40 | 0 |
+| median turns | 1768.0 | 1437.3 | -330.75 |
+| deepest mean / max | 4.125 / 7 | 3.975 / 7 | -0.15 |
+| deaths by depth 1..7 | 2/4/6/13/6/8/1 | 2/5/7/13/5/7/1 |  |
+| searches per floor | 13.08 | 12.77 | -0.31 |
+| search waits per floor | 19.28 | 18.77 | -0.51 |
+| oscillation Steps | 345 | 297 | -48 |
+| heaps taken / seen | 2384/2684 | 2235/2606 | -149 |
+| seen to taken, median waits | 7 | 7 | 0 |
+| heaps taking over 100 waits | 83 of 2684 | 76 of 2606 | -7 |
+| upgrade scrolls picked up by depth 5 | 34 | 32 | -2 |
+| upgrades read by depth 5 | 68 | 65 | -3 |
+| think ms per Decision, mean / p95 | 1.0 / 3 | 3.0 / 10 | +1.96 |
+
+#### HUNTRESS
+
+| | C:/Users/bash/AppData/Local/Temp/claude/C--Users-Claude-Code-shatterfish/0ddde1b0-4ed0-4079-9483-ae9773c37776/scratchpad/s1039/base40/current | current 8c783944e + tunables | delta |
+|---|---|---|---|
+| Runs | 40 | 40 | 0 |
+| reach depth 5 | 25/40 | 24/40 | -1 |
+| reach depth 10 | 0/40 | 0/40 | 0 |
+| reach depth 15 | 0/40 | 0/40 | 0 |
+| bosses killed | 18/40 | 16/40 | -2 |
+| Goo kills | 18/40 | 16/40 | -2 |
+| Tengu kills | 0/40 | 0/40 | 0 |
+| median turns | 1806.3 | 1735.5 | -70.75 |
+| deepest mean / max | 4.850 / 7 | 4.850 / 7 | 0 |
+| deaths by depth 1..7 | 1/2/5/7/7/15/3 | 1/2/4/9/8/11/5 |  |
+| searches per floor | 12.65 | 12.37 | -0.28 |
+| search waits per floor | 19.95 | 19.38 | -0.57 |
+| oscillation Steps | 591 | 575 | -16 |
+| heaps taken / seen | 2150/2448 | 2052/2344 | -98 |
+| seen to taken, median waits | 8 | 8 | 0 |
+| heaps taking over 100 waits | 163 of 2448 | 127 of 2344 | -36 |
+| upgrade scrolls picked up by depth 5 | 46 | 45 | -1 |
+| upgrades read by depth 5 | 81 | 80 | -1 |
+| think ms per Decision, mean / p95 | 1.1 / 4 | 3.7 / 13 | +2.55 |
+
+#### DUELIST
+
+| | C:/Users/bash/AppData/Local/Temp/claude/C--Users-Claude-Code-shatterfish/0ddde1b0-4ed0-4079-9483-ae9773c37776/scratchpad/s1039/base40/current | current 8c783944e + tunables | delta |
+|---|---|---|---|
+| Runs | 40 | 40 | 0 |
+| reach depth 5 | 19/40 | 17/40 | -2 |
+| reach depth 10 | 0/40 | 0/40 | 0 |
+| reach depth 15 | 0/40 | 0/40 | 0 |
+| bosses killed | 12/40 | 12/40 | 0 |
+| Goo kills | 12/40 | 12/40 | 0 |
+| Tengu kills | 0/40 | 0/40 | 0 |
+| median turns | 1579.5 | 1403.0 | -176.50 |
+| deepest mean / max | 4.450 / 8 | 4.225 / 7 | -0.23 |
+| deaths by depth 1..8 | 3/2/6/10/7/7/4/1 | 3/2/10/8/5/9/3/0 |  |
+| searches per floor | 12.40 | 12.59 | +0.19 |
+| search waits per floor | 19.33 | 19.41 | +0.08 |
+| oscillation Steps | 426 | 330 | -96 |
+| heaps taken / seen | 2471/2742 | 2359/2614 | -112 |
+| seen to taken, median waits | 6 | 7 | +1 |
+| heaps taking over 100 waits | 75 of 2742 | 77 of 2614 | +2 |
+| upgrade scrolls picked up by depth 5 | 38 | 37 | -1 |
+| upgrades read by depth 5 | 70 | 71 | +1 |
+| think ms per Decision, mean / p95 | 1.8 / 6 | 5.2 / 17 | +3.35 |
+
+#### CLERIC
+
+| | C:/Users/bash/AppData/Local/Temp/claude/C--Users-Claude-Code-shatterfish/0ddde1b0-4ed0-4079-9483-ae9773c37776/scratchpad/s1039/base40/current | current 8c783944e + tunables | delta |
+|---|---|---|---|
+| Runs | 40 | 40 | 0 |
+| reach depth 5 | 16/40 | 11/40 | -5 |
+| reach depth 10 | 0/40 | 0/40 | 0 |
+| reach depth 15 | 0/40 | 0/40 | 0 |
+| bosses killed | 12/40 | 8/40 | -4 |
+| Goo kills | 12/40 | 8/40 | -4 |
+| Tengu kills | 0/40 | 0/40 | 0 |
+| median turns | 1386.8 | 1042.3 | -344.50 |
+| deepest mean / max | 4.150 / 8 | 3.725 / 7 | -0.43 |
+| deaths by depth 1..8 | 1/6/12/5/5/6/4/1 | 1/9/11/8/3/6/2/0 |  |
+| searches per floor | 11.98 | 11.33 | -0.65 |
+| search waits per floor | 19.27 | 18.03 | -1.24 |
+| oscillation Steps | 506 | 454 | -52 |
+| heaps taken / seen | 1821/2055 | 1580/1819 | -241 |
+| seen to taken, median waits | 7 | 7 | 0 |
+| heaps taking over 100 waits | 66 of 2055 | 57 of 1819 | -9 |
+| upgrade scrolls picked up by depth 5 | 29 | 22 | -7 |
+| upgrades read by depth 5 | 58 | 46 | -12 |
+| think ms per Decision, mean / p95 | 1.0 / 3 | 2.7 / 9 | +1.79 |
+
+#### pooled
+
+| | C:/Users/bash/AppData/Local/Temp/claude/C--Users-Claude-Code-shatterfish/0ddde1b0-4ed0-4079-9483-ae9773c37776/scratchpad/s1039/base40/current | current 8c783944e + tunables | delta |
+|---|---|---|---|
+| Runs | 240 | 240 | 0 |
+| reach depth 5 | 126/240 | 114/240 | -12 |
+| reach depth 10 | 0/240 | 0/240 | 0 |
+| reach depth 15 | 0/240 | 0/240 | 0 |
+| bosses killed | 90/240 | 82/240 | -8 |
+| Goo kills | 90/240 | 82/240 | -8 |
+| Tengu kills | 0/240 | 0/240 | 0 |
+| median turns | 1721.0 | 1565.0 | -156 |
+| deepest mean / max | 4.629 / 8 | 4.521 / 8 | -0.11 |
+| deaths by depth 1..8 | 8/19/40/47/38/54/29/5 | 8/20/43/55/33/47/31/3 |  |
+| searches per floor | 12.56 | 12.31 | -0.24 |
+| search waits per floor | 19.61 | 19.13 | -0.47 |
+| oscillation Steps | 2903 | 2882 | -21 |
+| heaps taken / seen | 14227/15898 | 13743/15532 | -484 |
+| seen to taken, median waits | 7 | 7 | 0 |
+| heaps taking over 100 waits | 566 of 15898 | 531 of 15532 | -35 |
+| upgrade scrolls picked up by depth 5 | 273 | 265 | -8 |
+| upgrades read by depth 5 | 440 | 430 | -10 |
+| think ms per Decision, mean / p95 | 1.3 / 4 | 3.4 / 11 | +2.13 |
+
+Deaths by depth, top killers (the game's own cause of death, read after the Run; a death with no ending record is "not recorded"):
+
+#### WARRIOR
+
+| depth | deaths | top killers |
+|---|---|---|
+| 1 | 1 | ToxicGas 1 |
+| 3 | 3 | Gnoll 1, Hunger 1, Swarm 1 |
+| 4 | 4 | Slime 2, Crab 1, Hunger 1 |
+| 5 | 4 | Goo 3, Hunger 1 |
+| 6 | 10 | Hunger 5, Skeleton 5 |
+| 7 | 16 | DM100 6, Guard 5, Skeleton 3, Bleeding 1, +1 more |
+| 8 | 2 | Guard 2 |
+
+#### MAGE
+
+| depth | deaths | top killers |
+|---|---|---|
+| 2 | 2 | Ooze 1, ToxicGas 1 |
+| 3 | 8 | Hunger 2, Swarm 2, Crab 1, Gnoll 1, +2 more |
+| 4 | 13 | Crab 4, Hunger 2, Slime 2, Swarm 2, +3 more |
+| 5 | 8 | Goo 7, Ooze 1 |
+| 6 | 4 | Skeleton 2, Bomb 1, Burning 1 |
+| 7 | 4 | Guard 2, DM100 1, Skeleton 1 |
+| 8 | 1 | DM100 1 |
+
+#### ROGUE
+
+| depth | deaths | top killers |
+|---|---|---|
+| 1 | 2 | Rat 1, Snake 1 |
+| 2 | 5 | Gnoll 3, Hunger 1, Piranha 1 |
+| 3 | 7 | Crab 3, HermitCrab 1, Rat 1, Snake 1, +1 more |
+| 4 | 13 | Crab 6, Slime 4, HermitCrab 1, Hunger 1, +1 more |
+| 5 | 5 | Goo 5 |
+| 6 | 7 | Skeleton 3, Thief 2, Hunger 1, Ooze 1 |
+| 7 | 1 | Guard 1 |
+
+#### HUNTRESS
+
+| depth | deaths | top killers |
+|---|---|---|
+| 1 | 1 | Snake 1 |
+| 2 | 2 | Gnoll 1, Hunger 1 |
+| 3 | 4 | Swarm 2, Bleeding 1, Crab 1 |
+| 4 | 9 | Crab 3, Hunger 2, Burning 1, HermitCrab 1, +2 more |
+| 5 | 8 | Goo 8 |
+| 6 | 11 | Skeleton 7, Piranha 2, Poison 1, ToxicGas 1 |
+| 7 | 5 | Skeleton 3, DM100 1, Guard 1 |
+
+#### DUELIST
+
+| depth | deaths | top killers |
+|---|---|---|
+| 1 | 3 | Snake 2, Rat 1 |
+| 2 | 2 | Gnoll 2 |
+| 3 | 10 | Crab 6, Swarm 3, Bleeding 1 |
+| 4 | 8 | Hunger 2, Crab 1, Gnoll 1, Piranha 1, +3 more |
+| 5 | 5 | Goo 4, Hunger 1 |
+| 6 | 9 | Skeleton 5, Hunger 1, Poison 1, Thief 1, +1 more |
+| 7 | 3 | DM100 1, Hunger 1, Thief 1 |
+
+#### CLERIC
+
+| depth | deaths | top killers |
+|---|---|---|
+| 1 | 1 | Snake 1 |
+| 2 | 9 | Gnoll 7, Hunger 1, Snake 1 |
+| 3 | 11 | Crab 5, Swarm 4, Gnoll 1, Mimic 1 |
+| 4 | 8 | Swarm 3, Crab 2, Gnoll 1, Poison 1, +1 more |
+| 5 | 3 | Goo 1, Hunger 1, Ooze 1 |
+| 6 | 6 | Skeleton 6 |
+| 7 | 2 | DM100 1, Skeleton 1 |
+
+#### pooled
+
+| depth | deaths | top killers |
+|---|---|---|
+| 1 | 8 | Snake 5, Rat 2, ToxicGas 1 |
+| 2 | 20 | Gnoll 13, Hunger 3, Ooze 1, Piranha 1, +2 more |
+| 3 | 43 | Crab 16, Swarm 13, Gnoll 3, Hunger 3, +6 more |
+| 4 | 55 | Crab 17, Slime 11, Hunger 8, Swarm 7, +7 more |
+| 5 | 33 | Goo 28, Hunger 3, Ooze 2 |
+| 6 | 47 | Skeleton 28, Hunger 7, Thief 3, Piranha 2, +5 more |
+| 7 | 31 | DM100 10, Guard 9, Skeleton 8, Hunger 2, +2 more |
+| 8 | 3 | Guard 2, DM100 1 |
+
+Stray actor-thread wakes (issue #399): 0 current, 0 baseline. A wake the JVM made between two frames; any count above zero is worth a look.

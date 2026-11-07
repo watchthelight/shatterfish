@@ -246,10 +246,14 @@ class SewersRunSmokeTest {
                 continue;
             }
             assertTrue(wait.decision() != null, "every wait the Brain played carries its Decision: wait " + wait.k());
-            if (wait.action() instanceof Action.AnswerPrompt) {
+            // A window's answer is an AnswerPrompt or a DismissPrompt: EmbeddedRun.java:1424 and RunLoop.java:655 treat
+            // both as a prompt answer that costs no credit, and ValidActions offers a dismiss only while a window is
+            // open. At wait 970 of this Run the Brain, after an Interact on a cell (the wait before), closed the
+            // window that opened with a dismiss; no other press is exempt.
+            if (wait.action() instanceof Action.AnswerPrompt || wait.action() instanceof Action.DismissPrompt) {
                 windowAnswers++;
             } else {
-                assertTrue(ks.contains(wait.k()), "the Decision for wait " + wait.k() + " was on the Panel before the press");
+                assertTrue(ks.contains(wait.k()), "the Decision for wait " + wait.k() + " was on the Panel before the press: " + wait.action());
             }
         }
         // Kept beside the build output, where the Results page's log is taken from.

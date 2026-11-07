@@ -187,8 +187,13 @@ final class Explore implements Policy {
      * is then nothing this Policy can uncover.
      */
     static boolean spent(Observation observation, Memory memory) {
-        return uncover(observation, memory, observation.actions().actions(), searches(observation, memory),
-                frugal(observation, memory)) == null;
+        return spent(observation, memory, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #spent(Observation, Memory)} under the vector's search numbers (story 10.39). */
+    static boolean spent(Observation observation, Memory memory, org.shatterfish.api.Tunables.Vector tunables) {
+        return uncover(observation, memory, observation.actions().actions(), searches(observation, memory, tunables),
+                frugal(observation, memory, tunables), tunables) == null;
     }
 
     /** Whether a frontier is reachable, around the regions avoided or through them (story 4.12). */
@@ -248,7 +253,7 @@ final class Explore implements Policy {
             }
         }
 
-        return uncover(observation, memory, offered, searches(observation, memory), frugal(observation, memory), tunables);
+        return uncover(observation, memory, offered, searches(observation, memory, tunables), frugal(observation, memory, tunables), tunables);
     }
 
     /**
@@ -383,10 +388,17 @@ final class Explore implements Policy {
      * no-exit search, which does not use this count.
      */
     static int searches(Observation observation, Memory memory) {
+        return searches(observation, memory, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #searches(Observation, Memory)} under the vector's {@code explore.searches} and {@code explore.frugal_searches}. */
+    static int searches(Observation observation, Memory memory, org.shatterfish.api.Tunables.Vector tunables) {
         if (observation.header().depth() == 1) {
             return 0;
         }
-        return frugal(observation, memory) ? FRUGAL_SEARCHES : SEARCHES;
+        return frugal(observation, memory, tunables)
+                ? tunables.getInt(org.shatterfish.api.Tunables.EXPLORE_FRUGAL_SEARCHES)
+                : tunables.getInt(org.shatterfish.api.Tunables.EXPLORE_SEARCHES);
     }
 
     /**
@@ -396,7 +408,12 @@ final class Explore implements Policy {
      * met (Goo.java:135, Level.java:657-661): the last floor to find food and items on before the boss.
      */
     static boolean frugal(Observation observation, Memory memory) {
-        return Larder.frugal(observation, memory) && !beforeBoss(observation);
+        return frugal(observation, memory, org.shatterfish.api.Tunables.Vector.REFERENCE);
+    }
+
+    /** {@link #frugal(Observation, Memory)} under the vector's {@code larder.frugal}. */
+    static boolean frugal(Observation observation, Memory memory, org.shatterfish.api.Tunables.Vector tunables) {
+        return Larder.frugal(observation, memory, tunables) && !beforeBoss(observation);
     }
 
     /** Whether this is the main-branch floor just above a boss floor (Dungeon.java:441-443). */
@@ -759,6 +776,10 @@ final class Explore implements Policy {
     static boolean[] walkable(Observation observation, Memory memory, long keepFor, boolean throughClouds) {
         MapSection map = observation.map();
         int cells = map.tiles().size();
+        // A hero standing in a cloud has no way out of it over cells that are not clouded (issue #408): its own
+        // neighbours are clouded too, so every plan would be pathless and the wait would fall to the random
+        // fallback, which can Rest. The cloud is crossed, the way a hero in the middle of one must cross it.
+        throughClouds = throughClouds || !TestItem.harmfulOn(map, observation.hero().cell()).isEmpty();
         boolean[] walk = new boolean[cells];
         for (int cell = 0; cell < cells; cell++) {
             walk[cell] = map.fog().get(cell) != Fog.UNKNOWN && WALK.contains(map.tiles().get(cell));
@@ -777,6 +798,13 @@ final class Explore implements Policy {
             }
         }
         if (!throughClouds) {
+            // A paralytic gas spreads onto its orthogonal neighbours in a turn, and the hero it lands on is helpless for ten (issue #408).
+            boolean[] paralytic = Escape.paralyticZone(map);
+            for (int cell = 0; cell < cells; cell++) {
+                if (paralytic[cell]) {
+                    walk[cell] = false;
+                }
+            }
             for (org.shatterfish.api.BlobCell blob : map.blobs()) {
                 if (blob.cell() < cells && blob.kinds().stream().anyMatch(HARMFUL::contains)) {
                     walk[blob.cell()] = false;

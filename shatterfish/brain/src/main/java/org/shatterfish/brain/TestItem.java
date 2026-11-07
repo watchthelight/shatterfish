@@ -84,6 +84,20 @@ final class TestItem implements Policy {
     static final Set<String> INVENTORY_SCROLLS = Set.of("items.scrolls.ScrollOfIdentify",
             "items.scrolls.ScrollOfRemoveCurse", "items.scrolls.ScrollOfTransmutation", "items.scrolls.ScrollOfUpgrade");
 
+    /** The scroll of upgrade, by the Codex's class name. */
+    static final String UPGRADE_CLASS = "items.scrolls.ScrollOfUpgrade";
+
+    /**
+     * The odds of upgrade, in thousandths, at which an unknown scroll is read before the rest (issue #410): the
+     * read does what a known upgrade does, onto the worn armour, so it is not worth putting behind a scroll
+     * that is likelier something else. An assumption; the Rig measures it.
+     */
+    @org.shatterfish.api.Heuristic("identity-from-counts")
+    static final int UPGRADE_FIRST_PER_MILLE = 500;
+
+    /** The known scroll of identify, by the name the inventory shows (every class starts knowing it: HeroClass.java:117). */
+    static final String IDENTIFY = "scroll of identify";
+
     /** The potion of healing, by the Codex's class name. */
     static final String HEALING = "items.potions.PotionOfHealing";
 
@@ -153,6 +167,7 @@ final class TestItem implements Policy {
         }
         return upgrade(observation, observation.actions().actions(), upgrader, knowledge) != null
                 || gain(observation, observation.actions().actions(), identify) != null
+                || identifying(observation, memory, observation.actions().actions()) != null
                 || !testable(observation, memory).isEmpty() || restOwed(observation, memory, identify);
     }
 
@@ -198,6 +213,13 @@ final class TestItem implements Policy {
         if (gain != null) {
             return new Plan("", 0, new RunLog.Choice(gain, Policies.CERTAIN,
                     "drink: " + ((Action.UseItem) gain).item().name() + " (known_gains)"));
+        }
+        // A known scroll of identify goes onto an unknown potion before any is drunk to learn it (issue #410): the
+        // read costs a turn and nothing else, a drink may cost health, and a potion drunk was spent.
+        Action.UseItemOn identifying = settled ? identifying(observation, memory, offered) : null;
+        if (identifying != null) {
+            return new Plan("", 0, new RunLog.Choice(identifying, Policies.CERTAIN,
+                    "identify: " + identifying.target().name() + " (identify-held)"));
         }
         // An unknown scroll goes where a known upgrade would, but never onto the Mage's staff: an
         // unknown scroll of transmutation changes the item it is read onto (ScrollOfTransmutation.java:
@@ -548,7 +570,7 @@ final class TestItem implements Policy {
      */
     List<Testable> testable(Observation observation, Memory memory) {
         Map<String, Beliefs.Guess> guesses = new LinkedHashMap<>();
-        for (Beliefs.Guess guess : Beliefs.identities(observation, knowledge, memory.facts())) {
+        for (Beliefs.Guess guess : Beliefs.identities(observation, knowledge, memory, playbook.tunables())) {
             guesses.put(guess.label(), guess);
         }
         Playbook.Identify identify = playbook.identify(observation.header().heroClass());
@@ -592,9 +614,61 @@ final class TestItem implements Policy {
             }
             testable.add(new Testable(new ItemRef(index, item.name(), item.quantity()), item.quantity(), guess, verb, field));
         }
-        // Worth most first; the sort is stable, so equal worths keep the pack's order.
-        testable.sort(Comparator.comparingLong(TestItem::worth).reversed());
+        // A scroll likelier upgrade than not first (issue #410), then worth most first; the sort is stable, so
+        // equal worths keep the pack's order.
+        int upgradeFirst = playbook.tunables().getInt(org.shatterfish.api.Tunables.TEST_UPGRADE_FIRST);
+        testable.sort(Comparator.<Testable>comparingInt(item -> 1000 * odds(item.guess(), Set.of(UPGRADE_CLASS)) >= upgradeFirst ? 0 : 1)
+                .thenComparing(Comparator.comparingLong(TestItem::worth).reversed()));
         return testable;
+    }
+
+    /**
+     * The read of a known scroll of identify onto the unknown potion worth knowing most, or null (issue #410).
+     * Every class starts knowing the scroll (HeroClass.java:117), so one in the pack is a certain way to learn a
+     * potion with no test: held, the potion is neither drunk to learn it nor left unknown. The target is the
+     * potion likeliest to be strength or experience (a drink with a use), then the one with the most copies and
+     * candidates (the same worth the tests rank by). A scroll is not a target: it is read, and a read scroll of
+     * upgrade lands on the armour. A scroll not yet in the pack is not waited for: one random scroll in about six
+     * is identify (Generator.java:362-377, six cards of thirty), a floor holds fewer than one scroll, so the wait
+     * is about six floors, longer than a potion's use lasts; the tests therefore go on when none is held.
+     */
+    Action.UseItemOn identifying(Observation observation, Memory memory, List<Action> offered) {
+        if (has(observation, BLINDED) || has(observation, MAGIC_IMMUNE)) {
+            return null;
+        }
+        List<ItemView> items = observation.inventory().items();
+        ItemRef scroll = null;
+        for (int index = 0; index < items.size(); index++) {
+            ItemView item = items.get(index);
+            if (item.name().equals(IDENTIFY) && item.actions().contains(READ)) {
+                scroll = new ItemRef(index, item.name(), item.quantity());
+                break;
+            }
+        }
+        if (scroll == null) {
+            return null;
+        }
+        Map<String, Beliefs.Guess> guesses = new LinkedHashMap<>();
+        for (Beliefs.Guess guess : Beliefs.identities(observation, knowledge, memory, playbook.tunables())) {
+            guesses.put(guess.label(), guess);
+        }
+        List<Testable> targets = new ArrayList<>();
+        for (int index = 0; index < items.size(); index++) {
+            ItemView item = items.get(index);
+            Beliefs.Guess guess = guesses.get(item.name());
+            if (item.kind() == ItemKind.POTION && guess != null && guess.kind() == ItemKind.POTION && guess.odds().size() >= 2) {
+                targets.add(new Testable(new ItemRef(index, item.name(), item.quantity()), item.quantity(), guess, READ, "identify"));
+            }
+        }
+        targets.sort(Comparator.<Testable>comparingDouble(item -> -odds(item.guess(), GAINS))
+                .thenComparing(Comparator.comparingLong(TestItem::worth).reversed()));
+        for (Testable target : targets) {
+            Action.UseItemOn read = new Action.UseItemOn(scroll, READ, target.ref());
+            if (offered.contains(read)) {
+                return read;
+            }
+        }
+        return null;
     }
 
     /** The odds {@code guess} gives the identities of {@code classes}, by the Codex's class names. */
@@ -655,7 +729,7 @@ final class TestItem implements Policy {
         return harmfulOn(observation.map(), observation.hero().cell());
     }
 
-    private static String harmfulOn(MapSection map, int cell) {
+    static String harmfulOn(MapSection map, int cell) {
         // Beside a flame of the magical fire room is as bad as on one (MagicalFireRoom.java:205-220).
         if (Explore.ignited(map).contains(cell)) {
             return Explore.ETERNAL_FIRE;
@@ -673,43 +747,15 @@ final class TestItem implements Policy {
     }
 
     /**
-     * The offered Step out of harm: toward the nearest walkable cell with no harmful blob, or, while
-     * burning, toward the nearest water within the Playbook's {@code reach}, which puts the burning out
-     * (Burning.java:98-99). Every Step brings the hero strictly nearer, so it cannot stand still.
+     * The offered Step out of harm (issue #408 moved the route to {@link Escape#step}, which this Policy
+     * and the escape Policy share).
      */
     static Action escape(Observation observation, Memory memory, List<Action> offered, Playbook.Identify identify) {
-        MapSection map = observation.map();
-        int hero = observation.hero().cell();
-        // Through the cloud: a hero in the middle of one has no clean neighbour to start from.
-        boolean[] walk = Explore.walkable(observation, memory, true, true);
-        int[] distance = Pickup.distances(map, walk, hero);
-        boolean burning = has(observation, BURNING);
-        java.util.function.IntPredicate clean = clean(observation, memory);
-        int target = -1;
-        // Through the door the test was credited with, when there was one and it can be reached.
-        int refuge = memory.refuge();
-        if (!burning && refuge >= 0 && refuge < distance.length && distance[refuge] >= 1 && clean.test(refuge)) {
-            target = refuge;
-        }
-        if (target < 0 && burning) {
-            target = nearest(map, distance, cell -> map.tiles().get(cell) == Tile.WATER && clean.test(cell), identify.reach());
-        }
-        if (target < 0) {
-            // Clear of the cloud's edge, which spreads: a clean cell with no cloud beside it, which
-            // through a door is the far side of it.
-            target = nearest(map, distance, cell -> clean.test(cell) && clear(map, cell, clean), Integer.MAX_VALUE);
-        }
-        if (target < 0) {
-            target = nearest(map, distance, clean, Integer.MAX_VALUE);
-        }
-        if (target < 0 || target == hero) {
-            return null;
-        }
-        return Pickup.firstStep(map, walk, hero, target, offered);
+        return Escape.step(observation, memory, offered, identify);
     }
 
     /** Whether every neighbour of {@code cell} on the map is {@code clean}. */
-    private static boolean clear(MapSection map, int cell, java.util.function.IntPredicate clean) {
+    static boolean clear(MapSection map, int cell, java.util.function.IntPredicate clean) {
         int width = map.width();
         int x = cell % width;
         int y = cell / width;
@@ -726,18 +772,7 @@ final class TestItem implements Policy {
         return true;
     }
 
-    private static int nearest(MapSection map, int[] distance, java.util.function.IntPredicate fits, int reach) {
-        int best = -1;
-        for (int cell = 0; cell < distance.length; cell++) {
-            if (distance[cell] >= 1 && distance[cell] <= reach && fits.test(cell)
-                    && (best < 0 || distance[cell] < distance[best])) {
-                best = cell;
-            }
-        }
-        return best;
-    }
-
-    private static boolean has(Observation observation, String buff) {
+    static boolean has(Observation observation, String buff) {
         for (BuffView view : observation.hero().buffs()) {
             if (view.name().equals(buff)) {
                 return true;

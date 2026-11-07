@@ -50,6 +50,7 @@ enemy
 enough
 exit
 few
+finish
 fight
 fights
 fire
@@ -70,6 +71,7 @@ goo's
 good
 ground
 guard's
+hand
 has
 heal
 health
@@ -80,6 +82,7 @@ hunger
 hungry
 hurt
 icon
+identify
 in
 is
 it
@@ -121,6 +124,7 @@ rest
 safe
 say
 says
+scroll
 search
 so
 spot

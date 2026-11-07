@@ -66,7 +66,13 @@ class TunableRegistryTest {
         BEFORE.put("descend.allowance", 500L);
         BEFORE.put("descend.per_drop", 250L);
         BEFORE.put("descend.rests", 20L);
+        BEFORE.put("descend.rest_per_mille", 1000L);
+        BEFORE.put("descend.rest_tight_per_mille", 1000L);
         BEFORE.put("explore.rests", 50L);
+        BEFORE.put("explore.searches", 12L);
+        BEFORE.put("explore.frugal_searches", 4L);
+        BEFORE.put("larder.frugal", 600L);
+        BEFORE.put("larder.fallback_rests", 0L);
         BEFORE.put("heal.redrink_share_per_mille", 250L);
         BEFORE.put("heal.horizon", 10L);
         BEFORE.put("plunge.safe_hp", 15L);
@@ -74,6 +80,11 @@ class TunableRegistryTest {
         BEFORE.put("brain.avoid_waits", 40L);
         BEFORE.put("brain.avoid_radius", 5L);
         BEFORE.put("chests.mimic_margin_per_mille", 1250L);
+        // Issue #410: the identity odds from counts, and the read order.
+        BEFORE.put("beliefs.notice_per_mille", 700L);
+        BEFORE.put("beliefs.draws_per_mille", 800L);
+        BEFORE.put("beliefs.leak_per_mille", 30L);
+        BEFORE.put("test_item.upgrade_first_per_mille", 500L);
         // Issue #412: the reaches and floors of the missile, dew and tall-grass levers; each new, so its default is its first value.
         BEFORE.put("pickup.missile_reach", 0L);
         BEFORE.put("pickup.dew_skin_below", 0L);

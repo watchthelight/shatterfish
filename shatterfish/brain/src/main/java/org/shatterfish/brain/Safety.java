@@ -37,8 +37,15 @@ final class Safety {
     /** The hunger icon shows starving. */
     static final String STARVING = "starving";
 
+    /**
+     * The hero stands in harm (issue #408): a fire or a harmful gas is drawn on its own cell, or it is
+     * burning off water ({@link TestItem#harm}). Read off the cell the hero stands on, as the renderer
+     * draws it.
+     */
+    static final String IN_HARM = "in-harm";
+
     /** Every flag, in the order {@link #flags} lists them. */
-    static final List<String> ALL = List.of(HP_LOW, ENEMY_IN_VIEW, HUNGRY, STARVING);
+    static final List<String> ALL = List.of(HP_LOW, ENEMY_IN_VIEW, HUNGRY, STARVING, IN_HARM);
 
     private Safety() {
     }
@@ -60,6 +67,9 @@ final class Safety {
             flags.add(HUNGRY);
         } else if (hero.hunger() == Hunger.STARVING) {
             flags.add(STARVING);
+        }
+        if (TestItem.inHarm(observation)) {
+            flags.add(IN_HARM);
         }
         return List.copyOf(flags);
     }
