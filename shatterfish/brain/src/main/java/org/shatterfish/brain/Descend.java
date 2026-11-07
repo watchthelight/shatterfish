@@ -115,6 +115,18 @@ final class Descend implements Policy {
     @Heuristic("rest-before-descend")
     static final int RESTS = 20;
 
+    /**
+     * The share of the hit points, in thousandths, the descent rest reaches before the stairs down to a regular
+     * floor (story 10.39): the whole of them, as before. A hit point rested costs {@link Larder#TURNS_PER_HP} turns
+     * of the food (Regeneration.java:44), and a regular floor places one food of about 330 turns (Level.java:224-226).
+     */
+    @Heuristic("rest-before-descend")
+    static final int REST_PER_MILLE = 1000;
+
+    /** The same share while the larder is {@linkplain Larder#frugal tight} (story 10.39): the whole of them, as before. */
+    @Heuristic("rest-before-descend")
+    static final int REST_TIGHT_PER_MILLE = 1000;
+
     /** The most spots searched on a floor while looking for an exit never seen: three times explore's. */
     @Heuristic("hidden-exit-search")
     static final int SEARCHES = 3 * Explore.SEARCHES;
@@ -280,7 +292,7 @@ final class Descend implements Policy {
                 && !Explore.frontier(observation, memory)) {
             return "hungry";
         }
-        if (Explore.spent(observation, memory)) {
+        if (Explore.spent(observation, memory, tunables)) {
             return "spent";
         }
         long stayed = memory.waits() - memory.arrived();
@@ -385,6 +397,13 @@ final class Descend implements Policy {
     static boolean rests(Observation observation, Memory memory, org.shatterfish.api.Playbook.Bosses bosses,
                          org.shatterfish.api.Tunables.Vector tunables) {
         int below = observation.header().branch() == 0 ? bosses.descentRest(observation.header().depth() + 1) : 1000;
+        if (observation.header().branch() == 0 && !Explore.beforeBoss(observation)) {
+            // A regular floor below (story 10.39): the rest is priced against the food it spends.
+            below = Math.min(below, tunables.getInt(org.shatterfish.api.Tunables.DESCEND_REST_SHARE));
+            if (Larder.frugal(observation, memory, tunables)) {
+                below = Math.min(below, tunables.getInt(org.shatterfish.api.Tunables.DESCEND_REST_TIGHT));
+            }
+        }
         return 1000L * observation.hero().hp() < (long) below * observation.hero().ht()
                 && observation.hero().hunger() != Hunger.STARVING
                 && memory.rests() < tunables.getInt(org.shatterfish.api.Tunables.DESCEND_RESTS);

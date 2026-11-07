@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: '2026-09-04'
-last_updated: 2026-10-31
+last_updated: 2026-11-07
 project: shatterfish
 project_key: NOKEY
 tracking_system: file-system
@@ -172,9 +172,9 @@ development_status:
   10-8-skeleton-bone-burst: done  # issue #354
   10-9-dm-100-lightning: done  # issue #355
   10-10-guard-chain-pull: backlog  # issue #356
-  10-11-thief-and-bandit-steal: backlog  # issue #357
+  10-11-thief-and-bandit-steal: done  # issue #357; no rule built (the table has no items-stolen column), see docs/results/2026-11-07-10-11-thief-and-bandit.md
   10-12-necromancer-target-priority: backlog  # issue #358
-  10-13-swarm-split-and-the-corridor: backlog  # issue #359
+  10-13-swarm-split-and-the-corridor: done  # issue #359; no rule kept, see docs/results/2026-10-31-10-13-swarm-split.md
   10-14-doors-chokepoints-and-the-retreat-upstairs: done  # issue #360; already built (chokepoint hold, stairs retreat, rest above); the remaining non-starving Ascends are too few to measure, see docs/ideas/2026-10-30-starving-stairs-bounce.md
   10-15-prison-food-budgeting: done  # issue #361
   10-16-the-wandmaker-quest: backlog  # issue #362
@@ -200,6 +200,6 @@ development_status:
   10-36-the-tune-runner: done  # issue #383; PR #405
   10-37-the-first-tuning-run: backlog  # issue #384
   10-38-the-goo-fight-on-depth-5: done  # issue #422; added by 10.7
-  10-39-prison-food-the-second-pass: backlog  # issue #423; added by 10.7
+  10-39-prison-food-the-second-pass: done  # issue #423; added by 10.7
   10-40-the-sewers-killers: done  # issue #424; added by 10.7; no family rule built, see docs/results/2026-10-31-10-40-sewers-killers.md; 45 of 76 die holding unknown potions (docs/ideas/2026-10-31-dying-with-unknown-potions.md)
   epic-10-retrospective: optional

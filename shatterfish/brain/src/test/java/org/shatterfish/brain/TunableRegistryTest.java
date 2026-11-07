@@ -66,7 +66,13 @@ class TunableRegistryTest {
         BEFORE.put("descend.allowance", 500L);
         BEFORE.put("descend.per_drop", 250L);
         BEFORE.put("descend.rests", 20L);
+        BEFORE.put("descend.rest_per_mille", 1000L);
+        BEFORE.put("descend.rest_tight_per_mille", 1000L);
         BEFORE.put("explore.rests", 50L);
+        BEFORE.put("explore.searches", 12L);
+        BEFORE.put("explore.frugal_searches", 4L);
+        BEFORE.put("larder.frugal", 600L);
+        BEFORE.put("larder.fallback_rests", 0L);
         BEFORE.put("heal.redrink_share_per_mille", 250L);
         BEFORE.put("heal.horizon", 10L);
         BEFORE.put("plunge.safe_hp", 15L);
