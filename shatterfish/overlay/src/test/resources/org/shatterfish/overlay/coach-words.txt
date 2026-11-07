@@ -69,6 +69,7 @@ goo
 goo's
 good
 ground
+hand
 has
 heal
 health
@@ -79,6 +80,7 @@ hunger
 hungry
 hurt
 icon
+identify
 in
 is
 it
@@ -120,6 +122,7 @@ rest
 safe
 say
 says
+scroll
 search
 so
 spot

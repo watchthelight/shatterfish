@@ -15,10 +15,14 @@ import org.shatterfish.api.MapSection;
 import org.shatterfish.api.Observation;
 import org.shatterfish.api.PromptKind;
 import org.shatterfish.api.Tile;
+import org.shatterfish.api.Tunables;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -60,6 +64,30 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
 
     /** The room whose sight implies its floor's spawns: the pool room (PoolRoom.java:91). */
     static final String POOL_ROOM = "PoolRoom";
+
+    /**
+     * The chance, in thousandths, that a scroll or potion generated on a floor is picked up or seen by the hero:
+     * the Brain explores a floor but misses vault rooms and what it flees. An assumption the calibration measures.
+     */
+    @Heuristic("identity-from-counts")
+    static final int NOTICE_PER_MILLE = 700;
+
+    /**
+     * Random scrolls (and, alike, potions) generated a floor, in thousandths: 3.5 random items a floor
+     * (RegularLevel.java:380) times 8 of the 35 category cards (Generator.java:221-252) is 0.8.
+     */
+    @Heuristic("identity-from-counts")
+    static final int DRAWS_PER_MILLE = 800;
+
+    /**
+     * Strays, in thousandths a floor, of an identity only a guarantee places: a vault prize, a crystal chest, a
+     * mimic's loot. Small, so one stray does not move the odds far; an assumption.
+     */
+    @Heuristic("identity-from-counts")
+    static final int LEAK_PER_MILLE = 30;
+
+    /** The key prefix under which Memory counts the finds of an appearance, per floor: {@code seen:<label>}. */
+    static final String SIGHTING = "seen:";
 
     /**
      * How an appearance that is not in a deck weighs against the decks' (issue #219): the potion of strength and
@@ -141,6 +169,7 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         // every rise in them, set aside until an identity claims it.
         List<Memory.Held> labels = new ArrayList<>();
         List<Memory.Found> pending = new ArrayList<>(memory.pending());
+        List<Memory.Found> sightings = new ArrayList<>();
         for (Codex.Identities family : knowledge.families()) {
             if (knowledge.guarantees().stream().noneMatch(guarantee -> places(family, guarantee))) {
                 continue;
@@ -150,6 +179,9 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 int before = Memory.quantity(memory.labels(), label);
                 if (now > before) {
                     add(pending, label, depth / floorsPerSet(knowledge), now - before);
+                    // The same rise, kept for the whole Run and by floor, whatever identity claims it
+                    // later: the counts the identity odds are drawn from (issue #410).
+                    sightings.add(new Memory.Found(SIGHTING + label, depth, now - before));
                 }
                 if (now > 0) {
                     labels.add(new Memory.Held(label, now));
@@ -158,6 +190,9 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         }
 
         List<Memory.Found> found = new ArrayList<>(memory.found());
+        for (Memory.Found sighting : sightings) {
+            add(found, sighting.key(), sighting.set(), sighting.count());
+        }
         List<Memory.Held> held = new ArrayList<>();
         List<String> known = new ArrayList<>();
         for (Codex.Guarantee guarantee : knowledge.guarantees()) {
@@ -549,37 +584,42 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
         }
         List<Monster> monsters = memory.monsters().stream().filter(seen -> seen.depth() == depth)
                 .map(seen -> new Monster(seen.name(), seen.cell(), seen.at(), seen.at() < memory.waits())).toList();
-        return new Beliefs(identities(observation, knowledge, memory.facts()), floor, chapters, monsters);
+        return new Beliefs(identities(observation, knowledge, memory, Tunables.Vector.REFERENCE), floor, chapters, monsters);
     }
 
-    /**
-     * What each unidentified appearance in view may be.
-     *
-     * <p>The appearances are shuffled over the identities once per Run, so before anything is seen
-     * every unidentified appearance is as likely to be any identity not yet identified as any
-     * other. What moves the odds is that an appearance was <em>found</em>: items are drawn by deck
-     * weight, so an appearance in view is likelier to be a heavily weighted identity. Each
-     * appearance in view is taken as one draw, and distinct appearances are distinct identities, so
-     * the joint weight of an assignment is the product of the weights it assigns, and each
-     * appearance's odds are its marginal over every assignment -- computed exactly, by subsets of
-     * the identities. With one appearance in view that is its deck weight over the total; with
-     * every remaining appearance in view it is uniform, because every assignment has the same
-     * product.
-     *
-     * <p>An identity the decks never draw but a guarantee places (the potion of strength, the
-     * scroll of upgrade) is weighted as the heaviest identity in its family's deck: an assumption,
-     * not a Codex fact, and the one number here a later story should measure.
-     */
+    /** As {@link #view(Memory, Observation, Codex.Knowledge)}, the identity odds under {@code tunables}. */
+    static Beliefs view(Memory memory, Observation observation, Codex.Knowledge knowledge, Tunables.Vector tunables) {
+        Beliefs plain = view(memory, observation, knowledge);
+        return new Beliefs(identities(observation, knowledge, memory, tunables), plain.floor(), plain.chapters(),
+                plain.monsters());
+    }
+
+    /** The odds with no Memory: what the screen alone gives, as at the start of a Run (nothing found on any floor). */
     static List<Guess> identities(Observation observation, Codex.Knowledge knowledge) {
-        return identities(observation, knowledge, List.of());
+        return identities(observation, knowledge, null, Tunables.Vector.REFERENCE);
+    }
+
+    /** The odds under the reference numbers. */
+    static List<Guess> identities(Observation observation, Codex.Knowledge knowledge, Memory memory) {
+        return identities(observation, knowledge, memory, Tunables.Vector.REFERENCE);
     }
 
     /**
-     * As above, given the Memory's facts: the floor each appearance was first drawn on and the rooms
-     * whose sight implies a potion on their floor (issue #219; docs/rules/generation.md, the
-     * potion-room-inference row). With no room fact and no stack held it is the plain computation.
+     * What each unidentified appearance in view may be (issue #410).
+     *
+     * <p>The appearances are shuffled over the identities once per Run, so a consistent world gives every
+     * appearance a different identity. What moves the odds is how often each appearance has turned up and on
+     * which floors: an identity the decks draw by weight turns up at a rate proportional to it, and an identity
+     * only a guarantee places (the scroll of upgrade, the potion of strength) turns up by that guarantee's
+     * schedule, nearly every floor for upgrade and about every other floor for strength. {@link IdentityOdds}
+     * holds the model and its sources; this method gathers the counts the Memory kept ({@link #SIGHTING}) and
+     * the screen, and turns the answer into {@link Guess}es.
+     *
+     * <p>The counts are the Memory's, drawn from what the inventory showed picked up, never from an item's
+     * identity. A call with no Memory is a Run with nothing found.
      */
-    static List<Guess> identities(Observation observation, Codex.Knowledge knowledge, List<Memory.Fact> facts) {
+    static List<Guess> identities(Observation observation, Codex.Knowledge knowledge, Memory memory,
+                                  Tunables.Vector tunables) {
         Set<String> inView = new LinkedHashSet<>();
         for (ItemView item : observation.inventory().items()) {
             inView.add(item.name());
@@ -589,44 +629,117 @@ public record Beliefs(List<Guess> identities, List<FloorItem> floor, List<Chapte
                 inView.add(untitled(heap.item()));
             }
         }
+        int depth = observation.header().depth();
+        int deepest = memory == null ? depth : Math.max(depth, memory.deepest());
+        IdentityOdds.Params params = new IdentityOdds.Params(tunables.getInt(Tunables.BELIEFS_NOTICE),
+                tunables.getInt(Tunables.BELIEFS_DRAWS), tunables.getInt(Tunables.BELIEFS_LEAK));
         List<Guess> guesses = new ArrayList<>();
         for (Codex.Identities family : knowledge.families()) {
-            int heaviest = family.candidates().stream().mapToInt(Codex.Candidate::weight).max().orElse(0);
-            List<String> names = new ArrayList<>();
-            List<Integer> weights = new ArrayList<>();
-            for (Codex.Candidate candidate : family.candidates()) {
-                int weight = candidate.weight();
-                if (weight == 0 && knowledge.guarantees().stream()
-                        .anyMatch(guarantee -> guarantee.className().equals(candidate.className()))) {
-                    weight = family.kind() == ItemKind.POTION ? STRENGTH_WEIGHT
-                            : family.kind() == ItemKind.SCROLL ? UPGRADE_WEIGHT : heaviest;
-                }
-                if (weight > 0 && !identified(observation, family.kind(), candidate.name())) {
-                    names.add(candidate.name());
-                    weights.add(weight);
-                }
-            }
-            List<String> labels = family.labels().stream().filter(inView::contains).toList();
-            if (labels.isEmpty() || names.isEmpty()) {
+            Set<String> labels = new LinkedHashSet<>(family.labels().stream().filter(inView::contains).toList());
+            if (labels.isEmpty()) {
                 continue;
             }
-            double[][] evidence = Evidence.marginals(observation, family, names, weights, labels, facts);
-            double[] marginal = evidence == null ? marginal(weights, labels.size()) : null;
-            for (int at = 0; at < labels.size(); at++) {
-                String label = labels.get(at);
-                double[] row = evidence == null ? marginal : evidence[at];
-                List<Odds> odds = new ArrayList<>();
-                for (int x = 0; x < names.size(); x++) {
-                    if (row[x] > 0) {
-                        odds.add(new Odds(names.get(x), row[x]));
+            Map<String, int[]> counts = new HashMap<>();
+            if (memory != null) {
+                for (String label : family.labels()) {
+                    int[] by = new int[Math.max(deepest, depth) + 2];
+                    boolean any = false;
+                    for (Memory.Found found : memory.found()) {
+                        if (found.key().equals(SIGHTING + label) && found.set() < by.length) {
+                            by[found.set()] += found.count();
+                            any = true;
+                        }
+                    }
+                    if (any) {
+                        counts.put(label, by);
                     }
                 }
-                odds.sort((a, b) -> a.probability() != b.probability()
+            }
+            Set<String> identified = new HashSet<>();
+            for (Codex.Candidate candidate : family.candidates()) {
+                if (identified(observation, family.kind(), candidate.name())) {
+                    identified.add(candidate.name());
+                }
+            }
+            Map<String, double[]> odds = IdentityOdds.odds(family, knowledge.guarantees(), counts, depth, deepest,
+                    labels, identified, params);
+            withRooms(observation, knowledge, family, labels, identified, odds, memory == null ? List.of() : memory.facts());
+            for (String label : family.labels()) {
+                double[] row = odds.get(label);
+                if (row == null) {
+                    continue;
+                }
+                List<Odds> list = new ArrayList<>();
+                for (int x = 0; x < row.length; x++) {
+                    if (row[x] > 0) {
+                        list.add(new Odds(family.candidates().get(x).name(), row[x]));
+                    }
+                }
+                list.sort((a, b) -> a.probability() != b.probability()
                         ? Double.compare(b.probability(), a.probability()) : a.name().compareTo(b.name()));
-                guesses.add(new Guess(label, family.kind(), List.copyOf(odds)));
+                guesses.add(new Guess(label, family.kind(), List.copyOf(list)));
             }
         }
         return guesses;
+    }
+
+    /**
+     * Folds in what the special rooms and the stacks say (issue #219, {@link Evidence}), which the counts do not:
+     * a potion room seen on a floor puts its potion there, and a stack of a deck identity uses up copies of it.
+     * {@code Evidence} gives a posterior under the deck weights alone; its ratio to that prior is the factor the
+     * rooms and stacks add, and it multiplies the count likelihood of {@code odds} (a product of two experts that
+     * share one prior). With no room fact bearing and no stack held {@code Evidence} gives nothing and {@code odds}
+     * stands.
+     */
+    private static void withRooms(Observation observation, Codex.Knowledge knowledge, Codex.Identities family,
+                                  Set<String> labelSet, Set<String> identified, Map<String, double[]> odds,
+                                  List<Memory.Fact> facts) {
+        List<String> names = new ArrayList<>();
+        List<Integer> weights = new ArrayList<>();
+        List<Integer> column = new ArrayList<>();
+        int heaviest = family.candidates().stream().mapToInt(Codex.Candidate::weight).max().orElse(0);
+        for (int x = 0; x < family.candidates().size(); x++) {
+            Codex.Candidate candidate = family.candidates().get(x);
+            int weight = candidate.weight();
+            if (weight == 0 && knowledge.guarantees().stream()
+                    .anyMatch(guarantee -> guarantee.className().equals(candidate.className()))) {
+                weight = family.kind() == ItemKind.POTION ? STRENGTH_WEIGHT
+                        : family.kind() == ItemKind.SCROLL ? UPGRADE_WEIGHT : heaviest;
+            }
+            if (weight > 0 && !identified.contains(candidate.name())) {
+                names.add(candidate.name());
+                weights.add(weight);
+                column.add(x);
+            }
+        }
+        List<String> labels = new ArrayList<>(labelSet);
+        if (names.isEmpty() || labels.isEmpty()) {
+            return;
+        }
+        double[][] evidence = Evidence.marginals(observation, family, names, weights, labels, facts);
+        if (evidence == null) {
+            return;
+        }
+        double[] prior = marginal(weights, labels.size());
+        for (int i = 0; i < labels.size(); i++) {
+            double[] row = odds.get(labels.get(i));
+            if (row == null) {
+                continue;
+            }
+            for (int x = 0; x < names.size(); x++) {
+                int c = column.get(x);
+                row[c] = prior[x] > 0 ? row[c] * evidence[i][x] / prior[x] : row[c];
+            }
+            double sum = 0;
+            for (double v : row) {
+                sum += v;
+            }
+            if (sum > 0) {
+                for (int c = 0; c < row.length; c++) {
+                    row[c] /= sum;
+                }
+            }
+        }
     }
 
     /**

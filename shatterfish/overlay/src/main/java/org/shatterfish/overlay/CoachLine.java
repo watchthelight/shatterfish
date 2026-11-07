@@ -84,6 +84,7 @@ final class CoachLine {
             new Template("test-item", "escape", "to get clear of the effect", "test-spot-door-water"),
             new Template("test-item", "upgrade", "to upgrade the best gear", "upgrade-allocation"),
             new Template("test-item", "drink", "a known gain, drunk at once", "strength-experience-potions"),
+            new Template("test-item", "identify", "a known identify scroll is on hand", "identity-from-counts"),
             new Template("test-item", "cell", "to reach a safe place to test", "test-spot-door-water"),
             new Template("test-item", "rest", "to rest after a test", "regen-rest-test"),
             new Template("test-item", "test/healing", "it may heal, and it is hurt", "unknown-potion-heal-half"),

@@ -145,6 +145,21 @@ tasks.register('propertiesMeasurement', JavaExec) {
     outputs.upToDateWhen { false }
 }
 
+// The calibration of the Brain's identity odds (issue #410): plays the real Brain on the first seeds of a Seed set and
+// prints the Brier score of its scroll and potion odds against the true identities, which it reads through the oracle
+// (so the task passes --oracle). `-Pcalibration.args="--set standard --seeds 20"` overrides the defaults; `goo` and
+// `holdout` are refused.
+tasks.register('identityCalibration', JavaExec) {
+    group = 'shatterfish'
+    description = 'Prints the Brier score of the Brain\'s identity odds against the true identities.'
+    dependsOn 'testClasses'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'org.shatterfish.harness.agent.IdentityCalibration'
+    def extra = project.findProperty('calibration.args')
+    args = ['--oracle'] + (extra == null || extra.toString().trim().isEmpty() ? [] : extra.toString().trim().split(/\s+/).toList())
+    outputs.upToDateWhen { false }
+}
+
 // The fit arithmetic of story 6.6: which rollout designs complete the search they are configured for at the registered
 // budget, from the committed report of story 6.4. It times nothing and plays no Run.
 tasks.register('candidateFit', JavaExec) {

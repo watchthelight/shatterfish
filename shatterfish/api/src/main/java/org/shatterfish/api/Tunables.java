@@ -137,6 +137,18 @@ public final class Tunables {
             "waits more a floor is worth for each guaranteed drop expected still on it");
     public static final Tunable DESCEND_RESTS = policy("descend.rests", "Descend.RESTS", 20, 1, 100, 5,
             "most rests handed over on a floor before going down");
+    public static final Tunable DESCEND_REST_SHARE = policy("descend.rest_per_mille", "Descend.REST_PER_MILLE", 1000, 100, 1000, 100,
+            "share of health the descent rest reaches before the stairs down to a regular floor");
+    public static final Tunable DESCEND_REST_TIGHT = policy("descend.rest_tight_per_mille", "Descend.REST_TIGHT_PER_MILLE", 1000, 100, 1000, 100,
+            "the same share while the larder holds under a ration's worth of turns");
+    public static final Tunable EXPLORE_SEARCHES = policy("explore.searches", "Explore.SEARCHES", 12, 0, 30, 2,
+            "most spots searched for a secret door on a floor with food to spare");
+    public static final Tunable EXPLORE_FRUGAL_SEARCHES = policy("explore.frugal_searches", "Explore.FRUGAL_SEARCHES", 4, 0, 12, 2,
+            "most spots searched on a floor while the larder is tight");
+    public static final Tunable LARDER_FRUGAL = policy("larder.frugal", "Larder.FRUGAL", 600, 0, 1500, 100,
+            "turns of food and clock under which the larder counts as tight");
+    public static final Tunable LARDER_FALLBACK_RESTS = policy("larder.fallback_rests", "Larder.FALLBACK_RESTS", 0, 0, 1, 1,
+            "1 lets the fallback draw a rest while hungry with no food held, 0 does not");
     public static final Tunable EXPLORE_RESTS = policy("explore.rests", "Explore.RESTS", 50, 1, 200, 10,
             "most waits rested for a floor fled from before going back down to it");
     public static final Tunable HEAL_REDRINK_SHARE = policy("heal.redrink_share_per_mille", "Heal.REDRINK_SHARE_PER_MILLE", 250, 50, 900, 50,
@@ -151,6 +163,14 @@ public final class Tunables {
             "waits a region the fight Policy retreated from stays avoided");
     public static final Tunable BRAIN_AVOID_RADIUS = policy("brain.avoid_radius", "Brain.AVOID_RADIUS", 5, 1, 12, 1,
             "widest a region the fight Policy retreated from reaches, in cells");
+    public static final Tunable BELIEFS_NOTICE = policy("beliefs.notice_per_mille", "Beliefs.NOTICE_PER_MILLE", 700, 100, 1000, 100,
+            "chance a scroll or potion generated on a floor is picked up: low reads absence as weak evidence");
+    public static final Tunable BELIEFS_DRAWS = policy("beliefs.draws_per_mille", "Beliefs.DRAWS_PER_MILLE", 800, 200, 2000, 100,
+            "random scrolls (or potions) generated a floor: high makes a deck identity's repeats less telling");
+    public static final Tunable BELIEFS_LEAK = policy("beliefs.leak_per_mille", "Beliefs.LEAK_PER_MILLE", 30, 0, 300, 10,
+            "strays a floor of an identity only a guarantee places: high lets a repeat be anything");
+    public static final Tunable TEST_UPGRADE_FIRST = policy("test_item.upgrade_first_per_mille", "TestItem.UPGRADE_FIRST_PER_MILLE", 500, 100, 1000, 100,
+            "odds of upgrade at which an unknown scroll is read before the rest");
     public static final Tunable CHESTS_MIMIC_MARGIN = policy("chests.mimic_margin_per_mille", "Chests.MIMIC_MARGIN_PER_MILLE", 1250, 500, 3000, 150,
             "how far over the worst opening's cost the hero's health must stand before a chest is opened");
 
@@ -199,6 +219,12 @@ public final class Tunables {
                 DESCEND_ALLOWANCE,
                 DESCEND_PER_DROP,
                 DESCEND_RESTS,
+                DESCEND_REST_SHARE,
+                DESCEND_REST_TIGHT,
+                EXPLORE_SEARCHES,
+                EXPLORE_FRUGAL_SEARCHES,
+                LARDER_FRUGAL,
+                LARDER_FALLBACK_RESTS,
                 EXPLORE_RESTS,
                 HEAL_REDRINK_SHARE,
                 HEAL_HORIZON,
@@ -207,6 +233,10 @@ public final class Tunables {
                 BRAIN_AVOID_WAITS,
                 BRAIN_AVOID_RADIUS,
                 CHESTS_MIMIC_MARGIN,
+                BELIEFS_NOTICE,
+                BELIEFS_DRAWS,
+                BELIEFS_LEAK,
+                TEST_UPGRADE_FIRST,
                 PICKUP_MISSILE_REACH,
                 PICKUP_DEW_SKIN_BELOW,
                 RANGED_FETCH_STEPS,

@@ -210,8 +210,8 @@ class AnswerRulesTest {
     @Test
     @DisplayName("the guess: the likeliest identity by the Beliefs, its icon and then the guess button, over two waits")
     void guess() {
-        // Screens.CODEX: strength is weighted as the floors queue it (12 of 25), so it is the likeliest
-        // identity of the one potion held.
+        // Screens.CODEX: strength is a guarantee, placed on a schedule (issue #410), and a potion found on the first
+        // floor is most likely it, so strength is the likeliest identity of the one potion held.
         Brain brain = brain();
         Observation icons = guessing(ICONS);
         Belief belief = brain.update(icons, null);
