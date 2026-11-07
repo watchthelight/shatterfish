@@ -67,6 +67,7 @@ standing Registration `H-0001-nightly-smoke`, with every night's status in its t
 | [Story 10.38, the Goo fight](2026-10-30-10-38-the-goo-fight.md) | Why Goo wins on depth 5 and the ranged volley that fires while it walks up: practice 213 to 228 kills of 240, direction slices 1000 and 3000 reach d6 87 to 94 and 71 to 78 | E10, 10.38 |
 | [Story 10.40, the Sewers killers](2026-10-31-10-40-sewers-killers.md) | 76 of 240 Runs die to Crab, Gnoll, Snake or Swarm on depths 1 to 4, read one by one; 45 of the 76 die holding unknown potions and none drinks; no family rule built. |
 | [Story 10.13, the Swarm and the corridor](2026-10-31-10-13-swarm-split.md) | A splitting Swarm treated as a crowd, with a one-step and an eight-step walk to a chokepoint, tried on 240 Runs: Swarm deaths 19, 19 and 20, Goo kills 106, 108 and 101; the lost fights start at 0.39 of full health, so no rule kept. |
+| [Story 10.11, Thief and Bandit](2026-11-07-10-11-thief-and-bandit.md) | 134 Runs read: 74% of those that reach depth 5 lose an item to a thief, 61% of the 194 thefts are never recovered, a thief kills 4 of 240; the table has no column for items lost, so no rule is built and the column to add is named. |
 
 The rig's own result files, in the shape described above, begin with the random-agent baseline in
 E3. The audit above is a findings page rather than a rig run: it has no seed set and no sequential
