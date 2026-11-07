@@ -106,4 +106,22 @@ class GuardChainTest {
         assertTrue(Guard.pulls(withNoCompany, 6 + 2 * 10, withNoCompany.hero().cell()), "in the line, but no one else is in view");
         assertFalse(decide(withNoCompany).decision().chosen().why().startsWith("guard:"));
     }
+
+    @Test
+    @DisplayName("a sleeping Guard in the line is no reason to move, and an awake one beside a sleeping one still is (a control that the gate discriminates)")
+    void a_sleeping_guard_is_left_alone() {
+        Observation awake = screen(LINE);
+        List<ActorView> actors = new ArrayList<>();
+        for (ActorView actor : awake.actors().actors()) {
+            actors.add(actor.name().equals(Guard.NAME)
+                    ? new ActorView(actor.cell(), actor.name(), actor.alignment(), actor.healthPips(), actor.invisible(),
+                            org.shatterfish.api.Emote.SLEEP, actor.buffs())
+                    : actor);
+        }
+        Observation bare = new Observation(awake.header(), awake.map(), new ActorsSection(actors), awake.hero(), awake.inventory(),
+                awake.journal(), awake.log(), ActionsSection.NONE, awake.prompt());
+        Observation asleep = bare.withActions(ValidActions.of(bare));
+        assertFalse(decide(asleep).decision().chosen().why().startsWith("guard:"));
+        assertTrue(decide(awake).decision().chosen().why().startsWith("guard: dodge"), "the same screen awake dodges");
+    }
 }
