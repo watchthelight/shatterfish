@@ -66,6 +66,7 @@ standing Registration `H-0001-nightly-smoke`, with every night's status in its t
 | [Story 10.7, the Prison diagnosis](2026-10-30-10-7-the-prison-diagnosis.md) | 960 Runs, 160 per class on two slices: reach, killers by depth, hunger (45.8% starving at death, 72.8% on depths 6 to 9), the Goo (126 of 157 depth-5 deaths), level and strength by depth, the dearest Decisions, and the order of the mob stories | E10, 10.7 |
 | [Story 10.38, the Goo fight](2026-10-30-10-38-the-goo-fight.md) | Why Goo wins on depth 5 and the ranged volley that fires while it walks up: practice 213 to 228 kills of 240, direction slices 1000 and 3000 reach d6 87 to 94 and 71 to 78 | E10, 10.38 |
 | [Story 10.40, the Sewers killers](2026-10-31-10-40-sewers-killers.md) | 76 of 240 Runs die to Crab, Gnoll, Snake or Swarm on depths 1 to 4, read one by one; 45 of the 76 die holding unknown potions and none drinks; no family rule built. |
+| [Story 10.13, the Swarm and the corridor](2026-10-31-10-13-swarm-split.md) | A splitting Swarm treated as a crowd, with a one-step and an eight-step walk to a chokepoint, tried on 240 Runs: Swarm deaths 19, 19 and 20, Goo kills 106, 108 and 101; the lost fights start at 0.39 of full health, so no rule kept. |
 
 The rig's own result files, in the shape described above, begin with the random-agent baseline in
 E3. The audit above is a findings page rather than a rig run: it has no seed set and no sequential
