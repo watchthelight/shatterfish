@@ -95,6 +95,62 @@ class RangedPolicyTest {
         assertNotEquals("ranged", decide(brute).decision().policy());
     }
 
+    /** A screen at depth 3 with the hero at 8 hit points of 20, so a crab is a fight it would not take, and the pack holding {@code items}. */
+    private static Observation hurt(String[] rows, ItemView... items) {
+        return EatPolicyTest.holding(FightPolicyTest.screen(3, 8, false, "worn shortsword", rows), items);
+    }
+
+    @Test
+    @DisplayName("story 10.42: a crab the hero cannot outrun and would not take on is thrown at while it closes, not waited for")
+    void throws_at_a_crab_it_cannot_flee() {
+        Observation crab = hurt(new String[] {
+                "################",
+                "#>.............#",
+                "#.....@...C....#",
+                "################"}, missile("throwing stone", 3));
+        assertTrue(!Fight.favourable(crab, FightPolicyTest.KNOWLEDGE, Fight.enemies(crab, FightPolicyTest.KNOWLEDGE)));
+        assertTrue(Fight.retreat(crab, Memory.START, crab.actions().actions(), Fight.enemies(crab, FightPolicyTest.KNOWLEDGE),
+                FightPolicyTest.KNOWLEDGE) == null, "the crab is faster, and the stairs are far: there is no way out");
+        Brain.Decided decided = decide(crab);
+        assertEquals("ranged", decided.decision().policy(), decided.decision().toString());
+        assertEquals("throw: throwing stone", decided.decision().chosen().why());
+    }
+
+    @Test
+    @DisplayName("story 10.42: the throw waits for the crab to be two cells off, and the stairs next door are still the way out")
+    void not_beside_it_and_not_past_the_stairs() {
+        Observation beside = hurt(new String[] {
+                "################",
+                "#>.............#",
+                "#.....@C.......#",
+                "################"}, missile("throwing stone", 3));
+        assertNotEquals("ranged", decide(beside).decision().policy());
+        Observation near = hurt(new String[] {
+                "##############",
+                "#>.@...C.....#",
+                "#............#",
+                "##############"}, missile("throwing stone", 3));
+        assertEquals("fight", decide(near).decision().policy());
+        assertEquals("retreat: stairs", decide(near).decision().chosen().why());
+    }
+
+    @Test
+    @DisplayName("story 10.42: a sealed floor keeps the old rule, and a sleeping crab is left asleep")
+    void sealed_and_asleep() {
+        Observation sealed = EatPolicyTest.holding(FightPolicyTest.screen(3, 8, true, "worn shortsword",
+                "################",
+                "#>.............#",
+                "#.....@...C....#",
+                "################"), missile("throwing stone", 3));
+        assertNotEquals("ranged", decide(sealed).decision().policy());
+        Observation asleep = HealPolicyTest.asleep(hurt(new String[] {
+                "################",
+                "#>.............#",
+                "#.....@...C....#",
+                "################"}, missile("throwing stone", 3)));
+        assertNotEquals("ranged", decide(asleep).decision().policy());
+    }
+
     @Test
     @DisplayName("the highest tier the hero's strength carries within one point is thrown first")
     void the_best_missile() {
