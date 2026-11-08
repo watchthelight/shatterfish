@@ -172,7 +172,7 @@ development_status:
   10-8-skeleton-bone-burst: done  # issue #354
   10-9-dm-100-lightning: done  # issue #355
   10-10-guard-chain-pull: done  # issue #356
-  10-11-thief-and-bandit-steal: done  # issue #357; no rule built (the table has no items-stolen column), see docs/results/2026-11-07-10-11-thief-and-bandit.md
+  10-11-thief-and-bandit-steal: done  # issue #357; thief-first rule tried and dropped (480 Runs, flat), see docs/results/2026-11-08-10-11-thief-first.md and 2026-11-07-10-11-thief-and-bandit.md
   10-12-necromancer-target-priority: backlog  # issue #358
   10-13-swarm-split-and-the-corridor: done  # issue #359; no rule kept, see docs/results/2026-10-31-10-13-swarm-split.md
   10-14-doors-chokepoints-and-the-retreat-upstairs: done  # issue #360; already built (chokepoint hold, stairs retreat, rest above); the remaining non-starving Ascends are too few to measure, see docs/ideas/2026-10-30-starving-stairs-bounce.md
