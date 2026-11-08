@@ -78,7 +78,7 @@ class IdentifyPlaybookTest {
     private static Observation screen(ItemView item, int hp, Action use) {
         List<Tile> tiles = new ArrayList<>(Collections.nCopies(3, Tile.EMPTY));
         List<Action> offered = new ArrayList<>(List.of(new Action.Step(0), new Action.Step(2), use));
-        return Screens.lab(1, 3, tiles, List.of(), Screens.heroAt(1, hp, 20, List.of()), List.of(item), List.of(),
+        return Screens.lab(item.kind() == ItemKind.SCROLL ? 2 : 1, 3, tiles, List.of(), Screens.heroAt(1, hp, 20, List.of()), List.of(item), List.of(),
                 List.of(), offered.toArray(Action[]::new));
     }
 

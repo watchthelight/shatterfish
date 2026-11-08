@@ -87,6 +87,7 @@ final class CoachLine {
             new Template("test-item", "identify", "a known identify scroll is on hand", "identity-from-counts"),
             new Template("test-item", "cell", "to reach a safe place to test", "test-spot-door-water"),
             new Template("test-item", "rest", "to rest after a test", "regen-rest-test"),
+            new Template("test-item", "test/arrival", "a new floor, so a map shows all of it", "scroll-on-arrival"),
             new Template("test-item", "test/healing", "it may heal, and it is hurt", "unknown-potion-heal-half"),
             new Template("test-item", "test/gain", "it may be a gain", "strength-experience-potions"),
             new Template("test-item", "test/inventory", "gear to pick, so worth a read", "scroll-picker"),
@@ -222,6 +223,9 @@ final class CoachLine {
     }
 
     private static String testKey(String why) {
+        if (why.contains("(arrival)")) {
+            return "test/arrival";
+        }
         if (why.contains("healing_odds")) {
             return "test/healing";
         }
