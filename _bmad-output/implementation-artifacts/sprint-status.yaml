@@ -172,6 +172,7 @@ development_status:
   10-8-skeleton-bone-burst: done  # issue #354
   10-9-dm-100-lightning: done  # issue #355
   10-10-guard-chain-pull: done  # issue #356
+  10-43-the-guard-chain-when-fleeing: done  # issue #447; no rule kept, see docs/results/2026-11-08-10-43-guard-chain-when-fleeing.md
   10-11-thief-and-bandit-steal: done  # issue #357; thief-first rule tried and dropped (480 Runs, flat), see docs/results/2026-11-08-10-11-thief-first.md and 2026-11-07-10-11-thief-and-bandit.md
   10-12-necromancer-target-priority: backlog  # issue #358
   10-13-swarm-split-and-the-corridor: done  # issue #359; no rule kept, see docs/results/2026-10-31-10-13-swarm-split.md

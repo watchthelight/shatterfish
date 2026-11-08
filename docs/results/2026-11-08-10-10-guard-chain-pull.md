@@ -28,13 +28,12 @@ rose by 0.09 to 0.56 ms (noise: the rule returns at its first test when no Guard
 ## What the table says
 
 - Not worse pooled, and no class drops: the keep rule holds.
-- The rule did not fire in any of the 480 Runs. The Guard deaths that exist (24 in the two slices) happen with no
-  second awake enemy in sight, or with no step that leaves the line, so the rule's conditions (company, a safe step)
-  are not met. The old Policy and the new one chose the same action at every turn.
+- The rule fired in 2 of the 480 Runs (a Duelist and a Rogue, both of which went on to die to a Guard), so the
+  aggregate columns could not move. Why it fires so rarely, and what the Guard deaths have in common, is in
+  [Story 10.43](2026-11-08-10-43-guard-chain-when-fleeing.md).
 - So the change is a correctness fix for a screen the unit tests pin (`GuardChainTest`: the old Policy is pulled into a
   worse cell and fails on `main`; where the pull cannot happen the new rule stays out), not a measured gain.
-- The 24 Guard deaths are the next question. A follow-up would look at what the Guard fight is with no company (the
-  rule leaves it to the melee ranks), which is a different lever from the chain.
+- The 24 Guard deaths are the next question; story 10.43 took it up.
 
 ## Not done
 
