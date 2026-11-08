@@ -71,6 +71,7 @@ standing Registration `H-0001-nightly-smoke`, with every night's status in its t
 | [Issue 435, the unknown-potion gamble](2026-11-08-435-unknown-potion-gamble.md) | Drinking the likeliest-healing unknown potion when dying lifts Goo kills from 109 to 119 and 82 to 96 on two 240-Run slices; the Warrior never gambles. |
 | [Story 10.13, the Swarm and the corridor](2026-10-31-10-13-swarm-split.md) | A splitting Swarm treated as a crowd, with a one-step and an eight-step walk to a chokepoint, tried on 240 Runs: Swarm deaths 19, 19 and 20, Goo kills 106, 108 and 101; the lost fights start at 0.39 of full health, so no rule kept. |
 | [Story 10.11, Thief and Bandit](2026-11-07-10-11-thief-and-bandit.md) | 134 Runs read: 74% of those that reach depth 5 lose an item to a thief, 61% of the 194 thefts are never recovered, a thief kills 4 of 240; the table has no column for items lost, so no rule is built and the column to add is named. |
+| [Story 10.46, why fatal fights start hurt](2026-11-08-10-46-why-fatal-fights-start-hurt.md) | 247 deaths on depths 1 to 4 read from debug records: 39% of fatal fights begin under a third of health, 60% of those hungry with no food; no rule built. |
 | [Story 10.11, hit the thief first](2026-11-08-10-11-thief-first.md) | A thief hit before other adjacent enemies, tried on 480 Runs over two salts: reach depth 5 264 to 265, Goo kills 215 to 215, items stolen 525 to 520; dropped. |
 
 The rig's own result files, in the shape described above, begin with the random-agent baseline in
