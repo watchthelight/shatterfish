@@ -55,11 +55,18 @@ final class Guard {
     }
 
     /**
-     * The step out of the chain's line, or null: no awake Guard, no other awake enemy in view (the pull is then the
-     * approach it would have made), a fight already on (an enemy beside the hero), the hero not in the line, or no
-     * step that leaves it without moving away.
+     * The step out of the chain's line, or null: no awake Guard, a fight already on (an enemy beside the hero), the
+     * hero not in the line, no other awake enemy in view while the fight is one the hero means to take (the pull is
+     * then the approach it would have made), or no step that leaves the line.
+     *
+     * <p>{@code fleeing} is the Fight Policy's verdict that the fight is not favourable. A hero that is holding or
+     * retreating from a Guard it does not mean to fight gains nothing from the pull: it is set down beside the Guard,
+     * crippled for four turns (Guard.java:82-93, :127), and the retreat it was making is over. In the Runs of story
+     * 10.10, 19 of the 24 heroes a Guard killed had been set down that way, 11 of them while holding in the line. So
+     * when fleeing the hero steps to the cell out of the line that is farthest from the Guard, whoever else is in view.
      */
-    static List<RunLog.Choice> engage(Observation observation, List<Action> offered, List<ActorView> enemies) {
+    static List<RunLog.Choice> engage(Observation observation, List<Action> offered, List<ActorView> enemies,
+            boolean fleeing) {
         ActorView guard = awake(enemies);
         if (guard == null) {
             return null;
@@ -77,22 +84,22 @@ final class Guard {
                 return null;
             }
         }
-        if (!company) {
+        if (!company && !fleeing) {
             return null;
         }
         int width = observation.map().width();
         int now = distance(width, guard.cell(), hero);
         Action best = null;
-        int bestDistance = Integer.MAX_VALUE;
+        int bestDistance = 0;
         for (Action action : offered) {
             if (!(action instanceof Action.Step step)) {
                 continue;
             }
             int away = distance(width, guard.cell(), step.cell());
-            if (away < 2 || away > now || pulls(observation, guard.cell(), step.cell())) {
+            if (away < 2 || (!fleeing && away > now) || pulls(observation, guard.cell(), step.cell())) {
                 continue;
             }
-            if (away < bestDistance) {
+            if (best == null || (fleeing ? away > bestDistance : away < bestDistance)) {
                 best = action;
                 bestDistance = away;
             }

@@ -27,7 +27,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GuardChainTest {
 
     private static Observation screen(String... rows) {
-        Observation plain = FightPolicyTest.screen(7, 20, false, "worn shortsword", rows);
+        return screenAt(20, rows);
+    }
+
+    private static Observation screenAt(int hp, String... rows) {
+        Observation plain = FightPolicyTest.screen(7, hp, false, "worn shortsword", rows);
         List<ActorView> actors = new ArrayList<>();
         for (ActorView actor : plain.actors().actors()) {
             actors.add(actor.name().equals("brute")
@@ -105,6 +109,42 @@ class GuardChainTest {
         Observation withNoCompany = screen(alone);
         assertTrue(Guard.pulls(withNoCompany, 6 + 2 * 10, withNoCompany.hero().cell()), "in the line, but no one else is in view");
         assertFalse(decide(withNoCompany).decision().chosen().why().startsWith("guard:"));
+    }
+
+    @Test
+    @DisplayName("a hero that will not fight the Guard and stands in its line steps out of it, with no one else in view (story 10.44)")
+    void a_fleeing_hero_steps_out_of_the_line_alone() {
+        String[] alone = {
+                "##########",
+                "#...#....#",
+                "#..@..B..#",
+                "#...#....#",
+                "##########"};
+        Observation weak = screenAt(3, alone);
+        int guard = 6 + 2 * 10;
+        assertTrue(Guard.pulls(weak, guard, weak.hero().cell()), "in the line");
+        Brain.Decided decided = decide(weak);
+        assertTrue(decided.decision().chosen().why().startsWith("guard: dodge"), decided.decision().toString());
+        assertFalse(Guard.pulls(weak, guard, ((Action.Step) decided.action()).cell()), "the step leaves the line");
+    }
+
+    @Test
+    @DisplayName("a fleeing hero not in the line, or with the Guard beside it, is not moved by the rule")
+    void a_fleeing_hero_out_of_the_line_is_left_to_the_other_ranks() {
+        String[] blocked = {
+                "##########",
+                "#...#....#",
+                "#..@#.B..#",
+                "#...#....#",
+                "##########"};
+        assertFalse(decide(screenAt(3, blocked)).decision().chosen().why().startsWith("guard:"));
+        String[] beside = {
+                "##########",
+                "#...#....#",
+                "#...@B...#",
+                "#...#....#",
+                "##########"};
+        assertFalse(decide(screenAt(3, beside)).decision().chosen().why().startsWith("guard:"));
     }
 
     @Test
