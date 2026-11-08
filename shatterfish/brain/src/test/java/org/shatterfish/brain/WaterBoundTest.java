@@ -73,7 +73,9 @@ class WaterBoundTest {
         for (int round = 0; round < 4; round++) {
             belief = brain.update(screen, belief);
             Brain.Decided decided = brain.decide(screen, belief);
-            if (decided.action() instanceof Action.Step step && round > 0) {
+            // The fallback is a uniform draw (Policies.fallback): it is not the explore Policy's walk to a frontier, and a
+            // seed that happens to draw a shore Step there says nothing about it (issue #448 changed the draw, not the walk).
+            if (decided.action() instanceof Action.Step step && round > 0 && !Policies.FALLBACK.equals(decided.decision().policy())) {
                 assertFalse(Fight.exposed(screen.map(), step.cell(), swum), "a Step to the shore: " + decided.decision());
             }
             belief = brain.handed(screen, belief, decided);
@@ -140,7 +142,9 @@ class WaterBoundTest {
             boolean[] swum = Fight.swum(screen, FightPolicyTest.KNOWLEDGE);
             belief = brain.update(screen, belief);
             Brain.Decided decided = brain.decide(screen, belief);
-            if (decided.action() instanceof Action.Step step && round > 0) {
+            // The fallback is a uniform draw (Policies.fallback): it is not the explore Policy's walk to a frontier, and a
+            // seed that happens to draw a shore Step there says nothing about it (issue #448 changed the draw, not the walk).
+            if (decided.action() instanceof Action.Step step && round > 0 && !Policies.FALLBACK.equals(decided.decision().policy())) {
                 assertFalse(Fight.exposed(screen.map(), step.cell(), swum), "a Step to the shore: " + decided.decision());
             }
             belief = brain.handed(screen, belief, decided);

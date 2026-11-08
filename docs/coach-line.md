@@ -30,6 +30,7 @@ the build. A clause adds no threshold, so there is nothing for `HeuristicLinkTes
 | `escape/escape` | to get out of the fire or gas | [`leave-cloud`](brain-rules.md#leave-cloud) |
 | `escape/finish` | to finish an enemy first | [`leave-cloud`](brain-rules.md#leave-cloud) |
 | `heal/heal` | hurt, with enemies near | [`heal-threshold`](brain-rules.md#heal-threshold) |
+| `heal/gamble` | it may heal, and it is hurt, with enemies near | [`unknown-potion-gamble`](brain-rules.md#unknown-potion-gamble) |
 | `douse/douse/water` | burning, water is near | [`burning-douse`](brain-rules.md#burning-douse) |
 | `douse/douse/ground` | burning, bare ground is near | [`burning-douse`](brain-rules.md#burning-douse) |
 | `zap/zap` | an enemy is in staff range | [`staff-zap`](brain-rules.md#staff-zap) |
