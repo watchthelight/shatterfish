@@ -61,6 +61,7 @@ final class CoachLine {
             new Template("escape", "escape", "to get out of the fire or gas", "leave-cloud"),
             new Template("escape", "finish", "to finish an enemy first", "leave-cloud"),
             new Template("heal", "heal", "hurt, with enemies near", "heal-threshold"),
+            new Template("heal", "gamble", "it may heal, and it is hurt, with enemies near", "unknown-potion-gamble"),
             new Template("douse", "douse/water", "burning, water is near", "burning-douse"),
             new Template("douse", "douse/ground", "burning, bare ground is near", "burning-douse"),
             new Template("zap", "zap", "an enemy is in staff range", "staff-zap"),
@@ -112,6 +113,7 @@ final class CoachLine {
             new Template("tengu", "across", "to cross the traps", "tengu-fight"),
             new Template("tengu", "dodge", "to get clear of what is about to hit", "tengu-threat"),
             new Template("tengu", "hold", "to wait for the danger to pass", "tengu-threat"),
+            new Template("fight", "guard", "to keep out of the guard's chain", "guard-chain"),
             new Template("explore", "frontier", "to uncover more of the floor", "step-cells"),
             new Template("explore", "search", "to look for a hidden way", "search-radius-cost"),
             new Template("explore", "away", "to keep clear of fire or gas", "gas-fire-avoid"),
@@ -186,7 +188,8 @@ final class CoachLine {
         String key = switch (policy) {
             case "answer-prompt" -> head;
             case "escape" -> head;
-            case "heal", "zap", "shoot", "ranged" -> policy.equals("ranged") ? "throw" : policy;
+            case "heal" -> head.equals("gamble") ? "gamble" : "heal";
+            case "zap", "shoot", "ranged" -> policy.equals("ranged") ? "throw" : policy;
             case "douse" -> detail.contains("bare") ? "douse/ground" : "douse/water";
             case "one-ply", "fight" -> fightKey(policy, head, detail);
             case "eat" -> detail.equals("water") ? "eat/water" : "eat";

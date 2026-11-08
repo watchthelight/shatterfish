@@ -30,6 +30,7 @@ the build. A clause adds no threshold, so there is nothing for `HeuristicLinkTes
 | `escape/escape` | to get out of the fire or gas | [`leave-cloud`](brain-rules.md#leave-cloud) |
 | `escape/finish` | to finish an enemy first | [`leave-cloud`](brain-rules.md#leave-cloud) |
 | `heal/heal` | hurt, with enemies near | [`heal-threshold`](brain-rules.md#heal-threshold) |
+| `heal/gamble` | it may heal, and it is hurt, with enemies near | [`unknown-potion-gamble`](brain-rules.md#unknown-potion-gamble) |
 | `douse/douse/water` | burning, water is near | [`burning-douse`](brain-rules.md#burning-douse) |
 | `douse/douse/ground` | burning, bare ground is near | [`burning-douse`](brain-rules.md#burning-douse) |
 | `zap/zap` | an enemy is in staff range | [`staff-zap`](brain-rules.md#staff-zap) |
@@ -81,6 +82,7 @@ the build. A clause adds no threshold, so there is nothing for `HeuristicLinkTes
 | `tengu/across` | to cross the traps | [`tengu-fight`](brain-rules.md#tengu-fight) |
 | `tengu/dodge` | to get clear of what is about to hit | [`tengu-threat`](brain-rules.md#tengu-threat) |
 | `tengu/hold` | to wait for the danger to pass | [`tengu-threat`](brain-rules.md#tengu-threat) |
+| `fight/guard` | to keep out of the guard's chain | [`guard-chain`](brain-rules.md#guard-chain) |
 | `explore/frontier` | to uncover more of the floor | [`step-cells`](brain-rules.md#step-cells) |
 | `explore/search` | to look for a hidden way | [`search-radius-cost`](brain-rules.md#search-radius-cost) |
 | `explore/away` | to keep clear of fire or gas | [`gas-fire-avoid`](brain-rules.md#gas-fire-avoid) |

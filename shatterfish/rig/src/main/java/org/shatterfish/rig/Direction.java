@@ -237,9 +237,7 @@ public final class Direction {
                         baselineName, baselineLogs == null ? null : DirectionMetrics.read(baselineLogs));
         StringBuilder text = new StringBuilder();
         text.append(describe).append("\n\n").append(table);
-        if (baselineLogs != null && !every) {
-            text.append(DirectionHarm.rows(DirectionHarm.read(baselineLogs), DirectionHarm.read(currentFolder)));
-        }
+        text.append(harmSection(baselineLogs, currentFolder));
         text.append("\n").append(killerSection(currentFolder, every));
         text.append("\nStray actor-thread wakes (issue #399): ").append(strayText(strayNow)).append(" current");
         if (baselineLogs != null) {
@@ -257,6 +255,14 @@ public final class Direction {
             throw new IllegalStateException("could not write the table into " + out, e);
         }
         return text.toString();
+    }
+
+    /**
+     * The cloud, theft and ending rows that follow the table, for one class or for {@code --class ALL} alike: they sum over
+     * every Run log in the folder (issue #357 added the theft rows, which a single-class table alone used to print).
+     */
+    static String harmSection(Path baselineLogs, Path currentFolder) {
+        return baselineLogs == null ? "" : DirectionHarm.rows(DirectionHarm.read(baselineLogs), DirectionHarm.read(currentFolder));
     }
 
     /**
