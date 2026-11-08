@@ -58,6 +58,10 @@ The practice floor's kit holds known healing, so the gamble does not fire there 
 Runs are two measurements; the sign agrees on both and on every pooled column, but a single class cell moves by one or two Runs. The run time
 columns rise by about 70 turns because the Runs that live longer play more.
 
+The slices were played before main gained the emergency scrolls (#411). After that merge the gamble comes after them: a known teleport, terror,
+mirror image or lullaby scroll is tried first, since it costs nothing to identify. The unit tests pass on the merged head; the slices were not
+replayed, so the numbers above are for the gamble on its own.
+
 ## Fairness
 
 The `fairness-reviewer` found no violation: the gamble reads only the `Observation`, `Memory` and the Beliefs, and `ItemView` carries no true
