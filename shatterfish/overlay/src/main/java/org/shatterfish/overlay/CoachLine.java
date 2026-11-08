@@ -123,6 +123,7 @@ final class CoachLine {
             new Template("fight", "goo/wait", "to wait for Goo's move", "goo-pump"),
             new Template("fight", "goo/approach", "to close in on Goo", "goo-engage"),
             new Template("fight", "goo/volley", "to hit Goo from a distance", "goo-volley"),
+            new Template("fight", "goo/dry", "to keep Goo out of water", "goo-dry"),
             new Template("fight", "goo/position", "to get clear ground to dodge on", "goo-position"),
             new Template("fight", "goo/wash", "to walk to water", "goo-wash"),
             new Template("fallback", "fallback", "nothing better to do", NO_CLAIM));
@@ -215,7 +216,7 @@ final class CoachLine {
         if (policy.equals("fight") && head.equals("goo")) {
             return detail.startsWith("attack") ? "goo/attack" : detail.startsWith("wait") ? "goo/wait"
                     : detail.startsWith("volley") ? "goo/volley" : detail.startsWith("position") ? "goo/position"
-                    : detail.startsWith("wash") ? "goo/wash" : "goo/approach";
+                    : detail.startsWith("wash") ? "goo/wash" : detail.startsWith("dry") ? "goo/dry" : "goo/approach";
         }
         return head;
     }
