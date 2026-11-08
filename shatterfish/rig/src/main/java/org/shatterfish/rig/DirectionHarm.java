@@ -36,7 +36,43 @@ final class DirectionHarm {
     /** The blobs that hurt where the hero stands: the Brain's own list of the fire and the harmful gases. */
     private static final Set<String> HARMFUL = Set.of("Fire", "ToxicGas", "CorrosiveGas", "ParalyticGas", "EternalFire");
 
+    /** The game's message for a theft: {@code actors.mobs.thief.stole} (actors.properties:1840). */
+    private static final java.util.regex.Pattern STOLE = java.util.regex.Pattern.compile("^The .* stole .* from you!$");
+
+    /** The game's message for a thief that escapes with the item: {@code actors.mobs.thief.escapes} (actors.properties:1842). */
+    private static final java.util.regex.Pattern ESCAPED = java.util.regex.Pattern.compile("^The .* gets away with your .*!$");
+
     private DirectionHarm() {
+    }
+
+    /**
+     * The lines {@code current} added to {@code previous}: the game log section is the newest lines, oldest first, so the
+     * lines of the new screen that follow the longest tail of the old one that opens it are the new ones. A burst that repeats
+     * a line the old screen ended with is counted once, which can undercount two identical messages in a row.
+     */
+    static List<String> added(List<String> previous, List<String> current) {
+        int most = Math.min(previous.size(), current.size());
+        for (int overlap = most; overlap > 0; overlap--) {
+            if (previous.subList(previous.size() - overlap, previous.size()).equals(current.subList(0, overlap))) {
+                return current.subList(overlap, current.size());
+            }
+        }
+        return current;
+    }
+
+    /** How many of {@code lines} announce a theft. */
+    static int stolen(List<String> lines) {
+        return (int) lines.stream().filter(line -> STOLE.matcher(line).matches()).count();
+    }
+
+    /** How many of {@code lines} announce a thief getting away with what it took. */
+    static int escaped(List<String> lines) {
+        return (int) lines.stream().filter(line -> ESCAPED.matcher(line).matches()).count();
+    }
+
+    /** The texts of the game log section of {@code observation}, oldest first. */
+    static List<String> texts(Observation observation) {
+        return observation.log().lines().stream().map(line -> line.text()).toList();
     }
 
     /** Whether the hero's own cell shows a harmful blob on {@code observation}. */
@@ -76,7 +112,7 @@ final class DirectionHarm {
 
     /** One side's cloud numbers. */
     record Side(int runs, int reached4, int reached6, int harmWaits, int runsInHarm, int diedInHarm,
-                TreeMap<String, Integer> endings) {
+                TreeMap<String, Integer> endings, int stolen, int escaped) {
     }
 
     static Side read(Path folder) {
@@ -87,6 +123,8 @@ final class DirectionHarm {
         int inHarm = 0;
         int died = 0;
         TreeMap<String, Integer> endings = new TreeMap<>();
+        int stolen = 0;
+        int escaped = 0;
         for (Path log : list(folder, ".jsonl")) {
             RunLogReader.Log read = RunLogReader.of(log);
             runs++;
@@ -107,6 +145,10 @@ final class DirectionHarm {
                 String[] cells = lines(record).get(0).split("\t");
                 int n = Integer.parseInt(cells[0]);
                 waits += n;
+                if (cells.length >= 5) {
+                    stolen += Integer.parseInt(cells[3]);
+                    escaped += Integer.parseInt(cells[4]);
+                }
                 if (n > 0) {
                     inHarm++;
                 }
@@ -118,7 +160,7 @@ final class DirectionHarm {
                 }
             }
         }
-        return new Side(runs, r4, r6, waits, inHarm, died, endings);
+        return new Side(runs, r4, r6, waits, inHarm, died, endings, stolen, escaped);
     }
 
     /** The harm record of the Run whose log is {@code log}: the log's class, seed code and salt name it. */
@@ -145,6 +187,14 @@ final class DirectionHarm {
                 String.valueOf(current.runsInHarm()), baseline == null ? null : current.runsInHarm() - baseline.runsInHarm()));
         out.append(row("deaths with the last screen in fire or gas", baseline == null ? null : String.valueOf(baseline.diedInHarm()),
                 String.valueOf(current.diedInHarm()), baseline == null ? null : current.diedInHarm() - baseline.diedInHarm()));
+        out.append(row("items stolen by a thief or bandit", baseline == null ? null : String.valueOf(baseline.stolen()),
+                String.valueOf(current.stolen()), baseline == null ? null : current.stolen() - baseline.stolen()));
+        out.append(row("items a thief got away with (lost for good)", baseline == null ? null : String.valueOf(baseline.escaped()),
+                String.valueOf(current.escaped()), baseline == null ? null : current.escaped() - baseline.escaped()));
+        out.append(row("items kept or got back (stolen less got away with)",
+                baseline == null ? null : String.valueOf(baseline.stolen() - baseline.escaped()),
+                String.valueOf(current.stolen() - current.escaped()),
+                baseline == null ? null : (current.stolen() - current.escaped()) - (baseline.stolen() - baseline.escaped())));
         out.append(row("deaths by last screen's enemy", baseline == null ? null : baseline.endings().toString(),
                 current.endings().toString(), null));
         return out.toString();
@@ -167,7 +217,7 @@ final class DirectionHarm {
         try {
             return Files.readAllLines(file, StandardCharsets.UTF_8);
         } catch (IOException e) {
-            return List.of("0\t0\tunseen");
+            return List.of("0\t0\tunseen\t0\t0");
         }
     }
 }

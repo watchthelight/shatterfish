@@ -29,6 +29,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -349,10 +350,10 @@ class TestItemPolicyTest {
     @DisplayName("a scroll is read only at full health, and only while its item-picker identities are unlikely")
     void scroll_needs_a_use() {
         ItemView kaunan = Screens.unknown(ItemKind.SCROLL, "scroll of KAUNAN", 1);
-        Observation whole = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(kaunan),
+        Observation whole = screen(2, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(kaunan),
                 List.of(), List.of(), List.of(), read(0, "scroll of KAUNAN", 1));
-        assertTrue(new TestItem(SCROLLS).enters(whole, Memory.START), "identify one in seven, full health");
-        Observation hurt = screen(1, row(3, -1, -1), Screens.heroAt(1, 19, 20, List.of()), List.of(kaunan),
+        assertTrue(new TestItem(SCROLLS).enters(whole, Memory.START), "identify one in seven, full health, a fresh floor");
+        Observation hurt = screen(2, row(3, -1, -1), Screens.heroAt(1, 19, 20, List.of()), List.of(kaunan),
                 List.of(), List.of(), List.of(), read(0, "scroll of KAUNAN", 1));
         assertFalse(new TestItem(SCROLLS).enters(hurt, Memory.START), "19 of 20: Lullaby would not be harmless");
         assertFalse(new TestItem(Screens.CODEX).enters(whole, Memory.START),
@@ -550,7 +551,7 @@ class TestItemPolicyTest {
     void refused_test_balks() {
         Brain brain = brain(SCROLLS);
         ItemView kaunan = Screens.unknown(ItemKind.SCROLL, "scroll of KAUNAN", 1);
-        Observation screen = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(kaunan),
+        Observation screen = screen(2, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(kaunan),
                 List.of(), List.of(), List.of(), read(0, "scroll of KAUNAN", 1));
         assertEquals(read(0, "scroll of KAUNAN", 1), decide(brain, screen).action(), "the first time, it reads");
         List<String> policies = new ArrayList<>();
@@ -563,7 +564,7 @@ class TestItemPolicyTest {
         }
         assertEquals("test-item", policies.get(0));
         assertTrue(policies.subList(1, 6).stream().noneMatch("test-item"::equals), policies.toString());
-        Observation below = screen(2, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(kaunan),
+        Observation below = screen(3, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(kaunan),
                 List.of(), List.of(), List.of(), read(0, "scroll of KAUNAN", 1));
         belief = brain.update(below, belief);
         assertEquals("test-item", brain.decide(below, belief).decision().policy(), "a new floor tries it again");
@@ -575,10 +576,10 @@ class TestItemPolicyTest {
         Brain brain = brain(SCROLLS);
         ItemView kaunan = Screens.unknown(ItemKind.SCROLL, "scroll of KAUNAN", 2);
         ItemView sowilo = Screens.unknown(ItemKind.SCROLL, "scroll of SOWILO", 1);
-        Observation before = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(kaunan, sowilo),
+        Observation before = screen(2, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(kaunan, sowilo),
                 List.of(), List.of(), List.of(), read(0, "scroll of KAUNAN", 2), read(1, "scroll of SOWILO", 1));
         assertEquals(read(0, "scroll of KAUNAN", 2), decide(brain, before).action());
-        Observation after = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()),
+        Observation after = screen(2, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()),
                 List.of(Screens.unknown(ItemKind.SCROLL, "scroll of KAUNAN", 1), sowilo), List.of(), List.of(),
                 List.of(), read(0, "scroll of KAUNAN", 1), read(1, "scroll of SOWILO", 1));
         Belief belief = Screens.drive(brain, before, after);
@@ -589,7 +590,7 @@ class TestItemPolicyTest {
     @DisplayName("an appearance with one candidate left is known by elimination and not tried, even healing at half health")
     void single_candidate_skipped() {
         ItemView crimson = Screens.unknown(ItemKind.POTION, "crimson potion", 1);
-        Observation screen = screen(1, row(3, -1, -1), Screens.heroAt(1, 10, 20, List.of()), List.of(crimson),
+        Observation screen = screen(2, row(3, -1, -1), Screens.heroAt(1, 10, 20, List.of()), List.of(crimson),
                 List.of(), List.of(), List.of(new KnownAppearance(ItemKind.POTION, "potion of strength"),
                         new KnownAppearance(ItemKind.POTION, "potion of mind vision"),
                         new KnownAppearance(ItemKind.POTION, "potion of frost")),
@@ -605,7 +606,7 @@ class TestItemPolicyTest {
         ItemView kaunan = Screens.unknown(ItemKind.SCROLL, "scroll of KAUNAN", 1);
         ItemView tome = Screens.using("holy tome", "DROP");
         ItemRef kaunanRef = new ItemRef(0, "scroll of KAUNAN", 1);
-        Observation screen = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(kaunan, tome),
+        Observation screen = screen(2, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(kaunan, tome),
                 List.of(), List.of(), List.of(), new Action.UseItemOn(kaunanRef, TestItem.READ,
                         new ItemRef(1, "holy tome", 1)), read(0, "scroll of KAUNAN", 1));
         assertEquals(read(0, "scroll of KAUNAN", 1), decide(brain(SCROLLS), screen).action());
@@ -950,5 +951,91 @@ class TestItemPolicyTest {
         assertEquals(drink(0, "jade potion", 1),
                 new TestItem(FLAME).plan(besideWater, balked, besideWater.actions().actions()).choice().action(),
                 "beside the water, nine against twenty of forty: drunk there, not walked on");
+    }
+
+    /** The screen with {@code transitions} drawn on it. */
+    private static Observation withTransitions(Observation screen, org.shatterfish.api.TransitionView... transitions) {
+        org.shatterfish.api.MapSection map = screen.map();
+        org.shatterfish.api.MapSection drawn = new org.shatterfish.api.MapSection(map.width(), map.height(), map.tiles(),
+                map.fog(), map.traps(), map.heaps(), map.blobs(), map.feeling(), List.of(transitions));
+        return new Observation(screen.header(), drawn, screen.actors(), screen.hero(), screen.inventory(),
+                screen.journal(), screen.log(), screen.actions(), screen.prompt());
+    }
+
+    @Test
+    @DisplayName("an unknown scroll picked up on depth 1 is held, then read on arrival at depth 2, and not once the floor is explored (issue #411)")
+    void scroll_waits_for_a_fresh_floor() {
+        ItemView kaunan = Screens.unknown(ItemKind.SCROLL, "scroll of KAUNAN", 1);
+        Observation first = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(kaunan),
+                List.of(), List.of(), List.of(), read(0, "scroll of KAUNAN", 1));
+        assertFalse(new TestItem(SCROLLS).enters(first, Memory.START), "depth 1: held, though it is full health and calm");
+        Observation second = screen(2, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(kaunan),
+                List.of(), List.of(), List.of(), read(0, "scroll of KAUNAN", 1));
+        TestItem.Plan plan = new TestItem(SCROLLS).plan(second, Memory.START, second.actions().actions());
+        assertEquals(read(0, "scroll of KAUNAN", 1), plan.choice().action(), "arrival at depth 2");
+        assertEquals("test: scroll of KAUNAN (inventory_odds_per_mille)", plan.choice().why());
+        Memory explored = after(TestItem.ARRIVAL_WAITS + 1, -1, -1, List.of(), List.of());
+        assertFalse(new TestItem(SCROLLS).enters(second, explored), "past the arrival waits the floor is no longer fresh");
+        Memory still = after(TestItem.ARRIVAL_WAITS, -1, -1, List.of(), List.of());
+        assertTrue(new TestItem(SCROLLS).enters(second, still), "the last wait of the arrival");
+    }
+
+    @Test
+    @DisplayName("the hold never blocks the upgrade read: a scroll that is probably upgrade or identify is read at once, a known upgrade too (issue #411)")
+    void hold_never_blocks_the_upgrade() {
+        ItemView kaunan = Screens.unknown(ItemKind.SCROLL, "scroll of KAUNAN", 1);
+        ItemRef armour = new ItemRef(0, "cloth armor", 1);
+        Action onto = new Action.UseItemOn(new ItemRef(1, "scroll of KAUNAN", 1), TestItem.READ, armour);
+        Observation worn = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(ARMOUR, kaunan),
+                List.of(), List.of(), List.of(), read(1, "scroll of KAUNAN", 1), onto);
+        Memory explored = after(500, -1, -1, List.of(), List.of());
+        TestItem.Plan plan = new TestItem(Screens.CODEX).plan(worn, explored, worn.actions().actions());
+        assertEquals(onto, plan.choice().action(), "upgrade or identify throughout: read on depth 1 on an explored floor");
+        ItemView upgrade = new ItemView(ItemKind.SCROLL, TestItem.UPGRADE, 1, true, 0, true, false, "",
+                org.shatterfish.api.EquipSlot.NONE, List.of(TestItem.READ), "");
+        Action up = new Action.UseItemOn(new ItemRef(1, TestItem.UPGRADE, 1), TestItem.READ, armour);
+        Observation known = screen(1, row(3, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(ARMOUR, upgrade),
+                List.of(), List.of(), List.of(), read(1, TestItem.UPGRADE, 1), up);
+        assertEquals(up, new TestItem(SCROLLS).plan(known, explored, known.actions().actions()).choice().action(),
+                "a known scroll of upgrade is read wherever the hero stands");
+    }
+
+    @Test
+    @DisplayName("a known scroll of magic mapping is read on arrival, unless the way down is already in view, or the floor below is a boss floor (issue #411)")
+    void known_mapping_on_arrival() {
+        ItemView mapping = new ItemView(ItemKind.SCROLL, TestItem.MAPPING, 1, true, 0, true, false, "",
+                org.shatterfish.api.EquipSlot.NONE, List.of(TestItem.READ), "");
+        Action reads = read(0, TestItem.MAPPING, 1);
+        Observation arrived = screen(2, row(5, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(mapping),
+                List.of(), List.of(), List.of(), reads);
+        TestItem.Plan plan = new TestItem(SCROLLS).plan(arrived, Memory.START, arrived.actions().actions());
+        assertEquals(reads, plan.choice().action());
+        assertEquals("test: scroll of magic mapping (arrival)", plan.choice().why());
+        Observation first = screen(1, row(5, -1, -1), Screens.heroAt(1, 20, 20, List.of()), List.of(mapping),
+                List.of(), List.of(), List.of(), reads);
+        assertFalse(new TestItem(SCROLLS).enters(first, Memory.START), "depth 1 is not worth a map");
+        assertFalse(new TestItem(SCROLLS).enters(arrived, after(TestItem.ARRIVAL_WAITS + 1, -1, -1, List.of(), List.of())),
+                "an explored floor");
+        org.shatterfish.api.TransitionView exit = new org.shatterfish.api.TransitionView(4,
+                org.shatterfish.api.TransitionKind.REGULAR_EXIT);
+        assertFalse(new TestItem(SCROLLS).enters(withTransitions(arrived, exit), Memory.START), "the exit is in view");
+        Observation before = withTransitions(screen(4, row(5, -1, -1), Screens.heroAt(1, 20, 20, List.of()),
+                List.of(mapping), List.of(), List.of(), List.of(), reads), exit);
+        assertTrue(new TestItem(SCROLLS).enters(before, Memory.START), "the floor before a boss: mapped though the exit shows");
+    }
+
+    @Test
+    @DisplayName("an unknown potion is still drunk at low health when healing is likely enough: no hold waits for an identify (issue #411)")
+    void low_health_still_drinks() {
+        ItemView crimson = Screens.unknown(ItemKind.POTION, "crimson potion", 1);
+        ItemView kaunan = Screens.unknown(ItemKind.SCROLL, "scroll of KAUNAN", 1);
+        for (int hp : new int[]{10, 6}) {
+            Observation low = screen(2, row(3, -1, -1), Screens.heroAt(1, hp, 20, List.of()), List.of(kaunan, crimson),
+                    List.of(), List.of(), List.of(), drink(1, "crimson potion", 1));
+            TestItem.Plan plan = new TestItem(Screens.CODEX).plan(low, after(500, -1, -1, List.of(), List.of()),
+                    low.actions().actions());
+            assertNotNull(plan, hp + " of 20: the Policy acts");
+            assertEquals(drink(1, "crimson potion", 1), plan.choice().action(), hp + " of 20");
+        }
     }
 }

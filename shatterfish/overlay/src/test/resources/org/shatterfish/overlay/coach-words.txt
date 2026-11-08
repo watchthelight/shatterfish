@@ -4,6 +4,7 @@
 a
 about
 after
+all
 an
 and
 answer
@@ -97,11 +98,13 @@ likeliest
 locked
 long
 look
+map
 may
 meat
 more
 move
 near
+new
 next
 no
 nothing
@@ -126,6 +129,7 @@ say
 says
 scroll
 search
+shows
 so
 spot
 staff

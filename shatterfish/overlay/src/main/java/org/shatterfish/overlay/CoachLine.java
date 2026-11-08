@@ -87,6 +87,7 @@ final class CoachLine {
             new Template("test-item", "identify", "a known identify scroll is on hand", "identity-from-counts"),
             new Template("test-item", "cell", "to reach a safe place to test", "test-spot-door-water"),
             new Template("test-item", "rest", "to rest after a test", "regen-rest-test"),
+            new Template("test-item", "test/arrival", "a new floor, so a map shows all of it", "scroll-on-arrival"),
             new Template("test-item", "test/healing", "it may heal, and it is hurt", "unknown-potion-heal-half"),
             new Template("test-item", "test/gain", "it may be a gain", "strength-experience-potions"),
             new Template("test-item", "test/inventory", "gear to pick, so worth a read", "scroll-picker"),
@@ -124,6 +125,7 @@ final class CoachLine {
             new Template("fight", "goo/wait", "to wait for Goo's move", "goo-pump"),
             new Template("fight", "goo/approach", "to close in on Goo", "goo-engage"),
             new Template("fight", "goo/volley", "to hit Goo from a distance", "goo-volley"),
+            new Template("fight", "goo/dry", "to keep Goo out of water", "goo-dry"),
             new Template("fight", "goo/position", "to get clear ground to dodge on", "goo-position"),
             new Template("fight", "goo/wash", "to walk to water", "goo-wash"),
             new Template("fallback", "fallback", "nothing better to do", NO_CLAIM));
@@ -216,12 +218,15 @@ final class CoachLine {
         if (policy.equals("fight") && head.equals("goo")) {
             return detail.startsWith("attack") ? "goo/attack" : detail.startsWith("wait") ? "goo/wait"
                     : detail.startsWith("volley") ? "goo/volley" : detail.startsWith("position") ? "goo/position"
-                    : detail.startsWith("wash") ? "goo/wash" : "goo/approach";
+                    : detail.startsWith("wash") ? "goo/wash" : detail.startsWith("dry") ? "goo/dry" : "goo/approach";
         }
         return head;
     }
 
     private static String testKey(String why) {
+        if (why.contains("(arrival)")) {
+            return "test/arrival";
+        }
         if (why.contains("healing_odds")) {
             return "test/healing";
         }
