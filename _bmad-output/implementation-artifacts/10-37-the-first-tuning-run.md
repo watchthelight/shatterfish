@@ -73,7 +73,7 @@ pooled and per class. The verdict and the negative or positive result are publis
 
 ## Outcome
 
-Rejected, published as a negative result: [the page](../../docs/results/2026-11-07-10-37-the-first-tuning-run.md). The
+Rejected, published as a negative result: the page `docs/results/2026-11-07-10-37-the-first-tuning-run.md`. The
 pooled test is undecided on both slices (111 better to 129 worse on 1000, 120 to 112 on 3000), four classes kill fewer
 bosses on slice 1000 and the Huntress is vetoed. No Playbook number changes, so no `fairness` label, and no #412 lever
 is turned on (nothing to report on #412 beyond the page: the dormant levers moved a little in the candidate and the

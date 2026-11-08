@@ -122,7 +122,7 @@ Largest moves in steps: `identify.scroll_hp_per_mille` -2.22 (1000 to 889: unkno
 
 ## The candidate against the current values
 
-Logs: `docs/results/logs/2026-11-07-10-37-first-tuning-run/slice-1000/runs.tsv`, `docs/results/logs/2026-11-07-10-37-first-tuning-run/slice-3000/runs.tsv` (one line per Run, both sides, from the Run logs, which are too large to commit) and the full direction tables `docs/results/logs/2026-11-07-10-37-first-tuning-run/slice-1000/direction.md`, `docs/results/logs/2026-11-07-10-37-first-tuning-run/slice-3000/direction.md`.
+Logs: `docs/results/logs/2026-11-07-10-37-first-tuning-run/slice-1000/runs.tsv`, `docs/results/logs/2026-11-07-10-37-first-tuning-run/slice-3000/runs.tsv` (one line per Run, both sides, from the Run logs, which are too large to commit) and the full direction tables `docs/results/logs/2026-11-07-10-37-first-tuning-run/slice-1000/direction.txt`, `docs/results/logs/2026-11-07-10-37-first-tuning-run/slice-3000/direction.txt`.
 
 The Sequential test is the e-process, which is the E3 gate (`SequentialTest.GATE`). Pairs are in salt order with the classes interleaved in the pooled row. "Bosses" is bosses killed by the candidate and by the current values.
 
@@ -147,7 +147,7 @@ Neither slice accepts. The pooled pair scores are 111 better to 129 worse on sli
 
 ## The PR table for all six classes
 
-The full tables (every metric, all six classes, pooled, and the killers by depth) are the two `direction.md` files named above. These rows are the ones the keep rule and the story ask for, current values then candidate, and the think-time column (mean / 95th percentile milliseconds per Decision from the logs' `think_ms`).
+The full tables (every metric, all six classes, pooled, and the killers by depth) are the two `direction.txt` files named above. These rows are the ones the keep rule and the story ask for, current values then candidate, and the think-time column (mean / 95th percentile milliseconds per Decision from the logs' `think_ms`).
 
 | slice | class | reach depth 5 | bosses killed | Goo kills | think ms per Decision, mean / p95 |
 |---|---|---|---|---|---|
