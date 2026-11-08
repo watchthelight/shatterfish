@@ -1,0 +1,46 @@
+candidate for the Playbook shatterfish, from the tuning run in this folder
+(the committed Playbook is not edited; play the numbers with --tunables, or copy them by hand)
+
+bosses.goo.descent_rest_per_mille    1000 -> 866    (bounds 1..1000, step 100)
+bosses.goo.drink_per_mille            400 -> 464    (bounds 1..1000, step 50)
+bosses.goo.meet_range                   6 -> 6      (bounds 0..12, step 1)  unchanged
+bosses.goo.wash_range                   4 -> 4      (bounds 0..12, step 1)  unchanged
+bosses.tengu.adjacent_cost              6 -> 5      (bounds 0..40, step 2)
+bosses.tengu.bomb_cost                 22 -> 21     (bounds 0..60, step 4)
+bosses.tengu.fire_cost                 18 -> 17     (bounds 0..60, step 4)
+bosses.tengu.shock_cost                12 -> 12     (bounds 0..60, step 4)  unchanged
+brain.avoid_radius                      5 -> 6      (bounds 1..12, step 1)
+brain.avoid_waits                      40 -> 30     (bounds 0..200, step 10)
+chests.mimic_margin_per_mille        1250 -> 1564   (bounds 500..3000, step 150)
+descend.allowance                     500 -> 404    (bounds 100..1500, step 100)
+descend.per_drop                      250 -> 354    (bounds 0..800, step 50)
+descend.rests                          20 -> 24     (bounds 1..100, step 5)
+descend.trample_reach                   0 -> 1      (bounds 0..30, step 2)
+explore.grass_skin_below                0 -> 2      (bounds 0..20, step 4)
+explore.rests                          50 -> 48     (bounds 1..200, step 10)
+fight.chase_waits                      10 -> 2      (bounds 0..40, step 4)
+fight.flights                           2 -> 2      (bounds 0..6, step 1)  unchanged
+fight.margin_per_mille                500 -> 528    (bounds 100..1500, step 50)
+fight.outpaced_range                    6 -> 7      (bounds 2..12, step 1)
+fight.outpaced_stairs                   2 -> 1      (bounds 0..8, step 1)
+fight.recall_waits                     20 -> 20     (bounds 0..80, step 8)  unchanged
+heal.horizon                           10 -> 8      (bounds 2..30, step 2)
+heal.redrink_share_per_mille          250 -> 244    (bounds 50..900, step 50)
+identify.escape_waits                  12 -> 9      (bounds 0..100, step 4)
+identify.gain_odds_per_mille          200 -> 173    (bounds 1..1000, step 50)
+identify.healing_odds_per_mille       200 -> 172    (bounds 1..1000, step 50)
+identify.inventory_odds_per_mille     250 -> 305    (bounds 1..1000, step 50)
+identify.potion_hp_per_mille          500 -> 580    (bounds 1..1000, step 50)
+identify.reach                          8 -> 7      (bounds 0..40, step 4)
+identify.rest_waits                    50 -> 45     (bounds 0..500, step 25)
+identify.scroll_hp_per_mille         1000 -> 889    (bounds 1..1000, step 50)
+pickup.dew_skin_below                   0 -> 2      (bounds 0..20, step 4)
+pickup.missile_reach                    0 -> 2      (bounds 0..40, step 4)
+plunge.fit_percent                     80 -> 86     (bounds 20..100, step 5)
+plunge.safe_hp                         15 -> 14     (bounds 1..60, step 3)
+ranged.fetch_steps                      0 -> 1      (bounds 0..4, step 1)
+ranged.min_damage_per_mille             0 -> 189    (bounds 0..6000, step 250)
+upgrade.hold_until_depth                0 -> 0      (bounds 0..26, step 2)  unchanged
+upgrade.weapon_lead                     0 -> 0      (bounds -5..5, step 1)  unchanged
+
+--tunables bosses.goo.descent_rest_per_mille=866,bosses.goo.drink_per_mille=464,bosses.tengu.adjacent_cost=5,bosses.tengu.bomb_cost=21,bosses.tengu.fire_cost=17,brain.avoid_radius=6,brain.avoid_waits=30,chests.mimic_margin_per_mille=1564,descend.allowance=404,descend.per_drop=354,descend.rests=24,descend.trample_reach=1,explore.grass_skin_below=2,explore.rests=48,fight.chase_waits=2,fight.margin_per_mille=528,fight.outpaced_range=7,fight.outpaced_stairs=1,heal.horizon=8,heal.redrink_share_per_mille=244,identify.escape_waits=9,identify.gain_odds_per_mille=173,identify.healing_odds_per_mille=172,identify.inventory_odds_per_mille=305,identify.potion_hp_per_mille=580,identify.reach=7,identify.rest_waits=45,identify.scroll_hp_per_mille=889,pickup.dew_skin_below=2,pickup.missile_reach=2,plunge.fit_percent=86,plunge.safe_hp=14,ranged.fetch_steps=1,ranged.min_damage_per_mille=189
