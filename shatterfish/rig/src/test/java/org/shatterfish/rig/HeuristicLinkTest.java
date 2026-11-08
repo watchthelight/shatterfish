@@ -96,6 +96,7 @@ class HeuristicLinkTest {
             Map.entry("Evidence.VIEW", "a cap on the appearances read at once, for the decision's time budget"),
             Map.entry("Evidence.STACK","the largest stack the falling factorial tells apart"),
 Map.entry("Threats.BOMB_RADIUS", "the blast radius of Tengu's smoke bomb (Tengu.java:630), a fact of the game and not a choice"),
+            Map.entry("Guard.REACH", "how far the Prison Guard's chain reaches: `Dungeon.level.distance( pos, enemy.pos ) < 5` at core/src/main/java/com/shatteredpixel/shatteredpixeldungeon/actors/mobs/Guard.java:183, a fact of the game and not a choice"),
             Map.entry("Tengu.DEPTH", "the floor of the dungeon where the prison boss lives (Dungeon.java:441-443), a fact of the map and not a choice"));
 
     /** Constants of nested classes are listed by their nested name; the capacity of the shunned set is one. */

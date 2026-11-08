@@ -283,6 +283,9 @@ final class Fight implements Policy {
         if (fight == null) {
             fight = Tengu.engage(observation, memory, offered, enemies, tengu);
         }
+        if (fight == null) {
+            fight = Guard.engage(observation, offered, enemies);
+        }
         if (fight != null) {
             return fight;
         }
