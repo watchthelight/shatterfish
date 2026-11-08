@@ -3,6 +3,7 @@ package org.shatterfish.brain;
 import org.shatterfish.api.Playbook;
 
 import org.shatterfish.api.Action;
+import org.shatterfish.api.Heuristic;
 import org.shatterfish.api.BlobCell;
 import org.shatterfish.api.BuffView;
 import org.shatterfish.api.Codex;
@@ -98,6 +99,32 @@ final class TestItem implements Policy {
     /** The known scroll of identify, by the name the inventory shows (every class starts knowing it: HeroClass.java:117). */
     static final String IDENTIFY = "scroll of identify";
 
+    /**
+     * The scrolls that are worth reading at once wherever the hero stands, by the Codex's class names: the item
+     * pickers that upgrade or identify, and remove curse (ScrollOfUpgrade.java, ScrollOfIdentify.java,
+     * ScrollOfRemoveCurse.java). Every other unknown scroll waits for a fresh floor (issue #411).
+     */
+    static final Set<String> READ_AT_ONCE = Set.of("items.scrolls.ScrollOfIdentify", "items.scrolls.ScrollOfRemoveCurse",
+            "items.scrolls.ScrollOfUpgrade");
+
+    /**
+     * The odds, in thousandths, that an unknown scroll is one of {@link #READ_AT_ONCE} from which it is read
+     * wherever the hero stands: half. An assumption, not a Codex fact.
+     */
+    @Heuristic("scroll-on-arrival")
+    static final int AT_ONCE_PER_MILLE = 500;
+
+    /**
+     * The waits after arriving on a floor during which it is fresh: a scroll read then finds the floor unseen,
+     * which magic mapping pays off on (ScrollOfMagicMapping.java:53-62) and teleportation costs nothing on
+     * (ScrollOfTeleportation.java:152-180 prefers cells never visited). An assumption, not a Codex fact.
+     */
+    @Heuristic("scroll-on-arrival")
+    static final int ARRIVAL_WAITS = 30;
+
+    /** The scroll of magic mapping once identified (items.properties). */
+    static final String MAPPING = "scroll of magic mapping";
+
     /** The potion of healing, by the Codex's class name. */
     static final String HEALING = "items.potions.PotionOfHealing";
 
@@ -167,6 +194,7 @@ final class TestItem implements Policy {
         }
         return upgrade(observation, observation.actions().actions(), upgrader, knowledge) != null
                 || gain(observation, observation.actions().actions(), identify) != null
+                || mapping(observation, memory, observation.actions().actions()) != null
                 || identifying(observation, memory, observation.actions().actions()) != null
                 || !testable(observation, memory).isEmpty() || restOwed(observation, memory, identify);
     }
@@ -220,6 +248,10 @@ final class TestItem implements Policy {
         if (identifying != null) {
             return new Plan("", 0, new RunLog.Choice(identifying, Policies.CERTAIN,
                     "identify: " + identifying.target().name() + " (identify-held)"));
+        }
+        Action mapRead = settled ? mapping(observation, memory, offered) : null;
+        if (mapRead != null) {
+            return new Plan("", 0, new RunLog.Choice(mapRead, Policies.CERTAIN, "test: " + MAPPING + " (arrival)"));
         }
         // An unknown scroll goes where a known upgrade would, but never onto the Mage's staff: an
         // unknown scroll of transmutation changes the item it is read onto (ScrollOfTransmutation.java:
@@ -389,6 +421,41 @@ final class TestItem implements Policy {
      * {@code known_gains} is on (story 7.3). Strength adds a point and experience a level whatever the
      * hero's health (PotionOfStrength.java:43-47), so nothing is gained by holding one.
      */
+    /**
+     * Whether the hero has just arrived on a floor below the first, with the floor unseen: within
+     * {@link #ARRIVAL_WAITS} waits of arriving (issue #411).
+     */
+    static boolean fresh(Observation observation, Memory memory) {
+        return observation.header().depth() >= 2 && memory.waits() - memory.arrived() <= ARRIVAL_WAITS;
+    }
+
+    /**
+     * A known scroll of magic mapping read on a fresh floor: it reveals the whole level, secret doors and
+     * traps too (ScrollOfMagicMapping.java:53-62), and has no failure on a locked level. Not once the way down
+     * is in view, unless the floor below is a boss floor, where the map shows what to prepare for.
+     */
+    static Action mapping(Observation observation, Memory memory, List<Action> offered) {
+        if (!fresh(observation, memory) || has(observation, BLINDED) || has(observation, MAGIC_IMMUNE)) {
+            return null;
+        }
+        boolean exit = observation.map().transitions().stream()
+                .anyMatch(transition -> transition.kind() == org.shatterfish.api.TransitionKind.REGULAR_EXIT);
+        if (exit && observation.header().depth() % 5 != 4) {
+            return null;
+        }
+        List<ItemView> items = observation.inventory().items();
+        for (int index = 0; index < items.size(); index++) {
+            ItemView item = items.get(index);
+            if (item.name().equals(MAPPING)) {
+                Action read = new Action.UseItem(new ItemRef(index, item.name(), item.quantity()), READ);
+                if (offered.contains(read)) {
+                    return read;
+                }
+            }
+        }
+        return null;
+    }
+
     static Action gain(Observation observation, List<Action> offered, Playbook.Identify identify) {
         if (identify.knownGains() == 0) {
             return null;
@@ -601,6 +668,11 @@ final class TestItem implements Policy {
                 }
             } else if (item.kind() == ItemKind.SCROLL && guess.kind() == ItemKind.SCROLL && !unreadable
                     && identify.scrollHp(observation.hero().hp(), observation.hero().ht())) {
+                // A scroll that is probably not an upgrade, identify or remove curse waits for a fresh floor
+                // (issue #411): read where the hero has explored, magic mapping maps nothing new.
+                if (1000 * odds(guess, READ_AT_ONCE) < AT_ONCE_PER_MILLE && !fresh(observation, memory)) {
+                    continue;
+                }
                 if (odds(guess, INVENTORY_SCROLLS) < identify.inventoryOdds()) {
                     verb = READ;
                     field = "inventory_odds_per_mille";

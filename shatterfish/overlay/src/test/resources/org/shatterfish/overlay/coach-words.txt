@@ -4,6 +4,7 @@
 a
 about
 after
+all
 an
 and
 answer
@@ -26,6 +27,7 @@ by
 cannot
 case
 cell
+chain
 chasm
 chest
 clear
@@ -69,6 +71,7 @@ goo
 goo's
 good
 ground
+guard's
 hand
 has
 heal
@@ -95,11 +98,13 @@ likeliest
 locked
 long
 look
+map
 may
 meat
 more
 move
 near
+new
 next
 no
 nothing
@@ -124,6 +129,7 @@ say
 says
 scroll
 search
+shows
 so
 spot
 staff

@@ -975,6 +975,21 @@ The committed Playbook is never edited. The state of a run is the folder: a run 
 an iteration replays that iteration and no other, and ends where an uninterrupted run would have
 (`TuneRunnerTest`). `SpsaTest` holds the arithmetic to quadratics with known peaks, noiseless and noisy.
 
+**Confirming a candidate** (story 10.37). A candidate is judged on salts it was not fitted on: play the current values and the
+candidate on the same triples with the direction check (`--class ALL --first 40`, salt bases 1000 and 3000; the candidate
+side takes `--tunables` from `candidate.diff.txt` and `--baseline` the folder of the current values), then
+
+```sh
+./gradlew :rig:confirm --args="--candidate <candidate folder>/current --current <current folder>/current --out <folder>"
+```
+
+`TuneConfirm` pairs the two folders by class, seed code and salt, runs the E3 Sequential test (`EProcess`: H0 0.50, H1 0.55,
+alpha = beta = 0.05, 25% of pairs may be missing; constants of the class, not flags) pooled and per class, and writes
+`runs.tsv` (one line per Run, both sides, with Decisions and think time), the committed summary a results page is checked
+against. A candidate is kept only if, on each slice, the pooled test accepts, no class kills fewer bosses than the current
+values, and no class has 8 or more worse pairs than better. The first run, which kept nothing, is
+[story 10.37](results/2026-11-07-10-37-the-first-tuning-run.md).
+
 ## The boss practice check
 
 `./gradlew :rig:practice --args="--boss tengu|goo --class <HERO|ALL> --kit standard --n 40 --salt-base 1000"`
