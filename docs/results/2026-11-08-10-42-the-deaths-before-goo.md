@@ -92,7 +92,7 @@ known potion of healing, and two in five a throwing weapon. 72 of 256 hold none 
 | died holding an unknown potion | 127 | 49.6% | Crab 51, Swarm 16, Gnoll 14 |
 
 How the last Decisions run is read from the Decision record: the Policy and its reason, and the Safety flags the screen
-raised (`hp-low` is under a third of the hit points, the status pane's own warning, `Safety.java:29`). The record holds
+raised (`hp-low` is under a third of the hit points, the status pane's own warning, `Safety.java` line 29). The record holds
 no hit point count, so "how hurt" is that flag and the health on arrival at the floor. Each death has the 20 last
 Decisions in `deaths.tsv`.
 
@@ -108,16 +108,16 @@ the arithmetic of those pages has not changed, and story 10.39 owns the food.
 ### 2. The hero waits for an enemy it cannot walk away from (101 of 256, 39%)
 
 This is the new one. When an enemy is in view, the fight is not one the hero would take, and there is no way to walk
-away, the fight Policy answers `hold: no-way` (`Fight.java:347-357`) for up to four waits and then fights where it
-stands as `cornered` (`Fight.java:291-296`). There is no walk away from a Crab, because it moves two cells to the hero's
-one (`Fight.outpaced`, `Fight.java:680-682`), unless the stairs are two steps off (`Fight.java:674`, `OUTPACED_STAIRS`).
+away, the fight Policy answers `hold: no-way` (`Fight.java` lines 347 to 357) for up to four waits and then fights where it
+stands as `cornered` (`Fight.java` lines 291 to 296). There is no walk away from a Crab, because it moves two cells to the hero's
+one (`Fight.outpaced`, `Fight.java` lines 680 to 682), unless the stairs are two steps off (`Fight.java` line 674, `OUTPACED_STAIRS`).
 So it is mostly the Crab that does this: 53 of the 101.
 
 In the same Decisions the ranged Policy, which ranks above the fight Policy, throws only while the fight is one the hero
-would take: `Ranged.java:158` returns nothing when `Fight.favourable` is false, on the reasoning that "the fight Policy
-retreats, which a throw would only delay" (`Ranged.java:40`). That is true when the fight Policy can retreat and false
+would take: `Ranged.java` line 158 returns nothing when `Fight.favourable` is false, on the reasoning that "the fight Policy
+retreats, which a throw would only delay" (`Ranged.java` line 40). That is true when the fight Policy can retreat and false
 when it cannot: the throw is then not a delay but the only thing the free turns can buy. A thrown weapon takes one turn
-and hits one and a half times as often from a distance (`Ranged.java:25-31`), and the enemy spends a turn on each cell it
+and hits one and a half times as often from a distance (`Ranged.java` lines 25 to 31), and the enemy spends a turn on each cell it
 crosses, so a Crab that closes two cells a turn from six cells away leaves two or three free throws.
 
 In 28 deaths the hero waited with a throwing weapon in the pack and threw none (17 of them to the Crab), and in 7 more it
