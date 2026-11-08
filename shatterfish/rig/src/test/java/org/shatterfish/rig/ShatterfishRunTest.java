@@ -72,7 +72,9 @@ class ShatterfishRunTest {
                     String why = wait.decision().chosen().why();
                     if (wait.action() instanceof org.shatterfish.api.Action.UseItem use) {
                         assertTrue(List.of("DRINK", "READ").contains(use.action()), why);
-                        assertTrue(why.matches(java.util.regex.Pattern.quote("test: " + use.item().name()) + " \\([a-z_]+\\)"), why);
+                        // A known potion of strength or experience is drunk for its gain ("drink: ..", known_gains).
+                        assertTrue(why.matches(java.util.regex.Pattern.quote("test: " + use.item().name()) + " \\([a-z_]+\\)")
+                                || why.equals("drink: " + use.item().name() + " (known_gains)"), why);
                     } else if (wait.action() instanceof org.shatterfish.api.Action.UseItemOn onto) {
                         // Story 4.13: a scroll read onto the worn armour, a test or a known upgrade.
                         assertEquals("READ", onto.action(), why);
