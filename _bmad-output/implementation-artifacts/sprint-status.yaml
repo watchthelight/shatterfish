@@ -171,7 +171,7 @@ development_status:
   10-7-the-prison-diagnosis: done  # issue #353
   10-8-skeleton-bone-burst: done  # issue #354
   10-9-dm-100-lightning: done  # issue #355
-  10-10-guard-chain-pull: review  # issue #356
+  10-10-guard-chain-pull: done  # issue #356
   10-11-thief-and-bandit-steal: done  # issue #357; no rule built (the table has no items-stolen column), see docs/results/2026-11-07-10-11-thief-and-bandit.md
   10-12-necromancer-target-priority: backlog  # issue #358
   10-13-swarm-split-and-the-corridor: done  # issue #359; no rule kept, see docs/results/2026-10-31-10-13-swarm-split.md
