@@ -238,6 +238,33 @@ final class Goo {
     }
 
     /**
+     * The Step toward dry ground to meet Goo on (story, issue #429). Goo regains hit points on every act it ends
+     * standing in water (Goo.java:109-111), so a blow struck at a Goo in water is partly given back. Where Goo
+     * will stand to fight the hero ({@link #arrival}, or its own cell once it is beside the hero) is read from the
+     * shown terrain; when that is water the hero walks to the nearest ground, within the Playbook's
+     * {@code meet_range} Steps, whose arrival cell is dry and where a pump could be dodged. Goo spends its turns
+     * coming on, so the walk costs the hero no blow of Goo's. The walk never ends or passes beside Goo, as
+     * {@link #position}'s, and it is made only before contact, after the volley, and with no pump pending. Beside
+     * Goo the hero strikes: a step back costs it a blow for one of Goo's. Null when Goo will fight on dry ground,
+     * when Goo is beside the hero, or when there is no such ground.
+     */
+    static RunLog.Choice dry(Observation observation, Memory memory, List<Action> offered, ActorView goo,
+                             Playbook.Goo entry) {
+        MapSection map = observation.map();
+        boolean[] walk = Explore.walkable(observation, memory, false);
+        int hero = observation.hero().cell();
+        if (distance(map, hero, goo.cell()) <= 1
+                || map.tiles().get(arrival(map, walk, hero, goo.cell())) != org.shatterfish.api.Tile.WATER) {
+            return null;
+        }
+        return walkTo(map, walk, hero, offered, goo.cell(), entry.meetRange(),
+                cell -> {
+                    int there = arrival(map, walk, cell, goo.cell());
+                    return map.tiles().get(there) != org.shatterfish.api.Tile.WATER && dodgeable(map, walk, cell, there);
+                }, "goo: dry");
+    }
+
+    /**
      * Whether caustic ooze is on the hero, by its buff icon. The icon's turns are not read: the Observation
      * does not show them for this buff, and a Goo hit sets them back to 20 (Ooze.java:32, :79-83; Goo.java:157-160).
      */
@@ -416,6 +443,13 @@ final class Goo {
             if (volley != null) {
                 ranked.add(new RunLog.Choice(volley.action(), ranked.isEmpty() ? Policies.CERTAIN : 0, volley.why()));
                 return ranked;
+            }
+            if (dodge == null && memory.pump() != goo.cell()) {
+                RunLog.Choice dry = dry(observation, memory, offered, goo, entry);
+                if (dry != null) {
+                    ranked.add(dry);
+                    return ranked;
+                }
             }
         }
         if (offered.contains(attack)) {

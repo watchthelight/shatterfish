@@ -105,6 +105,9 @@ public final class DirectionPlay {
         private int k;
         private int lastHero = -1;
         private int harmWaits;
+        private int stolen;
+        private int escaped;
+        private List<String> lastLog = List.of();
         private Observation last;
         private final StringBuilder arrived = new StringBuilder(
                 "depth\twait\tlevel\texp\thp\tht\tstr\titems\n");
@@ -161,16 +164,24 @@ public final class DirectionPlay {
             return sb.toString();
         }
 
-        /** The harm record (issue #408): waits spent in fire or gas, whether the last screen was one, and its ending. */
+        /**
+         * The harm record (issue #408): waits spent in fire or gas, whether the last screen was one, its ending, and (story
+         * 10.11) the thefts and the escapes the game log announced, read from the log the Brain is handed.
+         */
         String harm() {
             return harmWaits + "\t" + (last != null && DirectionHarm.inHarm(last) ? 1 : 0) + "\t"
-                    + (last == null ? "unseen" : DirectionHarm.ending(last)) + "\n";
+                    + (last == null ? "unseen" : DirectionHarm.ending(last)) + "\t" + stolen + "\t" + escaped + "\n";
         }
 
         @Override
         public Action decide(Observation o) {
             k++;
             last = o;
+            List<String> log = DirectionHarm.texts(o);
+            List<String> fresh = DirectionHarm.added(lastLog, log);
+            stolen += DirectionHarm.stolen(fresh);
+            escaped += DirectionHarm.escaped(fresh);
+            lastLog = log;
             if (DirectionHarm.inHarm(o)) {
                 harmWaits++;
             }

@@ -56,6 +56,7 @@ the build. A clause adds no threshold, so there is nothing for `HeuristicLinkTes
 | `test-item/identify` | a known identify scroll is on hand | [`identity-from-counts`](brain-rules.md#identity-from-counts) |
 | `test-item/cell` | to reach a safe place to test | [`test-spot-door-water`](brain-rules.md#test-spot-door-water) |
 | `test-item/rest` | to rest after a test | [`regen-rest-test`](brain-rules.md#regen-rest-test) |
+| `test-item/test/arrival` | a new floor, so a map shows all of it | [`scroll-on-arrival`](brain-rules.md#scroll-on-arrival) |
 | `test-item/test/healing` | it may heal, and it is hurt | [`unknown-potion-heal-half`](brain-rules.md#unknown-potion-heal-half) |
 | `test-item/test/gain` | it may be a gain | [`strength-experience-potions`](brain-rules.md#strength-experience-potions) |
 | `test-item/test/inventory` | gear to pick, so worth a read | [`scroll-picker`](brain-rules.md#scroll-picker) |
@@ -92,6 +93,7 @@ the build. A clause adds no threshold, so there is nothing for `HeuristicLinkTes
 | `fight/goo/wait` | to wait for Goo's move | [`goo-pump`](brain-rules.md#goo-pump) |
 | `fight/goo/approach` | to close in on Goo | [`goo-engage`](brain-rules.md#goo-engage) |
 | `fight/goo/volley` | to hit Goo from a distance | [`goo-volley`](brain-rules.md#goo-volley) |
+| `fight/goo/dry` | to keep Goo out of water | [`goo-dry`](brain-rules.md#goo-dry) |
 | `fight/goo/position` | to get clear ground to dodge on | [`goo-position`](brain-rules.md#goo-position) |
 | `fight/goo/wash` | to walk to water | [`goo-wash`](brain-rules.md#goo-wash) |
 | `fallback/fallback` | nothing better to do | none: it says only that nothing above fired |
