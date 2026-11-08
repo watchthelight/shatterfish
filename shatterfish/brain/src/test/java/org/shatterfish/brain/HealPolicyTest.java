@@ -160,10 +160,42 @@ class HealPolicyTest {
     }
 
     @Test
-    @DisplayName("an unidentified potion is never drunk to heal")
-    void unknown_potion() {
+    @DisplayName("a gamble is priced in hit points: worth it when healing is likely, not when fire and gas that kill at these hit points are (issue #435)")
+    void gamble_is_priced() {
+        Observation screen = fight(3, "#@r...#", potion("crimson potion", 1));
+        List<SafeTest.Candidate> likely = List.of(
+                new SafeTest.Candidate("items.potions.PotionOfHealing", "potion of healing", 0.8),
+                new SafeTest.Candidate("items.potions.PotionOfLiquidFlame", "potion of liquid flame", 0.2));
+        List<SafeTest.Candidate> unlikely = List.of(
+                new SafeTest.Candidate("items.potions.PotionOfHealing", "potion of healing", 0.1),
+                new SafeTest.Candidate("items.potions.PotionOfLiquidFlame", "potion of liquid flame", 0.45),
+                new SafeTest.Candidate("items.potions.PotionOfToxicGas", "potion of toxic gas", 0.45));
+        assertTrue(Heal.gambleValue(unlikely, screen, 2.0) < 0, "burning or gas that kills at 3 hit points outweighs a one-in-ten heal");
+        assertTrue(Heal.gambleValue(likely, screen, 2.0) > 0, "four in five healing is worth a fifth fire");
+    }
+
+    @Test
+    @DisplayName("hurt beside a rat with no known healing and one unknown potion, the hero drinks it when the odds are worth the harm (issue #435)")
+    void gambles_on_an_unknown_potion() {
         Brain.Decided decided = decide(fight(3, "#@r...#", potion("crimson potion", 1)));
-        assertEquals("fight", decided.decision().policy());
+        assertEquals("heal", decided.decision().policy(), decided.decision().toString());
+        assertTrue(drinks(decided), decided.decision().toString());
+        assertTrue(decided.decision().chosen().why().startsWith("gamble crimson potion"), decided.decision().chosen().why());
+    }
+
+    @Test
+    @DisplayName("no enemy within two cells, no gamble: a calm test is the test-item Policy's (issue #435)")
+    void no_gamble_without_an_enemy_close() {
+        Brain.Decided decided = decide(fight(3, "#@....r#", potion("crimson potion", 1)));
+        assertNotEquals("gamble", decided.decision().chosen().why().split(" ")[0], decided.decision().toString());
+    }
+
+    @Test
+    @DisplayName("a known potion of healing is drunk before any unknown potion is gambled on (issue #435)")
+    void known_healing_first() {
+        Brain.Decided decided = decide(fight(3, "#@r...#", potion("crimson potion", 2), potion("potion of healing", 1)));
+        assertTrue(drinks(decided));
+        assertTrue(decided.decision().chosen().why().startsWith("heal "), decided.decision().chosen().why());
     }
 
     @Test
