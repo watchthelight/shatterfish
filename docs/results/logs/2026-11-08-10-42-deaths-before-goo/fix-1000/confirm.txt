@@ -1,0 +1,10 @@
+confirm: H0 0.50, H1 0.55, alpha = beta = 0.05, missing allowed 250 per mille, e-process
+group	pairs	missing	worse	equal	better	verdict	consumed	bosses_candidate	bosses_current	vetoed
+POOLED	240	0	19	195	26	REJECT	194	106	101	false
+WARRIOR	40	0	5	33	2	UNDECIDED	40	27	27	false
+MAGE	40	0	3	37	0	REJECT	38	17	17	false
+ROGUE	40	0	2	30	8	UNDECIDED	40	12	12	false
+HUNTRESS	40	0	5	30	5	UNDECIDED	40	20	19	false
+DUELIST	40	0	4	26	10	UNDECIDED	40	23	19	false
+CLERIC	40	0	0	39	1	UNDECIDED	40	7	7	false
+kept on this slice: false
