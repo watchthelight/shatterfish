@@ -203,12 +203,12 @@ class PlaybookEquivalenceTest {
         Path codex = SeedSetsTest.ROOT.resolve(CodexManifest.FOLDER).resolve(org.shatterfish.harness.boot.HeadlessBoot.pinnedTag());
         String committed = Files.readString(PlaybookFile.of(SeedSetsTest.ROOT, Brains.SHATTERFISH), StandardCharsets.UTF_8);
         Playbook held = PlaybookFile.read(PlaybookFile.of(SeedSetsTest.ROOT, Brains.SHATTERFISH), Brains.SHATTERFISH, codex);
-        assertEquals(Playbook.reference(Brains.SHATTERFISH).identify().with(java.util.Map.of("rest_hp_per_mille", 300L)), held.identify(),
-                "the base states the values the constants held, but for the rest after a test (story 10.15)");
+        assertEquals(Playbook.reference(Brains.SHATTERFISH).identify().with(java.util.Map.of("rest_hp_per_mille", 300L, "known_gains", 1L)), held.identify(),
+                "the base states the values the constants held, but for the rest after a test (story 10.15) and the known potion of strength drunk (story 10.17)");
         assertEquals(Playbook.reference(Brains.SHATTERFISH).kit(), held.kit());
         assertTrue(committed.contains(UPGRADE_7_4), "the committed Playbook states the allocation of story 7.4");
         String atReference = committed.replace(UPGRADE_7_4, UPGRADE_7_2).replace("\"version\":3", "\"version\":1")
-                .replace("\"rest_hp_per_mille\":300", "\"rest_hp_per_mille\":1000");
+                .replace("\"rest_hp_per_mille\":300", "\"rest_hp_per_mille\":1000").replace("\"known_gains\":1", "\"known_gains\":0");
         java.util.Set<HeroClass> unchanged = java.util.EnumSet.allOf(HeroClass.class);
         for (Playbook.ClassEntry entry : held.classes()) {
             if (!entry.equals(new Playbook.ClassEntry(entry.heroClass(), held.identify(), held.kit(), held.upgrade()))) {
