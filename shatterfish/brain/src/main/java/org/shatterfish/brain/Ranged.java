@@ -170,7 +170,8 @@ final class Ranged implements Policy {
      * and {@link Fight#retreat} finds no way away, which is what an awake faster enemy (a crab) near the hero means, or a
      * dead end. The fight Policy then waits for the enemy and fights where it stands ({@code hold: no-way}, then
      * {@code cornered}), so the turns the enemy spends walking up are free and a throw in them is no delay. A sealed floor
-     * keeps the old rule: the boss fights have their own Policies.
+     * keeps the old rule: the boss fights have their own Policies. The gate also admits the missile fetch in the same
+     * method, which stays off while {@code ranged.fetch_steps} is 0.
      */
     private boolean cornered(Observation observation, Memory memory, List<Action> offered, List<ActorView> enemies) {
         return !observation.header().sealed()

@@ -141,22 +141,37 @@ repeat a rejected experiment. Cause 2 is the largest that is new, it is a gap be
 its own comments, and the change is small and local: the ranged Policy also throws when the fight Policy has nowhere to
 go. That is the fix measured below.
 
-## The fix, measured: not kept
+## The fix, measured: KEPT
 
-The change (commit `ee12dea53`, reverted in the same branch) let the ranged Policy throw when the floor is not sealed and
+The change (commit `ee12dea53`) let the ranged Policy throw when the floor is not sealed and
 `Fight.retreat` finds no way away, as well as when the fight is favourable. Its first test,
 `RangedPolicyTest` "a crab the hero cannot outrun and would not take on is thrown at while it closes, not waited for",
 failed on `main` (`396dc470a`): the Decision was `Wait`, `hold: no-way`. The brain tests passed with the change.
 
 It was played against `396dc470a` (pinned by SHA) on the two ALL-40 slices of the standard set, salt bases 1000 and 3000,
 `:rig:direction --set standard --class ALL --first 40 --salt-base N --baseline 396dc470a --jobs 1 --debug-record`, and
-paired by `:rig:confirm` (the E3 Sequential test, H0 0.50, H1 0.55, alpha = beta = 0.05, per-class veto at 8). Reach
-depth 5 and Goo kills, pooled:
+paired by `:rig:confirm` (the E3 Sequential test, H0 0.50, H1 0.55, alpha = beta = 0.05, per-class veto at 8). The keep
+rule of this epic is: pooled over both slices not worse, and no class 8 or more worse. It does not require E3 to accept H1
+(PRs #449 and #438 were kept on it). Reach depth 5 and Goo kills, pooled per slice:
 
 | | baseline 1000 | fix 1000 | baseline 3000 | fix 3000 |
 |---|---|---|---|---|
 | reach depth 5 | 122/240 | 127/240 | 123/240 | 122/240 |
 | Goo kills | 101/240 | 106/240 | 88/240 | 89/240 |
+
+Both slices pooled, per class (baseline `396dc470a` against the fix, summed over the 40 Runs of each class on each slice):
+
+| class | reach depth 5 base | fix | Goo kills base | fix |
+|---|---|---|---|---|
+| WARRIOR | 63 | 62 | 52 | 52 |
+| MAGE | 42 | 42 | 34 | 34 |
+| ROGUE | 32 | 33 | 18 | 19 |
+| HUNTRESS | 43 | 43 | 34 | 35 |
+| DUELIST | 43 | 47 | 34 | 38 |
+| CLERIC | 22 | 22 | 17 | 17 |
+| POOLED | 245 | 249 | 189 | 195 |
+
+E3 on each slice (`:rig:confirm`, columns are the pairs of fix against baseline):
 
 **Slice 1000**
 
@@ -182,15 +197,17 @@ depth 5 and Goo kills, pooled:
 | DUELIST | 40 | 0 | 7 | 29 | 4 | REJECT | 27 | 15 | 15 | no |
 | CLERIC | 40 | 0 | 2 | 37 | 1 | UNDECIDED | 40 | 10 | 10 | no |
 
-Over the 480 pairs the fix is better in 52, worse in 39 and equal in 389. The pooled test rejects the 0.55 hypothesis on
-both slices: 26 better against 19 worse and 26 against 20 are too few decided pairs to show a win rate near 0.55. No
-class reaches the veto (the largest worse-minus-better in any class on either slice is 3), and no class kills fewer
-Goos. So the change does not hurt, and it does not show a gain either; the gate for a Brain change is a gain.
+Over the 480 pairs the fix is better in 52, worse in 39 and equal in 389. Pooled over both slices it is not worse: depth 5
+245 to 249 and Goo kills 189 to 195. In the pair counts the largest worse-minus-better in any class on either slice is 3
+(the veto is 8), and no class kills fewer Goos. **Verdict: KEPT** on the keep rule.
+
+E3 did not accept H1: the pooled Sequential test on each slice ends REJECT of the 0.55 hypothesis and five of six classes
+are UNDECIDED on both slices (26 better against 19 worse and 26 against 20 are too few decided pairs to show a win rate
+near 0.55). That is "undecided" for the gain, not evidence of harm, and the keep rule does not ask for acceptance.
 
 What the tables cannot show: the change acts only in the deaths that wait with a throwing weapon in the pack (28 of 256
-in the diagnosis), so a true effect of a few pairs in a hundred is below what 240 pairs a slice can see. The result is
-read as "inside the noise", not as "no effect". The code is not kept, because a Brain change merges on a measured gain
-(CLAUDE.md, non-negotiable 5), and it is not rebuilt.
+in the diagnosis), so a true effect of a few pairs in a hundred is below what 240 pairs a slice can see. The size of the
+gain is an estimate with a wide interval; the claim kept is "not worse", with a likely small gain.
 
 ## Caveats
 

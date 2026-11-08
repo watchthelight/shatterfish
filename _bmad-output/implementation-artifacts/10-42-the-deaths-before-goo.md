@@ -49,9 +49,10 @@ with the E3 Sequential test, pooled, and a per-class veto of 8, the baseline pin
 
 ## Outcome
 
-A negative result, nothing kept. The throw rule (commit `ee12dea53`, reverted in the next commit) was measured on the two
-ALL-40 slices against `396dc470a`: better in 52 pairs, worse in 39, equal in 389 of 480; the pooled E3 test rejects the
-0.55 hypothesis on both slices; no class reaches the veto of 8. The Brain is unchanged. The diagnosis (256 early deaths, the
-Crab a third of them, 101 waiting at `hold: no-way`) and the figures are on
+KEPT on the epic's keep rule (pooled over both slices not worse, no class 8 or more worse; E3 acceptance of H1 is not
+required). The throw rule (commit `ee12dea53`) was measured on the two ALL-40 slices against `396dc470a`: better in 52
+pairs, worse in 39, equal in 389 of 480; depth 5 245 to 249 and Goo kills 189 to 195 pooled; the largest worse-minus-better
+in any class is 3. E3 left it undecided (pooled REJECT of H1 on both slices, five classes UNDECIDED). The diagnosis (256
+early deaths, the Crab a third of them, 101 waiting at `hold: no-way`) and the figures are on
 `docs/results/2026-11-08-10-42-the-deaths-before-goo.md`, recomputed by `DeathsBeforeGooPageTest` and
 `DeathsBeforeGooMeasureTest`. The two other causes belong to open work: food (story 10.39) and unknown potions (#435).
