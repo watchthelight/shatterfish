@@ -202,4 +202,5 @@ development_status:
   10-38-the-goo-fight-on-depth-5: done  # issue #422; added by 10.7
   10-39-prison-food-the-second-pass: done  # issue #423; added by 10.7
   10-40-the-sewers-killers: done  # issue #424; added by 10.7; no family rule built, see docs/results/2026-10-31-10-40-sewers-killers.md; 45 of 76 die holding unknown potions (docs/ideas/2026-10-31-dying-with-unknown-potions.md)
+  10-42-the-deaths-before-goo: review  # issue #445; added by 10.7; negative result, throw rule measured and not kept, see docs/results/2026-11-08-10-42-the-deaths-before-goo.md
   epic-10-retrospective: optional
