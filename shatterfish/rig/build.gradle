@@ -216,3 +216,15 @@ tasks.register('tune', JavaExec) {
     workingDir = rootDir
     outputs.upToDateWhen { false }
 }
+
+// `./gradlew :rig:confirm --args="--candidate <folder> --current <folder> --out <folder>"` pairs two folders of Run
+// logs (a tuned candidate and the current numbers, played on the same triples and salts), runs the E3 Sequential test
+// pooled and per class, and writes the summary a results page is checked against (story 10.37).
+tasks.register('confirm', JavaExec) {
+    group = 'shatterfish'
+    description = 'Pairs a candidate folder with a current-numbers folder and runs the Sequential test.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.shatterfish.rig.TuneConfirm'
+    workingDir = rootDir
+    outputs.upToDateWhen { false }
+}
