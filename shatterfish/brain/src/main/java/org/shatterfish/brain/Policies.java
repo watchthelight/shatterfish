@@ -171,6 +171,13 @@ final class Policies {
                     List<Action> still = drawn.stream().filter(action -> !(action instanceof Action.Rest)).toList();
                     drawn = still.isEmpty() ? drawn : still;
                 }
+                // No rest beside an enemy (issue #448): the rest button runs until the hit points are full or
+                // something interrupts it, and an enemy that is not coming (asleep, out of reach) does not, so a
+                // uniform draw sat down for hundreds of turns (_bmad-output/implementation-artifacts/10-44-starvation-before-goo.md).
+                if (observation.actors().actors().stream().anyMatch(actor -> actor.alignment() == org.shatterfish.api.Alignment.ENEMY)) {
+                    List<Action> standing = drawn.stream().filter(action -> !(action instanceof Action.Rest)).toList();
+                    drawn = standing.isEmpty() ? drawn : standing;
+                }
                 for (Action action : drawn.isEmpty() ? offered : drawn) {
                     Evaluation.Scored scored = evaluation.scored(observation, action);
                     termsOf.put(action, scored.terms());
