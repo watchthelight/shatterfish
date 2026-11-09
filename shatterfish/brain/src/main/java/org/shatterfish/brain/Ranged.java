@@ -38,7 +38,9 @@ import java.util.Set;
  * <p><b>What it takes.</b> No Prompt is open, the nearest hostile in view that is awake and mobile is
  * between 2 and {@link #REACH} cells away, none is adjacent, the line to it is clear of walls and of any
  * other character, the fight is {@link Fight#favourable} (otherwise the fight Policy retreats, which a
- * throw would only delay), and Goo is not among the enemies, whose pump the fight Policy dodges. A
+ * throw would only delay) or the fight Policy has no retreat to make and the floor is not sealed (story 10.42: it waits
+ * for the enemy and then fights where it stands, so the throw delays nothing), and Goo is not among the enemies, whose
+ * pump the fight Policy dodges. A
  * sleeping enemy is left asleep: it is not coming, and a throw wakes it.
  *
  * <p><b>What it throws.</b> A missile the screen names plainly ({@link #TIERS}, the plain missiles of
@@ -155,12 +157,25 @@ final class Ranged implements Policy {
                 target = enemy;
             }
         }
-        if (!Fight.favourable(observation, knowledge, enemies, tunables)) {
+        if (!Fight.favourable(observation, knowledge, enemies, tunables) && !cornered(observation, memory, offered, enemies)) {
             return null;
         }
         RunLog.Choice thrown = target == null || best > REACH || !clear(observation, hero, target.cell()) ? null
                 : throwAt(observation, offered, target);
         return thrown != null ? thrown : fetch(observation, memory, offered, enemies);
+    }
+
+    /**
+     * Whether the fight Policy has nowhere to take the hero from these enemies (story 10.42): the floor is not sealed
+     * and {@link Fight#retreat} finds no way away, which is what an awake faster enemy (a crab) near the hero means, or a
+     * dead end. The fight Policy then waits for the enemy and fights where it stands ({@code hold: no-way}, then
+     * {@code cornered}), so the turns the enemy spends walking up are free and a throw in them is no delay. A sealed floor
+     * keeps the old rule: the boss fights have their own Policies. The gate also admits the missile fetch in the same
+     * method, which stays off while {@code ranged.fetch_steps} is 0.
+     */
+    private boolean cornered(Observation observation, Memory memory, List<Action> offered, List<ActorView> enemies) {
+        return !observation.header().sealed()
+                && Fight.retreat(observation, memory, offered, enemies, knowledge, tunables) == null;
     }
 
     /** The throw at {@code target} that is worth its missile, or null. */
