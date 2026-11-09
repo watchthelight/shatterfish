@@ -70,7 +70,21 @@ class PickupThresholdTest {
         // Nineteen cells is the crimson-potion test's "not worth it" distance above; the key still is.
         RunLog.Choice taken = choose(nineteenAway);
         assertEquals(new Action.Step(2), taken.action(), "still taken, however far");
-        assertNull(choose(room(30, 20, "ration of food", STEPS)), "an ordinary item at the same distance is not");
+        assertNull(choose(room(30, 20, "throwing stone", STEPS)), "an ordinary item at the same distance is not");
+    }
+
+    @Test
+    @DisplayName("food is worth the turns it buys: a ration is fetched across a floor, a stone at that distance is not (issue #448)")
+    void food_worth_the_walk() {
+        // 25 steps from the hero: the replayed Warrior left a ration at that distance on depth 1 and starved on depth 4.
+        Observation far = room(40, 26, "ration of food", STEPS);
+        RunLog.Choice taken = choose(far);
+        assertEquals(new Action.Step(2), taken == null ? null : taken.action(), "a ration 25 steps away is taken");
+        assertEquals("item: ration of food 25", taken.why());
+        assertNull(choose(room(40, 26, "throwing stone", STEPS)), "an ordinary item at the same distance is not");
+        assertNull(choose(room(400, 380, "ration of food", STEPS)), "and a ration is not worth more than the turns it buys");
+        assertEquals(PICKUP.worth("ration of food", far) * 2 - PICKUP.worth("throwing stone", far),
+                PICKUP.worth("ration of food x2", far), "two rations buy twice the turns");
     }
 
     @Test
@@ -90,7 +104,7 @@ class PickupThresholdTest {
         long unknown = VALUING.worth("crimson potion", screen);
         long healing = VALUING.worth("potion of healing", screen);
         long strength = VALUING.worth("potion of strength", screen);
-        long plain = VALUING.worth("ration of food", screen);
+        long plain = VALUING.worth("throwing stone", screen);
         assertTrue(plain < strength && plain < unknown && unknown < healing, plain + " < " + unknown + " < " + healing);
         // The odds of each identity times what it adds (strength the strength weight, healing the heal weight), over
         // the item's own worth: read from the Beliefs, which weigh strength by the floors' schedule (issue #410).
