@@ -33,6 +33,9 @@ passes is played again on current main before its pull request.
 ## Outcome
 
 - `ranged.fetch_steps` kept at 2: on main 9cd3af90e reach depth 5 280 to 285, Goo kills 229 to 241 of 480, worst class -2.
+- Played again as the committed default on main c6b3b9dc5: reach depth 5 293 to 299, Goo kills 241 to 253 of 480.
+- Note for later measurements: `:rig:direction` plays a baseline ref with the current api module, so a changed tunable
+  default moves the baseline too; play the old default with `--tunables` instead.
 - Dropped: `ranged.min_damage_per_mille`, `pickup.dew_skin_below`, `pickup.missile_reach`, `explore.grass_skin_below`,
   `descend.trample_reach`, and the weights `heal`, `upgrade`, `useful`.
 - Results: `docs/results/2026-11-09-10-48-missiles-dew-pickup-worth.md`.

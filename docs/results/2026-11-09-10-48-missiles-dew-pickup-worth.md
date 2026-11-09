@@ -74,6 +74,27 @@ rarely. It moved Goo kills +6 on the first main and +12 on the second, with most
 classes within a few Runs of zero; the size is small, and what supports it is that both mains and both slices of the
 second one point the same way (+5 and +7).
 
+## Final check, main c6b3b9dc5 (the Cleric kit merged), the committed default
+
+Main moved once more before the pull request (#463, the Cleric casts Guiding Light), so the kept lever was played a third
+time, this time as the committed default instead of a `--tunables` vector. `:rig:direction` plays a baseline git ref with
+the current build's api module, so the default change moves the baseline's lever too: a run with no flags had both sides
+fetching and gave identical Runs (240 of 240 logs equal once `chain`, `prev` and `think_ms` are set aside). The usable
+pair is the current build with `--tunables ranged.fetch_steps=0` (true main, lever off) against the baseline ref (lever
+on). The table below is that pair read the other way round: lever off to lever on. Denominators are 240 per slice and 480
+pooled, both sides.
+
+| | slice 1000 | slice 3000 | pooled |
+|---|---|---|---|
+| reach depth 5, off to on | 152 to 156 | 141 to 143 | 293 to 299 (+6) |
+| Goo kills, off to on | 128 to 133 | 113 to 120 | 241 to 253 (+12) |
+| deepest mean, off to on | 5.117 to 5.221 | 4.921 to 4.983 | 5.019 to 5.102 (+0.083) |
+
+Per class (reach depth 5 / Goo kills, off to on, pooled): Warrior 61 to 66 / 51 to 57, Mage 50 to 50 / 45 to 45, Rogue 39 to
+38 / 24 to 29, Huntress 48 to 48 / 39 to 39, Duelist 51 to 54 / 46 to 47, Cleric 44 to 43 / 36 to 36. The worst class on
+reach is Rogue or Cleric at -1; none is worse on Goo kills. The Goo kill rate is 241 of 480 (50.2%) without the lever
+and 253 of 480 (52.7%) with it.
+
 ## Grass and trample, on top of `fetch_steps` 2 (baseline: the confirmation's `current` side)
 
 | lever (value) | slice 1000 | slice 3000 | pooled | worst class | verdict |
@@ -90,7 +111,8 @@ dropped here is dropped at the value named. They stay in the registry at 0, so a
 
 ## Outcome
 
-- `ranged.fetch_steps` committed at 2 (`Ranged.FETCH_STEPS`, `Tunables.RANGED_FETCH_STEPS`).
+- `ranged.fetch_steps` committed at 2 (`Ranged.FETCH_STEPS`, `Tunables.RANGED_FETCH_STEPS`); three plays agree in sign
+  (reach depth 5 / Goo kills +4/+6, +5/+12 and +6/+12).
 - Every other #412 lever stays at 0: `pickup.missile_reach`, `pickup.dew_skin_below`, `ranged.min_damage_per_mille`,
   `explore.grass_skin_below`, `descend.trample_reach`, and the weights `heal`, `upgrade`, `useful`.
 - Test first (ADR-0019): `MissilesAndDewTest.the_committed_playbook_fetches_a_near_stone` failed on main (13 run, 1 failed)
