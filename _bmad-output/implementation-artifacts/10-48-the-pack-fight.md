@@ -3,7 +3,7 @@ title: 'Story 10.48: The fight uses the pack'
 type: 'feature'
 created: '2026-11-09'
 status: 'review'
-baseline_commit: '28f4fe38d'
+baseline_commit: '91c24281c'
 review_loop_iteration: 0
 context: []
 ---
@@ -18,7 +18,7 @@ deaths and found them in most packs). The Brain throws only missile weapons (`Ra
 mobile enemy 2 to 7 cells off on a clear line when the fight is not favourable and the hero needs four turns or more to
 kill it. The burn and freeze numbers are cited at `v4.0.2` by `path:line` in `docs/rules/combat.md`; fire is thrown only
 when no flammable ground joined to the landing cells reaches the hero, read from the drawn tiles. Measured on the two
-ALL-40 standard slices (salt bases 1000 and 3000, `--jobs 4`) against the merge-base SHA `28f4fe38d`, with the epic's
+ALL-40 standard slices (salt bases 1000 and 3000, `--jobs 4`) against the merge-base SHA `91c24281c`, with the epic's
 keep rule: pooled over both slices not worse in reach depth 5 and Goo kills, no class 8 or more worse.
 
 ## Scope fences
@@ -49,4 +49,4 @@ keep rule: pooled over both slices not worse in reach depth 5 and Goo kills, no 
 
 ## Outcome
 
-(filled in at the end)
+Kept. Two ALL-40 standard slices (salts 1000 and 3000, 480 Runs) against the merge-base `91c24281c`: reach depth 5 276 to 278 (+2), Goo kills 226 to 227 (+1), worst class Rogue at -3 reach and -4 Goo kills pooled (-5 and -5 in slice 1000, +2 and +1 in slice 3000). The keep rule holds. The effect is inside the noise; the Policy fired in 67 of 240 Runs of slice 1000 and not at all on the baseline. Numbers and limits are on `docs/results/2026-11-09-10-48-the-pack-fight.md`. The first test (`PackPolicyTest`) fails on main: 6 of its 11 tests fail without the registration in `Brain.policies()`.
