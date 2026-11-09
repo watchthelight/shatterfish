@@ -175,4 +175,50 @@ class ZapPolicyTest {
         }
         assertEquals("zap", decide(clericPlaybook(6), plain).decision().policy());
     }
+
+    /** A Playbook in which only the Rogue puts its cloak on, to {@code reach}. */
+    private static Playbook roguePlaybook(int reach) {
+        Playbook base = Playbook.reference("shatterfish");
+        return new Playbook("shatterfish", 2, base.identify(), base.upgrade(), base.kit(), List.of(new Playbook.ClassEntry(
+                HeroClass.ROGUE, base.identify(), base.kit().with(Map.of("zap_reach", (long) reach)), base.upgrade())));
+    }
+
+    /** The cloak of shadows as the inventory shows it: worn in the artifact slot, its charges on the status. */
+    private static ItemView cloak(String status) {
+        return new ItemView(ItemKind.ARTIFACT, "cloak of shadows", 1, true, 0, true, false, status, EquipSlot.ARTIFACT,
+                List.of("DROP", "STEALTH", "THROW"), "STEALTH");
+    }
+
+    @Test
+    @DisplayName("a Rogue whose class has a reach puts its cloak on for an awake enemy within it (issue #373)")
+    void the_rogue_puts_the_cloak_on() {
+        Brain.Decided decided = decide(roguePlaybook(2), screen(HeroClass.ROGUE, "#@.r...#", cloak("3/3")));
+        assertEquals("zap", decided.decision().policy());
+        assertEquals("cloak: cloak of shadows", decided.decision().chosen().why());
+        Action.UseItem put = (Action.UseItem) decided.action();
+        assertEquals("STEALTH", put.action());
+        assertEquals("cloak of shadows", put.item().name());
+        assertEquals("zap", decide(roguePlaybook(2), screen(HeroClass.ROGUE, "#@r....#", cloak("1/3"))).decision().policy(), "beside it");
+        assertNotEquals("zap", decide(roguePlaybook(2), screen(HeroClass.ROGUE, "#@..r..#", cloak("3/3"))).decision().policy(), "past the reach");
+    }
+
+    @Test
+    @DisplayName("no charge, reach zero, a sleeper, a cloak already on and a cloak not worn leave the Rogue to the dagger")
+    void the_rogue_needs_a_charge_a_reach_and_an_awake_enemy() {
+        assertNotEquals("zap", decide(roguePlaybook(2), screen(HeroClass.ROGUE, "#@.r...#", cloak("0/3"))).decision().policy());
+        assertNotEquals("zap", decide(roguePlaybook(0), screen(HeroClass.ROGUE, "#@.r...#", cloak("3/3"))).decision().policy());
+        assertNotEquals("zap", decide(roguePlaybook(2), HealPolicyTest.asleep(screen(HeroClass.ROGUE, "#@.r...#", cloak("3/3")))).decision().policy());
+        ItemView carried = new ItemView(ItemKind.ARTIFACT, "cloak of shadows", 1, true, 0, true, false, "3/3", EquipSlot.NONE,
+                List.of("DROP", "EQUIP", "THROW"), "EQUIP");
+        assertNotEquals("zap", decide(roguePlaybook(2), screen(HeroClass.ROGUE, "#@.r...#", carried)).decision().policy());
+        Observation plain = screen(HeroClass.ROGUE, "#@.r...#", cloak("3/3"));
+        org.shatterfish.api.HeroSection h = plain.hero();
+        org.shatterfish.api.HeroSection hero = new org.shatterfish.api.HeroSection(h.cell(), h.name(), h.subclass(),
+                h.ability(), h.level(), h.exp(), h.expToLevel(), h.hp(), h.ht(), h.shield(), h.strength(),
+                h.strengthBonus(), h.gold(), h.energy(), h.hunger(), List.of(new org.shatterfish.api.BuffView("cloaked", false, 0)),
+                h.talents(), h.talentPointsAvailable(), h.quickslots());
+        Observation bare = new Observation(plain.header(), plain.map(), plain.actors(), hero, plain.inventory(),
+                plain.journal(), plain.log(), org.shatterfish.api.ActionsSection.NONE, plain.prompt());
+        assertNotEquals("zap", decide(roguePlaybook(2), bare.withActions(ValidActions.of(bare))).decision().policy(), "already cloaked");
+    }
 }
