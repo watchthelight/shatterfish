@@ -34,6 +34,7 @@ the build. A clause adds no threshold, so there is nothing for `HeuristicLinkTes
 | `douse/douse/water` | burning, water is near | [`burning-douse`](brain-rules.md#burning-douse) |
 | `douse/douse/ground` | burning, bare ground is near | [`burning-douse`](brain-rules.md#burning-douse) |
 | `zap/zap` | an enemy is in staff range | [`staff-zap`](brain-rules.md#staff-zap) |
+| `lunge/lunge` | an enemy is in lunge range | [`rapier-lunge`](brain-rules.md#rapier-lunge) |
 | `shoot/shoot` | an enemy is in bow range | [`bow-shoot`](brain-rules.md#bow-shoot) |
 | `ranged/throw` | to hit from a distance | [`missile-throw`](brain-rules.md#missile-throw) |
 | `one-ply/heal` | a drink is worth it | [`heal-threshold`](brain-rules.md#heal-threshold) |
