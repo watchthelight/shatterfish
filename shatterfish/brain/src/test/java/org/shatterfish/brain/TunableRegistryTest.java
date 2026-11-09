@@ -85,7 +85,7 @@ class TunableRegistryTest {
         BEFORE.put("beliefs.draws_per_mille", 800L);
         BEFORE.put("beliefs.leak_per_mille", 30L);
         BEFORE.put("test_item.upgrade_first_per_mille", 500L);
-        // Issue #412: the reaches and floors of the missile, dew and tall-grass levers; each new, so its default is its first value, except ranged.fetch_steps, which story 10.48 turned on at 2.
+        // Issue #412: the reaches and floors of the missile, dew and tall-grass levers; each new, so its default is its first value, except ranged.fetch_steps, which story 10.49 turned on at 2.
         BEFORE.put("pickup.missile_reach", 0L);
         BEFORE.put("pickup.dew_skin_below", 0L);
         BEFORE.put("ranged.fetch_steps", 2L);

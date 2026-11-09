@@ -70,7 +70,7 @@ final class Ranged implements Policy {
      * The most steps walked in a fight to a missile the hero threw (issue #412), with no enemy beside the hero and
      * none near enough to reach it before the pick-up is done. With an enemy in view arriving on a heap does not take
      * it (Hero.java:1982-1990), so the walk is these steps and a PickUp.
-     * Two as committed (story 10.48): on its own, against main at 9cd3af90e, it played reach depth 5 280 to 285 and Goo kills 229 to 241 of 480 on salts 1000 and 3000, no class more than 2 worse.
+     * Two as committed (story 10.49): on its own, against main at 9cd3af90e, it played reach depth 5 280 to 285 and Goo kills 229 to 241 of 480 on salts 1000 and 3000, no class more than 2 worse.
      */
     @Heuristic("missile-recover")
     static final int FETCH_STEPS = 2;

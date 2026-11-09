@@ -1,5 +1,5 @@
 ---
-title: 'Story 10.48: The missile, dew and pick-up worth levers at full size'
+title: 'Story 10.49: The missile, dew and pick-up worth levers at full size'
 type: 'feature'
 created: '2026-11-09'
 status: 'done'
@@ -38,4 +38,4 @@ passes is played again on current main before its pull request.
   default moves the baseline too; play the old default with `--tunables` instead.
 - Dropped: `ranged.min_damage_per_mille`, `pickup.dew_skin_below`, `pickup.missile_reach`, `explore.grass_skin_below`,
   `descend.trample_reach`, and the weights `heal`, `upgrade`, `useful`.
-- Results: `docs/results/2026-11-09-10-48-missiles-dew-pickup-worth.md`.
+- Results: `docs/results/2026-11-09-10-49-missiles-dew-pickup-worth.md`.

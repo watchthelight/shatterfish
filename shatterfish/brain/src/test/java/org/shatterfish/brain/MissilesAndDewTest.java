@@ -68,7 +68,7 @@ class MissilesAndDewTest {
             Map.of("pickup.missile_reach", 20L, "pickup.dew_skin_below", 20L, "ranged.fetch_steps", 2L,
                     "ranged.min_damage_per_mille", 1500L, "descend.trample_reach", 10L, "explore.grass_skin_below", 20L));
 
-    /** A Brain with the levers as committed (all off but ranged.fetch_steps, story 10.48), the control that shows each test below discriminates. */
+    /** A Brain with the levers as committed (all off but ranged.fetch_steps, story 10.49), the control that shows each test below discriminates. */
     private static Brain off() {
         return new Brain(FightPolicyTest.KNOWLEDGE, Screens.WEIGHTS, 9L);
     }

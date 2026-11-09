@@ -1,4 +1,4 @@
-# Story 10.48, the missile, dew and pick-up worth levers at full size
+# Story 10.49, the missile, dew and pick-up worth levers at full size
 
 Issue #412, epic E10. Pull request #426 merged nine levers dormant (every number 0) because they played worse than main on
 a 240-Run slice, and the re-measure on issue #412 (80 Runs, edc544ade) found "nothing passes" from differences of one or
