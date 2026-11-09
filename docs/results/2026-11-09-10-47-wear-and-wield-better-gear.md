@@ -36,7 +36,7 @@ nothing, and the second slice was stopped.
 | 1000 | 143 to 143 | 120 to 120 |
 
 The 240 Runs have the same Decision sequence as the baseline, step for step, so this is not a flat result of a lever that
-works: it never fires. `TestItem.heaviest` considers a spare armour only when its level is shown (`TestItem.java:585`), and a
+works: it never fires. `TestItem.heaviest` considers a spare armour only when its level is shown (the `levelKnown` skip in that method), and a
 found armour has a hidden level; the Playbook value is read (three entries changed, the file reaches the child through
 `Direction.play`), the candidate list is empty. This is what the #305 page said for 40 Runs; it holds for 240. Dropped.
 
