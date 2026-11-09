@@ -32,8 +32,9 @@ import java.util.List;
  *
  * <p>Nothing replaces a worn piece the Codex does not name: the Mage's staff, a piece whose name
  * shows an enchantment or a glyph (Weapon.java:411-419, Armor.java:578), a renamed holy weapon.
- * Its worth is not known, and zero would make anything look better. Nor a worn weapon whose level
- * shows an upgrade: the Codex's means are level 0's, and a +2 worn sword is worth more than that.
+ * Its worth is not known, and zero would make anything look better. A worn weapon whose level shows an
+ * upgrade is rated at the Codex's row for that level ({@link #rated}), so a spare that does more damage
+ * than the upgraded one goes on (story 10.47); at a level the table has no row for, nothing replaces it.
  * An armour is rated at the level the screen shows (#305, {@link Piece#atLevel}), worn or not, so
  * an upgraded spare is put on when it is worth more and an upgraded worn one is kept.
  *
@@ -90,8 +91,7 @@ final class Equip implements Policy {
                 continue;
             }
             ItemView worn = worn(items, gear.kind());
-            if (worn != null && ((worn.cursedKnown() && worn.visiblyCursed()) || piece(worn) == null
-                    || (worn.visiblyUpgraded() > 0 && gear.kind() != ItemKind.ARMOR))) {
+            if (worn != null && ((worn.cursedKnown() && worn.visiblyCursed()) || rated(worn) == null)) {
                 continue;
             }
             long gain = gain(observation, item, gear, worn);
@@ -119,7 +119,7 @@ final class Equip implements Policy {
      */
     long gain(Observation observation, ItemView item, Piece gear, ItemView worn) {
         int strength = observation.hero().strength() + observation.hero().strengthBonus();
-        long now = worn == null || piece(worn) == null ? 0 : worth(piece(worn), strength);
+        long now = worn == null || rated(worn) == null ? 0 : worth(rated(worn), strength);
         long gain = Math.subtractExact(worth(gear, strength), now);
         if (!item.cursedKnown()) {
             gain = Math.addExact(gain, Math.round(SafeTest.curseChance(gear.kind()) * evaluation.cursed()));
@@ -139,7 +139,9 @@ final class Equip implements Policy {
     static long effective(Piece gear, int strength) {
         long mean = gear.meanPerMille();
         for (int short_ = gear.strength() - strength; short_ > 0; short_--) {
-            mean = mean * 2 / 3;
+            // A weapon loses its accuracy to 1.5 and swings 1.2 times slower for each point short
+            // (Weapon.java:303, :314-317), which is 5/9 of its damage a turn; an armour is cut by a third here.
+            mean = gear.kind() == ItemKind.WEAPON ? mean * 5 / 9 : mean * 2 / 3;
         }
         return mean;
     }
@@ -191,6 +193,28 @@ final class Equip implements Policy {
     Piece piece(ItemView item) {
         Piece gear = gear(item.name());
         return gear == null || !item.levelKnown() ? gear : gear.atLevel(item.visiblyUpgraded());
+    }
+
+    /**
+     * The piece {@code item} is worth when worn, for comparing a spare against it: {@link #piece} for an armour
+     * and for a weapon whose level is not shown or is 0, and for a worn weapon whose shown level is above 0 the
+     * Codex's row at that level, which the damage table measured for levels 0 to 3, 5 and 10. A level the table
+     * has no row for is null, and nothing replaces such a weapon. One level lowers the strength a weapon asks
+     * by the same step as an armour (Weapon.java:358-363).
+     */
+    Piece rated(ItemView item) {
+        Piece base = gear(item.name());
+        if (base == null || base.kind() == ItemKind.ARMOR || !item.levelKnown() || item.visiblyUpgraded() <= 0) {
+            return piece(item);
+        }
+        int level = item.visiblyUpgraded();
+        for (Codex.Gear row : knowledge.weapons()) {
+            if (row.name().equals(base.name()) && row.level() == level && row.tier() > 0) {
+                return new Piece(base.name(), base.kind(), base.tier(),
+                        base.strength() - (int) ((Math.sqrt(8 * level + 1) - 1) / 2), row.meanPerMille());
+            }
+        }
+        return null;
     }
 
     /**

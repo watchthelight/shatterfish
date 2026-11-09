@@ -118,6 +118,31 @@ class EquipPolicyTest {
                 upgraded)), "a +2 worn piece is worth more than its level 0");
     }
 
+    private static ItemView weaponAt(String name, EquipSlot slot, int level) {
+        return new ItemView(ItemKind.WEAPON, name, 1, true, level, true, false, "", slot,
+                List.of(slot == EquipSlot.NONE ? "EQUIP" : "UNEQUIP"), "");
+    }
+
+    @Test
+    @DisplayName("a worn weapon that shows an upgrade is rated at its level: a spare that does more damage goes on (10.47)")
+    void upgraded_worn_weapon_is_replaced_by_a_better_spare() {
+        // A +1 worn shortsword does 7000 per mille (the Codex row), a plain shortsword 8485; the spare is known not cursed.
+        RunLog.Choice choice = choose(pack(1, 12, List.of(weaponAt("shortsword", EquipSlot.NONE, 0)),
+                weaponAt("worn shortsword", EquipSlot.WEAPON, 1)));
+        assertEquals("wear: shortsword", choice.why());
+        assertNull(choose(pack(1, 12, List.of(weaponAt("shortsword", EquipSlot.NONE, 0)),
+                weaponAt("worn shortsword", EquipSlot.WEAPON, 2))), "+2 does 8500, over the spare's 8485");
+    }
+
+    @Test
+    @DisplayName("a worn weapon at a level the damage table has no row for is kept, and a weapon short of strength loses 5/9 a point")
+    void unrated_worn_weapon_and_the_weapon_penalty() {
+        assertNull(choose(pack(1, 12, List.of(weaponAt("shortsword", EquipSlot.NONE, 0)),
+                weaponAt("worn shortsword", EquipSlot.WEAPON, 4))), "no row for +4: not replaced");
+        Equip.Piece sword = EQUIP.gear("shortsword");
+        assertEquals(8485L * 5 / 9 * 5 / 9, Equip.effective(sword, 10), "two points short");
+    }
+
     @Test
     @DisplayName("a piece whose level shows negative is not put on")
     void negative_level() {

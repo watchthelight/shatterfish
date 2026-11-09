@@ -96,6 +96,8 @@ final class Screens {
             // Story 4.8: the level-0 rolls the committed combat table measured, with the item
             // table's tier and strength.
             List.of(new Codex.Gear("worn shortsword", 0, 1, 10, 5485, 1, 10),
+                    new Codex.Gear("worn shortsword", 1, 2, 12, 7000, 1, 10),
+                    new Codex.Gear("worn shortsword", 2, 3, 14, 8500, 1, 10),
                     new Codex.Gear("shortsword", 0, 2, 15, 8485, 2, 12),
                     new Codex.Gear("greataxe", 0, 5, 45, 25035, 5, 18),
                     new Codex.Gear("mage's staff", 0, 1, 6, 3501, 1, 10)),
