@@ -293,6 +293,13 @@ final class Pickup implements Policy {
             return evaluation.gold(quantity);
         }
         long worth = evaluation.carried(1);
+        Integer energy = Eat.ENERGY.get(name);
+        if (energy != null) {
+            // Food is worth the turns it buys (issue #448): a ration holds 300 turns of hunger clock (Food.java:51),
+            // so it pays for a walk of that many Steps at the committed turn weight, not for the dozen an ordinary
+            // item does. Four rations seen on a floor and never taken were four starved Runs.
+            return Math.subtractExact(worth, Math.multiplyExact((long) quantity, evaluation.turns(energy)));
+        }
         for (Codex.Identities family : knowledge.families()) {
             for (Codex.Candidate candidate : family.candidates()) {
                 if (candidate.name().equals(name)) {

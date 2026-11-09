@@ -202,7 +202,9 @@ development_status:
   10-37-the-first-tuning-run: done  # issue #384; negative result, nothing kept
   10-38-the-goo-fight-on-depth-5: done  # issue #422; added by 10.7
   10-39-prison-food-the-second-pass: done  # issue #423; added by 10.7
+  10-44-starvation: done  # issue #448; PR #450 (merged c4237b1cd): the fallback draws no rest beside an enemy; food left behind is 10.45
   10-40-the-sewers-killers: done  # issue #424; added by 10.7; no family rule built, see docs/results/2026-10-31-10-40-sewers-killers.md; 45 of 76 die holding unknown potions (docs/ideas/2026-10-31-dying-with-unknown-potions.md)
   10-42-the-deaths-before-goo: done  # issue #445; added by 10.7; throw rule kept on the keep rule (52 better, 39 worse; E3 undecided), see docs/results/2026-11-08-10-42-the-deaths-before-goo.md
   10-46-why-fatal-fights-start-hurt: done  # issue #453; no rule built, 60% of hurt starts are the food clock, see docs/results/2026-11-08-10-46-why-fatal-fights-start-hurt.md
+  10-45-food-worth-the-walk: done  # issue #448 (Closes); PR #457: food is worth the turns it buys; reach d5 +18 of 480, bosses +24
   epic-10-retrospective: optional
