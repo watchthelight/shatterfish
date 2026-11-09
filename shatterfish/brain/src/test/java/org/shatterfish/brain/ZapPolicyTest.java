@@ -120,4 +120,59 @@ class ZapPolicyTest {
         assertNotEquals("zap", decide(playbook(6), HealPolicyTest.named(screen(HeroClass.MAGE, "#@...r.#", staff(MISSILE, "3/3")), "Goo"))
                 .decision().policy());
     }
+
+    /** A Playbook in which only the Cleric casts, to {@code reach}. */
+    private static Playbook clericPlaybook(int reach) {
+        Playbook base = Playbook.reference("shatterfish");
+        return new Playbook("shatterfish", 2, base.identify(), base.upgrade(), base.kit(), List.of(new Playbook.ClassEntry(
+                HeroClass.CLERIC, base.identify(), base.kit().with(Map.of("zap_reach", (long) reach)), base.upgrade())));
+    }
+
+    /** The holy tome as the inventory shows it: worn in the artifact slot, its charges on the status. */
+    private static ItemView tome(String status) {
+        return new ItemView(ItemKind.ARTIFACT, "holy tome", 1, true, 0, true, false, status, EquipSlot.ARTIFACT,
+                List.of("CAST", "DROP", "THROW"), "CAST");
+    }
+
+    @Test
+    @DisplayName("a Cleric whose class has a reach casts Guiding Light from the worn tome at an awake enemy in view (issue #376)")
+    void the_cleric_casts() {
+        Observation screen = screen(HeroClass.CLERIC, "#@...r.#", tome("3/3"));
+        Brain.Decided decided = decide(clericPlaybook(6), screen);
+        assertEquals("zap", decided.decision().policy());
+        assertEquals("zap: holy tome", decided.decision().chosen().why());
+        Action.UseItemAt cast = (Action.UseItemAt) decided.action();
+        assertEquals("CAST", cast.action());
+        assertEquals(screen.actors().actors().get(0).cell(), cast.cell());
+        assertEquals("holy tome", cast.item().name());
+        assertNotEquals("zap", decide(clericPlaybook(6), screen(HeroClass.CLERIC, "#@......r#", tome("3/3"))).decision().policy(),
+                "past the reach");
+    }
+
+    @Test
+    @DisplayName("a tome with no charge, an unknown charge or a reach of zero is left to the cudgel")
+    void the_cleric_needs_a_charge_and_a_reach() {
+        assertNotEquals("zap", decide(clericPlaybook(6), screen(HeroClass.CLERIC, "#@...r.#", tome("0/3"))).decision().policy());
+        assertNotEquals("zap", decide(clericPlaybook(6), screen(HeroClass.CLERIC, "#@...r.#", tome(""))).decision().policy());
+        assertNotEquals("zap", decide(clericPlaybook(0), screen(HeroClass.CLERIC, "#@...r.#", tome("3/3"))).decision().policy());
+    }
+
+    @Test
+    @DisplayName("a Cleric with a point in Shield of Light or a second-tier talent holds a second spell at a cell, so the tome is left alone")
+    void a_second_targeted_spell_leaves_the_tome_alone() {
+        Observation plain = screen(HeroClass.CLERIC, "#@...r.#", tome("3/3"));
+        for (org.shatterfish.api.TalentView talent : List.of(new org.shatterfish.api.TalentView(1, "shield of light", 1),
+                new org.shatterfish.api.TalentView(2, "Sunray", 1))) {
+            org.shatterfish.api.HeroSection h = plain.hero();
+            org.shatterfish.api.HeroSection hero = new org.shatterfish.api.HeroSection(h.cell(), h.name(), h.subclass(),
+                    h.ability(), h.level(), h.exp(), h.expToLevel(), h.hp(), h.ht(), h.shield(), h.strength(),
+                    h.strengthBonus(), h.gold(), h.energy(), h.hunger(), h.buffs(), List.of(talent),
+                    h.talentPointsAvailable(), h.quickslots());
+            Observation bare = new Observation(plain.header(), plain.map(), plain.actors(), hero, plain.inventory(),
+                    plain.journal(), plain.log(), org.shatterfish.api.ActionsSection.NONE, plain.prompt());
+            Observation with = bare.withActions(ValidActions.of(bare));
+            assertNotEquals("zap", decide(clericPlaybook(6), with).decision().policy(), talent.name());
+        }
+        assertEquals("zap", decide(clericPlaybook(6), plain).decision().policy());
+    }
 }

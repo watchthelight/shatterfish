@@ -3,6 +3,9 @@ package org.shatterfish.harness.executor;
 import com.shatteredpixel.shatteredpixeldungeon.Dungeon;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Talent;
+import com.shatteredpixel.shatteredpixeldungeon.actors.hero.spells.ClericSpell;
+import com.shatteredpixel.shatteredpixeldungeon.actors.hero.spells.GuidingLight;
+import com.shatteredpixel.shatteredpixeldungeon.items.artifacts.HolyTome;
 import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
@@ -285,6 +288,9 @@ public final class ActionExecutor {
             return new Outcome.Rejected(action, Reason.NOT_OFFERED,
                     item.name() + " offers " + item.actions(hero) + " and not " + what);
         }
+        if (item instanceof HolyTome tome && HolyTome.AC_CAST.equals(what) && cell != null) {
+            return castGuidingLight(hero, action, tome, cell);
+        }
         item.execute(hero, what);
         if (cell != null) {
             // The item opened the game's cell selector; the human's second click answers it, and
@@ -336,6 +342,41 @@ public final class ActionExecutor {
                                 + " the whole input is UseItemOn");
             }
         }
+        return applied(action);
+    }
+
+    /**
+     * The holy tome's cast at a cell (issue #376): the tome's one action is CAST, which opens the spell window
+     * ({@code HolyTome.java:81-96}), and a spell button in it opens the cell selector for a targeted spell
+     * ({@code WndClericSpells.java:186-206}, {@code TargetedClericSpell.java:34-43}). A person presses the button
+     * for Guiding Light, the first spell of the first tier ({@code ClericSpell.java:104-111}) and the only one
+     * a Cleric holds that takes a cell before any talent, and then the cell. The window is a screen over the same
+     * call, so it is closed as the button's own click closes it and the spell is cast as that click casts it,
+     * with the same charge check the button makes ({@code HolyTome.canCast}, {@code HolyTome.java:146-151}). A
+     * tome with no charge for it offers nothing a person could press: refused, and the window left shut.
+     */
+    private Outcome castGuidingLight(Hero hero, Action action, HolyTome tome, int cell) {
+        if (!tome.canCast(hero, GuidingLight.INSTANCE)) {
+            return new Outcome.Rejected(action, Reason.NOT_OFFERED,
+                    "the tome cannot cast Guiding Light now (" + tome.status() + " charges)");
+        }
+        for (int tier = 1; tier <= Talent.MAX_TALENT_TIERS; tier++) {
+            for (ClericSpell spell : ClericSpell.getSpellList(hero, tier)) {
+                if (spell != GuidingLight.INSTANCE && spell.targetingFlags() != -1) {
+                    // The Action does not name the spell, so with a second cell-targeted spell in the list it is
+                    // not Guiding Light alone that CAST at a cell can mean; a Replay would cast the wrong one.
+                    return new Outcome.Rejected(action, Reason.NOT_OFFERED,
+                            "the tome holds " + spell.name() + ", so a cast at a cell does not name its spell");
+                }
+            }
+        }
+        tome.execute(hero, HolyTome.AC_CAST);
+        Window window = Windows.front();
+        if (window instanceof com.shatteredpixel.shatteredpixeldungeon.windows.WndClericSpells) {
+            window.hide();
+        }
+        GuidingLight.INSTANCE.onCast(tome, hero);
+        GameScene.handleCell(cell);
         return applied(action);
     }
 
