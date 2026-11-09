@@ -2,7 +2,7 @@
 title: 'Story 10.42: The deaths before Goo'
 type: 'feature'
 created: '2026-11-08'
-status: 'review'
+status: 'done'
 baseline_commit: '396dc470a'
 review_loop_iteration: 0
 context: []

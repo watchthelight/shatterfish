@@ -179,7 +179,7 @@ development_status:
   10-14-doors-chokepoints-and-the-retreat-upstairs: done  # issue #360; already built (chokepoint hold, stairs retreat, rest above); the remaining non-starving Ascends are too few to measure, see docs/ideas/2026-10-30-starving-stairs-bounce.md
   10-15-prison-food-budgeting: done  # issue #361
   10-16-the-wandmaker-quest: backlog  # issue #362
-  10-17-the-power-curve-by-depth: review  # issue #363
+  10-17-the-power-curve-by-depth: done  # issue #363
   10-18-tengu-entry-key-and-seal: done  # issue #364; PR #397
   10-19-tengu-phase-one-the-dart-trap-memory: done  # issue #365
   10-20-tengu-phase-two-the-threat-map: done  # issue #366
@@ -203,6 +203,7 @@ development_status:
   10-38-the-goo-fight-on-depth-5: done  # issue #422; added by 10.7
   10-39-prison-food-the-second-pass: done  # issue #423; added by 10.7
   10-40-the-sewers-killers: done  # issue #424; added by 10.7; no family rule built, see docs/results/2026-10-31-10-40-sewers-killers.md; 45 of 76 die holding unknown potions (docs/ideas/2026-10-31-dying-with-unknown-potions.md)
+  10-41-the-armour-that-gets-the-scrolls: done  # issue #443; added by 10.7; no PR and no code changed: holding scrolls of upgrade until depth 4 was dropped (worse pooled on both slices, Mage lost 10 and 12 reach d5), see the close-out comment on the issue
   10-42-the-deaths-before-goo: done  # issue #445; added by 10.7; throw rule kept on the keep rule (52 better, 39 worse; E3 undecided), see docs/results/2026-11-08-10-42-the-deaths-before-goo.md
   10-46-why-fatal-fights-start-hurt: done  # issue #453; no rule built, 60% of hurt starts are the food clock, see docs/results/2026-11-08-10-46-why-fatal-fights-start-hurt.md
   epic-10-retrospective: optional

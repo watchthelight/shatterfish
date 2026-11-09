@@ -2,7 +2,7 @@
 title: 'Story 10.17: The power curve by depth'
 type: 'feature'
 created: '2026-10-31'
-status: 'review'
+status: 'done'
 baseline_commit: 'fdebf751b'
 review_loop_iteration: 0
 context: []
