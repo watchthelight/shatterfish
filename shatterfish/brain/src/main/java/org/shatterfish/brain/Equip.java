@@ -119,8 +119,22 @@ final class Equip implements Policy {
      */
     long gain(Observation observation, ItemView item, Piece gear, ItemView worn) {
         int strength = observation.hero().strength() + observation.hero().strengthBonus();
-        long now = worn == null || piece(worn) == null ? 0 : worth(piece(worn), strength);
-        long gain = Math.subtractExact(worth(gear, strength), now);
+        Piece wornPiece = worn == null ? null : piece(worn);
+        Piece candidate = gear;
+        // Before a scroll of upgrade has been read onto the worn armour (its level shows 0 or is hidden, which is
+        // how a piece put on from the pack looks), both pieces are weighed at the level the scrolls to come will give
+        // the one that is put on (story 10.47, PROJECTED_UPGRADES). Weighing a hidden-level worn piece at its level 0
+        // instead made the Policy put the cloth and the leather on in turn.
+        if (gear.kind() == ItemKind.ARMOR && wornPiece != null && worn.visiblyUpgraded() == 0) {
+            Piece wornBase = gear(worn.name());
+            Piece itemBase = gear(item.name());
+            if (wornBase != null && itemBase != null) {
+                wornPiece = wornBase.atLevel(PROJECTED_UPGRADES);
+                candidate = itemBase.atLevel(PROJECTED_UPGRADES + (item.levelKnown() ? Math.max(0, item.visiblyUpgraded()) : 0));
+            }
+        }
+        long now = worn == null || wornPiece == null ? 0 : worth(wornPiece, strength);
+        long gain = Math.subtractExact(worth(candidate, strength), now);
         if (!item.cursedKnown()) {
             gain = Math.addExact(gain, Math.round(SafeTest.curseChance(gear.kind()) * evaluation.cursed()));
         }
@@ -129,7 +143,41 @@ final class Equip implements Policy {
 
     /** What {@code gear} is worth worn by a hero of {@code strength}. */
     long worth(Piece gear, int strength) {
-        return evaluation.gear(gear.kind(), effective(gear, strength));
+        return evaluation.gear(gear.kind(), gear.kind() == ItemKind.ARMOR ? armourAbsorbed(gear, strength) : effective(gear, strength));
+    }
+
+    /**
+     * The scrolls of upgrade a hero reads onto its armour by depth 5, rounded down from 2.2 (89 read by 40 Warriors,
+     * docs/results/2026-10-27-305-wear-upgraded-armour.md). Armour that has had none yet is weighed at this level.
+     */
+    static final int PROJECTED_UPGRADES = 2;
+
+    /**
+     * What a suit of armour absorbs for a hero of {@code strength}, in thousandths of a point, as the game rolls it:
+     * a damage reduction roll of {@code NormalIntRange(DRMin, DRMax)} with {@code DRMax = tier * (2 + level)} and
+     * {@code DRMin = level} (Armor.java:379-407, Random.java:163-165), less 2 for each point of strength the armour
+     * asks beyond the hero's and never below 0 (Hero.java:652-657), and its evasion divided by 1.5 for each such
+     * point (Armor.java:420-422), which the absorbed figure is cut by here in the same ratio.
+     */
+    static long armourAbsorbed(Piece armour, int strength) {
+        int max = armour.tier() * (2 + armour.level());
+        int min = armour.level();
+        int range = max - min + 1;
+        int short_ = Math.max(0, armour.strength() - strength);
+        double mean = 0;
+        for (int k = 0; k < range; k++) {
+            double probability = triangle(2.0 * (k + 1) / range) - triangle(2.0 * k / range);
+            mean += probability * Math.max(0, min + k - 2 * short_);
+        }
+        return Math.round(1000 * mean / Math.pow(1.5, short_));
+    }
+
+    /** The distribution function of the sum of two uniform rolls on [0, 1]: Float() + Float() (Random.java:164). */
+    private static double triangle(double sum) {
+        if (sum <= 0) {
+            return 0;
+        }
+        return sum <= 1 ? sum * sum / 2 : sum >= 2 ? 1 : 1 - (2 - sum) * (2 - sum) / 2;
     }
 
     /**
@@ -166,7 +214,12 @@ final class Equip implements Policy {
      * A piece of melee gear as this Policy weighs it: its level-0 figures from the Codex and whether it
      * is a weapon or armour, by the list the Codex measured it in.
      */
-    record Piece(String name, ItemKind kind, int tier, int strength, int meanPerMille) {
+    record Piece(String name, ItemKind kind, int tier, int strength, int meanPerMille, int level) {
+
+        /** A piece at level 0. */
+        Piece(String name, ItemKind kind, int tier, int strength, int meanPerMille) {
+            this(name, kind, tier, strength, meanPerMille, 0);
+        }
 
         /**
          * This armour at a shown upgrade {@code level} (#305). One level adds the tier plus one to the mean
@@ -180,7 +233,7 @@ final class Equip implements Policy {
                 return this;
             }
             return new Piece(name, kind, tier, strength - (int) ((Math.sqrt(8 * level + 1) - 1) / 2),
-                    meanPerMille + 500 * level * (tier + 1));
+                    meanPerMille + 500 * level * (tier + 1), level);
         }
     }
 
