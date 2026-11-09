@@ -192,7 +192,7 @@ development_status:
   10-27-the-rogue-plays-its-kit: backlog  # issue #373
   10-28-the-huntress-plays-its-kit: backlog  # issue #374
   10-29-the-duelist-plays-its-kit: backlog  # issue #375
-  10-30-the-cleric-plays-its-kit: backlog  # issue #376
+  10-30-the-cleric-plays-its-kit: done  # issue #376; the zap Policy casts Guiding Light from the holy tome; Cleric reach d5 29 to 41 of 80, Goo kills 23 to 33, pooled 276 to 288 and 226 to 236, other classes identical; Holy Weapon and Holy Ward need a spell choice in the Prompt (ADR), see docs/results/2026-11-09-10-30-the-cleric-plays-its-kit.md
   10-31-the-subclass-choice-at-tengu-s-mask: backlog  # issue #377
   10-32-the-r1-check-depth-10-on-every-class: backlog  # issue #378
   10-33-the-r2-check-tengu-conversion: backlog  # issue #379
