@@ -208,4 +208,5 @@ development_status:
   10-42-the-deaths-before-goo: done  # issue #445; added by 10.7; throw rule kept on the keep rule (52 better, 39 worse; E3 undecided), see docs/results/2026-11-08-10-42-the-deaths-before-goo.md
   10-46-why-fatal-fights-start-hurt: done  # issue #453; no rule built, 60% of hurt starts are the food clock, see docs/results/2026-11-08-10-46-why-fatal-fights-start-hurt.md
   10-45-food-worth-the-walk: done  # issue #448 (Closes); PR #457: food is worth the turns it buys; reach d5 +18 of 480, bosses +24
+  10-47-wear-and-wield-better-gear: done  # issue #459; armour priced by the game's roll and strength rule kept (reach d5 276 to 280, Goo 226 to 229); armour_pick HEAVIEST inert, spare weapon dropped, see docs/results/2026-11-09-10-47-wear-and-wield-better-gear.md
   epic-10-retrospective: optional

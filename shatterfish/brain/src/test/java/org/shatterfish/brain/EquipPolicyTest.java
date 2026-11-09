@@ -119,6 +119,36 @@ class EquipPolicyTest {
     }
 
     @Test
+    @DisplayName("armour is weighed at the level the coming scrolls give it, and by the game's strength rule: leather goes on at 11, not at 10 (10.47)")
+    void heavier_armour_before_the_first_scroll() {
+        ItemView cloth = armourAt("cloth armor", EquipSlot.ARMOR, 0);
+        ItemView leather = unknown(ItemKind.ARMOR, "leather armor");
+        // At +2 leather asks 11 (Armor.java:698-703) and absorbs 2 to 8 against cloth's 2 to 4.
+        assertEquals("wear: leather armor", choose(pack(1, 11, List.of(leather), cloth)).why());
+        assertNull(choose(pack(1, 10, List.of(leather), cloth)),
+                "one point short at +2 takes 2 off the roll and a third off the evasion: no better than the cloth");
+        assertNull(choose(pack(1, 10, List.of(unknown(ItemKind.ARMOR, "leather armor")), armourAt("cloth armor", EquipSlot.ARMOR, 1))),
+                "once a scroll has been read onto the cloth it is no longer weighed ahead");
+    }
+
+    @Test
+    @DisplayName("the armour just put on is not swapped back: a worn leather of hidden level is weighed as the cloth is (10.47)")
+    void no_ping_pong() {
+        ItemView wornLeather = Screens.gear(ItemKind.ARMOR, "leather armor", EquipSlot.ARMOR, false, false);
+        assertNull(choose(pack(1, 11, List.of(armourAt("cloth armor", EquipSlot.NONE, 0)), wornLeather)),
+                "cloth is not better than the leather it was just swapped for");
+    }
+
+    @Test
+    @DisplayName("what armour absorbs follows Hero.drRoll: 2 off the roll for each point short, never below 0")
+    void absorbed() {
+        Equip.Piece leather = EQUIP.gear("leather armor");
+        assertEquals(2000L, Equip.armourAbsorbed(leather, 12), "0 to 4, the mean of the triangular roll");
+        assertEquals(0L, Equip.armourAbsorbed(leather, 10), "two short takes 4 off a roll of at most 4");
+        assertTrue(Equip.armourAbsorbed(leather.atLevel(2), 11) > 4000L);
+    }
+
+    @Test
     @DisplayName("a piece whose level shows negative is not put on")
     void negative_level() {
         ItemView degraded = new ItemView(ItemKind.WEAPON, "shortsword", 1, true, -1, true, false, "",
