@@ -34,6 +34,16 @@ import java.util.List;
  * {@code UseItemAt(staff, ZAP, enemy cell)}, which {@link org.shatterfish.api.ValidActions} offers for
  * every character in view. A staff holding another wand is left to the swing: the damage this Policy
  * stands on is magic missile's.
+ *
+ * <p><b>The Cleric's tome (issue #376).</b> The Cleric starts wearing a holy tome with three charges, shown on
+ * its slot as {@code cur/max}, and no other Policy ever opened it ({@code HeroClass.java:248-261},
+ * {@code HolyTome.java:57-59}). Its Guiding Light is a bolt for 2 to 8 that costs one charge and one turn
+ * ({@code GuidingLight.java:84-96}, {@code :111-118}), against the cudgel's swing, and it leaves the enemy
+ * illuminated: the Cleric's next blow on it cannot miss, because an illuminated mob has no defence against the
+ * Cleric ({@code Mob.java:822-832}, {@code Char.java:423-424}). A charge comes back about every forty turns while
+ * the tome is not full ({@code HolyTome.java:289-296}), so a charge spent at the cap costs nothing. The same
+ * conditions apply with {@code UseItemAt(tome, CAST, enemy cell)}, which the executor plays as a person does: the
+ * spell button for Guiding Light, then the cell. The staff is looked for first, the tome second.
  */
 final class Zap implements Policy {
 
@@ -42,6 +52,9 @@ final class Zap implements Policy {
 
     /** The item action that zaps (MagesStaff.java:67). */
     static final String ZAP = "ZAP";
+
+    /** The item action that casts the tome's Guiding Light at a cell (HolyTome.java:67; the executor casts Guiding Light at the cell). */
+    static final String CAST = "CAST";
 
     private final Codex.Knowledge knowledge;
     private final Playbook playbook;
@@ -65,14 +78,14 @@ final class Zap implements Policy {
     public boolean enters(Observation observation, Memory memory) {
         return observation.header().prompt() == PromptKind.NONE
                 && playbook.kit(observation.header().heroClass()).zapReach() > 0
-                && !Fight.enemies(observation, knowledge).isEmpty() && staff(observation) >= 0;
+                && !Fight.enemies(observation, knowledge).isEmpty() && caster(observation) >= 0;
     }
 
     @Override
     public RunLog.Choice choose(Observation observation, Memory memory, List<Action> offered, Stream stream) {
         int reach = playbook.kit(observation.header().heroClass()).zapReach();
         List<ActorView> enemies = Fight.enemies(observation, knowledge);
-        int index = staff(observation);
+        int index = caster(observation);
         if (reach <= 0 || index < 0 || enemies.isEmpty() || enemies.stream().anyMatch(enemy -> Goo.NAME.equals(enemy.name()))) {
             return null;
         }
@@ -102,13 +115,14 @@ final class Zap implements Policy {
      * with the Goo fight ({@link Goo#volley}, story 10.38).
      */
     static RunLog.Choice zapAt(Observation observation, Memory memory, List<Action> offered, ActorView target, String why) {
-        int index = staff(observation);
+        int index = caster(observation);
         if (index < 0 || zappedWithoutEffect(memory)) {
             return null;
         }
-        ItemView staff = observation.inventory().items().get(index);
-        Action zap = new Action.UseItemAt(new ItemRef(index, staff.name(), staff.quantity()), ZAP, target.cell());
-        return offered.contains(zap) ? new RunLog.Choice(zap, Policies.CERTAIN, why + staff.name()) : null;
+        ItemView item = observation.inventory().items().get(index);
+        String action = item.slot() == EquipSlot.ARTIFACT ? CAST : ZAP;
+        Action zap = new Action.UseItemAt(new ItemRef(index, item.name(), item.quantity()), action, target.cell());
+        return offered.contains(zap) ? new RunLog.Choice(zap, Policies.CERTAIN, why + item.name()) : null;
     }
 
     /**
@@ -120,6 +134,48 @@ final class Zap implements Policy {
      */
     private static boolean zappedWithoutEffect(Memory memory) {
         return "UseItemAt".equals(memory.last()) && memory.near() >= 0 && memory.near() == memory.before();
+    }
+
+    /**
+     * The index in the pack of what this Policy shoots with: the worn staff of magic missile when there is one, else
+     * the Cleric's worn holy tome that shows a charge (issue #376).
+     */
+    static int caster(Observation observation) {
+        int staff = staff(observation);
+        return staff >= 0 ? staff : tome(observation);
+    }
+
+    /**
+     * The index in the pack of the worn holy tome that shows a charge, or -1. The tome is the Cleric's artifact
+     * ({@code HeroClass.java:253-257}); it offers CAST only while worn and uncursed ({@code HolyTome.java:70-78})
+     * and shows {@code cur/max} charges ({@code Artifact.java:189-211}), three at the start
+     * ({@code HolyTome.java:57-59}).
+     */
+    static int tome(Observation observation) {
+        List<ItemView> items = observation.inventory().items();
+        for (int index = 0; index < items.size(); index++) {
+            ItemView item = items.get(index);
+            if (item.slot() == EquipSlot.ARTIFACT && item.name().contains("holy tome")
+                    && item.actions().contains(CAST) && charged(item.status()) && onlyGuidingLight(observation)) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Whether the Cleric holds no spell but the first tier's three, so that a cast at a cell can only mean Guiding Light. A point
+     * in Shield of Light (a bolt at a cell too, {@code ClericSpell.java:109-117}) or in any talent of the second tier or
+     * above adds spells ({@code ClericSpell.java:118-206}), and the Action {@code UseItemAt(tome, CAST, cell)} does not
+     * name which one it casts, so the Policy leaves the tome alone then and the executor refuses the cast.
+     */
+    static boolean onlyGuidingLight(Observation observation) {
+        for (org.shatterfish.api.TalentView talent : observation.hero().talents()) {
+            if (talent.points() > 0 && (talent.tier() >= 2 || talent.name().equalsIgnoreCase("shield of light"))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** The index in the pack of the worn staff of magic missile that shows a charge, or -1. */
