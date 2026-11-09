@@ -132,6 +132,14 @@ class EquipPolicyTest {
     }
 
     @Test
+    @DisplayName("the armour just put on is not swapped back: a worn leather of hidden level is weighed as the cloth is (10.47)")
+    void no_ping_pong() {
+        ItemView wornLeather = Screens.gear(ItemKind.ARMOR, "leather armor", EquipSlot.ARMOR, false, false);
+        assertNull(choose(pack(1, 11, List.of(armourAt("cloth armor", EquipSlot.NONE, 0)), wornLeather)),
+                "cloth is not better than the leather it was just swapped for");
+    }
+
+    @Test
     @DisplayName("what armour absorbs follows Hero.drRoll: 2 off the roll for each point short, never below 0")
     void absorbed() {
         Equip.Piece leather = EQUIP.gear("leather armor");

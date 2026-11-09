@@ -121,9 +121,11 @@ final class Equip implements Policy {
         int strength = observation.hero().strength() + observation.hero().strengthBonus();
         Piece wornPiece = worn == null ? null : piece(worn);
         Piece candidate = gear;
-        // Before a scroll of upgrade has been read onto the worn armour, both pieces are weighed at the level
-        // the scrolls to come will give the one that is put on (story 10.47, PROJECTED_UPGRADES).
-        if (gear.kind() == ItemKind.ARMOR && wornPiece != null && worn.levelKnown() && worn.visiblyUpgraded() == 0) {
+        // Before a scroll of upgrade has been read onto the worn armour (its level shows 0 or is hidden, which is
+        // how a piece put on from the pack looks), both pieces are weighed at the level the scrolls to come will give
+        // the one that is put on (story 10.47, PROJECTED_UPGRADES). Weighing a hidden-level worn piece at its level 0
+        // instead made the Policy put the cloth and the leather on in turn.
+        if (gear.kind() == ItemKind.ARMOR && wornPiece != null && worn.visiblyUpgraded() == 0) {
             Piece wornBase = gear(worn.name());
             Piece itemBase = gear(item.name());
             if (wornBase != null && itemBase != null) {
