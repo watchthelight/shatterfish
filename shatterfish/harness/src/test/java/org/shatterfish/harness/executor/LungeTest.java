@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * The Duelist's rapier lunges through the calls a person's clicks make: the weapon's ABILITY action, which is its
  * default action for a Duelist and opens the cell selector ({@code core/.../items/weapon/melee/MeleeWeapon.java:75-85},
  * {@code :133-147}), and the second click on the enemy. The lunge jumps the hero to a cell beside an enemy two cells
- * off and strikes it without a miss for 5 more damage ({@code Rapier.java:68-72}, {@code :75-141}).
+ * off and strikes it without a miss for 5 more damage ({@code Rapier.java:71-74}, {@code :92-177}).
  */
 @Timeout(value = 5, unit = TimeUnit.MINUTES)
 class LungeTest {
@@ -87,7 +87,7 @@ class LungeTest {
         MeleeWeapon.Charger charger = Buff.affect(hero, MeleeWeapon.Charger.class);
         assertEquals(1, charger.charges, "the lunge costs one charge (MeleeWeapon.java:243-245)");
         assertEquals(1, level.distance(hero.pos, rat.pos), "the hero stands beside the rat");
-        assertTrue(rat.HP <= rat.HT - 6, "a lunge never misses and does at least 1+5 (Rapier.java:68-72), and the rat has " + rat.HP);
+        assertTrue(rat.HP <= rat.HT - 6, "a lunge never misses and does at least 1+5 (Rapier.java:71-74), and the rat has " + rat.HP);
     }
 
     private static int clearCellAtDistance(Level level, Hero hero, int distance) {
