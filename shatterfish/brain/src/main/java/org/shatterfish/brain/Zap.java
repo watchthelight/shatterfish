@@ -132,7 +132,7 @@ final class Zap implements Policy {
      * to the other Policies, and the next zap is tried after them. A bolt that lands leaves the enemy
      * nearer, or dead, so this costs a working zap one wait only against an enemy that stands still.
      */
-    private static boolean zappedWithoutEffect(Memory memory) {
+    static boolean zappedWithoutEffect(Memory memory) {
         return "UseItemAt".equals(memory.last()) && memory.near() >= 0 && memory.near() == memory.before();
     }
 
