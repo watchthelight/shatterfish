@@ -44,6 +44,19 @@ import java.util.List;
  * the tome is not full ({@code HolyTome.java:289-296}), so a charge spent at the cap costs nothing. The same
  * conditions apply with {@code UseItemAt(tome, CAST, enemy cell)}, which the executor plays as a person does: the
  * spell button for Guiding Light, then the cell. The staff is looked for first, the tome second.
+ *
+ * <p><b>The Rogue's cloak (issue #373).</b> The Rogue starts wearing a cloak of shadows with three charges and a dagger
+ * ({@code HeroClass.java:204-219}), and no Policy ever put the cloak on. Stealth takes one turn and one charge
+ * ({@code CloakOfShadows.java:89-103}, {@code :320-325}) and makes the hero invisible: a mob cannot see an invisible
+ * hero, so it cannot attack it ({@code Mob.java:289-291}, {@code :1365-1367}), and the hero's next blow hits whatever its
+ * accuracy ({@code Char.java:627-629}) and, with the dagger, rolls from three quarters of the way to its top damage up
+ * to the top ({@code Dagger.java:62-79}, {@code Mob.java:912-916}). The blow ends the invisibility without a further charge
+ * while the cloak has not yet billed its next four turns ({@code Hero.java:2389}, {@code :486}, {@code Invisibility.java:90-98},
+ * {@code CloakOfShadows.java:360-365}). So when the class has a reach and an awake enemy that one blow would not kill
+ * stands within it, this Policy puts the cloak on, and the fight Policy strikes from the shadow. A charge returns about
+ * every forty turns ({@code CloakOfShadows.java:230-244}). The cloak shows its charges as {@code cur/max} and the hero
+ * shows the {@code cloaked} buff while it is on, which is what keeps the Policy from taking it off again
+ * ({@code CloakOfShadows.java:111-116}).
  */
 final class Zap implements Policy {
 
@@ -55,6 +68,12 @@ final class Zap implements Policy {
 
     /** The item action that casts the tome's Guiding Light at a cell (HolyTome.java:67; the executor casts Guiding Light at the cell). */
     static final String CAST = "CAST";
+
+    /** The item action that puts the Rogue's cloak of shadows on (CloakOfShadows.java:68). */
+    static final String STEALTH = "STEALTH";
+
+    /** The buff the hero shows while the cloak is on (items.properties, cloakofshadows$cloakstealth.name). */
+    static final String CLOAKED = "cloaked";
 
     private final Codex.Knowledge knowledge;
     private final Playbook playbook;
@@ -78,7 +97,7 @@ final class Zap implements Policy {
     public boolean enters(Observation observation, Memory memory) {
         return observation.header().prompt() == PromptKind.NONE
                 && playbook.kit(observation.header().heroClass()).zapReach() > 0
-                && !Fight.enemies(observation, knowledge).isEmpty() && caster(observation) >= 0;
+                && !Fight.enemies(observation, knowledge).isEmpty() && (caster(observation) >= 0 || cloak(observation) >= 0);
     }
 
     @Override
@@ -86,7 +105,8 @@ final class Zap implements Policy {
         int reach = playbook.kit(observation.header().heroClass()).zapReach();
         List<ActorView> enemies = Fight.enemies(observation, knowledge);
         int index = caster(observation);
-        if (reach <= 0 || index < 0 || enemies.isEmpty() || enemies.stream().anyMatch(enemy -> Goo.NAME.equals(enemy.name()))) {
+        int cloak = index < 0 ? cloak(observation) : -1;
+        if (reach <= 0 || (index < 0 && cloak < 0) || enemies.isEmpty() || enemies.stream().anyMatch(enemy -> Goo.NAME.equals(enemy.name()))) {
             return null;
         }
         int hero = observation.hero().cell();
@@ -102,6 +122,10 @@ final class Zap implements Policy {
                 best = distance;
                 target = enemy;
             }
+        }
+        if (cloak >= 0) {
+            return target == null || best > reach || Fight.dies(observation, knowledge, target) || "UseItem".equals(memory.last())
+                    ? null : stealth(observation, offered, cloak);
         }
         if (target == null || best > reach || !Ranged.clear(observation, hero, target.cell())) {
             return null;
@@ -125,6 +149,34 @@ final class Zap implements Policy {
         return offered.contains(zap) ? new RunLog.Choice(zap, Policies.CERTAIN, why + item.name()) : null;
     }
 
+    /** The cloak put on, or null when the screen does not offer it. */
+    private static RunLog.Choice stealth(Observation observation, List<Action> offered, int index) {
+        ItemView item = observation.inventory().items().get(index);
+        Action put = new Action.UseItem(new ItemRef(index, item.name(), item.quantity()), STEALTH);
+        return offered.contains(put) ? new RunLog.Choice(put, Policies.CERTAIN, "cloak: " + item.name()) : null;
+    }
+
+    /**
+     * The index in the pack of the worn cloak of shadows that shows a charge while the hero is not cloaked, or -1. The
+     * action is a toggle ({@code CloakOfShadows.java:105-112}), so a cloak already on is never offered again here.
+     */
+    static int cloak(Observation observation) {
+        for (org.shatterfish.api.BuffView buff : observation.hero().buffs()) {
+            if (CLOAKED.equalsIgnoreCase(buff.name())) {
+                return -1;
+            }
+        }
+        List<ItemView> items = observation.inventory().items();
+        for (int index = 0; index < items.size(); index++) {
+            ItemView item = items.get(index);
+            if (item.slot() == EquipSlot.ARTIFACT && item.name().contains("cloak of shadows")
+                    && item.actions().contains(STEALTH) && charged(item.status())) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
     /**
      * Whether the last wait was a zap and the nearest enemy stands as far off as it did then. A bolt the
      * game refuses (its line blocked at the hero's own side, {@code Wand.java:682-709}) passes no turn and
@@ -132,7 +184,7 @@ final class Zap implements Policy {
      * to the other Policies, and the next zap is tried after them. A bolt that lands leaves the enemy
      * nearer, or dead, so this costs a working zap one wait only against an enemy that stands still.
      */
-    private static boolean zappedWithoutEffect(Memory memory) {
+    static boolean zappedWithoutEffect(Memory memory) {
         return "UseItemAt".equals(memory.last()) && memory.near() >= 0 && memory.near() == memory.before();
     }
 
