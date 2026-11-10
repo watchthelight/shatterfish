@@ -65,6 +65,7 @@ final class CoachLine {
             new Template("douse", "douse/water", "burning, water is near", "burning-douse"),
             new Template("douse", "douse/ground", "burning, bare ground is near", "burning-douse"),
             new Template("zap", "zap", "an enemy is in staff range", "staff-zap"),
+            new Template("lunge", "lunge", "an enemy is in lunge range", "rapier-lunge"),
             new Template("pack", "pack", "to hit from a distance", "pack-use"),
             new Template("shoot", "shoot", "an enemy is in bow range", "bow-shoot"),
             new Template("ranged", "throw", "to hit from a distance", "missile-throw"),
@@ -190,7 +191,7 @@ final class CoachLine {
             case "answer-prompt" -> head;
             case "escape" -> head;
             case "heal" -> head.equals("gamble") ? "gamble" : "heal";
-            case "zap", "shoot", "pack", "ranged" -> policy.equals("ranged") ? "throw" : policy;
+            case "zap", "lunge", "shoot", "pack", "ranged" -> policy.equals("ranged") ? "throw" : policy;
             case "douse" -> detail.contains("bare") ? "douse/ground" : "douse/water";
             case "one-ply", "fight" -> fightKey(policy, head, detail);
             case "eat" -> detail.equals("water") ? "eat/water" : "eat";

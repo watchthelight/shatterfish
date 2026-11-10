@@ -54,6 +54,7 @@ class CoachLineTest {
             Map.entry("douse/douse/water", "douse: water"),
             Map.entry("douse/douse/ground", "douse: bare ground"),
             Map.entry("zap/zap", "zap: staff of magic missile"),
+            Map.entry("lunge/lunge", "lunge: rapier"),
             Map.entry("pack/pack", "hurl: potion of liquid flame"),
             Map.entry("shoot/shoot", "shoot: Spirit Bow"),
             Map.entry("ranged/throw", "throw: dart"),
