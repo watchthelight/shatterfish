@@ -190,7 +190,7 @@ development_status:
   10-25-the-warrior-plays-its-kit: backlog  # issue #371
   10-26-the-mage-plays-its-kit: backlog  # issue #372
   10-27-the-rogue-plays-its-kit: backlog  # issue #373
-  10-28-the-huntress-plays-its-kit: backlog  # issue #374
+  10-28-the-huntress-plays-its-kit: done  # issue #374; the shoot Policy also fires the Spirit Bow when cornered (a crab it cannot flee); Huntress reach d5 48 to 53 of 80, Goo kills 39 to 40, pooled 293 to 298 and 241 to 242, other classes identical; see docs/results/2026-11-09-10-28-the-huntress-plays-its-kit.md
   10-29-the-duelist-plays-its-kit: backlog  # issue #375
   10-30-the-cleric-plays-its-kit: done  # issue #376; the zap Policy casts Guiding Light from the holy tome; Cleric reach d5 29 to 41 of 80, Goo kills 23 to 33, pooled 276 to 288 and 226 to 236, other classes identical; Holy Weapon and Holy Ward need a spell choice in the Prompt (ADR), see docs/results/2026-11-09-10-30-the-cleric-plays-its-kit.md
   10-31-the-subclass-choice-at-tengu-s-mask: backlog  # issue #377
