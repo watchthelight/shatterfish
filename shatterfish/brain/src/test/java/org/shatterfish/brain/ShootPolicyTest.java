@@ -32,8 +32,12 @@ class ShootPolicyTest {
     }
 
     private static Observation screen(String row, ItemView... items) {
-        Observation base = FightPolicyTest.screen(1, 20, false, "worn shortsword", Hunger.NONE,
-                "#".repeat(row.length()), row, "#".repeat(row.length()));
+        return huntress(FightPolicyTest.screen(1, 20, false, "worn shortsword", Hunger.NONE,
+                "#".repeat(row.length()), row, "#".repeat(row.length())), items);
+    }
+
+    /** {@code base} as a Huntress's screen with {@code items} added to the pack and the Actions offered again. */
+    private static Observation huntress(Observation base, ItemView... items) {
         List<ItemView> pack = new java.util.ArrayList<>(base.inventory().items());
         pack.addAll(List.of(items));
         HeaderSection was = base.header();
@@ -80,5 +84,47 @@ class ShootPolicyTest {
         assertNotEquals("shoot", decide(HealPolicyTest.asleep(screen("#@...r.#", bow()))).decision().policy());
         assertNotEquals("shoot", decide(screen("#@.#.r.#", bow())).decision().policy());
         assertNotEquals("shoot", decide(HealPolicyTest.named(screen("#@...r.#", bow()), "Goo")).decision().policy());
+    }
+
+    /** A depth 3 screen with the hero at 8 hit points of 20, so a crab is a fight it would not take, the bow in the pack. */
+    private static Observation hurt(boolean sealed, String... rows) {
+        return huntress(FightPolicyTest.screen(3, 8, sealed, "worn shortsword", rows), bow());
+    }
+
+    @Test
+    @DisplayName("story 10.28: a crab the Huntress cannot outrun and would not take on is shot while it closes, not waited for")
+    void shoots_a_crab_it_cannot_flee() {
+        Observation crab = hurt(false,
+                "################",
+                "#>.............#",
+                "#.....@...C....#",
+                "################");
+        assertTrue(!Fight.favourable(crab, FightPolicyTest.KNOWLEDGE, Fight.enemies(crab, FightPolicyTest.KNOWLEDGE)));
+        assertTrue(Fight.retreat(crab, Memory.START, crab.actions().actions(), Fight.enemies(crab, FightPolicyTest.KNOWLEDGE),
+                FightPolicyTest.KNOWLEDGE) == null, "the crab is faster, and the stairs are far: there is no way out");
+        Brain.Decided decided = decide(crab);
+        assertEquals("shoot", decided.decision().policy(), decided.decision().toString());
+        assertEquals("shoot: spirit bow", decided.decision().chosen().why());
+    }
+
+    @Test
+    @DisplayName("story 10.28: the stairs next door are still the way out, a sealed floor keeps the old rule, a sleeping crab is left asleep")
+    void not_when_there_is_a_way_out() {
+        Observation near = hurt(false,
+                "##############",
+                "#>.@...C.....#",
+                "#............#",
+                "##############");
+        assertEquals("retreat: stairs", decide(near).decision().chosen().why());
+        assertNotEquals("shoot", decide(hurt(true,
+                "################",
+                "#>.............#",
+                "#.....@...C....#",
+                "################")).decision().policy());
+        assertNotEquals("shoot", decide(HealPolicyTest.asleep(hurt(false,
+                "################",
+                "#>.............#",
+                "#.....@...C....#",
+                "################"))).decision().policy());
     }
 }

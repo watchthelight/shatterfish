@@ -813,6 +813,12 @@ final class Explore implements Policy {
             for (int cell : ignited(map)) {
                 walk[cell] = false;
             }
+            // A frost cloud chills for three turns a turn in it and freezes at ten (Freezing.java:68-94); the pack Policy throws it (story 10.48).
+            for (org.shatterfish.api.BlobCell blob : map.blobs()) {
+                if (blob.cell() < cells && blob.kinds().contains(Pack.FREEZING)) {
+                    walk[blob.cell()] = false;
+                }
+            }
             for (Memory.Cloud cloud : memory.clouds()) {
                 if (cloud.cell() < cells && memory.clouded(observation.header().depth(), observation.header().branch(),
                         cloud.cell(), memory.waits())) {

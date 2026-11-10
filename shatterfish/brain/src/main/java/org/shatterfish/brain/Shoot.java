@@ -28,7 +28,9 @@ import java.util.List;
  * <p><b>What it takes.</b> No Prompt is open; the nearest hostile in view that is awake and mobile is at
  * least two cells away; none is adjacent; no Goo is among the enemies (the fight Policy dodges its pump);
  * the fight is {@link Fight#favourable} (otherwise the fight Policy retreats, which a shot would only
- * delay); and the line to it is clear of walls and of other characters. The bow is whatever pack item
+ * delay) or the fight Policy has no retreat to make and the floor is not sealed ({@link Ranged#cornered}, story
+ * 10.28: it waits for the enemy and fights where it stands, as it did for a crab, so the shots in the turns the
+ * enemy spends walking up delay nothing, as story 10.42 found for the thrown missile); and the line to it is clear of walls and of other characters. The bow is whatever pack item
  * offers {@code SHOOT}. It is a Choice of one: {@code UseItemAt(bow, SHOOT, enemy cell)}, which {@link
  * org.shatterfish.api.ValidActions} offers for every character in view. No reach is stated: the shot
  * flies as far as the hero sees, so there is no threshold to tune.
@@ -94,8 +96,9 @@ final class Shoot implements Policy {
                 target = enemy;
             }
         }
-        if (target == null || !Fight.favourable(observation, knowledge, enemies, tunables)
-                || !Ranged.clear(observation, hero, target.cell())) {
+        if (target == null || !Ranged.clear(observation, hero, target.cell())
+                || (!Fight.favourable(observation, knowledge, enemies, tunables)
+                && !Ranged.cornered(observation, memory, offered, enemies, knowledge, tunables))) {
             return null;
         }
         return shotAt(observation, offered, target, "shoot: ");
