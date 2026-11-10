@@ -174,6 +174,12 @@ final class Ranged implements Policy {
      * method, which stays off while {@code ranged.fetch_steps} is 0.
      */
     private boolean cornered(Observation observation, Memory memory, List<Action> offered, List<ActorView> enemies) {
+        return cornered(observation, memory, offered, enemies, knowledge, tunables);
+    }
+
+    /** {@link #cornered(Observation, Memory, List, List)} for any Policy that shoots or throws while an enemy closes (the shoot Policy, story 10.28). */
+    static boolean cornered(Observation observation, Memory memory, List<Action> offered, List<ActorView> enemies,
+                            Codex.Knowledge knowledge, org.shatterfish.api.Tunables.Vector tunables) {
         return !observation.header().sealed()
                 && Fight.retreat(observation, memory, offered, enemies, knowledge, tunables) == null;
     }
