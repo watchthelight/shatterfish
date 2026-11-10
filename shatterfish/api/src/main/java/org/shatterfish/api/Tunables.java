@@ -186,6 +186,12 @@ public final class Tunables {
             "most steps walked on a spent floor to tall grass that may drop dew while the waterskin is not full: 0 never");
     public static final Tunable EXPLORE_GRASS_SKIN_BELOW = policy("explore.grass_skin_below", "Explore.GRASS_SKIN_BELOW", 0, 0, 20, 4,
             "equally short ways break toward tall grass while the waterskin shows less than this of its 20: 0 never");
+    public static final Tunable DRINK_MIN_GAIN = policy("drink.min_gain_per_mille", "Drink.MIN_GAIN_PER_MILLE", 150, 0, 600, 50,
+            "least a waterskin drink must heal, in thousandths of maximum health, to be worth its turn");
+    public static final Tunable DRINK_FIGHT_BELOW = policy("drink.fight_below_per_mille", "Drink.FIGHT_BELOW_PER_MILLE", 400, 0, 1000, 100,
+            "in a fight the waterskin is drunk under this share of maximum health, thousandths: 0 only at the heal danger");
+    public static final Tunable DRINK_CALM_BELOW = policy("drink.calm_below_per_mille", "Drink.CALM_BELOW_PER_MILLE", 600, 0, 1000, 100,
+            "on a calm screen the waterskin is drunk under this share of maximum health, thousandths: 0 never");
 
     /** Every registered tunable, once, sorted by name (the order a tuner and a Playbook file list them). */
     public static final List<Tunable> ALL = all();
@@ -242,7 +248,10 @@ public final class Tunables {
                 RANGED_FETCH_STEPS,
                 RANGED_MIN_DAMAGE,
                 DESCEND_TRAMPLE_REACH,
-                EXPLORE_GRASS_SKIN_BELOW));
+                EXPLORE_GRASS_SKIN_BELOW,
+                DRINK_MIN_GAIN,
+                DRINK_FIGHT_BELOW,
+                DRINK_CALM_BELOW));
         found.sort(java.util.Comparator.comparing(Tunable::name));
         for (int i = 1; i < found.size(); i++) {
             Canon.require(!found.get(i).name().equals(found.get(i - 1).name()), "a tunable is registered once: " + found.get(i).name());

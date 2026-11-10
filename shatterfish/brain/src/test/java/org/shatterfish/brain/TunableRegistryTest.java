@@ -91,6 +91,9 @@ class TunableRegistryTest {
         BEFORE.put("ranged.fetch_steps", 0L);
         BEFORE.put("ranged.min_damage_per_mille", 0L);
         BEFORE.put("descend.trample_reach", 0L);
+        BEFORE.put("drink.calm_below_per_mille", 600L);
+        BEFORE.put("drink.fight_below_per_mille", 400L);
+        BEFORE.put("drink.min_gain_per_mille", 150L);
         BEFORE.put("explore.grass_skin_below", 0L);
     }
 

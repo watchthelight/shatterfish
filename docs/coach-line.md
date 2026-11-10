@@ -31,6 +31,8 @@ the build. A clause adds no threshold, so there is nothing for `HeuristicLinkTes
 | `escape/finish` | to finish an enemy first | [`leave-cloud`](brain-rules.md#leave-cloud) |
 | `heal/heal` | hurt, with enemies near | [`heal-threshold`](brain-rules.md#heal-threshold) |
 | `heal/gamble` | it may heal, and it is hurt, with enemies near | [`unknown-potion-gamble`](brain-rules.md#unknown-potion-gamble) |
+| `drink/fight` | hurt, with enemies near | [`drink-waterskin`](brain-rules.md#drink-waterskin) |
+| `drink/calm` | hurt, and no enemy near | [`drink-waterskin`](brain-rules.md#drink-waterskin) |
 | `douse/douse/water` | burning, water is near | [`burning-douse`](brain-rules.md#burning-douse) |
 | `douse/douse/ground` | burning, bare ground is near | [`burning-douse`](brain-rules.md#burning-douse) |
 | `zap/zap` | an enemy is in staff range | [`staff-zap`](brain-rules.md#staff-zap) |
@@ -74,6 +76,7 @@ the build. A clause adds no threshold, so there is nothing for `HeuristicLinkTes
 | `descend/overstayed` | it has stayed long enough | [`time-and-hunger-costs`](brain-rules.md#time-and-hunger-costs) |
 | `descend/unlock` | to open the locked exit | [`goo-worn-key`](brain-rules.md#goo-worn-key) |
 | `descend/no exit` | to search for a hidden exit | [`hidden-exit-search`](brain-rules.md#hidden-exit-search) |
+| `descend/drink` | hurt, so a drink before going down | [`drink-waterskin`](brain-rules.md#drink-waterskin) |
 | `descend/rest` | to rest before going down | [`rest-before-descend`](brain-rules.md#rest-before-descend) |
 | `tengu/rest` | to rest before the cell door | [`tengu-entry`](brain-rules.md#tengu-entry) |
 | `tengu/unlock` | to open the cell door | [`tengu-entry`](brain-rules.md#tengu-entry) |

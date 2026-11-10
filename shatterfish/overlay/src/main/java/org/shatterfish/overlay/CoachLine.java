@@ -62,6 +62,8 @@ final class CoachLine {
             new Template("escape", "finish", "to finish an enemy first", "leave-cloud"),
             new Template("heal", "heal", "hurt, with enemies near", "heal-threshold"),
             new Template("heal", "gamble", "it may heal, and it is hurt, with enemies near", "unknown-potion-gamble"),
+            new Template("drink", "fight", "hurt, with enemies near", "drink-waterskin"),
+            new Template("drink", "calm", "hurt, and no enemy near", "drink-waterskin"),
             new Template("douse", "douse/water", "burning, water is near", "burning-douse"),
             new Template("douse", "douse/ground", "burning, bare ground is near", "burning-douse"),
             new Template("zap", "zap", "an enemy is in staff range", "staff-zap"),
@@ -105,6 +107,7 @@ final class CoachLine {
             new Template("descend", "overstayed", "it has stayed long enough", "time-and-hunger-costs"),
             new Template("descend", "unlock", "to open the locked exit", "goo-worn-key"),
             new Template("descend", "no exit", "to search for a hidden exit", "hidden-exit-search"),
+            new Template("descend", "drink", "hurt, so a drink before going down", "drink-waterskin"),
             new Template("descend", "rest", "to rest before going down", "rest-before-descend"),
             new Template("tengu", "rest", "to rest before the cell door", "tengu-entry"),
             new Template("tengu", "unlock", "to open the cell door", "tengu-entry"),
@@ -191,6 +194,7 @@ final class CoachLine {
             case "escape" -> head;
             case "heal" -> head.equals("gamble") ? "gamble" : "heal";
             case "zap", "shoot", "pack", "ranged" -> policy.equals("ranged") ? "throw" : policy;
+            case "drink" -> why.endsWith("calm") ? "calm" : "fight";
             case "douse" -> detail.contains("bare") ? "douse/ground" : "douse/water";
             case "one-ply", "fight" -> fightKey(policy, head, detail);
             case "eat" -> detail.equals("water") ? "eat/water" : "eat";
@@ -249,7 +253,7 @@ final class CoachLine {
         return switch (head) {
             case "descend", "exit", "boss exit" -> detail.startsWith("spent") ? "spent"
                     : detail.startsWith("hungry") ? "hungry" : detail.startsWith("overstayed") ? "overstayed" : null;
-            case "unlock", "no exit", "rest" -> head;
+            case "unlock", "no exit", "rest", "drink" -> head;
             default -> null;
         };
     }
