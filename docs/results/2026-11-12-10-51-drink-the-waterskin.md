@@ -45,9 +45,9 @@ The worst class is 2 worse (Mage and Duelist in Goo kills); no class is 8 or mor
 ## How often the rule fired
 
 In the 480 current Runs the waterskin was drunk about 900 times in the Run logs (927 DRINK actions on the waterskin by a plain count), roughly 1.9 per
-Run, in 397 of 480 Runs, at most 6 in one Run. By reason: calm 596, fight 191, before descending 112. The baseline Runs drank none.
+Run, in 397 of 480 Runs, at most 6 in one Run. By reason: calm 599, fight 191, before descending 137. The baseline Runs drank none.
 
-Read from the 787 `drink hp/ht +gain` reasons in the Run logs (the descent reasons carry no health): the smallest gain was 15% of maximum health
+Read from the 790 `drink hp/ht +gain` reasons in the Run logs (the descent reasons carry no health): the smallest gain was 15% of maximum health
 (the floor), the mean health at a drink was 47% of maximum, and none was at full health. No Run drank more than 6 times, so there is no
 drink-every-turn loop.
 
