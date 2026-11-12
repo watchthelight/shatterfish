@@ -273,9 +273,37 @@ E5 (the Overlay) so far:
   - Tengu: the Brain reaches the seal with the key and through the cell door (#397). Phase one
     gets a melee fight Policy and memory of the dart traps; in practice fights phase two is now
     reached in 240 of 240, up from 0, though Tengu is not yet killed (#416).
-- Next: Tengu phase two (#366), and the eight faults seen in a watched Run (#408 to #412): leaving
-  harmful clouds, searching only where the game can hide something, scroll identities from how
-  often each turns up, scroll timing, and pick-up, thrown weapons and dew.
+- E10, merged from 2026-10-30 to 2026-11-10 (last updated 2026-11-12, at #465). Every number below is
+  from a committed page under `docs/results/`; unless a line says otherwise it is a direction check
+  on the `standard` set, never `goo`, `holdout` or `tengu`:
+  - Tengu: phase two gets a threat map (#419). Practice-floor results are on
+    [the practice page](docs/results/e10-practice-kit.md); no real Run has reached Tengu.
+  - Diagnosis: the Prison read over 960 Runs ([10.7](docs/results/2026-10-30-10-7-the-prison-diagnosis.md),
+    #425), the Sewers killers ([10.40](docs/results/2026-10-31-10-40-sewers-killers.md), #436), the
+    deaths before Goo ([10.42](docs/results/2026-11-08-10-42-the-deaths-before-goo.md), #455) and why
+    fatal fights start hurt ([10.46](docs/results/2026-11-08-10-46-why-fatal-fights-start-hurt.md), #454).
+  - Rules kept: leave harmful clouds (#420); scroll and potion identities from find counts (#418);
+    shoot Goo while it walks up (#428) and hold dry ground against it (#437); a known potion of
+    strength is drunk when calm (#438); the likeliest-healing unknown potion is drunk when dying, Goo
+    kills 109 to 119 and 82 to 96 on two slices (#449); throw at an enemy the hero cannot walk away
+    from, reach depth 5 245 to 249 on 480 Runs (#455); food is worth the walk, reach depth 5 245 to 263
+    (#457, [page](docs/results/2026-11-09-10-45-food-worth-the-walk.md)); better gear, 276 to 280
+    (#461); the fight uses the pack, 276 to 278 (#462).
+  - One story per class kit: the Cleric casts Guiding Light (#463), reach depth 5 276 to 288; the
+    Huntress shoots a crab it cannot flee (#464), 293 to 298; the Rogue puts its cloak of shadows on
+    before a fight (#465), 293 to 308. The Mage kit (#372) was dropped after four variants lost on a
+    screening slice. The Duelist is an open pull request (#467).
+  - Measured and not kept: the Guard chain (#446, #456), thief-first (#451), the Swarm and the
+    corridor, early food levers, and the first tuning run, which was a negative result (#444).
+- Where it stands now, on the latest published pooled table (story 10.27, 480 Runs over two slices
+  of the `standard` set, all six classes): **reach depth 5 in 308 of 480 (64.2%)**, **Goo killed in
+  264 of 480 (55.0%)**. At the end of E7 the figures were 206 and 133 of 500
+  ([results](docs/results/2026-10-27-7-10-the-measured-win-rate.md)); the two sets differ in size and
+  in which seeds they hold. **No Run in any published table has reached depth 10 or won.** The last table that
+  prints the column, story 10.43, shows reach depth 10 in 0 of 480; the goal, Tengu on depth 10
+  killed in 95% of Runs, is a long way off. No `goo` or `tengu` registered run has been played yet.
+- Next: the Duelist kit (#467), then the subclass choice at Tengu's mask, the R1 check (depth 10 on
+  every class) and the R2 check (Tengu conversion) before the registered `tengu` run.
 
 The Brain is still weak, but it now plays rather than wanders. On the `smoke`
 Seed set:
