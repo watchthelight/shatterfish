@@ -41,9 +41,12 @@ line it moved to if upstream inserted above it; where it is gone, changed, or in
 place, the row is flipped to needs-review and its link is left at `v3.3.8`, where it was true. A
 block too generic to identify itself, under twenty-five characters of text, is never matched either
 way: `}` is `}` everywhere, and a tag that moved the rule's code and left something equally plain
-behind would otherwise pass. Of the 315 rows with citations, **219 resolve to the same code** and
-**94 are waiting to be re-read**; two rows cite in plain text rather than as links and the check
-cannot see them. Most of the 219 moved to new line numbers, and three were re-read by hand rather
+behind would otherwise pass. Of the 315 rows with citations at that upgrade, **219 resolved to the same code** and
+**94 were left waiting to be re-read**; two rows cite in plain text rather than as links and the check
+cannot see them. Counting the pages on 2026-11-12 (the 94 was counted at the upgrade and has not been kept
+current, so the difference is not itemised), **76 rows** carry `needs-review` in their status column (game loop 16, buffs 9, save and score 9,
+visibility 9, combat 8, UI 8, levels 7, generation 3, identification 3, RNG 3, text and assets 1;
+the upgrades and pick-up pages have none). Most of the 219 moved to new line numbers, and three were re-read by hand rather
 than by the check, because they are the blob-drawing rules upstream itself changed at this tag;
 their Since column says so.
 
